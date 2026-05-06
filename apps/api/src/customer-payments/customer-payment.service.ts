@@ -300,8 +300,8 @@ export class CustomerPaymentService {
         ));
 
       for (const allocation of payment.allocations) {
-        await tx.salesInvoice.update({
-          where: { id: allocation.invoiceId },
+        await tx.salesInvoice.updateMany({
+          where: { id: allocation.invoiceId, organizationId, status: SalesInvoiceStatus.FINALIZED },
           data: { balanceDue: { increment: allocation.amountApplied } },
         });
       }

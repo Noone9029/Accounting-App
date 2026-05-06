@@ -403,8 +403,18 @@ function parseBoundaryDate(value: string | undefined, endOfDay: boolean): Date |
     throw new BadRequestException("Statement dates must use YYYY-MM-DD.");
   }
 
-  const date = new Date(`${value}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`);
-  if (Number.isNaN(date.getTime())) {
+  const parts = value.split("-").map(Number);
+  const [year, month, day] = parts as [number, number, number];
+  const date = new Date(
+    Date.UTC(year, month - 1, day, endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0),
+  );
+
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
     throw new BadRequestException("Statement dates must be valid dates.");
   }
 

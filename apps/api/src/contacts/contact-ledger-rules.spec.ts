@@ -1,4 +1,4 @@
-import { NotFoundException } from "@nestjs/common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { CustomerPaymentStatus, SalesInvoiceStatus } from "@prisma/client";
 import {
   buildCustomerLedgerRows,
@@ -105,6 +105,26 @@ describe("customer ledger rules", () => {
     );
     expect(prisma.salesInvoice.findMany).not.toHaveBeenCalled();
     expect(prisma.customerPayment.findMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects impossible statement calendar dates", async () => {
+    const service = new ContactLedgerService({} as never);
+    jest.spyOn(service, "ledger").mockResolvedValue({
+      contact: {
+        id: "contact-1",
+        name: "Customer",
+        displayName: null,
+        type: "CUSTOMER",
+        email: null,
+        phone: null,
+        taxNumber: null,
+      },
+      openingBalance: "0.0000",
+      closingBalance: "0.0000",
+      rows: [],
+    });
+
+    await expect(service.statement("org-1", "contact-1", "2026-02-31", "2026-03-31")).rejects.toThrow(BadRequestException);
   });
 });
 

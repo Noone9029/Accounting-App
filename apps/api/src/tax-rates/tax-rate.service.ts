@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { Decimal } from "decimal.js";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateTaxRateDto } from "./dto/create-tax-rate.dto";
@@ -19,6 +20,7 @@ export class TaxRateService {
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreateTaxRateDto) {
+    this.assertNonNegativeRate(dto.rate);
     const taxRate = await this.prisma.taxRate.create({
       data: {
         organizationId,
@@ -36,6 +38,9 @@ export class TaxRateService {
 
   async update(organizationId: string, actorUserId: string, id: string, dto: UpdateTaxRateDto) {
     const existing = await this.findExisting(organizationId, id);
+    if (dto.rate !== undefined) {
+      this.assertNonNegativeRate(dto.rate);
+    }
     const taxRate = await this.prisma.taxRate.update({
       where: { id },
       data: {
@@ -65,5 +70,11 @@ export class TaxRateService {
       throw new NotFoundException("Tax rate not found.");
     }
     return taxRate;
+  }
+
+  private assertNonNegativeRate(rate: string): void {
+    if (new Decimal(rate).lt(0)) {
+      throw new BadRequestException("Tax rate cannot be negative.");
+    }
   }
 }

@@ -144,8 +144,8 @@ describe("customer payment rules", () => {
     });
 
     expect(tx.journalEntry.create).toHaveBeenCalledTimes(1);
-    expect(tx.salesInvoice.update).toHaveBeenCalledWith({
-      where: { id: "invoice-1" },
+    expect(tx.salesInvoice.updateMany).toHaveBeenCalledWith({
+      where: { id: "invoice-1", organizationId: "org-1", status: SalesInvoiceStatus.FINALIZED },
       data: { balanceDue: { increment: "60.0000" } },
     });
 
@@ -314,6 +314,6 @@ function makeVoidTransactionMock(options: { reversedById?: string } = {}) {
       create: jest.fn().mockResolvedValue({ id: "reversal-1" }),
       update: jest.fn(),
     },
-    salesInvoice: { update: jest.fn() },
+    salesInvoice: { updateMany: jest.fn() },
   };
 }

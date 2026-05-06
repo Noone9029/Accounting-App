@@ -9,13 +9,14 @@ import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { defaultStatementFromDate, defaultStatementToDate, formatLedgerBalance } from "@/lib/ledger-display";
 import { formatMoneyAmount } from "@/lib/money";
-import type { CustomerLedger, CustomerLedgerRow, CustomerStatement } from "@/lib/types";
+import type { Contact, CustomerLedger, CustomerLedgerRow, CustomerStatement } from "@/lib/types";
 
 type ActiveSection = "overview" | "ledger" | "statement";
 
 export default function ContactDetailPage() {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
+  const [contact, setContact] = useState<Contact | null>(null);
   const [ledger, setLedger] = useState<CustomerLedger | null>(null);
   const [statement, setStatement] = useState<CustomerStatement | null>(null);
   const [activeSection, setActiveSection] = useState<ActiveSection>("overview");
@@ -25,6 +26,8 @@ export default function ContactDetailPage() {
   const [statementLoading, setStatementLoading] = useState(false);
   const [error, setError] = useState("");
   const [statementError, setStatementError] = useState("");
+  const ledgerAvailable = contact?.type === "CUSTOMER" || contact?.type === "BOTH";
+  const profile = contact ?? ledger?.contact ?? null;
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -35,15 +38,28 @@ export default function ContactDetailPage() {
     setLoading(true);
     setError("");
 
-    apiRequest<CustomerLedger>(`/contacts/${params.id}/ledger`)
-      .then((result) => {
+    apiRequest<Contact>(`/contacts/${params.id}`)
+      .then(async (contactResult) => {
+        if (cancelled) {
+          return;
+        }
+
+        setContact(contactResult);
+        setLedger(null);
+        setStatement(null);
+
+        if (contactResult.type !== "CUSTOMER" && contactResult.type !== "BOTH") {
+          return;
+        }
+
+        const ledgerResult = await apiRequest<CustomerLedger>(`/contacts/${params.id}/ledger`);
         if (!cancelled) {
-          setLedger(result);
+          setLedger(ledgerResult);
         }
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load customer ledger.");
+          setError(loadError instanceof Error ? loadError.message : "Unable to load contact.");
         }
       })
       .finally(() => {
@@ -56,6 +72,12 @@ export default function ContactDetailPage() {
       cancelled = true;
     };
   }, [organizationId, params.id]);
+
+  useEffect(() => {
+    if (contact && !ledgerAvailable && activeSection !== "overview") {
+      setActiveSection("overview");
+    }
+  }, [activeSection, contact, ledgerAvailable]);
 
   async function loadStatement(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -84,7 +106,7 @@ export default function ContactDetailPage() {
     <section>
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">{ledger?.contact.displayName ?? ledger?.contact.name ?? "Contact"}</h1>
+          <h1 className="text-2xl font-semibold text-ink">{profile?.displayName ?? profile?.name ?? "Contact"}</h1>
           <p className="mt-1 text-sm text-steel">Customer profile, AR ledger, and statement groundwork.</p>
         </div>
         <Link href="/contacts" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -98,10 +120,10 @@ export default function ContactDetailPage() {
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
       </div>
 
-      {ledger ? (
+      {profile ? (
         <div className="mt-5 space-y-5">
           <div className="flex flex-wrap gap-2 border-b border-slate-200">
-            {(["overview", "ledger", "statement"] as ActiveSection[]).map((section) => (
+            {(["overview", ...(ledgerAvailable ? ["ledger", "statement"] : [])] as ActiveSection[]).map((section) => (
               <button
                 key={section}
                 type="button"
@@ -118,35 +140,41 @@ export default function ContactDetailPage() {
               <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
                 <h2 className="text-base font-semibold text-ink">Profile</h2>
                 <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
-                  <Summary label="Name" value={ledger.contact.name} />
-                  <Summary label="Display name" value={ledger.contact.displayName ?? "-"} />
-                  <Summary label="Type" value={ledger.contact.type} />
-                  <Summary label="Email" value={ledger.contact.email ?? "-"} />
-                  <Summary label="Phone" value={ledger.contact.phone ?? "-"} />
-                  <Summary label="VAT number" value={ledger.contact.taxNumber ?? "-"} />
+                  <Summary label="Name" value={profile.name} />
+                  <Summary label="Display name" value={profile.displayName ?? "-"} />
+                  <Summary label="Type" value={profile.type} />
+                  <Summary label="Email" value={profile.email ?? "-"} />
+                  <Summary label="Phone" value={profile.phone ?? "-"} />
+                  <Summary label="VAT number" value={profile.taxNumber ?? "-"} />
                 </div>
               </div>
               <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
                 <h2 className="text-base font-semibold text-ink">Balance</h2>
-                <div className="mt-4 space-y-3 text-sm">
-                  <div className="flex justify-between gap-3">
-                    <span className="text-steel">Opening balance</span>
-                    <span className="font-mono">{formatLedgerBalance(ledger.openingBalance)}</span>
+                {ledger ? (
+                  <div className="mt-4 space-y-3 text-sm">
+                    <div className="flex justify-between gap-3">
+                      <span className="text-steel">Opening balance</span>
+                      <span className="font-mono">{formatLedgerBalance(ledger.openingBalance)}</span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="font-semibold text-ink">Closing balance</span>
+                      <span className="font-mono font-semibold text-ink">{formatLedgerBalance(ledger.closingBalance)}</span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-steel">Ledger rows</span>
+                      <span className="font-mono">{ledger.rows.length}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="font-semibold text-ink">Closing balance</span>
-                    <span className="font-mono font-semibold text-ink">{formatLedgerBalance(ledger.closingBalance)}</span>
+                ) : (
+                  <div className="mt-4">
+                    <StatusMessage type="info">Ledger and statements are available for customer contacts.</StatusMessage>
                   </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-steel">Ledger rows</span>
-                    <span className="font-mono">{ledger.rows.length}</span>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           ) : null}
 
-          {activeSection === "ledger" ? (
+          {activeSection === "ledger" && ledger ? (
             <div className="space-y-4">
               <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
                 <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
@@ -158,7 +186,7 @@ export default function ContactDetailPage() {
             </div>
           ) : null}
 
-          {activeSection === "statement" ? (
+          {activeSection === "statement" && ledger ? (
             <div className="space-y-4">
               <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
                 <form onSubmit={loadStatement} className="flex flex-wrap items-end gap-3">
