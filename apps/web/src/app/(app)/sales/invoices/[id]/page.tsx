@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { formatOptionalDate } from "@/lib/invoice-display";
+import { deriveInvoicePaymentState, formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import type { SalesInvoice } from "@/lib/types";
 
@@ -110,6 +110,11 @@ export default function SalesInvoiceDetailPage() {
               Edit
             </Link>
           ) : null}
+          {invoice?.status === "FINALIZED" && invoice.customerId ? (
+            <Link href={`/sales/customer-payments/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+              Record payment
+            </Link>
+          ) : null}
           {invoice?.status === "DRAFT" ? (
             <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
               Finalize
@@ -145,6 +150,7 @@ export default function SalesInvoiceDetailPage() {
               <Summary label="Due date" value={formatOptionalDate(invoice.dueDate)} />
               <Summary label="Currency" value={invoice.currency} />
               <Summary label="Branch" value={invoice.branch?.displayName ?? invoice.branch?.name ?? "-"} />
+              <Summary label="Payment state" value={deriveInvoicePaymentState(invoice.total, invoice.balanceDue)} />
               <Summary label="Total" value={formatMoneyAmount(invoice.total, invoice.currency)} />
               <Summary label="Balance due" value={formatMoneyAmount(invoice.balanceDue, invoice.currency)} />
               <Summary label="Journal entry" value={invoice.journalEntry ? `${invoice.journalEntry.entryNumber} (${invoice.journalEntry.id})` : "-"} />
@@ -199,6 +205,60 @@ export default function SalesInvoiceDetailPage() {
             <span className="text-right font-mono">{formatMoneyAmount(invoice.taxTotal, invoice.currency)}</span>
             <span className="font-semibold text-ink">Total</span>
             <span className="text-right font-mono font-semibold text-ink">{formatMoneyAmount(invoice.total, invoice.currency)}</span>
+            <span className="font-semibold text-ink">Balance due</span>
+            <span className="text-right font-mono font-semibold text-ink">{formatMoneyAmount(invoice.balanceDue, invoice.currency)}</span>
+          </div>
+
+          <div className="rounded-md border border-slate-200 bg-white shadow-panel">
+            <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
+              <div>
+                <h2 className="text-base font-semibold text-ink">Payments</h2>
+                <p className="mt-1 text-sm text-steel">{deriveInvoicePaymentState(invoice.total, invoice.balanceDue)} with {formatMoneyAmount(invoice.balanceDue, invoice.currency)} balance due.</p>
+              </div>
+              {invoice.status === "FINALIZED" ? (
+                <Link href={`/sales/customer-payments/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+                  Record payment
+                </Link>
+              ) : null}
+            </div>
+            {invoice.paymentAllocations && invoice.paymentAllocations.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                    <tr>
+                      <th className="px-4 py-3">Payment</th>
+                      <th className="px-4 py-3">Date</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Amount applied</th>
+                      <th className="px-4 py-3">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {invoice.paymentAllocations.map((allocation) => (
+                      <tr key={allocation.id}>
+                        <td className="px-4 py-3 font-mono text-xs">{allocation.payment?.paymentNumber ?? allocation.paymentId}</td>
+                        <td className="px-4 py-3 text-steel">{allocation.payment ? new Date(allocation.payment.paymentDate).toLocaleDateString() : "-"}</td>
+                        <td className="px-4 py-3 text-steel">{allocation.payment?.status ?? "-"}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, invoice.currency)}</td>
+                        <td className="px-4 py-3">
+                          {allocation.payment ? (
+                            <Link href={`/sales/customer-payments/${allocation.payment.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                              View payment
+                            </Link>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="px-5 py-4">
+                <StatusMessage type="empty">No payments have been applied to this invoice.</StatusMessage>
+              </div>
+            )}
           </div>
         </div>
       ) : null}

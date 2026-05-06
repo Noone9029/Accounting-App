@@ -41,6 +41,18 @@ export interface InvoicePreviewTotals {
   valid: boolean;
 }
 
+export interface PaymentAllocationInput {
+  amountApplied: string;
+  balanceDue: string;
+}
+
+export interface PaymentAllocationPreview {
+  amountReceived: string;
+  totalAllocated: string;
+  unappliedAmount: string;
+  valid: boolean;
+}
+
 const MONEY_SCALE = 4;
 const MONEY_FACTOR = 10 ** MONEY_SCALE;
 
@@ -109,6 +121,24 @@ export function formatMoneyAmount(value: string | number, currency = "SAR"): str
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
+}
+
+export function calculatePaymentAllocationPreview(amountReceived: string, allocations: PaymentAllocationInput[]): PaymentAllocationPreview {
+  const amountReceivedUnits = parseDecimalToUnits(amountReceived);
+  const totalAllocatedUnits = allocations.reduce((sum, allocation) => sum + parseDecimalToUnits(allocation.amountApplied), 0);
+  const unappliedUnits = amountReceivedUnits - totalAllocatedUnits;
+  const allocationsValid = allocations.every((allocation) => {
+    const amountAppliedUnits = parseDecimalToUnits(allocation.amountApplied);
+    const balanceDueUnits = parseDecimalToUnits(allocation.balanceDue);
+    return amountAppliedUnits >= 0 && amountAppliedUnits <= balanceDueUnits;
+  });
+
+  return {
+    amountReceived: formatUnits(amountReceivedUnits),
+    totalAllocated: formatUnits(totalAllocatedUnits),
+    unappliedAmount: formatUnits(unappliedUnits),
+    valid: amountReceivedUnits > 0 && totalAllocatedUnits > 0 && unappliedUnits >= 0 && allocationsValid,
+  };
 }
 
 function calculateInvoicePreviewLine(line: InvoicePreviewLineInput): InvoicePreviewLine {

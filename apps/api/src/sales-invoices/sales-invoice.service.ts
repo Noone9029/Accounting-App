@@ -39,6 +39,21 @@ const salesInvoiceInclude = {
       taxRate: { select: { id: true, name: true, rate: true } },
     },
   },
+  paymentAllocations: {
+    include: {
+      payment: {
+        select: {
+          id: true,
+          paymentNumber: true,
+          paymentDate: true,
+          status: true,
+          amountReceived: true,
+          unappliedAmount: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" as const },
+  },
 };
 
 interface PreparedLine {
@@ -88,6 +103,32 @@ export class SalesInvoiceService {
         branch: { select: { id: true, name: true, displayName: true } },
         journalEntry: { select: { id: true, entryNumber: true, status: true } },
         reversalJournalEntry: { select: { id: true, entryNumber: true, status: true } },
+      },
+    });
+  }
+
+  open(organizationId: string, customerId?: string) {
+    if (!customerId) {
+      throw new BadRequestException("customerId is required.");
+    }
+
+    return this.prisma.salesInvoice.findMany({
+      where: {
+        organizationId,
+        customerId,
+        status: SalesInvoiceStatus.FINALIZED,
+        balanceDue: { gt: 0 },
+      },
+      orderBy: { issueDate: "asc" },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        issueDate: true,
+        dueDate: true,
+        currency: true,
+        total: true,
+        balanceDue: true,
+        customerId: true,
       },
     });
   }

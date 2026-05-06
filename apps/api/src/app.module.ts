@@ -6,6 +6,7 @@ import { AuthModule } from "./auth/auth.module";
 import { BranchModule } from "./branches/branch.module";
 import { ChartOfAccountsModule } from "./chart-of-accounts/chart-of-accounts.module";
 import { ContactModule } from "./contacts/contact.module";
+import { CustomerPaymentModule } from "./customer-payments/customer-payment.module";
 import { HealthModule } from "./health/health.module";
 import { ItemModule } from "./items/item.module";
 import { NumberSequenceModule } from "./number-sequences/number-sequence.module";
@@ -22,6 +23,7 @@ import { TaxRateModule } from "./tax-rates/tax-rate.module";
     OrganizationModule,
     BranchModule,
     ContactModule,
+    CustomerPaymentModule,
     ItemModule,
     SalesInvoiceModule,
     AccountingModule,

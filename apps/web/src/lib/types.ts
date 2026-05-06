@@ -6,6 +6,7 @@ export type JournalStatus = "DRAFT" | "POSTED" | "VOIDED" | "REVERSED";
 export type ItemType = "SERVICE" | "PRODUCT";
 export type ItemStatus = "ACTIVE" | "DISABLED";
 export type SalesInvoiceStatus = "DRAFT" | "FINALIZED" | "VOIDED";
+export type CustomerPaymentStatus = "DRAFT" | "POSTED" | "VOIDED";
 
 export interface Organization {
   id: string;
@@ -160,6 +161,64 @@ export interface SalesInvoiceLine {
   taxRate?: { id: string; name: string; rate: string } | null;
 }
 
+export interface CustomerPaymentAllocation {
+  id: string;
+  organizationId: string;
+  paymentId: string;
+  invoiceId: string;
+  amountApplied: string;
+  invoice?: {
+    id: string;
+    invoiceNumber: string;
+    issueDate: string;
+    total: string;
+    balanceDue: string;
+    status: SalesInvoiceStatus;
+  };
+  payment?: {
+    id: string;
+    paymentNumber: string;
+    paymentDate: string;
+    status: CustomerPaymentStatus;
+    amountReceived: string;
+    unappliedAmount: string;
+  };
+}
+
+export interface CustomerPayment {
+  id: string;
+  organizationId: string;
+  paymentNumber: string;
+  customerId: string;
+  paymentDate: string;
+  currency: string;
+  status: CustomerPaymentStatus;
+  amountReceived: string;
+  unappliedAmount: string;
+  description: string | null;
+  accountId: string;
+  journalEntryId: string | null;
+  voidReversalJournalEntryId: string | null;
+  postedAt: string | null;
+  voidedAt: string | null;
+  customer?: { id: string; name: string; displayName: string | null; type?: ContactType };
+  account?: { id: string; code: string; name: string; type?: AccountType };
+  journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit?: string; totalCredit?: string } | null;
+  voidReversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
+  allocations?: CustomerPaymentAllocation[];
+}
+
+export interface OpenSalesInvoice {
+  id: string;
+  invoiceNumber: string;
+  issueDate: string;
+  dueDate: string | null;
+  currency: string;
+  total: string;
+  balanceDue: string;
+  customerId: string;
+}
+
 export interface SalesInvoice {
   id: string;
   organizationId: string;
@@ -185,5 +244,6 @@ export interface SalesInvoice {
   branch?: { id: string; name: string; displayName: string | null; taxNumber?: string | null } | null;
   journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit: string; totalCredit: string } | null;
   reversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
+  paymentAllocations?: CustomerPaymentAllocation[];
   lines?: SalesInvoiceLine[];
 }

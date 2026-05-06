@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { AuthenticatedUser } from "../auth/auth.types";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -16,6 +16,11 @@ export class SalesInvoiceController {
   @Get()
   list(@CurrentOrganizationId() organizationId: string) {
     return this.salesInvoiceService.list(organizationId);
+  }
+
+  @Get("open")
+  open(@CurrentOrganizationId() organizationId: string, @Query("customerId") customerId?: string) {
+    return this.salesInvoiceService.open(organizationId, customerId);
   }
 
   @Post()

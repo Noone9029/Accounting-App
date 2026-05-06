@@ -1,5 +1,5 @@
-import { calculateInvoicePreview, calculateTotals, formatUnits, parseDecimalToUnits } from "./money";
-import { formatOptionalDate } from "./invoice-display";
+import { calculateInvoicePreview, calculatePaymentAllocationPreview, calculateTotals, formatUnits, parseDecimalToUnits } from "./money";
+import { deriveInvoicePaymentState, formatOptionalDate } from "./invoice-display";
 
 describe("money utilities", () => {
   it("parses decimal strings into four-decimal minor units", () => {
@@ -48,5 +48,30 @@ describe("money utilities", () => {
   it("formats optional due dates", () => {
     expect(formatOptionalDate(null)).toBe("No due date");
     expect(formatOptionalDate("not-a-date")).toBe("No due date");
+  });
+
+  it("previews payment allocations and unapplied amounts", () => {
+    expect(
+      calculatePaymentAllocationPreview("100.0000", [
+        { amountApplied: "60.0000", balanceDue: "80.0000" },
+        { amountApplied: "25.0000", balanceDue: "25.0000" },
+      ]),
+    ).toMatchObject({
+      amountReceived: "100.0000",
+      totalAllocated: "85.0000",
+      unappliedAmount: "15.0000",
+      valid: true,
+    });
+  });
+
+  it("rejects payment allocations above amount received or invoice balance", () => {
+    expect(calculatePaymentAllocationPreview("50.0000", [{ amountApplied: "60.0000", balanceDue: "100.0000" }])).toMatchObject({ valid: false });
+    expect(calculatePaymentAllocationPreview("50.0000", [{ amountApplied: "40.0000", balanceDue: "30.0000" }])).toMatchObject({ valid: false });
+  });
+
+  it("derives invoice payment states from balance due", () => {
+    expect(deriveInvoicePaymentState("100.0000", "100.0000")).toBe("Unpaid");
+    expect(deriveInvoicePaymentState("100.0000", "40.0000")).toBe("Partially paid");
+    expect(deriveInvoicePaymentState("100.0000", "0.0000")).toBe("Paid");
   });
 });

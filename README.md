@@ -119,12 +119,21 @@ Items:
 Sales invoices:
 
 - `GET /sales-invoices`
+- `GET /sales-invoices/open?customerId=<id>`
 - `POST /sales-invoices`
 - `GET /sales-invoices/:id`
 - `PATCH /sales-invoices/:id`
 - `DELETE /sales-invoices/:id`
 - `POST /sales-invoices/:id/finalize`
 - `POST /sales-invoices/:id/void`
+
+Customer payments:
+
+- `GET /customer-payments`
+- `POST /customer-payments`
+- `GET /customer-payments/:id`
+- `POST /customer-payments/:id/void`
+- `DELETE /customer-payments/:id`
 
 Audit logs:
 
@@ -159,7 +168,7 @@ Invoice totals:
 - `taxableTotal = subtotal - discountTotal`
 - `taxTotal = sum(taxAmount)`
 - `total = taxableTotal + taxTotal`
-- `balanceDue = total` until payments are implemented
+- `balanceDue = total - posted payment allocations`
 
 Lifecycle behavior:
 
@@ -178,6 +187,29 @@ Posting behavior:
 - Credit account code `220` VAT Payable only when `taxTotal > 0`.
 - The invoice stores the linked `journalEntryId`; voided finalized invoices store `reversalJournalEntryId`.
 
+## Customer Payment Rules
+
+Customer payments are posted immediately in this MVP.
+
+Allocation behavior:
+
+- A payment must reference an active customer contact in the same organization.
+- The paid-through account must be an active posting asset account in the same organization.
+- Allocation invoices must be finalized, non-voided, open invoices for the same customer.
+- Allocation amounts must be greater than zero and cannot exceed invoice `balanceDue`.
+- Total allocated amount cannot exceed `amountReceived`.
+- Partial payments are supported; invoice `balanceDue` is reduced by allocated amount.
+- If `amountReceived` is greater than allocated amount, the difference is stored as `unappliedAmount`; applying unapplied credits later is future work.
+
+Payment posting behavior:
+
+- Payment creation posts one balanced journal entry inside a transaction.
+- Debit the paid-through cash/bank asset account for `amountReceived`.
+- Credit account code `120` Accounts Receivable for `amountReceived`.
+- Payment creation creates immutable allocation rows and updates invoice balances.
+- Voiding a posted payment creates or reuses one reversal journal entry, marks the payment `VOIDED`, and restores invoice balances.
+- Voiding twice is idempotent and does not create repeated reversals.
+
 ## Current Package Boundaries
 
 - `packages/accounting-core`: decimal-safe journal and invoice calculation rules
@@ -189,10 +221,12 @@ Posting behavior:
 ## Known Limitations
 
 - ZATCA Phase 2 XML, QR, CSID, clearance, reporting, PDF/A-3, and hash-chain logic are not implemented yet.
-- Customer payments and payment allocation are not implemented yet.
+- Payment receipt PDF rendering is not implemented yet.
+- Applying unapplied overpayment credits to invoices later is not implemented yet.
 - Sales invoice PDF rendering is not implemented yet.
 - Credit notes are not implemented yet.
 - Recurring invoices are not implemented yet.
+- Bank reconciliation is not implemented yet.
 - Inventory movement and stock valuation are not implemented yet.
 - BullMQ workers and S3 upload adapters are not wired yet.
 - Authorization is role-ready but currently only enforces active organization membership.
