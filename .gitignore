@@ -1,0 +1,13 @@
+node_modules
+.turbo
+.dev-logs
+.next
+dist
+coverage
+.env
+.env.local
+.env.*.local
+*.log
+*.tsbuildinfo
+apps/api/prisma/generated
+reference
