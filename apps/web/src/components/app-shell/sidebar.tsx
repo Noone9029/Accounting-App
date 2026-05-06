@@ -71,7 +71,12 @@ const navItems: NavItem[] = [
     ],
   },
   { label: "Payroll & Employees", href: "/payroll", icon: WalletCards },
-  { label: "Products & Services", href: "/products", icon: Package },
+  {
+    label: "Products & Services",
+    href: "/products",
+    icon: Package,
+    children: [{ label: "Items", href: "/items" }],
+  },
   {
     label: "For accountants",
     href: "/accounting",

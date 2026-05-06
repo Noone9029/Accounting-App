@@ -11,6 +11,37 @@ export interface AmountLine {
   credit: string;
 }
 
+export interface InvoicePreviewLineInput {
+  quantity: string;
+  unitPrice: string;
+  discountRate?: string;
+  taxRate?: string;
+}
+
+export interface InvoicePreviewLine {
+  quantityUnits: number;
+  unitPriceUnits: number;
+  discountRateUnits: number;
+  taxRateUnits: number;
+  discountAmountUnits: number;
+  taxAmountUnits: number;
+  lineSubtotalUnits: number;
+  lineTotalUnits: number;
+  valid: boolean;
+}
+
+export interface InvoicePreviewTotals {
+  lines: InvoicePreviewLine[];
+  subtotal: string;
+  discountTotal: string;
+  taxTotal: string;
+  total: string;
+  valid: boolean;
+}
+
+const MONEY_SCALE = 4;
+const MONEY_FACTOR = 10 ** MONEY_SCALE;
+
 export function parseDecimalToUnits(value: string, scale = 4): number {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -47,4 +78,59 @@ export function calculateTotals(lines: AmountLine[]): MoneyTotals {
     credit: formatUnits(creditUnits),
     balanced: debitUnits === creditUnits && debitUnits > 0,
   };
+}
+
+export function calculateInvoicePreview(lines: InvoicePreviewLineInput[]): InvoicePreviewTotals {
+  const previewLines = lines.map(calculateInvoicePreviewLine);
+  const subtotalUnits = previewLines.reduce((sum, line) => sum + line.lineSubtotalUnits, 0);
+  const discountTotalUnits = previewLines.reduce((sum, line) => sum + line.discountAmountUnits, 0);
+  const taxTotalUnits = previewLines.reduce((sum, line) => sum + line.taxAmountUnits, 0);
+  const totalUnits = previewLines.reduce((sum, line) => sum + line.lineTotalUnits, 0);
+
+  return {
+    lines: previewLines,
+    subtotal: formatUnits(subtotalUnits),
+    discountTotal: formatUnits(discountTotalUnits),
+    taxTotal: formatUnits(taxTotalUnits),
+    total: formatUnits(totalUnits),
+    valid: lines.length > 0 && previewLines.every((line) => line.valid),
+  };
+}
+
+export function formatMoneyAmount(value: string | number, currency = "SAR"): string {
+  const amount = typeof value === "number" ? value / MONEY_FACTOR : parseDecimalToUnits(value) / MONEY_FACTOR;
+  return new Intl.NumberFormat("en", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+function calculateInvoicePreviewLine(line: InvoicePreviewLineInput): InvoicePreviewLine {
+  const quantityUnits = parseDecimalToUnits(line.quantity);
+  const unitPriceUnits = parseDecimalToUnits(line.unitPrice);
+  const discountRateUnits = parseDecimalToUnits(line.discountRate ?? "0");
+  const taxRateUnits = parseDecimalToUnits(line.taxRate ?? "0");
+  const grossUnits = roundDiv(quantityUnits * unitPriceUnits, MONEY_FACTOR);
+  const discountAmountUnits = roundDiv(grossUnits * discountRateUnits, 100 * MONEY_FACTOR);
+  const lineSubtotalUnits = grossUnits - discountAmountUnits;
+  const taxAmountUnits = roundDiv(lineSubtotalUnits * taxRateUnits, 100 * MONEY_FACTOR);
+  const lineTotalUnits = lineSubtotalUnits + taxAmountUnits;
+
+  return {
+    quantityUnits,
+    unitPriceUnits,
+    discountRateUnits,
+    taxRateUnits,
+    discountAmountUnits,
+    taxAmountUnits,
+    lineSubtotalUnits,
+    lineTotalUnits,
+    valid: quantityUnits > 0 && unitPriceUnits > 0 && discountRateUnits >= 0 && discountRateUnits <= 100 * MONEY_FACTOR,
+  };
+}
+
+function roundDiv(value: number, divisor: number): number {
+  return Math.round(value / divisor);
 }

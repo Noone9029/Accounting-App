@@ -8,5 +8,6 @@ import { AccountingService } from "./accounting.service";
   imports: [AuditLogModule, NumberSequenceModule],
   controllers: [AccountingController],
   providers: [AccountingService],
+  exports: [AccountingService],
 })
 export class AccountingModule {}

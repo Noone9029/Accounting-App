@@ -86,8 +86,9 @@ async function main(): Promise<void> {
     accountIdsByCode.set(account.code, created.id);
   }
 
+  const taxRateIdsByName = new Map<string, string>();
   for (const taxRate of DEFAULT_TAX_RATES) {
-    await prisma.taxRate.upsert({
+    const created = await prisma.taxRate.upsert({
       where: { organizationId_name: { organizationId: organization.id, name: taxRate.name } },
       update: {},
       create: {
@@ -98,6 +99,51 @@ async function main(): Promise<void> {
         rate: taxRate.rate,
         description: taxRate.description,
         isSystem: true,
+      },
+    });
+    taxRateIdsByName.set(created.name, created.id);
+  }
+
+  const salesAccountId = accountIdsByCode.get("411");
+  const generalExpenseAccountId = accountIdsByCode.get("511");
+  const salesTaxRateId = taxRateIdsByName.get("VAT on Sales 15%");
+  const purchaseTaxRateId = taxRateIdsByName.get("VAT on Purchases 15%");
+
+  if (salesAccountId && salesTaxRateId) {
+    await prisma.item.upsert({
+      where: { organizationId_sku: { organizationId: organization.id, sku: "CONSULTING-HOUR" } },
+      update: {},
+      create: {
+        organizationId: organization.id,
+        name: "Consulting Hour",
+        description: "Professional services billed hourly.",
+        sku: "CONSULTING-HOUR",
+        type: "SERVICE",
+        sellingPrice: "500.0000",
+        revenueAccountId: salesAccountId,
+        salesTaxRateId,
+        expenseAccountId: generalExpenseAccountId,
+        purchaseTaxRateId,
+      },
+    });
+  }
+
+  if (salesAccountId && salesTaxRateId) {
+    await prisma.item.upsert({
+      where: { organizationId_sku: { organizationId: organization.id, sku: "STANDARD-PRODUCT" } },
+      update: {},
+      create: {
+        organizationId: organization.id,
+        name: "Standard Product",
+        description: "Basic product placeholder for sales invoices.",
+        sku: "STANDARD-PRODUCT",
+        type: "PRODUCT",
+        sellingPrice: "250.0000",
+        revenueAccountId: salesAccountId,
+        salesTaxRateId,
+        purchaseCost: "125.0000",
+        expenseAccountId: generalExpenseAccountId,
+        purchaseTaxRateId,
       },
     });
   }

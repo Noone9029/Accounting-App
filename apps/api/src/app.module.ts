@@ -7,9 +7,11 @@ import { BranchModule } from "./branches/branch.module";
 import { ChartOfAccountsModule } from "./chart-of-accounts/chart-of-accounts.module";
 import { ContactModule } from "./contacts/contact.module";
 import { HealthModule } from "./health/health.module";
+import { ItemModule } from "./items/item.module";
 import { NumberSequenceModule } from "./number-sequences/number-sequence.module";
 import { OrganizationModule } from "./organizations/organization.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { SalesInvoiceModule } from "./sales-invoices/sales-invoice.module";
 import { TaxRateModule } from "./tax-rates/tax-rate.module";
 
 @Module({
@@ -20,6 +22,8 @@ import { TaxRateModule } from "./tax-rates/tax-rate.module";
     OrganizationModule,
     BranchModule,
     ContactModule,
+    ItemModule,
+    SalesInvoiceModule,
     AccountingModule,
     ChartOfAccountsModule,
     TaxRateModule,

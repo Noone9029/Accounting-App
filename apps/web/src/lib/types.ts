@@ -3,6 +3,9 @@ export type ContactType = "CUSTOMER" | "SUPPLIER" | "BOTH";
 export type TaxRateScope = "SALES" | "PURCHASES" | "BOTH";
 export type TaxRateCategory = "STANDARD" | "ZERO_RATED" | "EXEMPT" | "OUT_OF_SCOPE" | "REVERSE_CHARGE";
 export type JournalStatus = "DRAFT" | "POSTED" | "VOIDED" | "REVERSED";
+export type ItemType = "SERVICE" | "PRODUCT";
+export type ItemStatus = "ACTIVE" | "DISABLED";
+export type SalesInvoiceStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 
 export interface Organization {
   id: string;
@@ -59,6 +62,25 @@ export interface TaxRate {
   isSystem: boolean;
 }
 
+export interface Item {
+  id: string;
+  organizationId: string;
+  name: string;
+  description: string | null;
+  sku: string | null;
+  type: ItemType;
+  status: ItemStatus;
+  sellingPrice: string;
+  revenueAccountId: string;
+  salesTaxRateId: string;
+  purchaseCost: string | null;
+  expenseAccountId: string | null;
+  purchaseTaxRateId: string | null;
+  inventoryTracking: boolean;
+  revenueAccount?: { id: string; code: string; name: string; type: AccountType };
+  salesTaxRate?: { id: string; name: string; rate: string; scope: TaxRateScope };
+}
+
 export interface Contact {
   id: string;
   type: ContactType;
@@ -113,4 +135,49 @@ export interface JournalEntry {
   lines: JournalLine[];
   reversedBy?: { id: string; entryNumber: string } | null;
   reversalOf?: { id: string; entryNumber: string } | null;
+}
+
+export interface SalesInvoiceLine {
+  id: string;
+  organizationId: string;
+  invoiceId: string;
+  itemId: string | null;
+  description: string;
+  accountId: string;
+  quantity: string;
+  unitPrice: string;
+  discountRate: string;
+  taxRateId: string | null;
+  taxAmount: string;
+  lineSubtotal: string;
+  lineTotal: string;
+  sortOrder: number;
+  item?: { id: string; name: string; sku: string | null } | null;
+  account?: { id: string; code: string; name: string; type: AccountType };
+  taxRate?: { id: string; name: string; rate: string } | null;
+}
+
+export interface SalesInvoice {
+  id: string;
+  organizationId: string;
+  invoiceNumber: string;
+  customerId: string;
+  branchId: string | null;
+  issueDate: string;
+  dueDate: string;
+  currency: string;
+  status: SalesInvoiceStatus;
+  subtotal: string;
+  discountTotal: string;
+  taxTotal: string;
+  total: string;
+  balanceDue: string;
+  notes: string | null;
+  terms: string | null;
+  finalizedAt: string | null;
+  journalEntryId: string | null;
+  customer?: { id: string; name: string; displayName: string | null; type?: ContactType; taxNumber?: string | null };
+  branch?: { id: string; name: string; displayName: string | null; taxNumber?: string | null } | null;
+  journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit: string; totalCredit: string } | null;
+  lines?: SalesInvoiceLine[];
 }

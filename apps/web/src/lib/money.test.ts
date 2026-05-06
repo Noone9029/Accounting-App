@@ -1,4 +1,4 @@
-import { calculateTotals, formatUnits, parseDecimalToUnits } from "./money";
+import { calculateInvoicePreview, calculateTotals, formatUnits, parseDecimalToUnits } from "./money";
 
 describe("money utilities", () => {
   it("parses decimal strings into four-decimal minor units", () => {
@@ -20,5 +20,17 @@ describe("money utilities", () => {
         { debit: "0", credit: "0.30" },
       ]),
     ).toMatchObject({ debit: "0.3000", credit: "0.3000", balanced: true });
+  });
+
+  it("previews invoice totals with discount before tax", () => {
+    expect(
+      calculateInvoicePreview([{ quantity: "1.0000", unitPrice: "200.0000", discountRate: "10.0000", taxRate: "15.0000" }]),
+    ).toMatchObject({
+      subtotal: "180.0000",
+      discountTotal: "20.0000",
+      taxTotal: "27.0000",
+      total: "207.0000",
+      valid: true,
+    });
   });
 });
