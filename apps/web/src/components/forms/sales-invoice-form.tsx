@@ -41,8 +41,16 @@ function todayInputValue(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function dateInputValue(value?: string | null): string {
-  return value ? new Date(value).toISOString().slice(0, 10) : todayInputValue();
+function dateInputValue(value?: string | null, fallback = todayInputValue()): string {
+  if (!value) {
+    return fallback;
+  }
+
+  return new Date(value).toISOString().slice(0, 10);
+}
+
+function optionalDateInputValue(value?: string | null): string {
+  return value ? new Date(value).toISOString().slice(0, 10) : "";
 }
 
 export function SalesInvoiceForm({ initialInvoice }: SalesInvoiceFormProps) {
@@ -56,7 +64,7 @@ export function SalesInvoiceForm({ initialInvoice }: SalesInvoiceFormProps) {
   const [customerId, setCustomerId] = useState(initialInvoice?.customerId ?? "");
   const [branchId, setBranchId] = useState(initialInvoice?.branchId ?? "");
   const [issueDate, setIssueDate] = useState(dateInputValue(initialInvoice?.issueDate));
-  const [dueDate, setDueDate] = useState(dateInputValue(initialInvoice?.dueDate));
+  const [dueDate, setDueDate] = useState(optionalDateInputValue(initialInvoice?.dueDate));
   const [notes, setNotes] = useState(initialInvoice?.notes ?? "");
   const [terms, setTerms] = useState(initialInvoice?.terms ?? "");
   const [lines, setLines] = useState<InvoiceLineState[]>(
@@ -150,7 +158,7 @@ export function SalesInvoiceForm({ initialInvoice }: SalesInvoiceFormProps) {
       description: item.description ?? item.name,
       accountId: item.revenueAccountId,
       unitPrice: item.sellingPrice,
-      taxRateId: item.salesTaxRateId,
+      taxRateId: item.salesTaxRateId ?? "",
     });
   }
 
@@ -172,9 +180,9 @@ export function SalesInvoiceForm({ initialInvoice }: SalesInvoiceFormProps) {
     try {
       const body = {
         customerId,
-        branchId: branchId || undefined,
+        branchId: branchId || null,
         issueDate: `${issueDate}T00:00:00.000Z`,
-        dueDate: `${dueDate}T00:00:00.000Z`,
+        dueDate: dueDate ? `${dueDate}T00:00:00.000Z` : null,
         currency: "SAR",
         notes: notes || undefined,
         terms: terms || undefined,
@@ -185,7 +193,7 @@ export function SalesInvoiceForm({ initialInvoice }: SalesInvoiceFormProps) {
           quantity: line.quantity,
           unitPrice: line.unitPrice,
           discountRate: line.discountRate || "0.0000",
-          taxRateId: line.taxRateId || undefined,
+          taxRateId: line.taxRateId || null,
           sortOrder: index,
         })),
       };
@@ -234,7 +242,7 @@ export function SalesInvoiceForm({ initialInvoice }: SalesInvoiceFormProps) {
           </label>
           <label className="block">
             <span className="text-sm font-medium text-slate-700">Due date</span>
-            <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
           </label>
           <label className="block md:col-span-2">
             <span className="text-sm font-medium text-slate-700">Branch</span>
@@ -324,6 +332,8 @@ export function SalesInvoiceForm({ initialInvoice }: SalesInvoiceFormProps) {
             <span className="font-mono">{formatMoneyAmount(preview.subtotal)}</span>
             <span className="text-steel">Discount</span>
             <span className="font-mono">{formatMoneyAmount(preview.discountTotal)}</span>
+            <span className="text-steel">Taxable</span>
+            <span className="font-mono">{formatMoneyAmount(preview.taxableTotal)}</span>
             <span className="text-steel">VAT</span>
             <span className="font-mono">{formatMoneyAmount(preview.taxTotal)}</span>
             <span className="font-semibold text-ink">Total</span>
@@ -359,5 +369,5 @@ function getValidationError(customerId: string, lines: InvoiceLineState[], previ
     }
   }
 
-  return previewValid ? "" : "Invoice lines need positive quantities and prices, with discounts between 0% and 100%.";
+  return previewValid ? "" : "Invoice lines need positive quantities, non-negative prices and tax, and discounts between 0% and 100%.";
 }

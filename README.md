@@ -108,6 +108,24 @@ Branches:
 - `POST /branches`
 - `PATCH /branches/:id`
 
+Items:
+
+- `GET /items`
+- `POST /items`
+- `GET /items/:id`
+- `PATCH /items/:id`
+- `DELETE /items/:id`
+
+Sales invoices:
+
+- `GET /sales-invoices`
+- `POST /sales-invoices`
+- `GET /sales-invoices/:id`
+- `PATCH /sales-invoices/:id`
+- `DELETE /sales-invoices/:id`
+- `POST /sales-invoices/:id/finalize`
+- `POST /sales-invoices/:id/void`
+
 Audit logs:
 
 - `GET /audit-logs`
@@ -124,9 +142,45 @@ Audit logs:
 - Mutating services create audit log records.
 - Controllers stay thin; accounting rules live in service/domain layers.
 
+## Sales Invoice Rules
+
+Invoice line amounts are calculated server-side:
+
+- `lineGrossAmount = quantity * unitPrice`
+- `discountAmount = lineGrossAmount * discountRate / 100`
+- `taxableAmount = lineGrossAmount - discountAmount`
+- `taxAmount = taxableAmount * taxRate / 100`
+- `lineTotal = taxableAmount + taxAmount`
+
+Invoice totals:
+
+- `subtotal = sum(lineGrossAmount)`
+- `discountTotal = sum(discountAmount)`
+- `taxableTotal = subtotal - discountTotal`
+- `taxTotal = sum(taxAmount)`
+- `total = taxableTotal + taxTotal`
+- `balanceDue = total` until payments are implemented
+
+Lifecycle behavior:
+
+- Draft invoices can be edited, deleted, finalized, or voided.
+- Finalized invoices cannot be edited or deleted.
+- Finalizing twice is idempotent and does not create a second journal entry.
+- Voiding a draft marks it `VOIDED`.
+- Voiding a finalized invoice creates or reuses one reversal journal entry and marks the invoice `VOIDED`.
+- Voided invoices cannot be edited or finalized.
+
+Posting behavior:
+
+- Finalization posts one balanced journal entry inside a transaction.
+- Debit account code `120` Accounts Receivable for invoice total.
+- Credit revenue accounts grouped by invoice line revenue account using taxable amounts.
+- Credit account code `220` VAT Payable only when `taxTotal > 0`.
+- The invoice stores the linked `journalEntryId`; voided finalized invoices store `reversalJournalEntryId`.
+
 ## Current Package Boundaries
 
-- `packages/accounting-core`: decimal-safe journal rules
+- `packages/accounting-core`: decimal-safe journal and invoice calculation rules
 - `packages/zatca-core`: placeholder interfaces for future ZATCA Phase 2 integration
 - `packages/pdf-core`: placeholder interfaces for server-side PDF generation
 - `packages/shared`: shared tenant/API types
@@ -135,7 +189,10 @@ Audit logs:
 ## Known Limitations
 
 - ZATCA Phase 2 XML, QR, CSID, clearance, reporting, PDF/A-3, and hash-chain logic are not implemented yet.
+- Customer payments and payment allocation are not implemented yet.
+- Sales invoice PDF rendering is not implemented yet.
+- Credit notes are not implemented yet.
+- Recurring invoices are not implemented yet.
+- Inventory movement and stock valuation are not implemented yet.
 - BullMQ workers and S3 upload adapters are not wired yet.
-- Frontend pages are scaffolded; most data tables use placeholders until API data fetching is connected.
-- The manual journal form needs live account selection from `GET /accounts` before it can submit real account ids.
 - Authorization is role-ready but currently only enforces active organization membership.

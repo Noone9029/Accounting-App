@@ -72,13 +72,13 @@ export interface Item {
   status: ItemStatus;
   sellingPrice: string;
   revenueAccountId: string;
-  salesTaxRateId: string;
+  salesTaxRateId: string | null;
   purchaseCost: string | null;
   expenseAccountId: string | null;
   purchaseTaxRateId: string | null;
   inventoryTracking: boolean;
   revenueAccount?: { id: string; code: string; name: string; type: AccountType };
-  salesTaxRate?: { id: string; name: string; rate: string; scope: TaxRateScope };
+  salesTaxRate?: { id: string; name: string; rate: string; scope: TaxRateScope } | null;
 }
 
 export interface Contact {
@@ -148,6 +148,9 @@ export interface SalesInvoiceLine {
   unitPrice: string;
   discountRate: string;
   taxRateId: string | null;
+  lineGrossAmount: string;
+  discountAmount: string;
+  taxableAmount: string;
   taxAmount: string;
   lineSubtotal: string;
   lineTotal: string;
@@ -164,11 +167,12 @@ export interface SalesInvoice {
   customerId: string;
   branchId: string | null;
   issueDate: string;
-  dueDate: string;
+  dueDate: string | null;
   currency: string;
   status: SalesInvoiceStatus;
   subtotal: string;
   discountTotal: string;
+  taxableTotal: string;
   taxTotal: string;
   total: string;
   balanceDue: string;
@@ -176,8 +180,10 @@ export interface SalesInvoice {
   terms: string | null;
   finalizedAt: string | null;
   journalEntryId: string | null;
+  reversalJournalEntryId: string | null;
   customer?: { id: string; name: string; displayName: string | null; type?: ContactType; taxNumber?: string | null };
   branch?: { id: string; name: string; displayName: string | null; taxNumber?: string | null } | null;
   journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit: string; totalCredit: string } | null;
+  reversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
   lines?: SalesInvoiceLine[];
 }

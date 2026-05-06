@@ -3,7 +3,7 @@ import { IsDecimal, IsInt, IsOptional, IsString, IsUUID, Min } from "class-valid
 export class SalesInvoiceLineDto {
   @IsOptional()
   @IsUUID()
-  itemId?: string;
+  itemId?: string | null;
 
   @IsOptional()
   @IsString()
@@ -11,7 +11,7 @@ export class SalesInvoiceLineDto {
 
   @IsOptional()
   @IsUUID()
-  accountId?: string;
+  accountId?: string | null;
 
   @IsDecimal({ decimal_digits: "0,4" })
   quantity!: string;
@@ -25,7 +25,7 @@ export class SalesInvoiceLineDto {
 
   @IsOptional()
   @IsUUID()
-  taxRateId?: string;
+  taxRateId?: string | null;
 
   @IsOptional()
   @IsInt()

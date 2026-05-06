@@ -23,9 +23,10 @@ export interface InvoicePreviewLine {
   unitPriceUnits: number;
   discountRateUnits: number;
   taxRateUnits: number;
+  lineGrossAmountUnits: number;
   discountAmountUnits: number;
+  taxableAmountUnits: number;
   taxAmountUnits: number;
-  lineSubtotalUnits: number;
   lineTotalUnits: number;
   valid: boolean;
 }
@@ -34,6 +35,7 @@ export interface InvoicePreviewTotals {
   lines: InvoicePreviewLine[];
   subtotal: string;
   discountTotal: string;
+  taxableTotal: string;
   taxTotal: string;
   total: string;
   valid: boolean;
@@ -82,8 +84,9 @@ export function calculateTotals(lines: AmountLine[]): MoneyTotals {
 
 export function calculateInvoicePreview(lines: InvoicePreviewLineInput[]): InvoicePreviewTotals {
   const previewLines = lines.map(calculateInvoicePreviewLine);
-  const subtotalUnits = previewLines.reduce((sum, line) => sum + line.lineSubtotalUnits, 0);
+  const subtotalUnits = previewLines.reduce((sum, line) => sum + line.lineGrossAmountUnits, 0);
   const discountTotalUnits = previewLines.reduce((sum, line) => sum + line.discountAmountUnits, 0);
+  const taxableTotalUnits = previewLines.reduce((sum, line) => sum + line.taxableAmountUnits, 0);
   const taxTotalUnits = previewLines.reduce((sum, line) => sum + line.taxAmountUnits, 0);
   const totalUnits = previewLines.reduce((sum, line) => sum + line.lineTotalUnits, 0);
 
@@ -91,6 +94,7 @@ export function calculateInvoicePreview(lines: InvoicePreviewLineInput[]): Invoi
     lines: previewLines,
     subtotal: formatUnits(subtotalUnits),
     discountTotal: formatUnits(discountTotalUnits),
+    taxableTotal: formatUnits(taxableTotalUnits),
     taxTotal: formatUnits(taxTotalUnits),
     total: formatUnits(totalUnits),
     valid: lines.length > 0 && previewLines.every((line) => line.valid),
@@ -112,22 +116,30 @@ function calculateInvoicePreviewLine(line: InvoicePreviewLineInput): InvoicePrev
   const unitPriceUnits = parseDecimalToUnits(line.unitPrice);
   const discountRateUnits = parseDecimalToUnits(line.discountRate ?? "0");
   const taxRateUnits = parseDecimalToUnits(line.taxRate ?? "0");
-  const grossUnits = roundDiv(quantityUnits * unitPriceUnits, MONEY_FACTOR);
-  const discountAmountUnits = roundDiv(grossUnits * discountRateUnits, 100 * MONEY_FACTOR);
-  const lineSubtotalUnits = grossUnits - discountAmountUnits;
-  const taxAmountUnits = roundDiv(lineSubtotalUnits * taxRateUnits, 100 * MONEY_FACTOR);
-  const lineTotalUnits = lineSubtotalUnits + taxAmountUnits;
+  const lineGrossAmountUnits = roundDiv(quantityUnits * unitPriceUnits, MONEY_FACTOR);
+  const discountAmountUnits = roundDiv(lineGrossAmountUnits * discountRateUnits, 100 * MONEY_FACTOR);
+  const taxableAmountUnits = lineGrossAmountUnits - discountAmountUnits;
+  const taxAmountUnits = roundDiv(taxableAmountUnits * taxRateUnits, 100 * MONEY_FACTOR);
+  const lineTotalUnits = taxableAmountUnits + taxAmountUnits;
 
   return {
     quantityUnits,
     unitPriceUnits,
     discountRateUnits,
     taxRateUnits,
+    lineGrossAmountUnits,
     discountAmountUnits,
+    taxableAmountUnits,
     taxAmountUnits,
-    lineSubtotalUnits,
     lineTotalUnits,
-    valid: quantityUnits > 0 && unitPriceUnits > 0 && discountRateUnits >= 0 && discountRateUnits <= 100 * MONEY_FACTOR,
+    valid:
+      quantityUnits > 0 &&
+      unitPriceUnits >= 0 &&
+      discountRateUnits >= 0 &&
+      discountRateUnits <= 100 * MONEY_FACTOR &&
+      taxRateUnits >= 0 &&
+      taxableAmountUnits >= 0 &&
+      lineTotalUnits >= 0,
   };
 }
 

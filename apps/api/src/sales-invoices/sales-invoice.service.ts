@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import {
   AccountingRuleError,
   assertDraftInvoiceEditable,
+  assertFinalizableSalesInvoice,
   calculateSalesInvoiceTotals,
   JournalLineInput,
   toMoney,
@@ -28,7 +29,8 @@ import { buildSalesInvoiceJournalLines } from "./sales-invoice-accounting";
 const salesInvoiceInclude = {
   customer: { select: { id: true, name: true, displayName: true, type: true, taxNumber: true } },
   branch: { select: { id: true, name: true, displayName: true, taxNumber: true } },
-  journalEntry: { select: { id: true, entryNumber: true, status: true, totalDebit: true, totalCredit: true } },
+  journalEntry: { select: { id: true, entryNumber: true, status: true, totalDebit: true, totalCredit: true, reversedBy: { select: { id: true, entryNumber: true } } } },
+  reversalJournalEntry: { select: { id: true, entryNumber: true, status: true } },
   lines: {
     orderBy: { sortOrder: "asc" as const },
     include: {
@@ -48,6 +50,9 @@ interface PreparedLine {
   discountRate: string;
   taxRateId?: string;
   taxRate: string;
+  lineGrossAmount: string;
+  discountAmount: string;
+  taxableAmount: string;
   taxAmount: string;
   lineSubtotal: string;
   lineTotal: string;
@@ -57,6 +62,7 @@ interface PreparedLine {
 interface PreparedInvoice {
   subtotal: string;
   discountTotal: string;
+  taxableTotal: string;
   taxTotal: string;
   total: string;
   lines: PreparedLine[];
@@ -80,6 +86,8 @@ export class SalesInvoiceService {
       include: {
         customer: { select: { id: true, name: true, displayName: true } },
         branch: { select: { id: true, name: true, displayName: true } },
+        journalEntry: { select: { id: true, entryNumber: true, status: true } },
+        reversalJournalEntry: { select: { id: true, entryNumber: true, status: true } },
       },
     });
   }
@@ -98,7 +106,7 @@ export class SalesInvoiceService {
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreateSalesInvoiceDto) {
-    await this.validateHeaderReferences(organizationId, dto.customerId, dto.branchId);
+    await this.validateHeaderReferences(organizationId, dto.customerId, dto.branchId ?? undefined);
     const prepared = await this.prepareInvoice(organizationId, dto.lines);
     const currency = (dto.currency ?? "SAR").toUpperCase();
 
@@ -110,12 +118,13 @@ export class SalesInvoiceService {
           organizationId,
           invoiceNumber,
           customerId: dto.customerId,
-          branchId: dto.branchId,
+          branchId: this.cleanOptional(dto.branchId ?? undefined),
           issueDate: new Date(dto.issueDate),
-          dueDate: new Date(dto.dueDate),
+          dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
           currency,
           subtotal: prepared.subtotal,
           discountTotal: prepared.discountTotal,
+          taxableTotal: prepared.taxableTotal,
           taxTotal: prepared.taxTotal,
           total: prepared.total,
           balanceDue: prepared.total,
@@ -136,8 +145,8 @@ export class SalesInvoiceService {
     const existing = await this.get(organizationId, id);
     this.assertDraft(existing.status);
 
-    if (dto.customerId || dto.branchId) {
-      await this.validateHeaderReferences(organizationId, dto.customerId ?? existing.customerId, dto.branchId);
+    if (dto.customerId || Object.prototype.hasOwnProperty.call(dto, "branchId")) {
+      await this.validateHeaderReferences(organizationId, dto.customerId ?? existing.customerId, dto.branchId ?? undefined);
     }
 
     const prepared = dto.lines ? await this.prepareInvoice(organizationId, dto.lines) : null;
@@ -150,12 +159,13 @@ export class SalesInvoiceService {
         where: { id },
         data: {
           customerId: dto.customerId,
-          branchId: dto.branchId,
+          branchId: Object.prototype.hasOwnProperty.call(dto, "branchId") ? (this.cleanOptional(dto.branchId ?? undefined) ?? null) : undefined,
           issueDate: dto.issueDate ? new Date(dto.issueDate) : undefined,
-          dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+          dueDate: Object.prototype.hasOwnProperty.call(dto, "dueDate") ? (dto.dueDate ? new Date(dto.dueDate) : null) : undefined,
           currency: dto.currency?.toUpperCase(),
           subtotal: prepared?.subtotal,
           discountTotal: prepared?.discountTotal,
+          taxableTotal: prepared?.taxableTotal,
           taxTotal: prepared?.taxTotal,
           total: prepared?.total,
           balanceDue: prepared?.total,
@@ -210,6 +220,25 @@ export class SalesInvoiceService {
         throw new BadRequestException("Only draft invoices can be finalized.");
       }
 
+      this.assertFinalizableInvoice({
+        subtotal: String(invoice.subtotal),
+        discountTotal: String(invoice.discountTotal),
+        taxableTotal: String(invoice.taxableTotal),
+        taxTotal: String(invoice.taxTotal),
+        total: String(invoice.total),
+        lines: invoice.lines.map((line) => ({
+          quantity: String(line.quantity),
+          unitPrice: String(line.unitPrice),
+          discountRate: String(line.discountRate),
+          lineGrossAmount: String(line.lineGrossAmount),
+          discountAmount: String(line.discountAmount),
+          taxRate: "0.0000",
+          taxableAmount: String(line.taxableAmount),
+          taxAmount: String(line.taxAmount),
+          lineTotal: String(line.lineTotal),
+        })),
+      });
+
       const accountsReceivableAccount = await this.findPostingAccountByCode(organizationId, "120", tx);
       const vatPayableAccount = await this.findPostingAccountByCode(organizationId, "220", tx);
       const journalLines = buildSalesInvoiceJournalLines({
@@ -223,7 +252,7 @@ export class SalesInvoiceService {
         lines: invoice.lines.map((line) => ({
           accountId: line.accountId,
           description: line.description,
-          lineSubtotal: String(line.lineSubtotal),
+          taxableAmount: String(line.taxableAmount),
         })),
       });
 
@@ -234,7 +263,7 @@ export class SalesInvoiceService {
           entryNumber,
           status: JournalEntryStatus.POSTED,
           entryDate: invoice.issueDate,
-          description: `Sales invoice ${invoice.invoiceNumber}`,
+          description: `Sales invoice ${invoice.invoiceNumber} - ${invoice.customer.displayName ?? invoice.customer.name}`,
           reference: invoice.invoiceNumber,
           currency: invoice.currency,
           totalDebit: invoice.total,
@@ -276,8 +305,18 @@ export class SalesInvoiceService {
       return existing;
     }
 
+    let reversalJournalEntryId: string | undefined;
     if (existing.status === SalesInvoiceStatus.FINALIZED && existing.journalEntryId) {
-      await this.accountingService.reverse(organizationId, actorUserId, existing.journalEntryId);
+      const journalEntry = await this.prisma.journalEntry.findFirst({
+        where: { id: existing.journalEntryId, organizationId },
+        include: { reversedBy: { select: { id: true } } },
+      });
+      if (journalEntry?.reversedBy) {
+        reversalJournalEntryId = journalEntry.reversedBy.id;
+      } else {
+        const reversal = await this.accountingService.reverse(organizationId, actorUserId, existing.journalEntryId);
+        reversalJournalEntryId = reversal.id;
+      }
     }
 
     const voided = await this.prisma.salesInvoice.update({
@@ -285,6 +324,7 @@ export class SalesInvoiceService {
       data: {
         status: SalesInvoiceStatus.VOIDED,
         balanceDue: "0.0000",
+        reversalJournalEntryId,
       },
       include: salesInvoiceInclude,
     });
@@ -299,6 +339,17 @@ export class SalesInvoiceService {
       after: voided,
     });
     return voided;
+  }
+
+  async remove(organizationId: string, actorUserId: string, id: string) {
+    const existing = await this.get(organizationId, id);
+    if (existing.status !== SalesInvoiceStatus.DRAFT || existing.journalEntryId) {
+      throw new BadRequestException("Only draft invoices without journal entries can be deleted.");
+    }
+
+    await this.prisma.salesInvoice.delete({ where: { id } });
+    await this.auditLogService.log({ organizationId, actorUserId, action: "DELETE", entityType: "SalesInvoice", entityId: id, before: existing });
+    return { deleted: true };
   }
 
   private async validateHeaderReferences(organizationId: string, customerId: string, branchId?: string): Promise<void> {
@@ -340,8 +391,9 @@ export class SalesInvoiceService {
     const itemsById = new Map(items.map((item) => [item.id, item]));
     const baseLines = lines.map((line, index) => {
       const item = line.itemId ? itemsById.get(line.itemId) : undefined;
-      const accountId = line.accountId ?? item?.revenueAccountId;
-      const taxRateId = line.taxRateId === undefined ? item?.salesTaxRateId : line.taxRateId;
+      const accountId = this.cleanOptional(line.accountId ?? undefined) ?? item?.revenueAccountId;
+      const taxRateId =
+        line.taxRateId === undefined ? item?.salesTaxRateId ?? undefined : this.cleanOptional(line.taxRateId ?? undefined);
       const description = this.cleanOptional(line.description) ?? item?.description ?? item?.name;
 
       if (!accountId) {
@@ -353,7 +405,7 @@ export class SalesInvoiceService {
       }
 
       return {
-        itemId: line.itemId,
+        itemId: this.cleanOptional(line.itemId ?? undefined),
         description,
         accountId,
         quantity: line.quantity,
@@ -382,6 +434,7 @@ export class SalesInvoiceService {
     return {
       subtotal: totals.subtotal,
       discountTotal: totals.discountTotal,
+      taxableTotal: totals.taxableTotal,
       taxTotal: totals.taxTotal,
       total: totals.total,
       lines: baseLines.map((line, index) => {
@@ -396,8 +449,11 @@ export class SalesInvoiceService {
           unitPrice: calculated.unitPrice,
           discountRate: calculated.discountRate,
           taxRate: calculated.taxRate,
+          lineGrossAmount: calculated.lineGrossAmount,
+          discountAmount: calculated.discountAmount,
+          taxableAmount: calculated.taxableAmount,
           taxAmount: calculated.taxAmount,
-          lineSubtotal: calculated.lineSubtotal,
+          lineSubtotal: calculated.taxableAmount,
           lineTotal: calculated.lineTotal,
         };
       }),
@@ -407,6 +463,17 @@ export class SalesInvoiceService {
   private calculateTotals(lines: Parameters<typeof calculateSalesInvoiceTotals>[0]) {
     try {
       return calculateSalesInvoiceTotals(lines);
+    } catch (error) {
+      if (error instanceof AccountingRuleError) {
+        throw new BadRequestException({ code: error.code, message: error.message });
+      }
+      throw error;
+    }
+  }
+
+  private assertFinalizableInvoice(totals: ReturnType<typeof calculateSalesInvoiceTotals>): void {
+    try {
+      assertFinalizableSalesInvoice(totals);
     } catch (error) {
       if (error instanceof AccountingRuleError) {
         throw new BadRequestException({ code: error.code, message: error.message });
@@ -488,6 +555,9 @@ export class SalesInvoiceService {
       quantity: line.quantity,
       unitPrice: line.unitPrice,
       discountRate: line.discountRate,
+      lineGrossAmount: line.lineGrossAmount,
+      discountAmount: line.discountAmount,
+      taxableAmount: line.taxableAmount,
       taxAmount: line.taxAmount,
       lineSubtotal: line.lineSubtotal,
       lineTotal: line.lineTotal,

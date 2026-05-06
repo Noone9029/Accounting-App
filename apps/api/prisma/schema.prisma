@@ -255,7 +255,7 @@ model Item {
   status            ItemStatus         @default(ACTIVE)
   sellingPrice      Decimal            @db.Decimal(20, 4)
   revenueAccountId  String             @db.Uuid
-  salesTaxRateId    String             @db.Uuid
+  salesTaxRateId    String?            @db.Uuid
   purchaseCost      Decimal?           @db.Decimal(20, 4)
   expenseAccountId  String?            @db.Uuid
   purchaseTaxRateId String?            @db.Uuid
@@ -264,7 +264,7 @@ model Item {
   updatedAt         DateTime           @updatedAt
   organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   revenueAccount    Account            @relation("ItemRevenueAccount", fields: [revenueAccountId], references: [id])
-  salesTaxRate      TaxRate            @relation("ItemSalesTaxRate", fields: [salesTaxRateId], references: [id])
+  salesTaxRate      TaxRate?           @relation("ItemSalesTaxRate", fields: [salesTaxRateId], references: [id], onDelete: SetNull)
   expenseAccount    Account?           @relation("ItemExpenseAccount", fields: [expenseAccountId], references: [id])
   purchaseTaxRate   TaxRate?           @relation("ItemPurchaseTaxRate", fields: [purchaseTaxRateId], references: [id])
   salesInvoiceLines SalesInvoiceLine[]
@@ -276,33 +276,36 @@ model Item {
 }
 
 model SalesInvoice {
-  id             String             @id @default(uuid()) @db.Uuid
-  organizationId String             @db.Uuid
-  invoiceNumber  String
-  customerId     String             @db.Uuid
-  branchId       String?            @db.Uuid
-  issueDate      DateTime
-  dueDate        DateTime
-  currency       String             @default("SAR")
-  status         SalesInvoiceStatus @default(DRAFT)
-  subtotal       Decimal            @default(0) @db.Decimal(20, 4)
-  discountTotal  Decimal            @default(0) @db.Decimal(20, 4)
-  taxTotal       Decimal            @default(0) @db.Decimal(20, 4)
-  total          Decimal            @default(0) @db.Decimal(20, 4)
-  balanceDue     Decimal            @default(0) @db.Decimal(20, 4)
-  notes          String?
-  terms          String?
-  createdById    String?            @db.Uuid
-  finalizedAt    DateTime?
-  journalEntryId String?            @unique @db.Uuid
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  customer       Contact            @relation("SalesInvoiceCustomer", fields: [customerId], references: [id])
-  branch         Branch?            @relation(fields: [branchId], references: [id])
-  createdBy      User?              @relation("SalesInvoiceCreatedBy", fields: [createdById], references: [id])
-  journalEntry   JournalEntry?      @relation(fields: [journalEntryId], references: [id])
-  lines          SalesInvoiceLine[]
+  id                     String             @id @default(uuid()) @db.Uuid
+  organizationId         String             @db.Uuid
+  invoiceNumber          String
+  customerId             String             @db.Uuid
+  branchId               String?            @db.Uuid
+  issueDate              DateTime
+  dueDate                DateTime?
+  currency               String             @default("SAR")
+  status                 SalesInvoiceStatus @default(DRAFT)
+  subtotal               Decimal            @default(0) @db.Decimal(20, 4)
+  discountTotal          Decimal            @default(0) @db.Decimal(20, 4)
+  taxableTotal           Decimal            @default(0) @db.Decimal(20, 4)
+  taxTotal               Decimal            @default(0) @db.Decimal(20, 4)
+  total                  Decimal            @default(0) @db.Decimal(20, 4)
+  balanceDue             Decimal            @default(0) @db.Decimal(20, 4)
+  notes                  String?
+  terms                  String?
+  createdById            String?            @db.Uuid
+  finalizedAt            DateTime?
+  journalEntryId         String?            @unique @db.Uuid
+  reversalJournalEntryId String?            @unique @db.Uuid
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  organization           Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer               Contact            @relation("SalesInvoiceCustomer", fields: [customerId], references: [id])
+  branch                 Branch?            @relation(fields: [branchId], references: [id])
+  createdBy              User?              @relation("SalesInvoiceCreatedBy", fields: [createdById], references: [id])
+  journalEntry           JournalEntry?      @relation("SalesInvoiceJournal", fields: [journalEntryId], references: [id])
+  reversalJournalEntry   JournalEntry?      @relation("SalesInvoiceReversalJournal", fields: [reversalJournalEntryId], references: [id])
+  lines                  SalesInvoiceLine[]
 
   @@unique([organizationId, invoiceNumber])
   @@index([organizationId])
@@ -311,27 +314,30 @@ model SalesInvoice {
 }
 
 model SalesInvoiceLine {
-  id             String       @id @default(uuid()) @db.Uuid
-  organizationId String       @db.Uuid
-  invoiceId      String       @db.Uuid
-  itemId         String?      @db.Uuid
-  description    String
-  accountId      String       @db.Uuid
-  quantity       Decimal      @db.Decimal(20, 4)
-  unitPrice      Decimal      @db.Decimal(20, 4)
-  discountRate   Decimal      @default(0) @db.Decimal(7, 4)
-  taxRateId      String?      @db.Uuid
-  taxAmount      Decimal      @default(0) @db.Decimal(20, 4)
-  lineSubtotal   Decimal      @default(0) @db.Decimal(20, 4)
-  lineTotal      Decimal      @default(0) @db.Decimal(20, 4)
-  sortOrder      Int          @default(0)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  invoice        SalesInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  item           Item?        @relation(fields: [itemId], references: [id], onDelete: SetNull)
-  account        Account      @relation(fields: [accountId], references: [id])
-  taxRate        TaxRate?     @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @db.Uuid
+  invoiceId       String       @db.Uuid
+  itemId          String?      @db.Uuid
+  description     String
+  accountId       String       @db.Uuid
+  quantity        Decimal      @db.Decimal(20, 4)
+  unitPrice       Decimal      @db.Decimal(20, 4)
+  discountRate    Decimal      @default(0) @db.Decimal(7, 4)
+  taxRateId       String?      @db.Uuid
+  lineGrossAmount Decimal      @default(0) @db.Decimal(20, 4)
+  discountAmount  Decimal      @default(0) @db.Decimal(20, 4)
+  taxableAmount   Decimal      @default(0) @db.Decimal(20, 4)
+  taxAmount       Decimal      @default(0) @db.Decimal(20, 4)
+  lineSubtotal    Decimal      @default(0) @db.Decimal(20, 4)
+  lineTotal       Decimal      @default(0) @db.Decimal(20, 4)
+  sortOrder       Int          @default(0)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice         SalesInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  item            Item?        @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  account         Account      @relation(fields: [accountId], references: [id])
+  taxRate         TaxRate?     @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@index([invoiceId])
@@ -340,29 +346,30 @@ model SalesInvoiceLine {
 }
 
 model JournalEntry {
-  id             String             @id @default(uuid()) @db.Uuid
-  organizationId String             @db.Uuid
-  entryNumber    String
-  status         JournalEntryStatus @default(DRAFT)
-  entryDate      DateTime
-  description    String
-  reference      String?
-  currency       String             @default("SAR")
-  totalDebit     Decimal            @default(0) @db.Decimal(20, 4)
-  totalCredit    Decimal            @default(0) @db.Decimal(20, 4)
-  postedAt       DateTime?
-  postedById     String?            @db.Uuid
-  createdById    String?            @db.Uuid
-  reversalOfId   String?            @unique @db.Uuid
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  postedBy       User?              @relation("PostedBy", fields: [postedById], references: [id])
-  createdBy      User?              @relation("CreatedBy", fields: [createdById], references: [id])
-  reversalOf     JournalEntry?      @relation("JournalReversal", fields: [reversalOfId], references: [id])
-  reversedBy     JournalEntry?      @relation("JournalReversal")
-  salesInvoice   SalesInvoice?
-  lines          JournalLine[]
+  id                 String             @id @default(uuid()) @db.Uuid
+  organizationId     String             @db.Uuid
+  entryNumber        String
+  status             JournalEntryStatus @default(DRAFT)
+  entryDate          DateTime
+  description        String
+  reference          String?
+  currency           String             @default("SAR")
+  totalDebit         Decimal            @default(0) @db.Decimal(20, 4)
+  totalCredit        Decimal            @default(0) @db.Decimal(20, 4)
+  postedAt           DateTime?
+  postedById         String?            @db.Uuid
+  createdById        String?            @db.Uuid
+  reversalOfId       String?            @unique @db.Uuid
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  postedBy           User?              @relation("PostedBy", fields: [postedById], references: [id])
+  createdBy          User?              @relation("CreatedBy", fields: [createdById], references: [id])
+  reversalOf         JournalEntry?      @relation("JournalReversal", fields: [reversalOfId], references: [id])
+  reversedBy         JournalEntry?      @relation("JournalReversal")
+  salesInvoice       SalesInvoice?      @relation("SalesInvoiceJournal")
+  voidedSalesInvoice SalesInvoice?      @relation("SalesInvoiceReversalJournal")
+  lines              JournalLine[]
 
   @@unique([organizationId, entryNumber])
   @@index([organizationId])

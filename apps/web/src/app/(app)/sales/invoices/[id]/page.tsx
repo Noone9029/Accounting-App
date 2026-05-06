@@ -1,16 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import type { SalesInvoice } from "@/lib/types";
 
 export default function SalesInvoiceDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const organizationId = useActiveOrganizationId();
   const [invoice, setInvoice] = useState<SalesInvoice | null>(null);
   const [loading, setLoading] = useState(false);
@@ -54,6 +56,10 @@ export default function SalesInvoiceDetailPage() {
       return;
     }
 
+    if (action === "void" && !window.confirm(`Void invoice ${invoice.invoiceNumber}?`)) {
+      return;
+    }
+
     setActionLoading(true);
     setError("");
     setSuccess("");
@@ -64,6 +70,25 @@ export default function SalesInvoiceDetailPage() {
       setSuccess(action === "finalize" ? `Finalized invoice ${updated.invoiceNumber}.` : `Voided invoice ${updated.invoiceNumber}.`);
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : `Unable to ${action} invoice.`);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function deleteInvoice() {
+    if (!invoice || !window.confirm(`Delete draft invoice ${invoice.invoiceNumber}?`)) {
+      return;
+    }
+
+    setActionLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await apiRequest<{ deleted: boolean }>(`/sales-invoices/${invoice.id}`, { method: "DELETE" });
+      router.push("/sales/invoices");
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete invoice.");
     } finally {
       setActionLoading(false);
     }
@@ -95,6 +120,11 @@ export default function SalesInvoiceDetailPage() {
               Void
             </button>
           ) : null}
+          {invoice?.status === "DRAFT" ? (
+            <button type="button" onClick={() => void deleteInvoice()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+              Delete
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -112,15 +142,20 @@ export default function SalesInvoiceDetailPage() {
               <Summary label="Customer" value={invoice.customer?.displayName ?? invoice.customer?.name ?? "-"} />
               <Summary label="Status" value={invoice.status} />
               <Summary label="Issue date" value={new Date(invoice.issueDate).toLocaleDateString()} />
-              <Summary label="Due date" value={new Date(invoice.dueDate).toLocaleDateString()} />
+              <Summary label="Due date" value={formatOptionalDate(invoice.dueDate)} />
+              <Summary label="Currency" value={invoice.currency} />
               <Summary label="Branch" value={invoice.branch?.displayName ?? invoice.branch?.name ?? "-"} />
               <Summary label="Total" value={formatMoneyAmount(invoice.total, invoice.currency)} />
               <Summary label="Balance due" value={formatMoneyAmount(invoice.balanceDue, invoice.currency)} />
               <Summary label="Journal entry" value={invoice.journalEntry ? `${invoice.journalEntry.entryNumber} (${invoice.journalEntry.id})` : "-"} />
+              <Summary label="Reversal journal" value={invoice.reversalJournalEntry ? `${invoice.reversalJournalEntry.entryNumber} (${invoice.reversalJournalEntry.id})` : "-"} />
+              <Summary label="Finalized" value={invoice.finalizedAt ? new Date(invoice.finalizedAt).toLocaleString() : "-"} />
+              <Summary label="Notes" value={invoice.notes ?? "-"} />
+              <Summary label="Terms" value={invoice.terms ?? "-"} />
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-panel">
+          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                 <tr>
@@ -128,7 +163,9 @@ export default function SalesInvoiceDetailPage() {
                   <th className="px-4 py-3">Account</th>
                   <th className="px-4 py-3">Qty</th>
                   <th className="px-4 py-3">Unit price</th>
+                  <th className="px-4 py-3">Gross</th>
                   <th className="px-4 py-3">Discount</th>
+                  <th className="px-4 py-3">Taxable</th>
                   <th className="px-4 py-3">Tax</th>
                   <th className="px-4 py-3">Line total</th>
                 </tr>
@@ -140,7 +177,9 @@ export default function SalesInvoiceDetailPage() {
                     <td className="px-4 py-3 text-steel">{line.account ? `${line.account.code} ${line.account.name}` : "-"}</td>
                     <td className="px-4 py-3 font-mono text-xs">{line.quantity}</td>
                     <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.unitPrice, invoice.currency)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{line.discountRate}%</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.lineGrossAmount, invoice.currency)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.discountAmount, invoice.currency)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.taxableAmount, invoice.currency)}</td>
                     <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.taxAmount, invoice.currency)}</td>
                     <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.lineTotal, invoice.currency)}</td>
                   </tr>
@@ -154,6 +193,8 @@ export default function SalesInvoiceDetailPage() {
             <span className="text-right font-mono">{formatMoneyAmount(invoice.subtotal, invoice.currency)}</span>
             <span className="text-steel">Discount</span>
             <span className="text-right font-mono">{formatMoneyAmount(invoice.discountTotal, invoice.currency)}</span>
+            <span className="text-steel">Taxable</span>
+            <span className="text-right font-mono">{formatMoneyAmount(invoice.taxableTotal, invoice.currency)}</span>
             <span className="text-steel">VAT</span>
             <span className="text-right font-mono">{formatMoneyAmount(invoice.taxTotal, invoice.currency)}</span>
             <span className="font-semibold text-ink">Total</span>

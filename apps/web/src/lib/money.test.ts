@@ -1,4 +1,5 @@
 import { calculateInvoicePreview, calculateTotals, formatUnits, parseDecimalToUnits } from "./money";
+import { formatOptionalDate } from "./invoice-display";
 
 describe("money utilities", () => {
   it("parses decimal strings into four-decimal minor units", () => {
@@ -26,11 +27,26 @@ describe("money utilities", () => {
     expect(
       calculateInvoicePreview([{ quantity: "1.0000", unitPrice: "200.0000", discountRate: "10.0000", taxRate: "15.0000" }]),
     ).toMatchObject({
-      subtotal: "180.0000",
+      subtotal: "200.0000",
       discountTotal: "20.0000",
+      taxableTotal: "180.0000",
       taxTotal: "27.0000",
       total: "207.0000",
       valid: true,
     });
+  });
+
+  it("allows zero-price draft invoice preview lines", () => {
+    expect(calculateInvoicePreview([{ quantity: "1.0000", unitPrice: "0.0000" }])).toMatchObject({
+      subtotal: "0.0000",
+      taxableTotal: "0.0000",
+      total: "0.0000",
+      valid: true,
+    });
+  });
+
+  it("formats optional due dates", () => {
+    expect(formatOptionalDate(null)).toBe("No due date");
+    expect(formatOptionalDate("not-a-date")).toBe("No due date");
   });
 });

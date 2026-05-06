@@ -26,8 +26,9 @@ export class CreateItemDto {
   @IsUUID()
   revenueAccountId!: string;
 
+  @IsOptional()
   @IsUUID()
-  salesTaxRateId!: string;
+  salesTaxRateId?: string | null;
 
   @IsOptional()
   @IsDecimal({ decimal_digits: "0,4" })
@@ -35,11 +36,11 @@ export class CreateItemDto {
 
   @IsOptional()
   @IsUUID()
-  expenseAccountId?: string;
+  expenseAccountId?: string | null;
 
   @IsOptional()
   @IsUUID()
-  purchaseTaxRateId?: string;
+  purchaseTaxRateId?: string | null;
 
   @IsOptional()
   @IsBoolean()

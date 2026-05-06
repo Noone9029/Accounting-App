@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import { AuthenticatedUser } from "../auth/auth.types";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -50,5 +50,10 @@ export class SalesInvoiceController {
   @Post(":id/void")
   void(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
     return this.salesInvoiceService.void(organizationId, user.id, id);
+  }
+
+  @Delete(":id")
+  remove(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+    return this.salesInvoiceService.remove(organizationId, user.id, id);
   }
 }

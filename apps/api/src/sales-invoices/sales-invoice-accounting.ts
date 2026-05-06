@@ -3,7 +3,7 @@ import { assertBalancedJournal, JournalLineInput, toMoney } from "@ledgerbyte/ac
 export interface SalesInvoicePostingLine {
   accountId: string;
   description: string;
-  lineSubtotal: string;
+  taxableAmount: string;
 }
 
 export interface SalesInvoicePostingInput {
@@ -33,20 +33,24 @@ export function buildSalesInvoiceJournalLines(input: SalesInvoicePostingInput): 
   for (const invoiceLine of input.lines) {
     const existing = revenueByAccount.get(invoiceLine.accountId);
     if (existing) {
-      existing.amount = existing.amount.plus(invoiceLine.lineSubtotal);
+      existing.amount = existing.amount.plus(invoiceLine.taxableAmount);
       if (existing.descriptions.length < 3) {
         existing.descriptions.push(invoiceLine.description);
       }
     } else {
-      revenueByAccount.set(invoiceLine.accountId, { amount: toMoney(invoiceLine.lineSubtotal), descriptions: [invoiceLine.description] });
+      revenueByAccount.set(invoiceLine.accountId, { amount: toMoney(invoiceLine.taxableAmount), descriptions: [invoiceLine.description] });
     }
   }
 
   for (const [accountId, revenue] of revenueByAccount.entries()) {
+    if (revenue.amount.eq(0)) {
+      continue;
+    }
+
     lines.push({
       accountId,
       debit: "0.0000",
-      credit: revenue.amount.toFixed(4),
+        credit: revenue.amount.toFixed(4),
       description: `Sales invoice ${input.invoiceNumber}: ${revenue.descriptions.join(", ")}`,
       currency: input.currency,
       exchangeRate: "1",

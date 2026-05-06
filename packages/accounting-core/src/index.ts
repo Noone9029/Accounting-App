@@ -27,10 +27,11 @@ export interface CalculatedSalesInvoiceLine {
   quantity: string;
   unitPrice: string;
   discountRate: string;
+  lineGrossAmount: string;
   discountAmount: string;
   taxRate: string;
+  taxableAmount: string;
   taxAmount: string;
-  lineSubtotal: string;
   lineTotal: string;
 }
 
@@ -38,6 +39,7 @@ export interface SalesInvoiceTotals {
   lines: CalculatedSalesInvoiceLine[];
   subtotal: string;
   discountTotal: string;
+  taxableTotal: string;
   taxTotal: string;
   total: string;
 }
@@ -154,8 +156,8 @@ export function calculateSalesInvoiceLine(line: SalesInvoiceLineInput, lineIndex
     throw new AccountingRuleError(`Invoice line ${lineIndex + 1} quantity must be greater than zero.`, "INVOICE_LINE_INVALID_QUANTITY");
   }
 
-  if (unitPrice.lte(0)) {
-    throw new AccountingRuleError(`Invoice line ${lineIndex + 1} unit price must be greater than zero.`, "INVOICE_LINE_INVALID_UNIT_PRICE");
+  if (unitPrice.lt(0)) {
+    throw new AccountingRuleError(`Invoice line ${lineIndex + 1} unit price cannot be negative.`, "INVOICE_LINE_INVALID_UNIT_PRICE");
   }
 
   if (discountRate.lt(0)) {
@@ -170,20 +172,25 @@ export function calculateSalesInvoiceLine(line: SalesInvoiceLineInput, lineIndex
     throw new AccountingRuleError(`Invoice line ${lineIndex + 1} tax rate cannot be negative.`, "INVOICE_LINE_NEGATIVE_TAX");
   }
 
-  const gross = roundMoney(quantity.mul(unitPrice));
-  const discountAmount = roundMoney(gross.mul(discountRate).div(100));
-  const lineSubtotal = roundMoney(gross.minus(discountAmount));
-  const taxAmount = roundMoney(lineSubtotal.mul(taxRate).div(100));
-  const lineTotal = roundMoney(lineSubtotal.plus(taxAmount));
+  const lineGrossAmount = roundMoney(quantity.mul(unitPrice));
+  const discountAmount = roundMoney(lineGrossAmount.mul(discountRate).div(100));
+  const taxableAmount = roundMoney(lineGrossAmount.minus(discountAmount));
+  const taxAmount = roundMoney(taxableAmount.mul(taxRate).div(100));
+  const lineTotal = roundMoney(taxableAmount.plus(taxAmount));
+
+  if (taxableAmount.lt(0) || lineTotal.lt(0)) {
+    throw new AccountingRuleError(`Invoice line ${lineIndex + 1} total cannot be negative.`, "INVOICE_LINE_NEGATIVE_TOTAL");
+  }
 
   return {
     quantity: quantity.toFixed(4),
     unitPrice: unitPrice.toFixed(4),
     discountRate: discountRate.toFixed(4),
+    lineGrossAmount: lineGrossAmount.toFixed(4),
     discountAmount: discountAmount.toFixed(4),
     taxRate: taxRate.toFixed(4),
+    taxableAmount: taxableAmount.toFixed(4),
     taxAmount: taxAmount.toFixed(4),
-    lineSubtotal: lineSubtotal.toFixed(4),
     lineTotal: lineTotal.toFixed(4),
   };
 }
@@ -196,22 +203,38 @@ export function calculateSalesInvoiceTotals(lines: SalesInvoiceLineInput[]): Sal
   const calculatedLines = lines.map((line, index) => calculateSalesInvoiceLine(line, index));
   const totals = calculatedLines.reduce(
     (acc, line) => {
-      acc.subtotal = acc.subtotal.plus(line.lineSubtotal);
+      acc.subtotal = acc.subtotal.plus(line.lineGrossAmount);
       acc.discountTotal = acc.discountTotal.plus(line.discountAmount);
+      acc.taxableTotal = acc.taxableTotal.plus(line.taxableAmount);
       acc.taxTotal = acc.taxTotal.plus(line.taxAmount);
       acc.total = acc.total.plus(line.lineTotal);
       return acc;
     },
-    { subtotal: ZERO, discountTotal: ZERO, taxTotal: ZERO, total: ZERO },
+    { subtotal: ZERO, discountTotal: ZERO, taxableTotal: ZERO, taxTotal: ZERO, total: ZERO },
   );
 
   return {
     lines: calculatedLines,
     subtotal: roundMoney(totals.subtotal).toFixed(4),
     discountTotal: roundMoney(totals.discountTotal).toFixed(4),
+    taxableTotal: roundMoney(totals.taxableTotal).toFixed(4),
     taxTotal: roundMoney(totals.taxTotal).toFixed(4),
     total: roundMoney(totals.total).toFixed(4),
   };
+}
+
+export function assertFinalizableSalesInvoice(totals: SalesInvoiceTotals): void {
+  if (toMoney(totals.total).lt(0)) {
+    throw new AccountingRuleError("Invoice total cannot be negative.", "INVOICE_TOTAL_NEGATIVE");
+  }
+
+  if (toMoney(totals.total).lte(0)) {
+    throw new AccountingRuleError("Finalized invoices must have a total greater than zero.", "INVOICE_TOTAL_MUST_BE_POSITIVE");
+  }
+
+  if (!totals.lines.some((line) => toMoney(line.lineTotal).gt(0))) {
+    throw new AccountingRuleError("Finalized invoices require at least one line with a positive total.", "INVOICE_REQUIRES_POSITIVE_LINE");
+  }
 }
 
 export function assertDraftInvoiceEditable(status: InvoiceStatus): void {

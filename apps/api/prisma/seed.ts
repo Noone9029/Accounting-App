@@ -128,7 +128,7 @@ async function main(): Promise<void> {
     });
   }
 
-  if (salesAccountId && salesTaxRateId) {
+  if (salesAccountId) {
     await prisma.item.upsert({
       where: { organizationId_sku: { organizationId: organization.id, sku: "STANDARD-PRODUCT" } },
       update: {},
@@ -140,7 +140,6 @@ async function main(): Promise<void> {
         type: "PRODUCT",
         sellingPrice: "250.0000",
         revenueAccountId: salesAccountId,
-        salesTaxRateId,
         purchaseCost: "125.0000",
         expenseAccountId: generalExpenseAccountId,
         purchaseTaxRateId,

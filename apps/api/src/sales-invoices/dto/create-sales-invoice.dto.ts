@@ -8,13 +8,14 @@ export class CreateSalesInvoiceDto {
 
   @IsOptional()
   @IsUUID()
-  branchId?: string;
+  branchId?: string | null;
 
   @IsDateString()
   issueDate!: string;
 
+  @IsOptional()
   @IsDateString()
-  dueDate!: string;
+  dueDate?: string | null;
 
   @IsOptional()
   @IsString()
