@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
@@ -120,6 +121,7 @@ export default function ContactsPage() {
                 <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">VAT number</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -131,6 +133,11 @@ export default function ContactsPage() {
                   <td className="px-4 py-3 text-steel">{contact.phone ?? "-"}</td>
                   <td className="px-4 py-3 text-steel">{contact.taxNumber ?? "-"}</td>
                   <td className="px-4 py-3 text-steel">{contact.isActive ? "Active" : "Inactive"}</td>
+                  <td className="px-4 py-3">
+                    <Link href={`/contacts/${contact.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      View
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -189,6 +189,47 @@ describe("customer payment rules", () => {
 
     await expect(service.void("org-1", "user-1", "payment-1")).rejects.toThrow("Only posted customer payments can be voided.");
   });
+
+  it("returns receipt data with invoice allocations", async () => {
+    const prisma = {
+      customerPayment: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "payment-1",
+          paymentNumber: "PAY-000001",
+          paymentDate: new Date("2026-05-06T00:00:00.000Z"),
+          customer: { id: "customer-1", name: "Customer", displayName: "Customer", email: null, phone: null, taxNumber: null },
+          organization: { id: "org-1", name: "Org", legalName: null, taxNumber: null, countryCode: "SA", baseCurrency: "SAR", timezone: "Asia/Riyadh" },
+          amountReceived: "115.0000",
+          unappliedAmount: "0.0000",
+          currency: "SAR",
+          account: { id: "bank-1", code: "112", name: "Bank Account", type: "ASSET" },
+          journalEntry: { id: "journal-1", entryNumber: "JE-000001", status: JournalEntryStatus.POSTED, totalDebit: "115.0000", totalCredit: "115.0000" },
+          allocations: [
+            {
+              invoiceId: "invoice-1",
+              amountApplied: "115.0000",
+              invoice: {
+                id: "invoice-1",
+                invoiceNumber: "INV-000001",
+                issueDate: new Date("2026-05-06T00:00:00.000Z"),
+                total: "115.0000",
+                balanceDue: "0.0000",
+              },
+            },
+          ],
+          status: CustomerPaymentStatus.POSTED,
+        }),
+      },
+    };
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await expect(service.receiptData("org-1", "payment-1")).resolves.toMatchObject({
+      receiptNumber: "PAY-000001",
+      amountReceived: "115.0000",
+      allocations: [{ invoiceId: "invoice-1", invoiceNumber: "INV-000001", amountApplied: "115.0000" }],
+    });
+    expect(prisma.customerPayment.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "payment-1", organizationId: "org-1" } }));
+  });
 });
 
 function makeCreatePrismaMock(options: { tx?: ReturnType<typeof makeCreateTransactionMock>; invoiceBalanceDue?: string } = {}) {

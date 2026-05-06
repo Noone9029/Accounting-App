@@ -1,5 +1,6 @@
 import { calculateInvoicePreview, calculatePaymentAllocationPreview, calculateTotals, formatUnits, parseDecimalToUnits } from "./money";
 import { deriveInvoicePaymentState, formatOptionalDate } from "./invoice-display";
+import { defaultStatementFromDate, defaultStatementToDate, formatLedgerBalance } from "./ledger-display";
 
 describe("money utilities", () => {
   it("parses decimal strings into four-decimal minor units", () => {
@@ -73,5 +74,17 @@ describe("money utilities", () => {
     expect(deriveInvoicePaymentState("100.0000", "100.0000")).toBe("Unpaid");
     expect(deriveInvoicePaymentState("100.0000", "40.0000")).toBe("Partially paid");
     expect(deriveInvoicePaymentState("100.0000", "0.0000")).toBe("Paid");
+  });
+
+  it("formats ledger balances with debit and credit markers", () => {
+    expect(formatLedgerBalance("100.0000")).toBe("SAR 100.00 Dr");
+    expect(formatLedgerBalance("-25.0000")).toBe("SAR 25.00 Cr");
+    expect(formatLedgerBalance("0.0000")).toBe("SAR 0.00");
+  });
+
+  it("builds default statement date inputs", () => {
+    const now = new Date("2026-05-06T12:00:00.000Z");
+    expect(defaultStatementFromDate(now)).toBe("2026-01-01");
+    expect(defaultStatementToDate(now)).toBe("2026-05-06");
   });
 });

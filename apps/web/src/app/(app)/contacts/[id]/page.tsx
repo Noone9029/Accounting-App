@@ -1,0 +1,282 @@
+"use client";
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { FormEvent, useEffect, useState } from "react";
+import { StatusMessage } from "@/components/common/status-message";
+import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { apiRequest } from "@/lib/api";
+import { formatOptionalDate } from "@/lib/invoice-display";
+import { defaultStatementFromDate, defaultStatementToDate, formatLedgerBalance } from "@/lib/ledger-display";
+import { formatMoneyAmount } from "@/lib/money";
+import type { CustomerLedger, CustomerLedgerRow, CustomerStatement } from "@/lib/types";
+
+type ActiveSection = "overview" | "ledger" | "statement";
+
+export default function ContactDetailPage() {
+  const params = useParams<{ id: string }>();
+  const organizationId = useActiveOrganizationId();
+  const [ledger, setLedger] = useState<CustomerLedger | null>(null);
+  const [statement, setStatement] = useState<CustomerStatement | null>(null);
+  const [activeSection, setActiveSection] = useState<ActiveSection>("overview");
+  const [fromDate, setFromDate] = useState(defaultStatementFromDate());
+  const [toDate, setToDate] = useState(defaultStatementToDate());
+  const [loading, setLoading] = useState(false);
+  const [statementLoading, setStatementLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [statementError, setStatementError] = useState("");
+
+  useEffect(() => {
+    if (!organizationId || !params.id) {
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+
+    apiRequest<CustomerLedger>(`/contacts/${params.id}/ledger`)
+      .then((result) => {
+        if (!cancelled) {
+          setLedger(result);
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : "Unable to load customer ledger.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId, params.id]);
+
+  async function loadStatement(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStatementError("");
+    setStatementLoading(true);
+
+    try {
+      const query = new URLSearchParams();
+      if (fromDate) {
+        query.set("from", fromDate);
+      }
+      if (toDate) {
+        query.set("to", toDate);
+      }
+
+      const result = await apiRequest<CustomerStatement>(`/contacts/${params.id}/statement?${query.toString()}`);
+      setStatement(result);
+    } catch (loadError) {
+      setStatementError(loadError instanceof Error ? loadError.message : "Unable to load customer statement.");
+    } finally {
+      setStatementLoading(false);
+    }
+  }
+
+  return (
+    <section>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{ledger?.contact.displayName ?? ledger?.contact.name ?? "Contact"}</h1>
+          <p className="mt-1 text-sm text-steel">Customer profile, AR ledger, and statement groundwork.</p>
+        </div>
+        <Link href="/contacts" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          Back
+        </Link>
+      </div>
+
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load contacts.</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">Loading customer ledger...</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+      </div>
+
+      {ledger ? (
+        <div className="mt-5 space-y-5">
+          <div className="flex flex-wrap gap-2 border-b border-slate-200">
+            {(["overview", "ledger", "statement"] as ActiveSection[]).map((section) => (
+              <button
+                key={section}
+                type="button"
+                onClick={() => setActiveSection(section)}
+                className={`border-b-2 px-3 py-2 text-sm font-medium capitalize ${activeSection === section ? "border-palm text-ink" : "border-transparent text-steel hover:text-ink"}`}
+              >
+                {section}
+              </button>
+            ))}
+          </div>
+
+          {activeSection === "overview" ? (
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.4fr_0.8fr]">
+              <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+                <h2 className="text-base font-semibold text-ink">Profile</h2>
+                <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
+                  <Summary label="Name" value={ledger.contact.name} />
+                  <Summary label="Display name" value={ledger.contact.displayName ?? "-"} />
+                  <Summary label="Type" value={ledger.contact.type} />
+                  <Summary label="Email" value={ledger.contact.email ?? "-"} />
+                  <Summary label="Phone" value={ledger.contact.phone ?? "-"} />
+                  <Summary label="VAT number" value={ledger.contact.taxNumber ?? "-"} />
+                </div>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+                <h2 className="text-base font-semibold text-ink">Balance</h2>
+                <div className="mt-4 space-y-3 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-steel">Opening balance</span>
+                    <span className="font-mono">{formatLedgerBalance(ledger.openingBalance)}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="font-semibold text-ink">Closing balance</span>
+                    <span className="font-mono font-semibold text-ink">{formatLedgerBalance(ledger.closingBalance)}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-steel">Ledger rows</span>
+                    <span className="font-mono">{ledger.rows.length}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {activeSection === "ledger" ? (
+            <div className="space-y-4">
+              <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+                <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                  <span className="text-steel">Opening balance: {formatLedgerBalance(ledger.openingBalance)}</span>
+                  <span className="font-semibold text-ink">Closing balance: {formatLedgerBalance(ledger.closingBalance)}</span>
+                </div>
+              </div>
+              <LedgerTable rows={ledger.rows} emptyMessage="No ledger activity found for this customer." />
+            </div>
+          ) : null}
+
+          {activeSection === "statement" ? (
+            <div className="space-y-4">
+              <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+                <form onSubmit={loadStatement} className="flex flex-wrap items-end gap-3">
+                  <label className="block">
+                    <span className="text-xs font-medium uppercase tracking-wide text-steel">From</span>
+                    <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium uppercase tracking-wide text-steel">To</span>
+                    <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                  </label>
+                  <button type="submit" disabled={statementLoading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+                    {statementLoading ? "Loading..." : "Load statement"}
+                  </button>
+                </form>
+                {statementError ? (
+                  <div className="mt-3">
+                    <StatusMessage type="error">{statementError}</StatusMessage>
+                  </div>
+                ) : null}
+              </div>
+
+              {statement ? (
+                <>
+                  <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+                    <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
+                      <Summary label="Period from" value={statement.periodFrom ?? "-"} />
+                      <Summary label="Period to" value={statement.periodTo ?? "-"} />
+                      <Summary label="Opening balance" value={formatLedgerBalance(statement.openingBalance)} />
+                      <Summary label="Closing balance" value={formatLedgerBalance(statement.closingBalance)} />
+                    </div>
+                  </div>
+                  <LedgerTable rows={statement.rows} emptyMessage="No statement rows found for this period." />
+                </>
+              ) : (
+                <StatusMessage type="info">Choose a period and load a statement.</StatusMessage>
+              )}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function LedgerTable({ rows, emptyMessage }: { rows: CustomerLedgerRow[]; emptyMessage: string }) {
+  if (rows.length === 0) {
+    return <StatusMessage type="empty">{emptyMessage}</StatusMessage>;
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+      <table className="w-full min-w-[1120px] text-left text-sm">
+        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+          <tr>
+            <th className="px-4 py-3">Date</th>
+            <th className="px-4 py-3">Type</th>
+            <th className="px-4 py-3">Number</th>
+            <th className="px-4 py-3">Description</th>
+            <th className="px-4 py-3">Debit</th>
+            <th className="px-4 py-3">Credit</th>
+            <th className="px-4 py-3">Balance</th>
+            <th className="px-4 py-3">Status</th>
+            <th className="px-4 py-3">Action</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {rows.map((row) => (
+            <tr key={row.id}>
+              <td className="px-4 py-3 text-steel">{formatOptionalDate(row.date, "-")}</td>
+              <td className="px-4 py-3 text-steel">{row.type.replaceAll("_", " ")}</td>
+              <td className="px-4 py-3 font-mono text-xs">{row.number}</td>
+              <td className="px-4 py-3 font-medium text-ink">{row.description}</td>
+              <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(row.debit)}</td>
+              <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(row.credit)}</td>
+              <td className="px-4 py-3 font-mono text-xs">{formatLedgerBalance(row.balance)}</td>
+              <td className="px-4 py-3 text-steel">{row.status}</td>
+              <td className="px-4 py-3">{renderRowLink(row)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function renderRowLink(row: CustomerLedgerRow) {
+  if (row.sourceType === "SalesInvoice") {
+    return (
+      <Link href={`/sales/invoices/${row.sourceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        View invoice
+      </Link>
+    );
+  }
+
+  if (row.sourceType === "CustomerPayment") {
+    return (
+      <Link href={`/sales/customer-payments/${row.sourceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        View payment
+      </Link>
+    );
+  }
+
+  const invoiceId = typeof row.metadata.invoiceId === "string" ? row.metadata.invoiceId : "";
+  return invoiceId ? (
+    <Link href={`/sales/invoices/${invoiceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+      View invoice
+    </Link>
+  ) : (
+    "-"
+  );
+}
+
+function Summary({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
+      <div className="mt-1 break-words font-medium text-ink">{value}</div>
+    </div>
+  );
+}

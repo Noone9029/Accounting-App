@@ -7,6 +7,7 @@ export type ItemType = "SERVICE" | "PRODUCT";
 export type ItemStatus = "ACTIVE" | "DISABLED";
 export type SalesInvoiceStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type CustomerPaymentStatus = "DRAFT" | "POSTED" | "VOIDED";
+export type CustomerLedgerRowType = "INVOICE" | "PAYMENT" | "PAYMENT_ALLOCATION" | "VOID_PAYMENT" | "VOID_INVOICE";
 
 export interface Organization {
   id: string;
@@ -206,6 +207,54 @@ export interface CustomerPayment {
   journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit?: string; totalCredit?: string } | null;
   voidReversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
   allocations?: CustomerPaymentAllocation[];
+}
+
+export interface CustomerLedgerRow {
+  id: string;
+  type: CustomerLedgerRowType;
+  date: string;
+  number: string;
+  description: string;
+  debit: string;
+  credit: string;
+  balance: string;
+  sourceType: "SalesInvoice" | "CustomerPayment" | "CustomerPaymentAllocation";
+  sourceId: string;
+  status: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface CustomerLedger {
+  contact: Pick<Contact, "id" | "name" | "displayName" | "type" | "email" | "phone" | "taxNumber">;
+  openingBalance: string;
+  closingBalance: string;
+  rows: CustomerLedgerRow[];
+}
+
+export interface CustomerStatement extends CustomerLedger {
+  periodFrom: string | null;
+  periodTo: string | null;
+}
+
+export interface CustomerPaymentReceiptData {
+  receiptNumber: string;
+  paymentDate: string;
+  customer: Pick<Contact, "id" | "name" | "displayName" | "email" | "phone" | "taxNumber">;
+  organization: Organization;
+  amountReceived: string;
+  unappliedAmount: string;
+  currency: string;
+  paidThroughAccount: { id: string; code: string; name: string; type: AccountType };
+  allocations: Array<{
+    invoiceId: string;
+    invoiceNumber: string;
+    invoiceDate: string;
+    invoiceTotal: string;
+    amountApplied: string;
+    invoiceBalanceDue: string;
+  }>;
+  journalEntry: { id: string; entryNumber: string; status: JournalStatus; totalDebit: string; totalCredit: string } | null;
+  status: CustomerPaymentStatus;
 }
 
 export interface OpenSalesInvoice {

@@ -26,6 +26,11 @@ export class CustomerPaymentController {
     return this.customerPaymentService.create(organizationId, user.id, dto);
   }
 
+  @Get(":id/receipt-data")
+  receiptData(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.customerPaymentService.receiptData(organizationId, id);
+  }
+
   @Get(":id")
   get(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.customerPaymentService.get(organizationId, id);

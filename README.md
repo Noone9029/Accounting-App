@@ -101,6 +101,8 @@ Contacts:
 - `POST /contacts`
 - `PATCH /contacts/:id`
 - `GET /contacts/:id`
+- `GET /contacts/:id/ledger`
+- `GET /contacts/:id/statement?from=YYYY-MM-DD&to=YYYY-MM-DD`
 
 Branches:
 
@@ -132,6 +134,7 @@ Customer payments:
 - `GET /customer-payments`
 - `POST /customer-payments`
 - `GET /customer-payments/:id`
+- `GET /customer-payments/:id/receipt-data`
 - `POST /customer-payments/:id/void`
 - `DELETE /customer-payments/:id`
 
@@ -210,6 +213,33 @@ Payment posting behavior:
 - Voiding a posted payment creates or reuses one reversal journal entry, marks the payment `VOIDED`, and restores invoice balances.
 - Voiding twice is idempotent and does not create repeated reversals.
 
+## Customer Ledger Rules
+
+Customer ledgers are available for contacts of type `CUSTOMER` or `BOTH`.
+
+- `GET /contacts/:id/ledger` returns contact summary, opening balance, closing balance, and chronological ledger rows.
+- Opening balance is `0.0000` for the full ledger foundation.
+- Invoice rows increase accounts receivable with a debit equal to invoice total.
+- Payment rows decrease accounts receivable with a credit equal to payment `amountReceived`.
+- Payment allocation rows are visible as zero-value informational rows to avoid double-counting.
+- Voided payment rows reverse the visible payment effect with a debit equal to payment `amountReceived`.
+- Voided invoice rows reverse the visible invoice effect with a credit equal to invoice total.
+- Running balance is decimal-safe and reflects finalized non-voided invoices minus non-voided posted payments.
+- Unapplied payment amounts are included in row metadata because payment creation currently credits AR for full `amountReceived`.
+
+Customer statements:
+
+- `GET /contacts/:id/statement?from=YYYY-MM-DD&to=YYYY-MM-DD` reuses ledger rows with period filtering.
+- `openingBalance` is calculated from ledger activity before `from`.
+- `closingBalance` is calculated at the end of the filtered period.
+- Statement PDF export is not implemented yet.
+
+Receipt data:
+
+- `GET /customer-payments/:id/receipt-data` returns structured receipt data for future PDF rendering.
+- The response includes organization, customer, payment, paid-through account, journal entry, status, and invoice allocations.
+- No receipt PDF is generated in this step.
+
 ## Current Package Boundaries
 
 - `packages/accounting-core`: decimal-safe journal and invoice calculation rules
@@ -225,6 +255,7 @@ Payment posting behavior:
 - Applying unapplied overpayment credits to invoices later is not implemented yet.
 - Sales invoice PDF rendering is not implemented yet.
 - Credit notes are not implemented yet.
+- Credit note ledger rows are reserved as a future hook, but credit notes are not implemented yet.
 - Recurring invoices are not implemented yet.
 - Bank reconciliation is not implemented yet.
 - Inventory movement and stock valuation are not implemented yet.

@@ -82,6 +82,76 @@ export class CustomerPaymentService {
     return payment;
   }
 
+  async receiptData(organizationId: string, id: string) {
+    const payment = await this.prisma.customerPayment.findFirst({
+      where: { id, organizationId },
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            legalName: true,
+            taxNumber: true,
+            countryCode: true,
+            baseCurrency: true,
+            timezone: true,
+          },
+        },
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+            email: true,
+            phone: true,
+            taxNumber: true,
+          },
+        },
+        account: { select: { id: true, code: true, name: true, type: true } },
+        journalEntry: { select: { id: true, entryNumber: true, status: true, totalDebit: true, totalCredit: true } },
+        allocations: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            invoice: {
+              select: {
+                id: true,
+                invoiceNumber: true,
+                issueDate: true,
+                total: true,
+                balanceDue: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException("Customer payment not found.");
+    }
+
+    return {
+      receiptNumber: payment.paymentNumber,
+      paymentDate: payment.paymentDate,
+      customer: payment.customer,
+      organization: payment.organization,
+      amountReceived: payment.amountReceived,
+      unappliedAmount: payment.unappliedAmount,
+      currency: payment.currency,
+      paidThroughAccount: payment.account,
+      allocations: payment.allocations.map((allocation) => ({
+        invoiceId: allocation.invoiceId,
+        invoiceNumber: allocation.invoice.invoiceNumber,
+        invoiceDate: allocation.invoice.issueDate,
+        invoiceTotal: allocation.invoice.total,
+        amountApplied: allocation.amountApplied,
+        invoiceBalanceDue: allocation.invoice.balanceDue,
+      })),
+      journalEntry: payment.journalEntry,
+      status: payment.status,
+    };
+  }
+
   async create(organizationId: string, actorUserId: string, dto: CreateCustomerPaymentDto) {
     const amountReceived = this.assertPositiveMoney(dto.amountReceived, "Amount received");
     this.assertAllocations(dto.allocations);

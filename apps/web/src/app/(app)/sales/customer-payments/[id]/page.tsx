@@ -7,12 +7,13 @@ import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatMoneyAmount } from "@/lib/money";
-import type { CustomerPayment } from "@/lib/types";
+import type { CustomerPayment, CustomerPaymentReceiptData } from "@/lib/types";
 
 export default function CustomerPaymentDetailPage() {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
   const [payment, setPayment] = useState<CustomerPayment | null>(null);
+  const [receiptData, setReceiptData] = useState<CustomerPaymentReceiptData | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
@@ -27,10 +28,14 @@ export default function CustomerPaymentDetailPage() {
     setLoading(true);
     setError("");
 
-    apiRequest<CustomerPayment>(`/customer-payments/${params.id}`)
-      .then((result) => {
+    Promise.all([
+      apiRequest<CustomerPayment>(`/customer-payments/${params.id}`),
+      apiRequest<CustomerPaymentReceiptData>(`/customer-payments/${params.id}/receipt-data`),
+    ])
+      .then(([paymentResult, receiptResult]) => {
         if (!cancelled) {
-          setPayment(result);
+          setPayment(paymentResult);
+          setReceiptData(receiptResult);
         }
       })
       .catch((loadError: unknown) => {
@@ -60,7 +65,9 @@ export default function CustomerPaymentDetailPage() {
 
     try {
       const updated = await apiRequest<CustomerPayment>(`/customer-payments/${payment.id}/void`, { method: "POST" });
+      const receipt = await apiRequest<CustomerPaymentReceiptData>(`/customer-payments/${payment.id}/receipt-data`);
       setPayment(updated);
+      setReceiptData(receipt);
       setSuccess(`Voided payment ${updated.paymentNumber}.`);
     } catch (voidError) {
       setError(voidError instanceof Error ? voidError.message : "Unable to void payment.");
@@ -153,6 +160,61 @@ export default function CustomerPaymentDetailPage() {
               </div>
             ) : null}
           </div>
+
+          {receiptData ? (
+            <div className="rounded-md border border-slate-200 bg-white shadow-panel">
+              <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
+                <div>
+                  <h2 className="text-base font-semibold text-ink">Receipt data preview</h2>
+                  <p className="mt-1 text-sm text-steel">Structured receipt payload for future PDF rendering.</p>
+                </div>
+                <button type="button" disabled className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-400">
+                  Download receipt PDF - coming soon
+                </button>
+              </div>
+              <div className="p-5">
+                <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
+                  <Summary label="Receipt number" value={receiptData.receiptNumber} />
+                  <Summary label="Customer" value={receiptData.customer.displayName ?? receiptData.customer.name} />
+                  <Summary label="Payment date" value={new Date(receiptData.paymentDate).toLocaleDateString()} />
+                  <Summary label="Status" value={receiptData.status} />
+                  <Summary label="Amount received" value={formatMoneyAmount(receiptData.amountReceived, receiptData.currency)} />
+                  <Summary label="Unapplied" value={formatMoneyAmount(receiptData.unappliedAmount, receiptData.currency)} />
+                  <Summary label="Paid through" value={`${receiptData.paidThroughAccount.code} ${receiptData.paidThroughAccount.name}`} />
+                  <Summary label="Journal entry" value={receiptData.journalEntry ? `${receiptData.journalEntry.entryNumber} (${receiptData.journalEntry.id})` : "-"} />
+                </div>
+              </div>
+              <div className="overflow-x-auto border-t border-slate-200">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                    <tr>
+                      <th className="px-4 py-3">Invoice</th>
+                      <th className="px-4 py-3">Invoice date</th>
+                      <th className="px-4 py-3">Invoice total</th>
+                      <th className="px-4 py-3">Amount applied</th>
+                      <th className="px-4 py-3">Invoice balance</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {receiptData.allocations.map((allocation) => (
+                      <tr key={allocation.invoiceId}>
+                        <td className="px-4 py-3 font-mono text-xs">{allocation.invoiceNumber}</td>
+                        <td className="px-4 py-3 text-steel">{new Date(allocation.invoiceDate).toLocaleDateString()}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.invoiceTotal, receiptData.currency)}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, receiptData.currency)}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.invoiceBalanceDue, receiptData.currency)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {receiptData.allocations.length === 0 ? (
+                  <div className="px-4 py-5">
+                    <StatusMessage type="empty">No invoice allocations are included in this receipt data.</StatusMessage>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>

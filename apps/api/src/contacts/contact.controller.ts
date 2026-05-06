@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { AuthenticatedUser } from "../auth/auth.types";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
+import { ContactLedgerService } from "./contact-ledger.service";
 import { ContactService } from "./contact.service";
 import { CreateContactDto } from "./dto/create-contact.dto";
 import { UpdateContactDto } from "./dto/update-contact.dto";
@@ -11,7 +12,10 @@ import { UpdateContactDto } from "./dto/update-contact.dto";
 @Controller("contacts")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard)
 export class ContactController {
-  constructor(private readonly contactService: ContactService) {}
+  constructor(
+    private readonly contactService: ContactService,
+    private readonly contactLedgerService: ContactLedgerService,
+  ) {}
 
   @Get()
   list(@CurrentOrganizationId() organizationId: string) {
@@ -21,6 +25,21 @@ export class ContactController {
   @Post()
   create(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Body() dto: CreateContactDto) {
     return this.contactService.create(organizationId, user.id, dto);
+  }
+
+  @Get(":id/ledger")
+  ledger(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.contactLedgerService.ledger(organizationId, id);
+  }
+
+  @Get(":id/statement")
+  statement(
+    @CurrentOrganizationId() organizationId: string,
+    @Param("id") id: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+  ) {
+    return this.contactLedgerService.statement(organizationId, id, from, to);
   }
 
   @Get(":id")

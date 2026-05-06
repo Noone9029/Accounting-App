@@ -110,6 +110,11 @@ export default function SalesInvoiceDetailPage() {
               Edit
             </Link>
           ) : null}
+          {invoice?.customerId ? (
+            <Link href={`/contacts/${invoice.customerId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Customer ledger
+            </Link>
+          ) : null}
           {invoice?.status === "FINALIZED" && invoice.customerId ? (
             <Link href={`/sales/customer-payments/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
               Record payment
