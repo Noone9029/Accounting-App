@@ -14,6 +14,7 @@ import {
   AccountType,
   ContactType,
   CustomerPaymentStatus,
+  DocumentType,
   ItemStatus,
   JournalEntryStatus,
   NumberSequenceScope,
@@ -23,7 +24,9 @@ import {
 } from "@prisma/client";
 import { AccountingService } from "../accounting/accounting.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
+import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateSalesInvoiceDto } from "./dto/create-sales-invoice.dto";
 import { SalesInvoiceLineDto } from "./dto/sales-invoice-line.dto";
@@ -96,6 +99,8 @@ export class SalesInvoiceService {
     private readonly auditLogService: AuditLogService,
     private readonly numberSequenceService: NumberSequenceService,
     private readonly accountingService: AccountingService,
+    private readonly documentSettingsService?: OrganizationDocumentSettingsService,
+    private readonly generatedDocumentService?: GeneratedDocumentService,
   ) {}
 
   list(organizationId: string) {
@@ -244,9 +249,31 @@ export class SalesInvoiceService {
     };
   }
 
-  async pdf(organizationId: string, id: string): Promise<{ data: InvoicePdfData; buffer: Buffer }> {
+  async pdf(
+    organizationId: string,
+    actorUserId: string,
+    id: string,
+  ): Promise<{ data: InvoicePdfData; buffer: Buffer; filename: string; document: unknown | null }> {
     const data = await this.pdfData(organizationId, id);
-    return { data, buffer: await renderInvoicePdf(data) };
+    const settings = await this.documentSettingsService?.invoiceRenderSettings(organizationId);
+    const buffer = await renderInvoicePdf(data, settings);
+    const filename = sanitizeFilename(`invoice-${data.invoice.invoiceNumber}.pdf`);
+    const document = await this.generatedDocumentService?.archivePdf({
+      organizationId,
+      documentType: DocumentType.SALES_INVOICE,
+      sourceType: "SalesInvoice",
+      sourceId: data.invoice.id,
+      documentNumber: data.invoice.invoiceNumber,
+      filename,
+      buffer,
+      generatedById: actorUserId,
+    });
+    return { data, buffer, filename, document: document ?? null };
+  }
+
+  async generatePdf(organizationId: string, actorUserId: string, id: string) {
+    const { document } = await this.pdf(organizationId, actorUserId, id);
+    return document;
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreateSalesInvoiceDto) {

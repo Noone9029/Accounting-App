@@ -68,6 +68,14 @@ async function main(): Promise<void> {
     },
   });
 
+  await prisma.organizationDocumentSettings.upsert({
+    where: { organizationId: organization.id },
+    update: {},
+    create: {
+      organizationId: organization.id,
+    },
+  });
+
   const accountIdsByCode = new Map<string, string>();
   for (const account of DEFAULT_ACCOUNTS) {
     const created = await prisma.account.upsert({

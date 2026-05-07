@@ -97,6 +97,8 @@ LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! 
 
 The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, payment over-allocation rejection, partial and full payments, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, and invoice void rejection while active payments exist.
 
+The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
+
 On Windows, if `db:generate` fails with Prisma query engine `EPERM`, stop running API/dev Node processes and rerun it. This is usually a file lock on Prisma's generated client DLL.
 
 ## Implemented API
@@ -146,6 +148,7 @@ Contacts:
 - `GET /contacts/:id/statement?from=YYYY-MM-DD&to=YYYY-MM-DD`
 - `GET /contacts/:id/statement-pdf-data?from=YYYY-MM-DD&to=YYYY-MM-DD`
 - `GET /contacts/:id/statement.pdf?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `POST /contacts/:id/generate-statement-pdf?from=YYYY-MM-DD&to=YYYY-MM-DD`
 
 Branches:
 
@@ -169,6 +172,7 @@ Sales invoices:
 - `GET /sales-invoices/:id`
 - `GET /sales-invoices/:id/pdf-data`
 - `GET /sales-invoices/:id/pdf`
+- `POST /sales-invoices/:id/generate-pdf`
 - `PATCH /sales-invoices/:id`
 - `DELETE /sales-invoices/:id`
 - `POST /sales-invoices/:id/finalize`
@@ -182,8 +186,20 @@ Customer payments:
 - `GET /customer-payments/:id/receipt-data`
 - `GET /customer-payments/:id/receipt-pdf-data`
 - `GET /customer-payments/:id/receipt.pdf`
+- `POST /customer-payments/:id/generate-receipt-pdf`
 - `POST /customer-payments/:id/void`
 - `DELETE /customer-payments/:id`
+
+Organization document settings:
+
+- `GET /organization-document-settings`
+- `PATCH /organization-document-settings`
+
+Generated documents:
+
+- `GET /generated-documents`
+- `GET /generated-documents/:id`
+- `GET /generated-documents/:id/download`
 
 Audit logs:
 
@@ -315,8 +331,26 @@ PDF endpoints:
 - Are tenant-scoped and return `404` outside the active organization.
 - Return `Content-Type: application/pdf`.
 - Use attachment filenames such as `invoice-INV-000001.pdf`, `receipt-PAY-000001.pdf`, and `statement-Customer.pdf`.
+- Apply organization document settings for document titles, footer text, basic colors, tax number visibility, and invoice notes/terms/payment sections.
+- Archive each generated PDF as a `GeneratedDocument` record with content hash, size, filename, source reference, and local base64 content.
 
 These PDFs are operational documents only. They are not ZATCA compliant yet, do not embed XML, do not include QR codes, and are not PDF/A-3.
+
+## Document Settings And Archive
+
+Each organization has document settings that can be read or updated through `GET /organization-document-settings` and `PATCH /organization-document-settings`.
+
+Supported settings:
+
+- invoice, receipt, and statement titles
+- footer text
+- optional primary and accent hex colors
+- tax number, payment summary, notes, and terms visibility flags
+- default template names: `standard`, `compact`, or `detailed`
+
+Only the `standard` renderer is implemented today. `compact` and `detailed` are saved for future template work and currently fall back to the standard layout.
+
+Generated PDF downloads are archived automatically in the database through `GeneratedDocument`. Archive list/detail endpoints exclude the base64 payload; `/generated-documents/:id/download` streams the archived PDF. Local base64 storage is intentionally temporary and should move to S3-compatible storage before production scale.
 
 ## Current Package Boundaries
 
@@ -329,7 +363,9 @@ These PDFs are operational documents only. They are not ZATCA compliant yet, do 
 ## Known Limitations
 
 - ZATCA Phase 2 XML, QR, CSID, clearance, reporting, PDF/A-3, and hash-chain logic are not implemented yet.
-- PDF output is basic operational rendering only; no ZATCA XML, QR code, PDF/A-3, template designer, or stored PDF archive exists yet.
+- PDF output is basic operational rendering only; no ZATCA XML, QR code, PDF/A-3, or template designer exists yet.
+- Generated PDFs are stored as base64 database records for local/dev groundwork; S3-compatible storage is planned before production scale.
+- GET PDF endpoints currently archive every download.
 - Applying unapplied overpayment credits to invoices later is not implemented yet.
 - Credit notes are not implemented yet.
 - Credit note ledger rows are reserved as a future hook, but credit notes are not implemented yet.

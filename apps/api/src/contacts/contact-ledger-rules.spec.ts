@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { CustomerPaymentStatus, SalesInvoiceStatus } from "@prisma/client";
+import { CustomerPaymentStatus, DocumentType, SalesInvoiceStatus } from "@prisma/client";
 import {
   buildCustomerLedgerRows,
   calculateStatementOpeningBalance,
@@ -183,6 +183,48 @@ describe("customer ledger rules", () => {
       closingBalance: "0.0000",
       rows: [{ number: "PAY-000001", credit: "100.0000", balance: "0.0000" }],
     });
+  });
+
+  it("archives generated statement PDFs", async () => {
+    const archivePdf = jest.fn().mockResolvedValue({ id: "doc-1" });
+    const service = new ContactLedgerService(
+      {} as never,
+      { statementRenderSettings: jest.fn().mockResolvedValue({ title: "Customer Statement" }) } as never,
+      { archivePdf } as never,
+    );
+    jest.spyOn(service, "statementPdfData").mockResolvedValue({
+      organization: { id: "org-1", name: "Org", legalName: null, taxNumber: null, countryCode: "SA" },
+      contact: { id: "contact-1", name: "Customer", displayName: "Customer", taxNumber: null, email: null, phone: null },
+      currency: "SAR",
+      periodFrom: "2026-05-01",
+      periodTo: "2026-05-31",
+      openingBalance: "100.0000",
+      closingBalance: "0.0000",
+      rows: [
+        {
+          date: "2026-05-06T00:00:00.000Z",
+          type: "PAYMENT",
+          number: "PAY-000001",
+          description: "Payment",
+          debit: "0.0000",
+          credit: "100.0000",
+          balance: "0.0000",
+          status: "POSTED",
+        },
+      ],
+      generatedAt: new Date("2026-05-06T00:00:00.000Z"),
+    });
+
+    const result = await service.statementPdf("org-1", "user-1", "contact-1", "2026-05-01", "2026-05-31");
+
+    expect(result.buffer.subarray(0, 4).toString()).toBe("%PDF");
+    expect(result.filename).toBe("statement-Customer-2026-05-01-to-2026-05-31.pdf");
+    expect(archivePdf).toHaveBeenCalledWith(expect.objectContaining({
+      documentType: DocumentType.CUSTOMER_STATEMENT,
+      sourceType: "CustomerStatement",
+      sourceId: "contact-1",
+      generatedById: "user-1",
+    }));
   });
 });
 

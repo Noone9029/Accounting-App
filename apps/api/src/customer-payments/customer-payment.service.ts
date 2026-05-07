@@ -5,13 +5,16 @@ import {
   AccountType,
   ContactType,
   CustomerPaymentStatus,
+  DocumentType,
   JournalEntryStatus,
   NumberSequenceScope,
   Prisma,
   SalesInvoiceStatus,
 } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
+import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { buildCustomerPaymentJournalLines } from "./customer-payment-accounting";
 import { CreateCustomerPaymentDto } from "./dto/create-customer-payment.dto";
@@ -55,6 +58,8 @@ export class CustomerPaymentService {
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
     private readonly numberSequenceService: NumberSequenceService,
+    private readonly documentSettingsService?: OrganizationDocumentSettingsService,
+    private readonly generatedDocumentService?: GeneratedDocumentService,
   ) {}
 
   list(organizationId: string) {
@@ -231,9 +236,31 @@ export class CustomerPaymentService {
     };
   }
 
-  async receiptPdf(organizationId: string, id: string): Promise<{ data: PaymentReceiptPdfData; buffer: Buffer }> {
+  async receiptPdf(
+    organizationId: string,
+    actorUserId: string,
+    id: string,
+  ): Promise<{ data: PaymentReceiptPdfData; buffer: Buffer; filename: string; document: unknown | null }> {
     const data = await this.receiptPdfData(organizationId, id);
-    return { data, buffer: await renderPaymentReceiptPdf(data) };
+    const settings = await this.documentSettingsService?.receiptRenderSettings(organizationId);
+    const buffer = await renderPaymentReceiptPdf(data, settings);
+    const filename = sanitizeFilename(`receipt-${data.payment.paymentNumber}.pdf`);
+    const document = await this.generatedDocumentService?.archivePdf({
+      organizationId,
+      documentType: DocumentType.CUSTOMER_PAYMENT_RECEIPT,
+      sourceType: "CustomerPayment",
+      sourceId: data.payment.id,
+      documentNumber: data.payment.paymentNumber,
+      filename,
+      buffer,
+      generatedById: actorUserId,
+    });
+    return { data, buffer, filename, document: document ?? null };
+  }
+
+  async generateReceiptPdf(organizationId: string, actorUserId: string, id: string) {
+    const { document } = await this.receiptPdf(organizationId, actorUserId, id);
+    return document;
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreateCustomerPaymentDto) {

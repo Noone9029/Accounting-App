@@ -1,7 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { toMoney } from "@ledgerbyte/accounting-core";
 import { CustomerStatementPdfData, renderCustomerStatementPdf } from "@ledgerbyte/pdf-core";
-import { ContactType, CustomerPaymentStatus, SalesInvoiceStatus } from "@prisma/client";
+import { ContactType, CustomerPaymentStatus, DocumentType, SalesInvoiceStatus } from "@prisma/client";
+import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
+import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 export type CustomerLedgerRowType = "INVOICE" | "PAYMENT" | "PAYMENT_ALLOCATION" | "VOID_PAYMENT" | "VOID_INVOICE";
@@ -92,7 +94,11 @@ interface PendingLedgerRow extends Omit<CustomerLedgerRow, "balance"> {
 
 @Injectable()
 export class ContactLedgerService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly documentSettingsService?: OrganizationDocumentSettingsService,
+    private readonly generatedDocumentService?: GeneratedDocumentService,
+  ) {}
 
   async ledger(organizationId: string, contactId: string): Promise<CustomerLedgerResponse> {
     const contact = await this.findCustomerContact(organizationId, contactId);
@@ -228,12 +234,31 @@ export class ContactLedgerService {
 
   async statementPdf(
     organizationId: string,
+    actorUserId: string,
     contactId: string,
     from?: string,
     to?: string,
-  ): Promise<{ data: CustomerStatementPdfData; buffer: Buffer }> {
+  ): Promise<{ data: CustomerStatementPdfData; buffer: Buffer; filename: string; document: unknown | null }> {
     const data = await this.statementPdfData(organizationId, contactId, from, to);
-    return { data, buffer: await renderCustomerStatementPdf(data) };
+    const settings = await this.documentSettingsService?.statementRenderSettings(organizationId);
+    const buffer = await renderCustomerStatementPdf(data, settings);
+    const filename = statementFilename(data, from, to);
+    const document = await this.generatedDocumentService?.archivePdf({
+      organizationId,
+      documentType: DocumentType.CUSTOMER_STATEMENT,
+      sourceType: "CustomerStatement",
+      sourceId: contactId,
+      documentNumber: statementDocumentNumber(data, from, to),
+      filename,
+      buffer,
+      generatedById: actorUserId,
+    });
+    return { data, buffer, filename, document: document ?? null };
+  }
+
+  async generateStatementPdf(organizationId: string, actorUserId: string, contactId: string, from?: string, to?: string) {
+    const { document } = await this.statementPdf(organizationId, actorUserId, contactId, from, to);
+    return document;
   }
 
   private async findCustomerContact(organizationId: string, contactId: string): Promise<CustomerLedgerContact> {
@@ -445,6 +470,18 @@ function moneyString(value: unknown): string {
 
 function toIsoString(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+function statementFilename(data: CustomerStatementPdfData, from?: string, to?: string): string {
+  const name = data.contact.displayName ?? data.contact.name;
+  const range = from && to ? `${from}-to-${to}` : "all";
+  return sanitizeFilename(`statement-${name}-${range}.pdf`);
+}
+
+function statementDocumentNumber(data: CustomerStatementPdfData, from?: string, to?: string): string {
+  const name = data.contact.displayName ?? data.contact.name;
+  const range = from || to ? `${from ?? "start"} to ${to ?? "end"}` : "all dates";
+  return `Statement ${name} (${range})`;
 }
 
 function parseBoundaryDate(value: string | undefined, endOfDay: boolean): Date | undefined {

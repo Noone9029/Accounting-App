@@ -119,6 +119,7 @@ export default function SalesInvoiceDetailPage() {
         <div>
           <h1 className="text-2xl font-semibold text-ink">{invoice ? invoice.invoiceNumber : "Sales invoice"}</h1>
           <p className="mt-1 text-sm text-steel">Invoice detail, calculated totals, and linked journal entry.</p>
+          {invoice ? <p className="mt-1 text-xs text-steel">Downloads are archived automatically.</p> : null}
         </div>
         <div className="flex gap-2">
           <Link href="/sales/invoices" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">

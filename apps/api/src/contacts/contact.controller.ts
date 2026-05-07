@@ -56,18 +56,30 @@ export class ContactController {
   @Get(":id/statement.pdf")
   async statementPdf(
     @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Param("id") id: string,
     @Query("from") from: string | undefined,
     @Query("to") to: string | undefined,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const { data, buffer } = await this.contactLedgerService.statementPdf(organizationId, id, from, to);
+    const { buffer, filename } = await this.contactLedgerService.statementPdf(organizationId, user.id, id, from, to);
     response.set({
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${safeFilename(`statement-${data.contact.displayName ?? data.contact.name}.pdf`)}"`,
+      "Content-Disposition": `attachment; filename="${filename}"`,
       "Content-Length": String(buffer.byteLength),
     });
     return new StreamableFile(buffer);
+  }
+
+  @Post(":id/generate-statement-pdf")
+  generateStatementPdf(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+  ) {
+    return this.contactLedgerService.generateStatementPdf(organizationId, user.id, id, from, to);
   }
 
   @Get(":id")
@@ -84,8 +96,4 @@ export class ContactController {
   ) {
     return this.contactService.update(organizationId, user.id, id, dto);
   }
-}
-
-function safeFilename(value: string): string {
-  return value.replace(/[^a-zA-Z0-9._-]+/g, "-");
 }

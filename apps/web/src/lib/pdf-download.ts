@@ -21,6 +21,10 @@ export function statementPdfPath(contactId: string, from?: string, to?: string):
   return `/contacts/${encodeURIComponent(contactId)}/statement.pdf${suffix ? `?${suffix}` : ""}`;
 }
 
+export function generatedDocumentDownloadPath(documentId: string): string {
+  return `/generated-documents/${encodeURIComponent(documentId)}/download`;
+}
+
 export function pdfApiUrl(path: string): string {
   return new URL(path, apiBaseUrl).toString();
 }

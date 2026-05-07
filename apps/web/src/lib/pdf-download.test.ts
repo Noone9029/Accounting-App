@@ -1,4 +1,4 @@
-import { invoicePdfPath, pdfApiUrl, receiptPdfPath, statementPdfPath } from "./pdf-download";
+import { generatedDocumentDownloadPath, invoicePdfPath, pdfApiUrl, receiptPdfPath, statementPdfPath } from "./pdf-download";
 
 describe("PDF download helpers", () => {
   it("builds invoice and receipt PDF paths", () => {
@@ -15,5 +15,9 @@ describe("PDF download helpers", () => {
 
   it("builds absolute API URLs", () => {
     expect(pdfApiUrl("/sales-invoices/invoice-1/pdf")).toBe("http://localhost:4000/sales-invoices/invoice-1/pdf");
+  });
+
+  it("builds generated document archive download paths", () => {
+    expect(generatedDocumentDownloadPath("doc-1")).toBe("/generated-documents/doc-1/download");
   });
 });

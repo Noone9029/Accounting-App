@@ -224,6 +224,7 @@ export default function ContactDetailPage() {
                     {statementPdfLoading ? "Preparing..." : "Download statement PDF"}
                   </button>
                 </form>
+                <p className="mt-3 text-xs text-steel">Downloads are archived automatically.</p>
                 {statementError ? (
                   <div className="mt-3">
                     <StatusMessage type="error">{statementError}</StatusMessage>

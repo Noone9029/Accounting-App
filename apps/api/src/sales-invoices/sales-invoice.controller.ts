@@ -46,16 +46,22 @@ export class SalesInvoiceController {
   @Get(":id/pdf")
   async pdf(
     @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Param("id") id: string,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const { data, buffer } = await this.salesInvoiceService.pdf(organizationId, id);
+    const { buffer, filename } = await this.salesInvoiceService.pdf(organizationId, user.id, id);
     response.set({
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${safeFilename(`invoice-${data.invoice.invoiceNumber}.pdf`)}"`,
+      "Content-Disposition": `attachment; filename="${filename}"`,
       "Content-Length": String(buffer.byteLength),
     });
     return new StreamableFile(buffer);
+  }
+
+  @Post(":id/generate-pdf")
+  generatePdf(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+    return this.salesInvoiceService.generatePdf(organizationId, user.id, id);
   }
 
   @Patch(":id")
@@ -82,8 +88,4 @@ export class SalesInvoiceController {
   remove(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
     return this.salesInvoiceService.remove(organizationId, user.id, id);
   }
-}
-
-function safeFilename(value: string): string {
-  return value.replace(/[^a-zA-Z0-9._-]+/g, "-");
 }

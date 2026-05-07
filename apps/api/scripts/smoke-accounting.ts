@@ -87,6 +87,20 @@ interface ReceiptData {
   allocations: Array<{ invoiceId: string; amountApplied: string }>;
 }
 
+interface OrganizationDocumentSettings {
+  footerText: string;
+  primaryColor: string | null;
+  accentColor: string | null;
+}
+
+interface GeneratedDocument {
+  id: string;
+  documentType: string;
+  sourceId: string;
+  filename: string;
+  status: string;
+}
+
 class ApiError extends Error {
   constructor(
     message: string,
@@ -106,6 +120,15 @@ async function main(): Promise<void> {
   const context = await loginAndSelectOrganization();
   const runId = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
   const headers = tenantHeaders(context);
+
+  const documentSettings = await get<OrganizationDocumentSettings>("/organization-document-settings", headers);
+  assertPresent(documentSettings.footerText, "document settings footer text");
+  const patchedSettings = await patch<OrganizationDocumentSettings>("/organization-document-settings", headers, {
+    footerText: documentSettings.footerText,
+    primaryColor: documentSettings.primaryColor,
+    accentColor: documentSettings.accentColor,
+  });
+  assertEqual(patchedSettings.footerText, documentSettings.footerText, "document settings patch footer text");
 
   const accounts = await get<Account[]>("/accounts", headers);
   const salesAccount = required(
@@ -246,6 +269,15 @@ async function main(): Promise<void> {
   assertMoney(invoicePdfData.invoice.total, expectedTotal, "invoice pdf-data total");
   assert(invoicePdfData.lines.length > 0, "invoice pdf-data returns lines");
   await assertPdf(`/sales-invoices/${draftInvoice.id}/pdf`, headers, "invoice PDF");
+  const invoiceDocuments = await get<GeneratedDocument[]>(
+    `/generated-documents?documentType=SALES_INVOICE&sourceId=${encodeURIComponent(draftInvoice.id)}`,
+    headers,
+  );
+  const archivedInvoicePdf = required(
+    invoiceDocuments.find((document) => document.sourceId === draftInvoice.id && document.status === "GENERATED"),
+    "archived invoice PDF document",
+  );
+  await assertPdf(`/generated-documents/${archivedInvoicePdf.id}/download`, headers, "archived invoice PDF");
 
   const receiptPdfData = await get<{ payment: { paymentNumber: string }; allocations: unknown[] }>(
     `/customer-payments/${partialPayment.id}/receipt-pdf-data`,
@@ -291,6 +323,7 @@ async function main(): Promise<void> {
         invoiceId: draftInvoice.id,
         invoiceNumber: finalizedInvoice.invoiceNumber,
         paymentIds: [partialPayment.id, remainingPayment.id],
+        archivedInvoicePdfId: archivedInvoicePdf.id,
         finalInvoiceBalance: afterSecondPaymentVoid.balanceDue,
         ledgerClosingBalanceBeforeVoid: ledgerBeforeVoid.closingBalance,
         ledgerClosingBalanceAfterVoid: ledgerAfterVoid.closingBalance,

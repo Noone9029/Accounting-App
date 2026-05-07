@@ -5,6 +5,7 @@ import {
   assertFinalizableSalesInvoice,
   calculateSalesInvoiceTotals,
 } from "@ledgerbyte/accounting-core";
+import { DocumentType } from "@prisma/client";
 import { buildSalesInvoiceJournalLines } from "./sales-invoice-accounting";
 import { SalesInvoiceService } from "./sales-invoice.service";
 import { ItemService } from "../items/item.service";
@@ -279,6 +280,66 @@ describe("sales invoice rules", () => {
       payments: [{ paymentNumber: "PAY-000001", amountApplied: "50.0000" }],
     });
     expect(prisma.salesInvoice.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "invoice-1", organizationId: "org-1" } }));
+  });
+
+  it("archives generated invoice PDFs", async () => {
+    const archivePdf = jest.fn().mockResolvedValue({ id: "doc-1" });
+    const service = new SalesInvoiceService(
+      {} as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn() } as never,
+      { reverse: jest.fn() } as never,
+      { invoiceRenderSettings: jest.fn().mockResolvedValue({ title: "Branded Invoice" }) } as never,
+      { archivePdf } as never,
+    );
+    jest.spyOn(service, "pdfData").mockResolvedValue({
+      organization: { id: "org-1", name: "Org", legalName: null, taxNumber: null, countryCode: "SA" },
+      customer: { id: "customer-1", name: "Customer", displayName: "Customer", taxNumber: null, email: null, phone: null },
+      invoice: {
+        id: "invoice-1",
+        invoiceNumber: "INV-000001",
+        status: "FINALIZED",
+        issueDate: "2026-05-06T00:00:00.000Z",
+        dueDate: null,
+        currency: "SAR",
+        notes: null,
+        terms: null,
+        subtotal: "100.0000",
+        discountTotal: "0.0000",
+        taxableTotal: "100.0000",
+        taxTotal: "15.0000",
+        total: "115.0000",
+        balanceDue: "115.0000",
+      },
+      lines: [
+        {
+          description: "Service",
+          quantity: "1.0000",
+          unitPrice: "100.0000",
+          discountRate: "0.0000",
+          lineGrossAmount: "100.0000",
+          discountAmount: "0.0000",
+          taxableAmount: "100.0000",
+          taxAmount: "15.0000",
+          lineTotal: "115.0000",
+          taxRateName: "VAT on Sales 15%",
+        },
+      ],
+      payments: [],
+      generatedAt: new Date("2026-05-06T00:00:00.000Z"),
+    });
+
+    const result = await service.pdf("org-1", "user-1", "invoice-1");
+
+    expect(result.buffer.subarray(0, 4).toString()).toBe("%PDF");
+    expect(result.filename).toBe("invoice-INV-000001.pdf");
+    expect(archivePdf).toHaveBeenCalledWith(expect.objectContaining({
+      documentType: DocumentType.SALES_INVOICE,
+      sourceType: "SalesInvoice",
+      sourceId: "invoice-1",
+      documentNumber: "INV-000001",
+      generatedById: "user-1",
+    }));
   });
 
   it("rejects cross-tenant invoice references", async () => {

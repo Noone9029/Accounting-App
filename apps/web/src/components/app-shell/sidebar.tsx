@@ -2,6 +2,7 @@
 
 import {
   BarChart3,
+  Archive,
   BookOpen,
   Building2,
   CreditCard,
@@ -99,7 +100,13 @@ const navItems: NavItem[] = [
     children: [{ label: "API keys", href: "/developer/api-keys" }],
   },
   { label: "Integrations", href: "/integrations", icon: Settings2 },
-  { label: "Document templates", href: "/document-templates", icon: FileText },
+  { label: "Documents / Archive", href: "/documents", icon: Archive },
+  {
+    label: "Document templates",
+    href: "/settings/documents",
+    icon: FileText,
+    children: [{ label: "Document settings", href: "/settings/documents" }],
+  },
 ];
 
 export function Sidebar() {

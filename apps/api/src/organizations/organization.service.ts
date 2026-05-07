@@ -52,6 +52,12 @@ export class OrganizationService {
         },
       });
 
+      await tx.organizationDocumentSettings.create({
+        data: {
+          organizationId: created.id,
+        },
+      });
+
       await this.createFoundationData(tx, created.id);
       return created;
     });

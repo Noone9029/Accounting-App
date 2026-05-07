@@ -185,7 +185,7 @@ export default function CustomerPaymentDetailPage() {
               <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
                 <div>
                   <h2 className="text-base font-semibold text-ink">Receipt data preview</h2>
-                  <p className="mt-1 text-sm text-steel">Structured receipt payload for future PDF rendering.</p>
+                  <p className="mt-1 text-sm text-steel">Structured receipt payload for future PDF rendering. Downloads are archived automatically.</p>
                 </div>
                 <button type="button" onClick={() => void downloadReceiptPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
                   Download receipt PDF

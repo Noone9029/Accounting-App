@@ -40,16 +40,22 @@ export class CustomerPaymentController {
   @Get(":id/receipt.pdf")
   async receiptPdf(
     @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Param("id") id: string,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const { data, buffer } = await this.customerPaymentService.receiptPdf(organizationId, id);
+    const { buffer, filename } = await this.customerPaymentService.receiptPdf(organizationId, user.id, id);
     response.set({
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${safeFilename(`receipt-${data.payment.paymentNumber}.pdf`)}"`,
+      "Content-Disposition": `attachment; filename="${filename}"`,
       "Content-Length": String(buffer.byteLength),
     });
     return new StreamableFile(buffer);
+  }
+
+  @Post(":id/generate-receipt-pdf")
+  generateReceiptPdf(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+    return this.customerPaymentService.generateReceiptPdf(organizationId, user.id, id);
   }
 
   @Get(":id")
@@ -66,8 +72,4 @@ export class CustomerPaymentController {
   remove(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
     return this.customerPaymentService.remove(organizationId, user.id, id);
   }
-}
-
-function safeFilename(value: string): string {
-  return value.replace(/[^a-zA-Z0-9._-]+/g, "-");
 }

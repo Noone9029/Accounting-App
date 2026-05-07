@@ -291,6 +291,27 @@ PDF smoke checks validate status, `application/pdf` content type, non-empty body
 - No XML embedding, QR code, PDF/A-3, cryptographic stamp, or hash-chain data is included.
 - No template designer, custom fonts, logo handling, or stored PDF archive exists yet.
 
+## Document Settings And Archive Groundwork
+
+Audit date: 2026-05-07
+
+Commit inspected: `09bb7c9` (`Add invoice and receipt PDF groundwork`)
+
+### Document Groundwork Added
+
+- Added organization document settings for invoice, receipt, and statement titles, footer text, colors, visibility flags, and saved template choices.
+- Added generated document archive records for sales invoice PDFs, customer payment receipt PDFs, and customer statement PDFs.
+- PDF downloads now apply organization document settings and archive generated PDF snapshots with content hash, size, filename, source reference, and base64 content.
+- Added generated document list/detail/download APIs and frontend archive/settings pages.
+- Extended the accounting smoke workflow to verify document settings, PDF archive creation, and archived PDF download.
+
+### Remaining Document Risks
+
+- Base64 database PDF storage is temporary and should move to S3-compatible storage before production scale.
+- GET PDF endpoints archive each download, so repeated downloads create repeated archive records until a retention/supersede policy is added.
+- Saved `compact` and `detailed` template options currently fall back to the standard renderer.
+- Legal/ZATCA compliance is still out of scope: no XML embedding, QR code, PDF/A-3, cryptographic stamp, or clearance/reporting flow.
+
 ## Remaining Risks
 
 - The concurrency strategy relies on PostgreSQL row locks produced by conditional updates inside Prisma transactions. A small multi-process load test is still recommended before production.

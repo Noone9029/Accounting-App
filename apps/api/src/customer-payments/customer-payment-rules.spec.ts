@@ -1,6 +1,6 @@
 import { BadRequestException } from "@nestjs/common";
 import { assertBalancedJournal } from "@ledgerbyte/accounting-core";
-import { CustomerPaymentStatus, JournalEntryStatus, SalesInvoiceStatus } from "@prisma/client";
+import { CustomerPaymentStatus, DocumentType, JournalEntryStatus, SalesInvoiceStatus } from "@prisma/client";
 import { buildCustomerPaymentJournalLines } from "./customer-payment-accounting";
 import { CustomerPaymentService } from "./customer-payment.service";
 import type { CreateCustomerPaymentDto } from "./dto/create-customer-payment.dto";
@@ -353,6 +353,56 @@ describe("customer payment rules", () => {
       allocations: [{ invoiceNumber: "INV-000001", amountApplied: "115.0000" }],
       journalEntry: { entryNumber: "JE-000001" },
     });
+  });
+
+  it("archives generated receipt PDFs", async () => {
+    const archivePdf = jest.fn().mockResolvedValue({ id: "doc-1" });
+    const service = new CustomerPaymentService(
+      {} as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn() } as never,
+      { receiptRenderSettings: jest.fn().mockResolvedValue({ title: "Receipt" }) } as never,
+      { archivePdf } as never,
+    );
+    jest.spyOn(service, "receiptPdfData").mockResolvedValue({
+      organization: { id: "org-1", name: "Org", legalName: null, taxNumber: null, countryCode: "SA" },
+      customer: { id: "customer-1", name: "Customer", displayName: "Customer", taxNumber: null, email: null, phone: null },
+      payment: {
+        id: "payment-1",
+        paymentNumber: "PAY-000001",
+        paymentDate: "2026-05-06T00:00:00.000Z",
+        status: CustomerPaymentStatus.POSTED,
+        currency: "SAR",
+        amountReceived: "115.0000",
+        unappliedAmount: "0.0000",
+        description: null,
+      },
+      paidThroughAccount: { id: "bank-1", code: "112", name: "Bank Account" },
+      allocations: [
+        {
+          invoiceId: "invoice-1",
+          invoiceNumber: "INV-000001",
+          invoiceDate: "2026-05-06T00:00:00.000Z",
+          invoiceTotal: "115.0000",
+          amountApplied: "115.0000",
+          invoiceBalanceDue: "0.0000",
+        },
+      ],
+      journalEntry: { id: "journal-1", entryNumber: "JE-000001", status: JournalEntryStatus.POSTED },
+      generatedAt: new Date("2026-05-06T00:00:00.000Z"),
+    });
+
+    const result = await service.receiptPdf("org-1", "user-1", "payment-1");
+
+    expect(result.buffer.subarray(0, 4).toString()).toBe("%PDF");
+    expect(result.filename).toBe("receipt-PAY-000001.pdf");
+    expect(archivePdf).toHaveBeenCalledWith(expect.objectContaining({
+      documentType: DocumentType.CUSTOMER_PAYMENT_RECEIPT,
+      sourceType: "CustomerPayment",
+      sourceId: "payment-1",
+      documentNumber: "PAY-000001",
+      generatedById: "user-1",
+    }));
   });
 });
 

@@ -8,6 +8,8 @@ export type ItemStatus = "ACTIVE" | "DISABLED";
 export type SalesInvoiceStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type CustomerPaymentStatus = "DRAFT" | "POSTED" | "VOIDED";
 export type CustomerLedgerRowType = "INVOICE" | "PAYMENT" | "PAYMENT_ALLOCATION" | "VOID_PAYMENT" | "VOID_INVOICE";
+export type DocumentType = "SALES_INVOICE" | "CUSTOMER_PAYMENT_RECEIPT" | "CUSTOMER_STATEMENT";
+export type GeneratedDocumentStatus = "GENERATED" | "FAILED" | "SUPERSEDED";
 
 export interface Organization {
   id: string;
@@ -295,4 +297,43 @@ export interface SalesInvoice {
   reversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
   paymentAllocations?: CustomerPaymentAllocation[];
   lines?: SalesInvoiceLine[];
+}
+
+export interface OrganizationDocumentSettings {
+  id: string;
+  organizationId: string;
+  invoiceTitle: string;
+  receiptTitle: string;
+  statementTitle: string;
+  footerText: string;
+  primaryColor: string | null;
+  accentColor: string | null;
+  showTaxNumber: boolean;
+  showPaymentSummary: boolean;
+  showNotes: boolean;
+  showTerms: boolean;
+  defaultInvoiceTemplate: "standard" | "compact" | "detailed";
+  defaultReceiptTemplate: "standard" | "compact" | "detailed";
+  defaultStatementTemplate: "standard" | "compact" | "detailed";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GeneratedDocument {
+  id: string;
+  organizationId: string;
+  documentType: DocumentType;
+  sourceType: string;
+  sourceId: string;
+  documentNumber: string;
+  filename: string;
+  mimeType: string;
+  storageProvider: string;
+  storageKey: string | null;
+  contentHash: string;
+  sizeBytes: number;
+  status: GeneratedDocumentStatus;
+  generatedById: string | null;
+  generatedAt: string;
+  createdAt: string;
 }
