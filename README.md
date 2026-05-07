@@ -59,6 +59,18 @@ Authorization: Bearer <token>
 x-organization-id: <organizationId>
 ```
 
+ZATCA adapter defaults:
+
+```env
+ZATCA_ADAPTER_MODE=mock
+ZATCA_ENABLE_REAL_NETWORK=false
+ZATCA_SANDBOX_BASE_URL=
+ZATCA_SIMULATION_BASE_URL=
+ZATCA_PRODUCTION_BASE_URL=
+```
+
+Real ZATCA network calls are disabled by default and remain blocked unless `ZATCA_ADAPTER_MODE=sandbox`, `ZATCA_ENABLE_REAL_NETWORK=true`, and `ZATCA_SANDBOX_BASE_URL` are all configured.
+
 ## Local Smoke Test
 
 The accounting smoke test runs against the live API and creates clearly named `Smoke Test` records. It does not delete data.
@@ -95,7 +107,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, payment over-allocation rejection, partial and full payments, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, and invoice void rejection while active payments exist.
+The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
 
@@ -174,6 +186,9 @@ Sales invoices:
 - `GET /sales-invoices/:id/pdf`
 - `GET /sales-invoices/:id/zatca`
 - `POST /sales-invoices/:id/zatca/generate`
+- `POST /sales-invoices/:id/zatca/compliance-check`
+- `POST /sales-invoices/:id/zatca/clearance`
+- `POST /sales-invoices/:id/zatca/reporting`
 - `GET /sales-invoices/:id/zatca/xml`
 - `GET /sales-invoices/:id/zatca/qr`
 - `POST /sales-invoices/:id/generate-pdf`
@@ -208,6 +223,7 @@ Generated documents:
 ZATCA foundation:
 
 - `GET /zatca/profile`
+- `GET /zatca/adapter-config`
 - `PATCH /zatca/profile`
 - `GET /zatca/egs-units`
 - `POST /zatca/egs-units`
@@ -384,10 +400,20 @@ Implemented:
 - `packages/zatca-core` deterministic UBL-like XML skeleton generation, basic Phase 1-style TLV QR base64 generation, SHA-256 invoice hashing, CSR/private-key PEM generation helpers, and combined payload building.
 - EGS CSR generation and CSR download endpoints.
 - Mock OTP/compliance CSID flow through an adapter interface. The mock adapter accepts local 6-digit OTP values such as `000000`, stores a mock compliance CSID and certificate request id, and logs a local onboarding submission.
+- Safe adapter scaffolding for `mock`, `sandbox-disabled`, and guarded `sandbox` modes. The HTTP sandbox adapter has future method shapes for compliance CSID, production CSID, compliance check, clearance, and reporting, but it does not guess official endpoint paths.
 - Safe EGS API responses do not expose `privateKeyPem`; CSR PEM is available only through CSR-specific endpoints.
 - Finalized invoices get local ZATCA metadata records, but XML/QR/hash generation is explicit through `POST /sales-invoices/:id/zatca/generate`.
+- Local/mock invoice compliance checks can be recorded through `POST /sales-invoices/:id/zatca/compliance-check`; they only move local metadata to `READY_FOR_SUBMISSION` and do not mark invoices cleared or reported.
 - XML downloads use `application/xml`; QR returns a base64 TLV payload as JSON.
 - Invoice PDFs can display a small local ZATCA-generated placeholder when QR metadata exists. XML is not embedded into PDFs yet.
+
+### ZATCA Adapter Configuration
+
+- `ZATCA_ADAPTER_MODE=mock` is the default. It uses the local mock CSID and local/mock compliance-check behavior. It never calls ZATCA.
+- `ZATCA_ADAPTER_MODE=sandbox-disabled` blocks all network actions with `REAL_NETWORK_DISABLED` and writes failed submission logs where a submission context exists.
+- `ZATCA_ADAPTER_MODE=sandbox` is scaffold-only. Real network calls are still blocked unless `ZATCA_ENABLE_REAL_NETWORK=true` and `ZATCA_SANDBOX_BASE_URL` is configured.
+- `ZATCA_SANDBOX_BASE_URL`, `ZATCA_SIMULATION_BASE_URL`, and `ZATCA_PRODUCTION_BASE_URL` are optional placeholders. The app does not hardcode guessed official URLs as final truth.
+- `ZATCA_ENABLE_REAL_NETWORK=false` is the default and should stay false until current official ZATCA/FATOORA API docs, endpoint URLs, request bodies, response fields, authentication, and credentials are verified.
 
 Not implemented yet:
 
@@ -409,10 +435,13 @@ Future real onboarding steps:
 
 1. Get ZATCA/FATOORA sandbox access.
 2. Generate a real OTP from the FATOORA portal.
-3. Submit CSR through the real compliance CSID endpoint using a network adapter.
-4. Run official compliance checks for required invoice samples.
-5. Request production CSID only after sandbox/compliance checks pass.
-6. Store private keys and issued certificates in KMS/secrets manager, not in normal database fields.
+3. Verify official sandbox, simulation, and production endpoint URLs from current ZATCA documentation.
+4. Verify exact request/response payloads, auth headers, certificate fields, and error semantics.
+5. Configure sandbox env vars and enable `ZATCA_ENABLE_REAL_NETWORK=true` only in a controlled sandbox environment.
+6. Submit CSR through the real compliance CSID endpoint using the verified network adapter mapping.
+7. Run official compliance checks for required invoice samples.
+8. Request production CSID only after sandbox/compliance checks pass.
+9. Store private keys and issued certificates in KMS/secrets manager, not in normal database fields.
 
 ## Current Package Boundaries
 
@@ -426,6 +455,7 @@ Future real onboarding steps:
 
 - ZATCA Phase 2 production onboarding, real CSID issuance, signing, clearance, reporting, PDF/A-3, and embedded XML are not implemented yet.
 - Current CSR and mock CSID flow is local-only and never calls ZATCA.
+- Sandbox adapter scaffolding exists, but real network calls are intentionally disabled by default and official endpoint/payload mapping remains unverified.
 - Current ZATCA XML/QR/hash generation is local-only groundwork and must be verified against official ZATCA documentation before production use.
 - PDF output is basic operational rendering only; no PDF/A-3, embedded XML, or template designer exists yet.
 - Generated PDFs are stored as base64 database records for local/dev groundwork; S3-compatible storage is planned before production scale.

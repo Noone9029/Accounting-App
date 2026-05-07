@@ -1,36 +1,44 @@
-import type { ZatcaEnvironment } from "@prisma/client";
+import type {
+  ClearanceInput,
+  ComplianceCheckInput,
+  ComplianceCsidResult,
+  ProductionCsidResult,
+  ReportingInput,
+  RequestComplianceCsidInput,
+  RequestProductionCsidInput,
+  ZatcaAdapterResult,
+  ZatcaClearanceResponse,
+  ZatcaComplianceCheckResponse,
+  ZatcaReportingResponse,
+} from "./zatca-adapter.types";
 
 export const ZATCA_ONBOARDING_ADAPTER = Symbol("ZATCA_ONBOARDING_ADAPTER");
 
-export interface RequestComplianceCsidInput {
-  organizationId: string;
-  egsUnitId: string;
-  environment: ZatcaEnvironment;
-  otp: string;
-  csrPem: string;
-}
-
-export interface RequestProductionCsidInput {
-  organizationId: string;
-  egsUnitId: string;
-  complianceCsidPem: string;
-}
-
-export interface ComplianceCheckInput {
-  organizationId: string;
-  egsUnitId: string;
-  invoiceXml: string;
-}
-
-export interface ComplianceCsidResult {
-  complianceCsidPem: string;
-  certificateRequestId: string;
-  responseCode: string;
-  responsePayload: Record<string, unknown>;
-}
-
 export interface ZatcaOnboardingAdapter {
   requestComplianceCsid(input: RequestComplianceCsidInput): Promise<ComplianceCsidResult>;
-  requestProductionCsid(input: RequestProductionCsidInput): Promise<never>;
-  runComplianceCheck(input: ComplianceCheckInput): Promise<never>;
+  requestProductionCsid(input: RequestProductionCsidInput): Promise<ProductionCsidResult>;
+  submitComplianceCheck(input: ComplianceCheckInput): Promise<ZatcaAdapterResult<ZatcaComplianceCheckResponse>>;
+  submitClearance(input: ClearanceInput): Promise<ZatcaAdapterResult<ZatcaClearanceResponse>>;
+  submitReporting(input: ReportingInput): Promise<ZatcaAdapterResult<ZatcaReportingResponse>>;
 }
+
+export type {
+  ClearanceInput,
+  ComplianceCheckInput,
+  ComplianceCsidResult,
+  ProductionCsidResult,
+  ReportingInput,
+  RequestComplianceCsidInput,
+  RequestProductionCsidInput,
+  ZatcaAdapterResult,
+  ZatcaClearanceRequest,
+  ZatcaClearanceResponse,
+  ZatcaComplianceCheckRequest,
+  ZatcaComplianceCheckResponse,
+  ZatcaComplianceCsidRequest,
+  ZatcaComplianceCsidResponse,
+  ZatcaProductionCsidRequest,
+  ZatcaProductionCsidResponse,
+  ZatcaReportingRequest,
+  ZatcaReportingResponse,
+} from "./zatca-adapter.types";

@@ -410,6 +410,7 @@ export interface ZatcaInvoiceMetadata {
   lastErrorCode: string | null;
   lastErrorMessage: string | null;
   egsUnit?: Pick<ZatcaEgsUnit, "id" | "name" | "environment" | "isActive" | "lastIcv"> | null;
+  submissionLogs?: ZatcaSubmissionLog[];
 }
 
 export interface ZatcaQrResponse {
@@ -432,4 +433,14 @@ export interface ZatcaSubmissionLog {
   createdAt: string;
   egsUnit?: { id: string; name: string; environment: ZatcaEnvironment } | null;
   invoiceMetadata?: { id: string; invoiceId: string; invoiceUuid: string; zatcaStatus: ZatcaInvoiceStatus } | null;
+}
+
+export interface ZatcaAdapterConfigSummary {
+  mode: "mock" | "sandbox-disabled" | "sandbox";
+  realNetworkEnabled: boolean;
+  sandboxBaseUrlConfigured: boolean;
+  simulationBaseUrlConfigured: boolean;
+  productionBaseUrlConfigured: boolean;
+  effectiveRealNetworkEnabled: boolean;
+  invalidMode?: string;
 }

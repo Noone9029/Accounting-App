@@ -362,6 +362,26 @@ Commit inspected: `cc0df31` (`Add ZATCA foundation groundwork`)
 - Production CSID request intentionally returns not implemented.
 - Real ZATCA sandbox credentials, official API contracts, CSR profile requirements, certificate chain handling, and compliance checks must be verified against current ZATCA documentation before production work.
 
+## ZATCA Sandbox Adapter Scaffolding
+
+Audit date: 2026-05-08
+
+Commit inspected: pending (`Add safe ZATCA sandbox adapter scaffolding`)
+
+### Sandbox Adapter Scaffolding Added
+
+- Added config-gated ZATCA adapter modes: `mock`, `sandbox-disabled`, and scaffolded `sandbox`.
+- Added `ZATCA_ENABLE_REAL_NETWORK=false` default behavior so real ZATCA calls remain intentionally disabled unless explicit sandbox env flags are set.
+- Added sandbox-disabled and HTTP sandbox adapter scaffolds with flexible request/response types for future compliance CSID, production CSID, compliance-check, clearance, and reporting methods.
+- Added failed submission logging for disabled or incomplete adapter calls, including base64 request/response/error payloads and clear disabled response codes.
+- Added local/mock invoice compliance-check logging without marking invoices cleared or reported.
+
+### Remaining Adapter Risks
+
+- This is still not production ZATCA compliance.
+- Real calls are intentionally disabled by default and official ZATCA endpoint URLs, request bodies, response mappings, credentials, and auth headers must be verified before any sandbox network enablement.
+- Compliance risk remains until official ZATCA documentation and valid sandbox credentials are used for real compliance CSID and compliance-check testing.
+
 ## Remaining Risks
 
 - The concurrency strategy relies on PostgreSQL row locks produced by conditional updates inside Prisma transactions. A small multi-process load test is still recommended before production.

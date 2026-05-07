@@ -1,6 +1,8 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { ZatcaInvoiceStatus, ZatcaRegistrationStatus } from "@prisma/client";
+import { ZatcaInvoiceStatus, ZatcaRegistrationStatus, ZatcaSubmissionStatus, ZatcaSubmissionType } from "@prisma/client";
 import { initialPreviousInvoiceHash } from "@ledgerbyte/zatca-core";
+import { SandboxDisabledZatcaOnboardingAdapter } from "./adapters/sandbox-disabled-zatca-onboarding.adapter";
+import type { ZatcaAdapterConfig } from "./zatca.config";
 import { ZatcaService } from "./zatca.service";
 
 describe("ZATCA service rules", () => {
@@ -189,13 +191,53 @@ describe("ZATCA service rules", () => {
     await expect(withCsr.requestComplianceCsid("org-1", "user-1", "egs-1", { otp: "" })).rejects.toThrow("OTP is required");
   });
 
-  it("does not implement production CSID requests yet", async () => {
+  it("logs failed sandbox-disabled compliance CSID attempts without requiring a real OTP", async () => {
+    const logCreate = jest.fn().mockResolvedValue({ id: "log-1" });
     const service = new ZatcaService(
-      { zatcaEgsUnit: { findFirst: jest.fn().mockResolvedValue({ ...makeEgsUnit(), privateKeyPem: null }) } } as never,
+      {
+        zatcaEgsUnit: {
+          findFirst: jest.fn().mockResolvedValue({
+            ...makeEgsUnit({ csrPem: "-----BEGIN CERTIFICATE REQUEST-----\nCSR\n-----END CERTIFICATE REQUEST-----" }),
+            privateKeyPem: null,
+          }),
+        },
+        zatcaSubmissionLog: { create: logCreate },
+      } as never,
+      { log: jest.fn() } as never,
+      new SandboxDisabledZatcaOnboardingAdapter(),
+      makeAdapterConfig({ mode: "sandbox-disabled" }),
+    );
+
+    await expect(service.requestComplianceCsid("org-1", "user-1", "egs-1", {})).rejects.toThrow("Real ZATCA network calls are disabled");
+    expect(logCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          egsUnitId: "egs-1",
+          status: ZatcaSubmissionStatus.FAILED,
+          responseCode: "REAL_NETWORK_DISABLED",
+          errorMessage: expect.stringContaining("Real ZATCA network calls are disabled"),
+        }),
+      }),
+    );
+  });
+
+  it("does not implement production CSID requests yet", async () => {
+    const logCreate = jest.fn().mockResolvedValue({ id: "log-1" });
+    const service = new ZatcaService(
+      { zatcaEgsUnit: { findFirst: jest.fn().mockResolvedValue({ ...makeEgsUnit(), privateKeyPem: null }) }, zatcaSubmissionLog: { create: logCreate } } as never,
       { log: jest.fn() } as never,
     );
 
     await expect(service.requestProductionCsid("org-1", "user-1", "egs-1")).rejects.toThrow("Production CSID request is not implemented");
+    expect(logCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          egsUnitId: "egs-1",
+          status: ZatcaSubmissionStatus.FAILED,
+          responseCode: "MOCK_NOT_IMPLEMENTED",
+        }),
+      }),
+    );
   });
 
   it("requires finalized invoices and seller VAT data before generation", async () => {
@@ -252,6 +294,85 @@ describe("ZATCA service rules", () => {
     expect(tx.zatcaEgsUnit.update).not.toHaveBeenCalled();
   });
 
+  it("runs mock invoice compliance checks, updates local readiness, and logs the submission", async () => {
+    const metadata = makeGeneratedMetadata();
+    const tx = {
+      zatcaSubmissionLog: { create: jest.fn().mockResolvedValue({ id: "log-1" }) },
+      zatcaInvoiceMetadata: {
+        update: jest.fn().mockResolvedValue({
+          ...metadata,
+          zatcaStatus: ZatcaInvoiceStatus.READY_FOR_SUBMISSION,
+          submissionLogs: [{ id: "log-1", responseCode: "LOCAL_MOCK_COMPLIANCE_CHECK" }],
+        }),
+      },
+    };
+    const prisma = {
+      zatcaInvoiceMetadata: { findFirst: jest.fn().mockResolvedValue(metadata) },
+      zatcaEgsUnit: { findFirst: jest.fn().mockResolvedValue({ id: "egs-1" }) },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const audit = { log: jest.fn() };
+    const service = new ZatcaService(prisma as never, audit as never);
+
+    const result = await service.submitInvoiceComplianceCheck("org-1", "user-1", "invoice-1");
+
+    expect(result).toMatchObject({ zatcaStatus: ZatcaInvoiceStatus.READY_FOR_SUBMISSION });
+    expect(tx.zatcaSubmissionLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          invoiceMetadataId: "metadata-1",
+          submissionType: ZatcaSubmissionType.COMPLIANCE_CHECK,
+          status: ZatcaSubmissionStatus.SUCCESS,
+          responseCode: "LOCAL_MOCK_COMPLIANCE_CHECK",
+          requestPayloadBase64: expect.any(String),
+        }),
+      }),
+    );
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "ZATCA_COMPLIANCE_CHECK" }));
+  });
+
+  it("logs safe mock clearance and reporting blocks without marking invoices cleared or reported", async () => {
+    const metadata = makeGeneratedMetadata();
+    const tx = {
+      zatcaSubmissionLog: { create: jest.fn().mockResolvedValue({ id: "log-1" }) },
+      zatcaInvoiceMetadata: { update: jest.fn().mockResolvedValue(metadata) },
+    };
+    const prisma = {
+      zatcaInvoiceMetadata: { findFirst: jest.fn().mockResolvedValue(metadata) },
+      zatcaEgsUnit: { findFirst: jest.fn().mockResolvedValue({ id: "egs-1" }) },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    await expect(service.requestInvoiceClearance("org-1", "user-1", "invoice-1")).rejects.toThrow("Clearance submission is not implemented in mock mode");
+    await expect(service.requestInvoiceReporting("org-1", "user-1", "invoice-1")).rejects.toThrow("Reporting submission is not implemented in mock mode");
+
+    expect(tx.zatcaSubmissionLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          submissionType: ZatcaSubmissionType.CLEARANCE,
+          status: ZatcaSubmissionStatus.FAILED,
+          responseCode: "MOCK_NOT_IMPLEMENTED",
+        }),
+      }),
+    );
+    expect(tx.zatcaSubmissionLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          submissionType: ZatcaSubmissionType.REPORTING,
+          status: ZatcaSubmissionStatus.FAILED,
+          responseCode: "MOCK_NOT_IMPLEMENTED",
+        }),
+      }),
+    );
+    expect(tx.zatcaInvoiceMetadata.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ zatcaStatus: ZatcaInvoiceStatus.CLEARED }) }),
+    );
+    expect(tx.zatcaInvoiceMetadata.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ zatcaStatus: ZatcaInvoiceStatus.REPORTED }) }),
+    );
+  });
+
   it("scopes XML and QR lookup by organization", async () => {
     const prisma = {
       zatcaInvoiceMetadata: {
@@ -268,6 +389,15 @@ describe("ZATCA service rules", () => {
     await expect(service.getInvoiceQr("org-1", "invoice-1")).resolves.toEqual({ qrCodeBase64: "qr-base64" });
     await expect(service.getInvoiceXml("other-org", "invoice-1")).rejects.toThrow(NotFoundException);
     expect(prisma.zatcaInvoiceMetadata.findFirst).toHaveBeenCalledWith({ where: { organizationId: "org-1", invoiceId: "invoice-1" } });
+  });
+
+  it("scopes invoice compliance-check submissions by organization", async () => {
+    const service = new ZatcaService(
+      { zatcaInvoiceMetadata: { findFirst: jest.fn().mockResolvedValue(null) } } as never,
+      { log: jest.fn() } as never,
+    );
+
+    await expect(service.submitInvoiceComplianceCheck("other-org", "user-1", "invoice-1")).rejects.toThrow(NotFoundException);
   });
 });
 
@@ -386,6 +516,41 @@ function makeEgsUnit(overrides: Record<string, unknown> = {}) {
     isActive: false,
     createdAt: new Date("2026-05-07T00:00:00.000Z"),
     updatedAt: new Date("2026-05-07T00:00:00.000Z"),
+    ...overrides,
+  };
+}
+
+function makeGeneratedMetadata(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "metadata-1",
+    organizationId: "org-1",
+    invoiceId: "invoice-1",
+    zatcaInvoiceType: "STANDARD_TAX_INVOICE",
+    zatcaStatus: ZatcaInvoiceStatus.XML_GENERATED,
+    invoiceUuid: "00000000-0000-0000-0000-000000000001",
+    icv: 1,
+    previousInvoiceHash: "previous-hash",
+    invoiceHash: "invoice-hash",
+    qrCodeBase64: "qr-base64",
+    xmlBase64: Buffer.from("<Invoice />", "utf8").toString("base64"),
+    xmlHash: "invoice-hash",
+    egsUnitId: "egs-1",
+    generatedAt: new Date("2026-05-07T00:00:00.000Z"),
+    clearedAt: null,
+    reportedAt: null,
+    rejectedAt: null,
+    lastErrorCode: null,
+    lastErrorMessage: null,
+    createdAt: new Date("2026-05-07T00:00:00.000Z"),
+    updatedAt: new Date("2026-05-07T00:00:00.000Z"),
+    ...overrides,
+  };
+}
+
+function makeAdapterConfig(overrides: Partial<ZatcaAdapterConfig> = {}): ZatcaAdapterConfig {
+  return {
+    mode: "mock",
+    enableRealNetwork: false,
     ...overrides,
   };
 }

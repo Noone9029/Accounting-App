@@ -21,6 +21,11 @@ export class ZatcaController {
     return this.zatcaService.getProfile(organizationId);
   }
 
+  @Get("zatca/adapter-config")
+  adapterConfig() {
+    return this.zatcaService.getAdapterConfig();
+  }
+
   @Patch("zatca/profile")
   updateProfile(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateZatcaProfileDto) {
     return this.zatcaService.updateProfile(organizationId, user.id, dto);
@@ -98,6 +103,21 @@ export class ZatcaController {
   @Post("sales-invoices/:id/zatca/generate")
   generateInvoiceCompliance(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
     return this.zatcaService.generateInvoiceCompliance(organizationId, user.id, id);
+  }
+
+  @Post("sales-invoices/:id/zatca/compliance-check")
+  submitInvoiceComplianceCheck(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+    return this.zatcaService.submitInvoiceComplianceCheck(organizationId, user.id, id);
+  }
+
+  @Post("sales-invoices/:id/zatca/clearance")
+  requestInvoiceClearance(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+    return this.zatcaService.requestInvoiceClearance(organizationId, user.id, id);
+  }
+
+  @Post("sales-invoices/:id/zatca/reporting")
+  requestInvoiceReporting(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+    return this.zatcaService.requestInvoiceReporting(organizationId, user.id, id);
   }
 
   @Get("sales-invoices/:id/zatca/xml")

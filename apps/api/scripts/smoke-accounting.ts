@@ -138,6 +138,7 @@ interface ZatcaQrResponse {
 
 interface ZatcaSubmissionLog {
   id: string;
+  invoiceMetadataId?: string | null;
   egsUnitId?: string | null;
   responseCode?: string | null;
   submissionType: string;
@@ -291,6 +292,26 @@ async function main(): Promise<void> {
   await assertXml(`/sales-invoices/${draftInvoice.id}/zatca/xml`, headers, "invoice ZATCA XML", finalizedInvoice.invoiceNumber);
   const zatcaQr = await get<ZatcaQrResponse>(`/sales-invoices/${draftInvoice.id}/zatca/qr`, headers);
   assertPresent(zatcaQr.qrCodeBase64, "ZATCA QR endpoint payload");
+  const checkedZatcaMetadata = await post<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca/compliance-check`, headers, {});
+  assertEqual(checkedZatcaMetadata.zatcaStatus, "READY_FOR_SUBMISSION", "ZATCA mock compliance-check status");
+  const invoiceZatcaSubmissions = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assert(
+    invoiceZatcaSubmissions.some(
+      (log) => log.invoiceMetadataId === zatcaMetadata.id && log.responseCode === "LOCAL_MOCK_COMPLIANCE_CHECK" && log.status === "SUCCESS",
+    ),
+    "ZATCA submissions include local mock invoice compliance-check log",
+  );
+  await expectHttpError("mock clearance safe block", () => post<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca/clearance`, headers, {}));
+  await expectHttpError("mock reporting safe block", () => post<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca/reporting`, headers, {}));
+  const blockedZatcaSubmissions = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assert(
+    blockedZatcaSubmissions.some((log) => log.invoiceMetadataId === zatcaMetadata.id && log.submissionType === "CLEARANCE" && log.status === "FAILED"),
+    "ZATCA submissions include safe blocked clearance log",
+  );
+  assert(
+    blockedZatcaSubmissions.some((log) => log.invoiceMetadataId === zatcaMetadata.id && log.submissionType === "REPORTING" && log.status === "FAILED"),
+    "ZATCA submissions include safe blocked reporting log",
+  );
 
   await expectHttpError("over-allocation payment", () =>
     post<CustomerPayment>("/customer-payments", headers, {

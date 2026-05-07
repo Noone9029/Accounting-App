@@ -22,8 +22,10 @@ import { CreateZatcaEgsUnitDto } from "./dto/create-zatca-egs-unit.dto";
 import { RequestComplianceCsidDto } from "./dto/request-compliance-csid.dto";
 import { UpdateZatcaEgsUnitDto } from "./dto/update-zatca-egs-unit.dto";
 import { UpdateZatcaProfileDto } from "./dto/update-zatca-profile.dto";
+import { isZatcaAdapterError, ZatcaAdapterError } from "./adapters/zatca-adapter.error";
 import { MockZatcaOnboardingAdapter } from "./adapters/mock-zatca-onboarding.adapter";
-import { ZATCA_ONBOARDING_ADAPTER, type ZatcaOnboardingAdapter } from "./adapters/zatca-onboarding.adapter";
+import { ZATCA_ONBOARDING_ADAPTER, type ComplianceCsidResult, type ZatcaAdapterResult, type ZatcaOnboardingAdapter } from "./adapters/zatca-onboarding.adapter";
+import { readZatcaAdapterConfig, summarizeZatcaAdapterConfig, type ZatcaAdapterConfig, ZATCA_ADAPTER_CONFIG } from "./zatca.config";
 
 const zatcaMetadataInclude = {
   egsUnit: { select: { id: true, name: true, environment: true, isActive: true, lastIcv: true } },
@@ -83,13 +85,26 @@ export function getZatcaProfileReadiness(profile: {
 
 @Injectable()
 export class ZatcaService {
+  private readonly onboardingAdapter: ZatcaOnboardingAdapter;
+  private readonly adapterConfig: ZatcaAdapterConfig;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
     @Optional()
     @Inject(ZATCA_ONBOARDING_ADAPTER)
-    private readonly onboardingAdapter: ZatcaOnboardingAdapter = new MockZatcaOnboardingAdapter(),
-  ) {}
+    onboardingAdapter?: ZatcaOnboardingAdapter,
+    @Optional()
+    @Inject(ZATCA_ADAPTER_CONFIG)
+    adapterConfig?: ZatcaAdapterConfig,
+  ) {
+    this.adapterConfig = adapterConfig ?? readZatcaAdapterConfig();
+    this.onboardingAdapter = onboardingAdapter ?? new MockZatcaOnboardingAdapter();
+  }
+
+  getAdapterConfig() {
+    return summarizeZatcaAdapterConfig(this.adapterConfig);
+  }
 
   async getProfile(organizationId: string) {
     const organization = await this.prisma.organization.findFirst({
@@ -269,17 +284,38 @@ export class ZatcaService {
     if (!existing.csrPem) {
       throw new BadRequestException("Generate a CSR before requesting a compliance CSID.");
     }
-    if (!dto.otp?.trim()) {
+    if (this.adapterConfig.mode === "mock" && !dto.otp?.trim()) {
       throw new BadRequestException("OTP is required for the local mock compliance CSID flow.");
     }
 
-    const adapterResult = await this.onboardingAdapter.requestComplianceCsid({
-      organizationId,
-      egsUnitId: id,
-      environment: existing.environment,
-      otp: dto.otp,
+    const requestPayload = {
       csrPem: existing.csrPem,
-    });
+      otp: dto.otp,
+      requestedMode: dto.mode ?? this.adapterConfig.mode,
+      adapterMode: this.adapterConfig.mode,
+      environment: existing.environment,
+      // TODO: Verify the official compliance CSID payload shape before enabling real sandbox calls.
+    };
+
+    let adapterResult: ComplianceCsidResult;
+    try {
+      adapterResult = await this.onboardingAdapter.requestComplianceCsid({
+        organizationId,
+        egsUnitId: id,
+        environment: existing.environment,
+        request: requestPayload,
+      });
+    } catch (error) {
+      await this.createEgsSubmissionFailureLog({
+        organizationId,
+        egsUnitId: id,
+        submissionType: ZatcaSubmissionType.COMPLIANCE_CHECK,
+        requestUrl: this.adapterRequestUrl(error) ?? `${this.adapterConfig.mode}-compliance-csid`,
+        requestPayload: this.sanitizeComplianceCsidRequestForLog(requestPayload),
+        error,
+      });
+      this.throwAdapterError(error);
+    }
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const activeCount = await tx.zatcaEgsUnit.count({ where: { organizationId, isActive: true } });
@@ -304,15 +340,8 @@ export class ZatcaService {
           egsUnitId: id,
           submissionType: ZatcaSubmissionType.COMPLIANCE_CHECK,
           status: ZatcaSubmissionStatus.SUCCESS,
-          requestUrl: `local-${dto.mode ?? "mock"}-compliance-csid`,
-          requestPayloadBase64: Buffer.from(
-            JSON.stringify({
-              mode: dto.mode ?? "mock",
-              otpLength: dto.otp.length,
-              csrHash: this.hashForLog(existing.csrPem!),
-            }),
-            "utf8",
-          ).toString("base64"),
+          requestUrl: adapterResult.requestUrl ?? `local-${dto.mode ?? this.adapterConfig.mode}-compliance-csid`,
+          requestPayloadBase64: this.encodePayload(this.sanitizeComplianceCsidRequestForLog(requestPayload)),
           responsePayloadBase64: Buffer.from(JSON.stringify(adapterResult.responsePayload), "utf8").toString("base64"),
           responseCode: adapterResult.responseCode,
           completedAt: new Date(),
@@ -336,8 +365,68 @@ export class ZatcaService {
   }
 
   async requestProductionCsid(organizationId: string, _actorUserId: string, id: string) {
-    await this.getEgsUnitInternal(organizationId, id);
-    throw new NotImplementedException("Production CSID request is not implemented. Complete compliance CSID flow and real adapter first.");
+    const existing = await this.getEgsUnitInternal(organizationId, id);
+    const requestPayload = {
+      complianceCsidPem: existing.complianceCsidPem ?? "",
+      certificateRequestId: existing.certificateRequestId ?? "",
+      adapterMode: this.adapterConfig.mode,
+      // TODO: Verify official production CSID request fields before implementation.
+    };
+
+    try {
+      const adapterResult = await this.onboardingAdapter.requestProductionCsid({
+        organizationId,
+        egsUnitId: id,
+        complianceCsidPem: existing.complianceCsidPem ?? "",
+        request: requestPayload,
+      });
+
+      if (!adapterResult.productionCsidPem) {
+        throw new ZatcaAdapterError("Production CSID response mapping is incomplete. Verify official response fields before enabling this flow.", {
+          responseCode: "OFFICIAL_RESPONSE_UNMAPPED",
+          errorCode: "OFFICIAL_RESPONSE_UNMAPPED",
+          responsePayload: adapterResult.responsePayload,
+          requestUrl: adapterResult.requestUrl,
+          httpStatus: 501,
+        });
+      }
+
+      const updated = await this.prisma.zatcaEgsUnit.update({
+        where: { id },
+        data: {
+          productionCsidPem: adapterResult.productionCsidPem,
+          certificateRequestId: adapterResult.certificateRequestId ?? existing.certificateRequestId,
+        },
+        select: safeEgsUnitSelect,
+      });
+
+      await this.prisma.zatcaSubmissionLog.create({
+        data: {
+          organizationId,
+          invoiceMetadataId: null,
+          egsUnitId: id,
+          submissionType: ZatcaSubmissionType.COMPLIANCE_CHECK,
+          status: ZatcaSubmissionStatus.SUCCESS,
+          requestUrl: adapterResult.requestUrl ?? `${this.adapterConfig.mode}-production-csid`,
+          requestPayloadBase64: this.encodePayload(this.sanitizeProductionCsidRequestForLog(requestPayload)),
+          responsePayloadBase64: this.encodePayload(adapterResult.responsePayload),
+          responseCode: adapterResult.responseCode,
+          completedAt: new Date(),
+        },
+      });
+
+      return this.toPublicEgsUnit(updated);
+    } catch (error) {
+      await this.createEgsSubmissionFailureLog({
+        organizationId,
+        egsUnitId: id,
+        submissionType: ZatcaSubmissionType.COMPLIANCE_CHECK,
+        requestUrl: this.adapterRequestUrl(error) ?? `${this.adapterConfig.mode}-production-csid`,
+        requestPayload: this.sanitizeProductionCsidRequestForLog(requestPayload),
+        error,
+      });
+      this.throwAdapterError(error);
+    }
   }
 
   async getInvoiceCompliance(organizationId: string, invoiceId: string) {
@@ -443,6 +532,163 @@ export class ZatcaService {
     return result;
   }
 
+  async submitInvoiceComplianceCheck(organizationId: string, actorUserId: string, invoiceId: string) {
+    const metadata = await this.getMetadataWithXml(organizationId, invoiceId);
+    const invoiceXml = Buffer.from(metadata.xmlBase64, "base64").toString("utf8");
+    const egsUnitId = await this.resolveSubmissionEgsUnitId(organizationId, metadata.egsUnitId);
+    const requestPayload = this.buildInvoiceSubmissionRequestPayload(metadata, "compliance-check");
+
+    let adapterResult: ZatcaAdapterResult;
+    try {
+      adapterResult = await this.onboardingAdapter.submitComplianceCheck({
+        organizationId,
+        invoiceId,
+        invoiceMetadataId: metadata.id,
+        egsUnitId,
+        invoiceXml,
+        request: requestPayload,
+      });
+    } catch (error) {
+      await this.createInvoiceSubmissionFailureLog({
+        organizationId,
+        invoiceMetadataId: metadata.id,
+        egsUnitId,
+        submissionType: ZatcaSubmissionType.COMPLIANCE_CHECK,
+        requestUrl: this.adapterRequestUrl(error) ?? `${this.adapterConfig.mode}-compliance-check`,
+        requestPayload,
+        error,
+      });
+      this.throwAdapterError(error);
+    }
+
+    const nextStatus =
+      metadata.zatcaStatus === ZatcaInvoiceStatus.XML_GENERATED || metadata.zatcaStatus === ZatcaInvoiceStatus.NOT_SUBMITTED
+        ? ZatcaInvoiceStatus.READY_FOR_SUBMISSION
+        : metadata.zatcaStatus;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.zatcaSubmissionLog.create({
+        data: {
+          organizationId,
+          invoiceMetadataId: metadata.id,
+          egsUnitId,
+          submissionType: ZatcaSubmissionType.COMPLIANCE_CHECK,
+          status: ZatcaSubmissionStatus.SUCCESS,
+          requestUrl: adapterResult.requestUrl ?? `${this.adapterConfig.mode}-compliance-check`,
+          requestPayloadBase64: this.encodePayload(requestPayload),
+          responsePayloadBase64: this.encodePayload(adapterResult.responsePayload),
+          responseCode: adapterResult.responseCode,
+          completedAt: new Date(),
+        },
+      });
+      return tx.zatcaInvoiceMetadata.update({
+        where: { id: metadata.id },
+        data: {
+          zatcaStatus: nextStatus,
+          egsUnitId,
+          lastErrorCode: null,
+          lastErrorMessage: null,
+        },
+        include: zatcaMetadataInclude,
+      });
+    });
+
+    await this.auditLogService.log({ organizationId, actorUserId, action: "ZATCA_COMPLIANCE_CHECK", entityType: "ZatcaInvoiceMetadata", entityId: updated.id, after: updated });
+    return updated;
+  }
+
+  async requestInvoiceClearance(organizationId: string, _actorUserId: string, invoiceId: string) {
+    const metadata = await this.getMetadataWithXml(organizationId, invoiceId);
+    const invoiceXml = Buffer.from(metadata.xmlBase64, "base64").toString("utf8");
+    const egsUnitId = await this.resolveSubmissionEgsUnitId(organizationId, metadata.egsUnitId);
+    const requestPayload = this.buildInvoiceSubmissionRequestPayload(metadata, "clearance");
+
+    try {
+      const adapterResult = await this.onboardingAdapter.submitClearance({
+        organizationId,
+        invoiceId,
+        invoiceMetadataId: metadata.id,
+        egsUnitId,
+        invoiceXml,
+        request: requestPayload,
+      });
+
+      await this.prisma.zatcaSubmissionLog.create({
+        data: {
+          organizationId,
+          invoiceMetadataId: metadata.id,
+          egsUnitId,
+          submissionType: ZatcaSubmissionType.CLEARANCE,
+          status: ZatcaSubmissionStatus.SUCCESS,
+          requestUrl: adapterResult.requestUrl ?? `${this.adapterConfig.mode}-clearance`,
+          requestPayloadBase64: this.encodePayload(requestPayload),
+          responsePayloadBase64: this.encodePayload(adapterResult.responsePayload),
+          responseCode: adapterResult.responseCode,
+          completedAt: new Date(),
+        },
+      });
+
+      return this.ensureInvoiceMetadata(organizationId, invoiceId);
+    } catch (error) {
+      await this.createInvoiceSubmissionFailureLog({
+        organizationId,
+        invoiceMetadataId: metadata.id,
+        egsUnitId,
+        submissionType: ZatcaSubmissionType.CLEARANCE,
+        requestUrl: this.adapterRequestUrl(error) ?? `${this.adapterConfig.mode}-clearance`,
+        requestPayload,
+        error,
+      });
+      this.throwAdapterError(error);
+    }
+  }
+
+  async requestInvoiceReporting(organizationId: string, _actorUserId: string, invoiceId: string) {
+    const metadata = await this.getMetadataWithXml(organizationId, invoiceId);
+    const invoiceXml = Buffer.from(metadata.xmlBase64, "base64").toString("utf8");
+    const egsUnitId = await this.resolveSubmissionEgsUnitId(organizationId, metadata.egsUnitId);
+    const requestPayload = this.buildInvoiceSubmissionRequestPayload(metadata, "reporting");
+
+    try {
+      const adapterResult = await this.onboardingAdapter.submitReporting({
+        organizationId,
+        invoiceId,
+        invoiceMetadataId: metadata.id,
+        egsUnitId,
+        invoiceXml,
+        request: requestPayload,
+      });
+
+      await this.prisma.zatcaSubmissionLog.create({
+        data: {
+          organizationId,
+          invoiceMetadataId: metadata.id,
+          egsUnitId,
+          submissionType: ZatcaSubmissionType.REPORTING,
+          status: ZatcaSubmissionStatus.SUCCESS,
+          requestUrl: adapterResult.requestUrl ?? `${this.adapterConfig.mode}-reporting`,
+          requestPayloadBase64: this.encodePayload(requestPayload),
+          responsePayloadBase64: this.encodePayload(adapterResult.responsePayload),
+          responseCode: adapterResult.responseCode,
+          completedAt: new Date(),
+        },
+      });
+
+      return this.ensureInvoiceMetadata(organizationId, invoiceId);
+    } catch (error) {
+      await this.createInvoiceSubmissionFailureLog({
+        organizationId,
+        invoiceMetadataId: metadata.id,
+        egsUnitId,
+        submissionType: ZatcaSubmissionType.REPORTING,
+        requestUrl: this.adapterRequestUrl(error) ?? `${this.adapterConfig.mode}-reporting`,
+        requestPayload,
+        error,
+      });
+      this.throwAdapterError(error);
+    }
+  }
+
   async getInvoiceXml(organizationId: string, invoiceId: string) {
     const metadata = await this.getMetadataWithXml(organizationId, invoiceId);
     return Buffer.from(metadata.xmlBase64, "base64");
@@ -484,6 +730,169 @@ export class ZatcaService {
       throw new NotFoundException("Sales invoice not found.");
     }
     return invoice;
+  }
+
+  private async resolveSubmissionEgsUnitId(organizationId: string, currentEgsUnitId: string | null): Promise<string | null> {
+    if (currentEgsUnitId) {
+      return currentEgsUnitId;
+    }
+
+    const activeEgs = await this.prisma.zatcaEgsUnit.findFirst({
+      where: { organizationId, isActive: true, status: ZatcaRegistrationStatus.ACTIVE },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true },
+    });
+
+    return activeEgs?.id ?? null;
+  }
+
+  private buildInvoiceSubmissionRequestPayload(
+    metadata: {
+      id: string;
+      invoiceId: string;
+      invoiceUuid: string;
+      invoiceHash: string | null;
+      xmlHash: string | null;
+      xmlBase64: string;
+    },
+    operation: "compliance-check" | "clearance" | "reporting",
+  ) {
+    return {
+      operation,
+      adapterMode: this.adapterConfig.mode,
+      invoiceId: metadata.invoiceId,
+      invoiceMetadataId: metadata.id,
+      invoiceUuid: metadata.invoiceUuid,
+      invoiceHash: metadata.invoiceHash,
+      xmlHash: metadata.xmlHash,
+      invoiceXmlBase64: metadata.xmlBase64,
+      // TODO: Verify official ZATCA signed XML, hash, and invoice-type payload fields before real sandbox calls.
+    };
+  }
+
+  private async createEgsSubmissionFailureLog(params: {
+    organizationId: string;
+    egsUnitId: string;
+    submissionType: ZatcaSubmissionType;
+    requestUrl: string;
+    requestPayload: unknown;
+    error: unknown;
+  }) {
+    const details = this.adapterErrorDetails(params.error);
+    await this.prisma.zatcaSubmissionLog.create({
+      data: {
+        organizationId: params.organizationId,
+        invoiceMetadataId: null,
+        egsUnitId: params.egsUnitId,
+        submissionType: params.submissionType,
+        status: ZatcaSubmissionStatus.FAILED,
+        requestUrl: params.requestUrl,
+        requestPayloadBase64: this.encodePayload(params.requestPayload),
+        responsePayloadBase64: this.encodePayload(details.responsePayload),
+        responseCode: details.responseCode,
+        errorCode: details.errorCode,
+        errorMessage: details.message,
+        completedAt: new Date(),
+      },
+    });
+  }
+
+  private async createInvoiceSubmissionFailureLog(params: {
+    organizationId: string;
+    invoiceMetadataId: string;
+    egsUnitId: string | null;
+    submissionType: ZatcaSubmissionType;
+    requestUrl: string;
+    requestPayload: unknown;
+    error: unknown;
+  }) {
+    const details = this.adapterErrorDetails(params.error);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.zatcaSubmissionLog.create({
+        data: {
+          organizationId: params.organizationId,
+          invoiceMetadataId: params.invoiceMetadataId,
+          egsUnitId: params.egsUnitId,
+          submissionType: params.submissionType,
+          status: ZatcaSubmissionStatus.FAILED,
+          requestUrl: params.requestUrl,
+          requestPayloadBase64: this.encodePayload(params.requestPayload),
+          responsePayloadBase64: this.encodePayload(details.responsePayload),
+          responseCode: details.responseCode,
+          errorCode: details.errorCode,
+          errorMessage: details.message,
+          completedAt: new Date(),
+        },
+      });
+      await tx.zatcaInvoiceMetadata.update({
+        where: { id: params.invoiceMetadataId },
+        data: {
+          egsUnitId: params.egsUnitId ?? undefined,
+          lastErrorCode: details.errorCode,
+          lastErrorMessage: details.message,
+        },
+      });
+    });
+  }
+
+  private sanitizeComplianceCsidRequestForLog(requestPayload: { csrPem?: string; otp?: string; requestedMode?: string; adapterMode?: string; environment?: string }) {
+    return {
+      adapterMode: requestPayload.adapterMode,
+      requestedMode: requestPayload.requestedMode,
+      environment: requestPayload.environment,
+      otpLength: requestPayload.otp?.length ?? 0,
+      csrHash: requestPayload.csrPem ? this.hashForLog(requestPayload.csrPem) : null,
+    };
+  }
+
+  private sanitizeProductionCsidRequestForLog(requestPayload: { complianceCsidPem?: string; certificateRequestId?: string; adapterMode?: string }) {
+    return {
+      adapterMode: requestPayload.adapterMode,
+      certificateRequestId: requestPayload.certificateRequestId,
+      complianceCsidHash: requestPayload.complianceCsidPem ? this.hashForLog(requestPayload.complianceCsidPem) : null,
+    };
+  }
+
+  private adapterRequestUrl(error: unknown): string | undefined {
+    return isZatcaAdapterError(error) ? error.requestUrl : undefined;
+  }
+
+  private adapterErrorDetails(error: unknown): { message: string; responseCode: string; errorCode: string; responsePayload: Record<string, unknown> } {
+    if (isZatcaAdapterError(error)) {
+      return {
+        message: error.message,
+        responseCode: error.responseCode,
+        errorCode: error.errorCode ?? error.responseCode,
+        responsePayload: error.responsePayload,
+      };
+    }
+
+    const message = error instanceof Error ? error.message : "ZATCA adapter request failed.";
+    return {
+      message,
+      responseCode: "ZATCA_ADAPTER_ERROR",
+      errorCode: "ZATCA_ADAPTER_ERROR",
+      responsePayload: { message },
+    };
+  }
+
+  private throwAdapterError(error: unknown): never {
+    if (isZatcaAdapterError(error)) {
+      if (error.httpStatus === 501) {
+        throw new NotImplementedException(error.message);
+      }
+      throw new BadRequestException(error.message);
+    }
+
+    if (error instanceof BadRequestException || error instanceof NotImplementedException) {
+      throw error;
+    }
+
+    throw new BadRequestException(error instanceof Error ? error.message : "ZATCA adapter request failed.");
+  }
+
+  private encodePayload(value: unknown): string {
+    return Buffer.from(JSON.stringify(value), "utf8").toString("base64");
   }
 
   private async getMetadataWithXml(organizationId: string, invoiceId: string) {

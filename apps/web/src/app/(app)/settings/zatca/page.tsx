@@ -5,8 +5,8 @@ import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { downloadAuthenticatedFile } from "@/lib/pdf-download";
-import { getZatcaProfileMissingFields, truncateHash, zatcaEgsCsrDownloadPath, zatcaStatusLabel } from "@/lib/zatca";
-import type { ZatcaEgsUnit, ZatcaEnvironment, ZatcaOrganizationProfile, ZatcaSubmissionLog } from "@/lib/types";
+import { getZatcaProfileMissingFields, shouldShowZatcaRealNetworkWarning, truncateHash, zatcaAdapterModeLabel, zatcaEgsCsrDownloadPath, zatcaStatusLabel } from "@/lib/zatca";
+import type { ZatcaAdapterConfigSummary, ZatcaEgsUnit, ZatcaEnvironment, ZatcaOrganizationProfile, ZatcaSubmissionLog } from "@/lib/types";
 
 const environmentOptions: ZatcaEnvironment[] = ["SANDBOX", "SIMULATION", "PRODUCTION"];
 
@@ -34,6 +34,7 @@ interface EgsForm {
 export default function ZatcaSettingsPage() {
   const organizationId = useActiveOrganizationId();
   const [profile, setProfile] = useState<ZatcaOrganizationProfile | null>(null);
+  const [adapterConfig, setAdapterConfig] = useState<ZatcaAdapterConfigSummary | null>(null);
   const [form, setForm] = useState<ZatcaProfileForm | null>(null);
   const [egsUnits, setEgsUnits] = useState<ZatcaEgsUnit[]>([]);
   const [submissionLogs, setSubmissionLogs] = useState<ZatcaSubmissionLog[]>([]);
@@ -54,10 +55,16 @@ export default function ZatcaSettingsPage() {
     setLoading(true);
     setError("");
 
-    Promise.all([apiRequest<ZatcaOrganizationProfile>("/zatca/profile"), apiRequest<ZatcaEgsUnit[]>("/zatca/egs-units"), apiRequest<ZatcaSubmissionLog[]>("/zatca/submissions")])
-      .then(([loadedProfile, loadedUnits, loadedLogs]) => {
+    Promise.all([
+      apiRequest<ZatcaOrganizationProfile>("/zatca/profile"),
+      apiRequest<ZatcaAdapterConfigSummary>("/zatca/adapter-config"),
+      apiRequest<ZatcaEgsUnit[]>("/zatca/egs-units"),
+      apiRequest<ZatcaSubmissionLog[]>("/zatca/submissions"),
+    ])
+      .then(([loadedProfile, loadedAdapterConfig, loadedUnits, loadedLogs]) => {
         if (!cancelled) {
           setProfile(loadedProfile);
+          setAdapterConfig(loadedAdapterConfig);
           setForm(profileToForm(loadedProfile));
           setEgsUnits(loadedUnits);
           setSubmissionLogs(loadedLogs);
@@ -219,6 +226,9 @@ export default function ZatcaSettingsPage() {
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
         <StatusMessage type="info">Local ZATCA generation only. These settings do not submit invoices to ZATCA and are not production credentials.</StatusMessage>
+        {shouldShowZatcaRealNetworkWarning(adapterConfig) ? (
+          <StatusMessage type="info">Real ZATCA calls are disabled unless explicitly enabled through environment variables.</StatusMessage>
+        ) : null}
         {profile && missingProfileFields.length > 0 ? (
           <StatusMessage type="info">CSR readiness missing fields: {missingProfileFields.join(", ")}.</StatusMessage>
         ) : null}
@@ -226,6 +236,17 @@ export default function ZatcaSettingsPage() {
 
       {form ? (
         <div className="mt-5 space-y-5">
+          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <h2 className="text-base font-semibold text-ink">Adapter mode</h2>
+            <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
+              <AdapterSummary label="Mode" value={zatcaAdapterModeLabel(adapterConfig?.mode)} />
+              <AdapterSummary label="Real network enabled" value={adapterConfig?.realNetworkEnabled ? "Yes" : "No"} />
+              <AdapterSummary label="Sandbox URL configured" value={adapterConfig?.sandboxBaseUrlConfigured ? "Yes" : "No"} />
+              <AdapterSummary label="Effective network" value={adapterConfig?.effectiveRealNetworkEnabled ? "Enabled" : "Disabled"} />
+            </div>
+            {adapterConfig?.invalidMode ? <p className="mt-3 text-xs text-rosewood">Invalid adapter mode `{adapterConfig.invalidMode}` was ignored and mock mode is active.</p> : null}
+          </div>
+
           <form onSubmit={saveProfile} className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -355,6 +376,13 @@ export default function ZatcaSettingsPage() {
                               className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
                             >
                               {actionLoading === `csid-${unit.id}` ? "Requesting..." : "Request mock CSID"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled
+                              className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-400 disabled:cursor-not-allowed"
+                            >
+                              Production CSID coming soon
                             </button>
                           </div>
                           <div className="mt-2 text-[11px] text-steel">Use 000000 for local mock mode. Real OTP will come from the ZATCA/FATOORA portal later.</div>
@@ -495,5 +523,14 @@ function SelectField({
         ))}
       </select>
     </label>
+  );
+}
+
+function AdapterSummary({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
+      <div className="mt-1 font-medium text-ink">{value}</div>
+    </div>
   );
 }

@@ -17,8 +17,46 @@ export function zatcaInvoiceQrPath(invoiceId: string): string {
   return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/qr`;
 }
 
+export function zatcaInvoiceComplianceCheckPath(invoiceId: string): string {
+  return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/compliance-check`;
+}
+
+export function zatcaInvoiceClearancePath(invoiceId: string): string {
+  return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/clearance`;
+}
+
+export function zatcaInvoiceReportingPath(invoiceId: string): string {
+  return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/reporting`;
+}
+
 export function zatcaEgsCsrDownloadPath(egsUnitId: string): string {
   return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/csr/download`;
+}
+
+export type ZatcaAdapterMode = "mock" | "sandbox-disabled" | "sandbox";
+
+export interface ZatcaAdapterConfigSummary {
+  mode: ZatcaAdapterMode;
+  realNetworkEnabled: boolean;
+  sandboxBaseUrlConfigured: boolean;
+  simulationBaseUrlConfigured: boolean;
+  productionBaseUrlConfigured: boolean;
+  effectiveRealNetworkEnabled: boolean;
+  invalidMode?: string;
+}
+
+export function zatcaAdapterModeLabel(mode: ZatcaAdapterMode | string | null | undefined): string {
+  if (mode === "sandbox-disabled") {
+    return "Sandbox disabled";
+  }
+  if (mode === "sandbox") {
+    return "Sandbox scaffold";
+  }
+  return "Mock";
+}
+
+export function shouldShowZatcaRealNetworkWarning(config: Pick<ZatcaAdapterConfigSummary, "effectiveRealNetworkEnabled"> | null | undefined): boolean {
+  return !config?.effectiveRealNetworkEnabled;
 }
 
 export function getZatcaProfileMissingFields(profile: {

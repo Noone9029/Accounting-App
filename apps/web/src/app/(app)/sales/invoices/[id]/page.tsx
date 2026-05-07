@@ -9,7 +9,7 @@ import { apiRequest } from "@/lib/api";
 import { deriveInvoicePaymentState, formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadAuthenticatedFile, downloadPdf, invoicePdfPath } from "@/lib/pdf-download";
-import { truncateHash, zatcaInvoiceXmlPath, zatcaStatusLabel } from "@/lib/zatca";
+import { truncateHash, zatcaInvoiceClearancePath, zatcaInvoiceComplianceCheckPath, zatcaInvoiceReportingPath, zatcaInvoiceXmlPath, zatcaStatusLabel } from "@/lib/zatca";
 import type { SalesInvoice, ZatcaInvoiceMetadata, ZatcaQrResponse } from "@/lib/types";
 
 export default function SalesInvoiceDetailPage() {
@@ -183,6 +183,35 @@ export default function SalesInvoiceDetailPage() {
       setActionLoading(false);
     }
   }
+
+  async function runZatcaSubmission(action: "compliance-check" | "clearance" | "reporting") {
+    if (!invoice) {
+      return;
+    }
+
+    const pathByAction = {
+      "compliance-check": zatcaInvoiceComplianceCheckPath(invoice.id),
+      clearance: zatcaInvoiceClearancePath(invoice.id),
+      reporting: zatcaInvoiceReportingPath(invoice.id),
+    };
+
+    setActionLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const result = await apiRequest<ZatcaInvoiceMetadata>(pathByAction[action], { method: "POST" });
+      setZatca(result);
+      setSuccess(action === "compliance-check" ? "Local/mock compliance check recorded." : "ZATCA submission response recorded.");
+    } catch (submissionError) {
+      await refreshZatca(invoice.id).catch(() => undefined);
+      setError(submissionError instanceof Error ? submissionError.message : "Unable to run ZATCA action.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  const latestZatcaSubmission = zatca?.submissionLogs?.[0];
 
   return (
     <section>
@@ -378,7 +407,10 @@ export default function SalesInvoiceDetailPage() {
               <Summary label="Previous hash" value={truncateHash(zatca?.previousInvoiceHash)} />
               <Summary label="EGS unit" value={zatca?.egsUnit?.name ?? "-"} />
               <Summary label="Generated" value={zatca?.generatedAt ? new Date(zatca.generatedAt).toLocaleString() : "-"} />
+              <Summary label="Latest submission" value={latestZatcaSubmission ? zatcaStatusLabel(latestZatcaSubmission.submissionType) : "-"} />
+              <Summary label="Submission status" value={latestZatcaSubmission ? zatcaStatusLabel(latestZatcaSubmission.status) : "-"} />
               <Summary label="Last error" value={zatca?.lastErrorMessage ?? "-"} />
+              <Summary label="Submission error" value={latestZatcaSubmission?.errorMessage ?? "-"} />
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
@@ -397,6 +429,15 @@ export default function SalesInvoiceDetailPage() {
                   View QR payload
                 </button>
               ) : null}
+              <button type="button" onClick={() => void runZatcaSubmission("compliance-check")} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400">
+                Run local/mock compliance check
+              </button>
+              <button type="button" onClick={() => void runZatcaSubmission("clearance")} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                Request clearance
+              </button>
+              <button type="button" onClick={() => void runZatcaSubmission("reporting")} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                Request reporting
+              </button>
             </div>
 
             {qrPayload ? (
