@@ -156,11 +156,6 @@ export class CustomerPaymentService {
     const amountReceived = this.assertPositiveMoney(dto.amountReceived, "Amount received");
     this.assertAllocations(dto.allocations);
 
-    const [customer, paidThroughAccount] = await Promise.all([
-      this.findCustomer(organizationId, dto.customerId),
-      this.findPaidThroughAccount(organizationId, dto.accountId),
-    ]);
-    const invoices = await this.findAndValidateInvoices(organizationId, dto.customerId, dto.allocations);
     const totalAllocated = dto.allocations.reduce((sum, allocation) => sum.plus(allocation.amountApplied), toMoney(0));
 
     if (totalAllocated.gt(amountReceived)) {
@@ -171,6 +166,31 @@ export class CustomerPaymentService {
     const currency = (dto.currency ?? "SAR").toUpperCase();
 
     const payment = await this.prisma.$transaction(async (tx) => {
+      const [customer, paidThroughAccount] = await Promise.all([
+        this.findCustomer(organizationId, dto.customerId, tx),
+        this.findPaidThroughAccount(organizationId, dto.accountId, tx),
+      ]);
+      await this.findAndValidateInvoices(organizationId, dto.customerId, dto.allocations, tx);
+
+      // Conditional balance updates are the allocation concurrency boundary.
+      // The row update locks each invoice and only succeeds while balanceDue
+      // can still cover the allocation, preventing negative balances.
+      for (const allocation of dto.allocations) {
+        const updatedInvoice = await tx.salesInvoice.updateMany({
+          where: {
+            id: allocation.invoiceId,
+            organizationId,
+            customerId: dto.customerId,
+            status: SalesInvoiceStatus.FINALIZED,
+            balanceDue: { gte: allocation.amountApplied },
+          },
+          data: { balanceDue: { decrement: allocation.amountApplied } },
+        });
+        if (updatedInvoice.count !== 1) {
+          throw new BadRequestException("Allocation amount cannot exceed invoice balance due.");
+        }
+      }
+
       const paymentNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.PAYMENT, tx);
       const accountsReceivableAccount = await this.findPostingAccountByCode(organizationId, "120", tx);
       const journalLines = buildCustomerPaymentJournalLines({
@@ -226,13 +246,6 @@ export class CustomerPaymentService {
         include: customerPaymentInclude,
       });
 
-      for (const allocation of dto.allocations) {
-        await tx.salesInvoice.update({
-          where: { id: allocation.invoiceId },
-          data: { balanceDue: { decrement: allocation.amountApplied } },
-        });
-      }
-
       return created;
     });
 
@@ -275,14 +288,29 @@ export class CustomerPaymentService {
       if (!payment) {
         throw new NotFoundException("Customer payment not found.");
       }
-
       if (payment.status === CustomerPaymentStatus.VOIDED) {
         return tx.customerPayment.findUniqueOrThrow({ where: { id }, include: customerPaymentInclude });
+      }
+      if (payment.status !== CustomerPaymentStatus.POSTED) {
+        throw new BadRequestException("Only posted customer payments can be voided.");
       }
 
       const journalEntry = payment.journalEntry;
       if (!journalEntry) {
         throw new BadRequestException("Customer payment has no journal entry to reverse.");
+      }
+
+      // Claim the payment before restoring invoice balances. A competing void
+      // waits on this row update and then becomes a no-op.
+      const claim = await tx.customerPayment.updateMany({
+        where: { id, organizationId, status: CustomerPaymentStatus.POSTED },
+        data: {
+          status: CustomerPaymentStatus.VOIDED,
+          voidedAt: new Date(),
+        },
+      });
+      if (claim.count !== 1) {
+        return tx.customerPayment.findUniqueOrThrow({ where: { id }, include: customerPaymentInclude });
       }
 
       const reversalJournalEntryId =
@@ -309,8 +337,6 @@ export class CustomerPaymentService {
       return tx.customerPayment.update({
         where: { id },
         data: {
-          status: CustomerPaymentStatus.VOIDED,
-          voidedAt: new Date(),
           voidReversalJournalEntryId: reversalJournalEntryId,
         },
         include: customerPaymentInclude,
@@ -341,8 +367,8 @@ export class CustomerPaymentService {
     return { deleted: true };
   }
 
-  private async findCustomer(organizationId: string, customerId: string) {
-    const customer = await this.prisma.contact.findFirst({
+  private async findCustomer(organizationId: string, customerId: string, executor: PrismaExecutor = this.prisma) {
+    const customer = await executor.contact.findFirst({
       where: {
         id: customerId,
         organizationId,
@@ -359,8 +385,8 @@ export class CustomerPaymentService {
     return customer;
   }
 
-  private async findPaidThroughAccount(organizationId: string, accountId: string) {
-    const account = await this.prisma.account.findFirst({
+  private async findPaidThroughAccount(organizationId: string, accountId: string, executor: PrismaExecutor = this.prisma) {
+    const account = await executor.account.findFirst({
       where: {
         id: accountId,
         organizationId,
@@ -378,13 +404,18 @@ export class CustomerPaymentService {
     return account;
   }
 
-  private async findAndValidateInvoices(organizationId: string, customerId: string, allocations: CreateCustomerPaymentDto["allocations"]) {
+  private async findAndValidateInvoices(
+    organizationId: string,
+    customerId: string,
+    allocations: CreateCustomerPaymentDto["allocations"],
+    executor: PrismaExecutor = this.prisma,
+  ) {
     const invoiceIds = allocations.map((allocation) => allocation.invoiceId);
     if (new Set(invoiceIds).size !== invoiceIds.length) {
       throw new BadRequestException("Each invoice can only appear once in a payment.");
     }
 
-    const invoices = await this.prisma.salesInvoice.findMany({
+    const invoices = await executor.salesInvoice.findMany({
       where: {
         organizationId,
         id: { in: invoiceIds },
@@ -477,31 +508,38 @@ export class CustomerPaymentService {
     const totals = getJournalTotals(reversalLines);
     const entryNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx);
 
-    const reversal = await tx.journalEntry.create({
-      data: {
-        organizationId,
-        entryNumber,
-        status: JournalEntryStatus.POSTED,
-        entryDate: new Date(),
-        description: `Void customer payment ${payment.paymentNumber}: ${payment.journalEntry.description}`,
-        reference: payment.paymentNumber,
-        currency: payment.currency,
-        totalDebit: totals.debit,
-        totalCredit: totals.credit,
-        postedAt: new Date(),
-        postedById: actorUserId,
-        createdById: actorUserId,
-        reversalOfId: payment.journalEntry.id,
-        lines: { create: this.toJournalLineCreateMany(organizationId, reversalLines) },
-      },
-    });
+    try {
+      const reversal = await tx.journalEntry.create({
+        data: {
+          organizationId,
+          entryNumber,
+          status: JournalEntryStatus.POSTED,
+          entryDate: new Date(),
+          description: `Void customer payment ${payment.paymentNumber}: ${payment.journalEntry.description}`,
+          reference: payment.paymentNumber,
+          currency: payment.currency,
+          totalDebit: totals.debit,
+          totalCredit: totals.credit,
+          postedAt: new Date(),
+          postedById: actorUserId,
+          createdById: actorUserId,
+          reversalOfId: payment.journalEntry.id,
+          lines: { create: this.toJournalLineCreateMany(organizationId, reversalLines) },
+        },
+      });
 
-    await tx.journalEntry.update({
-      where: { id: payment.journalEntry.id },
-      data: { status: JournalEntryStatus.REVERSED },
-    });
+      await tx.journalEntry.update({
+        where: { id: payment.journalEntry.id },
+        data: { status: JournalEntryStatus.REVERSED },
+      });
 
-    return reversal.id;
+      return reversal.id;
+    } catch (error) {
+      if (!isUniqueConstraintError(error)) {
+        throw error;
+      }
+      throw new BadRequestException("Journal entry has already been reversed.");
+    }
   }
 
   private toJournalLineCreateMany(organizationId: string, lines: JournalLineInput[]): Prisma.JournalLineCreateWithoutJournalEntryInput[] {
@@ -521,4 +559,13 @@ export class CustomerPaymentService {
     const trimmed = value?.trim();
     return trimmed || undefined;
   }
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "P2002"
+  );
 }

@@ -175,48 +175,69 @@ export class AccountingService {
 
   async reverse(organizationId: string, actorUserId: string, id: string) {
     const existing = await this.get(organizationId, id);
-    if (existing.status !== JournalEntryStatus.POSTED) {
-      throw new BadRequestException("Only posted journal entries can be reversed.");
-    }
-
     if (existing.reversedBy) {
       throw new BadRequestException("Journal entry has already been reversed.");
     }
 
-    const reversalLines = createReversalLines(this.toCoreLines(existing.lines));
-    this.assertBalanced(reversalLines);
-    const totals = getJournalTotals(reversalLines);
+    if (existing.status !== JournalEntryStatus.POSTED) {
+      throw new BadRequestException("Only posted journal entries can be reversed.");
+    }
 
     const reversal = await this.prisma.$transaction(async (tx) => {
-      const entryNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx);
-      const created = await tx.journalEntry.create({
-        data: {
-          organizationId,
-          entryNumber,
-          status: JournalEntryStatus.POSTED,
-          entryDate: new Date(),
-          description: `Reversal of ${existing.entryNumber}: ${existing.description}`,
-          reference: existing.entryNumber,
-          currency: existing.currency,
-          totalDebit: totals.debit,
-          totalCredit: totals.credit,
-          postedAt: new Date(),
-          postedById: actorUserId,
-          createdById: actorUserId,
-          reversalOfId: existing.id,
-          lines: {
-            create: this.toLineCreateMany(organizationId, reversalLines),
-          },
-        },
+      const current = await tx.journalEntry.findFirst({
+        where: { id, organizationId },
         include: journalInclude,
       });
+      if (!current) {
+        throw new NotFoundException("Journal entry not found.");
+      }
+      if (current.reversedBy) {
+        throw new BadRequestException("Journal entry has already been reversed.");
+      }
+      if (current.status !== JournalEntryStatus.POSTED) {
+        throw new BadRequestException("Only posted journal entries can be reversed.");
+      }
 
-      await tx.journalEntry.update({
-        where: { id: existing.id },
-        data: { status: JournalEntryStatus.REVERSED },
-      });
+      const reversalLines = createReversalLines(this.toCoreLines(current.lines));
+      this.assertBalanced(reversalLines);
+      const totals = getJournalTotals(reversalLines);
+      const entryNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx);
 
-      return created;
+      try {
+        const created = await tx.journalEntry.create({
+          data: {
+            organizationId,
+            entryNumber,
+            status: JournalEntryStatus.POSTED,
+            entryDate: new Date(),
+            description: `Reversal of ${current.entryNumber}: ${current.description}`,
+            reference: current.entryNumber,
+            currency: current.currency,
+            totalDebit: totals.debit,
+            totalCredit: totals.credit,
+            postedAt: new Date(),
+            postedById: actorUserId,
+            createdById: actorUserId,
+            reversalOfId: current.id,
+            lines: {
+              create: this.toLineCreateMany(organizationId, reversalLines),
+            },
+          },
+          include: journalInclude,
+        });
+
+        await tx.journalEntry.update({
+          where: { id: current.id },
+          data: { status: JournalEntryStatus.REVERSED },
+        });
+
+        return created;
+      } catch (error) {
+        if (isUniqueConstraintError(error)) {
+          throw new BadRequestException("Journal entry has already been reversed.");
+        }
+        throw error;
+      }
     });
 
     await this.auditLogService.log({
@@ -314,4 +335,13 @@ export class AccountingService {
       taxRateId: line.taxRateId ?? null,
     }));
   }
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "P2002"
+  );
 }

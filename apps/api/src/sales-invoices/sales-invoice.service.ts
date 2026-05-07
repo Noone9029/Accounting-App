@@ -4,12 +4,15 @@ import {
   assertDraftInvoiceEditable,
   assertFinalizableSalesInvoice,
   calculateSalesInvoiceTotals,
+  createReversalLines,
+  getJournalTotals,
   JournalLineInput,
   toMoney,
 } from "@ledgerbyte/accounting-core";
 import {
   AccountType,
   ContactType,
+  CustomerPaymentStatus,
   ItemStatus,
   JournalEntryStatus,
   NumberSequenceScope,
@@ -232,8 +235,12 @@ export class SalesInvoiceService {
 
   async finalize(organizationId: string, actorUserId: string, id: string) {
     const existing = await this.get(organizationId, id);
-    if (existing.status === SalesInvoiceStatus.FINALIZED) {
+    if (existing.status === SalesInvoiceStatus.FINALIZED && existing.journalEntryId) {
       return existing;
+    }
+
+    if (existing.status === SalesInvoiceStatus.FINALIZED) {
+      throw new BadRequestException("Finalized invoice is missing its journal entry.");
     }
 
     if (existing.status === SalesInvoiceStatus.VOIDED) {
@@ -253,8 +260,16 @@ export class SalesInvoiceService {
         throw new NotFoundException("Sales invoice not found.");
       }
 
-      if (invoice.status === SalesInvoiceStatus.FINALIZED) {
+      if (invoice.status === SalesInvoiceStatus.FINALIZED && invoice.journalEntryId) {
         return tx.salesInvoice.findUniqueOrThrow({ where: { id }, include: salesInvoiceInclude });
+      }
+
+      if (invoice.status === SalesInvoiceStatus.FINALIZED) {
+        throw new BadRequestException("Finalized invoice is missing its journal entry.");
+      }
+
+      if (invoice.status === SalesInvoiceStatus.VOIDED) {
+        throw new BadRequestException("Voided invoices cannot be finalized.");
       }
 
       if (invoice.status !== SalesInvoiceStatus.DRAFT) {
@@ -279,6 +294,25 @@ export class SalesInvoiceService {
           lineTotal: String(line.lineTotal),
         })),
       });
+
+      // Conditional status claim is the concurrency boundary. Postgres locks the
+      // row for this update, so a competing finalize waits and then observes 0.
+      const claim = await tx.salesInvoice.updateMany({
+        where: {
+          id,
+          organizationId,
+          status: SalesInvoiceStatus.DRAFT,
+          journalEntryId: null,
+        },
+        data: {
+          status: SalesInvoiceStatus.FINALIZED,
+          finalizedAt: new Date(),
+          balanceDue: invoice.total,
+        },
+      });
+      if (claim.count !== 1) {
+        return tx.salesInvoice.findUniqueOrThrow({ where: { id }, include: salesInvoiceInclude });
+      }
 
       const accountsReceivableAccount = await this.findPostingAccountByCode(organizationId, "120", tx);
       const vatPayableAccount = await this.findPostingAccountByCode(organizationId, "220", tx);
@@ -319,10 +353,7 @@ export class SalesInvoiceService {
       return tx.salesInvoice.update({
         where: { id },
         data: {
-          status: SalesInvoiceStatus.FINALIZED,
-          finalizedAt: new Date(),
           journalEntryId: journalEntry.id,
-          balanceDue: invoice.total,
         },
         include: salesInvoiceInclude,
       });
@@ -346,28 +377,73 @@ export class SalesInvoiceService {
       return existing;
     }
 
-    let reversalJournalEntryId: string | undefined;
-    if (existing.status === SalesInvoiceStatus.FINALIZED && existing.journalEntryId) {
-      const journalEntry = await this.prisma.journalEntry.findFirst({
-        where: { id: existing.journalEntryId, organizationId },
-        include: { reversedBy: { select: { id: true } } },
+    const voided = await this.prisma.$transaction(async (tx) => {
+      const invoice = await tx.salesInvoice.findFirst({
+        where: { id, organizationId },
       });
-      if (journalEntry?.reversedBy) {
-        reversalJournalEntryId = journalEntry.reversedBy.id;
-      } else {
-        const reversal = await this.accountingService.reverse(organizationId, actorUserId, existing.journalEntryId);
-        reversalJournalEntryId = reversal.id;
-      }
-    }
 
-    const voided = await this.prisma.salesInvoice.update({
-      where: { id },
-      data: {
-        status: SalesInvoiceStatus.VOIDED,
-        balanceDue: "0.0000",
-        reversalJournalEntryId,
-      },
-      include: salesInvoiceInclude,
+      if (!invoice) {
+        throw new NotFoundException("Sales invoice not found.");
+      }
+      if (invoice.status === SalesInvoiceStatus.VOIDED) {
+        return tx.salesInvoice.findUniqueOrThrow({ where: { id }, include: salesInvoiceInclude });
+      }
+      if (invoice.status === SalesInvoiceStatus.DRAFT) {
+        const claim = await tx.salesInvoice.updateMany({
+          where: { id, organizationId, status: SalesInvoiceStatus.DRAFT },
+          data: {
+            status: SalesInvoiceStatus.VOIDED,
+            balanceDue: "0.0000",
+          },
+        });
+        if (claim.count !== 1) {
+          return tx.salesInvoice.findUniqueOrThrow({ where: { id }, include: salesInvoiceInclude });
+        }
+        return tx.salesInvoice.findUniqueOrThrow({ where: { id }, include: salesInvoiceInclude });
+      }
+      if (invoice.status !== SalesInvoiceStatus.FINALIZED) {
+        throw new BadRequestException("Only draft or finalized invoices can be voided.");
+      }
+      if (!invoice.journalEntryId) {
+        throw new BadRequestException("Finalized invoice is missing its journal entry.");
+      }
+
+      // Claim the invoice row before checking allocations. This blocks concurrent
+      // payment allocation updates, then the count sees the latest committed state.
+      const claim = await tx.salesInvoice.updateMany({
+        where: { id, organizationId, status: SalesInvoiceStatus.FINALIZED },
+        data: {
+          status: SalesInvoiceStatus.VOIDED,
+          balanceDue: "0.0000",
+        },
+      });
+      if (claim.count !== 1) {
+        return tx.salesInvoice.findUniqueOrThrow({ where: { id }, include: salesInvoiceInclude });
+      }
+
+      const activePaymentCount = await tx.customerPaymentAllocation.count({
+        where: {
+          invoiceId: id,
+          organizationId,
+          payment: { status: { not: CustomerPaymentStatus.VOIDED } },
+        },
+      });
+      if (activePaymentCount > 0) {
+        throw new BadRequestException("Cannot void invoice with active payments. Void payments first.");
+      }
+
+      const reversalJournalEntryId = await this.createOrReuseReversalJournal(
+        organizationId,
+        actorUserId,
+        invoice.journalEntryId,
+        tx,
+      );
+
+      return tx.salesInvoice.update({
+        where: { id },
+        data: { reversalJournalEntryId },
+        include: salesInvoiceInclude,
+      });
     });
 
     await this.auditLogService.log({
@@ -380,6 +456,72 @@ export class SalesInvoiceService {
       after: voided,
     });
     return voided;
+  }
+
+  private async createOrReuseReversalJournal(
+    organizationId: string,
+    actorUserId: string,
+    journalEntryId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<string> {
+    const journalEntry = await tx.journalEntry.findFirst({
+      where: { id: journalEntryId, organizationId },
+      include: {
+        lines: { orderBy: { createdAt: "asc" } },
+        reversedBy: { select: { id: true } },
+      },
+    });
+    if (!journalEntry) {
+      throw new NotFoundException("Journal entry not found.");
+    }
+    if (journalEntry.reversedBy) {
+      return journalEntry.reversedBy.id;
+    }
+
+    const reversalLines = createReversalLines(
+      journalEntry.lines.map((line) => ({
+        accountId: line.accountId,
+        debit: String(line.debit),
+        credit: String(line.credit),
+        description: `Reversal: ${line.description ?? journalEntry.description ?? ""}`.trim(),
+        currency: line.currency,
+        exchangeRate: String(line.exchangeRate),
+        taxRateId: line.taxRateId,
+      })),
+    );
+    const totals = getJournalTotals(reversalLines);
+    const entryNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx);
+
+    try {
+      const reversal = await tx.journalEntry.create({
+        data: {
+          organizationId,
+          entryNumber,
+          status: JournalEntryStatus.POSTED,
+          entryDate: new Date(),
+          description: `Reversal of ${journalEntry.entryNumber}`,
+          reference: journalEntry.reference,
+          currency: journalEntry.currency,
+          totalDebit: totals.debit,
+          totalCredit: totals.credit,
+          postedAt: new Date(),
+          postedById: actorUserId,
+          createdById: actorUserId,
+          reversalOfId: journalEntry.id,
+          lines: { create: this.toJournalLineCreateMany(organizationId, reversalLines) },
+        },
+      });
+      await tx.journalEntry.update({
+        where: { id: journalEntry.id },
+        data: { status: JournalEntryStatus.REVERSED },
+      });
+      return reversal.id;
+    } catch (error) {
+      if (!isUniqueConstraintError(error)) {
+        throw error;
+      }
+      throw new BadRequestException("Journal entry has already been reversed.");
+    }
   }
 
   async remove(organizationId: string, actorUserId: string, id: string) {
@@ -623,4 +765,13 @@ export class SalesInvoiceService {
     const trimmed = value?.trim();
     return trimmed || undefined;
   }
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "P2002"
+  );
 }

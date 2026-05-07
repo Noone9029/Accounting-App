@@ -97,7 +97,7 @@ describe("sales invoice rules", () => {
   });
 
   it("does not post again when finalizing an already finalized invoice", async () => {
-    const finalizedInvoice = { id: "invoice-1", status: "FINALIZED" };
+    const finalizedInvoice = { id: "invoice-1", status: "FINALIZED", journalEntryId: "journal-1" };
     const prisma = { $transaction: jest.fn() };
     const service = new SalesInvoiceService(
       prisma as never,
@@ -109,6 +109,30 @@ describe("sales invoice rules", () => {
 
     await expect(service.finalize("org-1", "user-1", "invoice-1")).resolves.toBe(finalizedInvoice);
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("does not create a journal when a competing finalize already claimed the invoice", async () => {
+    const tx = makeFinalizeTransactionMock({ claimCount: 0 });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, { reverse: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "invoice-1", status: "DRAFT", journalEntryId: null } as never);
+
+    await expect(service.finalize("org-1", "user-1", "invoice-1")).resolves.toMatchObject({
+      id: "invoice-1",
+      status: "FINALIZED",
+      journalEntryId: "journal-existing",
+    });
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("does not link a journal when finalization journal creation fails", async () => {
+    const tx = makeFinalizeTransactionMock({ journalCreateError: new Error("journal failed") });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn().mockResolvedValue("JE-000001") } as never, { reverse: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "invoice-1", status: "DRAFT", journalEntryId: null } as never);
+
+    await expect(service.finalize("org-1", "user-1", "invoice-1")).rejects.toThrow("journal failed");
+    expect(tx.salesInvoice.update).not.toHaveBeenCalled();
   });
 
   it("prevents updates to finalized invoices", async () => {
@@ -131,21 +155,47 @@ describe("sales invoice rules", () => {
   });
 
   it("voids finalized invoices using one existing reversal and returns voided invoices idempotently", async () => {
-    const prisma = {
-      journalEntry: { findFirst: jest.fn().mockResolvedValue({ reversedBy: { id: "rev-1" } }) },
-      salesInvoice: { update: jest.fn().mockResolvedValue({ id: "invoice-1", status: "VOIDED", reversalJournalEntryId: "rev-1" }) },
-    };
+    const tx = makeVoidTransactionMock({ reversedById: "rev-1" });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
     const accounting = { reverse: jest.fn() };
     const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, accounting as never);
     jest.spyOn(service, "get").mockResolvedValueOnce({ id: "invoice-1", status: "FINALIZED", journalEntryId: "je-1" } as never);
 
     await service.void("org-1", "user-1", "invoice-1");
     expect(accounting.reverse).not.toHaveBeenCalled();
-    expect(prisma.salesInvoice.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ reversalJournalEntryId: "rev-1", status: "VOIDED" }) }));
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+    expect(tx.salesInvoice.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "invoice-1", organizationId: "org-1", status: "FINALIZED" },
+        data: expect.objectContaining({ status: "VOIDED", balanceDue: "0.0000" }),
+      }),
+    );
+    expect(tx.salesInvoice.update).toHaveBeenCalledWith(expect.objectContaining({ data: { reversalJournalEntryId: "rev-1" } }));
 
     jest.spyOn(service, "get").mockResolvedValueOnce({ id: "invoice-1", status: "VOIDED", reversalJournalEntryId: "rev-1" } as never);
     await expect(service.void("org-1", "user-1", "invoice-1")).resolves.toMatchObject({ status: "VOIDED" });
-    expect(prisma.salesInvoice.update).toHaveBeenCalledTimes(1);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects voiding finalized invoices with active payment allocations", async () => {
+    const tx = makeVoidTransactionMock({ activePaymentCount: 1 });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, { reverse: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValueOnce({ id: "invoice-1", status: "FINALIZED", journalEntryId: "je-1" } as never);
+
+    await expect(service.void("org-1", "user-1", "invoice-1")).rejects.toThrow("Cannot void invoice with active payments. Void payments first.");
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("voids draft invoices without creating reversal journals", async () => {
+    const tx = makeVoidTransactionMock({ invoiceStatus: "DRAFT", journalEntryId: null });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, { reverse: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValueOnce({ id: "invoice-1", status: "DRAFT", journalEntryId: null } as never);
+
+    await expect(service.void("org-1", "user-1", "invoice-1")).resolves.toMatchObject({ status: "VOIDED" });
+    expect(tx.customerPaymentAllocation.count).not.toHaveBeenCalled();
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
   });
 
   it("rejects finalizing voided invoices", async () => {
@@ -224,3 +274,131 @@ describe("sales invoice rules", () => {
     await expect(service.update("org-1", "user-1", "item-1", { status: "DISABLED" })).resolves.toMatchObject({ status: "DISABLED" });
   });
 });
+
+function makeFinalizeTransactionMock(options: { claimCount?: number; journalCreateError?: Error } = {}) {
+  return {
+    salesInvoice: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: "invoice-1",
+        organizationId: "org-1",
+        status: "DRAFT",
+        journalEntryId: null,
+        invoiceNumber: "INV-000001",
+        issueDate: new Date("2026-05-06T00:00:00.000Z"),
+        currency: "SAR",
+        subtotal: "100.0000",
+        discountTotal: "0.0000",
+        taxableTotal: "100.0000",
+        taxTotal: "15.0000",
+        total: "115.0000",
+        customer: { id: "customer-1", name: "Customer", displayName: null },
+        lines: [
+          {
+            accountId: "sales-1",
+            description: "Services",
+            quantity: "1.0000",
+            unitPrice: "100.0000",
+            discountRate: "0.0000",
+            lineGrossAmount: "100.0000",
+            discountAmount: "0.0000",
+            taxableAmount: "100.0000",
+            taxAmount: "15.0000",
+            lineTotal: "115.0000",
+          },
+        ],
+      }),
+      updateMany: jest.fn().mockResolvedValue({ count: options.claimCount ?? 1 }),
+      findUniqueOrThrow: jest.fn().mockResolvedValue({
+        id: "invoice-1",
+        status: "FINALIZED",
+        journalEntryId: "journal-existing",
+      }),
+      update: jest.fn().mockResolvedValue({
+        id: "invoice-1",
+        status: "FINALIZED",
+        journalEntryId: "journal-1",
+      }),
+    },
+    account: { findFirst: jest.fn().mockResolvedValue({ id: "account-1" }) },
+    journalEntry: {
+      create: options.journalCreateError
+        ? jest.fn().mockRejectedValue(options.journalCreateError)
+        : jest.fn().mockResolvedValue({ id: "journal-1" }),
+    },
+  };
+}
+
+function makeVoidTransactionMock(
+  options: {
+    invoiceStatus?: "DRAFT" | "FINALIZED";
+    journalEntryId?: string | null;
+    reversedById?: string;
+    activePaymentCount?: number;
+  } = {},
+) {
+  return {
+    salesInvoice: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: "invoice-1",
+        organizationId: "org-1",
+        status: options.invoiceStatus ?? "FINALIZED",
+        journalEntryId: options.journalEntryId === undefined ? "je-1" : options.journalEntryId,
+      }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      findUniqueOrThrow: jest.fn().mockResolvedValue({
+        id: "invoice-1",
+        status: "VOIDED",
+        reversalJournalEntryId: options.reversedById ?? null,
+      }),
+      update: jest.fn().mockResolvedValue({
+        id: "invoice-1",
+        status: "VOIDED",
+        reversalJournalEntryId: options.reversedById ?? "rev-1",
+      }),
+    },
+    customerPaymentAllocation: {
+      count: jest.fn().mockResolvedValue(options.activePaymentCount ?? 0),
+    },
+    journalEntry: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: "je-1",
+        entryNumber: "JE-000001",
+        description: "Sales invoice INV-000001 - Customer",
+        reference: "INV-000001",
+        currency: "SAR",
+        reversedBy: options.reversedById ? { id: options.reversedById } : null,
+        lines: [
+          {
+            accountId: "ar-1",
+            debit: "115.0000",
+            credit: "0.0000",
+            description: "Accounts receivable for INV-000001 - Customer",
+            currency: "SAR",
+            exchangeRate: "1.00000000",
+            taxRateId: null,
+          },
+          {
+            accountId: "sales-1",
+            debit: "0.0000",
+            credit: "100.0000",
+            description: "Sales revenue for INV-000001 - Services",
+            currency: "SAR",
+            exchangeRate: "1.00000000",
+            taxRateId: null,
+          },
+          {
+            accountId: "vat-1",
+            debit: "0.0000",
+            credit: "15.0000",
+            description: "VAT payable for INV-000001",
+            currency: "SAR",
+            exchangeRate: "1.00000000",
+            taxRateId: null,
+          },
+        ],
+      }),
+      create: jest.fn().mockResolvedValue({ id: "rev-1" }),
+      update: jest.fn(),
+    },
+  };
+}

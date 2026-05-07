@@ -170,11 +170,58 @@ Final verification passed:
 - `corepack pnpm test`
 - `corepack pnpm build`
 
+## Concurrency Hardening Pass
+
+Audit date: 2026-05-07
+
+Commit inspected: `ec40a0a` (`Stabilize current accounting workflows`)
+
+### Race Risks Found And Fixed
+
+- Invoice finalization could create more than one journal if two requests finalized the same draft invoice at the same time.
+- Invoice voiding could race with payment allocation or create inconsistent reversal state.
+- Finalized invoices with active customer payments could be voided, creating unclear AR/payment state.
+- Customer payment creation validated invoice balances before the transaction and then decremented balances unconditionally, allowing concurrent over-allocation.
+- Customer payment voiding could restore invoice balances twice if two void requests ran together.
+- Manual journal duplicate reversal could surface a raw Prisma unique-constraint failure.
+
+### Strategy Used
+
+- Invoice finalization now re-reads the invoice inside the transaction and claims the draft row with `updateMany` before creating the journal entry.
+- Invoice voiding now claims the invoice row before checking active payment allocations, then creates/reuses the reversal inside the same transaction.
+- Finalized invoices with active non-voided payment allocations are rejected with: `Cannot void invoice with active payments. Void payments first.`
+- Customer payment creation validates customer/account/invoice references inside the transaction and uses conditional `balanceDue >= amountApplied` invoice updates.
+- Customer payment voiding claims the posted payment row before creating a reversal or restoring invoice balances.
+- Duplicate journal reversal attempts are converted into clear business errors.
+- Number sequence behavior remains based on Prisma atomic `upsert` increment and now has direct tests, including transaction-client usage.
+
+### Commands Run
+
+- `corepack pnpm db:generate` failed with Windows `EPERM` while renaming Prisma `query_engine-windows.dll.node`; a running local API/dev process was holding the generated Prisma client DLL open.
+- `corepack pnpm typecheck`
+- `corepack pnpm test`
+- `corepack pnpm build`
+- Docker service check for Postgres and Redis health.
+- API health check against `http://localhost:4000/health`.
+- Web route check against `http://localhost:3000/login`.
+- API smoke test for login, invoice finalization idempotency, payment allocation, invoice void rejection with active payment, over-allocation rejection, payment void idempotency, balance restoration, and contact ledger fetch.
+
+### Tests Added Or Updated
+
+- Invoice finalize idempotency and lost-claim behavior.
+- Invoice finalization failure before journal link.
+- Invoice void with active payments rejected.
+- Draft invoice void without reversal.
+- Payment allocation stale-claim rejection with no journal/payment created.
+- Payment number sequence not consumed after allocation claim failure.
+- Payment void lost-claim idempotency.
+- Journal duplicate reversal unique-constraint handling.
+- Number sequence formatting and transaction-client usage.
+
 ## Remaining Risks
 
-- Invoice finalization and journal reversal idempotency are safe in normal use but still have possible race conditions under concurrent requests. Fixing this properly needs transaction-level compare-and-set or locking design.
-- Payment creation validates invoice balances before the transaction but does not lock invoice rows, so concurrent payments could over-allocate under high contention.
-- Invoice voiding calls the journal reversal service before the invoice update. A failure between those operations could leave a reversed journal with an invoice that still appears finalized.
+- The concurrency strategy relies on PostgreSQL row locks produced by conditional updates inside Prisma transactions. A small multi-process load test is still recommended before production.
+- If a manual journal reversal races against an invoice/payment void of the same journal, the void may fail cleanly and need a retry instead of silently reusing that concurrent reversal.
 - Branch defaults are not globally normalized; multiple branches can be marked default.
 - Account parent updates prevent self-parenting but do not yet prevent descendant cycles.
 - `next-env.d.ts` flips between `.next/types` and `.next/dev/types` when switching between build and dev on Next 16. The tracked file is kept clean after verification, but this remains local development churn.

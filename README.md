@@ -180,11 +180,13 @@ Lifecycle behavior:
 - Finalizing twice is idempotent and does not create a second journal entry.
 - Voiding a draft marks it `VOIDED`.
 - Voiding a finalized invoice creates or reuses one reversal journal entry and marks the invoice `VOIDED`.
+- Finalized invoices with active non-voided payment allocations cannot be voided. Void the payments first.
 - Voided invoices cannot be edited or finalized.
 
 Posting behavior:
 
 - Finalization posts one balanced journal entry inside a transaction.
+- Finalization claims the draft invoice row before journal creation, so repeated or concurrent finalize calls do not double-post.
 - Debit account code `120` Accounts Receivable for invoice total.
 - Credit revenue accounts grouped by invoice line revenue account using taxable amounts.
 - Credit account code `220` VAT Payable only when `taxTotal > 0`.
@@ -202,6 +204,7 @@ Allocation behavior:
 - Allocation amounts must be greater than zero and cannot exceed invoice `balanceDue`.
 - Total allocated amount cannot exceed `amountReceived`.
 - Partial payments are supported; invoice `balanceDue` is reduced by allocated amount.
+- Allocation writes use conditional invoice balance updates to prevent concurrent payments from making `balanceDue` negative.
 - If `amountReceived` is greater than allocated amount, the difference is stored as `unappliedAmount`; applying unapplied credits later is future work.
 
 Payment posting behavior:
@@ -211,7 +214,14 @@ Payment posting behavior:
 - Credit account code `120` Accounts Receivable for `amountReceived`.
 - Payment creation creates immutable allocation rows and updates invoice balances.
 - Voiding a posted payment creates or reuses one reversal journal entry, marks the payment `VOIDED`, and restores invoice balances.
+- Payment voiding claims the posted payment row before restoring balances, so repeated or concurrent void calls restore each invoice balance only once.
 - Voiding twice is idempotent and does not create repeated reversals.
+
+Concurrency/idempotency notes:
+
+- Invoice finalization, invoice voiding, customer payment creation, and payment voiding are protected with database transactions plus conditional row updates.
+- Manual journal reversal handles duplicate reversal attempts with a clear business error instead of leaking a database unique-constraint error.
+- A failed journal creation or allocation claim rolls back the surrounding accounting workflow.
 
 ## Customer Ledger Rules
 

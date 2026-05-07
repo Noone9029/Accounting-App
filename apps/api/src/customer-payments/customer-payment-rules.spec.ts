@@ -45,24 +45,21 @@ describe("customer payment rules", () => {
   });
 
   it("rejects cross-tenant or invalid customer, account, and invoice references", async () => {
-    const prisma = {
-      contact: { findFirst: jest.fn() },
-      account: { findFirst: jest.fn() },
-      salesInvoice: { findMany: jest.fn() },
-      $transaction: jest.fn(),
-    };
-    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    let tx = makeCreateTransactionMock({ customer: null });
+    let prisma = makeCreatePrismaMock({ tx });
+    let service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
 
-    prisma.contact.findFirst.mockResolvedValueOnce(null);
-    prisma.account.findFirst.mockResolvedValue({ id: "bank-1" });
     await expect(service.create("org-1", "user-1", basePaymentDto)).rejects.toThrow("Customer must be an active customer contact");
 
-    prisma.contact.findFirst.mockResolvedValue({ id: "customer-1", name: "Customer", displayName: null });
-    prisma.account.findFirst.mockResolvedValueOnce(null);
+    tx = makeCreateTransactionMock({ paidThroughAccount: null });
+    prisma = makeCreatePrismaMock({ tx });
+    service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
     await expect(service.create("org-1", "user-1", basePaymentDto)).rejects.toThrow("Paid-through account must be");
 
-    prisma.account.findFirst.mockResolvedValue({ id: "bank-1" });
-    prisma.salesInvoice.findMany.mockResolvedValueOnce([]);
+    tx = makeCreateTransactionMock();
+    tx.salesInvoice.findMany.mockResolvedValueOnce([]);
+    prisma = makeCreatePrismaMock({ tx });
+    service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
     await expect(service.create("org-1", "user-1", basePaymentDto)).rejects.toThrow("Allocations must reference finalized");
   });
 
@@ -71,6 +68,38 @@ describe("customer payment rules", () => {
     const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
 
     await expect(service.create("org-1", "user-1", basePaymentDto)).rejects.toThrow("Allocation amount cannot exceed invoice balance due.");
+  });
+
+  it("rejects stale concurrent allocations without creating payment records", async () => {
+    const tx = makeCreateTransactionMock({ allocationUpdateCount: 0 });
+    const prisma = makeCreatePrismaMock({ tx });
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await expect(service.create("org-1", "user-1", basePaymentDto)).rejects.toThrow("Allocation amount cannot exceed invoice balance due.");
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+    expect(tx.customerPayment.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects allocations above amount received", async () => {
+    const service = new CustomerPaymentService({} as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await expect(
+      service.create("org-1", "user-1", {
+        ...basePaymentDto,
+        amountReceived: "50.0000",
+        allocations: [{ invoiceId: "invoice-1", amountApplied: "60.0000" }],
+      }),
+    ).rejects.toThrow("Total allocations cannot exceed amount received.");
+  });
+
+  it("does not consume payment numbers when allocation claim fails", async () => {
+    const tx = makeCreateTransactionMock({ allocationUpdateCount: 0 });
+    const prisma = makeCreatePrismaMock({ tx });
+    const numberSequence = { next: jest.fn() };
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, numberSequence as never);
+
+    await expect(service.create("org-1", "user-1", basePaymentDto)).rejects.toThrow("Allocation amount cannot exceed invoice balance due.");
+    expect(numberSequence.next).not.toHaveBeenCalled();
   });
 
   it("creates a posted payment journal and reduces invoice balance due", async () => {
@@ -94,8 +123,14 @@ describe("customer payment rules", () => {
         }),
       }),
     );
-    expect(tx.salesInvoice.update).toHaveBeenCalledWith({
-      where: { id: "invoice-1" },
+    expect(tx.salesInvoice.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "invoice-1",
+        organizationId: "org-1",
+        customerId: "customer-1",
+        status: SalesInvoiceStatus.FINALIZED,
+        balanceDue: { gte: "100.0000" },
+      },
       data: { balanceDue: { decrement: "100.0000" } },
     });
   });
@@ -120,8 +155,14 @@ describe("customer payment rules", () => {
         }),
       }),
     );
-    expect(tx.salesInvoice.update).toHaveBeenCalledWith({
-      where: { id: "invoice-1" },
+    expect(tx.salesInvoice.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "invoice-1",
+        organizationId: "org-1",
+        customerId: "customer-1",
+        status: SalesInvoiceStatus.FINALIZED,
+        balanceDue: { gte: "60.0000" },
+      },
       data: { balanceDue: { decrement: "60.0000" } },
     });
   });
@@ -171,14 +212,40 @@ describe("customer payment rules", () => {
     await service.void("org-1", "user-1", "payment-1");
 
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
-    expect(tx.customerPayment.update).toHaveBeenCalledWith(
+    expect(tx.customerPayment.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           status: CustomerPaymentStatus.VOIDED,
+        }),
+      }),
+    );
+    expect(tx.customerPayment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
           voidReversalJournalEntryId: "existing-reversal",
         }),
       }),
     );
+  });
+
+  it("returns existing voided payment when a competing void already claimed it", async () => {
+    const tx = makeVoidTransactionMock({ voidClaimCount: 0 });
+    tx.customerPayment.findUniqueOrThrow.mockResolvedValueOnce({
+      id: "payment-1",
+      status: CustomerPaymentStatus.VOIDED,
+      voidReversalJournalEntryId: "reversal-1",
+    });
+    const prisma = {
+      customerPayment: {
+        findFirst: jest.fn().mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED, journalEntryId: "journal-1" }),
+      },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await expect(service.void("org-1", "user-1", "payment-1")).resolves.toMatchObject({ status: CustomerPaymentStatus.VOIDED });
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+    expect(tx.salesInvoice.updateMany).not.toHaveBeenCalled();
   });
 
   it("rejects voiding non-posted payments", async () => {
@@ -233,26 +300,27 @@ describe("customer payment rules", () => {
 });
 
 function makeCreatePrismaMock(options: { tx?: ReturnType<typeof makeCreateTransactionMock>; invoiceBalanceDue?: string } = {}) {
-  const tx = options.tx ?? makeCreateTransactionMock();
+  const tx = options.tx ?? makeCreateTransactionMock({ invoiceBalanceDue: options.invoiceBalanceDue });
   return {
-    contact: { findFirst: jest.fn().mockResolvedValue({ id: "customer-1", name: "Customer", displayName: null }) },
-    account: { findFirst: jest.fn().mockResolvedValue({ id: "bank-1" }) },
-    salesInvoice: {
-      findMany: jest.fn().mockResolvedValue([
-        {
-          id: "invoice-1",
-          balanceDue: options.invoiceBalanceDue ?? "100.0000",
-          status: SalesInvoiceStatus.FINALIZED,
-        },
-      ]),
-    },
     $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
   };
 }
 
-function makeCreateTransactionMock() {
+function makeCreateTransactionMock(
+  options: {
+    customer?: { id: string; name: string; displayName: string | null } | null;
+    paidThroughAccount?: { id: string } | null;
+    invoiceBalanceDue?: string;
+    allocationUpdateCount?: number;
+  } = {},
+) {
+  const accountFindFirst = jest.fn();
+  accountFindFirst.mockResolvedValueOnce(options.paidThroughAccount === undefined ? { id: "bank-1" } : options.paidThroughAccount);
+  accountFindFirst.mockResolvedValue({ id: "ar-1" });
+
   return {
-    account: { findFirst: jest.fn().mockResolvedValue({ id: "ar-1" }) },
+    contact: { findFirst: jest.fn().mockResolvedValue(options.customer === undefined ? { id: "customer-1", name: "Customer", displayName: null } : options.customer) },
+    account: { findFirst: accountFindFirst },
     journalEntry: { create: jest.fn().mockResolvedValue({ id: "journal-1" }) },
     customerPayment: {
       create: jest.fn().mockResolvedValue({
@@ -262,11 +330,20 @@ function makeCreateTransactionMock() {
         journalEntryId: "journal-1",
       }),
     },
-    salesInvoice: { update: jest.fn() },
+    salesInvoice: {
+      findMany: jest.fn().mockResolvedValue([
+        {
+          id: "invoice-1",
+          balanceDue: options.invoiceBalanceDue ?? "100.0000",
+          status: SalesInvoiceStatus.FINALIZED,
+        },
+      ]),
+      updateMany: jest.fn().mockResolvedValue({ count: options.allocationUpdateCount ?? 1 }),
+    },
   };
 }
 
-function makeVoidTransactionMock(options: { reversedById?: string } = {}) {
+function makeVoidTransactionMock(options: { reversedById?: string; voidClaimCount?: number } = {}) {
   return {
     customerPayment: {
       findFirst: jest.fn().mockResolvedValue({
@@ -304,6 +381,7 @@ function makeVoidTransactionMock(options: { reversedById?: string } = {}) {
         },
       }),
       findUniqueOrThrow: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: options.voidClaimCount ?? 1 }),
       update: jest.fn().mockResolvedValue({
         id: "payment-1",
         status: CustomerPaymentStatus.VOIDED,
