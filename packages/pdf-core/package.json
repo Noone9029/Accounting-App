@@ -8,10 +8,15 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "echo \"No PDF tests yet\"",
+    "test": "echo \"PDF renderer tests run from apps/api\"",
     "lint": "tsc -p tsconfig.json --noEmit"
   },
+  "dependencies": {
+    "pdfkit": "^0.18.0"
+  },
   "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/pdfkit": "^0.17.6",
     "typescript": "^5.8.3"
   }
 }

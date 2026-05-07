@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@ledgerbyte/accounting-core": "workspace:*",
+    "@ledgerbyte/pdf-core": "workspace:*",
     "@ledgerbyte/shared": "workspace:*",
     "@nestjs/common": "^11.1.0",
     "@nestjs/config": "^4.0.2",

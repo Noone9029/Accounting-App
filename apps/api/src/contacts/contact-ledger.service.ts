@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { toMoney } from "@ledgerbyte/accounting-core";
+import { CustomerStatementPdfData, renderCustomerStatementPdf } from "@ledgerbyte/pdf-core";
 import { ContactType, CustomerPaymentStatus, SalesInvoiceStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -181,6 +182,58 @@ export class ContactLedgerService {
       closingBalance: rows.at(-1)?.balance ?? openingBalance,
       rows,
     };
+  }
+
+  async statementPdfData(organizationId: string, contactId: string, from?: string, to?: string): Promise<CustomerStatementPdfData> {
+    const [organization, statement] = await Promise.all([
+      this.prisma.organization.findFirst({
+        where: { id: organizationId },
+        select: {
+          id: true,
+          name: true,
+          legalName: true,
+          taxNumber: true,
+          countryCode: true,
+          baseCurrency: true,
+        },
+      }),
+      this.statement(organizationId, contactId, from, to),
+    ]);
+
+    if (!organization) {
+      throw new NotFoundException("Organization not found.");
+    }
+
+    return {
+      organization,
+      contact: statement.contact,
+      currency: organization.baseCurrency,
+      periodFrom: statement.periodFrom,
+      periodTo: statement.periodTo,
+      openingBalance: statement.openingBalance,
+      closingBalance: statement.closingBalance,
+      rows: statement.rows.map((row) => ({
+        date: row.date,
+        type: row.type,
+        number: row.number,
+        description: row.description,
+        debit: row.debit,
+        credit: row.credit,
+        balance: row.balance,
+        status: row.status,
+      })),
+      generatedAt: new Date(),
+    };
+  }
+
+  async statementPdf(
+    organizationId: string,
+    contactId: string,
+    from?: string,
+    to?: string,
+  ): Promise<{ data: CustomerStatementPdfData; buffer: Buffer }> {
+    const data = await this.statementPdfData(organizationId, contactId, from, to);
+    return { data, buffer: await renderCustomerStatementPdf(data) };
   }
 
   private async findCustomerContact(organizationId: string, contactId: string): Promise<CustomerLedgerContact> {

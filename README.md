@@ -95,7 +95,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, payment over-allocation rejection, partial and full payments, ledger/statement balances, receipt-data, payment void idempotency, and invoice void rejection while active payments exist.
+The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, payment over-allocation rejection, partial and full payments, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, and invoice void rejection while active payments exist.
 
 On Windows, if `db:generate` fails with Prisma query engine `EPERM`, stop running API/dev Node processes and rerun it. This is usually a file lock on Prisma's generated client DLL.
 
@@ -144,6 +144,8 @@ Contacts:
 - `GET /contacts/:id`
 - `GET /contacts/:id/ledger`
 - `GET /contacts/:id/statement?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /contacts/:id/statement-pdf-data?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /contacts/:id/statement.pdf?from=YYYY-MM-DD&to=YYYY-MM-DD`
 
 Branches:
 
@@ -165,6 +167,8 @@ Sales invoices:
 - `GET /sales-invoices/open?customerId=<id>`
 - `POST /sales-invoices`
 - `GET /sales-invoices/:id`
+- `GET /sales-invoices/:id/pdf-data`
+- `GET /sales-invoices/:id/pdf`
 - `PATCH /sales-invoices/:id`
 - `DELETE /sales-invoices/:id`
 - `POST /sales-invoices/:id/finalize`
@@ -176,6 +180,8 @@ Customer payments:
 - `POST /customer-payments`
 - `GET /customer-payments/:id`
 - `GET /customer-payments/:id/receipt-data`
+- `GET /customer-payments/:id/receipt-pdf-data`
+- `GET /customer-payments/:id/receipt.pdf`
 - `POST /customer-payments/:id/void`
 - `DELETE /customer-payments/:id`
 
@@ -283,28 +289,48 @@ Customer statements:
 - `GET /contacts/:id/statement?from=YYYY-MM-DD&to=YYYY-MM-DD` reuses ledger rows with period filtering.
 - `openingBalance` is calculated from ledger activity before `from`.
 - `closingBalance` is calculated at the end of the filtered period.
-- Statement PDF export is not implemented yet.
+- `GET /contacts/:id/statement-pdf-data?from=YYYY-MM-DD&to=YYYY-MM-DD` returns structured statement data for templates.
+- `GET /contacts/:id/statement.pdf?from=YYYY-MM-DD&to=YYYY-MM-DD` returns a basic server-rendered statement PDF.
 
 Receipt data:
 
 - `GET /customer-payments/:id/receipt-data` returns structured receipt data for future PDF rendering.
 - The response includes organization, customer, payment, paid-through account, journal entry, status, and invoice allocations.
-- No receipt PDF is generated in this step.
+- `GET /customer-payments/:id/receipt-pdf-data` returns the receipt PDF data contract.
+- `GET /customer-payments/:id/receipt.pdf` returns a basic server-rendered receipt PDF.
+
+## PDF Groundwork
+
+`packages/pdf-core` contains shared TypeScript data contracts and simple server-side PDF renderers using PDFKit.
+
+Implemented PDF documents:
+
+- Sales invoice PDF: `GET /sales-invoices/:id/pdf`
+- Customer payment receipt PDF: `GET /customer-payments/:id/receipt.pdf`
+- Customer statement PDF: `GET /contacts/:id/statement.pdf?from=YYYY-MM-DD&to=YYYY-MM-DD`
+
+PDF endpoints:
+
+- Require JWT auth and `x-organization-id`.
+- Are tenant-scoped and return `404` outside the active organization.
+- Return `Content-Type: application/pdf`.
+- Use attachment filenames such as `invoice-INV-000001.pdf`, `receipt-PAY-000001.pdf`, and `statement-Customer.pdf`.
+
+These PDFs are operational documents only. They are not ZATCA compliant yet, do not embed XML, do not include QR codes, and are not PDF/A-3.
 
 ## Current Package Boundaries
 
 - `packages/accounting-core`: decimal-safe journal and invoice calculation rules
 - `packages/zatca-core`: placeholder interfaces for future ZATCA Phase 2 integration
-- `packages/pdf-core`: placeholder interfaces for server-side PDF generation
+- `packages/pdf-core`: shared PDF data contracts and basic server-side renderers
 - `packages/shared`: shared tenant/API types
 - `packages/ui`: small UI utility package placeholder
 
 ## Known Limitations
 
 - ZATCA Phase 2 XML, QR, CSID, clearance, reporting, PDF/A-3, and hash-chain logic are not implemented yet.
-- Payment receipt PDF rendering is not implemented yet.
+- PDF output is basic operational rendering only; no ZATCA XML, QR code, PDF/A-3, template designer, or stored PDF archive exists yet.
 - Applying unapplied overpayment credits to invoices later is not implemented yet.
-- Sales invoice PDF rendering is not implemented yet.
 - Credit notes are not implemented yet.
 - Credit note ledger rows are reserved as a future hook, but credit notes are not implemented yet.
 - Recurring invoices are not implemented yet.

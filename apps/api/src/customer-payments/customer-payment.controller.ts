@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import type { Response } from "express";
 import { AuthenticatedUser } from "../auth/auth.types";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -31,6 +32,26 @@ export class CustomerPaymentController {
     return this.customerPaymentService.receiptData(organizationId, id);
   }
 
+  @Get(":id/receipt-pdf-data")
+  receiptPdfData(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.customerPaymentService.receiptPdfData(organizationId, id);
+  }
+
+  @Get(":id/receipt.pdf")
+  async receiptPdf(
+    @CurrentOrganizationId() organizationId: string,
+    @Param("id") id: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { data, buffer } = await this.customerPaymentService.receiptPdf(organizationId, id);
+    response.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${safeFilename(`receipt-${data.payment.paymentNumber}.pdf`)}"`,
+      "Content-Length": String(buffer.byteLength),
+    });
+    return new StreamableFile(buffer);
+  }
+
   @Get(":id")
   get(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.customerPaymentService.get(organizationId, id);
@@ -45,4 +66,8 @@ export class CustomerPaymentController {
   remove(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
     return this.customerPaymentService.remove(organizationId, user.id, id);
   }
+}
+
+function safeFilename(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]+/g, "-");
 }

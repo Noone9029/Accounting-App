@@ -7,6 +7,7 @@ import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatMoneyAmount } from "@/lib/money";
+import { downloadPdf, receiptPdfPath } from "@/lib/pdf-download";
 import type { CustomerPayment, CustomerPaymentReceiptData } from "@/lib/types";
 
 export default function CustomerPaymentDetailPage() {
@@ -71,6 +72,24 @@ export default function CustomerPaymentDetailPage() {
       setSuccess(`Voided payment ${updated.paymentNumber}.`);
     } catch (voidError) {
       setError(voidError instanceof Error ? voidError.message : "Unable to void payment.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function downloadReceiptPdf() {
+    if (!payment) {
+      return;
+    }
+
+    setActionLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await downloadPdf(receiptPdfPath(payment.id), `receipt-${payment.paymentNumber}.pdf`);
+    } catch (downloadError) {
+      setError(downloadError instanceof Error ? downloadError.message : "Unable to download receipt PDF.");
     } finally {
       setActionLoading(false);
     }
@@ -168,8 +187,8 @@ export default function CustomerPaymentDetailPage() {
                   <h2 className="text-base font-semibold text-ink">Receipt data preview</h2>
                   <p className="mt-1 text-sm text-steel">Structured receipt payload for future PDF rendering.</p>
                 </div>
-                <button type="button" disabled className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-400">
-                  Download receipt PDF - coming soon
+                <button type="button" onClick={() => void downloadReceiptPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                  Download receipt PDF
                 </button>
               </div>
               <div className="p-5">

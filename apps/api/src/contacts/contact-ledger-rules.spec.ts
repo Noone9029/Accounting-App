@@ -126,6 +126,64 @@ describe("customer ledger rules", () => {
 
     await expect(service.statement("org-1", "contact-1", "2026-02-31", "2026-03-31")).rejects.toThrow(BadRequestException);
   });
+
+  it("returns statement PDF data with period balances", async () => {
+    const prisma = {
+      organization: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "org-1",
+          name: "Org",
+          legalName: null,
+          taxNumber: null,
+          countryCode: "SA",
+          baseCurrency: "SAR",
+        }),
+      },
+    };
+    const service = new ContactLedgerService(prisma as never);
+    jest.spyOn(service, "statement").mockResolvedValue({
+      contact: {
+        id: "contact-1",
+        name: "Customer",
+        displayName: "Customer",
+        type: "CUSTOMER",
+        email: null,
+        phone: null,
+        taxNumber: null,
+      },
+      periodFrom: "2026-05-01",
+      periodTo: "2026-05-31",
+      openingBalance: "100.0000",
+      closingBalance: "0.0000",
+      rows: [
+        {
+          id: "row-1",
+          type: "PAYMENT",
+          date: "2026-05-06T00:00:00.000Z",
+          number: "PAY-000001",
+          description: "Payment",
+          debit: "0.0000",
+          credit: "100.0000",
+          balance: "0.0000",
+          sourceType: "CustomerPayment",
+          sourceId: "payment-1",
+          status: "POSTED",
+          metadata: {},
+        },
+      ],
+    });
+
+    await expect(service.statementPdfData("org-1", "contact-1", "2026-05-01", "2026-05-31")).resolves.toMatchObject({
+      organization: { id: "org-1", name: "Org" },
+      contact: { id: "contact-1", name: "Customer" },
+      currency: "SAR",
+      periodFrom: "2026-05-01",
+      periodTo: "2026-05-31",
+      openingBalance: "100.0000",
+      closingBalance: "0.0000",
+      rows: [{ number: "PAY-000001", credit: "100.0000", balance: "0.0000" }],
+    });
+  });
 });
 
 function invoice(

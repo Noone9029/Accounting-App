@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { createReversalLines, getJournalTotals, JournalLineInput, toMoney } from "@ledgerbyte/accounting-core";
+import { PaymentReceiptPdfData, renderPaymentReceiptPdf } from "@ledgerbyte/pdf-core";
 import {
   AccountType,
   ContactType,
@@ -150,6 +151,89 @@ export class CustomerPaymentService {
       journalEntry: payment.journalEntry,
       status: payment.status,
     };
+  }
+
+  async receiptPdfData(organizationId: string, id: string): Promise<PaymentReceiptPdfData> {
+    const payment = await this.prisma.customerPayment.findFirst({
+      where: { id, organizationId },
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            legalName: true,
+            taxNumber: true,
+            countryCode: true,
+          },
+        },
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+            email: true,
+            phone: true,
+            taxNumber: true,
+            addressLine1: true,
+            addressLine2: true,
+            city: true,
+            postalCode: true,
+            countryCode: true,
+          },
+        },
+        account: { select: { id: true, code: true, name: true } },
+        journalEntry: { select: { id: true, entryNumber: true, status: true } },
+        allocations: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            invoice: {
+              select: {
+                id: true,
+                invoiceNumber: true,
+                issueDate: true,
+                total: true,
+                balanceDue: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException("Customer payment not found.");
+    }
+
+    return {
+      organization: payment.organization,
+      customer: payment.customer,
+      payment: {
+        id: payment.id,
+        paymentNumber: payment.paymentNumber,
+        paymentDate: payment.paymentDate,
+        status: payment.status,
+        currency: payment.currency,
+        amountReceived: moneyString(payment.amountReceived),
+        unappliedAmount: moneyString(payment.unappliedAmount),
+        description: payment.description,
+      },
+      paidThroughAccount: payment.account,
+      allocations: payment.allocations.map((allocation) => ({
+        invoiceId: allocation.invoiceId,
+        invoiceNumber: allocation.invoice.invoiceNumber,
+        invoiceDate: allocation.invoice.issueDate,
+        invoiceTotal: moneyString(allocation.invoice.total),
+        amountApplied: moneyString(allocation.amountApplied),
+        invoiceBalanceDue: moneyString(allocation.invoice.balanceDue),
+      })),
+      journalEntry: payment.journalEntry,
+      generatedAt: new Date(),
+    };
+  }
+
+  async receiptPdf(organizationId: string, id: string): Promise<{ data: PaymentReceiptPdfData; buffer: Buffer }> {
+    const data = await this.receiptPdfData(organizationId, id);
+    return { data, buffer: await renderPaymentReceiptPdf(data) };
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreateCustomerPaymentDto) {
@@ -568,4 +652,8 @@ function isUniqueConstraintError(error: unknown): boolean {
     "code" in error &&
     (error as { code?: unknown }).code === "P2002"
   );
+}
+
+function moneyString(value: unknown): string {
+  return String(value ?? "0");
 }

@@ -205,6 +205,82 @@ describe("sales invoice rules", () => {
     await expect(service.finalize("org-1", "user-1", "invoice-1")).rejects.toThrow();
   });
 
+  it("returns invoice PDF data with totals, lines, and payments", async () => {
+    const prisma = {
+      salesInvoice: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "invoice-1",
+          invoiceNumber: "INV-000001",
+          status: "FINALIZED",
+          issueDate: new Date("2026-05-06T00:00:00.000Z"),
+          dueDate: null,
+          currency: "SAR",
+          notes: "Notes",
+          terms: "Terms",
+          subtotal: "100.0000",
+          discountTotal: "0.0000",
+          taxableTotal: "100.0000",
+          taxTotal: "15.0000",
+          total: "115.0000",
+          balanceDue: "65.0000",
+          organization: { id: "org-1", name: "Org", legalName: null, taxNumber: "300", countryCode: "SA" },
+          customer: {
+            id: "customer-1",
+            name: "Customer",
+            displayName: "Customer",
+            taxNumber: null,
+            email: null,
+            phone: null,
+            addressLine1: null,
+            addressLine2: null,
+            city: null,
+            postalCode: null,
+            countryCode: "SA",
+          },
+          lines: [
+            {
+              description: "Service",
+              quantity: "1.0000",
+              unitPrice: "100.0000",
+              discountRate: "0.0000",
+              lineGrossAmount: "100.0000",
+              discountAmount: "0.0000",
+              taxableAmount: "100.0000",
+              taxAmount: "15.0000",
+              lineTotal: "115.0000",
+              taxRate: { name: "VAT on Sales 15%" },
+            },
+          ],
+          paymentAllocations: [
+            {
+              amountApplied: "50.0000",
+              payment: {
+                paymentNumber: "PAY-000001",
+                paymentDate: new Date("2026-05-06T00:00:00.000Z"),
+                status: "POSTED",
+              },
+            },
+          ],
+        }),
+      },
+    };
+    const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, { reverse: jest.fn() } as never);
+
+    await expect(service.pdfData("org-1", "invoice-1")).resolves.toMatchObject({
+      invoice: {
+        invoiceNumber: "INV-000001",
+        subtotal: "100.0000",
+        taxableTotal: "100.0000",
+        taxTotal: "15.0000",
+        total: "115.0000",
+        balanceDue: "65.0000",
+      },
+      lines: [{ description: "Service", taxRateName: "VAT on Sales 15%" }],
+      payments: [{ paymentNumber: "PAY-000001", amountApplied: "50.0000" }],
+    });
+    expect(prisma.salesInvoice.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "invoice-1", organizationId: "org-1" } }));
+  });
+
   it("rejects cross-tenant invoice references", async () => {
     const baseLine = { description: "Service", accountId: "account-1", quantity: "1.0000", unitPrice: "10.0000" };
     const prisma = {

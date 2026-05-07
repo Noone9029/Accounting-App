@@ -297,6 +297,63 @@ describe("customer payment rules", () => {
     });
     expect(prisma.customerPayment.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "payment-1", organizationId: "org-1" } }));
   });
+
+  it("returns receipt PDF data with payment details and allocations", async () => {
+    const prisma = {
+      customerPayment: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "payment-1",
+          paymentNumber: "PAY-000001",
+          paymentDate: new Date("2026-05-06T00:00:00.000Z"),
+          status: CustomerPaymentStatus.POSTED,
+          currency: "SAR",
+          amountReceived: "115.0000",
+          unappliedAmount: "0.0000",
+          description: "Payment received",
+          organization: { id: "org-1", name: "Org", legalName: null, taxNumber: null, countryCode: "SA" },
+          customer: {
+            id: "customer-1",
+            name: "Customer",
+            displayName: "Customer",
+            email: null,
+            phone: null,
+            taxNumber: null,
+            addressLine1: null,
+            addressLine2: null,
+            city: null,
+            postalCode: null,
+            countryCode: "SA",
+          },
+          account: { id: "bank-1", code: "112", name: "Bank Account" },
+          journalEntry: { id: "journal-1", entryNumber: "JE-000001", status: JournalEntryStatus.POSTED },
+          allocations: [
+            {
+              invoiceId: "invoice-1",
+              amountApplied: "115.0000",
+              invoice: {
+                id: "invoice-1",
+                invoiceNumber: "INV-000001",
+                issueDate: new Date("2026-05-06T00:00:00.000Z"),
+                total: "115.0000",
+                balanceDue: "0.0000",
+              },
+            },
+          ],
+        }),
+      },
+    };
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await expect(service.receiptPdfData("org-1", "payment-1")).resolves.toMatchObject({
+      payment: {
+        id: "payment-1",
+        paymentNumber: "PAY-000001",
+        amountReceived: "115.0000",
+      },
+      allocations: [{ invoiceNumber: "INV-000001", amountApplied: "115.0000" }],
+      journalEntry: { entryNumber: "JE-000001" },
+    });
+  });
 });
 
 function makeCreatePrismaMock(options: { tx?: ReturnType<typeof makeCreateTransactionMock>; invoiceBalanceDue?: string } = {}) {

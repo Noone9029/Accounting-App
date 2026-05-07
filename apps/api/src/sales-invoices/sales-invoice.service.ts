@@ -9,6 +9,7 @@ import {
   JournalLineInput,
   toMoney,
 } from "@ledgerbyte/accounting-core";
+import { InvoicePdfData, renderInvoicePdf } from "@ledgerbyte/pdf-core";
 import {
   AccountType,
   ContactType,
@@ -147,6 +148,105 @@ export class SalesInvoiceService {
     }
 
     return invoice;
+  }
+
+  async pdfData(organizationId: string, id: string): Promise<InvoicePdfData> {
+    const invoice = await this.prisma.salesInvoice.findFirst({
+      where: { id, organizationId },
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            legalName: true,
+            taxNumber: true,
+            countryCode: true,
+          },
+        },
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+            taxNumber: true,
+            email: true,
+            phone: true,
+            addressLine1: true,
+            addressLine2: true,
+            city: true,
+            postalCode: true,
+            countryCode: true,
+          },
+        },
+        lines: {
+          orderBy: { sortOrder: "asc" },
+          include: {
+            taxRate: { select: { name: true } },
+          },
+        },
+        paymentAllocations: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            payment: {
+              select: {
+                paymentNumber: true,
+                paymentDate: true,
+                status: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!invoice) {
+      throw new NotFoundException("Sales invoice not found.");
+    }
+
+    return {
+      organization: invoice.organization,
+      customer: invoice.customer,
+      invoice: {
+        id: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        status: invoice.status,
+        issueDate: invoice.issueDate,
+        dueDate: invoice.dueDate,
+        currency: invoice.currency,
+        notes: invoice.notes,
+        terms: invoice.terms,
+        subtotal: moneyString(invoice.subtotal),
+        discountTotal: moneyString(invoice.discountTotal),
+        taxableTotal: moneyString(invoice.taxableTotal),
+        taxTotal: moneyString(invoice.taxTotal),
+        total: moneyString(invoice.total),
+        balanceDue: moneyString(invoice.balanceDue),
+      },
+      lines: invoice.lines.map((line) => ({
+        description: line.description,
+        quantity: moneyString(line.quantity),
+        unitPrice: moneyString(line.unitPrice),
+        discountRate: moneyString(line.discountRate),
+        lineGrossAmount: moneyString(line.lineGrossAmount),
+        discountAmount: moneyString(line.discountAmount),
+        taxableAmount: moneyString(line.taxableAmount),
+        taxAmount: moneyString(line.taxAmount),
+        lineTotal: moneyString(line.lineTotal),
+        taxRateName: line.taxRate?.name ?? null,
+      })),
+      payments: invoice.paymentAllocations.map((allocation) => ({
+        paymentNumber: allocation.payment.paymentNumber,
+        paymentDate: allocation.payment.paymentDate,
+        amountApplied: moneyString(allocation.amountApplied),
+        status: allocation.payment.status,
+      })),
+      generatedAt: new Date(),
+    };
+  }
+
+  async pdf(organizationId: string, id: string): Promise<{ data: InvoicePdfData; buffer: Buffer }> {
+    const data = await this.pdfData(organizationId, id);
+    return { data, buffer: await renderInvoicePdf(data) };
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreateSalesInvoiceDto) {
@@ -774,4 +874,8 @@ function isUniqueConstraintError(error: unknown): boolean {
     "code" in error &&
     (error as { code?: unknown }).code === "P2002"
   );
+}
+
+function moneyString(value: unknown): string {
+  return String(value ?? "0");
 }

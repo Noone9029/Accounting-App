@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import type { Response } from "express";
 import { AuthenticatedUser } from "../auth/auth.types";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -37,6 +38,26 @@ export class SalesInvoiceController {
     return this.salesInvoiceService.get(organizationId, id);
   }
 
+  @Get(":id/pdf-data")
+  pdfData(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.salesInvoiceService.pdfData(organizationId, id);
+  }
+
+  @Get(":id/pdf")
+  async pdf(
+    @CurrentOrganizationId() organizationId: string,
+    @Param("id") id: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { data, buffer } = await this.salesInvoiceService.pdf(organizationId, id);
+    response.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${safeFilename(`invoice-${data.invoice.invoiceNumber}.pdf`)}"`,
+      "Content-Length": String(buffer.byteLength),
+    });
+    return new StreamableFile(buffer);
+  }
+
   @Patch(":id")
   update(
     @CurrentOrganizationId() organizationId: string,
@@ -61,4 +82,8 @@ export class SalesInvoiceController {
   remove(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
     return this.salesInvoiceService.remove(organizationId, user.id, id);
   }
+}
+
+function safeFilename(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]+/g, "-");
 }

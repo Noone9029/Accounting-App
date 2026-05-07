@@ -8,6 +8,7 @@ import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { deriveInvoicePaymentState, formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
+import { downloadPdf, invoicePdfPath } from "@/lib/pdf-download";
 import type { SalesInvoice } from "@/lib/types";
 
 export default function SalesInvoiceDetailPage() {
@@ -94,6 +95,24 @@ export default function SalesInvoiceDetailPage() {
     }
   }
 
+  async function downloadInvoicePdf() {
+    if (!invoice) {
+      return;
+    }
+
+    setActionLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await downloadPdf(invoicePdfPath(invoice.id), `invoice-${invoice.invoiceNumber}.pdf`);
+    } catch (downloadError) {
+      setError(downloadError instanceof Error ? downloadError.message : "Unable to download invoice PDF.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   return (
     <section>
       <div className="mb-6 flex items-start justify-between gap-4">
@@ -114,6 +133,11 @@ export default function SalesInvoiceDetailPage() {
             <Link href={`/contacts/${invoice.customerId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
               Customer ledger
             </Link>
+          ) : null}
+          {invoice ? (
+            <button type="button" onClick={() => void downloadInvoicePdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+              Download PDF
+            </button>
           ) : null}
           {invoice?.status === "FINALIZED" && invoice.customerId ? (
             <Link href={`/sales/customer-payments/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">

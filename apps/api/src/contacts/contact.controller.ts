@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import type { Response } from "express";
 import { AuthenticatedUser } from "../auth/auth.types";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -42,6 +43,33 @@ export class ContactController {
     return this.contactLedgerService.statement(organizationId, id, from, to);
   }
 
+  @Get(":id/statement-pdf-data")
+  statementPdfData(
+    @CurrentOrganizationId() organizationId: string,
+    @Param("id") id: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+  ) {
+    return this.contactLedgerService.statementPdfData(organizationId, id, from, to);
+  }
+
+  @Get(":id/statement.pdf")
+  async statementPdf(
+    @CurrentOrganizationId() organizationId: string,
+    @Param("id") id: string,
+    @Query("from") from: string | undefined,
+    @Query("to") to: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { data, buffer } = await this.contactLedgerService.statementPdf(organizationId, id, from, to);
+    response.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${safeFilename(`statement-${data.contact.displayName ?? data.contact.name}.pdf`)}"`,
+      "Content-Length": String(buffer.byteLength),
+    });
+    return new StreamableFile(buffer);
+  }
+
   @Get(":id")
   get(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.contactService.get(organizationId, id);
@@ -56,4 +84,8 @@ export class ContactController {
   ) {
     return this.contactService.update(organizationId, user.id, id, dto);
   }
+}
+
+function safeFilename(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]+/g, "-");
 }

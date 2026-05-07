@@ -9,6 +9,7 @@ import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { defaultStatementFromDate, defaultStatementToDate, formatLedgerBalance } from "@/lib/ledger-display";
 import { formatMoneyAmount } from "@/lib/money";
+import { downloadPdf, statementPdfPath } from "@/lib/pdf-download";
 import type { Contact, CustomerLedger, CustomerLedgerRow, CustomerStatement } from "@/lib/types";
 
 type ActiveSection = "overview" | "ledger" | "statement";
@@ -24,6 +25,7 @@ export default function ContactDetailPage() {
   const [toDate, setToDate] = useState(defaultStatementToDate());
   const [loading, setLoading] = useState(false);
   const [statementLoading, setStatementLoading] = useState(false);
+  const [statementPdfLoading, setStatementPdfLoading] = useState(false);
   const [error, setError] = useState("");
   const [statementError, setStatementError] = useState("");
   const ledgerAvailable = contact?.type === "CUSTOMER" || contact?.type === "BOTH";
@@ -99,6 +101,23 @@ export default function ContactDetailPage() {
       setStatementError(loadError instanceof Error ? loadError.message : "Unable to load customer statement.");
     } finally {
       setStatementLoading(false);
+    }
+  }
+
+  async function downloadStatementPdf() {
+    if (!params.id || !fromDate || !toDate) {
+      return;
+    }
+
+    setStatementError("");
+    setStatementPdfLoading(true);
+
+    try {
+      await downloadPdf(statementPdfPath(params.id, fromDate, toDate), `statement-${profile?.displayName ?? profile?.name ?? params.id}.pdf`);
+    } catch (downloadError) {
+      setStatementError(downloadError instanceof Error ? downloadError.message : "Unable to download statement PDF.");
+    } finally {
+      setStatementPdfLoading(false);
     }
   }
 
@@ -200,6 +219,9 @@ export default function ContactDetailPage() {
                   </label>
                   <button type="submit" disabled={statementLoading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
                     {statementLoading ? "Loading..." : "Load statement"}
+                  </button>
+                  <button type="button" onClick={() => void downloadStatementPdf()} disabled={!fromDate || !toDate || statementPdfLoading} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                    {statementPdfLoading ? "Preparing..." : "Download statement PDF"}
                   </button>
                 </form>
                 {statementError ? (

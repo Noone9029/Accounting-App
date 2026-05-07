@@ -257,6 +257,40 @@ The script runs against `LEDGERBYTE_API_URL` or `http://localhost:4000` by defau
 - It intentionally leaves smoke records in the database for auditability.
 - It does not cover frontend browser interaction, ZATCA, PDFs, credit notes, purchases, or bank reconciliation.
 
+## PDF Groundwork Pass
+
+Audit date: 2026-05-07
+
+Commit inspected: `870b3b5` (`Add accounting smoke workflow`)
+
+### PDF Groundwork Added
+
+- Added shared PDF data contracts and PDFKit-based renderers in `packages/pdf-core`.
+- Added sales invoice PDF data and PDF endpoints.
+- Added customer payment receipt PDF data and PDF endpoints.
+- Added customer statement PDF data and PDF endpoints.
+- Updated frontend invoice, payment, and contact statement pages with authenticated PDF download actions.
+- Extended the live accounting smoke workflow to verify PDF data endpoints and PDF responses.
+
+### Smoke Coverage Added
+
+The smoke script now verifies:
+
+- `GET /sales-invoices/:id/pdf-data`
+- `GET /sales-invoices/:id/pdf`
+- `GET /customer-payments/:id/receipt-pdf-data`
+- `GET /customer-payments/:id/receipt.pdf`
+- `GET /contacts/:id/statement-pdf-data`
+- `GET /contacts/:id/statement.pdf`
+
+PDF smoke checks validate status, `application/pdf` content type, non-empty body, and `%PDF` file header.
+
+### Remaining PDF Risks
+
+- These PDFs are not legal/ZATCA-compliant tax documents yet.
+- No XML embedding, QR code, PDF/A-3, cryptographic stamp, or hash-chain data is included.
+- No template designer, custom fonts, logo handling, or stored PDF archive exists yet.
+
 ## Remaining Risks
 
 - The concurrency strategy relies on PostgreSQL row locks produced by conditional updates inside Prisma transactions. A small multi-process load test is still recommended before production.

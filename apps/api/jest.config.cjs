@@ -8,6 +8,7 @@ module.exports = {
   },
   moduleNameMapper: {
     "^@ledgerbyte/accounting-core$": "<rootDir>/../../packages/accounting-core/src/index.ts",
+    "^@ledgerbyte/pdf-core$": "<rootDir>/../../packages/pdf-core/src/index.ts",
     "^@ledgerbyte/shared$": "<rootDir>/../../packages/shared/src/index.ts",
   },
   testEnvironment: "node",

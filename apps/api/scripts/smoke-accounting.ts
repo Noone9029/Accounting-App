@@ -239,6 +239,30 @@ async function main(): Promise<void> {
   assertPresent(receipt.journalEntry?.id, "receipt journal entry id");
   assert(receipt.allocations.some((allocation) => allocation.invoiceId === draftInvoice.id), "receipt includes invoice allocation");
 
+  const invoicePdfData = await get<{ invoice: { total: string; balanceDue: string }; lines: unknown[] }>(
+    `/sales-invoices/${draftInvoice.id}/pdf-data`,
+    headers,
+  );
+  assertMoney(invoicePdfData.invoice.total, expectedTotal, "invoice pdf-data total");
+  assert(invoicePdfData.lines.length > 0, "invoice pdf-data returns lines");
+  await assertPdf(`/sales-invoices/${draftInvoice.id}/pdf`, headers, "invoice PDF");
+
+  const receiptPdfData = await get<{ payment: { paymentNumber: string }; allocations: unknown[] }>(
+    `/customer-payments/${partialPayment.id}/receipt-pdf-data`,
+    headers,
+  );
+  assertEqual(receiptPdfData.payment.paymentNumber, partialPayment.paymentNumber, "receipt pdf-data payment number");
+  assert(receiptPdfData.allocations.length > 0, "receipt pdf-data returns allocations");
+  await assertPdf(`/customer-payments/${partialPayment.id}/receipt.pdf`, headers, "receipt PDF");
+
+  const statementPdfData = await get<{ closingBalance: string; rows: unknown[] }>(
+    `/contacts/${customer.id}/statement-pdf-data?from=${from}&to=${to}`,
+    headers,
+  );
+  assertMoney(statementPdfData.closingBalance, money(0), "statement pdf-data closing balance before void");
+  assert(statementPdfData.rows.length > 0, "statement pdf-data returns rows");
+  await assertPdf(`/contacts/${customer.id}/statement.pdf?from=${from}&to=${to}`, headers, "statement PDF");
+
   const voidedPayment = await post<CustomerPayment>(`/customer-payments/${partialPayment.id}/void`, headers, {});
   assertEqual(voidedPayment.status, "VOIDED", "voided payment status");
   assertPresent(voidedPayment.voidReversalJournalEntryId, "voided payment reversal journal");
@@ -341,6 +365,26 @@ async function expectHttpError(label: string, action: () => Promise<unknown>): P
     throw error;
   }
   throw new Error(`Expected ${label} to fail, but it succeeded.`);
+}
+
+async function assertPdf(path: string, headers: Record<string, string>, label: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}${path}`, { headers });
+  } catch (error) {
+    throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new ApiError(`GET ${path} failed with ${response.status}: ${text}`, response.status, safeJson(text));
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  assert(contentType.includes("application/pdf"), `${label} returns application/pdf`);
+  const bytes = Buffer.from(await response.arrayBuffer());
+  assert(bytes.byteLength > 1000, `${label} returns a non-empty PDF body`);
+  assertEqual(bytes.subarray(0, 4).toString(), "%PDF", `${label} starts with PDF header`);
 }
 
 function safeJson(text: string): unknown {
