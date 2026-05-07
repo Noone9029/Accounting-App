@@ -21,6 +21,7 @@ import {
   Prisma,
   SalesInvoiceStatus,
   TaxRateScope,
+  ZatcaInvoiceType,
 } from "@prisma/client";
 import { AccountingService } from "../accounting/accounting.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
@@ -201,6 +202,15 @@ export class SalesInvoiceService {
             },
           },
         },
+        zatcaMetadata: {
+          select: {
+            zatcaStatus: true,
+            invoiceUuid: true,
+            icv: true,
+            invoiceHash: true,
+            qrCodeBase64: true,
+          },
+        },
       },
     });
 
@@ -245,6 +255,15 @@ export class SalesInvoiceService {
         amountApplied: moneyString(allocation.amountApplied),
         status: allocation.payment.status,
       })),
+      zatca: invoice.zatcaMetadata
+        ? {
+            status: invoice.zatcaMetadata.zatcaStatus,
+            invoiceUuid: invoice.zatcaMetadata.invoiceUuid,
+            icv: invoice.zatcaMetadata.icv,
+            invoiceHash: invoice.zatcaMetadata.invoiceHash,
+            qrCodeBase64: invoice.zatcaMetadata.qrCodeBase64,
+          }
+        : null,
       generatedAt: new Date(),
     };
   }
@@ -477,13 +496,25 @@ export class SalesInvoiceService {
         },
       });
 
-      return tx.salesInvoice.update({
+      const finalizedInvoice = await tx.salesInvoice.update({
         where: { id },
         data: {
           journalEntryId: journalEntry.id,
         },
         include: salesInvoiceInclude,
       });
+
+      await tx.zatcaInvoiceMetadata.upsert({
+        where: { invoiceId: id },
+        update: {},
+        create: {
+          organizationId,
+          invoiceId: id,
+          zatcaInvoiceType: ZatcaInvoiceType.STANDARD_TAX_INVOICE,
+        },
+      });
+
+      return finalizedInvoice;
     });
 
     await this.auditLogService.log({

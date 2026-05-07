@@ -16,6 +16,7 @@ import { OrganizationModule } from "./organizations/organization.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { SalesInvoiceModule } from "./sales-invoices/sales-invoice.module";
 import { TaxRateModule } from "./tax-rates/tax-rate.module";
+import { ZatcaModule } from "./zatca/zatca.module";
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { TaxRateModule } from "./tax-rates/tax-rate.module";
     AuditLogModule,
     NumberSequenceModule,
     HealthModule,
+    ZatcaModule,
   ],
 })
 export class AppModule {}

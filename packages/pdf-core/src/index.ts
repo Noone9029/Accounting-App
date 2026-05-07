@@ -62,6 +62,13 @@ export interface InvoicePdfData {
     amountApplied: string;
     status: string;
   }>;
+  zatca?: {
+    status: string;
+    invoiceUuid?: string | null;
+    icv?: number | null;
+    invoiceHash?: string | null;
+    qrCodeBase64?: string | null;
+  } | null;
   generatedAt: string | Date;
 }
 
@@ -228,6 +235,11 @@ export async function renderInvoicePdf(data: InvoicePdfData, settings?: Document
           renderSettings,
         );
       }
+    }
+
+    if (data.zatca?.qrCodeBase64) {
+      writeSectionTitle(doc, "ZATCA", renderSettings);
+      writeMuted(doc, `Local ZATCA QR generated. Status: ${data.zatca.status}.`);
     }
 
     if (renderSettings.showNotes) {

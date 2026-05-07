@@ -58,6 +58,15 @@ export class OrganizationService {
         },
       });
 
+      await tx.zatcaOrganizationProfile.create({
+        data: {
+          organizationId: created.id,
+          sellerName: created.legalName ?? created.name,
+          vatNumber: created.taxNumber,
+          countryCode: created.countryCode,
+        },
+      });
+
       await this.createFoundationData(tx, created.id);
       return created;
     });

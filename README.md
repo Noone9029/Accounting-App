@@ -95,7 +95,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, payment over-allocation rejection, partial and full payments, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, and invoice void rejection while active payments exist.
+The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, local ZATCA XML/QR/hash generation, payment over-allocation rejection, partial and full payments, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
 
@@ -172,6 +172,10 @@ Sales invoices:
 - `GET /sales-invoices/:id`
 - `GET /sales-invoices/:id/pdf-data`
 - `GET /sales-invoices/:id/pdf`
+- `GET /sales-invoices/:id/zatca`
+- `POST /sales-invoices/:id/zatca/generate`
+- `GET /sales-invoices/:id/zatca/xml`
+- `GET /sales-invoices/:id/zatca/qr`
 - `POST /sales-invoices/:id/generate-pdf`
 - `PATCH /sales-invoices/:id`
 - `DELETE /sales-invoices/:id`
@@ -200,6 +204,17 @@ Generated documents:
 - `GET /generated-documents`
 - `GET /generated-documents/:id`
 - `GET /generated-documents/:id/download`
+
+ZATCA foundation:
+
+- `GET /zatca/profile`
+- `PATCH /zatca/profile`
+- `GET /zatca/egs-units`
+- `POST /zatca/egs-units`
+- `GET /zatca/egs-units/:id`
+- `PATCH /zatca/egs-units/:id`
+- `POST /zatca/egs-units/:id/activate-dev`
+- `GET /zatca/submissions`
 
 Audit logs:
 
@@ -352,18 +367,48 @@ Only the `standard` renderer is implemented today. `compact` and `detailed` are 
 
 Generated PDF downloads are archived automatically in the database through `GeneratedDocument`. Archive list/detail endpoints exclude the base64 payload; `/generated-documents/:id/download` streams the archived PDF. Local base64 storage is intentionally temporary and should move to S3-compatible storage before production scale.
 
+## ZATCA Foundation
+
+LedgerByte now has local-only ZATCA Phase 2 groundwork. This is not production ZATCA compliance and does not call ZATCA APIs.
+
+Implemented:
+
+- Organization ZATCA profile/settings with seller name, VAT number, Saudi address fields, environment, and registration status.
+- Development EGS unit records with local placeholder CSR/private-key/CSID fields, active unit selection, last ICV, and last invoice hash.
+- Sales invoice ZATCA metadata with invoice UUID, status, ICV, previous hash, invoice hash, XML base64, QR payload base64, and local submission logs.
+- `packages/zatca-core` deterministic UBL-like XML skeleton generation, basic Phase 1-style TLV QR base64 generation, SHA-256 invoice hashing, and combined payload building.
+- Finalized invoices get local ZATCA metadata records, but XML/QR/hash generation is explicit through `POST /sales-invoices/:id/zatca/generate`.
+- XML downloads use `application/xml`; QR returns a base64 TLV payload as JSON.
+- Invoice PDFs can display a small local ZATCA-generated placeholder when QR metadata exists. XML is not embedded into PDFs yet.
+
+Not implemented yet:
+
+- real CSR generation or validation
+- OTP onboarding
+- compliance CSID or production CSID issuance
+- real ZATCA compliance, clearance, or reporting APIs
+- cryptographic signing/stamping
+- official ZATCA canonicalization/profile validation
+- Phase 2 QR signature/public-key fields
+- PDF/A-3 conversion
+- embedded XML in PDF archives
+- production secrets/KMS storage for private keys
+
+The `privateKeyPem` column is a development placeholder only. Production onboarding must move private keys into a secrets manager or KMS-backed workflow before any real certificate handling.
+
 ## Current Package Boundaries
 
 - `packages/accounting-core`: decimal-safe journal and invoice calculation rules
-- `packages/zatca-core`: placeholder interfaces for future ZATCA Phase 2 integration
+- `packages/zatca-core`: local-only ZATCA XML, QR, and hash groundwork for future Phase 2 integration
 - `packages/pdf-core`: shared PDF data contracts and basic server-side renderers
 - `packages/shared`: shared tenant/API types
 - `packages/ui`: small UI utility package placeholder
 
 ## Known Limitations
 
-- ZATCA Phase 2 XML, QR, CSID, clearance, reporting, PDF/A-3, and hash-chain logic are not implemented yet.
-- PDF output is basic operational rendering only; no ZATCA XML, QR code, PDF/A-3, or template designer exists yet.
+- ZATCA Phase 2 production onboarding, CSID issuance, signing, clearance, reporting, PDF/A-3, and embedded XML are not implemented yet.
+- Current ZATCA XML/QR/hash generation is local-only groundwork and must be verified against official ZATCA documentation before production use.
+- PDF output is basic operational rendering only; no PDF/A-3, embedded XML, or template designer exists yet.
 - Generated PDFs are stored as base64 database records for local/dev groundwork; S3-compatible storage is planned before production scale.
 - GET PDF endpoints currently archive every download.
 - Applying unapplied overpayment credits to invoices later is not implemented yet.

@@ -83,6 +83,53 @@ enum GeneratedDocumentStatus {
   SUPERSEDED
 }
 
+enum ZatcaEnvironment {
+  SANDBOX
+  SIMULATION
+  PRODUCTION
+}
+
+enum ZatcaRegistrationStatus {
+  NOT_CONFIGURED
+  DRAFT
+  READY_FOR_CSR
+  OTP_REQUIRED
+  CERTIFICATE_ISSUED
+  ACTIVE
+  SUSPENDED
+}
+
+enum ZatcaInvoiceType {
+  STANDARD_TAX_INVOICE
+  SIMPLIFIED_TAX_INVOICE
+  CREDIT_NOTE
+  DEBIT_NOTE
+}
+
+enum ZatcaInvoiceStatus {
+  NOT_SUBMITTED
+  XML_GENERATED
+  READY_FOR_SUBMISSION
+  SUBMISSION_PENDING
+  CLEARED
+  REPORTED
+  REJECTED
+  FAILED
+}
+
+enum ZatcaSubmissionType {
+  COMPLIANCE_CHECK
+  CLEARANCE
+  REPORTING
+}
+
+enum ZatcaSubmissionStatus {
+  PENDING
+  SUCCESS
+  REJECTED
+  FAILED
+}
+
 enum FiscalPeriodStatus {
   OPEN
   CLOSED
@@ -143,6 +190,10 @@ model Organization {
   numberSequences            NumberSequence[]
   documentSettings           OrganizationDocumentSettings?
   generatedDocuments         GeneratedDocument[]
+  zatcaProfile               ZatcaOrganizationProfile?
+  zatcaEgsUnits              ZatcaEgsUnit[]
+  zatcaInvoiceMetadata       ZatcaInvoiceMetadata[]
+  zatcaSubmissionLogs        ZatcaSubmissionLog[]
 }
 
 model OrganizationDocumentSettings {
@@ -192,6 +243,120 @@ model GeneratedDocument {
   @@index([organizationId, sourceType, sourceId])
   @@index([organizationId, status])
   @@index([generatedById])
+}
+
+model ZatcaOrganizationProfile {
+  id                      String                  @id @default(uuid()) @db.Uuid
+  organizationId          String                  @unique @db.Uuid
+  environment             ZatcaEnvironment        @default(SANDBOX)
+  registrationStatus      ZatcaRegistrationStatus @default(NOT_CONFIGURED)
+  sellerName              String?
+  vatNumber               String?
+  companyIdType           String?
+  companyIdNumber         String?
+  buildingNumber          String?
+  streetName              String?
+  district                String?
+  city                    String?
+  postalCode              String?
+  countryCode             String                  @default("SA")
+  additionalAddressNumber String?
+  businessCategory        String?
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+  organization            Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  egsUnits                ZatcaEgsUnit[]
+
+  @@index([organizationId])
+}
+
+model ZatcaEgsUnit {
+  id                   String                  @id @default(uuid()) @db.Uuid
+  organizationId       String                  @db.Uuid
+  profileId            String                  @db.Uuid
+  name                 String
+  environment          ZatcaEnvironment
+  status               ZatcaRegistrationStatus @default(DRAFT)
+  deviceSerialNumber   String
+  solutionName         String                  @default("LedgerByte")
+  csrPem               String?                 @db.Text
+  /// TODO: production must store private keys in a secrets manager/KMS, not in the database.
+  privateKeyPem        String?                 @db.Text
+  complianceCsidPem    String?                 @db.Text
+  productionCsidPem    String?                 @db.Text
+  certificateRequestId String?
+  lastInvoiceHash      String?
+  lastIcv              Int                     @default(0)
+  isActive             Boolean                 @default(false)
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  organization         Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  profile              ZatcaOrganizationProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  invoiceMetadata      ZatcaInvoiceMetadata[]
+  submissionLogs       ZatcaSubmissionLog[]
+
+  @@unique([organizationId, deviceSerialNumber])
+  @@index([organizationId])
+  @@index([profileId])
+  @@index([organizationId, isActive])
+}
+
+model ZatcaInvoiceMetadata {
+  id                  String             @id @default(uuid()) @db.Uuid
+  organizationId      String             @db.Uuid
+  invoiceId           String             @unique @db.Uuid
+  zatcaInvoiceType    ZatcaInvoiceType
+  zatcaStatus         ZatcaInvoiceStatus @default(NOT_SUBMITTED)
+  invoiceUuid         String             @unique @default(uuid()) @db.Uuid
+  icv                 Int?
+  previousInvoiceHash String?
+  invoiceHash         String?
+  qrCodeBase64        String?            @db.Text
+  xmlBase64           String?            @db.Text
+  xmlHash             String?
+  egsUnitId           String?            @db.Uuid
+  generatedAt         DateTime?
+  clearedAt           DateTime?
+  reportedAt          DateTime?
+  rejectedAt          DateTime?
+  lastErrorCode       String?
+  lastErrorMessage    String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice             SalesInvoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  egsUnit             ZatcaEgsUnit?      @relation(fields: [egsUnitId], references: [id], onDelete: SetNull)
+  submissionLogs      ZatcaSubmissionLog[]
+
+  @@index([organizationId])
+  @@index([organizationId, zatcaStatus])
+  @@index([egsUnitId])
+}
+
+model ZatcaSubmissionLog {
+  id                   String                 @id @default(uuid()) @db.Uuid
+  organizationId       String                 @db.Uuid
+  invoiceMetadataId    String                 @db.Uuid
+  egsUnitId            String?                @db.Uuid
+  submissionType       ZatcaSubmissionType
+  status               ZatcaSubmissionStatus
+  requestUrl           String?
+  requestPayloadBase64 String?                @db.Text
+  responsePayloadBase64 String?               @db.Text
+  responseCode         String?
+  errorCode            String?
+  errorMessage         String?
+  submittedAt          DateTime               @default(now())
+  completedAt          DateTime?
+  createdAt            DateTime               @default(now())
+  organization         Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoiceMetadata      ZatcaInvoiceMetadata   @relation(fields: [invoiceMetadataId], references: [id], onDelete: Cascade)
+  egsUnit              ZatcaEgsUnit?          @relation(fields: [egsUnitId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([invoiceMetadataId])
+  @@index([egsUnitId])
+  @@index([organizationId, status])
 }
 
 model Role {
@@ -382,6 +547,7 @@ model SalesInvoice {
   reversalJournalEntry   JournalEntry?               @relation("SalesInvoiceReversalJournal", fields: [reversalJournalEntryId], references: [id])
   lines                  SalesInvoiceLine[]
   paymentAllocations     CustomerPaymentAllocation[]
+  zatcaMetadata          ZatcaInvoiceMetadata?
 
   @@unique([organizationId, invoiceNumber])
   @@index([organizationId])

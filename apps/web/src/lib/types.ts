@@ -10,6 +10,12 @@ export type CustomerPaymentStatus = "DRAFT" | "POSTED" | "VOIDED";
 export type CustomerLedgerRowType = "INVOICE" | "PAYMENT" | "PAYMENT_ALLOCATION" | "VOID_PAYMENT" | "VOID_INVOICE";
 export type DocumentType = "SALES_INVOICE" | "CUSTOMER_PAYMENT_RECEIPT" | "CUSTOMER_STATEMENT";
 export type GeneratedDocumentStatus = "GENERATED" | "FAILED" | "SUPERSEDED";
+export type ZatcaEnvironment = "SANDBOX" | "SIMULATION" | "PRODUCTION";
+export type ZatcaRegistrationStatus = "NOT_CONFIGURED" | "DRAFT" | "READY_FOR_CSR" | "OTP_REQUIRED" | "CERTIFICATE_ISSUED" | "ACTIVE" | "SUSPENDED";
+export type ZatcaInvoiceType = "STANDARD_TAX_INVOICE" | "SIMPLIFIED_TAX_INVOICE" | "CREDIT_NOTE" | "DEBIT_NOTE";
+export type ZatcaInvoiceStatus = "NOT_SUBMITTED" | "XML_GENERATED" | "READY_FOR_SUBMISSION" | "SUBMISSION_PENDING" | "CLEARED" | "REPORTED" | "REJECTED" | "FAILED";
+export type ZatcaSubmissionType = "COMPLIANCE_CHECK" | "CLEARANCE" | "REPORTING";
+export type ZatcaSubmissionStatus = "PENDING" | "SUCCESS" | "REJECTED" | "FAILED";
 
 export interface Organization {
   id: string;
@@ -336,4 +342,73 @@ export interface GeneratedDocument {
   generatedById: string | null;
   generatedAt: string;
   createdAt: string;
+}
+
+export interface ZatcaOrganizationProfile {
+  id: string;
+  organizationId: string;
+  environment: ZatcaEnvironment;
+  registrationStatus: ZatcaRegistrationStatus;
+  sellerName: string | null;
+  vatNumber: string | null;
+  companyIdType: string | null;
+  companyIdNumber: string | null;
+  buildingNumber: string | null;
+  streetName: string | null;
+  district: string | null;
+  city: string | null;
+  postalCode: string | null;
+  countryCode: string;
+  additionalAddressNumber: string | null;
+  businessCategory: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ZatcaEgsUnit {
+  id: string;
+  organizationId: string;
+  profileId: string;
+  name: string;
+  environment: ZatcaEnvironment;
+  status: ZatcaRegistrationStatus;
+  deviceSerialNumber: string;
+  solutionName: string;
+  csrPem: string | null;
+  privateKeyPem: string | null;
+  complianceCsidPem: string | null;
+  productionCsidPem: string | null;
+  certificateRequestId: string | null;
+  lastInvoiceHash: string | null;
+  lastIcv: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ZatcaInvoiceMetadata {
+  id: string;
+  organizationId: string;
+  invoiceId: string;
+  zatcaInvoiceType: ZatcaInvoiceType;
+  zatcaStatus: ZatcaInvoiceStatus;
+  invoiceUuid: string;
+  icv: number | null;
+  previousInvoiceHash: string | null;
+  invoiceHash: string | null;
+  qrCodeBase64: string | null;
+  xmlBase64: string | null;
+  xmlHash: string | null;
+  egsUnitId: string | null;
+  generatedAt: string | null;
+  clearedAt: string | null;
+  reportedAt: string | null;
+  rejectedAt: string | null;
+  lastErrorCode: string | null;
+  lastErrorMessage: string | null;
+  egsUnit?: Pick<ZatcaEgsUnit, "id" | "name" | "environment" | "isActive" | "lastIcv"> | null;
+}
+
+export interface ZatcaQrResponse {
+  qrCodeBase64: string;
 }

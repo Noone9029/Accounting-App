@@ -101,6 +101,38 @@ interface GeneratedDocument {
   status: string;
 }
 
+interface ZatcaOrganizationProfile {
+  id: string;
+  sellerName?: string | null;
+  vatNumber?: string | null;
+  countryCode: string;
+}
+
+interface ZatcaEgsUnit {
+  id: string;
+  name: string;
+  deviceSerialNumber: string;
+  status: string;
+  isActive: boolean;
+  lastIcv: number;
+  lastInvoiceHash?: string | null;
+}
+
+interface ZatcaInvoiceMetadata {
+  id: string;
+  invoiceUuid: string;
+  zatcaStatus: string;
+  icv?: number | null;
+  previousInvoiceHash?: string | null;
+  invoiceHash?: string | null;
+  qrCodeBase64?: string | null;
+  xmlBase64?: string | null;
+}
+
+interface ZatcaQrResponse {
+  qrCodeBase64: string;
+}
+
 class ApiError extends Error {
   constructor(
     message: string,
@@ -197,6 +229,42 @@ async function main(): Promise<void> {
   const finalizedAgain = await post<SalesInvoice>(`/sales-invoices/${draftInvoice.id}/finalize`, headers, {});
   assertEqual(finalizedAgain.id, finalizedInvoice.id, "double finalize invoice id");
   assertEqual(finalizedAgain.journalEntryId, finalizedInvoice.journalEntryId, "double finalize journalEntryId");
+
+  const zatcaProfile = await get<ZatcaOrganizationProfile>("/zatca/profile", headers);
+  assertPresent(zatcaProfile.id, "ZATCA profile id");
+  const patchedZatcaProfile = await patch<ZatcaOrganizationProfile>("/zatca/profile", headers, {
+    sellerName: "LedgerByte Smoke Seller",
+    vatNumber: "300000000000003",
+    countryCode: "SA",
+    city: "Riyadh",
+    businessCategory: "Smoke testing",
+    environment: "SANDBOX",
+  });
+  assertEqual(patchedZatcaProfile.vatNumber, "300000000000003", "ZATCA profile VAT number");
+
+  const smokeEgsSerial = "LEDGERBYTE-SMOKE-EGS";
+  const existingEgsUnits = await get<ZatcaEgsUnit[]>("/zatca/egs-units", headers);
+  let smokeEgs =
+    existingEgsUnits.find((unit) => unit.deviceSerialNumber === smokeEgsSerial) ??
+    (await post<ZatcaEgsUnit>("/zatca/egs-units", headers, {
+      name: "LedgerByte Smoke Dev EGS",
+      deviceSerialNumber: smokeEgsSerial,
+      environment: "SANDBOX",
+      solutionName: "LedgerByte",
+    }));
+  smokeEgs = await post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/activate-dev`, headers, {});
+  assertEqual(smokeEgs.isActive, true, "ZATCA smoke EGS active flag");
+
+  const zatcaMetadata = await post<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca/generate`, headers, {});
+  assertPresent(zatcaMetadata.invoiceUuid, "ZATCA invoice UUID");
+  assertPresent(zatcaMetadata.invoiceHash, "ZATCA invoice hash");
+  assertPresent(zatcaMetadata.xmlBase64, "ZATCA XML base64");
+  assertPresent(zatcaMetadata.qrCodeBase64, "ZATCA QR base64");
+  assertPresent(zatcaMetadata.icv, "ZATCA ICV");
+  assertEqual(zatcaMetadata.zatcaStatus, "XML_GENERATED", "ZATCA metadata status");
+  await assertXml(`/sales-invoices/${draftInvoice.id}/zatca/xml`, headers, "invoice ZATCA XML", finalizedInvoice.invoiceNumber);
+  const zatcaQr = await get<ZatcaQrResponse>(`/sales-invoices/${draftInvoice.id}/zatca/qr`, headers);
+  assertPresent(zatcaQr.qrCodeBase64, "ZATCA QR endpoint payload");
 
   await expectHttpError("over-allocation payment", () =>
     post<CustomerPayment>("/customer-payments", headers, {
@@ -322,6 +390,8 @@ async function main(): Promise<void> {
         customerId: customer.id,
         invoiceId: draftInvoice.id,
         invoiceNumber: finalizedInvoice.invoiceNumber,
+        zatcaMetadataId: zatcaMetadata.id,
+        zatcaIcv: zatcaMetadata.icv,
         paymentIds: [partialPayment.id, remainingPayment.id],
         archivedInvoicePdfId: archivedInvoicePdf.id,
         finalInvoiceBalance: afterSecondPaymentVoid.balanceDue,
@@ -418,6 +488,25 @@ async function assertPdf(path: string, headers: Record<string, string>, label: s
   const bytes = Buffer.from(await response.arrayBuffer());
   assert(bytes.byteLength > 1000, `${label} returns a non-empty PDF body`);
   assertEqual(bytes.subarray(0, 4).toString(), "%PDF", `${label} starts with PDF header`);
+}
+
+async function assertXml(path: string, headers: Record<string, string>, label: string, expectedText: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}${path}`, { headers });
+  } catch (error) {
+    throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new ApiError(`GET ${path} failed with ${response.status}: ${text}`, response.status, safeJson(text));
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  assert(contentType.includes("application/xml"), `${label} returns application/xml`);
+  const text = await response.text();
+  assert(text.includes(expectedText), `${label} includes invoice number`);
 }
 
 function safeJson(text: string): unknown {

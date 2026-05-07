@@ -30,6 +30,10 @@ export function pdfApiUrl(path: string): string {
 }
 
 export async function downloadPdf(path: string, filename?: string): Promise<void> {
+  return downloadAuthenticatedFile(path, filename);
+}
+
+export async function downloadAuthenticatedFile(path: string, filename?: string): Promise<void> {
   const headers = new Headers();
   const token = getAccessToken();
   const organizationId = getActiveOrganizationId();

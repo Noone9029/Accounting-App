@@ -124,6 +124,27 @@ describe("sales invoice rules", () => {
       journalEntryId: "journal-existing",
     });
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
+    expect(tx.zatcaInvoiceMetadata.upsert).not.toHaveBeenCalled();
+  });
+
+  it("creates ZATCA invoice metadata when finalizing an invoice", async () => {
+    const tx = makeFinalizeTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new SalesInvoiceService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn().mockResolvedValue("JE-000001") } as never,
+      { reverse: jest.fn() } as never,
+    );
+    jest.spyOn(service, "get").mockResolvedValue({ id: "invoice-1", status: "DRAFT", journalEntryId: null } as never);
+
+    await expect(service.finalize("org-1", "user-1", "invoice-1")).resolves.toMatchObject({ status: "FINALIZED", journalEntryId: "journal-1" });
+    expect(tx.zatcaInvoiceMetadata.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { invoiceId: "invoice-1" },
+        create: expect.objectContaining({ organizationId: "org-1", invoiceId: "invoice-1", zatcaInvoiceType: "STANDARD_TAX_INVOICE" }),
+      }),
+    );
   });
 
   it("does not link a journal when finalization journal creation fails", async () => {
@@ -134,6 +155,7 @@ describe("sales invoice rules", () => {
 
     await expect(service.finalize("org-1", "user-1", "invoice-1")).rejects.toThrow("journal failed");
     expect(tx.salesInvoice.update).not.toHaveBeenCalled();
+    expect(tx.zatcaInvoiceMetadata.upsert).not.toHaveBeenCalled();
   });
 
   it("prevents updates to finalized invoices", async () => {
@@ -461,6 +483,9 @@ function makeFinalizeTransactionMock(options: { claimCount?: number; journalCrea
       create: options.journalCreateError
         ? jest.fn().mockRejectedValue(options.journalCreateError)
         : jest.fn().mockResolvedValue({ id: "journal-1" }),
+    },
+    zatcaInvoiceMetadata: {
+      upsert: jest.fn().mockResolvedValue({ id: "zatca-metadata-1" }),
     },
   };
 }

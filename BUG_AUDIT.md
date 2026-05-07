@@ -312,6 +312,31 @@ Commit inspected: `09bb7c9` (`Add invoice and receipt PDF groundwork`)
 - Saved `compact` and `detailed` template options currently fall back to the standard renderer.
 - Legal/ZATCA compliance is still out of scope: no XML embedding, QR code, PDF/A-3, cryptographic stamp, or clearance/reporting flow.
 
+## ZATCA Foundation Groundwork
+
+Audit date: 2026-05-07
+
+Commit inspected: `2d5bc3e` (`Add document settings and archive groundwork`)
+
+### ZATCA Groundwork Added
+
+- Added organization ZATCA profiles for seller identity, VAT number, Saudi address fields, environment, and registration status.
+- Added development EGS units with active-unit selection, local CSR/private-key/CSID placeholders, last ICV, and previous invoice hash state.
+- Added sales invoice ZATCA metadata for invoice UUID, local compliance status, ICV, previous hash, invoice hash, XML base64, QR base64, and error fields.
+- Added ZATCA submission logs for local compliance-generation events.
+- Added `packages/zatca-core` helpers for deterministic UBL-like XML skeletons, basic TLV QR payloads, SHA-256 invoice hashes, and combined payload building.
+- Added API endpoints for ZATCA profile, EGS units, invoice compliance metadata, XML downloads, QR payloads, and submission logs.
+- Added frontend ZATCA settings and invoice compliance sections.
+- Extended smoke coverage to generate local XML/QR/hash data for a finalized invoice and verify XML/QR endpoints.
+
+### Remaining ZATCA Risks
+
+- This is local-only foundation work and is not production ZATCA compliance.
+- No real ZATCA APIs, OTP onboarding, CSR generation, CSID issuance, clearance, reporting, cryptographic signing, XML canonicalization, or official validation is implemented.
+- Private keys are stored only as development placeholders in the database; production must use secrets manager/KMS-backed storage.
+- PDF/A-3 and XML embedding are not implemented.
+- Official ZATCA documentation and sandbox behavior must be re-verified before building the real onboarding/submission phase.
+
 ## Remaining Risks
 
 - The concurrency strategy relies on PostgreSQL row locks produced by conditional updates inside Prisma transactions. A small multi-process load test is still recommended before production.
@@ -320,6 +345,7 @@ Commit inspected: `09bb7c9` (`Add invoice and receipt PDF groundwork`)
 - Account parent updates prevent self-parenting but do not yet prevent descendant cycles.
 - `next-env.d.ts` flips between `.next/types` and `.next/dev/types` when switching between build and dev on Next 16. The tracked file is kept clean after verification, but this remains local development churn.
 - Prisma 6 warns that `package.json#prisma` seed configuration is deprecated and should move to a Prisma config file before Prisma 7.
+- ZATCA groundwork is intentionally non-compliant until real onboarding, signing, clearance/reporting, PDF/A-3, and official validation are implemented.
 
 ## Recommended Next Steps
 

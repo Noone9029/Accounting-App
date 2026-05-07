@@ -105,7 +105,10 @@ const navItems: NavItem[] = [
     label: "Document templates",
     href: "/settings/documents",
     icon: FileText,
-    children: [{ label: "Document settings", href: "/settings/documents" }],
+    children: [
+      { label: "Document settings", href: "/settings/documents" },
+      { label: "ZATCA", href: "/settings/zatca" },
+    ],
   },
 ];
 

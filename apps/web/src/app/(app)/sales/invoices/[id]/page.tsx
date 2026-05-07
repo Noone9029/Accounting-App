@@ -8,14 +8,17 @@ import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { deriveInvoicePaymentState, formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
-import { downloadPdf, invoicePdfPath } from "@/lib/pdf-download";
-import type { SalesInvoice } from "@/lib/types";
+import { downloadAuthenticatedFile, downloadPdf, invoicePdfPath } from "@/lib/pdf-download";
+import { truncateHash, zatcaInvoiceXmlPath, zatcaStatusLabel } from "@/lib/zatca";
+import type { SalesInvoice, ZatcaInvoiceMetadata, ZatcaQrResponse } from "@/lib/types";
 
 export default function SalesInvoiceDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const organizationId = useActiveOrganizationId();
   const [invoice, setInvoice] = useState<SalesInvoice | null>(null);
+  const [zatca, setZatca] = useState<ZatcaInvoiceMetadata | null>(null);
+  const [qrPayload, setQrPayload] = useState("");
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
@@ -30,10 +33,11 @@ export default function SalesInvoiceDetailPage() {
     setLoading(true);
     setError("");
 
-    apiRequest<SalesInvoice>(`/sales-invoices/${params.id}`)
-      .then((result) => {
+    Promise.all([apiRequest<SalesInvoice>(`/sales-invoices/${params.id}`), apiRequest<ZatcaInvoiceMetadata>(`/sales-invoices/${params.id}/zatca`).catch(() => null)])
+      .then(([result, zatcaResult]) => {
         if (!cancelled) {
           setInvoice(result);
+          setZatca(zatcaResult);
         }
       })
       .catch((loadError: unknown) => {
@@ -68,6 +72,9 @@ export default function SalesInvoiceDetailPage() {
     try {
       const updated = await apiRequest<SalesInvoice>(`/sales-invoices/${invoice.id}/${action}`, { method: "POST" });
       setInvoice(updated);
+      if (action === "finalize") {
+        await refreshZatca(updated.id);
+      }
       setSuccess(action === "finalize" ? `Finalized invoice ${updated.invoiceNumber}.` : `Voided invoice ${updated.invoiceNumber}.`);
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : `Unable to ${action} invoice.`);
@@ -108,6 +115,70 @@ export default function SalesInvoiceDetailPage() {
       await downloadPdf(invoicePdfPath(invoice.id), `invoice-${invoice.invoiceNumber}.pdf`);
     } catch (downloadError) {
       setError(downloadError instanceof Error ? downloadError.message : "Unable to download invoice PDF.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function refreshZatca(invoiceId: string) {
+    const result = await apiRequest<ZatcaInvoiceMetadata>(`/sales-invoices/${invoiceId}/zatca`);
+    setZatca(result);
+    return result;
+  }
+
+  async function generateZatca() {
+    if (!invoice) {
+      return;
+    }
+
+    setActionLoading(true);
+    setError("");
+    setSuccess("");
+    setQrPayload("");
+
+    try {
+      const result = await apiRequest<ZatcaInvoiceMetadata>(`/sales-invoices/${invoice.id}/zatca/generate`, { method: "POST" });
+      setZatca(result);
+      setSuccess("Local ZATCA XML, QR payload, and hash metadata generated.");
+    } catch (generateError) {
+      setError(generateError instanceof Error ? generateError.message : "Unable to generate ZATCA metadata.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function downloadZatcaXml() {
+    if (!invoice) {
+      return;
+    }
+
+    setActionLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await downloadAuthenticatedFile(zatcaInvoiceXmlPath(invoice.id), `zatca-${invoice.invoiceNumber}.xml`);
+    } catch (downloadError) {
+      setError(downloadError instanceof Error ? downloadError.message : "Unable to download ZATCA XML.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function loadQrPayload() {
+    if (!invoice) {
+      return;
+    }
+
+    setActionLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const result = await apiRequest<ZatcaQrResponse>(`/sales-invoices/${invoice.id}/zatca/qr`);
+      setQrPayload(result.qrCodeBase64);
+    } catch (qrError) {
+      setError(qrError instanceof Error ? qrError.message : "Unable to load ZATCA QR payload.");
     } finally {
       setActionLoading(false);
     }
@@ -289,6 +360,51 @@ export default function SalesInvoiceDetailPage() {
                 <StatusMessage type="empty">No payments have been applied to this invoice.</StatusMessage>
               </div>
             )}
+          </div>
+
+          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-base font-semibold text-ink">ZATCA compliance groundwork</h2>
+                <p className="mt-1 text-sm text-steel">Local ZATCA generation only. Not submitted to ZATCA yet.</p>
+              </div>
+              <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{zatcaStatusLabel(zatca?.zatcaStatus)}</span>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
+              <Summary label="Invoice UUID" value={zatca?.invoiceUuid ?? "-"} />
+              <Summary label="ICV" value={zatca?.icv === null || zatca?.icv === undefined ? "-" : String(zatca.icv)} />
+              <Summary label="Invoice hash" value={truncateHash(zatca?.invoiceHash)} />
+              <Summary label="Previous hash" value={truncateHash(zatca?.previousInvoiceHash)} />
+              <Summary label="EGS unit" value={zatca?.egsUnit?.name ?? "-"} />
+              <Summary label="Generated" value={zatca?.generatedAt ? new Date(zatca.generatedAt).toLocaleString() : "-"} />
+              <Summary label="Last error" value={zatca?.lastErrorMessage ?? "-"} />
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {invoice.status === "FINALIZED" ? (
+                <button type="button" onClick={() => void generateZatca()} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+                  Generate ZATCA XML/QR
+                </button>
+              ) : null}
+              {zatca?.xmlBase64 ? (
+                <button type="button" onClick={() => void downloadZatcaXml()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                  Download XML
+                </button>
+              ) : null}
+              {zatca?.qrCodeBase64 ? (
+                <button type="button" onClick={() => void loadQrPayload()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                  View QR payload
+                </button>
+              ) : null}
+            </div>
+
+            {qrPayload ? (
+              <div className="mt-4 rounded-md bg-slate-50 p-3">
+                <div className="text-xs font-medium uppercase tracking-wide text-steel">Basic TLV QR payload</div>
+                <div className="mt-1 break-all font-mono text-xs text-ink">{qrPayload}</div>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

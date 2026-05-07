@@ -76,6 +76,19 @@ async function main(): Promise<void> {
     },
   });
 
+  await prisma.zatcaOrganizationProfile.upsert({
+    where: { organizationId: organization.id },
+    update: {},
+    create: {
+      organizationId: organization.id,
+      sellerName: organization.legalName ?? organization.name,
+      vatNumber: organization.taxNumber,
+      countryCode: organization.countryCode,
+      city: "Riyadh",
+      businessCategory: "Accounting software demo",
+    },
+  });
+
   const accountIdsByCode = new Map<string, string>();
   for (const account of DEFAULT_ACCOUNTS) {
     const created = await prisma.account.upsert({
