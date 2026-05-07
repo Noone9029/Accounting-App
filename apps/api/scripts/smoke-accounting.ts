@@ -114,6 +114,9 @@ interface ZatcaEgsUnit {
   deviceSerialNumber: string;
   status: string;
   isActive: boolean;
+  hasCsr: boolean;
+  hasComplianceCsid: boolean;
+  certificateRequestId?: string | null;
   lastIcv: number;
   lastInvoiceHash?: string | null;
 }
@@ -131,6 +134,14 @@ interface ZatcaInvoiceMetadata {
 
 interface ZatcaQrResponse {
   qrCodeBase64: string;
+}
+
+interface ZatcaSubmissionLog {
+  id: string;
+  egsUnitId?: string | null;
+  responseCode?: string | null;
+  submissionType: string;
+  status: string;
 }
 
 class ApiError extends Error {
@@ -252,8 +263,23 @@ async function main(): Promise<void> {
       environment: "SANDBOX",
       solutionName: "LedgerByte",
     }));
-  smokeEgs = await post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/activate-dev`, headers, {});
-  assertEqual(smokeEgs.isActive, true, "ZATCA smoke EGS active flag");
+  smokeEgs = await post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/generate-csr`, headers, {});
+  assertEqual(smokeEgs.hasCsr, true, "ZATCA smoke EGS CSR flag");
+  const csrResponse = await get<{ csrPem: string }>(`/zatca/egs-units/${smokeEgs.id}/csr`, headers);
+  assert(csrResponse.csrPem.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA CSR endpoint returns CSR PEM");
+  await assertText(`/zatca/egs-units/${smokeEgs.id}/csr/download`, headers, "EGS CSR download", "BEGIN CERTIFICATE REQUEST");
+  smokeEgs = await post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/request-compliance-csid`, headers, { otp: "000000", mode: "mock" });
+  assertEqual(smokeEgs.hasComplianceCsid, true, "ZATCA smoke EGS compliance CSID flag");
+  assertPresent(smokeEgs.certificateRequestId, "ZATCA smoke EGS certificate request id");
+  if (!smokeEgs.isActive) {
+    smokeEgs = await post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/activate-dev`, headers, {});
+  }
+  assert(smokeEgs.isActive || smokeEgs.status === "ACTIVE" || smokeEgs.status === "CERTIFICATE_ISSUED", "ZATCA smoke EGS active or certificate state");
+  const zatcaSubmissions = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assert(
+    zatcaSubmissions.some((log) => log.egsUnitId === smokeEgs.id && log.responseCode === "LOCAL_MOCK" && log.status === "SUCCESS"),
+    "ZATCA submissions include local mock onboarding log",
+  );
 
   const zatcaMetadata = await post<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca/generate`, headers, {});
   assertPresent(zatcaMetadata.invoiceUuid, "ZATCA invoice UUID");
@@ -507,6 +533,25 @@ async function assertXml(path: string, headers: Record<string, string>, label: s
   assert(contentType.includes("application/xml"), `${label} returns application/xml`);
   const text = await response.text();
   assert(text.includes(expectedText), `${label} includes invoice number`);
+}
+
+async function assertText(path: string, headers: Record<string, string>, label: string, expectedText: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}${path}`, { headers });
+  } catch (error) {
+    throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new ApiError(`GET ${path} failed with ${response.status}: ${text}`, response.status, safeJson(text));
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  assert(contentType.includes("text/plain"), `${label} returns text/plain`);
+  const text = await response.text();
+  assert(text.includes(expectedText), `${label} includes expected text`);
 }
 
 function safeJson(text: string): unknown {

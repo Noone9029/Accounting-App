@@ -16,3 +16,23 @@ export function zatcaInvoiceXmlPath(invoiceId: string): string {
 export function zatcaInvoiceQrPath(invoiceId: string): string {
   return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/qr`;
 }
+
+export function zatcaEgsCsrDownloadPath(egsUnitId: string): string {
+  return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/csr/download`;
+}
+
+export function getZatcaProfileMissingFields(profile: {
+  sellerName?: string | null;
+  vatNumber?: string | null;
+  city?: string | null;
+  countryCode?: string | null;
+}): string[] {
+  return [
+    ["sellerName", profile.sellerName],
+    ["vatNumber", profile.vatNumber],
+    ["city", profile.city],
+    ["countryCode", profile.countryCode],
+  ]
+    .filter(([, value]) => !String(value ?? "").trim())
+    .map(([field]) => String(field));
+}

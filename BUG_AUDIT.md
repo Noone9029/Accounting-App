@@ -337,6 +337,31 @@ Commit inspected: `2d5bc3e` (`Add document settings and archive groundwork`)
 - PDF/A-3 and XML embedding are not implemented.
 - Official ZATCA documentation and sandbox behavior must be re-verified before building the real onboarding/submission phase.
 
+## ZATCA Onboarding Groundwork
+
+Audit date: 2026-05-07
+
+Commit inspected: `cc0df31` (`Add ZATCA foundation groundwork`)
+
+### CSR And Mock CSID Groundwork Added
+
+- Added CSR/private-key generation helpers in `packages/zatca-core` using Node-compatible local crypto utilities.
+- Added CSR validation for required seller, VAT, organization, device serial, city, and Saudi country fields.
+- Added EGS CSR generation, CSR preview, and CSR download endpoints.
+- Added a ZATCA onboarding adapter interface with a local mock adapter for compliance CSID requests.
+- Added mock OTP flow accepting local 6-digit values such as `000000`.
+- Added mock compliance CSID state handling, certificate request id storage, active mock EGS handling, and submission logs.
+- Changed onboarding submission logs so they can be EGS/onboarding scoped without requiring an invoice metadata row.
+- Hardened EGS API responses so `privateKeyPem` is not exposed through normal frontend APIs after generation.
+- Added frontend onboarding controls for CSR generation/download, mock CSID request, OTP entry, EGS status, and recent ZATCA logs.
+
+### Remaining Onboarding Risks
+
+- Private key database storage remains development-only. Production must use KMS/secrets manager and must never log private keys.
+- The mock CSID flow does not validate real OTPs, does not issue real CSIDs, and does not call ZATCA.
+- Production CSID request intentionally returns not implemented.
+- Real ZATCA sandbox credentials, official API contracts, CSR profile requirements, certificate chain handling, and compliance checks must be verified against current ZATCA documentation before production work.
+
 ## Remaining Risks
 
 - The concurrency strategy relies on PostgreSQL row locks produced by conditional updates inside Prisma transactions. A small multi-process load test is still recommended before production.

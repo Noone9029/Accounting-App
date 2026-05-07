@@ -361,6 +361,10 @@ export interface ZatcaOrganizationProfile {
   countryCode: string;
   additionalAddressNumber: string | null;
   businessCategory: string | null;
+  readiness?: {
+    ready: boolean;
+    missingFields: string[];
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -374,10 +378,9 @@ export interface ZatcaEgsUnit {
   status: ZatcaRegistrationStatus;
   deviceSerialNumber: string;
   solutionName: string;
-  csrPem: string | null;
-  privateKeyPem: string | null;
-  complianceCsidPem: string | null;
-  productionCsidPem: string | null;
+  hasCsr: boolean;
+  hasComplianceCsid: boolean;
+  hasProductionCsid: boolean;
   certificateRequestId: string | null;
   lastInvoiceHash: string | null;
   lastIcv: number;
@@ -411,4 +414,22 @@ export interface ZatcaInvoiceMetadata {
 
 export interface ZatcaQrResponse {
   qrCodeBase64: string;
+}
+
+export interface ZatcaSubmissionLog {
+  id: string;
+  organizationId: string;
+  invoiceMetadataId: string | null;
+  egsUnitId: string | null;
+  submissionType: ZatcaSubmissionType;
+  status: ZatcaSubmissionStatus;
+  requestUrl: string | null;
+  responseCode: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  submittedAt: string;
+  completedAt: string | null;
+  createdAt: string;
+  egsUnit?: { id: string; name: string; environment: ZatcaEnvironment } | null;
+  invoiceMetadata?: { id: string; invoiceId: string; invoiceUuid: string; zatcaStatus: ZatcaInvoiceStatus } | null;
 }

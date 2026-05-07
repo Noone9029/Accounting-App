@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import forge from "node-forge";
 
 export type ZatcaEnvironment = "SANDBOX" | "SIMULATION" | "PRODUCTION";
 export type ZatcaInvoiceType = "STANDARD_TAX_INVOICE" | "SIMPLIFIED_TAX_INVOICE" | "CREDIT_NOTE" | "DEBIT_NOTE";
@@ -74,6 +75,30 @@ export interface ZatcaSubmissionResult {
   status: "PENDING" | "CLEARED" | "REPORTED" | "REJECTED" | "FAILED";
   responsePayload?: unknown;
 }
+
+export interface ZatcaCsrInput {
+  sellerName: string;
+  vatNumber: string;
+  organizationIdentifier: string;
+  organizationUnitName: string;
+  organizationName: string;
+  countryCode: string;
+  city: string;
+  deviceSerialNumber: string;
+  solutionName: string;
+  businessCategory: string;
+}
+
+export interface ZatcaCsrResult {
+  privateKeyPem: string;
+  csrPem: string;
+}
+
+export type ZatcaCsrSubjectAttribute = {
+  name?: string;
+  shortName?: string;
+  value: string;
+};
 
 const ublInvoiceTypeCodes: Record<ZatcaInvoiceType, string> = {
   STANDARD_TAX_INVOICE: "388",
@@ -157,6 +182,75 @@ export function generateZatcaQrBase64(input: {
 
 export function calculateInvoiceHash(xml: string): string {
   return createHash("sha256").update(xml, "utf8").digest("base64");
+}
+
+export function generateEgsPrivateKeyPem(): string {
+  const keys = forge.pki.rsa.generateKeyPair({ bits: 2048, e: 0x10001 });
+  return forge.pki.privateKeyToPem(keys.privateKey);
+}
+
+export function buildZatcaCsrSubject(input: ZatcaCsrInput): ZatcaCsrSubjectAttribute[] {
+  validateZatcaCsrInput(input);
+  return [
+    { name: "commonName", value: input.deviceSerialNumber.trim() },
+    { name: "serialNumber", value: input.organizationIdentifier.trim() },
+    { name: "organizationName", value: input.organizationName.trim() },
+    { name: "organizationalUnitName", value: input.organizationUnitName.trim() },
+    { name: "countryName", value: input.countryCode.trim().toUpperCase() },
+    { name: "localityName", value: input.city.trim() },
+    { name: "title", value: input.solutionName.trim() },
+    { name: "description", value: input.businessCategory.trim() },
+  ];
+}
+
+export function generateZatcaCsrPem(input: ZatcaCsrInput): ZatcaCsrResult {
+  validateZatcaCsrInput(input);
+  const keys = forge.pki.rsa.generateKeyPair({ bits: 2048, e: 0x10001 });
+  const csr = forge.pki.createCertificationRequest();
+  csr.publicKey = keys.publicKey;
+  csr.setSubject(buildZatcaCsrSubject(input));
+  csr.setAttributes([
+    {
+      name: "extensionRequest",
+      extensions: [
+        {
+          name: "subjectAltName",
+          altNames: [
+            { type: 6, value: `urn:ledgerbyte:zatca:device:${input.deviceSerialNumber.trim()}` },
+            { type: 6, value: `urn:ledgerbyte:zatca:vat:${input.vatNumber.trim()}` },
+          ],
+        },
+      ],
+    },
+  ]);
+  csr.sign(keys.privateKey, forge.md.sha256.create());
+
+  if (!csr.verify()) {
+    throw new Error("Generated ZATCA CSR failed local verification.");
+  }
+
+  return {
+    // Development helper output only. Production private keys must be generated and stored in KMS/secrets manager, never logged.
+    privateKeyPem: forge.pki.privateKeyToPem(keys.privateKey),
+    csrPem: forge.pki.certificationRequestToPem(csr),
+  };
+}
+
+export function validateZatcaCsrInput(input: ZatcaCsrInput): void {
+  requiredCsrText(input.sellerName, "sellerName");
+  requiredCsrText(input.vatNumber, "vatNumber");
+  requiredCsrText(input.organizationIdentifier, "organizationIdentifier");
+  requiredCsrText(input.organizationUnitName, "organizationUnitName");
+  requiredCsrText(input.organizationName, "organizationName");
+  requiredCsrText(input.countryCode, "countryCode");
+  requiredCsrText(input.city, "city");
+  requiredCsrText(input.deviceSerialNumber, "deviceSerialNumber");
+  requiredCsrText(input.solutionName, "solutionName");
+  requiredCsrText(input.businessCategory, "businessCategory");
+
+  if (input.countryCode.trim().toUpperCase() !== "SA") {
+    throw new Error("countryCode must be SA for ZATCA CSR groundwork.");
+  }
 }
 
 function renderParty(tagName: "AccountingSupplierParty" | "AccountingCustomerParty", party: ZatcaSellerInput | ZatcaBuyerInput, vatNumber: string | null): string {
@@ -272,4 +366,12 @@ function escapeXml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
+}
+
+function requiredCsrText(value: string | null | undefined, field: string): string {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    throw new Error(`ZATCA CSR field ${field} is required.`);
+  }
+  return trimmed;
 }

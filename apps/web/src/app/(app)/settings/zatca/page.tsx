@@ -4,8 +4,9 @@ import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { truncateHash, zatcaStatusLabel } from "@/lib/zatca";
-import type { ZatcaEgsUnit, ZatcaEnvironment, ZatcaOrganizationProfile } from "@/lib/types";
+import { downloadAuthenticatedFile } from "@/lib/pdf-download";
+import { getZatcaProfileMissingFields, truncateHash, zatcaEgsCsrDownloadPath, zatcaStatusLabel } from "@/lib/zatca";
+import type { ZatcaEgsUnit, ZatcaEnvironment, ZatcaOrganizationProfile, ZatcaSubmissionLog } from "@/lib/types";
 
 const environmentOptions: ZatcaEnvironment[] = ["SANDBOX", "SIMULATION", "PRODUCTION"];
 
@@ -35,7 +36,9 @@ export default function ZatcaSettingsPage() {
   const [profile, setProfile] = useState<ZatcaOrganizationProfile | null>(null);
   const [form, setForm] = useState<ZatcaProfileForm | null>(null);
   const [egsUnits, setEgsUnits] = useState<ZatcaEgsUnit[]>([]);
+  const [submissionLogs, setSubmissionLogs] = useState<ZatcaSubmissionLog[]>([]);
   const [egsForm, setEgsForm] = useState<EgsForm>({ name: "LedgerByte Dev EGS", deviceSerialNumber: "LEDGERBYTE-DEV-EGS" });
+  const [otpByUnit, setOtpByUnit] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState("");
@@ -51,12 +54,13 @@ export default function ZatcaSettingsPage() {
     setLoading(true);
     setError("");
 
-    Promise.all([apiRequest<ZatcaOrganizationProfile>("/zatca/profile"), apiRequest<ZatcaEgsUnit[]>("/zatca/egs-units")])
-      .then(([loadedProfile, loadedUnits]) => {
+    Promise.all([apiRequest<ZatcaOrganizationProfile>("/zatca/profile"), apiRequest<ZatcaEgsUnit[]>("/zatca/egs-units"), apiRequest<ZatcaSubmissionLog[]>("/zatca/submissions")])
+      .then(([loadedProfile, loadedUnits, loadedLogs]) => {
         if (!cancelled) {
           setProfile(loadedProfile);
           setForm(profileToForm(loadedProfile));
           setEgsUnits(loadedUnits);
+          setSubmissionLogs(loadedLogs);
         }
       })
       .catch((loadError: unknown) => {
@@ -141,9 +145,66 @@ export default function ZatcaSettingsPage() {
     }
   }
 
+  async function generateCsr(unit: ZatcaEgsUnit) {
+    setActionLoading(`csr-${unit.id}`);
+    setError("");
+    setSuccess("");
+
+    try {
+      const updated = await apiRequest<ZatcaEgsUnit>(`/zatca/egs-units/${unit.id}/generate-csr`, { method: "POST" });
+      replaceUnit(updated);
+      setSuccess(`CSR generated for ${updated.name}. Private key is stored only as a development placeholder and is not shown.`);
+    } catch (csrError) {
+      setError(csrError instanceof Error ? csrError.message : "Unable to generate CSR.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
+  async function downloadCsr(unit: ZatcaEgsUnit) {
+    setActionLoading(`download-csr-${unit.id}`);
+    setError("");
+    setSuccess("");
+
+    try {
+      await downloadAuthenticatedFile(zatcaEgsCsrDownloadPath(unit.id), `zatca-egs-${unit.name}-csr.pem`);
+    } catch (downloadError) {
+      setError(downloadError instanceof Error ? downloadError.message : "Unable to download CSR.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
+  async function requestMockComplianceCsid(unit: ZatcaEgsUnit) {
+    setActionLoading(`csid-${unit.id}`);
+    setError("");
+    setSuccess("");
+
+    try {
+      const updated = await apiRequest<ZatcaEgsUnit>(`/zatca/egs-units/${unit.id}/request-compliance-csid`, {
+        method: "POST",
+        body: { otp: otpByUnit[unit.id] ?? "000000", mode: "mock" },
+      });
+      replaceUnit(updated);
+      const logs = await apiRequest<ZatcaSubmissionLog[]>("/zatca/submissions");
+      setSubmissionLogs(logs);
+      setSuccess(`Mock compliance CSID issued for ${updated.name}. This does not make invoices ZATCA compliant.`);
+    } catch (csidError) {
+      setError(csidError instanceof Error ? csidError.message : "Unable to request mock compliance CSID.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
+  function replaceUnit(unit: ZatcaEgsUnit) {
+    setEgsUnits((current) => current.map((item) => (item.id === unit.id ? unit : { ...item, isActive: unit.isActive ? false : item.isActive })));
+  }
+
   function updateProfileField<K extends keyof ZatcaProfileForm>(field: K, value: ZatcaProfileForm[K]) {
     setForm((current) => (current ? { ...current, [field]: value } : current));
   }
+
+  const missingProfileFields = profile?.readiness?.missingFields ?? (profile ? getZatcaProfileMissingFields(profile) : []);
 
   return (
     <section>
@@ -158,6 +219,9 @@ export default function ZatcaSettingsPage() {
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
         <StatusMessage type="info">Local ZATCA generation only. These settings do not submit invoices to ZATCA and are not production credentials.</StatusMessage>
+        {profile && missingProfileFields.length > 0 ? (
+          <StatusMessage type="info">CSR readiness missing fields: {missingProfileFields.join(", ")}.</StatusMessage>
+        ) : null}
       </div>
 
       {form ? (
@@ -197,6 +261,7 @@ export default function ZatcaSettingsPage() {
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <h2 className="text-base font-semibold text-ink">EGS units</h2>
             <p className="mt-1 text-sm text-steel">Development placeholders for ICV and previous-invoice hash chaining. Real CSID onboarding comes later.</p>
+            <p className="mt-1 text-xs text-rosewood">Mock CSID is for local development only. It does not make invoices ZATCA compliant. Private keys are not shown in the app.</p>
 
             <form onSubmit={createEgsUnit} className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-[1fr_1fr_auto]">
               <TextField label="Unit name" value={egsForm.name} onChange={(value) => setEgsForm((current) => ({ ...current, name: value }))} />
@@ -216,15 +281,18 @@ export default function ZatcaSettingsPage() {
                     <th className="px-4 py-3">Serial</th>
                     <th className="px-4 py-3">Environment</th>
                     <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">CSR</th>
+                    <th className="px-4 py-3">Compliance CSID</th>
+                    <th className="px-4 py-3">Certificate request</th>
                     <th className="px-4 py-3">ICV</th>
                     <th className="px-4 py-3">Last hash</th>
-                    <th className="px-4 py-3">Action</th>
+                    <th className="px-4 py-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {egsUnits.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-4">
+                      <td colSpan={10} className="px-4 py-4">
                         <StatusMessage type="empty">No EGS units have been created yet.</StatusMessage>
                       </td>
                     </tr>
@@ -236,21 +304,101 @@ export default function ZatcaSettingsPage() {
                         <td className="px-4 py-3 text-steel">{unit.environment}</td>
                         <td className="px-4 py-3">
                           <span className={`rounded-md px-2 py-1 text-xs font-medium ${unit.isActive ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-700"}`}>
-                            {unit.isActive ? "ACTIVE DEV" : zatcaStatusLabel(unit.status)}
+                            {unit.isActive ? "ACTIVE MOCK" : zatcaStatusLabel(unit.status)}
                           </span>
                         </td>
+                        <td className="px-4 py-3 text-steel">{unit.hasCsr ? "Generated" : "Missing"}</td>
+                        <td className="px-4 py-3 text-steel">{unit.hasComplianceCsid ? "Mock issued" : "Missing"}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{unit.certificateRequestId ?? "-"}</td>
                         <td className="px-4 py-3 font-mono text-xs">{unit.lastIcv}</td>
                         <td className="px-4 py-3 font-mono text-xs">{truncateHash(unit.lastInvoiceHash)}</td>
                         <td className="px-4 py-3">
-                          <button
-                            type="button"
-                            disabled={unit.isActive || actionLoading === unit.id}
-                            onClick={() => void activateEgsUnit(unit)}
-                            className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
-                          >
-                            {unit.isActive ? "Active" : actionLoading === unit.id ? "Activating..." : "Activate dev"}
-                          </button>
+                          <div className="flex min-w-64 flex-wrap gap-2">
+                            <button
+                              type="button"
+                              disabled={actionLoading === `csr-${unit.id}`}
+                              onClick={() => void generateCsr(unit)}
+                              className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                            >
+                              {actionLoading === `csr-${unit.id}` ? "Generating..." : "Generate CSR"}
+                            </button>
+                            {unit.hasCsr ? (
+                              <button
+                                type="button"
+                                disabled={actionLoading === `download-csr-${unit.id}`}
+                                onClick={() => void downloadCsr(unit)}
+                                className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                              >
+                                Download CSR
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              disabled={unit.isActive || actionLoading === unit.id}
+                              onClick={() => void activateEgsUnit(unit)}
+                              className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                            >
+                              {unit.isActive ? "Active" : actionLoading === unit.id ? "Activating..." : "Activate dev"}
+                            </button>
+                            <label className="flex items-center gap-2">
+                              <span className="sr-only">Mock OTP</span>
+                              <input
+                                value={otpByUnit[unit.id] ?? "000000"}
+                                onChange={(event) => setOtpByUnit((current) => ({ ...current, [unit.id]: event.target.value }))}
+                                className="w-24 rounded-md border border-slate-300 px-2 py-1 font-mono text-xs outline-none focus:border-palm"
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              disabled={!unit.hasCsr || actionLoading === `csid-${unit.id}`}
+                              onClick={() => void requestMockComplianceCsid(unit)}
+                              className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
+                            >
+                              {actionLoading === `csid-${unit.id}` ? "Requesting..." : "Request mock CSID"}
+                            </button>
+                          </div>
+                          <div className="mt-2 text-[11px] text-steel">Use 000000 for local mock mode. Real OTP will come from the ZATCA/FATOORA portal later.</div>
                         </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <h2 className="text-base font-semibold text-ink">Recent ZATCA logs</h2>
+            <p className="mt-1 text-sm text-steel">Local onboarding and invoice-generation submission records. Network submission is still not implemented.</p>
+
+            <div className="mt-4 overflow-x-auto rounded-md border border-slate-200">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                  <tr>
+                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Response</th>
+                    <th className="px-4 py-3">EGS unit</th>
+                    <th className="px-4 py-3">Error</th>
+                    <th className="px-4 py-3">Submitted</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {submissionLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-4">
+                        <StatusMessage type="empty">No ZATCA logs have been recorded yet.</StatusMessage>
+                      </td>
+                    </tr>
+                  ) : (
+                    submissionLogs.slice(0, 10).map((log) => (
+                      <tr key={log.id}>
+                        <td className="px-4 py-3 text-steel">{zatcaStatusLabel(log.submissionType)}</td>
+                        <td className="px-4 py-3 text-steel">{zatcaStatusLabel(log.status)}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{log.responseCode ?? "-"}</td>
+                        <td className="px-4 py-3 text-steel">{log.egsUnit?.name ?? "-"}</td>
+                        <td className="px-4 py-3 text-steel">{log.errorMessage ?? "-"}</td>
+                        <td className="px-4 py-3 text-steel">{new Date(log.submittedAt).toLocaleString()}</td>
                       </tr>
                     ))
                   )}

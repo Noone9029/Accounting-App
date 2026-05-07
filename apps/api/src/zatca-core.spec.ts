@@ -2,8 +2,12 @@ import {
   buildZatcaInvoicePayload,
   buildZatcaInvoiceXml,
   calculateInvoiceHash,
+  generateEgsPrivateKeyPem,
+  generateZatcaCsrPem,
   generateZatcaQrBase64,
   initialPreviousInvoiceHash,
+  validateZatcaCsrInput,
+  type ZatcaCsrInput,
   type ZatcaInvoiceInput,
 } from "@ledgerbyte/zatca-core";
 
@@ -89,5 +93,36 @@ describe("zatca-core local payload helpers", () => {
     expect(payload.xmlBase64).toBe(Buffer.from(payload.xml, "utf8").toString("base64"));
     expect(payload.invoiceHash).toBe(calculateInvoiceHash(payload.xml));
     expect(payload.qrCodeBase64).toEqual(expect.any(String));
+  });
+});
+
+describe("zatca-core CSR helpers", () => {
+  const csrInput: ZatcaCsrInput = {
+    sellerName: "LedgerByte Smoke Seller",
+    vatNumber: "300000000000003",
+    organizationIdentifier: "300000000000003",
+    organizationUnitName: "Main Branch",
+    organizationName: "LedgerByte Smoke Seller",
+    countryCode: "SA",
+    city: "Riyadh",
+    deviceSerialNumber: "SMOKE-EGS-001",
+    solutionName: "LedgerByte",
+    businessCategory: "Accounting software",
+  };
+
+  it("generates PEM private keys and CSR PEM values", () => {
+    const privateKeyPem = generateEgsPrivateKeyPem();
+    const result = generateZatcaCsrPem(csrInput);
+
+    expect(privateKeyPem).toContain("BEGIN RSA PRIVATE KEY");
+    expect(result.privateKeyPem).toContain("BEGIN RSA PRIVATE KEY");
+    expect(result.csrPem).toContain("BEGIN CERTIFICATE REQUEST");
+    expect(result.csrPem).not.toContain("BEGIN RSA PRIVATE KEY");
+  });
+
+  it("validates required CSR fields", () => {
+    expect(() => validateZatcaCsrInput({ ...csrInput, vatNumber: "" })).toThrow("vatNumber");
+    expect(() => validateZatcaCsrInput({ ...csrInput, deviceSerialNumber: "" })).toThrow("deviceSerialNumber");
+    expect(() => validateZatcaCsrInput({ ...csrInput, countryCode: "AE" })).toThrow("countryCode must be SA");
   });
 });

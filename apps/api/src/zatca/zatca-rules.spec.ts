@@ -32,18 +32,19 @@ describe("ZATCA service rules", () => {
   });
 
   it("creates and activates development EGS units", async () => {
+    const egsUnit = makeEgsUnit({ id: "egs-1", name: "Dev EGS", isActive: false });
     const prisma = {
       organization: { findFirst: jest.fn().mockResolvedValue({ id: "org-1", name: "Org", legalName: null, taxNumber: null, countryCode: "SA" }) },
       zatcaOrganizationProfile: { upsert: jest.fn().mockResolvedValue({ id: "profile-1", environment: "SANDBOX" }) },
       zatcaEgsUnit: {
-        create: jest.fn().mockResolvedValue({ id: "egs-1", name: "Dev EGS", isActive: false }),
-        findFirst: jest.fn().mockResolvedValue({ id: "egs-1", name: "Dev EGS", csrPem: null, privateKeyPem: null, complianceCsidPem: null }),
+        create: jest.fn().mockResolvedValue(egsUnit),
+        findFirst: jest.fn().mockResolvedValue({ ...egsUnit, privateKeyPem: null }),
       },
       $transaction: jest.fn((callback: (tx: unknown) => Promise<unknown>) =>
         callback({
           zatcaEgsUnit: {
             updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-            update: jest.fn().mockResolvedValue({ id: "egs-1", isActive: true, status: ZatcaRegistrationStatus.ACTIVE }),
+            update: jest.fn().mockResolvedValue({ ...egsUnit, isActive: true, status: ZatcaRegistrationStatus.ACTIVE }),
           },
         }),
       ),
@@ -56,6 +57,145 @@ describe("ZATCA service rules", () => {
     });
     await expect(service.activateDevEgsUnit("org-1", "user-1", "egs-1")).resolves.toMatchObject({ isActive: true, status: ZatcaRegistrationStatus.ACTIVE });
     expect(audit.log).toHaveBeenCalledTimes(2);
+  });
+
+  it("generates CSR only when profile fields are ready and never returns the private key", async () => {
+    const egsUnit = makeEgsUnit({ id: "egs-1", csrPem: null });
+    const updatedUnit = makeEgsUnit({ id: "egs-1", csrPem: "-----BEGIN CERTIFICATE REQUEST-----\nCSR\n-----END CERTIFICATE REQUEST-----", status: ZatcaRegistrationStatus.OTP_REQUIRED });
+    const prisma = {
+      zatcaEgsUnit: {
+        findFirst: jest.fn().mockResolvedValue({ ...egsUnit, privateKeyPem: null }),
+      },
+      $transaction: jest.fn((callback: (tx: unknown) => Promise<unknown>) =>
+        callback({
+          zatcaEgsUnit: { update: jest.fn().mockResolvedValue(updatedUnit) },
+          zatcaOrganizationProfile: { update: jest.fn().mockResolvedValue({}) },
+        }),
+      ),
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+    jest.spyOn(service, "getProfile").mockResolvedValue({
+      id: "profile-1",
+      sellerName: "Seller",
+      vatNumber: "300000000000003",
+      city: "Riyadh",
+      countryCode: "SA",
+      businessCategory: "Services",
+      readiness: { ready: true, missingFields: [] },
+    } as never);
+
+    const result = await service.generateEgsCsr("org-1", "user-1", "egs-1");
+
+    expect(result).toMatchObject({ hasCsr: true, status: ZatcaRegistrationStatus.OTP_REQUIRED });
+    expect(result).not.toHaveProperty("privateKeyPem");
+    expect(JSON.stringify(result)).not.toContain("PRIVATE KEY");
+  });
+
+  it("rejects CSR generation when required profile fields are missing", async () => {
+    const service = new ZatcaService(
+      { zatcaEgsUnit: { findFirst: jest.fn().mockResolvedValue({ ...makeEgsUnit(), privateKeyPem: null }) } } as never,
+      { log: jest.fn() } as never,
+    );
+    jest.spyOn(service, "getProfile").mockResolvedValue({
+      sellerName: "",
+      vatNumber: "300000000000003",
+      city: "",
+      countryCode: "SA",
+      readiness: { ready: false, missingFields: ["sellerName", "city"] },
+    } as never);
+
+    await expect(service.generateEgsCsr("org-1", "user-1", "egs-1")).rejects.toThrow("sellerName, city");
+  });
+
+  it("returns CSR PEM without exposing private keys", async () => {
+    const service = new ZatcaService(
+      {
+        zatcaEgsUnit: {
+          findFirst: jest.fn().mockResolvedValue({
+            ...makeEgsUnit({ csrPem: "-----BEGIN CERTIFICATE REQUEST-----\nCSR\n-----END CERTIFICATE REQUEST-----" }),
+            privateKeyPem: "-----BEGIN RSA PRIVATE KEY-----\nSECRET\n-----END RSA PRIVATE KEY-----",
+          }),
+        },
+      } as never,
+      { log: jest.fn() } as never,
+    );
+
+    await expect(service.getEgsCsr("org-1", "egs-1")).resolves.toContain("BEGIN CERTIFICATE REQUEST");
+    await expect(service.getEgsUnit("org-1", "egs-1")).resolves.not.toHaveProperty("privateKeyPem");
+  });
+
+  it("rejects cross-tenant EGS CSR access", async () => {
+    const service = new ZatcaService(
+      { zatcaEgsUnit: { findFirst: jest.fn().mockResolvedValue(null) } } as never,
+      { log: jest.fn() } as never,
+    );
+
+    await expect(service.getEgsCsr("other-org", "egs-1")).rejects.toThrow(NotFoundException);
+  });
+
+  it("requests mock compliance CSID only after CSR and OTP are present", async () => {
+    const egsUnit = makeEgsUnit({ csrPem: "-----BEGIN CERTIFICATE REQUEST-----\nCSR\n-----END CERTIFICATE REQUEST-----" });
+    const tx = {
+      zatcaEgsUnit: {
+        count: jest.fn().mockResolvedValue(0),
+        update: jest.fn().mockResolvedValue({
+          ...egsUnit,
+          isActive: true,
+          status: ZatcaRegistrationStatus.ACTIVE,
+          complianceCsidPem: "-----BEGIN CERTIFICATE-----\nMOCK\n-----END CERTIFICATE-----",
+          certificateRequestId: "LOCAL-MOCK-1",
+        }),
+      },
+      zatcaOrganizationProfile: { update: jest.fn().mockResolvedValue({}) },
+      zatcaSubmissionLog: { create: jest.fn().mockResolvedValue({ id: "log-1" }) },
+    };
+    const prisma = {
+      zatcaEgsUnit: { findFirst: jest.fn().mockResolvedValue({ ...egsUnit, privateKeyPem: "secret" }) },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const result = await service.requestComplianceCsid("org-1", "user-1", "egs-1", { otp: "000000", mode: "mock" });
+
+    expect(result).toMatchObject({ hasComplianceCsid: true, certificateRequestId: "LOCAL-MOCK-1", isActive: true });
+    expect(result).not.toHaveProperty("privateKeyPem");
+    expect(tx.zatcaSubmissionLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ invoiceMetadataId: null, responseCode: "LOCAL_MOCK", requestPayloadBase64: expect.any(String) }),
+      }),
+    );
+    expect(Buffer.from(tx.zatcaSubmissionLog.create.mock.calls[0][0].data.requestPayloadBase64, "base64").toString()).not.toContain("000000");
+  });
+
+  it("rejects compliance CSID requests without CSR or OTP", async () => {
+    const service = new ZatcaService(
+      { zatcaEgsUnit: { findFirst: jest.fn().mockResolvedValue({ ...makeEgsUnit({ csrPem: null }), privateKeyPem: null }) } } as never,
+      { log: jest.fn() } as never,
+    );
+
+    await expect(service.requestComplianceCsid("org-1", "user-1", "egs-1", { otp: "000000" })).rejects.toThrow("Generate a CSR");
+
+    const withCsr = new ZatcaService(
+      {
+        zatcaEgsUnit: {
+          findFirst: jest.fn().mockResolvedValue({
+            ...makeEgsUnit({ csrPem: "-----BEGIN CERTIFICATE REQUEST-----\nCSR\n-----END CERTIFICATE REQUEST-----" }),
+            privateKeyPem: null,
+          }),
+        },
+      } as never,
+      { log: jest.fn() } as never,
+    );
+    await expect(withCsr.requestComplianceCsid("org-1", "user-1", "egs-1", { otp: "" })).rejects.toThrow("OTP is required");
+  });
+
+  it("does not implement production CSID requests yet", async () => {
+    const service = new ZatcaService(
+      { zatcaEgsUnit: { findFirst: jest.fn().mockResolvedValue({ ...makeEgsUnit(), privateKeyPem: null }) } } as never,
+      { log: jest.fn() } as never,
+    );
+
+    await expect(service.requestProductionCsid("org-1", "user-1", "egs-1")).rejects.toThrow("Production CSID request is not implemented");
   });
 
   it("requires finalized invoices and seller VAT data before generation", async () => {
@@ -224,5 +364,28 @@ function makeGenerationTransactionMock(options: {
     zatcaSubmissionLog: {
       create: jest.fn().mockResolvedValue({ id: "log-1" }),
     },
+  };
+}
+
+function makeEgsUnit(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "egs-1",
+    organizationId: "org-1",
+    profileId: "profile-1",
+    name: "Dev EGS",
+    environment: "SANDBOX",
+    status: ZatcaRegistrationStatus.DRAFT,
+    deviceSerialNumber: "DEV-001",
+    solutionName: "LedgerByte",
+    csrPem: null,
+    complianceCsidPem: null,
+    productionCsidPem: null,
+    certificateRequestId: null,
+    lastInvoiceHash: null,
+    lastIcv: 0,
+    isActive: false,
+    createdAt: new Date("2026-05-07T00:00:00.000Z"),
+    updatedAt: new Date("2026-05-07T00:00:00.000Z"),
+    ...overrides,
   };
 }

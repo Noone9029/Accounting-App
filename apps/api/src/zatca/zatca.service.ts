@@ -1,7 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, NotFoundException, NotImplementedException, Optional } from "@nestjs/common";
+import { createHash } from "node:crypto";
 import {
   buildZatcaInvoicePayload,
+  generateZatcaCsrPem,
   initialPreviousInvoiceHash,
+  type ZatcaCsrInput,
   type ZatcaInvoiceInput,
 } from "@ledgerbyte/zatca-core";
 import {
@@ -16,19 +19,76 @@ import {
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateZatcaEgsUnitDto } from "./dto/create-zatca-egs-unit.dto";
+import { RequestComplianceCsidDto } from "./dto/request-compliance-csid.dto";
 import { UpdateZatcaEgsUnitDto } from "./dto/update-zatca-egs-unit.dto";
 import { UpdateZatcaProfileDto } from "./dto/update-zatca-profile.dto";
+import { MockZatcaOnboardingAdapter } from "./adapters/mock-zatca-onboarding.adapter";
+import { ZATCA_ONBOARDING_ADAPTER, type ZatcaOnboardingAdapter } from "./adapters/zatca-onboarding.adapter";
 
 const zatcaMetadataInclude = {
   egsUnit: { select: { id: true, name: true, environment: true, isActive: true, lastIcv: true } },
   submissionLogs: { orderBy: { createdAt: "desc" as const }, take: 5 },
 };
 
+const safeEgsUnitSelect = {
+  id: true,
+  organizationId: true,
+  profileId: true,
+  name: true,
+  environment: true,
+  status: true,
+  deviceSerialNumber: true,
+  solutionName: true,
+  csrPem: true,
+  complianceCsidPem: true,
+  productionCsidPem: true,
+  certificateRequestId: true,
+  lastInvoiceHash: true,
+  lastIcv: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.ZatcaEgsUnitSelect;
+
+const internalEgsUnitSelect = {
+  ...safeEgsUnitSelect,
+  privateKeyPem: true,
+} satisfies Prisma.ZatcaEgsUnitSelect;
+
+type SafeEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof safeEgsUnitSelect }>;
+type InternalEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof internalEgsUnitSelect }>;
+
+export interface ZatcaProfileReadiness {
+  ready: boolean;
+  missingFields: string[];
+}
+
+export function getZatcaProfileReadiness(profile: {
+  sellerName?: string | null;
+  vatNumber?: string | null;
+  city?: string | null;
+  countryCode?: string | null;
+}): ZatcaProfileReadiness {
+  const missingFields = [
+    ["sellerName", profile.sellerName],
+    ["vatNumber", profile.vatNumber],
+    ["city", profile.city],
+    ["countryCode", profile.countryCode],
+  ]
+    .filter(([, value]) => !String(value ?? "").trim())
+    .map(([field]) => String(field));
+
+  return { ready: missingFields.length === 0, missingFields };
+}
+
 @Injectable()
 export class ZatcaService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
+    @Optional()
+    @Inject(ZATCA_ONBOARDING_ADAPTER)
+    private readonly onboardingAdapter: ZatcaOnboardingAdapter = new MockZatcaOnboardingAdapter(),
   ) {}
 
   async getProfile(organizationId: string) {
@@ -40,7 +100,7 @@ export class ZatcaService {
       throw new NotFoundException("Organization not found.");
     }
 
-    return this.prisma.zatcaOrganizationProfile.upsert({
+    const profile = await this.prisma.zatcaOrganizationProfile.upsert({
       where: { organizationId },
       update: {},
       create: {
@@ -50,6 +110,7 @@ export class ZatcaService {
         countryCode: organization.countryCode,
       },
     });
+    return this.withReadiness(profile);
   }
 
   async updateProfile(organizationId: string, actorUserId: string, dto: UpdateZatcaProfileDto) {
@@ -70,14 +131,16 @@ export class ZatcaService {
       after: updated,
     });
 
-    return updated;
+    return this.withReadiness(updated);
   }
 
-  listEgsUnits(organizationId: string) {
-    return this.prisma.zatcaEgsUnit.findMany({
+  async listEgsUnits(organizationId: string) {
+    const units = await this.prisma.zatcaEgsUnit.findMany({
       where: { organizationId },
       orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
+      select: safeEgsUnitSelect,
     });
+    return units.map((unit) => this.toPublicEgsUnit(unit));
   }
 
   async createEgsUnit(organizationId: string, actorUserId: string, dto: CreateZatcaEgsUnitDto) {
@@ -91,18 +154,20 @@ export class ZatcaService {
         environment: dto.environment ?? profile.environment,
         solutionName: this.optionalText(dto.solutionName) ?? "LedgerByte",
       },
+      select: safeEgsUnitSelect,
     });
 
-    await this.auditLogService.log({ organizationId, actorUserId, action: "CREATE", entityType: "ZatcaEgsUnit", entityId: created.id, after: created });
-    return created;
+    const publicUnit = this.toPublicEgsUnit(created);
+    await this.auditLogService.log({ organizationId, actorUserId, action: "CREATE", entityType: "ZatcaEgsUnit", entityId: created.id, after: publicUnit });
+    return publicUnit;
   }
 
   async getEgsUnit(organizationId: string, id: string) {
-    const egsUnit = await this.prisma.zatcaEgsUnit.findFirst({ where: { id, organizationId } });
+    const egsUnit = await this.prisma.zatcaEgsUnit.findFirst({ where: { id, organizationId }, select: safeEgsUnitSelect });
     if (!egsUnit) {
       throw new NotFoundException("ZATCA EGS unit not found.");
     }
-    return egsUnit;
+    return this.toPublicEgsUnit(egsUnit);
   }
 
   async updateEgsUnit(organizationId: string, actorUserId: string, id: string, dto: UpdateZatcaEgsUnitDto) {
@@ -117,14 +182,16 @@ export class ZatcaService {
         solutionName: dto.solutionName === undefined ? undefined : this.requiredText(dto.solutionName, "Solution name"),
         csrPem: dto.csrPem === undefined ? undefined : this.optionalText(dto.csrPem),
       },
+      select: safeEgsUnitSelect,
     });
 
-    await this.auditLogService.log({ organizationId, actorUserId, action: "UPDATE", entityType: "ZatcaEgsUnit", entityId: id, before, after: updated });
-    return updated;
+    const publicUnit = this.toPublicEgsUnit(updated);
+    await this.auditLogService.log({ organizationId, actorUserId, action: "UPDATE", entityType: "ZatcaEgsUnit", entityId: id, before, after: publicUnit });
+    return publicUnit;
   }
 
   async activateDevEgsUnit(organizationId: string, actorUserId: string, id: string) {
-    const existing = await this.getEgsUnit(organizationId, id);
+    const existing = await this.getEgsUnitInternal(organizationId, id);
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.zatcaEgsUnit.updateMany({ where: { organizationId, isActive: true }, data: { isActive: false } });
       return tx.zatcaEgsUnit.update({
@@ -137,11 +204,140 @@ export class ZatcaService {
           privateKeyPem: existing.privateKeyPem ?? "-----BEGIN PRIVATE KEY-----\nLOCAL-DEV-PLACEHOLDER\n-----END PRIVATE KEY-----",
           complianceCsidPem: existing.complianceCsidPem ?? "-----BEGIN CERTIFICATE-----\nLOCAL-DEV-COMPLIANCE-CSID\n-----END CERTIFICATE-----",
         },
+        select: safeEgsUnitSelect,
       });
     });
 
-    await this.auditLogService.log({ organizationId, actorUserId, action: "ACTIVATE_DEV", entityType: "ZatcaEgsUnit", entityId: id, before: existing, after: updated });
-    return updated;
+    const publicBefore = this.toPublicEgsUnit(existing);
+    const publicUpdated = this.toPublicEgsUnit(updated);
+    await this.auditLogService.log({ organizationId, actorUserId, action: "ACTIVATE_DEV", entityType: "ZatcaEgsUnit", entityId: id, before: publicBefore, after: publicUpdated });
+    return publicUpdated;
+  }
+
+  async generateEgsCsr(organizationId: string, actorUserId: string, id: string) {
+    const existing = await this.getEgsUnitInternal(organizationId, id);
+    const profile = await this.getProfile(organizationId);
+    const readiness = getZatcaProfileReadiness(profile);
+    if (!readiness.ready) {
+      throw new BadRequestException(`ZATCA profile is missing required CSR fields: ${readiness.missingFields.join(", ")}.`);
+    }
+
+    const csrInput = this.toCsrInput(profile, existing);
+    const { privateKeyPem, csrPem } = generateZatcaCsrPem(csrInput);
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const unit = await tx.zatcaEgsUnit.update({
+        where: { id },
+        data: {
+          csrPem,
+          // Development-only storage. Production must use KMS/secrets manager. Never log or expose privateKeyPem.
+          privateKeyPem,
+          status: ZatcaRegistrationStatus.OTP_REQUIRED,
+        },
+        select: safeEgsUnitSelect,
+      });
+      await tx.zatcaOrganizationProfile.update({
+        where: { organizationId },
+        data: { registrationStatus: ZatcaRegistrationStatus.OTP_REQUIRED },
+      });
+      return unit;
+    });
+
+    const publicBefore = this.toPublicEgsUnit(existing);
+    const publicUpdated = this.toPublicEgsUnit(updated);
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "GENERATE_CSR",
+      entityType: "ZatcaEgsUnit",
+      entityId: id,
+      before: publicBefore,
+      after: publicUpdated,
+    });
+    return publicUpdated;
+  }
+
+  async getEgsCsr(organizationId: string, id: string): Promise<string> {
+    const egsUnit = await this.getEgsUnitInternal(organizationId, id);
+    if (!egsUnit.csrPem) {
+      throw new NotFoundException("ZATCA CSR has not been generated for this EGS unit.");
+    }
+    return egsUnit.csrPem;
+  }
+
+  async requestComplianceCsid(organizationId: string, actorUserId: string, id: string, dto: RequestComplianceCsidDto) {
+    const existing = await this.getEgsUnitInternal(organizationId, id);
+    if (!existing.csrPem) {
+      throw new BadRequestException("Generate a CSR before requesting a compliance CSID.");
+    }
+    if (!dto.otp?.trim()) {
+      throw new BadRequestException("OTP is required for the local mock compliance CSID flow.");
+    }
+
+    const adapterResult = await this.onboardingAdapter.requestComplianceCsid({
+      organizationId,
+      egsUnitId: id,
+      environment: existing.environment,
+      otp: dto.otp,
+      csrPem: existing.csrPem,
+    });
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const activeCount = await tx.zatcaEgsUnit.count({ where: { organizationId, isActive: true } });
+      const unit = await tx.zatcaEgsUnit.update({
+        where: { id },
+        data: {
+          complianceCsidPem: adapterResult.complianceCsidPem,
+          certificateRequestId: adapterResult.certificateRequestId,
+          status: ZatcaRegistrationStatus.ACTIVE,
+          isActive: activeCount === 0 ? true : undefined,
+        },
+        select: safeEgsUnitSelect,
+      });
+      await tx.zatcaOrganizationProfile.update({
+        where: { organizationId },
+        data: { registrationStatus: ZatcaRegistrationStatus.ACTIVE },
+      });
+      await tx.zatcaSubmissionLog.create({
+        data: {
+          organizationId,
+          invoiceMetadataId: null,
+          egsUnitId: id,
+          submissionType: ZatcaSubmissionType.COMPLIANCE_CHECK,
+          status: ZatcaSubmissionStatus.SUCCESS,
+          requestUrl: `local-${dto.mode ?? "mock"}-compliance-csid`,
+          requestPayloadBase64: Buffer.from(
+            JSON.stringify({
+              mode: dto.mode ?? "mock",
+              otpLength: dto.otp.length,
+              csrHash: this.hashForLog(existing.csrPem!),
+            }),
+            "utf8",
+          ).toString("base64"),
+          responsePayloadBase64: Buffer.from(JSON.stringify(adapterResult.responsePayload), "utf8").toString("base64"),
+          responseCode: adapterResult.responseCode,
+          completedAt: new Date(),
+        },
+      });
+      return unit;
+    });
+
+    const publicBefore = this.toPublicEgsUnit(existing);
+    const publicUpdated = this.toPublicEgsUnit(updated);
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "REQUEST_COMPLIANCE_CSID",
+      entityType: "ZatcaEgsUnit",
+      entityId: id,
+      before: publicBefore,
+      after: publicUpdated,
+    });
+    return publicUpdated;
+  }
+
+  async requestProductionCsid(organizationId: string, _actorUserId: string, id: string) {
+    await this.getEgsUnitInternal(organizationId, id);
+    throw new NotImplementedException("Production CSID request is not implemented. Complete compliance CSID flow and real adapter first.");
   }
 
   async getInvoiceCompliance(organizationId: string, invoiceId: string) {
@@ -375,6 +571,69 @@ export class ZatcaService {
         taxRateName: line.taxRate?.name ?? null,
       })),
     };
+  }
+
+  private async getEgsUnitInternal(organizationId: string, id: string): Promise<InternalEgsUnitRecord> {
+    const egsUnit = await this.prisma.zatcaEgsUnit.findFirst({ where: { id, organizationId }, select: internalEgsUnitSelect });
+    if (!egsUnit) {
+      throw new NotFoundException("ZATCA EGS unit not found.");
+    }
+    return egsUnit;
+  }
+
+  private toPublicEgsUnit(unit: SafeEgsUnitRecord | InternalEgsUnitRecord) {
+    return {
+      id: unit.id,
+      organizationId: unit.organizationId,
+      profileId: unit.profileId,
+      name: unit.name,
+      environment: unit.environment,
+      status: unit.status,
+      deviceSerialNumber: unit.deviceSerialNumber,
+      solutionName: unit.solutionName,
+      hasCsr: Boolean(unit.csrPem),
+      hasComplianceCsid: Boolean(unit.complianceCsidPem),
+      hasProductionCsid: Boolean(unit.productionCsidPem),
+      certificateRequestId: unit.certificateRequestId,
+      lastInvoiceHash: unit.lastInvoiceHash,
+      lastIcv: unit.lastIcv,
+      isActive: unit.isActive,
+      createdAt: unit.createdAt,
+      updatedAt: unit.updatedAt,
+    };
+  }
+
+  private withReadiness<T extends { sellerName?: string | null; vatNumber?: string | null; city?: string | null; countryCode?: string | null }>(profile: T) {
+    return { ...profile, readiness: getZatcaProfileReadiness(profile) };
+  }
+
+  private toCsrInput(
+    profile: {
+      sellerName?: string | null;
+      vatNumber?: string | null;
+      companyIdNumber?: string | null;
+      city?: string | null;
+      countryCode?: string | null;
+      businessCategory?: string | null;
+    },
+    egsUnit: InternalEgsUnitRecord,
+  ): ZatcaCsrInput {
+    return {
+      sellerName: profile.sellerName ?? "",
+      vatNumber: profile.vatNumber ?? "",
+      organizationIdentifier: profile.companyIdNumber ?? profile.vatNumber ?? "",
+      organizationUnitName: egsUnit.name,
+      organizationName: profile.sellerName ?? "",
+      countryCode: profile.countryCode ?? "SA",
+      city: profile.city ?? "",
+      deviceSerialNumber: egsUnit.deviceSerialNumber,
+      solutionName: egsUnit.solutionName,
+      businessCategory: profile.businessCategory?.trim() || "General business",
+    };
+  }
+
+  private hashForLog(value: string): string {
+    return createHash("sha256").update(value, "utf8").digest("base64");
   }
 
   private cleanProfileData(dto: UpdateZatcaProfileDto): Prisma.ZatcaOrganizationProfileUpdateInput {

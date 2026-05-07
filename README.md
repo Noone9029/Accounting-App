@@ -95,7 +95,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, local ZATCA XML/QR/hash generation, payment over-allocation rejection, partial and full payments, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, and invoice void rejection while active payments exist.
+The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, payment over-allocation rejection, partial and full payments, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
 
@@ -214,6 +214,11 @@ ZATCA foundation:
 - `GET /zatca/egs-units/:id`
 - `PATCH /zatca/egs-units/:id`
 - `POST /zatca/egs-units/:id/activate-dev`
+- `POST /zatca/egs-units/:id/generate-csr`
+- `GET /zatca/egs-units/:id/csr`
+- `GET /zatca/egs-units/:id/csr/download`
+- `POST /zatca/egs-units/:id/request-compliance-csid`
+- `POST /zatca/egs-units/:id/request-production-csid`
 - `GET /zatca/submissions`
 
 Audit logs:
@@ -376,16 +381,20 @@ Implemented:
 - Organization ZATCA profile/settings with seller name, VAT number, Saudi address fields, environment, and registration status.
 - Development EGS unit records with local placeholder CSR/private-key/CSID fields, active unit selection, last ICV, and last invoice hash.
 - Sales invoice ZATCA metadata with invoice UUID, status, ICV, previous hash, invoice hash, XML base64, QR payload base64, and local submission logs.
-- `packages/zatca-core` deterministic UBL-like XML skeleton generation, basic Phase 1-style TLV QR base64 generation, SHA-256 invoice hashing, and combined payload building.
+- `packages/zatca-core` deterministic UBL-like XML skeleton generation, basic Phase 1-style TLV QR base64 generation, SHA-256 invoice hashing, CSR/private-key PEM generation helpers, and combined payload building.
+- EGS CSR generation and CSR download endpoints.
+- Mock OTP/compliance CSID flow through an adapter interface. The mock adapter accepts local 6-digit OTP values such as `000000`, stores a mock compliance CSID and certificate request id, and logs a local onboarding submission.
+- Safe EGS API responses do not expose `privateKeyPem`; CSR PEM is available only through CSR-specific endpoints.
 - Finalized invoices get local ZATCA metadata records, but XML/QR/hash generation is explicit through `POST /sales-invoices/:id/zatca/generate`.
 - XML downloads use `application/xml`; QR returns a base64 TLV payload as JSON.
 - Invoice PDFs can display a small local ZATCA-generated placeholder when QR metadata exists. XML is not embedded into PDFs yet.
 
 Not implemented yet:
 
-- real CSR generation or validation
-- OTP onboarding
-- compliance CSID or production CSID issuance
+- real ZATCA API calls
+- real OTP validation
+- real compliance CSID issuance
+- production CSID issuance
 - real ZATCA compliance, clearance, or reporting APIs
 - cryptographic signing/stamping
 - official ZATCA canonicalization/profile validation
@@ -396,17 +405,27 @@ Not implemented yet:
 
 The `privateKeyPem` column is a development placeholder only. Production onboarding must move private keys into a secrets manager or KMS-backed workflow before any real certificate handling.
 
+Future real onboarding steps:
+
+1. Get ZATCA/FATOORA sandbox access.
+2. Generate a real OTP from the FATOORA portal.
+3. Submit CSR through the real compliance CSID endpoint using a network adapter.
+4. Run official compliance checks for required invoice samples.
+5. Request production CSID only after sandbox/compliance checks pass.
+6. Store private keys and issued certificates in KMS/secrets manager, not in normal database fields.
+
 ## Current Package Boundaries
 
 - `packages/accounting-core`: decimal-safe journal and invoice calculation rules
-- `packages/zatca-core`: local-only ZATCA XML, QR, and hash groundwork for future Phase 2 integration
+- `packages/zatca-core`: local-only ZATCA XML, QR, hash, and CSR groundwork for future Phase 2 integration
 - `packages/pdf-core`: shared PDF data contracts and basic server-side renderers
 - `packages/shared`: shared tenant/API types
 - `packages/ui`: small UI utility package placeholder
 
 ## Known Limitations
 
-- ZATCA Phase 2 production onboarding, CSID issuance, signing, clearance, reporting, PDF/A-3, and embedded XML are not implemented yet.
+- ZATCA Phase 2 production onboarding, real CSID issuance, signing, clearance, reporting, PDF/A-3, and embedded XML are not implemented yet.
+- Current CSR and mock CSID flow is local-only and never calls ZATCA.
 - Current ZATCA XML/QR/hash generation is local-only groundwork and must be verified against official ZATCA documentation before production use.
 - PDF output is basic operational rendering only; no PDF/A-3, embedded XML, or template designer exists yet.
 - Generated PDFs are stored as base64 database records for local/dev groundwork; S3-compatible storage is planned before production scale.
