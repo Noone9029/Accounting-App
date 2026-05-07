@@ -41,6 +41,7 @@ pnpm dev
 pnpm build
 pnpm test
 pnpm typecheck
+pnpm smoke:accounting
 pnpm db:migrate
 pnpm db:seed
 ```
@@ -57,6 +58,46 @@ Tenant-scoped API calls require:
 Authorization: Bearer <token>
 x-organization-id: <organizationId>
 ```
+
+## Local Smoke Test
+
+The accounting smoke test runs against the live API and creates clearly named `Smoke Test` records. It does not delete data.
+
+1. Start local services:
+
+```bash
+docker compose -f infra/docker-compose.yml up -d postgres redis
+```
+
+2. Apply database setup:
+
+```bash
+corepack pnpm db:migrate
+corepack pnpm db:seed
+```
+
+3. Start the API and web apps:
+
+```bash
+corepack pnpm dev
+```
+
+4. In another terminal, run:
+
+```bash
+corepack pnpm smoke:accounting
+```
+
+Optional overrides:
+
+```bash
+LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
+LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
+```
+
+The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, payment over-allocation rejection, partial and full payments, ledger/statement balances, receipt-data, payment void idempotency, and invoice void rejection while active payments exist.
+
+On Windows, if `db:generate` fails with Prisma query engine `EPERM`, stop running API/dev Node processes and rerun it. This is usually a file lock on Prisma's generated client DLL.
 
 ## Implemented API
 

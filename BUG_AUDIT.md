@@ -218,6 +218,45 @@ Commit inspected: `ec40a0a` (`Stabilize current accounting workflows`)
 - Journal duplicate reversal unique-constraint handling.
 - Number sequence formatting and transaction-client usage.
 
+## Repeatable Accounting Smoke Workflow
+
+Audit date: 2026-05-07
+
+Commit inspected: `c3b5b81` (`Harden accounting transaction safety`)
+
+### Smoke Script Added
+
+Added `apps/api/scripts/smoke-accounting.ts` and package scripts:
+
+- `corepack pnpm --filter @ledgerbyte/api smoke:accounting`
+- `corepack pnpm smoke:accounting`
+
+The script runs against `LEDGERBYTE_API_URL` or `http://localhost:4000` by default.
+
+### Smoke Coverage
+
+- Seed user login.
+- `/auth/me` organization discovery.
+- Tenant headers on every business request.
+- Smoke customer creation.
+- Smoke service item creation using account code `411` and VAT on Sales 15% when available.
+- Draft sales invoice creation and edit.
+- Invoice finalization and repeated finalization idempotency.
+- Over-allocation payment rejection.
+- Partial payment and remaining payment allocation.
+- Invoice `balanceDue` reduction to zero.
+- Customer ledger invoice debit and payment credit checks.
+- Customer statement date-range and closing balance checks.
+- Customer payment receipt-data allocation and journal checks.
+- Payment void and repeated payment void idempotency.
+- Invoice void rejection while another active payment exists.
+
+### Remaining Gaps
+
+- The smoke script is live-API coverage, not a multi-process concurrency load test.
+- It intentionally leaves smoke records in the database for auditability.
+- It does not cover frontend browser interaction, ZATCA, PDFs, credit notes, purchases, or bank reconciliation.
+
 ## Remaining Risks
 
 - The concurrency strategy relies on PostgreSQL row locks produced by conditional updates inside Prisma transactions. A small multi-process load test is still recommended before production.
