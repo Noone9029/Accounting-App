@@ -9,6 +9,8 @@ These notes track LedgerByte's local ZATCA Phase 2 groundwork and the manual evi
 - `PHASE_2_COMPLIANCE_MAP.md` maps current code to future Phase 2 requirement areas.
 - `API_INTEGRATION_CHECKLIST.md` tracks sandbox/simulation/production API verification work.
 - `XML_REQUIREMENTS_CHECKLIST.md` tracks UBL, KSA extension, canonicalization, and signing-input work.
+- `XML_FIELD_MAPPING.md` maps LedgerByte fields to the current local XML skeleton and future official targets.
+- `XML_FIXTURES_GUIDE.md` explains local dev XML fixtures and how to add official fixtures later.
 - `QR_REQUIREMENTS_CHECKLIST.md` tracks TLV QR requirements.
 - `CSR_CSID_ONBOARDING_CHECKLIST.md` tracks OTP, CSR, compliance CSID, and production CSID work.
 - `PDF_A3_ARCHIVE_CHECKLIST.md` tracks PDF/A-3 and embedded XML archive requirements.

@@ -31,6 +31,11 @@ export class ZatcaController {
     return this.zatcaService.getComplianceChecklist(organizationId);
   }
 
+  @Get("zatca/xml-field-mapping")
+  xmlFieldMapping(@CurrentOrganizationId() organizationId: string) {
+    return this.zatcaService.getXmlFieldMapping(organizationId);
+  }
+
   @Get("zatca/readiness")
   readiness(@CurrentOrganizationId() organizationId: string) {
     return this.zatcaService.getZatcaReadinessSummary(organizationId);
@@ -139,6 +144,11 @@ export class ZatcaController {
       "Content-Length": String(buffer.byteLength),
     });
     return new StreamableFile(buffer);
+  }
+
+  @Get("sales-invoices/:id/zatca/xml-validation")
+  invoiceXmlValidation(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.zatcaService.getInvoiceXmlValidation(organizationId, id);
   }
 
   @Get("sales-invoices/:id/zatca/qr")

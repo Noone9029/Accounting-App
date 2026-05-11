@@ -9,8 +9,18 @@ import { apiRequest } from "@/lib/api";
 import { deriveInvoicePaymentState, formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadAuthenticatedFile, downloadPdf, invoicePdfPath } from "@/lib/pdf-download";
-import { truncateHash, zatcaInvoiceClearancePath, zatcaInvoiceComplianceCheckPath, zatcaInvoiceReportingPath, zatcaInvoiceXmlPath, zatcaStatusLabel } from "@/lib/zatca";
-import type { SalesInvoice, ZatcaInvoiceMetadata, ZatcaQrResponse } from "@/lib/types";
+import {
+  shouldShowZatcaLocalOnlyWarning,
+  truncateHash,
+  zatcaInvoiceClearancePath,
+  zatcaInvoiceComplianceCheckPath,
+  zatcaInvoiceReportingPath,
+  zatcaInvoiceXmlPath,
+  zatcaInvoiceXmlValidationPath,
+  zatcaStatusLabel,
+  zatcaXmlValidationLabel,
+} from "@/lib/zatca";
+import type { SalesInvoice, ZatcaInvoiceMetadata, ZatcaQrResponse, ZatcaXmlValidationResult } from "@/lib/types";
 
 export default function SalesInvoiceDetailPage() {
   const params = useParams<{ id: string }>();
@@ -18,6 +28,7 @@ export default function SalesInvoiceDetailPage() {
   const organizationId = useActiveOrganizationId();
   const [invoice, setInvoice] = useState<SalesInvoice | null>(null);
   const [zatca, setZatca] = useState<ZatcaInvoiceMetadata | null>(null);
+  const [xmlValidation, setXmlValidation] = useState<ZatcaXmlValidationResult | null>(null);
   const [qrPayload, setQrPayload] = useState("");
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -33,11 +44,16 @@ export default function SalesInvoiceDetailPage() {
     setLoading(true);
     setError("");
 
-    Promise.all([apiRequest<SalesInvoice>(`/sales-invoices/${params.id}`), apiRequest<ZatcaInvoiceMetadata>(`/sales-invoices/${params.id}/zatca`).catch(() => null)])
-      .then(([result, zatcaResult]) => {
+    Promise.all([
+      apiRequest<SalesInvoice>(`/sales-invoices/${params.id}`),
+      apiRequest<ZatcaInvoiceMetadata>(`/sales-invoices/${params.id}/zatca`).catch(() => null),
+      apiRequest<ZatcaXmlValidationResult>(zatcaInvoiceXmlValidationPath(params.id)).catch(() => null),
+    ])
+      .then(([result, zatcaResult, validationResult]) => {
         if (!cancelled) {
           setInvoice(result);
           setZatca(zatcaResult);
+          setXmlValidation(validationResult);
         }
       })
       .catch((loadError: unknown) => {
@@ -126,6 +142,12 @@ export default function SalesInvoiceDetailPage() {
     return result;
   }
 
+  async function fetchZatcaXmlValidation(invoiceId: string) {
+    const result = await apiRequest<ZatcaXmlValidationResult>(zatcaInvoiceXmlValidationPath(invoiceId));
+    setXmlValidation(result);
+    return result;
+  }
+
   async function generateZatca() {
     if (!invoice) {
       return;
@@ -139,6 +161,7 @@ export default function SalesInvoiceDetailPage() {
     try {
       const result = await apiRequest<ZatcaInvoiceMetadata>(`/sales-invoices/${invoice.id}/zatca/generate`, { method: "POST" });
       setZatca(result);
+      await fetchZatcaXmlValidation(invoice.id);
       setSuccess("Local ZATCA XML, QR payload, and hash metadata generated.");
     } catch (generateError) {
       setError(generateError instanceof Error ? generateError.message : "Unable to generate ZATCA metadata.");
@@ -179,6 +202,25 @@ export default function SalesInvoiceDetailPage() {
       setQrPayload(result.qrCodeBase64);
     } catch (qrError) {
       setError(qrError instanceof Error ? qrError.message : "Unable to load ZATCA QR payload.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function refreshXmlValidation() {
+    if (!invoice) {
+      return;
+    }
+
+    setActionLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await fetchZatcaXmlValidation(invoice.id);
+      setSuccess("Local XML validation refreshed.");
+    } catch (validationError) {
+      setError(validationError instanceof Error ? validationError.message : "Unable to validate local ZATCA XML.");
     } finally {
       setActionLoading(false);
     }
@@ -438,6 +480,45 @@ export default function SalesInvoiceDetailPage() {
               <button type="button" onClick={() => void runZatcaSubmission("reporting")} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
                 Request reporting
               </button>
+            </div>
+
+            <div className="mt-5 border-t border-slate-200 pt-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-ink">Local XML validation</h3>
+                  <p className="mt-1 text-xs text-steel">Local structural checks only. This is not official ZATCA SDK validation.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`rounded-md px-2 py-1 text-xs font-medium ${xmlValidation?.valid ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                    {zatcaXmlValidationLabel(xmlValidation?.valid)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void refreshXmlValidation()}
+                    disabled={actionLoading}
+                    className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                  >
+                    Refresh check
+                  </button>
+                </div>
+              </div>
+              {shouldShowZatcaLocalOnlyWarning(xmlValidation) ? (
+                <p className="mt-3 text-xs text-amber-700">Official ZATCA/FATOORA validation, signing, and clearance/reporting are still pending.</p>
+              ) : null}
+              {xmlValidation?.errors.length ? (
+                <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-rosewood">
+                  {xmlValidation.errors.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              ) : null}
+              {xmlValidation?.warnings.length ? (
+                <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-steel">
+                  {xmlValidation.warnings.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
 
             {qrPayload ? (

@@ -426,6 +426,27 @@ Commit inspected: pending (`Add ZATCA compliance checklist mapping`)
 - Clearance and reporting submissions are not implemented.
 - Real private keys are not stored in KMS/secrets-manager-backed custody.
 
+## ZATCA XML Mapping Scaffold
+
+Audit date: 2026-05-12
+
+Commit inspected: pending (`Add ZATCA XML mapping scaffold`)
+
+### XML Mapping Scaffold Added
+
+- Added local XML field mapping docs and fixture guidance under `docs/zatca`.
+- Added local dev fixtures under `packages/zatca-core/fixtures` for standard and simplified VAT invoice skeletons, including Arabic/Unicode text and XML escaping cases.
+- Refactored the local XML builder into deterministic section builders for header, supplier, customer, tax totals, monetary totals, invoice lines, and ZATCA extension/signature TODO placeholders.
+- Added typed `ZATCA_XML_FIELD_MAPPING` constants and local-only `validateLocalZatcaXml` checks in `packages/zatca-core`.
+- Added authenticated `GET /zatca/xml-field-mapping` and `GET /sales-invoices/:id/zatca/xml-validation` endpoints.
+- Added invoice UI display for local XML validation and settings UI visibility for XML mapping counts.
+
+### Remaining XML Mapping Risks
+
+- Official UBL/ZATCA field mapping still requires official documentation verification.
+- Local XML validation is not official ZATCA SDK validation and must not be treated as legal certification.
+- Signing, canonicalization, cryptographic stamp, official invoice hash source, PDF/A-3 XML embedding, clearance, and reporting are still not implemented.
+
 ## Remaining Risks
 
 - The concurrency strategy relies on PostgreSQL row locks produced by conditional updates inside Prisma transactions. A small multi-process load test is still recommended before production.

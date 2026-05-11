@@ -25,6 +25,7 @@ import type {
   ZatcaOrganizationProfile,
   ZatcaReadinessSummary,
   ZatcaSubmissionLog,
+  ZatcaXmlFieldMappingResponse,
 } from "@/lib/types";
 
 const environmentOptions: ZatcaEnvironment[] = ["SANDBOX", "SIMULATION", "PRODUCTION"];
@@ -55,6 +56,7 @@ export default function ZatcaSettingsPage() {
   const [profile, setProfile] = useState<ZatcaOrganizationProfile | null>(null);
   const [adapterConfig, setAdapterConfig] = useState<ZatcaAdapterConfigSummary | null>(null);
   const [checklist, setChecklist] = useState<ZatcaComplianceChecklistResponse | null>(null);
+  const [xmlFieldMapping, setXmlFieldMapping] = useState<ZatcaXmlFieldMappingResponse | null>(null);
   const [readiness, setReadiness] = useState<ZatcaReadinessSummary | null>(null);
   const [form, setForm] = useState<ZatcaProfileForm | null>(null);
   const [egsUnits, setEgsUnits] = useState<ZatcaEgsUnit[]>([]);
@@ -80,15 +82,17 @@ export default function ZatcaSettingsPage() {
       apiRequest<ZatcaOrganizationProfile>("/zatca/profile"),
       apiRequest<ZatcaAdapterConfigSummary>("/zatca/adapter-config"),
       apiRequest<ZatcaComplianceChecklistResponse>("/zatca/compliance-checklist"),
+      apiRequest<ZatcaXmlFieldMappingResponse>("/zatca/xml-field-mapping"),
       apiRequest<ZatcaReadinessSummary>("/zatca/readiness"),
       apiRequest<ZatcaEgsUnit[]>("/zatca/egs-units"),
       apiRequest<ZatcaSubmissionLog[]>("/zatca/submissions"),
     ])
-      .then(([loadedProfile, loadedAdapterConfig, loadedChecklist, loadedReadiness, loadedUnits, loadedLogs]) => {
+      .then(([loadedProfile, loadedAdapterConfig, loadedChecklist, loadedXmlFieldMapping, loadedReadiness, loadedUnits, loadedLogs]) => {
         if (!cancelled) {
           setProfile(loadedProfile);
           setAdapterConfig(loadedAdapterConfig);
           setChecklist(loadedChecklist);
+          setXmlFieldMapping(loadedXmlFieldMapping);
           setReadiness(loadedReadiness);
           setForm(profileToForm(loadedProfile));
           setEgsUnits(loadedUnits);
@@ -314,11 +318,18 @@ export default function ZatcaSettingsPage() {
                 <div>
                   <h2 className="text-base font-semibold text-ink">Compliance checklist</h2>
                   <p className="mt-1 text-sm text-steel">{checklist.warning} Production compliance requires official ZATCA/FATOORA validation.</p>
+                  <p className="mt-1 text-xs text-steel">XML field mapping is documented in docs/zatca/XML_FIELD_MAPPING.md. The mapping is local scaffolding, not official validation.</p>
                 </div>
-                <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{checklist.summary.total} items</span>
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{checklist.summary.total} checklist items</span>
+                  {xmlFieldMapping ? (
+                    <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{xmlFieldMapping.summary.total} XML mapping items</span>
+                  ) : null}
+                </div>
               </div>
               <ChecklistSummary title="By status" counts={checklist.summary.byStatus} />
               <ChecklistSummary title="By risk" counts={checklist.summary.byRisk} />
+              {xmlFieldMapping ? <ChecklistSummary title="XML mapping by status" counts={xmlFieldMapping.summary.byStatus} /> : null}
               <div className="mt-5 space-y-5">
                 {Object.entries(checklist.groups).map(([category, items]) => (
                   <ChecklistGroup key={category} category={category} items={items} />

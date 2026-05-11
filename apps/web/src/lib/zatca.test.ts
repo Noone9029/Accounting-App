@@ -1,6 +1,7 @@
 import {
   getZatcaProfileMissingFields,
   shouldShowZatcaRealNetworkWarning,
+  shouldShowZatcaLocalOnlyWarning,
   truncateHash,
   zatcaAdapterModeLabel,
   zatcaChecklistRiskBadgeClass,
@@ -10,9 +11,11 @@ import {
   zatcaInvoiceComplianceCheckPath,
   zatcaInvoiceQrPath,
   zatcaInvoiceReportingPath,
+  zatcaInvoiceXmlValidationPath,
   zatcaInvoiceXmlPath,
   zatcaReadinessLabel,
   zatcaStatusLabel,
+  zatcaXmlValidationLabel,
 } from "./zatca";
 
 describe("ZATCA helpers", () => {
@@ -27,6 +30,7 @@ describe("ZATCA helpers", () => {
 
   it("builds invoice XML and QR paths", () => {
     expect(zatcaInvoiceXmlPath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/xml");
+    expect(zatcaInvoiceXmlValidationPath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/xml-validation");
     expect(zatcaInvoiceQrPath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/qr");
     expect(zatcaInvoiceComplianceCheckPath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/compliance-check");
     expect(zatcaInvoiceClearancePath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/clearance");
@@ -55,5 +59,14 @@ describe("ZATCA helpers", () => {
     expect(zatcaChecklistRiskBadgeClass("HIGH")).toContain("amber");
     expect(zatcaReadinessLabel(true)).toBe("Ready locally");
     expect(zatcaReadinessLabel(false)).toBe("Blocked");
+  });
+
+  it("formats local XML validation labels and warnings", () => {
+    expect(zatcaXmlValidationLabel(true)).toBe("Valid locally");
+    expect(zatcaXmlValidationLabel(false)).toBe("Invalid locally");
+    expect(zatcaXmlValidationLabel(null)).toBe("Not checked");
+    expect(shouldShowZatcaLocalOnlyWarning(null)).toBe(true);
+    expect(shouldShowZatcaLocalOnlyWarning({ localOnly: true, officialValidation: false })).toBe(true);
+    expect(shouldShowZatcaLocalOnlyWarning({ localOnly: false, officialValidation: true })).toBe(false);
   });
 });

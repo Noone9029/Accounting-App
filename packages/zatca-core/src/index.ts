@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import forge from "node-forge";
 
 export * from "./compliance-checklist.js";
+export * from "./xml-mapping.js";
+export * from "./xml-validation.js";
 
 export type ZatcaEnvironment = "SANDBOX" | "SIMULATION" | "PRODUCTION";
 export type ZatcaInvoiceType = "STANDARD_TAX_INVOICE" | "SIMPLIFIED_TAX_INVOICE" | "CREDIT_NOTE" | "DEBIT_NOTE";
@@ -121,7 +123,7 @@ export function buildZatcaInvoicePayload(input: ZatcaInvoiceInput): ZatcaBuildRe
     qrCodeBase64: generateZatcaQrBase64({
       sellerName: input.seller.name,
       vatNumber: input.seller.vatNumber,
-      timestamp: normalizeDateTime(input.issueDate),
+      timestamp: formatXmlDateTime(input.issueDate),
       invoiceTotal: input.total,
       vatTotal: input.taxTotal,
     }),
@@ -129,16 +131,35 @@ export function buildZatcaInvoicePayload(input: ZatcaInvoiceInput): ZatcaBuildRe
 }
 
 export function buildZatcaInvoiceXml(input: ZatcaInvoiceInput): string {
-  const issue = splitIssueDateTime(input.issueDate);
-  const lines = input.lines.map((line, index) => renderInvoiceLine(line, index + 1, input.currency)).join("\n");
-  const icv = input.icv === null || input.icv === undefined ? "" : `<cbc:ID schemeID="ICV">${input.icv}</cbc:ID>`;
-
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"',
     '  xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"',
     '  xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">',
-    "  <!-- LedgerByte local ZATCA foundation skeleton. TODO: add official Phase 2 extensions, signatures, CSID stamp, and canonicalization. -->",
+    buildZatcaExtensionPlaceholdersXml(),
+    buildInvoiceHeaderXml(input),
+    buildSupplierPartyXml(input.seller),
+    buildCustomerPartyXml(input.buyer),
+    buildTaxTotalXml(input.taxTotal, input.currency),
+    buildLegalMonetaryTotalXml(input),
+    buildInvoiceLinesXml(input.lines, input.currency),
+    "</Invoice>",
+  ].join("\n");
+}
+
+export function buildZatcaExtensionPlaceholdersXml(): string {
+  return [
+    "  <!-- LedgerByte local ZATCA foundation skeleton. TODO: official UBL namespaces need verification before production. -->",
+    "  <!-- TODO: ZATCA extension fields need official implementation. -->",
+    "  <!-- TODO: signature block pending; canonicalization pending; invoice hash canonical source pending; PDF/A-3 embedding pending. -->",
+  ].join("\n");
+}
+
+export function buildInvoiceHeaderXml(input: ZatcaInvoiceInput): string {
+  const issue = splitIssueDateTime(input.issueDate);
+  const icv = input.icv === null || input.icv === undefined ? "" : `<cbc:ID schemeID="ICV">${input.icv}</cbc:ID>`;
+
+  return [
     `  <cbc:ProfileID>reporting:1.0</cbc:ProfileID>`,
     `  <cbc:ID>${escapeXml(input.invoiceNumber)}</cbc:ID>`,
     `  <cbc:UUID>${escapeXml(input.invoiceUuid)}</cbc:UUID>`,
@@ -152,15 +173,45 @@ export function buildZatcaInvoiceXml(input: ZatcaInvoiceInput): string {
     `    <cbc:ID>PIH</cbc:ID>`,
     `    <cac:Attachment><cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">${escapeXml(input.previousInvoiceHash)}</cbc:EmbeddedDocumentBinaryObject></cac:Attachment>`,
     `  </cac:AdditionalDocumentReference>`,
-    renderParty("AccountingSupplierParty", input.seller, input.seller.vatNumber),
-    renderParty("AccountingCustomerParty", input.buyer, input.buyer.vatNumber ?? null),
-    renderTaxTotal(input.taxTotal, input.currency),
-    renderLegalMonetaryTotal(input),
-    lines,
-    "</Invoice>",
   ]
     .filter((line) => line !== "")
     .join("\n");
+}
+
+export function buildSupplierPartyXml(seller: ZatcaSellerInput): string {
+  return buildPartyXml("AccountingSupplierParty", seller, seller.vatNumber);
+}
+
+export function buildCustomerPartyXml(buyer: ZatcaBuyerInput): string {
+  return buildPartyXml("AccountingCustomerParty", buyer, buyer.vatNumber ?? null);
+}
+
+export function buildTaxTotalXml(taxTotal: string, currency: string): string {
+  return [
+    "  <cac:TaxTotal>",
+    `    <cbc:TaxAmount currencyID="${escapeXml(currency)}">${formatMoney(taxTotal)}</cbc:TaxAmount>`,
+    "    <cac:TaxSubtotal>",
+    `      <cbc:TaxAmount currencyID="${escapeXml(currency)}">${formatMoney(taxTotal)}</cbc:TaxAmount>`,
+    "      <cac:TaxCategory><cbc:ID>S</cbc:ID><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:TaxCategory>",
+    "    </cac:TaxSubtotal>",
+    "  </cac:TaxTotal>",
+  ].join("\n");
+}
+
+export function buildLegalMonetaryTotalXml(input: ZatcaInvoiceInput): string {
+  return [
+    "  <cac:LegalMonetaryTotal>",
+    `    <cbc:LineExtensionAmount currencyID="${escapeXml(input.currency)}">${formatMoney(input.taxableTotal)}</cbc:LineExtensionAmount>`,
+    `    <cbc:AllowanceTotalAmount currencyID="${escapeXml(input.currency)}">${formatMoney(input.discountTotal)}</cbc:AllowanceTotalAmount>`,
+    `    <cbc:TaxExclusiveAmount currencyID="${escapeXml(input.currency)}">${formatMoney(input.taxableTotal)}</cbc:TaxExclusiveAmount>`,
+    `    <cbc:TaxInclusiveAmount currencyID="${escapeXml(input.currency)}">${formatMoney(input.total)}</cbc:TaxInclusiveAmount>`,
+    `    <cbc:PayableAmount currencyID="${escapeXml(input.currency)}">${formatMoney(input.total)}</cbc:PayableAmount>`,
+    "  </cac:LegalMonetaryTotal>",
+  ].join("\n");
+}
+
+export function buildInvoiceLinesXml(lines: ZatcaInvoiceLineInput[], currency: string): string {
+  return lines.map((line, index) => buildInvoiceLineXml(line, index + 1, currency)).join("\n");
 }
 
 export function generateZatcaQrBase64(input: {
@@ -174,9 +225,9 @@ export function generateZatcaQrBase64(input: {
   const fields = [
     [1, input.sellerName],
     [2, input.vatNumber],
-    [3, normalizeDateTime(input.timestamp)],
-    [4, normalizeDecimal(input.invoiceTotal)],
-    [5, normalizeDecimal(input.vatTotal)],
+    [3, formatXmlDateTime(input.timestamp)],
+    [4, formatMoney(input.invoiceTotal)],
+    [5, formatMoney(input.vatTotal)],
   ] as const;
 
   return Buffer.concat(fields.map(([tag, value]) => tlv(tag, value))).toString("base64");
@@ -255,7 +306,7 @@ export function validateZatcaCsrInput(input: ZatcaCsrInput): void {
   }
 }
 
-function renderParty(tagName: "AccountingSupplierParty" | "AccountingCustomerParty", party: ZatcaSellerInput | ZatcaBuyerInput, vatNumber: string | null): string {
+function buildPartyXml(tagName: "AccountingSupplierParty" | "AccountingCustomerParty", party: ZatcaSellerInput | ZatcaBuyerInput, vatNumber: string | null): string {
   return [
     `  <cac:${tagName}>`,
     `    <cac:Party>`,
@@ -279,46 +330,22 @@ function renderParty(tagName: "AccountingSupplierParty" | "AccountingCustomerPar
     .join("\n");
 }
 
-function renderTaxTotal(taxTotal: string, currency: string): string {
-  return [
-    "  <cac:TaxTotal>",
-    `    <cbc:TaxAmount currencyID="${escapeXml(currency)}">${normalizeDecimal(taxTotal)}</cbc:TaxAmount>`,
-    "    <cac:TaxSubtotal>",
-    `      <cbc:TaxAmount currencyID="${escapeXml(currency)}">${normalizeDecimal(taxTotal)}</cbc:TaxAmount>`,
-    "      <cac:TaxCategory><cbc:ID>S</cbc:ID><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:TaxCategory>",
-    "    </cac:TaxSubtotal>",
-    "  </cac:TaxTotal>",
-  ].join("\n");
-}
-
-function renderLegalMonetaryTotal(input: ZatcaInvoiceInput): string {
-  return [
-    "  <cac:LegalMonetaryTotal>",
-    `    <cbc:LineExtensionAmount currencyID="${escapeXml(input.currency)}">${normalizeDecimal(input.taxableTotal)}</cbc:LineExtensionAmount>`,
-    `    <cbc:AllowanceTotalAmount currencyID="${escapeXml(input.currency)}">${normalizeDecimal(input.discountTotal)}</cbc:AllowanceTotalAmount>`,
-    `    <cbc:TaxExclusiveAmount currencyID="${escapeXml(input.currency)}">${normalizeDecimal(input.taxableTotal)}</cbc:TaxExclusiveAmount>`,
-    `    <cbc:TaxInclusiveAmount currencyID="${escapeXml(input.currency)}">${normalizeDecimal(input.total)}</cbc:TaxInclusiveAmount>`,
-    `    <cbc:PayableAmount currencyID="${escapeXml(input.currency)}">${normalizeDecimal(input.total)}</cbc:PayableAmount>`,
-    "  </cac:LegalMonetaryTotal>",
-  ].join("\n");
-}
-
-function renderInvoiceLine(line: ZatcaInvoiceLineInput, lineNumber: number, currency: string): string {
+function buildInvoiceLineXml(line: ZatcaInvoiceLineInput, lineNumber: number, currency: string): string {
   return [
     "  <cac:InvoiceLine>",
     `    <cbc:ID>${lineNumber}</cbc:ID>`,
-    `    <cbc:InvoicedQuantity unitCode="PCE">${normalizeDecimal(line.quantity)}</cbc:InvoicedQuantity>`,
-    `    <cbc:LineExtensionAmount currencyID="${escapeXml(currency)}">${normalizeDecimal(line.taxableAmount)}</cbc:LineExtensionAmount>`,
+    `    <cbc:InvoicedQuantity unitCode="PCE">${formatMoney(line.quantity)}</cbc:InvoicedQuantity>`,
+    `    <cbc:LineExtensionAmount currencyID="${escapeXml(currency)}">${formatMoney(line.taxableAmount)}</cbc:LineExtensionAmount>`,
     "    <cac:TaxTotal>",
-    `      <cbc:TaxAmount currencyID="${escapeXml(currency)}">${normalizeDecimal(line.taxAmount)}</cbc:TaxAmount>`,
-    `      <cbc:RoundingAmount currencyID="${escapeXml(currency)}">${normalizeDecimal(line.lineTotal)}</cbc:RoundingAmount>`,
+    `      <cbc:TaxAmount currencyID="${escapeXml(currency)}">${formatMoney(line.taxAmount)}</cbc:TaxAmount>`,
+    `      <cbc:RoundingAmount currencyID="${escapeXml(currency)}">${formatMoney(line.lineTotal)}</cbc:RoundingAmount>`,
     "    </cac:TaxTotal>",
     "    <cac:Item>",
     `      <cbc:Name>${escapeXml(line.description)}</cbc:Name>`,
     line.taxRateName ? `      <cbc:Description>${escapeXml(line.taxRateName)}</cbc:Description>` : "",
     "    </cac:Item>",
     "    <cac:Price>",
-    `      <cbc:PriceAmount currencyID="${escapeXml(currency)}">${normalizeDecimal(line.unitPrice)}</cbc:PriceAmount>`,
+    `      <cbc:PriceAmount currencyID="${escapeXml(currency)}">${formatMoney(line.unitPrice)}</cbc:PriceAmount>`,
     "    </cac:Price>",
     "  </cac:InvoiceLine>",
   ]
@@ -340,20 +367,33 @@ function tlv(tag: number, value: string): Buffer {
 }
 
 function splitIssueDateTime(value: string | Date): { date: string; time: string } {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  const date = toDate(value);
+  if (!date) {
     return { date: "1970-01-01", time: "00:00:00Z" };
   }
   const iso = date.toISOString();
   return { date: iso.slice(0, 10), time: `${iso.slice(11, 19)}Z` };
 }
 
-function normalizeDateTime(value: string | Date): string {
-  const date = value instanceof Date ? value : new Date(value);
-  return Number.isNaN(date.getTime()) ? String(value) : date.toISOString();
+export function formatXmlDate(value: string | Date): string {
+  const date = toDate(value);
+  return date ? date.toISOString().slice(0, 10) : "1970-01-01";
 }
 
-function normalizeDecimal(value: string): string {
+export function formatXmlDateTime(value: string | Date): string {
+  const date = toDate(value);
+  return date ? date.toISOString() : String(value);
+}
+
+function toDate(value: string | Date): Date | null {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date;
+}
+
+export function formatMoney(value: string | number | null | undefined): string {
   const trimmed = String(value ?? "0").trim() || "0";
   const negative = trimmed.startsWith("-");
   const unsigned = negative ? trimmed.slice(1) : trimmed;
@@ -361,8 +401,8 @@ function normalizeDecimal(value: string): string {
   return `${negative ? "-" : ""}${integer || "0"}.${`${fraction}00`.slice(0, 2)}`;
 }
 
-function escapeXml(value: string): string {
-  return value
+export function escapeXml(value: string | number | null | undefined): string {
+  return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")

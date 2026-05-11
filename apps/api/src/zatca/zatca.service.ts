@@ -4,12 +4,15 @@ import {
   buildZatcaInvoicePayload,
   generateZatcaCsrPem,
   initialPreviousInvoiceHash,
+  validateLocalZatcaXml,
   ZATCA_CHECKLIST_CATEGORIES,
   ZATCA_PHASE_2_CHECKLIST,
+  ZATCA_XML_FIELD_MAPPING,
   type ZatcaCsrInput,
   type ZatcaChecklistCategory,
   type ZatcaChecklistItem,
   type ZatcaInvoiceInput,
+  type ZatcaXmlFieldMappingItem,
 } from "@ledgerbyte/zatca-core";
 import {
   Prisma,
@@ -132,6 +135,26 @@ export class ZatcaService {
         byRisk,
       },
       groups,
+    };
+  }
+
+  getXmlFieldMapping(_organizationId?: string) {
+    const byStatus: Record<string, number> = {};
+    const byCategory: Record<string, number> = {};
+
+    for (const item of ZATCA_XML_FIELD_MAPPING) {
+      byStatus[item.status] = (byStatus[item.status] ?? 0) + 1;
+      byCategory[item.category] = (byCategory[item.category] ?? 0) + 1;
+    }
+
+    return {
+      warning: "This XML mapping is local engineering scaffolding only and is not official ZATCA validation.",
+      summary: {
+        total: ZATCA_XML_FIELD_MAPPING.length,
+        byStatus,
+        byCategory,
+      },
+      items: ZATCA_XML_FIELD_MAPPING as readonly ZatcaXmlFieldMappingItem[],
     };
   }
 
@@ -799,6 +822,73 @@ export class ZatcaService {
       });
       this.throwAdapterError(error);
     }
+  }
+
+  async getInvoiceXmlValidation(organizationId: string, invoiceId: string) {
+    await this.ensureInvoiceBelongsToOrganization(organizationId, invoiceId);
+    const localOnlyWarning = "Local LedgerByte XML checks only. This is not official ZATCA SDK validation and is not legal certification.";
+    const metadata = await this.prisma.zatcaInvoiceMetadata.findFirst({ where: { organizationId, invoiceId } });
+    if (!metadata?.xmlBase64) {
+      return {
+        localOnly: true,
+        officialValidation: false,
+        valid: false,
+        errors: ["ZATCA XML has not been generated for this invoice."],
+        warnings: [localOnlyWarning],
+      };
+    }
+
+    const invoice = await this.prisma.salesInvoice.findFirst({
+      where: { id: invoiceId, organizationId },
+      include: {
+        organization: { select: { id: true, name: true, legalName: true, taxNumber: true, countryCode: true } },
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+            taxNumber: true,
+            addressLine1: true,
+            addressLine2: true,
+            city: true,
+            postalCode: true,
+            countryCode: true,
+          },
+        },
+        lines: { orderBy: { sortOrder: "asc" }, include: { taxRate: { select: { name: true } } } },
+      },
+    });
+    if (!invoice) {
+      throw new NotFoundException("Sales invoice not found.");
+    }
+
+    const profile = await this.prisma.zatcaOrganizationProfile.findUnique({ where: { organizationId } });
+    if (!profile) {
+      return {
+        localOnly: true,
+        officialValidation: false,
+        valid: false,
+        errors: ["ZATCA profile is not configured."],
+        warnings: [localOnlyWarning],
+      };
+    }
+
+    const validation = validateLocalZatcaXml(
+      this.toZatcaInvoiceInput(invoice, profile, metadata.invoiceUuid, metadata.previousInvoiceHash ?? initialPreviousInvoiceHash, metadata.icv),
+    );
+    const xml = Buffer.from(metadata.xmlBase64, "base64").toString("utf8");
+    const warnings = [...validation.warnings];
+    if (!xml.includes(metadata.invoiceUuid)) {
+      warnings.push("Generated XML does not contain the stored invoice UUID.");
+    }
+
+    return {
+      localOnly: true,
+      officialValidation: false,
+      valid: validation.errors.length === 0,
+      errors: validation.errors,
+      warnings,
+    };
   }
 
   async getInvoiceXml(organizationId: string, invoiceId: string) {

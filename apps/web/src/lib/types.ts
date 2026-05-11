@@ -470,6 +470,29 @@ export interface ZatcaComplianceChecklistResponse {
   groups: Record<ZatcaChecklistCategory, ZatcaChecklistItem[]>;
 }
 
+export type ZatcaXmlFieldMappingStatus = "IMPLEMENTED_LOCAL" | "PLACEHOLDER" | "NOT_STARTED" | "NEEDS_OFFICIAL_VERIFICATION";
+
+export interface ZatcaXmlFieldMappingItem {
+  id: string;
+  category: string;
+  ledgerByteSource: string;
+  xmlTarget: string;
+  status: ZatcaXmlFieldMappingStatus;
+  requiredForProduction: boolean;
+  notes: string;
+  officialVerificationRequired: boolean;
+}
+
+export interface ZatcaXmlFieldMappingResponse {
+  warning: string;
+  summary: {
+    total: number;
+    byStatus: Record<string, number>;
+    byCategory: Record<string, number>;
+  };
+  items: ZatcaXmlFieldMappingItem[];
+}
+
 export interface ZatcaReadinessSummary {
   warning: string;
   profileReady: boolean;
@@ -490,4 +513,12 @@ export interface ZatcaReadinessSummary {
   realNetworkEnabled: boolean;
   productionReady: false;
   blockingReasons: string[];
+}
+
+export interface ZatcaXmlValidationResult {
+  localOnly: true;
+  officialValidation: false;
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
 }

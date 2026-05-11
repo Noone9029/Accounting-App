@@ -13,6 +13,10 @@ export function zatcaInvoiceXmlPath(invoiceId: string): string {
   return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/xml`;
 }
 
+export function zatcaInvoiceXmlValidationPath(invoiceId: string): string {
+  return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/xml-validation`;
+}
+
 export function zatcaInvoiceQrPath(invoiceId: string): string {
   return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/qr`;
 }
@@ -79,6 +83,20 @@ export function zatcaChecklistRiskBadgeClass(riskLevel: string): string {
     return "bg-sky-50 text-sky-700";
   }
   return "bg-slate-100 text-slate-700";
+}
+
+export function zatcaXmlValidationLabel(valid: boolean | null | undefined): string {
+  if (valid === true) {
+    return "Valid locally";
+  }
+  if (valid === false) {
+    return "Invalid locally";
+  }
+  return "Not checked";
+}
+
+export function shouldShowZatcaLocalOnlyWarning(result: { localOnly?: boolean; officialValidation?: boolean } | null | undefined): boolean {
+  return !result || result.localOnly === true || result.officialValidation !== true;
 }
 
 export function zatcaReadinessLabel(value: boolean): string {

@@ -1,0 +1,41 @@
+{
+  "invoiceUuid": "22222222-2222-4222-8222-222222222222",
+  "invoiceNumber": "SIM-000001",
+  "invoiceType": "SIMPLIFIED_TAX_INVOICE",
+  "issueDate": "2026-05-12T11:45:00.000Z",
+  "currency": "SAR",
+  "seller": {
+    "name": "LedgerByte Seller",
+    "vatNumber": "300000000000003",
+    "buildingNumber": "5678",
+    "streetName": "Tahlia Street",
+    "district": "Andalus",
+    "city": "Jeddah",
+    "postalCode": "21442",
+    "countryCode": "SA",
+    "additionalAddressNumber": "B-2"
+  },
+  "buyer": {
+    "name": "عميل نقدي",
+    "countryCode": "SA"
+  },
+  "subtotal": "200.0000",
+  "discountTotal": "10.0000",
+  "taxableTotal": "190.0000",
+  "taxTotal": "28.5000",
+  "total": "218.5000",
+  "previousInvoiceHash": "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRjMTI0N2QxYjU3NjY2YjA2N2Y4Y2YyOA==",
+  "icv": 43,
+  "lines": [
+    {
+      "id": "line-1",
+      "description": "Retail sale & support",
+      "quantity": "2.0000",
+      "unitPrice": "100.0000",
+      "taxableAmount": "190.0000",
+      "taxAmount": "28.5000",
+      "lineTotal": "218.5000",
+      "taxRateName": "VAT on Sales 15%"
+    }
+  ]
+}

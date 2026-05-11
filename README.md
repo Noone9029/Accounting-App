@@ -107,7 +107,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, and invoice void rejection while active payments exist.
+The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
 
@@ -190,6 +190,7 @@ Sales invoices:
 - `POST /sales-invoices/:id/zatca/clearance`
 - `POST /sales-invoices/:id/zatca/reporting`
 - `GET /sales-invoices/:id/zatca/xml`
+- `GET /sales-invoices/:id/zatca/xml-validation`
 - `GET /sales-invoices/:id/zatca/qr`
 - `POST /sales-invoices/:id/generate-pdf`
 - `PATCH /sales-invoices/:id`
@@ -224,6 +225,9 @@ ZATCA foundation:
 
 - `GET /zatca/profile`
 - `GET /zatca/adapter-config`
+- `GET /zatca/compliance-checklist`
+- `GET /zatca/xml-field-mapping`
+- `GET /zatca/readiness`
 - `PATCH /zatca/profile`
 - `GET /zatca/egs-units`
 - `POST /zatca/egs-units`
@@ -397,7 +401,7 @@ Implemented:
 - Organization ZATCA profile/settings with seller name, VAT number, Saudi address fields, environment, and registration status.
 - Development EGS unit records with local placeholder CSR/private-key/CSID fields, active unit selection, last ICV, and last invoice hash.
 - Sales invoice ZATCA metadata with invoice UUID, status, ICV, previous hash, invoice hash, XML base64, QR payload base64, and local submission logs.
-- `packages/zatca-core` deterministic UBL-like XML skeleton generation, basic Phase 1-style TLV QR base64 generation, SHA-256 invoice hashing, CSR/private-key PEM generation helpers, and combined payload building.
+- `packages/zatca-core` deterministic UBL-like XML skeleton generation, explicit XML section builders, local XML field mapping constants, local-only XML validation, basic Phase 1-style TLV QR base64 generation, SHA-256 invoice hashing, CSR/private-key PEM generation helpers, and combined payload building.
 - EGS CSR generation and CSR download endpoints.
 - Mock OTP/compliance CSID flow through an adapter interface. The mock adapter accepts local 6-digit OTP values such as `000000`, stores a mock compliance CSID and certificate request id, and logs a local onboarding submission.
 - Safe adapter scaffolding for `mock`, `sandbox-disabled`, and guarded `sandbox` modes. The HTTP sandbox adapter has future method shapes for compliance CSID, production CSID, compliance check, clearance, and reporting, but it does not guess official endpoint paths.
@@ -406,6 +410,7 @@ Implemented:
 - Repeating local XML/QR/hash generation for the same invoice is idempotent and returns the existing metadata instead of consuming another ICV or mutating the active EGS hash chain.
 - Local/mock invoice compliance checks can be recorded through `POST /sales-invoices/:id/zatca/compliance-check`; they only move local metadata to `READY_FOR_SUBMISSION` and do not mark invoices cleared or reported.
 - XML downloads use `application/xml`; QR returns a base64 TLV payload as JSON.
+- `GET /sales-invoices/:id/zatca/xml-validation` runs local-only structural XML/input checks and always reports `officialValidation=false`.
 - Invoice PDFs can display a small local ZATCA-generated placeholder when QR metadata exists. XML is not embedded into PDFs yet.
 
 ### ZATCA Adapter Configuration
@@ -422,11 +427,21 @@ The engineering checklists live in `docs/zatca`. They are working implementation
 
 - View the checklist and local readiness summary in the app at `/settings/zatca`.
 - Call `GET /zatca/compliance-checklist` to return grouped static checklist items with status and risk counts.
+- Call `GET /zatca/xml-field-mapping` to return local XML mapping scaffold items and counts.
 - Call `GET /zatca/readiness` to return local readiness booleans and blocking reasons for the selected organization.
-- Both endpoints require authentication and `x-organization-id`.
+- These endpoints require authentication and `x-organization-id`.
 - The readiness response keeps `productionReady=false` until official validation, signing, real API integration, PDF/A-3 embedding, and production key custody are implemented.
 
 Do not treat the current mock CSID, local XML, local QR, or local hash-chain behavior as legal ZATCA/FATOORA compliance.
+
+### ZATCA XML Mapping Scaffold
+
+- XML mapping docs live at `docs/zatca/XML_FIELD_MAPPING.md`.
+- Fixture guidance lives at `docs/zatca/XML_FIXTURES_GUIDE.md`.
+- Local dev fixtures live under `packages/zatca-core/fixtures`.
+- The local fixtures are not official ZATCA fixtures. They exist to keep LedgerByte's XML skeleton deterministic and to cover XML escaping and Unicode handling.
+- Local XML validation can be called with `GET /sales-invoices/:id/zatca/xml-validation` after local XML is generated.
+- The validation response is local-only and not official ZATCA SDK validation. Future work must add official ZATCA SDK/fixture validation only after official docs/access are obtained.
 
 Not implemented yet:
 

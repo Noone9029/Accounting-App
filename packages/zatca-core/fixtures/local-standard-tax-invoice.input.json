@@ -1,0 +1,44 @@
+{
+  "invoiceUuid": "11111111-1111-4111-8111-111111111111",
+  "invoiceNumber": "STD-&-001",
+  "invoiceType": "STANDARD_TAX_INVOICE",
+  "issueDate": "2026-05-12T10:30:15.000Z",
+  "currency": "SAR",
+  "seller": {
+    "name": "شركة ليدجر & بايت",
+    "vatNumber": "300000000000003",
+    "buildingNumber": "1234",
+    "streetName": "King <Road>",
+    "district": "Olaya",
+    "city": "Riyadh",
+    "postalCode": "12345",
+    "countryCode": "SA",
+    "additionalAddressNumber": "A-1"
+  },
+  "buyer": {
+    "name": "Buyer & Co <Test>",
+    "vatNumber": "300000000000004",
+    "city": "Jeddah",
+    "postalCode": "21442",
+    "countryCode": "SA"
+  },
+  "subtotal": "100.0000",
+  "discountTotal": "0.0000",
+  "taxableTotal": "100.0000",
+  "taxTotal": "15.0000",
+  "total": "115.0000",
+  "previousInvoiceHash": "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRjMTI0N2QxYjU3NjY2YjA2N2Y4Y2YyOA==",
+  "icv": 42,
+  "lines": [
+    {
+      "id": "line-1",
+      "description": "Consulting & setup <phase>",
+      "quantity": "1.0000",
+      "unitPrice": "100.0000",
+      "taxableAmount": "100.0000",
+      "taxAmount": "15.0000",
+      "lineTotal": "115.0000",
+      "taxRateName": "VAT & Sales 15%"
+    }
+  ]
+}

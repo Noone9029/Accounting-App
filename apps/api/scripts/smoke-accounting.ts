@@ -130,6 +130,16 @@ interface ZatcaReadinessSummary {
   blockingReasons: string[];
 }
 
+interface ZatcaXmlFieldMappingResponse {
+  warning: string;
+  summary: {
+    total: number;
+    byStatus: Record<string, number>;
+    byCategory: Record<string, number>;
+  };
+  items: unknown[];
+}
+
 interface ZatcaEgsUnit {
   id: string;
   name: string;
@@ -156,6 +166,14 @@ interface ZatcaInvoiceMetadata {
 
 interface ZatcaQrResponse {
   qrCodeBase64: string;
+}
+
+interface ZatcaXmlValidationResult {
+  localOnly: true;
+  officialValidation: false;
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
 }
 
 interface ZatcaSubmissionLog {
@@ -284,6 +302,10 @@ async function main(): Promise<void> {
   assert(zatcaChecklist.summary.total > 0, "ZATCA checklist has items");
   assert((zatcaChecklist.groups.API?.length ?? 0) > 0, "ZATCA checklist groups API items");
   assert((zatcaChecklist.groups.PDF_A3?.length ?? 0) > 0, "ZATCA checklist groups PDF/A-3 items");
+  const zatcaXmlFieldMapping = await get<ZatcaXmlFieldMappingResponse>("/zatca/xml-field-mapping", headers);
+  assert(zatcaXmlFieldMapping.warning.includes("not official ZATCA validation"), "ZATCA XML field mapping warning is present");
+  assert(zatcaXmlFieldMapping.summary.total > 0, "ZATCA XML field mapping has items");
+  assert(zatcaXmlFieldMapping.items.length === zatcaXmlFieldMapping.summary.total, "ZATCA XML field mapping item count matches summary");
   const zatcaReadiness = await get<ZatcaReadinessSummary>("/zatca/readiness", headers);
   assert(zatcaReadiness.warning.includes("not legal certification"), "ZATCA readiness warning is present");
   assertEqual(zatcaReadiness.productionReady, false, "ZATCA readiness productionReady");
@@ -345,6 +367,11 @@ async function main(): Promise<void> {
     "repeated ZATCA generate does not change EGS previous hash",
   );
   await assertXml(`/sales-invoices/${draftInvoice.id}/zatca/xml`, headers, "invoice ZATCA XML", finalizedInvoice.invoiceNumber);
+  const zatcaXmlValidation = await get<ZatcaXmlValidationResult>(`/sales-invoices/${draftInvoice.id}/zatca/xml-validation`, headers);
+  assertEqual(zatcaXmlValidation.localOnly, true, "ZATCA XML validation localOnly");
+  assertEqual(zatcaXmlValidation.officialValidation, false, "ZATCA XML validation officialValidation");
+  assertEqual(zatcaXmlValidation.valid, true, "ZATCA XML validation valid");
+  assertNoPrivateKey(zatcaXmlValidation, "ZATCA XML validation response");
   const zatcaQr = await get<ZatcaQrResponse>(`/sales-invoices/${draftInvoice.id}/zatca/qr`, headers);
   assertPresent(zatcaQr.qrCodeBase64, "ZATCA QR endpoint payload");
   const checkedZatcaMetadata = await post<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca/compliance-check`, headers, {});

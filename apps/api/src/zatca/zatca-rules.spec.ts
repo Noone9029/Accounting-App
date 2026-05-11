@@ -418,6 +418,52 @@ describe("ZATCA service rules", () => {
     expect(prisma.zatcaInvoiceMetadata.findFirst).toHaveBeenCalledWith({ where: { organizationId: "org-1", invoiceId: "invoice-1" } });
   });
 
+  it("returns local XML validation errors before XML generation", async () => {
+    const prisma = {
+      salesInvoice: { findFirst: jest.fn().mockResolvedValue({ id: "invoice-1" }) },
+      zatcaInvoiceMetadata: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const result = await service.getInvoiceXmlValidation("org-1", "invoice-1");
+
+    expect(result).toMatchObject({
+      localOnly: true,
+      officialValidation: false,
+      valid: false,
+      errors: ["ZATCA XML has not been generated for this invoice."],
+    });
+  });
+
+  it("returns local-only XML validation after generation without claiming official validation", async () => {
+    const metadata = makeGeneratedMetadata({
+      invoiceUuid: "00000000-0000-0000-0000-000000000001",
+      xmlBase64: Buffer.from("<Invoice>00000000-0000-0000-0000-000000000001</Invoice>", "utf8").toString("base64"),
+    });
+    const prisma = {
+      salesInvoice: {
+        findFirst: jest.fn().mockResolvedValueOnce({ id: "invoice-1" }).mockResolvedValue(makeValidationInvoice()),
+      },
+      zatcaInvoiceMetadata: { findFirst: jest.fn().mockResolvedValue(metadata) },
+      zatcaOrganizationProfile: { findUnique: jest.fn().mockResolvedValue(makeValidationProfile()) },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const result = await service.getInvoiceXmlValidation("org-1", "invoice-1");
+
+    expect(result.localOnly).toBe(true);
+    expect(result.officialValidation).toBe(false);
+    expect(result.valid).toBe(true);
+    expect(result.warnings.join(" ")).toContain("not official ZATCA SDK validation");
+    expect(JSON.stringify(result)).not.toContain("privateKeyPem");
+  });
+
+  it("scopes XML validation by organization", async () => {
+    const service = new ZatcaService({ salesInvoice: { findFirst: jest.fn().mockResolvedValue(null) } } as never, { log: jest.fn() } as never);
+
+    await expect(service.getInvoiceXmlValidation("other-org", "invoice-1")).rejects.toThrow(NotFoundException);
+  });
+
   it("scopes invoice compliance-check submissions by organization", async () => {
     const service = new ZatcaService(
       { zatcaInvoiceMetadata: { findFirst: jest.fn().mockResolvedValue(null) } } as never,
@@ -451,6 +497,19 @@ describe("ZATCA service rules", () => {
         expect.objectContaining({ id: "api-official-endpoint-mapping", status: "NOT_STARTED", riskLevel: "CRITICAL" }),
         expect.objectContaining({ id: "pdf-a3-xml-embedding", status: "NOT_STARTED", riskLevel: "CRITICAL" }),
       ]),
+    );
+  });
+
+  it("returns XML field mapping summary with local-only warning", () => {
+    const service = new ZatcaService({} as never, { log: jest.fn() } as never);
+
+    const mapping = service.getXmlFieldMapping("org-1");
+
+    expect(mapping.warning).toContain("not official ZATCA validation");
+    expect(mapping.summary.total).toBeGreaterThan(0);
+    expect(mapping.summary.byStatus.NOT_STARTED).toBeGreaterThan(0);
+    expect(mapping.items).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "signature-extensions", status: "NOT_STARTED", requiredForProduction: true })]),
     );
   });
 
@@ -697,6 +756,62 @@ function makeGeneratedMetadata(overrides: Record<string, unknown> = {}) {
     createdAt: new Date("2026-05-07T00:00:00.000Z"),
     updatedAt: new Date("2026-05-07T00:00:00.000Z"),
     ...overrides,
+  };
+}
+
+function makeValidationInvoice() {
+  return {
+    id: "invoice-1",
+    organizationId: "org-1",
+    invoiceNumber: "INV-000001",
+    status: "FINALIZED",
+    issueDate: new Date("2026-05-07T10:00:00.000Z"),
+    currency: "SAR",
+    subtotal: "100.0000",
+    discountTotal: "0.0000",
+    taxableTotal: "100.0000",
+    taxTotal: "15.0000",
+    total: "115.0000",
+    organization: { id: "org-1", name: "Org", legalName: "Org Legal", taxNumber: "300000000000003", countryCode: "SA" },
+    customer: {
+      id: "customer-1",
+      name: "Customer",
+      displayName: "Customer",
+      taxNumber: null,
+      addressLine1: null,
+      addressLine2: null,
+      city: "Riyadh",
+      postalCode: "12345",
+      countryCode: "SA",
+    },
+    lines: [
+      {
+        id: "line-1",
+        description: "Service",
+        quantity: "1.0000",
+        unitPrice: "100.0000",
+        taxableAmount: "100.0000",
+        taxAmount: "15.0000",
+        lineTotal: "115.0000",
+        taxRate: { name: "VAT on Sales 15%" },
+      },
+    ],
+  };
+}
+
+function makeValidationProfile() {
+  return {
+    sellerName: "Org Legal",
+    vatNumber: "300000000000003",
+    companyIdType: null,
+    companyIdNumber: null,
+    buildingNumber: "1234",
+    streetName: "King Fahd Road",
+    district: "Olaya",
+    city: "Riyadh",
+    postalCode: "12345",
+    countryCode: "SA",
+    additionalAddressNumber: null,
   };
 }
 
