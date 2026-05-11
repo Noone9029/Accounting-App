@@ -1,9 +1,13 @@
 import {
   creditNoteAllocationsPath,
   creditNoteAppliedAmount,
+  creditNoteActiveAppliedAmount,
+  creditNoteAllocationStatusBadgeClass,
+  creditNoteAllocationStatusLabel,
   creditNotePdfDataPath,
   creditNoteStatusBadgeClass,
   creditNoteStatusLabel,
+  canReverseCreditNoteAllocation,
   salesInvoiceCreditNoteAllocationsPath,
   salesInvoiceCreditNotesPath,
   validateCreditNoteAllocation,
@@ -40,5 +44,24 @@ describe("credit note helpers", () => {
     expect(validateCreditNoteAllocation("120.0000", "100.0000", "200.0000")).toContain("unapplied");
     expect(validateCreditNoteAllocation("120.0000", "200.0000", "100.0000")).toContain("balance due");
     expect(validateCreditNoteAllocation("50.0000", "100.0000", "80.0000")).toBeNull();
+  });
+
+  it("labels credit note allocation reversal state", () => {
+    expect(creditNoteAllocationStatusLabel({ reversedAt: null })).toBe("Active");
+    expect(creditNoteAllocationStatusLabel({ reversedAt: "2026-05-12T00:00:00.000Z" })).toBe("Reversed");
+    expect(creditNoteAllocationStatusBadgeClass({ reversedAt: null })).toContain("emerald");
+    expect(creditNoteAllocationStatusBadgeClass({ reversedAt: "2026-05-12T00:00:00.000Z" })).toContain("slate");
+    expect(canReverseCreditNoteAllocation({ reversedAt: null })).toBe(true);
+    expect(canReverseCreditNoteAllocation({ reversedAt: "2026-05-12T00:00:00.000Z" })).toBe(false);
+  });
+
+  it("calculates active applied amount from unreversed allocations", () => {
+    expect(
+      creditNoteActiveAppliedAmount([
+        { amountApplied: "10.0000", reversedAt: null },
+        { amountApplied: "5.0000", reversedAt: "2026-05-12T00:00:00.000Z" },
+        { amountApplied: "2.5000", reversedAt: null },
+      ]),
+    ).toBe("12.5000");
   });
 });

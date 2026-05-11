@@ -219,7 +219,25 @@ describe("sales invoice rules", () => {
     await expect(service.void("org-1", "user-1", "invoice-1")).rejects.toThrow(
       "Cannot void invoice with active credit note allocations. Reverse allocations first.",
     );
+    expect(tx.creditNoteAllocation.count).toHaveBeenCalledWith({
+      where: {
+        invoiceId: "invoice-1",
+        organizationId: "org-1",
+        reversedAt: null,
+        creditNote: { status: { not: "VOIDED" } },
+      },
+    });
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("allows invoice void when credit note allocations are already reversed", async () => {
+    const tx = makeVoidTransactionMock({ activeCreditAllocationCount: 0 });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn().mockResolvedValue("JE-000002") } as never, { reverse: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValueOnce({ id: "invoice-1", status: "FINALIZED", journalEntryId: "je-1" } as never);
+
+    await expect(service.void("org-1", "user-1", "invoice-1")).resolves.toMatchObject({ status: "VOIDED" });
+    expect(tx.journalEntry.create).toHaveBeenCalledTimes(1);
   });
 
   it("voids draft invoices without creating reversal journals", async () => {

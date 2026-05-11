@@ -511,10 +511,10 @@ Commit inspected: pending (`Add sales credit notes MVP`)
 
 ### Remaining Credit Note Risks
 
-- Credit note allocation reversal and refund application are not implemented.
+- Credit note refund application is not implemented.
 - ZATCA credit note XML, signing, PDF/A-3 embedding, clearance, and reporting are not implemented.
 - Inventory returns and stock valuation effects are not implemented.
-- Credit note application now mutates invoice `balanceDue`, but allocation reversal, refunds, and broader customer credit workflows still need design.
+- Credit note application and allocation reversal now mutate invoice `balanceDue`, but refunds and broader customer credit workflows still need design.
 
 ## Credit Note Application Workflow
 
@@ -535,11 +535,33 @@ Commit inspected: pending (`Add credit note application workflow`)
 
 ### Remaining Credit Application Risks
 
-- Allocation reversal is not implemented, so allocated credit notes and invoices with active credit allocations are blocked from voiding.
 - Customer refund workflow is not implemented.
 - Credit note allocation does not yet support automatic suggestions across multiple open invoices.
 - ZATCA credit note XML/signing/submission remains pending.
 - Inventory returns and stock valuation effects remain pending.
+
+## Credit Note Allocation Reversal
+
+Audit date: 2026-05-12
+
+Commit inspected: pending (`Add credit note allocation reversal`)
+
+### Allocation Reversal Added
+
+- Added reversal metadata to `CreditNoteAllocation`: `reversedAt`, `reversedById`, and `reversalReason`.
+- Added authenticated `POST /credit-notes/:id/allocations/:allocationId/reverse`.
+- Added guarded transaction logic that restores `SalesInvoice.balanceDue` and `CreditNote.unappliedAmount` without creating a journal entry.
+- Added clear duplicate reversal handling with `Credit allocation has already been reversed.`
+- Updated credit note and invoice void guards so only active allocations block voiding; reversed allocations do not block.
+- Added neutral `CREDIT_NOTE_ALLOCATION_REVERSAL` ledger and statement rows.
+- Updated credit note/invoice UI allocation tables, credit note PDFs, tests, and smoke coverage for reversal.
+
+### Remaining Allocation Reversal Risks
+
+- Reversal itself is all-or-nothing, but there is no user-facing allocation reversal history page beyond credit note/invoice/ledger rows.
+- Customer refund workflow and payment gateway refunds are not implemented.
+- ZATCA credit note XML/signing/submission remains pending.
+- Inventory return integration remains pending.
 
 ## Remaining Risks
 

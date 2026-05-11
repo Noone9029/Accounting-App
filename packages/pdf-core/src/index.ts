@@ -115,6 +115,9 @@ export interface CreditNotePdfData {
     invoiceTotal: string;
     amountApplied: string;
     invoiceBalanceDue: string;
+    status: string;
+    reversedAt?: string | Date | null;
+    reversalReason?: string | null;
   }>;
   journalEntry?: {
     id: string;
@@ -367,18 +370,20 @@ export async function renderCreditNotePdf(data: CreditNotePdfData, settings?: Do
       drawTable(
         doc,
         [
-          { label: "Invoice", width: 110 },
-          { label: "Date", width: 75 },
-          { label: "Invoice total", width: 105, align: "right" },
-          { label: "Applied", width: 95, align: "right" },
-          { label: "Balance due", width: 95, align: "right" },
+          { label: "Invoice", width: 100 },
+          { label: "Date", width: 65 },
+          { label: "Status", width: 62 },
+          { label: "Applied", width: 80, align: "right" },
+          { label: "Balance due", width: 90, align: "right" },
+          { label: "Reversed", width: 72 },
         ],
         data.allocations.map((allocation) => [
           allocation.invoiceNumber,
           formatDate(allocation.invoiceDate),
-          money(allocation.invoiceTotal, data.creditNote.currency),
+          allocation.status,
           money(allocation.amountApplied, data.creditNote.currency),
           money(allocation.invoiceBalanceDue, data.creditNote.currency),
+          allocation.reversedAt ? formatDate(allocation.reversedAt) : "-",
         ]),
         renderSettings,
       );

@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { creditNoteStatusBadgeClass, creditNoteStatusLabel } from "@/lib/credit-notes";
+import { creditNoteAllocationStatusBadgeClass, creditNoteAllocationStatusLabel, creditNoteStatusBadgeClass, creditNoteStatusLabel } from "@/lib/credit-notes";
 import { deriveInvoicePaymentState, formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadAuthenticatedFile, downloadPdf, invoicePdfPath } from "@/lib/pdf-download";
@@ -439,6 +439,8 @@ export default function SalesInvoiceDetailPage() {
                       <th className="px-4 py-3">Date</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Amount applied</th>
+                      <th className="px-4 py-3">Allocation</th>
+                      <th className="px-4 py-3">Reversed</th>
                       <th className="px-4 py-3">Action</th>
                     </tr>
                   </thead>
@@ -552,6 +554,10 @@ export default function SalesInvoiceDetailPage() {
                           )}
                         </td>
                         <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, invoice.currency)}</td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-md px-2 py-1 text-xs font-medium ${creditNoteAllocationStatusBadgeClass(allocation)}`}>{creditNoteAllocationStatusLabel(allocation)}</span>
+                        </td>
+                        <td className="px-4 py-3 text-steel">{allocation.reversedAt ? new Date(allocation.reversedAt).toLocaleString() : "-"}</td>
                         <td className="px-4 py-3">
                           <Link href={`/sales/credit-notes/${allocation.creditNoteId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                             View credit note

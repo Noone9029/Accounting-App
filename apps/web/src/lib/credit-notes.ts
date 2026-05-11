@@ -1,4 +1,4 @@
-import type { CreditNoteStatus } from "./types";
+import type { CreditNoteAllocation, CreditNoteStatus } from "./types";
 import { formatUnits, parseDecimalToUnits } from "./money";
 
 export function creditNoteStatusLabel(status: CreditNoteStatus | undefined | null): string {
@@ -59,4 +59,23 @@ export function validateCreditNoteAllocation(amountApplied: string, creditUnappl
     return "Amount to apply cannot exceed the invoice balance due.";
   }
   return null;
+}
+
+export function creditNoteAllocationStatusLabel(allocation: Pick<CreditNoteAllocation, "reversedAt">): "Active" | "Reversed" {
+  return allocation.reversedAt ? "Reversed" : "Active";
+}
+
+export function creditNoteAllocationStatusBadgeClass(allocation: Pick<CreditNoteAllocation, "reversedAt">): string {
+  return allocation.reversedAt ? "bg-slate-100 text-slate-700" : "bg-emerald-50 text-emerald-700";
+}
+
+export function canReverseCreditNoteAllocation(allocation: Pick<CreditNoteAllocation, "reversedAt">): boolean {
+  return !allocation.reversedAt;
+}
+
+export function creditNoteActiveAppliedAmount(allocations: Array<Pick<CreditNoteAllocation, "amountApplied" | "reversedAt">> | undefined): string {
+  const units = (allocations ?? [])
+    .filter((allocation) => !allocation.reversedAt)
+    .reduce((sum, allocation) => sum + parseDecimalToUnits(allocation.amountApplied), 0);
+  return formatUnits(units);
 }

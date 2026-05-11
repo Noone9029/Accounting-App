@@ -13,6 +13,7 @@ export type CustomerLedgerRowType =
   | "CREDIT_NOTE"
   | "VOID_CREDIT_NOTE"
   | "CREDIT_NOTE_ALLOCATION"
+  | "CREDIT_NOTE_ALLOCATION_REVERSAL"
   | "PAYMENT"
   | "PAYMENT_ALLOCATION"
   | "VOID_PAYMENT"
@@ -209,6 +210,9 @@ export interface CreditNoteAllocation {
   creditNoteId: string;
   invoiceId: string;
   amountApplied: string;
+  reversedAt: string | null;
+  reversedById: string | null;
+  reversalReason: string | null;
   createdAt: string;
   updatedAt: string;
   invoice?: {
@@ -219,6 +223,7 @@ export interface CreditNoteAllocation {
     balanceDue: string;
     status: SalesInvoiceStatus;
   };
+  reversedBy?: { id: string; name: string; email: string } | null;
   creditNote?: {
     id: string;
     creditNoteNumber: string;

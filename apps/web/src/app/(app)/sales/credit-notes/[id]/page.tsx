@@ -6,7 +6,16 @@ import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { creditNoteAppliedAmount, creditNoteStatusBadgeClass, creditNoteStatusLabel, validateCreditNoteAllocation } from "@/lib/credit-notes";
+import {
+  canReverseCreditNoteAllocation,
+  creditNoteActiveAppliedAmount,
+  creditNoteAllocationStatusBadgeClass,
+  creditNoteAllocationStatusLabel,
+  creditNoteAppliedAmount,
+  creditNoteStatusBadgeClass,
+  creditNoteStatusLabel,
+  validateCreditNoteAllocation,
+} from "@/lib/credit-notes";
 import { formatMoneyAmount } from "@/lib/money";
 import { creditNotePdfPath, downloadPdf } from "@/lib/pdf-download";
 import type { CreditNote, OpenSalesInvoice } from "@/lib/types";
@@ -179,7 +188,38 @@ export default function CreditNoteDetailPage() {
     }
   }
 
-  const appliedAmount = creditNote ? creditNoteAppliedAmount(creditNote.total, creditNote.unappliedAmount) : "0.0000";
+  async function reverseAllocation(allocationId: string) {
+    if (!creditNote || !window.confirm("Reverse this credit note allocation?")) {
+      return;
+    }
+
+    const reason = window.prompt("Reversal reason (optional)", "") ?? "";
+    setActionLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const updated = await apiRequest<CreditNote>(`/credit-notes/${creditNote.id}/allocations/${allocationId}/reverse`, {
+        method: "POST",
+        body: { reason },
+      });
+      setCreditNote(updated);
+      const invoices = await apiRequest<OpenSalesInvoice[]>(`/sales-invoices/open?customerId=${encodeURIComponent(updated.customerId)}`);
+      setOpenInvoices(invoices);
+      setSelectedInvoiceId(invoices[0]?.id ?? "");
+      setSuccess("Credit allocation reversed.");
+    } catch (reverseError) {
+      setError(reverseError instanceof Error ? reverseError.message : "Unable to reverse credit allocation.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  const appliedAmount = creditNote
+    ? creditNote.allocations?.length
+      ? creditNoteActiveAppliedAmount(creditNote.allocations)
+      : creditNoteAppliedAmount(creditNote.total, creditNote.unappliedAmount)
+    : "0.0000";
   const selectedInvoice = openInvoices.find((invoice) => invoice.id === selectedInvoiceId);
   const canApplyCredit = creditNote?.status === "FINALIZED" && Number(creditNote.unappliedAmount) > 0;
 
@@ -324,6 +364,9 @@ export default function CreditNoteDetailPage() {
                       <th className="px-4 py-3">Invoice total</th>
                       <th className="px-4 py-3">Amount applied</th>
                       <th className="px-4 py-3">Invoice balance due</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Reversed</th>
+                      <th className="px-4 py-3">Reason</th>
                       <th className="px-4 py-3">Action</th>
                     </tr>
                   </thead>
@@ -336,9 +379,21 @@ export default function CreditNoteDetailPage() {
                         <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, creditNote.currency)}</td>
                         <td className="px-4 py-3 font-mono text-xs">{allocation.invoice ? formatMoneyAmount(allocation.invoice.balanceDue, creditNote.currency) : "-"}</td>
                         <td className="px-4 py-3">
-                          <Link href={`/sales/invoices/${allocation.invoiceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                            View invoice
-                          </Link>
+                          <span className={`rounded-md px-2 py-1 text-xs font-medium ${creditNoteAllocationStatusBadgeClass(allocation)}`}>{creditNoteAllocationStatusLabel(allocation)}</span>
+                        </td>
+                        <td className="px-4 py-3 text-steel">{allocation.reversedAt ? new Date(allocation.reversedAt).toLocaleString() : "-"}</td>
+                        <td className="px-4 py-3 text-steel">{allocation.reversalReason ?? "-"}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            <Link href={`/sales/invoices/${allocation.invoiceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                              View invoice
+                            </Link>
+                            {canReverseCreditNoteAllocation(allocation) ? (
+                              <button type="button" onClick={() => void reverseAllocation(allocation.id)} disabled={actionLoading} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                                Reverse
+                              </button>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     ))}

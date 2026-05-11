@@ -24,6 +24,8 @@ describe("customer ledger rules", () => {
           invoiceId: "invoice-1",
           amountApplied: "10.0000",
           createdAt: "2026-01-04T06:00:00.000Z",
+          reversedAt: "2026-01-04T09:00:00.000Z",
+          reversalReason: "Corrected invoice match",
           invoice: {
             id: "invoice-1",
             invoiceNumber: "INV-001",
@@ -81,6 +83,7 @@ describe("customer ledger rules", () => {
       "VOID_PAYMENT",
       "CREDIT_NOTE",
       "CREDIT_NOTE_ALLOCATION",
+      "CREDIT_NOTE_ALLOCATION_REVERSAL",
       "VOID_CREDIT_NOTE",
       "INVOICE",
       "VOID_INVOICE",
@@ -95,6 +98,12 @@ describe("customer ledger rules", () => {
       credit: "0.0000",
       balance: "75.0000",
       description: "Credit note CN-001 applied to INV-001",
+    });
+    expect(rows.find((row) => row.type === "CREDIT_NOTE_ALLOCATION_REVERSAL")).toMatchObject({
+      debit: "0.0000",
+      credit: "0.0000",
+      balance: "75.0000",
+      description: "Reversed credit note CN-001 allocation from INV-001",
     });
     expect(rows.find((row) => row.type === "VOID_CREDIT_NOTE")).toMatchObject({ debit: "25.0000", credit: "0.0000", balance: "100.0000" });
     expect(rows.at(-1)).toMatchObject({ type: "VOID_INVOICE", credit: "200.0000", balance: "100.0000" });
@@ -129,6 +138,50 @@ describe("customer ledger rules", () => {
     expect(opening).toBe("100.0000");
     expect(periodRows).toHaveLength(1);
     expect(periodRows[0]).toMatchObject({ type: "PAYMENT", credit: "30.0000" });
+  });
+
+  it("includes credit allocation reversal rows in statement period filtering", () => {
+    const rows = buildCustomerLedgerRows({
+      invoices: [invoice("invoice-1", "INV-001", "2026-01-01T00:00:00.000Z", "100.0000", SalesInvoiceStatus.FINALIZED)],
+      creditNotes: [creditNote("credit-note-1", "CN-001", "2026-01-02T00:00:00.000Z", "20.0000", CreditNoteStatus.FINALIZED)],
+      creditNoteAllocations: [
+        {
+          id: "credit-allocation-1",
+          creditNoteId: "credit-note-1",
+          invoiceId: "invoice-1",
+          amountApplied: "10.0000",
+          createdAt: "2026-01-03T00:00:00.000Z",
+          reversedAt: "2026-02-01T00:00:00.000Z",
+          reversalReason: "Correction",
+          invoice: {
+            id: "invoice-1",
+            invoiceNumber: "INV-001",
+            issueDate: "2026-01-01T00:00:00.000Z",
+            total: "100.0000",
+            balanceDue: "90.0000",
+            status: SalesInvoiceStatus.FINALIZED,
+          },
+          creditNote: {
+            id: "credit-note-1",
+            creditNoteNumber: "CN-001",
+            issueDate: "2026-01-02T00:00:00.000Z",
+            total: "20.0000",
+            unappliedAmount: "20.0000",
+            status: CreditNoteStatus.FINALIZED,
+          },
+        },
+      ],
+      payments: [],
+    });
+
+    const periodRows = filterStatementRows(rows, new Date("2026-02-01T00:00:00.000Z"), new Date("2026-02-28T23:59:59.999Z"));
+
+    expect(periodRows).toHaveLength(1);
+    expect(periodRows[0]).toMatchObject({
+      type: "CREDIT_NOTE_ALLOCATION_REVERSAL",
+      debit: "0.0000",
+      credit: "0.0000",
+    });
   });
 
   it("rejects cross-tenant or non-customer contact ledgers", async () => {

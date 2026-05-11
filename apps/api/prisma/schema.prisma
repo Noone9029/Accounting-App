@@ -167,6 +167,7 @@ model User {
   createdSalesInvoices    SalesInvoice[]       @relation("SalesInvoiceCreatedBy")
   createdCreditNotes      CreditNote[]         @relation("CreditNoteCreatedBy")
   createdCustomerPayments CustomerPayment[]    @relation("CustomerPaymentCreatedBy")
+  reversedCreditNoteAllocations CreditNoteAllocation[] @relation("CreditNoteAllocationReversedBy")
   generatedDocuments      GeneratedDocument[]  @relation("GeneratedDocumentGeneratedBy")
 }
 
@@ -683,15 +684,21 @@ model CreditNoteAllocation {
   creditNoteId   String       @db.Uuid
   invoiceId      String       @db.Uuid
   amountApplied  Decimal      @db.Decimal(20, 4)
+  reversedAt     DateTime?
+  reversedById   String?      @db.Uuid
+  reversalReason String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   creditNote     CreditNote   @relation(fields: [creditNoteId], references: [id], onDelete: Cascade)
   invoice        SalesInvoice @relation(fields: [invoiceId], references: [id])
+  reversedBy     User?        @relation("CreditNoteAllocationReversedBy", fields: [reversedById], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@index([creditNoteId])
   @@index([invoiceId])
+  @@index([reversedAt])
+  @@index([reversedById])
 }
 
 model CustomerPayment {

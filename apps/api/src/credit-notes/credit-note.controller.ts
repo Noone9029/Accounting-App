@@ -8,6 +8,7 @@ import { OrganizationContextGuard } from "../auth/guards/organization-context.gu
 import { CreditNoteService } from "./credit-note.service";
 import { ApplyCreditNoteDto } from "./dto/apply-credit-note.dto";
 import { CreateCreditNoteDto } from "./dto/create-credit-note.dto";
+import { ReverseCreditNoteAllocationDto } from "./dto/reverse-credit-note-allocation.dto";
 import { UpdateCreditNoteDto } from "./dto/update-credit-note.dto";
 
 @Controller("credit-notes")
@@ -52,6 +53,17 @@ export class CreditNoteController {
     @Body() dto: ApplyCreditNoteDto,
   ) {
     return this.creditNoteService.apply(organizationId, user.id, id, dto);
+  }
+
+  @Post(":id/allocations/:allocationId/reverse")
+  reverseAllocation(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Param("allocationId") allocationId: string,
+    @Body() dto: ReverseCreditNoteAllocationDto,
+  ) {
+    return this.creditNoteService.reverseAllocation(organizationId, user.id, id, allocationId, dto);
   }
 
   @Get(":id/pdf")

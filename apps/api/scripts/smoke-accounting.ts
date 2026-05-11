@@ -83,6 +83,8 @@ interface CreditNoteAllocation {
   creditNoteId: string;
   invoiceId: string;
   amountApplied: string;
+  reversedAt?: string | null;
+  reversalReason?: string | null;
 }
 
 interface LedgerRow {
@@ -609,8 +611,12 @@ async function main(): Promise<void> {
   const afterCreditApplyInvoice = await get<SalesInvoice>(`/sales-invoices/${creditApplicationInvoice.id}`, headers);
   assertMoney(afterCreditApplyInvoice.balanceDue, expectedTotal.minus(creditApplyAmount), "invoice balance after credit note application");
   const creditNoteAllocations = await get<CreditNoteAllocation[]>(`/credit-notes/${draftCreditNote.id}/allocations`, headers);
+  const creditNoteAllocation = required(
+    creditNoteAllocations.find((allocation) => allocation.invoiceId === creditApplicationInvoice.id && money(allocation.amountApplied).eq(creditApplyAmount)),
+    "credit note allocation for smoke application",
+  );
   assert(
-    creditNoteAllocations.some((allocation) => allocation.invoiceId === creditApplicationInvoice.id && money(allocation.amountApplied).eq(creditApplyAmount)),
+    !creditNoteAllocation.reversedAt,
     "credit note allocations include partial application",
   );
   const invoiceCreditAllocations = await get<CreditNoteAllocation[]>(`/sales-invoices/${creditApplicationInvoice.id}/credit-note-allocations`, headers);
@@ -635,12 +641,36 @@ async function main(): Promise<void> {
   );
   await expectHttpError("void allocated credit note", () => post<CreditNote>(`/credit-notes/${draftCreditNote.id}/void`, headers, {}));
 
+  const reversedCreditNote = await post<CreditNote>(
+    `/credit-notes/${draftCreditNote.id}/allocations/${creditNoteAllocation.id}/reverse`,
+    headers,
+    { reason: "Smoke test allocation reversal" },
+  );
+  assertMoney(reversedCreditNote.unappliedAmount, expectedCreditNoteTotal, "credit note unapplied amount after allocation reversal");
+  const afterCreditReverseInvoice = await get<SalesInvoice>(`/sales-invoices/${creditApplicationInvoice.id}`, headers);
+  assertMoney(afterCreditReverseInvoice.balanceDue, expectedTotal, "invoice balance after credit allocation reversal");
+  const reversedCreditNoteAllocations = await get<CreditNoteAllocation[]>(`/credit-notes/${draftCreditNote.id}/allocations`, headers);
+  assert(
+    reversedCreditNoteAllocations.some(
+      (allocation) => allocation.id === creditNoteAllocation.id && Boolean(allocation.reversedAt) && allocation.reversalReason === "Smoke test allocation reversal",
+    ),
+    "credit note allocations include reversal metadata",
+  );
+  const ledgerAfterCreditReverse = await get<LedgerResponse>(`/contacts/${customer.id}/ledger`, headers);
+  assert(
+    ledgerAfterCreditReverse.rows.some(
+      (row) => row.type === "CREDIT_NOTE_ALLOCATION_REVERSAL" && row.sourceId === creditNoteAllocation.id && money(row.debit).eq(0) && money(row.credit).eq(0),
+    ),
+    "ledger includes neutral credit note allocation reversal row",
+  );
+  assertMoney(ledgerAfterCreditReverse.closingBalance, expectedLedgerAfterCreditNote, "ledger closing balance after credit allocation reversal is not double counted");
+
   const creditNotePdfData = await get<{ creditNote: { total: string; unappliedAmount: string }; lines: unknown[]; allocations: unknown[] }>(
     `/credit-notes/${draftCreditNote.id}/pdf-data`,
     headers,
   );
   assertMoney(creditNotePdfData.creditNote.total, expectedCreditNoteTotal, "credit note pdf-data total");
-  assertMoney(creditNotePdfData.creditNote.unappliedAmount, expectedCreditNoteTotal.minus(creditApplyAmount), "credit note pdf-data unapplied amount");
+  assertMoney(creditNotePdfData.creditNote.unappliedAmount, expectedCreditNoteTotal, "credit note pdf-data unapplied amount after reversal");
   assert(creditNotePdfData.lines.length > 0, "credit note pdf-data returns lines");
   assert(creditNotePdfData.allocations.length > 0, "credit note pdf-data returns allocations");
   await assertPdf(`/credit-notes/${draftCreditNote.id}/pdf`, headers, "credit note PDF");
@@ -653,6 +683,10 @@ async function main(): Promise<void> {
     "archived credit note PDF document",
   );
   await assertPdf(`/generated-documents/${archivedCreditNotePdf.id}/download`, headers, "archived credit note PDF");
+
+  const voidedCreditNote = await post<CreditNote>(`/credit-notes/${draftCreditNote.id}/void`, headers, {});
+  assertEqual(voidedCreditNote.status, "VOIDED", "voided credit note after allocation reversal status");
+  assertPresent(voidedCreditNote.reversalJournalEntryId, "voided credit note reversal journal after allocation reversal");
 
   const voidedPayment = await post<CustomerPayment>(`/customer-payments/${partialPayment.id}/void`, headers, {});
   assertEqual(voidedPayment.status, "VOIDED", "voided payment status");

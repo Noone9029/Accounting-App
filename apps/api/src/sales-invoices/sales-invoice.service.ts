@@ -625,6 +625,7 @@ export class SalesInvoiceService {
         where: {
           invoiceId: id,
           organizationId,
+          reversedAt: null,
           creditNote: { status: { not: CreditNoteStatus.VOIDED } },
         },
       });

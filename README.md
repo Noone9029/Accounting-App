@@ -109,7 +109,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, credit note creation/finalization/application/PDF/archive/ledger rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, allocated credit note void blocking, and invoice void rejection while active payments exist.
+The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, active allocation void blocking, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
 
@@ -211,6 +211,7 @@ Sales credit notes:
 - `GET /credit-notes/:id/pdf`
 - `GET /credit-notes/:id/allocations`
 - `POST /credit-notes/:id/apply`
+- `POST /credit-notes/:id/allocations/:allocationId/reverse`
 - `POST /credit-notes/:id/generate-pdf`
 - `PATCH /credit-notes/:id`
 - `DELETE /credit-notes/:id`
@@ -337,7 +338,8 @@ Lifecycle behavior:
 - Finalizing twice is idempotent and does not create a second journal entry.
 - Voiding a draft marks it `VOIDED`.
 - Voiding a finalized credit note creates or reuses one reversal journal entry and marks the credit note `VOIDED`.
-- Voiding an allocated finalized credit note is blocked until allocation reversal exists.
+- Voiding a finalized credit note is blocked while active allocations exist.
+- Reversed allocations do not block credit note voiding.
 - Linked original invoices must belong to the same organization and customer, be finalized, and not be voided.
 - Total non-voided credit notes linked to an invoice cannot exceed the original invoice total.
 - `unappliedAmount` starts equal to total and decreases as credit is applied to invoices.
@@ -352,16 +354,20 @@ Posting behavior:
 - Applying a finalized credit note to an invoice only creates an immutable `CreditNoteAllocation` row and updates `SalesInvoice.balanceDue` plus `CreditNote.unappliedAmount`.
 - Credit application does not create another journal entry because finalization already posted the Accounts Receivable reduction.
 - Allocation is guarded in a transaction so the amount cannot exceed either invoice `balanceDue` or credit note `unappliedAmount`.
+- Reversing a credit allocation marks the allocation reversed, restores `SalesInvoice.balanceDue`, restores `CreditNote.unappliedAmount`, and creates no journal entry.
+- Allocation reversal is transaction guarded so restored balances cannot exceed invoice total or credit note total.
 - ZATCA credit note XML/submission is intentionally not implemented yet.
 
 Credit application endpoints:
 
 - `POST /credit-notes/:id/apply` with `{ "invoiceId": "...", "amountApplied": "10.0000" }`
+- `POST /credit-notes/:id/allocations/:allocationId/reverse` with optional `{ "reason": "..." }`
 - `GET /credit-notes/:id/allocations`
 - `GET /sales-invoices/:id/credit-note-allocations`
 - Rules: the credit note and invoice must belong to the same organization and customer, both must be finalized and non-voided, amount must be positive, and amount cannot exceed either open balance.
-- Voiding invoices with active credit note allocations is blocked until allocation reversal exists.
-- Known limitation: allocation reversal and customer refund workflows are not implemented yet.
+- Reversal rules: the allocation must be active, the credit note and invoice must still be finalized and non-voided, and restored balances cannot exceed their original totals.
+- Active allocations block credit note and invoice voiding. Reversed allocations do not block voiding.
+- Known limitation: customer refund workflows are not implemented yet.
 
 ## Customer Payment Rules
 
@@ -405,6 +411,7 @@ Customer ledgers are available for contacts of type `CUSTOMER` or `BOTH`.
 - Payment rows decrease accounts receivable with a credit equal to payment `amountReceived`.
 - Payment allocation rows are visible as zero-value informational rows to avoid double-counting.
 - Credit note allocation rows are visible as zero-value informational rows to show invoice matching without double-counting.
+- Credit note allocation reversal rows are also zero-value informational rows and do not change running balance.
 - Voided credit note rows reverse the visible credit note effect with a debit equal to credit note total.
 - Voided payment rows reverse the visible payment effect with a debit equal to payment `amountReceived`.
 - Voided invoice rows reverse the visible invoice effect with a credit equal to invoice total.
@@ -572,7 +579,7 @@ Future real onboarding steps:
 - Generated PDFs are stored as base64 database records for local/dev groundwork; S3-compatible storage is planned before production scale.
 - GET PDF endpoints currently archive every download.
 - Applying unapplied overpayment credits to invoices later is not implemented yet.
-- Credit note allocation exists for applying finalized credit notes to open invoices, but allocation reversal and refund workflows are not implemented yet.
+- Credit note allocation and allocation reversal exist, but customer refund workflows are not implemented yet.
 - ZATCA credit note XML/signing/submission is not implemented yet.
 - Inventory returns from credit notes are not implemented yet.
 - Recurring invoices are not implemented yet.

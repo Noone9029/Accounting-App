@@ -30,6 +30,7 @@ import { buildCreditNoteJournalLines } from "./credit-note-accounting";
 import { ApplyCreditNoteDto } from "./dto/apply-credit-note.dto";
 import { CreditNoteLineDto } from "./dto/credit-note-line.dto";
 import { CreateCreditNoteDto } from "./dto/create-credit-note.dto";
+import { ReverseCreditNoteAllocationDto } from "./dto/reverse-credit-note-allocation.dto";
 import { UpdateCreditNoteDto } from "./dto/update-credit-note.dto";
 
 const creditNoteInclude = {
@@ -68,6 +69,7 @@ const creditNoteInclude = {
           status: true,
         },
       },
+      reversedBy: { select: { id: true, name: true, email: true } },
     },
   },
 };
@@ -180,6 +182,7 @@ export class CreditNoteService {
             status: true,
           },
         },
+        reversedBy: { select: { id: true, name: true, email: true } },
       },
     });
   }
@@ -208,6 +211,7 @@ export class CreditNoteService {
             unappliedAmount: true,
           },
         },
+        reversedBy: { select: { id: true, name: true, email: true } },
       },
     });
   }
@@ -314,6 +318,116 @@ export class CreditNoteService {
     return updated;
   }
 
+  async reverseAllocation(
+    organizationId: string,
+    actorUserId: string,
+    id: string,
+    allocationId: string,
+    dto: ReverseCreditNoteAllocationDto,
+  ) {
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const allocation = await tx.creditNoteAllocation.findFirst({
+        where: { id: allocationId, creditNoteId: id, organizationId },
+        include: {
+          creditNote: {
+            select: {
+              id: true,
+              status: true,
+              total: true,
+              unappliedAmount: true,
+            },
+          },
+          invoice: {
+            select: {
+              id: true,
+              status: true,
+              total: true,
+              balanceDue: true,
+            },
+          },
+        },
+      });
+
+      if (!allocation) {
+        throw new NotFoundException("Credit note allocation not found.");
+      }
+      if (allocation.reversedAt) {
+        throw new BadRequestException("Credit allocation has already been reversed.");
+      }
+      if (allocation.creditNote.status !== CreditNoteStatus.FINALIZED) {
+        throw new BadRequestException("Only finalized, non-voided credit notes can have allocations reversed.");
+      }
+      if (allocation.invoice.status !== SalesInvoiceStatus.FINALIZED) {
+        throw new BadRequestException("Only finalized, non-voided invoices can have credit allocations reversed.");
+      }
+
+      const amount = toMoney(allocation.amountApplied).toFixed(4);
+      const creditNoteUnappliedLimit = toMoney(allocation.creditNote.total).minus(amount).toFixed(4);
+      const invoiceBalanceLimit = toMoney(allocation.invoice.total).minus(amount).toFixed(4);
+
+      if (toMoney(allocation.creditNote.unappliedAmount).gt(creditNoteUnappliedLimit)) {
+        throw new BadRequestException("Credit note unapplied amount cannot exceed credit note total after reversal.");
+      }
+      if (toMoney(allocation.invoice.balanceDue).gt(invoiceBalanceLimit)) {
+        throw new BadRequestException("Invoice balance due cannot exceed invoice total after reversal.");
+      }
+
+      const now = new Date();
+      const claim = await tx.creditNoteAllocation.updateMany({
+        where: { id: allocationId, creditNoteId: id, organizationId, reversedAt: null },
+        data: {
+          reversedAt: now,
+          reversedById: actorUserId,
+          reversalReason: this.cleanOptional(dto.reason) ?? null,
+        },
+      });
+      if (claim.count !== 1) {
+        throw new BadRequestException("Credit allocation has already been reversed.");
+      }
+
+      const creditRestore = await tx.creditNote.updateMany({
+        where: {
+          id,
+          organizationId,
+          status: CreditNoteStatus.FINALIZED,
+          unappliedAmount: { lte: creditNoteUnappliedLimit },
+        },
+        data: { unappliedAmount: { increment: amount } },
+      });
+      if (creditRestore.count !== 1) {
+        throw new BadRequestException("Credit note unapplied amount could not be restored without exceeding credit note total.");
+      }
+
+      const invoiceRestore = await tx.salesInvoice.updateMany({
+        where: {
+          id: allocation.invoiceId,
+          organizationId,
+          status: SalesInvoiceStatus.FINALIZED,
+          balanceDue: { lte: invoiceBalanceLimit },
+        },
+        data: { balanceDue: { increment: amount } },
+      });
+      if (invoiceRestore.count !== 1) {
+        throw new BadRequestException("Invoice balance due could not be restored without exceeding invoice total.");
+      }
+
+      // Allocation reversal is only matching-state restoration. The credit note
+      // finalization journal remains the only accounting entry.
+      return tx.creditNote.findUniqueOrThrow({ where: { id }, include: creditNoteInclude });
+    });
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "REVERSE_ALLOCATION",
+      entityType: "CreditNoteAllocation",
+      entityId: allocationId,
+      after: updated,
+    });
+
+    return updated;
+  }
+
   async pdfData(organizationId: string, id: string): Promise<CreditNotePdfData> {
     const creditNote = await this.prisma.creditNote.findFirst({
       where: { id, organizationId },
@@ -357,6 +471,7 @@ export class CreditNoteService {
                 status: true,
               },
             },
+            reversedBy: { select: { id: true, name: true, email: true } },
           },
         },
         lines: {
@@ -417,6 +532,9 @@ export class CreditNoteService {
         invoiceTotal: moneyString(allocation.invoice.total),
         amountApplied: moneyString(allocation.amountApplied),
         invoiceBalanceDue: moneyString(allocation.invoice.balanceDue),
+        status: allocation.reversedAt ? "Reversed" : "Active",
+        reversedAt: allocation.reversedAt,
+        reversalReason: allocation.reversalReason,
       })),
       journalEntry: creditNote.journalEntry,
       generatedAt: new Date(),
@@ -744,7 +862,7 @@ export class CreditNoteService {
       }
 
       const allocationCount = await tx.creditNoteAllocation.count({
-        where: { organizationId, creditNoteId: id },
+        where: { organizationId, creditNoteId: id, reversedAt: null },
       });
       if (allocationCount > 0) {
         throw new BadRequestException("Cannot void credit note with active allocations. Reverse allocations first.");

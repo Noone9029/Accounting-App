@@ -11,6 +11,7 @@ export type CustomerLedgerRowType =
   | "CREDIT_NOTE"
   | "VOID_CREDIT_NOTE"
   | "CREDIT_NOTE_ALLOCATION"
+  | "CREDIT_NOTE_ALLOCATION_REVERSAL"
   | "PAYMENT"
   | "PAYMENT_ALLOCATION"
   | "VOID_PAYMENT"
@@ -102,6 +103,8 @@ export interface LedgerCreditNoteAllocationInput {
   invoiceId: string;
   amountApplied: unknown;
   createdAt: Date | string;
+  reversedAt?: Date | string | null;
+  reversalReason?: string | null;
   invoice?: {
     id: string;
     invoiceNumber: string;
@@ -206,6 +209,8 @@ export class ContactLedgerService {
           invoiceId: true,
           amountApplied: true,
           createdAt: true,
+          reversedAt: true,
+          reversalReason: true,
           invoice: {
             select: {
               id: true,
@@ -499,15 +504,42 @@ export function buildCustomerLedgerRows(input: {
       credit: "0.0000",
       sourceType: "CreditNoteAllocation",
       sourceId: allocation.id,
-      status: allocation.creditNote?.status ?? "ALLOCATED",
+      status: allocation.reversedAt ? "REVERSED" : "ACTIVE",
       metadata: {
         creditNoteId: allocation.creditNoteId,
         creditNoteNumber: allocation.creditNote?.creditNoteNumber ?? null,
         invoiceId: allocation.invoiceId,
         invoiceNumber: allocation.invoice?.invoiceNumber ?? null,
         amountApplied: moneyString(allocation.amountApplied),
+        reversedAt: allocation.reversedAt ? toIsoString(allocation.reversedAt) : null,
+        reversalReason: allocation.reversalReason ?? null,
       },
     });
+
+    if (allocation.reversedAt) {
+      pendingRows.push({
+        id: `${allocation.id}:credit-note-allocation-reversal`,
+        type: "CREDIT_NOTE_ALLOCATION_REVERSAL",
+        date: toIsoString(allocation.reversedAt),
+        createdAt: toIsoString(allocation.reversedAt),
+        number: `${creditNoteNumber} -> ${invoiceNumber}`,
+        description: `Reversed credit note ${creditNoteNumber} allocation from ${invoiceNumber}`,
+        debit: "0.0000",
+        credit: "0.0000",
+        sourceType: "CreditNoteAllocation",
+        sourceId: allocation.id,
+        status: "REVERSED",
+        metadata: {
+          creditNoteId: allocation.creditNoteId,
+          creditNoteNumber: allocation.creditNote?.creditNoteNumber ?? null,
+          invoiceId: allocation.invoiceId,
+          invoiceNumber: allocation.invoice?.invoiceNumber ?? null,
+          amountApplied: moneyString(allocation.amountApplied),
+          reversedAt: toIsoString(allocation.reversedAt),
+          reversalReason: allocation.reversalReason ?? null,
+        },
+      });
+    }
   }
 
   for (const payment of input.payments) {
@@ -638,6 +670,7 @@ function rowPriority(type: CustomerLedgerRowType): number {
       return 0;
     case "PAYMENT_ALLOCATION":
     case "CREDIT_NOTE_ALLOCATION":
+    case "CREDIT_NOTE_ALLOCATION_REVERSAL":
       return 1;
     case "VOID_PAYMENT":
     case "VOID_INVOICE":
