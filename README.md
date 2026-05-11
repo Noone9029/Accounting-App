@@ -109,7 +109,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, and invoice void rejection while active payments exist.
+The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, credit note creation/finalization/PDF/archive/ledger rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
 
@@ -186,6 +186,7 @@ Sales invoices:
 - `GET /sales-invoices/:id`
 - `GET /sales-invoices/:id/pdf-data`
 - `GET /sales-invoices/:id/pdf`
+- `GET /sales-invoices/:id/credit-notes`
 - `GET /sales-invoices/:id/zatca`
 - `POST /sales-invoices/:id/zatca/generate`
 - `POST /sales-invoices/:id/zatca/compliance-check`
@@ -199,6 +200,19 @@ Sales invoices:
 - `DELETE /sales-invoices/:id`
 - `POST /sales-invoices/:id/finalize`
 - `POST /sales-invoices/:id/void`
+
+Sales credit notes:
+
+- `GET /credit-notes`
+- `POST /credit-notes`
+- `GET /credit-notes/:id`
+- `GET /credit-notes/:id/pdf-data`
+- `GET /credit-notes/:id/pdf`
+- `POST /credit-notes/:id/generate-pdf`
+- `PATCH /credit-notes/:id`
+- `DELETE /credit-notes/:id`
+- `POST /credit-notes/:id/finalize`
+- `POST /credit-notes/:id/void`
 
 Customer payments:
 
@@ -303,6 +317,37 @@ Posting behavior:
 - Credit account code `220` VAT Payable only when `taxTotal > 0`.
 - The invoice stores the linked `journalEntryId`; voided finalized invoices store `reversalJournalEntryId`.
 
+## Sales Credit Note Rules
+
+Credit notes use the same line calculation semantics as sales invoices:
+
+- `lineGrossAmount = quantity * unitPrice`
+- `discountAmount = lineGrossAmount * discountRate / 100`
+- `taxableAmount = lineGrossAmount - discountAmount`
+- `taxAmount = taxableAmount * taxRate / 100`
+- `lineTotal = taxableAmount + taxAmount`
+
+Lifecycle behavior:
+
+- Draft credit notes can be edited, deleted, finalized, or voided.
+- Finalized credit notes cannot be edited or deleted.
+- Finalizing twice is idempotent and does not create a second journal entry.
+- Voiding a draft marks it `VOIDED`.
+- Voiding a finalized credit note creates or reuses one reversal journal entry and marks the credit note `VOIDED`.
+- Linked original invoices must belong to the same organization and customer, be finalized, and not be voided.
+- Total non-voided credit notes linked to an invoice cannot exceed the original invoice total.
+- `unappliedAmount` starts equal to total and is kept as an audit value until allocation/refund workflows are implemented.
+
+Posting behavior:
+
+- Finalization posts one balanced journal entry inside a transaction.
+- Debit revenue accounts grouped by credit note line revenue account using taxable amounts.
+- Debit account code `220` VAT Payable only when `taxTotal > 0`.
+- Credit account code `120` Accounts Receivable for the credit note total.
+- The credit note stores `journalEntryId`; voided finalized credit notes store `reversalJournalEntryId`.
+- Credit notes do not mutate invoice `balanceDue` in this MVP because credit allocation/refund application is future work.
+- ZATCA credit note XML/submission is intentionally not implemented yet.
+
 ## Customer Payment Rules
 
 Customer payments are posted immediately in this MVP.
@@ -341,11 +386,13 @@ Customer ledgers are available for contacts of type `CUSTOMER` or `BOTH`.
 - `GET /contacts/:id/ledger` returns contact summary, opening balance, closing balance, and chronological ledger rows.
 - Opening balance is `0.0000` for the full ledger foundation.
 - Invoice rows increase accounts receivable with a debit equal to invoice total.
+- Credit note rows decrease accounts receivable with a credit equal to finalized credit note total.
 - Payment rows decrease accounts receivable with a credit equal to payment `amountReceived`.
 - Payment allocation rows are visible as zero-value informational rows to avoid double-counting.
+- Voided credit note rows reverse the visible credit note effect with a debit equal to credit note total.
 - Voided payment rows reverse the visible payment effect with a debit equal to payment `amountReceived`.
 - Voided invoice rows reverse the visible invoice effect with a credit equal to invoice total.
-- Running balance is decimal-safe and reflects finalized non-voided invoices minus non-voided posted payments.
+- Running balance is decimal-safe and reflects finalized invoices, credit notes, posted payments, and their visible void rows.
 - Unapplied payment amounts are included in row metadata because payment creation currently credits AR for full `amountReceived`.
 
 Customer statements:
@@ -370,6 +417,7 @@ Receipt data:
 Implemented PDF documents:
 
 - Sales invoice PDF: `GET /sales-invoices/:id/pdf`
+- Sales credit note PDF: `GET /credit-notes/:id/pdf`
 - Customer payment receipt PDF: `GET /customer-payments/:id/receipt.pdf`
 - Customer statement PDF: `GET /contacts/:id/statement.pdf?from=YYYY-MM-DD&to=YYYY-MM-DD`
 
@@ -378,7 +426,7 @@ PDF endpoints:
 - Require JWT auth and `x-organization-id`.
 - Are tenant-scoped and return `404` outside the active organization.
 - Return `Content-Type: application/pdf`.
-- Use attachment filenames such as `invoice-INV-000001.pdf`, `receipt-PAY-000001.pdf`, and `statement-Customer.pdf`.
+- Use attachment filenames such as `invoice-INV-000001.pdf`, `credit-note-CN-000001.pdf`, `receipt-PAY-000001.pdf`, and `statement-Customer.pdf`.
 - Apply organization document settings for document titles, footer text, basic colors, tax number visibility, and invoice notes/terms/payment sections.
 - Archive each generated PDF as a `GeneratedDocument` record with content hash, size, filename, source reference, and local base64 content.
 
@@ -507,8 +555,9 @@ Future real onboarding steps:
 - Generated PDFs are stored as base64 database records for local/dev groundwork; S3-compatible storage is planned before production scale.
 - GET PDF endpoints currently archive every download.
 - Applying unapplied overpayment credits to invoices later is not implemented yet.
-- Credit notes are not implemented yet.
-- Credit note ledger rows are reserved as a future hook, but credit notes are not implemented yet.
+- Credit note allocation/refund application is not implemented yet; finalized credit notes are tracked through ledger rows and `unappliedAmount`.
+- ZATCA credit note XML/signing/submission is not implemented yet.
+- Inventory returns from credit notes are not implemented yet.
 - Recurring invoices are not implemented yet.
 - Bank reconciliation is not implemented yet.
 - Inventory movement and stock valuation are not implemented yet.

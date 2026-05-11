@@ -68,6 +68,16 @@ interface CustomerPayment {
   voidReversalJournalEntryId?: string | null;
 }
 
+interface CreditNote {
+  id: string;
+  creditNoteNumber: string;
+  status: string;
+  total: string;
+  unappliedAmount: string;
+  journalEntryId?: string | null;
+  reversalJournalEntryId?: string | null;
+}
+
 interface LedgerRow {
   type: string;
   sourceId: string;
@@ -248,6 +258,7 @@ async function main(): Promise<void> {
   const taxRates = await get<TaxRate[]>("/tax-rates", headers);
   const salesVat = taxRates.find((taxRate) => taxRate.name === "VAT on Sales 15%" && taxRate.isActive);
   const expectedTotal = salesVat ? money("115.0000") : money("100.0000");
+  const expectedCreditNoteTotal = salesVat ? money("11.5000") : money("10.0000");
   const partialPaymentAmount = money("50.0000");
   const remainingPaymentAmount = expectedTotal.minus(partialPaymentAmount);
 
@@ -527,6 +538,65 @@ async function main(): Promise<void> {
   assert(statementPdfData.rows.length > 0, "statement pdf-data returns rows");
   await assertPdf(`/contacts/${customer.id}/statement.pdf?from=${from}&to=${to}`, headers, "statement PDF");
 
+  const creditNoteLinePayload: Record<string, unknown> = {
+    description: "Smoke test credit adjustment",
+    accountId: salesAccount.id,
+    quantity: "1.0000",
+    unitPrice: "10.0000",
+  };
+  if (salesVat) {
+    creditNoteLinePayload.taxRateId = salesVat.id;
+  }
+  const draftCreditNote = await post<CreditNote>("/credit-notes", headers, {
+    customerId: customer.id,
+    originalInvoiceId: draftInvoice.id,
+    issueDate: new Date().toISOString(),
+    currency: "SAR",
+    reason: "Smoke test credit note",
+    lines: [creditNoteLinePayload],
+  });
+  assertEqual(draftCreditNote.status, "DRAFT", "created credit note status");
+  assertMoney(draftCreditNote.total, expectedCreditNoteTotal, "draft credit note total");
+  assertMoney(draftCreditNote.unappliedAmount, expectedCreditNoteTotal, "draft credit note unapplied amount");
+
+  const finalizedCreditNote = await post<CreditNote>(`/credit-notes/${draftCreditNote.id}/finalize`, headers, {});
+  assertEqual(finalizedCreditNote.status, "FINALIZED", "finalized credit note status");
+  assertPresent(finalizedCreditNote.journalEntryId, "finalized credit note journalEntryId");
+  assertMoney(finalizedCreditNote.total, expectedCreditNoteTotal, "finalized credit note total");
+
+  const finalizedCreditNoteAgain = await post<CreditNote>(`/credit-notes/${draftCreditNote.id}/finalize`, headers, {});
+  assertEqual(finalizedCreditNoteAgain.journalEntryId, finalizedCreditNote.journalEntryId, "double finalize credit note journalEntryId");
+
+  const invoiceCreditNotes = await get<CreditNote[]>(`/sales-invoices/${draftInvoice.id}/credit-notes`, headers);
+  assert(
+    invoiceCreditNotes.some((creditNote) => creditNote.id === draftCreditNote.id && creditNote.status === "FINALIZED"),
+    "invoice linked credit notes include finalized smoke credit note",
+  );
+
+  const ledgerAfterCreditNote = await get<LedgerResponse>(`/contacts/${customer.id}/ledger`, headers);
+  assert(
+    ledgerAfterCreditNote.rows.some((row) => row.type === "CREDIT_NOTE" && row.sourceId === draftCreditNote.id && money(row.credit).eq(expectedCreditNoteTotal)),
+    "ledger includes finalized credit note credit",
+  );
+  assertMoney(ledgerAfterCreditNote.closingBalance, expectedCreditNoteTotal.negated(), "ledger closing balance after credit note");
+
+  const creditNotePdfData = await get<{ creditNote: { total: string; unappliedAmount: string }; lines: unknown[] }>(
+    `/credit-notes/${draftCreditNote.id}/pdf-data`,
+    headers,
+  );
+  assertMoney(creditNotePdfData.creditNote.total, expectedCreditNoteTotal, "credit note pdf-data total");
+  assert(creditNotePdfData.lines.length > 0, "credit note pdf-data returns lines");
+  await assertPdf(`/credit-notes/${draftCreditNote.id}/pdf`, headers, "credit note PDF");
+  const creditNoteDocuments = await get<GeneratedDocument[]>(
+    `/generated-documents?documentType=CREDIT_NOTE&sourceId=${encodeURIComponent(draftCreditNote.id)}`,
+    headers,
+  );
+  const archivedCreditNotePdf = required(
+    creditNoteDocuments.find((document) => document.sourceId === draftCreditNote.id && document.status === "GENERATED"),
+    "archived credit note PDF document",
+  );
+  await assertPdf(`/generated-documents/${archivedCreditNotePdf.id}/download`, headers, "archived credit note PDF");
+
   const voidedPayment = await post<CustomerPayment>(`/customer-payments/${partialPayment.id}/void`, headers, {});
   assertEqual(voidedPayment.status, "VOIDED", "voided payment status");
   assertPresent(voidedPayment.voidReversalJournalEntryId, "voided payment reversal journal");
@@ -557,7 +627,10 @@ async function main(): Promise<void> {
         zatcaMetadataId: zatcaMetadata.id,
         zatcaIcv: zatcaMetadata.icv,
         paymentIds: [partialPayment.id, remainingPayment.id],
+        creditNoteId: draftCreditNote.id,
+        creditNoteNumber: finalizedCreditNote.creditNoteNumber,
         archivedInvoicePdfId: archivedInvoicePdf.id,
+        archivedCreditNotePdfId: archivedCreditNotePdf.id,
         finalInvoiceBalance: afterSecondPaymentVoid.balanceDue,
         ledgerClosingBalanceBeforeVoid: ledgerBeforeVoid.closingBalance,
         ledgerClosingBalanceAfterVoid: ledgerAfterVoid.closingBalance,

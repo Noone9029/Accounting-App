@@ -6,6 +6,7 @@ import { AuthModule } from "./auth/auth.module";
 import { BranchModule } from "./branches/branch.module";
 import { ChartOfAccountsModule } from "./chart-of-accounts/chart-of-accounts.module";
 import { ContactModule } from "./contacts/contact.module";
+import { CreditNoteModule } from "./credit-notes/credit-note.module";
 import { CustomerPaymentModule } from "./customer-payments/customer-payment.module";
 import { GeneratedDocumentModule } from "./generated-documents/generated-document.module";
 import { HealthModule } from "./health/health.module";
@@ -27,6 +28,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     OrganizationModule,
     BranchModule,
     ContactModule,
+    CreditNoteModule,
     CustomerPaymentModule,
     GeneratedDocumentModule,
     OrganizationDocumentSettingsModule,

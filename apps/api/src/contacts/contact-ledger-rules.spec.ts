@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { CustomerPaymentStatus, DocumentType, SalesInvoiceStatus } from "@prisma/client";
+import { CreditNoteStatus, CustomerPaymentStatus, DocumentType, SalesInvoiceStatus } from "@prisma/client";
 import {
   buildCustomerLedgerRows,
   calculateStatementOpeningBalance,
@@ -8,11 +8,14 @@ import {
 } from "./contact-ledger.service";
 
 describe("customer ledger rules", () => {
-  it("includes invoice debits, payment credits, allocations, void payments, and void invoices", () => {
+  it("includes invoice debits, credit note credits, payment credits, allocations, void payments, and void rows", () => {
     const rows = buildCustomerLedgerRows({
       invoices: [
         invoice("invoice-1", "INV-001", "2026-01-01T00:00:00.000Z", "100.0000", SalesInvoiceStatus.FINALIZED),
-        invoice("invoice-2", "INV-002", "2026-01-04T00:00:00.000Z", "200.0000", SalesInvoiceStatus.VOIDED, "2026-01-05T00:00:00.000Z"),
+        invoice("invoice-2", "INV-002", "2026-01-05T00:00:00.000Z", "200.0000", SalesInvoiceStatus.VOIDED, "2026-01-06T00:00:00.000Z"),
+      ],
+      creditNotes: [
+        creditNote("credit-note-1", "CN-001", "2026-01-04T00:00:00.000Z", "25.0000", CreditNoteStatus.VOIDED, "2026-01-04T12:00:00.000Z"),
       ],
       payments: [
         {
@@ -46,11 +49,13 @@ describe("customer ledger rules", () => {
       ],
     });
 
-    expect(rows.map((row) => row.type)).toEqual(["INVOICE", "PAYMENT", "PAYMENT_ALLOCATION", "VOID_PAYMENT", "INVOICE", "VOID_INVOICE"]);
+    expect(rows.map((row) => row.type)).toEqual(["INVOICE", "PAYMENT", "PAYMENT_ALLOCATION", "VOID_PAYMENT", "CREDIT_NOTE", "VOID_CREDIT_NOTE", "INVOICE", "VOID_INVOICE"]);
     expect(rows.find((row) => row.type === "INVOICE" && row.number === "INV-001")).toMatchObject({ debit: "100.0000", credit: "0.0000", balance: "100.0000" });
     expect(rows.find((row) => row.type === "PAYMENT")).toMatchObject({ debit: "0.0000", credit: "40.0000", balance: "60.0000" });
     expect(rows.find((row) => row.type === "PAYMENT_ALLOCATION")).toMatchObject({ debit: "0.0000", credit: "0.0000", balance: "60.0000" });
     expect(rows.find((row) => row.type === "VOID_PAYMENT")).toMatchObject({ debit: "40.0000", credit: "0.0000", balance: "100.0000" });
+    expect(rows.find((row) => row.type === "CREDIT_NOTE")).toMatchObject({ debit: "0.0000", credit: "25.0000", balance: "75.0000" });
+    expect(rows.find((row) => row.type === "VOID_CREDIT_NOTE")).toMatchObject({ debit: "25.0000", credit: "0.0000", balance: "100.0000" });
     expect(rows.at(-1)).toMatchObject({ type: "VOID_INVOICE", credit: "200.0000", balance: "100.0000" });
   });
 
@@ -89,6 +94,7 @@ describe("customer ledger rules", () => {
     const prisma = {
       contact: { findFirst: jest.fn().mockResolvedValue(null) },
       salesInvoice: { findMany: jest.fn() },
+      creditNote: { findMany: jest.fn() },
       customerPayment: { findMany: jest.fn() },
     };
     const service = new ContactLedgerService(prisma as never);
@@ -104,6 +110,7 @@ describe("customer ledger rules", () => {
       }),
     );
     expect(prisma.salesInvoice.findMany).not.toHaveBeenCalled();
+    expect(prisma.creditNote.findMany).not.toHaveBeenCalled();
     expect(prisma.customerPayment.findMany).not.toHaveBeenCalled();
   });
 
@@ -244,6 +251,30 @@ function invoice(
     status,
     journalEntryId: `journal-${id}`,
     reversalJournalEntryId: status === SalesInvoiceStatus.VOIDED ? `reversal-${id}` : null,
+    finalizedAt: issueDate,
+    createdAt: issueDate,
+    updatedAt,
+  };
+}
+
+function creditNote(
+  id: string,
+  creditNoteNumber: string,
+  issueDate: string,
+  total: string,
+  status: CreditNoteStatus,
+  updatedAt = issueDate,
+) {
+  return {
+    id,
+    creditNoteNumber,
+    issueDate,
+    total,
+    unappliedAmount: total,
+    status,
+    journalEntryId: `journal-${id}`,
+    reversalJournalEntryId: status === CreditNoteStatus.VOIDED ? `reversal-${id}` : null,
+    originalInvoiceId: "invoice-1",
     finalizedAt: issueDate,
     createdAt: issueDate,
     updatedAt,

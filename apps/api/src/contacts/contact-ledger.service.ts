@@ -1,12 +1,19 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { toMoney } from "@ledgerbyte/accounting-core";
 import { CustomerStatementPdfData, renderCustomerStatementPdf } from "@ledgerbyte/pdf-core";
-import { ContactType, CustomerPaymentStatus, DocumentType, SalesInvoiceStatus } from "@prisma/client";
+import { ContactType, CreditNoteStatus, CustomerPaymentStatus, DocumentType, SalesInvoiceStatus } from "@prisma/client";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
 
-export type CustomerLedgerRowType = "INVOICE" | "PAYMENT" | "PAYMENT_ALLOCATION" | "VOID_PAYMENT" | "VOID_INVOICE";
+export type CustomerLedgerRowType =
+  | "INVOICE"
+  | "CREDIT_NOTE"
+  | "VOID_CREDIT_NOTE"
+  | "PAYMENT"
+  | "PAYMENT_ALLOCATION"
+  | "VOID_PAYMENT"
+  | "VOID_INVOICE";
 
 export interface CustomerLedgerContact {
   id: string;
@@ -27,7 +34,7 @@ export interface CustomerLedgerRow {
   debit: string;
   credit: string;
   balance: string;
-  sourceType: "SalesInvoice" | "CustomerPayment" | "CustomerPaymentAllocation";
+  sourceType: "SalesInvoice" | "CreditNote" | "CustomerPayment" | "CustomerPaymentAllocation";
   sourceId: string;
   status: string;
   metadata: Record<string, unknown>;
@@ -53,6 +60,21 @@ export interface LedgerInvoiceInput {
   status: string;
   journalEntryId: string | null;
   reversalJournalEntryId?: string | null;
+  finalizedAt?: Date | string | null;
+  updatedAt: Date | string;
+  createdAt: Date | string;
+}
+
+export interface LedgerCreditNoteInput {
+  id: string;
+  creditNoteNumber: string;
+  issueDate: Date | string;
+  total: unknown;
+  unappliedAmount: unknown;
+  status: string;
+  journalEntryId: string | null;
+  reversalJournalEntryId?: string | null;
+  originalInvoiceId?: string | null;
   finalizedAt?: Date | string | null;
   updatedAt: Date | string;
   createdAt: Date | string;
@@ -102,7 +124,7 @@ export class ContactLedgerService {
 
   async ledger(organizationId: string, contactId: string): Promise<CustomerLedgerResponse> {
     const contact = await this.findCustomerContact(organizationId, contactId);
-    const [invoices, payments] = await Promise.all([
+    const [invoices, creditNotes, payments] = await Promise.all([
       this.prisma.salesInvoice.findMany({
         where: {
           organizationId,
@@ -118,6 +140,28 @@ export class ContactLedgerService {
           status: true,
           journalEntryId: true,
           reversalJournalEntryId: true,
+          finalizedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      this.prisma.creditNote.findMany({
+        where: {
+          organizationId,
+          customerId: contactId,
+          status: { in: [CreditNoteStatus.FINALIZED, CreditNoteStatus.VOIDED] },
+          journalEntryId: { not: null },
+        },
+        select: {
+          id: true,
+          creditNoteNumber: true,
+          issueDate: true,
+          total: true,
+          unappliedAmount: true,
+          status: true,
+          journalEntryId: true,
+          reversalJournalEntryId: true,
+          originalInvoiceId: true,
           finalizedAt: true,
           createdAt: true,
           updatedAt: true,
@@ -163,7 +207,7 @@ export class ContactLedgerService {
       }),
     ]);
 
-    const rows = buildCustomerLedgerRows({ invoices, payments });
+    const rows = buildCustomerLedgerRows({ invoices, creditNotes, payments });
     return {
       contact,
       openingBalance: "0.0000",
@@ -287,7 +331,11 @@ export class ContactLedgerService {
   }
 }
 
-export function buildCustomerLedgerRows(input: { invoices: LedgerInvoiceInput[]; payments: LedgerPaymentInput[] }): CustomerLedgerRow[] {
+export function buildCustomerLedgerRows(input: {
+  invoices: LedgerInvoiceInput[];
+  creditNotes?: LedgerCreditNoteInput[];
+  payments: LedgerPaymentInput[];
+}): CustomerLedgerRow[] {
   const pendingRows: PendingLedgerRow[] = [];
 
   for (const invoice of input.invoices) {
@@ -326,6 +374,50 @@ export function buildCustomerLedgerRows(input: { invoices: LedgerInvoiceInput[];
         metadata: {
           invoiceId: invoice.id,
           reversalJournalEntryId: invoice.reversalJournalEntryId ?? null,
+        },
+      });
+    }
+  }
+
+  for (const creditNote of input.creditNotes ?? []) {
+    pendingRows.push({
+      id: `${creditNote.id}:credit-note`,
+      type: "CREDIT_NOTE",
+      date: toIsoString(creditNote.issueDate),
+      createdAt: toIsoString(creditNote.createdAt),
+      number: creditNote.creditNoteNumber,
+      description: `Credit note ${creditNote.creditNoteNumber}`,
+      debit: "0.0000",
+      credit: moneyString(creditNote.total),
+      sourceType: "CreditNote",
+      sourceId: creditNote.id,
+      status: creditNote.status,
+      metadata: {
+        creditNoteId: creditNote.id,
+        journalEntryId: creditNote.journalEntryId,
+        originalInvoiceId: creditNote.originalInvoiceId ?? null,
+        unappliedAmount: moneyString(creditNote.unappliedAmount),
+        finalizedAt: creditNote.finalizedAt ? toIsoString(creditNote.finalizedAt) : null,
+      },
+    });
+
+    if (creditNote.status === CreditNoteStatus.VOIDED) {
+      pendingRows.push({
+        id: `${creditNote.id}:void`,
+        type: "VOID_CREDIT_NOTE",
+        date: toIsoString(creditNote.updatedAt),
+        createdAt: toIsoString(creditNote.updatedAt),
+        number: creditNote.creditNoteNumber,
+        description: `Void credit note ${creditNote.creditNoteNumber}`,
+        debit: moneyString(creditNote.total),
+        credit: "0.0000",
+        sourceType: "CreditNote",
+        sourceId: creditNote.id,
+        status: creditNote.status,
+        metadata: {
+          creditNoteId: creditNote.id,
+          reversalJournalEntryId: creditNote.reversalJournalEntryId ?? null,
+          originalInvoiceId: creditNote.originalInvoiceId ?? null,
         },
       });
     }
@@ -454,12 +546,14 @@ function sortLedgerRows(rows: PendingLedgerRow[]): PendingLedgerRow[] {
 function rowPriority(type: CustomerLedgerRowType): number {
   switch (type) {
     case "INVOICE":
+    case "CREDIT_NOTE":
     case "PAYMENT":
       return 0;
     case "PAYMENT_ALLOCATION":
       return 1;
     case "VOID_PAYMENT":
     case "VOID_INVOICE":
+    case "VOID_CREDIT_NOTE":
       return 2;
   }
 }

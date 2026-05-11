@@ -72,6 +72,50 @@ export interface InvoicePdfData {
   generatedAt: string | Date;
 }
 
+export interface CreditNotePdfData {
+  organization: PdfOrganization;
+  customer: PdfContact;
+  originalInvoice?: {
+    id: string;
+    invoiceNumber: string;
+    issueDate: string | Date;
+    total: string;
+  } | null;
+  creditNote: {
+    id: string;
+    creditNoteNumber: string;
+    status: string;
+    issueDate: string | Date;
+    currency: string;
+    notes?: string | null;
+    reason?: string | null;
+    subtotal: string;
+    discountTotal: string;
+    taxableTotal: string;
+    taxTotal: string;
+    total: string;
+    unappliedAmount: string;
+  };
+  lines: Array<{
+    description: string;
+    quantity: string;
+    unitPrice: string;
+    discountRate: string;
+    lineGrossAmount: string;
+    discountAmount: string;
+    taxableAmount: string;
+    taxAmount: string;
+    lineTotal: string;
+    taxRateName?: string | null;
+  }>;
+  journalEntry?: {
+    id: string;
+    entryNumber: string;
+    status: string;
+  } | null;
+  generatedAt: string | Date;
+}
+
 export interface PaymentReceiptPdfData {
   organization: PdfOrganization;
   customer: PdfContact;
@@ -247,6 +291,68 @@ export async function renderInvoicePdf(data: InvoicePdfData, settings?: Document
     }
     if (renderSettings.showTerms) {
       writeOptionalTextBlock(doc, "Terms", data.invoice.terms, renderSettings);
+    }
+  }, renderSettings);
+}
+
+export async function renderCreditNotePdf(data: CreditNotePdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
+  const renderSettings = resolveSettings(settings, "Credit Note");
+  return renderPdf((doc) => {
+    writeHeader(doc, data.organization, renderSettings, data.generatedAt);
+    writeTwoColumnBlocks(doc, "Credit To", contactLines(data.customer, renderSettings), "Credit Note", [
+      ["Credit note number", data.creditNote.creditNoteNumber],
+      ["Status", data.creditNote.status],
+      ["Issue date", formatDate(data.creditNote.issueDate)],
+      ["Currency", data.creditNote.currency],
+      ["Original invoice", data.originalInvoice ? data.originalInvoice.invoiceNumber : "-"],
+      ["Journal entry", data.journalEntry ? `${data.journalEntry.entryNumber} (${data.journalEntry.status})` : "-"],
+    ], renderSettings);
+
+    if (data.originalInvoice) {
+      writeMuted(
+        doc,
+        `Original invoice ${data.originalInvoice.invoiceNumber}, issued ${formatDate(data.originalInvoice.issueDate)}, total ${money(data.originalInvoice.total, data.creditNote.currency)}.`,
+      );
+    }
+
+    writeOptionalTextBlock(doc, "Reason", data.creditNote.reason, renderSettings);
+    writeSectionTitle(doc, "Line Items", renderSettings);
+    drawTable(
+      doc,
+      [
+        { label: "Description", width: 116 },
+        { label: "Qty", width: 38, align: "right" },
+        { label: "Unit", width: 54, align: "right" },
+        { label: "Gross", width: 54, align: "right" },
+        { label: "Discount", width: 54, align: "right" },
+        { label: "Taxable", width: 54, align: "right" },
+        { label: "Tax", width: 48, align: "right" },
+        { label: "Total", width: 54, align: "right" },
+      ],
+      data.lines.map((line) => [
+        withOptionalSuffix(line.description, line.taxRateName ? `Tax: ${line.taxRateName}` : null),
+        line.quantity,
+        money(line.unitPrice, data.creditNote.currency),
+        money(line.lineGrossAmount, data.creditNote.currency),
+        money(line.discountAmount, data.creditNote.currency),
+        money(line.taxableAmount, data.creditNote.currency),
+        money(line.taxAmount, data.creditNote.currency),
+        money(line.lineTotal, data.creditNote.currency),
+      ]),
+      renderSettings,
+    );
+
+    writeTotals(doc, data.creditNote.currency, [
+      ["Subtotal", data.creditNote.subtotal],
+      ["Discount", data.creditNote.discountTotal],
+      ["Taxable total", data.creditNote.taxableTotal],
+      ["VAT / Tax", data.creditNote.taxTotal],
+      ["Total credit", data.creditNote.total],
+      ["Unapplied amount", data.creditNote.unappliedAmount],
+    ], renderSettings);
+
+    if (renderSettings.showNotes) {
+      writeOptionalTextBlock(doc, "Notes", data.creditNote.notes, renderSettings);
     }
   }, renderSettings);
 }

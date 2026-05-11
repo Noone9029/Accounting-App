@@ -65,6 +65,12 @@ enum SalesInvoiceStatus {
   VOIDED
 }
 
+enum CreditNoteStatus {
+  DRAFT
+  FINALIZED
+  VOIDED
+}
+
 enum CustomerPaymentStatus {
   DRAFT
   POSTED
@@ -73,6 +79,7 @@ enum CustomerPaymentStatus {
 
 enum DocumentType {
   SALES_INVOICE
+  CREDIT_NOTE
   CUSTOMER_PAYMENT_RECEIPT
   CUSTOMER_STATEMENT
 }
@@ -158,6 +165,7 @@ model User {
   postedEntries           JournalEntry[]       @relation("PostedBy")
   createdEntries          JournalEntry[]       @relation("CreatedBy")
   createdSalesInvoices    SalesInvoice[]       @relation("SalesInvoiceCreatedBy")
+  createdCreditNotes      CreditNote[]         @relation("CreditNoteCreatedBy")
   createdCustomerPayments CustomerPayment[]    @relation("CustomerPaymentCreatedBy")
   generatedDocuments      GeneratedDocument[]  @relation("GeneratedDocumentGeneratedBy")
 }
@@ -181,6 +189,8 @@ model Organization {
   items                      Item[]
   salesInvoices              SalesInvoice[]
   salesInvoiceLines          SalesInvoiceLine[]
+  creditNotes                CreditNote[]
+  creditNoteLines            CreditNoteLine[]
   customerPayments           CustomerPayment[]
   customerPaymentAllocations CustomerPaymentAllocation[]
   journalEntries             JournalEntry[]
@@ -407,6 +417,7 @@ model Branch {
   updatedAt      DateTime       @updatedAt
   organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   salesInvoices  SalesInvoice[]
+  creditNotes    CreditNote[]
 
   @@index([organizationId])
 }
@@ -430,6 +441,7 @@ model Contact {
   updatedAt        DateTime          @updatedAt
   organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   salesInvoices    SalesInvoice[]    @relation("SalesInvoiceCustomer")
+  creditNotes      CreditNote[]      @relation("CreditNoteCustomer")
   customerPayments CustomerPayment[] @relation("CustomerPaymentCustomer")
 
   @@index([organizationId])
@@ -456,6 +468,7 @@ model Account {
   itemRevenueItems  Item[]             @relation("ItemRevenueAccount")
   itemExpenseItems  Item[]             @relation("ItemExpenseAccount")
   salesInvoiceLines SalesInvoiceLine[]
+  creditNoteLines   CreditNoteLine[]
   customerPayments  CustomerPayment[]  @relation("CustomerPaymentAccount")
 
   @@unique([organizationId, code])
@@ -480,6 +493,7 @@ model TaxRate {
   itemSalesTaxItems    Item[]             @relation("ItemSalesTaxRate")
   itemPurchaseTaxItems Item[]             @relation("ItemPurchaseTaxRate")
   salesInvoiceLines    SalesInvoiceLine[]
+  creditNoteLines      CreditNoteLine[]
 
   @@unique([organizationId, name])
   @@index([organizationId])
@@ -508,6 +522,7 @@ model Item {
   expenseAccount    Account?           @relation("ItemExpenseAccount", fields: [expenseAccountId], references: [id])
   purchaseTaxRate   TaxRate?           @relation("ItemPurchaseTaxRate", fields: [purchaseTaxRateId], references: [id])
   salesInvoiceLines SalesInvoiceLine[]
+  creditNoteLines   CreditNoteLine[]
 
   @@unique([organizationId, sku])
   @@index([organizationId])
@@ -547,6 +562,7 @@ model SalesInvoice {
   reversalJournalEntry   JournalEntry?               @relation("SalesInvoiceReversalJournal", fields: [reversalJournalEntryId], references: [id])
   lines                  SalesInvoiceLine[]
   paymentAllocations     CustomerPaymentAllocation[]
+  creditNotes            CreditNote[]
   zatcaMetadata          ZatcaInvoiceMetadata?
 
   @@unique([organizationId, invoiceNumber])
@@ -583,6 +599,77 @@ model SalesInvoiceLine {
 
   @@index([organizationId])
   @@index([invoiceId])
+  @@index([itemId])
+  @@index([accountId])
+}
+
+model CreditNote {
+  id                     String           @id @default(uuid()) @db.Uuid
+  organizationId         String           @db.Uuid
+  creditNoteNumber       String
+  customerId             String           @db.Uuid
+  originalInvoiceId      String?          @db.Uuid
+  branchId               String?          @db.Uuid
+  issueDate              DateTime
+  currency               String           @default("SAR")
+  status                 CreditNoteStatus @default(DRAFT)
+  subtotal               Decimal          @default(0) @db.Decimal(20, 4)
+  discountTotal          Decimal          @default(0) @db.Decimal(20, 4)
+  taxableTotal           Decimal          @default(0) @db.Decimal(20, 4)
+  taxTotal               Decimal          @default(0) @db.Decimal(20, 4)
+  total                  Decimal          @default(0) @db.Decimal(20, 4)
+  unappliedAmount        Decimal          @default(0) @db.Decimal(20, 4)
+  notes                  String?
+  reason                 String?
+  createdById            String?          @db.Uuid
+  finalizedAt            DateTime?
+  journalEntryId         String?          @unique @db.Uuid
+  reversalJournalEntryId String?          @unique @db.Uuid
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+  organization           Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer               Contact          @relation("CreditNoteCustomer", fields: [customerId], references: [id])
+  originalInvoice        SalesInvoice?    @relation(fields: [originalInvoiceId], references: [id], onDelete: SetNull)
+  branch                 Branch?          @relation(fields: [branchId], references: [id])
+  createdBy              User?            @relation("CreditNoteCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  journalEntry           JournalEntry?    @relation("CreditNoteJournal", fields: [journalEntryId], references: [id])
+  reversalJournalEntry   JournalEntry?    @relation("CreditNoteReversalJournal", fields: [reversalJournalEntryId], references: [id])
+  lines                  CreditNoteLine[]
+
+  @@unique([organizationId, creditNoteNumber])
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([originalInvoiceId])
+  @@index([status])
+}
+
+model CreditNoteLine {
+  id              String      @id @default(uuid()) @db.Uuid
+  organizationId  String      @db.Uuid
+  creditNoteId    String      @db.Uuid
+  itemId          String?     @db.Uuid
+  description     String
+  accountId       String      @db.Uuid
+  quantity        Decimal     @db.Decimal(20, 4)
+  unitPrice       Decimal     @db.Decimal(20, 4)
+  discountRate    Decimal     @default(0) @db.Decimal(7, 4)
+  taxRateId       String?     @db.Uuid
+  lineGrossAmount Decimal     @default(0) @db.Decimal(20, 4)
+  discountAmount  Decimal     @default(0) @db.Decimal(20, 4)
+  taxableAmount   Decimal     @default(0) @db.Decimal(20, 4)
+  taxAmount       Decimal     @default(0) @db.Decimal(20, 4)
+  lineTotal       Decimal     @default(0) @db.Decimal(20, 4)
+  sortOrder       Int         @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creditNote      CreditNote   @relation(fields: [creditNoteId], references: [id], onDelete: Cascade)
+  item            Item?        @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  account         Account      @relation(fields: [accountId], references: [id])
+  taxRate         TaxRate?     @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([creditNoteId])
   @@index([itemId])
   @@index([accountId])
 }
@@ -661,6 +748,8 @@ model JournalEntry {
   reversedBy            JournalEntry?      @relation("JournalReversal")
   salesInvoice          SalesInvoice?      @relation("SalesInvoiceJournal")
   voidedSalesInvoice    SalesInvoice?      @relation("SalesInvoiceReversalJournal")
+  creditNote            CreditNote?        @relation("CreditNoteJournal")
+  voidedCreditNote      CreditNote?        @relation("CreditNoteReversalJournal")
   customerPayment       CustomerPayment?   @relation("CustomerPaymentJournal")
   voidedCustomerPayment CustomerPayment?   @relation("CustomerPaymentVoidReversalJournal")
   lines                 JournalLine[]

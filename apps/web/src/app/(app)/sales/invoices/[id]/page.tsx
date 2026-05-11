@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { creditNoteStatusBadgeClass, creditNoteStatusLabel } from "@/lib/credit-notes";
 import { deriveInvoicePaymentState, formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadAuthenticatedFile, downloadPdf, invoicePdfPath } from "@/lib/pdf-download";
@@ -313,6 +314,11 @@ export default function SalesInvoiceDetailPage() {
               Record payment
             </Link>
           ) : null}
+          {invoice?.status === "FINALIZED" && invoice.customerId ? (
+            <Link href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+              Create credit note
+            </Link>
+          ) : null}
           {invoice?.status === "DRAFT" ? (
             <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
               Finalize
@@ -414,9 +420,14 @@ export default function SalesInvoiceDetailPage() {
                 <p className="mt-1 text-sm text-steel">{deriveInvoicePaymentState(invoice.total, invoice.balanceDue)} with {formatMoneyAmount(invoice.balanceDue, invoice.currency)} balance due.</p>
               </div>
               {invoice.status === "FINALIZED" ? (
-                <Link href={`/sales/customer-payments/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
-                  Record payment
-                </Link>
+                <div className="flex flex-wrap gap-2">
+                  <Link href={`/sales/customer-payments/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+                    Record payment
+                  </Link>
+                  <Link href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+                    Create credit note
+                  </Link>
+                </div>
               ) : null}
             </div>
             {invoice.paymentAllocations && invoice.paymentAllocations.length > 0 ? (
@@ -455,6 +466,58 @@ export default function SalesInvoiceDetailPage() {
             ) : (
               <div className="px-5 py-4">
                 <StatusMessage type="empty">No payments have been applied to this invoice.</StatusMessage>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-md border border-slate-200 bg-white shadow-panel">
+            <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
+              <div>
+                <h2 className="text-base font-semibold text-ink">Credit notes</h2>
+                <p className="mt-1 text-sm text-steel">Linked credit notes reduce customer receivables when finalized. Allocation and refunds are future work.</p>
+              </div>
+              {invoice.status === "FINALIZED" ? (
+                <Link href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+                  Create credit note
+                </Link>
+              ) : null}
+            </div>
+            {invoice.creditNotes && invoice.creditNotes.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                    <tr>
+                      <th className="px-4 py-3">Credit note</th>
+                      <th className="px-4 py-3">Issue date</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Total</th>
+                      <th className="px-4 py-3">Unapplied</th>
+                      <th className="px-4 py-3">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {invoice.creditNotes.map((creditNote) => (
+                      <tr key={creditNote.id}>
+                        <td className="px-4 py-3 font-mono text-xs">{creditNote.creditNoteNumber}</td>
+                        <td className="px-4 py-3 text-steel">{new Date(creditNote.issueDate).toLocaleDateString()}</td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-md px-2 py-1 text-xs font-medium ${creditNoteStatusBadgeClass(creditNote.status)}`}>{creditNoteStatusLabel(creditNote.status)}</span>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(creditNote.total, creditNote.currency)}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(creditNote.unappliedAmount, creditNote.currency)}</td>
+                        <td className="px-4 py-3">
+                          <Link href={`/sales/credit-notes/${creditNote.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                            View credit note
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="px-5 py-4">
+                <StatusMessage type="empty">No credit notes are linked to this invoice.</StatusMessage>
               </div>
             )}
           </div>

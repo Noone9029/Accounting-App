@@ -1,7 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import {
   AccountingRuleError,
-  assertDraftInvoiceEditable,
   assertFinalizableSalesInvoice,
   calculateSalesInvoiceTotals,
   createReversalLines,
@@ -9,11 +8,11 @@ import {
   JournalLineInput,
   toMoney,
 } from "@ledgerbyte/accounting-core";
-import { InvoicePdfData, renderInvoicePdf } from "@ledgerbyte/pdf-core";
+import { CreditNotePdfData, renderCreditNotePdf } from "@ledgerbyte/pdf-core";
 import {
   AccountType,
   ContactType,
-  CustomerPaymentStatus,
+  CreditNoteStatus,
   DocumentType,
   ItemStatus,
   JournalEntryStatus,
@@ -21,23 +20,31 @@ import {
   Prisma,
   SalesInvoiceStatus,
   TaxRateScope,
-  ZatcaInvoiceType,
 } from "@prisma/client";
-import { AccountingService } from "../accounting/accounting.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { CreateSalesInvoiceDto } from "./dto/create-sales-invoice.dto";
-import { SalesInvoiceLineDto } from "./dto/sales-invoice-line.dto";
-import { UpdateSalesInvoiceDto } from "./dto/update-sales-invoice.dto";
-import { buildSalesInvoiceJournalLines } from "./sales-invoice-accounting";
+import { buildCreditNoteJournalLines } from "./credit-note-accounting";
+import { CreditNoteLineDto } from "./dto/credit-note-line.dto";
+import { CreateCreditNoteDto } from "./dto/create-credit-note.dto";
+import { UpdateCreditNoteDto } from "./dto/update-credit-note.dto";
 
-const salesInvoiceInclude = {
+const creditNoteInclude = {
   customer: { select: { id: true, name: true, displayName: true, type: true, taxNumber: true } },
+  originalInvoice: { select: { id: true, invoiceNumber: true, issueDate: true, total: true, status: true, customerId: true } },
   branch: { select: { id: true, name: true, displayName: true, taxNumber: true } },
-  journalEntry: { select: { id: true, entryNumber: true, status: true, totalDebit: true, totalCredit: true, reversedBy: { select: { id: true, entryNumber: true } } } },
+  journalEntry: {
+    select: {
+      id: true,
+      entryNumber: true,
+      status: true,
+      totalDebit: true,
+      totalCredit: true,
+      reversedBy: { select: { id: true, entryNumber: true } },
+    },
+  },
   reversalJournalEntry: { select: { id: true, entryNumber: true, status: true } },
   lines: {
     orderBy: { sortOrder: "asc" as const },
@@ -45,35 +52,6 @@ const salesInvoiceInclude = {
       item: { select: { id: true, name: true, sku: true } },
       account: { select: { id: true, code: true, name: true, type: true } },
       taxRate: { select: { id: true, name: true, rate: true } },
-    },
-  },
-  paymentAllocations: {
-    include: {
-      payment: {
-        select: {
-          id: true,
-          paymentNumber: true,
-          paymentDate: true,
-          status: true,
-          amountReceived: true,
-          unappliedAmount: true,
-        },
-      },
-    },
-    orderBy: { createdAt: "asc" as const },
-  },
-  creditNotes: {
-    orderBy: { issueDate: "desc" as const },
-    select: {
-      id: true,
-      creditNoteNumber: true,
-      issueDate: true,
-      currency: true,
-      status: true,
-      total: true,
-      unappliedAmount: true,
-      journalEntryId: true,
-      reversalJournalEntryId: true,
     },
   },
 };
@@ -91,12 +69,11 @@ interface PreparedLine {
   discountAmount: string;
   taxableAmount: string;
   taxAmount: string;
-  lineSubtotal: string;
   lineTotal: string;
   sortOrder: number;
 }
 
-interface PreparedInvoice {
+interface PreparedCreditNote {
   subtotal: string;
   discountTotal: string;
   taxableTotal: string;
@@ -108,22 +85,22 @@ interface PreparedInvoice {
 type PrismaExecutor = PrismaService | Prisma.TransactionClient;
 
 @Injectable()
-export class SalesInvoiceService {
+export class CreditNoteService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
     private readonly numberSequenceService: NumberSequenceService,
-    private readonly accountingService: AccountingService,
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
   ) {}
 
   list(organizationId: string) {
-    return this.prisma.salesInvoice.findMany({
+    return this.prisma.creditNote.findMany({
       where: { organizationId },
       orderBy: { issueDate: "desc" },
       include: {
         customer: { select: { id: true, name: true, displayName: true } },
+        originalInvoice: { select: { id: true, invoiceNumber: true, status: true, total: true } },
         branch: { select: { id: true, name: true, displayName: true } },
         journalEntry: { select: { id: true, entryNumber: true, status: true } },
         reversalJournalEntry: { select: { id: true, entryNumber: true, status: true } },
@@ -131,47 +108,41 @@ export class SalesInvoiceService {
     });
   }
 
-  open(organizationId: string, customerId?: string) {
-    if (!customerId) {
-      throw new BadRequestException("customerId is required.");
+  async listForInvoice(organizationId: string, invoiceId: string) {
+    const invoice = await this.prisma.salesInvoice.findFirst({
+      where: { id: invoiceId, organizationId },
+      select: { id: true },
+    });
+    if (!invoice) {
+      throw new NotFoundException("Sales invoice not found.");
     }
 
-    return this.prisma.salesInvoice.findMany({
-      where: {
-        organizationId,
-        customerId,
-        status: SalesInvoiceStatus.FINALIZED,
-        balanceDue: { gt: 0 },
-      },
-      orderBy: { issueDate: "asc" },
-      select: {
-        id: true,
-        invoiceNumber: true,
-        issueDate: true,
-        dueDate: true,
-        currency: true,
-        total: true,
-        balanceDue: true,
-        customerId: true,
+    return this.prisma.creditNote.findMany({
+      where: { organizationId, originalInvoiceId: invoiceId },
+      orderBy: { issueDate: "desc" },
+      include: {
+        customer: { select: { id: true, name: true, displayName: true } },
+        journalEntry: { select: { id: true, entryNumber: true, status: true } },
+        reversalJournalEntry: { select: { id: true, entryNumber: true, status: true } },
       },
     });
   }
 
   async get(organizationId: string, id: string) {
-    const invoice = await this.prisma.salesInvoice.findFirst({
+    const creditNote = await this.prisma.creditNote.findFirst({
       where: { id, organizationId },
-      include: salesInvoiceInclude,
+      include: creditNoteInclude,
     });
 
-    if (!invoice) {
-      throw new NotFoundException("Sales invoice not found.");
+    if (!creditNote) {
+      throw new NotFoundException("Credit note not found.");
     }
 
-    return invoice;
+    return creditNote;
   }
 
-  async pdfData(organizationId: string, id: string): Promise<InvoicePdfData> {
-    const invoice = await this.prisma.salesInvoice.findFirst({
+  async pdfData(organizationId: string, id: string): Promise<CreditNotePdfData> {
+    const creditNote = await this.prisma.creditNote.findFirst({
       where: { id, organizationId },
       include: {
         organization: {
@@ -198,60 +169,48 @@ export class SalesInvoiceService {
             countryCode: true,
           },
         },
+        originalInvoice: { select: { id: true, invoiceNumber: true, issueDate: true, total: true } },
+        journalEntry: { select: { id: true, entryNumber: true, status: true } },
         lines: {
           orderBy: { sortOrder: "asc" },
           include: {
             taxRate: { select: { name: true } },
           },
         },
-        paymentAllocations: {
-          orderBy: { createdAt: "asc" },
-          include: {
-            payment: {
-              select: {
-                paymentNumber: true,
-                paymentDate: true,
-                status: true,
-              },
-            },
-          },
-        },
-        zatcaMetadata: {
-          select: {
-            zatcaStatus: true,
-            invoiceUuid: true,
-            icv: true,
-            invoiceHash: true,
-            qrCodeBase64: true,
-          },
-        },
       },
     });
 
-    if (!invoice) {
-      throw new NotFoundException("Sales invoice not found.");
+    if (!creditNote) {
+      throw new NotFoundException("Credit note not found.");
     }
 
     return {
-      organization: invoice.organization,
-      customer: invoice.customer,
-      invoice: {
-        id: invoice.id,
-        invoiceNumber: invoice.invoiceNumber,
-        status: invoice.status,
-        issueDate: invoice.issueDate,
-        dueDate: invoice.dueDate,
-        currency: invoice.currency,
-        notes: invoice.notes,
-        terms: invoice.terms,
-        subtotal: moneyString(invoice.subtotal),
-        discountTotal: moneyString(invoice.discountTotal),
-        taxableTotal: moneyString(invoice.taxableTotal),
-        taxTotal: moneyString(invoice.taxTotal),
-        total: moneyString(invoice.total),
-        balanceDue: moneyString(invoice.balanceDue),
+      organization: creditNote.organization,
+      customer: creditNote.customer,
+      originalInvoice: creditNote.originalInvoice
+        ? {
+            id: creditNote.originalInvoice.id,
+            invoiceNumber: creditNote.originalInvoice.invoiceNumber,
+            issueDate: creditNote.originalInvoice.issueDate,
+            total: moneyString(creditNote.originalInvoice.total),
+          }
+        : null,
+      creditNote: {
+        id: creditNote.id,
+        creditNoteNumber: creditNote.creditNoteNumber,
+        status: creditNote.status,
+        issueDate: creditNote.issueDate,
+        currency: creditNote.currency,
+        notes: creditNote.notes,
+        reason: creditNote.reason,
+        subtotal: moneyString(creditNote.subtotal),
+        discountTotal: moneyString(creditNote.discountTotal),
+        taxableTotal: moneyString(creditNote.taxableTotal),
+        taxTotal: moneyString(creditNote.taxTotal),
+        total: moneyString(creditNote.total),
+        unappliedAmount: moneyString(creditNote.unappliedAmount),
       },
-      lines: invoice.lines.map((line) => ({
+      lines: creditNote.lines.map((line) => ({
         description: line.description,
         quantity: moneyString(line.quantity),
         unitPrice: moneyString(line.unitPrice),
@@ -263,21 +222,7 @@ export class SalesInvoiceService {
         lineTotal: moneyString(line.lineTotal),
         taxRateName: line.taxRate?.name ?? null,
       })),
-      payments: invoice.paymentAllocations.map((allocation) => ({
-        paymentNumber: allocation.payment.paymentNumber,
-        paymentDate: allocation.payment.paymentDate,
-        amountApplied: moneyString(allocation.amountApplied),
-        status: allocation.payment.status,
-      })),
-      zatca: invoice.zatcaMetadata
-        ? {
-            status: invoice.zatcaMetadata.zatcaStatus,
-            invoiceUuid: invoice.zatcaMetadata.invoiceUuid,
-            icv: invoice.zatcaMetadata.icv,
-            invoiceHash: invoice.zatcaMetadata.invoiceHash,
-            qrCodeBase64: invoice.zatcaMetadata.qrCodeBase64,
-          }
-        : null,
+      journalEntry: creditNote.journalEntry,
       generatedAt: new Date(),
     };
   }
@@ -286,17 +231,17 @@ export class SalesInvoiceService {
     organizationId: string,
     actorUserId: string,
     id: string,
-  ): Promise<{ data: InvoicePdfData; buffer: Buffer; filename: string; document: unknown | null }> {
+  ): Promise<{ data: CreditNotePdfData; buffer: Buffer; filename: string; document: unknown | null }> {
     const data = await this.pdfData(organizationId, id);
     const settings = await this.documentSettingsService?.invoiceRenderSettings(organizationId);
-    const buffer = await renderInvoicePdf(data, settings);
-    const filename = sanitizeFilename(`invoice-${data.invoice.invoiceNumber}.pdf`);
+    const buffer = await renderCreditNotePdf(data, { ...settings, title: "Credit Note" });
+    const filename = sanitizeFilename(`credit-note-${data.creditNote.creditNoteNumber}.pdf`);
     const document = await this.generatedDocumentService?.archivePdf({
       organizationId,
-      documentType: DocumentType.SALES_INVOICE,
-      sourceType: "SalesInvoice",
-      sourceId: data.invoice.id,
-      documentNumber: data.invoice.invoiceNumber,
+      documentType: DocumentType.CREDIT_NOTE,
+      sourceType: "CreditNote",
+      sourceId: data.creditNote.id,
+      documentNumber: data.creditNote.creditNoteNumber,
       filename,
       buffer,
       generatedById: actorUserId,
@@ -309,75 +254,100 @@ export class SalesInvoiceService {
     return document;
   }
 
-  async create(organizationId: string, actorUserId: string, dto: CreateSalesInvoiceDto) {
+  async create(organizationId: string, actorUserId: string, dto: CreateCreditNoteDto) {
+    const prepared = await this.prepareCreditNote(organizationId, dto.lines);
     await this.validateHeaderReferences(organizationId, dto.customerId, dto.branchId ?? undefined);
-    const prepared = await this.prepareInvoice(organizationId, dto.lines);
+    await this.validateOriginalInvoiceReference(
+      organizationId,
+      dto.customerId,
+      dto.originalInvoiceId ?? undefined,
+      prepared.total,
+      undefined,
+      this.prisma,
+    );
+
     const currency = (dto.currency ?? "SAR").toUpperCase();
+    const creditNote = await this.prisma.$transaction(async (tx) => {
+      const creditNoteNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.CREDIT_NOTE, tx);
 
-    const invoice = await this.prisma.$transaction(async (tx) => {
-      const invoiceNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.INVOICE, tx);
-
-      return tx.salesInvoice.create({
+      return tx.creditNote.create({
         data: {
           organizationId,
-          invoiceNumber,
+          creditNoteNumber,
           customerId: dto.customerId,
+          originalInvoiceId: this.cleanOptional(dto.originalInvoiceId ?? undefined),
           branchId: this.cleanOptional(dto.branchId ?? undefined),
           issueDate: new Date(dto.issueDate),
-          dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
           currency,
           subtotal: prepared.subtotal,
           discountTotal: prepared.discountTotal,
           taxableTotal: prepared.taxableTotal,
           taxTotal: prepared.taxTotal,
           total: prepared.total,
-          balanceDue: prepared.total,
+          unappliedAmount: prepared.total,
           notes: this.cleanOptional(dto.notes),
-          terms: this.cleanOptional(dto.terms),
+          reason: this.cleanOptional(dto.reason),
           createdById: actorUserId,
           lines: { create: this.toLineCreateMany(organizationId, prepared.lines) },
         },
-        include: salesInvoiceInclude,
+        include: creditNoteInclude,
       });
     });
 
-    await this.auditLogService.log({ organizationId, actorUserId, action: "CREATE", entityType: "SalesInvoice", entityId: invoice.id, after: invoice });
-    return invoice;
+    await this.auditLogService.log({ organizationId, actorUserId, action: "CREATE", entityType: "CreditNote", entityId: creditNote.id, after: creditNote });
+    return creditNote;
   }
 
-  async update(organizationId: string, actorUserId: string, id: string, dto: UpdateSalesInvoiceDto) {
+  async update(organizationId: string, actorUserId: string, id: string, dto: UpdateCreditNoteDto) {
     const existing = await this.get(organizationId, id);
     this.assertDraft(existing.status);
 
+    const nextCustomerId = dto.customerId ?? existing.customerId;
+    const nextBranchId = Object.prototype.hasOwnProperty.call(dto, "branchId")
+      ? this.cleanOptional(dto.branchId ?? undefined)
+      : existing.branchId ?? undefined;
+    const nextOriginalInvoiceId = Object.prototype.hasOwnProperty.call(dto, "originalInvoiceId")
+      ? this.cleanOptional(dto.originalInvoiceId ?? undefined)
+      : existing.originalInvoiceId ?? undefined;
+
     if (dto.customerId || Object.prototype.hasOwnProperty.call(dto, "branchId")) {
-      await this.validateHeaderReferences(organizationId, dto.customerId ?? existing.customerId, dto.branchId ?? undefined);
+      await this.validateHeaderReferences(organizationId, nextCustomerId, nextBranchId);
     }
 
-    const prepared = dto.lines ? await this.prepareInvoice(organizationId, dto.lines) : null;
+    const prepared = dto.lines ? await this.prepareCreditNote(organizationId, dto.lines) : null;
+    await this.validateOriginalInvoiceReference(
+      organizationId,
+      nextCustomerId,
+      nextOriginalInvoiceId,
+      prepared?.total ?? moneyString(existing.total),
+      id,
+      this.prisma,
+    );
+
     const updated = await this.prisma.$transaction(async (tx) => {
       if (prepared) {
-        await tx.salesInvoiceLine.deleteMany({ where: { organizationId, invoiceId: id } });
+        await tx.creditNoteLine.deleteMany({ where: { organizationId, creditNoteId: id } });
       }
 
-      return tx.salesInvoice.update({
+      return tx.creditNote.update({
         where: { id },
         data: {
           customerId: dto.customerId,
-          branchId: Object.prototype.hasOwnProperty.call(dto, "branchId") ? (this.cleanOptional(dto.branchId ?? undefined) ?? null) : undefined,
+          originalInvoiceId: Object.prototype.hasOwnProperty.call(dto, "originalInvoiceId") ? nextOriginalInvoiceId ?? null : undefined,
+          branchId: Object.prototype.hasOwnProperty.call(dto, "branchId") ? nextBranchId ?? null : undefined,
           issueDate: dto.issueDate ? new Date(dto.issueDate) : undefined,
-          dueDate: Object.prototype.hasOwnProperty.call(dto, "dueDate") ? (dto.dueDate ? new Date(dto.dueDate) : null) : undefined,
           currency: dto.currency?.toUpperCase(),
           subtotal: prepared?.subtotal,
           discountTotal: prepared?.discountTotal,
           taxableTotal: prepared?.taxableTotal,
           taxTotal: prepared?.taxTotal,
           total: prepared?.total,
-          balanceDue: prepared?.total,
+          unappliedAmount: prepared?.total,
           notes: dto.notes === undefined ? undefined : this.cleanOptional(dto.notes),
-          terms: dto.terms === undefined ? undefined : this.cleanOptional(dto.terms),
+          reason: dto.reason === undefined ? undefined : this.cleanOptional(dto.reason),
           lines: prepared ? { create: this.toLineCreateMany(organizationId, prepared.lines) } : undefined,
         },
-        include: salesInvoiceInclude,
+        include: creditNoteInclude,
       });
     });
 
@@ -385,7 +355,7 @@ export class SalesInvoiceService {
       organizationId,
       actorUserId,
       action: "UPDATE",
-      entityType: "SalesInvoice",
+      entityType: "CreditNote",
       entityId: id,
       before: existing,
       after: updated,
@@ -395,20 +365,18 @@ export class SalesInvoiceService {
 
   async finalize(organizationId: string, actorUserId: string, id: string) {
     const existing = await this.get(organizationId, id);
-    if (existing.status === SalesInvoiceStatus.FINALIZED && existing.journalEntryId) {
+    if (existing.status === CreditNoteStatus.FINALIZED && existing.journalEntryId) {
       return existing;
     }
-
-    if (existing.status === SalesInvoiceStatus.FINALIZED) {
-      throw new BadRequestException("Finalized invoice is missing its journal entry.");
+    if (existing.status === CreditNoteStatus.FINALIZED) {
+      throw new BadRequestException("Finalized credit note is missing its journal entry.");
     }
-
-    if (existing.status === SalesInvoiceStatus.VOIDED) {
-      throw new BadRequestException("Voided invoices cannot be finalized.");
+    if (existing.status === CreditNoteStatus.VOIDED) {
+      throw new BadRequestException("Voided credit notes cannot be finalized.");
     }
 
     const finalized = await this.prisma.$transaction(async (tx) => {
-      const invoice = await tx.salesInvoice.findFirst({
+      const creditNote = await tx.creditNote.findFirst({
         where: { id, organizationId },
         include: {
           customer: { select: { id: true, name: true, displayName: true } },
@@ -416,33 +384,29 @@ export class SalesInvoiceService {
         },
       });
 
-      if (!invoice) {
-        throw new NotFoundException("Sales invoice not found.");
+      if (!creditNote) {
+        throw new NotFoundException("Credit note not found.");
+      }
+      if (creditNote.status === CreditNoteStatus.FINALIZED && creditNote.journalEntryId) {
+        return tx.creditNote.findUniqueOrThrow({ where: { id }, include: creditNoteInclude });
+      }
+      if (creditNote.status === CreditNoteStatus.FINALIZED) {
+        throw new BadRequestException("Finalized credit note is missing its journal entry.");
+      }
+      if (creditNote.status === CreditNoteStatus.VOIDED) {
+        throw new BadRequestException("Voided credit notes cannot be finalized.");
+      }
+      if (creditNote.status !== CreditNoteStatus.DRAFT) {
+        throw new BadRequestException("Only draft credit notes can be finalized.");
       }
 
-      if (invoice.status === SalesInvoiceStatus.FINALIZED && invoice.journalEntryId) {
-        return tx.salesInvoice.findUniqueOrThrow({ where: { id }, include: salesInvoiceInclude });
-      }
-
-      if (invoice.status === SalesInvoiceStatus.FINALIZED) {
-        throw new BadRequestException("Finalized invoice is missing its journal entry.");
-      }
-
-      if (invoice.status === SalesInvoiceStatus.VOIDED) {
-        throw new BadRequestException("Voided invoices cannot be finalized.");
-      }
-
-      if (invoice.status !== SalesInvoiceStatus.DRAFT) {
-        throw new BadRequestException("Only draft invoices can be finalized.");
-      }
-
-      this.assertFinalizableInvoice({
-        subtotal: String(invoice.subtotal),
-        discountTotal: String(invoice.discountTotal),
-        taxableTotal: String(invoice.taxableTotal),
-        taxTotal: String(invoice.taxTotal),
-        total: String(invoice.total),
-        lines: invoice.lines.map((line) => ({
+      this.assertFinalizableCreditNote({
+        subtotal: String(creditNote.subtotal),
+        discountTotal: String(creditNote.discountTotal),
+        taxableTotal: String(creditNote.taxableTotal),
+        taxTotal: String(creditNote.taxTotal),
+        total: String(creditNote.total),
+        lines: creditNote.lines.map((line) => ({
           quantity: String(line.quantity),
           unitPrice: String(line.unitPrice),
           discountRate: String(line.discountRate),
@@ -454,37 +418,43 @@ export class SalesInvoiceService {
           lineTotal: String(line.lineTotal),
         })),
       });
+      await this.validateOriginalInvoiceReference(
+        organizationId,
+        creditNote.customerId,
+        creditNote.originalInvoiceId ?? undefined,
+        String(creditNote.total),
+        id,
+        tx,
+      );
 
-      // Conditional status claim is the concurrency boundary. Postgres locks the
-      // row for this update, so a competing finalize waits and then observes 0.
-      const claim = await tx.salesInvoice.updateMany({
+      const claim = await tx.creditNote.updateMany({
         where: {
           id,
           organizationId,
-          status: SalesInvoiceStatus.DRAFT,
+          status: CreditNoteStatus.DRAFT,
           journalEntryId: null,
         },
         data: {
-          status: SalesInvoiceStatus.FINALIZED,
+          status: CreditNoteStatus.FINALIZED,
           finalizedAt: new Date(),
-          balanceDue: invoice.total,
+          unappliedAmount: creditNote.total,
         },
       });
       if (claim.count !== 1) {
-        return tx.salesInvoice.findUniqueOrThrow({ where: { id }, include: salesInvoiceInclude });
+        return tx.creditNote.findUniqueOrThrow({ where: { id }, include: creditNoteInclude });
       }
 
       const accountsReceivableAccount = await this.findPostingAccountByCode(organizationId, "120", tx);
       const vatPayableAccount = await this.findPostingAccountByCode(organizationId, "220", tx);
-      const journalLines = buildSalesInvoiceJournalLines({
+      const journalLines = buildCreditNoteJournalLines({
         accountsReceivableAccountId: accountsReceivableAccount.id,
         vatPayableAccountId: vatPayableAccount.id,
-        invoiceNumber: invoice.invoiceNumber,
-        customerName: invoice.customer.displayName ?? invoice.customer.name,
-        currency: invoice.currency,
-        total: String(invoice.total),
-        taxTotal: String(invoice.taxTotal),
-        lines: invoice.lines.map((line) => ({
+        creditNoteNumber: creditNote.creditNoteNumber,
+        customerName: creditNote.customer.displayName ?? creditNote.customer.name,
+        currency: creditNote.currency,
+        total: String(creditNote.total),
+        taxTotal: String(creditNote.taxTotal),
+        lines: creditNote.lines.map((line) => ({
           accountId: line.accountId,
           description: line.description,
           taxableAmount: String(line.taxableAmount),
@@ -497,12 +467,12 @@ export class SalesInvoiceService {
           organizationId,
           entryNumber,
           status: JournalEntryStatus.POSTED,
-          entryDate: invoice.issueDate,
-          description: `Sales invoice ${invoice.invoiceNumber} - ${invoice.customer.displayName ?? invoice.customer.name}`,
-          reference: invoice.invoiceNumber,
-          currency: invoice.currency,
-          totalDebit: invoice.total,
-          totalCredit: invoice.total,
+          entryDate: creditNote.issueDate,
+          description: `Sales credit note ${creditNote.creditNoteNumber} - ${creditNote.customer.displayName ?? creditNote.customer.name}`,
+          reference: creditNote.creditNoteNumber,
+          currency: creditNote.currency,
+          totalDebit: creditNote.total,
+          totalCredit: creditNote.total,
           postedAt: new Date(),
           postedById: actorUserId,
           createdById: actorUserId,
@@ -510,32 +480,20 @@ export class SalesInvoiceService {
         },
       });
 
-      const finalizedInvoice = await tx.salesInvoice.update({
+      return tx.creditNote.update({
         where: { id },
         data: {
           journalEntryId: journalEntry.id,
         },
-        include: salesInvoiceInclude,
+        include: creditNoteInclude,
       });
-
-      await tx.zatcaInvoiceMetadata.upsert({
-        where: { invoiceId: id },
-        update: {},
-        create: {
-          organizationId,
-          invoiceId: id,
-          zatcaInvoiceType: ZatcaInvoiceType.STANDARD_TAX_INVOICE,
-        },
-      });
-
-      return finalizedInvoice;
     });
 
     await this.auditLogService.log({
       organizationId,
       actorUserId,
       action: "FINALIZE",
-      entityType: "SalesInvoice",
+      entityType: "CreditNote",
       entityId: id,
       before: existing,
       after: finalized,
@@ -545,76 +503,56 @@ export class SalesInvoiceService {
 
   async void(organizationId: string, actorUserId: string, id: string) {
     const existing = await this.get(organizationId, id);
-    if (existing.status === SalesInvoiceStatus.VOIDED) {
+    if (existing.status === CreditNoteStatus.VOIDED) {
       return existing;
     }
 
     const voided = await this.prisma.$transaction(async (tx) => {
-      const invoice = await tx.salesInvoice.findFirst({
+      const creditNote = await tx.creditNote.findFirst({
         where: { id, organizationId },
       });
 
-      if (!invoice) {
-        throw new NotFoundException("Sales invoice not found.");
+      if (!creditNote) {
+        throw new NotFoundException("Credit note not found.");
       }
-      if (invoice.status === SalesInvoiceStatus.VOIDED) {
-        return tx.salesInvoice.findUniqueOrThrow({ where: { id }, include: salesInvoiceInclude });
+      if (creditNote.status === CreditNoteStatus.VOIDED) {
+        return tx.creditNote.findUniqueOrThrow({ where: { id }, include: creditNoteInclude });
       }
-      if (invoice.status === SalesInvoiceStatus.DRAFT) {
-        const claim = await tx.salesInvoice.updateMany({
-          where: { id, organizationId, status: SalesInvoiceStatus.DRAFT },
+      if (creditNote.status === CreditNoteStatus.DRAFT) {
+        const claim = await tx.creditNote.updateMany({
+          where: { id, organizationId, status: CreditNoteStatus.DRAFT },
           data: {
-            status: SalesInvoiceStatus.VOIDED,
-            balanceDue: "0.0000",
+            status: CreditNoteStatus.VOIDED,
           },
         });
         if (claim.count !== 1) {
-          return tx.salesInvoice.findUniqueOrThrow({ where: { id }, include: salesInvoiceInclude });
+          return tx.creditNote.findUniqueOrThrow({ where: { id }, include: creditNoteInclude });
         }
-        return tx.salesInvoice.findUniqueOrThrow({ where: { id }, include: salesInvoiceInclude });
+        return tx.creditNote.findUniqueOrThrow({ where: { id }, include: creditNoteInclude });
       }
-      if (invoice.status !== SalesInvoiceStatus.FINALIZED) {
-        throw new BadRequestException("Only draft or finalized invoices can be voided.");
+      if (creditNote.status !== CreditNoteStatus.FINALIZED) {
+        throw new BadRequestException("Only draft or finalized credit notes can be voided.");
       }
-      if (!invoice.journalEntryId) {
-        throw new BadRequestException("Finalized invoice is missing its journal entry.");
+      if (!creditNote.journalEntryId) {
+        throw new BadRequestException("Finalized credit note is missing its journal entry.");
       }
 
-      // Claim the invoice row before checking allocations. This blocks concurrent
-      // payment allocation updates, then the count sees the latest committed state.
-      const claim = await tx.salesInvoice.updateMany({
-        where: { id, organizationId, status: SalesInvoiceStatus.FINALIZED },
+      const claim = await tx.creditNote.updateMany({
+        where: { id, organizationId, status: CreditNoteStatus.FINALIZED },
         data: {
-          status: SalesInvoiceStatus.VOIDED,
-          balanceDue: "0.0000",
+          status: CreditNoteStatus.VOIDED,
         },
       });
       if (claim.count !== 1) {
-        return tx.salesInvoice.findUniqueOrThrow({ where: { id }, include: salesInvoiceInclude });
+        return tx.creditNote.findUniqueOrThrow({ where: { id }, include: creditNoteInclude });
       }
 
-      const activePaymentCount = await tx.customerPaymentAllocation.count({
-        where: {
-          invoiceId: id,
-          organizationId,
-          payment: { status: { not: CustomerPaymentStatus.VOIDED } },
-        },
-      });
-      if (activePaymentCount > 0) {
-        throw new BadRequestException("Cannot void invoice with active payments. Void payments first.");
-      }
+      const reversalJournalEntryId = await this.createOrReuseReversalJournal(organizationId, actorUserId, creditNote.journalEntryId, tx);
 
-      const reversalJournalEntryId = await this.createOrReuseReversalJournal(
-        organizationId,
-        actorUserId,
-        invoice.journalEntryId,
-        tx,
-      );
-
-      return tx.salesInvoice.update({
+      return tx.creditNote.update({
         where: { id },
         data: { reversalJournalEntryId },
-        include: salesInvoiceInclude,
+        include: creditNoteInclude,
       });
     });
 
@@ -622,12 +560,256 @@ export class SalesInvoiceService {
       organizationId,
       actorUserId,
       action: "VOID",
-      entityType: "SalesInvoice",
+      entityType: "CreditNote",
       entityId: id,
       before: existing,
       after: voided,
     });
     return voided;
+  }
+
+  async remove(organizationId: string, actorUserId: string, id: string) {
+    const existing = await this.get(organizationId, id);
+    if (existing.status !== CreditNoteStatus.DRAFT || existing.journalEntryId) {
+      throw new BadRequestException("Only draft credit notes without journal entries can be deleted.");
+    }
+
+    await this.prisma.creditNote.delete({ where: { id } });
+    await this.auditLogService.log({ organizationId, actorUserId, action: "DELETE", entityType: "CreditNote", entityId: id, before: existing });
+    return { deleted: true };
+  }
+
+  private async validateHeaderReferences(organizationId: string, customerId: string, branchId?: string): Promise<void> {
+    const customer = await this.prisma.contact.findFirst({
+      where: {
+        id: customerId,
+        organizationId,
+        isActive: true,
+        type: { in: [ContactType.CUSTOMER, ContactType.BOTH] },
+      },
+      select: { id: true },
+    });
+
+    if (!customer) {
+      throw new BadRequestException("Customer must be an active customer contact in this organization.");
+    }
+
+    if (!branchId) {
+      return;
+    }
+
+    const branch = await this.prisma.branch.findFirst({ where: { id: branchId, organizationId }, select: { id: true } });
+    if (!branch) {
+      throw new BadRequestException("Branch does not exist in this organization.");
+    }
+  }
+
+  private async validateOriginalInvoiceReference(
+    organizationId: string,
+    customerId: string,
+    originalInvoiceId: string | undefined,
+    creditNoteTotal: string,
+    excludeCreditNoteId: string | undefined,
+    executor: PrismaExecutor,
+  ): Promise<void> {
+    if (!originalInvoiceId) {
+      return;
+    }
+
+    const invoice = await executor.salesInvoice.findFirst({
+      where: { id: originalInvoiceId, organizationId },
+      select: { id: true, customerId: true, status: true, total: true },
+    });
+
+    if (!invoice) {
+      throw new BadRequestException("Original invoice must belong to this organization.");
+    }
+    if (invoice.customerId !== customerId) {
+      throw new BadRequestException("Original invoice must belong to the selected customer.");
+    }
+    if (invoice.status !== SalesInvoiceStatus.FINALIZED) {
+      throw new BadRequestException("Original invoice must be finalized and not voided.");
+    }
+
+    const where: Prisma.CreditNoteWhereInput = {
+      organizationId,
+      originalInvoiceId,
+      status: { not: CreditNoteStatus.VOIDED },
+    };
+    if (excludeCreditNoteId) {
+      where.id = { not: excludeCreditNoteId };
+    }
+
+    const existing = await executor.creditNote.aggregate({
+      where,
+      _sum: { total: true },
+    });
+    const totalCredits = toMoney(existing._sum.total).plus(creditNoteTotal);
+    if (totalCredits.gt(invoice.total)) {
+      throw new BadRequestException("Total non-voided credit notes cannot exceed the original invoice total.");
+    }
+  }
+
+  private async prepareCreditNote(organizationId: string, lines: CreditNoteLineDto[]): Promise<PreparedCreditNote> {
+    const itemIds = [...new Set(lines.map((line) => line.itemId).filter((value): value is string => Boolean(value)))];
+    const items = await this.prisma.item.findMany({
+      where: { organizationId, id: { in: itemIds }, status: ItemStatus.ACTIVE },
+      select: { id: true, name: true, description: true, revenueAccountId: true, salesTaxRateId: true },
+    });
+
+    if (items.length !== itemIds.length) {
+      throw new BadRequestException("One or more items do not exist or are disabled.");
+    }
+
+    const itemsById = new Map(items.map((item) => [item.id, item]));
+    const baseLines = lines.map((line, index) => {
+      const item = line.itemId ? itemsById.get(line.itemId) : undefined;
+      const accountId = this.cleanOptional(line.accountId ?? undefined) ?? item?.revenueAccountId;
+      const taxRateId =
+        line.taxRateId === undefined ? item?.salesTaxRateId ?? undefined : this.cleanOptional(line.taxRateId ?? undefined);
+      const description = this.cleanOptional(line.description) ?? item?.description ?? item?.name;
+
+      if (!accountId) {
+        throw new BadRequestException(`Credit note line ${index + 1} requires a revenue account.`);
+      }
+
+      if (!description) {
+        throw new BadRequestException(`Credit note line ${index + 1} requires a description.`);
+      }
+
+      return {
+        itemId: this.cleanOptional(line.itemId ?? undefined),
+        description,
+        accountId,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        discountRate: line.discountRate ?? "0.0000",
+        taxRateId,
+        sortOrder: line.sortOrder ?? index,
+      };
+    });
+
+    await this.validateLineAccounts(organizationId, baseLines.map((line) => line.accountId));
+    const taxRatesById = await this.getTaxRatesById(
+      organizationId,
+      baseLines.map((line) => line.taxRateId).filter((value): value is string => Boolean(value)),
+    );
+
+    const totals = this.calculateTotals(
+      baseLines.map((line) => ({
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        discountRate: line.discountRate,
+        taxRate: line.taxRateId ? String(taxRatesById.get(line.taxRateId)?.rate ?? "0.0000") : "0.0000",
+      })),
+    );
+
+    return {
+      subtotal: totals.subtotal,
+      discountTotal: totals.discountTotal,
+      taxableTotal: totals.taxableTotal,
+      taxTotal: totals.taxTotal,
+      total: totals.total,
+      lines: baseLines.map((line, index) => {
+        const calculated = totals.lines[index];
+        if (!calculated) {
+          throw new BadRequestException("Unable to calculate credit note line totals.");
+        }
+
+        return {
+          ...line,
+          quantity: calculated.quantity,
+          unitPrice: calculated.unitPrice,
+          discountRate: calculated.discountRate,
+          taxRate: calculated.taxRate,
+          lineGrossAmount: calculated.lineGrossAmount,
+          discountAmount: calculated.discountAmount,
+          taxableAmount: calculated.taxableAmount,
+          taxAmount: calculated.taxAmount,
+          lineTotal: calculated.lineTotal,
+        };
+      }),
+    };
+  }
+
+  private calculateTotals(lines: Parameters<typeof calculateSalesInvoiceTotals>[0]) {
+    try {
+      return calculateSalesInvoiceTotals(lines);
+    } catch (error) {
+      if (error instanceof AccountingRuleError) {
+        throw new BadRequestException({ code: error.code, message: error.message });
+      }
+      throw error;
+    }
+  }
+
+  private assertFinalizableCreditNote(totals: ReturnType<typeof calculateSalesInvoiceTotals>): void {
+    try {
+      assertFinalizableSalesInvoice(totals);
+    } catch (error) {
+      if (error instanceof AccountingRuleError) {
+        throw new BadRequestException({ code: error.code, message: error.message });
+      }
+      throw error;
+    }
+  }
+
+  private async validateLineAccounts(organizationId: string, accountIds: string[]): Promise<void> {
+    const uniqueAccountIds = [...new Set(accountIds)];
+    const accounts = await this.prisma.account.findMany({
+      where: {
+        organizationId,
+        id: { in: uniqueAccountIds },
+        type: AccountType.REVENUE,
+        isActive: true,
+        allowPosting: true,
+      },
+      select: { id: true },
+    });
+
+    if (accounts.length !== uniqueAccountIds.length) {
+      throw new BadRequestException("Credit note line accounts must be active posting revenue accounts in this organization.");
+    }
+  }
+
+  private async getTaxRatesById(organizationId: string, taxRateIds: string[]) {
+    const uniqueTaxRateIds = [...new Set(taxRateIds)];
+    if (uniqueTaxRateIds.length === 0) {
+      return new Map<string, { id: string; rate: Prisma.Decimal }>();
+    }
+
+    const taxRates = await this.prisma.taxRate.findMany({
+      where: {
+        organizationId,
+        id: { in: uniqueTaxRateIds },
+        isActive: true,
+        scope: { in: [TaxRateScope.SALES, TaxRateScope.BOTH] },
+      },
+      select: { id: true, rate: true },
+    });
+
+    if (taxRates.length !== uniqueTaxRateIds.length) {
+      throw new BadRequestException("Credit note tax rates must be active sales tax rates in this organization.");
+    }
+
+    return new Map(taxRates.map((taxRate) => [taxRate.id, taxRate]));
+  }
+
+  private async findPostingAccountByCode(organizationId: string, code: string, executor: PrismaExecutor) {
+    const account = await executor.account.findFirst({
+      where: { organizationId, code, isActive: true, allowPosting: true },
+      select: { id: true },
+    });
+    if (!account) {
+      throw new BadRequestException(`Required posting account ${code} was not found.`);
+    }
+    return account;
+  }
+
+  private assertDraft(status: CreditNoteStatus): void {
+    if (status !== CreditNoteStatus.DRAFT) {
+      throw new BadRequestException("Only draft credit notes can be edited.");
+    }
   }
 
   private async createOrReuseReversalJournal(
@@ -696,211 +878,7 @@ export class SalesInvoiceService {
     }
   }
 
-  async remove(organizationId: string, actorUserId: string, id: string) {
-    const existing = await this.get(organizationId, id);
-    if (existing.status !== SalesInvoiceStatus.DRAFT || existing.journalEntryId) {
-      throw new BadRequestException("Only draft invoices without journal entries can be deleted.");
-    }
-
-    await this.prisma.salesInvoice.delete({ where: { id } });
-    await this.auditLogService.log({ organizationId, actorUserId, action: "DELETE", entityType: "SalesInvoice", entityId: id, before: existing });
-    return { deleted: true };
-  }
-
-  private async validateHeaderReferences(organizationId: string, customerId: string, branchId?: string): Promise<void> {
-    const customer = await this.prisma.contact.findFirst({
-      where: {
-        id: customerId,
-        organizationId,
-        isActive: true,
-        type: { in: [ContactType.CUSTOMER, ContactType.BOTH] },
-      },
-      select: { id: true },
-    });
-
-    if (!customer) {
-      throw new BadRequestException("Customer must be an active customer contact in this organization.");
-    }
-
-    if (!branchId) {
-      return;
-    }
-
-    const branch = await this.prisma.branch.findFirst({ where: { id: branchId, organizationId }, select: { id: true } });
-    if (!branch) {
-      throw new BadRequestException("Branch does not exist in this organization.");
-    }
-  }
-
-  private async prepareInvoice(organizationId: string, lines: SalesInvoiceLineDto[]): Promise<PreparedInvoice> {
-    const itemIds = [...new Set(lines.map((line) => line.itemId).filter((value): value is string => Boolean(value)))];
-    const items = await this.prisma.item.findMany({
-      where: { organizationId, id: { in: itemIds }, status: ItemStatus.ACTIVE },
-      select: { id: true, name: true, description: true, revenueAccountId: true, salesTaxRateId: true },
-    });
-
-    if (items.length !== itemIds.length) {
-      throw new BadRequestException("One or more items do not exist or are disabled.");
-    }
-
-    const itemsById = new Map(items.map((item) => [item.id, item]));
-    const baseLines = lines.map((line, index) => {
-      const item = line.itemId ? itemsById.get(line.itemId) : undefined;
-      const accountId = this.cleanOptional(line.accountId ?? undefined) ?? item?.revenueAccountId;
-      const taxRateId =
-        line.taxRateId === undefined ? item?.salesTaxRateId ?? undefined : this.cleanOptional(line.taxRateId ?? undefined);
-      const description = this.cleanOptional(line.description) ?? item?.description ?? item?.name;
-
-      if (!accountId) {
-        throw new BadRequestException(`Invoice line ${index + 1} requires a revenue account.`);
-      }
-
-      if (!description) {
-        throw new BadRequestException(`Invoice line ${index + 1} requires a description.`);
-      }
-
-      return {
-        itemId: this.cleanOptional(line.itemId ?? undefined),
-        description,
-        accountId,
-        quantity: line.quantity,
-        unitPrice: line.unitPrice,
-        discountRate: line.discountRate ?? "0.0000",
-        taxRateId,
-        sortOrder: line.sortOrder ?? index,
-      };
-    });
-
-    await this.validateLineAccounts(organizationId, baseLines.map((line) => line.accountId));
-    const taxRatesById = await this.getTaxRatesById(
-      organizationId,
-      baseLines.map((line) => line.taxRateId).filter((value): value is string => Boolean(value)),
-    );
-
-    const totals = this.calculateTotals(
-      baseLines.map((line) => ({
-        quantity: line.quantity,
-        unitPrice: line.unitPrice,
-        discountRate: line.discountRate,
-        taxRate: line.taxRateId ? String(taxRatesById.get(line.taxRateId)?.rate ?? "0.0000") : "0.0000",
-      })),
-    );
-
-    return {
-      subtotal: totals.subtotal,
-      discountTotal: totals.discountTotal,
-      taxableTotal: totals.taxableTotal,
-      taxTotal: totals.taxTotal,
-      total: totals.total,
-      lines: baseLines.map((line, index) => {
-        const calculated = totals.lines[index];
-        if (!calculated) {
-          throw new BadRequestException("Unable to calculate invoice line totals.");
-        }
-
-        return {
-          ...line,
-          quantity: calculated.quantity,
-          unitPrice: calculated.unitPrice,
-          discountRate: calculated.discountRate,
-          taxRate: calculated.taxRate,
-          lineGrossAmount: calculated.lineGrossAmount,
-          discountAmount: calculated.discountAmount,
-          taxableAmount: calculated.taxableAmount,
-          taxAmount: calculated.taxAmount,
-          lineSubtotal: calculated.taxableAmount,
-          lineTotal: calculated.lineTotal,
-        };
-      }),
-    };
-  }
-
-  private calculateTotals(lines: Parameters<typeof calculateSalesInvoiceTotals>[0]) {
-    try {
-      return calculateSalesInvoiceTotals(lines);
-    } catch (error) {
-      if (error instanceof AccountingRuleError) {
-        throw new BadRequestException({ code: error.code, message: error.message });
-      }
-      throw error;
-    }
-  }
-
-  private assertFinalizableInvoice(totals: ReturnType<typeof calculateSalesInvoiceTotals>): void {
-    try {
-      assertFinalizableSalesInvoice(totals);
-    } catch (error) {
-      if (error instanceof AccountingRuleError) {
-        throw new BadRequestException({ code: error.code, message: error.message });
-      }
-      throw error;
-    }
-  }
-
-  private async validateLineAccounts(organizationId: string, accountIds: string[]): Promise<void> {
-    const uniqueAccountIds = [...new Set(accountIds)];
-    const accounts = await this.prisma.account.findMany({
-      where: {
-        organizationId,
-        id: { in: uniqueAccountIds },
-        type: AccountType.REVENUE,
-        isActive: true,
-        allowPosting: true,
-      },
-      select: { id: true },
-    });
-
-    if (accounts.length !== uniqueAccountIds.length) {
-      throw new BadRequestException("Invoice line accounts must be active posting revenue accounts in this organization.");
-    }
-  }
-
-  private async getTaxRatesById(organizationId: string, taxRateIds: string[]) {
-    const uniqueTaxRateIds = [...new Set(taxRateIds)];
-    if (uniqueTaxRateIds.length === 0) {
-      return new Map<string, { id: string; rate: Prisma.Decimal }>();
-    }
-
-    const taxRates = await this.prisma.taxRate.findMany({
-      where: {
-        organizationId,
-        id: { in: uniqueTaxRateIds },
-        isActive: true,
-        scope: { in: [TaxRateScope.SALES, TaxRateScope.BOTH] },
-      },
-      select: { id: true, rate: true },
-    });
-
-    if (taxRates.length !== uniqueTaxRateIds.length) {
-      throw new BadRequestException("Invoice tax rates must be active sales tax rates in this organization.");
-    }
-
-    return new Map(taxRates.map((taxRate) => [taxRate.id, taxRate]));
-  }
-
-  private async findPostingAccountByCode(organizationId: string, code: string, executor: PrismaExecutor) {
-    const account = await executor.account.findFirst({
-      where: { organizationId, code, isActive: true, allowPosting: true },
-      select: { id: true },
-    });
-    if (!account) {
-      throw new BadRequestException(`Required posting account ${code} was not found.`);
-    }
-    return account;
-  }
-
-  private assertDraft(status: SalesInvoiceStatus): void {
-    try {
-      assertDraftInvoiceEditable(status);
-    } catch (error) {
-      if (error instanceof AccountingRuleError) {
-        throw new BadRequestException({ code: error.code, message: error.message });
-      }
-      throw error;
-    }
-  }
-
-  private toLineCreateMany(organizationId: string, lines: PreparedLine[]): Prisma.SalesInvoiceLineCreateWithoutInvoiceInput[] {
+  private toLineCreateMany(organizationId: string, lines: PreparedLine[]): Prisma.CreditNoteLineCreateWithoutCreditNoteInput[] {
     return lines.map((line) => ({
       organization: { connect: { id: organizationId } },
       item: line.itemId ? { connect: { id: line.itemId } } : undefined,
@@ -914,7 +892,6 @@ export class SalesInvoiceService {
       discountAmount: line.discountAmount,
       taxableAmount: line.taxableAmount,
       taxAmount: line.taxAmount,
-      lineSubtotal: line.lineSubtotal,
       lineTotal: line.lineTotal,
       sortOrder: line.sortOrder,
     }));

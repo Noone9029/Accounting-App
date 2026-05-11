@@ -8,7 +8,7 @@ import { formatOptionalDate } from "@/lib/invoice-display";
 import { downloadPdf, generatedDocumentDownloadPath } from "@/lib/pdf-download";
 import type { DocumentType, GeneratedDocument, GeneratedDocumentStatus } from "@/lib/types";
 
-const documentTypes: Array<"" | DocumentType> = ["", "SALES_INVOICE", "CUSTOMER_PAYMENT_RECEIPT", "CUSTOMER_STATEMENT"];
+const documentTypes: Array<"" | DocumentType> = ["", "SALES_INVOICE", "CREDIT_NOTE", "CUSTOMER_PAYMENT_RECEIPT", "CUSTOMER_STATEMENT"];
 const statuses: Array<"" | GeneratedDocumentStatus> = ["", "GENERATED", "FAILED", "SUPERSEDED"];
 
 export default function GeneratedDocumentsPage() {

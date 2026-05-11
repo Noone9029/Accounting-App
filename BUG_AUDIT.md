@@ -491,6 +491,31 @@ Commit inspected: pending (`Add ZATCA SDK validation wrapper groundwork`)
 - SDK validation is not wired into normal app startup or normal invoice generation.
 - No signing, hash replacement, real API calls, PDF/A-3, production CSID, clearance, or reporting behavior was implemented.
 
+## Sales Credit Notes MVP
+
+Audit date: 2026-05-12
+
+Commit inspected: pending (`Add sales credit notes MVP`)
+
+### Credit Notes Added
+
+- Added `CreditNoteStatus`, `CreditNote`, and `CreditNoteLine` schema models with tenant-scoped relations to customer, optional original sales invoice, branch, item, account, tax rate, journal entry, and reversal journal entry.
+- Added authenticated credit note APIs for list/create/detail/update/delete/finalize/void plus PDF data/PDF endpoints and invoice-linked credit note listing.
+- Added credit note calculation using the same server-side invoice line semantics for gross, discount, taxable amount, tax, and total.
+- Added finalization posting: debit revenue by line taxable amount, debit VAT Payable for tax, and credit Accounts Receivable for the credit note total.
+- Added void posting through one reusable reversal journal and idempotent finalize/void behavior.
+- Added customer ledger and statement rows for finalized and voided credit notes.
+- Added operational credit note PDF rendering and generated document archive support with `DocumentType.CREDIT_NOTE`.
+- Added frontend credit note list/create/detail/edit pages, invoice detail links/linked rows, and contact ledger navigation.
+- Extended smoke coverage for credit note create/finalize, linked invoice listing, ledger row, PDF endpoint, and archived PDF download.
+
+### Remaining Credit Note Risks
+
+- Credit note allocation/refund application is not implemented; `unappliedAmount` is an audit value only.
+- ZATCA credit note XML, signing, PDF/A-3 embedding, clearance, and reporting are not implemented.
+- Inventory returns and stock valuation effects are not implemented.
+- Credit notes do not currently mutate original invoice `balanceDue`; future allocation behavior must define how invoice balances, refunds, and customer credits interact.
+
 ## Remaining Risks
 
 - The concurrency strategy relies on PostgreSQL row locks produced by conditional updates inside Prisma transactions. A small multi-process load test is still recommended before production.

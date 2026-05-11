@@ -6,9 +6,17 @@ export type JournalStatus = "DRAFT" | "POSTED" | "VOIDED" | "REVERSED";
 export type ItemType = "SERVICE" | "PRODUCT";
 export type ItemStatus = "ACTIVE" | "DISABLED";
 export type SalesInvoiceStatus = "DRAFT" | "FINALIZED" | "VOIDED";
+export type CreditNoteStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type CustomerPaymentStatus = "DRAFT" | "POSTED" | "VOIDED";
-export type CustomerLedgerRowType = "INVOICE" | "PAYMENT" | "PAYMENT_ALLOCATION" | "VOID_PAYMENT" | "VOID_INVOICE";
-export type DocumentType = "SALES_INVOICE" | "CUSTOMER_PAYMENT_RECEIPT" | "CUSTOMER_STATEMENT";
+export type CustomerLedgerRowType =
+  | "INVOICE"
+  | "CREDIT_NOTE"
+  | "VOID_CREDIT_NOTE"
+  | "PAYMENT"
+  | "PAYMENT_ALLOCATION"
+  | "VOID_PAYMENT"
+  | "VOID_INVOICE";
+export type DocumentType = "SALES_INVOICE" | "CREDIT_NOTE" | "CUSTOMER_PAYMENT_RECEIPT" | "CUSTOMER_STATEMENT";
 export type GeneratedDocumentStatus = "GENERATED" | "FAILED" | "SUPERSEDED";
 export type ZatcaEnvironment = "SANDBOX" | "SIMULATION" | "PRODUCTION";
 export type ZatcaRegistrationStatus = "NOT_CONFIGURED" | "DRAFT" | "READY_FOR_CSR" | "OTP_REQUIRED" | "CERTIFICATE_ISSUED" | "ACTIVE" | "SUSPENDED";
@@ -194,6 +202,57 @@ export interface CustomerPaymentAllocation {
   };
 }
 
+export interface CreditNoteLine {
+  id: string;
+  organizationId: string;
+  creditNoteId: string;
+  itemId: string | null;
+  description: string;
+  accountId: string;
+  quantity: string;
+  unitPrice: string;
+  discountRate: string;
+  taxRateId: string | null;
+  lineGrossAmount: string;
+  discountAmount: string;
+  taxableAmount: string;
+  taxAmount: string;
+  lineTotal: string;
+  sortOrder: number;
+  item?: { id: string; name: string; sku: string | null } | null;
+  account?: { id: string; code: string; name: string; type: AccountType };
+  taxRate?: { id: string; name: string; rate: string } | null;
+}
+
+export interface CreditNote {
+  id: string;
+  organizationId: string;
+  creditNoteNumber: string;
+  customerId: string;
+  originalInvoiceId: string | null;
+  branchId: string | null;
+  issueDate: string;
+  currency: string;
+  status: CreditNoteStatus;
+  subtotal: string;
+  discountTotal: string;
+  taxableTotal: string;
+  taxTotal: string;
+  total: string;
+  unappliedAmount: string;
+  notes: string | null;
+  reason: string | null;
+  finalizedAt: string | null;
+  journalEntryId: string | null;
+  reversalJournalEntryId: string | null;
+  customer?: { id: string; name: string; displayName: string | null; type?: ContactType; taxNumber?: string | null };
+  originalInvoice?: { id: string; invoiceNumber: string; issueDate?: string; status: SalesInvoiceStatus; total: string; customerId?: string } | null;
+  branch?: { id: string; name: string; displayName: string | null; taxNumber?: string | null } | null;
+  journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit?: string; totalCredit?: string } | null;
+  reversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
+  lines?: CreditNoteLine[];
+}
+
 export interface CustomerPayment {
   id: string;
   organizationId: string;
@@ -226,7 +285,7 @@ export interface CustomerLedgerRow {
   debit: string;
   credit: string;
   balance: string;
-  sourceType: "SalesInvoice" | "CustomerPayment" | "CustomerPaymentAllocation";
+  sourceType: "SalesInvoice" | "CreditNote" | "CustomerPayment" | "CustomerPaymentAllocation";
   sourceId: string;
   status: string;
   metadata: Record<string, unknown>;
@@ -302,6 +361,7 @@ export interface SalesInvoice {
   journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit: string; totalCredit: string } | null;
   reversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
   paymentAllocations?: CustomerPaymentAllocation[];
+  creditNotes?: CreditNote[];
   lines?: SalesInvoiceLine[];
 }
 

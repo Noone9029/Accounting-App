@@ -4,6 +4,10 @@ export function invoicePdfPath(invoiceId: string): string {
   return `/sales-invoices/${encodeURIComponent(invoiceId)}/pdf`;
 }
 
+export function creditNotePdfPath(creditNoteId: string): string {
+  return `/credit-notes/${encodeURIComponent(creditNoteId)}/pdf`;
+}
+
 export function receiptPdfPath(paymentId: string): string {
   return `/customer-payments/${encodeURIComponent(paymentId)}/receipt.pdf`;
 }

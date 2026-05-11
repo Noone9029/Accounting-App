@@ -1,50 +1,41 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Res, StreamableFile, UseGuards } from "@nestjs/common";
 import type { Response } from "express";
 import { AuthenticatedUser } from "../auth/auth.types";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
-import { CreditNoteService } from "../credit-notes/credit-note.service";
-import { CreateSalesInvoiceDto } from "./dto/create-sales-invoice.dto";
-import { UpdateSalesInvoiceDto } from "./dto/update-sales-invoice.dto";
-import { SalesInvoiceService } from "./sales-invoice.service";
+import { CreditNoteService } from "./credit-note.service";
+import { CreateCreditNoteDto } from "./dto/create-credit-note.dto";
+import { UpdateCreditNoteDto } from "./dto/update-credit-note.dto";
 
-@Controller("sales-invoices")
+@Controller("credit-notes")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard)
-export class SalesInvoiceController {
-  constructor(
-    private readonly salesInvoiceService: SalesInvoiceService,
-    private readonly creditNoteService: CreditNoteService,
-  ) {}
+export class CreditNoteController {
+  constructor(private readonly creditNoteService: CreditNoteService) {}
 
   @Get()
   list(@CurrentOrganizationId() organizationId: string) {
-    return this.salesInvoiceService.list(organizationId);
-  }
-
-  @Get("open")
-  open(@CurrentOrganizationId() organizationId: string, @Query("customerId") customerId?: string) {
-    return this.salesInvoiceService.open(organizationId, customerId);
+    return this.creditNoteService.list(organizationId);
   }
 
   @Post()
   create(
     @CurrentOrganizationId() organizationId: string,
     @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: CreateSalesInvoiceDto,
+    @Body() dto: CreateCreditNoteDto,
   ) {
-    return this.salesInvoiceService.create(organizationId, user.id, dto);
+    return this.creditNoteService.create(organizationId, user.id, dto);
   }
 
   @Get(":id")
   get(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
-    return this.salesInvoiceService.get(organizationId, id);
+    return this.creditNoteService.get(organizationId, id);
   }
 
   @Get(":id/pdf-data")
   pdfData(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
-    return this.salesInvoiceService.pdfData(organizationId, id);
+    return this.creditNoteService.pdfData(organizationId, id);
   }
 
   @Get(":id/pdf")
@@ -54,7 +45,7 @@ export class SalesInvoiceController {
     @Param("id") id: string,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const { buffer, filename } = await this.salesInvoiceService.pdf(organizationId, user.id, id);
+    const { buffer, filename } = await this.creditNoteService.pdf(organizationId, user.id, id);
     response.set({
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="${filename}"`,
@@ -63,14 +54,9 @@ export class SalesInvoiceController {
     return new StreamableFile(buffer);
   }
 
-  @Get(":id/credit-notes")
-  creditNotes(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
-    return this.creditNoteService.listForInvoice(organizationId, id);
-  }
-
   @Post(":id/generate-pdf")
   generatePdf(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
-    return this.salesInvoiceService.generatePdf(organizationId, user.id, id);
+    return this.creditNoteService.generatePdf(organizationId, user.id, id);
   }
 
   @Patch(":id")
@@ -78,23 +64,23 @@ export class SalesInvoiceController {
     @CurrentOrganizationId() organizationId: string,
     @CurrentUser() user: AuthenticatedUser,
     @Param("id") id: string,
-    @Body() dto: UpdateSalesInvoiceDto,
+    @Body() dto: UpdateCreditNoteDto,
   ) {
-    return this.salesInvoiceService.update(organizationId, user.id, id, dto);
+    return this.creditNoteService.update(organizationId, user.id, id, dto);
   }
 
   @Post(":id/finalize")
   finalize(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
-    return this.salesInvoiceService.finalize(organizationId, user.id, id);
+    return this.creditNoteService.finalize(organizationId, user.id, id);
   }
 
   @Post(":id/void")
   void(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
-    return this.salesInvoiceService.void(organizationId, user.id, id);
+    return this.creditNoteService.void(organizationId, user.id, id);
   }
 
   @Delete(":id")
   remove(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
-    return this.salesInvoiceService.remove(organizationId, user.id, id);
+    return this.creditNoteService.remove(organizationId, user.id, id);
   }
 }
