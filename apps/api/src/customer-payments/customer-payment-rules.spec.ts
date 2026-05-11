@@ -1,6 +1,6 @@
 import { BadRequestException } from "@nestjs/common";
 import { assertBalancedJournal } from "@ledgerbyte/accounting-core";
-import { CustomerPaymentStatus, DocumentType, JournalEntryStatus, SalesInvoiceStatus } from "@prisma/client";
+import { CustomerPaymentStatus, CustomerRefundStatus, DocumentType, JournalEntryStatus, SalesInvoiceStatus } from "@prisma/client";
 import { buildCustomerPaymentJournalLines } from "./customer-payment-accounting";
 import { CustomerPaymentService } from "./customer-payment.service";
 import type { CreateCustomerPaymentDto } from "./dto/create-customer-payment.dto";
@@ -197,6 +197,24 @@ describe("customer payment rules", () => {
     });
     await expect(service.void("org-1", "user-1", "payment-1")).resolves.toMatchObject({ status: CustomerPaymentStatus.VOIDED });
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks voiding payments with posted customer refunds", async () => {
+    const tx = makeVoidTransactionMock({ refundCount: 1 });
+    const prisma = {
+      customerPayment: {
+        findFirst: jest.fn().mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED, journalEntryId: "journal-1" }),
+      },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await expect(service.void("org-1", "user-1", "payment-1")).rejects.toThrow("Cannot void customer payment with posted refunds. Void refunds first.");
+    expect(tx.customerRefund.count).toHaveBeenCalledWith({
+      where: { organizationId: "org-1", sourcePaymentId: "payment-1", status: CustomerRefundStatus.POSTED },
+    });
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+    expect(tx.salesInvoice.updateMany).not.toHaveBeenCalled();
   });
 
   it("does not create a second reversal when an existing reversal is linked", async () => {
@@ -450,7 +468,7 @@ function makeCreateTransactionMock(
   };
 }
 
-function makeVoidTransactionMock(options: { reversedById?: string; voidClaimCount?: number } = {}) {
+function makeVoidTransactionMock(options: { reversedById?: string; voidClaimCount?: number; refundCount?: number } = {}) {
   return {
     customerPayment: {
       findFirst: jest.fn().mockResolvedValue({
@@ -498,6 +516,9 @@ function makeVoidTransactionMock(options: { reversedById?: string; voidClaimCoun
     journalEntry: {
       create: jest.fn().mockResolvedValue({ id: "reversal-1" }),
       update: jest.fn(),
+    },
+    customerRefund: {
+      count: jest.fn().mockResolvedValue(options.refundCount ?? 0),
     },
     salesInvoice: { updateMany: jest.fn() },
   };

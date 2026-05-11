@@ -12,6 +12,10 @@ export function receiptPdfPath(paymentId: string): string {
   return `/customer-payments/${encodeURIComponent(paymentId)}/receipt.pdf`;
 }
 
+export function customerRefundPdfPath(refundId: string): string {
+  return `/customer-refunds/${encodeURIComponent(refundId)}/pdf`;
+}
+
 export function statementPdfPath(contactId: string, from?: string, to?: string): string {
   const query = new URLSearchParams();
   if (from) {

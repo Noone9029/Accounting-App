@@ -8,6 +8,8 @@ export type ItemStatus = "ACTIVE" | "DISABLED";
 export type SalesInvoiceStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type CreditNoteStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type CustomerPaymentStatus = "DRAFT" | "POSTED" | "VOIDED";
+export type CustomerRefundStatus = "DRAFT" | "POSTED" | "VOIDED";
+export type CustomerRefundSourceType = "CUSTOMER_PAYMENT" | "CREDIT_NOTE";
 export type CustomerLedgerRowType =
   | "INVOICE"
   | "CREDIT_NOTE"
@@ -17,8 +19,10 @@ export type CustomerLedgerRowType =
   | "PAYMENT"
   | "PAYMENT_ALLOCATION"
   | "VOID_PAYMENT"
+  | "CUSTOMER_REFUND"
+  | "VOID_CUSTOMER_REFUND"
   | "VOID_INVOICE";
-export type DocumentType = "SALES_INVOICE" | "CREDIT_NOTE" | "CUSTOMER_PAYMENT_RECEIPT" | "CUSTOMER_STATEMENT";
+export type DocumentType = "SALES_INVOICE" | "CREDIT_NOTE" | "CUSTOMER_PAYMENT_RECEIPT" | "CUSTOMER_REFUND" | "CUSTOMER_STATEMENT";
 export type GeneratedDocumentStatus = "GENERATED" | "FAILED" | "SUPERSEDED";
 export type ZatcaEnvironment = "SANDBOX" | "SIMULATION" | "PRODUCTION";
 export type ZatcaRegistrationStatus = "NOT_CONFIGURED" | "DRAFT" | "READY_FOR_CSR" | "OTP_REQUIRED" | "CERTIFICATE_ISSUED" | "ACTIVE" | "SUSPENDED";
@@ -310,6 +314,70 @@ export interface CustomerPayment {
   allocations?: CustomerPaymentAllocation[];
 }
 
+export interface CustomerRefund {
+  id: string;
+  organizationId: string;
+  refundNumber: string;
+  customerId: string;
+  sourceType: CustomerRefundSourceType;
+  sourcePaymentId: string | null;
+  sourceCreditNoteId: string | null;
+  refundDate: string;
+  currency: string;
+  status: CustomerRefundStatus;
+  amountRefunded: string;
+  accountId: string;
+  description: string | null;
+  journalEntryId: string | null;
+  voidReversalJournalEntryId: string | null;
+  postedAt: string | null;
+  voidedAt: string | null;
+  customer?: { id: string; name: string; displayName: string | null; type?: ContactType };
+  account?: { id: string; code: string; name: string; type?: AccountType };
+  sourcePayment?: {
+    id: string;
+    paymentNumber: string;
+    paymentDate: string;
+    status: CustomerPaymentStatus;
+    amountReceived: string;
+    unappliedAmount: string;
+    currency: string;
+  } | null;
+  sourceCreditNote?: {
+    id: string;
+    creditNoteNumber: string;
+    issueDate: string;
+    status: CreditNoteStatus;
+    total: string;
+    unappliedAmount: string;
+    currency: string;
+  } | null;
+  journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit?: string; totalCredit?: string } | null;
+  voidReversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
+}
+
+export interface CustomerRefundableSources {
+  customer: { id: string; name: string; displayName: string | null };
+  payments: Array<{
+    id: string;
+    paymentNumber: string;
+    paymentDate: string;
+    currency: string;
+    status: CustomerPaymentStatus;
+    amountReceived: string;
+    unappliedAmount: string;
+  }>;
+  creditNotes: Array<{
+    id: string;
+    creditNoteNumber: string;
+    issueDate: string;
+    currency: string;
+    status: CreditNoteStatus;
+    total: string;
+    unappliedAmount: string;
+  }>;
+}
+
 export interface CustomerLedgerRow {
   id: string;
   type: CustomerLedgerRowType;
@@ -319,7 +387,7 @@ export interface CustomerLedgerRow {
   debit: string;
   credit: string;
   balance: string;
-  sourceType: "SalesInvoice" | "CreditNote" | "CreditNoteAllocation" | "CustomerPayment" | "CustomerPaymentAllocation";
+  sourceType: "SalesInvoice" | "CreditNote" | "CreditNoteAllocation" | "CustomerPayment" | "CustomerPaymentAllocation" | "CustomerRefund";
   sourceId: string;
   status: string;
   metadata: Record<string, unknown>;
@@ -356,6 +424,33 @@ export interface CustomerPaymentReceiptData {
   }>;
   journalEntry: { id: string; entryNumber: string; status: JournalStatus; totalDebit: string; totalCredit: string } | null;
   status: CustomerPaymentStatus;
+}
+
+export interface CustomerRefundPdfData {
+  organization: Organization;
+  customer: Pick<Contact, "id" | "name" | "displayName" | "email" | "phone" | "taxNumber">;
+  refund: {
+    id: string;
+    refundNumber: string;
+    refundDate: string;
+    status: CustomerRefundStatus;
+    currency: string;
+    amountRefunded: string;
+    description: string | null;
+  };
+  source: {
+    type: CustomerRefundSourceType;
+    id: string;
+    number: string;
+    date: string;
+    status: string;
+    originalAmount: string;
+    remainingUnappliedAmount: string;
+  };
+  paidFromAccount: { id: string; code: string; name: string };
+  journalEntry: { id: string; entryNumber: string; status: JournalStatus } | null;
+  voidReversalJournalEntry: { id: string; entryNumber: string; status: JournalStatus } | null;
+  generatedAt: string;
 }
 
 export interface OpenSalesInvoice {

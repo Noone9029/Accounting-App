@@ -1,5 +1,5 @@
 import { assertBalancedJournal, calculateSalesInvoiceTotals } from "@ledgerbyte/accounting-core";
-import { CreditNoteStatus, DocumentType } from "@prisma/client";
+import { CreditNoteStatus, CustomerRefundStatus, DocumentType } from "@prisma/client";
 import { buildCreditNoteJournalLines } from "./credit-note-accounting";
 import { CreditNoteService } from "./credit-note.service";
 
@@ -229,6 +229,19 @@ describe("credit note rules", () => {
       "Cannot void credit note with active allocations. Reverse allocations first.",
     );
     expect(tx.creditNoteAllocation.count).toHaveBeenCalledWith({ where: { organizationId: "org-1", creditNoteId: "credit-note-1", reversedAt: null } });
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("blocks voiding finalized credit notes with posted refunds", async () => {
+    const tx = makeVoidTransactionMock({ refundCount: 1 });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new CreditNoteService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "credit-note-1", status: CreditNoteStatus.FINALIZED, journalEntryId: "journal-1" } as never);
+
+    await expect(service.void("org-1", "user-1", "credit-note-1")).rejects.toThrow("Cannot void credit note with posted refunds. Void refunds first.");
+    expect(tx.customerRefund.count).toHaveBeenCalledWith({
+      where: { organizationId: "org-1", sourceCreditNoteId: "credit-note-1", status: CustomerRefundStatus.POSTED },
+    });
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
   });
 
@@ -571,7 +584,7 @@ function makeReverseAllocationTransactionMock(options: {
   };
 }
 
-function makeVoidTransactionMock(options: { allocationCount?: number } = {}) {
+function makeVoidTransactionMock(options: { allocationCount?: number; refundCount?: number } = {}) {
   return {
     creditNote: {
       findFirst: jest.fn().mockResolvedValue({
@@ -585,6 +598,9 @@ function makeVoidTransactionMock(options: { allocationCount?: number } = {}) {
     },
     creditNoteAllocation: {
       count: jest.fn().mockResolvedValue(options.allocationCount ?? 0),
+    },
+    customerRefund: {
+      count: jest.fn().mockResolvedValue(options.refundCount ?? 0),
     },
     journalEntry: {
       findFirst: jest.fn().mockResolvedValue({

@@ -64,6 +64,7 @@ interface CustomerPayment {
   paymentNumber: string;
   status: string;
   amountReceived: string;
+  unappliedAmount: string;
   journalEntryId?: string | null;
   voidReversalJournalEntryId?: string | null;
 }
@@ -85,6 +86,18 @@ interface CreditNoteAllocation {
   amountApplied: string;
   reversedAt?: string | null;
   reversalReason?: string | null;
+}
+
+interface CustomerRefund {
+  id: string;
+  refundNumber: string;
+  status: string;
+  amountRefunded: string;
+  sourceType: "CUSTOMER_PAYMENT" | "CREDIT_NOTE";
+  sourcePaymentId?: string | null;
+  sourceCreditNoteId?: string | null;
+  journalEntryId?: string | null;
+  voidReversalJournalEntryId?: string | null;
 }
 
 interface LedgerRow {
@@ -549,6 +562,69 @@ async function main(): Promise<void> {
   assert(statementPdfData.rows.length > 0, "statement pdf-data returns rows");
   await assertPdf(`/contacts/${customer.id}/statement.pdf?from=${from}&to=${to}`, headers, "statement PDF");
 
+  const refundCustomer = await post<Contact>("/contacts", headers, {
+    type: "CUSTOMER",
+    name: `Smoke Refund Customer ${runId}`,
+    displayName: `Smoke Refund Customer ${runId}`,
+    countryCode: "SA",
+  });
+  const refundDraftInvoice = await post<SalesInvoice>("/sales-invoices", headers, {
+    customerId: refundCustomer.id,
+    issueDate: new Date().toISOString(),
+    currency: "SAR",
+    lines: [linePayload],
+  });
+  const refundInvoice = await post<SalesInvoice>(`/sales-invoices/${refundDraftInvoice.id}/finalize`, headers, {});
+  const overpaymentAmount = expectedTotal.plus(20);
+  const refundSourcePayment = await post<CustomerPayment>("/customer-payments", headers, {
+    customerId: refundCustomer.id,
+    paymentDate: new Date().toISOString(),
+    currency: "SAR",
+    amountReceived: overpaymentAmount.toFixed(4),
+    accountId: paidThroughAccount!.id,
+    description: "Smoke test overpayment for refund",
+    allocations: [{ invoiceId: refundInvoice.id, amountApplied: expectedTotal.toFixed(4) }],
+  });
+  assertEqual(refundSourcePayment.status, "POSTED", "refund source payment status");
+  assertMoney(refundSourcePayment.unappliedAmount, money("20.0000"), "refund source payment opening unapplied amount");
+  const paymentRefundAmount = money("7.0000");
+  const paymentRefund = await post<CustomerRefund>("/customer-refunds", headers, {
+    customerId: refundCustomer.id,
+    sourceType: "CUSTOMER_PAYMENT",
+    sourcePaymentId: refundSourcePayment.id,
+    refundDate: new Date().toISOString(),
+    currency: "SAR",
+    amountRefunded: paymentRefundAmount.toFixed(4),
+    accountId: paidThroughAccount!.id,
+    description: "Smoke test payment refund",
+  });
+  assertEqual(paymentRefund.status, "POSTED", "payment refund status");
+  assertPresent(paymentRefund.journalEntryId, "payment refund journal entry id");
+  const afterPaymentRefund = await get<CustomerPayment>(`/customer-payments/${refundSourcePayment.id}`, headers);
+  assertMoney(afterPaymentRefund.unappliedAmount, money("13.0000"), "payment unapplied amount after refund");
+  const refundCustomerLedger = await get<LedgerResponse>(`/contacts/${refundCustomer.id}/ledger`, headers);
+  assert(
+    refundCustomerLedger.rows.some(
+      (row) => row.type === "CUSTOMER_REFUND" && row.sourceId === paymentRefund.id && money(row.debit).eq(paymentRefundAmount),
+    ),
+    "ledger includes customer refund row for payment refund",
+  );
+  assertMoney(refundCustomerLedger.closingBalance, money("-13.0000"), "refund customer ledger after payment refund");
+  await assertPdf(`/customer-refunds/${paymentRefund.id}/pdf`, headers, "customer refund PDF");
+  const voidedPaymentRefund = await post<CustomerRefund>(`/customer-refunds/${paymentRefund.id}/void`, headers, {});
+  assertEqual(voidedPaymentRefund.status, "VOIDED", "voided payment refund status");
+  assertPresent(voidedPaymentRefund.voidReversalJournalEntryId, "voided payment refund reversal journal");
+  const afterPaymentRefundVoid = await get<CustomerPayment>(`/customer-payments/${refundSourcePayment.id}`, headers);
+  assertMoney(afterPaymentRefundVoid.unappliedAmount, money("20.0000"), "payment unapplied amount after refund void");
+  const refundCustomerLedgerAfterVoid = await get<LedgerResponse>(`/contacts/${refundCustomer.id}/ledger`, headers);
+  assert(
+    refundCustomerLedgerAfterVoid.rows.some(
+      (row) => row.type === "VOID_CUSTOMER_REFUND" && row.sourceId === paymentRefund.id && money(row.credit).eq(paymentRefundAmount),
+    ),
+    "ledger includes void customer refund row for payment refund",
+  );
+  assertMoney(refundCustomerLedgerAfterVoid.closingBalance, money("-20.0000"), "refund customer ledger after payment refund void");
+
   const creditApplicationDraftInvoice = await post<SalesInvoice>("/sales-invoices", headers, {
     customerId: customer.id,
     issueDate: new Date().toISOString(),
@@ -684,6 +760,52 @@ async function main(): Promise<void> {
   );
   await assertPdf(`/generated-documents/${archivedCreditNotePdf.id}/download`, headers, "archived credit note PDF");
 
+  const creditNoteRefundAmount = money("2.0000");
+  const creditNoteRefund = await post<CustomerRefund>("/customer-refunds", headers, {
+    customerId: customer.id,
+    sourceType: "CREDIT_NOTE",
+    sourceCreditNoteId: draftCreditNote.id,
+    refundDate: new Date().toISOString(),
+    currency: "SAR",
+    amountRefunded: creditNoteRefundAmount.toFixed(4),
+    accountId: paidThroughAccount!.id,
+    description: "Smoke test credit note refund",
+  });
+  assertEqual(creditNoteRefund.status, "POSTED", "credit note refund status");
+  assertPresent(creditNoteRefund.journalEntryId, "credit note refund journal entry id");
+  const afterCreditNoteRefund = await get<CreditNote>(`/credit-notes/${draftCreditNote.id}`, headers);
+  assertMoney(afterCreditNoteRefund.unappliedAmount, expectedCreditNoteTotal.minus(creditNoteRefundAmount), "credit note unapplied amount after refund");
+  const ledgerAfterCreditNoteRefund = await get<LedgerResponse>(`/contacts/${customer.id}/ledger`, headers);
+  assert(
+    ledgerAfterCreditNoteRefund.rows.some(
+      (row) => row.type === "CUSTOMER_REFUND" && row.sourceId === creditNoteRefund.id && money(row.debit).eq(creditNoteRefundAmount),
+    ),
+    "ledger includes customer refund row for credit note refund",
+  );
+  assertMoney(
+    ledgerAfterCreditNoteRefund.closingBalance,
+    expectedLedgerAfterCreditNote.plus(creditNoteRefundAmount),
+    "ledger closing balance after credit note refund",
+  );
+  await expectHttpError("void refunded credit note", () => post<CreditNote>(`/credit-notes/${draftCreditNote.id}/void`, headers, {}));
+  const voidedCreditNoteRefund = await post<CustomerRefund>(`/customer-refunds/${creditNoteRefund.id}/void`, headers, {});
+  assertEqual(voidedCreditNoteRefund.status, "VOIDED", "voided credit note refund status");
+  assertPresent(voidedCreditNoteRefund.voidReversalJournalEntryId, "voided credit note refund reversal journal");
+  const afterCreditNoteRefundVoid = await get<CreditNote>(`/credit-notes/${draftCreditNote.id}`, headers);
+  assertMoney(afterCreditNoteRefundVoid.unappliedAmount, expectedCreditNoteTotal, "credit note unapplied amount after refund void");
+  const ledgerAfterCreditNoteRefundVoid = await get<LedgerResponse>(`/contacts/${customer.id}/ledger`, headers);
+  assert(
+    ledgerAfterCreditNoteRefundVoid.rows.some(
+      (row) => row.type === "VOID_CUSTOMER_REFUND" && row.sourceId === creditNoteRefund.id && money(row.credit).eq(creditNoteRefundAmount),
+    ),
+    "ledger includes void customer refund row for credit note refund",
+  );
+  assertMoney(
+    ledgerAfterCreditNoteRefundVoid.closingBalance,
+    expectedLedgerAfterCreditNote,
+    "ledger closing balance after credit note refund void",
+  );
+
   const voidedCreditNote = await post<CreditNote>(`/credit-notes/${draftCreditNote.id}/void`, headers, {});
   assertEqual(voidedCreditNote.status, "VOIDED", "voided credit note after allocation reversal status");
   assertPresent(voidedCreditNote.reversalJournalEntryId, "voided credit note reversal journal after allocation reversal");
@@ -719,6 +841,8 @@ async function main(): Promise<void> {
         zatcaMetadataId: zatcaMetadata.id,
         zatcaIcv: zatcaMetadata.icv,
         paymentIds: [partialPayment.id, remainingPayment.id],
+        paymentRefundId: paymentRefund.id,
+        creditNoteRefundId: creditNoteRefund.id,
         creditNoteId: draftCreditNote.id,
         creditNoteNumber: finalizedCreditNote.creditNoteNumber,
         creditApplyAmount: creditApplyAmount.toFixed(4),

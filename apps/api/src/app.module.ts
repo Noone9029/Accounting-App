@@ -8,6 +8,7 @@ import { ChartOfAccountsModule } from "./chart-of-accounts/chart-of-accounts.mod
 import { ContactModule } from "./contacts/contact.module";
 import { CreditNoteModule } from "./credit-notes/credit-note.module";
 import { CustomerPaymentModule } from "./customer-payments/customer-payment.module";
+import { CustomerRefundModule } from "./customer-refunds/customer-refund.module";
 import { GeneratedDocumentModule } from "./generated-documents/generated-document.module";
 import { HealthModule } from "./health/health.module";
 import { ItemModule } from "./items/item.module";
@@ -30,6 +31,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     ContactModule,
     CreditNoteModule,
     CustomerPaymentModule,
+    CustomerRefundModule,
     GeneratedDocumentModule,
     OrganizationDocumentSettingsModule,
     ItemModule,

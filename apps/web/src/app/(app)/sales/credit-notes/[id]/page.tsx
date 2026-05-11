@@ -245,6 +245,14 @@ export default function CreditNoteDetailPage() {
               Customer ledger
             </Link>
           ) : null}
+          {creditNote?.status === "FINALIZED" && Number(creditNote.unappliedAmount) > 0 ? (
+            <Link
+              href={`/sales/customer-refunds/new?customerId=${encodeURIComponent(creditNote.customerId)}&sourceType=CREDIT_NOTE&sourceCreditNoteId=${encodeURIComponent(creditNote.id)}`}
+              className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800"
+            >
+              Refund credit
+            </Link>
+          ) : null}
           {creditNote ? (
             <button type="button" onClick={() => void downloadCreditNotePdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Download PDF

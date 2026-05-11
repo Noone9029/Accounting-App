@@ -332,6 +332,14 @@ function renderRowLink(row: CustomerLedgerRow) {
     );
   }
 
+  if (row.sourceType === "CustomerRefund") {
+    return (
+      <Link href={`/sales/customer-refunds/${row.sourceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        View refund
+      </Link>
+    );
+  }
+
   const invoiceId = typeof row.metadata.invoiceId === "string" ? row.metadata.invoiceId : "";
   return invoiceId ? (
     <Link href={`/sales/invoices/${invoiceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">

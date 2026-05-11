@@ -111,6 +111,14 @@ export default function CustomerPaymentDetailPage() {
               Void
             </button>
           ) : null}
+          {payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0 ? (
+            <Link
+              href={`/sales/customer-refunds/new?customerId=${encodeURIComponent(payment.customerId)}&sourceType=CUSTOMER_PAYMENT&sourcePaymentId=${encodeURIComponent(payment.id)}`}
+              className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800"
+            >
+              Refund unapplied amount
+            </Link>
+          ) : null}
         </div>
       </div>
 

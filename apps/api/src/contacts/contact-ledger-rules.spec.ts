@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { CreditNoteStatus, CustomerPaymentStatus, DocumentType, SalesInvoiceStatus } from "@prisma/client";
+import { CreditNoteStatus, CustomerPaymentStatus, CustomerRefundStatus, DocumentType, SalesInvoiceStatus } from "@prisma/client";
 import {
   buildCustomerLedgerRows,
   calculateStatementOpeningBalance,
@@ -182,6 +182,50 @@ describe("customer ledger rules", () => {
       debit: "0.0000",
       credit: "0.0000",
     });
+  });
+
+  it("includes customer refund and void refund rows without double counting other source rows", () => {
+    const rows = buildCustomerLedgerRows({
+      invoices: [invoice("invoice-1", "INV-001", "2026-01-01T00:00:00.000Z", "100.0000", SalesInvoiceStatus.FINALIZED)],
+      payments: [],
+      refunds: [
+        {
+          id: "refund-1",
+          refundNumber: "REF-001",
+          refundDate: "2026-01-02T00:00:00.000Z",
+          sourceType: "CUSTOMER_PAYMENT",
+          sourcePaymentId: "payment-1",
+          sourceCreditNoteId: null,
+          status: CustomerRefundStatus.VOIDED,
+          amountRefunded: "15.0000",
+          description: "Manual refund",
+          postedAt: "2026-01-02T00:00:00.000Z",
+          voidedAt: "2026-01-03T00:00:00.000Z",
+          createdAt: "2026-01-02T00:00:00.000Z",
+          updatedAt: "2026-01-03T00:00:00.000Z",
+          sourcePayment: { id: "payment-1", paymentNumber: "PAY-001" },
+          sourceCreditNote: null,
+        },
+      ],
+    });
+
+    expect(rows.map((row) => row.type)).toEqual(["INVOICE", "CUSTOMER_REFUND", "VOID_CUSTOMER_REFUND"]);
+    expect(rows.find((row) => row.type === "CUSTOMER_REFUND")).toMatchObject({
+      debit: "15.0000",
+      credit: "0.0000",
+      balance: "115.0000",
+      description: "Manual refund",
+    });
+    expect(rows.find((row) => row.type === "VOID_CUSTOMER_REFUND")).toMatchObject({
+      debit: "0.0000",
+      credit: "15.0000",
+      balance: "100.0000",
+      description: "Void customer refund REF-001",
+    });
+    expect(filterStatementRows(rows, new Date("2026-01-02T00:00:00.000Z"), new Date("2026-01-03T23:59:59.999Z")).map((row) => row.type)).toEqual([
+      "CUSTOMER_REFUND",
+      "VOID_CUSTOMER_REFUND",
+    ]);
   });
 
   it("rejects cross-tenant or non-customer contact ledgers", async () => {

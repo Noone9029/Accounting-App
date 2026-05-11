@@ -82,6 +82,7 @@ export const DEFAULT_NUMBER_SEQUENCES = [
   { scope: NumberSequenceScope.INVOICE, prefix: "INV-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.BILL, prefix: "BILL-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.PAYMENT, prefix: "PAY-", nextNumber: 1, padding: 6 },
+  { scope: NumberSequenceScope.CUSTOMER_REFUND, prefix: "REF-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.CREDIT_NOTE, prefix: "CN-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.DEBIT_NOTE, prefix: "DN-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.CONTACT, prefix: "CON-", nextNumber: 1, padding: 6 },

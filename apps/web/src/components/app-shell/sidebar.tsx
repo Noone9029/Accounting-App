@@ -43,6 +43,7 @@ const navItems: NavItem[] = [
       { label: "Quotes & Proformas", href: "/sales/quotes" },
       { label: "Invoices", href: "/sales/invoices" },
       { label: "Customer payments", href: "/sales/customer-payments" },
+      { label: "Customer refunds", href: "/sales/customer-refunds" },
       { label: "Recurring invoices", href: "/sales/recurring-invoices" },
       { label: "Credit notes", href: "/sales/credit-notes" },
       { label: "Cash invoices", href: "/sales/cash-invoices" },

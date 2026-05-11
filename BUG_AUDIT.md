@@ -559,9 +559,34 @@ Commit inspected: pending (`Add credit note allocation reversal`)
 ### Remaining Allocation Reversal Risks
 
 - Reversal itself is all-or-nothing, but there is no user-facing allocation reversal history page beyond credit note/invoice/ledger rows.
-- Customer refund workflow and payment gateway refunds are not implemented.
+- Manual customer refund workflow now exists, but payment gateway refunds are not implemented.
 - ZATCA credit note XML/signing/submission remains pending.
 - Inventory return integration remains pending.
+
+## Customer Refund Groundwork
+
+Audit date: 2026-05-12
+
+Commit inspected: pending (`Add customer refund groundwork`)
+
+### Customer Refunds Added
+
+- Added `CustomerRefundStatus`, `CustomerRefundSourceType`, and tenant-scoped `CustomerRefund` records for manual refunds from unapplied customer payments or finalized credit notes.
+- Added authenticated refund APIs for list/create/detail/refundable-sources/void plus PDF data/PDF/archive endpoints.
+- Added transaction-guarded source balance updates so refunds decrease payment or credit note `unappliedAmount` and voiding restores it once.
+- Added accounting posting: debit Accounts Receivable account code `120`, credit the selected paid-from bank/cash asset account.
+- Added refund void reversal journals and blocked source payment/credit note voiding while posted refunds exist.
+- Added customer ledger and statement rows for `CUSTOMER_REFUND` and `VOID_CUSTOMER_REFUND`.
+- Added frontend refund list/create/detail pages, sidebar navigation, payment/credit-note refund links, and contact ledger navigation.
+- Added customer refund PDF rendering and generated document archive support with `DocumentType.CUSTOMER_REFUND`.
+- Extended smoke coverage for payment refunds, credit note refunds, refund voiding, source unapplied balance restoration, ledger rows, and refund PDF download.
+
+### Remaining Customer Refund Risks
+
+- No payment gateway refund integration exists.
+- No bank reconciliation or bank-feed matching exists.
+- No ZATCA credit note/refund XML, signing, clearance, reporting, or PDF/A-3 embedding exists.
+- Purchases, supplier debit notes, and inventory return integration remain pending.
 
 ## Remaining Risks
 

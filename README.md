@@ -109,7 +109,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, active allocation void blocking, and invoice void rejection while active payments exist.
+The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
 
@@ -230,6 +230,18 @@ Customer payments:
 - `POST /customer-payments/:id/void`
 - `DELETE /customer-payments/:id`
 
+Customer refunds:
+
+- `GET /customer-refunds`
+- `POST /customer-refunds`
+- `GET /customer-refunds/refundable-sources?customerId=:id`
+- `GET /customer-refunds/:id`
+- `GET /customer-refunds/:id/pdf-data`
+- `GET /customer-refunds/:id/pdf`
+- `POST /customer-refunds/:id/generate-pdf`
+- `POST /customer-refunds/:id/void`
+- `DELETE /customer-refunds/:id`
+
 Organization document settings:
 
 - `GET /organization-document-settings`
@@ -339,6 +351,7 @@ Lifecycle behavior:
 - Voiding a draft marks it `VOIDED`.
 - Voiding a finalized credit note creates or reuses one reversal journal entry and marks the credit note `VOIDED`.
 - Voiding a finalized credit note is blocked while active allocations exist.
+- Voiding a finalized credit note is also blocked while posted customer refunds exist; void the refunds first.
 - Reversed allocations do not block credit note voiding.
 - Linked original invoices must belong to the same organization and customer, be finalized, and not be voided.
 - Total non-voided credit notes linked to an invoice cannot exceed the original invoice total.
@@ -367,7 +380,6 @@ Credit application endpoints:
 - Rules: the credit note and invoice must belong to the same organization and customer, both must be finalized and non-voided, amount must be positive, and amount cannot exceed either open balance.
 - Reversal rules: the allocation must be active, the credit note and invoice must still be finalized and non-voided, and restored balances cannot exceed their original totals.
 - Active allocations block credit note and invoice voiding. Reversed allocations do not block voiding.
-- Known limitation: customer refund workflows are not implemented yet.
 
 ## Customer Payment Rules
 
@@ -383,6 +395,7 @@ Allocation behavior:
 - Partial payments are supported; invoice `balanceDue` is reduced by allocated amount.
 - Allocation writes use conditional invoice balance updates to prevent concurrent payments from making `balanceDue` negative.
 - If `amountReceived` is greater than allocated amount, the difference is stored as `unappliedAmount`; applying unapplied credits later is future work.
+- Unapplied payment credit can be refunded manually through customer refunds.
 
 Payment posting behavior:
 
@@ -391,6 +404,7 @@ Payment posting behavior:
 - Credit account code `120` Accounts Receivable for `amountReceived`.
 - Payment creation creates immutable allocation rows and updates invoice balances.
 - Voiding a posted payment creates or reuses one reversal journal entry, marks the payment `VOIDED`, and restores invoice balances.
+- Voiding a posted payment is blocked while posted customer refunds exist for its unapplied amount; void the refunds first.
 - Payment voiding claims the posted payment row before restoring balances, so repeated or concurrent void calls restore each invoice balance only once.
 - Voiding twice is idempotent and does not create repeated reversals.
 
@@ -399,6 +413,26 @@ Concurrency/idempotency notes:
 - Invoice finalization, invoice voiding, customer payment creation, and payment voiding are protected with database transactions plus conditional row updates.
 - Manual journal reversal handles duplicate reversal attempts with a clear business error instead of leaking a database unique-constraint error.
 - A failed journal creation or allocation claim rolls back the surrounding accounting workflow.
+
+## Customer Refund Rules
+
+Customer refunds are manual accounting records only. They do not call payment gateways, banks, or ZATCA.
+
+Refund sources:
+
+- `CUSTOMER_PAYMENT`: the source payment must be posted, non-voided, same organization, same customer, and have enough `unappliedAmount`.
+- `CREDIT_NOTE`: the source credit note must be finalized, non-voided, same organization, same customer, and have enough `unappliedAmount`.
+- The paid-from account must be an active posting asset account in the same organization.
+- Refunds are posted immediately in this MVP and reduce the source `unappliedAmount` in the same transaction.
+- Voiding a posted refund creates or reuses one reversal journal, marks the refund `VOIDED`, and restores the source `unappliedAmount`.
+- Voiding twice is idempotent and does not restore source balances twice.
+
+Posting behavior:
+
+- Refund posting debits account code `120` Accounts Receivable for `amountRefunded`.
+- Refund posting credits the selected paid-from bank/cash account for `amountRefunded`.
+- Refund voiding reverses that journal and restores the source customer credit.
+- Customer refund PDFs are operational documents only and are archived through generated documents.
 
 ## Customer Ledger Rules
 
@@ -412,6 +446,8 @@ Customer ledgers are available for contacts of type `CUSTOMER` or `BOTH`.
 - Payment allocation rows are visible as zero-value informational rows to avoid double-counting.
 - Credit note allocation rows are visible as zero-value informational rows to show invoice matching without double-counting.
 - Credit note allocation reversal rows are also zero-value informational rows and do not change running balance.
+- Customer refund rows increase accounts receivable with a debit equal to the refunded amount because customer credit is reduced.
+- Voided customer refund rows reverse that effect with a credit equal to the refunded amount.
 - Voided credit note rows reverse the visible credit note effect with a debit equal to credit note total.
 - Voided payment rows reverse the visible payment effect with a debit equal to payment `amountReceived`.
 - Voided invoice rows reverse the visible invoice effect with a credit equal to invoice total.
@@ -444,13 +480,14 @@ Implemented PDF documents:
 - Customer payment receipt PDF: `GET /customer-payments/:id/receipt.pdf`
 - Customer statement PDF: `GET /contacts/:id/statement.pdf?from=YYYY-MM-DD&to=YYYY-MM-DD`
 - Credit note PDFs include total, unapplied amount, and any invoice credit allocations.
+- Customer refund PDF: `GET /customer-refunds/:id/pdf`
 
 PDF endpoints:
 
 - Require JWT auth and `x-organization-id`.
 - Are tenant-scoped and return `404` outside the active organization.
 - Return `Content-Type: application/pdf`.
-- Use attachment filenames such as `invoice-INV-000001.pdf`, `credit-note-CN-000001.pdf`, `receipt-PAY-000001.pdf`, and `statement-Customer.pdf`.
+- Use attachment filenames such as `invoice-INV-000001.pdf`, `credit-note-CN-000001.pdf`, `customer-refund-REF-000001.pdf`, `receipt-PAY-000001.pdf`, and `statement-Customer.pdf`.
 - Apply organization document settings for document titles, footer text, basic colors, tax number visibility, and invoice notes/terms/payment sections.
 - Archive each generated PDF as a `GeneratedDocument` record with content hash, size, filename, source reference, and local base64 content.
 
@@ -579,7 +616,7 @@ Future real onboarding steps:
 - Generated PDFs are stored as base64 database records for local/dev groundwork; S3-compatible storage is planned before production scale.
 - GET PDF endpoints currently archive every download.
 - Applying unapplied overpayment credits to invoices later is not implemented yet.
-- Credit note allocation and allocation reversal exist, but customer refund workflows are not implemented yet.
+- Customer refunds are manual accounting records only; no payment gateway refund or bank reconciliation integration exists yet.
 - ZATCA credit note XML/signing/submission is not implemented yet.
 - Inventory returns from credit notes are not implemented yet.
 - Recurring invoices are not implemented yet.

@@ -13,6 +13,7 @@ import {
   AccountType,
   ContactType,
   CreditNoteStatus,
+  CustomerRefundStatus,
   DocumentType,
   ItemStatus,
   JournalEntryStatus,
@@ -866,6 +867,13 @@ export class CreditNoteService {
       });
       if (allocationCount > 0) {
         throw new BadRequestException("Cannot void credit note with active allocations. Reverse allocations first.");
+      }
+
+      const postedRefundCount = await tx.customerRefund.count({
+        where: { organizationId, sourceCreditNoteId: id, status: CustomerRefundStatus.POSTED },
+      });
+      if (postedRefundCount > 0) {
+        throw new BadRequestException("Cannot void credit note with posted refunds. Void refunds first.");
       }
 
       const reversalJournalEntryId = await this.createOrReuseReversalJournal(organizationId, actorUserId, creditNote.journalEntryId, tx);

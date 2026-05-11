@@ -5,6 +5,7 @@ import {
   AccountType,
   ContactType,
   CustomerPaymentStatus,
+  CustomerRefundStatus,
   DocumentType,
   JournalEntryStatus,
   NumberSequenceScope,
@@ -404,6 +405,13 @@ export class CustomerPaymentService {
       }
       if (payment.status !== CustomerPaymentStatus.POSTED) {
         throw new BadRequestException("Only posted customer payments can be voided.");
+      }
+
+      const postedRefundCount = await tx.customerRefund.count({
+        where: { organizationId, sourcePaymentId: id, status: CustomerRefundStatus.POSTED },
+      });
+      if (postedRefundCount > 0) {
+        throw new BadRequestException("Cannot void customer payment with posted refunds. Void refunds first.");
       }
 
       const journalEntry = payment.journalEntry;
