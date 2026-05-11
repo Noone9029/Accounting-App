@@ -444,3 +444,50 @@ export interface ZatcaAdapterConfigSummary {
   effectiveRealNetworkEnabled: boolean;
   invalidMode?: string;
 }
+
+export type ZatcaChecklistCategory = "PROFILE" | "CSR_CSID" | "XML" | "QR" | "HASH_CHAIN" | "API" | "PDF_A3" | "SECURITY" | "TESTING";
+export type ZatcaChecklistStatus = "DONE_LOCAL" | "MOCK_ONLY" | "SKELETON" | "NOT_STARTED" | "NEEDS_OFFICIAL_VERIFICATION";
+export type ZatcaChecklistRiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
+export interface ZatcaChecklistItem {
+  id: string;
+  category: ZatcaChecklistCategory;
+  title: string;
+  description: string;
+  status: ZatcaChecklistStatus;
+  codeReferences: string[];
+  manualDependency?: string;
+  riskLevel: ZatcaChecklistRiskLevel;
+}
+
+export interface ZatcaComplianceChecklistResponse {
+  warning: string;
+  summary: {
+    total: number;
+    byStatus: Record<string, number>;
+    byRisk: Record<string, number>;
+  };
+  groups: Record<ZatcaChecklistCategory, ZatcaChecklistItem[]>;
+}
+
+export interface ZatcaReadinessSummary {
+  warning: string;
+  profileReady: boolean;
+  profileMissingFields: string[];
+  egsReady: boolean;
+  activeEgsUnit: {
+    id: string;
+    name: string;
+    status: ZatcaRegistrationStatus;
+    isActive: boolean;
+    hasCsr: boolean;
+    hasComplianceCsid: boolean;
+    lastIcv: number;
+    lastInvoiceHash: string | null;
+  } | null;
+  localXmlReady: boolean;
+  mockCsidReady: boolean;
+  realNetworkEnabled: boolean;
+  productionReady: false;
+  blockingReasons: string[];
+}

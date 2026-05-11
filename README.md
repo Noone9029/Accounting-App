@@ -416,6 +416,18 @@ Implemented:
 - `ZATCA_SANDBOX_BASE_URL`, `ZATCA_SIMULATION_BASE_URL`, and `ZATCA_PRODUCTION_BASE_URL` are optional placeholders. The app does not hardcode guessed official URLs as final truth.
 - `ZATCA_ENABLE_REAL_NETWORK=false` is the default and should stay false until current official ZATCA/FATOORA API docs, endpoint URLs, request bodies, response fields, authentication, and credentials are verified.
 
+### ZATCA Compliance Checklist
+
+The engineering checklists live in `docs/zatca`. They are working implementation maps only and are not legal certification.
+
+- View the checklist and local readiness summary in the app at `/settings/zatca`.
+- Call `GET /zatca/compliance-checklist` to return grouped static checklist items with status and risk counts.
+- Call `GET /zatca/readiness` to return local readiness booleans and blocking reasons for the selected organization.
+- Both endpoints require authentication and `x-organization-id`.
+- The readiness response keeps `productionReady=false` until official validation, signing, real API integration, PDF/A-3 embedding, and production key custody are implemented.
+
+Do not treat the current mock CSID, local XML, local QR, or local hash-chain behavior as legal ZATCA/FATOORA compliance.
+
 Not implemented yet:
 
 - real ZATCA API calls

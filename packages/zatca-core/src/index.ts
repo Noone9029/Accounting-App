@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import forge from "node-forge";
 
+export * from "./compliance-checklist.js";
+
 export type ZatcaEnvironment = "SANDBOX" | "SIMULATION" | "PRODUCTION";
 export type ZatcaInvoiceType = "STANDARD_TAX_INVOICE" | "SIMPLIFIED_TAX_INVOICE" | "CREDIT_NOTE" | "DEBIT_NOTE";
 

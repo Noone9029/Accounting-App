@@ -435,6 +435,73 @@ describe("ZATCA service rules", () => {
 
     expect(prisma.zatcaSubmissionLog.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: "org-1" } }));
   });
+
+  it("groups the static compliance checklist and flags critical not-started gaps", () => {
+    const service = new ZatcaService({} as never, { log: jest.fn() } as never);
+
+    const checklist = service.getComplianceChecklist("org-1");
+    const items = Object.values(checklist.groups).flat();
+
+    expect(checklist.warning).toContain("not legal certification");
+    expect(checklist.groups).toHaveProperty("API");
+    expect(checklist.summary.byStatus.NOT_STARTED).toBeGreaterThan(0);
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "signature-cryptographic-stamp", status: "NOT_STARTED", riskLevel: "CRITICAL" }),
+        expect.objectContaining({ id: "api-official-endpoint-mapping", status: "NOT_STARTED", riskLevel: "CRITICAL" }),
+        expect.objectContaining({ id: "pdf-a3-xml-embedding", status: "NOT_STARTED", riskLevel: "CRITICAL" }),
+      ]),
+    );
+  });
+
+  it("returns readiness with productionReady false and no private key material", async () => {
+    const prisma = makeReadinessPrisma({
+      activeEgs: {
+        id: "egs-1",
+        name: "Dev EGS",
+        status: ZatcaRegistrationStatus.ACTIVE,
+        isActive: true,
+        csrPem: "-----BEGIN CERTIFICATE REQUEST-----\nCSR\n-----END CERTIFICATE REQUEST-----",
+        complianceCsidPem: "-----BEGIN CERTIFICATE-----\nMOCK\n-----END CERTIFICATE-----",
+        privateKeyPem: "-----BEGIN PRIVATE KEY-----\nSECRET\n-----END PRIVATE KEY-----",
+        lastIcv: 2,
+        lastInvoiceHash: "hash",
+      },
+      localXmlCount: 1,
+    });
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const readiness = await service.getZatcaReadinessSummary("org-1");
+
+    expect(readiness.productionReady).toBe(false);
+    expect(readiness.profileReady).toBe(true);
+    expect(readiness.egsReady).toBe(true);
+    expect(readiness.localXmlReady).toBe(true);
+    expect(readiness.mockCsidReady).toBe(true);
+    expect(JSON.stringify(readiness)).not.toContain("privateKeyPem");
+    expect(JSON.stringify(readiness)).not.toContain("PRIVATE KEY");
+  });
+
+  it("readiness identifies missing profile fields", async () => {
+    const prisma = makeReadinessPrisma({ profile: { sellerName: "", vatNumber: "300", city: null, countryCode: "SA" } });
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const readiness = await service.getZatcaReadinessSummary("org-1");
+
+    expect(readiness.profileReady).toBe(false);
+    expect(readiness.profileMissingFields).toEqual(["sellerName", "city"]);
+    expect(readiness.blockingReasons.join(" ")).toContain("sellerName, city");
+  });
+
+  it("readiness identifies a missing active EGS unit", async () => {
+    const prisma = makeReadinessPrisma({ activeEgs: null });
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const readiness = await service.getZatcaReadinessSummary("org-1");
+
+    expect(readiness.egsReady).toBe(false);
+    expect(readiness.blockingReasons).toContain("No active development EGS unit is configured.");
+  });
 });
 
 function makeGenerationTransactionMock(options: {
@@ -561,6 +628,48 @@ function makeEgsUnit(overrides: Record<string, unknown> = {}) {
     createdAt: new Date("2026-05-07T00:00:00.000Z"),
     updatedAt: new Date("2026-05-07T00:00:00.000Z"),
     ...overrides,
+  };
+}
+
+function makeReadinessPrisma(options: {
+  profile?: Record<string, unknown>;
+  activeEgs?: Record<string, unknown> | null;
+  localXmlCount?: number;
+} = {}) {
+  return {
+    organization: {
+      findFirst: jest.fn().mockResolvedValue({ id: "org-1", name: "Org", legalName: "Org Legal", taxNumber: "300000000000003", countryCode: "SA" }),
+    },
+    zatcaOrganizationProfile: {
+      upsert: jest.fn().mockResolvedValue({
+        id: "profile-1",
+        organizationId: "org-1",
+        sellerName: "Org Legal",
+        vatNumber: "300000000000003",
+        city: "Riyadh",
+        countryCode: "SA",
+        ...options.profile,
+      }),
+    },
+    zatcaEgsUnit: {
+      findFirst: jest.fn().mockResolvedValue(
+        options.activeEgs === undefined
+          ? {
+              id: "egs-1",
+              name: "Dev EGS",
+              status: ZatcaRegistrationStatus.ACTIVE,
+              isActive: true,
+              csrPem: null,
+              complianceCsidPem: null,
+              lastIcv: 0,
+              lastInvoiceHash: null,
+            }
+          : options.activeEgs,
+      ),
+    },
+    zatcaInvoiceMetadata: {
+      count: jest.fn().mockResolvedValue(options.localXmlCount ?? 0),
+    },
   };
 }
 

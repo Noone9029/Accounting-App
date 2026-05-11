@@ -5,8 +5,27 @@ import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { downloadAuthenticatedFile } from "@/lib/pdf-download";
-import { getZatcaProfileMissingFields, shouldShowZatcaRealNetworkWarning, truncateHash, zatcaAdapterModeLabel, zatcaEgsCsrDownloadPath, zatcaStatusLabel } from "@/lib/zatca";
-import type { ZatcaAdapterConfigSummary, ZatcaEgsUnit, ZatcaEnvironment, ZatcaOrganizationProfile, ZatcaSubmissionLog } from "@/lib/types";
+import {
+  getZatcaProfileMissingFields,
+  shouldShowZatcaRealNetworkWarning,
+  truncateHash,
+  zatcaAdapterModeLabel,
+  zatcaChecklistRiskBadgeClass,
+  zatcaChecklistStatusBadgeClass,
+  zatcaEgsCsrDownloadPath,
+  zatcaReadinessLabel,
+  zatcaStatusLabel,
+} from "@/lib/zatca";
+import type {
+  ZatcaAdapterConfigSummary,
+  ZatcaChecklistItem,
+  ZatcaComplianceChecklistResponse,
+  ZatcaEgsUnit,
+  ZatcaEnvironment,
+  ZatcaOrganizationProfile,
+  ZatcaReadinessSummary,
+  ZatcaSubmissionLog,
+} from "@/lib/types";
 
 const environmentOptions: ZatcaEnvironment[] = ["SANDBOX", "SIMULATION", "PRODUCTION"];
 
@@ -35,6 +54,8 @@ export default function ZatcaSettingsPage() {
   const organizationId = useActiveOrganizationId();
   const [profile, setProfile] = useState<ZatcaOrganizationProfile | null>(null);
   const [adapterConfig, setAdapterConfig] = useState<ZatcaAdapterConfigSummary | null>(null);
+  const [checklist, setChecklist] = useState<ZatcaComplianceChecklistResponse | null>(null);
+  const [readiness, setReadiness] = useState<ZatcaReadinessSummary | null>(null);
   const [form, setForm] = useState<ZatcaProfileForm | null>(null);
   const [egsUnits, setEgsUnits] = useState<ZatcaEgsUnit[]>([]);
   const [submissionLogs, setSubmissionLogs] = useState<ZatcaSubmissionLog[]>([]);
@@ -58,13 +79,17 @@ export default function ZatcaSettingsPage() {
     Promise.all([
       apiRequest<ZatcaOrganizationProfile>("/zatca/profile"),
       apiRequest<ZatcaAdapterConfigSummary>("/zatca/adapter-config"),
+      apiRequest<ZatcaComplianceChecklistResponse>("/zatca/compliance-checklist"),
+      apiRequest<ZatcaReadinessSummary>("/zatca/readiness"),
       apiRequest<ZatcaEgsUnit[]>("/zatca/egs-units"),
       apiRequest<ZatcaSubmissionLog[]>("/zatca/submissions"),
     ])
-      .then(([loadedProfile, loadedAdapterConfig, loadedUnits, loadedLogs]) => {
+      .then(([loadedProfile, loadedAdapterConfig, loadedChecklist, loadedReadiness, loadedUnits, loadedLogs]) => {
         if (!cancelled) {
           setProfile(loadedProfile);
           setAdapterConfig(loadedAdapterConfig);
+          setChecklist(loadedChecklist);
+          setReadiness(loadedReadiness);
           setForm(profileToForm(loadedProfile));
           setEgsUnits(loadedUnits);
           setSubmissionLogs(loadedLogs);
@@ -103,6 +128,7 @@ export default function ZatcaSettingsPage() {
       });
       setProfile(updated);
       setForm(profileToForm(updated));
+      await refreshReadiness();
       setSuccess("ZATCA profile saved.");
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to save ZATCA profile.");
@@ -128,6 +154,7 @@ export default function ZatcaSettingsPage() {
         },
       });
       setEgsUnits((current) => [created, ...current]);
+      await refreshReadiness();
       setSuccess("Development EGS unit created.");
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Unable to create EGS unit.");
@@ -144,6 +171,7 @@ export default function ZatcaSettingsPage() {
     try {
       const updated = await apiRequest<ZatcaEgsUnit>(`/zatca/egs-units/${unit.id}/activate-dev`, { method: "POST" });
       setEgsUnits((current) => current.map((item) => ({ ...item, isActive: item.id === updated.id, status: item.id === updated.id ? updated.status : item.status })));
+      await refreshReadiness();
       setSuccess(`${updated.name} activated for local ZATCA generation.`);
     } catch (activateError) {
       setError(activateError instanceof Error ? activateError.message : "Unable to activate EGS unit.");
@@ -160,6 +188,7 @@ export default function ZatcaSettingsPage() {
     try {
       const updated = await apiRequest<ZatcaEgsUnit>(`/zatca/egs-units/${unit.id}/generate-csr`, { method: "POST" });
       replaceUnit(updated);
+      await refreshReadiness();
       setSuccess(`CSR generated for ${updated.name}. Private key is stored only as a development placeholder and is not shown.`);
     } catch (csrError) {
       setError(csrError instanceof Error ? csrError.message : "Unable to generate CSR.");
@@ -193,7 +222,7 @@ export default function ZatcaSettingsPage() {
         body: { otp: otpByUnit[unit.id] ?? "000000", mode: "mock" },
       });
       replaceUnit(updated);
-      const logs = await apiRequest<ZatcaSubmissionLog[]>("/zatca/submissions");
+      const [logs] = await Promise.all([apiRequest<ZatcaSubmissionLog[]>("/zatca/submissions"), refreshReadiness()]);
       setSubmissionLogs(logs);
       setSuccess(`Mock compliance CSID issued for ${updated.name}. This does not make invoices ZATCA compliant.`);
     } catch (csidError) {
@@ -205,6 +234,11 @@ export default function ZatcaSettingsPage() {
 
   function replaceUnit(unit: ZatcaEgsUnit) {
     setEgsUnits((current) => current.map((item) => (item.id === unit.id ? unit : { ...item, isActive: unit.isActive ? false : item.isActive })));
+  }
+
+  async function refreshReadiness() {
+    const updatedReadiness = await apiRequest<ZatcaReadinessSummary>("/zatca/readiness");
+    setReadiness(updatedReadiness);
   }
 
   function updateProfileField<K extends keyof ZatcaProfileForm>(field: K, value: ZatcaProfileForm[K]) {
@@ -246,6 +280,52 @@ export default function ZatcaSettingsPage() {
             </div>
             {adapterConfig?.invalidMode ? <p className="mt-3 text-xs text-rosewood">Invalid adapter mode `{adapterConfig.invalidMode}` was ignored and mock mode is active.</p> : null}
           </div>
+
+          {readiness ? (
+            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-semibold text-ink">Readiness summary</h2>
+                  <p className="mt-1 text-sm text-steel">{readiness.warning}</p>
+                </div>
+                <span className="rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rosewood">Production ready: No</span>
+              </div>
+              <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
+                <ReadinessSummary label="Profile" ready={readiness.profileReady} detail={readiness.profileMissingFields.length ? readiness.profileMissingFields.join(", ") : "Required local fields present"} />
+                <ReadinessSummary label="Active EGS" ready={readiness.egsReady} detail={readiness.activeEgsUnit?.name ?? "No active development EGS"} />
+                <ReadinessSummary label="Local XML" ready={readiness.localXmlReady} detail={readiness.localXmlReady ? "At least one invoice has local XML" : "Generate local XML from a finalized invoice"} />
+                <ReadinessSummary label="Mock CSID" ready={readiness.mockCsidReady} detail={readiness.mockCsidReady ? "Local mock CSID exists" : "Request mock CSID after CSR"} />
+                <ReadinessSummary label="Real network" ready={readiness.realNetworkEnabled} detail={readiness.realNetworkEnabled ? "Explicitly enabled" : "Disabled by configuration"} />
+                <ReadinessSummary label="Production" ready={readiness.productionReady} detail="Always blocked until official validation is complete" />
+              </div>
+              {readiness.blockingReasons.length > 0 ? (
+                <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-steel">
+                  {readiness.blockingReasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+
+          {checklist ? (
+            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-semibold text-ink">Compliance checklist</h2>
+                  <p className="mt-1 text-sm text-steel">{checklist.warning} Production compliance requires official ZATCA/FATOORA validation.</p>
+                </div>
+                <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{checklist.summary.total} items</span>
+              </div>
+              <ChecklistSummary title="By status" counts={checklist.summary.byStatus} />
+              <ChecklistSummary title="By risk" counts={checklist.summary.byRisk} />
+              <div className="mt-5 space-y-5">
+                {Object.entries(checklist.groups).map(([category, items]) => (
+                  <ChecklistGroup key={category} category={category} items={items} />
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <form onSubmit={saveProfile} className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="flex items-start justify-between gap-4">
@@ -531,6 +611,82 @@ function AdapterSummary({ label, value }: { label: string; value: string }) {
     <div>
       <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
       <div className="mt-1 font-medium text-ink">{value}</div>
+    </div>
+  );
+}
+
+function ReadinessSummary({ label, ready, detail }: { label: string; ready: boolean; detail: string }) {
+  return (
+    <div>
+      <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
+      <div className={`mt-1 inline-flex rounded-md px-2 py-1 text-xs font-medium ${ready ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+        {zatcaReadinessLabel(ready)}
+      </div>
+      <div className="mt-1 text-xs text-steel">{detail}</div>
+    </div>
+  );
+}
+
+function ChecklistSummary({ title, counts }: { title: string; counts: Record<string, number> }) {
+  return (
+    <div className="mt-4">
+      <div className="text-xs font-medium uppercase tracking-wide text-steel">{title}</div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {Object.entries(counts).map(([key, value]) => (
+          <span key={key} className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
+            {zatcaStatusLabel(key)}: {value}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ChecklistGroup({ category, items }: { category: string; items: ZatcaChecklistItem[] }) {
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-ink">{zatcaStatusLabel(category)}</h3>
+      <div className="mt-2 overflow-x-auto rounded-md border border-slate-200">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+            <tr>
+              <th className="px-4 py-3">Item</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Risk</th>
+              <th className="px-4 py-3">Manual dependency</th>
+              <th className="px-4 py-3">Code references</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {items.map((item) => (
+              <tr key={item.id}>
+                <td className="px-4 py-3">
+                  <div className="font-medium text-ink">{item.title}</div>
+                  <div className="mt-1 text-xs text-steel">{item.description}</div>
+                </td>
+                <td className="px-4 py-3">
+                  <span className={`rounded-md px-2 py-1 text-xs font-medium ${zatcaChecklistStatusBadgeClass(item.status)}`}>{zatcaStatusLabel(item.status)}</span>
+                </td>
+                <td className="px-4 py-3">
+                  <span className={`rounded-md px-2 py-1 text-xs font-medium ${zatcaChecklistRiskBadgeClass(item.riskLevel)}`}>{item.riskLevel}</span>
+                </td>
+                <td className="px-4 py-3 text-xs text-steel">{item.manualDependency ?? "-"}</td>
+                <td className="px-4 py-3">
+                  <div className="space-y-1 font-mono text-[11px] text-steel">
+                    {item.codeReferences.map((reference) => (
+                      <div key={reference}>{reference}</div>
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -4,7 +4,11 @@ import {
   buildZatcaInvoicePayload,
   generateZatcaCsrPem,
   initialPreviousInvoiceHash,
+  ZATCA_CHECKLIST_CATEGORIES,
+  ZATCA_PHASE_2_CHECKLIST,
   type ZatcaCsrInput,
+  type ZatcaChecklistCategory,
+  type ZatcaChecklistItem,
   type ZatcaInvoiceInput,
 } from "@ledgerbyte/zatca-core";
 import {
@@ -104,6 +108,102 @@ export class ZatcaService {
 
   getAdapterConfig() {
     return summarizeZatcaAdapterConfig(this.adapterConfig);
+  }
+
+  getComplianceChecklist(_organizationId?: string) {
+    const groups = Object.fromEntries(ZATCA_CHECKLIST_CATEGORIES.map((category) => [category, [] as ZatcaChecklistItem[]])) as Record<
+      ZatcaChecklistCategory,
+      ZatcaChecklistItem[]
+    >;
+    const byStatus: Record<string, number> = {};
+    const byRisk: Record<string, number> = {};
+
+    for (const item of ZATCA_PHASE_2_CHECKLIST) {
+      groups[item.category].push(item);
+      byStatus[item.status] = (byStatus[item.status] ?? 0) + 1;
+      byRisk[item.riskLevel] = (byRisk[item.riskLevel] ?? 0) + 1;
+    }
+
+    return {
+      warning: "This checklist is not legal certification.",
+      summary: {
+        total: ZATCA_PHASE_2_CHECKLIST.length,
+        byStatus,
+        byRisk,
+      },
+      groups,
+    };
+  }
+
+  async getZatcaReadinessSummary(organizationId: string) {
+    const profile = await this.getProfile(organizationId);
+    const activeEgs = await this.prisma.zatcaEgsUnit.findFirst({
+      where: { organizationId, isActive: true, status: ZatcaRegistrationStatus.ACTIVE },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        isActive: true,
+        csrPem: true,
+        complianceCsidPem: true,
+        lastIcv: true,
+        lastInvoiceHash: true,
+      },
+    });
+    const localXmlCount = await this.prisma.zatcaInvoiceMetadata.count({
+      where: { organizationId, xmlBase64: { not: null } },
+    });
+    const profileReady = profile.readiness.ready;
+    const egsReady = Boolean(activeEgs);
+    const localXmlReady = localXmlCount > 0;
+    const mockCsidReady = Boolean(activeEgs?.complianceCsidPem);
+    const adapterConfig = this.getAdapterConfig();
+    const blockingReasons: string[] = [];
+
+    if (!profileReady) {
+      blockingReasons.push(`ZATCA profile is missing: ${profile.readiness.missingFields.join(", ")}.`);
+    }
+    if (!egsReady) {
+      blockingReasons.push("No active development EGS unit is configured.");
+    }
+    if (egsReady && !activeEgs?.csrPem) {
+      blockingReasons.push("Active EGS unit does not have a CSR yet.");
+    }
+    if (!mockCsidReady) {
+      blockingReasons.push("No active EGS unit has a local mock compliance CSID.");
+    }
+    if (!localXmlReady) {
+      blockingReasons.push("No local ZATCA XML has been generated for an invoice yet.");
+    }
+    if (!adapterConfig.effectiveRealNetworkEnabled) {
+      blockingReasons.push("Real ZATCA network calls are disabled by configuration.");
+    }
+    blockingReasons.push("Production readiness is intentionally false until official validation, signing, API integration, and PDF/A-3 are complete.");
+
+    return {
+      warning: "This readiness summary is local engineering guidance only and is not legal certification.",
+      profileReady,
+      profileMissingFields: profile.readiness.missingFields,
+      egsReady,
+      activeEgsUnit: activeEgs
+        ? {
+            id: activeEgs.id,
+            name: activeEgs.name,
+            status: activeEgs.status,
+            isActive: activeEgs.isActive,
+            hasCsr: Boolean(activeEgs.csrPem),
+            hasComplianceCsid: Boolean(activeEgs.complianceCsidPem),
+            lastIcv: activeEgs.lastIcv,
+            lastInvoiceHash: activeEgs.lastInvoiceHash,
+          }
+        : null,
+      localXmlReady,
+      mockCsidReady,
+      realNetworkEnabled: adapterConfig.effectiveRealNetworkEnabled,
+      productionReady: false,
+      blockingReasons,
+    };
   }
 
   async getProfile(organizationId: string) {

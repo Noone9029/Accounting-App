@@ -3,12 +3,15 @@ import {
   shouldShowZatcaRealNetworkWarning,
   truncateHash,
   zatcaAdapterModeLabel,
+  zatcaChecklistRiskBadgeClass,
+  zatcaChecklistStatusBadgeClass,
   zatcaEgsCsrDownloadPath,
   zatcaInvoiceClearancePath,
   zatcaInvoiceComplianceCheckPath,
   zatcaInvoiceQrPath,
   zatcaInvoiceReportingPath,
   zatcaInvoiceXmlPath,
+  zatcaReadinessLabel,
   zatcaStatusLabel,
 } from "./zatca";
 
@@ -43,5 +46,14 @@ describe("ZATCA helpers", () => {
   it("detects profile readiness fields", () => {
     expect(getZatcaProfileMissingFields({ sellerName: "", vatNumber: "300", city: null, countryCode: "SA" })).toEqual(["sellerName", "city"]);
     expect(getZatcaProfileMissingFields({ sellerName: "Seller", vatNumber: "300", city: "Riyadh", countryCode: "SA" })).toEqual([]);
+  });
+
+  it("formats checklist badges and readiness labels", () => {
+    expect(zatcaChecklistStatusBadgeClass("DONE_LOCAL")).toContain("emerald");
+    expect(zatcaChecklistStatusBadgeClass("NOT_STARTED")).toContain("rose");
+    expect(zatcaChecklistRiskBadgeClass("CRITICAL")).toContain("rose");
+    expect(zatcaChecklistRiskBadgeClass("HIGH")).toContain("amber");
+    expect(zatcaReadinessLabel(true)).toBe("Ready locally");
+    expect(zatcaReadinessLabel(false)).toBe("Blocked");
   });
 });

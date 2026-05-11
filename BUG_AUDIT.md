@@ -403,6 +403,29 @@ Commit inspected: pending (`Stabilize ZATCA groundwork`)
 - Private-key database storage is still development-only and must move to KMS/secrets-manager-backed storage before real certificate handling.
 - Mock CSID and mock invoice compliance checks are fake local workflow states and must not be treated as legal clearance or reporting.
 
+## ZATCA Official-Docs Mapping And Checklist
+
+Audit date: 2026-05-12
+
+Commit inspected: pending (`Add ZATCA compliance checklist mapping`)
+
+### Checklist Mapping Added
+
+- Added `docs/zatca` engineering checklists for Phase 2 mapping, API integration, XML, QR, CSR/CSID onboarding, PDF/A-3 archive, security/key management, and testing/validation.
+- Added typed `ZATCA_PHASE_2_CHECKLIST` data in `packages/zatca-core` so future implementation can be tracked against explicit requirement areas instead of guessed code paths.
+- Added authenticated `GET /zatca/compliance-checklist` and `GET /zatca/readiness` endpoints.
+- Added settings-page checklist and readiness display with status/risk badges and local blocking reasons.
+- Kept `productionReady=false` and real network calls disabled by default.
+
+### Remaining Critical ZATCA Risks
+
+- Official ZATCA XML rules are not fully implemented or validated.
+- Real compliance CSID onboarding is not integrated.
+- Invoice signing and cryptographic stamp generation are not implemented.
+- PDF/A-3 conversion and XML embedding are not implemented.
+- Clearance and reporting submissions are not implemented.
+- Real private keys are not stored in KMS/secrets-manager-backed custody.
+
 ## Remaining Risks
 
 - The concurrency strategy relies on PostgreSQL row locks produced by conditional updates inside Prisma transactions. A small multi-process load test is still recommended before production.

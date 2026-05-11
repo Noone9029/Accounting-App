@@ -26,6 +26,16 @@ export class ZatcaController {
     return this.zatcaService.getAdapterConfig();
   }
 
+  @Get("zatca/compliance-checklist")
+  complianceChecklist(@CurrentOrganizationId() organizationId: string) {
+    return this.zatcaService.getComplianceChecklist(organizationId);
+  }
+
+  @Get("zatca/readiness")
+  readiness(@CurrentOrganizationId() organizationId: string) {
+    return this.zatcaService.getZatcaReadinessSummary(organizationId);
+  }
+
   @Patch("zatca/profile")
   updateProfile(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateZatcaProfileDto) {
     return this.zatcaService.updateProfile(organizationId, user.id, dto);

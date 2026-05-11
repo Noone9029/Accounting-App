@@ -55,6 +55,36 @@ export function zatcaAdapterModeLabel(mode: ZatcaAdapterMode | string | null | u
   return "Mock";
 }
 
+export function zatcaChecklistStatusBadgeClass(status: string): string {
+  if (status === "DONE_LOCAL") {
+    return "bg-emerald-50 text-emerald-700";
+  }
+  if (status === "MOCK_ONLY" || status === "SKELETON") {
+    return "bg-amber-50 text-amber-700";
+  }
+  if (status === "NOT_STARTED") {
+    return "bg-rose-50 text-rosewood";
+  }
+  return "bg-slate-100 text-slate-700";
+}
+
+export function zatcaChecklistRiskBadgeClass(riskLevel: string): string {
+  if (riskLevel === "CRITICAL") {
+    return "bg-rose-50 text-rosewood";
+  }
+  if (riskLevel === "HIGH") {
+    return "bg-amber-50 text-amber-700";
+  }
+  if (riskLevel === "MEDIUM") {
+    return "bg-sky-50 text-sky-700";
+  }
+  return "bg-slate-100 text-slate-700";
+}
+
+export function zatcaReadinessLabel(value: boolean): string {
+  return value ? "Ready locally" : "Blocked";
+}
+
 export function shouldShowZatcaRealNetworkWarning(config: Pick<ZatcaAdapterConfigSummary, "effectiveRealNetworkEnabled"> | null | undefined): boolean {
   return !config?.effectiveRealNetworkEnabled;
 }

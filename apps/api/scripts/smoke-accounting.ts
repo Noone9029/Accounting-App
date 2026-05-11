@@ -114,6 +114,22 @@ interface ZatcaAdapterConfigSummary {
   effectiveRealNetworkEnabled: boolean;
 }
 
+interface ZatcaComplianceChecklistResponse {
+  warning: string;
+  summary: {
+    total: number;
+    byStatus: Record<string, number>;
+    byRisk: Record<string, number>;
+  };
+  groups: Record<string, unknown[]>;
+}
+
+interface ZatcaReadinessSummary {
+  warning: string;
+  productionReady: boolean;
+  blockingReasons: string[];
+}
+
 interface ZatcaEgsUnit {
   id: string;
   name: string;
@@ -263,6 +279,16 @@ async function main(): Promise<void> {
   assertEqual(zatcaAdapterConfig.mode, "mock", "ZATCA adapter default mode");
   assertEqual(zatcaAdapterConfig.realNetworkEnabled, false, "ZATCA real network disabled flag");
   assertEqual(zatcaAdapterConfig.effectiveRealNetworkEnabled, false, "ZATCA effective real network disabled flag");
+  const zatcaChecklist = await get<ZatcaComplianceChecklistResponse>("/zatca/compliance-checklist", headers);
+  assert(zatcaChecklist.warning.includes("not legal certification"), "ZATCA checklist warning is present");
+  assert(zatcaChecklist.summary.total > 0, "ZATCA checklist has items");
+  assert((zatcaChecklist.groups.API?.length ?? 0) > 0, "ZATCA checklist groups API items");
+  assert((zatcaChecklist.groups.PDF_A3?.length ?? 0) > 0, "ZATCA checklist groups PDF/A-3 items");
+  const zatcaReadiness = await get<ZatcaReadinessSummary>("/zatca/readiness", headers);
+  assert(zatcaReadiness.warning.includes("not legal certification"), "ZATCA readiness warning is present");
+  assertEqual(zatcaReadiness.productionReady, false, "ZATCA readiness productionReady");
+  assert(zatcaReadiness.blockingReasons.length > 0, "ZATCA readiness returns blocking reasons");
+  assertNoPrivateKey(zatcaReadiness, "ZATCA readiness response");
 
   const smokeEgsSerial = "LEDGERBYTE-SMOKE-EGS";
   const existingEgsUnits = await get<ZatcaEgsUnit[]>("/zatca/egs-units", headers);
