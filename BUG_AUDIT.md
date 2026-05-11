@@ -366,7 +366,7 @@ Commit inspected: `cc0df31` (`Add ZATCA foundation groundwork`)
 
 Audit date: 2026-05-08
 
-Commit inspected: pending (`Add safe ZATCA sandbox adapter scaffolding`)
+Commit inspected: `9ea5047` (`Add safe ZATCA sandbox adapter scaffolding`)
 
 ### Sandbox Adapter Scaffolding Added
 
@@ -381,6 +381,27 @@ Commit inspected: pending (`Add safe ZATCA sandbox adapter scaffolding`)
 - This is still not production ZATCA compliance.
 - Real calls are intentionally disabled by default and official ZATCA endpoint URLs, request bodies, response mappings, credentials, and auth headers must be verified before any sandbox network enablement.
 - Compliance risk remains until official ZATCA documentation and valid sandbox credentials are used for real compliance CSID and compliance-check testing.
+
+## ZATCA Foundation Stabilization
+
+Audit date: 2026-05-11
+
+Commit inspected: pending (`Stabilize ZATCA groundwork`)
+
+### Stabilization Added
+
+- Made repeated local ZATCA invoice generation idempotent: once XML/QR/hash metadata exists for an invoice, repeat generation returns that metadata without consuming another ICV or changing the active EGS hash chain.
+- Added backend coverage that compliance CSID request logs do not store OTP, CSR PEM, or private-key material.
+- Added core coverage for XML escaping, deterministic hashing, and UTF-8 byte-length handling for Arabic/Unicode QR TLV seller names.
+- Extended smoke coverage for safe adapter defaults, EGS private-key redaction, CSR-only response behavior, repeated ZATCA generation idempotency, and safe blocked clearance/reporting logs.
+- Rechecked that normal EGS responses redact `privateKeyPem` and that CSR endpoints return CSR PEM only.
+
+### Remaining Stabilization Risks
+
+- The ZATCA XML remains a local skeleton and must be verified against current official ZATCA/FATOORA XML, canonicalization, signing, and validation rules.
+- Real network adapter endpoint paths and payloads remain intentionally unverified and disabled by default.
+- Private-key database storage is still development-only and must move to KMS/secrets-manager-backed storage before real certificate handling.
+- Mock CSID and mock invoice compliance checks are fake local workflow states and must not be treated as legal clearance or reporting.
 
 ## Remaining Risks
 

@@ -38,6 +38,20 @@ describe("ZATCA adapter config", () => {
       ).effectiveRealNetworkEnabled,
     ).toBe(true);
   });
+
+  it("does not treat production URL configuration as sandbox network enablement", () => {
+    const summary = summarizeZatcaAdapterConfig(
+      readZatcaAdapterConfig({
+        ZATCA_ADAPTER_MODE: "sandbox",
+        ZATCA_ENABLE_REAL_NETWORK: "true",
+        ZATCA_PRODUCTION_BASE_URL: "https://production.example.invalid",
+      }),
+    );
+
+    expect(summary.productionBaseUrlConfigured).toBe(true);
+    expect(summary.sandboxBaseUrlConfigured).toBe(false);
+    expect(summary.effectiveRealNetworkEnabled).toBe(false);
+  });
 });
 
 describe("ZATCA sandbox adapter safety", () => {

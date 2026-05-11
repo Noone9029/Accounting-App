@@ -166,7 +166,10 @@ describe("ZATCA service rules", () => {
         data: expect.objectContaining({ invoiceMetadataId: null, responseCode: "LOCAL_MOCK", requestPayloadBase64: expect.any(String) }),
       }),
     );
-    expect(Buffer.from(tx.zatcaSubmissionLog.create.mock.calls[0][0].data.requestPayloadBase64, "base64").toString()).not.toContain("000000");
+    const loggedRequest = Buffer.from(tx.zatcaSubmissionLog.create.mock.calls[0][0].data.requestPayloadBase64, "base64").toString();
+    expect(loggedRequest).not.toContain("000000");
+    expect(loggedRequest).not.toContain("BEGIN CERTIFICATE REQUEST");
+    expect(loggedRequest).not.toContain("PRIVATE KEY");
   });
 
   it("rejects compliance CSID requests without CSR or OTP", async () => {
@@ -278,6 +281,30 @@ describe("ZATCA service rules", () => {
     );
     expect(tx.zatcaEgsUnit.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ lastIcv: 5, lastInvoiceHash: expect.any(String) }) }));
     expect(tx.zatcaSubmissionLog.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ requestUrl: "local-generation-only" }) }));
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "GENERATE", entityType: "ZatcaInvoiceMetadata" }));
+  });
+
+  it("returns existing generated metadata without consuming another ICV", async () => {
+    const existingMetadata = makeGeneratedMetadata({ icv: 7, previousInvoiceHash: "previous-hash", invoiceHash: "existing-hash" });
+    const tx = makeGenerationTransactionMock({
+      activeEgsLastIcv: 7,
+      activeEgsLastInvoiceHash: "existing-hash",
+      existingMetadata,
+    });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const audit = { log: jest.fn() };
+    const service = new ZatcaService(prisma as never, audit as never);
+
+    const result = await service.generateInvoiceCompliance("org-1", "user-1", "invoice-1");
+
+    expect(result).toMatchObject({ id: "metadata-1", icv: 7, invoiceHash: "existing-hash" });
+    expect(tx.zatcaInvoiceMetadata.findUniqueOrThrow).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "metadata-1" }, include: expect.any(Object) }),
+    );
+    expect(tx.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+    expect(tx.zatcaEgsUnit.findFirst).not.toHaveBeenCalled();
+    expect(tx.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(tx.zatcaSubmissionLog.create).not.toHaveBeenCalled();
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "GENERATE", entityType: "ZatcaInvoiceMetadata" }));
   });
 
@@ -399,6 +426,15 @@ describe("ZATCA service rules", () => {
 
     await expect(service.submitInvoiceComplianceCheck("other-org", "user-1", "invoice-1")).rejects.toThrow(NotFoundException);
   });
+
+  it("scopes submission log listing by organization", async () => {
+    const prisma = { zatcaSubmissionLog: { findMany: jest.fn().mockResolvedValue([]) } };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    await service.listSubmissions("org-1");
+
+    expect(prisma.zatcaSubmissionLog.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: "org-1" } }));
+  });
 });
 
 function makeGenerationTransactionMock(options: {
@@ -408,6 +444,7 @@ function makeGenerationTransactionMock(options: {
   activeEgsLastIcv?: number;
   activeEgsLastInvoiceHash?: string | null;
   activeEgs?: null;
+  existingMetadata?: ReturnType<typeof makeGeneratedMetadata>;
 } = {}) {
   const activeEgs =
     options.activeEgs === null
@@ -474,11 +511,18 @@ function makeGenerationTransactionMock(options: {
       }),
     },
     zatcaInvoiceMetadata: {
-      upsert: jest.fn().mockResolvedValue({
-        id: "metadata-1",
-        invoiceUuid: "00000000-0000-0000-0000-000000000001",
-        icv: null,
-      }),
+      upsert: jest.fn().mockResolvedValue(
+        options.existingMetadata ?? {
+          id: "metadata-1",
+          invoiceUuid: "00000000-0000-0000-0000-000000000001",
+          icv: null,
+          xmlBase64: null,
+          qrCodeBase64: null,
+          invoiceHash: null,
+          generatedAt: null,
+        },
+      ),
+      findUniqueOrThrow: jest.fn().mockResolvedValue(options.existingMetadata ?? makeGeneratedMetadata()),
       update: jest.fn(({ data }) =>
         Promise.resolve({
           id: "metadata-1",

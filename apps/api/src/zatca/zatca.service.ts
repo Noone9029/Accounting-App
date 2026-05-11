@@ -478,6 +478,18 @@ export class ZatcaService {
         },
       });
 
+      if (
+        metadata.xmlBase64 &&
+        metadata.qrCodeBase64 &&
+        metadata.invoiceHash &&
+        metadata.generatedAt
+      ) {
+        return tx.zatcaInvoiceMetadata.findUniqueOrThrow({
+          where: { id: metadata.id },
+          include: zatcaMetadataInclude,
+        });
+      }
+
       const activeEgs = await tx.zatcaEgsUnit.findFirst({
         where: { organizationId, isActive: true, status: ZatcaRegistrationStatus.ACTIVE },
         orderBy: { updatedAt: "desc" },

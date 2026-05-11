@@ -108,6 +108,12 @@ interface ZatcaOrganizationProfile {
   countryCode: string;
 }
 
+interface ZatcaAdapterConfigSummary {
+  mode: string;
+  realNetworkEnabled: boolean;
+  effectiveRealNetworkEnabled: boolean;
+}
+
 interface ZatcaEgsUnit {
   id: string;
   name: string;
@@ -253,9 +259,14 @@ async function main(): Promise<void> {
     environment: "SANDBOX",
   });
   assertEqual(patchedZatcaProfile.vatNumber, "300000000000003", "ZATCA profile VAT number");
+  const zatcaAdapterConfig = await get<ZatcaAdapterConfigSummary>("/zatca/adapter-config", headers);
+  assertEqual(zatcaAdapterConfig.mode, "mock", "ZATCA adapter default mode");
+  assertEqual(zatcaAdapterConfig.realNetworkEnabled, false, "ZATCA real network disabled flag");
+  assertEqual(zatcaAdapterConfig.effectiveRealNetworkEnabled, false, "ZATCA effective real network disabled flag");
 
   const smokeEgsSerial = "LEDGERBYTE-SMOKE-EGS";
   const existingEgsUnits = await get<ZatcaEgsUnit[]>("/zatca/egs-units", headers);
+  assertNoPrivateKey(existingEgsUnits, "ZATCA EGS list response");
   let smokeEgs =
     existingEgsUnits.find((unit) => unit.deviceSerialNumber === smokeEgsSerial) ??
     (await post<ZatcaEgsUnit>("/zatca/egs-units", headers, {
@@ -264,17 +275,22 @@ async function main(): Promise<void> {
       environment: "SANDBOX",
       solutionName: "LedgerByte",
     }));
+  assertNoPrivateKey(smokeEgs, "ZATCA EGS create/detail response");
   smokeEgs = await post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/generate-csr`, headers, {});
+  assertNoPrivateKey(smokeEgs, "ZATCA EGS CSR generation response");
   assertEqual(smokeEgs.hasCsr, true, "ZATCA smoke EGS CSR flag");
   const csrResponse = await get<{ csrPem: string }>(`/zatca/egs-units/${smokeEgs.id}/csr`, headers);
   assert(csrResponse.csrPem.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA CSR endpoint returns CSR PEM");
+  assert(!csrResponse.csrPem.includes("PRIVATE KEY"), "ZATCA CSR endpoint does not return private key material");
   await assertText(`/zatca/egs-units/${smokeEgs.id}/csr/download`, headers, "EGS CSR download", "BEGIN CERTIFICATE REQUEST");
   smokeEgs = await post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/request-compliance-csid`, headers, { otp: "000000", mode: "mock" });
+  assertNoPrivateKey(smokeEgs, "ZATCA compliance CSID response");
   assertEqual(smokeEgs.hasComplianceCsid, true, "ZATCA smoke EGS compliance CSID flag");
   assertPresent(smokeEgs.certificateRequestId, "ZATCA smoke EGS certificate request id");
   if (!smokeEgs.isActive) {
     smokeEgs = await post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/activate-dev`, headers, {});
   }
+  assertNoPrivateKey(smokeEgs, "ZATCA EGS activation response");
   assert(smokeEgs.isActive || smokeEgs.status === "ACTIVE" || smokeEgs.status === "CERTIFICATE_ISSUED", "ZATCA smoke EGS active or certificate state");
   const zatcaSubmissions = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
   assert(
@@ -289,6 +305,19 @@ async function main(): Promise<void> {
   assertPresent(zatcaMetadata.qrCodeBase64, "ZATCA QR base64");
   assertPresent(zatcaMetadata.icv, "ZATCA ICV");
   assertEqual(zatcaMetadata.zatcaStatus, "XML_GENERATED", "ZATCA metadata status");
+  const egsAfterFirstZatcaGenerate = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  const repeatedZatcaMetadata = await post<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca/generate`, headers, {});
+  assertEqual(repeatedZatcaMetadata.id, zatcaMetadata.id, "repeated ZATCA generate metadata id");
+  assertEqual(repeatedZatcaMetadata.icv, zatcaMetadata.icv, "repeated ZATCA generate ICV");
+  assertEqual(repeatedZatcaMetadata.previousInvoiceHash, zatcaMetadata.previousInvoiceHash, "repeated ZATCA generate previous hash");
+  assertEqual(repeatedZatcaMetadata.invoiceHash, zatcaMetadata.invoiceHash, "repeated ZATCA generate invoice hash");
+  const egsAfterRepeatedZatcaGenerate = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  assertEqual(egsAfterRepeatedZatcaGenerate.lastIcv, egsAfterFirstZatcaGenerate.lastIcv, "repeated ZATCA generate does not change EGS ICV");
+  assertEqual(
+    egsAfterRepeatedZatcaGenerate.lastInvoiceHash,
+    egsAfterFirstZatcaGenerate.lastInvoiceHash,
+    "repeated ZATCA generate does not change EGS previous hash",
+  );
   await assertXml(`/sales-invoices/${draftInvoice.id}/zatca/xml`, headers, "invoice ZATCA XML", finalizedInvoice.invoiceNumber);
   const zatcaQr = await get<ZatcaQrResponse>(`/sales-invoices/${draftInvoice.id}/zatca/qr`, headers);
   assertPresent(zatcaQr.qrCodeBase64, "ZATCA QR endpoint payload");
@@ -606,6 +635,12 @@ function assertPresent(value: unknown, label: string): void {
   if (value === undefined || value === null || value === "") {
     throw new Error(`Smoke assertion failed: missing ${label}.`);
   }
+}
+
+function assertNoPrivateKey(value: unknown, label: string): void {
+  const serialized = JSON.stringify(value) ?? "";
+  assert(!serialized.includes("privateKeyPem"), `${label} does not expose privateKeyPem`);
+  assert(!serialized.includes("PRIVATE KEY"), `${label} does not expose private key material`);
 }
 
 function assertMoney(actual: unknown, expected: Decimal, label: string): void {

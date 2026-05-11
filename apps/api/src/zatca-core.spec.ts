@@ -64,6 +64,23 @@ describe("zatca-core local payload helpers", () => {
     expect(first).toContain("Consulting service");
   });
 
+  it("escapes XML-special characters in dynamic invoice fields", () => {
+    const xml = buildZatcaInvoiceXml({
+      ...input,
+      invoiceNumber: "INV-&<>\"'",
+      seller: { ...input.seller, name: "Seller & Sons <Riyadh> \"VAT\"" },
+      buyer: { ...input.buyer, name: "Buyer 'Test' & Co" },
+      lines: [{ ...input.lines[0]!, description: "Service & setup <phase> \"A\" 'B'", taxRateName: "VAT & Sales" }],
+    });
+
+    expect(xml).toContain("INV-&amp;&lt;&gt;&quot;&apos;");
+    expect(xml).toContain("Seller &amp; Sons &lt;Riyadh&gt; &quot;VAT&quot;");
+    expect(xml).toContain("Buyer &apos;Test&apos; &amp; Co");
+    expect(xml).toContain("Service &amp; setup &lt;phase&gt; &quot;A&quot; &apos;B&apos;");
+    expect(xml).toContain("VAT &amp; Sales");
+    expect(xml).not.toContain("<phase>");
+  });
+
   it("generates basic TLV QR base64 payload", () => {
     const qr = generateZatcaQrBase64({
       sellerName: input.seller.name,
@@ -76,6 +93,25 @@ describe("zatca-core local payload helpers", () => {
     expect(qr).toEqual(expect.any(String));
     expect(qr.length).toBeGreaterThan(20);
     expect(Buffer.from(qr, "base64").byteLength).toBeGreaterThan(20);
+  });
+
+  it("uses UTF-8 byte lengths for Unicode TLV QR seller names", () => {
+    const sellerName = "شركة ليدجر بايت";
+    const qr = generateZatcaQrBase64({
+      sellerName,
+      vatNumber: input.seller.vatNumber,
+      timestamp: input.issueDate,
+      invoiceTotal: input.total,
+      vatTotal: input.taxTotal,
+    });
+    const decoded = Buffer.from(qr, "base64");
+    const expectedSellerBytes = Buffer.from(sellerName, "utf8");
+    const sellerLength = decoded[1] ?? -1;
+
+    expect(decoded[0]).toBe(1);
+    expect(sellerLength).toBe(expectedSellerBytes.byteLength);
+    expect(sellerLength).toBeGreaterThan(sellerName.length);
+    expect(decoded.subarray(2, 2 + sellerLength).toString("utf8")).toBe(sellerName);
   });
 
   it("hashes deterministically and changes when totals change", () => {
