@@ -27,6 +27,7 @@ describe("ZATCA Phase 2 checklist", () => {
       assert.notEqual(item.title.trim(), "", `${item.id} has a title`);
       assert.notEqual(item.description.trim(), "", `${item.id} has a description`);
       assert.equal(item.codeReferences.length > 0, true, `${item.id} has code references`);
+      assert.equal((item.sourceReferences?.length ?? 0) > 0, true, `${item.id} has official source references`);
     }
   });
 

@@ -8,3 +8,12 @@ This is a working engineering checklist. Official ZATCA/FATOORA documentation mu
 - Add cryptographic stamp/signature tags only after invoice signing exists.
 - Add official QR sample fixtures and scanner validation where available.
 - Verify QR payload displayed in PDFs does not imply legal compliance until signing and official validation pass.
+
+## Reference-backed source files
+
+- `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards.pdf`
+- `reference/zatca-docs/E-Invoicing_Detailed__Guideline.pdf`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Rules/Schematrons/20210819_ZATCA_E-invoice_Validation_Rules.xsl`
+
+Key gap found: local QR tags 1-5 are not enough for Phase 2 signing scenarios, and the QR payload is not yet embedded in the official XML `QR` additional-document-reference structure.

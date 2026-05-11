@@ -4,6 +4,8 @@ This is a working engineering checklist. Official ZATCA/FATOORA documentation mu
 
 Status values: `DONE_LOCAL`, `MOCK_ONLY`, `SKELETON`, `NOT_STARTED`, `NEEDS_OFFICIAL_VERIFICATION`.
 
+Official reference files have now been inventoried under `reference/` and mapped in `OFFICIAL_IMPLEMENTATION_MAP.md`. Treat the table below as LedgerByte's code-status map; use `OFFICIAL_IMPLEMENTATION_MAP.md` and `ZATCA_CODE_GAP_REPORT.md` for reference-backed implementation sequencing.
+
 | Requirement area | Current implementation status | Relevant files | Next engineering step | Manual dependency |
 | --- | --- | --- | --- | --- |
 | Seller profile data | `DONE_LOCAL` | `apps/api/src/zatca/zatca.service.ts`, `apps/web/src/app/(app)/settings/zatca/page.tsx` | Expand validation after official required seller fields are confirmed. | Verify official seller/address/company identifier fields. |
@@ -25,3 +27,19 @@ Status values: `DONE_LOCAL`, `MOCK_ONLY`, `SKELETON`, `NOT_STARTED`, `NEEDS_OFFI
 | Document archive/audit logs | `DONE_LOCAL` | `apps/api/src/generated-documents`, `apps/api/src/zatca/zatca.service.ts` | Add retention/supersede policy and immutable audit review. | Legal retention and audit policy. |
 | Error/retry handling | `SKELETON` | `apps/api/src/zatca/zatca.service.ts`, `apps/api/src/zatca/adapters/zatca-adapter.error.ts` | Map official error codes and retry classes. | Official API error catalog and retry guidance. |
 | Sandbox/simulation/production environments | `NEEDS_OFFICIAL_VERIFICATION` | `apps/api/src/zatca/zatca.config.ts`, `.env.example` | Verify official URLs and environment semantics before enabling network. | Current official FATOORA endpoint documentation. |
+
+## Reference-backed source files
+
+- `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_XML_Implementation_Standard_vF.pdf`
+- `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards.pdf`
+- `reference/zatca-docs/E-Invoicing_Detailed__Guideline.pdf`
+- `reference/zatca-docs/EInvoice_Data_Dictionary.xlsx`
+- `reference/zatca-docs/compliance_csid.pdf`
+- `reference/zatca-docs/compliance_invoice.pdf`
+- `reference/zatca-docs/clearance.pdf`
+- `reference/zatca-docs/reporting.pdf`
+- `reference/zatca-docs/onboarding.pdf`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/**/*.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Schemas/xsds/**/*.xsd`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Rules/Schematrons/*.xsl`

@@ -13,3 +13,15 @@ This is a working engineering checklist. Official ZATCA/FATOORA documentation mu
 - Add fixture-based tests before setting `ZATCA_ENABLE_REAL_NETWORK=true` in any controlled sandbox.
 
 Open blockers: real OTP, valid sandbox credentials, official endpoint URLs, official payload samples, official error semantics.
+
+## Reference-backed source files
+
+- `reference/zatca-docs/compliance_csid.pdf`
+- `reference/zatca-docs/compliance_invoice.pdf`
+- `reference/zatca-docs/clearance.pdf`
+- `reference/zatca-docs/reporting.pdf`
+- `reference/zatca-docs/onboarding.pdf`
+- `reference/zatca-docs/renewal.pdf`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md`
+
+Use `OFFICIAL_IMPLEMENTATION_MAP.md` before changing adapter paths or payloads. These files identify endpoint shapes, but base URLs, credentials, headers, and sandbox behavior still need manual confirmation before any real network enablement.

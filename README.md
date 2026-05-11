@@ -443,6 +443,14 @@ Do not treat the current mock CSID, local XML, local QR, or local hash-chain beh
 - Local XML validation can be called with `GET /sales-invoices/:id/zatca/xml-validation` after local XML is generated.
 - The validation response is local-only and not official ZATCA SDK validation. Future work must add official ZATCA SDK/fixture validation only after official docs/access are obtained.
 
+### ZATCA Official Reference Maps
+
+- Local official ZATCA/FATOORA material has been inventoried under `reference/` (singular), not `references/`.
+- The inventory lives at `docs/zatca/REFERENCES_INVENTORY.md`.
+- Future ZATCA implementation work should start with `docs/zatca/OFFICIAL_IMPLEMENTATION_MAP.md` and `docs/zatca/ZATCA_CODE_GAP_REPORT.md` before changing XML, CSR, hash, signing, QR, or API behavior.
+- The Java SDK usage plan lives at `docs/zatca/SDK_USAGE_PLAN.md`; the SDK should be wrapped only in isolated test tooling first, with a Java 11-14 runtime and redacted logs.
+- The current code is still not production compliant. Official SDK/API validation, real CSID onboarding, signing, PDF/A-3, clearance, reporting, and KMS-backed key custody are still required.
+
 Not implemented yet:
 
 - real ZATCA API calls
@@ -484,7 +492,7 @@ Future real onboarding steps:
 - ZATCA Phase 2 production onboarding, real CSID issuance, signing, clearance, reporting, PDF/A-3, and embedded XML are not implemented yet.
 - Current CSR and mock CSID flow is local-only and never calls ZATCA.
 - Sandbox adapter scaffolding exists, but real network calls are intentionally disabled by default and official endpoint/payload mapping remains unverified.
-- Current ZATCA XML/QR/hash generation is local-only groundwork and must be verified against official ZATCA documentation before production use.
+- Current ZATCA XML/QR/hash generation is local-only groundwork. The official reference inventory and code-gap map now exist, but implementation still must be verified against the SDK, schemas, Schematron rules, and current ZATCA/FATOORA sandbox behavior before production use.
 - PDF output is basic operational rendering only; no PDF/A-3, embedded XML, or template designer exists yet.
 - Generated PDFs are stored as base64 database records for local/dev groundwork; S3-compatible storage is planned before production scale.
 - GET PDF endpoints currently archive every download.

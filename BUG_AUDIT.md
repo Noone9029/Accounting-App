@@ -447,6 +447,28 @@ Commit inspected: pending (`Add ZATCA XML mapping scaffold`)
 - Local XML validation is not official ZATCA SDK validation and must not be treated as legal certification.
 - Signing, canonicalization, cryptographic stamp, official invoice hash source, PDF/A-3 XML embedding, clearance, and reporting are still not implemented.
 
+## ZATCA Official Reference Mapping
+
+Audit date: 2026-05-12
+
+Commit inspected: pending (`Map official ZATCA references`)
+
+### Reference Mapping Added
+
+- Inventoried the local `reference/` folder, including official ZATCA PDFs, the data dictionary XLSX, Java SDK files, sample XML files, UBL XSD schemas, Schematron XSL rules, PDF/A-3 samples, and non-ZATCA local PDFs.
+- Added `docs/zatca/OFFICIAL_IMPLEMENTATION_MAP.md` to map official source files to CSR, CSID, XML, QR, hash, signing, API, PDF/A-3, and validation work.
+- Added `docs/zatca/SDK_USAGE_PLAN.md` with a safe plan for using the Java SDK as an isolated validation/hash/signing oracle later.
+- Added `docs/zatca/ZATCA_CODE_GAP_REPORT.md` comparing current local scaffolding to the inspected references.
+- Added official source-reference metadata to `ZATCA_PHASE_2_CHECKLIST` items.
+
+### Remaining Reference-Backed ZATCA Risks
+
+- Current XML still does not match the SDK sample structure for `ICV`, `PIH`, `QR`, populated UBL extensions, signature blocks, invoice type flags, and several tax/monetary structures.
+- Current invoice hash is not official C14N11 canonicalization and has not been compared to the SDK `-generateHash` output.
+- The SDK requires Java 11 through below 15; the local machine has Java 17, and the Windows launcher has path-with-space issues in this checkout.
+- Real API base URLs, credentials, request headers, and sandbox behavior still require manual verification before any real network calls.
+- No signing, production CSID, clearance/reporting, PDF/A-3 embedding, or KMS-backed key custody is implemented.
+
 ## Remaining Risks
 
 - The concurrency strategy relies on PostgreSQL row locks produced by conditional updates inside Prisma transactions. A small multi-process load test is still recommended before production.
@@ -455,7 +477,7 @@ Commit inspected: pending (`Add ZATCA XML mapping scaffold`)
 - Account parent updates prevent self-parenting but do not yet prevent descendant cycles.
 - `next-env.d.ts` flips between `.next/types` and `.next/dev/types` when switching between build and dev on Next 16. The tracked file is kept clean after verification, but this remains local development churn.
 - Prisma 6 warns that `package.json#prisma` seed configuration is deprecated and should move to a Prisma config file before Prisma 7.
-- ZATCA groundwork is intentionally non-compliant until real onboarding, signing, clearance/reporting, PDF/A-3, and official validation are implemented.
+- ZATCA groundwork is intentionally non-compliant until real onboarding, signing, clearance/reporting, PDF/A-3, official SDK/schema/Schematron validation, and KMS-backed key custody are implemented.
 
 ## Recommended Next Steps
 

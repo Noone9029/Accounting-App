@@ -9,3 +9,10 @@ This is a working engineering checklist. Official ZATCA/FATOORA documentation mu
 - Add PDF/A-3 validation tooling before claiming archive readiness.
 - Define retention, supersede, and immutable audit rules for generated documents.
 - Ensure PDF QR display is tied to signed/validated XML before production use.
+
+## Reference-backed source files
+
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/PDF-A3/*.pdf`
+- `reference/zatca-docs/E-Invoicing_Detailed__Guideline.pdf`
+
+The SDK bundle includes PDF/A-3 samples, but LedgerByte should not implement embedding until the sample metadata, embedded XML relationship, and legal archive expectations are manually verified.

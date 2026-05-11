@@ -456,6 +456,7 @@ export interface ZatcaChecklistItem {
   description: string;
   status: ZatcaChecklistStatus;
   codeReferences: string[];
+  sourceReferences?: string[];
   manualDependency?: string;
   riskLevel: ZatcaChecklistRiskLevel;
 }
