@@ -494,6 +494,52 @@ export interface ZatcaXmlFieldMappingResponse {
   items: ZatcaXmlFieldMappingItem[];
 }
 
+export interface ZatcaSdkReadinessResponse {
+  referenceFolderFound: boolean;
+  sdkJarFound: boolean;
+  fatooraLauncherFound: boolean;
+  jqFound: boolean;
+  javaFound: boolean;
+  javaVersion: string | null;
+  javaMajorVersion: number | null;
+  javaVersionSupported: boolean;
+  projectPathHasSpaces: boolean;
+  canAttemptSdkValidation: boolean;
+  warnings: string[];
+  suggestedFixes: string[];
+}
+
+export interface ZatcaSdkValidationCommandPlan {
+  command: string | null;
+  args: string[];
+  displayCommand: string;
+  envAdditions: Record<string, string>;
+  workingDirectory: string;
+  warnings: string[];
+}
+
+export interface ZatcaSdkDryRunResponse {
+  dryRun: true;
+  localOnly: true;
+  officialSdkValidation: false;
+  xmlSource: "invoice" | "request";
+  temporaryXmlFilePath: string;
+  readiness: Pick<
+    ZatcaSdkReadinessResponse,
+    | "referenceFolderFound"
+    | "sdkJarFound"
+    | "fatooraLauncherFound"
+    | "jqFound"
+    | "javaFound"
+    | "javaVersion"
+    | "javaVersionSupported"
+    | "projectPathHasSpaces"
+    | "canAttemptSdkValidation"
+  >;
+  commandPlan: ZatcaSdkValidationCommandPlan;
+  warnings: string[];
+}
+
 export interface ZatcaReadinessSummary {
   warning: string;
   profileReady: boolean;

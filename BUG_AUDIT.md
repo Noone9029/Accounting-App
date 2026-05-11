@@ -469,6 +469,28 @@ Commit inspected: pending (`Map official ZATCA references`)
 - Real API base URLs, credentials, request headers, and sandbox behavior still require manual verification before any real network calls.
 - No signing, production CSID, clearance/reporting, PDF/A-3 embedding, or KMS-backed key custody is implemented.
 
+## ZATCA SDK Validation Wrapper Groundwork
+
+Audit date: 2026-05-12
+
+Commit inspected: pending (`Add ZATCA SDK validation wrapper groundwork`)
+
+### SDK Wrapper Groundwork Added
+
+- Added test-only SDK discovery for the local `reference/` folder, SDK JAR, `fatoora` launcher, `jq`, Java availability/version, and repo path-space warnings.
+- Added authenticated `GET /zatca-sdk/readiness` and dry-run-only `POST /zatca-sdk/validate-xml-dry-run` endpoints.
+- Added `ZATCA_SDK_EXECUTION_ENABLED=false` default behavior; local SDK execution remains blocked by default.
+- Added an execution endpoint gate that returns a clear disabled error unless explicitly enabled, and still avoids real execution until the command format is verified.
+- Added settings-page SDK readiness display and invoice-detail SDK dry-run command-plan display.
+- Extended smoke coverage for SDK readiness and dry-run planning without requiring Java execution.
+
+### Remaining SDK Wrapper Risks
+
+- Direct JAR and `fatoora.bat` invocation still require manual command verification because previous local attempts hit a Java/config null-pointer and Windows path-with-space issues.
+- Java 11-14 should be pinned before any execution attempt; local Java 17 is outside the SDK readme range.
+- SDK validation is not wired into normal app startup or normal invoice generation.
+- No signing, hash replacement, real API calls, PDF/A-3, production CSID, clearance, or reporting behavior was implemented.
+
 ## Remaining Risks
 
 - The concurrency strategy relies on PostgreSQL row locks produced by conditional updates inside Prisma transactions. A small multi-process load test is still recommended before production.

@@ -33,6 +33,18 @@ export function zatcaInvoiceReportingPath(invoiceId: string): string {
   return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/reporting`;
 }
 
+export function zatcaSdkReadinessPath(): string {
+  return "/zatca-sdk/readiness";
+}
+
+export function zatcaSdkValidateXmlDryRunPath(): string {
+  return "/zatca-sdk/validate-xml-dry-run";
+}
+
+export function zatcaSdkValidateXmlLocalPath(): string {
+  return "/zatca-sdk/validate-xml-local";
+}
+
 export function zatcaEgsCsrDownloadPath(egsUnitId: string): string {
   return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/csr/download`;
 }
@@ -105,6 +117,18 @@ export function zatcaReadinessLabel(value: boolean): string {
 
 export function shouldShowZatcaRealNetworkWarning(config: Pick<ZatcaAdapterConfigSummary, "effectiveRealNetworkEnabled"> | null | undefined): boolean {
   return !config?.effectiveRealNetworkEnabled;
+}
+
+export function zatcaSdkReadinessLabel(value: boolean): string {
+  return value ? "Found" : "Missing";
+}
+
+export function zatcaSdkCanAttemptLabel(value: boolean): string {
+  return value ? "Dry-run ready" : "Blocked";
+}
+
+export function shouldShowZatcaSdkWarning(readiness: { warnings?: string[]; canAttemptSdkValidation?: boolean } | null | undefined): boolean {
+  return !readiness || !readiness.canAttemptSdkValidation || (readiness.warnings?.length ?? 0) > 0;
 }
 
 export function getZatcaProfileMissingFields(profile: {

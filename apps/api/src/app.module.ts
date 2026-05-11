@@ -17,6 +17,7 @@ import { PrismaModule } from "./prisma/prisma.module";
 import { SalesInvoiceModule } from "./sales-invoices/sales-invoice.module";
 import { TaxRateModule } from "./tax-rates/tax-rate.module";
 import { ZatcaModule } from "./zatca/zatca.module";
+import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { ZatcaModule } from "./zatca/zatca.module";
     NumberSequenceModule,
     HealthModule,
     ZatcaModule,
+    ZatcaSdkModule,
   ],
 })
 export class AppModule {}

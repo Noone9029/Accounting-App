@@ -67,9 +67,11 @@ ZATCA_ENABLE_REAL_NETWORK=false
 ZATCA_SANDBOX_BASE_URL=
 ZATCA_SIMULATION_BASE_URL=
 ZATCA_PRODUCTION_BASE_URL=
+ZATCA_SDK_EXECUTION_ENABLED=false
 ```
 
 Real ZATCA network calls are disabled by default and remain blocked unless `ZATCA_ADAPTER_MODE=sandbox`, `ZATCA_ENABLE_REAL_NETWORK=true`, and `ZATCA_SANDBOX_BASE_URL` are all configured.
+Local ZATCA Java SDK execution is also disabled by default. `ZATCA_SDK_EXECUTION_ENABLED=true` is reserved for future local-only SDK validation after the command format is verified.
 
 ## Local Smoke Test
 
@@ -107,7 +109,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, and invoice void rejection while active payments exist.
+The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
 
@@ -240,6 +242,12 @@ ZATCA foundation:
 - `POST /zatca/egs-units/:id/request-compliance-csid`
 - `POST /zatca/egs-units/:id/request-production-csid`
 - `GET /zatca/submissions`
+
+ZATCA SDK wrapper:
+
+- `GET /zatca-sdk/readiness`
+- `POST /zatca-sdk/validate-xml-dry-run`
+- `POST /zatca-sdk/validate-xml-local`
 
 Audit logs:
 
@@ -449,6 +457,8 @@ Do not treat the current mock CSID, local XML, local QR, or local hash-chain beh
 - The inventory lives at `docs/zatca/REFERENCES_INVENTORY.md`.
 - Future ZATCA implementation work should start with `docs/zatca/OFFICIAL_IMPLEMENTATION_MAP.md` and `docs/zatca/ZATCA_CODE_GAP_REPORT.md` before changing XML, CSR, hash, signing, QR, or API behavior.
 - The Java SDK usage plan lives at `docs/zatca/SDK_USAGE_PLAN.md`; the SDK should be wrapped only in isolated test tooling first, with a Java 11-14 runtime and redacted logs.
+- The test-only SDK wrapper notes live at `docs/zatca/SDK_VALIDATION_WRAPPER.md`.
+- `GET /zatca-sdk/readiness` reports local SDK discovery status. `POST /zatca-sdk/validate-xml-dry-run` creates a command plan without executing the SDK. `POST /zatca-sdk/validate-xml-local` is disabled unless `ZATCA_SDK_EXECUTION_ENABLED=true`, and real execution is still intentionally not implemented until the command format is verified.
 - The current code is still not production compliant. Official SDK/API validation, real CSID onboarding, signing, PDF/A-3, clearance, reporting, and KMS-backed key custody are still required.
 
 Not implemented yet:

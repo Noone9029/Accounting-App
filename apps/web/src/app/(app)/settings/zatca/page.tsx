@@ -8,12 +8,16 @@ import { downloadAuthenticatedFile } from "@/lib/pdf-download";
 import {
   getZatcaProfileMissingFields,
   shouldShowZatcaRealNetworkWarning,
+  shouldShowZatcaSdkWarning,
   truncateHash,
   zatcaAdapterModeLabel,
   zatcaChecklistRiskBadgeClass,
   zatcaChecklistStatusBadgeClass,
   zatcaEgsCsrDownloadPath,
   zatcaReadinessLabel,
+  zatcaSdkCanAttemptLabel,
+  zatcaSdkReadinessLabel,
+  zatcaSdkReadinessPath,
   zatcaStatusLabel,
 } from "@/lib/zatca";
 import type {
@@ -24,6 +28,7 @@ import type {
   ZatcaEnvironment,
   ZatcaOrganizationProfile,
   ZatcaReadinessSummary,
+  ZatcaSdkReadinessResponse,
   ZatcaSubmissionLog,
   ZatcaXmlFieldMappingResponse,
 } from "@/lib/types";
@@ -58,6 +63,7 @@ export default function ZatcaSettingsPage() {
   const [checklist, setChecklist] = useState<ZatcaComplianceChecklistResponse | null>(null);
   const [xmlFieldMapping, setXmlFieldMapping] = useState<ZatcaXmlFieldMappingResponse | null>(null);
   const [readiness, setReadiness] = useState<ZatcaReadinessSummary | null>(null);
+  const [sdkReadiness, setSdkReadiness] = useState<ZatcaSdkReadinessResponse | null>(null);
   const [form, setForm] = useState<ZatcaProfileForm | null>(null);
   const [egsUnits, setEgsUnits] = useState<ZatcaEgsUnit[]>([]);
   const [submissionLogs, setSubmissionLogs] = useState<ZatcaSubmissionLog[]>([]);
@@ -84,16 +90,18 @@ export default function ZatcaSettingsPage() {
       apiRequest<ZatcaComplianceChecklistResponse>("/zatca/compliance-checklist"),
       apiRequest<ZatcaXmlFieldMappingResponse>("/zatca/xml-field-mapping"),
       apiRequest<ZatcaReadinessSummary>("/zatca/readiness"),
+      apiRequest<ZatcaSdkReadinessResponse>(zatcaSdkReadinessPath()),
       apiRequest<ZatcaEgsUnit[]>("/zatca/egs-units"),
       apiRequest<ZatcaSubmissionLog[]>("/zatca/submissions"),
     ])
-      .then(([loadedProfile, loadedAdapterConfig, loadedChecklist, loadedXmlFieldMapping, loadedReadiness, loadedUnits, loadedLogs]) => {
+      .then(([loadedProfile, loadedAdapterConfig, loadedChecklist, loadedXmlFieldMapping, loadedReadiness, loadedSdkReadiness, loadedUnits, loadedLogs]) => {
         if (!cancelled) {
           setProfile(loadedProfile);
           setAdapterConfig(loadedAdapterConfig);
           setChecklist(loadedChecklist);
           setXmlFieldMapping(loadedXmlFieldMapping);
           setReadiness(loadedReadiness);
+          setSdkReadiness(loadedSdkReadiness);
           setForm(profileToForm(loadedProfile));
           setEgsUnits(loadedUnits);
           setSubmissionLogs(loadedLogs);
@@ -284,6 +292,48 @@ export default function ZatcaSettingsPage() {
             </div>
             {adapterConfig?.invalidMode ? <p className="mt-3 text-xs text-rosewood">Invalid adapter mode `{adapterConfig.invalidMode}` was ignored and mock mode is active.</p> : null}
           </div>
+
+          {sdkReadiness ? (
+            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-semibold text-ink">SDK validation readiness</h2>
+                  <p className="mt-1 text-sm text-steel">Optional local SDK validation planning only. The app does not execute the ZATCA SDK unless explicitly enabled later.</p>
+                </div>
+                <span className={`rounded-md px-2 py-1 text-xs font-medium ${sdkReadiness.canAttemptSdkValidation ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                  {zatcaSdkCanAttemptLabel(sdkReadiness.canAttemptSdkValidation)}
+                </span>
+              </div>
+              <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
+                <SdkReadinessSummary label="Reference folder" value={sdkReadiness.referenceFolderFound} />
+                <SdkReadinessSummary label="SDK JAR" value={sdkReadiness.sdkJarFound} />
+                <SdkReadinessSummary label="Launcher" value={sdkReadiness.fatooraLauncherFound} />
+                <SdkReadinessSummary label="jq helper" value={sdkReadiness.jqFound} />
+                <SdkReadinessSummary label="Java" value={sdkReadiness.javaFound} detail={sdkReadiness.javaVersion ?? "Not detected"} />
+                <SdkReadinessSummary label="Java version" value={sdkReadiness.javaVersionSupported} detail={sdkReadiness.javaVersionSupported ? "Compatible with SDK readme" : "Expected Java 11-14"} />
+                <SdkReadinessSummary label="Path spaces" value={!sdkReadiness.projectPathHasSpaces} detail={sdkReadiness.projectPathHasSpaces ? "Project path contains spaces" : "No path-space warning"} />
+                <SdkReadinessSummary label="Validation plan" value={sdkReadiness.canAttemptSdkValidation} />
+              </div>
+              {shouldShowZatcaSdkWarning(sdkReadiness) ? (
+                <div className="mt-4 space-y-3">
+                  {sdkReadiness.warnings.length > 0 ? (
+                    <ul className="list-disc space-y-1 pl-5 text-sm text-amber-700">
+                      {sdkReadiness.warnings.map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {sdkReadiness.suggestedFixes.length > 0 ? (
+                    <ul className="list-disc space-y-1 pl-5 text-sm text-steel">
+                      {sdkReadiness.suggestedFixes.map((fix) => (
+                        <li key={fix}>{fix}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {readiness ? (
             <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
@@ -634,6 +684,18 @@ function ReadinessSummary({ label, ready, detail }: { label: string; ready: bool
         {zatcaReadinessLabel(ready)}
       </div>
       <div className="mt-1 text-xs text-steel">{detail}</div>
+    </div>
+  );
+}
+
+function SdkReadinessSummary({ label, value, detail }: { label: string; value: boolean; detail?: string }) {
+  return (
+    <div>
+      <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
+      <div className={`mt-1 inline-flex rounded-md px-2 py-1 text-xs font-medium ${value ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+        {zatcaSdkReadinessLabel(value)}
+      </div>
+      {detail ? <div className="mt-1 text-xs text-steel">{detail}</div> : null}
     </div>
   );
 }

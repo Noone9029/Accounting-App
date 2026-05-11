@@ -17,10 +17,11 @@ import {
   zatcaInvoiceReportingPath,
   zatcaInvoiceXmlPath,
   zatcaInvoiceXmlValidationPath,
+  zatcaSdkValidateXmlDryRunPath,
   zatcaStatusLabel,
   zatcaXmlValidationLabel,
 } from "@/lib/zatca";
-import type { SalesInvoice, ZatcaInvoiceMetadata, ZatcaQrResponse, ZatcaXmlValidationResult } from "@/lib/types";
+import type { SalesInvoice, ZatcaInvoiceMetadata, ZatcaQrResponse, ZatcaSdkDryRunResponse, ZatcaXmlValidationResult } from "@/lib/types";
 
 export default function SalesInvoiceDetailPage() {
   const params = useParams<{ id: string }>();
@@ -29,6 +30,7 @@ export default function SalesInvoiceDetailPage() {
   const [invoice, setInvoice] = useState<SalesInvoice | null>(null);
   const [zatca, setZatca] = useState<ZatcaInvoiceMetadata | null>(null);
   const [xmlValidation, setXmlValidation] = useState<ZatcaXmlValidationResult | null>(null);
+  const [sdkDryRun, setSdkDryRun] = useState<ZatcaSdkDryRunResponse | null>(null);
   const [qrPayload, setQrPayload] = useState("");
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -157,6 +159,7 @@ export default function SalesInvoiceDetailPage() {
     setError("");
     setSuccess("");
     setQrPayload("");
+    setSdkDryRun(null);
 
     try {
       const result = await apiRequest<ZatcaInvoiceMetadata>(`/sales-invoices/${invoice.id}/zatca/generate`, { method: "POST" });
@@ -221,6 +224,29 @@ export default function SalesInvoiceDetailPage() {
       setSuccess("Local XML validation refreshed.");
     } catch (validationError) {
       setError(validationError instanceof Error ? validationError.message : "Unable to validate local ZATCA XML.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function runSdkValidationDryRun() {
+    if (!invoice) {
+      return;
+    }
+
+    setActionLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const result = await apiRequest<ZatcaSdkDryRunResponse>(zatcaSdkValidateXmlDryRunPath(), {
+        method: "POST",
+        body: { invoiceId: invoice.id, mode: "dry-run" },
+      });
+      setSdkDryRun(result);
+      setSuccess("SDK validation dry-run plan created. The SDK was not executed.");
+    } catch (dryRunError) {
+      setError(dryRunError instanceof Error ? dryRunError.message : "Unable to build SDK validation dry-run plan.");
     } finally {
       setActionLoading(false);
     }
@@ -480,6 +506,12 @@ export default function SalesInvoiceDetailPage() {
               <button type="button" onClick={() => void runZatcaSubmission("reporting")} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
                 Request reporting
               </button>
+              <button type="button" onClick={() => void runSdkValidationDryRun()} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                SDK validation dry run
+              </button>
+              <button type="button" disabled className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-400 disabled:cursor-not-allowed">
+                Run local SDK validation disabled
+              </button>
             </div>
 
             <div className="mt-5 border-t border-slate-200 pt-4">
@@ -520,6 +552,40 @@ export default function SalesInvoiceDetailPage() {
                 </ul>
               ) : null}
             </div>
+
+            {sdkDryRun ? (
+              <div className="mt-5 border-t border-slate-200 pt-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-ink">SDK validation dry run</h3>
+                    <p className="mt-1 text-xs text-steel">Command planning only. The official SDK was not executed and no ZATCA network call was made.</p>
+                  </div>
+                  <span className={`rounded-md px-2 py-1 text-xs font-medium ${sdkDryRun.readiness.canAttemptSdkValidation ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                    {sdkDryRun.readiness.canAttemptSdkValidation ? "Plan ready" : "Plan blocked"}
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-1 gap-3 text-xs md:grid-cols-3">
+                  <Summary label="XML source" value={sdkDryRun.xmlSource} />
+                  <Summary label="SDK JAR" value={sdkDryRun.readiness.sdkJarFound ? "Found" : "Missing"} />
+                  <Summary label="Java" value={sdkDryRun.readiness.javaVersion ?? (sdkDryRun.readiness.javaFound ? "Detected" : "Missing")} />
+                </div>
+                {sdkDryRun.commandPlan.displayCommand ? (
+                  <div className="mt-3 rounded-md bg-slate-50 p-3">
+                    <div className="text-xs font-medium uppercase tracking-wide text-steel">Planned command</div>
+                    <div className="mt-1 break-all font-mono text-xs text-ink">{sdkDryRun.commandPlan.displayCommand}</div>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-amber-700">No executable SDK command could be planned with the current local setup.</p>
+                )}
+                {sdkDryRun.warnings.length ? (
+                  <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-amber-700">
+                    {sdkDryRun.warnings.map((warning) => (
+                      <li key={warning}>{warning}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
 
             {qrPayload ? (
               <div className="mt-4 rounded-md bg-slate-50 p-3">

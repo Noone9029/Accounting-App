@@ -14,6 +14,7 @@ These notes track LedgerByte's local ZATCA Phase 2 groundwork and the manual evi
 - `REFERENCES_INVENTORY.md` inventories the local `reference/` folder and classifies docs, SDK tooling, schemas, samples, and non-ZATCA artifacts.
 - `OFFICIAL_IMPLEMENTATION_MAP.md` maps official reference files to future implementation areas and risk levels.
 - `SDK_USAGE_PLAN.md` documents how the Java SDK should be evaluated safely before integration.
+- `SDK_VALIDATION_WRAPPER.md` documents the test-only readiness and dry-run wrapper endpoints.
 - `ZATCA_CODE_GAP_REPORT.md` compares current LedgerByte code to the inspected official references and lists safe implementation order.
 - `QR_REQUIREMENTS_CHECKLIST.md` tracks TLV QR requirements.
 - `CSR_CSID_ONBOARDING_CHECKLIST.md` tracks OTP, CSR, compliance CSID, and production CSID work.

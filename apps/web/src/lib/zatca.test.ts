@@ -14,8 +14,14 @@ import {
   zatcaInvoiceXmlValidationPath,
   zatcaInvoiceXmlPath,
   zatcaReadinessLabel,
+  zatcaSdkCanAttemptLabel,
+  zatcaSdkReadinessLabel,
+  zatcaSdkReadinessPath,
+  zatcaSdkValidateXmlDryRunPath,
+  zatcaSdkValidateXmlLocalPath,
   zatcaStatusLabel,
   zatcaXmlValidationLabel,
+  shouldShowZatcaSdkWarning,
 } from "./zatca";
 
 describe("ZATCA helpers", () => {
@@ -35,6 +41,9 @@ describe("ZATCA helpers", () => {
     expect(zatcaInvoiceComplianceCheckPath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/compliance-check");
     expect(zatcaInvoiceClearancePath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/clearance");
     expect(zatcaInvoiceReportingPath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/reporting");
+    expect(zatcaSdkReadinessPath()).toBe("/zatca-sdk/readiness");
+    expect(zatcaSdkValidateXmlDryRunPath()).toBe("/zatca-sdk/validate-xml-dry-run");
+    expect(zatcaSdkValidateXmlLocalPath()).toBe("/zatca-sdk/validate-xml-local");
     expect(zatcaEgsCsrDownloadPath("egs-1")).toBe("/zatca/egs-units/egs-1/csr/download");
   });
 
@@ -68,5 +77,15 @@ describe("ZATCA helpers", () => {
     expect(shouldShowZatcaLocalOnlyWarning(null)).toBe(true);
     expect(shouldShowZatcaLocalOnlyWarning({ localOnly: true, officialValidation: false })).toBe(true);
     expect(shouldShowZatcaLocalOnlyWarning({ localOnly: false, officialValidation: true })).toBe(false);
+  });
+
+  it("formats SDK readiness helpers", () => {
+    expect(zatcaSdkReadinessLabel(true)).toBe("Found");
+    expect(zatcaSdkReadinessLabel(false)).toBe("Missing");
+    expect(zatcaSdkCanAttemptLabel(true)).toBe("Dry-run ready");
+    expect(zatcaSdkCanAttemptLabel(false)).toBe("Blocked");
+    expect(shouldShowZatcaSdkWarning(null)).toBe(true);
+    expect(shouldShowZatcaSdkWarning({ canAttemptSdkValidation: true, warnings: [] })).toBe(false);
+    expect(shouldShowZatcaSdkWarning({ canAttemptSdkValidation: true, warnings: ["Java version mismatch"] })).toBe(true);
   });
 });

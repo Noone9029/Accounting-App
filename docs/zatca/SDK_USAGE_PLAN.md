@@ -49,6 +49,16 @@ The local SDK bundle is `reference/zatca-einvoicing-sdk-Java-238-R3.4.8`.
 6. Treat SDK signing and QR generation as future validation oracles until production key custody is designed.
 7. Do not enable clearance/reporting/compliance network submissions until the API adapter has verified URLs, payloads, credentials, and sandbox-only tests.
 
+## Implemented Wrapper Groundwork
+
+- `GET /zatca-sdk/readiness` now reports local SDK discovery and Java readiness without executing the SDK.
+- `POST /zatca-sdk/validate-xml-dry-run` now builds a command plan from invoice XML metadata or request `xmlBase64` without writing temp files or executing Java.
+- `POST /zatca-sdk/validate-xml-local` remains disabled by default through `ZATCA_SDK_EXECUTION_ENABLED=false`.
+- Real local SDK execution intentionally returns a not-implemented response when explicitly enabled until the SDK command format is verified.
+- The frontend displays SDK validation readiness on `/settings/zatca` and exposes a dry-run command plan from invoice detail pages.
+
+See `SDK_VALIDATION_WRAPPER.md` for endpoint behavior and safety rules.
+
 ## Guardrails For Future Wrapper
 
 - Use an allowlisted command set (`-validate`, then later `-generateHash`; signing only after explicit design approval).

@@ -176,6 +176,27 @@ interface ZatcaXmlValidationResult {
   warnings: string[];
 }
 
+interface ZatcaSdkReadinessResponse {
+  referenceFolderFound: boolean;
+  sdkJarFound: boolean;
+  javaFound: boolean;
+  canAttemptSdkValidation: boolean;
+  warnings: string[];
+  suggestedFixes: string[];
+}
+
+interface ZatcaSdkDryRunResponse {
+  dryRun: true;
+  localOnly: true;
+  officialSdkValidation: false;
+  commandPlan: {
+    command: string | null;
+    args: string[];
+    warnings: string[];
+  };
+  warnings: string[];
+}
+
 interface ZatcaSubmissionLog {
   id: string;
   invoiceMetadataId?: string | null;
@@ -372,6 +393,20 @@ async function main(): Promise<void> {
   assertEqual(zatcaXmlValidation.officialValidation, false, "ZATCA XML validation officialValidation");
   assertEqual(zatcaXmlValidation.valid, true, "ZATCA XML validation valid");
   assertNoPrivateKey(zatcaXmlValidation, "ZATCA XML validation response");
+  const zatcaSdkReadiness = await get<ZatcaSdkReadinessResponse>("/zatca-sdk/readiness", headers);
+  assert(typeof zatcaSdkReadiness.referenceFolderFound === "boolean", "ZATCA SDK readiness returns reference folder flag");
+  assert(typeof zatcaSdkReadiness.sdkJarFound === "boolean", "ZATCA SDK readiness returns SDK JAR flag");
+  assert(typeof zatcaSdkReadiness.javaFound === "boolean", "ZATCA SDK readiness returns Java flag");
+  assertNoPrivateKey(zatcaSdkReadiness, "ZATCA SDK readiness response");
+  const zatcaSdkDryRun = await post<ZatcaSdkDryRunResponse>("/zatca-sdk/validate-xml-dry-run", headers, { invoiceId: draftInvoice.id, mode: "dry-run" });
+  assertEqual(zatcaSdkDryRun.dryRun, true, "ZATCA SDK dry-run flag");
+  assertEqual(zatcaSdkDryRun.localOnly, true, "ZATCA SDK dry-run localOnly");
+  assertEqual(zatcaSdkDryRun.officialSdkValidation, false, "ZATCA SDK dry-run does not execute SDK");
+  assert(
+    Boolean(zatcaSdkDryRun.commandPlan.command) || zatcaSdkDryRun.warnings.length > 0 || zatcaSdkDryRun.commandPlan.warnings.length > 0,
+    "ZATCA SDK dry-run returns command plan or safe warnings",
+  );
+  assertNoPrivateKey(zatcaSdkDryRun, "ZATCA SDK dry-run response");
   const zatcaQr = await get<ZatcaQrResponse>(`/sales-invoices/${draftInvoice.id}/zatca/qr`, headers);
   assertPresent(zatcaQr.qrCodeBase64, "ZATCA QR endpoint payload");
   const checkedZatcaMetadata = await post<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca/compliance-check`, headers, {});
