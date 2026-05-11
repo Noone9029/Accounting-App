@@ -2,20 +2,23 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { creditNoteStatusBadgeClass, creditNoteStatusLabel } from "@/lib/credit-notes";
+import { creditNoteAppliedAmount, creditNoteStatusBadgeClass, creditNoteStatusLabel, validateCreditNoteAllocation } from "@/lib/credit-notes";
 import { formatMoneyAmount } from "@/lib/money";
 import { creditNotePdfPath, downloadPdf } from "@/lib/pdf-download";
-import type { CreditNote } from "@/lib/types";
+import type { CreditNote, OpenSalesInvoice } from "@/lib/types";
 
 export default function CreditNoteDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const organizationId = useActiveOrganizationId();
   const [creditNote, setCreditNote] = useState<CreditNote | null>(null);
+  const [openInvoices, setOpenInvoices] = useState<OpenSalesInvoice[]>([]);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
+  const [amountApplied, setAmountApplied] = useState("");
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
@@ -34,6 +37,7 @@ export default function CreditNoteDetailPage() {
       .then((result) => {
         if (!cancelled) {
           setCreditNote(result);
+          setAmountApplied("");
         }
       })
       .catch((loadError: unknown) => {
@@ -51,6 +55,33 @@ export default function CreditNoteDetailPage() {
       cancelled = true;
     };
   }, [organizationId, params.id]);
+
+  useEffect(() => {
+    if (!organizationId || !creditNote || creditNote.status !== "FINALIZED" || Number(creditNote.unappliedAmount) <= 0) {
+      setOpenInvoices([]);
+      setSelectedInvoiceId("");
+      return;
+    }
+
+    let cancelled = false;
+    apiRequest<OpenSalesInvoice[]>(`/sales-invoices/open?customerId=${encodeURIComponent(creditNote.customerId)}`)
+      .then((result) => {
+        if (!cancelled) {
+          setOpenInvoices(result);
+          setSelectedInvoiceId((current) => (current && result.some((invoice) => invoice.id === current) ? current : (result[0]?.id ?? "")));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setOpenInvoices([]);
+          setSelectedInvoiceId("");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId, creditNote]);
 
   async function runAction(action: "finalize" | "void") {
     if (!creditNote) {
@@ -112,6 +143,45 @@ export default function CreditNoteDetailPage() {
       setActionLoading(false);
     }
   }
+
+  async function applyCreditNote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!creditNote || !selectedInvoiceId) {
+      return;
+    }
+
+    const selectedInvoice = openInvoices.find((invoice) => invoice.id === selectedInvoiceId);
+    const validationError = validateCreditNoteAllocation(amountApplied, creditNote.unappliedAmount, selectedInvoice?.balanceDue ?? "0.0000");
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setActionLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const updated = await apiRequest<CreditNote>(`/credit-notes/${creditNote.id}/apply`, {
+        method: "POST",
+        body: { invoiceId: selectedInvoiceId, amountApplied },
+      });
+      setCreditNote(updated);
+      setAmountApplied("");
+      const invoices = await apiRequest<OpenSalesInvoice[]>(`/sales-invoices/open?customerId=${encodeURIComponent(updated.customerId)}`);
+      setOpenInvoices(invoices);
+      setSelectedInvoiceId(invoices[0]?.id ?? "");
+      setSuccess(`Applied ${formatMoneyAmount(amountApplied, updated.currency)} from ${updated.creditNoteNumber}.`);
+    } catch (applyError) {
+      setError(applyError instanceof Error ? applyError.message : "Unable to apply credit note.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  const appliedAmount = creditNote ? creditNoteAppliedAmount(creditNote.total, creditNote.unappliedAmount) : "0.0000";
+  const selectedInvoice = openInvoices.find((invoice) => invoice.id === selectedInvoiceId);
+  const canApplyCredit = creditNote?.status === "FINALIZED" && Number(creditNote.unappliedAmount) > 0;
 
   return (
     <section>
@@ -176,6 +246,7 @@ export default function CreditNoteDetailPage() {
               <Summary label="Original invoice" value={creditNote.originalInvoice?.invoiceNumber ?? "-"} />
               <Summary label="Branch" value={creditNote.branch?.displayName ?? creditNote.branch?.name ?? "-"} />
               <Summary label="Total credit" value={formatMoneyAmount(creditNote.total, creditNote.currency)} />
+              <Summary label="Applied amount" value={formatMoneyAmount(appliedAmount, creditNote.currency)} />
               <Summary label="Unapplied amount" value={formatMoneyAmount(creditNote.unappliedAmount, creditNote.currency)} />
               <Summary label="Journal entry" value={creditNote.journalEntry ? `${creditNote.journalEntry.entryNumber} (${creditNote.journalEntry.id})` : "-"} />
               <Summary label="Reversal journal" value={creditNote.reversalJournalEntry ? `${creditNote.reversalJournalEntry.entryNumber} (${creditNote.reversalJournalEntry.id})` : "-"} />
@@ -232,8 +303,98 @@ export default function CreditNoteDetailPage() {
             <span className="text-right font-mono">{formatMoneyAmount(creditNote.taxTotal, creditNote.currency)}</span>
             <span className="font-semibold text-ink">Total credit</span>
             <span className="text-right font-mono font-semibold text-ink">{formatMoneyAmount(creditNote.total, creditNote.currency)}</span>
+            <span className="font-semibold text-ink">Applied amount</span>
+            <span className="text-right font-mono font-semibold text-ink">{formatMoneyAmount(appliedAmount, creditNote.currency)}</span>
             <span className="font-semibold text-ink">Unapplied amount</span>
             <span className="text-right font-mono font-semibold text-ink">{formatMoneyAmount(creditNote.unappliedAmount, creditNote.currency)}</span>
+          </div>
+
+          <div className="rounded-md border border-slate-200 bg-white shadow-panel">
+            <div className="border-b border-slate-200 px-5 py-4">
+              <h2 className="text-base font-semibold text-ink">Credit allocations</h2>
+              <p className="mt-1 text-sm text-steel">Applying a credit note only matches the existing AR reduction to invoice balances. No new journal entry is created.</p>
+            </div>
+            {creditNote.allocations && creditNote.allocations.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                    <tr>
+                      <th className="px-4 py-3">Invoice</th>
+                      <th className="px-4 py-3">Invoice date</th>
+                      <th className="px-4 py-3">Invoice total</th>
+                      <th className="px-4 py-3">Amount applied</th>
+                      <th className="px-4 py-3">Invoice balance due</th>
+                      <th className="px-4 py-3">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {creditNote.allocations.map((allocation) => (
+                      <tr key={allocation.id}>
+                        <td className="px-4 py-3 font-mono text-xs">{allocation.invoice?.invoiceNumber ?? allocation.invoiceId}</td>
+                        <td className="px-4 py-3 text-steel">{allocation.invoice ? new Date(allocation.invoice.issueDate).toLocaleDateString() : "-"}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{allocation.invoice ? formatMoneyAmount(allocation.invoice.total, creditNote.currency) : "-"}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, creditNote.currency)}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{allocation.invoice ? formatMoneyAmount(allocation.invoice.balanceDue, creditNote.currency) : "-"}</td>
+                        <td className="px-4 py-3">
+                          <Link href={`/sales/invoices/${allocation.invoiceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                            View invoice
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="px-5 py-4">
+                <StatusMessage type="empty">No credit has been applied to invoices yet.</StatusMessage>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-ink">Apply credit</h2>
+                <p className="mt-1 text-sm text-steel">Use unapplied credit against finalized open invoices for the same customer.</p>
+              </div>
+              <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">No accounting journal</span>
+            </div>
+            {canApplyCredit ? (
+              openInvoices.length > 0 ? (
+                <form onSubmit={applyCreditNote} className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-[1.4fr_0.7fr_auto]">
+                  <label className="block">
+                    <span className="text-xs font-medium uppercase tracking-wide text-steel">Open invoice</span>
+                    <select value={selectedInvoiceId} onChange={(event) => setSelectedInvoiceId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+                      {openInvoices.map((invoice) => (
+                        <option key={invoice.id} value={invoice.id}>
+                          {invoice.invoiceNumber} - balance {formatMoneyAmount(invoice.balanceDue, invoice.currency)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium uppercase tracking-wide text-steel">Amount to apply</span>
+                    <input value={amountApplied} onChange={(event) => setAmountApplied(event.target.value)} placeholder="0.0000" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                  </label>
+                  <button type="submit" disabled={actionLoading || !selectedInvoiceId} className="self-end rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+                    Apply
+                  </button>
+                  <div className="md:col-span-3 text-xs text-steel">
+                    Selected invoice balance: {selectedInvoice ? formatMoneyAmount(selectedInvoice.balanceDue, selectedInvoice.currency) : "-"}.
+                    Credit available: {formatMoneyAmount(creditNote.unappliedAmount, creditNote.currency)}.
+                  </div>
+                </form>
+              ) : (
+                <div className="mt-4">
+                  <StatusMessage type="empty">No finalized open invoices are available for this customer.</StatusMessage>
+                </div>
+              )
+            ) : (
+              <div className="mt-4">
+                <StatusMessage type="info">Credit can be applied only after finalization while unapplied amount remains.</StatusMessage>
+              </div>
+            )}
           </div>
 
           <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">

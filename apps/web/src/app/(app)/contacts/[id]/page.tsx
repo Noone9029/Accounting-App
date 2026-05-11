@@ -321,6 +321,17 @@ function renderRowLink(row: CustomerLedgerRow) {
     );
   }
 
+  if (row.sourceType === "CreditNoteAllocation") {
+    const creditNoteId = typeof row.metadata.creditNoteId === "string" ? row.metadata.creditNoteId : "";
+    return creditNoteId ? (
+      <Link href={`/sales/credit-notes/${creditNoteId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        View credit note
+      </Link>
+    ) : (
+      "-"
+    );
+  }
+
   const invoiceId = typeof row.metadata.invoiceId === "string" ? row.metadata.invoiceId : "";
   return invoiceId ? (
     <Link href={`/sales/invoices/${invoiceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">

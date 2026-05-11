@@ -1,4 +1,5 @@
 import type { CreditNoteStatus } from "./types";
+import { formatUnits, parseDecimalToUnits } from "./money";
 
 export function creditNoteStatusLabel(status: CreditNoteStatus | undefined | null): string {
   switch (status) {
@@ -32,4 +33,30 @@ export function creditNotePdfDataPath(creditNoteId: string): string {
 
 export function salesInvoiceCreditNotesPath(invoiceId: string): string {
   return `/sales-invoices/${encodeURIComponent(invoiceId)}/credit-notes`;
+}
+
+export function salesInvoiceCreditNoteAllocationsPath(invoiceId: string): string {
+  return `/sales-invoices/${encodeURIComponent(invoiceId)}/credit-note-allocations`;
+}
+
+export function creditNoteAllocationsPath(creditNoteId: string): string {
+  return `/credit-notes/${encodeURIComponent(creditNoteId)}/allocations`;
+}
+
+export function creditNoteAppliedAmount(total: string, unappliedAmount: string): string {
+  return formatUnits(Math.max(0, parseDecimalToUnits(total) - parseDecimalToUnits(unappliedAmount)));
+}
+
+export function validateCreditNoteAllocation(amountApplied: string, creditUnappliedAmount: string, invoiceBalanceDue: string): string | null {
+  const amountUnits = parseDecimalToUnits(amountApplied);
+  if (amountUnits <= 0) {
+    return "Amount to apply must be greater than zero.";
+  }
+  if (amountUnits > parseDecimalToUnits(creditUnappliedAmount)) {
+    return "Amount to apply cannot exceed the credit note unapplied amount.";
+  }
+  if (amountUnits > parseDecimalToUnits(invoiceBalanceDue)) {
+    return "Amount to apply cannot exceed the invoice balance due.";
+  }
+  return null;
 }

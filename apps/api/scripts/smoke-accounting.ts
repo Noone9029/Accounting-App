@@ -78,12 +78,21 @@ interface CreditNote {
   reversalJournalEntryId?: string | null;
 }
 
+interface CreditNoteAllocation {
+  id: string;
+  creditNoteId: string;
+  invoiceId: string;
+  amountApplied: string;
+}
+
 interface LedgerRow {
   type: string;
   sourceId: string;
   debit: string;
   credit: string;
   status: string;
+  balance: string;
+  metadata?: Record<string, unknown>;
 }
 
 interface LedgerResponse {
@@ -538,6 +547,16 @@ async function main(): Promise<void> {
   assert(statementPdfData.rows.length > 0, "statement pdf-data returns rows");
   await assertPdf(`/contacts/${customer.id}/statement.pdf?from=${from}&to=${to}`, headers, "statement PDF");
 
+  const creditApplicationDraftInvoice = await post<SalesInvoice>("/sales-invoices", headers, {
+    customerId: customer.id,
+    issueDate: new Date().toISOString(),
+    currency: "SAR",
+    lines: [linePayload],
+  });
+  const creditApplicationInvoice = await post<SalesInvoice>(`/sales-invoices/${creditApplicationDraftInvoice.id}/finalize`, headers, {});
+  assertEqual(creditApplicationInvoice.status, "FINALIZED", "credit application invoice status");
+  assertMoney(creditApplicationInvoice.balanceDue, expectedTotal, "credit application invoice opening balance");
+
   const creditNoteLinePayload: Record<string, unknown> = {
     description: "Smoke test credit adjustment",
     accountId: salesAccount.id,
@@ -549,7 +568,7 @@ async function main(): Promise<void> {
   }
   const draftCreditNote = await post<CreditNote>("/credit-notes", headers, {
     customerId: customer.id,
-    originalInvoiceId: draftInvoice.id,
+    originalInvoiceId: creditApplicationInvoice.id,
     issueDate: new Date().toISOString(),
     currency: "SAR",
     reason: "Smoke test credit note",
@@ -567,7 +586,7 @@ async function main(): Promise<void> {
   const finalizedCreditNoteAgain = await post<CreditNote>(`/credit-notes/${draftCreditNote.id}/finalize`, headers, {});
   assertEqual(finalizedCreditNoteAgain.journalEntryId, finalizedCreditNote.journalEntryId, "double finalize credit note journalEntryId");
 
-  const invoiceCreditNotes = await get<CreditNote[]>(`/sales-invoices/${draftInvoice.id}/credit-notes`, headers);
+  const invoiceCreditNotes = await get<CreditNote[]>(`/sales-invoices/${creditApplicationInvoice.id}/credit-notes`, headers);
   assert(
     invoiceCreditNotes.some((creditNote) => creditNote.id === draftCreditNote.id && creditNote.status === "FINALIZED"),
     "invoice linked credit notes include finalized smoke credit note",
@@ -578,14 +597,52 @@ async function main(): Promise<void> {
     ledgerAfterCreditNote.rows.some((row) => row.type === "CREDIT_NOTE" && row.sourceId === draftCreditNote.id && money(row.credit).eq(expectedCreditNoteTotal)),
     "ledger includes finalized credit note credit",
   );
-  assertMoney(ledgerAfterCreditNote.closingBalance, expectedCreditNoteTotal.negated(), "ledger closing balance after credit note");
+  const expectedLedgerAfterCreditNote = expectedTotal.minus(expectedCreditNoteTotal);
+  assertMoney(ledgerAfterCreditNote.closingBalance, expectedLedgerAfterCreditNote, "ledger closing balance after credit note");
 
-  const creditNotePdfData = await get<{ creditNote: { total: string; unappliedAmount: string }; lines: unknown[] }>(
+  const creditApplyAmount = money("5.0000");
+  const appliedCreditNote = await post<CreditNote>(`/credit-notes/${draftCreditNote.id}/apply`, headers, {
+    invoiceId: creditApplicationInvoice.id,
+    amountApplied: creditApplyAmount.toFixed(4),
+  });
+  assertMoney(appliedCreditNote.unappliedAmount, expectedCreditNoteTotal.minus(creditApplyAmount), "credit note unapplied amount after partial application");
+  const afterCreditApplyInvoice = await get<SalesInvoice>(`/sales-invoices/${creditApplicationInvoice.id}`, headers);
+  assertMoney(afterCreditApplyInvoice.balanceDue, expectedTotal.minus(creditApplyAmount), "invoice balance after credit note application");
+  const creditNoteAllocations = await get<CreditNoteAllocation[]>(`/credit-notes/${draftCreditNote.id}/allocations`, headers);
+  assert(
+    creditNoteAllocations.some((allocation) => allocation.invoiceId === creditApplicationInvoice.id && money(allocation.amountApplied).eq(creditApplyAmount)),
+    "credit note allocations include partial application",
+  );
+  const invoiceCreditAllocations = await get<CreditNoteAllocation[]>(`/sales-invoices/${creditApplicationInvoice.id}/credit-note-allocations`, headers);
+  assert(
+    invoiceCreditAllocations.some((allocation) => allocation.creditNoteId === draftCreditNote.id && money(allocation.amountApplied).eq(creditApplyAmount)),
+    "invoice credit note allocations include partial application",
+  );
+  const ledgerAfterCreditApply = await get<LedgerResponse>(`/contacts/${customer.id}/ledger`, headers);
+  assert(
+    ledgerAfterCreditApply.rows.some(
+      (row) => row.type === "CREDIT_NOTE_ALLOCATION" && row.sourceId === creditNoteAllocations[0]?.id && money(row.debit).eq(0) && money(row.credit).eq(0),
+    ),
+    "ledger includes neutral credit note allocation row",
+  );
+  assertMoney(ledgerAfterCreditApply.closingBalance, expectedLedgerAfterCreditNote, "ledger closing balance after credit allocation is not double counted");
+
+  await expectHttpError("over-apply credit note", () =>
+    post<CreditNote>(`/credit-notes/${draftCreditNote.id}/apply`, headers, {
+      invoiceId: creditApplicationInvoice.id,
+      amountApplied: expectedCreditNoteTotal.toFixed(4),
+    }),
+  );
+  await expectHttpError("void allocated credit note", () => post<CreditNote>(`/credit-notes/${draftCreditNote.id}/void`, headers, {}));
+
+  const creditNotePdfData = await get<{ creditNote: { total: string; unappliedAmount: string }; lines: unknown[]; allocations: unknown[] }>(
     `/credit-notes/${draftCreditNote.id}/pdf-data`,
     headers,
   );
   assertMoney(creditNotePdfData.creditNote.total, expectedCreditNoteTotal, "credit note pdf-data total");
+  assertMoney(creditNotePdfData.creditNote.unappliedAmount, expectedCreditNoteTotal.minus(creditApplyAmount), "credit note pdf-data unapplied amount");
   assert(creditNotePdfData.lines.length > 0, "credit note pdf-data returns lines");
+  assert(creditNotePdfData.allocations.length > 0, "credit note pdf-data returns allocations");
   await assertPdf(`/credit-notes/${draftCreditNote.id}/pdf`, headers, "credit note PDF");
   const creditNoteDocuments = await get<GeneratedDocument[]>(
     `/generated-documents?documentType=CREDIT_NOTE&sourceId=${encodeURIComponent(draftCreditNote.id)}`,
@@ -624,11 +681,13 @@ async function main(): Promise<void> {
         customerId: customer.id,
         invoiceId: draftInvoice.id,
         invoiceNumber: finalizedInvoice.invoiceNumber,
+        creditApplicationInvoiceId: creditApplicationInvoice.id,
         zatcaMetadataId: zatcaMetadata.id,
         zatcaIcv: zatcaMetadata.icv,
         paymentIds: [partialPayment.id, remainingPayment.id],
         creditNoteId: draftCreditNote.id,
         creditNoteNumber: finalizedCreditNote.creditNoteNumber,
+        creditApplyAmount: creditApplyAmount.toFixed(4),
         archivedInvoicePdfId: archivedInvoicePdf.id,
         archivedCreditNotePdfId: archivedCreditNotePdf.id,
         finalInvoiceBalance: afterSecondPaymentVoid.balanceDue,

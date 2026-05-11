@@ -511,10 +511,35 @@ Commit inspected: pending (`Add sales credit notes MVP`)
 
 ### Remaining Credit Note Risks
 
-- Credit note allocation/refund application is not implemented; `unappliedAmount` is an audit value only.
+- Credit note allocation reversal and refund application are not implemented.
 - ZATCA credit note XML, signing, PDF/A-3 embedding, clearance, and reporting are not implemented.
 - Inventory returns and stock valuation effects are not implemented.
-- Credit notes do not currently mutate original invoice `balanceDue`; future allocation behavior must define how invoice balances, refunds, and customer credits interact.
+- Credit note application now mutates invoice `balanceDue`, but allocation reversal, refunds, and broader customer credit workflows still need design.
+
+## Credit Note Application Workflow
+
+Audit date: 2026-05-12
+
+Commit inspected: pending (`Add credit note application workflow`)
+
+### Credit Application Added
+
+- Added immutable `CreditNoteAllocation` rows that link finalized credit notes to finalized open sales invoices.
+- Added authenticated `POST /credit-notes/:id/apply`, `GET /credit-notes/:id/allocations`, and `GET /sales-invoices/:id/credit-note-allocations` endpoints.
+- Added transaction-guarded balance updates so credit application decreases `SalesInvoice.balanceDue` and `CreditNote.unappliedAmount` without allowing negative balances.
+- Confirmed credit application creates no journal entry because credit note finalization already posts the AR reduction.
+- Added ledger and statement `CREDIT_NOTE_ALLOCATION` rows with zero debit/credit so matching is visible without double-counting AR.
+- Blocked voiding allocated credit notes and invoices with active credit note allocations until reversal exists.
+- Extended credit note PDF data/rendering and frontend invoice/credit note/contact views to show allocations.
+- Extended smoke coverage for partial application, over-application rejection, neutral ledger rows, PDF allocation data, and allocated credit note void blocking.
+
+### Remaining Credit Application Risks
+
+- Allocation reversal is not implemented, so allocated credit notes and invoices with active credit allocations are blocked from voiding.
+- Customer refund workflow is not implemented.
+- Credit note allocation does not yet support automatic suggestions across multiple open invoices.
+- ZATCA credit note XML/signing/submission remains pending.
+- Inventory returns and stock valuation effects remain pending.
 
 ## Remaining Risks
 

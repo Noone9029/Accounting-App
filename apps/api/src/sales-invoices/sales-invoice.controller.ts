@@ -68,6 +68,11 @@ export class SalesInvoiceController {
     return this.creditNoteService.listForInvoice(organizationId, id);
   }
 
+  @Get(":id/credit-note-allocations")
+  creditNoteAllocations(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.creditNoteService.allocationsForInvoice(organizationId, id);
+  }
+
   @Post(":id/generate-pdf")
   generatePdf(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
     return this.salesInvoiceService.generatePdf(organizationId, user.id, id);

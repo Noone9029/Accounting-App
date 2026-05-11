@@ -6,6 +6,7 @@ import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { CreditNoteService } from "./credit-note.service";
+import { ApplyCreditNoteDto } from "./dto/apply-credit-note.dto";
 import { CreateCreditNoteDto } from "./dto/create-credit-note.dto";
 import { UpdateCreditNoteDto } from "./dto/update-credit-note.dto";
 
@@ -36,6 +37,21 @@ export class CreditNoteController {
   @Get(":id/pdf-data")
   pdfData(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.creditNoteService.pdfData(organizationId, id);
+  }
+
+  @Get(":id/allocations")
+  allocations(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.creditNoteService.allocations(organizationId, id);
+  }
+
+  @Post(":id/apply")
+  apply(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: ApplyCreditNoteDto,
+  ) {
+    return this.creditNoteService.apply(organizationId, user.id, id, dto);
   }
 
   @Get(":id/pdf")

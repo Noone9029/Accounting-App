@@ -17,6 +17,31 @@ describe("customer ledger rules", () => {
       creditNotes: [
         creditNote("credit-note-1", "CN-001", "2026-01-04T00:00:00.000Z", "25.0000", CreditNoteStatus.VOIDED, "2026-01-04T12:00:00.000Z"),
       ],
+      creditNoteAllocations: [
+        {
+          id: "credit-allocation-1",
+          creditNoteId: "credit-note-1",
+          invoiceId: "invoice-1",
+          amountApplied: "10.0000",
+          createdAt: "2026-01-04T06:00:00.000Z",
+          invoice: {
+            id: "invoice-1",
+            invoiceNumber: "INV-001",
+            issueDate: "2026-01-01T00:00:00.000Z",
+            total: "100.0000",
+            balanceDue: "50.0000",
+            status: SalesInvoiceStatus.FINALIZED,
+          },
+          creditNote: {
+            id: "credit-note-1",
+            creditNoteNumber: "CN-001",
+            issueDate: "2026-01-04T00:00:00.000Z",
+            total: "25.0000",
+            unappliedAmount: "15.0000",
+            status: CreditNoteStatus.VOIDED,
+          },
+        },
+      ],
       payments: [
         {
           id: "payment-1",
@@ -49,12 +74,28 @@ describe("customer ledger rules", () => {
       ],
     });
 
-    expect(rows.map((row) => row.type)).toEqual(["INVOICE", "PAYMENT", "PAYMENT_ALLOCATION", "VOID_PAYMENT", "CREDIT_NOTE", "VOID_CREDIT_NOTE", "INVOICE", "VOID_INVOICE"]);
+    expect(rows.map((row) => row.type)).toEqual([
+      "INVOICE",
+      "PAYMENT",
+      "PAYMENT_ALLOCATION",
+      "VOID_PAYMENT",
+      "CREDIT_NOTE",
+      "CREDIT_NOTE_ALLOCATION",
+      "VOID_CREDIT_NOTE",
+      "INVOICE",
+      "VOID_INVOICE",
+    ]);
     expect(rows.find((row) => row.type === "INVOICE" && row.number === "INV-001")).toMatchObject({ debit: "100.0000", credit: "0.0000", balance: "100.0000" });
     expect(rows.find((row) => row.type === "PAYMENT")).toMatchObject({ debit: "0.0000", credit: "40.0000", balance: "60.0000" });
     expect(rows.find((row) => row.type === "PAYMENT_ALLOCATION")).toMatchObject({ debit: "0.0000", credit: "0.0000", balance: "60.0000" });
     expect(rows.find((row) => row.type === "VOID_PAYMENT")).toMatchObject({ debit: "40.0000", credit: "0.0000", balance: "100.0000" });
     expect(rows.find((row) => row.type === "CREDIT_NOTE")).toMatchObject({ debit: "0.0000", credit: "25.0000", balance: "75.0000" });
+    expect(rows.find((row) => row.type === "CREDIT_NOTE_ALLOCATION")).toMatchObject({
+      debit: "0.0000",
+      credit: "0.0000",
+      balance: "75.0000",
+      description: "Credit note CN-001 applied to INV-001",
+    });
     expect(rows.find((row) => row.type === "VOID_CREDIT_NOTE")).toMatchObject({ debit: "25.0000", credit: "0.0000", balance: "100.0000" });
     expect(rows.at(-1)).toMatchObject({ type: "VOID_INVOICE", credit: "200.0000", balance: "100.0000" });
   });
@@ -96,6 +137,7 @@ describe("customer ledger rules", () => {
       salesInvoice: { findMany: jest.fn() },
       creditNote: { findMany: jest.fn() },
       customerPayment: { findMany: jest.fn() },
+      creditNoteAllocation: { findMany: jest.fn() },
     };
     const service = new ContactLedgerService(prisma as never);
 
@@ -111,6 +153,7 @@ describe("customer ledger rules", () => {
     );
     expect(prisma.salesInvoice.findMany).not.toHaveBeenCalled();
     expect(prisma.creditNote.findMany).not.toHaveBeenCalled();
+    expect(prisma.creditNoteAllocation.findMany).not.toHaveBeenCalled();
     expect(prisma.customerPayment.findMany).not.toHaveBeenCalled();
   });
 

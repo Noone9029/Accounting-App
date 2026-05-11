@@ -12,6 +12,7 @@ export type CustomerLedgerRowType =
   | "INVOICE"
   | "CREDIT_NOTE"
   | "VOID_CREDIT_NOTE"
+  | "CREDIT_NOTE_ALLOCATION"
   | "PAYMENT"
   | "PAYMENT_ALLOCATION"
   | "VOID_PAYMENT"
@@ -202,6 +203,33 @@ export interface CustomerPaymentAllocation {
   };
 }
 
+export interface CreditNoteAllocation {
+  id: string;
+  organizationId: string;
+  creditNoteId: string;
+  invoiceId: string;
+  amountApplied: string;
+  createdAt: string;
+  updatedAt: string;
+  invoice?: {
+    id: string;
+    invoiceNumber: string;
+    issueDate: string;
+    total: string;
+    balanceDue: string;
+    status: SalesInvoiceStatus;
+  };
+  creditNote?: {
+    id: string;
+    creditNoteNumber: string;
+    issueDate: string;
+    currency: string;
+    status: CreditNoteStatus;
+    total: string;
+    unappliedAmount: string;
+  };
+}
+
 export interface CreditNoteLine {
   id: string;
   organizationId: string;
@@ -251,6 +279,7 @@ export interface CreditNote {
   journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit?: string; totalCredit?: string } | null;
   reversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
   lines?: CreditNoteLine[];
+  allocations?: CreditNoteAllocation[];
 }
 
 export interface CustomerPayment {
@@ -285,7 +314,7 @@ export interface CustomerLedgerRow {
   debit: string;
   credit: string;
   balance: string;
-  sourceType: "SalesInvoice" | "CreditNote" | "CustomerPayment" | "CustomerPaymentAllocation";
+  sourceType: "SalesInvoice" | "CreditNote" | "CreditNoteAllocation" | "CustomerPayment" | "CustomerPaymentAllocation";
   sourceId: string;
   status: string;
   metadata: Record<string, unknown>;
@@ -361,6 +390,7 @@ export interface SalesInvoice {
   journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit: string; totalCredit: string } | null;
   reversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
   paymentAllocations?: CustomerPaymentAllocation[];
+  creditNoteAllocations?: CreditNoteAllocation[];
   creditNotes?: CreditNote[];
   lines?: SalesInvoiceLine[];
 }

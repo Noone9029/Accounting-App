@@ -10,6 +10,7 @@ export type CustomerLedgerRowType =
   | "INVOICE"
   | "CREDIT_NOTE"
   | "VOID_CREDIT_NOTE"
+  | "CREDIT_NOTE_ALLOCATION"
   | "PAYMENT"
   | "PAYMENT_ALLOCATION"
   | "VOID_PAYMENT"
@@ -34,7 +35,7 @@ export interface CustomerLedgerRow {
   debit: string;
   credit: string;
   balance: string;
-  sourceType: "SalesInvoice" | "CreditNote" | "CustomerPayment" | "CustomerPaymentAllocation";
+  sourceType: "SalesInvoice" | "CreditNote" | "CreditNoteAllocation" | "CustomerPayment" | "CustomerPaymentAllocation";
   sourceId: string;
   status: string;
   metadata: Record<string, unknown>;
@@ -95,6 +96,30 @@ export interface LedgerPaymentAllocationInput {
   } | null;
 }
 
+export interface LedgerCreditNoteAllocationInput {
+  id: string;
+  creditNoteId: string;
+  invoiceId: string;
+  amountApplied: unknown;
+  createdAt: Date | string;
+  invoice?: {
+    id: string;
+    invoiceNumber: string;
+    issueDate: Date | string;
+    total: unknown;
+    balanceDue: unknown;
+    status: string;
+  } | null;
+  creditNote?: {
+    id: string;
+    creditNoteNumber: string;
+    issueDate: Date | string;
+    total: unknown;
+    unappliedAmount: unknown;
+    status: string;
+  } | null;
+}
+
 export interface LedgerPaymentInput {
   id: string;
   paymentNumber: string;
@@ -124,7 +149,7 @@ export class ContactLedgerService {
 
   async ledger(organizationId: string, contactId: string): Promise<CustomerLedgerResponse> {
     const contact = await this.findCustomerContact(organizationId, contactId);
-    const [invoices, creditNotes, payments] = await Promise.all([
+    const [invoices, creditNotes, creditNoteAllocations, payments] = await Promise.all([
       this.prisma.salesInvoice.findMany({
         where: {
           organizationId,
@@ -167,6 +192,42 @@ export class ContactLedgerService {
           updatedAt: true,
         },
       }),
+      this.prisma.creditNoteAllocation.findMany({
+        where: {
+          organizationId,
+          creditNote: {
+            customerId: contactId,
+            status: { in: [CreditNoteStatus.FINALIZED, CreditNoteStatus.VOIDED] },
+          },
+        },
+        select: {
+          id: true,
+          creditNoteId: true,
+          invoiceId: true,
+          amountApplied: true,
+          createdAt: true,
+          invoice: {
+            select: {
+              id: true,
+              invoiceNumber: true,
+              issueDate: true,
+              total: true,
+              balanceDue: true,
+              status: true,
+            },
+          },
+          creditNote: {
+            select: {
+              id: true,
+              creditNoteNumber: true,
+              issueDate: true,
+              total: true,
+              unappliedAmount: true,
+              status: true,
+            },
+          },
+        },
+      }),
       this.prisma.customerPayment.findMany({
         where: {
           organizationId,
@@ -207,7 +268,7 @@ export class ContactLedgerService {
       }),
     ]);
 
-    const rows = buildCustomerLedgerRows({ invoices, creditNotes, payments });
+    const rows = buildCustomerLedgerRows({ invoices, creditNotes, creditNoteAllocations, payments });
     return {
       contact,
       openingBalance: "0.0000",
@@ -334,6 +395,7 @@ export class ContactLedgerService {
 export function buildCustomerLedgerRows(input: {
   invoices: LedgerInvoiceInput[];
   creditNotes?: LedgerCreditNoteInput[];
+  creditNoteAllocations?: LedgerCreditNoteAllocationInput[];
   payments: LedgerPaymentInput[];
 }): CustomerLedgerRow[] {
   const pendingRows: PendingLedgerRow[] = [];
@@ -421,6 +483,31 @@ export function buildCustomerLedgerRows(input: {
         },
       });
     }
+  }
+
+  for (const allocation of input.creditNoteAllocations ?? []) {
+    const creditNoteNumber = allocation.creditNote?.creditNoteNumber ?? allocation.creditNoteId;
+    const invoiceNumber = allocation.invoice?.invoiceNumber ?? allocation.invoiceId;
+    pendingRows.push({
+      id: `${allocation.id}:credit-note-allocation`,
+      type: "CREDIT_NOTE_ALLOCATION",
+      date: toIsoString(allocation.createdAt),
+      createdAt: toIsoString(allocation.createdAt),
+      number: `${creditNoteNumber} -> ${invoiceNumber}`,
+      description: `Credit note ${creditNoteNumber} applied to ${invoiceNumber}`,
+      debit: "0.0000",
+      credit: "0.0000",
+      sourceType: "CreditNoteAllocation",
+      sourceId: allocation.id,
+      status: allocation.creditNote?.status ?? "ALLOCATED",
+      metadata: {
+        creditNoteId: allocation.creditNoteId,
+        creditNoteNumber: allocation.creditNote?.creditNoteNumber ?? null,
+        invoiceId: allocation.invoiceId,
+        invoiceNumber: allocation.invoice?.invoiceNumber ?? null,
+        amountApplied: moneyString(allocation.amountApplied),
+      },
+    });
   }
 
   for (const payment of input.payments) {
@@ -550,6 +637,7 @@ function rowPriority(type: CustomerLedgerRowType): number {
     case "PAYMENT":
       return 0;
     case "PAYMENT_ALLOCATION":
+    case "CREDIT_NOTE_ALLOCATION":
       return 1;
     case "VOID_PAYMENT":
     case "VOID_INVOICE":

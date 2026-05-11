@@ -114,6 +114,123 @@ describe("credit note rules", () => {
     expect(tx.creditNote.update).toHaveBeenCalledWith(expect.objectContaining({ data: { reversalJournalEntryId: "reversal-1" } }));
   });
 
+  it("applies finalized credit to an open invoice without posting another journal", async () => {
+    const tx = makeApplyTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new CreditNoteService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "credit-note-1", status: CreditNoteStatus.FINALIZED, unappliedAmount: "100.0000" } as never);
+
+    await expect(
+      service.apply("org-1", "user-1", "credit-note-1", { invoiceId: "invoice-1", amountApplied: "40.0000" }),
+    ).resolves.toMatchObject({ id: "credit-note-1", unappliedAmount: "60.0000" });
+
+    expect(tx.creditNote.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "credit-note-1",
+        organizationId: "org-1",
+        status: CreditNoteStatus.FINALIZED,
+        unappliedAmount: { gte: "40.0000" },
+      },
+      data: { unappliedAmount: { decrement: "40.0000" } },
+    });
+    expect(tx.salesInvoice.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "invoice-1",
+        organizationId: "org-1",
+        customerId: "customer-1",
+        status: "FINALIZED",
+        balanceDue: { gte: "40.0000" },
+      },
+      data: { balanceDue: { decrement: "40.0000" } },
+    });
+    expect(tx.creditNoteAllocation.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          amountApplied: "40.0000",
+        }),
+      }),
+    );
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects applying draft or voided credit notes", async () => {
+    const tx = makeApplyTransactionMock({ creditNoteStatus: CreditNoteStatus.DRAFT });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new CreditNoteService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "credit-note-1", status: CreditNoteStatus.DRAFT } as never);
+
+    await expect(service.apply("org-1", "user-1", "credit-note-1", { invoiceId: "invoice-1", amountApplied: "10.0000" })).rejects.toThrow(
+      "Only finalized credit notes can be applied",
+    );
+    expect(tx.creditNoteAllocation.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects applying credit to a different customer invoice", async () => {
+    const tx = makeApplyTransactionMock({ invoiceCustomerId: "customer-2" });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new CreditNoteService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "credit-note-1", status: CreditNoteStatus.FINALIZED } as never);
+
+    await expect(service.apply("org-1", "user-1", "credit-note-1", { invoiceId: "invoice-1", amountApplied: "10.0000" })).rejects.toThrow(
+      "same customer",
+    );
+    expect(tx.salesInvoice.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects applying above credit unapplied amount or invoice balance due", async () => {
+    let tx = makeApplyTransactionMock({ unappliedAmount: "20.0000" });
+    let prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    let service = new CreditNoteService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "credit-note-1", status: CreditNoteStatus.FINALIZED } as never);
+
+    await expect(service.apply("org-1", "user-1", "credit-note-1", { invoiceId: "invoice-1", amountApplied: "25.0000" })).rejects.toThrow(
+      "unapplied amount",
+    );
+
+    tx = makeApplyTransactionMock({ invoiceBalanceDue: "20.0000" });
+    prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    service = new CreditNoteService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "credit-note-1", status: CreditNoteStatus.FINALIZED } as never);
+
+    await expect(service.apply("org-1", "user-1", "credit-note-1", { invoiceId: "invoice-1", amountApplied: "25.0000" })).rejects.toThrow(
+      "invoice balance due",
+    );
+  });
+
+  it("rejects stale concurrent credit or invoice allocation claims cleanly", async () => {
+    let tx = makeApplyTransactionMock({ creditUpdateCount: 0 });
+    let prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    let service = new CreditNoteService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "credit-note-1", status: CreditNoteStatus.FINALIZED } as never);
+
+    await expect(service.apply("org-1", "user-1", "credit-note-1", { invoiceId: "invoice-1", amountApplied: "40.0000" })).rejects.toThrow(
+      "unapplied amount is no longer sufficient",
+    );
+    expect(tx.creditNoteAllocation.create).not.toHaveBeenCalled();
+
+    tx = makeApplyTransactionMock({ invoiceUpdateCount: 0 });
+    prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    service = new CreditNoteService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "credit-note-1", status: CreditNoteStatus.FINALIZED } as never);
+
+    await expect(service.apply("org-1", "user-1", "credit-note-1", { invoiceId: "invoice-1", amountApplied: "40.0000" })).rejects.toThrow(
+      "Invoice balance due is no longer sufficient",
+    );
+    expect(tx.creditNoteAllocation.create).not.toHaveBeenCalled();
+  });
+
+  it("blocks voiding finalized credit notes with active allocations", async () => {
+    const tx = makeVoidTransactionMock({ allocationCount: 1 });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new CreditNoteService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "credit-note-1", status: CreditNoteStatus.FINALIZED, journalEntryId: "journal-1" } as never);
+
+    await expect(service.void("org-1", "user-1", "credit-note-1")).rejects.toThrow(
+      "Cannot void credit note with active allocations. Reverse allocations first.",
+    );
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
   it("rejects linked original invoices for a different customer", async () => {
     const prisma = makeCreateValidationPrisma({
       originalInvoice: { id: "invoice-1", customerId: "customer-2", status: "FINALIZED", total: "500.0000" },
@@ -185,6 +302,7 @@ describe("credit note rules", () => {
           taxRateName: "VAT on Sales 15%",
         },
       ],
+      allocations: [],
       journalEntry: { id: "journal-1", entryNumber: "JE-000001", status: "POSTED" },
       generatedAt: new Date("2026-05-12T00:00:00.000Z"),
     });
@@ -254,7 +372,54 @@ function makeFinalizeTransactionMock() {
   };
 }
 
-function makeVoidTransactionMock() {
+function makeApplyTransactionMock(options: {
+  creditNoteStatus?: CreditNoteStatus;
+  unappliedAmount?: string;
+  invoiceCustomerId?: string;
+  invoiceStatus?: string;
+  invoiceBalanceDue?: string;
+  creditUpdateCount?: number;
+  invoiceUpdateCount?: number;
+} = {}) {
+  const creditNote = {
+    id: "credit-note-1",
+    customerId: "customer-1",
+    status: options.creditNoteStatus ?? CreditNoteStatus.FINALIZED,
+    total: "100.0000",
+    unappliedAmount: options.unappliedAmount ?? "100.0000",
+  };
+  const invoice = {
+    id: "invoice-1",
+    customerId: options.invoiceCustomerId ?? "customer-1",
+    status: options.invoiceStatus ?? "FINALIZED",
+    balanceDue: options.invoiceBalanceDue ?? "100.0000",
+  };
+
+  return {
+    creditNote: {
+      findFirst: jest.fn().mockResolvedValue(creditNote),
+      updateMany: jest.fn().mockResolvedValue({ count: options.creditUpdateCount ?? 1 }),
+      findUniqueOrThrow: jest.fn().mockResolvedValue({
+        id: "credit-note-1",
+        status: CreditNoteStatus.FINALIZED,
+        total: "100.0000",
+        unappliedAmount: "60.0000",
+      }),
+    },
+    salesInvoice: {
+      findFirst: jest.fn().mockResolvedValue(invoice),
+      updateMany: jest.fn().mockResolvedValue({ count: options.invoiceUpdateCount ?? 1 }),
+    },
+    creditNoteAllocation: {
+      create: jest.fn().mockResolvedValue({ id: "credit-allocation-1" }),
+    },
+    journalEntry: {
+      create: jest.fn(),
+    },
+  };
+}
+
+function makeVoidTransactionMock(options: { allocationCount?: number } = {}) {
   return {
     creditNote: {
       findFirst: jest.fn().mockResolvedValue({
@@ -265,6 +430,9 @@ function makeVoidTransactionMock() {
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       findUniqueOrThrow: jest.fn().mockResolvedValue({ id: "credit-note-1", status: CreditNoteStatus.VOIDED }),
       update: jest.fn().mockResolvedValue({ id: "credit-note-1", status: CreditNoteStatus.VOIDED, reversalJournalEntryId: "reversal-1" }),
+    },
+    creditNoteAllocation: {
+      count: jest.fn().mockResolvedValue(options.allocationCount ?? 0),
     },
     journalEntry: {
       findFirst: jest.fn().mockResolvedValue({

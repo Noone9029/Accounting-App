@@ -27,6 +27,7 @@ import { NumberSequenceService } from "../number-sequences/number-sequence.servi
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { buildCreditNoteJournalLines } from "./credit-note-accounting";
+import { ApplyCreditNoteDto } from "./dto/apply-credit-note.dto";
 import { CreditNoteLineDto } from "./dto/credit-note-line.dto";
 import { CreateCreditNoteDto } from "./dto/create-credit-note.dto";
 import { UpdateCreditNoteDto } from "./dto/update-credit-note.dto";
@@ -52,6 +53,21 @@ const creditNoteInclude = {
       item: { select: { id: true, name: true, sku: true } },
       account: { select: { id: true, code: true, name: true, type: true } },
       taxRate: { select: { id: true, name: true, rate: true } },
+    },
+  },
+  allocations: {
+    orderBy: { createdAt: "asc" as const },
+    include: {
+      invoice: {
+        select: {
+          id: true,
+          invoiceNumber: true,
+          issueDate: true,
+          total: true,
+          balanceDue: true,
+          status: true,
+        },
+      },
     },
   },
 };
@@ -141,6 +157,163 @@ export class CreditNoteService {
     return creditNote;
   }
 
+  async allocations(organizationId: string, id: string) {
+    const creditNote = await this.prisma.creditNote.findFirst({
+      where: { id, organizationId },
+      select: { id: true },
+    });
+    if (!creditNote) {
+      throw new NotFoundException("Credit note not found.");
+    }
+
+    return this.prisma.creditNoteAllocation.findMany({
+      where: { organizationId, creditNoteId: id },
+      orderBy: { createdAt: "asc" },
+      include: {
+        invoice: {
+          select: {
+            id: true,
+            invoiceNumber: true,
+            issueDate: true,
+            total: true,
+            balanceDue: true,
+            status: true,
+          },
+        },
+      },
+    });
+  }
+
+  async allocationsForInvoice(organizationId: string, invoiceId: string) {
+    const invoice = await this.prisma.salesInvoice.findFirst({
+      where: { id: invoiceId, organizationId },
+      select: { id: true },
+    });
+    if (!invoice) {
+      throw new NotFoundException("Sales invoice not found.");
+    }
+
+    return this.prisma.creditNoteAllocation.findMany({
+      where: { organizationId, invoiceId },
+      orderBy: { createdAt: "asc" },
+      include: {
+        creditNote: {
+          select: {
+            id: true,
+            creditNoteNumber: true,
+            issueDate: true,
+            currency: true,
+            status: true,
+            total: true,
+            unappliedAmount: true,
+          },
+        },
+      },
+    });
+  }
+
+  async apply(organizationId: string, actorUserId: string, id: string, dto: ApplyCreditNoteDto) {
+    const amountApplied = this.assertPositiveMoney(dto.amountApplied, "Amount applied");
+    const existing = await this.get(organizationId, id);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const creditNote = await tx.creditNote.findFirst({
+        where: { id, organizationId },
+        select: {
+          id: true,
+          customerId: true,
+          status: true,
+          total: true,
+          unappliedAmount: true,
+        },
+      });
+      if (!creditNote) {
+        throw new NotFoundException("Credit note not found.");
+      }
+      if (creditNote.status !== CreditNoteStatus.FINALIZED) {
+        throw new BadRequestException("Only finalized credit notes can be applied to invoices.");
+      }
+      if (amountApplied.gt(creditNote.unappliedAmount)) {
+        throw new BadRequestException("Amount applied cannot exceed credit note unapplied amount.");
+      }
+
+      const invoice = await tx.salesInvoice.findFirst({
+        where: { id: dto.invoiceId, organizationId },
+        select: {
+          id: true,
+          customerId: true,
+          status: true,
+          balanceDue: true,
+        },
+      });
+      if (!invoice) {
+        throw new BadRequestException("Invoice must belong to this organization.");
+      }
+      if (invoice.customerId !== creditNote.customerId) {
+        throw new BadRequestException("Credit note and invoice must belong to the same customer.");
+      }
+      if (invoice.status !== SalesInvoiceStatus.FINALIZED) {
+        throw new BadRequestException("Credit notes can only be applied to finalized, non-voided invoices.");
+      }
+      if (amountApplied.gt(invoice.balanceDue)) {
+        throw new BadRequestException("Amount applied cannot exceed invoice balance due.");
+      }
+
+      const amount = amountApplied.toFixed(4);
+      const creditClaim = await tx.creditNote.updateMany({
+        where: {
+          id,
+          organizationId,
+          status: CreditNoteStatus.FINALIZED,
+          unappliedAmount: { gte: amount },
+        },
+        data: { unappliedAmount: { decrement: amount } },
+      });
+      if (creditClaim.count !== 1) {
+        throw new BadRequestException("Credit note unapplied amount is no longer sufficient for this allocation.");
+      }
+
+      const invoiceClaim = await tx.salesInvoice.updateMany({
+        where: {
+          id: dto.invoiceId,
+          organizationId,
+          customerId: creditNote.customerId,
+          status: SalesInvoiceStatus.FINALIZED,
+          balanceDue: { gte: amount },
+        },
+        data: { balanceDue: { decrement: amount } },
+      });
+      if (invoiceClaim.count !== 1) {
+        throw new BadRequestException("Invoice balance due is no longer sufficient for this allocation.");
+      }
+
+      // Credit note allocation only matches an existing AR reduction to an invoice
+      // balance. The credit note finalization journal already posted the AR credit.
+      await tx.creditNoteAllocation.create({
+        data: {
+          organization: { connect: { id: organizationId } },
+          creditNote: { connect: { id } },
+          invoice: { connect: { id: dto.invoiceId } },
+          amountApplied: amount,
+        },
+      });
+
+      return tx.creditNote.findUniqueOrThrow({ where: { id }, include: creditNoteInclude });
+    });
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "APPLY",
+      entityType: "CreditNote",
+      entityId: id,
+      before: existing,
+      after: updated,
+    });
+
+    return updated;
+  }
+
   async pdfData(organizationId: string, id: string): Promise<CreditNotePdfData> {
     const creditNote = await this.prisma.creditNote.findFirst({
       where: { id, organizationId },
@@ -171,6 +344,21 @@ export class CreditNoteService {
         },
         originalInvoice: { select: { id: true, invoiceNumber: true, issueDate: true, total: true } },
         journalEntry: { select: { id: true, entryNumber: true, status: true } },
+        allocations: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            invoice: {
+              select: {
+                id: true,
+                invoiceNumber: true,
+                issueDate: true,
+                total: true,
+                balanceDue: true,
+                status: true,
+              },
+            },
+          },
+        },
         lines: {
           orderBy: { sortOrder: "asc" },
           include: {
@@ -221,6 +409,14 @@ export class CreditNoteService {
         taxAmount: moneyString(line.taxAmount),
         lineTotal: moneyString(line.lineTotal),
         taxRateName: line.taxRate?.name ?? null,
+      })),
+      allocations: creditNote.allocations.map((allocation) => ({
+        invoiceId: allocation.invoiceId,
+        invoiceNumber: allocation.invoice.invoiceNumber,
+        invoiceDate: allocation.invoice.issueDate,
+        invoiceTotal: moneyString(allocation.invoice.total),
+        amountApplied: moneyString(allocation.amountApplied),
+        invoiceBalanceDue: moneyString(allocation.invoice.balanceDue),
       })),
       journalEntry: creditNote.journalEntry,
       generatedAt: new Date(),
@@ -547,6 +743,13 @@ export class CreditNoteService {
         return tx.creditNote.findUniqueOrThrow({ where: { id }, include: creditNoteInclude });
       }
 
+      const allocationCount = await tx.creditNoteAllocation.count({
+        where: { organizationId, creditNoteId: id },
+      });
+      if (allocationCount > 0) {
+        throw new BadRequestException("Cannot void credit note with active allocations. Reverse allocations first.");
+      }
+
       const reversalJournalEntryId = await this.createOrReuseReversalJournal(organizationId, actorUserId, creditNote.journalEntryId, tx);
 
       return tx.creditNote.update({
@@ -810,6 +1013,14 @@ export class CreditNoteService {
     if (status !== CreditNoteStatus.DRAFT) {
       throw new BadRequestException("Only draft credit notes can be edited.");
     }
+  }
+
+  private assertPositiveMoney(value: string, label: string) {
+    const amount = toMoney(value);
+    if (amount.lte(0)) {
+      throw new BadRequestException(`${label} must be greater than zero.`);
+    }
+    return amount;
   }
 
   private async createOrReuseReversalJournal(

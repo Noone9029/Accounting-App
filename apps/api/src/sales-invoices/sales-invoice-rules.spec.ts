@@ -210,6 +210,18 @@ describe("sales invoice rules", () => {
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
   });
 
+  it("rejects voiding finalized invoices with active credit note allocations", async () => {
+    const tx = makeVoidTransactionMock({ activeCreditAllocationCount: 1 });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, { reverse: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValueOnce({ id: "invoice-1", status: "FINALIZED", journalEntryId: "je-1" } as never);
+
+    await expect(service.void("org-1", "user-1", "invoice-1")).rejects.toThrow(
+      "Cannot void invoice with active credit note allocations. Reverse allocations first.",
+    );
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
   it("voids draft invoices without creating reversal journals", async () => {
     const tx = makeVoidTransactionMock({ invoiceStatus: "DRAFT", journalEntryId: null });
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
@@ -218,6 +230,7 @@ describe("sales invoice rules", () => {
 
     await expect(service.void("org-1", "user-1", "invoice-1")).resolves.toMatchObject({ status: "VOIDED" });
     expect(tx.customerPaymentAllocation.count).not.toHaveBeenCalled();
+    expect(tx.creditNoteAllocation.count).not.toHaveBeenCalled();
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
   });
 
@@ -496,6 +509,7 @@ function makeVoidTransactionMock(
     journalEntryId?: string | null;
     reversedById?: string;
     activePaymentCount?: number;
+    activeCreditAllocationCount?: number;
   } = {},
 ) {
   return {
@@ -520,6 +534,9 @@ function makeVoidTransactionMock(
     },
     customerPaymentAllocation: {
       count: jest.fn().mockResolvedValue(options.activePaymentCount ?? 0),
+    },
+    creditNoteAllocation: {
+      count: jest.fn().mockResolvedValue(options.activeCreditAllocationCount ?? 0),
     },
     journalEntry: {
       findFirst: jest.fn().mockResolvedValue({

@@ -108,6 +108,14 @@ export interface CreditNotePdfData {
     lineTotal: string;
     taxRateName?: string | null;
   }>;
+  allocations: Array<{
+    invoiceId: string;
+    invoiceNumber: string;
+    invoiceDate: string | Date;
+    invoiceTotal: string;
+    amountApplied: string;
+    invoiceBalanceDue: string;
+  }>;
   journalEntry?: {
     id: string;
     entryNumber: string;
@@ -348,8 +356,33 @@ export async function renderCreditNotePdf(data: CreditNotePdfData, settings?: Do
       ["Taxable total", data.creditNote.taxableTotal],
       ["VAT / Tax", data.creditNote.taxTotal],
       ["Total credit", data.creditNote.total],
+      ["Applied amount", subtractMoney(data.creditNote.total, data.creditNote.unappliedAmount)],
       ["Unapplied amount", data.creditNote.unappliedAmount],
     ], renderSettings);
+
+    writeSectionTitle(doc, "Credit Allocations", renderSettings);
+    if (data.allocations.length === 0) {
+      writeMuted(doc, "No invoice allocations are linked to this credit note.");
+    } else {
+      drawTable(
+        doc,
+        [
+          { label: "Invoice", width: 110 },
+          { label: "Date", width: 75 },
+          { label: "Invoice total", width: 105, align: "right" },
+          { label: "Applied", width: 95, align: "right" },
+          { label: "Balance due", width: 95, align: "right" },
+        ],
+        data.allocations.map((allocation) => [
+          allocation.invoiceNumber,
+          formatDate(allocation.invoiceDate),
+          money(allocation.invoiceTotal, data.creditNote.currency),
+          money(allocation.amountApplied, data.creditNote.currency),
+          money(allocation.invoiceBalanceDue, data.creditNote.currency),
+        ]),
+        renderSettings,
+      );
+    }
 
     if (renderSettings.showNotes) {
       writeOptionalTextBlock(doc, "Notes", data.creditNote.notes, renderSettings);
@@ -739,6 +772,30 @@ function formatDateTime(value: string | Date): string {
 
 function money(value: string, currency: string): string {
   return `${currency} ${normalizeDecimal(value)}`;
+}
+
+function subtractMoney(left: string, right: string): string {
+  const scale = 4;
+  const factor = 10 ** scale;
+  const units = parseMoneyUnits(left, scale) - parseMoneyUnits(right, scale);
+  return formatMoneyUnits(units, factor, scale);
+}
+
+function parseMoneyUnits(value: string, scale: number): number {
+  const trimmed = String(value ?? "0").trim();
+  const negative = trimmed.startsWith("-");
+  const unsigned = negative ? trimmed.slice(1) : trimmed;
+  const [integer = "0", fraction = ""] = unsigned.split(".");
+  const units = Number.parseInt(integer || "0", 10) * 10 ** scale + Number.parseInt(fraction.padEnd(scale, "0").slice(0, scale) || "0", 10);
+  return negative ? -units : units;
+}
+
+function formatMoneyUnits(units: number, factor: number, scale: number): string {
+  const negative = units < 0;
+  const absolute = Math.abs(units);
+  const integer = Math.floor(absolute / factor);
+  const fraction = String(absolute % factor).padStart(scale, "0");
+  return `${negative ? "-" : ""}${integer}.${fraction}`;
 }
 
 function normalizeDecimal(value: string): string {

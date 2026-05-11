@@ -13,6 +13,7 @@ import { InvoicePdfData, renderInvoicePdf } from "@ledgerbyte/pdf-core";
 import {
   AccountType,
   ContactType,
+  CreditNoteStatus,
   CustomerPaymentStatus,
   DocumentType,
   ItemStatus,
@@ -56,6 +57,22 @@ const salesInvoiceInclude = {
           paymentDate: true,
           status: true,
           amountReceived: true,
+          unappliedAmount: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" as const },
+  },
+  creditNoteAllocations: {
+    include: {
+      creditNote: {
+        select: {
+          id: true,
+          creditNoteNumber: true,
+          issueDate: true,
+          currency: true,
+          status: true,
+          total: true,
           unappliedAmount: true,
         },
       },
@@ -602,6 +619,17 @@ export class SalesInvoiceService {
       });
       if (activePaymentCount > 0) {
         throw new BadRequestException("Cannot void invoice with active payments. Void payments first.");
+      }
+
+      const activeCreditAllocationCount = await tx.creditNoteAllocation.count({
+        where: {
+          invoiceId: id,
+          organizationId,
+          creditNote: { status: { not: CreditNoteStatus.VOIDED } },
+        },
+      });
+      if (activeCreditAllocationCount > 0) {
+        throw new BadRequestException("Cannot void invoice with active credit note allocations. Reverse allocations first.");
       }
 
       const reversalJournalEntryId = await this.createOrReuseReversalJournal(
