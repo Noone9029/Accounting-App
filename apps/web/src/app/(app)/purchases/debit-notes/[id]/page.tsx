@@ -246,6 +246,14 @@ export default function PurchaseDebitNoteDetailPage() {
               Supplier ledger
             </Link>
           ) : null}
+          {debitNote?.status === "FINALIZED" && Number(debitNote.unappliedAmount) > 0 ? (
+            <Link
+              href={`/purchases/supplier-refunds/new?supplierId=${encodeURIComponent(debitNote.supplierId)}&sourceType=PURCHASE_DEBIT_NOTE&sourceDebitNoteId=${encodeURIComponent(debitNote.id)}`}
+              className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800"
+            >
+              Record supplier refund
+            </Link>
+          ) : null}
           {debitNote ? (
             <button type="button" onClick={() => void downloadDebitNotePdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Download PDF

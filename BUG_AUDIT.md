@@ -703,9 +703,40 @@ Commit inspected: pending (`Add purchase debit notes MVP`)
 
 - No inventory return or stock movement integration exists for supplier debit notes.
 - No ZATCA debit note XML, signing, clearance, reporting, or PDF/A-3 embedding exists.
-- No supplier cash refund workflow exists for unapplied debit note balances.
+- Supplier cash refund workflow now exists for unapplied debit note balances, but it is manual accounting only and has no bank integration.
 - No purchase order linkage exists.
 - No bank reconciliation or bank-feed matching exists.
+
+## Supplier Overpayment And Refund Workflow
+
+Audit date: 2026-05-12
+
+Commit inspected: pending (`Add supplier overpayment and refund workflow`)
+
+### Supplier Credit Handling Added
+
+- Added `SupplierPaymentUnappliedAllocation`, `SupplierRefundStatus`, `SupplierRefundSourceType`, and `SupplierRefund` schema records with tenant-scoped supplier, source payment/debit note, account, journal, reversal, and generated document support.
+- Added authenticated supplier payment APIs for applying unapplied supplier payment credit to open bills, listing unapplied applications, and reversing active unapplied applications.
+- Added authenticated supplier refund APIs for list/create/detail/refundable-source lookup/void/PDF data/PDF/archive.
+- Added guarded matching-only updates so supplier payment unapplied applications decrease `PurchaseBill.balanceDue` and `SupplierPayment.unappliedAmount`, while reversal restores both without creating journal entries.
+- Added supplier refund posting: debit selected bank/cash asset account and credit Accounts Payable account code `210`.
+- Added supplier refund voiding with one reusable reversal journal and one-time source `unappliedAmount` restoration.
+- Blocked supplier payment voiding while active unapplied payment applications or posted supplier refunds exist; reversed applications and voided refunds do not block.
+- Blocked purchase bill voiding while active supplier payment unapplied applications exist.
+- Blocked purchase debit note voiding while posted supplier refunds from that debit note exist.
+- Added supplier ledger/statement rows for `SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION`, `SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL`, `SUPPLIER_REFUND`, and `VOID_SUPPLIER_REFUND`.
+- Added operational supplier refund PDF rendering and generated document archive support with `DocumentType.SUPPLIER_REFUND`.
+- Added frontend purchases navigation, supplier refund list/create/detail pages, supplier payment unapplied application/reversal UI, supplier refund links from payments/debit notes, purchase bill allocation visibility, and contact supplier ledger row links.
+- Extended backend/frontend tests and smoke coverage for supplier overpayment application, reversal, supplier payment refunds, debit note refunds, supplier ledger rows, and supplier refund PDF download.
+
+### Remaining Supplier Credit Risks
+
+- No bank reconciliation or bank-feed matching exists for supplier refunds or supplier payments.
+- No bank transfer/payment gateway integration exists; refunds are manual accounting records only.
+- No automated supplier credit matching or allocation suggestions exist.
+- No purchase order linkage exists.
+- No inventory return or stock movement integration exists.
+- No ZATCA debit note XML/signing/submission exists.
 
 ## Remaining Risks
 
@@ -720,7 +751,7 @@ Commit inspected: pending (`Add purchase debit notes MVP`)
 ## Recommended Next Steps
 
 1. Add optimistic concurrency or transaction guards for invoice finalization, payment allocation, and reversal idempotency.
-2. Add purchase order workflows, cash expenses, and supplier refund handling before inventory-side accounting.
+2. Add purchase order workflows, cash expenses, and bank reconciliation groundwork before inventory-side accounting.
 3. Add a lightweight Playwright or browser smoke suite once the local Node runtime supports the in-app browser backend.
 4. Normalize branch default behavior and account parent cycle validation.
 5. Move Prisma seed configuration to `prisma.config.ts` before upgrading to Prisma 7.

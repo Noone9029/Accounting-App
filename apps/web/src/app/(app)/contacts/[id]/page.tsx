@@ -473,6 +473,25 @@ function renderRowLink(row: CustomerLedgerRow | SupplierLedgerRow) {
     );
   }
 
+  if (row.sourceType === "SupplierPaymentUnappliedAllocation") {
+    const paymentId = typeof row.metadata.paymentId === "string" ? row.metadata.paymentId : "";
+    return paymentId ? (
+      <Link href={`/purchases/supplier-payments/${paymentId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        View payment
+      </Link>
+    ) : (
+      "-"
+    );
+  }
+
+  if (row.sourceType === "SupplierRefund") {
+    return (
+      <Link href={`/purchases/supplier-refunds/${row.sourceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        View refund
+      </Link>
+    );
+  }
+
   if (row.sourceType === "PurchaseDebitNote") {
     return (
       <Link href={`/purchases/debit-notes/${row.sourceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">

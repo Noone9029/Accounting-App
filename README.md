@@ -274,6 +274,7 @@ Purchase bills:
 - `GET /purchase-bills/:id/pdf`
 - `GET /purchase-bills/:id/debit-notes`
 - `GET /purchase-bills/:id/debit-note-allocations`
+- `GET /purchase-bills/:id/supplier-payment-unapplied-allocations`
 - `PATCH /purchase-bills/:id`
 - `DELETE /purchase-bills/:id`
 - `POST /purchase-bills/:id/finalize`
@@ -302,8 +303,23 @@ Supplier payments:
 - `GET /supplier-payments/:id`
 - `GET /supplier-payments/:id/receipt-pdf-data`
 - `GET /supplier-payments/:id/receipt.pdf`
+- `GET /supplier-payments/:id/unapplied-allocations`
+- `POST /supplier-payments/:id/apply-unapplied`
+- `POST /supplier-payments/:id/unapplied-allocations/:allocationId/reverse`
 - `POST /supplier-payments/:id/void`
 - `DELETE /supplier-payments/:id`
+
+Supplier refunds:
+
+- `GET /supplier-refunds`
+- `POST /supplier-refunds`
+- `GET /supplier-refunds/refundable-sources?supplierId=:id`
+- `GET /supplier-refunds/:id`
+- `GET /supplier-refunds/:id/pdf-data`
+- `GET /supplier-refunds/:id/pdf`
+- `POST /supplier-refunds/:id/generate-pdf`
+- `POST /supplier-refunds/:id/void`
+- `DELETE /supplier-refunds/:id`
 
 Organization document settings:
 
@@ -520,6 +536,7 @@ Lifecycle behavior:
 - Voiding a draft marks it `VOIDED`.
 - Voiding a finalized bill creates or reuses one reversal journal entry and marks the bill `VOIDED`.
 - Finalized bills with active supplier payment allocations cannot be voided. Void the supplier payment first.
+- Finalized bills with active supplier payment unapplied allocations cannot be voided. Reverse the unapplied payment applications first.
 - Finalized bills with active purchase debit note allocations cannot be voided. Reverse the debit note allocations first.
 - Voided bills cannot be edited or finalized.
 
@@ -544,6 +561,8 @@ Purchase debit notes are AP-side supplier credit/return/overcharge adjustment do
 - `unappliedAmount` starts equal to total and decreases as the debit note is applied to open purchase bills.
 - Applying or reversing a debit note allocation only updates `PurchaseBill.balanceDue`, `PurchaseDebitNote.unappliedAmount`, and immutable allocation audit rows. It creates no journal entry because finalization already posted the AP reduction.
 - Active debit note allocations block debit note voiding and purchase bill voiding until reversed.
+- Posted supplier refunds from a purchase debit note block debit note voiding until the refunds are voided.
+- Purchase debit note `unappliedAmount` can be reduced by manual supplier refunds; refund voiding restores the source unapplied amount.
 - Debit note PDFs are operational documents only and are archived through generated documents.
 
 ## Supplier Payment Rules
@@ -557,9 +576,36 @@ Supplier payments are posted immediately in this MVP.
 - Total allocated amount cannot exceed `amountPaid`.
 - Partial supplier payments are supported; bill `balanceDue` is reduced by allocated amount.
 - If `amountPaid` is greater than allocated amount, the difference is stored as `unappliedAmount`.
+- Unapplied supplier payment credit can be applied later to finalized open bills for the same supplier through `SupplierPaymentUnappliedAllocation` audit rows.
+- Applying unapplied supplier payment credit decreases `PurchaseBill.balanceDue` and `SupplierPayment.unappliedAmount`; it does not create a journal entry because the original supplier payment already posted the AP reduction.
+- Reversing an unapplied supplier payment allocation marks the allocation reversed, restores `PurchaseBill.balanceDue`, restores `SupplierPayment.unappliedAmount`, and creates no journal entry.
+- Unapplied supplier payment application and reversal are transaction guarded so balances cannot go below zero or above bill/payment totals.
+- Current supplier payment `unappliedAmount` can be refunded manually through supplier refunds. Amounts applied to bills are not refundable unless their allocation is reversed first.
 - Payment creation posts debit account code `210` Accounts Payable and credit the selected paid-through account.
 - Voiding a posted supplier payment creates or reuses one reversal journal, marks the payment `VOIDED`, and restores allocated bill balances once.
+- Voiding a posted supplier payment is blocked while active unapplied payment allocations exist; reverse those allocations first.
+- Voiding a posted supplier payment is blocked while posted supplier refunds exist for its unapplied amount; void the refunds first.
 - Supplier payment PDFs are operational receipt documents only and are archived through generated documents.
+
+## Supplier Refund Rules
+
+Supplier refunds are manual accounting records for money returned by a supplier. They do not call banks, payment gateways, or ZATCA.
+
+Refund sources:
+
+- `SUPPLIER_PAYMENT`: the source payment must be posted, non-voided, same organization, same supplier, and have enough `unappliedAmount`.
+- `PURCHASE_DEBIT_NOTE`: the source debit note must be finalized, non-voided, same organization, same supplier, and have enough `unappliedAmount`.
+- The received-into account must be an active posting asset account in the same organization.
+- Refunds are posted immediately in this MVP and reduce the source `unappliedAmount` in the same transaction.
+- Voiding a posted refund creates or reuses one reversal journal, marks the refund `VOIDED`, and restores the source `unappliedAmount`.
+- Voiding twice is idempotent and does not restore source balances twice.
+
+Posting behavior:
+
+- Refund posting debits the selected received-into bank/cash asset account for `amountRefunded`.
+- Refund posting credits account code `210` Accounts Payable for `amountRefunded`.
+- Refund voiding reverses that journal and restores the source supplier credit.
+- Supplier refund PDFs are operational documents only and are archived through generated documents.
 
 ## Customer Ledger Rules
 
@@ -602,7 +648,10 @@ Supplier ledgers are available for contacts of type `SUPPLIER` or `BOTH`.
 - Voided purchase debit note rows reverse that visible effect with a credit equal to debit note total.
 - Purchase debit note allocation and allocation reversal rows are neutral audit rows with zero debit and zero credit.
 - Supplier payment rows decrease accounts payable with a debit equal to payment `amountPaid`.
+- Supplier payment unapplied allocation and allocation reversal rows are neutral audit rows with zero debit and zero credit.
 - Voided supplier payment rows reverse that visible effect with a credit equal to payment `amountPaid`.
+- Supplier refund rows credit accounts payable because supplier-returned cash reduces the supplier credit/AP position already created by an overpayment or debit note.
+- Voided supplier refund rows reverse that visible effect with a debit equal to the refunded amount.
 - Voided purchase bill rows reverse that visible effect with a debit equal to bill total.
 - Running balance is decimal-safe and represents payable amount owed to the supplier.
 
@@ -629,13 +678,14 @@ Implemented PDF documents:
 - Purchase bill PDF: `GET /purchase-bills/:id/pdf`
 - Purchase debit note PDF: `GET /purchase-debit-notes/:id/pdf`
 - Supplier payment receipt PDF: `GET /supplier-payments/:id/receipt.pdf`
+- Supplier refund PDF: `GET /supplier-refunds/:id/pdf`
 
 PDF endpoints:
 
 - Require JWT auth and `x-organization-id`.
 - Are tenant-scoped and return `404` outside the active organization.
 - Return `Content-Type: application/pdf`.
-- Use attachment filenames such as `invoice-INV-000001.pdf`, `credit-note-CN-000001.pdf`, `customer-refund-REF-000001.pdf`, `purchase-bill-BILL-000001.pdf`, `purchase-debit-note-PDN-000001.pdf`, `supplier-payment-SP-000001.pdf`, `receipt-PAY-000001.pdf`, and `statement-Customer.pdf`.
+- Use attachment filenames such as `invoice-INV-000001.pdf`, `credit-note-CN-000001.pdf`, `customer-refund-REF-000001.pdf`, `purchase-bill-BILL-000001.pdf`, `purchase-debit-note-PDN-000001.pdf`, `supplier-payment-SP-000001.pdf`, `supplier-refund-SRF-000001.pdf`, `receipt-PAY-000001.pdf`, and `statement-Customer.pdf`.
 - Apply organization document settings for document titles, footer text, basic colors, tax number visibility, and invoice notes/terms/payment sections.
 - Archive each generated PDF as a `GeneratedDocument` record with content hash, size, filename, source reference, and local base64 content.
 
@@ -765,7 +815,7 @@ Future real onboarding steps:
 - GET PDF endpoints currently archive every download.
 - Unapplied overpayment application is manual only; there is no automatic credit matching yet.
 - Customer refunds are manual accounting records only; no payment gateway refund or bank reconciliation integration exists yet.
-- Purchase bills, purchase debit notes, and supplier payments are AP groundwork only; purchase orders, inventory stock movements/returns, supplier refund workflows, and bank reconciliation are not implemented yet.
+- Purchase bills, purchase debit notes, supplier payments, and supplier refunds are AP groundwork only; purchase orders, inventory stock movements/returns, bank reconciliation, bank transfer integrations, and automated matching are not implemented yet.
 - ZATCA credit note XML/signing/submission is not implemented yet.
 - ZATCA debit note XML/signing/submission is not implemented yet.
 - Inventory returns from credit notes are not implemented yet.

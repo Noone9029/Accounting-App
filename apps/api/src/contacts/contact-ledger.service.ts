@@ -12,6 +12,8 @@ import {
   PurchaseDebitNoteStatus,
   SalesInvoiceStatus,
   SupplierPaymentStatus,
+  SupplierRefundSourceType,
+  SupplierRefundStatus,
 } from "@prisma/client";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
@@ -83,6 +85,10 @@ export type SupplierLedgerRowType =
   | "PURCHASE_DEBIT_NOTE_ALLOCATION"
   | "PURCHASE_DEBIT_NOTE_ALLOCATION_REVERSAL"
   | "SUPPLIER_PAYMENT"
+  | "SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION"
+  | "SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL"
+  | "SUPPLIER_REFUND"
+  | "VOID_SUPPLIER_REFUND"
   | "VOID_SUPPLIER_PAYMENT"
   | "VOID_PURCHASE_BILL";
 
@@ -95,7 +101,13 @@ export interface SupplierLedgerRow {
   debit: string;
   credit: string;
   balance: string;
-  sourceType: "PurchaseBill" | "PurchaseDebitNote" | "PurchaseDebitNoteAllocation" | "SupplierPayment";
+  sourceType:
+    | "PurchaseBill"
+    | "PurchaseDebitNote"
+    | "PurchaseDebitNoteAllocation"
+    | "SupplierPayment"
+    | "SupplierPaymentUnappliedAllocation"
+    | "SupplierRefund";
   sourceId: string;
   status: string;
   metadata: Record<string, unknown>;
@@ -283,6 +295,22 @@ export interface LedgerSupplierPaymentInput {
       status: string;
     } | null;
   }>;
+  unappliedAllocations?: Array<{
+    id: string;
+    billId: string;
+    amountApplied: unknown;
+    createdAt: Date | string;
+    reversedAt?: Date | string | null;
+    reversalReason?: string | null;
+    bill?: {
+      id: string;
+      billNumber: string;
+      billDate: Date | string;
+      total: unknown;
+      balanceDue: unknown;
+      status: string;
+    } | null;
+  }>;
 }
 
 export interface LedgerPurchaseDebitNoteInput {
@@ -323,6 +351,30 @@ export interface LedgerPurchaseDebitNoteAllocationInput {
     total: unknown;
     unappliedAmount: unknown;
     status: string;
+  } | null;
+}
+
+export interface LedgerSupplierRefundInput {
+  id: string;
+  refundNumber: string;
+  refundDate: Date | string;
+  sourceType: SupplierRefundSourceType | string;
+  sourcePaymentId?: string | null;
+  sourceDebitNoteId?: string | null;
+  status: string;
+  amountRefunded: unknown;
+  description?: string | null;
+  postedAt?: Date | string | null;
+  voidedAt?: Date | string | null;
+  updatedAt: Date | string;
+  createdAt: Date | string;
+  sourcePayment?: {
+    id: string;
+    paymentNumber: string;
+  } | null;
+  sourceDebitNote?: {
+    id: string;
+    debitNoteNumber: string;
   } | null;
 }
 
@@ -605,7 +657,7 @@ export class ContactLedgerService {
 
   async supplierLedger(organizationId: string, contactId: string): Promise<SupplierLedgerResponse> {
     const contact = await this.findSupplierContact(organizationId, contactId);
-    const [bills, debitNotes, debitNoteAllocations, payments] = await Promise.all([
+    const [bills, debitNotes, debitNoteAllocations, payments, refunds] = await Promise.all([
       this.prisma.purchaseBill.findMany({
         where: {
           organizationId,
@@ -723,11 +775,55 @@ export class ContactLedgerService {
               },
             },
           },
+          unappliedAllocations: {
+            select: {
+              id: true,
+              billId: true,
+              amountApplied: true,
+              createdAt: true,
+              reversedAt: true,
+              reversalReason: true,
+              bill: {
+                select: {
+                  id: true,
+                  billNumber: true,
+                  billDate: true,
+                  total: true,
+                  balanceDue: true,
+                  status: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.supplierRefund.findMany({
+        where: {
+          organizationId,
+          supplierId: contactId,
+          status: { in: [SupplierRefundStatus.POSTED, SupplierRefundStatus.VOIDED] },
+        },
+        select: {
+          id: true,
+          refundNumber: true,
+          refundDate: true,
+          sourceType: true,
+          sourcePaymentId: true,
+          sourceDebitNoteId: true,
+          status: true,
+          amountRefunded: true,
+          description: true,
+          postedAt: true,
+          voidedAt: true,
+          createdAt: true,
+          updatedAt: true,
+          sourcePayment: { select: { id: true, paymentNumber: true } },
+          sourceDebitNote: { select: { id: true, debitNoteNumber: true } },
         },
       }),
     ]);
 
-    const rows = buildSupplierLedgerRows({ bills, debitNotes, debitNoteAllocations, payments });
+    const rows = buildSupplierLedgerRows({ bills, debitNotes, debitNoteAllocations, payments, refunds });
     return {
       contact,
       openingBalance: "0.0000",
@@ -1133,6 +1229,7 @@ export function buildSupplierLedgerRows(input: {
   debitNotes?: LedgerPurchaseDebitNoteInput[];
   debitNoteAllocations?: LedgerPurchaseDebitNoteAllocationInput[];
   payments: LedgerSupplierPaymentInput[];
+  refunds?: LedgerSupplierRefundInput[];
 }): SupplierLedgerRow[] {
   const pendingRows: PendingSupplierLedgerRow[] = [];
 
@@ -1301,6 +1398,57 @@ export function buildSupplierLedgerRows(input: {
       },
     });
 
+    for (const allocation of payment.unappliedAllocations ?? []) {
+      const billNumber = allocation.bill?.billNumber ?? allocation.billId;
+      pendingRows.push({
+        id: `${allocation.id}:supplier-payment-unapplied-allocation`,
+        type: "SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION",
+        date: toIsoString(allocation.createdAt),
+        createdAt: toIsoString(allocation.createdAt),
+        number: `${payment.paymentNumber} -> ${billNumber}`,
+        description: `Unapplied supplier payment ${payment.paymentNumber} applied to ${billNumber}`,
+        debit: "0.0000",
+        credit: "0.0000",
+        sourceType: "SupplierPaymentUnappliedAllocation",
+        sourceId: allocation.id,
+        status: allocation.reversedAt ? "REVERSED" : "ACTIVE",
+        metadata: {
+          paymentId: payment.id,
+          paymentNumber: payment.paymentNumber,
+          billId: allocation.billId,
+          billNumber: allocation.bill?.billNumber ?? null,
+          amountApplied: moneyString(allocation.amountApplied),
+          reversedAt: allocation.reversedAt ? toIsoString(allocation.reversedAt) : null,
+          reversalReason: allocation.reversalReason ?? null,
+        },
+      });
+
+      if (allocation.reversedAt) {
+        pendingRows.push({
+          id: `${allocation.id}:supplier-payment-unapplied-allocation-reversal`,
+          type: "SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL",
+          date: toIsoString(allocation.reversedAt),
+          createdAt: toIsoString(allocation.reversedAt),
+          number: `${payment.paymentNumber} -> ${billNumber}`,
+          description: `Reversed unapplied supplier payment ${payment.paymentNumber} allocation from ${billNumber}`,
+          debit: "0.0000",
+          credit: "0.0000",
+          sourceType: "SupplierPaymentUnappliedAllocation",
+          sourceId: allocation.id,
+          status: "REVERSED",
+          metadata: {
+            paymentId: payment.id,
+            paymentNumber: payment.paymentNumber,
+            billId: allocation.billId,
+            billNumber: allocation.bill?.billNumber ?? null,
+            amountApplied: moneyString(allocation.amountApplied),
+            reversedAt: toIsoString(allocation.reversedAt),
+            reversalReason: allocation.reversalReason ?? null,
+          },
+        });
+      }
+    }
+
     if (payment.status === SupplierPaymentStatus.VOIDED) {
       pendingRows.push({
         id: `${payment.id}:void`,
@@ -1317,6 +1465,59 @@ export function buildSupplierLedgerRows(input: {
         metadata: {
           paymentId: payment.id,
           unappliedAmount: moneyString(payment.unappliedAmount),
+        },
+      });
+    }
+  }
+
+  for (const refund of input.refunds ?? []) {
+    const sourceNumber =
+      refund.sourceType === SupplierRefundSourceType.SUPPLIER_PAYMENT
+        ? refund.sourcePayment?.paymentNumber ?? refund.sourcePaymentId ?? "-"
+        : refund.sourceDebitNote?.debitNoteNumber ?? refund.sourceDebitNoteId ?? "-";
+    pendingRows.push({
+      id: `${refund.id}:supplier-refund`,
+      type: "SUPPLIER_REFUND",
+      date: toIsoString(refund.refundDate),
+      createdAt: toIsoString(refund.createdAt),
+      number: refund.refundNumber,
+      description: refund.description?.trim() || `Supplier refund ${refund.refundNumber}`,
+      debit: "0.0000",
+      credit: moneyString(refund.amountRefunded),
+      sourceType: "SupplierRefund",
+      sourceId: refund.id,
+      status: refund.status,
+      metadata: {
+        refundId: refund.id,
+        sourceType: refund.sourceType,
+        sourcePaymentId: refund.sourcePaymentId ?? null,
+        sourceDebitNoteId: refund.sourceDebitNoteId ?? null,
+        sourceNumber,
+        amountRefunded: moneyString(refund.amountRefunded),
+        postedAt: refund.postedAt ? toIsoString(refund.postedAt) : null,
+      },
+    });
+
+    if (refund.status === SupplierRefundStatus.VOIDED) {
+      pendingRows.push({
+        id: `${refund.id}:void`,
+        type: "VOID_SUPPLIER_REFUND",
+        date: toIsoString(refund.voidedAt ?? refund.updatedAt),
+        createdAt: toIsoString(refund.updatedAt),
+        number: refund.refundNumber,
+        description: `Void supplier refund ${refund.refundNumber}`,
+        debit: moneyString(refund.amountRefunded),
+        credit: "0.0000",
+        sourceType: "SupplierRefund",
+        sourceId: refund.id,
+        status: refund.status,
+        metadata: {
+          refundId: refund.id,
+          sourceType: refund.sourceType,
+          sourcePaymentId: refund.sourcePaymentId ?? null,
+          sourceDebitNoteId: refund.sourceDebitNoteId ?? null,
+          sourceNumber,
+          amountRefunded: moneyString(refund.amountRefunded),
         },
       });
     }
@@ -1445,11 +1646,15 @@ function supplierRowPriority(type: SupplierLedgerRowType): number {
     case "PURCHASE_BILL":
     case "PURCHASE_DEBIT_NOTE":
     case "SUPPLIER_PAYMENT":
+    case "SUPPLIER_REFUND":
       return 0;
     case "PURCHASE_DEBIT_NOTE_ALLOCATION":
     case "PURCHASE_DEBIT_NOTE_ALLOCATION_REVERSAL":
+    case "SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION":
+    case "SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL":
       return 1;
     case "VOID_SUPPLIER_PAYMENT":
+    case "VOID_SUPPLIER_REFUND":
     case "VOID_PURCHASE_BILL":
     case "VOID_PURCHASE_DEBIT_NOTE":
       return 2;

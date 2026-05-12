@@ -58,6 +58,7 @@ const navItems: NavItem[] = [
     children: [
       { label: "Bills", href: "/purchases/bills" },
       { label: "Supplier payments", href: "/purchases/supplier-payments" },
+      { label: "Supplier refunds", href: "/purchases/supplier-refunds" },
       { label: "Cash expenses", href: "/purchases/cash-expenses" },
       { label: "Debit notes", href: "/purchases/debit-notes" },
       { label: "Purchase orders", href: "/purchases/purchase-orders" },

@@ -19,6 +19,7 @@ import { PrismaModule } from "./prisma/prisma.module";
 import { PurchaseBillModule } from "./purchase-bills/purchase-bill.module";
 import { PurchaseDebitNoteModule } from "./purchase-debit-notes/purchase-debit-note.module";
 import { SalesInvoiceModule } from "./sales-invoices/sales-invoice.module";
+import { SupplierRefundModule } from "./supplier-refunds/supplier-refund.module";
 import { SupplierPaymentModule } from "./supplier-payments/supplier-payment.module";
 import { TaxRateModule } from "./tax-rates/tax-rate.module";
 import { ZatcaModule } from "./zatca/zatca.module";
@@ -42,6 +43,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     PurchaseBillModule,
     PurchaseDebitNoteModule,
     SupplierPaymentModule,
+    SupplierRefundModule,
     AccountingModule,
     ChartOfAccountsModule,
     TaxRateModule,

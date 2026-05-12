@@ -5,7 +5,9 @@ import { CurrentOrganizationId } from "../auth/decorators/current-organization.d
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
+import { ApplyUnappliedSupplierPaymentDto } from "./dto/apply-unapplied-supplier-payment.dto";
 import { CreateSupplierPaymentDto } from "./dto/create-supplier-payment.dto";
+import { ReverseUnappliedSupplierPaymentAllocationDto } from "./dto/reverse-unapplied-supplier-payment-allocation.dto";
 import { SupplierPaymentService } from "./supplier-payment.service";
 
 @Controller("supplier-payments")
@@ -30,6 +32,32 @@ export class SupplierPaymentController {
   @Get(":id/allocations")
   allocations(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.supplierPaymentService.allocations(organizationId, id);
+  }
+
+  @Get(":id/unapplied-allocations")
+  unappliedAllocations(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.supplierPaymentService.unappliedAllocations(organizationId, id);
+  }
+
+  @Post(":id/apply-unapplied")
+  applyUnapplied(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: ApplyUnappliedSupplierPaymentDto,
+  ) {
+    return this.supplierPaymentService.applyUnapplied(organizationId, user.id, id, dto);
+  }
+
+  @Post(":id/unapplied-allocations/:allocationId/reverse")
+  reverseUnappliedAllocation(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Param("allocationId") allocationId: string,
+    @Body() dto: ReverseUnappliedSupplierPaymentAllocationDto,
+  ) {
+    return this.supplierPaymentService.reverseUnappliedAllocation(organizationId, user.id, id, allocationId, dto);
   }
 
   @Get(":id/receipt-data")

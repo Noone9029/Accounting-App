@@ -118,6 +118,27 @@ interface SupplierPayment {
   voidReversalJournalEntryId?: string | null;
 }
 
+interface SupplierPaymentUnappliedAllocation {
+  id: string;
+  paymentId: string;
+  billId: string;
+  amountApplied: string;
+  reversedAt?: string | null;
+  reversalReason?: string | null;
+}
+
+interface SupplierRefund {
+  id: string;
+  refundNumber: string;
+  status: string;
+  amountRefunded: string;
+  sourceType: "SUPPLIER_PAYMENT" | "PURCHASE_DEBIT_NOTE";
+  sourcePaymentId?: string | null;
+  sourceDebitNoteId?: string | null;
+  journalEntryId?: string | null;
+  voidReversalJournalEntryId?: string | null;
+}
+
 interface CreditNoteAllocation {
   id: string;
   creditNoteId: string;
@@ -1286,6 +1307,278 @@ async function main(): Promise<void> {
   assertEqual(voidedPurchaseBill.status, "VOIDED", "voided purchase bill status");
   assertPresent(voidedPurchaseBill.reversalJournalEntryId, "voided purchase bill reversal journal");
 
+  const supplierOverpaymentBill = await post<PurchaseBill>("/purchase-bills", headers, {
+    supplierId: supplier.id,
+    billDate: new Date().toISOString(),
+    currency: "SAR",
+    notes: "Smoke test supplier overpayment target bill",
+    lines: [purchaseBillLinePayload],
+  });
+  const finalizedSupplierOverpaymentBill = await post<PurchaseBill>(
+    `/purchase-bills/${supplierOverpaymentBill.id}/finalize`,
+    headers,
+    {},
+  );
+  assertMoney(finalizedSupplierOverpaymentBill.balanceDue, expectedPurchaseBillTotal, "supplier overpayment target bill balance");
+
+  const supplierOverpaymentAmount = money("80.0000");
+  const supplierUnappliedApplyAmount = money("30.0000");
+  const supplierOverpayment = await post<SupplierPayment>("/supplier-payments", headers, {
+    supplierId: supplier.id,
+    paymentDate: new Date().toISOString(),
+    currency: "SAR",
+    amountPaid: supplierOverpaymentAmount.toFixed(4),
+    accountId: paidThroughAccount!.id,
+    description: "Smoke test supplier overpayment",
+    allocations: [],
+  });
+  assertMoney(supplierOverpayment.unappliedAmount, supplierOverpaymentAmount, "supplier overpayment unapplied amount");
+
+  const supplierPaymentAfterUnappliedApply = await post<SupplierPayment>(
+    `/supplier-payments/${supplierOverpayment.id}/apply-unapplied`,
+    headers,
+    {
+      billId: finalizedSupplierOverpaymentBill.id,
+      amountApplied: supplierUnappliedApplyAmount.toFixed(4),
+    },
+  );
+  assertMoney(
+    supplierPaymentAfterUnappliedApply.unappliedAmount,
+    supplierOverpaymentAmount.minus(supplierUnappliedApplyAmount),
+    "supplier payment unapplied amount after application",
+  );
+  const supplierOverpaymentBillAfterApply = await get<PurchaseBill>(
+    `/purchase-bills/${finalizedSupplierOverpaymentBill.id}`,
+    headers,
+  );
+  assertMoney(
+    supplierOverpaymentBillAfterApply.balanceDue,
+    expectedPurchaseBillTotal.minus(supplierUnappliedApplyAmount),
+    "purchase bill balance after supplier overpayment application",
+  );
+  const supplierPaymentUnappliedAllocations = await get<SupplierPaymentUnappliedAllocation[]>(
+    `/supplier-payments/${supplierOverpayment.id}/unapplied-allocations`,
+    headers,
+  );
+  const supplierPaymentUnappliedAllocation = required(
+    supplierPaymentUnappliedAllocations.find(
+      (allocation) =>
+        allocation.billId === finalizedSupplierOverpaymentBill.id &&
+        money(allocation.amountApplied).eq(supplierUnappliedApplyAmount),
+    ),
+    "supplier payment unapplied allocation for smoke application",
+  );
+  const billSupplierPaymentUnappliedAllocations = await get<SupplierPaymentUnappliedAllocation[]>(
+    `/purchase-bills/${finalizedSupplierOverpaymentBill.id}/supplier-payment-unapplied-allocations`,
+    headers,
+  );
+  assert(
+    billSupplierPaymentUnappliedAllocations.some((allocation) => allocation.id === supplierPaymentUnappliedAllocation.id),
+    "purchase bill exposes supplier payment unapplied allocation",
+  );
+  const supplierReceiptAfterUnappliedApply = await get<{
+    unappliedAllocations?: Array<{ billId: string; amountApplied: string; status: string }>;
+  }>(`/supplier-payments/${supplierOverpayment.id}/receipt-pdf-data`, headers);
+  assert(
+    Boolean(
+      supplierReceiptAfterUnappliedApply.unappliedAllocations?.some(
+        (allocation) =>
+          allocation.billId === finalizedSupplierOverpaymentBill.id &&
+          money(allocation.amountApplied).eq(supplierUnappliedApplyAmount),
+      ),
+    ),
+    "supplier receipt pdf-data includes unapplied payment allocation",
+  );
+  const supplierLedgerAfterUnappliedApply = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterUnappliedApply.rows.some(
+      (row) =>
+        row.type === "SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION" &&
+        row.sourceId === supplierPaymentUnappliedAllocation.id &&
+        money(row.debit).eq(0) &&
+        money(row.credit).eq(0),
+    ),
+    "supplier ledger includes neutral supplier payment unapplied allocation row",
+  );
+
+  const supplierPaymentAfterUnappliedReverse = await post<SupplierPayment>(
+    `/supplier-payments/${supplierOverpayment.id}/unapplied-allocations/${supplierPaymentUnappliedAllocation.id}/reverse`,
+    headers,
+    { reason: "Smoke test supplier payment application reversal" },
+  );
+  assertMoney(
+    supplierPaymentAfterUnappliedReverse.unappliedAmount,
+    supplierOverpaymentAmount,
+    "supplier payment unapplied amount after application reversal",
+  );
+  const supplierOverpaymentBillAfterReverse = await get<PurchaseBill>(
+    `/purchase-bills/${finalizedSupplierOverpaymentBill.id}`,
+    headers,
+  );
+  assertMoney(
+    supplierOverpaymentBillAfterReverse.balanceDue,
+    expectedPurchaseBillTotal,
+    "purchase bill balance after supplier overpayment application reversal",
+  );
+  const reversedSupplierPaymentUnappliedAllocations = await get<SupplierPaymentUnappliedAllocation[]>(
+    `/supplier-payments/${supplierOverpayment.id}/unapplied-allocations`,
+    headers,
+  );
+  assert(
+    reversedSupplierPaymentUnappliedAllocations.some(
+      (allocation) =>
+        allocation.id === supplierPaymentUnappliedAllocation.id &&
+        Boolean(allocation.reversedAt) &&
+        allocation.reversalReason === "Smoke test supplier payment application reversal",
+    ),
+    "supplier payment unapplied allocations include reversal metadata",
+  );
+  const supplierLedgerAfterUnappliedReverse = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterUnappliedReverse.rows.some(
+      (row) =>
+        row.type === "SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL" &&
+        row.sourceId === supplierPaymentUnappliedAllocation.id &&
+        money(row.debit).eq(0) &&
+        money(row.credit).eq(0),
+    ),
+    "supplier ledger includes neutral supplier payment unapplied allocation reversal row",
+  );
+
+  const supplierRefundableSources = await get<{ payments: SupplierPayment[]; debitNotes: PurchaseDebitNote[] }>(
+    `/supplier-refunds/refundable-sources?supplierId=${supplier.id}`,
+    headers,
+  );
+  assert(
+    supplierRefundableSources.payments.some(
+      (payment) => payment.id === supplierOverpayment.id && money(payment.unappliedAmount).eq(supplierOverpaymentAmount),
+    ),
+    "supplier refundable sources include unapplied supplier payment",
+  );
+
+  const supplierPaymentRefundAmount = money("20.0000");
+  const supplierPaymentRefund = await post<SupplierRefund>("/supplier-refunds", headers, {
+    supplierId: supplier.id,
+    sourceType: "SUPPLIER_PAYMENT",
+    sourcePaymentId: supplierOverpayment.id,
+    refundDate: new Date().toISOString(),
+    currency: "SAR",
+    amountRefunded: supplierPaymentRefundAmount.toFixed(4),
+    accountId: paidThroughAccount!.id,
+    description: "Smoke test supplier payment refund",
+  });
+  assertEqual(supplierPaymentRefund.status, "POSTED", "supplier payment refund status");
+  assertPresent(supplierPaymentRefund.journalEntryId, "supplier payment refund journalEntryId");
+  const supplierOverpaymentAfterRefund = await get<SupplierPayment>(`/supplier-payments/${supplierOverpayment.id}`, headers);
+  assertMoney(
+    supplierOverpaymentAfterRefund.unappliedAmount,
+    supplierOverpaymentAmount.minus(supplierPaymentRefundAmount),
+    "supplier payment unapplied amount after refund",
+  );
+  const supplierLedgerAfterPaymentRefund = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterPaymentRefund.rows.some(
+      (row) =>
+        row.type === "SUPPLIER_REFUND" &&
+        row.sourceId === supplierPaymentRefund.id &&
+        money(row.credit).eq(supplierPaymentRefundAmount),
+    ),
+    "supplier ledger includes supplier payment refund credit",
+  );
+
+  const voidedSupplierPaymentRefund = await post<SupplierRefund>(`/supplier-refunds/${supplierPaymentRefund.id}/void`, headers, {});
+  assertEqual(voidedSupplierPaymentRefund.status, "VOIDED", "voided supplier payment refund status");
+  assertPresent(voidedSupplierPaymentRefund.voidReversalJournalEntryId, "voided supplier payment refund reversal journal");
+  const supplierOverpaymentAfterRefundVoid = await get<SupplierPayment>(`/supplier-payments/${supplierOverpayment.id}`, headers);
+  assertMoney(
+    supplierOverpaymentAfterRefundVoid.unappliedAmount,
+    supplierOverpaymentAmount,
+    "supplier payment unapplied amount after refund void",
+  );
+  const supplierLedgerAfterPaymentRefundVoid = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterPaymentRefundVoid.rows.some(
+      (row) =>
+        row.type === "VOID_SUPPLIER_REFUND" &&
+        row.sourceId === supplierPaymentRefund.id &&
+        money(row.debit).eq(supplierPaymentRefundAmount),
+    ),
+    "supplier ledger includes void supplier payment refund debit",
+  );
+
+  const supplierRefundDebitNote = await post<PurchaseDebitNote>("/purchase-debit-notes", headers, {
+    supplierId: supplier.id,
+    issueDate: new Date().toISOString(),
+    currency: "SAR",
+    reason: "Smoke test supplier refund debit note",
+    lines: [debitNoteLinePayload],
+  });
+  const finalizedSupplierRefundDebitNote = await post<PurchaseDebitNote>(
+    `/purchase-debit-notes/${supplierRefundDebitNote.id}/finalize`,
+    headers,
+    {},
+  );
+  assertMoney(
+    finalizedSupplierRefundDebitNote.unappliedAmount,
+    expectedPurchaseDebitNoteTotal,
+    "supplier refund debit note unapplied amount",
+  );
+  const supplierDebitNoteRefundableSources = await get<{ payments: SupplierPayment[]; debitNotes: PurchaseDebitNote[] }>(
+    `/supplier-refunds/refundable-sources?supplierId=${supplier.id}`,
+    headers,
+  );
+  assert(
+    supplierDebitNoteRefundableSources.debitNotes.some(
+      (debitNote) =>
+        debitNote.id === finalizedSupplierRefundDebitNote.id &&
+        money(debitNote.unappliedAmount).eq(expectedPurchaseDebitNoteTotal),
+    ),
+    "supplier refundable sources include unapplied purchase debit note",
+  );
+
+  const supplierDebitNoteRefundAmount = money("5.0000");
+  const supplierDebitNoteRefund = await post<SupplierRefund>("/supplier-refunds", headers, {
+    supplierId: supplier.id,
+    sourceType: "PURCHASE_DEBIT_NOTE",
+    sourceDebitNoteId: finalizedSupplierRefundDebitNote.id,
+    refundDate: new Date().toISOString(),
+    currency: "SAR",
+    amountRefunded: supplierDebitNoteRefundAmount.toFixed(4),
+    accountId: paidThroughAccount!.id,
+    description: "Smoke test purchase debit note supplier refund",
+  });
+  assertEqual(supplierDebitNoteRefund.status, "POSTED", "supplier debit note refund status");
+  assertPresent(supplierDebitNoteRefund.journalEntryId, "supplier debit note refund journalEntryId");
+  const supplierRefundDebitNoteAfterRefund = await get<PurchaseDebitNote>(
+    `/purchase-debit-notes/${finalizedSupplierRefundDebitNote.id}`,
+    headers,
+  );
+  assertMoney(
+    supplierRefundDebitNoteAfterRefund.unappliedAmount,
+    expectedPurchaseDebitNoteTotal.minus(supplierDebitNoteRefundAmount),
+    "purchase debit note unapplied amount after supplier refund",
+  );
+  const supplierRefundPdfData = await get<{ refund: { refundNumber: string }; source: { number: string } }>(
+    `/supplier-refunds/${supplierDebitNoteRefund.id}/pdf-data`,
+    headers,
+  );
+  assertEqual(
+    supplierRefundPdfData.refund.refundNumber,
+    supplierDebitNoteRefund.refundNumber,
+    "supplier refund pdf-data refund number",
+  );
+  await assertPdf(`/supplier-refunds/${supplierDebitNoteRefund.id}/pdf`, headers, "supplier refund PDF");
+  const supplierLedgerAfterDebitNoteRefund = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterDebitNoteRefund.rows.some(
+      (row) =>
+        row.type === "SUPPLIER_REFUND" &&
+        row.sourceId === supplierDebitNoteRefund.id &&
+        money(row.credit).eq(supplierDebitNoteRefundAmount),
+    ),
+    "supplier ledger includes purchase debit note supplier refund credit",
+  );
+
   const voidedPayment = await post<CustomerPayment>(`/customer-payments/${partialPayment.id}/void`, headers, {});
   assertEqual(voidedPayment.status, "VOIDED", "voided payment status");
   assertPresent(voidedPayment.voidReversalJournalEntryId, "voided payment reversal journal");
@@ -1332,6 +1625,11 @@ async function main(): Promise<void> {
         purchaseDebitNoteAllocationId: purchaseDebitNoteAllocation.id,
         archivedPurchaseDebitNotePdfId: archivedPurchaseDebitNotePdf.id,
         supplierPaymentId: supplierPayment.id,
+        supplierOverpaymentId: supplierOverpayment.id,
+        supplierPaymentUnappliedAllocationId: supplierPaymentUnappliedAllocation.id,
+        supplierPaymentRefundId: supplierPaymentRefund.id,
+        supplierRefundDebitNoteId: finalizedSupplierRefundDebitNote.id,
+        supplierDebitNoteRefundId: supplierDebitNoteRefund.id,
         archivedInvoicePdfId: archivedInvoicePdf.id,
         archivedCreditNotePdfId: archivedCreditNotePdf.id,
         finalInvoiceBalance: afterSecondPaymentVoid.balanceDue,

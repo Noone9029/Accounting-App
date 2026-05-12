@@ -53,6 +53,11 @@ export class PurchaseBillController {
     return this.purchaseBillService.debitNoteAllocations(organizationId, id);
   }
 
+  @Get(":id/supplier-payment-unapplied-allocations")
+  supplierPaymentUnappliedAllocations(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.purchaseBillService.supplierPaymentUnappliedAllocations(organizationId, id);
+  }
+
   @Get(":id/pdf")
   async pdf(
     @CurrentOrganizationId() organizationId: string,

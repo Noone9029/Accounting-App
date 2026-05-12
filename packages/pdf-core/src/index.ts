@@ -302,6 +302,18 @@ export interface SupplierPaymentReceiptPdfData {
     amountApplied: string;
     billBalanceDue: string;
   }>;
+  unappliedAllocations: Array<{
+    billId: string;
+    billNumber: string;
+    billDate: string | Date;
+    billDueDate?: string | Date | null;
+    billTotal: string;
+    amountApplied: string;
+    billBalanceDue: string;
+    status: string;
+    reversedAt?: string | Date | null;
+    reversalReason?: string | null;
+  }>;
   journalEntry?: {
     id: string;
     entryNumber: string;
@@ -332,6 +344,45 @@ export interface CustomerRefundPdfData {
     remainingUnappliedAmount: string;
   };
   paidFromAccount: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  journalEntry?: {
+    id: string;
+    entryNumber: string;
+    status: string;
+  } | null;
+  voidReversalJournalEntry?: {
+    id: string;
+    entryNumber: string;
+    status: string;
+  } | null;
+  generatedAt: string | Date;
+}
+
+export interface SupplierRefundPdfData {
+  organization: PdfOrganization;
+  supplier: PdfContact;
+  refund: {
+    id: string;
+    refundNumber: string;
+    refundDate: string | Date;
+    status: string;
+    currency: string;
+    amountRefunded: string;
+    description?: string | null;
+  };
+  source: {
+    type: "SUPPLIER_PAYMENT" | "PURCHASE_DEBIT_NOTE" | string;
+    id: string;
+    number: string;
+    date: string | Date;
+    status: string;
+    originalAmount: string;
+    remainingUnappliedAmount: string;
+  };
+  receivedIntoAccount: {
     id: string;
     code: string;
     name: string;
@@ -865,10 +916,84 @@ export async function renderSupplierPaymentReceiptPdf(data: SupplierPaymentRecei
       );
     }
 
+    writeSectionTitle(doc, "Unapplied Payment Applications", renderSettings);
+    if (data.unappliedAllocations.length === 0) {
+      writeMuted(doc, "No unapplied supplier payment credit has been matched to later bills.");
+    } else {
+      drawTable(
+        doc,
+        [
+          { label: "Bill", width: 96 },
+          { label: "Bill date", width: 64 },
+          { label: "Status", width: 62 },
+          { label: "Bill total", width: 86, align: "right" },
+          { label: "Applied", width: 72, align: "right" },
+          { label: "Balance due", width: 82, align: "right" },
+          { label: "Reversed", width: 70 },
+        ],
+        data.unappliedAllocations.map((allocation) => [
+          allocation.billNumber,
+          formatDate(allocation.billDate),
+          allocation.status,
+          money(allocation.billTotal, data.payment.currency),
+          money(allocation.amountApplied, data.payment.currency),
+          money(allocation.billBalanceDue, data.payment.currency),
+          allocation.reversedAt ? formatDate(allocation.reversedAt) : "-",
+        ]),
+        renderSettings,
+      );
+    }
+
     writeTotals(doc, data.payment.currency, [
       ["Amount paid", data.payment.amountPaid],
       ["Unapplied amount", data.payment.unappliedAmount],
     ], renderSettings);
+  }, renderSettings);
+}
+
+export async function renderSupplierRefundPdf(data: SupplierRefundPdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
+  const renderSettings = resolveSettings(settings, "Supplier Refund");
+  return renderPdf((doc) => {
+    writeHeader(doc, data.organization, renderSettings, data.generatedAt);
+    writeTwoColumnBlocks(doc, "Refund From", contactLines(data.supplier, renderSettings), "Supplier Refund", [
+      ["Refund number", data.refund.refundNumber],
+      ["Status", data.refund.status],
+      ["Refund date", formatDate(data.refund.refundDate)],
+      ["Amount refunded", money(data.refund.amountRefunded, data.refund.currency)],
+      ["Received into", `${data.receivedIntoAccount.code} ${data.receivedIntoAccount.name}`],
+      ["Journal entry", data.journalEntry ? `${data.journalEntry.entryNumber} (${data.journalEntry.status})` : "-"],
+      ["Void reversal", data.voidReversalJournalEntry ? `${data.voidReversalJournalEntry.entryNumber} (${data.voidReversalJournalEntry.status})` : "-"],
+    ], renderSettings);
+
+    writeSectionTitle(doc, "Refund Source", renderSettings);
+    drawTable(
+      doc,
+      [
+        { label: "Source type", width: 120 },
+        { label: "Number", width: 105 },
+        { label: "Date", width: 75 },
+        { label: "Status", width: 75 },
+        { label: "Original amount", width: 95, align: "right" },
+        { label: "Remaining unapplied", width: 115, align: "right" },
+      ],
+      [[
+        data.source.type.replaceAll("_", " "),
+        data.source.number,
+        formatDate(data.source.date),
+        data.source.status,
+        money(data.source.originalAmount, data.refund.currency),
+        money(data.source.remainingUnappliedAmount, data.refund.currency),
+      ]],
+      renderSettings,
+    );
+
+    writeTotals(doc, data.refund.currency, [
+      ["Amount refunded", data.refund.amountRefunded],
+    ], renderSettings);
+
+    if (renderSettings.showNotes) {
+      writeOptionalTextBlock(doc, "Description", data.refund.description, renderSettings);
+    }
   }, renderSettings);
 }
 

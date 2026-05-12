@@ -19,6 +19,7 @@ import {
   Prisma,
   PurchaseBillStatus,
   PurchaseDebitNoteStatus,
+  SupplierRefundStatus,
   TaxRateScope,
 } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
@@ -71,6 +72,14 @@ const purchaseDebitNoteInclude = {
         },
       },
       reversedBy: { select: { id: true, name: true, email: true } },
+    },
+  },
+  supplierRefunds: {
+    orderBy: { refundDate: "desc" as const },
+    include: {
+      account: { select: { id: true, code: true, name: true } },
+      journalEntry: { select: { id: true, entryNumber: true, status: true } },
+      voidReversalJournalEntry: { select: { id: true, entryNumber: true, status: true } },
     },
   },
 };
@@ -506,6 +515,13 @@ export class PurchaseDebitNoteService {
       });
       if (allocationCount > 0) {
         throw new BadRequestException("Cannot void purchase debit note with active allocations. Reverse allocations first.");
+      }
+
+      const activeRefundCount = await tx.supplierRefund.count({
+        where: { organizationId, sourceDebitNoteId: id, status: SupplierRefundStatus.POSTED },
+      });
+      if (activeRefundCount > 0) {
+        throw new BadRequestException("Cannot void purchase debit note with posted supplier refunds. Void refunds first.");
       }
 
       const claim = await tx.purchaseDebitNote.updateMany({

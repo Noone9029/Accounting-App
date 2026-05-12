@@ -13,6 +13,8 @@ export type CustomerPaymentStatus = "DRAFT" | "POSTED" | "VOIDED";
 export type SupplierPaymentStatus = "DRAFT" | "POSTED" | "VOIDED";
 export type CustomerRefundStatus = "DRAFT" | "POSTED" | "VOIDED";
 export type CustomerRefundSourceType = "CUSTOMER_PAYMENT" | "CREDIT_NOTE";
+export type SupplierRefundStatus = "DRAFT" | "POSTED" | "VOIDED";
+export type SupplierRefundSourceType = "SUPPLIER_PAYMENT" | "PURCHASE_DEBIT_NOTE";
 export type CustomerLedgerRowType =
   | "INVOICE"
   | "CREDIT_NOTE"
@@ -34,6 +36,10 @@ export type SupplierLedgerRowType =
   | "PURCHASE_DEBIT_NOTE_ALLOCATION"
   | "PURCHASE_DEBIT_NOTE_ALLOCATION_REVERSAL"
   | "SUPPLIER_PAYMENT"
+  | "SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION"
+  | "SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL"
+  | "SUPPLIER_REFUND"
+  | "VOID_SUPPLIER_REFUND"
   | "VOID_SUPPLIER_PAYMENT"
   | "VOID_PURCHASE_BILL";
 export type DocumentType =
@@ -44,7 +50,8 @@ export type DocumentType =
   | "CUSTOMER_STATEMENT"
   | "PURCHASE_BILL"
   | "PURCHASE_DEBIT_NOTE"
-  | "SUPPLIER_PAYMENT_RECEIPT";
+  | "SUPPLIER_PAYMENT_RECEIPT"
+  | "SUPPLIER_REFUND";
 export type GeneratedDocumentStatus = "GENERATED" | "FAILED" | "SUPERSEDED";
 export type ZatcaEnvironment = "SANDBOX" | "SIMULATION" | "PRODUCTION";
 export type ZatcaRegistrationStatus = "NOT_CONFIGURED" | "DRAFT" | "READY_FOR_CSR" | "OTP_REQUIRED" | "CERTIFICATE_ISSUED" | "ACTIVE" | "SUSPENDED";
@@ -499,6 +506,38 @@ export interface SupplierPaymentAllocation {
   };
 }
 
+export interface SupplierPaymentUnappliedAllocation {
+  id: string;
+  organizationId: string;
+  paymentId: string;
+  billId: string;
+  amountApplied: string;
+  reversedAt: string | null;
+  reversedById: string | null;
+  reversalReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  bill?: {
+    id: string;
+    billNumber: string;
+    billDate: string;
+    dueDate: string | null;
+    total: string;
+    balanceDue: string;
+    status: PurchaseBillStatus;
+  };
+  payment?: {
+    id: string;
+    paymentNumber: string;
+    paymentDate: string;
+    currency: string;
+    status: SupplierPaymentStatus;
+    amountPaid: string;
+    unappliedAmount: string;
+  };
+  reversedBy?: { id: string; name: string; email: string } | null;
+}
+
 export interface PurchaseBill {
   id: string;
   organizationId: string;
@@ -526,6 +565,7 @@ export interface PurchaseBill {
   reversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
   lines?: PurchaseBillLine[];
   paymentAllocations?: SupplierPaymentAllocation[];
+  supplierPaymentUnappliedAllocations?: SupplierPaymentUnappliedAllocation[];
   debitNotes?: PurchaseDebitNote[];
   debitNoteAllocations?: PurchaseDebitNoteAllocation[];
 }
@@ -551,6 +591,49 @@ export interface SupplierPayment {
   journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit?: string; totalCredit?: string } | null;
   voidReversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
   allocations?: SupplierPaymentAllocation[];
+  unappliedAllocations?: SupplierPaymentUnappliedAllocation[];
+}
+
+export interface SupplierRefund {
+  id: string;
+  organizationId: string;
+  refundNumber: string;
+  supplierId: string;
+  sourceType: SupplierRefundSourceType;
+  sourcePaymentId: string | null;
+  sourceDebitNoteId: string | null;
+  refundDate: string;
+  currency: string;
+  status: SupplierRefundStatus;
+  amountRefunded: string;
+  accountId: string;
+  description: string | null;
+  journalEntryId: string | null;
+  voidReversalJournalEntryId: string | null;
+  postedAt: string | null;
+  voidedAt: string | null;
+  supplier?: { id: string; name: string; displayName: string | null; type?: ContactType };
+  account?: { id: string; code: string; name: string; type?: AccountType };
+  sourcePayment?: {
+    id: string;
+    paymentNumber: string;
+    paymentDate: string;
+    status: SupplierPaymentStatus;
+    amountPaid: string;
+    unappliedAmount: string;
+    currency: string;
+  } | null;
+  sourceDebitNote?: {
+    id: string;
+    debitNoteNumber: string;
+    issueDate: string;
+    status: PurchaseDebitNoteStatus;
+    total: string;
+    unappliedAmount: string;
+    currency: string;
+  } | null;
+  journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit?: string; totalCredit?: string } | null;
+  voidReversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
 }
 
 export interface CustomerRefund {
@@ -617,6 +700,28 @@ export interface CustomerRefundableSources {
   }>;
 }
 
+export interface SupplierRefundableSources {
+  supplier: { id: string; name: string; displayName: string | null };
+  payments: Array<{
+    id: string;
+    paymentNumber: string;
+    paymentDate: string;
+    currency: string;
+    status: SupplierPaymentStatus;
+    amountPaid: string;
+    unappliedAmount: string;
+  }>;
+  debitNotes: Array<{
+    id: string;
+    debitNoteNumber: string;
+    issueDate: string;
+    currency: string;
+    status: PurchaseDebitNoteStatus;
+    total: string;
+    unappliedAmount: string;
+  }>;
+}
+
 export interface CustomerLedgerRow {
   id: string;
   type: CustomerLedgerRowType;
@@ -660,7 +765,13 @@ export interface SupplierLedgerRow {
   debit: string;
   credit: string;
   balance: string;
-  sourceType: "PurchaseBill" | "PurchaseDebitNote" | "PurchaseDebitNoteAllocation" | "SupplierPayment";
+  sourceType:
+    | "PurchaseBill"
+    | "PurchaseDebitNote"
+    | "PurchaseDebitNoteAllocation"
+    | "SupplierPayment"
+    | "SupplierPaymentUnappliedAllocation"
+    | "SupplierRefund";
   sourceId: string;
   status: string;
   metadata: Record<string, unknown>;
@@ -711,6 +822,40 @@ export interface CustomerPaymentReceiptData {
   status: CustomerPaymentStatus;
 }
 
+export interface SupplierPaymentReceiptData {
+  receiptNumber: string;
+  paymentDate: string;
+  supplier: Pick<Contact, "id" | "name" | "displayName" | "email" | "phone" | "taxNumber">;
+  organization: Organization;
+  amountPaid: string;
+  unappliedAmount: string;
+  currency: string;
+  paidThroughAccount: { id: string; code: string; name: string; type: AccountType };
+  allocations: Array<{
+    billId: string;
+    billNumber: string;
+    billDate: string;
+    billDueDate: string | null;
+    billTotal: string;
+    amountApplied: string;
+    billBalanceDue: string;
+  }>;
+  unappliedAllocations: Array<{
+    billId: string;
+    billNumber: string;
+    billDate: string;
+    billDueDate: string | null;
+    billTotal: string;
+    amountApplied: string;
+    billBalanceDue: string;
+    status: string;
+    reversedAt: string | null;
+    reversalReason: string | null;
+  }>;
+  journalEntry: { id: string; entryNumber: string; status: JournalStatus; totalDebit: string; totalCredit: string } | null;
+  status: SupplierPaymentStatus;
+}
+
 export interface CustomerRefundPdfData {
   organization: Organization;
   customer: Pick<Contact, "id" | "name" | "displayName" | "email" | "phone" | "taxNumber">;
@@ -733,6 +878,33 @@ export interface CustomerRefundPdfData {
     remainingUnappliedAmount: string;
   };
   paidFromAccount: { id: string; code: string; name: string };
+  journalEntry: { id: string; entryNumber: string; status: JournalStatus } | null;
+  voidReversalJournalEntry: { id: string; entryNumber: string; status: JournalStatus } | null;
+  generatedAt: string;
+}
+
+export interface SupplierRefundPdfData {
+  organization: Organization;
+  supplier: Pick<Contact, "id" | "name" | "displayName" | "email" | "phone" | "taxNumber">;
+  refund: {
+    id: string;
+    refundNumber: string;
+    refundDate: string;
+    status: SupplierRefundStatus;
+    currency: string;
+    amountRefunded: string;
+    description: string | null;
+  };
+  source: {
+    type: SupplierRefundSourceType;
+    id: string;
+    number: string;
+    date: string;
+    status: string;
+    originalAmount: string;
+    remainingUnappliedAmount: string;
+  };
+  receivedIntoAccount: { id: string; code: string; name: string };
   journalEntry: { id: string; entryNumber: string; status: JournalStatus } | null;
   voidReversalJournalEntry: { id: string; entryNumber: string; status: JournalStatus } | null;
   generatedAt: string;

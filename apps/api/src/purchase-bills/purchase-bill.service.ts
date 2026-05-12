@@ -69,6 +69,23 @@ const purchaseBillInclude = {
       },
     },
   },
+  supplierPaymentUnappliedAllocations: {
+    orderBy: { createdAt: "asc" as const },
+    include: {
+      payment: {
+        select: {
+          id: true,
+          paymentNumber: true,
+          paymentDate: true,
+          currency: true,
+          status: true,
+          amountPaid: true,
+          unappliedAmount: true,
+        },
+      },
+      reversedBy: { select: { id: true, name: true, email: true } },
+    },
+  },
   debitNotes: {
     orderBy: { issueDate: "desc" as const },
     include: {
@@ -214,6 +231,32 @@ export class PurchaseBillService {
             currency: true,
             status: true,
             total: true,
+            unappliedAmount: true,
+          },
+        },
+        reversedBy: { select: { id: true, name: true, email: true } },
+      },
+    });
+  }
+
+  async supplierPaymentUnappliedAllocations(organizationId: string, id: string) {
+    const bill = await this.prisma.purchaseBill.findFirst({ where: { id, organizationId }, select: { id: true } });
+    if (!bill) {
+      throw new NotFoundException("Purchase bill not found.");
+    }
+
+    return this.prisma.supplierPaymentUnappliedAllocation.findMany({
+      where: { organizationId, billId: id },
+      orderBy: { createdAt: "asc" },
+      include: {
+        payment: {
+          select: {
+            id: true,
+            paymentNumber: true,
+            paymentDate: true,
+            currency: true,
+            status: true,
+            amountPaid: true,
             unappliedAmount: true,
           },
         },
@@ -615,6 +658,18 @@ export class PurchaseBillService {
       });
       if (activeDebitNoteAllocationCount > 0) {
         throw new BadRequestException("Cannot void purchase bill with active purchase debit note allocations. Reverse allocations first.");
+      }
+
+      const activeSupplierPaymentUnappliedAllocationCount = await tx.supplierPaymentUnappliedAllocation.count({
+        where: {
+          billId: id,
+          organizationId,
+          reversedAt: null,
+          payment: { status: SupplierPaymentStatus.POSTED },
+        },
+      });
+      if (activeSupplierPaymentUnappliedAllocationCount > 0) {
+        throw new BadRequestException("Cannot void purchase bill with active supplier payment unapplied allocations. Reverse allocations first.");
       }
 
       const claim = await tx.purchaseBill.updateMany({

@@ -117,6 +117,78 @@ describe("supplier payment rules", () => {
     });
     expect(tx.journalEntry.create).toHaveBeenCalledTimes(1);
   });
+
+  it("applies unapplied supplier payment amount to a finalized bill without creating a journal", async () => {
+    const tx = makeApplyUnappliedTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new SupplierPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({
+      id: "payment-1",
+      status: SupplierPaymentStatus.POSTED,
+      amountPaid: "100.0000",
+      unappliedAmount: "40.0000",
+    } as never);
+
+    await expect(
+      service.applyUnapplied("org-1", "user-1", "payment-1", { billId: "bill-2", amountApplied: "25.0000" }),
+    ).resolves.toMatchObject({ id: "payment-1", unappliedAmount: "15.0000" });
+
+    expect(tx.supplierPayment.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "payment-1",
+        organizationId: "org-1",
+        status: SupplierPaymentStatus.POSTED,
+        unappliedAmount: { gte: "25.0000" },
+      },
+      data: { unappliedAmount: { decrement: "25.0000" } },
+    });
+    expect(tx.purchaseBill.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "bill-2",
+        organizationId: "org-1",
+        supplierId: "supplier-1",
+        status: PurchaseBillStatus.FINALIZED,
+        balanceDue: { gte: "25.0000" },
+      },
+      data: { balanceDue: { decrement: "25.0000" } },
+    });
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("reverses unapplied supplier payment allocation and restores balances", async () => {
+    const tx = makeReverseUnappliedTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new SupplierPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await expect(
+      service.reverseUnappliedAllocation("org-1", "user-1", "payment-1", "allocation-1", { reason: "Matched by mistake" }),
+    ).resolves.toMatchObject({ id: "payment-1", unappliedAmount: "40.0000" });
+
+    expect(tx.supplierPaymentUnappliedAllocation.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "allocation-1", paymentId: "payment-1", organizationId: "org-1", reversedAt: null },
+      }),
+    );
+    expect(tx.supplierPayment.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "payment-1",
+        organizationId: "org-1",
+        status: SupplierPaymentStatus.POSTED,
+        unappliedAmount: { lte: "75.0000" },
+      },
+      data: { unappliedAmount: { increment: "25.0000" } },
+    });
+    expect(tx.purchaseBill.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "bill-2",
+        organizationId: "org-1",
+        status: PurchaseBillStatus.FINALIZED,
+        balanceDue: { lte: "75.0000" },
+      },
+      data: { balanceDue: { increment: "25.0000" } },
+    });
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
 });
 
 function makeCreateTransactionMock() {
@@ -177,6 +249,12 @@ function makeVoidTransactionMock() {
         voidReversalJournalEntryId: "reversal-1",
       }),
     },
+    supplierPaymentUnappliedAllocation: {
+      count: jest.fn().mockResolvedValue(0),
+    },
+    supplierRefund: {
+      count: jest.fn().mockResolvedValue(0),
+    },
     purchaseBill: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     journalEntry: {
       findFirst: jest.fn().mockResolvedValue({
@@ -194,5 +272,78 @@ function makeVoidTransactionMock() {
       create: jest.fn().mockResolvedValue({ id: "reversal-1" }),
       update: jest.fn().mockResolvedValue({}),
     },
+  };
+}
+
+function makeApplyUnappliedTransactionMock() {
+  return {
+    supplierPayment: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: "payment-1",
+        supplierId: "supplier-1",
+        status: SupplierPaymentStatus.POSTED,
+        amountPaid: "100.0000",
+        unappliedAmount: "40.0000",
+      }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      findUniqueOrThrow: jest.fn().mockResolvedValue({
+        id: "payment-1",
+        status: SupplierPaymentStatus.POSTED,
+        unappliedAmount: "15.0000",
+      }),
+    },
+    purchaseBill: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: "bill-2",
+        supplierId: "supplier-1",
+        status: PurchaseBillStatus.FINALIZED,
+        total: "100.0000",
+        balanceDue: "50.0000",
+      }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    supplierPaymentUnappliedAllocation: {
+      create: jest.fn().mockResolvedValue({ id: "allocation-1" }),
+    },
+    journalEntry: { create: jest.fn() },
+  };
+}
+
+function makeReverseUnappliedTransactionMock() {
+  return {
+    supplierPaymentUnappliedAllocation: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: "allocation-1",
+        paymentId: "payment-1",
+        billId: "bill-2",
+        amountApplied: "25.0000",
+        reversedAt: null,
+        payment: {
+          id: "payment-1",
+          status: SupplierPaymentStatus.POSTED,
+          amountPaid: "100.0000",
+          unappliedAmount: "15.0000",
+        },
+        bill: {
+          id: "bill-2",
+          status: PurchaseBillStatus.FINALIZED,
+          total: "100.0000",
+          balanceDue: "50.0000",
+        },
+      }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    supplierPayment: {
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      findUniqueOrThrow: jest.fn().mockResolvedValue({
+        id: "payment-1",
+        status: SupplierPaymentStatus.POSTED,
+        unappliedAmount: "40.0000",
+      }),
+    },
+    purchaseBill: {
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    journalEntry: { create: jest.fn() },
   };
 }

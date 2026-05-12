@@ -10,13 +10,16 @@ import {
   Prisma,
   PurchaseBillStatus,
   SupplierPaymentStatus,
+  SupplierRefundStatus,
 } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { ApplyUnappliedSupplierPaymentDto } from "./dto/apply-unapplied-supplier-payment.dto";
 import { CreateSupplierPaymentDto } from "./dto/create-supplier-payment.dto";
+import { ReverseUnappliedSupplierPaymentAllocationDto } from "./dto/reverse-unapplied-supplier-payment-allocation.dto";
 import { SupplierPaymentAllocationDto } from "./dto/supplier-payment-allocation.dto";
 import { buildSupplierPaymentJournalLines } from "./supplier-payment-accounting";
 
@@ -47,6 +50,23 @@ const supplierPaymentInclude = {
           status: true,
         },
       },
+    },
+    orderBy: { createdAt: "asc" as const },
+  },
+  unappliedAllocations: {
+    include: {
+      bill: {
+        select: {
+          id: true,
+          billNumber: true,
+          billDate: true,
+          dueDate: true,
+          total: true,
+          balanceDue: true,
+          status: true,
+        },
+      },
+      reversedBy: { select: { id: true, name: true, email: true } },
     },
     orderBy: { createdAt: "asc" as const },
   },
@@ -118,6 +138,64 @@ export class SupplierPaymentService {
     });
   }
 
+  async unappliedAllocations(organizationId: string, id: string) {
+    const payment = await this.prisma.supplierPayment.findFirst({
+      where: { id, organizationId },
+      select: { id: true },
+    });
+    if (!payment) {
+      throw new NotFoundException("Supplier payment not found.");
+    }
+
+    return this.prisma.supplierPaymentUnappliedAllocation.findMany({
+      where: { organizationId, paymentId: id },
+      orderBy: { createdAt: "asc" },
+      include: {
+        bill: {
+          select: {
+            id: true,
+            billNumber: true,
+            billDate: true,
+            dueDate: true,
+            total: true,
+            balanceDue: true,
+            status: true,
+          },
+        },
+        reversedBy: { select: { id: true, name: true, email: true } },
+      },
+    });
+  }
+
+  async unappliedAllocationsForBill(organizationId: string, billId: string) {
+    const bill = await this.prisma.purchaseBill.findFirst({
+      where: { id: billId, organizationId },
+      select: { id: true },
+    });
+    if (!bill) {
+      throw new NotFoundException("Purchase bill not found.");
+    }
+
+    return this.prisma.supplierPaymentUnappliedAllocation.findMany({
+      where: { organizationId, billId },
+      orderBy: { createdAt: "asc" },
+      include: {
+        payment: {
+          select: {
+            id: true,
+            paymentNumber: true,
+            paymentDate: true,
+            currency: true,
+            status: true,
+            amountPaid: true,
+            unappliedAmount: true,
+          },
+        },
+        reversedBy: { select: { id: true, name: true, email: true } },
+      },
+    });
+  }
+
   async receiptData(organizationId: string, id: string) {
     const payment = await this.prisma.supplierPayment.findFirst({
       where: { id, organizationId },
@@ -160,6 +238,21 @@ export class SupplierPaymentService {
             },
           },
         },
+        unappliedAllocations: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            bill: {
+              select: {
+                id: true,
+                billNumber: true,
+                billDate: true,
+                dueDate: true,
+                total: true,
+                balanceDue: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -184,6 +277,18 @@ export class SupplierPaymentService {
         billTotal: allocation.bill.total,
         amountApplied: allocation.amountApplied,
         billBalanceDue: allocation.bill.balanceDue,
+      })),
+      unappliedAllocations: payment.unappliedAllocations.map((allocation) => ({
+        billId: allocation.billId,
+        billNumber: allocation.bill.billNumber,
+        billDate: allocation.bill.billDate,
+        billDueDate: allocation.bill.dueDate,
+        billTotal: allocation.bill.total,
+        amountApplied: allocation.amountApplied,
+        billBalanceDue: allocation.bill.balanceDue,
+        status: allocation.reversedAt ? "Reversed" : "Active",
+        reversedAt: allocation.reversedAt,
+        reversalReason: allocation.reversalReason,
       })),
       journalEntry: payment.journalEntry,
       status: payment.status,
@@ -235,6 +340,21 @@ export class SupplierPaymentService {
             },
           },
         },
+        unappliedAllocations: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            bill: {
+              select: {
+                id: true,
+                billNumber: true,
+                billDate: true,
+                dueDate: true,
+                total: true,
+                balanceDue: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -264,6 +384,18 @@ export class SupplierPaymentService {
         billTotal: moneyString(allocation.bill.total),
         amountApplied: moneyString(allocation.amountApplied),
         billBalanceDue: moneyString(allocation.bill.balanceDue),
+      })),
+      unappliedAllocations: payment.unappliedAllocations.map((allocation) => ({
+        billId: allocation.billId,
+        billNumber: allocation.bill.billNumber,
+        billDate: allocation.bill.billDate,
+        billDueDate: allocation.bill.dueDate,
+        billTotal: moneyString(allocation.bill.total),
+        amountApplied: moneyString(allocation.amountApplied),
+        billBalanceDue: moneyString(allocation.bill.balanceDue),
+        status: allocation.reversedAt ? "Reversed" : "Active",
+        reversedAt: allocation.reversedAt,
+        reversalReason: allocation.reversalReason,
       })),
       journalEntry: payment.journalEntry,
       generatedAt: new Date(),
@@ -420,6 +552,197 @@ export class SupplierPaymentService {
     return payment;
   }
 
+  async applyUnapplied(organizationId: string, actorUserId: string, id: string, dto: ApplyUnappliedSupplierPaymentDto) {
+    const amountApplied = this.assertPositiveMoney(dto.amountApplied, "Amount applied");
+    const existing = await this.get(organizationId, id);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const payment = await tx.supplierPayment.findFirst({
+        where: { id, organizationId },
+        select: {
+          id: true,
+          supplierId: true,
+          status: true,
+          amountPaid: true,
+          unappliedAmount: true,
+        },
+      });
+      if (!payment) {
+        throw new NotFoundException("Supplier payment not found.");
+      }
+      if (payment.status !== SupplierPaymentStatus.POSTED) {
+        throw new BadRequestException("Only posted supplier payments can have unapplied amounts allocated.");
+      }
+      if (amountApplied.gt(payment.unappliedAmount)) {
+        throw new BadRequestException("Amount applied cannot exceed the supplier payment unapplied amount.");
+      }
+
+      const bill = await tx.purchaseBill.findFirst({
+        where: { id: dto.billId, organizationId },
+        select: { id: true, supplierId: true, status: true, total: true, balanceDue: true },
+      });
+      if (!bill) {
+        throw new BadRequestException("Purchase bill must belong to this organization.");
+      }
+      if (bill.supplierId !== payment.supplierId) {
+        throw new BadRequestException("Supplier payment and bill must belong to the same supplier.");
+      }
+      if (bill.status !== PurchaseBillStatus.FINALIZED) {
+        throw new BadRequestException("Supplier payment unapplied amounts can only be applied to finalized, non-voided bills.");
+      }
+      if (amountApplied.gt(bill.balanceDue)) {
+        throw new BadRequestException("Amount applied cannot exceed bill balance due.");
+      }
+
+      const amount = amountApplied.toFixed(4);
+      const paymentClaim = await tx.supplierPayment.updateMany({
+        where: {
+          id,
+          organizationId,
+          status: SupplierPaymentStatus.POSTED,
+          unappliedAmount: { gte: amount },
+        },
+        data: { unappliedAmount: { decrement: amount } },
+      });
+      if (paymentClaim.count !== 1) {
+        throw new BadRequestException("Supplier payment unapplied amount is no longer sufficient.");
+      }
+
+      const billClaim = await tx.purchaseBill.updateMany({
+        where: {
+          id: dto.billId,
+          organizationId,
+          supplierId: payment.supplierId,
+          status: PurchaseBillStatus.FINALIZED,
+          balanceDue: { gte: amount },
+        },
+        data: { balanceDue: { decrement: amount } },
+      });
+      if (billClaim.count !== 1) {
+        throw new BadRequestException("Bill balance due is no longer sufficient.");
+      }
+
+      await tx.supplierPaymentUnappliedAllocation.create({
+        data: {
+          organization: { connect: { id: organizationId } },
+          payment: { connect: { id } },
+          bill: { connect: { id: dto.billId } },
+          amountApplied: amount,
+        },
+      });
+
+      // Applying unapplied supplier payment credit is matching only. The
+      // original supplier payment already posted Dr AP / Cr cash-bank.
+      return tx.supplierPayment.findUniqueOrThrow({ where: { id }, include: supplierPaymentInclude });
+    });
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "APPLY_UNAPPLIED",
+      entityType: "SupplierPayment",
+      entityId: id,
+      before: existing,
+      after: updated,
+    });
+    return updated;
+  }
+
+  async reverseUnappliedAllocation(
+    organizationId: string,
+    actorUserId: string,
+    id: string,
+    allocationId: string,
+    dto: ReverseUnappliedSupplierPaymentAllocationDto,
+  ) {
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const allocation = await tx.supplierPaymentUnappliedAllocation.findFirst({
+        where: { id: allocationId, organizationId, paymentId: id },
+        include: {
+          payment: { select: { id: true, status: true, amountPaid: true, unappliedAmount: true } },
+          bill: { select: { id: true, status: true, total: true, balanceDue: true } },
+        },
+      });
+      if (!allocation) {
+        throw new NotFoundException("Supplier payment unapplied allocation not found.");
+      }
+      if (allocation.reversedAt) {
+        throw new BadRequestException("Supplier payment unapplied allocation has already been reversed.");
+      }
+      if (allocation.payment.status !== SupplierPaymentStatus.POSTED) {
+        throw new BadRequestException("Only posted, non-voided supplier payments can have unapplied allocations reversed.");
+      }
+      if (allocation.bill.status !== PurchaseBillStatus.FINALIZED) {
+        throw new BadRequestException("Only finalized, non-voided bills can have supplier payment unapplied allocations reversed.");
+      }
+
+      const amount = toMoney(allocation.amountApplied).toFixed(4);
+      const paymentUnappliedLimit = toMoney(allocation.payment.amountPaid).minus(amount).toFixed(4);
+      const billBalanceLimit = toMoney(allocation.bill.total).minus(amount).toFixed(4);
+
+      if (toMoney(allocation.payment.unappliedAmount).gt(paymentUnappliedLimit)) {
+        throw new BadRequestException("Supplier payment unapplied amount cannot exceed amount paid after reversal.");
+      }
+      if (toMoney(allocation.bill.balanceDue).gt(billBalanceLimit)) {
+        throw new BadRequestException("Bill balance due cannot exceed bill total after reversal.");
+      }
+
+      const now = new Date();
+      const claim = await tx.supplierPaymentUnappliedAllocation.updateMany({
+        where: { id: allocationId, paymentId: id, organizationId, reversedAt: null },
+        data: {
+          reversedAt: now,
+          reversedById: actorUserId,
+          reversalReason: this.cleanOptional(dto.reason) ?? null,
+        },
+      });
+      if (claim.count !== 1) {
+        throw new BadRequestException("Supplier payment unapplied allocation has already been reversed.");
+      }
+
+      const paymentRestore = await tx.supplierPayment.updateMany({
+        where: {
+          id,
+          organizationId,
+          status: SupplierPaymentStatus.POSTED,
+          unappliedAmount: { lte: paymentUnappliedLimit },
+        },
+        data: { unappliedAmount: { increment: amount } },
+      });
+      if (paymentRestore.count !== 1) {
+        throw new BadRequestException("Supplier payment unapplied amount could not be restored without exceeding amount paid.");
+      }
+
+      const billRestore = await tx.purchaseBill.updateMany({
+        where: {
+          id: allocation.billId,
+          organizationId,
+          status: PurchaseBillStatus.FINALIZED,
+          balanceDue: { lte: billBalanceLimit },
+        },
+        data: { balanceDue: { increment: amount } },
+      });
+      if (billRestore.count !== 1) {
+        throw new BadRequestException("Bill balance due could not be restored without exceeding bill total.");
+      }
+
+      // Reversal is matching-state restoration only. No journal entry is
+      // created because the original supplier payment journal remains valid.
+      return tx.supplierPayment.findUniqueOrThrow({ where: { id }, include: supplierPaymentInclude });
+    });
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "REVERSE_UNAPPLIED_ALLOCATION",
+      entityType: "SupplierPaymentUnappliedAllocation",
+      entityId: allocationId,
+      after: updated,
+    });
+
+    return updated;
+  }
+
   async void(organizationId: string, actorUserId: string, id: string) {
     const existing = await this.get(organizationId, id);
     if (existing.status === SupplierPaymentStatus.VOIDED) {
@@ -448,6 +771,20 @@ export class SupplierPaymentService {
       }
       if (!payment.journalEntryId) {
         throw new BadRequestException("Posted supplier payment is missing its journal entry.");
+      }
+
+      const activeUnappliedAllocationCount = await tx.supplierPaymentUnappliedAllocation.count({
+        where: { organizationId, paymentId: id, reversedAt: null },
+      });
+      if (activeUnappliedAllocationCount > 0) {
+        throw new BadRequestException("Cannot void supplier payment with active unapplied allocations. Reverse allocations first.");
+      }
+
+      const activeRefundCount = await tx.supplierRefund.count({
+        where: { organizationId, sourcePaymentId: id, status: SupplierRefundStatus.POSTED },
+      });
+      if (activeRefundCount > 0) {
+        throw new BadRequestException("Cannot void supplier payment with posted supplier refunds. Void refunds first.");
       }
 
       const claim = await tx.supplierPayment.updateMany({

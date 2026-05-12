@@ -106,6 +106,17 @@ enum CustomerRefundSourceType {
   CREDIT_NOTE
 }
 
+enum SupplierRefundStatus {
+  DRAFT
+  POSTED
+  VOIDED
+}
+
+enum SupplierRefundSourceType {
+  SUPPLIER_PAYMENT
+  PURCHASE_DEBIT_NOTE
+}
+
 enum DocumentType {
   SALES_INVOICE
   CREDIT_NOTE
@@ -115,6 +126,7 @@ enum DocumentType {
   PURCHASE_BILL
   PURCHASE_DEBIT_NOTE
   SUPPLIER_PAYMENT_RECEIPT
+  SUPPLIER_REFUND
 }
 
 enum GeneratedDocumentStatus {
@@ -185,6 +197,7 @@ enum NumberSequenceScope {
   CREDIT_NOTE
   DEBIT_NOTE
   PURCHASE_DEBIT_NOTE
+  SUPPLIER_REFUND
   CONTACT
 }
 
@@ -206,9 +219,11 @@ model User {
   createdCustomerPayments CustomerPayment[]    @relation("CustomerPaymentCreatedBy")
   createdSupplierPayments SupplierPayment[]    @relation("SupplierPaymentCreatedBy")
   createdCustomerRefunds  CustomerRefund[]     @relation("CustomerRefundCreatedBy")
+  createdSupplierRefunds  SupplierRefund[]     @relation("SupplierRefundCreatedBy")
   reversedCreditNoteAllocations CreditNoteAllocation[] @relation("CreditNoteAllocationReversedBy")
   reversedPurchaseDebitNoteAllocations PurchaseDebitNoteAllocation[] @relation("PurchaseDebitNoteAllocationReversedBy")
   reversedCustomerPaymentUnappliedAllocations CustomerPaymentUnappliedAllocation[] @relation("CustomerPaymentUnappliedAllocationReversedBy")
+  reversedSupplierPaymentUnappliedAllocations SupplierPaymentUnappliedAllocation[] @relation("SupplierPaymentUnappliedAllocationReversedBy")
   generatedDocuments      GeneratedDocument[]  @relation("GeneratedDocumentGeneratedBy")
 }
 
@@ -244,7 +259,9 @@ model Organization {
   customerPaymentUnappliedAllocations CustomerPaymentUnappliedAllocation[]
   supplierPayments           SupplierPayment[]
   supplierPaymentAllocations SupplierPaymentAllocation[]
+  supplierPaymentUnappliedAllocations SupplierPaymentUnappliedAllocation[]
   customerRefunds            CustomerRefund[]
+  supplierRefunds            SupplierRefund[]
   journalEntries             JournalEntry[]
   journalLines               JournalLine[]
   fiscalPeriods              FiscalPeriod[]
@@ -501,6 +518,7 @@ model Contact {
   customerPayments CustomerPayment[] @relation("CustomerPaymentCustomer")
   supplierPayments SupplierPayment[] @relation("SupplierPaymentSupplier")
   customerRefunds  CustomerRefund[]  @relation("CustomerRefundCustomer")
+  supplierRefunds  SupplierRefund[]  @relation("SupplierRefundSupplier")
 
   @@index([organizationId])
   @@index([organizationId, type])
@@ -532,6 +550,7 @@ model Account {
   customerPayments  CustomerPayment[]  @relation("CustomerPaymentAccount")
   supplierPayments  SupplierPayment[]  @relation("SupplierPaymentAccount")
   customerRefunds   CustomerRefund[]   @relation("CustomerRefundAccount")
+  supplierRefunds   SupplierRefund[]   @relation("SupplierRefundAccount")
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -799,6 +818,7 @@ model PurchaseBill {
   reversalJournalEntry   JournalEntry?      @relation("PurchaseBillReversalJournal", fields: [reversalJournalEntryId], references: [id])
   lines                  PurchaseBillLine[]
   paymentAllocations     SupplierPaymentAllocation[]
+  supplierPaymentUnappliedAllocations SupplierPaymentUnappliedAllocation[]
   debitNoteAllocations   PurchaseDebitNoteAllocation[]
   debitNotes             PurchaseDebitNote[]
 
@@ -872,6 +892,7 @@ model PurchaseDebitNote {
   reversalJournalEntry   JournalEntry?            @relation("PurchaseDebitNoteReversalJournal", fields: [reversalJournalEntryId], references: [id])
   lines                  PurchaseDebitNoteLine[]
   allocations            PurchaseDebitNoteAllocation[]
+  supplierRefunds        SupplierRefund[]         @relation("SupplierRefundPurchaseDebitNote")
 
   @@unique([organizationId, debitNoteNumber])
   @@index([organizationId])
@@ -1035,6 +1056,8 @@ model SupplierPayment {
   voidReversalJournalEntry   JournalEntry?         @relation("SupplierPaymentVoidReversalJournal", fields: [voidReversalJournalEntryId], references: [id])
   createdBy                  User?                 @relation("SupplierPaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   allocations                SupplierPaymentAllocation[]
+  unappliedAllocations       SupplierPaymentUnappliedAllocation[]
+  refunds                    SupplierRefund[]      @relation("SupplierRefundPayment")
 
   @@unique([organizationId, paymentNumber])
   @@index([organizationId])
@@ -1057,6 +1080,29 @@ model SupplierPaymentAllocation {
   @@index([organizationId])
   @@index([paymentId])
   @@index([billId])
+}
+
+model SupplierPaymentUnappliedAllocation {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @db.Uuid
+  paymentId      String          @db.Uuid
+  billId         String          @db.Uuid
+  amountApplied  Decimal         @db.Decimal(20, 4)
+  reversedAt     DateTime?
+  reversedById   String?         @db.Uuid
+  reversalReason String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  payment        SupplierPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  bill           PurchaseBill    @relation(fields: [billId], references: [id])
+  reversedBy     User?           @relation("SupplierPaymentUnappliedAllocationReversedBy", fields: [reversedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([paymentId])
+  @@index([billId])
+  @@index([reversedAt])
+  @@index([reversedById])
 }
 
 model CustomerRefund {
@@ -1097,6 +1143,44 @@ model CustomerRefund {
   @@index([status])
 }
 
+model SupplierRefund {
+  id                         String                   @id @default(uuid()) @db.Uuid
+  organizationId             String                   @db.Uuid
+  refundNumber               String
+  supplierId                 String                   @db.Uuid
+  sourceType                 SupplierRefundSourceType
+  sourcePaymentId            String?                  @db.Uuid
+  sourceDebitNoteId          String?                  @db.Uuid
+  refundDate                 DateTime
+  currency                   String                   @default("SAR")
+  status                     SupplierRefundStatus     @default(POSTED)
+  amountRefunded             Decimal                  @db.Decimal(20, 4)
+  accountId                  String                   @db.Uuid
+  description                String?
+  journalEntryId             String?                  @unique @db.Uuid
+  voidReversalJournalEntryId String?                  @unique @db.Uuid
+  createdById                String?                  @db.Uuid
+  postedAt                   DateTime?
+  voidedAt                   DateTime?
+  createdAt                  DateTime                 @default(now())
+  updatedAt                  DateTime                 @updatedAt
+  organization               Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplier                   Contact                  @relation("SupplierRefundSupplier", fields: [supplierId], references: [id])
+  sourcePayment              SupplierPayment?         @relation("SupplierRefundPayment", fields: [sourcePaymentId], references: [id])
+  sourceDebitNote            PurchaseDebitNote?       @relation("SupplierRefundPurchaseDebitNote", fields: [sourceDebitNoteId], references: [id])
+  account                    Account                  @relation("SupplierRefundAccount", fields: [accountId], references: [id])
+  journalEntry               JournalEntry?            @relation("SupplierRefundJournal", fields: [journalEntryId], references: [id])
+  voidReversalJournalEntry   JournalEntry?            @relation("SupplierRefundVoidReversalJournal", fields: [voidReversalJournalEntryId], references: [id])
+  createdBy                  User?                    @relation("SupplierRefundCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, refundNumber])
+  @@index([organizationId])
+  @@index([supplierId])
+  @@index([sourcePaymentId])
+  @@index([sourceDebitNoteId])
+  @@index([status])
+}
+
 model JournalEntry {
   id                    String             @id @default(uuid()) @db.Uuid
   organizationId        String             @db.Uuid
@@ -1133,6 +1217,8 @@ model JournalEntry {
   voidedSupplierPayment SupplierPayment?   @relation("SupplierPaymentVoidReversalJournal")
   customerRefund        CustomerRefund?    @relation("CustomerRefundJournal")
   voidedCustomerRefund  CustomerRefund?    @relation("CustomerRefundVoidReversalJournal")
+  supplierRefund        SupplierRefund?    @relation("SupplierRefundJournal")
+  voidedSupplierRefund  SupplierRefund?    @relation("SupplierRefundVoidReversalJournal")
   lines                 JournalLine[]
 
   @@unique([organizationId, entryNumber])
