@@ -535,7 +535,7 @@ Commit inspected: pending (`Add credit note application workflow`)
 
 ### Remaining Credit Application Risks
 
-- Customer refund workflow is not implemented.
+- Customer refunds now exist, but payment gateway refunds and bank reconciliation are not implemented.
 - Credit note allocation does not yet support automatic suggestions across multiple open invoices.
 - ZATCA credit note XML/signing/submission remains pending.
 - Inventory returns and stock valuation effects remain pending.
@@ -587,6 +587,31 @@ Commit inspected: pending (`Add customer refund groundwork`)
 - No bank reconciliation or bank-feed matching exists.
 - No ZATCA credit note/refund XML, signing, clearance, reporting, or PDF/A-3 embedding exists.
 - Purchases, supplier debit notes, and inventory return integration remain pending.
+
+## Customer Overpayment Application Workflow
+
+Audit date: 2026-05-12
+
+Commit inspected: pending (`Add customer overpayment application workflow`)
+
+### Overpayment Application Added
+
+- Added tenant-scoped `CustomerPaymentUnappliedAllocation` audit rows for applying existing customer overpayments to later finalized open invoices.
+- Added authenticated APIs for listing unapplied payment allocations, applying unapplied payment amounts, reversing allocations, and viewing invoice-side allocation history.
+- Added transaction-guarded allocation and reversal updates so invoice `balanceDue` and payment `unappliedAmount` cannot go negative or exceed original invoice/payment totals.
+- Confirmed unapplied payment application and reversal are matching-only actions and do not create journal entries because the original customer payment already posted `Dr Bank/Cash, Cr Accounts Receivable`.
+- Active unapplied payment allocations now block customer payment voiding and invoice voiding; reversed allocations do not block voiding.
+- Customer refunds continue to use only the current payment `unappliedAmount`, so amounts applied to invoices are not refundable unless the allocation is reversed first.
+- Added neutral customer ledger and statement rows for `CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION` and `CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL`.
+- Updated payment receipts, invoice detail, payment detail, contact ledger UI, tests, and smoke coverage for the new workflow.
+
+### Remaining Overpayment Risks
+
+- No automated customer-credit matching or allocation suggestions exist yet.
+- No bank reconciliation or bank-feed matching exists.
+- No payment gateway refund integration exists.
+- Purchases, supplier debit notes, and inventory return integration remain pending.
+- ZATCA credit note/submission workflow remains pending.
 
 ## Remaining Risks
 

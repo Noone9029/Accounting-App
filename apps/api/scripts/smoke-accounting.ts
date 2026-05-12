@@ -88,6 +88,15 @@ interface CreditNoteAllocation {
   reversalReason?: string | null;
 }
 
+interface CustomerPaymentUnappliedAllocation {
+  id: string;
+  paymentId: string;
+  invoiceId: string;
+  amountApplied: string;
+  reversedAt?: string | null;
+  reversalReason?: string | null;
+}
+
 interface CustomerRefund {
   id: string;
   refundNumber: string;
@@ -119,6 +128,7 @@ interface ReceiptData {
   customer?: { id: string; name: string };
   journalEntry?: { id: string; entryNumber: string } | null;
   allocations: Array<{ invoiceId: string; amountApplied: string }>;
+  unappliedAllocations?: Array<{ invoiceId: string; amountApplied: string; status: string }>;
 }
 
 interface OrganizationDocumentSettings {
@@ -625,6 +635,133 @@ async function main(): Promise<void> {
   );
   assertMoney(refundCustomerLedgerAfterVoid.closingBalance, money("-20.0000"), "refund customer ledger after payment refund void");
 
+  const paymentUnappliedDraftInvoice = await post<SalesInvoice>("/sales-invoices", headers, {
+    customerId: refundCustomer.id,
+    issueDate: new Date().toISOString(),
+    currency: "SAR",
+    lines: [linePayload],
+  });
+  const paymentUnappliedInvoice = await post<SalesInvoice>(
+    `/sales-invoices/${paymentUnappliedDraftInvoice.id}/finalize`,
+    headers,
+    {},
+  );
+  assertMoney(paymentUnappliedInvoice.balanceDue, expectedTotal, "payment unapplied application invoice opening balance");
+
+  const paymentUnappliedApplyAmount = money("8.0000");
+  const paymentBeforeUnappliedApply = await get<CustomerPayment>(`/customer-payments/${refundSourcePayment.id}`, headers);
+  const appliedUnappliedPayment = await post<CustomerPayment>(`/customer-payments/${refundSourcePayment.id}/apply-unapplied`, headers, {
+    invoiceId: paymentUnappliedInvoice.id,
+    amountApplied: paymentUnappliedApplyAmount.toFixed(4),
+  });
+  assertEqual(
+    appliedUnappliedPayment.journalEntryId,
+    paymentBeforeUnappliedApply.journalEntryId,
+    "unapplied payment application reuses original payment journal only",
+  );
+  assertMoney(appliedUnappliedPayment.unappliedAmount, money("20.0000").minus(paymentUnappliedApplyAmount), "payment unapplied amount after invoice application");
+  const paymentUnappliedInvoiceAfterApply = await get<SalesInvoice>(`/sales-invoices/${paymentUnappliedInvoice.id}`, headers);
+  assertMoney(paymentUnappliedInvoiceAfterApply.balanceDue, expectedTotal.minus(paymentUnappliedApplyAmount), "invoice balance after unapplied payment application");
+  const paymentUnappliedAllocations = await get<CustomerPaymentUnappliedAllocation[]>(
+    `/customer-payments/${refundSourcePayment.id}/unapplied-allocations`,
+    headers,
+  );
+  const paymentUnappliedAllocation = required(
+    paymentUnappliedAllocations.find(
+      (allocation) => allocation.invoiceId === paymentUnappliedInvoice.id && money(allocation.amountApplied).eq(paymentUnappliedApplyAmount),
+    ),
+    "payment unapplied allocation for smoke application",
+  );
+  const invoicePaymentUnappliedAllocations = await get<CustomerPaymentUnappliedAllocation[]>(
+    `/sales-invoices/${paymentUnappliedInvoice.id}/customer-payment-unapplied-allocations`,
+    headers,
+  );
+  assert(
+    invoicePaymentUnappliedAllocations.some((allocation) => allocation.id === paymentUnappliedAllocation.id),
+    "invoice exposes unapplied payment allocation",
+  );
+  const receiptAfterPaymentUnappliedApply = await get<ReceiptData>(`/customer-payments/${refundSourcePayment.id}/receipt-data`, headers);
+  assert(
+    Boolean(receiptAfterPaymentUnappliedApply.unappliedAllocations?.some(
+      (allocation) => allocation.invoiceId === paymentUnappliedInvoice.id && money(allocation.amountApplied).eq(paymentUnappliedApplyAmount),
+    )),
+    "receipt-data includes unapplied payment allocation",
+  );
+  const ledgerAfterPaymentUnappliedApply = await get<LedgerResponse>(`/contacts/${refundCustomer.id}/ledger`, headers);
+  const paymentUnappliedAllocationRow = required(
+    ledgerAfterPaymentUnappliedApply.rows.find(
+      (row) =>
+        row.type === "CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION" &&
+        row.sourceId === paymentUnappliedAllocation.id &&
+        money(row.debit).eq(0) &&
+        money(row.credit).eq(0),
+    ),
+    "ledger row for unapplied payment allocation",
+  );
+  assertMoney(paymentUnappliedAllocationRow.balance, expectedTotal.minus(money("20.0000")), "unapplied payment allocation row keeps running balance unchanged");
+  assertMoney(
+    ledgerAfterPaymentUnappliedApply.closingBalance,
+    expectedTotal.minus(money("20.0000")),
+    "refund customer ledger after unapplied payment application",
+  );
+
+  await expectHttpError("refund above current payment unapplied amount", () =>
+    post<CustomerRefund>("/customer-refunds", headers, {
+      customerId: refundCustomer.id,
+      sourceType: "CUSTOMER_PAYMENT",
+      sourcePaymentId: refundSourcePayment.id,
+      refundDate: new Date().toISOString(),
+      currency: "SAR",
+      amountRefunded: "13.0000",
+      accountId: paidThroughAccount!.id,
+      description: "Smoke test refund above current unapplied amount",
+    }),
+  );
+  await expectHttpError("void payment with active unapplied allocation", () =>
+    post<CustomerPayment>(`/customer-payments/${refundSourcePayment.id}/void`, headers, {}),
+  );
+  await expectHttpError("void invoice with active unapplied payment allocation", () =>
+    post<SalesInvoice>(`/sales-invoices/${paymentUnappliedInvoice.id}/void`, headers, {}),
+  );
+
+  const reversedUnappliedPayment = await post<CustomerPayment>(
+    `/customer-payments/${refundSourcePayment.id}/unapplied-allocations/${paymentUnappliedAllocation.id}/reverse`,
+    headers,
+    { reason: "Smoke test unapplied payment allocation reversal" },
+  );
+  assertMoney(reversedUnappliedPayment.unappliedAmount, money("20.0000"), "payment unapplied amount after allocation reversal");
+  const paymentUnappliedInvoiceAfterReverse = await get<SalesInvoice>(`/sales-invoices/${paymentUnappliedInvoice.id}`, headers);
+  assertMoney(paymentUnappliedInvoiceAfterReverse.balanceDue, expectedTotal, "invoice balance after unapplied payment allocation reversal");
+  const reversedPaymentUnappliedAllocations = await get<CustomerPaymentUnappliedAllocation[]>(
+    `/customer-payments/${refundSourcePayment.id}/unapplied-allocations`,
+    headers,
+  );
+  assert(
+    reversedPaymentUnappliedAllocations.some(
+      (allocation) =>
+        allocation.id === paymentUnappliedAllocation.id &&
+        Boolean(allocation.reversedAt) &&
+        allocation.reversalReason === "Smoke test unapplied payment allocation reversal",
+    ),
+    "payment unapplied allocations include reversal metadata",
+  );
+  const ledgerAfterPaymentUnappliedReverse = await get<LedgerResponse>(`/contacts/${refundCustomer.id}/ledger`, headers);
+  assert(
+    ledgerAfterPaymentUnappliedReverse.rows.some(
+      (row) =>
+        row.type === "CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL" &&
+        row.sourceId === paymentUnappliedAllocation.id &&
+        money(row.debit).eq(0) &&
+        money(row.credit).eq(0),
+    ),
+    "ledger includes neutral unapplied payment allocation reversal row",
+  );
+  assertMoney(
+    ledgerAfterPaymentUnappliedReverse.closingBalance,
+    expectedTotal.minus(money("20.0000")),
+    "refund customer ledger after unapplied payment allocation reversal",
+  );
+
   const creditApplicationDraftInvoice = await post<SalesInvoice>("/sales-invoices", headers, {
     customerId: customer.id,
     issueDate: new Date().toISOString(),
@@ -842,6 +979,8 @@ async function main(): Promise<void> {
         zatcaIcv: zatcaMetadata.icv,
         paymentIds: [partialPayment.id, remainingPayment.id],
         paymentRefundId: paymentRefund.id,
+        paymentUnappliedInvoiceId: paymentUnappliedInvoice.id,
+        paymentUnappliedAllocationId: paymentUnappliedAllocation.id,
         creditNoteRefundId: creditNoteRefund.id,
         creditNoteId: draftCreditNote.id,
         creditNoteNumber: finalizedCreditNote.creditNoteNumber,

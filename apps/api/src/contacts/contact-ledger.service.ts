@@ -14,6 +14,8 @@ export type CustomerLedgerRowType =
   | "CREDIT_NOTE_ALLOCATION_REVERSAL"
   | "PAYMENT"
   | "PAYMENT_ALLOCATION"
+  | "CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION"
+  | "CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL"
   | "VOID_PAYMENT"
   | "CUSTOMER_REFUND"
   | "VOID_CUSTOMER_REFUND"
@@ -38,7 +40,14 @@ export interface CustomerLedgerRow {
   debit: string;
   credit: string;
   balance: string;
-  sourceType: "SalesInvoice" | "CreditNote" | "CreditNoteAllocation" | "CustomerPayment" | "CustomerPaymentAllocation" | "CustomerRefund";
+  sourceType:
+    | "SalesInvoice"
+    | "CreditNote"
+    | "CreditNoteAllocation"
+    | "CustomerPayment"
+    | "CustomerPaymentAllocation"
+    | "CustomerPaymentUnappliedAllocation"
+    | "CustomerRefund";
   sourceId: string;
   status: string;
   metadata: Record<string, unknown>;
@@ -99,6 +108,23 @@ export interface LedgerPaymentAllocationInput {
   } | null;
 }
 
+export interface LedgerPaymentUnappliedAllocationInput {
+  id: string;
+  invoiceId: string;
+  amountApplied: unknown;
+  createdAt: Date | string;
+  reversedAt?: Date | string | null;
+  reversalReason?: string | null;
+  invoice?: {
+    id: string;
+    invoiceNumber: string;
+    issueDate: Date | string;
+    total: unknown;
+    balanceDue: unknown;
+    status: string;
+  } | null;
+}
+
 export interface LedgerCreditNoteAllocationInput {
   id: string;
   creditNoteId: string;
@@ -138,6 +164,7 @@ export interface LedgerPaymentInput {
   updatedAt: Date | string;
   createdAt: Date | string;
   allocations?: LedgerPaymentAllocationInput[];
+  unappliedAllocations?: LedgerPaymentUnappliedAllocationInput[];
 }
 
 export interface LedgerCustomerRefundInput {
@@ -283,6 +310,26 @@ export class ContactLedgerService {
               invoiceId: true,
               amountApplied: true,
               createdAt: true,
+              invoice: {
+                select: {
+                  id: true,
+                  invoiceNumber: true,
+                  issueDate: true,
+                  total: true,
+                  balanceDue: true,
+                  status: true,
+                },
+              },
+            },
+          },
+          unappliedAllocations: {
+            select: {
+              id: true,
+              invoiceId: true,
+              amountApplied: true,
+              createdAt: true,
+              reversedAt: true,
+              reversalReason: true,
               invoice: {
                 select: {
                   id: true,
@@ -642,6 +689,57 @@ export function buildCustomerLedgerRows(input: {
       });
     }
 
+    for (const allocation of payment.unappliedAllocations ?? []) {
+      const invoiceNumber = allocation.invoice?.invoiceNumber ?? allocation.invoiceId;
+      pendingRows.push({
+        id: `${allocation.id}:payment-unapplied-allocation`,
+        type: "CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION",
+        date: toIsoString(allocation.createdAt),
+        createdAt: toIsoString(allocation.createdAt),
+        number: `${payment.paymentNumber} -> ${invoiceNumber}`,
+        description: `Unapplied payment ${payment.paymentNumber} applied to ${invoiceNumber}`,
+        debit: "0.0000",
+        credit: "0.0000",
+        sourceType: "CustomerPaymentUnappliedAllocation",
+        sourceId: allocation.id,
+        status: allocation.reversedAt ? "REVERSED" : "ACTIVE",
+        metadata: {
+          paymentId: payment.id,
+          paymentNumber: payment.paymentNumber,
+          invoiceId: allocation.invoiceId,
+          invoiceNumber: allocation.invoice?.invoiceNumber ?? null,
+          amountApplied: moneyString(allocation.amountApplied),
+          reversedAt: allocation.reversedAt ? toIsoString(allocation.reversedAt) : null,
+          reversalReason: allocation.reversalReason ?? null,
+        },
+      });
+
+      if (allocation.reversedAt) {
+        pendingRows.push({
+          id: `${allocation.id}:payment-unapplied-allocation-reversal`,
+          type: "CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL",
+          date: toIsoString(allocation.reversedAt),
+          createdAt: toIsoString(allocation.reversedAt),
+          number: `${payment.paymentNumber} -> ${invoiceNumber}`,
+          description: `Reversed unapplied payment ${payment.paymentNumber} allocation from ${invoiceNumber}`,
+          debit: "0.0000",
+          credit: "0.0000",
+          sourceType: "CustomerPaymentUnappliedAllocation",
+          sourceId: allocation.id,
+          status: "REVERSED",
+          metadata: {
+            paymentId: payment.id,
+            paymentNumber: payment.paymentNumber,
+            invoiceId: allocation.invoiceId,
+            invoiceNumber: allocation.invoice?.invoiceNumber ?? null,
+            amountApplied: moneyString(allocation.amountApplied),
+            reversedAt: toIsoString(allocation.reversedAt),
+            reversalReason: allocation.reversalReason ?? null,
+          },
+        });
+      }
+    }
+
     if (payment.status === CustomerPaymentStatus.VOIDED) {
       pendingRows.push({
         id: `${payment.id}:void`,
@@ -774,6 +872,8 @@ function rowPriority(type: CustomerLedgerRowType): number {
     case "CUSTOMER_REFUND":
       return 0;
     case "PAYMENT_ALLOCATION":
+    case "CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION":
+    case "CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL":
     case "CREDIT_NOTE_ALLOCATION":
     case "CREDIT_NOTE_ALLOCATION_REVERSAL":
       return 1;

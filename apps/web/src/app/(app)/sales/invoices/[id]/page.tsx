@@ -7,6 +7,7 @@ import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { creditNoteAllocationStatusBadgeClass, creditNoteAllocationStatusLabel, creditNoteStatusBadgeClass, creditNoteStatusLabel } from "@/lib/credit-notes";
+import { customerPaymentUnappliedAllocationStatusBadgeClass, customerPaymentUnappliedAllocationStatusLabel } from "@/lib/customer-payments";
 import { deriveInvoicePaymentState, formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadAuthenticatedFile, downloadPdf, invoicePdfPath } from "@/lib/pdf-download";
@@ -439,8 +440,6 @@ export default function SalesInvoiceDetailPage() {
                       <th className="px-4 py-3">Date</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Amount applied</th>
-                      <th className="px-4 py-3">Allocation</th>
-                      <th className="px-4 py-3">Reversed</th>
                       <th className="px-4 py-3">Action</th>
                     </tr>
                   </thead>
@@ -468,6 +467,55 @@ export default function SalesInvoiceDetailPage() {
             ) : (
               <div className="px-5 py-4">
                 <StatusMessage type="empty">No payments have been applied to this invoice.</StatusMessage>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-md border border-slate-200 bg-white shadow-panel">
+            <div className="border-b border-slate-200 px-5 py-4">
+              <h2 className="text-base font-semibold text-ink">Unapplied payment applications</h2>
+              <p className="mt-1 text-sm text-steel">Unapplied customer payment credits matched to this invoice. These rows are balance matching records, not accounting postings.</p>
+            </div>
+            {invoice.paymentUnappliedAllocations && invoice.paymentUnappliedAllocations.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[860px] text-left text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                    <tr>
+                      <th className="px-4 py-3">Payment</th>
+                      <th className="px-4 py-3">Payment date</th>
+                      <th className="px-4 py-3">Payment status</th>
+                      <th className="px-4 py-3">Amount applied</th>
+                      <th className="px-4 py-3">Allocation status</th>
+                      <th className="px-4 py-3">Reversed</th>
+                      <th className="px-4 py-3">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {invoice.paymentUnappliedAllocations.map((allocation) => (
+                      <tr key={allocation.id}>
+                        <td className="px-4 py-3 font-mono text-xs">{allocation.payment?.paymentNumber ?? allocation.paymentId}</td>
+                        <td className="px-4 py-3 text-steel">{allocation.payment ? new Date(allocation.payment.paymentDate).toLocaleDateString() : "-"}</td>
+                        <td className="px-4 py-3 text-steel">{allocation.payment?.status ?? "-"}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, invoice.currency)}</td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-md px-2 py-1 text-xs font-medium ${customerPaymentUnappliedAllocationStatusBadgeClass(allocation)}`}>
+                            {customerPaymentUnappliedAllocationStatusLabel(allocation)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-steel">{allocation.reversedAt ? new Date(allocation.reversedAt).toLocaleString() : "-"}</td>
+                        <td className="px-4 py-3">
+                          <Link href={`/sales/customer-payments/${allocation.paymentId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                            View payment
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="px-5 py-4">
+                <StatusMessage type="empty">No unapplied payment credit has been matched to this invoice.</StatusMessage>
               </div>
             )}
           </div>
@@ -538,6 +586,8 @@ export default function SalesInvoiceDetailPage() {
                       <th className="px-4 py-3">Issue date</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Amount applied</th>
+                      <th className="px-4 py-3">Allocation</th>
+                      <th className="px-4 py-3">Reversed</th>
                       <th className="px-4 py-3">Action</th>
                     </tr>
                   </thead>

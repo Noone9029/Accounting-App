@@ -6,7 +6,9 @@ import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { CustomerPaymentService } from "./customer-payment.service";
+import { ApplyUnappliedPaymentDto } from "./dto/apply-unapplied-payment.dto";
 import { CreateCustomerPaymentDto } from "./dto/create-customer-payment.dto";
+import { ReverseUnappliedPaymentAllocationDto } from "./dto/reverse-unapplied-payment-allocation.dto";
 
 @Controller("customer-payments")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard)
@@ -56,6 +58,32 @@ export class CustomerPaymentController {
   @Post(":id/generate-receipt-pdf")
   generateReceiptPdf(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
     return this.customerPaymentService.generateReceiptPdf(organizationId, user.id, id);
+  }
+
+  @Get(":id/unapplied-allocations")
+  unappliedAllocations(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.customerPaymentService.listUnappliedAllocations(organizationId, id);
+  }
+
+  @Post(":id/apply-unapplied")
+  applyUnapplied(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: ApplyUnappliedPaymentDto,
+  ) {
+    return this.customerPaymentService.applyUnapplied(organizationId, user.id, id, dto);
+  }
+
+  @Post(":id/unapplied-allocations/:allocationId/reverse")
+  reverseUnappliedAllocation(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Param("allocationId") allocationId: string,
+    @Body() dto: ReverseUnappliedPaymentAllocationDto,
+  ) {
+    return this.customerPaymentService.reverseUnappliedAllocation(organizationId, user.id, id, allocationId, dto);
   }
 
   @Get(":id")

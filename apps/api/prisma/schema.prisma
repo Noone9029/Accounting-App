@@ -182,6 +182,7 @@ model User {
   createdCustomerPayments CustomerPayment[]    @relation("CustomerPaymentCreatedBy")
   createdCustomerRefunds  CustomerRefund[]     @relation("CustomerRefundCreatedBy")
   reversedCreditNoteAllocations CreditNoteAllocation[] @relation("CreditNoteAllocationReversedBy")
+  reversedCustomerPaymentUnappliedAllocations CustomerPaymentUnappliedAllocation[] @relation("CustomerPaymentUnappliedAllocationReversedBy")
   generatedDocuments      GeneratedDocument[]  @relation("GeneratedDocumentGeneratedBy")
 }
 
@@ -209,6 +210,7 @@ model Organization {
   creditNoteAllocations      CreditNoteAllocation[]
   customerPayments           CustomerPayment[]
   customerPaymentAllocations CustomerPaymentAllocation[]
+  customerPaymentUnappliedAllocations CustomerPaymentUnappliedAllocation[]
   customerRefunds            CustomerRefund[]
   journalEntries             JournalEntry[]
   journalLines               JournalLine[]
@@ -581,6 +583,7 @@ model SalesInvoice {
   reversalJournalEntry   JournalEntry?               @relation("SalesInvoiceReversalJournal", fields: [reversalJournalEntryId], references: [id])
   lines                  SalesInvoiceLine[]
   paymentAllocations     CustomerPaymentAllocation[]
+  paymentUnappliedAllocations CustomerPaymentUnappliedAllocation[]
   creditNoteAllocations  CreditNoteAllocation[]
   creditNotes            CreditNote[]
   zatcaMetadata          ZatcaInvoiceMetadata?
@@ -745,6 +748,7 @@ model CustomerPayment {
   voidReversalJournalEntry   JournalEntry?               @relation("CustomerPaymentVoidReversalJournal", fields: [voidReversalJournalEntryId], references: [id])
   createdBy                  User?                       @relation("CustomerPaymentCreatedBy", fields: [createdById], references: [id])
   allocations                CustomerPaymentAllocation[]
+  unappliedAllocations       CustomerPaymentUnappliedAllocation[]
   refunds                    CustomerRefund[]            @relation("CustomerRefundPayment")
 
   @@unique([organizationId, paymentNumber])
@@ -768,6 +772,29 @@ model CustomerPaymentAllocation {
   @@index([organizationId])
   @@index([paymentId])
   @@index([invoiceId])
+}
+
+model CustomerPaymentUnappliedAllocation {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @db.Uuid
+  paymentId      String          @db.Uuid
+  invoiceId      String          @db.Uuid
+  amountApplied  Decimal         @db.Decimal(20, 4)
+  reversedAt     DateTime?
+  reversedById   String?         @db.Uuid
+  reversalReason String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  payment        CustomerPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoice        SalesInvoice    @relation(fields: [invoiceId], references: [id])
+  reversedBy     User?           @relation("CustomerPaymentUnappliedAllocationReversedBy", fields: [reversedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([paymentId])
+  @@index([invoiceId])
+  @@index([reversedAt])
+  @@index([reversedById])
 }
 
 model CustomerRefund {

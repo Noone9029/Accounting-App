@@ -72,6 +72,24 @@ describe("customer ledger rules", () => {
               },
             },
           ],
+          unappliedAllocations: [
+            {
+              id: "unapplied-allocation-1",
+              invoiceId: "invoice-1",
+              amountApplied: "15.0000",
+              createdAt: "2026-01-02T00:00:02.000Z",
+              reversedAt: "2026-01-02T12:00:00.000Z",
+              reversalReason: "Matched to wrong invoice",
+              invoice: {
+                id: "invoice-1",
+                invoiceNumber: "INV-001",
+                issueDate: "2026-01-01T00:00:00.000Z",
+                total: "100.0000",
+                balanceDue: "60.0000",
+                status: SalesInvoiceStatus.FINALIZED,
+              },
+            },
+          ],
         },
       ],
     });
@@ -80,6 +98,8 @@ describe("customer ledger rules", () => {
       "INVOICE",
       "PAYMENT",
       "PAYMENT_ALLOCATION",
+      "CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION",
+      "CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL",
       "VOID_PAYMENT",
       "CREDIT_NOTE",
       "CREDIT_NOTE_ALLOCATION",
@@ -91,6 +111,18 @@ describe("customer ledger rules", () => {
     expect(rows.find((row) => row.type === "INVOICE" && row.number === "INV-001")).toMatchObject({ debit: "100.0000", credit: "0.0000", balance: "100.0000" });
     expect(rows.find((row) => row.type === "PAYMENT")).toMatchObject({ debit: "0.0000", credit: "40.0000", balance: "60.0000" });
     expect(rows.find((row) => row.type === "PAYMENT_ALLOCATION")).toMatchObject({ debit: "0.0000", credit: "0.0000", balance: "60.0000" });
+    expect(rows.find((row) => row.type === "CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION")).toMatchObject({
+      debit: "0.0000",
+      credit: "0.0000",
+      balance: "60.0000",
+      description: "Unapplied payment PAY-001 applied to INV-001",
+    });
+    expect(rows.find((row) => row.type === "CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL")).toMatchObject({
+      debit: "0.0000",
+      credit: "0.0000",
+      balance: "60.0000",
+      description: "Reversed unapplied payment PAY-001 allocation from INV-001",
+    });
     expect(rows.find((row) => row.type === "VOID_PAYMENT")).toMatchObject({ debit: "40.0000", credit: "0.0000", balance: "100.0000" });
     expect(rows.find((row) => row.type === "CREDIT_NOTE")).toMatchObject({ debit: "0.0000", credit: "25.0000", balance: "75.0000" });
     expect(rows.find((row) => row.type === "CREDIT_NOTE_ALLOCATION")).toMatchObject({
@@ -179,6 +211,52 @@ describe("customer ledger rules", () => {
     expect(periodRows).toHaveLength(1);
     expect(periodRows[0]).toMatchObject({
       type: "CREDIT_NOTE_ALLOCATION_REVERSAL",
+      debit: "0.0000",
+      credit: "0.0000",
+    });
+  });
+
+  it("includes unapplied payment allocation reversal rows in statement period filtering", () => {
+    const rows = buildCustomerLedgerRows({
+      invoices: [invoice("invoice-1", "INV-001", "2026-01-01T00:00:00.000Z", "100.0000", SalesInvoiceStatus.FINALIZED)],
+      payments: [
+        {
+          id: "payment-1",
+          paymentNumber: "PAY-001",
+          paymentDate: "2026-01-02T00:00:00.000Z",
+          status: CustomerPaymentStatus.POSTED,
+          amountReceived: "20.0000",
+          unappliedAmount: "20.0000",
+          createdAt: "2026-01-02T00:00:00.000Z",
+          updatedAt: "2026-01-02T00:00:00.000Z",
+          allocations: [],
+          unappliedAllocations: [
+            {
+              id: "unapplied-allocation-1",
+              invoiceId: "invoice-1",
+              amountApplied: "10.0000",
+              createdAt: "2026-01-03T00:00:00.000Z",
+              reversedAt: "2026-02-01T00:00:00.000Z",
+              reversalReason: "Correction",
+              invoice: {
+                id: "invoice-1",
+                invoiceNumber: "INV-001",
+                issueDate: "2026-01-01T00:00:00.000Z",
+                total: "100.0000",
+                balanceDue: "90.0000",
+                status: SalesInvoiceStatus.FINALIZED,
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const periodRows = filterStatementRows(rows, new Date("2026-02-01T00:00:00.000Z"), new Date("2026-02-28T23:59:59.999Z"));
+
+    expect(periodRows).toHaveLength(1);
+    expect(periodRows[0]).toMatchObject({
+      type: "CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL",
       debit: "0.0000",
       credit: "0.0000",
     });

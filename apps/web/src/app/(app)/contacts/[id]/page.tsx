@@ -340,6 +340,17 @@ function renderRowLink(row: CustomerLedgerRow) {
     );
   }
 
+  if (row.sourceType === "CustomerPaymentUnappliedAllocation") {
+    const paymentId = typeof row.metadata.paymentId === "string" ? row.metadata.paymentId : "";
+    return paymentId ? (
+      <Link href={`/sales/customer-payments/${paymentId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        View payment
+      </Link>
+    ) : (
+      "-"
+    );
+  }
+
   const invoiceId = typeof row.metadata.invoiceId === "string" ? row.metadata.invoiceId : "";
   return invoiceId ? (
     <Link href={`/sales/invoices/${invoiceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">

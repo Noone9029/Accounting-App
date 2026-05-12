@@ -18,7 +18,9 @@ import { NumberSequenceService } from "../number-sequences/number-sequence.servi
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { buildCustomerPaymentJournalLines } from "./customer-payment-accounting";
+import { ApplyUnappliedPaymentDto } from "./dto/apply-unapplied-payment.dto";
 import { CreateCustomerPaymentDto } from "./dto/create-customer-payment.dto";
+import { ReverseUnappliedPaymentAllocationDto } from "./dto/reverse-unapplied-payment-allocation.dto";
 
 const customerPaymentInclude = {
   customer: { select: { id: true, name: true, displayName: true, type: true } },
@@ -46,6 +48,22 @@ const customerPaymentInclude = {
           status: true,
         },
       },
+    },
+    orderBy: { createdAt: "asc" as const },
+  },
+  unappliedAllocations: {
+    include: {
+      invoice: {
+        select: {
+          id: true,
+          invoiceNumber: true,
+          issueDate: true,
+          total: true,
+          balanceDue: true,
+          status: true,
+        },
+      },
+      reversedBy: { select: { id: true, name: true, email: true } },
     },
     orderBy: { createdAt: "asc" as const },
   },
@@ -89,6 +107,275 @@ export class CustomerPaymentService {
     return payment;
   }
 
+  async listUnappliedAllocations(organizationId: string, id: string) {
+    const payment = await this.prisma.customerPayment.findFirst({
+      where: { id, organizationId },
+      select: { id: true },
+    });
+    if (!payment) {
+      throw new NotFoundException("Customer payment not found.");
+    }
+
+    return this.prisma.customerPaymentUnappliedAllocation.findMany({
+      where: { organizationId, paymentId: id },
+      orderBy: { createdAt: "asc" },
+      include: {
+        invoice: {
+          select: {
+            id: true,
+            invoiceNumber: true,
+            issueDate: true,
+            total: true,
+            balanceDue: true,
+            status: true,
+          },
+        },
+        reversedBy: { select: { id: true, name: true, email: true } },
+      },
+    });
+  }
+
+  async listUnappliedAllocationsForInvoice(organizationId: string, invoiceId: string) {
+    const invoice = await this.prisma.salesInvoice.findFirst({
+      where: { id: invoiceId, organizationId },
+      select: { id: true },
+    });
+    if (!invoice) {
+      throw new NotFoundException("Sales invoice not found.");
+    }
+
+    return this.prisma.customerPaymentUnappliedAllocation.findMany({
+      where: { organizationId, invoiceId },
+      orderBy: { createdAt: "asc" },
+      include: {
+        payment: {
+          select: {
+            id: true,
+            paymentNumber: true,
+            paymentDate: true,
+            currency: true,
+            status: true,
+            amountReceived: true,
+            unappliedAmount: true,
+          },
+        },
+        reversedBy: { select: { id: true, name: true, email: true } },
+      },
+    });
+  }
+
+  async applyUnapplied(organizationId: string, actorUserId: string, id: string, dto: ApplyUnappliedPaymentDto) {
+    const amountApplied = this.assertPositiveMoney(dto.amountApplied, "Amount applied");
+    const existing = await this.get(organizationId, id);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const payment = await tx.customerPayment.findFirst({
+        where: { id, organizationId },
+        select: {
+          id: true,
+          customerId: true,
+          status: true,
+          amountReceived: true,
+          unappliedAmount: true,
+        },
+      });
+      if (!payment) {
+        throw new NotFoundException("Customer payment not found.");
+      }
+      if (payment.status !== CustomerPaymentStatus.POSTED) {
+        throw new BadRequestException("Only posted customer payments can have unapplied amounts applied to invoices.");
+      }
+      if (amountApplied.gt(payment.unappliedAmount)) {
+        throw new BadRequestException("Amount applied cannot exceed payment unapplied amount.");
+      }
+
+      const invoice = await tx.salesInvoice.findFirst({
+        where: { id: dto.invoiceId, organizationId },
+        select: {
+          id: true,
+          customerId: true,
+          status: true,
+          balanceDue: true,
+        },
+      });
+      if (!invoice) {
+        throw new BadRequestException("Invoice must belong to this organization.");
+      }
+      if (invoice.customerId !== payment.customerId) {
+        throw new BadRequestException("Payment and invoice must belong to the same customer.");
+      }
+      if (invoice.status !== SalesInvoiceStatus.FINALIZED) {
+        throw new BadRequestException("Unapplied payments can only be applied to finalized, non-voided invoices.");
+      }
+      if (amountApplied.gt(invoice.balanceDue)) {
+        throw new BadRequestException("Amount applied cannot exceed invoice balance due.");
+      }
+
+      const amount = amountApplied.toFixed(4);
+      const paymentClaim = await tx.customerPayment.updateMany({
+        where: {
+          id,
+          organizationId,
+          status: CustomerPaymentStatus.POSTED,
+          unappliedAmount: { gte: amount },
+        },
+        data: { unappliedAmount: { decrement: amount } },
+      });
+      if (paymentClaim.count !== 1) {
+        throw new BadRequestException("Payment unapplied amount is no longer sufficient for this allocation.");
+      }
+
+      const invoiceClaim = await tx.salesInvoice.updateMany({
+        where: {
+          id: dto.invoiceId,
+          organizationId,
+          customerId: payment.customerId,
+          status: SalesInvoiceStatus.FINALIZED,
+          balanceDue: { gte: amount },
+        },
+        data: { balanceDue: { decrement: amount } },
+      });
+      if (invoiceClaim.count !== 1) {
+        throw new BadRequestException("Invoice balance due is no longer sufficient for this allocation.");
+      }
+
+      // Applying unapplied payment credit is matching only. The original payment
+      // journal already posted Dr Bank/Cash and Cr Accounts Receivable.
+      await tx.customerPaymentUnappliedAllocation.create({
+        data: {
+          organization: { connect: { id: organizationId } },
+          payment: { connect: { id } },
+          invoice: { connect: { id: dto.invoiceId } },
+          amountApplied: amount,
+        },
+      });
+
+      return tx.customerPayment.findUniqueOrThrow({ where: { id }, include: customerPaymentInclude });
+    });
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "APPLY_UNAPPLIED",
+      entityType: "CustomerPayment",
+      entityId: id,
+      before: existing,
+      after: updated,
+    });
+
+    return updated;
+  }
+
+  async reverseUnappliedAllocation(
+    organizationId: string,
+    actorUserId: string,
+    id: string,
+    allocationId: string,
+    dto: ReverseUnappliedPaymentAllocationDto,
+  ) {
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const allocation = await tx.customerPaymentUnappliedAllocation.findFirst({
+        where: { id: allocationId, paymentId: id, organizationId },
+        include: {
+          payment: {
+            select: {
+              id: true,
+              status: true,
+              amountReceived: true,
+              unappliedAmount: true,
+            },
+          },
+          invoice: {
+            select: {
+              id: true,
+              status: true,
+              total: true,
+              balanceDue: true,
+            },
+          },
+        },
+      });
+
+      if (!allocation) {
+        throw new NotFoundException("Payment unapplied allocation not found.");
+      }
+      if (allocation.reversedAt) {
+        throw new BadRequestException("Payment unapplied allocation has already been reversed.");
+      }
+      if (allocation.payment.status !== CustomerPaymentStatus.POSTED) {
+        throw new BadRequestException("Only posted, non-voided customer payments can have unapplied allocations reversed.");
+      }
+      if (allocation.invoice.status !== SalesInvoiceStatus.FINALIZED) {
+        throw new BadRequestException("Only finalized, non-voided invoices can have unapplied payment allocations reversed.");
+      }
+
+      const amount = toMoney(allocation.amountApplied).toFixed(4);
+      const paymentUnappliedLimit = toMoney(allocation.payment.amountReceived).minus(amount).toFixed(4);
+      const invoiceBalanceLimit = toMoney(allocation.invoice.total).minus(amount).toFixed(4);
+
+      if (toMoney(allocation.payment.unappliedAmount).gt(paymentUnappliedLimit)) {
+        throw new BadRequestException("Payment unapplied amount cannot exceed amount received after reversal.");
+      }
+      if (toMoney(allocation.invoice.balanceDue).gt(invoiceBalanceLimit)) {
+        throw new BadRequestException("Invoice balance due cannot exceed invoice total after reversal.");
+      }
+
+      const now = new Date();
+      const claim = await tx.customerPaymentUnappliedAllocation.updateMany({
+        where: { id: allocationId, paymentId: id, organizationId, reversedAt: null },
+        data: {
+          reversedAt: now,
+          reversedById: actorUserId,
+          reversalReason: this.cleanOptional(dto.reason) ?? null,
+        },
+      });
+      if (claim.count !== 1) {
+        throw new BadRequestException("Payment unapplied allocation has already been reversed.");
+      }
+
+      const paymentRestore = await tx.customerPayment.updateMany({
+        where: {
+          id,
+          organizationId,
+          status: CustomerPaymentStatus.POSTED,
+          unappliedAmount: { lte: paymentUnappliedLimit },
+        },
+        data: { unappliedAmount: { increment: amount } },
+      });
+      if (paymentRestore.count !== 1) {
+        throw new BadRequestException("Payment unapplied amount could not be restored without exceeding amount received.");
+      }
+
+      const invoiceRestore = await tx.salesInvoice.updateMany({
+        where: {
+          id: allocation.invoiceId,
+          organizationId,
+          status: SalesInvoiceStatus.FINALIZED,
+          balanceDue: { lte: invoiceBalanceLimit },
+        },
+        data: { balanceDue: { increment: amount } },
+      });
+      if (invoiceRestore.count !== 1) {
+        throw new BadRequestException("Invoice balance due could not be restored without exceeding invoice total.");
+      }
+
+      // Reversal restores matching state only. It does not create another
+      // journal entry because the original payment journal remains valid.
+      return tx.customerPayment.findUniqueOrThrow({ where: { id }, include: customerPaymentInclude });
+    });
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "REVERSE_UNAPPLIED_ALLOCATION",
+      entityType: "CustomerPaymentUnappliedAllocation",
+      entityId: allocationId,
+      after: updated,
+    });
+
+    return updated;
+  }
+
   async receiptData(organizationId: string, id: string) {
     const payment = await this.prisma.customerPayment.findFirst({
       where: { id, organizationId },
@@ -130,6 +417,22 @@ export class CustomerPaymentService {
             },
           },
         },
+        unappliedAllocations: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            invoice: {
+              select: {
+                id: true,
+                invoiceNumber: true,
+                issueDate: true,
+                total: true,
+                balanceDue: true,
+                status: true,
+              },
+            },
+            reversedBy: { select: { id: true, name: true, email: true } },
+          },
+        },
       },
     });
 
@@ -153,6 +456,18 @@ export class CustomerPaymentService {
         invoiceTotal: allocation.invoice.total,
         amountApplied: allocation.amountApplied,
         invoiceBalanceDue: allocation.invoice.balanceDue,
+      })),
+      unappliedAllocations: payment.unappliedAllocations.map((allocation) => ({
+        id: allocation.id,
+        invoiceId: allocation.invoiceId,
+        invoiceNumber: allocation.invoice.invoiceNumber,
+        invoiceDate: allocation.invoice.issueDate,
+        invoiceTotal: allocation.invoice.total,
+        amountApplied: allocation.amountApplied,
+        invoiceBalanceDue: allocation.invoice.balanceDue,
+        status: allocation.reversedAt ? "Reversed" : "Active",
+        reversedAt: allocation.reversedAt,
+        reversalReason: allocation.reversalReason,
       })),
       journalEntry: payment.journalEntry,
       status: payment.status,
@@ -203,6 +518,22 @@ export class CustomerPaymentService {
             },
           },
         },
+        unappliedAllocations: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            invoice: {
+              select: {
+                id: true,
+                invoiceNumber: true,
+                issueDate: true,
+                total: true,
+                balanceDue: true,
+                status: true,
+              },
+            },
+            reversedBy: { select: { id: true, name: true, email: true } },
+          },
+        },
       },
     });
 
@@ -231,6 +562,17 @@ export class CustomerPaymentService {
         invoiceTotal: moneyString(allocation.invoice.total),
         amountApplied: moneyString(allocation.amountApplied),
         invoiceBalanceDue: moneyString(allocation.invoice.balanceDue),
+      })),
+      unappliedAllocations: payment.unappliedAllocations.map((allocation) => ({
+        invoiceId: allocation.invoiceId,
+        invoiceNumber: allocation.invoice.invoiceNumber,
+        invoiceDate: allocation.invoice.issueDate,
+        invoiceTotal: moneyString(allocation.invoice.total),
+        amountApplied: moneyString(allocation.amountApplied),
+        invoiceBalanceDue: moneyString(allocation.invoice.balanceDue),
+        status: allocation.reversedAt ? "Reversed" : "Active",
+        reversedAt: allocation.reversedAt,
+        reversalReason: allocation.reversalReason,
       })),
       journalEntry: payment.journalEntry,
       generatedAt: new Date(),
@@ -412,6 +754,13 @@ export class CustomerPaymentService {
       });
       if (postedRefundCount > 0) {
         throw new BadRequestException("Cannot void customer payment with posted refunds. Void refunds first.");
+      }
+
+      const activeUnappliedAllocationCount = await tx.customerPaymentUnappliedAllocation.count({
+        where: { organizationId, paymentId: id, reversedAt: null },
+      });
+      if (activeUnappliedAllocationCount > 0) {
+        throw new BadRequestException("Cannot void customer payment with active unapplied allocations. Reverse unapplied allocations first.");
       }
 
       const journalEntry = payment.journalEntry;

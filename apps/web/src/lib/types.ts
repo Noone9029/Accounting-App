@@ -18,6 +18,8 @@ export type CustomerLedgerRowType =
   | "CREDIT_NOTE_ALLOCATION_REVERSAL"
   | "PAYMENT"
   | "PAYMENT_ALLOCATION"
+  | "CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION"
+  | "CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL"
   | "VOID_PAYMENT"
   | "CUSTOMER_REFUND"
   | "VOID_CUSTOMER_REFUND"
@@ -208,6 +210,37 @@ export interface CustomerPaymentAllocation {
   };
 }
 
+export interface CustomerPaymentUnappliedAllocation {
+  id: string;
+  organizationId: string;
+  paymentId: string;
+  invoiceId: string;
+  amountApplied: string;
+  reversedAt: string | null;
+  reversedById: string | null;
+  reversalReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  invoice?: {
+    id: string;
+    invoiceNumber: string;
+    issueDate: string;
+    total: string;
+    balanceDue: string;
+    status: SalesInvoiceStatus;
+  };
+  payment?: {
+    id: string;
+    paymentNumber: string;
+    paymentDate: string;
+    currency: string;
+    status: CustomerPaymentStatus;
+    amountReceived: string;
+    unappliedAmount: string;
+  };
+  reversedBy?: { id: string; name: string; email: string } | null;
+}
+
 export interface CreditNoteAllocation {
   id: string;
   organizationId: string;
@@ -312,6 +345,7 @@ export interface CustomerPayment {
   journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit?: string; totalCredit?: string } | null;
   voidReversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
   allocations?: CustomerPaymentAllocation[];
+  unappliedAllocations?: CustomerPaymentUnappliedAllocation[];
 }
 
 export interface CustomerRefund {
@@ -387,7 +421,14 @@ export interface CustomerLedgerRow {
   debit: string;
   credit: string;
   balance: string;
-  sourceType: "SalesInvoice" | "CreditNote" | "CreditNoteAllocation" | "CustomerPayment" | "CustomerPaymentAllocation" | "CustomerRefund";
+  sourceType:
+    | "SalesInvoice"
+    | "CreditNote"
+    | "CreditNoteAllocation"
+    | "CustomerPayment"
+    | "CustomerPaymentAllocation"
+    | "CustomerPaymentUnappliedAllocation"
+    | "CustomerRefund";
   sourceId: string;
   status: string;
   metadata: Record<string, unknown>;
@@ -421,6 +462,18 @@ export interface CustomerPaymentReceiptData {
     invoiceTotal: string;
     amountApplied: string;
     invoiceBalanceDue: string;
+  }>;
+  unappliedAllocations: Array<{
+    id: string;
+    invoiceId: string;
+    invoiceNumber: string;
+    invoiceDate: string;
+    invoiceTotal: string;
+    amountApplied: string;
+    invoiceBalanceDue: string;
+    status: string;
+    reversedAt: string | null;
+    reversalReason: string | null;
   }>;
   journalEntry: { id: string; entryNumber: string; status: JournalStatus; totalDebit: string; totalCredit: string } | null;
   status: CustomerPaymentStatus;
@@ -490,6 +543,7 @@ export interface SalesInvoice {
   journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit: string; totalCredit: string } | null;
   reversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
   paymentAllocations?: CustomerPaymentAllocation[];
+  paymentUnappliedAllocations?: CustomerPaymentUnappliedAllocation[];
   creditNoteAllocations?: CreditNoteAllocation[];
   creditNotes?: CreditNote[];
   lines?: SalesInvoiceLine[];

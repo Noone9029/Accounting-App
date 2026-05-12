@@ -167,6 +167,174 @@ describe("customer payment rules", () => {
     });
   });
 
+  it("applies unapplied payment credit to an open invoice without posting another journal", async () => {
+    const tx = makeApplyUnappliedTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED, unappliedAmount: "100.0000" } as never);
+
+    await expect(
+      service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "40.0000" }),
+    ).resolves.toMatchObject({ id: "payment-1", unappliedAmount: "60.0000" });
+
+    expect(tx.customerPayment.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "payment-1",
+        organizationId: "org-1",
+        status: CustomerPaymentStatus.POSTED,
+        unappliedAmount: { gte: "40.0000" },
+      },
+      data: { unappliedAmount: { decrement: "40.0000" } },
+    });
+    expect(tx.salesInvoice.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "invoice-1",
+        organizationId: "org-1",
+        customerId: "customer-1",
+        status: SalesInvoiceStatus.FINALIZED,
+        balanceDue: { gte: "40.0000" },
+      },
+      data: { balanceDue: { decrement: "40.0000" } },
+    });
+    expect(tx.customerPaymentUnappliedAllocation.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ amountApplied: "40.0000" }) }),
+    );
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid unapplied payment applications", async () => {
+    let tx = makeApplyUnappliedTransactionMock({ paymentStatus: CustomerPaymentStatus.VOIDED });
+    let prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    let service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.VOIDED } as never);
+
+    await expect(service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "10.0000" })).rejects.toThrow(
+      "Only posted customer payments can have unapplied amounts applied to invoices.",
+    );
+    expect(tx.customerPaymentUnappliedAllocation.create).not.toHaveBeenCalled();
+
+    tx = makeApplyUnappliedTransactionMock({ invoiceCustomerId: "customer-2" });
+    prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
+    await expect(service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "10.0000" })).rejects.toThrow(
+      "same customer",
+    );
+
+    tx = makeApplyUnappliedTransactionMock({ unappliedAmount: "20.0000" });
+    prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
+    await expect(service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "25.0000" })).rejects.toThrow(
+      "payment unapplied amount",
+    );
+
+    tx = makeApplyUnappliedTransactionMock({ invoiceBalanceDue: "20.0000" });
+    prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
+    await expect(service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "25.0000" })).rejects.toThrow(
+      "invoice balance due",
+    );
+  });
+
+  it("rejects stale concurrent unapplied payment application claims cleanly", async () => {
+    let tx = makeApplyUnappliedTransactionMock({ paymentUpdateCount: 0 });
+    let prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    let service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
+
+    await expect(service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "40.0000" })).rejects.toThrow(
+      "Payment unapplied amount is no longer sufficient",
+    );
+    expect(tx.customerPaymentUnappliedAllocation.create).not.toHaveBeenCalled();
+
+    tx = makeApplyUnappliedTransactionMock({ invoiceUpdateCount: 0 });
+    prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
+
+    await expect(service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "40.0000" })).rejects.toThrow(
+      "Invoice balance due is no longer sufficient",
+    );
+    expect(tx.customerPaymentUnappliedAllocation.create).not.toHaveBeenCalled();
+  });
+
+  it("reverses unapplied payment allocations and restores balances without a journal", async () => {
+    const tx = makeReverseUnappliedTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await expect(
+      service.reverseUnappliedAllocation("org-1", "user-1", "payment-1", "unapplied-allocation-1", { reason: "Corrected matching" }),
+    ).resolves.toMatchObject({ id: "payment-1", unappliedAmount: "100.0000" });
+
+    expect(tx.customerPaymentUnappliedAllocation.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "unapplied-allocation-1", paymentId: "payment-1", organizationId: "org-1", reversedAt: null },
+        data: expect.objectContaining({ reversedById: "user-1", reversalReason: "Corrected matching" }),
+      }),
+    );
+    expect(tx.customerPayment.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "payment-1",
+        organizationId: "org-1",
+        status: CustomerPaymentStatus.POSTED,
+        unappliedAmount: { lte: "60.0000" },
+      },
+      data: { unappliedAmount: { increment: "40.0000" } },
+    });
+    expect(tx.salesInvoice.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "invoice-1",
+        organizationId: "org-1",
+        status: SalesInvoiceStatus.FINALIZED,
+        balanceDue: { lte: "60.0000" },
+      },
+      data: { balanceDue: { increment: "40.0000" } },
+    });
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects double and stale unapplied payment allocation reversals cleanly", async () => {
+    let tx = makeReverseUnappliedTransactionMock({ reversedAt: new Date("2026-05-12T00:00:00.000Z") });
+    let prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    let service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await expect(service.reverseUnappliedAllocation("org-1", "user-1", "payment-1", "unapplied-allocation-1", {})).rejects.toThrow(
+      "Payment unapplied allocation has already been reversed.",
+    );
+    expect(tx.customerPayment.updateMany).not.toHaveBeenCalled();
+
+    tx = makeReverseUnappliedTransactionMock({ allocationUpdateCount: 0 });
+    prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await expect(service.reverseUnappliedAllocation("org-1", "user-1", "payment-1", "unapplied-allocation-1", {})).rejects.toThrow(
+      "Payment unapplied allocation has already been reversed.",
+    );
+    expect(tx.customerPayment.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects stale unapplied payment restoration guards cleanly", async () => {
+    let tx = makeReverseUnappliedTransactionMock({ paymentUpdateCount: 0 });
+    let prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    let service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await expect(service.reverseUnappliedAllocation("org-1", "user-1", "payment-1", "unapplied-allocation-1", {})).rejects.toThrow(
+      "Payment unapplied amount could not be restored",
+    );
+    expect(tx.salesInvoice.updateMany).not.toHaveBeenCalled();
+
+    tx = makeReverseUnappliedTransactionMock({ invoiceUpdateCount: 0 });
+    prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await expect(service.reverseUnappliedAllocation("org-1", "user-1", "payment-1", "unapplied-allocation-1", {})).rejects.toThrow(
+      "Invoice balance due could not be restored",
+    );
+  });
+
   it("voids a posted payment once and restores allocated invoice balances", async () => {
     const tx = makeVoidTransactionMock();
     const prisma = {
@@ -215,6 +383,37 @@ describe("customer payment rules", () => {
     });
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
     expect(tx.salesInvoice.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("blocks voiding payments with active unapplied allocations but allows reversed allocations", async () => {
+    const tx = makeVoidTransactionMock({ unappliedAllocationCount: 1 });
+    const prisma = {
+      customerPayment: {
+        findFirst: jest.fn().mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED, journalEntryId: "journal-1" }),
+      },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await expect(service.void("org-1", "user-1", "payment-1")).rejects.toThrow(
+      "Cannot void customer payment with active unapplied allocations. Reverse unapplied allocations first.",
+    );
+    expect(tx.customerPaymentUnappliedAllocation.count).toHaveBeenCalledWith({
+      where: { organizationId: "org-1", paymentId: "payment-1", reversedAt: null },
+    });
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+
+    const reversedTx = makeVoidTransactionMock({ unappliedAllocationCount: 0 });
+    const reversedPrisma = {
+      customerPayment: {
+        findFirst: jest.fn().mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED, journalEntryId: "journal-1" }),
+      },
+      $transaction: jest.fn((callback: (client: typeof reversedTx) => Promise<unknown>) => callback(reversedTx)),
+    };
+    const reversedService = new CustomerPaymentService(reversedPrisma as never, { log: jest.fn() } as never, { next: jest.fn().mockResolvedValue("JE-000002") } as never);
+
+    await expect(reversedService.void("org-1", "user-1", "payment-1")).resolves.toMatchObject({ status: CustomerPaymentStatus.VOIDED });
+    expect(reversedTx.journalEntry.create).toHaveBeenCalledTimes(1);
   });
 
   it("does not create a second reversal when an existing reversal is linked", async () => {
@@ -302,6 +501,7 @@ describe("customer payment rules", () => {
               },
             },
           ],
+          unappliedAllocations: [],
           status: CustomerPaymentStatus.POSTED,
         }),
       },
@@ -357,6 +557,7 @@ describe("customer payment rules", () => {
               },
             },
           ],
+          unappliedAllocations: [],
         }),
       },
     };
@@ -369,6 +570,7 @@ describe("customer payment rules", () => {
         amountReceived: "115.0000",
       },
       allocations: [{ invoiceNumber: "INV-000001", amountApplied: "115.0000" }],
+      unappliedAllocations: [],
       journalEntry: { entryNumber: "JE-000001" },
     });
   });
@@ -406,6 +608,7 @@ describe("customer payment rules", () => {
           invoiceBalanceDue: "0.0000",
         },
       ],
+      unappliedAllocations: [],
       journalEntry: { id: "journal-1", entryNumber: "JE-000001", status: JournalEntryStatus.POSTED },
       generatedAt: new Date("2026-05-06T00:00:00.000Z"),
     });
@@ -468,7 +671,110 @@ function makeCreateTransactionMock(
   };
 }
 
-function makeVoidTransactionMock(options: { reversedById?: string; voidClaimCount?: number; refundCount?: number } = {}) {
+function makeApplyUnappliedTransactionMock(
+  options: {
+    paymentStatus?: CustomerPaymentStatus;
+    unappliedAmount?: string;
+    invoiceCustomerId?: string;
+    invoiceStatus?: SalesInvoiceStatus;
+    invoiceBalanceDue?: string;
+    paymentUpdateCount?: number;
+    invoiceUpdateCount?: number;
+  } = {},
+) {
+  return {
+    customerPayment: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: "payment-1",
+        customerId: "customer-1",
+        status: options.paymentStatus ?? CustomerPaymentStatus.POSTED,
+        amountReceived: "100.0000",
+        unappliedAmount: options.unappliedAmount ?? "100.0000",
+      }),
+      updateMany: jest.fn().mockResolvedValue({ count: options.paymentUpdateCount ?? 1 }),
+      findUniqueOrThrow: jest.fn().mockResolvedValue({
+        id: "payment-1",
+        status: CustomerPaymentStatus.POSTED,
+        amountReceived: "100.0000",
+        unappliedAmount: "60.0000",
+      }),
+    },
+    salesInvoice: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: "invoice-1",
+        customerId: options.invoiceCustomerId ?? "customer-1",
+        status: options.invoiceStatus ?? SalesInvoiceStatus.FINALIZED,
+        balanceDue: options.invoiceBalanceDue ?? "100.0000",
+      }),
+      updateMany: jest.fn().mockResolvedValue({ count: options.invoiceUpdateCount ?? 1 }),
+    },
+    customerPaymentUnappliedAllocation: {
+      create: jest.fn().mockResolvedValue({ id: "unapplied-allocation-1" }),
+    },
+    journalEntry: {
+      create: jest.fn(),
+    },
+  };
+}
+
+function makeReverseUnappliedTransactionMock(
+  options: {
+    reversedAt?: Date | null;
+    paymentStatus?: CustomerPaymentStatus;
+    invoiceStatus?: SalesInvoiceStatus;
+    amountApplied?: string;
+    paymentUnappliedAmount?: string;
+    invoiceBalanceDue?: string;
+    allocationUpdateCount?: number;
+    paymentUpdateCount?: number;
+    invoiceUpdateCount?: number;
+  } = {},
+) {
+  const allocation = {
+    id: "unapplied-allocation-1",
+    organizationId: "org-1",
+    paymentId: "payment-1",
+    invoiceId: "invoice-1",
+    amountApplied: options.amountApplied ?? "40.0000",
+    reversedAt: options.reversedAt ?? null,
+    payment: {
+      id: "payment-1",
+      status: options.paymentStatus ?? CustomerPaymentStatus.POSTED,
+      amountReceived: "100.0000",
+      unappliedAmount: options.paymentUnappliedAmount ?? "60.0000",
+    },
+    invoice: {
+      id: "invoice-1",
+      status: options.invoiceStatus ?? SalesInvoiceStatus.FINALIZED,
+      total: "100.0000",
+      balanceDue: options.invoiceBalanceDue ?? "60.0000",
+    },
+  };
+
+  return {
+    customerPaymentUnappliedAllocation: {
+      findFirst: jest.fn().mockResolvedValue(allocation),
+      updateMany: jest.fn().mockResolvedValue({ count: options.allocationUpdateCount ?? 1 }),
+    },
+    customerPayment: {
+      updateMany: jest.fn().mockResolvedValue({ count: options.paymentUpdateCount ?? 1 }),
+      findUniqueOrThrow: jest.fn().mockResolvedValue({
+        id: "payment-1",
+        status: CustomerPaymentStatus.POSTED,
+        amountReceived: "100.0000",
+        unappliedAmount: "100.0000",
+      }),
+    },
+    salesInvoice: {
+      updateMany: jest.fn().mockResolvedValue({ count: options.invoiceUpdateCount ?? 1 }),
+    },
+    journalEntry: {
+      create: jest.fn(),
+    },
+  };
+}
+
+function makeVoidTransactionMock(options: { reversedById?: string; voidClaimCount?: number; refundCount?: number; unappliedAllocationCount?: number } = {}) {
   return {
     customerPayment: {
       findFirst: jest.fn().mockResolvedValue({
@@ -519,6 +825,9 @@ function makeVoidTransactionMock(options: { reversedById?: string; voidClaimCoun
     },
     customerRefund: {
       count: jest.fn().mockResolvedValue(options.refundCount ?? 0),
+    },
+    customerPaymentUnappliedAllocation: {
+      count: jest.fn().mockResolvedValue(options.unappliedAllocationCount ?? 0),
     },
     salesInvoice: { updateMany: jest.fn() },
   };

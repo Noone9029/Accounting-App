@@ -230,8 +230,29 @@ describe("sales invoice rules", () => {
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
   });
 
+  it("rejects voiding finalized invoices with active unapplied payment allocations", async () => {
+    const tx = makeVoidTransactionMock({ activeUnappliedPaymentAllocationCount: 1 });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, { reverse: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValueOnce({ id: "invoice-1", status: "FINALIZED", journalEntryId: "je-1" } as never);
+
+    await expect(service.void("org-1", "user-1", "invoice-1")).rejects.toThrow(
+      "Cannot void invoice with active unapplied payment allocations. Reverse allocations first.",
+    );
+    expect(tx.customerPaymentUnappliedAllocation.count).toHaveBeenCalledWith({
+      where: {
+        invoiceId: "invoice-1",
+        organizationId: "org-1",
+        reversedAt: null,
+        payment: { status: { not: "VOIDED" } },
+      },
+    });
+    expect(tx.creditNoteAllocation.count).not.toHaveBeenCalled();
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
   it("allows invoice void when credit note allocations are already reversed", async () => {
-    const tx = makeVoidTransactionMock({ activeCreditAllocationCount: 0 });
+    const tx = makeVoidTransactionMock({ activeCreditAllocationCount: 0, activeUnappliedPaymentAllocationCount: 0 });
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
     const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn().mockResolvedValue("JE-000002") } as never, { reverse: jest.fn() } as never);
     jest.spyOn(service, "get").mockResolvedValueOnce({ id: "invoice-1", status: "FINALIZED", journalEntryId: "je-1" } as never);
@@ -315,6 +336,7 @@ describe("sales invoice rules", () => {
               },
             },
           ],
+          paymentUnappliedAllocations: [],
         }),
       },
     };
@@ -527,6 +549,7 @@ function makeVoidTransactionMock(
     journalEntryId?: string | null;
     reversedById?: string;
     activePaymentCount?: number;
+    activeUnappliedPaymentAllocationCount?: number;
     activeCreditAllocationCount?: number;
   } = {},
 ) {
@@ -552,6 +575,9 @@ function makeVoidTransactionMock(
     },
     customerPaymentAllocation: {
       count: jest.fn().mockResolvedValue(options.activePaymentCount ?? 0),
+    },
+    customerPaymentUnappliedAllocation: {
+      count: jest.fn().mockResolvedValue(options.activeUnappliedPaymentAllocationCount ?? 0),
     },
     creditNoteAllocation: {
       count: jest.fn().mockResolvedValue(options.activeCreditAllocationCount ?? 0),

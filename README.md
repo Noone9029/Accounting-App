@@ -109,7 +109,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
+The smoke covers seed login, organization discovery, item/customer setup, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
 
@@ -188,6 +188,7 @@ Sales invoices:
 - `GET /sales-invoices/:id/pdf`
 - `GET /sales-invoices/:id/credit-notes`
 - `GET /sales-invoices/:id/credit-note-allocations`
+- `GET /sales-invoices/:id/customer-payment-unapplied-allocations`
 - `GET /sales-invoices/:id/zatca`
 - `POST /sales-invoices/:id/zatca/generate`
 - `POST /sales-invoices/:id/zatca/compliance-check`
@@ -226,6 +227,9 @@ Customer payments:
 - `GET /customer-payments/:id/receipt-data`
 - `GET /customer-payments/:id/receipt-pdf-data`
 - `GET /customer-payments/:id/receipt.pdf`
+- `GET /customer-payments/:id/unapplied-allocations`
+- `POST /customer-payments/:id/apply-unapplied`
+- `POST /customer-payments/:id/unapplied-allocations/:allocationId/reverse`
 - `POST /customer-payments/:id/generate-receipt-pdf`
 - `POST /customer-payments/:id/void`
 - `DELETE /customer-payments/:id`
@@ -394,8 +398,12 @@ Allocation behavior:
 - Total allocated amount cannot exceed `amountReceived`.
 - Partial payments are supported; invoice `balanceDue` is reduced by allocated amount.
 - Allocation writes use conditional invoice balance updates to prevent concurrent payments from making `balanceDue` negative.
-- If `amountReceived` is greater than allocated amount, the difference is stored as `unappliedAmount`; applying unapplied credits later is future work.
-- Unapplied payment credit can be refunded manually through customer refunds.
+- If `amountReceived` is greater than allocated amount, the difference is stored as `unappliedAmount`.
+- Unapplied payment credit can be applied later to finalized open invoices for the same customer through `CustomerPaymentUnappliedAllocation` audit rows.
+- Applying unapplied payment credit decreases `SalesInvoice.balanceDue` and `CustomerPayment.unappliedAmount`; it does not create a journal entry because the original payment already posted the AR reduction.
+- Reversing an unapplied payment allocation marks the allocation reversed, restores `SalesInvoice.balanceDue`, restores `CustomerPayment.unappliedAmount`, and creates no journal entry.
+- Unapplied payment application and reversal are transaction guarded so balances cannot go below zero or above invoice/payment totals.
+- Current `unappliedAmount` can be refunded manually through customer refunds. Amounts applied to invoices are not refundable unless their allocation is reversed first.
 
 Payment posting behavior:
 
@@ -405,12 +413,13 @@ Payment posting behavior:
 - Payment creation creates immutable allocation rows and updates invoice balances.
 - Voiding a posted payment creates or reuses one reversal journal entry, marks the payment `VOIDED`, and restores invoice balances.
 - Voiding a posted payment is blocked while posted customer refunds exist for its unapplied amount; void the refunds first.
+- Voiding a posted payment is blocked while active unapplied payment allocations exist; reverse those allocations first.
 - Payment voiding claims the posted payment row before restoring balances, so repeated or concurrent void calls restore each invoice balance only once.
 - Voiding twice is idempotent and does not create repeated reversals.
 
 Concurrency/idempotency notes:
 
-- Invoice finalization, invoice voiding, customer payment creation, and payment voiding are protected with database transactions plus conditional row updates.
+- Invoice finalization, invoice voiding, customer payment creation, unapplied payment application/reversal, and payment voiding are protected with database transactions plus conditional row updates.
 - Manual journal reversal handles duplicate reversal attempts with a clear business error instead of leaking a database unique-constraint error.
 - A failed journal creation or allocation claim rolls back the surrounding accounting workflow.
 
@@ -444,6 +453,8 @@ Customer ledgers are available for contacts of type `CUSTOMER` or `BOTH`.
 - Credit note rows decrease accounts receivable with a credit equal to finalized credit note total.
 - Payment rows decrease accounts receivable with a credit equal to payment `amountReceived`.
 - Payment allocation rows are visible as zero-value informational rows to avoid double-counting.
+- Unapplied payment application rows are visible as zero-value informational rows to show later customer-credit matching without double-counting.
+- Unapplied payment allocation reversal rows are also zero-value informational rows and do not change running balance.
 - Credit note allocation rows are visible as zero-value informational rows to show invoice matching without double-counting.
 - Credit note allocation reversal rows are also zero-value informational rows and do not change running balance.
 - Customer refund rows increase accounts receivable with a debit equal to the refunded amount because customer credit is reduced.
@@ -480,6 +491,7 @@ Implemented PDF documents:
 - Customer payment receipt PDF: `GET /customer-payments/:id/receipt.pdf`
 - Customer statement PDF: `GET /contacts/:id/statement.pdf?from=YYYY-MM-DD&to=YYYY-MM-DD`
 - Credit note PDFs include total, unapplied amount, and any invoice credit allocations.
+- Customer payment receipt PDFs include current unapplied amount and any later unapplied-payment applications.
 - Customer refund PDF: `GET /customer-refunds/:id/pdf`
 
 PDF endpoints:
@@ -615,7 +627,7 @@ Future real onboarding steps:
 - PDF output is basic operational rendering only; no PDF/A-3, embedded XML, or template designer exists yet.
 - Generated PDFs are stored as base64 database records for local/dev groundwork; S3-compatible storage is planned before production scale.
 - GET PDF endpoints currently archive every download.
-- Applying unapplied overpayment credits to invoices later is not implemented yet.
+- Unapplied overpayment application is manual only; there is no automatic credit matching yet.
 - Customer refunds are manual accounting records only; no payment gateway refund or bank reconciliation integration exists yet.
 - ZATCA credit note XML/signing/submission is not implemented yet.
 - Inventory returns from credit notes are not implemented yet.

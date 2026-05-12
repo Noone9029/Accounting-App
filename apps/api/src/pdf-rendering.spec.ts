@@ -143,6 +143,7 @@ function receiptPdfData(): PaymentReceiptPdfData {
         invoiceBalanceDue: "0.0000",
       },
     ],
+    unappliedAllocations: [],
     journalEntry: { id: "journal-1", entryNumber: "JE-000001", status: "POSTED" },
     generatedAt: "2026-05-06T12:00:00.000Z",
   };

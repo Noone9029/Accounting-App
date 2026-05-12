@@ -153,6 +153,17 @@ export interface PaymentReceiptPdfData {
     amountApplied: string;
     invoiceBalanceDue: string;
   }>;
+  unappliedAllocations: Array<{
+    invoiceId: string;
+    invoiceNumber: string;
+    invoiceDate: string | Date;
+    invoiceTotal: string;
+    amountApplied: string;
+    invoiceBalanceDue: string;
+    status: string;
+    reversedAt?: string | Date | null;
+    reversalReason?: string | null;
+  }>;
   journalEntry?: {
     id: string;
     entryNumber: string;
@@ -468,6 +479,32 @@ export async function renderPaymentReceiptPdf(data: PaymentReceiptPdfData, setti
           money(allocation.invoiceTotal, data.payment.currency),
           money(allocation.amountApplied, data.payment.currency),
           money(allocation.invoiceBalanceDue, data.payment.currency),
+        ]),
+        renderSettings,
+      );
+    }
+
+    writeSectionTitle(doc, "Unapplied Credit Applications", renderSettings);
+    if (data.unappliedAllocations.length === 0) {
+      writeMuted(doc, "No unapplied payment credit has been matched to later invoices.");
+    } else {
+      drawTable(
+        doc,
+        [
+          { label: "Invoice", width: 100 },
+          { label: "Date", width: 65 },
+          { label: "Status", width: 62 },
+          { label: "Applied", width: 80, align: "right" },
+          { label: "Balance due", width: 90, align: "right" },
+          { label: "Reversed", width: 72 },
+        ],
+        data.unappliedAllocations.map((allocation) => [
+          allocation.invoiceNumber,
+          formatDate(allocation.invoiceDate),
+          allocation.status,
+          money(allocation.amountApplied, data.payment.currency),
+          money(allocation.invoiceBalanceDue, data.payment.currency),
+          allocation.reversedAt ? formatDate(allocation.reversedAt) : "-",
         ]),
         renderSettings,
       );

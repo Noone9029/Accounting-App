@@ -63,6 +63,23 @@ const salesInvoiceInclude = {
     },
     orderBy: { createdAt: "asc" as const },
   },
+  paymentUnappliedAllocations: {
+    include: {
+      payment: {
+        select: {
+          id: true,
+          paymentNumber: true,
+          paymentDate: true,
+          currency: true,
+          status: true,
+          amountReceived: true,
+          unappliedAmount: true,
+        },
+      },
+      reversedBy: { select: { id: true, name: true, email: true } },
+    },
+    orderBy: { createdAt: "asc" as const },
+  },
   creditNoteAllocations: {
     include: {
       creditNote: {
@@ -187,6 +204,35 @@ export class SalesInvoiceService {
     return invoice;
   }
 
+  async paymentUnappliedAllocations(organizationId: string, id: string) {
+    const invoice = await this.prisma.salesInvoice.findFirst({
+      where: { id, organizationId },
+      select: { id: true },
+    });
+    if (!invoice) {
+      throw new NotFoundException("Sales invoice not found.");
+    }
+
+    return this.prisma.customerPaymentUnappliedAllocation.findMany({
+      where: { organizationId, invoiceId: id },
+      orderBy: { createdAt: "asc" },
+      include: {
+        payment: {
+          select: {
+            id: true,
+            paymentNumber: true,
+            paymentDate: true,
+            currency: true,
+            status: true,
+            amountReceived: true,
+            unappliedAmount: true,
+          },
+        },
+        reversedBy: { select: { id: true, name: true, email: true } },
+      },
+    });
+  }
+
   async pdfData(organizationId: string, id: string): Promise<InvoicePdfData> {
     const invoice = await this.prisma.salesInvoice.findFirst({
       where: { id, organizationId },
@@ -222,6 +268,18 @@ export class SalesInvoiceService {
           },
         },
         paymentAllocations: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            payment: {
+              select: {
+                paymentNumber: true,
+                paymentDate: true,
+                status: true,
+              },
+            },
+          },
+        },
+        paymentUnappliedAllocations: {
           orderBy: { createdAt: "asc" },
           include: {
             payment: {
@@ -280,12 +338,20 @@ export class SalesInvoiceService {
         lineTotal: moneyString(line.lineTotal),
         taxRateName: line.taxRate?.name ?? null,
       })),
-      payments: invoice.paymentAllocations.map((allocation) => ({
-        paymentNumber: allocation.payment.paymentNumber,
-        paymentDate: allocation.payment.paymentDate,
-        amountApplied: moneyString(allocation.amountApplied),
-        status: allocation.payment.status,
-      })),
+      payments: [
+        ...invoice.paymentAllocations.map((allocation) => ({
+          paymentNumber: allocation.payment.paymentNumber,
+          paymentDate: allocation.payment.paymentDate,
+          amountApplied: moneyString(allocation.amountApplied),
+          status: allocation.payment.status,
+        })),
+        ...invoice.paymentUnappliedAllocations.map((allocation) => ({
+          paymentNumber: `${allocation.payment.paymentNumber} (unapplied)`,
+          paymentDate: allocation.payment.paymentDate,
+          amountApplied: moneyString(allocation.amountApplied),
+          status: allocation.reversedAt ? "REVERSED" : allocation.payment.status,
+        })),
+      ],
       zatca: invoice.zatcaMetadata
         ? {
             status: invoice.zatcaMetadata.zatcaStatus,
@@ -619,6 +685,18 @@ export class SalesInvoiceService {
       });
       if (activePaymentCount > 0) {
         throw new BadRequestException("Cannot void invoice with active payments. Void payments first.");
+      }
+
+      const activeUnappliedPaymentAllocationCount = await tx.customerPaymentUnappliedAllocation.count({
+        where: {
+          invoiceId: id,
+          organizationId,
+          reversedAt: null,
+          payment: { status: { not: CustomerPaymentStatus.VOIDED } },
+        },
+      });
+      if (activeUnappliedPaymentAllocationCount > 0) {
+        throw new BadRequestException("Cannot void invoice with active unapplied payment allocations. Reverse allocations first.");
       }
 
       const activeCreditAllocationCount = await tx.creditNoteAllocation.count({
