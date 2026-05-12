@@ -87,5 +87,6 @@ export const DEFAULT_NUMBER_SEQUENCES = [
   { scope: NumberSequenceScope.DEBIT_NOTE, prefix: "DN-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.PURCHASE_DEBIT_NOTE, prefix: "PDN-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.SUPPLIER_REFUND, prefix: "SRF-", nextNumber: 1, padding: 6 },
+  { scope: NumberSequenceScope.CASH_EXPENSE, prefix: "EXP-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.CONTACT, prefix: "CON-", nextNumber: 1, padding: 6 },
 ];

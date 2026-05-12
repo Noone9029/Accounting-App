@@ -1,4 +1,5 @@
 import {
+  cashExpensePdfPath,
   creditNotePdfPath,
   customerRefundPdfPath,
   generatedDocumentDownloadPath,
@@ -22,6 +23,7 @@ describe("PDF download helpers", () => {
     expect(purchaseDebitNotePdfPath("debit note 1")).toBe("/purchase-debit-notes/debit%20note%201/pdf");
     expect(supplierPaymentReceiptPdfPath("supplier payment 1")).toBe("/supplier-payments/supplier%20payment%201/receipt.pdf");
     expect(supplierRefundPdfPath("supplier refund 1")).toBe("/supplier-refunds/supplier%20refund%201/pdf");
+    expect(cashExpensePdfPath("expense 1")).toBe("/cash-expenses/expense%201/pdf");
   });
 
   it("builds statement PDF paths with optional date range", () => {

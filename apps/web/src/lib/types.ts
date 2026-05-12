@@ -9,6 +9,7 @@ export type SalesInvoiceStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type CreditNoteStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type PurchaseBillStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type PurchaseDebitNoteStatus = "DRAFT" | "FINALIZED" | "VOIDED";
+export type CashExpenseStatus = "DRAFT" | "POSTED" | "VOIDED";
 export type CustomerPaymentStatus = "DRAFT" | "POSTED" | "VOIDED";
 export type SupplierPaymentStatus = "DRAFT" | "POSTED" | "VOIDED";
 export type CustomerRefundStatus = "DRAFT" | "POSTED" | "VOIDED";
@@ -40,6 +41,7 @@ export type SupplierLedgerRowType =
   | "SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL"
   | "SUPPLIER_REFUND"
   | "VOID_SUPPLIER_REFUND"
+  | "CASH_EXPENSE"
   | "VOID_SUPPLIER_PAYMENT"
   | "VOID_PURCHASE_BILL";
 export type DocumentType =
@@ -51,7 +53,8 @@ export type DocumentType =
   | "PURCHASE_BILL"
   | "PURCHASE_DEBIT_NOTE"
   | "SUPPLIER_PAYMENT_RECEIPT"
-  | "SUPPLIER_REFUND";
+  | "SUPPLIER_REFUND"
+  | "CASH_EXPENSE";
 export type GeneratedDocumentStatus = "GENERATED" | "FAILED" | "SUPERSEDED";
 export type ZatcaEnvironment = "SANDBOX" | "SIMULATION" | "PRODUCTION";
 export type ZatcaRegistrationStatus = "NOT_CONFIGURED" | "DRAFT" | "READY_FOR_CSR" | "OTP_REQUIRED" | "CERTIFICATE_ISSUED" | "ACTIVE" | "SUSPENDED";
@@ -570,6 +573,60 @@ export interface PurchaseBill {
   debitNoteAllocations?: PurchaseDebitNoteAllocation[];
 }
 
+export interface CashExpenseLine {
+  id: string;
+  organizationId: string;
+  cashExpenseId: string;
+  itemId: string | null;
+  description: string;
+  accountId: string;
+  quantity: string;
+  unitPrice: string;
+  discountRate: string;
+  taxRateId: string | null;
+  lineGrossAmount: string;
+  discountAmount: string;
+  taxableAmount: string;
+  taxAmount: string;
+  lineTotal: string;
+  sortOrder: number;
+  item?: { id: string; name: string; sku: string | null } | null;
+  account?: { id: string; code: string; name: string; type: AccountType };
+  taxRate?: { id: string; name: string; rate: string } | null;
+}
+
+export interface CashExpense {
+  id: string;
+  organizationId: string;
+  expenseNumber: string;
+  contactId: string | null;
+  branchId: string | null;
+  expenseDate: string;
+  currency: string;
+  status: CashExpenseStatus;
+  subtotal: string;
+  discountTotal: string;
+  taxableTotal: string;
+  taxTotal: string;
+  total: string;
+  description: string | null;
+  notes: string | null;
+  paidThroughAccountId: string;
+  createdById: string | null;
+  postedAt: string | null;
+  journalEntryId: string | null;
+  voidReversalJournalEntryId: string | null;
+  voidedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  contact?: { id: string; name: string; displayName: string | null; type?: ContactType; taxNumber?: string | null } | null;
+  branch?: { id: string; name: string; displayName: string | null; taxNumber?: string | null } | null;
+  paidThroughAccount?: { id: string; code: string; name: string; type?: AccountType };
+  journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit?: string; totalCredit?: string } | null;
+  voidReversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
+  lines?: CashExpenseLine[];
+}
+
 export interface SupplierPayment {
   id: string;
   organizationId: string;
@@ -771,7 +828,8 @@ export interface SupplierLedgerRow {
     | "PurchaseDebitNoteAllocation"
     | "SupplierPayment"
     | "SupplierPaymentUnappliedAllocation"
-    | "SupplierRefund";
+    | "SupplierRefund"
+    | "CashExpense";
   sourceId: string;
   status: string;
   metadata: Record<string, unknown>;
@@ -905,6 +963,41 @@ export interface SupplierRefundPdfData {
     remainingUnappliedAmount: string;
   };
   receivedIntoAccount: { id: string; code: string; name: string };
+  journalEntry: { id: string; entryNumber: string; status: JournalStatus } | null;
+  voidReversalJournalEntry: { id: string; entryNumber: string; status: JournalStatus } | null;
+  generatedAt: string;
+}
+
+export interface CashExpensePdfData {
+  organization: Organization;
+  contact: Pick<Contact, "id" | "name" | "displayName" | "email" | "phone" | "taxNumber"> | null;
+  expense: {
+    id: string;
+    expenseNumber: string;
+    expenseDate: string;
+    status: CashExpenseStatus;
+    currency: string;
+    description: string | null;
+    notes: string | null;
+    subtotal: string;
+    discountTotal: string;
+    taxableTotal: string;
+    taxTotal: string;
+    total: string;
+  };
+  paidThroughAccount: { id: string; code: string; name: string; type?: AccountType };
+  lines: Array<{
+    description: string;
+    quantity: string;
+    unitPrice: string;
+    discountRate: string;
+    lineGrossAmount: string;
+    discountAmount: string;
+    taxableAmount: string;
+    taxAmount: string;
+    lineTotal: string;
+    taxRateName: string | null;
+  }>;
   journalEntry: { id: string; entryNumber: string; status: JournalStatus } | null;
   voidReversalJournalEntry: { id: string; entryNumber: string; status: JournalStatus } | null;
   generatedAt: string;

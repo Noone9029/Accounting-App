@@ -672,7 +672,7 @@ Commit inspected: `dd498c7` (`Add purchases and supplier payments MVP`)
 - Role permissions are not enforced beyond active organization membership.
 - Fiscal periods exist only as schema groundwork and do not lock posting dates.
 - Core financial reports remain unimplemented.
-- Inventory/COGS, bank reconciliation, purchase orders, and cash expenses remain unimplemented.
+- Inventory/COGS, bank reconciliation, and purchase orders remain unimplemented.
 - Generated PDFs are still stored as database base64 and need object storage before production scale.
 - ZATCA remains local/mock/scaffold only and is not production compliant.
 
@@ -737,6 +737,33 @@ Commit inspected: pending (`Add supplier overpayment and refund workflow`)
 - No purchase order linkage exists.
 - No inventory return or stock movement integration exists.
 - No ZATCA debit note XML/signing/submission exists.
+
+## Cash Expenses MVP
+
+Audit date: 2026-05-12
+
+Commit inspected: pending (`Add cash expenses MVP`)
+
+### Cash Expenses Added
+
+- Added `CashExpenseStatus`, `CashExpense`, and `CashExpenseLine` schema records with tenant-scoped optional supplier/contact, branch, paid-through account, line account, tax rate, item, journal, and void reversal relations.
+- Added `DocumentType.CASH_EXPENSE` and `NumberSequenceScope.CASH_EXPENSE` with seeded `EXP-` numbering.
+- Added authenticated cash expense APIs for list/create/detail/void/PDF data/PDF/archive.
+- Added immediate posting behavior: debit line expense/COGS/asset accounts, debit VAT Receivable account code `230` when tax exists, and credit the selected paid-through asset account.
+- Added cash expense voiding with one reusable reversal journal and idempotent void-state handling.
+- Added optional supplier/contact linkage with supplier/BOTH validation.
+- Added neutral supplier ledger/statement rows for linked cash expenses so supplier activity is visible without changing AP running balance.
+- Added operational cash expense PDF rendering and generated document archive support.
+- Added frontend purchases navigation route, cash expense list/create/detail pages, PDF download, and void action.
+- Extended backend/frontend tests and smoke coverage for posting, VAT journal behavior, supplier ledger visibility, PDF download, and void reversal.
+
+### Remaining Cash Expense Risks
+
+- No receipt attachment upload exists yet.
+- No OCR or receipt scanning exists yet.
+- No employee claim approval workflow exists yet.
+- No bank reconciliation or bank-feed matching exists.
+- No cash expense import workflow exists.
 
 ## Remaining Risks
 

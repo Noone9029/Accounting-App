@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { toMoney } from "@ledgerbyte/accounting-core";
 import { CustomerStatementPdfData, renderCustomerStatementPdf } from "@ledgerbyte/pdf-core";
 import {
+  CashExpenseStatus,
   ContactType,
   CreditNoteStatus,
   CustomerPaymentStatus,
@@ -89,6 +90,7 @@ export type SupplierLedgerRowType =
   | "SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL"
   | "SUPPLIER_REFUND"
   | "VOID_SUPPLIER_REFUND"
+  | "CASH_EXPENSE"
   | "VOID_SUPPLIER_PAYMENT"
   | "VOID_PURCHASE_BILL";
 
@@ -107,7 +109,8 @@ export interface SupplierLedgerRow {
     | "PurchaseDebitNoteAllocation"
     | "SupplierPayment"
     | "SupplierPaymentUnappliedAllocation"
-    | "SupplierRefund";
+    | "SupplierRefund"
+    | "CashExpense";
   sourceId: string;
   status: string;
   metadata: Record<string, unknown>;
@@ -375,6 +378,26 @@ export interface LedgerSupplierRefundInput {
   sourceDebitNote?: {
     id: string;
     debitNoteNumber: string;
+  } | null;
+}
+
+export interface LedgerCashExpenseInput {
+  id: string;
+  expenseNumber: string;
+  expenseDate: Date | string;
+  status: string;
+  total: unknown;
+  description?: string | null;
+  paidThroughAccountId: string;
+  journalEntryId: string | null;
+  postedAt?: Date | string | null;
+  voidedAt?: Date | string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  paidThroughAccount?: {
+    id: string;
+    code: string;
+    name: string;
   } | null;
 }
 
@@ -657,7 +680,7 @@ export class ContactLedgerService {
 
   async supplierLedger(organizationId: string, contactId: string): Promise<SupplierLedgerResponse> {
     const contact = await this.findSupplierContact(organizationId, contactId);
-    const [bills, debitNotes, debitNoteAllocations, payments, refunds] = await Promise.all([
+    const [bills, debitNotes, debitNoteAllocations, payments, refunds, cashExpenses] = await Promise.all([
       this.prisma.purchaseBill.findMany({
         where: {
           organizationId,
@@ -821,9 +844,32 @@ export class ContactLedgerService {
           sourceDebitNote: { select: { id: true, debitNoteNumber: true } },
         },
       }),
+      this.prisma.cashExpense.findMany({
+        where: {
+          organizationId,
+          contactId,
+          status: { in: [CashExpenseStatus.POSTED, CashExpenseStatus.VOIDED] },
+          journalEntryId: { not: null },
+        },
+        select: {
+          id: true,
+          expenseNumber: true,
+          expenseDate: true,
+          status: true,
+          total: true,
+          description: true,
+          paidThroughAccountId: true,
+          journalEntryId: true,
+          postedAt: true,
+          voidedAt: true,
+          createdAt: true,
+          updatedAt: true,
+          paidThroughAccount: { select: { id: true, code: true, name: true } },
+        },
+      }),
     ]);
 
-    const rows = buildSupplierLedgerRows({ bills, debitNotes, debitNoteAllocations, payments, refunds });
+    const rows = buildSupplierLedgerRows({ bills, debitNotes, debitNoteAllocations, payments, refunds, cashExpenses });
     return {
       contact,
       openingBalance: "0.0000",
@@ -1230,6 +1276,7 @@ export function buildSupplierLedgerRows(input: {
   debitNoteAllocations?: LedgerPurchaseDebitNoteAllocationInput[];
   payments: LedgerSupplierPaymentInput[];
   refunds?: LedgerSupplierRefundInput[];
+  cashExpenses?: LedgerCashExpenseInput[];
 }): SupplierLedgerRow[] {
   const pendingRows: PendingSupplierLedgerRow[] = [];
 
@@ -1523,6 +1570,32 @@ export function buildSupplierLedgerRows(input: {
     }
   }
 
+  for (const expense of input.cashExpenses ?? []) {
+    pendingRows.push({
+      id: `${expense.id}:cash-expense`,
+      type: "CASH_EXPENSE",
+      date: toIsoString(expense.expenseDate),
+      createdAt: toIsoString(expense.createdAt),
+      number: expense.expenseNumber,
+      description: expense.description?.trim() || `Cash expense ${expense.expenseNumber} paid immediately`,
+      debit: "0.0000",
+      credit: "0.0000",
+      sourceType: "CashExpense",
+      sourceId: expense.id,
+      status: expense.status,
+      metadata: {
+        cashExpenseId: expense.id,
+        total: moneyString(expense.total),
+        paidThroughAccountId: expense.paidThroughAccountId,
+        paidThroughAccountCode: expense.paidThroughAccount?.code ?? null,
+        paidThroughAccountName: expense.paidThroughAccount?.name ?? null,
+        journalEntryId: expense.journalEntryId,
+        postedAt: expense.postedAt ? toIsoString(expense.postedAt) : null,
+        voidedAt: expense.voidedAt ? toIsoString(expense.voidedAt) : null,
+      },
+    });
+  }
+
   return calculateSupplierRunningBalance(sortSupplierLedgerRows(pendingRows), "0.0000");
 }
 
@@ -1647,6 +1720,7 @@ function supplierRowPriority(type: SupplierLedgerRowType): number {
     case "PURCHASE_DEBIT_NOTE":
     case "SUPPLIER_PAYMENT":
     case "SUPPLIER_REFUND":
+    case "CASH_EXPENSE":
       return 0;
     case "PURCHASE_DEBIT_NOTE_ALLOCATION":
     case "PURCHASE_DEBIT_NOTE_ALLOCATION_REVERSAL":

@@ -1,6 +1,8 @@
 import {
+  CashExpensePdfData,
   InvoicePdfData,
   PaymentReceiptPdfData,
+  renderCashExpensePdf,
   renderCustomerStatementPdf,
   renderInvoicePdf,
   renderPaymentReceiptPdf,
@@ -77,6 +79,13 @@ describe("PDF rendering", () => {
     expect(buffer.subarray(0, 4).toString()).toBe("%PDF");
     expect(buffer.byteLength).toBeGreaterThan(1000);
   });
+
+  it("renders cash expense PDFs as buffers", async () => {
+    const buffer = await renderCashExpensePdf(cashExpensePdfData());
+
+    expect(buffer.subarray(0, 4).toString()).toBe("%PDF");
+    expect(buffer.byteLength).toBeGreaterThan(1000);
+  });
 });
 
 function invoicePdfData(): InvoicePdfData {
@@ -144,6 +153,44 @@ function receiptPdfData(): PaymentReceiptPdfData {
       },
     ],
     unappliedAllocations: [],
+    journalEntry: { id: "journal-1", entryNumber: "JE-000001", status: "POSTED" },
+    generatedAt: "2026-05-06T12:00:00.000Z",
+  };
+}
+
+function cashExpensePdfData(): CashExpensePdfData {
+  return {
+    organization,
+    contact: null,
+    expense: {
+      id: "expense-1",
+      expenseNumber: "EXP-000001",
+      status: "POSTED",
+      expenseDate: "2026-05-06T00:00:00.000Z",
+      currency: "SAR",
+      description: "Office supplies",
+      notes: "Paid by bank",
+      subtotal: "100.0000",
+      discountTotal: "0.0000",
+      taxableTotal: "100.0000",
+      taxTotal: "15.0000",
+      total: "115.0000",
+    },
+    paidThroughAccount: { id: "bank-1", code: "112", name: "Bank Account" },
+    lines: [
+      {
+        description: "Office supplies",
+        quantity: "1.0000",
+        unitPrice: "100.0000",
+        discountRate: "0.0000",
+        lineGrossAmount: "100.0000",
+        discountAmount: "0.0000",
+        taxableAmount: "100.0000",
+        taxAmount: "15.0000",
+        lineTotal: "115.0000",
+        taxRateName: "VAT on Purchases 15%",
+      },
+    ],
     journalEntry: { id: "journal-1", entryNumber: "JE-000001", status: "POSTED" },
     generatedAt: "2026-05-06T12:00:00.000Z",
   };

@@ -99,6 +99,17 @@ interface PurchaseDebitNote {
   reversalJournalEntryId?: string | null;
 }
 
+interface CashExpense {
+  id: string;
+  expenseNumber: string;
+  status: string;
+  total: string;
+  taxTotal: string;
+  contactId?: string | null;
+  journalEntryId?: string | null;
+  voidReversalJournalEntryId?: string | null;
+}
+
 interface PurchaseDebitNoteAllocation {
   id: string;
   debitNoteId: string;
@@ -1054,6 +1065,52 @@ async function main(): Promise<void> {
   assert(purchaseBillPdfData.lines.length > 0, "purchase bill pdf-data returns lines");
   await assertPdf(`/purchase-bills/${draftPurchaseBill.id}/pdf`, headers, "purchase bill PDF");
 
+  const cashExpensePayload: Record<string, unknown> = {
+    contactId: supplier.id,
+    expenseDate: new Date().toISOString(),
+    currency: "SAR",
+    paidThroughAccountId: paidThroughAccount!.id,
+    description: "Smoke cash expense",
+    notes: "Smoke test immediate paid expense",
+    lines: [
+      {
+        description: "Smoke test office supplies",
+        accountId: expenseAccount.id,
+        quantity: "1.0000",
+        unitPrice: "100.0000",
+        taxRateId: purchaseVat?.id,
+      },
+    ],
+  };
+  const cashExpense = await post<CashExpense>("/cash-expenses", headers, cashExpensePayload);
+  assertEqual(cashExpense.status, "POSTED", "cash expense posted status");
+  assertPresent(cashExpense.journalEntryId, "cash expense journalEntryId");
+  assertMoney(cashExpense.total, expectedPurchaseBillTotal, "cash expense total");
+  const cashExpensePdfData = await get<{ expense: { expenseNumber: string; total: string }; lines: unknown[] }>(
+    `/cash-expenses/${cashExpense.id}/pdf-data`,
+    headers,
+  );
+  assertEqual(cashExpensePdfData.expense.expenseNumber, cashExpense.expenseNumber, "cash expense pdf-data number");
+  assertMoney(cashExpensePdfData.expense.total, expectedPurchaseBillTotal, "cash expense pdf-data total");
+  assert(cashExpensePdfData.lines.length > 0, "cash expense pdf-data returns lines");
+  await assertPdf(`/cash-expenses/${cashExpense.id}/pdf`, headers, "cash expense PDF");
+  const supplierLedgerAfterCashExpense = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterCashExpense.rows.some(
+      (row) =>
+        row.type === "CASH_EXPENSE" &&
+        row.sourceId === cashExpense.id &&
+        money(row.debit).eq(0) &&
+        money(row.credit).eq(0) &&
+        money(row.metadata?.total).eq(cashExpense.total),
+    ),
+    "supplier ledger includes neutral cash expense row",
+  );
+  assertMoney(supplierLedgerAfterCashExpense.closingBalance, expectedPurchaseBillTotal, "supplier ledger cash expense row is neutral");
+  const voidedCashExpense = await post<CashExpense>(`/cash-expenses/${cashExpense.id}/void`, headers, {});
+  assertEqual(voidedCashExpense.status, "VOIDED", "voided cash expense status");
+  assertPresent(voidedCashExpense.voidReversalJournalEntryId, "voided cash expense reversal journal");
+
   const debitNoteLinePayload: Record<string, unknown> = {
     description: "Smoke test supplier debit adjustment",
     accountId: expenseAccount.id,
@@ -1620,6 +1677,8 @@ async function main(): Promise<void> {
         supplierId: supplier.id,
         purchaseBillId: draftPurchaseBill.id,
         purchaseBillNumber: finalizedPurchaseBill.billNumber,
+        cashExpenseId: cashExpense.id,
+        cashExpenseNumber: cashExpense.expenseNumber,
         purchaseDebitNoteId: draftPurchaseDebitNote.id,
         purchaseDebitNoteNumber: finalizedPurchaseDebitNote.debitNoteNumber,
         purchaseDebitNoteAllocationId: purchaseDebitNoteAllocation.id,

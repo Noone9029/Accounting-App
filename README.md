@@ -652,8 +652,44 @@ Supplier ledgers are available for contacts of type `SUPPLIER` or `BOTH`.
 - Voided supplier payment rows reverse that visible effect with a credit equal to payment `amountPaid`.
 - Supplier refund rows credit accounts payable because supplier-returned cash reduces the supplier credit/AP position already created by an overpayment or debit note.
 - Voided supplier refund rows reverse that visible effect with a debit equal to the refunded amount.
+- Linked cash expense rows are neutral informational rows with zero debit and zero credit because cash expenses are paid immediately and do not create accounts payable.
 - Voided purchase bill rows reverse that visible effect with a debit equal to bill total.
 - Running balance is decimal-safe and represents payable amount owed to the supplier.
+
+## Cash Expenses
+
+Cash expenses record direct paid expenses such as rent, office supplies, bank fees, meals, travel, fuel, or small purchases. They are different from purchase bills because they do not create Accounts Payable first.
+
+APIs:
+
+- `GET /cash-expenses`
+- `POST /cash-expenses`
+- `GET /cash-expenses/:id`
+- `POST /cash-expenses/:id/void`
+- `GET /cash-expenses/:id/pdf-data`
+- `GET /cash-expenses/:id/pdf`
+
+Posting behavior:
+
+- Cash expenses are created as `POSTED` immediately for the MVP.
+- Posting debits line expense, cost-of-sales, or asset accounts by taxable amount.
+- Posting debits VAT Receivable account code `230` when tax exists.
+- Posting credits the selected paid-through cash/bank asset account for the total.
+- Voiding creates one reversal journal and marks the cash expense `VOIDED`; repeated void calls reuse the existing voided state.
+- Optional linked contacts must be supplier or both-type contacts.
+- Linked supplier cash expense activity appears in the supplier ledger as a zero-value informational row and does not affect AP running balance.
+
+PDF endpoints:
+
+- `GET /cash-expenses/:id/pdf-data` returns structured cash expense receipt data.
+- `GET /cash-expenses/:id/pdf` returns and archives a basic operational cash expense PDF.
+
+Known limitations:
+
+- No receipt attachment upload exists yet.
+- No OCR or receipt scanning exists yet.
+- No employee claim approval workflow exists yet.
+- No bank reconciliation or bank-feed matching exists yet.
 
 Receipt data:
 
@@ -679,13 +715,14 @@ Implemented PDF documents:
 - Purchase debit note PDF: `GET /purchase-debit-notes/:id/pdf`
 - Supplier payment receipt PDF: `GET /supplier-payments/:id/receipt.pdf`
 - Supplier refund PDF: `GET /supplier-refunds/:id/pdf`
+- Cash expense PDF: `GET /cash-expenses/:id/pdf`
 
 PDF endpoints:
 
 - Require JWT auth and `x-organization-id`.
 - Are tenant-scoped and return `404` outside the active organization.
 - Return `Content-Type: application/pdf`.
-- Use attachment filenames such as `invoice-INV-000001.pdf`, `credit-note-CN-000001.pdf`, `customer-refund-REF-000001.pdf`, `purchase-bill-BILL-000001.pdf`, `purchase-debit-note-PDN-000001.pdf`, `supplier-payment-SP-000001.pdf`, `supplier-refund-SRF-000001.pdf`, `receipt-PAY-000001.pdf`, and `statement-Customer.pdf`.
+- Use attachment filenames such as `invoice-INV-000001.pdf`, `credit-note-CN-000001.pdf`, `customer-refund-REF-000001.pdf`, `purchase-bill-BILL-000001.pdf`, `purchase-debit-note-PDN-000001.pdf`, `supplier-payment-SP-000001.pdf`, `supplier-refund-SRF-000001.pdf`, `cash-expense-EXP-000001.pdf`, `receipt-PAY-000001.pdf`, and `statement-Customer.pdf`.
 - Apply organization document settings for document titles, footer text, basic colors, tax number visibility, and invoice notes/terms/payment sections.
 - Archive each generated PDF as a `GeneratedDocument` record with content hash, size, filename, source reference, and local base64 content.
 

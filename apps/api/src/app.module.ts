@@ -4,6 +4,7 @@ import { AccountingModule } from "./accounting/accounting.module";
 import { AuditLogModule } from "./audit-log/audit-log.module";
 import { AuthModule } from "./auth/auth.module";
 import { BranchModule } from "./branches/branch.module";
+import { CashExpenseModule } from "./cash-expenses/cash-expense.module";
 import { ChartOfAccountsModule } from "./chart-of-accounts/chart-of-accounts.module";
 import { ContactModule } from "./contacts/contact.module";
 import { CreditNoteModule } from "./credit-notes/credit-note.module";
@@ -32,6 +33,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     AuthModule,
     OrganizationModule,
     BranchModule,
+    CashExpenseModule,
     ContactModule,
     CreditNoteModule,
     CustomerPaymentModule,

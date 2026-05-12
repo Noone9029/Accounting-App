@@ -117,6 +117,12 @@ enum SupplierRefundSourceType {
   PURCHASE_DEBIT_NOTE
 }
 
+enum CashExpenseStatus {
+  DRAFT
+  POSTED
+  VOIDED
+}
+
 enum DocumentType {
   SALES_INVOICE
   CREDIT_NOTE
@@ -127,6 +133,7 @@ enum DocumentType {
   PURCHASE_DEBIT_NOTE
   SUPPLIER_PAYMENT_RECEIPT
   SUPPLIER_REFUND
+  CASH_EXPENSE
 }
 
 enum GeneratedDocumentStatus {
@@ -198,6 +205,7 @@ enum NumberSequenceScope {
   DEBIT_NOTE
   PURCHASE_DEBIT_NOTE
   SUPPLIER_REFUND
+  CASH_EXPENSE
   CONTACT
 }
 
@@ -216,6 +224,7 @@ model User {
   createdCreditNotes      CreditNote[]         @relation("CreditNoteCreatedBy")
   createdPurchaseBills    PurchaseBill[]       @relation("PurchaseBillCreatedBy")
   createdPurchaseDebitNotes PurchaseDebitNote[] @relation("PurchaseDebitNoteCreatedBy")
+  createdCashExpenses   CashExpense[]       @relation("CashExpenseCreatedBy")
   createdCustomerPayments CustomerPayment[]    @relation("CustomerPaymentCreatedBy")
   createdSupplierPayments SupplierPayment[]    @relation("SupplierPaymentCreatedBy")
   createdCustomerRefunds  CustomerRefund[]     @relation("CustomerRefundCreatedBy")
@@ -254,6 +263,8 @@ model Organization {
   purchaseDebitNotes         PurchaseDebitNote[]
   purchaseDebitNoteLines     PurchaseDebitNoteLine[]
   purchaseDebitNoteAllocations PurchaseDebitNoteAllocation[]
+  cashExpenses               CashExpense[]
+  cashExpenseLines           CashExpenseLine[]
   customerPayments           CustomerPayment[]
   customerPaymentAllocations CustomerPaymentAllocation[]
   customerPaymentUnappliedAllocations CustomerPaymentUnappliedAllocation[]
@@ -489,6 +500,7 @@ model Branch {
   creditNotes    CreditNote[]
   purchaseBills  PurchaseBill[]
   purchaseDebitNotes PurchaseDebitNote[]
+  cashExpenses   CashExpense[]
 
   @@index([organizationId])
 }
@@ -515,6 +527,7 @@ model Contact {
   creditNotes      CreditNote[]      @relation("CreditNoteCustomer")
   purchaseBills    PurchaseBill[]    @relation("PurchaseBillSupplier")
   purchaseDebitNotes PurchaseDebitNote[] @relation("PurchaseDebitNoteSupplier")
+  cashExpenses     CashExpense[]     @relation("CashExpenseContact")
   customerPayments CustomerPayment[] @relation("CustomerPaymentCustomer")
   supplierPayments SupplierPayment[] @relation("SupplierPaymentSupplier")
   customerRefunds  CustomerRefund[]  @relation("CustomerRefundCustomer")
@@ -547,6 +560,8 @@ model Account {
   creditNoteLines   CreditNoteLine[]
   purchaseBillLines PurchaseBillLine[]
   purchaseDebitNoteLines PurchaseDebitNoteLine[]
+  cashExpenseLines  CashExpenseLine[]
+  cashExpensePayments CashExpense[]   @relation("CashExpensePaidThroughAccount")
   customerPayments  CustomerPayment[]  @relation("CustomerPaymentAccount")
   supplierPayments  SupplierPayment[]  @relation("SupplierPaymentAccount")
   customerRefunds   CustomerRefund[]   @relation("CustomerRefundAccount")
@@ -577,6 +592,7 @@ model TaxRate {
   creditNoteLines      CreditNoteLine[]
   purchaseBillLines    PurchaseBillLine[]
   purchaseDebitNoteLines PurchaseDebitNoteLine[]
+  cashExpenseLines     CashExpenseLine[]
 
   @@unique([organizationId, name])
   @@index([organizationId])
@@ -608,6 +624,7 @@ model Item {
   creditNoteLines   CreditNoteLine[]
   purchaseBillLines PurchaseBillLine[]
   purchaseDebitNoteLines PurchaseDebitNoteLine[]
+  cashExpenseLines  CashExpenseLine[]
 
   @@unique([organizationId, sku])
   @@index([organizationId])
@@ -932,6 +949,78 @@ model PurchaseDebitNoteLine {
   @@index([accountId])
 }
 
+model CashExpense {
+  id                         String            @id @default(uuid()) @db.Uuid
+  organizationId             String            @db.Uuid
+  expenseNumber              String
+  contactId                  String?           @db.Uuid
+  branchId                   String?           @db.Uuid
+  expenseDate                DateTime
+  currency                   String            @default("SAR")
+  status                     CashExpenseStatus @default(POSTED)
+  subtotal                   Decimal           @default(0) @db.Decimal(20, 4)
+  discountTotal              Decimal           @default(0) @db.Decimal(20, 4)
+  taxableTotal               Decimal           @default(0) @db.Decimal(20, 4)
+  taxTotal                   Decimal           @default(0) @db.Decimal(20, 4)
+  total                      Decimal           @default(0) @db.Decimal(20, 4)
+  description                String?
+  notes                      String?
+  paidThroughAccountId       String            @db.Uuid
+  createdById                String?           @db.Uuid
+  postedAt                   DateTime?
+  journalEntryId             String?           @unique @db.Uuid
+  voidReversalJournalEntryId String?           @unique @db.Uuid
+  voidedAt                   DateTime?
+  createdAt                  DateTime          @default(now())
+  updatedAt                  DateTime          @updatedAt
+  organization               Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact                    Contact?          @relation("CashExpenseContact", fields: [contactId], references: [id], onDelete: SetNull)
+  branch                     Branch?           @relation(fields: [branchId], references: [id])
+  paidThroughAccount         Account           @relation("CashExpensePaidThroughAccount", fields: [paidThroughAccountId], references: [id])
+  createdBy                  User?             @relation("CashExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  journalEntry               JournalEntry?     @relation("CashExpenseJournal", fields: [journalEntryId], references: [id])
+  voidReversalJournalEntry   JournalEntry?     @relation("CashExpenseVoidReversalJournal", fields: [voidReversalJournalEntryId], references: [id])
+  lines                      CashExpenseLine[]
+
+  @@unique([organizationId, expenseNumber])
+  @@index([organizationId])
+  @@index([contactId])
+  @@index([branchId])
+  @@index([paidThroughAccountId])
+  @@index([status])
+}
+
+model CashExpenseLine {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @db.Uuid
+  cashExpenseId   String       @db.Uuid
+  itemId          String?      @db.Uuid
+  description     String
+  accountId       String       @db.Uuid
+  quantity        Decimal      @db.Decimal(20, 4)
+  unitPrice       Decimal      @db.Decimal(20, 4)
+  discountRate    Decimal      @default(0) @db.Decimal(7, 4)
+  taxRateId       String?      @db.Uuid
+  lineGrossAmount Decimal      @default(0) @db.Decimal(20, 4)
+  discountAmount  Decimal      @default(0) @db.Decimal(20, 4)
+  taxableAmount   Decimal      @default(0) @db.Decimal(20, 4)
+  taxAmount       Decimal      @default(0) @db.Decimal(20, 4)
+  lineTotal       Decimal      @default(0) @db.Decimal(20, 4)
+  sortOrder       Int          @default(0)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  cashExpense     CashExpense  @relation(fields: [cashExpenseId], references: [id], onDelete: Cascade)
+  item            Item?        @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  account         Account      @relation(fields: [accountId], references: [id])
+  taxRate         TaxRate?     @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([cashExpenseId])
+  @@index([itemId])
+  @@index([accountId])
+}
+
 model PurchaseDebitNoteAllocation {
   id             String             @id @default(uuid()) @db.Uuid
   organizationId String             @db.Uuid
@@ -1211,6 +1300,8 @@ model JournalEntry {
   voidedPurchaseBill    PurchaseBill?      @relation("PurchaseBillReversalJournal")
   purchaseDebitNote     PurchaseDebitNote? @relation("PurchaseDebitNoteJournal")
   voidedPurchaseDebitNote PurchaseDebitNote? @relation("PurchaseDebitNoteReversalJournal")
+  cashExpense           CashExpense?       @relation("CashExpenseJournal")
+  voidedCashExpense     CashExpense?       @relation("CashExpenseVoidReversalJournal")
   customerPayment       CustomerPayment?   @relation("CustomerPaymentJournal")
   voidedCustomerPayment CustomerPayment?   @relation("CustomerPaymentVoidReversalJournal")
   supplierPayment       SupplierPayment?   @relation("SupplierPaymentJournal")

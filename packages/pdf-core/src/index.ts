@@ -174,6 +174,53 @@ export interface PurchaseBillPdfData {
   generatedAt: string | Date;
 }
 
+export interface CashExpensePdfData {
+  organization: PdfOrganization;
+  contact?: PdfContact | null;
+  expense: {
+    id: string;
+    expenseNumber: string;
+    status: string;
+    expenseDate: string | Date;
+    currency: string;
+    description?: string | null;
+    notes?: string | null;
+    subtotal: string;
+    discountTotal: string;
+    taxableTotal: string;
+    taxTotal: string;
+    total: string;
+  };
+  paidThroughAccount: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  lines: Array<{
+    description: string;
+    quantity: string;
+    unitPrice: string;
+    discountRate: string;
+    lineGrossAmount: string;
+    discountAmount: string;
+    taxableAmount: string;
+    taxAmount: string;
+    lineTotal: string;
+    taxRateName?: string | null;
+  }>;
+  journalEntry?: {
+    id: string;
+    entryNumber: string;
+    status: string;
+  } | null;
+  voidReversalJournalEntry?: {
+    id: string;
+    entryNumber: string;
+    status: string;
+  } | null;
+  generatedAt: string | Date;
+}
+
 export interface PurchaseDebitNotePdfData {
   organization: PdfOrganization;
   supplier: PdfContact;
@@ -713,6 +760,61 @@ export async function renderPurchaseBillPdf(data: PurchaseBillPdfData, settings?
     }
     if (renderSettings.showTerms) {
       writeOptionalTextBlock(doc, "Terms", data.bill.terms, renderSettings);
+    }
+  }, renderSettings);
+}
+
+export async function renderCashExpensePdf(data: CashExpensePdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
+  const renderSettings = resolveSettings(settings, "Cash Expense");
+  return renderPdf((doc) => {
+    writeHeader(doc, data.organization, renderSettings, data.generatedAt);
+    writeTwoColumnBlocks(doc, data.contact ? "Supplier / Contact" : "Contact", data.contact ? contactLines(data.contact, renderSettings) : ["No linked supplier"], "Cash Expense", [
+      ["Expense number", data.expense.expenseNumber],
+      ["Status", data.expense.status],
+      ["Expense date", formatDate(data.expense.expenseDate)],
+      ["Currency", data.expense.currency],
+      ["Paid through", `${data.paidThroughAccount.code} ${data.paidThroughAccount.name}`],
+      ["Journal entry", data.journalEntry ? `${data.journalEntry.entryNumber} (${data.journalEntry.status})` : "-"],
+      ["Void reversal", data.voidReversalJournalEntry ? `${data.voidReversalJournalEntry.entryNumber} (${data.voidReversalJournalEntry.status})` : "-"],
+    ], renderSettings);
+
+    writeSectionTitle(doc, "Line Items", renderSettings);
+    drawTable(
+      doc,
+      [
+        { label: "Description", width: 116 },
+        { label: "Qty", width: 38, align: "right" },
+        { label: "Unit", width: 54, align: "right" },
+        { label: "Gross", width: 54, align: "right" },
+        { label: "Discount", width: 54, align: "right" },
+        { label: "Taxable", width: 54, align: "right" },
+        { label: "Tax", width: 48, align: "right" },
+        { label: "Total", width: 54, align: "right" },
+      ],
+      data.lines.map((line) => [
+        withOptionalSuffix(line.description, line.taxRateName ? `Tax: ${line.taxRateName}` : null),
+        line.quantity,
+        money(line.unitPrice, data.expense.currency),
+        money(line.lineGrossAmount, data.expense.currency),
+        money(line.discountAmount, data.expense.currency),
+        money(line.taxableAmount, data.expense.currency),
+        money(line.taxAmount, data.expense.currency),
+        money(line.lineTotal, data.expense.currency),
+      ]),
+      renderSettings,
+    );
+
+    writeTotals(doc, data.expense.currency, [
+      ["Subtotal", data.expense.subtotal],
+      ["Discount", data.expense.discountTotal],
+      ["Taxable total", data.expense.taxableTotal],
+      ["VAT / Tax", data.expense.taxTotal],
+      ["Total paid", data.expense.total],
+    ], renderSettings);
+
+    if (renderSettings.showNotes) {
+      writeOptionalTextBlock(doc, "Description", data.expense.description, renderSettings);
+      writeOptionalTextBlock(doc, "Notes", data.expense.notes, renderSettings);
     }
   }, renderSettings);
 }

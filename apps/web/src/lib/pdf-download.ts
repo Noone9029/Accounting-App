@@ -32,6 +32,10 @@ export function supplierRefundPdfPath(refundId: string): string {
   return `/supplier-refunds/${encodeURIComponent(refundId)}/pdf`;
 }
 
+export function cashExpensePdfPath(expenseId: string): string {
+  return `/cash-expenses/${encodeURIComponent(expenseId)}/pdf`;
+}
+
 export function statementPdfPath(contactId: string, from?: string, to?: string): string {
   const query = new URLSearchParams();
   if (from) {
