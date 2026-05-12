@@ -641,6 +641,45 @@ Commit inspected: pending (`Add purchases and supplier payments MVP`)
 - No bank reconciliation or bank-feed matching exists for supplier payments.
 - No ZATCA purchase-side compliance, validation, or submission workflow is implemented.
 
+## Full Project Audit And Roadmap
+
+Audit date: 2026-05-12
+
+Commit inspected: `dd498c7` (`Add purchases and supplier payments MVP`)
+
+### Audit Docs Created
+
+- Added `docs/PROJECT_AUDIT.md` with current maturity, top risks, and next priorities.
+- Added `docs/IMPLEMENTATION_STATUS.md` with module-by-module MVP/partial/groundwork status.
+- Added `docs/CODEBASE_MAP.md` with repo structure, backend modules, frontend routes, package boundaries, and logic locations.
+- Added `docs/API_CATALOG.md` with implemented endpoints grouped by module.
+- Added `docs/DATABASE_MODEL_CATALOG.md` with Prisma enum/model purposes, relationships, accounting impact, and limitations.
+- Added `docs/FRONTEND_ROUTE_CATALOG.md` with implemented UI routes, data fetched, actions, and missing UX pieces.
+- Added `docs/ACCOUNTING_WORKFLOW_AUDIT.md` with journal postings, balance effects, void/reversal behavior, and risks.
+- Added `docs/ZATCA_STATUS_AUDIT.md` with explicit non-compliance warnings and remaining official validation needs.
+- Added `docs/TESTING_AND_SMOKE_AUDIT.md` with test counts, smoke coverage, uncovered areas, and Windows caveats.
+- Added `docs/REMAINING_ROADMAP.md` with phased next work from MVP stabilization through production/SaaS readiness.
+- Added `docs/MANUAL_DEPENDENCIES.md` with human/third-party setup requirements.
+
+### New Issues Found
+
+- Supplier AP balances currently reuse the shared customer-style Dr/Cr display helper on contact detail. The underlying AP ledger math is documented, but the UI should later use supplier-specific payable wording.
+- Prisma continues to warn that `package.json#prisma` seed configuration is deprecated and should move to `prisma.config.ts` before Prisma 7.
+- PowerShell paths containing `(app)` need quoting or `-LiteralPath` during local operations.
+
+### Major Remaining Risks
+
+- Role permissions are not enforced beyond active organization membership.
+- Fiscal periods exist only as schema groundwork and do not lock posting dates.
+- Core financial reports remain unimplemented.
+- Inventory/COGS, bank reconciliation, purchase orders, debit notes, and cash expenses remain unimplemented.
+- Generated PDFs are still stored as database base64 and need object storage before production scale.
+- ZATCA remains local/mock/scaffold only and is not production compliant.
+
+### Next Recommended Module
+
+Supplier debit notes are the next accounting module because purchases/AP now exists and supplier-side adjustments are needed before deeper purchase-order or inventory flows.
+
 ## Remaining Risks
 
 - The concurrency strategy relies on PostgreSQL row locks produced by conditional updates inside Prisma transactions. A small multi-process load test is still recommended before production.

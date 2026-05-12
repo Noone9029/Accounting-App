@@ -115,6 +115,22 @@ The smoke also verifies document settings, PDF archive creation after invoice PD
 
 On Windows, if `db:generate` fails with Prisma query engine `EPERM`, stop running API/dev Node processes and rerun it. This is usually a file lock on Prisma's generated client DLL.
 
+## Project Audit / Current State
+
+The current engineering audit docs live under `docs/`:
+
+- `docs/PROJECT_AUDIT.md`: high-level current state, maturity, top risks, and next priorities.
+- `docs/IMPLEMENTATION_STATUS.md`: module-by-module status map.
+- `docs/CODEBASE_MAP.md`: repository structure and ownership map.
+- `docs/API_CATALOG.md`: implemented API endpoint catalog.
+- `docs/DATABASE_MODEL_CATALOG.md`: Prisma model and enum catalog.
+- `docs/FRONTEND_ROUTE_CATALOG.md`: frontend route catalog.
+- `docs/ACCOUNTING_WORKFLOW_AUDIT.md`: journal and subledger workflow audit.
+- `docs/ZATCA_STATUS_AUDIT.md`: current ZATCA status and production warnings.
+- `docs/TESTING_AND_SMOKE_AUDIT.md`: test and smoke coverage map.
+- `docs/REMAINING_ROADMAP.md`: prioritized roadmap.
+- `docs/MANUAL_DEPENDENCIES.md`: required human/third-party dependencies.
+
 ## Implemented API
 
 Auth:
