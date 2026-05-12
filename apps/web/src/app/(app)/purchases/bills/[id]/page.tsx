@@ -4,22 +4,29 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadPdf, purchaseBillPdfPath } from "@/lib/pdf-download";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { PurchaseBill } from "@/lib/types";
 
 export default function PurchaseBillDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [bill, setBill] = useState<PurchaseBill | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const canUpdateBill = can(PERMISSIONS.purchaseBills.update);
+  const canFinalizeBill = can(PERMISSIONS.purchaseBills.finalize);
+  const canVoidBill = can(PERMISSIONS.purchaseBills.void);
+  const canCreateDebitNote = can(PERMISSIONS.purchaseDebitNotes.create);
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -124,7 +131,7 @@ export default function PurchaseBillDetailPage() {
           <Link href="/purchases/bills" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Back
           </Link>
-          {bill?.status === "DRAFT" ? (
+          {bill?.status === "DRAFT" && canUpdateBill ? (
             <Link href={`/purchases/bills/${bill.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
               Edit
             </Link>
@@ -134,7 +141,7 @@ export default function PurchaseBillDetailPage() {
               Supplier ledger
             </Link>
           ) : null}
-          {bill?.supplierId ? (
+          {bill?.supplierId && canCreateDebitNote ? (
             <Link
               href={`/purchases/debit-notes/new?billId=${encodeURIComponent(bill.id)}&supplierId=${encodeURIComponent(bill.supplierId)}`}
               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
@@ -147,17 +154,17 @@ export default function PurchaseBillDetailPage() {
               Download PDF
             </button>
           ) : null}
-          {bill?.status === "DRAFT" ? (
+          {bill?.status === "DRAFT" && canFinalizeBill ? (
             <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
               Finalize
             </button>
           ) : null}
-          {bill && bill.status !== "VOIDED" ? (
+          {bill && bill.status !== "VOIDED" && canVoidBill ? (
             <button type="button" onClick={() => void runAction("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Void
             </button>
           ) : null}
-          {bill?.status === "DRAFT" ? (
+          {bill?.status === "DRAFT" && canUpdateBill ? (
             <button type="button" onClick={() => void deleteBill()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Delete
             </button>

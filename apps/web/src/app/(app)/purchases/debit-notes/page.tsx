@@ -3,21 +3,26 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
+import { PERMISSIONS } from "@/lib/permissions";
 import { purchaseDebitNoteStatusLabel } from "@/lib/purchase-debit-notes";
 import type { PurchaseDebitNote } from "@/lib/types";
 
 export default function PurchaseDebitNotesPage() {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [debitNotes, setDebitNotes] = useState<PurchaseDebitNote[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [reloadToken, setReloadToken] = useState(0);
+  const canCreateDebitNote = can(PERMISSIONS.purchaseDebitNotes.create);
+  const canFinalizeDebitNote = can(PERMISSIONS.purchaseDebitNotes.finalize);
 
   useEffect(() => {
     if (!organizationId) {
@@ -73,9 +78,11 @@ export default function PurchaseDebitNotesPage() {
           <h1 className="text-2xl font-semibold text-ink">Debit notes</h1>
           <p className="mt-1 text-sm text-steel">Supplier credits, purchase returns, and AP adjustment tracking.</p>
         </div>
-        <Link href="/purchases/debit-notes/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-          Create debit note
-        </Link>
+        {canCreateDebitNote ? (
+          <Link href="/purchases/debit-notes/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+            Create debit note
+          </Link>
+        ) : null}
       </div>
 
       <div className="space-y-3">
@@ -116,7 +123,7 @@ export default function PurchaseDebitNotesPage() {
                       <Link href={`/purchases/debit-notes/${debitNote.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                         View
                       </Link>
-                      {debitNote.status === "DRAFT" ? (
+                      {debitNote.status === "DRAFT" && canFinalizeDebitNote ? (
                         <button type="button" onClick={() => void finalizeDebitNote(debitNote)} disabled={actionId === debitNote.id} className="rounded-md bg-palm px-2 py-1 text-xs font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
                           Finalize
                         </button>

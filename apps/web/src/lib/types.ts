@@ -87,6 +87,7 @@ export interface AuthResponse {
 
 export interface MeResponse extends AuthUser {
   memberships: Array<{
+    id: string;
     status: string;
     organization: Organization;
     role: { id: string; name: string; permissions: unknown };

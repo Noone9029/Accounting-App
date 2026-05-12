@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { DEFAULT_ROLE_PERMISSIONS } from "../../../packages/shared/src/index";
 import * as bcrypt from "bcryptjs";
 import { DEFAULT_ACCOUNTS, DEFAULT_NUMBER_SEQUENCES, DEFAULT_TAX_RATES } from "../src/accounting/foundation-data";
 
@@ -32,23 +33,33 @@ async function main(): Promise<void> {
     },
   });
 
-  const role = await prisma.role.upsert({
-    where: { organizationId_name: { organizationId: organization.id, name: "Owner" } },
-    update: {},
-    create: {
-      organizationId: organization.id,
-      name: "Owner",
-      permissions: ["*"],
-    },
-  });
+  const roles = new Map<string, { id: string }>();
+  for (const [name, permissions] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
+    const role = await prisma.role.upsert({
+      where: { organizationId_name: { organizationId: organization.id, name } },
+      update: { permissions: [...permissions] },
+      create: {
+        organizationId: organization.id,
+        name,
+        permissions: [...permissions],
+      },
+      select: { id: true },
+    });
+    roles.set(name, role);
+  }
+
+  const ownerRole = roles.get("Owner");
+  if (!ownerRole) {
+    throw new Error("Owner role was not seeded.");
+  }
 
   await prisma.organizationMember.upsert({
     where: { organizationId_userId: { organizationId: organization.id, userId: user.id } },
-    update: { roleId: role.id, status: "ACTIVE" },
+    update: { roleId: ownerRole.id, status: "ACTIVE" },
     create: {
       organizationId: organization.id,
       userId: user.id,
-      roleId: role.id,
+      roleId: ownerRole.id,
       status: "ACTIVE",
     },
   });

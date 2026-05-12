@@ -3,21 +3,26 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { customerRefundSourceTypeLabel, customerRefundStatusBadgeClass, customerRefundStatusLabel } from "@/lib/customer-refunds";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { CustomerRefund } from "@/lib/types";
 
 export default function CustomerRefundsPage() {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [refunds, setRefunds] = useState<CustomerRefund[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [reloadToken, setReloadToken] = useState(0);
+  const canCreateRefund = can(PERMISSIONS.customerRefunds.create);
+  const canVoidRefund = can(PERMISSIONS.customerRefunds.void);
 
   useEffect(() => {
     if (!organizationId) {
@@ -77,9 +82,11 @@ export default function CustomerRefundsPage() {
           <h1 className="text-2xl font-semibold text-ink">Customer refunds</h1>
           <p className="mt-1 text-sm text-steel">Manual refunds of unapplied customer payments and credit notes.</p>
         </div>
-        <Link href="/sales/customer-refunds/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-          Record refund
-        </Link>
+        {canCreateRefund ? (
+          <Link href="/sales/customer-refunds/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+            Record refund
+          </Link>
+        ) : null}
       </div>
 
       <div className="space-y-3">
@@ -124,7 +131,7 @@ export default function CustomerRefundsPage() {
                       <Link href={`/sales/customer-refunds/${refund.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                         View
                       </Link>
-                      {refund.status === "POSTED" ? (
+                      {refund.status === "POSTED" && canVoidRefund ? (
                         <button type="button" onClick={() => void voidRefund(refund)} disabled={actionId === refund.id} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
                           Void
                         </button>

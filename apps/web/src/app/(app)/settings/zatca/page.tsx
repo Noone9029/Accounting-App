@@ -2,9 +2,11 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { downloadAuthenticatedFile } from "@/lib/pdf-download";
+import { PERMISSIONS } from "@/lib/permissions";
 import {
   getZatcaProfileMissingFields,
   shouldShowZatcaRealNetworkWarning,
@@ -58,6 +60,7 @@ interface EgsForm {
 
 export default function ZatcaSettingsPage() {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [profile, setProfile] = useState<ZatcaOrganizationProfile | null>(null);
   const [adapterConfig, setAdapterConfig] = useState<ZatcaAdapterConfigSummary | null>(null);
   const [checklist, setChecklist] = useState<ZatcaComplianceChecklistResponse | null>(null);
@@ -74,6 +77,7 @@ export default function ZatcaSettingsPage() {
   const [actionLoading, setActionLoading] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const canManageZatca = can(PERMISSIONS.zatca.manage);
 
   useEffect(() => {
     if (!organizationId) {
@@ -271,6 +275,7 @@ export default function ZatcaSettingsPage() {
         {loading ? <StatusMessage type="loading">Loading ZATCA settings...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
+        {!canManageZatca ? <StatusMessage type="info">Your role can view ZATCA readiness but cannot manage profile, EGS, CSR, or CSID actions.</StatusMessage> : null}
         <StatusMessage type="info">Local ZATCA generation only. These settings do not submit invoices to ZATCA and are not production credentials.</StatusMessage>
         {shouldShowZatcaRealNetworkWarning(adapterConfig) ? (
           <StatusMessage type="info">Real ZATCA calls are disabled unless explicitly enabled through environment variables.</StatusMessage>
@@ -413,11 +418,13 @@ export default function ZatcaSettingsPage() {
               <TextField label="Additional address number" value={form.additionalAddressNumber} onChange={(value) => updateProfileField("additionalAddressNumber", value)} />
             </div>
 
+            {canManageZatca ? (
             <div className="mt-5 flex justify-end">
               <button type="submit" disabled={saving} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
                 {saving ? "Saving..." : "Save profile"}
               </button>
             </div>
+            ) : null}
           </form>
 
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
@@ -425,6 +432,7 @@ export default function ZatcaSettingsPage() {
             <p className="mt-1 text-sm text-steel">Development placeholders for ICV and previous-invoice hash chaining. Real CSID onboarding comes later.</p>
             <p className="mt-1 text-xs text-rosewood">Mock CSID is for local development only. It does not make invoices ZATCA compliant. Private keys are not shown in the app.</p>
 
+            {canManageZatca ? (
             <form onSubmit={createEgsUnit} className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-[1fr_1fr_auto]">
               <TextField label="Unit name" value={egsForm.name} onChange={(value) => setEgsForm((current) => ({ ...current, name: value }))} />
               <TextField label="Device serial number" value={egsForm.deviceSerialNumber} onChange={(value) => setEgsForm((current) => ({ ...current, deviceSerialNumber: value }))} />
@@ -434,6 +442,7 @@ export default function ZatcaSettingsPage() {
                 </button>
               </div>
             </form>
+            ) : null}
 
             <div className="mt-5 overflow-x-auto rounded-md border border-slate-200">
               <table className="w-full text-left text-sm">
@@ -476,14 +485,16 @@ export default function ZatcaSettingsPage() {
                         <td className="px-4 py-3 font-mono text-xs">{truncateHash(unit.lastInvoiceHash)}</td>
                         <td className="px-4 py-3">
                           <div className="flex min-w-64 flex-wrap gap-2">
-                            <button
-                              type="button"
-                              disabled={actionLoading === `csr-${unit.id}`}
-                              onClick={() => void generateCsr(unit)}
-                              className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
-                            >
-                              {actionLoading === `csr-${unit.id}` ? "Generating..." : "Generate CSR"}
-                            </button>
+                            {canManageZatca ? (
+                              <button
+                                type="button"
+                                disabled={actionLoading === `csr-${unit.id}`}
+                                onClick={() => void generateCsr(unit)}
+                                className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                              >
+                                {actionLoading === `csr-${unit.id}` ? "Generating..." : "Generate CSR"}
+                              </button>
+                            ) : null}
                             {unit.hasCsr ? (
                               <button
                                 type="button"
@@ -494,37 +505,45 @@ export default function ZatcaSettingsPage() {
                                 Download CSR
                               </button>
                             ) : null}
-                            <button
-                              type="button"
-                              disabled={unit.isActive || actionLoading === unit.id}
-                              onClick={() => void activateEgsUnit(unit)}
-                              className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
-                            >
-                              {unit.isActive ? "Active" : actionLoading === unit.id ? "Activating..." : "Activate dev"}
-                            </button>
-                            <label className="flex items-center gap-2">
-                              <span className="sr-only">Mock OTP</span>
-                              <input
-                                value={otpByUnit[unit.id] ?? "000000"}
-                                onChange={(event) => setOtpByUnit((current) => ({ ...current, [unit.id]: event.target.value }))}
-                                className="w-24 rounded-md border border-slate-300 px-2 py-1 font-mono text-xs outline-none focus:border-palm"
-                              />
-                            </label>
-                            <button
-                              type="button"
-                              disabled={!unit.hasCsr || actionLoading === `csid-${unit.id}`}
-                              onClick={() => void requestMockComplianceCsid(unit)}
-                              className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
-                            >
-                              {actionLoading === `csid-${unit.id}` ? "Requesting..." : "Request mock CSID"}
-                            </button>
-                            <button
-                              type="button"
-                              disabled
-                              className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-400 disabled:cursor-not-allowed"
-                            >
-                              Production CSID coming soon
-                            </button>
+                            {canManageZatca ? (
+                              <button
+                                type="button"
+                                disabled={unit.isActive || actionLoading === unit.id}
+                                onClick={() => void activateEgsUnit(unit)}
+                                className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                              >
+                                {unit.isActive ? "Active" : actionLoading === unit.id ? "Activating..." : "Activate dev"}
+                              </button>
+                            ) : null}
+                            {canManageZatca ? (
+                              <label className="flex items-center gap-2">
+                                <span className="sr-only">Mock OTP</span>
+                                <input
+                                  value={otpByUnit[unit.id] ?? "000000"}
+                                  onChange={(event) => setOtpByUnit((current) => ({ ...current, [unit.id]: event.target.value }))}
+                                  className="w-24 rounded-md border border-slate-300 px-2 py-1 font-mono text-xs outline-none focus:border-palm"
+                                />
+                              </label>
+                            ) : null}
+                            {canManageZatca ? (
+                              <button
+                                type="button"
+                                disabled={!unit.hasCsr || actionLoading === `csid-${unit.id}`}
+                                onClick={() => void requestMockComplianceCsid(unit)}
+                                className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
+                              >
+                                {actionLoading === `csid-${unit.id}` ? "Requesting..." : "Request mock CSID"}
+                              </button>
+                            ) : null}
+                            {canManageZatca ? (
+                              <button
+                                type="button"
+                                disabled
+                                className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-400 disabled:cursor-not-allowed"
+                              >
+                                Production CSID coming soon
+                              </button>
+                            ) : null}
                           </div>
                           <div className="mt-2 text-[11px] text-steel">Use 000000 for local mock mode. Real OTP will come from the ZATCA/FATOORA portal later.</div>
                         </td>

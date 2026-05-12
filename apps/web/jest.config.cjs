@@ -7,5 +7,7 @@ module.exports = {
   },
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
+    "^@ledgerbyte/shared$": "<rootDir>/../../packages/shared/src/index.ts",
+    "^\\./permissions\\.js$": "<rootDir>/../../packages/shared/src/permissions.ts",
   },
 };

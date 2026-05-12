@@ -3,20 +3,25 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { CustomerPayment } from "@/lib/types";
 
 export default function CustomerPaymentsPage() {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [payments, setPayments] = useState<CustomerPayment[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [reloadToken, setReloadToken] = useState(0);
+  const canCreatePayment = can(PERMISSIONS.customerPayments.create);
+  const canVoidPayment = can(PERMISSIONS.customerPayments.void);
 
   useEffect(() => {
     if (!organizationId) {
@@ -76,9 +81,11 @@ export default function CustomerPaymentsPage() {
           <h1 className="text-2xl font-semibold text-ink">Customer payments</h1>
           <p className="mt-1 text-sm text-steel">Posted customer receipts and invoice allocations.</p>
         </div>
-        <Link href="/sales/customer-payments/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-          Record payment
-        </Link>
+        {canCreatePayment ? (
+          <Link href="/sales/customer-payments/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+            Record payment
+          </Link>
+        ) : null}
       </div>
 
       <div className="space-y-3">
@@ -121,7 +128,7 @@ export default function CustomerPaymentsPage() {
                       <Link href={`/sales/customer-payments/${payment.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                         View
                       </Link>
-                      {payment.status === "POSTED" ? (
+                      {payment.status === "POSTED" && canVoidPayment ? (
                         <button type="button" onClick={() => void voidPayment(payment)} disabled={actionId === payment.id} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
                           Void
                         </button>

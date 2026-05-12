@@ -3,16 +3,19 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { SalesInvoice, SalesInvoiceStatus } from "@/lib/types";
 
 type StatusFilter = "ALL" | SalesInvoiceStatus;
 
 export default function SalesInvoicesPage() {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [invoices, setInvoices] = useState<SalesInvoice[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState("");
@@ -21,6 +24,8 @@ export default function SalesInvoicesPage() {
   const [reloadToken, setReloadToken] = useState(0);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [customerSearch, setCustomerSearch] = useState("");
+  const canCreateInvoice = can(PERMISSIONS.salesInvoices.create);
+  const canFinalizeInvoice = can(PERMISSIONS.salesInvoices.finalize);
 
   const filteredInvoices = useMemo(() => {
     const normalizedSearch = customerSearch.trim().toLowerCase();
@@ -86,9 +91,11 @@ export default function SalesInvoicesPage() {
           <h1 className="text-2xl font-semibold text-ink">Sales invoices</h1>
           <p className="mt-1 text-sm text-steel">Draft and finalized customer invoices from the live API.</p>
         </div>
-        <Link href="/sales/invoices/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-          Create invoice
-        </Link>
+        {canCreateInvoice ? (
+          <Link href="/sales/invoices/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+            Create invoice
+          </Link>
+        ) : null}
       </div>
 
       <div className="space-y-3">
@@ -159,7 +166,7 @@ export default function SalesInvoicesPage() {
                       <Link href={`/sales/invoices/${invoice.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                         View
                       </Link>
-                      {invoice.status === "DRAFT" ? (
+                      {invoice.status === "DRAFT" && canFinalizeInvoice ? (
                         <button type="button" onClick={() => void finalizeInvoice(invoice)} disabled={actionId === invoice.id} className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:text-slate-400">
                           Finalize
                         </button>

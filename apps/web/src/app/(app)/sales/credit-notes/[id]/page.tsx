@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
@@ -18,12 +19,14 @@ import {
 } from "@/lib/credit-notes";
 import { formatMoneyAmount } from "@/lib/money";
 import { creditNotePdfPath, downloadPdf } from "@/lib/pdf-download";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { CreditNote, OpenSalesInvoice } from "@/lib/types";
 
 export default function CreditNoteDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [creditNote, setCreditNote] = useState<CreditNote | null>(null);
   const [openInvoices, setOpenInvoices] = useState<OpenSalesInvoice[]>([]);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
@@ -221,7 +224,10 @@ export default function CreditNoteDetailPage() {
       : creditNoteAppliedAmount(creditNote.total, creditNote.unappliedAmount)
     : "0.0000";
   const selectedInvoice = openInvoices.find((invoice) => invoice.id === selectedInvoiceId);
-  const canApplyCredit = creditNote?.status === "FINALIZED" && Number(creditNote.unappliedAmount) > 0;
+  const canCreateCreditNote = can(PERMISSIONS.creditNotes.create);
+  const canFinalizeCreditNote = can(PERMISSIONS.creditNotes.finalize);
+  const canVoidCreditNote = can(PERMISSIONS.creditNotes.void);
+  const canApplyCredit = creditNote?.status === "FINALIZED" && Number(creditNote.unappliedAmount) > 0 && canFinalizeCreditNote;
 
   return (
     <section>
@@ -258,17 +264,17 @@ export default function CreditNoteDetailPage() {
               Download PDF
             </button>
           ) : null}
-          {creditNote?.status === "DRAFT" ? (
+          {creditNote?.status === "DRAFT" && canFinalizeCreditNote ? (
             <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
               Finalize
             </button>
           ) : null}
-          {creditNote && creditNote.status !== "VOIDED" ? (
+          {creditNote && creditNote.status !== "VOIDED" && canVoidCreditNote ? (
             <button type="button" onClick={() => void runAction("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Void
             </button>
           ) : null}
-          {creditNote?.status === "DRAFT" ? (
+          {creditNote?.status === "DRAFT" && canCreateCreditNote ? (
             <button type="button" onClick={() => void deleteCreditNote()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Delete
             </button>
@@ -396,7 +402,7 @@ export default function CreditNoteDetailPage() {
                             <Link href={`/sales/invoices/${allocation.invoiceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                               View invoice
                             </Link>
-                            {canReverseCreditNoteAllocation(allocation) ? (
+                            {canReverseCreditNoteAllocation(allocation) && canVoidCreditNote ? (
                               <button type="button" onClick={() => void reverseAllocation(allocation.id)} disabled={actionLoading} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
                                 Reverse
                               </button>

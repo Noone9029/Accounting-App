@@ -3,20 +3,25 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { PurchaseBill } from "@/lib/types";
 
 export default function PurchaseBillsPage() {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [bills, setBills] = useState<PurchaseBill[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [reloadToken, setReloadToken] = useState(0);
+  const canCreateBill = can(PERMISSIONS.purchaseBills.create);
+  const canFinalizeBill = can(PERMISSIONS.purchaseBills.finalize);
 
   useEffect(() => {
     if (!organizationId) {
@@ -72,9 +77,11 @@ export default function PurchaseBillsPage() {
           <h1 className="text-2xl font-semibold text-ink">Purchase bills</h1>
           <p className="mt-1 text-sm text-steel">Supplier bills, AP status, and balance due tracking.</p>
         </div>
-        <Link href="/purchases/bills/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-          Create bill
-        </Link>
+        {canCreateBill ? (
+          <Link href="/purchases/bills/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+            Create bill
+          </Link>
+        ) : null}
       </div>
 
       <div className="space-y-3">
@@ -117,7 +124,7 @@ export default function PurchaseBillsPage() {
                       <Link href={`/purchases/bills/${bill.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                         View
                       </Link>
-                      {bill.status === "DRAFT" ? (
+                      {bill.status === "DRAFT" && canFinalizeBill ? (
                         <button type="button" onClick={() => void finalizeBill(bill)} disabled={actionId === bill.id} className="rounded-md bg-palm px-2 py-1 text-xs font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
                           Finalize
                         </button>

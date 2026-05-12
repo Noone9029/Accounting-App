@@ -2,9 +2,11 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatMoneyAmount } from "@/lib/money";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { Account, Item, ItemStatus, ItemType, TaxRate } from "@/lib/types";
 
 const itemTypes: ItemType[] = ["SERVICE", "PRODUCT"];
@@ -12,6 +14,7 @@ const itemStatuses: ItemStatus[] = ["ACTIVE", "DISABLED"];
 
 export default function ItemsPage() {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [items, setItems] = useState<Item[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
@@ -20,6 +23,7 @@ export default function ItemsPage() {
   const [actionId, setActionId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const canManageItems = can(PERMISSIONS.items.manage);
 
   const revenueAccounts = accounts.filter((account) => account.isActive && account.allowPosting && account.type === "REVENUE");
   const salesTaxRates = taxRates.filter((taxRate) => taxRate.isActive && (taxRate.scope === "SALES" || taxRate.scope === "BOTH"));
@@ -160,6 +164,7 @@ export default function ItemsPage() {
         <p className="mt-1 text-sm text-steel">Products and services used on sales invoices.</p>
       </div>
 
+      {canManageItems ? (
       <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
         <h2 className="text-base font-semibold text-ink">Create item</h2>
         <form onSubmit={createItem} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -202,8 +207,9 @@ export default function ItemsPage() {
           </button>
         </form>
       </div>
+      ) : null}
 
-      {editingItem ? (
+      {editingItem && canManageItems ? (
         <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
           <h2 className="text-base font-semibold text-ink">Edit item</h2>
           <form key={editingItem.id} onSubmit={updateItem} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -275,11 +281,11 @@ export default function ItemsPage() {
                   <td className="px-4 py-3 text-steel">{item.status}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => setEditingItem(item)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">Edit</button>
-                      {item.status === "ACTIVE" ? (
+                      {canManageItems ? <button type="button" onClick={() => setEditingItem(item)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">Edit</button> : null}
+                      {item.status === "ACTIVE" && canManageItems ? (
                         <button type="button" onClick={() => void disableItem(item)} disabled={actionId === item.id} className="rounded-md border border-amber px-2 py-1 text-xs font-medium text-amber hover:bg-amber-50 disabled:cursor-not-allowed disabled:text-slate-400">Disable</button>
                       ) : null}
-                      <button type="button" onClick={() => void deleteItem(item)} disabled={actionId === item.id} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">Delete</button>
+                      {canManageItems ? <button type="button" onClick={() => void deleteItem(item)} disabled={actionId === item.id} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">Delete</button> : null}
                     </div>
                   </td>
                 </tr>

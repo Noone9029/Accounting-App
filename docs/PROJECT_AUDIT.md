@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-12
 
-Current commit audited: `dd498c7ab3a5e5108b93dcfa3cc43315cee610d7` (`Add purchases and supplier payments MVP`)
+Current commit audited: pending (`Enforce role permissions`)
 
 ## Summary
 
@@ -35,7 +35,10 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 
 ## What Works End To End
 
-- Register/login and organization selection.
+- Register/login, organization selection, and role-aware `/auth/me` membership responses.
+- Tenant-scoped role permissions with default Owner/Admin/Accountant/Sales/Purchases/Viewer roles.
+- API permission guards for sensitive accounting, document, report, fiscal period, and ZATCA actions.
+- Frontend sidebar, route access, and high-risk action visibility based on active role permissions.
 - Tenant-scoped CRUD foundations for accounts, branches, contacts, tax rates, items, and journals.
 - Sales invoice draft/create/edit/finalize/void with AR journal posting.
 - Customer payment posting with invoice allocation and balance updates.
@@ -53,7 +56,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 
 ## Groundwork Or Scaffold Only
 
-- Role/permission data exists, but authorization is currently active-organization membership only.
+- Invite/user administration and role editor UI remain limited even though permission enforcement now exists.
 - Fiscal periods exist in schema, but no period close/lock enforcement exists.
 - Reports are not implemented beyond customer/supplier ledger and statements.
 - Inventory tracking flags exist on items, but no warehouse, stock, COGS, or valuation engine exists.
@@ -66,28 +69,28 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 ## Top 10 Risks
 
 1. ZATCA is not production compliant; real onboarding, signing, SDK validation, and API submission are missing.
-2. Role permissions are stored but not enforced beyond org membership.
-3. No fiscal-period locking; backdated edits/postings can affect prior accounting periods.
-4. No formal financial reports such as trial balance, P&L, balance sheet, VAT return, or aging.
-5. No bank reconciliation or bank statement import.
-6. Inventory flags exist without stock movements, valuation, COGS, or warehouse controls.
-7. Generated PDFs are stored as base64 in the database, which is not scalable for production.
-8. Production secrets/key custody is not hardened; ZATCA private key storage is explicitly dev-only.
-9. Frontend has limited end-to-end browser testing and limited UX validation for all routes.
-10. Supplier AP balance display reuses a generic Dr/Cr helper; supplier-specific payable wording should be reviewed to avoid user confusion.
+2. Invite/user administration and role editor workflows are still limited despite API/UI permission enforcement.
+3. No approval workflow, dual control, or maker-checker policy for high-risk accounting actions.
+4. No bank reconciliation or bank statement import.
+5. Inventory flags exist without stock movements, valuation, COGS, or warehouse controls.
+6. Generated PDFs are stored as base64 in the database, which is not scalable for production.
+7. Production secrets/key custody is not hardened; ZATCA private key storage is explicitly dev-only.
+8. Frontend has limited end-to-end browser testing and limited UX validation for all routes.
+9. Supplier AP balance display reuses a generic Dr/Cr helper; supplier-specific payable wording should be reviewed to avoid user confusion.
+10. Permission coverage must be kept current as new API routes and UI actions are added.
 
 ## Top 10 Next Priorities
 
 1. Run a human QA pass through all sales, purchase, payment, refund, and PDF routes.
-2. Enforce role/permission checks on API and UI navigation.
-3. Add accounting reports: trial balance, general ledger, P&L, balance sheet, VAT return, AR/AP aging.
-4. Add fiscal period lock/close behavior and posting-date guards.
-5. Add debit notes and supplier credit workflows.
-6. Add purchase orders and cash expenses.
-7. Add bank accounts, bank statement import, and reconciliation.
-8. Add inventory warehouses, stock movements, adjustments, valuation, and COGS.
-9. Advance ZATCA official SDK validation, official XML mapping, signing, CSID, clearance/reporting, and PDF/A-3.
-10. Move generated documents to object storage and prepare production deployment, monitoring, backups, and secrets management.
+2. Add role/member management UI and invite flow hardening on top of the new permission checks.
+3. Add report export/PDF delivery, official VAT return work, and accountant review for report definitions.
+4. Add fiscal year close, retained earnings close, and controlled unlock/approval workflows.
+5. Add purchase orders and bill matching.
+6. Add bank accounts, bank statement import, and reconciliation.
+7. Add inventory warehouses, stock movements, adjustments, valuation, and COGS.
+8. Advance ZATCA official SDK validation, official XML mapping, signing, CSID, clearance/reporting, and PDF/A-3.
+9. Move generated documents to object storage.
+10. Prepare production deployment, monitoring, backups, secrets management, and security review.
 
 ## New Issues Found During Audit
 
@@ -100,4 +103,4 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 - `corepack pnpm typecheck`: passed.
 - `corepack pnpm test`: passed.
 - `corepack pnpm build`: passed.
-- `corepack pnpm smoke:accounting`: skipped because local API was not responding on `localhost:4000` during this audit.
+- `corepack pnpm smoke:accounting`: passed against the local API on `localhost:4000`.

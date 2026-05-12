@@ -3,16 +3,19 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { creditNoteStatusBadgeClass, creditNoteStatusLabel } from "@/lib/credit-notes";
 import { formatMoneyAmount } from "@/lib/money";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { CreditNote, CreditNoteStatus } from "@/lib/types";
 
 type StatusFilter = "ALL" | CreditNoteStatus;
 
 export default function CreditNotesPage() {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState("");
@@ -21,6 +24,8 @@ export default function CreditNotesPage() {
   const [reloadToken, setReloadToken] = useState(0);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [customerSearch, setCustomerSearch] = useState("");
+  const canCreateCreditNote = can(PERMISSIONS.creditNotes.create);
+  const canFinalizeCreditNote = can(PERMISSIONS.creditNotes.finalize);
 
   const filteredCreditNotes = useMemo(() => {
     const normalizedSearch = customerSearch.trim().toLowerCase();
@@ -86,9 +91,11 @@ export default function CreditNotesPage() {
           <h1 className="text-2xl font-semibold text-ink">Sales credit notes</h1>
           <p className="mt-1 text-sm text-steel">Customer credit notes, revenue reversal posting, and PDF downloads.</p>
         </div>
-        <Link href="/sales/credit-notes/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-          Create credit note
-        </Link>
+        {canCreateCreditNote ? (
+          <Link href="/sales/credit-notes/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+            Create credit note
+          </Link>
+        ) : null}
       </div>
 
       <div className="space-y-3">
@@ -157,7 +164,7 @@ export default function CreditNotesPage() {
                       <Link href={`/sales/credit-notes/${creditNote.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                         View
                       </Link>
-                      {creditNote.status === "DRAFT" ? (
+                      {creditNote.status === "DRAFT" && canFinalizeCreditNote ? (
                         <button type="button" onClick={() => void finalizeCreditNote(creditNote)} disabled={actionId === creditNote.id} className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:text-slate-400">
                           Finalize
                         </button>

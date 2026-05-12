@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadPdf, supplierPaymentReceiptPdfPath } from "@/lib/pdf-download";
+import { PERMISSIONS } from "@/lib/permissions";
 import {
   canReverseSupplierPaymentUnappliedAllocation,
   supplierPaymentActiveUnappliedAppliedAmount,
@@ -21,6 +23,7 @@ import type { OpenPurchaseBill, SupplierPayment, SupplierPaymentReceiptData } fr
 export default function SupplierPaymentDetailPage() {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [payment, setPayment] = useState<SupplierPayment | null>(null);
   const [receiptData, setReceiptData] = useState<SupplierPaymentReceiptData | null>(null);
   const [openBills, setOpenBills] = useState<OpenPurchaseBill[]>([]);
@@ -211,7 +214,9 @@ export default function SupplierPaymentDetailPage() {
 
   const unappliedAppliedAmount = payment ? supplierPaymentActiveUnappliedAppliedAmount(payment.unappliedAllocations) : "0.0000";
   const selectedOpenBill = openBills.find((bill) => bill.id === applyBillId);
-  const canApplyUnapplied = payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0;
+  const canCreatePayment = can(PERMISSIONS.supplierPayments.create);
+  const canVoidPaymentPermission = can(PERMISSIONS.supplierPayments.void);
+  const canApplyUnapplied = payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0 && canCreatePayment;
 
   return (
     <section>
@@ -242,7 +247,7 @@ export default function SupplierPaymentDetailPage() {
               Record supplier refund
             </Link>
           ) : null}
-          {payment?.status === "POSTED" ? (
+          {payment?.status === "POSTED" && canVoidPaymentPermission ? (
             <button type="button" onClick={() => void voidPayment()} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Void
             </button>
@@ -357,7 +362,7 @@ export default function SupplierPaymentDetailPage() {
                             <Link href={`/purchases/bills/${allocation.billId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                               View bill
                             </Link>
-                            {canReverseSupplierPaymentUnappliedAllocation(allocation) ? (
+                            {canReverseSupplierPaymentUnappliedAllocation(allocation) && canVoidPaymentPermission ? (
                               <button type="button" onClick={() => void reverseUnappliedAllocation(allocation.id)} disabled={actionLoading} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
                                 Reverse
                               </button>

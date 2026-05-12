@@ -65,7 +65,9 @@ export class AuthService {
         email: true,
         name: true,
         memberships: {
+          where: { status: "ACTIVE" },
           select: {
+            id: true,
             status: true,
             organization: {
               select: {

@@ -1,17 +1,20 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import { PERMISSIONS } from "@ledgerbyte/shared";
 import type { Response } from "express";
 import { AuthenticatedUser } from "../auth/auth.types";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
+import { RequirePermissions } from "../auth/decorators/require-permissions.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
+import { PermissionGuard } from "../auth/guards/permission.guard";
 import { ContactLedgerService } from "./contact-ledger.service";
 import { ContactService } from "./contact.service";
 import { CreateContactDto } from "./dto/create-contact.dto";
 import { UpdateContactDto } from "./dto/update-contact.dto";
 
 @Controller("contacts")
-@UseGuards(JwtAuthGuard, OrganizationContextGuard)
+@UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
 export class ContactController {
   constructor(
     private readonly contactService: ContactService,
@@ -19,21 +22,25 @@ export class ContactController {
   ) {}
 
   @Get()
+  @RequirePermissions(PERMISSIONS.contacts.view)
   list(@CurrentOrganizationId() organizationId: string) {
     return this.contactService.list(organizationId);
   }
 
   @Post()
+  @RequirePermissions(PERMISSIONS.contacts.manage)
   create(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Body() dto: CreateContactDto) {
     return this.contactService.create(organizationId, user.id, dto);
   }
 
   @Get(":id/ledger")
+  @RequirePermissions(PERMISSIONS.contacts.view)
   ledger(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.contactLedgerService.ledger(organizationId, id);
   }
 
   @Get(":id/statement")
+  @RequirePermissions(PERMISSIONS.contacts.view)
   statement(
     @CurrentOrganizationId() organizationId: string,
     @Param("id") id: string,
@@ -44,6 +51,7 @@ export class ContactController {
   }
 
   @Get(":id/statement-pdf-data")
+  @RequirePermissions(PERMISSIONS.contacts.view)
   statementPdfData(
     @CurrentOrganizationId() organizationId: string,
     @Param("id") id: string,
@@ -54,6 +62,7 @@ export class ContactController {
   }
 
   @Get(":id/statement.pdf")
+  @RequirePermissions(PERMISSIONS.contacts.view)
   async statementPdf(
     @CurrentOrganizationId() organizationId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -72,6 +81,7 @@ export class ContactController {
   }
 
   @Post(":id/generate-statement-pdf")
+  @RequirePermissions(PERMISSIONS.contacts.view)
   generateStatementPdf(
     @CurrentOrganizationId() organizationId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -83,11 +93,13 @@ export class ContactController {
   }
 
   @Get(":id/supplier-ledger")
+  @RequirePermissions(PERMISSIONS.contacts.view)
   supplierLedger(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.contactLedgerService.supplierLedger(organizationId, id);
   }
 
   @Get(":id/supplier-statement")
+  @RequirePermissions(PERMISSIONS.contacts.view)
   supplierStatement(
     @CurrentOrganizationId() organizationId: string,
     @Param("id") id: string,
@@ -98,11 +110,13 @@ export class ContactController {
   }
 
   @Get(":id")
+  @RequirePermissions(PERMISSIONS.contacts.view)
   get(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.contactService.get(organizationId, id);
   }
 
   @Patch(":id")
+  @RequirePermissions(PERMISSIONS.contacts.manage)
   update(
     @CurrentOrganizationId() organizationId: string,
     @CurrentUser() user: AuthenticatedUser,

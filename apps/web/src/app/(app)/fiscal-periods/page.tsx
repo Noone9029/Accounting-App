@@ -2,19 +2,24 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { fiscalPeriodLockWarning, fiscalPeriodStatusClass, fiscalPeriodStatusLabel, validateFiscalPeriodForm } from "@/lib/fiscal-periods";
 import { formatOptionalDate } from "@/lib/invoice-display";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { FiscalPeriod } from "@/lib/types";
 
 export default function FiscalPeriodsPage() {
   const organizationId = useActiveOrganizationId();
+  const { canAny } = usePermissions();
   const [periods, setPeriods] = useState<FiscalPeriod[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const canManagePeriods = canAny(PERMISSIONS.fiscalPeriods.manage);
+  const canLockPeriods = canAny(PERMISSIONS.fiscalPeriods.lock, PERMISSIONS.fiscalPeriods.manage);
 
   useEffect(() => {
     if (!organizationId) {
@@ -92,6 +97,7 @@ export default function FiscalPeriodsPage() {
         Closed and locked periods block finalized, posted, voided, and reversal accounting entries. {fiscalPeriodLockWarning()}
       </div>
 
+      {canManagePeriods ? (
       <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
         <h2 className="text-base font-semibold text-ink">Create fiscal period</h2>
         <form onSubmit={createPeriod} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_0.8fr_0.8fr_auto]">
@@ -103,6 +109,7 @@ export default function FiscalPeriodsPage() {
           </button>
         </form>
       </div>
+      ) : null}
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load fiscal periods.</StatusMessage> : null}
@@ -137,17 +144,17 @@ export default function FiscalPeriodsPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
-                      {period.status === "OPEN" ? (
+                      {period.status === "OPEN" && canManagePeriods ? (
                         <button type="button" onClick={() => transitionPeriod(period, "close")} className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                           Close
                         </button>
                       ) : null}
-                      {period.status === "CLOSED" ? (
+                      {period.status === "CLOSED" && canManagePeriods ? (
                         <button type="button" onClick={() => transitionPeriod(period, "reopen")} className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                           Reopen
                         </button>
                       ) : null}
-                      {period.status !== "LOCKED" ? (
+                      {period.status !== "LOCKED" && canLockPeriods ? (
                         <button type="button" onClick={() => transitionPeriod(period, "lock")} className="rounded-md border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50">
                           Lock
                         </button>

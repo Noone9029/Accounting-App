@@ -109,7 +109,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, organization discovery, item/customer/supplier setup, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
+The smoke covers seed login, `/auth/me` role permission visibility, organization discovery, item/customer/supplier setup, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
 
@@ -137,13 +137,19 @@ Auth:
 
 - `POST /auth/register`
 - `POST /auth/login`
-- `GET /auth/me`
+- `GET /auth/me` returns active memberships, role name, and role permissions
 
 Organizations:
 
 - `POST /organizations`
 - `GET /organizations`
 - `GET /organizations/:id`
+- `PATCH /organizations/:id`
+
+Roles:
+
+- `GET /roles`
+- `GET /roles/:id`
 
 Accounts:
 
@@ -921,12 +927,42 @@ Future real onboarding steps:
 8. Request production CSID only after sandbox/compliance checks pass.
 9. Store private keys and issued certificates in KMS/secrets manager, not in normal database fields.
 
+## Permission Model
+
+LedgerByte uses tenant-scoped role permissions stored on `Role.permissions` JSON and shared string constants from `packages/shared/src/permissions.ts`.
+
+Default seeded roles:
+
+- `Owner`: full access, including `admin.fullAccess`.
+- `Admin`: broad business access without the system-level `admin.fullAccess` flag.
+- `Accountant`: chart of accounts, tax, journals, reports, documents, fiscal period management, and accounting workflow posting/void permissions.
+- `Sales`: contacts, items view, sales invoices, customer payments, credit notes, customer refunds, and document access.
+- `Purchases`: contacts, items view, purchase bills, supplier payments, debit notes, supplier refunds, cash expenses, and document access.
+- `Viewer`: read-only access across core accounting, reports, documents, and ZATCA status.
+
+Permission names are dotted strings such as `reports.view`, `salesInvoices.finalize`, `customerPayments.void`, `purchaseBills.finalize`, `fiscalPeriods.lock`, and `zatca.manage`.
+
+Backend enforcement:
+
+- Sensitive tenant endpoints use `JwtAuthGuard`, `OrganizationContextGuard`, and `PermissionGuard`.
+- `@RequirePermissions(...)` declares the required permission for each route.
+- `admin.fullAccess` and legacy `*` permissions allow all guarded actions.
+- Missing permissions return HTTP 403 with `You do not have permission to perform this action.`
+- Organization detail/update endpoints remain tenant-safe by checking the user's membership and role against the requested organization id.
+
+Frontend enforcement:
+
+- `/auth/me` exposes active memberships with role name and permissions.
+- Sidebar navigation is filtered by permissions.
+- Page-level route protection shows an access-denied panel instead of crashing or redirecting forever.
+- High-risk action buttons are hidden when the active role lacks the matching create/update/finalize/void/manage permission.
+
 ## Current Package Boundaries
 
 - `packages/accounting-core`: decimal-safe journal and invoice calculation rules
 - `packages/zatca-core`: local-only ZATCA XML, QR, hash, and CSR groundwork for future Phase 2 integration
 - `packages/pdf-core`: shared PDF data contracts and basic server-side renderers
-- `packages/shared`: shared tenant/API types
+- `packages/shared`: shared tenant/API types and permission constants
 - `packages/ui`: small UI utility package placeholder
 
 ## Known Limitations
@@ -948,4 +984,5 @@ Future real onboarding steps:
 - Bank reconciliation is not implemented yet.
 - Inventory movement and stock valuation are not implemented yet.
 - BullMQ workers and S3 upload adapters are not wired yet.
-- Authorization is role-ready but currently only enforces active organization membership.
+- Invite/user management and the role editor UI are still limited.
+- Fine-grained approval workflows, dual control, and delegated approval chains are not implemented yet.

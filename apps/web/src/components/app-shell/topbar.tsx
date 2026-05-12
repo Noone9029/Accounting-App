@@ -1,7 +1,13 @@
+"use client";
+
 import Link from "next/link";
+import { usePermissions } from "@/components/permissions/permission-provider";
+import { PERMISSIONS } from "@/lib/permissions";
 import { OrganizationSwitcher } from "./organization-switcher";
 
 export function Topbar() {
+  const { activeMembership, can } = usePermissions();
+
   return (
     <header className="flex min-h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
       <div>
@@ -10,12 +16,16 @@ export function Topbar() {
       </div>
       <div className="flex items-center gap-3">
         <OrganizationSwitcher />
-        <Link href="/organization/setup" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Organization setup
-        </Link>
-        <Link href="/journal-entries/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-          New journal
-        </Link>
+        {!activeMembership || can(PERMISSIONS.organization.update) ? (
+          <Link href="/organization/setup" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Organization setup
+          </Link>
+        ) : null}
+        {can(PERMISSIONS.journals.create) ? (
+          <Link href="/journal-entries/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+            New journal
+          </Link>
+        ) : null}
       </div>
     </header>
   );

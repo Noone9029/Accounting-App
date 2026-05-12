@@ -4,6 +4,13 @@ Audit date: 2026-05-12
 
 Route source: `apps/web/src/app`
 
+## Permission Behavior
+
+- App routes are wrapped in a permission provider that loads `/auth/me` and the active organization membership.
+- The sidebar filters top-level and child nav items by view permissions.
+- Route protection shows an access-denied panel when a user lacks the page permission.
+- High-risk buttons such as finalize, void, delete, apply/reverse allocation, fiscal period lock, ZATCA generate/check, and document settings save are hidden unless the active role has the matching permission.
+
 ## Auth And Setup
 
 | Route | Purpose | Data fetched | Actions | Status | Missing UX pieces |
@@ -20,7 +27,7 @@ Route source: `apps/web/src/app`
 | `/dashboard` | App dashboard shell. | Current org/user summary. | Navigation. | Partial | Real KPIs and reports missing. |
 | `/accounts` | Chart of accounts. | Accounts. | Create/update/delete accounts. | Implemented | Hierarchical drag/drop and COA templates missing. |
 | `/tax-rates` | Tax rates. | Tax rates. | Create/update rates. | Implemented | VAT report linkage missing. |
-| `/branches` | Branch management. | Branches. | Create/update branches. | Implemented | Default branch normalization and branch permissions missing. |
+| `/branches` | Branch management. | Branches. | Create/update branches. | Implemented | Default branch normalization still missing; branch create/update is now gated by organization update permission. |
 | `/items` | Product/service catalog. | Items, accounts, tax rates. | Create/update/delete items. | Partial | Inventory quantities and stock history missing. |
 | `/documents` | Generated document archive. | Generated documents. | Download archived PDFs. | Implemented | Storage/provider status and filters could improve. |
 | `/fiscal-periods` | Fiscal period management. | Fiscal periods. | Create, close, reopen, and lock periods. | Implemented | No unlock/admin approval or fiscal year wizard yet. |
@@ -78,4 +85,5 @@ Route source: `apps/web/src/app`
 - Most implemented routes use API helper errors, but full browser E2E coverage is not yet present.
 - Supplier ledger/statement views use the same table component as customer ledgers; AP-specific wording should be refined.
 - Settings and document routes are operational but not production-grade administration screens.
+- Permission gating is MVP-grade UI hardening only; backend guards remain the source of truth.
 - Placeholder route should be replaced as reports, inventory, payroll, and bank modules are added.

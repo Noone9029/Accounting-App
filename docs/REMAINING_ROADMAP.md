@@ -11,7 +11,7 @@ Tasks:
 - Run guided QA through every implemented frontend route.
 - Fix UX inconsistencies, especially supplier AP balance labels.
 - Add browser E2E tests for sales invoice, customer payment, credit note, customer refund, purchase bill, supplier payment, document archive, and ZATCA settings flows.
-- Enforce role/permission checks in API guards and UI navigation.
+- Harden role/member administration now that API guards, route protection, nav filtering, and action gating are in place.
 - Harden fiscal period UX with period templates, optional reversal-date selection, and admin unlock approval design.
 - Add report export/PDF groundwork and accountant review pass for report layouts.
 - Move Prisma seed config to `prisma.config.ts` before Prisma 7.
@@ -25,7 +25,7 @@ Risk level: Medium.
 
 Recommended next prompt:
 
-> Audit and harden current AR/AP MVP browser flows, including role permission enforcement plan and Playwright smoke coverage.
+> Add role-management and invite-flow UI on top of the existing permission guard system, with browser smoke coverage for restricted users.
 
 ## Phase 2: Finish Wafeq Core Accounting Modules
 
@@ -127,6 +127,7 @@ Tasks:
 - Subscription billing and plan enforcement.
 - Domain, DNS, SSL, and environment management.
 - Security hardening: rate limits, CORS, password policy, audit coverage, secrets rotation.
+- Approval workflows and dual-control policies for high-risk accounting actions.
 - Observability: logs, metrics, tracing, alerts.
 - Multi-language polish, Arabic/English layout review, and regional formatting.
 - Data import/export and admin support tooling.

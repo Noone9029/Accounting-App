@@ -3,21 +3,26 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { canVoidCashExpense, cashExpensePaidThroughLabel, cashExpenseStatusBadgeClass, cashExpenseStatusLabel } from "@/lib/cash-expenses";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { CashExpense } from "@/lib/types";
 
 export default function CashExpensesPage() {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [expenses, setExpenses] = useState<CashExpense[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [reloadToken, setReloadToken] = useState(0);
+  const canCreateExpense = can(PERMISSIONS.cashExpenses.create);
+  const canVoidExpensePermission = can(PERMISSIONS.cashExpenses.void);
 
   useEffect(() => {
     if (!organizationId) {
@@ -77,9 +82,11 @@ export default function CashExpensesPage() {
           <h1 className="text-2xl font-semibold text-ink">Cash expenses</h1>
           <p className="mt-1 text-sm text-steel">Immediate paid expenses that debit expense/VAT and credit cash or bank.</p>
         </div>
-        <Link href="/purchases/cash-expenses/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-          Post cash expense
-        </Link>
+        {canCreateExpense ? (
+          <Link href="/purchases/cash-expenses/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+            Post cash expense
+          </Link>
+        ) : null}
       </div>
 
       <div className="space-y-3">
@@ -124,7 +131,7 @@ export default function CashExpensesPage() {
                       <Link href={`/purchases/cash-expenses/${expense.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                         View
                       </Link>
-                      {canVoidCashExpense(expense.status) ? (
+                      {canVoidCashExpense(expense.status) && canVoidExpensePermission ? (
                         <button type="button" onClick={() => void voidExpense(expense)} disabled={actionId === expense.id} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
                           Void
                         </button>

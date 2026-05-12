@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
@@ -11,15 +12,18 @@ import {
   settingsToForm,
   type OrganizationDocumentSettingsForm,
 } from "@/lib/document-settings";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { OrganizationDocumentSettings } from "@/lib/types";
 
 export default function DocumentSettingsPage() {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [form, setForm] = useState<OrganizationDocumentSettingsForm | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const canManageSettings = can(PERMISSIONS.documentSettings.manage);
 
   useEffect(() => {
     if (!organizationId) {
@@ -97,6 +101,7 @@ export default function DocumentSettingsPage() {
         {loading ? <StatusMessage type="loading">Loading document settings...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
+        {!canManageSettings ? <StatusMessage type="info">Your role can view document settings but cannot save changes.</StatusMessage> : null}
       </div>
 
       {form ? (
@@ -138,11 +143,13 @@ export default function DocumentSettingsPage() {
             </div>
           </div>
 
+          {canManageSettings ? (
           <div className="flex justify-end">
             <button type="submit" disabled={saving} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
               {saving ? "Saving..." : "Save settings"}
             </button>
           </div>
+          ) : null}
         </form>
       ) : null}
     </section>

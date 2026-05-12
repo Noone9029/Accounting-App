@@ -2,18 +2,22 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { Account, AccountType } from "@/lib/types";
 
 const accountTypes: AccountType[] = ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE", "COST_OF_SALES"];
 
 export default function AccountsPage() {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const canManageAccounts = can(PERMISSIONS.accounts.manage);
 
   useEffect(() => {
     if (!organizationId) {
@@ -79,6 +83,7 @@ export default function AccountsPage() {
         <p className="mt-1 text-sm text-steel">Live tenant-scoped accounts from the API.</p>
       </div>
 
+      {canManageAccounts ? (
       <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
         <h2 className="text-base font-semibold text-ink">Create account</h2>
         <form onSubmit={createAccount} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[0.6fr_1fr_0.8fr_1fr_auto]">
@@ -110,6 +115,7 @@ export default function AccountsPage() {
           </div>
         </form>
       </div>
+      ) : null}
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load accounts.</StatusMessage> : null}

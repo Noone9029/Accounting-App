@@ -4,23 +4,27 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { canVoidCashExpense, cashExpensePaidThroughLabel, cashExpenseStatusBadgeClass, cashExpenseStatusLabel } from "@/lib/cash-expenses";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { cashExpensePdfPath, downloadPdf } from "@/lib/pdf-download";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { CashExpense, CashExpensePdfData } from "@/lib/types";
 
 export default function CashExpenseDetailPage() {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [expense, setExpense] = useState<CashExpense | null>(null);
   const [pdfData, setPdfData] = useState<CashExpensePdfData | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const canVoidExpense = can(PERMISSIONS.cashExpenses.void);
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -126,7 +130,7 @@ export default function CashExpenseDetailPage() {
               Download PDF
             </button>
           ) : null}
-          {canVoidCashExpense(expense?.status) ? (
+          {canVoidCashExpense(expense?.status) && canVoidExpense ? (
             <button type="button" onClick={() => void voidExpense()} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Void
             </button>

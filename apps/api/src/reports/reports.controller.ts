@@ -1,11 +1,15 @@
 import { Controller, Get, Query, UseGuards } from "@nestjs/common";
+import { PERMISSIONS } from "@ledgerbyte/shared";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
+import { RequirePermissions } from "../auth/decorators/require-permissions.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
+import { PermissionGuard } from "../auth/guards/permission.guard";
 import { ReportDateQuery, ReportsService } from "./reports.service";
 
 @Controller("reports")
-@UseGuards(JwtAuthGuard, OrganizationContextGuard)
+@UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
+@RequirePermissions(PERMISSIONS.reports.view)
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 

@@ -669,8 +669,8 @@ Commit inspected: `dd498c7` (`Add purchases and supplier payments MVP`)
 
 ### Major Remaining Risks
 
-- Role permissions are not enforced beyond active organization membership.
-- Fiscal periods exist only as schema groundwork and do not lock posting dates.
+- Role permission enforcement is now MVP-grade, but invite/member management and approval workflows remain limited.
+- Fiscal periods now lock posting dates, but formal year-end close and approval workflows remain limited.
 - Core financial reports now have MVP coverage, but still need accountant review and production hardening.
 - Inventory/COGS, bank reconciliation, and purchase orders remain unimplemented.
 - Generated PDFs are still stored as database base64 and need object storage before production scale.
@@ -810,6 +810,35 @@ Commit inspected: pending (`Add fiscal period posting locks`)
 - No fiscal year wizard, period templates, or year-end close workflow exists yet.
 - No retained earnings close process exists yet.
 - Reports do not yet label or summarize fiscal period status for selected date ranges.
+
+## Role Permission Enforcement
+
+Audit date: 2026-05-12
+
+Commit inspected: pending (`Enforce role permissions`)
+
+### Permissions Enforcement Added
+
+- Added shared permission constants, default role permission sets, and helpers in `packages/shared`.
+- Seeded Owner, Admin, Accountant, Sales, Purchases, and Viewer roles with explicit permission arrays.
+- Added a tenant-scoped `PermissionGuard` and `@RequirePermissions(...)` decorator for sensitive API routes.
+- Enforced permissions on accounting, sales, purchase, reports, document, fiscal period, generated document, organization, role, branch, audit, and ZATCA endpoints.
+- Updated `/auth/me` to expose active memberships with role name and permissions for frontend decisions.
+- Added frontend permission helpers, sidebar filtering, route-level access denied handling, and permission-aware action visibility.
+- Extended smoke coverage to verify role permissions are visible from `/auth/me`.
+
+### Permission Risks Reduced
+
+- Users with active organization membership can no longer perform sensitive accounting actions solely by guessing API endpoints.
+- Report, posting, voiding, fiscal lock, document settings, generated document download, and ZATCA management actions now require explicit role permissions.
+- Frontend navigation and high-risk action buttons no longer advertise workflows the active role cannot use.
+
+### Remaining Permission Risks
+
+- Invite flow and member/role assignment UI remain limited.
+- Role editor UI is not yet production-grade.
+- Approval workflows, maker-checker review, and dual-control policies are not implemented.
+- Permission coverage must be kept current when new modules or endpoints are added.
 
 ## Remaining Risks
 

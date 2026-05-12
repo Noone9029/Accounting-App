@@ -3,18 +3,22 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { Contact, ContactType } from "@/lib/types";
 
 const contactTypes: ContactType[] = ["CUSTOMER", "SUPPLIER", "BOTH"];
 
 export default function ContactsPage() {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const canManageContacts = can(PERMISSIONS.contacts.manage);
 
   useEffect(() => {
     if (!organizationId) {
@@ -82,6 +86,7 @@ export default function ContactsPage() {
         <p className="mt-1 text-sm text-steel">Customers, suppliers, and combined contacts from the active organization.</p>
       </div>
 
+      {canManageContacts ? (
       <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
         <h2 className="text-base font-semibold text-ink">Create contact</h2>
         <form onSubmit={createContact} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -101,6 +106,7 @@ export default function ContactsPage() {
           </button>
         </form>
       </div>
+      ) : null}
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load contacts.</StatusMessage> : null}

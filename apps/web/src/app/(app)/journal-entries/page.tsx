@@ -3,18 +3,24 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { JournalEntry } from "@/lib/types";
 
 export default function JournalEntriesPage() {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [reloadToken, setReloadToken] = useState(0);
+  const canCreateJournal = can(PERMISSIONS.journals.create);
+  const canPostJournal = can(PERMISSIONS.journals.post);
+  const canReverseJournal = can(PERMISSIONS.journals.reverse);
 
   useEffect(() => {
     if (!organizationId) {
@@ -70,9 +76,11 @@ export default function JournalEntriesPage() {
           <h1 className="text-2xl font-semibold text-ink">Manual journals</h1>
           <p className="mt-1 text-sm text-steel">Live draft, posted, and reversed manual journals from the ledger API.</p>
         </div>
-        <Link href="/journal-entries/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-          Create journal
-        </Link>
+        {canCreateJournal ? (
+          <Link href="/journal-entries/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+            Create journal
+          </Link>
+        ) : null}
       </div>
 
       <div className="space-y-3">
@@ -108,12 +116,12 @@ export default function JournalEntriesPage() {
                   <td className="px-4 py-3 font-mono text-xs">{entry.totalCredit}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      {entry.status === "DRAFT" ? (
+                      {entry.status === "DRAFT" && canPostJournal ? (
                         <button type="button" onClick={() => void runAction(entry, "post")} disabled={actionId === entry.id} className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:text-slate-400">
                           Post
                         </button>
                       ) : null}
-                      {entry.status === "POSTED" ? (
+                      {entry.status === "POSTED" && canReverseJournal ? (
                         <button type="button" onClick={() => void runAction(entry, "reverse")} disabled={actionId === entry.id} className="rounded-md border border-amber px-2 py-1 text-xs font-medium text-amber hover:bg-amber-50 disabled:cursor-not-allowed disabled:text-slate-400">
                           Reverse
                         </button>

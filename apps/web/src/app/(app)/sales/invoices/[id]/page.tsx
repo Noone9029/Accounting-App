@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { creditNoteAllocationStatusBadgeClass, creditNoteAllocationStatusLabel, creditNoteStatusBadgeClass, creditNoteStatusLabel } from "@/lib/credit-notes";
@@ -11,6 +12,7 @@ import { customerPaymentUnappliedAllocationStatusBadgeClass, customerPaymentUnap
 import { deriveInvoicePaymentState, formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadAuthenticatedFile, downloadPdf, invoicePdfPath } from "@/lib/pdf-download";
+import { PERMISSIONS } from "@/lib/permissions";
 import {
   shouldShowZatcaLocalOnlyWarning,
   truncateHash,
@@ -29,6 +31,7 @@ export default function SalesInvoiceDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [invoice, setInvoice] = useState<SalesInvoice | null>(null);
   const [zatca, setZatca] = useState<ZatcaInvoiceMetadata | null>(null);
   const [xmlValidation, setXmlValidation] = useState<ZatcaXmlValidationResult | null>(null);
@@ -282,6 +285,15 @@ export default function SalesInvoiceDetailPage() {
   }
 
   const latestZatcaSubmission = zatca?.submissionLogs?.[0];
+  const canUpdateInvoice = can(PERMISSIONS.salesInvoices.update);
+  const canFinalizeInvoice = can(PERMISSIONS.salesInvoices.finalize);
+  const canVoidInvoice = can(PERMISSIONS.salesInvoices.void);
+  const canCreateCustomerPayment = can(PERMISSIONS.customerPayments.create);
+  const canCreateCreditNote = can(PERMISSIONS.creditNotes.create);
+  const canViewZatca = can(PERMISSIONS.zatca.view);
+  const canGenerateZatca = can(PERMISSIONS.zatca.generateXml);
+  const canRunZatcaChecks = can(PERMISSIONS.zatca.runChecks);
+  const canManageZatca = can(PERMISSIONS.zatca.manage);
 
   return (
     <section>
@@ -295,7 +307,7 @@ export default function SalesInvoiceDetailPage() {
           <Link href="/sales/invoices" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Back
           </Link>
-          {invoice?.status === "DRAFT" ? (
+          {invoice?.status === "DRAFT" && canUpdateInvoice ? (
             <Link href={`/sales/invoices/${invoice.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
               Edit
             </Link>
@@ -310,27 +322,27 @@ export default function SalesInvoiceDetailPage() {
               Download PDF
             </button>
           ) : null}
-          {invoice?.status === "FINALIZED" && invoice.customerId ? (
+          {invoice?.status === "FINALIZED" && invoice.customerId && canCreateCustomerPayment ? (
             <Link href={`/sales/customer-payments/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
               Record payment
             </Link>
           ) : null}
-          {invoice?.status === "FINALIZED" && invoice.customerId ? (
+          {invoice?.status === "FINALIZED" && invoice.customerId && canCreateCreditNote ? (
             <Link href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
               Create credit note
             </Link>
           ) : null}
-          {invoice?.status === "DRAFT" ? (
+          {invoice?.status === "DRAFT" && canFinalizeInvoice ? (
             <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
               Finalize
             </button>
           ) : null}
-          {invoice && invoice.status !== "VOIDED" ? (
+          {invoice && invoice.status !== "VOIDED" && canVoidInvoice ? (
             <button type="button" onClick={() => void runAction("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Void
             </button>
           ) : null}
-          {invoice?.status === "DRAFT" ? (
+          {invoice?.status === "DRAFT" && canUpdateInvoice ? (
             <button type="button" onClick={() => void deleteInvoice()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Delete
             </button>
@@ -420,14 +432,18 @@ export default function SalesInvoiceDetailPage() {
                 <h2 className="text-base font-semibold text-ink">Payments</h2>
                 <p className="mt-1 text-sm text-steel">{deriveInvoicePaymentState(invoice.total, invoice.balanceDue)} with {formatMoneyAmount(invoice.balanceDue, invoice.currency)} balance due.</p>
               </div>
-              {invoice.status === "FINALIZED" ? (
+              {invoice.status === "FINALIZED" && (canCreateCustomerPayment || canCreateCreditNote) ? (
                 <div className="flex flex-wrap gap-2">
-                  <Link href={`/sales/customer-payments/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
-                    Record payment
-                  </Link>
-                  <Link href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
-                    Create credit note
-                  </Link>
+                  {canCreateCustomerPayment ? (
+                    <Link href={`/sales/customer-payments/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+                      Record payment
+                    </Link>
+                  ) : null}
+                  {canCreateCreditNote ? (
+                    <Link href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+                      Create credit note
+                    </Link>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -526,7 +542,7 @@ export default function SalesInvoiceDetailPage() {
                 <h2 className="text-base font-semibold text-ink">Credit notes</h2>
                 <p className="mt-1 text-sm text-steel">Linked credit notes reduce customer receivables when finalized. Applications reduce this invoice balance due without another journal entry.</p>
               </div>
-              {invoice.status === "FINALIZED" ? (
+              {invoice.status === "FINALIZED" && canCreateCreditNote ? (
                 <Link href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
                   Create credit note
                 </Link>
@@ -625,6 +641,7 @@ export default function SalesInvoiceDetailPage() {
             )}
           </div>
 
+          {canViewZatca ? (
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -648,7 +665,7 @@ export default function SalesInvoiceDetailPage() {
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
-              {invoice.status === "FINALIZED" ? (
+              {invoice.status === "FINALIZED" && canGenerateZatca ? (
                 <button type="button" onClick={() => void generateZatca()} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
                   Generate ZATCA XML/QR
                 </button>
@@ -663,18 +680,26 @@ export default function SalesInvoiceDetailPage() {
                   View QR payload
                 </button>
               ) : null}
-              <button type="button" onClick={() => void runZatcaSubmission("compliance-check")} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400">
-                Run local/mock compliance check
-              </button>
-              <button type="button" onClick={() => void runZatcaSubmission("clearance")} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                Request clearance
-              </button>
-              <button type="button" onClick={() => void runZatcaSubmission("reporting")} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                Request reporting
-              </button>
-              <button type="button" onClick={() => void runSdkValidationDryRun()} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                SDK validation dry run
-              </button>
+              {canRunZatcaChecks ? (
+                <button type="button" onClick={() => void runZatcaSubmission("compliance-check")} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400">
+                  Run local/mock compliance check
+                </button>
+              ) : null}
+              {canManageZatca ? (
+                <button type="button" onClick={() => void runZatcaSubmission("clearance")} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                  Request clearance
+                </button>
+              ) : null}
+              {canManageZatca ? (
+                <button type="button" onClick={() => void runZatcaSubmission("reporting")} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                  Request reporting
+                </button>
+              ) : null}
+              {canRunZatcaChecks ? (
+                <button type="button" onClick={() => void runSdkValidationDryRun()} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                  SDK validation dry run
+                </button>
+              ) : null}
               <button type="button" disabled className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-400 disabled:cursor-not-allowed">
                 Run local SDK validation disabled
               </button>
@@ -760,6 +785,7 @@ export default function SalesInvoiceDetailPage() {
               </div>
             ) : null}
           </div>
+          ) : null}
         </div>
       ) : null}
     </section>

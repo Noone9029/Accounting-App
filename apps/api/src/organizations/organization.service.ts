@@ -1,9 +1,11 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import { DEFAULT_ROLE_PERMISSIONS, hasPermission, PERMISSIONS } from "@ledgerbyte/shared";
 import { DEFAULT_ACCOUNTS, DEFAULT_NUMBER_SEQUENCES, DEFAULT_TAX_RATES } from "../accounting/foundation-data";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateOrganizationDto } from "./dto/create-organization.dto";
+import { UpdateOrganizationDto } from "./dto/update-organization.dto";
 
 @Injectable()
 export class OrganizationService {
@@ -25,19 +27,18 @@ export class OrganizationService {
         },
       });
 
-      const role = await tx.role.create({
-        data: {
-          organizationId: created.id,
-          name: "Owner",
-          permissions: ["*"],
-        },
-      });
+      const roles = await this.createDefaultRoles(tx, created.id);
+      const ownerRole = roles.get("Owner");
+
+      if (!ownerRole) {
+        throw new Error("Owner role was not provisioned.");
+      }
 
       await tx.organizationMember.create({
         data: {
           organizationId: created.id,
           userId,
-          roleId: role.id,
+          roleId: ownerRole.id,
         },
       });
 
@@ -91,6 +92,12 @@ export class OrganizationService {
   }
 
   async getForUser(userId: string, id: string) {
+    const canView = await this.userCanViewOrganization(userId, id);
+
+    if (!canView) {
+      throw new NotFoundException("Organization not found.");
+    }
+
     const organization = await this.prisma.organization.findFirst({
       where: { id, memberships: { some: { userId, status: "ACTIVE" } } },
       include: {
@@ -111,6 +118,71 @@ export class OrganizationService {
     }
 
     return organization;
+  }
+
+  async updateForUser(userId: string, id: string, dto: UpdateOrganizationDto) {
+    const membership = await this.prisma.organizationMember.findFirst({
+      where: { organizationId: id, userId, status: "ACTIVE" },
+      select: { role: { select: { permissions: true } } },
+    });
+
+    if (!membership) {
+      throw new NotFoundException("Organization not found.");
+    }
+
+    if (!hasPermission(membership.role.permissions, PERMISSIONS.organization.update)) {
+      throw new ForbiddenException("You do not have permission to perform this action.");
+    }
+
+    const organization = await this.prisma.organization.update({
+      where: { id },
+      data: {
+        name: dto.name?.trim(),
+        legalName: dto.legalName?.trim(),
+        taxNumber: dto.taxNumber?.trim(),
+        countryCode: dto.countryCode?.trim(),
+        baseCurrency: dto.baseCurrency?.trim(),
+        timezone: dto.timezone?.trim(),
+      },
+    });
+
+    await this.auditLogService.log({
+      organizationId: organization.id,
+      actorUserId: userId,
+      action: "UPDATE",
+      entityType: "Organization",
+      entityId: organization.id,
+      after: organization,
+    });
+
+    return organization;
+  }
+
+  async userCanViewOrganization(userId: string, organizationId: string): Promise<boolean> {
+    const membership = await this.prisma.organizationMember.findFirst({
+      where: { organizationId, userId, status: "ACTIVE" },
+      select: { role: { select: { permissions: true } } },
+    });
+
+    return hasPermission(membership?.role.permissions, PERMISSIONS.organization.view);
+  }
+
+  private async createDefaultRoles(tx: Prisma.TransactionClient, organizationId: string): Promise<Map<string, { id: string }>> {
+    const roles = new Map<string, { id: string }>();
+
+    for (const [name, permissions] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
+      const role = await tx.role.create({
+        data: {
+          organizationId,
+          name,
+          permissions: [...permissions],
+        },
+        select: { id: true },
+      });
+      roles.set(name, role);
+    }
+
+    return roles;
   }
 
   private async createFoundationData(tx: Prisma.TransactionClient, organizationId: string): Promise<void> {

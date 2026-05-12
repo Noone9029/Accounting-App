@@ -2,16 +2,20 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { Branch } from "@/lib/types";
 
 export default function BranchesPage() {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const canUpdateOrganization = can(PERMISSIONS.organization.update);
 
   useEffect(() => {
     if (!organizationId) {
@@ -79,6 +83,7 @@ export default function BranchesPage() {
         <p className="mt-1 text-sm text-steel">Tenant branch records used later for documents, taxes, and ZATCA EGS units.</p>
       </div>
 
+      {canUpdateOrganization ? (
       <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
         <h2 className="text-base font-semibold text-ink">Create branch</h2>
         <form onSubmit={createBranch} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -97,6 +102,7 @@ export default function BranchesPage() {
           </button>
         </form>
       </div>
+      ) : null}
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load branches.</StatusMessage> : null}

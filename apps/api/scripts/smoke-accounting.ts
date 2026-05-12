@@ -12,8 +12,14 @@ interface AuthMeResponse {
   id: string;
   email: string;
   memberships: Array<{
+    id: string;
     status: string;
     organization: Organization;
+    role: {
+      id: string;
+      name: string;
+      permissions: unknown;
+    };
   }>;
 }
 
@@ -380,6 +386,8 @@ class ApiError extends Error {
 interface SmokeContext {
   token: string;
   organization: Organization;
+  roleName: string;
+  permissionCount: number;
 }
 
 async function main(): Promise<void> {
@@ -1772,6 +1780,8 @@ async function main(): Promise<void> {
       {
         apiUrl,
         organization: context.organization,
+        smokeRoleName: context.roleName,
+        smokePermissionCount: context.permissionCount,
         closedFiscalPeriodId: closedFiscalPeriod.id,
         fiscalPeriodLockChecked: true,
         customerId: customer.id,
@@ -1832,7 +1842,19 @@ async function loginAndSelectOrganization(): Promise<SmokeContext> {
   if (!membership) {
     throw new Error("Seed user does not have an organization membership.");
   }
-  return { token: login.accessToken, organization: membership.organization };
+  const permissions = normalizePermissionList(membership.role.permissions);
+  assert(permissions.length > 0, "/auth/me returns role permissions");
+  assert(
+    permissions.includes("admin.fullAccess") || permissions.includes("*") || permissions.includes("reports.view"),
+    "/auth/me role permissions include recognizable permission strings",
+  );
+
+  return {
+    token: login.accessToken,
+    organization: membership.organization,
+    roleName: membership.role.name,
+    permissionCount: permissions.length,
+  };
 }
 
 function tenantHeaders(context: SmokeContext): Record<string, string> {
@@ -1985,6 +2007,18 @@ function assertNoPrivateKey(value: unknown, label: string): void {
   const serialized = JSON.stringify(value) ?? "";
   assert(!serialized.includes("privateKeyPem"), `${label} does not expose privateKeyPem`);
   assert(!serialized.includes("PRIVATE KEY"), `${label} does not expose private key material`);
+}
+
+function normalizePermissionList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((permission): permission is string => typeof permission === "string");
+  }
+
+  if (typeof value === "object" && value !== null && Array.isArray((value as { permissions?: unknown }).permissions)) {
+    return (value as { permissions: unknown[] }).permissions.filter((permission): permission is string => typeof permission === "string");
+  }
+
+  return [];
 }
 
 function assertMoney(actual: unknown, expected: Decimal, label: string): void {

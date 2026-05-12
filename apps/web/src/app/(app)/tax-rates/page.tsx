@@ -2,8 +2,10 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { TaxRate, TaxRateCategory, TaxRateScope } from "@/lib/types";
 
 const scopes: TaxRateScope[] = ["SALES", "PURCHASES", "BOTH"];
@@ -11,10 +13,12 @@ const categories: TaxRateCategory[] = ["STANDARD", "ZERO_RATED", "EXEMPT", "OUT_
 
 export default function TaxRatesPage() {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const canManageTaxRates = can(PERMISSIONS.taxRates.manage);
 
   useEffect(() => {
     if (!organizationId) {
@@ -80,6 +84,7 @@ export default function TaxRatesPage() {
         <p className="mt-1 text-sm text-steel">Live VAT rate setup for the active organization.</p>
       </div>
 
+      {canManageTaxRates ? (
       <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
         <h2 className="text-base font-semibold text-ink">Create tax rate</h2>
         <form onSubmit={createTaxRate} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_0.8fr_0.9fr_0.5fr]">
@@ -101,6 +106,7 @@ export default function TaxRatesPage() {
           </button>
         </form>
       </div>
+      ) : null}
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load tax rates.</StatusMessage> : null}

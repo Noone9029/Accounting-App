@@ -1,64 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { apiRequest, clearSession, getAccessToken, getActiveOrganizationId, setActiveOrganizationId } from "@/lib/api";
-import type { MeResponse, Organization } from "@/lib/types";
+import { useMemo } from "react";
+import { clearSession, getAccessToken, setActiveOrganizationId } from "@/lib/api";
+import { usePermissions } from "@/components/permissions/permission-provider";
 
 export function OrganizationSwitcher() {
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [activeId, setActiveId] = useState<string>("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadMe() {
-      const token = getAccessToken();
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const me = await apiRequest<MeResponse>("/auth/me", { organizationId: null });
-        if (cancelled) {
-          return;
-        }
-
-        const activeOrganizations = me.memberships
-          .filter((membership) => membership.status === "ACTIVE")
-          .map((membership) => membership.organization);
-        setOrganizations(activeOrganizations);
-
-        const storedOrganizationId = getActiveOrganizationId();
-        const nextActiveId =
-          activeOrganizations.find((organization) => organization.id === storedOrganizationId)?.id ??
-          activeOrganizations[0]?.id ??
-          "";
-
-        setActiveId(nextActiveId);
-        if (nextActiveId) {
-          setActiveOrganizationId(nextActiveId);
-        }
-      } catch (loadError) {
-        if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load organizations.");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void loadMe();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { activeMembership, error, loading, user } = usePermissions();
+  const organizations = useMemo(() => user?.memberships.map((membership) => membership.organization) ?? [], [user]);
+  const activeId = activeMembership?.organization.id ?? "";
 
   const activeOrganization = useMemo(
     () => organizations.find((organization) => organization.id === activeId),
@@ -96,7 +46,6 @@ export function OrganizationSwitcher() {
         <select
           value={activeId}
           onChange={(event) => {
-            setActiveId(event.target.value);
             setActiveOrganizationId(event.target.value);
           }}
           className="min-w-48 rounded-md border border-slate-300 bg-white px-2 py-2 text-sm font-medium text-ink outline-none focus:border-palm"

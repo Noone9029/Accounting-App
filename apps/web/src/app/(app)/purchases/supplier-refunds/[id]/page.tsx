@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadPdf, supplierRefundPdfPath } from "@/lib/pdf-download";
+import { PERMISSIONS } from "@/lib/permissions";
 import {
   supplierRefundSourceHref,
   supplierRefundSourceTypeLabel,
@@ -20,12 +22,14 @@ import type { SupplierRefund, SupplierRefundPdfData } from "@/lib/types";
 export default function SupplierRefundDetailPage() {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [refund, setRefund] = useState<SupplierRefund | null>(null);
   const [pdfData, setPdfData] = useState<SupplierRefundPdfData | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const canVoidRefund = can(PERMISSIONS.supplierRefunds.void);
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -126,7 +130,7 @@ export default function SupplierRefundDetailPage() {
               Download PDF
             </button>
           ) : null}
-          {refund?.status === "POSTED" ? (
+          {refund?.status === "POSTED" && canVoidRefund ? (
             <button type="button" onClick={() => void voidRefund()} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Void
             </button>

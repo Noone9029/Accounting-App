@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
@@ -15,11 +16,13 @@ import {
 } from "@/lib/customer-payments";
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadPdf, receiptPdfPath } from "@/lib/pdf-download";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { CustomerPayment, CustomerPaymentReceiptData, OpenSalesInvoice } from "@/lib/types";
 
 export default function CustomerPaymentDetailPage() {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [payment, setPayment] = useState<CustomerPayment | null>(null);
   const [receiptData, setReceiptData] = useState<CustomerPaymentReceiptData | null>(null);
   const [openInvoices, setOpenInvoices] = useState<OpenSalesInvoice[]>([]);
@@ -210,7 +213,9 @@ export default function CustomerPaymentDetailPage() {
 
   const unappliedAppliedAmount = payment ? customerPaymentActiveUnappliedAppliedAmount(payment.unappliedAllocations) : "0.0000";
   const selectedOpenInvoice = openInvoices.find((invoice) => invoice.id === applyInvoiceId);
-  const canApplyUnapplied = payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0;
+  const canCreatePayment = can(PERMISSIONS.customerPayments.create);
+  const canVoidPaymentPermission = can(PERMISSIONS.customerPayments.void);
+  const canApplyUnapplied = payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0 && canCreatePayment;
 
   return (
     <section>
@@ -223,7 +228,7 @@ export default function CustomerPaymentDetailPage() {
           <Link href="/sales/customer-payments" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Back
           </Link>
-          {payment?.status === "POSTED" ? (
+          {payment?.status === "POSTED" && canVoidPaymentPermission ? (
             <button type="button" onClick={() => void voidPayment()} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Void
             </button>
@@ -347,7 +352,7 @@ export default function CustomerPaymentDetailPage() {
                             <Link href={`/sales/invoices/${allocation.invoiceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                               View invoice
                             </Link>
-                            {canReverseCustomerPaymentUnappliedAllocation(allocation) ? (
+                            {canReverseCustomerPaymentUnappliedAllocation(allocation) && canVoidPaymentPermission ? (
                               <button type="button" onClick={() => void reverseUnappliedAllocation(allocation.id)} disabled={actionLoading} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
                                 Reverse
                               </button>

@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadPdf, purchaseDebitNotePdfPath } from "@/lib/pdf-download";
+import { PERMISSIONS } from "@/lib/permissions";
 import {
   canReversePurchaseDebitNoteAllocation,
   purchaseDebitNoteActiveAppliedAmount,
@@ -25,6 +27,7 @@ export default function PurchaseDebitNoteDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [debitNote, setDebitNote] = useState<PurchaseDebitNote | null>(null);
   const [openBills, setOpenBills] = useState<OpenPurchaseBill[]>([]);
   const [selectedBillId, setSelectedBillId] = useState("");
@@ -222,7 +225,10 @@ export default function PurchaseDebitNoteDetailPage() {
       : purchaseDebitNoteAppliedAmount(debitNote.total, debitNote.unappliedAmount)
     : "0.0000";
   const selectedBill = openBills.find((bill) => bill.id === selectedBillId);
-  const canApplyDebitNote = debitNote?.status === "FINALIZED" && Number(debitNote.unappliedAmount) > 0;
+  const canCreateDebitNote = can(PERMISSIONS.purchaseDebitNotes.create);
+  const canFinalizeDebitNote = can(PERMISSIONS.purchaseDebitNotes.finalize);
+  const canVoidDebitNote = can(PERMISSIONS.purchaseDebitNotes.void);
+  const canApplyDebitNote = debitNote?.status === "FINALIZED" && Number(debitNote.unappliedAmount) > 0 && canFinalizeDebitNote;
 
   return (
     <section>
@@ -259,17 +265,17 @@ export default function PurchaseDebitNoteDetailPage() {
               Download PDF
             </button>
           ) : null}
-          {debitNote?.status === "DRAFT" ? (
+          {debitNote?.status === "DRAFT" && canFinalizeDebitNote ? (
             <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
               Finalize
             </button>
           ) : null}
-          {debitNote && debitNote.status !== "VOIDED" ? (
+          {debitNote && debitNote.status !== "VOIDED" && canVoidDebitNote ? (
             <button type="button" onClick={() => void runAction("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Void
             </button>
           ) : null}
-          {debitNote?.status === "DRAFT" ? (
+          {debitNote?.status === "DRAFT" && canCreateDebitNote ? (
             <button type="button" onClick={() => void deleteDebitNote()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Delete
             </button>
@@ -397,7 +403,7 @@ export default function PurchaseDebitNoteDetailPage() {
                             <Link href={`/purchases/bills/${allocation.billId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                               View bill
                             </Link>
-                            {canReversePurchaseDebitNoteAllocation(allocation) ? (
+                            {canReversePurchaseDebitNoteAllocation(allocation) && canVoidDebitNote ? (
                               <button type="button" onClick={() => void reverseAllocation(allocation.id)} disabled={actionLoading} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
                                 Reverse
                               </button>

@@ -4,13 +4,21 @@ Audit date: 2026-05-12
 
 Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints and `GET /health` are exceptions. Status values here describe implementation maturity, not runtime health.
 
+## Authorization And Permissions
+
+- Tenant-scoped business endpoints use JWT authentication, active organization membership, and route-level permission checks.
+- Permissions are shared dotted strings from `packages/shared/src/permissions.ts`.
+- `admin.fullAccess` and legacy `*` permissions allow all guarded actions.
+- Missing permissions return HTTP 403 with `You do not have permission to perform this action.`
+- `GET /auth/me` exposes active memberships with role id/name/permissions so the frontend can filter routes and actions.
+
 ## Auth
 
 | Method | Path | Purpose | Auth | Org header | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | POST | `/auth/register` | Register user and organization context | No | No | Implemented | MVP registration. |
 | POST | `/auth/login` | Login and receive JWT | No | No | Implemented | Uses configured JWT secret. |
-| GET | `/auth/me` | Current authenticated user | Yes | No | Implemented | Does not require org context. |
+| GET | `/auth/me` | Current authenticated user | Yes | No | Implemented | Does not require org context; returns active memberships with role permissions. |
 
 ## Health
 
@@ -24,7 +32,15 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | --- | --- | --- | --- | --- | --- | --- |
 | POST | `/organizations` | Create organization | Yes | No | Implemented | Creates tenant context. |
 | GET | `/organizations` | List organizations for user | Yes | No | Implemented | Membership scoped. |
-| GET | `/organizations/:id` | Get one organization | Yes | No | Implemented | Membership scoped. |
+| GET | `/organizations/:id` | Get one organization | Yes | No | Implemented | Membership scoped; requires `organization.view` for that org. |
+| PATCH | `/organizations/:id` | Update organization | Yes | No | Implemented | Membership scoped; requires `organization.update` for that org. |
+
+## Roles
+
+| Method | Path | Purpose | Auth | Org header | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| GET | `/roles` | List organization roles | Yes | Yes | Implemented | Requires `roles.view`; tenant scoped. |
+| GET | `/roles/:id` | Role detail | Yes | Yes | Implemented | Requires `roles.view`; tenant scoped. |
 
 ## Branches
 
