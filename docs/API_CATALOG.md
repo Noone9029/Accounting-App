@@ -60,6 +60,18 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | PATCH | `/accounts/:id` | Update account | Yes | Yes | Implemented | System account restrictions. |
 | DELETE | `/accounts/:id` | Delete account | Yes | Yes | Implemented | Blocks referenced/system accounts. |
 
+## Fiscal Periods
+
+| Method | Path | Purpose | Auth | Org header | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| GET | `/fiscal-periods` | List fiscal periods | Yes | Yes | Implemented | Tenant scoped. |
+| POST | `/fiscal-periods` | Create fiscal period | Yes | Yes | Implemented | Rejects invalid ranges and overlaps. |
+| GET | `/fiscal-periods/:id` | Fiscal period detail | Yes | Yes | Implemented | Tenant scoped. |
+| PATCH | `/fiscal-periods/:id` | Update fiscal period | Yes | Yes | Implemented | Locked periods cannot be edited. |
+| POST | `/fiscal-periods/:id/close` | Close open period | Yes | Yes | Implemented | Closed periods block postings. |
+| POST | `/fiscal-periods/:id/reopen` | Reopen closed period | Yes | Yes | Implemented | Locked periods cannot reopen. |
+| POST | `/fiscal-periods/:id/lock` | Lock open/closed period | Yes | Yes | Implemented | Irreversible in MVP. |
+
 ## Tax Rates, Items, Journals, Audit
 
 | Method | Path | Purpose | Auth | Org header | Status | Notes |

@@ -147,6 +147,26 @@ describe("sales invoice rules", () => {
     );
   });
 
+  it("blocks invoice finalization in a closed fiscal period before posting", async () => {
+    const tx = makeFinalizeTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const guard = { assertPostingDateAllowed: jest.fn().mockRejectedValue(new Error("Posting date falls in a closed fiscal period.")) };
+    const service = new SalesInvoiceService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn() } as never,
+      { reverse: jest.fn() } as never,
+      undefined,
+      undefined,
+      guard as never,
+    );
+    jest.spyOn(service, "get").mockResolvedValue({ id: "invoice-1", status: "DRAFT", journalEntryId: null } as never);
+
+    await expect(service.finalize("org-1", "user-1", "invoice-1")).rejects.toThrow("Posting date falls in a closed fiscal period.");
+    expect(tx.salesInvoice.updateMany).not.toHaveBeenCalled();
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
   it("does not link a journal when finalization journal creation fails", async () => {
     const tx = makeFinalizeTransactionMock({ journalCreateError: new Error("journal failed") });
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };

@@ -23,6 +23,7 @@ Route source: `apps/web/src/app`
 | `/branches` | Branch management. | Branches. | Create/update branches. | Implemented | Default branch normalization and branch permissions missing. |
 | `/items` | Product/service catalog. | Items, accounts, tax rates. | Create/update/delete items. | Partial | Inventory quantities and stock history missing. |
 | `/documents` | Generated document archive. | Generated documents. | Download archived PDFs. | Implemented | Storage/provider status and filters could improve. |
+| `/fiscal-periods` | Fiscal period management. | Fiscal periods. | Create, close, reopen, and lock periods. | Implemented | No unlock/admin approval or fiscal year wizard yet. |
 | `/settings/documents` | Document PDF settings. | Organization document settings. | Update titles/colors/visibility. | Implemented | Template preview/designer missing. |
 | `/settings/zatca` | ZATCA settings, readiness, checklist, SDK readiness. | Profile, EGS units, logs, adapter config, readiness, checklist, SDK readiness. | Update profile, create/update EGS, CSR, mock CSID, dry-run visibility. | Groundwork only | Real ZATCA onboarding/submission not present. |
 | `/[...placeholder]` | Placeholder fallback for unbuilt sections. | None. | Navigation. | Placeholder | Replace as modules are implemented. |

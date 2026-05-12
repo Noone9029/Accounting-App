@@ -27,6 +27,7 @@ import {
 import { AccountingService } from "../accounting/accounting.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
+import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -150,6 +151,7 @@ export class SalesInvoiceService {
     private readonly accountingService: AccountingService,
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
+    private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
   ) {}
 
   list(organizationId: string) {
@@ -518,6 +520,7 @@ export class SalesInvoiceService {
       if (invoice.status !== SalesInvoiceStatus.DRAFT) {
         throw new BadRequestException("Only draft invoices can be finalized.");
       }
+      await this.assertPostingDateAllowed(organizationId, invoice.issueDate, tx);
 
       this.assertFinalizableInvoice({
         subtotal: String(invoice.subtotal),
@@ -662,6 +665,8 @@ export class SalesInvoiceService {
       if (!invoice.journalEntryId) {
         throw new BadRequestException("Finalized invoice is missing its journal entry.");
       }
+      const reversalDate = new Date();
+      await this.assertPostingDateAllowed(organizationId, reversalDate, tx);
 
       // Claim the invoice row before checking allocations. This blocks concurrent
       // payment allocation updates, then the count sees the latest committed state.
@@ -715,6 +720,7 @@ export class SalesInvoiceService {
         organizationId,
         actorUserId,
         invoice.journalEntryId,
+        reversalDate,
         tx,
       );
 
@@ -741,6 +747,7 @@ export class SalesInvoiceService {
     organizationId: string,
     actorUserId: string,
     journalEntryId: string,
+    reversalDate: Date,
     tx: Prisma.TransactionClient,
   ): Promise<string> {
     const journalEntry = await tx.journalEntry.findFirst({
@@ -777,13 +784,13 @@ export class SalesInvoiceService {
           organizationId,
           entryNumber,
           status: JournalEntryStatus.POSTED,
-          entryDate: new Date(),
+          entryDate: reversalDate,
           description: `Reversal of ${journalEntry.entryNumber}`,
           reference: journalEntry.reference,
           currency: journalEntry.currency,
           totalDebit: totals.debit,
           totalCredit: totals.credit,
-          postedAt: new Date(),
+          postedAt: reversalDate,
           postedById: actorUserId,
           createdById: actorUserId,
           reversalOfId: journalEntry.id,
@@ -994,6 +1001,10 @@ export class SalesInvoiceService {
       throw new BadRequestException(`Required posting account ${code} was not found.`);
     }
     return account;
+  }
+
+  private async assertPostingDateAllowed(organizationId: string, postingDate: string | Date, tx?: Prisma.TransactionClient): Promise<void> {
+    await this.fiscalPeriodGuardService?.assertPostingDateAllowed(organizationId, postingDate, tx);
   }
 
   private assertDraft(status: SalesInvoiceStatus): void {

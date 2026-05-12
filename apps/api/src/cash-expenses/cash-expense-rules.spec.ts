@@ -103,6 +103,61 @@ describe("cash expense rules", () => {
     );
   });
 
+  it("blocks cash expense posting in a closed fiscal period", async () => {
+    const tx = makeCreateTransactionMock();
+    const prisma = {
+      item: { findMany: jest.fn().mockResolvedValue([]) },
+      account: {
+        findMany: jest.fn().mockResolvedValue([{ id: "expense" }]),
+        findFirst: jest.fn(({ where }: { where: { id?: string; code?: string } }) => {
+          if (where.id === "bank") {
+            return Promise.resolve({ id: "bank" });
+          }
+          return Promise.resolve({ id: "vat-receivable" });
+        }),
+      },
+      taxRate: { findMany: jest.fn().mockResolvedValue([{ id: "tax-1", rate: "15.0000" }]) },
+      contact: { findFirst: jest.fn().mockResolvedValue({ id: "supplier-1" }) },
+      branch: { findFirst: jest.fn().mockResolvedValue({ id: "branch-1" }) },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const guard = { assertPostingDateAllowed: jest.fn().mockRejectedValue(new Error("Posting date falls in a closed fiscal period.")) };
+    const numberSequence = { next: jest.fn() };
+    const service = new CashExpenseService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      numberSequence as never,
+      undefined,
+      undefined,
+      guard as never,
+    );
+
+    await expect(
+      service.create("org-1", "user-1", {
+        contactId: "supplier-1",
+        branchId: "branch-1",
+        expenseDate: "2026-05-12T00:00:00.000Z",
+        currency: "SAR",
+        paidThroughAccountId: "bank",
+        lines: [
+          {
+            description: "Office supplies",
+            accountId: "expense",
+            quantity: "1.0000",
+            unitPrice: "100.0000",
+            discountRate: "0.0000",
+            taxRateId: "tax-1",
+          },
+        ],
+      }),
+    ).rejects.toThrow("Posting date falls in a closed fiscal period.");
+
+    expect(guard.assertPostingDateAllowed).toHaveBeenCalledWith("org-1", new Date("2026-05-12T00:00:00.000Z"), tx);
+    expect(numberSequence.next).not.toHaveBeenCalled();
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+    expect(tx.cashExpense.create).not.toHaveBeenCalled();
+  });
+
   it("rejects customer-only contacts for cash expenses", async () => {
     const prisma = {
       item: { findMany: jest.fn().mockResolvedValue([]) },

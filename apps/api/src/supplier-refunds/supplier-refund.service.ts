@@ -16,6 +16,7 @@ import {
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
+import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateSupplierRefundDto } from "./dto/create-supplier-refund.dto";
@@ -69,6 +70,7 @@ export class SupplierRefundService {
     private readonly numberSequenceService: NumberSequenceService,
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
+    private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
   ) {}
 
   list(organizationId: string) {
@@ -144,6 +146,8 @@ export class SupplierRefundService {
     this.assertSourceShape(dto);
 
     const refund = await this.prisma.$transaction(async (tx) => {
+      const refundDate = new Date(dto.refundDate);
+      await this.assertPostingDateAllowed(organizationId, refundDate, tx);
       const supplier = await this.findSupplier(organizationId, dto.supplierId, tx);
       const receivedIntoAccount = await this.findReceivedIntoAccount(organizationId, dto.accountId, tx);
       const source = await this.claimRefundSource(organizationId, dto, amountRefunded.toFixed(4), tx);
@@ -165,7 +169,7 @@ export class SupplierRefundService {
           organizationId,
           entryNumber: await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx),
           status: JournalEntryStatus.POSTED,
-          entryDate: new Date(dto.refundDate),
+          entryDate: refundDate,
           description: `Supplier refund ${refundNumber} - ${supplier.displayName ?? supplier.name}`,
           reference: refundNumber,
           currency,
@@ -186,7 +190,7 @@ export class SupplierRefundService {
           sourceType: dto.sourceType,
           sourcePaymentId: dto.sourceType === SupplierRefundSourceType.SUPPLIER_PAYMENT ? dto.sourcePaymentId : null,
           sourceDebitNoteId: dto.sourceType === SupplierRefundSourceType.PURCHASE_DEBIT_NOTE ? dto.sourceDebitNoteId : null,
-          refundDate: new Date(dto.refundDate),
+          refundDate,
           currency,
           status: SupplierRefundStatus.POSTED,
           amountRefunded: amountRefunded.toFixed(4),
@@ -248,6 +252,8 @@ export class SupplierRefundService {
       if (!refund.journalEntry) {
         throw new BadRequestException("Supplier refund has no journal entry to reverse.");
       }
+      const reversalDate = new Date();
+      await this.assertPostingDateAllowed(organizationId, reversalDate, tx);
 
       const claim = await tx.supplierRefund.updateMany({
         where: { id, organizationId, status: SupplierRefundStatus.POSTED },
@@ -269,6 +275,7 @@ export class SupplierRefundService {
             refundNumber: refund.refundNumber,
             refundDate: refund.refundDate,
             currency: refund.currency,
+            reversalDate,
             journalEntry: refund.journalEntry,
           },
           tx,
@@ -613,6 +620,7 @@ export class SupplierRefundService {
       refundNumber: string;
       refundDate: Date;
       currency: string;
+      reversalDate: Date;
       journalEntry: {
         id: string;
         entryNumber: string;
@@ -650,13 +658,13 @@ export class SupplierRefundService {
           organizationId,
           entryNumber,
           status: JournalEntryStatus.POSTED,
-          entryDate: new Date(),
+          entryDate: refund.reversalDate,
           description: `Void supplier refund ${refund.refundNumber}: ${refund.journalEntry.description}`,
           reference: refund.refundNumber,
           currency: refund.currency,
           totalDebit: totals.debit,
           totalCredit: totals.credit,
-          postedAt: new Date(),
+          postedAt: refund.reversalDate,
           postedById: actorUserId,
           createdById: actorUserId,
           reversalOfId: refund.journalEntry.id,
@@ -764,6 +772,10 @@ export class SupplierRefundService {
   private cleanOptional(value: string | undefined): string | undefined {
     const trimmed = value?.trim();
     return trimmed || undefined;
+  }
+
+  private async assertPostingDateAllowed(organizationId: string, postingDate: string | Date, tx?: Prisma.TransactionClient): Promise<void> {
+    await this.fiscalPeriodGuardService?.assertPostingDateAllowed(organizationId, postingDate, tx);
   }
 }
 

@@ -31,11 +31,11 @@ Status values:
 | --- | --- | --- | --- | --- | --- |
 | Chart of accounts | COMPLETE_FOR_MVP | `chart-of-accounts`, `Account` | CRUD, system account protections, posting flags. | Descendant cycle prevention and production COA review remain. | Add accountant-reviewed COA templates. |
 | Tax rates | COMPLETE_FOR_MVP | `tax-rates`, `TaxRate` | Sales/purchase/both scope, validation, seed VAT rates. | VAT return reporting not implemented. | Add VAT report model and validations. |
-| Manual journals | COMPLETE_FOR_MVP | `accounting`, `JournalEntry`, `JournalLine` | Create/edit draft, post, reverse, balance validation. | Period locks not enforced. | Add fiscal-period posting guard. |
-| Journal posting | COMPLETE_FOR_MVP | `accounting-core`, business services | Balanced entries from AR/AP workflows. | No ledger report UI. | Add general ledger and trial balance reports. |
-| Journal reversal | COMPLETE_FOR_MVP | `AccountingService.reverse`, workflow voids | Reversal entries and idempotent workflow reuse. | Manual and workflow reversal race behavior should be load-tested. | Add concurrency/load tests. |
-| Fiscal periods | GROUNDWORK_ONLY | `FiscalPeriod` | Schema exists. | No API/UI/enforcement. | Implement fiscal period management and locks. |
-| Reports | NOT_STARTED | N/A | Customer/supplier ledgers are present. | No P&L, balance sheet, trial balance, VAT return, aging. | Build reporting module. |
+| Manual journals | COMPLETE_FOR_MVP | `accounting`, `JournalEntry`, `JournalLine`, `fiscal-periods` | Create/edit draft, post, reverse, balance validation, fiscal posting guard. | Reversal date is current date only. | Add user-selected reversal date if needed. |
+| Journal posting | COMPLETE_FOR_MVP | `accounting-core`, business services, `reports` | Balanced entries from AR/AP workflows and accountant reports. | Production report definitions still need accountant review. | Add accountant review and export/PDF outputs. |
+| Journal reversal | COMPLETE_FOR_MVP | `AccountingService.reverse`, workflow voids, `FiscalPeriodGuardService` | Reversal entries, idempotent workflow reuse, and fiscal guard on reversal date. | Manual and workflow reversal race behavior should be load-tested. | Add concurrency/load tests. |
+| Fiscal periods | PARTIAL | `FiscalPeriod`, `apps/api/src/fiscal-periods`, `/fiscal-periods` | API/UI for create/update/close/reopen/lock and posting-date locks across journal-producing workflows. | No unlock/admin approval, fiscal year wizard, or retained earnings close. | Add year-end close and approval workflow. |
+| Reports | COMPLETE_FOR_MVP | `reports`, `/reports/*` | General Ledger, Trial Balance, P&L, Balance Sheet, VAT Summary, AR/AP aging. | No report PDF/CSV export; VAT summary is not official filing. | Add export/PDF and accountant-reviewed definitions. |
 
 ## Sales
 
@@ -44,7 +44,7 @@ Status values:
 | Contacts/customers | COMPLETE_FOR_MVP | `contacts`, `Contact` | Customer/supplier/BOTH contacts and detail page. | No import/export or duplicate detection. | Add CSV import and merge workflow. |
 | Items/products | PARTIAL | `items`, `Item` | Items with revenue/expense accounts and tax defaults. | Inventory tracking flag has no stock engine. | Add inventory module before stock items are production-useful. |
 | Sales invoices | COMPLETE_FOR_MVP | `sales-invoices`, invoice form/pages | Draft, edit, finalize, void, PDF, ZATCA local metadata. | Recurring invoices and official tax compliance not present. | Add recurring invoices and reports. |
-| Invoice finalization | COMPLETE_FOR_MVP | `sales-invoice.service.ts`, `sales-invoice-accounting.ts` | AR/revenue/VAT posting, idempotency. | Fiscal-period locks missing. | Add period guard. |
+| Invoice finalization | COMPLETE_FOR_MVP | `sales-invoice.service.ts`, `sales-invoice-accounting.ts`, `FiscalPeriodGuardService` | AR/revenue/VAT posting, idempotency, fiscal posting guard. | No recurring invoice engine. | Add recurring invoices. |
 | Customer payments | COMPLETE_FOR_MVP | `customer-payments` | Posted payments, allocations, voids, receipts. | Gateway integration not present. | Add bank/gateway integration later. |
 | Payment allocation | COMPLETE_FOR_MVP | `CustomerPaymentAllocation` | Invoice balance updates and over-allocation guards. | Allocation editing is void/recreate only. | Add UX for corrections if needed. |
 | Unapplied payment application | COMPLETE_FOR_MVP | `CustomerPaymentUnappliedAllocation` | Apply/reverse overpayments to later invoices. | No automatic matching suggestions. | Add matching suggestions. |
@@ -62,7 +62,7 @@ Status values:
 | --- | --- | --- | --- | --- | --- |
 | Suppliers | COMPLETE_FOR_MVP | `Contact.type=SUPPLIER/BOTH` | Supplier contacts, AP ledger on contact detail. | Supplier onboarding fields are basic. | Add supplier tax/bank details. |
 | Purchase bills | COMPLETE_FOR_MVP | `purchase-bills` | Draft/edit/finalize/void, AP posting, PDF. | No purchase order matching. | Add purchase orders. |
-| Bill finalization | COMPLETE_FOR_MVP | `purchase-bill-accounting.ts` | Dr expense/asset, Dr VAT receivable, Cr AP. | Period locks missing. | Add fiscal period guard. |
+| Bill finalization | COMPLETE_FOR_MVP | `purchase-bill-accounting.ts`, `FiscalPeriodGuardService` | Dr expense/asset, Dr VAT receivable, Cr AP, fiscal posting guard. | No purchase order matching. | Add purchase orders. |
 | Supplier payments | COMPLETE_FOR_MVP | `supplier-payments` | Posted payments, allocations, void restore, receipts. | No bank reconciliation. | Add bank account/reconciliation module. |
 | Supplier ledger | COMPLETE_FOR_MVP | `supplierLedger`, contact page | AP balance and bill/payment/void rows. | UI should use supplier-specific balance wording. | Add AP-specific display helper. |
 | Supplier statement | COMPLETE_FOR_MVP | `/contacts/:id/supplier-statement` | Date-filtered AP statement JSON. | No supplier statement PDF. | Add supplier statement PDF if needed. |

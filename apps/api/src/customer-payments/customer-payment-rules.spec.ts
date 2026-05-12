@@ -135,6 +135,26 @@ describe("customer payment rules", () => {
     });
   });
 
+  it("blocks customer payment posting in a closed fiscal period", async () => {
+    const tx = makeCreateTransactionMock();
+    const prisma = makeCreatePrismaMock({ tx });
+    const guard = { assertPostingDateAllowed: jest.fn().mockRejectedValue(new Error("Posting date falls in a closed fiscal period.")) };
+    const service = new CustomerPaymentService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn() } as never,
+      undefined,
+      undefined,
+      guard as never,
+    );
+
+    await expect(service.create("org-1", "user-1", basePaymentDto)).rejects.toThrow("Posting date falls in a closed fiscal period.");
+
+    expect(guard.assertPostingDateAllowed).toHaveBeenCalledWith("org-1", new Date("2026-05-06T00:00:00.000Z"), tx);
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+    expect(tx.customerPayment.create).not.toHaveBeenCalled();
+  });
+
   it("supports partial allocation and records unapplied amount", async () => {
     const tx = makeCreateTransactionMock();
     const prisma = makeCreatePrismaMock({ tx, invoiceBalanceDue: "100.0000" });
@@ -170,7 +190,15 @@ describe("customer payment rules", () => {
   it("applies unapplied payment credit to an open invoice without posting another journal", async () => {
     const tx = makeApplyUnappliedTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
-    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    const guard = { assertPostingDateAllowed: jest.fn() };
+    const service = new CustomerPaymentService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn() } as never,
+      undefined,
+      undefined,
+      guard as never,
+    );
     jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED, unappliedAmount: "100.0000" } as never);
 
     await expect(
@@ -200,6 +228,7 @@ describe("customer payment rules", () => {
       expect.objectContaining({ data: expect.objectContaining({ amountApplied: "40.0000" }) }),
     );
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
+    expect(guard.assertPostingDateAllowed).not.toHaveBeenCalled();
   });
 
   it("rejects invalid unapplied payment applications", async () => {

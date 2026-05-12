@@ -9,6 +9,7 @@ import {
 } from "@ledgerbyte/accounting-core";
 import { JournalEntryStatus, NumberSequenceScope, Prisma } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateJournalEntryDto } from "./dto/create-journal-entry.dto";
@@ -33,6 +34,7 @@ export class AccountingService {
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
     private readonly numberSequenceService: NumberSequenceService,
+    private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
   ) {}
 
   list(organizationId: string) {
@@ -148,6 +150,7 @@ export class AccountingService {
     const lines = this.toCoreLines(existing.lines);
     this.assertBalanced(lines);
     const totals = getJournalTotals(lines);
+    await this.assertPostingDateAllowed(organizationId, existing.entryDate);
 
     const posted = await this.prisma.journalEntry.update({
       where: { id },
@@ -202,6 +205,8 @@ export class AccountingService {
       this.assertBalanced(reversalLines);
       const totals = getJournalTotals(reversalLines);
       const entryNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx);
+      const reversalDate = new Date();
+      await this.assertPostingDateAllowed(organizationId, reversalDate, tx);
 
       try {
         const created = await tx.journalEntry.create({
@@ -209,13 +214,13 @@ export class AccountingService {
             organizationId,
             entryNumber,
             status: JournalEntryStatus.POSTED,
-            entryDate: new Date(),
+            entryDate: reversalDate,
             description: `Reversal of ${current.entryNumber}: ${current.description}`,
             reference: current.entryNumber,
             currency: current.currency,
             totalDebit: totals.debit,
             totalCredit: totals.credit,
-            postedAt: new Date(),
+            postedAt: reversalDate,
             postedById: actorUserId,
             createdById: actorUserId,
             reversalOfId: current.id,
@@ -308,6 +313,10 @@ export class AccountingService {
     if (taxRates.length !== taxRateIds.length) {
       throw new BadRequestException("One or more tax rates do not exist in this organization.");
     }
+  }
+
+  private async assertPostingDateAllowed(organizationId: string, postingDate: string | Date, tx?: Prisma.TransactionClient): Promise<void> {
+    await this.fiscalPeriodGuardService?.assertPostingDateAllowed(organizationId, postingDate, tx);
   }
 
   private toLineCreateMany(organizationId: string, lines: JournalLineInput[]): Prisma.JournalLineCreateWithoutJournalEntryInput[] {

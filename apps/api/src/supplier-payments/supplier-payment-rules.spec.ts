@@ -64,6 +64,26 @@ describe("supplier payment rules", () => {
     });
   });
 
+  it("blocks supplier payment posting in a closed fiscal period", async () => {
+    const tx = makeCreateTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const guard = { assertPostingDateAllowed: jest.fn().mockRejectedValue(new Error("Posting date falls in a closed fiscal period.")) };
+    const service = new SupplierPaymentService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn() } as never,
+      undefined,
+      undefined,
+      guard as never,
+    );
+
+    await expect(service.create("org-1", "user-1", basePaymentDto)).rejects.toThrow("Posting date falls in a closed fiscal period.");
+
+    expect(guard.assertPostingDateAllowed).toHaveBeenCalledWith("org-1", new Date("2026-05-12T00:00:00.000Z"), tx);
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+    expect(tx.supplierPayment.create).not.toHaveBeenCalled();
+  });
+
   it("supports unapplied supplier payments", async () => {
     const tx = makeCreateTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };

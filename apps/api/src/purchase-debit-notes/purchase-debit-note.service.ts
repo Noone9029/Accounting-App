@@ -25,6 +25,7 @@ import {
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
+import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ApplyPurchaseDebitNoteDto } from "./dto/apply-purchase-debit-note.dto";
@@ -120,6 +121,7 @@ export class PurchaseDebitNoteService {
     private readonly numberSequenceService: NumberSequenceService,
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
+    private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
   ) {}
 
   list(organizationId: string) {
@@ -379,6 +381,7 @@ export class PurchaseDebitNoteService {
       if (debitNote.status !== PurchaseDebitNoteStatus.DRAFT) {
         throw new BadRequestException("Only draft purchase debit notes can be finalized.");
       }
+      await this.assertPostingDateAllowed(organizationId, debitNote.issueDate, tx);
 
       this.assertFinalizablePurchaseDebitNote({
         subtotal: String(debitNote.subtotal),
@@ -509,6 +512,8 @@ export class PurchaseDebitNoteService {
       if (!debitNote.journalEntryId) {
         throw new BadRequestException("Finalized purchase debit note is missing its journal entry.");
       }
+      const reversalDate = new Date();
+      await this.assertPostingDateAllowed(organizationId, reversalDate, tx);
 
       const allocationCount = await tx.purchaseDebitNoteAllocation.count({
         where: { organizationId, debitNoteId: id, reversedAt: null },
@@ -532,7 +537,7 @@ export class PurchaseDebitNoteService {
         return tx.purchaseDebitNote.findUniqueOrThrow({ where: { id }, include: purchaseDebitNoteInclude });
       }
 
-      const reversalJournalEntryId = await this.createOrReuseReversalJournal(organizationId, actorUserId, debitNote.journalEntryId, tx);
+      const reversalJournalEntryId = await this.createOrReuseReversalJournal(organizationId, actorUserId, debitNote.journalEntryId, reversalDate, tx);
       return tx.purchaseDebitNote.update({
         where: { id },
         data: { reversalJournalEntryId },
@@ -1151,6 +1156,10 @@ export class PurchaseDebitNoteService {
     return account;
   }
 
+  private async assertPostingDateAllowed(organizationId: string, postingDate: string | Date, tx?: Prisma.TransactionClient): Promise<void> {
+    await this.fiscalPeriodGuardService?.assertPostingDateAllowed(organizationId, postingDate, tx);
+  }
+
   private assertDraft(status: PurchaseDebitNoteStatus): void {
     if (status !== PurchaseDebitNoteStatus.DRAFT) {
       throw new BadRequestException("Only draft purchase debit notes can be edited.");
@@ -1169,6 +1178,7 @@ export class PurchaseDebitNoteService {
     organizationId: string,
     actorUserId: string,
     journalEntryId: string,
+    reversalDate: Date,
     tx: Prisma.TransactionClient,
   ): Promise<string> {
     const journalEntry = await tx.journalEntry.findFirst({
@@ -1205,13 +1215,13 @@ export class PurchaseDebitNoteService {
           organizationId,
           entryNumber,
           status: JournalEntryStatus.POSTED,
-          entryDate: new Date(),
+          entryDate: reversalDate,
           description: `Reversal of ${journalEntry.entryNumber}`,
           reference: journalEntry.reference,
           currency: journalEntry.currency,
           totalDebit: totals.debit,
           totalCredit: totals.credit,
-          postedAt: new Date(),
+          postedAt: reversalDate,
           postedById: actorUserId,
           createdById: actorUserId,
           reversalOfId: journalEntry.id,

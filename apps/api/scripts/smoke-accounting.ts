@@ -30,6 +30,20 @@ interface Account {
   isActive: boolean;
 }
 
+interface FiscalPeriod {
+  id: string;
+  name: string;
+  startsOn: string;
+  endsOn: string;
+  status: "OPEN" | "CLOSED" | "LOCKED";
+}
+
+interface JournalEntry {
+  id: string;
+  status: string;
+  entryDate: string;
+}
+
 interface TaxRate {
   id: string;
   name: string;
@@ -395,6 +409,50 @@ async function main(): Promise<void> {
     accounts.find((account) => account.code === "112" && account.allowPosting && account.isActive) ??
     accounts.find((account) => account.code === "111" && account.allowPosting && account.isActive);
   required(paidThroughAccount, "Bank Account code 112 or Cash code 111");
+
+  const fiscalPeriods = await get<FiscalPeriod[]>("/fiscal-periods", headers);
+  let closedSmokeYear = 1990;
+  while (
+    fiscalPeriods.some((period) => {
+      const start = new Date(`${closedSmokeYear}-01-01T00:00:00.000Z`);
+      const end = new Date(`${closedSmokeYear}-12-31T23:59:59.999Z`);
+      return new Date(period.startsOn) <= end && new Date(period.endsOn) >= start;
+    })
+  ) {
+    closedSmokeYear += 1;
+  }
+  assert(closedSmokeYear < 2100, "available isolated fiscal period year for smoke lock check");
+  const closedFiscalPeriod = await post<FiscalPeriod>("/fiscal-periods", headers, {
+    name: `Smoke Closed Period ${closedSmokeYear}`,
+    startsOn: `${closedSmokeYear}-01-01`,
+    endsOn: `${closedSmokeYear}-12-31`,
+  });
+  assertEqual(closedFiscalPeriod.status, "OPEN", "new fiscal period starts open");
+  const closedFiscalPeriodAfterClose = await post<FiscalPeriod>(`/fiscal-periods/${closedFiscalPeriod.id}/close`, headers, {});
+  assertEqual(closedFiscalPeriodAfterClose.status, "CLOSED", "closed fiscal period status");
+  const blockedJournal = await post<JournalEntry>("/journal-entries", headers, {
+    entryDate: `${closedSmokeYear}-06-15T00:00:00.000Z`,
+    description: "Smoke test closed fiscal period posting guard",
+    reference: `SMOKE-CLOSED-${runId}`,
+    currency: "SAR",
+    lines: [
+      {
+        accountId: paidThroughAccount!.id,
+        debit: "1.0000",
+        credit: "0.0000",
+        description: "Closed period guard debit",
+        currency: "SAR",
+      },
+      {
+        accountId: salesAccount.id,
+        debit: "0.0000",
+        credit: "1.0000",
+        description: "Closed period guard credit",
+        currency: "SAR",
+      },
+    ],
+  });
+  await expectHttpError("manual journal post in closed fiscal period", () => post(`/journal-entries/${blockedJournal.id}/post`, headers, {}));
 
   const taxRates = await get<TaxRate[]>("/tax-rates", headers);
   const salesVat = taxRates.find((taxRate) => taxRate.name === "VAT on Sales 15%" && taxRate.isActive);
@@ -1714,6 +1772,8 @@ async function main(): Promise<void> {
       {
         apiUrl,
         organization: context.organization,
+        closedFiscalPeriodId: closedFiscalPeriod.id,
+        fiscalPeriodLockChecked: true,
         customerId: customer.id,
         invoiceId: draftInvoice.id,
         invoiceNumber: finalizedInvoice.invoiceNumber,

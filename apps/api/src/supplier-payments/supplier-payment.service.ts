@@ -15,6 +15,7 @@ import {
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
+import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ApplyUnappliedSupplierPaymentDto } from "./dto/apply-unapplied-supplier-payment.dto";
@@ -82,6 +83,7 @@ export class SupplierPaymentService {
     private readonly numberSequenceService: NumberSequenceService,
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
+    private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
   ) {}
 
   list(organizationId: string) {
@@ -443,6 +445,8 @@ export class SupplierPaymentService {
     const unappliedAmount = amountPaid.minus(totalAllocated).toFixed(4);
 
     const payment = await this.prisma.$transaction(async (tx) => {
+      const paymentDate = new Date(dto.paymentDate);
+      await this.assertPostingDateAllowed(organizationId, paymentDate, tx);
       const supplier = await tx.contact.findFirst({
         where: {
           id: dto.supplierId,
@@ -488,7 +492,7 @@ export class SupplierPaymentService {
           organizationId,
           entryNumber,
           status: JournalEntryStatus.POSTED,
-          entryDate: new Date(dto.paymentDate),
+          entryDate: paymentDate,
           description: `Supplier payment ${paymentNumber} - ${supplier.displayName ?? supplier.name}`,
           reference: paymentNumber,
           currency,
@@ -506,7 +510,7 @@ export class SupplierPaymentService {
           organizationId,
           paymentNumber,
           supplierId: supplier.id,
-          paymentDate: new Date(dto.paymentDate),
+          paymentDate,
           currency,
           amountPaid: amountPaid.toFixed(4),
           unappliedAmount,
@@ -772,6 +776,8 @@ export class SupplierPaymentService {
       if (!payment.journalEntryId) {
         throw new BadRequestException("Posted supplier payment is missing its journal entry.");
       }
+      const reversalDate = new Date();
+      await this.assertPostingDateAllowed(organizationId, reversalDate, tx);
 
       const activeUnappliedAllocationCount = await tx.supplierPaymentUnappliedAllocation.count({
         where: { organizationId, paymentId: id, reversedAt: null },
@@ -815,7 +821,7 @@ export class SupplierPaymentService {
         }
       }
 
-      const reversalJournalEntryId = await this.createOrReuseReversalJournal(organizationId, actorUserId, payment.journalEntryId, tx);
+      const reversalJournalEntryId = await this.createOrReuseReversalJournal(organizationId, actorUserId, payment.journalEntryId, reversalDate, tx);
       return tx.supplierPayment.update({
         where: { id },
         data: { voidReversalJournalEntryId: reversalJournalEntryId },
@@ -920,6 +926,7 @@ export class SupplierPaymentService {
     organizationId: string,
     actorUserId: string,
     journalEntryId: string,
+    reversalDate: Date,
     tx: Prisma.TransactionClient,
   ): Promise<string> {
     const journalEntry = await tx.journalEntry.findFirst({
@@ -956,13 +963,13 @@ export class SupplierPaymentService {
           organizationId,
           entryNumber,
           status: JournalEntryStatus.POSTED,
-          entryDate: new Date(),
+          entryDate: reversalDate,
           description: `Reversal of ${journalEntry.entryNumber}`,
           reference: journalEntry.reference,
           currency: journalEntry.currency,
           totalDebit: totals.debit,
           totalCredit: totals.credit,
-          postedAt: new Date(),
+          postedAt: reversalDate,
           postedById: actorUserId,
           createdById: actorUserId,
           reversalOfId: journalEntry.id,
@@ -998,6 +1005,10 @@ export class SupplierPaymentService {
   private cleanOptional(value: string | undefined): string | undefined {
     const trimmed = value?.trim();
     return trimmed || undefined;
+  }
+
+  private async assertPostingDateAllowed(organizationId: string, postingDate: string | Date, tx?: Prisma.TransactionClient): Promise<void> {
+    await this.fiscalPeriodGuardService?.assertPostingDateAllowed(organizationId, postingDate, tx);
   }
 }
 

@@ -22,6 +22,7 @@ import {
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
+import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CashExpenseLineDto } from "./dto/cash-expense-line.dto";
@@ -89,6 +90,7 @@ export class CashExpenseService {
     private readonly numberSequenceService: NumberSequenceService,
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
+    private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
   ) {}
 
   list(organizationId: string) {
@@ -130,6 +132,8 @@ export class CashExpenseService {
 
     const currency = (dto.currency ?? "SAR").toUpperCase();
     const expense = await this.prisma.$transaction(async (tx) => {
+      const expenseDate = new Date(dto.expenseDate);
+      await this.assertPostingDateAllowed(organizationId, expenseDate, tx);
       const expenseNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.CASH_EXPENSE, tx);
       const paidThroughAccount = await this.findPaidThroughAccount(organizationId, dto.paidThroughAccountId, tx);
       const vatReceivableAccount = await this.findPostingAccountByCode(organizationId, "230", tx);
@@ -152,7 +156,7 @@ export class CashExpenseService {
           organizationId,
           entryNumber: await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx),
           status: JournalEntryStatus.POSTED,
-          entryDate: new Date(dto.expenseDate),
+          entryDate: expenseDate,
           description: `Cash expense ${expenseNumber}`,
           reference: expenseNumber,
           currency,
@@ -171,7 +175,7 @@ export class CashExpenseService {
           expenseNumber,
           contactId: this.cleanOptional(dto.contactId ?? undefined) ?? null,
           branchId: this.cleanOptional(dto.branchId ?? undefined) ?? null,
-          expenseDate: new Date(dto.expenseDate),
+          expenseDate,
           currency,
           status: CashExpenseStatus.POSTED,
           subtotal: prepared.subtotal,
@@ -229,6 +233,8 @@ export class CashExpenseService {
       if (!expense.journalEntry) {
         throw new BadRequestException("Cash expense has no journal entry to reverse.");
       }
+      const reversalDate = new Date();
+      await this.assertPostingDateAllowed(organizationId, reversalDate, tx);
 
       const claim = await tx.cashExpense.updateMany({
         where: { id, organizationId, status: CashExpenseStatus.POSTED },
@@ -246,6 +252,7 @@ export class CashExpenseService {
           {
             expenseNumber: expense.expenseNumber,
             currency: expense.currency,
+            reversalDate,
             journalEntry: expense.journalEntry,
           },
           tx,
@@ -597,6 +604,7 @@ export class CashExpenseService {
     expense: {
       expenseNumber: string;
       currency: string;
+      reversalDate: Date;
       journalEntry: {
         id: string;
         entryNumber: string;
@@ -635,13 +643,13 @@ export class CashExpenseService {
           organizationId,
           entryNumber: await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx),
           status: JournalEntryStatus.POSTED,
-          entryDate: new Date(),
+          entryDate: expense.reversalDate,
           description: `Reversal of cash expense ${expense.expenseNumber}`,
           reference: expense.journalEntry.reference,
           currency: expense.currency,
           totalDebit: totals.debit,
           totalCredit: totals.credit,
-          postedAt: new Date(),
+          postedAt: expense.reversalDate,
           postedById: actorUserId,
           createdById: actorUserId,
           reversalOfId: expense.journalEntry.id,
@@ -696,6 +704,10 @@ export class CashExpenseService {
   private cleanOptional(value: string | undefined): string | undefined {
     const trimmed = value?.trim();
     return trimmed || undefined;
+  }
+
+  private async assertPostingDateAllowed(organizationId: string, postingDate: string | Date, tx?: Prisma.TransactionClient): Promise<void> {
+    await this.fiscalPeriodGuardService?.assertPostingDateAllowed(organizationId, postingDate, tx);
   }
 }
 

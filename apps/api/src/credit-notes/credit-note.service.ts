@@ -24,6 +24,7 @@ import {
 } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
+import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -111,6 +112,7 @@ export class CreditNoteService {
     private readonly numberSequenceService: NumberSequenceService,
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
+    private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
   ) {}
 
   list(organizationId: string) {
@@ -714,6 +716,7 @@ export class CreditNoteService {
       if (creditNote.status !== CreditNoteStatus.DRAFT) {
         throw new BadRequestException("Only draft credit notes can be finalized.");
       }
+      await this.assertPostingDateAllowed(organizationId, creditNote.issueDate, tx);
 
       this.assertFinalizableCreditNote({
         subtotal: String(creditNote.subtotal),
@@ -851,6 +854,8 @@ export class CreditNoteService {
       if (!creditNote.journalEntryId) {
         throw new BadRequestException("Finalized credit note is missing its journal entry.");
       }
+      const reversalDate = new Date();
+      await this.assertPostingDateAllowed(organizationId, reversalDate, tx);
 
       const claim = await tx.creditNote.updateMany({
         where: { id, organizationId, status: CreditNoteStatus.FINALIZED },
@@ -876,7 +881,7 @@ export class CreditNoteService {
         throw new BadRequestException("Cannot void credit note with posted refunds. Void refunds first.");
       }
 
-      const reversalJournalEntryId = await this.createOrReuseReversalJournal(organizationId, actorUserId, creditNote.journalEntryId, tx);
+      const reversalJournalEntryId = await this.createOrReuseReversalJournal(organizationId, actorUserId, creditNote.journalEntryId, reversalDate, tx);
 
       return tx.creditNote.update({
         where: { id },
@@ -1135,6 +1140,10 @@ export class CreditNoteService {
     return account;
   }
 
+  private async assertPostingDateAllowed(organizationId: string, postingDate: string | Date, tx?: Prisma.TransactionClient): Promise<void> {
+    await this.fiscalPeriodGuardService?.assertPostingDateAllowed(organizationId, postingDate, tx);
+  }
+
   private assertDraft(status: CreditNoteStatus): void {
     if (status !== CreditNoteStatus.DRAFT) {
       throw new BadRequestException("Only draft credit notes can be edited.");
@@ -1153,6 +1162,7 @@ export class CreditNoteService {
     organizationId: string,
     actorUserId: string,
     journalEntryId: string,
+    reversalDate: Date,
     tx: Prisma.TransactionClient,
   ): Promise<string> {
     const journalEntry = await tx.journalEntry.findFirst({
@@ -1189,13 +1199,13 @@ export class CreditNoteService {
           organizationId,
           entryNumber,
           status: JournalEntryStatus.POSTED,
-          entryDate: new Date(),
+          entryDate: reversalDate,
           description: `Reversal of ${journalEntry.entryNumber}`,
           reference: journalEntry.reference,
           currency: journalEntry.currency,
           totalDebit: totals.debit,
           totalCredit: totals.credit,
-          postedAt: new Date(),
+          postedAt: reversalDate,
           postedById: actorUserId,
           createdById: actorUserId,
           reversalOfId: journalEntry.id,

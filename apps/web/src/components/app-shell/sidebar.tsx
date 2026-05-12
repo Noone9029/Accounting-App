@@ -101,6 +101,7 @@ const navItems: NavItem[] = [
       { label: "Manual journals", href: "/journal-entries" },
       { label: "Chart of accounts", href: "/accounts" },
       { label: "Tax rates", href: "/tax-rates" },
+      { label: "Fiscal periods", href: "/fiscal-periods" },
     ],
   },
   { label: "Bank accounts", href: "/bank-accounts", icon: Landmark },

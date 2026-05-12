@@ -13,6 +13,7 @@ import { CustomerRefundModule } from "./customer-refunds/customer-refund.module"
 import { GeneratedDocumentModule } from "./generated-documents/generated-document.module";
 import { HealthModule } from "./health/health.module";
 import { ItemModule } from "./items/item.module";
+import { FiscalPeriodModule } from "./fiscal-periods/fiscal-period.module";
 import { NumberSequenceModule } from "./number-sequences/number-sequence.module";
 import { OrganizationDocumentSettingsModule } from "./document-settings/organization-document-settings.module";
 import { OrganizationModule } from "./organizations/organization.module";
@@ -40,6 +41,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     CustomerPaymentModule,
     CustomerRefundModule,
     GeneratedDocumentModule,
+    FiscalPeriodModule,
     OrganizationDocumentSettingsModule,
     ItemModule,
     SalesInvoiceModule,

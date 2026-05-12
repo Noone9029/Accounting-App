@@ -25,6 +25,7 @@ import {
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
+import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreatePurchaseBillDto } from "./dto/create-purchase-bill.dto";
@@ -148,6 +149,7 @@ export class PurchaseBillService {
     private readonly numberSequenceService: NumberSequenceService,
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
+    private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
   ) {}
 
   list(organizationId: string) {
@@ -517,6 +519,7 @@ export class PurchaseBillService {
       if (bill.status !== PurchaseBillStatus.DRAFT) {
         throw new BadRequestException("Only draft purchase bills can be finalized.");
       }
+      await this.assertPostingDateAllowed(organizationId, bill.billDate, tx);
 
       this.assertFinalizablePurchaseBill({
         subtotal: String(bill.subtotal),
@@ -636,6 +639,8 @@ export class PurchaseBillService {
       if (!bill.journalEntryId) {
         throw new BadRequestException("Finalized purchase bill is missing its journal entry.");
       }
+      const reversalDate = new Date();
+      await this.assertPostingDateAllowed(organizationId, reversalDate, tx);
 
       const activePaymentCount = await tx.supplierPaymentAllocation.count({
         where: {
@@ -680,7 +685,7 @@ export class PurchaseBillService {
         return tx.purchaseBill.findUniqueOrThrow({ where: { id }, include: purchaseBillInclude });
       }
 
-      const reversalJournalEntryId = await this.createOrReuseReversalJournal(organizationId, actorUserId, bill.journalEntryId, tx);
+      const reversalJournalEntryId = await this.createOrReuseReversalJournal(organizationId, actorUserId, bill.journalEntryId, reversalDate, tx);
       return tx.purchaseBill.update({
         where: { id },
         data: { reversalJournalEntryId },
@@ -895,6 +900,10 @@ export class PurchaseBillService {
     return account;
   }
 
+  private async assertPostingDateAllowed(organizationId: string, postingDate: string | Date, tx?: Prisma.TransactionClient): Promise<void> {
+    await this.fiscalPeriodGuardService?.assertPostingDateAllowed(organizationId, postingDate, tx);
+  }
+
   private assertDraft(status: PurchaseBillStatus): void {
     if (status !== PurchaseBillStatus.DRAFT) {
       throw new BadRequestException("Only draft purchase bills can be edited.");
@@ -905,6 +914,7 @@ export class PurchaseBillService {
     organizationId: string,
     actorUserId: string,
     journalEntryId: string,
+    reversalDate: Date,
     tx: Prisma.TransactionClient,
   ): Promise<string> {
     const journalEntry = await tx.journalEntry.findFirst({
@@ -941,13 +951,13 @@ export class PurchaseBillService {
           organizationId,
           entryNumber,
           status: JournalEntryStatus.POSTED,
-          entryDate: new Date(),
+          entryDate: reversalDate,
           description: `Reversal of ${journalEntry.entryNumber}`,
           reference: journalEntry.reference,
           currency: journalEntry.currency,
           totalDebit: totals.debit,
           totalCredit: totals.credit,
-          postedAt: new Date(),
+          postedAt: reversalDate,
           postedById: actorUserId,
           createdById: actorUserId,
           reversalOfId: journalEntry.id,

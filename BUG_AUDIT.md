@@ -782,11 +782,34 @@ Commit inspected: pending (`Add core accounting reports MVP`)
 
 ### Remaining Reports Risks
 
-- Fiscal period locks are not enforced yet.
 - VAT Summary is not an official VAT return filing report.
 - Report PDFs are not implemented yet.
 - CSV/export is not implemented yet.
 - Report definitions and presentation still need accountant review before production use.
+
+## Fiscal Period Posting Locks
+
+Audit date: 2026-05-12
+
+Commit inspected: pending (`Add fiscal period posting locks`)
+
+### Fiscal Period Controls Added
+
+- Added authenticated, tenant-scoped fiscal period APIs for list/create/detail/update/close/reopen/lock.
+- Added overlap validation, end-before-start validation, and guarded status transitions for `OPEN`, `CLOSED`, and `LOCKED`.
+- Added a central fiscal period posting guard: if no periods exist, posting remains allowed; once periods exist, posting dates must fall inside an `OPEN` period.
+- Enforced the guard on manual journal posting/reversal and all accounting workflows that create posted journals or reversal journals.
+- Kept pure allocation/matching actions unguarded because they create no journal entry and should not be treated as new postings.
+- Added `/fiscal-periods` frontend page with period creation, status badges, close/reopen/lock actions, and irreversible-lock warnings.
+- Extended backend/frontend tests and smoke coverage for fiscal period transitions and closed-period posting rejection.
+
+### Remaining Fiscal Period Risks
+
+- Locked periods cannot be reopened in this MVP; no admin unlock/approval workflow exists.
+- Reversal journals use the current date as their posting date; no user-selected reversal date exists yet.
+- No fiscal year wizard, period templates, or year-end close workflow exists yet.
+- No retained earnings close process exists yet.
+- Reports do not yet label or summarize fiscal period status for selected date ranges.
 
 ## Remaining Risks
 
@@ -800,8 +823,8 @@ Commit inspected: pending (`Add core accounting reports MVP`)
 
 ## Recommended Next Steps
 
-1. Add optimistic concurrency or transaction guards for invoice finalization, payment allocation, and reversal idempotency.
-2. Add purchase order workflows and bank reconciliation groundwork before inventory-side accounting.
+1. Add purchase order workflows and bank reconciliation groundwork before inventory-side accounting.
+2. Add formal fiscal year close, retained earnings close, and admin unlock/approval workflows.
 3. Add a lightweight Playwright or browser smoke suite once the local Node runtime supports the in-app browser backend.
 4. Normalize branch default behavior and account parent cycle validation.
 5. Move Prisma seed configuration to `prisma.config.ts` before upgrading to Prisma 7.

@@ -31,7 +31,7 @@ Schema source: `apps/api/prisma/schema.prisma`
 | `ZatcaInvoiceStatus` | `NOT_SUBMITTED`, `XML_GENERATED`, `READY_FOR_SUBMISSION`, `SUBMISSION_PENDING`, `CLEARED`, `REPORTED`, `REJECTED`, `FAILED` | Local ZATCA metadata lifecycle. |
 | `ZatcaSubmissionType` | `COMPLIANCE_CHECK`, `CLEARANCE`, `REPORTING` | ZATCA submission/log type. |
 | `ZatcaSubmissionStatus` | `PENDING`, `SUCCESS`, `REJECTED`, `FAILED` | ZATCA submission/log result. |
-| `FiscalPeriodStatus` | `OPEN`, `CLOSED`, `LOCKED` | Future fiscal period state. |
+| `FiscalPeriodStatus` | `OPEN`, `CLOSED`, `LOCKED` | Fiscal period posting control state. |
 | `NumberSequenceScope` | `JOURNAL_ENTRY`, `INVOICE`, `BILL`, `PAYMENT`, `CUSTOMER_REFUND`, `CREDIT_NOTE`, `DEBIT_NOTE`, `CONTACT` | Tenant numbering scopes. |
 
 ## Core Tenant And Security Models
@@ -61,7 +61,7 @@ Schema source: `apps/api/prisma/schema.prisma`
 | `Account` | Chart of accounts node. | `code`, `name`, `type`, `allowPosting`, `isSystem`, `isActive`, `parentId`. | Journal lines, items, invoice/credit/bill lines, payments/refunds. | All postings reference accounts. | Active/system flags. | Descendant cycle guard needs hardening. |
 | `TaxRate` | VAT/tax rate. | `scope`, `category`, `rate`, `isActive`, `isSystem`. | Invoice, credit note, purchase bill lines, items, journal lines. | Calculates tax and links tax lines. | Active/system flags. | VAT reporting not implemented. |
 | `Item` | Product/service catalog. | `type`, `status`, `sellingPrice`, `purchaseCost`, account/tax defaults, `inventoryTracking`. | Invoice, credit note, purchase bill lines. | Defaults accounts/taxes; no stock accounting yet. | `ItemStatus`. | Inventory tracking is a flag only. |
-| `FiscalPeriod` | Accounting period placeholder. | `name`, `startsOn`, `endsOn`, `status`. | Organization. | Intended to control posting windows. | `FiscalPeriodStatus`. | No API/UI/enforcement. |
+| `FiscalPeriod` | Accounting posting period. | `name`, `startsOn`, `endsOn`, `status`. | Organization. | Controls posting windows through the fiscal period guard. | `FiscalPeriodStatus`. | No unlock/admin approval, fiscal year wizard, or retained earnings close. |
 
 ## Journal Models
 

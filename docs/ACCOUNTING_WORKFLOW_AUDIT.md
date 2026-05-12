@@ -4,6 +4,24 @@ Audit date: 2026-05-12
 
 This document maps implemented accounting workflows to their journal entries, balance fields, idempotency behavior, and gaps.
 
+## Posting Date Locks
+
+- API/UI: fiscal periods are managed through `GET/POST/PATCH /fiscal-periods` plus `close`, `reopen`, and `lock` actions on `/fiscal-periods`.
+- Guard: `FiscalPeriodGuardService.assertPostingDateAllowed` is called before posted journals and reversal journals are created.
+- Policy:
+  - If no fiscal periods exist for an organization, posting remains allowed for MVP compatibility.
+  - If periods exist, the posting date must fall inside an `OPEN` period.
+  - `CLOSED` and `LOCKED` periods reject posting with clear 400-level business errors.
+- Protected workflows:
+  - Manual journal post and reversal.
+  - Sales invoice finalization and finalized invoice void reversal.
+  - Customer payment, customer refund, credit note, purchase bill, supplier payment, supplier refund, purchase debit note, and cash expense posting/void reversal flows.
+- Not protected:
+  - Allocation and matching-only actions that create no journal entry, including payment allocations, credit note allocations, purchase debit note allocations, and their reversal/application variants.
+- Gaps/risks:
+  - Reversal posting date is current date only.
+  - No admin unlock approval, fiscal year wizard, or retained earnings close process exists yet.
+
 ## Manual Journals
 
 ### Create
@@ -19,7 +37,6 @@ This document maps implemented accounting workflows to their journal entries, ba
   - Posting accounts must be active and tenant scoped.
 - Accounting impact: none until posted.
 - Gaps/risks:
-  - No fiscal-period date lock.
   - No attachment support.
 
 ### Post
@@ -29,6 +46,7 @@ This document maps implemented accounting workflows to their journal entries, ba
 - Balance fields affected: no subledger balance fields; GL impact exists through posted lines.
 - Idempotency/concurrency:
   - Service claims/validates state before posting.
+  - Posting date must fall inside an open fiscal period when periods are configured.
 - Gaps/risks:
   - No approval workflow.
 
@@ -42,6 +60,7 @@ This document maps implemented accounting workflows to their journal entries, ba
 - Balance fields affected: GL only.
 - Idempotency/concurrency:
   - Duplicate reversal attempts are guarded by unique relation and business errors.
+  - Reversal posting date is guarded against closed/locked fiscal periods.
 - Gaps/risks:
   - Manual reversal racing with workflow void should be load-tested.
 
@@ -65,8 +84,8 @@ This document maps implemented accounting workflows to their journal entries, ba
   - Draft void marks `VOIDED`.
   - Finalized void creates/reuses reversal journal and sets `reversalJournalEntryId`.
   - Active customer payment, credit note, or later unapplied payment allocations block voiding.
+  - Finalization and finalized void reversal dates are fiscal-period guarded.
 - Gaps/risks:
-  - Fiscal-period locks missing.
   - No recurring invoice engine.
 
 ### Customer Payment Posting
@@ -83,10 +102,12 @@ This document maps implemented accounting workflows to their journal entries, ba
 - Idempotency/concurrency:
   - Invoice updates use guarded balance conditions to avoid over-allocation.
   - Failed allocation rolls back payment and journal.
+  - Payment date is fiscal-period guarded before posting.
 - Void/reversal:
   - Posted payment void creates/reuses reversal journal.
   - Restores invoice balances for active direct allocations.
   - Blocks void while posted refunds or active later unapplied allocations exist.
+  - Void reversal date is fiscal-period guarded.
 - Gaps/risks:
   - No bank import/reconciliation or gateway settlement matching.
 
@@ -131,9 +152,11 @@ This document maps implemented accounting workflows to their journal entries, ba
   - Refund `journalEntryId` set.
 - Idempotency/concurrency:
   - Source balance update is guarded in the transaction.
+  - Refund date is fiscal-period guarded before posting.
 - Void/reversal:
   - `POST /customer-refunds/:id/void` creates/reuses reversal journal.
   - Restores source unapplied amount once.
+  - Void reversal date is fiscal-period guarded.
 - Gaps/risks:
   - No payment gateway refund or bank reconciliation.
 
@@ -151,10 +174,12 @@ This document maps implemented accounting workflows to their journal entries, ba
 - Idempotency/concurrency:
   - Finalizing an already finalized credit note returns existing record without double-posting.
   - Linked invoice total checks prevent over-crediting linked original invoice at creation/finalization.
+  - Issue date is fiscal-period guarded before finalization posting.
 - Void/reversal:
   - Draft void marks `VOIDED`.
   - Finalized void creates/reuses reversal journal.
   - Active allocations and posted refunds block voiding.
+  - Void reversal date is fiscal-period guarded.
 - Gaps/risks:
   - No inventory returns.
   - No ZATCA credit note XML/signing/submission.
@@ -197,10 +222,10 @@ This document maps implemented accounting workflows to their journal entries, ba
   - Draft void marks `VOIDED`.
   - Finalized void creates/reuses reversal journal.
   - Active supplier payment allocations block voiding.
+  - Finalization and finalized void reversal dates are fiscal-period guarded.
 - Gaps/risks:
   - No purchase order matching.
   - No inventory receiving or stock valuation.
-  - Fiscal-period locks missing.
 
 ### Supplier Payment Posting
 
@@ -216,9 +241,11 @@ This document maps implemented accounting workflows to their journal entries, ba
 - Idempotency/concurrency:
   - Bill balance updates are guarded so allocations cannot exceed `balanceDue`.
   - Failed allocation rolls back payment and journal.
+  - Payment date is fiscal-period guarded before posting.
 - Void/reversal:
   - `POST /supplier-payments/:id/void` creates/reuses reversal journal.
   - Restores allocated bill balances once and marks payment `VOIDED`.
+  - Void reversal date is fiscal-period guarded.
 - Gaps/risks:
   - No supplier payment allocation reversal separate from payment void.
   - No supplier debit note or supplier refund workflow.

@@ -14,6 +14,7 @@ import {
 } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
+import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -79,6 +80,7 @@ export class CustomerPaymentService {
     private readonly numberSequenceService: NumberSequenceService,
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
+    private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
   ) {}
 
   list(organizationId: string) {
@@ -620,6 +622,8 @@ export class CustomerPaymentService {
     const currency = (dto.currency ?? "SAR").toUpperCase();
 
     const payment = await this.prisma.$transaction(async (tx) => {
+      const paymentDate = new Date(dto.paymentDate);
+      await this.assertPostingDateAllowed(organizationId, paymentDate, tx);
       const [customer, paidThroughAccount] = await Promise.all([
         this.findCustomer(organizationId, dto.customerId, tx),
         this.findPaidThroughAccount(organizationId, dto.accountId, tx),
@@ -661,7 +665,7 @@ export class CustomerPaymentService {
           organizationId,
           entryNumber: await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx),
           status: JournalEntryStatus.POSTED,
-          entryDate: new Date(dto.paymentDate),
+          entryDate: paymentDate,
           description: `Customer payment ${paymentNumber} - ${customer.displayName ?? customer.name}`,
           reference: paymentNumber,
           currency,
@@ -679,7 +683,7 @@ export class CustomerPaymentService {
           organizationId,
           paymentNumber,
           customerId: dto.customerId,
-          paymentDate: new Date(dto.paymentDate),
+          paymentDate,
           currency,
           status: CustomerPaymentStatus.POSTED,
           amountReceived: amountReceived.toFixed(4),
@@ -767,6 +771,8 @@ export class CustomerPaymentService {
       if (!journalEntry) {
         throw new BadRequestException("Customer payment has no journal entry to reverse.");
       }
+      const reversalDate = new Date();
+      await this.assertPostingDateAllowed(organizationId, reversalDate, tx);
 
       // Claim the payment before restoring invoice balances. A competing void
       // waits on this row update and then becomes a no-op.
@@ -790,6 +796,7 @@ export class CustomerPaymentService {
             paymentNumber: payment.paymentNumber,
             paymentDate: payment.paymentDate,
             currency: payment.currency,
+            reversalDate,
             journalEntry,
           },
           tx,
@@ -945,6 +952,7 @@ export class CustomerPaymentService {
       paymentNumber: string;
       paymentDate: Date;
       currency: string;
+      reversalDate: Date;
       journalEntry: {
         id: string;
         entryNumber: string;
@@ -982,13 +990,13 @@ export class CustomerPaymentService {
           organizationId,
           entryNumber,
           status: JournalEntryStatus.POSTED,
-          entryDate: new Date(),
+          entryDate: payment.reversalDate,
           description: `Void customer payment ${payment.paymentNumber}: ${payment.journalEntry.description}`,
           reference: payment.paymentNumber,
           currency: payment.currency,
           totalDebit: totals.debit,
           totalCredit: totals.credit,
-          postedAt: new Date(),
+          postedAt: payment.reversalDate,
           postedById: actorUserId,
           createdById: actorUserId,
           reversalOfId: payment.journalEntry.id,
@@ -1026,6 +1034,10 @@ export class CustomerPaymentService {
   private cleanOptional(value: string | undefined): string | undefined {
     const trimmed = value?.trim();
     return trimmed || undefined;
+  }
+
+  private async assertPostingDateAllowed(organizationId: string, postingDate: string | Date, tx?: Prisma.TransactionClient): Promise<void> {
+    await this.fiscalPeriodGuardService?.assertPostingDateAllowed(organizationId, postingDate, tx);
   }
 }
 

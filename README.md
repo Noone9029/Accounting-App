@@ -109,7 +109,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, organization discovery, item/customer/supplier setup, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
+The smoke covers seed login, organization discovery, item/customer/supplier setup, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
 
@@ -691,6 +691,52 @@ Known limitations:
 - No employee claim approval workflow exists yet.
 - No bank reconciliation or bank-feed matching exists yet.
 
+## Fiscal Period Management
+
+Fiscal periods are accountant-controlled posting windows.
+
+APIs:
+
+- `GET /fiscal-periods`
+- `POST /fiscal-periods`
+- `GET /fiscal-periods/:id`
+- `PATCH /fiscal-periods/:id`
+- `POST /fiscal-periods/:id/close`
+- `POST /fiscal-periods/:id/reopen`
+- `POST /fiscal-periods/:id/lock`
+
+Behavior:
+
+- Periods have `OPEN`, `CLOSED`, or `LOCKED` status.
+- Period date ranges cannot overlap inside the same organization.
+- If an organization has no fiscal periods, posting is allowed for MVP compatibility.
+- If periods exist, posting dates must fall inside an `OPEN` fiscal period.
+- `CLOSED` and `LOCKED` periods block posted journals and workflow reversal journals with clear 400 errors.
+- Locked periods cannot be reopened in this MVP.
+- Reports can still read data from closed and locked periods.
+
+Guarded workflows:
+
+- Manual journal posting and reversal.
+- Sales invoice finalization and finalized invoice void reversal.
+- Customer payment posting and void reversal.
+- Customer refund posting and void reversal.
+- Credit note finalization and void reversal.
+- Purchase bill finalization and void reversal.
+- Supplier payment posting and void reversal.
+- Supplier refund posting and void reversal.
+- Purchase debit note finalization and void reversal.
+- Cash expense posting and void reversal.
+
+Matching-only workflows are intentionally not fiscal-period guarded because they create no journal entry: customer/supplier payment allocations, unapplied payment applications/reversals, credit note allocations/reversals, and purchase debit note allocations/reversals.
+
+Known limitations:
+
+- No unlock/admin approval workflow exists yet.
+- Reversal posting date currently uses the current date; no user-selected reversal date is exposed yet.
+- No fiscal year wizard or formal year-end close exists yet.
+- No retained earnings close process exists yet.
+
 ## Core Accounting Reports
 
 Reports are accountant-facing MVP outputs derived from real LedgerByte data. Journal-based reports use posted journal activity only, including historical entries marked `REVERSED` plus their posted reversal journals. AR/AP aging uses current finalized open invoice and bill balances.
@@ -730,7 +776,7 @@ Known limitations:
 - No report PDF rendering exists yet.
 - CSV/export groundwork is still future work.
 - VAT Summary is not an official VAT filing report.
-- Fiscal period locks are not enforced yet.
+- Fiscal period labels are not shown on reports yet.
 - Reports need accountant review before production use.
 
 Receipt data:

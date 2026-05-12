@@ -3,6 +3,7 @@ export type ContactType = "CUSTOMER" | "SUPPLIER" | "BOTH";
 export type TaxRateScope = "SALES" | "PURCHASES" | "BOTH";
 export type TaxRateCategory = "STANDARD" | "ZERO_RATED" | "EXEMPT" | "OUT_OF_SCOPE" | "REVERSE_CHARGE";
 export type JournalStatus = "DRAFT" | "POSTED" | "VOIDED" | "REVERSED";
+export type FiscalPeriodStatus = "OPEN" | "CLOSED" | "LOCKED";
 export type ItemType = "SERVICE" | "PRODUCT";
 export type ItemStatus = "ACTIVE" | "DISABLED";
 export type SalesInvoiceStatus = "DRAFT" | "FINALIZED" | "VOIDED";
@@ -159,6 +160,17 @@ export interface Branch {
   city: string | null;
   countryCode: string;
   isDefault: boolean;
+}
+
+export interface FiscalPeriod {
+  id: string;
+  organizationId: string;
+  name: string;
+  startsOn: string;
+  endsOn: string;
+  status: FiscalPeriodStatus;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface JournalLine {

@@ -12,8 +12,8 @@ Tasks:
 - Fix UX inconsistencies, especially supplier AP balance labels.
 - Add browser E2E tests for sales invoice, customer payment, credit note, customer refund, purchase bill, supplier payment, document archive, and ZATCA settings flows.
 - Enforce role/permission checks in API guards and UI navigation.
-- Add fiscal period API/UI and posting date guards.
-- Add report skeleton routes and API contracts.
+- Harden fiscal period UX with period templates, optional reversal-date selection, and admin unlock approval design.
+- Add report export/PDF groundwork and accountant review pass for report layouts.
 - Move Prisma seed config to `prisma.config.ts` before Prisma 7.
 
 Manual dependencies:
@@ -35,15 +35,11 @@ Tasks:
 
 - Supplier debit notes.
 - Purchase orders and bill matching.
-- Cash expenses and expense receipts.
+- Expense receipt attachments and cash expense import/OCR groundwork.
 - Bank accounts and cash/bank account management.
 - Bank statement import and reconciliation.
-- General ledger report.
-- Trial balance.
-- Profit and loss.
-- Balance sheet.
-- VAT return report.
-- AR aging and AP aging.
+- Official VAT return report.
+- Report export/PDF delivery.
 - Customer and supplier statement PDF parity.
 
 Manual dependencies:
@@ -55,7 +51,7 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Implement supplier debit notes MVP with AP reversal posting, allocation behavior, supplier ledger rows, PDFs, tests, and smoke coverage.
+> Implement purchase orders MVP with bill matching groundwork and AP posting safeguards.
 
 ## Phase 3: Inventory And Payroll Basics
 

@@ -60,6 +60,25 @@ describe("journal accounting rules", () => {
     await expect(service.reverse("org-1", "user-1", "journal-1")).rejects.toThrow("Journal entry has already been reversed.");
     expect(tx.journalEntry.update).not.toHaveBeenCalled();
   });
+
+  it("blocks posting draft journals in closed periods before status changes", async () => {
+    const prisma = {
+      journalEntry: {
+        update: jest.fn(),
+      },
+    };
+    const guard = { assertPostingDateAllowed: jest.fn().mockRejectedValue(new Error("Posting date falls in a closed fiscal period.")) };
+    const service = new AccountingService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, guard as never);
+    jest.spyOn(service, "get").mockResolvedValue({
+      ...makePostedJournal(),
+      status: JournalEntryStatus.DRAFT,
+      entryDate: new Date("2026-01-15T00:00:00.000Z"),
+    } as never);
+
+    await expect(service.post("org-1", "user-1", "journal-1")).rejects.toThrow("Posting date falls in a closed fiscal period.");
+    expect(guard.assertPostingDateAllowed).toHaveBeenCalledWith("org-1", new Date("2026-01-15T00:00:00.000Z"), undefined);
+    expect(prisma.journalEntry.update).not.toHaveBeenCalled();
+  });
 });
 
 function makePostedJournal() {

@@ -88,6 +88,18 @@ describe("purchase bill rules", () => {
     );
   });
 
+  it("blocks purchase bill finalization in a closed fiscal period", async () => {
+    const tx = makeFinalizeTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const guard = { assertPostingDateAllowed: jest.fn().mockRejectedValue(new Error("Posting date falls in a closed fiscal period.")) };
+    const service = new PurchaseBillService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, undefined, undefined, guard as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "bill-1", status: PurchaseBillStatus.DRAFT, journalEntryId: null } as never);
+
+    await expect(service.finalize("org-1", "user-1", "bill-1")).rejects.toThrow("Posting date falls in a closed fiscal period.");
+    expect(tx.purchaseBill.updateMany).not.toHaveBeenCalled();
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
   it("blocks voiding finalized bills with active supplier payment allocations", async () => {
     const tx = makeVoidTransactionMock({ activePaymentCount: 1 });
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
