@@ -43,6 +43,16 @@ export class PurchaseBillController {
     return this.purchaseBillService.pdfData(organizationId, id);
   }
 
+  @Get(":id/debit-notes")
+  debitNotes(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.purchaseBillService.debitNotes(organizationId, id);
+  }
+
+  @Get(":id/debit-note-allocations")
+  debitNoteAllocations(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.purchaseBillService.debitNoteAllocations(organizationId, id);
+  }
+
   @Get(":id/pdf")
   async pdf(
     @CurrentOrganizationId() organizationId: string,

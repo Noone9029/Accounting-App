@@ -8,6 +8,7 @@ export type ItemStatus = "ACTIVE" | "DISABLED";
 export type SalesInvoiceStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type CreditNoteStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type PurchaseBillStatus = "DRAFT" | "FINALIZED" | "VOIDED";
+export type PurchaseDebitNoteStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type CustomerPaymentStatus = "DRAFT" | "POSTED" | "VOIDED";
 export type SupplierPaymentStatus = "DRAFT" | "POSTED" | "VOIDED";
 export type CustomerRefundStatus = "DRAFT" | "POSTED" | "VOIDED";
@@ -26,7 +27,15 @@ export type CustomerLedgerRowType =
   | "CUSTOMER_REFUND"
   | "VOID_CUSTOMER_REFUND"
   | "VOID_INVOICE";
-export type SupplierLedgerRowType = "PURCHASE_BILL" | "SUPPLIER_PAYMENT" | "VOID_SUPPLIER_PAYMENT" | "VOID_PURCHASE_BILL";
+export type SupplierLedgerRowType =
+  | "PURCHASE_BILL"
+  | "PURCHASE_DEBIT_NOTE"
+  | "VOID_PURCHASE_DEBIT_NOTE"
+  | "PURCHASE_DEBIT_NOTE_ALLOCATION"
+  | "PURCHASE_DEBIT_NOTE_ALLOCATION_REVERSAL"
+  | "SUPPLIER_PAYMENT"
+  | "VOID_SUPPLIER_PAYMENT"
+  | "VOID_PURCHASE_BILL";
 export type DocumentType =
   | "SALES_INVOICE"
   | "CREDIT_NOTE"
@@ -34,6 +43,7 @@ export type DocumentType =
   | "CUSTOMER_REFUND"
   | "CUSTOMER_STATEMENT"
   | "PURCHASE_BILL"
+  | "PURCHASE_DEBIT_NOTE"
   | "SUPPLIER_PAYMENT_RECEIPT";
 export type GeneratedDocumentStatus = "GENERATED" | "FAILED" | "SUPERSEDED";
 export type ZatcaEnvironment = "SANDBOX" | "SIMULATION" | "PRODUCTION";
@@ -380,6 +390,90 @@ export interface PurchaseBillLine {
   taxRate?: { id: string; name: string; rate: string } | null;
 }
 
+export interface PurchaseDebitNoteAllocation {
+  id: string;
+  organizationId: string;
+  debitNoteId: string;
+  billId: string;
+  amountApplied: string;
+  reversedAt: string | null;
+  reversedById: string | null;
+  reversalReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  bill?: {
+    id: string;
+    billNumber: string;
+    billDate: string;
+    dueDate: string | null;
+    total: string;
+    balanceDue: string;
+    status: PurchaseBillStatus;
+  };
+  debitNote?: {
+    id: string;
+    debitNoteNumber: string;
+    issueDate: string;
+    currency: string;
+    status: PurchaseDebitNoteStatus;
+    total: string;
+    unappliedAmount: string;
+  };
+  reversedBy?: { id: string; name: string; email: string } | null;
+}
+
+export interface PurchaseDebitNoteLine {
+  id: string;
+  organizationId: string;
+  debitNoteId: string;
+  itemId: string | null;
+  description: string;
+  accountId: string;
+  quantity: string;
+  unitPrice: string;
+  discountRate: string;
+  taxRateId: string | null;
+  lineGrossAmount: string;
+  discountAmount: string;
+  taxableAmount: string;
+  taxAmount: string;
+  lineTotal: string;
+  sortOrder: number;
+  item?: { id: string; name: string; sku: string | null } | null;
+  account?: { id: string; code: string; name: string; type: AccountType };
+  taxRate?: { id: string; name: string; rate: string } | null;
+}
+
+export interface PurchaseDebitNote {
+  id: string;
+  organizationId: string;
+  debitNoteNumber: string;
+  supplierId: string;
+  originalBillId: string | null;
+  branchId: string | null;
+  issueDate: string;
+  currency: string;
+  status: PurchaseDebitNoteStatus;
+  subtotal: string;
+  discountTotal: string;
+  taxableTotal: string;
+  taxTotal: string;
+  total: string;
+  unappliedAmount: string;
+  notes: string | null;
+  reason: string | null;
+  finalizedAt: string | null;
+  journalEntryId: string | null;
+  reversalJournalEntryId: string | null;
+  supplier?: { id: string; name: string; displayName: string | null; type?: ContactType; taxNumber?: string | null };
+  originalBill?: { id: string; billNumber: string; billDate?: string; status: PurchaseBillStatus; total: string; supplierId?: string } | null;
+  branch?: { id: string; name: string; displayName: string | null; taxNumber?: string | null } | null;
+  journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit?: string; totalCredit?: string } | null;
+  reversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
+  lines?: PurchaseDebitNoteLine[];
+  allocations?: PurchaseDebitNoteAllocation[];
+}
+
 export interface SupplierPaymentAllocation {
   id: string;
   organizationId: string;
@@ -432,6 +526,8 @@ export interface PurchaseBill {
   reversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
   lines?: PurchaseBillLine[];
   paymentAllocations?: SupplierPaymentAllocation[];
+  debitNotes?: PurchaseDebitNote[];
+  debitNoteAllocations?: PurchaseDebitNoteAllocation[];
 }
 
 export interface SupplierPayment {
@@ -564,7 +660,7 @@ export interface SupplierLedgerRow {
   debit: string;
   credit: string;
   balance: string;
-  sourceType: "PurchaseBill" | "SupplierPayment";
+  sourceType: "PurchaseBill" | "PurchaseDebitNote" | "PurchaseDebitNoteAllocation" | "SupplierPayment";
   sourceId: string;
   status: string;
   metadata: Record<string, unknown>;
@@ -651,6 +747,17 @@ export interface OpenSalesInvoice {
   total: string;
   balanceDue: string;
   customerId: string;
+}
+
+export interface OpenPurchaseBill {
+  id: string;
+  billNumber: string;
+  billDate: string;
+  dueDate: string | null;
+  currency: string;
+  total: string;
+  balanceDue: string;
+  supplierId: string;
 }
 
 export interface SalesInvoice {

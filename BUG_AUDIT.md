@@ -672,13 +672,40 @@ Commit inspected: `dd498c7` (`Add purchases and supplier payments MVP`)
 - Role permissions are not enforced beyond active organization membership.
 - Fiscal periods exist only as schema groundwork and do not lock posting dates.
 - Core financial reports remain unimplemented.
-- Inventory/COGS, bank reconciliation, purchase orders, debit notes, and cash expenses remain unimplemented.
+- Inventory/COGS, bank reconciliation, purchase orders, and cash expenses remain unimplemented.
 - Generated PDFs are still stored as database base64 and need object storage before production scale.
 - ZATCA remains local/mock/scaffold only and is not production compliant.
 
 ### Next Recommended Module
 
 Supplier debit notes are the next accounting module because purchases/AP now exists and supplier-side adjustments are needed before deeper purchase-order or inventory flows.
+
+## Supplier Debit Notes MVP
+
+Audit date: 2026-05-12
+
+Commit inspected: pending (`Add purchase debit notes MVP`)
+
+### Supplier Debit Notes Added
+
+- Added `PurchaseDebitNoteStatus`, `PurchaseDebitNote`, `PurchaseDebitNoteLine`, and `PurchaseDebitNoteAllocation` schema records with tenant-scoped supplier, original bill, branch, account, tax rate, item, journal, and allocation relations.
+- Added authenticated purchase debit note APIs for list/create/detail/update/delete/finalize/void/apply/allocation reversal plus PDF data/PDF/archive endpoints.
+- Added purchase bill helper APIs for linked debit notes and debit note allocations.
+- Added AP reversal posting on debit note finalization: debit Accounts Payable account code `210`, credit line purchase accounts by taxable amounts, and credit VAT Receivable account code `230` when tax exists.
+- Added transaction-guarded allocation and reversal updates so purchase bill `balanceDue` and debit note `unappliedAmount` cannot go below zero or above source totals.
+- Confirmed debit note allocation and allocation reversal are matching-only actions and do not create journal entries because finalization already posts the AP reduction.
+- Added supplier ledger and statement rows for `PURCHASE_DEBIT_NOTE`, `VOID_PURCHASE_DEBIT_NOTE`, `PURCHASE_DEBIT_NOTE_ALLOCATION`, and `PURCHASE_DEBIT_NOTE_ALLOCATION_REVERSAL`.
+- Added operational purchase debit note PDF rendering and generated document archive support with `DocumentType.PURCHASE_DEBIT_NOTE`.
+- Added frontend purchases navigation, debit note list/create/detail/edit pages, purchase bill linked debit-note sections, allocation/reversal actions, and contact supplier ledger row links.
+- Extended smoke coverage for debit note finalization, journal checks, allocation, allocation reversal, voiding after reversal, supplier ledger rows, PDF download, and archived PDF download.
+
+### Remaining Supplier Debit Note Risks
+
+- No inventory return or stock movement integration exists for supplier debit notes.
+- No ZATCA debit note XML, signing, clearance, reporting, or PDF/A-3 embedding exists.
+- No supplier cash refund workflow exists for unapplied debit note balances.
+- No purchase order linkage exists.
+- No bank reconciliation or bank-feed matching exists.
 
 ## Remaining Risks
 
@@ -693,7 +720,7 @@ Supplier debit notes are the next accounting module because purchases/AP now exi
 ## Recommended Next Steps
 
 1. Add optimistic concurrency or transaction guards for invoice finalization, payment allocation, and reversal idempotency.
-2. Add supplier debit notes and purchase order workflows before inventory-side accounting.
+2. Add purchase order workflows, cash expenses, and supplier refund handling before inventory-side accounting.
 3. Add a lightweight Playwright or browser smoke suite once the local Node runtime supports the in-app browser backend.
 4. Normalize branch default behavior and account parent cycle validation.
 5. Move Prisma seed configuration to `prisma.config.ts` before upgrading to Prisma 7.

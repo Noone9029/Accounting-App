@@ -134,6 +134,14 @@ export default function PurchaseBillDetailPage() {
               Supplier ledger
             </Link>
           ) : null}
+          {bill?.supplierId ? (
+            <Link
+              href={`/purchases/debit-notes/new?billId=${encodeURIComponent(bill.id)}&supplierId=${encodeURIComponent(bill.supplierId)}`}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Create debit note
+            </Link>
+          ) : null}
           {bill ? (
             <button type="button" onClick={() => void downloadBillPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Download PDF
@@ -253,6 +261,76 @@ export default function PurchaseBillDetailPage() {
                 </div>
               ) : (
                 <p className="mt-3 text-sm text-steel">No supplier payments have been applied to this bill.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+              <h2 className="text-base font-semibold text-ink">Linked debit notes</h2>
+              {bill.debitNotes?.length ? (
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                      <tr>
+                        <th className="px-3 py-2">Debit note</th>
+                        <th className="px-3 py-2">Status</th>
+                        <th className="px-3 py-2">Total</th>
+                        <th className="px-3 py-2">Unapplied</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {bill.debitNotes.map((debitNote) => (
+                        <tr key={debitNote.id}>
+                          <td className="px-3 py-2">
+                            <Link href={`/purchases/debit-notes/${debitNote.id}`} className="font-mono text-xs text-palm hover:underline">
+                              {debitNote.debitNoteNumber}
+                            </Link>
+                          </td>
+                          <td className="px-3 py-2 text-steel">{debitNote.status}</td>
+                          <td className="px-3 py-2 font-mono text-xs">{formatMoneyAmount(debitNote.total, bill.currency)}</td>
+                          <td className="px-3 py-2 font-mono text-xs">{formatMoneyAmount(debitNote.unappliedAmount, bill.currency)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-steel">No debit notes are linked to this bill.</p>
+              )}
+            </div>
+
+            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+              <h2 className="text-base font-semibold text-ink">Debit note allocations</h2>
+              {bill.debitNoteAllocations?.length ? (
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                      <tr>
+                        <th className="px-3 py-2">Debit note</th>
+                        <th className="px-3 py-2">Applied</th>
+                        <th className="px-3 py-2">Status</th>
+                        <th className="px-3 py-2">Reversed</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {bill.debitNoteAllocations.map((allocation) => (
+                        <tr key={allocation.id}>
+                          <td className="px-3 py-2">
+                            <Link href={`/purchases/debit-notes/${allocation.debitNoteId}`} className="font-mono text-xs text-palm hover:underline">
+                              {allocation.debitNote?.debitNoteNumber ?? allocation.debitNoteId}
+                            </Link>
+                          </td>
+                          <td className="px-3 py-2 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, bill.currency)}</td>
+                          <td className="px-3 py-2 text-steel">{allocation.reversedAt ? "Reversed" : "Active"}</td>
+                          <td className="px-3 py-2 text-steel">{formatOptionalDate(allocation.reversedAt, "-")}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-steel">No debit note amounts have been applied to this bill.</p>
               )}
             </div>
           </div>

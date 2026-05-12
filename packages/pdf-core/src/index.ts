@@ -174,6 +174,62 @@ export interface PurchaseBillPdfData {
   generatedAt: string | Date;
 }
 
+export interface PurchaseDebitNotePdfData {
+  organization: PdfOrganization;
+  supplier: PdfContact;
+  originalBill?: {
+    id: string;
+    billNumber: string;
+    billDate: string | Date;
+    total: string;
+  } | null;
+  debitNote: {
+    id: string;
+    debitNoteNumber: string;
+    status: string;
+    issueDate: string | Date;
+    currency: string;
+    notes?: string | null;
+    reason?: string | null;
+    subtotal: string;
+    discountTotal: string;
+    taxableTotal: string;
+    taxTotal: string;
+    total: string;
+    unappliedAmount: string;
+  };
+  lines: Array<{
+    description: string;
+    quantity: string;
+    unitPrice: string;
+    discountRate: string;
+    lineGrossAmount: string;
+    discountAmount: string;
+    taxableAmount: string;
+    taxAmount: string;
+    lineTotal: string;
+    taxRateName?: string | null;
+  }>;
+  allocations: Array<{
+    billId: string;
+    billNumber: string;
+    billDate: string | Date;
+    billDueDate?: string | Date | null;
+    billTotal: string;
+    amountApplied: string;
+    billBalanceDue: string;
+    status: string;
+    reversedAt?: string | Date | null;
+    reversalReason?: string | null;
+  }>;
+  journalEntry?: {
+    id: string;
+    entryNumber: string;
+    status: string;
+  } | null;
+  generatedAt: string | Date;
+}
+
 export interface PaymentReceiptPdfData {
   organization: PdfOrganization;
   customer: PdfContact;
@@ -606,6 +662,97 @@ export async function renderPurchaseBillPdf(data: PurchaseBillPdfData, settings?
     }
     if (renderSettings.showTerms) {
       writeOptionalTextBlock(doc, "Terms", data.bill.terms, renderSettings);
+    }
+  }, renderSettings);
+}
+
+export async function renderPurchaseDebitNotePdf(data: PurchaseDebitNotePdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
+  const renderSettings = resolveSettings(settings, "Debit Note");
+  return renderPdf((doc) => {
+    writeHeader(doc, data.organization, renderSettings, data.generatedAt);
+    writeTwoColumnBlocks(doc, "Supplier", contactLines(data.supplier, renderSettings), "Debit Note", [
+      ["Debit note number", data.debitNote.debitNoteNumber],
+      ["Status", data.debitNote.status],
+      ["Issue date", formatDate(data.debitNote.issueDate)],
+      ["Currency", data.debitNote.currency],
+      ["Original bill", data.originalBill ? data.originalBill.billNumber : "-"],
+      ["Journal entry", data.journalEntry ? `${data.journalEntry.entryNumber} (${data.journalEntry.status})` : "-"],
+    ], renderSettings);
+
+    if (data.originalBill) {
+      writeMuted(
+        doc,
+        `Original bill ${data.originalBill.billNumber}, issued ${formatDate(data.originalBill.billDate)}, total ${money(data.originalBill.total, data.debitNote.currency)}.`,
+      );
+    }
+
+    writeOptionalTextBlock(doc, "Reason", data.debitNote.reason, renderSettings);
+    writeSectionTitle(doc, "Line Items", renderSettings);
+    drawTable(
+      doc,
+      [
+        { label: "Description", width: 116 },
+        { label: "Qty", width: 38, align: "right" },
+        { label: "Unit", width: 54, align: "right" },
+        { label: "Gross", width: 54, align: "right" },
+        { label: "Discount", width: 54, align: "right" },
+        { label: "Taxable", width: 54, align: "right" },
+        { label: "Tax", width: 48, align: "right" },
+        { label: "Total", width: 54, align: "right" },
+      ],
+      data.lines.map((line) => [
+        withOptionalSuffix(line.description, line.taxRateName ? `Tax: ${line.taxRateName}` : null),
+        line.quantity,
+        money(line.unitPrice, data.debitNote.currency),
+        money(line.lineGrossAmount, data.debitNote.currency),
+        money(line.discountAmount, data.debitNote.currency),
+        money(line.taxableAmount, data.debitNote.currency),
+        money(line.taxAmount, data.debitNote.currency),
+        money(line.lineTotal, data.debitNote.currency),
+      ]),
+      renderSettings,
+    );
+
+    writeTotals(doc, data.debitNote.currency, [
+      ["Subtotal", data.debitNote.subtotal],
+      ["Discount", data.debitNote.discountTotal],
+      ["Taxable total", data.debitNote.taxableTotal],
+      ["VAT / Tax", data.debitNote.taxTotal],
+      ["Total debit", data.debitNote.total],
+      ["Applied amount", subtractMoney(data.debitNote.total, data.debitNote.unappliedAmount)],
+      ["Unapplied amount", data.debitNote.unappliedAmount],
+    ], renderSettings);
+
+    writeSectionTitle(doc, "Bill Allocations", renderSettings);
+    if (data.allocations.length === 0) {
+      writeMuted(doc, "No bill allocations are linked to this debit note.");
+    } else {
+      drawTable(
+        doc,
+        [
+          { label: "Bill", width: 95 },
+          { label: "Date", width: 60 },
+          { label: "Due", width: 60 },
+          { label: "Status", width: 62 },
+          { label: "Applied", width: 78, align: "right" },
+          { label: "Balance due", width: 88, align: "right" },
+          { label: "Reversed", width: 62 },
+        ],
+        data.allocations.map((allocation) => [
+          allocation.billNumber,
+          formatDate(allocation.billDate),
+          allocation.billDueDate ? formatDate(allocation.billDueDate) : "-",
+          allocation.status,
+          money(allocation.amountApplied, data.debitNote.currency),
+          money(allocation.billBalanceDue, data.debitNote.currency),
+          allocation.reversedAt ? formatDate(allocation.reversedAt) : "-",
+        ]),
+        renderSettings,
+      );
+    }
+
+    if (renderSettings.showNotes) {
+      writeOptionalTextBlock(doc, "Notes", data.debitNote.notes, renderSettings);
     }
   }, renderSettings);
 }

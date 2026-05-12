@@ -473,6 +473,25 @@ function renderRowLink(row: CustomerLedgerRow | SupplierLedgerRow) {
     );
   }
 
+  if (row.sourceType === "PurchaseDebitNote") {
+    return (
+      <Link href={`/purchases/debit-notes/${row.sourceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        View debit note
+      </Link>
+    );
+  }
+
+  if (row.sourceType === "PurchaseDebitNoteAllocation") {
+    const debitNoteId = typeof row.metadata.debitNoteId === "string" ? row.metadata.debitNoteId : "";
+    return debitNoteId ? (
+      <Link href={`/purchases/debit-notes/${debitNoteId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        View debit note
+      </Link>
+    ) : (
+      "-"
+    );
+  }
+
   const invoiceId = typeof row.metadata.invoiceId === "string" ? row.metadata.invoiceId : "";
   return invoiceId ? (
     <Link href={`/sales/invoices/${invoiceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">

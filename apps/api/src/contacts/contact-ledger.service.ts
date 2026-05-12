@@ -9,6 +9,7 @@ import {
   CustomerRefundStatus,
   DocumentType,
   PurchaseBillStatus,
+  PurchaseDebitNoteStatus,
   SalesInvoiceStatus,
   SupplierPaymentStatus,
 } from "@prisma/client";
@@ -75,7 +76,15 @@ export interface CustomerStatementResponse extends CustomerLedgerResponse {
   periodTo: string | null;
 }
 
-export type SupplierLedgerRowType = "PURCHASE_BILL" | "SUPPLIER_PAYMENT" | "VOID_SUPPLIER_PAYMENT" | "VOID_PURCHASE_BILL";
+export type SupplierLedgerRowType =
+  | "PURCHASE_BILL"
+  | "PURCHASE_DEBIT_NOTE"
+  | "VOID_PURCHASE_DEBIT_NOTE"
+  | "PURCHASE_DEBIT_NOTE_ALLOCATION"
+  | "PURCHASE_DEBIT_NOTE_ALLOCATION_REVERSAL"
+  | "SUPPLIER_PAYMENT"
+  | "VOID_SUPPLIER_PAYMENT"
+  | "VOID_PURCHASE_BILL";
 
 export interface SupplierLedgerRow {
   id: string;
@@ -86,7 +95,7 @@ export interface SupplierLedgerRow {
   debit: string;
   credit: string;
   balance: string;
-  sourceType: "PurchaseBill" | "SupplierPayment";
+  sourceType: "PurchaseBill" | "PurchaseDebitNote" | "PurchaseDebitNoteAllocation" | "SupplierPayment";
   sourceId: string;
   status: string;
   metadata: Record<string, unknown>;
@@ -274,6 +283,47 @@ export interface LedgerSupplierPaymentInput {
       status: string;
     } | null;
   }>;
+}
+
+export interface LedgerPurchaseDebitNoteInput {
+  id: string;
+  debitNoteNumber: string;
+  issueDate: Date | string;
+  total: unknown;
+  unappliedAmount: unknown;
+  status: string;
+  journalEntryId: string | null;
+  reversalJournalEntryId?: string | null;
+  originalBillId?: string | null;
+  finalizedAt?: Date | string | null;
+  updatedAt: Date | string;
+  createdAt: Date | string;
+}
+
+export interface LedgerPurchaseDebitNoteAllocationInput {
+  id: string;
+  debitNoteId: string;
+  billId: string;
+  amountApplied: unknown;
+  createdAt: Date | string;
+  reversedAt?: Date | string | null;
+  reversalReason?: string | null;
+  bill?: {
+    id: string;
+    billNumber: string;
+    billDate: Date | string;
+    total: unknown;
+    balanceDue: unknown;
+    status: string;
+  } | null;
+  debitNote?: {
+    id: string;
+    debitNoteNumber: string;
+    issueDate: Date | string;
+    total: unknown;
+    unappliedAmount: unknown;
+    status: string;
+  } | null;
 }
 
 interface PendingSupplierLedgerRow extends Omit<SupplierLedgerRow, "balance"> {
@@ -555,7 +605,7 @@ export class ContactLedgerService {
 
   async supplierLedger(organizationId: string, contactId: string): Promise<SupplierLedgerResponse> {
     const contact = await this.findSupplierContact(organizationId, contactId);
-    const [bills, payments] = await Promise.all([
+    const [bills, debitNotes, debitNoteAllocations, payments] = await Promise.all([
       this.prisma.purchaseBill.findMany({
         where: {
           organizationId,
@@ -576,6 +626,66 @@ export class ContactLedgerService {
           finalizedAt: true,
           createdAt: true,
           updatedAt: true,
+        },
+      }),
+      this.prisma.purchaseDebitNote.findMany({
+        where: {
+          organizationId,
+          supplierId: contactId,
+          status: { in: [PurchaseDebitNoteStatus.FINALIZED, PurchaseDebitNoteStatus.VOIDED] },
+          journalEntryId: { not: null },
+        },
+        select: {
+          id: true,
+          debitNoteNumber: true,
+          issueDate: true,
+          total: true,
+          unappliedAmount: true,
+          status: true,
+          journalEntryId: true,
+          reversalJournalEntryId: true,
+          originalBillId: true,
+          finalizedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      this.prisma.purchaseDebitNoteAllocation.findMany({
+        where: {
+          organizationId,
+          debitNote: {
+            supplierId: contactId,
+            status: { in: [PurchaseDebitNoteStatus.FINALIZED, PurchaseDebitNoteStatus.VOIDED] },
+          },
+        },
+        select: {
+          id: true,
+          debitNoteId: true,
+          billId: true,
+          amountApplied: true,
+          createdAt: true,
+          reversedAt: true,
+          reversalReason: true,
+          bill: {
+            select: {
+              id: true,
+              billNumber: true,
+              billDate: true,
+              total: true,
+              balanceDue: true,
+              status: true,
+            },
+          },
+          debitNote: {
+            select: {
+              id: true,
+              debitNoteNumber: true,
+              issueDate: true,
+              total: true,
+              unappliedAmount: true,
+              status: true,
+            },
+          },
         },
       }),
       this.prisma.supplierPayment.findMany({
@@ -617,7 +727,7 @@ export class ContactLedgerService {
       }),
     ]);
 
-    const rows = buildSupplierLedgerRows({ bills, payments });
+    const rows = buildSupplierLedgerRows({ bills, debitNotes, debitNoteAllocations, payments });
     return {
       contact,
       openingBalance: "0.0000",
@@ -1020,6 +1130,8 @@ export function buildCustomerLedgerRows(input: {
 
 export function buildSupplierLedgerRows(input: {
   bills: LedgerPurchaseBillInput[];
+  debitNotes?: LedgerPurchaseDebitNoteInput[];
+  debitNoteAllocations?: LedgerPurchaseDebitNoteAllocationInput[];
   payments: LedgerSupplierPaymentInput[];
 }): SupplierLedgerRow[] {
   const pendingRows: PendingSupplierLedgerRow[] = [];
@@ -1062,6 +1174,102 @@ export function buildSupplierLedgerRows(input: {
         metadata: {
           billId: bill.id,
           reversalJournalEntryId: bill.reversalJournalEntryId ?? null,
+        },
+      });
+    }
+  }
+
+  for (const debitNote of input.debitNotes ?? []) {
+    pendingRows.push({
+      id: `${debitNote.id}:purchase-debit-note`,
+      type: "PURCHASE_DEBIT_NOTE",
+      date: toIsoString(debitNote.issueDate),
+      createdAt: toIsoString(debitNote.createdAt),
+      number: debitNote.debitNoteNumber,
+      description: `Purchase debit note ${debitNote.debitNoteNumber}`,
+      debit: moneyString(debitNote.total),
+      credit: "0.0000",
+      sourceType: "PurchaseDebitNote",
+      sourceId: debitNote.id,
+      status: debitNote.status,
+      metadata: {
+        debitNoteId: debitNote.id,
+        journalEntryId: debitNote.journalEntryId,
+        originalBillId: debitNote.originalBillId ?? null,
+        unappliedAmount: moneyString(debitNote.unappliedAmount),
+        finalizedAt: debitNote.finalizedAt ? toIsoString(debitNote.finalizedAt) : null,
+      },
+    });
+
+    if (debitNote.status === PurchaseDebitNoteStatus.VOIDED) {
+      pendingRows.push({
+        id: `${debitNote.id}:void`,
+        type: "VOID_PURCHASE_DEBIT_NOTE",
+        date: toIsoString(debitNote.updatedAt),
+        createdAt: toIsoString(debitNote.updatedAt),
+        number: debitNote.debitNoteNumber,
+        description: `Void purchase debit note ${debitNote.debitNoteNumber}`,
+        debit: "0.0000",
+        credit: moneyString(debitNote.total),
+        sourceType: "PurchaseDebitNote",
+        sourceId: debitNote.id,
+        status: debitNote.status,
+        metadata: {
+          debitNoteId: debitNote.id,
+          reversalJournalEntryId: debitNote.reversalJournalEntryId ?? null,
+          originalBillId: debitNote.originalBillId ?? null,
+        },
+      });
+    }
+  }
+
+  for (const allocation of input.debitNoteAllocations ?? []) {
+    const debitNoteNumber = allocation.debitNote?.debitNoteNumber ?? allocation.debitNoteId;
+    const billNumber = allocation.bill?.billNumber ?? allocation.billId;
+    pendingRows.push({
+      id: `${allocation.id}:purchase-debit-note-allocation`,
+      type: "PURCHASE_DEBIT_NOTE_ALLOCATION",
+      date: toIsoString(allocation.createdAt),
+      createdAt: toIsoString(allocation.createdAt),
+      number: `${debitNoteNumber} -> ${billNumber}`,
+      description: `Purchase debit note ${debitNoteNumber} applied to ${billNumber}`,
+      debit: "0.0000",
+      credit: "0.0000",
+      sourceType: "PurchaseDebitNoteAllocation",
+      sourceId: allocation.id,
+      status: allocation.reversedAt ? "REVERSED" : "ACTIVE",
+      metadata: {
+        debitNoteId: allocation.debitNoteId,
+        debitNoteNumber: allocation.debitNote?.debitNoteNumber ?? null,
+        billId: allocation.billId,
+        billNumber: allocation.bill?.billNumber ?? null,
+        amountApplied: moneyString(allocation.amountApplied),
+        reversedAt: allocation.reversedAt ? toIsoString(allocation.reversedAt) : null,
+        reversalReason: allocation.reversalReason ?? null,
+      },
+    });
+
+    if (allocation.reversedAt) {
+      pendingRows.push({
+        id: `${allocation.id}:purchase-debit-note-allocation-reversal`,
+        type: "PURCHASE_DEBIT_NOTE_ALLOCATION_REVERSAL",
+        date: toIsoString(allocation.reversedAt),
+        createdAt: toIsoString(allocation.reversedAt),
+        number: `${debitNoteNumber} -> ${billNumber}`,
+        description: `Reversed purchase debit note ${debitNoteNumber} allocation from ${billNumber}`,
+        debit: "0.0000",
+        credit: "0.0000",
+        sourceType: "PurchaseDebitNoteAllocation",
+        sourceId: allocation.id,
+        status: "REVERSED",
+        metadata: {
+          debitNoteId: allocation.debitNoteId,
+          debitNoteNumber: allocation.debitNote?.debitNoteNumber ?? null,
+          billId: allocation.billId,
+          billNumber: allocation.bill?.billNumber ?? null,
+          amountApplied: moneyString(allocation.amountApplied),
+          reversedAt: toIsoString(allocation.reversedAt),
+          reversalReason: allocation.reversalReason ?? null,
         },
       });
     }
@@ -1235,11 +1443,16 @@ function rowPriority(type: CustomerLedgerRowType): number {
 function supplierRowPriority(type: SupplierLedgerRowType): number {
   switch (type) {
     case "PURCHASE_BILL":
+    case "PURCHASE_DEBIT_NOTE":
     case "SUPPLIER_PAYMENT":
       return 0;
+    case "PURCHASE_DEBIT_NOTE_ALLOCATION":
+    case "PURCHASE_DEBIT_NOTE_ALLOCATION_REVERSAL":
+      return 1;
     case "VOID_SUPPLIER_PAYMENT":
     case "VOID_PURCHASE_BILL":
-      return 1;
+    case "VOID_PURCHASE_DEBIT_NOTE":
+      return 2;
   }
 }
 

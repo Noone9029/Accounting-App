@@ -1,0 +1,1267 @@
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  AccountingRuleError,
+  assertFinalizableSalesInvoice,
+  calculateSalesInvoiceTotals,
+  createReversalLines,
+  getJournalTotals,
+  JournalLineInput,
+  toMoney,
+} from "@ledgerbyte/accounting-core";
+import { PurchaseDebitNotePdfData, renderPurchaseDebitNotePdf } from "@ledgerbyte/pdf-core";
+import {
+  AccountType,
+  ContactType,
+  DocumentType,
+  ItemStatus,
+  JournalEntryStatus,
+  NumberSequenceScope,
+  Prisma,
+  PurchaseBillStatus,
+  PurchaseDebitNoteStatus,
+  TaxRateScope,
+} from "@prisma/client";
+import { AuditLogService } from "../audit-log/audit-log.service";
+import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
+import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
+import { NumberSequenceService } from "../number-sequences/number-sequence.service";
+import { PrismaService } from "../prisma/prisma.service";
+import { ApplyPurchaseDebitNoteDto } from "./dto/apply-purchase-debit-note.dto";
+import { CreatePurchaseDebitNoteDto } from "./dto/create-purchase-debit-note.dto";
+import { PurchaseDebitNoteLineDto } from "./dto/purchase-debit-note-line.dto";
+import { ReversePurchaseDebitNoteAllocationDto } from "./dto/reverse-purchase-debit-note-allocation.dto";
+import { UpdatePurchaseDebitNoteDto } from "./dto/update-purchase-debit-note.dto";
+import { buildPurchaseDebitNoteJournalLines } from "./purchase-debit-note-accounting";
+
+const purchaseDebitNoteInclude = {
+  supplier: { select: { id: true, name: true, displayName: true, type: true, taxNumber: true } },
+  originalBill: { select: { id: true, billNumber: true, billDate: true, total: true, status: true, supplierId: true } },
+  branch: { select: { id: true, name: true, displayName: true, taxNumber: true } },
+  journalEntry: {
+    select: {
+      id: true,
+      entryNumber: true,
+      status: true,
+      totalDebit: true,
+      totalCredit: true,
+      reversedBy: { select: { id: true, entryNumber: true } },
+    },
+  },
+  reversalJournalEntry: { select: { id: true, entryNumber: true, status: true } },
+  lines: {
+    orderBy: { sortOrder: "asc" as const },
+    include: {
+      item: { select: { id: true, name: true, sku: true } },
+      account: { select: { id: true, code: true, name: true, type: true } },
+      taxRate: { select: { id: true, name: true, rate: true } },
+    },
+  },
+  allocations: {
+    orderBy: { createdAt: "asc" as const },
+    include: {
+      bill: {
+        select: {
+          id: true,
+          billNumber: true,
+          billDate: true,
+          dueDate: true,
+          total: true,
+          balanceDue: true,
+          status: true,
+        },
+      },
+      reversedBy: { select: { id: true, name: true, email: true } },
+    },
+  },
+};
+
+interface PreparedLine {
+  itemId?: string;
+  description: string;
+  accountId: string;
+  quantity: string;
+  unitPrice: string;
+  discountRate: string;
+  taxRateId?: string;
+  taxRate: string;
+  lineGrossAmount: string;
+  discountAmount: string;
+  taxableAmount: string;
+  taxAmount: string;
+  lineTotal: string;
+  sortOrder: number;
+}
+
+interface PreparedPurchaseDebitNote {
+  subtotal: string;
+  discountTotal: string;
+  taxableTotal: string;
+  taxTotal: string;
+  total: string;
+  lines: PreparedLine[];
+}
+
+type PrismaExecutor = PrismaService | Prisma.TransactionClient;
+
+@Injectable()
+export class PurchaseDebitNoteService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogService: AuditLogService,
+    private readonly numberSequenceService: NumberSequenceService,
+    private readonly documentSettingsService?: OrganizationDocumentSettingsService,
+    private readonly generatedDocumentService?: GeneratedDocumentService,
+  ) {}
+
+  list(organizationId: string) {
+    return this.prisma.purchaseDebitNote.findMany({
+      where: { organizationId },
+      orderBy: { issueDate: "desc" },
+      include: {
+        supplier: { select: { id: true, name: true, displayName: true } },
+        originalBill: { select: { id: true, billNumber: true, status: true, total: true } },
+        branch: { select: { id: true, name: true, displayName: true } },
+        journalEntry: { select: { id: true, entryNumber: true, status: true } },
+        reversalJournalEntry: { select: { id: true, entryNumber: true, status: true } },
+      },
+    });
+  }
+
+  async listForBill(organizationId: string, billId: string) {
+    const bill = await this.prisma.purchaseBill.findFirst({
+      where: { id: billId, organizationId },
+      select: { id: true },
+    });
+    if (!bill) {
+      throw new NotFoundException("Purchase bill not found.");
+    }
+
+    return this.prisma.purchaseDebitNote.findMany({
+      where: { organizationId, originalBillId: billId },
+      orderBy: { issueDate: "desc" },
+      include: {
+        supplier: { select: { id: true, name: true, displayName: true } },
+        journalEntry: { select: { id: true, entryNumber: true, status: true } },
+        reversalJournalEntry: { select: { id: true, entryNumber: true, status: true } },
+      },
+    });
+  }
+
+  async get(organizationId: string, id: string) {
+    const debitNote = await this.prisma.purchaseDebitNote.findFirst({
+      where: { id, organizationId },
+      include: purchaseDebitNoteInclude,
+    });
+
+    if (!debitNote) {
+      throw new NotFoundException("Purchase debit note not found.");
+    }
+
+    return debitNote;
+  }
+
+  async allocations(organizationId: string, id: string) {
+    const debitNote = await this.prisma.purchaseDebitNote.findFirst({
+      where: { id, organizationId },
+      select: { id: true },
+    });
+    if (!debitNote) {
+      throw new NotFoundException("Purchase debit note not found.");
+    }
+
+    return this.prisma.purchaseDebitNoteAllocation.findMany({
+      where: { organizationId, debitNoteId: id },
+      orderBy: { createdAt: "asc" },
+      include: {
+        bill: {
+          select: {
+            id: true,
+            billNumber: true,
+            billDate: true,
+            dueDate: true,
+            total: true,
+            balanceDue: true,
+            status: true,
+          },
+        },
+        reversedBy: { select: { id: true, name: true, email: true } },
+      },
+    });
+  }
+
+  async allocationsForBill(organizationId: string, billId: string) {
+    const bill = await this.prisma.purchaseBill.findFirst({
+      where: { id: billId, organizationId },
+      select: { id: true },
+    });
+    if (!bill) {
+      throw new NotFoundException("Purchase bill not found.");
+    }
+
+    return this.prisma.purchaseDebitNoteAllocation.findMany({
+      where: { organizationId, billId },
+      orderBy: { createdAt: "asc" },
+      include: {
+        debitNote: {
+          select: {
+            id: true,
+            debitNoteNumber: true,
+            issueDate: true,
+            currency: true,
+            status: true,
+            total: true,
+            unappliedAmount: true,
+          },
+        },
+        reversedBy: { select: { id: true, name: true, email: true } },
+      },
+    });
+  }
+
+  async create(organizationId: string, actorUserId: string, dto: CreatePurchaseDebitNoteDto) {
+    const prepared = await this.preparePurchaseDebitNote(organizationId, dto.lines);
+    await this.validateHeaderReferences(organizationId, dto.supplierId, dto.branchId ?? undefined);
+    await this.validateOriginalBillReference(
+      organizationId,
+      dto.supplierId,
+      dto.originalBillId ?? undefined,
+      prepared.total,
+      undefined,
+      this.prisma,
+    );
+
+    const currency = (dto.currency ?? "SAR").toUpperCase();
+    const debitNote = await this.prisma.$transaction(async (tx) => {
+      const debitNoteNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.PURCHASE_DEBIT_NOTE, tx);
+
+      return tx.purchaseDebitNote.create({
+        data: {
+          organizationId,
+          debitNoteNumber,
+          supplierId: dto.supplierId,
+          originalBillId: this.cleanOptional(dto.originalBillId ?? undefined),
+          branchId: this.cleanOptional(dto.branchId ?? undefined),
+          issueDate: new Date(dto.issueDate),
+          currency,
+          subtotal: prepared.subtotal,
+          discountTotal: prepared.discountTotal,
+          taxableTotal: prepared.taxableTotal,
+          taxTotal: prepared.taxTotal,
+          total: prepared.total,
+          unappliedAmount: prepared.total,
+          notes: this.cleanOptional(dto.notes),
+          reason: this.cleanOptional(dto.reason),
+          createdById: actorUserId,
+          lines: { create: this.toLineCreateMany(organizationId, prepared.lines) },
+        },
+        include: purchaseDebitNoteInclude,
+      });
+    });
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "CREATE",
+      entityType: "PurchaseDebitNote",
+      entityId: debitNote.id,
+      after: debitNote,
+    });
+    return debitNote;
+  }
+
+  async update(organizationId: string, actorUserId: string, id: string, dto: UpdatePurchaseDebitNoteDto) {
+    const existing = await this.get(organizationId, id);
+    this.assertDraft(existing.status);
+
+    const nextSupplierId = dto.supplierId ?? existing.supplierId;
+    const nextBranchId = Object.prototype.hasOwnProperty.call(dto, "branchId")
+      ? this.cleanOptional(dto.branchId ?? undefined)
+      : existing.branchId ?? undefined;
+    const nextOriginalBillId = Object.prototype.hasOwnProperty.call(dto, "originalBillId")
+      ? this.cleanOptional(dto.originalBillId ?? undefined)
+      : existing.originalBillId ?? undefined;
+
+    if (dto.supplierId || Object.prototype.hasOwnProperty.call(dto, "branchId")) {
+      await this.validateHeaderReferences(organizationId, nextSupplierId, nextBranchId);
+    }
+
+    const prepared = dto.lines ? await this.preparePurchaseDebitNote(organizationId, dto.lines) : null;
+    await this.validateOriginalBillReference(
+      organizationId,
+      nextSupplierId,
+      nextOriginalBillId,
+      prepared?.total ?? moneyString(existing.total),
+      id,
+      this.prisma,
+    );
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (prepared) {
+        await tx.purchaseDebitNoteLine.deleteMany({ where: { organizationId, debitNoteId: id } });
+      }
+
+      return tx.purchaseDebitNote.update({
+        where: { id },
+        data: {
+          supplierId: dto.supplierId,
+          originalBillId: Object.prototype.hasOwnProperty.call(dto, "originalBillId") ? nextOriginalBillId ?? null : undefined,
+          branchId: Object.prototype.hasOwnProperty.call(dto, "branchId") ? nextBranchId ?? null : undefined,
+          issueDate: dto.issueDate ? new Date(dto.issueDate) : undefined,
+          currency: dto.currency?.toUpperCase(),
+          subtotal: prepared?.subtotal,
+          discountTotal: prepared?.discountTotal,
+          taxableTotal: prepared?.taxableTotal,
+          taxTotal: prepared?.taxTotal,
+          total: prepared?.total,
+          unappliedAmount: prepared?.total,
+          notes: dto.notes === undefined ? undefined : this.cleanOptional(dto.notes),
+          reason: dto.reason === undefined ? undefined : this.cleanOptional(dto.reason),
+          lines: prepared ? { create: this.toLineCreateMany(organizationId, prepared.lines) } : undefined,
+        },
+        include: purchaseDebitNoteInclude,
+      });
+    });
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "UPDATE",
+      entityType: "PurchaseDebitNote",
+      entityId: id,
+      before: existing,
+      after: updated,
+    });
+    return updated;
+  }
+
+  async finalize(organizationId: string, actorUserId: string, id: string) {
+    const existing = await this.get(organizationId, id);
+    if (existing.status === PurchaseDebitNoteStatus.FINALIZED && existing.journalEntryId) {
+      return existing;
+    }
+    if (existing.status === PurchaseDebitNoteStatus.FINALIZED) {
+      throw new BadRequestException("Finalized purchase debit note is missing its journal entry.");
+    }
+    if (existing.status === PurchaseDebitNoteStatus.VOIDED) {
+      throw new BadRequestException("Voided purchase debit notes cannot be finalized.");
+    }
+
+    const finalized = await this.prisma.$transaction(async (tx) => {
+      const debitNote = await tx.purchaseDebitNote.findFirst({
+        where: { id, organizationId },
+        include: {
+          supplier: { select: { id: true, name: true, displayName: true } },
+          lines: { orderBy: { sortOrder: "asc" }, include: { account: true } },
+        },
+      });
+
+      if (!debitNote) {
+        throw new NotFoundException("Purchase debit note not found.");
+      }
+      if (debitNote.status === PurchaseDebitNoteStatus.FINALIZED && debitNote.journalEntryId) {
+        return tx.purchaseDebitNote.findUniqueOrThrow({ where: { id }, include: purchaseDebitNoteInclude });
+      }
+      if (debitNote.status === PurchaseDebitNoteStatus.FINALIZED) {
+        throw new BadRequestException("Finalized purchase debit note is missing its journal entry.");
+      }
+      if (debitNote.status === PurchaseDebitNoteStatus.VOIDED) {
+        throw new BadRequestException("Voided purchase debit notes cannot be finalized.");
+      }
+      if (debitNote.status !== PurchaseDebitNoteStatus.DRAFT) {
+        throw new BadRequestException("Only draft purchase debit notes can be finalized.");
+      }
+
+      this.assertFinalizablePurchaseDebitNote({
+        subtotal: String(debitNote.subtotal),
+        discountTotal: String(debitNote.discountTotal),
+        taxableTotal: String(debitNote.taxableTotal),
+        taxTotal: String(debitNote.taxTotal),
+        total: String(debitNote.total),
+        lines: debitNote.lines.map((line) => ({
+          quantity: String(line.quantity),
+          unitPrice: String(line.unitPrice),
+          discountRate: String(line.discountRate),
+          lineGrossAmount: String(line.lineGrossAmount),
+          discountAmount: String(line.discountAmount),
+          taxRate: "0.0000",
+          taxableAmount: String(line.taxableAmount),
+          taxAmount: String(line.taxAmount),
+          lineTotal: String(line.lineTotal),
+        })),
+      });
+      await this.validateOriginalBillReference(
+        organizationId,
+        debitNote.supplierId,
+        debitNote.originalBillId ?? undefined,
+        String(debitNote.total),
+        id,
+        tx,
+      );
+
+      const claim = await tx.purchaseDebitNote.updateMany({
+        where: {
+          id,
+          organizationId,
+          status: PurchaseDebitNoteStatus.DRAFT,
+          journalEntryId: null,
+        },
+        data: {
+          status: PurchaseDebitNoteStatus.FINALIZED,
+          finalizedAt: new Date(),
+          unappliedAmount: debitNote.total,
+        },
+      });
+      if (claim.count !== 1) {
+        return tx.purchaseDebitNote.findUniqueOrThrow({ where: { id }, include: purchaseDebitNoteInclude });
+      }
+
+      const accountsPayableAccount = await this.findPostingAccountByCode(organizationId, "210", tx);
+      const vatReceivableAccount = await this.findPostingAccountByCode(organizationId, "230", tx);
+      const journalLines = buildPurchaseDebitNoteJournalLines({
+        accountsPayableAccountId: accountsPayableAccount.id,
+        vatReceivableAccountId: vatReceivableAccount.id,
+        debitNoteNumber: debitNote.debitNoteNumber,
+        supplierName: debitNote.supplier.displayName ?? debitNote.supplier.name,
+        currency: debitNote.currency,
+        total: String(debitNote.total),
+        taxTotal: String(debitNote.taxTotal),
+        lines: debitNote.lines.map((line) => ({
+          accountId: line.accountId,
+          description: line.description,
+          taxableAmount: String(line.taxableAmount),
+        })),
+      });
+      const totals = getJournalTotals(journalLines);
+      const entryNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx);
+      const journalEntry = await tx.journalEntry.create({
+        data: {
+          organizationId,
+          entryNumber,
+          status: JournalEntryStatus.POSTED,
+          entryDate: debitNote.issueDate,
+          description: `Purchase debit note ${debitNote.debitNoteNumber} - ${debitNote.supplier.displayName ?? debitNote.supplier.name}`,
+          reference: debitNote.debitNoteNumber,
+          currency: debitNote.currency,
+          totalDebit: totals.debit,
+          totalCredit: totals.credit,
+          postedAt: new Date(),
+          postedById: actorUserId,
+          createdById: actorUserId,
+          lines: { create: this.toJournalLineCreateMany(organizationId, journalLines) },
+        },
+      });
+
+      return tx.purchaseDebitNote.update({
+        where: { id },
+        data: { journalEntryId: journalEntry.id },
+        include: purchaseDebitNoteInclude,
+      });
+    });
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "FINALIZE",
+      entityType: "PurchaseDebitNote",
+      entityId: id,
+      before: existing,
+      after: finalized,
+    });
+    return finalized;
+  }
+
+  async void(organizationId: string, actorUserId: string, id: string) {
+    const existing = await this.get(organizationId, id);
+    if (existing.status === PurchaseDebitNoteStatus.VOIDED) {
+      return existing;
+    }
+
+    const voided = await this.prisma.$transaction(async (tx) => {
+      const debitNote = await tx.purchaseDebitNote.findFirst({ where: { id, organizationId } });
+      if (!debitNote) {
+        throw new NotFoundException("Purchase debit note not found.");
+      }
+      if (debitNote.status === PurchaseDebitNoteStatus.VOIDED) {
+        return tx.purchaseDebitNote.findUniqueOrThrow({ where: { id }, include: purchaseDebitNoteInclude });
+      }
+      if (debitNote.status === PurchaseDebitNoteStatus.DRAFT) {
+        const claim = await tx.purchaseDebitNote.updateMany({
+          where: { id, organizationId, status: PurchaseDebitNoteStatus.DRAFT },
+          data: { status: PurchaseDebitNoteStatus.VOIDED },
+        });
+        if (claim.count !== 1) {
+          return tx.purchaseDebitNote.findUniqueOrThrow({ where: { id }, include: purchaseDebitNoteInclude });
+        }
+        return tx.purchaseDebitNote.findUniqueOrThrow({ where: { id }, include: purchaseDebitNoteInclude });
+      }
+      if (debitNote.status !== PurchaseDebitNoteStatus.FINALIZED) {
+        throw new BadRequestException("Only draft or finalized purchase debit notes can be voided.");
+      }
+      if (!debitNote.journalEntryId) {
+        throw new BadRequestException("Finalized purchase debit note is missing its journal entry.");
+      }
+
+      const allocationCount = await tx.purchaseDebitNoteAllocation.count({
+        where: { organizationId, debitNoteId: id, reversedAt: null },
+      });
+      if (allocationCount > 0) {
+        throw new BadRequestException("Cannot void purchase debit note with active allocations. Reverse allocations first.");
+      }
+
+      const claim = await tx.purchaseDebitNote.updateMany({
+        where: { id, organizationId, status: PurchaseDebitNoteStatus.FINALIZED },
+        data: { status: PurchaseDebitNoteStatus.VOIDED },
+      });
+      if (claim.count !== 1) {
+        return tx.purchaseDebitNote.findUniqueOrThrow({ where: { id }, include: purchaseDebitNoteInclude });
+      }
+
+      const reversalJournalEntryId = await this.createOrReuseReversalJournal(organizationId, actorUserId, debitNote.journalEntryId, tx);
+      return tx.purchaseDebitNote.update({
+        where: { id },
+        data: { reversalJournalEntryId },
+        include: purchaseDebitNoteInclude,
+      });
+    });
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "VOID",
+      entityType: "PurchaseDebitNote",
+      entityId: id,
+      before: existing,
+      after: voided,
+    });
+    return voided;
+  }
+
+  async apply(organizationId: string, actorUserId: string, id: string, dto: ApplyPurchaseDebitNoteDto) {
+    const amountApplied = this.assertPositiveMoney(dto.amountApplied, "Amount applied");
+    const existing = await this.get(organizationId, id);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const debitNote = await tx.purchaseDebitNote.findFirst({
+        where: { id, organizationId },
+        select: {
+          id: true,
+          supplierId: true,
+          status: true,
+          total: true,
+          unappliedAmount: true,
+        },
+      });
+      if (!debitNote) {
+        throw new NotFoundException("Purchase debit note not found.");
+      }
+      if (debitNote.status !== PurchaseDebitNoteStatus.FINALIZED) {
+        throw new BadRequestException("Only finalized purchase debit notes can be applied to bills.");
+      }
+      if (amountApplied.gt(debitNote.unappliedAmount)) {
+        throw new BadRequestException("Amount applied cannot exceed purchase debit note unapplied amount.");
+      }
+
+      const bill = await tx.purchaseBill.findFirst({
+        where: { id: dto.billId, organizationId },
+        select: { id: true, supplierId: true, status: true, balanceDue: true },
+      });
+      if (!bill) {
+        throw new BadRequestException("Purchase bill must belong to this organization.");
+      }
+      if (bill.supplierId !== debitNote.supplierId) {
+        throw new BadRequestException("Purchase debit note and bill must belong to the same supplier.");
+      }
+      if (bill.status !== PurchaseBillStatus.FINALIZED) {
+        throw new BadRequestException("Purchase debit notes can only be applied to finalized, non-voided bills.");
+      }
+      if (amountApplied.gt(bill.balanceDue)) {
+        throw new BadRequestException("Amount applied cannot exceed bill balance due.");
+      }
+
+      const amount = amountApplied.toFixed(4);
+      const debitNoteClaim = await tx.purchaseDebitNote.updateMany({
+        where: {
+          id,
+          organizationId,
+          status: PurchaseDebitNoteStatus.FINALIZED,
+          unappliedAmount: { gte: amount },
+        },
+        data: { unappliedAmount: { decrement: amount } },
+      });
+      if (debitNoteClaim.count !== 1) {
+        throw new BadRequestException("Purchase debit note unapplied amount is no longer sufficient for this allocation.");
+      }
+
+      const billClaim = await tx.purchaseBill.updateMany({
+        where: {
+          id: dto.billId,
+          organizationId,
+          supplierId: debitNote.supplierId,
+          status: PurchaseBillStatus.FINALIZED,
+          balanceDue: { gte: amount },
+        },
+        data: { balanceDue: { decrement: amount } },
+      });
+      if (billClaim.count !== 1) {
+        throw new BadRequestException("Bill balance due is no longer sufficient for this allocation.");
+      }
+
+      // Debit note allocation only matches an existing AP reduction to a bill
+      // balance. The debit note finalization journal already posted the AP debit.
+      await tx.purchaseDebitNoteAllocation.create({
+        data: {
+          organization: { connect: { id: organizationId } },
+          debitNote: { connect: { id } },
+          bill: { connect: { id: dto.billId } },
+          amountApplied: amount,
+        },
+      });
+
+      return tx.purchaseDebitNote.findUniqueOrThrow({ where: { id }, include: purchaseDebitNoteInclude });
+    });
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "APPLY",
+      entityType: "PurchaseDebitNote",
+      entityId: id,
+      before: existing,
+      after: updated,
+    });
+
+    return updated;
+  }
+
+  async reverseAllocation(
+    organizationId: string,
+    actorUserId: string,
+    id: string,
+    allocationId: string,
+    dto: ReversePurchaseDebitNoteAllocationDto,
+  ) {
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const allocation = await tx.purchaseDebitNoteAllocation.findFirst({
+        where: { id: allocationId, debitNoteId: id, organizationId },
+        include: {
+          debitNote: {
+            select: {
+              id: true,
+              status: true,
+              total: true,
+              unappliedAmount: true,
+            },
+          },
+          bill: {
+            select: {
+              id: true,
+              status: true,
+              total: true,
+              balanceDue: true,
+            },
+          },
+        },
+      });
+
+      if (!allocation) {
+        throw new NotFoundException("Purchase debit note allocation not found.");
+      }
+      if (allocation.reversedAt) {
+        throw new BadRequestException("Purchase debit note allocation has already been reversed.");
+      }
+      if (allocation.debitNote.status !== PurchaseDebitNoteStatus.FINALIZED) {
+        throw new BadRequestException("Only finalized, non-voided purchase debit notes can have allocations reversed.");
+      }
+      if (allocation.bill.status !== PurchaseBillStatus.FINALIZED) {
+        throw new BadRequestException("Only finalized, non-voided bills can have purchase debit note allocations reversed.");
+      }
+
+      const amount = toMoney(allocation.amountApplied).toFixed(4);
+      const debitNoteUnappliedLimit = toMoney(allocation.debitNote.total).minus(amount).toFixed(4);
+      const billBalanceLimit = toMoney(allocation.bill.total).minus(amount).toFixed(4);
+
+      if (toMoney(allocation.debitNote.unappliedAmount).gt(debitNoteUnappliedLimit)) {
+        throw new BadRequestException("Purchase debit note unapplied amount cannot exceed debit note total after reversal.");
+      }
+      if (toMoney(allocation.bill.balanceDue).gt(billBalanceLimit)) {
+        throw new BadRequestException("Bill balance due cannot exceed bill total after reversal.");
+      }
+
+      const now = new Date();
+      const claim = await tx.purchaseDebitNoteAllocation.updateMany({
+        where: { id: allocationId, debitNoteId: id, organizationId, reversedAt: null },
+        data: {
+          reversedAt: now,
+          reversedById: actorUserId,
+          reversalReason: this.cleanOptional(dto.reason) ?? null,
+        },
+      });
+      if (claim.count !== 1) {
+        throw new BadRequestException("Purchase debit note allocation has already been reversed.");
+      }
+
+      const debitNoteRestore = await tx.purchaseDebitNote.updateMany({
+        where: {
+          id,
+          organizationId,
+          status: PurchaseDebitNoteStatus.FINALIZED,
+          unappliedAmount: { lte: debitNoteUnappliedLimit },
+        },
+        data: { unappliedAmount: { increment: amount } },
+      });
+      if (debitNoteRestore.count !== 1) {
+        throw new BadRequestException("Purchase debit note unapplied amount could not be restored without exceeding debit note total.");
+      }
+
+      const billRestore = await tx.purchaseBill.updateMany({
+        where: {
+          id: allocation.billId,
+          organizationId,
+          status: PurchaseBillStatus.FINALIZED,
+          balanceDue: { lte: billBalanceLimit },
+        },
+        data: { balanceDue: { increment: amount } },
+      });
+      if (billRestore.count !== 1) {
+        throw new BadRequestException("Bill balance due could not be restored without exceeding bill total.");
+      }
+
+      // Allocation reversal is only matching-state restoration. The debit note
+      // finalization journal remains the only accounting entry.
+      return tx.purchaseDebitNote.findUniqueOrThrow({ where: { id }, include: purchaseDebitNoteInclude });
+    });
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "REVERSE_ALLOCATION",
+      entityType: "PurchaseDebitNoteAllocation",
+      entityId: allocationId,
+      after: updated,
+    });
+
+    return updated;
+  }
+
+  async pdfData(organizationId: string, id: string): Promise<PurchaseDebitNotePdfData> {
+    const debitNote = await this.prisma.purchaseDebitNote.findFirst({
+      where: { id, organizationId },
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            legalName: true,
+            taxNumber: true,
+            countryCode: true,
+          },
+        },
+        supplier: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+            taxNumber: true,
+            email: true,
+            phone: true,
+            addressLine1: true,
+            addressLine2: true,
+            city: true,
+            postalCode: true,
+            countryCode: true,
+          },
+        },
+        originalBill: { select: { id: true, billNumber: true, billDate: true, total: true } },
+        journalEntry: { select: { id: true, entryNumber: true, status: true } },
+        allocations: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            bill: {
+              select: {
+                id: true,
+                billNumber: true,
+                billDate: true,
+                dueDate: true,
+                total: true,
+                balanceDue: true,
+                status: true,
+              },
+            },
+            reversedBy: { select: { id: true, name: true, email: true } },
+          },
+        },
+        lines: {
+          orderBy: { sortOrder: "asc" },
+          include: {
+            taxRate: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    if (!debitNote) {
+      throw new NotFoundException("Purchase debit note not found.");
+    }
+
+    return {
+      organization: debitNote.organization,
+      supplier: debitNote.supplier,
+      originalBill: debitNote.originalBill
+        ? {
+            id: debitNote.originalBill.id,
+            billNumber: debitNote.originalBill.billNumber,
+            billDate: debitNote.originalBill.billDate,
+            total: moneyString(debitNote.originalBill.total),
+          }
+        : null,
+      debitNote: {
+        id: debitNote.id,
+        debitNoteNumber: debitNote.debitNoteNumber,
+        status: debitNote.status,
+        issueDate: debitNote.issueDate,
+        currency: debitNote.currency,
+        notes: debitNote.notes,
+        reason: debitNote.reason,
+        subtotal: moneyString(debitNote.subtotal),
+        discountTotal: moneyString(debitNote.discountTotal),
+        taxableTotal: moneyString(debitNote.taxableTotal),
+        taxTotal: moneyString(debitNote.taxTotal),
+        total: moneyString(debitNote.total),
+        unappliedAmount: moneyString(debitNote.unappliedAmount),
+      },
+      lines: debitNote.lines.map((line) => ({
+        description: line.description,
+        quantity: moneyString(line.quantity),
+        unitPrice: moneyString(line.unitPrice),
+        discountRate: moneyString(line.discountRate),
+        lineGrossAmount: moneyString(line.lineGrossAmount),
+        discountAmount: moneyString(line.discountAmount),
+        taxableAmount: moneyString(line.taxableAmount),
+        taxAmount: moneyString(line.taxAmount),
+        lineTotal: moneyString(line.lineTotal),
+        taxRateName: line.taxRate?.name ?? null,
+      })),
+      allocations: debitNote.allocations.map((allocation) => ({
+        billId: allocation.billId,
+        billNumber: allocation.bill.billNumber,
+        billDate: allocation.bill.billDate,
+        billDueDate: allocation.bill.dueDate,
+        billTotal: moneyString(allocation.bill.total),
+        amountApplied: moneyString(allocation.amountApplied),
+        billBalanceDue: moneyString(allocation.bill.balanceDue),
+        status: allocation.reversedAt ? "Reversed" : "Active",
+        reversedAt: allocation.reversedAt,
+        reversalReason: allocation.reversalReason,
+      })),
+      journalEntry: debitNote.journalEntry,
+      generatedAt: new Date(),
+    };
+  }
+
+  async pdf(
+    organizationId: string,
+    actorUserId: string,
+    id: string,
+  ): Promise<{ data: PurchaseDebitNotePdfData; buffer: Buffer; filename: string; document: unknown | null }> {
+    const data = await this.pdfData(organizationId, id);
+    const settings = await this.documentSettingsService?.invoiceRenderSettings(organizationId);
+    const buffer = await renderPurchaseDebitNotePdf(data, { ...settings, title: "Debit Note" });
+    const filename = sanitizeFilename(`purchase-debit-note-${data.debitNote.debitNoteNumber}.pdf`);
+    const document = await this.generatedDocumentService?.archivePdf({
+      organizationId,
+      documentType: DocumentType.PURCHASE_DEBIT_NOTE,
+      sourceType: "PurchaseDebitNote",
+      sourceId: data.debitNote.id,
+      documentNumber: data.debitNote.debitNoteNumber,
+      filename,
+      buffer,
+      generatedById: actorUserId,
+    });
+    return { data, buffer, filename, document: document ?? null };
+  }
+
+  async generatePdf(organizationId: string, actorUserId: string, id: string) {
+    const { document } = await this.pdf(organizationId, actorUserId, id);
+    return document;
+  }
+
+  async remove(organizationId: string, actorUserId: string, id: string) {
+    const existing = await this.get(organizationId, id);
+    if (existing.status !== PurchaseDebitNoteStatus.DRAFT || existing.journalEntryId) {
+      throw new BadRequestException("Only draft purchase debit notes without journal entries can be deleted.");
+    }
+
+    await this.prisma.purchaseDebitNote.delete({ where: { id } });
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "DELETE",
+      entityType: "PurchaseDebitNote",
+      entityId: id,
+      before: existing,
+    });
+    return { deleted: true };
+  }
+
+  private async preparePurchaseDebitNote(organizationId: string, lines: PurchaseDebitNoteLineDto[]): Promise<PreparedPurchaseDebitNote> {
+    const itemIds = lines.map((line) => this.cleanOptional(line.itemId ?? undefined)).filter((itemId): itemId is string => Boolean(itemId));
+    const items = itemIds.length
+      ? await this.prisma.item.findMany({
+          where: { organizationId, id: { in: [...new Set(itemIds)] }, status: ItemStatus.ACTIVE },
+          select: { id: true, name: true, description: true, expenseAccountId: true, purchaseTaxRateId: true },
+        })
+      : [];
+    const itemsById = new Map(items.map((item) => [item.id, item]));
+
+    if (items.length !== new Set(itemIds).size) {
+      throw new BadRequestException("Purchase debit note line items must be active items in this organization.");
+    }
+
+    const baseLines = lines.map((line, index) => {
+      const itemId = this.cleanOptional(line.itemId ?? undefined);
+      const item = itemId ? itemsById.get(itemId) : undefined;
+      const accountId = this.cleanOptional(line.accountId ?? undefined) ?? item?.expenseAccountId ?? undefined;
+      if (!accountId) {
+        throw new BadRequestException(`Purchase debit note line ${index + 1} requires an account.`);
+      }
+      const taxRateId = this.cleanOptional(line.taxRateId ?? undefined) ?? item?.purchaseTaxRateId ?? undefined;
+
+      return {
+        itemId,
+        description: this.cleanOptional(line.description) ?? item?.description ?? item?.name ?? `Line ${index + 1}`,
+        accountId,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        discountRate: line.discountRate ?? "0",
+        taxRateId,
+        sortOrder: line.sortOrder ?? index,
+      };
+    });
+
+    await this.validateLineAccounts(
+      organizationId,
+      baseLines.map((line) => line.accountId),
+    );
+    const taxRatesById = await this.getTaxRatesById(
+      organizationId,
+      baseLines.map((line) => line.taxRateId).filter((taxRateId): taxRateId is string => Boolean(taxRateId)),
+    );
+
+    const totals = this.calculateTotals(
+      baseLines.map((line) => ({
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        discountRate: line.discountRate,
+        taxRate: line.taxRateId ? String(taxRatesById.get(line.taxRateId)?.rate ?? "0") : "0",
+      })),
+    );
+
+    return {
+      subtotal: totals.subtotal,
+      discountTotal: totals.discountTotal,
+      taxableTotal: totals.taxableTotal,
+      taxTotal: totals.taxTotal,
+      total: totals.total,
+      lines: baseLines.map((line, index) => {
+        const calculated = totals.lines[index];
+        if (!calculated) {
+          throw new BadRequestException("Unable to calculate purchase debit note line totals.");
+        }
+
+        return {
+          ...line,
+          quantity: calculated.quantity,
+          unitPrice: calculated.unitPrice,
+          discountRate: calculated.discountRate,
+          taxRate: calculated.taxRate,
+          lineGrossAmount: calculated.lineGrossAmount,
+          discountAmount: calculated.discountAmount,
+          taxableAmount: calculated.taxableAmount,
+          taxAmount: calculated.taxAmount,
+          lineTotal: calculated.lineTotal,
+        };
+      }),
+    };
+  }
+
+  private async validateHeaderReferences(organizationId: string, supplierId: string, branchId?: string): Promise<void> {
+    await this.validateSupplier(organizationId, supplierId);
+
+    if (!branchId) {
+      return;
+    }
+
+    const branch = await this.prisma.branch.findFirst({ where: { id: branchId, organizationId }, select: { id: true } });
+    if (!branch) {
+      throw new BadRequestException("Branch does not exist in this organization.");
+    }
+  }
+
+  private async validateSupplier(organizationId: string, supplierId: string): Promise<void> {
+    const supplier = await this.prisma.contact.findFirst({
+      where: {
+        id: supplierId,
+        organizationId,
+        isActive: true,
+        type: { in: [ContactType.SUPPLIER, ContactType.BOTH] },
+      },
+      select: { id: true },
+    });
+
+    if (!supplier) {
+      throw new BadRequestException("Supplier must be an active supplier contact in this organization.");
+    }
+  }
+
+  private async validateOriginalBillReference(
+    organizationId: string,
+    supplierId: string,
+    originalBillId: string | undefined,
+    debitNoteTotal: string,
+    excludeDebitNoteId: string | undefined,
+    executor: PrismaExecutor,
+  ): Promise<void> {
+    if (!originalBillId) {
+      return;
+    }
+
+    const bill = await executor.purchaseBill.findFirst({
+      where: { id: originalBillId, organizationId },
+      select: { id: true, supplierId: true, status: true, total: true },
+    });
+
+    if (!bill) {
+      throw new BadRequestException("Original purchase bill must belong to this organization.");
+    }
+    if (bill.supplierId !== supplierId) {
+      throw new BadRequestException("Original purchase bill must belong to the selected supplier.");
+    }
+    if (bill.status !== PurchaseBillStatus.FINALIZED) {
+      throw new BadRequestException("Original purchase bill must be finalized and not voided.");
+    }
+
+    const where: Prisma.PurchaseDebitNoteWhereInput = {
+      organizationId,
+      originalBillId,
+      status: { not: PurchaseDebitNoteStatus.VOIDED },
+    };
+    if (excludeDebitNoteId) {
+      where.id = { not: excludeDebitNoteId };
+    }
+
+    const existing = await executor.purchaseDebitNote.aggregate({
+      where,
+      _sum: { total: true },
+    });
+    const totalDebits = toMoney(existing._sum.total).plus(debitNoteTotal);
+    if (totalDebits.gt(bill.total)) {
+      throw new BadRequestException("Total non-voided purchase debit notes cannot exceed the original purchase bill total.");
+    }
+  }
+
+  private calculateTotals(lines: Parameters<typeof calculateSalesInvoiceTotals>[0]) {
+    try {
+      return calculateSalesInvoiceTotals(lines);
+    } catch (error) {
+      if (error instanceof AccountingRuleError) {
+        throw new BadRequestException({ code: error.code, message: error.message });
+      }
+      throw error;
+    }
+  }
+
+  private assertFinalizablePurchaseDebitNote(totals: ReturnType<typeof calculateSalesInvoiceTotals>): void {
+    try {
+      assertFinalizableSalesInvoice(totals);
+    } catch (error) {
+      if (error instanceof AccountingRuleError) {
+        throw new BadRequestException({ code: error.code, message: error.message });
+      }
+      throw error;
+    }
+  }
+
+  private async validateLineAccounts(organizationId: string, accountIds: string[]): Promise<void> {
+    const uniqueAccountIds = [...new Set(accountIds)];
+    const accounts = await this.prisma.account.findMany({
+      where: {
+        organizationId,
+        id: { in: uniqueAccountIds },
+        type: { in: [AccountType.EXPENSE, AccountType.COST_OF_SALES, AccountType.ASSET] },
+        isActive: true,
+        allowPosting: true,
+      },
+      select: { id: true },
+    });
+
+    if (accounts.length !== uniqueAccountIds.length) {
+      throw new BadRequestException(
+        "Purchase debit note line accounts must be active posting expense, cost of sales, or asset accounts in this organization.",
+      );
+    }
+  }
+
+  private async getTaxRatesById(organizationId: string, taxRateIds: string[]) {
+    const uniqueTaxRateIds = [...new Set(taxRateIds)];
+    if (uniqueTaxRateIds.length === 0) {
+      return new Map<string, { id: string; rate: Prisma.Decimal }>();
+    }
+
+    const taxRates = await this.prisma.taxRate.findMany({
+      where: {
+        organizationId,
+        id: { in: uniqueTaxRateIds },
+        isActive: true,
+        scope: { in: [TaxRateScope.PURCHASES, TaxRateScope.BOTH] },
+      },
+      select: { id: true, rate: true },
+    });
+
+    if (taxRates.length !== uniqueTaxRateIds.length) {
+      throw new BadRequestException("Purchase debit note tax rates must be active purchase tax rates in this organization.");
+    }
+
+    return new Map(taxRates.map((taxRate) => [taxRate.id, taxRate]));
+  }
+
+  private async findPostingAccountByCode(organizationId: string, code: string, executor: PrismaExecutor) {
+    const account = await executor.account.findFirst({
+      where: { organizationId, code, isActive: true, allowPosting: true },
+      select: { id: true },
+    });
+    if (!account) {
+      throw new BadRequestException(`Required posting account ${code} was not found.`);
+    }
+    return account;
+  }
+
+  private assertDraft(status: PurchaseDebitNoteStatus): void {
+    if (status !== PurchaseDebitNoteStatus.DRAFT) {
+      throw new BadRequestException("Only draft purchase debit notes can be edited.");
+    }
+  }
+
+  private assertPositiveMoney(value: string, label: string) {
+    const amount = toMoney(value);
+    if (amount.lte(0)) {
+      throw new BadRequestException(`${label} must be greater than zero.`);
+    }
+    return amount;
+  }
+
+  private async createOrReuseReversalJournal(
+    organizationId: string,
+    actorUserId: string,
+    journalEntryId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<string> {
+    const journalEntry = await tx.journalEntry.findFirst({
+      where: { id: journalEntryId, organizationId },
+      include: {
+        lines: { orderBy: { createdAt: "asc" } },
+        reversedBy: { select: { id: true } },
+      },
+    });
+    if (!journalEntry) {
+      throw new NotFoundException("Journal entry not found.");
+    }
+    if (journalEntry.reversedBy) {
+      return journalEntry.reversedBy.id;
+    }
+
+    const reversalLines = createReversalLines(
+      journalEntry.lines.map((line) => ({
+        accountId: line.accountId,
+        debit: String(line.debit),
+        credit: String(line.credit),
+        description: `Reversal: ${line.description ?? journalEntry.description ?? ""}`.trim(),
+        currency: line.currency,
+        exchangeRate: String(line.exchangeRate),
+        taxRateId: line.taxRateId,
+      })),
+    );
+    const totals = getJournalTotals(reversalLines);
+    const entryNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx);
+
+    try {
+      const reversal = await tx.journalEntry.create({
+        data: {
+          organizationId,
+          entryNumber,
+          status: JournalEntryStatus.POSTED,
+          entryDate: new Date(),
+          description: `Reversal of ${journalEntry.entryNumber}`,
+          reference: journalEntry.reference,
+          currency: journalEntry.currency,
+          totalDebit: totals.debit,
+          totalCredit: totals.credit,
+          postedAt: new Date(),
+          postedById: actorUserId,
+          createdById: actorUserId,
+          reversalOfId: journalEntry.id,
+          lines: { create: this.toJournalLineCreateMany(organizationId, reversalLines) },
+        },
+      });
+      await tx.journalEntry.update({
+        where: { id: journalEntry.id },
+        data: { status: JournalEntryStatus.REVERSED },
+      });
+      return reversal.id;
+    } catch (error) {
+      if (!isUniqueConstraintError(error)) {
+        throw error;
+      }
+      throw new BadRequestException("Journal entry has already been reversed.");
+    }
+  }
+
+  private toLineCreateMany(organizationId: string, lines: PreparedLine[]): Prisma.PurchaseDebitNoteLineCreateWithoutDebitNoteInput[] {
+    return lines.map((line) => ({
+      organization: { connect: { id: organizationId } },
+      item: line.itemId ? { connect: { id: line.itemId } } : undefined,
+      account: { connect: { id: line.accountId } },
+      taxRate: line.taxRateId ? { connect: { id: line.taxRateId } } : undefined,
+      description: line.description,
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      discountRate: line.discountRate,
+      lineGrossAmount: line.lineGrossAmount,
+      discountAmount: line.discountAmount,
+      taxableAmount: line.taxableAmount,
+      taxAmount: line.taxAmount,
+      lineTotal: line.lineTotal,
+      sortOrder: line.sortOrder,
+    }));
+  }
+
+  private toJournalLineCreateMany(organizationId: string, lines: JournalLineInput[]): Prisma.JournalLineCreateWithoutJournalEntryInput[] {
+    return lines.map((line, index) => ({
+      organization: { connect: { id: organizationId } },
+      account: { connect: { id: line.accountId } },
+      lineNumber: index + 1,
+      description: line.description,
+      debit: String(line.debit),
+      credit: String(line.credit),
+      currency: line.currency,
+      exchangeRate: line.exchangeRate === undefined ? "1" : String(line.exchangeRate),
+    }));
+  }
+
+  private cleanOptional(value: string | undefined): string | undefined {
+    const trimmed = value?.trim();
+    return trimmed || undefined;
+  }
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "P2002"
+  );
+}
+
+function moneyString(value: unknown): string {
+  return String(value ?? "0");
+}

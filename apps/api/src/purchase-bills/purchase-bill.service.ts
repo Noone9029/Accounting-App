@@ -18,6 +18,7 @@ import {
   NumberSequenceScope,
   Prisma,
   PurchaseBillStatus,
+  PurchaseDebitNoteStatus,
   SupplierPaymentStatus,
   TaxRateScope,
 } from "@prisma/client";
@@ -66,6 +67,30 @@ const purchaseBillInclude = {
           status: true,
         },
       },
+    },
+  },
+  debitNotes: {
+    orderBy: { issueDate: "desc" as const },
+    include: {
+      journalEntry: { select: { id: true, entryNumber: true, status: true } },
+      reversalJournalEntry: { select: { id: true, entryNumber: true, status: true } },
+    },
+  },
+  debitNoteAllocations: {
+    orderBy: { createdAt: "asc" as const },
+    include: {
+      debitNote: {
+        select: {
+          id: true,
+          debitNoteNumber: true,
+          issueDate: true,
+          currency: true,
+          status: true,
+          total: true,
+          unappliedAmount: true,
+        },
+      },
+      reversedBy: { select: { id: true, name: true, email: true } },
     },
   },
 };
@@ -152,6 +177,49 @@ export class PurchaseBillService {
     }
 
     return bill;
+  }
+
+  async debitNotes(organizationId: string, id: string) {
+    const bill = await this.prisma.purchaseBill.findFirst({ where: { id, organizationId }, select: { id: true } });
+    if (!bill) {
+      throw new NotFoundException("Purchase bill not found.");
+    }
+
+    return this.prisma.purchaseDebitNote.findMany({
+      where: { organizationId, originalBillId: id },
+      orderBy: { issueDate: "desc" },
+      include: {
+        supplier: { select: { id: true, name: true, displayName: true } },
+        journalEntry: { select: { id: true, entryNumber: true, status: true } },
+        reversalJournalEntry: { select: { id: true, entryNumber: true, status: true } },
+      },
+    });
+  }
+
+  async debitNoteAllocations(organizationId: string, id: string) {
+    const bill = await this.prisma.purchaseBill.findFirst({ where: { id, organizationId }, select: { id: true } });
+    if (!bill) {
+      throw new NotFoundException("Purchase bill not found.");
+    }
+
+    return this.prisma.purchaseDebitNoteAllocation.findMany({
+      where: { organizationId, billId: id },
+      orderBy: { createdAt: "asc" },
+      include: {
+        debitNote: {
+          select: {
+            id: true,
+            debitNoteNumber: true,
+            issueDate: true,
+            currency: true,
+            status: true,
+            total: true,
+            unappliedAmount: true,
+          },
+        },
+        reversedBy: { select: { id: true, name: true, email: true } },
+      },
+    });
   }
 
   async pdfData(organizationId: string, id: string): Promise<PurchaseBillPdfData> {
@@ -535,6 +603,18 @@ export class PurchaseBillService {
       });
       if (activePaymentCount > 0) {
         throw new BadRequestException("Cannot void purchase bill with active supplier payment allocations. Void payments first.");
+      }
+
+      const activeDebitNoteAllocationCount = await tx.purchaseDebitNoteAllocation.count({
+        where: {
+          billId: id,
+          organizationId,
+          reversedAt: null,
+          debitNote: { status: PurchaseDebitNoteStatus.FINALIZED },
+        },
+      });
+      if (activeDebitNoteAllocationCount > 0) {
+        throw new BadRequestException("Cannot void purchase bill with active purchase debit note allocations. Reverse allocations first.");
       }
 
       const claim = await tx.purchaseBill.updateMany({

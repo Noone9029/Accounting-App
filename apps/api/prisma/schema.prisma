@@ -77,6 +77,12 @@ enum PurchaseBillStatus {
   VOIDED
 }
 
+enum PurchaseDebitNoteStatus {
+  DRAFT
+  FINALIZED
+  VOIDED
+}
+
 enum CustomerPaymentStatus {
   DRAFT
   POSTED
@@ -107,6 +113,7 @@ enum DocumentType {
   CUSTOMER_REFUND
   CUSTOMER_STATEMENT
   PURCHASE_BILL
+  PURCHASE_DEBIT_NOTE
   SUPPLIER_PAYMENT_RECEIPT
 }
 
@@ -177,6 +184,7 @@ enum NumberSequenceScope {
   CUSTOMER_REFUND
   CREDIT_NOTE
   DEBIT_NOTE
+  PURCHASE_DEBIT_NOTE
   CONTACT
 }
 
@@ -194,10 +202,12 @@ model User {
   createdSalesInvoices    SalesInvoice[]       @relation("SalesInvoiceCreatedBy")
   createdCreditNotes      CreditNote[]         @relation("CreditNoteCreatedBy")
   createdPurchaseBills    PurchaseBill[]       @relation("PurchaseBillCreatedBy")
+  createdPurchaseDebitNotes PurchaseDebitNote[] @relation("PurchaseDebitNoteCreatedBy")
   createdCustomerPayments CustomerPayment[]    @relation("CustomerPaymentCreatedBy")
   createdSupplierPayments SupplierPayment[]    @relation("SupplierPaymentCreatedBy")
   createdCustomerRefunds  CustomerRefund[]     @relation("CustomerRefundCreatedBy")
   reversedCreditNoteAllocations CreditNoteAllocation[] @relation("CreditNoteAllocationReversedBy")
+  reversedPurchaseDebitNoteAllocations PurchaseDebitNoteAllocation[] @relation("PurchaseDebitNoteAllocationReversedBy")
   reversedCustomerPaymentUnappliedAllocations CustomerPaymentUnappliedAllocation[] @relation("CustomerPaymentUnappliedAllocationReversedBy")
   generatedDocuments      GeneratedDocument[]  @relation("GeneratedDocumentGeneratedBy")
 }
@@ -226,6 +236,9 @@ model Organization {
   creditNoteAllocations      CreditNoteAllocation[]
   purchaseBills              PurchaseBill[]
   purchaseBillLines          PurchaseBillLine[]
+  purchaseDebitNotes         PurchaseDebitNote[]
+  purchaseDebitNoteLines     PurchaseDebitNoteLine[]
+  purchaseDebitNoteAllocations PurchaseDebitNoteAllocation[]
   customerPayments           CustomerPayment[]
   customerPaymentAllocations CustomerPaymentAllocation[]
   customerPaymentUnappliedAllocations CustomerPaymentUnappliedAllocation[]
@@ -458,6 +471,7 @@ model Branch {
   salesInvoices  SalesInvoice[]
   creditNotes    CreditNote[]
   purchaseBills  PurchaseBill[]
+  purchaseDebitNotes PurchaseDebitNote[]
 
   @@index([organizationId])
 }
@@ -483,6 +497,7 @@ model Contact {
   salesInvoices    SalesInvoice[]    @relation("SalesInvoiceCustomer")
   creditNotes      CreditNote[]      @relation("CreditNoteCustomer")
   purchaseBills    PurchaseBill[]    @relation("PurchaseBillSupplier")
+  purchaseDebitNotes PurchaseDebitNote[] @relation("PurchaseDebitNoteSupplier")
   customerPayments CustomerPayment[] @relation("CustomerPaymentCustomer")
   supplierPayments SupplierPayment[] @relation("SupplierPaymentSupplier")
   customerRefunds  CustomerRefund[]  @relation("CustomerRefundCustomer")
@@ -513,6 +528,7 @@ model Account {
   salesInvoiceLines SalesInvoiceLine[]
   creditNoteLines   CreditNoteLine[]
   purchaseBillLines PurchaseBillLine[]
+  purchaseDebitNoteLines PurchaseDebitNoteLine[]
   customerPayments  CustomerPayment[]  @relation("CustomerPaymentAccount")
   supplierPayments  SupplierPayment[]  @relation("SupplierPaymentAccount")
   customerRefunds   CustomerRefund[]   @relation("CustomerRefundAccount")
@@ -541,6 +557,7 @@ model TaxRate {
   salesInvoiceLines    SalesInvoiceLine[]
   creditNoteLines      CreditNoteLine[]
   purchaseBillLines    PurchaseBillLine[]
+  purchaseDebitNoteLines PurchaseDebitNoteLine[]
 
   @@unique([organizationId, name])
   @@index([organizationId])
@@ -571,6 +588,7 @@ model Item {
   salesInvoiceLines SalesInvoiceLine[]
   creditNoteLines   CreditNoteLine[]
   purchaseBillLines PurchaseBillLine[]
+  purchaseDebitNoteLines PurchaseDebitNoteLine[]
 
   @@unique([organizationId, sku])
   @@index([organizationId])
@@ -781,6 +799,8 @@ model PurchaseBill {
   reversalJournalEntry   JournalEntry?      @relation("PurchaseBillReversalJournal", fields: [reversalJournalEntryId], references: [id])
   lines                  PurchaseBillLine[]
   paymentAllocations     SupplierPaymentAllocation[]
+  debitNoteAllocations   PurchaseDebitNoteAllocation[]
+  debitNotes             PurchaseDebitNote[]
 
   @@unique([organizationId, billNumber])
   @@index([organizationId])
@@ -817,6 +837,101 @@ model PurchaseBillLine {
   @@index([billId])
   @@index([itemId])
   @@index([accountId])
+}
+
+model PurchaseDebitNote {
+  id                     String                   @id @default(uuid()) @db.Uuid
+  organizationId         String                   @db.Uuid
+  debitNoteNumber        String
+  supplierId             String                   @db.Uuid
+  originalBillId         String?                  @db.Uuid
+  branchId               String?                  @db.Uuid
+  issueDate              DateTime
+  currency               String                   @default("SAR")
+  status                 PurchaseDebitNoteStatus  @default(DRAFT)
+  subtotal               Decimal                  @default(0) @db.Decimal(20, 4)
+  discountTotal          Decimal                  @default(0) @db.Decimal(20, 4)
+  taxableTotal           Decimal                  @default(0) @db.Decimal(20, 4)
+  taxTotal               Decimal                  @default(0) @db.Decimal(20, 4)
+  total                  Decimal                  @default(0) @db.Decimal(20, 4)
+  unappliedAmount        Decimal                  @default(0) @db.Decimal(20, 4)
+  notes                  String?
+  reason                 String?
+  createdById            String?                  @db.Uuid
+  finalizedAt            DateTime?
+  journalEntryId         String?                  @unique @db.Uuid
+  reversalJournalEntryId String?                  @unique @db.Uuid
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  organization           Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplier               Contact                  @relation("PurchaseDebitNoteSupplier", fields: [supplierId], references: [id])
+  originalBill           PurchaseBill?            @relation(fields: [originalBillId], references: [id], onDelete: SetNull)
+  branch                 Branch?                  @relation(fields: [branchId], references: [id])
+  createdBy              User?                    @relation("PurchaseDebitNoteCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  journalEntry           JournalEntry?            @relation("PurchaseDebitNoteJournal", fields: [journalEntryId], references: [id])
+  reversalJournalEntry   JournalEntry?            @relation("PurchaseDebitNoteReversalJournal", fields: [reversalJournalEntryId], references: [id])
+  lines                  PurchaseDebitNoteLine[]
+  allocations            PurchaseDebitNoteAllocation[]
+
+  @@unique([organizationId, debitNoteNumber])
+  @@index([organizationId])
+  @@index([supplierId])
+  @@index([originalBillId])
+  @@index([status])
+}
+
+model PurchaseDebitNoteLine {
+  id              String             @id @default(uuid()) @db.Uuid
+  organizationId  String             @db.Uuid
+  debitNoteId     String             @db.Uuid
+  itemId          String?            @db.Uuid
+  description     String
+  accountId       String             @db.Uuid
+  quantity        Decimal            @db.Decimal(20, 4)
+  unitPrice       Decimal            @db.Decimal(20, 4)
+  discountRate    Decimal            @default(0) @db.Decimal(7, 4)
+  taxRateId       String?            @db.Uuid
+  lineGrossAmount Decimal            @default(0) @db.Decimal(20, 4)
+  discountAmount  Decimal            @default(0) @db.Decimal(20, 4)
+  taxableAmount   Decimal            @default(0) @db.Decimal(20, 4)
+  taxAmount       Decimal            @default(0) @db.Decimal(20, 4)
+  lineTotal       Decimal            @default(0) @db.Decimal(20, 4)
+  sortOrder       Int                @default(0)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  debitNote       PurchaseDebitNote  @relation(fields: [debitNoteId], references: [id], onDelete: Cascade)
+  item            Item?              @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  account         Account            @relation(fields: [accountId], references: [id])
+  taxRate         TaxRate?           @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([debitNoteId])
+  @@index([itemId])
+  @@index([accountId])
+}
+
+model PurchaseDebitNoteAllocation {
+  id             String             @id @default(uuid()) @db.Uuid
+  organizationId String             @db.Uuid
+  debitNoteId    String             @db.Uuid
+  billId         String             @db.Uuid
+  amountApplied  Decimal            @db.Decimal(20, 4)
+  reversedAt     DateTime?
+  reversedById   String?            @db.Uuid
+  reversalReason String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  debitNote      PurchaseDebitNote  @relation(fields: [debitNoteId], references: [id], onDelete: Cascade)
+  bill           PurchaseBill       @relation(fields: [billId], references: [id])
+  reversedBy     User?              @relation("PurchaseDebitNoteAllocationReversedBy", fields: [reversedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([debitNoteId])
+  @@index([billId])
+  @@index([reversedAt])
+  @@index([reversedById])
 }
 
 model CustomerPayment {
@@ -1010,6 +1125,8 @@ model JournalEntry {
   voidedCreditNote      CreditNote?        @relation("CreditNoteReversalJournal")
   purchaseBill          PurchaseBill?      @relation("PurchaseBillJournal")
   voidedPurchaseBill    PurchaseBill?      @relation("PurchaseBillReversalJournal")
+  purchaseDebitNote     PurchaseDebitNote? @relation("PurchaseDebitNoteJournal")
+  voidedPurchaseDebitNote PurchaseDebitNote? @relation("PurchaseDebitNoteReversalJournal")
   customerPayment       CustomerPayment?   @relation("CustomerPaymentJournal")
   voidedCustomerPayment CustomerPayment?   @relation("CustomerPaymentVoidReversalJournal")
   supplierPayment       SupplierPayment?   @relation("SupplierPaymentJournal")

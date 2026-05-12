@@ -89,6 +89,25 @@ interface PurchaseBill {
   reversalJournalEntryId?: string | null;
 }
 
+interface PurchaseDebitNote {
+  id: string;
+  debitNoteNumber: string;
+  status: string;
+  total: string;
+  unappliedAmount: string;
+  journalEntryId?: string | null;
+  reversalJournalEntryId?: string | null;
+}
+
+interface PurchaseDebitNoteAllocation {
+  id: string;
+  debitNoteId: string;
+  billId: string;
+  amountApplied: string;
+  reversedAt?: string | null;
+  reversalReason?: string | null;
+}
+
 interface SupplierPayment {
   id: string;
   paymentNumber: string;
@@ -319,6 +338,7 @@ async function main(): Promise<void> {
   const expectedTotal = salesVat ? money("115.0000") : money("100.0000");
   const expectedPurchaseBillTotal = purchaseVat ? money("115.0000") : money("100.0000");
   const expectedCreditNoteTotal = salesVat ? money("11.5000") : money("10.0000");
+  const expectedPurchaseDebitNoteTotal = purchaseVat ? money("11.5000") : money("10.0000");
   const partialPaymentAmount = money("50.0000");
   const remainingPaymentAmount = expectedTotal.minus(partialPaymentAmount);
 
@@ -1013,6 +1033,188 @@ async function main(): Promise<void> {
   assert(purchaseBillPdfData.lines.length > 0, "purchase bill pdf-data returns lines");
   await assertPdf(`/purchase-bills/${draftPurchaseBill.id}/pdf`, headers, "purchase bill PDF");
 
+  const debitNoteLinePayload: Record<string, unknown> = {
+    description: "Smoke test supplier debit adjustment",
+    accountId: expenseAccount.id,
+    quantity: "1.0000",
+    unitPrice: "10.0000",
+  };
+  if (purchaseVat) {
+    debitNoteLinePayload.taxRateId = purchaseVat.id;
+  }
+  const draftPurchaseDebitNote = await post<PurchaseDebitNote>("/purchase-debit-notes", headers, {
+    supplierId: supplier.id,
+    originalBillId: draftPurchaseBill.id,
+    issueDate: new Date().toISOString(),
+    currency: "SAR",
+    reason: "Smoke test supplier debit note",
+    lines: [debitNoteLinePayload],
+  });
+  assertEqual(draftPurchaseDebitNote.status, "DRAFT", "created purchase debit note status");
+  assertMoney(draftPurchaseDebitNote.total, expectedPurchaseDebitNoteTotal, "draft purchase debit note total");
+  assertMoney(draftPurchaseDebitNote.unappliedAmount, expectedPurchaseDebitNoteTotal, "draft purchase debit note unapplied amount");
+
+  const finalizedPurchaseDebitNote = await post<PurchaseDebitNote>(`/purchase-debit-notes/${draftPurchaseDebitNote.id}/finalize`, headers, {});
+  assertEqual(finalizedPurchaseDebitNote.status, "FINALIZED", "finalized purchase debit note status");
+  assertPresent(finalizedPurchaseDebitNote.journalEntryId, "finalized purchase debit note journalEntryId");
+  assertMoney(finalizedPurchaseDebitNote.total, expectedPurchaseDebitNoteTotal, "finalized purchase debit note total");
+  const finalizedPurchaseDebitNoteAgain = await post<PurchaseDebitNote>(`/purchase-debit-notes/${draftPurchaseDebitNote.id}/finalize`, headers, {});
+  assertEqual(
+    finalizedPurchaseDebitNoteAgain.journalEntryId,
+    finalizedPurchaseDebitNote.journalEntryId,
+    "double finalize purchase debit note journalEntryId",
+  );
+
+  const billDebitNotes = await get<PurchaseDebitNote[]>(`/purchase-bills/${draftPurchaseBill.id}/debit-notes`, headers);
+  assert(
+    billDebitNotes.some((debitNote) => debitNote.id === draftPurchaseDebitNote.id && debitNote.status === "FINALIZED"),
+    "purchase bill linked debit notes include finalized smoke debit note",
+  );
+  const supplierLedgerAfterDebitNote = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterDebitNote.rows.some(
+      (row) => row.type === "PURCHASE_DEBIT_NOTE" && row.sourceId === draftPurchaseDebitNote.id && money(row.debit).eq(expectedPurchaseDebitNoteTotal),
+    ),
+    "supplier ledger includes purchase debit note debit",
+  );
+  assertMoney(
+    supplierLedgerAfterDebitNote.closingBalance,
+    expectedPurchaseBillTotal.minus(expectedPurchaseDebitNoteTotal),
+    "supplier ledger closing balance after purchase debit note",
+  );
+
+  const debitApplyAmount = money("5.0000");
+  const appliedPurchaseDebitNote = await post<PurchaseDebitNote>(`/purchase-debit-notes/${draftPurchaseDebitNote.id}/apply`, headers, {
+    billId: draftPurchaseBill.id,
+    amountApplied: debitApplyAmount.toFixed(4),
+  });
+  assertMoney(
+    appliedPurchaseDebitNote.unappliedAmount,
+    expectedPurchaseDebitNoteTotal.minus(debitApplyAmount),
+    "purchase debit note unapplied amount after partial application",
+  );
+  const purchaseBillAfterDebitApply = await get<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}`, headers);
+  assertMoney(purchaseBillAfterDebitApply.balanceDue, expectedPurchaseBillTotal.minus(debitApplyAmount), "purchase bill balance after debit note application");
+  const purchaseDebitNoteAllocations = await get<PurchaseDebitNoteAllocation[]>(
+    `/purchase-debit-notes/${draftPurchaseDebitNote.id}/allocations`,
+    headers,
+  );
+  const purchaseDebitNoteAllocation = required(
+    purchaseDebitNoteAllocations.find((allocation) => allocation.billId === draftPurchaseBill.id && money(allocation.amountApplied).eq(debitApplyAmount)),
+    "purchase debit note allocation for smoke application",
+  );
+  const billDebitNoteAllocations = await get<PurchaseDebitNoteAllocation[]>(`/purchase-bills/${draftPurchaseBill.id}/debit-note-allocations`, headers);
+  assert(
+    billDebitNoteAllocations.some(
+      (allocation) => allocation.debitNoteId === draftPurchaseDebitNote.id && money(allocation.amountApplied).eq(debitApplyAmount),
+    ),
+    "purchase bill debit note allocations include partial application",
+  );
+  const supplierLedgerAfterDebitApply = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterDebitApply.rows.some(
+      (row) =>
+        row.type === "PURCHASE_DEBIT_NOTE_ALLOCATION" &&
+        row.sourceId === purchaseDebitNoteAllocation.id &&
+        money(row.debit).eq(0) &&
+        money(row.credit).eq(0),
+    ),
+    "supplier ledger includes neutral purchase debit note allocation row",
+  );
+  assertMoney(
+    supplierLedgerAfterDebitApply.closingBalance,
+    expectedPurchaseBillTotal.minus(expectedPurchaseDebitNoteTotal),
+    "supplier ledger closing balance after debit allocation is not double counted",
+  );
+  await expectHttpError("over-apply purchase debit note", () =>
+    post<PurchaseDebitNote>(`/purchase-debit-notes/${draftPurchaseDebitNote.id}/apply`, headers, {
+      billId: draftPurchaseBill.id,
+      amountApplied: expectedPurchaseDebitNoteTotal.toFixed(4),
+    }),
+  );
+  await expectHttpError("void allocated purchase debit note", () => post<PurchaseDebitNote>(`/purchase-debit-notes/${draftPurchaseDebitNote.id}/void`, headers, {}));
+  await expectHttpError("void purchase bill with active debit note allocation", () =>
+    post<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}/void`, headers, {}),
+  );
+
+  const reversedPurchaseDebitNote = await post<PurchaseDebitNote>(
+    `/purchase-debit-notes/${draftPurchaseDebitNote.id}/allocations/${purchaseDebitNoteAllocation.id}/reverse`,
+    headers,
+    { reason: "Smoke test purchase debit allocation reversal" },
+  );
+  assertMoney(reversedPurchaseDebitNote.unappliedAmount, expectedPurchaseDebitNoteTotal, "purchase debit note unapplied amount after allocation reversal");
+  const purchaseBillAfterDebitReverse = await get<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}`, headers);
+  assertMoney(purchaseBillAfterDebitReverse.balanceDue, expectedPurchaseBillTotal, "purchase bill balance after debit allocation reversal");
+  const reversedPurchaseDebitNoteAllocations = await get<PurchaseDebitNoteAllocation[]>(
+    `/purchase-debit-notes/${draftPurchaseDebitNote.id}/allocations`,
+    headers,
+  );
+  assert(
+    reversedPurchaseDebitNoteAllocations.some(
+      (allocation) =>
+        allocation.id === purchaseDebitNoteAllocation.id &&
+        Boolean(allocation.reversedAt) &&
+        allocation.reversalReason === "Smoke test purchase debit allocation reversal",
+    ),
+    "purchase debit note allocations include reversal metadata",
+  );
+  const supplierLedgerAfterDebitReverse = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterDebitReverse.rows.some(
+      (row) =>
+        row.type === "PURCHASE_DEBIT_NOTE_ALLOCATION_REVERSAL" &&
+        row.sourceId === purchaseDebitNoteAllocation.id &&
+        money(row.debit).eq(0) &&
+        money(row.credit).eq(0),
+    ),
+    "supplier ledger includes neutral purchase debit note allocation reversal row",
+  );
+  assertMoney(
+    supplierLedgerAfterDebitReverse.closingBalance,
+    expectedPurchaseBillTotal.minus(expectedPurchaseDebitNoteTotal),
+    "supplier ledger closing balance after debit allocation reversal is not double counted",
+  );
+  const purchaseDebitNotePdfData = await get<{ debitNote: { total: string; unappliedAmount: string }; lines: unknown[]; allocations: unknown[] }>(
+    `/purchase-debit-notes/${draftPurchaseDebitNote.id}/pdf-data`,
+    headers,
+  );
+  assertMoney(purchaseDebitNotePdfData.debitNote.total, expectedPurchaseDebitNoteTotal, "purchase debit note pdf-data total");
+  assertMoney(
+    purchaseDebitNotePdfData.debitNote.unappliedAmount,
+    expectedPurchaseDebitNoteTotal,
+    "purchase debit note pdf-data unapplied amount after reversal",
+  );
+  assert(purchaseDebitNotePdfData.lines.length > 0, "purchase debit note pdf-data returns lines");
+  assert(purchaseDebitNotePdfData.allocations.length > 0, "purchase debit note pdf-data returns allocations");
+  await assertPdf(`/purchase-debit-notes/${draftPurchaseDebitNote.id}/pdf`, headers, "purchase debit note PDF");
+  const purchaseDebitNoteDocuments = await get<GeneratedDocument[]>(
+    `/generated-documents?documentType=PURCHASE_DEBIT_NOTE&sourceId=${encodeURIComponent(draftPurchaseDebitNote.id)}`,
+    headers,
+  );
+  const archivedPurchaseDebitNotePdf = required(
+    purchaseDebitNoteDocuments.find((document) => document.sourceId === draftPurchaseDebitNote.id && document.status === "GENERATED"),
+    "archived purchase debit note PDF document",
+  );
+  await assertPdf(`/generated-documents/${archivedPurchaseDebitNotePdf.id}/download`, headers, "archived purchase debit note PDF");
+  const voidedPurchaseDebitNote = await post<PurchaseDebitNote>(`/purchase-debit-notes/${draftPurchaseDebitNote.id}/void`, headers, {});
+  assertEqual(voidedPurchaseDebitNote.status, "VOIDED", "voided purchase debit note status after reversed allocation");
+  assertPresent(voidedPurchaseDebitNote.reversalJournalEntryId, "voided purchase debit note reversal journal");
+  const supplierLedgerAfterDebitNoteVoid = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterDebitNoteVoid.rows.some(
+      (row) =>
+        row.type === "VOID_PURCHASE_DEBIT_NOTE" &&
+        row.sourceId === draftPurchaseDebitNote.id &&
+        money(row.credit).eq(expectedPurchaseDebitNoteTotal),
+    ),
+    "supplier ledger includes void purchase debit note credit",
+  );
+  assertMoney(
+    supplierLedgerAfterDebitNoteVoid.closingBalance,
+    expectedPurchaseBillTotal,
+    "supplier ledger closing balance after purchase debit note void",
+  );
+
   const supplierPaymentAmount = money("40.0000");
   const supplierPayment = await post<SupplierPayment>("/supplier-payments", headers, {
     supplierId: supplier.id,
@@ -1125,6 +1327,10 @@ async function main(): Promise<void> {
         supplierId: supplier.id,
         purchaseBillId: draftPurchaseBill.id,
         purchaseBillNumber: finalizedPurchaseBill.billNumber,
+        purchaseDebitNoteId: draftPurchaseDebitNote.id,
+        purchaseDebitNoteNumber: finalizedPurchaseDebitNote.debitNoteNumber,
+        purchaseDebitNoteAllocationId: purchaseDebitNoteAllocation.id,
+        archivedPurchaseDebitNotePdfId: archivedPurchaseDebitNotePdf.id,
         supplierPaymentId: supplierPayment.id,
         archivedInvoicePdfId: archivedInvoicePdf.id,
         archivedCreditNotePdfId: archivedCreditNotePdf.id,

@@ -109,7 +109,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, organization discovery, item/customer/supplier setup, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
+The smoke covers seed login, organization discovery, item/customer/supplier setup, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
 
@@ -272,10 +272,28 @@ Purchase bills:
 - `GET /purchase-bills/:id`
 - `GET /purchase-bills/:id/pdf-data`
 - `GET /purchase-bills/:id/pdf`
+- `GET /purchase-bills/:id/debit-notes`
+- `GET /purchase-bills/:id/debit-note-allocations`
 - `PATCH /purchase-bills/:id`
 - `DELETE /purchase-bills/:id`
 - `POST /purchase-bills/:id/finalize`
 - `POST /purchase-bills/:id/void`
+
+Purchase debit notes:
+
+- `GET /purchase-debit-notes`
+- `POST /purchase-debit-notes`
+- `GET /purchase-debit-notes/:id`
+- `GET /purchase-debit-notes/:id/pdf-data`
+- `GET /purchase-debit-notes/:id/pdf`
+- `GET /purchase-debit-notes/:id/allocations`
+- `PATCH /purchase-debit-notes/:id`
+- `DELETE /purchase-debit-notes/:id`
+- `POST /purchase-debit-notes/:id/finalize`
+- `POST /purchase-debit-notes/:id/void`
+- `POST /purchase-debit-notes/:id/apply`
+- `POST /purchase-debit-notes/:id/allocations/:allocationId/reverse`
+- `POST /purchase-debit-notes/:id/generate-pdf`
 
 Supplier payments:
 
@@ -502,6 +520,7 @@ Lifecycle behavior:
 - Voiding a draft marks it `VOIDED`.
 - Voiding a finalized bill creates or reuses one reversal journal entry and marks the bill `VOIDED`.
 - Finalized bills with active supplier payment allocations cannot be voided. Void the supplier payment first.
+- Finalized bills with active purchase debit note allocations cannot be voided. Reverse the debit note allocations first.
 - Voided bills cannot be edited or finalized.
 
 Posting behavior:
@@ -511,6 +530,21 @@ Posting behavior:
 - Debit account code `230` VAT Receivable only when `taxTotal > 0`.
 - Credit account code `210` Accounts Payable for the bill total.
 - The bill stores `journalEntryId`; voided finalized bills store `reversalJournalEntryId`.
+
+## Purchase Debit Note Rules
+
+Purchase debit notes are AP-side supplier credit/return/overcharge adjustment documents. They do not submit anything to ZATCA and do not move inventory.
+
+- Lines use the same calculation semantics as purchase bills.
+- Draft debit notes can be edited, deleted, finalized, or voided.
+- Finalized debit notes cannot be edited or deleted. Finalizing twice is idempotent.
+- Linked original bills must belong to the same organization and supplier, be finalized, and not be voided.
+- Total non-voided debit notes linked to a bill cannot exceed the original bill total.
+- Finalization posts one balanced AP reversal journal: debit account code `210` Accounts Payable, credit purchase expense/COGS/asset accounts by line taxable amounts, and credit VAT Receivable account code `230` when tax exists.
+- `unappliedAmount` starts equal to total and decreases as the debit note is applied to open purchase bills.
+- Applying or reversing a debit note allocation only updates `PurchaseBill.balanceDue`, `PurchaseDebitNote.unappliedAmount`, and immutable allocation audit rows. It creates no journal entry because finalization already posted the AP reduction.
+- Active debit note allocations block debit note voiding and purchase bill voiding until reversed.
+- Debit note PDFs are operational documents only and are archived through generated documents.
 
 ## Supplier Payment Rules
 
@@ -564,6 +598,9 @@ Supplier ledgers are available for contacts of type `SUPPLIER` or `BOTH`.
 - `GET /contacts/:id/supplier-ledger` returns contact summary, opening balance, closing balance, and chronological AP ledger rows.
 - `GET /contacts/:id/supplier-statement?from=YYYY-MM-DD&to=YYYY-MM-DD` reuses supplier ledger rows with period filtering.
 - Purchase bill rows increase accounts payable with a credit equal to bill total.
+- Purchase debit note rows decrease accounts payable with a debit equal to debit note total.
+- Voided purchase debit note rows reverse that visible effect with a credit equal to debit note total.
+- Purchase debit note allocation and allocation reversal rows are neutral audit rows with zero debit and zero credit.
 - Supplier payment rows decrease accounts payable with a debit equal to payment `amountPaid`.
 - Voided supplier payment rows reverse that visible effect with a credit equal to payment `amountPaid`.
 - Voided purchase bill rows reverse that visible effect with a debit equal to bill total.
@@ -590,6 +627,7 @@ Implemented PDF documents:
 - Customer payment receipt PDFs include current unapplied amount and any later unapplied-payment applications.
 - Customer refund PDF: `GET /customer-refunds/:id/pdf`
 - Purchase bill PDF: `GET /purchase-bills/:id/pdf`
+- Purchase debit note PDF: `GET /purchase-debit-notes/:id/pdf`
 - Supplier payment receipt PDF: `GET /supplier-payments/:id/receipt.pdf`
 
 PDF endpoints:
@@ -597,7 +635,7 @@ PDF endpoints:
 - Require JWT auth and `x-organization-id`.
 - Are tenant-scoped and return `404` outside the active organization.
 - Return `Content-Type: application/pdf`.
-- Use attachment filenames such as `invoice-INV-000001.pdf`, `credit-note-CN-000001.pdf`, `customer-refund-REF-000001.pdf`, `purchase-bill-BILL-000001.pdf`, `supplier-payment-SP-000001.pdf`, `receipt-PAY-000001.pdf`, and `statement-Customer.pdf`.
+- Use attachment filenames such as `invoice-INV-000001.pdf`, `credit-note-CN-000001.pdf`, `customer-refund-REF-000001.pdf`, `purchase-bill-BILL-000001.pdf`, `purchase-debit-note-PDN-000001.pdf`, `supplier-payment-SP-000001.pdf`, `receipt-PAY-000001.pdf`, and `statement-Customer.pdf`.
 - Apply organization document settings for document titles, footer text, basic colors, tax number visibility, and invoice notes/terms/payment sections.
 - Archive each generated PDF as a `GeneratedDocument` record with content hash, size, filename, source reference, and local base64 content.
 
@@ -727,8 +765,9 @@ Future real onboarding steps:
 - GET PDF endpoints currently archive every download.
 - Unapplied overpayment application is manual only; there is no automatic credit matching yet.
 - Customer refunds are manual accounting records only; no payment gateway refund or bank reconciliation integration exists yet.
-- Purchase bills and supplier payments are AP groundwork only; purchase orders, debit notes, inventory stock movements, supplier credit/refund workflows, and bank reconciliation are not implemented yet.
+- Purchase bills, purchase debit notes, and supplier payments are AP groundwork only; purchase orders, inventory stock movements/returns, supplier refund workflows, and bank reconciliation are not implemented yet.
 - ZATCA credit note XML/signing/submission is not implemented yet.
+- ZATCA debit note XML/signing/submission is not implemented yet.
 - Inventory returns from credit notes are not implemented yet.
 - Recurring invoices are not implemented yet.
 - Bank reconciliation is not implemented yet.
