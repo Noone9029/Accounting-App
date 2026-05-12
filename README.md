@@ -691,6 +691,48 @@ Known limitations:
 - No employee claim approval workflow exists yet.
 - No bank reconciliation or bank-feed matching exists yet.
 
+## Core Accounting Reports
+
+Reports are accountant-facing MVP outputs derived from real LedgerByte data. Journal-based reports use posted journal activity only, including historical entries marked `REVERSED` plus their posted reversal journals. AR/AP aging uses current finalized open invoice and bill balances.
+
+APIs:
+
+- `GET /reports/general-ledger?from=YYYY-MM-DD&to=YYYY-MM-DD&accountId=<optional>`
+- `GET /reports/trial-balance?from=YYYY-MM-DD&to=YYYY-MM-DD&includeZero=true`
+- `GET /reports/profit-and-loss?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /reports/balance-sheet?asOf=YYYY-MM-DD`
+- `GET /reports/vat-summary?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /reports/aged-receivables?asOf=YYYY-MM-DD`
+- `GET /reports/aged-payables?asOf=YYYY-MM-DD`
+
+Behavior:
+
+- General Ledger returns opening balances, period debits/credits, closing balances, and natural running balances by account.
+- Trial Balance returns opening, period, and closing debit/credit columns and a balanced flag.
+- Profit & Loss uses revenue, cost-of-sales, and expense accounts; revenue is credit-positive and expenses/COGS are debit-positive.
+- Balance Sheet uses assets, liabilities, equity, and retained earnings from P&L accounts up to `asOf`.
+- VAT Summary uses VAT Payable `220` and VAT Receivable `230` journal activity and is not an official VAT return filing report yet.
+- Aged Receivables uses finalized non-voided sales invoices with `balanceDue > 0`.
+- Aged Payables uses finalized non-voided purchase bills with `balanceDue > 0`.
+
+Frontend pages:
+
+- `/reports/general-ledger`
+- `/reports/trial-balance`
+- `/reports/profit-and-loss`
+- `/reports/balance-sheet`
+- `/reports/vat-summary`
+- `/reports/aged-receivables`
+- `/reports/aged-payables`
+
+Known limitations:
+
+- No report PDF rendering exists yet.
+- CSV/export groundwork is still future work.
+- VAT Summary is not an official VAT filing report.
+- Fiscal period locks are not enforced yet.
+- Reports need accountant review before production use.
+
 Receipt data:
 
 - `GET /customer-payments/:id/receipt-data` returns structured receipt data for future PDF rendering.

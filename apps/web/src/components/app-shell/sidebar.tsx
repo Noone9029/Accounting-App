@@ -34,7 +34,20 @@ const navItems: NavItem[] = [
   { label: "Get started", href: "/get-started", icon: BookOpen },
   { label: "Inbox", href: "/inbox", icon: Inbox },
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Reports", href: "/reports", icon: BarChart3 },
+  {
+    label: "Reports",
+    href: "/reports",
+    icon: BarChart3,
+    children: [
+      { label: "General Ledger", href: "/reports/general-ledger" },
+      { label: "Trial Balance", href: "/reports/trial-balance" },
+      { label: "Profit & Loss", href: "/reports/profit-and-loss" },
+      { label: "Balance Sheet", href: "/reports/balance-sheet" },
+      { label: "VAT Summary", href: "/reports/vat-summary" },
+      { label: "Aged Receivables", href: "/reports/aged-receivables" },
+      { label: "Aged Payables", href: "/reports/aged-payables" },
+    ],
+  },
   {
     label: "Sales",
     href: "/sales",

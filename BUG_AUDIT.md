@@ -671,7 +671,7 @@ Commit inspected: `dd498c7` (`Add purchases and supplier payments MVP`)
 
 - Role permissions are not enforced beyond active organization membership.
 - Fiscal periods exist only as schema groundwork and do not lock posting dates.
-- Core financial reports remain unimplemented.
+- Core financial reports now have MVP coverage, but still need accountant review and production hardening.
 - Inventory/COGS, bank reconciliation, and purchase orders remain unimplemented.
 - Generated PDFs are still stored as database base64 and need object storage before production scale.
 - ZATCA remains local/mock/scaffold only and is not production compliant.
@@ -765,6 +765,29 @@ Commit inspected: pending (`Add cash expenses MVP`)
 - No bank reconciliation or bank-feed matching exists.
 - No cash expense import workflow exists.
 
+## Core Accounting Reports MVP
+
+Audit date: 2026-05-12
+
+Commit inspected: pending (`Add core accounting reports MVP`)
+
+### Reports Added
+
+- Added authenticated, tenant-scoped report APIs for General Ledger, Trial Balance, Profit & Loss, Balance Sheet, VAT Summary, Aged Receivables, and Aged Payables.
+- General Ledger, Trial Balance, Profit & Loss, Balance Sheet, and VAT Summary are derived from posted journal activity. Historical journals marked `REVERSED` are included with their posted reversal journals so reversal accounting remains balanced.
+- Aged Receivables uses current finalized, non-voided sales invoices with open `balanceDue`.
+- Aged Payables uses current finalized, non-voided purchase bills with open `balanceDue`.
+- Added frontend report pages under `/reports/*` with date/as-of filters, loading/error/empty states, tabular output, and totals.
+- Added report helper tests, backend report math tests, and smoke checks for all report endpoints.
+
+### Remaining Reports Risks
+
+- Fiscal period locks are not enforced yet.
+- VAT Summary is not an official VAT return filing report.
+- Report PDFs are not implemented yet.
+- CSV/export is not implemented yet.
+- Report definitions and presentation still need accountant review before production use.
+
 ## Remaining Risks
 
 - The concurrency strategy relies on PostgreSQL row locks produced by conditional updates inside Prisma transactions. A small multi-process load test is still recommended before production.
@@ -778,7 +801,7 @@ Commit inspected: pending (`Add cash expenses MVP`)
 ## Recommended Next Steps
 
 1. Add optimistic concurrency or transaction guards for invoice finalization, payment allocation, and reversal idempotency.
-2. Add purchase order workflows, cash expenses, and bank reconciliation groundwork before inventory-side accounting.
+2. Add purchase order workflows and bank reconciliation groundwork before inventory-side accounting.
 3. Add a lightweight Playwright or browser smoke suite once the local Node runtime supports the in-app browser backend.
 4. Normalize branch default behavior and account parent cycle validation.
 5. Move Prisma seed configuration to `prisma.config.ts` before upgrading to Prisma 7.

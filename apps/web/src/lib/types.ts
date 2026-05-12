@@ -847,6 +847,120 @@ export interface SupplierStatement extends SupplierLedger {
   periodTo: string | null;
 }
 
+export interface GeneralLedgerLine {
+  date: string;
+  journalEntryId: string;
+  entryNumber: string;
+  description: string;
+  reference: string | null;
+  debit: string;
+  credit: string;
+  runningBalance: string;
+}
+
+export interface ReportAccountBalance {
+  accountId: string;
+  code: string;
+  name: string;
+  type: AccountType;
+  openingDebit: string;
+  openingCredit: string;
+  periodDebit: string;
+  periodCredit: string;
+  closingDebit: string;
+  closingCredit: string;
+}
+
+export interface GeneralLedgerAccount extends ReportAccountBalance {
+  lines: GeneralLedgerLine[];
+}
+
+export interface GeneralLedgerReport {
+  from: string | null;
+  to: string | null;
+  accounts: GeneralLedgerAccount[];
+}
+
+export interface TrialBalanceReport {
+  from: string | null;
+  to: string | null;
+  accounts: ReportAccountBalance[];
+  totals: ReportAccountBalanceTotals & { balanced: boolean };
+}
+
+export interface ReportAccountBalanceTotals {
+  openingDebit: string;
+  openingCredit: string;
+  periodDebit: string;
+  periodCredit: string;
+  closingDebit: string;
+  closingCredit: string;
+}
+
+export interface ProfitAndLossReport {
+  from: string | null;
+  to: string | null;
+  revenue: string;
+  costOfSales: string;
+  grossProfit: string;
+  expenses: string;
+  netProfit: string;
+  sections: Array<{
+    type: "REVENUE" | "COST_OF_SALES" | "EXPENSE";
+    total: string;
+    accounts: Array<{ accountId: string; code: string; name: string; type: AccountType; amount: string }>;
+  }>;
+}
+
+export interface BalanceSheetSection {
+  total: string;
+  accounts: Array<{ accountId: string; code: string; name: string; type: AccountType; amount: string }>;
+}
+
+export interface BalanceSheetReport {
+  asOf: string | null;
+  assets: BalanceSheetSection;
+  liabilities: BalanceSheetSection;
+  equity: BalanceSheetSection;
+  retainedEarnings: string;
+  totalAssets: string;
+  totalLiabilitiesAndEquity: string;
+  difference: string;
+  balanced: boolean;
+}
+
+export interface VatSummaryReport {
+  from: string | null;
+  to: string | null;
+  salesVat: string;
+  purchaseVat: string;
+  netVatPayable: string;
+  sections: Array<{ category: string; accountCode: string; amount: string; taxAmount: string }>;
+  notes: string[];
+}
+
+export type AgingBucket = "CURRENT" | "1_30" | "31_60" | "61_90" | "90_PLUS";
+
+export interface AgingReportRow {
+  id: string;
+  contact: { id: string; name: string; displayName: string | null };
+  number: string;
+  issueDate: string;
+  dueDate: string | null;
+  total: string;
+  balanceDue: string;
+  daysOverdue: number;
+  bucket: AgingBucket;
+}
+
+export interface AgingReport {
+  asOf: string | null;
+  kind: "receivables" | "payables";
+  rows: AgingReportRow[];
+  bucketTotals: Record<AgingBucket, string>;
+  grandTotal: string;
+}
+
 export interface CustomerPaymentReceiptData {
   receiptNumber: string;
   paymentDate: string;

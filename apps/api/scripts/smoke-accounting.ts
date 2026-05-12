@@ -190,6 +190,38 @@ interface LedgerRow {
   metadata?: Record<string, unknown>;
 }
 
+interface TrialBalanceReport {
+  totals: {
+    closingDebit: string;
+    closingCredit: string;
+    balanced: boolean;
+  };
+}
+
+interface ProfitAndLossReport {
+  revenue: string;
+  expenses: string;
+  netProfit: string;
+}
+
+interface BalanceSheetReport {
+  balanced: boolean;
+  totalAssets: string;
+  totalLiabilitiesAndEquity: string;
+}
+
+interface VatSummaryReport {
+  salesVat: string;
+  purchaseVat: string;
+  netVatPayable: string;
+}
+
+interface AgingReport {
+  rows: unknown[];
+  bucketTotals: Record<string, string>;
+  grandTotal: string;
+}
+
 interface LedgerResponse {
   closingBalance: string;
   rows: LedgerRow[];
@@ -1636,6 +1668,28 @@ async function main(): Promise<void> {
     "supplier ledger includes purchase debit note supplier refund credit",
   );
 
+  const generalLedgerReport = await get<{ accounts: Array<{ accountId: string; lines: unknown[] }> }>("/reports/general-ledger", headers);
+  assert(generalLedgerReport.accounts.length > 0, "general ledger returns account activity");
+  const trialBalanceReport = await get<TrialBalanceReport>("/reports/trial-balance", headers);
+  assertMoney(trialBalanceReport.totals.closingDebit, money(trialBalanceReport.totals.closingCredit), "trial balance closing debit equals credit");
+  assertEqual(trialBalanceReport.totals.balanced, true, "trial balance balanced flag");
+  const profitAndLossReport = await get<ProfitAndLossReport>("/reports/profit-and-loss", headers);
+  assertPresent(profitAndLossReport.revenue, "profit and loss revenue");
+  assertPresent(profitAndLossReport.expenses, "profit and loss expenses");
+  assertPresent(profitAndLossReport.netProfit, "profit and loss net profit");
+  const balanceSheetReport = await get<BalanceSheetReport>("/reports/balance-sheet", headers);
+  assertEqual(typeof balanceSheetReport.balanced, "boolean", "balance sheet balanced flag exists");
+  assertPresent(balanceSheetReport.totalAssets, "balance sheet total assets");
+  assertPresent(balanceSheetReport.totalLiabilitiesAndEquity, "balance sheet total liabilities and equity");
+  const vatSummaryReport = await get<VatSummaryReport>("/reports/vat-summary", headers);
+  assertPresent(vatSummaryReport.salesVat, "VAT summary salesVat");
+  assertPresent(vatSummaryReport.purchaseVat, "VAT summary purchaseVat");
+  assertPresent(vatSummaryReport.netVatPayable, "VAT summary netVatPayable");
+  const agedReceivablesReport = await get<AgingReport>("/reports/aged-receivables", headers);
+  assertPresent(agedReceivablesReport.grandTotal, "aged receivables grand total");
+  const agedPayablesReport = await get<AgingReport>("/reports/aged-payables", headers);
+  assertPresent(agedPayablesReport.grandTotal, "aged payables grand total");
+
   const voidedPayment = await post<CustomerPayment>(`/customer-payments/${partialPayment.id}/void`, headers, {});
   assertEqual(voidedPayment.status, "VOIDED", "voided payment status");
   assertPresent(voidedPayment.voidReversalJournalEntryId, "voided payment reversal journal");
@@ -1689,6 +1743,15 @@ async function main(): Promise<void> {
         supplierPaymentRefundId: supplierPaymentRefund.id,
         supplierRefundDebitNoteId: finalizedSupplierRefundDebitNote.id,
         supplierDebitNoteRefundId: supplierDebitNoteRefund.id,
+        reportsChecked: [
+          "general-ledger",
+          "trial-balance",
+          "profit-and-loss",
+          "balance-sheet",
+          "vat-summary",
+          "aged-receivables",
+          "aged-payables",
+        ],
         archivedInvoicePdfId: archivedInvoicePdf.id,
         archivedCreditNotePdfId: archivedCreditNotePdf.id,
         finalInvoiceBalance: afterSecondPaymentVoid.balanceDue,
