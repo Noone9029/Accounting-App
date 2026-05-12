@@ -127,6 +127,53 @@ export interface CreditNotePdfData {
   generatedAt: string | Date;
 }
 
+export interface PurchaseBillPdfData {
+  organization: PdfOrganization;
+  supplier: PdfContact;
+  bill: {
+    id: string;
+    billNumber: string;
+    status: string;
+    billDate: string | Date;
+    dueDate?: string | Date | null;
+    currency: string;
+    notes?: string | null;
+    terms?: string | null;
+    subtotal: string;
+    discountTotal: string;
+    taxableTotal: string;
+    taxTotal: string;
+    total: string;
+    balanceDue: string;
+  };
+  lines: Array<{
+    description: string;
+    quantity: string;
+    unitPrice: string;
+    discountRate: string;
+    lineGrossAmount: string;
+    discountAmount: string;
+    taxableAmount: string;
+    taxAmount: string;
+    lineTotal: string;
+    taxRateName?: string | null;
+  }>;
+  allocations: Array<{
+    paymentId: string;
+    paymentNumber: string;
+    paymentDate: string | Date;
+    amountPaid: string;
+    amountApplied: string;
+    status: string;
+  }>;
+  journalEntry?: {
+    id: string;
+    entryNumber: string;
+    status: string;
+  } | null;
+  generatedAt: string | Date;
+}
+
 export interface PaymentReceiptPdfData {
   organization: PdfOrganization;
   customer: PdfContact;
@@ -163,6 +210,41 @@ export interface PaymentReceiptPdfData {
     status: string;
     reversedAt?: string | Date | null;
     reversalReason?: string | null;
+  }>;
+  journalEntry?: {
+    id: string;
+    entryNumber: string;
+    status: string;
+  } | null;
+  generatedAt: string | Date;
+}
+
+export interface SupplierPaymentReceiptPdfData {
+  organization: PdfOrganization;
+  supplier: PdfContact;
+  payment: {
+    id: string;
+    paymentNumber: string;
+    paymentDate: string | Date;
+    status: string;
+    currency: string;
+    amountPaid: string;
+    unappliedAmount: string;
+    description?: string | null;
+  };
+  paidThroughAccount: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  allocations: Array<{
+    billId: string;
+    billNumber: string;
+    billDate: string | Date;
+    billDueDate?: string | Date | null;
+    billTotal: string;
+    amountApplied: string;
+    billBalanceDue: string;
   }>;
   journalEntry?: {
     id: string;
@@ -445,6 +527,89 @@ export async function renderCreditNotePdf(data: CreditNotePdfData, settings?: Do
   }, renderSettings);
 }
 
+export async function renderPurchaseBillPdf(data: PurchaseBillPdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
+  const renderSettings = resolveSettings(settings, "Purchase Bill");
+  return renderPdf((doc) => {
+    writeHeader(doc, data.organization, renderSettings, data.generatedAt);
+    writeTwoColumnBlocks(doc, "Supplier", contactLines(data.supplier, renderSettings), "Purchase Bill", [
+      ["Bill number", data.bill.billNumber],
+      ["Status", data.bill.status],
+      ["Bill date", formatDate(data.bill.billDate)],
+      ["Due date", data.bill.dueDate ? formatDate(data.bill.dueDate) : "No due date"],
+      ["Currency", data.bill.currency],
+      ["Journal entry", data.journalEntry ? `${data.journalEntry.entryNumber} (${data.journalEntry.status})` : "-"],
+    ], renderSettings);
+
+    writeSectionTitle(doc, "Line Items", renderSettings);
+    drawTable(
+      doc,
+      [
+        { label: "Description", width: 116 },
+        { label: "Qty", width: 38, align: "right" },
+        { label: "Unit", width: 54, align: "right" },
+        { label: "Gross", width: 54, align: "right" },
+        { label: "Discount", width: 54, align: "right" },
+        { label: "Taxable", width: 54, align: "right" },
+        { label: "Tax", width: 48, align: "right" },
+        { label: "Total", width: 54, align: "right" },
+      ],
+      data.lines.map((line) => [
+        withOptionalSuffix(line.description, line.taxRateName ? `Tax: ${line.taxRateName}` : null),
+        line.quantity,
+        money(line.unitPrice, data.bill.currency),
+        money(line.lineGrossAmount, data.bill.currency),
+        money(line.discountAmount, data.bill.currency),
+        money(line.taxableAmount, data.bill.currency),
+        money(line.taxAmount, data.bill.currency),
+        money(line.lineTotal, data.bill.currency),
+      ]),
+      renderSettings,
+    );
+
+    writeTotals(doc, data.bill.currency, [
+      ["Subtotal", data.bill.subtotal],
+      ["Discount", data.bill.discountTotal],
+      ["Taxable total", data.bill.taxableTotal],
+      ["VAT / Tax", data.bill.taxTotal],
+      ["Total", data.bill.total],
+      ["Balance due", data.bill.balanceDue],
+    ], renderSettings);
+
+    if (renderSettings.showPaymentSummary) {
+      writeSectionTitle(doc, "Supplier Payments", renderSettings);
+      if (data.allocations.length === 0) {
+        writeMuted(doc, "No supplier payments are linked to this bill.");
+      } else {
+        drawTable(
+          doc,
+          [
+            { label: "Payment", width: 120 },
+            { label: "Date", width: 80 },
+            { label: "Status", width: 80 },
+            { label: "Payment total", width: 105, align: "right" },
+            { label: "Applied", width: 105, align: "right" },
+          ],
+          data.allocations.map((allocation) => [
+            allocation.paymentNumber,
+            formatDate(allocation.paymentDate),
+            allocation.status,
+            money(allocation.amountPaid, data.bill.currency),
+            money(allocation.amountApplied, data.bill.currency),
+          ]),
+          renderSettings,
+        );
+      }
+    }
+
+    if (renderSettings.showNotes) {
+      writeOptionalTextBlock(doc, "Notes", data.bill.notes, renderSettings);
+    }
+    if (renderSettings.showTerms) {
+      writeOptionalTextBlock(doc, "Terms", data.bill.terms, renderSettings);
+    }
+  }, renderSettings);
+}
+
 export async function renderPaymentReceiptPdf(data: PaymentReceiptPdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
   const renderSettings = resolveSettings(settings, "Payment Receipt");
   return renderPdf((doc) => {
@@ -509,6 +674,54 @@ export async function renderPaymentReceiptPdf(data: PaymentReceiptPdfData, setti
         renderSettings,
       );
     }
+  }, renderSettings);
+}
+
+export async function renderSupplierPaymentReceiptPdf(data: SupplierPaymentReceiptPdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
+  const renderSettings = resolveSettings(settings, "Supplier Payment Receipt");
+  return renderPdf((doc) => {
+    writeHeader(doc, data.organization, renderSettings, data.generatedAt);
+    writeTwoColumnBlocks(doc, "Paid To", contactLines(data.supplier, renderSettings), "Supplier Payment", [
+      ["Payment number", data.payment.paymentNumber],
+      ["Status", data.payment.status],
+      ["Payment date", formatDate(data.payment.paymentDate)],
+      ["Amount paid", money(data.payment.amountPaid, data.payment.currency)],
+      ["Unapplied", money(data.payment.unappliedAmount, data.payment.currency)],
+      ["Paid through", `${data.paidThroughAccount.code} ${data.paidThroughAccount.name}`],
+      ["Journal entry", data.journalEntry ? `${data.journalEntry.entryNumber} (${data.journalEntry.status})` : "-"],
+    ], renderSettings);
+
+    writeOptionalTextBlock(doc, "Description", data.payment.description, renderSettings);
+    writeSectionTitle(doc, "Bill Allocations", renderSettings);
+    if (data.allocations.length === 0) {
+      writeMuted(doc, "No bill allocations are linked to this supplier payment.");
+    } else {
+      drawTable(
+        doc,
+        [
+          { label: "Bill", width: 110 },
+          { label: "Bill date", width: 72 },
+          { label: "Due", width: 72 },
+          { label: "Bill total", width: 95, align: "right" },
+          { label: "Applied", width: 70, align: "right" },
+          { label: "Balance due", width: 85, align: "right" },
+        ],
+        data.allocations.map((allocation) => [
+          allocation.billNumber,
+          formatDate(allocation.billDate),
+          allocation.billDueDate ? formatDate(allocation.billDueDate) : "-",
+          money(allocation.billTotal, data.payment.currency),
+          money(allocation.amountApplied, data.payment.currency),
+          money(allocation.billBalanceDue, data.payment.currency),
+        ]),
+        renderSettings,
+      );
+    }
+
+    writeTotals(doc, data.payment.currency, [
+      ["Amount paid", data.payment.amountPaid],
+      ["Unapplied amount", data.payment.unappliedAmount],
+    ], renderSettings);
   }, renderSettings);
 }
 

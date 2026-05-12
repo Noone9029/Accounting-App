@@ -82,6 +82,21 @@ export class ContactController {
     return this.contactLedgerService.generateStatementPdf(organizationId, user.id, id, from, to);
   }
 
+  @Get(":id/supplier-ledger")
+  supplierLedger(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.contactLedgerService.supplierLedger(organizationId, id);
+  }
+
+  @Get(":id/supplier-statement")
+  supplierStatement(
+    @CurrentOrganizationId() organizationId: string,
+    @Param("id") id: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+  ) {
+    return this.contactLedgerService.supplierStatement(organizationId, id, from, to);
+  }
+
   @Get(":id")
   get(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.contactService.get(organizationId, id);

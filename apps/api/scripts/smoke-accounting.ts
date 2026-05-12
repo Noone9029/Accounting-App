@@ -79,6 +79,26 @@ interface CreditNote {
   reversalJournalEntryId?: string | null;
 }
 
+interface PurchaseBill {
+  id: string;
+  billNumber: string;
+  status: string;
+  total: string;
+  balanceDue: string;
+  journalEntryId?: string | null;
+  reversalJournalEntryId?: string | null;
+}
+
+interface SupplierPayment {
+  id: string;
+  paymentNumber: string;
+  status: string;
+  amountPaid: string;
+  unappliedAmount: string;
+  journalEntryId?: string | null;
+  voidReversalJournalEntryId?: string | null;
+}
+
 interface CreditNoteAllocation {
   id: string;
   creditNoteId: string;
@@ -284,6 +304,10 @@ async function main(): Promise<void> {
     accounts.find((account) => account.code === "411" && account.allowPosting && account.isActive),
     "Sales revenue account code 411",
   );
+  const expenseAccount = required(
+    accounts.find((account) => account.code === "511" && account.allowPosting && account.isActive),
+    "General expenses account code 511",
+  );
   const paidThroughAccount =
     accounts.find((account) => account.code === "112" && account.allowPosting && account.isActive) ??
     accounts.find((account) => account.code === "111" && account.allowPosting && account.isActive);
@@ -291,7 +315,9 @@ async function main(): Promise<void> {
 
   const taxRates = await get<TaxRate[]>("/tax-rates", headers);
   const salesVat = taxRates.find((taxRate) => taxRate.name === "VAT on Sales 15%" && taxRate.isActive);
+  const purchaseVat = taxRates.find((taxRate) => taxRate.name === "VAT on Purchases 15%" && taxRate.isActive);
   const expectedTotal = salesVat ? money("115.0000") : money("100.0000");
+  const expectedPurchaseBillTotal = purchaseVat ? money("115.0000") : money("100.0000");
   const expectedCreditNoteTotal = salesVat ? money("11.5000") : money("10.0000");
   const partialPaymentAmount = money("50.0000");
   const remainingPaymentAmount = expectedTotal.minus(partialPaymentAmount);
@@ -947,6 +973,117 @@ async function main(): Promise<void> {
   assertEqual(voidedCreditNote.status, "VOIDED", "voided credit note after allocation reversal status");
   assertPresent(voidedCreditNote.reversalJournalEntryId, "voided credit note reversal journal after allocation reversal");
 
+  const supplier = await post<Contact>("/contacts", headers, {
+    type: "SUPPLIER",
+    name: `Smoke Test Supplier ${runId}`,
+    displayName: `Smoke Test Supplier ${runId}`,
+    countryCode: "SA",
+  });
+  const purchaseBillLinePayload: Record<string, unknown> = {
+    description: "Smoke test supplier bill line",
+    accountId: expenseAccount.id,
+    quantity: "1.0000",
+    unitPrice: "100.0000",
+  };
+  if (purchaseVat) {
+    purchaseBillLinePayload.taxRateId = purchaseVat.id;
+  }
+  const draftPurchaseBill = await post<PurchaseBill>("/purchase-bills", headers, {
+    supplierId: supplier.id,
+    billDate: new Date().toISOString(),
+    currency: "SAR",
+    notes: "Smoke purchase bill",
+    lines: [purchaseBillLinePayload],
+  });
+  assertEqual(draftPurchaseBill.status, "DRAFT", "created purchase bill status");
+  assertMoney(draftPurchaseBill.total, expectedPurchaseBillTotal, "draft purchase bill total");
+
+  const finalizedPurchaseBill = await post<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}/finalize`, headers, {});
+  assertEqual(finalizedPurchaseBill.status, "FINALIZED", "finalized purchase bill status");
+  assertPresent(finalizedPurchaseBill.journalEntryId, "finalized purchase bill journalEntryId");
+  assertMoney(finalizedPurchaseBill.balanceDue, expectedPurchaseBillTotal, "finalized purchase bill balanceDue");
+  const finalizedPurchaseBillAgain = await post<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}/finalize`, headers, {});
+  assertEqual(finalizedPurchaseBillAgain.journalEntryId, finalizedPurchaseBill.journalEntryId, "double finalize purchase bill journalEntryId");
+
+  const purchaseBillPdfData = await get<{ bill: { total: string; balanceDue: string }; lines: unknown[] }>(
+    `/purchase-bills/${draftPurchaseBill.id}/pdf-data`,
+    headers,
+  );
+  assertMoney(purchaseBillPdfData.bill.total, expectedPurchaseBillTotal, "purchase bill pdf-data total");
+  assert(purchaseBillPdfData.lines.length > 0, "purchase bill pdf-data returns lines");
+  await assertPdf(`/purchase-bills/${draftPurchaseBill.id}/pdf`, headers, "purchase bill PDF");
+
+  const supplierPaymentAmount = money("40.0000");
+  const supplierPayment = await post<SupplierPayment>("/supplier-payments", headers, {
+    supplierId: supplier.id,
+    paymentDate: new Date().toISOString(),
+    currency: "SAR",
+    amountPaid: supplierPaymentAmount.toFixed(4),
+    accountId: paidThroughAccount!.id,
+    description: "Smoke test supplier payment",
+    allocations: [{ billId: draftPurchaseBill.id, amountApplied: supplierPaymentAmount.toFixed(4) }],
+  });
+  assertEqual(supplierPayment.status, "POSTED", "supplier payment status");
+  assertPresent(supplierPayment.journalEntryId, "supplier payment journalEntryId");
+  assertMoney(supplierPayment.unappliedAmount, money(0), "supplier payment unapplied amount");
+
+  const purchaseBillAfterPayment = await get<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}`, headers);
+  assertMoney(purchaseBillAfterPayment.balanceDue, expectedPurchaseBillTotal.minus(supplierPaymentAmount), "purchase bill balance after supplier payment");
+  const supplierLedgerAfterPayment = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterPayment.rows.some(
+      (row) => row.type === "PURCHASE_BILL" && row.sourceId === draftPurchaseBill.id && money(row.credit).eq(expectedPurchaseBillTotal),
+    ),
+    "supplier ledger includes purchase bill credit",
+  );
+  assert(
+    supplierLedgerAfterPayment.rows.some(
+      (row) => row.type === "SUPPLIER_PAYMENT" && row.sourceId === supplierPayment.id && money(row.debit).eq(supplierPaymentAmount),
+    ),
+    "supplier ledger includes supplier payment debit",
+  );
+  assertMoney(
+    supplierLedgerAfterPayment.closingBalance,
+    expectedPurchaseBillTotal.minus(supplierPaymentAmount),
+    "supplier ledger closing balance after payment",
+  );
+
+  const supplierStatement = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-statement?from=${from}&to=${to}`, headers);
+  assert(supplierStatement.rows.length > 0, "supplier statement returns rows");
+  assertMoney(
+    supplierStatement.closingBalance,
+    expectedPurchaseBillTotal.minus(supplierPaymentAmount),
+    "supplier statement closing balance after payment",
+  );
+  const supplierReceiptPdfData = await get<{ payment: { paymentNumber: string }; allocations: unknown[] }>(
+    `/supplier-payments/${supplierPayment.id}/receipt-pdf-data`,
+    headers,
+  );
+  assertEqual(supplierReceiptPdfData.payment.paymentNumber, supplierPayment.paymentNumber, "supplier receipt pdf-data payment number");
+  assert(supplierReceiptPdfData.allocations.length > 0, "supplier receipt pdf-data returns allocations");
+  await assertPdf(`/supplier-payments/${supplierPayment.id}/receipt.pdf`, headers, "supplier payment receipt PDF");
+
+  await expectHttpError("void purchase bill with active supplier payment", () =>
+    post<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}/void`, headers, {}),
+  );
+  const voidedSupplierPayment = await post<SupplierPayment>(`/supplier-payments/${supplierPayment.id}/void`, headers, {});
+  assertEqual(voidedSupplierPayment.status, "VOIDED", "voided supplier payment status");
+  assertPresent(voidedSupplierPayment.voidReversalJournalEntryId, "voided supplier payment reversal journal");
+  const purchaseBillAfterSupplierPaymentVoid = await get<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}`, headers);
+  assertMoney(purchaseBillAfterSupplierPaymentVoid.balanceDue, expectedPurchaseBillTotal, "purchase bill balance after supplier payment void");
+  const supplierLedgerAfterPaymentVoid = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterPaymentVoid.rows.some(
+      (row) => row.type === "VOID_SUPPLIER_PAYMENT" && row.sourceId === supplierPayment.id && money(row.credit).eq(supplierPaymentAmount),
+    ),
+    "supplier ledger includes void supplier payment credit",
+  );
+  assertMoney(supplierLedgerAfterPaymentVoid.closingBalance, expectedPurchaseBillTotal, "supplier ledger closing balance after payment void");
+
+  const voidedPurchaseBill = await post<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}/void`, headers, {});
+  assertEqual(voidedPurchaseBill.status, "VOIDED", "voided purchase bill status");
+  assertPresent(voidedPurchaseBill.reversalJournalEntryId, "voided purchase bill reversal journal");
+
   const voidedPayment = await post<CustomerPayment>(`/customer-payments/${partialPayment.id}/void`, headers, {});
   assertEqual(voidedPayment.status, "VOIDED", "voided payment status");
   assertPresent(voidedPayment.voidReversalJournalEntryId, "voided payment reversal journal");
@@ -985,6 +1122,10 @@ async function main(): Promise<void> {
         creditNoteId: draftCreditNote.id,
         creditNoteNumber: finalizedCreditNote.creditNoteNumber,
         creditApplyAmount: creditApplyAmount.toFixed(4),
+        supplierId: supplier.id,
+        purchaseBillId: draftPurchaseBill.id,
+        purchaseBillNumber: finalizedPurchaseBill.billNumber,
+        supplierPaymentId: supplierPayment.id,
         archivedInvoicePdfId: archivedInvoicePdf.id,
         archivedCreditNotePdfId: archivedCreditNotePdf.id,
         finalInvoiceBalance: afterSecondPaymentVoid.balanceDue,

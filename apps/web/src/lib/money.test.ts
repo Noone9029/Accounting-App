@@ -1,4 +1,11 @@
-import { calculateInvoicePreview, calculatePaymentAllocationPreview, calculateTotals, formatUnits, parseDecimalToUnits } from "./money";
+import {
+  calculateInvoicePreview,
+  calculatePaymentAllocationPreview,
+  calculateSupplierPaymentAllocationPreview,
+  calculateTotals,
+  formatUnits,
+  parseDecimalToUnits,
+} from "./money";
 import { deriveInvoicePaymentState, formatOptionalDate } from "./invoice-display";
 import { defaultStatementFromDate, defaultStatementToDate, formatLedgerBalance } from "./ledger-display";
 
@@ -68,6 +75,18 @@ describe("money utilities", () => {
   it("rejects payment allocations above amount received or invoice balance", () => {
     expect(calculatePaymentAllocationPreview("50.0000", [{ amountApplied: "60.0000", balanceDue: "100.0000" }])).toMatchObject({ valid: false });
     expect(calculatePaymentAllocationPreview("50.0000", [{ amountApplied: "40.0000", balanceDue: "30.0000" }])).toMatchObject({ valid: false });
+  });
+
+  it("previews supplier payment allocations while allowing fully unapplied payments", () => {
+    expect(calculateSupplierPaymentAllocationPreview("100.0000", [])).toMatchObject({
+      amountPaid: "100.0000",
+      totalAllocated: "0.0000",
+      unappliedAmount: "100.0000",
+      valid: true,
+    });
+    expect(calculateSupplierPaymentAllocationPreview("100.0000", [{ amountApplied: "40.0000", balanceDue: "30.0000" }])).toMatchObject({
+      valid: false,
+    });
   });
 
   it("derives invoice payment states from balance due", () => {

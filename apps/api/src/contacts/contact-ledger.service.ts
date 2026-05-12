@@ -1,7 +1,17 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { toMoney } from "@ledgerbyte/accounting-core";
 import { CustomerStatementPdfData, renderCustomerStatementPdf } from "@ledgerbyte/pdf-core";
-import { ContactType, CreditNoteStatus, CustomerPaymentStatus, CustomerRefundSourceType, CustomerRefundStatus, DocumentType, SalesInvoiceStatus } from "@prisma/client";
+import {
+  ContactType,
+  CreditNoteStatus,
+  CustomerPaymentStatus,
+  CustomerRefundSourceType,
+  CustomerRefundStatus,
+  DocumentType,
+  PurchaseBillStatus,
+  SalesInvoiceStatus,
+  SupplierPaymentStatus,
+} from "@prisma/client";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -61,6 +71,35 @@ export interface CustomerLedgerResponse {
 }
 
 export interface CustomerStatementResponse extends CustomerLedgerResponse {
+  periodFrom: string | null;
+  periodTo: string | null;
+}
+
+export type SupplierLedgerRowType = "PURCHASE_BILL" | "SUPPLIER_PAYMENT" | "VOID_SUPPLIER_PAYMENT" | "VOID_PURCHASE_BILL";
+
+export interface SupplierLedgerRow {
+  id: string;
+  type: SupplierLedgerRowType;
+  date: string;
+  number: string;
+  description: string;
+  debit: string;
+  credit: string;
+  balance: string;
+  sourceType: "PurchaseBill" | "SupplierPayment";
+  sourceId: string;
+  status: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface SupplierLedgerResponse {
+  contact: CustomerLedgerContact;
+  openingBalance: string;
+  closingBalance: string;
+  rows: SupplierLedgerRow[];
+}
+
+export interface SupplierStatementResponse extends SupplierLedgerResponse {
   periodFrom: string | null;
   periodTo: string | null;
 }
@@ -192,6 +231,52 @@ export interface LedgerCustomerRefundInput {
 }
 
 interface PendingLedgerRow extends Omit<CustomerLedgerRow, "balance"> {
+  createdAt: string;
+}
+
+export interface LedgerPurchaseBillInput {
+  id: string;
+  billNumber: string;
+  billDate: Date | string;
+  dueDate?: Date | string | null;
+  total: unknown;
+  balanceDue: unknown;
+  status: string;
+  journalEntryId: string | null;
+  reversalJournalEntryId?: string | null;
+  finalizedAt?: Date | string | null;
+  updatedAt: Date | string;
+  createdAt: Date | string;
+}
+
+export interface LedgerSupplierPaymentInput {
+  id: string;
+  paymentNumber: string;
+  paymentDate: Date | string;
+  status: string;
+  amountPaid: unknown;
+  unappliedAmount: unknown;
+  description?: string | null;
+  postedAt?: Date | string | null;
+  voidedAt?: Date | string | null;
+  updatedAt: Date | string;
+  createdAt: Date | string;
+  allocations?: Array<{
+    id: string;
+    billId: string;
+    amountApplied: unknown;
+    bill?: {
+      id: string;
+      billNumber: string;
+      billDate: Date | string;
+      total: unknown;
+      balanceDue: unknown;
+      status: string;
+    } | null;
+  }>;
+}
+
+interface PendingSupplierLedgerRow extends Omit<SupplierLedgerRow, "balance"> {
   createdAt: string;
 }
 
@@ -468,6 +553,97 @@ export class ContactLedgerService {
     return document;
   }
 
+  async supplierLedger(organizationId: string, contactId: string): Promise<SupplierLedgerResponse> {
+    const contact = await this.findSupplierContact(organizationId, contactId);
+    const [bills, payments] = await Promise.all([
+      this.prisma.purchaseBill.findMany({
+        where: {
+          organizationId,
+          supplierId: contactId,
+          status: { in: [PurchaseBillStatus.FINALIZED, PurchaseBillStatus.VOIDED] },
+          journalEntryId: { not: null },
+        },
+        select: {
+          id: true,
+          billNumber: true,
+          billDate: true,
+          dueDate: true,
+          total: true,
+          balanceDue: true,
+          status: true,
+          journalEntryId: true,
+          reversalJournalEntryId: true,
+          finalizedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      this.prisma.supplierPayment.findMany({
+        where: {
+          organizationId,
+          supplierId: contactId,
+          status: { in: [SupplierPaymentStatus.POSTED, SupplierPaymentStatus.VOIDED] },
+        },
+        select: {
+          id: true,
+          paymentNumber: true,
+          paymentDate: true,
+          status: true,
+          amountPaid: true,
+          unappliedAmount: true,
+          description: true,
+          postedAt: true,
+          voidedAt: true,
+          createdAt: true,
+          updatedAt: true,
+          allocations: {
+            select: {
+              id: true,
+              billId: true,
+              amountApplied: true,
+              bill: {
+                select: {
+                  id: true,
+                  billNumber: true,
+                  billDate: true,
+                  total: true,
+                  balanceDue: true,
+                  status: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const rows = buildSupplierLedgerRows({ bills, payments });
+    return {
+      contact,
+      openingBalance: "0.0000",
+      closingBalance: rows.at(-1)?.balance ?? "0.0000",
+      rows,
+    };
+  }
+
+  async supplierStatement(organizationId: string, contactId: string, from?: string, to?: string): Promise<SupplierStatementResponse> {
+    const ledger = await this.supplierLedger(organizationId, contactId);
+    const fromDate = parseBoundaryDate(from, false);
+    const toDate = parseBoundaryDate(to, true);
+    const openingBalance = calculateSupplierStatementOpeningBalance(ledger.rows, fromDate);
+    const rowsInPeriod = filterSupplierStatementRows(ledger.rows, fromDate, toDate);
+    const rows = calculateSupplierRunningBalance(rowsInPeriod, openingBalance);
+
+    return {
+      contact: ledger.contact,
+      periodFrom: from ?? null,
+      periodTo: to ?? null,
+      openingBalance,
+      closingBalance: rows.at(-1)?.balance ?? openingBalance,
+      rows,
+    };
+  }
+
   private async findCustomerContact(organizationId: string, contactId: string): Promise<CustomerLedgerContact> {
     const contact = await this.prisma.contact.findFirst({
       where: {
@@ -488,6 +664,31 @@ export class ContactLedgerService {
 
     if (!contact) {
       throw new NotFoundException("Customer contact not found.");
+    }
+
+    return contact;
+  }
+
+  private async findSupplierContact(organizationId: string, contactId: string): Promise<CustomerLedgerContact> {
+    const contact = await this.prisma.contact.findFirst({
+      where: {
+        id: contactId,
+        organizationId,
+        type: { in: [ContactType.SUPPLIER, ContactType.BOTH] },
+      },
+      select: {
+        id: true,
+        name: true,
+        displayName: true,
+        type: true,
+        email: true,
+        phone: true,
+        taxNumber: true,
+      },
+    });
+
+    if (!contact) {
+      throw new NotFoundException("Supplier contact not found.");
     }
 
     return contact;
@@ -817,10 +1018,120 @@ export function buildCustomerLedgerRows(input: {
   return calculateRunningBalance(sortLedgerRows(pendingRows), "0.0000");
 }
 
+export function buildSupplierLedgerRows(input: {
+  bills: LedgerPurchaseBillInput[];
+  payments: LedgerSupplierPaymentInput[];
+}): SupplierLedgerRow[] {
+  const pendingRows: PendingSupplierLedgerRow[] = [];
+
+  for (const bill of input.bills) {
+    pendingRows.push({
+      id: `${bill.id}:purchase-bill`,
+      type: "PURCHASE_BILL",
+      date: toIsoString(bill.billDate),
+      createdAt: toIsoString(bill.createdAt),
+      number: bill.billNumber,
+      description: `Purchase bill ${bill.billNumber}`,
+      debit: "0.0000",
+      credit: moneyString(bill.total),
+      sourceType: "PurchaseBill",
+      sourceId: bill.id,
+      status: bill.status,
+      metadata: {
+        billId: bill.id,
+        dueDate: bill.dueDate ? toIsoString(bill.dueDate) : null,
+        balanceDue: moneyString(bill.balanceDue),
+        journalEntryId: bill.journalEntryId,
+        finalizedAt: bill.finalizedAt ? toIsoString(bill.finalizedAt) : null,
+      },
+    });
+
+    if (bill.status === PurchaseBillStatus.VOIDED) {
+      pendingRows.push({
+        id: `${bill.id}:void`,
+        type: "VOID_PURCHASE_BILL",
+        date: toIsoString(bill.updatedAt),
+        createdAt: toIsoString(bill.updatedAt),
+        number: bill.billNumber,
+        description: `Void purchase bill ${bill.billNumber}`,
+        debit: moneyString(bill.total),
+        credit: "0.0000",
+        sourceType: "PurchaseBill",
+        sourceId: bill.id,
+        status: bill.status,
+        metadata: {
+          billId: bill.id,
+          reversalJournalEntryId: bill.reversalJournalEntryId ?? null,
+        },
+      });
+    }
+  }
+
+  for (const payment of input.payments) {
+    pendingRows.push({
+      id: `${payment.id}:supplier-payment`,
+      type: "SUPPLIER_PAYMENT",
+      date: toIsoString(payment.paymentDate),
+      createdAt: toIsoString(payment.createdAt),
+      number: payment.paymentNumber,
+      description: payment.description?.trim() || `Supplier payment ${payment.paymentNumber}`,
+      debit: moneyString(payment.amountPaid),
+      credit: "0.0000",
+      sourceType: "SupplierPayment",
+      sourceId: payment.id,
+      status: payment.status,
+      metadata: {
+        paymentId: payment.id,
+        unappliedAmount: moneyString(payment.unappliedAmount),
+        allocations:
+          payment.allocations?.map((allocation) => ({
+            id: allocation.id,
+            billId: allocation.billId,
+            billNumber: allocation.bill?.billNumber ?? null,
+            amountApplied: moneyString(allocation.amountApplied),
+          })) ?? [],
+      },
+    });
+
+    if (payment.status === SupplierPaymentStatus.VOIDED) {
+      pendingRows.push({
+        id: `${payment.id}:void`,
+        type: "VOID_SUPPLIER_PAYMENT",
+        date: toIsoString(payment.voidedAt ?? payment.updatedAt),
+        createdAt: toIsoString(payment.updatedAt),
+        number: payment.paymentNumber,
+        description: `Void supplier payment ${payment.paymentNumber}`,
+        debit: "0.0000",
+        credit: moneyString(payment.amountPaid),
+        sourceType: "SupplierPayment",
+        sourceId: payment.id,
+        status: payment.status,
+        metadata: {
+          paymentId: payment.id,
+          unappliedAmount: moneyString(payment.unappliedAmount),
+        },
+      });
+    }
+  }
+
+  return calculateSupplierRunningBalance(sortSupplierLedgerRows(pendingRows), "0.0000");
+}
+
 export function calculateRunningBalance(rows: Array<Omit<CustomerLedgerRow, "balance">>, openingBalance = "0.0000"): CustomerLedgerRow[] {
   let balance = toMoney(openingBalance);
   return rows.map((row) => {
     balance = balance.plus(row.debit).minus(row.credit);
+    return {
+      ...row,
+      balance: balance.toFixed(4),
+    };
+  });
+}
+
+export function calculateSupplierRunningBalance(rows: Array<Omit<SupplierLedgerRow, "balance">>, openingBalance = "0.0000"): SupplierLedgerRow[] {
+  let balance = toMoney(openingBalance);
+  return rows.map((row) => {
+    balance = balance.plus(row.credit).minus(row.debit);
     return {
       ...row,
       balance: balance.toFixed(4),
@@ -839,7 +1150,27 @@ export function calculateStatementOpeningBalance(rows: CustomerLedgerRow[], from
     .toFixed(4);
 }
 
+export function calculateSupplierStatementOpeningBalance(rows: SupplierLedgerRow[], fromDate?: Date): string {
+  if (!fromDate) {
+    return "0.0000";
+  }
+
+  return rows
+    .filter((row) => new Date(row.date).getTime() < fromDate.getTime())
+    .reduce((balance, row) => balance.plus(row.credit).minus(row.debit), toMoney(0))
+    .toFixed(4);
+}
+
 export function filterStatementRows(rows: CustomerLedgerRow[], fromDate?: Date, toDate?: Date): Array<Omit<CustomerLedgerRow, "balance">> {
+  return rows
+    .filter((row) => {
+      const rowTime = new Date(row.date).getTime();
+      return (!fromDate || rowTime >= fromDate.getTime()) && (!toDate || rowTime <= toDate.getTime());
+    })
+    .map(({ balance, ...row }) => row);
+}
+
+export function filterSupplierStatementRows(rows: SupplierLedgerRow[], fromDate?: Date, toDate?: Date): Array<Omit<SupplierLedgerRow, "balance">> {
   return rows
     .filter((row) => {
       const rowTime = new Date(row.date).getTime();
@@ -864,6 +1195,22 @@ function sortLedgerRows(rows: PendingLedgerRow[]): PendingLedgerRow[] {
   });
 }
 
+function sortSupplierLedgerRows(rows: PendingSupplierLedgerRow[]): PendingSupplierLedgerRow[] {
+  return [...rows].sort((a, b) => {
+    const dateDelta = new Date(a.date).getTime() - new Date(b.date).getTime();
+    if (dateDelta !== 0) {
+      return dateDelta;
+    }
+
+    const createdDelta = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    if (createdDelta !== 0) {
+      return createdDelta;
+    }
+
+    return supplierRowPriority(a.type) - supplierRowPriority(b.type);
+  });
+}
+
 function rowPriority(type: CustomerLedgerRowType): number {
   switch (type) {
     case "INVOICE":
@@ -882,6 +1229,17 @@ function rowPriority(type: CustomerLedgerRowType): number {
     case "VOID_INVOICE":
     case "VOID_CREDIT_NOTE":
       return 2;
+  }
+}
+
+function supplierRowPriority(type: SupplierLedgerRowType): number {
+  switch (type) {
+    case "PURCHASE_BILL":
+    case "SUPPLIER_PAYMENT":
+      return 0;
+    case "VOID_SUPPLIER_PAYMENT":
+    case "VOID_PURCHASE_BILL":
+      return 1;
   }
 }
 

@@ -1,0 +1,80 @@
+import { Body, Controller, Delete, Get, Param, Post, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import type { Response } from "express";
+import { AuthenticatedUser } from "../auth/auth.types";
+import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
+import { CurrentUser } from "../auth/decorators/current-user.decorator";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
+import { CreateSupplierPaymentDto } from "./dto/create-supplier-payment.dto";
+import { SupplierPaymentService } from "./supplier-payment.service";
+
+@Controller("supplier-payments")
+@UseGuards(JwtAuthGuard, OrganizationContextGuard)
+export class SupplierPaymentController {
+  constructor(private readonly supplierPaymentService: SupplierPaymentService) {}
+
+  @Get()
+  list(@CurrentOrganizationId() organizationId: string) {
+    return this.supplierPaymentService.list(organizationId);
+  }
+
+  @Post()
+  create(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateSupplierPaymentDto,
+  ) {
+    return this.supplierPaymentService.create(organizationId, user.id, dto);
+  }
+
+  @Get(":id/allocations")
+  allocations(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.supplierPaymentService.allocations(organizationId, id);
+  }
+
+  @Get(":id/receipt-data")
+  receiptData(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.supplierPaymentService.receiptData(organizationId, id);
+  }
+
+  @Get(":id/receipt-pdf-data")
+  receiptPdfData(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.supplierPaymentService.receiptPdfData(organizationId, id);
+  }
+
+  @Get(":id/receipt.pdf")
+  async receiptPdf(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { buffer, filename } = await this.supplierPaymentService.receiptPdf(organizationId, user.id, id);
+    response.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Length": String(buffer.byteLength),
+    });
+    return new StreamableFile(buffer);
+  }
+
+  @Post(":id/generate-receipt-pdf")
+  generateReceiptPdf(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+    return this.supplierPaymentService.generateReceiptPdf(organizationId, user.id, id);
+  }
+
+  @Get(":id")
+  get(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.supplierPaymentService.get(organizationId, id);
+  }
+
+  @Post(":id/void")
+  void(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+    return this.supplierPaymentService.void(organizationId, user.id, id);
+  }
+
+  @Delete(":id")
+  remove(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+    return this.supplierPaymentService.remove(organizationId, user.id, id);
+  }
+}

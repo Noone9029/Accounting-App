@@ -1,4 +1,14 @@
-import { creditNotePdfPath, customerRefundPdfPath, generatedDocumentDownloadPath, invoicePdfPath, pdfApiUrl, receiptPdfPath, statementPdfPath } from "./pdf-download";
+import {
+  creditNotePdfPath,
+  customerRefundPdfPath,
+  generatedDocumentDownloadPath,
+  invoicePdfPath,
+  pdfApiUrl,
+  purchaseBillPdfPath,
+  receiptPdfPath,
+  statementPdfPath,
+  supplierPaymentReceiptPdfPath,
+} from "./pdf-download";
 
 describe("PDF download helpers", () => {
   it("builds invoice and receipt PDF paths", () => {
@@ -6,6 +16,8 @@ describe("PDF download helpers", () => {
     expect(creditNotePdfPath("credit note 1")).toBe("/credit-notes/credit%20note%201/pdf");
     expect(receiptPdfPath("payment-1")).toBe("/customer-payments/payment-1/receipt.pdf");
     expect(customerRefundPdfPath("refund 1")).toBe("/customer-refunds/refund%201/pdf");
+    expect(purchaseBillPdfPath("bill 1")).toBe("/purchase-bills/bill%201/pdf");
+    expect(supplierPaymentReceiptPdfPath("supplier payment 1")).toBe("/supplier-payments/supplier%20payment%201/receipt.pdf");
   });
 
   it("builds statement PDF paths with optional date range", () => {

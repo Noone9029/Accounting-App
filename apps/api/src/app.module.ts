@@ -16,7 +16,9 @@ import { NumberSequenceModule } from "./number-sequences/number-sequence.module"
 import { OrganizationDocumentSettingsModule } from "./document-settings/organization-document-settings.module";
 import { OrganizationModule } from "./organizations/organization.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { PurchaseBillModule } from "./purchase-bills/purchase-bill.module";
 import { SalesInvoiceModule } from "./sales-invoices/sales-invoice.module";
+import { SupplierPaymentModule } from "./supplier-payments/supplier-payment.module";
 import { TaxRateModule } from "./tax-rates/tax-rate.module";
 import { ZatcaModule } from "./zatca/zatca.module";
 import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
@@ -36,6 +38,8 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     OrganizationDocumentSettingsModule,
     ItemModule,
     SalesInvoiceModule,
+    PurchaseBillModule,
+    SupplierPaymentModule,
     AccountingModule,
     ChartOfAccountsModule,
     TaxRateModule,

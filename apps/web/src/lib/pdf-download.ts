@@ -16,6 +16,14 @@ export function customerRefundPdfPath(refundId: string): string {
   return `/customer-refunds/${encodeURIComponent(refundId)}/pdf`;
 }
 
+export function purchaseBillPdfPath(billId: string): string {
+  return `/purchase-bills/${encodeURIComponent(billId)}/pdf`;
+}
+
+export function supplierPaymentReceiptPdfPath(paymentId: string): string {
+  return `/supplier-payments/${encodeURIComponent(paymentId)}/receipt.pdf`;
+}
+
 export function statementPdfPath(contactId: string, from?: string, to?: string): string {
   const query = new URLSearchParams();
   if (from) {

@@ -586,7 +586,7 @@ Commit inspected: pending (`Add customer refund groundwork`)
 - No payment gateway refund integration exists.
 - No bank reconciliation or bank-feed matching exists.
 - No ZATCA credit note/refund XML, signing, clearance, reporting, or PDF/A-3 embedding exists.
-- Purchases, supplier debit notes, and inventory return integration remain pending.
+- Supplier debit notes and inventory return integration remain pending.
 
 ## Customer Overpayment Application Workflow
 
@@ -610,8 +610,36 @@ Commit inspected: pending (`Add customer overpayment application workflow`)
 - No automated customer-credit matching or allocation suggestions exist yet.
 - No bank reconciliation or bank-feed matching exists.
 - No payment gateway refund integration exists.
-- Purchases, supplier debit notes, and inventory return integration remain pending.
+- Supplier debit notes and inventory return integration remain pending.
 - ZATCA credit note/submission workflow remains pending.
+
+## Purchases And Supplier Payments MVP
+
+Audit date: 2026-05-12
+
+Commit inspected: pending (`Add purchases and supplier payments MVP`)
+
+### Purchases Groundwork Added
+
+- Added `PurchaseBillStatus`, `PurchaseBill`, `PurchaseBillLine`, `SupplierPaymentStatus`, `SupplierPayment`, and `SupplierPaymentAllocation` schema records with tenant-scoped supplier, branch, account, tax rate, item, journal, and allocation relations.
+- Added authenticated purchase bill APIs for list/create/detail/update/delete/finalize/void, open bill lookup, PDF data, and PDF download.
+- Added authenticated supplier payment APIs for list/create/detail/void, receipt PDF data, and receipt PDF download.
+- Added purchase bill calculations using the same decimal-safe gross, discount, taxable, tax, and line-total semantics as sales invoices.
+- Added AP posting on bill finalization: debit expense/cost-of-sales/asset purchase accounts, debit VAT Receivable account code `230`, and credit Accounts Payable account code `210`.
+- Added supplier payment posting: debit Accounts Payable account code `210`, credit selected paid-through asset account, and reduce allocated bill balances.
+- Added supplier payment voiding with one reusable reversal journal and one-time bill balance restoration.
+- Added supplier ledger and supplier statement APIs with purchase bill, supplier payment, voided payment, and voided bill rows.
+- Added purchase bill and supplier payment receipt PDF rendering plus generated document archive types.
+- Added frontend purchases navigation, bill list/create/detail/edit pages, supplier payment list/create/detail pages, and supplier ledger/statement sections on contact detail.
+- Extended smoke coverage for supplier contact setup, purchase bill finalization, AP journal checks, partial supplier payment, supplier payment void, supplier ledger/statement, and purchase/supplier payment PDFs.
+
+### Remaining Purchase Risks
+
+- No purchase orders are implemented.
+- No supplier debit notes or supplier credit allocation/refund workflow exists beyond supplier payments.
+- No inventory stock movement, landed-cost, or COGS integration exists for purchase bill lines that reference inventory accounts.
+- No bank reconciliation or bank-feed matching exists for supplier payments.
+- No ZATCA purchase-side compliance, validation, or submission workflow is implemented.
 
 ## Remaining Risks
 
@@ -626,6 +654,7 @@ Commit inspected: pending (`Add customer overpayment application workflow`)
 ## Recommended Next Steps
 
 1. Add optimistic concurrency or transaction guards for invoice finalization, payment allocation, and reversal idempotency.
-2. Add a lightweight Playwright or browser smoke suite once the local Node runtime supports the in-app browser backend.
-3. Normalize branch default behavior and account parent cycle validation.
-4. Move Prisma seed configuration to `prisma.config.ts` before upgrading to Prisma 7.
+2. Add supplier debit notes and purchase order workflows before inventory-side accounting.
+3. Add a lightweight Playwright or browser smoke suite once the local Node runtime supports the in-app browser backend.
+4. Normalize branch default behavior and account parent cycle validation.
+5. Move Prisma seed configuration to `prisma.config.ts` before upgrading to Prisma 7.

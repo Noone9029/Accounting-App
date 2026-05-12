@@ -10,9 +10,9 @@ import { formatOptionalDate } from "@/lib/invoice-display";
 import { defaultStatementFromDate, defaultStatementToDate, formatLedgerBalance } from "@/lib/ledger-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadPdf, statementPdfPath } from "@/lib/pdf-download";
-import type { Contact, CustomerLedger, CustomerLedgerRow, CustomerStatement } from "@/lib/types";
+import type { Contact, CustomerLedger, CustomerLedgerRow, CustomerStatement, SupplierLedger, SupplierLedgerRow, SupplierStatement } from "@/lib/types";
 
-type ActiveSection = "overview" | "ledger" | "statement";
+type ActiveSection = "overview" | "ledger" | "statement" | "supplier-ledger" | "supplier-statement";
 
 export default function ContactDetailPage() {
   const params = useParams<{ id: string }>();
@@ -20,6 +20,8 @@ export default function ContactDetailPage() {
   const [contact, setContact] = useState<Contact | null>(null);
   const [ledger, setLedger] = useState<CustomerLedger | null>(null);
   const [statement, setStatement] = useState<CustomerStatement | null>(null);
+  const [supplierLedger, setSupplierLedger] = useState<SupplierLedger | null>(null);
+  const [supplierStatement, setSupplierStatement] = useState<SupplierStatement | null>(null);
   const [activeSection, setActiveSection] = useState<ActiveSection>("overview");
   const [fromDate, setFromDate] = useState(defaultStatementFromDate());
   const [toDate, setToDate] = useState(defaultStatementToDate());
@@ -29,7 +31,8 @@ export default function ContactDetailPage() {
   const [error, setError] = useState("");
   const [statementError, setStatementError] = useState("");
   const ledgerAvailable = contact?.type === "CUSTOMER" || contact?.type === "BOTH";
-  const profile = contact ?? ledger?.contact ?? null;
+  const supplierLedgerAvailable = contact?.type === "SUPPLIER" || contact?.type === "BOTH";
+  const profile = contact ?? ledger?.contact ?? supplierLedger?.contact ?? null;
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -49,14 +52,21 @@ export default function ContactDetailPage() {
         setContact(contactResult);
         setLedger(null);
         setStatement(null);
+        setSupplierLedger(null);
+        setSupplierStatement(null);
 
-        if (contactResult.type !== "CUSTOMER" && contactResult.type !== "BOTH") {
-          return;
+        if (contactResult.type === "CUSTOMER" || contactResult.type === "BOTH") {
+          const ledgerResult = await apiRequest<CustomerLedger>(`/contacts/${params.id}/ledger`);
+          if (!cancelled) {
+            setLedger(ledgerResult);
+          }
         }
 
-        const ledgerResult = await apiRequest<CustomerLedger>(`/contacts/${params.id}/ledger`);
-        if (!cancelled) {
-          setLedger(ledgerResult);
+        if (contactResult.type === "SUPPLIER" || contactResult.type === "BOTH") {
+          const supplierLedgerResult = await apiRequest<SupplierLedger>(`/contacts/${params.id}/supplier-ledger`);
+          if (!cancelled) {
+            setSupplierLedger(supplierLedgerResult);
+          }
         }
       })
       .catch((loadError: unknown) => {
@@ -76,10 +86,14 @@ export default function ContactDetailPage() {
   }, [organizationId, params.id]);
 
   useEffect(() => {
-    if (contact && !ledgerAvailable && activeSection !== "overview") {
+    const valid =
+      activeSection === "overview" ||
+      ((activeSection === "ledger" || activeSection === "statement") && ledgerAvailable) ||
+      ((activeSection === "supplier-ledger" || activeSection === "supplier-statement") && supplierLedgerAvailable);
+    if (contact && !valid) {
       setActiveSection("overview");
     }
-  }, [activeSection, contact, ledgerAvailable]);
+  }, [activeSection, contact, ledgerAvailable, supplierLedgerAvailable]);
 
   async function loadStatement(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -99,6 +113,29 @@ export default function ContactDetailPage() {
       setStatement(result);
     } catch (loadError) {
       setStatementError(loadError instanceof Error ? loadError.message : "Unable to load customer statement.");
+    } finally {
+      setStatementLoading(false);
+    }
+  }
+
+  async function loadSupplierStatement(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStatementError("");
+    setStatementLoading(true);
+
+    try {
+      const query = new URLSearchParams();
+      if (fromDate) {
+        query.set("from", fromDate);
+      }
+      if (toDate) {
+        query.set("to", toDate);
+      }
+
+      const result = await apiRequest<SupplierStatement>(`/contacts/${params.id}/supplier-statement?${query.toString()}`);
+      setSupplierStatement(result);
+    } catch (loadError) {
+      setStatementError(loadError instanceof Error ? loadError.message : "Unable to load supplier statement.");
     } finally {
       setStatementLoading(false);
     }
@@ -126,7 +163,7 @@ export default function ContactDetailPage() {
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-ink">{profile?.displayName ?? profile?.name ?? "Contact"}</h1>
-          <p className="mt-1 text-sm text-steel">Customer profile, AR ledger, and statement groundwork.</p>
+          <p className="mt-1 text-sm text-steel">Contact profile, customer AR ledger, and supplier AP ledger groundwork.</p>
         </div>
         <Link href="/contacts" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           Back
@@ -135,21 +172,25 @@ export default function ContactDetailPage() {
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load contacts.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading customer ledger...</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">Loading contact ledger...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
       </div>
 
       {profile ? (
         <div className="mt-5 space-y-5">
           <div className="flex flex-wrap gap-2 border-b border-slate-200">
-            {(["overview", ...(ledgerAvailable ? ["ledger", "statement"] : [])] as ActiveSection[]).map((section) => (
+            {([
+              "overview",
+              ...(ledgerAvailable ? ["ledger", "statement"] : []),
+              ...(supplierLedgerAvailable ? ["supplier-ledger", "supplier-statement"] : []),
+            ] as ActiveSection[]).map((section) => (
               <button
                 key={section}
                 type="button"
                 onClick={() => setActiveSection(section)}
                 className={`border-b-2 px-3 py-2 text-sm font-medium capitalize ${activeSection === section ? "border-palm text-ink" : "border-transparent text-steel hover:text-ink"}`}
               >
-                {section}
+                {section.replace("-", " ")}
               </button>
             ))}
           </div>
@@ -169,24 +210,36 @@ export default function ContactDetailPage() {
               </div>
               <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
                 <h2 className="text-base font-semibold text-ink">Balance</h2>
-                {ledger ? (
+                {ledger || supplierLedger ? (
                   <div className="mt-4 space-y-3 text-sm">
-                    <div className="flex justify-between gap-3">
-                      <span className="text-steel">Opening balance</span>
-                      <span className="font-mono">{formatLedgerBalance(ledger.openingBalance)}</span>
-                    </div>
-                    <div className="flex justify-between gap-3">
-                      <span className="font-semibold text-ink">Closing balance</span>
-                      <span className="font-mono font-semibold text-ink">{formatLedgerBalance(ledger.closingBalance)}</span>
-                    </div>
-                    <div className="flex justify-between gap-3">
-                      <span className="text-steel">Ledger rows</span>
-                      <span className="font-mono">{ledger.rows.length}</span>
-                    </div>
+                    {ledger ? (
+                      <>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-steel">Customer AR</span>
+                          <span className="font-mono">{formatLedgerBalance(ledger.closingBalance)}</span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-steel">Customer rows</span>
+                          <span className="font-mono">{ledger.rows.length}</span>
+                        </div>
+                      </>
+                    ) : null}
+                    {supplierLedger ? (
+                      <>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-steel">Supplier AP</span>
+                          <span className="font-mono">{formatLedgerBalance(supplierLedger.closingBalance)}</span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-steel">Supplier rows</span>
+                          <span className="font-mono">{supplierLedger.rows.length}</span>
+                        </div>
+                      </>
+                    ) : null}
                   </div>
                 ) : (
                   <div className="mt-4">
-                    <StatusMessage type="info">Ledger and statements are available for customer contacts.</StatusMessage>
+                    <StatusMessage type="info">Ledger and statements are available for customer and supplier contacts.</StatusMessage>
                   </div>
                 )}
               </div>
@@ -249,13 +302,66 @@ export default function ContactDetailPage() {
               )}
             </div>
           ) : null}
+
+          {activeSection === "supplier-ledger" && supplierLedger ? (
+            <div className="space-y-4">
+              <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+                <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                  <span className="text-steel">Opening payable: {formatLedgerBalance(supplierLedger.openingBalance)}</span>
+                  <span className="font-semibold text-ink">Closing payable: {formatLedgerBalance(supplierLedger.closingBalance)}</span>
+                </div>
+              </div>
+              <LedgerTable rows={supplierLedger.rows} emptyMessage="No supplier ledger activity found." />
+            </div>
+          ) : null}
+
+          {activeSection === "supplier-statement" && supplierLedger ? (
+            <div className="space-y-4">
+              <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+                <form onSubmit={loadSupplierStatement} className="flex flex-wrap items-end gap-3">
+                  <label className="block">
+                    <span className="text-xs font-medium uppercase tracking-wide text-steel">From</span>
+                    <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium uppercase tracking-wide text-steel">To</span>
+                    <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                  </label>
+                  <button type="submit" disabled={statementLoading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+                    {statementLoading ? "Loading..." : "Load supplier statement"}
+                  </button>
+                </form>
+                {statementError ? (
+                  <div className="mt-3">
+                    <StatusMessage type="error">{statementError}</StatusMessage>
+                  </div>
+                ) : null}
+              </div>
+
+              {supplierStatement ? (
+                <>
+                  <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+                    <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
+                      <Summary label="Period from" value={supplierStatement.periodFrom ?? "-"} />
+                      <Summary label="Period to" value={supplierStatement.periodTo ?? "-"} />
+                      <Summary label="Opening payable" value={formatLedgerBalance(supplierStatement.openingBalance)} />
+                      <Summary label="Closing payable" value={formatLedgerBalance(supplierStatement.closingBalance)} />
+                    </div>
+                  </div>
+                  <LedgerTable rows={supplierStatement.rows} emptyMessage="No supplier statement rows found for this period." />
+                </>
+              ) : (
+                <StatusMessage type="info">Choose a period and load a supplier statement.</StatusMessage>
+              )}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>
   );
 }
 
-function LedgerTable({ rows, emptyMessage }: { rows: CustomerLedgerRow[]; emptyMessage: string }) {
+function LedgerTable({ rows, emptyMessage }: { rows: Array<CustomerLedgerRow | SupplierLedgerRow>; emptyMessage: string }) {
   if (rows.length === 0) {
     return <StatusMessage type="empty">{emptyMessage}</StatusMessage>;
   }
@@ -296,7 +402,7 @@ function LedgerTable({ rows, emptyMessage }: { rows: CustomerLedgerRow[]; emptyM
   );
 }
 
-function renderRowLink(row: CustomerLedgerRow) {
+function renderRowLink(row: CustomerLedgerRow | SupplierLedgerRow) {
   if (row.sourceType === "SalesInvoice") {
     return (
       <Link href={`/sales/invoices/${row.sourceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
@@ -348,6 +454,22 @@ function renderRowLink(row: CustomerLedgerRow) {
       </Link>
     ) : (
       "-"
+    );
+  }
+
+  if (row.sourceType === "PurchaseBill") {
+    return (
+      <Link href={`/purchases/bills/${row.sourceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        View bill
+      </Link>
+    );
+  }
+
+  if (row.sourceType === "SupplierPayment") {
+    return (
+      <Link href={`/purchases/supplier-payments/${row.sourceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        View payment
+      </Link>
     );
   }
 

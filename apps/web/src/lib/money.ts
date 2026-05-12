@@ -53,6 +53,13 @@ export interface PaymentAllocationPreview {
   valid: boolean;
 }
 
+export interface SupplierPaymentAllocationPreview {
+  amountPaid: string;
+  totalAllocated: string;
+  unappliedAmount: string;
+  valid: boolean;
+}
+
 const MONEY_SCALE = 4;
 const MONEY_FACTOR = 10 ** MONEY_SCALE;
 
@@ -138,6 +145,24 @@ export function calculatePaymentAllocationPreview(amountReceived: string, alloca
     totalAllocated: formatUnits(totalAllocatedUnits),
     unappliedAmount: formatUnits(unappliedUnits),
     valid: amountReceivedUnits > 0 && totalAllocatedUnits > 0 && unappliedUnits >= 0 && allocationsValid,
+  };
+}
+
+export function calculateSupplierPaymentAllocationPreview(amountPaid: string, allocations: PaymentAllocationInput[]): SupplierPaymentAllocationPreview {
+  const amountPaidUnits = parseDecimalToUnits(amountPaid);
+  const totalAllocatedUnits = allocations.reduce((sum, allocation) => sum + parseDecimalToUnits(allocation.amountApplied), 0);
+  const unappliedUnits = amountPaidUnits - totalAllocatedUnits;
+  const allocationsValid = allocations.every((allocation) => {
+    const amountAppliedUnits = parseDecimalToUnits(allocation.amountApplied);
+    const balanceDueUnits = parseDecimalToUnits(allocation.balanceDue);
+    return amountAppliedUnits >= 0 && amountAppliedUnits <= balanceDueUnits;
+  });
+
+  return {
+    amountPaid: formatUnits(amountPaidUnits),
+    totalAllocated: formatUnits(totalAllocatedUnits),
+    unappliedAmount: formatUnits(unappliedUnits),
+    valid: amountPaidUnits > 0 && unappliedUnits >= 0 && allocationsValid,
   };
 }
 
