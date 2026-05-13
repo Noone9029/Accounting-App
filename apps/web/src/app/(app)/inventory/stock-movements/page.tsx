@@ -17,7 +17,15 @@ import {
 import { PERMISSIONS } from "@/lib/permissions";
 import type { StockMovement, StockMovementType } from "@/lib/types";
 
-const movementTypes: StockMovementType[] = ["OPENING_BALANCE", "ADJUSTMENT_IN", "ADJUSTMENT_OUT", "TRANSFER_IN", "TRANSFER_OUT"];
+const movementTypes: StockMovementType[] = [
+  "OPENING_BALANCE",
+  "ADJUSTMENT_IN",
+  "ADJUSTMENT_OUT",
+  "TRANSFER_IN",
+  "TRANSFER_OUT",
+  "PURCHASE_RECEIPT_PLACEHOLDER",
+  "SALES_ISSUE_PLACEHOLDER",
+];
 
 export default function StockMovementsPage() {
   const organizationId = useActiveOrganizationId();

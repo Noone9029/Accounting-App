@@ -6,8 +6,11 @@ import type {
   InventoryLowStockStatus,
   InventoryMovementSummaryRow,
   InventorySettings,
+  InventorySourceProgressStatus,
   InventoryStockValuationRow,
   InventoryValuationMethod,
+  PurchaseReceiptStatus,
+  SalesStockIssueStatus,
   StockMovementType,
   WarehouseStatus,
   WarehouseTransferStatus,
@@ -141,6 +144,58 @@ export function canVoidWarehouseTransfer(status: WarehouseTransferStatus): boole
   return status === "POSTED";
 }
 
+export function stockDocumentStatusLabel(status: PurchaseReceiptStatus | SalesStockIssueStatus): string {
+  return status === "POSTED" ? "Posted" : "Voided";
+}
+
+export function stockDocumentStatusBadgeClass(status: PurchaseReceiptStatus | SalesStockIssueStatus): string {
+  return status === "POSTED" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600";
+}
+
+export function canVoidPostedStockDocument(status: PurchaseReceiptStatus | SalesStockIssueStatus): boolean {
+  return status === "POSTED";
+}
+
+export function inventoryProgressStatusLabel(status: InventorySourceProgressStatus): string {
+  switch (status) {
+    case "NOT_STARTED":
+      return "Not started";
+    case "PARTIAL":
+      return "Partial";
+    case "COMPLETE":
+      return "Complete";
+  }
+}
+
+export function inventoryProgressStatusBadgeClass(status: InventorySourceProgressStatus): string {
+  switch (status) {
+    case "NOT_STARTED":
+      return "bg-slate-100 text-slate-700";
+    case "PARTIAL":
+      return "bg-amber-50 text-amber-700";
+    case "COMPLETE":
+      return "bg-emerald-50 text-emerald-700";
+  }
+}
+
+export function purchaseReceiptSourceTypeLabel(sourceType: "purchaseOrder" | "purchaseBill" | "standalone"): string {
+  switch (sourceType) {
+    case "purchaseOrder":
+      return "Purchase order";
+    case "purchaseBill":
+      return "Purchase bill";
+    case "standalone":
+      return "Standalone";
+  }
+}
+
+export function hasRemainingInventoryQuantity(value: string | number | null | undefined): boolean {
+  if (value === null || value === undefined || value === "") {
+    return false;
+  }
+  return parseDecimalToUnits(String(value)) > 0;
+}
+
 export function validateWarehouseTransferInput(input: {
   itemId: string;
   fromWarehouseId: string;
@@ -161,6 +216,29 @@ export function validateWarehouseTransferInput(input: {
   }
   if (!Number.isFinite(Number(input.quantity)) || Number(input.quantity) <= 0) {
     return "Transfer quantity must be greater than zero.";
+  }
+  return null;
+}
+
+export function validatePurchaseReceiptInput(input: { warehouseId: string; lineCount: number }): string | null {
+  if (!input.warehouseId) {
+    return "Select a warehouse.";
+  }
+  if (input.lineCount <= 0) {
+    return "Enter at least one quantity to receive.";
+  }
+  return null;
+}
+
+export function validateSalesStockIssueInput(input: { salesInvoiceId: string; warehouseId: string; lineCount: number }): string | null {
+  if (!input.salesInvoiceId) {
+    return "Select a finalized sales invoice.";
+  }
+  if (!input.warehouseId) {
+    return "Select a warehouse.";
+  }
+  if (input.lineCount <= 0) {
+    return "Enter at least one quantity to issue.";
   }
   return null;
 }

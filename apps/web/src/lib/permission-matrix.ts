@@ -89,6 +89,10 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       permission(PERMISSIONS.warehouseTransfers.view, "View warehouse transfers", "See posted and voided transfers between warehouses."),
       permission(PERMISSIONS.warehouseTransfers.create, "Create warehouse transfers", "Post operational stock transfers between active warehouses."),
       permission(PERMISSIONS.warehouseTransfers.void, "Void warehouse transfers", "Reverse posted warehouse transfers operationally."),
+      permission(PERMISSIONS.purchaseReceiving.view, "View purchase receipts", "See posted and voided operational purchase receipts."),
+      permission(PERMISSIONS.purchaseReceiving.create, "Create purchase receipts", "Receive supplier stock into warehouses without accounting journals."),
+      permission(PERMISSIONS.salesStockIssue.view, "View sales stock issues", "See posted and voided operational sales stock issues."),
+      permission(PERMISSIONS.salesStockIssue.create, "Create sales stock issues", "Issue stock for finalized sales invoices without COGS posting."),
     ],
   },
   {

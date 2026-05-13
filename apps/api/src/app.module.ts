@@ -28,9 +28,11 @@ import { PrismaModule } from "./prisma/prisma.module";
 import { PurchaseBillModule } from "./purchase-bills/purchase-bill.module";
 import { PurchaseDebitNoteModule } from "./purchase-debit-notes/purchase-debit-note.module";
 import { PurchaseOrderModule } from "./purchase-orders/purchase-order.module";
+import { PurchaseReceiptModule } from "./purchase-receipts/purchase-receipt.module";
 import { ReportsModule } from "./reports/reports.module";
 import { RoleModule } from "./roles/role.module";
 import { SalesInvoiceModule } from "./sales-invoices/sales-invoice.module";
+import { SalesStockIssueModule } from "./sales-stock-issues/sales-stock-issue.module";
 import { SupplierRefundModule } from "./supplier-refunds/supplier-refund.module";
 import { SupplierPaymentModule } from "./supplier-payments/supplier-payment.module";
 import { TaxRateModule } from "./tax-rates/tax-rate.module";
@@ -69,7 +71,9 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     SalesInvoiceModule,
     PurchaseOrderModule,
     PurchaseBillModule,
+    PurchaseReceiptModule,
     PurchaseDebitNoteModule,
+    SalesStockIssueModule,
     ReportsModule,
     RoleModule,
     SupplierPaymentModule,

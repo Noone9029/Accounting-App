@@ -10,10 +10,19 @@ import {
   inventorySettingsLabel,
   inventorySettingsWarnings,
   inventoryValuationWarningText,
+  canVoidPostedStockDocument,
+  hasRemainingInventoryQuantity,
+  inventoryProgressStatusBadgeClass,
+  inventoryProgressStatusLabel,
   lowStockStatusLabel,
   movementSummaryNetChange,
+  purchaseReceiptSourceTypeLabel,
   stockMovementDirection,
+  stockDocumentStatusBadgeClass,
+  stockDocumentStatusLabel,
   stockMovementTypeLabel,
+  validatePurchaseReceiptInput,
+  validateSalesStockIssueInput,
   validateWarehouseTransferInput,
   warehouseStatusBadgeClass,
   warehouseStatusLabel,
@@ -36,6 +45,8 @@ describe("inventory helpers", () => {
     expect(stockMovementDirection("ADJUSTMENT_OUT")).toBe("OUT");
     expect(stockMovementDirection("TRANSFER_IN")).toBe("IN");
     expect(stockMovementDirection("TRANSFER_OUT")).toBe("OUT");
+    expect(stockMovementDirection("PURCHASE_RECEIPT_PLACEHOLDER")).toBe("IN");
+    expect(stockMovementDirection("SALES_ISSUE_PLACEHOLDER")).toBe("OUT");
     expect(stockMovementTypeLabel("ADJUSTMENT_OUT")).toBe("Adjustment Out");
   });
 
@@ -49,6 +60,12 @@ describe("inventory helpers", () => {
     expect(warehouseTransferStatusLabel("POSTED")).toBe("Posted");
     expect(warehouseTransferStatusBadgeClass("VOIDED")).toContain("slate");
     expect(canVoidWarehouseTransfer("POSTED")).toBe(true);
+    expect(stockDocumentStatusLabel("POSTED")).toBe("Posted");
+    expect(stockDocumentStatusBadgeClass("VOIDED")).toContain("slate");
+    expect(canVoidPostedStockDocument("POSTED")).toBe(true);
+    expect(inventoryProgressStatusLabel("PARTIAL")).toBe("Partial");
+    expect(inventoryProgressStatusBadgeClass("COMPLETE")).toContain("emerald");
+    expect(purchaseReceiptSourceTypeLabel("purchaseBill")).toBe("Purchase bill");
   });
 
   it("validates warehouse transfer input", () => {
@@ -59,6 +76,12 @@ describe("inventory helpers", () => {
       "Transfer quantity must be greater than zero.",
     );
     expect(validateWarehouseTransferInput({ itemId: "item-1", fromWarehouseId: "a", toWarehouseId: "b", quantity: "1" })).toBeNull();
+    expect(validatePurchaseReceiptInput({ warehouseId: "", lineCount: 1 })).toBe("Select a warehouse.");
+    expect(validatePurchaseReceiptInput({ warehouseId: "warehouse-1", lineCount: 0 })).toBe("Enter at least one quantity to receive.");
+    expect(validateSalesStockIssueInput({ salesInvoiceId: "", warehouseId: "warehouse-1", lineCount: 1 })).toBe("Select a finalized sales invoice.");
+    expect(validateSalesStockIssueInput({ salesInvoiceId: "invoice-1", warehouseId: "warehouse-1", lineCount: 1 })).toBeNull();
+    expect(hasRemainingInventoryQuantity("0.0000")).toBe(false);
+    expect(hasRemainingInventoryQuantity("0.1000")).toBe(true);
   });
 
   it("formats quantities with four decimals", () => {

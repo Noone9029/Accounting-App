@@ -56,6 +56,10 @@ describe("permission helpers", () => {
     ]);
     expect(getRequiredPermissionsForPathname("/inventory/transfers")).toEqual([PERMISSIONS.warehouseTransfers.view]);
     expect(getRequiredPermissionsForPathname("/inventory/transfers/new")).toEqual([PERMISSIONS.warehouseTransfers.create]);
+    expect(getRequiredPermissionsForPathname("/inventory/purchase-receipts")).toEqual([PERMISSIONS.purchaseReceiving.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/purchase-receipts/new")).toEqual([PERMISSIONS.purchaseReceiving.create]);
+    expect(getRequiredPermissionsForPathname("/inventory/sales-stock-issues")).toEqual([PERMISSIONS.salesStockIssue.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/sales-stock-issues/new")).toEqual([PERMISSIONS.salesStockIssue.create]);
     expect(getRequiredPermissionsForPathname("/inventory/stock-movements")).toEqual([PERMISSIONS.stockMovements.view]);
     expect(getRequiredPermissionsForPathname("/inventory/stock-movements/new")).toEqual([PERMISSIONS.stockMovements.create]);
     expect(getRequiredPermissionsForPathname("/inventory/reports/stock-valuation")).toEqual([PERMISSIONS.inventory.view]);

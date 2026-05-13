@@ -252,7 +252,14 @@ interface StockMovement {
   id: string;
   itemId: string;
   warehouseId: string;
-  type: "OPENING_BALANCE" | "ADJUSTMENT_IN" | "ADJUSTMENT_OUT" | "TRANSFER_IN" | "TRANSFER_OUT";
+  type:
+    | "OPENING_BALANCE"
+    | "ADJUSTMENT_IN"
+    | "ADJUSTMENT_OUT"
+    | "TRANSFER_IN"
+    | "TRANSFER_OUT"
+    | "PURCHASE_RECEIPT_PLACEHOLDER"
+    | "SALES_ISSUE_PLACEHOLDER";
   quantity: string;
   unitCost?: string | null;
   totalCost?: string | null;
@@ -277,6 +284,40 @@ interface WarehouseTransfer {
   toStockMovementId?: string | null;
   voidFromStockMovementId?: string | null;
   voidToStockMovementId?: string | null;
+}
+
+interface PurchaseReceipt {
+  id: string;
+  receiptNumber: string;
+  status: "POSTED" | "VOIDED";
+  lines?: Array<{ id: string; stockMovementId?: string | null; voidStockMovementId?: string | null }>;
+}
+
+interface PurchaseReceivingStatus {
+  status: "NOT_STARTED" | "PARTIAL" | "COMPLETE";
+  lines: Array<{
+    lineId: string;
+    inventoryTracking: boolean;
+    receivedQuantity: string;
+    remainingQuantity: string;
+  }>;
+}
+
+interface SalesStockIssue {
+  id: string;
+  issueNumber: string;
+  status: "POSTED" | "VOIDED";
+  lines?: Array<{ id: string; stockMovementId?: string | null; voidStockMovementId?: string | null }>;
+}
+
+interface SalesInvoiceStockIssueStatus {
+  status: "NOT_STARTED" | "PARTIAL" | "COMPLETE";
+  lines: Array<{
+    lineId: string;
+    inventoryTracking: boolean;
+    issuedQuantity: string;
+    remainingQuantity: string;
+  }>;
 }
 
 interface InventoryBalance {
@@ -768,6 +809,8 @@ async function main(): Promise<void> {
     status: "ACTIVE",
     sellingPrice: "25.0000",
     revenueAccountId: salesAccount.id,
+    purchaseCost: "4.0000",
+    expenseAccountId: expenseAccount.id,
     inventoryTracking: true,
     reorderPoint: "15.0000",
     reorderQuantity: "6.0000",
@@ -892,6 +935,110 @@ async function main(): Promise<void> {
     journalEntriesAfterInventory.length,
     journalEntriesBeforeInventory.length,
     "inventory adjustments and transfers do not create journal entries",
+  );
+
+  const receivingSupplier = await post<Contact>("/contacts", headers, {
+    type: "SUPPLIER",
+    name: `Smoke Inventory Supplier ${runId}`,
+    displayName: `Smoke Inventory Supplier ${runId}`,
+    countryCode: "SA",
+  });
+  const issuingCustomer = await post<Contact>("/contacts", headers, {
+    type: "CUSTOMER",
+    name: `Smoke Inventory Customer ${runId}`,
+    displayName: `Smoke Inventory Customer ${runId}`,
+    countryCode: "SA",
+  });
+  const purchaseOrderForReceipt = await post<PurchaseOrder>("/purchase-orders", headers, {
+    supplierId: receivingSupplier.id,
+    orderDate: new Date().toISOString(),
+    currency: "SAR",
+    lines: [
+      {
+        itemId: inventoryItem.id,
+        description: "Smoke inventory receiving line",
+        accountId: expenseAccount.id,
+        quantity: "5.0000",
+        unitPrice: "4.0000",
+      },
+    ],
+  });
+  const approvedReceivingPo = await post<PurchaseOrder>(`/purchase-orders/${purchaseOrderForReceipt.id}/approve`, headers, {});
+  assertEqual(approvedReceivingPo.status, "APPROVED", "purchase order approved for inventory receiving");
+  const sentReceivingPo = await post<PurchaseOrder>(`/purchase-orders/${purchaseOrderForReceipt.id}/mark-sent`, headers, {});
+  assertEqual(sentReceivingPo.status, "SENT", "purchase order sent for inventory receiving");
+  const poReceivingStatus = await get<PurchaseReceivingStatus>(`/purchase-orders/${purchaseOrderForReceipt.id}/receiving-status`, headers);
+  assertEqual(poReceivingStatus.status, "NOT_STARTED", "purchase order receiving status starts not started");
+  const poReceivableLine = required(
+    poReceivingStatus.lines.find((line) => line.inventoryTracking && money(line.remainingQuantity).gt(0)),
+    "purchase order receivable inventory line",
+  );
+
+  const salesInvoiceForIssue = await post<SalesInvoice>("/sales-invoices", headers, {
+    customerId: issuingCustomer.id,
+    issueDate: new Date().toISOString(),
+    dueDate: new Date().toISOString(),
+    currency: "SAR",
+    lines: [
+      {
+        itemId: inventoryItem.id,
+        description: "Smoke inventory issue line",
+        accountId: salesAccount.id,
+        quantity: "3.0000",
+        unitPrice: "25.0000",
+      },
+    ],
+  });
+  const finalizedIssueInvoice = await post<SalesInvoice>(`/sales-invoices/${salesInvoiceForIssue.id}/finalize`, headers, {});
+  assertEqual(finalizedIssueInvoice.status, "FINALIZED", "sales invoice finalized for stock issue");
+  assertPresent(finalizedIssueInvoice.journalEntryId, "sales invoice journal for AR posting before stock issue");
+
+  const journalEntriesBeforeReceiptIssue = await get<JournalEntry[]>("/journal-entries", headers);
+  const purchaseReceipt = await post<PurchaseReceipt>("/purchase-receipts", headers, {
+    purchaseOrderId: purchaseOrderForReceipt.id,
+    warehouseId: mainWarehouse.id,
+    receiptDate: new Date().toISOString(),
+    notes: "Smoke operational purchase receipt",
+    lines: [{ purchaseOrderLineId: poReceivableLine.lineId, quantity: "5.0000", unitCost: "4.0000" }],
+  });
+  assertEqual(purchaseReceipt.status, "POSTED", "purchase receipt posted status");
+  assertPresent(purchaseReceipt.lines?.[0]?.stockMovementId, "purchase receipt stock movement");
+  assertMoney((await balanceFor(mainWarehouse)).quantityOnHand, money("17.0000"), "main warehouse quantity after purchase receipt");
+  const poReceivingStatusAfterReceipt = await get<PurchaseReceivingStatus>(`/purchase-orders/${purchaseOrderForReceipt.id}/receiving-status`, headers);
+  assertEqual(poReceivingStatusAfterReceipt.status, "COMPLETE", "purchase order receiving status complete after receipt");
+
+  const invoiceIssueStatus = await get<SalesInvoiceStockIssueStatus>(`/sales-invoices/${salesInvoiceForIssue.id}/stock-issue-status`, headers);
+  assertEqual(invoiceIssueStatus.status, "NOT_STARTED", "sales invoice stock issue status starts not started");
+  const issuableLine = required(
+    invoiceIssueStatus.lines.find((line) => line.inventoryTracking && money(line.remainingQuantity).gt(0)),
+    "sales invoice issuable inventory line",
+  );
+  const salesStockIssue = await post<SalesStockIssue>("/sales-stock-issues", headers, {
+    salesInvoiceId: salesInvoiceForIssue.id,
+    warehouseId: mainWarehouse.id,
+    issueDate: new Date().toISOString(),
+    notes: "Smoke operational sales stock issue",
+    lines: [{ salesInvoiceLineId: issuableLine.lineId, quantity: "3.0000" }],
+  });
+  assertEqual(salesStockIssue.status, "POSTED", "sales stock issue posted status");
+  assertPresent(salesStockIssue.lines?.[0]?.stockMovementId, "sales stock issue stock movement");
+  assertMoney((await balanceFor(mainWarehouse)).quantityOnHand, money("14.0000"), "main warehouse quantity after sales stock issue");
+  const invoiceIssueStatusAfterIssue = await get<SalesInvoiceStockIssueStatus>(`/sales-invoices/${salesInvoiceForIssue.id}/stock-issue-status`, headers);
+  assertEqual(invoiceIssueStatusAfterIssue.status, "COMPLETE", "sales invoice stock issue status complete after issue");
+
+  const voidedSalesStockIssue = await post<SalesStockIssue>(`/sales-stock-issues/${salesStockIssue.id}/void`, headers, {});
+  assertEqual(voidedSalesStockIssue.status, "VOIDED", "sales stock issue voided status");
+  assertPresent(voidedSalesStockIssue.lines?.[0]?.voidStockMovementId, "sales stock issue void reversal movement");
+  assertMoney((await balanceFor(mainWarehouse)).quantityOnHand, money("17.0000"), "main warehouse quantity after sales stock issue void");
+  const voidedPurchaseReceipt = await post<PurchaseReceipt>(`/purchase-receipts/${purchaseReceipt.id}/void`, headers, {});
+  assertEqual(voidedPurchaseReceipt.status, "VOIDED", "purchase receipt voided status");
+  assertPresent(voidedPurchaseReceipt.lines?.[0]?.voidStockMovementId, "purchase receipt void reversal movement");
+  assertMoney((await balanceFor(mainWarehouse)).quantityOnHand, money("12.0000"), "main warehouse quantity after purchase receipt void");
+  const journalEntriesAfterReceiptIssue = await get<JournalEntry[]>("/journal-entries", headers);
+  assertEqual(
+    journalEntriesAfterReceiptIssue.length,
+    journalEntriesBeforeReceiptIssue.length,
+    "purchase receipts and sales stock issues do not create journal entries",
   );
 
   const bankTransferAmount = money("12.3400");
@@ -2793,6 +2940,11 @@ async function main(): Promise<void> {
         inventoryMovementClosingQuantity: movementSummaryRow.closingQuantity,
         lowStockItemIds: lowStockReport.rows.map((row) => row.item.id),
         inventoryJournalEntryCountUnchanged: journalEntriesAfterInventory.length === journalEntriesBeforeInventory.length,
+        purchaseReceiptId: purchaseReceipt.id,
+        purchaseReceiptVoided: voidedPurchaseReceipt.status === "VOIDED",
+        salesStockIssueId: salesStockIssue.id,
+        salesStockIssueVoided: voidedSalesStockIssue.status === "VOIDED",
+        receiptIssueJournalEntryCountUnchanged: journalEntriesAfterReceiptIssue.length === journalEntriesBeforeReceiptIssue.length,
         closedFiscalPeriodId: closedFiscalPeriod.id,
         fiscalPeriodLockChecked: true,
         customerId: customer.id,

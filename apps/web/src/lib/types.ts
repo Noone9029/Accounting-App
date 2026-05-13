@@ -18,6 +18,9 @@ export type StockMovementType =
 export type InventoryAdjustmentStatus = "DRAFT" | "APPROVED" | "VOIDED";
 export type InventoryAdjustmentType = "INCREASE" | "DECREASE";
 export type WarehouseTransferStatus = "POSTED" | "VOIDED";
+export type PurchaseReceiptStatus = "POSTED" | "VOIDED";
+export type SalesStockIssueStatus = "POSTED" | "VOIDED";
+export type InventorySourceProgressStatus = "NOT_STARTED" | "PARTIAL" | "COMPLETE";
 export type InventoryValuationMethod = "MOVING_AVERAGE" | "FIFO_PLACEHOLDER";
 export type SalesInvoiceStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type CreditNoteStatus = "DRAFT" | "FINALIZED" | "VOIDED";
@@ -570,6 +573,126 @@ export interface WarehouseTransfer {
   voidFromStockMovement?: Pick<StockMovement, "id" | "type" | "movementDate" | "quantity" | "referenceType" | "referenceId"> | null;
   voidToStockMovement?: Pick<StockMovement, "id" | "type" | "movementDate" | "quantity" | "referenceType" | "referenceId"> | null;
   createdBy?: { id: string; name: string; email: string } | null;
+}
+
+type StockMovementLink = Pick<StockMovement, "id" | "type" | "movementDate" | "quantity" | "referenceType" | "referenceId">;
+
+export interface PurchaseReceiptLine {
+  id: string;
+  organizationId: string;
+  receiptId: string;
+  itemId: string;
+  purchaseOrderLineId: string | null;
+  purchaseBillLineId: string | null;
+  quantity: string;
+  unitCost: string | null;
+  stockMovementId: string | null;
+  voidStockMovementId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  item?: Pick<Item, "id" | "name" | "sku" | "type" | "status" | "inventoryTracking">;
+  purchaseOrderLine?: { id: string; description: string; quantity: string; unitPrice: string } | null;
+  purchaseBillLine?: { id: string; description: string; quantity: string; unitPrice: string } | null;
+  stockMovement?: StockMovementLink | null;
+  voidStockMovement?: StockMovementLink | null;
+}
+
+export interface PurchaseReceipt {
+  id: string;
+  organizationId: string;
+  receiptNumber: string;
+  purchaseOrderId: string | null;
+  purchaseBillId: string | null;
+  supplierId: string;
+  warehouseId: string;
+  receiptDate: string;
+  status: PurchaseReceiptStatus;
+  notes: string | null;
+  createdById: string | null;
+  postedAt: string | null;
+  voidedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  supplier?: Pick<Contact, "id" | "name" | "displayName" | "type" | "taxNumber">;
+  warehouse?: Pick<Warehouse, "id" | "code" | "name" | "status" | "isDefault">;
+  purchaseOrder?: { id: string; purchaseOrderNumber: string; status: PurchaseOrderStatus; orderDate: string; total: string } | null;
+  purchaseBill?: { id: string; billNumber: string; status: PurchaseBillStatus; billDate: string; total: string } | null;
+  lines?: PurchaseReceiptLine[];
+  createdBy?: { id: string; name: string; email: string } | null;
+}
+
+export interface SalesStockIssueLine {
+  id: string;
+  organizationId: string;
+  issueId: string;
+  itemId: string;
+  salesInvoiceLineId: string | null;
+  quantity: string;
+  unitCost: string | null;
+  stockMovementId: string | null;
+  voidStockMovementId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  item?: Pick<Item, "id" | "name" | "sku" | "type" | "status" | "inventoryTracking">;
+  salesInvoiceLine?: { id: string; description: string; quantity: string; unitPrice: string } | null;
+  stockMovement?: StockMovementLink | null;
+  voidStockMovement?: StockMovementLink | null;
+}
+
+export interface SalesStockIssue {
+  id: string;
+  organizationId: string;
+  issueNumber: string;
+  salesInvoiceId: string;
+  customerId: string;
+  warehouseId: string;
+  issueDate: string;
+  status: SalesStockIssueStatus;
+  notes: string | null;
+  createdById: string | null;
+  postedAt: string | null;
+  voidedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  customer?: Pick<Contact, "id" | "name" | "displayName" | "type" | "taxNumber">;
+  warehouse?: Pick<Warehouse, "id" | "code" | "name" | "status" | "isDefault">;
+  salesInvoice?: { id: string; invoiceNumber: string; status: SalesInvoiceStatus; issueDate: string; total: string } | null;
+  lines?: SalesStockIssueLine[];
+  createdBy?: { id: string; name: string; email: string } | null;
+}
+
+export interface PurchaseReceivingStatusLine {
+  lineId: string;
+  item: Pick<Item, "id" | "name" | "sku" | "type" | "status" | "inventoryTracking"> | null;
+  inventoryTracking: boolean;
+  sourceQuantity: string;
+  orderedQuantity?: string;
+  billedQuantity?: string;
+  receivedQuantity: string;
+  remainingQuantity: string;
+}
+
+export interface PurchaseReceivingStatus {
+  sourceId: string;
+  sourceType: "purchaseOrder" | "purchaseBill";
+  status: InventorySourceProgressStatus;
+  lines: PurchaseReceivingStatusLine[];
+}
+
+export interface SalesStockIssueStatusLine {
+  lineId: string;
+  item: Pick<Item, "id" | "name" | "sku" | "type" | "status" | "inventoryTracking"> | null;
+  inventoryTracking: boolean;
+  invoicedQuantity: string;
+  issuedQuantity: string;
+  remainingQuantity: string;
+}
+
+export interface SalesInvoiceStockIssueStatus {
+  sourceId: string;
+  sourceType: "salesInvoice";
+  status: InventorySourceProgressStatus;
+  lines: SalesStockIssueStatusLine[];
 }
 
 export interface InventoryBalance {

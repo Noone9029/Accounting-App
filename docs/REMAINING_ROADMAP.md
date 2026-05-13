@@ -1,6 +1,6 @@
 # Remaining Roadmap
 
-Audit date: 2026-05-13
+Audit date: 2026-05-14
 
 ## Phase 1: Stabilize Current MVP
 
@@ -34,7 +34,7 @@ Objective: complete core accounting modules expected in a serious SME accounting
 Tasks:
 
 - Supplier debit notes hardening and UI polish.
-- Partial purchase order receiving and partial bill matching.
+- Purchase receiving QA, partial bill matching, and purchase matching hardening.
 - Expense receipt attachments and cash expense import/OCR groundwork.
 - Bank account profile, transfer, opening-balance, statement import preview, and reconciliation UX polish.
 - Bank statement file-format samples, upload storage design, and approval queue polish.
@@ -61,7 +61,7 @@ Objective: add operational modules that affect accounting but require careful sc
 
 Tasks:
 
-- Purchase receiving and sales issue hooks tied to the existing operational stock ledger.
+- Purchase receiving and sales stock issue UX polish, delivery document groundwork, and operational status hardening.
 - Inventory adjustment approval inbox, attachments, and reason-code catalog.
 - Warehouse in-transit transfer, shipping document, and bin/location support.
 - Accountant review of the current moving-average operational valuation estimate and FIFO placeholder policy.
@@ -80,7 +80,7 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Add purchase receiving and sales issue workflow groundwork tied to the operational stock ledger without COGS or GL inventory posting.
+> Add accountant-reviewed inventory asset and COGS posting design for purchase receipts and sales stock issues, including journal previews and valuation-method controls, without enabling automatic posting yet.
 
 ## Phase 4: ZATCA Production Path
 

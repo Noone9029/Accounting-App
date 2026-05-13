@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-06
 
-Commit inspected: pending (`Add inventory valuation reports groundwork`)
+Commit inspected: pending (`Add purchase receiving and sales stock issue groundwork`)
 
 ## Scope
 
@@ -37,9 +37,36 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Purchase receiving and sales stock issue groundwork added
+
+Added operational purchase receipts from purchase orders, purchase bills, or standalone suppliers, plus sales stock issues from finalized sales invoices. Receipts create `PURCHASE_RECEIPT_PLACEHOLDER` stock movements, sales issues create `SALES_ISSUE_PLACEHOLDER` stock movements, and voids create controlled reversal movements. Source status endpoints now expose NOT_STARTED/PARTIAL/COMPLETE progress without storing fragile received/issued totals on source lines.
+
+Risk reduced:
+
+- Purchase orders and purchase bills can now be received into active warehouses with line-level remaining quantity guards.
+- Finalized sales invoices can now issue tracked stock with invoice remaining quantity and stock availability checks.
+- Receipt and issue voids are one-time operations and are blocked when a receipt void would make stock negative.
+- Inventory balances, movement summaries, and valuation estimates naturally include receipt/issue movement rows.
+- The workflow remains operational-only and creates no journal entries.
+
+Remaining risks:
+
+- No COGS posting.
+- No inventory asset GL posting.
+- No landed cost.
+- No serial/batch tracking.
+- No delivery note or supplier delivery document workflow.
+- No automatic financial inventory accounting.
+
+Tests/smoke added:
+
+- Backend purchase receipt, sales stock issue, source status, tenant, no-journal, and permission tests.
+- Frontend helper and route/action permission tests for receipt/issue statuses and source labels.
+- Smoke coverage for PO receiving, sales invoice stock issue, void restoration, source statuses, and no receipt/issue journal entries.
+
 ### Inventory valuation/reporting groundwork added
 
-Added per-organization inventory settings, moving-average operational stock valuation, movement summary reporting, low-stock reporting from item reorder points, CSV export for inventory reports, frontend inventory report/settings pages, reorder fields on items, tests, and smoke coverage. The implementation keeps inventory operations reporting-only: it does not post inventory journals, COGS, purchase receipts, sales issues, or financial statement values.
+Added per-organization inventory settings, moving-average operational stock valuation, movement summary reporting, low-stock reporting from item reorder points, CSV export for inventory reports, frontend inventory report/settings pages, reorder fields on items, tests, and smoke coverage. The implementation keeps inventory operations reporting-only: it does not post inventory journals, COGS, inventory asset accounting, or financial statement values.
 
 Risk reduced:
 
@@ -53,8 +80,7 @@ Remaining risks:
 
 - No COGS posting.
 - No inventory asset accounting.
-- No purchase receiving.
-- No sales issue.
+- Purchase receiving and sales issue are operational-only and do not post accounting.
 - Valuation needs accountant review before financial use.
 - FIFO is placeholder-only.
 - No inventory financial statements.
@@ -1086,8 +1112,8 @@ Commit inspected: pending (`Add inventory warehouse groundwork`)
 
 - No inventory valuation accounting exists.
 - No COGS posting exists.
-- No purchase receiving or automatic purchase bill stock receipt exists.
-- No sales delivery or automatic sales invoice stock issue exists.
+- Manual operational purchase receiving now exists, but no automatic purchase bill stock receipt or inventory asset posting exists.
+- Manual operational sales stock issue now exists, but no sales delivery document, automatic sales invoice stock issue, or COGS posting exists.
 - Direct stock-movement adjustments have been replaced by the controlled adjustment workflow.
 - No inventory financial reporting or valuation report exists.
 
@@ -1111,9 +1137,9 @@ Commit inspected: pending (`Add inventory adjustments and transfers`)
 
 - No COGS posting exists.
 - No inventory valuation accounting exists.
-- No purchase receiving or automatic purchase bill stock receipt exists.
-- No sales delivery or automatic sales invoice stock issue exists.
-- No inventory financial reports or valuation reports exist.
+- Manual operational purchase receiving now exists, but no automatic purchase bill stock receipt or inventory asset posting exists.
+- Manual operational sales stock issue now exists, but no sales delivery document, automatic sales invoice stock issue, or COGS posting exists.
+- Operational inventory reports exist, but no accounting-grade inventory financial reports exist.
 - No landed cost workflow exists.
 - No barcode, serial, or batch tracking exists.
 
@@ -1125,12 +1151,12 @@ Commit inspected: pending (`Add inventory adjustments and transfers`)
 - Account parent updates prevent self-parenting but do not yet prevent descendant cycles.
 - `next-env.d.ts` flips between `.next/types` and `.next/dev/types` when switching between build and dev on Next 16. The tracked file is kept clean after verification, but this remains local development churn.
 - Prisma 6 warns that `package.json#prisma` seed configuration is deprecated and should move to a Prisma config file before Prisma 7.
-- Inventory warehouse/stock ledger, adjustment approval, and warehouse transfer controls exist, but COGS, valuation, purchase receiving, sales issue, landed cost, serial/batch tracking, and inventory financial reporting remain unimplemented.
+- Inventory warehouse/stock ledger, adjustment approval, warehouse transfer controls, purchase receiving, and sales stock issue controls exist, but COGS, inventory asset GL posting, landed cost, serial/batch tracking, automatic financial inventory accounting, and inventory financial reporting remain unimplemented.
 - ZATCA groundwork is intentionally non-compliant until real onboarding, signing, clearance/reporting, PDF/A-3, official SDK/schema/Schematron validation, and KMS-backed key custody are implemented.
 
 ## Recommended Next Steps
 
-1. Add inventory valuation policy and operational stock reports before inventory-side accounting.
+1. Add accountant-reviewed inventory asset and COGS posting design before enabling inventory-side accounting.
 2. Add formal fiscal year close, retained earnings close, and admin unlock/approval workflows.
 3. Add a lightweight Playwright or browser smoke suite once the local Node runtime supports the in-app browser backend.
 4. Normalize branch default behavior and account parent cycle validation.

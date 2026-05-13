@@ -10,6 +10,7 @@ import { apiRequest } from "@/lib/api";
 import { creditNoteAllocationStatusBadgeClass, creditNoteAllocationStatusLabel, creditNoteStatusBadgeClass, creditNoteStatusLabel } from "@/lib/credit-notes";
 import { customerPaymentUnappliedAllocationStatusBadgeClass, customerPaymentUnappliedAllocationStatusLabel } from "@/lib/customer-payments";
 import { deriveInvoicePaymentState, formatOptionalDate } from "@/lib/invoice-display";
+import { formatInventoryQuantity, hasRemainingInventoryQuantity, inventoryProgressStatusBadgeClass, inventoryProgressStatusLabel } from "@/lib/inventory";
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadAuthenticatedFile, downloadPdf, invoicePdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -25,7 +26,7 @@ import {
   zatcaStatusLabel,
   zatcaXmlValidationLabel,
 } from "@/lib/zatca";
-import type { SalesInvoice, ZatcaInvoiceMetadata, ZatcaQrResponse, ZatcaSdkDryRunResponse, ZatcaXmlValidationResult } from "@/lib/types";
+import type { SalesInvoice, SalesInvoiceStockIssueStatus, ZatcaInvoiceMetadata, ZatcaQrResponse, ZatcaSdkDryRunResponse, ZatcaXmlValidationResult } from "@/lib/types";
 
 export default function SalesInvoiceDetailPage() {
   const params = useParams<{ id: string }>();
@@ -33,6 +34,7 @@ export default function SalesInvoiceDetailPage() {
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [invoice, setInvoice] = useState<SalesInvoice | null>(null);
+  const [stockIssueStatus, setStockIssueStatus] = useState<SalesInvoiceStockIssueStatus | null>(null);
   const [zatca, setZatca] = useState<ZatcaInvoiceMetadata | null>(null);
   const [xmlValidation, setXmlValidation] = useState<ZatcaXmlValidationResult | null>(null);
   const [sdkDryRun, setSdkDryRun] = useState<ZatcaSdkDryRunResponse | null>(null);
@@ -53,12 +55,14 @@ export default function SalesInvoiceDetailPage() {
 
     Promise.all([
       apiRequest<SalesInvoice>(`/sales-invoices/${params.id}`),
+      apiRequest<SalesInvoiceStockIssueStatus>(`/sales-invoices/${params.id}/stock-issue-status`).catch(() => null),
       apiRequest<ZatcaInvoiceMetadata>(`/sales-invoices/${params.id}/zatca`).catch(() => null),
       apiRequest<ZatcaXmlValidationResult>(zatcaInvoiceXmlValidationPath(params.id)).catch(() => null),
     ])
-      .then(([result, zatcaResult, validationResult]) => {
+      .then(([result, stockStatusResult, zatcaResult, validationResult]) => {
         if (!cancelled) {
           setInvoice(result);
+          setStockIssueStatus(stockStatusResult);
           setZatca(zatcaResult);
           setXmlValidation(validationResult);
         }
@@ -290,6 +294,7 @@ export default function SalesInvoiceDetailPage() {
   const canVoidInvoice = can(PERMISSIONS.salesInvoices.void);
   const canCreateCustomerPayment = can(PERMISSIONS.customerPayments.create);
   const canCreateCreditNote = can(PERMISSIONS.creditNotes.create);
+  const canCreateStockIssue = can(PERMISSIONS.salesStockIssue.create);
   const canViewZatca = can(PERMISSIONS.zatca.view);
   const canGenerateZatca = can(PERMISSIONS.zatca.generateXml);
   const canRunZatcaChecks = can(PERMISSIONS.zatca.runChecks);
@@ -303,7 +308,7 @@ export default function SalesInvoiceDetailPage() {
           <p className="mt-1 text-sm text-steel">Invoice detail, calculated totals, and linked journal entry.</p>
           {invoice ? <p className="mt-1 text-xs text-steel">Downloads are archived automatically.</p> : null}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link href="/sales/invoices" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Back
           </Link>
@@ -330,6 +335,11 @@ export default function SalesInvoiceDetailPage() {
           {invoice?.status === "FINALIZED" && invoice.customerId && canCreateCreditNote ? (
             <Link href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
               Create credit note
+            </Link>
+          ) : null}
+          {invoice?.status === "FINALIZED" && stockIssueStatus && canCreateStockIssue && hasStockIssueRemaining(stockIssueStatus) ? (
+            <Link href={`/inventory/sales-stock-issues/new?salesInvoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+              Issue stock
             </Link>
           ) : null}
           {invoice?.status === "DRAFT" && canFinalizeInvoice ? (
@@ -377,6 +387,8 @@ export default function SalesInvoiceDetailPage() {
               <Summary label="Terms" value={invoice.terms ?? "-"} />
             </div>
           </div>
+
+          {stockIssueStatus ? <StockIssueStatusPanel status={stockIssueStatus} /> : null}
 
           <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
             <table className="w-full text-left text-sm">
@@ -799,4 +811,46 @@ function Summary({ label, value }: { label: string; value: string }) {
       <div className="mt-1 break-words font-medium text-ink">{value}</div>
     </div>
   );
+}
+
+function StockIssueStatusPanel({ status }: { status: SalesInvoiceStockIssueStatus }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-ink">Stock issue status</h2>
+          <p className="mt-1 text-sm text-steel">Operational stock issue progress for inventory-tracked invoice lines.</p>
+        </div>
+        <span className={`rounded-md px-2 py-1 text-xs font-medium ${inventoryProgressStatusBadgeClass(status.status)}`}>
+          {inventoryProgressStatusLabel(status.status)}
+        </span>
+      </div>
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[640px] text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+            <tr>
+              <th className="px-3 py-2">Item</th>
+              <th className="px-3 py-2 text-right">Invoiced</th>
+              <th className="px-3 py-2 text-right">Issued</th>
+              <th className="px-3 py-2 text-right">Remaining</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {status.lines.map((line) => (
+              <tr key={line.lineId}>
+                <td className="px-3 py-2">{line.item ? `${line.item.name}${line.item.sku ? ` (${line.item.sku})` : ""}` : line.lineId}</td>
+                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.invoicedQuantity)}</td>
+                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.issuedQuantity)}</td>
+                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.remainingQuantity)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function hasStockIssueRemaining(status: SalesInvoiceStockIssueStatus): boolean {
+  return status.lines.some((line) => line.inventoryTracking && hasRemainingInventoryQuantity(line.remainingQuantity));
 }

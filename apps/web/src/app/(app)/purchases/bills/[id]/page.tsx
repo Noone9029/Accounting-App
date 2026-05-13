@@ -8,10 +8,11 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
+import { formatInventoryQuantity, hasRemainingInventoryQuantity, inventoryProgressStatusBadgeClass, inventoryProgressStatusLabel } from "@/lib/inventory";
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadPdf, purchaseBillPdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { PurchaseBill } from "@/lib/types";
+import type { PurchaseBill, PurchaseReceivingStatus } from "@/lib/types";
 
 export default function PurchaseBillDetailPage() {
   const params = useParams<{ id: string }>();
@@ -19,6 +20,7 @@ export default function PurchaseBillDetailPage() {
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [bill, setBill] = useState<PurchaseBill | null>(null);
+  const [receivingStatus, setReceivingStatus] = useState<PurchaseReceivingStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
@@ -28,6 +30,7 @@ export default function PurchaseBillDetailPage() {
   const canVoidBill = can(PERMISSIONS.purchaseBills.void);
   const canCreateDebitNote = can(PERMISSIONS.purchaseDebitNotes.create);
   const canViewPurchaseOrders = can(PERMISSIONS.purchaseOrders.view);
+  const canCreateReceipt = can(PERMISSIONS.purchaseReceiving.create);
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -38,10 +41,14 @@ export default function PurchaseBillDetailPage() {
     setLoading(true);
     setError("");
 
-    apiRequest<PurchaseBill>(`/purchase-bills/${params.id}`)
-      .then((result) => {
+    Promise.all([
+      apiRequest<PurchaseBill>(`/purchase-bills/${params.id}`),
+      apiRequest<PurchaseReceivingStatus>(`/purchase-bills/${params.id}/receiving-status`).catch(() => null),
+    ])
+      .then(([result, statusResult]) => {
         if (!cancelled) {
           setBill(result);
+          setReceivingStatus(statusResult);
         }
       })
       .catch((loadError: unknown) => {
@@ -150,6 +157,11 @@ export default function PurchaseBillDetailPage() {
               Create debit note
             </Link>
           ) : null}
+          {bill && receivingStatus && canCreateReceipt && hasReceiptRemaining(receivingStatus) ? (
+            <Link href={`/inventory/purchase-receipts/new?sourceType=purchaseBill&purchaseBillId=${bill.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+              Receive stock
+            </Link>
+          ) : null}
           {bill ? (
             <button type="button" onClick={() => void downloadBillPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Download PDF
@@ -200,6 +212,8 @@ export default function PurchaseBillDetailPage() {
               <Summary label="Reversal journal" value={bill.reversalJournalEntry ? `${bill.reversalJournalEntry.entryNumber} (${bill.reversalJournalEntry.id})` : "-"} />
             </div>
           </div>
+
+          {receivingStatus ? <ReceivingStatusPanel status={receivingStatus} /> : null}
 
           <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
             <table className="w-full min-w-[920px] text-left text-sm">
@@ -400,6 +414,48 @@ function Summary({ label, value, href }: { label: string; value: string; href?: 
       )}
     </div>
   );
+}
+
+function ReceivingStatusPanel({ status }: { status: PurchaseReceivingStatus }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-ink">Receiving status</h2>
+          <p className="mt-1 text-sm text-steel">Operational stock receipt progress for inventory-tracked bill lines.</p>
+        </div>
+        <span className={`rounded-md px-2 py-1 text-xs font-medium ${inventoryProgressStatusBadgeClass(status.status)}`}>
+          {inventoryProgressStatusLabel(status.status)}
+        </span>
+      </div>
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[640px] text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+            <tr>
+              <th className="px-3 py-2">Item</th>
+              <th className="px-3 py-2 text-right">Billed</th>
+              <th className="px-3 py-2 text-right">Received</th>
+              <th className="px-3 py-2 text-right">Remaining</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {status.lines.map((line) => (
+              <tr key={line.lineId}>
+                <td className="px-3 py-2">{line.item ? `${line.item.name}${line.item.sku ? ` (${line.item.sku})` : ""}` : line.lineId}</td>
+                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.billedQuantity ?? line.sourceQuantity)}</td>
+                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.receivedQuantity)}</td>
+                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.remainingQuantity)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function hasReceiptRemaining(status: PurchaseReceivingStatus): boolean {
+  return status.lines.some((line) => line.inventoryTracking && hasRemainingInventoryQuantity(line.remainingQuantity));
 }
 
 function TotalRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {

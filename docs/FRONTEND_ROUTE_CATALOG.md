@@ -55,7 +55,7 @@ Route source: `apps/web/src/app`
 
 ## Inventory
 
-Inventory routes are operational-only and clearly warn that opening balances, adjustment approvals, and warehouse transfers do not create journals or affect GL, COGS, inventory asset balances, or financial statements.
+Inventory routes are operational-only and clearly warn that opening balances, adjustment approvals, warehouse transfers, purchase receipts, and sales stock issues do not create journals or affect GL, COGS, inventory asset balances, or financial statements.
 
 | Route | Purpose | Data fetched | Actions | Status | Missing UX pieces |
 | --- | --- | --- | --- | --- | --- |
@@ -70,6 +70,12 @@ Inventory routes are operational-only and clearly warn that opening balances, ad
 | `/inventory/transfers` | Warehouse transfer list. | Transfers with item and source/destination warehouses. | Review number, item, warehouses, quantity, status, and navigate to detail/create. | Implemented | No in-transit status. |
 | `/inventory/transfers/new` | Warehouse transfer creation. | Inventory-tracked items and active warehouses. | Create posted transfer between different active warehouses. | Implemented | No shipping document or bin/location support. |
 | `/inventory/transfers/[id]` | Warehouse transfer detail. | Transfer, item, source/destination warehouses, movement links. | Void transfer when allowed. | Implemented | No edit/delete after posting by design. |
+| `/inventory/purchase-receipts` | Purchase receipt list. | Receipts with supplier, source PO/bill, warehouse, and status. | Review posted/voided receipts and navigate to create/detail. | Groundwork | No supplier delivery document or landed-cost workflow. |
+| `/inventory/purchase-receipts/new` | Purchase receipt creation. | Suppliers, purchase orders, purchase bills, active warehouses, and source receiving statuses. | Receive tracked source lines or standalone supplier lines into a warehouse. | Groundwork | No barcode/serial capture or automatic receipt from bills/POs. |
+| `/inventory/purchase-receipts/[id]` | Purchase receipt detail. | Receipt, lines, source document, warehouse, and movement links. | Review stock movement links and void when allowed. | Groundwork | No edit after posting by design. |
+| `/inventory/sales-stock-issues` | Sales stock issue list. | Issues with customer, invoice, warehouse, and status. | Review posted/voided issues and navigate to create/detail. | Groundwork | No delivery note workflow. |
+| `/inventory/sales-stock-issues/new` | Sales stock issue creation. | Finalized sales invoices, active warehouses, and invoice stock issue status. | Issue tracked invoice lines from warehouse stock. | Groundwork | No automatic issue from invoice finalization. |
+| `/inventory/sales-stock-issues/[id]` | Sales stock issue detail. | Issue, lines, sales invoice, warehouse, and movement links. | Review stock movement links and void when allowed. | Groundwork | No COGS or GL inventory impact. |
 | `/inventory/balances` | Inventory balance table. | Derived item/warehouse balances. | View quantity on hand, simple cost/value estimates, total quantity by item, and quick links to adjustments/transfers/reports. | Implemented | Valuation is not accounting-grade. |
 | `/inventory/settings` | Inventory settings. | Inventory settings. | Review/update valuation method, negative-stock flag, and inventory value tracking warning state. | Groundwork | Settings do not enable GL inventory posting or COGS. |
 | `/inventory/reports/stock-valuation` | Stock valuation report. | Stock valuation report. | Review quantity, average cost, estimated value, warnings, and grand total. | Groundwork | Operational estimate only; not a financial statement value. |
@@ -109,7 +115,7 @@ Inventory routes are operational-only and clearly warn that opening balances, ad
 | --- | --- | --- | --- | --- | --- |
 | `/sales/invoices` | Invoice list. | Sales invoices. | Create, navigate detail. | Implemented | Bulk actions and filters limited. |
 | `/sales/invoices/new` | Create invoice. | Customers, branches, accounts, tax rates, items. | Save draft. | Implemented | Quote/order conversion missing. |
-| `/sales/invoices/[id]` | Invoice detail. | Invoice, payments, credit notes, allocations, ZATCA metadata, PDFs. | Finalize, void, delete draft, PDF download, ZATCA local actions, create credit note. | Implemented | Browser E2E and more polished error recovery needed. |
+| `/sales/invoices/[id]` | Invoice detail. | Invoice, payments, credit notes, allocations, stock issue status, ZATCA metadata, PDFs. | Finalize, void, delete draft, PDF download, ZATCA local actions, create credit note, and issue stock for remaining tracked finalized lines when allowed. | Implemented | Browser E2E and more polished error recovery needed. |
 | `/sales/invoices/[id]/edit` | Edit draft invoice. | Invoice and form dependencies. | Save draft changes. | Implemented | Not available after finalize by design. |
 | `/sales/customer-payments` | Customer payment list. | Payments. | Navigate/create. | Implemented | Filters/export missing. |
 | `/sales/customer-payments/new` | Create customer payment. | Customers, accounts, optional bank account profiles, open invoices. | Allocate and post payment. | Implemented | Bank import/gateway capture missing. |
@@ -128,11 +134,11 @@ Inventory routes are operational-only and clearly warn that opening balances, ad
 | --- | --- | --- | --- | --- | --- |
 | `/purchases/purchase-orders` | Purchase order list. | Purchase orders. | Navigate/create. | Implemented | Filters/export missing. |
 | `/purchases/purchase-orders/new` | Create purchase order. | Suppliers, branches, accounts, tax rates, items. | Save draft non-posting PO. | Implemented | No supplier email/send workflow. |
-| `/purchases/purchase-orders/[id]` | Purchase order detail. | Purchase order, lines, converted bill link. | PDF, approve, mark sent, close, void, delete draft, convert to bill. | Implemented | No partial receiving, partial billing, or approval chain. |
+| `/purchases/purchase-orders/[id]` | Purchase order detail. | Purchase order, lines, converted bill link, receiving status. | PDF, approve, mark sent, close, void, delete draft, convert to bill, and receive remaining tracked lines when allowed. | Implemented | No partial billing or approval chain. |
 | `/purchases/purchase-orders/[id]/edit` | Edit draft purchase order. | PO and form dependencies. | Save draft changes. | Implemented | Not available after approval by design. |
 | `/purchases/bills` | Purchase bill list. | Bills. | Navigate/create/finalize draft. | Implemented | Filters/export missing. |
 | `/purchases/bills/new` | Create purchase bill. | Suppliers, branches, accounts, tax rates, items. | Save draft. | Implemented | Vendor attachments missing. |
-| `/purchases/bills/[id]` | Purchase bill detail. | Bill, lines, allocations, PDF data, source PO link. | Finalize, void, delete draft, PDF, supplier ledger link. | Implemented | No multi-PO or partial matching view. |
+| `/purchases/bills/[id]` | Purchase bill detail. | Bill, lines, allocations, PDF data, source PO link, receiving status. | Finalize, void, delete draft, PDF, supplier ledger link, and receive remaining tracked finalized lines when allowed. | Implemented | No multi-PO or partial matching view. |
 | `/purchases/bills/[id]/edit` | Edit draft bill. | Bill and form dependencies. | Save draft changes. | Implemented | Not available after finalize by design. |
 | `/purchases/supplier-payments` | Supplier payment list. | Supplier payments. | Navigate/create. | Implemented | Filters/export missing. |
 | `/purchases/supplier-payments/new` | Create supplier payment. | Suppliers, open bills, paid-through accounts, optional bank account profiles. | Allocate and post payment. | Implemented | Bank reconciliation/import missing. |

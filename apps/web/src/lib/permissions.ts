@@ -204,6 +204,18 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
   if (pathname.startsWith("/inventory/transfers")) {
     return [PERMISSIONS.warehouseTransfers.view];
   }
+  if (pathname === "/inventory/purchase-receipts/new") {
+    return [PERMISSIONS.purchaseReceiving.create];
+  }
+  if (pathname.startsWith("/inventory/purchase-receipts")) {
+    return [PERMISSIONS.purchaseReceiving.view];
+  }
+  if (pathname === "/inventory/sales-stock-issues/new") {
+    return [PERMISSIONS.salesStockIssue.create];
+  }
+  if (pathname.startsWith("/inventory/sales-stock-issues")) {
+    return [PERMISSIONS.salesStockIssue.view];
+  }
   if (pathname.startsWith("/inventory/warehouses")) {
     return [PERMISSIONS.warehouses.view];
   }

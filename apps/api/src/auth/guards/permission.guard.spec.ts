@@ -111,6 +111,18 @@ describe("PermissionGuard", () => {
     await expect(guard.canActivate(context)).rejects.toThrow("You do not have permission to perform this action.");
   });
 
+  it("rejects purchase receiving creation without purchaseReceiving.create", async () => {
+    const { guard, context } = makeGuard([PERMISSIONS.purchaseReceiving.create], [PERMISSIONS.purchaseReceiving.view]);
+
+    await expect(guard.canActivate(context)).rejects.toThrow("You do not have permission to perform this action.");
+  });
+
+  it("rejects sales stock issue creation without salesStockIssue.create", async () => {
+    const { guard, context } = makeGuard([PERMISSIONS.salesStockIssue.create], [PERMISSIONS.salesStockIssue.view]);
+
+    await expect(guard.canActivate(context)).rejects.toThrow("You do not have permission to perform this action.");
+  });
+
   it("rejects bank statement reconciliation without bankStatements.reconcile", async () => {
     const { guard, context } = makeGuard([PERMISSIONS.bankStatements.reconcile], [PERMISSIONS.bankStatements.view]);
 
