@@ -1,7 +1,25 @@
-import { Injectable } from "@nestjs/common";
-import { AccountType, JournalEntryStatus, PurchaseBillStatus, SalesInvoiceStatus } from "@prisma/client";
+import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  AccountType,
+  DocumentType,
+  JournalEntryStatus,
+  PurchaseBillStatus,
+  SalesInvoiceStatus,
+} from "@prisma/client";
+import {
+  DocumentRenderSettings,
+  renderAgingReportPdf,
+  renderBalanceSheetReportPdf,
+  renderGeneralLedgerReportPdf,
+  renderProfitAndLossReportPdf,
+  renderTrialBalanceReportPdf,
+  renderVatSummaryReportPdf,
+} from "@ledgerbyte/pdf-core";
 import { Decimal } from "decimal.js";
+import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
+import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { coreReportCsv, CoreReportKind } from "./report-csv";
 
 const POSTED_REPORT_STATUSES = [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED];
 const ZERO = new Decimal(0);
@@ -12,6 +30,7 @@ export interface ReportDateQuery {
   asOf?: string;
   accountId?: string;
   includeZero?: string | boolean;
+  format?: "json" | "csv" | string;
 }
 
 export interface ReportAccountInput {
@@ -49,7 +68,11 @@ interface AgingDocumentInput {
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly documentSettingsService?: OrganizationDocumentSettingsService,
+    private readonly generatedDocumentService?: GeneratedDocumentService,
+  ) {}
 
   async generalLedger(organizationId: string, query: ReportDateQuery) {
     const range = parseRange(query);
@@ -174,6 +197,60 @@ export class ReportsService {
     );
   }
 
+  async coreReport(organizationId: string, kind: CoreReportKind, query: ReportDateQuery) {
+    switch (kind) {
+      case "general-ledger":
+        return this.generalLedger(organizationId, query);
+      case "trial-balance":
+        return this.trialBalance(organizationId, query);
+      case "profit-and-loss":
+        return this.profitAndLoss(organizationId, query);
+      case "balance-sheet":
+        return this.balanceSheet(organizationId, query);
+      case "vat-summary":
+        return this.vatSummary(organizationId, query);
+      case "aged-receivables":
+        return this.agedReceivables(organizationId, query);
+      case "aged-payables":
+        return this.agedPayables(organizationId, query);
+    }
+  }
+
+  async coreReportCsvFile(organizationId: string, kind: CoreReportKind, query: ReportDateQuery) {
+    const generatedAt = new Date();
+    const report = await this.coreReport(organizationId, kind, query);
+    return coreReportCsv(kind, report, generatedAt);
+  }
+
+  async coreReportPdf(
+    organizationId: string,
+    actorUserId: string,
+    kind: CoreReportKind,
+    query: ReportDateQuery,
+  ): Promise<{ buffer: Buffer; filename: string; document: unknown | null }> {
+    const generatedAt = new Date();
+    const [organization, report, settings] = await Promise.all([
+      this.organizationForPdf(organizationId),
+      this.coreReport(organizationId, kind, query),
+      this.documentSettingsService?.statementRenderSettings(organizationId),
+    ]);
+    const currency = organization.baseCurrency;
+    const data = { organization, currency, ...(report as Record<string, unknown>), generatedAt };
+    const buffer = await this.renderCoreReportPdf(kind, data as never, { ...settings, title: reportTitle(kind) });
+    const filename = sanitizeFilename(`${kind}-${generatedAt.toISOString().slice(0, 10)}.pdf`);
+    const document = await this.generatedDocumentService?.archivePdf({
+      organizationId,
+      documentType: reportDocumentType(kind),
+      sourceType: "AccountingReport",
+      sourceId: reportSourceId(kind, query),
+      documentNumber: filename.replace(/\.pdf$/i, ""),
+      filename,
+      buffer,
+      generatedById: actorUserId,
+    });
+    return { buffer, filename, document: document ?? null };
+  }
+
   private async findJournalLines(
     organizationId: string,
     filters: { from?: Date | null; to?: Date | null; before?: Date | null; accountId?: string },
@@ -213,6 +290,86 @@ export class ReportsService {
       orderBy: [{ journalEntry: { entryDate: "asc" } }, { lineNumber: "asc" }],
     });
   }
+
+  private async organizationForPdf(organizationId: string) {
+    const organization = await this.prisma.organization.findFirst({
+      where: { id: organizationId },
+      select: { id: true, name: true, legalName: true, taxNumber: true, countryCode: true, baseCurrency: true },
+    });
+    if (!organization) {
+      throw new NotFoundException("Organization not found.");
+    }
+    return organization;
+  }
+
+  private renderCoreReportPdf(kind: CoreReportKind, data: never, settings: DocumentRenderSettings | undefined): Promise<Buffer> {
+    switch (kind) {
+      case "general-ledger":
+        return renderGeneralLedgerReportPdf(data, settings);
+      case "trial-balance":
+        return renderTrialBalanceReportPdf(data, settings);
+      case "profit-and-loss":
+        return renderProfitAndLossReportPdf(data, settings);
+      case "balance-sheet":
+        return renderBalanceSheetReportPdf(data, settings);
+      case "vat-summary":
+        return renderVatSummaryReportPdf(data, settings);
+      case "aged-receivables":
+        return renderAgingReportPdf({ ...(data as Record<string, unknown>), title: "Aged Receivables" } as never, settings);
+      case "aged-payables":
+        return renderAgingReportPdf({ ...(data as Record<string, unknown>), title: "Aged Payables" } as never, settings);
+    }
+  }
+}
+
+function reportTitle(kind: CoreReportKind): string {
+  switch (kind) {
+    case "general-ledger":
+      return "General Ledger";
+    case "trial-balance":
+      return "Trial Balance";
+    case "profit-and-loss":
+      return "Profit & Loss";
+    case "balance-sheet":
+      return "Balance Sheet";
+    case "vat-summary":
+      return "VAT Summary";
+    case "aged-receivables":
+      return "Aged Receivables";
+    case "aged-payables":
+      return "Aged Payables";
+  }
+}
+
+function reportDocumentType(kind: CoreReportKind): DocumentType {
+  switch (kind) {
+    case "general-ledger":
+      return DocumentType.REPORT_GENERAL_LEDGER;
+    case "trial-balance":
+      return DocumentType.REPORT_TRIAL_BALANCE;
+    case "profit-and-loss":
+      return DocumentType.REPORT_PROFIT_AND_LOSS;
+    case "balance-sheet":
+      return DocumentType.REPORT_BALANCE_SHEET;
+    case "vat-summary":
+      return DocumentType.REPORT_VAT_SUMMARY;
+    case "aged-receivables":
+      return DocumentType.REPORT_AGED_RECEIVABLES;
+    case "aged-payables":
+      return DocumentType.REPORT_AGED_PAYABLES;
+  }
+}
+
+function reportSourceId(kind: CoreReportKind, query: ReportDateQuery): string {
+  const params = new URLSearchParams();
+  for (const key of ["from", "to", "asOf", "accountId", "includeZero"] as const) {
+    const value = query[key];
+    if (value !== undefined && value !== null && value !== "") {
+      params.set(key, String(value));
+    }
+  }
+  const suffix = params.toString();
+  return suffix ? `${kind}?${suffix}` : kind;
 }
 
 export function buildGeneralLedgerReport(

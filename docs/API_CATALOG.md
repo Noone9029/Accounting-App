@@ -132,6 +132,9 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | POST | `/bank-reconciliations/:id/close` | Close reconciliation | Yes | Yes | Implemented | Requires `bankReconciliations.close`; requires zero difference and no unmatched statement rows, then snapshots items and locks the period. |
 | POST | `/bank-reconciliations/:id/void` | Void reconciliation | Yes | Yes | Implemented | Requires `bankReconciliations.void`; marks draft/closed records voided without changing journals or statement rows and unlocks the period. |
 | GET | `/bank-reconciliations/:id/items` | Reconciliation item snapshot | Yes | Yes | Implemented | Requires `bankReconciliations.view`; returns the statement row snapshot captured at close. |
+| GET | `/bank-reconciliations/:id/report-data` | Reconciliation report data | Yes | Yes | Implemented | Requires `bankReconciliations.view`; includes period, status, balances, close/void actors, item snapshots, and summary totals. |
+| GET | `/bank-reconciliations/:id/report.csv` | Reconciliation report CSV | Yes | Yes | Implemented | Requires `bankReconciliations.view` plus `reports.export` or `generatedDocuments.download`; returns `text/csv`. |
+| GET | `/bank-reconciliations/:id/report.pdf` | Reconciliation report PDF | Yes | Yes | Implemented | Requires `bankReconciliations.view` plus `reports.export` or `generatedDocuments.download`; returns `application/pdf` and archives the PDF. |
 
 ## Fiscal Periods
 
@@ -261,6 +264,25 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | GET | `/supplier-payments/:id/receipt-pdf-data` | Supplier receipt PDF data | Yes | Yes | Implemented | Template data. |
 | GET | `/supplier-payments/:id/receipt.pdf` | Supplier receipt PDF | Yes | Yes | Implemented | Archives download. |
 | POST | `/supplier-payments/:id/generate-receipt-pdf` | Generate supplier receipt PDF | Yes | Yes | Implemented | Explicit archive action. |
+
+## Reports
+
+| Method | Path | Purpose | Auth | Org header | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| GET | `/reports/general-ledger` | General Ledger JSON or CSV | Yes | Yes | Implemented | Requires `reports.view`; `format=csv` also requires `reports.export` or `generatedDocuments.download`. |
+| GET | `/reports/general-ledger/pdf` | General Ledger PDF | Yes | Yes | Implemented | Requires `reports.view` plus export/download permission; archives generated PDF. |
+| GET | `/reports/trial-balance` | Trial Balance JSON or CSV | Yes | Yes | Implemented | Requires `reports.view`; `format=csv` also requires export/download permission. |
+| GET | `/reports/trial-balance/pdf` | Trial Balance PDF | Yes | Yes | Implemented | Archives generated PDF. |
+| GET | `/reports/profit-and-loss` | Profit & Loss JSON or CSV | Yes | Yes | Implemented | Requires `reports.view`; `format=csv` also requires export/download permission. |
+| GET | `/reports/profit-and-loss/pdf` | Profit & Loss PDF | Yes | Yes | Implemented | Archives generated PDF. |
+| GET | `/reports/balance-sheet` | Balance Sheet JSON or CSV | Yes | Yes | Implemented | Supports `asOf`; `format=csv` returns `text/csv`. |
+| GET | `/reports/balance-sheet/pdf` | Balance Sheet PDF | Yes | Yes | Implemented | Archives generated PDF. |
+| GET | `/reports/vat-summary` | VAT Summary JSON or CSV | Yes | Yes | Implemented | VAT Summary is not an official filing export. |
+| GET | `/reports/vat-summary/pdf` | VAT Summary PDF | Yes | Yes | Implemented | Includes non-filing warning note and archives generated PDF. |
+| GET | `/reports/aged-receivables` | Aged Receivables JSON or CSV | Yes | Yes | Implemented | Supports `asOf`; CSV is basic. |
+| GET | `/reports/aged-receivables/pdf` | Aged Receivables PDF | Yes | Yes | Implemented | Archives generated PDF. |
+| GET | `/reports/aged-payables` | Aged Payables JSON or CSV | Yes | Yes | Implemented | Supports `asOf`; CSV is basic. |
+| GET | `/reports/aged-payables/pdf` | Aged Payables PDF | Yes | Yes | Implemented | Archives generated PDF. |
 
 ## Documents
 

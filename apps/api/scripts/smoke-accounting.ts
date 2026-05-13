@@ -170,6 +170,21 @@ interface BankReconciliationItem {
   type: "DEBIT" | "CREDIT";
 }
 
+interface BankReconciliationReportData {
+  reconciliation: {
+    id: string;
+    reconciliationNumber: string;
+    status: string;
+  };
+  items: Array<{
+    statementTransactionId: string;
+    statusAtClose: string;
+  }>;
+  summary: {
+    itemCount: number;
+  };
+}
+
 interface FiscalPeriod {
   id: string;
   name: string;
@@ -843,6 +858,28 @@ async function main(): Promise<void> {
     reconciliationItems.some((item) => item.statementTransactionId === categorizedReconciliationRow.id),
     "bank reconciliation close snapshots statement row",
   );
+  const reconciliationReportData = await get<BankReconciliationReportData>(
+    `/bank-reconciliations/${closedReconciliation.id}/report-data`,
+    headers,
+  );
+  assertEqual(reconciliationReportData.reconciliation.status, "CLOSED", "bank reconciliation report-data status");
+  assert(
+    reconciliationReportData.items.some((item) => item.statementTransactionId === categorizedReconciliationRow.id),
+    "bank reconciliation report-data includes snapshot row",
+  );
+  assert(reconciliationReportData.summary.itemCount >= 1, "bank reconciliation report-data summary item count");
+  await assertPdf(`/bank-reconciliations/${closedReconciliation.id}/report.pdf`, headers, "bank reconciliation report PDF");
+  await assertCsv(
+    `/bank-reconciliations/${closedReconciliation.id}/report.csv`,
+    headers,
+    "bank reconciliation report CSV",
+    closedReconciliation.reconciliationNumber,
+  );
+  const reconciliationReportDocuments = await get<GeneratedDocument[]>(
+    `/generated-documents?documentType=BANK_RECONCILIATION_REPORT&sourceId=${encodeURIComponent(closedReconciliation.id)}`,
+    headers,
+  );
+  assert(reconciliationReportDocuments.length >= 1, "generated documents include bank reconciliation report PDF");
   await expectHttpError("closed reconciliation statement row mutation", () =>
     post<BankStatementTransaction>(`/bank-statement-transactions/${categorizedReconciliationRow.id}/ignore`, headers, {
       reason: "Smoke closed-period mutation check",
@@ -2326,6 +2363,10 @@ async function main(): Promise<void> {
   const trialBalanceReport = await get<TrialBalanceReport>("/reports/trial-balance", headers);
   assertMoney(trialBalanceReport.totals.closingDebit, money(trialBalanceReport.totals.closingCredit), "trial balance closing debit equals credit");
   assertEqual(trialBalanceReport.totals.balanced, true, "trial balance balanced flag");
+  await assertCsv("/reports/trial-balance?format=csv", headers, "trial balance CSV", "Trial Balance");
+  await assertPdf("/reports/trial-balance/pdf", headers, "trial balance PDF");
+  const trialBalanceReportDocuments = await get<GeneratedDocument[]>("/generated-documents?documentType=REPORT_TRIAL_BALANCE", headers);
+  assert(trialBalanceReportDocuments.length >= 1, "generated documents include trial balance report PDF");
   const profitAndLossReport = await get<ProfitAndLossReport>("/reports/profit-and-loss", headers);
   assertPresent(profitAndLossReport.revenue, "profit and loss revenue");
   assertPresent(profitAndLossReport.expenses, "profit and loss expenses");
@@ -2416,6 +2457,7 @@ async function main(): Promise<void> {
         bankReconciliationClosedStatus: closedReconciliation.status,
         bankReconciliationVoidedStatus: voidedReconciliation.status,
         bankReconciliationItemCount: reconciliationItems.length,
+        bankReconciliationReportDocumentId: reconciliationReportDocuments[0]?.id,
         closedFiscalPeriodId: closedFiscalPeriod.id,
         fiscalPeriodLockChecked: true,
         customerId: customer.id,
@@ -2461,6 +2503,8 @@ async function main(): Promise<void> {
           "aged-receivables",
           "aged-payables",
         ],
+        reportCsvChecked: "trial-balance",
+        reportPdfDocumentId: trialBalanceReportDocuments[0]?.id,
         archivedInvoicePdfId: archivedInvoicePdf.id,
         archivedCreditNotePdfId: archivedCreditNotePdf.id,
         finalInvoiceBalance: afterSecondPaymentVoid.balanceDue,
@@ -2569,6 +2613,25 @@ async function assertPdf(path: string, headers: Record<string, string>, label: s
   const bytes = Buffer.from(await response.arrayBuffer());
   assert(bytes.byteLength > 1000, `${label} returns a non-empty PDF body`);
   assertEqual(bytes.subarray(0, 4).toString(), "%PDF", `${label} starts with PDF header`);
+}
+
+async function assertCsv(path: string, headers: Record<string, string>, label: string, expectedText: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}${path}`, { headers });
+  } catch (error) {
+    throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new ApiError(`GET ${path} failed with ${response.status}: ${text}`, response.status, safeJson(text));
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  assert(contentType.includes("text/csv"), `${label} returns text/csv`);
+  const text = await response.text();
+  assert(text.includes(expectedText), `${label} includes expected text`);
 }
 
 async function assertXml(path: string, headers: Record<string, string>, label: string, expectedText: string): Promise<void> {

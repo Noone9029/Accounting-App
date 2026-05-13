@@ -40,6 +40,14 @@ export function cashExpensePdfPath(expenseId: string): string {
   return `/cash-expenses/${encodeURIComponent(expenseId)}/pdf`;
 }
 
+export function bankReconciliationReportPdfPath(reconciliationId: string): string {
+  return `/bank-reconciliations/${encodeURIComponent(reconciliationId)}/report.pdf`;
+}
+
+export function bankReconciliationReportCsvPath(reconciliationId: string): string {
+  return `/bank-reconciliations/${encodeURIComponent(reconciliationId)}/report.csv`;
+}
+
 export function statementPdfPath(contactId: string, from?: string, to?: string): string {
   const query = new URLSearchParams();
   if (from) {

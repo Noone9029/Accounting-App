@@ -16,6 +16,7 @@ import {
 } from "@/lib/bank-statements";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
+import { bankReconciliationReportCsvPath, bankReconciliationReportPdfPath, downloadAuthenticatedFile } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { BankReconciliation, BankReconciliationItem } from "@/lib/types";
 
@@ -27,6 +28,7 @@ export default function BankReconciliationDetailPage() {
   const [items, setItems] = useState<BankReconciliationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState("");
+  const [downloading, setDownloading] = useState<"" | "csv" | "pdf">("");
   const [reloadToken, setReloadToken] = useState(0);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -86,6 +88,21 @@ export default function BankReconciliationDetailPage() {
     }
   }
 
+  async function downloadReport(format: "csv" | "pdf") {
+    setDownloading(format);
+    setError("");
+    setSuccess("");
+    try {
+      const path = format === "csv" ? bankReconciliationReportCsvPath(params.id) : bankReconciliationReportPdfPath(params.id);
+      const number = reconciliation?.reconciliationNumber ?? "reconciliation";
+      await downloadAuthenticatedFile(path, `reconciliation-${number}.${format}`);
+    } catch (downloadError) {
+      setError(downloadError instanceof Error ? downloadError.message : "Unable to download reconciliation report.");
+    } finally {
+      setDownloading("");
+    }
+  }
+
   return (
     <section>
       <div className="mb-6 flex items-start justify-between gap-4">
@@ -94,6 +111,16 @@ export default function BankReconciliationDetailPage() {
           <p className="mt-1 text-sm text-steel">{reconciliation?.bankAccountProfile?.displayName ?? "Review history and period lock"}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {reconciliation ? (
+            <>
+              <button type="button" disabled={Boolean(downloading)} onClick={() => void downloadReport("csv")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                {downloading === "csv" ? "Downloading CSV..." : "Download CSV"}
+              </button>
+              <button type="button" disabled={Boolean(downloading)} onClick={() => void downloadReport("pdf")} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                {downloading === "pdf" ? "Downloading PDF..." : "Download PDF"}
+              </button>
+            </>
+          ) : null}
           {reconciliation?.bankAccountProfileId ? (
             <Link href={`/bank-accounts/${reconciliation.bankAccountProfileId}/reconciliations`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
               Back
@@ -151,6 +178,7 @@ export default function BankReconciliationDetailPage() {
                 This reconciliation is closed. Statement transactions in this period are locked until the reconciliation is voided.
               </div>
             ) : null}
+            <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-steel">PDF reports are archived automatically.</div>
           </div>
 
           <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">

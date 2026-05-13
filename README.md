@@ -109,7 +109,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, `/auth/me` role permission visibility, role/member API visibility, custom role creation, unknown-permission rejection, organization discovery, bank account profile defaults/transactions/balance movement, bank transfers/opening balances, bank statement import/matching/categorization/reconciliation summary/close/void lock checks, item/customer/supplier setup, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
+The smoke covers seed login, `/auth/me` role permission visibility, role/member API visibility, custom role creation, unknown-permission rejection, organization discovery, bank account profile defaults/transactions/balance movement, bank transfers/opening balances, bank statement import/matching/categorization/reconciliation summary/close/void lock checks, reconciliation report data/CSV/PDF/archive checks, item/customer/supplier setup, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, report CSV/PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
 
@@ -207,6 +207,9 @@ Bank statement import and reconciliation:
 - `POST /bank-reconciliations/:id/close`
 - `POST /bank-reconciliations/:id/void`
 - `GET /bank-reconciliations/:id/items`
+- `GET /bank-reconciliations/:id/report-data`
+- `GET /bank-reconciliations/:id/report.csv`
+- `GET /bank-reconciliations/:id/report.pdf`
 
 Tax rates:
 
@@ -565,12 +568,13 @@ Statement import and reconciliation behavior:
 - Draft bank reconciliations store the period, statement opening/closing balances, ledger closing balance, difference, and notes.
 - Closing a reconciliation requires zero difference and no unmatched statement transactions in the period, snapshots statement rows into reconciliation items, and locks the statement transaction period.
 - Closed reconciliation periods block statement row match, categorize, ignore, import void/status-changing operations, while still allowing reads.
+- Reconciliation reports are available as JSON data, CSV, and archived PDF through `/bank-reconciliations/:id/report-data`, `/report.csv`, and `/report.pdf`.
 - Voiding a reconciliation keeps audit history and unlocks the period, but it does not reverse categorized journals.
 
 Known bank account limitations:
 
 - Import is local JSON/CSV paste only; no file upload parser, OFX, CAMT, or MT940 support yet.
-- Reconciliation has close/lock safeguards, but no formal reconciliation report PDF, reviewer approval workflow, or automatic matching.
+- Reconciliation has close/lock safeguards and report export, but no reviewer approval workflow or automatic matching.
 - No live feeds or external banking APIs.
 - No payment gateway integration.
 - No transfer fees or multi-currency FX transfer handling.
@@ -827,7 +831,7 @@ Known limitations:
 - No receipt attachment upload exists yet.
 - No OCR or receipt scanning exists yet.
 - No employee claim approval workflow exists yet.
-- No bank reconciliation or bank-feed matching exists yet.
+- No receipt-side bank-feed matching exists yet.
 
 ## Fiscal Period Management
 
@@ -881,13 +885,20 @@ Reports are accountant-facing MVP outputs derived from real LedgerByte data. Jou
 
 APIs:
 
-- `GET /reports/general-ledger?from=YYYY-MM-DD&to=YYYY-MM-DD&accountId=<optional>`
-- `GET /reports/trial-balance?from=YYYY-MM-DD&to=YYYY-MM-DD&includeZero=true`
-- `GET /reports/profit-and-loss?from=YYYY-MM-DD&to=YYYY-MM-DD`
-- `GET /reports/balance-sheet?asOf=YYYY-MM-DD`
-- `GET /reports/vat-summary?from=YYYY-MM-DD&to=YYYY-MM-DD`
-- `GET /reports/aged-receivables?asOf=YYYY-MM-DD`
-- `GET /reports/aged-payables?asOf=YYYY-MM-DD`
+- `GET /reports/general-ledger?from=YYYY-MM-DD&to=YYYY-MM-DD&accountId=<optional>&format=json|csv`
+- `GET /reports/general-ledger/pdf?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /reports/trial-balance?from=YYYY-MM-DD&to=YYYY-MM-DD&includeZero=true&format=json|csv`
+- `GET /reports/trial-balance/pdf?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /reports/profit-and-loss?from=YYYY-MM-DD&to=YYYY-MM-DD&format=json|csv`
+- `GET /reports/profit-and-loss/pdf?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /reports/balance-sheet?asOf=YYYY-MM-DD&format=json|csv`
+- `GET /reports/balance-sheet/pdf?asOf=YYYY-MM-DD`
+- `GET /reports/vat-summary?from=YYYY-MM-DD&to=YYYY-MM-DD&format=json|csv`
+- `GET /reports/vat-summary/pdf?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /reports/aged-receivables?asOf=YYYY-MM-DD&format=json|csv`
+- `GET /reports/aged-receivables/pdf?asOf=YYYY-MM-DD`
+- `GET /reports/aged-payables?asOf=YYYY-MM-DD&format=json|csv`
+- `GET /reports/aged-payables/pdf?asOf=YYYY-MM-DD`
 
 Behavior:
 
@@ -898,6 +909,8 @@ Behavior:
 - VAT Summary uses VAT Payable `220` and VAT Receivable `230` journal activity and is not an official VAT return filing report yet.
 - Aged Receivables uses finalized non-voided sales invoices with `balanceDue > 0`.
 - Aged Payables uses finalized non-voided purchase bills with `balanceDue > 0`.
+- CSV exports return `text/csv`, escape commas/quotes/newlines, include report title/date metadata, and use attachment filenames such as `trial-balance-YYYY-MM-DD.csv`.
+- PDF exports use the shared PDFKit renderer in `packages/pdf-core` and are archived automatically as generated documents.
 
 Frontend pages:
 
@@ -911,9 +924,9 @@ Frontend pages:
 
 Known limitations:
 
-- No report PDF rendering exists yet.
-- CSV/export groundwork is still future work.
+- No scheduled reports or email report delivery exists yet.
 - VAT Summary is not an official VAT filing report.
+- CSV output is intentionally basic.
 - Fiscal period labels are not shown on reports yet.
 - Reports need accountant review before production use.
 
@@ -943,6 +956,8 @@ Implemented PDF documents:
 - Supplier payment receipt PDF: `GET /supplier-payments/:id/receipt.pdf`
 - Supplier refund PDF: `GET /supplier-refunds/:id/pdf`
 - Cash expense PDF: `GET /cash-expenses/:id/pdf`
+- Core accounting report PDFs: `GET /reports/:report/pdf`
+- Bank reconciliation report PDF: `GET /bank-reconciliations/:id/report.pdf`
 
 PDF endpoints:
 
@@ -951,7 +966,7 @@ PDF endpoints:
 - Return `Content-Type: application/pdf`.
 - Use attachment filenames such as `invoice-INV-000001.pdf`, `credit-note-CN-000001.pdf`, `customer-refund-REF-000001.pdf`, `purchase-order-PO-000001.pdf`, `purchase-bill-BILL-000001.pdf`, `purchase-debit-note-PDN-000001.pdf`, `supplier-payment-SP-000001.pdf`, `supplier-refund-SRF-000001.pdf`, `cash-expense-EXP-000001.pdf`, `receipt-PAY-000001.pdf`, and `statement-Customer.pdf`.
 - Apply organization document settings for document titles, footer text, basic colors, tax number visibility, and invoice notes/terms/payment sections.
-- Archive each generated PDF as a `GeneratedDocument` record with content hash, size, filename, source reference, and local base64 content.
+- Archive each generated PDF, including report PDFs, as a `GeneratedDocument` record with content hash, size, filename, source reference, and local base64 content.
 
 These PDFs are operational documents only. They are not ZATCA compliant yet, do not embed XML, do not include QR codes, and are not PDF/A-3.
 
@@ -969,7 +984,7 @@ Supported settings:
 
 Only the `standard` renderer is implemented today. `compact` and `detailed` are saved for future template work and currently fall back to the standard layout.
 
-Generated PDF downloads are archived automatically in the database through `GeneratedDocument`. Archive list/detail endpoints exclude the base64 payload; `/generated-documents/:id/download` streams the archived PDF. Local base64 storage is intentionally temporary and should move to S3-compatible storage before production scale.
+Generated PDF downloads are archived automatically in the database through `GeneratedDocument`, including report PDFs and bank reconciliation report PDFs. Archive list/detail endpoints exclude the base64 payload; `/generated-documents/:id/download` streams the archived PDF. Local base64 storage is intentionally temporary and should move to S3-compatible storage before production scale.
 
 ## ZATCA Foundation
 
@@ -1123,14 +1138,14 @@ Permission matrix categories:
 - GET PDF endpoints currently archive every download.
 - Unapplied overpayment application is manual only; there is no automatic credit matching yet.
 - Customer refunds are manual accounting records only; no payment gateway refund or bank reconciliation integration exists yet.
-- Bank account profiles, posted transaction visibility, bank transfers, guarded one-time opening-balance posting, and local statement reconciliation close/lock exist, but live feeds, transfer fees, formal reconciliation report PDFs, and multi-currency FX transfer handling are not implemented yet.
+- Bank account profiles, posted transaction visibility, bank transfers, guarded one-time opening-balance posting, and local statement reconciliation close/lock/report export exist, but live feeds, transfer fees, approval workflow, and multi-currency FX transfer handling are not implemented yet.
 - Purchase orders are MVP-only: no partial receiving, partial billing, supplier email sending, approval workflows, or inventory stock receipts.
 - Purchase bills, purchase debit notes, supplier payments, and supplier refunds are AP groundwork only; inventory stock movements/returns, bank reconciliation, and automated matching are not implemented yet.
 - ZATCA credit note XML/signing/submission is not implemented yet.
 - ZATCA debit note XML/signing/submission is not implemented yet.
 - Inventory returns from credit notes are not implemented yet.
 - Recurring invoices are not implemented yet.
-- Bank reconciliation has local import/manual matching and close-lock groundwork, but no live feed, file-format support beyond paste import, auto-match, formal report PDF, or approval workflow yet.
+- Bank reconciliation has local import/manual matching, close-lock, and report export groundwork, but no live feed, file-format support beyond paste import, auto-match, or approval workflow yet.
 - Inventory movement and stock valuation are not implemented yet.
 - BullMQ workers and S3 upload adapters are not wired yet.
 - Email invitations are not implemented; invite placeholders require the target user to already exist.

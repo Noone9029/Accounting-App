@@ -1,4 +1,6 @@
 import {
+  bankReconciliationReportCsvPath,
+  bankReconciliationReportPdfPath,
   cashExpensePdfPath,
   creditNotePdfPath,
   customerRefundPdfPath,
@@ -41,5 +43,10 @@ describe("PDF download helpers", () => {
 
   it("builds generated document archive download paths", () => {
     expect(generatedDocumentDownloadPath("doc-1")).toBe("/generated-documents/doc-1/download");
+  });
+
+  it("builds bank reconciliation report download paths", () => {
+    expect(bankReconciliationReportPdfPath("rec 1")).toBe("/bank-reconciliations/rec%201/report.pdf");
+    expect(bankReconciliationReportCsvPath("rec 1")).toBe("/bank-reconciliations/rec%201/report.csv");
   });
 });

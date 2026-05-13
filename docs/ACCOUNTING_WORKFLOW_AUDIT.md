@@ -118,9 +118,10 @@ This document maps implemented accounting workflows to their journal entries, ba
   - Closing requires zero difference and no `UNMATCHED` statement transactions in the period.
   - Close snapshots `MATCHED`, `CATEGORIZED`, and `IGNORED` statement rows into reconciliation items and creates no journal entry.
   - Closed reconciliation periods block statement transaction match, categorize, ignore, and import void/status-changing operations.
+  - Reconciliation report data, CSV, and PDF endpoints render the close snapshot and archive generated PDFs.
   - Voiding a draft or closed reconciliation marks it `VOIDED`, keeps the history, unlocks the period, and does not reverse categorized journals.
 - Gaps/risks:
-  - No file upload storage, OFX/CAMT parser, automatic matching, formal reconciliation report PDF, bank feeds, or accountant approval workflow exists yet.
+  - No file upload storage, OFX/CAMT parser, automatic matching, bank feeds, or accountant approval workflow exists yet.
 
 ## Sales Workflows
 

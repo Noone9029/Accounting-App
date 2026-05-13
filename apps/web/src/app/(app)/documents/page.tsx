@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { documentTypeLabel, generatedDocumentStatusLabel } from "@/lib/documents";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { downloadPdf, generatedDocumentDownloadPath } from "@/lib/pdf-download";
 import type { DocumentType, GeneratedDocument, GeneratedDocumentStatus } from "@/lib/types";
@@ -13,6 +14,7 @@ const documentTypes: Array<"" | DocumentType> = [
   "SALES_INVOICE",
   "CREDIT_NOTE",
   "CUSTOMER_PAYMENT_RECEIPT",
+  "CUSTOMER_REFUND",
   "CUSTOMER_STATEMENT",
   "PURCHASE_ORDER",
   "PURCHASE_BILL",
@@ -20,6 +22,14 @@ const documentTypes: Array<"" | DocumentType> = [
   "SUPPLIER_PAYMENT_RECEIPT",
   "SUPPLIER_REFUND",
   "CASH_EXPENSE",
+  "REPORT_GENERAL_LEDGER",
+  "REPORT_TRIAL_BALANCE",
+  "REPORT_PROFIT_AND_LOSS",
+  "REPORT_BALANCE_SHEET",
+  "REPORT_VAT_SUMMARY",
+  "REPORT_AGED_RECEIVABLES",
+  "REPORT_AGED_PAYABLES",
+  "BANK_RECONCILIATION_REPORT",
 ];
 const statuses: Array<"" | GeneratedDocumentStatus> = ["", "GENERATED", "FAILED", "SUPERSEDED"];
 
@@ -79,7 +89,7 @@ export default function GeneratedDocumentsPage() {
     <section>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-ink">Documents</h1>
-        <p className="mt-1 text-sm text-steel">Generated PDF archive for invoices, receipts, and customer statements.</p>
+        <p className="mt-1 text-sm text-steel">Generated PDF archive for invoices, receipts, customer statements, and report PDFs.</p>
       </div>
 
       <div className="space-y-3">
@@ -94,7 +104,7 @@ export default function GeneratedDocumentsPage() {
           <select value={documentType} onChange={(event) => setDocumentType(event.target.value as "" | DocumentType)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
             {documentTypes.map((type) => (
               <option key={type || "all"} value={type}>
-                {type ? formatLabel(type) : "All types"}
+                {type ? documentTypeLabel(type) : "All types"}
               </option>
             ))}
           </select>
@@ -104,7 +114,7 @@ export default function GeneratedDocumentsPage() {
           <select value={status} onChange={(event) => setStatus(event.target.value as "" | GeneratedDocumentStatus)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
             {statuses.map((item) => (
               <option key={item || "all"} value={item}>
-                {item ? formatLabel(item) : "All statuses"}
+                {item ? generatedDocumentStatusLabel(item) : "All statuses"}
               </option>
             ))}
           </select>
@@ -131,11 +141,11 @@ export default function GeneratedDocumentsPage() {
           <tbody className="divide-y divide-slate-100">
             {documents.map((document) => (
               <tr key={document.id}>
-                <td className="px-4 py-3 text-steel">{formatLabel(document.documentType)}</td>
+                <td className="px-4 py-3 text-steel">{documentTypeLabel(document.documentType)}</td>
                 <td className="px-4 py-3 font-mono text-xs">{document.documentNumber}</td>
                 <td className="px-4 py-3 font-medium text-ink">{document.filename}</td>
                 <td className="px-4 py-3 text-steel">{document.sourceType}</td>
-                <td className="px-4 py-3 text-steel">{document.status}</td>
+                <td className="px-4 py-3 text-steel">{generatedDocumentStatusLabel(document.status)}</td>
                 <td className="px-4 py-3 text-steel">{formatOptionalDate(document.generatedAt, "-")}</td>
                 <td className="px-4 py-3 font-mono text-xs">{formatBytes(document.sizeBytes)}</td>
                 <td className="px-4 py-3">
@@ -155,10 +165,6 @@ export default function GeneratedDocumentsPage() {
       </div>
     </section>
   );
-}
-
-function formatLabel(value: string): string {
-  return value.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function formatBytes(value: number): string {

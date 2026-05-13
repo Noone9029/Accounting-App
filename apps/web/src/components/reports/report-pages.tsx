@@ -8,13 +8,16 @@ import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
+import { downloadAuthenticatedFile } from "@/lib/pdf-download";
 import {
   agingBucketLabel,
   balanceSheetStatusClass,
   balanceSheetStatusLabel,
+  buildReportExportPath,
   buildReportQuery,
   monthStartDateInput,
   REPORT_BUCKETS,
+  reportExportFilename,
   todayDateInput,
 } from "@/lib/reports";
 import type {
@@ -70,6 +73,7 @@ export function GeneralLedgerReportPage() {
   return (
     <ReportSection title="General Ledger" description="Opening balances, period activity, and natural running balances by account.">
       <DateRangeForm from={from} to={to} setFrom={setFrom} setTo={setTo} loading={loading} onSubmit={() => load(buildReportQuery({ from, to }))} />
+      <ReportExportButtons endpoint="/reports/general-ledger" slug="general-ledger" params={{ from, to }} />
       <ReportState loading={loading} error={error} empty={!report || report.accounts.length === 0} emptyText="No posted journal activity found for this period." />
       {report ? (
         <div className="space-y-5">
@@ -147,6 +151,7 @@ export function TrialBalanceReportPage() {
   return (
     <ReportSection title="Trial Balance" description="Debit and credit balances from posted journal activity.">
       <DateRangeForm from={from} to={to} setFrom={setFrom} setTo={setTo} loading={loading} onSubmit={() => load(buildReportQuery({ from, to }))} />
+      <ReportExportButtons endpoint="/reports/trial-balance" slug="trial-balance" params={{ from, to }} />
       <ReportState loading={loading} error={error} empty={!report || report.accounts.length === 0} emptyText="No trial balance rows found." />
       {report ? (
         <div className="space-y-4">
@@ -175,6 +180,7 @@ export function ProfitAndLossReportPage() {
   return (
     <ReportSection title="Profit & Loss" description="Revenue, cost of sales, expenses, gross profit, and net profit from posted journals.">
       <DateRangeForm from={from} to={to} setFrom={setFrom} setTo={setTo} loading={loading} onSubmit={() => load(buildReportQuery({ from, to }))} />
+      <ReportExportButtons endpoint="/reports/profit-and-loss" slug="profit-and-loss" params={{ from, to }} />
       <ReportState loading={loading} error={error} empty={!report} emptyText="No profit and loss data found." />
       {report ? (
         <div className="space-y-5">
@@ -208,6 +214,7 @@ export function BalanceSheetReportPage() {
   return (
     <ReportSection title="Balance Sheet" description="Assets, liabilities, equity, and retained earnings as of a selected date.">
       <AsOfForm asOf={asOf} setAsOf={setAsOf} loading={loading} onSubmit={() => load(buildReportQuery({ asOf }))} />
+      <ReportExportButtons endpoint="/reports/balance-sheet" slug="balance-sheet" params={{ asOf }} />
       <ReportState loading={loading} error={error} empty={!report} emptyText="No balance sheet data found." />
       {report ? (
         <div className="space-y-5">
@@ -247,6 +254,7 @@ export function VatSummaryReportPage() {
   return (
     <ReportSection title="VAT Summary" description="VAT payable and receivable summary from posted VAT accounts.">
       <DateRangeForm from={from} to={to} setFrom={setFrom} setTo={setTo} loading={loading} onSubmit={() => load(buildReportQuery({ from, to }))} />
+      <ReportExportButtons endpoint="/reports/vat-summary" slug="vat-summary" params={{ from, to }} />
       <ReportState loading={loading} error={error} empty={!report} emptyText="No VAT summary data found." />
       {report ? (
         <div className="space-y-5">
@@ -298,6 +306,7 @@ function AgingReportPage({ title, endpoint, description }: { title: string; endp
   const [report, setReport] = useState<AgingReport | null>(null);
   const [asOf, setAsOf] = useState(todayDateInput());
   const { loading, error, load } = useReportLoader<AgingReport>((query) => `${endpoint}${query}`, setReport);
+  const slug = endpoint.split("/").at(-1) ?? "aging-report";
 
   useEffect(() => {
     void load(buildReportQuery({ asOf }));
@@ -306,6 +315,7 @@ function AgingReportPage({ title, endpoint, description }: { title: string; endp
   return (
     <ReportSection title={title} description={description}>
       <AsOfForm asOf={asOf} setAsOf={setAsOf} loading={loading} onSubmit={() => load(buildReportQuery({ asOf }))} />
+      <ReportExportButtons endpoint={endpoint} slug={slug} params={{ asOf }} />
       <ReportState loading={loading} error={error} empty={!report || report.rows.length === 0} emptyText="No open balances found for aging." />
       {report ? (
         <div className="space-y-5">
@@ -338,6 +348,37 @@ function useReportLoader<T>(path: (query: string) => string, setReport: (value: 
   }
 
   return { organizationId, loading, error, load };
+}
+
+function ReportExportButtons({ endpoint, slug, params }: { endpoint: string; slug: string; params: Record<string, string | null | undefined> }) {
+  const [downloading, setDownloading] = useState<"" | "csv" | "pdf">("");
+  const [error, setError] = useState("");
+
+  async function download(format: "csv" | "pdf") {
+    setDownloading(format);
+    setError("");
+    try {
+      await downloadAuthenticatedFile(buildReportExportPath(endpoint, params, format), reportExportFilename(slug, format));
+    } catch (downloadError) {
+      setError(downloadError instanceof Error ? downloadError.message : "Unable to download report.");
+    } finally {
+      setDownloading("");
+    }
+  }
+
+  return (
+    <div className="space-y-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => void download("csv")} disabled={Boolean(downloading)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+          {downloading === "csv" ? "Downloading CSV..." : "Download CSV"}
+        </button>
+        <button type="button" onClick={() => void download("pdf")} disabled={Boolean(downloading)} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
+          {downloading === "pdf" ? "Downloading PDF..." : "Download PDF"}
+        </button>
+      </div>
+      {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+    </div>
+  );
 }
 
 function ReportSection({ title, description, children }: { title: string; description: string; children: ReactNode }) {

@@ -29,14 +29,14 @@ Route source: `apps/web/src/app`
 | `/accounts` | Chart of accounts. | Accounts. | Create/update/delete accounts. | Implemented | Hierarchical drag/drop and COA templates missing. |
 | `/bank-accounts` | Bank/cash account profile list. | Bank account profiles with linked accounts and ledger summaries. | View detail, create profile, archive/reactivate when allowed. | Implemented | No live feed, transfer fee, or FX workflow. |
 | `/bank-accounts/new` | Link bank account profile. | Accounts and existing profiles. | Create profile for an unlinked active posting asset account. | Implemented | Cannot create chart account inline. |
-| `/bank-accounts/[id]` | Bank account profile detail. | Profile summary and posted transaction rows when allowed. | Date filters, archive/reactivate, post opening balance when allowed, general-ledger link, statement import/transaction/reconciliation/reconciliations links. | Implemented | No statement attachments or formal reconciliation report PDF. |
+| `/bank-accounts/[id]` | Bank account profile detail. | Profile summary and posted transaction rows when allowed. | Date filters, archive/reactivate, post opening balance when allowed, general-ledger link, statement import/transaction/reconciliation/reconciliations links. | Implemented | No statement attachments or live bank feed. |
 | `/bank-accounts/[id]/edit` | Edit bank/cash metadata. | Profile, accounts, existing profiles. | Update metadata only; opening balance fields are disabled after posting. | Implemented | Linked account cannot be changed. |
 | `/bank-accounts/[id]/statement-imports` | Local statement import batches. | Bank profile and import batches. | Paste JSON/CSV rows, create import batch, void unmatched imports when allowed. | Implemented | No direct file upload or OFX/CAMT parser. |
 | `/bank-accounts/[id]/statement-transactions` | Statement transaction list. | Imported statement rows with filters. | Filter by status/date and open review page. | Implemented | Bulk matching not present. |
-| `/bank-accounts/[id]/reconciliation` | Reconciliation summary. | Statement totals, ledger balance, latest closing balance, difference, imports, latest closed reconciliation, open draft flag, unreconciled count, and closed-through date. | Date filtering, unmatched-row navigation, and links to reconciliation list/new draft when allowed. | Implemented | No formal reconciliation report PDF. |
+| `/bank-accounts/[id]/reconciliation` | Reconciliation summary. | Statement totals, ledger balance, latest closing balance, difference, imports, latest closed reconciliation, open draft flag, unreconciled count, and closed-through date. | Date filtering, unmatched-row navigation, and links to reconciliation list/new draft when allowed. | Implemented | Report downloads live on the reconciliation detail page. |
 | `/bank-accounts/[id]/reconciliations` | Reconciliation record list. | Bank profile and reconciliation records. | View draft/closed/voided records and create new draft when allowed. | Implemented | No export package or approval queue. |
 | `/bank-accounts/[id]/reconciliations/new` | Create draft reconciliation. | Bank profile ledger summary. | Enter period, statement balances, notes, and create draft. | Implemented | No pre-close preview endpoint; ledger/difference are calculated after save. |
-| `/bank-reconciliations/[id]` | Reconciliation detail. | Reconciliation detail and closed item snapshot. | Close zero-difference drafts, void draft/closed records, and review items. | Implemented | No PDF/report package or reviewer approval workflow. |
+| `/bank-reconciliations/[id]` | Reconciliation detail. | Reconciliation detail and closed item snapshot. | Close zero-difference drafts, void draft/closed records, review items, and download CSV/PDF reports. | Implemented | No reviewer approval workflow. |
 | `/bank-statement-transactions/[id]` | Statement transaction review. | Statement row, match candidates, accounts. | Manual match, categorize to journal, or ignore when allowed and not locked by closed reconciliation. | Implemented | No auto-match or split categorization. |
 | `/bank-transfers` | Bank transfer list. | Posted and voided transfers with from/to profiles and journal links. | Navigate/create/view transfers. | Implemented | No transfer fees, recurring transfers, reconciliation, or FX handling. |
 | `/bank-transfers/new` | Create bank transfer. | Active bank account profiles. | Validate and post transfer between different active profiles. | Implemented | No scheduled transfer or fee line. |
@@ -44,7 +44,7 @@ Route source: `apps/web/src/app`
 | `/tax-rates` | Tax rates. | Tax rates. | Create/update rates. | Implemented | VAT report linkage missing. |
 | `/branches` | Branch management. | Branches. | Create/update branches. | Implemented | Default branch normalization still missing; branch create/update is now gated by organization update permission. |
 | `/items` | Product/service catalog. | Items, accounts, tax rates. | Create/update/delete items. | Partial | Inventory quantities and stock history missing. |
-| `/documents` | Generated document archive. | Generated documents. | Download archived PDFs. | Implemented | Storage/provider status and filters could improve. |
+| `/documents` | Generated document archive. | Generated documents, including operational and report PDFs. | Filter by document type/status and download archived PDFs. | Implemented | Storage/provider status and filters could improve. |
 | `/fiscal-periods` | Fiscal period management. | Fiscal periods. | Create, close, reopen, and lock periods. | Implemented | No unlock/admin approval or fiscal year wizard yet. |
 | `/settings/documents` | Document PDF settings. | Organization document settings. | Update titles/colors/visibility. | Implemented | Template preview/designer missing. |
 | `/settings/zatca` | ZATCA settings, readiness, checklist, SDK readiness. | Profile, EGS units, logs, adapter config, readiness, checklist, SDK readiness. | Update profile, create/update EGS, CSR, mock CSID, dry-run visibility. | Groundwork only | Real ZATCA onboarding/submission not present. |
@@ -52,6 +52,19 @@ Route source: `apps/web/src/app`
 | `/settings/roles` | Role list and custom role creation. | Roles and permission matrix. | Create custom roles when allowed. | Implemented | System roles are read-only; no bulk templates beyond seed roles. |
 | `/settings/roles/[id]` | Role detail and permission matrix. | Role detail. | Edit/delete custom roles when allowed. | Implemented | No approval workflow for role changes. |
 | `/[...placeholder]` | Placeholder fallback for unbuilt sections. | None. | Navigation. | Placeholder | Replace as modules are implemented. |
+
+## Reports
+
+| Route | Purpose | Data fetched | Actions | Status | Missing UX pieces |
+| --- | --- | --- | --- | --- | --- |
+| `/reports` | Reports index. | None. | Navigate to accounting reports. | Implemented | No custom report builder. |
+| `/reports/general-ledger` | General Ledger. | Posted account activity by range/account. | Run filters, download CSV, download PDF. | Implemented | No saved filter presets. |
+| `/reports/trial-balance` | Trial Balance. | Opening, period, and closing debit/credit columns. | Run filters, download CSV, download PDF. | Implemented | Needs accountant layout review. |
+| `/reports/profit-and-loss` | Profit & Loss. | Revenue, cost of sales, expenses, and net profit. | Run filters, download CSV, download PDF. | Implemented | Needs accountant layout review. |
+| `/reports/balance-sheet` | Balance Sheet. | Assets, liabilities, equity, retained earnings, and balance status. | Run as-of filter, download CSV, download PDF. | Implemented | Needs accountant layout review. |
+| `/reports/vat-summary` | VAT Summary. | VAT payable/receivable activity from configured VAT accounts. | Run filters, download CSV, download PDF. | Implemented | Not an official VAT filing export. |
+| `/reports/aged-receivables` | Aged Receivables. | Open finalized customer invoice balances by aging bucket. | Run as-of filter, download CSV, download PDF. | Implemented | No collection workflow. |
+| `/reports/aged-payables` | Aged Payables. | Open finalized supplier bill balances by aging bucket. | Run as-of filter, download CSV, download PDF. | Implemented | No payment run workflow. |
 
 ## Contacts
 

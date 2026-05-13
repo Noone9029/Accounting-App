@@ -37,6 +37,31 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Report exports and reconciliation report PDFs added
+
+Added CSV and PDF delivery for General Ledger, Trial Balance, Profit & Loss, Balance Sheet, VAT Summary, Aged Receivables, Aged Payables, plus bank reconciliation report data/CSV/PDF endpoints. Report PDFs are archived through generated documents, and frontend report pages and reconciliation detail pages now expose download actions.
+
+Risk reduced:
+
+- Core accounting reports can now be exported from the API and UI instead of only viewed as JSON/page data.
+- CSV helpers escape commas, quotes, and newlines and use accountant-readable columns.
+- Report PDFs share the existing PDF rendering package and generated-document archive.
+- Bank reconciliation report output includes status, period, balances, close/void actors, item snapshots, and summary totals.
+
+Remaining risks:
+
+- Accountant review is still needed before relying on report layouts or definitions in production.
+- No scheduled reports or email delivery exists yet.
+- VAT Summary is not an official VAT filing export.
+- No report approval workflow exists yet.
+- Voiding reconciliation is administrative only and does not reverse categorized journals.
+
+Tests/smoke added:
+
+- Backend CSV helper, report controller, PDF renderer, report archive, reconciliation report data, and permission tests.
+- Frontend export URL, filename, PDF path, and document type label tests.
+- Smoke coverage for trial balance CSV/PDF, reconciliation report data/CSV/PDF, and generated report document archive entries.
+
 ### Bank reconciliation close/lock workflow added
 
 Added `BankReconciliation` and `BankReconciliationItem` records, tenant-scoped reconciliation list/create/detail/close/void/items APIs, reconciliation close pages, closed item snapshots, summary metadata for latest close/open draft/closed-through date, statement transaction lock warnings, permissions, tests, and smoke coverage.
@@ -51,7 +76,6 @@ Risk reduced:
 
 Remaining risks:
 
-- No formal reconciliation report PDF/export package.
 - No reviewer approval or maker-checker workflow.
 - No file upload parser, OFX, CAMT, MT940, live feeds, external banking API, or payment gateway integration.
 - No automatic/ML matching.
@@ -82,7 +106,7 @@ Remaining risks:
 - No file upload storage or robust bank file parser beyond local JSON/CSV paste rows.
 - No OFX, CAMT, MT940, live feeds, external banking API, or payment gateway integration.
 - No automatic/ML matching.
-- Formal close/lock now exists, but no reconciliation report PDF or reviewer workflow exists yet.
+- Formal close/lock and report export now exist, but no reviewer workflow exists yet.
 - Accountant review is still needed before production use.
 
 Tests/smoke added:
@@ -104,7 +128,7 @@ Risk reduced:
 
 Remaining risks:
 
-- Bank statement import, manual matching, and reconciliation close now exist, but no formal report PDF or reviewer workflow exists yet.
+- Bank statement import, manual matching, reconciliation close, and report export now exist, but no reviewer workflow exists yet.
 - No live feeds or external banking API.
 - No transfer fees.
 - No multi-currency FX transfers.
@@ -128,7 +152,7 @@ Risk reduced:
 
 Remaining risks:
 
-- Bank statement import, manual matching, and reconciliation close now exist, but no formal report PDF or reviewer workflow exists yet.
+- Bank statement import, manual matching, reconciliation close, and report export now exist, but no reviewer workflow exists yet.
 - No live feeds or external banking API.
 - No transfer fees or multi-currency FX handling.
 
@@ -907,8 +931,8 @@ Commit inspected: pending (`Add core accounting reports MVP`)
 ### Remaining Reports Risks
 
 - VAT Summary is not an official VAT return filing report.
-- Report PDFs are not implemented yet.
-- CSV/export is not implemented yet.
+- Report PDFs and basic CSV exports now exist.
+- Scheduled/email delivery is not implemented yet.
 - Report definitions and presentation still need accountant review before production use.
 
 ## Fiscal Period Posting Locks

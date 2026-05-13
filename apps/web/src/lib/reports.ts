@@ -1,6 +1,7 @@
 import type { AgingBucket, BalanceSheetReport } from "./types";
 
 export const REPORT_BUCKETS: AgingBucket[] = ["CURRENT", "1_30", "31_60", "61_90", "90_PLUS"];
+export type ReportExportFormat = "csv" | "pdf";
 
 export function todayDateInput(): string {
   return new Date().toISOString().slice(0, 10);
@@ -20,6 +21,17 @@ export function buildReportQuery(params: Record<string, string | undefined | nul
   }
   const text = query.toString();
   return text ? `?${text}` : "";
+}
+
+export function buildReportExportPath(endpoint: string, params: Record<string, string | undefined | null>, format: ReportExportFormat): string {
+  if (format === "pdf") {
+    return `${endpoint}/pdf${buildReportQuery(params)}`;
+  }
+  return `${endpoint}${buildReportQuery({ ...params, format: "csv" })}`;
+}
+
+export function reportExportFilename(slug: string, format: ReportExportFormat, date = todayDateInput()): string {
+  return `${slug}-${date}.${format}`;
 }
 
 export function agingBucketLabel(bucket: AgingBucket): string {

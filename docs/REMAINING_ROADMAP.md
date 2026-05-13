@@ -13,7 +13,7 @@ Tasks:
 - Add browser E2E tests for sales invoice, customer payment, credit note, customer refund, purchase order, purchase bill, supplier payment, document archive, and ZATCA settings flows.
 - Connect email-backed invites, password reset/onboarding, and audit visibility for role/member administration.
 - Harden fiscal period UX with period templates, optional reversal-date selection, and admin unlock approval design.
-- Add report export/PDF groundwork and accountant review pass for report layouts.
+- Add accountant review pass for report layouts and exported report formats.
 - Move Prisma seed config to `prisma.config.ts` before Prisma 7.
 
 Manual dependencies:
@@ -37,10 +37,10 @@ Tasks:
 - Partial purchase order receiving and partial bill matching.
 - Expense receipt attachments and cash expense import/OCR groundwork.
 - Bank account profile, transfer, opening-balance, and statement reconciliation UX polish.
-- Bank reconciliation report PDF/export, file-format samples, and reviewer workflow.
+- Bank reconciliation reviewer workflow and file-format samples.
 - Transfer fees and multi-currency FX transfer handling.
 - Official VAT return report.
-- Report export/PDF delivery.
+- Scheduled/email report delivery.
 - Customer and supplier statement PDF parity.
 
 Manual dependencies:
@@ -52,7 +52,7 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Add bank reconciliation report PDF/export and reviewer approval workflow without adding live bank feeds.
+> Add bank reconciliation reviewer approval workflow and file-format import samples without adding live bank feeds.
 
 ## Phase 3: Inventory And Payroll Basics
 

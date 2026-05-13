@@ -49,8 +49,21 @@ describe("BankReconciliationService", () => {
     _count: { items: 0 },
   };
 
-  function makeService(overrides: Record<string, unknown> = {}) {
+  function makeService(
+    overrides: Record<string, unknown> = {},
+    collaborators: { documentSettings?: unknown; generatedDocuments?: unknown } = {},
+  ) {
     const prisma = {
+      organization: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "org-1",
+          name: "LedgerByte Demo",
+          legalName: null,
+          taxNumber: null,
+          countryCode: "SA",
+          baseCurrency: "SAR",
+        }),
+      },
       bankAccountProfile: { findFirst: jest.fn().mockResolvedValue(profile) },
       bankReconciliation: {
         findMany: jest.fn(),
@@ -75,7 +88,18 @@ describe("BankReconciliationService", () => {
     }
     const audit = { log: jest.fn() };
     const numbers = { next: jest.fn().mockResolvedValue("REC-000001") };
-    return { service: new BankReconciliationService(prisma as never, audit as never, numbers as never), prisma, audit, numbers };
+    return {
+      service: new BankReconciliationService(
+        prisma as never,
+        audit as never,
+        numbers as never,
+        collaborators.documentSettings as never,
+        collaborators.generatedDocuments as never,
+      ),
+      prisma,
+      audit,
+      numbers,
+    };
   }
 
   it("creates a draft reconciliation with calculated ledger closing balance and difference", async () => {
@@ -197,6 +221,78 @@ describe("BankReconciliationService", () => {
     await expect(service.get("org-2", "rec-1")).rejects.toThrow("Bank reconciliation not found.");
     expect(prisma.bankReconciliation.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "rec-1", organizationId: "org-2" } }),
+    );
+  });
+
+  it("returns reconciliation report data with snapshotted items", async () => {
+    const { service, prisma } = makeService();
+    prisma.bankReconciliation.findFirst.mockResolvedValue({
+      ...draft,
+      status: BankReconciliationStatus.CLOSED,
+      closedAt: new Date("2026-05-13T00:00:00.000Z"),
+      closedBy: { id: "user-1", name: "Owner", email: "owner@example.com" },
+      voidedBy: null,
+      bankAccountProfile: profile,
+      items: [
+        {
+          id: "item-1",
+          statementTransactionId: "statement-1",
+          statusAtClose: BankStatementTransactionStatus.MATCHED,
+          amount: new Prisma.Decimal("100.0000"),
+          type: BankStatementTransactionType.CREDIT,
+          statementTransaction: {
+            id: "statement-1",
+            transactionDate: new Date("2026-05-10T00:00:00.000Z"),
+            description: "Customer deposit",
+            reference: "REF-1",
+          },
+        },
+      ],
+    });
+
+    const result = await service.reportData("org-1", "rec-1");
+
+    expect(result.reconciliation.reconciliationNumber).toBe("REC-000001");
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        statementTransactionId: "statement-1",
+        description: "Customer deposit",
+        amount: "100.0000",
+        statusAtClose: BankStatementTransactionStatus.MATCHED,
+      }),
+    ]);
+    expect(result.summary).toMatchObject({ itemCount: 1, creditTotal: "100.0000", matchedCount: 1 });
+    expect(prisma.bankReconciliation.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "rec-1", organizationId: "org-1" } }),
+    );
+  });
+
+  it("archives bank reconciliation report PDFs", async () => {
+    const generatedDocuments = { archivePdf: jest.fn().mockResolvedValue({ id: "doc-1" }) };
+    const documentSettings = { statementRenderSettings: jest.fn().mockResolvedValue({}) };
+    const { service, prisma } = makeService({}, { generatedDocuments, documentSettings });
+    prisma.bankReconciliation.findFirst.mockResolvedValue({
+      ...draft,
+      status: BankReconciliationStatus.CLOSED,
+      closedAt: new Date("2026-05-13T00:00:00.000Z"),
+      closedBy: { id: "user-1", name: "Owner", email: "owner@example.com" },
+      voidedBy: null,
+      bankAccountProfile: profile,
+      items: [],
+    });
+
+    const result = await service.reportPdf("org-1", "user-1", "rec-1");
+
+    expect(result.filename).toBe("reconciliation-REC-000001.pdf");
+    expect(result.buffer.subarray(0, 4).toString()).toBe("%PDF");
+    expect(generatedDocuments.archivePdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: "org-1",
+        documentType: "BANK_RECONCILIATION_REPORT",
+        sourceType: "BankReconciliation",
+        sourceId: "rec-1",
+        generatedById: "user-1",
+      }),
     );
   });
 });

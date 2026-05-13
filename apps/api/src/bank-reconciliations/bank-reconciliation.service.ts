@@ -1,17 +1,23 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { toMoney } from "@ledgerbyte/accounting-core";
+import { renderBankReconciliationReportPdf } from "@ledgerbyte/pdf-core";
 import {
   BankAccountStatus,
   BankReconciliationStatus,
   BankStatementTransactionStatus,
+  BankStatementTransactionType,
+  DocumentType,
   JournalEntryStatus,
   NumberSequenceScope,
   Prisma,
 } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
+import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateBankReconciliationDto } from "./dto/create-bank-reconciliation.dto";
+import { bankReconciliationReportCsv } from "../reports/report-csv";
 
 const POSTED_LEDGER_STATUSES: JournalEntryStatus[] = [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED];
 const RECONCILED_STATEMENT_STATUSES: BankStatementTransactionStatus[] = [
@@ -56,6 +62,8 @@ export class BankReconciliationService {
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
     private readonly numberSequenceService: NumberSequenceService,
+    private readonly documentSettingsService?: OrganizationDocumentSettingsService,
+    private readonly generatedDocumentService?: GeneratedDocumentService,
   ) {}
 
   async listForBankAccount(organizationId: string, bankAccountProfileId: string) {
@@ -251,6 +259,147 @@ export class BankReconciliationService {
       orderBy: { createdAt: "asc" },
       include: bankReconciliationItemInclude,
     });
+  }
+
+  async reportData(organizationId: string, id: string) {
+    const [organization, reconciliation] = await Promise.all([
+      this.prisma.organization.findFirst({
+        where: { id: organizationId },
+        select: { id: true, name: true, legalName: true, taxNumber: true, countryCode: true, baseCurrency: true },
+      }),
+      this.prisma.bankReconciliation.findFirst({
+        where: { id, organizationId },
+        include: {
+          bankAccountProfile: {
+            select: {
+              id: true,
+              displayName: true,
+              accountId: true,
+              currency: true,
+              status: true,
+              account: { select: { id: true, code: true, name: true } },
+            },
+          },
+          closedBy: { select: { id: true, name: true, email: true } },
+          voidedBy: { select: { id: true, name: true, email: true } },
+          items: {
+            orderBy: { createdAt: "asc" },
+            include: {
+              statementTransaction: {
+                select: {
+                  id: true,
+                  transactionDate: true,
+                  description: true,
+                  reference: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+    if (!organization) {
+      throw new NotFoundException("Organization not found.");
+    }
+    if (!reconciliation) {
+      throw new NotFoundException("Bank reconciliation not found.");
+    }
+
+    const items = reconciliation.items.map((item) => ({
+      id: item.id,
+      statementTransactionId: item.statementTransactionId,
+      transactionDate: item.statementTransaction.transactionDate,
+      description: item.statementTransaction.description,
+      reference: item.statementTransaction.reference,
+      type: item.type,
+      amount: this.formatMoney(item.amount),
+      statusAtClose: item.statusAtClose,
+    }));
+    const summary = items.reduce(
+      (accumulator, item) => {
+        const amount = new Prisma.Decimal(item.amount);
+        if (item.type === BankStatementTransactionType.DEBIT) {
+          accumulator.debitTotal = accumulator.debitTotal.plus(amount);
+        } else {
+          accumulator.creditTotal = accumulator.creditTotal.plus(amount);
+        }
+        if (item.statusAtClose === BankStatementTransactionStatus.MATCHED) {
+          accumulator.matchedCount += 1;
+        } else if (item.statusAtClose === BankStatementTransactionStatus.CATEGORIZED) {
+          accumulator.categorizedCount += 1;
+        } else if (item.statusAtClose === BankStatementTransactionStatus.IGNORED) {
+          accumulator.ignoredCount += 1;
+        }
+        return accumulator;
+      },
+      {
+        debitTotal: new Prisma.Decimal(0),
+        creditTotal: new Prisma.Decimal(0),
+        matchedCount: 0,
+        categorizedCount: 0,
+        ignoredCount: 0,
+      },
+    );
+
+    return {
+      organization,
+      currency: reconciliation.bankAccountProfile.currency || organization.baseCurrency,
+      reconciliation: {
+        id: reconciliation.id,
+        reconciliationNumber: reconciliation.reconciliationNumber,
+        status: reconciliation.status,
+        periodStart: reconciliation.periodStart,
+        periodEnd: reconciliation.periodEnd,
+        statementOpeningBalance:
+          reconciliation.statementOpeningBalance === null ? null : this.formatMoney(reconciliation.statementOpeningBalance),
+        statementClosingBalance: this.formatMoney(reconciliation.statementClosingBalance),
+        ledgerClosingBalance: this.formatMoney(reconciliation.ledgerClosingBalance),
+        difference: this.formatMoney(reconciliation.difference),
+        closedAt: reconciliation.closedAt,
+        closedBy: reconciliation.closedBy,
+        voidedAt: reconciliation.voidedAt,
+        voidedBy: reconciliation.voidedBy,
+      },
+      bankAccount: {
+        id: reconciliation.bankAccountProfile.id,
+        displayName: reconciliation.bankAccountProfile.displayName,
+        currency: reconciliation.bankAccountProfile.currency,
+        account: reconciliation.bankAccountProfile.account,
+      },
+      items,
+      summary: {
+        itemCount: items.length,
+        debitTotal: summary.debitTotal.toFixed(4),
+        creditTotal: summary.creditTotal.toFixed(4),
+        matchedCount: summary.matchedCount,
+        categorizedCount: summary.categorizedCount,
+        ignoredCount: summary.ignoredCount,
+      },
+      generatedAt: new Date(),
+    };
+  }
+
+  async reportCsvFile(organizationId: string, id: string) {
+    const data = await this.reportData(organizationId, id);
+    return bankReconciliationReportCsv(data, new Date());
+  }
+
+  async reportPdf(organizationId: string, actorUserId: string, id: string) {
+    const data = await this.reportData(organizationId, id);
+    const settings = await this.documentSettingsService?.statementRenderSettings(organizationId);
+    const buffer = await renderBankReconciliationReportPdf(data, { ...settings, title: "Bank Reconciliation Report" });
+    const filename = sanitizeFilename(`reconciliation-${data.reconciliation.reconciliationNumber}.pdf`);
+    const document = await this.generatedDocumentService?.archivePdf({
+      organizationId,
+      documentType: DocumentType.BANK_RECONCILIATION_REPORT,
+      sourceType: "BankReconciliation",
+      sourceId: data.reconciliation.id,
+      documentNumber: data.reconciliation.reconciliationNumber,
+      filename,
+      buffer,
+      generatedById: actorUserId,
+    });
+    return { data, buffer, filename, document: document ?? null };
   }
 
   private async findReconciliation(organizationId: string, id: string) {

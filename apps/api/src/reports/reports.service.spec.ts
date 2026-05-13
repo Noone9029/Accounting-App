@@ -1,4 +1,4 @@
-import { AccountType } from "@prisma/client";
+import { AccountType, DocumentType } from "@prisma/client";
 import {
   agingBucket,
   buildAgingReport,
@@ -154,6 +154,39 @@ describe("reports service builders", () => {
     expect(prisma.account.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: "org-1" } }));
     expect(prisma.journalLine.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ organizationId: "org-1" }) }),
+    );
+  });
+
+  it("archives generated report PDFs", async () => {
+    const prisma = {
+      organization: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "org-1",
+          name: "LedgerByte Demo",
+          legalName: null,
+          taxNumber: null,
+          countryCode: "SA",
+          baseCurrency: "SAR",
+        }),
+      },
+      account: { findMany: jest.fn().mockResolvedValue([]) },
+      journalLine: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const documentSettings = { statementRenderSettings: jest.fn().mockResolvedValue({}) };
+    const generatedDocuments = { archivePdf: jest.fn().mockResolvedValue({ id: "doc-1" }) };
+    const service = new ReportsService(prisma as never, documentSettings as never, generatedDocuments as never);
+
+    const result = await service.coreReportPdf("org-1", "user-1", "trial-balance", {});
+
+    expect(result.filename).toMatch(/^trial-balance-\d{4}-\d{2}-\d{2}\.pdf$/);
+    expect(result.buffer.subarray(0, 4).toString()).toBe("%PDF");
+    expect(generatedDocuments.archivePdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: "org-1",
+        documentType: DocumentType.REPORT_TRIAL_BALANCE,
+        sourceType: "AccountingReport",
+        generatedById: "user-1",
+      }),
     );
   });
 });

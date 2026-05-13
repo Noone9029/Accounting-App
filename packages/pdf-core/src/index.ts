@@ -506,6 +506,163 @@ export interface CustomerStatementPdfData {
   generatedAt: string | Date;
 }
 
+export interface ReportPdfAccountBalance {
+  accountId: string;
+  code: string;
+  name: string;
+  type: string;
+  openingDebit: string;
+  openingCredit: string;
+  periodDebit: string;
+  periodCredit: string;
+  closingDebit: string;
+  closingCredit: string;
+}
+
+export interface GeneralLedgerReportPdfData {
+  organization: PdfOrganization;
+  currency: string;
+  from: string | null;
+  to: string | null;
+  accounts: Array<
+    ReportPdfAccountBalance & {
+      lines: Array<{
+        date: string | Date;
+        entryNumber: string;
+        description: string;
+        reference?: string | null;
+        debit: string;
+        credit: string;
+        runningBalance: string;
+      }>;
+    }
+  >;
+  generatedAt: string | Date;
+}
+
+export interface TrialBalanceReportPdfData {
+  organization: PdfOrganization;
+  currency: string;
+  from: string | null;
+  to: string | null;
+  accounts: ReportPdfAccountBalance[];
+  totals: Omit<ReportPdfAccountBalance, "accountId" | "code" | "name" | "type"> & { balanced: boolean };
+  generatedAt: string | Date;
+}
+
+export interface ProfitAndLossReportPdfData {
+  organization: PdfOrganization;
+  currency: string;
+  from: string | null;
+  to: string | null;
+  revenue: string;
+  costOfSales: string;
+  grossProfit: string;
+  expenses: string;
+  netProfit: string;
+  sections: Array<{
+    type: string;
+    total: string;
+    accounts: Array<{ accountId: string; code: string; name: string; amount: string }>;
+  }>;
+  generatedAt: string | Date;
+}
+
+export interface BalanceSheetReportPdfData {
+  organization: PdfOrganization;
+  currency: string;
+  asOf: string | null;
+  assets: ReportAmountSectionPdfData;
+  liabilities: ReportAmountSectionPdfData;
+  equity: ReportAmountSectionPdfData;
+  retainedEarnings: string;
+  totalAssets: string;
+  totalLiabilitiesAndEquity: string;
+  difference: string;
+  balanced: boolean;
+  generatedAt: string | Date;
+}
+
+export interface ReportAmountSectionPdfData {
+  total: string;
+  accounts: Array<{ accountId: string; code: string; name: string; amount: string }>;
+}
+
+export interface VatSummaryReportPdfData {
+  organization: PdfOrganization;
+  currency: string;
+  from: string | null;
+  to: string | null;
+  salesVat: string;
+  purchaseVat: string;
+  netVatPayable: string;
+  sections: Array<{ category: string; accountCode: string; amount: string; taxAmount: string }>;
+  notes: string[];
+  generatedAt: string | Date;
+}
+
+export interface AgingReportPdfData {
+  organization: PdfOrganization;
+  currency: string;
+  title: string;
+  asOf: string | null;
+  kind: string;
+  rows: Array<{
+    contact: { name: string; displayName?: string | null };
+    number: string;
+    issueDate: string | Date;
+    dueDate?: string | Date | null;
+    total: string;
+    balanceDue: string;
+    daysOverdue: number;
+    bucket: string;
+  }>;
+  bucketTotals: Record<string, string>;
+  grandTotal: string;
+  generatedAt: string | Date;
+}
+
+export interface BankReconciliationReportPdfData {
+  organization: PdfOrganization;
+  currency: string;
+  reconciliation: {
+    id: string;
+    reconciliationNumber: string;
+    status: string;
+    periodStart: string | Date;
+    periodEnd: string | Date;
+    statementOpeningBalance?: string | null;
+    statementClosingBalance: string;
+    ledgerClosingBalance: string;
+    difference: string;
+    closedAt?: string | Date | null;
+    closedBy?: { name?: string | null; email?: string | null } | null;
+    voidedAt?: string | Date | null;
+    voidedBy?: { name?: string | null; email?: string | null } | null;
+  };
+  bankAccount: {
+    displayName: string;
+    account?: { code: string; name: string } | null;
+  };
+  items: Array<{
+    transactionDate: string | Date;
+    description: string;
+    reference?: string | null;
+    type: string;
+    amount: string;
+    statusAtClose: string;
+  }>;
+  summary: {
+    itemCount: number;
+    debitTotal: string;
+    creditTotal: string;
+    matchedCount: number;
+    categorizedCount: number;
+    ignoredCount: number;
+  };
+  generatedAt: string | Date;
+}
+
 export interface DocumentRenderSettings {
   title?: string;
   footerText?: string;
@@ -1278,6 +1435,349 @@ export async function renderCustomerStatementPdf(data: CustomerStatementPdfData,
       );
     }
   }, renderSettings);
+}
+
+export async function renderGeneralLedgerReportPdf(data: GeneralLedgerReportPdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
+  const renderSettings = resolveSettings(settings, "General Ledger");
+  return renderPdf((doc) => {
+    writeHeader(doc, data.organization, renderSettings, data.generatedAt);
+    writeReportMeta(doc, data.currency, [["Period from", data.from ?? "-"], ["Period to", data.to ?? "-"]], data.generatedAt, renderSettings);
+
+    if (data.accounts.length === 0) {
+      writeMuted(doc, "No posted journal activity found for this period.");
+      return;
+    }
+
+    for (const account of data.accounts) {
+      writeSectionTitle(doc, `${account.code} ${account.name}`, renderSettings);
+      drawTable(
+        doc,
+        [
+          { label: "Opening Dr", width: 78, align: "right" },
+          { label: "Opening Cr", width: 78, align: "right" },
+          { label: "Period Dr", width: 78, align: "right" },
+          { label: "Period Cr", width: 78, align: "right" },
+          { label: "Closing Dr", width: 78, align: "right" },
+          { label: "Closing Cr", width: 78, align: "right" },
+        ],
+        [[
+          money(account.openingDebit, data.currency),
+          money(account.openingCredit, data.currency),
+          money(account.periodDebit, data.currency),
+          money(account.periodCredit, data.currency),
+          money(account.closingDebit, data.currency),
+          money(account.closingCredit, data.currency),
+        ]],
+        renderSettings,
+      );
+
+      if (account.lines.length === 0) {
+        writeMuted(doc, "No period lines.");
+      } else {
+        drawTable(
+          doc,
+          [
+            { label: "Date", width: 52 },
+            { label: "Entry", width: 70 },
+            { label: "Description", width: 126 },
+            { label: "Debit", width: 72, align: "right" },
+            { label: "Credit", width: 72, align: "right" },
+            { label: "Balance", width: 76, align: "right" },
+          ],
+          account.lines.map((line) => [
+            formatDate(line.date),
+            line.entryNumber,
+            withOptionalSuffix(line.description, line.reference ? `Ref: ${line.reference}` : null),
+            money(line.debit, data.currency),
+            money(line.credit, data.currency),
+            money(line.runningBalance, data.currency),
+          ]),
+          renderSettings,
+        );
+      }
+    }
+  }, renderSettings);
+}
+
+export async function renderTrialBalanceReportPdf(data: TrialBalanceReportPdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
+  const renderSettings = resolveSettings(settings, "Trial Balance");
+  return renderPdf((doc) => {
+    writeHeader(doc, data.organization, renderSettings, data.generatedAt);
+    writeReportMeta(doc, data.currency, [["Period from", data.from ?? "-"], ["Period to", data.to ?? "-"], ["Status", data.totals.balanced ? "Balanced" : "Out of balance"]], data.generatedAt, renderSettings);
+    drawAccountBalanceTable(doc, data.accounts, data.totals, data.currency, renderSettings);
+  }, renderSettings);
+}
+
+export async function renderProfitAndLossReportPdf(data: ProfitAndLossReportPdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
+  const renderSettings = resolveSettings(settings, "Profit & Loss");
+  return renderPdf((doc) => {
+    writeHeader(doc, data.organization, renderSettings, data.generatedAt);
+    writeReportMeta(doc, data.currency, [["Period from", data.from ?? "-"], ["Period to", data.to ?? "-"]], data.generatedAt, renderSettings);
+    writeTotals(doc, data.currency, [
+      ["Revenue", data.revenue],
+      ["Cost of sales", data.costOfSales],
+      ["Gross profit", data.grossProfit],
+      ["Expenses", data.expenses],
+      ["Total", data.netProfit],
+    ], renderSettings);
+    for (const section of data.sections) {
+      writeAmountSection(doc, section.type.replaceAll("_", " "), section.accounts, section.total, data.currency, renderSettings);
+    }
+  }, renderSettings);
+}
+
+export async function renderBalanceSheetReportPdf(data: BalanceSheetReportPdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
+  const renderSettings = resolveSettings(settings, "Balance Sheet");
+  return renderPdf((doc) => {
+    writeHeader(doc, data.organization, renderSettings, data.generatedAt);
+    writeReportMeta(doc, data.currency, [["As of", data.asOf ?? "-"], ["Status", data.balanced ? "Balanced" : "Out of balance"]], data.generatedAt, renderSettings);
+    writeAmountSection(doc, "Assets", data.assets.accounts, data.assets.total, data.currency, renderSettings);
+    writeAmountSection(doc, "Liabilities", data.liabilities.accounts, data.liabilities.total, data.currency, renderSettings);
+    writeAmountSection(doc, "Equity", data.equity.accounts, data.equity.total, data.currency, renderSettings);
+    writeTotals(doc, data.currency, [
+      ["Retained earnings", data.retainedEarnings],
+      ["Total assets", data.totalAssets],
+      ["Total liabilities and equity", data.totalLiabilitiesAndEquity],
+      ["Difference", data.difference],
+    ], renderSettings);
+  }, renderSettings);
+}
+
+export async function renderVatSummaryReportPdf(data: VatSummaryReportPdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
+  const renderSettings = resolveSettings(settings, "VAT Summary");
+  return renderPdf((doc) => {
+    writeHeader(doc, data.organization, renderSettings, data.generatedAt);
+    writeReportMeta(doc, data.currency, [["Period from", data.from ?? "-"], ["Period to", data.to ?? "-"]], data.generatedAt, renderSettings);
+    writeMuted(doc, "VAT Summary is not an official VAT return filing.");
+    writeTotals(doc, data.currency, [
+      ["Sales VAT", data.salesVat],
+      ["Purchase VAT", data.purchaseVat],
+      ["Net VAT payable", data.netVatPayable],
+    ], renderSettings);
+    drawTable(
+      doc,
+      [
+        { label: "Category", width: 180 },
+        { label: "Account", width: 86 },
+        { label: "Amount", width: 100, align: "right" },
+        { label: "Tax amount", width: 100, align: "right" },
+      ],
+      data.sections.map((section) => [
+        section.category.replaceAll("_", " "),
+        section.accountCode,
+        money(section.amount, data.currency),
+        money(section.taxAmount, data.currency),
+      ]),
+      renderSettings,
+    );
+    data.notes.filter((note) => note !== "VAT Summary is not an official VAT return filing.").forEach((note) => writeMuted(doc, note));
+  }, renderSettings);
+}
+
+export async function renderAgingReportPdf(data: AgingReportPdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
+  const renderSettings = resolveSettings(settings, data.title);
+  return renderPdf((doc) => {
+    writeHeader(doc, data.organization, renderSettings, data.generatedAt);
+    writeReportMeta(doc, data.currency, [["As of", data.asOf ?? "-"], ["Report type", data.kind.replaceAll("_", " ")]], data.generatedAt, renderSettings);
+    drawTable(
+      doc,
+      [
+        { label: "Contact", width: 100 },
+        { label: "Number", width: 72 },
+        { label: "Issue", width: 56 },
+        { label: "Due", width: 56 },
+        { label: "Balance", width: 82, align: "right" },
+        { label: "Days", width: 44, align: "right" },
+        { label: "Bucket", width: 58 },
+      ],
+      data.rows.map((row) => [
+        row.contact.displayName ?? row.contact.name,
+        row.number,
+        formatDate(row.issueDate),
+        row.dueDate ? formatDate(row.dueDate) : "-",
+        money(row.balanceDue, data.currency),
+        String(row.daysOverdue),
+        row.bucket.replaceAll("_", "-"),
+      ]),
+      renderSettings,
+    );
+    writeTotals(doc, data.currency, [
+      ...Object.entries(data.bucketTotals).map(([bucket, value]) => [bucket.replaceAll("_", "-"), value] as [string, string]),
+      ["Total", data.grandTotal],
+    ], renderSettings);
+  }, renderSettings);
+}
+
+export async function renderBankReconciliationReportPdf(data: BankReconciliationReportPdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
+  const renderSettings = resolveSettings(settings, "Bank Reconciliation Report");
+  return renderPdf((doc) => {
+    writeHeader(doc, data.organization, renderSettings, data.generatedAt);
+    writeReportMeta(
+      doc,
+      data.currency,
+      [
+        ["Reconciliation", data.reconciliation.reconciliationNumber],
+        ["Bank account", accountLabel(data.bankAccount)],
+        ["Period", `${formatDate(data.reconciliation.periodStart)} to ${formatDate(data.reconciliation.periodEnd)}`],
+        ["Status", data.reconciliation.status],
+        ["Closed", data.reconciliation.closedAt ? `${formatDate(data.reconciliation.closedAt)} by ${actorLabel(data.reconciliation.closedBy)}` : "-"],
+        ["Voided", data.reconciliation.voidedAt ? `${formatDate(data.reconciliation.voidedAt)} by ${actorLabel(data.reconciliation.voidedBy)}` : "-"],
+      ],
+      data.generatedAt,
+      renderSettings,
+    );
+
+    writeTotals(doc, data.currency, [
+      ["Statement opening", data.reconciliation.statementOpeningBalance ?? "0.0000"],
+      ["Statement closing", data.reconciliation.statementClosingBalance],
+      ["Ledger closing", data.reconciliation.ledgerClosingBalance],
+      ["Difference", data.reconciliation.difference],
+    ], renderSettings);
+
+    writeSectionTitle(doc, "Summary", renderSettings);
+    drawTable(
+      doc,
+      [
+        { label: "Items", width: 70, align: "right" },
+        { label: "Debits", width: 98, align: "right" },
+        { label: "Credits", width: 98, align: "right" },
+        { label: "Matched", width: 70, align: "right" },
+        { label: "Categorized", width: 88, align: "right" },
+        { label: "Ignored", width: 70, align: "right" },
+      ],
+      [[
+        String(data.summary.itemCount),
+        money(data.summary.debitTotal, data.currency),
+        money(data.summary.creditTotal, data.currency),
+        String(data.summary.matchedCount),
+        String(data.summary.categorizedCount),
+        String(data.summary.ignoredCount),
+      ]],
+      renderSettings,
+    );
+
+    writeSectionTitle(doc, "Statement Item Snapshot", renderSettings);
+    if (data.items.length === 0) {
+      writeMuted(doc, "No statement rows have been snapshotted for this reconciliation.");
+    } else {
+      drawTable(
+        doc,
+        [
+          { label: "Date", width: 54 },
+          { label: "Description", width: 138 },
+          { label: "Reference", width: 78 },
+          { label: "Type", width: 56 },
+          { label: "Status", width: 76 },
+          { label: "Amount", width: 82, align: "right" },
+        ],
+        data.items.map((item) => [
+          formatDate(item.transactionDate),
+          item.description,
+          item.reference ?? "-",
+          item.type,
+          item.statusAtClose,
+          money(item.amount, data.currency),
+        ]),
+        renderSettings,
+      );
+    }
+  }, renderSettings);
+}
+
+function writeReportMeta(
+  doc: PdfDocument,
+  currency: string,
+  reportRows: Array<[string, string]>,
+  generatedAt: string | Date,
+  settings: ResolvedDocumentRenderSettings,
+): void {
+  writeTwoColumnBlocks(
+    doc,
+    "Report",
+    reportRows.map(([label, value]) => `${label}: ${value}`),
+    "Output",
+    [
+      ["Currency", currency],
+      ["Generated at", formatDateTime(generatedAt)],
+    ],
+    settings,
+  );
+}
+
+function drawAccountBalanceTable(
+  doc: PdfDocument,
+  accounts: ReportPdfAccountBalance[],
+  totals: Omit<ReportPdfAccountBalance, "accountId" | "code" | "name" | "type">,
+  currency: string,
+  settings: ResolvedDocumentRenderSettings,
+): void {
+  drawTable(
+    doc,
+    [
+      { label: "Account", width: 92 },
+      { label: "Type", width: 48 },
+      { label: "Opening Dr", width: 58, align: "right" },
+      { label: "Opening Cr", width: 58, align: "right" },
+      { label: "Period Dr", width: 58, align: "right" },
+      { label: "Period Cr", width: 58, align: "right" },
+      { label: "Closing Dr", width: 58, align: "right" },
+      { label: "Closing Cr", width: 58, align: "right" },
+    ],
+    [
+      ...accounts.map((account) => [
+        `${account.code} ${account.name}`,
+        account.type,
+        money(account.openingDebit, currency),
+        money(account.openingCredit, currency),
+        money(account.periodDebit, currency),
+        money(account.periodCredit, currency),
+        money(account.closingDebit, currency),
+        money(account.closingCredit, currency),
+      ]),
+      [
+        "Totals",
+        "",
+        money(totals.openingDebit, currency),
+        money(totals.openingCredit, currency),
+        money(totals.periodDebit, currency),
+        money(totals.periodCredit, currency),
+        money(totals.closingDebit, currency),
+        money(totals.closingCredit, currency),
+      ],
+    ],
+    settings,
+  );
+}
+
+function writeAmountSection(
+  doc: PdfDocument,
+  title: string,
+  accounts: Array<{ code: string; name: string; amount: string }>,
+  total: string,
+  currency: string,
+  settings: ResolvedDocumentRenderSettings,
+): void {
+  writeSectionTitle(doc, title, settings);
+  drawTable(
+    doc,
+    [
+      { label: "Account", width: 330 },
+      { label: "Amount", width: 140, align: "right" },
+    ],
+    [
+      ...accounts.map((account) => [`${account.code} ${account.name}`, money(account.amount, currency)]),
+      [`Total ${title.toLowerCase()}`, money(total, currency)],
+    ],
+    settings,
+  );
+}
+
+function accountLabel(value: BankReconciliationReportPdfData["bankAccount"]): string {
+  return value.account ? `${value.displayName} (${value.account.code} ${value.account.name})` : value.displayName;
+}
+
+function actorLabel(value: { name?: string | null; email?: string | null } | null | undefined): string {
+  return value?.name ?? value?.email ?? "-";
 }
 
 function renderPdf(build: (doc: PdfDocument) => void, settings: ResolvedDocumentRenderSettings): Promise<Buffer> {
