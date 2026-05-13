@@ -46,6 +46,8 @@ export default function BankAccountDetailPage() {
   const canManage = can(PERMISSIONS.bankAccounts.manage);
   const canViewTransactions = can(PERMISSIONS.bankAccounts.transactionsView);
   const canPostOpening = can(PERMISSIONS.bankAccounts.openingBalancePost);
+  const canViewStatements = can(PERMISSIONS.bankStatements.view);
+  const canImportStatements = can(PERMISSIONS.bankStatements.import);
   const transactionPath = useMemo(() => {
     const query = new URLSearchParams();
     if (from) {
@@ -213,6 +215,21 @@ export default function BankAccountDetailPage() {
               <Link href={`/reports/general-ledger?accountId=${profile.accountId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
                 General ledger
               </Link>
+              {canImportStatements ? (
+                <Link href={`/bank-accounts/${profile.id}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                  Import statement
+                </Link>
+              ) : null}
+              {canViewStatements ? (
+                <>
+                  <Link href={`/bank-accounts/${profile.id}/statement-transactions`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    Statement transactions
+                  </Link>
+                  <Link href={`/bank-accounts/${profile.id}/reconciliation`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    Reconciliation
+                  </Link>
+                </>
+              ) : null}
               {canPostOpening && canPostOpeningBalance(profile) ? (
                 <button type="button" disabled={postingOpeningBalance} onClick={() => void postOpeningBalance()} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
                   {postingOpeningBalance ? "Posting..." : "Post opening balance"}

@@ -92,7 +92,29 @@ This document maps implemented accounting workflows to their journal entries, ba
   - Opening balance posting requires an active profile, non-zero amount, opening-balance date, and no existing opening-balance journal.
   - Opening balance amount/date cannot be changed after the opening balance has been posted.
 - Gaps/risks:
-  - No bank statement import, reconciliation, live feeds, external banking API, payment gateway, transfer fee, or multi-currency FX workflow exists yet.
+  - No live feeds, external banking API, payment gateway, transfer fee, or multi-currency FX workflow exists yet.
+
+## Bank Statement Import And Reconciliation
+
+- API/UI: statement imports and reconciliation are accessed from bank account detail pages through `/bank-accounts/:id/statement-imports`, `/bank-accounts/:id/statement-transactions`, `/bank-statement-transactions/:id`, and `/bank-accounts/:id/reconciliation`.
+- Models: `BankStatementImport` stores the local import batch; `BankStatementTransaction` stores imported rows and reconciliation links.
+- Import behavior:
+  - JSON/CSV-row imports require an active bank account profile.
+  - Importing rows creates statement records only; it does not create journal entries.
+  - Statement `CREDIT` rows increase bank balance and statement `DEBIT` rows decrease bank balance.
+- Match behavior:
+  - Candidate lookup searches posted journal lines for the linked bank account within a seven-day date window.
+  - Statement credits match bank-account debit lines; statement debits match bank-account credit lines.
+  - Manual matching marks the statement row `MATCHED` and links the journal line without posting anything.
+- Categorization behavior:
+  - Categorizing an unmatched row creates a posted journal dated to the statement transaction date.
+  - Credit rows post Dr bank / Cr selected account.
+  - Debit rows post Dr selected account / Cr bank.
+  - Fiscal period locks are enforced before posting.
+- Summary behavior:
+  - Reconciliation summary reports statement totals, matched/categorized/ignored/unmatched counts, ledger balance, latest statement closing balance, difference, and a status suggestion.
+- Gaps/risks:
+  - No file upload storage, OFX/CAMT parser, automatic matching, reconciliation close/lock, bank feeds, or accountant approval workflow exists yet.
 
 ## Sales Workflows
 

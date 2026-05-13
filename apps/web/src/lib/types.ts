@@ -21,6 +21,19 @@ export type SupplierRefundSourceType = "SUPPLIER_PAYMENT" | "PURCHASE_DEBIT_NOTE
 export type BankAccountType = "BANK" | "CASH" | "WALLET" | "CARD" | "OTHER";
 export type BankAccountStatus = "ACTIVE" | "ARCHIVED";
 export type BankTransferStatus = "POSTED" | "VOIDED";
+export type BankStatementImportStatus = "IMPORTED" | "PARTIALLY_RECONCILED" | "RECONCILED" | "VOIDED";
+export type BankStatementTransactionStatus = "UNMATCHED" | "MATCHED" | "CATEGORIZED" | "IGNORED" | "VOIDED";
+export type BankStatementTransactionType = "DEBIT" | "CREDIT";
+export type BankStatementMatchType =
+  | "JOURNAL_LINE"
+  | "MANUAL_JOURNAL"
+  | "CASH_EXPENSE"
+  | "CUSTOMER_PAYMENT"
+  | "SUPPLIER_PAYMENT"
+  | "CUSTOMER_REFUND"
+  | "SUPPLIER_REFUND"
+  | "BANK_TRANSFER"
+  | "OTHER";
 export type CustomerLedgerRowType =
   | "INVOICE"
   | "CREDIT_NOTE"
@@ -220,6 +233,87 @@ export interface BankTransfer {
   toAccount?: Pick<Account, "id" | "code" | "name" | "type">;
   journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit?: string; totalCredit?: string } | null;
   voidReversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
+}
+
+export interface BankStatementImport {
+  id: string;
+  organizationId: string;
+  bankAccountProfileId: string;
+  importedById: string | null;
+  filename: string;
+  sourceType: string;
+  status: BankStatementImportStatus;
+  statementStartDate: string | null;
+  statementEndDate: string | null;
+  openingStatementBalance: string | null;
+  closingStatementBalance: string | null;
+  rowCount: number;
+  importedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  bankAccountProfile?: Pick<BankAccountProfile, "id" | "displayName" | "accountId" | "currency" | "status" | "account">;
+  importedBy?: { id: string; name: string; email: string } | null;
+  _count?: { transactions: number };
+  transactions?: BankStatementTransaction[];
+}
+
+export interface BankStatementTransaction {
+  id: string;
+  organizationId: string;
+  importId: string;
+  bankAccountProfileId: string;
+  transactionDate: string;
+  description: string;
+  reference: string | null;
+  type: BankStatementTransactionType;
+  amount: string;
+  status: BankStatementTransactionStatus;
+  matchedJournalLineId: string | null;
+  matchedJournalEntryId: string | null;
+  matchType: BankStatementMatchType | null;
+  categorizedAccountId: string | null;
+  createdJournalEntryId: string | null;
+  ignoredReason: string | null;
+  rawData?: unknown;
+  createdAt: string;
+  updatedAt: string;
+  import?: Pick<BankStatementImport, "id" | "filename" | "status" | "importedAt">;
+  bankAccountProfile?: Pick<BankAccountProfile, "id" | "displayName" | "accountId" | "currency" | "account">;
+  matchedJournalLine?: {
+    id: string;
+    debit: string;
+    credit: string;
+    description: string | null;
+    journalEntry: Pick<JournalEntry, "id" | "entryNumber" | "entryDate" | "description" | "reference">;
+  } | null;
+  matchedJournalEntry?: Pick<JournalEntry, "id" | "entryNumber" | "entryDate" | "description" | "reference"> | null;
+  categorizedAccount?: Pick<Account, "id" | "code" | "name" | "type"> | null;
+  createdJournalEntry?: Pick<JournalEntry, "id" | "entryNumber" | "entryDate" | "description" | "reference"> | null;
+}
+
+export interface BankStatementMatchCandidate {
+  journalLineId: string;
+  journalEntryId: string;
+  date: string;
+  entryNumber: string;
+  description: string;
+  reference: string | null;
+  debit: string;
+  credit: string;
+  score: number;
+  reason: string;
+}
+
+export interface BankReconciliationSummary {
+  profile: BankAccountProfile;
+  from: string | null;
+  to: string | null;
+  imports: BankStatementImport[];
+  totals: Record<"credits" | "debits" | "unmatched" | "matched" | "categorized" | "ignored", { count: number; total: string }>;
+  ledgerBalance: string;
+  statementClosingBalance: string | null;
+  difference: string | null;
+  statusSuggestion: "RECONCILED" | "NEEDS_REVIEW";
 }
 
 export interface TaxRate {

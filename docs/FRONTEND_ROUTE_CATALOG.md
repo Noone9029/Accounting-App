@@ -9,7 +9,7 @@ Route source: `apps/web/src/app`
 - App routes are wrapped in a permission provider that loads `/auth/me` and the active organization membership.
 - The sidebar filters top-level and child nav items by view permissions.
 - Route protection shows an access-denied panel when a user lacks the page permission.
-- High-risk buttons such as approve, convert, finalize, void, delete, apply/reverse allocation, bank account archive/reactivate, opening-balance posting, bank transfer voiding, fiscal period lock, ZATCA generate/check, and document settings save are hidden unless the active role has the matching permission.
+- High-risk buttons such as approve, convert, finalize, void, delete, apply/reverse allocation, bank account archive/reactivate, opening-balance posting, bank transfer voiding, statement import/match/categorize/ignore, fiscal period lock, ZATCA generate/check, and document settings save are hidden unless the active role has the matching permission.
 - Settings/Admin nav now includes Team Members for `users.view` and Roles & Permissions for `roles.view`.
 
 ## Auth And Setup
@@ -27,10 +27,14 @@ Route source: `apps/web/src/app`
 | --- | --- | --- | --- | --- | --- |
 | `/dashboard` | App dashboard shell. | Current org/user summary. | Navigation. | Partial | Real KPIs and reports missing. |
 | `/accounts` | Chart of accounts. | Accounts. | Create/update/delete accounts. | Implemented | Hierarchical drag/drop and COA templates missing. |
-| `/bank-accounts` | Bank/cash account profile list. | Bank account profiles with linked accounts and ledger summaries. | View detail, create profile, archive/reactivate when allowed. | Implemented | No reconciliation, import, live feed, transfer fee, or FX workflow. |
+| `/bank-accounts` | Bank/cash account profile list. | Bank account profiles with linked accounts and ledger summaries. | View detail, create profile, archive/reactivate when allowed. | Implemented | No live feed, transfer fee, or FX workflow. |
 | `/bank-accounts/new` | Link bank account profile. | Accounts and existing profiles. | Create profile for an unlinked active posting asset account. | Implemented | Cannot create chart account inline. |
-| `/bank-accounts/[id]` | Bank account profile detail. | Profile summary and posted transaction rows when allowed. | Date filters, archive/reactivate, post opening balance when allowed, general-ledger link. | Implemented | No statement matching or attachments. |
+| `/bank-accounts/[id]` | Bank account profile detail. | Profile summary and posted transaction rows when allowed. | Date filters, archive/reactivate, post opening balance when allowed, general-ledger link, statement import/transaction/reconciliation links. | Implemented | No statement attachments or reconciliation close workflow. |
 | `/bank-accounts/[id]/edit` | Edit bank/cash metadata. | Profile, accounts, existing profiles. | Update metadata only; opening balance fields are disabled after posting. | Implemented | Linked account cannot be changed. |
+| `/bank-accounts/[id]/statement-imports` | Local statement import batches. | Bank profile and import batches. | Paste JSON/CSV rows, create import batch, void unmatched imports when allowed. | Implemented | No direct file upload or OFX/CAMT parser. |
+| `/bank-accounts/[id]/statement-transactions` | Statement transaction list. | Imported statement rows with filters. | Filter by status/date and open review page. | Implemented | Bulk matching not present. |
+| `/bank-accounts/[id]/reconciliation` | Reconciliation summary. | Statement totals, ledger balance, latest closing balance, difference, imports. | Date filtering and unmatched-row navigation. | Implemented | No reconciliation close/lock process. |
+| `/bank-statement-transactions/[id]` | Statement transaction review. | Statement row, match candidates, accounts. | Manual match, categorize to journal, or ignore when allowed. | Implemented | No auto-match or split categorization. |
 | `/bank-transfers` | Bank transfer list. | Posted and voided transfers with from/to profiles and journal links. | Navigate/create/view transfers. | Implemented | No transfer fees, recurring transfers, reconciliation, or FX handling. |
 | `/bank-transfers/new` | Create bank transfer. | Active bank account profiles. | Validate and post transfer between different active profiles. | Implemented | No scheduled transfer or fee line. |
 | `/bank-transfers/[id]` | Bank transfer detail. | Transfer, profile/account links, journal links. | Void transfer when allowed. | Implemented | No edit/delete after posting by design. |

@@ -99,6 +99,12 @@ describe("PermissionGuard", () => {
     await expect(guard.canActivate(context)).rejects.toThrow("You do not have permission to perform this action.");
   });
 
+  it("rejects bank statement reconciliation without bankStatements.reconcile", async () => {
+    const { guard, context } = makeGuard([PERMISSIONS.bankStatements.reconcile], [PERMISSIONS.bankStatements.view]);
+
+    await expect(guard.canActivate(context)).rejects.toThrow("You do not have permission to perform this action.");
+  });
+
   it("rejects fiscal locks without fiscalPeriods.lock or fiscalPeriods.manage", async () => {
     const { guard, context } = makeGuard([PERMISSIONS.fiscalPeriods.lock, PERMISSIONS.fiscalPeriods.manage], [
       PERMISSIONS.fiscalPeriods.view,

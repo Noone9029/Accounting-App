@@ -151,6 +151,38 @@ enum BankTransferStatus {
   VOIDED
 }
 
+enum BankStatementImportStatus {
+  IMPORTED
+  PARTIALLY_RECONCILED
+  RECONCILED
+  VOIDED
+}
+
+enum BankStatementTransactionStatus {
+  UNMATCHED
+  MATCHED
+  CATEGORIZED
+  IGNORED
+  VOIDED
+}
+
+enum BankStatementTransactionType {
+  DEBIT
+  CREDIT
+}
+
+enum BankStatementMatchType {
+  JOURNAL_LINE
+  MANUAL_JOURNAL
+  CASH_EXPENSE
+  CUSTOMER_PAYMENT
+  SUPPLIER_PAYMENT
+  CUSTOMER_REFUND
+  SUPPLIER_REFUND
+  BANK_TRANSFER
+  OTHER
+}
+
 enum DocumentType {
   SALES_INVOICE
   CREDIT_NOTE
@@ -262,6 +294,7 @@ model User {
   createdCustomerRefunds  CustomerRefund[]     @relation("CustomerRefundCreatedBy")
   createdSupplierRefunds  SupplierRefund[]     @relation("SupplierRefundCreatedBy")
   createdBankTransfers    BankTransfer[]       @relation("BankTransferCreatedBy")
+  importedBankStatements   BankStatementImport[] @relation("BankStatementImportImportedBy")
   reversedCreditNoteAllocations CreditNoteAllocation[] @relation("CreditNoteAllocationReversedBy")
   reversedPurchaseDebitNoteAllocations PurchaseDebitNoteAllocation[] @relation("PurchaseDebitNoteAllocationReversedBy")
   reversedCustomerPaymentUnappliedAllocations CustomerPaymentUnappliedAllocation[] @relation("CustomerPaymentUnappliedAllocationReversedBy")
@@ -286,6 +319,8 @@ model Organization {
   accounts                   Account[]
   bankAccountProfiles        BankAccountProfile[]
   bankTransfers              BankTransfer[]
+  bankStatementImports       BankStatementImport[]
+  bankStatementTransactions  BankStatementTransaction[]
   taxRates                   TaxRate[]
   items                      Item[]
   salesInvoices              SalesInvoice[]
@@ -610,6 +645,7 @@ model Account {
   bankAccountProfile BankAccountProfile?
   bankTransfersFrom BankTransfer[]      @relation("BankTransferFromAccount")
   bankTransfersTo   BankTransfer[]      @relation("BankTransferToAccount")
+  categorizedBankStatementTransactions BankStatementTransaction[] @relation("BankStatementTransactionCategorizedAccount")
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -639,6 +675,8 @@ model BankAccountProfile {
   openingBalanceJournalEntry JournalEntry? @relation("BankAccountOpeningBalanceJournal", fields: [openingBalanceJournalEntryId], references: [id])
   outgoingTransfers   BankTransfer[]    @relation("BankTransferFromProfile")
   incomingTransfers   BankTransfer[]    @relation("BankTransferToProfile")
+  statementImports    BankStatementImport[]
+  statementTransactions BankStatementTransaction[]
 
   @@index([organizationId])
   @@index([organizationId, status])
@@ -679,6 +717,71 @@ model BankTransfer {
   @@index([organizationId, status])
   @@index([fromBankAccountProfileId])
   @@index([toBankAccountProfileId])
+}
+
+model BankStatementImport {
+  id                      String                    @id @default(uuid()) @db.Uuid
+  organizationId          String                    @db.Uuid
+  bankAccountProfileId    String                    @db.Uuid
+  importedById            String?                   @db.Uuid
+  filename                String
+  sourceType              String                    @default("CSV")
+  status                  BankStatementImportStatus @default(IMPORTED)
+  statementStartDate      DateTime?
+  statementEndDate        DateTime?
+  openingStatementBalance Decimal?                  @db.Decimal(20, 4)
+  closingStatementBalance Decimal?                  @db.Decimal(20, 4)
+  rowCount                Int
+  importedAt              DateTime                  @default(now())
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  organization            Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankAccountProfile      BankAccountProfile        @relation(fields: [bankAccountProfileId], references: [id])
+  importedBy              User?                     @relation("BankStatementImportImportedBy", fields: [importedById], references: [id], onDelete: SetNull)
+  transactions            BankStatementTransaction[]
+
+  @@index([organizationId])
+  @@index([bankAccountProfileId])
+  @@index([organizationId, status])
+  @@index([organizationId, importedAt])
+}
+
+model BankStatementTransaction {
+  id                    String                         @id @default(uuid()) @db.Uuid
+  organizationId        String                         @db.Uuid
+  importId              String                         @db.Uuid
+  bankAccountProfileId  String                         @db.Uuid
+  transactionDate       DateTime
+  description           String
+  reference             String?
+  type                  BankStatementTransactionType
+  amount                Decimal                        @db.Decimal(20, 4)
+  status                BankStatementTransactionStatus @default(UNMATCHED)
+  matchedJournalLineId  String?                        @db.Uuid
+  matchedJournalEntryId String?                        @db.Uuid
+  matchType             BankStatementMatchType?
+  categorizedAccountId  String?                        @db.Uuid
+  createdJournalEntryId String?                        @db.Uuid
+  ignoredReason         String?
+  rawData               Json?
+  createdAt             DateTime                       @default(now())
+  updatedAt             DateTime                       @updatedAt
+  organization          Organization                   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  import                BankStatementImport            @relation(fields: [importId], references: [id], onDelete: Cascade)
+  bankAccountProfile    BankAccountProfile             @relation(fields: [bankAccountProfileId], references: [id])
+  matchedJournalLine    JournalLine?                   @relation("BankStatementTransactionMatchedJournalLine", fields: [matchedJournalLineId], references: [id], onDelete: SetNull)
+  matchedJournalEntry   JournalEntry?                  @relation("BankStatementTransactionMatchedJournalEntry", fields: [matchedJournalEntryId], references: [id], onDelete: SetNull)
+  categorizedAccount    Account?                       @relation("BankStatementTransactionCategorizedAccount", fields: [categorizedAccountId], references: [id], onDelete: SetNull)
+  createdJournalEntry   JournalEntry?                  @relation("BankStatementTransactionCreatedJournalEntry", fields: [createdJournalEntryId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([importId])
+  @@index([bankAccountProfileId])
+  @@index([organizationId, status])
+  @@index([organizationId, transactionDate])
+  @@index([matchedJournalLineId])
+  @@index([matchedJournalEntryId])
+  @@index([createdJournalEntryId])
 }
 
 model TaxRate {
@@ -1500,6 +1603,8 @@ model JournalEntry {
   bankTransfer          BankTransfer?      @relation("BankTransferJournal")
   voidedBankTransfer    BankTransfer?      @relation("BankTransferVoidReversalJournal")
   bankAccountOpeningProfile BankAccountProfile? @relation("BankAccountOpeningBalanceJournal")
+  matchedBankStatementTransactions BankStatementTransaction[] @relation("BankStatementTransactionMatchedJournalEntry")
+  createdBankStatementTransactions BankStatementTransaction[] @relation("BankStatementTransactionCreatedJournalEntry")
   lines                 JournalLine[]
 
   @@unique([organizationId, entryNumber])
@@ -1524,6 +1629,7 @@ model JournalLine {
   journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
   account        Account      @relation(fields: [accountId], references: [id])
   taxRate        TaxRate?     @relation(fields: [taxRateId], references: [id])
+  matchedBankStatementTransactions BankStatementTransaction[] @relation("BankStatementTransactionMatchedJournalLine")
 
   @@index([organizationId])
   @@index([journalEntryId])

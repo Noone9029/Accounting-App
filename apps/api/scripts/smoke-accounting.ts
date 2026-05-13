@@ -104,6 +104,45 @@ interface BankTransfer {
   voidReversalJournalEntryId: string | null;
 }
 
+interface BankStatementImport {
+  id: string;
+  filename: string;
+  status: string;
+  rowCount: number;
+  closingStatementBalance?: string | null;
+}
+
+interface BankStatementTransaction {
+  id: string;
+  importId: string;
+  status: string;
+  type: "DEBIT" | "CREDIT";
+  amount: string;
+  reference?: string | null;
+  matchedJournalLineId?: string | null;
+  matchedJournalEntryId?: string | null;
+  createdJournalEntryId?: string | null;
+  matchType?: string | null;
+}
+
+interface BankStatementMatchCandidate {
+  journalLineId: string;
+  journalEntryId: string;
+  entryNumber: string;
+  reference?: string | null;
+  debit: string;
+  credit: string;
+  score: number;
+}
+
+interface BankReconciliationSummary {
+  ledgerBalance: string;
+  statementClosingBalance: string | null;
+  difference: string | null;
+  statusSuggestion: "RECONCILED" | "NEEDS_REVIEW";
+  totals: Record<"credits" | "debits" | "unmatched" | "matched" | "categorized" | "ignored", { count: number; total: string }>;
+}
+
 interface FiscalPeriod {
   id: string;
   name: string;
@@ -578,6 +617,44 @@ async function main(): Promise<void> {
     ),
     "bank transactions include bank transfer credit",
   );
+  const transferStatementImport = await post<BankStatementImport>(`/bank-accounts/${defaultBankProfile.id}/statement-imports`, headers, {
+    filename: `smoke-bank-transfer-${runId}.csv`,
+    rows: [
+      {
+        date: new Date().toISOString().slice(0, 10),
+        description: "Smoke bank transfer statement debit",
+        reference: bankTransfer.transferNumber,
+        debit: bankTransferAmount.toFixed(4),
+        credit: "0.0000",
+      },
+    ],
+    openingStatementBalance: bankBeforeTransfer.ledgerBalance,
+    closingStatementBalance: money(bankBeforeTransfer.ledgerBalance).minus(bankTransferAmount).toFixed(4),
+  });
+  assertEqual(transferStatementImport.rowCount, 1, "bank statement transfer import row count");
+  const unmatchedTransferStatementRows = await get<BankStatementTransaction[]>(
+    `/bank-accounts/${defaultBankProfile.id}/statement-transactions?status=UNMATCHED`,
+    headers,
+  );
+  const transferStatementRow = required(
+    unmatchedTransferStatementRows.find((transaction) => transaction.importId === transferStatementImport.id),
+    "imported bank transfer statement row",
+  );
+  const transferMatchCandidates = await get<BankStatementMatchCandidate[]>(
+    `/bank-statement-transactions/${transferStatementRow.id}/match-candidates`,
+    headers,
+  );
+  const transferMatchCandidate = required(
+    transferMatchCandidates.find((candidate) => candidate.reference === bankTransfer.transferNumber && money(candidate.credit).eq(bankTransferAmount)),
+    "bank statement transfer match candidate",
+  );
+  const matchedTransferStatementRow = await post<BankStatementTransaction>(
+    `/bank-statement-transactions/${transferStatementRow.id}/match`,
+    headers,
+    { journalLineId: transferMatchCandidate.journalLineId },
+  );
+  assertEqual(matchedTransferStatementRow.status, "MATCHED", "bank statement transfer row matched");
+  assertEqual(matchedTransferStatementRow.matchType, "JOURNAL_LINE", "bank statement transfer match type");
   const voidedBankTransfer = await post<BankTransfer>(`/bank-transfers/${bankTransfer.id}/void`, headers, {});
   assertEqual(voidedBankTransfer.status, "VOIDED", "voided bank transfer status");
   assertPresent(voidedBankTransfer.voidReversalJournalEntryId, "voided bank transfer reversal journal");
@@ -604,6 +681,52 @@ async function main(): Promise<void> {
     ),
     "bank transactions include bank transfer void reversal debit",
   );
+
+  const statementCategoryAmount = money("3.2100");
+  const categoryStatementImport = await post<BankStatementImport>(`/bank-accounts/${defaultBankProfile.id}/statement-imports`, headers, {
+    filename: `smoke-bank-fee-${runId}.csv`,
+    rows: [
+      {
+        date: new Date().toISOString().slice(0, 10),
+        description: "Smoke bank statement fee",
+        reference: `SMOKE-FEE-${runId}`,
+        debit: statementCategoryAmount.toFixed(4),
+        credit: "0.0000",
+      },
+    ],
+    openingStatementBalance: bankAfterTransferVoid.ledgerBalance,
+    closingStatementBalance: money(bankAfterTransferVoid.ledgerBalance).minus(statementCategoryAmount).toFixed(4),
+  });
+  const unmatchedCategoryRows = await get<BankStatementTransaction[]>(
+    `/bank-accounts/${defaultBankProfile.id}/statement-transactions?status=UNMATCHED`,
+    headers,
+  );
+  const categoryStatementRow = required(
+    unmatchedCategoryRows.find((transaction) => transaction.importId === categoryStatementImport.id),
+    "unmatched bank statement fee row",
+  );
+  const categorizedStatementRow = await post<BankStatementTransaction>(
+    `/bank-statement-transactions/${categoryStatementRow.id}/categorize`,
+    headers,
+    { accountId: expenseAccount.id, description: "Smoke bank statement expense categorization" },
+  );
+  assertEqual(categorizedStatementRow.status, "CATEGORIZED", "bank statement row categorized");
+  assertEqual(categorizedStatementRow.matchType, "MANUAL_JOURNAL", "bank statement categorization match type");
+  assertPresent(categorizedStatementRow.createdJournalEntryId, "bank statement categorization journalEntryId");
+  const bankAfterStatementCategorization = await get<BankAccountSummary>(`/bank-accounts/${defaultBankProfile.id}`, headers);
+  assertMoney(
+    bankAfterStatementCategorization.ledgerBalance,
+    money(bankAfterTransferVoid.ledgerBalance).minus(statementCategoryAmount),
+    "bank profile balance after statement categorization",
+  );
+  const reconciliationSummary = await get<BankReconciliationSummary>(
+    `/bank-accounts/${defaultBankProfile.id}/reconciliation-summary`,
+    headers,
+  );
+  assert(reconciliationSummary.totals.matched.count >= 1, "bank reconciliation summary includes matched statement row");
+  assert(reconciliationSummary.totals.categorized.count >= 1, "bank reconciliation summary includes categorized statement row");
+  assertPresent(reconciliationSummary.ledgerBalance, "bank reconciliation summary ledger balance");
+  assertPresent(reconciliationSummary.difference, "bank reconciliation summary difference");
 
   const openingBalanceAmount = money("23.0000");
   const openingAccount = await post<Account>("/accounts", headers, {
@@ -2140,6 +2263,10 @@ async function main(): Promise<void> {
         bankTransferNumber: bankTransfer.transferNumber,
         bankOpeningProfileId: openingProfile.id,
         bankOpeningJournalEntryId: postedOpeningProfile.openingBalanceJournalEntryId,
+        bankStatementTransferImportId: transferStatementImport.id,
+        bankStatementMatchedTransactionId: matchedTransferStatementRow.id,
+        bankStatementCategorizedTransactionId: categorizedStatementRow.id,
+        bankReconciliationStatusSuggestion: reconciliationSummary.statusSuggestion,
         closedFiscalPeriodId: closedFiscalPeriod.id,
         fiscalPeriodLockChecked: true,
         customerId: customer.id,

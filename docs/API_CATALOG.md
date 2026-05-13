@@ -111,6 +111,22 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | GET | `/bank-transfers/:id` | Transfer detail | Yes | Yes | Implemented | Requires `bankTransfers.view`; tenant scoped. |
 | POST | `/bank-transfers/:id/void` | Void transfer | Yes | Yes | Implemented | Requires `bankTransfers.void`; creates or reuses one reversal journal and does not double-reverse repeated requests. |
 
+## Bank Statement Import And Reconciliation
+
+| Method | Path | Purpose | Auth | Org header | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| GET | `/bank-accounts/:id/statement-imports` | List statement import batches for a bank profile | Yes | Yes | Implemented | Requires `bankStatements.view`; tenant scoped. |
+| POST | `/bank-accounts/:id/statement-imports` | Import local statement rows | Yes | Yes | Implemented | Requires `bankStatements.import`; accepts JSON rows with debit/credit columns and creates no journals. |
+| GET | `/bank-statement-imports/:id` | Import batch detail | Yes | Yes | Implemented | Requires `bankStatements.view`; includes imported statement transactions. |
+| POST | `/bank-statement-imports/:id/void` | Void an import batch | Yes | Yes | Implemented | Requires `bankStatements.manage`; rejected after rows are matched or categorized. |
+| GET | `/bank-accounts/:id/statement-transactions` | List statement rows | Yes | Yes | Implemented | Requires `bankStatements.view`; supports `status`, `from`, and `to` filters. |
+| GET | `/bank-statement-transactions/:id` | Statement row detail | Yes | Yes | Implemented | Requires `bankStatements.view`; tenant scoped. |
+| GET | `/bank-statement-transactions/:id/match-candidates` | Posted bank journal candidates | Yes | Yes | Implemented | Requires `bankStatements.reconcile`; searches same bank account, amount/direction, and seven-day window. |
+| POST | `/bank-statement-transactions/:id/match` | Manually match to existing journal line | Yes | Yes | Implemented | Requires `bankStatements.reconcile`; creates no journal entry. |
+| POST | `/bank-statement-transactions/:id/categorize` | Categorize unmatched row to a posting account | Yes | Yes | Implemented | Requires `bankStatements.reconcile`; creates a posted balanced journal guarded by fiscal periods. |
+| POST | `/bank-statement-transactions/:id/ignore` | Ignore unmatched row | Yes | Yes | Implemented | Requires `bankStatements.reconcile`; creates no journal entry. |
+| GET | `/bank-accounts/:id/reconciliation-summary` | Reconciliation totals and difference | Yes | Yes | Implemented | Requires `bankStatements.view`; returns statement totals, ledger balance, latest closing balance, difference, and status suggestion. |
+
 ## Fiscal Periods
 
 | Method | Path | Purpose | Auth | Org header | Status | Notes |

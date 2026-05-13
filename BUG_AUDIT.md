@@ -37,6 +37,32 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Bank statement import and reconciliation groundwork added
+
+Added `BankStatementImport` and `BankStatementTransaction` records, local JSON/CSV row import APIs, statement row list/detail APIs, match-candidate lookup against posted bank journal lines, manual matching, categorization posting, ignore workflow, reconciliation summary, frontend import/transaction/review/summary pages, permissions, tests, and smoke coverage.
+
+Risk reduced:
+
+- Imported bank statement rows are tenant-scoped and stored separately from ledger postings.
+- Statement imports do not create accounting entries until a user explicitly categorizes an unmatched row.
+- Manual matching validates same organization, same linked bank account, posted journal status, amount, and direction.
+- Categorization creates a balanced posted journal and respects fiscal-period posting locks.
+- Reconciliation summaries expose unmatched, matched, categorized, ignored, debit, credit, ledger balance, statement closing balance, and difference fields.
+
+Remaining risks:
+
+- No file upload storage or robust bank file parser beyond local JSON/CSV paste rows.
+- No OFX, CAMT, MT940, live feeds, external banking API, or payment gateway integration.
+- No automatic/ML matching.
+- No reconciliation close/lock workflow.
+- Accountant review is still needed before production use.
+
+Tests/smoke added:
+
+- Backend bank statement service and controller permission tests.
+- Frontend helper tests for row parsing, status labels, candidate labels, and reconciliation status.
+- Smoke coverage for importing a matching statement row, manual matching, categorizing an unmatched debit, and fetching reconciliation summary.
+
 ### Bank transfers and opening balance safeguards added
 
 Added `BankTransfer` posting workflow, transfer list/create/detail UI, immediate balanced transfer journals, idempotent transfer void reversal, one-time bank opening-balance posting, fiscal-period guards, transaction source labels, permissions, tests, and smoke coverage.

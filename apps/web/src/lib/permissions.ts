@@ -67,6 +67,9 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
   if (pathname === "/bank-accounts/new") {
     return [PERMISSIONS.bankAccounts.manage];
   }
+  if (pathname.includes("/statement-imports") || pathname.includes("/statement-transactions") || pathname.includes("/reconciliation")) {
+    return [PERMISSIONS.bankStatements.view];
+  }
   if (pathname.startsWith("/bank-accounts/") && pathname.endsWith("/edit")) {
     return [PERMISSIONS.bankAccounts.manage];
   }
@@ -79,6 +82,9 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
   }
   if (pathname.startsWith("/bank-transfers")) {
     return [PERMISSIONS.bankTransfers.view];
+  }
+  if (pathname.startsWith("/bank-statement-transactions")) {
+    return [PERMISSIONS.bankStatements.view];
   }
 
   if (pathname === "/sales/invoices/new") {

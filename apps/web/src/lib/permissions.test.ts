@@ -34,6 +34,13 @@ describe("permission helpers", () => {
     expect(getRequiredPermissionsForPathname("/bank-accounts")).toEqual([PERMISSIONS.bankAccounts.view]);
     expect(getRequiredPermissionsForPathname("/bank-accounts/new")).toEqual([PERMISSIONS.bankAccounts.manage]);
     expect(getRequiredPermissionsForPathname("/bank-accounts/profile-1/edit")).toEqual([PERMISSIONS.bankAccounts.manage]);
+    expect(getRequiredPermissionsForPathname("/bank-accounts/profile-1/statement-imports")).toEqual([
+      PERMISSIONS.bankStatements.view,
+    ]);
+    expect(getRequiredPermissionsForPathname("/bank-accounts/profile-1/reconciliation")).toEqual([
+      PERMISSIONS.bankStatements.view,
+    ]);
+    expect(getRequiredPermissionsForPathname("/bank-statement-transactions/row-1")).toEqual([PERMISSIONS.bankStatements.view]);
     expect(getRequiredPermissionsForPathname("/bank-transfers")).toEqual([PERMISSIONS.bankTransfers.view]);
     expect(getRequiredPermissionsForPathname("/bank-transfers/new")).toEqual([PERMISSIONS.bankTransfers.create]);
     expect(getRequiredPermissionsForPathname("/sales/invoices/new")).toEqual([PERMISSIONS.salesInvoices.create]);
