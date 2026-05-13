@@ -95,6 +95,7 @@ export const DEFAULT_NUMBER_SEQUENCES = [
   { scope: NumberSequenceScope.BILL, prefix: "BILL-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.PAYMENT, prefix: "PAY-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.CUSTOMER_REFUND, prefix: "REF-", nextNumber: 1, padding: 6 },
+  { scope: NumberSequenceScope.BANK_TRANSFER, prefix: "TRF-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.CREDIT_NOTE, prefix: "CN-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.DEBIT_NOTE, prefix: "DN-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.PURCHASE_DEBIT_NOTE, prefix: "PDN-", nextNumber: 1, padding: 6 },

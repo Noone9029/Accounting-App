@@ -37,6 +37,32 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Bank transfers and opening balance safeguards added
+
+Added `BankTransfer` posting workflow, transfer list/create/detail UI, immediate balanced transfer journals, idempotent transfer void reversal, one-time bank opening-balance posting, fiscal-period guards, transaction source labels, permissions, tests, and smoke coverage.
+
+Risk reduced:
+
+- Users can now move funds between active bank/cash profiles without using ad hoc manual journals.
+- Transfer voiding is guarded so repeated void requests do not create duplicate reversal journals.
+- Opening balance metadata can be posted once into the ledger and is locked afterward to avoid duplicate opening-balance journals.
+- Bank account transactions now identify transfer, transfer reversal, and opening-balance sources when matched.
+
+Remaining risks:
+
+- No bank statement import.
+- No reconciliation or matching workflow.
+- No live feeds or external banking API.
+- No transfer fees.
+- No multi-currency FX transfers.
+
+Tests/smoke added:
+
+- Backend bank transfer service/controller permission tests.
+- Backend bank account opening-balance posting and transaction source tests.
+- Frontend helper tests for transfer validation/status and opening-balance/source labels.
+- Smoke coverage for create/void transfer, bank/cash transaction visibility, opening-balance posting, and duplicate-post rejection.
+
 ### Bank account profiles added
 
 Added bank/cash account profile groundwork with `BankAccountProfile`, profile lifecycle APIs, default Cash/Bank profile seeding, posted-ledger balance summaries, transaction visibility, frontend list/detail/create/edit pages, role permissions, and bank-aware payment/refund/expense dropdown labels.
@@ -52,8 +78,7 @@ Remaining risks:
 - No bank statement import.
 - No reconciliation or matching workflow.
 - No live feeds or external banking API.
-- No bank transfer workflow.
-- No opening balance journal automation.
+- No transfer fees or multi-currency FX handling.
 
 Tests/smoke added:
 
@@ -779,7 +804,7 @@ Commit inspected: pending (`Add supplier overpayment and refund workflow`)
 ### Remaining Supplier Credit Risks
 
 - No bank reconciliation or bank-feed matching exists for supplier refunds or supplier payments.
-- No bank transfer/payment gateway integration exists; refunds are manual accounting records only.
+- No payment gateway or bank reconciliation integration exists; refunds are manual accounting records only.
 - No automated supplier credit matching or allocation suggestions exist.
 - No purchase order linkage exists.
 - No inventory return or stock movement integration exists.

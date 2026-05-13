@@ -71,4 +71,10 @@ export class BankAccountController {
   reactivate(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
     return this.bankAccountService.reactivate(organizationId, user.id, id);
   }
+
+  @Post(":id/post-opening-balance")
+  @RequirePermissions(PERMISSIONS.bankAccounts.openingBalancePost)
+  postOpeningBalance(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+    return this.bankAccountService.postOpeningBalance(organizationId, user.id, id);
+  }
 }

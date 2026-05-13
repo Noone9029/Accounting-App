@@ -74,6 +74,13 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.bankAccounts.view];
   }
 
+  if (pathname === "/bank-transfers/new") {
+    return [PERMISSIONS.bankTransfers.create];
+  }
+  if (pathname.startsWith("/bank-transfers")) {
+    return [PERMISSIONS.bankTransfers.view];
+  }
+
   if (pathname === "/sales/invoices/new") {
     return [PERMISSIONS.salesInvoices.create];
   }

@@ -8,10 +8,13 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
+  bankTransactionSourceLabel,
   bankAccountStatusLabel,
   bankAccountTypeLabel,
   canArchiveBankAccount,
+  canPostOpeningBalance,
   canReactivateBankAccount,
+  hasPostedOpeningBalance,
 } from "@/lib/bank-accounts";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
@@ -35,12 +38,14 @@ export default function BankAccountDetailPage() {
   const [loading, setLoading] = useState(false);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [actionId, setActionId] = useState("");
+  const [postingOpeningBalance, setPostingOpeningBalance] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const [error, setError] = useState("");
   const [transactionError, setTransactionError] = useState("");
   const [success, setSuccess] = useState("");
   const canManage = can(PERMISSIONS.bankAccounts.manage);
   const canViewTransactions = can(PERMISSIONS.bankAccounts.transactionsView);
+  const canPostOpening = can(PERMISSIONS.bankAccounts.openingBalancePost);
   const transactionPath = useMemo(() => {
     const query = new URLSearchParams();
     if (from) {
@@ -133,6 +138,25 @@ export default function BankAccountDetailPage() {
     }
   }
 
+  async function postOpeningBalance() {
+    if (!profile) {
+      return;
+    }
+    setPostingOpeningBalance(true);
+    setError("");
+    setSuccess("");
+    try {
+      const updated = await apiRequest<BankAccountSummary>(`/bank-accounts/${profile.id}/post-opening-balance`, { method: "POST" });
+      setProfile(updated);
+      setSuccess(`Opening balance for ${updated.displayName} has been posted.`);
+      setReloadToken((current) => current + 1);
+    } catch (postError) {
+      setError(postError instanceof Error ? postError.message : "Unable to post opening balance.");
+    } finally {
+      setPostingOpeningBalance(false);
+    }
+  }
+
   return (
     <section>
       <div className="mb-6 flex items-start justify-between gap-4">
@@ -178,12 +202,25 @@ export default function BankAccountDetailPage() {
               <Detail label="Masked IBAN" value={profile.ibanMasked ?? "-"} />
               <Detail label="Opening balance" value={formatMoneyAmount(profile.openingBalance, profile.currency)} />
               <Detail label="Opening balance date" value={formatOptionalDate(profile.openingBalanceDate, "-")} />
+              <Detail label="Opening posted" value={profile.openingBalancePostedAt ? formatOptionalDate(profile.openingBalancePostedAt, "-") : "-"} />
+              <Detail label="Opening journal" value={profile.openingBalanceJournalEntry?.entryNumber ?? "-"} />
             </div>
             {profile.notes ? <p className="mt-4 text-sm text-steel">{profile.notes}</p> : null}
+            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              Opening balances create posted accounting journals. Once posted, the opening balance amount and date are locked.
+            </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link href={`/reports/general-ledger?accountId=${profile.accountId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
                 General ledger
               </Link>
+              {canPostOpening && canPostOpeningBalance(profile) ? (
+                <button type="button" disabled={postingOpeningBalance} onClick={() => void postOpeningBalance()} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                  {postingOpeningBalance ? "Posting..." : "Post opening balance"}
+                </button>
+              ) : null}
+              {hasPostedOpeningBalance(profile) ? (
+                <span className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">Opening balance posted</span>
+              ) : null}
               {canManage && canArchiveBankAccount(profile.status) ? (
                 <button type="button" disabled={Boolean(actionId)} onClick={() => void changeStatus("archive")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
                   Archive
@@ -244,7 +281,7 @@ export default function BankAccountDetailPage() {
                         <td className="px-4 py-3 font-mono text-xs">{transaction.entryNumber}</td>
                         <td className="px-4 py-3 text-ink">{transaction.description}</td>
                         <td className="px-4 py-3 font-mono text-xs">{transaction.reference ?? "-"}</td>
-                        <td className="px-4 py-3 text-steel">{transaction.sourceType}</td>
+                        <td className="px-4 py-3 text-steel">{bankTransactionSourceLabel(transaction)}</td>
                         <td className="px-4 py-3 text-right font-mono text-xs">{formatMoneyAmount(transaction.debit, profile.currency)}</td>
                         <td className="px-4 py-3 text-right font-mono text-xs">{formatMoneyAmount(transaction.credit, profile.currency)}</td>
                         <td className="px-4 py-3 text-right font-mono text-xs">{formatMoneyAmount(transaction.runningBalance, profile.currency)}</td>

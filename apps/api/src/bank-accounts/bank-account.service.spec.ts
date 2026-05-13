@@ -17,7 +17,9 @@ describe("BankAccountService", () => {
       ...overrides,
     };
     const audit = { log: jest.fn() };
-    return { service: new BankAccountService(prisma as never, audit as never), prisma, audit };
+    const numbers = { next: jest.fn() };
+    const fiscal = { assertPostingDateAllowed: jest.fn() };
+    return { service: new BankAccountService(prisma as never, audit as never, numbers as never, fiscal as never), prisma, audit, numbers, fiscal };
   }
 
   const account = {
@@ -131,7 +133,7 @@ describe("BankAccountService", () => {
         where: expect.objectContaining({
           organizationId: "org-1",
           accountId: "account-1",
-          journalEntry: { status: JournalEntryStatus.POSTED },
+          journalEntry: { status: { in: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] } },
         }),
       }),
     );
@@ -169,20 +171,40 @@ describe("BankAccountService", () => {
           cashExpense: { id: "expense-1" },
         },
       },
+      {
+        id: "line-3",
+        debit: new Prisma.Decimal("0.0000"),
+        credit: new Prisma.Decimal("5.0000"),
+        description: "Transfer out",
+        journalEntry: {
+          id: "journal-3",
+          entryNumber: "JE-000003",
+          entryDate: new Date("2026-05-05"),
+          description: "Bank transfer TRF-000001",
+          reference: "TRF-000001",
+          bankTransfer: { id: "transfer-1", transferNumber: "TRF-000001" },
+        },
+      },
     ]);
 
     await expect(service.transactions("org-1", "profile-1", {})).resolves.toMatchObject({
       openingBalance: "0.0000",
-      closingBalance: "40.0000",
+      closingBalance: "35.0000",
       transactions: [
         expect.objectContaining({ sourceType: "CustomerPayment", sourceId: "payment-1", runningBalance: "50.0000" }),
         expect.objectContaining({ sourceType: "CashExpense", sourceId: "expense-1", runningBalance: "40.0000" }),
+        expect.objectContaining({
+          sourceType: "BANK_TRANSFER",
+          sourceId: "transfer-1",
+          sourceNumber: "TRF-000001",
+          runningBalance: "35.0000",
+        }),
       ],
     });
     expect(prisma.journalLine.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          journalEntry: expect.objectContaining({ status: JournalEntryStatus.POSTED }),
+          journalEntry: expect.objectContaining({ status: { in: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] } }),
         }),
       }),
     );
@@ -217,5 +239,128 @@ describe("BankAccountService", () => {
     expect(prisma.bankAccountProfile.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "profile-1", organizationId: "org-2" } }),
     );
+  });
+
+  it("posts positive opening balances as Dr bank / Cr owner equity", async () => {
+    const openingProfile = {
+      ...profile,
+      openingBalance: new Prisma.Decimal("250.0000"),
+      openingBalanceDate: new Date("2026-05-01T00:00:00.000Z"),
+      openingBalanceJournalEntryId: null,
+      openingBalancePostedAt: null,
+    };
+    const tx = {
+      bankAccountProfile: {
+        findFirst: jest.fn().mockResolvedValue(openingProfile),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({ ...openingProfile, openingBalanceJournalEntryId: "journal-1" }),
+      },
+      account: { findFirst: jest.fn().mockResolvedValue({ id: "equity-1" }) },
+      journalEntry: { create: jest.fn().mockResolvedValue({ id: "journal-1" }) },
+    };
+    const prisma = {
+      bankAccountProfile: { findFirst: jest.fn().mockResolvedValue(openingProfile) },
+      journalLine: { findMany: jest.fn().mockResolvedValue([]) },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const audit = { log: jest.fn() };
+    const numbers = { next: jest.fn().mockResolvedValue("JE-000001") };
+    const fiscal = { assertPostingDateAllowed: jest.fn() };
+    const service = new BankAccountService(prisma as never, audit as never, numbers as never, fiscal as never);
+
+    await expect(service.postOpeningBalance("org-1", "user-1", "profile-1")).resolves.toMatchObject({
+      openingBalanceJournalEntryId: "journal-1",
+    });
+    expect(tx.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          totalDebit: "250.0000",
+          totalCredit: "250.0000",
+          lines: {
+            create: [
+              expect.objectContaining({ account: { connect: { id: "account-1" } }, debit: "250.0000", credit: "0.0000" }),
+              expect.objectContaining({ account: { connect: { id: "equity-1" } }, debit: "0.0000", credit: "250.0000" }),
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
+  it("posts negative opening balances as Dr owner equity / Cr bank", async () => {
+    const openingProfile = {
+      ...profile,
+      openingBalance: new Prisma.Decimal("-75.0000"),
+      openingBalanceDate: new Date("2026-05-01T00:00:00.000Z"),
+      openingBalanceJournalEntryId: null,
+      openingBalancePostedAt: null,
+    };
+    const tx = {
+      bankAccountProfile: {
+        findFirst: jest.fn().mockResolvedValue(openingProfile),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({ ...openingProfile, openingBalanceJournalEntryId: "journal-2" }),
+      },
+      account: { findFirst: jest.fn().mockResolvedValue({ id: "equity-1" }) },
+      journalEntry: { create: jest.fn().mockResolvedValue({ id: "journal-2" }) },
+    };
+    const prisma = {
+      bankAccountProfile: { findFirst: jest.fn().mockResolvedValue(openingProfile) },
+      journalLine: { findMany: jest.fn().mockResolvedValue([]) },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const service = new BankAccountService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn().mockResolvedValue("JE-000002") } as never,
+      { assertPostingDateAllowed: jest.fn() } as never,
+    );
+
+    await service.postOpeningBalance("org-1", "user-1", "profile-1");
+    expect(tx.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          lines: {
+            create: [
+              expect.objectContaining({ account: { connect: { id: "equity-1" } }, debit: "75.0000", credit: "0.0000" }),
+              expect.objectContaining({ account: { connect: { id: "account-1" } }, debit: "0.0000", credit: "75.0000" }),
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
+  it("rejects duplicate opening balance posting and opening edits after posting", async () => {
+    const postedProfile = {
+      ...profile,
+      openingBalance: new Prisma.Decimal("10.0000"),
+      openingBalanceDate: new Date("2026-05-01T00:00:00.000Z"),
+      openingBalanceJournalEntryId: "journal-1",
+      openingBalancePostedAt: new Date("2026-05-02T00:00:00.000Z"),
+    };
+    const tx = { bankAccountProfile: { findFirst: jest.fn().mockResolvedValue(postedProfile) } };
+    const prisma = {
+      bankAccountProfile: {
+        findFirst: jest.fn().mockResolvedValue(postedProfile),
+        update: jest.fn(),
+      },
+      journalLine: { findMany: jest.fn().mockResolvedValue([]) },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const service = new BankAccountService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn() } as never,
+      { assertPostingDateAllowed: jest.fn() } as never,
+    );
+
+    await expect(service.postOpeningBalance("org-1", "user-1", "profile-1")).rejects.toThrow(
+      "Opening balance has already been posted.",
+    );
+    await expect(service.update("org-1", "user-1", "profile-1", { openingBalance: "20.0000" })).rejects.toThrow(
+      "Opening balance cannot be changed after it has been posted.",
+    );
+    expect(prisma.bankAccountProfile.update).not.toHaveBeenCalled();
   });
 });

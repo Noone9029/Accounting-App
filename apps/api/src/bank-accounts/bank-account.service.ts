@@ -1,13 +1,19 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { AccountType, BankAccountStatus, JournalEntryStatus, Prisma } from "@prisma/client";
+import { getJournalTotals, JournalLineInput } from "@ledgerbyte/accounting-core";
+import { AccountType, BankAccountStatus, JournalEntryStatus, NumberSequenceScope, Prisma } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
+import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { BankAccountTransactionsQueryDto } from "./dto/bank-account-transactions-query.dto";
 import { CreateBankAccountProfileDto } from "./dto/create-bank-account-profile.dto";
 import { UpdateBankAccountProfileDto } from "./dto/update-bank-account-profile.dto";
 
+const POSTED_LEDGER_STATUSES = [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED];
+
 const bankAccountInclude = {
   account: { select: { id: true, code: true, name: true, type: true, allowPosting: true, isActive: true } },
+  openingBalanceJournalEntry: { select: { id: true, entryNumber: true, status: true } },
 };
 
 const journalLineInclude = {
@@ -37,12 +43,16 @@ const journalLineInclude = {
       voidedCustomerRefund: { select: { id: true } },
       supplierRefund: { select: { id: true } },
       voidedSupplierRefund: { select: { id: true } },
+      bankTransfer: { select: { id: true, transferNumber: true } },
+      voidedBankTransfer: { select: { id: true, transferNumber: true } },
+      bankAccountOpeningProfile: { select: { id: true, displayName: true } },
     },
   },
 };
 
 type SourceEntry = {
   id: string;
+  reference?: string | null;
   salesInvoice?: { id: string } | null;
   voidedSalesInvoice?: { id: string } | null;
   creditNote?: { id: string } | null;
@@ -61,6 +71,9 @@ type SourceEntry = {
   voidedCustomerRefund?: { id: string } | null;
   supplierRefund?: { id: string } | null;
   voidedSupplierRefund?: { id: string } | null;
+  bankTransfer?: { id: string; transferNumber: string } | null;
+  voidedBankTransfer?: { id: string; transferNumber: string } | null;
+  bankAccountOpeningProfile?: { id: string; displayName: string } | null;
 };
 
 @Injectable()
@@ -68,6 +81,8 @@ export class BankAccountService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
+    private readonly numberSequenceService: NumberSequenceService,
+    private readonly fiscalPeriodGuardService: FiscalPeriodGuardService,
   ) {}
 
   async list(organizationId: string) {
@@ -123,6 +138,7 @@ export class BankAccountService {
 
   async update(organizationId: string, actorUserId: string, id: string, dto: UpdateBankAccountProfileDto) {
     const existing = await this.findExisting(organizationId, id);
+    this.assertOpeningBalanceCanChange(existing, dto);
 
     const profile = await this.prisma.bankAccountProfile.update({
       where: { id },
@@ -156,6 +172,88 @@ export class BankAccountService {
     });
 
     return this.withLedgerSummary(profile);
+  }
+
+  async postOpeningBalance(organizationId: string, actorUserId: string, id: string) {
+    const existing = await this.findExisting(organizationId, id);
+
+    const profile = await this.prisma.$transaction(async (tx) => {
+      const current = await tx.bankAccountProfile.findFirst({
+        where: { id, organizationId },
+        include: bankAccountInclude,
+      });
+      if (!current) {
+        throw new NotFoundException("Bank account profile not found.");
+      }
+      if (current.status !== BankAccountStatus.ACTIVE) {
+        throw new BadRequestException("Only active bank account profiles can post opening balances.");
+      }
+      if (current.openingBalanceJournalEntryId) {
+        throw new BadRequestException("Opening balance has already been posted.");
+      }
+      if (!current.openingBalanceDate) {
+        throw new BadRequestException("Opening balance date is required before posting.");
+      }
+
+      const openingBalance = this.decimal(current.openingBalance);
+      if (openingBalance.eq(0)) {
+        throw new BadRequestException("Opening balance must be non-zero before posting.");
+      }
+
+      await this.fiscalPeriodGuardService.assertPostingDateAllowed(organizationId, current.openingBalanceDate, tx);
+      const equityAccount = await this.findPostingAccountByCode(organizationId, "310", tx);
+      const amount = openingBalance.abs().toFixed(4);
+      const journalLines = buildOpeningBalanceJournalLines({
+        bankAccountId: current.accountId,
+        equityAccountId: equityAccount.id,
+        displayName: current.displayName,
+        amount,
+        currency: current.currency,
+        isPositive: openingBalance.gt(0),
+      });
+      const totals = getJournalTotals(journalLines);
+      const entryNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx);
+      const postedAt = new Date();
+      const journalEntry = await tx.journalEntry.create({
+        data: {
+          organizationId,
+          entryNumber,
+          status: JournalEntryStatus.POSTED,
+          entryDate: current.openingBalanceDate,
+          description: `Opening balance for ${current.displayName}`,
+          reference: `OPENING-${current.account.code}`,
+          currency: current.currency,
+          totalDebit: totals.debit,
+          totalCredit: totals.credit,
+          postedAt,
+          postedById: actorUserId,
+          createdById: actorUserId,
+          lines: { create: this.toJournalLineCreateMany(organizationId, journalLines) },
+        },
+      });
+
+      const claim = await tx.bankAccountProfile.updateMany({
+        where: { id, organizationId, openingBalanceJournalEntryId: null },
+        data: { openingBalanceJournalEntryId: journalEntry.id, openingBalancePostedAt: postedAt },
+      });
+      if (claim.count !== 1) {
+        throw new BadRequestException("Opening balance has already been posted.");
+      }
+
+      return tx.bankAccountProfile.findUniqueOrThrow({ where: { id }, include: bankAccountInclude });
+    });
+
+    const withSummary = await this.withLedgerSummary(profile);
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "POST_OPENING_BALANCE",
+      entityType: "BankAccountProfile",
+      entityId: id,
+      before: existing,
+      after: withSummary,
+    });
+    return withSummary;
   }
 
   async archive(organizationId: string, actorUserId: string, id: string) {
@@ -207,7 +305,7 @@ export class BankAccountService {
         organizationId,
         accountId: profile.accountId,
         journalEntry: {
-          status: JournalEntryStatus.POSTED,
+          status: { in: POSTED_LEDGER_STATUSES },
           entryDate: this.entryDateFilter(from, to),
         },
       },
@@ -232,6 +330,7 @@ export class BankAccountService {
         runningBalance: this.formatMoney(runningBalance),
         sourceType: source.sourceType,
         sourceId: source.sourceId,
+        sourceNumber: source.sourceNumber,
       };
     });
 
@@ -283,7 +382,7 @@ export class BankAccountService {
       where: {
         organizationId: profile.organizationId,
         accountId: profile.accountId,
-        journalEntry: { status: JournalEntryStatus.POSTED },
+        journalEntry: { status: { in: POSTED_LEDGER_STATUSES } },
       },
       select: {
         debit: true,
@@ -312,7 +411,7 @@ export class BankAccountService {
       where: {
         accountId,
         journalEntry: {
-          status: JournalEntryStatus.POSTED,
+          status: { in: POSTED_LEDGER_STATUSES },
           entryDate: dateFilter,
         },
       },
@@ -353,7 +452,68 @@ export class BankAccountService {
     };
   }
 
-  private sourceForEntry(entry: SourceEntry): { sourceType: string; sourceId: string | null } {
+  private async findPostingAccountByCode(organizationId: string, code: string, executor: PrismaService | Prisma.TransactionClient) {
+    const account = await executor.account.findFirst({
+      where: { organizationId, code, isActive: true, allowPosting: true },
+      select: { id: true },
+    });
+    if (!account) {
+      throw new BadRequestException(`Required posting account ${code} was not found.`);
+    }
+    return account;
+  }
+
+  private toJournalLineCreateMany(organizationId: string, lines: JournalLineInput[]): Prisma.JournalLineCreateWithoutJournalEntryInput[] {
+    return lines.map((line, index) => ({
+      organization: { connect: { id: organizationId } },
+      account: { connect: { id: line.accountId } },
+      lineNumber: index + 1,
+      description: line.description,
+      debit: String(line.debit),
+      credit: String(line.credit),
+      currency: line.currency,
+      exchangeRate: line.exchangeRate === undefined ? "1" : String(line.exchangeRate),
+    }));
+  }
+
+  private assertOpeningBalanceCanChange(
+    existing: { openingBalanceJournalEntryId?: string | null; openingBalance?: Prisma.Decimal.Value; openingBalanceDate?: Date | null },
+    dto: UpdateBankAccountProfileDto,
+  ): void {
+    if (!existing.openingBalanceJournalEntryId) {
+      return;
+    }
+
+    const currentBalance = this.formatMoney(existing.openingBalance ?? "0.0000");
+    const nextBalance = dto.openingBalance === undefined ? currentBalance : this.formatMoney(dto.openingBalance);
+    const currentDate = existing.openingBalanceDate?.toISOString() ?? null;
+    const nextDate =
+      dto.openingBalanceDate === undefined
+        ? currentDate
+        : dto.openingBalanceDate === null
+          ? null
+          : new Date(dto.openingBalanceDate).toISOString();
+
+    if (nextBalance !== currentBalance || nextDate !== currentDate) {
+      throw new BadRequestException("Opening balance cannot be changed after it has been posted.");
+    }
+  }
+
+  private sourceForEntry(entry: SourceEntry): { sourceType: string; sourceId: string | null; sourceNumber: string | null } {
+    if (entry.bankTransfer) {
+      return { sourceType: "BANK_TRANSFER", sourceId: entry.bankTransfer.id, sourceNumber: entry.bankTransfer.transferNumber };
+    }
+    if (entry.voidedBankTransfer) {
+      return { sourceType: "VOID_BANK_TRANSFER", sourceId: entry.voidedBankTransfer.id, sourceNumber: entry.voidedBankTransfer.transferNumber };
+    }
+    if (entry.bankAccountOpeningProfile) {
+      return {
+        sourceType: "BANK_ACCOUNT_OPENING_BALANCE",
+        sourceId: entry.bankAccountOpeningProfile.id,
+        sourceNumber: entry.reference ?? null,
+      };
+    }
+
     const sources: Array<[string, { id: string } | null | undefined]> = [
       ["SalesInvoice", entry.salesInvoice],
       ["VoidSalesInvoice", entry.voidedSalesInvoice],
@@ -375,7 +535,9 @@ export class BankAccountService {
       ["VoidSupplierRefund", entry.voidedSupplierRefund],
     ];
     const source = sources.find(([, value]) => Boolean(value));
-    return source ? { sourceType: source[0], sourceId: source[1]?.id ?? null } : { sourceType: "ManualJournal", sourceId: entry.id };
+    return source
+      ? { sourceType: source[0], sourceId: source[1]?.id ?? null, sourceNumber: entry.reference ?? null }
+      : { sourceType: "ManualJournal", sourceId: entry.id, sourceNumber: entry.reference ?? null };
   }
 
   private cleanOptional(value?: string | null): string | null {
@@ -413,4 +575,53 @@ export class BankAccountService {
   private formatMoney(value: Prisma.Decimal.Value): string {
     return new Prisma.Decimal(value).toFixed(4);
   }
+}
+
+function buildOpeningBalanceJournalLines(input: {
+  bankAccountId: string;
+  equityAccountId: string;
+  displayName: string;
+  amount: string;
+  currency: string;
+  isPositive: boolean;
+}): JournalLineInput[] {
+  if (input.isPositive) {
+    return [
+      {
+        accountId: input.bankAccountId,
+        debit: input.amount,
+        credit: "0.0000",
+        description: `Opening balance for ${input.displayName}`,
+        currency: input.currency,
+        exchangeRate: "1",
+      },
+      {
+        accountId: input.equityAccountId,
+        debit: "0.0000",
+        credit: input.amount,
+        description: `Opening balance equity offset for ${input.displayName}`,
+        currency: input.currency,
+        exchangeRate: "1",
+      },
+    ];
+  }
+
+  return [
+    {
+      accountId: input.equityAccountId,
+      debit: input.amount,
+      credit: "0.0000",
+      description: `Opening balance equity offset for ${input.displayName}`,
+      currency: input.currency,
+      exchangeRate: "1",
+    },
+    {
+      accountId: input.bankAccountId,
+      debit: "0.0000",
+      credit: input.amount,
+      description: `Opening balance for ${input.displayName}`,
+      currency: input.currency,
+      exchangeRate: "1",
+    },
+  ];
 }

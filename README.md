@@ -178,7 +178,15 @@ Bank accounts:
 - `PATCH /bank-accounts/:id`
 - `POST /bank-accounts/:id/archive`
 - `POST /bank-accounts/:id/reactivate`
+- `POST /bank-accounts/:id/post-opening-balance`
 - `GET /bank-accounts/:id/transactions?from=YYYY-MM-DD&to=YYYY-MM-DD`
+
+Bank transfers:
+
+- `GET /bank-transfers`
+- `POST /bank-transfers`
+- `GET /bank-transfers/:id`
+- `POST /bank-transfers/:id/void`
 
 Tax rates:
 
@@ -505,7 +513,7 @@ Credit application endpoints:
 
 ## Bank Accounts
 
-Bank account profiles wrap existing posting asset accounts with cash/bank metadata. They do not create journals and do not replace the chart of accounts.
+Bank account profiles wrap existing posting asset accounts with cash/bank metadata. Profile create/update/archive actions do not replace the chart of accounts; transfer and opening-balance actions create explicit posted journals.
 
 Behavior:
 
@@ -515,9 +523,13 @@ Behavior:
 - Profile status can be `ACTIVE` or `ARCHIVED`; archiving the profile does not archive the linked chart account.
 - Ledger balance is calculated from posted journal lines only: asset debits minus credits.
 - Draft journals are excluded from balances and transaction rows.
-- Transaction rows show posted journal date, entry number, reference, debit, credit, running balance, and best-effort source type/source id.
+- Transaction rows show posted journal date, entry number, reference, debit, credit, running balance, and best-effort source type/source id/source number.
 - Payment, refund, supplier payment, supplier refund, cash expense, and manual journal activity all appear through their posted journal lines.
-- Opening balance fields are stored as metadata only; there is no automatic opening balance journal in this MVP.
+- Bank transfers post immediately with Dr destination bank/cash account and Cr source bank/cash account.
+- Voiding a bank transfer creates or reuses one reversal journal; repeated void calls do not double-reverse.
+- Opening balances can be posted once through `POST /bank-accounts/:id/post-opening-balance`.
+- Positive opening balances post Dr linked bank/cash account and Cr Owner Equity account code `310`; negative balances post the reverse.
+- Opening balance amount/date are locked after posting unless a future reversal workflow is added.
 - Payment/refund/cash-expense forms still post using the underlying `accountId`, but show the bank profile display name when one exists.
 
 Known bank account limitations:
@@ -525,9 +537,8 @@ Known bank account limitations:
 - No bank statement import.
 - No reconciliation or matching workflow.
 - No live feeds or external banking APIs.
-- No bank transfer workflow.
 - No payment gateway integration.
-- No opening balance journal automation.
+- No transfer fees or multi-currency FX transfer handling.
 
 ## Customer Payment Rules
 
@@ -1022,7 +1033,7 @@ Default seeded roles:
 
 - `Owner`: full access, including `admin.fullAccess`.
 - `Admin`: broad business access without the system-level `admin.fullAccess` flag.
-- `Accountant`: chart of accounts, bank accounts, tax, journals, reports, documents, fiscal period management, and accounting workflow posting/void permissions.
+- `Accountant`: chart of accounts, bank accounts, bank transfers, opening-balance posting, tax, journals, reports, documents, fiscal period management, and accounting workflow posting/void permissions.
 - `Sales`: contacts, items view, sales invoices, customer payments, credit notes, customer refunds, and document access.
 - `Purchases`: contacts, items view, bank account view/transactions, purchase orders, purchase bills, supplier payments, debit notes, supplier refunds, cash expenses, and document access.
 - `Viewer`: read-only access across core accounting, reports, documents, and ZATCA status, excluding bank account profiles by default.
@@ -1077,9 +1088,9 @@ Permission matrix categories:
 - GET PDF endpoints currently archive every download.
 - Unapplied overpayment application is manual only; there is no automatic credit matching yet.
 - Customer refunds are manual accounting records only; no payment gateway refund or bank reconciliation integration exists yet.
-- Bank account profiles and posted transaction visibility exist, but statement import, reconciliation, live feeds, bank transfers, and opening-balance journal automation are not implemented yet.
+- Bank account profiles, posted transaction visibility, bank transfers, and guarded one-time opening-balance posting exist, but statement import, reconciliation, live feeds, transfer fees, and multi-currency FX transfer handling are not implemented yet.
 - Purchase orders are MVP-only: no partial receiving, partial billing, supplier email sending, approval workflows, or inventory stock receipts.
-- Purchase bills, purchase debit notes, supplier payments, and supplier refunds are AP groundwork only; inventory stock movements/returns, bank reconciliation, bank transfer integrations, and automated matching are not implemented yet.
+- Purchase bills, purchase debit notes, supplier payments, and supplier refunds are AP groundwork only; inventory stock movements/returns, bank reconciliation, and automated matching are not implemented yet.
 - ZATCA credit note XML/signing/submission is not implemented yet.
 - ZATCA debit note XML/signing/submission is not implemented yet.
 - Inventory returns from credit notes are not implemented yet.

@@ -6,7 +6,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { bankAccountOptionLabel, bankAccountTypeLabel } from "@/lib/bank-accounts";
+import { bankAccountOptionLabel, bankAccountTypeLabel, hasPostedOpeningBalance } from "@/lib/bank-accounts";
 import type { Account, BankAccountSummary, BankAccountType } from "@/lib/types";
 
 const BANK_ACCOUNT_TYPES: BankAccountType[] = ["BANK", "CASH", "WALLET", "CARD", "OTHER"];
@@ -33,6 +33,7 @@ export function BankAccountProfileForm({ profile }: BankAccountProfileFormProps)
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const openingBalanceLocked = profile ? hasPostedOpeningBalance(profile) : false;
 
   const usedAccountIds = new Set(profiles.filter((candidate) => candidate.id !== profile?.id).map((candidate) => candidate.accountId));
   const linkableAccounts = useMemo(
@@ -183,18 +184,25 @@ export function BankAccountProfileForm({ profile }: BankAccountProfileFormProps)
           </label>
           <label className="block">
             <span className="text-sm font-medium text-slate-700">Opening balance</span>
-            <input inputMode="decimal" value={openingBalance} onChange={(event) => setOpeningBalance(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <input inputMode="decimal" value={openingBalance} onChange={(event) => setOpeningBalance(event.target.value)} disabled={openingBalanceLocked} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm disabled:bg-slate-100" />
           </label>
           <label className="block">
             <span className="text-sm font-medium text-slate-700">Opening balance date</span>
-            <input type="date" value={openingBalanceDate} onChange={(event) => setOpeningBalanceDate(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <input type="date" value={openingBalanceDate} onChange={(event) => setOpeningBalanceDate(event.target.value)} disabled={openingBalanceLocked} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm disabled:bg-slate-100" />
           </label>
           <label className="block md:col-span-4">
             <span className="text-sm font-medium text-slate-700">Notes</span>
             <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
           </label>
         </div>
-        <p className="mt-3 text-xs text-steel">Opening balance is metadata only in this MVP. The ledger balance is calculated from posted journal lines on the linked account.</p>
+        <p className="mt-3 text-xs text-steel">
+          Opening balance stays as setup metadata until it is posted from the bank account detail page. Once posted, the amount and date are locked.
+        </p>
+        {openingBalanceLocked ? (
+          <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            Opening balance has already been posted and cannot be changed without a future reversal workflow.
+          </p>
+        ) : null}
       </div>
 
       <div className="space-y-3">

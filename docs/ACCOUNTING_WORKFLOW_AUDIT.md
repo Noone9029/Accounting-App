@@ -15,7 +15,7 @@ This document maps implemented accounting workflows to their journal entries, ba
 - Protected workflows:
   - Manual journal post and reversal.
   - Sales invoice finalization and finalized invoice void reversal.
-  - Customer payment, customer refund, credit note, purchase bill, supplier payment, supplier refund, purchase debit note, and cash expense posting/void reversal flows.
+  - Customer payment, customer refund, credit note, purchase bill, supplier payment, supplier refund, purchase debit note, cash expense, bank transfer posting/void reversal, and bank opening-balance posting flows.
 - Not protected:
   - Allocation and matching-only actions that create no journal entry, including payment allocations, credit note allocations, purchase debit note allocations, and their reversal/application variants.
 - Gaps/risks:
@@ -70,20 +70,29 @@ This document maps implemented accounting workflows to their journal entries, ba
 - Model: `BankAccountProfile` links one profile to one active posting `ASSET` account.
 - Journal impact:
   - No journal entry is created by profile create/update/archive/reactivate.
+  - `POST /bank-accounts/:id/post-opening-balance` creates one posted opening-balance journal when amount/date metadata exists and has not already been posted.
   - Balances and transactions are read from posted `JournalLine` records for the linked account.
 - Balance calculation:
   - For asset accounts, ledger balance is posted debits minus posted credits.
   - Draft journals are excluded.
   - Transaction running balance is calculated from posted journal lines ordered by journal date/number and line number.
+  - Transaction source metadata now labels bank transfers, bank transfer reversals, and bank account opening-balance journals when the journal can be matched.
 - Included workflows:
   - Customer payments debit bank/cash.
   - Supplier payments and cash expenses credit bank/cash.
   - Customer refunds credit bank/cash.
   - Supplier refunds debit bank/cash.
+  - Bank transfers debit the destination profile account and credit the source profile account.
+  - Bank transfer voids create one reversal journal and mark the transfer `VOIDED`.
+  - Opening-balance posting debits the linked bank/cash account and credits Owner Equity account code `310` for positive balances; negative balances post the reverse.
   - Manual posted journals affect balances when they use the linked account.
+- Safeguards:
+  - Transfer date and opening-balance date must pass the fiscal period posting guard.
+  - Transfers require active profiles, different source/destination profiles, matching currencies, and positive amount.
+  - Opening balance posting requires an active profile, non-zero amount, opening-balance date, and no existing opening-balance journal.
+  - Opening balance amount/date cannot be changed after the opening balance has been posted.
 - Gaps/risks:
-  - Opening balance fields are metadata only; there is no automatic opening balance journal.
-  - No bank statement import, reconciliation, live feeds, external banking API, payment gateway, or transfer workflow exists yet.
+  - No bank statement import, reconciliation, live feeds, external banking API, payment gateway, transfer fee, or multi-currency FX workflow exists yet.
 
 ## Sales Workflows
 

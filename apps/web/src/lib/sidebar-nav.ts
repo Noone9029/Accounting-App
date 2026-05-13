@@ -35,9 +35,13 @@ export const SIDEBAR_NAV_ITEMS: readonly SidebarNavItem[] = [
     ],
   },
   {
-    label: "Bank Accounts",
+    label: "Banking",
     href: "/bank-accounts",
-    requiredAny: [PERMISSIONS.bankAccounts.view],
+    activePrefix: "/bank",
+    children: [
+      { label: "Bank accounts", href: "/bank-accounts", requiredAny: [PERMISSIONS.bankAccounts.view] },
+      { label: "Bank transfers", href: "/bank-transfers", requiredAny: [PERMISSIONS.bankTransfers.view] },
+    ],
   },
   {
     label: "Sales",

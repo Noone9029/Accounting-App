@@ -4,6 +4,7 @@ import { AccountingModule } from "./accounting/accounting.module";
 import { AuditLogModule } from "./audit-log/audit-log.module";
 import { AuthModule } from "./auth/auth.module";
 import { BankAccountModule } from "./bank-accounts/bank-account.module";
+import { BankTransferModule } from "./bank-transfers/bank-transfer.module";
 import { BranchModule } from "./branches/branch.module";
 import { CashExpenseModule } from "./cash-expenses/cash-expense.module";
 import { ChartOfAccountsModule } from "./chart-of-accounts/chart-of-accounts.module";
@@ -38,6 +39,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     PrismaModule,
     AuthModule,
     BankAccountModule,
+    BankTransferModule,
     OrganizationModule,
     BranchModule,
     CashExpenseModule,

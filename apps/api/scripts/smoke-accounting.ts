@@ -56,6 +56,7 @@ interface Account {
   id: string;
   code: string;
   name: string;
+  type?: string;
   allowPosting: boolean;
   isActive: boolean;
 }
@@ -66,6 +67,11 @@ interface BankAccountSummary {
   displayName: string;
   type: string;
   status: string;
+  currency: string;
+  openingBalance: string;
+  openingBalanceDate: string | null;
+  openingBalanceJournalEntryId: string | null;
+  openingBalancePostedAt: string | null;
   ledgerBalance: string;
   transactionCount: number;
   account: {
@@ -81,10 +87,21 @@ interface BankAccountTransactionsResponse {
     id: string;
     sourceType: string;
     sourceId: string | null;
+    sourceNumber: string | null;
     debit: string;
     credit: string;
     runningBalance: string;
   }>;
+}
+
+interface BankTransfer {
+  id: string;
+  transferNumber: string;
+  status: "POSTED" | "VOIDED";
+  amount: string;
+  currency: string;
+  journalEntryId: string | null;
+  voidReversalJournalEntryId: string | null;
 }
 
 interface FiscalPeriod {
@@ -513,6 +530,120 @@ async function main(): Promise<void> {
   const paidThroughBankProfile = required(
     bankAccounts.find((profile) => profile.accountId === paidThroughAccount!.id),
     "bank account profile for paid-through account",
+  );
+  const defaultCashProfile = required(
+    bankAccounts.find((profile) => profile.account.code === "111" && profile.status === "ACTIVE"),
+    "default active Cash bank account profile",
+  );
+  const defaultBankProfile = required(
+    bankAccounts.find((profile) => profile.account.code === "112" && profile.status === "ACTIVE"),
+    "default active Bank Account profile",
+  );
+
+  const bankTransferAmount = money("12.3400");
+  const bankBeforeTransfer = await get<BankAccountSummary>(`/bank-accounts/${defaultBankProfile.id}`, headers);
+  const cashBeforeTransfer = await get<BankAccountSummary>(`/bank-accounts/${defaultCashProfile.id}`, headers);
+  const bankTransfer = await post<BankTransfer>("/bank-transfers", headers, {
+    fromBankAccountProfileId: defaultBankProfile.id,
+    toBankAccountProfileId: defaultCashProfile.id,
+    transferDate: new Date().toISOString(),
+    amount: bankTransferAmount.toFixed(4),
+    currency: "SAR",
+    description: "Smoke bank to cash transfer",
+  });
+  assertEqual(bankTransfer.status, "POSTED", "bank transfer posted status");
+  assertPresent(bankTransfer.journalEntryId, "bank transfer journalEntryId");
+  const bankAfterTransfer = await get<BankAccountSummary>(`/bank-accounts/${defaultBankProfile.id}`, headers);
+  const cashAfterTransfer = await get<BankAccountSummary>(`/bank-accounts/${defaultCashProfile.id}`, headers);
+  assertMoney(
+    bankAfterTransfer.ledgerBalance,
+    money(bankBeforeTransfer.ledgerBalance).minus(bankTransferAmount),
+    "bank profile balance after transfer out",
+  );
+  assertMoney(
+    cashAfterTransfer.ledgerBalance,
+    money(cashBeforeTransfer.ledgerBalance).plus(bankTransferAmount),
+    "cash profile balance after transfer in",
+  );
+  const bankTransferTransactions = await get<BankAccountTransactionsResponse>(
+    `/bank-accounts/${defaultBankProfile.id}/transactions`,
+    headers,
+  );
+  assert(
+    bankTransferTransactions.transactions.some(
+      (transaction) =>
+        transaction.sourceType === "BANK_TRANSFER" &&
+        transaction.sourceId === bankTransfer.id &&
+        money(transaction.credit).eq(bankTransferAmount),
+    ),
+    "bank transactions include bank transfer credit",
+  );
+  const voidedBankTransfer = await post<BankTransfer>(`/bank-transfers/${bankTransfer.id}/void`, headers, {});
+  assertEqual(voidedBankTransfer.status, "VOIDED", "voided bank transfer status");
+  assertPresent(voidedBankTransfer.voidReversalJournalEntryId, "voided bank transfer reversal journal");
+  const voidedBankTransferAgain = await post<BankTransfer>(`/bank-transfers/${bankTransfer.id}/void`, headers, {});
+  assertEqual(
+    voidedBankTransferAgain.voidReversalJournalEntryId,
+    voidedBankTransfer.voidReversalJournalEntryId,
+    "double void bank transfer reversal journal idempotent",
+  );
+  const bankAfterTransferVoid = await get<BankAccountSummary>(`/bank-accounts/${defaultBankProfile.id}`, headers);
+  const cashAfterTransferVoid = await get<BankAccountSummary>(`/bank-accounts/${defaultCashProfile.id}`, headers);
+  assertMoney(bankAfterTransferVoid.ledgerBalance, bankBeforeTransfer.ledgerBalance, "bank profile balance after transfer void");
+  assertMoney(cashAfterTransferVoid.ledgerBalance, cashBeforeTransfer.ledgerBalance, "cash profile balance after transfer void");
+  const bankTransferVoidTransactions = await get<BankAccountTransactionsResponse>(
+    `/bank-accounts/${defaultBankProfile.id}/transactions`,
+    headers,
+  );
+  assert(
+    bankTransferVoidTransactions.transactions.some(
+      (transaction) =>
+        transaction.sourceType === "VOID_BANK_TRANSFER" &&
+        transaction.sourceId === bankTransfer.id &&
+        money(transaction.debit).eq(bankTransferAmount),
+    ),
+    "bank transactions include bank transfer void reversal debit",
+  );
+
+  const openingBalanceAmount = money("23.0000");
+  const openingAccount = await post<Account>("/accounts", headers, {
+    code: `SMKOB-${runId}`,
+    name: `Smoke Opening Bank ${runId}`,
+    type: "ASSET",
+    allowPosting: true,
+    isActive: true,
+  });
+  const openingProfile = await post<BankAccountSummary>("/bank-accounts", headers, {
+    accountId: openingAccount.id,
+    type: "BANK",
+    displayName: `Smoke Opening Bank ${runId}`,
+    currency: "SAR",
+    openingBalance: openingBalanceAmount.toFixed(4),
+    openingBalanceDate: new Date().toISOString(),
+  });
+  const postedOpeningProfile = await post<BankAccountSummary>(
+    `/bank-accounts/${openingProfile.id}/post-opening-balance`,
+    headers,
+    {},
+  );
+  assertPresent(postedOpeningProfile.openingBalanceJournalEntryId, "opening balance journalEntryId");
+  assertPresent(postedOpeningProfile.openingBalancePostedAt, "opening balance postedAt");
+  assertMoney(postedOpeningProfile.ledgerBalance, openingBalanceAmount, "opening balance profile ledger balance");
+  const openingTransactions = await get<BankAccountTransactionsResponse>(
+    `/bank-accounts/${openingProfile.id}/transactions`,
+    headers,
+  );
+  assert(
+    openingTransactions.transactions.some(
+      (transaction) =>
+        transaction.sourceType === "BANK_ACCOUNT_OPENING_BALANCE" &&
+        transaction.sourceId === openingProfile.id &&
+        money(transaction.debit).eq(openingBalanceAmount),
+    ),
+    "bank transactions include opening balance debit",
+  );
+  await expectHttpError("duplicate opening balance posting", () =>
+    post<BankAccountSummary>(`/bank-accounts/${openingProfile.id}/post-opening-balance`, headers, {}),
   );
 
   const fiscalPeriods = await get<FiscalPeriod[]>("/fiscal-periods", headers);
@@ -2005,6 +2136,10 @@ async function main(): Promise<void> {
         memberManagementChecked: true,
         bankAccountProfileId: paidThroughBankProfile.id,
         bankAccountTransactionCount: bankTransactions.transactions.length,
+        bankTransferId: bankTransfer.id,
+        bankTransferNumber: bankTransfer.transferNumber,
+        bankOpeningProfileId: openingProfile.id,
+        bankOpeningJournalEntryId: postedOpeningProfile.openingBalanceJournalEntryId,
         closedFiscalPeriodId: closedFiscalPeriod.id,
         fiscalPeriodLockChecked: true,
         customerId: customer.id,

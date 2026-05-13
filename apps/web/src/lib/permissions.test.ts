@@ -34,6 +34,8 @@ describe("permission helpers", () => {
     expect(getRequiredPermissionsForPathname("/bank-accounts")).toEqual([PERMISSIONS.bankAccounts.view]);
     expect(getRequiredPermissionsForPathname("/bank-accounts/new")).toEqual([PERMISSIONS.bankAccounts.manage]);
     expect(getRequiredPermissionsForPathname("/bank-accounts/profile-1/edit")).toEqual([PERMISSIONS.bankAccounts.manage]);
+    expect(getRequiredPermissionsForPathname("/bank-transfers")).toEqual([PERMISSIONS.bankTransfers.view]);
+    expect(getRequiredPermissionsForPathname("/bank-transfers/new")).toEqual([PERMISSIONS.bankTransfers.create]);
     expect(getRequiredPermissionsForPathname("/sales/invoices/new")).toEqual([PERMISSIONS.salesInvoices.create]);
     expect(getRequiredPermissionsForPathname("/sales/invoices/inv-1/edit")).toEqual([PERMISSIONS.salesInvoices.update]);
     expect(getRequiredPermissionsForPathname("/purchases/purchase-orders/new")).toEqual([PERMISSIONS.purchaseOrders.create]);
@@ -62,7 +64,7 @@ describe("sidebar nav filtering", () => {
     expect(nav.map((item) => item.label)).toEqual([
       "Dashboard",
       "Reports",
-      "Bank Accounts",
+      "Banking",
       "Sales",
       "Purchases",
       "Customers & suppliers",

@@ -3,13 +3,13 @@ import { AuditLogModule } from "../audit-log/audit-log.module";
 import { FiscalPeriodModule } from "../fiscal-periods/fiscal-period.module";
 import { NumberSequenceModule } from "../number-sequences/number-sequence.module";
 import { PrismaModule } from "../prisma/prisma.module";
-import { BankAccountController } from "./bank-account.controller";
-import { BankAccountService } from "./bank-account.service";
+import { BankTransferController } from "./bank-transfer.controller";
+import { BankTransferService } from "./bank-transfer.service";
 
 @Module({
   imports: [PrismaModule, AuditLogModule, FiscalPeriodModule, NumberSequenceModule],
-  controllers: [BankAccountController],
-  providers: [BankAccountService],
-  exports: [BankAccountService],
+  controllers: [BankTransferController],
+  providers: [BankTransferService],
+  exports: [BankTransferService],
 })
-export class BankAccountModule {}
+export class BankTransferModule {}

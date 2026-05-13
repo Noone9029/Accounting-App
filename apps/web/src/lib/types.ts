@@ -20,6 +20,7 @@ export type SupplierRefundStatus = "DRAFT" | "POSTED" | "VOIDED";
 export type SupplierRefundSourceType = "SUPPLIER_PAYMENT" | "PURCHASE_DEBIT_NOTE";
 export type BankAccountType = "BANK" | "CASH" | "WALLET" | "CARD" | "OTHER";
 export type BankAccountStatus = "ACTIVE" | "ARCHIVED";
+export type BankTransferStatus = "POSTED" | "VOIDED";
 export type CustomerLedgerRowType =
   | "INVOICE"
   | "CREDIT_NOTE"
@@ -154,10 +155,13 @@ export interface BankAccountProfile {
   currency: string;
   openingBalance: string;
   openingBalanceDate: string | null;
+  openingBalanceJournalEntryId: string | null;
+  openingBalancePostedAt: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
   account: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive">;
+  openingBalanceJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
 }
 
 export interface BankAccountSummary extends BankAccountProfile {
@@ -178,6 +182,7 @@ export interface BankAccountTransaction {
   runningBalance: string;
   sourceType: string;
   sourceId: string | null;
+  sourceNumber: string | null;
 }
 
 export interface BankAccountTransactionsResponse {
@@ -188,6 +193,33 @@ export interface BankAccountTransactionsResponse {
   openingBalance: string;
   closingBalance: string;
   transactions: BankAccountTransaction[];
+}
+
+export interface BankTransfer {
+  id: string;
+  organizationId: string;
+  transferNumber: string;
+  fromBankAccountProfileId: string;
+  toBankAccountProfileId: string;
+  fromAccountId: string;
+  toAccountId: string;
+  transferDate: string;
+  currency: string;
+  status: BankTransferStatus;
+  amount: string;
+  description: string | null;
+  journalEntryId: string | null;
+  voidReversalJournalEntryId: string | null;
+  postedAt: string | null;
+  voidedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  fromBankAccountProfile?: Pick<BankAccountProfile, "id" | "displayName" | "type" | "status" | "currency" | "accountId" | "account">;
+  toBankAccountProfile?: Pick<BankAccountProfile, "id" | "displayName" | "type" | "status" | "currency" | "accountId" | "account">;
+  fromAccount?: Pick<Account, "id" | "code" | "name" | "type">;
+  toAccount?: Pick<Account, "id" | "code" | "name" | "type">;
+  journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit?: string; totalCredit?: string } | null;
+  voidReversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
 }
 
 export interface TaxRate {

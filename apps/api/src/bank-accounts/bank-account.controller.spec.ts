@@ -27,6 +27,12 @@ describe("BankAccountController permissions", () => {
     ]);
   });
 
+  it("requires opening balance posting permission for opening balance journals", () => {
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, BankAccountController.prototype.postOpeningBalance)).toEqual([
+      PERMISSIONS.bankAccounts.openingBalancePost,
+    ]);
+  });
+
   it("requires bank transaction visibility for transaction detail", () => {
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, BankAccountController.prototype.transactions)).toEqual([
       PERMISSIONS.bankAccounts.transactionsView,

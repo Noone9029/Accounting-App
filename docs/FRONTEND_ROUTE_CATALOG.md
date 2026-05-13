@@ -9,7 +9,7 @@ Route source: `apps/web/src/app`
 - App routes are wrapped in a permission provider that loads `/auth/me` and the active organization membership.
 - The sidebar filters top-level and child nav items by view permissions.
 - Route protection shows an access-denied panel when a user lacks the page permission.
-- High-risk buttons such as approve, convert, finalize, void, delete, apply/reverse allocation, bank account archive/reactivate, fiscal period lock, ZATCA generate/check, and document settings save are hidden unless the active role has the matching permission.
+- High-risk buttons such as approve, convert, finalize, void, delete, apply/reverse allocation, bank account archive/reactivate, opening-balance posting, bank transfer voiding, fiscal period lock, ZATCA generate/check, and document settings save are hidden unless the active role has the matching permission.
 - Settings/Admin nav now includes Team Members for `users.view` and Roles & Permissions for `roles.view`.
 
 ## Auth And Setup
@@ -27,10 +27,13 @@ Route source: `apps/web/src/app`
 | --- | --- | --- | --- | --- | --- |
 | `/dashboard` | App dashboard shell. | Current org/user summary. | Navigation. | Partial | Real KPIs and reports missing. |
 | `/accounts` | Chart of accounts. | Accounts. | Create/update/delete accounts. | Implemented | Hierarchical drag/drop and COA templates missing. |
-| `/bank-accounts` | Bank/cash account profile list. | Bank account profiles with linked accounts and ledger summaries. | View detail, create profile, archive/reactivate when allowed. | Implemented | No reconciliation, import, live feed, or transfer workflow. |
+| `/bank-accounts` | Bank/cash account profile list. | Bank account profiles with linked accounts and ledger summaries. | View detail, create profile, archive/reactivate when allowed. | Implemented | No reconciliation, import, live feed, transfer fee, or FX workflow. |
 | `/bank-accounts/new` | Link bank account profile. | Accounts and existing profiles. | Create profile for an unlinked active posting asset account. | Implemented | Cannot create chart account inline. |
-| `/bank-accounts/[id]` | Bank account profile detail. | Profile summary and posted transaction rows when allowed. | Date filters, archive/reactivate, general-ledger link. | Implemented | No statement matching or attachments. |
-| `/bank-accounts/[id]/edit` | Edit bank/cash metadata. | Profile, accounts, existing profiles. | Update metadata only. | Implemented | Linked account cannot be changed. |
+| `/bank-accounts/[id]` | Bank account profile detail. | Profile summary and posted transaction rows when allowed. | Date filters, archive/reactivate, post opening balance when allowed, general-ledger link. | Implemented | No statement matching or attachments. |
+| `/bank-accounts/[id]/edit` | Edit bank/cash metadata. | Profile, accounts, existing profiles. | Update metadata only; opening balance fields are disabled after posting. | Implemented | Linked account cannot be changed. |
+| `/bank-transfers` | Bank transfer list. | Posted and voided transfers with from/to profiles and journal links. | Navigate/create/view transfers. | Implemented | No transfer fees, recurring transfers, reconciliation, or FX handling. |
+| `/bank-transfers/new` | Create bank transfer. | Active bank account profiles. | Validate and post transfer between different active profiles. | Implemented | No scheduled transfer or fee line. |
+| `/bank-transfers/[id]` | Bank transfer detail. | Transfer, profile/account links, journal links. | Void transfer when allowed. | Implemented | No edit/delete after posting by design. |
 | `/tax-rates` | Tax rates. | Tax rates. | Create/update rates. | Implemented | VAT report linkage missing. |
 | `/branches` | Branch management. | Branches. | Create/update branches. | Implemented | Default branch normalization still missing; branch create/update is now gated by organization update permission. |
 | `/items` | Product/service catalog. | Items, accounts, tax rates. | Create/update/delete items. | Partial | Inventory quantities and stock history missing. |

@@ -146,6 +146,11 @@ enum BankAccountStatus {
   ARCHIVED
 }
 
+enum BankTransferStatus {
+  POSTED
+  VOIDED
+}
+
 enum DocumentType {
   SALES_INVOICE
   CREDIT_NOTE
@@ -226,6 +231,7 @@ enum NumberSequenceScope {
   PAYMENT
   CUSTOMER_REFUND
   PURCHASE_ORDER
+  BANK_TRANSFER
   CREDIT_NOTE
   DEBIT_NOTE
   PURCHASE_DEBIT_NOTE
@@ -255,6 +261,7 @@ model User {
   createdSupplierPayments SupplierPayment[]    @relation("SupplierPaymentCreatedBy")
   createdCustomerRefunds  CustomerRefund[]     @relation("CustomerRefundCreatedBy")
   createdSupplierRefunds  SupplierRefund[]     @relation("SupplierRefundCreatedBy")
+  createdBankTransfers    BankTransfer[]       @relation("BankTransferCreatedBy")
   reversedCreditNoteAllocations CreditNoteAllocation[] @relation("CreditNoteAllocationReversedBy")
   reversedPurchaseDebitNoteAllocations PurchaseDebitNoteAllocation[] @relation("PurchaseDebitNoteAllocationReversedBy")
   reversedCustomerPaymentUnappliedAllocations CustomerPaymentUnappliedAllocation[] @relation("CustomerPaymentUnappliedAllocationReversedBy")
@@ -278,6 +285,7 @@ model Organization {
   contacts                   Contact[]
   accounts                   Account[]
   bankAccountProfiles        BankAccountProfile[]
+  bankTransfers              BankTransfer[]
   taxRates                   TaxRate[]
   items                      Item[]
   salesInvoices              SalesInvoice[]
@@ -600,6 +608,8 @@ model Account {
   customerRefunds   CustomerRefund[]   @relation("CustomerRefundAccount")
   supplierRefunds   SupplierRefund[]   @relation("SupplierRefundAccount")
   bankAccountProfile BankAccountProfile?
+  bankTransfersFrom BankTransfer[]      @relation("BankTransferFromAccount")
+  bankTransfersTo   BankTransfer[]      @relation("BankTransferToAccount")
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -619,15 +629,56 @@ model BankAccountProfile {
   currency            String            @default("SAR")
   openingBalance      Decimal           @default(0) @db.Decimal(20, 4)
   openingBalanceDate  DateTime?
+  openingBalanceJournalEntryId String?  @unique @db.Uuid
+  openingBalancePostedAt DateTime?
   notes               String?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
   organization        Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   account             Account           @relation(fields: [accountId], references: [id])
+  openingBalanceJournalEntry JournalEntry? @relation("BankAccountOpeningBalanceJournal", fields: [openingBalanceJournalEntryId], references: [id])
+  outgoingTransfers   BankTransfer[]    @relation("BankTransferFromProfile")
+  incomingTransfers   BankTransfer[]    @relation("BankTransferToProfile")
 
   @@index([organizationId])
   @@index([organizationId, status])
   @@index([organizationId, type])
+}
+
+model BankTransfer {
+  id                         String             @id @default(uuid()) @db.Uuid
+  organizationId             String             @db.Uuid
+  transferNumber             String
+  fromBankAccountProfileId   String             @db.Uuid
+  toBankAccountProfileId     String             @db.Uuid
+  fromAccountId              String             @db.Uuid
+  toAccountId                String             @db.Uuid
+  transferDate               DateTime
+  currency                   String             @default("SAR")
+  status                     BankTransferStatus @default(POSTED)
+  amount                     Decimal            @db.Decimal(20, 4)
+  description                String?
+  journalEntryId             String?            @unique @db.Uuid
+  voidReversalJournalEntryId String?            @unique @db.Uuid
+  createdById                String?            @db.Uuid
+  postedAt                   DateTime?
+  voidedAt                   DateTime?
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
+  organization               Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fromBankAccountProfile     BankAccountProfile @relation("BankTransferFromProfile", fields: [fromBankAccountProfileId], references: [id])
+  toBankAccountProfile       BankAccountProfile @relation("BankTransferToProfile", fields: [toBankAccountProfileId], references: [id])
+  fromAccount                Account            @relation("BankTransferFromAccount", fields: [fromAccountId], references: [id])
+  toAccount                  Account            @relation("BankTransferToAccount", fields: [toAccountId], references: [id])
+  journalEntry               JournalEntry?      @relation("BankTransferJournal", fields: [journalEntryId], references: [id])
+  voidReversalJournalEntry   JournalEntry?      @relation("BankTransferVoidReversalJournal", fields: [voidReversalJournalEntryId], references: [id])
+  createdBy                  User?              @relation("BankTransferCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, transferNumber])
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([fromBankAccountProfileId])
+  @@index([toBankAccountProfileId])
 }
 
 model TaxRate {
@@ -1446,6 +1497,9 @@ model JournalEntry {
   voidedCustomerRefund  CustomerRefund?    @relation("CustomerRefundVoidReversalJournal")
   supplierRefund        SupplierRefund?    @relation("SupplierRefundJournal")
   voidedSupplierRefund  SupplierRefund?    @relation("SupplierRefundVoidReversalJournal")
+  bankTransfer          BankTransfer?      @relation("BankTransferJournal")
+  voidedBankTransfer    BankTransfer?      @relation("BankTransferVoidReversalJournal")
+  bankAccountOpeningProfile BankAccountProfile? @relation("BankAccountOpeningBalanceJournal")
   lines                 JournalLine[]
 
   @@unique([organizationId, entryNumber])

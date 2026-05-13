@@ -99,7 +99,17 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | PATCH | `/bank-accounts/:id` | Update profile metadata | Yes | Yes | Implemented | Requires `bankAccounts.manage`; does not change the linked account. |
 | POST | `/bank-accounts/:id/archive` | Archive profile | Yes | Yes | Implemented | Requires `bankAccounts.manage`; leaves the chart account untouched. |
 | POST | `/bank-accounts/:id/reactivate` | Reactivate profile | Yes | Yes | Implemented | Requires `bankAccounts.manage`; validates the linked account is still active/posting/asset. |
-| GET | `/bank-accounts/:id/transactions` | Posted transaction lines | Yes | Yes | Implemented | Requires `bankAccounts.transactions.view`; supports optional `from`/`to` date filters and running balance. |
+| POST | `/bank-accounts/:id/post-opening-balance` | Post one-time opening balance journal | Yes | Yes | Implemented | Requires `bankAccounts.openingBalance.post`; validates active profile, non-zero amount, opening date, fiscal period, and duplicate-post guard. |
+| GET | `/bank-accounts/:id/transactions` | Posted transaction lines | Yes | Yes | Implemented | Requires `bankAccounts.transactions.view`; supports optional `from`/`to` date filters, running balance, transfer source labels, and opening-balance source labels. |
+
+## Bank Transfers
+
+| Method | Path | Purpose | Auth | Org header | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| GET | `/bank-transfers` | List posted/voided transfers | Yes | Yes | Implemented | Requires `bankTransfers.view`; includes from/to profiles and journal links. |
+| POST | `/bank-transfers` | Create and post bank transfer | Yes | Yes | Implemented | Requires `bankTransfers.create`; posts Dr destination bank/cash, Cr source bank/cash after profile, currency, amount, tenant, and fiscal-period checks. |
+| GET | `/bank-transfers/:id` | Transfer detail | Yes | Yes | Implemented | Requires `bankTransfers.view`; tenant scoped. |
+| POST | `/bank-transfers/:id/void` | Void transfer | Yes | Yes | Implemented | Requires `bankTransfers.void`; creates or reuses one reversal journal and does not double-reverse repeated requests. |
 
 ## Fiscal Periods
 
