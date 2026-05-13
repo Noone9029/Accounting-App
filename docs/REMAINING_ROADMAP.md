@@ -37,7 +37,7 @@ Tasks:
 - Partial purchase order receiving and partial bill matching.
 - Expense receipt attachments and cash expense import/OCR groundwork.
 - Bank account profile, transfer, opening-balance, and statement reconciliation UX polish.
-- Bank reconciliation close/lock workflow, file-format samples, and reviewer workflow.
+- Bank reconciliation report PDF/export, file-format samples, and reviewer workflow.
 - Transfer fees and multi-currency FX transfer handling.
 - Official VAT return report.
 - Report export/PDF delivery.
@@ -52,7 +52,7 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Design inventory receiving and partial purchase order billing rules without posting stock movements yet.
+> Add bank reconciliation report PDF/export and reviewer approval workflow without adding live bank feeds.
 
 ## Phase 3: Inventory And Payroll Basics
 

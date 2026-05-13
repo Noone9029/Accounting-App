@@ -96,8 +96,8 @@ This document maps implemented accounting workflows to their journal entries, ba
 
 ## Bank Statement Import And Reconciliation
 
-- API/UI: statement imports and reconciliation are accessed from bank account detail pages through `/bank-accounts/:id/statement-imports`, `/bank-accounts/:id/statement-transactions`, `/bank-statement-transactions/:id`, and `/bank-accounts/:id/reconciliation`.
-- Models: `BankStatementImport` stores the local import batch; `BankStatementTransaction` stores imported rows and reconciliation links.
+- API/UI: statement imports and reconciliation are accessed from bank account detail pages through `/bank-accounts/:id/statement-imports`, `/bank-accounts/:id/statement-transactions`, `/bank-statement-transactions/:id`, `/bank-accounts/:id/reconciliation`, `/bank-accounts/:id/reconciliations`, and `/bank-reconciliations/:id`.
+- Models: `BankStatementImport` stores the local import batch; `BankStatementTransaction` stores imported rows and reconciliation links; `BankReconciliation` stores draft/closed/voided close records; `BankReconciliationItem` stores the statement row snapshot captured at close.
 - Import behavior:
   - JSON/CSV-row imports require an active bank account profile.
   - Importing rows creates statement records only; it does not create journal entries.
@@ -112,9 +112,15 @@ This document maps implemented accounting workflows to their journal entries, ba
   - Debit rows post Dr selected account / Cr bank.
   - Fiscal period locks are enforced before posting.
 - Summary behavior:
-  - Reconciliation summary reports statement totals, matched/categorized/ignored/unmatched counts, ledger balance, latest statement closing balance, difference, and a status suggestion.
+  - Reconciliation summary reports statement totals, matched/categorized/ignored/unmatched counts, ledger balance, latest statement closing balance, difference, latest closed reconciliation, open draft state, unreconciled count, closed-through date, and a status suggestion.
+- Close/lock behavior:
+  - Draft reconciliation creation calculates ledger closing balance through the period end date and stores `statementClosingBalance - ledgerClosingBalance` as the difference.
+  - Closing requires zero difference and no `UNMATCHED` statement transactions in the period.
+  - Close snapshots `MATCHED`, `CATEGORIZED`, and `IGNORED` statement rows into reconciliation items and creates no journal entry.
+  - Closed reconciliation periods block statement transaction match, categorize, ignore, and import void/status-changing operations.
+  - Voiding a draft or closed reconciliation marks it `VOIDED`, keeps the history, unlocks the period, and does not reverse categorized journals.
 - Gaps/risks:
-  - No file upload storage, OFX/CAMT parser, automatic matching, reconciliation close/lock, bank feeds, or accountant approval workflow exists yet.
+  - No file upload storage, OFX/CAMT parser, automatic matching, formal reconciliation report PDF, bank feeds, or accountant approval workflow exists yet.
 
 ## Sales Workflows
 
@@ -316,7 +322,7 @@ This document maps implemented accounting workflows to their journal entries, ba
   - Void reversal date is fiscal-period guarded.
 - Gaps/risks:
   - No supplier payment allocation reversal separate from payment void.
-  - No bank reconciliation or statement import.
+  - No automatic bank statement matching or gateway settlement workflow.
 
 ## Ledger Behavior
 

@@ -37,6 +37,34 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Bank reconciliation close/lock workflow added
+
+Added `BankReconciliation` and `BankReconciliationItem` records, tenant-scoped reconciliation list/create/detail/close/void/items APIs, reconciliation close pages, closed item snapshots, summary metadata for latest close/open draft/closed-through date, statement transaction lock warnings, permissions, tests, and smoke coverage.
+
+Risk reduced:
+
+- Bank accounts can now be formally reconciled for a date range instead of relying only on ad hoc summary totals.
+- Closing requires zero difference and no unmatched statement transactions in the period.
+- Closed reconciliations snapshot matched/categorized/ignored statement rows for review history.
+- Closed periods block statement transaction match, categorize, ignore, and import void/status-changing actions.
+- Voiding a reconciliation preserves audit history and unlocks the period without mutating journal entries.
+
+Remaining risks:
+
+- No formal reconciliation report PDF/export package.
+- No reviewer approval or maker-checker workflow.
+- No file upload parser, OFX, CAMT, MT940, live feeds, external banking API, or payment gateway integration.
+- No automatic/ML matching.
+- Voiding reconciliation is administrative only and does not reverse categorized journals.
+- Accountant review is still needed before production use.
+
+Tests/smoke added:
+
+- Backend reconciliation service and controller permission tests.
+- Backend statement lock tests for match, categorize, ignore, and import void.
+- Frontend helper tests for reconciliation status, close-block messages, closed-through date, and locked row warnings.
+- Smoke coverage for draft creation, close, item snapshot, locked-row rejection, void/unlock, and summary fields.
+
 ### Bank statement import and reconciliation groundwork added
 
 Added `BankStatementImport` and `BankStatementTransaction` records, local JSON/CSV row import APIs, statement row list/detail APIs, match-candidate lookup against posted bank journal lines, manual matching, categorization posting, ignore workflow, reconciliation summary, frontend import/transaction/review/summary pages, permissions, tests, and smoke coverage.
@@ -54,7 +82,7 @@ Remaining risks:
 - No file upload storage or robust bank file parser beyond local JSON/CSV paste rows.
 - No OFX, CAMT, MT940, live feeds, external banking API, or payment gateway integration.
 - No automatic/ML matching.
-- No reconciliation close/lock workflow.
+- Formal close/lock now exists, but no reconciliation report PDF or reviewer workflow exists yet.
 - Accountant review is still needed before production use.
 
 Tests/smoke added:
@@ -76,8 +104,7 @@ Risk reduced:
 
 Remaining risks:
 
-- No bank statement import.
-- No reconciliation or matching workflow.
+- Bank statement import, manual matching, and reconciliation close now exist, but no formal report PDF or reviewer workflow exists yet.
 - No live feeds or external banking API.
 - No transfer fees.
 - No multi-currency FX transfers.
@@ -101,8 +128,7 @@ Risk reduced:
 
 Remaining risks:
 
-- No bank statement import.
-- No reconciliation or matching workflow.
+- Bank statement import, manual matching, and reconciliation close now exist, but no formal report PDF or reviewer workflow exists yet.
 - No live feeds or external banking API.
 - No transfer fees or multi-currency FX handling.
 
@@ -770,7 +796,7 @@ Commit inspected: `dd498c7` (`Add purchases and supplier payments MVP`)
 - Role permission enforcement is now MVP-grade, but invite/member management and approval workflows remain limited.
 - Fiscal periods now lock posting dates, but formal year-end close and approval workflows remain limited.
 - Core financial reports now have MVP coverage, but still need accountant review and production hardening.
-- Inventory/COGS, bank reconciliation, and purchase orders remain unimplemented.
+- Inventory/COGS remain unimplemented; purchase orders and bank reconciliation are MVP-grade and still need advanced hardening.
 - Generated PDFs are still stored as database base64 and need object storage before production scale.
 - ZATCA remains local/mock/scaffold only and is not production compliant.
 

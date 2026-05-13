@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { getJournalTotals, JournalLineInput, toMoney } from "@ledgerbyte/accounting-core";
 import {
   BankAccountStatus,
+  BankReconciliationStatus,
   BankStatementImportStatus,
   BankStatementMatchType,
   BankStatementTransactionStatus,
@@ -60,6 +61,20 @@ const bankStatementTransactionInclude = {
   matchedJournalEntry: { select: { id: true, entryNumber: true, entryDate: true, description: true, reference: true } },
   categorizedAccount: { select: { id: true, code: true, name: true, type: true } },
   createdJournalEntry: { select: { id: true, entryNumber: true, entryDate: true, description: true, reference: true } },
+  reconciliationItems: {
+    include: {
+      reconciliation: {
+        select: {
+          id: true,
+          reconciliationNumber: true,
+          status: true,
+          periodStart: true,
+          periodEnd: true,
+          closedAt: true,
+        },
+      },
+    },
+  },
 };
 
 type PrismaExecutor = PrismaService | Prisma.TransactionClient;
@@ -98,6 +113,7 @@ export class BankStatementService {
       dto.closingStatementBalance === undefined ? undefined : this.nonNegativeOrNegativeMoney(dto.closingStatementBalance, "Closing statement balance");
     const statementStartDate = rows.reduce<Date | null>((earliest, row) => (!earliest || row.date < earliest ? row.date : earliest), null);
     const statementEndDate = rows.reduce<Date | null>((latest, row) => (!latest || row.date > latest ? row.date : latest), null);
+    await this.assertRowsNotInClosedReconciliation(organizationId, profile.id, rows);
 
     const created = await this.prisma.$transaction((tx) =>
       tx.bankStatementImport.create({
@@ -163,6 +179,12 @@ export class BankStatementService {
     }
 
     const voided = await this.prisma.$transaction(async (tx) => {
+      const affectedRows = await tx.bankStatementTransaction.findMany({
+        where: { organizationId, importId: id, status: { not: BankStatementTransactionStatus.VOIDED } },
+        select: { bankAccountProfileId: true, transactionDate: true },
+      });
+      await this.assertRowsNotInClosedReconciliation(organizationId, null, affectedRows, tx);
+
       const blocking = await tx.bankStatementTransaction.count({
         where: {
           organizationId,
@@ -279,6 +301,7 @@ export class BankStatementService {
 
   async matchTransaction(organizationId: string, actorUserId: string, id: string, dto: MatchBankStatementTransactionDto) {
     const existing = await this.getTransactionForMutation(organizationId, id);
+    await this.assertTransactionNotInClosedReconciliation(organizationId, existing.bankAccountProfile.id, existing.transactionDate);
     this.assertUnmatched(existing);
     const line = await this.prisma.journalLine.findFirst({
       where: { id: dto.journalLineId, organizationId },
@@ -319,6 +342,7 @@ export class BankStatementService {
     dto: CategorizeBankStatementTransactionDto,
   ) {
     const existing = await this.getTransactionForMutation(organizationId, id);
+    await this.assertTransactionNotInClosedReconciliation(organizationId, existing.bankAccountProfile.id, existing.transactionDate);
     this.assertUnmatched(existing);
 
     const categorized = await this.prisma.$transaction(async (tx) => {
@@ -333,6 +357,7 @@ export class BankStatementService {
       if (!current) {
         throw new NotFoundException("Bank statement transaction not found.");
       }
+      await this.assertTransactionNotInClosedReconciliation(organizationId, current.bankAccountProfile.id, current.transactionDate, tx);
       this.assertUnmatched(current);
       const account = await tx.account.findFirst({
         where: { id: dto.accountId, organizationId, isActive: true, allowPosting: true },
@@ -409,6 +434,7 @@ export class BankStatementService {
 
   async ignoreTransaction(organizationId: string, actorUserId: string, id: string, dto: IgnoreBankStatementTransactionDto) {
     const existing = await this.getTransactionForMutation(organizationId, id);
+    await this.assertTransactionNotInClosedReconciliation(organizationId, existing.bankAccountProfile.id, existing.transactionDate);
     this.assertUnmatched(existing);
     const reason = this.requiredText(dto.reason, "Ignore reason");
     const updated = await this.prisma.bankStatementTransaction.update({
@@ -435,7 +461,7 @@ export class BankStatementService {
   async reconciliationSummary(organizationId: string, bankAccountProfileId: string, query: BankReconciliationSummaryQueryDto) {
     const profile = await this.findProfile(organizationId, bankAccountProfileId);
     const { from, to } = this.parseDateRange(query);
-    const [imports, transactions, ledgerBalance] = await Promise.all([
+    const [imports, transactions, ledgerBalance, latestClosedReconciliation, openDraftCount, unreconciledTransactionCount] = await Promise.all([
       this.prisma.bankStatementImport.findMany({
         where: { organizationId, bankAccountProfileId, status: { not: BankStatementImportStatus.VOIDED } },
         orderBy: [{ statementEndDate: "desc" }, { importedAt: "desc" }],
@@ -450,7 +476,36 @@ export class BankStatementService {
         },
         select: { status: true, type: true, amount: true },
       }),
-      this.ledgerBalance(profile.accountId),
+      this.ledgerBalance(organizationId, profile.accountId),
+      this.prisma.bankReconciliation.findFirst({
+        where: { organizationId, bankAccountProfileId, status: BankReconciliationStatus.CLOSED },
+        orderBy: [{ periodEnd: "desc" }, { closedAt: "desc" }],
+        include: {
+          bankAccountProfile: {
+            select: {
+              id: true,
+              displayName: true,
+              accountId: true,
+              currency: true,
+              status: true,
+              account: { select: { id: true, code: true, name: true } },
+            },
+          },
+          _count: { select: { items: true } },
+        },
+      }),
+      this.prisma.bankReconciliation.count({
+        where: { organizationId, bankAccountProfileId, status: BankReconciliationStatus.DRAFT },
+      }),
+      this.prisma.bankStatementTransaction.count({
+        where: {
+          organizationId,
+          bankAccountProfileId,
+          status: { not: BankStatementTransactionStatus.VOIDED },
+          transactionDate: this.entryDateFilter(from, to),
+          reconciliationItems: { none: { reconciliation: { status: BankReconciliationStatus.CLOSED } } },
+        },
+      }),
     ]);
     const importsInRange = imports.filter((statementImport) => importOverlapsRange(statementImport, from, to));
     const latestClosingImport = importsInRange.find((statementImport) => statementImport.closingStatementBalance !== null);
@@ -470,6 +525,10 @@ export class BankStatementService {
       statementClosingBalance: statementClosingBalance === null ? null : this.formatMoney(statementClosingBalance),
       difference: difference === null ? null : this.formatMoney(difference),
       statusSuggestion,
+      latestClosedReconciliation,
+      hasOpenDraftReconciliation: openDraftCount > 0,
+      unreconciledTransactionCount,
+      closedThroughDate: latestClosedReconciliation?.periodEnd?.toISOString() ?? null,
     };
   }
 
@@ -500,6 +559,43 @@ export class BankStatementService {
       throw new BadRequestException("Only active bank account profiles can import statements.");
     }
     return profile;
+  }
+
+  private async assertRowsNotInClosedReconciliation(
+    organizationId: string,
+    defaultBankAccountProfileId: string | null,
+    rows: Array<{ bankAccountProfileId?: string; date?: Date; transactionDate?: Date }>,
+    executor: PrismaExecutor = this.prisma,
+  ): Promise<void> {
+    for (const row of rows) {
+      const bankAccountProfileId = row.bankAccountProfileId ?? defaultBankAccountProfileId;
+      const transactionDate = row.transactionDate ?? row.date;
+      if (!bankAccountProfileId || !transactionDate) {
+        continue;
+      }
+      await this.assertTransactionNotInClosedReconciliation(organizationId, bankAccountProfileId, transactionDate, executor);
+    }
+  }
+
+  private async assertTransactionNotInClosedReconciliation(
+    organizationId: string,
+    bankAccountProfileId: string,
+    transactionDate: Date,
+    executor: PrismaExecutor = this.prisma,
+  ): Promise<void> {
+    const closedReconciliation = await executor.bankReconciliation.findFirst({
+      where: {
+        organizationId,
+        bankAccountProfileId,
+        status: BankReconciliationStatus.CLOSED,
+        periodStart: { lte: transactionDate },
+        periodEnd: { gte: transactionDate },
+      },
+      select: { id: true },
+    });
+    if (closedReconciliation) {
+      throw new BadRequestException("Statement transaction belongs to a closed reconciliation period.");
+    }
   }
 
   private normalizeImportRow(row: BankStatementImportRowDto, index: number) {
@@ -580,9 +676,9 @@ export class BankStatementService {
     await executor.bankStatementImport.update({ where: { id: importId }, data: { status: nextStatus } });
   }
 
-  private async ledgerBalance(accountId: string): Promise<Prisma.Decimal> {
+  private async ledgerBalance(organizationId: string, accountId: string): Promise<Prisma.Decimal> {
     const lines = await this.prisma.journalLine.findMany({
-      where: { accountId, journalEntry: { status: { in: POSTED_LEDGER_STATUSES } } },
+      where: { organizationId, accountId, journalEntry: { status: { in: POSTED_LEDGER_STATUSES } } },
       select: { debit: true, credit: true },
     });
     return lines.reduce(

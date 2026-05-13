@@ -116,16 +116,22 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | Method | Path | Purpose | Auth | Org header | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | GET | `/bank-accounts/:id/statement-imports` | List statement import batches for a bank profile | Yes | Yes | Implemented | Requires `bankStatements.view`; tenant scoped. |
-| POST | `/bank-accounts/:id/statement-imports` | Import local statement rows | Yes | Yes | Implemented | Requires `bankStatements.import`; accepts JSON rows with debit/credit columns and creates no journals. |
+| POST | `/bank-accounts/:id/statement-imports` | Import local statement rows | Yes | Yes | Implemented | Requires `bankStatements.import`; accepts JSON rows with debit/credit columns, creates no journals, and rejects rows inside closed reconciliation periods. |
 | GET | `/bank-statement-imports/:id` | Import batch detail | Yes | Yes | Implemented | Requires `bankStatements.view`; includes imported statement transactions. |
-| POST | `/bank-statement-imports/:id/void` | Void an import batch | Yes | Yes | Implemented | Requires `bankStatements.manage`; rejected after rows are matched or categorized. |
+| POST | `/bank-statement-imports/:id/void` | Void an import batch | Yes | Yes | Implemented | Requires `bankStatements.manage`; rejected after rows are matched/categorized or belong to a closed reconciliation period. |
 | GET | `/bank-accounts/:id/statement-transactions` | List statement rows | Yes | Yes | Implemented | Requires `bankStatements.view`; supports `status`, `from`, and `to` filters. |
 | GET | `/bank-statement-transactions/:id` | Statement row detail | Yes | Yes | Implemented | Requires `bankStatements.view`; tenant scoped. |
 | GET | `/bank-statement-transactions/:id/match-candidates` | Posted bank journal candidates | Yes | Yes | Implemented | Requires `bankStatements.reconcile`; searches same bank account, amount/direction, and seven-day window. |
-| POST | `/bank-statement-transactions/:id/match` | Manually match to existing journal line | Yes | Yes | Implemented | Requires `bankStatements.reconcile`; creates no journal entry. |
-| POST | `/bank-statement-transactions/:id/categorize` | Categorize unmatched row to a posting account | Yes | Yes | Implemented | Requires `bankStatements.reconcile`; creates a posted balanced journal guarded by fiscal periods. |
-| POST | `/bank-statement-transactions/:id/ignore` | Ignore unmatched row | Yes | Yes | Implemented | Requires `bankStatements.reconcile`; creates no journal entry. |
-| GET | `/bank-accounts/:id/reconciliation-summary` | Reconciliation totals and difference | Yes | Yes | Implemented | Requires `bankStatements.view`; returns statement totals, ledger balance, latest closing balance, difference, and status suggestion. |
+| POST | `/bank-statement-transactions/:id/match` | Manually match to existing journal line | Yes | Yes | Implemented | Requires `bankStatements.reconcile`; creates no journal entry and is blocked in closed reconciliation periods. |
+| POST | `/bank-statement-transactions/:id/categorize` | Categorize unmatched row to a posting account | Yes | Yes | Implemented | Requires `bankStatements.reconcile`; creates a posted balanced journal guarded by fiscal periods and is blocked in closed reconciliation periods. |
+| POST | `/bank-statement-transactions/:id/ignore` | Ignore unmatched row | Yes | Yes | Implemented | Requires `bankStatements.reconcile`; creates no journal entry and is blocked in closed reconciliation periods. |
+| GET | `/bank-accounts/:id/reconciliation-summary` | Reconciliation totals and difference | Yes | Yes | Implemented | Requires `bankStatements.view`; returns statement totals, ledger balance, latest closing balance, difference, status suggestion, latest closed reconciliation, open draft flag, unreconciled count, and closed-through date. |
+| GET | `/bank-accounts/:id/reconciliations` | List reconciliation records | Yes | Yes | Implemented | Requires `bankReconciliations.view`; tenant scoped by bank profile. |
+| POST | `/bank-accounts/:id/reconciliations` | Create draft reconciliation | Yes | Yes | Implemented | Requires `bankReconciliations.create`; rejects inactive profiles, invalid ranges, and overlap with closed reconciliations. |
+| GET | `/bank-reconciliations/:id` | Reconciliation detail | Yes | Yes | Implemented | Requires `bankReconciliations.view`; includes bank profile, creator/closer/voider, difference, and unmatched count. |
+| POST | `/bank-reconciliations/:id/close` | Close reconciliation | Yes | Yes | Implemented | Requires `bankReconciliations.close`; requires zero difference and no unmatched statement rows, then snapshots items and locks the period. |
+| POST | `/bank-reconciliations/:id/void` | Void reconciliation | Yes | Yes | Implemented | Requires `bankReconciliations.void`; marks draft/closed records voided without changing journals or statement rows and unlocks the period. |
+| GET | `/bank-reconciliations/:id/items` | Reconciliation item snapshot | Yes | Yes | Implemented | Requires `bankReconciliations.view`; returns the statement row snapshot captured at close. |
 
 ## Fiscal Periods
 

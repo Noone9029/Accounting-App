@@ -2,6 +2,7 @@ import {
   AccountType,
   BankAccountStatus,
   BankAccountType,
+  BankReconciliationStatus,
   BankStatementImportStatus,
   BankStatementMatchType,
   BankStatementTransactionStatus,
@@ -56,8 +57,12 @@ describe("BankStatementService", () => {
         findFirst: jest.fn().mockResolvedValue(statementTransaction),
         findMany: jest.fn().mockResolvedValue([{ status: BankStatementTransactionStatus.MATCHED }]),
         update: jest.fn(),
-        count: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
         updateMany: jest.fn(),
+      },
+      bankReconciliation: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        count: jest.fn().mockResolvedValue(0),
       },
       journalLine: { findMany: jest.fn(), findFirst: jest.fn() },
       $transaction: jest.fn(),
@@ -189,6 +194,16 @@ describe("BankStatementService", () => {
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "MATCH", entityType: "BankStatementTransaction" }));
   });
 
+  it("blocks manual matching inside a closed reconciliation period", async () => {
+    const { service, prisma } = makeService();
+    prisma.bankReconciliation.findFirst.mockResolvedValue({ id: "reconciliation-1", status: BankReconciliationStatus.CLOSED });
+
+    await expect(
+      service.matchTransaction("org-1", "user-1", "statement-transaction-1", { journalLineId: "line-1" }),
+    ).rejects.toThrow("Statement transaction belongs to a closed reconciliation period.");
+    expect(prisma.journalLine.findFirst).not.toHaveBeenCalled();
+  });
+
   it("categorizes an unmatched debit by posting a balanced journal", async () => {
     const debitTransaction = { ...statementTransaction, type: BankStatementTransactionType.DEBIT, amount: new Prisma.Decimal("12.0000") };
     const tx = {
@@ -203,6 +218,7 @@ describe("BankStatementService", () => {
       },
       account: { findFirst: jest.fn().mockResolvedValue({ id: "expense-1", code: "520", name: "Bank fees" }) },
       journalEntry: { create: jest.fn().mockResolvedValue({ id: "journal-1" }) },
+      bankReconciliation: { findFirst: jest.fn().mockResolvedValue(null) },
     };
     const { service, prisma, fiscal } = makeService({
       bankStatementTransaction: { ...makeService().prisma.bankStatementTransaction, findFirst: jest.fn().mockResolvedValue(debitTransaction) },
@@ -234,11 +250,22 @@ describe("BankStatementService", () => {
     expect(prisma.bankStatementImport.update).toHaveBeenCalled();
   });
 
+  it("blocks categorization inside a closed reconciliation period", async () => {
+    const { service, prisma } = makeService();
+    prisma.bankReconciliation.findFirst.mockResolvedValue({ id: "reconciliation-1", status: BankReconciliationStatus.CLOSED });
+
+    await expect(
+      service.categorizeTransaction("org-1", "user-1", "statement-transaction-1", { accountId: "income-1" }),
+    ).rejects.toThrow("Statement transaction belongs to a closed reconciliation period.");
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it("leaves the statement unmatched when fiscal guard blocks categorization", async () => {
     const tx = {
       bankStatementTransaction: { findFirst: jest.fn().mockResolvedValue(statementTransaction), updateMany: jest.fn() },
       account: { findFirst: jest.fn().mockResolvedValue({ id: "income-1", code: "410", name: "Income" }) },
       journalEntry: { create: jest.fn() },
+      bankReconciliation: { findFirst: jest.fn().mockResolvedValue(null) },
     };
     const { service, fiscal } = makeService({
       $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
@@ -266,6 +293,36 @@ describe("BankStatementService", () => {
     expect(prisma.journalLine.findMany).not.toHaveBeenCalled();
   });
 
+  it("blocks ignore inside a closed reconciliation period", async () => {
+    const { service, prisma } = makeService();
+    prisma.bankReconciliation.findFirst.mockResolvedValue({ id: "reconciliation-1", status: BankReconciliationStatus.CLOSED });
+
+    await expect(
+      service.ignoreTransaction("org-1", "user-1", "statement-transaction-1", { reason: "Already reviewed" }),
+    ).rejects.toThrow("Statement transaction belongs to a closed reconciliation period.");
+    expect(prisma.bankStatementTransaction.update).not.toHaveBeenCalled();
+  });
+
+  it("blocks voiding an import that affects a closed reconciliation period", async () => {
+    const tx = {
+      bankStatementTransaction: {
+        findMany: jest.fn().mockResolvedValue([{ bankAccountProfileId: "profile-1", transactionDate: statementTransaction.transactionDate }]),
+        count: jest.fn(),
+        updateMany: jest.fn(),
+      },
+      bankReconciliation: { findFirst: jest.fn().mockResolvedValue({ id: "reconciliation-1" }) },
+      bankStatementImport: { update: jest.fn() },
+    };
+    const { service } = makeService({
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    });
+
+    await expect(service.voidImport("org-1", "user-1", "import-1")).rejects.toThrow(
+      "Statement transaction belongs to a closed reconciliation period.",
+    );
+    expect(tx.bankStatementTransaction.updateMany).not.toHaveBeenCalled();
+  });
+
   it("calculates reconciliation totals and difference", async () => {
     const { service, prisma } = makeService();
     prisma.bankStatementImport.findMany.mockResolvedValue([
@@ -287,12 +344,24 @@ describe("BankStatementService", () => {
       { debit: new Prisma.Decimal("60.0000"), credit: new Prisma.Decimal("0.0000") },
       { debit: new Prisma.Decimal("0.0000"), credit: new Prisma.Decimal("5.0000") },
     ]);
+    prisma.bankReconciliation.findFirst.mockResolvedValue({
+      id: "rec-1",
+      reconciliationNumber: "REC-000001",
+      status: BankReconciliationStatus.CLOSED,
+      periodEnd: new Date("2026-05-31T23:59:59.999Z"),
+    });
+    prisma.bankReconciliation.count.mockResolvedValue(1);
+    prisma.bankStatementTransaction.count.mockResolvedValue(2);
 
     await expect(service.reconciliationSummary("org-1", "profile-1", {})).resolves.toMatchObject({
       ledgerBalance: "55.0000",
       statementClosingBalance: "80.0000",
       difference: "25.0000",
       statusSuggestion: "NEEDS_REVIEW",
+      latestClosedReconciliation: { reconciliationNumber: "REC-000001" },
+      hasOpenDraftReconciliation: true,
+      unreconciledTransactionCount: 2,
+      closedThroughDate: "2026-05-31T23:59:59.999Z",
       totals: {
         credits: { count: 1, total: "100.0000" },
         debits: { count: 1, total: "20.0000" },

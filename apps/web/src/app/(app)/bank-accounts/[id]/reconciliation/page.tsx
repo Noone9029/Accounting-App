@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { reconciliationDifferenceStatus } from "@/lib/bank-statements";
+import { bankReconciliationStatusLabel, closedThroughDateLabel, reconciliationDifferenceStatus } from "@/lib/bank-statements";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { BankReconciliationSummary } from "@/lib/types";
 
 function todayInputValue(offsetDays = 0): string {
@@ -20,6 +22,7 @@ function todayInputValue(offsetDays = 0): string {
 export default function BankReconciliationPage() {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [summary, setSummary] = useState<BankReconciliationSummary | null>(null);
   const [from, setFrom] = useState(todayInputValue(-30));
   const [to, setTo] = useState(todayInputValue());
@@ -71,6 +74,8 @@ export default function BankReconciliationPage() {
 
   const status = summary ? reconciliationDifferenceStatus(summary) : "NEEDS_REVIEW";
   const currency = summary?.profile.currency ?? "SAR";
+  const canViewReconciliations = can(PERMISSIONS.bankReconciliations.view);
+  const canCreateReconciliation = can(PERMISSIONS.bankReconciliations.create);
 
   return (
     <section>
@@ -80,6 +85,16 @@ export default function BankReconciliationPage() {
           <p className="mt-1 text-sm text-steel">{summary ? `${summary.profile.displayName} statement and ledger review` : "Statement and ledger review"}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {canViewReconciliations ? (
+            <Link href={`/bank-accounts/${params.id}/reconciliations`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Reconciliations
+            </Link>
+          ) : null}
+          {canCreateReconciliation ? (
+            <Link href={`/bank-accounts/${params.id}/reconciliations/new`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50">
+              New close
+            </Link>
+          ) : null}
           <Link href={`/bank-accounts/${params.id}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Unmatched rows
           </Link>
@@ -121,6 +136,13 @@ export default function BankReconciliationPage() {
             <SummaryCard label="Statement closing" value={summary.statementClosingBalance ? formatMoneyAmount(summary.statementClosingBalance, currency) : "-"} />
             <SummaryCard label="Difference" value={summary.difference ? formatMoneyAmount(summary.difference, currency) : "-"} />
             <SummaryCard label="Unmatched rows" value={String(summary.totals.unmatched.count)} />
+            <SummaryCard label="Closed through" value={closedThroughDateLabel(summary)} />
+            <SummaryCard label="Unreconciled rows" value={String(summary.unreconciledTransactionCount)} />
+            <SummaryCard label="Open draft" value={summary.hasOpenDraftReconciliation ? "Yes" : "No"} />
+            <SummaryCard
+              label="Latest close"
+              value={summary.latestClosedReconciliation ? `${summary.latestClosedReconciliation.reconciliationNumber} ${bankReconciliationStatusLabel(summary.latestClosedReconciliation.status)}` : "-"}
+            />
           </div>
 
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">

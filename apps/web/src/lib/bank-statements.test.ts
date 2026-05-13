@@ -1,7 +1,12 @@
 import {
+  bankReconciliationStatusBadgeClass,
+  bankReconciliationStatusLabel,
   bankStatementTransactionStatusLabel,
   bankStatementTransactionTypeLabel,
   candidateScoreLabel,
+  closeBlockedMessage,
+  closedThroughDateLabel,
+  lockedStatementTransactionWarning,
   parseStatementRowsText,
   reconciliationDifferenceStatus,
 } from "./bank-statements";
@@ -45,5 +50,36 @@ describe("bank statement helpers", () => {
         totals: { unmatched: { count: 0, total: "0.0000" } },
       } as never),
     ).toBe("NEEDS_REVIEW");
+  });
+
+  it("formats reconciliation close and lock helpers", () => {
+    expect(bankReconciliationStatusLabel("CLOSED")).toBe("Closed");
+    expect(bankReconciliationStatusBadgeClass("DRAFT")).toContain("amber");
+    expect(closeBlockedMessage({ status: "DRAFT", difference: "5.0000", unmatchedTransactionCount: 0 })).toBe(
+      "Cannot close reconciliation while difference is not zero.",
+    );
+    expect(closeBlockedMessage({ status: "DRAFT", difference: "0.0000", unmatchedTransactionCount: 1 })).toBe(
+      "Cannot close reconciliation with unmatched statement transactions.",
+    );
+    expect(closeBlockedMessage({ status: "DRAFT", difference: "0.0000", unmatchedTransactionCount: 0 })).toBeNull();
+    expect(closedThroughDateLabel({ closedThroughDate: "2026-05-31T23:59:59.999Z" })).toBe("2026-05-31");
+    expect(
+      lockedStatementTransactionWarning({
+        reconciliationItems: [
+          {
+            id: "item-1",
+            reconciliationId: "rec-1",
+            reconciliation: {
+              id: "rec-1",
+              reconciliationNumber: "REC-000001",
+              status: "CLOSED",
+              periodStart: "2026-05-01",
+              periodEnd: "2026-05-31",
+              closedAt: "2026-05-31",
+            },
+          },
+        ],
+      }),
+    ).toBe("Statement transaction belongs to closed reconciliation REC-000001.");
   });
 });

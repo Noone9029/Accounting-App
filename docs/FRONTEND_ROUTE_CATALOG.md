@@ -9,7 +9,7 @@ Route source: `apps/web/src/app`
 - App routes are wrapped in a permission provider that loads `/auth/me` and the active organization membership.
 - The sidebar filters top-level and child nav items by view permissions.
 - Route protection shows an access-denied panel when a user lacks the page permission.
-- High-risk buttons such as approve, convert, finalize, void, delete, apply/reverse allocation, bank account archive/reactivate, opening-balance posting, bank transfer voiding, statement import/match/categorize/ignore, fiscal period lock, ZATCA generate/check, and document settings save are hidden unless the active role has the matching permission.
+- High-risk buttons such as approve, convert, finalize, void, delete, apply/reverse allocation, bank account archive/reactivate, opening-balance posting, bank transfer voiding, statement import/match/categorize/ignore, reconciliation close/void, fiscal period lock, ZATCA generate/check, and document settings save are hidden unless the active role has the matching permission.
 - Settings/Admin nav now includes Team Members for `users.view` and Roles & Permissions for `roles.view`.
 
 ## Auth And Setup
@@ -29,12 +29,15 @@ Route source: `apps/web/src/app`
 | `/accounts` | Chart of accounts. | Accounts. | Create/update/delete accounts. | Implemented | Hierarchical drag/drop and COA templates missing. |
 | `/bank-accounts` | Bank/cash account profile list. | Bank account profiles with linked accounts and ledger summaries. | View detail, create profile, archive/reactivate when allowed. | Implemented | No live feed, transfer fee, or FX workflow. |
 | `/bank-accounts/new` | Link bank account profile. | Accounts and existing profiles. | Create profile for an unlinked active posting asset account. | Implemented | Cannot create chart account inline. |
-| `/bank-accounts/[id]` | Bank account profile detail. | Profile summary and posted transaction rows when allowed. | Date filters, archive/reactivate, post opening balance when allowed, general-ledger link, statement import/transaction/reconciliation links. | Implemented | No statement attachments or reconciliation close workflow. |
+| `/bank-accounts/[id]` | Bank account profile detail. | Profile summary and posted transaction rows when allowed. | Date filters, archive/reactivate, post opening balance when allowed, general-ledger link, statement import/transaction/reconciliation/reconciliations links. | Implemented | No statement attachments or formal reconciliation report PDF. |
 | `/bank-accounts/[id]/edit` | Edit bank/cash metadata. | Profile, accounts, existing profiles. | Update metadata only; opening balance fields are disabled after posting. | Implemented | Linked account cannot be changed. |
 | `/bank-accounts/[id]/statement-imports` | Local statement import batches. | Bank profile and import batches. | Paste JSON/CSV rows, create import batch, void unmatched imports when allowed. | Implemented | No direct file upload or OFX/CAMT parser. |
 | `/bank-accounts/[id]/statement-transactions` | Statement transaction list. | Imported statement rows with filters. | Filter by status/date and open review page. | Implemented | Bulk matching not present. |
-| `/bank-accounts/[id]/reconciliation` | Reconciliation summary. | Statement totals, ledger balance, latest closing balance, difference, imports. | Date filtering and unmatched-row navigation. | Implemented | No reconciliation close/lock process. |
-| `/bank-statement-transactions/[id]` | Statement transaction review. | Statement row, match candidates, accounts. | Manual match, categorize to journal, or ignore when allowed. | Implemented | No auto-match or split categorization. |
+| `/bank-accounts/[id]/reconciliation` | Reconciliation summary. | Statement totals, ledger balance, latest closing balance, difference, imports, latest closed reconciliation, open draft flag, unreconciled count, and closed-through date. | Date filtering, unmatched-row navigation, and links to reconciliation list/new draft when allowed. | Implemented | No formal reconciliation report PDF. |
+| `/bank-accounts/[id]/reconciliations` | Reconciliation record list. | Bank profile and reconciliation records. | View draft/closed/voided records and create new draft when allowed. | Implemented | No export package or approval queue. |
+| `/bank-accounts/[id]/reconciliations/new` | Create draft reconciliation. | Bank profile ledger summary. | Enter period, statement balances, notes, and create draft. | Implemented | No pre-close preview endpoint; ledger/difference are calculated after save. |
+| `/bank-reconciliations/[id]` | Reconciliation detail. | Reconciliation detail and closed item snapshot. | Close zero-difference drafts, void draft/closed records, and review items. | Implemented | No PDF/report package or reviewer approval workflow. |
+| `/bank-statement-transactions/[id]` | Statement transaction review. | Statement row, match candidates, accounts. | Manual match, categorize to journal, or ignore when allowed and not locked by closed reconciliation. | Implemented | No auto-match or split categorization. |
 | `/bank-transfers` | Bank transfer list. | Posted and voided transfers with from/to profiles and journal links. | Navigate/create/view transfers. | Implemented | No transfer fees, recurring transfers, reconciliation, or FX handling. |
 | `/bank-transfers/new` | Create bank transfer. | Active bank account profiles. | Validate and post transfer between different active profiles. | Implemented | No scheduled transfer or fee line. |
 | `/bank-transfers/[id]` | Bank transfer detail. | Transfer, profile/account links, journal links. | Void transfer when allowed. | Implemented | No edit/delete after posting by design. |
@@ -111,4 +114,4 @@ Route source: `apps/web/src/app`
 - Supplier ledger/statement views use the same table component as customer ledgers; AP-specific wording should be refined.
 - Settings and document routes are operational but not production-grade administration screens.
 - Permission gating is MVP-grade UI hardening only; backend guards remain the source of truth.
-- Placeholder route should be replaced as inventory, payroll, reconciliation, and other future modules are added.
+- Placeholder route should be replaced as inventory, payroll, and other future modules are added.

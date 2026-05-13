@@ -48,6 +48,7 @@ export default function BankAccountDetailPage() {
   const canPostOpening = can(PERMISSIONS.bankAccounts.openingBalancePost);
   const canViewStatements = can(PERMISSIONS.bankStatements.view);
   const canImportStatements = can(PERMISSIONS.bankStatements.import);
+  const canViewReconciliations = can(PERMISSIONS.bankReconciliations.view);
   const transactionPath = useMemo(() => {
     const query = new URLSearchParams();
     if (from) {
@@ -229,6 +230,11 @@ export default function BankAccountDetailPage() {
                     Reconciliation
                   </Link>
                 </>
+              ) : null}
+              {canViewReconciliations ? (
+                <Link href={`/bank-accounts/${profile.id}/reconciliations`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                  Reconciliations
+                </Link>
               ) : null}
               {canPostOpening && canPostOpeningBalance(profile) ? (
                 <button type="button" disabled={postingOpeningBalance} onClick={() => void postOpeningBalance()} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">

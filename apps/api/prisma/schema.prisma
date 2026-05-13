@@ -183,6 +183,12 @@ enum BankStatementMatchType {
   OTHER
 }
 
+enum BankReconciliationStatus {
+  DRAFT
+  CLOSED
+  VOIDED
+}
+
 enum DocumentType {
   SALES_INVOICE
   CREDIT_NOTE
@@ -270,6 +276,7 @@ enum NumberSequenceScope {
   SUPPLIER_REFUND
   CASH_EXPENSE
   CONTACT
+  BANK_RECONCILIATION
 }
 
 model User {
@@ -295,6 +302,9 @@ model User {
   createdSupplierRefunds  SupplierRefund[]     @relation("SupplierRefundCreatedBy")
   createdBankTransfers    BankTransfer[]       @relation("BankTransferCreatedBy")
   importedBankStatements   BankStatementImport[] @relation("BankStatementImportImportedBy")
+  createdBankReconciliations BankReconciliation[] @relation("BankReconciliationCreatedBy")
+  closedBankReconciliations  BankReconciliation[] @relation("BankReconciliationClosedBy")
+  voidedBankReconciliations  BankReconciliation[] @relation("BankReconciliationVoidedBy")
   reversedCreditNoteAllocations CreditNoteAllocation[] @relation("CreditNoteAllocationReversedBy")
   reversedPurchaseDebitNoteAllocations PurchaseDebitNoteAllocation[] @relation("PurchaseDebitNoteAllocationReversedBy")
   reversedCustomerPaymentUnappliedAllocations CustomerPaymentUnappliedAllocation[] @relation("CustomerPaymentUnappliedAllocationReversedBy")
@@ -321,6 +331,8 @@ model Organization {
   bankTransfers              BankTransfer[]
   bankStatementImports       BankStatementImport[]
   bankStatementTransactions  BankStatementTransaction[]
+  bankReconciliations        BankReconciliation[]
+  bankReconciliationItems    BankReconciliationItem[]
   taxRates                   TaxRate[]
   items                      Item[]
   salesInvoices              SalesInvoice[]
@@ -677,6 +689,7 @@ model BankAccountProfile {
   incomingTransfers   BankTransfer[]    @relation("BankTransferToProfile")
   statementImports    BankStatementImport[]
   statementTransactions BankStatementTransaction[]
+  reconciliations     BankReconciliation[]
 
   @@index([organizationId])
   @@index([organizationId, status])
@@ -773,6 +786,7 @@ model BankStatementTransaction {
   matchedJournalEntry   JournalEntry?                  @relation("BankStatementTransactionMatchedJournalEntry", fields: [matchedJournalEntryId], references: [id], onDelete: SetNull)
   categorizedAccount    Account?                       @relation("BankStatementTransactionCategorizedAccount", fields: [categorizedAccountId], references: [id], onDelete: SetNull)
   createdJournalEntry   JournalEntry?                  @relation("BankStatementTransactionCreatedJournalEntry", fields: [createdJournalEntryId], references: [id], onDelete: SetNull)
+  reconciliationItems   BankReconciliationItem[]
 
   @@index([organizationId])
   @@index([importId])
@@ -782,6 +796,59 @@ model BankStatementTransaction {
   @@index([matchedJournalLineId])
   @@index([matchedJournalEntryId])
   @@index([createdJournalEntryId])
+}
+
+model BankReconciliation {
+  id                      String                    @id @default(uuid()) @db.Uuid
+  organizationId          String                    @db.Uuid
+  bankAccountProfileId    String                    @db.Uuid
+  reconciliationNumber    String
+  periodStart             DateTime
+  periodEnd               DateTime
+  statementOpeningBalance Decimal?                  @db.Decimal(20, 4)
+  statementClosingBalance Decimal                   @db.Decimal(20, 4)
+  ledgerClosingBalance    Decimal                   @db.Decimal(20, 4)
+  difference              Decimal                   @db.Decimal(20, 4)
+  status                  BankReconciliationStatus  @default(DRAFT)
+  notes                   String?
+  createdById             String?                   @db.Uuid
+  closedById              String?                   @db.Uuid
+  voidedById              String?                   @db.Uuid
+  closedAt                DateTime?
+  voidedAt                DateTime?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  organization            Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankAccountProfile      BankAccountProfile        @relation(fields: [bankAccountProfileId], references: [id])
+  createdBy               User?                     @relation("BankReconciliationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  closedBy                User?                     @relation("BankReconciliationClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  voidedBy                User?                     @relation("BankReconciliationVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
+  items                   BankReconciliationItem[]
+
+  @@unique([organizationId, reconciliationNumber])
+  @@index([organizationId])
+  @@index([bankAccountProfileId])
+  @@index([organizationId, bankAccountProfileId, status])
+  @@index([organizationId, bankAccountProfileId, periodStart, periodEnd])
+}
+
+model BankReconciliationItem {
+  id                     String                         @id @default(uuid()) @db.Uuid
+  organizationId         String                         @db.Uuid
+  reconciliationId       String                         @db.Uuid
+  statementTransactionId String                         @db.Uuid
+  statusAtClose          BankStatementTransactionStatus
+  amount                 Decimal                        @db.Decimal(20, 4)
+  type                   BankStatementTransactionType
+  createdAt              DateTime                       @default(now())
+  organization           Organization                   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reconciliation         BankReconciliation             @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+  statementTransaction   BankStatementTransaction       @relation(fields: [statementTransactionId], references: [id])
+
+  @@unique([reconciliationId, statementTransactionId])
+  @@index([organizationId])
+  @@index([reconciliationId])
+  @@index([statementTransactionId])
 }
 
 model TaxRate {

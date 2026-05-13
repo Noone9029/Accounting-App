@@ -12,6 +12,7 @@ import {
   bankStatementTransactionStatusLabel,
   bankStatementTransactionTypeLabel,
   candidateScoreLabel,
+  lockedStatementTransactionWarning,
 } from "@/lib/bank-statements";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
@@ -37,6 +38,7 @@ export default function BankStatementTransactionDetailPage() {
   const canReconcile = can(PERMISSIONS.bankStatements.reconcile);
   const currency = transaction?.bankAccountProfile?.currency ?? "SAR";
   const isUnmatched = transaction?.status === "UNMATCHED";
+  const lockedWarning = transaction ? lockedStatementTransactionWarning(transaction) : null;
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -80,7 +82,7 @@ export default function BankStatementTransactionDetailPage() {
   }, [canReconcile, organizationId, params.id, reloadToken]);
 
   useEffect(() => {
-    if (!organizationId || !params.id || !canReconcile || !isUnmatched) {
+    if (!organizationId || !params.id || !canReconcile || !isUnmatched || lockedWarning) {
       setCandidates([]);
       return;
     }
@@ -108,7 +110,7 @@ export default function BankStatementTransactionDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [canReconcile, isUnmatched, organizationId, params.id, reloadToken]);
+  }, [canReconcile, isUnmatched, lockedWarning, organizationId, params.id, reloadToken]);
 
   async function submitAction(action: "match" | "categorize" | "ignore", body: unknown) {
     setSubmitting(action);
@@ -178,7 +180,9 @@ export default function BankStatementTransactionDetailPage() {
             {transaction.ignoredReason ? <p className="mt-4 text-sm text-steel">Ignored reason: {transaction.ignoredReason}</p> : null}
           </div>
 
-          {canReconcile && isUnmatched ? (
+          {lockedWarning ? <StatusMessage type="info">{lockedWarning}</StatusMessage> : null}
+
+          {canReconcile && isUnmatched && !lockedWarning ? (
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
               <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
                 <h2 className="text-lg font-semibold text-ink">Match candidates</h2>
@@ -247,7 +251,7 @@ export default function BankStatementTransactionDetailPage() {
           ) : null}
 
           {!canReconcile ? <StatusMessage type="info">Your role can view statement rows, but reconciliation actions require bank statement reconcile permission.</StatusMessage> : null}
-          {canReconcile && !isUnmatched ? <StatusMessage type="info">Only unmatched rows can be matched, categorized, or ignored.</StatusMessage> : null}
+          {canReconcile && !lockedWarning && !isUnmatched ? <StatusMessage type="info">Only unmatched rows can be matched, categorized, or ignored.</StatusMessage> : null}
         </div>
       ) : null}
     </section>

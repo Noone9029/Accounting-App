@@ -1,6 +1,9 @@
 import type {
+  BankReconciliation,
+  BankReconciliationStatus,
   BankReconciliationSummary,
   BankStatementMatchCandidate,
+  BankStatementTransaction,
   BankStatementTransactionStatus,
   BankStatementTransactionType,
 } from "./types";
@@ -46,6 +49,28 @@ export function bankStatementTransactionTypeLabel(type: BankStatementTransaction
   return type === "CREDIT" ? "Credit" : "Debit";
 }
 
+export function bankReconciliationStatusLabel(status: BankReconciliationStatus): string {
+  switch (status) {
+    case "DRAFT":
+      return "Draft";
+    case "CLOSED":
+      return "Closed";
+    case "VOIDED":
+      return "Voided";
+  }
+}
+
+export function bankReconciliationStatusBadgeClass(status: BankReconciliationStatus): string {
+  switch (status) {
+    case "DRAFT":
+      return "bg-amber-50 text-amber-700";
+    case "CLOSED":
+      return "bg-emerald-50 text-emerald-700";
+    case "VOIDED":
+      return "bg-rose-50 text-rose-700";
+  }
+}
+
 export function candidateScoreLabel(candidate: Pick<BankStatementMatchCandidate, "score">): string {
   if (candidate.score >= 90) {
     return "Strong match";
@@ -54,6 +79,30 @@ export function candidateScoreLabel(candidate: Pick<BankStatementMatchCandidate,
     return "Likely match";
   }
   return "Possible match";
+}
+
+export function closeBlockedMessage(
+  reconciliation: Pick<BankReconciliation, "status" | "difference"> & { unmatchedTransactionCount?: number },
+): string | null {
+  if (reconciliation.status !== "DRAFT") {
+    return "Only draft reconciliations can be closed.";
+  }
+  if (Number(reconciliation.difference) !== 0) {
+    return "Cannot close reconciliation while difference is not zero.";
+  }
+  if ((reconciliation.unmatchedTransactionCount ?? 0) > 0) {
+    return "Cannot close reconciliation with unmatched statement transactions.";
+  }
+  return null;
+}
+
+export function closedThroughDateLabel(summary: Pick<BankReconciliationSummary, "closedThroughDate">): string {
+  return summary.closedThroughDate ? summary.closedThroughDate.slice(0, 10) : "Not closed";
+}
+
+export function lockedStatementTransactionWarning(transaction: Pick<BankStatementTransaction, "reconciliationItems">): string | null {
+  const closed = transaction.reconciliationItems?.find((item) => item.reconciliation.status === "CLOSED");
+  return closed ? `Statement transaction belongs to closed reconciliation ${closed.reconciliation.reconciliationNumber}.` : null;
 }
 
 export function reconciliationDifferenceStatus(

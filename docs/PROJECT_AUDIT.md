@@ -2,13 +2,13 @@
 
 Audit date: 2026-05-13
 
-Current commit audited: pending (`Add bank statement reconciliation groundwork`)
+Current commit audited: pending (`Add bank reconciliation close workflow`)
 
 ## Summary
 
 LedgerByte is a TypeScript monorepo for a GCC/Saudi-oriented accounting SaaS. The current codebase has a working local MVP for core AR and AP transaction flows, document PDFs, generated-document archive, local smoke coverage, and non-production ZATCA groundwork.
 
-Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated locally for sales invoices, customer payments, credit notes, customer refunds, purchase orders, purchase bills, supplier payments, bank account profile balances/transactions, bank transfers, opening-balance posting, local bank statement import/reconciliation, ledgers, statements, and PDFs. It is not production-ready as a SaaS and is not production ZATCA compliant.
+Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated locally for sales invoices, customer payments, credit notes, customer refunds, purchase orders, purchase bills, supplier payments, bank account profile balances/transactions, bank transfers, opening-balance posting, local bank statement import/reconciliation, reconciliation close/lock review history, ledgers, statements, and PDFs. It is not production-ready as a SaaS and is not production ZATCA compliant.
 
 ## Tech Stack
 
@@ -41,7 +41,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 - API permission guards for sensitive accounting, document, report, fiscal period, and ZATCA actions.
 - Frontend sidebar, route access, and high-risk action visibility based on active role permissions.
 - Tenant-scoped CRUD foundations for accounts, branches, contacts, tax rates, items, and journals.
-- Bank account profiles for cash/bank asset accounts, posted transaction visibility, bank-aware payment/expense account labels, posted bank transfers, transfer voids, guarded one-time opening-balance journals, local statement imports, manual matching, categorization journals, ignores, and reconciliation summaries.
+- Bank account profiles for cash/bank asset accounts, posted transaction visibility, bank-aware payment/expense account labels, posted bank transfers, transfer voids, guarded one-time opening-balance journals, local statement imports, manual matching, categorization journals, ignores, reconciliation summaries, reconciliation close records, close item snapshots, void history, and closed-period statement locks.
 - Sales invoice draft/create/edit/finalize/void with AR journal posting.
 - Customer payment posting with invoice allocation and balance updates.
 - Unapplied customer payment application and reversal.
@@ -55,12 +55,12 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 - Sales invoice, credit note, customer payment, customer refund, customer statement, purchase order, purchase bill, and supplier payment PDFs.
 - Generated document archive for generated PDFs.
 - Local-only ZATCA profile, EGS, CSR, mock CSID, XML/QR/hash, compliance checklist, reference maps, and SDK wrapper readiness/dry-run.
-- Full `typecheck`, `test`, `build`, and smoke workflow passed after the bank statement reconciliation groundwork changes.
+- Full `typecheck`, `test`, `build`, and smoke workflow passed after the bank reconciliation close workflow changes.
 
 ## Groundwork Or Scaffold Only
 
 - Invite delivery, invited-user onboarding, and password reset remain placeholder/missing even though local role/member management exists.
-- Bank feeds, external bank APIs, automatic matching, reconciliation close/lock, transfer fees, and multi-currency FX transfers are not implemented.
+- Bank feeds, external bank APIs, automatic matching, formal reconciliation report PDF, transfer fees, and multi-currency FX transfers are not implemented.
 - Purchase order receiving, partial billing, and inventory receipt are not implemented.
 - Reports exist for core accounting views, but export/PDF delivery and accountant-reviewed filing definitions remain missing.
 - Inventory tracking flags exist on items, but no warehouse, stock, COGS, or valuation engine exists.
@@ -75,7 +75,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 1. ZATCA is not production compliant; real onboarding, signing, SDK validation, and API submission are missing.
 2. Email-backed invites, invited-user onboarding, and password reset are still missing despite local role/member management.
 3. No approval workflow, dual control, or maker-checker policy for high-risk accounting actions.
-4. Bank reconciliation is groundwork only; there is no live feed, automatic matching, close/lock process, or external bank integration.
+4. Bank reconciliation has local import, manual matching, categorization, and close/lock groundwork, but there is no live feed, automatic matching, formal report PDF, or external bank integration.
 5. Inventory flags exist without stock movements, valuation, COGS, or warehouse controls.
 6. Generated PDFs are stored as base64 in the database, which is not scalable for production.
 7. Production secrets/key custody is not hardened; ZATCA private key storage is explicitly dev-only.
@@ -90,7 +90,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 3. Add report export/PDF delivery, official VAT return work, and accountant review for report definitions.
 4. Add fiscal year close, retained earnings close, and controlled unlock/approval workflows.
 5. Add partial PO receiving/billing design and purchase matching hardening.
-6. Harden bank reconciliation with close/lock workflow, import file samples, transfer fees, and multi-currency FX handling.
+6. Harden bank reconciliation with report PDF/export, import file samples, reviewer workflow, transfer fees, and multi-currency FX handling.
 7. Add inventory warehouses, stock movements, adjustments, valuation, and COGS.
 8. Advance ZATCA official SDK validation, official XML mapping, signing, CSID, clearance/reporting, and PDF/A-3.
 9. Move generated documents to object storage.

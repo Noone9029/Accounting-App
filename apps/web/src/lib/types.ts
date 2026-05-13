@@ -34,6 +34,7 @@ export type BankStatementMatchType =
   | "SUPPLIER_REFUND"
   | "BANK_TRANSFER"
   | "OTHER";
+export type BankReconciliationStatus = "DRAFT" | "CLOSED" | "VOIDED";
 export type CustomerLedgerRowType =
   | "INVOICE"
   | "CREDIT_NOTE"
@@ -289,6 +290,11 @@ export interface BankStatementTransaction {
   matchedJournalEntry?: Pick<JournalEntry, "id" | "entryNumber" | "entryDate" | "description" | "reference"> | null;
   categorizedAccount?: Pick<Account, "id" | "code" | "name" | "type"> | null;
   createdJournalEntry?: Pick<JournalEntry, "id" | "entryNumber" | "entryDate" | "description" | "reference"> | null;
+  reconciliationItems?: Array<{
+    id: string;
+    reconciliationId: string;
+    reconciliation: Pick<BankReconciliation, "id" | "reconciliationNumber" | "status" | "periodStart" | "periodEnd" | "closedAt">;
+  }>;
 }
 
 export interface BankStatementMatchCandidate {
@@ -314,6 +320,50 @@ export interface BankReconciliationSummary {
   statementClosingBalance: string | null;
   difference: string | null;
   statusSuggestion: "RECONCILED" | "NEEDS_REVIEW";
+  latestClosedReconciliation: BankReconciliation | null;
+  hasOpenDraftReconciliation: boolean;
+  unreconciledTransactionCount: number;
+  closedThroughDate: string | null;
+}
+
+export interface BankReconciliation {
+  id: string;
+  organizationId: string;
+  bankAccountProfileId: string;
+  reconciliationNumber: string;
+  periodStart: string;
+  periodEnd: string;
+  statementOpeningBalance: string | null;
+  statementClosingBalance: string;
+  ledgerClosingBalance: string;
+  difference: string;
+  status: BankReconciliationStatus;
+  notes: string | null;
+  createdById: string | null;
+  closedById: string | null;
+  voidedById: string | null;
+  closedAt: string | null;
+  voidedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  unmatchedTransactionCount?: number;
+  bankAccountProfile?: Pick<BankAccountProfile, "id" | "displayName" | "accountId" | "currency" | "status" | "account">;
+  createdBy?: { id: string; name: string; email: string } | null;
+  closedBy?: { id: string; name: string; email: string } | null;
+  voidedBy?: { id: string; name: string; email: string } | null;
+  _count?: { items: number };
+}
+
+export interface BankReconciliationItem {
+  id: string;
+  organizationId: string;
+  reconciliationId: string;
+  statementTransactionId: string;
+  statusAtClose: BankStatementTransactionStatus;
+  amount: string;
+  type: BankStatementTransactionType;
+  createdAt: string;
+  statementTransaction?: BankStatementTransaction;
 }
 
 export interface TaxRate {

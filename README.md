@@ -109,7 +109,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, `/auth/me` role permission visibility, role/member API visibility, custom role creation, unknown-permission rejection, organization discovery, bank account profile defaults/transactions/balance movement, bank transfers/opening balances, bank statement import/matching/categorization/reconciliation summary, item/customer/supplier setup, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
+The smoke covers seed login, `/auth/me` role permission visibility, role/member API visibility, custom role creation, unknown-permission rejection, organization discovery, bank account profile defaults/transactions/balance movement, bank transfers/opening balances, bank statement import/matching/categorization/reconciliation summary/close/void lock checks, item/customer/supplier setup, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
 
@@ -201,6 +201,12 @@ Bank statement import and reconciliation:
 - `POST /bank-statement-transactions/:id/categorize`
 - `POST /bank-statement-transactions/:id/ignore`
 - `GET /bank-accounts/:id/reconciliation-summary?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /bank-accounts/:id/reconciliations`
+- `POST /bank-accounts/:id/reconciliations`
+- `GET /bank-reconciliations/:id`
+- `POST /bank-reconciliations/:id/close`
+- `POST /bank-reconciliations/:id/void`
+- `GET /bank-reconciliations/:id/items`
 
 Tax rates:
 
@@ -555,12 +561,16 @@ Statement import and reconciliation behavior:
 - Manual matching marks a statement row `MATCHED` and links the journal line without creating a journal.
 - Categorizing an unmatched row creates a posted manual journal using the statement date and the selected offset account, guarded by fiscal periods.
 - Ignoring an unmatched row marks it `IGNORED` without posting.
-- Reconciliation summary reports statement debit/credit totals, matched/categorized/ignored/unmatched counts, ledger balance, latest statement closing balance, difference, and a `RECONCILED`/`NEEDS_REVIEW` suggestion.
+- Reconciliation summary reports statement debit/credit totals, matched/categorized/ignored/unmatched counts, ledger balance, latest statement closing balance, difference, latest closed reconciliation, open draft state, unreconciled count, closed-through date, and a `RECONCILED`/`NEEDS_REVIEW` suggestion.
+- Draft bank reconciliations store the period, statement opening/closing balances, ledger closing balance, difference, and notes.
+- Closing a reconciliation requires zero difference and no unmatched statement transactions in the period, snapshots statement rows into reconciliation items, and locks the statement transaction period.
+- Closed reconciliation periods block statement row match, categorize, ignore, import void/status-changing operations, while still allowing reads.
+- Voiding a reconciliation keeps audit history and unlocks the period, but it does not reverse categorized journals.
 
 Known bank account limitations:
 
 - Import is local JSON/CSV paste only; no file upload parser, OFX, CAMT, or MT940 support yet.
-- Reconciliation has no close/lock workflow and no automatic matching.
+- Reconciliation has close/lock safeguards, but no formal reconciliation report PDF, reviewer approval workflow, or automatic matching.
 - No live feeds or external banking APIs.
 - No payment gateway integration.
 - No transfer fees or multi-currency FX transfer handling.
@@ -1113,14 +1123,14 @@ Permission matrix categories:
 - GET PDF endpoints currently archive every download.
 - Unapplied overpayment application is manual only; there is no automatic credit matching yet.
 - Customer refunds are manual accounting records only; no payment gateway refund or bank reconciliation integration exists yet.
-- Bank account profiles, posted transaction visibility, bank transfers, guarded one-time opening-balance posting, and local statement reconciliation groundwork exist, but live feeds, transfer fees, reconciliation close/lock, and multi-currency FX transfer handling are not implemented yet.
+- Bank account profiles, posted transaction visibility, bank transfers, guarded one-time opening-balance posting, and local statement reconciliation close/lock exist, but live feeds, transfer fees, formal reconciliation report PDFs, and multi-currency FX transfer handling are not implemented yet.
 - Purchase orders are MVP-only: no partial receiving, partial billing, supplier email sending, approval workflows, or inventory stock receipts.
 - Purchase bills, purchase debit notes, supplier payments, and supplier refunds are AP groundwork only; inventory stock movements/returns, bank reconciliation, and automated matching are not implemented yet.
 - ZATCA credit note XML/signing/submission is not implemented yet.
 - ZATCA debit note XML/signing/submission is not implemented yet.
 - Inventory returns from credit notes are not implemented yet.
 - Recurring invoices are not implemented yet.
-- Bank reconciliation has local import/manual matching groundwork, but no live feed, file-format support beyond paste import, auto-match, or close/lock process yet.
+- Bank reconciliation has local import/manual matching and close-lock groundwork, but no live feed, file-format support beyond paste import, auto-match, formal report PDF, or approval workflow yet.
 - Inventory movement and stock valuation are not implemented yet.
 - BullMQ workers and S3 upload adapters are not wired yet.
 - Email invitations are not implemented; invite placeholders require the target user to already exist.

@@ -141,6 +141,33 @@ interface BankReconciliationSummary {
   difference: string | null;
   statusSuggestion: "RECONCILED" | "NEEDS_REVIEW";
   totals: Record<"credits" | "debits" | "unmatched" | "matched" | "categorized" | "ignored", { count: number; total: string }>;
+  latestClosedReconciliation?: BankReconciliation | null;
+  hasOpenDraftReconciliation?: boolean;
+  unreconciledTransactionCount?: number;
+  closedThroughDate?: string | null;
+}
+
+interface BankReconciliation {
+  id: string;
+  reconciliationNumber: string;
+  bankAccountProfileId: string;
+  periodStart: string;
+  periodEnd: string;
+  statementClosingBalance: string;
+  ledgerClosingBalance: string;
+  difference: string;
+  status: "DRAFT" | "CLOSED" | "VOIDED";
+  closedAt?: string | null;
+  voidedAt?: string | null;
+  unmatchedTransactionCount?: number;
+}
+
+interface BankReconciliationItem {
+  id: string;
+  statementTransactionId: string;
+  statusAtClose: string;
+  amount: string;
+  type: "DEBIT" | "CREDIT";
 }
 
 interface FiscalPeriod {
@@ -727,6 +754,123 @@ async function main(): Promise<void> {
   assert(reconciliationSummary.totals.categorized.count >= 1, "bank reconciliation summary includes categorized statement row");
   assertPresent(reconciliationSummary.ledgerBalance, "bank reconciliation summary ledger balance");
   assertPresent(reconciliationSummary.difference, "bank reconciliation summary difference");
+  assertPresent(reconciliationSummary.unreconciledTransactionCount, "bank reconciliation summary unreconciled count");
+
+  const reconciliationAmount = money("7.7700");
+  const reconciliationDate = new Date().toISOString().slice(0, 10);
+  const reconciliationAccount = await post<Account>("/accounts", headers, {
+    code: `SMKREC-${runId}`,
+    name: `Smoke Reconciliation Bank ${runId}`,
+    type: "ASSET",
+    allowPosting: true,
+    isActive: true,
+  });
+  const reconciliationProfile = await post<BankAccountSummary>("/bank-accounts", headers, {
+    accountId: reconciliationAccount.id,
+    type: "BANK",
+    displayName: `Smoke Reconciliation Bank ${runId}`,
+    currency: "SAR",
+  });
+  const reconciliationImport = await post<BankStatementImport>(
+    `/bank-accounts/${reconciliationProfile.id}/statement-imports`,
+    headers,
+    {
+      filename: `smoke-reconciliation-${runId}.csv`,
+      rows: [
+        {
+          date: reconciliationDate,
+          description: "Smoke reconciliation receipt",
+          reference: `SMOKE-REC-${runId}`,
+          debit: "0.0000",
+          credit: reconciliationAmount.toFixed(4),
+        },
+      ],
+      openingStatementBalance: "0.0000",
+      closingStatementBalance: reconciliationAmount.toFixed(4),
+    },
+  );
+  const reconciliationRows = await get<BankStatementTransaction[]>(
+    `/bank-accounts/${reconciliationProfile.id}/statement-transactions?status=UNMATCHED`,
+    headers,
+  );
+  const reconciliationRow = required(
+    reconciliationRows.find((transaction) => transaction.importId === reconciliationImport.id),
+    "isolated reconciliation statement row",
+  );
+  const categorizedReconciliationRow = await post<BankStatementTransaction>(
+    `/bank-statement-transactions/${reconciliationRow.id}/categorize`,
+    headers,
+    { accountId: salesAccount.id, description: "Smoke reconciliation categorization" },
+  );
+  assertEqual(categorizedReconciliationRow.status, "CATEGORIZED", "isolated reconciliation row categorized");
+  const reconciliationProfileAfterCategorize = await get<BankAccountSummary>(`/bank-accounts/${reconciliationProfile.id}`, headers);
+  assertMoney(
+    reconciliationProfileAfterCategorize.ledgerBalance,
+    reconciliationAmount,
+    "isolated reconciliation bank ledger balance",
+  );
+  const isolatedSummary = await get<BankReconciliationSummary>(
+    `/bank-accounts/${reconciliationProfile.id}/reconciliation-summary?from=${reconciliationDate}&to=${reconciliationDate}`,
+    headers,
+  );
+  assertEqual(isolatedSummary.statusSuggestion, "RECONCILED", "isolated reconciliation summary suggestion");
+  const draftReconciliation = await post<BankReconciliation>(
+    `/bank-accounts/${reconciliationProfile.id}/reconciliations`,
+    headers,
+    {
+      periodStart: reconciliationDate,
+      periodEnd: reconciliationDate,
+      statementOpeningBalance: "0.0000",
+      statementClosingBalance: reconciliationAmount.toFixed(4),
+      notes: "Smoke isolated bank reconciliation close",
+    },
+  );
+  assertEqual(draftReconciliation.status, "DRAFT", "bank reconciliation draft status");
+  assertMoney(draftReconciliation.difference, money(0), "bank reconciliation draft difference");
+  assertEqual(draftReconciliation.unmatchedTransactionCount, 0, "bank reconciliation draft unmatched count");
+  const closedReconciliation = await post<BankReconciliation>(
+    `/bank-reconciliations/${draftReconciliation.id}/close`,
+    headers,
+    {},
+  );
+  assertEqual(closedReconciliation.status, "CLOSED", "bank reconciliation closed status");
+  assertPresent(closedReconciliation.closedAt, "bank reconciliation closedAt");
+  const reconciliationItems = await get<BankReconciliationItem[]>(
+    `/bank-reconciliations/${closedReconciliation.id}/items`,
+    headers,
+  );
+  assert(
+    reconciliationItems.some((item) => item.statementTransactionId === categorizedReconciliationRow.id),
+    "bank reconciliation close snapshots statement row",
+  );
+  await expectHttpError("closed reconciliation statement row mutation", () =>
+    post<BankStatementTransaction>(`/bank-statement-transactions/${categorizedReconciliationRow.id}/ignore`, headers, {
+      reason: "Smoke closed-period mutation check",
+    }),
+  );
+  const voidedReconciliation = await post<BankReconciliation>(
+    `/bank-reconciliations/${closedReconciliation.id}/void`,
+    headers,
+    {},
+  );
+  assertEqual(voidedReconciliation.status, "VOIDED", "bank reconciliation voided status");
+  const unlockedImport = await post<BankStatementImport>(
+    `/bank-accounts/${reconciliationProfile.id}/statement-imports`,
+    headers,
+    {
+      filename: `smoke-reconciliation-unlocked-${runId}.csv`,
+      rows: [
+        {
+          date: reconciliationDate,
+          description: "Smoke reconciliation unlocked row",
+          reference: `SMOKE-REC-UNLOCK-${runId}`,
+          debit: "0.0100",
+          credit: "0.0000",
+        },
+      ],
+    },
+  );
+  assertEqual(unlockedImport.rowCount, 1, "voided reconciliation unlocks statement import in period");
 
   const openingBalanceAmount = money("23.0000");
   const openingAccount = await post<Account>("/accounts", headers, {
@@ -2267,6 +2411,11 @@ async function main(): Promise<void> {
         bankStatementMatchedTransactionId: matchedTransferStatementRow.id,
         bankStatementCategorizedTransactionId: categorizedStatementRow.id,
         bankReconciliationStatusSuggestion: reconciliationSummary.statusSuggestion,
+        bankReconciliationId: closedReconciliation.id,
+        bankReconciliationNumber: closedReconciliation.reconciliationNumber,
+        bankReconciliationClosedStatus: closedReconciliation.status,
+        bankReconciliationVoidedStatus: voidedReconciliation.status,
+        bankReconciliationItemCount: reconciliationItems.length,
         closedFiscalPeriodId: closedFiscalPeriod.id,
         fiscalPeriodLockChecked: true,
         customerId: customer.id,
