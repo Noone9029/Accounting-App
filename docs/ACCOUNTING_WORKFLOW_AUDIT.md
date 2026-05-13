@@ -204,6 +204,22 @@ This document maps implemented accounting workflows to their journal entries, ba
 
 ## Purchase Workflows
 
+### Purchase Order Lifecycle
+
+- API: `POST /purchase-orders`, `POST /purchase-orders/:id/approve`, `POST /purchase-orders/:id/mark-sent`, `POST /purchase-orders/:id/convert-to-bill`.
+- Models: `PurchaseOrder`, `PurchaseOrderLine`, optional source link on `PurchaseBill`.
+- Journal:
+  - No journal entry is created by PO create, approve, sent, close, void, PDF generation, or conversion.
+  - The converted bill remains `DRAFT`; AP posting still happens only when the purchase bill is finalized.
+- Balance fields:
+  - PO totals are calculated server-side using purchase bill semantics.
+  - Conversion copies PO totals into the draft bill and sets `PurchaseOrder.status = BILLED` plus `convertedBillId`.
+- Idempotency/concurrency:
+  - Draft-only edit/delete rules prevent mutation after approval.
+  - Conversion blocks closed, voided, billed, and already converted POs.
+- Gaps/risks:
+  - No approval workflow, partial receiving, partial billing, stock receipt, or supplier email sending.
+
 ### Purchase Bill Finalization
 
 - API: `POST /purchase-bills/:id/finalize`
@@ -224,7 +240,7 @@ This document maps implemented accounting workflows to their journal entries, ba
   - Active supplier payment allocations block voiding.
   - Finalization and finalized void reversal dates are fiscal-period guarded.
 - Gaps/risks:
-  - No purchase order matching.
+  - Purchase order conversion exists, but there is no partial matching or receiving.
   - No inventory receiving or stock valuation.
 
 ### Supplier Payment Posting

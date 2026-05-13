@@ -8,6 +8,7 @@ export type ItemType = "SERVICE" | "PRODUCT";
 export type ItemStatus = "ACTIVE" | "DISABLED";
 export type SalesInvoiceStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type CreditNoteStatus = "DRAFT" | "FINALIZED" | "VOIDED";
+export type PurchaseOrderStatus = "DRAFT" | "APPROVED" | "SENT" | "PARTIALLY_BILLED" | "BILLED" | "CLOSED" | "VOIDED";
 export type PurchaseBillStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type PurchaseDebitNoteStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type CashExpenseStatus = "DRAFT" | "POSTED" | "VOIDED";
@@ -51,6 +52,7 @@ export type DocumentType =
   | "CUSTOMER_PAYMENT_RECEIPT"
   | "CUSTOMER_REFUND"
   | "CUSTOMER_STATEMENT"
+  | "PURCHASE_ORDER"
   | "PURCHASE_BILL"
   | "PURCHASE_DEBIT_NOTE"
   | "SUPPLIER_PAYMENT_RECEIPT"
@@ -442,6 +444,58 @@ export interface PurchaseBillLine {
   taxRate?: { id: string; name: string; rate: string } | null;
 }
 
+export interface PurchaseOrderLine {
+  id: string;
+  organizationId: string;
+  purchaseOrderId: string;
+  itemId: string | null;
+  description: string;
+  accountId: string | null;
+  quantity: string;
+  unitPrice: string;
+  discountRate: string;
+  taxRateId: string | null;
+  lineGrossAmount: string;
+  discountAmount: string;
+  taxableAmount: string;
+  taxAmount: string;
+  lineTotal: string;
+  sortOrder: number;
+  item?: { id: string; name: string; sku: string | null; expenseAccountId?: string | null } | null;
+  account?: { id: string; code: string; name: string; type: AccountType } | null;
+  taxRate?: { id: string; name: string; rate: string } | null;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  organizationId: string;
+  purchaseOrderNumber: string;
+  supplierId: string;
+  branchId: string | null;
+  orderDate: string;
+  expectedDeliveryDate: string | null;
+  currency: string;
+  status: PurchaseOrderStatus;
+  subtotal: string;
+  discountTotal: string;
+  taxableTotal: string;
+  taxTotal: string;
+  total: string;
+  notes: string | null;
+  terms: string | null;
+  approvedAt: string | null;
+  sentAt: string | null;
+  closedAt: string | null;
+  voidedAt: string | null;
+  convertedBillId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  supplier?: { id: string; name: string; displayName: string | null; type?: ContactType; taxNumber?: string | null; isActive?: boolean };
+  branch?: { id: string; name: string; displayName: string | null; taxNumber?: string | null } | null;
+  convertedBill?: { id: string; billNumber: string; status: PurchaseBillStatus; billDate?: string; total: string } | null;
+  lines?: PurchaseOrderLine[];
+}
+
 export interface PurchaseDebitNoteAllocation {
   id: string;
   organizationId: string;
@@ -606,6 +660,8 @@ export interface PurchaseBill {
   reversalJournalEntryId: string | null;
   supplier?: { id: string; name: string; displayName: string | null; type?: ContactType; taxNumber?: string | null };
   branch?: { id: string; name: string; displayName: string | null; taxNumber?: string | null } | null;
+  purchaseOrderId?: string | null;
+  purchaseOrder?: { id: string; purchaseOrderNumber: string; status: PurchaseOrderStatus; orderDate?: string; total: string } | null;
   journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit?: string; totalCredit?: string } | null;
   reversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
   lines?: PurchaseBillLine[];

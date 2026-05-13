@@ -10,7 +10,7 @@ Tasks:
 
 - Run guided QA through every implemented frontend route.
 - Fix UX inconsistencies, especially supplier AP balance labels.
-- Add browser E2E tests for sales invoice, customer payment, credit note, customer refund, purchase bill, supplier payment, document archive, and ZATCA settings flows.
+- Add browser E2E tests for sales invoice, customer payment, credit note, customer refund, purchase order, purchase bill, supplier payment, document archive, and ZATCA settings flows.
 - Connect email-backed invites, password reset/onboarding, and audit visibility for role/member administration.
 - Harden fiscal period UX with period templates, optional reversal-date selection, and admin unlock approval design.
 - Add report export/PDF groundwork and accountant review pass for report layouts.
@@ -33,8 +33,8 @@ Objective: complete core accounting modules expected in a serious SME accounting
 
 Tasks:
 
-- Supplier debit notes.
-- Purchase orders and bill matching.
+- Supplier debit notes hardening and UI polish.
+- Partial purchase order receiving and partial bill matching.
 - Expense receipt attachments and cash expense import/OCR groundwork.
 - Bank accounts and cash/bank account management.
 - Bank statement import and reconciliation.
@@ -51,7 +51,7 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Implement purchase orders MVP with bill matching groundwork and AP posting safeguards.
+> Design inventory receiving and partial purchase order billing rules without posting stock movements yet.
 
 ## Phase 3: Inventory And Payroll Basics
 

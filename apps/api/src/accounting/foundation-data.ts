@@ -80,6 +80,7 @@ export const DEFAULT_TAX_RATES = [
 export const DEFAULT_NUMBER_SEQUENCES = [
   { scope: NumberSequenceScope.JOURNAL_ENTRY, prefix: "JE-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.INVOICE, prefix: "INV-", nextNumber: 1, padding: 6 },
+  { scope: NumberSequenceScope.PURCHASE_ORDER, prefix: "PO-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.BILL, prefix: "BILL-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.PAYMENT, prefix: "PAY-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.CUSTOMER_REFUND, prefix: "REF-", nextNumber: 1, padding: 6 },

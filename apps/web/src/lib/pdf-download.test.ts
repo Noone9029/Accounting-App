@@ -6,6 +6,7 @@ import {
   invoicePdfPath,
   pdfApiUrl,
   purchaseBillPdfPath,
+  purchaseOrderPdfPath,
   purchaseDebitNotePdfPath,
   receiptPdfPath,
   statementPdfPath,
@@ -19,6 +20,7 @@ describe("PDF download helpers", () => {
     expect(creditNotePdfPath("credit note 1")).toBe("/credit-notes/credit%20note%201/pdf");
     expect(receiptPdfPath("payment-1")).toBe("/customer-payments/payment-1/receipt.pdf");
     expect(customerRefundPdfPath("refund 1")).toBe("/customer-refunds/refund%201/pdf");
+    expect(purchaseOrderPdfPath("po 1")).toBe("/purchase-orders/po%201/pdf");
     expect(purchaseBillPdfPath("bill 1")).toBe("/purchase-bills/bill%201/pdf");
     expect(purchaseDebitNotePdfPath("debit note 1")).toBe("/purchase-debit-notes/debit%20note%201/pdf");
     expect(supplierPaymentReceiptPdfPath("supplier payment 1")).toBe("/supplier-payments/supplier%20payment%201/receipt.pdf");

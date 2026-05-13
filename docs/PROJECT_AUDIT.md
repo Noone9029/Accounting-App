@@ -2,13 +2,13 @@
 
 Audit date: 2026-05-13
 
-Current commit audited: pending (`Add team and role management`)
+Current commit audited: pending (`Add purchase orders MVP`)
 
 ## Summary
 
 LedgerByte is a TypeScript monorepo for a GCC/Saudi-oriented accounting SaaS. The current codebase has a working local MVP for core AR and AP transaction flows, document PDFs, generated-document archive, local smoke coverage, and non-production ZATCA groundwork.
 
-Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated locally for sales invoices, customer payments, credit notes, customer refunds, purchase bills, supplier payments, ledgers, statements, and PDFs. It is not production-ready as a SaaS and is not production ZATCA compliant.
+Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated locally for sales invoices, customer payments, credit notes, customer refunds, purchase orders, purchase bills, supplier payments, ledgers, statements, and PDFs. It is not production-ready as a SaaS and is not production ZATCA compliant.
 
 ## Tech Stack
 
@@ -48,9 +48,10 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 - Manual customer refunds from unapplied customer payments or credit notes.
 - Customer ledger and statement rows for AR events.
 - Purchase bill draft/create/edit/finalize/void with AP journal posting.
+- Purchase order draft/create/edit/delete, approve, mark sent, close, void, PDF/archive, and conversion to draft purchase bills without posting journals.
 - Supplier payment posting, allocation to bills, bill balance updates, and void restoration.
 - Supplier ledger and statement rows for AP events.
-- Sales invoice, credit note, customer payment, customer refund, customer statement, purchase bill, and supplier payment PDFs.
+- Sales invoice, credit note, customer payment, customer refund, customer statement, purchase order, purchase bill, and supplier payment PDFs.
 - Generated document archive for generated PDFs.
 - Local-only ZATCA profile, EGS, CSR, mock CSID, XML/QR/hash, compliance checklist, reference maps, and SDK wrapper readiness/dry-run.
 - Full `typecheck`, `test`, `build`, and smoke workflow passed after latest AP implementation.
@@ -58,8 +59,8 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 ## Groundwork Or Scaffold Only
 
 - Invite delivery, invited-user onboarding, and password reset remain placeholder/missing even though local role/member management exists.
-- Fiscal periods exist in schema, but no period close/lock enforcement exists.
-- Reports are not implemented beyond customer/supplier ledger and statements.
+- Purchase order receiving, partial billing, and inventory receipt are not implemented.
+- Reports exist for core accounting views, but export/PDF delivery and accountant-reviewed filing definitions remain missing.
 - Inventory tracking flags exist on items, but no warehouse, stock, COGS, or valuation engine exists.
 - PDF rendering is operational only, not legal/template-complete.
 - Generated document storage is database base64, not object storage.
@@ -86,7 +87,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 2. Add email-backed invite delivery, password reset/onboarding, and stronger audit views for role/member changes.
 3. Add report export/PDF delivery, official VAT return work, and accountant review for report definitions.
 4. Add fiscal year close, retained earnings close, and controlled unlock/approval workflows.
-5. Add purchase orders and bill matching.
+5. Add partial PO receiving/billing design and purchase matching hardening.
 6. Add bank accounts, bank statement import, and reconciliation.
 7. Add inventory warehouses, stock movements, adjustments, valuation, and COGS.
 8. Advance ZATCA official SDK validation, official XML mapping, signing, CSID, clearance/reporting, and PDF/A-3.

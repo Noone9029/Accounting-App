@@ -183,6 +183,19 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 
 | Method | Path | Purpose | Auth | Org header | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
+| GET | `/purchase-orders` | List purchase orders | Yes | Yes | Implemented | Tenant scoped. |
+| POST | `/purchase-orders` | Create draft purchase order | Yes | Yes | Implemented | Non-posting; server-side totals. |
+| GET | `/purchase-orders/:id` | Purchase order detail | Yes | Yes | Implemented | Includes lines and converted bill link. |
+| PATCH | `/purchase-orders/:id` | Edit draft purchase order | Yes | Yes | Implemented | Draft only. |
+| DELETE | `/purchase-orders/:id` | Delete draft purchase order | Yes | Yes | Implemented | Draft only. |
+| POST | `/purchase-orders/:id/approve` | Approve purchase order | Yes | Yes | Implemented | Requires positive total. |
+| POST | `/purchase-orders/:id/mark-sent` | Mark purchase order sent | Yes | Yes | Implemented | Approved only. |
+| POST | `/purchase-orders/:id/close` | Close purchase order | Yes | Yes | Implemented | Approved/sent/partial only. |
+| POST | `/purchase-orders/:id/void` | Void purchase order | Yes | Yes | Implemented | Draft/approved/sent only. |
+| POST | `/purchase-orders/:id/convert-to-bill` | Convert to draft bill | Yes | Yes | Implemented | Creates no journal entry. |
+| GET | `/purchase-orders/:id/pdf-data` | Purchase order PDF data | Yes | Yes | Implemented | Operational only. |
+| GET | `/purchase-orders/:id/pdf` | Purchase order PDF | Yes | Yes | Implemented | Archives download. |
+| POST | `/purchase-orders/:id/generate-pdf` | Generate purchase order PDF | Yes | Yes | Implemented | Explicit archive action. |
 | GET | `/purchase-bills` | List purchase bills | Yes | Yes | Implemented | Tenant scoped. |
 | GET | `/purchase-bills/open` | Open bills by supplier | Yes | Yes | Implemented | Query `supplierId`. |
 | POST | `/purchase-bills` | Create draft bill | Yes | Yes | Implemented | Server-side totals. |

@@ -78,6 +78,12 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     id: "purchases",
     label: "Purchases",
     permissions: [
+      permission(PERMISSIONS.purchaseOrders.view, "View purchase orders", "See supplier purchase orders and PDFs."),
+      permission(PERMISSIONS.purchaseOrders.create, "Create purchase orders", "Create draft non-posting purchase orders."),
+      permission(PERMISSIONS.purchaseOrders.update, "Update purchase orders", "Edit, delete, close, or manage draft purchase orders."),
+      permission(PERMISSIONS.purchaseOrders.approve, "Approve purchase orders", "Approve purchase orders and mark them as sent."),
+      permission(PERMISSIONS.purchaseOrders.void, "Void purchase orders", "Void draft, approved, or sent purchase orders."),
+      permission(PERMISSIONS.purchaseOrders.convertToBill, "Convert purchase orders", "Convert approved or sent purchase orders into draft bills."),
       permission(PERMISSIONS.purchaseBills.view, "View bills", "See purchase bills and PDF data."),
       permission(PERMISSIONS.purchaseBills.create, "Create bills", "Create draft purchase bills."),
       permission(PERMISSIONS.purchaseBills.update, "Update bills", "Edit or delete draft purchase bills."),

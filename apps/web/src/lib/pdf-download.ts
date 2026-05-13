@@ -20,6 +20,10 @@ export function purchaseBillPdfPath(billId: string): string {
   return `/purchase-bills/${encodeURIComponent(billId)}/pdf`;
 }
 
+export function purchaseOrderPdfPath(orderId: string): string {
+  return `/purchase-orders/${encodeURIComponent(orderId)}/pdf`;
+}
+
 export function purchaseDebitNotePdfPath(debitNoteId: string): string {
   return `/purchase-debit-notes/${encodeURIComponent(debitNoteId)}/pdf`;
 }

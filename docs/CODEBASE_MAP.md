@@ -35,7 +35,8 @@ Major modules:
 - `customer-payments`: customer payment posting, allocation, unapplied application/reversal, receipts.
 - `credit-notes`: credit note lifecycle, posting, allocation/reversal, PDFs.
 - `customer-refunds`: manual refund posting/voiding and PDFs.
-- `purchase-bills`: supplier bill lifecycle, AP posting, PDFs.
+- `purchase-orders`: non-posting supplier PO lifecycle, PDFs, and conversion to draft bills.
+- `purchase-bills`: supplier bill lifecycle, source PO link, AP posting, PDFs.
 - `supplier-payments`: supplier payment posting, allocation, voiding, receipt PDFs.
 - `document-settings`: PDF document settings.
 - `generated-documents`: generated PDF archive and download.

@@ -1,6 +1,6 @@
 # Database Model Catalog
 
-Audit date: 2026-05-12
+Audit date: 2026-05-13
 
 Schema source: `apps/api/prisma/schema.prisma`
 
@@ -18,12 +18,13 @@ Schema source: `apps/api/prisma/schema.prisma`
 | `ItemStatus` | `ACTIVE`, `DISABLED` | Item availability. |
 | `SalesInvoiceStatus` | `DRAFT`, `FINALIZED`, `VOIDED` | Invoice lifecycle. |
 | `CreditNoteStatus` | `DRAFT`, `FINALIZED`, `VOIDED` | Credit note lifecycle. |
+| `PurchaseOrderStatus` | `DRAFT`, `APPROVED`, `SENT`, `PARTIALLY_BILLED`, `BILLED`, `CLOSED`, `VOIDED` | Purchase order lifecycle. |
 | `PurchaseBillStatus` | `DRAFT`, `FINALIZED`, `VOIDED` | Purchase bill lifecycle. |
 | `CustomerPaymentStatus` | `DRAFT`, `POSTED`, `VOIDED` | Customer payment lifecycle. |
 | `SupplierPaymentStatus` | `DRAFT`, `POSTED`, `VOIDED` | Supplier payment lifecycle. |
 | `CustomerRefundStatus` | `DRAFT`, `POSTED`, `VOIDED` | Customer refund lifecycle. |
 | `CustomerRefundSourceType` | `CUSTOMER_PAYMENT`, `CREDIT_NOTE` | Refund source type. |
-| `DocumentType` | `SALES_INVOICE`, `CREDIT_NOTE`, `CUSTOMER_PAYMENT_RECEIPT`, `CUSTOMER_REFUND`, `CUSTOMER_STATEMENT`, `PURCHASE_BILL`, `SUPPLIER_PAYMENT_RECEIPT` | Generated document classification. |
+| `DocumentType` | `SALES_INVOICE`, `CREDIT_NOTE`, `CUSTOMER_PAYMENT_RECEIPT`, `CUSTOMER_REFUND`, `CUSTOMER_STATEMENT`, `PURCHASE_ORDER`, `PURCHASE_BILL`, `PURCHASE_DEBIT_NOTE`, `SUPPLIER_PAYMENT_RECEIPT`, `SUPPLIER_REFUND`, `CASH_EXPENSE` | Generated document classification. |
 | `GeneratedDocumentStatus` | `GENERATED`, `FAILED`, `SUPERSEDED` | Archive status. |
 | `ZatcaEnvironment` | `SANDBOX`, `SIMULATION`, `PRODUCTION` | ZATCA environment marker. |
 | `ZatcaRegistrationStatus` | `NOT_CONFIGURED`, `DRAFT`, `READY_FOR_CSR`, `OTP_REQUIRED`, `CERTIFICATE_ISSUED`, `ACTIVE`, `SUSPENDED` | ZATCA profile/EGS state. |
@@ -32,7 +33,7 @@ Schema source: `apps/api/prisma/schema.prisma`
 | `ZatcaSubmissionType` | `COMPLIANCE_CHECK`, `CLEARANCE`, `REPORTING` | ZATCA submission/log type. |
 | `ZatcaSubmissionStatus` | `PENDING`, `SUCCESS`, `REJECTED`, `FAILED` | ZATCA submission/log result. |
 | `FiscalPeriodStatus` | `OPEN`, `CLOSED`, `LOCKED` | Fiscal period posting control state. |
-| `NumberSequenceScope` | `JOURNAL_ENTRY`, `INVOICE`, `BILL`, `PAYMENT`, `CUSTOMER_REFUND`, `CREDIT_NOTE`, `DEBIT_NOTE`, `CONTACT` | Tenant numbering scopes. |
+| `NumberSequenceScope` | `JOURNAL_ENTRY`, `INVOICE`, `PURCHASE_ORDER`, `BILL`, `PAYMENT`, `CUSTOMER_REFUND`, `CREDIT_NOTE`, `DEBIT_NOTE`, `PURCHASE_DEBIT_NOTE`, `SUPPLIER_REFUND`, `CASH_EXPENSE`, `CONTACT` | Tenant numbering scopes. |
 
 ## Core Tenant And Security Models
 
@@ -48,8 +49,8 @@ Schema source: `apps/api/prisma/schema.prisma`
 
 | Model | Purpose | Important fields | Relationships | Accounting impact | Lifecycle/status | Known limitations |
 | --- | --- | --- | --- | --- | --- | --- |
-| `Branch` | Sales/purchase branch. | `name`, `taxNumber`, address, `isDefault`. | Organization, invoices, credit notes, bills. | Branch context for documents and future taxes. | Active flag not present. | Multiple default branches can exist. |
-| `Contact` | Customer/supplier master. | `type`, `name`, `displayName`, `taxNumber`, address, `isActive`. | Sales invoices, credit notes, bills, payments, refunds. | AR/AP ledgers are contact-based. | Active boolean. | No bank details or duplicate management. |
+| `Branch` | Sales/purchase branch. | `name`, `taxNumber`, address, `isDefault`. | Organization, invoices, credit notes, purchase orders, bills. | Branch context for documents and future taxes. | Active flag not present. | Multiple default branches can exist. |
+| `Contact` | Customer/supplier master. | `type`, `name`, `displayName`, `taxNumber`, address, `isActive`. | Sales invoices, credit notes, purchase orders, bills, payments, refunds. | AR/AP ledgers are contact-based. | Active boolean. | No bank details or duplicate management. |
 | `OrganizationDocumentSettings` | PDF display settings. | titles, colors, visibility flags, template names. | One per organization. | Document presentation only. | No status enum. | Only standard renderer implemented. |
 | `GeneratedDocument` | PDF archive. | `documentType`, `sourceType`, `sourceId`, `contentBase64`, `contentHash`, `sizeBytes`. | Organization, generatedBy user. | Audit/archive of issued operational documents. | `GeneratedDocumentStatus`. | Base64 DB storage is not production-scale. |
 | `NumberSequence` | Tenant numbering. | `scope`, `prefix`, `nextNumber`, `padding`. | Organization. | Generates accounting document numbers. | No status enum. | No UI for sequence config. |
@@ -60,7 +61,7 @@ Schema source: `apps/api/prisma/schema.prisma`
 | --- | --- | --- | --- | --- | --- | --- |
 | `Account` | Chart of accounts node. | `code`, `name`, `type`, `allowPosting`, `isSystem`, `isActive`, `parentId`. | Journal lines, items, invoice/credit/bill lines, payments/refunds. | All postings reference accounts. | Active/system flags. | Descendant cycle guard needs hardening. |
 | `TaxRate` | VAT/tax rate. | `scope`, `category`, `rate`, `isActive`, `isSystem`. | Invoice, credit note, purchase bill lines, items, journal lines. | Calculates tax and links tax lines. | Active/system flags. | VAT reporting not implemented. |
-| `Item` | Product/service catalog. | `type`, `status`, `sellingPrice`, `purchaseCost`, account/tax defaults, `inventoryTracking`. | Invoice, credit note, purchase bill lines. | Defaults accounts/taxes; no stock accounting yet. | `ItemStatus`. | Inventory tracking is a flag only. |
+| `Item` | Product/service catalog. | `type`, `status`, `sellingPrice`, `purchaseCost`, account/tax defaults, `inventoryTracking`. | Invoice, credit note, purchase order, purchase bill lines. | Defaults accounts/taxes; no stock accounting yet. | `ItemStatus`. | Inventory tracking is a flag only. |
 | `FiscalPeriod` | Accounting posting period. | `name`, `startsOn`, `endsOn`, `status`. | Organization. | Controls posting windows through the fiscal period guard. | `FiscalPeriodStatus`. | No unlock/admin approval, fiscal year wizard, or retained earnings close. |
 
 ## Journal Models
@@ -88,7 +89,9 @@ Schema source: `apps/api/prisma/schema.prisma`
 
 | Model | Purpose | Important fields | Relationships | Accounting impact | Lifecycle/status | Known limitations |
 | --- | --- | --- | --- | --- | --- | --- |
-| `PurchaseBill` | Supplier bill. | `billNumber`, `supplierId`, dates, totals, `balanceDue`, journal/reversal links. | Lines, supplier payment allocations. | Finalization posts Dr expense/asset/VAT receivable, Cr AP. | `PurchaseBillStatus`. | No purchase order/debit note matching. |
+| `PurchaseOrder` | Supplier purchase order. | `purchaseOrderNumber`, `supplierId`, dates, totals, status timestamps, `convertedBillId`. | Lines, supplier, branch, converted bill. | No journal entries; source document for later bill. | `PurchaseOrderStatus`. | No partial receiving, partial billing, approval chain, or stock movement. |
+| `PurchaseOrderLine` | Purchase order line. | Optional item/account, quantity/price/discount/tax/calculated amounts. | Purchase order, item, optional account, tax rate. | No posting; account pre-fills converted bill line. | Inherits PO lifecycle. | Account can be missing until conversion, but conversion then requires one. |
+| `PurchaseBill` | Supplier bill. | `billNumber`, `supplierId`, optional `purchaseOrderId`, dates, totals, `balanceDue`, journal/reversal links. | Lines, source purchase order, supplier payment allocations. | Finalization posts Dr expense/asset/VAT receivable, Cr AP. | `PurchaseBillStatus`. | No multi-PO or partial matching. |
 | `PurchaseBillLine` | Bill line. | Quantity/price/discount/tax/calculated amounts. | Bill, item, account, tax rate. | Expense/asset and VAT basis. | Inherits bill lifecycle. | No stock movement or landed cost. |
 | `SupplierPayment` | Supplier payment. | `paymentNumber`, `supplierId`, `amountPaid`, `unappliedAmount`, account, journal/reversal links. | Supplier, paid-through account, allocations. | Posts Dr AP, Cr bank/cash. | `SupplierPaymentStatus`. | No AP overpayment application/refund workflow beyond MVP unapplied storage. |
 | `SupplierPaymentAllocation` | Supplier payment-to-bill match. | `paymentId`, `billId`, `amountApplied`. | Supplier payment, purchase bill. | Reduces bill `balanceDue`; payment already posted. | Immutable row. | No separate allocation reversal; payment void restores. |

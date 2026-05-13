@@ -108,6 +108,16 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.purchaseBills.view];
   }
 
+  if (pathname === "/purchases/purchase-orders/new") {
+    return [PERMISSIONS.purchaseOrders.create];
+  }
+  if (pathname.startsWith("/purchases/purchase-orders/") && pathname.endsWith("/edit")) {
+    return [PERMISSIONS.purchaseOrders.update];
+  }
+  if (pathname.startsWith("/purchases/purchase-orders")) {
+    return [PERMISSIONS.purchaseOrders.view];
+  }
+
   if (pathname === "/purchases/supplier-payments/new") {
     return [PERMISSIONS.supplierPayments.create];
   }

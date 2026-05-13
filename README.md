@@ -281,6 +281,22 @@ Customer refunds:
 - `POST /customer-refunds/:id/void`
 - `DELETE /customer-refunds/:id`
 
+Purchase orders:
+
+- `GET /purchase-orders`
+- `POST /purchase-orders`
+- `GET /purchase-orders/:id`
+- `GET /purchase-orders/:id/pdf-data`
+- `GET /purchase-orders/:id/pdf`
+- `POST /purchase-orders/:id/generate-pdf`
+- `PATCH /purchase-orders/:id`
+- `DELETE /purchase-orders/:id`
+- `POST /purchase-orders/:id/approve`
+- `POST /purchase-orders/:id/mark-sent`
+- `POST /purchase-orders/:id/close`
+- `POST /purchase-orders/:id/void`
+- `POST /purchase-orders/:id/convert-to-bill`
+
 Purchase bills:
 
 - `GET /purchase-bills`
@@ -534,6 +550,29 @@ Posting behavior:
 - Refund posting credits the selected paid-from bank/cash account for `amountRefunded`.
 - Refund voiding reverses that journal and restores the source customer credit.
 - Customer refund PDFs are operational documents only and are archived through generated documents.
+
+## Purchase Order Rules
+
+Purchase orders are non-posting supplier order documents. They can be converted into draft purchase bills, but they do not create journal entries.
+
+- Lines use the same quantity, discount, VAT, and total calculations as purchase bills.
+- Draft purchase orders can be edited, deleted, approved, or voided.
+- Approving requires a positive total.
+- Approved purchase orders can be marked as sent, converted to a bill, closed, or voided.
+- Sent purchase orders can be converted to a bill, closed, or voided.
+- Converted purchase orders move to `BILLED` and store the converted bill link.
+- Closed, billed, and voided purchase orders cannot be edited or converted.
+- Conversion creates a `DRAFT` purchase bill from the supplier, branch, currency, notes, terms, lines, taxes, and totals.
+- Conversion requires each line to have an account or an item expense account so the later bill finalization can post correctly.
+- Purchase order PDFs are operational documents only and are archived through generated documents.
+
+Known purchase order limitations:
+
+- No partial receiving.
+- No partial billing.
+- No approval workflow or delegated approval chain.
+- No inventory stock receipt or stock movement.
+- No email sending to suppliers.
 
 ## Purchase Bill Rules
 
@@ -816,6 +855,7 @@ Implemented PDF documents:
 - Credit note PDFs include total, unapplied amount, and any invoice credit allocations.
 - Customer payment receipt PDFs include current unapplied amount and any later unapplied-payment applications.
 - Customer refund PDF: `GET /customer-refunds/:id/pdf`
+- Purchase order PDF: `GET /purchase-orders/:id/pdf`
 - Purchase bill PDF: `GET /purchase-bills/:id/pdf`
 - Purchase debit note PDF: `GET /purchase-debit-notes/:id/pdf`
 - Supplier payment receipt PDF: `GET /supplier-payments/:id/receipt.pdf`
@@ -827,7 +867,7 @@ PDF endpoints:
 - Require JWT auth and `x-organization-id`.
 - Are tenant-scoped and return `404` outside the active organization.
 - Return `Content-Type: application/pdf`.
-- Use attachment filenames such as `invoice-INV-000001.pdf`, `credit-note-CN-000001.pdf`, `customer-refund-REF-000001.pdf`, `purchase-bill-BILL-000001.pdf`, `purchase-debit-note-PDN-000001.pdf`, `supplier-payment-SP-000001.pdf`, `supplier-refund-SRF-000001.pdf`, `cash-expense-EXP-000001.pdf`, `receipt-PAY-000001.pdf`, and `statement-Customer.pdf`.
+- Use attachment filenames such as `invoice-INV-000001.pdf`, `credit-note-CN-000001.pdf`, `customer-refund-REF-000001.pdf`, `purchase-order-PO-000001.pdf`, `purchase-bill-BILL-000001.pdf`, `purchase-debit-note-PDN-000001.pdf`, `supplier-payment-SP-000001.pdf`, `supplier-refund-SRF-000001.pdf`, `cash-expense-EXP-000001.pdf`, `receipt-PAY-000001.pdf`, and `statement-Customer.pdf`.
 - Apply organization document settings for document titles, footer text, basic colors, tax number visibility, and invoice notes/terms/payment sections.
 - Archive each generated PDF as a `GeneratedDocument` record with content hash, size, filename, source reference, and local base64 content.
 
@@ -948,10 +988,10 @@ Default seeded roles:
 - `Admin`: broad business access without the system-level `admin.fullAccess` flag.
 - `Accountant`: chart of accounts, tax, journals, reports, documents, fiscal period management, and accounting workflow posting/void permissions.
 - `Sales`: contacts, items view, sales invoices, customer payments, credit notes, customer refunds, and document access.
-- `Purchases`: contacts, items view, purchase bills, supplier payments, debit notes, supplier refunds, cash expenses, and document access.
+- `Purchases`: contacts, items view, purchase orders, purchase bills, supplier payments, debit notes, supplier refunds, cash expenses, and document access.
 - `Viewer`: read-only access across core accounting, reports, documents, and ZATCA status.
 
-Permission names are dotted strings such as `reports.view`, `salesInvoices.finalize`, `customerPayments.void`, `purchaseBills.finalize`, `fiscalPeriods.lock`, and `zatca.manage`.
+Permission names are dotted strings such as `reports.view`, `salesInvoices.finalize`, `customerPayments.void`, `purchaseOrders.convertToBill`, `purchaseBills.finalize`, `fiscalPeriods.lock`, and `zatca.manage`.
 
 Backend enforcement:
 
@@ -1001,7 +1041,8 @@ Permission matrix categories:
 - GET PDF endpoints currently archive every download.
 - Unapplied overpayment application is manual only; there is no automatic credit matching yet.
 - Customer refunds are manual accounting records only; no payment gateway refund or bank reconciliation integration exists yet.
-- Purchase bills, purchase debit notes, supplier payments, and supplier refunds are AP groundwork only; purchase orders, inventory stock movements/returns, bank reconciliation, bank transfer integrations, and automated matching are not implemented yet.
+- Purchase orders are MVP-only: no partial receiving, partial billing, supplier email sending, approval workflows, or inventory stock receipts.
+- Purchase bills, purchase debit notes, supplier payments, and supplier refunds are AP groundwork only; inventory stock movements/returns, bank reconciliation, bank transfer integrations, and automated matching are not implemented yet.
 - ZATCA credit note XML/signing/submission is not implemented yet.
 - ZATCA debit note XML/signing/submission is not implemented yet.
 - Inventory returns from credit notes are not implemented yet.

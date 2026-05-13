@@ -27,6 +27,7 @@ export default function PurchaseBillDetailPage() {
   const canFinalizeBill = can(PERMISSIONS.purchaseBills.finalize);
   const canVoidBill = can(PERMISSIONS.purchaseBills.void);
   const canCreateDebitNote = can(PERMISSIONS.purchaseDebitNotes.create);
+  const canViewPurchaseOrders = can(PERMISSIONS.purchaseOrders.view);
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -188,6 +189,11 @@ export default function PurchaseBillDetailPage() {
               <Summary label="Bill date" value={formatOptionalDate(bill.billDate, "-")} />
               <Summary label="Due date" value={formatOptionalDate(bill.dueDate, "-")} />
               <Summary label="Branch" value={bill.branch?.displayName ?? bill.branch?.name ?? "-"} />
+              <Summary
+                label="Source PO"
+                value={bill.purchaseOrder ? bill.purchaseOrder.purchaseOrderNumber : "-"}
+                href={bill.purchaseOrder && canViewPurchaseOrders ? `/purchases/purchase-orders/${bill.purchaseOrder.id}` : undefined}
+              />
               <Summary label="Total" value={formatMoneyAmount(bill.total, bill.currency)} />
               <Summary label="Balance due" value={formatMoneyAmount(bill.balanceDue, bill.currency)} />
               <Summary label="Journal entry" value={bill.journalEntry ? `${bill.journalEntry.entryNumber} (${bill.journalEntry.id})` : "-"} />
@@ -381,11 +387,17 @@ export default function PurchaseBillDetailPage() {
   );
 }
 
-function Summary({ label, value }: { label: string; value: string }) {
+function Summary({ label, value, href }: { label: string; value: string; href?: string }) {
   return (
     <div>
       <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
-      <div className="mt-1 font-medium text-ink">{value}</div>
+      {href ? (
+        <Link href={href} className="mt-1 block font-medium text-palm hover:underline">
+          {value}
+        </Link>
+      ) : (
+        <div className="mt-1 font-medium text-ink">{value}</div>
+      )}
     </div>
   );
 }

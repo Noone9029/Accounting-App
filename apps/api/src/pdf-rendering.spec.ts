@@ -2,10 +2,12 @@ import {
   CashExpensePdfData,
   InvoicePdfData,
   PaymentReceiptPdfData,
+  PurchaseOrderPdfData,
   renderCashExpensePdf,
   renderCustomerStatementPdf,
   renderInvoicePdf,
   renderPaymentReceiptPdf,
+  renderPurchaseOrderPdf,
 } from "@ledgerbyte/pdf-core";
 
 const organization = {
@@ -82,6 +84,13 @@ describe("PDF rendering", () => {
 
   it("renders cash expense PDFs as buffers", async () => {
     const buffer = await renderCashExpensePdf(cashExpensePdfData());
+
+    expect(buffer.subarray(0, 4).toString()).toBe("%PDF");
+    expect(buffer.byteLength).toBeGreaterThan(1000);
+  });
+
+  it("renders purchase order PDFs as buffers", async () => {
+    const buffer = await renderPurchaseOrderPdf(purchaseOrderPdfData());
 
     expect(buffer.subarray(0, 4).toString()).toBe("%PDF");
     expect(buffer.byteLength).toBeGreaterThan(1000);
@@ -192,6 +201,44 @@ function cashExpensePdfData(): CashExpensePdfData {
       },
     ],
     journalEntry: { id: "journal-1", entryNumber: "JE-000001", status: "POSTED" },
+    generatedAt: "2026-05-06T12:00:00.000Z",
+  };
+}
+
+function purchaseOrderPdfData(): PurchaseOrderPdfData {
+  return {
+    organization,
+    supplier: customer,
+    purchaseOrder: {
+      id: "po-1",
+      purchaseOrderNumber: "PO-000001",
+      status: "APPROVED",
+      orderDate: "2026-05-06T00:00:00.000Z",
+      expectedDeliveryDate: "2026-05-13T00:00:00.000Z",
+      currency: "SAR",
+      notes: "Please confirm availability.",
+      terms: "Net 30",
+      subtotal: "100.0000",
+      discountTotal: "0.0000",
+      taxableTotal: "100.0000",
+      taxTotal: "15.0000",
+      total: "115.0000",
+    },
+    lines: [
+      {
+        description: "Office supplies",
+        quantity: "1.0000",
+        unitPrice: "100.0000",
+        discountRate: "0.0000",
+        lineGrossAmount: "100.0000",
+        discountAmount: "0.0000",
+        taxableAmount: "100.0000",
+        taxAmount: "15.0000",
+        lineTotal: "115.0000",
+        taxRateName: "VAT on Purchases 15%",
+      },
+    ],
+    convertedBill: null,
     generatedAt: "2026-05-06T12:00:00.000Z",
   };
 }

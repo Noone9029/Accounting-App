@@ -36,6 +36,7 @@ import { buildPurchaseBillJournalLines } from "./purchase-bill-accounting";
 const purchaseBillInclude = {
   supplier: { select: { id: true, name: true, displayName: true, type: true, taxNumber: true } },
   branch: { select: { id: true, name: true, displayName: true, taxNumber: true } },
+  purchaseOrder: { select: { id: true, purchaseOrderNumber: true, status: true, orderDate: true, total: true } },
   journalEntry: {
     select: {
       id: true,
@@ -159,6 +160,7 @@ export class PurchaseBillService {
       include: {
         supplier: { select: { id: true, name: true, displayName: true } },
         branch: { select: { id: true, name: true, displayName: true } },
+        purchaseOrder: { select: { id: true, purchaseOrderNumber: true, status: true, orderDate: true, total: true } },
         journalEntry: { select: { id: true, entryNumber: true, status: true } },
         reversalJournalEntry: { select: { id: true, entryNumber: true, status: true } },
       },

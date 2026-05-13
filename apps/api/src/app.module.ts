@@ -21,6 +21,7 @@ import { OrganizationModule } from "./organizations/organization.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PurchaseBillModule } from "./purchase-bills/purchase-bill.module";
 import { PurchaseDebitNoteModule } from "./purchase-debit-notes/purchase-debit-note.module";
+import { PurchaseOrderModule } from "./purchase-orders/purchase-order.module";
 import { ReportsModule } from "./reports/reports.module";
 import { RoleModule } from "./roles/role.module";
 import { SalesInvoiceModule } from "./sales-invoices/sales-invoice.module";
@@ -48,6 +49,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     OrganizationDocumentSettingsModule,
     ItemModule,
     SalesInvoiceModule,
+    PurchaseOrderModule,
     PurchaseBillModule,
     PurchaseDebitNoteModule,
     ReportsModule,

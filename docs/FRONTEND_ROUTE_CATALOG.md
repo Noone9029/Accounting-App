@@ -9,7 +9,7 @@ Route source: `apps/web/src/app`
 - App routes are wrapped in a permission provider that loads `/auth/me` and the active organization membership.
 - The sidebar filters top-level and child nav items by view permissions.
 - Route protection shows an access-denied panel when a user lacks the page permission.
-- High-risk buttons such as finalize, void, delete, apply/reverse allocation, fiscal period lock, ZATCA generate/check, and document settings save are hidden unless the active role has the matching permission.
+- High-risk buttons such as approve, convert, finalize, void, delete, apply/reverse allocation, fiscal period lock, ZATCA generate/check, and document settings save are hidden unless the active role has the matching permission.
 - Settings/Admin nav now includes Team Members for `users.view` and Roles & Permissions for `roles.view`.
 
 ## Auth And Setup
@@ -76,9 +76,13 @@ Route source: `apps/web/src/app`
 
 | Route | Purpose | Data fetched | Actions | Status | Missing UX pieces |
 | --- | --- | --- | --- | --- | --- |
+| `/purchases/purchase-orders` | Purchase order list. | Purchase orders. | Navigate/create. | Implemented | Filters/export missing. |
+| `/purchases/purchase-orders/new` | Create purchase order. | Suppliers, branches, accounts, tax rates, items. | Save draft non-posting PO. | Implemented | No supplier email/send workflow. |
+| `/purchases/purchase-orders/[id]` | Purchase order detail. | Purchase order, lines, converted bill link. | PDF, approve, mark sent, close, void, delete draft, convert to bill. | Implemented | No partial receiving, partial billing, or approval chain. |
+| `/purchases/purchase-orders/[id]/edit` | Edit draft purchase order. | PO and form dependencies. | Save draft changes. | Implemented | Not available after approval by design. |
 | `/purchases/bills` | Purchase bill list. | Bills. | Navigate/create/finalize draft. | Implemented | Filters/export missing. |
-| `/purchases/bills/new` | Create purchase bill. | Suppliers, branches, accounts, tax rates, items. | Save draft. | Implemented | Purchase order matching and vendor attachments missing. |
-| `/purchases/bills/[id]` | Purchase bill detail. | Bill, lines, allocations, PDF data. | Finalize, void, delete draft, PDF, supplier ledger link. | Implemented | Debit note workflow missing. |
+| `/purchases/bills/new` | Create purchase bill. | Suppliers, branches, accounts, tax rates, items. | Save draft. | Implemented | Vendor attachments missing. |
+| `/purchases/bills/[id]` | Purchase bill detail. | Bill, lines, allocations, PDF data, source PO link. | Finalize, void, delete draft, PDF, supplier ledger link. | Implemented | No multi-PO or partial matching view. |
 | `/purchases/bills/[id]/edit` | Edit draft bill. | Bill and form dependencies. | Save draft changes. | Implemented | Not available after finalize by design. |
 | `/purchases/supplier-payments` | Supplier payment list. | Supplier payments. | Navigate/create. | Implemented | Filters/export missing. |
 | `/purchases/supplier-payments/new` | Create supplier payment. | Suppliers, open bills, paid-through accounts. | Allocate and post payment. | Implemented | Bank reconciliation/import missing. |

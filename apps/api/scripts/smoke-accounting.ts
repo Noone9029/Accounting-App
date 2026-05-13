@@ -131,6 +131,15 @@ interface PurchaseBill {
   balanceDue: string;
   journalEntryId?: string | null;
   reversalJournalEntryId?: string | null;
+  purchaseOrderId?: string | null;
+}
+
+interface PurchaseOrder {
+  id: string;
+  purchaseOrderNumber: string;
+  status: string;
+  total: string;
+  convertedBillId?: string | null;
 }
 
 interface PurchaseDebitNote {
@@ -1186,6 +1195,51 @@ async function main(): Promise<void> {
   if (purchaseVat) {
     purchaseBillLinePayload.taxRateId = purchaseVat.id;
   }
+
+  const poSupplier = await post<Contact>("/contacts", headers, {
+    type: "SUPPLIER",
+    name: `Smoke Test PO Supplier ${runId}`,
+    displayName: `Smoke Test PO Supplier ${runId}`,
+    countryCode: "SA",
+  });
+  const purchaseOrder = await post<PurchaseOrder>("/purchase-orders", headers, {
+    supplierId: poSupplier.id,
+    orderDate: new Date().toISOString(),
+    expectedDeliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    currency: "SAR",
+    notes: "Smoke purchase order",
+    terms: "Convert to bill smoke",
+    lines: [purchaseBillLinePayload],
+  });
+  assertEqual(purchaseOrder.status, "DRAFT", "created purchase order status");
+  assertMoney(purchaseOrder.total, expectedPurchaseBillTotal, "draft purchase order total");
+  const approvedPurchaseOrder = await post<PurchaseOrder>(`/purchase-orders/${purchaseOrder.id}/approve`, headers, {});
+  assertEqual(approvedPurchaseOrder.status, "APPROVED", "approved purchase order status");
+  const sentPurchaseOrder = await post<PurchaseOrder>(`/purchase-orders/${purchaseOrder.id}/mark-sent`, headers, {});
+  assertEqual(sentPurchaseOrder.status, "SENT", "sent purchase order status");
+  const purchaseOrderPdfData = await get<{ purchaseOrder: { total: string }; lines: unknown[] }>(
+    `/purchase-orders/${purchaseOrder.id}/pdf-data`,
+    headers,
+  );
+  assertMoney(purchaseOrderPdfData.purchaseOrder.total, expectedPurchaseBillTotal, "purchase order pdf-data total");
+  assert(purchaseOrderPdfData.lines.length > 0, "purchase order pdf-data returns lines");
+  await assertPdf(`/purchase-orders/${purchaseOrder.id}/pdf`, headers, "purchase order PDF");
+  const convertedPurchaseBill = await post<PurchaseBill>(`/purchase-orders/${purchaseOrder.id}/convert-to-bill`, headers, {});
+  assertEqual(convertedPurchaseBill.status, "DRAFT", "converted purchase bill status");
+  assertEqual(convertedPurchaseBill.purchaseOrderId, purchaseOrder.id, "converted purchase bill source PO");
+  assertMoney(convertedPurchaseBill.total, expectedPurchaseBillTotal, "converted purchase bill total");
+  assert(!convertedPurchaseBill.journalEntryId, "converted purchase bill has no journal before finalization");
+  const billedPurchaseOrder = await get<PurchaseOrder>(`/purchase-orders/${purchaseOrder.id}`, headers);
+  assertEqual(billedPurchaseOrder.status, "BILLED", "purchase order status after conversion");
+  assertEqual(billedPurchaseOrder.convertedBillId, convertedPurchaseBill.id, "purchase order converted bill id");
+  const finalizedConvertedPurchaseBill = await post<PurchaseBill>(
+    `/purchase-bills/${convertedPurchaseBill.id}/finalize`,
+    headers,
+    {},
+  );
+  assertEqual(finalizedConvertedPurchaseBill.status, "FINALIZED", "finalized converted purchase bill status");
+  assertPresent(finalizedConvertedPurchaseBill.journalEntryId, "finalized converted purchase bill journalEntryId");
+
   const draftPurchaseBill = await post<PurchaseBill>("/purchase-bills", headers, {
     supplierId: supplier.id,
     billDate: new Date().toISOString(),
@@ -1850,6 +1904,11 @@ async function main(): Promise<void> {
         creditNoteNumber: finalizedCreditNote.creditNoteNumber,
         creditApplyAmount: creditApplyAmount.toFixed(4),
         supplierId: supplier.id,
+        purchaseOrderSupplierId: poSupplier.id,
+        purchaseOrderId: purchaseOrder.id,
+        purchaseOrderNumber: billedPurchaseOrder.purchaseOrderNumber,
+        convertedPurchaseBillId: convertedPurchaseBill.id,
+        convertedPurchaseBillNumber: finalizedConvertedPurchaseBill.billNumber,
         purchaseBillId: draftPurchaseBill.id,
         purchaseBillNumber: finalizedPurchaseBill.billNumber,
         cashExpenseId: cashExpense.id,

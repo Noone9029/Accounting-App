@@ -50,6 +50,7 @@ export const SIDEBAR_NAV_ITEMS: readonly SidebarNavItem[] = [
     href: "/purchases/bills",
     activePrefix: "/purchases",
     children: [
+      { label: "Purchase orders", href: "/purchases/purchase-orders", requiredAny: [PERMISSIONS.purchaseOrders.view] },
       { label: "Bills", href: "/purchases/bills", requiredAny: [PERMISSIONS.purchaseBills.view] },
       { label: "Supplier payments", href: "/purchases/supplier-payments", requiredAny: [PERMISSIONS.supplierPayments.view] },
       { label: "Supplier refunds", href: "/purchases/supplier-refunds", requiredAny: [PERMISSIONS.supplierRefunds.view] },

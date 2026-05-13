@@ -77,6 +77,16 @@ enum PurchaseBillStatus {
   VOIDED
 }
 
+enum PurchaseOrderStatus {
+  DRAFT
+  APPROVED
+  SENT
+  PARTIALLY_BILLED
+  BILLED
+  CLOSED
+  VOIDED
+}
+
 enum PurchaseDebitNoteStatus {
   DRAFT
   FINALIZED
@@ -129,6 +139,7 @@ enum DocumentType {
   CUSTOMER_PAYMENT_RECEIPT
   CUSTOMER_REFUND
   CUSTOMER_STATEMENT
+  PURCHASE_ORDER
   PURCHASE_BILL
   PURCHASE_DEBIT_NOTE
   SUPPLIER_PAYMENT_RECEIPT
@@ -201,6 +212,7 @@ enum NumberSequenceScope {
   BILL
   PAYMENT
   CUSTOMER_REFUND
+  PURCHASE_ORDER
   CREDIT_NOTE
   DEBIT_NOTE
   PURCHASE_DEBIT_NOTE
@@ -222,6 +234,7 @@ model User {
   createdEntries          JournalEntry[]       @relation("CreatedBy")
   createdSalesInvoices    SalesInvoice[]       @relation("SalesInvoiceCreatedBy")
   createdCreditNotes      CreditNote[]         @relation("CreditNoteCreatedBy")
+  createdPurchaseOrders   PurchaseOrder[]      @relation("PurchaseOrderCreatedBy")
   createdPurchaseBills    PurchaseBill[]       @relation("PurchaseBillCreatedBy")
   createdPurchaseDebitNotes PurchaseDebitNote[] @relation("PurchaseDebitNoteCreatedBy")
   createdCashExpenses   CashExpense[]       @relation("CashExpenseCreatedBy")
@@ -258,6 +271,8 @@ model Organization {
   creditNotes                CreditNote[]
   creditNoteLines            CreditNoteLine[]
   creditNoteAllocations      CreditNoteAllocation[]
+  purchaseOrders             PurchaseOrder[]
+  purchaseOrderLines         PurchaseOrderLine[]
   purchaseBills              PurchaseBill[]
   purchaseBillLines          PurchaseBillLine[]
   purchaseDebitNotes         PurchaseDebitNote[]
@@ -499,6 +514,7 @@ model Branch {
   organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   salesInvoices  SalesInvoice[]
   creditNotes    CreditNote[]
+  purchaseOrders PurchaseOrder[]
   purchaseBills  PurchaseBill[]
   purchaseDebitNotes PurchaseDebitNote[]
   cashExpenses   CashExpense[]
@@ -526,6 +542,7 @@ model Contact {
   organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   salesInvoices    SalesInvoice[]    @relation("SalesInvoiceCustomer")
   creditNotes      CreditNote[]      @relation("CreditNoteCustomer")
+  purchaseOrders   PurchaseOrder[]   @relation("PurchaseOrderSupplier")
   purchaseBills    PurchaseBill[]    @relation("PurchaseBillSupplier")
   purchaseDebitNotes PurchaseDebitNote[] @relation("PurchaseDebitNoteSupplier")
   cashExpenses     CashExpense[]     @relation("CashExpenseContact")
@@ -559,6 +576,7 @@ model Account {
   itemExpenseItems  Item[]             @relation("ItemExpenseAccount")
   salesInvoiceLines SalesInvoiceLine[]
   creditNoteLines   CreditNoteLine[]
+  purchaseOrderLines PurchaseOrderLine[]
   purchaseBillLines PurchaseBillLine[]
   purchaseDebitNoteLines PurchaseDebitNoteLine[]
   cashExpenseLines  CashExpenseLine[]
@@ -591,6 +609,7 @@ model TaxRate {
   itemPurchaseTaxItems Item[]             @relation("ItemPurchaseTaxRate")
   salesInvoiceLines    SalesInvoiceLine[]
   creditNoteLines      CreditNoteLine[]
+  purchaseOrderLines   PurchaseOrderLine[]
   purchaseBillLines    PurchaseBillLine[]
   purchaseDebitNoteLines PurchaseDebitNoteLine[]
   cashExpenseLines     CashExpenseLine[]
@@ -623,6 +642,7 @@ model Item {
   purchaseTaxRate   TaxRate?           @relation("ItemPurchaseTaxRate", fields: [purchaseTaxRateId], references: [id])
   salesInvoiceLines SalesInvoiceLine[]
   creditNoteLines   CreditNoteLine[]
+  purchaseOrderLines PurchaseOrderLine[]
   purchaseBillLines PurchaseBillLine[]
   purchaseDebitNoteLines PurchaseDebitNoteLine[]
   cashExpenseLines  CashExpenseLine[]
@@ -804,11 +824,84 @@ model CreditNoteAllocation {
   @@index([reversedById])
 }
 
+model PurchaseOrder {
+  id                   String              @id @default(uuid()) @db.Uuid
+  organizationId       String              @db.Uuid
+  purchaseOrderNumber  String
+  supplierId           String              @db.Uuid
+  branchId             String?             @db.Uuid
+  orderDate            DateTime
+  expectedDeliveryDate DateTime?
+  currency             String              @default("SAR")
+  status               PurchaseOrderStatus @default(DRAFT)
+  subtotal             Decimal             @default(0) @db.Decimal(20, 4)
+  discountTotal        Decimal             @default(0) @db.Decimal(20, 4)
+  taxableTotal         Decimal             @default(0) @db.Decimal(20, 4)
+  taxTotal             Decimal             @default(0) @db.Decimal(20, 4)
+  total                Decimal             @default(0) @db.Decimal(20, 4)
+  notes                String?
+  terms                String?
+  createdById          String?             @db.Uuid
+  approvedAt           DateTime?
+  sentAt               DateTime?
+  closedAt             DateTime?
+  voidedAt             DateTime?
+  convertedBillId      String?             @unique @db.Uuid
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  organization         Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplier             Contact             @relation("PurchaseOrderSupplier", fields: [supplierId], references: [id])
+  branch               Branch?             @relation(fields: [branchId], references: [id])
+  createdBy            User?               @relation("PurchaseOrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  convertedBill        PurchaseBill?       @relation("PurchaseOrderConvertedBill", fields: [convertedBillId], references: [id], onDelete: SetNull)
+  lines                PurchaseOrderLine[]
+  convertedBills       PurchaseBill[]      @relation("PurchaseBillSourcePurchaseOrder")
+
+  @@unique([organizationId, purchaseOrderNumber])
+  @@index([organizationId])
+  @@index([supplierId])
+  @@index([branchId])
+  @@index([status])
+  @@index([convertedBillId])
+}
+
+model PurchaseOrderLine {
+  id              String        @id @default(uuid()) @db.Uuid
+  organizationId  String        @db.Uuid
+  purchaseOrderId String        @db.Uuid
+  itemId          String?       @db.Uuid
+  description     String
+  accountId       String?       @db.Uuid
+  quantity        Decimal       @db.Decimal(20, 4)
+  unitPrice       Decimal       @db.Decimal(20, 4)
+  discountRate    Decimal       @default(0) @db.Decimal(7, 4)
+  taxRateId       String?       @db.Uuid
+  lineGrossAmount Decimal       @default(0) @db.Decimal(20, 4)
+  discountAmount  Decimal       @default(0) @db.Decimal(20, 4)
+  taxableAmount   Decimal       @default(0) @db.Decimal(20, 4)
+  taxAmount       Decimal       @default(0) @db.Decimal(20, 4)
+  lineTotal       Decimal       @default(0) @db.Decimal(20, 4)
+  sortOrder       Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  item            Item?         @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  account         Account?      @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  taxRate         TaxRate?      @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([purchaseOrderId])
+  @@index([itemId])
+  @@index([accountId])
+}
+
 model PurchaseBill {
   id                     String             @id @default(uuid()) @db.Uuid
   organizationId         String             @db.Uuid
   billNumber             String
   supplierId             String             @db.Uuid
+  purchaseOrderId        String?            @db.Uuid
   branchId               String?            @db.Uuid
   billDate               DateTime
   dueDate                DateTime?
@@ -830,6 +923,7 @@ model PurchaseBill {
   updatedAt              DateTime           @updatedAt
   organization           Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   supplier               Contact            @relation("PurchaseBillSupplier", fields: [supplierId], references: [id])
+  purchaseOrder          PurchaseOrder?      @relation("PurchaseBillSourcePurchaseOrder", fields: [purchaseOrderId], references: [id], onDelete: SetNull)
   branch                 Branch?            @relation(fields: [branchId], references: [id])
   createdBy              User?              @relation("PurchaseBillCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   journalEntry           JournalEntry?      @relation("PurchaseBillJournal", fields: [journalEntryId], references: [id])
@@ -839,10 +933,12 @@ model PurchaseBill {
   supplierPaymentUnappliedAllocations SupplierPaymentUnappliedAllocation[]
   debitNoteAllocations   PurchaseDebitNoteAllocation[]
   debitNotes             PurchaseDebitNote[]
+  convertedPurchaseOrder PurchaseOrder?      @relation("PurchaseOrderConvertedBill")
 
   @@unique([organizationId, billNumber])
   @@index([organizationId])
   @@index([supplierId])
+  @@index([purchaseOrderId])
   @@index([status])
 }
 

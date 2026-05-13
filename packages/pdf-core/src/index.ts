@@ -174,6 +174,44 @@ export interface PurchaseBillPdfData {
   generatedAt: string | Date;
 }
 
+export interface PurchaseOrderPdfData {
+  organization: PdfOrganization;
+  supplier: PdfContact;
+  purchaseOrder: {
+    id: string;
+    purchaseOrderNumber: string;
+    status: string;
+    orderDate: string | Date;
+    expectedDeliveryDate?: string | Date | null;
+    currency: string;
+    notes?: string | null;
+    terms?: string | null;
+    subtotal: string;
+    discountTotal: string;
+    taxableTotal: string;
+    taxTotal: string;
+    total: string;
+  };
+  lines: Array<{
+    description: string;
+    quantity: string;
+    unitPrice: string;
+    discountRate: string;
+    lineGrossAmount: string;
+    discountAmount: string;
+    taxableAmount: string;
+    taxAmount: string;
+    lineTotal: string;
+    taxRateName?: string | null;
+  }>;
+  convertedBill?: {
+    id: string;
+    billNumber: string;
+    status: string;
+  } | null;
+  generatedAt: string | Date;
+}
+
 export interface CashExpensePdfData {
   organization: PdfOrganization;
   contact?: PdfContact | null;
@@ -760,6 +798,62 @@ export async function renderPurchaseBillPdf(data: PurchaseBillPdfData, settings?
     }
     if (renderSettings.showTerms) {
       writeOptionalTextBlock(doc, "Terms", data.bill.terms, renderSettings);
+    }
+  }, renderSettings);
+}
+
+export async function renderPurchaseOrderPdf(data: PurchaseOrderPdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
+  const renderSettings = resolveSettings(settings, "Purchase Order");
+  return renderPdf((doc) => {
+    writeHeader(doc, data.organization, renderSettings, data.generatedAt);
+    writeTwoColumnBlocks(doc, "Supplier", contactLines(data.supplier, renderSettings), "Purchase Order", [
+      ["PO number", data.purchaseOrder.purchaseOrderNumber],
+      ["Status", data.purchaseOrder.status],
+      ["Order date", formatDate(data.purchaseOrder.orderDate)],
+      ["Expected delivery", data.purchaseOrder.expectedDeliveryDate ? formatDate(data.purchaseOrder.expectedDeliveryDate) : "-"],
+      ["Currency", data.purchaseOrder.currency],
+      ["Converted bill", data.convertedBill ? `${data.convertedBill.billNumber} (${data.convertedBill.status})` : "-"],
+    ], renderSettings);
+
+    writeSectionTitle(doc, "Line Items", renderSettings);
+    drawTable(
+      doc,
+      [
+        { label: "Description", width: 116 },
+        { label: "Qty", width: 38, align: "right" },
+        { label: "Unit", width: 54, align: "right" },
+        { label: "Gross", width: 54, align: "right" },
+        { label: "Discount", width: 54, align: "right" },
+        { label: "Taxable", width: 54, align: "right" },
+        { label: "Tax", width: 48, align: "right" },
+        { label: "Total", width: 54, align: "right" },
+      ],
+      data.lines.map((line) => [
+        withOptionalSuffix(line.description, line.taxRateName ? `Tax: ${line.taxRateName}` : null),
+        line.quantity,
+        money(line.unitPrice, data.purchaseOrder.currency),
+        money(line.lineGrossAmount, data.purchaseOrder.currency),
+        money(line.discountAmount, data.purchaseOrder.currency),
+        money(line.taxableAmount, data.purchaseOrder.currency),
+        money(line.taxAmount, data.purchaseOrder.currency),
+        money(line.lineTotal, data.purchaseOrder.currency),
+      ]),
+      renderSettings,
+    );
+
+    writeTotals(doc, data.purchaseOrder.currency, [
+      ["Subtotal", data.purchaseOrder.subtotal],
+      ["Discount", data.purchaseOrder.discountTotal],
+      ["Taxable total", data.purchaseOrder.taxableTotal],
+      ["VAT / Tax", data.purchaseOrder.taxTotal],
+      ["Total", data.purchaseOrder.total],
+    ], renderSettings);
+
+    if (renderSettings.showNotes) {
+      writeOptionalTextBlock(doc, "Notes", data.purchaseOrder.notes, renderSettings);
+    }
+    if (renderSettings.showTerms) {
+      writeOptionalTextBlock(doc, "Terms", data.purchaseOrder.terms, renderSettings);
     }
   }, renderSettings);
 }

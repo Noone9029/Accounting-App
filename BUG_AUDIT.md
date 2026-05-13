@@ -37,6 +37,29 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Purchase orders MVP added
+
+Added non-posting purchase orders with tenant-scoped API permissions, default role grants, draft/approve/sent/closed/voided/billed lifecycle rules, PDF/archive support, frontend list/detail/create/edit pages, and conversion into draft purchase bills.
+
+Risk reduced:
+
+- Suppliers can now be ordered from before AP bill entry without prematurely posting accounting journals.
+- Converted purchase bills retain a source PO link and only post AP when finalized through the existing bill workflow.
+- Purchase order permissions now gate view/create/update/approve/void/convert actions across API and UI.
+
+Remaining risks:
+
+- No approval workflow or dual-control policy.
+- No partial receiving or partial billing.
+- No inventory stock receipt or stock movement.
+- No email sending to suppliers.
+
+Tests/smoke added:
+
+- Backend purchase order lifecycle/conversion tests.
+- Frontend purchase order helper and PDF path tests.
+- Smoke coverage for create, approve, send, PDF download, convert to draft bill, and finalize converted bill.
+
 ### Account deletion missed dependent records
 
 `DELETE /accounts/:id` only checked journal lines, child accounts, and system accounts. Accounts referenced by sales invoice lines, items, or customer payments could reach a database foreign-key failure instead of a clear business error.

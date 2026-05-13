@@ -21,7 +21,7 @@ Status values:
 | Tenant/org model | COMPLETE_FOR_MVP | `organizations`, `OrganizationMember`, `OrganizationContextGuard` | `x-organization-id` scoping and membership checks. | Cross-org test coverage should continue expanding as modules grow. | Add central tenant-scoping checklist for new modules. |
 | Roles/permissions | COMPLETE_FOR_MVP | `Role`, `OrganizationMember.roleId`, `packages/shared/src/permissions.ts`, `PermissionGuard`, role/member APIs, web permission helpers | Default roles are seeded/protected, `/auth/me` exposes role permissions, API routes enforce `@RequirePermissions`, role/member management APIs exist, and UI navigation/actions are permission-aware. | Invite flow is a local placeholder only; no approval workflow or dual-control policy. | Add real invite delivery, password reset/onboarding, and approval rules for high-risk actions. |
 | Audit logs | PARTIAL | `apps/api/src/audit-log`, `AuditLog` | Mutating services write selected audit logs. | Coverage may not be complete for all business events. | Audit every mutation and standardize event names. |
-| Number sequences | COMPLETE_FOR_MVP | `apps/api/src/number-sequences`, `NumberSequence` | Invoice, payment, bill, refund, credit note, journal numbering. | No user-configurable prefixes UI. | Add number-sequence settings and collision tests. |
+| Number sequences | COMPLETE_FOR_MVP | `apps/api/src/number-sequences`, `NumberSequence` | Invoice, payment, purchase order, bill, refund, credit note, journal numbering. | No user-configurable prefixes UI. | Add number-sequence settings and collision tests. |
 | Document settings | COMPLETE_FOR_MVP | `document-settings`, settings page | Organization PDF titles/colors/visibility flags. | Template designer not present. | Add template preview and advanced layouts. |
 | Generated document archive | PARTIAL | `generated-documents`, `GeneratedDocument` | Generated PDFs are archived and downloadable. | Stores base64 in DB; no object storage lifecycle. | Move to S3-compatible storage. |
 
@@ -61,16 +61,17 @@ Status values:
 | Module | Status | Files | What works | Gaps | Next step |
 | --- | --- | --- | --- | --- | --- |
 | Suppliers | COMPLETE_FOR_MVP | `Contact.type=SUPPLIER/BOTH` | Supplier contacts, AP ledger on contact detail. | Supplier onboarding fields are basic. | Add supplier tax/bank details. |
-| Purchase bills | COMPLETE_FOR_MVP | `purchase-bills` | Draft/edit/finalize/void, AP posting, PDF. | No purchase order matching. | Add purchase orders. |
-| Bill finalization | COMPLETE_FOR_MVP | `purchase-bill-accounting.ts`, `FiscalPeriodGuardService` | Dr expense/asset, Dr VAT receivable, Cr AP, fiscal posting guard. | No purchase order matching. | Add purchase orders. |
+| Purchase orders | COMPLETE_FOR_MVP | `purchase-orders`, `PurchaseOrder`, `renderPurchaseOrderPdf`, web `/purchases/purchase-orders` | Draft/edit/delete, approve, mark sent, close, void, PDF/archive, and conversion into draft purchase bills. | No partial receiving, partial billing, approval workflow, supplier email sending, or stock receipt. | Add receiving/partial billing after inventory design. |
+| Purchase bills | COMPLETE_FOR_MVP | `purchase-bills` | Draft/edit/finalize/void, AP posting, PDF, and source purchase order link. | No multi-PO or partial matching. | Add matching/receiving after PO MVP hardening. |
+| Bill finalization | COMPLETE_FOR_MVP | `purchase-bill-accounting.ts`, `FiscalPeriodGuardService` | Dr expense/asset, Dr VAT receivable, Cr AP, fiscal posting guard, including converted PO bills. | No inventory receipt linkage. | Add receiving and landed-cost workflows later. |
 | Supplier payments | COMPLETE_FOR_MVP | `supplier-payments` | Posted payments, allocations, void restore, receipts. | No bank reconciliation. | Add bank account/reconciliation module. |
 | Supplier ledger | COMPLETE_FOR_MVP | `supplierLedger`, contact page | AP balance and bill/payment/void rows. | UI should use supplier-specific balance wording. | Add AP-specific display helper. |
 | Supplier statement | COMPLETE_FOR_MVP | `/contacts/:id/supplier-statement` | Date-filtered AP statement JSON. | No supplier statement PDF. | Add supplier statement PDF if needed. |
+| Purchase order PDFs | COMPLETE_FOR_MVP | `renderPurchaseOrderPdf` | Operational purchase order PDF and archive. | No supplier email/send workflow. | Add email/send workflow later. |
 | Purchase bill PDFs | COMPLETE_FOR_MVP | `renderPurchaseBillPdf` | Operational PDF and archive. | No vendor attachment capture. | Add attachments later. |
 | Supplier payment PDFs | COMPLETE_FOR_MVP | `renderSupplierPaymentReceiptPdf` | Receipt PDF and archive. | No remittance email/send flow. | Add email/send workflow. |
-| Purchase orders | NOT_STARTED | N/A | None. | No PO lifecycle or bill matching. | Build PO MVP. |
-| Debit notes | NOT_STARTED | N/A | None. | No supplier credit/debit note flow. | Build supplier debit note MVP. |
-| Cash expenses | NOT_STARTED | N/A | None. | No quick expense workflow. | Add cash expense entry and receipt attachment. |
+| Debit notes | COMPLETE_FOR_MVP | `purchase-debit-notes`, `PurchaseDebitNote` | Draft/finalize/void, bill allocation/reversal, PDFs, and AP reduction posting. | No automatic matching or inventory return linkage. | Add matching suggestions later. |
+| Cash expenses | COMPLETE_FOR_MVP | `cash-expenses`, `CashExpense` | Posted cash expenses, void reversal, PDF/archive, optional supplier/contact link. | No receipt attachments/OCR or import. | Add receipt attachments later. |
 
 ## Inventory
 

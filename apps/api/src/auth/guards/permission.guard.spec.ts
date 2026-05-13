@@ -81,6 +81,12 @@ describe("PermissionGuard", () => {
     await expect(guard.canActivate(context)).rejects.toThrow("You do not have permission to perform this action.");
   });
 
+  it("rejects purchase order conversion without purchaseOrders.convertToBill", async () => {
+    const { guard, context } = makeGuard([PERMISSIONS.purchaseOrders.convertToBill], [PERMISSIONS.purchaseOrders.view]);
+
+    await expect(guard.canActivate(context)).rejects.toThrow("You do not have permission to perform this action.");
+  });
+
   it("rejects fiscal locks without fiscalPeriods.lock or fiscalPeriods.manage", async () => {
     const { guard, context } = makeGuard([PERMISSIONS.fiscalPeriods.lock, PERMISSIONS.fiscalPeriods.manage], [
       PERMISSIONS.fiscalPeriods.view,
