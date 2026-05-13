@@ -15,6 +15,9 @@ describe("Bank reconciliation controller permissions", () => {
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, BankReconciliationController.prototype.items)).toEqual([
       PERMISSIONS.bankReconciliations.view,
     ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, BankReconciliationController.prototype.reviewEvents)).toEqual([
+      PERMISSIONS.bankReconciliations.view,
+    ]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, BankReconciliationController.prototype.reportData)).toEqual([
       PERMISSIONS.bankReconciliations.view,
     ]);
@@ -32,6 +35,15 @@ describe("Bank reconciliation controller permissions", () => {
     ]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, BankReconciliationController.prototype.close)).toEqual([
       PERMISSIONS.bankReconciliations.close,
+    ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, BankReconciliationController.prototype.submit)).toEqual([
+      PERMISSIONS.bankReconciliations.close,
+    ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, BankReconciliationController.prototype.approve)).toEqual([
+      PERMISSIONS.bankReconciliations.approve,
+    ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, BankReconciliationController.prototype.reopen)).toEqual([
+      PERMISSIONS.bankReconciliations.reopen,
     ]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, BankReconciliationController.prototype.void)).toEqual([
       PERMISSIONS.bankReconciliations.void,

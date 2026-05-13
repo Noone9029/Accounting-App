@@ -1,5 +1,5 @@
-import { Controller, ForbiddenException, Get, Param, Post, Req, Res, StreamableFile, UseGuards } from "@nestjs/common";
-import { hasAnyPermission, PERMISSIONS } from "@ledgerbyte/shared";
+import { Body, Controller, ForbiddenException, Get, Param, Post, Req, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import { hasAnyPermission, isFullAccess, PERMISSIONS } from "@ledgerbyte/shared";
 import type { Response } from "express";
 import { AuthenticatedRequest, AuthenticatedUser } from "../auth/auth.types";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
@@ -9,6 +9,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { BankReconciliationService } from "./bank-reconciliation.service";
+import { ApproveBankReconciliationDto, ReopenBankReconciliationDto } from "./dto/reconciliation-workflow.dto";
 
 @Controller("bank-reconciliations")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
@@ -27,6 +28,38 @@ export class BankReconciliationController {
     return this.bankReconciliationService.close(organizationId, user.id, id);
   }
 
+  @Post(":id/submit")
+  @RequirePermissions(PERMISSIONS.bankReconciliations.close)
+  submit(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+    return this.bankReconciliationService.submit(organizationId, user.id, id);
+  }
+
+  @Post(":id/approve")
+  @RequirePermissions(PERMISSIONS.bankReconciliations.approve)
+  approve(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: ApproveBankReconciliationDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.bankReconciliationService.approve(organizationId, user.id, id, {
+      approvalNotes: dto.approvalNotes,
+      allowSelfApproval: isFullAccess(request.membership?.role.permissions),
+    });
+  }
+
+  @Post(":id/reopen")
+  @RequirePermissions(PERMISSIONS.bankReconciliations.reopen)
+  reopen(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: ReopenBankReconciliationDto,
+  ) {
+    return this.bankReconciliationService.reopen(organizationId, user.id, id, { reopenReason: dto.reopenReason });
+  }
+
   @Post(":id/void")
   @RequirePermissions(PERMISSIONS.bankReconciliations.void)
   void(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
@@ -37,6 +70,12 @@ export class BankReconciliationController {
   @RequirePermissions(PERMISSIONS.bankReconciliations.view)
   items(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.bankReconciliationService.items(organizationId, id);
+  }
+
+  @Get(":id/review-events")
+  @RequirePermissions(PERMISSIONS.bankReconciliations.view)
+  reviewEvents(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.bankReconciliationService.reviewEvents(organizationId, id);
   }
 
   @Get(":id/report-data")

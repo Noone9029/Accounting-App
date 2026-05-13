@@ -16,8 +16,9 @@ import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { BankReconciliationSummaryQueryDto, BankStatementTransactionsQueryDto } from "./dto/bank-statement-query.dto";
+import { parseBankStatementImportInput, StatementImportSourceRow } from "./bank-statement-import-parser";
 import { CategorizeBankStatementTransactionDto } from "./dto/categorize-bank-statement-transaction.dto";
-import { BankStatementImportRowDto, CreateBankStatementImportDto } from "./dto/create-bank-statement-import.dto";
+import { CreateBankStatementImportDto, PreviewBankStatementImportDto } from "./dto/create-bank-statement-import.dto";
 import { IgnoreBankStatementTransactionDto } from "./dto/ignore-bank-statement-transaction.dto";
 import { MatchBankStatementTransactionDto } from "./dto/match-bank-statement-transaction.dto";
 
@@ -80,6 +81,31 @@ const bankStatementTransactionInclude = {
 type PrismaExecutor = PrismaService | Prisma.TransactionClient;
 type StatementTransactionWithProfile = Awaited<ReturnType<BankStatementService["getTransactionForMutation"]>>;
 
+interface NormalizedStatementImportRow {
+  sourceRowNumber: number;
+  date: Date;
+  description: string;
+  reference?: string;
+  type: BankStatementTransactionType;
+  amount: Prisma.Decimal;
+  rawData: Record<string, unknown>;
+}
+
+interface InvalidStatementImportRow {
+  rowNumber: number;
+  errors: string[];
+  rawData: Record<string, unknown>;
+}
+
+interface StatementImportValidationResult {
+  validRows: NormalizedStatementImportRow[];
+  invalidRows: InvalidStatementImportRow[];
+  warnings: string[];
+  closedPeriodRowNumbers: number[];
+  totalCredits: Prisma.Decimal;
+  totalDebits: Prisma.Decimal;
+}
+
 @Injectable()
 export class BankStatementService {
   constructor(
@@ -98,6 +124,24 @@ export class BankStatementService {
     });
   }
 
+  async previewImport(organizationId: string, bankAccountProfileId: string, dto: PreviewBankStatementImportDto) {
+    await this.findProfile(organizationId, bankAccountProfileId, { requireActive: true });
+    const filename = this.requiredText(dto.filename, "Filename");
+    const parsed = parseBankStatementImportInput(dto);
+    const validation = await this.validateImportRows(organizationId, bankAccountProfileId, parsed.rows);
+
+    return {
+      filename,
+      rowCount: parsed.rows.length,
+      validRows: validation.validRows.map((row) => this.previewRow(row)),
+      invalidRows: validation.invalidRows,
+      totalCredits: validation.totalCredits.toFixed(4),
+      totalDebits: validation.totalDebits.toFixed(4),
+      detectedColumns: parsed.detectedColumns,
+      warnings: [...parsed.warnings, ...validation.warnings],
+    };
+  }
+
   async importStatement(
     organizationId: string,
     actorUserId: string,
@@ -106,14 +150,24 @@ export class BankStatementService {
   ) {
     const profile = await this.findProfile(organizationId, bankAccountProfileId, { requireActive: true });
     const filename = this.requiredText(dto.filename, "Filename");
-    const rows = dto.rows.map((row, index) => this.normalizeImportRow(row, index));
+    const parsed = parseBankStatementImportInput(dto);
+    const validation = await this.validateImportRows(organizationId, profile.id, parsed.rows);
+    if (validation.invalidRows.length > 0 && !dto.allowPartial) {
+      throw new BadRequestException("Bank statement import contains invalid rows.");
+    }
+    if (validation.closedPeriodRowNumbers.length > 0) {
+      throw new BadRequestException("Cannot import statement transactions into a closed reconciliation period.");
+    }
+    const rows = validation.validRows;
+    if (rows.length === 0) {
+      throw new BadRequestException("Bank statement import must contain at least one valid row.");
+    }
     const openingStatementBalance =
       dto.openingStatementBalance === undefined ? undefined : this.nonNegativeOrNegativeMoney(dto.openingStatementBalance, "Opening statement balance");
     const closingStatementBalance =
       dto.closingStatementBalance === undefined ? undefined : this.nonNegativeOrNegativeMoney(dto.closingStatementBalance, "Closing statement balance");
     const statementStartDate = rows.reduce<Date | null>((earliest, row) => (!earliest || row.date < earliest ? row.date : earliest), null);
     const statementEndDate = rows.reduce<Date | null>((latest, row) => (!latest || row.date > latest ? row.date : latest), null);
-    await this.assertRowsNotInClosedReconciliation(organizationId, profile.id, rows);
 
     const created = await this.prisma.$transaction((tx) =>
       tx.bankStatementImport.create({
@@ -155,7 +209,18 @@ export class BankStatementService {
       entityId: created.id,
       after: created,
     });
-    return created;
+    return {
+      ...created,
+      invalidRows: dto.allowPartial ? validation.invalidRows : [],
+      importSummary: {
+        sourceRowCount: parsed.rows.length,
+        importedRowCount: rows.length,
+        invalidRowCount: validation.invalidRows.length,
+        totalCredits: validation.totalCredits.toFixed(4),
+        totalDebits: validation.totalDebits.toFixed(4),
+        warnings: [...parsed.warnings, ...validation.warnings],
+      },
+    };
   }
 
   async getImport(organizationId: string, id: string) {
@@ -583,7 +648,154 @@ export class BankStatementService {
     transactionDate: Date,
     executor: PrismaExecutor = this.prisma,
   ): Promise<void> {
-    const closedReconciliation = await executor.bankReconciliation.findFirst({
+    const closedReconciliation = await this.findClosedReconciliationForDate(organizationId, bankAccountProfileId, transactionDate, executor);
+    if (closedReconciliation) {
+      throw new BadRequestException("Statement transaction belongs to a closed reconciliation period.");
+    }
+  }
+
+  private async validateImportRows(
+    organizationId: string,
+    bankAccountProfileId: string,
+    sourceRows: StatementImportSourceRow[],
+  ): Promise<StatementImportValidationResult> {
+    const validRows: NormalizedStatementImportRow[] = [];
+    const invalidRows: InvalidStatementImportRow[] = [];
+    const warnings: string[] = [];
+    const closedPeriodRowNumbers: number[] = [];
+    const seenRows = new Set<string>();
+    let totalCredits = new Prisma.Decimal(0);
+    let totalDebits = new Prisma.Decimal(0);
+
+    for (const sourceRow of sourceRows) {
+      const normalized = this.validateImportRow(sourceRow);
+      if ("errors" in normalized) {
+        invalidRows.push(normalized);
+        continue;
+      }
+
+      const duplicateKey = this.statementDuplicateKey(normalized);
+      if (seenRows.has(duplicateKey)) {
+        invalidRows.push({
+          rowNumber: normalized.sourceRowNumber,
+          errors: ["Duplicate row in import file."],
+          rawData: normalized.rawData,
+        });
+        continue;
+      }
+      seenRows.add(duplicateKey);
+
+      const closedReconciliation = await this.findClosedReconciliationForDate(organizationId, bankAccountProfileId, normalized.date);
+      if (closedReconciliation) {
+        closedPeriodRowNumbers.push(normalized.sourceRowNumber);
+        warnings.push(`Row ${normalized.sourceRowNumber} falls inside closed reconciliation ${closedReconciliation.reconciliationNumber}.`);
+      }
+
+      if (normalized.type === BankStatementTransactionType.CREDIT) {
+        totalCredits = totalCredits.plus(normalized.amount);
+      } else {
+        totalDebits = totalDebits.plus(normalized.amount);
+      }
+      validRows.push(normalized);
+    }
+
+    warnings.push(...(await this.existingDuplicateWarnings(organizationId, bankAccountProfileId, validRows)));
+
+    return { validRows, invalidRows, warnings, closedPeriodRowNumbers, totalCredits, totalDebits };
+  }
+
+  private validateImportRow(sourceRow: StatementImportSourceRow): NormalizedStatementImportRow | InvalidStatementImportRow {
+    const errors: string[] = [];
+    const rowNumber = sourceRow.sourceRowNumber;
+    let date: Date | null = null;
+    let description = "";
+    let debit = new Prisma.Decimal(0);
+    let credit = new Prisma.Decimal(0);
+
+    try {
+      date = this.parseDate(sourceRow.date ?? "", `Row ${rowNumber} date`);
+    } catch (error) {
+      errors.push(errorMessage(error));
+    }
+    try {
+      description = this.requiredText(sourceRow.description, `Row ${rowNumber} description`);
+    } catch (error) {
+      errors.push(errorMessage(error));
+    }
+    try {
+      debit = this.nonNegativeMoney(sourceRow.debit ?? "0.0000", `Row ${rowNumber} debit`);
+    } catch (error) {
+      errors.push(errorMessage(error));
+    }
+    try {
+      credit = this.nonNegativeMoney(sourceRow.credit ?? "0.0000", `Row ${rowNumber} credit`);
+    } catch (error) {
+      errors.push(errorMessage(error));
+    }
+    if (debit.gt(0) && credit.gt(0)) {
+      errors.push(`Row ${rowNumber} cannot contain both debit and credit.`);
+    }
+    if (debit.eq(0) && credit.eq(0)) {
+      errors.push(`Row ${rowNumber} requires a debit or credit amount.`);
+    }
+    if (errors.length > 0 || !date) {
+      return { rowNumber, errors, rawData: sourceRow.rawData };
+    }
+
+    const isCredit = credit.gt(0);
+    return {
+      sourceRowNumber: rowNumber,
+      date,
+      description,
+      reference: this.cleanOptional(sourceRow.reference),
+      type: isCredit ? BankStatementTransactionType.CREDIT : BankStatementTransactionType.DEBIT,
+      amount: isCredit ? credit : debit,
+      rawData: {
+        ...sourceRow.rawData,
+        normalized: {
+          date: sourceRow.date ?? null,
+          description: sourceRow.description ?? null,
+          reference: sourceRow.reference ?? null,
+          debit: sourceRow.debit ?? null,
+          credit: sourceRow.credit ?? null,
+        },
+      },
+    };
+  }
+
+  private async existingDuplicateWarnings(
+    organizationId: string,
+    bankAccountProfileId: string,
+    rows: NormalizedStatementImportRow[],
+  ): Promise<string[]> {
+    if (rows.length === 0) {
+      return [];
+    }
+    const firstDate = rows[0]!.date;
+    const minDate = rows.reduce((minimum, row) => (row.date < minimum ? row.date : minimum), firstDate);
+    const maxDate = rows.reduce((maximum, row) => (row.date > maximum ? row.date : maximum), firstDate);
+    const existingTransactions = await this.prisma.bankStatementTransaction.findMany({
+      where: {
+        organizationId,
+        bankAccountProfileId,
+        status: { not: BankStatementTransactionStatus.VOIDED },
+        transactionDate: { gte: startOfDate(minDate), lte: endOfDate(maxDate) },
+      },
+      select: { transactionDate: true, type: true, amount: true, reference: true, description: true },
+    });
+    const existingKeys = new Set(existingTransactions.map((transaction) => this.existingStatementDuplicateKey(transaction)));
+    return rows
+      .filter((row) => existingKeys.has(this.statementDuplicateKey(row)))
+      .map((row) => `Row ${row.sourceRowNumber} may duplicate an existing statement transaction.`);
+  }
+
+  private async findClosedReconciliationForDate(
+    organizationId: string,
+    bankAccountProfileId: string,
+    transactionDate: Date,
+    executor: PrismaExecutor = this.prisma,
+  ) {
+    return executor.bankReconciliation.findFirst({
       where: {
         organizationId,
         bankAccountProfileId,
@@ -591,40 +803,46 @@ export class BankStatementService {
         periodStart: { lte: transactionDate },
         periodEnd: { gte: transactionDate },
       },
-      select: { id: true },
+      select: { id: true, reconciliationNumber: true },
     });
-    if (closedReconciliation) {
-      throw new BadRequestException("Statement transaction belongs to a closed reconciliation period.");
-    }
   }
 
-  private normalizeImportRow(row: BankStatementImportRowDto, index: number) {
-    const date = this.parseDate(row.date, `Row ${index + 1} date`);
-    const description = this.requiredText(row.description, `Row ${index + 1} description`);
-    const debit = this.nonNegativeMoney(row.debit ?? "0.0000", `Row ${index + 1} debit`);
-    const credit = this.nonNegativeMoney(row.credit ?? "0.0000", `Row ${index + 1} credit`);
-    if (debit.gt(0) && credit.gt(0)) {
-      throw new BadRequestException(`Row ${index + 1} cannot contain both debit and credit.`);
-    }
-    if (debit.eq(0) && credit.eq(0)) {
-      throw new BadRequestException(`Row ${index + 1} requires a debit or credit amount.`);
-    }
-
-    const isCredit = credit.gt(0);
+  private previewRow(row: NormalizedStatementImportRow) {
     return {
-      date,
-      description,
-      reference: this.cleanOptional(row.reference),
-      type: isCredit ? BankStatementTransactionType.CREDIT : BankStatementTransactionType.DEBIT,
-      amount: isCredit ? credit : debit,
-      rawData: {
-        date: row.date,
-        description: row.description,
-        reference: row.reference ?? null,
-        debit: row.debit ?? null,
-        credit: row.credit ?? null,
-      },
+      rowNumber: row.sourceRowNumber,
+      date: row.date.toISOString(),
+      description: row.description,
+      reference: row.reference ?? null,
+      type: row.type,
+      amount: row.amount.toFixed(4),
+      rawData: row.rawData,
     };
+  }
+
+  private statementDuplicateKey(row: NormalizedStatementImportRow): string {
+    return [
+      row.date.toISOString().slice(0, 10),
+      row.type,
+      row.amount.toFixed(4),
+      (row.reference ?? "").trim().toLowerCase(),
+      row.description.trim().toLowerCase(),
+    ].join("|");
+  }
+
+  private existingStatementDuplicateKey(row: {
+    transactionDate: Date;
+    type: BankStatementTransactionType;
+    amount: Prisma.Decimal.Value;
+    reference: string | null;
+    description: string;
+  }): string {
+    return [
+      row.transactionDate.toISOString().slice(0, 10),
+      row.type,
+      new Prisma.Decimal(row.amount).toFixed(4),
+      (row.reference ?? "").trim().toLowerCase(),
+      row.description.trim().toLowerCase(),
+    ].join("|");
   }
 
   private assertUnmatched(transaction: { status: BankStatementTransactionStatus }) {
@@ -869,8 +1087,18 @@ function sameUtcDate(left: Date, right: Date): boolean {
   return left.toISOString().slice(0, 10) === right.toISOString().slice(0, 10);
 }
 
+function startOfDate(date: Date): Date {
+  const next = new Date(date);
+  next.setUTCHours(0, 0, 0, 0);
+  return next;
+}
+
 function endOfDate(date: Date): Date {
   const next = new Date(date);
   next.setUTCHours(23, 59, 59, 999);
   return next;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Invalid row.";
 }

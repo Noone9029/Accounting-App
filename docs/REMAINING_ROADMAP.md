@@ -36,8 +36,8 @@ Tasks:
 - Supplier debit notes hardening and UI polish.
 - Partial purchase order receiving and partial bill matching.
 - Expense receipt attachments and cash expense import/OCR groundwork.
-- Bank account profile, transfer, opening-balance, and statement reconciliation UX polish.
-- Bank reconciliation reviewer workflow and file-format samples.
+- Bank account profile, transfer, opening-balance, statement import preview, and reconciliation UX polish.
+- Bank statement file-format samples, upload storage design, and approval queue polish.
 - Transfer fees and multi-currency FX transfer handling.
 - Official VAT return report.
 - Scheduled/email report delivery.
@@ -52,7 +52,7 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Add bank reconciliation reviewer approval workflow and file-format import samples without adding live bank feeds.
+> Add bank statement file upload storage and OFX/CAMT/MT940 parser groundwork without live bank feeds or automatic matching.
 
 ## Phase 3: Inventory And Payroll Basics
 

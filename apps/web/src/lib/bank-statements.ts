@@ -1,7 +1,9 @@
 import type {
   BankReconciliation,
+  BankReconciliationReviewEvent,
   BankReconciliationStatus,
   BankReconciliationSummary,
+  BankStatementImportPreview,
   BankStatementMatchCandidate,
   BankStatementTransaction,
   BankStatementTransactionStatus,
@@ -53,6 +55,10 @@ export function bankReconciliationStatusLabel(status: BankReconciliationStatus):
   switch (status) {
     case "DRAFT":
       return "Draft";
+    case "PENDING_APPROVAL":
+      return "Pending approval";
+    case "APPROVED":
+      return "Approved";
     case "CLOSED":
       return "Closed";
     case "VOIDED":
@@ -64,6 +70,10 @@ export function bankReconciliationStatusBadgeClass(status: BankReconciliationSta
   switch (status) {
     case "DRAFT":
       return "bg-amber-50 text-amber-700";
+    case "PENDING_APPROVAL":
+      return "bg-sky-50 text-sky-700";
+    case "APPROVED":
+      return "bg-indigo-50 text-indigo-700";
     case "CLOSED":
       return "bg-emerald-50 text-emerald-700";
     case "VOIDED":
@@ -84,8 +94,10 @@ export function candidateScoreLabel(candidate: Pick<BankStatementMatchCandidate,
 export function closeBlockedMessage(
   reconciliation: Pick<BankReconciliation, "status" | "difference"> & { unmatchedTransactionCount?: number },
 ): string | null {
-  if (reconciliation.status !== "DRAFT") {
-    return "Only draft reconciliations can be closed.";
+  if (reconciliation.status !== "APPROVED") {
+    return reconciliation.status === "DRAFT" || reconciliation.status === "PENDING_APPROVAL"
+      ? "Reconciliation must be approved before it can be closed."
+      : "Only approved reconciliations can be closed.";
   }
   if (Number(reconciliation.difference) !== 0) {
     return "Cannot close reconciliation while difference is not zero.";
@@ -96,6 +108,42 @@ export function closeBlockedMessage(
   return null;
 }
 
+export function submitBlockedMessage(
+  reconciliation: Pick<BankReconciliation, "status" | "difference"> & { unmatchedTransactionCount?: number },
+): string | null {
+  if (reconciliation.status !== "DRAFT") {
+    return "Only draft reconciliations can be submitted for approval.";
+  }
+  if (Number(reconciliation.difference) !== 0) {
+    return "Cannot submit reconciliation while difference is not zero.";
+  }
+  if ((reconciliation.unmatchedTransactionCount ?? 0) > 0) {
+    return "Cannot submit reconciliation with unmatched statement transactions.";
+  }
+  return null;
+}
+
+export function reconciliationActionBlockedMessage(
+  reconciliation: Pick<BankReconciliation, "status" | "difference"> & { unmatchedTransactionCount?: number },
+  action: "submit" | "approve" | "reopen" | "close" | "void",
+): string | null {
+  if (action === "submit") {
+    return submitBlockedMessage(reconciliation);
+  }
+  if (action === "approve") {
+    return reconciliation.status === "PENDING_APPROVAL" ? null : "Only reconciliations pending approval can be approved.";
+  }
+  if (action === "reopen") {
+    return reconciliation.status === "PENDING_APPROVAL" || reconciliation.status === "APPROVED"
+      ? null
+      : "Only pending approval or approved reconciliations can be reopened.";
+  }
+  if (action === "close") {
+    return closeBlockedMessage(reconciliation);
+  }
+  return reconciliation.status === "VOIDED" ? "Reconciliation has already been voided." : null;
+}
+
 export function closedThroughDateLabel(summary: Pick<BankReconciliationSummary, "closedThroughDate">): string {
   return summary.closedThroughDate ? summary.closedThroughDate.slice(0, 10) : "Not closed";
 }
@@ -103,6 +151,21 @@ export function closedThroughDateLabel(summary: Pick<BankReconciliationSummary, 
 export function lockedStatementTransactionWarning(transaction: Pick<BankStatementTransaction, "reconciliationItems">): string | null {
   const closed = transaction.reconciliationItems?.find((item) => item.reconciliation.status === "CLOSED");
   return closed ? `Statement transaction belongs to closed reconciliation ${closed.reconciliation.reconciliationNumber}.` : null;
+}
+
+export function statementImportPreviewSummary(preview: Pick<BankStatementImportPreview, "rowCount" | "validRows" | "invalidRows" | "totalCredits" | "totalDebits">): string {
+  return `${preview.validRows.length} valid / ${preview.invalidRows.length} invalid of ${preview.rowCount} rows. Credits ${preview.totalCredits}, debits ${preview.totalDebits}.`;
+}
+
+export function reviewEventLabel(event: Pick<BankReconciliationReviewEvent, "action" | "fromStatus" | "toStatus">): string {
+  const actionLabel = event.action
+    .toLowerCase()
+    .replaceAll("_", " ")
+    .replace(/^\w/, (letter) => letter.toUpperCase());
+  const statusLabel = event.fromStatus
+    ? `${bankReconciliationStatusLabel(event.fromStatus)} to ${bankReconciliationStatusLabel(event.toStatus)}`
+    : bankReconciliationStatusLabel(event.toStatus);
+  return `${actionLabel}: ${statusLabel}`;
 }
 
 export function reconciliationDifferenceStatus(
@@ -133,7 +196,7 @@ export function parseStatementRowsText(input: string): StatementImportRowInput[]
   }
 
   const lines = trimmed.split(/\r?\n/).filter(Boolean);
-  const header = splitCsvLine(lines[0] ?? "").map((item) => item.trim().toLowerCase());
+  const header = splitCsvLine(lines[0] ?? "").map(canonicalCsvColumn);
   const hasHeader = ["date", "description"].every((column) => header.includes(column));
   const columns = hasHeader ? header : ["date", "description", "reference", "debit", "credit"];
   const dataLines = hasHeader ? lines.slice(1) : lines;
@@ -189,6 +252,26 @@ function splitCsvLine(line: string): string[] {
   }
   values.push(current);
   return values;
+}
+
+function canonicalCsvColumn(value: string): string {
+  const normalized = value.trim().toLowerCase().replace(/\s+/g, " ");
+  if (normalized === "transaction date") {
+    return "date";
+  }
+  if (normalized === "memo" || normalized === "narration") {
+    return "description";
+  }
+  if (normalized === "ref") {
+    return "reference";
+  }
+  if (normalized === "withdrawal" || normalized === "money out") {
+    return "debit";
+  }
+  if (normalized === "deposit" || normalized === "money in") {
+    return "credit";
+  }
+  return normalized;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

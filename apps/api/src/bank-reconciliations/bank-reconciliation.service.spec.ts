@@ -36,14 +36,25 @@ describe("BankReconciliationService", () => {
     status: BankReconciliationStatus.DRAFT,
     notes: null,
     createdById: "user-1",
+    submittedById: null,
+    approvedById: null,
+    reopenedById: null,
     closedById: null,
     voidedById: null,
+    submittedAt: null,
+    approvedAt: null,
+    reopenedAt: null,
     closedAt: null,
     voidedAt: null,
+    approvalNotes: null,
+    reopenReason: null,
     createdAt: new Date("2026-05-13T00:00:00.000Z"),
     updatedAt: new Date("2026-05-13T00:00:00.000Z"),
     bankAccountProfile: profile,
     createdBy: { id: "user-1", name: "Owner", email: "owner@example.com" },
+    submittedBy: null,
+    approvedBy: null,
+    reopenedBy: null,
     closedBy: null,
     voidedBy: null,
     _count: { items: 0 },
@@ -74,6 +85,10 @@ describe("BankReconciliationService", () => {
       bankReconciliationItem: {
         findMany: jest.fn().mockResolvedValue([]),
         createMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      bankReconciliationReviewEvent: {
+        create: jest.fn().mockResolvedValue({ id: "event-1" }),
+        findMany: jest.fn().mockResolvedValue([]),
       },
       bankStatementTransaction: {
         count: jest.fn().mockResolvedValue(0),
@@ -140,11 +155,107 @@ describe("BankReconciliationService", () => {
     expect(prisma.bankReconciliation.create).not.toHaveBeenCalled();
   });
 
-  it("rejects close while difference is not zero and refreshes draft totals", async () => {
+  it("submits a ready draft for approval and records review history", async () => {
+    const submitted = {
+      ...draft,
+      status: BankReconciliationStatus.PENDING_APPROVAL,
+      submittedById: "user-1",
+      submittedAt: new Date("2026-05-13T00:00:00.000Z"),
+    };
+    const { service, prisma, audit } = makeService();
+    prisma.bankReconciliation.findFirst
+      .mockResolvedValueOnce(draft)
+      .mockResolvedValueOnce(draft)
+      .mockResolvedValueOnce(null);
+    prisma.journalLine.findMany.mockResolvedValue([{ debit: new Prisma.Decimal("100.0000"), credit: new Prisma.Decimal("0.0000") }]);
+    prisma.bankReconciliation.update.mockResolvedValue(submitted);
+
+    await expect(service.submit("org-1", "user-1", "rec-1")).resolves.toMatchObject({
+      status: BankReconciliationStatus.PENDING_APPROVAL,
+      submittedById: "user-1",
+    });
+    expect(prisma.bankReconciliationReviewEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ action: "SUBMIT", toStatus: BankReconciliationStatus.PENDING_APPROVAL }) }),
+    );
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "SUBMIT", entityType: "BankReconciliation" }));
+  });
+
+  it("submit rejects unmatched statement transactions", async () => {
     const { service, prisma } = makeService();
     prisma.bankReconciliation.findFirst
       .mockResolvedValueOnce(draft)
       .mockResolvedValueOnce(draft)
+      .mockResolvedValueOnce(null);
+    prisma.journalLine.findMany.mockResolvedValue([{ debit: new Prisma.Decimal("100.0000"), credit: new Prisma.Decimal("0.0000") }]);
+    prisma.bankStatementTransaction.count.mockResolvedValue(1);
+
+    await expect(service.submit("org-1", "user-1", "rec-1")).rejects.toThrow(
+      "Cannot submit reconciliation with unmatched statement transactions.",
+    );
+    expect(prisma.bankReconciliationReviewEvent.create).not.toHaveBeenCalled();
+  });
+
+  it("submit requires zero difference", async () => {
+    const { service, prisma } = makeService();
+    prisma.bankReconciliation.findFirst
+      .mockResolvedValueOnce(draft)
+      .mockResolvedValueOnce(draft)
+      .mockResolvedValueOnce(null);
+    prisma.journalLine.findMany.mockResolvedValue([{ debit: new Prisma.Decimal("90.0000"), credit: new Prisma.Decimal("0.0000") }]);
+
+    await expect(service.submit("org-1", "user-1", "rec-1")).rejects.toThrow(
+      "Cannot submit reconciliation while difference is not zero.",
+    );
+    expect(prisma.bankReconciliation.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { ledgerClosingBalance: "90.0000", difference: "10.0000" } }),
+    );
+  });
+
+  it("approve requires a pending approval reconciliation and records notes", async () => {
+    const pending = { ...draft, status: BankReconciliationStatus.PENDING_APPROVAL, submittedById: "submitter-1" };
+    const approved = {
+      ...pending,
+      status: BankReconciliationStatus.APPROVED,
+      approvedById: "approver-1",
+      approvedAt: new Date("2026-05-13T00:00:00.000Z"),
+      approvalNotes: "Reviewed",
+    };
+    const { service, prisma } = makeService();
+    prisma.bankReconciliation.findFirst.mockResolvedValueOnce(pending).mockResolvedValueOnce(pending);
+    prisma.bankReconciliation.update.mockResolvedValue(approved);
+
+    await expect(
+      service.approve("org-1", "approver-1", "rec-1", { approvalNotes: "Reviewed" }),
+    ).resolves.toMatchObject({ status: BankReconciliationStatus.APPROVED, approvalNotes: "Reviewed" });
+    expect(prisma.bankReconciliationReviewEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ action: "APPROVE", notes: "Reviewed" }) }),
+    );
+  });
+
+  it("prevents a submitter from approving their own reconciliation unless allowed", async () => {
+    const pending = { ...draft, status: BankReconciliationStatus.PENDING_APPROVAL, submittedById: "user-1" };
+    const { service, prisma } = makeService();
+    prisma.bankReconciliation.findFirst.mockResolvedValue(pending);
+
+    await expect(service.approve("org-1", "user-1", "rec-1")).rejects.toThrow(
+      "Submitter cannot approve their own reconciliation.",
+    );
+  });
+
+  it("requires approval before close", async () => {
+    const { service, prisma } = makeService();
+    prisma.bankReconciliation.findFirst.mockResolvedValue(draft);
+
+    await expect(service.close("org-1", "user-1", "rec-1")).rejects.toThrow("Only approved reconciliations can be closed.");
+    expect(prisma.bankReconciliationItem.createMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects close while difference is not zero and refreshes draft totals", async () => {
+    const approved = { ...draft, status: BankReconciliationStatus.APPROVED };
+    const { service, prisma } = makeService();
+    prisma.bankReconciliation.findFirst
+      .mockResolvedValueOnce(approved)
+      .mockResolvedValueOnce(approved)
       .mockResolvedValueOnce(null);
     prisma.journalLine.findMany.mockResolvedValue([{ debit: new Prisma.Decimal("90.0000"), credit: new Prisma.Decimal("0.0000") }]);
 
@@ -158,10 +269,11 @@ describe("BankReconciliationService", () => {
   });
 
   it("rejects close when unmatched statement transactions remain", async () => {
+    const approved = { ...draft, status: BankReconciliationStatus.APPROVED };
     const { service, prisma } = makeService();
     prisma.bankReconciliation.findFirst
-      .mockResolvedValueOnce(draft)
-      .mockResolvedValueOnce(draft)
+      .mockResolvedValueOnce(approved)
+      .mockResolvedValueOnce(approved)
       .mockResolvedValueOnce(null);
     prisma.journalLine.findMany.mockResolvedValue([{ debit: new Prisma.Decimal("100.0000"), credit: new Prisma.Decimal("0.0000") }]);
     prisma.bankStatementTransaction.count.mockResolvedValue(1);
@@ -172,12 +284,13 @@ describe("BankReconciliationService", () => {
     expect(prisma.bankReconciliationItem.createMany).not.toHaveBeenCalled();
   });
 
-  it("closes a zero-difference draft and snapshots reconciled statement transactions", async () => {
-    const closed = { ...draft, status: BankReconciliationStatus.CLOSED, closedById: "user-1", closedAt: new Date("2026-05-13T00:00:00.000Z") };
+  it("closes a zero-difference approved reconciliation and snapshots reconciled statement transactions", async () => {
+    const approved = { ...draft, status: BankReconciliationStatus.APPROVED };
+    const closed = { ...approved, status: BankReconciliationStatus.CLOSED, closedById: "user-1", closedAt: new Date("2026-05-13T00:00:00.000Z") };
     const { service, prisma, audit } = makeService();
     prisma.bankReconciliation.findFirst
-      .mockResolvedValueOnce(draft)
-      .mockResolvedValueOnce(draft)
+      .mockResolvedValueOnce(approved)
+      .mockResolvedValueOnce(approved)
       .mockResolvedValueOnce(null);
     prisma.journalLine.findMany.mockResolvedValue([{ debit: new Prisma.Decimal("100.0000"), credit: new Prisma.Decimal("0.0000") }]);
     prisma.bankStatementTransaction.findMany.mockResolvedValue([
@@ -202,6 +315,27 @@ describe("BankReconciliationService", () => {
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CLOSE", entityType: "BankReconciliation" }));
   });
 
+  it("reopens pending or approved reconciliations back to draft", async () => {
+    const approved = { ...draft, status: BankReconciliationStatus.APPROVED, approvedById: "approver-1" };
+    const reopened = {
+      ...draft,
+      status: BankReconciliationStatus.DRAFT,
+      reopenedById: "user-1",
+      reopenedAt: new Date("2026-05-13T00:00:00.000Z"),
+      reopenReason: "Fix statement row",
+    };
+    const { service, prisma } = makeService();
+    prisma.bankReconciliation.findFirst.mockResolvedValueOnce(approved).mockResolvedValueOnce(approved);
+    prisma.bankReconciliation.update.mockResolvedValue(reopened);
+
+    await expect(
+      service.reopen("org-1", "user-1", "rec-1", { reopenReason: "Fix statement row" }),
+    ).resolves.toMatchObject({ status: BankReconciliationStatus.DRAFT, reopenReason: "Fix statement row" });
+    expect(prisma.bankReconciliationReviewEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ action: "REOPEN", toStatus: BankReconciliationStatus.DRAFT }) }),
+    );
+  });
+
   it("voids draft or closed reconciliations without mutating journals", async () => {
     const closed = { ...draft, status: BankReconciliationStatus.CLOSED };
     const voided = { ...closed, status: BankReconciliationStatus.VOIDED, voidedById: "user-1", voidedAt: new Date("2026-05-13T00:00:00.000Z") };
@@ -212,6 +346,21 @@ describe("BankReconciliationService", () => {
     await expect(service.void("org-1", "user-1", "rec-1")).resolves.toMatchObject({ status: BankReconciliationStatus.VOIDED });
     expect(prisma.journalLine.findMany).not.toHaveBeenCalled();
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "VOID", entityType: "BankReconciliation" }));
+  });
+
+  it("returns review events in chronological order", async () => {
+    const { service, prisma } = makeService();
+    prisma.bankReconciliation.findFirst.mockResolvedValue(draft);
+    prisma.bankReconciliationReviewEvent.findMany.mockResolvedValue([
+      { id: "event-1", action: "SUBMIT", toStatus: BankReconciliationStatus.PENDING_APPROVAL },
+    ]);
+
+    await expect(service.reviewEvents("org-1", "rec-1")).resolves.toEqual([
+      expect.objectContaining({ id: "event-1", action: "SUBMIT" }),
+    ]);
+    expect(prisma.bankReconciliationReviewEvent.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { organizationId: "org-1", reconciliationId: "rec-1" }, orderBy: { createdAt: "asc" } }),
+    );
   });
 
   it("keeps tenant isolation on reconciliation detail lookup", async () => {

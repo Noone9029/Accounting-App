@@ -34,7 +34,8 @@ export type BankStatementMatchType =
   | "SUPPLIER_REFUND"
   | "BANK_TRANSFER"
   | "OTHER";
-export type BankReconciliationStatus = "DRAFT" | "CLOSED" | "VOIDED";
+export type BankReconciliationStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "CLOSED" | "VOIDED";
+export type BankReconciliationReviewAction = "SUBMIT" | "APPROVE" | "REOPEN" | "CLOSE" | "VOID";
 export type CustomerLedgerRowType =
   | "INVOICE"
   | "CREDIT_NOTE"
@@ -266,6 +267,33 @@ export interface BankStatementImport {
   transactions?: BankStatementTransaction[];
 }
 
+export interface BankStatementImportPreviewRow {
+  rowNumber: number;
+  date: string;
+  description: string;
+  reference: string | null;
+  type: BankStatementTransactionType;
+  amount: string;
+  rawData: unknown;
+}
+
+export interface BankStatementImportInvalidRow {
+  rowNumber: number;
+  errors: string[];
+  rawData: unknown;
+}
+
+export interface BankStatementImportPreview {
+  filename: string;
+  rowCount: number;
+  validRows: BankStatementImportPreviewRow[];
+  invalidRows: BankStatementImportInvalidRow[];
+  totalCredits: string;
+  totalDebits: string;
+  detectedColumns: string[];
+  warnings: string[];
+}
+
 export interface BankStatementTransaction {
   id: string;
   organizationId: string;
@@ -348,18 +376,42 @@ export interface BankReconciliation {
   status: BankReconciliationStatus;
   notes: string | null;
   createdById: string | null;
+  submittedById: string | null;
+  approvedById: string | null;
+  reopenedById: string | null;
   closedById: string | null;
   voidedById: string | null;
+  submittedAt: string | null;
+  approvedAt: string | null;
+  reopenedAt: string | null;
   closedAt: string | null;
   voidedAt: string | null;
+  approvalNotes: string | null;
+  reopenReason: string | null;
   createdAt: string;
   updatedAt: string;
   unmatchedTransactionCount?: number;
   bankAccountProfile?: Pick<BankAccountProfile, "id" | "displayName" | "accountId" | "currency" | "status" | "account">;
   createdBy?: { id: string; name: string; email: string } | null;
+  submittedBy?: { id: string; name: string; email: string } | null;
+  approvedBy?: { id: string; name: string; email: string } | null;
+  reopenedBy?: { id: string; name: string; email: string } | null;
   closedBy?: { id: string; name: string; email: string } | null;
   voidedBy?: { id: string; name: string; email: string } | null;
   _count?: { items: number };
+}
+
+export interface BankReconciliationReviewEvent {
+  id: string;
+  organizationId: string;
+  reconciliationId: string;
+  actorUserId: string | null;
+  action: BankReconciliationReviewAction;
+  fromStatus: BankReconciliationStatus | null;
+  toStatus: BankReconciliationStatus;
+  notes: string | null;
+  createdAt: string;
+  actorUser?: { id: string; name: string; email: string } | null;
 }
 
 export interface BankReconciliationItem {

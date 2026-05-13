@@ -3,6 +3,7 @@ import { toMoney } from "@ledgerbyte/accounting-core";
 import { renderBankReconciliationReportPdf } from "@ledgerbyte/pdf-core";
 import {
   BankAccountStatus,
+  BankReconciliationReviewAction,
   BankReconciliationStatus,
   BankStatementTransactionStatus,
   BankStatementTransactionType,
@@ -25,6 +26,10 @@ const RECONCILED_STATEMENT_STATUSES: BankStatementTransactionStatus[] = [
   BankStatementTransactionStatus.CATEGORIZED,
   BankStatementTransactionStatus.IGNORED,
 ];
+const REOPENABLE_RECONCILIATION_STATUSES: BankReconciliationStatus[] = [
+  BankReconciliationStatus.PENDING_APPROVAL,
+  BankReconciliationStatus.APPROVED,
+];
 
 const bankReconciliationInclude = {
   bankAccountProfile: {
@@ -38,9 +43,16 @@ const bankReconciliationInclude = {
     },
   },
   createdBy: { select: { id: true, name: true, email: true } },
+  submittedBy: { select: { id: true, name: true, email: true } },
+  approvedBy: { select: { id: true, name: true, email: true } },
+  reopenedBy: { select: { id: true, name: true, email: true } },
   closedBy: { select: { id: true, name: true, email: true } },
   voidedBy: { select: { id: true, name: true, email: true } },
   _count: { select: { items: true } },
+};
+
+const bankReconciliationReviewEventInclude = {
+  actorUser: { select: { id: true, name: true, email: true } },
 };
 
 const bankReconciliationItemInclude = {
@@ -121,10 +133,119 @@ export class BankReconciliationService {
     return this.withCloseState(reconciliation);
   }
 
-  async close(organizationId: string, actorUserId: string, id: string) {
+  async submit(organizationId: string, actorUserId: string, id: string) {
     const existing = await this.findReconciliation(organizationId, id);
     if (existing.status !== BankReconciliationStatus.DRAFT) {
-      throw new BadRequestException("Only draft reconciliations can be closed.");
+      throw new BadRequestException("Only draft reconciliations can be submitted for approval.");
+    }
+
+    const submitted = await this.prisma.$transaction(async (tx) => {
+      const reconciliation = await this.findReconciliationForWorkflow(organizationId, id, tx);
+      if (reconciliation.status !== BankReconciliationStatus.DRAFT) {
+        throw new BadRequestException("Only draft reconciliations can be submitted for approval.");
+      }
+      const ready = await this.assertReadyForReview(
+        organizationId,
+        reconciliation,
+        "Cannot submit reconciliation while difference is not zero.",
+        "Cannot submit reconciliation with unmatched statement transactions.",
+        tx,
+      );
+      const updated = await tx.bankReconciliation.update({
+        where: { id },
+        data: {
+          status: BankReconciliationStatus.PENDING_APPROVAL,
+          submittedById: actorUserId,
+          submittedAt: new Date(),
+          ledgerClosingBalance: ready.ledgerClosingBalance.toFixed(4),
+          difference: "0.0000",
+        },
+        include: bankReconciliationInclude,
+      });
+      await this.createReviewEvent(tx, {
+        organizationId,
+        reconciliationId: id,
+        actorUserId,
+        action: BankReconciliationReviewAction.SUBMIT,
+        fromStatus: BankReconciliationStatus.DRAFT,
+        toStatus: BankReconciliationStatus.PENDING_APPROVAL,
+      });
+      return updated;
+    });
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "SUBMIT",
+      entityType: "BankReconciliation",
+      entityId: id,
+      before: existing,
+      after: submitted,
+    });
+    return this.withCloseState(submitted);
+  }
+
+  async approve(
+    organizationId: string,
+    actorUserId: string,
+    id: string,
+    options: { approvalNotes?: string | null; allowSelfApproval?: boolean } = {},
+  ) {
+    const existing = await this.findReconciliation(organizationId, id);
+    if (existing.status !== BankReconciliationStatus.PENDING_APPROVAL) {
+      throw new BadRequestException("Only reconciliations pending approval can be approved.");
+    }
+    if (existing.submittedById === actorUserId && !options.allowSelfApproval) {
+      throw new BadRequestException("Submitter cannot approve their own reconciliation.");
+    }
+
+    const approvalNotes = this.cleanOptional(options.approvalNotes);
+    const approved = await this.prisma.$transaction(async (tx) => {
+      const current = await this.findReconciliationForWorkflow(organizationId, id, tx);
+      if (current.status !== BankReconciliationStatus.PENDING_APPROVAL) {
+        throw new BadRequestException("Only reconciliations pending approval can be approved.");
+      }
+      if (current.submittedById === actorUserId && !options.allowSelfApproval) {
+        throw new BadRequestException("Submitter cannot approve their own reconciliation.");
+      }
+      const updated = await tx.bankReconciliation.update({
+        where: { id },
+        data: {
+          status: BankReconciliationStatus.APPROVED,
+          approvedById: actorUserId,
+          approvedAt: new Date(),
+          approvalNotes,
+        },
+        include: bankReconciliationInclude,
+      });
+      await this.createReviewEvent(tx, {
+        organizationId,
+        reconciliationId: id,
+        actorUserId,
+        action: BankReconciliationReviewAction.APPROVE,
+        fromStatus: BankReconciliationStatus.PENDING_APPROVAL,
+        toStatus: BankReconciliationStatus.APPROVED,
+        notes: approvalNotes,
+      });
+      return updated;
+    });
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "APPROVE",
+      entityType: "BankReconciliation",
+      entityId: id,
+      before: existing,
+      after: approved,
+    });
+    return this.withCloseState(approved);
+  }
+
+  async close(organizationId: string, actorUserId: string, id: string) {
+    const existing = await this.findReconciliation(organizationId, id);
+    if (existing.status !== BankReconciliationStatus.APPROVED) {
+      throw new BadRequestException("Only approved reconciliations can be closed.");
     }
 
     const closed = await this.prisma.$transaction(async (tx) => {
@@ -135,8 +256,8 @@ export class BankReconciliationService {
       if (!reconciliation) {
         throw new NotFoundException("Bank reconciliation not found.");
       }
-      if (reconciliation.status !== BankReconciliationStatus.DRAFT) {
-        throw new BadRequestException("Only draft reconciliations can be closed.");
+      if (reconciliation.status !== BankReconciliationStatus.APPROVED) {
+        throw new BadRequestException("Only approved reconciliations can be closed.");
       }
 
       await this.assertNoClosedOverlap(
@@ -199,7 +320,7 @@ export class BankReconciliationService {
         });
       }
 
-      return tx.bankReconciliation.update({
+      const updated = await tx.bankReconciliation.update({
         where: { id },
         data: {
           status: BankReconciliationStatus.CLOSED,
@@ -210,6 +331,15 @@ export class BankReconciliationService {
         },
         include: bankReconciliationInclude,
       });
+      await this.createReviewEvent(tx, {
+        organizationId,
+        reconciliationId: id,
+        actorUserId,
+        action: BankReconciliationReviewAction.CLOSE,
+        fromStatus: BankReconciliationStatus.APPROVED,
+        toStatus: BankReconciliationStatus.CLOSED,
+      });
+      return updated;
     });
 
     await this.auditLogService.log({
@@ -224,20 +354,88 @@ export class BankReconciliationService {
     return this.withCloseState(closed);
   }
 
+  async reopen(
+    organizationId: string,
+    actorUserId: string,
+    id: string,
+    options: { reopenReason?: string | null } = {},
+  ) {
+    const existing = await this.findReconciliation(organizationId, id);
+    if (!REOPENABLE_RECONCILIATION_STATUSES.includes(existing.status)) {
+      throw new BadRequestException("Only pending approval or approved reconciliations can be reopened.");
+    }
+
+    const reopenReason = this.cleanOptional(options.reopenReason);
+    const reopened = await this.prisma.$transaction(async (tx) => {
+      const current = await this.findReconciliationForWorkflow(organizationId, id, tx);
+      if (!REOPENABLE_RECONCILIATION_STATUSES.includes(current.status)) {
+        throw new BadRequestException("Only pending approval or approved reconciliations can be reopened.");
+      }
+      const fromStatus = current.status;
+      const updated = await tx.bankReconciliation.update({
+        where: { id },
+        data: {
+          status: BankReconciliationStatus.DRAFT,
+          submittedById: null,
+          submittedAt: null,
+          approvedById: null,
+          approvedAt: null,
+          approvalNotes: null,
+          reopenedById: actorUserId,
+          reopenedAt: new Date(),
+          reopenReason,
+        },
+        include: bankReconciliationInclude,
+      });
+      await this.createReviewEvent(tx, {
+        organizationId,
+        reconciliationId: id,
+        actorUserId,
+        action: BankReconciliationReviewAction.REOPEN,
+        fromStatus,
+        toStatus: BankReconciliationStatus.DRAFT,
+        notes: reopenReason,
+      });
+      return updated;
+    });
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "REOPEN",
+      entityType: "BankReconciliation",
+      entityId: id,
+      before: existing,
+      after: reopened,
+    });
+    return this.withCloseState(reopened);
+  }
+
   async void(organizationId: string, actorUserId: string, id: string) {
     const existing = await this.findReconciliation(organizationId, id);
     if (existing.status === BankReconciliationStatus.VOIDED) {
       return this.withCloseState(existing);
     }
 
-    const voided = await this.prisma.bankReconciliation.update({
-      where: { id },
-      data: {
-        status: BankReconciliationStatus.VOIDED,
-        voidedById: actorUserId,
-        voidedAt: new Date(),
-      },
-      include: bankReconciliationInclude,
+    const voided = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.bankReconciliation.update({
+        where: { id },
+        data: {
+          status: BankReconciliationStatus.VOIDED,
+          voidedById: actorUserId,
+          voidedAt: new Date(),
+        },
+        include: bankReconciliationInclude,
+      });
+      await this.createReviewEvent(tx, {
+        organizationId,
+        reconciliationId: id,
+        actorUserId,
+        action: BankReconciliationReviewAction.VOID,
+        fromStatus: existing.status,
+        toStatus: BankReconciliationStatus.VOIDED,
+      });
+      return updated;
     });
 
     await this.auditLogService.log({
@@ -250,6 +448,15 @@ export class BankReconciliationService {
       after: voided,
     });
     return this.withCloseState(voided);
+  }
+
+  async reviewEvents(organizationId: string, id: string) {
+    await this.findReconciliation(organizationId, id);
+    return this.prisma.bankReconciliationReviewEvent.findMany({
+      where: { organizationId, reconciliationId: id },
+      orderBy: { createdAt: "asc" },
+      include: bankReconciliationReviewEventInclude,
+    });
   }
 
   async items(organizationId: string, id: string) {
@@ -280,6 +487,8 @@ export class BankReconciliationService {
               account: { select: { id: true, code: true, name: true } },
             },
           },
+          submittedBy: { select: { id: true, name: true, email: true } },
+          approvedBy: { select: { id: true, name: true, email: true } },
           closedBy: { select: { id: true, name: true, email: true } },
           voidedBy: { select: { id: true, name: true, email: true } },
           items: {
@@ -355,6 +564,11 @@ export class BankReconciliationService {
         statementClosingBalance: this.formatMoney(reconciliation.statementClosingBalance),
         ledgerClosingBalance: this.formatMoney(reconciliation.ledgerClosingBalance),
         difference: this.formatMoney(reconciliation.difference),
+        submittedAt: reconciliation.submittedAt,
+        submittedBy: reconciliation.submittedBy,
+        approvedAt: reconciliation.approvedAt,
+        approvedBy: reconciliation.approvedBy,
+        approvalNotes: reconciliation.approvalNotes,
         closedAt: reconciliation.closedAt,
         closedBy: reconciliation.closedBy,
         voidedAt: reconciliation.voidedAt,
@@ -413,6 +627,17 @@ export class BankReconciliationService {
     return reconciliation;
   }
 
+  private async findReconciliationForWorkflow(organizationId: string, id: string, executor: PrismaExecutor) {
+    const reconciliation = await executor.bankReconciliation.findFirst({
+      where: { id, organizationId },
+      include: bankReconciliationInclude,
+    });
+    if (!reconciliation) {
+      throw new NotFoundException("Bank reconciliation not found.");
+    }
+    return reconciliation;
+  }
+
   private async findProfile(organizationId: string, id: string, options: { requireActive?: boolean } = {}) {
     const profile = await this.prisma.bankAccountProfile.findFirst({
       where: { id, organizationId },
@@ -437,6 +662,82 @@ export class BankReconciliationService {
       },
     });
     return { ...reconciliation, unmatchedTransactionCount };
+  }
+
+  private async assertReadyForReview(
+    organizationId: string,
+    reconciliation: {
+      id: string;
+      bankAccountProfileId: string;
+      periodStart: Date;
+      periodEnd: Date;
+      statementClosingBalance: Prisma.Decimal.Value;
+      bankAccountProfile: { accountId: string };
+    },
+    differenceMessage: string,
+    unmatchedMessage: string,
+    executor: PrismaExecutor,
+  ): Promise<{ ledgerClosingBalance: Prisma.Decimal }> {
+    await this.assertNoClosedOverlap(
+      organizationId,
+      reconciliation.bankAccountProfileId,
+      reconciliation.periodStart,
+      reconciliation.periodEnd,
+      reconciliation.id,
+      executor,
+    );
+    const ledgerClosingBalance = await this.ledgerBalance(
+      organizationId,
+      reconciliation.bankAccountProfile.accountId,
+      reconciliation.periodEnd,
+      executor,
+    );
+    const difference = new Prisma.Decimal(reconciliation.statementClosingBalance).minus(ledgerClosingBalance);
+    if (!difference.eq(0)) {
+      await executor.bankReconciliation.update({
+        where: { id: reconciliation.id },
+        data: { ledgerClosingBalance: ledgerClosingBalance.toFixed(4), difference: difference.toFixed(4) },
+      });
+      throw new BadRequestException(differenceMessage);
+    }
+
+    const unmatchedCount = await executor.bankStatementTransaction.count({
+      where: {
+        organizationId,
+        bankAccountProfileId: reconciliation.bankAccountProfileId,
+        status: BankStatementTransactionStatus.UNMATCHED,
+        transactionDate: { gte: reconciliation.periodStart, lte: reconciliation.periodEnd },
+      },
+    });
+    if (unmatchedCount > 0) {
+      throw new BadRequestException(unmatchedMessage);
+    }
+    return { ledgerClosingBalance };
+  }
+
+  private async createReviewEvent(
+    executor: PrismaExecutor,
+    input: {
+      organizationId: string;
+      reconciliationId: string;
+      actorUserId: string | null;
+      action: BankReconciliationReviewAction;
+      fromStatus: BankReconciliationStatus | null;
+      toStatus: BankReconciliationStatus;
+      notes?: string | null;
+    },
+  ) {
+    await executor.bankReconciliationReviewEvent.create({
+      data: {
+        organizationId: input.organizationId,
+        reconciliationId: input.reconciliationId,
+        actorUserId: input.actorUserId,
+        action: input.action,
+        fromStatus: input.fromStatus,
+        toStatus: input.toStatus,
+        notes: input.notes ?? null,
+      },
+    });
   }
 
   private async assertNoClosedOverlap(

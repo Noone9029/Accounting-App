@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { ArrayNotEmpty, IsArray, IsDateString, IsOptional, IsString, ValidateNested } from "class-validator";
+import { IsArray, IsBoolean, IsDateString, IsOptional, IsString, ValidateNested } from "class-validator";
 
 export class BankStatementImportRowDto {
   @IsDateString()
@@ -25,11 +25,19 @@ export class CreateBankStatementImportDto {
   @IsString()
   filename!: string;
 
+  @IsOptional()
+  @IsString()
+  csvText?: string;
+
+  @IsOptional()
   @IsArray()
-  @ArrayNotEmpty()
   @ValidateNested({ each: true })
   @Type(() => BankStatementImportRowDto)
-  rows!: BankStatementImportRowDto[];
+  rows?: BankStatementImportRowDto[];
+
+  @IsOptional()
+  @IsBoolean()
+  allowPartial?: boolean;
 
   @IsOptional()
   @IsString()
@@ -38,4 +46,19 @@ export class CreateBankStatementImportDto {
   @IsOptional()
   @IsString()
   closingStatementBalance?: string;
+}
+
+export class PreviewBankStatementImportDto {
+  @IsString()
+  filename!: string;
+
+  @IsOptional()
+  @IsString()
+  csvText?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => BankStatementImportRowDto)
+  rows?: BankStatementImportRowDto[];
 }

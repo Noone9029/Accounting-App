@@ -27,6 +27,9 @@ describe("Bank statement controller permissions", () => {
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, BankAccountStatementController.prototype.importStatement)).toEqual([
       PERMISSIONS.bankStatements.import,
     ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, BankAccountStatementController.prototype.previewImport)).toEqual([
+      PERMISSIONS.bankStatements.previewImport,
+    ]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, BankStatementTransactionController.prototype.matchCandidates)).toEqual([
       PERMISSIONS.bankStatements.reconcile,
     ]);

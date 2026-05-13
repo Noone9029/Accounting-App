@@ -112,6 +112,16 @@ interface BankStatementImport {
   closingStatementBalance?: string | null;
 }
 
+interface BankStatementImportPreview {
+  rowCount: number;
+  validRows: Array<{ rowNumber: number; amount: string; type: "DEBIT" | "CREDIT" }>;
+  invalidRows: Array<{ rowNumber: number; errors: string[] }>;
+  totalCredits: string;
+  totalDebits: string;
+  detectedColumns: string[];
+  warnings: string[];
+}
+
 interface BankStatementTransaction {
   id: string;
   importId: string;
@@ -156,10 +166,19 @@ interface BankReconciliation {
   statementClosingBalance: string;
   ledgerClosingBalance: string;
   difference: string;
-  status: "DRAFT" | "CLOSED" | "VOIDED";
+  status: "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "CLOSED" | "VOIDED";
+  submittedAt?: string | null;
+  approvedAt?: string | null;
   closedAt?: string | null;
   voidedAt?: string | null;
   unmatchedTransactionCount?: number;
+}
+
+interface BankReconciliationReviewEvent {
+  id: string;
+  action: "SUBMIT" | "APPROVE" | "REOPEN" | "CLOSE" | "VOID";
+  fromStatus?: string | null;
+  toStatus: string;
 }
 
 interface BankReconciliationItem {
@@ -786,24 +805,28 @@ async function main(): Promise<void> {
     displayName: `Smoke Reconciliation Bank ${runId}`,
     currency: "SAR",
   });
-  const reconciliationImport = await post<BankStatementImport>(
-    `/bank-accounts/${reconciliationProfile.id}/statement-imports`,
+  const reconciliationCsvText = [
+    "Transaction Date,Memo,Ref,Money Out,Money In",
+    `${reconciliationDate},Smoke reconciliation receipt,SMOKE-REC-${runId},0.0000,${reconciliationAmount.toFixed(4)}`,
+  ].join("\n");
+  const reconciliationPreview = await post<BankStatementImportPreview>(
+    `/bank-accounts/${reconciliationProfile.id}/statement-imports/preview`,
     headers,
     {
       filename: `smoke-reconciliation-${runId}.csv`,
-      rows: [
-        {
-          date: reconciliationDate,
-          description: "Smoke reconciliation receipt",
-          reference: `SMOKE-REC-${runId}`,
-          debit: "0.0000",
-          credit: reconciliationAmount.toFixed(4),
-        },
-      ],
-      openingStatementBalance: "0.0000",
-      closingStatementBalance: reconciliationAmount.toFixed(4),
+      csvText: reconciliationCsvText,
     },
   );
+  assertEqual(reconciliationPreview.rowCount, 1, "bank statement preview row count");
+  assertEqual(reconciliationPreview.validRows.length, 1, "bank statement preview valid row count");
+  assertEqual(reconciliationPreview.invalidRows.length, 0, "bank statement preview invalid row count");
+  assertMoney(reconciliationPreview.totalCredits, reconciliationAmount, "bank statement preview credit total");
+  const reconciliationImport = await post<BankStatementImport>(`/bank-accounts/${reconciliationProfile.id}/statement-imports`, headers, {
+    filename: `smoke-reconciliation-${runId}.csv`,
+    csvText: reconciliationCsvText,
+    openingStatementBalance: "0.0000",
+    closingStatementBalance: reconciliationAmount.toFixed(4),
+  });
   const reconciliationRows = await get<BankStatementTransaction[]>(
     `/bank-accounts/${reconciliationProfile.id}/statement-transactions?status=UNMATCHED`,
     headers,
@@ -843,13 +866,31 @@ async function main(): Promise<void> {
   assertEqual(draftReconciliation.status, "DRAFT", "bank reconciliation draft status");
   assertMoney(draftReconciliation.difference, money(0), "bank reconciliation draft difference");
   assertEqual(draftReconciliation.unmatchedTransactionCount, 0, "bank reconciliation draft unmatched count");
-  const closedReconciliation = await post<BankReconciliation>(
-    `/bank-reconciliations/${draftReconciliation.id}/close`,
+  const submittedReconciliation = await post<BankReconciliation>(
+    `/bank-reconciliations/${draftReconciliation.id}/submit`,
     headers,
     {},
   );
+  assertEqual(submittedReconciliation.status, "PENDING_APPROVAL", "bank reconciliation submitted status");
+  assertPresent(submittedReconciliation.submittedAt, "bank reconciliation submittedAt");
+  const approvedReconciliation = await post<BankReconciliation>(
+    `/bank-reconciliations/${submittedReconciliation.id}/approve`,
+    headers,
+    { approvalNotes: "Smoke approval" },
+  );
+  assertEqual(approvedReconciliation.status, "APPROVED", "bank reconciliation approved status");
+  assertPresent(approvedReconciliation.approvedAt, "bank reconciliation approvedAt");
+  const closedReconciliation = await post<BankReconciliation>(`/bank-reconciliations/${approvedReconciliation.id}/close`, headers, {});
   assertEqual(closedReconciliation.status, "CLOSED", "bank reconciliation closed status");
   assertPresent(closedReconciliation.closedAt, "bank reconciliation closedAt");
+  const reconciliationReviewEvents = await get<BankReconciliationReviewEvent[]>(
+    `/bank-reconciliations/${closedReconciliation.id}/review-events`,
+    headers,
+  );
+  assert(
+    ["SUBMIT", "APPROVE", "CLOSE"].every((action) => reconciliationReviewEvents.some((event) => event.action === action)),
+    "bank reconciliation review events include submit approve close",
+  );
   const reconciliationItems = await get<BankReconciliationItem[]>(
     `/bank-reconciliations/${closedReconciliation.id}/items`,
     headers,
@@ -880,6 +921,24 @@ async function main(): Promise<void> {
     headers,
   );
   assert(reconciliationReportDocuments.length >= 1, "generated documents include bank reconciliation report PDF");
+  const closedPeriodPreview = await post<BankStatementImportPreview>(
+    `/bank-accounts/${reconciliationProfile.id}/statement-imports/preview`,
+    headers,
+    {
+      filename: `smoke-reconciliation-closed-preview-${runId}.csv`,
+      csvText: `date,description,debit,credit\n${reconciliationDate},Closed period preview,0.0100,0.0000`,
+    },
+  );
+  assert(
+    closedPeriodPreview.warnings.some((warning) => warning.includes("closed reconciliation")),
+    "bank statement preview warns for closed reconciliation period",
+  );
+  await expectHttpError("closed reconciliation statement import", () =>
+    post<BankStatementImport>(`/bank-accounts/${reconciliationProfile.id}/statement-imports`, headers, {
+      filename: `smoke-reconciliation-closed-import-${runId}.csv`,
+      csvText: `date,description,debit,credit\n${reconciliationDate},Closed period import,0.0100,0.0000`,
+    }),
+  );
   await expectHttpError("closed reconciliation statement row mutation", () =>
     post<BankStatementTransaction>(`/bank-statement-transactions/${categorizedReconciliationRow.id}/ignore`, headers, {
       reason: "Smoke closed-period mutation check",

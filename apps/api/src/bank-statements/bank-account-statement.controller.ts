@@ -9,7 +9,7 @@ import { OrganizationContextGuard } from "../auth/guards/organization-context.gu
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { BankStatementService } from "./bank-statement.service";
 import { BankReconciliationSummaryQueryDto, BankStatementTransactionsQueryDto } from "./dto/bank-statement-query.dto";
-import { CreateBankStatementImportDto } from "./dto/create-bank-statement-import.dto";
+import { CreateBankStatementImportDto, PreviewBankStatementImportDto } from "./dto/create-bank-statement-import.dto";
 
 @Controller("bank-accounts/:bankAccountProfileId")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
@@ -31,6 +31,16 @@ export class BankAccountStatementController {
     @Body() dto: CreateBankStatementImportDto,
   ) {
     return this.bankStatementService.importStatement(organizationId, user.id, bankAccountProfileId, dto);
+  }
+
+  @Post("statement-imports/preview")
+  @RequirePermissions(PERMISSIONS.bankStatements.previewImport)
+  previewImport(
+    @CurrentOrganizationId() organizationId: string,
+    @Param("bankAccountProfileId") bankAccountProfileId: string,
+    @Body() dto: PreviewBankStatementImportDto,
+  ) {
+    return this.bankStatementService.previewImport(organizationId, bankAccountProfileId, dto);
   }
 
   @Get("statement-transactions")

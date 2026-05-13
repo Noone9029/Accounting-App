@@ -185,8 +185,18 @@ enum BankStatementMatchType {
 
 enum BankReconciliationStatus {
   DRAFT
+  PENDING_APPROVAL
+  APPROVED
   CLOSED
   VOIDED
+}
+
+enum BankReconciliationReviewAction {
+  SUBMIT
+  APPROVE
+  REOPEN
+  CLOSE
+  VOID
 }
 
 enum DocumentType {
@@ -311,8 +321,12 @@ model User {
   createdBankTransfers    BankTransfer[]       @relation("BankTransferCreatedBy")
   importedBankStatements   BankStatementImport[] @relation("BankStatementImportImportedBy")
   createdBankReconciliations BankReconciliation[] @relation("BankReconciliationCreatedBy")
+  submittedBankReconciliations BankReconciliation[] @relation("BankReconciliationSubmittedBy")
+  approvedBankReconciliations BankReconciliation[] @relation("BankReconciliationApprovedBy")
+  reopenedBankReconciliations BankReconciliation[] @relation("BankReconciliationReopenedBy")
   closedBankReconciliations  BankReconciliation[] @relation("BankReconciliationClosedBy")
   voidedBankReconciliations  BankReconciliation[] @relation("BankReconciliationVoidedBy")
+  bankReconciliationReviewEvents BankReconciliationReviewEvent[] @relation("BankReconciliationReviewEventActor")
   reversedCreditNoteAllocations CreditNoteAllocation[] @relation("CreditNoteAllocationReversedBy")
   reversedPurchaseDebitNoteAllocations PurchaseDebitNoteAllocation[] @relation("PurchaseDebitNoteAllocationReversedBy")
   reversedCustomerPaymentUnappliedAllocations CustomerPaymentUnappliedAllocation[] @relation("CustomerPaymentUnappliedAllocationReversedBy")
@@ -341,6 +355,7 @@ model Organization {
   bankStatementTransactions  BankStatementTransaction[]
   bankReconciliations        BankReconciliation[]
   bankReconciliationItems    BankReconciliationItem[]
+  bankReconciliationReviewEvents BankReconciliationReviewEvent[]
   taxRates                   TaxRate[]
   items                      Item[]
   salesInvoices              SalesInvoice[]
@@ -820,24 +835,56 @@ model BankReconciliation {
   status                  BankReconciliationStatus  @default(DRAFT)
   notes                   String?
   createdById             String?                   @db.Uuid
+  submittedById           String?                   @db.Uuid
+  approvedById            String?                   @db.Uuid
+  reopenedById            String?                   @db.Uuid
   closedById              String?                   @db.Uuid
   voidedById              String?                   @db.Uuid
+  submittedAt             DateTime?
+  approvedAt              DateTime?
+  reopenedAt              DateTime?
   closedAt                DateTime?
   voidedAt                DateTime?
+  approvalNotes           String?
+  reopenReason            String?
   createdAt               DateTime                  @default(now())
   updatedAt               DateTime                  @updatedAt
   organization            Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   bankAccountProfile      BankAccountProfile        @relation(fields: [bankAccountProfileId], references: [id])
   createdBy               User?                     @relation("BankReconciliationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  submittedBy             User?                     @relation("BankReconciliationSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
+  approvedBy              User?                     @relation("BankReconciliationApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  reopenedBy              User?                     @relation("BankReconciliationReopenedBy", fields: [reopenedById], references: [id], onDelete: SetNull)
   closedBy                User?                     @relation("BankReconciliationClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
   voidedBy                User?                     @relation("BankReconciliationVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
   items                   BankReconciliationItem[]
+  reviewEvents            BankReconciliationReviewEvent[]
 
   @@unique([organizationId, reconciliationNumber])
   @@index([organizationId])
   @@index([bankAccountProfileId])
   @@index([organizationId, bankAccountProfileId, status])
   @@index([organizationId, bankAccountProfileId, periodStart, periodEnd])
+}
+
+model BankReconciliationReviewEvent {
+  id               String                           @id @default(uuid()) @db.Uuid
+  organizationId   String                           @db.Uuid
+  reconciliationId String                           @db.Uuid
+  actorUserId      String?                          @db.Uuid
+  action           BankReconciliationReviewAction
+  fromStatus       BankReconciliationStatus?
+  toStatus         BankReconciliationStatus
+  notes            String?
+  createdAt        DateTime                         @default(now())
+  organization     Organization                     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reconciliation   BankReconciliation               @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+  actorUser        User?                            @relation("BankReconciliationReviewEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([reconciliationId])
+  @@index([actorUserId])
+  @@index([organizationId, reconciliationId, createdAt])
 }
 
 model BankReconciliationItem {

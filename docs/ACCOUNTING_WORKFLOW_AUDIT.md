@@ -97,9 +97,12 @@ This document maps implemented accounting workflows to their journal entries, ba
 ## Bank Statement Import And Reconciliation
 
 - API/UI: statement imports and reconciliation are accessed from bank account detail pages through `/bank-accounts/:id/statement-imports`, `/bank-accounts/:id/statement-transactions`, `/bank-statement-transactions/:id`, `/bank-accounts/:id/reconciliation`, `/bank-accounts/:id/reconciliations`, and `/bank-reconciliations/:id`.
-- Models: `BankStatementImport` stores the local import batch; `BankStatementTransaction` stores imported rows and reconciliation links; `BankReconciliation` stores draft/closed/voided close records; `BankReconciliationItem` stores the statement row snapshot captured at close.
+- Models: `BankStatementImport` stores the local import batch; `BankStatementTransaction` stores imported rows and reconciliation links; `BankReconciliation` stores draft/pending/approved/closed/voided close records; `BankReconciliationItem` stores the statement row snapshot captured at close; `BankReconciliationReviewEvent` stores reviewer transition history.
 - Import behavior:
+  - Preview accepts pasted CSV text or JSON rows, detects common bank headers, validates rows, returns totals/invalid rows/warnings, and does not write records.
   - JSON/CSV-row imports require an active bank account profile.
+  - Invalid rows reject the import unless `allowPartial=true`; exact duplicates in the same import are invalid and possible existing duplicates are warnings.
+  - Imports that would create statement rows inside a closed reconciliation period are rejected; preview warns instead.
   - Importing rows creates statement records only; it does not create journal entries.
   - Statement `CREDIT` rows increase bank balance and statement `DEBIT` rows decrease bank balance.
 - Match behavior:
@@ -113,15 +116,18 @@ This document maps implemented accounting workflows to their journal entries, ba
   - Fiscal period locks are enforced before posting.
 - Summary behavior:
   - Reconciliation summary reports statement totals, matched/categorized/ignored/unmatched counts, ledger balance, latest statement closing balance, difference, latest closed reconciliation, open draft state, unreconciled count, closed-through date, and a status suggestion.
-- Close/lock behavior:
+- Approval and close/lock behavior:
   - Draft reconciliation creation calculates ledger closing balance through the period end date and stores `statementClosingBalance - ledgerClosingBalance` as the difference.
-  - Closing requires zero difference and no `UNMATCHED` statement transactions in the period.
+  - Submit requires zero difference and no `UNMATCHED` statement transactions in the period, then moves the record to `PENDING_APPROVAL`.
+  - Approval records reviewer notes and moves the record to `APPROVED`; same-submitter approval is blocked unless the actor has `admin.fullAccess`.
+  - Pending/approved reconciliations can be reopened to `DRAFT`; closed reconciliations cannot be reopened in this MVP.
+  - Closing requires `APPROVED`, zero difference, and no `UNMATCHED` statement transactions in the period.
   - Close snapshots `MATCHED`, `CATEGORIZED`, and `IGNORED` statement rows into reconciliation items and creates no journal entry.
-  - Closed reconciliation periods block statement transaction match, categorize, ignore, and import void/status-changing operations.
+  - Closed reconciliation periods block statement transaction match, categorize, ignore, overlapping import, and import void/status-changing operations.
   - Reconciliation report data, CSV, and PDF endpoints render the close snapshot and archive generated PDFs.
-  - Voiding a draft or closed reconciliation marks it `VOIDED`, keeps the history, unlocks the period, and does not reverse categorized journals.
+  - Voiding a draft, pending, approved, or closed reconciliation marks it `VOIDED`, keeps review history, unlocks the period, and does not reverse categorized journals.
 - Gaps/risks:
-  - No file upload storage, OFX/CAMT parser, automatic matching, bank feeds, or accountant approval workflow exists yet.
+  - No file upload storage, OFX/CAMT/MT940 parser, automatic matching, bank feeds, email delivery, or full approval queue exists yet.
 
 ## Sales Workflows
 

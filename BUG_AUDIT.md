@@ -37,6 +37,32 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Reconciliation approval and import preview added
+
+Added pasted CSV/JSON statement import preview, validation summaries, duplicate warnings, partial import support, closed-period import protection, and a bank reconciliation submit/approve/reopen/close workflow with review events. Reconciliation close now requires approval, while closed periods continue to lock statement transaction changes and overlapping imports.
+
+Risk reduced:
+
+- Statement imports can be previewed before records are written, with valid/invalid rows, detected columns, totals, and warnings.
+- Real imports now reuse the preview parser/validator and reject invalid rows unless partial import is explicitly requested.
+- Imports into closed reconciliation periods are blocked, while preview warns without writing data.
+- Reconciliations now preserve submit, approve, reopen, close, and void history through review events.
+- Approved-only close provides a reviewer checkpoint before immutable period locking.
+
+Remaining risks:
+
+- No file upload storage.
+- No OFX/CAMT/MT940 parser.
+- No bank feeds or external banking APIs.
+- No strict dual-control approval queue beyond the same-submitter guard.
+- No automatic/ML matching.
+
+Tests/smoke added:
+
+- Backend CSV parser, preview/import validation, approval workflow, review event, permission, tenant, and closed-period protection tests.
+- Frontend helper tests for import preview summaries, reconciliation status/actions, review timeline labels, and locked warnings.
+- Smoke coverage for CSV preview, import, submit, approve, close, review events/items, closed-period mutation/import rejection, preview warning, report export, and void/unlock.
+
 ### Report exports and reconciliation report PDFs added
 
 Added CSV and PDF delivery for General Ledger, Trial Balance, Profit & Loss, Balance Sheet, VAT Summary, Aged Receivables, Aged Payables, plus bank reconciliation report data/CSV/PDF endpoints. Report PDFs are archived through generated documents, and frontend report pages and reconciliation detail pages now expose download actions.
@@ -76,7 +102,7 @@ Risk reduced:
 
 Remaining risks:
 
-- No reviewer approval or maker-checker workflow.
+- Reviewer approval now exists; strict dual-control queues remain future work.
 - No file upload parser, OFX, CAMT, MT940, live feeds, external banking API, or payment gateway integration.
 - No automatic/ML matching.
 - Voiding reconciliation is administrative only and does not reverse categorized journals.
@@ -106,7 +132,7 @@ Remaining risks:
 - No file upload storage or robust bank file parser beyond local JSON/CSV paste rows.
 - No OFX, CAMT, MT940, live feeds, external banking API, or payment gateway integration.
 - No automatic/ML matching.
-- Formal close/lock and report export now exist, but no reviewer workflow exists yet.
+- Formal close/lock, report export, and reviewer workflow now exist; file upload storage remains future work.
 - Accountant review is still needed before production use.
 
 Tests/smoke added:
@@ -128,7 +154,7 @@ Risk reduced:
 
 Remaining risks:
 
-- Bank statement import, manual matching, reconciliation close, and report export now exist, but no reviewer workflow exists yet.
+- Bank statement import preview, manual matching, reconciliation approval/close, and report export now exist; bank feeds and file upload storage remain future work.
 - No live feeds or external banking API.
 - No transfer fees.
 - No multi-currency FX transfers.
@@ -152,7 +178,7 @@ Risk reduced:
 
 Remaining risks:
 
-- Bank statement import, manual matching, reconciliation close, and report export now exist, but no reviewer workflow exists yet.
+- Bank statement import preview, manual matching, reconciliation approval/close, and report export now exist; bank feeds and file upload storage remain future work.
 - No live feeds or external banking API.
 - No transfer fees or multi-currency FX handling.
 

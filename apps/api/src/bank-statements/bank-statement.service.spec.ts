@@ -55,7 +55,7 @@ describe("BankStatementService", () => {
       },
       bankStatementTransaction: {
         findFirst: jest.fn().mockResolvedValue(statementTransaction),
-        findMany: jest.fn().mockResolvedValue([{ status: BankStatementTransactionStatus.MATCHED }]),
+        findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn(),
         count: jest.fn().mockResolvedValue(0),
         updateMany: jest.fn(),
@@ -95,7 +95,7 @@ describe("BankStatementService", () => {
         ],
         closingStatementBalance: "45.0000",
       }),
-    ).resolves.toEqual(createdImport);
+    ).resolves.toMatchObject(createdImport);
 
     expect(tx.bankStatementImport.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -124,7 +124,80 @@ describe("BankStatementService", () => {
         filename: "bad.csv",
         rows: [{ date: "2026-05-13", description: "Bad", debit: "1.0000", credit: "1.0000" }],
       }),
-    ).rejects.toThrow("Row 1 cannot contain both debit and credit.");
+    ).rejects.toThrow("Bank statement import contains invalid rows.");
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("previews CSV statement imports with common header aliases", async () => {
+    const { service } = makeService();
+
+    await expect(
+      service.previewImport("org-1", "profile-1", {
+        filename: "bank.csv",
+        csvText: "Transaction Date,Memo,Ref,Money Out,Money In\n2026-05-13,Receipt,PAY-1,0.0000,50.0000",
+      }),
+    ).resolves.toMatchObject({
+      rowCount: 1,
+      totalCredits: "50.0000",
+      totalDebits: "0.0000",
+      detectedColumns: ["Transaction Date", "Memo", "Ref", "Money Out", "Money In"],
+      validRows: [expect.objectContaining({ description: "Receipt", reference: "PAY-1", type: BankStatementTransactionType.CREDIT })],
+      invalidRows: [],
+    });
+  });
+
+  it("preview returns invalid rows without writing to the database", async () => {
+    const { service, prisma } = makeService();
+
+    await expect(
+      service.previewImport("org-1", "profile-1", {
+        filename: "bad.csv",
+        csvText: "date,description,debit,credit\nbad-date,,0.0000,0.0000",
+      }),
+    ).resolves.toMatchObject({
+      rowCount: 1,
+      validRows: [],
+      invalidRows: [expect.objectContaining({ rowNumber: 2 })],
+    });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("imports valid rows only when allowPartial is true", async () => {
+    const createdImport = { id: "import-1", rowCount: 1, status: BankStatementImportStatus.IMPORTED };
+    const tx = {
+      bankStatementImport: { create: jest.fn().mockResolvedValue(createdImport) },
+    };
+    const { service } = makeService({
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    });
+
+    await expect(
+      service.importStatement("org-1", "user-1", "profile-1", {
+        filename: "partial.csv",
+        allowPartial: true,
+        csvText: "date,description,debit,credit\n2026-05-13,Fee,5.0000,0.0000\nbad-date,Bad,0.0000,1.0000",
+      }),
+    ).resolves.toMatchObject({ id: "import-1", invalidRows: [expect.objectContaining({ rowNumber: 3 })] });
+    expect(tx.bankStatementImport.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          rowCount: 1,
+          transactions: { create: [expect.objectContaining({ description: "Fee" })] },
+        }),
+      }),
+    );
+  });
+
+  it("rejects imports that overlap a closed reconciliation period", async () => {
+    const { service, prisma } = makeService();
+    prisma.bankReconciliation.findFirst.mockResolvedValue({ id: "reconciliation-1", reconciliationNumber: "REC-000001" });
+
+    await expect(
+      service.importStatement("org-1", "user-1", "profile-1", {
+        filename: "closed.csv",
+        csvText: "date,description,debit,credit\n2026-05-13,Fee,5.0000,0.0000",
+      }),
+    ).rejects.toThrow("Cannot import statement transactions into a closed reconciliation period.");
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
