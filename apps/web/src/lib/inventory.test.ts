@@ -7,6 +7,11 @@ import {
   canApproveInventoryAdjustment,
   canEditInventoryAdjustment,
   canVoidInventoryAdjustment,
+  inventorySettingsLabel,
+  inventorySettingsWarnings,
+  inventoryValuationWarningText,
+  lowStockStatusLabel,
+  movementSummaryNetChange,
   stockMovementDirection,
   stockMovementTypeLabel,
   validateWarehouseTransferInput,
@@ -67,5 +72,19 @@ describe("inventory helpers", () => {
       averageUnitCost: "Valuation pending",
       inventoryValue: "Valuation pending",
     });
+  });
+
+  it("labels inventory settings and valuation warnings", () => {
+    const settings = { valuationMethod: "FIFO_PLACEHOLDER" as const, allowNegativeStock: true, trackInventoryValue: true };
+    expect(inventorySettingsLabel(settings)).toBe("FIFO placeholder, negative stock allowed, value tracking on");
+    expect(inventorySettingsWarnings(settings)).toEqual(expect.arrayContaining([expect.stringContaining("FIFO"), expect.stringContaining("negative stock")]));
+    expect(inventoryValuationWarningText({ warnings: [] })).toBe("Cost data complete");
+    expect(inventoryValuationWarningText({ warnings: ["Missing unit cost data."] })).toBe("Missing unit cost data.");
+  });
+
+  it("labels low-stock status and movement summary net change", () => {
+    expect(lowStockStatusLabel("BELOW_REORDER_POINT")).toBe("Below reorder point");
+    expect(lowStockStatusLabel("AT_REORDER_POINT")).toBe("At reorder point");
+    expect(movementSummaryNetChange({ inboundQuantity: "10.0000", outboundQuantity: "3.5000" })).toBe("6.5000");
   });
 });

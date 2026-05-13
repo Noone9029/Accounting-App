@@ -35,6 +35,8 @@ export class ItemService {
   async create(organizationId: string, actorUserId: string, dto: CreateItemDto) {
     this.assertNonNegativeMoney(dto.sellingPrice, "Selling price");
     this.assertOptionalNonNegativeMoney(dto.purchaseCost, "Purchase cost");
+    this.assertOptionalNonNegativeMoney(dto.reorderPoint, "Reorder point");
+    this.assertOptionalNonNegativeMoney(dto.reorderQuantity, "Reorder quantity");
     await this.validateReferences(organizationId, dto);
 
     const item = await this.prisma.item.create({
@@ -52,6 +54,8 @@ export class ItemService {
         expenseAccountId: this.cleanOptional(dto.expenseAccountId ?? undefined),
         purchaseTaxRateId: this.cleanOptional(dto.purchaseTaxRateId ?? undefined),
         inventoryTracking: dto.inventoryTracking ?? false,
+        reorderPoint: this.cleanOptionalDecimal(dto.reorderPoint),
+        reorderQuantity: this.cleanOptionalDecimal(dto.reorderQuantity),
       },
       include: itemInclude,
     });
@@ -64,6 +68,8 @@ export class ItemService {
     const existing = await this.findExisting(organizationId, id);
     this.assertOptionalNonNegativeMoney(dto.sellingPrice, "Selling price");
     this.assertOptionalNonNegativeMoney(dto.purchaseCost, "Purchase cost");
+    this.assertOptionalNonNegativeMoney(dto.reorderPoint, "Reorder point");
+    this.assertOptionalNonNegativeMoney(dto.reorderQuantity, "Reorder quantity");
     await this.validateReferences(organizationId, dto);
 
     const item = await this.prisma.item.update({
@@ -81,6 +87,8 @@ export class ItemService {
         expenseAccountId: dto.expenseAccountId === undefined ? undefined : this.cleanOptional(dto.expenseAccountId ?? undefined) ?? null,
         purchaseTaxRateId: dto.purchaseTaxRateId === undefined ? undefined : this.cleanOptional(dto.purchaseTaxRateId ?? undefined) ?? null,
         inventoryTracking: dto.inventoryTracking,
+        reorderPoint: dto.reorderPoint === undefined ? undefined : this.cleanOptionalDecimal(dto.reorderPoint) ?? null,
+        reorderQuantity: dto.reorderQuantity === undefined ? undefined : this.cleanOptionalDecimal(dto.reorderQuantity) ?? null,
       },
       include: itemInclude,
     });
@@ -167,13 +175,21 @@ export class ItemService {
     }
   }
 
-  private assertOptionalNonNegativeMoney(value: string | undefined, label: string): void {
-    if (value !== undefined) {
+  private assertOptionalNonNegativeMoney(value: string | null | undefined, label: string): void {
+    if (value !== undefined && value !== null && value !== "") {
       this.assertNonNegativeMoney(value, label);
     }
   }
 
   private cleanOptional(value: string | undefined): string | undefined {
+    const trimmed = value?.trim();
+    return trimmed || undefined;
+  }
+
+  private cleanOptionalDecimal(value: string | null | undefined): string | null | undefined {
+    if (value === null) {
+      return null;
+    }
     const trimmed = value?.trim();
     return trimmed || undefined;
   }

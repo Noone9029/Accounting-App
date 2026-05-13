@@ -89,6 +89,10 @@ export const SIDEBAR_NAV_ITEMS: readonly SidebarNavItem[] = [
       { label: "Adjustments", href: "/inventory/adjustments", requiredAny: [PERMISSIONS.inventoryAdjustments.view] },
       { label: "Transfers", href: "/inventory/transfers", requiredAny: [PERMISSIONS.warehouseTransfers.view] },
       { label: "Inventory balances", href: "/inventory/balances", requiredAny: [PERMISSIONS.inventory.view] },
+      { label: "Stock valuation", href: "/inventory/reports/stock-valuation", requiredAny: [PERMISSIONS.inventory.view] },
+      { label: "Movement summary", href: "/inventory/reports/movement-summary", requiredAny: [PERMISSIONS.inventory.view] },
+      { label: "Low stock", href: "/inventory/reports/low-stock", requiredAny: [PERMISSIONS.inventory.view] },
+      { label: "Inventory settings", href: "/inventory/settings", requiredAny: [PERMISSIONS.inventory.view] },
     ],
   },
   {

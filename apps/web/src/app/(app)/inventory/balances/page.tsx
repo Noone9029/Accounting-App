@@ -66,6 +66,12 @@ export default function InventoryBalancesPage() {
           <p className="mt-1 text-sm text-steel">Operational quantity on hand by tracked item and warehouse.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href="/inventory/reports/stock-valuation" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Stock valuation
+          </Link>
+          <Link href="/inventory/reports/movement-summary" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Movement summary
+          </Link>
           {canCreateAdjustment ? (
             <Link href="/inventory/adjustments/new" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
               New adjustment

@@ -3,6 +3,11 @@ import type {
   InventoryAdjustmentStatus,
   InventoryAdjustmentType,
   InventoryBalance,
+  InventoryLowStockStatus,
+  InventoryMovementSummaryRow,
+  InventorySettings,
+  InventoryStockValuationRow,
+  InventoryValuationMethod,
   StockMovementType,
   WarehouseStatus,
   WarehouseTransferStatus,
@@ -50,6 +55,47 @@ export function inventoryBalanceDisplay(balance: Pick<InventoryBalance, "quantit
 
 export function inventoryOperationalWarning(): string {
   return "Inventory movements are operational only in this MVP and do not post GL, COGS, inventory asset, or financial statement entries.";
+}
+
+export function inventoryValuationMethodLabel(method: InventoryValuationMethod): string {
+  return method === "MOVING_AVERAGE" ? "Moving average" : "FIFO placeholder";
+}
+
+export function inventorySettingsLabel(settings: Pick<InventorySettings, "valuationMethod" | "allowNegativeStock" | "trackInventoryValue">): string {
+  const valueTracking = settings.trackInventoryValue ? "value tracking on" : "value tracking off";
+  const negativeStock = settings.allowNegativeStock ? "negative stock allowed" : "negative stock blocked";
+  return `${inventoryValuationMethodLabel(settings.valuationMethod)}, ${negativeStock}, ${valueTracking}`;
+}
+
+export function inventorySettingsWarnings(settings: Pick<InventorySettings, "valuationMethod" | "allowNegativeStock">): string[] {
+  const warnings = [inventoryOperationalWarning()];
+  if (settings.valuationMethod === "FIFO_PLACEHOLDER") {
+    warnings.push("FIFO can be saved as a placeholder, but reports still use moving-average estimates.");
+  }
+  if (settings.allowNegativeStock) {
+    warnings.push("Allowing negative stock is risky and should be reviewed before enabling.");
+  }
+  return warnings;
+}
+
+export function inventoryValuationWarningText(row: Pick<InventoryStockValuationRow, "warnings">): string {
+  return row.warnings.length > 0 ? row.warnings.join("; ") : "Cost data complete";
+}
+
+export function inventoryReportValueDisplay(value: string | null): string {
+  return value === null ? "Valuation pending" : formatInventoryQuantity(value);
+}
+
+export function lowStockStatusLabel(status: InventoryLowStockStatus): string {
+  return status === "AT_REORDER_POINT" ? "At reorder point" : "Below reorder point";
+}
+
+export function lowStockStatusBadgeClass(status: InventoryLowStockStatus): string {
+  return status === "AT_REORDER_POINT" ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700";
+}
+
+export function movementSummaryNetChange(row: Pick<InventoryMovementSummaryRow, "inboundQuantity" | "outboundQuantity">): string {
+  return formatUnits(parseDecimalToUnits(row.inboundQuantity) - parseDecimalToUnits(row.outboundQuantity));
 }
 
 export function inventoryAdjustmentStatusLabel(status: InventoryAdjustmentStatus): string {

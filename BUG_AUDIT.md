@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-06
 
-Commit inspected: `da77d04` (`Implement customer ledger and receipts`)
+Commit inspected: pending (`Add inventory valuation reports groundwork`)
 
 ## Scope
 
@@ -36,6 +36,35 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Inventory valuation/reporting groundwork added
+
+Added per-organization inventory settings, moving-average operational stock valuation, movement summary reporting, low-stock reporting from item reorder points, CSV export for inventory reports, frontend inventory report/settings pages, reorder fields on items, tests, and smoke coverage. The implementation keeps inventory operations reporting-only: it does not post inventory journals, COGS, purchase receipts, sales issues, or financial statement values.
+
+Risk reduced:
+
+- Teams can review operational estimated stock value by item and warehouse without changing GL.
+- Missing inbound cost data is visible as a valuation warning instead of silently producing accounting-like totals.
+- Movement summary exposes opening, inbound, outbound, closing, count, and movement-type breakdown from the stock ledger.
+- Low-stock reporting now has simple reorder-point groundwork.
+- Inventory settings make the valuation method explicit while keeping FIFO marked as placeholder.
+
+Remaining risks:
+
+- No COGS posting.
+- No inventory asset accounting.
+- No purchase receiving.
+- No sales issue.
+- Valuation needs accountant review before financial use.
+- FIFO is placeholder-only.
+- No inventory financial statements.
+- No serial/batch tracking.
+
+Tests/smoke added:
+
+- Backend inventory settings, valuation, movement summary, low-stock, tenant, and permission tests.
+- Frontend helper tests for valuation warnings, settings labels, movement summaries, and low-stock statuses.
+- Smoke coverage for inventory settings, valuation report, movement summary, low-stock shape, and no-journal inventory operations.
 
 ### Reconciliation approval and import preview added
 

@@ -2,13 +2,13 @@
 
 Audit date: 2026-05-14
 
-Current commit audited: pending (`Add inventory adjustments and transfers`)
+Current commit audited: pending (`Add inventory valuation reports groundwork`)
 
 ## Summary
 
-LedgerByte is a TypeScript monorepo for a GCC/Saudi-oriented accounting SaaS. The current codebase has a working local MVP for core AR and AP transaction flows, document PDFs, report CSV/PDF exports, generated-document archive, operational inventory warehouse/stock-ledger/adjustment/transfer controls, local smoke coverage, and non-production ZATCA groundwork.
+LedgerByte is a TypeScript monorepo for a GCC/Saudi-oriented accounting SaaS. The current codebase has a working local MVP for core AR and AP transaction flows, document PDFs, report CSV/PDF exports, generated-document archive, operational inventory warehouse/stock-ledger/adjustment/transfer/report controls, local smoke coverage, and non-production ZATCA groundwork.
 
-Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated locally for sales invoices, customer payments, credit notes, customer refunds, purchase orders, purchase bills, supplier payments, bank account profile balances/transactions, bank transfers, opening-balance posting, local bank statement import preview/reconciliation, reconciliation approval/close/lock review history, reconciliation reports, inventory warehouses, opening-balance movements, inventory adjustment approvals/voids, warehouse transfers/voids, inventory balances, ledgers, statements, core report exports, and PDFs. It is not production-ready as a SaaS and is not production ZATCA compliant.
+Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated locally for sales invoices, customer payments, credit notes, customer refunds, purchase orders, purchase bills, supplier payments, bank account profile balances/transactions, bank transfers, opening-balance posting, local bank statement import preview/reconciliation, reconciliation approval/close/lock review history, reconciliation reports, inventory warehouses, opening-balance movements, inventory adjustment approvals/voids, warehouse transfers/voids, inventory balances, inventory settings, stock valuation/movement/low-stock reports, ledgers, statements, core report exports, and PDFs. It is not production-ready as a SaaS and is not production ZATCA compliant.
 
 ## Tech Stack
 
@@ -52,7 +52,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 - Purchase order draft/create/edit/delete, approve, mark sent, close, void, PDF/archive, and conversion to draft purchase bills without posting journals.
 - Supplier payment posting, allocation to bills, bill balance updates, and void restoration.
 - Supplier ledger and statement rows for AP events.
-- Inventory `MAIN` warehouse defaults, warehouse create/archive/reactivate, opening-balance stock movements, draft/approved/voided inventory adjustments, posted/voided warehouse transfers, derived item/warehouse balances, and explicit no-journal inventory movement behavior.
+- Inventory `MAIN` warehouse defaults, warehouse create/archive/reactivate, opening-balance stock movements, draft/approved/voided inventory adjustments, posted/voided warehouse transfers, derived item/warehouse balances, valuation settings, operational stock reports, low-stock reporting, and explicit no-journal inventory movement behavior.
 - Sales invoice, credit note, customer payment, customer refund, customer statement, purchase order, purchase bill, supplier payment, core report, and bank reconciliation PDFs.
 - Core accounting report JSON/CSV/PDF outputs for General Ledger, Trial Balance, Profit & Loss, Balance Sheet, VAT Summary, Aged Receivables, and Aged Payables.
 - Generated document archive for generated PDFs.
@@ -65,7 +65,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 - Bank feeds, external bank APIs, automatic matching, OFX/CAMT/MT940 upload parsing, transfer fees, and multi-currency FX transfers are not implemented.
 - Purchase order receiving, partial billing, and automatic inventory receipt are not implemented.
 - Reports have CSV/PDF delivery, but accountant-reviewed filing definitions, scheduling, and email delivery remain missing.
-- Inventory warehouse, stock ledger, adjustment approval, and warehouse transfer controls exist, but COGS, valuation accounting, purchase receiving, sales issue, landed cost, serial/batch tracking, and inventory financial reports are not implemented.
+- Inventory warehouse, stock ledger, adjustment approval, warehouse transfer controls, valuation settings, and operational reports exist, but COGS, valuation accounting, purchase receiving, sales issue, landed cost, serial/batch tracking, and accounting-grade inventory financial reports are not implemented.
 - PDF rendering is operational only, not legal/template-complete.
 - Generated document storage is database base64, not object storage.
 - ZATCA is local/mock/scaffold only. No real CSID, signing, official SDK validation, clearance, reporting, or PDF/A-3 exists.
@@ -78,7 +78,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 2. Email-backed invites, invited-user onboarding, and password reset are still missing despite local role/member management.
 3. No broad approval workflow, dual control, or maker-checker policy exists for high-risk accounting actions outside the new bank reconciliation approval path.
 4. Bank reconciliation has local import preview, manual matching, categorization, approval, close/lock, and report export groundwork, but there is no live feed, automatic matching, OFX/CAMT/MT940 parser, file upload storage, or external bank integration.
-5. Inventory warehouses, adjustment controls, and transfers exist, but valuation, COGS, automatic receipts/issues, landed cost, serial/batch tracking, and inventory financial reports are still missing.
+5. Inventory warehouses, adjustment controls, transfers, valuation settings, and operational reports exist, but COGS, GL valuation, automatic receipts/issues, landed cost, serial/batch tracking, and accounting-grade inventory financial reports are still missing.
 6. Generated PDFs are stored as base64 in the database, which is not scalable for production.
 7. Production secrets/key custody is not hardened; ZATCA private key storage is explicitly dev-only.
 8. Frontend has limited end-to-end browser testing and limited UX validation for all routes.
@@ -93,7 +93,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 4. Add fiscal year close, retained earnings close, and controlled unlock/approval workflows.
 5. Add partial PO receiving/billing design and purchase matching hardening.
 6. Harden bank reconciliation with upload storage, import file-format samples/parsers, transfer fees, and multi-currency FX handling.
-7. Add inventory valuation policy, operational stock reports, purchase receiving/sales issue hooks, and COGS.
+7. Add purchase receiving/sales issue hooks, accountant-reviewed valuation accounting, and COGS.
 8. Advance ZATCA official SDK validation, official XML mapping, signing, CSID, clearance/reporting, and PDF/A-3.
 9. Move generated documents to object storage.
 10. Prepare production deployment, monitoring, backups, secrets management, and security review.

@@ -131,8 +131,8 @@ This document maps implemented accounting workflows to their journal entries, ba
 
 ## Inventory Warehouse, Adjustment, And Transfer Groundwork
 
-- API/UI: inventory is accessed through `/inventory/warehouses`, `/inventory/warehouses/:id`, `/inventory/stock-movements`, `/inventory/stock-movements/new`, `/inventory/adjustments`, `/inventory/adjustments/new`, `/inventory/adjustments/:id`, `/inventory/transfers`, `/inventory/transfers/new`, `/inventory/transfers/:id`, `/inventory/balances`, and the item list quantity display.
-- Models: `Warehouse` stores operational locations, `InventoryAdjustment` stores draft/approved/voided adjustment controls, `WarehouseTransfer` stores posted/voided transfers, and `StockMovement` stores the operational stock ledger for inventory-tracked items.
+- API/UI: inventory is accessed through `/inventory/warehouses`, `/inventory/warehouses/:id`, `/inventory/stock-movements`, `/inventory/stock-movements/new`, `/inventory/adjustments`, `/inventory/adjustments/new`, `/inventory/adjustments/:id`, `/inventory/transfers`, `/inventory/transfers/new`, `/inventory/transfers/:id`, `/inventory/balances`, `/inventory/settings`, `/inventory/reports/stock-valuation`, `/inventory/reports/movement-summary`, `/inventory/reports/low-stock`, and the item list quantity/reorder display.
+- Models: `Warehouse` stores operational locations, `InventoryAdjustment` stores draft/approved/voided adjustment controls, `WarehouseTransfer` stores posted/voided transfers, `InventorySettings` stores reporting policy, `Item` stores optional reorder point/quantity, and `StockMovement` stores the operational stock ledger for inventory-tracked items.
 - Warehouse behavior:
   - New and seeded organizations receive an active default `MAIN` warehouse.
   - Warehouse codes are unique per organization and normalized to uppercase.
@@ -158,11 +158,17 @@ This document maps implemented accounting workflows to their journal entries, ba
 - Balance behavior:
   - `GET /inventory/balances` derives quantity on hand by summing opening balance, adjustment, transfer, and placeholder receipt/issue movement directions by item and warehouse.
   - Average unit cost and inventory value are simple operational estimates from costed inbound movements when available.
+- Reporting behavior:
+  - `GET /inventory/settings` defaults to `MOVING_AVERAGE`, negative stock blocked, and value tracking enabled.
+  - `FIFO_PLACEHOLDER` can be saved, but reports still calculate moving-average estimates.
+  - `GET /inventory/reports/stock-valuation` derives quantity, average unit cost, estimated value, item totals, and grand total from stock movements, with missing-cost warnings.
+  - `GET /inventory/reports/movement-summary` derives opening, inbound, outbound, closing, movement count, and movement-type breakdown by item/warehouse.
+  - `GET /inventory/reports/low-stock` lists tracked items at or below reorder point.
 - Accounting impact:
   - No journal entries are created by warehouses, stock movements, inventory adjustments, or warehouse transfers.
-  - Inventory movements do not affect GL, COGS, inventory asset balances, VAT, or financial statements yet.
+  - Inventory settings and reports do not affect GL, COGS, inventory asset balances, VAT, or financial statements.
 - Gaps/risks:
-  - No COGS, inventory valuation accounting, automatic purchase receiving, sales issue, landed cost, serial/batch tracking, inventory financial reports, or valuation report exists yet.
+  - No COGS, inventory valuation accounting, automatic purchase receiving, sales issue, landed cost, serial/batch tracking, or accounting-grade inventory financial report exists yet.
 
 ## Sales Workflows
 

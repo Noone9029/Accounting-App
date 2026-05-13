@@ -45,4 +45,12 @@ export class CreateItemDto {
   @IsOptional()
   @IsBoolean()
   inventoryTracking?: boolean;
+
+  @IsOptional()
+  @IsDecimal({ decimal_digits: "0,4" })
+  reorderPoint?: string | null;
+
+  @IsOptional()
+  @IsDecimal({ decimal_digits: "0,4" })
+  reorderQuantity?: string | null;
 }

@@ -64,15 +64,15 @@ Tasks:
 - Purchase receiving and sales issue hooks tied to the existing operational stock ledger.
 - Inventory adjustment approval inbox, attachments, and reason-code catalog.
 - Warehouse in-transit transfer, shipping document, and bin/location support.
-- Inventory valuation method decision and accounting policy.
+- Accountant review of the current moving-average operational valuation estimate and FIFO placeholder policy.
 - COGS posting.
-- Inventory valuation and stock ledger reports.
+- Accounting-grade inventory valuation reports after GL posting design.
 - Employee master data.
 - Payroll shell with draft runs, pay items, and accounting posting plan.
 
 Manual dependencies:
 
-- Inventory valuation policy.
+- Inventory valuation accounting policy and COGS cost-flow approval.
 - Payroll jurisdiction requirements.
 - Accountant review of COGS/payroll postings.
 
@@ -80,7 +80,7 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Add inventory valuation policy and operational stock reports without COGS posting or automatic invoice/bill stock posting yet.
+> Add purchase receiving and sales issue workflow groundwork tied to the operational stock ledger without COGS or GL inventory posting.
 
 ## Phase 4: ZATCA Production Path
 

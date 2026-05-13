@@ -168,6 +168,11 @@ Inventory endpoints are operational stock controls only. They do not post journa
 | GET | `/warehouse-transfers/:id` | Warehouse transfer detail | Yes | Yes | Implemented | Requires `warehouseTransfers.view`; tenant scoped. |
 | POST | `/warehouse-transfers/:id/void` | Void warehouse transfer | Yes | Yes | Implemented | Requires `warehouseTransfers.void`; creates paired reversal movements once and rejects repeated voids. |
 | GET | `/inventory/balances` | Derived inventory balances | Yes | Yes | Implemented | Requires `inventory.view`; optional `itemId` and `warehouseId`; quantity is authoritative for the operational MVP while value fields are estimates. |
+| GET | `/inventory/settings` | Inventory valuation/report settings | Yes | Yes | Implemented | Requires `inventory.view`; creates default settings on first read with `MOVING_AVERAGE`, negative stock blocked, and value tracking enabled. |
+| PATCH | `/inventory/settings` | Update inventory settings | Yes | Yes | Implemented | Requires `inventory.manage`; can save `MOVING_AVERAGE` or `FIFO_PLACEHOLDER`, `allowNegativeStock`, and `trackInventoryValue`; no accounting posting is enabled. |
+| GET | `/inventory/reports/stock-valuation` | Operational stock valuation report | Yes | Yes | Implemented | Requires `inventory.view`; optional `itemId`, `warehouseId`, and `format=csv`; derives moving-average estimated values from costed inbound stock movements and warns when cost data is missing. |
+| GET | `/inventory/reports/movement-summary` | Inventory movement summary report | Yes | Yes | Implemented | Requires `inventory.view`; optional `from`, `to`, `itemId`, `warehouseId`, and `format=csv`; returns opening, inbound, outbound, closing, count, and type breakdown by item/warehouse. |
+| GET | `/inventory/reports/low-stock` | Low-stock report | Yes | Yes | Implemented | Requires `inventory.view`; optional `format=csv`; returns tracked items at or below `Item.reorderPoint`. |
 
 ## Fiscal Periods
 

@@ -58,6 +58,10 @@ describe("permission helpers", () => {
     expect(getRequiredPermissionsForPathname("/inventory/transfers/new")).toEqual([PERMISSIONS.warehouseTransfers.create]);
     expect(getRequiredPermissionsForPathname("/inventory/stock-movements")).toEqual([PERMISSIONS.stockMovements.view]);
     expect(getRequiredPermissionsForPathname("/inventory/stock-movements/new")).toEqual([PERMISSIONS.stockMovements.create]);
+    expect(getRequiredPermissionsForPathname("/inventory/reports/stock-valuation")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/reports/movement-summary")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/reports/low-stock")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/settings")).toEqual([PERMISSIONS.inventory.view]);
     expect(getRequiredPermissionsForPathname("/settings/zatca")).toEqual([PERMISSIONS.zatca.view]);
     expect(getRequiredPermissionsForPathname("/settings/team")).toEqual([PERMISSIONS.users.view]);
     expect(getRequiredPermissionsForPathname("/settings/roles/role-1")).toEqual([PERMISSIONS.roles.view]);

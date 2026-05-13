@@ -43,7 +43,7 @@ Route source: `apps/web/src/app`
 | `/bank-transfers/[id]` | Bank transfer detail. | Transfer, profile/account links, journal links. | Void transfer when allowed. | Implemented | No edit/delete after posting by design. |
 | `/tax-rates` | Tax rates. | Tax rates. | Create/update rates. | Implemented | VAT report linkage missing. |
 | `/branches` | Branch management. | Branches. | Create/update branches. | Implemented | Default branch normalization still missing; branch create/update is now gated by organization update permission. |
-| `/items` | Product/service catalog. | Items, accounts, tax rates, inventory balances when allowed. | Create/update/delete items, set inventory-tracking flag, and view quantity on hand for tracked items. | Partial | Item-specific stock detail/history page missing. |
+| `/items` | Product/service catalog. | Items, accounts, tax rates, inventory balances when allowed. | Create/update/delete items, set inventory-tracking and reorder fields, and view quantity on hand for tracked items. | Partial | Item-specific stock detail/history page missing. |
 | `/documents` | Generated document archive. | Generated documents, including operational and report PDFs. | Filter by document type/status and download archived PDFs. | Implemented | Storage/provider status and filters could improve. |
 | `/fiscal-periods` | Fiscal period management. | Fiscal periods. | Create, close, reopen, and lock periods. | Implemented | No unlock/admin approval or fiscal year wizard yet. |
 | `/settings/documents` | Document PDF settings. | Organization document settings. | Update titles/colors/visibility. | Implemented | Template preview/designer missing. |
@@ -70,7 +70,11 @@ Inventory routes are operational-only and clearly warn that opening balances, ad
 | `/inventory/transfers` | Warehouse transfer list. | Transfers with item and source/destination warehouses. | Review number, item, warehouses, quantity, status, and navigate to detail/create. | Implemented | No in-transit status. |
 | `/inventory/transfers/new` | Warehouse transfer creation. | Inventory-tracked items and active warehouses. | Create posted transfer between different active warehouses. | Implemented | No shipping document or bin/location support. |
 | `/inventory/transfers/[id]` | Warehouse transfer detail. | Transfer, item, source/destination warehouses, movement links. | Void transfer when allowed. | Implemented | No edit/delete after posting by design. |
-| `/inventory/balances` | Inventory balance table. | Derived item/warehouse balances. | View quantity on hand, simple cost/value estimates, total quantity by item, and quick links to adjustments/transfers. | Implemented | Valuation is not accounting-grade and no inventory financial reports exist. |
+| `/inventory/balances` | Inventory balance table. | Derived item/warehouse balances. | View quantity on hand, simple cost/value estimates, total quantity by item, and quick links to adjustments/transfers/reports. | Implemented | Valuation is not accounting-grade. |
+| `/inventory/settings` | Inventory settings. | Inventory settings. | Review/update valuation method, negative-stock flag, and inventory value tracking warning state. | Groundwork | Settings do not enable GL inventory posting or COGS. |
+| `/inventory/reports/stock-valuation` | Stock valuation report. | Stock valuation report. | Review quantity, average cost, estimated value, warnings, and grand total. | Groundwork | Operational estimate only; not a financial statement value. |
+| `/inventory/reports/movement-summary` | Movement summary report. | Movement summary report plus item/warehouse filter lists. | Filter by date/item/warehouse and review opening/inbound/outbound/closing with movement type breakdown. | Groundwork | No PDF export and no accountant-approved financial interpretation. |
+| `/inventory/reports/low-stock` | Low-stock report. | Low-stock report. | See tracked items at or below reorder point with reorder quantity and status. | Groundwork | Reorder points are planning fields only; no purchase automation. |
 
 ## Reports
 

@@ -236,6 +236,8 @@ interface Item {
   name: string;
   sku?: string | null;
   inventoryTracking?: boolean;
+  reorderPoint?: string | null;
+  reorderQuantity?: string | null;
 }
 
 interface Warehouse {
@@ -283,6 +285,55 @@ interface InventoryBalance {
   quantityOnHand: string;
   averageUnitCost: string | null;
   inventoryValue: string | null;
+}
+
+interface InventorySettings {
+  id: string;
+  valuationMethod: "MOVING_AVERAGE" | "FIFO_PLACEHOLDER";
+  allowNegativeStock: boolean;
+  trackInventoryValue: boolean;
+  warnings: string[];
+}
+
+interface InventoryStockValuationReport {
+  rows: Array<{
+    item: { id: string; name: string; sku?: string | null };
+    warehouse: { id: string; code: string; name: string };
+    quantityOnHand: string;
+    averageUnitCost: string | null;
+    estimatedValue: string | null;
+    warnings: string[];
+  }>;
+  grandTotalEstimatedValue: string;
+}
+
+interface InventoryMovementSummaryReport {
+  rows: Array<{
+    item: { id: string; name: string; sku?: string | null };
+    warehouse: { id: string; code: string; name: string };
+    openingQuantity: string;
+    inboundQuantity: string;
+    outboundQuantity: string;
+    closingQuantity: string;
+    movementCount: number;
+  }>;
+  totals: {
+    inboundQuantity: string;
+    outboundQuantity: string;
+    closingQuantity: string;
+    movementCount: number;
+  };
+}
+
+interface InventoryLowStockReport {
+  rows: Array<{
+    item: { id: string; name: string; sku?: string | null };
+    quantityOnHand: string;
+    reorderPoint: string;
+    reorderQuantity: string | null;
+    status: "BELOW_REORDER_POINT" | "AT_REORDER_POINT";
+  }>;
+  totalItems: number;
 }
 
 interface SalesInvoice {
@@ -688,6 +739,17 @@ async function main(): Promise<void> {
     "default active Bank Account profile",
   );
 
+  const inventorySettings = await get<InventorySettings>("/inventory/settings", headers);
+  assertEqual(inventorySettings.valuationMethod, "MOVING_AVERAGE", "inventory settings default moving-average valuation");
+  const patchedInventorySettings = await patch<InventorySettings>("/inventory/settings", headers, {
+    valuationMethod: "MOVING_AVERAGE",
+    allowNegativeStock: false,
+    trackInventoryValue: true,
+  });
+  assertEqual(patchedInventorySettings.valuationMethod, "MOVING_AVERAGE", "inventory settings patched valuation method");
+  assertEqual(patchedInventorySettings.allowNegativeStock, false, "inventory settings negative stock blocked");
+  assertEqual(patchedInventorySettings.trackInventoryValue, true, "inventory settings value tracking enabled");
+
   const warehouses = await get<Warehouse[]>("/warehouses", headers);
   const mainWarehouse = required(
     warehouses.find((warehouse) => warehouse.code === "MAIN" && warehouse.status === "ACTIVE" && warehouse.isDefault),
@@ -707,8 +769,11 @@ async function main(): Promise<void> {
     sellingPrice: "25.0000",
     revenueAccountId: salesAccount.id,
     inventoryTracking: true,
+    reorderPoint: "15.0000",
+    reorderQuantity: "6.0000",
   });
   assertEqual(inventoryItem.inventoryTracking, true, "inventory smoke item tracking enabled");
+  assertMoney(inventoryItem.reorderPoint, money("15.0000"), "inventory smoke item reorder point");
   const journalEntriesBeforeInventory = await get<JournalEntry[]>("/journal-entries", headers);
   const balanceFor = async (warehouse: Warehouse) => {
     const balances = await get<InventoryBalance[]>(
@@ -771,6 +836,7 @@ async function main(): Promise<void> {
     adjustmentDate: new Date().toISOString(),
     type: "DECREASE",
     quantity: "3.0000",
+    unitCost: "4.2500",
     reason: "Smoke adjustment decrease",
   });
   assertEqual(draftDecreaseAdjustment.status, "DRAFT", "decrease adjustment draft status");
@@ -783,6 +849,39 @@ async function main(): Promise<void> {
   assertPresent(voidedDecreaseAdjustment.voidStockMovementId, "voided decrease adjustment reversal movement");
   const inventoryBalance = await balanceFor(mainWarehouse);
   assertMoney(inventoryBalance.quantityOnHand, money("12.0000"), "main warehouse quantity after decrease adjustment void");
+  const inventoryReportDate = isoDate(new Date());
+  const stockValuationReport = await get<InventoryStockValuationReport>(
+    `/inventory/reports/stock-valuation?itemId=${encodeURIComponent(inventoryItem.id)}&warehouseId=${encodeURIComponent(mainWarehouse.id)}`,
+    headers,
+  );
+  const stockValuationRow = required(
+    stockValuationReport.rows.find((row) => row.item.id === inventoryItem.id && row.warehouse.id === mainWarehouse.id),
+    "stock valuation row for smoke item",
+  );
+  assertMoney(stockValuationRow.quantityOnHand, money("12.0000"), "stock valuation quantity on hand");
+  assertPresent(stockValuationRow.averageUnitCost, "stock valuation average unit cost");
+  assertPresent(stockValuationRow.estimatedValue, "stock valuation estimated value");
+  assertPresent(stockValuationReport.grandTotalEstimatedValue, "stock valuation grand total estimated value");
+  const movementSummaryReport = await get<InventoryMovementSummaryReport>(
+    `/inventory/reports/movement-summary?from=${inventoryReportDate}&to=${inventoryReportDate}&itemId=${encodeURIComponent(inventoryItem.id)}&warehouseId=${encodeURIComponent(mainWarehouse.id)}`,
+    headers,
+  );
+  const movementSummaryRow = required(
+    movementSummaryReport.rows.find((row) => row.item.id === inventoryItem.id && row.warehouse.id === mainWarehouse.id),
+    "movement summary row for smoke item",
+  );
+  assertMoney(movementSummaryRow.closingQuantity, money("12.0000"), "movement summary closing quantity");
+  assert(money(movementSummaryRow.inboundQuantity).gt(0), "movement summary includes inbound quantity");
+  assert(money(movementSummaryRow.outboundQuantity).gt(0), "movement summary includes outbound quantity");
+  assert(movementSummaryRow.movementCount >= 6, "movement summary includes inventory operation movements");
+  const lowStockReport = await get<InventoryLowStockReport>("/inventory/reports/low-stock", headers);
+  const lowStockRow = required(
+    lowStockReport.rows.find((row) => row.item.id === inventoryItem.id),
+    "low-stock row for smoke item",
+  );
+  assertMoney(lowStockRow.quantityOnHand, money("12.0000"), "low-stock quantity on hand");
+  assertMoney(lowStockRow.reorderPoint, money("15.0000"), "low-stock reorder point");
+  assert(lowStockReport.totalItems >= 1, "low-stock report returns report shape");
   const stockMovementList = await get<StockMovement[]>(
     `/stock-movements?itemId=${encodeURIComponent(inventoryItem.id)}&warehouseId=${encodeURIComponent(mainWarehouse.id)}`,
     headers,
@@ -2689,6 +2788,10 @@ async function main(): Promise<void> {
           voidedWarehouseTransfer.voidToStockMovementId,
         ],
         inventoryQuantityOnHand: inventoryBalance.quantityOnHand,
+        inventorySettingsId: patchedInventorySettings.id,
+        inventoryValuationGrandTotal: stockValuationReport.grandTotalEstimatedValue,
+        inventoryMovementClosingQuantity: movementSummaryRow.closingQuantity,
+        lowStockItemIds: lowStockReport.rows.map((row) => row.item.id),
         inventoryJournalEntryCountUnchanged: journalEntriesAfterInventory.length === journalEntriesBeforeInventory.length,
         closedFiscalPeriodId: closedFiscalPeriod.id,
         fiscalPeriodLockChecked: true,

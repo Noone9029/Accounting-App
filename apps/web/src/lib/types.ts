@@ -18,6 +18,7 @@ export type StockMovementType =
 export type InventoryAdjustmentStatus = "DRAFT" | "APPROVED" | "VOIDED";
 export type InventoryAdjustmentType = "INCREASE" | "DECREASE";
 export type WarehouseTransferStatus = "POSTED" | "VOIDED";
+export type InventoryValuationMethod = "MOVING_AVERAGE" | "FIFO_PLACEHOLDER";
 export type SalesInvoiceStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type CreditNoteStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type PurchaseOrderStatus = "DRAFT" | "APPROVED" | "SENT" | "PARTIALLY_BILLED" | "BILLED" | "CLOSED" | "VOIDED";
@@ -465,6 +466,8 @@ export interface Item {
   expenseAccountId: string | null;
   purchaseTaxRateId: string | null;
   inventoryTracking: boolean;
+  reorderPoint: string | null;
+  reorderQuantity: string | null;
   revenueAccount?: { id: string; code: string; name: string; type: AccountType };
   salesTaxRate?: { id: string; name: string; rate: string; scope: TaxRateScope } | null;
 }
@@ -575,6 +578,100 @@ export interface InventoryBalance {
   quantityOnHand: string;
   averageUnitCost: string | null;
   inventoryValue: string | null;
+}
+
+export interface InventorySettings {
+  id: string;
+  organizationId: string;
+  valuationMethod: InventoryValuationMethod;
+  allowNegativeStock: boolean;
+  trackInventoryValue: boolean;
+  warnings: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type InventoryReportItem = Pick<
+  Item,
+  "id" | "name" | "sku" | "type" | "status" | "inventoryTracking" | "reorderPoint" | "reorderQuantity"
+>;
+
+export interface InventoryStockValuationRow {
+  item: InventoryReportItem;
+  warehouse: Pick<Warehouse, "id" | "code" | "name" | "status" | "isDefault">;
+  quantityOnHand: string;
+  averageUnitCost: string | null;
+  estimatedValue: string | null;
+  warnings: string[];
+}
+
+export interface InventoryStockValuationReport {
+  generatedAt: string;
+  valuationMethod: InventoryValuationMethod;
+  calculationMethod: InventoryValuationMethod;
+  accountingWarning: string;
+  warnings: string[];
+  rows: InventoryStockValuationRow[];
+  totalsByItem: Array<{
+    item: InventoryReportItem;
+    quantityOnHand: string;
+    estimatedValue: string | null;
+    warnings: string[];
+  }>;
+  grandTotalEstimatedValue: string;
+}
+
+export interface InventoryMovementBreakdown {
+  type: StockMovementType;
+  inboundQuantity: string;
+  outboundQuantity: string;
+  netQuantity: string;
+  movementCount: number;
+}
+
+export interface InventoryMovementSummaryRow {
+  item: InventoryReportItem;
+  warehouse: Pick<Warehouse, "id" | "code" | "name" | "status" | "isDefault">;
+  openingQuantity: string;
+  inboundQuantity: string;
+  outboundQuantity: string;
+  closingQuantity: string;
+  movementCount: number;
+  movementBreakdown: InventoryMovementBreakdown[];
+}
+
+export interface InventoryMovementSummaryReport {
+  generatedAt: string;
+  from: string | null;
+  to: string | null;
+  itemId: string | null;
+  warehouseId: string | null;
+  accountingWarning: string;
+  rows: InventoryMovementSummaryRow[];
+  totals: {
+    openingQuantity: string;
+    inboundQuantity: string;
+    outboundQuantity: string;
+    closingQuantity: string;
+    movementCount: number;
+  };
+}
+
+export type InventoryLowStockStatus = "BELOW_REORDER_POINT" | "AT_REORDER_POINT";
+
+export interface InventoryLowStockRow {
+  item: InventoryReportItem;
+  quantityOnHand: string;
+  reorderPoint: string;
+  reorderQuantity: string | null;
+  status: InventoryLowStockStatus;
+}
+
+export interface InventoryLowStockReport {
+  generatedAt: string;
+  accountingWarning: string;
+  rows: InventoryLowStockRow[];
+  totalItems: number;
 }
 
 export interface Contact {

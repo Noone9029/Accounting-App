@@ -90,6 +90,11 @@ enum WarehouseTransferStatus {
   VOIDED
 }
 
+enum InventoryValuationMethod {
+  MOVING_AVERAGE
+  FIFO_PLACEHOLDER
+}
+
 enum SalesInvoiceStatus {
   DRAFT
   FINALIZED
@@ -400,6 +405,7 @@ model Organization {
   stockMovements             StockMovement[]
   inventoryAdjustments       InventoryAdjustment[]
   warehouseTransfers         WarehouseTransfer[]
+  inventorySettings          InventorySettings?
   salesInvoices              SalesInvoice[]
   salesInvoiceLines          SalesInvoiceLine[]
   creditNotes                CreditNote[]
@@ -454,6 +460,19 @@ model OrganizationDocumentSettings {
   createdAt                DateTime     @default(now())
   updatedAt                DateTime     @updatedAt
   organization             Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model InventorySettings {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  organizationId      String                   @unique @db.Uuid
+  valuationMethod     InventoryValuationMethod @default(MOVING_AVERAGE)
+  allowNegativeStock  Boolean                  @default(false)
+  trackInventoryValue Boolean                  @default(true)
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  organization        Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }
 
 model GeneratedDocument {
@@ -990,6 +1009,8 @@ model Item {
   expenseAccountId  String?            @db.Uuid
   purchaseTaxRateId String?            @db.Uuid
   inventoryTracking Boolean            @default(false)
+  reorderPoint      Decimal?           @db.Decimal(20, 4)
+  reorderQuantity   Decimal?           @db.Decimal(20, 4)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
