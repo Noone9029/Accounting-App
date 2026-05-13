@@ -189,6 +189,21 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
   if (pathname === "/inventory/stock-movements/new") {
     return [PERMISSIONS.stockMovements.create];
   }
+  if (pathname === "/inventory/adjustments/new") {
+    return [PERMISSIONS.inventoryAdjustments.create];
+  }
+  if (pathname.startsWith("/inventory/adjustments/") && pathname.endsWith("/edit")) {
+    return [PERMISSIONS.inventoryAdjustments.create];
+  }
+  if (pathname.startsWith("/inventory/adjustments")) {
+    return [PERMISSIONS.inventoryAdjustments.view];
+  }
+  if (pathname === "/inventory/transfers/new") {
+    return [PERMISSIONS.warehouseTransfers.create];
+  }
+  if (pathname.startsWith("/inventory/transfers")) {
+    return [PERMISSIONS.warehouseTransfers.view];
+  }
   if (pathname.startsWith("/inventory/warehouses")) {
     return [PERMISSIONS.warehouses.view];
   }

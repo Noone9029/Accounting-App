@@ -250,10 +250,31 @@ interface StockMovement {
   id: string;
   itemId: string;
   warehouseId: string;
-  type: "OPENING_BALANCE" | "ADJUSTMENT_IN" | "ADJUSTMENT_OUT";
+  type: "OPENING_BALANCE" | "ADJUSTMENT_IN" | "ADJUSTMENT_OUT" | "TRANSFER_IN" | "TRANSFER_OUT";
   quantity: string;
   unitCost?: string | null;
   totalCost?: string | null;
+}
+
+interface InventoryAdjustment {
+  id: string;
+  adjustmentNumber: string;
+  status: "DRAFT" | "APPROVED" | "VOIDED";
+  type: "INCREASE" | "DECREASE";
+  quantity: string;
+  stockMovementId?: string | null;
+  voidStockMovementId?: string | null;
+}
+
+interface WarehouseTransfer {
+  id: string;
+  transferNumber: string;
+  status: "POSTED" | "VOIDED";
+  quantity: string;
+  fromStockMovementId?: string | null;
+  toStockMovementId?: string | null;
+  voidFromStockMovementId?: string | null;
+  voidToStockMovementId?: string | null;
 }
 
 interface InventoryBalance {
@@ -672,6 +693,12 @@ async function main(): Promise<void> {
     warehouses.find((warehouse) => warehouse.code === "MAIN" && warehouse.status === "ACTIVE" && warehouse.isDefault),
     "default active MAIN warehouse",
   );
+  const secondWarehouse = await post<Warehouse>("/warehouses", headers, {
+    code: `SMK${runId.slice(-6)}`,
+    name: `Smoke Transfer Warehouse ${runId}`,
+    countryCode: "SA",
+  });
+  assertEqual(secondWarehouse.status, "ACTIVE", "second smoke warehouse active");
   const inventoryItem = await post<Item>("/items", headers, {
     name: `Smoke Inventory Item ${runId}`,
     sku: `SMKINV-${runId}`,
@@ -683,6 +710,16 @@ async function main(): Promise<void> {
   });
   assertEqual(inventoryItem.inventoryTracking, true, "inventory smoke item tracking enabled");
   const journalEntriesBeforeInventory = await get<JournalEntry[]>("/journal-entries", headers);
+  const balanceFor = async (warehouse: Warehouse) => {
+    const balances = await get<InventoryBalance[]>(
+      `/inventory/balances?itemId=${encodeURIComponent(inventoryItem.id)}&warehouseId=${encodeURIComponent(warehouse.id)}`,
+      headers,
+    );
+    return required(
+      balances.find((balance) => balance.item.id === inventoryItem.id && balance.warehouse.id === warehouse.id),
+      `inventory balance for smoke tracked item in ${warehouse.code}`,
+    );
+  };
   const openingStock = await post<StockMovement>("/stock-movements", headers, {
     itemId: inventoryItem.id,
     warehouseId: mainWarehouse.id,
@@ -693,41 +730,70 @@ async function main(): Promise<void> {
     description: "Smoke opening stock",
   });
   assertEqual(openingStock.type, "OPENING_BALANCE", "opening stock movement type");
-  const adjustmentIn = await post<StockMovement>("/stock-movements", headers, {
+  assertMoney((await balanceFor(mainWarehouse)).quantityOnHand, money("10.0000"), "inventory quantity after opening balance");
+  const draftIncreaseAdjustment = await post<InventoryAdjustment>("/inventory-adjustments", headers, {
     itemId: inventoryItem.id,
     warehouseId: mainWarehouse.id,
-    movementDate: new Date().toISOString(),
-    type: "ADJUSTMENT_IN",
+    adjustmentDate: new Date().toISOString(),
+    type: "INCREASE",
     quantity: "2.0000",
     unitCost: "4.5000",
-    description: "Smoke adjustment in",
+    reason: "Smoke adjustment increase",
   });
-  assertEqual(adjustmentIn.type, "ADJUSTMENT_IN", "adjustment in stock movement type");
-  const adjustmentOut = await post<StockMovement>("/stock-movements", headers, {
+  assertEqual(draftIncreaseAdjustment.status, "DRAFT", "increase adjustment draft status");
+  const approvedIncreaseAdjustment = await post<InventoryAdjustment>(`/inventory-adjustments/${draftIncreaseAdjustment.id}/approve`, headers, {});
+  assertEqual(approvedIncreaseAdjustment.status, "APPROVED", "increase adjustment approved status");
+  assertPresent(approvedIncreaseAdjustment.stockMovementId, "approved increase adjustment stock movement");
+  assertMoney((await balanceFor(mainWarehouse)).quantityOnHand, money("12.0000"), "inventory quantity after approved increase adjustment");
+  const warehouseTransfer = await post<WarehouseTransfer>("/warehouse-transfers", headers, {
+    itemId: inventoryItem.id,
+    fromWarehouseId: mainWarehouse.id,
+    toWarehouseId: secondWarehouse.id,
+    transferDate: new Date().toISOString(),
+    quantity: "4.0000",
+    unitCost: "4.2500",
+    description: "Smoke warehouse transfer",
+  });
+  assertEqual(warehouseTransfer.status, "POSTED", "warehouse transfer posted status");
+  assertPresent(warehouseTransfer.fromStockMovementId, "warehouse transfer source movement");
+  assertPresent(warehouseTransfer.toStockMovementId, "warehouse transfer destination movement");
+  assertMoney((await balanceFor(mainWarehouse)).quantityOnHand, money("8.0000"), "main warehouse quantity after transfer out");
+  assertMoney((await balanceFor(secondWarehouse)).quantityOnHand, money("4.0000"), "second warehouse quantity after transfer in");
+  const voidedWarehouseTransfer = await post<WarehouseTransfer>(`/warehouse-transfers/${warehouseTransfer.id}/void`, headers, {});
+  assertEqual(voidedWarehouseTransfer.status, "VOIDED", "warehouse transfer voided status");
+  assertPresent(voidedWarehouseTransfer.voidFromStockMovementId, "voided warehouse transfer source reversal movement");
+  assertPresent(voidedWarehouseTransfer.voidToStockMovementId, "voided warehouse transfer destination reversal movement");
+  assertMoney((await balanceFor(mainWarehouse)).quantityOnHand, money("12.0000"), "main warehouse quantity after transfer void");
+  assertMoney((await balanceFor(secondWarehouse)).quantityOnHand, money("0.0000"), "second warehouse quantity after transfer void");
+  const draftDecreaseAdjustment = await post<InventoryAdjustment>("/inventory-adjustments", headers, {
     itemId: inventoryItem.id,
     warehouseId: mainWarehouse.id,
-    movementDate: new Date().toISOString(),
-    type: "ADJUSTMENT_OUT",
+    adjustmentDate: new Date().toISOString(),
+    type: "DECREASE",
     quantity: "3.0000",
-    description: "Smoke adjustment out",
+    reason: "Smoke adjustment decrease",
   });
-  assertEqual(adjustmentOut.type, "ADJUSTMENT_OUT", "adjustment out stock movement type");
-  const inventoryBalances = await get<InventoryBalance[]>(
-    `/inventory/balances?itemId=${encodeURIComponent(inventoryItem.id)}&warehouseId=${encodeURIComponent(mainWarehouse.id)}`,
-    headers,
-  );
-  const inventoryBalance = required(
-    inventoryBalances.find((balance) => balance.item.id === inventoryItem.id && balance.warehouse.id === mainWarehouse.id),
-    "inventory balance for smoke tracked item",
-  );
-  assertMoney(inventoryBalance.quantityOnHand, money("9.0000"), "inventory quantity on hand after movements");
+  assertEqual(draftDecreaseAdjustment.status, "DRAFT", "decrease adjustment draft status");
+  const approvedDecreaseAdjustment = await post<InventoryAdjustment>(`/inventory-adjustments/${draftDecreaseAdjustment.id}/approve`, headers, {});
+  assertEqual(approvedDecreaseAdjustment.status, "APPROVED", "decrease adjustment approved status");
+  assertPresent(approvedDecreaseAdjustment.stockMovementId, "approved decrease adjustment stock movement");
+  assertMoney((await balanceFor(mainWarehouse)).quantityOnHand, money("9.0000"), "main warehouse quantity after approved decrease adjustment");
+  const voidedDecreaseAdjustment = await post<InventoryAdjustment>(`/inventory-adjustments/${approvedDecreaseAdjustment.id}/void`, headers, {});
+  assertEqual(voidedDecreaseAdjustment.status, "VOIDED", "decrease adjustment voided status");
+  assertPresent(voidedDecreaseAdjustment.voidStockMovementId, "voided decrease adjustment reversal movement");
+  const inventoryBalance = await balanceFor(mainWarehouse);
+  assertMoney(inventoryBalance.quantityOnHand, money("12.0000"), "main warehouse quantity after decrease adjustment void");
   const stockMovementList = await get<StockMovement[]>(
     `/stock-movements?itemId=${encodeURIComponent(inventoryItem.id)}&warehouseId=${encodeURIComponent(mainWarehouse.id)}`,
     headers,
   );
-  assert(stockMovementList.length >= 3, "stock movements list includes smoke movements");
+  assert(stockMovementList.length >= 6, "stock movements list includes opening, adjustments, transfer, and reversals");
   const journalEntriesAfterInventory = await get<JournalEntry[]>("/journal-entries", headers);
-  assertEqual(journalEntriesAfterInventory.length, journalEntriesBeforeInventory.length, "stock movements do not create journal entries");
+  assertEqual(
+    journalEntriesAfterInventory.length,
+    journalEntriesBeforeInventory.length,
+    "inventory adjustments and transfers do not create journal entries",
+  );
 
   const bankTransferAmount = money("12.3400");
   const bankBeforeTransfer = await get<BankAccountSummary>(`/bank-accounts/${defaultBankProfile.id}`, headers);
@@ -2607,8 +2673,21 @@ async function main(): Promise<void> {
         bankReconciliationItemCount: reconciliationItems.length,
         bankReconciliationReportDocumentId: reconciliationReportDocuments[0]?.id,
         warehouseId: mainWarehouse.id,
+        secondWarehouseId: secondWarehouse.id,
         inventoryItemId: inventoryItem.id,
-        stockMovementIds: [openingStock.id, adjustmentIn.id, adjustmentOut.id],
+        inventoryAdjustmentIds: [approvedIncreaseAdjustment.id, approvedDecreaseAdjustment.id, voidedDecreaseAdjustment.id],
+        warehouseTransferId: warehouseTransfer.id,
+        voidedWarehouseTransferId: voidedWarehouseTransfer.id,
+        stockMovementIds: [
+          openingStock.id,
+          approvedIncreaseAdjustment.stockMovementId,
+          approvedDecreaseAdjustment.stockMovementId,
+          voidedDecreaseAdjustment.voidStockMovementId,
+          warehouseTransfer.fromStockMovementId,
+          warehouseTransfer.toStockMovementId,
+          voidedWarehouseTransfer.voidFromStockMovementId,
+          voidedWarehouseTransfer.voidToStockMovementId,
+        ],
         inventoryQuantityOnHand: inventoryBalance.quantityOnHand,
         inventoryJournalEntryCountUnchanged: journalEntriesAfterInventory.length === journalEntriesBeforeInventory.length,
         closedFiscalPeriodId: closedFiscalPeriod.id,

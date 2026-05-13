@@ -17,7 +17,7 @@ import {
 import { PERMISSIONS } from "@/lib/permissions";
 import type { StockMovement, StockMovementType } from "@/lib/types";
 
-const movementTypes: StockMovementType[] = ["OPENING_BALANCE", "ADJUSTMENT_IN", "ADJUSTMENT_OUT"];
+const movementTypes: StockMovementType[] = ["OPENING_BALANCE", "ADJUSTMENT_IN", "ADJUSTMENT_OUT", "TRANSFER_IN", "TRANSFER_OUT"];
 
 export default function StockMovementsPage() {
   const organizationId = useActiveOrganizationId();
@@ -86,7 +86,7 @@ export default function StockMovementsPage() {
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Stock movements</h1>
-          <p className="mt-1 text-sm text-steel">Manual opening balances and operational stock adjustments.</p>
+          <p className="mt-1 text-sm text-steel">Operational stock ledger entries from opening balances, approvals, transfers, and voids.</p>
         </div>
         {canCreate ? (
           <Link href="/inventory/stock-movements/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">

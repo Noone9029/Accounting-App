@@ -8,7 +8,7 @@ import { apiRequest } from "@/lib/api";
 import { inventoryOperationalWarning, stockMovementTypeLabel } from "@/lib/inventory";
 import type { Item, StockMovement, StockMovementType, Warehouse } from "@/lib/types";
 
-const movementTypes: StockMovementType[] = ["OPENING_BALANCE", "ADJUSTMENT_IN", "ADJUSTMENT_OUT"];
+const movementTypes: StockMovementType[] = ["OPENING_BALANCE"];
 
 function todayInputValue(): string {
   return new Date().toISOString().slice(0, 10);
@@ -93,7 +93,7 @@ export default function NewStockMovementPage() {
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-ink">New stock movement</h1>
-          <p className="mt-1 text-sm text-steel">Create a manual opening balance or adjustment for a tracked item.</p>
+          <p className="mt-1 text-sm text-steel">Create a manual opening balance for a tracked item.</p>
         </div>
         <Link href="/inventory/stock-movements" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           Back

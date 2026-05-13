@@ -86,6 +86,8 @@ export const SIDEBAR_NAV_ITEMS: readonly SidebarNavItem[] = [
     children: [
       { label: "Warehouses", href: "/inventory/warehouses", requiredAny: [PERMISSIONS.warehouses.view] },
       { label: "Stock movements", href: "/inventory/stock-movements", requiredAny: [PERMISSIONS.stockMovements.view] },
+      { label: "Adjustments", href: "/inventory/adjustments", requiredAny: [PERMISSIONS.inventoryAdjustments.view] },
+      { label: "Transfers", href: "/inventory/transfers", requiredAny: [PERMISSIONS.warehouseTransfers.view] },
       { label: "Inventory balances", href: "/inventory/balances", requiredAny: [PERMISSIONS.inventory.view] },
     ],
   },

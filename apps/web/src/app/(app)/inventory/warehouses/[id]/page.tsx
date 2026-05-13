@@ -4,27 +4,36 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import {
   formatInventoryQuantity,
   inventoryBalanceDisplay,
+  inventoryAdjustmentStatusLabel,
   inventoryOperationalWarning,
   stockMovementTypeLabel,
+  warehouseTransferStatusLabel,
   warehouseStatusBadgeClass,
   warehouseStatusLabel,
 } from "@/lib/inventory";
-import type { InventoryBalance, StockMovement, Warehouse } from "@/lib/types";
+import { PERMISSIONS } from "@/lib/permissions";
+import type { InventoryAdjustment, InventoryBalance, StockMovement, Warehouse, WarehouseTransfer } from "@/lib/types";
 
 export default function WarehouseDetailPage() {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [warehouse, setWarehouse] = useState<Warehouse | null>(null);
   const [balances, setBalances] = useState<InventoryBalance[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [adjustments, setAdjustments] = useState<InventoryAdjustment[]>([]);
+  const [transfers, setTransfers] = useState<WarehouseTransfer[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const canViewAdjustments = can(PERMISSIONS.inventoryAdjustments.view);
+  const canViewTransfers = can(PERMISSIONS.warehouseTransfers.view);
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -39,12 +48,20 @@ export default function WarehouseDetailPage() {
       apiRequest<Warehouse>(`/warehouses/${params.id}`),
       apiRequest<InventoryBalance[]>(`/inventory/balances?warehouseId=${params.id}`),
       apiRequest<StockMovement[]>(`/stock-movements?warehouseId=${params.id}`),
+      canViewAdjustments ? apiRequest<InventoryAdjustment[]>("/inventory-adjustments") : Promise.resolve([]),
+      canViewTransfers ? apiRequest<WarehouseTransfer[]>("/warehouse-transfers") : Promise.resolve([]),
     ])
-      .then(([warehouseResult, balanceResult, movementResult]) => {
+      .then(([warehouseResult, balanceResult, movementResult, adjustmentResult, transferResult]) => {
         if (!cancelled) {
           setWarehouse(warehouseResult);
           setBalances(balanceResult);
           setMovements(movementResult.slice(0, 20));
+          setAdjustments(adjustmentResult.filter((adjustment) => adjustment.warehouseId === params.id).slice(0, 10));
+          setTransfers(
+            transferResult
+              .filter((transfer) => transfer.fromWarehouseId === params.id || transfer.toWarehouseId === params.id)
+              .slice(0, 10),
+          );
         }
       })
       .catch((loadError: unknown) => {
@@ -61,7 +78,7 @@ export default function WarehouseDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, params.id]);
+  }, [canViewAdjustments, canViewTransfers, organizationId, params.id]);
 
   return (
     <section>
@@ -153,6 +170,64 @@ export default function WarehouseDetailPage() {
                   <td className="px-4 py-3 text-ink">{movement.item ? movement.item.name : movement.itemId}</td>
                   <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(movement.quantity)}</td>
                   <td className="px-4 py-3 text-steel">{movement.description ?? "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {adjustments.length > 0 ? (
+        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+              <tr>
+                <th className="px-4 py-3">Adjustment</th>
+                <th className="px-4 py-3">Date</th>
+                <th className="px-4 py-3">Item</th>
+                <th className="px-4 py-3 text-right">Quantity</th>
+                <th className="px-4 py-3">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {adjustments.map((adjustment) => (
+                <tr key={adjustment.id}>
+                  <td className="px-4 py-3 font-mono text-xs">{adjustment.adjustmentNumber}</td>
+                  <td className="px-4 py-3 text-steel">{formatOptionalDate(adjustment.adjustmentDate, "-")}</td>
+                  <td className="px-4 py-3 text-ink">{adjustment.item?.name ?? adjustment.itemId}</td>
+                  <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(adjustment.quantity)}</td>
+                  <td className="px-4 py-3 text-steel">{inventoryAdjustmentStatusLabel(adjustment.status)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {transfers.length > 0 ? (
+        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+          <table className="w-full min-w-[860px] text-left text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+              <tr>
+                <th className="px-4 py-3">Transfer</th>
+                <th className="px-4 py-3">Date</th>
+                <th className="px-4 py-3">Item</th>
+                <th className="px-4 py-3">From</th>
+                <th className="px-4 py-3">To</th>
+                <th className="px-4 py-3 text-right">Quantity</th>
+                <th className="px-4 py-3">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {transfers.map((transfer) => (
+                <tr key={transfer.id}>
+                  <td className="px-4 py-3 font-mono text-xs">{transfer.transferNumber}</td>
+                  <td className="px-4 py-3 text-steel">{formatOptionalDate(transfer.transferDate, "-")}</td>
+                  <td className="px-4 py-3 text-ink">{transfer.item?.name ?? transfer.itemId}</td>
+                  <td className="px-4 py-3 text-steel">{transfer.fromWarehouse?.code ?? transfer.fromWarehouseId}</td>
+                  <td className="px-4 py-3 text-steel">{transfer.toWarehouse?.code ?? transfer.toWarehouseId}</td>
+                  <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(transfer.quantity)}</td>
+                  <td className="px-4 py-3 text-steel">{warehouseTransferStatusLabel(transfer.status)}</td>
                 </tr>
               ))}
             </tbody>

@@ -47,7 +47,7 @@ export class StockMovementService {
 
   async create(organizationId: string, actorUserId: string, dto: CreateStockMovementDto) {
     if (!STOCK_MOVEMENT_MVP_CREATE_TYPES.has(dto.type)) {
-      throw new BadRequestException("Only opening balance and adjustment stock movement types can be created in this MVP.");
+      throw new BadRequestException("Only opening balance stock movements can be created directly. Use inventory adjustments for adjustment in/out movements.");
     }
 
     const item = await this.prisma.item.findFirst({

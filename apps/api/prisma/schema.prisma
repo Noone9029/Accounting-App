@@ -74,6 +74,22 @@ enum StockMovementType {
   SALES_ISSUE_PLACEHOLDER
 }
 
+enum InventoryAdjustmentStatus {
+  DRAFT
+  APPROVED
+  VOIDED
+}
+
+enum InventoryAdjustmentType {
+  INCREASE
+  DECREASE
+}
+
+enum WarehouseTransferStatus {
+  POSTED
+  VOIDED
+}
+
 enum SalesInvoiceStatus {
   DRAFT
   FINALIZED
@@ -310,6 +326,8 @@ enum NumberSequenceScope {
   CASH_EXPENSE
   CONTACT
   BANK_RECONCILIATION
+  INVENTORY_ADJUSTMENT
+  WAREHOUSE_TRANSFER
 }
 
 model User {
@@ -347,6 +365,10 @@ model User {
   reversedCustomerPaymentUnappliedAllocations CustomerPaymentUnappliedAllocation[] @relation("CustomerPaymentUnappliedAllocationReversedBy")
   reversedSupplierPaymentUnappliedAllocations SupplierPaymentUnappliedAllocation[] @relation("SupplierPaymentUnappliedAllocationReversedBy")
   createdStockMovements StockMovement[] @relation("StockMovementCreatedBy")
+  createdInventoryAdjustments InventoryAdjustment[] @relation("InventoryAdjustmentCreatedBy")
+  approvedInventoryAdjustments InventoryAdjustment[] @relation("InventoryAdjustmentApprovedBy")
+  voidedInventoryAdjustments InventoryAdjustment[] @relation("InventoryAdjustmentVoidedBy")
+  createdWarehouseTransfers WarehouseTransfer[] @relation("WarehouseTransferCreatedBy")
   generatedDocuments      GeneratedDocument[]  @relation("GeneratedDocumentGeneratedBy")
 }
 
@@ -376,6 +398,8 @@ model Organization {
   items                      Item[]
   warehouses                 Warehouse[]
   stockMovements             StockMovement[]
+  inventoryAdjustments       InventoryAdjustment[]
+  warehouseTransfers         WarehouseTransfer[]
   salesInvoices              SalesInvoice[]
   salesInvoiceLines          SalesInvoiceLine[]
   creditNotes                CreditNote[]
@@ -980,6 +1004,8 @@ model Item {
   purchaseDebitNoteLines PurchaseDebitNoteLine[]
   cashExpenseLines  CashExpenseLine[]
   stockMovements    StockMovement[]
+  inventoryAdjustments InventoryAdjustment[]
+  warehouseTransfers WarehouseTransfer[]
 
   @@unique([organizationId, sku])
   @@index([organizationId])
@@ -1003,6 +1029,9 @@ model Warehouse {
   updatedAt      DateTime        @updatedAt
   organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   stockMovements StockMovement[]
+  inventoryAdjustments InventoryAdjustment[]
+  outgoingWarehouseTransfers WarehouseTransfer[] @relation("WarehouseTransferFromWarehouse")
+  incomingWarehouseTransfers WarehouseTransfer[] @relation("WarehouseTransferToWarehouse")
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -1029,6 +1058,12 @@ model StockMovement {
   item           Item              @relation(fields: [itemId], references: [id])
   warehouse      Warehouse         @relation(fields: [warehouseId], references: [id])
   createdBy      User?             @relation("StockMovementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  inventoryAdjustment InventoryAdjustment? @relation("InventoryAdjustmentStockMovement")
+  voidInventoryAdjustment InventoryAdjustment? @relation("InventoryAdjustmentVoidStockMovement")
+  warehouseTransferFrom WarehouseTransfer? @relation("WarehouseTransferFromStockMovement")
+  warehouseTransferTo WarehouseTransfer? @relation("WarehouseTransferToStockMovement")
+  voidWarehouseTransferFrom WarehouseTransfer? @relation("WarehouseTransferVoidFromStockMovement")
+  voidWarehouseTransferTo WarehouseTransfer? @relation("WarehouseTransferVoidToStockMovement")
 
   @@index([organizationId])
   @@index([itemId])
@@ -1036,6 +1071,86 @@ model StockMovement {
   @@index([organizationId, itemId, warehouseId])
   @@index([organizationId, movementDate])
   @@index([organizationId, type])
+}
+
+model InventoryAdjustment {
+  id                  String                    @id @default(uuid()) @db.Uuid
+  organizationId      String                    @db.Uuid
+  adjustmentNumber    String
+  itemId              String                    @db.Uuid
+  warehouseId         String                    @db.Uuid
+  type                InventoryAdjustmentType
+  status              InventoryAdjustmentStatus @default(DRAFT)
+  adjustmentDate      DateTime
+  quantity            Decimal                   @db.Decimal(20, 4)
+  unitCost            Decimal?                  @db.Decimal(20, 4)
+  totalCost           Decimal?                  @db.Decimal(20, 4)
+  reason              String?
+  createdById         String?                   @db.Uuid
+  approvedById        String?                   @db.Uuid
+  voidedById          String?                   @db.Uuid
+  approvedAt          DateTime?
+  voidedAt            DateTime?
+  stockMovementId     String?                   @unique @db.Uuid
+  voidStockMovementId String?                   @unique @db.Uuid
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  organization        Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  item                Item                      @relation(fields: [itemId], references: [id])
+  warehouse           Warehouse                 @relation(fields: [warehouseId], references: [id])
+  createdBy           User?                     @relation("InventoryAdjustmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedBy          User?                     @relation("InventoryAdjustmentApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  voidedBy            User?                     @relation("InventoryAdjustmentVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
+  stockMovement       StockMovement?            @relation("InventoryAdjustmentStockMovement", fields: [stockMovementId], references: [id], onDelete: SetNull)
+  voidStockMovement   StockMovement?            @relation("InventoryAdjustmentVoidStockMovement", fields: [voidStockMovementId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, adjustmentNumber])
+  @@index([organizationId])
+  @@index([itemId])
+  @@index([warehouseId])
+  @@index([organizationId, status])
+  @@index([organizationId, adjustmentDate])
+}
+
+model WarehouseTransfer {
+  id                      String                  @id @default(uuid()) @db.Uuid
+  organizationId          String                  @db.Uuid
+  transferNumber          String
+  itemId                  String                  @db.Uuid
+  fromWarehouseId         String                  @db.Uuid
+  toWarehouseId           String                  @db.Uuid
+  status                  WarehouseTransferStatus @default(POSTED)
+  transferDate            DateTime
+  quantity                Decimal                 @db.Decimal(20, 4)
+  unitCost                Decimal?                @db.Decimal(20, 4)
+  totalCost               Decimal?                @db.Decimal(20, 4)
+  description             String?
+  createdById             String?                 @db.Uuid
+  postedAt                DateTime?
+  voidedAt                DateTime?
+  fromStockMovementId     String?                 @unique @db.Uuid
+  toStockMovementId       String?                 @unique @db.Uuid
+  voidFromStockMovementId String?                 @unique @db.Uuid
+  voidToStockMovementId   String?                 @unique @db.Uuid
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+  organization            Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  item                    Item                    @relation(fields: [itemId], references: [id])
+  fromWarehouse           Warehouse               @relation("WarehouseTransferFromWarehouse", fields: [fromWarehouseId], references: [id])
+  toWarehouse             Warehouse               @relation("WarehouseTransferToWarehouse", fields: [toWarehouseId], references: [id])
+  createdBy               User?                   @relation("WarehouseTransferCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  fromStockMovement       StockMovement?          @relation("WarehouseTransferFromStockMovement", fields: [fromStockMovementId], references: [id], onDelete: SetNull)
+  toStockMovement         StockMovement?          @relation("WarehouseTransferToStockMovement", fields: [toStockMovementId], references: [id], onDelete: SetNull)
+  voidFromStockMovement   StockMovement?          @relation("WarehouseTransferVoidFromStockMovement", fields: [voidFromStockMovementId], references: [id], onDelete: SetNull)
+  voidToStockMovement     StockMovement?          @relation("WarehouseTransferVoidToStockMovement", fields: [voidToStockMovementId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, transferNumber])
+  @@index([organizationId])
+  @@index([itemId])
+  @@index([fromWarehouseId])
+  @@index([toWarehouseId])
+  @@index([organizationId, status])
+  @@index([organizationId, transferDate])
 }
 
 model SalesInvoice {

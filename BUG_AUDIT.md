@@ -1059,8 +1059,34 @@ Commit inspected: pending (`Add inventory warehouse groundwork`)
 - No COGS posting exists.
 - No purchase receiving or automatic purchase bill stock receipt exists.
 - No sales delivery or automatic sales invoice stock issue exists.
-- No warehouse transfers exist yet.
+- Direct stock-movement adjustments have been replaced by the controlled adjustment workflow.
 - No inventory financial reporting or valuation report exists.
+
+## Inventory Adjustments And Warehouse Transfers
+
+Audit date: 2026-05-14
+
+Commit inspected: pending (`Add inventory adjustments and transfers`)
+
+### Inventory Operations Added
+
+- Added `InventoryAdjustment` schema, statuses, types, number sequences, permissions, APIs, and frontend list/create/detail/edit pages.
+- Added draft adjustment lifecycle with draft-only edit/delete, approval to generated `ADJUSTMENT_IN` or `ADJUSTMENT_OUT` movements, and one-time void reversal movements.
+- Added `WarehouseTransfer` schema, status, number sequence, permissions, APIs, and frontend list/create/detail pages.
+- Added immediate posted warehouse transfers with atomic `TRANSFER_OUT` and `TRANSFER_IN` stock movements plus one-time reversal movements on void.
+- Restricted direct stock movement creation to `OPENING_BALANCE`; adjustments and transfers now own their generated stock rows.
+- Extended inventory balance behavior and tests so adjustment and transfer movement directions are included.
+- Extended smoke coverage for adjustment approval/void, transfer posting/void, balance restoration, and no-journal inventory behavior.
+
+### Remaining Inventory Risks
+
+- No COGS posting exists.
+- No inventory valuation accounting exists.
+- No purchase receiving or automatic purchase bill stock receipt exists.
+- No sales delivery or automatic sales invoice stock issue exists.
+- No inventory financial reports or valuation reports exist.
+- No landed cost workflow exists.
+- No barcode, serial, or batch tracking exists.
 
 ## Remaining Risks
 
@@ -1070,12 +1096,12 @@ Commit inspected: pending (`Add inventory warehouse groundwork`)
 - Account parent updates prevent self-parenting but do not yet prevent descendant cycles.
 - `next-env.d.ts` flips between `.next/types` and `.next/dev/types` when switching between build and dev on Next 16. The tracked file is kept clean after verification, but this remains local development churn.
 - Prisma 6 warns that `package.json#prisma` seed configuration is deprecated and should move to a Prisma config file before Prisma 7.
-- Inventory warehouse/stock ledger groundwork exists, but COGS, valuation, purchase receiving, sales issue, transfers, and inventory financial reporting remain unimplemented.
+- Inventory warehouse/stock ledger, adjustment approval, and warehouse transfer controls exist, but COGS, valuation, purchase receiving, sales issue, landed cost, serial/batch tracking, and inventory financial reporting remain unimplemented.
 - ZATCA groundwork is intentionally non-compliant until real onboarding, signing, clearance/reporting, PDF/A-3, official SDK/schema/Schematron validation, and KMS-backed key custody are implemented.
 
 ## Recommended Next Steps
 
-1. Add warehouse transfers and inventory adjustment approvals before inventory-side accounting.
+1. Add inventory valuation policy and operational stock reports before inventory-side accounting.
 2. Add formal fiscal year close, retained earnings close, and admin unlock/approval workflows.
 3. Add a lightweight Playwright or browser smoke suite once the local Node runtime supports the in-app browser backend.
 4. Normalize branch default behavior and account parent cycle validation.

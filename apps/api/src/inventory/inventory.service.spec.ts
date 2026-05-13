@@ -49,15 +49,31 @@ describe("InventoryService", () => {
         unitCost: null,
         totalCost: null,
       },
+      {
+        itemId: item.id,
+        warehouseId: warehouse.id,
+        type: StockMovementType.TRANSFER_IN,
+        quantity: new Prisma.Decimal("4.0000"),
+        unitCost: new Prisma.Decimal("5.5000"),
+        totalCost: new Prisma.Decimal("22.0000"),
+      },
+      {
+        itemId: item.id,
+        warehouseId: warehouse.id,
+        type: StockMovementType.TRANSFER_OUT,
+        quantity: new Prisma.Decimal("1.0000"),
+        unitCost: null,
+        totalCost: null,
+      },
     ]);
 
     await expect(service.balances("org-1", {})).resolves.toEqual([
       expect.objectContaining({
         item,
         warehouse,
-        quantityOnHand: "9.0000",
-        averageUnitCost: "5.1667",
-        inventoryValue: "46.5000",
+        quantityOnHand: "12.0000",
+        averageUnitCost: "5.2500",
+        inventoryValue: "63.0000",
       }),
     ]);
   });

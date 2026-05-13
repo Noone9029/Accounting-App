@@ -16,6 +16,7 @@ import { CustomerPaymentModule } from "./customer-payments/customer-payment.modu
 import { CustomerRefundModule } from "./customer-refunds/customer-refund.module";
 import { GeneratedDocumentModule } from "./generated-documents/generated-document.module";
 import { HealthModule } from "./health/health.module";
+import { InventoryAdjustmentModule } from "./inventory-adjustments/inventory-adjustment.module";
 import { InventoryModule } from "./inventory/inventory.module";
 import { ItemModule } from "./items/item.module";
 import { FiscalPeriodModule } from "./fiscal-periods/fiscal-period.module";
@@ -34,6 +35,7 @@ import { SupplierRefundModule } from "./supplier-refunds/supplier-refund.module"
 import { SupplierPaymentModule } from "./supplier-payments/supplier-payment.module";
 import { TaxRateModule } from "./tax-rates/tax-rate.module";
 import { StockMovementModule } from "./stock-movements/stock-movement.module";
+import { WarehouseTransferModule } from "./warehouse-transfers/warehouse-transfer.module";
 import { WarehouseModule } from "./warehouses/warehouse.module";
 import { ZatcaModule } from "./zatca/zatca.module";
 import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
@@ -61,6 +63,8 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     ItemModule,
     WarehouseModule,
     StockMovementModule,
+    InventoryAdjustmentModule,
+    WarehouseTransferModule,
     InventoryModule,
     SalesInvoiceModule,
     PurchaseOrderModule,

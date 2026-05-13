@@ -1,5 +1,12 @@
 import { formatUnits, parseDecimalToUnits } from "./money";
-import type { InventoryBalance, StockMovementType, WarehouseStatus } from "./types";
+import type {
+  InventoryAdjustmentStatus,
+  InventoryAdjustmentType,
+  InventoryBalance,
+  StockMovementType,
+  WarehouseStatus,
+  WarehouseTransferStatus,
+} from "./types";
 
 export function warehouseStatusLabel(status: WarehouseStatus): string {
   return status === "ACTIVE" ? "Active" : "Archived";
@@ -43,6 +50,73 @@ export function inventoryBalanceDisplay(balance: Pick<InventoryBalance, "quantit
 
 export function inventoryOperationalWarning(): string {
   return "Inventory movements are operational only in this MVP and do not post GL, COGS, inventory asset, or financial statement entries.";
+}
+
+export function inventoryAdjustmentStatusLabel(status: InventoryAdjustmentStatus): string {
+  return status.charAt(0) + status.slice(1).toLowerCase();
+}
+
+export function inventoryAdjustmentStatusBadgeClass(status: InventoryAdjustmentStatus): string {
+  switch (status) {
+    case "DRAFT":
+      return "bg-amber-50 text-amber-700";
+    case "APPROVED":
+      return "bg-emerald-50 text-emerald-700";
+    case "VOIDED":
+      return "bg-slate-100 text-slate-600";
+  }
+}
+
+export function inventoryAdjustmentTypeLabel(type: InventoryAdjustmentType): string {
+  return type === "INCREASE" ? "Increase" : "Decrease";
+}
+
+export function canEditInventoryAdjustment(status: InventoryAdjustmentStatus): boolean {
+  return status === "DRAFT";
+}
+
+export function canApproveInventoryAdjustment(status: InventoryAdjustmentStatus): boolean {
+  return status === "DRAFT";
+}
+
+export function canVoidInventoryAdjustment(status: InventoryAdjustmentStatus): boolean {
+  return status === "DRAFT" || status === "APPROVED";
+}
+
+export function warehouseTransferStatusLabel(status: WarehouseTransferStatus): string {
+  return status === "POSTED" ? "Posted" : "Voided";
+}
+
+export function warehouseTransferStatusBadgeClass(status: WarehouseTransferStatus): string {
+  return status === "POSTED" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600";
+}
+
+export function canVoidWarehouseTransfer(status: WarehouseTransferStatus): boolean {
+  return status === "POSTED";
+}
+
+export function validateWarehouseTransferInput(input: {
+  itemId: string;
+  fromWarehouseId: string;
+  toWarehouseId: string;
+  quantity: string;
+}): string | null {
+  if (!input.itemId) {
+    return "Select an inventory-tracked item.";
+  }
+  if (!input.fromWarehouseId) {
+    return "Select the source warehouse.";
+  }
+  if (!input.toWarehouseId) {
+    return "Select the destination warehouse.";
+  }
+  if (input.fromWarehouseId === input.toWarehouseId) {
+    return "Source and destination warehouses must be different.";
+  }
+  if (!Number.isFinite(Number(input.quantity)) || Number(input.quantity) <= 0) {
+    return "Transfer quantity must be greater than zero.";
+  }
+  return null;
 }
 
 const stockMovementInTypes = new Set<StockMovementType>([

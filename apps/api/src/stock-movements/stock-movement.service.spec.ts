@@ -70,7 +70,7 @@ describe("StockMovementService", () => {
         itemId: item.id,
         warehouseId: warehouse.id,
         movementDate: "2026-05-13",
-        type: StockMovementType.ADJUSTMENT_IN,
+        type: StockMovementType.OPENING_BALANCE,
         quantity: "1.0000",
       }),
     ).rejects.toThrow("Stock movements can only be created for inventory-tracked items.");
@@ -86,7 +86,7 @@ describe("StockMovementService", () => {
         itemId: item.id,
         warehouseId: warehouse.id,
         movementDate: "2026-05-13",
-        type: StockMovementType.ADJUSTMENT_IN,
+        type: StockMovementType.OPENING_BALANCE,
         quantity: "1.0000",
       }),
     ).rejects.toThrow("Archived warehouses cannot receive stock movements.");
@@ -107,9 +107,8 @@ describe("StockMovementService", () => {
     ).rejects.toThrow("Opening balance already exists for this item and warehouse.");
   });
 
-  it("rejects adjustment out that would make stock negative", async () => {
+  it("rejects direct adjustment movements so approvals own the lifecycle", async () => {
     const { service, prisma } = makeService();
-    prisma.stockMovement.findMany.mockResolvedValue([{ type: StockMovementType.OPENING_BALANCE, quantity: new Prisma.Decimal("2.0000") }]);
 
     await expect(
       service.create("org-1", "user-1", {
@@ -117,9 +116,11 @@ describe("StockMovementService", () => {
         warehouseId: warehouse.id,
         movementDate: "2026-05-13",
         type: StockMovementType.ADJUSTMENT_OUT,
-        quantity: "3.0000",
+        quantity: "1.0000",
       }),
-    ).rejects.toThrow("Adjustment out cannot make stock negative.");
+    ).rejects.toThrow(
+      "Only opening balance stock movements can be created directly. Use inventory adjustments for adjustment in/out movements.",
+    );
     expect(prisma.stockMovement.create).not.toHaveBeenCalled();
   });
 
@@ -129,9 +130,11 @@ describe("StockMovementService", () => {
       { type: StockMovementType.OPENING_BALANCE, quantity: new Prisma.Decimal("10.0000") },
       { type: StockMovementType.ADJUSTMENT_IN, quantity: new Prisma.Decimal("2.0000") },
       { type: StockMovementType.ADJUSTMENT_OUT, quantity: new Prisma.Decimal("3.0000") },
+      { type: StockMovementType.TRANSFER_OUT, quantity: new Prisma.Decimal("1.0000") },
+      { type: StockMovementType.TRANSFER_IN, quantity: new Prisma.Decimal("4.0000") },
     ]);
 
     const quantityOnHand = await service.quantityOnHand("org-1", item.id, warehouse.id);
-    expect(quantityOnHand.toFixed(4)).toBe("9.0000");
+    expect(quantityOnHand.toFixed(4)).toBe("12.0000");
   });
 });

@@ -103,4 +103,6 @@ export const DEFAULT_NUMBER_SEQUENCES = [
   { scope: NumberSequenceScope.SUPPLIER_REFUND, prefix: "SRF-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.CASH_EXPENSE, prefix: "EXP-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.CONTACT, prefix: "CON-", nextNumber: 1, padding: 6 },
+  { scope: NumberSequenceScope.INVENTORY_ADJUSTMENT, prefix: "ADJ-", nextNumber: 1, padding: 6 },
+  { scope: NumberSequenceScope.WAREHOUSE_TRANSFER, prefix: "WTR-", nextNumber: 1, padding: 6 },
 ];

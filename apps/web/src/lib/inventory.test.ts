@@ -1,10 +1,20 @@
 import {
   formatInventoryQuantity,
   inventoryBalanceDisplay,
+  inventoryAdjustmentStatusBadgeClass,
+  inventoryAdjustmentStatusLabel,
+  inventoryAdjustmentTypeLabel,
+  canApproveInventoryAdjustment,
+  canEditInventoryAdjustment,
+  canVoidInventoryAdjustment,
   stockMovementDirection,
   stockMovementTypeLabel,
+  validateWarehouseTransferInput,
   warehouseStatusBadgeClass,
   warehouseStatusLabel,
+  warehouseTransferStatusBadgeClass,
+  warehouseTransferStatusLabel,
+  canVoidWarehouseTransfer,
 } from "./inventory";
 
 describe("inventory helpers", () => {
@@ -19,7 +29,31 @@ describe("inventory helpers", () => {
     expect(stockMovementDirection("OPENING_BALANCE")).toBe("IN");
     expect(stockMovementDirection("ADJUSTMENT_IN")).toBe("IN");
     expect(stockMovementDirection("ADJUSTMENT_OUT")).toBe("OUT");
+    expect(stockMovementDirection("TRANSFER_IN")).toBe("IN");
+    expect(stockMovementDirection("TRANSFER_OUT")).toBe("OUT");
     expect(stockMovementTypeLabel("ADJUSTMENT_OUT")).toBe("Adjustment Out");
+  });
+
+  it("formats adjustment and transfer statuses", () => {
+    expect(inventoryAdjustmentStatusLabel("DRAFT")).toBe("Draft");
+    expect(inventoryAdjustmentStatusBadgeClass("APPROVED")).toContain("emerald");
+    expect(inventoryAdjustmentTypeLabel("DECREASE")).toBe("Decrease");
+    expect(canEditInventoryAdjustment("DRAFT")).toBe(true);
+    expect(canApproveInventoryAdjustment("VOIDED")).toBe(false);
+    expect(canVoidInventoryAdjustment("APPROVED")).toBe(true);
+    expect(warehouseTransferStatusLabel("POSTED")).toBe("Posted");
+    expect(warehouseTransferStatusBadgeClass("VOIDED")).toContain("slate");
+    expect(canVoidWarehouseTransfer("POSTED")).toBe(true);
+  });
+
+  it("validates warehouse transfer input", () => {
+    expect(validateWarehouseTransferInput({ itemId: "item-1", fromWarehouseId: "a", toWarehouseId: "a", quantity: "1" })).toBe(
+      "Source and destination warehouses must be different.",
+    );
+    expect(validateWarehouseTransferInput({ itemId: "item-1", fromWarehouseId: "a", toWarehouseId: "b", quantity: "0" })).toBe(
+      "Transfer quantity must be greater than zero.",
+    );
+    expect(validateWarehouseTransferInput({ itemId: "item-1", fromWarehouseId: "a", toWarehouseId: "b", quantity: "1" })).toBeNull();
   });
 
   it("formats quantities with four decimals", () => {

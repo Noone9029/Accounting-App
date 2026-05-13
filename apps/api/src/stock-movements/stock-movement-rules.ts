@@ -15,8 +15,6 @@ export const STOCK_MOVEMENT_OUT_TYPES = new Set<StockMovementType>([
 
 export const STOCK_MOVEMENT_MVP_CREATE_TYPES = new Set<StockMovementType>([
   StockMovementType.OPENING_BALANCE,
-  StockMovementType.ADJUSTMENT_IN,
-  StockMovementType.ADJUSTMENT_OUT,
 ]);
 
 export function stockMovementDirection(type: StockMovementType): "IN" | "OUT" {

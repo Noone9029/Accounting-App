@@ -9,7 +9,7 @@ Route source: `apps/web/src/app`
 - App routes are wrapped in a permission provider that loads `/auth/me` and the active organization membership.
 - The sidebar filters top-level and child nav items by view permissions.
 - Route protection shows an access-denied panel when a user lacks the page permission.
-- High-risk buttons such as approve, convert, finalize, void, delete, apply/reverse allocation, bank account archive/reactivate, opening-balance posting, bank transfer voiding, statement import/match/categorize/ignore, reconciliation close/void, warehouse archive/reactivate, stock movement create, fiscal period lock, ZATCA generate/check, and document settings save are hidden unless the active role has the matching permission.
+- High-risk buttons such as approve, convert, finalize, void, delete, apply/reverse allocation, bank account archive/reactivate, opening-balance posting, bank transfer voiding, statement import/match/categorize/ignore, reconciliation close/void, warehouse archive/reactivate, stock movement create, inventory adjustment approve/void, warehouse transfer void, fiscal period lock, ZATCA generate/check, and document settings save are hidden unless the active role has the matching permission.
 - Settings/Admin nav now includes Team Members for `users.view` and Roles & Permissions for `roles.view`.
 
 ## Auth And Setup
@@ -55,15 +55,22 @@ Route source: `apps/web/src/app`
 
 ## Inventory
 
-Inventory routes are operational-only and clearly warn that manual stock movements do not create journals or affect GL, COGS, inventory asset balances, or financial statements.
+Inventory routes are operational-only and clearly warn that opening balances, adjustment approvals, and warehouse transfers do not create journals or affect GL, COGS, inventory asset balances, or financial statements.
 
 | Route | Purpose | Data fetched | Actions | Status | Missing UX pieces |
 | --- | --- | --- | --- | --- | --- |
-| `/inventory/warehouses` | Warehouse list and creation. | Warehouses. | Create warehouse, view detail, archive/reactivate when allowed. | Implemented | No bin/location hierarchy or transfer setup. |
-| `/inventory/warehouses/[id]` | Warehouse detail. | Warehouse, balances for that warehouse, recent movements. | Review warehouse metadata, quantities, and recent stock ledger rows. | Implemented | No edit form on the detail page yet. |
-| `/inventory/stock-movements` | Stock movement ledger. | Stock movements with optional filters. | Filter by item, warehouse, date range, and type; navigate to create movement. | Implemented | No bulk import/export or transfer workflow. |
-| `/inventory/stock-movements/new` | Manual stock movement creation. | Inventory-tracked items and active warehouses. | Create `OPENING_BALANCE`, `ADJUSTMENT_IN`, or `ADJUSTMENT_OUT` with positive quantity and optional unit cost. | Implemented | No approval workflow or attachments. |
-| `/inventory/balances` | Inventory balance table. | Derived item/warehouse balances. | View quantity on hand, simple cost/value estimates, and total quantity by item. | Implemented | Valuation is not accounting-grade and no inventory financial reports exist. |
+| `/inventory/warehouses` | Warehouse list and creation. | Warehouses. | Create warehouse, view detail, archive/reactivate when allowed. | Implemented | No bin/location hierarchy. |
+| `/inventory/warehouses/[id]` | Warehouse detail. | Warehouse, balances for that warehouse, recent movements, adjustments, and transfers involving the warehouse. | Review warehouse metadata, quantities, recent stock ledger rows, and operational inventory activity. | Implemented | No edit form on the detail page yet. |
+| `/inventory/stock-movements` | Stock movement ledger. | Stock movements with optional filters. | Filter by item, warehouse, date range, and type; review generated adjustment and transfer rows. | Implemented | No bulk import/export. |
+| `/inventory/stock-movements/new` | Opening balance movement creation. | Inventory-tracked items and active warehouses. | Create `OPENING_BALANCE` with positive quantity and optional unit cost. | Implemented | Adjustments and transfers are created through controlled workflows. |
+| `/inventory/adjustments` | Inventory adjustment list. | Adjustments with item and warehouse. | Review number, item, warehouse, type, quantity, status, and navigate to detail/create. | Implemented | No bulk approval inbox or attachments. |
+| `/inventory/adjustments/new` | Draft inventory adjustment creation. | Inventory-tracked items and active warehouses. | Create draft increase/decrease adjustment with optional unit cost and reason. | Implemented | No reason-code catalog. |
+| `/inventory/adjustments/[id]` | Inventory adjustment detail. | Adjustment, item, warehouse, creator/approver/voider, movement links. | Approve, void, delete/edit draft when allowed. | Implemented | No audit timeline beyond core timestamps. |
+| `/inventory/adjustments/[id]/edit` | Draft inventory adjustment edit. | Adjustment, inventory-tracked items, active warehouses. | Edit draft-only adjustment fields. | Implemented | Approved and voided adjustments are locked by design. |
+| `/inventory/transfers` | Warehouse transfer list. | Transfers with item and source/destination warehouses. | Review number, item, warehouses, quantity, status, and navigate to detail/create. | Implemented | No in-transit status. |
+| `/inventory/transfers/new` | Warehouse transfer creation. | Inventory-tracked items and active warehouses. | Create posted transfer between different active warehouses. | Implemented | No shipping document or bin/location support. |
+| `/inventory/transfers/[id]` | Warehouse transfer detail. | Transfer, item, source/destination warehouses, movement links. | Void transfer when allowed. | Implemented | No edit/delete after posting by design. |
+| `/inventory/balances` | Inventory balance table. | Derived item/warehouse balances. | View quantity on hand, simple cost/value estimates, total quantity by item, and quick links to adjustments/transfers. | Implemented | Valuation is not accounting-grade and no inventory financial reports exist. |
 
 ## Reports
 

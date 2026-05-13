@@ -15,6 +15,9 @@ export type StockMovementType =
   | "TRANSFER_OUT"
   | "PURCHASE_RECEIPT_PLACEHOLDER"
   | "SALES_ISSUE_PLACEHOLDER";
+export type InventoryAdjustmentStatus = "DRAFT" | "APPROVED" | "VOIDED";
+export type InventoryAdjustmentType = "INCREASE" | "DECREASE";
+export type WarehouseTransferStatus = "POSTED" | "VOIDED";
 export type SalesInvoiceStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type CreditNoteStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type PurchaseOrderStatus = "DRAFT" | "APPROVED" | "SENT" | "PARTIALLY_BILLED" | "BILLED" | "CLOSED" | "VOIDED";
@@ -500,6 +503,69 @@ export interface StockMovement {
   updatedAt: string;
   item?: Pick<Item, "id" | "name" | "sku" | "type" | "status" | "inventoryTracking">;
   warehouse?: Pick<Warehouse, "id" | "code" | "name" | "status" | "isDefault">;
+  createdBy?: { id: string; name: string; email: string } | null;
+}
+
+export interface InventoryAdjustment {
+  id: string;
+  organizationId: string;
+  adjustmentNumber: string;
+  itemId: string;
+  warehouseId: string;
+  type: InventoryAdjustmentType;
+  status: InventoryAdjustmentStatus;
+  adjustmentDate: string;
+  quantity: string;
+  unitCost: string | null;
+  totalCost: string | null;
+  reason: string | null;
+  createdById: string | null;
+  approvedById: string | null;
+  voidedById: string | null;
+  approvedAt: string | null;
+  voidedAt: string | null;
+  stockMovementId: string | null;
+  voidStockMovementId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  item?: Pick<Item, "id" | "name" | "sku" | "type" | "status" | "inventoryTracking">;
+  warehouse?: Pick<Warehouse, "id" | "code" | "name" | "status" | "isDefault">;
+  stockMovement?: Pick<StockMovement, "id" | "type" | "movementDate" | "quantity" | "referenceType" | "referenceId"> | null;
+  voidStockMovement?: Pick<StockMovement, "id" | "type" | "movementDate" | "quantity" | "referenceType" | "referenceId"> | null;
+  createdBy?: { id: string; name: string; email: string } | null;
+  approvedBy?: { id: string; name: string; email: string } | null;
+  voidedBy?: { id: string; name: string; email: string } | null;
+}
+
+export interface WarehouseTransfer {
+  id: string;
+  organizationId: string;
+  transferNumber: string;
+  itemId: string;
+  fromWarehouseId: string;
+  toWarehouseId: string;
+  status: WarehouseTransferStatus;
+  transferDate: string;
+  quantity: string;
+  unitCost: string | null;
+  totalCost: string | null;
+  description: string | null;
+  createdById: string | null;
+  postedAt: string | null;
+  voidedAt: string | null;
+  fromStockMovementId: string | null;
+  toStockMovementId: string | null;
+  voidFromStockMovementId: string | null;
+  voidToStockMovementId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  item?: Pick<Item, "id" | "name" | "sku" | "type" | "status" | "inventoryTracking">;
+  fromWarehouse?: Pick<Warehouse, "id" | "code" | "name" | "status" | "isDefault">;
+  toWarehouse?: Pick<Warehouse, "id" | "code" | "name" | "status" | "isDefault">;
+  fromStockMovement?: Pick<StockMovement, "id" | "type" | "movementDate" | "quantity" | "referenceType" | "referenceId"> | null;
+  toStockMovement?: Pick<StockMovement, "id" | "type" | "movementDate" | "quantity" | "referenceType" | "referenceId"> | null;
+  voidFromStockMovement?: Pick<StockMovement, "id" | "type" | "movementDate" | "quantity" | "referenceType" | "referenceId"> | null;
+  voidToStockMovement?: Pick<StockMovement, "id" | "type" | "movementDate" | "quantity" | "referenceType" | "referenceId"> | null;
   createdBy?: { id: string; name: string; email: string } | null;
 }
 
