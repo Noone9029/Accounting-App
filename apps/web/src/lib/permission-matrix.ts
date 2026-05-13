@@ -72,6 +72,19 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
+    id: "inventory",
+    label: "Inventory",
+    permissions: [
+      permission(PERMISSIONS.inventory.view, "View inventory", "See inventory balances, warehouses, and stock ledger pages."),
+      permission(PERMISSIONS.inventory.manage, "Manage inventory", "Manage inventory administration settings as they are added."),
+      permission(PERMISSIONS.warehouses.view, "View warehouses", "See warehouse master data and warehouse-level stock balances."),
+      permission(PERMISSIONS.warehouses.manage, "Manage warehouses", "Create, update, archive, and reactivate warehouses."),
+      permission(PERMISSIONS.stockMovements.view, "View stock movements", "See manual operational stock ledger entries."),
+      permission(PERMISSIONS.stockMovements.create, "Create stock movements", "Create manual opening balance and stock adjustment movements."),
+      permission(PERMISSIONS.stockAdjustments.create, "Create stock adjustments", "Create manual adjustment in/out stock movements."),
+    ],
+  },
+  {
     id: "sales",
     label: "Sales",
     permissions: [

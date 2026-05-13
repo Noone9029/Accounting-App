@@ -85,6 +85,19 @@ async function main(): Promise<void> {
     },
   });
 
+  await prisma.warehouse.upsert({
+    where: { organizationId_code: { organizationId: organization.id, code: "MAIN" } },
+    update: { name: "Main Warehouse", status: "ACTIVE", isDefault: true },
+    create: {
+      organizationId: organization.id,
+      code: "MAIN",
+      name: "Main Warehouse",
+      status: "ACTIVE",
+      countryCode: "SA",
+      isDefault: true,
+    },
+  });
+
   await prisma.organizationDocumentSettings.upsert({
     where: { organizationId: organization.id },
     update: {},

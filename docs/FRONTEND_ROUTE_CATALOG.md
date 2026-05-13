@@ -9,7 +9,7 @@ Route source: `apps/web/src/app`
 - App routes are wrapped in a permission provider that loads `/auth/me` and the active organization membership.
 - The sidebar filters top-level and child nav items by view permissions.
 - Route protection shows an access-denied panel when a user lacks the page permission.
-- High-risk buttons such as approve, convert, finalize, void, delete, apply/reverse allocation, bank account archive/reactivate, opening-balance posting, bank transfer voiding, statement import/match/categorize/ignore, reconciliation close/void, fiscal period lock, ZATCA generate/check, and document settings save are hidden unless the active role has the matching permission.
+- High-risk buttons such as approve, convert, finalize, void, delete, apply/reverse allocation, bank account archive/reactivate, opening-balance posting, bank transfer voiding, statement import/match/categorize/ignore, reconciliation close/void, warehouse archive/reactivate, stock movement create, fiscal period lock, ZATCA generate/check, and document settings save are hidden unless the active role has the matching permission.
 - Settings/Admin nav now includes Team Members for `users.view` and Roles & Permissions for `roles.view`.
 
 ## Auth And Setup
@@ -43,7 +43,7 @@ Route source: `apps/web/src/app`
 | `/bank-transfers/[id]` | Bank transfer detail. | Transfer, profile/account links, journal links. | Void transfer when allowed. | Implemented | No edit/delete after posting by design. |
 | `/tax-rates` | Tax rates. | Tax rates. | Create/update rates. | Implemented | VAT report linkage missing. |
 | `/branches` | Branch management. | Branches. | Create/update branches. | Implemented | Default branch normalization still missing; branch create/update is now gated by organization update permission. |
-| `/items` | Product/service catalog. | Items, accounts, tax rates. | Create/update/delete items. | Partial | Inventory quantities and stock history missing. |
+| `/items` | Product/service catalog. | Items, accounts, tax rates, inventory balances when allowed. | Create/update/delete items, set inventory-tracking flag, and view quantity on hand for tracked items. | Partial | Item-specific stock detail/history page missing. |
 | `/documents` | Generated document archive. | Generated documents, including operational and report PDFs. | Filter by document type/status and download archived PDFs. | Implemented | Storage/provider status and filters could improve. |
 | `/fiscal-periods` | Fiscal period management. | Fiscal periods. | Create, close, reopen, and lock periods. | Implemented | No unlock/admin approval or fiscal year wizard yet. |
 | `/settings/documents` | Document PDF settings. | Organization document settings. | Update titles/colors/visibility. | Implemented | Template preview/designer missing. |
@@ -52,6 +52,18 @@ Route source: `apps/web/src/app`
 | `/settings/roles` | Role list and custom role creation. | Roles and permission matrix. | Create custom roles when allowed. | Implemented | System roles are read-only; no bulk templates beyond seed roles. |
 | `/settings/roles/[id]` | Role detail and permission matrix. | Role detail. | Edit/delete custom roles when allowed. | Implemented | No approval workflow for role changes. |
 | `/[...placeholder]` | Placeholder fallback for unbuilt sections. | None. | Navigation. | Placeholder | Replace as modules are implemented. |
+
+## Inventory
+
+Inventory routes are operational-only and clearly warn that manual stock movements do not create journals or affect GL, COGS, inventory asset balances, or financial statements.
+
+| Route | Purpose | Data fetched | Actions | Status | Missing UX pieces |
+| --- | --- | --- | --- | --- | --- |
+| `/inventory/warehouses` | Warehouse list and creation. | Warehouses. | Create warehouse, view detail, archive/reactivate when allowed. | Implemented | No bin/location hierarchy or transfer setup. |
+| `/inventory/warehouses/[id]` | Warehouse detail. | Warehouse, balances for that warehouse, recent movements. | Review warehouse metadata, quantities, and recent stock ledger rows. | Implemented | No edit form on the detail page yet. |
+| `/inventory/stock-movements` | Stock movement ledger. | Stock movements with optional filters. | Filter by item, warehouse, date range, and type; navigate to create movement. | Implemented | No bulk import/export or transfer workflow. |
+| `/inventory/stock-movements/new` | Manual stock movement creation. | Inventory-tracked items and active warehouses. | Create `OPENING_BALANCE`, `ADJUSTMENT_IN`, or `ADJUSTMENT_OUT` with positive quantity and optional unit cost. | Implemented | No approval workflow or attachments. |
+| `/inventory/balances` | Inventory balance table. | Derived item/warehouse balances. | View quantity on hand, simple cost/value estimates, and total quantity by item. | Implemented | Valuation is not accounting-grade and no inventory financial reports exist. |
 
 ## Reports
 

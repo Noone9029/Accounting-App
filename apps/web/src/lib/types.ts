@@ -6,6 +6,15 @@ export type JournalStatus = "DRAFT" | "POSTED" | "VOIDED" | "REVERSED";
 export type FiscalPeriodStatus = "OPEN" | "CLOSED" | "LOCKED";
 export type ItemType = "SERVICE" | "PRODUCT";
 export type ItemStatus = "ACTIVE" | "DISABLED";
+export type WarehouseStatus = "ACTIVE" | "ARCHIVED";
+export type StockMovementType =
+  | "OPENING_BALANCE"
+  | "ADJUSTMENT_IN"
+  | "ADJUSTMENT_OUT"
+  | "TRANSFER_IN"
+  | "TRANSFER_OUT"
+  | "PURCHASE_RECEIPT_PLACEHOLDER"
+  | "SALES_ISSUE_PLACEHOLDER";
 export type SalesInvoiceStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type CreditNoteStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type PurchaseOrderStatus = "DRAFT" | "APPROVED" | "SENT" | "PARTIALLY_BILLED" | "BILLED" | "CLOSED" | "VOIDED";
@@ -455,6 +464,51 @@ export interface Item {
   inventoryTracking: boolean;
   revenueAccount?: { id: string; code: string; name: string; type: AccountType };
   salesTaxRate?: { id: string; name: string; rate: string; scope: TaxRateScope } | null;
+}
+
+export interface Warehouse {
+  id: string;
+  organizationId: string;
+  code: string;
+  name: string;
+  status: WarehouseStatus;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  countryCode: string;
+  phone: string | null;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StockMovement {
+  id: string;
+  organizationId: string;
+  itemId: string;
+  warehouseId: string;
+  movementDate: string;
+  type: StockMovementType;
+  quantity: string;
+  unitCost: string | null;
+  totalCost: string | null;
+  referenceType: string | null;
+  referenceId: string | null;
+  description: string | null;
+  createdById: string | null;
+  createdAt: string;
+  updatedAt: string;
+  item?: Pick<Item, "id" | "name" | "sku" | "type" | "status" | "inventoryTracking">;
+  warehouse?: Pick<Warehouse, "id" | "code" | "name" | "status" | "isDefault">;
+  createdBy?: { id: string; name: string; email: string } | null;
+}
+
+export interface InventoryBalance {
+  item: Pick<Item, "id" | "name" | "sku" | "type" | "status" | "inventoryTracking">;
+  warehouse: Pick<Warehouse, "id" | "code" | "name" | "status" | "isDefault">;
+  quantityOnHand: string;
+  averageUnitCost: string | null;
+  inventoryValue: string | null;
 }
 
 export interface Contact {

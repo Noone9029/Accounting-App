@@ -58,6 +58,16 @@ export class OrganizationService {
         },
       });
 
+      await tx.warehouse.create({
+        data: {
+          organizationId: created.id,
+          code: "MAIN",
+          name: "Main Warehouse",
+          countryCode: created.countryCode,
+          isDefault: true,
+        },
+      });
+
       await tx.organizationDocumentSettings.create({
         data: {
           organizationId: created.id,

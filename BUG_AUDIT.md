@@ -1037,6 +1037,31 @@ Commit inspected: pending (`Add team and role management`)
 - Approval workflows and dual-control for high-risk role/member changes are not implemented.
 - Role/member changes write audit logs, but there is no dedicated audit review UI yet.
 
+## Inventory Warehouse And Stock Ledger Groundwork
+
+Audit date: 2026-05-13
+
+Commit inspected: pending (`Add inventory warehouse groundwork`)
+
+### Inventory Groundwork Added
+
+- Added warehouse and stock movement schema groundwork with active/archived warehouse status and positive-quantity stock ledger movement types.
+- Added seeded and provisioned `MAIN` default warehouses for organizations.
+- Added authenticated warehouse APIs for list/create/detail/update/archive/reactivate with tenant scoping and archive safeguards.
+- Added authenticated stock movement APIs for list/create/detail with tracked-item validation, active-warehouse validation, duplicate opening-balance rejection, and negative-stock prevention.
+- Added derived inventory balance API by item and warehouse.
+- Added Inventory sidebar navigation, warehouse pages, stock movement pages, balance table, item inventory-tracking quantity display, and frontend inventory helper tests.
+- Extended smoke coverage for default warehouse lookup, inventory-tracked item setup, opening balance, adjustment in/out, balance verification, movement listing, and no-journal stock movement behavior.
+
+### Remaining Inventory Risks
+
+- No inventory valuation accounting exists.
+- No COGS posting exists.
+- No purchase receiving or automatic purchase bill stock receipt exists.
+- No sales delivery or automatic sales invoice stock issue exists.
+- No warehouse transfers exist yet.
+- No inventory financial reporting or valuation report exists.
+
 ## Remaining Risks
 
 - The concurrency strategy relies on PostgreSQL row locks produced by conditional updates inside Prisma transactions. A small multi-process load test is still recommended before production.
@@ -1045,11 +1070,12 @@ Commit inspected: pending (`Add team and role management`)
 - Account parent updates prevent self-parenting but do not yet prevent descendant cycles.
 - `next-env.d.ts` flips between `.next/types` and `.next/dev/types` when switching between build and dev on Next 16. The tracked file is kept clean after verification, but this remains local development churn.
 - Prisma 6 warns that `package.json#prisma` seed configuration is deprecated and should move to a Prisma config file before Prisma 7.
+- Inventory warehouse/stock ledger groundwork exists, but COGS, valuation, purchase receiving, sales issue, transfers, and inventory financial reporting remain unimplemented.
 - ZATCA groundwork is intentionally non-compliant until real onboarding, signing, clearance/reporting, PDF/A-3, official SDK/schema/Schematron validation, and KMS-backed key custody are implemented.
 
 ## Recommended Next Steps
 
-1. Add purchase order workflows and bank reconciliation groundwork before inventory-side accounting.
+1. Add warehouse transfers and inventory adjustment approvals before inventory-side accounting.
 2. Add formal fiscal year close, retained earnings close, and admin unlock/approval workflows.
 3. Add a lightweight Playwright or browser smoke suite once the local Node runtime supports the in-app browser backend.
 4. Normalize branch default behavior and account parent cycle validation.

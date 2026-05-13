@@ -44,7 +44,7 @@ Status values:
 | Module | Status | Files | What works | Gaps | Next step |
 | --- | --- | --- | --- | --- | --- |
 | Contacts/customers | COMPLETE_FOR_MVP | `contacts`, `Contact` | Customer/supplier/BOTH contacts and detail page. | No import/export or duplicate detection. | Add CSV import and merge workflow. |
-| Items/products | PARTIAL | `items`, `Item` | Items with revenue/expense accounts and tax defaults. | Inventory tracking flag has no stock engine. | Add inventory module before stock items are production-useful. |
+| Items/products | PARTIAL | `items`, `Item`, `StockMovement` | Items with revenue/expense accounts, tax defaults, inventory-tracking flag, and quantity-on-hand display for tracked items. | No automatic stock movement from sales/purchase documents or stock accounting yet. | Add receipt/issue hooks after inventory valuation design. |
 | Sales invoices | COMPLETE_FOR_MVP | `sales-invoices`, invoice form/pages | Draft, edit, finalize, void, PDF, ZATCA local metadata. | Recurring invoices and official tax compliance not present. | Add recurring invoices and reports. |
 | Invoice finalization | COMPLETE_FOR_MVP | `sales-invoice.service.ts`, `sales-invoice-accounting.ts`, `FiscalPeriodGuardService` | AR/revenue/VAT posting, idempotency, fiscal posting guard. | No recurring invoice engine. | Add recurring invoices. |
 | Customer payments | COMPLETE_FOR_MVP | `customer-payments` | Posted payments, allocations, voids, receipts. | Gateway integration not present. | Add bank/gateway integration later. |
@@ -79,11 +79,11 @@ Status values:
 
 | Module | Status | Files | What works | Gaps | Next step |
 | --- | --- | --- | --- | --- | --- |
-| Items | PARTIAL | `items`, `Item.inventoryTracking` | Product/service records. | No stock state. | Add warehouses and stock ledger. |
-| Warehouses | NOT_STARTED | N/A | None. | No warehouse model. | Add warehouse schema/API/UI. |
-| Stock movements | NOT_STARTED | N/A | None. | No receipts/issues/transfers. | Add stock movement engine. |
+| Items | PARTIAL | `items`, `Item.inventoryTracking`, web `/items` | Product/service records, inventory tracking flag, and total quantity-on-hand display for tracked items. | No automatic stock movements from documents. | Add item detail stock history later. |
+| Warehouses | COMPLETE_FOR_MVP | `Warehouse`, `apps/api/src/warehouses`, web `/inventory/warehouses` | Tenant-scoped warehouse CRUD, `MAIN` default warehouse, archive/reactivate, active warehouse validation, and warehouse detail balances/movements. | No bin/location hierarchy or warehouse transfer workflow. | Add transfer/bin design after manual movement QA. |
+| Stock movements | GROUNDWORK_ONLY | `StockMovement`, `apps/api/src/stock-movements`, web `/inventory/stock-movements` | Manual opening balance, adjustment in, adjustment out, positive-quantity ledger, duplicate opening balance rejection, and negative stock prevention. | No purchase receipt, sales issue, transfers, landed cost, or accounting posting. | Add receipt/issue hooks after valuation policy. |
 | COGS | NOT_STARTED | N/A | None. | No cost flow into journals. | Add valuation method and COGS posting. |
-| Inventory adjustments | NOT_STARTED | N/A | None. | No adjustment workflow. | Add adjustment MVP. |
+| Inventory adjustments | GROUNDWORK_ONLY | `StockMovementType.ADJUSTMENT_IN`, `StockMovementType.ADJUSTMENT_OUT` | Manual quantity adjustments through stock movements. | No approval workflow, reason-code catalog, attachments, or GL impact. | Add controlled adjustment approvals with valuation posting later. |
 
 ## ZATCA
 

@@ -39,6 +39,7 @@ Tasks:
 - Bank account profile, transfer, opening-balance, statement import preview, and reconciliation UX polish.
 - Bank statement file-format samples, upload storage design, and approval queue polish.
 - Transfer fees and multi-currency FX transfer handling.
+- Inventory warehouse and manual stock ledger UX polish.
 - Official VAT return report.
 - Scheduled/email report delivery.
 - Customer and supplier statement PDF parity.
@@ -60,13 +61,12 @@ Objective: add operational modules that affect accounting but require careful sc
 
 Tasks:
 
-- Warehouses.
-- Stock movements.
-- Purchase receiving and sales issue hooks.
-- Inventory adjustments.
-- Inventory valuation method decision.
+- Purchase receiving and sales issue hooks tied to the existing manual stock ledger.
+- Warehouse transfer workflow.
+- Inventory adjustment approval controls.
+- Inventory valuation method decision and accounting policy.
 - COGS posting.
-- Stock ledger and inventory valuation report.
+- Inventory valuation and stock ledger reports.
 - Employee master data.
 - Payroll shell with draft runs, pay items, and accounting posting plan.
 
@@ -80,7 +80,7 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Design inventory schema and accounting posting plan for warehouses, stock movements, adjustments, and COGS without implementing payroll yet.
+> Add warehouse transfer and inventory adjustment approval workflows without COGS or automatic invoice/bill stock posting yet.
 
 ## Phase 4: ZATCA Production Path
 

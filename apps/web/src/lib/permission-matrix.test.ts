@@ -14,6 +14,7 @@ describe("permission matrix catalog", () => {
       "Organization",
       "Users / Roles",
       "Accounting",
+      "Inventory",
       "Sales",
       "Purchases",
       "Reports",

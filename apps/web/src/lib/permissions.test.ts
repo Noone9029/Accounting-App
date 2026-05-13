@@ -47,6 +47,10 @@ describe("permission helpers", () => {
     expect(getRequiredPermissionsForPathname("/sales/invoices/inv-1/edit")).toEqual([PERMISSIONS.salesInvoices.update]);
     expect(getRequiredPermissionsForPathname("/purchases/purchase-orders/new")).toEqual([PERMISSIONS.purchaseOrders.create]);
     expect(getRequiredPermissionsForPathname("/purchases/purchase-orders/po-1/edit")).toEqual([PERMISSIONS.purchaseOrders.update]);
+    expect(getRequiredPermissionsForPathname("/inventory/balances")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/warehouses")).toEqual([PERMISSIONS.warehouses.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/stock-movements")).toEqual([PERMISSIONS.stockMovements.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/stock-movements/new")).toEqual([PERMISSIONS.stockMovements.create]);
     expect(getRequiredPermissionsForPathname("/settings/zatca")).toEqual([PERMISSIONS.zatca.view]);
     expect(getRequiredPermissionsForPathname("/settings/team")).toEqual([PERMISSIONS.users.view]);
     expect(getRequiredPermissionsForPathname("/settings/roles/role-1")).toEqual([PERMISSIONS.roles.view]);
@@ -76,6 +80,7 @@ describe("sidebar nav filtering", () => {
       "Purchases",
       "Customers & suppliers",
       "Products & Services",
+      "Inventory",
       "For accountants",
       "Branches",
       "Documents / Archive",

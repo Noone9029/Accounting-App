@@ -80,6 +80,16 @@ export const SIDEBAR_NAV_ITEMS: readonly SidebarNavItem[] = [
     children: [{ label: "Items", href: "/items", requiredAny: [PERMISSIONS.items.view] }],
   },
   {
+    label: "Inventory",
+    href: "/inventory/balances",
+    activePrefix: "/inventory",
+    children: [
+      { label: "Warehouses", href: "/inventory/warehouses", requiredAny: [PERMISSIONS.warehouses.view] },
+      { label: "Stock movements", href: "/inventory/stock-movements", requiredAny: [PERMISSIONS.stockMovements.view] },
+      { label: "Inventory balances", href: "/inventory/balances", requiredAny: [PERMISSIONS.inventory.view] },
+    ],
+  },
+  {
     label: "For accountants",
     href: "/journal-entries",
     activePrefix: "/journal-entries",

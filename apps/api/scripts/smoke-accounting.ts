@@ -235,6 +235,33 @@ interface Item {
   id: string;
   name: string;
   sku?: string | null;
+  inventoryTracking?: boolean;
+}
+
+interface Warehouse {
+  id: string;
+  code: string;
+  name: string;
+  status: "ACTIVE" | "ARCHIVED";
+  isDefault: boolean;
+}
+
+interface StockMovement {
+  id: string;
+  itemId: string;
+  warehouseId: string;
+  type: "OPENING_BALANCE" | "ADJUSTMENT_IN" | "ADJUSTMENT_OUT";
+  quantity: string;
+  unitCost?: string | null;
+  totalCost?: string | null;
+}
+
+interface InventoryBalance {
+  item: { id: string; name: string; sku?: string | null };
+  warehouse: { id: string; code: string; name: string };
+  quantityOnHand: string;
+  averageUnitCost: string | null;
+  inventoryValue: string | null;
 }
 
 interface SalesInvoice {
@@ -639,6 +666,68 @@ async function main(): Promise<void> {
     bankAccounts.find((profile) => profile.account.code === "112" && profile.status === "ACTIVE"),
     "default active Bank Account profile",
   );
+
+  const warehouses = await get<Warehouse[]>("/warehouses", headers);
+  const mainWarehouse = required(
+    warehouses.find((warehouse) => warehouse.code === "MAIN" && warehouse.status === "ACTIVE" && warehouse.isDefault),
+    "default active MAIN warehouse",
+  );
+  const inventoryItem = await post<Item>("/items", headers, {
+    name: `Smoke Inventory Item ${runId}`,
+    sku: `SMKINV-${runId}`,
+    type: "PRODUCT",
+    status: "ACTIVE",
+    sellingPrice: "25.0000",
+    revenueAccountId: salesAccount.id,
+    inventoryTracking: true,
+  });
+  assertEqual(inventoryItem.inventoryTracking, true, "inventory smoke item tracking enabled");
+  const journalEntriesBeforeInventory = await get<JournalEntry[]>("/journal-entries", headers);
+  const openingStock = await post<StockMovement>("/stock-movements", headers, {
+    itemId: inventoryItem.id,
+    warehouseId: mainWarehouse.id,
+    movementDate: new Date().toISOString(),
+    type: "OPENING_BALANCE",
+    quantity: "10.0000",
+    unitCost: "4.0000",
+    description: "Smoke opening stock",
+  });
+  assertEqual(openingStock.type, "OPENING_BALANCE", "opening stock movement type");
+  const adjustmentIn = await post<StockMovement>("/stock-movements", headers, {
+    itemId: inventoryItem.id,
+    warehouseId: mainWarehouse.id,
+    movementDate: new Date().toISOString(),
+    type: "ADJUSTMENT_IN",
+    quantity: "2.0000",
+    unitCost: "4.5000",
+    description: "Smoke adjustment in",
+  });
+  assertEqual(adjustmentIn.type, "ADJUSTMENT_IN", "adjustment in stock movement type");
+  const adjustmentOut = await post<StockMovement>("/stock-movements", headers, {
+    itemId: inventoryItem.id,
+    warehouseId: mainWarehouse.id,
+    movementDate: new Date().toISOString(),
+    type: "ADJUSTMENT_OUT",
+    quantity: "3.0000",
+    description: "Smoke adjustment out",
+  });
+  assertEqual(adjustmentOut.type, "ADJUSTMENT_OUT", "adjustment out stock movement type");
+  const inventoryBalances = await get<InventoryBalance[]>(
+    `/inventory/balances?itemId=${encodeURIComponent(inventoryItem.id)}&warehouseId=${encodeURIComponent(mainWarehouse.id)}`,
+    headers,
+  );
+  const inventoryBalance = required(
+    inventoryBalances.find((balance) => balance.item.id === inventoryItem.id && balance.warehouse.id === mainWarehouse.id),
+    "inventory balance for smoke tracked item",
+  );
+  assertMoney(inventoryBalance.quantityOnHand, money("9.0000"), "inventory quantity on hand after movements");
+  const stockMovementList = await get<StockMovement[]>(
+    `/stock-movements?itemId=${encodeURIComponent(inventoryItem.id)}&warehouseId=${encodeURIComponent(mainWarehouse.id)}`,
+    headers,
+  );
+  assert(stockMovementList.length >= 3, "stock movements list includes smoke movements");
+  const journalEntriesAfterInventory = await get<JournalEntry[]>("/journal-entries", headers);
+  assertEqual(journalEntriesAfterInventory.length, journalEntriesBeforeInventory.length, "stock movements do not create journal entries");
 
   const bankTransferAmount = money("12.3400");
   const bankBeforeTransfer = await get<BankAccountSummary>(`/bank-accounts/${defaultBankProfile.id}`, headers);
@@ -2517,6 +2606,11 @@ async function main(): Promise<void> {
         bankReconciliationVoidedStatus: voidedReconciliation.status,
         bankReconciliationItemCount: reconciliationItems.length,
         bankReconciliationReportDocumentId: reconciliationReportDocuments[0]?.id,
+        warehouseId: mainWarehouse.id,
+        inventoryItemId: inventoryItem.id,
+        stockMovementIds: [openingStock.id, adjustmentIn.id, adjustmentOut.id],
+        inventoryQuantityOnHand: inventoryBalance.quantityOnHand,
+        inventoryJournalEntryCountUnchanged: journalEntriesAfterInventory.length === journalEntriesBeforeInventory.length,
         closedFiscalPeriodId: closedFiscalPeriod.id,
         fiscalPeriodLockChecked: true,
         customerId: customer.id,

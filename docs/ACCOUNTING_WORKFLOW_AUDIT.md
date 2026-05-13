@@ -129,6 +129,30 @@ This document maps implemented accounting workflows to their journal entries, ba
 - Gaps/risks:
   - No file upload storage, OFX/CAMT/MT940 parser, automatic matching, bank feeds, email delivery, or full approval queue exists yet.
 
+## Inventory Warehouse And Stock Ledger Groundwork
+
+- API/UI: inventory is accessed through `/inventory/warehouses`, `/inventory/warehouses/:id`, `/inventory/stock-movements`, `/inventory/stock-movements/new`, `/inventory/balances`, and the item list quantity display.
+- Models: `Warehouse` stores operational locations and `StockMovement` stores the stock ledger for inventory-tracked items.
+- Warehouse behavior:
+  - New and seeded organizations receive an active default `MAIN` warehouse.
+  - Warehouse codes are unique per organization and normalized to uppercase.
+  - Warehouses can be archived/reactivated, but the only active default warehouse cannot be archived.
+  - Archived warehouses remain visible but cannot receive new stock movements.
+- Stock movement behavior:
+  - MVP creation allows `OPENING_BALANCE`, `ADJUSTMENT_IN`, and `ADJUSTMENT_OUT`.
+  - Quantities are stored as positive numbers; direction is derived from movement type.
+  - Movements require an active inventory-tracked item and an active warehouse in the same organization.
+  - Duplicate opening balances for the same item/warehouse are rejected.
+  - Adjustment-out movements are rejected when they would make item/warehouse quantity negative.
+- Balance behavior:
+  - `GET /inventory/balances` derives quantity on hand by summing stock movement directions by item and warehouse.
+  - Average unit cost and inventory value are simple operational estimates from costed inbound movements when available.
+- Accounting impact:
+  - No journal entries are created by warehouses or stock movements.
+  - Inventory movements do not affect GL, COGS, inventory asset balances, VAT, or financial statements yet.
+- Gaps/risks:
+  - No COGS, inventory valuation accounting, automatic purchase receiving, sales issue, warehouse transfers, inventory financial reports, or approval workflow exists yet.
+
 ## Sales Workflows
 
 ### Sales Invoice Finalization

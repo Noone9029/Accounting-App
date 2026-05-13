@@ -141,6 +141,23 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | GET | `/bank-reconciliations/:id/report.csv` | Reconciliation report CSV | Yes | Yes | Implemented | Requires `bankReconciliations.view` plus `reports.export` or `generatedDocuments.download`; returns `text/csv`. |
 | GET | `/bank-reconciliations/:id/report.pdf` | Reconciliation report PDF | Yes | Yes | Implemented | Requires `bankReconciliations.view` plus `reports.export` or `generatedDocuments.download`; returns `application/pdf` and archives the PDF. |
 
+## Inventory
+
+Inventory endpoints are operational stock controls only. They do not post journals or affect GL, COGS, inventory asset balances, VAT, or financial statements.
+
+| Method | Path | Purpose | Auth | Org header | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| GET | `/warehouses` | List warehouses | Yes | Yes | Implemented | Requires `warehouses.view`; tenant scoped. |
+| POST | `/warehouses` | Create warehouse | Yes | Yes | Implemented | Requires `warehouses.manage`; code is unique per organization and normalized uppercase. |
+| GET | `/warehouses/:id` | Warehouse detail | Yes | Yes | Implemented | Requires `warehouses.view`; tenant scoped. |
+| PATCH | `/warehouses/:id` | Update warehouse metadata | Yes | Yes | Implemented | Requires `warehouses.manage`; archived records can still be viewed. |
+| POST | `/warehouses/:id/archive` | Archive warehouse | Yes | Yes | Implemented | Requires `warehouses.manage`; cannot archive the only active default warehouse. |
+| POST | `/warehouses/:id/reactivate` | Reactivate warehouse | Yes | Yes | Implemented | Requires `warehouses.manage`. |
+| GET | `/stock-movements` | List stock movements | Yes | Yes | Implemented | Requires `stockMovements.view`; supports `itemId`, `warehouseId`, `from`, `to`, and `type` filters. |
+| POST | `/stock-movements` | Create manual stock movement | Yes | Yes | Implemented | Requires `stockMovements.create`; allows `OPENING_BALANCE`, `ADJUSTMENT_IN`, and `ADJUSTMENT_OUT` only. |
+| GET | `/stock-movements/:id` | Stock movement detail | Yes | Yes | Implemented | Requires `stockMovements.view`; tenant scoped. |
+| GET | `/inventory/balances` | Derived inventory balances | Yes | Yes | Implemented | Requires `inventory.view`; optional `itemId` and `warehouseId`; quantity is authoritative for the operational MVP while value fields are estimates. |
+
 ## Fiscal Periods
 
 | Method | Path | Purpose | Auth | Org header | Status | Notes |

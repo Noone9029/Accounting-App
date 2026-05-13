@@ -186,6 +186,19 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.items.view];
   }
 
+  if (pathname === "/inventory/stock-movements/new") {
+    return [PERMISSIONS.stockMovements.create];
+  }
+  if (pathname.startsWith("/inventory/warehouses")) {
+    return [PERMISSIONS.warehouses.view];
+  }
+  if (pathname.startsWith("/inventory/stock-movements")) {
+    return [PERMISSIONS.stockMovements.view];
+  }
+  if (pathname.startsWith("/inventory")) {
+    return [PERMISSIONS.inventory.view];
+  }
+
   if (pathname.startsWith("/journal-entries/new")) {
     return [PERMISSIONS.journals.create];
   }
