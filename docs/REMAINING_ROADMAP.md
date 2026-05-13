@@ -36,7 +36,7 @@ Tasks:
 - Supplier debit notes hardening and UI polish.
 - Partial purchase order receiving and partial bill matching.
 - Expense receipt attachments and cash expense import/OCR groundwork.
-- Bank accounts and cash/bank account management.
+- Bank account profile UX polish and payment/expense selector QA.
 - Bank statement import and reconciliation.
 - Official VAT return report.
 - Report export/PDF delivery.

@@ -30,6 +30,7 @@ Status values:
 | Module | Status | Files | What works | Gaps | Next step |
 | --- | --- | --- | --- | --- | --- |
 | Chart of accounts | COMPLETE_FOR_MVP | `chart-of-accounts`, `Account` | CRUD, system account protections, posting flags. | Descendant cycle prevention and production COA review remain. | Add accountant-reviewed COA templates. |
+| Bank account profiles | COMPLETE_FOR_MVP | `bank-accounts`, `BankAccountProfile`, web `/bank-accounts` | Cash/bank/wallet/card profile metadata linked to posting asset accounts, default Cash/Bank profiles, ledger balances, posted transaction visibility, archive/reactivate, and payment/expense dropdown labels. | No statement import, reconciliation, live feeds, transfer workflow, or opening-balance journal automation. | Add statement import and reconciliation matching. |
 | Tax rates | COMPLETE_FOR_MVP | `tax-rates`, `TaxRate` | Sales/purchase/both scope, validation, seed VAT rates. | VAT return reporting not implemented. | Add VAT report model and validations. |
 | Manual journals | COMPLETE_FOR_MVP | `accounting`, `JournalEntry`, `JournalLine`, `fiscal-periods` | Create/edit draft, post, reverse, balance validation, fiscal posting guard. | Reversal date is current date only. | Add user-selected reversal date if needed. |
 | Journal posting | COMPLETE_FOR_MVP | `accounting-core`, business services, `reports` | Balanced entries from AR/AP workflows and accountant reports. | Production report definitions still need accountant review. | Add accountant review and export/PDF outputs. |
@@ -64,14 +65,14 @@ Status values:
 | Purchase orders | COMPLETE_FOR_MVP | `purchase-orders`, `PurchaseOrder`, `renderPurchaseOrderPdf`, web `/purchases/purchase-orders` | Draft/edit/delete, approve, mark sent, close, void, PDF/archive, and conversion into draft purchase bills. | No partial receiving, partial billing, approval workflow, supplier email sending, or stock receipt. | Add receiving/partial billing after inventory design. |
 | Purchase bills | COMPLETE_FOR_MVP | `purchase-bills` | Draft/edit/finalize/void, AP posting, PDF, and source purchase order link. | No multi-PO or partial matching. | Add matching/receiving after PO MVP hardening. |
 | Bill finalization | COMPLETE_FOR_MVP | `purchase-bill-accounting.ts`, `FiscalPeriodGuardService` | Dr expense/asset, Dr VAT receivable, Cr AP, fiscal posting guard, including converted PO bills. | No inventory receipt linkage. | Add receiving and landed-cost workflows later. |
-| Supplier payments | COMPLETE_FOR_MVP | `supplier-payments` | Posted payments, allocations, void restore, receipts. | No bank reconciliation. | Add bank account/reconciliation module. |
+| Supplier payments | COMPLETE_FOR_MVP | `supplier-payments` | Posted payments, allocations, void restore, receipts, bank account profile dropdown labels. | No bank reconciliation. | Add reconciliation matching. |
 | Supplier ledger | COMPLETE_FOR_MVP | `supplierLedger`, contact page | AP balance and bill/payment/void rows. | UI should use supplier-specific balance wording. | Add AP-specific display helper. |
 | Supplier statement | COMPLETE_FOR_MVP | `/contacts/:id/supplier-statement` | Date-filtered AP statement JSON. | No supplier statement PDF. | Add supplier statement PDF if needed. |
 | Purchase order PDFs | COMPLETE_FOR_MVP | `renderPurchaseOrderPdf` | Operational purchase order PDF and archive. | No supplier email/send workflow. | Add email/send workflow later. |
 | Purchase bill PDFs | COMPLETE_FOR_MVP | `renderPurchaseBillPdf` | Operational PDF and archive. | No vendor attachment capture. | Add attachments later. |
 | Supplier payment PDFs | COMPLETE_FOR_MVP | `renderSupplierPaymentReceiptPdf` | Receipt PDF and archive. | No remittance email/send flow. | Add email/send workflow. |
 | Debit notes | COMPLETE_FOR_MVP | `purchase-debit-notes`, `PurchaseDebitNote` | Draft/finalize/void, bill allocation/reversal, PDFs, and AP reduction posting. | No automatic matching or inventory return linkage. | Add matching suggestions later. |
-| Cash expenses | COMPLETE_FOR_MVP | `cash-expenses`, `CashExpense` | Posted cash expenses, void reversal, PDF/archive, optional supplier/contact link. | No receipt attachments/OCR or import. | Add receipt attachments later. |
+| Cash expenses | COMPLETE_FOR_MVP | `cash-expenses`, `CashExpense` | Posted cash expenses, void reversal, PDF/archive, optional supplier/contact link, bank account profile dropdown labels. | No receipt attachments/OCR or import. | Add receipt attachments later. |
 
 ## Inventory
 

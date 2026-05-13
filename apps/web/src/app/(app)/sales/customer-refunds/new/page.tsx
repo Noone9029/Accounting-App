@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { bankAccountOptionLabel } from "@/lib/bank-accounts";
 import {
   customerRefundSourceTypeLabel,
   refundableAmountAfterRefund,
@@ -13,7 +14,7 @@ import {
   validateCustomerRefundAmount,
 } from "@/lib/customer-refunds";
 import { formatMoneyAmount, parseDecimalToUnits } from "@/lib/money";
-import type { Account, Contact, CustomerRefund, CustomerRefundSourceType, CustomerRefundableSources } from "@/lib/types";
+import type { Account, BankAccountSummary, Contact, CustomerRefund, CustomerRefundSourceType, CustomerRefundableSources } from "@/lib/types";
 
 function todayInputValue(): string {
   return new Date().toISOString().slice(0, 10);
@@ -24,6 +25,7 @@ export default function NewCustomerRefundPage() {
   const organizationId = useActiveOrganizationId();
   const [customers, setCustomers] = useState<Contact[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [bankProfiles, setBankProfiles] = useState<BankAccountSummary[]>([]);
   const [sources, setSources] = useState<CustomerRefundableSources | null>(null);
   const [customerId, setCustomerId] = useState("");
   const [sourceType, setSourceType] = useState<CustomerRefundSourceType>("CUSTOMER_PAYMENT");
@@ -69,13 +71,14 @@ export default function NewCustomerRefundPage() {
     setLoadingSetup(true);
     setError("");
 
-    Promise.all([apiRequest<Contact[]>("/contacts"), apiRequest<Account[]>("/accounts")])
-      .then(([contactResult, accountResult]) => {
+    Promise.all([apiRequest<Contact[]>("/contacts"), apiRequest<Account[]>("/accounts"), apiRequest<BankAccountSummary[]>("/bank-accounts").catch(() => [])])
+      .then(([contactResult, accountResult, bankProfileResult]) => {
         if (cancelled) {
           return;
         }
         setCustomers(contactResult.filter((contact) => contact.isActive && (contact.type === "CUSTOMER" || contact.type === "BOTH")));
         setAccounts(accountResult);
+        setBankProfiles(bankProfileResult);
         const defaultAsset =
           accountResult.find((account) => account.code === "112" && account.isActive && account.allowPosting && account.type === "ASSET") ??
           accountResult.find((account) => account.code === "111" && account.isActive && account.allowPosting && account.type === "ASSET");
@@ -248,7 +251,7 @@ export default function NewCustomerRefundPage() {
                 <option value="">Select cash or bank account</option>
                 {paidFromAccounts.map((account) => (
                   <option key={account.id} value={account.id}>
-                    {account.code} {account.name}
+                    {bankAccountOptionLabel(account, bankProfiles)}
                   </option>
                 ))}
               </select>

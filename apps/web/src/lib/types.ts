@@ -18,6 +18,8 @@ export type CustomerRefundStatus = "DRAFT" | "POSTED" | "VOIDED";
 export type CustomerRefundSourceType = "CUSTOMER_PAYMENT" | "CREDIT_NOTE";
 export type SupplierRefundStatus = "DRAFT" | "POSTED" | "VOIDED";
 export type SupplierRefundSourceType = "SUPPLIER_PAYMENT" | "PURCHASE_DEBIT_NOTE";
+export type BankAccountType = "BANK" | "CASH" | "WALLET" | "CARD" | "OTHER";
+export type BankAccountStatus = "ACTIVE" | "ARCHIVED";
 export type CustomerLedgerRowType =
   | "INVOICE"
   | "CREDIT_NOTE"
@@ -137,6 +139,55 @@ export interface Account {
   isSystem: boolean;
   isActive: boolean;
   parent?: { id: string; code: string; name: string } | null;
+}
+
+export interface BankAccountProfile {
+  id: string;
+  organizationId: string;
+  accountId: string;
+  type: BankAccountType;
+  status: BankAccountStatus;
+  displayName: string;
+  bankName: string | null;
+  accountNumberMasked: string | null;
+  ibanMasked: string | null;
+  currency: string;
+  openingBalance: string;
+  openingBalanceDate: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  account: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive">;
+}
+
+export interface BankAccountSummary extends BankAccountProfile {
+  ledgerBalance: string;
+  latestTransactionDate: string | null;
+  transactionCount: number;
+}
+
+export interface BankAccountTransaction {
+  id: string;
+  date: string;
+  entryNumber: string;
+  journalEntryId: string;
+  description: string;
+  reference: string | null;
+  debit: string;
+  credit: string;
+  runningBalance: string;
+  sourceType: string;
+  sourceId: string | null;
+}
+
+export interface BankAccountTransactionsResponse {
+  profile: BankAccountProfile;
+  account: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive">;
+  from: string | null;
+  to: string | null;
+  openingBalance: string;
+  closingBalance: string;
+  transactions: BankAccountTransaction[];
 }
 
 export interface TaxRate {

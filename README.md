@@ -109,7 +109,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, `/auth/me` role permission visibility, role/member API visibility, custom role creation, unknown-permission rejection, organization discovery, item/customer/supplier setup, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
+The smoke covers seed login, `/auth/me` role permission visibility, role/member API visibility, custom role creation, unknown-permission rejection, organization discovery, bank account profile defaults/transactions/balance movement, item/customer/supplier setup, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
 
@@ -169,6 +169,16 @@ Accounts:
 - `GET /accounts/:id`
 - `PATCH /accounts/:id`
 - `DELETE /accounts/:id`
+
+Bank accounts:
+
+- `GET /bank-accounts`
+- `POST /bank-accounts`
+- `GET /bank-accounts/:id`
+- `PATCH /bank-accounts/:id`
+- `POST /bank-accounts/:id/archive`
+- `POST /bank-accounts/:id/reactivate`
+- `GET /bank-accounts/:id/transactions?from=YYYY-MM-DD&to=YYYY-MM-DD`
 
 Tax rates:
 
@@ -492,6 +502,32 @@ Credit application endpoints:
 - Rules: the credit note and invoice must belong to the same organization and customer, both must be finalized and non-voided, amount must be positive, and amount cannot exceed either open balance.
 - Reversal rules: the allocation must be active, the credit note and invoice must still be finalized and non-voided, and restored balances cannot exceed their original totals.
 - Active allocations block credit note and invoice voiding. Reversed allocations do not block voiding.
+
+## Bank Accounts
+
+Bank account profiles wrap existing posting asset accounts with cash/bank metadata. They do not create journals and do not replace the chart of accounts.
+
+Behavior:
+
+- Each profile links to one active posting `ASSET` account in the same organization.
+- One profile is allowed per chart account.
+- Default seed/provisioning creates profiles for account code `111 Cash` and `112 Bank Account`.
+- Profile status can be `ACTIVE` or `ARCHIVED`; archiving the profile does not archive the linked chart account.
+- Ledger balance is calculated from posted journal lines only: asset debits minus credits.
+- Draft journals are excluded from balances and transaction rows.
+- Transaction rows show posted journal date, entry number, reference, debit, credit, running balance, and best-effort source type/source id.
+- Payment, refund, supplier payment, supplier refund, cash expense, and manual journal activity all appear through their posted journal lines.
+- Opening balance fields are stored as metadata only; there is no automatic opening balance journal in this MVP.
+- Payment/refund/cash-expense forms still post using the underlying `accountId`, but show the bank profile display name when one exists.
+
+Known bank account limitations:
+
+- No bank statement import.
+- No reconciliation or matching workflow.
+- No live feeds or external banking APIs.
+- No bank transfer workflow.
+- No payment gateway integration.
+- No opening balance journal automation.
 
 ## Customer Payment Rules
 
@@ -986,12 +1022,12 @@ Default seeded roles:
 
 - `Owner`: full access, including `admin.fullAccess`.
 - `Admin`: broad business access without the system-level `admin.fullAccess` flag.
-- `Accountant`: chart of accounts, tax, journals, reports, documents, fiscal period management, and accounting workflow posting/void permissions.
+- `Accountant`: chart of accounts, bank accounts, tax, journals, reports, documents, fiscal period management, and accounting workflow posting/void permissions.
 - `Sales`: contacts, items view, sales invoices, customer payments, credit notes, customer refunds, and document access.
-- `Purchases`: contacts, items view, purchase orders, purchase bills, supplier payments, debit notes, supplier refunds, cash expenses, and document access.
-- `Viewer`: read-only access across core accounting, reports, documents, and ZATCA status.
+- `Purchases`: contacts, items view, bank account view/transactions, purchase orders, purchase bills, supplier payments, debit notes, supplier refunds, cash expenses, and document access.
+- `Viewer`: read-only access across core accounting, reports, documents, and ZATCA status, excluding bank account profiles by default.
 
-Permission names are dotted strings such as `reports.view`, `salesInvoices.finalize`, `customerPayments.void`, `purchaseOrders.convertToBill`, `purchaseBills.finalize`, `fiscalPeriods.lock`, and `zatca.manage`.
+Permission names are dotted strings such as `reports.view`, `salesInvoices.finalize`, `customerPayments.void`, `purchaseOrders.convertToBill`, `purchaseBills.finalize`, `bankAccounts.manage`, `bankAccounts.transactions.view`, `fiscalPeriods.lock`, and `zatca.manage`.
 
 Backend enforcement:
 
@@ -1041,6 +1077,7 @@ Permission matrix categories:
 - GET PDF endpoints currently archive every download.
 - Unapplied overpayment application is manual only; there is no automatic credit matching yet.
 - Customer refunds are manual accounting records only; no payment gateway refund or bank reconciliation integration exists yet.
+- Bank account profiles and posted transaction visibility exist, but statement import, reconciliation, live feeds, bank transfers, and opening-balance journal automation are not implemented yet.
 - Purchase orders are MVP-only: no partial receiving, partial billing, supplier email sending, approval workflows, or inventory stock receipts.
 - Purchase bills, purchase debit notes, supplier payments, and supplier refunds are AP groundwork only; inventory stock movements/returns, bank reconciliation, bank transfer integrations, and automated matching are not implemented yet.
 - ZATCA credit note XML/signing/submission is not implemented yet.

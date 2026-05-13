@@ -9,7 +9,7 @@ Route source: `apps/web/src/app`
 - App routes are wrapped in a permission provider that loads `/auth/me` and the active organization membership.
 - The sidebar filters top-level and child nav items by view permissions.
 - Route protection shows an access-denied panel when a user lacks the page permission.
-- High-risk buttons such as approve, convert, finalize, void, delete, apply/reverse allocation, fiscal period lock, ZATCA generate/check, and document settings save are hidden unless the active role has the matching permission.
+- High-risk buttons such as approve, convert, finalize, void, delete, apply/reverse allocation, bank account archive/reactivate, fiscal period lock, ZATCA generate/check, and document settings save are hidden unless the active role has the matching permission.
 - Settings/Admin nav now includes Team Members for `users.view` and Roles & Permissions for `roles.view`.
 
 ## Auth And Setup
@@ -27,6 +27,10 @@ Route source: `apps/web/src/app`
 | --- | --- | --- | --- | --- | --- |
 | `/dashboard` | App dashboard shell. | Current org/user summary. | Navigation. | Partial | Real KPIs and reports missing. |
 | `/accounts` | Chart of accounts. | Accounts. | Create/update/delete accounts. | Implemented | Hierarchical drag/drop and COA templates missing. |
+| `/bank-accounts` | Bank/cash account profile list. | Bank account profiles with linked accounts and ledger summaries. | View detail, create profile, archive/reactivate when allowed. | Implemented | No reconciliation, import, live feed, or transfer workflow. |
+| `/bank-accounts/new` | Link bank account profile. | Accounts and existing profiles. | Create profile for an unlinked active posting asset account. | Implemented | Cannot create chart account inline. |
+| `/bank-accounts/[id]` | Bank account profile detail. | Profile summary and posted transaction rows when allowed. | Date filters, archive/reactivate, general-ledger link. | Implemented | No statement matching or attachments. |
+| `/bank-accounts/[id]/edit` | Edit bank/cash metadata. | Profile, accounts, existing profiles. | Update metadata only. | Implemented | Linked account cannot be changed. |
 | `/tax-rates` | Tax rates. | Tax rates. | Create/update rates. | Implemented | VAT report linkage missing. |
 | `/branches` | Branch management. | Branches. | Create/update branches. | Implemented | Default branch normalization still missing; branch create/update is now gated by organization update permission. |
 | `/items` | Product/service catalog. | Items, accounts, tax rates. | Create/update/delete items. | Partial | Inventory quantities and stock history missing. |
@@ -62,10 +66,10 @@ Route source: `apps/web/src/app`
 | `/sales/invoices/[id]` | Invoice detail. | Invoice, payments, credit notes, allocations, ZATCA metadata, PDFs. | Finalize, void, delete draft, PDF download, ZATCA local actions, create credit note. | Implemented | Browser E2E and more polished error recovery needed. |
 | `/sales/invoices/[id]/edit` | Edit draft invoice. | Invoice and form dependencies. | Save draft changes. | Implemented | Not available after finalize by design. |
 | `/sales/customer-payments` | Customer payment list. | Payments. | Navigate/create. | Implemented | Filters/export missing. |
-| `/sales/customer-payments/new` | Create customer payment. | Customers, accounts, open invoices. | Allocate and post payment. | Implemented | Bank import/gateway capture missing. |
+| `/sales/customer-payments/new` | Create customer payment. | Customers, accounts, optional bank account profiles, open invoices. | Allocate and post payment. | Implemented | Bank import/gateway capture missing. |
 | `/sales/customer-payments/[id]` | Payment detail. | Payment, receipt data, unapplied allocations. | Void, PDF, apply/reverse unapplied allocations, refund link. | Implemented | Dedicated correction workflow missing. |
 | `/sales/customer-refunds` | Customer refund list. | Refunds. | Navigate/create. | Implemented | Gateway status missing. |
-| `/sales/customer-refunds/new` | Create manual refund. | Customers, refundable sources, accounts. | Post refund. | Implemented | Bank/gateway integration missing. |
+| `/sales/customer-refunds/new` | Create manual refund. | Customers, refundable sources, accounts, optional bank account profiles. | Post refund. | Implemented | Bank/gateway integration missing. |
 | `/sales/customer-refunds/[id]` | Refund detail. | Refund and PDF data. | Void and download PDF. | Implemented | Remittance/send workflow missing. |
 | `/sales/credit-notes` | Credit note list. | Credit notes. | Navigate/create. | Implemented | Filters/export missing. |
 | `/sales/credit-notes/new` | Create credit note. | Customers, optional invoice, accounts, tax rates, items. | Save draft. | Implemented | ZATCA credit note XML missing. |
@@ -85,8 +89,14 @@ Route source: `apps/web/src/app`
 | `/purchases/bills/[id]` | Purchase bill detail. | Bill, lines, allocations, PDF data, source PO link. | Finalize, void, delete draft, PDF, supplier ledger link. | Implemented | No multi-PO or partial matching view. |
 | `/purchases/bills/[id]/edit` | Edit draft bill. | Bill and form dependencies. | Save draft changes. | Implemented | Not available after finalize by design. |
 | `/purchases/supplier-payments` | Supplier payment list. | Supplier payments. | Navigate/create. | Implemented | Filters/export missing. |
-| `/purchases/supplier-payments/new` | Create supplier payment. | Suppliers, open bills, paid-through accounts. | Allocate and post payment. | Implemented | Bank reconciliation/import missing. |
+| `/purchases/supplier-payments/new` | Create supplier payment. | Suppliers, open bills, paid-through accounts, optional bank account profiles. | Allocate and post payment. | Implemented | Bank reconciliation/import missing. |
 | `/purchases/supplier-payments/[id]` | Supplier payment detail. | Payment, allocations, receipt data. | Void and receipt PDF. | Implemented | Remittance email/send missing. |
+| `/purchases/supplier-refunds` | Supplier refund list. | Supplier refunds. | Navigate/create. | Implemented | Filters/export missing. |
+| `/purchases/supplier-refunds/new` | Create supplier refund. | Suppliers, refundable sources, accounts, optional bank account profiles. | Post refund. | Implemented | Bank reconciliation/import missing. |
+| `/purchases/supplier-refunds/[id]` | Supplier refund detail. | Refund and PDF data. | Void and download PDF. | Implemented | Remittance/send workflow missing. |
+| `/purchases/cash-expenses` | Cash expense list. | Cash expenses. | Navigate/create/void. | Implemented | Filters/export missing. |
+| `/purchases/cash-expenses/new` | Create cash expense. | Suppliers, items, accounts, tax rates, branches, optional bank account profiles. | Post cash expense. | Implemented | Receipt attachment/OCR and import missing. |
+| `/purchases/cash-expenses/[id]` | Cash expense detail. | Cash expense and PDF data. | Void and download PDF. | Implemented | Attachment view missing. |
 
 ## Route-Level Risks
 
@@ -94,4 +104,4 @@ Route source: `apps/web/src/app`
 - Supplier ledger/statement views use the same table component as customer ledgers; AP-specific wording should be refined.
 - Settings and document routes are operational but not production-grade administration screens.
 - Permission gating is MVP-grade UI hardening only; backend guards remain the source of truth.
-- Placeholder route should be replaced as reports, inventory, payroll, and bank modules are added.
+- Placeholder route should be replaced as inventory, payroll, reconciliation, and other future modules are added.

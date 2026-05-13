@@ -89,6 +89,18 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | PATCH | `/accounts/:id` | Update account | Yes | Yes | Implemented | System account restrictions. |
 | DELETE | `/accounts/:id` | Delete account | Yes | Yes | Implemented | Blocks referenced/system accounts. |
 
+## Bank Accounts
+
+| Method | Path | Purpose | Auth | Org header | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| GET | `/bank-accounts` | List cash/bank account profiles | Yes | Yes | Implemented | Requires `bankAccounts.view`; returns linked account, posted ledger balance, latest date, and transaction count. |
+| POST | `/bank-accounts` | Link a profile to a posting asset account | Yes | Yes | Implemented | Requires `bankAccounts.manage`; rejects non-asset, inactive, non-posting, and duplicate account links. |
+| GET | `/bank-accounts/:id` | Bank account profile detail | Yes | Yes | Implemented | Requires `bankAccounts.view`; tenant scoped. |
+| PATCH | `/bank-accounts/:id` | Update profile metadata | Yes | Yes | Implemented | Requires `bankAccounts.manage`; does not change the linked account. |
+| POST | `/bank-accounts/:id/archive` | Archive profile | Yes | Yes | Implemented | Requires `bankAccounts.manage`; leaves the chart account untouched. |
+| POST | `/bank-accounts/:id/reactivate` | Reactivate profile | Yes | Yes | Implemented | Requires `bankAccounts.manage`; validates the linked account is still active/posting/asset. |
+| GET | `/bank-accounts/:id/transactions` | Posted transaction lines | Yes | Yes | Implemented | Requires `bankAccounts.transactions.view`; supports optional `from`/`to` date filters and running balance. |
+
 ## Fiscal Periods
 
 | Method | Path | Purpose | Auth | Org header | Status | Notes |

@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { bankAccountOptionLabel } from "@/lib/bank-accounts";
 import { formatMoneyAmount, parseDecimalToUnits } from "@/lib/money";
 import {
   supplierRefundableAmountAfterRefund,
@@ -13,7 +14,7 @@ import {
   supplierRefundSourceTypeLabel,
   validateSupplierRefundAmount,
 } from "@/lib/supplier-refunds";
-import type { Account, Contact, SupplierRefund, SupplierRefundSourceType, SupplierRefundableSources } from "@/lib/types";
+import type { Account, BankAccountSummary, Contact, SupplierRefund, SupplierRefundSourceType, SupplierRefundableSources } from "@/lib/types";
 
 function todayInputValue(): string {
   return new Date().toISOString().slice(0, 10);
@@ -24,6 +25,7 @@ export default function NewSupplierRefundPage() {
   const organizationId = useActiveOrganizationId();
   const [suppliers, setSuppliers] = useState<Contact[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [bankProfiles, setBankProfiles] = useState<BankAccountSummary[]>([]);
   const [sources, setSources] = useState<SupplierRefundableSources | null>(null);
   const [supplierId, setSupplierId] = useState("");
   const [sourceType, setSourceType] = useState<SupplierRefundSourceType>("SUPPLIER_PAYMENT");
@@ -69,13 +71,14 @@ export default function NewSupplierRefundPage() {
     setLoadingSetup(true);
     setError("");
 
-    Promise.all([apiRequest<Contact[]>("/contacts"), apiRequest<Account[]>("/accounts")])
-      .then(([contactResult, accountResult]) => {
+    Promise.all([apiRequest<Contact[]>("/contacts"), apiRequest<Account[]>("/accounts"), apiRequest<BankAccountSummary[]>("/bank-accounts").catch(() => [])])
+      .then(([contactResult, accountResult, bankProfileResult]) => {
         if (cancelled) {
           return;
         }
         setSuppliers(contactResult.filter((contact) => contact.isActive && (contact.type === "SUPPLIER" || contact.type === "BOTH")));
         setAccounts(accountResult);
+        setBankProfiles(bankProfileResult);
         const defaultAsset =
           accountResult.find((account) => account.code === "112" && account.isActive && account.allowPosting && account.type === "ASSET") ??
           accountResult.find((account) => account.code === "111" && account.isActive && account.allowPosting && account.type === "ASSET");
@@ -248,7 +251,7 @@ export default function NewSupplierRefundPage() {
                 <option value="">Select cash or bank account</option>
                 {receivedIntoAccounts.map((account) => (
                   <option key={account.id} value={account.id}>
-                    {account.code} {account.name}
+                    {bankAccountOptionLabel(account, bankProfiles)}
                   </option>
                 ))}
               </select>

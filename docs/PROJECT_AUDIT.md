@@ -2,13 +2,13 @@
 
 Audit date: 2026-05-13
 
-Current commit audited: pending (`Add purchase orders MVP`)
+Current commit audited: pending (`Add bank account profiles`)
 
 ## Summary
 
 LedgerByte is a TypeScript monorepo for a GCC/Saudi-oriented accounting SaaS. The current codebase has a working local MVP for core AR and AP transaction flows, document PDFs, generated-document archive, local smoke coverage, and non-production ZATCA groundwork.
 
-Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated locally for sales invoices, customer payments, credit notes, customer refunds, purchase orders, purchase bills, supplier payments, ledgers, statements, and PDFs. It is not production-ready as a SaaS and is not production ZATCA compliant.
+Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated locally for sales invoices, customer payments, credit notes, customer refunds, purchase orders, purchase bills, supplier payments, bank account profile balances/transactions, ledgers, statements, and PDFs. It is not production-ready as a SaaS and is not production ZATCA compliant.
 
 ## Tech Stack
 
@@ -41,6 +41,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 - API permission guards for sensitive accounting, document, report, fiscal period, and ZATCA actions.
 - Frontend sidebar, route access, and high-risk action visibility based on active role permissions.
 - Tenant-scoped CRUD foundations for accounts, branches, contacts, tax rates, items, and journals.
+- Bank account profiles for cash/bank asset accounts, posted transaction visibility, and bank-aware payment/expense account labels.
 - Sales invoice draft/create/edit/finalize/void with AR journal posting.
 - Customer payment posting with invoice allocation and balance updates.
 - Unapplied customer payment application and reversal.
@@ -59,6 +60,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 ## Groundwork Or Scaffold Only
 
 - Invite delivery, invited-user onboarding, and password reset remain placeholder/missing even though local role/member management exists.
+- Bank statement import, reconciliation, live bank feeds, bank transfers, and opening balance journal automation are not implemented.
 - Purchase order receiving, partial billing, and inventory receipt are not implemented.
 - Reports exist for core accounting views, but export/PDF delivery and accountant-reviewed filing definitions remain missing.
 - Inventory tracking flags exist on items, but no warehouse, stock, COGS, or valuation engine exists.
@@ -73,7 +75,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 1. ZATCA is not production compliant; real onboarding, signing, SDK validation, and API submission are missing.
 2. Email-backed invites, invited-user onboarding, and password reset are still missing despite local role/member management.
 3. No approval workflow, dual control, or maker-checker policy for high-risk accounting actions.
-4. No bank reconciliation or bank statement import.
+4. Bank account profiles exist, but no bank reconciliation or bank statement import.
 5. Inventory flags exist without stock movements, valuation, COGS, or warehouse controls.
 6. Generated PDFs are stored as base64 in the database, which is not scalable for production.
 7. Production secrets/key custody is not hardened; ZATCA private key storage is explicitly dev-only.
@@ -88,7 +90,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 3. Add report export/PDF delivery, official VAT return work, and accountant review for report definitions.
 4. Add fiscal year close, retained earnings close, and controlled unlock/approval workflows.
 5. Add partial PO receiving/billing design and purchase matching hardening.
-6. Add bank accounts, bank statement import, and reconciliation.
+6. Add bank statement import, reconciliation, and bank transfer workflow.
 7. Add inventory warehouses, stock movements, adjustments, valuation, and COGS.
 8. Advance ZATCA official SDK validation, official XML mapping, signing, CSID, clearance/reporting, and PDF/A-3.
 9. Move generated documents to object storage.

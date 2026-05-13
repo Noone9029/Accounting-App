@@ -38,6 +38,9 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     permissions: [
       permission(PERMISSIONS.accounts.view, "View accounts", "See the chart of accounts."),
       permission(PERMISSIONS.accounts.manage, "Manage accounts", "Create, update, and delete accounts."),
+      permission(PERMISSIONS.bankAccounts.view, "View bank accounts", "See cash/bank account profiles and balances."),
+      permission(PERMISSIONS.bankAccounts.manage, "Manage bank accounts", "Create, edit, archive, and reactivate bank account profiles."),
+      permission(PERMISSIONS.bankAccounts.transactionsView, "View bank transactions", "See posted journal activity for linked cash/bank accounts."),
       permission(PERMISSIONS.taxRates.view, "View tax rates", "See tax-rate setup."),
       permission(PERMISSIONS.taxRates.manage, "Manage tax rates", "Create and update tax rates."),
       permission(PERMISSIONS.journals.view, "View journals", "See manual journal entries."),

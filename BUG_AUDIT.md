@@ -37,6 +37,30 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Bank account profiles added
+
+Added bank/cash account profile groundwork with `BankAccountProfile`, profile lifecycle APIs, default Cash/Bank profile seeding, posted-ledger balance summaries, transaction visibility, frontend list/detail/create/edit pages, role permissions, and bank-aware payment/refund/expense dropdown labels.
+
+Risk reduced:
+
+- Users can now distinguish operational cash/bank/wallet/card accounts from generic chart-of-account asset rows.
+- Posted cash/bank activity is visible from one module across customer payments, supplier payments, refunds, cash expenses, and manual journals.
+- Payment and expense forms remain compatible with raw `accountId` posting while showing clearer bank profile labels when available.
+
+Remaining risks:
+
+- No bank statement import.
+- No reconciliation or matching workflow.
+- No live feeds or external banking API.
+- No bank transfer workflow.
+- No opening balance journal automation.
+
+Tests/smoke added:
+
+- Backend bank account service and controller permission tests.
+- Frontend helper tests for status, labels, running balance, and dropdown display.
+- Smoke coverage for default bank profiles, balance movement after payment/expense flows, and transaction endpoint rows.
+
 ### Purchase orders MVP added
 
 Added non-posting purchase orders with tenant-scoped API permissions, default role grants, draft/approve/sent/closed/voided/billed lifecycle rules, PDF/archive support, frontend list/detail/create/edit pages, and conversion into draft purchase bills.

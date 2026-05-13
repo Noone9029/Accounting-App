@@ -1,4 +1,4 @@
-import { AccountType, NumberSequenceScope, TaxRateCategory, TaxRateScope } from "@prisma/client";
+import { AccountType, BankAccountType, NumberSequenceScope, TaxRateCategory, TaxRateScope } from "@prisma/client";
 
 export interface DefaultAccountDefinition {
   code: string;
@@ -30,6 +30,17 @@ export const DEFAULT_ACCOUNTS: DefaultAccountDefinition[] = [
   { code: "514", name: "Bank Fees", type: AccountType.EXPENSE, parentCode: "500" },
   { code: "600", name: "Cost of Sales", type: AccountType.COST_OF_SALES, allowPosting: false },
   { code: "611", name: "Cost of Goods Sold", type: AccountType.COST_OF_SALES, parentCode: "600" },
+];
+
+export interface DefaultBankAccountProfileDefinition {
+  accountCode: string;
+  displayName: string;
+  type: BankAccountType;
+}
+
+export const DEFAULT_BANK_ACCOUNT_PROFILES: DefaultBankAccountProfileDefinition[] = [
+  { accountCode: "111", displayName: "Cash", type: BankAccountType.CASH },
+  { accountCode: "112", displayName: "Bank Account", type: BankAccountType.BANK },
 ];
 
 export const DEFAULT_TAX_RATES = [

@@ -1,6 +1,6 @@
 # Accounting Workflow Audit
 
-Audit date: 2026-05-12
+Audit date: 2026-05-13
 
 This document maps implemented accounting workflows to their journal entries, balance fields, idempotency behavior, and gaps.
 
@@ -63,6 +63,27 @@ This document maps implemented accounting workflows to their journal entries, ba
   - Reversal posting date is guarded against closed/locked fiscal periods.
 - Gaps/risks:
   - Manual reversal racing with workflow void should be load-tested.
+
+## Bank Account Profiles
+
+- API/UI: `/bank-accounts` lists cash/bank profiles; detail pages show posted transaction lines for the linked asset account.
+- Model: `BankAccountProfile` links one profile to one active posting `ASSET` account.
+- Journal impact:
+  - No journal entry is created by profile create/update/archive/reactivate.
+  - Balances and transactions are read from posted `JournalLine` records for the linked account.
+- Balance calculation:
+  - For asset accounts, ledger balance is posted debits minus posted credits.
+  - Draft journals are excluded.
+  - Transaction running balance is calculated from posted journal lines ordered by journal date/number and line number.
+- Included workflows:
+  - Customer payments debit bank/cash.
+  - Supplier payments and cash expenses credit bank/cash.
+  - Customer refunds credit bank/cash.
+  - Supplier refunds debit bank/cash.
+  - Manual posted journals affect balances when they use the linked account.
+- Gaps/risks:
+  - Opening balance fields are metadata only; there is no automatic opening balance journal.
+  - No bank statement import, reconciliation, live feeds, external banking API, payment gateway, or transfer workflow exists yet.
 
 ## Sales Workflows
 
@@ -264,8 +285,7 @@ This document maps implemented accounting workflows to their journal entries, ba
   - Void reversal date is fiscal-period guarded.
 - Gaps/risks:
   - No supplier payment allocation reversal separate from payment void.
-  - No supplier debit note or supplier refund workflow.
-  - No bank reconciliation.
+  - No bank reconciliation or statement import.
 
 ## Ledger Behavior
 

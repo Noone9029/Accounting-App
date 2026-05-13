@@ -1,7 +1,12 @@
 import { PrismaClient } from "@prisma/client";
 import { DEFAULT_ROLE_PERMISSIONS } from "../../../packages/shared/src/index";
 import * as bcrypt from "bcryptjs";
-import { DEFAULT_ACCOUNTS, DEFAULT_NUMBER_SEQUENCES, DEFAULT_TAX_RATES } from "../src/accounting/foundation-data";
+import {
+  DEFAULT_ACCOUNTS,
+  DEFAULT_BANK_ACCOUNT_PROFILES,
+  DEFAULT_NUMBER_SEQUENCES,
+  DEFAULT_TAX_RATES,
+} from "../src/accounting/foundation-data";
 
 const prisma = new PrismaClient();
 
@@ -117,6 +122,30 @@ async function main(): Promise<void> {
       },
     });
     accountIdsByCode.set(account.code, created.id);
+  }
+
+  for (const profile of DEFAULT_BANK_ACCOUNT_PROFILES) {
+    const accountId = accountIdsByCode.get(profile.accountCode);
+    if (!accountId) {
+      continue;
+    }
+
+    await prisma.bankAccountProfile.upsert({
+      where: { accountId },
+      update: {
+        type: profile.type,
+        displayName: profile.displayName,
+        status: "ACTIVE",
+        currency: organization.baseCurrency,
+      },
+      create: {
+        organizationId: organization.id,
+        accountId,
+        type: profile.type,
+        displayName: profile.displayName,
+        currency: organization.baseCurrency,
+      },
+    });
   }
 
   const taxRateIdsByName = new Map<string, string>();

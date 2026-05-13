@@ -6,8 +6,9 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { bankAccountOptionLabel } from "@/lib/bank-accounts";
 import { calculateInvoicePreview, formatMoneyAmount } from "@/lib/money";
-import type { Account, Branch, CashExpense, Contact, Item, TaxRate } from "@/lib/types";
+import type { Account, BankAccountSummary, Branch, CashExpense, Contact, Item, TaxRate } from "@/lib/types";
 
 interface CashExpenseLineState {
   id: string;
@@ -43,6 +44,7 @@ export function CashExpenseForm() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [bankProfiles, setBankProfiles] = useState<BankAccountSummary[]>([]);
   const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [contactId, setContactId] = useState("");
@@ -94,8 +96,9 @@ export function CashExpenseForm() {
       apiRequest<Account[]>("/accounts"),
       apiRequest<TaxRate[]>("/tax-rates"),
       apiRequest<Branch[]>("/branches"),
+      apiRequest<BankAccountSummary[]>("/bank-accounts").catch(() => []),
     ])
-      .then(([contactResult, itemResult, accountResult, taxRateResult, branchResult]) => {
+      .then(([contactResult, itemResult, accountResult, taxRateResult, branchResult, bankProfileResult]) => {
         if (cancelled) {
           return;
         }
@@ -105,6 +108,7 @@ export function CashExpenseForm() {
         setAccounts(accountResult);
         setTaxRates(taxRateResult);
         setBranches(branchResult);
+        setBankProfiles(bankProfileResult);
         setPaidThroughAccountId((current) => current || accountResult.find((account) => account.isActive && account.allowPosting && account.type === "ASSET")?.id || "");
       })
       .catch((loadError: unknown) => {
@@ -215,7 +219,7 @@ export function CashExpenseForm() {
               <option value="">Select account</option>
               {paidThroughAccounts.map((account) => (
                 <option key={account.id} value={account.id}>
-                  {account.code} {account.name}
+                  {bankAccountOptionLabel(account, bankProfiles)}
                 </option>
               ))}
             </select>

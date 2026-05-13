@@ -18,6 +18,7 @@ describe("chart of accounts rules", () => {
       where: { organizationId: "org-1", OR: [{ revenueAccountId: "account-1" }, { expenseAccountId: "account-1" }] },
     });
     expect(prisma.customerPayment.count).toHaveBeenCalledWith({ where: { organizationId: "org-1", accountId: "account-1" } });
+    expect(prisma.bankAccountProfile.count).toHaveBeenCalledWith({ where: { organizationId: "org-1", accountId: "account-1" } });
     expect(prisma.account.delete).not.toHaveBeenCalled();
   });
 
@@ -31,7 +32,7 @@ describe("chart of accounts rules", () => {
 });
 
 function makePrismaMock(
-  counts: { journalLines?: number; children?: number; invoiceLines?: number; items?: number; payments?: number } = {},
+  counts: { journalLines?: number; children?: number; invoiceLines?: number; items?: number; payments?: number; bankProfiles?: number } = {},
 ) {
   return {
     account: {
@@ -43,5 +44,6 @@ function makePrismaMock(
     salesInvoiceLine: { count: jest.fn().mockResolvedValue(counts.invoiceLines ?? 0) },
     item: { count: jest.fn().mockResolvedValue(counts.items ?? 0) },
     customerPayment: { count: jest.fn().mockResolvedValue(counts.payments ?? 0) },
+    bankAccountProfile: { count: jest.fn().mockResolvedValue(counts.bankProfiles ?? 0) },
   };
 }

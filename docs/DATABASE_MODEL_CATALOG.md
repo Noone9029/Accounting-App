@@ -24,6 +24,8 @@ Schema source: `apps/api/prisma/schema.prisma`
 | `SupplierPaymentStatus` | `DRAFT`, `POSTED`, `VOIDED` | Supplier payment lifecycle. |
 | `CustomerRefundStatus` | `DRAFT`, `POSTED`, `VOIDED` | Customer refund lifecycle. |
 | `CustomerRefundSourceType` | `CUSTOMER_PAYMENT`, `CREDIT_NOTE` | Refund source type. |
+| `BankAccountType` | `BANK`, `CASH`, `WALLET`, `CARD`, `OTHER` | Cash/bank profile classification for posting asset accounts. |
+| `BankAccountStatus` | `ACTIVE`, `ARCHIVED` | Cash/bank profile availability. |
 | `DocumentType` | `SALES_INVOICE`, `CREDIT_NOTE`, `CUSTOMER_PAYMENT_RECEIPT`, `CUSTOMER_REFUND`, `CUSTOMER_STATEMENT`, `PURCHASE_ORDER`, `PURCHASE_BILL`, `PURCHASE_DEBIT_NOTE`, `SUPPLIER_PAYMENT_RECEIPT`, `SUPPLIER_REFUND`, `CASH_EXPENSE` | Generated document classification. |
 | `GeneratedDocumentStatus` | `GENERATED`, `FAILED`, `SUPERSEDED` | Archive status. |
 | `ZatcaEnvironment` | `SANDBOX`, `SIMULATION`, `PRODUCTION` | ZATCA environment marker. |
@@ -59,7 +61,8 @@ Schema source: `apps/api/prisma/schema.prisma`
 
 | Model | Purpose | Important fields | Relationships | Accounting impact | Lifecycle/status | Known limitations |
 | --- | --- | --- | --- | --- | --- | --- |
-| `Account` | Chart of accounts node. | `code`, `name`, `type`, `allowPosting`, `isSystem`, `isActive`, `parentId`. | Journal lines, items, invoice/credit/bill lines, payments/refunds. | All postings reference accounts. | Active/system flags. | Descendant cycle guard needs hardening. |
+| `Account` | Chart of accounts node. | `code`, `name`, `type`, `allowPosting`, `isSystem`, `isActive`, `parentId`. | Journal lines, items, invoice/credit/bill lines, payments/refunds, optional bank account profile. | All postings reference accounts. | Active/system flags. | Descendant cycle guard needs hardening. |
+| `BankAccountProfile` | Cash/bank metadata wrapper for a posting asset account. | `accountId`, `type`, `status`, `displayName`, masked account/IBAN, currency, opening balance metadata. | Organization, one linked Account. | No posting; ledger balance is derived from posted journal lines for the account. | `BankAccountStatus`. | No statement import, reconciliation, transfer workflow, or opening-balance journal automation. |
 | `TaxRate` | VAT/tax rate. | `scope`, `category`, `rate`, `isActive`, `isSystem`. | Invoice, credit note, purchase bill lines, items, journal lines. | Calculates tax and links tax lines. | Active/system flags. | VAT reporting not implemented. |
 | `Item` | Product/service catalog. | `type`, `status`, `sellingPrice`, `purchaseCost`, account/tax defaults, `inventoryTracking`. | Invoice, credit note, purchase order, purchase bill lines. | Defaults accounts/taxes; no stock accounting yet. | `ItemStatus`. | Inventory tracking is a flag only. |
 | `FiscalPeriod` | Accounting posting period. | `name`, `startsOn`, `endsOn`, `status`. | Organization. | Controls posting windows through the fiscal period guard. | `FiscalPeriodStatus`. | No unlock/admin approval, fiscal year wizard, or retained earnings close. |

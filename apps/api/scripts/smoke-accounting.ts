@@ -60,6 +60,33 @@ interface Account {
   isActive: boolean;
 }
 
+interface BankAccountSummary {
+  id: string;
+  accountId: string;
+  displayName: string;
+  type: string;
+  status: string;
+  ledgerBalance: string;
+  transactionCount: number;
+  account: {
+    id: string;
+    code: string;
+    name: string;
+  };
+}
+
+interface BankAccountTransactionsResponse {
+  closingBalance: string;
+  transactions: Array<{
+    id: string;
+    sourceType: string;
+    sourceId: string | null;
+    debit: string;
+    credit: string;
+    runningBalance: string;
+  }>;
+}
+
 interface FiscalPeriod {
   id: string;
   name: string;
@@ -474,6 +501,19 @@ async function main(): Promise<void> {
     accounts.find((account) => account.code === "112" && account.allowPosting && account.isActive) ??
     accounts.find((account) => account.code === "111" && account.allowPosting && account.isActive);
   required(paidThroughAccount, "Bank Account code 112 or Cash code 111");
+  const bankAccounts = await get<BankAccountSummary[]>("/bank-accounts", headers);
+  assert(
+    bankAccounts.some((profile) => profile.account.code === "111" && profile.displayName === "Cash" && profile.status === "ACTIVE"),
+    "default Cash bank account profile exists",
+  );
+  assert(
+    bankAccounts.some((profile) => profile.account.code === "112" && profile.displayName === "Bank Account" && profile.status === "ACTIVE"),
+    "default Bank Account profile exists",
+  );
+  const paidThroughBankProfile = required(
+    bankAccounts.find((profile) => profile.accountId === paidThroughAccount!.id),
+    "bank account profile for paid-through account",
+  );
 
   const fiscalPeriods = await get<FiscalPeriod[]>("/fiscal-periods", headers);
   let closedSmokeYear = 1990;
@@ -719,6 +759,7 @@ async function main(): Promise<void> {
     }),
   );
 
+  const bankBeforePartialPayment = await get<BankAccountSummary>(`/bank-accounts/${paidThroughBankProfile.id}`, headers);
   const partialPayment = await post<CustomerPayment>("/customer-payments", headers, {
     customerId: customer.id,
     paymentDate: new Date().toISOString(),
@@ -729,6 +770,12 @@ async function main(): Promise<void> {
     allocations: [{ invoiceId: draftInvoice.id, amountApplied: partialPaymentAmount.toFixed(4) }],
   });
   assertEqual(partialPayment.status, "POSTED", "partial payment status");
+  const bankAfterPartialPayment = await get<BankAccountSummary>(`/bank-accounts/${paidThroughBankProfile.id}`, headers);
+  assertMoney(
+    bankAfterPartialPayment.ledgerBalance,
+    money(bankBeforePartialPayment.ledgerBalance).plus(partialPaymentAmount),
+    "bank account balance after customer payment",
+  );
 
   const afterPartialPayment = await get<SalesInvoice>(`/sales-invoices/${draftInvoice.id}`, headers);
   assertMoney(afterPartialPayment.balanceDue, remainingPaymentAmount, "invoice balance after partial payment");
@@ -1282,10 +1329,30 @@ async function main(): Promise<void> {
       },
     ],
   };
+  const bankBeforeCashExpense = await get<BankAccountSummary>(`/bank-accounts/${paidThroughBankProfile.id}`, headers);
   const cashExpense = await post<CashExpense>("/cash-expenses", headers, cashExpensePayload);
   assertEqual(cashExpense.status, "POSTED", "cash expense posted status");
   assertPresent(cashExpense.journalEntryId, "cash expense journalEntryId");
   assertMoney(cashExpense.total, expectedPurchaseBillTotal, "cash expense total");
+  const bankAfterCashExpense = await get<BankAccountSummary>(`/bank-accounts/${paidThroughBankProfile.id}`, headers);
+  assertMoney(
+    bankAfterCashExpense.ledgerBalance,
+    money(bankBeforeCashExpense.ledgerBalance).minus(expectedPurchaseBillTotal),
+    "bank account balance after cash expense",
+  );
+  const bankTransactionsAfterCashExpense = await get<BankAccountTransactionsResponse>(
+    `/bank-accounts/${paidThroughBankProfile.id}/transactions`,
+    headers,
+  );
+  assert(
+    bankTransactionsAfterCashExpense.transactions.some(
+      (transaction) =>
+        transaction.sourceType === "CashExpense" &&
+        transaction.sourceId === cashExpense.id &&
+        money(transaction.credit).eq(expectedPurchaseBillTotal),
+    ),
+    "bank account transactions include posted cash expense credit",
+  );
   const cashExpensePdfData = await get<{ expense: { expenseNumber: string; total: string }; lines: unknown[] }>(
     `/cash-expenses/${cashExpense.id}/pdf-data`,
     headers,
@@ -1494,6 +1561,7 @@ async function main(): Promise<void> {
   );
 
   const supplierPaymentAmount = money("40.0000");
+  const bankBeforeSupplierPayment = await get<BankAccountSummary>(`/bank-accounts/${paidThroughBankProfile.id}`, headers);
   const supplierPayment = await post<SupplierPayment>("/supplier-payments", headers, {
     supplierId: supplier.id,
     paymentDate: new Date().toISOString(),
@@ -1506,6 +1574,25 @@ async function main(): Promise<void> {
   assertEqual(supplierPayment.status, "POSTED", "supplier payment status");
   assertPresent(supplierPayment.journalEntryId, "supplier payment journalEntryId");
   assertMoney(supplierPayment.unappliedAmount, money(0), "supplier payment unapplied amount");
+  const bankAfterSupplierPayment = await get<BankAccountSummary>(`/bank-accounts/${paidThroughBankProfile.id}`, headers);
+  assertMoney(
+    bankAfterSupplierPayment.ledgerBalance,
+    money(bankBeforeSupplierPayment.ledgerBalance).minus(supplierPaymentAmount),
+    "bank account balance after supplier payment",
+  );
+  const bankTransactionsAfterSupplierPayment = await get<BankAccountTransactionsResponse>(
+    `/bank-accounts/${paidThroughBankProfile.id}/transactions`,
+    headers,
+  );
+  assert(
+    bankTransactionsAfterSupplierPayment.transactions.some(
+      (transaction) =>
+        transaction.sourceType === "SupplierPayment" &&
+        transaction.sourceId === supplierPayment.id &&
+        money(transaction.credit).eq(supplierPaymentAmount),
+    ),
+    "bank account transactions include posted supplier payment credit",
+  );
 
   const purchaseBillAfterPayment = await get<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}`, headers);
   assertMoney(purchaseBillAfterPayment.balanceDue, expectedPurchaseBillTotal.minus(supplierPaymentAmount), "purchase bill balance after supplier payment");
@@ -1857,6 +1944,35 @@ async function main(): Promise<void> {
   assertPresent(agedReceivablesReport.grandTotal, "aged receivables grand total");
   const agedPayablesReport = await get<AgingReport>("/reports/aged-payables", headers);
   assertPresent(agedPayablesReport.grandTotal, "aged payables grand total");
+  const bankTransactions = await get<BankAccountTransactionsResponse>(`/bank-accounts/${paidThroughBankProfile.id}/transactions`, headers);
+  assert(bankTransactions.transactions.length > 0, "bank account transactions endpoint returns posted activity");
+  assert(
+    bankTransactions.transactions.some(
+      (transaction) =>
+        transaction.sourceType === "CustomerPayment" &&
+        transaction.sourceId === partialPayment.id &&
+        money(transaction.debit).eq(partialPaymentAmount),
+    ),
+    "bank account transactions include customer payment debit",
+  );
+  assert(
+    bankTransactions.transactions.some(
+      (transaction) =>
+        transaction.sourceType === "SupplierPayment" &&
+        transaction.sourceId === supplierOverpayment.id &&
+        money(transaction.credit).eq(supplierOverpaymentAmount),
+    ),
+    "bank account transactions include still-posted supplier payment credit",
+  );
+  assert(
+    bankTransactions.transactions.some(
+      (transaction) =>
+        transaction.sourceType === "VoidCashExpense" &&
+        transaction.sourceId === cashExpense.id &&
+        money(transaction.debit).eq(expectedPurchaseBillTotal),
+    ),
+    "bank account transactions include posted cash expense void reversal",
+  );
 
   const voidedPayment = await post<CustomerPayment>(`/customer-payments/${partialPayment.id}/void`, headers, {});
   assertEqual(voidedPayment.status, "VOIDED", "voided payment status");
@@ -1887,6 +2003,8 @@ async function main(): Promise<void> {
         roleManagementChecked: true,
         smokeCustomRoleId: smokeRole.id,
         memberManagementChecked: true,
+        bankAccountProfileId: paidThroughBankProfile.id,
+        bankAccountTransactionCount: bankTransactions.transactions.length,
         closedFiscalPeriodId: closedFiscalPeriod.id,
         fiscalPeriodLockChecked: true,
         customerId: customer.id,

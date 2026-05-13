@@ -6,9 +6,10 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { bankAccountOptionLabel } from "@/lib/bank-accounts";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { calculatePaymentAllocationPreview, formatMoneyAmount, parseDecimalToUnits } from "@/lib/money";
-import type { Account, Contact, CustomerPayment, OpenSalesInvoice } from "@/lib/types";
+import type { Account, BankAccountSummary, Contact, CustomerPayment, OpenSalesInvoice } from "@/lib/types";
 
 interface AllocationState {
   invoiceId: string;
@@ -24,6 +25,7 @@ export default function NewCustomerPaymentPage() {
   const organizationId = useActiveOrganizationId();
   const [customers, setCustomers] = useState<Contact[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [bankProfiles, setBankProfiles] = useState<BankAccountSummary[]>([]);
   const [openInvoices, setOpenInvoices] = useState<OpenSalesInvoice[]>([]);
   const [customerId, setCustomerId] = useState("");
   const [prefilledInvoiceId, setPrefilledInvoiceId] = useState("");
@@ -74,14 +76,15 @@ export default function NewCustomerPaymentPage() {
     setLoadingSetup(true);
     setError("");
 
-    Promise.all([apiRequest<Contact[]>("/contacts"), apiRequest<Account[]>("/accounts")])
-      .then(([contactResult, accountResult]) => {
+    Promise.all([apiRequest<Contact[]>("/contacts"), apiRequest<Account[]>("/accounts"), apiRequest<BankAccountSummary[]>("/bank-accounts").catch(() => [])])
+      .then(([contactResult, accountResult, bankProfileResult]) => {
         if (cancelled) {
           return;
         }
 
         setCustomers(contactResult.filter((contact) => contact.isActive && (contact.type === "CUSTOMER" || contact.type === "BOTH")));
         setAccounts(accountResult);
+        setBankProfiles(bankProfileResult);
         const defaultAsset =
           accountResult.find((account) => account.code === "112" && account.isActive && account.allowPosting && account.type === "ASSET") ??
           accountResult.find((account) => account.code === "111" && account.isActive && account.allowPosting && account.type === "ASSET");
@@ -243,7 +246,7 @@ export default function NewCustomerPaymentPage() {
                 <option value="">Select cash or bank account</option>
                 {paidThroughAccounts.map((account) => (
                   <option key={account.id} value={account.id}>
-                    {account.code} {account.name}
+                    {bankAccountOptionLabel(account, bankProfiles)}
                   </option>
                 ))}
               </select>

@@ -1,7 +1,12 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { DEFAULT_ROLE_PERMISSIONS, hasPermission, PERMISSIONS } from "@ledgerbyte/shared";
-import { DEFAULT_ACCOUNTS, DEFAULT_NUMBER_SEQUENCES, DEFAULT_TAX_RATES } from "../accounting/foundation-data";
+import {
+  DEFAULT_ACCOUNTS,
+  DEFAULT_BANK_ACCOUNT_PROFILES,
+  DEFAULT_NUMBER_SEQUENCES,
+  DEFAULT_TAX_RATES,
+} from "../accounting/foundation-data";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateOrganizationDto } from "./dto/create-organization.dto";
@@ -202,6 +207,28 @@ export class OrganizationService {
         },
       });
       accountIdsByCode.set(account.code, created.id);
+    }
+
+    const organization = await tx.organization.findUnique({
+      where: { id: organizationId },
+      select: { baseCurrency: true },
+    });
+
+    for (const profile of DEFAULT_BANK_ACCOUNT_PROFILES) {
+      const accountId = accountIdsByCode.get(profile.accountCode);
+      if (!accountId) {
+        continue;
+      }
+
+      await tx.bankAccountProfile.create({
+        data: {
+          organizationId,
+          accountId,
+          type: profile.type,
+          displayName: profile.displayName,
+          currency: organization?.baseCurrency ?? "SAR",
+        },
+      });
     }
 
     for (const taxRate of DEFAULT_TAX_RATES) {

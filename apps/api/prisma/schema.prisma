@@ -133,6 +133,19 @@ enum CashExpenseStatus {
   VOIDED
 }
 
+enum BankAccountType {
+  BANK
+  CASH
+  WALLET
+  CARD
+  OTHER
+}
+
+enum BankAccountStatus {
+  ACTIVE
+  ARCHIVED
+}
+
 enum DocumentType {
   SALES_INVOICE
   CREDIT_NOTE
@@ -264,6 +277,7 @@ model Organization {
   branches                   Branch[]
   contacts                   Contact[]
   accounts                   Account[]
+  bankAccountProfiles        BankAccountProfile[]
   taxRates                   TaxRate[]
   items                      Item[]
   salesInvoices              SalesInvoice[]
@@ -585,10 +599,35 @@ model Account {
   supplierPayments  SupplierPayment[]  @relation("SupplierPaymentAccount")
   customerRefunds   CustomerRefund[]   @relation("CustomerRefundAccount")
   supplierRefunds   SupplierRefund[]   @relation("SupplierRefundAccount")
+  bankAccountProfile BankAccountProfile?
 
   @@unique([organizationId, code])
   @@index([organizationId])
   @@index([parentId])
+}
+
+model BankAccountProfile {
+  id                  String            @id @default(uuid()) @db.Uuid
+  organizationId      String            @db.Uuid
+  accountId           String            @unique @db.Uuid
+  type                BankAccountType
+  status              BankAccountStatus @default(ACTIVE)
+  displayName         String
+  bankName            String?
+  accountNumberMasked String?
+  ibanMasked          String?
+  currency            String            @default("SAR")
+  openingBalance      Decimal           @default(0) @db.Decimal(20, 4)
+  openingBalanceDate  DateTime?
+  notes               String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  organization        Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  account             Account           @relation(fields: [accountId], references: [id])
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, type])
 }
 
 model TaxRate {

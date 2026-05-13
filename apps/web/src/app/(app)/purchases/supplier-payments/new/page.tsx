@@ -6,9 +6,10 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { bankAccountOptionLabel } from "@/lib/bank-accounts";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { calculateSupplierPaymentAllocationPreview, formatMoneyAmount, parseDecimalToUnits } from "@/lib/money";
-import type { Account, Contact, PurchaseBill, SupplierPayment } from "@/lib/types";
+import type { Account, BankAccountSummary, Contact, PurchaseBill, SupplierPayment } from "@/lib/types";
 
 interface AllocationState {
   billId: string;
@@ -24,6 +25,7 @@ export default function NewSupplierPaymentPage() {
   const organizationId = useActiveOrganizationId();
   const [suppliers, setSuppliers] = useState<Contact[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [bankProfiles, setBankProfiles] = useState<BankAccountSummary[]>([]);
   const [openBills, setOpenBills] = useState<PurchaseBill[]>([]);
   const [supplierId, setSupplierId] = useState("");
   const [paymentDate, setPaymentDate] = useState(todayInputValue());
@@ -61,14 +63,15 @@ export default function NewSupplierPaymentPage() {
     setLoadingSetup(true);
     setError("");
 
-    Promise.all([apiRequest<Contact[]>("/contacts"), apiRequest<Account[]>("/accounts")])
-      .then(([contactResult, accountResult]) => {
+    Promise.all([apiRequest<Contact[]>("/contacts"), apiRequest<Account[]>("/accounts"), apiRequest<BankAccountSummary[]>("/bank-accounts").catch(() => [])])
+      .then(([contactResult, accountResult, bankProfileResult]) => {
         if (cancelled) {
           return;
         }
 
         setSuppliers(contactResult.filter((contact) => contact.isActive && (contact.type === "SUPPLIER" || contact.type === "BOTH")));
         setAccounts(accountResult);
+        setBankProfiles(bankProfileResult);
         const defaultAsset =
           accountResult.find((account) => account.code === "112" && account.isActive && account.allowPosting && account.type === "ASSET") ??
           accountResult.find((account) => account.code === "111" && account.isActive && account.allowPosting && account.type === "ASSET");
@@ -219,7 +222,7 @@ export default function NewSupplierPaymentPage() {
                 <option value="">Select cash or bank account</option>
                 {paidThroughAccounts.map((account) => (
                   <option key={account.id} value={account.id}>
-                    {account.code} {account.name}
+                    {bankAccountOptionLabel(account, bankProfiles)}
                   </option>
                 ))}
               </select>
