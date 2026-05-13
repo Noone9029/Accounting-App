@@ -454,6 +454,7 @@ model Role {
   organizationId String               @db.Uuid
   name           String
   permissions    Json
+  isSystem       Boolean              @default(false)
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
   organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)

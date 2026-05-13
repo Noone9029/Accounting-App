@@ -1,6 +1,6 @@
 # Frontend Route Catalog
 
-Audit date: 2026-05-12
+Audit date: 2026-05-13
 
 Route source: `apps/web/src/app`
 
@@ -10,6 +10,7 @@ Route source: `apps/web/src/app`
 - The sidebar filters top-level and child nav items by view permissions.
 - Route protection shows an access-denied panel when a user lacks the page permission.
 - High-risk buttons such as finalize, void, delete, apply/reverse allocation, fiscal period lock, ZATCA generate/check, and document settings save are hidden unless the active role has the matching permission.
+- Settings/Admin nav now includes Team Members for `users.view` and Roles & Permissions for `roles.view`.
 
 ## Auth And Setup
 
@@ -33,6 +34,9 @@ Route source: `apps/web/src/app`
 | `/fiscal-periods` | Fiscal period management. | Fiscal periods. | Create, close, reopen, and lock periods. | Implemented | No unlock/admin approval or fiscal year wizard yet. |
 | `/settings/documents` | Document PDF settings. | Organization document settings. | Update titles/colors/visibility. | Implemented | Template preview/designer missing. |
 | `/settings/zatca` | ZATCA settings, readiness, checklist, SDK readiness. | Profile, EGS units, logs, adapter config, readiness, checklist, SDK readiness. | Update profile, create/update EGS, CSR, mock CSID, dry-run visibility. | Groundwork only | Real ZATCA onboarding/submission not present. |
+| `/settings/team` | Team member administration. | Members and roles. | Change member role/status and create invite placeholders. | Implemented | No email invite delivery, password reset, or onboarding flow yet. |
+| `/settings/roles` | Role list and custom role creation. | Roles and permission matrix. | Create custom roles when allowed. | Implemented | System roles are read-only; no bulk templates beyond seed roles. |
+| `/settings/roles/[id]` | Role detail and permission matrix. | Role detail. | Edit/delete custom roles when allowed. | Implemented | No approval workflow for role changes. |
 | `/[...placeholder]` | Placeholder fallback for unbuilt sections. | None. | Navigation. | Placeholder | Replace as modules are implemented. |
 
 ## Contacts

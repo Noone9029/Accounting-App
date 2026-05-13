@@ -34,6 +34,8 @@ describe("permission helpers", () => {
     expect(getRequiredPermissionsForPathname("/sales/invoices/new")).toEqual([PERMISSIONS.salesInvoices.create]);
     expect(getRequiredPermissionsForPathname("/sales/invoices/inv-1/edit")).toEqual([PERMISSIONS.salesInvoices.update]);
     expect(getRequiredPermissionsForPathname("/settings/zatca")).toEqual([PERMISSIONS.zatca.view]);
+    expect(getRequiredPermissionsForPathname("/settings/team")).toEqual([PERMISSIONS.users.view]);
+    expect(getRequiredPermissionsForPathname("/settings/roles/role-1")).toEqual([PERMISSIONS.roles.view]);
     expect(getRequiredPermissionsForPathname("/unknown")).toEqual([]);
   });
 });
@@ -62,7 +64,14 @@ describe("sidebar nav filtering", () => {
       "For accountants",
       "Branches",
       "Documents / Archive",
-      "Document templates",
+      "Settings / Admin",
     ]);
+  });
+
+  it("shows team and role settings when the user can view members and roles", () => {
+    const nav = filterSidebarNavItems(subject([PERMISSIONS.users.view, PERMISSIONS.roles.view]));
+    const settings = nav.find((item) => item.label === "Settings / Admin");
+
+    expect(settings?.children?.map((item) => item.label)).toEqual(["Team Members", "Roles & Permissions"]);
   });
 });

@@ -1,4 +1,5 @@
 import {
+  ALL_PERMISSIONS,
   hasAllPermissions as sharedHasAllPermissions,
   hasAnyPermission as sharedHasAnyPermission,
   hasPermission as sharedHasPermission,
@@ -9,7 +10,7 @@ import {
 } from "../../../../packages/shared/src/permissions";
 import type { MeResponse } from "./types";
 
-export { PERMISSIONS, type Permission };
+export { ALL_PERMISSIONS, PERMISSIONS, type Permission };
 
 export type PermissionSubject =
   | Pick<MeResponse, "memberships">
@@ -179,6 +180,14 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
 
   if (pathname.startsWith("/settings/zatca")) {
     return [PERMISSIONS.zatca.view];
+  }
+
+  if (pathname.startsWith("/settings/team")) {
+    return [PERMISSIONS.users.view];
+  }
+
+  if (pathname.startsWith("/settings/roles")) {
+    return [PERMISSIONS.roles.view];
   }
 
   return [];

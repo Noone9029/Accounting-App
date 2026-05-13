@@ -28,6 +28,30 @@ interface Organization {
   name: string;
 }
 
+interface Role {
+  id: string;
+  name: string;
+  permissions: string[];
+  isSystem: boolean;
+  memberCount: number;
+}
+
+interface OrganizationMember {
+  id: string;
+  status: string;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+  };
+  role: {
+    id: string;
+    name: string;
+    permissions: string[];
+    isSystem: boolean;
+  };
+}
+
 interface Account {
   id: string;
   code: string;
@@ -394,6 +418,30 @@ async function main(): Promise<void> {
   const context = await loginAndSelectOrganization();
   const runId = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
   const headers = tenantHeaders(context);
+
+  const roles = await get<Role[]>("/roles", headers);
+  for (const roleName of ["Owner", "Admin", "Accountant", "Sales", "Purchases", "Viewer"]) {
+    assert(roles.some((role) => role.name === roleName && role.isSystem), `default role ${roleName} exists and is system-protected`);
+  }
+  const ownerRole = required(roles.find((role) => role.name === "Owner"), "Owner role");
+  assert(ownerRole.permissions.includes("admin.fullAccess"), "Owner role includes admin.fullAccess");
+  const members = await get<OrganizationMember[]>("/organization-members", headers);
+  assert(
+    members.some((member) => member.user.email === seedEmail && member.role.name === "Owner" && member.status === "ACTIVE"),
+    "seed user is an active Owner member",
+  );
+  const smokeRole = await post<Role>("/roles", headers, {
+    name: `Smoke Reports Viewer ${runId}`,
+    permissions: ["reports.view"],
+  });
+  assertEqual(smokeRole.permissions.length, 1, "smoke custom role permission count");
+  assert(smokeRole.permissions.includes("reports.view"), "smoke custom role reports.view permission");
+  await expectHttpError("unknown role permission", () =>
+    post<Role>("/roles", headers, {
+      name: `Smoke Invalid Role ${runId}`,
+      permissions: ["reports.view", "unknown.permission"],
+    }),
+  );
 
   const documentSettings = await get<OrganizationDocumentSettings>("/organization-document-settings", headers);
   assertPresent(documentSettings.footerText, "document settings footer text");
@@ -1782,6 +1830,9 @@ async function main(): Promise<void> {
         organization: context.organization,
         smokeRoleName: context.roleName,
         smokePermissionCount: context.permissionCount,
+        roleManagementChecked: true,
+        smokeCustomRoleId: smokeRole.id,
+        memberManagementChecked: true,
         closedFiscalPeriodId: closedFiscalPeriod.id,
         fiscalPeriodLockChecked: true,
         customerId: customer.id,

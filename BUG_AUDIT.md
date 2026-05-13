@@ -840,6 +840,29 @@ Commit inspected: pending (`Enforce role permissions`)
 - Approval workflows, maker-checker review, and dual-control policies are not implemented.
 - Permission coverage must be kept current when new modules or endpoints are added.
 
+## Team And Role Management
+
+Audit date: 2026-05-13
+
+Commit inspected: pending (`Add team and role management`)
+
+### Team/Role Management Added
+
+- Added `Role.isSystem` so seeded default roles can be protected from deletion and editing.
+- Added role create/update/delete APIs with permission-string validation against the shared permission catalog.
+- Added organization member list/detail, role update, status update, and local invite-placeholder APIs.
+- Added lockout safeguards that block removing the last active full-access member and leaving the organization without an active user manager.
+- Added `/settings/team`, `/settings/roles`, and `/settings/roles/[id]` UI pages with permission-aware controls.
+- Added grouped permission matrix UI for viewing and editing custom roles.
+- Extended smoke coverage for role list, member list, custom role creation, and unknown permission rejection.
+
+### Remaining Team/Role Risks
+
+- Email invite delivery is not implemented.
+- Password reset and onboarding for invited users are not implemented.
+- Approval workflows and dual-control for high-risk role/member changes are not implemented.
+- Role/member changes write audit logs, but there is no dedicated audit review UI yet.
+
 ## Remaining Risks
 
 - The concurrency strategy relies on PostgreSQL row locks produced by conditional updates inside Prisma transactions. A small multi-process load test is still recommended before production.

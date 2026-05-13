@@ -15,6 +15,7 @@ import { HealthModule } from "./health/health.module";
 import { ItemModule } from "./items/item.module";
 import { FiscalPeriodModule } from "./fiscal-periods/fiscal-period.module";
 import { NumberSequenceModule } from "./number-sequences/number-sequence.module";
+import { OrganizationMemberModule } from "./organization-members/organization-member.module";
 import { OrganizationDocumentSettingsModule } from "./document-settings/organization-document-settings.module";
 import { OrganizationModule } from "./organizations/organization.module";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -43,6 +44,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     CustomerRefundModule,
     GeneratedDocumentModule,
     FiscalPeriodModule,
+    OrganizationMemberModule,
     OrganizationDocumentSettingsModule,
     ItemModule,
     SalesInvoiceModule,

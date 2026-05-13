@@ -1,8 +1,8 @@
 # LedgerByte Project Audit
 
-Audit date: 2026-05-12
+Audit date: 2026-05-13
 
-Current commit audited: pending (`Enforce role permissions`)
+Current commit audited: pending (`Add team and role management`)
 
 ## Summary
 
@@ -36,7 +36,8 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 ## What Works End To End
 
 - Register/login, organization selection, and role-aware `/auth/me` membership responses.
-- Tenant-scoped role permissions with default Owner/Admin/Accountant/Sales/Purchases/Viewer roles.
+- Tenant-scoped role permissions with protected default Owner/Admin/Accountant/Sales/Purchases/Viewer roles.
+- Role and organization member management UI/API with custom role creation, permission matrices, role/status changes, and local invite placeholders.
 - API permission guards for sensitive accounting, document, report, fiscal period, and ZATCA actions.
 - Frontend sidebar, route access, and high-risk action visibility based on active role permissions.
 - Tenant-scoped CRUD foundations for accounts, branches, contacts, tax rates, items, and journals.
@@ -56,7 +57,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 
 ## Groundwork Or Scaffold Only
 
-- Invite/user administration and role editor UI remain limited even though permission enforcement now exists.
+- Invite delivery, invited-user onboarding, and password reset remain placeholder/missing even though local role/member management exists.
 - Fiscal periods exist in schema, but no period close/lock enforcement exists.
 - Reports are not implemented beyond customer/supplier ledger and statements.
 - Inventory tracking flags exist on items, but no warehouse, stock, COGS, or valuation engine exists.
@@ -69,7 +70,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 ## Top 10 Risks
 
 1. ZATCA is not production compliant; real onboarding, signing, SDK validation, and API submission are missing.
-2. Invite/user administration and role editor workflows are still limited despite API/UI permission enforcement.
+2. Email-backed invites, invited-user onboarding, and password reset are still missing despite local role/member management.
 3. No approval workflow, dual control, or maker-checker policy for high-risk accounting actions.
 4. No bank reconciliation or bank statement import.
 5. Inventory flags exist without stock movements, valuation, COGS, or warehouse controls.
@@ -82,7 +83,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 ## Top 10 Next Priorities
 
 1. Run a human QA pass through all sales, purchase, payment, refund, and PDF routes.
-2. Add role/member management UI and invite flow hardening on top of the new permission checks.
+2. Add email-backed invite delivery, password reset/onboarding, and stronger audit views for role/member changes.
 3. Add report export/PDF delivery, official VAT return work, and accountant review for report definitions.
 4. Add fiscal year close, retained earnings close, and controlled unlock/approval workflows.
 5. Add purchase orders and bill matching.

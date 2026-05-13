@@ -1,6 +1,6 @@
 # API Catalog
 
-Audit date: 2026-05-12
+Audit date: 2026-05-13
 
 Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints and `GET /health` are exceptions. Status values here describe implementation maturity, not runtime health.
 
@@ -41,6 +41,19 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | --- | --- | --- | --- | --- | --- | --- |
 | GET | `/roles` | List organization roles | Yes | Yes | Implemented | Requires `roles.view`; tenant scoped. |
 | GET | `/roles/:id` | Role detail | Yes | Yes | Implemented | Requires `roles.view`; tenant scoped. |
+| POST | `/roles` | Create custom role | Yes | Yes | Implemented | Requires `roles.manage`; rejects unknown permission strings. |
+| PATCH | `/roles/:id` | Update custom role | Yes | Yes | Implemented | Requires `roles.manage`; system roles are protected. |
+| DELETE | `/roles/:id` | Delete custom role | Yes | Yes | Implemented | Requires `roles.manage`; rejects system roles and roles assigned to active members. |
+
+## Organization Members
+
+| Method | Path | Purpose | Auth | Org header | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| GET | `/organization-members` | List organization members | Yes | Yes | Implemented | Requires `users.view`; tenant scoped. |
+| GET | `/organization-members/:id` | Member detail | Yes | Yes | Implemented | Requires `users.view`; tenant scoped. |
+| PATCH | `/organization-members/:id/role` | Change member role | Yes | Yes | Implemented | Requires `users.manage`; blocks last full-access/user-manager lockout. |
+| PATCH | `/organization-members/:id/status` | Change member status | Yes | Yes | Implemented | Requires `users.manage`; supports `ACTIVE`, `INVITED`, `SUSPENDED`. |
+| POST | `/organization-members/invite` | Create local invite placeholder | Yes | Yes | Placeholder | Requires `users.invite`; only works for an existing user and sends no email. |
 
 ## Branches
 

@@ -41,7 +41,7 @@ Schema source: `apps/api/prisma/schema.prisma`
 | `User` | Login identity. | `email`, `passwordHash`, `name`. | Memberships, created/posted records, generated documents. | Tracks actors for accounting events. | No explicit status enum. | No password reset/MFA. |
 | `Organization` | Tenant root. | `name`, `legalName`, `taxNumber`, `baseCurrency`, `timezone`. | Owns almost every business model. | Tenant boundary for ledgers/journals. | No explicit status enum. | No subscription/billing state. |
 | `OrganizationMember` | User-to-org link. | `organizationId`, `userId`, `roleId`, `status`. | User, Organization, Role. | Controls org access and permission lookup. | `MembershipStatus`. | Invite/member lifecycle UI remains limited. |
-| `Role` | Stored permission set. | `name`, `permissions` JSON. | Organization, members. | Runtime API/UI access control. | No lifecycle enum. | Role editor UI remains limited. |
+| `Role` | Stored permission set. | `name`, `permissions` JSON, `isSystem`. | Organization, members. | Runtime API/UI access control. | No lifecycle enum. | System roles are protected; no approval workflow. |
 | `AuditLog` | Mutation audit trail. | `action`, `entityType`, `entityId`, `before`, `after`. | Organization, optional actor. | Supports auditability. | Append-only by convention. | Coverage should be verified per mutation. |
 
 ## Organization Setup Models

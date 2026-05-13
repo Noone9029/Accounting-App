@@ -109,7 +109,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, `/auth/me` role permission visibility, organization discovery, item/customer/supplier setup, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
+The smoke covers seed login, `/auth/me` role permission visibility, role/member API visibility, custom role creation, unknown-permission rejection, organization discovery, item/customer/supplier setup, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
 
@@ -150,6 +150,17 @@ Roles:
 
 - `GET /roles`
 - `GET /roles/:id`
+- `POST /roles`
+- `PATCH /roles/:id`
+- `DELETE /roles/:id`
+
+Organization members:
+
+- `GET /organization-members`
+- `GET /organization-members/:id`
+- `PATCH /organization-members/:id/role`
+- `PATCH /organization-members/:id/status`
+- `POST /organization-members/invite` creates a local invite placeholder only; it does not send email.
 
 Accounts:
 
@@ -956,6 +967,20 @@ Frontend enforcement:
 - Sidebar navigation is filtered by permissions.
 - Page-level route protection shows an access-denied panel instead of crashing or redirecting forever.
 - High-risk action buttons are hidden when the active role lacks the matching create/update/finalize/void/manage permission.
+- `/settings/team` lists organization members, supports role/status changes for `users.manage`, and exposes a no-email invite placeholder for `users.invite`.
+- `/settings/roles` and `/settings/roles/:id` show role lists and grouped permission matrices; custom roles can be edited with `roles.manage`, while system/default roles are protected.
+
+Permission matrix categories:
+
+- Organization
+- Users / Roles
+- Accounting
+- Sales
+- Purchases
+- Reports
+- Documents
+- ZATCA
+- Admin
 
 ## Current Package Boundaries
 
@@ -984,5 +1009,7 @@ Frontend enforcement:
 - Bank reconciliation is not implemented yet.
 - Inventory movement and stock valuation are not implemented yet.
 - BullMQ workers and S3 upload adapters are not wired yet.
-- Invite/user management and the role editor UI are still limited.
+- Email invitations are not implemented; invite placeholders require the target user to already exist.
+- Password reset and onboarding flows for invited users are not implemented yet.
 - Fine-grained approval workflows, dual control, and delegated approval chains are not implemented yet.
+- There is no dedicated audit UI for role/member changes yet, although audit-log records are written.

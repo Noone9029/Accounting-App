@@ -1,6 +1,6 @@
 # Remaining Roadmap
 
-Audit date: 2026-05-12
+Audit date: 2026-05-13
 
 ## Phase 1: Stabilize Current MVP
 
@@ -11,7 +11,7 @@ Tasks:
 - Run guided QA through every implemented frontend route.
 - Fix UX inconsistencies, especially supplier AP balance labels.
 - Add browser E2E tests for sales invoice, customer payment, credit note, customer refund, purchase bill, supplier payment, document archive, and ZATCA settings flows.
-- Harden role/member administration now that API guards, route protection, nav filtering, and action gating are in place.
+- Connect email-backed invites, password reset/onboarding, and audit visibility for role/member administration.
 - Harden fiscal period UX with period templates, optional reversal-date selection, and admin unlock approval design.
 - Add report export/PDF groundwork and accountant review pass for report layouts.
 - Move Prisma seed config to `prisma.config.ts` before Prisma 7.
@@ -25,7 +25,7 @@ Risk level: Medium.
 
 Recommended next prompt:
 
-> Add role-management and invite-flow UI on top of the existing permission guard system, with browser smoke coverage for restricted users.
+> Add email-backed invite delivery and invited-user onboarding/password reset for the existing team management UI.
 
 ## Phase 2: Finish Wafeq Core Accounting Modules
 

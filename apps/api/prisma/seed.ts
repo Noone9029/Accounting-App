@@ -37,11 +37,12 @@ async function main(): Promise<void> {
   for (const [name, permissions] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
     const role = await prisma.role.upsert({
       where: { organizationId_name: { organizationId: organization.id, name } },
-      update: { permissions: [...permissions] },
+      update: { permissions: [...permissions], isSystem: true },
       create: {
         organizationId: organization.id,
         name,
         permissions: [...permissions],
+        isSystem: true,
       },
       select: { id: true },
     });

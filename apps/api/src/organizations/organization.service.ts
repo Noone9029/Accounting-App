@@ -176,6 +176,7 @@ export class OrganizationService {
           organizationId,
           name,
           permissions: [...permissions],
+          isSystem: true,
         },
         select: { id: true },
       });

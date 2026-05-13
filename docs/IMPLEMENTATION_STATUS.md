@@ -1,6 +1,6 @@
 # Implementation Status
 
-Audit date: 2026-05-12
+Audit date: 2026-05-13
 
 Status values:
 
@@ -19,7 +19,7 @@ Status values:
 | Docker/local infra | PARTIAL | `infra/docker-compose.yml`, `infra/README.md` | Local Postgres, Redis, API, web services. | Production infra not defined; Docker Desktop may be unavailable locally. | Add production deployment plan and compose health notes. |
 | Auth | COMPLETE_FOR_MVP | `apps/api/src/auth`, `apps/web/src/app/(auth)` | Register, login, JWT, `GET /auth/me`. | Password reset, MFA, refresh-token rotation not present. | Add account recovery and stronger session policy. |
 | Tenant/org model | COMPLETE_FOR_MVP | `organizations`, `OrganizationMember`, `OrganizationContextGuard` | `x-organization-id` scoping and membership checks. | Cross-org test coverage should continue expanding as modules grow. | Add central tenant-scoping checklist for new modules. |
-| Roles/permissions | COMPLETE_FOR_MVP | `Role`, `OrganizationMember.roleId`, `packages/shared/src/permissions.ts`, `PermissionGuard`, web permission helpers | Default roles are seeded, `/auth/me` exposes role permissions, API routes enforce `@RequirePermissions`, and UI navigation/actions are permission-aware. | Invite/member management and role editor UI remain limited; no approval workflow or dual-control policy. | Add role-management UI, invite flow hardening, and approval rules for high-risk actions. |
+| Roles/permissions | COMPLETE_FOR_MVP | `Role`, `OrganizationMember.roleId`, `packages/shared/src/permissions.ts`, `PermissionGuard`, role/member APIs, web permission helpers | Default roles are seeded/protected, `/auth/me` exposes role permissions, API routes enforce `@RequirePermissions`, role/member management APIs exist, and UI navigation/actions are permission-aware. | Invite flow is a local placeholder only; no approval workflow or dual-control policy. | Add real invite delivery, password reset/onboarding, and approval rules for high-risk actions. |
 | Audit logs | PARTIAL | `apps/api/src/audit-log`, `AuditLog` | Mutating services write selected audit logs. | Coverage may not be complete for all business events. | Audit every mutation and standardize event names. |
 | Number sequences | COMPLETE_FOR_MVP | `apps/api/src/number-sequences`, `NumberSequence` | Invoice, payment, bill, refund, credit note, journal numbering. | No user-configurable prefixes UI. | Add number-sequence settings and collision tests. |
 | Document settings | COMPLETE_FOR_MVP | `document-settings`, settings page | Organization PDF titles/colors/visibility flags. | Template designer not present. | Add template preview and advanced layouts. |
@@ -115,4 +115,4 @@ Status values:
 | Email sending | NOT_STARTED | N/A | None. | No invoice/statement send. | Select provider and add templates. |
 | WhatsApp sending | NOT_STARTED | N/A | None. | No WhatsApp provider. | Select provider if needed. |
 | Subscription billing | NOT_STARTED | N/A | None. | No SaaS billing. | Choose Stripe or other provider. |
-| User permissions enforcement | COMPLETE_FOR_MVP | `Role.permissions`, `PermissionGuard`, `apps/web/src/lib/permissions.ts` | Tenant-scoped API guards and frontend route/nav/action gating now use shared permission strings. | Role assignment UI is minimal/missing, and approvals are not modeled. | Add user administration screens and approval workflows. |
+| User permissions enforcement | COMPLETE_FOR_MVP | `Role.permissions`, `PermissionGuard`, `organization-members`, `roles`, `apps/web/src/lib/permissions.ts` | Tenant-scoped API guards, role editor, member list, role/status changes, invite placeholder, and frontend route/nav/action gating now use shared permission strings. | Email invites, password reset/onboarding, role-change audit UI, and approvals are not modeled. | Add email-backed invite onboarding and approval workflows. |

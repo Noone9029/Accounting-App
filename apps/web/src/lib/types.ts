@@ -63,6 +63,7 @@ export type ZatcaInvoiceType = "STANDARD_TAX_INVOICE" | "SIMPLIFIED_TAX_INVOICE"
 export type ZatcaInvoiceStatus = "NOT_SUBMITTED" | "XML_GENERATED" | "READY_FOR_SUBMISSION" | "SUBMISSION_PENDING" | "CLEARED" | "REPORTED" | "REJECTED" | "FAILED";
 export type ZatcaSubmissionType = "COMPLIANCE_CHECK" | "CLEARANCE" | "REPORTING";
 export type ZatcaSubmissionStatus = "PENDING" | "SUCCESS" | "REJECTED" | "FAILED";
+export type MembershipStatus = "ACTIVE" | "INVITED" | "SUSPENDED";
 
 export interface Organization {
   id: string;
@@ -92,6 +93,34 @@ export interface MeResponse extends AuthUser {
     organization: Organization;
     role: { id: string; name: string; permissions: unknown };
   }>;
+}
+
+export interface Role {
+  id: string;
+  organizationId: string;
+  name: string;
+  permissions: string[];
+  isSystem: boolean;
+  memberCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrganizationMember {
+  id: string;
+  organizationId: string;
+  userId: string;
+  roleId: string;
+  status: MembershipStatus;
+  createdAt: string;
+  updatedAt: string;
+  user: { id: string; email: string; name: string; createdAt: string };
+  role: { id: string; name: string; permissions: string[]; isSystem: boolean };
+}
+
+export interface InviteOrganizationMemberResponse {
+  message: string;
+  member: OrganizationMember;
 }
 
 export interface Account {

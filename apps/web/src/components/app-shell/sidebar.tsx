@@ -27,7 +27,7 @@ const iconsByHref: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   "/journal-entries": FileText,
   "/branches": Building2,
   "/documents": Archive,
-  "/settings/documents": Settings2,
+  "/settings/team": Settings2,
 };
 
 export function Sidebar() {
