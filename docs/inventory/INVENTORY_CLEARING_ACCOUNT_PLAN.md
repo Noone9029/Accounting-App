@@ -117,4 +117,21 @@ Automatic purchase receipt accounting posting remains disabled. Inventory Cleari
 
 The current readiness audit remains no-go for automatic receipt posting and for any direct-mode or historical migration behavior until migration/exclusion, variance posting, VAT, and landed-cost rules are approved.
 
-The 2026-05-15 integrity audit found that manual clearing-mode bill finalization, manual receipt asset posting, reversals, and clearing reports are internally consistent for the current phase. The next safe step is an accountant-reviewed variance proposal workflow that does not auto-create correction journals.
+The 2026-05-15 integrity audit found that manual clearing-mode bill finalization, manual receipt asset posting, reversals, and clearing reports are internally consistent for the current phase.
+
+## Variance Proposal Workflow
+
+Accountant-reviewed inventory variance proposals now provide the controlled next step for clearing differences.
+
+- Clearing variance report rows can be converted into `DRAFT` proposals through `POST /inventory/variance-proposals/from-clearing-variance`.
+- Manual proposals can be created with explicit debit and credit accounts through `POST /inventory/variance-proposals`.
+- Proposal creation, submission, approval, event review, and accounting preview create no journals.
+- Only `POST /inventory/variance-proposals/:id/post` creates a journal, and only after the proposal is `APPROVED`.
+- Reversal is explicit through `POST /inventory/variance-proposals/:id/reverse`.
+- No variance journal is auto-created from reports, purchase bills, receipts, or stock movements.
+
+Default clearing variance account logic:
+
+- If the clearing account has a residual debit after bill/receipt matching, the generated proposal debits Inventory Adjustment Loss and credits Inventory Clearing.
+- If the clearing account has a residual credit, the generated proposal debits Inventory Clearing and credits Inventory Adjustment Gain.
+- Accountants can still create a manual proposal with explicit debit/credit accounts when the report row is not the right accounting source.

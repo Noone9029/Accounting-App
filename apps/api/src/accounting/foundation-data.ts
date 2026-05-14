@@ -108,4 +108,5 @@ export const DEFAULT_NUMBER_SEQUENCES = [
   { scope: NumberSequenceScope.WAREHOUSE_TRANSFER, prefix: "WTR-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.PURCHASE_RECEIPT, prefix: "PRC-", nextNumber: 1, padding: 6 },
   { scope: NumberSequenceScope.SALES_STOCK_ISSUE, prefix: "SSI-", nextNumber: 1, padding: 6 },
+  { scope: NumberSequenceScope.INVENTORY_VARIANCE_PROPOSAL, prefix: "IVP-", nextNumber: 1, padding: 6 },
 ];

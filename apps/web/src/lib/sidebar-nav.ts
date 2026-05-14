@@ -96,6 +96,7 @@ export const SIDEBAR_NAV_ITEMS: readonly SidebarNavItem[] = [
       { label: "Low stock", href: "/inventory/reports/low-stock", requiredAny: [PERMISSIONS.inventory.view] },
       { label: "Clearing reconciliation", href: "/inventory/reports/clearing-reconciliation", requiredAny: [PERMISSIONS.inventory.view] },
       { label: "Clearing variance", href: "/inventory/reports/clearing-variance", requiredAny: [PERMISSIONS.inventory.view] },
+      { label: "Variance proposals", href: "/inventory/variance-proposals", requiredAny: [PERMISSIONS.inventory.varianceProposalsView] },
       { label: "Inventory settings", href: "/inventory/settings", requiredAny: [PERMISSIONS.inventory.view] },
     ],
   },

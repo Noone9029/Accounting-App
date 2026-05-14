@@ -618,6 +618,48 @@ interface InventoryClearingVarianceReport {
   }>;
 }
 
+type InventoryVarianceProposalStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "POSTED" | "REVERSED" | "VOIDED";
+type InventoryVarianceReason =
+  | "PRICE_DIFFERENCE"
+  | "QUANTITY_DIFFERENCE"
+  | "RECEIPT_WITHOUT_CLEARING_BILL"
+  | "CLEARING_BILL_WITHOUT_RECEIPT"
+  | "REVERSED_RECEIPT_POSTING"
+  | "MANUAL_ADJUSTMENT";
+
+interface InventoryVarianceProposal {
+  id: string;
+  proposalNumber: string;
+  status: InventoryVarianceProposalStatus;
+  sourceType: "CLEARING_VARIANCE" | "MANUAL";
+  reason: InventoryVarianceReason;
+  amount: string;
+  journalEntryId: string | null;
+  reversalJournalEntryId: string | null;
+  purchaseBillId?: string | null;
+  purchaseReceiptId?: string | null;
+}
+
+interface InventoryVarianceProposalEvent {
+  id: string;
+  action: "CREATE" | "SUBMIT" | "APPROVE" | "POST" | "REVERSE" | "VOID";
+  fromStatus?: InventoryVarianceProposalStatus | null;
+  toStatus: InventoryVarianceProposalStatus;
+}
+
+interface InventoryVarianceProposalAccountingPreview {
+  previewOnly: true;
+  status: InventoryVarianceProposalStatus;
+  canPost: boolean;
+  amount: string;
+  blockingReasons: string[];
+  warnings: string[];
+  journalEntryId: string | null;
+  reversalJournalEntryId: string | null;
+  journal: AccountingPreviewJournal;
+  journalLines: AccountingPreviewJournalLine[];
+}
+
 interface SalesInvoice {
   id: string;
   invoiceNumber: string;
@@ -1079,6 +1121,8 @@ async function main(): Promise<void> {
     inventoryAssetAccountId: inventoryAssetAccount.id,
     cogsAccountId: cogsAccount.id,
     inventoryClearingAccountId: inventoryClearingAccount.id,
+    inventoryAdjustmentGainAccountId: salesAccount.id,
+    inventoryAdjustmentLossAccountId: expenseAccount.id,
     purchaseReceiptPostingMode: "PREVIEW_ONLY",
   });
   assertEqual(patchedInventoryAccountingSettings.enableInventoryAccounting, true, "inventory accounting manually enabled for COGS posting smoke");
@@ -1865,6 +1909,162 @@ async function main(): Promise<void> {
   assertEqual(voidedClearingPurchaseReceipt.status, "VOIDED", "clearing purchase receipt voided after asset reversal");
   assertPresent(voidedClearingPurchaseReceipt.lines?.[0]?.voidStockMovementId, "clearing purchase receipt void reversal movement");
   assertMoney((await balanceFor(mainWarehouse)).quantityOnHand, money("12.0000"), "main warehouse quantity after clearing receipt void");
+
+  const variancePurchaseBill = await post<PurchaseBill>("/purchase-bills", headers, {
+    supplierId: receivingSupplier.id,
+    billDate: new Date().toISOString(),
+    currency: "SAR",
+    notes: "Smoke inventory variance proposal bill",
+    inventoryPostingMode: "INVENTORY_CLEARING",
+    lines: [
+      {
+        itemId: inventoryItem.id,
+        description: "Smoke variance proposal tracked line",
+        accountId: inventoryAssetAccount.id,
+        quantity: "1.0000",
+        unitPrice: "10.0000",
+      },
+    ],
+  });
+  const finalizedVariancePurchaseBill = await post<PurchaseBill>(`/purchase-bills/${variancePurchaseBill.id}/finalize`, headers, {});
+  assertEqual(finalizedVariancePurchaseBill.status, "FINALIZED", "variance proposal clearing bill finalized");
+  const varianceBillReceivingStatus = await get<PurchaseReceivingStatus>(
+    `/purchase-bills/${finalizedVariancePurchaseBill.id}/receiving-status`,
+    headers,
+  );
+  const varianceBillReceivableLine = required(
+    varianceBillReceivingStatus.lines.find((line) => line.inventoryTracking && money(line.remainingQuantity).gt(0)),
+    "variance proposal clearing bill receivable line",
+  );
+  const variancePurchaseReceipt = await post<PurchaseReceipt>("/purchase-receipts", headers, {
+    purchaseBillId: finalizedVariancePurchaseBill.id,
+    warehouseId: mainWarehouse.id,
+    receiptDate: new Date().toISOString(),
+    lines: [{ purchaseBillLineId: varianceBillReceivableLine.lineId, quantity: "1.0000", unitCost: "8.0000" }],
+  });
+  const varianceReceiptPreview = await get<PurchaseReceiptAccountingPreview>(
+    `/purchase-receipts/${variancePurchaseReceipt.id}/accounting-preview`,
+    headers,
+  );
+  assertEqual(varianceReceiptPreview.canPost, true, "variance receipt asset preview can post");
+  const postedVariancePurchaseReceipt = await post<PurchaseReceipt>(
+    `/purchase-receipts/${variancePurchaseReceipt.id}/post-inventory-asset`,
+    headers,
+    {},
+  );
+  assertPresent(postedVariancePurchaseReceipt.inventoryAssetJournalEntryId, "variance receipt asset journal id");
+  const varianceReportForProposal = await get<InventoryClearingVarianceReport>(
+    `/inventory/reports/clearing-variance?purchaseBillId=${encodeURIComponent(finalizedVariancePurchaseBill.id)}`,
+    headers,
+  );
+  const varianceRowForProposal = required(
+    varianceReportForProposal.rows.find((row) => row.purchaseBill?.id === finalizedVariancePurchaseBill.id && money(row.varianceAmount).eq("2.0000")),
+    "inventory clearing variance row for proposal",
+  );
+  assertEqual(varianceRowForProposal.status, "VARIANCE", "variance proposal source row reports variance");
+  const varianceProposalJournalCountBefore = (await get<JournalEntry[]>("/journal-entries", headers)).length;
+  const draftVarianceProposal = await post<InventoryVarianceProposal>(
+    "/inventory/variance-proposals/from-clearing-variance",
+    headers,
+    {
+      purchaseBillId: finalizedVariancePurchaseBill.id,
+      purchaseReceiptId: variancePurchaseReceipt.id,
+      reason: "PRICE_DIFFERENCE",
+      description: "Smoke clearing variance proposal",
+    },
+  );
+  assertEqual(draftVarianceProposal.status, "DRAFT", "inventory variance proposal starts draft");
+  assertMoney(draftVarianceProposal.amount, money("2.0000"), "inventory variance proposal uses report variance amount");
+  assertEqual(
+    (await get<JournalEntry[]>("/journal-entries", headers)).length,
+    varianceProposalJournalCountBefore,
+    "variance proposal creation does not create journal entries",
+  );
+  const submittedVarianceProposal = await post<InventoryVarianceProposal>(
+    `/inventory/variance-proposals/${draftVarianceProposal.id}/submit`,
+    headers,
+    { notes: "Smoke variance proposal submission" },
+  );
+  assertEqual(submittedVarianceProposal.status, "PENDING_APPROVAL", "inventory variance proposal submitted");
+  const approvedVarianceProposal = await post<InventoryVarianceProposal>(
+    `/inventory/variance-proposals/${draftVarianceProposal.id}/approve`,
+    headers,
+    { approvalNotes: "Smoke variance proposal approval" },
+  );
+  assertEqual(approvedVarianceProposal.status, "APPROVED", "inventory variance proposal approved");
+  const varianceProposalPreview = await get<InventoryVarianceProposalAccountingPreview>(
+    `/inventory/variance-proposals/${draftVarianceProposal.id}/accounting-preview`,
+    headers,
+  );
+  assertEqual(varianceProposalPreview.previewOnly, true, "inventory variance proposal preview is preview-only");
+  assertEqual(varianceProposalPreview.canPost, true, "approved variance proposal preview can post");
+  assert(
+    varianceProposalPreview.journal.lines.some(
+      (line) => line.side === "DEBIT" && line.accountId === expenseAccount.id && money(line.amount).eq("2.0000"),
+    ),
+    "variance proposal preview debits adjustment loss account",
+  );
+  assert(
+    varianceProposalPreview.journal.lines.some(
+      (line) => line.side === "CREDIT" && line.accountId === inventoryClearingAccount.id && money(line.amount).eq("2.0000"),
+    ),
+    "variance proposal preview credits inventory clearing",
+  );
+  assertEqual(
+    (await get<JournalEntry[]>("/journal-entries", headers)).length,
+    varianceProposalJournalCountBefore,
+    "variance proposal preview and approval do not create journal entries",
+  );
+  const postedVarianceProposal = await post<InventoryVarianceProposal>(
+    `/inventory/variance-proposals/${draftVarianceProposal.id}/post`,
+    headers,
+    {},
+  );
+  assertEqual(postedVarianceProposal.status, "POSTED", "inventory variance proposal posted");
+  const varianceProposalJournalEntryId = required(postedVarianceProposal.journalEntryId, "inventory variance proposal journal id");
+  assertEqual(
+    (await get<JournalEntry[]>("/journal-entries", headers)).length,
+    varianceProposalJournalCountBefore + 1,
+    "variance proposal explicit post creates one journal entry",
+  );
+  const varianceProposalJournal = await get<JournalEntry>(`/journal-entries/${varianceProposalJournalEntryId}`, headers);
+  assert(
+    varianceProposalJournal.lines?.some((line) => line.account?.id === expenseAccount.id && money(line.debit).eq("2.0000")),
+    "variance proposal journal debits adjustment loss account",
+  );
+  assert(
+    varianceProposalJournal.lines?.some((line) => line.account?.id === inventoryClearingAccount.id && money(line.credit).eq("2.0000")),
+    "variance proposal journal credits inventory clearing",
+  );
+  await expectHttpError("duplicate variance proposal posting", () =>
+    post<InventoryVarianceProposal>(`/inventory/variance-proposals/${draftVarianceProposal.id}/post`, headers, {}),
+  );
+  await expectHttpError("void posted variance proposal", () =>
+    post<InventoryVarianceProposal>(`/inventory/variance-proposals/${draftVarianceProposal.id}/void`, headers, { reason: "Not allowed" }),
+  );
+  const reversedVarianceProposal = await post<InventoryVarianceProposal>(
+    `/inventory/variance-proposals/${draftVarianceProposal.id}/reverse`,
+    headers,
+    { reason: "Smoke variance proposal reversal" },
+  );
+  assertEqual(reversedVarianceProposal.status, "REVERSED", "inventory variance proposal reversed");
+  assertPresent(reversedVarianceProposal.reversalJournalEntryId, "inventory variance proposal reversal journal id");
+  const varianceProposalEvents = await get<InventoryVarianceProposalEvent[]>(
+    `/inventory/variance-proposals/${draftVarianceProposal.id}/events`,
+    headers,
+  );
+  for (const action of ["CREATE", "SUBMIT", "APPROVE", "POST", "REVERSE"] as const) {
+    assert(varianceProposalEvents.some((event) => event.action === action), `inventory variance proposal event ${action}`);
+  }
+  const varianceProposalJournalCountAfterReversal = (await get<JournalEntry[]>("/journal-entries", headers)).length;
+  assertEqual(
+    varianceProposalJournalCountAfterReversal,
+    varianceProposalJournalCountBefore + 2,
+    "variance proposal reversal creates one reversal journal",
+  );
+  await expectHttpError("duplicate variance proposal reversal", () =>
+    post<InventoryVarianceProposal>(`/inventory/variance-proposals/${draftVarianceProposal.id}/reverse`, headers, {}),
+  );
 
   const bankTransferAmount = money("12.3400");
   const bankBeforeTransfer = await get<BankAccountSummary>(`/bank-accounts/${defaultBankProfile.id}`, headers);
@@ -3799,6 +3999,12 @@ async function main(): Promise<void> {
         inventoryClearingReconciliationNetDifference: clearingReconciliationRow.netClearingDifference,
         inventoryClearingVarianceRowCount: clearingVarianceReport.summary.rowCount,
         inventoryClearingReportNoJournal: clearingReportNoJournal,
+        inventoryVarianceProposalId: draftVarianceProposal.id,
+        inventoryVarianceProposalStatus: reversedVarianceProposal.status,
+        inventoryVarianceProposalJournalEntryId: varianceProposalJournalEntryId,
+        inventoryVarianceProposalReversalJournalEntryId: reversedVarianceProposal.reversalJournalEntryId,
+        inventoryVarianceProposalEventCount: varianceProposalEvents.length,
+        inventoryVarianceProposalExplicitJournalDelta: varianceProposalJournalCountAfterReversal - varianceProposalJournalCountBefore,
         salesStockIssueId: salesStockIssue.id,
         salesStockIssueAccountingPreviewOnly: salesStockIssueAccountingPreview.previewOnly,
         salesStockIssueAccountingPreviewCanPost: salesStockIssueAccountingPreview.canPost,

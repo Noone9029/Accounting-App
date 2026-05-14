@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Commit inspected: `4eb0188 Add inventory clearing reconciliation reports`
+Commit inspected: pending (`Add inventory variance proposal workflow`)
 
 ## Scope
 
@@ -36,6 +36,28 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Inventory variance proposal workflow added
+
+Added an accountant-reviewed proposal workflow for inventory clearing differences without automatic posting.
+
+Risk reduced:
+
+- Clearing variance rows can now be converted into draft proposals only after the API recomputes the current variance amount from report data.
+- Manual proposals require a positive amount and tenant-owned active posting debit and credit accounts.
+- Proposal lifecycle is explicit: draft, submitted, approved, posted, reversed, or voided.
+- Submission and approval create audit events only; they do not create journals.
+- Posting requires an approved proposal, an open fiscal period on the proposal date, and an explicit user action.
+- Reversal is explicit and creates a linked reversal journal using the existing journal reversal strategy.
+- Posted proposals cannot be voided until reversed.
+
+Remaining risks:
+
+- No automatic variance posting.
+- No landed cost.
+- FIFO remains placeholder-only.
+- Historical direct-mode bill migration/exclusion policy still requires accountant review.
+- Accountant review is required before posting any variance proposal in production.
 
 ### Inventory accounting integrity audit completed
 
@@ -99,7 +121,7 @@ Remaining risks:
 
 - No automatic purchase receipt GL posting.
 - No receipt asset posting for historical/direct-mode purchase bills and no historical migration.
-- Inventory Clearing timing differences are visible in read-only reconciliation/variance reports, but correction journals still require accountant review.
+- Inventory Clearing timing differences are visible in read-only reconciliation/variance reports, and correction journals require accountant-reviewed proposal approval plus an explicit post action.
 - Landed cost is missing.
 - FIFO remains placeholder-only.
 - Accountant review is required before production use.
@@ -233,7 +255,7 @@ Risk reduced:
 Remaining risks:
 
 - Purchase receipt inventory asset posting is manual-only for compatible clearing-mode bills.
-- Purchase receipt clearing reconciliation is now read-only; automatic variance posting is still missing.
+- Purchase receipt clearing reconciliation is now read-only; variance proposals exist, but automatic variance posting is still missing.
 - No landed cost.
 - FIFO placeholder only.
 - No automatic COGS posting from invoices or stock issues.

@@ -116,6 +116,38 @@ enum PurchaseBillInventoryPostingMode {
   INVENTORY_CLEARING
 }
 
+enum InventoryVarianceProposalStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  POSTED
+  REVERSED
+  VOIDED
+}
+
+enum InventoryVarianceProposalSourceType {
+  CLEARING_VARIANCE
+  MANUAL
+}
+
+enum InventoryVarianceReason {
+  PRICE_DIFFERENCE
+  QUANTITY_DIFFERENCE
+  RECEIPT_WITHOUT_CLEARING_BILL
+  CLEARING_BILL_WITHOUT_RECEIPT
+  REVERSED_RECEIPT_POSTING
+  MANUAL_ADJUSTMENT
+}
+
+enum InventoryVarianceProposalAction {
+  CREATE
+  SUBMIT
+  APPROVE
+  POST
+  REVERSE
+  VOID
+}
+
 enum SalesInvoiceStatus {
   DRAFT
   FINALIZED
@@ -356,6 +388,7 @@ enum NumberSequenceScope {
   WAREHOUSE_TRANSFER
   PURCHASE_RECEIPT
   SALES_STOCK_ISSUE
+  INVENTORY_VARIANCE_PROPOSAL
 }
 
 model User {
@@ -403,6 +436,13 @@ model User {
   createdSalesStockIssues                     SalesStockIssue[]                    @relation("SalesStockIssueCreatedBy")
   cogsPostedSalesStockIssues                  SalesStockIssue[]                    @relation("SalesStockIssueCogsPostedBy")
   cogsReversedSalesStockIssues                SalesStockIssue[]                    @relation("SalesStockIssueCogsReversedBy")
+  createdInventoryVarianceProposals           InventoryVarianceProposal[]          @relation("InventoryVarianceProposalCreatedBy")
+  submittedInventoryVarianceProposals         InventoryVarianceProposal[]          @relation("InventoryVarianceProposalSubmittedBy")
+  approvedInventoryVarianceProposals          InventoryVarianceProposal[]          @relation("InventoryVarianceProposalApprovedBy")
+  postedInventoryVarianceProposals            InventoryVarianceProposal[]          @relation("InventoryVarianceProposalPostedBy")
+  reversedInventoryVarianceProposals          InventoryVarianceProposal[]          @relation("InventoryVarianceProposalReversedBy")
+  voidedInventoryVarianceProposals            InventoryVarianceProposal[]          @relation("InventoryVarianceProposalVoidedBy")
+  inventoryVarianceProposalEvents             InventoryVarianceProposalEvent[]     @relation("InventoryVarianceProposalEventActor")
   generatedDocuments                          GeneratedDocument[]                  @relation("GeneratedDocumentGeneratedBy")
 }
 
@@ -439,6 +479,8 @@ model Organization {
   purchaseReceiptLines                PurchaseReceiptLine[]
   salesStockIssues                    SalesStockIssue[]
   salesStockIssueLines                SalesStockIssueLine[]
+  inventoryVarianceProposals          InventoryVarianceProposal[]
+  inventoryVarianceProposalEvents     InventoryVarianceProposalEvent[]
   salesInvoices                       SalesInvoice[]
   salesInvoiceLines                   SalesInvoiceLine[]
   creditNotes                         CreditNote[]
@@ -726,79 +768,82 @@ model Branch {
 }
 
 model Contact {
-  id                 String              @id @default(uuid()) @db.Uuid
-  organizationId     String              @db.Uuid
-  type               ContactType         @default(CUSTOMER)
-  name               String
-  displayName        String?
-  email              String?
-  phone              String?
-  taxNumber          String?
-  addressLine1       String?
-  addressLine2       String?
-  city               String?
-  countryCode        String              @default("SA")
-  postalCode         String?
-  isActive           Boolean             @default(true)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  salesInvoices      SalesInvoice[]      @relation("SalesInvoiceCustomer")
-  creditNotes        CreditNote[]        @relation("CreditNoteCustomer")
-  purchaseOrders     PurchaseOrder[]     @relation("PurchaseOrderSupplier")
-  purchaseBills      PurchaseBill[]      @relation("PurchaseBillSupplier")
-  purchaseDebitNotes PurchaseDebitNote[] @relation("PurchaseDebitNoteSupplier")
-  cashExpenses       CashExpense[]       @relation("CashExpenseContact")
-  customerPayments   CustomerPayment[]   @relation("CustomerPaymentCustomer")
-  supplierPayments   SupplierPayment[]   @relation("SupplierPaymentSupplier")
-  customerRefunds    CustomerRefund[]    @relation("CustomerRefundCustomer")
-  supplierRefunds    SupplierRefund[]    @relation("SupplierRefundSupplier")
-  purchaseReceipts   PurchaseReceipt[]   @relation("PurchaseReceiptSupplier")
-  salesStockIssues   SalesStockIssue[]   @relation("SalesStockIssueCustomer")
+  id                         String                      @id @default(uuid()) @db.Uuid
+  organizationId             String                      @db.Uuid
+  type                       ContactType                 @default(CUSTOMER)
+  name                       String
+  displayName                String?
+  email                      String?
+  phone                      String?
+  taxNumber                  String?
+  addressLine1               String?
+  addressLine2               String?
+  city                       String?
+  countryCode                String                      @default("SA")
+  postalCode                 String?
+  isActive                   Boolean                     @default(true)
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+  organization               Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  salesInvoices              SalesInvoice[]              @relation("SalesInvoiceCustomer")
+  creditNotes                CreditNote[]                @relation("CreditNoteCustomer")
+  purchaseOrders             PurchaseOrder[]             @relation("PurchaseOrderSupplier")
+  purchaseBills              PurchaseBill[]              @relation("PurchaseBillSupplier")
+  purchaseDebitNotes         PurchaseDebitNote[]         @relation("PurchaseDebitNoteSupplier")
+  cashExpenses               CashExpense[]               @relation("CashExpenseContact")
+  customerPayments           CustomerPayment[]           @relation("CustomerPaymentCustomer")
+  supplierPayments           SupplierPayment[]           @relation("SupplierPaymentSupplier")
+  customerRefunds            CustomerRefund[]            @relation("CustomerRefundCustomer")
+  supplierRefunds            SupplierRefund[]            @relation("SupplierRefundSupplier")
+  purchaseReceipts           PurchaseReceipt[]           @relation("PurchaseReceiptSupplier")
+  salesStockIssues           SalesStockIssue[]           @relation("SalesStockIssueCustomer")
+  inventoryVarianceProposals InventoryVarianceProposal[] @relation("InventoryVarianceProposalSupplier")
 
   @@index([organizationId])
   @@index([organizationId, type])
 }
 
 model Account {
-  id                                   String                     @id @default(uuid()) @db.Uuid
-  organizationId                       String                     @db.Uuid
-  parentId                             String?                    @db.Uuid
+  id                                   String                      @id @default(uuid()) @db.Uuid
+  organizationId                       String                      @db.Uuid
+  parentId                             String?                     @db.Uuid
   code                                 String
   name                                 String
   type                                 AccountType
   description                          String?
-  allowPosting                         Boolean                    @default(true)
-  isSystem                             Boolean                    @default(false)
-  isActive                             Boolean                    @default(true)
-  createdAt                            DateTime                   @default(now())
-  updatedAt                            DateTime                   @updatedAt
-  organization                         Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  parent                               Account?                   @relation("AccountTree", fields: [parentId], references: [id])
-  children                             Account[]                  @relation("AccountTree")
+  allowPosting                         Boolean                     @default(true)
+  isSystem                             Boolean                     @default(false)
+  isActive                             Boolean                     @default(true)
+  createdAt                            DateTime                    @default(now())
+  updatedAt                            DateTime                    @updatedAt
+  organization                         Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent                               Account?                    @relation("AccountTree", fields: [parentId], references: [id])
+  children                             Account[]                   @relation("AccountTree")
   journalLines                         JournalLine[]
-  itemRevenueItems                     Item[]                     @relation("ItemRevenueAccount")
-  itemExpenseItems                     Item[]                     @relation("ItemExpenseAccount")
+  itemRevenueItems                     Item[]                      @relation("ItemRevenueAccount")
+  itemExpenseItems                     Item[]                      @relation("ItemExpenseAccount")
   salesInvoiceLines                    SalesInvoiceLine[]
   creditNoteLines                      CreditNoteLine[]
   purchaseOrderLines                   PurchaseOrderLine[]
   purchaseBillLines                    PurchaseBillLine[]
   purchaseDebitNoteLines               PurchaseDebitNoteLine[]
   cashExpenseLines                     CashExpenseLine[]
-  cashExpensePayments                  CashExpense[]              @relation("CashExpensePaidThroughAccount")
-  customerPayments                     CustomerPayment[]          @relation("CustomerPaymentAccount")
-  supplierPayments                     SupplierPayment[]          @relation("SupplierPaymentAccount")
-  customerRefunds                      CustomerRefund[]           @relation("CustomerRefundAccount")
-  supplierRefunds                      SupplierRefund[]           @relation("SupplierRefundAccount")
+  cashExpensePayments                  CashExpense[]               @relation("CashExpensePaidThroughAccount")
+  customerPayments                     CustomerPayment[]           @relation("CustomerPaymentAccount")
+  supplierPayments                     SupplierPayment[]           @relation("SupplierPaymentAccount")
+  customerRefunds                      CustomerRefund[]            @relation("CustomerRefundAccount")
+  supplierRefunds                      SupplierRefund[]            @relation("SupplierRefundAccount")
   bankAccountProfile                   BankAccountProfile?
-  inventoryAssetSettings               InventorySettings[]        @relation("InventorySettingsInventoryAssetAccount")
-  cogsSettings                         InventorySettings[]        @relation("InventorySettingsCogsAccount")
-  inventoryClearingSettings            InventorySettings[]        @relation("InventorySettingsInventoryClearingAccount")
-  inventoryAdjustmentGainSettings      InventorySettings[]        @relation("InventorySettingsAdjustmentGainAccount")
-  inventoryAdjustmentLossSettings      InventorySettings[]        @relation("InventorySettingsAdjustmentLossAccount")
-  bankTransfersFrom                    BankTransfer[]             @relation("BankTransferFromAccount")
-  bankTransfersTo                      BankTransfer[]             @relation("BankTransferToAccount")
-  categorizedBankStatementTransactions BankStatementTransaction[] @relation("BankStatementTransactionCategorizedAccount")
+  inventoryAssetSettings               InventorySettings[]         @relation("InventorySettingsInventoryAssetAccount")
+  cogsSettings                         InventorySettings[]         @relation("InventorySettingsCogsAccount")
+  inventoryClearingSettings            InventorySettings[]         @relation("InventorySettingsInventoryClearingAccount")
+  inventoryAdjustmentGainSettings      InventorySettings[]         @relation("InventorySettingsAdjustmentGainAccount")
+  inventoryAdjustmentLossSettings      InventorySettings[]         @relation("InventorySettingsAdjustmentLossAccount")
+  inventoryVarianceDebitProposals      InventoryVarianceProposal[] @relation("InventoryVarianceProposalDebitAccount")
+  inventoryVarianceCreditProposals     InventoryVarianceProposal[] @relation("InventoryVarianceProposalCreditAccount")
+  bankTransfersFrom                    BankTransfer[]              @relation("BankTransferFromAccount")
+  bankTransfersTo                      BankTransfer[]              @relation("BankTransferToAccount")
+  categorizedBankStatementTransactions BankStatementTransaction[]  @relation("BankStatementTransactionCategorizedAccount")
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -1526,6 +1571,7 @@ model PurchaseBill {
   debitNotes                          PurchaseDebitNote[]
   convertedPurchaseOrder              PurchaseOrder?                       @relation("PurchaseOrderConvertedBill")
   purchaseReceipts                    PurchaseReceipt[]
+  inventoryVarianceProposals          InventoryVarianceProposal[]
 
   @@unique([organizationId, billNumber])
   @@index([organizationId])
@@ -1590,17 +1636,18 @@ model PurchaseReceipt {
   createdAt                            DateTime              @default(now())
   updatedAt                            DateTime              @updatedAt
 
-  organization                       Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  purchaseOrder                      PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
-  purchaseBill                       PurchaseBill?         @relation(fields: [purchaseBillId], references: [id], onDelete: SetNull)
-  supplier                           Contact               @relation("PurchaseReceiptSupplier", fields: [supplierId], references: [id])
-  warehouse                          Warehouse             @relation(fields: [warehouseId], references: [id])
-  createdBy                          User?                 @relation("PurchaseReceiptCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  inventoryAssetJournalEntry         JournalEntry?         @relation("PurchaseReceiptInventoryAssetJournal", fields: [inventoryAssetJournalEntryId], references: [id], onDelete: SetNull)
-  inventoryAssetReversalJournalEntry JournalEntry?         @relation("PurchaseReceiptInventoryAssetReversalJournal", fields: [inventoryAssetReversalJournalEntryId], references: [id], onDelete: SetNull)
-  inventoryAssetPostedBy             User?                 @relation("PurchaseReceiptInventoryAssetPostedBy", fields: [inventoryAssetPostedById], references: [id], onDelete: SetNull)
-  inventoryAssetReversedBy           User?                 @relation("PurchaseReceiptInventoryAssetReversedBy", fields: [inventoryAssetReversedById], references: [id], onDelete: SetNull)
+  organization                       Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  purchaseOrder                      PurchaseOrder?              @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  purchaseBill                       PurchaseBill?               @relation(fields: [purchaseBillId], references: [id], onDelete: SetNull)
+  supplier                           Contact                     @relation("PurchaseReceiptSupplier", fields: [supplierId], references: [id])
+  warehouse                          Warehouse                   @relation(fields: [warehouseId], references: [id])
+  createdBy                          User?                       @relation("PurchaseReceiptCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  inventoryAssetJournalEntry         JournalEntry?               @relation("PurchaseReceiptInventoryAssetJournal", fields: [inventoryAssetJournalEntryId], references: [id], onDelete: SetNull)
+  inventoryAssetReversalJournalEntry JournalEntry?               @relation("PurchaseReceiptInventoryAssetReversalJournal", fields: [inventoryAssetReversalJournalEntryId], references: [id], onDelete: SetNull)
+  inventoryAssetPostedBy             User?                       @relation("PurchaseReceiptInventoryAssetPostedBy", fields: [inventoryAssetPostedById], references: [id], onDelete: SetNull)
+  inventoryAssetReversedBy           User?                       @relation("PurchaseReceiptInventoryAssetReversedBy", fields: [inventoryAssetReversedById], references: [id], onDelete: SetNull)
   lines                              PurchaseReceiptLine[]
+  inventoryVarianceProposals         InventoryVarianceProposal[]
 
   @@unique([organizationId, receiptNumber])
   @@index([organizationId])
@@ -1711,6 +1758,96 @@ model SalesStockIssueLine {
   @@index([issueId])
   @@index([itemId])
   @@index([salesInvoiceLineId])
+}
+
+model InventoryVarianceProposal {
+  id                     String                              @id @default(uuid()) @db.Uuid
+  organizationId         String                              @db.Uuid
+  proposalNumber         String
+  sourceType             InventoryVarianceProposalSourceType
+  reason                 InventoryVarianceReason
+  status                 InventoryVarianceProposalStatus     @default(DRAFT)
+  purchaseBillId         String?                             @db.Uuid
+  purchaseReceiptId      String?                             @db.Uuid
+  supplierId             String?                             @db.Uuid
+  proposalDate           DateTime
+  amount                 Decimal                             @db.Decimal(20, 4)
+  description            String?
+  debitAccountId         String                              @db.Uuid
+  creditAccountId        String                              @db.Uuid
+  createdById            String?                             @db.Uuid
+  submittedById          String?                             @db.Uuid
+  approvedById           String?                             @db.Uuid
+  postedById             String?                             @db.Uuid
+  reversedById           String?                             @db.Uuid
+  voidedById             String?                             @db.Uuid
+  submittedAt            DateTime?
+  approvedAt             DateTime?
+  postedAt               DateTime?
+  reversedAt             DateTime?
+  voidedAt               DateTime?
+  journalEntryId         String?                             @unique @db.Uuid
+  reversalJournalEntryId String?                             @unique @db.Uuid
+  approvalNotes          String?
+  reversalReason         String?
+  voidReason             String?
+  createdAt              DateTime                            @default(now())
+  updatedAt              DateTime                            @updatedAt
+
+  organization         Organization                     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  purchaseBill         PurchaseBill?                    @relation(fields: [purchaseBillId], references: [id], onDelete: SetNull)
+  purchaseReceipt      PurchaseReceipt?                 @relation(fields: [purchaseReceiptId], references: [id], onDelete: SetNull)
+  supplier             Contact?                         @relation("InventoryVarianceProposalSupplier", fields: [supplierId], references: [id], onDelete: SetNull)
+  debitAccount         Account                          @relation("InventoryVarianceProposalDebitAccount", fields: [debitAccountId], references: [id])
+  creditAccount        Account                          @relation("InventoryVarianceProposalCreditAccount", fields: [creditAccountId], references: [id])
+  createdBy            User?                            @relation("InventoryVarianceProposalCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  submittedBy          User?                            @relation("InventoryVarianceProposalSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
+  approvedBy           User?                            @relation("InventoryVarianceProposalApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  postedBy             User?                            @relation("InventoryVarianceProposalPostedBy", fields: [postedById], references: [id], onDelete: SetNull)
+  reversedBy           User?                            @relation("InventoryVarianceProposalReversedBy", fields: [reversedById], references: [id], onDelete: SetNull)
+  voidedBy             User?                            @relation("InventoryVarianceProposalVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
+  journalEntry         JournalEntry?                    @relation("InventoryVarianceProposalJournal", fields: [journalEntryId], references: [id], onDelete: SetNull)
+  reversalJournalEntry JournalEntry?                    @relation("InventoryVarianceProposalReversalJournal", fields: [reversalJournalEntryId], references: [id], onDelete: SetNull)
+  events               InventoryVarianceProposalEvent[]
+
+  @@unique([organizationId, proposalNumber])
+  @@index([organizationId])
+  @@index([purchaseBillId])
+  @@index([purchaseReceiptId])
+  @@index([supplierId])
+  @@index([debitAccountId])
+  @@index([creditAccountId])
+  @@index([createdById])
+  @@index([submittedById])
+  @@index([approvedById])
+  @@index([postedById])
+  @@index([reversedById])
+  @@index([voidedById])
+  @@index([organizationId, status])
+  @@index([organizationId, proposalDate])
+  @@index([organizationId, sourceType])
+  @@index([organizationId, reason])
+}
+
+model InventoryVarianceProposalEvent {
+  id             String                           @id @default(uuid()) @db.Uuid
+  organizationId String                           @db.Uuid
+  proposalId     String                           @db.Uuid
+  actorUserId    String?                          @db.Uuid
+  action         InventoryVarianceProposalAction
+  fromStatus     InventoryVarianceProposalStatus?
+  toStatus       InventoryVarianceProposalStatus
+  notes          String?
+  createdAt      DateTime                         @default(now())
+
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  proposal     InventoryVarianceProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  actorUser    User?                     @relation("InventoryVarianceProposalEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([proposalId])
+  @@index([actorUserId])
+  @@index([organizationId, proposalId, createdAt])
 }
 
 model PurchaseDebitNote {
@@ -2154,6 +2291,8 @@ model JournalEntry {
   inventoryAssetReversedPurchaseReceipt PurchaseReceipt?           @relation("PurchaseReceiptInventoryAssetReversalJournal")
   cogsSalesStockIssue                   SalesStockIssue?           @relation("SalesStockIssueCogsJournal")
   cogsReversedSalesStockIssue           SalesStockIssue?           @relation("SalesStockIssueCogsReversalJournal")
+  inventoryVarianceProposal             InventoryVarianceProposal? @relation("InventoryVarianceProposalJournal")
+  inventoryVarianceReversalProposal     InventoryVarianceProposal? @relation("InventoryVarianceProposalReversalJournal")
   matchedBankStatementTransactions      BankStatementTransaction[] @relation("BankStatementTransactionMatchedJournalEntry")
   createdBankStatementTransactions      BankStatementTransaction[] @relation("BankStatementTransactionCreatedJournalEntry")
   lines                                 JournalLine[]

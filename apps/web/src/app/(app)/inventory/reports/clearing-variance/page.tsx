@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
@@ -11,9 +12,11 @@ import {
   inventoryClearingStatusBadgeClass,
   inventoryClearingStatusLabel,
   inventoryClearingVarianceReasonLabel,
+  inventoryVarianceProposalCreateUrl,
 } from "@/lib/inventory";
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadAuthenticatedFile } from "@/lib/pdf-download";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { InventoryClearingReportStatus, InventoryClearingVarianceReport } from "@/lib/types";
 
 const statuses: Array<{ value: InventoryClearingReportStatus | ""; label: string }> = [
@@ -34,6 +37,7 @@ type ReportFilters = {
 
 export default function InventoryClearingVariancePage() {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const searchParams = useSearchParams();
   const [filters, setFilters] = useState<ReportFilters>({
     from: searchParams.get("from") ?? "",
@@ -46,6 +50,7 @@ export default function InventoryClearingVariancePage() {
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
+  const canCreateProposal = can(PERMISSIONS.inventory.varianceProposalsCreate);
   const query = useMemo(() => buildQuery(filters), [filters]);
 
   useEffect(() => {
@@ -153,6 +158,7 @@ export default function InventoryClearingVariancePage() {
                     <th className="px-4 py-3">Reason</th>
                     <th className="px-4 py-3">Recommended action</th>
                     <th className="px-4 py-3">Warnings</th>
+                    <th className="px-4 py-3">Proposal</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -186,6 +192,15 @@ export default function InventoryClearingVariancePage() {
                       <td className="px-4 py-3 text-steel">{inventoryClearingVarianceReasonLabel(row.varianceReason)}</td>
                       <td className="px-4 py-3 text-steel">{row.recommendedAction}</td>
                       <td className="px-4 py-3 text-xs text-steel">{row.warnings.length > 0 ? row.warnings.join("; ") : "-"}</td>
+                      <td className="px-4 py-3">
+                        {canCreateProposal ? (
+                          <Link href={inventoryVarianceProposalCreateUrl(row)} className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-teal-50">
+                            Create proposal
+                          </Link>
+                        ) : (
+                          <span className="text-steel">-</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

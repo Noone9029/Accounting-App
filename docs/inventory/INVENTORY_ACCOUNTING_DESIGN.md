@@ -68,7 +68,16 @@ Purchase receipt accounting is manual-only:
 - clearing reconciliation and variance reports show bill clearing debits, active receipt clearing credits, GL clearing balance, value differences, reversed postings, and direct-mode exclusions without posting journals
 - purchase bill and purchase order matching endpoints expose operational receipt status, but do not mutate accounting
 
-The integrity audit in `docs/inventory/INVENTORY_ACCOUNTING_INTEGRITY_AUDIT.md` found no code-level double-counting defect in the current manual posting paths and recommends moving next to an accountant-reviewed variance proposal workflow, not automatic variance posting.
+The integrity audit in `docs/inventory/INVENTORY_ACCOUNTING_INTEGRITY_AUDIT.md` found no code-level double-counting defect in the current manual posting paths and approved an accountant-reviewed variance proposal workflow, not automatic variance posting.
+
+Inventory variance proposals are now implemented as a controlled review layer:
+
+- Clearing variance report rows can create `DRAFT` proposals, but the service recomputes the amount and accounts from current reports/settings.
+- Manual proposals can store accountant-selected debit and credit accounts.
+- Lifecycle is `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `POSTED`, `REVERSED`, or `VOIDED`.
+- Proposal creation, submission, approval, event review, and accounting preview create no journals.
+- Explicit posting creates one fiscal-period-guarded journal, Dr proposal debit account and Cr proposal credit account.
+- Explicit reversal creates one reversal journal.
 
 ## Proposed Accounting Model
 
@@ -93,10 +102,9 @@ The implementation separates operational inventory events from financial posting
 
 ## Future Implementation Order
 
-1. Design an accountant-reviewed variance journal proposal workflow from clearing report rows without auto-posting.
-2. Review Inventory Clearing balances and receipt/bill matching output with an accountant.
-3. Decide historical direct-mode exclusion/migration policy.
-4. Keep automatic purchase receipt posting disabled until proposal, approval, variance, landed-cost, and migration controls exist.
-5. Add adjustment gain/loss posting with reason-code controls.
-6. Add financial inventory reports reviewed by accountants.
-7. Add FIFO only after full cost-layer modeling is designed.
+1. Review Inventory Clearing balances, variance proposal output, and posted/reversed proposal journals with an accountant.
+2. Decide historical direct-mode exclusion/migration policy.
+3. Keep automatic purchase receipt posting disabled until landed-cost, FIFO/cost-layer, and migration controls exist.
+4. Add adjustment gain/loss posting with reason-code controls only if separate from clearing variance proposals.
+5. Add financial inventory reports reviewed by accountants.
+6. Add FIFO only after full cost-layer modeling is designed.

@@ -39,12 +39,19 @@ Purchase order matching returns the operational receipt value estimate, converte
 
 Bill/receipt matching is now used by the preview to decide whether a receipt is linked to a finalized `INVENTORY_CLEARING` bill and can be manually posted Dr Inventory Asset / Cr Inventory Clearing. The clearing reconciliation and variance reports compare active receipt asset postings with clearing-mode bills, but price and quantity differences still require manual accountant review before any variance posting is enabled.
 
-The 2026-05-15 integrity audit confirms matching/report outputs are read-only and suitable for feeding a future accountant-reviewed variance proposal workflow, provided that proposal creation and posting remain explicit actions.
+The 2026-05-15 integrity audit confirmed matching/report outputs are read-only and suitable for feeding an accountant-reviewed variance proposal workflow. That workflow is now implemented with explicit proposal creation, submission, approval, posting, reversal, voiding, and event history.
+
+Important boundary:
+
+- Matching endpoints still create no journals.
+- Clearing reports still create no journals.
+- Proposal creation from a clearing variance still creates no journal.
+- Only posting an approved variance proposal creates Dr/Cr journal lines.
 
 ## Deferred Work
 
 - Durable many-to-many matching records, if required beyond source-line links.
-- Variance accounts and approval workflow.
+- Automatic variance detection/posting.
 - Partial billing against multiple receipts.
 - Landed cost allocation.
 - Supplier returns and debit-note inventory effects.

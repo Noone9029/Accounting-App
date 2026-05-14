@@ -65,17 +65,17 @@ Tasks:
 - Inventory adjustment approval inbox, attachments, and reason-code catalog.
 - Warehouse in-transit transfer, shipping document, and bin/location support.
 - Accountant review of the current moving-average operational valuation estimate and FIFO placeholder policy.
-- Review inventory accounting settings, purchase receipt clearing previews/posting, purchase bill direct-vs-clearing finalization behavior, bill/receipt matching visibility, manual sales issue COGS posting, and clearing account balances with an accountant.
+- Review inventory accounting settings, purchase receipt clearing previews/posting, purchase bill direct-vs-clearing finalization behavior, bill/receipt matching visibility, manual sales issue COGS posting, clearing account balances, and variance proposal journals with an accountant.
 - Use `docs/inventory/PURCHASE_RECEIPT_POSTING_READINESS_AUDIT.md` as the go/no-go gate before automatic receipt GL posting or direct-mode migration.
 - Harden manual COGS and receipt asset review/audit UX after first QA pass.
-- Inventory accounting integrity audit is complete for the current manual posting chain; next design should use clearing variance rows to propose accountant-reviewed variance journals without automatic posting.
+- Inventory accounting integrity audit is complete for the current manual posting chain, and accountant-reviewed variance proposals now exist. Next inventory accounting work should harden review outputs and define landed-cost, historical direct-mode migration/exclusion, and FIFO cost-layer policy before any automatic posting.
 - Accounting-grade inventory valuation reports after GL posting design.
 - Employee master data.
 - Payroll shell with draft runs, pay items, and accounting posting plan.
 
 Manual dependencies:
 
-- Inventory valuation accounting policy, inventory clearing account treatment, bill/receipt matching/variance policy, receipt asset posting review policy, and COGS cost-flow approval.
+- Inventory valuation accounting policy, inventory clearing account treatment, bill/receipt matching/variance policy, receipt asset and variance proposal review policy, and COGS cost-flow approval.
 - Payroll jurisdiction requirements.
 - Accountant review of COGS/payroll postings.
 
@@ -83,7 +83,7 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Add accountant-reviewed inventory variance journal proposal workflow without enabling automatic variance posting.
+> Review inventory variance proposal outputs with an accountant and design landed-cost/direct-mode migration policy without enabling automatic posting.
 
 ## Phase 4: ZATCA Production Path
 

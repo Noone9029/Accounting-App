@@ -211,9 +211,10 @@ The existing smoke flow covers:
 - Manual purchase receipt asset posting, trial-balance/general-ledger impact, active-posting void block, reversal, and void after reversal.
 - Manual COGS posting, P&L impact, active-COGS void block, reversal, and void after reversal.
 - Clearing reconciliation/variance reports and CSV exports.
+- Inventory variance proposal create, submit, approve, preview, explicit post, reverse, and event review flow.
 - No journal creation from preview/report endpoints.
 
-Verdict: smoke coverage is appropriate for the current integrity gate and should be reused before adding variance journal proposals.
+Verdict: smoke coverage is appropriate for the current integrity gate and now covers the explicit variance proposal posting path while preserving no-journal preview/report behavior.
 
 ## Known Limitations
 
@@ -230,9 +231,9 @@ Verdict: smoke coverage is appropriate for the current integrity gate and should
 
 ## Go/No-Go For Variance Journal Proposal Workflow
 
-Recommendation: **GO for design and implementation of an accountant-reviewed variance journal proposal workflow**, with strict limits.
+Recommendation at the time of this audit: **GO for design and implementation of an accountant-reviewed variance journal proposal workflow**, with strict limits.
 
-Allowed next phase:
+Allowed next phase at the time of the audit:
 
 - Propose variance journal entries from clearing reconciliation rows.
 - Keep proposals draft/review-only until explicitly approved or posted by an authorized accountant.
@@ -254,3 +255,22 @@ Required controls for the next phase:
 - Proposal posting must be fiscal-period guarded and permission-gated.
 - Proposal reversal/void behavior must be explicit.
 - Tests must prove no proposal or report endpoint creates journals automatically.
+
+## Post-Audit Implementation Note
+
+The approved variance proposal workflow has now been added under the same controls:
+
+- Proposal records and events track `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `POSTED`, `REVERSED`, and `VOIDED` states.
+- Clearing variance proposals recompute variance amounts from the report service and do not trust client-supplied amounts.
+- Manual proposals require positive amounts and tenant-owned active posting debit/credit accounts.
+- Approval alone does not create a journal.
+- Posting is explicit, permission-gated, fiscal-period guarded, and creates one balanced Dr debit account / Cr credit account journal.
+- Reversal is explicit, permission-gated, fiscal-period guarded, and creates one reversal journal.
+- Reports, previews, proposal creation, submission, and approval remain no-journal operations.
+
+New residual limits:
+
+- No automatic variance posting.
+- No landed cost.
+- FIFO remains placeholder-only.
+- Accountant review is still required before posting any proposal.

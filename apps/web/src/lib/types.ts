@@ -25,6 +25,16 @@ export type PurchaseReceiptMatchingStatus = "NOT_RECEIVED" | "PARTIALLY_RECEIVED
 export type InventoryValuationMethod = "MOVING_AVERAGE" | "FIFO_PLACEHOLDER";
 export type InventoryPurchasePostingMode = "DISABLED" | "PREVIEW_ONLY";
 export type PurchaseBillInventoryPostingMode = "DIRECT_EXPENSE_OR_ASSET" | "INVENTORY_CLEARING";
+export type InventoryVarianceProposalStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "POSTED" | "REVERSED" | "VOIDED";
+export type InventoryVarianceProposalSourceType = "CLEARING_VARIANCE" | "MANUAL";
+export type InventoryVarianceReason =
+  | "PRICE_DIFFERENCE"
+  | "QUANTITY_DIFFERENCE"
+  | "RECEIPT_WITHOUT_CLEARING_BILL"
+  | "CLEARING_BILL_WITHOUT_RECEIPT"
+  | "REVERSED_RECEIPT_POSTING"
+  | "MANUAL_ADJUSTMENT";
+export type InventoryVarianceProposalAction = "CREATE" | "SUBMIT" | "APPROVE" | "POST" | "REVERSE" | "VOID";
 export type SalesInvoiceStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type CreditNoteStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type PurchaseOrderStatus = "DRAFT" | "APPROVED" | "SENT" | "PARTIALLY_BILLED" | "BILLED" | "CLOSED" | "VOIDED";
@@ -1143,6 +1153,87 @@ export interface InventoryClearingVarianceReport {
   };
   warnings: string[];
   rows: InventoryClearingVarianceRow[];
+}
+
+export interface InventoryVarianceProposal {
+  id: string;
+  organizationId: string;
+  proposalNumber: string;
+  sourceType: InventoryVarianceProposalSourceType;
+  reason: InventoryVarianceReason;
+  status: InventoryVarianceProposalStatus;
+  purchaseBillId: string | null;
+  purchaseReceiptId: string | null;
+  supplierId: string | null;
+  proposalDate: string;
+  amount: string;
+  description: string | null;
+  debitAccountId: string;
+  creditAccountId: string;
+  createdById: string | null;
+  submittedById: string | null;
+  approvedById: string | null;
+  postedById: string | null;
+  reversedById: string | null;
+  voidedById: string | null;
+  submittedAt: string | null;
+  approvedAt: string | null;
+  postedAt: string | null;
+  reversedAt: string | null;
+  voidedAt: string | null;
+  journalEntryId: string | null;
+  reversalJournalEntryId: string | null;
+  approvalNotes: string | null;
+  reversalReason: string | null;
+  voidReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  purchaseBill?: Pick<PurchaseBill, "id" | "billNumber" | "billDate" | "status" | "inventoryPostingMode" | "total" | "currency"> | null;
+  purchaseReceipt?: Pick<PurchaseReceipt, "id" | "receiptNumber" | "receiptDate" | "status" | "inventoryAssetJournalEntryId" | "inventoryAssetReversalJournalEntryId"> | null;
+  supplier?: Pick<Contact, "id" | "name" | "displayName"> | null;
+  debitAccount?: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive">;
+  creditAccount?: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive">;
+  journalEntry?: { id: string; entryNumber: string; entryDate: string; status: JournalStatus } | null;
+  reversalJournalEntry?: { id: string; entryNumber: string; entryDate: string; status: JournalStatus } | null;
+  createdBy?: { id: string; name: string; email: string } | null;
+  submittedBy?: { id: string; name: string; email: string } | null;
+  approvedBy?: { id: string; name: string; email: string } | null;
+  postedBy?: { id: string; name: string; email: string } | null;
+  reversedBy?: { id: string; name: string; email: string } | null;
+  voidedBy?: { id: string; name: string; email: string } | null;
+}
+
+export interface InventoryVarianceProposalEvent {
+  id: string;
+  organizationId: string;
+  proposalId: string;
+  actorUserId: string | null;
+  action: InventoryVarianceProposalAction;
+  fromStatus: InventoryVarianceProposalStatus | null;
+  toStatus: InventoryVarianceProposalStatus;
+  notes: string | null;
+  createdAt: string;
+  actorUser?: { id: string; name: string; email: string } | null;
+}
+
+export interface InventoryVarianceProposalAccountingPreview {
+  sourceType: "InventoryVarianceProposal";
+  sourceId: string;
+  sourceNumber: string;
+  previewOnly: true;
+  status: InventoryVarianceProposalStatus;
+  canPost: boolean;
+  blockingReasons: string[];
+  warnings: string[];
+  amount: string;
+  debitAccount: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive">;
+  creditAccount: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive">;
+  purchaseBill: InventoryVarianceProposal["purchaseBill"];
+  purchaseReceipt: InventoryVarianceProposal["purchaseReceipt"];
+  journalEntryId: string | null;
+  reversalJournalEntryId: string | null;
+  journal: InventoryAccountingPreviewJournal;
+  journalLines: InventoryAccountingPreviewJournalLine[];
 }
 
 export interface Contact {

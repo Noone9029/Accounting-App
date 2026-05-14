@@ -58,5 +58,5 @@ Inventory quantities and costs use decimal fields. Future posting work beyond ma
 - No automatic GL posting is enabled.
 - Purchase receipt inventory asset posting is implemented only as an explicit manual action for compatible finalized `INVENTORY_CLEARING` purchase bills.
 - Purchase receipt posting readiness is advisory and creates no journals.
-- Inventory clearing settings, previews, explicit clearing-mode purchase bill journals, manual receipt asset posting, and read-only clearing reconciliation/variance reports exist, but automatic receipt posting and automatic variance journals are not implemented.
+- Inventory clearing settings, previews, explicit clearing-mode purchase bill journals, manual receipt asset posting, read-only clearing reconciliation/variance reports, and accountant-reviewed variance proposal posting exist, but automatic receipt posting and automatic variance journals are not implemented.
 - Moving average is still an operational estimate and requires accountant review before each manual COGS post.

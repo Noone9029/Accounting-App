@@ -120,7 +120,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, `/auth/me` role permission visibility, role/member API visibility, custom role creation, unknown-permission rejection, organization discovery, bank account profile defaults/transactions/balance movement, bank transfers/opening balances, bank statement preview/import/matching/categorization/reconciliation summary/submit/approve/close/void lock checks, reconciliation report data/CSV/PDF/archive checks, item/customer/supplier setup, warehouse defaults, opening-balance stock movements, inventory adjustment approval/void flows, warehouse transfers/void reversals, purchase receipt posting/voiding, compatible purchase receipt asset post/reverse, finalized-invoice sales stock issue posting/voiding after manual COGS post/reversal, receiving/issue status endpoints, inventory balances, inventory settings, inventory accounting settings, purchase receipt posting readiness, purchase receipt accounting preview, sales issue COGS preview, manual COGS posting, P&L COGS activity, stock valuation/movement/low-stock reports, inventory clearing reconciliation/variance reports and CSV exports, no-journal inventory movement checks outside explicit COGS/receipt asset actions, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, report CSV/PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
+The smoke covers seed login, `/auth/me` role permission visibility, role/member API visibility, custom role creation, unknown-permission rejection, organization discovery, bank account profile defaults/transactions/balance movement, bank transfers/opening balances, bank statement preview/import/matching/categorization/reconciliation summary/submit/approve/close/void lock checks, reconciliation report data/CSV/PDF/archive checks, item/customer/supplier setup, warehouse defaults, opening-balance stock movements, inventory adjustment approval/void flows, warehouse transfers/void reversals, purchase receipt posting/voiding, compatible purchase receipt asset post/reverse, finalized-invoice sales stock issue posting/voiding after manual COGS post/reversal, receiving/issue status endpoints, inventory balances, inventory settings, inventory accounting settings, purchase receipt posting readiness, purchase receipt accounting preview, sales issue COGS preview, manual COGS posting, P&L COGS activity, stock valuation/movement/low-stock reports, inventory clearing reconciliation/variance reports and CSV exports, accountant-reviewed inventory variance proposal create/submit/approve/post/reverse flow, no-journal inventory movement checks outside explicit COGS/receipt asset/variance proposal post actions, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, report CSV/PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
 
@@ -319,6 +319,19 @@ Warehouses and inventory:
 - `GET /inventory/reports/stock-valuation`
 - `GET /inventory/reports/movement-summary`
 - `GET /inventory/reports/low-stock`
+- `GET /inventory/reports/clearing-reconciliation`
+- `GET /inventory/reports/clearing-variance`
+- `GET /inventory/variance-proposals`
+- `POST /inventory/variance-proposals`
+- `POST /inventory/variance-proposals/from-clearing-variance`
+- `GET /inventory/variance-proposals/:id`
+- `GET /inventory/variance-proposals/:id/events`
+- `GET /inventory/variance-proposals/:id/accounting-preview`
+- `POST /inventory/variance-proposals/:id/submit`
+- `POST /inventory/variance-proposals/:id/approve`
+- `POST /inventory/variance-proposals/:id/post`
+- `POST /inventory/variance-proposals/:id/reverse`
+- `POST /inventory/variance-proposals/:id/void`
 
 Sales invoices:
 
@@ -1062,6 +1075,19 @@ APIs:
 - `GET /inventory/reports/stock-valuation?itemId=&warehouseId=&format=csv`
 - `GET /inventory/reports/movement-summary?from=&to=&itemId=&warehouseId=&format=csv`
 - `GET /inventory/reports/low-stock?format=csv`
+- `GET /inventory/reports/clearing-reconciliation?from=&to=&supplierId=&purchaseBillId=&purchaseReceiptId=&status=&format=csv`
+- `GET /inventory/reports/clearing-variance?from=&to=&supplierId=&purchaseBillId=&purchaseReceiptId=&status=&format=csv`
+- `GET /inventory/variance-proposals`
+- `POST /inventory/variance-proposals`
+- `POST /inventory/variance-proposals/from-clearing-variance`
+- `GET /inventory/variance-proposals/:id`
+- `GET /inventory/variance-proposals/:id/events`
+- `GET /inventory/variance-proposals/:id/accounting-preview`
+- `POST /inventory/variance-proposals/:id/submit`
+- `POST /inventory/variance-proposals/:id/approve`
+- `POST /inventory/variance-proposals/:id/post`
+- `POST /inventory/variance-proposals/:id/reverse`
+- `POST /inventory/variance-proposals/:id/void`
 
 Behavior:
 
@@ -1096,21 +1122,24 @@ Behavior:
 - `POST /purchase-receipts/:id/reverse-inventory-asset` requires `inventory.receipts.reverseAsset`, an existing unreversed receipt asset journal, and an open fiscal period on the current date. It creates one reversal journal and does not void the purchase receipt.
 - `GET /inventory/reports/clearing-reconciliation` compares finalized `INVENTORY_CLEARING` purchase bill clearing debits with active linked purchase receipt asset posting credits. It supports `from`, `to`, `supplierId`, `purchaseBillId`, `purchaseReceiptId`, `status`, and `format=csv`.
 - `GET /inventory/reports/clearing-variance` returns only problem rows: unmatched clearing-mode bills, partial/variant values, reversed receipt asset postings, and receipt asset postings without compatible clearing bills. It is review-only and never creates variance journals.
+- `POST /inventory/variance-proposals/from-clearing-variance` recomputes the selected clearing variance server-side, creates a `DRAFT` proposal with stored debit/credit accounts, and creates no journal.
+- `POST /inventory/variance-proposals` creates a manual `DRAFT` variance proposal from accountant-selected debit and credit accounts. The amount must be positive and accounts must be active posting accounts in the organization.
+- Inventory variance proposal lifecycle is `DRAFT -> PENDING_APPROVAL -> APPROVED -> POSTED -> REVERSED`; `VOIDED` is allowed before posting. Posting requires `inventory.varianceProposals.post`, an approved proposal, an open fiscal period on `proposalDate`, and explicitly creates Dr debit account / Cr credit account. Reversal requires `inventory.varianceProposals.reverse` and creates one reversal journal dated to the current date. No proposal, report, or preview endpoint auto-posts.
 - `GET /sales-stock-issues/:id/accounting-preview` returns moving-average estimated COGS, Dr COGS / Cr Inventory Asset preview lines, posting status, COGS journal ids when present, and `canPost: true` only when the stock issue is eligible for manual posting.
 - `POST /sales-stock-issues/:id/post-cogs` requires `inventory.cogs.post`, enabled inventory accounting, mapped inventory asset and COGS accounts, `MOVING_AVERAGE`, a posted/unvoided stock issue, no existing COGS journal, no preview blocking reasons, and an open fiscal period on the stock issue date. It creates one posted journal: Dr COGS, Cr Inventory Asset.
 - `POST /sales-stock-issues/:id/reverse-cogs` requires `inventory.cogs.reverse`, an existing unreversed COGS journal, and an open fiscal period on the current date. It creates one reversal journal and does not void the stock issue.
-- `docs/inventory/INVENTORY_ACCOUNTING_INTEGRITY_AUDIT.md` records the 2026-05-15 inventory accounting integrity audit. It found no code-level double-counting defect in the current manual posting paths and recommends the next phase be an accountant-reviewed variance proposal workflow without automatic posting.
+- `docs/inventory/INVENTORY_ACCOUNTING_INTEGRITY_AUDIT.md` records the 2026-05-15 inventory accounting integrity audit. It found no code-level double-counting defect in the current manual posting paths and approved the accountant-reviewed variance proposal workflow that now exists without automatic posting.
 - `GET /inventory/reports/stock-valuation` derives quantity, average unit cost, estimated value, item totals, and grand total from stock movements. Missing inbound cost data is surfaced as a row warning.
 - `GET /inventory/reports/movement-summary` returns opening, inbound, outbound, closing, movement count, and movement-type breakdown by item and warehouse.
 - `GET /inventory/reports/low-stock` returns inventory-tracked items whose total quantity on hand is at or below `Item.reorderPoint`.
 
 Accounting limitation:
 
-- Inventory movements do not create journal entries automatically and do not affect GL, COGS, inventory asset balances, VAT, or financial statements unless a user explicitly posts COGS for a sales stock issue or explicitly posts inventory asset for a compatible purchase receipt. Purchase bill finalization affects AP/VAT/line accounts or Inventory Clearing according to the selected bill posting mode.
+- Inventory movements do not create journal entries automatically and do not affect GL, COGS, inventory asset balances, VAT, or financial statements unless a user explicitly posts COGS for a sales stock issue, explicitly posts inventory asset for a compatible purchase receipt, or explicitly posts an approved inventory variance proposal. Purchase bill finalization affects AP/VAT/line accounts or Inventory Clearing according to the selected bill posting mode.
 - Stock valuation is an operational estimate only. It is not the GL inventory asset value and is not used for Balance Sheet, Profit & Loss, VAT, or COGS.
 - Purchase receipts debit inventory asset accounts only through the explicit `post-inventory-asset` action and only when linked to a finalized `INVENTORY_CLEARING` purchase bill.
 - Inventory clearing account settings, bill/receipt matching visibility, purchase bill inventory posting mode, and purchase bill accounting preview exist. Explicit Inventory Clearing purchase bill finalization posts purchase bill clearing journals, and compatible purchase receipts can now be manually posted Dr Inventory Asset / Cr Inventory Clearing.
-- Inventory accounting settings, readiness, and preview endpoints do not create `JournalEntry` records; explicit manual COGS posting, explicit purchase bill finalization, and explicit purchase receipt asset posting are the inventory-adjacent journal paths in this phase.
+- Inventory accounting settings, readiness, reports, proposal creation/review, and preview endpoints do not create `JournalEntry` records; explicit manual COGS posting, explicit purchase bill finalization, explicit purchase receipt asset posting, and explicit approved variance proposal posting are the inventory-adjacent journal paths in this phase.
 
 Manual COGS posting behavior:
 
@@ -1135,7 +1164,7 @@ Known limitations:
 - Purchase receipt inventory asset posting is manual only and blocked for `DIRECT_EXPENSE_OR_ASSET` bills.
 - Inventory Clearing purchase bill finalization and receipt asset posting can leave timing differences in Inventory Clearing until receipts and bills are reviewed in the clearing reconciliation and variance reports.
 - Existing finalized direct-mode purchase bills are not migrated.
-- No automatic variance journal proposals or postings yet; the next safe phase is proposal-only variance review from clearing variance rows.
+- No automatic variance posting. Inventory variance proposals exist, but journals are created only after submit, approval, and an explicit post action.
 - No automatic purchase receipt from purchase orders or bills.
 - No automatic sales delivery or stock issue from sales invoices.
 - No landed cost.

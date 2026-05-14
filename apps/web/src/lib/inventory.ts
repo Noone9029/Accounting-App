@@ -6,6 +6,7 @@ import type {
   InventoryAccountingSettings,
   InventoryBalance,
   InventoryClearingReportStatus,
+  InventoryClearingVarianceRow,
   InventoryLowStockStatus,
   InventoryMovementSummaryRow,
   InventoryPurchasePostingMode,
@@ -13,6 +14,9 @@ import type {
   InventorySourceProgressStatus,
   InventoryStockValuationRow,
   InventoryValuationMethod,
+  InventoryVarianceProposalAccountingPreview,
+  InventoryVarianceProposalStatus,
+  InventoryVarianceReason,
   PurchaseBillInventoryPostingMode,
   PurchaseReceiptAccountingPreview,
   PurchaseReceiptPostingReadiness,
@@ -285,6 +289,114 @@ export function inventoryClearingReportUrl(filters: { purchaseBillId?: string | 
   if (filters.status) query.set("status", filters.status);
   const suffix = query.toString();
   return `/inventory/reports/clearing-reconciliation${suffix ? `?${suffix}` : ""}`;
+}
+
+export function inventoryVarianceProposalStatusLabel(status: InventoryVarianceProposalStatus): string {
+  switch (status) {
+    case "DRAFT":
+      return "Draft";
+    case "PENDING_APPROVAL":
+      return "Pending approval";
+    case "APPROVED":
+      return "Approved";
+    case "POSTED":
+      return "Posted";
+    case "REVERSED":
+      return "Reversed";
+    case "VOIDED":
+      return "Voided";
+  }
+}
+
+export function inventoryVarianceProposalStatusBadgeClass(status: InventoryVarianceProposalStatus): string {
+  switch (status) {
+    case "DRAFT":
+      return "bg-slate-100 text-slate-700";
+    case "PENDING_APPROVAL":
+      return "bg-amber-50 text-amber-700";
+    case "APPROVED":
+      return "bg-sky-50 text-sky-700";
+    case "POSTED":
+      return "bg-emerald-50 text-emerald-700";
+    case "REVERSED":
+      return "bg-violet-50 text-violet-700";
+    case "VOIDED":
+      return "bg-rose-50 text-rose-700";
+  }
+}
+
+export function inventoryVarianceReasonLabel(reason: InventoryVarianceReason): string {
+  switch (reason) {
+    case "PRICE_DIFFERENCE":
+      return "Price difference";
+    case "QUANTITY_DIFFERENCE":
+      return "Quantity difference";
+    case "RECEIPT_WITHOUT_CLEARING_BILL":
+      return "Receipt without clearing bill";
+    case "CLEARING_BILL_WITHOUT_RECEIPT":
+      return "Clearing bill without receipt";
+    case "REVERSED_RECEIPT_POSTING":
+      return "Reversed receipt posting";
+    case "MANUAL_ADJUSTMENT":
+      return "Manual adjustment";
+  }
+}
+
+export function canSubmitInventoryVarianceProposal(status: InventoryVarianceProposalStatus, hasPermission: boolean): boolean {
+  return hasPermission && status === "DRAFT";
+}
+
+export function canApproveInventoryVarianceProposal(status: InventoryVarianceProposalStatus, hasPermission: boolean): boolean {
+  return hasPermission && status === "PENDING_APPROVAL";
+}
+
+export function canPostInventoryVarianceProposal(
+  preview: Pick<InventoryVarianceProposalAccountingPreview, "canPost" | "status" | "journalEntryId"> | null,
+  hasPermission: boolean,
+): boolean {
+  return hasPermission && preview?.status === "APPROVED" && preview.canPost === true && !preview.journalEntryId;
+}
+
+export function canReverseInventoryVarianceProposal(status: InventoryVarianceProposalStatus, hasPermission: boolean): boolean {
+  return hasPermission && status === "POSTED";
+}
+
+export function canVoidInventoryVarianceProposal(status: InventoryVarianceProposalStatus, hasPermission: boolean): boolean {
+  return hasPermission && (status === "DRAFT" || status === "PENDING_APPROVAL" || status === "APPROVED");
+}
+
+export function inventoryVarianceProposalFinancialReportWarning(): string {
+  return "Posting this proposal creates accounting journal entries and affects financial reports.";
+}
+
+export function inventoryVarianceProposalReasonFromClearingRow(row: Pick<InventoryClearingVarianceRow, "status" | "varianceReason" | "warnings">): InventoryVarianceReason {
+  if (row.status === "BILL_WITHOUT_RECEIPT_POSTING") {
+    return "CLEARING_BILL_WITHOUT_RECEIPT";
+  }
+  if (row.status === "RECEIPT_WITHOUT_CLEARING_BILL") {
+    return "RECEIPT_WITHOUT_CLEARING_BILL";
+  }
+  if ([row.varianceReason, ...row.warnings].some((value) => value.toLowerCase().includes("reversed"))) {
+    return "REVERSED_RECEIPT_POSTING";
+  }
+  if (row.status === "PARTIAL") {
+    return "QUANTITY_DIFFERENCE";
+  }
+  return "PRICE_DIFFERENCE";
+}
+
+export function inventoryVarianceProposalCreateUrl(
+  row: Pick<InventoryClearingVarianceRow, "status" | "varianceReason" | "warnings"> & {
+    purchaseBill?: { id: string } | null;
+    receipt?: { id: string } | null;
+  },
+): string {
+  const query = new URLSearchParams();
+  if (row.purchaseBill?.id) query.set("purchaseBillId", row.purchaseBill.id);
+  if (row.receipt?.id) query.set("purchaseReceiptId", row.receipt.id);
+  query.set("reason", inventoryVarianceProposalReasonFromClearingRow(row));
+  const suffix = query.toString();
+  return `/inventory/variance-proposals/new${suffix ? `?${suffix}` : ""}`;
 }
 
 export function lowStockStatusLabel(status: InventoryLowStockStatus): string {

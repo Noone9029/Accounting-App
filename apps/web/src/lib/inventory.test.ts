@@ -21,6 +21,17 @@ import {
   inventoryClearingStatusBadgeClass,
   inventoryClearingStatusLabel,
   inventoryClearingVarianceReasonLabel,
+  inventoryVarianceProposalCreateUrl,
+  inventoryVarianceProposalFinancialReportWarning,
+  inventoryVarianceProposalReasonFromClearingRow,
+  inventoryVarianceProposalStatusBadgeClass,
+  inventoryVarianceProposalStatusLabel,
+  inventoryVarianceReasonLabel,
+  canApproveInventoryVarianceProposal,
+  canPostInventoryVarianceProposal,
+  canReverseInventoryVarianceProposal,
+  canSubmitInventoryVarianceProposal,
+  canVoidInventoryVarianceProposal,
   inventorySettingsLabel,
   inventorySettingsWarnings,
   inventoryValuationWarningText,
@@ -241,5 +252,40 @@ describe("inventory helpers", () => {
     expect(inventoryClearingReportUrl({ purchaseBillId: "bill-1", purchaseReceiptId: "receipt-1", status: "VARIANCE" })).toBe(
       "/inventory/reports/clearing-reconciliation?purchaseBillId=bill-1&purchaseReceiptId=receipt-1&status=VARIANCE",
     );
+  });
+
+  it("labels inventory variance proposal status, reasons, actions, and source URLs", () => {
+    expect(inventoryVarianceProposalStatusLabel("PENDING_APPROVAL")).toBe("Pending approval");
+    expect(inventoryVarianceProposalStatusBadgeClass("POSTED")).toContain("emerald");
+    expect(inventoryVarianceReasonLabel("CLEARING_BILL_WITHOUT_RECEIPT")).toBe("Clearing bill without receipt");
+    expect(canSubmitInventoryVarianceProposal("DRAFT", true)).toBe(true);
+    expect(canSubmitInventoryVarianceProposal("APPROVED", true)).toBe(false);
+    expect(canApproveInventoryVarianceProposal("PENDING_APPROVAL", true)).toBe(true);
+    expect(canPostInventoryVarianceProposal({ status: "APPROVED", canPost: true, journalEntryId: null }, true)).toBe(true);
+    expect(canPostInventoryVarianceProposal({ status: "APPROVED", canPost: true, journalEntryId: "je-1" }, true)).toBe(false);
+    expect(canReverseInventoryVarianceProposal("POSTED", true)).toBe(true);
+    expect(canVoidInventoryVarianceProposal("APPROVED", true)).toBe(true);
+    expect(canVoidInventoryVarianceProposal("POSTED", true)).toBe(false);
+    expect(inventoryVarianceProposalFinancialReportWarning()).toBe(
+      "Posting this proposal creates accounting journal entries and affects financial reports.",
+    );
+    const row = {
+      status: "VARIANCE" as const,
+      purchaseBill: { id: "bill-1" },
+      receipt: { id: "receipt-1" },
+      varianceReason: "Inventory clearing debit and receipt clearing credit do not match.",
+      warnings: [],
+    };
+    expect(inventoryVarianceProposalReasonFromClearingRow(row)).toBe("PRICE_DIFFERENCE");
+    expect(inventoryVarianceProposalCreateUrl(row)).toBe(
+      "/inventory/variance-proposals/new?purchaseBillId=bill-1&purchaseReceiptId=receipt-1&reason=PRICE_DIFFERENCE",
+    );
+    expect(
+      inventoryVarianceProposalReasonFromClearingRow({
+        status: "BILL_WITHOUT_RECEIPT_POSTING",
+        varianceReason: "",
+        warnings: [],
+      }),
+    ).toBe("CLEARING_BILL_WITHOUT_RECEIPT");
   });
 });

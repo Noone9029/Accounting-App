@@ -143,7 +143,7 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 
 ## Inventory
 
-Inventory endpoints remain operational by default. They do not auto-post journals; only explicit sales stock issue COGS and compatible purchase receipt asset posting actions write accounting journals after review.
+Inventory endpoints remain operational by default. They do not auto-post journals; only explicit sales stock issue COGS, compatible purchase receipt asset posting, and approved inventory variance proposal posting actions write accounting journals after review.
 
 | Method | Path | Purpose | Auth | Org header | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -197,6 +197,17 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | GET | `/inventory/reports/low-stock` | Low-stock report | Yes | Yes | Implemented | Requires `inventory.view`; optional `format=csv`; returns tracked items at or below `Item.reorderPoint`. |
 | GET | `/inventory/reports/clearing-reconciliation` | Inventory clearing reconciliation | Yes | Yes | Implemented | Requires `inventory.view`; optional `from`, `to`, `supplierId`, `purchaseBillId`, `purchaseReceiptId`, `status`, and `format=csv`; compares finalized `INVENTORY_CLEARING` bill debits against active linked receipt asset posting credits and returns clearing account GL summary. Creates no journals. |
 | GET | `/inventory/reports/clearing-variance` | Inventory clearing variance review | Yes | Yes | Implemented | Requires `inventory.view`; optional `from`, `to`, `supplierId`, `purchaseBillId`, `purchaseReceiptId`, `status`, and `format=csv`; returns only clearing rows needing review, including reversed receipt asset postings and receipts without compatible clearing bills. Creates no variance journals. |
+| GET | `/inventory/variance-proposals` | List inventory variance proposals | Yes | Yes | Implemented | Requires `inventory.varianceProposals.view`; supports status/source/reason/source document/date filters; tenant scoped. |
+| POST | `/inventory/variance-proposals` | Create manual variance proposal | Yes | Yes | Implemented | Requires `inventory.varianceProposals.create`; validates positive amount and active posting debit/credit accounts; creates a `DRAFT` proposal and event only. |
+| POST | `/inventory/variance-proposals/from-clearing-variance` | Create proposal from clearing variance | Yes | Yes | Implemented | Requires `inventory.varianceProposals.create`; recomputes clearing variance server-side, chooses clearing/gain/loss accounts from settings, creates `DRAFT` proposal and event only; no journal. |
+| GET | `/inventory/variance-proposals/:id` | Variance proposal detail | Yes | Yes | Implemented | Requires `inventory.varianceProposals.view`; tenant scoped with accounts, source bill/receipt, supplier, and journal links. |
+| GET | `/inventory/variance-proposals/:id/events` | Variance proposal events | Yes | Yes | Implemented | Requires `inventory.varianceProposals.view`; returns CREATE/SUBMIT/APPROVE/POST/REVERSE/VOID timeline. |
+| GET | `/inventory/variance-proposals/:id/accounting-preview` | Variance proposal accounting preview | Yes | Yes | Implemented | Requires `inventory.varianceProposals.view`; returns Dr debit account / Cr credit account preview, blockers, warnings, and `canPost`; creates no journal. |
+| POST | `/inventory/variance-proposals/:id/submit` | Submit variance proposal | Yes | Yes | Implemented | Requires `inventory.varianceProposals.create`; moves `DRAFT` to `PENDING_APPROVAL`; creates event only. |
+| POST | `/inventory/variance-proposals/:id/approve` | Approve variance proposal | Yes | Yes | Implemented | Requires `inventory.varianceProposals.approve`; moves `PENDING_APPROVAL` to `APPROVED`; creates event only. |
+| POST | `/inventory/variance-proposals/:id/post` | Post variance proposal journal | Yes | Yes | Implemented | Requires `inventory.varianceProposals.post`; requires `APPROVED`, no existing journal, open fiscal period on proposal date, and valid accounts; creates one posted Dr debit / Cr credit journal. |
+| POST | `/inventory/variance-proposals/:id/reverse` | Reverse variance proposal journal | Yes | Yes | Implemented | Requires `inventory.varianceProposals.reverse`; requires posted unreversed proposal and open fiscal period on current date; creates one reversal journal. |
+| POST | `/inventory/variance-proposals/:id/void` | Void variance proposal | Yes | Yes | Implemented | Requires `inventory.varianceProposals.void`; allowed before posting only; posted proposals must be reversed instead. |
 
 ## Fiscal Periods
 

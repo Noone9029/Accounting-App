@@ -105,8 +105,20 @@ After reversal, normal receipt void stock rules apply.
 - How should landed cost allocation affect receipt asset posting?
 - How should historical direct-mode bills be excluded or migrated if an organization later changes policy?
 
+## Variance Proposal Follow-Up
+
+Inventory clearing differences can now be turned into reviewed proposals without auto-posting:
+
+- `POST /inventory/variance-proposals/from-clearing-variance` recomputes a clearing variance report row and creates a `DRAFT` proposal.
+- Favorable and unfavorable variances store explicit debit and credit accounts from inventory accounting settings.
+- Proposal submission, approval, event review, and accounting preview create no journals.
+- Only an explicit `POST /inventory/variance-proposals/:id/post` on an approved proposal posts a journal.
+- Reversal is explicit through `POST /inventory/variance-proposals/:id/reverse`.
+
+This closes the visibility-to-action loop for reviewable clearing differences while preserving the manual-only boundary for purchase receipt asset posting.
+
 ## Recommendation
 
-Keep receipt asset posting explicit and accountant-reviewed. Use the clearing reconciliation and variance reports as review tools only. Do not enable automatic receipt GL posting or automatic variance journals until variance posting, landed cost policy, and historical migration rules are complete.
+Keep receipt asset posting explicit and accountant-reviewed. Use the clearing reconciliation and variance reports as review tools, and use variance proposals only when an accountant intentionally drafts, approves, and posts a correction journal. Do not enable automatic receipt GL posting or automatic variance journals until landed cost policy, FIFO/cost layer policy, and historical migration rules are complete.
 
-The 2026-05-15 integrity audit found the compatible manual receipt asset flow internally consistent and suitable as input for a future accountant-reviewed variance proposal workflow. That workflow should remain proposal/review based until an authorized user explicitly posts a journal.
+The 2026-05-15 integrity audit found the compatible manual receipt asset flow internally consistent. The implemented variance proposal workflow remains proposal/review based until an authorized user explicitly posts a journal.
