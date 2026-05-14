@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Commit inspected: pending (`Add inventory variance proposal workflow`)
+Commit inspected: pending (`Add document attachment groundwork`)
 
 ## Scope
 
@@ -36,6 +36,28 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Document attachment groundwork added
+
+Added reusable uploaded supporting-file infrastructure without changing generated document archive behavior or adding external storage.
+
+Risk reduced:
+
+- Uploaded files now have tenant-scoped `Attachment` metadata with sanitized filenames, original filename, MIME type, size, content hash, storage provider marker, active/deleted status, notes, upload/delete actors, and soft-delete lifecycle.
+- The active MVP storage path is database/base64 behind an `AttachmentStorageService` abstraction; S3/object storage remains a future provider.
+- Upload validates linked entity ownership before storing content and supports key accounting/operational records across sales, purchases, banking, inventory, contacts, items, and manual journals.
+- Attachment APIs are permission-gated for view, upload, download, notes management, and soft delete.
+- Frontend `AttachmentPanel` is mounted on key sales, purchase, banking, and inventory detail pages.
+- Smoke coverage uploads attachments to a purchase bill, cash expense, and sales invoice, verifies list/download/soft-delete behavior, and confirms attachment actions do not create journals.
+
+Remaining risks:
+
+- Database storage is not production-scale.
+- No virus scanning.
+- No OCR or receipt scanning.
+- No S3/object storage provider.
+- No retention policy.
+- No email attachment sending or ZATCA attachment submission.
 
 ### Inventory variance proposal workflow added
 
@@ -363,7 +385,7 @@ Risk reduced:
 
 Remaining risks:
 
-- No file upload storage.
+- No production-grade bank statement file storage/parser; uploaded attachment groundwork is separate from import parsing.
 - No OFX/CAMT/MT940 parser.
 - No bank feeds or external banking APIs.
 - No strict dual-control approval queue beyond the same-submitter guard.
@@ -441,7 +463,7 @@ Risk reduced:
 
 Remaining risks:
 
-- No file upload storage or robust bank file parser beyond local JSON/CSV paste rows.
+- No production-grade bank file parser/storage workflow beyond local JSON/CSV paste rows; uploaded attachment groundwork is separate from import parsing.
 - No OFX, CAMT, MT940, live feeds, external banking API, or payment gateway integration.
 - No automatic/ML matching.
 - Formal close/lock, report export, and reviewer workflow now exist; file upload storage remains future work.
@@ -1245,7 +1267,7 @@ Commit inspected: pending (`Add cash expenses MVP`)
 
 ### Remaining Cash Expense Risks
 
-- No receipt attachment upload exists yet.
+- Receipt attachment groundwork exists, but it is database-backed only and has no object storage lifecycle.
 - No OCR or receipt scanning exists yet.
 - No employee claim approval workflow exists yet.
 - No bank reconciliation or bank-feed matching exists.

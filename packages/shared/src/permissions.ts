@@ -190,6 +190,13 @@ export const PERMISSIONS = {
     view: "generatedDocuments.view",
     download: "generatedDocuments.download",
   },
+  attachments: {
+    view: "attachments.view",
+    upload: "attachments.upload",
+    download: "attachments.download",
+    delete: "attachments.delete",
+    manage: "attachments.manage",
+  },
   admin: {
     fullAccess: "admin.fullAccess",
   },
@@ -319,6 +326,11 @@ export const ALL_PERMISSIONS = [
   PERMISSIONS.zatca.runChecks,
   PERMISSIONS.generatedDocuments.view,
   PERMISSIONS.generatedDocuments.download,
+  PERMISSIONS.attachments.view,
+  PERMISSIONS.attachments.upload,
+  PERMISSIONS.attachments.download,
+  PERMISSIONS.attachments.delete,
+  PERMISSIONS.attachments.manage,
   PERMISSIONS.admin.fullAccess,
 ] as const satisfies readonly Permission[];
 
@@ -428,6 +440,11 @@ const ACCOUNTANT_ROLE_PERMISSIONS = [
   PERMISSIONS.documentSettings.view,
   PERMISSIONS.generatedDocuments.view,
   PERMISSIONS.generatedDocuments.download,
+  PERMISSIONS.attachments.view,
+  PERMISSIONS.attachments.upload,
+  PERMISSIONS.attachments.download,
+  PERMISSIONS.attachments.delete,
+  PERMISSIONS.attachments.manage,
   PERMISSIONS.zatca.view,
   PERMISSIONS.zatca.generateXml,
   PERMISSIONS.zatca.runChecks,
@@ -454,6 +471,9 @@ const SALES_ROLE_PERMISSIONS = [
   PERMISSIONS.documents.download,
   PERMISSIONS.generatedDocuments.view,
   PERMISSIONS.generatedDocuments.download,
+  PERMISSIONS.attachments.view,
+  PERMISSIONS.attachments.upload,
+  PERMISSIONS.attachments.download,
 ] as const satisfies readonly Permission[];
 
 const PURCHASES_ROLE_PERMISSIONS = [
@@ -494,6 +514,9 @@ const PURCHASES_ROLE_PERMISSIONS = [
   PERMISSIONS.documents.download,
   PERMISSIONS.generatedDocuments.view,
   PERMISSIONS.generatedDocuments.download,
+  PERMISSIONS.attachments.view,
+  PERMISSIONS.attachments.upload,
+  PERMISSIONS.attachments.download,
 ] as const satisfies readonly Permission[];
 
 const VIEWER_ROLE_PERMISSIONS = [
@@ -528,6 +551,8 @@ const VIEWER_ROLE_PERMISSIONS = [
   PERMISSIONS.documentSettings.view,
   PERMISSIONS.generatedDocuments.view,
   PERMISSIONS.generatedDocuments.download,
+  PERMISSIONS.attachments.view,
+  PERMISSIONS.attachments.download,
   PERMISSIONS.zatca.view,
 ] as const satisfies readonly Permission[];
 

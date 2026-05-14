@@ -731,6 +731,21 @@ interface CashExpense {
   voidReversalJournalEntryId?: string | null;
 }
 
+type AttachmentLinkedEntityType = "SALES_INVOICE" | "PURCHASE_BILL" | "CASH_EXPENSE";
+
+interface Attachment {
+  id: string;
+  linkedEntityType: AttachmentLinkedEntityType;
+  linkedEntityId: string;
+  filename: string;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+  contentHash: string;
+  status: "ACTIVE" | "DELETED";
+  notes?: string | null;
+}
+
 interface PurchaseDebitNoteAllocation {
   id: string;
   debitNoteId: string;
@@ -3294,6 +3309,66 @@ async function main(): Promise<void> {
     "supplier ledger includes neutral cash expense row",
   );
   assertMoney(supplierLedgerAfterCashExpense.closingBalance, expectedPurchaseBillTotal, "supplier ledger cash expense row is neutral");
+
+  const journalEntriesBeforeAttachments = await get<JournalEntry[]>("/journal-entries", headers);
+  const attachmentCsvBase64 = Buffer.from("entity,number\nattachment-smoke,1\n").toString("base64");
+  const purchaseBillAttachment = await post<Attachment>("/attachments", headers, {
+    linkedEntityType: "PURCHASE_BILL",
+    linkedEntityId: finalizedPurchaseBill.id,
+    filename: "purchase-bill-support.csv",
+    mimeType: "text/csv",
+    contentBase64: attachmentCsvBase64,
+    notes: "Smoke purchase bill support",
+  });
+  const cashExpenseAttachment = await post<Attachment>("/attachments", headers, {
+    linkedEntityType: "CASH_EXPENSE",
+    linkedEntityId: cashExpense.id,
+    filename: "cash-expense-support.csv",
+    mimeType: "text/csv",
+    contentBase64: attachmentCsvBase64,
+    notes: "Smoke cash expense support",
+  });
+  const salesInvoiceAttachment = await post<Attachment>("/attachments", headers, {
+    linkedEntityType: "SALES_INVOICE",
+    linkedEntityId: finalizedInvoice.id,
+    filename: "sales-invoice-support.csv",
+    mimeType: "text/csv",
+    contentBase64: attachmentCsvBase64,
+    notes: "Smoke sales invoice support",
+  });
+  assertEqual(purchaseBillAttachment.status, "ACTIVE", "purchase bill attachment active");
+  assertEqual(cashExpenseAttachment.status, "ACTIVE", "cash expense attachment active");
+  assertEqual(salesInvoiceAttachment.status, "ACTIVE", "sales invoice attachment active");
+  const purchaseBillAttachments = await get<Attachment[]>(
+    `/attachments?linkedEntityType=PURCHASE_BILL&linkedEntityId=${encodeURIComponent(finalizedPurchaseBill.id)}`,
+    headers,
+  );
+  assert(
+    purchaseBillAttachments.some((attachment) => attachment.id === purchaseBillAttachment.id && attachment.contentHash),
+    "purchase bill attachment appears in linked active list",
+  );
+  await assertAttachmentDownload(
+    `/attachments/${purchaseBillAttachment.id}/download`,
+    headers,
+    "purchase bill attachment",
+    "attachment-smoke",
+  );
+  const deletedCashExpenseAttachment = await del<Attachment>(`/attachments/${cashExpenseAttachment.id}`, headers);
+  assertEqual(deletedCashExpenseAttachment.status, "DELETED", "cash expense attachment soft-deleted");
+  const cashExpenseAttachmentsAfterDelete = await get<Attachment[]>(
+    `/attachments?linkedEntityType=CASH_EXPENSE&linkedEntityId=${encodeURIComponent(cashExpense.id)}`,
+    headers,
+  );
+  assert(
+    !cashExpenseAttachmentsAfterDelete.some((attachment) => attachment.id === cashExpenseAttachment.id),
+    "deleted cash expense attachment is hidden from active list",
+  );
+  await expectHttpError("download deleted attachment", () =>
+    assertAttachmentDownload(`/attachments/${cashExpenseAttachment.id}/download`, headers, "deleted cash expense attachment", "attachment-smoke"),
+  );
+  const journalEntriesAfterAttachments = await get<JournalEntry[]>("/journal-entries", headers);
+  assertEqual(journalEntriesAfterAttachments.length, journalEntriesBeforeAttachments.length, "attachment endpoints do not create journal entries");
+
   const voidedCashExpense = await post<CashExpense>(`/cash-expenses/${cashExpense.id}/void`, headers, {});
   assertEqual(voidedCashExpense.status, "VOIDED", "voided cash expense status");
   assertPresent(voidedCashExpense.voidReversalJournalEntryId, "voided cash expense reversal journal");
@@ -4044,6 +4119,10 @@ async function main(): Promise<void> {
         purchaseBillNumber: finalizedPurchaseBill.billNumber,
         cashExpenseId: cashExpense.id,
         cashExpenseNumber: cashExpense.expenseNumber,
+        purchaseBillAttachmentId: purchaseBillAttachment.id,
+        cashExpenseAttachmentDeleted: deletedCashExpenseAttachment.status === "DELETED",
+        salesInvoiceAttachmentId: salesInvoiceAttachment.id,
+        attachmentJournalCountUnchanged: journalEntriesAfterAttachments.length === journalEntriesBeforeAttachments.length,
         purchaseDebitNoteId: draftPurchaseDebitNote.id,
         purchaseDebitNoteNumber: finalizedPurchaseDebitNote.debitNoteNumber,
         purchaseDebitNoteAllocationId: purchaseDebitNoteAllocation.id,
@@ -4121,6 +4200,10 @@ async function patch<T>(path: string, headers: Record<string, string>, body: unk
   return request<T>("PATCH", path, headers, body);
 }
 
+async function del<T>(path: string, headers: Record<string, string>): Promise<T> {
+  return request<T>("DELETE", path, headers);
+}
+
 async function request<T>(method: string, path: string, headers: Record<string, string>, body?: unknown): Promise<T> {
   let response: Response;
   try {
@@ -4194,6 +4277,25 @@ async function assertCsv(path: string, headers: Record<string, string>, label: s
   assert(contentType.includes("text/csv"), `${label} returns text/csv`);
   const text = await response.text();
   assert(text.includes(expectedText), `${label} includes expected text`);
+}
+
+async function assertAttachmentDownload(path: string, headers: Record<string, string>, label: string, expectedText: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}${path}`, { headers });
+  } catch (error) {
+    throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new ApiError(`GET ${path} failed with ${response.status}: ${text}`, response.status, safeJson(text));
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  assert(contentType.includes("text/csv"), `${label} returns text/csv`);
+  const text = await response.text();
+  assert(text.includes(expectedText), `${label} download includes expected content`);
 }
 
 async function assertXml(path: string, headers: Record<string, string>, label: string, expectedText: string): Promise<void> {

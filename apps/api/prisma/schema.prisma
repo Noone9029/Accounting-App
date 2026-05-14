@@ -316,6 +316,42 @@ enum GeneratedDocumentStatus {
   SUPERSEDED
 }
 
+enum AttachmentStorageProvider {
+  DATABASE
+  LOCAL_PLACEHOLDER
+  S3_PLACEHOLDER
+}
+
+enum AttachmentLinkedEntityType {
+  SALES_INVOICE
+  CUSTOMER_PAYMENT
+  CREDIT_NOTE
+  CUSTOMER_REFUND
+  PURCHASE_BILL
+  SUPPLIER_PAYMENT
+  PURCHASE_DEBIT_NOTE
+  SUPPLIER_REFUND
+  PURCHASE_ORDER
+  CASH_EXPENSE
+  BANK_STATEMENT_IMPORT
+  BANK_STATEMENT_TRANSACTION
+  BANK_RECONCILIATION
+  PURCHASE_RECEIPT
+  SALES_STOCK_ISSUE
+  INVENTORY_ADJUSTMENT
+  WAREHOUSE_TRANSFER
+  INVENTORY_VARIANCE_PROPOSAL
+  CONTACT
+  ITEM
+  MANUAL_JOURNAL
+  OTHER
+}
+
+enum AttachmentStatus {
+  ACTIVE
+  DELETED
+}
+
 enum ZatcaEnvironment {
   SANDBOX
   SIMULATION
@@ -444,6 +480,8 @@ model User {
   voidedInventoryVarianceProposals            InventoryVarianceProposal[]          @relation("InventoryVarianceProposalVoidedBy")
   inventoryVarianceProposalEvents             InventoryVarianceProposalEvent[]     @relation("InventoryVarianceProposalEventActor")
   generatedDocuments                          GeneratedDocument[]                  @relation("GeneratedDocumentGeneratedBy")
+  uploadedAttachments                         Attachment[]                         @relation("AttachmentUploadedBy")
+  deletedAttachments                          Attachment[]                         @relation("AttachmentDeletedBy")
 }
 
 model Organization {
@@ -510,6 +548,7 @@ model Organization {
   numberSequences                     NumberSequence[]
   documentSettings                    OrganizationDocumentSettings?
   generatedDocuments                  GeneratedDocument[]
+  attachments                         Attachment[]
   zatcaProfile                        ZatcaOrganizationProfile?
   zatcaEgsUnits                       ZatcaEgsUnit[]
   zatcaInvoiceMetadata                ZatcaInvoiceMetadata[]
@@ -593,6 +632,40 @@ model GeneratedDocument {
   @@index([organizationId, sourceType, sourceId])
   @@index([organizationId, status])
   @@index([generatedById])
+}
+
+model Attachment {
+  id               String                     @id @default(uuid()) @db.Uuid
+  organizationId   String                     @db.Uuid
+  linkedEntityType AttachmentLinkedEntityType
+  linkedEntityId   String                     @db.Uuid
+  filename         String
+  originalFilename String
+  mimeType         String
+  sizeBytes        Int
+  storageProvider  AttachmentStorageProvider  @default(DATABASE)
+  storageKey       String?
+  contentBase64    String?                    @db.Text
+  contentHash      String
+  status           AttachmentStatus           @default(ACTIVE)
+  uploadedById     String?                    @db.Uuid
+  uploadedAt       DateTime                   @default(now())
+  deletedById      String?                    @db.Uuid
+  deletedAt        DateTime?
+  notes            String?
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploadedBy   User?        @relation("AttachmentUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  deletedBy    User?        @relation("AttachmentDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([organizationId, linkedEntityType, linkedEntityId])
+  @@index([organizationId, status])
+  @@index([contentHash])
+  @@index([uploadedById])
+  @@index([deletedById])
 }
 
 model ZatcaOrganizationProfile {

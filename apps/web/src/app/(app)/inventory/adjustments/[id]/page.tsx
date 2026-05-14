@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
@@ -169,6 +170,8 @@ export default function InventoryAdjustmentDetailPage() {
 
       {adjustment ? (
         <div className="mt-5 space-y-5">
+          <AttachmentPanel linkedEntityType="INVENTORY_ADJUSTMENT" linkedEntityId={adjustment.id} />
+
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <SummaryCard label="Status" value={inventoryAdjustmentStatusLabel(adjustment.status)} />
             <SummaryCard label="Type" value={inventoryAdjustmentTypeLabel(adjustment.type)} />

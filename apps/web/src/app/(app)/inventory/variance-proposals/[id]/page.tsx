@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
@@ -166,6 +167,8 @@ export default function InventoryVarianceProposalDetailPage() {
 
       {proposal ? (
         <div className="mt-5 space-y-5">
+          <AttachmentPanel linkedEntityType="INVENTORY_VARIANCE_PROPOSAL" linkedEntityId={proposal.id} />
+
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>

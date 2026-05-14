@@ -122,7 +122,7 @@ LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! 
 
 The smoke covers seed login, `/auth/me` role permission visibility, role/member API visibility, custom role creation, unknown-permission rejection, organization discovery, bank account profile defaults/transactions/balance movement, bank transfers/opening balances, bank statement preview/import/matching/categorization/reconciliation summary/submit/approve/close/void lock checks, reconciliation report data/CSV/PDF/archive checks, item/customer/supplier setup, warehouse defaults, opening-balance stock movements, inventory adjustment approval/void flows, warehouse transfers/void reversals, purchase receipt posting/voiding, compatible purchase receipt asset post/reverse, finalized-invoice sales stock issue posting/voiding after manual COGS post/reversal, receiving/issue status endpoints, inventory balances, inventory settings, inventory accounting settings, purchase receipt posting readiness, purchase receipt accounting preview, sales issue COGS preview, manual COGS posting, P&L COGS activity, stock valuation/movement/low-stock reports, inventory clearing reconciliation/variance reports and CSV exports, accountant-reviewed inventory variance proposal create/submit/approve/post/reverse flow, no-journal inventory movement checks outside explicit COGS/receipt asset/variance proposal post actions, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, report CSV/PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
 
-The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
+The smoke also verifies document settings, PDF archive creation after invoice PDF generation, generated document archive download, and user-uploaded attachment upload/list/download/soft-delete checks without creating journals.
 
 On Windows, if `db:generate` fails with Prisma query engine `EPERM`, stop running API/dev Node processes and rerun it. This is usually a file lock on Prisma's generated client DLL.
 
@@ -484,6 +484,15 @@ Generated documents:
 - `GET /generated-documents`
 - `GET /generated-documents/:id`
 - `GET /generated-documents/:id/download`
+
+Uploaded attachments:
+
+- `POST /attachments`
+- `GET /attachments`
+- `GET /attachments/:id`
+- `GET /attachments/:id/download`
+- `PATCH /attachments/:id`
+- `DELETE /attachments/:id`
 
 ZATCA foundation:
 
@@ -918,8 +927,7 @@ PDF endpoints:
 
 Known limitations:
 
-- No receipt attachment upload exists yet.
-- No OCR or receipt scanning exists yet.
+- Receipt attachments are database-backed groundwork only; no object storage, virus scanning, or OCR exists yet.
 - No employee claim approval workflow exists yet.
 - No receipt-side bank-feed matching exists yet.
 
@@ -1229,6 +1237,29 @@ Only the `standard` renderer is implemented today. `compact` and `detailed` are 
 
 Generated PDF downloads are archived automatically in the database through `GeneratedDocument`, including report PDFs and bank reconciliation report PDFs. Archive list/detail endpoints exclude the base64 payload; `/generated-documents/:id/download` streams the archived PDF. Local base64 storage is intentionally temporary and should move to S3-compatible storage before production scale.
 
+## Uploaded Attachments
+
+LedgerByte has reusable uploaded attachment groundwork for supporting documents on accounting and operational records. Generated PDFs remain in `GeneratedDocument`; uploaded files are stored separately as `Attachment` records and are managed from the source record detail pages.
+
+APIs:
+
+- `POST /attachments` uploads a JSON/base64 file payload for a linked source record.
+- `GET /attachments?linkedEntityType=:type&linkedEntityId=:id` lists active attachment metadata without returning file content.
+- `GET /attachments/:id` returns one metadata record without file content.
+- `GET /attachments/:id/download` streams the stored file with its original MIME type and sanitized filename.
+- `PATCH /attachments/:id` updates notes.
+- `DELETE /attachments/:id` soft-deletes the attachment.
+
+Supported file types are PDF, PNG, JPEG, WebP, CSV, XLSX, and XLS. Empty files, unsupported MIME types, invalid base64, and files above `ATTACHMENT_MAX_SIZE_MB` are rejected; the default size limit is 10 MB.
+
+The MVP storage provider is database/base64 through a storage abstraction. `LOCAL_PLACEHOLDER` and `S3_PLACEHOLDER` enum values reserve the future provider direction, but no S3/object-storage integration is active yet. Uploaded attachments validate tenant ownership for supported linked entities such as invoices, customer payments, credit notes, customer refunds, purchase bills, supplier payments, debit notes, supplier refunds, purchase orders, cash expenses, bank statement transactions, bank reconciliations, purchase receipts, sales stock issues, inventory adjustments, warehouse transfers, inventory variance proposals, contacts, items, and journal entries.
+
+Known limitations:
+
+- No external S3/object storage provider is implemented yet.
+- No OCR, receipt scanning, file parsing, or virus scanning exists yet.
+- No drag/drop polish, retention policy, email attachment sending, or ZATCA attachment submission exists yet.
+
 ## ZATCA Foundation
 
 LedgerByte now has local-only ZATCA Phase 2 groundwork. This is not production ZATCA compliance and does not call ZATCA APIs.
@@ -1326,12 +1357,12 @@ Default seeded roles:
 
 - `Owner`: full access, including `admin.fullAccess`.
 - `Admin`: broad business access without the system-level `admin.fullAccess` flag.
-- `Accountant`: chart of accounts, bank accounts, bank transfers, statement preview/import/reconciliation, bank reconciliation approval/reopen/close, opening-balance posting, tax, journals, reports, documents, inventory, manual COGS posting/reversal, manual receipt asset posting/reversal, warehouses, stock movements, inventory adjustments, warehouse transfers, purchase receiving, sales stock issue, fiscal period management, and accounting workflow posting/void permissions.
-- `Sales`: contacts, items/inventory/warehouse view, sales invoices, sales stock issue view/create, customer payments, credit notes, customer refunds, and document access.
-- `Purchases`: contacts, items view, bank account view/transactions, purchase orders, purchase bills, supplier payments, debit notes, supplier refunds, cash expenses, inventory view, warehouse view, stock movement view, inventory adjustment view/create, warehouse transfer view/create, purchase receiving view/create, and document access.
-- `Viewer`: read-only access across core accounting, inventory balances, warehouses, stock movements, adjustments, transfers, reports, documents, and ZATCA status, excluding bank account profiles by default.
+- `Accountant`: chart of accounts, bank accounts, bank transfers, statement preview/import/reconciliation, bank reconciliation approval/reopen/close, opening-balance posting, tax, journals, reports, documents, attachments, inventory, manual COGS posting/reversal, manual receipt asset posting/reversal, warehouses, stock movements, inventory adjustments, warehouse transfers, purchase receiving, sales stock issue, fiscal period management, and accounting workflow posting/void permissions.
+- `Sales`: contacts, items/inventory/warehouse view, sales invoices, sales stock issue view/create, customer payments, credit notes, customer refunds, document access, and attachment view/upload/download for sales workflows.
+- `Purchases`: contacts, items view, bank account view/transactions, purchase orders, purchase bills, supplier payments, debit notes, supplier refunds, cash expenses, inventory view, warehouse view, stock movement view, inventory adjustment view/create, warehouse transfer view/create, purchase receiving view/create, document access, and attachment view/upload/download for purchase workflows.
+- `Viewer`: read-only access across core accounting, inventory balances, warehouses, stock movements, adjustments, transfers, reports, documents, attachment metadata/downloads, and ZATCA status, excluding bank account profiles by default.
 
-Permission names are dotted strings such as `reports.view`, `salesInvoices.finalize`, `customerPayments.void`, `purchaseOrders.convertToBill`, `purchaseBills.finalize`, `bankAccounts.manage`, `bankAccounts.transactions.view`, `bankStatements.reconcile`, `inventory.cogs.post`, `inventory.cogs.reverse`, `inventory.receipts.postAsset`, `inventory.receipts.reverseAsset`, `warehouses.manage`, `stockMovements.create`, `inventoryAdjustments.approve`, `warehouseTransfers.void`, `fiscalPeriods.lock`, and `zatca.manage`.
+Permission names are dotted strings such as `reports.view`, `salesInvoices.finalize`, `customerPayments.void`, `purchaseOrders.convertToBill`, `purchaseBills.finalize`, `bankAccounts.manage`, `bankAccounts.transactions.view`, `bankStatements.reconcile`, `attachments.view`, `attachments.upload`, `attachments.download`, `attachments.delete`, `attachments.manage`, `inventory.cogs.post`, `inventory.cogs.reverse`, `inventory.receipts.postAsset`, `inventory.receipts.reverseAsset`, `warehouses.manage`, `stockMovements.create`, `inventoryAdjustments.approve`, `warehouseTransfers.void`, `fiscalPeriods.lock`, and `zatca.manage`.
 
 Backend enforcement:
 
@@ -1378,11 +1409,11 @@ Permission matrix categories:
 - Sandbox adapter scaffolding exists, but real network calls are intentionally disabled by default and official endpoint/payload mapping remains unverified.
 - Current ZATCA XML/QR/hash generation is local-only groundwork. The official reference inventory and code-gap map now exist, but implementation still must be verified against the SDK, schemas, Schematron rules, and current ZATCA/FATOORA sandbox behavior before production use.
 - PDF output is basic operational rendering only; no PDF/A-3, embedded XML, or template designer exists yet.
-- Generated PDFs are stored as base64 database records for local/dev groundwork; S3-compatible storage is planned before production scale.
+- Generated PDFs and user-uploaded attachments are stored as base64 database records for local/dev groundwork; S3-compatible storage is planned before production scale.
 - GET PDF endpoints currently archive every download.
 - Unapplied overpayment application is manual only; there is no automatic credit matching yet.
 - Customer refunds are manual accounting records only; no payment gateway refund or bank reconciliation integration exists yet.
-- Bank account profiles, posted transaction visibility, bank transfers, guarded one-time opening-balance posting, local statement import preview, reconciliation approval/close/lock/report export exist, but live feeds, transfer fees, file upload storage, and multi-currency FX transfer handling are not implemented yet.
+- Bank account profiles, posted transaction visibility, bank transfers, guarded one-time opening-balance posting, local statement import preview, reconciliation approval/close/lock/report export, and basic attachment panels exist, but live feeds, transfer fees, production-grade bank file upload parsing/storage, and multi-currency FX transfer handling are not implemented yet.
 - Purchase orders are MVP-only: operational purchase receipts can receive stock, but partial billing, supplier email sending, approval workflows, and automatic inventory stock receipts are not implemented.
 - Purchase bills, purchase debit notes, supplier payments, and supplier refunds are AP groundwork only; finalized purchase bills can be manually received into stock and matched operationally, and explicitly selected Inventory Clearing bills can post clearing journals, but AP finalization itself does not auto-create stock movements or inventory returns.
 - ZATCA credit note XML/signing/submission is not implemented yet.
@@ -1392,6 +1423,7 @@ Permission matrix categories:
 - Bank reconciliation has local import preview/manual matching, approval, close-lock, and report export groundwork, but no live feed, OFX/CAMT/MT940 support, file upload storage, or auto-match yet.
 - Inventory warehouse, stock ledger, adjustment approval, warehouse transfer, manual purchase receipt, manual sales stock issue, valuation settings, manual COGS posting, manual compatible receipt asset posting, inventory clearing settings, purchase bill clearing-mode finalization, bill/receipt matching visibility, clearing reconciliation/variance reports, and operational reports exist, but no automatic COGS posting, no automatic purchase receipt asset posting, no direct-mode receipt posting, no automatic variance journals, automatic purchase/sales posting, landed cost, serial/batch tracking, or accounting-grade inventory financial reports are implemented yet.
 - BullMQ workers and S3 upload adapters are not wired yet.
+- Uploaded attachment storage is database-backed only; OCR, virus scanning, retention policies, email attachment sending, ZATCA attachment submission, and object-storage lifecycle are not implemented yet.
 - Email invitations are not implemented; invite placeholders require the target user to already exist.
 - Password reset and onboarding flows for invited users are not implemented yet.
 - Fine-grained approval workflows, dual control, and delegated approval chains are not implemented yet.

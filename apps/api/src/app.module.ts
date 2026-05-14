@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { AccountingModule } from "./accounting/accounting.module";
+import { AttachmentModule } from "./attachments/attachment.module";
 import { AuditLogModule } from "./audit-log/audit-log.module";
 import { AuthModule } from "./auth/auth.module";
 import { BankAccountModule } from "./bank-accounts/bank-account.module";
@@ -46,6 +47,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    AttachmentModule,
     AuthModule,
     BankAccountModule,
     BankReconciliationModule,

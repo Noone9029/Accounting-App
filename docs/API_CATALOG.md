@@ -1,6 +1,6 @@
 # API Catalog
 
-Audit date: 2026-05-14
+Audit date: 2026-05-15
 
 Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints and `GET /health` are exceptions. Status values here describe implementation maturity, not runtime health.
 
@@ -367,6 +367,12 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | GET | `/generated-documents` | List archive | Yes | Yes | Implemented | Excludes base64 payload. |
 | GET | `/generated-documents/:id` | Archive detail | Yes | Yes | Implemented | Excludes base64 payload. |
 | GET | `/generated-documents/:id/download` | Download archived PDF | Yes | Yes | Implemented | Streams stored PDF. |
+| POST | `/attachments` | Upload linked supporting file | Yes | Yes | Implemented | Requires `attachments.upload`; JSON/base64 MVP upload; validates MIME type, size, base64, tenant-owned linked entity, and stores metadata/content hash. |
+| GET | `/attachments` | List attachment metadata | Yes | Yes | Implemented | Requires `attachments.view`; supports `linkedEntityType`, `linkedEntityId`, and `status`; excludes base64 content. |
+| GET | `/attachments/:id` | Attachment detail metadata | Yes | Yes | Implemented | Requires `attachments.view`; tenant scoped and excludes base64 content. |
+| GET | `/attachments/:id/download` | Download uploaded attachment | Yes | Yes | Implemented | Requires `attachments.download`; streams original MIME type and sanitized filename; deleted attachments are not downloadable. |
+| PATCH | `/attachments/:id` | Update attachment notes | Yes | Yes | Implemented | Requires `attachments.manage`; active attachments only. |
+| DELETE | `/attachments/:id` | Soft-delete attachment | Yes | Yes | Implemented | Requires `attachments.delete`; marks `DELETED` and preserves metadata. |
 
 ## ZATCA And SDK
 

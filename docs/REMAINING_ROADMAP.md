@@ -35,7 +35,7 @@ Tasks:
 
 - Supplier debit notes hardening and UI polish.
 - Purchase receiving QA, partial bill matching, and purchase matching hardening.
-- Expense receipt attachments and cash expense import/OCR groundwork.
+- Cash expense import/OCR groundwork and production hardening for uploaded receipt attachments.
 - Bank account profile, transfer, opening-balance, statement import preview, and reconciliation UX polish.
 - Bank statement file-format samples, upload storage design, and approval queue polish.
 - Transfer fees and multi-currency FX transfer handling.
@@ -62,7 +62,7 @@ Objective: add operational modules that affect accounting but require careful sc
 Tasks:
 
 - Purchase receiving and sales stock issue UX polish, delivery document groundwork, and operational status hardening.
-- Inventory adjustment approval inbox, attachments, and reason-code catalog.
+- Inventory adjustment approval inbox and reason-code catalog.
 - Warehouse in-transit transfer, shipping document, and bin/location support.
 - Accountant review of the current moving-average operational valuation estimate and FIFO placeholder policy.
 - Review inventory accounting settings, purchase receipt clearing previews/posting, purchase bill direct-vs-clearing finalization behavior, bill/receipt matching visibility, manual sales issue COGS posting, clearing account balances, and variance proposal journals with an accountant.
@@ -125,7 +125,7 @@ Tasks:
 
 - Production deployment target and infrastructure-as-code.
 - Managed Postgres, backups, restore drills, and monitoring.
-- Object storage for generated documents.
+- Object storage for generated documents and uploaded attachments.
 - Email provider and transactional templates.
 - WhatsApp provider integration if product requires it.
 - Subscription billing and plan enforcement.

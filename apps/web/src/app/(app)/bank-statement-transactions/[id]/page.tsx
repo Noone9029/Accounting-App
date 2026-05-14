@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
@@ -156,6 +157,8 @@ export default function BankStatementTransactionDetailPage() {
 
       {transaction ? (
         <div className="mt-5 space-y-5">
+          <AttachmentPanel linkedEntityType="BANK_STATEMENT_TRANSACTION" linkedEntityId={transaction.id} />
+
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <SummaryCard label="Date" value={formatOptionalDate(transaction.transactionDate, "-")} />
             <SummaryCard label="Type" value={bankStatementTransactionTypeLabel(transaction.type)} />

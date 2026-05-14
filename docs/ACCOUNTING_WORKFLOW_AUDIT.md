@@ -37,7 +37,7 @@ This document maps implemented accounting workflows to their journal entries, ba
   - Posting accounts must be active and tenant scoped.
 - Accounting impact: none until posted.
 - Gaps/risks:
-  - No attachment support.
+  - Attachment entity support exists for manual journals at the API validation layer, but no manual-journal detail attachment panel is mounted yet.
 
 ### Post
 
@@ -127,7 +127,24 @@ This document maps implemented accounting workflows to their journal entries, ba
   - Reconciliation report data, CSV, and PDF endpoints render the close snapshot and archive generated PDFs.
   - Voiding a draft, pending, approved, or closed reconciliation marks it `VOIDED`, keeps review history, unlocks the period, and does not reverse categorized journals.
 - Gaps/risks:
-  - No file upload storage, OFX/CAMT/MT940 parser, automatic matching, bank feeds, email delivery, or full approval queue exists yet.
+  - Attachment panels exist on bank statement transaction and bank reconciliation detail pages, but there is no production-grade statement-file parser/storage workflow, OFX/CAMT/MT940 parser, automatic matching, bank feeds, email delivery, or full approval queue yet.
+
+## Uploaded Supporting Attachments
+
+- API/UI: attachments are managed through `POST /attachments`, `GET /attachments`, `GET /attachments/:id`, `GET /attachments/:id/download`, `PATCH /attachments/:id`, and `DELETE /attachments/:id`, with reusable `AttachmentPanel` instances mounted on key sales, purchase, banking, and inventory detail pages.
+- Model: `Attachment` stores tenant-scoped metadata, sanitized filename, original filename, MIME type, size, SHA-256 content hash, storage provider marker, optional base64 content, soft-delete status, notes, and upload/delete actors.
+- Storage behavior:
+  - The active MVP provider is database/base64 storage behind an `AttachmentStorageService` abstraction.
+  - Future local/object storage provider markers exist, but no S3 dependency or external storage is wired.
+- Linked entity validation:
+  - Upload verifies the linked entity exists in the active organization before writing metadata/content.
+  - Supported entity types include invoices, payments, credit/debit notes, refunds, purchase orders/bills, cash expenses, bank statement transactions, bank reconciliations, purchase receipts, stock issues, inventory adjustments/transfers, inventory variance proposals, contacts, items, and manual journals.
+- Accounting impact:
+  - Attachment upload, metadata update, download, and soft delete create no journal entries and do not mutate source-document accounting state.
+  - Attachments are evidence/supporting documents only; generated PDFs remain separate in `GeneratedDocument`.
+- Gaps/risks:
+  - Database/base64 storage is not production-scale.
+  - No virus scanning, OCR, retention policy, drag/drop polish, email attachment sending, or ZATCA attachment submission exists yet.
 
 ## Inventory Warehouse, Adjustment, Receipt, Issue, And Transfer Groundwork
 

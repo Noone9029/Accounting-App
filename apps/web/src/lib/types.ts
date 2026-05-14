@@ -114,6 +114,31 @@ export type DocumentType =
   | "REPORT_AGED_PAYABLES"
   | "BANK_RECONCILIATION_REPORT";
 export type GeneratedDocumentStatus = "GENERATED" | "FAILED" | "SUPERSEDED";
+export type AttachmentStorageProvider = "DATABASE" | "LOCAL_PLACEHOLDER" | "S3_PLACEHOLDER";
+export type AttachmentLinkedEntityType =
+  | "SALES_INVOICE"
+  | "CUSTOMER_PAYMENT"
+  | "CREDIT_NOTE"
+  | "CUSTOMER_REFUND"
+  | "PURCHASE_BILL"
+  | "SUPPLIER_PAYMENT"
+  | "PURCHASE_DEBIT_NOTE"
+  | "SUPPLIER_REFUND"
+  | "PURCHASE_ORDER"
+  | "CASH_EXPENSE"
+  | "BANK_STATEMENT_IMPORT"
+  | "BANK_STATEMENT_TRANSACTION"
+  | "BANK_RECONCILIATION"
+  | "PURCHASE_RECEIPT"
+  | "SALES_STOCK_ISSUE"
+  | "INVENTORY_ADJUSTMENT"
+  | "WAREHOUSE_TRANSFER"
+  | "INVENTORY_VARIANCE_PROPOSAL"
+  | "CONTACT"
+  | "ITEM"
+  | "MANUAL_JOURNAL"
+  | "OTHER";
+export type AttachmentStatus = "ACTIVE" | "DELETED";
 export type ZatcaEnvironment = "SANDBOX" | "SIMULATION" | "PRODUCTION";
 export type ZatcaRegistrationStatus = "NOT_CONFIGURED" | "DRAFT" | "READY_FOR_CSR" | "OTP_REQUIRED" | "CERTIFICATE_ISSUED" | "ACTIVE" | "SUSPENDED";
 export type ZatcaInvoiceType = "STANDARD_TAX_INVOICE" | "SIMPLIFIED_TAX_INVOICE" | "CREDIT_NOTE" | "DEBIT_NOTE";
@@ -2373,6 +2398,30 @@ export interface GeneratedDocument {
   generatedById: string | null;
   generatedAt: string;
   createdAt: string;
+}
+
+export interface Attachment {
+  id: string;
+  organizationId: string;
+  linkedEntityType: AttachmentLinkedEntityType;
+  linkedEntityId: string;
+  filename: string;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+  storageProvider: AttachmentStorageProvider;
+  storageKey: string | null;
+  contentHash: string;
+  status: AttachmentStatus;
+  uploadedById: string | null;
+  uploadedAt: string;
+  deletedById: string | null;
+  deletedAt: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  uploadedBy?: { id: string; name: string; email: string } | null;
+  deletedBy?: { id: string; name: string; email: string } | null;
 }
 
 export interface ZatcaOrganizationProfile {

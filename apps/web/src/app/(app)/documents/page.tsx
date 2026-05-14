@@ -90,6 +90,7 @@ export default function GeneratedDocumentsPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-ink">Documents</h1>
         <p className="mt-1 text-sm text-steel">Generated PDF archive for invoices, receipts, customer statements, and report PDFs.</p>
+        <p className="mt-1 text-sm text-steel">Uploaded supporting attachments are managed on each source record.</p>
       </div>
 
       <div className="space-y-3">

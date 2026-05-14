@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
@@ -369,6 +370,8 @@ export default function SalesInvoiceDetailPage() {
 
       {invoice ? (
         <div className="mt-5 space-y-5">
+          <AttachmentPanel linkedEntityType="SALES_INVOICE" linkedEntityId={invoice.id} />
+
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
               <Summary label="Customer" value={invoice.customer?.displayName ?? invoice.customer?.name ?? "-"} />

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
@@ -117,6 +118,8 @@ export default function WarehouseTransferDetailPage() {
 
       {transfer ? (
         <div className="mt-5 space-y-5">
+          <AttachmentPanel linkedEntityType="WAREHOUSE_TRANSFER" linkedEntityId={transfer.id} />
+
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <SummaryCard label="Quantity" value={formatInventoryQuantity(transfer.quantity)} />
             <SummaryCard label="Date" value={formatOptionalDate(transfer.transferDate, "-")} />
