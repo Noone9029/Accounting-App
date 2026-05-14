@@ -1,6 +1,6 @@
 # API Catalog
 
-Audit date: 2026-05-13
+Audit date: 2026-05-14
 
 Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints and `GET /health` are exceptions. Status values here describe implementation maturity, not runtime health.
 
@@ -170,17 +170,21 @@ Inventory endpoints are operational stock controls only. They do not post journa
 | GET | `/purchase-receipts` | List purchase receipts | Yes | Yes | Implemented | Requires `purchaseReceiving.view`; includes supplier, source PO/bill, warehouse, lines, and movement links. |
 | POST | `/purchase-receipts` | Create posted purchase receipt | Yes | Yes | Implemented | Requires `purchaseReceiving.create`; supports PO, purchase bill, or standalone supplier receipts; creates `PURCHASE_RECEIPT_PLACEHOLDER` stock movements only. |
 | GET | `/purchase-receipts/:id` | Purchase receipt detail | Yes | Yes | Implemented | Requires `purchaseReceiving.view`; tenant scoped with linked stock movements. |
+| GET | `/purchase-receipts/:id/accounting-preview` | Purchase receipt accounting preview | Yes | Yes | Design only | Requires `inventory.view`; tenant scoped; returns Dr Inventory Asset / Cr Inventory Clearing or AP placeholder preview, blocking reasons, warnings, `previewOnly: true`, and `canPost: false`; creates no journal. |
 | POST | `/purchase-receipts/:id/void` | Void purchase receipt | Yes | Yes | Implemented | Requires `purchaseReceiving.create`; creates `ADJUSTMENT_OUT` reversal movements once, rejects repeated voids, and blocks negative stock. |
 | GET | `/purchase-orders/:id/receiving-status` | Purchase order receiving status | Yes | Yes | Implemented | Requires `purchaseReceiving.view`; returns NOT_STARTED/PARTIAL/COMPLETE and line-level ordered/received/remaining quantities. |
 | GET | `/purchase-bills/:id/receiving-status` | Purchase bill receiving status | Yes | Yes | Implemented | Requires `purchaseReceiving.view`; returns NOT_STARTED/PARTIAL/COMPLETE and line-level billed/received/remaining quantities. |
 | GET | `/sales-stock-issues` | List sales stock issues | Yes | Yes | Implemented | Requires `salesStockIssue.view`; includes customer, invoice, warehouse, lines, and movement links. |
 | POST | `/sales-stock-issues` | Create posted sales stock issue | Yes | Yes | Implemented | Requires `salesStockIssue.create`; finalized invoice only, validates stock availability, and creates `SALES_ISSUE_PLACEHOLDER` stock movements only. |
 | GET | `/sales-stock-issues/:id` | Sales stock issue detail | Yes | Yes | Implemented | Requires `salesStockIssue.view`; tenant scoped with linked stock movements. |
+| GET | `/sales-stock-issues/:id/accounting-preview` | Sales stock issue COGS preview | Yes | Yes | Design only | Requires `inventory.view`; tenant scoped; returns moving-average estimated COGS, Dr COGS / Cr Inventory Asset preview lines, warnings, `previewOnly: true`, and `canPost: false`; creates no journal. |
 | POST | `/sales-stock-issues/:id/void` | Void sales stock issue | Yes | Yes | Implemented | Requires `salesStockIssue.create`; creates `ADJUSTMENT_IN` reversal movements once and rejects repeated voids. |
 | GET | `/sales-invoices/:id/stock-issue-status` | Sales invoice stock issue status | Yes | Yes | Implemented | Requires `salesStockIssue.view`; returns NOT_STARTED/PARTIAL/COMPLETE and line-level invoiced/issued/remaining quantities. |
 | GET | `/inventory/balances` | Derived inventory balances | Yes | Yes | Implemented | Requires `inventory.view`; optional `itemId` and `warehouseId`; quantity is authoritative for the operational MVP while value fields are estimates. |
 | GET | `/inventory/settings` | Inventory valuation/report settings | Yes | Yes | Implemented | Requires `inventory.view`; creates default settings on first read with `MOVING_AVERAGE`, negative stock blocked, and value tracking enabled. |
 | PATCH | `/inventory/settings` | Update inventory settings | Yes | Yes | Implemented | Requires `inventory.manage`; can save `MOVING_AVERAGE` or `FIFO_PLACEHOLDER`, `allowNegativeStock`, and `trackInventoryValue`; no accounting posting is enabled. |
+| GET | `/inventory/accounting-settings` | Inventory accounting settings and readiness | Yes | Yes | Design only | Requires `inventory.view`; returns default-disabled accounting flag, account mappings, validation readiness, warnings, `previewOnly: true`, and no automatic posting state. |
+| PATCH | `/inventory/accounting-settings` | Update inventory accounting mappings | Yes | Yes | Design only | Requires `inventory.manage`; validates mapped accounts belong to the tenant, are active/posting, and have approved account types; blocks enabling without inventory asset/COGS mappings or with FIFO. |
 | GET | `/inventory/reports/stock-valuation` | Operational stock valuation report | Yes | Yes | Implemented | Requires `inventory.view`; optional `itemId`, `warehouseId`, and `format=csv`; derives moving-average estimated values from costed inbound stock movements and warns when cost data is missing. |
 | GET | `/inventory/reports/movement-summary` | Inventory movement summary report | Yes | Yes | Implemented | Requires `inventory.view`; optional `from`, `to`, `itemId`, `warehouseId`, and `format=csv`; returns opening, inbound, outbound, closing, count, and type breakdown by item/warehouse. |
 | GET | `/inventory/reports/low-stock` | Low-stock report | Yes | Yes | Implemented | Requires `inventory.view`; optional `format=csv`; returns tracked items at or below `Item.reorderPoint`. |

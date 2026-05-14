@@ -481,16 +481,29 @@ model OrganizationDocumentSettings {
 }
 
 model InventorySettings {
-  id                  String                   @id @default(uuid()) @db.Uuid
-  organizationId      String                   @unique @db.Uuid
-  valuationMethod     InventoryValuationMethod @default(MOVING_AVERAGE)
-  allowNegativeStock  Boolean                  @default(false)
-  trackInventoryValue Boolean                  @default(true)
-  createdAt           DateTime                 @default(now())
-  updatedAt           DateTime                 @updatedAt
-  organization        Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id                               String                   @id @default(uuid()) @db.Uuid
+  organizationId                   String                   @unique @db.Uuid
+  valuationMethod                  InventoryValuationMethod @default(MOVING_AVERAGE)
+  allowNegativeStock               Boolean                  @default(false)
+  trackInventoryValue              Boolean                  @default(true)
+  enableInventoryAccounting        Boolean                  @default(false)
+  inventoryAssetAccountId          String?                  @db.Uuid
+  cogsAccountId                    String?                  @db.Uuid
+  inventoryAdjustmentGainAccountId String?                  @db.Uuid
+  inventoryAdjustmentLossAccountId String?                  @db.Uuid
+  createdAt                        DateTime                 @default(now())
+  updatedAt                        DateTime                 @updatedAt
+  organization                     Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inventoryAssetAccount            Account?                 @relation("InventorySettingsInventoryAssetAccount", fields: [inventoryAssetAccountId], references: [id], onDelete: SetNull)
+  cogsAccount                      Account?                 @relation("InventorySettingsCogsAccount", fields: [cogsAccountId], references: [id], onDelete: SetNull)
+  inventoryAdjustmentGainAccount   Account?                 @relation("InventorySettingsAdjustmentGainAccount", fields: [inventoryAdjustmentGainAccountId], references: [id], onDelete: SetNull)
+  inventoryAdjustmentLossAccount   Account?                 @relation("InventorySettingsAdjustmentLossAccount", fields: [inventoryAdjustmentLossAccountId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
+  @@index([inventoryAssetAccountId])
+  @@index([cogsAccountId])
+  @@index([inventoryAdjustmentGainAccountId])
+  @@index([inventoryAdjustmentLossAccountId])
 }
 
 model GeneratedDocument {
@@ -729,38 +742,42 @@ model Contact {
 }
 
 model Account {
-  id                String             @id @default(uuid()) @db.Uuid
-  organizationId    String             @db.Uuid
-  parentId          String?            @db.Uuid
-  code              String
-  name              String
-  type              AccountType
-  description       String?
-  allowPosting      Boolean            @default(true)
-  isSystem          Boolean            @default(false)
-  isActive          Boolean            @default(true)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  parent            Account?           @relation("AccountTree", fields: [parentId], references: [id])
-  children          Account[]          @relation("AccountTree")
-  journalLines      JournalLine[]
-  itemRevenueItems  Item[]             @relation("ItemRevenueAccount")
-  itemExpenseItems  Item[]             @relation("ItemExpenseAccount")
-  salesInvoiceLines SalesInvoiceLine[]
-  creditNoteLines   CreditNoteLine[]
-  purchaseOrderLines PurchaseOrderLine[]
-  purchaseBillLines PurchaseBillLine[]
-  purchaseDebitNoteLines PurchaseDebitNoteLine[]
-  cashExpenseLines  CashExpenseLine[]
-  cashExpensePayments CashExpense[]   @relation("CashExpensePaidThroughAccount")
-  customerPayments  CustomerPayment[]  @relation("CustomerPaymentAccount")
-  supplierPayments  SupplierPayment[]  @relation("SupplierPaymentAccount")
-  customerRefunds   CustomerRefund[]   @relation("CustomerRefundAccount")
-  supplierRefunds   SupplierRefund[]   @relation("SupplierRefundAccount")
-  bankAccountProfile BankAccountProfile?
-  bankTransfersFrom BankTransfer[]      @relation("BankTransferFromAccount")
-  bankTransfersTo   BankTransfer[]      @relation("BankTransferToAccount")
+  id                              String                     @id @default(uuid()) @db.Uuid
+  organizationId                  String                     @db.Uuid
+  parentId                        String?                    @db.Uuid
+  code                            String
+  name                            String
+  type                            AccountType
+  description                     String?
+  allowPosting                    Boolean                    @default(true)
+  isSystem                        Boolean                    @default(false)
+  isActive                        Boolean                    @default(true)
+  createdAt                       DateTime                   @default(now())
+  updatedAt                       DateTime                   @updatedAt
+  organization                    Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent                          Account?                   @relation("AccountTree", fields: [parentId], references: [id])
+  children                        Account[]                  @relation("AccountTree")
+  journalLines                    JournalLine[]
+  itemRevenueItems                Item[]                     @relation("ItemRevenueAccount")
+  itemExpenseItems                Item[]                     @relation("ItemExpenseAccount")
+  salesInvoiceLines               SalesInvoiceLine[]
+  creditNoteLines                 CreditNoteLine[]
+  purchaseOrderLines              PurchaseOrderLine[]
+  purchaseBillLines               PurchaseBillLine[]
+  purchaseDebitNoteLines          PurchaseDebitNoteLine[]
+  cashExpenseLines                CashExpenseLine[]
+  cashExpensePayments             CashExpense[]              @relation("CashExpensePaidThroughAccount")
+  customerPayments                CustomerPayment[]          @relation("CustomerPaymentAccount")
+  supplierPayments                SupplierPayment[]          @relation("SupplierPaymentAccount")
+  customerRefunds                 CustomerRefund[]           @relation("CustomerRefundAccount")
+  supplierRefunds                 SupplierRefund[]           @relation("SupplierRefundAccount")
+  bankAccountProfile              BankAccountProfile?
+  inventoryAssetSettings          InventorySettings[]        @relation("InventorySettingsInventoryAssetAccount")
+  cogsSettings                    InventorySettings[]        @relation("InventorySettingsCogsAccount")
+  inventoryAdjustmentGainSettings InventorySettings[]        @relation("InventorySettingsAdjustmentGainAccount")
+  inventoryAdjustmentLossSettings InventorySettings[]        @relation("InventorySettingsAdjustmentLossAccount")
+  bankTransfersFrom               BankTransfer[]             @relation("BankTransferFromAccount")
+  bankTransfersTo                 BankTransfer[]             @relation("BankTransferToAccount")
   categorizedBankStatementTransactions BankStatementTransaction[] @relation("BankStatementTransactionCategorizedAccount")
 
   @@unique([organizationId, code])

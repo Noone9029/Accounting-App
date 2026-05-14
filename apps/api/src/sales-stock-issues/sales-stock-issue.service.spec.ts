@@ -1,9 +1,21 @@
-import { ItemStatus, Prisma, SalesInvoiceStatus, SalesStockIssueStatus, StockMovementType, WarehouseStatus } from "@prisma/client";
+import {
+  AccountType,
+  InventoryValuationMethod,
+  ItemStatus,
+  Prisma,
+  SalesInvoiceStatus,
+  SalesStockIssueStatus,
+  StockMovementType,
+  WarehouseStatus,
+} from "@prisma/client";
 import { SalesStockIssueService } from "./sales-stock-issue.service";
 
 describe("SalesStockIssueService", () => {
   const item = { id: "item-1", inventoryTracking: true, status: ItemStatus.ACTIVE };
+  const previewItem = { id: item.id, name: "Tracked Item", sku: "TRK", type: "PRODUCT", status: ItemStatus.ACTIVE, inventoryTracking: true };
   const warehouse = { id: "warehouse-1", status: WarehouseStatus.ACTIVE };
+  const assetAccount = { id: "asset-1", code: "130", name: "Inventory", type: AccountType.ASSET, allowPosting: true, isActive: true };
+  const cogsAccount = { id: "cogs-1", code: "611", name: "Cost of Goods Sold", type: AccountType.COST_OF_SALES, allowPosting: true, isActive: true };
   const invoiceLine = { id: "invoice-line-1", itemId: item.id, quantity: new Prisma.Decimal("5.0000"), item };
   const issue = {
     id: "issue-1",
@@ -14,7 +26,7 @@ describe("SalesStockIssueService", () => {
     warehouseId: warehouse.id,
     status: SalesStockIssueStatus.POSTED,
     issueDate: new Date("2026-05-14T00:00:00.000Z"),
-    lines: [{ id: "issue-line-1", itemId: item.id, salesInvoiceLineId: invoiceLine.id, quantity: new Prisma.Decimal("2.0000"), unitCost: null }],
+    lines: [{ id: "issue-line-1", itemId: item.id, item: previewItem, salesInvoiceLineId: invoiceLine.id, quantity: new Prisma.Decimal("2.0000"), unitCost: null }],
   };
 
   function makeService(tx: Record<string, unknown>, directOverrides: Record<string, unknown> = {}) {
@@ -23,11 +35,27 @@ describe("SalesStockIssueService", () => {
       salesStockIssue: { findMany: jest.fn(), findFirst: jest.fn(), findUniqueOrThrow: jest.fn() },
       salesInvoice: { findFirst: jest.fn() },
       salesStockIssueLine: { findMany: jest.fn() },
+      journalEntry: { create: jest.fn() },
       ...directOverrides,
     };
     const audit = { log: jest.fn() };
     const numbers = { next: jest.fn().mockResolvedValue("SSI-000001") };
-    return { service: new SalesStockIssueService(prisma as never, audit as never, numbers as never), prisma, audit, numbers };
+    const inventoryAccounting = {
+      previewReadiness: jest.fn().mockResolvedValue({
+        settings: {
+          valuationMethod: InventoryValuationMethod.MOVING_AVERAGE,
+          inventoryAssetAccount: assetAccount,
+          cogsAccount,
+        },
+        blockingReasons: [],
+        warnings: ["Not posting to GL yet."],
+      }),
+      movingAverageUnitCost: jest.fn().mockResolvedValue({
+        averageUnitCost: new Prisma.Decimal("5.2500"),
+        missingCostData: false,
+      }),
+    };
+    return { service: new SalesStockIssueService(prisma as never, audit as never, numbers as never, inventoryAccounting as never), prisma, audit, numbers, inventoryAccounting };
   }
 
   function makeTx(overrides: Record<string, unknown> = {}) {
@@ -165,6 +193,40 @@ describe("SalesStockIssueService", () => {
       lines: [expect.objectContaining({ issuedQuantity: "2.0000", remainingQuantity: "3.0000" })],
     });
     await expect(service.get("other-org", issue.id)).rejects.toThrow("Sales stock issue not found.");
+    expect(prisma.salesStockIssue.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: issue.id, organizationId: "other-org" } }));
+  });
+
+  it("returns moving-average COGS preview with Dr COGS and Cr inventory asset without creating a journal entry", async () => {
+    const { service, prisma, inventoryAccounting } = makeService(makeTx(), {
+      salesStockIssue: { findFirst: jest.fn().mockResolvedValue(issue) },
+    });
+
+    const preview = await service.accountingPreview("org-1", issue.id);
+
+    expect(inventoryAccounting.movingAverageUnitCost).toHaveBeenCalledWith("org-1", item.id, warehouse.id, issue.issueDate);
+    expect(preview).toEqual(
+      expect.objectContaining({
+        previewOnly: true,
+        canPost: false,
+        warnings: expect.arrayContaining(["COGS posting is not enabled yet.", "Average cost is operational estimate and requires accountant review."]),
+      }),
+    );
+    expect(preview.lines[0]).toEqual(expect.objectContaining({ estimatedUnitCost: "5.2500", estimatedCOGS: "10.5000" }));
+    expect(preview.journal.lines).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ side: "DEBIT", accountCode: "611", amount: "10.5000" }),
+        expect.objectContaining({ side: "CREDIT", accountCode: "130", amount: "10.5000" }),
+      ]),
+    );
+    expect(prisma.journalEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("keeps sales stock issue accounting preview tenant-scoped", async () => {
+    const { service, prisma } = makeService(makeTx(), {
+      salesStockIssue: { findFirst: jest.fn().mockResolvedValue(null) },
+    });
+
+    await expect(service.accountingPreview("other-org", issue.id)).rejects.toThrow("Sales stock issue not found.");
     expect(prisma.salesStockIssue.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: issue.id, organizationId: "other-org" } }));
   });
 });

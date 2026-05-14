@@ -709,9 +709,87 @@ export interface InventorySettings {
   valuationMethod: InventoryValuationMethod;
   allowNegativeStock: boolean;
   trackInventoryValue: boolean;
+  enableInventoryAccounting: boolean;
+  inventoryAssetAccountId: string | null;
+  cogsAccountId: string | null;
+  inventoryAdjustmentGainAccountId: string | null;
+  inventoryAdjustmentLossAccountId: string | null;
   warnings: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface InventoryAccountingSettings extends InventorySettings {
+  accounts: {
+    inventoryAsset: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive"> | null;
+    cogs: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive"> | null;
+    adjustmentGain: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive"> | null;
+    adjustmentLoss: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive"> | null;
+  };
+  canEnableInventoryAccounting: boolean;
+  previewOnly: true;
+  noAutomaticPosting: true;
+  blockingReasons: string[];
+}
+
+export interface InventoryAccountingPreviewJournalLine {
+  lineNumber: number;
+  side: "DEBIT" | "CREDIT";
+  accountId: string | null;
+  accountCode: string | null;
+  accountName: string;
+  amount: string;
+  description: string;
+}
+
+export interface InventoryAccountingPreviewJournal {
+  description: string;
+  entryDate: string;
+  totalDebit: string;
+  totalCredit: string;
+  lines: InventoryAccountingPreviewJournalLine[];
+}
+
+export interface InventoryAccountingPreviewBase {
+  sourceType: "PurchaseReceipt" | "SalesStockIssue";
+  sourceId: string;
+  sourceNumber: string;
+  previewOnly: true;
+  postingStatus: "DESIGN_ONLY";
+  canPost: false;
+  canPostReason: string;
+  valuationMethod: InventoryValuationMethod;
+  blockingReasons: string[];
+  warnings: string[];
+  journal: InventoryAccountingPreviewJournal;
+}
+
+export interface PurchaseReceiptAccountingPreviewLine {
+  lineId: string;
+  item: Pick<Item, "id" | "name" | "sku" | "type" | "status" | "inventoryTracking"> | null;
+  quantity: string;
+  unitCost: string | null;
+  lineValue: string | null;
+  warnings: string[];
+}
+
+export interface PurchaseReceiptAccountingPreview extends InventoryAccountingPreviewBase {
+  sourceType: "PurchaseReceipt";
+  lines: PurchaseReceiptAccountingPreviewLine[];
+}
+
+export interface SalesStockIssueAccountingPreviewLine {
+  lineId: string;
+  item: Pick<Item, "id" | "name" | "sku" | "type" | "status" | "inventoryTracking"> | null;
+  quantity: string;
+  estimatedUnitCost: string | null;
+  estimatedCOGS: string | null;
+  warnings: string[];
+}
+
+export interface SalesStockIssueAccountingPreview extends InventoryAccountingPreviewBase {
+  sourceType: "SalesStockIssue";
+  lines: SalesStockIssueAccountingPreviewLine[];
 }
 
 export type InventoryReportItem = Pick<

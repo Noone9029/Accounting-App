@@ -9,6 +9,12 @@ import {
   WarehouseStatus,
 } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import {
+  COGS_NOT_ENABLED_WARNING,
+  InventoryAccountingService,
+  MOVING_AVERAGE_REVIEW_WARNING,
+  NO_FINANCIAL_POSTING_WARNING,
+} from "../inventory/inventory-accounting.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { stockMovementDirection } from "../stock-movements/stock-movement-rules";
@@ -45,6 +51,7 @@ export class SalesStockIssueService {
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
     private readonly numberSequenceService: NumberSequenceService,
+    private readonly inventoryAccountingService: InventoryAccountingService,
   ) {}
 
   list(organizationId: string) {
@@ -64,6 +71,101 @@ export class SalesStockIssueService {
       throw new NotFoundException("Sales stock issue not found.");
     }
     return issue;
+  }
+
+  async accountingPreview(organizationId: string, id: string) {
+    const issue = await this.prisma.salesStockIssue.findFirst({
+      where: { id, organizationId },
+      include: salesStockIssueInclude,
+    });
+    if (!issue) {
+      throw new NotFoundException("Sales stock issue not found.");
+    }
+
+    const readiness = await this.inventoryAccountingService.previewReadiness(organizationId, ["inventoryAsset", "cogs"]);
+    const blockingReasons = [...readiness.blockingReasons];
+    const warnings = [COGS_NOT_ENABLED_WARNING, MOVING_AVERAGE_REVIEW_WARNING, NO_FINANCIAL_POSTING_WARNING, ...readiness.warnings];
+    let totalEstimatedCogs = new Prisma.Decimal(0);
+
+    const lines = [];
+    for (const [index, line] of issue.lines.entries()) {
+      const quantity = new Prisma.Decimal(line.quantity);
+      const averageCost = await this.inventoryAccountingService.movingAverageUnitCost(
+        organizationId,
+        line.itemId,
+        issue.warehouseId,
+        issue.issueDate,
+      );
+      const lineWarnings: string[] = [];
+      let estimatedCogs: Prisma.Decimal | null = null;
+      if (averageCost.averageUnitCost === null) {
+        const reason = `Sales stock issue line ${index + 1} does not have enough moving-average cost data.`;
+        lineWarnings.push(reason);
+        blockingReasons.push(reason);
+      } else {
+        estimatedCogs = quantity.mul(averageCost.averageUnitCost);
+        totalEstimatedCogs = totalEstimatedCogs.plus(estimatedCogs);
+      }
+      if (averageCost.missingCostData) {
+        lineWarnings.push("Some inbound stock movements are missing cost data.");
+      }
+
+      lines.push({
+        lineId: line.id,
+        item: line.item,
+        quantity: this.decimalString(quantity),
+        estimatedUnitCost: averageCost.averageUnitCost === null ? null : this.decimalString(averageCost.averageUnitCost),
+        estimatedCOGS: estimatedCogs === null ? null : this.decimalString(estimatedCogs),
+        warnings: lineWarnings,
+      });
+    }
+
+    const cogsAccount = readiness.settings.cogsAccount;
+    const assetAccount = readiness.settings.inventoryAssetAccount;
+    const journalLines =
+      cogsAccount && assetAccount && totalEstimatedCogs.gt(0)
+        ? [
+            {
+              lineNumber: 1,
+              side: "DEBIT",
+              accountId: cogsAccount.id,
+              accountCode: cogsAccount.code,
+              accountName: cogsAccount.name,
+              amount: this.decimalString(totalEstimatedCogs),
+              description: `Sales stock issue ${issue.issueNumber} COGS preview`,
+            },
+            {
+              lineNumber: 2,
+              side: "CREDIT",
+              accountId: assetAccount.id,
+              accountCode: assetAccount.code,
+              accountName: assetAccount.name,
+              amount: this.decimalString(totalEstimatedCogs),
+              description: `Sales stock issue ${issue.issueNumber} inventory asset preview`,
+            },
+          ]
+        : [];
+
+    return {
+      sourceType: "SalesStockIssue",
+      sourceId: issue.id,
+      sourceNumber: issue.issueNumber,
+      previewOnly: true,
+      postingStatus: "DESIGN_ONLY",
+      canPost: false,
+      canPostReason: "COGS posting is preview-only and requires a future explicit posting workflow.",
+      valuationMethod: readiness.settings.valuationMethod,
+      blockingReasons: this.uniqueStrings(blockingReasons),
+      warnings: this.uniqueStrings(warnings),
+      lines,
+      journal: {
+        description: `Sales stock issue ${issue.issueNumber} COGS preview`,
+        entryDate: issue.issueDate.toISOString(),
+        totalDebit: this.decimalString(totalEstimatedCogs),
+        totalCredit: this.decimalString(totalEstimatedCogs),
+        lines: journalLines,
+      },
+    };
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreateSalesStockIssueDto) {
@@ -445,5 +547,13 @@ export class SalesStockIssueService {
   private cleanOptional(value?: string | null): string | null {
     const cleaned = value?.trim();
     return cleaned ? cleaned : null;
+  }
+
+  private decimalString(value: Prisma.Decimal): string {
+    return value.toFixed(4);
+  }
+
+  private uniqueStrings(values: string[]): string[] {
+    return [...new Set(values)];
   }
 }

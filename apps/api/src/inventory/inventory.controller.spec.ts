@@ -15,6 +15,15 @@ describe("InventoryController permissions", () => {
     ]);
   });
 
+  it("requires inventory permissions for accounting settings", () => {
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, InventoryController.prototype.accountingSettings)).toEqual([
+      PERMISSIONS.inventory.view,
+    ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, InventoryController.prototype.updateAccountingSettings)).toEqual([
+      PERMISSIONS.inventory.manage,
+    ]);
+  });
+
   it("requires inventory view permission for balances", () => {
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, InventoryController.prototype.balances)).toEqual([
       PERMISSIONS.inventory.view,

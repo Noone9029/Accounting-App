@@ -37,6 +37,12 @@ export class SalesStockIssueController {
     return this.salesStockIssueService.get(organizationId, id);
   }
 
+  @Get(":id/accounting-preview")
+  @RequirePermissions(PERMISSIONS.inventory.view)
+  accountingPreview(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.salesStockIssueService.accountingPreview(organizationId, id);
+  }
+
   @Post(":id/void")
   @RequirePermissions(PERMISSIONS.salesStockIssue.create)
   void(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {

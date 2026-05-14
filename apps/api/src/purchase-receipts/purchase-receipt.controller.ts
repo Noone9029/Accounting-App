@@ -37,6 +37,12 @@ export class PurchaseReceiptController {
     return this.purchaseReceiptService.get(organizationId, id);
   }
 
+  @Get(":id/accounting-preview")
+  @RequirePermissions(PERMISSIONS.inventory.view)
+  accountingPreview(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.purchaseReceiptService.accountingPreview(organizationId, id);
+  }
+
   @Post(":id/void")
   @RequirePermissions(PERMISSIONS.purchaseReceiving.create)
   void(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {

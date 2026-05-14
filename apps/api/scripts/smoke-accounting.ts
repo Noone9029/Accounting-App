@@ -336,6 +336,68 @@ interface InventorySettings {
   warnings: string[];
 }
 
+interface InventoryAccountingSettings {
+  id: string;
+  valuationMethod: "MOVING_AVERAGE" | "FIFO_PLACEHOLDER";
+  enableInventoryAccounting: boolean;
+  inventoryAssetAccountId: string | null;
+  cogsAccountId: string | null;
+  inventoryAdjustmentGainAccountId: string | null;
+  inventoryAdjustmentLossAccountId: string | null;
+  canEnableInventoryAccounting: boolean;
+  previewOnly: true;
+  noAutomaticPosting: true;
+  blockingReasons: string[];
+  warnings: string[];
+}
+
+interface AccountingPreviewJournalLine {
+  lineNumber: number;
+  side: "DEBIT" | "CREDIT";
+  accountId: string | null;
+  accountCode: string | null;
+  accountName: string;
+  amount: string;
+}
+
+interface AccountingPreviewJournal {
+  totalDebit: string;
+  totalCredit: string;
+  lines: AccountingPreviewJournalLine[];
+}
+
+interface PurchaseReceiptAccountingPreview {
+  previewOnly: true;
+  postingStatus: "DESIGN_ONLY";
+  canPost: false;
+  blockingReasons: string[];
+  warnings: string[];
+  journal: AccountingPreviewJournal;
+  lines: Array<{
+    lineId: string;
+    quantity: string;
+    unitCost: string | null;
+    lineValue: string | null;
+    warnings: string[];
+  }>;
+}
+
+interface SalesStockIssueAccountingPreview {
+  previewOnly: true;
+  postingStatus: "DESIGN_ONLY";
+  canPost: false;
+  blockingReasons: string[];
+  warnings: string[];
+  journal: AccountingPreviewJournal;
+  lines: Array<{
+    lineId: string;
+    quantity: string;
+    estimatedUnitCost: string | null;
+    estimatedCOGS: string | null;
+    warnings: string[];
+  }>;
+}
+
 interface InventoryStockValuationReport {
   rows: Array<{
     item: { id: string; name: string; sku?: string | null };
@@ -754,6 +816,14 @@ async function main(): Promise<void> {
     accounts.find((account) => account.code === "511" && account.allowPosting && account.isActive),
     "General expenses account code 511",
   );
+  const inventoryAssetAccount = required(
+    accounts.find((account) => account.code === "130" && account.type === "ASSET" && account.allowPosting && account.isActive),
+    "Inventory asset account code 130",
+  );
+  const cogsAccount = required(
+    accounts.find((account) => account.code === "611" && (account.type === "COST_OF_SALES" || account.type === "EXPENSE") && account.allowPosting && account.isActive),
+    "Cost of Goods Sold account code 611",
+  );
   const paidThroughAccount =
     accounts.find((account) => account.code === "112" && account.allowPosting && account.isActive) ??
     accounts.find((account) => account.code === "111" && account.allowPosting && account.isActive);
@@ -790,6 +860,19 @@ async function main(): Promise<void> {
   assertEqual(patchedInventorySettings.valuationMethod, "MOVING_AVERAGE", "inventory settings patched valuation method");
   assertEqual(patchedInventorySettings.allowNegativeStock, false, "inventory settings negative stock blocked");
   assertEqual(patchedInventorySettings.trackInventoryValue, true, "inventory settings value tracking enabled");
+  const defaultInventoryAccountingSettings = await get<InventoryAccountingSettings>("/inventory/accounting-settings", headers);
+  assertEqual(defaultInventoryAccountingSettings.enableInventoryAccounting, false, "inventory accounting settings default disabled");
+  assertEqual(defaultInventoryAccountingSettings.previewOnly, true, "inventory accounting settings are preview-only");
+  assertEqual(defaultInventoryAccountingSettings.noAutomaticPosting, true, "inventory accounting settings do not enable automatic posting");
+  const patchedInventoryAccountingSettings = await patch<InventoryAccountingSettings>("/inventory/accounting-settings", headers, {
+    valuationMethod: "MOVING_AVERAGE",
+    enableInventoryAccounting: false,
+    inventoryAssetAccountId: inventoryAssetAccount.id,
+    cogsAccountId: cogsAccount.id,
+  });
+  assertEqual(patchedInventoryAccountingSettings.inventoryAssetAccountId, inventoryAssetAccount.id, "inventory asset account mapping patched");
+  assertEqual(patchedInventoryAccountingSettings.cogsAccountId, cogsAccount.id, "COGS account mapping patched");
+  assertEqual(patchedInventoryAccountingSettings.previewOnly, true, "patched inventory accounting settings remain preview-only");
 
   const warehouses = await get<Warehouse[]>("/warehouses", headers);
   const mainWarehouse = required(
@@ -1006,6 +1089,34 @@ async function main(): Promise<void> {
   assertMoney((await balanceFor(mainWarehouse)).quantityOnHand, money("17.0000"), "main warehouse quantity after purchase receipt");
   const poReceivingStatusAfterReceipt = await get<PurchaseReceivingStatus>(`/purchase-orders/${purchaseOrderForReceipt.id}/receiving-status`, headers);
   assertEqual(poReceivingStatusAfterReceipt.status, "COMPLETE", "purchase order receiving status complete after receipt");
+  const purchaseReceiptAccountingPreview = await get<PurchaseReceiptAccountingPreview>(
+    `/purchase-receipts/${purchaseReceipt.id}/accounting-preview`,
+    headers,
+  );
+  assertEqual(purchaseReceiptAccountingPreview.previewOnly, true, "purchase receipt accounting preview is preview-only");
+  assertEqual(purchaseReceiptAccountingPreview.canPost, false, "purchase receipt accounting preview cannot post");
+  assert(
+    purchaseReceiptAccountingPreview.warnings.some((warning) => warning.includes("bill/receipt matching and inventory clearing are not finalized")),
+    "purchase receipt preview includes design-only clearing warning",
+  );
+  assert(
+    purchaseReceiptAccountingPreview.journal.lines.some(
+      (line) => line.side === "DEBIT" && line.accountCode === inventoryAssetAccount.code && money(line.amount).eq("20.0000"),
+    ),
+    "purchase receipt preview includes debit inventory asset line",
+  );
+  assert(
+    purchaseReceiptAccountingPreview.journal.lines.some(
+      (line) => line.side === "CREDIT" && line.accountName.includes("Inventory Clearing") && money(line.amount).eq("20.0000"),
+    ),
+    "purchase receipt preview includes credit inventory clearing placeholder line",
+  );
+  const journalEntriesAfterPurchaseReceiptPreview = await get<JournalEntry[]>("/journal-entries", headers);
+  assertEqual(
+    journalEntriesAfterPurchaseReceiptPreview.length,
+    journalEntriesBeforeReceiptIssue.length,
+    "purchase receipt accounting preview does not create journal entries",
+  );
 
   const invoiceIssueStatus = await get<SalesInvoiceStockIssueStatus>(`/sales-invoices/${salesInvoiceForIssue.id}/stock-issue-status`, headers);
   assertEqual(invoiceIssueStatus.status, "NOT_STARTED", "sales invoice stock issue status starts not started");
@@ -1025,6 +1136,38 @@ async function main(): Promise<void> {
   assertMoney((await balanceFor(mainWarehouse)).quantityOnHand, money("14.0000"), "main warehouse quantity after sales stock issue");
   const invoiceIssueStatusAfterIssue = await get<SalesInvoiceStockIssueStatus>(`/sales-invoices/${salesInvoiceForIssue.id}/stock-issue-status`, headers);
   assertEqual(invoiceIssueStatusAfterIssue.status, "COMPLETE", "sales invoice stock issue status complete after issue");
+  const salesStockIssueAccountingPreview = await get<SalesStockIssueAccountingPreview>(
+    `/sales-stock-issues/${salesStockIssue.id}/accounting-preview`,
+    headers,
+  );
+  assertEqual(salesStockIssueAccountingPreview.previewOnly, true, "sales stock issue accounting preview is preview-only");
+  assertEqual(salesStockIssueAccountingPreview.canPost, false, "sales stock issue accounting preview cannot post");
+  assert(
+    salesStockIssueAccountingPreview.warnings.some((warning) => warning.includes("COGS posting is not enabled yet")),
+    "sales issue preview includes COGS disabled warning",
+  );
+  assert(
+    salesStockIssueAccountingPreview.lines.some((line) => line.estimatedCOGS !== null && money(line.estimatedCOGS).gt(0)),
+    "sales issue preview includes estimated COGS",
+  );
+  assert(
+    salesStockIssueAccountingPreview.journal.lines.some(
+      (line) => line.side === "DEBIT" && line.accountCode === cogsAccount.code && money(line.amount).gt(0),
+    ),
+    "sales issue preview includes debit COGS line",
+  );
+  assert(
+    salesStockIssueAccountingPreview.journal.lines.some(
+      (line) => line.side === "CREDIT" && line.accountCode === inventoryAssetAccount.code && money(line.amount).gt(0),
+    ),
+    "sales issue preview includes credit inventory asset line",
+  );
+  const journalEntriesAfterSalesIssuePreview = await get<JournalEntry[]>("/journal-entries", headers);
+  assertEqual(
+    journalEntriesAfterSalesIssuePreview.length,
+    journalEntriesBeforeReceiptIssue.length,
+    "sales stock issue accounting preview does not create journal entries",
+  );
 
   const voidedSalesStockIssue = await post<SalesStockIssue>(`/sales-stock-issues/${salesStockIssue.id}/void`, headers, {});
   assertEqual(voidedSalesStockIssue.status, "VOIDED", "sales stock issue voided status");
@@ -2936,14 +3079,26 @@ async function main(): Promise<void> {
         ],
         inventoryQuantityOnHand: inventoryBalance.quantityOnHand,
         inventorySettingsId: patchedInventorySettings.id,
+        inventoryAccountingSettingsId: patchedInventoryAccountingSettings.id,
+        inventoryAccountingMappedAssetCode: inventoryAssetAccount.code,
+        inventoryAccountingMappedCogsCode: cogsAccount.code,
         inventoryValuationGrandTotal: stockValuationReport.grandTotalEstimatedValue,
         inventoryMovementClosingQuantity: movementSummaryRow.closingQuantity,
         lowStockItemIds: lowStockReport.rows.map((row) => row.item.id),
         inventoryJournalEntryCountUnchanged: journalEntriesAfterInventory.length === journalEntriesBeforeInventory.length,
         purchaseReceiptId: purchaseReceipt.id,
+        purchaseReceiptAccountingPreviewOnly: purchaseReceiptAccountingPreview.previewOnly,
+        purchaseReceiptAccountingPreviewCanPost: purchaseReceiptAccountingPreview.canPost,
+        purchaseReceiptAccountingPreviewTotal: purchaseReceiptAccountingPreview.journal.totalDebit,
         purchaseReceiptVoided: voidedPurchaseReceipt.status === "VOIDED",
         salesStockIssueId: salesStockIssue.id,
+        salesStockIssueAccountingPreviewOnly: salesStockIssueAccountingPreview.previewOnly,
+        salesStockIssueAccountingPreviewCanPost: salesStockIssueAccountingPreview.canPost,
+        salesStockIssueEstimatedCogs: salesStockIssueAccountingPreview.journal.totalDebit,
         salesStockIssueVoided: voidedSalesStockIssue.status === "VOIDED",
+        inventoryAccountingPreviewJournalEntryCountUnchanged:
+          journalEntriesAfterPurchaseReceiptPreview.length === journalEntriesBeforeReceiptIssue.length &&
+          journalEntriesAfterSalesIssuePreview.length === journalEntriesBeforeReceiptIssue.length,
         receiptIssueJournalEntryCountUnchanged: journalEntriesAfterReceiptIssue.length === journalEntriesBeforeReceiptIssue.length,
         closedFiscalPeriodId: closedFiscalPeriod.id,
         fiscalPeriodLockChecked: true,

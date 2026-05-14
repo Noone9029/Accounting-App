@@ -1,10 +1,23 @@
-import { ContactType, ItemStatus, Prisma, PurchaseBillStatus, PurchaseOrderStatus, PurchaseReceiptStatus, StockMovementType, WarehouseStatus } from "@prisma/client";
+import {
+  AccountType,
+  ContactType,
+  InventoryValuationMethod,
+  ItemStatus,
+  Prisma,
+  PurchaseBillStatus,
+  PurchaseOrderStatus,
+  PurchaseReceiptStatus,
+  StockMovementType,
+  WarehouseStatus,
+} from "@prisma/client";
 import { PurchaseReceiptService } from "./purchase-receipt.service";
 
 describe("PurchaseReceiptService", () => {
   const item = { id: "item-1", inventoryTracking: true, status: ItemStatus.ACTIVE };
+  const previewItem = { id: item.id, name: "Tracked Item", sku: "TRK", type: "PRODUCT", status: ItemStatus.ACTIVE, inventoryTracking: true };
   const supplier = { id: "supplier-1", type: ContactType.SUPPLIER, isActive: true };
   const warehouse = { id: "warehouse-1", status: WarehouseStatus.ACTIVE };
+  const assetAccount = { id: "asset-1", code: "130", name: "Inventory", type: AccountType.ASSET, allowPosting: true, isActive: true };
   const poLine = { id: "po-line-1", itemId: item.id, quantity: new Prisma.Decimal("5.0000"), unitPrice: new Prisma.Decimal("7.0000"), item };
   const billLine = { id: "bill-line-1", itemId: item.id, quantity: new Prisma.Decimal("4.0000"), unitPrice: new Prisma.Decimal("8.0000"), item };
   const receipt = {
@@ -15,7 +28,7 @@ describe("PurchaseReceiptService", () => {
     warehouseId: warehouse.id,
     status: PurchaseReceiptStatus.POSTED,
     receiptDate: new Date("2026-05-14T00:00:00.000Z"),
-    lines: [{ id: "receipt-line-1", itemId: item.id, quantity: new Prisma.Decimal("2.0000"), unitCost: new Prisma.Decimal("7.0000") }],
+    lines: [{ id: "receipt-line-1", itemId: item.id, item: previewItem, quantity: new Prisma.Decimal("2.0000"), unitCost: new Prisma.Decimal("7.0000") }],
   };
 
   function makeService(tx: Record<string, unknown>, directOverrides: Record<string, unknown> = {}) {
@@ -25,11 +38,22 @@ describe("PurchaseReceiptService", () => {
       purchaseOrder: { findFirst: jest.fn() },
       purchaseBill: { findFirst: jest.fn() },
       purchaseReceiptLine: { findMany: jest.fn() },
+      journalEntry: { create: jest.fn() },
       ...directOverrides,
     };
     const audit = { log: jest.fn() };
     const numbers = { next: jest.fn().mockResolvedValue("PRC-000001") };
-    return { service: new PurchaseReceiptService(prisma as never, audit as never, numbers as never), prisma, audit, numbers };
+    const inventoryAccounting = {
+      previewReadiness: jest.fn().mockResolvedValue({
+        settings: {
+          valuationMethod: InventoryValuationMethod.MOVING_AVERAGE,
+          inventoryAssetAccount: assetAccount,
+        },
+        blockingReasons: [],
+        warnings: ["Not posting to GL yet."],
+      }),
+    };
+    return { service: new PurchaseReceiptService(prisma as never, audit as never, numbers as never, inventoryAccounting as never), prisma, audit, numbers, inventoryAccounting };
   }
 
   function makeTx(overrides: Record<string, unknown> = {}) {
@@ -176,6 +200,52 @@ describe("PurchaseReceiptService", () => {
       lines: [expect.objectContaining({ receivedQuantity: "2.0000", remainingQuantity: "3.0000" })],
     });
     await expect(service.get("other-org", receipt.id)).rejects.toThrow("Purchase receipt not found.");
+    expect(prisma.purchaseReceipt.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: receipt.id, organizationId: "other-org" } }));
+  });
+
+  it("returns a design-only purchase receipt accounting preview without creating a journal entry", async () => {
+    const { service, prisma } = makeService(makeTx(), {
+      purchaseReceipt: { findFirst: jest.fn().mockResolvedValue(receipt) },
+    });
+
+    const preview = await service.accountingPreview("org-1", receipt.id);
+
+    expect(preview).toEqual(
+      expect.objectContaining({
+        previewOnly: true,
+        postingStatus: "DESIGN_ONLY",
+        canPost: false,
+        warnings: expect.arrayContaining([expect.stringContaining("inventory clearing")]),
+      }),
+    );
+    expect(preview.lines[0]).toEqual(expect.objectContaining({ lineValue: "14.0000" }));
+    expect(preview.journal.lines).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ side: "DEBIT", accountCode: "130", amount: "14.0000" }),
+        expect.objectContaining({ side: "CREDIT", accountName: "Inventory Clearing / Accounts Payable placeholder", amount: "14.0000" }),
+      ]),
+    );
+    expect(prisma.journalEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("blocks purchase receipt preview lines that are missing unit cost", async () => {
+    const missingCostReceipt = { ...receipt, lines: [{ ...receipt.lines[0], unitCost: null }] };
+    const { service } = makeService(makeTx(), {
+      purchaseReceipt: { findFirst: jest.fn().mockResolvedValue(missingCostReceipt) },
+    });
+
+    const preview = await service.accountingPreview("org-1", receipt.id);
+
+    expect(preview.blockingReasons).toContain("Purchase receipt line 1 is missing unit cost.");
+    expect(preview.lines[0]).toEqual(expect.objectContaining({ unitCost: null, lineValue: null }));
+  });
+
+  it("keeps purchase receipt accounting preview tenant-scoped", async () => {
+    const { service, prisma } = makeService(makeTx(), {
+      purchaseReceipt: { findFirst: jest.fn().mockResolvedValue(null) },
+    });
+
+    await expect(service.accountingPreview("other-org", receipt.id)).rejects.toThrow("Purchase receipt not found.");
     expect(prisma.purchaseReceipt.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: receipt.id, organizationId: "other-org" } }));
   });
 });

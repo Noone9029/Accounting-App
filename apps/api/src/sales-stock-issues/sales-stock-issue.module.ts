@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AuditLogModule } from "../audit-log/audit-log.module";
+import { InventoryModule } from "../inventory/inventory.module";
 import { NumberSequenceModule } from "../number-sequences/number-sequence.module";
 import { PrismaModule } from "../prisma/prisma.module";
 import { SalesStockIssueController } from "./sales-stock-issue.controller";
@@ -7,7 +8,7 @@ import { SalesStockIssueService } from "./sales-stock-issue.service";
 import { SalesStockIssueStatusController } from "./sales-stock-issue-status.controller";
 
 @Module({
-  imports: [PrismaModule, AuditLogModule, NumberSequenceModule],
+  imports: [PrismaModule, AuditLogModule, NumberSequenceModule, InventoryModule],
   controllers: [SalesStockIssueController, SalesStockIssueStatusController],
   providers: [SalesStockIssueService],
   exports: [SalesStockIssueService],

@@ -1,6 +1,6 @@
 # Frontend Route Catalog
 
-Audit date: 2026-05-13
+Audit date: 2026-05-14
 
 Route source: `apps/web/src/app`
 
@@ -55,7 +55,7 @@ Route source: `apps/web/src/app`
 
 ## Inventory
 
-Inventory routes are operational-only and clearly warn that opening balances, adjustment approvals, warehouse transfers, purchase receipts, and sales stock issues do not create journals or affect GL, COGS, inventory asset balances, or financial statements.
+Inventory routes are operational-only and clearly warn that opening balances, adjustment approvals, warehouse transfers, purchase receipts, and sales stock issues do not create journals or affect GL, COGS, inventory asset balances, or financial statements. Accounting panels are preview-only and expose no post action.
 
 | Route | Purpose | Data fetched | Actions | Status | Missing UX pieces |
 | --- | --- | --- | --- | --- | --- |
@@ -72,12 +72,12 @@ Inventory routes are operational-only and clearly warn that opening balances, ad
 | `/inventory/transfers/[id]` | Warehouse transfer detail. | Transfer, item, source/destination warehouses, movement links. | Void transfer when allowed. | Implemented | No edit/delete after posting by design. |
 | `/inventory/purchase-receipts` | Purchase receipt list. | Receipts with supplier, source PO/bill, warehouse, and status. | Review posted/voided receipts and navigate to create/detail. | Groundwork | No supplier delivery document or landed-cost workflow. |
 | `/inventory/purchase-receipts/new` | Purchase receipt creation. | Suppliers, purchase orders, purchase bills, active warehouses, and source receiving statuses. | Receive tracked source lines or standalone supplier lines into a warehouse. | Groundwork | No barcode/serial capture or automatic receipt from bills/POs. |
-| `/inventory/purchase-receipts/[id]` | Purchase receipt detail. | Receipt, lines, source document, warehouse, and movement links. | Review stock movement links and void when allowed. | Groundwork | No edit after posting by design. |
+| `/inventory/purchase-receipts/[id]` | Purchase receipt detail. | Receipt, lines, source document, warehouse, movement links, and accounting preview. | Review stock movement links, preview Dr Inventory Asset / Cr clearing placeholder design lines, warnings, and void when allowed. | Groundwork | No edit after posting and no journal post button by design. |
 | `/inventory/sales-stock-issues` | Sales stock issue list. | Issues with customer, invoice, warehouse, and status. | Review posted/voided issues and navigate to create/detail. | Groundwork | No delivery note workflow. |
 | `/inventory/sales-stock-issues/new` | Sales stock issue creation. | Finalized sales invoices, active warehouses, and invoice stock issue status. | Issue tracked invoice lines from warehouse stock. | Groundwork | No automatic issue from invoice finalization. |
-| `/inventory/sales-stock-issues/[id]` | Sales stock issue detail. | Issue, lines, sales invoice, warehouse, and movement links. | Review stock movement links and void when allowed. | Groundwork | No COGS or GL inventory impact. |
+| `/inventory/sales-stock-issues/[id]` | Sales stock issue detail. | Issue, lines, sales invoice, warehouse, movement links, and COGS preview. | Review stock movement links, estimated unit cost/COGS, Dr COGS / Cr Inventory Asset preview lines, warnings, and void when allowed. | Groundwork | No COGS posting or GL inventory impact. |
 | `/inventory/balances` | Inventory balance table. | Derived item/warehouse balances. | View quantity on hand, simple cost/value estimates, total quantity by item, and quick links to adjustments/transfers/reports. | Implemented | Valuation is not accounting-grade. |
-| `/inventory/settings` | Inventory settings. | Inventory settings. | Review/update valuation method, negative-stock flag, and inventory value tracking warning state. | Groundwork | Settings do not enable GL inventory posting or COGS. |
+| `/inventory/settings` | Inventory settings. | Inventory settings, inventory accounting settings, and accounts when allowed. | Review/update valuation method, negative-stock flag, inventory value tracking, inventory accounting enable flag, account mappings, and preview-only warnings. | Groundwork | Settings do not enable GL inventory posting, COGS, or inventory clearing. |
 | `/inventory/reports/stock-valuation` | Stock valuation report. | Stock valuation report. | Review quantity, average cost, estimated value, warnings, and grand total. | Groundwork | Operational estimate only; not a financial statement value. |
 | `/inventory/reports/movement-summary` | Movement summary report. | Movement summary report plus item/warehouse filter lists. | Filter by date/item/warehouse and review opening/inbound/outbound/closing with movement type breakdown. | Groundwork | No PDF export and no accountant-approved financial interpretation. |
 | `/inventory/reports/low-stock` | Low-stock report. | Low-stock report. | See tracked items at or below reorder point with reorder quantity and status. | Groundwork | Reorder points are planning fields only; no purchase automation. |

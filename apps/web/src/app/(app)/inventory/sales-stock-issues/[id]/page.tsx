@@ -8,16 +8,27 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
-import { canVoidPostedStockDocument, formatInventoryQuantity, inventoryOperationalWarning, stockDocumentStatusBadgeClass, stockDocumentStatusLabel, stockMovementTypeLabel } from "@/lib/inventory";
+import {
+  accountingPreviewCanPost,
+  accountingPreviewLineDisplay,
+  canVoidPostedStockDocument,
+  formatInventoryQuantity,
+  inventoryOperationalWarning,
+  stockDocumentStatusBadgeClass,
+  stockDocumentStatusLabel,
+  stockMovementTypeLabel,
+} from "@/lib/inventory";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { SalesStockIssue, SalesStockIssueLine } from "@/lib/types";
+import type { SalesStockIssue, SalesStockIssueAccountingPreview, SalesStockIssueLine } from "@/lib/types";
 
 export default function SalesStockIssueDetailPage() {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [issue, setIssue] = useState<SalesStockIssue | null>(null);
+  const [preview, setPreview] = useState<SalesStockIssueAccountingPreview | null>(null);
   const [loading, setLoading] = useState(false);
+  const [previewError, setPreviewError] = useState("");
   const [voiding, setVoiding] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const [error, setError] = useState("");
@@ -30,13 +41,23 @@ export default function SalesStockIssueDetailPage() {
     let cancelled = false;
     setLoading(true);
     setError("");
+    setPreviewError("");
 
-    apiRequest<SalesStockIssue>(`/sales-stock-issues/${params.id}`)
-      .then((result) => {
-        if (!cancelled) setIssue(result);
+    Promise.all([
+      apiRequest<SalesStockIssue>(`/sales-stock-issues/${params.id}`),
+      apiRequest<SalesStockIssueAccountingPreview>(`/sales-stock-issues/${params.id}/accounting-preview`),
+    ])
+      .then(([issueResult, previewResult]) => {
+        if (!cancelled) {
+          setIssue(issueResult);
+          setPreview(previewResult);
+        }
       })
       .catch((loadError: unknown) => {
-        if (!cancelled) setError(loadError instanceof Error ? loadError.message : "Unable to load sales stock issue.");
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : "Unable to load sales stock issue.");
+          setPreviewError(loadError instanceof Error ? loadError.message : "Unable to load COGS preview.");
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -136,6 +157,8 @@ export default function SalesStockIssueDetailPage() {
               </tbody>
             </table>
           </div>
+
+          <SalesIssueAccountingPreviewPanel preview={preview} error={previewError} />
         </div>
       ) : null}
     </section>
@@ -160,5 +183,120 @@ function Movement({ line, kind }: { line: SalesStockIssueLine; kind: "stockMovem
     </div>
   ) : (
     <span className="text-steel">-</span>
+  );
+}
+
+function SalesIssueAccountingPreviewPanel({ preview, error }: { preview: SalesStockIssueAccountingPreview | null; error: string }) {
+  if (error) {
+    return <StatusMessage type="error">{error}</StatusMessage>;
+  }
+  if (!preview) {
+    return null;
+  }
+
+  const postable = accountingPreviewCanPost(preview);
+
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-ink">COGS Preview</h2>
+          <p className="mt-1 text-sm text-steel">Design-only COGS estimate from operational moving-average cost. No journal entry will be posted.</p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs font-medium">
+          <span className="rounded-md bg-amber-50 px-2 py-1 text-amber-700">{preview.postingStatus.replaceAll("_", " ")}</span>
+          <span className={postable ? "rounded-md bg-emerald-50 px-2 py-1 text-emerald-700" : "rounded-md bg-slate-100 px-2 py-1 text-slate-700"}>
+            {postable ? "Postable" : "Preview only"}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+        <PreviewList title="Blocking reasons" items={preview.blockingReasons} emptyText={preview.canPostReason} tone="slate" />
+        <PreviewList title="Warnings" items={preview.warnings} emptyText="No warnings." tone="amber" />
+      </div>
+
+      <div className="mt-5 overflow-x-auto rounded-md border border-slate-200">
+        <table className="w-full min-w-[760px] text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+            <tr>
+              <th className="px-4 py-3">Item</th>
+              <th className="px-4 py-3 text-right">Quantity</th>
+              <th className="px-4 py-3 text-right">Estimated unit cost</th>
+              <th className="px-4 py-3 text-right">Estimated COGS</th>
+              <th className="px-4 py-3">Warnings</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {preview.lines.map((line) => (
+              <tr key={line.lineId}>
+                <td className="px-4 py-3">{line.item ? `${line.item.name}${line.item.sku ? ` (${line.item.sku})` : ""}` : line.lineId}</td>
+                <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(line.quantity)}</td>
+                <td className="px-4 py-3 text-right font-mono text-xs">
+                  {line.estimatedUnitCost ? formatInventoryQuantity(line.estimatedUnitCost) : "-"}
+                </td>
+                <td className="px-4 py-3 text-right font-mono text-xs">{line.estimatedCOGS ? formatInventoryQuantity(line.estimatedCOGS) : "-"}</td>
+                <td className="px-4 py-3 text-steel">{line.warnings.length > 0 ? line.warnings.join("; ") : "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <JournalPreview preview={preview} />
+    </div>
+  );
+}
+
+function JournalPreview({ preview }: { preview: SalesStockIssueAccountingPreview }) {
+  return (
+    <div className="mt-5">
+      <div className="mb-2 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+        <h3 className="text-sm font-semibold text-ink">Preview journal lines</h3>
+        <p className="text-xs text-steel">
+          Debit {formatInventoryQuantity(preview.journal.totalDebit)} / Credit {formatInventoryQuantity(preview.journal.totalCredit)}
+        </p>
+      </div>
+      <div className="overflow-x-auto rounded-md border border-slate-200">
+        <table className="w-full min-w-[720px] text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+            <tr>
+              <th className="px-4 py-3">Line</th>
+              <th className="px-4 py-3">Preview</th>
+              <th className="px-4 py-3">Description</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {preview.journal.lines.length > 0 ? (
+              preview.journal.lines.map((line) => (
+                <tr key={`${line.side}-${line.lineNumber}`}>
+                  <td className="px-4 py-3 font-mono text-xs">{line.lineNumber}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{accountingPreviewLineDisplay(line)}</td>
+                  <td className="px-4 py-3 text-steel">{line.description}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td className="px-4 py-3 text-steel" colSpan={3}>
+                  No journal lines available until mappings and cost estimates are complete.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function PreviewList({ title, items, emptyText, tone }: { title: string; items: string[]; emptyText: string; tone: "amber" | "slate" }) {
+  const className = tone === "amber" ? "rounded-md bg-amber-50 p-4 text-sm text-amber-900" : "rounded-md bg-slate-50 p-4 text-sm text-steel";
+  return (
+    <div className={className}>
+      <p className="font-medium text-ink">{title}</p>
+      <ul className="mt-2 space-y-1">
+        {items.length > 0 ? items.map((item) => <li key={item}>{item}</li>) : <li>{emptyText}</li>}
+      </ul>
+    </div>
   );
 }

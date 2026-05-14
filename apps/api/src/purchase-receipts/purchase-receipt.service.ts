@@ -11,6 +11,11 @@ import {
   WarehouseStatus,
 } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import {
+  InventoryAccountingService,
+  NO_FINANCIAL_POSTING_WARNING,
+  PURCHASE_RECEIPT_DESIGN_WARNING,
+} from "../inventory/inventory-accounting.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { stockMovementDirection } from "../stock-movements/stock-movement-rules";
@@ -51,6 +56,7 @@ export class PurchaseReceiptService {
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
     private readonly numberSequenceService: NumberSequenceService,
+    private readonly inventoryAccountingService: InventoryAccountingService,
   ) {}
 
   list(organizationId: string) {
@@ -70,6 +76,90 @@ export class PurchaseReceiptService {
       throw new NotFoundException("Purchase receipt not found.");
     }
     return receipt;
+  }
+
+  async accountingPreview(organizationId: string, id: string) {
+    const receipt = await this.prisma.purchaseReceipt.findFirst({
+      where: { id, organizationId },
+      include: purchaseReceiptInclude,
+    });
+    if (!receipt) {
+      throw new NotFoundException("Purchase receipt not found.");
+    }
+
+    const readiness = await this.inventoryAccountingService.previewReadiness(organizationId, ["inventoryAsset"]);
+    const blockingReasons = [...readiness.blockingReasons];
+    const warnings = [PURCHASE_RECEIPT_DESIGN_WARNING, NO_FINANCIAL_POSTING_WARNING, ...readiness.warnings];
+    let totalValue = new Prisma.Decimal(0);
+
+    const lines = receipt.lines.map((line, index) => {
+      const quantity = new Prisma.Decimal(line.quantity);
+      const lineWarnings: string[] = [];
+      let lineValue: Prisma.Decimal | null = null;
+      if (line.unitCost === null) {
+        const reason = `Purchase receipt line ${index + 1} is missing unit cost.`;
+        lineWarnings.push(reason);
+        blockingReasons.push(reason);
+      } else {
+        lineValue = quantity.mul(line.unitCost);
+        totalValue = totalValue.plus(lineValue);
+      }
+
+      return {
+        lineId: line.id,
+        item: line.item,
+        quantity: this.decimalString(quantity),
+        unitCost: line.unitCost === null ? null : this.decimalString(new Prisma.Decimal(line.unitCost)),
+        lineValue: lineValue === null ? null : this.decimalString(lineValue),
+        warnings: lineWarnings,
+      };
+    });
+
+    const assetAccount = readiness.settings.inventoryAssetAccount;
+    const journalLines =
+      assetAccount && totalValue.gt(0)
+        ? [
+            {
+              lineNumber: 1,
+              side: "DEBIT",
+              accountId: assetAccount.id,
+              accountCode: assetAccount.code,
+              accountName: assetAccount.name,
+              amount: this.decimalString(totalValue),
+              description: `Purchase receipt ${receipt.receiptNumber} inventory asset preview`,
+            },
+            {
+              lineNumber: 2,
+              side: "CREDIT",
+              accountId: null,
+              accountCode: null,
+              accountName: "Inventory Clearing / Accounts Payable placeholder",
+              amount: this.decimalString(totalValue),
+              description: "Placeholder pending bill/receipt matching and inventory clearing design",
+            },
+          ]
+        : [];
+
+    return {
+      sourceType: "PurchaseReceipt",
+      sourceId: receipt.id,
+      sourceNumber: receipt.receiptNumber,
+      previewOnly: true,
+      postingStatus: "DESIGN_ONLY",
+      canPost: false,
+      canPostReason: "Purchase receipt accounting is design-only until inventory clearing and bill/receipt matching are finalized.",
+      valuationMethod: readiness.settings.valuationMethod,
+      blockingReasons: this.uniqueStrings(blockingReasons),
+      warnings: this.uniqueStrings(warnings),
+      lines,
+      journal: {
+        description: `Purchase receipt ${receipt.receiptNumber} accounting preview`,
+        entryDate: receipt.receiptDate.toISOString(),
+        totalDebit: this.decimalString(totalValue),
+        totalCredit: this.decimalString(totalValue),
+        lines: journalLines,
+      },
+    };
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreatePurchaseReceiptDto) {
@@ -558,5 +648,13 @@ export class PurchaseReceiptService {
   private cleanOptional(value?: string | null): string | null {
     const cleaned = value?.trim();
     return cleaned ? cleaned : null;
+  }
+
+  private decimalString(value: Prisma.Decimal): string {
+    return value.toFixed(4);
+  }
+
+  private uniqueStrings(values: string[]): string[] {
+    return [...new Set(values)];
   }
 }

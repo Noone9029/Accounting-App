@@ -1,8 +1,8 @@
 # LedgerByte Bug Audit
 
-Audit date: 2026-05-06
+Audit date: 2026-05-14
 
-Commit inspected: pending (`Add purchase receiving and sales stock issue groundwork`)
+Commit inspected: pending (`Add inventory accounting preview groundwork`)
 
 ## Scope
 
@@ -36,6 +36,33 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Inventory accounting preview groundwork added
+
+Added preview-only inventory accounting settings, account mapping validation, purchase receipt accounting preview, sales stock issue COGS preview, UI preview panels, design documents, tests, and smoke coverage. The implementation keeps inventory accounting non-posting: preview endpoints do not create journal entries and do not affect GL, COGS, inventory asset balances, VAT, or financial statements.
+
+Risk reduced:
+
+- Accountants can review mapped inventory asset, COGS, adjustment gain, and adjustment loss accounts before real posting exists.
+- Purchase receipt previews show design-only Dr Inventory Asset / Cr Inventory Clearing or AP placeholder lines and explicitly warn that bill/receipt matching and inventory clearing are not finalized.
+- Sales stock issue previews show estimated moving-average COGS with Dr COGS / Cr Inventory Asset lines.
+- `enableInventoryAccounting` remains false by default and cannot be enabled without required mappings and `MOVING_AVERAGE`.
+- FIFO remains placeholder-only.
+
+Remaining risks:
+
+- No real COGS posting.
+- No inventory asset posting.
+- No inventory clearing workflow.
+- No landed cost.
+- No serial/batch tracking.
+- Accountant review is required before any financial inventory posting.
+
+Tests/smoke added:
+
+- Backend settings validation, permission, tenant, preview, moving-average estimate, and no-journal tests.
+- Frontend helper tests for warnings, preview line display, non-postable previews, and missing mappings.
+- Smoke coverage for accounting settings, purchase receipt preview, sales issue COGS preview, and unchanged journal counts.
 
 ### Purchase receiving and sales stock issue groundwork added
 
@@ -1151,12 +1178,12 @@ Commit inspected: pending (`Add inventory adjustments and transfers`)
 - Account parent updates prevent self-parenting but do not yet prevent descendant cycles.
 - `next-env.d.ts` flips between `.next/types` and `.next/dev/types` when switching between build and dev on Next 16. The tracked file is kept clean after verification, but this remains local development churn.
 - Prisma 6 warns that `package.json#prisma` seed configuration is deprecated and should move to a Prisma config file before Prisma 7.
-- Inventory warehouse/stock ledger, adjustment approval, warehouse transfer controls, purchase receiving, and sales stock issue controls exist, but COGS, inventory asset GL posting, landed cost, serial/batch tracking, automatic financial inventory accounting, and inventory financial reporting remain unimplemented.
+- Inventory warehouse/stock ledger, adjustment approval, warehouse transfer controls, purchase receiving, sales stock issue controls, and accounting preview groundwork exist, but real COGS posting, inventory asset GL posting, inventory clearing, landed cost, serial/batch tracking, automatic financial inventory accounting, and inventory financial reporting remain unimplemented.
 - ZATCA groundwork is intentionally non-compliant until real onboarding, signing, clearance/reporting, PDF/A-3, official SDK/schema/Schematron validation, and KMS-backed key custody are implemented.
 
 ## Recommended Next Steps
 
-1. Add accountant-reviewed inventory asset and COGS posting design before enabling inventory-side accounting.
+1. Review the new inventory accounting preview layer with an accountant, then add explicit COGS posting only after approval.
 2. Add formal fiscal year close, retained earnings close, and admin unlock/approval workflows.
 3. Add a lightweight Playwright or browser smoke suite once the local Node runtime supports the in-app browser backend.
 4. Normalize branch default behavior and account parent cycle validation.

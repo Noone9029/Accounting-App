@@ -8,13 +8,18 @@ import { OrganizationContextGuard } from "../auth/guards/organization-context.gu
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { InventoryBalanceQueryDto } from "./dto/inventory-balance-query.dto";
 import { InventoryReportQueryDto } from "./dto/inventory-report-query.dto";
+import { UpdateInventoryAccountingSettingsDto } from "./dto/update-inventory-accounting-settings.dto";
 import { UpdateInventorySettingsDto } from "./dto/update-inventory-settings.dto";
+import { InventoryAccountingService } from "./inventory-accounting.service";
 import { InventoryService } from "./inventory.service";
 
 @Controller("inventory")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
 export class InventoryController {
-  constructor(private readonly inventoryService: InventoryService) {}
+  constructor(
+    private readonly inventoryService: InventoryService,
+    private readonly inventoryAccountingService: InventoryAccountingService,
+  ) {}
 
   @Get("settings")
   @RequirePermissions(PERMISSIONS.inventory.view)
@@ -26,6 +31,18 @@ export class InventoryController {
   @RequirePermissions(PERMISSIONS.inventory.manage)
   updateSettings(@CurrentOrganizationId() organizationId: string, @Body() dto: UpdateInventorySettingsDto) {
     return this.inventoryService.updateSettings(organizationId, dto);
+  }
+
+  @Get("accounting-settings")
+  @RequirePermissions(PERMISSIONS.inventory.view)
+  accountingSettings(@CurrentOrganizationId() organizationId: string) {
+    return this.inventoryAccountingService.settings(organizationId);
+  }
+
+  @Patch("accounting-settings")
+  @RequirePermissions(PERMISSIONS.inventory.manage)
+  updateAccountingSettings(@CurrentOrganizationId() organizationId: string, @Body() dto: UpdateInventoryAccountingSettingsDto) {
+    return this.inventoryAccountingService.updateSettings(organizationId, dto);
   }
 
   @Get("balances")

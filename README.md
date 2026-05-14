@@ -109,7 +109,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, `/auth/me` role permission visibility, role/member API visibility, custom role creation, unknown-permission rejection, organization discovery, bank account profile defaults/transactions/balance movement, bank transfers/opening balances, bank statement preview/import/matching/categorization/reconciliation summary/submit/approve/close/void lock checks, reconciliation report data/CSV/PDF/archive checks, item/customer/supplier setup, warehouse defaults, opening-balance stock movements, inventory adjustment approval/void flows, warehouse transfers/void reversals, purchase receipt posting/voiding, finalized-invoice sales stock issue posting/voiding, receiving/issue status endpoints, inventory balances, inventory settings, stock valuation/movement/low-stock reports, no-journal inventory movement checks, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, report CSV/PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
+The smoke covers seed login, `/auth/me` role permission visibility, role/member API visibility, custom role creation, unknown-permission rejection, organization discovery, bank account profile defaults/transactions/balance movement, bank transfers/opening balances, bank statement preview/import/matching/categorization/reconciliation summary/submit/approve/close/void lock checks, reconciliation report data/CSV/PDF/archive checks, item/customer/supplier setup, warehouse defaults, opening-balance stock movements, inventory adjustment approval/void flows, warehouse transfers/void reversals, purchase receipt posting/voiding, finalized-invoice sales stock issue posting/voiding, receiving/issue status endpoints, inventory balances, inventory settings, inventory accounting settings, purchase receipt accounting preview, sales issue COGS preview, stock valuation/movement/low-stock reports, no-journal inventory movement checks, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, report CSV/PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, PDF archive creation after invoice PDF generation, and generated document archive download.
 
@@ -281,9 +281,24 @@ Warehouses and inventory:
 - `POST /warehouse-transfers`
 - `GET /warehouse-transfers/:id`
 - `POST /warehouse-transfers/:id/void`
+- `GET /purchase-receipts`
+- `POST /purchase-receipts`
+- `GET /purchase-receipts/:id`
+- `GET /purchase-receipts/:id/accounting-preview`
+- `POST /purchase-receipts/:id/void`
+- `GET /purchase-orders/:id/receiving-status`
+- `GET /purchase-bills/:id/receiving-status`
+- `GET /sales-stock-issues`
+- `POST /sales-stock-issues`
+- `GET /sales-stock-issues/:id`
+- `GET /sales-stock-issues/:id/accounting-preview`
+- `POST /sales-stock-issues/:id/void`
+- `GET /sales-invoices/:id/stock-issue-status`
 - `GET /inventory/balances`
 - `GET /inventory/settings`
 - `PATCH /inventory/settings`
+- `GET /inventory/accounting-settings`
+- `PATCH /inventory/accounting-settings`
 - `GET /inventory/reports/stock-valuation`
 - `GET /inventory/reports/movement-summary`
 - `GET /inventory/reports/low-stock`
@@ -972,7 +987,7 @@ Known limitations:
 
 ## Inventory Groundwork
 
-Inventory support is operational-only in this MVP. Warehouses, direct opening balances, controlled inventory adjustments, warehouse transfers, purchase receipts, sales stock issues, a stock movement ledger, item/warehouse balances, valuation policy settings, and operational inventory reports exist so teams can track quantities without changing accounting postings.
+Inventory support is operational-only in this MVP. Warehouses, direct opening balances, controlled inventory adjustments, warehouse transfers, purchase receipts, sales stock issues, a stock movement ledger, item/warehouse balances, valuation policy settings, preview-only inventory accounting settings, journal previews, and operational inventory reports exist so teams can track quantities and review future accounting design without changing accounting postings.
 
 APIs:
 
@@ -999,17 +1014,21 @@ APIs:
 - `GET /purchase-receipts`
 - `POST /purchase-receipts`
 - `GET /purchase-receipts/:id`
+- `GET /purchase-receipts/:id/accounting-preview`
 - `POST /purchase-receipts/:id/void`
 - `GET /purchase-orders/:id/receiving-status`
 - `GET /purchase-bills/:id/receiving-status`
 - `GET /sales-stock-issues`
 - `POST /sales-stock-issues`
 - `GET /sales-stock-issues/:id`
+- `GET /sales-stock-issues/:id/accounting-preview`
 - `POST /sales-stock-issues/:id/void`
 - `GET /sales-invoices/:id/stock-issue-status`
 - `GET /inventory/balances?itemId=&warehouseId=`
 - `GET /inventory/settings`
 - `PATCH /inventory/settings`
+- `GET /inventory/accounting-settings`
+- `PATCH /inventory/accounting-settings`
 - `GET /inventory/reports/stock-valuation?itemId=&warehouseId=&format=csv`
 - `GET /inventory/reports/movement-summary?from=&to=&itemId=&warehouseId=&format=csv`
 - `GET /inventory/reports/low-stock?format=csv`
@@ -1036,6 +1055,10 @@ Behavior:
 - `GET /inventory/balances` returns derived quantity on hand by item and warehouse from opening balance, adjustment, transfer, and placeholder receipt/issue directions. Average unit cost and inventory value are simple operational estimates from costed inbound movements, not accounting-grade valuation.
 - `GET /inventory/settings` creates default settings on first read: `MOVING_AVERAGE`, negative stock blocked, and inventory value tracking enabled.
 - `PATCH /inventory/settings` can save `MOVING_AVERAGE` or `FIFO_PLACEHOLDER`, but FIFO is only a placeholder and report calculations still use moving-average estimates.
+- `GET /inventory/accounting-settings` returns preview-only inventory accounting readiness, default-disabled `enableInventoryAccounting`, inventory asset/COGS/adjustment mapping fields, blocking reasons, and warnings.
+- `PATCH /inventory/accounting-settings` validates that mapped accounts belong to the organization, are active, allow posting, and have approved account types. Inventory accounting cannot be enabled without inventory asset and COGS mappings, and FIFO remains placeholder-only.
+- `GET /purchase-receipts/:id/accounting-preview` returns a design-only Dr Inventory Asset / Cr Inventory Clearing or AP placeholder preview when line unit costs and mappings exist. It always returns `previewOnly: true` and `canPost: false` because bill/receipt matching and inventory clearing are not finalized.
+- `GET /sales-stock-issues/:id/accounting-preview` returns design-only moving-average estimated COGS and Dr COGS / Cr Inventory Asset preview lines. It always returns `previewOnly: true`, `canPost: false`, and warnings that no automatic financial inventory accounting has been posted.
 - `GET /inventory/reports/stock-valuation` derives quantity, average unit cost, estimated value, item totals, and grand total from stock movements. Missing inbound cost data is surfaced as a row warning.
 - `GET /inventory/reports/movement-summary` returns opening, inbound, outbound, closing, movement count, and movement-type breakdown by item and warehouse.
 - `GET /inventory/reports/low-stock` returns inventory-tracked items whose total quantity on hand is at or below `Item.reorderPoint`.
@@ -1045,14 +1068,26 @@ Accounting limitation:
 - Inventory movements do not create journal entries yet and do not affect GL, COGS, inventory asset balances, VAT, or financial statements.
 - Stock valuation is an operational estimate only. It is not the GL inventory asset value and is not used for Balance Sheet, Profit & Loss, VAT, or COGS.
 - Purchase receipts do not debit inventory asset accounts yet. Sales stock issues do not post COGS yet.
+- Inventory accounting settings and preview endpoints do not create `JournalEntry` records and do not expose any post action.
+
+Future COGS implementation plan:
+
+- Review account mappings, moving-average estimates, and preview journals with an accountant.
+- Finalize inventory clearing and bill/receipt matching before purchase receipt asset posting.
+- Add explicit, guarded sales issue COGS posting with fiscal-period checks, idempotency, reversal behavior, and report verification.
+- Keep FIFO disabled for accounting until cost layers and layer depletion rules exist.
 
 Known limitations:
 
-- No COGS posting.
-- No inventory valuation accounting.
+- No automatic GL inventory posting.
+- No real COGS posting.
+- No inventory asset posting.
+- No inventory clearing account workflow.
 - No automatic purchase receipt from purchase orders or bills.
 - No automatic sales delivery or stock issue from sales invoices.
 - No landed cost.
+- FIFO is placeholder-only.
+- Accountant review is required before financial inventory postings.
 - No barcode, serial, or batch tracking.
 - No accounting-grade inventory financial reports; current inventory reports are operational estimates only.
 
@@ -1273,7 +1308,7 @@ Permission matrix categories:
 - Inventory returns from credit notes are not implemented yet.
 - Recurring invoices are not implemented yet.
 - Bank reconciliation has local import preview/manual matching, approval, close-lock, and report export groundwork, but no live feed, OFX/CAMT/MT940 support, file upload storage, or auto-match yet.
-- Inventory warehouse, stock ledger, adjustment approval, warehouse transfer, manual purchase receipt, manual sales stock issue, valuation settings, and operational reports exist, but no COGS, inventory asset accounting, automatic purchase/sales posting, landed cost, serial/batch tracking, or accounting-grade inventory financial reports are implemented yet.
+- Inventory warehouse, stock ledger, adjustment approval, warehouse transfer, manual purchase receipt, manual sales stock issue, valuation settings, preview-only accounting settings/panels, and operational reports exist, but no real COGS posting, inventory asset posting, inventory clearing workflow, automatic purchase/sales posting, landed cost, serial/batch tracking, or accounting-grade inventory financial reports are implemented yet.
 - BullMQ workers and S3 upload adapters are not wired yet.
 - Email invitations are not implemented; invite placeholders require the target user to already exist.
 - Password reset and onboarding flows for invited users are not implemented yet.

@@ -2,6 +2,8 @@ import { formatUnits, parseDecimalToUnits } from "./money";
 import type {
   InventoryAdjustmentStatus,
   InventoryAdjustmentType,
+  InventoryAccountingPreviewJournalLine,
+  InventoryAccountingSettings,
   InventoryBalance,
   InventoryLowStockStatus,
   InventoryMovementSummaryRow,
@@ -58,6 +60,35 @@ export function inventoryBalanceDisplay(balance: Pick<InventoryBalance, "quantit
 
 export function inventoryOperationalWarning(): string {
   return "Inventory movements are operational only in this MVP and do not post GL, COGS, inventory asset, or financial statement entries.";
+}
+
+export function inventoryAccountingWarnings(): string[] {
+  return [
+    "Not posting to GL yet.",
+    "COGS is preview-only.",
+    "Accountant review required before enabling financial inventory postings.",
+  ];
+}
+
+export function accountingPreviewCanPost(preview: { canPost: boolean; previewOnly?: boolean }): boolean {
+  return preview.canPost === true && preview.previewOnly !== true;
+}
+
+export function accountingPreviewLineDisplay(line: InventoryAccountingPreviewJournalLine): string {
+  const side = line.side === "DEBIT" ? "Dr" : "Cr";
+  const account = line.accountCode ? `${line.accountCode} ${line.accountName}` : line.accountName;
+  return `${side} ${account} ${formatInventoryQuantity(line.amount)}`;
+}
+
+export function missingInventoryAccountMappingWarnings(
+  settings: Pick<InventoryAccountingSettings, "inventoryAssetAccountId" | "cogsAccountId" | "inventoryAdjustmentGainAccountId" | "inventoryAdjustmentLossAccountId">,
+): string[] {
+  const warnings: string[] = [];
+  if (!settings.inventoryAssetAccountId) warnings.push("Inventory asset account mapping is missing.");
+  if (!settings.cogsAccountId) warnings.push("COGS account mapping is missing.");
+  if (!settings.inventoryAdjustmentGainAccountId) warnings.push("Inventory adjustment gain account mapping is not set.");
+  if (!settings.inventoryAdjustmentLossAccountId) warnings.push("Inventory adjustment loss account mapping is not set.");
+  return warnings;
 }
 
 export function inventoryValuationMethodLabel(method: InventoryValuationMethod): string {

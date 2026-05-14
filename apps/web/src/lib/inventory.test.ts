@@ -7,9 +7,13 @@ import {
   canApproveInventoryAdjustment,
   canEditInventoryAdjustment,
   canVoidInventoryAdjustment,
+  accountingPreviewCanPost,
+  accountingPreviewLineDisplay,
+  inventoryAccountingWarnings,
   inventorySettingsLabel,
   inventorySettingsWarnings,
   inventoryValuationWarningText,
+  missingInventoryAccountMappingWarnings,
   canVoidPostedStockDocument,
   hasRemainingInventoryQuantity,
   inventoryProgressStatusBadgeClass,
@@ -103,6 +107,38 @@ describe("inventory helpers", () => {
     expect(inventorySettingsWarnings(settings)).toEqual(expect.arrayContaining([expect.stringContaining("FIFO"), expect.stringContaining("negative stock")]));
     expect(inventoryValuationWarningText({ warnings: [] })).toBe("Cost data complete");
     expect(inventoryValuationWarningText({ warnings: ["Missing unit cost data."] })).toBe("Missing unit cost data.");
+  });
+
+  it("formats inventory accounting warnings and preview lines", () => {
+    expect(inventoryAccountingWarnings()).toEqual(
+      expect.arrayContaining(["Not posting to GL yet.", "COGS is preview-only.", "Accountant review required before enabling financial inventory postings."]),
+    );
+    expect(
+      accountingPreviewLineDisplay({
+        lineNumber: 1,
+        side: "DEBIT",
+        accountId: "cogs-1",
+        accountCode: "611",
+        accountName: "Cost of Goods Sold",
+        amount: "10.5",
+        description: "COGS preview",
+      }),
+    ).toBe("Dr 611 Cost of Goods Sold 10.5000");
+    expect(accountingPreviewCanPost({ canPost: false, previewOnly: true })).toBe(false);
+    expect(
+      missingInventoryAccountMappingWarnings({
+        inventoryAssetAccountId: null,
+        cogsAccountId: null,
+        inventoryAdjustmentGainAccountId: "gain-1",
+        inventoryAdjustmentLossAccountId: null,
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        "Inventory asset account mapping is missing.",
+        "COGS account mapping is missing.",
+        "Inventory adjustment loss account mapping is not set.",
+      ]),
+    );
   });
 
   it("labels low-stock status and movement summary net change", () => {
