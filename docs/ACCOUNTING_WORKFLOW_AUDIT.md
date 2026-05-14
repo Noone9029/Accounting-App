@@ -131,8 +131,8 @@ This document maps implemented accounting workflows to their journal entries, ba
 
 ## Inventory Warehouse, Adjustment, Receipt, Issue, And Transfer Groundwork
 
-- API/UI: inventory is accessed through `/inventory/warehouses`, `/inventory/warehouses/:id`, `/inventory/stock-movements`, `/inventory/stock-movements/new`, `/inventory/adjustments`, `/inventory/adjustments/new`, `/inventory/adjustments/:id`, `/inventory/transfers`, `/inventory/transfers/new`, `/inventory/transfers/:id`, `/inventory/purchase-receipts`, `/inventory/purchase-receipts/new`, `/inventory/purchase-receipts/:id`, `/purchase-receipts/:id/accounting-preview`, `/purchase-orders/:id/receipt-matching-status`, `/purchase-bills/:id/receipt-matching-status`, `/purchase-bills/:id/accounting-preview`, `/inventory/sales-stock-issues`, `/inventory/sales-stock-issues/new`, `/inventory/sales-stock-issues/:id`, `/sales-stock-issues/:id/accounting-preview`, `/sales-stock-issues/:id/post-cogs`, `/sales-stock-issues/:id/reverse-cogs`, `/inventory/balances`, `/inventory/settings`, `/inventory/accounting-settings`, `/inventory/purchase-receipt-posting-readiness`, `/inventory/reports/stock-valuation`, `/inventory/reports/movement-summary`, `/inventory/reports/low-stock`, and the item list quantity/reorder display.
-- Models: `Warehouse` stores operational locations, `InventoryAdjustment` stores draft/approved/voided adjustment controls, `WarehouseTransfer` stores posted/voided transfers, `PurchaseReceipt`/`PurchaseReceiptLine` store posted/voided PO/bill/standalone receipt controls, `PurchaseBill.inventoryPostingMode` stores direct vs inventory-clearing compatibility mode, `SalesStockIssue`/`SalesStockIssueLine` store posted/voided invoice issue controls plus optional manual COGS journal links, `InventorySettings` stores reporting policy, manual COGS enable flag, purchase receipt posting mode, and account mappings including inventory clearing, `Item` stores optional reorder point/quantity, and `StockMovement` stores the operational stock ledger for inventory-tracked items.
+- API/UI: inventory is accessed through `/inventory/warehouses`, `/inventory/warehouses/:id`, `/inventory/stock-movements`, `/inventory/stock-movements/new`, `/inventory/adjustments`, `/inventory/adjustments/new`, `/inventory/adjustments/:id`, `/inventory/transfers`, `/inventory/transfers/new`, `/inventory/transfers/:id`, `/inventory/purchase-receipts`, `/inventory/purchase-receipts/new`, `/inventory/purchase-receipts/:id`, `/purchase-receipts/:id/accounting-preview`, `/purchase-receipts/:id/post-inventory-asset`, `/purchase-receipts/:id/reverse-inventory-asset`, `/purchase-orders/:id/receipt-matching-status`, `/purchase-bills/:id/receipt-matching-status`, `/purchase-bills/:id/accounting-preview`, `/inventory/sales-stock-issues`, `/inventory/sales-stock-issues/new`, `/inventory/sales-stock-issues/:id`, `/sales-stock-issues/:id/accounting-preview`, `/sales-stock-issues/:id/post-cogs`, `/sales-stock-issues/:id/reverse-cogs`, `/inventory/balances`, `/inventory/settings`, `/inventory/accounting-settings`, `/inventory/purchase-receipt-posting-readiness`, `/inventory/reports/stock-valuation`, `/inventory/reports/movement-summary`, `/inventory/reports/low-stock`, and the item list quantity/reorder display.
+- Models: `Warehouse` stores operational locations, `InventoryAdjustment` stores draft/approved/voided adjustment controls, `WarehouseTransfer` stores posted/voided transfers, `PurchaseReceipt`/`PurchaseReceiptLine` store posted/voided PO/bill/standalone receipt controls plus optional manual receipt asset journal links, `PurchaseBill.inventoryPostingMode` stores direct vs inventory-clearing compatibility mode, `SalesStockIssue`/`SalesStockIssueLine` store posted/voided invoice issue controls plus optional manual COGS journal links, `InventorySettings` stores reporting policy, manual COGS/receipt asset enable flag, purchase receipt posting mode, and account mappings including inventory clearing, `Item` stores optional reorder point/quantity, and `StockMovement` stores the operational stock ledger for inventory-tracked items.
 - Warehouse behavior:
   - New and seeded organizations receive an active default `MAIN` warehouse.
   - Warehouse codes are unique per organization and normalized to uppercase.
@@ -160,6 +160,7 @@ This document maps implemented accounting workflows to their journal entries, ba
   - Source receipts validate supplier match, active warehouse, tracked active items, positive quantities, and remaining source quantity by line.
   - Creation writes `PURCHASE_RECEIPT_PLACEHOLDER` inbound rows, and voiding writes `ADJUSTMENT_OUT` reversal rows once.
   - Receipt void is blocked if it would make the warehouse stock negative.
+  - Receipt void is also blocked while inventory asset posting is active and unreversed.
 - Sales stock issue behavior:
   - Sales stock issues post immediately as `POSTED` records from finalized, non-voided sales invoices.
   - Creation validates customer match, active warehouse, tracked active items, positive quantities, invoice remaining quantity by line, and available stock.
@@ -176,14 +177,14 @@ This document maps implemented accounting workflows to their journal entries, ba
   - `GET /inventory/settings` defaults to `MOVING_AVERAGE`, negative stock blocked, and value tracking enabled.
   - `GET /inventory/accounting-settings` defaults inventory accounting to disabled and returns mapping readiness, warnings, `previewOnly: true`, and no automatic posting state.
   - `PATCH /inventory/accounting-settings` validates tenant-owned active posting account mappings, including inventory clearing account type/separation rules, and blocks enabling unless inventory asset and COGS accounts exist with `MOVING_AVERAGE`.
-  - `GET /inventory/purchase-receipt-posting-readiness` returns an advisory readiness audit for future receipt asset posting, including Inventory Asset and Inventory Clearing mappings, direct-mode bill count, clearing-mode bill count, blockers, warnings, and a recommended next step. It does not mutate accounting and remains no-go until receipt posting fields/endpoints, reversals, variance handling, and migration/exclusion rules exist.
+  - `GET /inventory/purchase-receipt-posting-readiness` returns an advisory readiness audit for automatic/broader receipt asset posting, including Inventory Asset and Inventory Clearing mappings, direct-mode bill count, clearing-mode bill count, blockers, warnings, and a recommended next step. It does not mutate accounting and remains no-go for automatic posting, direct-mode posting, historical migration, and clearing reconciliation.
   - `FIFO_PLACEHOLDER` can be saved, but reports still calculate moving-average estimates.
   - `GET /inventory/reports/stock-valuation` derives quantity, average unit cost, estimated value, item totals, and grand total from stock movements, with missing-cost warnings.
   - `GET /inventory/reports/movement-summary` derives opening, inbound, outbound, closing, movement count, and movement-type breakdown by item/warehouse.
   - `GET /inventory/reports/low-stock` lists tracked items at or below reorder point.
 - Preview behavior:
-  - Purchase receipt detail/API can show design-only receipt value, matched bill value, value difference, matching summary, and Dr Inventory Asset / Cr Inventory Clearing lines when unit costs and mappings exist.
-  - Purchase receipt preview always stays non-postable because purchase receipt GL posting, receipt reversal fields, and clearing reconciliation are not finalized.
+  - Purchase receipt detail/API can show receipt value, linked bill mode/status, matched bill value, value difference, matching summary, posting status, journal ids, and Dr Inventory Asset / Cr Inventory Clearing lines when unit costs and mappings exist.
+  - Purchase receipt preview returns `canPost: true` only for eligible receipts linked to finalized `INVENTORY_CLEARING` bills.
   - Purchase bill detail/API can show preview-only direct AP posting lines or Inventory Clearing lines. Direct mode can finalize under existing rules; inventory-clearing mode can finalize only when selected explicitly and inventory clearing settings pass validation.
   - Inventory settings shows the same purchase receipt posting readiness without exposing a post button.
   - Sales stock issue detail/API can show Dr COGS / Cr Inventory Asset preview lines using operational moving-average estimates.
@@ -194,14 +195,20 @@ This document maps implemented accounting workflows to their journal entries, ba
   - The journal is Dr mapped COGS and Cr mapped Inventory Asset, linked to `SalesStockIssue.cogsJournalEntryId`.
   - Repeated posting is rejected.
   - `POST /sales-stock-issues/:id/reverse-cogs` requires `inventory.cogs.reverse`, creates a reversal journal dated today for the MVP, and links `cogsReversalJournalEntryId`.
+- Manual purchase receipt asset posting behavior:
+  - `POST /purchase-receipts/:id/post-inventory-asset` requires `inventory.receipts.postAsset`.
+  - The posting date is the purchase receipt date and must pass fiscal-period guard.
+  - The journal is Dr mapped Inventory Asset and Cr mapped Inventory Clearing, linked to `PurchaseReceipt.inventoryAssetJournalEntryId`.
+  - Posting is blocked for direct-mode bills, standalone receipts, PO-only receipts, unfinalized bills, missing unit costs, inactive/missing mappings, duplicate posting, and disabled inventory accounting.
+  - `POST /purchase-receipts/:id/reverse-inventory-asset` requires `inventory.receipts.reverseAsset`, creates a reversal journal dated today for the MVP, and links `inventoryAssetReversalJournalEntryId`.
 - Accounting impact:
   - No journal entries are created automatically by warehouses, stock movements, inventory adjustments, warehouse transfers, purchase receipts, or sales stock issues.
   - Manual COGS posting affects financial reports through posted journal lines.
-  - Purchase receipts do not debit inventory asset yet.
+  - Manual compatible receipt asset posting affects financial reports through posted journal lines.
   - Bill/receipt matching status, purchase bill accounting preview, and purchase receipt accounting preview do not post inventory clearing or AP-clearing entries.
   - Inventory accounting settings, readiness, and preview endpoints do not affect GL, COGS, inventory asset balances, VAT, or financial statements by themselves.
 - Gaps/risks:
-  - No automatic COGS posting, purchase receipt inventory asset posting, clearing reconciliation workflow, automatic purchase receipt/automatic sales issue, landed cost, serial/batch tracking, delivery documents, or accounting-grade inventory financial report exists yet.
+  - No automatic COGS posting, automatic purchase receipt inventory asset posting, direct-mode receipt posting, clearing reconciliation workflow, automatic purchase receipt/automatic sales issue, landed cost, serial/batch tracking, delivery documents, or accounting-grade inventory financial report exists yet.
 
 ## Sales Workflows
 

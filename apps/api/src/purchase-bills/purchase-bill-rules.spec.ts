@@ -123,8 +123,8 @@ describe("purchase bill rules", () => {
     expect(preview.blockingReasons).toEqual([]);
     expect(preview.warnings).toEqual(
       expect.arrayContaining([
-        "Inventory clearing mode does not post inventory asset entries from receipts yet.",
-        "Purchase receipt GL posting remains disabled.",
+        "Inventory clearing mode requires explicit manual receipt asset posting for linked receipts.",
+        "Automatic purchase receipt GL posting remains disabled.",
         "Use only after accountant review.",
       ]),
     );

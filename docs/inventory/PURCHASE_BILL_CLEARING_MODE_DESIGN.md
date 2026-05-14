@@ -4,9 +4,9 @@ Date: 2026-05-14
 
 ## Status
 
-This phase implements accountant-reviewed purchase bill finalization for the explicit `INVENTORY_CLEARING` mode while keeping purchase receipt GL posting disabled.
+This phase supports accountant-reviewed purchase bill finalization for the explicit `INVENTORY_CLEARING` mode and manual receipt inventory asset posting for compatible linked receipts.
 
-No purchase receipt inventory asset journals are posted in this phase, and purchase bill finalization remains production-safe by preserving the current direct mode.
+Purchase bill finalization remains production-safe by preserving the current direct mode. Receipt asset journals are never automatic and are blocked for direct-mode bills.
 
 ## Modes
 
@@ -29,19 +29,31 @@ This is a future-compatible mode for inventory-tracked purchase lines:
 - Dr VAT Receivable, when applicable
 - Cr Accounts Payable
 
-Current implementation supports preview, draft storage, and explicit finalization when the bill is still draft and inventory clearing settings pass validation. It does not post inventory asset entries from receipts.
+Current implementation supports preview, draft storage, and explicit finalization when the bill is still draft and inventory clearing settings pass validation. Linked posted receipts can then be explicitly posted Dr Inventory Asset / Cr Inventory Clearing after review.
 
-## Future Receipt Posting Preconditions
+## Receipt Posting Preconditions
 
-Explicit purchase receipt GL posting should remain blocked until:
+Explicit purchase receipt GL posting is allowed only when:
 
 - Inventory accounting is enabled.
 - Inventory Asset and Inventory Clearing accounts are mapped and validated.
 - Valuation method is `MOVING_AVERAGE`.
 - Purchase receipt posting mode is still review-gated.
-- The linked purchase bill is in a compatible clearing mode or has not been finalized.
-- Duplicate receipt posting and reversal fields exist on `PurchaseReceipt`.
-- Fiscal period guard, void protection, and reversal rules are implemented.
+- The linked purchase bill is finalized, not voided, and in `INVENTORY_CLEARING` mode.
+- Duplicate receipt posting and reversal fields are empty.
+- Fiscal period guard accepts the receipt date.
+- The receipt has unit cost on every posted line and a positive total.
+
+Explicit purchase receipt GL posting remains blocked for:
+
+- `DIRECT_EXPENSE_OR_ASSET` bills
+- standalone receipts
+- purchase-order-only receipts
+- historical direct-mode bills
+
+Automatic purchase receipt GL posting remains disabled until:
+
+- Clearing reconciliation is implemented.
 - Accountant approval covers VAT timing, partial receipts, price variances, quantity variances, and migration policy.
 
 ## Migration Strategy
@@ -51,7 +63,7 @@ Existing finalized purchase bills should not be changed retroactively. They alre
 Recommended migration rule:
 
 - Treat existing finalized direct-mode bills as excluded from future receipt GL posting unless a separate accountant-approved migration journal is created.
-- Permit future receipt posting only for new documents that use a compatible bill clearing workflow.
+- Permit receipt posting only for new documents that use a compatible bill clearing workflow.
 - Preserve all historical journal entries and expose direct-mode counts in readiness so accountants can estimate migration work.
 
 ## Accountant Review Checklist
@@ -67,10 +79,10 @@ Recommended migration rule:
 
 ## Implementation Order
 
-1. Keep receipt GL posting disabled.
+1. Keep automatic receipt GL posting disabled.
 2. Add purchase bill mode storage and preview.
 3. Show readiness counts for direct and clearing-mode bills.
 4. Review mode behavior with accountant.
 5. Implement clearing-mode finalization only after tests prove DIRECT mode is unchanged. Completed in the current phase.
-6. Add receipt inventory asset posting fields and explicit posting/reversal endpoints.
+6. Add receipt inventory asset posting fields and explicit posting/reversal endpoints. Completed for compatible `INVENTORY_CLEARING` bills only.
 7. Add clearing reconciliation and variance reporting.

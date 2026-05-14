@@ -4,7 +4,7 @@ Audit date: 2026-05-14
 
 ## Current State
 
-Purchase receipts create `PURCHASE_RECEIPT_PLACEHOLDER` stock movements and increase operational inventory quantity. Purchase bills already post AP, tax, and the selected expense or asset account. Receipts do not create inventory asset journals.
+Purchase receipts create `PURCHASE_RECEIPT_PLACEHOLDER` stock movements and increase operational inventory quantity. Purchase bills post AP, tax, and either selected line accounts or Inventory Clearing depending on `inventoryPostingMode`. Receipts do not automatically create inventory asset journals.
 
 Inventory accounting settings now include:
 
@@ -19,20 +19,21 @@ Purchase bills now include:
 
 `inventoryClearingAccountId` must belong to the organization, be active, allow posting, use an `ASSET` or `LIABILITY` account type, be separate from the inventory asset account, and not be Accounts Payable code `210`. The recommended MVP account is code `240` Inventory Clearing with type `LIABILITY`.
 
-`purchaseReceiptPostingMode` is currently `DISABLED` or `PREVIEW_ONLY`. Neither value enables purchase receipt GL posting.
+`purchaseReceiptPostingMode` is currently `DISABLED` or `PREVIEW_ONLY`. Manual receipt asset posting is allowed only under `PREVIEW_ONLY` after explicit user action and eligibility review; neither value enables automatic receipt posting.
 
 The preview endpoint is:
 
 - `GET /purchase-receipts/:id/accounting-preview`
 - Requires JWT auth, `x-organization-id`, and `inventory.view`.
-- Returns `previewOnly: true`, `postingStatus: DESIGN_ONLY`, and `canPost: false`.
+- Returns `previewOnly: true`, posting status, blockers/warnings, linked bill mode/status, journal ids, and `canPost`.
+- `canPost` is true only for compatible posted receipts linked to finalized `INVENTORY_CLEARING` bills.
 
 The readiness endpoint is:
 
 - `GET /inventory/purchase-receipt-posting-readiness`
 - Requires JWT auth, `x-organization-id`, and `inventory.view`.
 - Returns account readiness, direct-mode bill count, clearing-mode bill count, blockers, warnings, and the recommended next step.
-- Creates no journals and does not enable purchase receipt posting.
+- Creates no journals and does not enable automatic purchase receipt posting.
 
 Purchase bill preview endpoint:
 
@@ -49,7 +50,7 @@ Purchase bill finalization now uses the same journal shape for explicit `INVENTO
 - Dr VAT Receivable, when applicable.
 - Cr Accounts Payable.
 
-This posting is limited to purchase bills. It does not create purchase receipt inventory asset journals and does not mutate stock movements.
+This posting is limited to purchase bills. Receipt asset journals are created only by the explicit `POST /purchase-receipts/:id/post-inventory-asset` action and do not mutate stock movements.
 
 ## Preview Journal
 
@@ -58,7 +59,7 @@ When cost and asset mapping are available, the preview journal is:
 - Dr Inventory Asset
 - Cr Inventory Clearing
 
-This is intentionally not postable because bill/receipt matching, clearing, VAT, variances, and current purchase bill posting behavior still need accountant approval.
+This is postable only when the receipt is linked to a finalized `INVENTORY_CLEARING` bill and all settings/costs pass validation. Direct-mode bills, standalone receipts, and PO-only receipts remain blocked.
 
 ## Why Clearing Is Needed
 
@@ -91,19 +92,19 @@ Without an inventory clearing design, directly crediting AP from receipt posting
 - Posting happens only when receipt and bill are matched.
 - Simplest for avoiding duplicates but delays inventory asset recognition.
 
-## Required Before Real Posting
+## Required Before Automatic Posting Or Broader Rollout
 
 - Decide whether Inventory Clearing is a liability-style or asset-style account per tenant.
 - Add durable receipt-to-bill matching records if preview-derived matching is not enough.
 - Decide how standalone receipts are handled.
 - Decide variance handling for price, quantity, tax, and non-inventory costs.
-- Add idempotency and fiscal-period guards.
-- Add void and correction workflow.
+- Extend idempotency and fiscal-period coverage beyond the manual MVP where needed.
+- Add clearing reconciliation and correction workflow.
 - Add tests that prove purchase bill AP is not duplicated.
 - Plan migration or reclassification behavior for existing purchase bills that posted directly to expense/asset accounts.
 
 ## Current Hard Stop
 
-Purchase receipt accounting preview remains `DESIGN_ONLY`. No purchase receipt journal posting is enabled. Inventory Clearing bill finalization is available for explicitly selected compatible bills, but receipt Dr Inventory Asset / Cr Inventory Clearing posting is still disabled.
+Automatic purchase receipt accounting posting remains disabled. Inventory Clearing bill finalization is available for explicitly selected compatible bills, and compatible receipts can be manually posted Dr Inventory Asset / Cr Inventory Clearing after review.
 
-The current readiness audit remains no-go for real receipt posting until receipt posting fields/endpoints, migration/exclusion, variance, VAT, and reversal rules are approved.
+The current readiness audit remains no-go for automatic receipt posting and for any direct-mode or historical migration behavior until clearing reconciliation, migration/exclusion, variance, VAT, and landed-cost rules are approved.

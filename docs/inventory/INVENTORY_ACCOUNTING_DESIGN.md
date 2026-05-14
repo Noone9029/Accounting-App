@@ -7,12 +7,12 @@ Audit date: 2026-05-14
 - Inventory operations are operational only.
 - Warehouses, stock movements, adjustments, transfers, purchase receipts, and sales stock issues create inventory quantity movement records.
 - Stock valuation reports use operational moving-average estimates from costed inbound stock movements.
-- Stock movements, purchase receipts, and sales stock issues do not create `JournalEntry` records.
+- Stock movements, purchase receipt creation, and sales stock issue creation do not create `JournalEntry` records automatically.
 - Financial statements do not consume stock movement data.
 
 ## Design Goal
 
-This layer records accountant-reviewed settings, exposes journal previews, and now allows explicit manual COGS posting for reviewed sales stock issues. It still does not auto-post from inventory movements, invoices, purchase receipts, or sales stock issues.
+This layer records accountant-reviewed settings, exposes journal previews, allows explicit manual COGS posting for reviewed sales stock issues, and allows explicit manual receipt asset posting for compatible purchase receipts. It still does not auto-post from inventory movements, invoices, purchase receipts, or sales stock issues.
 
 ## Settings
 
@@ -22,7 +22,7 @@ This layer records accountant-reviewed settings, exposes journal previews, and n
 - `inventoryAssetAccountId`: optional mapped inventory asset account.
 - `cogsAccountId`: optional mapped COGS account.
 - `inventoryClearingAccountId`: optional mapped clearing account for purchase receipt previews.
-- `purchaseReceiptPostingMode`: `DISABLED` or `PREVIEW_ONLY`; no purchase receipt posting mode posts journals yet.
+- `purchaseReceiptPostingMode`: `DISABLED` or `PREVIEW_ONLY`; manual receipt asset posting requires `PREVIEW_ONLY`, but neither value enables automatic receipt posting.
 - `inventoryAdjustmentGainAccountId`: optional mapped adjustment gain account.
 - `inventoryAdjustmentLossAccountId`: optional mapped adjustment loss account.
 - `valuationMethod`: existing `MOVING_AVERAGE` or `FIFO_PLACEHOLDER`.
@@ -44,7 +44,8 @@ The API exposes:
 
 ## Posting Boundary
 
-Even when `enableInventoryAccounting` is set true, current code does not post journals automatically from inventory activity. The flag allows reviewed users to manually post COGS for eligible sales stock issues only.
+Even when `enableInventoryAccounting` is set true, current code does not post journals automatically from inventory activity. The flag allows reviewed users to manually post COGS for eligible sales stock issues.
+It also allows reviewed users to manually post purchase receipt inventory asset journals only for receipts linked to finalized `INVENTORY_CLEARING` purchase bills.
 
 The current sales issue COGS boundary is:
 
@@ -54,23 +55,25 @@ The current sales issue COGS boundary is:
 - `POST /sales-stock-issues/:id/reverse-cogs` creates one reversal journal
 - COGS active on a stock issue blocks voiding until reversed
 
-Purchase receipt accounting remains design-only:
+Purchase receipt accounting is manual-only:
 
-- purchase receipt previews always return `canPost: false`
-- purchase receipt posting readiness is advisory only, remains no-go, includes bill-mode compatibility counts, and creates no journals
-- no inventory asset posting exists
-- no inventory clearing journal workflow exists
-- purchase receipt previews can now show receipt value, matched bill value, unmatched receipt value, value difference, and Dr Inventory Asset / Cr Inventory Clearing preview lines when mapped
-- purchase bill direct-vs-clearing mode preview exists, but clearing-mode bill finalization is blocked
+- purchase receipt previews return `canPost: true` only for posted receipts linked to finalized `INVENTORY_CLEARING` bills with complete settings/costs
+- purchase receipt posting readiness is advisory for automatic/broader rollout, includes bill-mode compatibility counts, and creates no journals
+- `POST /purchase-receipts/:id/post-inventory-asset` creates one reviewed Dr Inventory Asset / Cr Inventory Clearing journal
+- `POST /purchase-receipts/:id/reverse-inventory-asset` creates one reversal journal
+- active receipt asset posting blocks receipt voiding until reversed
+- direct-mode, standalone, and PO-only receipts are blocked from receipt asset posting
+- purchase receipt previews show receipt value, matched bill value, unmatched receipt value, value difference, and Dr Inventory Asset / Cr Inventory Clearing preview lines when mapped
+- purchase bill direct-vs-clearing mode preview and clearing-mode finalization exist
 - purchase bill and purchase order matching endpoints expose operational receipt status, but do not mutate accounting
 
 ## Proposed Accounting Model
 
 The implementation separates operational inventory events from financial posting decisions:
 
-- Purchase receipt preview: Dr Inventory Asset, Cr Inventory Clearing or AP placeholder.
-- Bill matching: resolve whether receipt value should clear against purchase bill lines, a clearing account, or direct AP.
-- Future purchase bill posting model under review: Dr Inventory Clearing and Dr VAT Receivable, Cr Accounts Payable, instead of direct expense/asset posting for inventory lines.
+- Purchase receipt preview/manual posting: Dr Inventory Asset, Cr Inventory Clearing for compatible clearing-mode bills.
+- Bill matching: resolve whether receipt value clears against purchase bill lines and Inventory Clearing.
+- Purchase bill clearing model: Dr Inventory Clearing and Dr VAT Receivable, Cr Accounts Payable, instead of direct expense/asset posting for inventory lines when `INVENTORY_CLEARING` is selected.
 - Sales issue COGS preview and manual posting: Dr COGS, Cr Inventory Asset.
 - Adjustments: Dr/Cr Inventory Asset against adjustment gain/loss accounts after reason-code and approval design.
 
@@ -87,11 +90,10 @@ The implementation separates operational inventory events from financial posting
 
 ## Future Implementation Order
 
-1. Harden manual COGS posting review UX and audit reporting.
-2. Review the new inventory clearing account, purchase bill clearing-mode preview, and bill/receipt matching preview with an accountant.
-3. Finalize inventory clearing account posting model, purchase bill clearing-mode finalization, migration/exclusion policy, and variance handling.
-4. Use `PURCHASE_RECEIPT_POSTING_READINESS_AUDIT.md` and `PURCHASE_RECEIPT_GL_POSTING_DESIGN.md` as the gate for receipt posting implementation.
-5. Add explicit, guarded purchase receipt asset posting only after bill clearing and migration rules are approved.
-6. Add adjustment gain/loss posting with reason-code controls.
-7. Add financial inventory reports reviewed by accountants.
-8. Add FIFO only after full cost-layer modeling is designed.
+1. Harden manual COGS and receipt asset posting review UX and audit reporting.
+2. Review Inventory Clearing balances and receipt/bill matching output with an accountant.
+3. Design clearing reconciliation, variance handling, and historical direct-mode exclusion/migration policy.
+4. Keep automatic purchase receipt posting disabled until reconciliation and variance controls exist.
+5. Add adjustment gain/loss posting with reason-code controls.
+6. Add financial inventory reports reviewed by accountants.
+7. Add FIFO only after full cost-layer modeling is designed.

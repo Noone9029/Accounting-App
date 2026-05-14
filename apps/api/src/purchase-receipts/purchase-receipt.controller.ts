@@ -8,6 +8,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { CreatePurchaseReceiptDto } from "./dto/create-purchase-receipt.dto";
+import { ReversePurchaseReceiptAssetDto } from "./dto/reverse-purchase-receipt-asset.dto";
 import { PurchaseReceiptService } from "./purchase-receipt.service";
 
 @Controller("purchase-receipts")
@@ -41,6 +42,23 @@ export class PurchaseReceiptController {
   @RequirePermissions(PERMISSIONS.inventory.view)
   accountingPreview(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.purchaseReceiptService.accountingPreview(organizationId, id);
+  }
+
+  @Post(":id/post-inventory-asset")
+  @RequirePermissions(PERMISSIONS.inventory.receiptsPostAsset)
+  postInventoryAsset(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+    return this.purchaseReceiptService.postInventoryAsset(organizationId, user.id, id);
+  }
+
+  @Post(":id/reverse-inventory-asset")
+  @RequirePermissions(PERMISSIONS.inventory.receiptsReverseAsset)
+  reverseInventoryAsset(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: ReversePurchaseReceiptAssetDto,
+  ) {
+    return this.purchaseReceiptService.reverseInventoryAsset(organizationId, user.id, id, dto);
   }
 
   @Post(":id/void")

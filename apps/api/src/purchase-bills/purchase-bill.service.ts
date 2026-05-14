@@ -261,8 +261,8 @@ export class PurchaseBillService {
       if (!toMoney(String(bill.total)).gt(0)) {
         blockingReasons.push("Inventory clearing purchase bills must have a positive total before finalization.");
       }
-      warnings.push("Inventory clearing mode does not post inventory asset entries from receipts yet.");
-      warnings.push("Purchase receipt GL posting remains disabled.");
+      warnings.push("Inventory clearing mode requires explicit manual receipt asset posting for linked receipts.");
+      warnings.push("Automatic purchase receipt GL posting remains disabled.");
       warnings.push("Use only after accountant review.");
     }
 

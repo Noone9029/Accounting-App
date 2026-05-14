@@ -56,7 +56,7 @@ Inventory quantities and costs use decimal fields. Future posting work beyond ma
 - No landed cost allocation exists.
 - No serial or batch valuation exists.
 - No automatic GL posting is enabled.
-- Purchase receipt inventory asset posting is not implemented.
+- Purchase receipt inventory asset posting is implemented only as an explicit manual action for compatible finalized `INVENTORY_CLEARING` purchase bills.
 - Purchase receipt posting readiness is advisory and creates no journals.
-- Inventory clearing settings, previews, and explicit clearing-mode purchase bill journals exist, but purchase receipt inventory asset posting and clearing reconciliation are not implemented.
+- Inventory clearing settings, previews, explicit clearing-mode purchase bill journals, and manual receipt asset posting exist, but automatic receipt posting and clearing reconciliation are not implemented.
 - Moving average is still an operational estimate and requires accountant review before each manual COGS post.

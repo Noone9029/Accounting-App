@@ -224,6 +224,17 @@ interface JournalEntry {
   }>;
 }
 
+interface GeneralLedgerReport {
+  accounts: Array<{
+    accountId: string;
+    lines: Array<{
+      journalEntryId: string;
+      debit: string;
+      credit: string;
+    }>;
+  }>;
+}
+
 interface TaxRate {
   id: string;
   name: string;
@@ -296,6 +307,8 @@ interface PurchaseReceipt {
   id: string;
   receiptNumber: string;
   status: "POSTED" | "VOIDED";
+  inventoryAssetJournalEntryId?: string | null;
+  inventoryAssetReversalJournalEntryId?: string | null;
   lines?: Array<{ id: string; stockMovementId?: string | null; voidStockMovementId?: string | null }>;
 }
 
@@ -393,9 +406,19 @@ interface AccountingPreviewJournal {
 
 interface PurchaseReceiptAccountingPreview {
   previewOnly: true;
-  postingStatus: "DESIGN_ONLY";
-  canPost: false;
+  postingStatus: "DESIGN_ONLY" | "POSTABLE" | "POSTED" | "REVERSED";
+  canPost: boolean;
+  alreadyPosted: boolean;
+  alreadyReversed: boolean;
+  journalEntryId: string | null;
+  reversalJournalEntryId: string | null;
   postingMode: "DISABLED" | "PREVIEW_ONLY";
+  linkedBill: {
+    id: string;
+    billNumber: string;
+    status: string;
+    inventoryPostingMode: PurchaseBillInventoryPostingMode;
+  } | null;
   receiptValue: string;
   matchedBillValue: string;
   unmatchedReceiptValue: string;
@@ -450,6 +473,7 @@ interface PurchaseBillReceiptMatchingStatus {
     id: string;
     billNumber: string;
     status: string;
+    inventoryPostingMode: PurchaseBillInventoryPostingMode;
   };
   billTotal: string;
   receiptCount: number;
@@ -464,6 +488,13 @@ interface PurchaseBillReceiptMatchingStatus {
     receivedValue: string;
     matchedBillValue: string;
     valueDifference: string;
+    receipts?: Array<{
+      id: string;
+      receiptNumber: string;
+      status: string;
+      inventoryAssetJournalEntryId?: string | null;
+      inventoryAssetReversalJournalEntryId?: string | null;
+    }>;
   }>;
 }
 
@@ -680,6 +711,13 @@ interface LedgerRow {
 }
 
 interface TrialBalanceReport {
+  accounts: Array<{
+    accountId: string;
+    periodDebit: string;
+    periodCredit: string;
+    closingDebit: string;
+    closingCredit: string;
+  }>;
   totals: {
     closingDebit: string;
     closingCredit: string;
@@ -1002,20 +1040,20 @@ async function main(): Promise<void> {
   assertPresent(purchaseReceiptPostingReadiness.existingBillsInDirectModeCount, "purchase receipt readiness direct-mode bill count");
   assertPresent(purchaseReceiptPostingReadiness.billsUsingInventoryClearingCount, "purchase receipt readiness clearing-mode bill count");
   assert(
-    purchaseReceiptPostingReadiness.warnings.some((warning) => warning.includes("Purchase receipt GL posting is not enabled yet")),
-    "purchase receipt posting readiness includes no-posting warning",
+    purchaseReceiptPostingReadiness.warnings.some((warning) => warning.includes("explicit manual post action")),
+    "purchase receipt posting readiness includes manual posting warning",
   );
   assert(
     purchaseReceiptPostingReadiness.warnings.some((warning) => warning.includes("purchase bills to use inventory clearing mode")),
     "purchase receipt posting readiness includes bill clearing mode warning",
   );
   assert(
-    purchaseReceiptPostingReadiness.warnings.some((warning) => warning.includes("Inventory clearing bill finalization is available")),
+    purchaseReceiptPostingReadiness.warnings.some((warning) => warning.includes("Manual purchase receipt inventory asset posting is available")),
     "purchase receipt posting readiness reports clearing bill finalization availability",
   );
   assert(
-    purchaseReceiptPostingReadiness.blockingReasons.some((reason) => reason.includes("implementation is not available yet")),
-    "purchase receipt posting readiness remains blocked by missing receipt posting implementation",
+    purchaseReceiptPostingReadiness.blockingReasons.some((reason) => reason.includes("Automatic purchase receipt GL posting is not enabled")),
+    "purchase receipt posting readiness remains blocked for automatic receipt posting",
   );
   const journalEntriesAfterPurchaseReceiptReadiness = await get<JournalEntry[]>("/journal-entries", headers);
   assertEqual(
@@ -1382,15 +1420,28 @@ async function main(): Promise<void> {
   );
   assertEqual(purchaseReceiptAccountingPreview.previewOnly, true, "purchase receipt accounting preview is preview-only");
   assertEqual(purchaseReceiptAccountingPreview.canPost, false, "purchase receipt accounting preview cannot post");
+  assertEqual(purchaseReceiptAccountingPreview.alreadyPosted, false, "purchase receipt accounting preview starts unposted");
+  assertEqual(purchaseReceiptAccountingPreview.alreadyReversed, false, "purchase receipt accounting preview starts unreversed");
   assertEqual(purchaseReceiptAccountingPreview.postingMode, "PREVIEW_ONLY", "purchase receipt accounting preview reports preview-only posting mode");
+  assertEqual(
+    purchaseReceiptAccountingPreview.linkedBill?.inventoryPostingMode,
+    "DIRECT_EXPENSE_OR_ASSET",
+    "direct-mode purchase receipt preview reports linked bill mode",
+  );
   assertEqual(purchaseReceiptAccountingPreview.matchingSummary.sourceType, "purchaseBill", "purchase receipt preview is matched to a purchase bill");
   assertMoney(purchaseReceiptAccountingPreview.receiptValue, money("20.0000"), "purchase receipt preview receipt value");
   assertMoney(purchaseReceiptAccountingPreview.matchedBillValue, money("20.0000"), "purchase receipt preview matched bill value");
   assertMoney(purchaseReceiptAccountingPreview.valueDifference, money("0.0000"), "purchase receipt preview value difference");
   assertMoney(purchaseReceiptAccountingPreview.matchingSummary.matchedQuantity, money("5.0000"), "purchase receipt preview matched quantity");
   assert(
-    purchaseReceiptAccountingPreview.warnings.some((warning) => warning.includes("bill/receipt matching and inventory clearing are not finalized")),
-    "purchase receipt preview includes design-only clearing warning",
+    purchaseReceiptAccountingPreview.blockingReasons.some((reason) =>
+      reason.includes("Purchase receipt asset posting requires a finalized INVENTORY_CLEARING purchase bill"),
+    ),
+    "direct-mode purchase receipt preview blocks receipt asset posting",
+  );
+  assert(
+    purchaseReceiptAccountingPreview.warnings.some((warning) => warning.includes("explicit manual action")),
+    "purchase receipt preview includes manual posting warning",
   );
   assert(
     purchaseReceiptAccountingPreview.journal.lines.some(
@@ -1521,6 +1572,197 @@ async function main(): Promise<void> {
     journalEntriesBeforeReceiptIssue.length + 2,
     "purchase receipts and sales stock issues only create journals through manual COGS post and reversal",
   );
+
+  const clearingBillReceivingStatusForAssetReceipt = await get<PurchaseReceivingStatus>(
+    `/purchase-bills/${finalizedClearingModePurchaseBill.id}/receiving-status`,
+    headers,
+  );
+  assertEqual(
+    clearingBillReceivingStatusForAssetReceipt.status,
+    "NOT_STARTED",
+    "inventory clearing purchase bill receiving status starts not started",
+  );
+  const clearingBillReceivableLine = required(
+    clearingBillReceivingStatusForAssetReceipt.lines.find((line) => line.inventoryTracking && money(line.remainingQuantity).gt(0)),
+    "inventory clearing purchase bill receivable inventory line",
+  );
+  const journalEntriesBeforeReceiptAssetPost = await get<JournalEntry[]>("/journal-entries", headers);
+  const trialBalanceBeforeReceiptAssetPost = await get<TrialBalanceReport>("/reports/trial-balance", headers);
+  const assetRowBeforeReceiptAssetPost = required(
+    trialBalanceBeforeReceiptAssetPost.accounts.find((account) => account.accountId === inventoryAssetAccount.id),
+    "trial balance inventory asset before receipt asset post",
+  );
+  const clearingRowBeforeReceiptAssetPost = required(
+    trialBalanceBeforeReceiptAssetPost.accounts.find((account) => account.accountId === inventoryClearingAccount.id),
+    "trial balance inventory clearing before receipt asset post",
+  );
+  const clearingPurchaseReceipt = await post<PurchaseReceipt>("/purchase-receipts", headers, {
+    purchaseBillId: finalizedClearingModePurchaseBill.id,
+    warehouseId: mainWarehouse.id,
+    receiptDate: new Date().toISOString(),
+    notes: "Smoke explicit inventory asset posting receipt",
+    lines: [{ purchaseBillLineId: clearingBillReceivableLine.lineId, quantity: "2.0000", unitCost: "4.0000" }],
+  });
+  assertEqual(clearingPurchaseReceipt.status, "POSTED", "inventory clearing purchase receipt posted status");
+  assertPresent(clearingPurchaseReceipt.lines?.[0]?.stockMovementId, "inventory clearing purchase receipt stock movement");
+  assertMoney((await balanceFor(mainWarehouse)).quantityOnHand, money("14.0000"), "main warehouse quantity after clearing purchase receipt");
+  const clearingReceiptAccountingPreview = await get<PurchaseReceiptAccountingPreview>(
+    `/purchase-receipts/${clearingPurchaseReceipt.id}/accounting-preview`,
+    headers,
+  );
+  assertEqual(clearingReceiptAccountingPreview.previewOnly, true, "clearing receipt accounting preview is preview-only");
+  assertEqual(clearingReceiptAccountingPreview.canPost, true, "clearing receipt accounting preview can post manually");
+  assertEqual(clearingReceiptAccountingPreview.postingStatus, "POSTABLE", "clearing receipt preview reports postable state");
+  assertEqual(clearingReceiptAccountingPreview.alreadyPosted, false, "clearing receipt preview starts unposted");
+  assertEqual(
+    clearingReceiptAccountingPreview.linkedBill?.inventoryPostingMode,
+    "INVENTORY_CLEARING",
+    "clearing receipt preview reports linked inventory clearing bill",
+  );
+  assertMoney(clearingReceiptAccountingPreview.receiptValue, money("8.0000"), "clearing receipt preview receipt value");
+  assert(
+    clearingReceiptAccountingPreview.journal.lines.some(
+      (line) => line.side === "DEBIT" && line.accountCode === inventoryAssetAccount.code && money(line.amount).eq("8.0000"),
+    ),
+    "clearing receipt preview includes debit inventory asset line",
+  );
+  assert(
+    clearingReceiptAccountingPreview.journal.lines.some(
+      (line) => line.side === "CREDIT" && line.accountCode === inventoryClearingAccount.code && money(line.amount).eq("8.0000"),
+    ),
+    "clearing receipt preview includes credit inventory clearing line",
+  );
+  const journalEntriesAfterClearingReceiptPreview = await get<JournalEntry[]>("/journal-entries", headers);
+  assertEqual(
+    journalEntriesAfterClearingReceiptPreview.length,
+    journalEntriesBeforeReceiptAssetPost.length,
+    "clearing receipt accounting preview does not create journal entries",
+  );
+  const postedAssetReceipt = await post<PurchaseReceipt>(
+    `/purchase-receipts/${clearingPurchaseReceipt.id}/post-inventory-asset`,
+    headers,
+    {},
+  );
+  const receiptAssetJournalEntryId = required(
+    postedAssetReceipt.inventoryAssetJournalEntryId,
+    "purchase receipt inventory asset journalEntryId",
+  );
+  const receiptAssetJournal = await get<JournalEntry>(`/journal-entries/${receiptAssetJournalEntryId}`, headers);
+  assert(
+    receiptAssetJournal.lines?.some(
+      (line) => line.account?.code === inventoryAssetAccount.code && money(line.debit).eq("8.0000") && money(line.credit).eq(0),
+    ),
+    "purchase receipt asset journal debits inventory asset",
+  );
+  assert(
+    receiptAssetJournal.lines?.some(
+      (line) => line.account?.code === inventoryClearingAccount.code && money(line.credit).eq("8.0000") && money(line.debit).eq(0),
+    ),
+    "purchase receipt asset journal credits inventory clearing",
+  );
+  const postedAssetPreview = await get<PurchaseReceiptAccountingPreview>(
+    `/purchase-receipts/${clearingPurchaseReceipt.id}/accounting-preview`,
+    headers,
+  );
+  assertEqual(postedAssetPreview.alreadyPosted, true, "purchase receipt asset preview reports posted state");
+  assertEqual(postedAssetPreview.canPost, false, "purchase receipt asset preview cannot post twice");
+  assertEqual(postedAssetPreview.journalEntryId, receiptAssetJournalEntryId, "purchase receipt asset preview journal id");
+  const journalEntriesAfterReceiptAssetPost = await get<JournalEntry[]>("/journal-entries", headers);
+  assertEqual(journalEntriesAfterReceiptAssetPost.length, journalEntriesBeforeReceiptAssetPost.length + 1, "receipt asset posting creates one journal");
+  const trialBalanceAfterReceiptAssetPost = await get<TrialBalanceReport>("/reports/trial-balance", headers);
+  const assetRowAfterReceiptAssetPost = required(
+    trialBalanceAfterReceiptAssetPost.accounts.find((account) => account.accountId === inventoryAssetAccount.id),
+    "trial balance inventory asset after receipt asset post",
+  );
+  const clearingRowAfterReceiptAssetPost = required(
+    trialBalanceAfterReceiptAssetPost.accounts.find((account) => account.accountId === inventoryClearingAccount.id),
+    "trial balance inventory clearing after receipt asset post",
+  );
+  assertMoney(
+    money(assetRowAfterReceiptAssetPost.periodDebit).minus(assetRowBeforeReceiptAssetPost.periodDebit),
+    money("8.0000"),
+    "trial balance inventory asset includes receipt asset debit",
+  );
+  assertMoney(
+    money(clearingRowAfterReceiptAssetPost.periodCredit).minus(clearingRowBeforeReceiptAssetPost.periodCredit),
+    money("8.0000"),
+    "trial balance inventory clearing includes receipt asset credit",
+  );
+  const generalLedgerAfterReceiptAssetPost = await get<GeneralLedgerReport>("/reports/general-ledger", headers);
+  const assetLedgerAfterReceiptAssetPost = required(
+    generalLedgerAfterReceiptAssetPost.accounts.find((account) => account.accountId === inventoryAssetAccount.id),
+    "general ledger inventory asset account after receipt asset post",
+  );
+  const clearingLedgerAfterReceiptAssetPost = required(
+    generalLedgerAfterReceiptAssetPost.accounts.find((account) => account.accountId === inventoryClearingAccount.id),
+    "general ledger inventory clearing account after receipt asset post",
+  );
+  assert(
+    assetLedgerAfterReceiptAssetPost.lines.some((line) => line.journalEntryId === receiptAssetJournalEntryId && money(line.debit).eq("8.0000")),
+    "general ledger includes receipt asset debit",
+  );
+  assert(
+    clearingLedgerAfterReceiptAssetPost.lines.some((line) => line.journalEntryId === receiptAssetJournalEntryId && money(line.credit).eq("8.0000")),
+    "general ledger includes receipt clearing credit",
+  );
+  await expectHttpError("duplicate receipt asset posting", () =>
+    post<PurchaseReceipt>(`/purchase-receipts/${clearingPurchaseReceipt.id}/post-inventory-asset`, headers, {}),
+  );
+  await expectHttpError("void receipt with active inventory asset posting", () =>
+    post<PurchaseReceipt>(`/purchase-receipts/${clearingPurchaseReceipt.id}/void`, headers, {}),
+  );
+  const reversedAssetReceipt = await post<PurchaseReceipt>(
+    `/purchase-receipts/${clearingPurchaseReceipt.id}/reverse-inventory-asset`,
+    headers,
+    { reason: "Smoke receipt asset reversal" },
+  );
+  const receiptAssetReversalJournalEntryId = required(
+    reversedAssetReceipt.inventoryAssetReversalJournalEntryId,
+    "purchase receipt inventory asset reversal journalEntryId",
+  );
+  const reversedAssetPreview = await get<PurchaseReceiptAccountingPreview>(
+    `/purchase-receipts/${clearingPurchaseReceipt.id}/accounting-preview`,
+    headers,
+  );
+  assertEqual(reversedAssetPreview.alreadyReversed, true, "purchase receipt asset preview reports reversed state");
+  assertEqual(
+    reversedAssetPreview.reversalJournalEntryId,
+    receiptAssetReversalJournalEntryId,
+    "purchase receipt asset preview reversal journal id",
+  );
+  const journalEntriesAfterReceiptAssetReversal = await get<JournalEntry[]>("/journal-entries", headers);
+  assertEqual(
+    journalEntriesAfterReceiptAssetReversal.length,
+    journalEntriesBeforeReceiptAssetPost.length + 2,
+    "receipt asset reversal creates one reversal journal",
+  );
+  await expectHttpError("duplicate receipt asset reversal", () =>
+    post<PurchaseReceipt>(`/purchase-receipts/${clearingPurchaseReceipt.id}/reverse-inventory-asset`, headers, {}),
+  );
+  const clearingBillReceiptMatchingStatus = await get<PurchaseBillReceiptMatchingStatus>(
+    `/purchase-bills/${finalizedClearingModePurchaseBill.id}/receipt-matching-status`,
+    headers,
+  );
+  assertEqual(
+    clearingBillReceiptMatchingStatus.bill.inventoryPostingMode,
+    "INVENTORY_CLEARING",
+    "clearing bill receipt matching reports inventory posting mode",
+  );
+  assert(
+    clearingBillReceiptMatchingStatus.lines.some((line) =>
+      line.receipts?.some(
+        (receipt) =>
+          receipt.id === clearingPurchaseReceipt.id &&
+          receipt.inventoryAssetJournalEntryId === receiptAssetJournalEntryId &&
+          receipt.inventoryAssetReversalJournalEntryId === receiptAssetReversalJournalEntryId,
+      ),
+    ),
+    "clearing bill receipt matching includes receipt asset posting status",
+  );
+  const voidedClearingPurchaseReceipt = await post<PurchaseReceipt>(`/purchase-receipts/${clearingPurchaseReceipt.id}/void`, headers, {});
+  assertEqual(voidedClearingPurchaseReceipt.status, "VOIDED", "clearing purchase receipt voided after asset reversal");
+  assertPresent(voidedClearingPurchaseReceipt.lines?.[0]?.voidStockMovementId, "clearing purchase receipt void reversal movement");
+  assertMoney((await balanceFor(mainWarehouse)).quantityOnHand, money("12.0000"), "main warehouse quantity after clearing receipt void");
 
   const bankTransferAmount = money("12.3400");
   const bankBeforeTransfer = await get<BankAccountSummary>(`/bank-accounts/${defaultBankProfile.id}`, headers);
@@ -3299,7 +3541,7 @@ async function main(): Promise<void> {
     "supplier ledger includes purchase debit note supplier refund credit",
   );
 
-  const generalLedgerReport = await get<{ accounts: Array<{ accountId: string; lines: unknown[] }> }>("/reports/general-ledger", headers);
+  const generalLedgerReport = await get<GeneralLedgerReport>("/reports/general-ledger", headers);
   assert(generalLedgerReport.accounts.length > 0, "general ledger returns account activity");
   const trialBalanceReport = await get<TrialBalanceReport>("/reports/trial-balance", headers);
   assertMoney(trialBalanceReport.totals.closingDebit, money(trialBalanceReport.totals.closingCredit), "trial balance closing debit equals credit");
@@ -3444,6 +3686,13 @@ async function main(): Promise<void> {
         purchaseReceiptMatchedBillValue: purchaseReceiptAccountingPreview.matchedBillValue,
         purchaseBillReceiptMatchingStatus: billReceiptMatchingStatus.status,
         purchaseReceiptVoided: voidedPurchaseReceipt.status === "VOIDED",
+        purchaseReceiptAssetPostingReceiptId: clearingPurchaseReceipt.id,
+        purchaseReceiptAssetPreviewCanPost: clearingReceiptAccountingPreview.canPost,
+        purchaseReceiptAssetJournalEntryId: receiptAssetJournalEntryId,
+        purchaseReceiptAssetReversalJournalEntryId: receiptAssetReversalJournalEntryId,
+        purchaseReceiptAssetJournalDelta: journalEntriesAfterReceiptAssetReversal.length - journalEntriesBeforeReceiptAssetPost.length,
+        purchaseReceiptAssetVoided: voidedClearingPurchaseReceipt.status === "VOIDED",
+        purchaseReceiptAssetReportImpactChecked: true,
         salesStockIssueId: salesStockIssue.id,
         salesStockIssueAccountingPreviewOnly: salesStockIssueAccountingPreview.previewOnly,
         salesStockIssueAccountingPreviewCanPost: salesStockIssueAccountingPreview.canPost,

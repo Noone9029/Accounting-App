@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-14
 
-Commit inspected: pending (`Enable inventory clearing bill finalization`)
+Commit inspected: pending (`Add purchase receipt inventory asset posting`)
 
 ## Scope
 
@@ -37,6 +37,34 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Explicit purchase receipt inventory asset posting added
+
+Implemented manual accountant-reviewed inventory asset posting for purchase receipts linked to finalized `INVENTORY_CLEARING` purchase bills only.
+
+Risk reduced:
+
+- `DIRECT_EXPENSE_OR_ASSET` purchase bills remain excluded from receipt asset posting to prevent double-counting inventory or expense.
+- Receipt posting is explicit only through `POST /purchase-receipts/:id/post-inventory-asset`; there is no automatic receipt GL posting from purchase bills, purchase receipts, or stock movements.
+- Posting creates one balanced journal, Dr Inventory Asset and Cr Inventory Clearing, using receipt line quantity multiplied by unit cost.
+- Posting requires enabled inventory accounting, moving-average valuation, valid active posting Inventory Asset and Inventory Clearing accounts, a finalized non-voided clearing-mode bill, posted receipt status, unit costs, positive receipt value, and fiscal-period approval on the receipt date.
+- Reversal is explicit through `POST /purchase-receipts/:id/reverse-inventory-asset`, creates a reversal journal, and leaves the operational receipt lifecycle separate.
+- Purchase receipt voiding is blocked while an asset journal is active and unreversed.
+
+Remaining risks:
+
+- No automatic purchase receipt GL posting.
+- No receipt asset posting for historical/direct-mode purchase bills and no historical migration.
+- Inventory Clearing timing differences still require accountant review until receipt/bill clearing reconciliation is built.
+- Landed cost is missing.
+- FIFO remains placeholder-only.
+- Accountant review is required before production use.
+
+Tests/smoke added:
+
+- Backend tests for direct-mode blocking, unfinalized bill blocking, missing settings/unit-cost blocking, balanced Dr Inventory Asset / Cr Inventory Clearing journals, fiscal-period guard, duplicate rejection, reversal, void protection, report impact, tenant isolation, and permission metadata.
+- Frontend helper tests for receipt asset posting status, post/reverse button visibility, and linked bill mode warnings.
+- Smoke coverage for compatible clearing bill receipt preview, explicit asset posting, trial balance/general ledger impact, void blocking, reversal, void after reversal, and unchanged no-auto-post behavior.
+
 ### Inventory clearing bill finalization added
 
 Implemented explicit accountant-reviewed purchase bill finalization for `INVENTORY_CLEARING` mode while preserving `DIRECT_EXPENSE_OR_ASSET` behavior.
@@ -46,13 +74,13 @@ Risk reduced:
 - Direct-mode purchase bill finalization remains unchanged: Dr selected line account, Dr VAT Receivable when applicable, Cr Accounts Payable.
 - Inventory-clearing bills can finalize only when inventory accounting is enabled, `MOVING_AVERAGE` is selected, purchase receipt posting mode is `PREVIEW_ONLY`, and a separate active posting Inventory Clearing account is mapped.
 - Clearing-mode finalization posts Dr Inventory Clearing for tracked lines, Dr selected accounts for non-inventory lines, Dr VAT Receivable, and Cr Accounts Payable.
-- Purchase receipt GL posting remains disabled and previews still create no journals.
+- Automatic purchase receipt GL posting remains disabled; previews still create no journals, and only explicit compatible receipt asset posting creates journals.
 - Voiding clearing-mode purchase bills uses the existing journal reversal path without touching stock movements.
 
 Remaining risks:
 
-- Purchase receipt GL posting is still disabled.
-- Inventory clearing balances may accumulate until future receipt asset posting and reconciliation exist.
+- Automatic purchase receipt GL posting remains disabled; explicit receipt asset posting is limited to compatible clearing-mode bills.
+- Inventory clearing balances may accumulate until compatible receipts are explicitly posted and a reconciliation workflow exists.
 - Historical finalized direct-mode bills are not migrated.
 - Migration and exclusion strategy still requires accountant approval.
 - Landed cost is missing.
@@ -79,8 +107,8 @@ Risk reduced:
 
 Remaining risks:
 
-- Purchase receipt GL posting is still disabled.
-- Inventory clearing balances still require manual review until receipt asset posting and reconciliation are implemented.
+- Automatic purchase receipt GL posting remains disabled; explicit receipt asset posting is limited to compatible clearing-mode bills.
+- Inventory clearing balances still require manual review until compatible receipts are explicitly posted and reconciliation is implemented.
 - Historical finalized direct-mode bills are not migrated.
 - Migration and exclusion strategy still requires accountant approval.
 - Landed cost is missing.
@@ -95,7 +123,7 @@ Tests/smoke added:
 
 ### Purchase receipt posting readiness audit added
 
-Added a read-only purchase receipt posting readiness endpoint, inventory settings readiness panel, readiness/design documents, tests, and smoke coverage. This is an audit gate only; purchase receipt GL posting still is not implemented and no inventory asset journals are created.
+Added a read-only purchase receipt posting readiness endpoint, inventory settings readiness panel, readiness/design documents, tests, and smoke coverage. This remains an audit gate for automatic posting; explicit compatible receipt asset posting is now implemented separately and preview/readiness reads still create no journals.
 
 Risk reduced:
 
@@ -106,7 +134,7 @@ Risk reduced:
 
 Remaining risks:
 
-- Purchase receipt GL posting is still disabled.
+- Automatic purchase receipt GL posting remains disabled; explicit receipt asset posting is limited to compatible clearing-mode bills.
 - Bill/receipt clearing entries are not implemented.
 - Existing finalized purchase bills need a migration or exclusion strategy before receipt posting.
 - Landed cost is missing.
@@ -125,7 +153,7 @@ Added inventory clearing account settings, purchase receipt posting mode, enhanc
 
 Risk reduced:
 
-- Accountants can map a separate Inventory Clearing account before purchase receipt asset posting exists.
+- Accountants can map a separate Inventory Clearing account for compatible receipt asset posting.
 - Clearing account validation requires a tenant-owned active posting `LIABILITY` or `ASSET` account, blocks reuse of inventory asset, and rejects Accounts Payable code `210`.
 - Purchase receipt previews show receipt value, matched bill value, value difference, matching summary, and Dr Inventory Asset / Cr Inventory Clearing preview lines.
 - Purchase bill and purchase order detail pages expose receipt matching status and warnings without accounting mutation.
@@ -133,7 +161,7 @@ Risk reduced:
 
 Remaining risks:
 
-- Purchase receipt GL posting is still disabled.
+- Automatic purchase receipt GL posting remains disabled; explicit receipt asset posting is limited to compatible clearing-mode bills.
 - Bill/receipt clearing entries are not implemented.
 - Landed cost is missing.
 - FIFO remains placeholder-only.
@@ -159,8 +187,8 @@ Risk reduced:
 
 Remaining risks:
 
-- No purchase receipt inventory asset posting.
-- Purchase receipt inventory asset posting and clearing reconciliation are still missing.
+- Purchase receipt inventory asset posting is manual-only for compatible clearing-mode bills.
+- Purchase receipt clearing reconciliation is still missing.
 - No landed cost.
 - FIFO placeholder only.
 - No automatic COGS posting from invoices or stock issues.

@@ -177,7 +177,7 @@ export default function InventorySettingsPage() {
       </div>
 
       <div className="mt-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        Inventory accounting is guarded. Enabling it only allows manual COGS posting; purchase receipts still do not post GL or inventory asset entries.
+        Inventory accounting is guarded. Enabling it only allows manual COGS posting and compatible manual receipt asset posting; it does not auto-post inventory journals.
       </div>
 
       <form onSubmit={saveSettings} className="mt-5 space-y-5">
@@ -233,7 +233,7 @@ export default function InventorySettingsPage() {
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <h2 className="text-base font-semibold text-ink">Inventory accounting settings</h2>
-              <p className="mt-1 text-sm text-steel">Mappings for manual COGS posting readiness and future inventory asset workflows.</p>
+              <p className="mt-1 text-sm text-steel">Mappings for manual COGS posting and compatible receipt asset posting readiness.</p>
             </div>
             <label className="flex items-center gap-3 rounded-md border border-slate-200 px-3 py-2 text-sm">
               <input
@@ -388,7 +388,7 @@ export default function InventorySettingsPage() {
                   {receiptReadiness && receiptReadiness.warnings.length > 0 ? (
                     receiptReadiness.warnings.map((warning) => <li key={warning}>{warning}</li>)
                   ) : (
-                    <li>Purchase receipt GL posting is not enabled yet.</li>
+                    <li>Purchase receipt GL posting requires an explicit manual post action after review.</li>
                   )}
                 </ul>
               </div>

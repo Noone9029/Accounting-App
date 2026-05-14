@@ -12,6 +12,8 @@ import type {
   InventorySourceProgressStatus,
   InventoryStockValuationRow,
   InventoryValuationMethod,
+  PurchaseBillInventoryPostingMode,
+  PurchaseReceiptAccountingPreview,
   PurchaseReceiptPostingReadiness,
   PurchaseReceiptMatchingStatus,
   PurchaseReceiptStatus,
@@ -68,8 +70,8 @@ export function inventoryOperationalWarning(): string {
 
 export function inventoryAccountingWarnings(): string[] {
   return [
-    "Enabling this only allows manual COGS posting. It does not auto-post inventory journals.",
-    "Purchase receipt GL posting is not enabled yet.",
+    "Enabling this only allows manual COGS and compatible receipt asset posting. It does not auto-post inventory journals.",
+    "Purchase receipt GL posting requires an explicit manual post action after review.",
     "COGS posting requires an explicit manual post action after review.",
     "Accountant review required before enabling financial inventory postings.",
   ];
@@ -105,7 +107,7 @@ export function purchaseReceiptPostingModeLabel(mode: InventoryPurchasePostingMo
 }
 
 export function purchaseReceiptGlPostingWarning(): string {
-  return "Purchase receipt GL posting is not enabled yet.";
+  return "Purchase receipt GL posting requires an explicit manual post action after review.";
 }
 
 export function purchaseReceiptPostingReadinessLabel(readiness: Pick<PurchaseReceiptPostingReadiness, "ready">): string {
@@ -172,6 +174,38 @@ export function canShowReverseCogsAction(
 
 export function cogsPostingFinancialReportWarning(): string {
   return "This creates accounting journal entries and affects financial reports.";
+}
+
+export function receiptAssetPostingStatus(
+  preview: Pick<PurchaseReceiptAccountingPreview, "alreadyPosted" | "alreadyReversed">,
+): "Not posted" | "Posted" | "Reversed" {
+  if (preview.alreadyReversed) return "Reversed";
+  if (preview.alreadyPosted) return "Posted";
+  return "Not posted";
+}
+
+export function canShowPostReceiptAssetAction(
+  preview: Pick<PurchaseReceiptAccountingPreview, "canPost" | "alreadyPosted">,
+  hasPermission: boolean,
+): boolean {
+  return hasPermission && preview.canPost === true && preview.alreadyPosted !== true;
+}
+
+export function canShowReverseReceiptAssetAction(
+  preview: Pick<PurchaseReceiptAccountingPreview, "alreadyPosted" | "alreadyReversed">,
+  hasPermission: boolean,
+): boolean {
+  return hasPermission && preview.alreadyPosted === true && preview.alreadyReversed !== true;
+}
+
+export function receiptAssetPostingFinancialReportWarning(): string {
+  return "This creates accounting journal entries and affects inventory asset and clearing balances.";
+}
+
+export function linkedPurchaseBillModeWarning(mode: PurchaseBillInventoryPostingMode | null | undefined): string {
+  return mode === "INVENTORY_CLEARING"
+    ? "Linked bill uses inventory clearing mode."
+    : "Purchase receipt asset posting requires a finalized INVENTORY_CLEARING purchase bill.";
 }
 
 export function inventoryValuationMethodLabel(method: InventoryValuationMethod): string {

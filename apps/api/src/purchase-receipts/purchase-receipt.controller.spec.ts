@@ -10,6 +10,15 @@ describe("PurchaseReceiptController permissions", () => {
     ]);
   });
 
+  it("requires receipt asset posting permissions for manual posting and reversal", () => {
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, PurchaseReceiptController.prototype.postInventoryAsset)).toEqual([
+      PERMISSIONS.inventory.receiptsPostAsset,
+    ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, PurchaseReceiptController.prototype.reverseInventoryAsset)).toEqual([
+      PERMISSIONS.inventory.receiptsReverseAsset,
+    ]);
+  });
+
   it("uses purchase document view permissions for receipt matching status", () => {
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, PurchaseReceivingStatusController.prototype.purchaseBillReceiptMatchingStatus)).toEqual([
       PERMISSIONS.purchaseBills.view,

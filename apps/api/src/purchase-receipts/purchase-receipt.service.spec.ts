@@ -1,9 +1,13 @@
 import {
   AccountType,
   ContactType,
+  InventoryPurchasePostingMode,
   InventoryValuationMethod,
   ItemStatus,
+  JournalEntryStatus,
+  NumberSequenceScope,
   Prisma,
+  PurchaseBillInventoryPostingMode,
   PurchaseBillStatus,
   PurchaseOrderStatus,
   PurchaseReceiptStatus,
@@ -38,7 +42,53 @@ describe("PurchaseReceiptService", () => {
     warehouseId: warehouse.id,
     status: PurchaseReceiptStatus.POSTED,
     receiptDate: new Date("2026-05-14T00:00:00.000Z"),
+    inventoryAssetJournalEntryId: null,
+    inventoryAssetReversalJournalEntryId: null,
+    inventoryAssetPostedAt: null,
+    inventoryAssetPostedById: null,
+    inventoryAssetReversedAt: null,
+    inventoryAssetReversedById: null,
+    inventoryAssetJournalEntry: null,
+    inventoryAssetReversalJournalEntry: null,
     lines: [{ id: "receipt-line-1", itemId: item.id, item: previewItem, quantity: new Prisma.Decimal("2.0000"), unitCost: new Prisma.Decimal("7.0000") }],
+  };
+  const linkedClearingBill = {
+    id: "bill-1",
+    billNumber: "BILL-000001",
+    status: PurchaseBillStatus.FINALIZED,
+    billDate: new Date("2026-05-13T00:00:00.000Z"),
+    total: new Prisma.Decimal("32.0000"),
+    inventoryPostingMode: PurchaseBillInventoryPostingMode.INVENTORY_CLEARING,
+  };
+  const assetJournalEntry = {
+    id: "journal-asset-1",
+    entryNumber: "JE-000001",
+    status: JournalEntryStatus.POSTED,
+    entryDate: receipt.receiptDate,
+    description: "Inventory asset posting for purchase receipt PRC-000001",
+    reference: receipt.receiptNumber,
+    currency: "SAR",
+    totalDebit: new Prisma.Decimal("14.0000"),
+    totalCredit: new Prisma.Decimal("14.0000"),
+    reversedBy: null,
+    lines: [
+      {
+        accountId: assetAccount.id,
+        debit: new Prisma.Decimal("14.0000"),
+        credit: new Prisma.Decimal("0.0000"),
+        description: "Purchase receipt PRC-000001 inventory asset preview",
+        currency: "SAR",
+        exchangeRate: new Prisma.Decimal("1.00000000"),
+      },
+      {
+        accountId: clearingAccount.id,
+        debit: new Prisma.Decimal("0.0000"),
+        credit: new Prisma.Decimal("14.0000"),
+        description: "Inventory clearing preview pending bill/receipt matching design",
+        currency: "SAR",
+        exchangeRate: new Prisma.Decimal("1.00000000"),
+      },
+    ],
   };
 
   function makeService(tx: Record<string, unknown>, directOverrides: Record<string, unknown> = {}) {
@@ -52,20 +102,33 @@ describe("PurchaseReceiptService", () => {
       ...directOverrides,
     };
     const audit = { log: jest.fn() };
-    const numbers = { next: jest.fn().mockResolvedValue("PRC-000001") };
+    const numbers = {
+      next: jest.fn((_organizationId: string, scope: NumberSequenceScope) =>
+        Promise.resolve(scope === NumberSequenceScope.JOURNAL_ENTRY ? "JE-000001" : "PRC-000001"),
+      ),
+    };
     const inventoryAccounting = {
       previewReadiness: jest.fn().mockResolvedValue({
         settings: {
           valuationMethod: InventoryValuationMethod.MOVING_AVERAGE,
+          enableInventoryAccounting: true,
           inventoryAssetAccount: assetAccount,
           inventoryClearingAccount: clearingAccount,
-          purchaseReceiptPostingMode: "PREVIEW_ONLY",
+          purchaseReceiptPostingMode: InventoryPurchasePostingMode.PREVIEW_ONLY,
         },
         blockingReasons: [],
         warnings: ["Not posting to GL yet."],
       }),
     };
-    return { service: new PurchaseReceiptService(prisma as never, audit as never, numbers as never, inventoryAccounting as never), prisma, audit, numbers, inventoryAccounting };
+    const fiscal = { assertPostingDateAllowed: jest.fn() };
+    return {
+      service: new PurchaseReceiptService(prisma as never, audit as never, numbers as never, inventoryAccounting as never, fiscal as never),
+      prisma,
+      audit,
+      numbers,
+      inventoryAccounting,
+      fiscal,
+    };
   }
 
   function makeTx(overrides: Record<string, unknown> = {}) {
@@ -86,6 +149,7 @@ describe("PurchaseReceiptService", () => {
           id: "bill-1",
           supplierId: supplier.id,
           status: PurchaseBillStatus.FINALIZED,
+          inventoryPostingMode: PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET,
           lines: [billLine],
         }),
       },
@@ -106,7 +170,7 @@ describe("PurchaseReceiptService", () => {
         findMany: jest.fn().mockResolvedValue([{ type: StockMovementType.PURCHASE_RECEIPT_PLACEHOLDER, quantity: new Prisma.Decimal("2.0000") }]),
         create: jest.fn().mockResolvedValue({ id: "movement-1" }),
       },
-      journalEntry: { create: jest.fn() },
+      journalEntry: { create: jest.fn().mockResolvedValue(assetJournalEntry), update: jest.fn().mockResolvedValue(assetJournalEntry) },
       ...overrides,
     };
   }
@@ -227,7 +291,8 @@ describe("PurchaseReceiptService", () => {
         previewOnly: true,
         postingStatus: "DESIGN_ONLY",
         canPost: false,
-        warnings: expect.arrayContaining([expect.stringContaining("inventory clearing")]),
+        warnings: expect.arrayContaining(["Standalone receipt cannot be financially posted until a bill or clearing workflow is selected."]),
+        blockingReasons: expect.arrayContaining(["Purchase receipt asset posting requires a finalized linked purchase bill in inventory clearing mode."]),
       }),
     );
     expect(preview.lines[0]).toEqual(expect.objectContaining({ lineValue: "14.0000" }));
@@ -252,7 +317,7 @@ describe("PurchaseReceiptService", () => {
     const linkedReceipt = {
       ...receipt,
       purchaseBillId: "bill-1",
-      purchaseBill: { id: "bill-1", billNumber: "BILL-000001", status: PurchaseBillStatus.FINALIZED, billDate: new Date(), total: new Prisma.Decimal("32.0000") },
+      purchaseBill: { ...linkedClearingBill, inventoryPostingMode: PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET },
       lines: [{ ...receipt.lines[0], purchaseBillLine: previewBillLine }],
     };
     const { service } = makeService(makeTx(), {
@@ -271,6 +336,198 @@ describe("PurchaseReceiptService", () => {
     );
     expect(preview.matchedBillValue).toBe("16.0000");
     expect(preview.warnings).toEqual(expect.arrayContaining([expect.stringContaining("not inventory-related")]));
+  });
+
+  it("allows purchase receipt asset preview only for finalized inventory-clearing bills", async () => {
+    const clearingReceipt = {
+      ...receipt,
+      purchaseBillId: "bill-1",
+      purchaseBill: linkedClearingBill,
+      lines: [{ ...receipt.lines[0], purchaseBillLine: previewBillLine }],
+    };
+    const directReceipt = {
+      ...clearingReceipt,
+      purchaseBill: { ...linkedClearingBill, inventoryPostingMode: PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET },
+    };
+    const { service } = makeService(makeTx(), {
+      purchaseReceipt: {
+        findFirst: jest.fn().mockResolvedValueOnce(clearingReceipt).mockResolvedValueOnce(directReceipt),
+      },
+    });
+
+    await expect(service.accountingPreview("org-1", receipt.id)).resolves.toEqual(
+      expect.objectContaining({
+        canPost: true,
+        postingStatus: "POSTABLE",
+        linkedBill: expect.objectContaining({ inventoryPostingMode: PurchaseBillInventoryPostingMode.INVENTORY_CLEARING }),
+        journal: expect.objectContaining({
+          lines: expect.arrayContaining([
+            expect.objectContaining({ side: "DEBIT", accountCode: "130", amount: "14.0000" }),
+            expect.objectContaining({ side: "CREDIT", accountCode: "240", amount: "14.0000" }),
+          ]),
+        }),
+      }),
+    );
+    await expect(service.accountingPreview("org-1", receipt.id)).resolves.toEqual(
+      expect.objectContaining({
+        canPost: false,
+        blockingReasons: expect.arrayContaining(["Purchase receipt asset posting requires a finalized INVENTORY_CLEARING purchase bill."]),
+      }),
+    );
+  });
+
+  it("posts receipt inventory asset as a balanced journal and does not mutate stock movements", async () => {
+    const clearingReceipt = {
+      ...receipt,
+      purchaseBillId: "bill-1",
+      purchaseBill: linkedClearingBill,
+      lines: [{ ...receipt.lines[0], purchaseBillLine: previewBillLine }],
+    };
+    const postedReceipt = { ...clearingReceipt, inventoryAssetJournalEntryId: assetJournalEntry.id, inventoryAssetJournalEntry: assetJournalEntry };
+    const tx = makeTx({
+      purchaseReceipt: {
+        create: jest.fn().mockResolvedValue({ id: receipt.id }),
+        findFirst: jest.fn().mockResolvedValue(clearingReceipt),
+        findUniqueOrThrow: jest.fn().mockResolvedValue(postedReceipt),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    });
+    const { service, fiscal, numbers, audit } = makeService(tx, {
+      purchaseReceipt: { findFirst: jest.fn().mockResolvedValue(clearingReceipt) },
+    });
+    jest.spyOn(service, "get").mockResolvedValueOnce(clearingReceipt as never);
+
+    await expect(service.postInventoryAsset("org-1", "user-1", receipt.id)).resolves.toMatchObject({
+      id: receipt.id,
+      inventoryAssetJournalEntryId: assetJournalEntry.id,
+    });
+
+    expect(fiscal.assertPostingDateAllowed).toHaveBeenCalledWith("org-1", receipt.receiptDate, tx);
+    expect(numbers.next).toHaveBeenCalledWith("org-1", NumberSequenceScope.JOURNAL_ENTRY, tx);
+    expect(tx.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: JournalEntryStatus.POSTED,
+          entryDate: receipt.receiptDate,
+          description: "Inventory asset posting for purchase receipt PRC-000001",
+          totalDebit: "14.0000",
+          totalCredit: "14.0000",
+        }),
+      }),
+    );
+    expect(tx.purchaseReceipt.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: receipt.id, organizationId: "org-1", inventoryAssetJournalEntryId: null }),
+        data: expect.objectContaining({ inventoryAssetJournalEntryId: assetJournalEntry.id, inventoryAssetPostedById: "user-1" }),
+      }),
+    );
+    expect(tx.stockMovement.create).not.toHaveBeenCalled();
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "POST_INVENTORY_ASSET", entityType: "PurchaseReceipt" }));
+  });
+
+  it("blocks receipt asset posting without compatible settings or unit cost", async () => {
+    const clearingReceipt = {
+      ...receipt,
+      purchaseBillId: "bill-1",
+      purchaseBill: linkedClearingBill,
+      lines: [{ ...receipt.lines[0], unitCost: null, purchaseBillLine: previewBillLine }],
+    };
+    const missingCost = makeService(makeTx({ purchaseReceipt: { findFirst: jest.fn().mockResolvedValue(clearingReceipt) } }), {
+      purchaseReceipt: { findFirst: jest.fn().mockResolvedValue(clearingReceipt) },
+    });
+    jest.spyOn(missingCost.service, "get").mockResolvedValueOnce(clearingReceipt as never);
+
+    await expectBadRequestMessage(missingCost.service.postInventoryAsset("org-1", "user-1", receipt.id), "Purchase receipt line 1 is missing unit cost.");
+
+    const disabled = makeService(makeTx(), { purchaseReceipt: { findFirst: jest.fn().mockResolvedValue({ ...clearingReceipt, lines: receipt.lines }) } });
+    jest.spyOn(disabled.service, "get").mockResolvedValueOnce({ ...clearingReceipt, lines: receipt.lines } as never);
+    disabled.inventoryAccounting.previewReadiness.mockResolvedValueOnce({
+      settings: {
+        valuationMethod: InventoryValuationMethod.MOVING_AVERAGE,
+        enableInventoryAccounting: false,
+        inventoryAssetAccount: assetAccount,
+        inventoryClearingAccount: clearingAccount,
+        purchaseReceiptPostingMode: InventoryPurchasePostingMode.PREVIEW_ONLY,
+      },
+      blockingReasons: [],
+      warnings: [],
+    });
+
+    await expectBadRequestMessage(
+      disabled.service.postInventoryAsset("org-1", "user-1", receipt.id),
+      "Inventory accounting must be enabled before purchase receipt asset posting.",
+    );
+  });
+
+  it("reverses receipt inventory asset posting and rejects double reversal", async () => {
+    const postedReceipt = { ...receipt, inventoryAssetJournalEntryId: assetJournalEntry.id, inventoryAssetJournalEntry: assetJournalEntry };
+    const reversedReceipt = {
+      ...postedReceipt,
+      inventoryAssetReversalJournalEntryId: "journal-reversal-1",
+      inventoryAssetReversalJournalEntry: { id: "journal-reversal-1", entryNumber: "JE-000002" },
+    };
+    const tx = makeTx({
+      purchaseReceipt: {
+        findFirst: jest.fn().mockResolvedValue(postedReceipt),
+        findUniqueOrThrow: jest.fn().mockResolvedValue(reversedReceipt),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      journalEntry: {
+        create: jest.fn().mockResolvedValue({ id: "journal-reversal-1", entryNumber: "JE-000002" }),
+        update: jest.fn().mockResolvedValue({ id: assetJournalEntry.id }),
+      },
+    });
+    const { service, fiscal, audit } = makeService(tx);
+    jest.spyOn(service, "get").mockResolvedValueOnce(postedReceipt as never);
+
+    await expect(service.reverseInventoryAsset("org-1", "user-1", receipt.id, { reason: "Review correction" })).resolves.toMatchObject({
+      inventoryAssetReversalJournalEntryId: "journal-reversal-1",
+    });
+
+    expect(fiscal.assertPostingDateAllowed).toHaveBeenCalledWith("org-1", expect.any(Date), tx);
+    expect(tx.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: JournalEntryStatus.POSTED,
+          reversalOfId: assetJournalEntry.id,
+          totalDebit: "14.0000",
+          totalCredit: "14.0000",
+        }),
+      }),
+    );
+    expect(tx.journalEntry.update).toHaveBeenCalledWith({ where: { id: assetJournalEntry.id }, data: { status: JournalEntryStatus.REVERSED } });
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "REVERSE_INVENTORY_ASSET", entityType: "PurchaseReceipt" }));
+
+    const twice = makeService(makeTx({ purchaseReceipt: { findFirst: jest.fn().mockResolvedValue(reversedReceipt) } }));
+    jest.spyOn(twice.service, "get").mockResolvedValueOnce(reversedReceipt as never);
+    await expect(twice.service.reverseInventoryAsset("org-1", "user-1", receipt.id, {})).rejects.toThrow(
+      "Inventory asset posting has already been reversed for this purchase receipt.",
+    );
+  });
+
+  it("blocks receipt void while asset posting is active and allows void after reversal", async () => {
+    const activeAssetReceipt = { ...receipt, inventoryAssetJournalEntryId: assetJournalEntry.id, inventoryAssetReversalJournalEntryId: null };
+    const active = makeService(makeTx());
+    jest.spyOn(active.service, "get").mockResolvedValueOnce(activeAssetReceipt as never);
+    await expect(active.service.void("org-1", "user-1", receipt.id)).rejects.toThrow(
+      "Reverse inventory asset posting before voiding this purchase receipt.",
+    );
+
+    const reversedAssetReceipt = { ...receipt, inventoryAssetJournalEntryId: assetJournalEntry.id, inventoryAssetReversalJournalEntryId: "journal-reversal-1" };
+    const tx = makeTx({
+      purchaseReceipt: {
+        findFirst: jest.fn().mockResolvedValue(reversedAssetReceipt),
+        findUniqueOrThrow: jest.fn().mockResolvedValue(reversedAssetReceipt),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    });
+    const reversed = makeService(tx);
+    jest.spyOn(reversed.service, "get").mockResolvedValueOnce(reversedAssetReceipt as never);
+
+    await expect(reversed.service.void("org-1", "user-1", receipt.id)).resolves.toMatchObject({ id: receipt.id });
+    expect(tx.stockMovement.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ type: StockMovementType.ADJUSTMENT_OUT, referenceType: "PurchaseReceiptVoid" }) }),
+    );
   });
 
   it("warns when receipt preview is standalone or linked only to a purchase order", async () => {
@@ -392,4 +649,19 @@ describe("PurchaseReceiptService", () => {
     await expect(service.accountingPreview("other-org", receipt.id)).rejects.toThrow("Purchase receipt not found.");
     expect(prisma.purchaseReceipt.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: receipt.id, organizationId: "other-org" } }));
   });
+
+  async function expectBadRequestMessage(promise: Promise<unknown>, expected: string) {
+    try {
+      await promise;
+    } catch (error) {
+      if (error && typeof error === "object" && "getResponse" in error && typeof error.getResponse === "function") {
+        const response = error.getResponse() as { message?: string | string[] };
+        const messages = Array.isArray(response.message) ? response.message : [response.message];
+        expect(messages).toContain(expected);
+        return;
+      }
+      throw error;
+    }
+    throw new Error("Expected BadRequestException.");
+  }
 });

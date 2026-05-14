@@ -13,6 +13,7 @@ import {
 const accounts = [
   { id: "cash", code: "111", name: "Cash", type: AccountType.ASSET },
   { id: "ar", code: "120", name: "Accounts Receivable", type: AccountType.ASSET },
+  { id: "inventory-asset", code: "130", name: "Inventory", type: AccountType.ASSET },
   { id: "ap", code: "210", name: "Accounts Payable", type: AccountType.LIABILITY },
   { id: "vat-payable", code: "220", name: "VAT Payable", type: AccountType.LIABILITY },
   { id: "vat-receivable", code: "230", name: "VAT Receivable", type: AccountType.ASSET },
@@ -119,6 +120,21 @@ describe("reports service builders", () => {
     expect(beforePosting.costOfSales).toBe("0.0000");
     expect(afterPosting.costOfSales).toBe("32.5000");
     expect(afterPosting.netProfit).toBe("67.5000");
+  });
+
+  it("reflects manually posted purchase receipt inventory asset journals through balance sheet accounts", () => {
+    const report = buildBalanceSheetReport(
+      accounts,
+      [
+        line("inventory-asset", "2026-05-14", "100.0000", "0.0000", "Inventory asset posting for purchase receipt PRC-000001"),
+        line("inventory-clearing", "2026-05-14", "0.0000", "100.0000", "Inventory clearing for purchase receipt PRC-000001"),
+      ],
+      { asOf: "2026-05-31" },
+    );
+
+    expect(report.assets.accounts.find((account) => account.accountId === "inventory-asset")).toMatchObject({ amount: "100.0000" });
+    expect(report.liabilities.accounts.find((account) => account.accountId === "inventory-clearing")).toMatchObject({ amount: "100.0000" });
+    expect(report.balanced).toBe(true);
   });
 
   it("includes retained earnings in a balanced balance sheet", () => {

@@ -426,6 +426,12 @@ export default function PurchaseBillDetailPage() {
 }
 
 function ReceiptMatchingPanel({ status }: { status: PurchaseBillReceiptMatchingStatus }) {
+  const linkedReceipts = status.lines.flatMap((line) => line.receipts);
+  const hasUnpostedClearingReceipts =
+    status.bill.status === "FINALIZED" &&
+    status.bill.inventoryPostingMode === "INVENTORY_CLEARING" &&
+    linkedReceipts.some((receipt) => !receipt.inventoryAssetJournalEntryId);
+
   return (
     <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -451,6 +457,11 @@ function ReceiptMatchingPanel({ status }: { status: PurchaseBillReceiptMatchingS
           </ul>
         </div>
       ) : null}
+      {hasUnpostedClearingReceipts ? (
+        <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-900">
+          Clearing-mode bill has linked receipts without inventory asset posting.
+        </div>
+      ) : null}
       <div className="mt-4 overflow-x-auto">
         <table className="w-full min-w-[820px] text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
@@ -474,9 +485,12 @@ function ReceiptMatchingPanel({ status }: { status: PurchaseBillReceiptMatchingS
                 <td className="px-3 py-2 text-steel">
                   {line.receipts.length > 0
                     ? line.receipts.map((receipt) => (
-                        <Link key={receipt.id} href={`/inventory/purchase-receipts/${receipt.id}`} className="mr-2 text-palm hover:underline">
-                          {receipt.receiptNumber}
-                        </Link>
+                        <span key={receipt.id} className="mr-3 inline-flex flex-col">
+                          <Link href={`/inventory/purchase-receipts/${receipt.id}`} className="text-palm hover:underline">
+                            {receipt.receiptNumber}
+                          </Link>
+                          <span className="text-xs text-steel">{receiptAssetStatusLabel(receipt)}</span>
+                        </span>
                       ))
                     : "-"}
                 </td>
@@ -487,6 +501,12 @@ function ReceiptMatchingPanel({ status }: { status: PurchaseBillReceiptMatchingS
       </div>
     </div>
   );
+}
+
+function receiptAssetStatusLabel(receipt: { inventoryAssetJournalEntryId?: string | null; inventoryAssetReversalJournalEntryId?: string | null }) {
+  if (receipt.inventoryAssetReversalJournalEntryId) return "Asset reversed";
+  if (receipt.inventoryAssetJournalEntryId) return "Asset posted";
+  return "Asset not posted";
 }
 
 function AccountingPreviewPanel({ preview, currency }: { preview: PurchaseBillAccountingPreview; currency: string }) {

@@ -397,6 +397,8 @@ model User {
   voidedInventoryAdjustments InventoryAdjustment[] @relation("InventoryAdjustmentVoidedBy")
   createdWarehouseTransfers WarehouseTransfer[] @relation("WarehouseTransferCreatedBy")
   createdPurchaseReceipts PurchaseReceipt[] @relation("PurchaseReceiptCreatedBy")
+  inventoryAssetPostedPurchaseReceipts PurchaseReceipt[] @relation("PurchaseReceiptInventoryAssetPostedBy")
+  inventoryAssetReversedPurchaseReceipts PurchaseReceipt[] @relation("PurchaseReceiptInventoryAssetReversedBy")
   createdSalesStockIssues SalesStockIssue[] @relation("SalesStockIssueCreatedBy")
   cogsPostedSalesStockIssues SalesStockIssue[] @relation("SalesStockIssueCogsPostedBy")
   cogsReversedSalesStockIssues SalesStockIssue[] @relation("SalesStockIssueCogsReversedBy")
@@ -1565,29 +1567,39 @@ model PurchaseBillLine {
 }
 
 model PurchaseReceipt {
-  id              String                @id @default(uuid()) @db.Uuid
-  organizationId  String                @db.Uuid
-  receiptNumber   String
-  purchaseOrderId String?               @db.Uuid
-  purchaseBillId  String?               @db.Uuid
-  supplierId      String                @db.Uuid
-  warehouseId     String                @db.Uuid
-  receiptDate     DateTime
-  status          PurchaseReceiptStatus @default(POSTED)
-  notes           String?
-  createdById     String?               @db.Uuid
-  postedAt        DateTime?
-  voidedAt        DateTime?
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  id                                    String                @id @default(uuid()) @db.Uuid
+  organizationId                        String                @db.Uuid
+  receiptNumber                         String
+  purchaseOrderId                       String?               @db.Uuid
+  purchaseBillId                        String?               @db.Uuid
+  supplierId                            String                @db.Uuid
+  warehouseId                           String                @db.Uuid
+  receiptDate                           DateTime
+  status                                PurchaseReceiptStatus @default(POSTED)
+  notes                                 String?
+  createdById                           String?               @db.Uuid
+  inventoryAssetJournalEntryId          String?               @unique @db.Uuid
+  inventoryAssetReversalJournalEntryId  String?               @unique @db.Uuid
+  inventoryAssetPostedAt                DateTime?
+  inventoryAssetPostedById              String?               @db.Uuid
+  inventoryAssetReversedAt              DateTime?
+  inventoryAssetReversedById            String?               @db.Uuid
+  postedAt                              DateTime?
+  voidedAt                              DateTime?
+  createdAt                             DateTime              @default(now())
+  updatedAt                             DateTime              @updatedAt
 
-  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
-  purchaseBill  PurchaseBill?  @relation(fields: [purchaseBillId], references: [id], onDelete: SetNull)
-  supplier      Contact        @relation("PurchaseReceiptSupplier", fields: [supplierId], references: [id])
-  warehouse     Warehouse      @relation(fields: [warehouseId], references: [id])
-  createdBy     User?          @relation("PurchaseReceiptCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  lines         PurchaseReceiptLine[]
+  organization                         Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  purchaseOrder                        PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  purchaseBill                         PurchaseBill?         @relation(fields: [purchaseBillId], references: [id], onDelete: SetNull)
+  supplier                             Contact               @relation("PurchaseReceiptSupplier", fields: [supplierId], references: [id])
+  warehouse                            Warehouse             @relation(fields: [warehouseId], references: [id])
+  createdBy                            User?                 @relation("PurchaseReceiptCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  inventoryAssetJournalEntry           JournalEntry?         @relation("PurchaseReceiptInventoryAssetJournal", fields: [inventoryAssetJournalEntryId], references: [id], onDelete: SetNull)
+  inventoryAssetReversalJournalEntry   JournalEntry?         @relation("PurchaseReceiptInventoryAssetReversalJournal", fields: [inventoryAssetReversalJournalEntryId], references: [id], onDelete: SetNull)
+  inventoryAssetPostedBy               User?                 @relation("PurchaseReceiptInventoryAssetPostedBy", fields: [inventoryAssetPostedById], references: [id], onDelete: SetNull)
+  inventoryAssetReversedBy             User?                 @relation("PurchaseReceiptInventoryAssetReversedBy", fields: [inventoryAssetReversedById], references: [id], onDelete: SetNull)
+  lines                                PurchaseReceiptLine[]
 
   @@unique([organizationId, receiptNumber])
   @@index([organizationId])
@@ -1595,6 +1607,8 @@ model PurchaseReceipt {
   @@index([purchaseBillId])
   @@index([supplierId])
   @@index([warehouseId])
+  @@index([inventoryAssetPostedById])
+  @@index([inventoryAssetReversedById])
   @@index([organizationId, status])
   @@index([organizationId, receiptDate])
 }
@@ -2135,6 +2149,8 @@ model JournalEntry {
   bankTransfer          BankTransfer?      @relation("BankTransferJournal")
   voidedBankTransfer    BankTransfer?      @relation("BankTransferVoidReversalJournal")
   bankAccountOpeningProfile BankAccountProfile? @relation("BankAccountOpeningBalanceJournal")
+  inventoryAssetPurchaseReceipt PurchaseReceipt? @relation("PurchaseReceiptInventoryAssetJournal")
+  inventoryAssetReversedPurchaseReceipt PurchaseReceipt? @relation("PurchaseReceiptInventoryAssetReversalJournal")
   cogsSalesStockIssue   SalesStockIssue?   @relation("SalesStockIssueCogsJournal")
   cogsReversedSalesStockIssue SalesStockIssue? @relation("SalesStockIssueCogsReversalJournal")
   matchedBankStatementTransactions BankStatementTransaction[] @relation("BankStatementTransactionMatchedJournalEntry")

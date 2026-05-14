@@ -65,17 +65,17 @@ Tasks:
 - Inventory adjustment approval inbox, attachments, and reason-code catalog.
 - Warehouse in-transit transfer, shipping document, and bin/location support.
 - Accountant review of the current moving-average operational valuation estimate and FIFO placeholder policy.
-- Review inventory accounting settings, purchase receipt clearing previews, purchase bill direct-vs-clearing finalization behavior, bill/receipt matching visibility, and manual sales issue COGS posting with an accountant.
-- Use `docs/inventory/PURCHASE_RECEIPT_POSTING_READINESS_AUDIT.md` as the go/no-go gate before receipt GL posting.
-- Harden manual COGS review/audit UX after first QA pass.
-- Explicit purchase receipt inventory asset posting after bill/receipt matching, migration/exclusion, and variance design is approved.
+- Review inventory accounting settings, purchase receipt clearing previews/posting, purchase bill direct-vs-clearing finalization behavior, bill/receipt matching visibility, manual sales issue COGS posting, and clearing account balances with an accountant.
+- Use `docs/inventory/PURCHASE_RECEIPT_POSTING_READINESS_AUDIT.md` as the go/no-go gate before automatic receipt GL posting or direct-mode migration.
+- Harden manual COGS and receipt asset review/audit UX after first QA pass.
+- Inventory clearing reconciliation, variance handling, and historical direct-mode exclusion reporting.
 - Accounting-grade inventory valuation reports after GL posting design.
 - Employee master data.
 - Payroll shell with draft runs, pay items, and accounting posting plan.
 
 Manual dependencies:
 
-- Inventory valuation accounting policy, inventory clearing account treatment, bill/receipt matching policy, and COGS cost-flow approval.
+- Inventory valuation accounting policy, inventory clearing account treatment, bill/receipt matching/variance policy, receipt asset posting review policy, and COGS cost-flow approval.
 - Payroll jurisdiction requirements.
 - Accountant review of COGS/payroll postings.
 
@@ -83,7 +83,7 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Add explicit guarded purchase receipt inventory asset posting fields, preview-to-post endpoint, reversal endpoint, and void protection for compatible inventory-clearing purchase bills only.
+> Add inventory clearing reconciliation and variance reporting for manually posted purchase receipt asset journals.
 
 ## Phase 4: ZATCA Production Path
 

@@ -12,6 +12,8 @@ The API surface is:
 - `GET /purchase-bills/:id/accounting-preview`
 - `GET /purchase-orders/:id/receipt-matching-status`
 - `GET /purchase-receipts/:id/accounting-preview`
+- `POST /purchase-receipts/:id/post-inventory-asset`
+- `POST /purchase-receipts/:id/reverse-inventory-asset`
 - `GET /inventory/purchase-receipt-posting-readiness`
 
 ## Matching Statuses
@@ -35,7 +37,7 @@ Purchase order matching returns the operational receipt value estimate, converte
 
 ## Future Accounting Use
 
-Bill/receipt matching will be used to decide when a future receipt posting can debit inventory asset and credit clearing, and when a purchase bill should debit clearing and credit AP. Price and quantity differences must be handled before posting is enabled.
+Bill/receipt matching is now used by the preview to decide whether a receipt is linked to a finalized `INVENTORY_CLEARING` bill and can be manually posted Dr Inventory Asset / Cr Inventory Clearing. Price and quantity differences must still be reviewed before broader automation, reconciliation, or variance posting is enabled.
 
 ## Deferred Work
 
@@ -50,4 +52,4 @@ Bill/receipt matching will be used to decide when a future receipt posting can d
 
 Matching status is visibility only. It is not an accounting subledger and does not post or reverse any GL entries.
 
-The readiness audit confirms that matching visibility and clearing-mode bill finalization are still not enough to enable receipt posting. Receipt posting fields/endpoints, reversal rules, variance policy, and a migration/exclusion rule for current finalized direct-mode bills are still required first.
+Manual receipt asset posting is available only from the receipt action path for compatible clearing-mode bills. Matching status itself remains non-posting, and automatic posting, direct-mode posting, variance policy, and migration/exclusion for current finalized direct-mode bills remain out of scope.

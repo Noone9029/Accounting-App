@@ -152,15 +152,16 @@ describe("InventoryAccountingService", () => {
         "Inventory clearing account mapping is required.",
         "Inventory accounting must be enabled before purchase receipt posting can be considered.",
         "Purchase receipt posting mode must be PREVIEW_ONLY for readiness review.",
-        "Purchase receipt GL posting implementation is not available yet.",
-        "Purchase receipt GL posting requires a future explicit receipt posting workflow before it can be enabled.",
+        "Automatic purchase receipt GL posting is not enabled.",
+        "Purchase receipt GL posting is manual only for compatible finalized INVENTORY_CLEARING purchase bills.",
       ]),
     );
     expect(result.warnings).toEqual(
       expect.arrayContaining([
-        "Purchase receipt GL posting is not enabled yet.",
+        "Purchase receipt GL posting requires an explicit manual post action after review.",
         "Inventory clearing bill finalization is available.",
-        "Purchase receipt GL posting remains disabled.",
+        "Manual purchase receipt inventory asset posting is available for compatible clearing-mode bills.",
+        "Automatic purchase receipt GL posting remains disabled.",
         "Purchase receipt GL posting requires purchase bills to use inventory clearing mode.",
       ]),
     );
@@ -213,7 +214,7 @@ describe("InventoryAccountingService", () => {
     expect(result.requiredAccounts.inventoryClearingAccount).toEqual(clearingAccount);
   });
 
-  it("keeps purchase receipt posting no-go even when prerequisites are mapped", async () => {
+  it("keeps automatic purchase receipt posting disabled even when prerequisites are mapped", async () => {
     const { service, prisma } = makeService();
     prisma.inventorySettings.findUnique.mockResolvedValue({
       ...baseSettings,
@@ -231,18 +232,19 @@ describe("InventoryAccountingService", () => {
     expect(result.canEnablePosting).toBe(false);
     expect(result.blockingReasons).toEqual(
       expect.arrayContaining([
-        "Purchase receipt GL posting implementation is not available yet.",
-        "Purchase receipt GL posting requires a future explicit receipt posting workflow before it can be enabled.",
+        "Automatic purchase receipt GL posting is not enabled.",
+        "Purchase receipt GL posting is manual only for compatible finalized INVENTORY_CLEARING purchase bills.",
       ]),
     );
-    expect(result.warnings).toContain("Purchase receipt GL posting is not enabled yet.");
+    expect(result.warnings).toContain("Purchase receipt GL posting requires an explicit manual post action after review.");
     expect(result.warnings).toContain("Inventory clearing bill finalization is available.");
-    expect(result.warnings).toContain("Purchase receipt GL posting remains disabled.");
+    expect(result.warnings).toContain("Manual purchase receipt inventory asset posting is available for compatible clearing-mode bills.");
+    expect(result.warnings).toContain("Automatic purchase receipt GL posting remains disabled.");
     expect(result.warnings).toContain("Purchase receipt GL posting requires purchase bills to use inventory clearing mode.");
     expect(result.compatibleBillPostingModeExists).toBe(true);
     expect(result.existingBillsInDirectModeCount).toBe(0);
     expect(result.billsUsingInventoryClearingCount).toBe(0);
-    expect(result.recommendedNextStep).toContain("explicit purchase receipt GL posting");
+    expect(result.recommendedNextStep).toContain("explicit receipt asset posting");
     expect(prisma.journalEntry.create).not.toHaveBeenCalled();
   });
 

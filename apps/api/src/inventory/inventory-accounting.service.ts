@@ -4,8 +4,9 @@ import { PrismaService } from "../prisma/prisma.service";
 import { STOCK_MOVEMENT_IN_TYPES } from "../stock-movements/stock-movement-rules";
 import { UpdateInventoryAccountingSettingsDto } from "./dto/update-inventory-accounting-settings.dto";
 
-export const INVENTORY_ACCOUNTING_NO_GL_WARNING = "Enabling this only allows manual COGS posting. It does not auto-post inventory journals.";
-export const PURCHASE_RECEIPT_NO_GL_WARNING = "Purchase receipt GL posting is not enabled yet.";
+export const INVENTORY_ACCOUNTING_NO_GL_WARNING =
+  "Enabling this only allows manual COGS and compatible receipt asset posting. It does not auto-post inventory journals.";
+export const PURCHASE_RECEIPT_NO_GL_WARNING = "Purchase receipt GL posting requires an explicit manual post action after review.";
 export const COGS_PREVIEW_ONLY_WARNING = "COGS posting requires an explicit manual post action after review.";
 export const ACCOUNTANT_REVIEW_WARNING = "Accountant review required before enabling financial inventory postings.";
 export const NO_FINANCIAL_POSTING_WARNING = "No automatic financial inventory accounting has been posted.";
@@ -133,8 +134,8 @@ export class InventoryAccountingService {
     const accountBlockingReasons = this.purchaseReceiptPostingBlockingReasons(settings);
     const blockingReasons = [
       ...accountBlockingReasons,
-      "Purchase receipt GL posting implementation is not available yet.",
-      "Purchase receipt GL posting requires a future explicit receipt posting workflow before it can be enabled.",
+      "Automatic purchase receipt GL posting is not enabled.",
+      "Purchase receipt GL posting is manual only for compatible finalized INVENTORY_CLEARING purchase bills.",
     ];
     const compatibleBillPostingModeExists = true;
 
@@ -146,7 +147,8 @@ export class InventoryAccountingService {
         PURCHASE_RECEIPT_NO_GL_WARNING,
         "This readiness check is advisory only and does not create journals.",
         "Inventory clearing bill finalization is available.",
-        "Purchase receipt GL posting remains disabled.",
+        "Manual purchase receipt inventory asset posting is available for compatible clearing-mode bills.",
+        "Automatic purchase receipt GL posting remains disabled.",
         "Purchase receipt GL posting requires purchase bills to use inventory clearing mode.",
         "Purchase bills in DIRECT_EXPENSE_OR_ASSET mode continue posting line accounts directly; receipt posting would double-count unless bill clearing is selected.",
         ACCOUNTANT_REVIEW_WARNING,
@@ -160,7 +162,7 @@ export class InventoryAccountingService {
       billsUsingInventoryClearingCount,
       recommendedNextStep:
         accountBlockingReasons.length === 0
-          ? "Review clearing-mode bill journals with an accountant, then add explicit purchase receipt GL posting fields and guarded posting endpoints in a future task."
+          ? "Use explicit receipt asset posting only after accountant review of linked INVENTORY_CLEARING bill journals and receipt costs."
           : "Complete inventory accounting, moving-average valuation, preview-only receipt mode, and separate inventory asset/clearing account mappings first.",
     };
   }

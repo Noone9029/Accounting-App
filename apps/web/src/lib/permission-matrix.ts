@@ -79,6 +79,8 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       permission(PERMISSIONS.inventory.manage, "Manage inventory", "Manage inventory settings such as valuation policy groundwork."),
       permission(PERMISSIONS.inventory.cogsPost, "Post COGS", "Post reviewed sales stock issue COGS into an accounting journal."),
       permission(PERMISSIONS.inventory.cogsReverse, "Reverse COGS", "Reverse a manually posted sales stock issue COGS journal."),
+      permission(PERMISSIONS.inventory.receiptsPostAsset, "Post receipt asset", "Post reviewed purchase receipt inventory asset entries for clearing-mode bills."),
+      permission(PERMISSIONS.inventory.receiptsReverseAsset, "Reverse receipt asset", "Reverse a manually posted purchase receipt inventory asset journal."),
       permission(PERMISSIONS.warehouses.view, "View warehouses", "See warehouse master data and warehouse-level stock balances."),
       permission(PERMISSIONS.warehouses.manage, "Manage warehouses", "Create, update, archive, and reactivate warehouses."),
       permission(PERMISSIONS.stockMovements.view, "View stock movements", "See manual operational stock ledger entries."),

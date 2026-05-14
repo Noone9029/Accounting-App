@@ -12,9 +12,14 @@ import {
   accountingPreviewCanPost,
   accountingPreviewLineDisplay,
   canVoidPostedStockDocument,
+  canShowPostReceiptAssetAction,
+  canShowReverseReceiptAssetAction,
   formatInventoryQuantity,
   inventoryOperationalWarning,
+  linkedPurchaseBillModeWarning,
   purchaseReceiptPostingModeLabel,
+  receiptAssetPostingFinancialReportWarning,
+  receiptAssetPostingStatus,
   stockDocumentStatusBadgeClass,
   stockDocumentStatusLabel,
   stockMovementTypeLabel,
@@ -31,10 +36,14 @@ export default function PurchaseReceiptDetailPage() {
   const [loading, setLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const [voiding, setVoiding] = useState(false);
+  const [postingAsset, setPostingAsset] = useState(false);
+  const [reversingAsset, setReversingAsset] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const canVoid = can(PERMISSIONS.purchaseReceiving.create);
+  const canPostAsset = can(PERMISSIONS.inventory.receiptsPostAsset);
+  const canReverseAsset = can(PERMISSIONS.inventory.receiptsReverseAsset);
 
   useEffect(() => {
     if (!organizationId || !params.id) return;
@@ -83,6 +92,40 @@ export default function PurchaseReceiptDetailPage() {
       setError(voidError instanceof Error ? voidError.message : "Unable to void purchase receipt.");
     } finally {
       setVoiding(false);
+    }
+  }
+
+  async function postInventoryAsset() {
+    if (!receipt || !window.confirm(`Post inventory asset for ${receipt.receiptNumber}? ${receiptAssetPostingFinancialReportWarning()}`)) return;
+    setPostingAsset(true);
+    setError("");
+    setSuccess("");
+    try {
+      const updated = await apiRequest<PurchaseReceipt>(`/purchase-receipts/${receipt.id}/post-inventory-asset`, { method: "POST" });
+      setReceipt(updated);
+      setSuccess(`Inventory asset journal posted for ${updated.receiptNumber}.`);
+      setReloadToken((current) => current + 1);
+    } catch (postError) {
+      setError(postError instanceof Error ? postError.message : "Unable to post inventory asset journal.");
+    } finally {
+      setPostingAsset(false);
+    }
+  }
+
+  async function reverseInventoryAsset() {
+    if (!receipt || !window.confirm(`Reverse inventory asset posting for ${receipt.receiptNumber}?`)) return;
+    setReversingAsset(true);
+    setError("");
+    setSuccess("");
+    try {
+      const updated = await apiRequest<PurchaseReceipt>(`/purchase-receipts/${receipt.id}/reverse-inventory-asset`, { method: "POST" });
+      setReceipt(updated);
+      setSuccess(`Inventory asset posting reversed for ${updated.receiptNumber}.`);
+      setReloadToken((current) => current + 1);
+    } catch (reverseError) {
+      setError(reverseError instanceof Error ? reverseError.message : "Unable to reverse inventory asset journal.");
+    } finally {
+      setReversingAsset(false);
     }
   }
 
@@ -162,7 +205,16 @@ export default function PurchaseReceiptDetailPage() {
             </table>
           </div>
 
-          <PurchaseReceiptAccountingPreviewPanel preview={preview} error={previewError} />
+          <PurchaseReceiptAccountingPreviewPanel
+            preview={preview}
+            error={previewError}
+            canPostAsset={canPostAsset}
+            canReverseAsset={canReverseAsset}
+            postingAsset={postingAsset}
+            reversingAsset={reversingAsset}
+            onPostAsset={() => void postInventoryAsset()}
+            onReverseAsset={() => void reverseInventoryAsset()}
+          />
         </div>
       ) : null}
     </section>
@@ -190,7 +242,25 @@ function Movement({ line, kind }: { line: PurchaseReceiptLine; kind: "stockMovem
   );
 }
 
-function PurchaseReceiptAccountingPreviewPanel({ preview, error }: { preview: PurchaseReceiptAccountingPreview | null; error: string }) {
+function PurchaseReceiptAccountingPreviewPanel({
+  preview,
+  error,
+  canPostAsset,
+  canReverseAsset,
+  postingAsset,
+  reversingAsset,
+  onPostAsset,
+  onReverseAsset,
+}: {
+  preview: PurchaseReceiptAccountingPreview | null;
+  error: string;
+  canPostAsset: boolean;
+  canReverseAsset: boolean;
+  postingAsset: boolean;
+  reversingAsset: boolean;
+  onPostAsset: () => void;
+  onReverseAsset: () => void;
+}) {
   if (error) {
     return <StatusMessage type="error">{error}</StatusMessage>;
   }
@@ -199,21 +269,45 @@ function PurchaseReceiptAccountingPreviewPanel({ preview, error }: { preview: Pu
   }
 
   const postable = accountingPreviewCanPost(preview);
+  const showPostAsset = canShowPostReceiptAssetAction(preview, canPostAsset);
+  const showReverseAsset = canShowReverseReceiptAssetAction(preview, canReverseAsset);
 
   return (
     <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h2 className="text-base font-semibold text-ink">Accounting Preview</h2>
-          <p className="mt-1 text-sm text-steel">Design-only inventory asset preview. No journal entry will be posted.</p>
+          <p className="mt-1 text-sm text-steel">Manual inventory asset preview for compatible inventory-clearing purchase bills.</p>
         </div>
-        <div className="flex flex-wrap gap-2 text-xs font-medium">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
           <span className="rounded-md bg-amber-50 px-2 py-1 text-amber-700">{preview.postingStatus.replaceAll("_", " ")}</span>
           <span className={postable ? "rounded-md bg-emerald-50 px-2 py-1 text-emerald-700" : "rounded-md bg-slate-100 px-2 py-1 text-slate-700"}>
-            {postable ? "Postable" : "Preview only"}
+            {postable ? "Eligible" : "Blocked"}
           </span>
+          {showPostAsset ? (
+            <button
+              type="button"
+              onClick={onPostAsset}
+              disabled={postingAsset}
+              className="rounded-md bg-palm px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              {postingAsset ? "Posting..." : "Post Inventory Asset"}
+            </button>
+          ) : null}
+          {showReverseAsset ? (
+            <button
+              type="button"
+              onClick={onReverseAsset}
+              disabled={reversingAsset}
+              className="rounded-md border border-rosewood px-3 py-1.5 text-xs font-semibold text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              {reversingAsset ? "Reversing..." : "Reverse Inventory Asset Posting"}
+            </button>
+          ) : null}
         </div>
       </div>
+
+      <div className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900">{receiptAssetPostingFinancialReportWarning()}</div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
         <PreviewList title="Blocking reasons" items={preview.blockingReasons} emptyText={preview.canPostReason} tone="slate" />
@@ -221,11 +315,17 @@ function PurchaseReceiptAccountingPreviewPanel({ preview, error }: { preview: Pu
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-3 text-sm md:grid-cols-4">
+        <Detail label="Asset posting status" value={receiptAssetPostingStatus(preview)} />
         <Detail label="Posting mode" value={purchaseReceiptPostingModeLabel(preview.postingMode)} />
+        <Detail label="Linked bill mode" value={preview.linkedBill ? preview.linkedBill.inventoryPostingMode.replaceAll("_", " ") : "No linked bill"} />
+        <Detail label="Linked bill status" value={preview.linkedBill ? preview.linkedBill.status : "No linked bill"} />
         <Detail label="Receipt value" value={formatInventoryQuantity(preview.receiptValue)} />
         <Detail label="Matched bill value" value={formatInventoryQuantity(preview.matchedBillValue)} />
         <Detail label="Value difference" value={formatInventoryQuantity(preview.valueDifference)} />
+        <Detail label="Asset journal" value={preview.journalEntryId ?? "-"} />
+        <Detail label="Reversal journal" value={preview.reversalJournalEntryId ?? "-"} />
       </div>
+      <p className="mt-3 text-sm text-steel">{linkedPurchaseBillModeWarning(preview.linkedBill?.inventoryPostingMode)}</p>
 
       <div className="mt-5 overflow-x-auto rounded-md border border-slate-200">
         <table className="w-full min-w-[920px] text-left text-sm">

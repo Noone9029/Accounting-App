@@ -4,18 +4,22 @@ Audit date: 2026-05-14
 
 ## Current State
 
-Purchase receipts are operational stock events. They create `PURCHASE_RECEIPT_PLACEHOLDER` stock movements and update warehouse quantity only. They do not create `JournalEntry` records, do not debit inventory asset, and do not affect financial statements.
+Purchase receipts are operational stock events by default. They create `PURCHASE_RECEIPT_PLACEHOLDER` stock movements and update warehouse quantity. They do not automatically create `JournalEntry` records.
 
-Purchase bills currently post directly to expense, COGS, or asset accounts by line, debit VAT Receivable when tax exists, and credit Accounts Payable. That behavior is intentionally unchanged in this phase for the default `DIRECT_EXPENSE_OR_ASSET` mode.
+Purchase bills in the default `DIRECT_EXPENSE_OR_ASSET` mode keep the existing behavior: Dr selected line accounts, Dr VAT Receivable when applicable, Cr Accounts Payable.
 
-Purchase bills can now store and explicitly finalize `INVENTORY_CLEARING` mode for accountant-reviewed inventory-tracked bill lines. That mode posts Dr Inventory Clearing for inventory-tracked lines, keeps non-inventory lines on their selected accounts, and still does not post receipt inventory asset journals.
+Purchase bills in `INVENTORY_CLEARING` mode can be explicitly finalized after accountant review. Inventory-tracked bill lines debit Inventory Clearing, non-inventory lines stay on their selected accounts, VAT posts as usual, and AP is credited.
 
-## Preview Groundwork
+Compatible purchase receipts linked to finalized `INVENTORY_CLEARING` bills can now be manually posted after preview/accountant review. The posting is explicit only; no receipt auto-posting exists.
 
-`GET /purchase-receipts/:id/accounting-preview` now returns a design-only preview with:
+## Preview And Posting
+
+`GET /purchase-receipts/:id/accounting-preview` returns:
 
 - `previewOnly: true`
-- `canPost: false`
+- `canPost`
+- posting status and receipt asset journal ids
+- linked bill mode/status
 - `postingMode`
 - receipt value
 - matched bill value
@@ -24,34 +28,28 @@ Purchase bills can now store and explicitly finalize `INVENTORY_CLEARING` mode f
 - matching summary
 - Dr Inventory Asset / Cr Inventory Clearing preview lines when mappings and unit costs exist
 
-The endpoint never creates a journal and never changes purchase bill accounting.
+The endpoint never creates a journal and never changes purchase bill accounting. It returns `canPost: true` only when the receipt is posted, linked to a finalized non-voided `INVENTORY_CLEARING` purchase bill, has complete unit costs, and inventory accounting mappings are valid.
 
-`GET /inventory/purchase-receipt-posting-readiness` now exposes an advisory go/no-go check for the future posting task. It checks inventory accounting, moving-average valuation, preview-only receipt mode, Inventory Asset, Inventory Clearing mappings, direct-mode bill count, and clearing-mode bill count. It does not create settings, journals, or accounting mutations and does not enable posting.
-
-`GET /purchase-bills/:id/accounting-preview` shows the current direct AP posting preview or the future clearing-mode preview without creating journals.
-
-## Proposed Future Journal
-
-Future receipt posting under review:
+`POST /purchase-receipts/:id/post-inventory-asset` creates one reviewed receipt asset journal:
 
 - Dr Inventory Asset
 - Cr Inventory Clearing
 
-Future purchase bill clearing under review:
+`POST /purchase-receipts/:id/reverse-inventory-asset` creates the reversal journal. Voiding a receipt is blocked while the asset journal is active and unreversed.
 
-- Dr Inventory Clearing
-- Dr VAT Receivable, when applicable
-- Cr Accounts Payable
+`GET /inventory/purchase-receipt-posting-readiness` remains an advisory no-auto-posting check. It does not create settings, journals, or accounting mutations.
 
-This would replace or rework the current inventory-line bill behavior for tenants that enable accounting-grade inventory posting. Existing bills that already posted directly to expense/asset accounts need a migration or reclassification strategy before this can be enabled.
+`GET /purchase-bills/:id/accounting-preview` shows the current direct AP posting preview or clearing-mode preview without creating journals.
 
-## Bill And Receipt Matching Risk
+## Direct Mode Risk
 
-Receipt quantities and bill quantities can differ. Unit costs can differ. Bills can contain freight, discounts, service lines, non-inventory lines, and VAT. Posting receipt asset journals before matching rules are approved can duplicate AP, misstate inventory asset, or leave clearing balances unreconciled.
+Receipt quantities and bill quantities can differ. Unit costs can differ. Bills can contain freight, discounts, service lines, non-inventory lines, and VAT. Posting receipt asset journals against direct-mode bills can duplicate expense/asset activity or leave clearing balances unreconciled, so direct-mode receipt posting is blocked.
+
+Existing finalized direct-mode bills are not migrated or retroactively changed.
 
 ## Standalone And PO Receipts
 
-Standalone receipts are not financially postable until the tenant selects a bill or clearing workflow. Purchase-order-only receipts warn that bill matching is unavailable until a purchase bill is linked. Purchase orders remain non-accounting documents.
+Standalone receipts are not financially postable until the tenant selects a bill or approved clearing workflow. Purchase-order-only receipts warn that bill matching is unavailable until a purchase bill is linked. Purchase orders remain non-accounting documents.
 
 ## Deferred Work
 
@@ -68,6 +66,4 @@ Landed cost is deferred because freight, duty, allocation bases, supplier charge
 
 ## Current Hard Stop
 
-Purchase receipt inventory asset posting is not implemented. The preview is review-only and remains non-postable.
-
-The current audit recommendation remains no-go for receipt GL posting until receipt posting fields/endpoints, migration/exclusion rules, reversal protection, and variance handling are approved.
+Automatic purchase receipt inventory asset posting is not implemented. Direct-mode receipt posting, historical migration, landed cost, FIFO, and clearing reconciliation remain out of scope.

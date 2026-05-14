@@ -612,12 +612,12 @@ export interface PurchaseReceipt {
   status: PurchaseReceiptStatus;
   notes: string | null;
   createdById: string | null;
-  cogsJournalEntryId: string | null;
-  cogsReversalJournalEntryId: string | null;
-  cogsPostedAt: string | null;
-  cogsPostedById: string | null;
-  cogsReversedAt: string | null;
-  cogsReversedById: string | null;
+  inventoryAssetJournalEntryId: string | null;
+  inventoryAssetReversalJournalEntryId: string | null;
+  inventoryAssetPostedAt: string | null;
+  inventoryAssetPostedById: string | null;
+  inventoryAssetReversedAt: string | null;
+  inventoryAssetReversedById: string | null;
   postedAt: string | null;
   voidedAt: string | null;
   createdAt: string;
@@ -625,9 +625,13 @@ export interface PurchaseReceipt {
   supplier?: Pick<Contact, "id" | "name" | "displayName" | "type" | "taxNumber">;
   warehouse?: Pick<Warehouse, "id" | "code" | "name" | "status" | "isDefault">;
   purchaseOrder?: { id: string; purchaseOrderNumber: string; status: PurchaseOrderStatus; orderDate: string; total: string } | null;
-  purchaseBill?: { id: string; billNumber: string; status: PurchaseBillStatus; billDate: string; total: string } | null;
+  purchaseBill?: { id: string; billNumber: string; status: PurchaseBillStatus; billDate: string; total: string; inventoryPostingMode: PurchaseBillInventoryPostingMode } | null;
   lines?: PurchaseReceiptLine[];
   createdBy?: { id: string; name: string; email: string } | null;
+  inventoryAssetJournalEntry?: { id: string; entryNumber: string; entryDate: string; status: string } | null;
+  inventoryAssetReversalJournalEntry?: { id: string; entryNumber: string; entryDate: string; status: string } | null;
+  inventoryAssetPostedBy?: { id: string; name: string; email: string } | null;
+  inventoryAssetReversedBy?: { id: string; name: string; email: string } | null;
 }
 
 export interface SalesStockIssueLine {
@@ -715,13 +719,15 @@ export interface PurchaseReceiptMatchingStatusLine {
     quantity: string;
     unitCost: string | null;
     value: string | null;
+    inventoryAssetJournalEntryId?: string | null;
+    inventoryAssetReversalJournalEntryId?: string | null;
   }>;
 }
 
 export interface PurchaseBillReceiptMatchingStatus {
   sourceId: string;
   sourceType: "purchaseBill";
-  bill: { id: string; billNumber: string; status: PurchaseBillStatus };
+  bill: { id: string; billNumber: string; status: PurchaseBillStatus; inventoryPostingMode: PurchaseBillInventoryPostingMode };
   supplier: Pick<Contact, "id" | "name" | "displayName">;
   billTotal: string;
   receiptCount: number;
@@ -883,6 +889,16 @@ export interface PurchaseReceiptAccountingPreviewLine {
 
 export interface PurchaseReceiptAccountingPreview extends InventoryAccountingPreviewBase {
   sourceType: "PurchaseReceipt";
+  alreadyPosted: boolean;
+  alreadyReversed: boolean;
+  journalEntryId: string | null;
+  reversalJournalEntryId: string | null;
+  linkedBill: {
+    id: string;
+    billNumber: string;
+    status: PurchaseBillStatus;
+    inventoryPostingMode: PurchaseBillInventoryPostingMode;
+  } | null;
   postingMode: InventoryPurchasePostingMode;
   receiptValue: string;
   matchedBillValue: string;
