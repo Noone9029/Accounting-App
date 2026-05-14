@@ -1,6 +1,6 @@
 # Purchase Receipt GL Posting Design
 
-Date: 2026-05-14
+Date: 2026-05-15
 
 ## Status
 
@@ -108,3 +108,5 @@ After reversal, normal receipt void stock rules apply.
 ## Recommendation
 
 Keep receipt asset posting explicit and accountant-reviewed. Use the clearing reconciliation and variance reports as review tools only. Do not enable automatic receipt GL posting or automatic variance journals until variance posting, landed cost policy, and historical migration rules are complete.
+
+The 2026-05-15 integrity audit found the compatible manual receipt asset flow internally consistent and suitable as input for a future accountant-reviewed variance proposal workflow. That workflow should remain proposal/review based until an authorized user explicitly posts a journal.

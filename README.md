@@ -1099,6 +1099,7 @@ Behavior:
 - `GET /sales-stock-issues/:id/accounting-preview` returns moving-average estimated COGS, Dr COGS / Cr Inventory Asset preview lines, posting status, COGS journal ids when present, and `canPost: true` only when the stock issue is eligible for manual posting.
 - `POST /sales-stock-issues/:id/post-cogs` requires `inventory.cogs.post`, enabled inventory accounting, mapped inventory asset and COGS accounts, `MOVING_AVERAGE`, a posted/unvoided stock issue, no existing COGS journal, no preview blocking reasons, and an open fiscal period on the stock issue date. It creates one posted journal: Dr COGS, Cr Inventory Asset.
 - `POST /sales-stock-issues/:id/reverse-cogs` requires `inventory.cogs.reverse`, an existing unreversed COGS journal, and an open fiscal period on the current date. It creates one reversal journal and does not void the stock issue.
+- `docs/inventory/INVENTORY_ACCOUNTING_INTEGRITY_AUDIT.md` records the 2026-05-15 inventory accounting integrity audit. It found no code-level double-counting defect in the current manual posting paths and recommends the next phase be an accountant-reviewed variance proposal workflow without automatic posting.
 - `GET /inventory/reports/stock-valuation` derives quantity, average unit cost, estimated value, item totals, and grand total from stock movements. Missing inbound cost data is surfaced as a row warning.
 - `GET /inventory/reports/movement-summary` returns opening, inbound, outbound, closing, movement count, and movement-type breakdown by item and warehouse.
 - `GET /inventory/reports/low-stock` returns inventory-tracked items whose total quantity on hand is at or below `Item.reorderPoint`.
@@ -1134,6 +1135,7 @@ Known limitations:
 - Purchase receipt inventory asset posting is manual only and blocked for `DIRECT_EXPENSE_OR_ASSET` bills.
 - Inventory Clearing purchase bill finalization and receipt asset posting can leave timing differences in Inventory Clearing until receipts and bills are reviewed in the clearing reconciliation and variance reports.
 - Existing finalized direct-mode purchase bills are not migrated.
+- No automatic variance journal proposals or postings yet; the next safe phase is proposal-only variance review from clearing variance rows.
 - No automatic purchase receipt from purchase orders or bills.
 - No automatic sales delivery or stock issue from sales invoices.
 - No landed cost.

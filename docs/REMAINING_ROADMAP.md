@@ -1,6 +1,6 @@
 # Remaining Roadmap
 
-Audit date: 2026-05-14
+Audit date: 2026-05-15
 
 ## Phase 1: Stabilize Current MVP
 
@@ -68,7 +68,7 @@ Tasks:
 - Review inventory accounting settings, purchase receipt clearing previews/posting, purchase bill direct-vs-clearing finalization behavior, bill/receipt matching visibility, manual sales issue COGS posting, and clearing account balances with an accountant.
 - Use `docs/inventory/PURCHASE_RECEIPT_POSTING_READINESS_AUDIT.md` as the go/no-go gate before automatic receipt GL posting or direct-mode migration.
 - Harden manual COGS and receipt asset review/audit UX after first QA pass.
-- Accountant review of inventory clearing reconciliation/variance reports, followed by variance posting policy and historical direct-mode exclusion/migration planning.
+- Inventory accounting integrity audit is complete for the current manual posting chain; next design should use clearing variance rows to propose accountant-reviewed variance journals without automatic posting.
 - Accounting-grade inventory valuation reports after GL posting design.
 - Employee master data.
 - Payroll shell with draft runs, pay items, and accounting posting plan.
@@ -83,7 +83,7 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Design accountant-approved inventory variance posting and correction journals without enabling automatic variance posting.
+> Add accountant-reviewed inventory variance journal proposal workflow without enabling automatic variance posting.
 
 ## Phase 4: ZATCA Production Path
 

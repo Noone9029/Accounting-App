@@ -1,6 +1,6 @@
 # Inventory Clearing Account Plan
 
-Audit date: 2026-05-14
+Audit date: 2026-05-15
 
 ## Current State
 
@@ -116,3 +116,5 @@ Without an inventory clearing design, directly crediting AP from receipt posting
 Automatic purchase receipt accounting posting remains disabled. Inventory Clearing bill finalization is available for explicitly selected compatible bills, compatible receipts can be manually posted Dr Inventory Asset / Cr Inventory Clearing after review, and clearing differences can be reviewed through reconciliation/variance reports.
 
 The current readiness audit remains no-go for automatic receipt posting and for any direct-mode or historical migration behavior until migration/exclusion, variance posting, VAT, and landed-cost rules are approved.
+
+The 2026-05-15 integrity audit found that manual clearing-mode bill finalization, manual receipt asset posting, reversals, and clearing reports are internally consistent for the current phase. The next safe step is an accountant-reviewed variance proposal workflow that does not auto-create correction journals.

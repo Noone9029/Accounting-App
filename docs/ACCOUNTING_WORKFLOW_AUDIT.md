@@ -1,6 +1,6 @@
 # Accounting Workflow Audit
 
-Audit date: 2026-05-13
+Audit date: 2026-05-15
 
 This document maps implemented accounting workflows to their journal entries, balance fields, idempotency behavior, and gaps.
 
@@ -184,6 +184,7 @@ This document maps implemented accounting workflows to their journal entries, ba
   - `GET /inventory/reports/low-stock` lists tracked items at or below reorder point.
   - `GET /inventory/reports/clearing-reconciliation` compares finalized `INVENTORY_CLEARING` purchase bill clearing debits with active linked purchase receipt asset posting credits, includes clearing account GL activity, supports CSV, and creates no journals.
   - `GET /inventory/reports/clearing-variance` returns only clearing rows requiring accountant review, including partial receipts, value differences, reversed receipt asset postings, and receipts without compatible clearing bills; it supports CSV and creates no variance journals.
+  - `docs/inventory/INVENTORY_ACCOUNTING_INTEGRITY_AUDIT.md` records the 2026-05-15 integrity audit and found no code-level double-counting defect in direct-mode blocking, clearing-mode receipt posting, COGS posting, reversals, void protection, or read-only report paths.
 - Preview behavior:
   - Purchase receipt detail/API can show receipt value, linked bill mode/status, matched bill value, value difference, matching summary, posting status, journal ids, and Dr Inventory Asset / Cr Inventory Clearing lines when unit costs and mappings exist.
   - Purchase receipt preview returns `canPost: true` only for eligible receipts linked to finalized `INVENTORY_CLEARING` bills.
@@ -211,6 +212,7 @@ This document maps implemented accounting workflows to their journal entries, ba
   - Inventory accounting settings, readiness, and preview endpoints do not affect GL, COGS, inventory asset balances, VAT, or financial statements by themselves.
 - Gaps/risks:
   - No automatic COGS posting, automatic purchase receipt inventory asset posting, direct-mode receipt posting, automatic variance posting, automatic purchase receipt/automatic sales issue, landed cost, serial/batch tracking, delivery documents, or accounting-grade inventory financial report exists yet.
+  - The next recommended inventory accounting phase is accountant-reviewed variance journal proposals from clearing variance rows; proposal creation and posting must remain explicit, permission-gated, and fiscal-period guarded.
 
 ## Sales Workflows
 

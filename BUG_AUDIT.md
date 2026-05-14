@@ -1,8 +1,8 @@
 # LedgerByte Bug Audit
 
-Audit date: 2026-05-14
+Audit date: 2026-05-15
 
-Commit inspected: pending (`Add inventory clearing reconciliation reports`)
+Commit inspected: `4eb0188 Add inventory clearing reconciliation reports`
 
 ## Scope
 
@@ -36,6 +36,31 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Inventory accounting integrity audit completed
+
+Reviewed the full inventory accounting chain after manual COGS posting, explicit purchase receipt asset posting, Inventory Clearing purchase bill finalization, and clearing reconciliation/variance reporting.
+
+Audit result:
+
+- No code-level double-counting defect was found in the audited manual posting paths.
+- Direct-mode purchase bills remain blocked from receipt asset posting.
+- Clearing-mode bills, receipt asset journals, reversals, and clearing reports are internally consistent for the current manual workflow.
+- COGS posting and reversal remain explicit, permission-gated, fiscal-period guarded, and isolated from invoice posting.
+- Inventory adjustments, warehouse transfers, stock movements, receipt creation, and stock issue creation remain operational-only unless an explicit manual posting action is used.
+- Report/preview endpoints remain read-only and smoke-covered for no journal creation.
+
+Remaining risks:
+
+- No automatic variance posting or correction journals.
+- No landed cost.
+- FIFO remains placeholder-only.
+- No direct-mode historical migration.
+- Moving-average COGS remains an operational estimate requiring accountant review.
+
+Recommendation:
+
+- GO for an accountant-reviewed variance journal proposal workflow, provided it remains proposal-only until an authorized accountant explicitly posts a journal.
 
 ### Inventory clearing reconciliation and variance reporting added
 

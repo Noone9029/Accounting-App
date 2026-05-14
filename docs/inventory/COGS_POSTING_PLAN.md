@@ -1,6 +1,6 @@
 # COGS Posting Plan
 
-Audit date: 2026-05-14
+Audit date: 2026-05-15
 
 ## Current State
 
@@ -54,3 +54,4 @@ The preview uses estimated moving-average cost from operational inbound stock mo
 - Inventory clearing settings, preview lines, bill/receipt matching visibility, explicit clearing-mode purchase bill finalization, explicit receipt asset posting, and read-only clearing reconciliation/variance reports now exist, but automatic receipt posting and automatic variance journals are not implemented.
 - Purchase receipt posting readiness is advisory for automatic/broader rollout and remains no-go for direct-mode bills, historical migration, landed cost, and FIFO.
 - FIFO, landed cost, serial tracking, batch tracking, returns, and credit-note inventory returns remain out of scope.
+- The 2026-05-15 integrity audit found no COGS double-counting defect in the explicit post/reverse path; moving-average cost remains a reviewed operational estimate until accounting-grade cost layers are designed.
