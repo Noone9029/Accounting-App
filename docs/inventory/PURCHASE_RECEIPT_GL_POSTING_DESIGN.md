@@ -9,7 +9,7 @@ This is a design document only. Purchase receipt GL posting is not implemented, 
 The current groundwork adds `PurchaseBill.inventoryPostingMode` with:
 
 - `DIRECT_EXPENSE_OR_ASSET`: default current behavior.
-- `INVENTORY_CLEARING`: draft storage and accounting preview only; finalization is blocked until the future clearing workflow is implemented.
+- `INVENTORY_CLEARING`: draft storage, accounting preview, and explicit finalization for compatible draft purchase bills. This posts Dr Inventory Clearing / Dr VAT / Cr AP for tracked inventory bill lines but still does not post receipt inventory asset journals.
 
 ## A. Receipt Posting Journal
 
@@ -64,12 +64,13 @@ Recommended future blocking rules:
 Current compatibility rule:
 
 - Direct-mode bills remain safe and unchanged.
-- Clearing-mode bill previews show the future Dr Inventory Clearing / Dr VAT / Cr AP shape.
-- Clearing-mode finalization is not enabled yet, so receipt posting remains no-go.
+- Clearing-mode bill previews show the implemented Dr Inventory Clearing / Dr VAT / Cr AP shape.
+- Clearing-mode finalization is enabled only when selected explicitly and the bill/settings pass validation.
+- Receipt posting remains no-go because receipt journal fields, posting/reversal endpoints, variance rules, and migration/exclusion rules are still not implemented.
 
 ## E. Recommendation
 
-Do not post purchase receipt GL entries for existing finalized bills unless a migration or clearing strategy exists. Implement explicit receipt posting only after the purchase bill clearing workflow, migration policy, reversal behavior, and accountant review checklist are approved.
+Do not post purchase receipt GL entries for existing finalized direct-mode bills unless a migration or clearing strategy exists. Implement explicit receipt posting only after receipt posting fields, migration policy, reversal behavior, variance handling, and the accountant review checklist are approved.
 
 ## Future Endpoint Shape
 

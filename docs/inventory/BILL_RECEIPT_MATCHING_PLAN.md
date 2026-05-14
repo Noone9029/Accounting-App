@@ -27,7 +27,7 @@ Bill matching returns supplier, bill total, receipt count, receipt value, status
 
 The endpoint does not change AP, VAT, inventory asset, or supplier ledger balances.
 
-Purchase bill accounting preview now shows whether the bill is in direct mode or inventory-clearing mode. Direct mode mirrors current AP finalization. Inventory-clearing mode previews Dr Inventory Clearing for tracked lines while keeping non-inventory lines on their selected accounts, but it cannot be finalized yet.
+Purchase bill accounting preview now shows whether the bill is in direct mode or inventory-clearing mode. Direct mode mirrors current AP finalization. Inventory-clearing mode previews and finalizes as Dr Inventory Clearing for tracked lines while keeping non-inventory lines on their selected accounts.
 
 ## Purchase Order Matching
 
@@ -50,4 +50,4 @@ Bill/receipt matching will be used to decide when a future receipt posting can d
 
 Matching status is visibility only. It is not an accounting subledger and does not post or reverse any GL entries.
 
-The readiness audit confirms that matching visibility is not enough to enable posting. Clearing-mode bill finalization and a migration/exclusion rule for current finalized direct-mode bills are required first.
+The readiness audit confirms that matching visibility and clearing-mode bill finalization are still not enough to enable receipt posting. Receipt posting fields/endpoints, reversal rules, variance policy, and a migration/exclusion rule for current finalized direct-mode bills are still required first.

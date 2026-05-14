@@ -4,7 +4,7 @@ Date: 2026-05-14
 
 ## Status
 
-This is compatibility groundwork only. It adds a bill-level posting mode and a read-only accounting preview so accountants can review the future clearing approach before purchase receipt GL posting is implemented.
+This phase implements accountant-reviewed purchase bill finalization for the explicit `INVENTORY_CLEARING` mode while keeping purchase receipt GL posting disabled.
 
 No purchase receipt inventory asset journals are posted in this phase, and purchase bill finalization remains production-safe by preserving the current direct mode.
 
@@ -29,7 +29,7 @@ This is a future-compatible mode for inventory-tracked purchase lines:
 - Dr VAT Receivable, when applicable
 - Cr Accounts Payable
 
-Current implementation supports preview and draft storage only. Finalization in this mode is blocked until the clearing workflow is fully approved and tested.
+Current implementation supports preview, draft storage, and explicit finalization when the bill is still draft and inventory clearing settings pass validation. It does not post inventory asset entries from receipts.
 
 ## Future Receipt Posting Preconditions
 
@@ -71,6 +71,6 @@ Recommended migration rule:
 2. Add purchase bill mode storage and preview.
 3. Show readiness counts for direct and clearing-mode bills.
 4. Review mode behavior with accountant.
-5. Implement clearing-mode finalization only after tests prove DIRECT mode is unchanged.
+5. Implement clearing-mode finalization only after tests prove DIRECT mode is unchanged. Completed in the current phase.
 6. Add receipt inventory asset posting fields and explicit posting/reversal endpoints.
 7. Add clearing reconciliation and variance reporting.

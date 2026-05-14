@@ -8,7 +8,7 @@ Purchase receipts are operational stock events. They create `PURCHASE_RECEIPT_PL
 
 Purchase bills currently post directly to expense, COGS, or asset accounts by line, debit VAT Receivable when tax exists, and credit Accounts Payable. That behavior is intentionally unchanged in this phase for the default `DIRECT_EXPENSE_OR_ASSET` mode.
 
-Purchase bills can now store `INVENTORY_CLEARING` mode for design review. That mode is preview-only: it shows Dr Inventory Clearing for inventory-tracked lines, but finalization is blocked until the clearing workflow is approved.
+Purchase bills can now store and explicitly finalize `INVENTORY_CLEARING` mode for accountant-reviewed inventory-tracked bill lines. That mode posts Dr Inventory Clearing for inventory-tracked lines, keeps non-inventory lines on their selected accounts, and still does not post receipt inventory asset journals.
 
 ## Preview Groundwork
 
@@ -70,4 +70,4 @@ Landed cost is deferred because freight, duty, allocation bases, supplier charge
 
 Purchase receipt inventory asset posting is not implemented. The preview is review-only and remains non-postable.
 
-The current audit recommendation remains no-go for receipt GL posting until purchase bill clearing-mode finalization, migration/exclusion rules, and variance handling are approved.
+The current audit recommendation remains no-go for receipt GL posting until receipt posting fields/endpoints, migration/exclusion rules, reversal protection, and variance handling are approved.

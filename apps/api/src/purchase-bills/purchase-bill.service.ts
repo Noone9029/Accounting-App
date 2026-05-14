@@ -34,7 +34,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { CreatePurchaseBillDto } from "./dto/create-purchase-bill.dto";
 import { PurchaseBillLineDto } from "./dto/purchase-bill-line.dto";
 import { UpdatePurchaseBillDto } from "./dto/update-purchase-bill.dto";
-import { buildPurchaseBillJournalLines } from "./purchase-bill-accounting";
+import { buildPurchaseBillJournalLines, PurchaseBillPostingLine } from "./purchase-bill-accounting";
 
 const accountPreviewSelect = {
   id: true,
@@ -243,12 +243,9 @@ export class PurchaseBillService {
 
     const inventoryTrackedLineCount = bill.lines.filter((line) => line.item?.inventoryTracking === true).length;
     const directLineCount = bill.lines.length - inventoryTrackedLineCount;
-    const clearingReadiness = await this.inventoryClearingModeReadiness(organizationId, inventoryTrackedLineCount);
+    const clearingReadiness = await this.inventoryClearingModeReadiness(organizationId, bill.lines);
     const blockingReasons: string[] = [];
-    const warnings = [
-      "Purchase bill accounting preview does not create journals.",
-      "Purchase receipt GL posting requires purchase bills to use inventory clearing mode.",
-    ];
+    const warnings = ["Purchase bill accounting preview does not create journals."];
 
     const accountsPayableAccount = await this.findPreviewPostingAccountByCode(organizationId, "210");
     const vatReceivableAccount = await this.findPreviewPostingAccountByCode(organizationId, "230");
@@ -261,9 +258,12 @@ export class PurchaseBillService {
 
     if (bill.inventoryPostingMode === PurchaseBillInventoryPostingMode.INVENTORY_CLEARING) {
       blockingReasons.push(...clearingReadiness.blockingReasons);
-      blockingReasons.push("Inventory clearing bill finalization is preview-only and is not enabled yet.");
-      warnings.push("Inventory Clearing mode is preparation for future receipt GL posting.");
-      warnings.push("Use Inventory Clearing mode only after accountant review.");
+      if (!toMoney(String(bill.total)).gt(0)) {
+        blockingReasons.push("Inventory clearing purchase bills must have a positive total before finalization.");
+      }
+      warnings.push("Inventory clearing mode does not post inventory asset entries from receipts yet.");
+      warnings.push("Purchase receipt GL posting remains disabled.");
+      warnings.push("Use only after accountant review.");
     }
 
     const previewLines =
@@ -290,7 +290,7 @@ export class PurchaseBillService {
 
     const canFinalize =
       bill.status === PurchaseBillStatus.DRAFT &&
-      bill.inventoryPostingMode === PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET &&
+      (bill.inventoryPostingMode !== PurchaseBillInventoryPostingMode.INVENTORY_CLEARING || toMoney(String(bill.total)).gt(0)) &&
       blockingReasons.length === 0;
 
     return {
@@ -572,7 +572,7 @@ export class PurchaseBillService {
     await this.validateInventoryPostingMode(
       organizationId,
       nextInventoryPostingMode,
-      prepared?.lines ?? existing.lines?.map((line) => ({ inventoryTracking: line.item?.inventoryTracking === true })) ?? [],
+      prepared?.lines ?? existing.lines?.map((line) => ({ itemId: line.itemId, inventoryTracking: line.item?.inventoryTracking === true })) ?? [],
     );
     const updated = await this.prisma.$transaction(async (tx) => {
       if (prepared) {
@@ -631,7 +631,13 @@ export class PurchaseBillService {
         where: { id, organizationId },
         include: {
           supplier: { select: { id: true, name: true, displayName: true } },
-          lines: { orderBy: { sortOrder: "asc" }, include: { account: true } },
+          lines: {
+            orderBy: { sortOrder: "asc" },
+            include: {
+              item: { select: { id: true, inventoryTracking: true } },
+              account: true,
+            },
+          },
         },
       });
 
@@ -649,9 +655,6 @@ export class PurchaseBillService {
       }
       if (bill.status !== PurchaseBillStatus.DRAFT) {
         throw new BadRequestException("Only draft purchase bills can be finalized.");
-      }
-      if (bill.inventoryPostingMode === PurchaseBillInventoryPostingMode.INVENTORY_CLEARING) {
-        throw new BadRequestException("Inventory clearing purchase bill finalization is preview-only and is not enabled yet.");
       }
       await this.assertPostingDateAllowed(organizationId, bill.billDate, tx);
 
@@ -673,6 +676,20 @@ export class PurchaseBillService {
           lineTotal: String(line.lineTotal),
         })),
       });
+
+      const clearingReadiness =
+        bill.inventoryPostingMode === PurchaseBillInventoryPostingMode.INVENTORY_CLEARING
+          ? await this.inventoryClearingModeReadiness(organizationId, bill.lines, tx)
+          : { clearingAccount: null, blockingReasons: [] };
+      if (bill.inventoryPostingMode === PurchaseBillInventoryPostingMode.INVENTORY_CLEARING) {
+        const clearingBlockingReasons = [...clearingReadiness.blockingReasons];
+        if (!toMoney(String(bill.total)).gt(0)) {
+          clearingBlockingReasons.push("Inventory clearing purchase bills must have a positive total before finalization.");
+        }
+        if (clearingBlockingReasons.length > 0) {
+          throw new BadRequestException([...new Set(clearingBlockingReasons)]);
+        }
+      }
 
       const claim = await tx.purchaseBill.updateMany({
         where: {
@@ -701,11 +718,7 @@ export class PurchaseBillService {
         currency: bill.currency,
         total: String(bill.total),
         taxTotal: String(bill.taxTotal),
-        lines: bill.lines.map((line) => ({
-          accountId: line.accountId,
-          description: line.description,
-          taxableAmount: String(line.taxableAmount),
-        })),
+        lines: this.purchaseBillPostingLinesForMode(bill.inventoryPostingMode, bill.lines, clearingReadiness.clearingAccount?.id ?? null),
       });
 
       const entryNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx);
@@ -895,17 +908,7 @@ export class PurchaseBillService {
       currency: bill.currency,
       total: String(bill.total),
       taxTotal: String(bill.taxTotal),
-      lines: bill.lines.map((line) => {
-        const useClearing =
-          bill.inventoryPostingMode === PurchaseBillInventoryPostingMode.INVENTORY_CLEARING &&
-          line.item?.inventoryTracking === true &&
-          clearingAccount !== null;
-        return {
-          accountId: useClearing && clearingAccount ? clearingAccount.id : line.accountId,
-          description: line.description,
-          taxableAmount: String(line.taxableAmount),
-        };
-      }),
+      lines: this.purchaseBillPostingLinesForMode(bill.inventoryPostingMode, bill.lines, clearingAccount?.id ?? null),
     });
 
     return journalLines.reduce<PurchaseBillPreviewLine[]>((preview, line) => {
@@ -941,22 +944,43 @@ export class PurchaseBillService {
   private async validateInventoryPostingMode(
     organizationId: string,
     mode: PurchaseBillInventoryPostingMode,
-    lines: Array<{ inventoryTracking: boolean }>,
+    lines: Array<{ itemId?: string | null; inventoryTracking?: boolean; item?: { inventoryTracking: boolean } | null }>,
   ): Promise<void> {
     if (mode === PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET) {
       return;
     }
-    const readiness = await this.inventoryClearingModeReadiness(
-      organizationId,
-      lines.filter((line) => line.inventoryTracking).length,
-    );
+    const readiness = await this.inventoryClearingModeReadiness(organizationId, lines);
     if (readiness.blockingReasons.length > 0) {
       throw new BadRequestException(readiness.blockingReasons);
     }
   }
 
-  private async inventoryClearingModeReadiness(organizationId: string, inventoryTrackedLineCount: number) {
-    const settings = await this.prisma.inventorySettings.findUnique({
+  private purchaseBillPostingLinesForMode(
+    mode: PurchaseBillInventoryPostingMode,
+    lines: Array<{
+      description: string;
+      accountId: string;
+      taxableAmount: Prisma.Decimal | string;
+      item?: { inventoryTracking: boolean } | null;
+    }>,
+    clearingAccountId: string | null,
+  ): PurchaseBillPostingLine[] {
+    return lines.map((line) => {
+      const useClearing = mode === PurchaseBillInventoryPostingMode.INVENTORY_CLEARING && line.item?.inventoryTracking === true && clearingAccountId;
+      return {
+        accountId: useClearing ? clearingAccountId : line.accountId,
+        description: line.description,
+        taxableAmount: String(line.taxableAmount),
+      };
+    });
+  }
+
+  private async inventoryClearingModeReadiness(
+    organizationId: string,
+    lines: Array<{ itemId?: string | null; inventoryTracking?: boolean; item?: { inventoryTracking: boolean } | null }>,
+    executor: PrismaExecutor = this.prisma,
+  ) {
+    const settings = await executor.inventorySettings.findUnique({
       where: { organizationId },
       include: {
         inventoryAssetAccount: { select: accountPreviewSelect },
@@ -964,8 +988,13 @@ export class PurchaseBillService {
       },
     });
     const blockingReasons: string[] = [];
+    const inventoryTrackedLines = lines.filter((line) => line.inventoryTracking === true || line.item?.inventoryTracking === true);
+    const inventoryTrackedLineCount = inventoryTrackedLines.length;
     if (inventoryTrackedLineCount <= 0) {
       blockingReasons.push("Inventory clearing mode requires at least one inventory-tracked purchase bill line.");
+    }
+    if (inventoryTrackedLines.some((line) => !line.itemId)) {
+      blockingReasons.push("Inventory clearing mode requires inventory-tracked lines to retain their item reference.");
     }
     if (!settings?.enableInventoryAccounting) {
       blockingReasons.push("Inventory accounting must be enabled before purchase bills can use inventory clearing mode.");
@@ -976,8 +1005,15 @@ export class PurchaseBillService {
     if (settings && settings.purchaseReceiptPostingMode !== InventoryPurchasePostingMode.PREVIEW_ONLY) {
       blockingReasons.push("Purchase receipt posting mode must be PREVIEW_ONLY before purchase bills can use inventory clearing mode.");
     }
-    const clearingAccount = settings?.inventoryClearingAccount ?? null;
-    if (!clearingAccount) {
+    const clearingAccount = settings?.inventoryClearingAccountId
+      ? await executor.account.findFirst({
+          where: { id: settings.inventoryClearingAccountId, organizationId },
+          select: accountPreviewSelect,
+        })
+      : null;
+    if (settings?.inventoryClearingAccountId && !clearingAccount) {
+      blockingReasons.push("Inventory clearing account must belong to this organization.");
+    } else if (!clearingAccount) {
       blockingReasons.push("Inventory clearing account mapping is required before purchase bills can use inventory clearing mode.");
     } else {
       if (!clearingAccount.isActive) {

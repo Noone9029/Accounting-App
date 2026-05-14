@@ -750,7 +750,8 @@ Posting behavior:
 - The bill stores `journalEntryId`; voided finalized bills store `reversalJournalEntryId`.
 - Purchase bills now store `inventoryPostingMode`.
 - `DIRECT_EXPENSE_OR_ASSET` is the default and preserves the current posting behavior.
-- `INVENTORY_CLEARING` is compatibility groundwork for future receipt GL posting. It can be previewed for draft bills but cannot be finalized yet.
+- `INVENTORY_CLEARING` is explicit accountant-reviewed compatibility behavior for future receipt GL posting. For inventory-tracked lines it debits Inventory Clearing instead of the selected line account; non-inventory lines remain direct.
+- Inventory Clearing mode finalization is allowed only for compatible draft bills with enabled inventory accounting, a valid separate clearing account, moving-average valuation, and preview-only receipt posting mode.
 - `GET /purchase-bills/:id/accounting-preview` returns a preview-only journal shape for direct mode or clearing mode. It does not create journals.
 
 ## Purchase Debit Note Rules
@@ -995,7 +996,7 @@ Known limitations:
 
 ## Inventory Groundwork
 
-Inventory support is operational-only in this MVP. Warehouses, direct opening balances, controlled inventory adjustments, warehouse transfers, purchase receipts, sales stock issues, a stock movement ledger, item/warehouse balances, valuation policy settings, preview-only inventory accounting settings, journal previews, and operational inventory reports exist so teams can track quantities and review future accounting design without changing accounting postings.
+Inventory movement support remains operational-only in this MVP. Warehouses, direct opening balances, controlled inventory adjustments, warehouse transfers, purchase receipts, sales stock issues, a stock movement ledger, item/warehouse balances, valuation policy settings, inventory accounting settings, journal previews, manual COGS posting, explicit purchase bill Inventory Clearing finalization, and operational inventory reports exist so teams can track quantities and review accountant-gated posting design without automatic inventory GL posting.
 
 APIs:
 
@@ -1074,7 +1075,7 @@ Behavior:
 - `GET /inventory/accounting-settings` returns preview-only inventory accounting readiness, default-disabled `enableInventoryAccounting`, inventory asset/COGS/inventory clearing/adjustment mapping fields, `purchaseReceiptPostingMode`, blocking reasons, and warnings.
 - `PATCH /inventory/accounting-settings` validates that mapped accounts belong to the organization, are active, allow posting, and have approved account types. Inventory accounting cannot be enabled without inventory asset and COGS mappings, the clearing account must be separate from inventory asset and Accounts Payable code `210`, and FIFO remains placeholder-only.
 - `GET /inventory/purchase-receipt-posting-readiness` returns an advisory go/no-go check for future purchase receipt inventory asset posting. It checks inventory accounting, moving-average valuation, preview-only receipt mode, Inventory Asset and Inventory Clearing mappings, account separation, direct-mode bill count, clearing-mode bill count, and always warns that purchase receipt GL posting is not enabled yet. It creates no settings, journals, or accounting mutations and does not enable posting.
-- `GET /purchase-bills/:id/accounting-preview` returns current bill posting mode, preview-only journal lines, AP/VAT/Clearing account visibility, tracked/direct line counts, warnings, blockers, and finalization readiness. Direct mode previews current AP posting; clearing mode previews Dr Inventory Clearing for tracked lines while remaining non-finalizable in this phase.
+- `GET /purchase-bills/:id/accounting-preview` returns current bill posting mode, preview-only journal lines, AP/VAT/Clearing account visibility, tracked/direct line counts, warnings, blockers, and finalization readiness. Direct mode previews current AP posting; clearing mode previews Dr Inventory Clearing for tracked lines and can finalize when settings are valid.
 - `GET /purchase-receipts/:id/accounting-preview` returns a design-only Dr Inventory Asset / Cr Inventory Clearing preview when line unit costs and mappings exist, plus receipt value, matched bill value, unmatched receipt value, value difference, and matching summary. It always returns `previewOnly: true` and `canPost: false`; purchase receipt GL posting is not enabled yet.
 - `GET /sales-stock-issues/:id/accounting-preview` returns moving-average estimated COGS, Dr COGS / Cr Inventory Asset preview lines, posting status, COGS journal ids when present, and `canPost: true` only when the stock issue is eligible for manual posting.
 - `POST /sales-stock-issues/:id/post-cogs` requires `inventory.cogs.post`, enabled inventory accounting, mapped inventory asset and COGS accounts, `MOVING_AVERAGE`, a posted/unvoided stock issue, no existing COGS journal, no preview blocking reasons, and an open fiscal period on the stock issue date. It creates one posted journal: Dr COGS, Cr Inventory Asset.
@@ -1085,11 +1086,11 @@ Behavior:
 
 Accounting limitation:
 
-- Inventory movements do not create journal entries automatically and do not affect GL, COGS, inventory asset balances, VAT, or financial statements unless a user explicitly posts COGS for a sales stock issue.
+- Inventory movements do not create journal entries automatically and do not affect GL, COGS, inventory asset balances, VAT, or financial statements unless a user explicitly posts COGS for a sales stock issue. Purchase bill finalization affects AP/VAT/line accounts or Inventory Clearing according to the selected bill posting mode.
 - Stock valuation is an operational estimate only. It is not the GL inventory asset value and is not used for Balance Sheet, Profit & Loss, VAT, or COGS.
 - Purchase receipts do not debit inventory asset accounts yet.
-- Inventory clearing account settings, bill/receipt matching visibility, purchase bill inventory posting mode, and purchase bill accounting preview exist, but no receipt journals or purchase bill clearing journals are posted.
-- Inventory accounting settings, readiness, and preview endpoints do not create `JournalEntry` records; only the explicit manual COGS post action does.
+- Inventory clearing account settings, bill/receipt matching visibility, purchase bill inventory posting mode, and purchase bill accounting preview exist. Explicit Inventory Clearing purchase bill finalization posts purchase bill clearing journals, but purchase receipt journals are still not posted.
+- Inventory accounting settings, readiness, and preview endpoints do not create `JournalEntry` records; explicit manual COGS posting and explicit purchase bill finalization are the only inventory-adjacent journal paths in this phase.
 
 Manual COGS posting behavior:
 
@@ -1098,17 +1099,17 @@ Manual COGS posting behavior:
 - The posting date is the stock issue date and must pass fiscal-period guard.
 - Voiding a stock issue is blocked while COGS is posted and not reversed.
 - Reports reflect posted COGS naturally through posted journal lines.
-- Finalize inventory clearing and bill/receipt matching before purchase receipt asset posting.
-- Future receipt posting plan remains Dr Inventory Asset / Cr Inventory Clearing, with future purchase bill clearing planned as Dr Inventory Clearing and Dr VAT Receivable, Cr Accounts Payable after accountant review.
-- The current readiness audit remains no-go for purchase receipt GL posting until clearing-mode bill finalization, migration, variance, VAT, and reversal rules are approved.
+- Inventory Clearing purchase bill finalization is implemented for explicitly selected compatible bills, but purchase receipt asset posting remains disabled.
+- Future receipt posting plan remains Dr Inventory Asset / Cr Inventory Clearing, matched against purchase bill clearing journals of Dr Inventory Clearing and Dr VAT Receivable, Cr Accounts Payable after accountant review.
+- The current readiness audit remains no-go for purchase receipt GL posting until receipt posting fields/endpoints, migration, variance, VAT, and reversal rules are approved.
 - Keep FIFO disabled for accounting until cost layers and layer depletion rules exist.
 
 Known limitations:
 
 - No automatic GL inventory posting.
 - COGS posting is manual only; no invoice or stock issue auto-posting.
-- No inventory asset posting.
-- No live inventory clearing journal workflow or bill clearing entries; clearing mode is preview/design groundwork only.
+- No purchase receipt inventory asset posting.
+- Inventory Clearing purchase bill finalization can create clearing balances before receipt asset posting exists, so clearing account activity requires manual review.
 - Existing finalized direct-mode purchase bills are not migrated.
 - No automatic purchase receipt from purchase orders or bills.
 - No automatic sales delivery or stock issue from sales invoices.
@@ -1329,13 +1330,13 @@ Permission matrix categories:
 - Customer refunds are manual accounting records only; no payment gateway refund or bank reconciliation integration exists yet.
 - Bank account profiles, posted transaction visibility, bank transfers, guarded one-time opening-balance posting, local statement import preview, reconciliation approval/close/lock/report export exist, but live feeds, transfer fees, file upload storage, and multi-currency FX transfer handling are not implemented yet.
 - Purchase orders are MVP-only: operational purchase receipts can receive stock, but partial billing, supplier email sending, approval workflows, and automatic inventory stock receipts are not implemented.
-- Purchase bills, purchase debit notes, supplier payments, and supplier refunds are AP groundwork only; finalized purchase bills can be manually received into stock and matched operationally, but AP finalization itself does not auto-create stock movements, inventory returns, or clearing entries.
+- Purchase bills, purchase debit notes, supplier payments, and supplier refunds are AP groundwork only; finalized purchase bills can be manually received into stock and matched operationally, and explicitly selected Inventory Clearing bills can post clearing journals, but AP finalization itself does not auto-create stock movements or inventory returns.
 - ZATCA credit note XML/signing/submission is not implemented yet.
 - ZATCA debit note XML/signing/submission is not implemented yet.
 - Inventory returns from credit notes are not implemented yet.
 - Recurring invoices are not implemented yet.
 - Bank reconciliation has local import preview/manual matching, approval, close-lock, and report export groundwork, but no live feed, OFX/CAMT/MT940 support, file upload storage, or auto-match yet.
-- Inventory warehouse, stock ledger, adjustment approval, warehouse transfer, manual purchase receipt, manual sales stock issue, valuation settings, manual COGS posting, inventory clearing preview settings, bill/receipt matching visibility, and operational reports exist, but no automatic COGS posting, purchase receipt inventory asset posting, clearing journals, automatic purchase/sales posting, landed cost, serial/batch tracking, or accounting-grade inventory financial reports are implemented yet.
+- Inventory warehouse, stock ledger, adjustment approval, warehouse transfer, manual purchase receipt, manual sales stock issue, valuation settings, manual COGS posting, inventory clearing settings, purchase bill clearing-mode finalization, bill/receipt matching visibility, and operational reports exist, but no automatic COGS posting, purchase receipt inventory asset posting, clearing reconciliation, automatic purchase/sales posting, landed cost, serial/batch tracking, or accounting-grade inventory financial reports are implemented yet.
 - BullMQ workers and S3 upload adapters are not wired yet.
 - Email invitations are not implemented; invite placeholders require the target user to already exist.
 - Password reset and onboarding flows for invited users are not implemented yet.

@@ -16,6 +16,7 @@ const accounts = [
   { id: "ap", code: "210", name: "Accounts Payable", type: AccountType.LIABILITY },
   { id: "vat-payable", code: "220", name: "VAT Payable", type: AccountType.LIABILITY },
   { id: "vat-receivable", code: "230", name: "VAT Receivable", type: AccountType.ASSET },
+  { id: "inventory-clearing", code: "240", name: "Inventory Clearing", type: AccountType.LIABILITY },
   { id: "equity", code: "310", name: "Owner Equity", type: AccountType.EQUITY },
   { id: "revenue", code: "411", name: "Sales Revenue", type: AccountType.REVENUE },
   { id: "cogs", code: "510", name: "Cost of Sales", type: AccountType.COST_OF_SALES },
@@ -56,6 +57,25 @@ describe("reports service builders", () => {
       { from: "2026-01-01", to: "2026-01-31" },
     );
 
+    expect(report.totals.closingDebit).toBe("115.0000");
+    expect(report.totals.closingCredit).toBe("115.0000");
+    expect(report.totals.balanced).toBe(true);
+  });
+
+  it("reflects finalized inventory-clearing purchase bills through posted journal lines", () => {
+    const report = buildTrialBalanceReport(
+      accounts,
+      [],
+      [
+        line("inventory-clearing", "2026-05-14", "100.0000", "0.0000", "Purchase bill inventory clearing debit"),
+        line("vat-receivable", "2026-05-14", "15.0000", "0.0000", "Purchase bill VAT receivable"),
+        line("ap", "2026-05-14", "0.0000", "115.0000", "Purchase bill AP"),
+      ],
+      { from: "2026-05-01", to: "2026-05-31" },
+    );
+
+    const clearing = report.accounts.find((account) => account.accountId === "inventory-clearing");
+    expect(clearing).toMatchObject({ periodDebit: "100.0000", closingDebit: "100.0000" });
     expect(report.totals.closingDebit).toBe("115.0000");
     expect(report.totals.closingCredit).toBe("115.0000");
     expect(report.totals.balanced).toBe(true);

@@ -153,12 +153,14 @@ describe("InventoryAccountingService", () => {
         "Inventory accounting must be enabled before purchase receipt posting can be considered.",
         "Purchase receipt posting mode must be PREVIEW_ONLY for readiness review.",
         "Purchase receipt GL posting implementation is not available yet.",
-        "Purchase receipt GL posting requires compatible purchase bill clearing-mode finalization before it can be enabled.",
+        "Purchase receipt GL posting requires a future explicit receipt posting workflow before it can be enabled.",
       ]),
     );
     expect(result.warnings).toEqual(
       expect.arrayContaining([
         "Purchase receipt GL posting is not enabled yet.",
+        "Inventory clearing bill finalization is available.",
+        "Purchase receipt GL posting remains disabled.",
         "Purchase receipt GL posting requires purchase bills to use inventory clearing mode.",
       ]),
     );
@@ -230,15 +232,17 @@ describe("InventoryAccountingService", () => {
     expect(result.blockingReasons).toEqual(
       expect.arrayContaining([
         "Purchase receipt GL posting implementation is not available yet.",
-        "Purchase receipt GL posting requires compatible purchase bill clearing-mode finalization before it can be enabled.",
+        "Purchase receipt GL posting requires a future explicit receipt posting workflow before it can be enabled.",
       ]),
     );
     expect(result.warnings).toContain("Purchase receipt GL posting is not enabled yet.");
+    expect(result.warnings).toContain("Inventory clearing bill finalization is available.");
+    expect(result.warnings).toContain("Purchase receipt GL posting remains disabled.");
     expect(result.warnings).toContain("Purchase receipt GL posting requires purchase bills to use inventory clearing mode.");
-    expect(result.compatibleBillPostingModeExists).toBe(false);
+    expect(result.compatibleBillPostingModeExists).toBe(true);
     expect(result.existingBillsInDirectModeCount).toBe(0);
     expect(result.billsUsingInventoryClearingCount).toBe(0);
-    expect(result.recommendedNextStep).toContain("purchase bill inventory clearing mode preview");
+    expect(result.recommendedNextStep).toContain("explicit purchase receipt GL posting");
     expect(prisma.journalEntry.create).not.toHaveBeenCalled();
   });
 
@@ -260,6 +264,7 @@ describe("InventoryAccountingService", () => {
     expect(result.compatibleBillPostingModeExists).toBe(true);
     expect(result.existingBillsInDirectModeCount).toBe(3);
     expect(result.billsUsingInventoryClearingCount).toBe(1);
+    expect(result.warnings).toContain("Inventory clearing bill finalization is available.");
     expect(result.warnings).toContain("Purchase receipt GL posting requires purchase bills to use inventory clearing mode.");
   });
 

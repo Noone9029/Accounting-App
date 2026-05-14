@@ -216,6 +216,12 @@ interface JournalEntry {
   id: string;
   status: string;
   entryDate: string;
+  lines?: Array<{
+    accountId: string;
+    debit: string;
+    credit: string;
+    account?: { id: string; code: string; name: string } | null;
+  }>;
 }
 
 interface TaxRate {
@@ -1004,6 +1010,10 @@ async function main(): Promise<void> {
     "purchase receipt posting readiness includes bill clearing mode warning",
   );
   assert(
+    purchaseReceiptPostingReadiness.warnings.some((warning) => warning.includes("Inventory clearing bill finalization is available")),
+    "purchase receipt posting readiness reports clearing bill finalization availability",
+  );
+  assert(
     purchaseReceiptPostingReadiness.blockingReasons.some((reason) => reason.includes("implementation is not available yet")),
     "purchase receipt posting readiness remains blocked by missing receipt posting implementation",
   );
@@ -1269,22 +1279,36 @@ async function main(): Promise<void> {
   );
   assertEqual(clearingPurchaseBillPreview.previewOnly, true, "inventory clearing purchase bill preview is preview-only");
   assertEqual(clearingPurchaseBillPreview.inventoryPostingMode, "INVENTORY_CLEARING", "inventory clearing purchase bill preview reports clearing mode");
-  assertEqual(clearingPurchaseBillPreview.canFinalize, false, "inventory clearing purchase bill finalization remains disabled");
+  assertEqual(clearingPurchaseBillPreview.canFinalize, true, "inventory clearing purchase bill preview can finalize");
   assert(
     clearingPurchaseBillPreview.journal.lines.some(
       (line) => line.side === "DEBIT" && line.accountCode === inventoryClearingAccount.code && money(line.amount).eq("8.0000"),
     ),
     "inventory clearing purchase bill preview debits inventory clearing",
   );
-  assert(
-    clearingPurchaseBillPreview.blockingReasons.some((reason) => reason.includes("preview-only")),
-    "inventory clearing purchase bill preview blocks finalization",
-  );
+  assertEqual(clearingPurchaseBillPreview.blockingReasons.length, 0, "inventory clearing purchase bill preview has no blockers");
   const journalEntriesAfterPurchaseBillClearingPreview = await get<JournalEntry[]>("/journal-entries", headers);
   assertEqual(
     journalEntriesAfterPurchaseBillClearingPreview.length,
     journalEntriesBeforePurchaseBillClearingPreview.length,
     "inventory clearing purchase bill accounting preview does not create journal entries",
+  );
+  const finalizedClearingModePurchaseBill = await post<PurchaseBill>(`/purchase-bills/${clearingModePurchaseBill.id}/finalize`, headers, {});
+  assertEqual(finalizedClearingModePurchaseBill.status, "FINALIZED", "inventory clearing mode purchase bill finalizes");
+  const clearingBillJournalEntryId = required(
+    finalizedClearingModePurchaseBill.journalEntryId,
+    "inventory clearing mode purchase bill journalEntryId",
+  );
+  const clearingBillJournal = await get<JournalEntry>(`/journal-entries/${clearingBillJournalEntryId}`, headers);
+  assert(
+    clearingBillJournal.lines?.some(
+      (line) => line.account?.code === inventoryClearingAccount.code && money(line.debit).eq("8.0000") && money(line.credit).eq(0),
+    ),
+    "inventory clearing purchase bill journal debits inventory clearing",
+  );
+  assert(
+    clearingBillJournal.lines?.some((line) => line.account?.code === "210" && money(line.credit).eq("8.0000") && money(line.debit).eq(0)),
+    "inventory clearing purchase bill journal credits accounts payable",
   );
   const purchaseReceiptPostingReadinessAfterClearingBill = await get<PurchaseReceiptPostingReadiness>(
     "/inventory/purchase-receipt-posting-readiness",
@@ -1299,6 +1323,20 @@ async function main(): Promise<void> {
   const finalizedPurchaseBillForReceipt = await post<PurchaseBill>(`/purchase-bills/${purchaseBillForReceipt.id}/finalize`, headers, {});
   assertEqual(finalizedPurchaseBillForReceipt.status, "FINALIZED", "purchase bill finalized for receipt matching");
   assertPresent(finalizedPurchaseBillForReceipt.journalEntryId, "purchase bill for receipt matching AP journal");
+  const directPurchaseBillJournal = await get<JournalEntry>(
+    `/journal-entries/${required(finalizedPurchaseBillForReceipt.journalEntryId, "direct purchase bill journalEntryId")}`,
+    headers,
+  );
+  assert(
+    directPurchaseBillJournal.lines?.some(
+      (line) => line.account?.code === inventoryAssetAccount.code && money(line.debit).eq("20.0000") && money(line.credit).eq(0),
+    ),
+    "direct purchase bill finalization keeps selected line account debit",
+  );
+  assert(
+    !directPurchaseBillJournal.lines?.some((line) => line.account?.code === inventoryClearingAccount.code && money(line.debit).gt(0)),
+    "direct purchase bill finalization does not debit inventory clearing",
+  );
   const billReceivingStatus = await get<PurchaseReceivingStatus>(`/purchase-bills/${finalizedPurchaseBillForReceipt.id}/receiving-status`, headers);
   assertEqual(billReceivingStatus.status, "NOT_STARTED", "purchase bill receiving status starts not started");
   const billReceivableLine = required(
@@ -3399,6 +3437,7 @@ async function main(): Promise<void> {
         directPurchaseBillPreviewMode: directPurchaseBillPreview.inventoryPostingMode,
         inventoryClearingPurchaseBillId: clearingModePurchaseBill.id,
         inventoryClearingPurchaseBillPreviewCanFinalize: clearingPurchaseBillPreview.canFinalize,
+        inventoryClearingPurchaseBillJournalEntryId: finalizedClearingModePurchaseBill.journalEntryId,
         purchaseReceiptAccountingPreviewOnly: purchaseReceiptAccountingPreview.previewOnly,
         purchaseReceiptAccountingPreviewCanPost: purchaseReceiptAccountingPreview.canPost,
         purchaseReceiptAccountingPreviewTotal: purchaseReceiptAccountingPreview.journal.totalDebit,

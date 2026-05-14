@@ -357,7 +357,9 @@ export default function InventorySettingsPage() {
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
               <div className="rounded-md bg-white p-3 text-sm">
                 <p className="text-xs font-medium uppercase tracking-wide text-steel">Bill mode compatibility</p>
-                <p className="mt-1 font-medium text-ink">{receiptReadiness?.compatibleBillPostingModeExists ? "Clearing mode exists" : "No clearing-mode bills yet"}</p>
+                <p className="mt-1 font-medium text-ink">
+                  {receiptReadiness?.compatibleBillPostingModeExists ? "Clearing finalization supported" : "Clearing finalization unavailable"}
+                </p>
               </div>
               <div className="rounded-md bg-white p-3 text-sm">
                 <p className="text-xs font-medium uppercase tracking-wide text-steel">Direct-mode bills</p>

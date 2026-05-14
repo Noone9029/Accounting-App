@@ -15,7 +15,7 @@ This audit reviews whether LedgerByte is ready to add explicit purchase receipt 
 - Purchase bills now store an `inventoryPostingMode`.
 - `DIRECT_EXPENSE_OR_ASSET` remains the default and current finalization behavior.
 - `INVENTORY_CLEARING` can be stored on draft bills only when inventory accounting settings are compatible, and its accounting preview uses Inventory Clearing for tracked inventory lines.
-- `INVENTORY_CLEARING` finalization is blocked in this phase, so it cannot yet post clearing journals.
+- `INVENTORY_CLEARING` finalization is implemented for compatible draft purchase bills and posts Dr Inventory Clearing / Dr VAT / Cr AP. It does not touch purchase receipts or stock movements.
 - Manual COGS posting exists for sales stock issues, but purchase receipt inventory asset posting does not exist.
 - Financial reports consume posted journal entries only, so receipt previews and stock movements do not affect reports.
 
@@ -51,7 +51,7 @@ This future model must not run automatically from receipt creation. It should fo
 ## Risks
 
 - Existing finalized purchase bills already debit line accounts directly. Adding receipt posting can double-count Inventory Asset or Expense unless bill posting is adjusted or restricted.
-- Inventory Clearing mode is preview-only today, so it does not yet provide a live clearing journal to match future receipt posting.
+- Inventory Clearing mode can now create live purchase bill clearing journals, but no receipt-side inventory asset journal exists to offset clearing yet.
 - Clearing balances can remain unreconciled if receipt and bill quantities, costs, or taxes do not match.
 - Standalone receipts and PO-only receipts do not have enough accounting context for AP or clearing.
 - Landed cost is missing, so receipt unit cost may omit freight, duty, and allocation charges.
@@ -66,16 +66,16 @@ This future model must not run automatically from receipt creation. It should fo
 - How should price, quantity, tax, discount, and currency variances be recorded?
 - What is the exact reversal date rule for receipt GL reversals?
 - Should receipt posting be blocked when a linked purchase bill is already finalized under the current direct-line posting model?
-- Should clearing-mode finalization be allowed only for unfinalized bills, or should it require a separate accountant-approved migration flag?
+- Clearing-mode finalization is allowed only for explicitly selected draft bills. Historical finalized direct-mode bills still need a migration or exclusion policy.
 - How should debit notes, supplier returns, and partial receipt corrections interact with clearing?
 
 ## Recommended Implementation Order
 
 1. Keep purchase receipt posting disabled and expose readiness only.
-2. Add durable receipt GL posting fields in a future schema migration.
-3. Add explicit `POST /purchase-receipts/:id/post-inventory` endpoint behind accountant/admin permission.
-4. Block posting for finalized bills unless a compatible bill clearing method is present.
-5. Implement purchase bill Inventory Clearing finalization after direct-mode regression tests are in place.
+2. Keep direct-mode regression tests around purchase bill finalization.
+3. Add durable receipt GL posting fields in a future schema migration.
+4. Add explicit `POST /purchase-receipts/:id/post-inventory` endpoint behind accountant/admin permission.
+5. Block posting for finalized direct-mode bills unless an approved migration/exclusion rule exists.
 6. Add receipt GL reversal and block receipt void while receipt GL is active.
 7. Add variance handling, VAT timing tests, and reconciliation reports.
 8. Revisit landed cost, FIFO, returns, and serial/batch tracking after the clearing model is stable.
@@ -93,10 +93,10 @@ This future model must not run automatically from receipt creation. It should fo
 - [ ] Purchase receipt model has GL posting and reversal link fields.
 - [ ] Purchase receipt posting and reversal endpoints exist.
 - [ ] Purchase receipt void is blocked while receipt GL is active.
-- [ ] Purchase bill clearing-mode finalization is implemented and accountant-approved.
+- [x] Purchase bill clearing-mode finalization is implemented with direct-mode regression coverage.
 - [ ] Existing finalized purchase bills have a migration or exclusion policy.
 - [ ] Variance, VAT, landed cost, returns, and correction policies are approved.
 
 ## Recommendation
 
-No-go for purchase receipt GL posting today. The system is ready for an explicit posting design task, but not ready to create inventory asset journals until bill clearing and migration rules are approved.
+No-go for purchase receipt GL posting today. Clearing-mode purchase bill finalization is now available, but the system is not ready to create receipt inventory asset journals until receipt posting fields/endpoints, reversal rules, variance handling, and direct-bill migration/exclusion rules are approved.

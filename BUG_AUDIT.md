@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-14
 
-Commit inspected: pending (`Add purchase bill inventory clearing mode groundwork`)
+Commit inspected: pending (`Enable inventory clearing bill finalization`)
 
 ## Scope
 
@@ -37,22 +37,22 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
-### Purchase bill clearing compatibility groundwork added
+### Inventory clearing bill finalization added
 
-Added bill-level inventory posting mode groundwork, purchase bill accounting preview, readiness compatibility counts, frontend mode controls, and clearing-mode migration design documentation. This resolves the audit no-go item at the design/data visibility level only; purchase receipt GL posting remains disabled.
+Implemented explicit accountant-reviewed purchase bill finalization for `INVENTORY_CLEARING` mode while preserving `DIRECT_EXPENSE_OR_ASSET` behavior.
 
 Risk reduced:
 
-- Existing bills remain in `DIRECT_EXPENSE_OR_ASSET`, preserving current purchase bill AP posting behavior.
-- `INVENTORY_CLEARING` mode is explicit and draft-level, with preview visibility showing Dr Inventory Clearing for tracked lines and normal line accounts for non-inventory lines.
-- Clearing-mode finalization is blocked until a future accountant-approved implementation exists.
-- Readiness now exposes direct-mode and clearing-mode bill counts so historical migration/exclusion work is visible.
-- Purchase bill previews create no journals and do not change purchase receipt or purchase bill accounting.
+- Direct-mode purchase bill finalization remains unchanged: Dr selected line account, Dr VAT Receivable when applicable, Cr Accounts Payable.
+- Inventory-clearing bills can finalize only when inventory accounting is enabled, `MOVING_AVERAGE` is selected, purchase receipt posting mode is `PREVIEW_ONLY`, and a separate active posting Inventory Clearing account is mapped.
+- Clearing-mode finalization posts Dr Inventory Clearing for tracked lines, Dr selected accounts for non-inventory lines, Dr VAT Receivable, and Cr Accounts Payable.
+- Purchase receipt GL posting remains disabled and previews still create no journals.
+- Voiding clearing-mode purchase bills uses the existing journal reversal path without touching stock movements.
 
 Remaining risks:
 
 - Purchase receipt GL posting is still disabled.
-- Inventory clearing bill finalization is still preview-only.
+- Inventory clearing balances may accumulate until future receipt asset posting and reconciliation exist.
 - Historical finalized direct-mode bills are not migrated.
 - Migration and exclusion strategy still requires accountant approval.
 - Landed cost is missing.
@@ -61,7 +61,35 @@ Remaining risks:
 
 Tests/smoke added:
 
-- Backend tests for direct-mode preview, clearing-mode preview, validation, permission metadata, and finalization blocking.
+- Backend tests for direct-mode regression, clearing-mode preview/finalization blockers, balanced clearing journals, void reversal, readiness warnings, and report trial-balance impact.
+- Frontend helper tests for clearing-mode labels, warnings, can-finalize helper, and preview line display.
+- Smoke coverage for direct-mode finalization, clearing-mode finalization, Dr Inventory Clearing / Cr AP journal verification, unchanged purchase receipt GL posting, and readiness no-go.
+
+### Purchase bill clearing compatibility groundwork added
+
+Earlier groundwork added bill-level inventory posting mode storage, purchase bill accounting preview, readiness compatibility counts, frontend mode controls, and clearing-mode migration design documentation. That phase resolved the audit no-go item at the design/data visibility level only; purchase receipt GL posting remained disabled.
+
+Risk reduced:
+
+- Existing bills remain in `DIRECT_EXPENSE_OR_ASSET`, preserving current purchase bill AP posting behavior.
+- `INVENTORY_CLEARING` mode is explicit and draft-level, with preview visibility showing Dr Inventory Clearing for tracked lines and normal line accounts for non-inventory lines.
+- Clearing-mode finalization was intentionally blocked until the accountant-reviewed implementation in the current phase.
+- Readiness now exposes direct-mode and clearing-mode bill counts so historical migration/exclusion work is visible.
+- Purchase bill previews create no journals and do not change purchase receipt or purchase bill accounting.
+
+Remaining risks:
+
+- Purchase receipt GL posting is still disabled.
+- Inventory clearing balances still require manual review until receipt asset posting and reconciliation are implemented.
+- Historical finalized direct-mode bills are not migrated.
+- Migration and exclusion strategy still requires accountant approval.
+- Landed cost is missing.
+- FIFO remains placeholder-only.
+- Accountant review is required before production use.
+
+Tests/smoke added:
+
+- Backend tests for direct-mode preview, clearing-mode preview, validation, permission metadata, and then-current finalization blocking.
 - Frontend helper tests for purchase bill mode labels, preview line display, and readiness warnings.
 - Smoke coverage for direct purchase bill preview, clearing-mode purchase bill preview, unchanged journal counts from previews, and readiness compatibility visibility.
 
@@ -132,7 +160,7 @@ Risk reduced:
 Remaining risks:
 
 - No purchase receipt inventory asset posting.
-- Inventory clearing mapping and previews exist, but no clearing journals or bill clearing entries.
+- Purchase receipt inventory asset posting and clearing reconciliation are still missing.
 - No landed cost.
 - FIFO placeholder only.
 - No automatic COGS posting from invoices or stock issues.
@@ -160,7 +188,7 @@ Remaining risks:
 
 - No automatic COGS posting; manual COGS posting now requires explicit review/action.
 - No inventory asset posting.
-- Inventory clearing mapping and previews exist, but no clearing journals or bill clearing entries.
+- Purchase receipt inventory asset posting and clearing reconciliation are still missing.
 - No landed cost.
 - No serial/batch tracking.
 - Accountant review is required before any financial inventory posting.

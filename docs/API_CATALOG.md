@@ -305,10 +305,10 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | GET | `/purchase-bills/open` | Open bills by supplier | Yes | Yes | Implemented | Query `supplierId`. |
 | POST | `/purchase-bills` | Create draft bill | Yes | Yes | Implemented | Server-side totals. |
 | GET | `/purchase-bills/:id` | Bill detail | Yes | Yes | Implemented | Includes lines/allocations. |
-| GET | `/purchase-bills/:id/accounting-preview` | Purchase bill accounting preview | Yes | Yes | Groundwork | Requires `purchaseBills.view`; returns preview-only direct vs inventory-clearing journal shape, tracked/direct line counts, AP/VAT/Clearing account visibility, warnings, blockers, and finalization readiness; creates no journal. |
+| GET | `/purchase-bills/:id/accounting-preview` | Purchase bill accounting preview | Yes | Yes | Implemented | Requires `purchaseBills.view`; returns preview-only direct vs inventory-clearing journal shape, tracked/direct line counts, AP/VAT/Clearing account visibility, warnings, blockers, and finalization readiness; creates no journal. Clearing-mode preview can be finalizable when settings are valid. |
 | PATCH | `/purchase-bills/:id` | Edit draft bill | Yes | Yes | Implemented | Draft only. |
 | DELETE | `/purchase-bills/:id` | Delete draft bill | Yes | Yes | Implemented | Draft only. |
-| POST | `/purchase-bills/:id/finalize` | Finalize and post AP | Yes | Yes | Implemented | Idempotent. |
+| POST | `/purchase-bills/:id/finalize` | Finalize and post AP | Yes | Yes | Implemented | Idempotent. Direct mode posts Dr line accounts / Dr VAT / Cr AP. Explicit Inventory Clearing mode posts Dr Inventory Clearing for tracked lines, Dr selected accounts for non-inventory lines, Dr VAT, and Cr AP after settings validation. |
 | POST | `/purchase-bills/:id/void` | Void bill | Yes | Yes | Implemented | Blocks active supplier payment allocations. |
 | GET | `/purchase-bills/:id/pdf-data` | Purchase bill PDF data | Yes | Yes | Implemented | Operational only. |
 | GET | `/purchase-bills/:id/pdf` | Purchase bill PDF | Yes | Yes | Implemented | Archives download. |

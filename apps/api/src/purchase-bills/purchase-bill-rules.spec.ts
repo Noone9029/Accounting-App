@@ -116,11 +116,18 @@ describe("purchase bill rules", () => {
     const preview = await service.accountingPreview("org-1", "bill-1");
 
     expect(preview.inventoryPostingMode).toBe(PurchaseBillInventoryPostingMode.INVENTORY_CLEARING);
-    expect(preview.canFinalize).toBe(false);
+    expect(preview.canFinalize).toBe(true);
     expect(preview.canUseInventoryClearingMode).toBe(true);
     expect(preview.inventoryTrackedLineCount).toBe(1);
     expect(preview.directLineCount).toBe(1);
-    expect(preview.blockingReasons).toContain("Inventory clearing bill finalization is preview-only and is not enabled yet.");
+    expect(preview.blockingReasons).toEqual([]);
+    expect(preview.warnings).toEqual(
+      expect.arrayContaining([
+        "Inventory clearing mode does not post inventory asset entries from receipts yet.",
+        "Purchase receipt GL posting remains disabled.",
+        "Use only after accountant review.",
+      ]),
+    );
     expect(preview.journal.lines).toEqual([
       expect.objectContaining({ side: "DEBIT", accountCode: "240", accountName: "Inventory Clearing", amount: "100.0000" }),
       expect.objectContaining({ side: "DEBIT", accountCode: "510", accountName: "Purchases", amount: "50.0000" }),
@@ -149,14 +156,85 @@ describe("purchase bill rules", () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("blocks inventory clearing mode finalization until the future posting workflow is implemented", async () => {
-    const tx = makeFinalizeTransactionMock(PurchaseBillInventoryPostingMode.INVENTORY_CLEARING);
+  it("finalizes inventory clearing mode by debiting clearing for tracked lines and direct accounts for non-inventory lines", async () => {
+    const tx = makeFinalizeTransactionMock({ inventoryPostingMode: PurchaseBillInventoryPostingMode.INVENTORY_CLEARING, includeServiceLine: true });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new PurchaseBillService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn().mockResolvedValue("JE-000001") } as never,
+    );
+    jest.spyOn(service, "get").mockResolvedValue({ id: "bill-1", status: PurchaseBillStatus.DRAFT, journalEntryId: null } as never);
+
+    await expect(service.finalize("org-1", "user-1", "bill-1")).resolves.toMatchObject({
+      status: PurchaseBillStatus.FINALIZED,
+      journalEntryId: "journal-1",
+    });
+    expect(tx.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: JournalEntryStatus.POSTED,
+          totalDebit: "172.5000",
+          totalCredit: "172.5000",
+          lines: {
+            create: [
+              expect.objectContaining({ account: { connect: { id: "clearing" } }, debit: "100.0000", credit: "0.0000" }),
+              expect.objectContaining({ account: { connect: { id: "expense" } }, debit: "50.0000", credit: "0.0000" }),
+              expect.objectContaining({ account: { connect: { id: "vat-receivable" } }, debit: "22.5000", credit: "0.0000" }),
+              expect.objectContaining({ account: { connect: { id: "ap" } }, debit: "0.0000", credit: "172.5000" }),
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
+  it("blocks inventory clearing mode finalization without a clearing account", async () => {
+    const tx = makeFinalizeTransactionMock({
+      inventoryPostingMode: PurchaseBillInventoryPostingMode.INVENTORY_CLEARING,
+      inventorySettings: null,
+    });
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
     const service = new PurchaseBillService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
     jest.spyOn(service, "get").mockResolvedValue({ id: "bill-1", status: PurchaseBillStatus.DRAFT, journalEntryId: null } as never);
 
-    await expect(service.finalize("org-1", "user-1", "bill-1")).rejects.toThrow(
-      "Inventory clearing purchase bill finalization is preview-only and is not enabled yet.",
+    await expectBadRequestMessage(
+      service.finalize("org-1", "user-1", "bill-1"),
+      "Inventory clearing account mapping is required before purchase bills can use inventory clearing mode.",
+    );
+    expect(tx.purchaseBill.updateMany).not.toHaveBeenCalled();
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("blocks inventory clearing mode finalization when clearing account is Accounts Payable 210", async () => {
+    const tx = makeFinalizeTransactionMock({
+      inventoryPostingMode: PurchaseBillInventoryPostingMode.INVENTORY_CLEARING,
+      clearingAccount: account("ap", "210", "Accounts Payable", AccountType.LIABILITY),
+    });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new PurchaseBillService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "bill-1", status: PurchaseBillStatus.DRAFT, journalEntryId: null } as never);
+
+    await expectBadRequestMessage(
+      service.finalize("org-1", "user-1", "bill-1"),
+      "Inventory clearing account must be separate from Accounts Payable account code 210.",
+    );
+    expect(tx.purchaseBill.updateMany).not.toHaveBeenCalled();
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("blocks inventory clearing mode finalization when no lines are inventory-tracked", async () => {
+    const tx = makeFinalizeTransactionMock({
+      inventoryPostingMode: PurchaseBillInventoryPostingMode.INVENTORY_CLEARING,
+      trackedLine: false,
+    });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new PurchaseBillService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "bill-1", status: PurchaseBillStatus.DRAFT, journalEntryId: null } as never);
+
+    await expectBadRequestMessage(
+      service.finalize("org-1", "user-1", "bill-1"),
+      "Inventory clearing mode requires at least one inventory-tracked purchase bill line.",
     );
     expect(tx.purchaseBill.updateMany).not.toHaveBeenCalled();
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
@@ -184,6 +262,38 @@ describe("purchase bill rules", () => {
       "Cannot void purchase bill with active supplier payment allocations. Void payments first.",
     );
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("void reverses an inventory clearing purchase bill journal without stock movement mutation", async () => {
+    const tx = makeVoidTransactionMock({ clearingJournal: true });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new PurchaseBillService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn().mockResolvedValue("JE-000002") } as never,
+    );
+    jest.spyOn(service, "get").mockResolvedValue({ id: "bill-1", status: PurchaseBillStatus.FINALIZED, journalEntryId: "journal-1" } as never);
+
+    await expect(service.void("org-1", "user-1", "bill-1")).resolves.toMatchObject({
+      status: PurchaseBillStatus.VOIDED,
+      reversalJournalEntryId: "reversal-1",
+    });
+
+    expect(tx.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          reversalOfId: "journal-1",
+          lines: {
+            create: [
+              expect.objectContaining({ account: { connect: { id: "clearing" } }, debit: "0.0000", credit: "100.0000" }),
+              expect.objectContaining({ account: { connect: { id: "vat-receivable" } }, debit: "0.0000", credit: "15.0000" }),
+              expect.objectContaining({ account: { connect: { id: "ap" } }, debit: "115.0000", credit: "0.0000" }),
+            ],
+          },
+        }),
+      }),
+    );
+    expect((tx as { stockMovement?: unknown }).stockMovement).toBeUndefined();
   });
 
   it("supplier ledger balance increases for bills and decreases for payments", () => {
@@ -224,6 +334,7 @@ function makePreviewService(options: { mode: PurchaseBillInventoryPostingMode; i
   const billLines = [
     {
       accountId: "purchase-expense",
+      itemId: "item-1",
       description: "Tracked item",
       taxableAmount: "100.0000",
       item: { id: "item-1", name: "Tracked Item", sku: "TRK", inventoryTracking: true },
@@ -233,6 +344,7 @@ function makePreviewService(options: { mode: PurchaseBillInventoryPostingMode; i
       ? [
           {
             accountId: "purchase-expense",
+            itemId: null,
             description: "Service line",
             taxableAmount: "50.0000",
             item: null,
@@ -259,7 +371,8 @@ function makePreviewService(options: { mode: PurchaseBillInventoryPostingMode; i
       }),
     },
     account: {
-      findFirst: jest.fn(({ where }: { where: { code: string } }) => {
+      findFirst: jest.fn(({ where }: { where: { code?: string; id?: string } }) => {
+        if (where.id === "clearing") return Promise.resolve(account("clearing", "240", "Inventory Clearing", AccountType.LIABILITY));
         if (where.code === "210") return Promise.resolve(account("ap", "210", "Accounts Payable", AccountType.LIABILITY));
         if (where.code === "230") return Promise.resolve(account("vat-receivable", "230", "VAT Receivable", AccountType.ASSET));
         return Promise.resolve(null);
@@ -280,9 +393,75 @@ function makePreviewService(options: { mode: PurchaseBillInventoryPostingMode; i
   return { service: new PurchaseBillService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never), prisma };
 }
 
+interface FinalizeTransactionMockOptions {
+  inventoryPostingMode?: PurchaseBillInventoryPostingMode;
+  includeServiceLine?: boolean;
+  trackedLine?: boolean;
+  inventorySettings?: Record<string, unknown> | null;
+  clearingAccount?: ReturnType<typeof account>;
+}
+
 function makeFinalizeTransactionMock(
-  inventoryPostingMode: PurchaseBillInventoryPostingMode = PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET,
+  options: PurchaseBillInventoryPostingMode | FinalizeTransactionMockOptions = PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET,
 ) {
+  const resolved: FinalizeTransactionMockOptions =
+    typeof options === "string"
+      ? { inventoryPostingMode: options }
+      : { inventoryPostingMode: PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET, trackedLine: true, ...options };
+  const inventoryPostingMode = resolved.inventoryPostingMode ?? PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET;
+  const trackedLine = resolved.trackedLine ?? true;
+  const clearingAccount = resolved.clearingAccount ?? account("clearing", "240", "Inventory Clearing", AccountType.LIABILITY);
+  const billLines = [
+    {
+      accountId: "expense",
+      itemId: trackedLine ? "item-1" : null,
+      description: trackedLine ? "Tracked item" : "Services",
+      quantity: "1.0000",
+      unitPrice: "100.0000",
+      discountRate: "0.0000",
+      lineGrossAmount: "100.0000",
+      discountAmount: "0.0000",
+      taxableAmount: "100.0000",
+      taxAmount: "15.0000",
+      lineTotal: "115.0000",
+      item: trackedLine ? { id: "item-1", inventoryTracking: true } : null,
+      account: { id: "expense" },
+    },
+    ...(resolved.includeServiceLine
+      ? [
+          {
+            accountId: "expense",
+            itemId: null,
+            description: "Services",
+            quantity: "1.0000",
+            unitPrice: "50.0000",
+            discountRate: "0.0000",
+            lineGrossAmount: "50.0000",
+            discountAmount: "0.0000",
+            taxableAmount: "50.0000",
+            taxAmount: "7.5000",
+            lineTotal: "57.5000",
+            item: null,
+            account: { id: "expense" },
+          },
+        ]
+      : []),
+  ];
+  const totals = resolved.includeServiceLine
+    ? { subtotal: "150.0000", taxableTotal: "150.0000", taxTotal: "22.5000", total: "172.5000" }
+    : { subtotal: "100.0000", taxableTotal: "100.0000", taxTotal: "15.0000", total: "115.0000" };
+  const inventorySettings =
+    resolved.inventorySettings === undefined
+      ? {
+          enableInventoryAccounting: true,
+          valuationMethod: InventoryValuationMethod.MOVING_AVERAGE,
+          purchaseReceiptPostingMode: InventoryPurchasePostingMode.PREVIEW_ONLY,
+          inventoryAssetAccountId: "inventory-asset",
+          inventoryClearingAccountId: clearingAccount.id,
+          inventoryAssetAccount: account("inventory-asset", "130", "Inventory", AccountType.ASSET),
+          inventoryClearingAccount: clearingAccount,
+        }
+      : resolved.inventorySettings;
   const bill = {
     id: "bill-1",
     billNumber: "BILL-000001",
@@ -291,28 +470,14 @@ function makeFinalizeTransactionMock(
     inventoryPostingMode,
     billDate: new Date("2026-05-12T00:00:00.000Z"),
     currency: "SAR",
-    subtotal: "100.0000",
+    subtotal: totals.subtotal,
     discountTotal: "0.0000",
-    taxableTotal: "100.0000",
-    taxTotal: "15.0000",
-    total: "115.0000",
+    taxableTotal: totals.taxableTotal,
+    taxTotal: totals.taxTotal,
+    total: totals.total,
     journalEntryId: null,
     supplier: { id: "supplier-1", name: "Supplier", displayName: "Supplier" },
-    lines: [
-      {
-        accountId: "expense",
-        description: "Services",
-        quantity: "1.0000",
-        unitPrice: "100.0000",
-        discountRate: "0.0000",
-        lineGrossAmount: "100.0000",
-        discountAmount: "0.0000",
-        taxableAmount: "100.0000",
-        taxAmount: "15.0000",
-        lineTotal: "115.0000",
-        account: { id: "expense" },
-      },
-    ],
+    lines: billLines,
   };
 
   return {
@@ -322,8 +487,14 @@ function makeFinalizeTransactionMock(
       findUniqueOrThrow: jest.fn().mockResolvedValue({ ...bill, status: PurchaseBillStatus.FINALIZED, journalEntryId: "journal-existing" }),
       update: jest.fn().mockResolvedValue({ ...bill, status: PurchaseBillStatus.FINALIZED, journalEntryId: "journal-1" }),
     },
+    inventorySettings: {
+      findUnique: jest.fn().mockResolvedValue(inventorySettings),
+    },
     account: {
-      findFirst: jest.fn(({ where }: { where: { code: string } }) => Promise.resolve({ id: where.code === "210" ? "ap" : "vat-receivable" })),
+      findFirst: jest.fn(({ where }: { where: { code?: string; id?: string } }) => {
+        if (where.id === clearingAccount.id) return Promise.resolve(clearingAccount);
+        return Promise.resolve({ id: where.code === "210" ? "ap" : "vat-receivable" });
+      }),
     },
     journalEntry: {
       create: jest.fn().mockResolvedValue({ id: "journal-1" }),
@@ -331,7 +502,33 @@ function makeFinalizeTransactionMock(
   };
 }
 
-function makeVoidTransactionMock(options: { activePaymentCount?: number } = {}) {
+function makeVoidTransactionMock(options: { activePaymentCount?: number; clearingJournal?: boolean } = {}) {
+  const journalLines = options.clearingJournal
+    ? [
+        {
+          accountId: "clearing",
+          debit: "100.0000",
+          credit: "0.0000",
+          description: "Inventory clearing",
+          currency: "SAR",
+          exchangeRate: "1",
+          taxRateId: null,
+        },
+        {
+          accountId: "vat-receivable",
+          debit: "15.0000",
+          credit: "0.0000",
+          description: "VAT",
+          currency: "SAR",
+          exchangeRate: "1",
+          taxRateId: null,
+        },
+        { accountId: "ap", debit: "0.0000", credit: "115.0000", description: "AP", currency: "SAR", exchangeRate: "1", taxRateId: null },
+      ]
+    : [
+        { accountId: "expense", debit: "100.0000", credit: "0.0000", description: "Expense", currency: "SAR", exchangeRate: "1", taxRateId: null },
+        { accountId: "ap", debit: "0.0000", credit: "100.0000", description: "AP", currency: "SAR", exchangeRate: "1", taxRateId: null },
+      ];
   return {
     purchaseBill: {
       findFirst: jest.fn().mockResolvedValue({
@@ -346,6 +543,12 @@ function makeVoidTransactionMock(options: { activePaymentCount?: number } = {}) 
     supplierPaymentAllocation: {
       count: jest.fn().mockResolvedValue(options.activePaymentCount ?? 0),
     },
+    purchaseDebitNoteAllocation: {
+      count: jest.fn().mockResolvedValue(0),
+    },
+    supplierPaymentUnappliedAllocation: {
+      count: jest.fn().mockResolvedValue(0),
+    },
     journalEntry: {
       findFirst: jest.fn().mockResolvedValue({
         id: "journal-1",
@@ -354,10 +557,7 @@ function makeVoidTransactionMock(options: { activePaymentCount?: number } = {}) 
         currency: "SAR",
         description: "Purchase bill BILL-000001",
         reversedBy: null,
-        lines: [
-          { accountId: "expense", debit: "100.0000", credit: "0.0000", description: "Expense", currency: "SAR", exchangeRate: "1", taxRateId: null },
-          { accountId: "ap", debit: "0.0000", credit: "100.0000", description: "AP", currency: "SAR", exchangeRate: "1", taxRateId: null },
-        ],
+        lines: journalLines,
       }),
       create: jest.fn().mockResolvedValue({ id: "reversal-1" }),
       update: jest.fn().mockResolvedValue({}),

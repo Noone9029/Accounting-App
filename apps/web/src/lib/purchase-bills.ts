@@ -11,7 +11,7 @@ export function purchaseBillInventoryPostingModeLabel(mode: PurchaseBillInventor
 }
 
 export function purchaseBillInventoryClearingModeWarning(): string {
-  return "Inventory Clearing mode is preparation for future receipt GL posting.";
+  return "This affects accounting posting. Inventory-tracked lines will debit Inventory Clearing instead of their line account.";
 }
 
 export function purchaseBillAccountantReviewWarning(): string {

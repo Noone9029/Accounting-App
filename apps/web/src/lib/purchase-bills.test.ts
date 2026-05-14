@@ -31,7 +31,9 @@ describe("purchase bill helpers", () => {
     expect(purchaseBillCanFinalizeFromPreview({ canFinalize: true })).toBe(true);
     expect(purchaseBillCanFinalizeFromPreview({ canFinalize: false })).toBe(false);
     expect(purchaseBillCanFinalizeFromPreview(null)).toBe(false);
-    expect(purchaseBillInventoryClearingModeWarning()).toBe("Inventory Clearing mode is preparation for future receipt GL posting.");
+    expect(purchaseBillInventoryClearingModeWarning()).toBe(
+      "This affects accounting posting. Inventory-tracked lines will debit Inventory Clearing instead of their line account.",
+    );
     expect(purchaseBillAccountantReviewWarning()).toBe("Use only after accountant review.");
     expect(purchaseBillReadinessWarningDisplay(["Purchase receipt GL posting requires purchase bills to use inventory clearing mode."])).toBe(
       "Purchase receipt GL posting requires purchase bills to use inventory clearing mode.",

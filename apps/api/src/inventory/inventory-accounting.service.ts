@@ -134,9 +134,9 @@ export class InventoryAccountingService {
     const blockingReasons = [
       ...accountBlockingReasons,
       "Purchase receipt GL posting implementation is not available yet.",
-      "Purchase receipt GL posting requires compatible purchase bill clearing-mode finalization before it can be enabled.",
+      "Purchase receipt GL posting requires a future explicit receipt posting workflow before it can be enabled.",
     ];
-    const compatibleBillPostingModeExists = billsUsingInventoryClearingCount > 0;
+    const compatibleBillPostingModeExists = true;
 
     return {
       ready: false,
@@ -145,6 +145,8 @@ export class InventoryAccountingService {
       warnings: [
         PURCHASE_RECEIPT_NO_GL_WARNING,
         "This readiness check is advisory only and does not create journals.",
+        "Inventory clearing bill finalization is available.",
+        "Purchase receipt GL posting remains disabled.",
         "Purchase receipt GL posting requires purchase bills to use inventory clearing mode.",
         "Purchase bills in DIRECT_EXPENSE_OR_ASSET mode continue posting line accounts directly; receipt posting would double-count unless bill clearing is selected.",
         ACCOUNTANT_REVIEW_WARNING,
@@ -158,7 +160,7 @@ export class InventoryAccountingService {
       billsUsingInventoryClearingCount,
       recommendedNextStep:
         accountBlockingReasons.length === 0
-          ? "Review the purchase bill inventory clearing mode preview with an accountant, then implement explicit receipt posting only after compatible bill finalization is available."
+          ? "Review clearing-mode bill journals with an accountant, then add explicit purchase receipt GL posting fields and guarded posting endpoints in a future task."
           : "Complete inventory accounting, moving-average valuation, preview-only receipt mode, and separate inventory asset/clearing account mappings first.",
     };
   }
