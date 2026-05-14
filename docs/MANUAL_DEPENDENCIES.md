@@ -16,8 +16,8 @@ These items require human action, third-party credentials, legal/accounting deci
 | Accountant review of COA/VAT workflows | Confirms account codes, VAT receivable/payable, refunds, credit notes, AP/AR behavior. | Before real customer use. | Accountant/domain expert. | Blocking for production accounting confidence. |
 | Company legal/tax details | Needed for document templates, ZATCA profile, invoice fields, legal documents. | Before live tenant setup. | Business owner. | Blocking for production tenant. |
 | UI branding | Needed for production document templates and app identity. | Before public launch. | Product/business owner. | Non-blocking for technical MVP. |
-| AWS/Vercel/Render deployment account | Needed to host API/web and provision production services. | Before staging/production deployment. | Engineering/business admin. | Blocking for production deployment. |
-| Production Postgres database | Persistent production data store. | Before staging/production. | Engineering/platform owner. | Blocking. |
+| Vercel deployment account | Needed to host the `apps/api` API project and `apps/web` frontend project. | Before staging/production deployment. | Engineering/business admin. | Blocking for production deployment. |
+| Supabase Postgres project | Persistent production data store for Prisma, including pooled runtime and direct migration connection strings. | Before staging/production. | Engineering/platform owner. | Blocking. |
 | S3-compatible storage bucket | Generated document archive should move out of DB base64. | Before production scale. | Engineering/platform owner. | Blocking for scalable document archive. |
 | Redis/queue service | Needed if async jobs, PDF generation queues, email sending, or workers are added. | Before background job rollout. | Engineering/platform owner. | Non-blocking for current sync MVP. |
 | Email provider credentials | Needed to send invoices, receipts, statements, invites, password reset. | Before communication workflows. | Business/admin plus engineering. | Blocking for email features. |

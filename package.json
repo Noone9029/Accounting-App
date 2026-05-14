@@ -9,6 +9,7 @@
     "test": "corepack pnpm -r --if-present test",
     "lint": "corepack pnpm -r --if-present lint",
     "typecheck": "corepack pnpm -r --if-present typecheck",
+    "postinstall": "node scripts/vercel-postinstall.cjs",
     "smoke:accounting": "corepack pnpm --filter @ledgerbyte/api smoke:accounting",
     "db:generate": "corepack pnpm --filter @ledgerbyte/api db:generate",
     "db:migrate": "corepack pnpm --filter @ledgerbyte/api db:migrate",

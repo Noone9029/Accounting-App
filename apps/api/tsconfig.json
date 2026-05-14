@@ -11,6 +11,6 @@
     "experimentalDecorators": true,
     "types": ["node", "jest"]
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "api/**/*.ts"],
   "exclude": ["dist", "node_modules"]
 }

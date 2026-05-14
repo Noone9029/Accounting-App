@@ -46,6 +46,17 @@ pnpm db:migrate
 pnpm db:seed
 ```
 
+## Deployment
+
+LedgerByte is prepared for a two-project Vercel deployment backed by Supabase Postgres:
+
+- API project: `apps/api`, deployed as a Vercel Node serverless function wrapper around the NestJS app.
+- Web project: `apps/web`, deployed as the Next.js frontend.
+- Database: Supabase Postgres with Prisma `DATABASE_URL` for runtime and `DIRECT_URL` for migrations.
+- Prisma transaction timing can be tuned with `PRISMA_TRANSACTION_MAX_WAIT_MS` and `PRISMA_TRANSACTION_TIMEOUT_MS` for hosted Supabase/Vercel latency.
+
+See [docs/DEPLOYMENT_VERCEL_SUPABASE.md](docs/DEPLOYMENT_VERCEL_SUPABASE.md) for the full setup checklist, required Vercel project settings, and environment variables.
+
 Seed login:
 
 - Email: `admin@example.com`
