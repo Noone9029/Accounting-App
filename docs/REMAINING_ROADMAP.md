@@ -68,7 +68,7 @@ Tasks:
 - Review inventory accounting settings, purchase receipt clearing previews/posting, purchase bill direct-vs-clearing finalization behavior, bill/receipt matching visibility, manual sales issue COGS posting, and clearing account balances with an accountant.
 - Use `docs/inventory/PURCHASE_RECEIPT_POSTING_READINESS_AUDIT.md` as the go/no-go gate before automatic receipt GL posting or direct-mode migration.
 - Harden manual COGS and receipt asset review/audit UX after first QA pass.
-- Inventory clearing reconciliation, variance handling, and historical direct-mode exclusion reporting.
+- Accountant review of inventory clearing reconciliation/variance reports, followed by variance posting policy and historical direct-mode exclusion/migration planning.
 - Accounting-grade inventory valuation reports after GL posting design.
 - Employee master data.
 - Payroll shell with draft runs, pay items, and accounting posting plan.
@@ -83,7 +83,7 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Add inventory clearing reconciliation and variance reporting for manually posted purchase receipt asset journals.
+> Design accountant-approved inventory variance posting and correction journals without enabling automatic variance posting.
 
 ## Phase 4: ZATCA Production Path
 

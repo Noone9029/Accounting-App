@@ -98,11 +98,13 @@ After reversal, normal receipt void stock rules apply.
 
 ## F. Remaining Questions
 
-- How should Inventory Clearing be reconciled at scale across multiple receipts and bills?
-- How should price/quantity variances be routed when receipt cost differs from bill cost?
+- Inventory Clearing can now be reviewed with `GET /inventory/reports/clearing-reconciliation` and `GET /inventory/reports/clearing-variance`.
+- The reports identify matched rows, partial rows, value variances, clearing-mode bills without active receipt asset postings, receipt asset postings without compatible clearing bills, and reversed receipt asset postings.
+- The reports include clearing account GL activity summaries and CSV export, but they do not create adjustment or variance journals.
+- How should price/quantity variances be posted when receipt cost differs from bill cost?
 - How should landed cost allocation affect receipt asset posting?
 - How should historical direct-mode bills be excluded or migrated if an organization later changes policy?
 
 ## Recommendation
 
-Keep receipt asset posting explicit and accountant-reviewed. Do not enable automatic receipt GL posting until clearing reconciliation, variance handling, landed cost policy, and historical migration rules are complete.
+Keep receipt asset posting explicit and accountant-reviewed. Use the clearing reconciliation and variance reports as review tools only. Do not enable automatic receipt GL posting or automatic variance journals until variance posting, landed cost policy, and historical migration rules are complete.

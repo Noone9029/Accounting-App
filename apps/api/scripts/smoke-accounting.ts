@@ -559,6 +559,65 @@ interface InventoryLowStockReport {
   totalItems: number;
 }
 
+type InventoryClearingReportStatus =
+  | "MATCHED"
+  | "PARTIAL"
+  | "VARIANCE"
+  | "BILL_WITHOUT_RECEIPT_POSTING"
+  | "RECEIPT_WITHOUT_CLEARING_BILL"
+  | "DIRECT_MODE_EXCLUDED";
+
+interface InventoryClearingReconciliationReport {
+  clearingAccountBalance: string;
+  reportComputedOpenDifference: string;
+  differenceBetweenGLAndReport: string;
+  summary: {
+    rowCount: number;
+    matchedCount: number;
+    varianceCount: number;
+    billWithoutReceiptPostingCount: number;
+    receiptWithoutClearingBillCount: number;
+    billClearingDebit: string;
+    receiptClearingCredit: string;
+    netClearingDifference: string;
+  };
+  rows: Array<{
+    status: InventoryClearingReportStatus;
+    purchaseBill: { id: string; billNumber: string; inventoryPostingMode: PurchaseBillInventoryPostingMode } | null;
+    supplier: { id: string; name: string; displayName?: string | null } | null;
+    billClearingDebit: string;
+    receiptClearingCredit: string;
+    netClearingDifference: string;
+    billedQuantity: string;
+    receivedQuantity: string;
+    receipts: Array<{
+      id: string;
+      receiptNumber: string;
+      receiptValue: string;
+      activeClearingCredit: string;
+      assetPostingStatus: "NOT_POSTED" | "POSTED" | "REVERSED";
+    }>;
+    warnings: string[];
+  }>;
+}
+
+interface InventoryClearingVarianceReport {
+  clearingAccountBalance: string;
+  summary: {
+    rowCount: number;
+    totalVarianceAmount: string;
+  };
+  rows: Array<{
+    status: InventoryClearingReportStatus;
+    purchaseBill: { id: string; billNumber: string; inventoryPostingMode: PurchaseBillInventoryPostingMode } | null;
+    receipt: { id: string; receiptNumber: string } | null;
+    varianceAmount: string;
+    varianceReason: string;
+    recommendedAction: string;
+    warnings: string[];
+  }>;
+}
+
 interface SalesInvoice {
   id: string;
   invoiceNumber: string;
@@ -1704,6 +1763,49 @@ async function main(): Promise<void> {
   assert(
     clearingLedgerAfterReceiptAssetPost.lines.some((line) => line.journalEntryId === receiptAssetJournalEntryId && money(line.credit).eq("8.0000")),
     "general ledger includes receipt clearing credit",
+  );
+  const clearingReportJournalCountBefore = (await get<JournalEntry[]>("/journal-entries", headers)).length;
+  const clearingReconciliationReport = await get<InventoryClearingReconciliationReport>("/inventory/reports/clearing-reconciliation", headers);
+  const clearingReconciliationRow = required(
+    clearingReconciliationReport.rows.find((row) => row.purchaseBill?.id === finalizedClearingModePurchaseBill.id),
+    "inventory clearing reconciliation row for smoke clearing bill",
+  );
+  assertEqual(clearingReconciliationRow.status, "MATCHED", "inventory clearing reconciliation reports matched bill/receipt");
+  assertMoney(clearingReconciliationRow.billClearingDebit, money("8.0000"), "inventory clearing reconciliation bill debit");
+  assertMoney(clearingReconciliationRow.receiptClearingCredit, money("8.0000"), "inventory clearing reconciliation receipt credit");
+  assert(
+    clearingReconciliationRow.receipts.some((receipt) => receipt.id === clearingPurchaseReceipt.id && receipt.assetPostingStatus === "POSTED"),
+    "inventory clearing reconciliation includes posted receipt asset state",
+  );
+  const clearingReconciliationFiltered = await get<InventoryClearingReconciliationReport>(
+    `/inventory/reports/clearing-reconciliation?purchaseReceiptId=${encodeURIComponent(clearingPurchaseReceipt.id)}`,
+    headers,
+  );
+  assert(
+    clearingReconciliationFiltered.rows.some((row) => row.receipts.some((receipt) => receipt.id === clearingPurchaseReceipt.id)),
+    "inventory clearing reconciliation receipt filter includes linked receipt",
+  );
+  await assertCsv(
+    "/inventory/reports/clearing-reconciliation?format=csv",
+    headers,
+    "inventory clearing reconciliation CSV",
+    "Inventory Clearing Reconciliation",
+  );
+  const clearingVarianceReport = await get<InventoryClearingVarianceReport>("/inventory/reports/clearing-variance", headers);
+  assertPresent(clearingVarianceReport.summary.totalVarianceAmount, "inventory clearing variance total");
+  assert(Array.isArray(clearingVarianceReport.rows), "inventory clearing variance rows array");
+  await assertCsv(
+    "/inventory/reports/clearing-variance?format=csv",
+    headers,
+    "inventory clearing variance CSV",
+    "Inventory Clearing Variance",
+  );
+  const clearingReportJournalCountAfter = (await get<JournalEntry[]>("/journal-entries", headers)).length;
+  const clearingReportNoJournal = clearingReportJournalCountAfter === clearingReportJournalCountBefore;
+  assertEqual(
+    clearingReportJournalCountAfter,
+    clearingReportJournalCountBefore,
+    "inventory clearing report endpoints do not create journal entries",
   );
   await expectHttpError("duplicate receipt asset posting", () =>
     post<PurchaseReceipt>(`/purchase-receipts/${clearingPurchaseReceipt.id}/post-inventory-asset`, headers, {}),
@@ -3693,6 +3795,10 @@ async function main(): Promise<void> {
         purchaseReceiptAssetJournalDelta: journalEntriesAfterReceiptAssetReversal.length - journalEntriesBeforeReceiptAssetPost.length,
         purchaseReceiptAssetVoided: voidedClearingPurchaseReceipt.status === "VOIDED",
         purchaseReceiptAssetReportImpactChecked: true,
+        inventoryClearingReconciliationStatus: clearingReconciliationRow.status,
+        inventoryClearingReconciliationNetDifference: clearingReconciliationRow.netClearingDifference,
+        inventoryClearingVarianceRowCount: clearingVarianceReport.summary.rowCount,
+        inventoryClearingReportNoJournal: clearingReportNoJournal,
         salesStockIssueId: salesStockIssue.id,
         salesStockIssueAccountingPreviewOnly: salesStockIssueAccountingPreview.previewOnly,
         salesStockIssueAccountingPreviewCanPost: salesStockIssueAccountingPreview.canPost,
@@ -3750,6 +3856,8 @@ async function main(): Promise<void> {
           "vat-summary",
           "aged-receivables",
           "aged-payables",
+          "inventory-clearing-reconciliation",
+          "inventory-clearing-variance",
         ],
         reportCsvChecked: "trial-balance",
         reportPdfDocumentId: trialBalanceReportDocuments[0]?.id,

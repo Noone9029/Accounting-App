@@ -5,6 +5,7 @@ import type {
   InventoryAccountingPreviewJournalLine,
   InventoryAccountingSettings,
   InventoryBalance,
+  InventoryClearingReportStatus,
   InventoryLowStockStatus,
   InventoryMovementSummaryRow,
   InventoryPurchasePostingMode,
@@ -235,6 +236,55 @@ export function inventoryValuationWarningText(row: Pick<InventoryStockValuationR
 
 export function inventoryReportValueDisplay(value: string | null): string {
   return value === null ? "Valuation pending" : formatInventoryQuantity(value);
+}
+
+export function inventoryClearingStatusLabel(status: InventoryClearingReportStatus): string {
+  switch (status) {
+    case "MATCHED":
+      return "Matched";
+    case "PARTIAL":
+      return "Partial";
+    case "VARIANCE":
+      return "Variance";
+    case "BILL_WITHOUT_RECEIPT_POSTING":
+      return "Bill without receipt posting";
+    case "RECEIPT_WITHOUT_CLEARING_BILL":
+      return "Receipt without clearing bill";
+    case "DIRECT_MODE_EXCLUDED":
+      return "Direct mode excluded";
+  }
+}
+
+export function inventoryClearingStatusBadgeClass(status: InventoryClearingReportStatus): string {
+  switch (status) {
+    case "MATCHED":
+      return "bg-emerald-50 text-emerald-700";
+    case "PARTIAL":
+      return "bg-amber-50 text-amber-700";
+    case "VARIANCE":
+    case "BILL_WITHOUT_RECEIPT_POSTING":
+    case "RECEIPT_WITHOUT_CLEARING_BILL":
+      return "bg-rose-50 text-rose-700";
+    case "DIRECT_MODE_EXCLUDED":
+      return "bg-slate-100 text-slate-700";
+  }
+}
+
+export function inventoryClearingAmountDisplay(value: string | number | null | undefined): string {
+  return formatInventoryQuantity(value);
+}
+
+export function inventoryClearingVarianceReasonLabel(reason: string | null | undefined): string {
+  return reason && reason.trim().length > 0 ? reason : "No variance reason.";
+}
+
+export function inventoryClearingReportUrl(filters: { purchaseBillId?: string | null; purchaseReceiptId?: string | null; status?: InventoryClearingReportStatus | null }): string {
+  const query = new URLSearchParams();
+  if (filters.purchaseBillId) query.set("purchaseBillId", filters.purchaseBillId);
+  if (filters.purchaseReceiptId) query.set("purchaseReceiptId", filters.purchaseReceiptId);
+  if (filters.status) query.set("status", filters.status);
+  const suffix = query.toString();
+  return `/inventory/reports/clearing-reconciliation${suffix ? `?${suffix}` : ""}`;
 }
 
 export function lowStockStatusLabel(status: InventoryLowStockStatus): string {

@@ -51,6 +51,6 @@ The preview uses estimated moving-average cost from operational inbound stock mo
 
 - COGS is manual only; invoices and sales stock issues do not auto-post COGS.
 - Purchase receipt inventory asset posting is manual-only for compatible finalized `INVENTORY_CLEARING` purchase bills.
-- Inventory clearing settings, preview lines, bill/receipt matching visibility, explicit clearing-mode purchase bill finalization, and explicit receipt asset posting now exist, but automatic receipt posting and clearing reconciliation are not implemented.
+- Inventory clearing settings, preview lines, bill/receipt matching visibility, explicit clearing-mode purchase bill finalization, explicit receipt asset posting, and read-only clearing reconciliation/variance reports now exist, but automatic receipt posting and automatic variance journals are not implemented.
 - Purchase receipt posting readiness is advisory for automatic/broader rollout and remains no-go for direct-mode bills, historical migration, landed cost, and FIFO.
 - FIFO, landed cost, serial tracking, batch tracking, returns, and credit-note inventory returns remain out of scope.

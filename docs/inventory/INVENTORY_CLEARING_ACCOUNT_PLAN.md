@@ -52,6 +52,13 @@ Purchase bill finalization now uses the same journal shape for explicit `INVENTO
 
 This posting is limited to purchase bills. Receipt asset journals are created only by the explicit `POST /purchase-receipts/:id/post-inventory-asset` action and do not mutate stock movements.
 
+Read-only clearing review endpoints now exist:
+
+- `GET /inventory/reports/clearing-reconciliation`
+- `GET /inventory/reports/clearing-variance`
+
+They compare finalized `INVENTORY_CLEARING` purchase bill clearing debits with active linked purchase receipt asset posting credits, include clearing account GL activity summaries, support CSV export, and never create journals.
+
 ## Preview Journal
 
 When cost and asset mapping are available, the preview journal is:
@@ -99,12 +106,13 @@ Without an inventory clearing design, directly crediting AP from receipt posting
 - Decide how standalone receipts are handled.
 - Decide variance handling for price, quantity, tax, and non-inventory costs.
 - Extend idempotency and fiscal-period coverage beyond the manual MVP where needed.
-- Add clearing reconciliation and correction workflow.
+- Use clearing reconciliation and variance reports to review open differences.
+- Add accountant-approved correction and variance posting workflow if needed.
 - Add tests that prove purchase bill AP is not duplicated.
 - Plan migration or reclassification behavior for existing purchase bills that posted directly to expense/asset accounts.
 
 ## Current Hard Stop
 
-Automatic purchase receipt accounting posting remains disabled. Inventory Clearing bill finalization is available for explicitly selected compatible bills, and compatible receipts can be manually posted Dr Inventory Asset / Cr Inventory Clearing after review.
+Automatic purchase receipt accounting posting remains disabled. Inventory Clearing bill finalization is available for explicitly selected compatible bills, compatible receipts can be manually posted Dr Inventory Asset / Cr Inventory Clearing after review, and clearing differences can be reviewed through reconciliation/variance reports.
 
-The current readiness audit remains no-go for automatic receipt posting and for any direct-mode or historical migration behavior until clearing reconciliation, migration/exclusion, variance, VAT, and landed-cost rules are approved.
+The current readiness audit remains no-go for automatic receipt posting and for any direct-mode or historical migration behavior until migration/exclusion, variance posting, VAT, and landed-cost rules are approved.

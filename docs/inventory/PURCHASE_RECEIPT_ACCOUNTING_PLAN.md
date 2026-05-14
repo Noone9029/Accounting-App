@@ -66,4 +66,4 @@ Landed cost is deferred because freight, duty, allocation bases, supplier charge
 
 ## Current Hard Stop
 
-Automatic purchase receipt inventory asset posting is not implemented. Direct-mode receipt posting, historical migration, landed cost, FIFO, and clearing reconciliation remain out of scope.
+Automatic purchase receipt inventory asset posting is not implemented. Direct-mode receipt posting, historical migration, landed cost, FIFO, and automatic variance posting remain out of scope. Clearing reconciliation and variance reporting are available as read-only review tools.

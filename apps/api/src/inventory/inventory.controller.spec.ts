@@ -46,5 +46,11 @@ describe("InventoryController permissions", () => {
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, InventoryController.prototype.lowStockReport)).toEqual([
       PERMISSIONS.inventory.view,
     ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, InventoryController.prototype.clearingReconciliationReport)).toEqual([
+      PERMISSIONS.inventory.view,
+    ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, InventoryController.prototype.clearingVarianceReport)).toEqual([
+      PERMISSIONS.inventory.view,
+    ]);
   });
 });

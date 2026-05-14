@@ -37,7 +37,7 @@ Purchase order matching returns the operational receipt value estimate, converte
 
 ## Future Accounting Use
 
-Bill/receipt matching is now used by the preview to decide whether a receipt is linked to a finalized `INVENTORY_CLEARING` bill and can be manually posted Dr Inventory Asset / Cr Inventory Clearing. Price and quantity differences must still be reviewed before broader automation, reconciliation, or variance posting is enabled.
+Bill/receipt matching is now used by the preview to decide whether a receipt is linked to a finalized `INVENTORY_CLEARING` bill and can be manually posted Dr Inventory Asset / Cr Inventory Clearing. The clearing reconciliation and variance reports compare active receipt asset postings with clearing-mode bills, but price and quantity differences still require manual accountant review before any variance posting is enabled.
 
 ## Deferred Work
 
@@ -52,4 +52,4 @@ Bill/receipt matching is now used by the preview to decide whether a receipt is 
 
 Matching status is visibility only. It is not an accounting subledger and does not post or reverse any GL entries.
 
-Manual receipt asset posting is available only from the receipt action path for compatible clearing-mode bills. Matching status itself remains non-posting, and automatic posting, direct-mode posting, variance policy, and migration/exclusion for current finalized direct-mode bills remain out of scope.
+Manual receipt asset posting is available only from the receipt action path for compatible clearing-mode bills. Matching status itself remains non-posting, reconciliation/variance reports are read-only, and automatic posting, direct-mode posting, automatic variance journals, and migration/exclusion for current finalized direct-mode bills remain out of scope.

@@ -1026,6 +1026,125 @@ export interface InventoryLowStockReport {
   totalItems: number;
 }
 
+export type InventoryClearingReportStatus =
+  | "MATCHED"
+  | "PARTIAL"
+  | "VARIANCE"
+  | "BILL_WITHOUT_RECEIPT_POSTING"
+  | "RECEIPT_WITHOUT_CLEARING_BILL"
+  | "DIRECT_MODE_EXCLUDED";
+
+export interface InventoryClearingReceiptSummary {
+  id: string;
+  receiptNumber: string;
+  receiptDate: string;
+  status: PurchaseReceiptStatus;
+  receiptValue: string;
+  activeClearingCredit: string;
+  inventoryAssetJournalEntryId: string | null;
+  inventoryAssetReversalJournalEntryId: string | null;
+  assetPostingStatus: "NOT_POSTED" | "POSTED" | "REVERSED";
+  warnings: string[];
+}
+
+export interface InventoryClearingReconciliationRow {
+  status: InventoryClearingReportStatus;
+  purchaseBill: {
+    id: string;
+    billNumber: string;
+    status: PurchaseBillStatus;
+    inventoryPostingMode: PurchaseBillInventoryPostingMode;
+    billDate: string;
+    total: string;
+    currency: string;
+    journalEntryId: string | null;
+  } | null;
+  supplier: Pick<Contact, "id" | "name" | "displayName"> | null;
+  billDate: string | null;
+  billClearingDebit: string;
+  receiptClearingCredit: string;
+  netClearingDifference: string;
+  billedQuantity: string;
+  receivedQuantity: string;
+  matchedQuantity: string;
+  unmatchedQuantity: string;
+  vatAmount: string;
+  apAmount: string;
+  journalEntryId: string | null;
+  receipts: InventoryClearingReceiptSummary[];
+  lines: Array<{
+    lineId: string;
+    item: Pick<Item, "id" | "name" | "sku" | "type" | "status" | "inventoryTracking"> | null;
+    description: string;
+    billedQuantity: string;
+    unitPrice: string;
+    billClearingDebit: string;
+    receivedQuantity: string;
+    postedReceiptValue: string;
+    valueDifference: string;
+  }>;
+  warnings: string[];
+}
+
+export interface InventoryClearingReconciliationReport {
+  generatedAt: string;
+  from: string | null;
+  to: string | null;
+  supplierId: string | null;
+  purchaseBillId: string | null;
+  purchaseReceiptId: string | null;
+  status: InventoryClearingReportStatus | null;
+  clearingAccount: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive"> | null;
+  clearingAccountPeriodDebit: string;
+  clearingAccountPeriodCredit: string;
+  clearingAccountBalance: string;
+  reportComputedOpenDifference: string;
+  differenceBetweenGLAndReport: string;
+  warnings: string[];
+  summary: {
+    rowCount: number;
+    matchedCount: number;
+    partialCount: number;
+    varianceCount: number;
+    billWithoutReceiptPostingCount: number;
+    receiptWithoutClearingBillCount: number;
+    directModeExcludedCount: number;
+    billClearingDebit: string;
+    receiptClearingCredit: string;
+    netClearingDifference: string;
+  };
+  rows: InventoryClearingReconciliationRow[];
+}
+
+export interface InventoryClearingVarianceRow {
+  status: InventoryClearingReportStatus;
+  purchaseBill: InventoryClearingReconciliationRow["purchaseBill"];
+  receipt: InventoryClearingReceiptSummary | null;
+  supplier: Pick<Contact, "id" | "name" | "displayName"> | null;
+  varianceAmount: string;
+  varianceReason: string;
+  recommendedAction: string;
+  warnings: string[];
+}
+
+export interface InventoryClearingVarianceReport {
+  generatedAt: string;
+  from: string | null;
+  to: string | null;
+  supplierId: string | null;
+  purchaseBillId: string | null;
+  purchaseReceiptId: string | null;
+  status: InventoryClearingReportStatus | null;
+  clearingAccount: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive"> | null;
+  clearingAccountBalance: string;
+  summary: {
+    rowCount: number;
+    totalVarianceAmount: string;
+  };
+  warnings: string[];
+  rows: InventoryClearingVarianceRow[];
+}
+
 export interface Contact {
   id: string;
   type: ContactType;

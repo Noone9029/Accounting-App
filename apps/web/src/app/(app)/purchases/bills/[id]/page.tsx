@@ -11,6 +11,9 @@ import { formatOptionalDate } from "@/lib/invoice-display";
 import {
   formatInventoryQuantity,
   hasRemainingInventoryQuantity,
+  inventoryClearingReportUrl,
+  inventoryClearingStatusBadgeClass,
+  inventoryClearingStatusLabel,
   inventoryProgressStatusBadgeClass,
   inventoryProgressStatusLabel,
   receiptMatchingStatusBadgeClass,
@@ -20,7 +23,13 @@ import { formatMoneyAmount } from "@/lib/money";
 import { downloadPdf, purchaseBillPdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import { purchaseBillAccountingPreviewLineDisplay, purchaseBillInventoryPostingModeLabel } from "@/lib/purchase-bills";
-import type { PurchaseBill, PurchaseBillAccountingPreview, PurchaseBillReceiptMatchingStatus, PurchaseReceivingStatus } from "@/lib/types";
+import type {
+  InventoryClearingReconciliationReport,
+  PurchaseBill,
+  PurchaseBillAccountingPreview,
+  PurchaseBillReceiptMatchingStatus,
+  PurchaseReceivingStatus,
+} from "@/lib/types";
 
 export default function PurchaseBillDetailPage() {
   const params = useParams<{ id: string }>();
@@ -31,6 +40,7 @@ export default function PurchaseBillDetailPage() {
   const [receivingStatus, setReceivingStatus] = useState<PurchaseReceivingStatus | null>(null);
   const [matchingStatus, setMatchingStatus] = useState<PurchaseBillReceiptMatchingStatus | null>(null);
   const [accountingPreview, setAccountingPreview] = useState<PurchaseBillAccountingPreview | null>(null);
+  const [clearingReport, setClearingReport] = useState<InventoryClearingReconciliationReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
@@ -56,13 +66,15 @@ export default function PurchaseBillDetailPage() {
       apiRequest<PurchaseReceivingStatus>(`/purchase-bills/${params.id}/receiving-status`).catch(() => null),
       apiRequest<PurchaseBillReceiptMatchingStatus>(`/purchase-bills/${params.id}/receipt-matching-status`).catch(() => null),
       apiRequest<PurchaseBillAccountingPreview>(`/purchase-bills/${params.id}/accounting-preview`).catch(() => null),
+      apiRequest<InventoryClearingReconciliationReport>(`/inventory/reports/clearing-reconciliation?purchaseBillId=${encodeURIComponent(params.id)}`).catch(() => null),
     ])
-      .then(([result, statusResult, matchingResult, accountingPreviewResult]) => {
+      .then(([result, statusResult, matchingResult, accountingPreviewResult, clearingReportResult]) => {
         if (!cancelled) {
           setBill(result);
           setReceivingStatus(statusResult);
           setMatchingStatus(matchingResult);
           setAccountingPreview(accountingPreviewResult);
+          setClearingReport(clearingReportResult);
         }
       })
       .catch((loadError: unknown) => {
@@ -99,6 +111,8 @@ export default function PurchaseBillDetailPage() {
       setBill(updated);
       const preview = await apiRequest<PurchaseBillAccountingPreview>(`/purchase-bills/${bill.id}/accounting-preview`).catch(() => null);
       setAccountingPreview(preview);
+      const clearing = await apiRequest<InventoryClearingReconciliationReport>(`/inventory/reports/clearing-reconciliation?purchaseBillId=${encodeURIComponent(bill.id)}`).catch(() => null);
+      setClearingReport(clearing);
       setSuccess(action === "finalize" ? `Finalized bill ${updated.billNumber}.` : `Voided bill ${updated.billNumber}.`);
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : `Unable to ${action} purchase bill.`);
@@ -238,6 +252,7 @@ export default function PurchaseBillDetailPage() {
           {receivingStatus ? <ReceivingStatusPanel status={receivingStatus} /> : null}
           {matchingStatus ? <ReceiptMatchingPanel status={matchingStatus} /> : null}
           {accountingPreview ? <AccountingPreviewPanel preview={accountingPreview} currency={bill.currency} /> : null}
+          <ClearingReconciliationPanel bill={bill} report={clearingReport} />
 
           <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
             <table className="w-full min-w-[920px] text-left text-sm">
@@ -437,7 +452,7 @@ function ReceiptMatchingPanel({ status }: { status: PurchaseBillReceiptMatchingS
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-ink">Receipt matching</h2>
-          <p className="mt-1 text-sm text-steel">Operational bill/receipt matching visibility. No clearing or inventory asset journal is posted.</p>
+          <p className="mt-1 text-sm text-steel">Operational bill/receipt matching visibility; journal impact appears in clearing reconciliation after explicit posting.</p>
         </div>
         <span className={`rounded-md px-2 py-1 text-xs font-medium ${receiptMatchingStatusBadgeClass(status.status)}`}>
           {receiptMatchingStatusLabel(status.status)}
@@ -499,6 +514,64 @@ function ReceiptMatchingPanel({ status }: { status: PurchaseBillReceiptMatchingS
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function ClearingReconciliationPanel({ bill, report }: { bill: PurchaseBill; report: InventoryClearingReconciliationReport | null }) {
+  if (bill.inventoryPostingMode !== "INVENTORY_CLEARING") {
+    return (
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <h2 className="text-base font-semibold text-ink">Clearing reconciliation</h2>
+        <p className="mt-2 text-sm text-steel">This bill uses direct expense/asset posting and is excluded from inventory clearing reconciliation.</p>
+      </div>
+    );
+  }
+
+  const row = report?.rows[0] ?? null;
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-ink">Clearing reconciliation</h2>
+          <p className="mt-1 text-sm text-steel">Inventory Clearing debit from this bill compared with active receipt asset postings.</p>
+        </div>
+        {row ? (
+          <span className={`rounded-md px-2 py-1 text-xs font-medium ${inventoryClearingStatusBadgeClass(row.status)}`}>
+            {inventoryClearingStatusLabel(row.status)}
+          </span>
+        ) : null}
+      </div>
+
+      {row ? (
+        <>
+          <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-4">
+            <Summary label="Bill clearing debit" value={formatMoneyAmount(row.billClearingDebit, bill.currency)} />
+            <Summary label="Receipt clearing credit" value={formatMoneyAmount(row.receiptClearingCredit, bill.currency)} />
+            <Summary label="Net difference" value={formatMoneyAmount(row.netClearingDifference, bill.currency)} />
+            <Summary label="Linked receipts" value={String(row.receipts.length)} />
+          </div>
+          {row.warnings.length > 0 ? (
+            <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-900">
+              <ul className="space-y-1">
+                {row.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <div className="mt-4 flex flex-wrap gap-3 text-sm">
+            <Link href={inventoryClearingReportUrl({ purchaseBillId: bill.id })} className="font-medium text-palm hover:underline">
+              Open clearing report
+            </Link>
+            <Link href={`/inventory/reports/clearing-variance?purchaseBillId=${encodeURIComponent(bill.id)}`} className="font-medium text-palm hover:underline">
+              Open variance report
+            </Link>
+          </div>
+        </>
+      ) : (
+        <p className="mt-3 text-sm text-steel">No clearing reconciliation row is available for this bill yet.</p>
+      )}
     </div>
   );
 }

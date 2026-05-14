@@ -7,10 +7,12 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { InventoryBalanceQueryDto } from "./dto/inventory-balance-query.dto";
+import { InventoryClearingReportQueryDto } from "./dto/inventory-clearing-report-query.dto";
 import { InventoryReportQueryDto } from "./dto/inventory-report-query.dto";
 import { UpdateInventoryAccountingSettingsDto } from "./dto/update-inventory-accounting-settings.dto";
 import { UpdateInventorySettingsDto } from "./dto/update-inventory-settings.dto";
 import { InventoryAccountingService } from "./inventory-accounting.service";
+import { InventoryClearingReportService } from "./inventory-clearing-report.service";
 import { InventoryService } from "./inventory.service";
 
 @Controller("inventory")
@@ -19,6 +21,7 @@ export class InventoryController {
   constructor(
     private readonly inventoryService: InventoryService,
     private readonly inventoryAccountingService: InventoryAccountingService,
+    private readonly inventoryClearingReportService: InventoryClearingReportService,
   ) {}
 
   @Get("settings")
@@ -97,6 +100,34 @@ export class InventoryController {
       return csvResponse(response, file.filename, file.content);
     }
     return this.inventoryService.lowStockReport(organizationId);
+  }
+
+  @Get("reports/clearing-reconciliation")
+  @RequirePermissions(PERMISSIONS.inventory.view)
+  async clearingReconciliationReport(
+    @CurrentOrganizationId() organizationId: string,
+    @Query() query: InventoryClearingReportQueryDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    if (query.format === "csv") {
+      const file = await this.inventoryClearingReportService.clearingReconciliationCsvFile(organizationId, query);
+      return csvResponse(response, file.filename, file.content);
+    }
+    return this.inventoryClearingReportService.clearingReconciliationReport(organizationId, query);
+  }
+
+  @Get("reports/clearing-variance")
+  @RequirePermissions(PERMISSIONS.inventory.view)
+  async clearingVarianceReport(
+    @CurrentOrganizationId() organizationId: string,
+    @Query() query: InventoryClearingReportQueryDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    if (query.format === "csv") {
+      const file = await this.inventoryClearingReportService.clearingVarianceCsvFile(organizationId, query);
+      return csvResponse(response, file.filename, file.content);
+    }
+    return this.inventoryClearingReportService.clearingVarianceReport(organizationId, query);
   }
 }
 

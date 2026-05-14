@@ -177,11 +177,13 @@ This document maps implemented accounting workflows to their journal entries, ba
   - `GET /inventory/settings` defaults to `MOVING_AVERAGE`, negative stock blocked, and value tracking enabled.
   - `GET /inventory/accounting-settings` defaults inventory accounting to disabled and returns mapping readiness, warnings, `previewOnly: true`, and no automatic posting state.
   - `PATCH /inventory/accounting-settings` validates tenant-owned active posting account mappings, including inventory clearing account type/separation rules, and blocks enabling unless inventory asset and COGS accounts exist with `MOVING_AVERAGE`.
-  - `GET /inventory/purchase-receipt-posting-readiness` returns an advisory readiness audit for automatic/broader receipt asset posting, including Inventory Asset and Inventory Clearing mappings, direct-mode bill count, clearing-mode bill count, blockers, warnings, and a recommended next step. It does not mutate accounting and remains no-go for automatic posting, direct-mode posting, historical migration, and clearing reconciliation.
+  - `GET /inventory/purchase-receipt-posting-readiness` returns an advisory readiness audit for automatic/broader receipt asset posting, including Inventory Asset and Inventory Clearing mappings, direct-mode bill count, clearing-mode bill count, blockers, warnings, and a recommended next step. It does not mutate accounting and remains no-go for automatic posting, direct-mode posting, and historical migration.
   - `FIFO_PLACEHOLDER` can be saved, but reports still calculate moving-average estimates.
   - `GET /inventory/reports/stock-valuation` derives quantity, average unit cost, estimated value, item totals, and grand total from stock movements, with missing-cost warnings.
   - `GET /inventory/reports/movement-summary` derives opening, inbound, outbound, closing, movement count, and movement-type breakdown by item/warehouse.
   - `GET /inventory/reports/low-stock` lists tracked items at or below reorder point.
+  - `GET /inventory/reports/clearing-reconciliation` compares finalized `INVENTORY_CLEARING` purchase bill clearing debits with active linked purchase receipt asset posting credits, includes clearing account GL activity, supports CSV, and creates no journals.
+  - `GET /inventory/reports/clearing-variance` returns only clearing rows requiring accountant review, including partial receipts, value differences, reversed receipt asset postings, and receipts without compatible clearing bills; it supports CSV and creates no variance journals.
 - Preview behavior:
   - Purchase receipt detail/API can show receipt value, linked bill mode/status, matched bill value, value difference, matching summary, posting status, journal ids, and Dr Inventory Asset / Cr Inventory Clearing lines when unit costs and mappings exist.
   - Purchase receipt preview returns `canPost: true` only for eligible receipts linked to finalized `INVENTORY_CLEARING` bills.
@@ -205,10 +207,10 @@ This document maps implemented accounting workflows to their journal entries, ba
   - No journal entries are created automatically by warehouses, stock movements, inventory adjustments, warehouse transfers, purchase receipts, or sales stock issues.
   - Manual COGS posting affects financial reports through posted journal lines.
   - Manual compatible receipt asset posting affects financial reports through posted journal lines.
-  - Bill/receipt matching status, purchase bill accounting preview, and purchase receipt accounting preview do not post inventory clearing or AP-clearing entries.
+  - Bill/receipt matching status, purchase bill accounting preview, purchase receipt accounting preview, clearing reconciliation reports, and clearing variance reports do not post inventory clearing, AP-clearing, variance, or adjustment entries.
   - Inventory accounting settings, readiness, and preview endpoints do not affect GL, COGS, inventory asset balances, VAT, or financial statements by themselves.
 - Gaps/risks:
-  - No automatic COGS posting, automatic purchase receipt inventory asset posting, direct-mode receipt posting, clearing reconciliation workflow, automatic purchase receipt/automatic sales issue, landed cost, serial/batch tracking, delivery documents, or accounting-grade inventory financial report exists yet.
+  - No automatic COGS posting, automatic purchase receipt inventory asset posting, direct-mode receipt posting, automatic variance posting, automatic purchase receipt/automatic sales issue, landed cost, serial/batch tracking, delivery documents, or accounting-grade inventory financial report exists yet.
 
 ## Sales Workflows
 

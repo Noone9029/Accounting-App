@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-14
 
-Commit inspected: pending (`Add purchase receipt inventory asset posting`)
+Commit inspected: pending (`Add inventory clearing reconciliation reports`)
 
 ## Scope
 
@@ -37,6 +37,26 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Inventory clearing reconciliation and variance reporting added
+
+Implemented read-only review reports for manually posted purchase receipt asset journals and `INVENTORY_CLEARING` purchase bills.
+
+What changed:
+
+- Added `GET /inventory/reports/clearing-reconciliation` with filters for date, supplier, purchase bill, purchase receipt, status, and optional CSV export.
+- Added `GET /inventory/reports/clearing-variance` to surface only rows requiring accountant review, including partial clearing, value variances, clearing-mode bills without active receipt asset postings, receipt asset postings without compatible clearing bills, and reversed receipt asset postings.
+- Added clearing account GL activity summary fields so accountants can compare report-computed open differences to posted journal activity.
+- Added frontend Inventory report pages, sidebar links, purchase bill mini-panel, and purchase receipt mini-panel.
+- Report endpoints are read-only and create no journals.
+
+Remaining risks:
+
+- No automatic variance posting or correction journals.
+- No landed cost.
+- FIFO remains placeholder-only.
+- Historical direct-mode bill migration/exclusion policy still requires accountant review.
+- Accountant review is required before production use.
+
 ### Explicit purchase receipt inventory asset posting added
 
 Implemented manual accountant-reviewed inventory asset posting for purchase receipts linked to finalized `INVENTORY_CLEARING` purchase bills only.
@@ -54,7 +74,7 @@ Remaining risks:
 
 - No automatic purchase receipt GL posting.
 - No receipt asset posting for historical/direct-mode purchase bills and no historical migration.
-- Inventory Clearing timing differences still require accountant review until receipt/bill clearing reconciliation is built.
+- Inventory Clearing timing differences are visible in read-only reconciliation/variance reports, but correction journals still require accountant review.
 - Landed cost is missing.
 - FIFO remains placeholder-only.
 - Accountant review is required before production use.
@@ -188,7 +208,7 @@ Risk reduced:
 Remaining risks:
 
 - Purchase receipt inventory asset posting is manual-only for compatible clearing-mode bills.
-- Purchase receipt clearing reconciliation is still missing.
+- Purchase receipt clearing reconciliation is now read-only; automatic variance posting is still missing.
 - No landed cost.
 - FIFO placeholder only.
 - No automatic COGS posting from invoices or stock issues.
@@ -216,7 +236,7 @@ Remaining risks:
 
 - No automatic COGS posting; manual COGS posting now requires explicit review/action.
 - No inventory asset posting.
-- Purchase receipt inventory asset posting and clearing reconciliation are still missing.
+- Purchase receipt inventory asset posting and clearing reconciliation now exist in manual/read-only form; automatic posting remains missing.
 - No landed cost.
 - No serial/batch tracking.
 - Accountant review is required before any financial inventory posting.

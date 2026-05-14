@@ -15,6 +15,9 @@ import {
   canShowPostReceiptAssetAction,
   canShowReverseReceiptAssetAction,
   formatInventoryQuantity,
+  inventoryClearingReportUrl,
+  inventoryClearingStatusBadgeClass,
+  inventoryClearingStatusLabel,
   inventoryOperationalWarning,
   linkedPurchaseBillModeWarning,
   purchaseReceiptPostingModeLabel,
@@ -25,7 +28,7 @@ import {
   stockMovementTypeLabel,
 } from "@/lib/inventory";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { PurchaseReceipt, PurchaseReceiptAccountingPreview, PurchaseReceiptLine } from "@/lib/types";
+import type { InventoryClearingReconciliationReport, PurchaseReceipt, PurchaseReceiptAccountingPreview, PurchaseReceiptLine } from "@/lib/types";
 
 export default function PurchaseReceiptDetailPage() {
   const params = useParams<{ id: string }>();
@@ -33,6 +36,7 @@ export default function PurchaseReceiptDetailPage() {
   const { can } = usePermissions();
   const [receipt, setReceipt] = useState<PurchaseReceipt | null>(null);
   const [preview, setPreview] = useState<PurchaseReceiptAccountingPreview | null>(null);
+  const [clearingReport, setClearingReport] = useState<InventoryClearingReconciliationReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const [voiding, setVoiding] = useState(false);
@@ -56,11 +60,13 @@ export default function PurchaseReceiptDetailPage() {
     Promise.all([
       apiRequest<PurchaseReceipt>(`/purchase-receipts/${params.id}`),
       apiRequest<PurchaseReceiptAccountingPreview>(`/purchase-receipts/${params.id}/accounting-preview`),
+      apiRequest<InventoryClearingReconciliationReport>(`/inventory/reports/clearing-reconciliation?purchaseReceiptId=${encodeURIComponent(params.id)}`).catch(() => null),
     ])
-      .then(([receiptResult, previewResult]) => {
+      .then(([receiptResult, previewResult, clearingReportResult]) => {
         if (!cancelled) {
           setReceipt(receiptResult);
           setPreview(previewResult);
+          setClearingReport(clearingReportResult);
         }
       })
       .catch((loadError: unknown) => {
@@ -215,6 +221,7 @@ export default function PurchaseReceiptDetailPage() {
             onPostAsset={() => void postInventoryAsset()}
             onReverseAsset={() => void reverseInventoryAsset()}
           />
+          <ReceiptClearingReconciliationPanel receipt={receipt} preview={preview} report={clearingReport} />
         </div>
       ) : null}
     </section>
@@ -239,6 +246,69 @@ function Movement({ line, kind }: { line: PurchaseReceiptLine; kind: "stockMovem
     </div>
   ) : (
     <span className="text-steel">-</span>
+  );
+}
+
+function ReceiptClearingReconciliationPanel({
+  receipt,
+  preview,
+  report,
+}: {
+  receipt: PurchaseReceipt;
+  preview: PurchaseReceiptAccountingPreview | null;
+  report: InventoryClearingReconciliationReport | null;
+}) {
+  const row = report?.rows[0] ?? null;
+  const receiptSummary = row?.receipts.find((candidate) => candidate.id === receipt.id) ?? null;
+  const status = row?.status ?? null;
+  const billId = preview?.linkedBill?.id ?? receipt.purchaseBillId ?? null;
+  const receiptStatus =
+    receiptSummary?.assetPostingStatus ?? (receipt.inventoryAssetReversalJournalEntryId ? "REVERSED" : receipt.inventoryAssetJournalEntryId ? "POSTED" : "NOT_POSTED");
+
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-ink">Clearing reconciliation</h2>
+          <p className="mt-1 text-sm text-steel">Receipt asset posting state against the linked inventory-clearing purchase bill.</p>
+        </div>
+        {status ? (
+          <span className={`rounded-md px-2 py-1 text-xs font-medium ${inventoryClearingStatusBadgeClass(status)}`}>
+            {inventoryClearingStatusLabel(status)}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-4">
+        <Detail label="Linked bill mode" value={preview?.linkedBill?.inventoryPostingMode?.replaceAll("_", " ") ?? "No linked bill"} />
+        <Detail label="Asset posting state" value={receiptStatus.replaceAll("_", " ")} />
+        <Detail label="Receipt value" value={receiptSummary ? formatInventoryQuantity(receiptSummary.receiptValue) : preview ? formatInventoryQuantity(preview.receiptValue) : "-"} />
+        <Detail label="Active clearing credit" value={receiptSummary ? formatInventoryQuantity(receiptSummary.activeClearingCredit) : "-"} />
+        <Detail label="Bill clearing debit" value={row ? formatInventoryQuantity(row.billClearingDebit) : "-"} />
+        <Detail label="Net difference" value={row ? formatInventoryQuantity(row.netClearingDifference) : "-"} />
+        <Detail label="Asset journal" value={receipt.inventoryAssetJournalEntryId ?? "-"} />
+        <Detail label="Reversal journal" value={receipt.inventoryAssetReversalJournalEntryId ?? "-"} />
+      </div>
+
+      {row?.warnings.length ? (
+        <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-900">
+          <ul className="space-y-1">
+            {row.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <div className="mt-4 flex flex-wrap gap-3 text-sm">
+        <Link href={inventoryClearingReportUrl({ purchaseBillId: billId, purchaseReceiptId: receipt.id })} className="font-medium text-palm hover:underline">
+          Open clearing report
+        </Link>
+        <Link href={`/inventory/reports/clearing-variance?purchaseReceiptId=${encodeURIComponent(receipt.id)}`} className="font-medium text-palm hover:underline">
+          Open variance report
+        </Link>
+      </div>
+    </div>
   );
 }
 

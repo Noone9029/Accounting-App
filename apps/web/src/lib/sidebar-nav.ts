@@ -94,6 +94,8 @@ export const SIDEBAR_NAV_ITEMS: readonly SidebarNavItem[] = [
       { label: "Stock valuation", href: "/inventory/reports/stock-valuation", requiredAny: [PERMISSIONS.inventory.view] },
       { label: "Movement summary", href: "/inventory/reports/movement-summary", requiredAny: [PERMISSIONS.inventory.view] },
       { label: "Low stock", href: "/inventory/reports/low-stock", requiredAny: [PERMISSIONS.inventory.view] },
+      { label: "Clearing reconciliation", href: "/inventory/reports/clearing-reconciliation", requiredAny: [PERMISSIONS.inventory.view] },
+      { label: "Clearing variance", href: "/inventory/reports/clearing-variance", requiredAny: [PERMISSIONS.inventory.view] },
       { label: "Inventory settings", href: "/inventory/settings", requiredAny: [PERMISSIONS.inventory.view] },
     ],
   },

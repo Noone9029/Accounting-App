@@ -99,4 +99,4 @@ This model does not run automatically from receipt creation. It follows the manu
 
 ## Recommendation
 
-Go for explicit manual receipt inventory asset posting only when the receipt is linked to a finalized `INVENTORY_CLEARING` purchase bill and preview eligibility passes. No-go remains for automatic receipt posting, direct-mode receipt posting, historical migration, landed cost, FIFO, and clearing reconciliation until those policies are approved.
+Go for explicit manual receipt inventory asset posting only when the receipt is linked to a finalized `INVENTORY_CLEARING` purchase bill and preview eligibility passes. Clearing reconciliation and variance reports can be used for review, but no-go remains for automatic receipt posting, direct-mode receipt posting, historical migration, landed cost, FIFO, and automatic variance journals until those policies are approved.

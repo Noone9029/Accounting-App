@@ -85,4 +85,4 @@ Recommended migration rule:
 4. Review mode behavior with accountant.
 5. Implement clearing-mode finalization only after tests prove DIRECT mode is unchanged. Completed in the current phase.
 6. Add receipt inventory asset posting fields and explicit posting/reversal endpoints. Completed for compatible `INVENTORY_CLEARING` bills only.
-7. Add clearing reconciliation and variance reporting.
+7. Add accountant-approved variance posting/correction design after reviewing reconciliation and variance reports.

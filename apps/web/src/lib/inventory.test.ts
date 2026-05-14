@@ -16,6 +16,11 @@ import {
   canShowPostReceiptAssetAction,
   canShowReverseReceiptAssetAction,
   inventoryAccountingWarnings,
+  inventoryClearingAmountDisplay,
+  inventoryClearingReportUrl,
+  inventoryClearingStatusBadgeClass,
+  inventoryClearingStatusLabel,
+  inventoryClearingVarianceReasonLabel,
   inventorySettingsLabel,
   inventorySettingsWarnings,
   inventoryValuationWarningText,
@@ -221,5 +226,20 @@ describe("inventory helpers", () => {
     expect(lowStockStatusLabel("BELOW_REORDER_POINT")).toBe("Below reorder point");
     expect(lowStockStatusLabel("AT_REORDER_POINT")).toBe("At reorder point");
     expect(movementSummaryNetChange({ inboundQuantity: "10.0000", outboundQuantity: "3.5000" })).toBe("6.5000");
+  });
+
+  it("labels inventory clearing reconciliation and variance helpers", () => {
+    expect(inventoryClearingStatusLabel("MATCHED")).toBe("Matched");
+    expect(inventoryClearingStatusLabel("BILL_WITHOUT_RECEIPT_POSTING")).toBe("Bill without receipt posting");
+    expect(inventoryClearingStatusBadgeClass("MATCHED")).toContain("emerald");
+    expect(inventoryClearingStatusBadgeClass("VARIANCE")).toContain("rose");
+    expect(inventoryClearingAmountDisplay("2.5")).toBe("2.5000");
+    expect(inventoryClearingVarianceReasonLabel("Review unit cost difference between bill and receipt.")).toBe(
+      "Review unit cost difference between bill and receipt.",
+    );
+    expect(inventoryClearingVarianceReasonLabel("")).toBe("No variance reason.");
+    expect(inventoryClearingReportUrl({ purchaseBillId: "bill-1", purchaseReceiptId: "receipt-1", status: "VARIANCE" })).toBe(
+      "/inventory/reports/clearing-reconciliation?purchaseBillId=bill-1&purchaseReceiptId=receipt-1&status=VARIANCE",
+    );
   });
 });

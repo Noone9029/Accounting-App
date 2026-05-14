@@ -65,6 +65,7 @@ Purchase receipt accounting is manual-only:
 - direct-mode, standalone, and PO-only receipts are blocked from receipt asset posting
 - purchase receipt previews show receipt value, matched bill value, unmatched receipt value, value difference, and Dr Inventory Asset / Cr Inventory Clearing preview lines when mapped
 - purchase bill direct-vs-clearing mode preview and clearing-mode finalization exist
+- clearing reconciliation and variance reports show bill clearing debits, active receipt clearing credits, GL clearing balance, value differences, reversed postings, and direct-mode exclusions without posting journals
 - purchase bill and purchase order matching endpoints expose operational receipt status, but do not mutate accounting
 
 ## Proposed Accounting Model
@@ -90,9 +91,9 @@ The implementation separates operational inventory events from financial posting
 
 ## Future Implementation Order
 
-1. Harden manual COGS and receipt asset posting review UX and audit reporting.
+1. Harden manual COGS, receipt asset posting, and clearing reconciliation review UX after accountant QA.
 2. Review Inventory Clearing balances and receipt/bill matching output with an accountant.
-3. Design clearing reconciliation, variance handling, and historical direct-mode exclusion/migration policy.
+3. Design variance posting/correction journals and historical direct-mode exclusion/migration policy.
 4. Keep automatic purchase receipt posting disabled until reconciliation and variance controls exist.
 5. Add adjustment gain/loss posting with reason-code controls.
 6. Add financial inventory reports reviewed by accountants.

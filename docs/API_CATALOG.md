@@ -195,6 +195,8 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | GET | `/inventory/reports/stock-valuation` | Operational stock valuation report | Yes | Yes | Implemented | Requires `inventory.view`; optional `itemId`, `warehouseId`, and `format=csv`; derives moving-average estimated values from costed inbound stock movements and warns when cost data is missing. |
 | GET | `/inventory/reports/movement-summary` | Inventory movement summary report | Yes | Yes | Implemented | Requires `inventory.view`; optional `from`, `to`, `itemId`, `warehouseId`, and `format=csv`; returns opening, inbound, outbound, closing, count, and type breakdown by item/warehouse. |
 | GET | `/inventory/reports/low-stock` | Low-stock report | Yes | Yes | Implemented | Requires `inventory.view`; optional `format=csv`; returns tracked items at or below `Item.reorderPoint`. |
+| GET | `/inventory/reports/clearing-reconciliation` | Inventory clearing reconciliation | Yes | Yes | Implemented | Requires `inventory.view`; optional `from`, `to`, `supplierId`, `purchaseBillId`, `purchaseReceiptId`, `status`, and `format=csv`; compares finalized `INVENTORY_CLEARING` bill debits against active linked receipt asset posting credits and returns clearing account GL summary. Creates no journals. |
+| GET | `/inventory/reports/clearing-variance` | Inventory clearing variance review | Yes | Yes | Implemented | Requires `inventory.view`; optional `from`, `to`, `supplierId`, `purchaseBillId`, `purchaseReceiptId`, `status`, and `format=csv`; returns only clearing rows needing review, including reversed receipt asset postings and receipts without compatible clearing bills. Creates no variance journals. |
 
 ## Fiscal Periods
 
