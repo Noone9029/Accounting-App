@@ -307,6 +307,8 @@ interface SalesStockIssue {
   id: string;
   issueNumber: string;
   status: "POSTED" | "VOIDED";
+  cogsJournalEntryId?: string | null;
+  cogsReversalJournalEntryId?: string | null;
   lines?: Array<{ id: string; stockMovementId?: string | null; voidStockMovementId?: string | null }>;
 }
 
@@ -384,8 +386,12 @@ interface PurchaseReceiptAccountingPreview {
 
 interface SalesStockIssueAccountingPreview {
   previewOnly: true;
-  postingStatus: "DESIGN_ONLY";
-  canPost: false;
+  postingStatus: "DESIGN_ONLY" | "POSTABLE" | "POSTED" | "REVERSED";
+  canPost: boolean;
+  alreadyPosted: boolean;
+  alreadyReversed: boolean;
+  journalEntryId: string | null;
+  reversalJournalEntryId: string | null;
   blockingReasons: string[];
   warnings: string[];
   journal: AccountingPreviewJournal;
@@ -599,6 +605,8 @@ interface TrialBalanceReport {
 
 interface ProfitAndLossReport {
   revenue: string;
+  costOfSales: string;
+  grossProfit: string;
   expenses: string;
   netProfit: string;
 }
@@ -861,15 +869,20 @@ async function main(): Promise<void> {
   assertEqual(patchedInventorySettings.allowNegativeStock, false, "inventory settings negative stock blocked");
   assertEqual(patchedInventorySettings.trackInventoryValue, true, "inventory settings value tracking enabled");
   const defaultInventoryAccountingSettings = await get<InventoryAccountingSettings>("/inventory/accounting-settings", headers);
-  assertEqual(defaultInventoryAccountingSettings.enableInventoryAccounting, false, "inventory accounting settings default disabled");
   assertEqual(defaultInventoryAccountingSettings.previewOnly, true, "inventory accounting settings are preview-only");
   assertEqual(defaultInventoryAccountingSettings.noAutomaticPosting, true, "inventory accounting settings do not enable automatic posting");
-  const patchedInventoryAccountingSettings = await patch<InventoryAccountingSettings>("/inventory/accounting-settings", headers, {
+  const disabledInventoryAccountingSettings = await patch<InventoryAccountingSettings>("/inventory/accounting-settings", headers, {
     valuationMethod: "MOVING_AVERAGE",
     enableInventoryAccounting: false,
+  });
+  assertEqual(disabledInventoryAccountingSettings.enableInventoryAccounting, false, "inventory accounting disabled before manual COGS smoke");
+  const patchedInventoryAccountingSettings = await patch<InventoryAccountingSettings>("/inventory/accounting-settings", headers, {
+    valuationMethod: "MOVING_AVERAGE",
+    enableInventoryAccounting: true,
     inventoryAssetAccountId: inventoryAssetAccount.id,
     cogsAccountId: cogsAccount.id,
   });
+  assertEqual(patchedInventoryAccountingSettings.enableInventoryAccounting, true, "inventory accounting manually enabled for COGS posting smoke");
   assertEqual(patchedInventoryAccountingSettings.inventoryAssetAccountId, inventoryAssetAccount.id, "inventory asset account mapping patched");
   assertEqual(patchedInventoryAccountingSettings.cogsAccountId, cogsAccount.id, "COGS account mapping patched");
   assertEqual(patchedInventoryAccountingSettings.previewOnly, true, "patched inventory accounting settings remain preview-only");
@@ -1141,10 +1154,11 @@ async function main(): Promise<void> {
     headers,
   );
   assertEqual(salesStockIssueAccountingPreview.previewOnly, true, "sales stock issue accounting preview is preview-only");
-  assertEqual(salesStockIssueAccountingPreview.canPost, false, "sales stock issue accounting preview cannot post");
+  assertEqual(salesStockIssueAccountingPreview.canPost, true, "sales stock issue accounting preview can be posted manually");
+  assertEqual(salesStockIssueAccountingPreview.alreadyPosted, false, "sales stock issue COGS preview starts unposted");
   assert(
-    salesStockIssueAccountingPreview.warnings.some((warning) => warning.includes("COGS posting is not enabled yet")),
-    "sales issue preview includes COGS disabled warning",
+    salesStockIssueAccountingPreview.warnings.some((warning) => warning.includes("affects financial reports")),
+    "sales issue preview includes financial report warning",
   );
   assert(
     salesStockIssueAccountingPreview.lines.some((line) => line.estimatedCOGS !== null && money(line.estimatedCOGS).gt(0)),
@@ -1162,12 +1176,39 @@ async function main(): Promise<void> {
     ),
     "sales issue preview includes credit inventory asset line",
   );
+  const estimatedCogs = money(salesStockIssueAccountingPreview.journal.totalDebit);
   const journalEntriesAfterSalesIssuePreview = await get<JournalEntry[]>("/journal-entries", headers);
   assertEqual(
     journalEntriesAfterSalesIssuePreview.length,
     journalEntriesBeforeReceiptIssue.length,
     "sales stock issue accounting preview does not create journal entries",
   );
+
+  const profitAndLossBeforeCogs = await get<ProfitAndLossReport>("/reports/profit-and-loss", headers);
+  const postedCogsIssue = await post<SalesStockIssue>(`/sales-stock-issues/${salesStockIssue.id}/post-cogs`, headers, {});
+  assertPresent(postedCogsIssue.cogsJournalEntryId, "posted sales stock issue COGS journalEntryId");
+  const postedCogsPreview = await get<SalesStockIssueAccountingPreview>(`/sales-stock-issues/${salesStockIssue.id}/accounting-preview`, headers);
+  assertEqual(postedCogsPreview.alreadyPosted, true, "sales stock issue COGS preview reports posted state");
+  assertEqual(postedCogsPreview.canPost, false, "sales stock issue COGS preview cannot post twice");
+  assertEqual(postedCogsPreview.journalEntryId, postedCogsIssue.cogsJournalEntryId, "sales stock issue COGS preview journal id");
+  const journalEntriesAfterCogsPost = await get<JournalEntry[]>("/journal-entries", headers);
+  assertEqual(journalEntriesAfterCogsPost.length, journalEntriesBeforeReceiptIssue.length + 1, "manual COGS posting creates one journal entry");
+  const profitAndLossAfterCogs = await get<ProfitAndLossReport>("/reports/profit-and-loss", headers);
+  assertMoney(
+    profitAndLossAfterCogs.costOfSales,
+    money(profitAndLossBeforeCogs.costOfSales).plus(estimatedCogs),
+    "P&L cost of sales includes manually posted COGS",
+  );
+  await expectHttpError("void stock issue with active COGS", () => post<SalesStockIssue>(`/sales-stock-issues/${salesStockIssue.id}/void`, headers, {}));
+  const reversedCogsIssue = await post<SalesStockIssue>(`/sales-stock-issues/${salesStockIssue.id}/reverse-cogs`, headers, {
+    reason: "Smoke COGS reversal",
+  });
+  assertPresent(reversedCogsIssue.cogsReversalJournalEntryId, "reversed sales stock issue COGS reversal journalEntryId");
+  const reversedCogsPreview = await get<SalesStockIssueAccountingPreview>(`/sales-stock-issues/${salesStockIssue.id}/accounting-preview`, headers);
+  assertEqual(reversedCogsPreview.alreadyReversed, true, "sales stock issue COGS preview reports reversed state");
+  assertEqual(reversedCogsPreview.reversalJournalEntryId, reversedCogsIssue.cogsReversalJournalEntryId, "sales stock issue COGS preview reversal journal id");
+  const journalEntriesAfterCogsReversal = await get<JournalEntry[]>("/journal-entries", headers);
+  assertEqual(journalEntriesAfterCogsReversal.length, journalEntriesBeforeReceiptIssue.length + 2, "manual COGS reversal creates one reversal journal entry");
 
   const voidedSalesStockIssue = await post<SalesStockIssue>(`/sales-stock-issues/${salesStockIssue.id}/void`, headers, {});
   assertEqual(voidedSalesStockIssue.status, "VOIDED", "sales stock issue voided status");
@@ -1180,8 +1221,8 @@ async function main(): Promise<void> {
   const journalEntriesAfterReceiptIssue = await get<JournalEntry[]>("/journal-entries", headers);
   assertEqual(
     journalEntriesAfterReceiptIssue.length,
-    journalEntriesBeforeReceiptIssue.length,
-    "purchase receipts and sales stock issues do not create journal entries",
+    journalEntriesBeforeReceiptIssue.length + 2,
+    "purchase receipts and sales stock issues only create journals through manual COGS post and reversal",
   );
 
   const bankTransferAmount = money("12.3400");
@@ -3095,11 +3136,15 @@ async function main(): Promise<void> {
         salesStockIssueAccountingPreviewOnly: salesStockIssueAccountingPreview.previewOnly,
         salesStockIssueAccountingPreviewCanPost: salesStockIssueAccountingPreview.canPost,
         salesStockIssueEstimatedCogs: salesStockIssueAccountingPreview.journal.totalDebit,
+        salesStockIssueCogsJournalEntryId: postedCogsIssue.cogsJournalEntryId,
+        salesStockIssueCogsReversalJournalEntryId: reversedCogsIssue.cogsReversalJournalEntryId,
+        salesStockIssueCogsJournalDelta: journalEntriesAfterCogsReversal.length - journalEntriesBeforeReceiptIssue.length,
+        profitAndLossCogsAfterManualPost: profitAndLossAfterCogs.costOfSales,
         salesStockIssueVoided: voidedSalesStockIssue.status === "VOIDED",
         inventoryAccountingPreviewJournalEntryCountUnchanged:
           journalEntriesAfterPurchaseReceiptPreview.length === journalEntriesBeforeReceiptIssue.length &&
           journalEntriesAfterSalesIssuePreview.length === journalEntriesBeforeReceiptIssue.length,
-        receiptIssueJournalEntryCountUnchanged: journalEntriesAfterReceiptIssue.length === journalEntriesBeforeReceiptIssue.length,
+        receiptIssueJournalEntryDeltaFromManualCogs: journalEntriesAfterReceiptIssue.length - journalEntriesBeforeReceiptIssue.length,
         closedFiscalPeriodId: closedFiscalPeriod.id,
         fiscalPeriodLockChecked: true,
         customerId: customer.id,

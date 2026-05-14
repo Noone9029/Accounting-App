@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-14
 
-Commit inspected: pending (`Add inventory accounting preview groundwork`)
+Commit inspected: pending (`Add manual COGS posting for stock issues`)
 
 ## Scope
 
@@ -37,6 +37,33 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Manual COGS posting added
+
+Added explicit manual COGS posting and reversal for sales stock issues using the existing preview layer. Posting is permission-gated, tenant-scoped, fiscal-period guarded, transactional, and linked back to `SalesStockIssue`. The implementation creates one reviewed Dr COGS / Cr Inventory Asset journal only when the user explicitly posts COGS; invoices and stock issues still do not auto-post COGS.
+
+Risk reduced:
+
+- `inventory.cogs.post` and `inventory.cogs.reverse` separate COGS posting from ordinary inventory/sales operations.
+- Posting requires enabled inventory accounting, mapped inventory asset and COGS accounts, `MOVING_AVERAGE`, a posted/unvoided issue, no prior COGS journal, no preview blocking reasons, and positive estimated COGS.
+- Reversal creates a linked reversal journal without voiding the sales stock issue.
+- Stock issue voiding is blocked while COGS is active and allowed again after COGS reversal.
+- P&L reflects COGS through posted journals, not stock movements.
+
+Remaining risks:
+
+- No purchase receipt inventory asset posting.
+- No inventory clearing workflow.
+- No landed cost.
+- FIFO placeholder only.
+- No automatic COGS posting from invoices or stock issues.
+- Accountant review is required before production use.
+
+Tests/smoke added:
+
+- Backend COGS posting, reversal, double-post/double-reverse, fiscal-period guard, void protection, tenant, permission metadata, no stock movement mutation, and P&L report tests.
+- Frontend helper tests for COGS status, post/reverse button visibility, and financial-report warning display.
+- Smoke coverage for enabling inventory accounting, manual COGS posting, P&L COGS activity, active-COGS void block, COGS reversal, and stock issue void after reversal.
+
 ### Inventory accounting preview groundwork added
 
 Added preview-only inventory accounting settings, account mapping validation, purchase receipt accounting preview, sales stock issue COGS preview, UI preview panels, design documents, tests, and smoke coverage. The implementation keeps inventory accounting non-posting: preview endpoints do not create journal entries and do not affect GL, COGS, inventory asset balances, VAT, or financial statements.
@@ -51,7 +78,7 @@ Risk reduced:
 
 Remaining risks:
 
-- No real COGS posting.
+- No automatic COGS posting; manual COGS posting now requires explicit review/action.
 - No inventory asset posting.
 - No inventory clearing workflow.
 - No landed cost.
@@ -78,7 +105,7 @@ Risk reduced:
 
 Remaining risks:
 
-- No COGS posting.
+- No automatic COGS posting.
 - No inventory asset GL posting.
 - No landed cost.
 - No serial/batch tracking.
@@ -105,7 +132,7 @@ Risk reduced:
 
 Remaining risks:
 
-- No COGS posting.
+- No automatic COGS posting.
 - No inventory asset accounting.
 - Purchase receiving and sales issue are operational-only and do not post accounting.
 - Valuation needs accountant review before financial use.
@@ -1138,9 +1165,9 @@ Commit inspected: pending (`Add inventory warehouse groundwork`)
 ### Remaining Inventory Risks
 
 - No inventory valuation accounting exists.
-- No COGS posting exists.
+- No automatic COGS posting exists; manual COGS posting now requires explicit review/action.
 - Manual operational purchase receiving now exists, but no automatic purchase bill stock receipt or inventory asset posting exists.
-- Manual operational sales stock issue now exists, but no sales delivery document, automatic sales invoice stock issue, or COGS posting exists.
+- Manual operational sales stock issue now exists, but no sales delivery document, automatic sales invoice stock issue, or automatic COGS posting exists.
 - Direct stock-movement adjustments have been replaced by the controlled adjustment workflow.
 - No inventory financial reporting or valuation report exists.
 
@@ -1162,10 +1189,10 @@ Commit inspected: pending (`Add inventory adjustments and transfers`)
 
 ### Remaining Inventory Risks
 
-- No COGS posting exists.
+- No automatic COGS posting exists; manual COGS posting now requires explicit review/action.
 - No inventory valuation accounting exists.
 - Manual operational purchase receiving now exists, but no automatic purchase bill stock receipt or inventory asset posting exists.
-- Manual operational sales stock issue now exists, but no sales delivery document, automatic sales invoice stock issue, or COGS posting exists.
+- Manual operational sales stock issue now exists, but no sales delivery document, automatic sales invoice stock issue, or automatic COGS posting exists.
 - Operational inventory reports exist, but no accounting-grade inventory financial reports exist.
 - No landed cost workflow exists.
 - No barcode, serial, or batch tracking exists.

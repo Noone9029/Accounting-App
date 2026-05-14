@@ -9,7 +9,7 @@ Audit date: 2026-05-14
 - `MOVING_AVERAGE`
 - `FIFO_PLACEHOLDER`
 
-Only `MOVING_AVERAGE` is previewable for inventory accounting groundwork.
+Only `MOVING_AVERAGE` is previewable and postable for the current manual COGS workflow.
 
 ## Moving Average
 
@@ -20,11 +20,11 @@ Operational reports and COGS previews calculate estimated cost from inbound stoc
 - transfer receipts
 - purchase receipt placeholder movements
 
-The estimate uses costed inbound quantity and value up to the relevant date. This remains operational and requires accountant review before financial posting.
+The estimate uses costed inbound quantity and value up to the relevant date. Manual sales issue COGS posting uses this estimate after user/accountant review and writes only the reviewed Dr COGS / Cr Inventory Asset journal.
 
 ## FIFO Placeholder
 
-FIFO can be stored as a settings value for future planning, but no FIFO cost layers exist. FIFO is not previewable and cannot enable inventory accounting readiness.
+FIFO can be stored as a settings value for future planning, but no FIFO cost layers exist. FIFO is not previewable, cannot enable inventory accounting readiness, and cannot post COGS.
 
 Required FIFO work:
 
@@ -38,7 +38,7 @@ Required FIFO work:
 
 ## Rounding And Precision
 
-Inventory quantities and costs use decimal fields. Future posting work must define:
+Inventory quantities and costs use decimal fields. Future posting work beyond manual moving-average COGS must define:
 
 - line rounding
 - journal total rounding
@@ -52,4 +52,6 @@ Inventory quantities and costs use decimal fields. Future posting work must defi
 - No landed cost allocation exists.
 - No serial or batch valuation exists.
 - No automatic GL posting is enabled.
-- Moving average is an operational estimate until accountant review is complete.
+- Purchase receipt inventory asset posting is not implemented.
+- Inventory clearing is not implemented.
+- Moving average is still an operational estimate and requires accountant review before each manual COGS post.

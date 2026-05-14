@@ -1,5 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { createReversalLines, getJournalTotals, JournalLineInput } from "@ledgerbyte/accounting-core";
 import {
+  JournalEntryStatus,
   ItemStatus,
   NumberSequenceScope,
   Prisma,
@@ -19,12 +21,18 @@ import { NumberSequenceService } from "../number-sequences/number-sequence.servi
 import { PrismaService } from "../prisma/prisma.service";
 import { stockMovementDirection } from "../stock-movements/stock-movement-rules";
 import { CreateSalesStockIssueDto, SalesStockIssueLineDto } from "./dto/create-sales-stock-issue.dto";
+import { ReverseSalesStockIssueCogsDto } from "./dto/reverse-sales-stock-issue-cogs.dto";
+import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
 
 const salesStockIssueInclude = {
   customer: { select: { id: true, name: true, displayName: true, type: true, taxNumber: true } },
   warehouse: { select: { id: true, code: true, name: true, status: true, isDefault: true } },
   salesInvoice: { select: { id: true, invoiceNumber: true, status: true, issueDate: true, total: true } },
   createdBy: { select: { id: true, name: true, email: true } },
+  cogsJournalEntry: { select: { id: true, entryNumber: true, entryDate: true, status: true } },
+  cogsReversalJournalEntry: { select: { id: true, entryNumber: true, entryDate: true, status: true } },
+  cogsPostedBy: { select: { id: true, name: true, email: true } },
+  cogsReversedBy: { select: { id: true, name: true, email: true } },
   lines: {
     orderBy: { createdAt: "asc" as const },
     include: {
@@ -45,6 +53,10 @@ type PreparedIssueLine = {
   unitCost: Prisma.Decimal | null;
 };
 
+type SalesStockIssueWithPreviewLines = Prisma.SalesStockIssueGetPayload<{
+  include: typeof salesStockIssueInclude;
+}>;
+
 @Injectable()
 export class SalesStockIssueService {
   constructor(
@@ -52,6 +64,7 @@ export class SalesStockIssueService {
     private readonly auditLogService: AuditLogService,
     private readonly numberSequenceService: NumberSequenceService,
     private readonly inventoryAccountingService: InventoryAccountingService,
+    private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
   ) {}
 
   list(organizationId: string) {
@@ -82,90 +95,174 @@ export class SalesStockIssueService {
       throw new NotFoundException("Sales stock issue not found.");
     }
 
-    const readiness = await this.inventoryAccountingService.previewReadiness(organizationId, ["inventoryAsset", "cogs"]);
-    const blockingReasons = [...readiness.blockingReasons];
-    const warnings = [COGS_NOT_ENABLED_WARNING, MOVING_AVERAGE_REVIEW_WARNING, NO_FINANCIAL_POSTING_WARNING, ...readiness.warnings];
-    let totalEstimatedCogs = new Prisma.Decimal(0);
+    return this.buildAccountingPreview(organizationId, issue);
+  }
 
-    const lines = [];
-    for (const [index, line] of issue.lines.entries()) {
-      const quantity = new Prisma.Decimal(line.quantity);
-      const averageCost = await this.inventoryAccountingService.movingAverageUnitCost(
-        organizationId,
-        line.itemId,
-        issue.warehouseId,
-        issue.issueDate,
-      );
-      const lineWarnings: string[] = [];
-      let estimatedCogs: Prisma.Decimal | null = null;
-      if (averageCost.averageUnitCost === null) {
-        const reason = `Sales stock issue line ${index + 1} does not have enough moving-average cost data.`;
-        lineWarnings.push(reason);
-        blockingReasons.push(reason);
-      } else {
-        estimatedCogs = quantity.mul(averageCost.averageUnitCost);
-        totalEstimatedCogs = totalEstimatedCogs.plus(estimatedCogs);
-      }
-      if (averageCost.missingCostData) {
-        lineWarnings.push("Some inbound stock movements are missing cost data.");
-      }
+  async postCogs(organizationId: string, actorUserId: string, id: string) {
+    const existing = await this.get(organizationId, id);
 
-      lines.push({
-        lineId: line.id,
-        item: line.item,
-        quantity: this.decimalString(quantity),
-        estimatedUnitCost: averageCost.averageUnitCost === null ? null : this.decimalString(averageCost.averageUnitCost),
-        estimatedCOGS: estimatedCogs === null ? null : this.decimalString(estimatedCogs),
-        warnings: lineWarnings,
+    const posted = await this.prisma.$transaction(async (tx) => {
+      const issue = await tx.salesStockIssue.findFirst({
+        where: { id, organizationId },
+        include: salesStockIssueInclude,
       });
-    }
+      if (!issue) {
+        throw new NotFoundException("Sales stock issue not found.");
+      }
+      if (issue.status !== SalesStockIssueStatus.POSTED) {
+        throw new BadRequestException("COGS can only be posted for a posted stock issue.");
+      }
+      if (issue.cogsJournalEntryId) {
+        throw new BadRequestException("COGS has already been posted for this stock issue.");
+      }
 
-    const cogsAccount = readiness.settings.cogsAccount;
-    const assetAccount = readiness.settings.inventoryAssetAccount;
-    const journalLines =
-      cogsAccount && assetAccount && totalEstimatedCogs.gt(0)
-        ? [
-            {
-              lineNumber: 1,
-              side: "DEBIT",
-              accountId: cogsAccount.id,
-              accountCode: cogsAccount.code,
-              accountName: cogsAccount.name,
-              amount: this.decimalString(totalEstimatedCogs),
-              description: `Sales stock issue ${issue.issueNumber} COGS preview`,
-            },
-            {
-              lineNumber: 2,
-              side: "CREDIT",
-              accountId: assetAccount.id,
-              accountCode: assetAccount.code,
-              accountName: assetAccount.name,
-              amount: this.decimalString(totalEstimatedCogs),
-              description: `Sales stock issue ${issue.issueNumber} inventory asset preview`,
-            },
-          ]
-        : [];
+      const preview = await this.buildAccountingPreview(organizationId, issue, tx);
+      if (!preview.canPost) {
+        throw new BadRequestException(preview.blockingReasons.length > 0 ? preview.blockingReasons : preview.canPostReason);
+      }
+      const totalCogs = new Prisma.Decimal(preview.journal.totalDebit);
+      if (totalCogs.lte(0)) {
+        throw new BadRequestException("Estimated COGS total must be greater than zero.");
+      }
 
-    return {
-      sourceType: "SalesStockIssue",
-      sourceId: issue.id,
-      sourceNumber: issue.issueNumber,
-      previewOnly: true,
-      postingStatus: "DESIGN_ONLY",
-      canPost: false,
-      canPostReason: "COGS posting is preview-only and requires a future explicit posting workflow.",
-      valuationMethod: readiness.settings.valuationMethod,
-      blockingReasons: this.uniqueStrings(blockingReasons),
-      warnings: this.uniqueStrings(warnings),
-      lines,
-      journal: {
-        description: `Sales stock issue ${issue.issueNumber} COGS preview`,
-        entryDate: issue.issueDate.toISOString(),
-        totalDebit: this.decimalString(totalEstimatedCogs),
-        totalCredit: this.decimalString(totalEstimatedCogs),
-        lines: journalLines,
-      },
-    };
+      await this.assertPostingDateAllowed(organizationId, issue.issueDate, tx);
+      const postedAt = new Date();
+      const entryNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx);
+      const journalLines = this.previewJournalToCoreLines(preview.journal.lines);
+      const totals = getJournalTotals(journalLines);
+      const journalEntry = await tx.journalEntry.create({
+        data: {
+          organizationId,
+          entryNumber,
+          status: JournalEntryStatus.POSTED,
+          entryDate: issue.issueDate,
+          description: `COGS for sales stock issue ${issue.issueNumber}`,
+          reference: issue.issueNumber,
+          currency: "SAR",
+          totalDebit: totals.debit,
+          totalCredit: totals.credit,
+          postedAt,
+          postedById: actorUserId,
+          createdById: actorUserId,
+          lines: { create: this.toJournalLineCreateMany(organizationId, journalLines) },
+        },
+      });
+
+      const claim = await tx.salesStockIssue.updateMany({
+        where: { id, organizationId, status: SalesStockIssueStatus.POSTED, cogsJournalEntryId: null },
+        data: { cogsJournalEntryId: journalEntry.id, cogsPostedAt: postedAt, cogsPostedById: actorUserId },
+      });
+      if (claim.count !== 1) {
+        throw new BadRequestException("COGS has already been posted for this stock issue.");
+      }
+
+      return tx.salesStockIssue.findUniqueOrThrow({ where: { id }, include: salesStockIssueInclude });
+    });
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "POST_COGS",
+      entityType: "SalesStockIssue",
+      entityId: id,
+      before: existing,
+      after: posted,
+    });
+    return posted;
+  }
+
+  async reverseCogs(organizationId: string, actorUserId: string, id: string, dto: ReverseSalesStockIssueCogsDto = {}) {
+    const existing = await this.get(organizationId, id);
+
+    const reversed = await this.prisma.$transaction(async (tx) => {
+      const issue = await tx.salesStockIssue.findFirst({
+        where: { id, organizationId },
+        include: {
+          ...salesStockIssueInclude,
+          cogsJournalEntry: {
+            include: {
+              lines: { orderBy: { lineNumber: "asc" }, include: { account: { select: { id: true, code: true, name: true } } } },
+              reversedBy: { select: { id: true, entryNumber: true } },
+            },
+          },
+        },
+      });
+      if (!issue) {
+        throw new NotFoundException("Sales stock issue not found.");
+      }
+      if (!issue.cogsJournalEntryId || !issue.cogsJournalEntry) {
+        throw new BadRequestException("COGS has not been posted for this stock issue.");
+      }
+      if (issue.cogsReversalJournalEntryId || issue.cogsJournalEntry.reversedBy) {
+        throw new BadRequestException("COGS has already been reversed for this stock issue.");
+      }
+      if (issue.cogsJournalEntry.status !== JournalEntryStatus.POSTED) {
+        throw new BadRequestException("Only an active posted COGS journal can be reversed.");
+      }
+
+      const reversalDate = new Date();
+      await this.assertPostingDateAllowed(organizationId, reversalDate, tx);
+      const reversalLines = createReversalLines(this.toCoreLines(issue.cogsJournalEntry.lines));
+      const totals = getJournalTotals(reversalLines);
+      const entryNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx);
+      const reason = this.cleanOptional(dto.reason);
+      const reversalJournalEntry = await tx.journalEntry
+        .create({
+          data: {
+            organizationId,
+            entryNumber,
+            status: JournalEntryStatus.POSTED,
+            entryDate: reversalDate,
+            description: reason
+              ? `Reversal of COGS for sales stock issue ${issue.issueNumber}: ${reason}`
+              : `Reversal of COGS for sales stock issue ${issue.issueNumber}`,
+            reference: issue.cogsJournalEntry.entryNumber,
+            currency: issue.cogsJournalEntry.currency,
+            totalDebit: totals.debit,
+            totalCredit: totals.credit,
+            postedAt: reversalDate,
+            postedById: actorUserId,
+            createdById: actorUserId,
+            reversalOfId: issue.cogsJournalEntry.id,
+            lines: { create: this.toJournalLineCreateMany(organizationId, reversalLines) },
+          },
+        })
+        .catch((error: unknown) => {
+          if (isUniqueConstraintError(error)) {
+            throw new BadRequestException("COGS has already been reversed for this stock issue.");
+          }
+          throw error;
+        });
+
+      await tx.journalEntry.update({
+        where: { id: issue.cogsJournalEntry.id },
+        data: { status: JournalEntryStatus.REVERSED },
+      });
+      const claim = await tx.salesStockIssue.updateMany({
+        where: { id, organizationId, cogsJournalEntryId: issue.cogsJournalEntry.id, cogsReversalJournalEntryId: null },
+        data: {
+          cogsReversalJournalEntryId: reversalJournalEntry.id,
+          cogsReversedAt: reversalDate,
+          cogsReversedById: actorUserId,
+        },
+      });
+      if (claim.count !== 1) {
+        throw new BadRequestException("COGS has already been reversed for this stock issue.");
+      }
+
+      return tx.salesStockIssue.findUniqueOrThrow({ where: { id }, include: salesStockIssueInclude });
+    });
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "REVERSE_COGS",
+      entityType: "SalesStockIssue",
+      entityId: id,
+      before: existing,
+      after: reversed,
+    });
+    return reversed;
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreateSalesStockIssueDto) {
@@ -256,6 +353,9 @@ export class SalesStockIssueService {
     if (existing.status === SalesStockIssueStatus.VOIDED) {
       throw new BadRequestException("Sales stock issue is already voided.");
     }
+    if (existing.cogsJournalEntryId && !existing.cogsReversalJournalEntryId) {
+      throw new BadRequestException("Reverse COGS posting before voiding this stock issue.");
+    }
 
     const voided = await this.prisma.$transaction(async (tx) => {
       const issue = await tx.salesStockIssue.findFirst({
@@ -267,6 +367,9 @@ export class SalesStockIssueService {
       }
       if (issue.status === SalesStockIssueStatus.VOIDED) {
         throw new BadRequestException("Sales stock issue is already voided.");
+      }
+      if (issue.cogsJournalEntryId && !issue.cogsReversalJournalEntryId) {
+        throw new BadRequestException("Reverse COGS posting before voiding this stock issue.");
       }
 
       const voidedAt = new Date();
@@ -370,6 +473,125 @@ export class SalesStockIssueService {
       sourceType: "salesInvoice",
       status,
       lines,
+    };
+  }
+
+  private async buildAccountingPreview(
+    organizationId: string,
+    issue: SalesStockIssueWithPreviewLines,
+    executor: PrismaExecutor = this.prisma,
+  ) {
+    const readiness = await this.inventoryAccountingService.previewReadiness(organizationId, ["inventoryAsset", "cogs"], executor);
+    const blockingReasons = [...readiness.blockingReasons];
+    const warnings = [
+      MOVING_AVERAGE_REVIEW_WARNING,
+      "This creates accounting journal entries and affects financial reports.",
+      NO_FINANCIAL_POSTING_WARNING,
+      ...readiness.warnings,
+    ];
+    if (!readiness.settings.enableInventoryAccounting) {
+      blockingReasons.push("Inventory accounting must be enabled before COGS can be posted.");
+      warnings.unshift(COGS_NOT_ENABLED_WARNING);
+    }
+    if (issue.status !== SalesStockIssueStatus.POSTED) {
+      blockingReasons.push("COGS can only be posted for a posted stock issue.");
+    }
+    if (issue.cogsJournalEntryId) {
+      blockingReasons.push("COGS has already been posted for this stock issue.");
+    }
+
+    let totalEstimatedCogs = new Prisma.Decimal(0);
+    const lines = [];
+    for (const [index, line] of issue.lines.entries()) {
+      const quantity = new Prisma.Decimal(line.quantity);
+      const averageCost = await this.inventoryAccountingService.movingAverageUnitCost(
+        organizationId,
+        line.itemId,
+        issue.warehouseId,
+        issue.issueDate,
+        executor,
+      );
+      const lineWarnings: string[] = [];
+      let estimatedCogs: Prisma.Decimal | null = null;
+      if (averageCost.averageUnitCost === null) {
+        const reason = `Sales stock issue line ${index + 1} does not have enough moving-average cost data.`;
+        lineWarnings.push(reason);
+        blockingReasons.push(reason);
+      } else {
+        estimatedCogs = quantity.mul(averageCost.averageUnitCost);
+        totalEstimatedCogs = totalEstimatedCogs.plus(estimatedCogs);
+      }
+      if (averageCost.missingCostData) {
+        lineWarnings.push("Some inbound stock movements are missing cost data.");
+      }
+
+      lines.push({
+        lineId: line.id,
+        item: line.item,
+        quantity: this.decimalString(quantity),
+        estimatedUnitCost: averageCost.averageUnitCost === null ? null : this.decimalString(averageCost.averageUnitCost),
+        estimatedCOGS: estimatedCogs === null ? null : this.decimalString(estimatedCogs),
+        warnings: lineWarnings,
+      });
+    }
+
+    if (totalEstimatedCogs.lte(0)) {
+      blockingReasons.push("Estimated COGS total must be greater than zero.");
+    }
+
+    const cogsAccount = readiness.settings.cogsAccount;
+    const assetAccount = readiness.settings.inventoryAssetAccount;
+    const journalLines =
+      cogsAccount && assetAccount && totalEstimatedCogs.gt(0)
+        ? [
+            {
+              lineNumber: 1,
+              side: "DEBIT" as const,
+              accountId: cogsAccount.id,
+              accountCode: cogsAccount.code,
+              accountName: cogsAccount.name,
+              amount: this.decimalString(totalEstimatedCogs),
+              description: `Sales stock issue ${issue.issueNumber} COGS`,
+            },
+            {
+              lineNumber: 2,
+              side: "CREDIT" as const,
+              accountId: assetAccount.id,
+              accountCode: assetAccount.code,
+              accountName: assetAccount.name,
+              amount: this.decimalString(totalEstimatedCogs),
+              description: `Sales stock issue ${issue.issueNumber} inventory asset`,
+            },
+          ]
+        : [];
+    const uniqueBlockingReasons = this.uniqueStrings(blockingReasons);
+    const canPost = uniqueBlockingReasons.length === 0;
+    const alreadyPosted = Boolean(issue.cogsJournalEntryId);
+    const alreadyReversed = Boolean(issue.cogsReversalJournalEntryId);
+
+    return {
+      sourceType: "SalesStockIssue",
+      sourceId: issue.id,
+      sourceNumber: issue.issueNumber,
+      previewOnly: true,
+      postingStatus: alreadyReversed ? "REVERSED" : alreadyPosted ? "POSTED" : canPost ? "POSTABLE" : "DESIGN_ONLY",
+      canPost,
+      canPostReason: canPost ? "COGS can be posted manually after review." : "Resolve blocking reasons before posting COGS.",
+      alreadyPosted,
+      alreadyReversed,
+      journalEntryId: issue.cogsJournalEntryId,
+      reversalJournalEntryId: issue.cogsReversalJournalEntryId,
+      valuationMethod: readiness.settings.valuationMethod,
+      blockingReasons: uniqueBlockingReasons,
+      warnings: this.uniqueStrings(warnings),
+      lines,
+      journal: {
+        description: `Sales stock issue ${issue.issueNumber} COGS preview`,
+        entryDate: issue.issueDate.toISOString(),
+        totalDebit: this.decimalString(totalEstimatedCogs),
+        totalCredit: this.decimalString(totalEstimatedCogs),
+        lines: journalLines,
+      },
     };
   }
 
@@ -556,4 +778,60 @@ export class SalesStockIssueService {
   private uniqueStrings(values: string[]): string[] {
     return [...new Set(values)];
   }
+
+  private previewJournalToCoreLines(
+    lines: Array<{
+      side: "DEBIT" | "CREDIT";
+      accountId: string | null;
+      amount: string;
+      description: string;
+    }>,
+  ): JournalLineInput[] {
+    return lines.map((line) => {
+      if (!line.accountId) {
+        throw new BadRequestException("COGS preview journal lines require mapped posting accounts.");
+      }
+      return {
+        accountId: line.accountId,
+        debit: line.side === "DEBIT" ? line.amount : "0",
+        credit: line.side === "CREDIT" ? line.amount : "0",
+        description: line.description,
+        currency: "SAR",
+      };
+    });
+  }
+
+  private toCoreLines(
+    lines: Array<{ accountId: string; debit: unknown; credit: unknown; description: string | null; currency: string; exchangeRate: unknown }>,
+  ): JournalLineInput[] {
+    return lines.map((line) => ({
+      accountId: line.accountId,
+      debit: String(line.debit),
+      credit: String(line.credit),
+      description: line.description ?? undefined,
+      currency: line.currency,
+      exchangeRate: line.exchangeRate === undefined ? "1" : String(line.exchangeRate),
+    }));
+  }
+
+  private toJournalLineCreateMany(organizationId: string, lines: JournalLineInput[]): Prisma.JournalLineCreateWithoutJournalEntryInput[] {
+    return lines.map((line, index) => ({
+      organization: { connect: { id: organizationId } },
+      account: { connect: { id: line.accountId } },
+      lineNumber: index + 1,
+      description: line.description,
+      debit: String(line.debit),
+      credit: String(line.credit),
+      currency: line.currency ?? "SAR",
+      exchangeRate: line.exchangeRate === undefined ? "1" : String(line.exchangeRate),
+    }));
+  }
+
+  private async assertPostingDateAllowed(organizationId: string, postingDate: string | Date, tx?: Prisma.TransactionClient): Promise<void> {
+    await this.fiscalPeriodGuardService?.assertPostingDateAllowed(organizationId, postingDate, tx);
+  }
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }

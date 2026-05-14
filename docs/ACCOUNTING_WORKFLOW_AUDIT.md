@@ -131,8 +131,8 @@ This document maps implemented accounting workflows to their journal entries, ba
 
 ## Inventory Warehouse, Adjustment, Receipt, Issue, And Transfer Groundwork
 
-- API/UI: inventory is accessed through `/inventory/warehouses`, `/inventory/warehouses/:id`, `/inventory/stock-movements`, `/inventory/stock-movements/new`, `/inventory/adjustments`, `/inventory/adjustments/new`, `/inventory/adjustments/:id`, `/inventory/transfers`, `/inventory/transfers/new`, `/inventory/transfers/:id`, `/inventory/purchase-receipts`, `/inventory/purchase-receipts/new`, `/inventory/purchase-receipts/:id`, `/purchase-receipts/:id/accounting-preview`, `/inventory/sales-stock-issues`, `/inventory/sales-stock-issues/new`, `/inventory/sales-stock-issues/:id`, `/sales-stock-issues/:id/accounting-preview`, `/inventory/balances`, `/inventory/settings`, `/inventory/accounting-settings`, `/inventory/reports/stock-valuation`, `/inventory/reports/movement-summary`, `/inventory/reports/low-stock`, and the item list quantity/reorder display.
-- Models: `Warehouse` stores operational locations, `InventoryAdjustment` stores draft/approved/voided adjustment controls, `WarehouseTransfer` stores posted/voided transfers, `PurchaseReceipt`/`PurchaseReceiptLine` store posted/voided PO/bill/standalone receipt controls, `SalesStockIssue`/`SalesStockIssueLine` store posted/voided invoice issue controls, `InventorySettings` stores reporting policy, accounting preview enable flag, and account mappings, `Item` stores optional reorder point/quantity, and `StockMovement` stores the operational stock ledger for inventory-tracked items.
+- API/UI: inventory is accessed through `/inventory/warehouses`, `/inventory/warehouses/:id`, `/inventory/stock-movements`, `/inventory/stock-movements/new`, `/inventory/adjustments`, `/inventory/adjustments/new`, `/inventory/adjustments/:id`, `/inventory/transfers`, `/inventory/transfers/new`, `/inventory/transfers/:id`, `/inventory/purchase-receipts`, `/inventory/purchase-receipts/new`, `/inventory/purchase-receipts/:id`, `/purchase-receipts/:id/accounting-preview`, `/inventory/sales-stock-issues`, `/inventory/sales-stock-issues/new`, `/inventory/sales-stock-issues/:id`, `/sales-stock-issues/:id/accounting-preview`, `/sales-stock-issues/:id/post-cogs`, `/sales-stock-issues/:id/reverse-cogs`, `/inventory/balances`, `/inventory/settings`, `/inventory/accounting-settings`, `/inventory/reports/stock-valuation`, `/inventory/reports/movement-summary`, `/inventory/reports/low-stock`, and the item list quantity/reorder display.
+- Models: `Warehouse` stores operational locations, `InventoryAdjustment` stores draft/approved/voided adjustment controls, `WarehouseTransfer` stores posted/voided transfers, `PurchaseReceipt`/`PurchaseReceiptLine` store posted/voided PO/bill/standalone receipt controls, `SalesStockIssue`/`SalesStockIssueLine` store posted/voided invoice issue controls plus optional manual COGS journal links, `InventorySettings` stores reporting policy, manual COGS enable flag, and account mappings, `Item` stores optional reorder point/quantity, and `StockMovement` stores the operational stock ledger for inventory-tracked items.
 - Warehouse behavior:
   - New and seeded organizations receive an active default `MAIN` warehouse.
   - Warehouse codes are unique per organization and normalized to uppercase.
@@ -164,6 +164,7 @@ This document maps implemented accounting workflows to their journal entries, ba
   - Sales stock issues post immediately as `POSTED` records from finalized, non-voided sales invoices.
   - Creation validates customer match, active warehouse, tracked active items, positive quantities, invoice remaining quantity by line, and available stock.
   - Creation writes `SALES_ISSUE_PLACEHOLDER` outbound rows, and voiding writes `ADJUSTMENT_IN` reversal rows once.
+  - If COGS has been posted and not reversed, voiding is blocked until the COGS journal is reversed.
 - Source progress behavior:
   - `GET /purchase-orders/:id/receiving-status` and `GET /purchase-bills/:id/receiving-status` return NOT_STARTED/PARTIAL/COMPLETE plus ordered/billed, received, and remaining quantities.
   - `GET /sales-invoices/:id/stock-issue-status` returns NOT_STARTED/PARTIAL/COMPLETE plus invoiced, issued, and remaining quantities.
@@ -181,15 +182,21 @@ This document maps implemented accounting workflows to their journal entries, ba
 - Preview behavior:
   - Purchase receipt detail/API can show design-only Dr Inventory Asset / Cr Inventory Clearing or AP placeholder lines when unit costs and mappings exist.
   - Purchase receipt preview always stays non-postable because bill/receipt matching and inventory clearing are not finalized.
-  - Sales stock issue detail/API can show design-only Dr COGS / Cr Inventory Asset lines using operational moving-average estimates.
-  - Sales issue preview always stays non-postable and warns that COGS posting is not enabled yet.
+  - Sales stock issue detail/API can show Dr COGS / Cr Inventory Asset preview lines using operational moving-average estimates.
+  - Sales issue preview returns `canPost: true` only when inventory accounting is enabled, mappings are complete, the issue is posted/unvoided, COGS has not already been posted, and no preview blocking reasons exist.
+- Manual COGS posting behavior:
+  - `POST /sales-stock-issues/:id/post-cogs` requires `inventory.cogs.post`.
+  - The posting date is the sales stock issue date and must pass fiscal-period guard.
+  - The journal is Dr mapped COGS and Cr mapped Inventory Asset, linked to `SalesStockIssue.cogsJournalEntryId`.
+  - Repeated posting is rejected.
+  - `POST /sales-stock-issues/:id/reverse-cogs` requires `inventory.cogs.reverse`, creates a reversal journal dated today for the MVP, and links `cogsReversalJournalEntryId`.
 - Accounting impact:
-  - No journal entries are created by warehouses, stock movements, inventory adjustments, warehouse transfers, purchase receipts, or sales stock issues.
+  - No journal entries are created automatically by warehouses, stock movements, inventory adjustments, warehouse transfers, purchase receipts, or sales stock issues.
+  - Manual COGS posting affects financial reports through posted journal lines.
   - Purchase receipts do not debit inventory asset yet.
-  - Sales stock issues do not post COGS yet.
-  - Inventory accounting settings and preview endpoints do not affect GL, COGS, inventory asset balances, VAT, or financial statements.
+  - Inventory accounting settings and preview endpoints do not affect GL, COGS, inventory asset balances, VAT, or financial statements by themselves.
 - Gaps/risks:
-  - No real COGS posting, inventory asset posting, inventory clearing workflow, automatic purchase receipt/automatic sales issue, landed cost, serial/batch tracking, delivery documents, or accounting-grade inventory financial report exists yet.
+  - No automatic COGS posting, purchase receipt inventory asset posting, inventory clearing workflow, automatic purchase receipt/automatic sales issue, landed cost, serial/batch tracking, delivery documents, or accounting-grade inventory financial report exists yet.
 
 ## Sales Workflows
 

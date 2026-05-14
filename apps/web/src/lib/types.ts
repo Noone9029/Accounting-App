@@ -609,6 +609,12 @@ export interface PurchaseReceipt {
   status: PurchaseReceiptStatus;
   notes: string | null;
   createdById: string | null;
+  cogsJournalEntryId: string | null;
+  cogsReversalJournalEntryId: string | null;
+  cogsPostedAt: string | null;
+  cogsPostedById: string | null;
+  cogsReversedAt: string | null;
+  cogsReversedById: string | null;
   postedAt: string | null;
   voidedAt: string | null;
   createdAt: string;
@@ -659,6 +665,10 @@ export interface SalesStockIssue {
   salesInvoice?: { id: string; invoiceNumber: string; status: SalesInvoiceStatus; issueDate: string; total: string } | null;
   lines?: SalesStockIssueLine[];
   createdBy?: { id: string; name: string; email: string } | null;
+  cogsJournalEntry?: { id: string; entryNumber: string; entryDate: string; status: string } | null;
+  cogsReversalJournalEntry?: { id: string; entryNumber: string; entryDate: string; status: string } | null;
+  cogsPostedBy?: { id: string; name: string; email: string } | null;
+  cogsReversedBy?: { id: string; name: string; email: string } | null;
 }
 
 export interface PurchaseReceivingStatusLine {
@@ -755,8 +765,8 @@ export interface InventoryAccountingPreviewBase {
   sourceId: string;
   sourceNumber: string;
   previewOnly: true;
-  postingStatus: "DESIGN_ONLY";
-  canPost: false;
+  postingStatus: "DESIGN_ONLY" | "POSTABLE" | "POSTED" | "REVERSED";
+  canPost: boolean;
   canPostReason: string;
   valuationMethod: InventoryValuationMethod;
   blockingReasons: string[];
@@ -789,6 +799,10 @@ export interface SalesStockIssueAccountingPreviewLine {
 
 export interface SalesStockIssueAccountingPreview extends InventoryAccountingPreviewBase {
   sourceType: "SalesStockIssue";
+  alreadyPosted: boolean;
+  alreadyReversed: boolean;
+  journalEntryId: string | null;
+  reversalJournalEntryId: string | null;
   lines: SalesStockIssueAccountingPreviewLine[];
 }
 

@@ -8,4 +8,13 @@ describe("SalesStockIssueController permissions", () => {
       PERMISSIONS.inventory.view,
     ]);
   });
+
+  it("requires COGS permissions for manual posting and reversal", () => {
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, SalesStockIssueController.prototype.postCogs)).toEqual([
+      PERMISSIONS.inventory.cogsPost,
+    ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, SalesStockIssueController.prototype.reverseCogs)).toEqual([
+      PERMISSIONS.inventory.cogsReverse,
+    ]);
+  });
 });

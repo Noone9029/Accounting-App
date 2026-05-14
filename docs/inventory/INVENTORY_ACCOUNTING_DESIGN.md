@@ -12,7 +12,7 @@ Audit date: 2026-05-14
 
 ## Design Goal
 
-This layer records accountant-reviewed settings and exposes journal previews before any financial inventory posting is enabled. It is deliberately preview-only so accountants can review account mappings, valuation method behavior, receipt/bill matching risk, and COGS timing before production posting is added.
+This layer records accountant-reviewed settings, exposes journal previews, and now allows explicit manual COGS posting for reviewed sales stock issues. It still does not auto-post from inventory movements, invoices, purchase receipts, or sales stock issues.
 
 ## Settings
 
@@ -39,22 +39,29 @@ The API exposes:
 
 ## Posting Boundary
 
-Even when `enableInventoryAccounting` is set true, current code still does not post journals from inventory activity. The flag is a readiness marker for future explicit posting work, not a posting switch.
+Even when `enableInventoryAccounting` is set true, current code does not post journals automatically from inventory activity. The flag allows reviewed users to manually post COGS for eligible sales stock issues only.
 
-The current preview boundary is:
+The current sales issue COGS boundary is:
 
 - `previewOnly: true`
-- `postingStatus: DESIGN_ONLY`
-- `canPost: false`
-- no `JournalEntry` writes
+- `canPost: true` only when settings, mappings, status, valuation method, and cost estimates are complete
+- `POST /sales-stock-issues/:id/post-cogs` creates one reviewed Dr COGS / Cr Inventory Asset journal
+- `POST /sales-stock-issues/:id/reverse-cogs` creates one reversal journal
+- COGS active on a stock issue blocks voiding until reversed
+
+Purchase receipt accounting remains design-only:
+
+- purchase receipt previews always return `canPost: false`
+- no inventory asset posting exists
+- no inventory clearing workflow exists
 
 ## Proposed Accounting Model
 
-Future implementation should separate operational inventory events from financial posting decisions:
+The implementation separates operational inventory events from financial posting decisions:
 
 - Purchase receipt preview: Dr Inventory Asset, Cr Inventory Clearing or AP placeholder.
 - Bill matching: resolve whether receipt value should clear against purchase bill lines, a clearing account, or direct AP.
-- Sales issue COGS preview: Dr COGS, Cr Inventory Asset.
+- Sales issue COGS preview and manual posting: Dr COGS, Cr Inventory Asset.
 - Adjustments: Dr/Cr Inventory Asset against adjustment gain/loss accounts after reason-code and approval design.
 
 ## Accountant Review Checklist
@@ -70,10 +77,10 @@ Future implementation should separate operational inventory events from financia
 
 ## Future Implementation Order
 
-1. Finalize inventory clearing account model.
-2. Add bill/receipt matching and variance handling.
-3. Add explicit, guarded purchase receipt asset posting.
-4. Add explicit, guarded sales issue COGS posting.
+1. Harden manual COGS posting review UX and audit reporting.
+2. Finalize inventory clearing account model.
+3. Add bill/receipt matching and variance handling.
+4. Add explicit, guarded purchase receipt asset posting.
 5. Add adjustment gain/loss posting with reason-code controls.
 6. Add financial inventory reports reviewed by accountants.
 7. Add FIFO only after full cost-layer modeling is designed.

@@ -8,6 +8,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { CreateSalesStockIssueDto } from "./dto/create-sales-stock-issue.dto";
+import { ReverseSalesStockIssueCogsDto } from "./dto/reverse-sales-stock-issue-cogs.dto";
 import { SalesStockIssueService } from "./sales-stock-issue.service";
 
 @Controller("sales-stock-issues")
@@ -41,6 +42,23 @@ export class SalesStockIssueController {
   @RequirePermissions(PERMISSIONS.inventory.view)
   accountingPreview(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.salesStockIssueService.accountingPreview(organizationId, id);
+  }
+
+  @Post(":id/post-cogs")
+  @RequirePermissions(PERMISSIONS.inventory.cogsPost)
+  postCogs(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+    return this.salesStockIssueService.postCogs(organizationId, user.id, id);
+  }
+
+  @Post(":id/reverse-cogs")
+  @RequirePermissions(PERMISSIONS.inventory.cogsReverse)
+  reverseCogs(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: ReverseSalesStockIssueCogsDto,
+  ) {
+    return this.salesStockIssueService.reverseCogs(organizationId, user.id, id, dto);
   }
 
   @Post(":id/void")

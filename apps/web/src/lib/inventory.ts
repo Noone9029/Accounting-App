@@ -12,6 +12,7 @@ import type {
   InventoryStockValuationRow,
   InventoryValuationMethod,
   PurchaseReceiptStatus,
+  SalesStockIssueAccountingPreview,
   SalesStockIssueStatus,
   StockMovementType,
   WarehouseStatus,
@@ -64,14 +65,14 @@ export function inventoryOperationalWarning(): string {
 
 export function inventoryAccountingWarnings(): string[] {
   return [
-    "Not posting to GL yet.",
-    "COGS is preview-only.",
+    "Enabling this only allows manual COGS posting. It does not auto-post inventory journals.",
+    "COGS posting requires an explicit manual post action after review.",
     "Accountant review required before enabling financial inventory postings.",
   ];
 }
 
 export function accountingPreviewCanPost(preview: { canPost: boolean; previewOnly?: boolean }): boolean {
-  return preview.canPost === true && preview.previewOnly !== true;
+  return preview.canPost === true;
 }
 
 export function accountingPreviewLineDisplay(line: InventoryAccountingPreviewJournalLine): string {
@@ -89,6 +90,30 @@ export function missingInventoryAccountMappingWarnings(
   if (!settings.inventoryAdjustmentGainAccountId) warnings.push("Inventory adjustment gain account mapping is not set.");
   if (!settings.inventoryAdjustmentLossAccountId) warnings.push("Inventory adjustment loss account mapping is not set.");
   return warnings;
+}
+
+export function cogsPostingStatus(preview: Pick<SalesStockIssueAccountingPreview, "alreadyPosted" | "alreadyReversed">): "Not posted" | "Posted" | "Reversed" {
+  if (preview.alreadyReversed) return "Reversed";
+  if (preview.alreadyPosted) return "Posted";
+  return "Not posted";
+}
+
+export function canShowPostCogsAction(
+  preview: Pick<SalesStockIssueAccountingPreview, "canPost" | "alreadyPosted">,
+  hasPermission: boolean,
+): boolean {
+  return hasPermission && preview.canPost === true && preview.alreadyPosted !== true;
+}
+
+export function canShowReverseCogsAction(
+  preview: Pick<SalesStockIssueAccountingPreview, "alreadyPosted" | "alreadyReversed">,
+  hasPermission: boolean,
+): boolean {
+  return hasPermission && preview.alreadyPosted === true && preview.alreadyReversed !== true;
+}
+
+export function cogsPostingFinancialReportWarning(): string {
+  return "This creates accounting journal entries and affects financial reports.";
 }
 
 export function inventoryValuationMethodLabel(method: InventoryValuationMethod): string {

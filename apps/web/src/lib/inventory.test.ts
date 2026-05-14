@@ -7,8 +7,12 @@ import {
   canApproveInventoryAdjustment,
   canEditInventoryAdjustment,
   canVoidInventoryAdjustment,
+  canShowPostCogsAction,
+  canShowReverseCogsAction,
   accountingPreviewCanPost,
   accountingPreviewLineDisplay,
+  cogsPostingFinancialReportWarning,
+  cogsPostingStatus,
   inventoryAccountingWarnings,
   inventorySettingsLabel,
   inventorySettingsWarnings,
@@ -111,7 +115,11 @@ describe("inventory helpers", () => {
 
   it("formats inventory accounting warnings and preview lines", () => {
     expect(inventoryAccountingWarnings()).toEqual(
-      expect.arrayContaining(["Not posting to GL yet.", "COGS is preview-only.", "Accountant review required before enabling financial inventory postings."]),
+      expect.arrayContaining([
+        "Enabling this only allows manual COGS posting. It does not auto-post inventory journals.",
+        "COGS posting requires an explicit manual post action after review.",
+        "Accountant review required before enabling financial inventory postings.",
+      ]),
     );
     expect(
       accountingPreviewLineDisplay({
@@ -125,6 +133,7 @@ describe("inventory helpers", () => {
       }),
     ).toBe("Dr 611 Cost of Goods Sold 10.5000");
     expect(accountingPreviewCanPost({ canPost: false, previewOnly: true })).toBe(false);
+    expect(accountingPreviewCanPost({ canPost: true, previewOnly: true })).toBe(true);
     expect(
       missingInventoryAccountMappingWarnings({
         inventoryAssetAccountId: null,
@@ -139,6 +148,19 @@ describe("inventory helpers", () => {
         "Inventory adjustment loss account mapping is not set.",
       ]),
     );
+  });
+
+  it("handles manual COGS posting status and action visibility", () => {
+    expect(cogsPostingStatus({ alreadyPosted: false, alreadyReversed: false })).toBe("Not posted");
+    expect(cogsPostingStatus({ alreadyPosted: true, alreadyReversed: false })).toBe("Posted");
+    expect(cogsPostingStatus({ alreadyPosted: true, alreadyReversed: true })).toBe("Reversed");
+    expect(canShowPostCogsAction({ canPost: true, alreadyPosted: false }, true)).toBe(true);
+    expect(canShowPostCogsAction({ canPost: true, alreadyPosted: false }, false)).toBe(false);
+    expect(canShowPostCogsAction({ canPost: false, alreadyPosted: false }, true)).toBe(false);
+    expect(canShowReverseCogsAction({ alreadyPosted: true, alreadyReversed: false }, true)).toBe(true);
+    expect(canShowReverseCogsAction({ alreadyPosted: true, alreadyReversed: true }, true)).toBe(false);
+    expect(canShowReverseCogsAction({ alreadyPosted: true, alreadyReversed: false }, false)).toBe(false);
+    expect(cogsPostingFinancialReportWarning()).toBe("This creates accounting journal entries and affects financial reports.");
   });
 
   it("labels low-stock status and movement summary net change", () => {

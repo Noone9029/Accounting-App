@@ -81,6 +81,26 @@ describe("reports service builders", () => {
     });
   });
 
+  it("reflects manually posted sales stock issue COGS through journal lines only after posting", () => {
+    const beforePosting = buildProfitAndLossReport(
+      accounts,
+      [line("revenue", "2026-05-14", "0.0000", "100.0000", "Sales invoice revenue")],
+      { from: "2026-05-01", to: "2026-05-31" },
+    );
+    const afterPosting = buildProfitAndLossReport(
+      accounts,
+      [
+        line("revenue", "2026-05-14", "0.0000", "100.0000", "Sales invoice revenue"),
+        line("cogs", "2026-05-14", "32.5000", "0.0000", "COGS for sales stock issue SSI-000001"),
+      ],
+      { from: "2026-05-01", to: "2026-05-31" },
+    );
+
+    expect(beforePosting.costOfSales).toBe("0.0000");
+    expect(afterPosting.costOfSales).toBe("32.5000");
+    expect(afterPosting.netProfit).toBe("67.5000");
+  });
+
   it("includes retained earnings in a balanced balance sheet", () => {
     const report = buildBalanceSheetReport(
       accounts,

@@ -388,6 +388,8 @@ model User {
   createdWarehouseTransfers WarehouseTransfer[] @relation("WarehouseTransferCreatedBy")
   createdPurchaseReceipts PurchaseReceipt[] @relation("PurchaseReceiptCreatedBy")
   createdSalesStockIssues SalesStockIssue[] @relation("SalesStockIssueCreatedBy")
+  cogsPostedSalesStockIssues SalesStockIssue[] @relation("SalesStockIssueCogsPostedBy")
+  cogsReversedSalesStockIssues SalesStockIssue[] @relation("SalesStockIssueCogsReversedBy")
   generatedDocuments      GeneratedDocument[]  @relation("GeneratedDocumentGeneratedBy")
 }
 
@@ -1610,33 +1612,45 @@ model PurchaseReceiptLine {
 }
 
 model SalesStockIssue {
-  id             String                @id @default(uuid()) @db.Uuid
-  organizationId String                @db.Uuid
-  issueNumber    String
-  salesInvoiceId String                @db.Uuid
-  customerId     String                @db.Uuid
-  warehouseId    String                @db.Uuid
-  issueDate      DateTime
-  status         SalesStockIssueStatus @default(POSTED)
-  notes          String?
-  createdById    String?               @db.Uuid
-  postedAt       DateTime?
-  voidedAt       DateTime?
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
+  id                         String                @id @default(uuid()) @db.Uuid
+  organizationId             String                @db.Uuid
+  issueNumber                String
+  salesInvoiceId             String                @db.Uuid
+  customerId                 String                @db.Uuid
+  warehouseId                String                @db.Uuid
+  issueDate                  DateTime
+  status                     SalesStockIssueStatus @default(POSTED)
+  notes                      String?
+  createdById                String?               @db.Uuid
+  cogsJournalEntryId         String?               @unique @db.Uuid
+  cogsReversalJournalEntryId String?               @unique @db.Uuid
+  cogsPostedAt               DateTime?
+  cogsPostedById             String?               @db.Uuid
+  cogsReversedAt             DateTime?
+  cogsReversedById           String?               @db.Uuid
+  postedAt                   DateTime?
+  voidedAt                   DateTime?
+  createdAt                  DateTime              @default(now())
+  updatedAt                  DateTime              @updatedAt
 
-  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  salesInvoice SalesInvoice          @relation(fields: [salesInvoiceId], references: [id])
-  customer     Contact               @relation("SalesStockIssueCustomer", fields: [customerId], references: [id])
-  warehouse    Warehouse             @relation(fields: [warehouseId], references: [id])
-  createdBy    User?                 @relation("SalesStockIssueCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  lines        SalesStockIssueLine[]
+  organization             Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  salesInvoice             SalesInvoice          @relation(fields: [salesInvoiceId], references: [id])
+  customer                 Contact               @relation("SalesStockIssueCustomer", fields: [customerId], references: [id])
+  warehouse                Warehouse             @relation(fields: [warehouseId], references: [id])
+  createdBy                User?                 @relation("SalesStockIssueCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  cogsJournalEntry         JournalEntry?         @relation("SalesStockIssueCogsJournal", fields: [cogsJournalEntryId], references: [id], onDelete: SetNull)
+  cogsReversalJournalEntry JournalEntry?         @relation("SalesStockIssueCogsReversalJournal", fields: [cogsReversalJournalEntryId], references: [id], onDelete: SetNull)
+  cogsPostedBy             User?                 @relation("SalesStockIssueCogsPostedBy", fields: [cogsPostedById], references: [id], onDelete: SetNull)
+  cogsReversedBy           User?                 @relation("SalesStockIssueCogsReversedBy", fields: [cogsReversedById], references: [id], onDelete: SetNull)
+  lines                    SalesStockIssueLine[]
 
   @@unique([organizationId, issueNumber])
   @@index([organizationId])
   @@index([salesInvoiceId])
   @@index([customerId])
   @@index([warehouseId])
+  @@index([cogsPostedById])
+  @@index([cogsReversedById])
   @@index([organizationId, status])
   @@index([organizationId, issueDate])
 }
@@ -2104,6 +2118,8 @@ model JournalEntry {
   bankTransfer          BankTransfer?      @relation("BankTransferJournal")
   voidedBankTransfer    BankTransfer?      @relation("BankTransferVoidReversalJournal")
   bankAccountOpeningProfile BankAccountProfile? @relation("BankAccountOpeningBalanceJournal")
+  cogsSalesStockIssue   SalesStockIssue?   @relation("SalesStockIssueCogsJournal")
+  cogsReversedSalesStockIssue SalesStockIssue? @relation("SalesStockIssueCogsReversalJournal")
   matchedBankStatementTransactions BankStatementTransaction[] @relation("BankStatementTransactionMatchedJournalEntry")
   createdBankStatementTransactions BankStatementTransaction[] @relation("BankStatementTransactionCreatedJournalEntry")
   lines                 JournalLine[]

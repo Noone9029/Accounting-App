@@ -4,8 +4,8 @@ import { PrismaService } from "../prisma/prisma.service";
 import { STOCK_MOVEMENT_IN_TYPES } from "../stock-movements/stock-movement-rules";
 import { UpdateInventoryAccountingSettingsDto } from "./dto/update-inventory-accounting-settings.dto";
 
-export const INVENTORY_ACCOUNTING_NO_GL_WARNING = "Not posting to GL yet.";
-export const COGS_PREVIEW_ONLY_WARNING = "COGS is preview-only.";
+export const INVENTORY_ACCOUNTING_NO_GL_WARNING = "Enabling this only allows manual COGS posting. It does not auto-post inventory journals.";
+export const COGS_PREVIEW_ONLY_WARNING = "COGS posting requires an explicit manual post action after review.";
 export const ACCOUNTANT_REVIEW_WARNING = "Accountant review required before enabling financial inventory postings.";
 export const NO_FINANCIAL_POSTING_WARNING = "No automatic financial inventory accounting has been posted.";
 export const MOVING_AVERAGE_REVIEW_WARNING = "Average cost is operational estimate and requires accountant review.";
@@ -36,6 +36,7 @@ export type InventoryAccountingSettingsRecord = Prisma.InventorySettingsGetPaylo
 export type InventoryAccountingAccount = Prisma.AccountGetPayload<{ select: typeof accountSelect }>;
 
 type MappingKey = "inventoryAsset" | "cogs" | "adjustmentGain" | "adjustmentLoss";
+type PrismaExecutor = PrismaService | Prisma.TransactionClient;
 
 @Injectable()
 export class InventoryAccountingService {
@@ -93,8 +94,8 @@ export class InventoryAccountingService {
     return this.withAccountingMetadata(updated);
   }
 
-  async previewReadiness(organizationId: string, requiredMappings: MappingKey[]) {
-    const settings = await this.ensureSettings(organizationId);
+  async previewReadiness(organizationId: string, requiredMappings: MappingKey[], executor: PrismaExecutor = this.prisma) {
+    const settings = await this.ensureSettings(organizationId, executor);
     return {
       settings,
       blockingReasons: this.previewBlockingReasons(settings, requiredMappings),
@@ -102,8 +103,14 @@ export class InventoryAccountingService {
     };
   }
 
-  async movingAverageUnitCost(organizationId: string, itemId: string, warehouseId: string, asOfDate: Date) {
-    const movements = await this.prisma.stockMovement.findMany({
+  async movingAverageUnitCost(
+    organizationId: string,
+    itemId: string,
+    warehouseId: string,
+    asOfDate: Date,
+    executor: PrismaExecutor = this.prisma,
+  ) {
+    const movements = await executor.stockMovement.findMany({
       where: {
         organizationId,
         itemId,
@@ -142,15 +149,15 @@ export class InventoryAccountingService {
     return value.toFixed(4);
   }
 
-  private async ensureSettings(organizationId: string) {
-    const existing = await this.prisma.inventorySettings.findUnique({
+  private async ensureSettings(organizationId: string, executor: PrismaExecutor = this.prisma) {
+    const existing = await executor.inventorySettings.findUnique({
       where: { organizationId },
       include: accountingSettingsInclude,
     });
     if (existing) {
       return existing;
     }
-    return this.prisma.inventorySettings.create({
+    return executor.inventorySettings.create({
       data: { organizationId },
       include: accountingSettingsInclude,
     });

@@ -11,7 +11,11 @@ import { formatOptionalDate } from "@/lib/invoice-display";
 import {
   accountingPreviewCanPost,
   accountingPreviewLineDisplay,
+  canShowPostCogsAction,
+  canShowReverseCogsAction,
   canVoidPostedStockDocument,
+  cogsPostingFinancialReportWarning,
+  cogsPostingStatus,
   formatInventoryQuantity,
   inventoryOperationalWarning,
   stockDocumentStatusBadgeClass,
@@ -30,10 +34,14 @@ export default function SalesStockIssueDetailPage() {
   const [loading, setLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const [voiding, setVoiding] = useState(false);
+  const [postingCogs, setPostingCogs] = useState(false);
+  const [reversingCogs, setReversingCogs] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const canVoid = can(PERMISSIONS.salesStockIssue.create);
+  const canPostCogs = can(PERMISSIONS.inventory.cogsPost);
+  const canReverseCogs = can(PERMISSIONS.inventory.cogsReverse);
 
   useEffect(() => {
     if (!organizationId || !params.id) return;
@@ -82,6 +90,40 @@ export default function SalesStockIssueDetailPage() {
       setError(voidError instanceof Error ? voidError.message : "Unable to void sales stock issue.");
     } finally {
       setVoiding(false);
+    }
+  }
+
+  async function postCogs() {
+    if (!issue || !window.confirm(`Post COGS for ${issue.issueNumber}? ${cogsPostingFinancialReportWarning()}`)) return;
+    setPostingCogs(true);
+    setError("");
+    setSuccess("");
+    try {
+      const updated = await apiRequest<SalesStockIssue>(`/sales-stock-issues/${issue.id}/post-cogs`, { method: "POST" });
+      setIssue(updated);
+      setSuccess(`COGS has been posted for ${updated.issueNumber}.`);
+      setReloadToken((current) => current + 1);
+    } catch (postError) {
+      setError(postError instanceof Error ? postError.message : "Unable to post COGS.");
+    } finally {
+      setPostingCogs(false);
+    }
+  }
+
+  async function reverseCogs() {
+    if (!issue || !window.confirm(`Reverse COGS for ${issue.issueNumber}? This creates a reversal journal entry.`)) return;
+    setReversingCogs(true);
+    setError("");
+    setSuccess("");
+    try {
+      const updated = await apiRequest<SalesStockIssue>(`/sales-stock-issues/${issue.id}/reverse-cogs`, { method: "POST", body: {} });
+      setIssue(updated);
+      setSuccess(`COGS has been reversed for ${updated.issueNumber}.`);
+      setReloadToken((current) => current + 1);
+    } catch (reverseError) {
+      setError(reverseError instanceof Error ? reverseError.message : "Unable to reverse COGS.");
+    } finally {
+      setReversingCogs(false);
     }
   }
 
@@ -158,7 +200,16 @@ export default function SalesStockIssueDetailPage() {
             </table>
           </div>
 
-          <SalesIssueAccountingPreviewPanel preview={preview} error={previewError} />
+          <SalesIssueAccountingPreviewPanel
+            preview={preview}
+            error={previewError}
+            canPostPermission={canPostCogs}
+            canReversePermission={canReverseCogs}
+            postingCogs={postingCogs}
+            reversingCogs={reversingCogs}
+            onPostCogs={() => void postCogs()}
+            onReverseCogs={() => void reverseCogs()}
+          />
         </div>
       ) : null}
     </section>
@@ -186,7 +237,25 @@ function Movement({ line, kind }: { line: SalesStockIssueLine; kind: "stockMovem
   );
 }
 
-function SalesIssueAccountingPreviewPanel({ preview, error }: { preview: SalesStockIssueAccountingPreview | null; error: string }) {
+function SalesIssueAccountingPreviewPanel({
+  preview,
+  error,
+  canPostPermission,
+  canReversePermission,
+  postingCogs,
+  reversingCogs,
+  onPostCogs,
+  onReverseCogs,
+}: {
+  preview: SalesStockIssueAccountingPreview | null;
+  error: string;
+  canPostPermission: boolean;
+  canReversePermission: boolean;
+  postingCogs: boolean;
+  reversingCogs: boolean;
+  onPostCogs: () => void;
+  onReverseCogs: () => void;
+}) {
   if (error) {
     return <StatusMessage type="error">{error}</StatusMessage>;
   }
@@ -195,21 +264,63 @@ function SalesIssueAccountingPreviewPanel({ preview, error }: { preview: SalesSt
   }
 
   const postable = accountingPreviewCanPost(preview);
+  const cogsLine = preview.journal.lines.find((line) => line.side === "DEBIT");
+  const assetLine = preview.journal.lines.find((line) => line.side === "CREDIT");
+  const showPostAction = canShowPostCogsAction(preview, canPostPermission);
+  const showReverseAction = canShowReverseCogsAction(preview, canReversePermission);
 
   return (
     <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h2 className="text-base font-semibold text-ink">COGS Preview</h2>
-          <p className="mt-1 text-sm text-steel">Design-only COGS estimate from operational moving-average cost. No journal entry will be posted.</p>
+          <p className="mt-1 text-sm text-steel">Manual COGS posting preview from operational moving-average cost.</p>
         </div>
-        <div className="flex flex-wrap gap-2 text-xs font-medium">
-          <span className="rounded-md bg-amber-50 px-2 py-1 text-amber-700">{preview.postingStatus.replaceAll("_", " ")}</span>
-          <span className={postable ? "rounded-md bg-emerald-50 px-2 py-1 text-emerald-700" : "rounded-md bg-slate-100 px-2 py-1 text-slate-700"}>
-            {postable ? "Postable" : "Preview only"}
-          </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap gap-2 text-xs font-medium">
+            <span className="rounded-md bg-amber-50 px-2 py-1 text-amber-700">{preview.postingStatus.replaceAll("_", " ")}</span>
+            <span className={postable ? "rounded-md bg-emerald-50 px-2 py-1 text-emerald-700" : "rounded-md bg-slate-100 px-2 py-1 text-slate-700"}>
+              {postable ? "Manual post available" : "Preview only"}
+            </span>
+          </div>
+          {showPostAction ? (
+            <button
+              type="button"
+              disabled={postingCogs}
+              onClick={onPostCogs}
+              className="rounded-md bg-ink px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {postingCogs ? "Posting..." : "Post COGS"}
+            </button>
+          ) : null}
+          {showReverseAction ? (
+            <button
+              type="button"
+              disabled={reversingCogs}
+              onClick={onReverseCogs}
+              className="rounded-md border border-rose-300 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              {reversingCogs ? "Reversing..." : "Reverse COGS"}
+            </button>
+          ) : null}
         </div>
       </div>
+
+      <div className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900">{cogsPostingFinancialReportWarning()}</div>
+
+      <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
+        <Detail label="COGS status" value={cogsPostingStatus(preview)} />
+        <Detail label="Estimated COGS" value={formatInventoryQuantity(preview.journal.totalDebit)} />
+        <Detail label="COGS account" value={cogsLine?.accountCode ? `${cogsLine.accountCode} ${cogsLine.accountName}` : cogsLine?.accountName ?? "-"} />
+        <Detail label="Inventory asset account" value={assetLine?.accountCode ? `${assetLine.accountCode} ${assetLine.accountName}` : assetLine?.accountName ?? "-"} />
+      </div>
+
+      {preview.journalEntryId || preview.reversalJournalEntryId ? (
+        <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
+          <Detail label="COGS journal" value={preview.journalEntryId ?? "-"} />
+          <Detail label="COGS reversal journal" value={preview.reversalJournalEntryId ?? "-"} />
+        </div>
+      ) : null}
 
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
         <PreviewList title="Blocking reasons" items={preview.blockingReasons} emptyText={preview.canPostReason} tone="slate" />

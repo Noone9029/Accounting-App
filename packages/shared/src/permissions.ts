@@ -68,6 +68,8 @@ export const PERMISSIONS = {
   inventory: {
     view: "inventory.view",
     manage: "inventory.manage",
+    cogsPost: "inventory.cogs.post",
+    cogsReverse: "inventory.cogs.reverse",
   },
   warehouses: {
     view: "warehouses.view",
@@ -232,6 +234,8 @@ export const ALL_PERMISSIONS = [
   PERMISSIONS.items.manage,
   PERMISSIONS.inventory.view,
   PERMISSIONS.inventory.manage,
+  PERMISSIONS.inventory.cogsPost,
+  PERMISSIONS.inventory.cogsReverse,
   PERMISSIONS.warehouses.view,
   PERMISSIONS.warehouses.manage,
   PERMISSIONS.stockMovements.view,
@@ -340,6 +344,8 @@ const ACCOUNTANT_ROLE_PERMISSIONS = [
   PERMISSIONS.items.view,
   PERMISSIONS.inventory.view,
   PERMISSIONS.inventory.manage,
+  PERMISSIONS.inventory.cogsPost,
+  PERMISSIONS.inventory.cogsReverse,
   PERMISSIONS.warehouses.view,
   PERMISSIONS.warehouses.manage,
   PERMISSIONS.stockMovements.view,
