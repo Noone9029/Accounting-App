@@ -364,6 +364,9 @@ interface PurchaseReceiptPostingReadiness {
     inventoryAssetAccount: Account | null;
     inventoryClearingAccount: Account | null;
   };
+  compatibleBillPostingModeExists: boolean;
+  existingBillsInDirectModeCount: number;
+  billsUsingInventoryClearingCount: number;
   recommendedNextStep: string;
 }
 
@@ -413,6 +416,27 @@ interface PurchaseReceiptAccountingPreview {
     valueDifference: string | null;
     warnings: string[];
   }>;
+}
+
+type PurchaseBillInventoryPostingMode = "DIRECT_EXPENSE_OR_ASSET" | "INVENTORY_CLEARING";
+
+interface PurchaseBillAccountingPreview {
+  previewOnly: true;
+  sourceType: "PurchaseBill";
+  sourceId: string;
+  sourceNumber: string;
+  inventoryPostingMode: PurchaseBillInventoryPostingMode;
+  canFinalize: boolean;
+  canUseInventoryClearingMode: boolean;
+  blockingReasons: string[];
+  warnings: string[];
+  inventoryTrackedLineCount: number;
+  directLineCount: number;
+  clearingAccount: Account | null;
+  vatReceivableAccount: Account | null;
+  accountsPayableAccount: Account | null;
+  journal: AccountingPreviewJournal;
+  journalPreview: AccountingPreviewJournalLine[];
 }
 
 interface PurchaseBillReceiptMatchingStatus {
@@ -532,6 +556,7 @@ interface PurchaseBill {
   id: string;
   billNumber: string;
   status: string;
+  inventoryPostingMode?: PurchaseBillInventoryPostingMode;
   total: string;
   balanceDue: string;
   journalEntryId?: string | null;
@@ -964,13 +989,23 @@ async function main(): Promise<void> {
     "/inventory/purchase-receipt-posting-readiness",
     headers,
   );
-  assertEqual(purchaseReceiptPostingReadiness.ready, true, "purchase receipt posting readiness prerequisites pass");
-  assertEqual(purchaseReceiptPostingReadiness.canEnablePosting, true, "purchase receipt posting readiness can enable future implementation");
+  assertEqual(purchaseReceiptPostingReadiness.ready, false, "purchase receipt posting readiness remains no-go");
+  assertEqual(purchaseReceiptPostingReadiness.canEnablePosting, false, "purchase receipt posting readiness cannot enable posting yet");
   assertPresent(purchaseReceiptPostingReadiness.requiredAccounts.inventoryAssetAccount, "purchase receipt readiness inventory asset account");
   assertPresent(purchaseReceiptPostingReadiness.requiredAccounts.inventoryClearingAccount, "purchase receipt readiness inventory clearing account");
+  assertPresent(purchaseReceiptPostingReadiness.existingBillsInDirectModeCount, "purchase receipt readiness direct-mode bill count");
+  assertPresent(purchaseReceiptPostingReadiness.billsUsingInventoryClearingCount, "purchase receipt readiness clearing-mode bill count");
   assert(
     purchaseReceiptPostingReadiness.warnings.some((warning) => warning.includes("Purchase receipt GL posting is not enabled yet")),
     "purchase receipt posting readiness includes no-posting warning",
+  );
+  assert(
+    purchaseReceiptPostingReadiness.warnings.some((warning) => warning.includes("purchase bills to use inventory clearing mode")),
+    "purchase receipt posting readiness includes bill clearing mode warning",
+  );
+  assert(
+    purchaseReceiptPostingReadiness.blockingReasons.some((reason) => reason.includes("implementation is not available yet")),
+    "purchase receipt posting readiness remains blocked by missing receipt posting implementation",
   );
   const journalEntriesAfterPurchaseReceiptReadiness = await get<JournalEntry[]>("/journal-entries", headers);
   assertEqual(
@@ -1177,6 +1212,90 @@ async function main(): Promise<void> {
     ],
   });
   assertEqual(purchaseBillForReceipt.status, "DRAFT", "purchase bill for receipt matching created as draft");
+  const journalEntriesBeforePurchaseBillDirectPreview = await get<JournalEntry[]>("/journal-entries", headers);
+  const directPurchaseBillPreview = await get<PurchaseBillAccountingPreview>(
+    `/purchase-bills/${purchaseBillForReceipt.id}/accounting-preview`,
+    headers,
+  );
+  assertEqual(directPurchaseBillPreview.previewOnly, true, "direct purchase bill accounting preview is preview-only");
+  assertEqual(
+    directPurchaseBillPreview.inventoryPostingMode,
+    "DIRECT_EXPENSE_OR_ASSET",
+    "direct purchase bill accounting preview reports direct mode",
+  );
+  assertEqual(directPurchaseBillPreview.canFinalize, true, "direct purchase bill accounting preview can finalize");
+  assert(
+    directPurchaseBillPreview.journal.lines.some(
+      (line) => line.side === "DEBIT" && line.accountCode === inventoryAssetAccount.code && money(line.amount).eq("20.0000"),
+    ),
+    "direct purchase bill preview includes debit selected line account",
+  );
+  assert(
+    directPurchaseBillPreview.journal.lines.some((line) => line.side === "CREDIT" && line.accountCode === "210" && money(line.amount).eq("20.0000")),
+    "direct purchase bill preview includes credit accounts payable",
+  );
+  const journalEntriesAfterPurchaseBillDirectPreview = await get<JournalEntry[]>("/journal-entries", headers);
+  assertEqual(
+    journalEntriesAfterPurchaseBillDirectPreview.length,
+    journalEntriesBeforePurchaseBillDirectPreview.length,
+    "direct purchase bill accounting preview does not create journal entries",
+  );
+  const clearingModePurchaseBill = await post<PurchaseBill>("/purchase-bills", headers, {
+    supplierId: receivingSupplier.id,
+    billDate: new Date().toISOString(),
+    currency: "SAR",
+    notes: "Smoke inventory clearing mode preview bill",
+    inventoryPostingMode: "INVENTORY_CLEARING",
+    lines: [
+      {
+        itemId: inventoryItem.id,
+        description: "Smoke inventory clearing mode line",
+        accountId: inventoryAssetAccount.id,
+        quantity: "2.0000",
+        unitPrice: "4.0000",
+      },
+    ],
+  });
+  assertEqual(clearingModePurchaseBill.status, "DRAFT", "inventory clearing mode purchase bill is draft");
+  assertEqual(
+    clearingModePurchaseBill.inventoryPostingMode,
+    "INVENTORY_CLEARING",
+    "inventory clearing mode purchase bill stores selected posting mode",
+  );
+  const journalEntriesBeforePurchaseBillClearingPreview = await get<JournalEntry[]>("/journal-entries", headers);
+  const clearingPurchaseBillPreview = await get<PurchaseBillAccountingPreview>(
+    `/purchase-bills/${clearingModePurchaseBill.id}/accounting-preview`,
+    headers,
+  );
+  assertEqual(clearingPurchaseBillPreview.previewOnly, true, "inventory clearing purchase bill preview is preview-only");
+  assertEqual(clearingPurchaseBillPreview.inventoryPostingMode, "INVENTORY_CLEARING", "inventory clearing purchase bill preview reports clearing mode");
+  assertEqual(clearingPurchaseBillPreview.canFinalize, false, "inventory clearing purchase bill finalization remains disabled");
+  assert(
+    clearingPurchaseBillPreview.journal.lines.some(
+      (line) => line.side === "DEBIT" && line.accountCode === inventoryClearingAccount.code && money(line.amount).eq("8.0000"),
+    ),
+    "inventory clearing purchase bill preview debits inventory clearing",
+  );
+  assert(
+    clearingPurchaseBillPreview.blockingReasons.some((reason) => reason.includes("preview-only")),
+    "inventory clearing purchase bill preview blocks finalization",
+  );
+  const journalEntriesAfterPurchaseBillClearingPreview = await get<JournalEntry[]>("/journal-entries", headers);
+  assertEqual(
+    journalEntriesAfterPurchaseBillClearingPreview.length,
+    journalEntriesBeforePurchaseBillClearingPreview.length,
+    "inventory clearing purchase bill accounting preview does not create journal entries",
+  );
+  const purchaseReceiptPostingReadinessAfterClearingBill = await get<PurchaseReceiptPostingReadiness>(
+    "/inventory/purchase-receipt-posting-readiness",
+    headers,
+  );
+  assertEqual(purchaseReceiptPostingReadinessAfterClearingBill.ready, false, "purchase receipt posting readiness remains no-go after clearing bill");
+  assertEqual(
+    purchaseReceiptPostingReadinessAfterClearingBill.compatibleBillPostingModeExists,
+    true,
+    "purchase receipt posting readiness sees compatible bill mode groundwork",
+  );
   const finalizedPurchaseBillForReceipt = await post<PurchaseBill>(`/purchase-bills/${purchaseBillForReceipt.id}/finalize`, headers, {});
   assertEqual(finalizedPurchaseBillForReceipt.status, "FINALIZED", "purchase bill finalized for receipt matching");
   assertPresent(finalizedPurchaseBillForReceipt.journalEntryId, "purchase bill for receipt matching AP journal");
@@ -3267,6 +3386,9 @@ async function main(): Promise<void> {
         purchaseReceiptPostingMode: patchedInventoryAccountingSettings.purchaseReceiptPostingMode,
         purchaseReceiptPostingReadinessReady: purchaseReceiptPostingReadiness.ready,
         purchaseReceiptPostingReadinessCanEnable: purchaseReceiptPostingReadiness.canEnablePosting,
+        purchaseReceiptPostingCompatibleBillModeExists: purchaseReceiptPostingReadinessAfterClearingBill.compatibleBillPostingModeExists,
+        purchaseReceiptPostingDirectModeBillCount: purchaseReceiptPostingReadinessAfterClearingBill.existingBillsInDirectModeCount,
+        purchaseReceiptPostingClearingModeBillCount: purchaseReceiptPostingReadinessAfterClearingBill.billsUsingInventoryClearingCount,
         purchaseReceiptPostingReadinessNoJournal:
           journalEntriesAfterPurchaseReceiptReadiness.length === journalEntriesBeforePurchaseReceiptReadiness.length,
         inventoryValuationGrandTotal: stockValuationReport.grandTotalEstimatedValue,
@@ -3274,6 +3396,9 @@ async function main(): Promise<void> {
         lowStockItemIds: lowStockReport.rows.map((row) => row.item.id),
         inventoryJournalEntryCountUnchanged: journalEntriesAfterInventory.length === journalEntriesBeforeInventory.length,
         purchaseReceiptId: purchaseReceipt.id,
+        directPurchaseBillPreviewMode: directPurchaseBillPreview.inventoryPostingMode,
+        inventoryClearingPurchaseBillId: clearingModePurchaseBill.id,
+        inventoryClearingPurchaseBillPreviewCanFinalize: clearingPurchaseBillPreview.canFinalize,
         purchaseReceiptAccountingPreviewOnly: purchaseReceiptAccountingPreview.previewOnly,
         purchaseReceiptAccountingPreviewCanPost: purchaseReceiptAccountingPreview.canPost,
         purchaseReceiptAccountingPreviewTotal: purchaseReceiptAccountingPreview.journal.totalDebit,

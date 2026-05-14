@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import { AccountType, InventoryPurchasePostingMode, InventoryValuationMethod, Prisma } from "@prisma/client";
+import { AccountType, InventoryPurchasePostingMode, InventoryValuationMethod, Prisma, PurchaseBillInventoryPostingMode } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { STOCK_MOVEMENT_IN_TYPES } from "../stock-movements/stock-movement-rules";
 import { UpdateInventoryAccountingSettingsDto } from "./dto/update-inventory-accounting-settings.dto";
@@ -116,26 +116,50 @@ export class InventoryAccountingService {
         where: { organizationId },
         include: accountingSettingsInclude,
       })) ?? this.defaultAccountingSettingsForReadiness(organizationId);
-    const blockingReasons = this.purchaseReceiptPostingBlockingReasons(settings);
-    const ready = blockingReasons.length === 0;
+    const [existingBillsInDirectModeCount, billsUsingInventoryClearingCount] = await Promise.all([
+      this.prisma.purchaseBill.count({
+        where: {
+          organizationId,
+          inventoryPostingMode: PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET,
+        },
+      }),
+      this.prisma.purchaseBill.count({
+        where: {
+          organizationId,
+          inventoryPostingMode: PurchaseBillInventoryPostingMode.INVENTORY_CLEARING,
+        },
+      }),
+    ]);
+    const accountBlockingReasons = this.purchaseReceiptPostingBlockingReasons(settings);
+    const blockingReasons = [
+      ...accountBlockingReasons,
+      "Purchase receipt GL posting implementation is not available yet.",
+      "Purchase receipt GL posting requires compatible purchase bill clearing-mode finalization before it can be enabled.",
+    ];
+    const compatibleBillPostingModeExists = billsUsingInventoryClearingCount > 0;
 
     return {
-      ready,
-      canEnablePosting: ready,
-      blockingReasons,
+      ready: false,
+      canEnablePosting: false,
+      blockingReasons: [...new Set(blockingReasons)],
       warnings: [
         PURCHASE_RECEIPT_NO_GL_WARNING,
         "This readiness check is advisory only and does not create journals.",
-        "Purchase bills currently post line accounts directly; bill clearing design must be approved before receipt posting is enabled.",
+        "Purchase receipt GL posting requires purchase bills to use inventory clearing mode.",
+        "Purchase bills in DIRECT_EXPENSE_OR_ASSET mode continue posting line accounts directly; receipt posting would double-count unless bill clearing is selected.",
         ACCOUNTANT_REVIEW_WARNING,
       ],
       requiredAccounts: {
         inventoryAssetAccount: settings.inventoryAssetAccount,
         inventoryClearingAccount: settings.inventoryClearingAccount,
       },
-      recommendedNextStep: ready
-        ? "Proceed only to a future explicit posting implementation after accountant approval and bill clearing migration design."
-        : "Complete inventory accounting, moving-average valuation, preview-only receipt mode, and separate inventory asset/clearing account mappings first.",
+      compatibleBillPostingModeExists,
+      existingBillsInDirectModeCount,
+      billsUsingInventoryClearingCount,
+      recommendedNextStep:
+        accountBlockingReasons.length === 0
+          ? "Review the purchase bill inventory clearing mode preview with an accountant, then implement explicit receipt posting only after compatible bill finalization is available."
+          : "Complete inventory accounting, moving-average valuation, preview-only receipt mode, and separate inventory asset/clearing account mappings first.",
     };
   }
 

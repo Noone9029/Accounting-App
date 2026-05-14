@@ -9,6 +9,7 @@ Purchase receipt matching is operational visibility only. It compares receipt li
 The API surface is:
 
 - `GET /purchase-bills/:id/receipt-matching-status`
+- `GET /purchase-bills/:id/accounting-preview`
 - `GET /purchase-orders/:id/receipt-matching-status`
 - `GET /purchase-receipts/:id/accounting-preview`
 - `GET /inventory/purchase-receipt-posting-readiness`
@@ -25,6 +26,8 @@ The API surface is:
 Bill matching returns supplier, bill total, receipt count, receipt value, status, warnings, and per-line quantities and values. Inventory-tracked bill lines using non-asset accounts are warned because future clearing workflows need accountant review.
 
 The endpoint does not change AP, VAT, inventory asset, or supplier ledger balances.
+
+Purchase bill accounting preview now shows whether the bill is in direct mode or inventory-clearing mode. Direct mode mirrors current AP finalization. Inventory-clearing mode previews Dr Inventory Clearing for tracked lines while keeping non-inventory lines on their selected accounts, but it cannot be finalized yet.
 
 ## Purchase Order Matching
 
@@ -47,4 +50,4 @@ Bill/receipt matching will be used to decide when a future receipt posting can d
 
 Matching status is visibility only. It is not an accounting subledger and does not post or reverse any GL entries.
 
-The readiness audit confirms that matching visibility is not enough to enable posting. A purchase bill clearing method and migration/exclusion rule for current finalized bills are required first.
+The readiness audit confirms that matching visibility is not enough to enable posting. Clearing-mode bill finalization and a migration/exclusion rule for current finalized direct-mode bills are required first.

@@ -17,10 +17,13 @@ import {
   JournalEntryStatus,
   NumberSequenceScope,
   Prisma,
+  PurchaseBillInventoryPostingMode,
   PurchaseBillStatus,
   PurchaseDebitNoteStatus,
   SupplierPaymentStatus,
   TaxRateScope,
+  InventoryPurchasePostingMode,
+  InventoryValuationMethod,
 } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
@@ -32,6 +35,15 @@ import { CreatePurchaseBillDto } from "./dto/create-purchase-bill.dto";
 import { PurchaseBillLineDto } from "./dto/purchase-bill-line.dto";
 import { UpdatePurchaseBillDto } from "./dto/update-purchase-bill.dto";
 import { buildPurchaseBillJournalLines } from "./purchase-bill-accounting";
+
+const accountPreviewSelect = {
+  id: true,
+  code: true,
+  name: true,
+  type: true,
+  allowPosting: true,
+  isActive: true,
+} satisfies Prisma.AccountSelect;
 
 const purchaseBillInclude = {
   supplier: { select: { id: true, name: true, displayName: true, type: true, taxNumber: true } },
@@ -51,7 +63,7 @@ const purchaseBillInclude = {
   lines: {
     orderBy: { sortOrder: "asc" as const },
     include: {
-      item: { select: { id: true, name: true, sku: true } },
+      item: { select: { id: true, name: true, sku: true, inventoryTracking: true } },
       account: { select: { id: true, code: true, name: true, type: true } },
       taxRate: { select: { id: true, name: true, rate: true } },
     },
@@ -116,6 +128,7 @@ const purchaseBillInclude = {
 
 interface PreparedLine {
   itemId?: string;
+  inventoryTracking: boolean;
   description: string;
   accountId: string;
   quantity: string;
@@ -141,6 +154,15 @@ interface PreparedPurchaseBill {
 }
 
 type PrismaExecutor = PrismaService | Prisma.TransactionClient;
+
+interface PurchaseBillPreviewLine {
+  side: "DEBIT" | "CREDIT";
+  accountId: string | null;
+  accountCode: string | null;
+  accountName: string;
+  amount: string;
+  description: string;
+}
 
 @Injectable()
 export class PurchaseBillService {
@@ -198,6 +220,103 @@ export class PurchaseBillService {
     }
 
     return bill;
+  }
+
+  async accountingPreview(organizationId: string, id: string) {
+    const bill = await this.prisma.purchaseBill.findFirst({
+      where: { id, organizationId },
+      include: {
+        supplier: { select: { id: true, name: true, displayName: true } },
+        lines: {
+          orderBy: { sortOrder: "asc" },
+          include: {
+            item: { select: { id: true, name: true, sku: true, inventoryTracking: true } },
+            account: { select: accountPreviewSelect },
+          },
+        },
+      },
+    });
+
+    if (!bill) {
+      throw new NotFoundException("Purchase bill not found.");
+    }
+
+    const inventoryTrackedLineCount = bill.lines.filter((line) => line.item?.inventoryTracking === true).length;
+    const directLineCount = bill.lines.length - inventoryTrackedLineCount;
+    const clearingReadiness = await this.inventoryClearingModeReadiness(organizationId, inventoryTrackedLineCount);
+    const blockingReasons: string[] = [];
+    const warnings = [
+      "Purchase bill accounting preview does not create journals.",
+      "Purchase receipt GL posting requires purchase bills to use inventory clearing mode.",
+    ];
+
+    const accountsPayableAccount = await this.findPreviewPostingAccountByCode(organizationId, "210");
+    const vatReceivableAccount = await this.findPreviewPostingAccountByCode(organizationId, "230");
+    if (!accountsPayableAccount) {
+      blockingReasons.push("Accounts Payable account code 210 is required for purchase bill posting preview.");
+    }
+    if (!vatReceivableAccount && toMoney(String(bill.taxTotal)).gt(0)) {
+      blockingReasons.push("VAT Receivable account code 230 is required for purchase bill posting preview.");
+    }
+
+    if (bill.inventoryPostingMode === PurchaseBillInventoryPostingMode.INVENTORY_CLEARING) {
+      blockingReasons.push(...clearingReadiness.blockingReasons);
+      blockingReasons.push("Inventory clearing bill finalization is preview-only and is not enabled yet.");
+      warnings.push("Inventory Clearing mode is preparation for future receipt GL posting.");
+      warnings.push("Use Inventory Clearing mode only after accountant review.");
+    }
+
+    const previewLines =
+      accountsPayableAccount &&
+      (vatReceivableAccount || toMoney(String(bill.taxTotal)).eq(0)) &&
+      (bill.inventoryPostingMode !== PurchaseBillInventoryPostingMode.INVENTORY_CLEARING || clearingReadiness.clearingAccount)
+        ? this.purchaseBillPreviewJournalLines({
+            bill,
+            accountsPayableAccount,
+            vatReceivableAccount,
+            clearingAccount: clearingReadiness.clearingAccount,
+          })
+        : [];
+    const totals = getJournalTotals(
+      previewLines.map((line) => ({
+        accountId: line.accountId ?? "missing-account",
+        debit: line.side === "DEBIT" ? line.amount : "0.0000",
+        credit: line.side === "CREDIT" ? line.amount : "0.0000",
+        description: line.description,
+        currency: bill.currency,
+        exchangeRate: "1",
+      })),
+    );
+
+    const canFinalize =
+      bill.status === PurchaseBillStatus.DRAFT &&
+      bill.inventoryPostingMode === PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET &&
+      blockingReasons.length === 0;
+
+    return {
+      sourceType: "PurchaseBill",
+      sourceId: bill.id,
+      sourceNumber: bill.billNumber,
+      previewOnly: true,
+      inventoryPostingMode: bill.inventoryPostingMode,
+      canFinalize,
+      canUseInventoryClearingMode: clearingReadiness.blockingReasons.length === 0,
+      blockingReasons: [...new Set(blockingReasons)],
+      warnings: [...new Set(warnings)],
+      inventoryTrackedLineCount,
+      directLineCount,
+      clearingAccount: clearingReadiness.clearingAccount,
+      vatReceivableAccount,
+      accountsPayableAccount,
+      journal: {
+        description: `Purchase bill ${bill.billNumber} - ${bill.supplier.displayName ?? bill.supplier.name}`,
+        entryDate: bill.billDate.toISOString(),
+        totalDebit: totals.debit,
+        totalCredit: totals.credit,
+        lines: previewLines.map((line, index) => ({ lineNumber: index + 1, ...line })),
+      },
+      journalPreview: previewLines.map((line, index) => ({ lineNumber: index + 1, ...line })),
+    };
   }
 
   async debitNotes(organizationId: string, id: string) {
@@ -399,6 +518,8 @@ export class PurchaseBillService {
   async create(organizationId: string, actorUserId: string, dto: CreatePurchaseBillDto) {
     const prepared = await this.preparePurchaseBill(organizationId, dto.lines);
     await this.validateHeaderReferences(organizationId, dto.supplierId, dto.branchId ?? undefined);
+    const inventoryPostingMode = dto.inventoryPostingMode ?? PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET;
+    await this.validateInventoryPostingMode(organizationId, inventoryPostingMode, prepared.lines);
 
     const currency = (dto.currency ?? "SAR").toUpperCase();
     const bill = await this.prisma.$transaction(async (tx) => {
@@ -414,6 +535,7 @@ export class PurchaseBillService {
           dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
           currency,
           subtotal: prepared.subtotal,
+          inventoryPostingMode,
           discountTotal: prepared.discountTotal,
           taxableTotal: prepared.taxableTotal,
           taxTotal: prepared.taxTotal,
@@ -446,6 +568,12 @@ export class PurchaseBillService {
     }
 
     const prepared = dto.lines ? await this.preparePurchaseBill(organizationId, dto.lines) : null;
+    const nextInventoryPostingMode = dto.inventoryPostingMode ?? existing.inventoryPostingMode;
+    await this.validateInventoryPostingMode(
+      organizationId,
+      nextInventoryPostingMode,
+      prepared?.lines ?? existing.lines?.map((line) => ({ inventoryTracking: line.item?.inventoryTracking === true })) ?? [],
+    );
     const updated = await this.prisma.$transaction(async (tx) => {
       if (prepared) {
         await tx.purchaseBillLine.deleteMany({ where: { organizationId, billId: id } });
@@ -459,6 +587,7 @@ export class PurchaseBillService {
           billDate: dto.billDate ? new Date(dto.billDate) : undefined,
           dueDate: Object.prototype.hasOwnProperty.call(dto, "dueDate") ? (dto.dueDate ? new Date(dto.dueDate) : null) : undefined,
           currency: dto.currency?.toUpperCase(),
+          inventoryPostingMode: dto.inventoryPostingMode,
           subtotal: prepared?.subtotal,
           discountTotal: prepared?.discountTotal,
           taxableTotal: prepared?.taxableTotal,
@@ -520,6 +649,9 @@ export class PurchaseBillService {
       }
       if (bill.status !== PurchaseBillStatus.DRAFT) {
         throw new BadRequestException("Only draft purchase bills can be finalized.");
+      }
+      if (bill.inventoryPostingMode === PurchaseBillInventoryPostingMode.INVENTORY_CLEARING) {
+        throw new BadRequestException("Inventory clearing purchase bill finalization is preview-only and is not enabled yet.");
       }
       await this.assertPostingDateAllowed(organizationId, bill.billDate, tx);
 
@@ -718,12 +850,172 @@ export class PurchaseBillService {
     return { deleted: true };
   }
 
+  private purchaseBillPreviewJournalLines({
+    bill,
+    accountsPayableAccount,
+    vatReceivableAccount,
+    clearingAccount,
+  }: {
+    bill: {
+      billNumber: string;
+      supplier: { name: string; displayName: string | null };
+      currency: string;
+      total: Prisma.Decimal | string;
+      taxTotal: Prisma.Decimal | string;
+      inventoryPostingMode: PurchaseBillInventoryPostingMode;
+      lines: Array<{
+        description: string;
+        accountId: string;
+        taxableAmount: Prisma.Decimal | string;
+        item: { inventoryTracking: boolean } | null;
+        account: { id: string; code: string; name: string };
+      }>;
+    };
+    accountsPayableAccount: { id: string; code: string; name: string };
+    vatReceivableAccount: { id: string; code: string; name: string } | null;
+    clearingAccount: { id: string; code: string; name: string } | null;
+  }): PurchaseBillPreviewLine[] {
+    const previewAccounts = new Map<string, { id: string; code: string; name: string }>();
+    previewAccounts.set(accountsPayableAccount.id, accountsPayableAccount);
+    if (vatReceivableAccount) {
+      previewAccounts.set(vatReceivableAccount.id, vatReceivableAccount);
+    }
+    if (clearingAccount) {
+      previewAccounts.set(clearingAccount.id, clearingAccount);
+    }
+    for (const line of bill.lines) {
+      previewAccounts.set(line.account.id, line.account);
+    }
+
+    const journalLines = buildPurchaseBillJournalLines({
+      accountsPayableAccountId: accountsPayableAccount.id,
+      vatReceivableAccountId: vatReceivableAccount?.id ?? accountsPayableAccount.id,
+      billNumber: bill.billNumber,
+      supplierName: bill.supplier.displayName ?? bill.supplier.name,
+      currency: bill.currency,
+      total: String(bill.total),
+      taxTotal: String(bill.taxTotal),
+      lines: bill.lines.map((line) => {
+        const useClearing =
+          bill.inventoryPostingMode === PurchaseBillInventoryPostingMode.INVENTORY_CLEARING &&
+          line.item?.inventoryTracking === true &&
+          clearingAccount !== null;
+        return {
+          accountId: useClearing && clearingAccount ? clearingAccount.id : line.accountId,
+          description: line.description,
+          taxableAmount: String(line.taxableAmount),
+        };
+      }),
+    });
+
+    return journalLines.reduce<PurchaseBillPreviewLine[]>((preview, line) => {
+      const account = previewAccounts.get(line.accountId);
+      const debit = toMoney(line.debit);
+      const credit = toMoney(line.credit);
+      if (debit.gt(0)) {
+        preview.push({
+          side: "DEBIT",
+          accountId: line.accountId,
+          accountCode: account?.code ?? null,
+          accountName: account?.name ?? "Unknown account",
+          amount: debit.toFixed(4),
+          description: line.description ?? "",
+        });
+        return preview;
+      }
+      if (credit.gt(0)) {
+        preview.push({
+          side: "CREDIT",
+          accountId: line.accountId,
+          accountCode: account?.code ?? null,
+          accountName: account?.name ?? "Unknown account",
+          amount: credit.toFixed(4),
+          description: line.description ?? "",
+        });
+        return preview;
+      }
+      return preview;
+    }, []);
+  }
+
+  private async validateInventoryPostingMode(
+    organizationId: string,
+    mode: PurchaseBillInventoryPostingMode,
+    lines: Array<{ inventoryTracking: boolean }>,
+  ): Promise<void> {
+    if (mode === PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET) {
+      return;
+    }
+    const readiness = await this.inventoryClearingModeReadiness(
+      organizationId,
+      lines.filter((line) => line.inventoryTracking).length,
+    );
+    if (readiness.blockingReasons.length > 0) {
+      throw new BadRequestException(readiness.blockingReasons);
+    }
+  }
+
+  private async inventoryClearingModeReadiness(organizationId: string, inventoryTrackedLineCount: number) {
+    const settings = await this.prisma.inventorySettings.findUnique({
+      where: { organizationId },
+      include: {
+        inventoryAssetAccount: { select: accountPreviewSelect },
+        inventoryClearingAccount: { select: accountPreviewSelect },
+      },
+    });
+    const blockingReasons: string[] = [];
+    if (inventoryTrackedLineCount <= 0) {
+      blockingReasons.push("Inventory clearing mode requires at least one inventory-tracked purchase bill line.");
+    }
+    if (!settings?.enableInventoryAccounting) {
+      blockingReasons.push("Inventory accounting must be enabled before purchase bills can use inventory clearing mode.");
+    }
+    if (settings && settings.valuationMethod !== InventoryValuationMethod.MOVING_AVERAGE) {
+      blockingReasons.push("Inventory clearing mode requires MOVING_AVERAGE valuation.");
+    }
+    if (settings && settings.purchaseReceiptPostingMode !== InventoryPurchasePostingMode.PREVIEW_ONLY) {
+      blockingReasons.push("Purchase receipt posting mode must be PREVIEW_ONLY before purchase bills can use inventory clearing mode.");
+    }
+    const clearingAccount = settings?.inventoryClearingAccount ?? null;
+    if (!clearingAccount) {
+      blockingReasons.push("Inventory clearing account mapping is required before purchase bills can use inventory clearing mode.");
+    } else {
+      if (!clearingAccount.isActive) {
+        blockingReasons.push("Inventory clearing account must be active.");
+      }
+      if (!clearingAccount.allowPosting) {
+        blockingReasons.push("Inventory clearing account must allow posting.");
+      }
+      if (clearingAccount.type !== AccountType.LIABILITY && clearingAccount.type !== AccountType.ASSET) {
+        blockingReasons.push("Inventory clearing account must be LIABILITY or ASSET.");
+      }
+      if (clearingAccount.code === "210") {
+        blockingReasons.push("Inventory clearing account must be separate from Accounts Payable account code 210.");
+      }
+    }
+    if (settings?.inventoryAssetAccountId && settings.inventoryClearingAccountId === settings.inventoryAssetAccountId) {
+      blockingReasons.push("Inventory clearing account must be separate from inventory asset account.");
+    }
+
+    return {
+      clearingAccount,
+      blockingReasons: [...new Set(blockingReasons)],
+    };
+  }
+
+  private async findPreviewPostingAccountByCode(organizationId: string, code: string) {
+    return this.prisma.account.findFirst({
+      where: { organizationId, code, isActive: true, allowPosting: true },
+      select: accountPreviewSelect,
+    });
+  }
+
   private async preparePurchaseBill(organizationId: string, lines: PurchaseBillLineDto[]): Promise<PreparedPurchaseBill> {
     const itemIds = lines.map((line) => this.cleanOptional(line.itemId ?? undefined)).filter((itemId): itemId is string => Boolean(itemId));
     const items = itemIds.length
       ? await this.prisma.item.findMany({
           where: { organizationId, id: { in: [...new Set(itemIds)] }, status: ItemStatus.ACTIVE },
-          select: { id: true, name: true, description: true, expenseAccountId: true, purchaseTaxRateId: true },
+          select: { id: true, name: true, description: true, expenseAccountId: true, purchaseTaxRateId: true, inventoryTracking: true },
         })
       : [];
     const itemsById = new Map(items.map((item) => [item.id, item]));
@@ -743,6 +1035,7 @@ export class PurchaseBillService {
 
       return {
         itemId,
+        inventoryTracking: item?.inventoryTracking === true,
         description: this.cleanOptional(line.description) ?? item?.description ?? item?.name ?? `Line ${index + 1}`,
         accountId,
         quantity: line.quantity,

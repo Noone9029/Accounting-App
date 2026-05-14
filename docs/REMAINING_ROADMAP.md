@@ -65,7 +65,7 @@ Tasks:
 - Inventory adjustment approval inbox, attachments, and reason-code catalog.
 - Warehouse in-transit transfer, shipping document, and bin/location support.
 - Accountant review of the current moving-average operational valuation estimate and FIFO placeholder policy.
-- Review inventory accounting settings, purchase receipt clearing previews, bill/receipt matching visibility, and manual sales issue COGS posting with an accountant.
+- Review inventory accounting settings, purchase receipt clearing previews, purchase bill direct-vs-clearing preview mode, bill/receipt matching visibility, and manual sales issue COGS posting with an accountant.
 - Use `docs/inventory/PURCHASE_RECEIPT_POSTING_READINESS_AUDIT.md` as the go/no-go gate before receipt GL posting.
 - Harden manual COGS review/audit UX after first QA pass.
 - Explicit inventory asset and clearing-account posting after bill/receipt matching design is approved.
@@ -83,7 +83,7 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Resolve the purchase receipt posting readiness audit blockers, then add explicit guarded receipt inventory asset posting only for accounting-compatible bill/clearing cases.
+> Implement accountant-approved purchase bill inventory-clearing finalization and migration/exclusion rules, then add explicit guarded receipt inventory asset posting only for compatible bill/clearing cases.
 
 ## Phase 4: ZATCA Production Path
 

@@ -7,7 +7,8 @@ import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { calculateInvoicePreview, formatMoneyAmount } from "@/lib/money";
-import type { Account, Branch, Contact, Item, PurchaseBill, TaxRate } from "@/lib/types";
+import { purchaseBillAccountantReviewWarning, purchaseBillInventoryClearingModeWarning, purchaseBillInventoryPostingModeLabel } from "@/lib/purchase-bills";
+import type { Account, Branch, Contact, Item, PurchaseBill, PurchaseBillInventoryPostingMode, TaxRate } from "@/lib/types";
 
 interface PurchaseBillLineState {
   id: string;
@@ -59,6 +60,9 @@ export function PurchaseBillForm({ initialBill }: PurchaseBillFormProps) {
   const [dueDate, setDueDate] = useState(dateInputValue(initialBill?.dueDate, ""));
   const [notes, setNotes] = useState(initialBill?.notes ?? "");
   const [terms, setTerms] = useState(initialBill?.terms ?? "");
+  const [inventoryPostingMode, setInventoryPostingMode] = useState<PurchaseBillInventoryPostingMode>(
+    initialBill?.inventoryPostingMode ?? "DIRECT_EXPENSE_OR_ASSET",
+  );
   const [lines, setLines] = useState<PurchaseBillLineState[]>(
     initialBill?.lines?.map((line) => ({
       id: line.id,
@@ -183,6 +187,7 @@ export function PurchaseBillForm({ initialBill }: PurchaseBillFormProps) {
         currency: "SAR",
         notes: notes || undefined,
         terms: terms || undefined,
+        inventoryPostingMode,
         lines: lines.map((line, index) => ({
           itemId: line.itemId || undefined,
           description: line.description,
@@ -260,7 +265,26 @@ export function PurchaseBillForm({ initialBill }: PurchaseBillFormProps) {
             <span className="text-sm font-medium text-slate-700">Notes</span>
             <input value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
           </label>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-slate-700">Inventory posting mode</span>
+            <select
+              value={inventoryPostingMode}
+              onChange={(event) => setInventoryPostingMode(event.target.value as PurchaseBillInventoryPostingMode)}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
+            >
+              <option value="DIRECT_EXPENSE_OR_ASSET">{purchaseBillInventoryPostingModeLabel("DIRECT_EXPENSE_OR_ASSET")}</option>
+              <option value="INVENTORY_CLEARING">{purchaseBillInventoryPostingModeLabel("INVENTORY_CLEARING")}</option>
+            </select>
+          </label>
         </div>
+        {inventoryPostingMode === "INVENTORY_CLEARING" ? (
+          <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-900">
+            <ul className="space-y-1">
+              <li>{purchaseBillInventoryClearingModeWarning()}</li>
+              <li>{purchaseBillAccountantReviewWarning()}</li>
+            </ul>
+          </div>
+        ) : null}
       </div>
 
       <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">

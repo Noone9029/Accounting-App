@@ -19,7 +19,8 @@ import {
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadPdf, purchaseBillPdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { PurchaseBill, PurchaseBillReceiptMatchingStatus, PurchaseReceivingStatus } from "@/lib/types";
+import { purchaseBillAccountingPreviewLineDisplay, purchaseBillInventoryPostingModeLabel } from "@/lib/purchase-bills";
+import type { PurchaseBill, PurchaseBillAccountingPreview, PurchaseBillReceiptMatchingStatus, PurchaseReceivingStatus } from "@/lib/types";
 
 export default function PurchaseBillDetailPage() {
   const params = useParams<{ id: string }>();
@@ -29,6 +30,7 @@ export default function PurchaseBillDetailPage() {
   const [bill, setBill] = useState<PurchaseBill | null>(null);
   const [receivingStatus, setReceivingStatus] = useState<PurchaseReceivingStatus | null>(null);
   const [matchingStatus, setMatchingStatus] = useState<PurchaseBillReceiptMatchingStatus | null>(null);
+  const [accountingPreview, setAccountingPreview] = useState<PurchaseBillAccountingPreview | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
@@ -53,12 +55,14 @@ export default function PurchaseBillDetailPage() {
       apiRequest<PurchaseBill>(`/purchase-bills/${params.id}`),
       apiRequest<PurchaseReceivingStatus>(`/purchase-bills/${params.id}/receiving-status`).catch(() => null),
       apiRequest<PurchaseBillReceiptMatchingStatus>(`/purchase-bills/${params.id}/receipt-matching-status`).catch(() => null),
+      apiRequest<PurchaseBillAccountingPreview>(`/purchase-bills/${params.id}/accounting-preview`).catch(() => null),
     ])
-      .then(([result, statusResult, matchingResult]) => {
+      .then(([result, statusResult, matchingResult, accountingPreviewResult]) => {
         if (!cancelled) {
           setBill(result);
           setReceivingStatus(statusResult);
           setMatchingStatus(matchingResult);
+          setAccountingPreview(accountingPreviewResult);
         }
       })
       .catch((loadError: unknown) => {
@@ -93,6 +97,8 @@ export default function PurchaseBillDetailPage() {
     try {
       const updated = await apiRequest<PurchaseBill>(`/purchase-bills/${bill.id}/${action}`, { method: "POST" });
       setBill(updated);
+      const preview = await apiRequest<PurchaseBillAccountingPreview>(`/purchase-bills/${bill.id}/accounting-preview`).catch(() => null);
+      setAccountingPreview(preview);
       setSuccess(action === "finalize" ? `Finalized bill ${updated.billNumber}.` : `Voided bill ${updated.billNumber}.`);
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : `Unable to ${action} purchase bill.`);
@@ -178,7 +184,12 @@ export default function PurchaseBillDetailPage() {
             </button>
           ) : null}
           {bill?.status === "DRAFT" && canFinalizeBill ? (
-            <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+            <button
+              type="button"
+              onClick={() => void runAction("finalize")}
+              disabled={actionLoading || (accountingPreview !== null && !accountingPreview.canFinalize)}
+              className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
               Finalize
             </button>
           ) : null}
@@ -218,6 +229,7 @@ export default function PurchaseBillDetailPage() {
               />
               <Summary label="Total" value={formatMoneyAmount(bill.total, bill.currency)} />
               <Summary label="Balance due" value={formatMoneyAmount(bill.balanceDue, bill.currency)} />
+              <Summary label="Inventory posting mode" value={purchaseBillInventoryPostingModeLabel(bill.inventoryPostingMode)} />
               <Summary label="Journal entry" value={bill.journalEntry ? `${bill.journalEntry.entryNumber} (${bill.journalEntry.id})` : "-"} />
               <Summary label="Reversal journal" value={bill.reversalJournalEntry ? `${bill.reversalJournalEntry.entryNumber} (${bill.reversalJournalEntry.id})` : "-"} />
             </div>
@@ -225,6 +237,7 @@ export default function PurchaseBillDetailPage() {
 
           {receivingStatus ? <ReceivingStatusPanel status={receivingStatus} /> : null}
           {matchingStatus ? <ReceiptMatchingPanel status={matchingStatus} /> : null}
+          {accountingPreview ? <AccountingPreviewPanel preview={accountingPreview} currency={bill.currency} /> : null}
 
           <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
             <table className="w-full min-w-[920px] text-left text-sm">
@@ -467,6 +480,78 @@ function ReceiptMatchingPanel({ status }: { status: PurchaseBillReceiptMatchingS
                       ))
                     : "-"}
                 </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function AccountingPreviewPanel({ preview, currency }: { preview: PurchaseBillAccountingPreview; currency: string }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-ink">Accounting preview</h2>
+          <p className="mt-1 text-sm text-steel">Read-only purchase bill posting preview. No journal is created from this panel.</p>
+        </div>
+        <span className={`rounded-md px-2 py-1 text-xs font-medium ${preview.canFinalize ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+          {preview.canFinalize ? "Finalizable" : "Preview only"}
+        </span>
+      </div>
+      <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-4">
+        <Summary label="Mode" value={purchaseBillInventoryPostingModeLabel(preview.inventoryPostingMode)} />
+        <Summary label="Tracked lines" value={String(preview.inventoryTrackedLineCount)} />
+        <Summary label="Direct lines" value={String(preview.directLineCount)} />
+        <Summary label="Clearing account" value={preview.clearingAccount ? `${preview.clearingAccount.code} ${preview.clearingAccount.name}` : "Not mapped"} />
+        <Summary label="VAT account" value={preview.vatReceivableAccount ? `${preview.vatReceivableAccount.code} ${preview.vatReceivableAccount.name}` : "Not mapped"} />
+        <Summary label="AP account" value={preview.accountsPayableAccount ? `${preview.accountsPayableAccount.code} ${preview.accountsPayableAccount.name}` : "Not mapped"} />
+        <Summary label="Total debit" value={formatMoneyAmount(preview.journal.totalDebit, currency)} />
+        <Summary label="Total credit" value={formatMoneyAmount(preview.journal.totalCredit, currency)} />
+      </div>
+
+      {preview.warnings.length > 0 ? (
+        <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-900">
+          <ul className="space-y-1">
+            {preview.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {preview.blockingReasons.length > 0 ? (
+        <div className="mt-3 rounded-md bg-slate-50 p-3 text-sm text-steel">
+          <p className="font-medium text-ink">Blocking reasons</p>
+          <ul className="mt-2 space-y-1">
+            {preview.blockingReasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[720px] text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+            <tr>
+              <th className="px-3 py-2">Line</th>
+              <th className="px-3 py-2">Side</th>
+              <th className="px-3 py-2">Account</th>
+              <th className="px-3 py-2 text-right">Amount</th>
+              <th className="px-3 py-2">Description</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {preview.journal.lines.map((line) => (
+              <tr key={`${line.lineNumber}-${line.side}-${line.accountId ?? line.accountName}`}>
+                <td className="px-3 py-2 font-mono text-xs">{line.lineNumber}</td>
+                <td className="px-3 py-2">{line.side === "DEBIT" ? "Dr" : "Cr"}</td>
+                <td className="px-3 py-2">{line.accountCode ? `${line.accountCode} ${line.accountName}` : line.accountName}</td>
+                <td className="px-3 py-2 text-right font-mono text-xs">{formatMoneyAmount(line.amount, currency)}</td>
+                <td className="px-3 py-2 text-steel">{line.description || purchaseBillAccountingPreviewLineDisplay(line)}</td>
               </tr>
             ))}
           </tbody>

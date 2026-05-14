@@ -4,7 +4,12 @@ Audit date: 2026-05-14
 
 ## Status
 
-This is a design document only. Purchase receipt GL posting is not implemented, no receipt inventory asset journals are created, and purchase bill accounting is unchanged.
+This is a design document only. Purchase receipt GL posting is not implemented, no receipt inventory asset journals are created, and production purchase bill accounting remains unchanged by default.
+
+The current groundwork adds `PurchaseBill.inventoryPostingMode` with:
+
+- `DIRECT_EXPENSE_OR_ASSET`: default current behavior.
+- `INVENTORY_CLEARING`: draft storage and accounting preview only; finalization is blocked until the future clearing workflow is implemented.
 
 ## A. Receipt Posting Journal
 
@@ -55,6 +60,12 @@ Recommended future blocking rules:
 - Block PO-only receipts until a compatible bill relationship exists.
 - Block duplicate posting through a unique journal link.
 - Block voiding a purchase receipt while receipt GL is active and unreversed.
+
+Current compatibility rule:
+
+- Direct-mode bills remain safe and unchanged.
+- Clearing-mode bill previews show the future Dr Inventory Clearing / Dr VAT / Cr AP shape.
+- Clearing-mode finalization is not enabled yet, so receipt posting remains no-go.
 
 ## E. Recommendation
 

@@ -24,6 +24,7 @@ export type InventorySourceProgressStatus = "NOT_STARTED" | "PARTIAL" | "COMPLET
 export type PurchaseReceiptMatchingStatus = "NOT_RECEIVED" | "PARTIALLY_RECEIVED" | "FULLY_RECEIVED" | "OVER_RECEIVED_WARNING";
 export type InventoryValuationMethod = "MOVING_AVERAGE" | "FIFO_PLACEHOLDER";
 export type InventoryPurchasePostingMode = "DISABLED" | "PREVIEW_ONLY";
+export type PurchaseBillInventoryPostingMode = "DIRECT_EXPENSE_OR_ASSET" | "INVENTORY_CLEARING";
 export type SalesInvoiceStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type CreditNoteStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type PurchaseOrderStatus = "DRAFT" | "APPROVED" | "SENT" | "PARTIALLY_BILLED" | "BILLED" | "CLOSED" | "VOIDED";
@@ -809,6 +810,9 @@ export interface PurchaseReceiptPostingReadiness {
     inventoryAssetAccount: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive"> | null;
     inventoryClearingAccount: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive"> | null;
   };
+  compatibleBillPostingModeExists: boolean;
+  existingBillsInDirectModeCount: number;
+  billsUsingInventoryClearingCount: number;
   recommendedNextStep: string;
 }
 
@@ -842,6 +846,25 @@ export interface InventoryAccountingPreviewBase {
   blockingReasons: string[];
   warnings: string[];
   journal: InventoryAccountingPreviewJournal;
+}
+
+export interface PurchaseBillAccountingPreview {
+  sourceType: "PurchaseBill";
+  sourceId: string;
+  sourceNumber: string;
+  previewOnly: true;
+  inventoryPostingMode: PurchaseBillInventoryPostingMode;
+  canFinalize: boolean;
+  canUseInventoryClearingMode: boolean;
+  blockingReasons: string[];
+  warnings: string[];
+  inventoryTrackedLineCount: number;
+  directLineCount: number;
+  clearingAccount: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive"> | null;
+  vatReceivableAccount: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive"> | null;
+  accountsPayableAccount: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive"> | null;
+  journal: InventoryAccountingPreviewJournal;
+  journalPreview: InventoryAccountingPreviewJournalLine[];
 }
 
 export interface PurchaseReceiptAccountingPreviewLine {
@@ -1072,7 +1095,7 @@ export interface SalesInvoiceLine {
   lineSubtotal: string;
   lineTotal: string;
   sortOrder: number;
-  item?: { id: string; name: string; sku: string | null } | null;
+  item?: { id: string; name: string; sku: string | null; inventoryTracking?: boolean } | null;
   account?: { id: string; code: string; name: string; type: AccountType };
   taxRate?: { id: string; name: string; rate: string } | null;
 }
@@ -1464,6 +1487,7 @@ export interface PurchaseBill {
   dueDate: string | null;
   currency: string;
   status: PurchaseBillStatus;
+  inventoryPostingMode: PurchaseBillInventoryPostingMode;
   subtotal: string;
   discountTotal: string;
   taxableTotal: string;

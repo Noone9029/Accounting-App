@@ -748,6 +748,10 @@ Posting behavior:
 - Debit account code `230` VAT Receivable only when `taxTotal > 0`.
 - Credit account code `210` Accounts Payable for the bill total.
 - The bill stores `journalEntryId`; voided finalized bills store `reversalJournalEntryId`.
+- Purchase bills now store `inventoryPostingMode`.
+- `DIRECT_EXPENSE_OR_ASSET` is the default and preserves the current posting behavior.
+- `INVENTORY_CLEARING` is compatibility groundwork for future receipt GL posting. It can be previewed for draft bills but cannot be finalized yet.
+- `GET /purchase-bills/:id/accounting-preview` returns a preview-only journal shape for direct mode or clearing mode. It does not create journals.
 
 ## Purchase Debit Note Rules
 
@@ -1038,6 +1042,7 @@ APIs:
 - `GET /inventory/accounting-settings`
 - `PATCH /inventory/accounting-settings`
 - `GET /inventory/purchase-receipt-posting-readiness`
+- `GET /purchase-bills/:id/accounting-preview`
 - `GET /inventory/reports/stock-valuation?itemId=&warehouseId=&format=csv`
 - `GET /inventory/reports/movement-summary?from=&to=&itemId=&warehouseId=&format=csv`
 - `GET /inventory/reports/low-stock?format=csv`
@@ -1068,7 +1073,8 @@ Behavior:
 - `PATCH /inventory/settings` can save `MOVING_AVERAGE` or `FIFO_PLACEHOLDER`, but FIFO is only a placeholder and report calculations still use moving-average estimates.
 - `GET /inventory/accounting-settings` returns preview-only inventory accounting readiness, default-disabled `enableInventoryAccounting`, inventory asset/COGS/inventory clearing/adjustment mapping fields, `purchaseReceiptPostingMode`, blocking reasons, and warnings.
 - `PATCH /inventory/accounting-settings` validates that mapped accounts belong to the organization, are active, allow posting, and have approved account types. Inventory accounting cannot be enabled without inventory asset and COGS mappings, the clearing account must be separate from inventory asset and Accounts Payable code `210`, and FIFO remains placeholder-only.
-- `GET /inventory/purchase-receipt-posting-readiness` returns an advisory go/no-go check for future purchase receipt inventory asset posting. It checks inventory accounting, moving-average valuation, preview-only receipt mode, Inventory Asset and Inventory Clearing mappings, account separation, and always warns that purchase receipt GL posting is not enabled yet. It creates no settings, journals, or accounting mutations and does not enable posting.
+- `GET /inventory/purchase-receipt-posting-readiness` returns an advisory go/no-go check for future purchase receipt inventory asset posting. It checks inventory accounting, moving-average valuation, preview-only receipt mode, Inventory Asset and Inventory Clearing mappings, account separation, direct-mode bill count, clearing-mode bill count, and always warns that purchase receipt GL posting is not enabled yet. It creates no settings, journals, or accounting mutations and does not enable posting.
+- `GET /purchase-bills/:id/accounting-preview` returns current bill posting mode, preview-only journal lines, AP/VAT/Clearing account visibility, tracked/direct line counts, warnings, blockers, and finalization readiness. Direct mode previews current AP posting; clearing mode previews Dr Inventory Clearing for tracked lines while remaining non-finalizable in this phase.
 - `GET /purchase-receipts/:id/accounting-preview` returns a design-only Dr Inventory Asset / Cr Inventory Clearing preview when line unit costs and mappings exist, plus receipt value, matched bill value, unmatched receipt value, value difference, and matching summary. It always returns `previewOnly: true` and `canPost: false`; purchase receipt GL posting is not enabled yet.
 - `GET /sales-stock-issues/:id/accounting-preview` returns moving-average estimated COGS, Dr COGS / Cr Inventory Asset preview lines, posting status, COGS journal ids when present, and `canPost: true` only when the stock issue is eligible for manual posting.
 - `POST /sales-stock-issues/:id/post-cogs` requires `inventory.cogs.post`, enabled inventory accounting, mapped inventory asset and COGS accounts, `MOVING_AVERAGE`, a posted/unvoided stock issue, no existing COGS journal, no preview blocking reasons, and an open fiscal period on the stock issue date. It creates one posted journal: Dr COGS, Cr Inventory Asset.
@@ -1082,7 +1088,7 @@ Accounting limitation:
 - Inventory movements do not create journal entries automatically and do not affect GL, COGS, inventory asset balances, VAT, or financial statements unless a user explicitly posts COGS for a sales stock issue.
 - Stock valuation is an operational estimate only. It is not the GL inventory asset value and is not used for Balance Sheet, Profit & Loss, VAT, or COGS.
 - Purchase receipts do not debit inventory asset accounts yet.
-- Inventory clearing account settings and bill/receipt matching visibility exist, but no clearing journals or purchase bill clearing entries are posted.
+- Inventory clearing account settings, bill/receipt matching visibility, purchase bill inventory posting mode, and purchase bill accounting preview exist, but no receipt journals or purchase bill clearing journals are posted.
 - Inventory accounting settings, readiness, and preview endpoints do not create `JournalEntry` records; only the explicit manual COGS post action does.
 
 Manual COGS posting behavior:
@@ -1094,7 +1100,7 @@ Manual COGS posting behavior:
 - Reports reflect posted COGS naturally through posted journal lines.
 - Finalize inventory clearing and bill/receipt matching before purchase receipt asset posting.
 - Future receipt posting plan remains Dr Inventory Asset / Cr Inventory Clearing, with future purchase bill clearing planned as Dr Inventory Clearing and Dr VAT Receivable, Cr Accounts Payable after accountant review.
-- The current readiness audit is no-go for purchase receipt GL posting until bill clearing, migration, variance, VAT, and reversal rules are approved.
+- The current readiness audit remains no-go for purchase receipt GL posting until clearing-mode bill finalization, migration, variance, VAT, and reversal rules are approved.
 - Keep FIFO disabled for accounting until cost layers and layer depletion rules exist.
 
 Known limitations:
@@ -1102,7 +1108,8 @@ Known limitations:
 - No automatic GL inventory posting.
 - COGS posting is manual only; no invoice or stock issue auto-posting.
 - No inventory asset posting.
-- No inventory clearing journal workflow or bill clearing entries.
+- No live inventory clearing journal workflow or bill clearing entries; clearing mode is preview/design groundwork only.
+- Existing finalized direct-mode purchase bills are not migrated.
 - No automatic purchase receipt from purchase orders or bills.
 - No automatic sales delivery or stock issue from sales invoices.
 - No landed cost.

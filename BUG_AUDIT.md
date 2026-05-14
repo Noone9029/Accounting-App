@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-14
 
-Commit inspected: pending (`Audit purchase receipt posting readiness`)
+Commit inspected: pending (`Add purchase bill inventory clearing mode groundwork`)
 
 ## Scope
 
@@ -36,6 +36,34 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Purchase bill clearing compatibility groundwork added
+
+Added bill-level inventory posting mode groundwork, purchase bill accounting preview, readiness compatibility counts, frontend mode controls, and clearing-mode migration design documentation. This resolves the audit no-go item at the design/data visibility level only; purchase receipt GL posting remains disabled.
+
+Risk reduced:
+
+- Existing bills remain in `DIRECT_EXPENSE_OR_ASSET`, preserving current purchase bill AP posting behavior.
+- `INVENTORY_CLEARING` mode is explicit and draft-level, with preview visibility showing Dr Inventory Clearing for tracked lines and normal line accounts for non-inventory lines.
+- Clearing-mode finalization is blocked until a future accountant-approved implementation exists.
+- Readiness now exposes direct-mode and clearing-mode bill counts so historical migration/exclusion work is visible.
+- Purchase bill previews create no journals and do not change purchase receipt or purchase bill accounting.
+
+Remaining risks:
+
+- Purchase receipt GL posting is still disabled.
+- Inventory clearing bill finalization is still preview-only.
+- Historical finalized direct-mode bills are not migrated.
+- Migration and exclusion strategy still requires accountant approval.
+- Landed cost is missing.
+- FIFO remains placeholder-only.
+- Accountant review is required before production use.
+
+Tests/smoke added:
+
+- Backend tests for direct-mode preview, clearing-mode preview, validation, permission metadata, and finalization blocking.
+- Frontend helper tests for purchase bill mode labels, preview line display, and readiness warnings.
+- Smoke coverage for direct purchase bill preview, clearing-mode purchase bill preview, unchanged journal counts from previews, and readiness compatibility visibility.
 
 ### Purchase receipt posting readiness audit added
 

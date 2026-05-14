@@ -6,7 +6,9 @@ Audit date: 2026-05-14
 
 Purchase receipts are operational stock events. They create `PURCHASE_RECEIPT_PLACEHOLDER` stock movements and update warehouse quantity only. They do not create `JournalEntry` records, do not debit inventory asset, and do not affect financial statements.
 
-Purchase bills currently post directly to expense, COGS, or asset accounts by line, debit VAT Receivable when tax exists, and credit Accounts Payable. That behavior is intentionally unchanged in this phase.
+Purchase bills currently post directly to expense, COGS, or asset accounts by line, debit VAT Receivable when tax exists, and credit Accounts Payable. That behavior is intentionally unchanged in this phase for the default `DIRECT_EXPENSE_OR_ASSET` mode.
+
+Purchase bills can now store `INVENTORY_CLEARING` mode for design review. That mode is preview-only: it shows Dr Inventory Clearing for inventory-tracked lines, but finalization is blocked until the clearing workflow is approved.
 
 ## Preview Groundwork
 
@@ -24,7 +26,9 @@ Purchase bills currently post directly to expense, COGS, or asset accounts by li
 
 The endpoint never creates a journal and never changes purchase bill accounting.
 
-`GET /inventory/purchase-receipt-posting-readiness` now exposes an advisory go/no-go check for the future posting task. It checks inventory accounting, moving-average valuation, preview-only receipt mode, Inventory Asset, and Inventory Clearing mappings. It does not create settings, journals, or accounting mutations and does not enable posting.
+`GET /inventory/purchase-receipt-posting-readiness` now exposes an advisory go/no-go check for the future posting task. It checks inventory accounting, moving-average valuation, preview-only receipt mode, Inventory Asset, Inventory Clearing mappings, direct-mode bill count, and clearing-mode bill count. It does not create settings, journals, or accounting mutations and does not enable posting.
+
+`GET /purchase-bills/:id/accounting-preview` shows the current direct AP posting preview or the future clearing-mode preview without creating journals.
 
 ## Proposed Future Journal
 
@@ -66,4 +70,4 @@ Landed cost is deferred because freight, duty, allocation bases, supplier charge
 
 Purchase receipt inventory asset posting is not implemented. The preview is review-only and remains non-postable.
 
-The current audit recommendation is no-go for receipt GL posting until purchase bill clearing behavior and migration rules are approved.
+The current audit recommendation remains no-go for receipt GL posting until purchase bill clearing-mode finalization, migration/exclusion rules, and variance handling are approved.

@@ -45,6 +45,12 @@ export class PurchaseBillController {
     return this.purchaseBillService.get(organizationId, id);
   }
 
+  @Get(":id/accounting-preview")
+  @RequirePermissions(PERMISSIONS.purchaseBills.view)
+  accountingPreview(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.purchaseBillService.accountingPreview(organizationId, id);
+  }
+
   @Get(":id/pdf-data")
   @RequirePermissions(PERMISSIONS.purchaseBills.view)
   pdfData(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {

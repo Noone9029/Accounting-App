@@ -35,6 +35,7 @@ describe("InventoryAccountingService", () => {
         update: jest.fn().mockResolvedValue(baseSettings),
       },
       account: { findFirst: jest.fn() },
+      purchaseBill: { count: jest.fn().mockResolvedValue(0) },
       stockMovement: { findMany: jest.fn().mockResolvedValue([]) },
       journalEntry: { create: jest.fn() },
       ...overrides,
@@ -151,9 +152,16 @@ describe("InventoryAccountingService", () => {
         "Inventory clearing account mapping is required.",
         "Inventory accounting must be enabled before purchase receipt posting can be considered.",
         "Purchase receipt posting mode must be PREVIEW_ONLY for readiness review.",
+        "Purchase receipt GL posting implementation is not available yet.",
+        "Purchase receipt GL posting requires compatible purchase bill clearing-mode finalization before it can be enabled.",
       ]),
     );
-    expect(result.warnings).toEqual(expect.arrayContaining(["Purchase receipt GL posting is not enabled yet."]));
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        "Purchase receipt GL posting is not enabled yet.",
+        "Purchase receipt GL posting requires purchase bills to use inventory clearing mode.",
+      ]),
+    );
   });
 
   it("returns purchase receipt posting readiness false without creating settings when settings are missing", async () => {
@@ -203,7 +211,7 @@ describe("InventoryAccountingService", () => {
     expect(result.requiredAccounts.inventoryClearingAccount).toEqual(clearingAccount);
   });
 
-  it("returns ready purchase receipt posting prerequisites without creating journals", async () => {
+  it("keeps purchase receipt posting no-go even when prerequisites are mapped", async () => {
     const { service, prisma } = makeService();
     prisma.inventorySettings.findUnique.mockResolvedValue({
       ...baseSettings,
@@ -217,12 +225,42 @@ describe("InventoryAccountingService", () => {
 
     const result = await service.purchaseReceiptPostingReadiness("org-1");
 
-    expect(result.ready).toBe(true);
-    expect(result.canEnablePosting).toBe(true);
-    expect(result.blockingReasons).toEqual([]);
+    expect(result.ready).toBe(false);
+    expect(result.canEnablePosting).toBe(false);
+    expect(result.blockingReasons).toEqual(
+      expect.arrayContaining([
+        "Purchase receipt GL posting implementation is not available yet.",
+        "Purchase receipt GL posting requires compatible purchase bill clearing-mode finalization before it can be enabled.",
+      ]),
+    );
     expect(result.warnings).toContain("Purchase receipt GL posting is not enabled yet.");
-    expect(result.recommendedNextStep).toContain("future explicit posting implementation");
+    expect(result.warnings).toContain("Purchase receipt GL posting requires purchase bills to use inventory clearing mode.");
+    expect(result.compatibleBillPostingModeExists).toBe(false);
+    expect(result.existingBillsInDirectModeCount).toBe(0);
+    expect(result.billsUsingInventoryClearingCount).toBe(0);
+    expect(result.recommendedNextStep).toContain("purchase bill inventory clearing mode preview");
     expect(prisma.journalEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("returns purchase bill posting mode compatibility counts in readiness", async () => {
+    const { service, prisma } = makeService();
+    prisma.inventorySettings.findUnique.mockResolvedValue({
+      ...baseSettings,
+      enableInventoryAccounting: true,
+      inventoryAssetAccountId: assetAccount.id,
+      inventoryClearingAccountId: clearingAccount.id,
+      inventoryAssetAccount: assetAccount,
+      inventoryClearingAccount: clearingAccount,
+      purchaseReceiptPostingMode: InventoryPurchasePostingMode.PREVIEW_ONLY,
+    });
+    prisma.purchaseBill.count.mockResolvedValueOnce(3).mockResolvedValueOnce(1);
+
+    const result = await service.purchaseReceiptPostingReadiness("org-1");
+
+    expect(result.compatibleBillPostingModeExists).toBe(true);
+    expect(result.existingBillsInDirectModeCount).toBe(3);
+    expect(result.billsUsingInventoryClearingCount).toBe(1);
+    expect(result.warnings).toContain("Purchase receipt GL posting requires purchase bills to use inventory clearing mode.");
   });
 
   it("checks purchase receipt posting readiness within the requested tenant", async () => {
@@ -234,6 +272,11 @@ describe("InventoryAccountingService", () => {
     expect(prisma.inventorySettings.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { organizationId: "org-2" },
+      }),
+    );
+    expect(prisma.purchaseBill.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ organizationId: "org-2" }),
       }),
     );
     expect(prisma.inventorySettings.create).not.toHaveBeenCalled();

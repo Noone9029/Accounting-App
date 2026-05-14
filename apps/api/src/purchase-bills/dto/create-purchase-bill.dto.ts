@@ -1,5 +1,6 @@
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsDateString, IsOptional, IsString, IsUUID, Length, ValidateNested } from "class-validator";
+import { PurchaseBillInventoryPostingMode } from "@prisma/client";
+import { ArrayMinSize, IsArray, IsDateString, IsEnum, IsOptional, IsString, IsUUID, Length, ValidateNested } from "class-validator";
 import { PurchaseBillLineDto } from "./purchase-bill-line.dto";
 
 export class CreatePurchaseBillDto {
@@ -29,6 +30,10 @@ export class CreatePurchaseBillDto {
   @IsOptional()
   @IsString()
   terms?: string;
+
+  @IsOptional()
+  @IsEnum(PurchaseBillInventoryPostingMode)
+  inventoryPostingMode?: PurchaseBillInventoryPostingMode;
 
   @IsArray()
   @ArrayMinSize(1)

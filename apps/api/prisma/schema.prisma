@@ -110,6 +110,11 @@ enum InventoryPurchasePostingMode {
   PREVIEW_ONLY
 }
 
+enum PurchaseBillInventoryPostingMode {
+  DIRECT_EXPENSE_OR_ASSET
+  INVENTORY_CLEARING
+}
+
 enum SalesInvoiceStatus {
   DRAFT
   FINALIZED
@@ -1489,6 +1494,7 @@ model PurchaseBill {
   dueDate                DateTime?
   currency               String             @default("SAR")
   status                 PurchaseBillStatus @default(DRAFT)
+  inventoryPostingMode   PurchaseBillInventoryPostingMode @default(DIRECT_EXPENSE_OR_ASSET)
   subtotal               Decimal            @default(0) @db.Decimal(20, 4)
   discountTotal          Decimal            @default(0) @db.Decimal(20, 4)
   taxableTotal           Decimal            @default(0) @db.Decimal(20, 4)
@@ -1523,6 +1529,7 @@ model PurchaseBill {
   @@index([supplierId])
   @@index([purchaseOrderId])
   @@index([status])
+  @@index([inventoryPostingMode])
 }
 
 model PurchaseBillLine {

@@ -11,6 +11,12 @@ Inventory accounting settings now include:
 - `inventoryClearingAccountId`
 - `purchaseReceiptPostingMode`
 
+Purchase bills now include:
+
+- `inventoryPostingMode`
+
+`DIRECT_EXPENSE_OR_ASSET` is the default and keeps current AP posting behavior. `INVENTORY_CLEARING` is explicit preview groundwork for tracked inventory lines, but finalization in that mode is blocked in this phase.
+
 `inventoryClearingAccountId` must belong to the organization, be active, allow posting, use an `ASSET` or `LIABILITY` account type, be separate from the inventory asset account, and not be Accounts Payable code `210`. The recommended MVP account is code `240` Inventory Clearing with type `LIABILITY`.
 
 `purchaseReceiptPostingMode` is currently `DISABLED` or `PREVIEW_ONLY`. Neither value enables purchase receipt GL posting.
@@ -25,8 +31,16 @@ The readiness endpoint is:
 
 - `GET /inventory/purchase-receipt-posting-readiness`
 - Requires JWT auth, `x-organization-id`, and `inventory.view`.
-- Returns account readiness, blockers, warnings, and the recommended next step.
+- Returns account readiness, direct-mode bill count, clearing-mode bill count, blockers, warnings, and the recommended next step.
 - Creates no journals and does not enable purchase receipt posting.
+
+Purchase bill preview endpoint:
+
+- `GET /purchase-bills/:id/accounting-preview`
+- Requires JWT auth, `x-organization-id`, and `purchaseBills.view`.
+- Direct mode previews the current Dr line accounts / Dr VAT / Cr AP posting.
+- Inventory Clearing mode previews Dr Inventory Clearing for tracked lines, Dr normal accounts for non-inventory lines, Dr VAT, and Cr AP.
+- Creates no journals.
 
 ## Preview Journal
 
@@ -81,6 +95,6 @@ Without an inventory clearing design, directly crediting AP from receipt posting
 
 ## Current Hard Stop
 
-Purchase receipt accounting preview remains `DESIGN_ONLY`. No purchase receipt journal posting is enabled.
+Purchase receipt accounting preview remains `DESIGN_ONLY`. No purchase receipt journal posting is enabled. Inventory Clearing bill mode is also preview-only; it cannot be finalized yet.
 
-The current readiness audit is no-go for real receipt posting until bill clearing, migration, variance, VAT, and reversal rules are approved.
+The current readiness audit is no-go for real receipt posting until clearing-mode bill finalization, migration/exclusion, variance, VAT, and reversal rules are approved.
