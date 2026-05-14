@@ -12,6 +12,7 @@ import type {
   InventorySourceProgressStatus,
   InventoryStockValuationRow,
   InventoryValuationMethod,
+  PurchaseReceiptPostingReadiness,
   PurchaseReceiptMatchingStatus,
   PurchaseReceiptStatus,
   SalesStockIssueAccountingPreview,
@@ -105,6 +106,22 @@ export function purchaseReceiptPostingModeLabel(mode: InventoryPurchasePostingMo
 
 export function purchaseReceiptGlPostingWarning(): string {
   return "Purchase receipt GL posting is not enabled yet.";
+}
+
+export function purchaseReceiptPostingReadinessLabel(readiness: Pick<PurchaseReceiptPostingReadiness, "ready">): string {
+  return readiness.ready ? "Ready for future implementation" : "Not ready";
+}
+
+export function purchaseReceiptPostingReadinessBadgeClass(readiness: Pick<PurchaseReceiptPostingReadiness, "ready">): string {
+  return readiness.ready ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700";
+}
+
+export function purchaseReceiptPostingBlockingReasonDisplay(reasons: string[]): string {
+  return reasons.length > 0 ? reasons.join("; ") : "No readiness blockers.";
+}
+
+export function purchaseReceiptPostingWarningDisplay(warnings: string[]): string {
+  return warnings.length > 0 ? warnings.join("; ") : "No warnings.";
 }
 
 export function receiptMatchingStatusLabel(status: PurchaseReceiptMatchingStatus): string {

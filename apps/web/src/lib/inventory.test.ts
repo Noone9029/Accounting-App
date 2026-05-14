@@ -25,7 +25,11 @@ import {
   lowStockStatusLabel,
   movementSummaryNetChange,
   purchaseReceiptGlPostingWarning,
+  purchaseReceiptPostingBlockingReasonDisplay,
+  purchaseReceiptPostingReadinessBadgeClass,
+  purchaseReceiptPostingReadinessLabel,
   purchaseReceiptPostingModeLabel,
+  purchaseReceiptPostingWarningDisplay,
   purchaseReceiptSourceTypeLabel,
   receiptMatchingStatusBadgeClass,
   receiptMatchingStatusLabel,
@@ -158,6 +162,18 @@ describe("inventory helpers", () => {
     expect(purchaseReceiptPostingModeLabel("PREVIEW_ONLY")).toBe("Preview only");
     expect(purchaseReceiptPostingModeLabel("DISABLED")).toBe("Disabled");
     expect(purchaseReceiptGlPostingWarning()).toBe("Purchase receipt GL posting is not enabled yet.");
+    expect(purchaseReceiptPostingReadinessLabel({ ready: true })).toBe("Ready for future implementation");
+    expect(purchaseReceiptPostingReadinessLabel({ ready: false })).toBe("Not ready");
+    expect(purchaseReceiptPostingReadinessBadgeClass({ ready: true })).toContain("emerald");
+    expect(purchaseReceiptPostingReadinessBadgeClass({ ready: false })).toContain("amber");
+    expect(purchaseReceiptPostingBlockingReasonDisplay(["Inventory clearing account mapping is required."])).toBe(
+      "Inventory clearing account mapping is required.",
+    );
+    expect(purchaseReceiptPostingBlockingReasonDisplay([])).toBe("No readiness blockers.");
+    expect(purchaseReceiptPostingWarningDisplay(["Purchase receipt GL posting is not enabled yet."])).toBe(
+      "Purchase receipt GL posting is not enabled yet.",
+    );
+    expect(purchaseReceiptPostingWarningDisplay([])).toBe("No warnings.");
     expect(receiptMatchingStatusLabel("PARTIALLY_RECEIVED")).toBe("Partially received");
     expect(receiptMatchingStatusLabel("OVER_RECEIVED_WARNING")).toBe("Over received");
     expect(receiptMatchingStatusBadgeClass("FULLY_RECEIVED")).toContain("emerald");

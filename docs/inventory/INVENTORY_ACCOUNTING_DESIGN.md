@@ -31,6 +31,7 @@ The API exposes:
 
 - `GET /inventory/accounting-settings` with `inventory.view`.
 - `PATCH /inventory/accounting-settings` with `inventory.manage`.
+- `GET /inventory/purchase-receipt-posting-readiness` with `inventory.view`.
 
 ## Account Mapping Rules
 
@@ -55,6 +56,7 @@ The current sales issue COGS boundary is:
 Purchase receipt accounting remains design-only:
 
 - purchase receipt previews always return `canPost: false`
+- purchase receipt posting readiness is advisory only and creates no journals
 - no inventory asset posting exists
 - no inventory clearing journal workflow exists
 - purchase receipt previews can now show receipt value, matched bill value, unmatched receipt value, value difference, and Dr Inventory Asset / Cr Inventory Clearing preview lines when mapped
@@ -86,7 +88,8 @@ The implementation separates operational inventory events from financial posting
 1. Harden manual COGS posting review UX and audit reporting.
 2. Review the new inventory clearing account and bill/receipt matching preview with an accountant.
 3. Finalize inventory clearing account posting model and variance handling.
-4. Add explicit, guarded purchase receipt asset posting.
-5. Add adjustment gain/loss posting with reason-code controls.
-6. Add financial inventory reports reviewed by accountants.
-7. Add FIFO only after full cost-layer modeling is designed.
+4. Use `PURCHASE_RECEIPT_POSTING_READINESS_AUDIT.md` and `PURCHASE_RECEIPT_GL_POSTING_DESIGN.md` as the gate for receipt posting implementation.
+5. Add explicit, guarded purchase receipt asset posting only after bill clearing and migration rules are approved.
+6. Add adjustment gain/loss posting with reason-code controls.
+7. Add financial inventory reports reviewed by accountants.
+8. Add FIFO only after full cost-layer modeling is designed.

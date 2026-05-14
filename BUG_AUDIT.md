@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-14
 
-Commit inspected: pending (`Add inventory clearing preview groundwork`)
+Commit inspected: pending (`Audit purchase receipt posting readiness`)
 
 ## Scope
 
@@ -36,6 +36,32 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Purchase receipt posting readiness audit added
+
+Added a read-only purchase receipt posting readiness endpoint, inventory settings readiness panel, readiness/design documents, tests, and smoke coverage. This is an audit gate only; purchase receipt GL posting still is not implemented and no inventory asset journals are created.
+
+Risk reduced:
+
+- Accountants can see whether Inventory Asset and Inventory Clearing mappings, moving-average valuation, inventory accounting enablement, and preview-only receipt mode are ready before the next posting task.
+- The readiness endpoint always warns that purchase receipt GL posting is not enabled yet.
+- The audit documents explicitly call out the double-count risk from current purchase bill direct line posting.
+- The settings UI shows readiness blockers and recommendations without exposing a post button.
+
+Remaining risks:
+
+- Purchase receipt GL posting is still disabled.
+- Bill/receipt clearing entries are not implemented.
+- Existing finalized purchase bills need a migration or exclusion strategy before receipt posting.
+- Landed cost is missing.
+- FIFO remains placeholder-only.
+- Accountant review is required before production use.
+
+Tests/smoke added:
+
+- Backend readiness tests for missing settings/accounts, no-journal behavior, tenant scoping, and permission metadata.
+- Frontend helper tests for readiness status, blockers, and warnings.
+- Smoke coverage for `/inventory/purchase-receipt-posting-readiness` and unchanged journal counts.
 
 ### Inventory clearing preview and matching groundwork added
 

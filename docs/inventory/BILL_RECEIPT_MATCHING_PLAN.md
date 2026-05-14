@@ -11,6 +11,7 @@ The API surface is:
 - `GET /purchase-bills/:id/receipt-matching-status`
 - `GET /purchase-orders/:id/receipt-matching-status`
 - `GET /purchase-receipts/:id/accounting-preview`
+- `GET /inventory/purchase-receipt-posting-readiness`
 
 ## Matching Statuses
 
@@ -45,3 +46,5 @@ Bill/receipt matching will be used to decide when a future receipt posting can d
 ## Current Hard Stop
 
 Matching status is visibility only. It is not an accounting subledger and does not post or reverse any GL entries.
+
+The readiness audit confirms that matching visibility is not enough to enable posting. A purchase bill clearing method and migration/exclusion rule for current finalized bills are required first.

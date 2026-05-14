@@ -45,6 +45,12 @@ export class InventoryController {
     return this.inventoryAccountingService.updateSettings(organizationId, dto);
   }
 
+  @Get("purchase-receipt-posting-readiness")
+  @RequirePermissions(PERMISSIONS.inventory.view)
+  purchaseReceiptPostingReadiness(@CurrentOrganizationId() organizationId: string) {
+    return this.inventoryAccountingService.purchaseReceiptPostingReadiness(organizationId);
+  }
+
   @Get("balances")
   @RequirePermissions(PERMISSIONS.inventory.view)
   balances(@CurrentOrganizationId() organizationId: string, @Query() query: InventoryBalanceQueryDto) {

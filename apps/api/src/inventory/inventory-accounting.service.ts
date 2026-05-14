@@ -110,6 +110,35 @@ export class InventoryAccountingService {
     };
   }
 
+  async purchaseReceiptPostingReadiness(organizationId: string) {
+    const settings =
+      (await this.prisma.inventorySettings.findUnique({
+        where: { organizationId },
+        include: accountingSettingsInclude,
+      })) ?? this.defaultAccountingSettingsForReadiness(organizationId);
+    const blockingReasons = this.purchaseReceiptPostingBlockingReasons(settings);
+    const ready = blockingReasons.length === 0;
+
+    return {
+      ready,
+      canEnablePosting: ready,
+      blockingReasons,
+      warnings: [
+        PURCHASE_RECEIPT_NO_GL_WARNING,
+        "This readiness check is advisory only and does not create journals.",
+        "Purchase bills currently post line accounts directly; bill clearing design must be approved before receipt posting is enabled.",
+        ACCOUNTANT_REVIEW_WARNING,
+      ],
+      requiredAccounts: {
+        inventoryAssetAccount: settings.inventoryAssetAccount,
+        inventoryClearingAccount: settings.inventoryClearingAccount,
+      },
+      recommendedNextStep: ready
+        ? "Proceed only to a future explicit posting implementation after accountant approval and bill clearing migration design."
+        : "Complete inventory accounting, moving-average valuation, preview-only receipt mode, and separate inventory asset/clearing account mappings first.",
+    };
+  }
+
   async movingAverageUnitCost(
     organizationId: string,
     itemId: string,
@@ -190,6 +219,30 @@ export class InventoryAccountingService {
     };
   }
 
+  private defaultAccountingSettingsForReadiness(organizationId: string): InventoryAccountingSettingsRecord {
+    return {
+      id: "read-only-default",
+      organizationId,
+      valuationMethod: InventoryValuationMethod.MOVING_AVERAGE,
+      allowNegativeStock: false,
+      trackInventoryValue: true,
+      enableInventoryAccounting: false,
+      inventoryAssetAccountId: null,
+      cogsAccountId: null,
+      inventoryClearingAccountId: null,
+      inventoryAdjustmentGainAccountId: null,
+      inventoryAdjustmentLossAccountId: null,
+      purchaseReceiptPostingMode: InventoryPurchasePostingMode.DISABLED,
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+      inventoryAssetAccount: null,
+      cogsAccount: null,
+      inventoryClearingAccount: null,
+      inventoryAdjustmentGainAccount: null,
+      inventoryAdjustmentLossAccount: null,
+    };
+  }
+
   private previewWarnings(
     settings: Pick<InventoryAccountingSettingsRecord, "enableInventoryAccounting" | "valuationMethod" | "purchaseReceiptPostingMode">,
   ): string[] {
@@ -237,6 +290,17 @@ export class InventoryAccountingService {
       ]);
     }
     return reasons;
+  }
+
+  private purchaseReceiptPostingBlockingReasons(settings: InventoryAccountingSettingsRecord): string[] {
+    const reasons = this.previewBlockingReasons(settings, ["inventoryAsset", "inventoryClearing"]);
+    if (!settings.enableInventoryAccounting) {
+      reasons.push("Inventory accounting must be enabled before purchase receipt posting can be considered.");
+    }
+    if (settings.purchaseReceiptPostingMode !== InventoryPurchasePostingMode.PREVIEW_ONLY) {
+      reasons.push("Purchase receipt posting mode must be PREVIEW_ONLY for readiness review.");
+    }
+    return [...new Set(reasons)];
   }
 
   private enableBlockingReasons(settings: {

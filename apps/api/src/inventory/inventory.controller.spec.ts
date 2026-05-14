@@ -24,6 +24,12 @@ describe("InventoryController permissions", () => {
     ]);
   });
 
+  it("requires inventory view permission for purchase receipt posting readiness", () => {
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, InventoryController.prototype.purchaseReceiptPostingReadiness)).toEqual([
+      PERMISSIONS.inventory.view,
+    ]);
+  });
+
   it("requires inventory view permission for balances", () => {
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, InventoryController.prototype.balances)).toEqual([
       PERMISSIONS.inventory.view,

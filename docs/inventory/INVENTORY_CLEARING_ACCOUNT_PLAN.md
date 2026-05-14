@@ -21,6 +21,13 @@ The preview endpoint is:
 - Requires JWT auth, `x-organization-id`, and `inventory.view`.
 - Returns `previewOnly: true`, `postingStatus: DESIGN_ONLY`, and `canPost: false`.
 
+The readiness endpoint is:
+
+- `GET /inventory/purchase-receipt-posting-readiness`
+- Requires JWT auth, `x-organization-id`, and `inventory.view`.
+- Returns account readiness, blockers, warnings, and the recommended next step.
+- Creates no journals and does not enable purchase receipt posting.
+
 ## Preview Journal
 
 When cost and asset mapping are available, the preview journal is:
@@ -75,3 +82,5 @@ Without an inventory clearing design, directly crediting AP from receipt posting
 ## Current Hard Stop
 
 Purchase receipt accounting preview remains `DESIGN_ONLY`. No purchase receipt journal posting is enabled.
+
+The current readiness audit is no-go for real receipt posting until bill clearing, migration, variance, VAT, and reversal rules are approved.

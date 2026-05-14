@@ -24,6 +24,8 @@ The estimate uses costed inbound quantity and value up to the relevant date. Man
 
 Purchase receipt accounting previews use receipt line unit costs for design-only Dr Inventory Asset / Cr Inventory Clearing previews. Those receipt values are not accounting-grade until bill/receipt matching, clearing, VAT, landed cost, and variance rules are approved.
 
+Purchase receipt posting readiness requires `MOVING_AVERAGE` because FIFO cost layers do not exist and receipt posting must use the same conservative valuation boundary as the current preview layer.
+
 ## FIFO Placeholder
 
 FIFO can be stored as a settings value for future planning, but no FIFO cost layers exist. FIFO is not previewable, cannot enable inventory accounting readiness, and cannot post COGS.
@@ -55,5 +57,6 @@ Inventory quantities and costs use decimal fields. Future posting work beyond ma
 - No serial or batch valuation exists.
 - No automatic GL posting is enabled.
 - Purchase receipt inventory asset posting is not implemented.
+- Purchase receipt posting readiness is advisory and creates no journals.
 - Inventory clearing settings and previews exist, but clearing journals are not implemented.
 - Moving average is still an operational estimate and requires accountant review before each manual COGS post.

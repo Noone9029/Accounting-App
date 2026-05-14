@@ -11,10 +11,19 @@ import {
   inventorySettingsWarnings,
   inventoryValuationMethodLabel,
   missingInventoryAccountMappingWarnings,
+  purchaseReceiptPostingReadinessBadgeClass,
+  purchaseReceiptPostingReadinessLabel,
   purchaseReceiptPostingModeLabel,
 } from "@/lib/inventory";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { Account, InventoryAccountingSettings, InventoryPurchasePostingMode, InventorySettings, InventoryValuationMethod } from "@/lib/types";
+import type {
+  Account,
+  InventoryAccountingSettings,
+  InventoryPurchasePostingMode,
+  InventorySettings,
+  InventoryValuationMethod,
+  PurchaseReceiptPostingReadiness,
+} from "@/lib/types";
 
 const valuationMethods: InventoryValuationMethod[] = ["MOVING_AVERAGE", "FIFO_PLACEHOLDER"];
 const purchaseReceiptPostingModes: InventoryPurchasePostingMode[] = ["DISABLED", "PREVIEW_ONLY"];
@@ -26,6 +35,7 @@ export default function InventorySettingsPage() {
   const canViewAccounts = can(PERMISSIONS.accounts.view);
   const [settings, setSettings] = useState<InventorySettings | null>(null);
   const [accountingSettings, setAccountingSettings] = useState<InventoryAccountingSettings | null>(null);
+  const [purchaseReceiptReadiness, setPurchaseReceiptReadiness] = useState<PurchaseReceiptPostingReadiness | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [form, setForm] = useState({
     valuationMethod: "MOVING_AVERAGE" as InventoryValuationMethod,
@@ -67,14 +77,16 @@ export default function InventorySettingsPage() {
     Promise.all([
       apiRequest<InventorySettings>("/inventory/settings"),
       apiRequest<InventoryAccountingSettings>("/inventory/accounting-settings"),
+      apiRequest<PurchaseReceiptPostingReadiness>("/inventory/purchase-receipt-posting-readiness"),
       canViewAccounts ? apiRequest<Account[]>("/accounts") : Promise.resolve([]),
     ])
-      .then(([inventoryResult, accountingResult, accountResult]) => {
+      .then(([inventoryResult, accountingResult, readinessResult, accountResult]) => {
         if (cancelled) {
           return;
         }
         setSettings(inventoryResult);
         setAccountingSettings(accountingResult);
+        setPurchaseReceiptReadiness(readinessResult);
         setAccounts(accountResult);
         setForm({
           valuationMethod: accountingResult.valuationMethod,
@@ -133,8 +145,10 @@ export default function InventorySettingsPage() {
           purchaseReceiptPostingMode: form.purchaseReceiptPostingMode,
         },
       });
+      const readinessResult = await apiRequest<PurchaseReceiptPostingReadiness>("/inventory/purchase-receipt-posting-readiness");
       setSettings(inventoryResult);
       setAccountingSettings(accountingResult);
+      setPurchaseReceiptReadiness(readinessResult);
       setMessage("Inventory settings saved.");
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to save inventory settings.");
@@ -146,6 +160,7 @@ export default function InventorySettingsPage() {
   const operationalWarnings = settings ? settings.warnings : inventorySettingsWarnings(form);
   const accountingWarnings = accountingSettings ? accountingSettings.warnings : inventoryAccountingWarnings();
   const mappingWarnings = accountingSettings ? missingInventoryAccountMappingWarnings(accountingSettings) : [];
+  const receiptReadiness = purchaseReceiptReadiness;
 
   return (
     <section>
@@ -302,6 +317,69 @@ export default function InventorySettingsPage() {
                   <li>Required preview mappings are present.</li>
                 )}
               </ul>
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-ink">Purchase Receipt Posting Readiness</h3>
+                <p className="mt-1 text-sm text-steel">Read-only audit status for future receipt inventory asset posting.</p>
+              </div>
+              {receiptReadiness ? (
+                <span className={`inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-semibold ${purchaseReceiptPostingReadinessBadgeClass(receiptReadiness)}`}>
+                  {purchaseReceiptPostingReadinessLabel(receiptReadiness)}
+                </span>
+              ) : (
+                <span className="inline-flex w-fit rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">Not checked</span>
+              )}
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="rounded-md bg-white p-3 text-sm">
+                <p className="text-xs font-medium uppercase tracking-wide text-steel">Inventory asset account</p>
+                <p className="mt-1 font-medium text-ink">
+                  {receiptReadiness?.requiredAccounts.inventoryAssetAccount
+                    ? `${receiptReadiness.requiredAccounts.inventoryAssetAccount.code} ${receiptReadiness.requiredAccounts.inventoryAssetAccount.name}`
+                    : "Not mapped"}
+                </p>
+              </div>
+              <div className="rounded-md bg-white p-3 text-sm">
+                <p className="text-xs font-medium uppercase tracking-wide text-steel">Inventory clearing account</p>
+                <p className="mt-1 font-medium text-ink">
+                  {receiptReadiness?.requiredAccounts.inventoryClearingAccount
+                    ? `${receiptReadiness.requiredAccounts.inventoryClearingAccount.code} ${receiptReadiness.requiredAccounts.inventoryClearingAccount.name}`
+                    : "Not mapped"}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="rounded-md bg-white p-3 text-sm text-steel">
+                <p className="font-medium text-ink">Blocking reasons</p>
+                <ul className="mt-2 space-y-1">
+                  {receiptReadiness && receiptReadiness.blockingReasons.length > 0 ? (
+                    receiptReadiness.blockingReasons.map((reason) => <li key={reason}>{reason}</li>)
+                  ) : (
+                    <li>No readiness blockers.</li>
+                  )}
+                </ul>
+              </div>
+              <div className="rounded-md bg-white p-3 text-sm text-amber-900">
+                <p className="font-medium text-ink">Warnings</p>
+                <ul className="mt-2 space-y-1">
+                  {receiptReadiness && receiptReadiness.warnings.length > 0 ? (
+                    receiptReadiness.warnings.map((warning) => <li key={warning}>{warning}</li>)
+                  ) : (
+                    <li>Purchase receipt GL posting is not enabled yet.</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-md bg-white p-3 text-sm text-steel">
+              <p className="font-medium text-ink">Recommended next step</p>
+              <p className="mt-1">{receiptReadiness?.recommendedNextStep ?? "Run readiness after inventory accounting settings load."}</p>
             </div>
           </div>
         </div>

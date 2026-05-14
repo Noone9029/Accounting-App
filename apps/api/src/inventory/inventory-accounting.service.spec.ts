@@ -36,6 +36,7 @@ describe("InventoryAccountingService", () => {
       },
       account: { findFirst: jest.fn() },
       stockMovement: { findMany: jest.fn().mockResolvedValue([]) },
+      journalEntry: { create: jest.fn() },
       ...overrides,
     };
     return { service: new InventoryAccountingService(prisma as never), prisma };
@@ -135,6 +136,107 @@ describe("InventoryAccountingService", () => {
     expect(result.noAutomaticPosting).toBe(true);
     expect(result.canEnableInventoryAccounting).toBe(true);
     expect(result.accounts.inventoryClearing).toEqual(clearingAccount);
+  });
+
+  it("returns purchase receipt posting readiness false for default disabled settings", async () => {
+    const { service } = makeService();
+
+    const result = await service.purchaseReceiptPostingReadiness("org-1");
+
+    expect(result.ready).toBe(false);
+    expect(result.canEnablePosting).toBe(false);
+    expect(result.blockingReasons).toEqual(
+      expect.arrayContaining([
+        "Inventory asset account mapping is required.",
+        "Inventory clearing account mapping is required.",
+        "Inventory accounting must be enabled before purchase receipt posting can be considered.",
+        "Purchase receipt posting mode must be PREVIEW_ONLY for readiness review.",
+      ]),
+    );
+    expect(result.warnings).toEqual(expect.arrayContaining(["Purchase receipt GL posting is not enabled yet."]));
+  });
+
+  it("returns purchase receipt posting readiness false without creating settings when settings are missing", async () => {
+    const { service, prisma } = makeService();
+    prisma.inventorySettings.findUnique.mockResolvedValue(null);
+
+    const result = await service.purchaseReceiptPostingReadiness("org-1");
+
+    expect(prisma.inventorySettings.create).not.toHaveBeenCalled();
+    expect(result.ready).toBe(false);
+    expect(result.blockingReasons).toContain("Inventory asset account mapping is required.");
+  });
+
+  it("returns purchase receipt posting readiness false when clearing account is missing", async () => {
+    const { service, prisma } = makeService();
+    prisma.inventorySettings.findUnique.mockResolvedValue({
+      ...baseSettings,
+      enableInventoryAccounting: true,
+      inventoryAssetAccountId: assetAccount.id,
+      inventoryAssetAccount: assetAccount,
+      purchaseReceiptPostingMode: InventoryPurchasePostingMode.PREVIEW_ONLY,
+    });
+
+    const result = await service.purchaseReceiptPostingReadiness("org-1");
+
+    expect(result.ready).toBe(false);
+    expect(result.blockingReasons).toContain("Inventory clearing account mapping is required.");
+    expect(result.requiredAccounts.inventoryAssetAccount).toEqual(assetAccount);
+    expect(result.requiredAccounts.inventoryClearingAccount).toBeNull();
+  });
+
+  it("returns purchase receipt posting readiness false when inventory asset account is missing", async () => {
+    const { service, prisma } = makeService();
+    prisma.inventorySettings.findUnique.mockResolvedValue({
+      ...baseSettings,
+      enableInventoryAccounting: true,
+      inventoryClearingAccountId: clearingAccount.id,
+      inventoryClearingAccount: clearingAccount,
+      purchaseReceiptPostingMode: InventoryPurchasePostingMode.PREVIEW_ONLY,
+    });
+
+    const result = await service.purchaseReceiptPostingReadiness("org-1");
+
+    expect(result.ready).toBe(false);
+    expect(result.blockingReasons).toContain("Inventory asset account mapping is required.");
+    expect(result.requiredAccounts.inventoryAssetAccount).toBeNull();
+    expect(result.requiredAccounts.inventoryClearingAccount).toEqual(clearingAccount);
+  });
+
+  it("returns ready purchase receipt posting prerequisites without creating journals", async () => {
+    const { service, prisma } = makeService();
+    prisma.inventorySettings.findUnique.mockResolvedValue({
+      ...baseSettings,
+      enableInventoryAccounting: true,
+      inventoryAssetAccountId: assetAccount.id,
+      inventoryClearingAccountId: clearingAccount.id,
+      inventoryAssetAccount: assetAccount,
+      inventoryClearingAccount: clearingAccount,
+      purchaseReceiptPostingMode: InventoryPurchasePostingMode.PREVIEW_ONLY,
+    });
+
+    const result = await service.purchaseReceiptPostingReadiness("org-1");
+
+    expect(result.ready).toBe(true);
+    expect(result.canEnablePosting).toBe(true);
+    expect(result.blockingReasons).toEqual([]);
+    expect(result.warnings).toContain("Purchase receipt GL posting is not enabled yet.");
+    expect(result.recommendedNextStep).toContain("future explicit posting implementation");
+    expect(prisma.journalEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("checks purchase receipt posting readiness within the requested tenant", async () => {
+    const { service, prisma } = makeService();
+    prisma.inventorySettings.findUnique.mockResolvedValue(null);
+
+    await service.purchaseReceiptPostingReadiness("org-2");
+
+    expect(prisma.inventorySettings.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { organizationId: "org-2" },
+      }),
+    );
+    expect(prisma.inventorySettings.create).not.toHaveBeenCalled();
   });
 
   it("calculates moving-average unit cost from costed inbound operational movements", async () => {

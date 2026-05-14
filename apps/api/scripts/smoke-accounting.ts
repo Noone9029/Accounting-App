@@ -355,6 +355,18 @@ interface InventoryAccountingSettings {
   warnings: string[];
 }
 
+interface PurchaseReceiptPostingReadiness {
+  ready: boolean;
+  canEnablePosting: boolean;
+  blockingReasons: string[];
+  warnings: string[];
+  requiredAccounts: {
+    inventoryAssetAccount: Account | null;
+    inventoryClearingAccount: Account | null;
+  };
+  recommendedNextStep: string;
+}
+
 interface AccountingPreviewJournalLine {
   lineNumber: number;
   side: "DEBIT" | "CREDIT";
@@ -947,6 +959,25 @@ async function main(): Promise<void> {
   assertEqual(patchedInventoryAccountingSettings.inventoryClearingAccountId, inventoryClearingAccount.id, "inventory clearing account mapping patched");
   assertEqual(patchedInventoryAccountingSettings.purchaseReceiptPostingMode, "PREVIEW_ONLY", "purchase receipt posting mode patched preview-only");
   assertEqual(patchedInventoryAccountingSettings.previewOnly, true, "patched inventory accounting settings remain preview-only");
+  const journalEntriesBeforePurchaseReceiptReadiness = await get<JournalEntry[]>("/journal-entries", headers);
+  const purchaseReceiptPostingReadiness = await get<PurchaseReceiptPostingReadiness>(
+    "/inventory/purchase-receipt-posting-readiness",
+    headers,
+  );
+  assertEqual(purchaseReceiptPostingReadiness.ready, true, "purchase receipt posting readiness prerequisites pass");
+  assertEqual(purchaseReceiptPostingReadiness.canEnablePosting, true, "purchase receipt posting readiness can enable future implementation");
+  assertPresent(purchaseReceiptPostingReadiness.requiredAccounts.inventoryAssetAccount, "purchase receipt readiness inventory asset account");
+  assertPresent(purchaseReceiptPostingReadiness.requiredAccounts.inventoryClearingAccount, "purchase receipt readiness inventory clearing account");
+  assert(
+    purchaseReceiptPostingReadiness.warnings.some((warning) => warning.includes("Purchase receipt GL posting is not enabled yet")),
+    "purchase receipt posting readiness includes no-posting warning",
+  );
+  const journalEntriesAfterPurchaseReceiptReadiness = await get<JournalEntry[]>("/journal-entries", headers);
+  assertEqual(
+    journalEntriesAfterPurchaseReceiptReadiness.length,
+    journalEntriesBeforePurchaseReceiptReadiness.length,
+    "purchase receipt posting readiness does not create journal entries",
+  );
 
   const warehouses = await get<Warehouse[]>("/warehouses", headers);
   const mainWarehouse = required(
@@ -3234,6 +3265,10 @@ async function main(): Promise<void> {
         inventoryAccountingMappedCogsCode: cogsAccount.code,
         inventoryAccountingMappedClearingCode: inventoryClearingAccount.code,
         purchaseReceiptPostingMode: patchedInventoryAccountingSettings.purchaseReceiptPostingMode,
+        purchaseReceiptPostingReadinessReady: purchaseReceiptPostingReadiness.ready,
+        purchaseReceiptPostingReadinessCanEnable: purchaseReceiptPostingReadiness.canEnablePosting,
+        purchaseReceiptPostingReadinessNoJournal:
+          journalEntriesAfterPurchaseReceiptReadiness.length === journalEntriesBeforePurchaseReceiptReadiness.length,
         inventoryValuationGrandTotal: stockValuationReport.grandTotalEstimatedValue,
         inventoryMovementClosingQuantity: movementSummaryRow.closingQuantity,
         lowStockItemIds: lowStockReport.rows.map((row) => row.item.id),

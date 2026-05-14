@@ -800,6 +800,18 @@ export interface InventoryAccountingSettings extends InventorySettings {
   blockingReasons: string[];
 }
 
+export interface PurchaseReceiptPostingReadiness {
+  ready: boolean;
+  canEnablePosting: boolean;
+  blockingReasons: string[];
+  warnings: string[];
+  requiredAccounts: {
+    inventoryAssetAccount: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive"> | null;
+    inventoryClearingAccount: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive"> | null;
+  };
+  recommendedNextStep: string;
+}
+
 export interface InventoryAccountingPreviewJournalLine {
   lineNumber: number;
   side: "DEBIT" | "CREDIT";

@@ -24,6 +24,8 @@ Purchase bills currently post directly to expense, COGS, or asset accounts by li
 
 The endpoint never creates a journal and never changes purchase bill accounting.
 
+`GET /inventory/purchase-receipt-posting-readiness` now exposes an advisory go/no-go check for the future posting task. It checks inventory accounting, moving-average valuation, preview-only receipt mode, Inventory Asset, and Inventory Clearing mappings. It does not create settings, journals, or accounting mutations and does not enable posting.
+
 ## Proposed Future Journal
 
 Future receipt posting under review:
@@ -63,3 +65,5 @@ Landed cost is deferred because freight, duty, allocation bases, supplier charge
 ## Current Hard Stop
 
 Purchase receipt inventory asset posting is not implemented. The preview is review-only and remains non-postable.
+
+The current audit recommendation is no-go for receipt GL posting until purchase bill clearing behavior and migration rules are approved.
