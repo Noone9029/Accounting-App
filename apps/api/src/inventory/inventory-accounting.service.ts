@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import { AccountType, InventoryValuationMethod, Prisma } from "@prisma/client";
+import { AccountType, InventoryPurchasePostingMode, InventoryValuationMethod, Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { STOCK_MOVEMENT_IN_TYPES } from "../stock-movements/stock-movement-rules";
 import { UpdateInventoryAccountingSettingsDto } from "./dto/update-inventory-accounting-settings.dto";
 
 export const INVENTORY_ACCOUNTING_NO_GL_WARNING = "Enabling this only allows manual COGS posting. It does not auto-post inventory journals.";
+export const PURCHASE_RECEIPT_NO_GL_WARNING = "Purchase receipt GL posting is not enabled yet.";
 export const COGS_PREVIEW_ONLY_WARNING = "COGS posting requires an explicit manual post action after review.";
 export const ACCOUNTANT_REVIEW_WARNING = "Accountant review required before enabling financial inventory postings.";
 export const NO_FINANCIAL_POSTING_WARNING = "No automatic financial inventory accounting has been posted.";
@@ -25,6 +26,7 @@ const accountSelect = {
 const accountingSettingsInclude = {
   inventoryAssetAccount: { select: accountSelect },
   cogsAccount: { select: accountSelect },
+  inventoryClearingAccount: { select: accountSelect },
   inventoryAdjustmentGainAccount: { select: accountSelect },
   inventoryAdjustmentLossAccount: { select: accountSelect },
 } satisfies Prisma.InventorySettingsInclude;
@@ -35,7 +37,7 @@ export type InventoryAccountingSettingsRecord = Prisma.InventorySettingsGetPaylo
 
 export type InventoryAccountingAccount = Prisma.AccountGetPayload<{ select: typeof accountSelect }>;
 
-type MappingKey = "inventoryAsset" | "cogs" | "adjustmentGain" | "adjustmentLoss";
+type MappingKey = "inventoryAsset" | "cogs" | "inventoryClearing" | "adjustmentGain" | "adjustmentLoss";
 type PrismaExecutor = PrismaService | Prisma.TransactionClient;
 
 @Injectable()
@@ -51,8 +53,10 @@ export class InventoryAccountingService {
     const proposed = {
       valuationMethod: dto.valuationMethod ?? existing.valuationMethod,
       enableInventoryAccounting: dto.enableInventoryAccounting ?? existing.enableInventoryAccounting,
+      purchaseReceiptPostingMode: dto.purchaseReceiptPostingMode ?? existing.purchaseReceiptPostingMode,
       inventoryAssetAccountId: this.valueOrExisting(dto, "inventoryAssetAccountId", existing.inventoryAssetAccountId),
       cogsAccountId: this.valueOrExisting(dto, "cogsAccountId", existing.cogsAccountId),
+      inventoryClearingAccountId: this.valueOrExisting(dto, "inventoryClearingAccountId", existing.inventoryClearingAccountId),
       inventoryAdjustmentGainAccountId: this.valueOrExisting(
         dto,
         "inventoryAdjustmentGainAccountId",
@@ -67,6 +71,7 @@ export class InventoryAccountingService {
 
     await this.validateMappedAccount(organizationId, proposed.inventoryAssetAccountId, "Inventory asset", [AccountType.ASSET]);
     await this.validateMappedAccount(organizationId, proposed.cogsAccountId, "COGS", [AccountType.COST_OF_SALES, AccountType.EXPENSE]);
+    await this.validateInventoryClearingAccount(organizationId, proposed.inventoryClearingAccountId, proposed.inventoryAssetAccountId);
     await this.validateMappedAccount(organizationId, proposed.inventoryAdjustmentGainAccountId, "Inventory adjustment gain", [AccountType.REVENUE]);
     await this.validateMappedAccount(organizationId, proposed.inventoryAdjustmentLossAccountId, "Inventory adjustment loss", [
       AccountType.EXPENSE,
@@ -81,8 +86,10 @@ export class InventoryAccountingService {
     const data: Prisma.InventorySettingsUncheckedUpdateInput = {};
     if (dto.valuationMethod !== undefined) data.valuationMethod = dto.valuationMethod;
     if (dto.enableInventoryAccounting !== undefined) data.enableInventoryAccounting = dto.enableInventoryAccounting;
+    if (dto.purchaseReceiptPostingMode !== undefined) data.purchaseReceiptPostingMode = dto.purchaseReceiptPostingMode;
     if (this.hasOwn(dto, "inventoryAssetAccountId")) data.inventoryAssetAccountId = dto.inventoryAssetAccountId;
     if (this.hasOwn(dto, "cogsAccountId")) data.cogsAccountId = dto.cogsAccountId;
+    if (this.hasOwn(dto, "inventoryClearingAccountId")) data.inventoryClearingAccountId = dto.inventoryClearingAccountId;
     if (this.hasOwn(dto, "inventoryAdjustmentGainAccountId")) data.inventoryAdjustmentGainAccountId = dto.inventoryAdjustmentGainAccountId;
     if (this.hasOwn(dto, "inventoryAdjustmentLossAccountId")) data.inventoryAdjustmentLossAccountId = dto.inventoryAdjustmentLossAccountId;
 
@@ -171,6 +178,7 @@ export class InventoryAccountingService {
       accounts: {
         inventoryAsset: settings.inventoryAssetAccount,
         cogs: settings.cogsAccount,
+        inventoryClearing: settings.inventoryClearingAccount,
         adjustmentGain: settings.inventoryAdjustmentGainAccount,
         adjustmentLoss: settings.inventoryAdjustmentLossAccount,
       },
@@ -182,10 +190,15 @@ export class InventoryAccountingService {
     };
   }
 
-  private previewWarnings(settings: Pick<InventoryAccountingSettingsRecord, "enableInventoryAccounting" | "valuationMethod">): string[] {
-    const warnings = [INVENTORY_ACCOUNTING_NO_GL_WARNING, COGS_PREVIEW_ONLY_WARNING, ACCOUNTANT_REVIEW_WARNING];
+  private previewWarnings(
+    settings: Pick<InventoryAccountingSettingsRecord, "enableInventoryAccounting" | "valuationMethod" | "purchaseReceiptPostingMode">,
+  ): string[] {
+    const warnings = [INVENTORY_ACCOUNTING_NO_GL_WARNING, PURCHASE_RECEIPT_NO_GL_WARNING, COGS_PREVIEW_ONLY_WARNING, ACCOUNTANT_REVIEW_WARNING];
     if (!settings.enableInventoryAccounting) {
       warnings.push("Inventory accounting is disabled by default.");
+    }
+    if (settings.purchaseReceiptPostingMode !== InventoryPurchasePostingMode.PREVIEW_ONLY) {
+      warnings.push("Purchase receipt posting mode is disabled; receipt accounting remains preview-only.");
     }
     if (settings.valuationMethod === InventoryValuationMethod.FIFO_PLACEHOLDER) {
       warnings.push("FIFO remains a placeholder; MOVING_AVERAGE is the only previewable valuation method.");
@@ -204,6 +217,15 @@ export class InventoryAccountingService {
     }
     if (requiredMappings.includes("cogs")) {
       this.addAccountReadinessReason(reasons, settings.cogsAccount, "COGS", [AccountType.COST_OF_SALES, AccountType.EXPENSE]);
+    }
+    if (requiredMappings.includes("inventoryClearing")) {
+      this.addAccountReadinessReason(reasons, settings.inventoryClearingAccount, "Inventory clearing", [AccountType.LIABILITY, AccountType.ASSET]);
+      if (settings.inventoryClearingAccount && settings.inventoryAssetAccount && settings.inventoryClearingAccount.id === settings.inventoryAssetAccount.id) {
+        reasons.push("Inventory clearing account must be separate from inventory asset account.");
+      }
+      if (settings.inventoryClearingAccount?.code === "210") {
+        reasons.push("Inventory clearing account must be separate from Accounts Payable account code 210.");
+      }
     }
     if (requiredMappings.includes("adjustmentGain")) {
       this.addAccountReadinessReason(reasons, settings.inventoryAdjustmentGainAccount, "Inventory adjustment gain", [AccountType.REVENUE]);
@@ -253,6 +275,31 @@ export class InventoryAccountingService {
     }
     if (!account.allowPosting) {
       reasons.push(`${label} account must allow posting.`);
+    }
+  }
+
+  private async validateInventoryClearingAccount(
+    organizationId: string,
+    accountId: string | null,
+    inventoryAssetAccountId: string | null,
+  ): Promise<void> {
+    if (!accountId) {
+      return;
+    }
+    const account = await this.prisma.account.findFirst({ where: { id: accountId, organizationId }, select: accountSelect });
+    if (!account) {
+      throw new BadRequestException("Inventory clearing account must belong to this organization.");
+    }
+    const reasons: string[] = [];
+    this.addAccountReadinessReason(reasons, account, "Inventory clearing", [AccountType.LIABILITY, AccountType.ASSET]);
+    if (inventoryAssetAccountId && account.id === inventoryAssetAccountId) {
+      reasons.push("Inventory clearing account must be separate from inventory asset account.");
+    }
+    if (account.code === "210") {
+      reasons.push("Inventory clearing account must be separate from Accounts Payable account code 210.");
+    }
+    if (reasons.length > 0) {
+      throw new BadRequestException(reasons);
     }
   }
 

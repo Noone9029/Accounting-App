@@ -1,9 +1,10 @@
-import { AccountType, InventoryValuationMethod, Prisma, StockMovementType } from "@prisma/client";
+import { AccountType, InventoryPurchasePostingMode, InventoryValuationMethod, Prisma, StockMovementType } from "@prisma/client";
 import { InventoryAccountingService } from "./inventory-accounting.service";
 
 describe("InventoryAccountingService", () => {
   const assetAccount = account("asset-1", "130", "Inventory", AccountType.ASSET);
   const cogsAccount = account("cogs-1", "611", "Cost of Goods Sold", AccountType.COST_OF_SALES);
+  const clearingAccount = account("clearing-1", "240", "Inventory Clearing", AccountType.LIABILITY);
   const baseSettings = {
     id: "settings-1",
     organizationId: "org-1",
@@ -13,12 +14,15 @@ describe("InventoryAccountingService", () => {
     enableInventoryAccounting: false,
     inventoryAssetAccountId: null,
     cogsAccountId: null,
+    inventoryClearingAccountId: null,
     inventoryAdjustmentGainAccountId: null,
     inventoryAdjustmentLossAccountId: null,
+    purchaseReceiptPostingMode: InventoryPurchasePostingMode.DISABLED,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     updatedAt: new Date("2026-01-01T00:00:00.000Z"),
     inventoryAssetAccount: null,
     cogsAccount: null,
+    inventoryClearingAccount: null,
     inventoryAdjustmentGainAccount: null,
     inventoryAdjustmentLossAccount: null,
   };
@@ -80,18 +84,42 @@ describe("InventoryAccountingService", () => {
     await expectBadRequestMessage(service.updateSettings("org-1", { cogsAccountId: cogsAccount.id }), "COGS account must allow posting.");
   });
 
+  it("validates inventory clearing account type and separation from inventory/AP", async () => {
+    const { service, prisma } = makeService();
+    prisma.account.findFirst.mockResolvedValue(account("revenue-1", "411", "Sales", AccountType.REVENUE));
+
+    await expectBadRequestMessage(
+      service.updateSettings("org-1", { inventoryClearingAccountId: "revenue-1" }),
+      "Inventory clearing account must be one of: LIABILITY, ASSET.",
+    );
+
+    prisma.account.findFirst.mockResolvedValue(assetAccount);
+    await expectBadRequestMessage(
+      service.updateSettings("org-1", { inventoryAssetAccountId: assetAccount.id, inventoryClearingAccountId: assetAccount.id }),
+      "Inventory clearing account must be separate from inventory asset account.",
+    );
+
+    prisma.account.findFirst.mockResolvedValue(account("ap-1", "210", "Accounts Payable", AccountType.LIABILITY));
+    await expectBadRequestMessage(
+      service.updateSettings("org-1", { inventoryClearingAccountId: "ap-1" }),
+      "Inventory clearing account must be separate from Accounts Payable account code 210.",
+    );
+  });
+
   it("allows mapped moving-average settings to be enabled while remaining preview-only", async () => {
     const enabledSettings = {
       ...baseSettings,
       enableInventoryAccounting: true,
       inventoryAssetAccountId: assetAccount.id,
       cogsAccountId: cogsAccount.id,
+      inventoryClearingAccountId: clearingAccount.id,
       inventoryAssetAccount: assetAccount,
       cogsAccount,
+      inventoryClearingAccount: clearingAccount,
     };
     const { service, prisma } = makeService();
     prisma.account.findFirst.mockImplementation(({ where }: { where: { id: string } }) =>
-      Promise.resolve(where.id === assetAccount.id ? assetAccount : cogsAccount),
+      Promise.resolve(where.id === assetAccount.id ? assetAccount : where.id === cogsAccount.id ? cogsAccount : clearingAccount),
     );
     prisma.inventorySettings.update.mockResolvedValue(enabledSettings);
 
@@ -99,11 +127,14 @@ describe("InventoryAccountingService", () => {
       enableInventoryAccounting: true,
       inventoryAssetAccountId: assetAccount.id,
       cogsAccountId: cogsAccount.id,
+      inventoryClearingAccountId: clearingAccount.id,
+      purchaseReceiptPostingMode: InventoryPurchasePostingMode.PREVIEW_ONLY,
     });
 
     expect(result.enableInventoryAccounting).toBe(true);
     expect(result.noAutomaticPosting).toBe(true);
     expect(result.canEnableInventoryAccounting).toBe(true);
+    expect(result.accounts.inventoryClearing).toEqual(clearingAccount);
   });
 
   it("calculates moving-average unit cost from costed inbound operational movements", async () => {

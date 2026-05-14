@@ -105,6 +105,11 @@ enum InventoryValuationMethod {
   FIFO_PLACEHOLDER
 }
 
+enum InventoryPurchasePostingMode {
+  DISABLED
+  PREVIEW_ONLY
+}
+
 enum SalesInvoiceStatus {
   DRAFT
   FINALIZED
@@ -491,19 +496,23 @@ model InventorySettings {
   enableInventoryAccounting        Boolean                  @default(false)
   inventoryAssetAccountId          String?                  @db.Uuid
   cogsAccountId                    String?                  @db.Uuid
+  inventoryClearingAccountId       String?                  @db.Uuid
   inventoryAdjustmentGainAccountId String?                  @db.Uuid
   inventoryAdjustmentLossAccountId String?                  @db.Uuid
+  purchaseReceiptPostingMode       InventoryPurchasePostingMode @default(DISABLED)
   createdAt                        DateTime                 @default(now())
   updatedAt                        DateTime                 @updatedAt
   organization                     Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   inventoryAssetAccount            Account?                 @relation("InventorySettingsInventoryAssetAccount", fields: [inventoryAssetAccountId], references: [id], onDelete: SetNull)
   cogsAccount                      Account?                 @relation("InventorySettingsCogsAccount", fields: [cogsAccountId], references: [id], onDelete: SetNull)
+  inventoryClearingAccount         Account?                 @relation("InventorySettingsInventoryClearingAccount", fields: [inventoryClearingAccountId], references: [id], onDelete: SetNull)
   inventoryAdjustmentGainAccount   Account?                 @relation("InventorySettingsAdjustmentGainAccount", fields: [inventoryAdjustmentGainAccountId], references: [id], onDelete: SetNull)
   inventoryAdjustmentLossAccount   Account?                 @relation("InventorySettingsAdjustmentLossAccount", fields: [inventoryAdjustmentLossAccountId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@index([inventoryAssetAccountId])
   @@index([cogsAccountId])
+  @@index([inventoryClearingAccountId])
   @@index([inventoryAdjustmentGainAccountId])
   @@index([inventoryAdjustmentLossAccountId])
 }
@@ -776,6 +785,7 @@ model Account {
   bankAccountProfile              BankAccountProfile?
   inventoryAssetSettings          InventorySettings[]        @relation("InventorySettingsInventoryAssetAccount")
   cogsSettings                    InventorySettings[]        @relation("InventorySettingsCogsAccount")
+  inventoryClearingSettings       InventorySettings[]        @relation("InventorySettingsInventoryClearingAccount")
   inventoryAdjustmentGainSettings InventorySettings[]        @relation("InventorySettingsAdjustmentGainAccount")
   inventoryAdjustmentLossSettings InventorySettings[]        @relation("InventorySettingsAdjustmentLossAccount")
   bankTransfersFrom               BankTransfer[]             @relation("BankTransferFromAccount")

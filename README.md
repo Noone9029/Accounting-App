@@ -287,11 +287,15 @@ Warehouses and inventory:
 - `GET /purchase-receipts/:id/accounting-preview`
 - `POST /purchase-receipts/:id/void`
 - `GET /purchase-orders/:id/receiving-status`
+- `GET /purchase-orders/:id/receipt-matching-status`
 - `GET /purchase-bills/:id/receiving-status`
+- `GET /purchase-bills/:id/receipt-matching-status`
 - `GET /sales-stock-issues`
 - `POST /sales-stock-issues`
 - `GET /sales-stock-issues/:id`
 - `GET /sales-stock-issues/:id/accounting-preview`
+- `POST /sales-stock-issues/:id/post-cogs`
+- `POST /sales-stock-issues/:id/reverse-cogs`
 - `POST /sales-stock-issues/:id/void`
 - `GET /sales-invoices/:id/stock-issue-status`
 - `GET /inventory/balances`
@@ -1017,11 +1021,15 @@ APIs:
 - `GET /purchase-receipts/:id/accounting-preview`
 - `POST /purchase-receipts/:id/void`
 - `GET /purchase-orders/:id/receiving-status`
+- `GET /purchase-orders/:id/receipt-matching-status`
 - `GET /purchase-bills/:id/receiving-status`
+- `GET /purchase-bills/:id/receipt-matching-status`
 - `GET /sales-stock-issues`
 - `POST /sales-stock-issues`
 - `GET /sales-stock-issues/:id`
 - `GET /sales-stock-issues/:id/accounting-preview`
+- `POST /sales-stock-issues/:id/post-cogs`
+- `POST /sales-stock-issues/:id/reverse-cogs`
 - `POST /sales-stock-issues/:id/void`
 - `GET /sales-invoices/:id/stock-issue-status`
 - `GET /inventory/balances?itemId=&warehouseId=`
@@ -1047,6 +1055,7 @@ Behavior:
 - Warehouse transfer voiding creates paired reversal movements once and rejects repeated void attempts.
 - Purchase receipts can be posted from purchase orders, finalized purchase bills, or standalone supplier receipts. They create `PURCHASE_RECEIPT_PLACEHOLDER` stock movements only.
 - Purchase order and purchase bill receiving status endpoints return per-line ordered/billed, received, remaining, and overall `NOT_STARTED`/`PARTIAL`/`COMPLETE` status.
+- Purchase order and purchase bill receipt matching endpoints return operational matching visibility, receipt values, per-line quantity/value differences, linked receipts, and `NOT_RECEIVED`/`PARTIALLY_RECEIVED`/`FULLY_RECEIVED`/`OVER_RECEIVED_WARNING` status. They do not mutate accounting.
 - Sales stock issues can be posted from finalized, non-voided sales invoices. They create `SALES_ISSUE_PLACEHOLDER` stock movements only and cannot exceed invoice line remaining quantities.
 - Sales stock issue COGS is manual only. It is posted only through `POST /sales-stock-issues/:id/post-cogs` after preview/accountant review; invoices and stock issues do not auto-post COGS.
 - Sales invoice stock issue status returns per-line invoiced, issued, remaining, and overall `NOT_STARTED`/`PARTIAL`/`COMPLETE` status.
@@ -1056,9 +1065,9 @@ Behavior:
 - `GET /inventory/balances` returns derived quantity on hand by item and warehouse from opening balance, adjustment, transfer, and placeholder receipt/issue directions. Average unit cost and inventory value are simple operational estimates from costed inbound movements, not accounting-grade valuation.
 - `GET /inventory/settings` creates default settings on first read: `MOVING_AVERAGE`, negative stock blocked, and inventory value tracking enabled.
 - `PATCH /inventory/settings` can save `MOVING_AVERAGE` or `FIFO_PLACEHOLDER`, but FIFO is only a placeholder and report calculations still use moving-average estimates.
-- `GET /inventory/accounting-settings` returns preview-only inventory accounting readiness, default-disabled `enableInventoryAccounting`, inventory asset/COGS/adjustment mapping fields, blocking reasons, and warnings.
-- `PATCH /inventory/accounting-settings` validates that mapped accounts belong to the organization, are active, allow posting, and have approved account types. Inventory accounting cannot be enabled without inventory asset and COGS mappings, and FIFO remains placeholder-only.
-- `GET /purchase-receipts/:id/accounting-preview` returns a design-only Dr Inventory Asset / Cr Inventory Clearing or AP placeholder preview when line unit costs and mappings exist. It always returns `previewOnly: true` and `canPost: false` because bill/receipt matching and inventory clearing are not finalized.
+- `GET /inventory/accounting-settings` returns preview-only inventory accounting readiness, default-disabled `enableInventoryAccounting`, inventory asset/COGS/inventory clearing/adjustment mapping fields, `purchaseReceiptPostingMode`, blocking reasons, and warnings.
+- `PATCH /inventory/accounting-settings` validates that mapped accounts belong to the organization, are active, allow posting, and have approved account types. Inventory accounting cannot be enabled without inventory asset and COGS mappings, the clearing account must be separate from inventory asset and Accounts Payable code `210`, and FIFO remains placeholder-only.
+- `GET /purchase-receipts/:id/accounting-preview` returns a design-only Dr Inventory Asset / Cr Inventory Clearing preview when line unit costs and mappings exist, plus receipt value, matched bill value, unmatched receipt value, value difference, and matching summary. It always returns `previewOnly: true` and `canPost: false`; purchase receipt GL posting is not enabled yet.
 - `GET /sales-stock-issues/:id/accounting-preview` returns moving-average estimated COGS, Dr COGS / Cr Inventory Asset preview lines, posting status, COGS journal ids when present, and `canPost: true` only when the stock issue is eligible for manual posting.
 - `POST /sales-stock-issues/:id/post-cogs` requires `inventory.cogs.post`, enabled inventory accounting, mapped inventory asset and COGS accounts, `MOVING_AVERAGE`, a posted/unvoided stock issue, no existing COGS journal, no preview blocking reasons, and an open fiscal period on the stock issue date. It creates one posted journal: Dr COGS, Cr Inventory Asset.
 - `POST /sales-stock-issues/:id/reverse-cogs` requires `inventory.cogs.reverse`, an existing unreversed COGS journal, and an open fiscal period on the current date. It creates one reversal journal and does not void the stock issue.
@@ -1071,6 +1080,7 @@ Accounting limitation:
 - Inventory movements do not create journal entries automatically and do not affect GL, COGS, inventory asset balances, VAT, or financial statements unless a user explicitly posts COGS for a sales stock issue.
 - Stock valuation is an operational estimate only. It is not the GL inventory asset value and is not used for Balance Sheet, Profit & Loss, VAT, or COGS.
 - Purchase receipts do not debit inventory asset accounts yet.
+- Inventory clearing account settings and bill/receipt matching visibility exist, but no clearing journals or purchase bill clearing entries are posted.
 - Inventory accounting settings and preview endpoints do not create `JournalEntry` records; only the explicit manual COGS post action does.
 
 Manual COGS posting behavior:
@@ -1081,6 +1091,7 @@ Manual COGS posting behavior:
 - Voiding a stock issue is blocked while COGS is posted and not reversed.
 - Reports reflect posted COGS naturally through posted journal lines.
 - Finalize inventory clearing and bill/receipt matching before purchase receipt asset posting.
+- Future receipt posting plan remains Dr Inventory Asset / Cr Inventory Clearing, with future purchase bill clearing planned as Dr Inventory Clearing and Dr VAT Receivable, Cr Accounts Payable after accountant review.
 - Keep FIFO disabled for accounting until cost layers and layer depletion rules exist.
 
 Known limitations:
@@ -1088,7 +1099,7 @@ Known limitations:
 - No automatic GL inventory posting.
 - COGS posting is manual only; no invoice or stock issue auto-posting.
 - No inventory asset posting.
-- No inventory clearing account workflow.
+- No inventory clearing journal workflow or bill clearing entries.
 - No automatic purchase receipt from purchase orders or bills.
 - No automatic sales delivery or stock issue from sales invoices.
 - No landed cost.
@@ -1308,13 +1319,13 @@ Permission matrix categories:
 - Customer refunds are manual accounting records only; no payment gateway refund or bank reconciliation integration exists yet.
 - Bank account profiles, posted transaction visibility, bank transfers, guarded one-time opening-balance posting, local statement import preview, reconciliation approval/close/lock/report export exist, but live feeds, transfer fees, file upload storage, and multi-currency FX transfer handling are not implemented yet.
 - Purchase orders are MVP-only: operational purchase receipts can receive stock, but partial billing, supplier email sending, approval workflows, and automatic inventory stock receipts are not implemented.
-- Purchase bills, purchase debit notes, supplier payments, and supplier refunds are AP groundwork only; finalized purchase bills can be manually received into stock, but AP finalization itself does not auto-create stock movements, inventory returns, or automated matching.
+- Purchase bills, purchase debit notes, supplier payments, and supplier refunds are AP groundwork only; finalized purchase bills can be manually received into stock and matched operationally, but AP finalization itself does not auto-create stock movements, inventory returns, or clearing entries.
 - ZATCA credit note XML/signing/submission is not implemented yet.
 - ZATCA debit note XML/signing/submission is not implemented yet.
 - Inventory returns from credit notes are not implemented yet.
 - Recurring invoices are not implemented yet.
 - Bank reconciliation has local import preview/manual matching, approval, close-lock, and report export groundwork, but no live feed, OFX/CAMT/MT940 support, file upload storage, or auto-match yet.
-- Inventory warehouse, stock ledger, adjustment approval, warehouse transfer, manual purchase receipt, manual sales stock issue, valuation settings, manual COGS posting, and operational reports exist, but no automatic COGS posting, purchase receipt inventory asset posting, inventory clearing workflow, automatic purchase/sales posting, landed cost, serial/batch tracking, or accounting-grade inventory financial reports are implemented yet.
+- Inventory warehouse, stock ledger, adjustment approval, warehouse transfer, manual purchase receipt, manual sales stock issue, valuation settings, manual COGS posting, inventory clearing preview settings, bill/receipt matching visibility, and operational reports exist, but no automatic COGS posting, purchase receipt inventory asset posting, clearing journals, automatic purchase/sales posting, landed cost, serial/batch tracking, or accounting-grade inventory financial reports are implemented yet.
 - BullMQ workers and S3 upload adapters are not wired yet.
 - Email invitations are not implemented; invite placeholders require the target user to already exist.
 - Password reset and onboarding flows for invited users are not implemented yet.

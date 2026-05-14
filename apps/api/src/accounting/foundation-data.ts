@@ -19,6 +19,7 @@ export const DEFAULT_ACCOUNTS: DefaultAccountDefinition[] = [
   { code: "210", name: "Accounts Payable", type: AccountType.LIABILITY, parentCode: "200" },
   { code: "220", name: "VAT Payable", type: AccountType.LIABILITY, parentCode: "200" },
   { code: "230", name: "VAT Receivable", type: AccountType.ASSET, parentCode: "100" },
+  { code: "240", name: "Inventory Clearing", type: AccountType.LIABILITY, parentCode: "200" },
   { code: "300", name: "Equity", type: AccountType.EQUITY, allowPosting: false },
   { code: "310", name: "Owner Equity", type: AccountType.EQUITY, parentCode: "300" },
   { code: "400", name: "Revenue", type: AccountType.REVENUE, allowPosting: false },

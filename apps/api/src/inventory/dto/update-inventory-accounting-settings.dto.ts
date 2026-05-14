@@ -1,4 +1,4 @@
-import { InventoryValuationMethod } from "@prisma/client";
+import { InventoryPurchasePostingMode, InventoryValuationMethod } from "@prisma/client";
 import { IsBoolean, IsEnum, IsOptional, IsUUID } from "class-validator";
 
 export class UpdateInventoryAccountingSettingsDto {
@@ -16,6 +16,10 @@ export class UpdateInventoryAccountingSettingsDto {
 
   @IsOptional()
   @IsUUID()
+  inventoryClearingAccountId?: string | null;
+
+  @IsOptional()
+  @IsUUID()
   inventoryAdjustmentGainAccountId?: string | null;
 
   @IsOptional()
@@ -25,4 +29,8 @@ export class UpdateInventoryAccountingSettingsDto {
   @IsOptional()
   @IsEnum(InventoryValuationMethod)
   valuationMethod?: InventoryValuationMethod;
+
+  @IsOptional()
+  @IsEnum(InventoryPurchasePostingMode)
+  purchaseReceiptPostingMode?: InventoryPurchasePostingMode;
 }

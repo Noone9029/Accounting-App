@@ -6,6 +6,15 @@ Audit date: 2026-05-14
 
 Purchase receipts create `PURCHASE_RECEIPT_PLACEHOLDER` stock movements and increase operational inventory quantity. Purchase bills already post AP, tax, and the selected expense or asset account. Receipts do not create inventory asset journals.
 
+Inventory accounting settings now include:
+
+- `inventoryClearingAccountId`
+- `purchaseReceiptPostingMode`
+
+`inventoryClearingAccountId` must belong to the organization, be active, allow posting, use an `ASSET` or `LIABILITY` account type, be separate from the inventory asset account, and not be Accounts Payable code `210`. The recommended MVP account is code `240` Inventory Clearing with type `LIABILITY`.
+
+`purchaseReceiptPostingMode` is currently `DISABLED` or `PREVIEW_ONLY`. Neither value enables purchase receipt GL posting.
+
 The preview endpoint is:
 
 - `GET /purchase-receipts/:id/accounting-preview`
@@ -17,9 +26,9 @@ The preview endpoint is:
 When cost and asset mapping are available, the preview journal is:
 
 - Dr Inventory Asset
-- Cr Inventory Clearing / Accounts Payable placeholder
+- Cr Inventory Clearing
 
-This is intentionally not production-ready because bill/receipt matching and clearing are not finalized.
+This is intentionally not postable because bill/receipt matching, clearing, VAT, variances, and current purchase bill posting behavior still need accountant approval.
 
 ## Why Clearing Is Needed
 
@@ -54,13 +63,14 @@ Without an inventory clearing design, directly crediting AP from receipt posting
 
 ## Required Before Real Posting
 
-- Add a mapped inventory clearing account type or documented account selection.
-- Add receipt-to-bill matching records.
+- Decide whether Inventory Clearing is a liability-style or asset-style account per tenant.
+- Add durable receipt-to-bill matching records if preview-derived matching is not enough.
 - Decide how standalone receipts are handled.
 - Decide variance handling for price, quantity, tax, and non-inventory costs.
 - Add idempotency and fiscal-period guards.
 - Add void and correction workflow.
 - Add tests that prove purchase bill AP is not duplicated.
+- Plan migration or reclassification behavior for existing purchase bills that posted directly to expense/asset accounts.
 
 ## Current Hard Stop
 

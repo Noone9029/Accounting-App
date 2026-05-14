@@ -344,6 +344,8 @@ interface InventoryAccountingSettings {
   enableInventoryAccounting: boolean;
   inventoryAssetAccountId: string | null;
   cogsAccountId: string | null;
+  inventoryClearingAccountId: string | null;
+  purchaseReceiptPostingMode: "DISABLED" | "PREVIEW_ONLY";
   inventoryAdjustmentGainAccountId: string | null;
   inventoryAdjustmentLossAccountId: string | null;
   canEnableInventoryAccounting: boolean;
@@ -372,6 +374,19 @@ interface PurchaseReceiptAccountingPreview {
   previewOnly: true;
   postingStatus: "DESIGN_ONLY";
   canPost: false;
+  postingMode: "DISABLED" | "PREVIEW_ONLY";
+  receiptValue: string;
+  matchedBillValue: string;
+  unmatchedReceiptValue: string;
+  valueDifference: string;
+  journalPreview: AccountingPreviewJournalLine[];
+  matchingSummary: {
+    sourceType: "purchaseBill" | "purchaseOrder" | "standalone";
+    sourceId: string | null;
+    matchedQuantity: string;
+    unmatchedQuantity: string;
+    valueDifference: string;
+  };
   blockingReasons: string[];
   warnings: string[];
   journal: AccountingPreviewJournal;
@@ -380,7 +395,33 @@ interface PurchaseReceiptAccountingPreview {
     quantity: string;
     unitCost: string | null;
     lineValue: string | null;
+    matchedQuantity: string;
+    unmatchedQuantity: string;
+    matchedBillValue: string | null;
+    valueDifference: string | null;
     warnings: string[];
+  }>;
+}
+
+interface PurchaseBillReceiptMatchingStatus {
+  bill: {
+    id: string;
+    billNumber: string;
+    status: string;
+  };
+  billTotal: string;
+  receiptCount: number;
+  receiptValue: string;
+  status: "NOT_RECEIVED" | "PARTIALLY_RECEIVED" | "FULLY_RECEIVED" | "OVER_RECEIVED_WARNING";
+  warnings: string[];
+  lines: Array<{
+    lineId: string;
+    sourceQuantity: string;
+    receivedQuantity: string;
+    remainingQuantity: string;
+    receivedValue: string;
+    matchedBillValue: string;
+    valueDifference: string;
   }>;
 }
 
@@ -832,6 +873,22 @@ async function main(): Promise<void> {
     accounts.find((account) => account.code === "611" && (account.type === "COST_OF_SALES" || account.type === "EXPENSE") && account.allowPosting && account.isActive),
     "Cost of Goods Sold account code 611",
   );
+  const existingInventoryClearingAccount = accounts.find((account) => account.code === "240");
+  const inventoryClearingAccount = existingInventoryClearingAccount
+    ? await patch<Account>(`/accounts/${existingInventoryClearingAccount.id}`, headers, {
+        name: "Inventory Clearing",
+        type: "LIABILITY",
+        allowPosting: true,
+        isActive: true,
+      })
+    : await post<Account>("/accounts", headers, {
+        code: "240",
+        name: "Inventory Clearing",
+        type: "LIABILITY",
+        allowPosting: true,
+        isActive: true,
+      });
+  assert(inventoryClearingAccount.id !== inventoryAssetAccount.id, "inventory clearing account is separate from inventory asset");
   const paidThroughAccount =
     accounts.find((account) => account.code === "112" && account.allowPosting && account.isActive) ??
     accounts.find((account) => account.code === "111" && account.allowPosting && account.isActive);
@@ -881,10 +938,14 @@ async function main(): Promise<void> {
     enableInventoryAccounting: true,
     inventoryAssetAccountId: inventoryAssetAccount.id,
     cogsAccountId: cogsAccount.id,
+    inventoryClearingAccountId: inventoryClearingAccount.id,
+    purchaseReceiptPostingMode: "PREVIEW_ONLY",
   });
   assertEqual(patchedInventoryAccountingSettings.enableInventoryAccounting, true, "inventory accounting manually enabled for COGS posting smoke");
   assertEqual(patchedInventoryAccountingSettings.inventoryAssetAccountId, inventoryAssetAccount.id, "inventory asset account mapping patched");
   assertEqual(patchedInventoryAccountingSettings.cogsAccountId, cogsAccount.id, "COGS account mapping patched");
+  assertEqual(patchedInventoryAccountingSettings.inventoryClearingAccountId, inventoryClearingAccount.id, "inventory clearing account mapping patched");
+  assertEqual(patchedInventoryAccountingSettings.purchaseReceiptPostingMode, "PREVIEW_ONLY", "purchase receipt posting mode patched preview-only");
   assertEqual(patchedInventoryAccountingSettings.previewOnly, true, "patched inventory accounting settings remain preview-only");
 
   const warehouses = await get<Warehouse[]>("/warehouses", headers);
@@ -1065,9 +1126,34 @@ async function main(): Promise<void> {
   assertEqual(sentReceivingPo.status, "SENT", "purchase order sent for inventory receiving");
   const poReceivingStatus = await get<PurchaseReceivingStatus>(`/purchase-orders/${purchaseOrderForReceipt.id}/receiving-status`, headers);
   assertEqual(poReceivingStatus.status, "NOT_STARTED", "purchase order receiving status starts not started");
-  const poReceivableLine = required(
-    poReceivingStatus.lines.find((line) => line.inventoryTracking && money(line.remainingQuantity).gt(0)),
-    "purchase order receivable inventory line",
+  assert(
+    poReceivingStatus.lines.some((line) => line.inventoryTracking && money(line.remainingQuantity).gt(0)),
+    "purchase order has a receivable inventory line",
+  );
+  const purchaseBillForReceipt = await post<PurchaseBill>("/purchase-bills", headers, {
+    supplierId: receivingSupplier.id,
+    billDate: new Date().toISOString(),
+    currency: "SAR",
+    notes: "Smoke inventory bill for receipt matching",
+    lines: [
+      {
+        itemId: inventoryItem.id,
+        description: "Smoke inventory bill/receipt matching line",
+        accountId: inventoryAssetAccount.id,
+        quantity: "5.0000",
+        unitPrice: "4.0000",
+      },
+    ],
+  });
+  assertEqual(purchaseBillForReceipt.status, "DRAFT", "purchase bill for receipt matching created as draft");
+  const finalizedPurchaseBillForReceipt = await post<PurchaseBill>(`/purchase-bills/${purchaseBillForReceipt.id}/finalize`, headers, {});
+  assertEqual(finalizedPurchaseBillForReceipt.status, "FINALIZED", "purchase bill finalized for receipt matching");
+  assertPresent(finalizedPurchaseBillForReceipt.journalEntryId, "purchase bill for receipt matching AP journal");
+  const billReceivingStatus = await get<PurchaseReceivingStatus>(`/purchase-bills/${finalizedPurchaseBillForReceipt.id}/receiving-status`, headers);
+  assertEqual(billReceivingStatus.status, "NOT_STARTED", "purchase bill receiving status starts not started");
+  const billReceivableLine = required(
+    billReceivingStatus.lines.find((line) => line.inventoryTracking && money(line.remainingQuantity).gt(0)),
+    "purchase bill receivable inventory line",
   );
 
   const salesInvoiceForIssue = await post<SalesInvoice>("/sales-invoices", headers, {
@@ -1091,23 +1177,29 @@ async function main(): Promise<void> {
 
   const journalEntriesBeforeReceiptIssue = await get<JournalEntry[]>("/journal-entries", headers);
   const purchaseReceipt = await post<PurchaseReceipt>("/purchase-receipts", headers, {
-    purchaseOrderId: purchaseOrderForReceipt.id,
+    purchaseBillId: finalizedPurchaseBillForReceipt.id,
     warehouseId: mainWarehouse.id,
     receiptDate: new Date().toISOString(),
-    notes: "Smoke operational purchase receipt",
-    lines: [{ purchaseOrderLineId: poReceivableLine.lineId, quantity: "5.0000", unitCost: "4.0000" }],
+    notes: "Smoke operational purchase receipt from finalized bill",
+    lines: [{ purchaseBillLineId: billReceivableLine.lineId, quantity: "5.0000", unitCost: "4.0000" }],
   });
   assertEqual(purchaseReceipt.status, "POSTED", "purchase receipt posted status");
   assertPresent(purchaseReceipt.lines?.[0]?.stockMovementId, "purchase receipt stock movement");
   assertMoney((await balanceFor(mainWarehouse)).quantityOnHand, money("17.0000"), "main warehouse quantity after purchase receipt");
-  const poReceivingStatusAfterReceipt = await get<PurchaseReceivingStatus>(`/purchase-orders/${purchaseOrderForReceipt.id}/receiving-status`, headers);
-  assertEqual(poReceivingStatusAfterReceipt.status, "COMPLETE", "purchase order receiving status complete after receipt");
+  const billReceivingStatusAfterReceipt = await get<PurchaseReceivingStatus>(`/purchase-bills/${finalizedPurchaseBillForReceipt.id}/receiving-status`, headers);
+  assertEqual(billReceivingStatusAfterReceipt.status, "COMPLETE", "purchase bill receiving status complete after receipt");
   const purchaseReceiptAccountingPreview = await get<PurchaseReceiptAccountingPreview>(
     `/purchase-receipts/${purchaseReceipt.id}/accounting-preview`,
     headers,
   );
   assertEqual(purchaseReceiptAccountingPreview.previewOnly, true, "purchase receipt accounting preview is preview-only");
   assertEqual(purchaseReceiptAccountingPreview.canPost, false, "purchase receipt accounting preview cannot post");
+  assertEqual(purchaseReceiptAccountingPreview.postingMode, "PREVIEW_ONLY", "purchase receipt accounting preview reports preview-only posting mode");
+  assertEqual(purchaseReceiptAccountingPreview.matchingSummary.sourceType, "purchaseBill", "purchase receipt preview is matched to a purchase bill");
+  assertMoney(purchaseReceiptAccountingPreview.receiptValue, money("20.0000"), "purchase receipt preview receipt value");
+  assertMoney(purchaseReceiptAccountingPreview.matchedBillValue, money("20.0000"), "purchase receipt preview matched bill value");
+  assertMoney(purchaseReceiptAccountingPreview.valueDifference, money("0.0000"), "purchase receipt preview value difference");
+  assertMoney(purchaseReceiptAccountingPreview.matchingSummary.matchedQuantity, money("5.0000"), "purchase receipt preview matched quantity");
   assert(
     purchaseReceiptAccountingPreview.warnings.some((warning) => warning.includes("bill/receipt matching and inventory clearing are not finalized")),
     "purchase receipt preview includes design-only clearing warning",
@@ -1120,9 +1212,26 @@ async function main(): Promise<void> {
   );
   assert(
     purchaseReceiptAccountingPreview.journal.lines.some(
-      (line) => line.side === "CREDIT" && line.accountName.includes("Inventory Clearing") && money(line.amount).eq("20.0000"),
+      (line) => line.side === "CREDIT" && line.accountCode === inventoryClearingAccount.code && money(line.amount).eq("20.0000"),
     ),
-    "purchase receipt preview includes credit inventory clearing placeholder line",
+    "purchase receipt preview includes credit inventory clearing line",
+  );
+  assert(
+    purchaseReceiptAccountingPreview.journalPreview.some((line) => line.side === "CREDIT" && line.accountCode === inventoryClearingAccount.code),
+    "purchase receipt preview top-level journalPreview includes inventory clearing",
+  );
+  const billReceiptMatchingStatus = await get<PurchaseBillReceiptMatchingStatus>(
+    `/purchase-bills/${finalizedPurchaseBillForReceipt.id}/receipt-matching-status`,
+    headers,
+  );
+  assertEqual(billReceiptMatchingStatus.status, "FULLY_RECEIVED", "purchase bill receipt matching status fully received");
+  assertEqual(billReceiptMatchingStatus.receiptCount, 1, "purchase bill receipt matching status receipt count");
+  assertMoney(billReceiptMatchingStatus.receiptValue, money("20.0000"), "purchase bill receipt matching receipt value");
+  assert(
+    billReceiptMatchingStatus.lines.some(
+      (line) => money(line.receivedQuantity).eq("5.0000") && money(line.remainingQuantity).eq("0.0000") && money(line.valueDifference).eq("0.0000"),
+    ),
+    "purchase bill receipt matching includes matched quantity and value",
   );
   const journalEntriesAfterPurchaseReceiptPreview = await get<JournalEntry[]>("/journal-entries", headers);
   assertEqual(
@@ -3123,6 +3232,8 @@ async function main(): Promise<void> {
         inventoryAccountingSettingsId: patchedInventoryAccountingSettings.id,
         inventoryAccountingMappedAssetCode: inventoryAssetAccount.code,
         inventoryAccountingMappedCogsCode: cogsAccount.code,
+        inventoryAccountingMappedClearingCode: inventoryClearingAccount.code,
+        purchaseReceiptPostingMode: patchedInventoryAccountingSettings.purchaseReceiptPostingMode,
         inventoryValuationGrandTotal: stockValuationReport.grandTotalEstimatedValue,
         inventoryMovementClosingQuantity: movementSummaryRow.closingQuantity,
         lowStockItemIds: lowStockReport.rows.map((row) => row.item.id),
@@ -3131,6 +3242,8 @@ async function main(): Promise<void> {
         purchaseReceiptAccountingPreviewOnly: purchaseReceiptAccountingPreview.previewOnly,
         purchaseReceiptAccountingPreviewCanPost: purchaseReceiptAccountingPreview.canPost,
         purchaseReceiptAccountingPreviewTotal: purchaseReceiptAccountingPreview.journal.totalDebit,
+        purchaseReceiptMatchedBillValue: purchaseReceiptAccountingPreview.matchedBillValue,
+        purchaseBillReceiptMatchingStatus: billReceiptMatchingStatus.status,
         purchaseReceiptVoided: voidedPurchaseReceipt.status === "VOIDED",
         salesStockIssueId: salesStockIssue.id,
         salesStockIssueAccountingPreviewOnly: salesStockIssueAccountingPreview.previewOnly,

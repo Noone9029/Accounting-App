@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import {
+  AccountType,
   ContactType,
   ItemStatus,
   NumberSequenceScope,
@@ -32,7 +33,15 @@ const purchaseReceiptInclude = {
     include: {
       item: { select: { id: true, name: true, sku: true, type: true, status: true, inventoryTracking: true } },
       purchaseOrderLine: { select: { id: true, description: true, quantity: true, unitPrice: true } },
-      purchaseBillLine: { select: { id: true, description: true, quantity: true, unitPrice: true } },
+      purchaseBillLine: {
+        select: {
+          id: true,
+          description: true,
+          quantity: true,
+          unitPrice: true,
+          account: { select: { id: true, code: true, name: true, type: true } },
+        },
+      },
       stockMovement: { select: { id: true, type: true, movementDate: true, quantity: true, referenceType: true, referenceId: true } },
       voidStockMovement: { select: { id: true, type: true, movementDate: true, quantity: true, referenceType: true, referenceId: true } },
     },
@@ -41,6 +50,7 @@ const purchaseReceiptInclude = {
 
 type PrismaExecutor = PrismaService | Prisma.TransactionClient;
 type SourceKind = "purchaseOrder" | "purchaseBill" | "standalone";
+type ReceiptMatchingStatus = "NOT_RECEIVED" | "PARTIALLY_RECEIVED" | "FULLY_RECEIVED" | "OVER_RECEIVED_WARNING";
 
 type PreparedReceiptLine = {
   itemId: string;
@@ -87,10 +97,31 @@ export class PurchaseReceiptService {
       throw new NotFoundException("Purchase receipt not found.");
     }
 
-    const readiness = await this.inventoryAccountingService.previewReadiness(organizationId, ["inventoryAsset"]);
+    const readiness = await this.inventoryAccountingService.previewReadiness(organizationId, ["inventoryAsset", "inventoryClearing"]);
     const blockingReasons = [...readiness.blockingReasons];
     const warnings = [PURCHASE_RECEIPT_DESIGN_WARNING, NO_FINANCIAL_POSTING_WARNING, ...readiness.warnings];
-    let totalValue = new Prisma.Decimal(0);
+    const sourceKind = receipt.purchaseBillId ? "purchaseBill" : receipt.purchaseOrderId ? "purchaseOrder" : "standalone";
+    if (sourceKind === "purchaseOrder") {
+      warnings.push("Bill matching is not available until a purchase bill is linked.");
+    }
+    if (sourceKind === "standalone") {
+      warnings.push("Standalone receipt cannot be financially posted until a bill or clearing workflow is selected.");
+    }
+
+    let receiptValue = new Prisma.Decimal(0);
+    let matchedBillValue = new Prisma.Decimal(0);
+    let unmatchedReceiptValue = new Prisma.Decimal(0);
+    let totalMatchedQuantity = new Prisma.Decimal(0);
+    let totalUnmatchedQuantity = new Prisma.Decimal(0);
+    const billLines: Array<{
+      lineId: string;
+      description: string;
+      account: { id: string; code: string; name: string; type: AccountType };
+      billedQuantity: string;
+      unitPrice: string;
+      matchedQuantity: string;
+      matchedValue: string;
+    }> = [];
 
     const lines = receipt.lines.map((line, index) => {
       const quantity = new Prisma.Decimal(line.quantity);
@@ -102,7 +133,46 @@ export class PurchaseReceiptService {
         blockingReasons.push(reason);
       } else {
         lineValue = quantity.mul(line.unitCost);
-        totalValue = totalValue.plus(lineValue);
+        receiptValue = receiptValue.plus(lineValue);
+      }
+
+      let matchedQuantity = new Prisma.Decimal(0);
+      let unmatchedQuantity = quantity;
+      let matchedValue: Prisma.Decimal | null = null;
+      let valueDifference: Prisma.Decimal | null = null;
+      if (line.purchaseBillLine) {
+        const billedQuantity = new Prisma.Decimal(line.purchaseBillLine.quantity);
+        matchedQuantity = Prisma.Decimal.min(quantity, billedQuantity);
+        unmatchedQuantity = Prisma.Decimal.max(quantity.minus(matchedQuantity), 0);
+        matchedValue = matchedQuantity.mul(line.purchaseBillLine.unitPrice);
+        matchedBillValue = matchedBillValue.plus(matchedValue);
+        totalMatchedQuantity = totalMatchedQuantity.plus(matchedQuantity);
+        totalUnmatchedQuantity = totalUnmatchedQuantity.plus(unmatchedQuantity);
+        if (lineValue) {
+          valueDifference = lineValue.minus(matchedValue);
+        }
+        if (quantity.gt(billedQuantity)) {
+          const reason = `Purchase receipt line ${index + 1} quantity exceeds linked bill line quantity.`;
+          lineWarnings.push(reason);
+          warnings.push(reason);
+        }
+        if (line.purchaseBillLine.account.type !== AccountType.ASSET) {
+          const reason = `Purchase bill line ${index + 1} account is not inventory-related; future clearing workflow needs accountant review.`;
+          lineWarnings.push(reason);
+          warnings.push(reason);
+        }
+        billLines.push({
+          lineId: line.purchaseBillLine.id,
+          description: line.purchaseBillLine.description,
+          account: line.purchaseBillLine.account,
+          billedQuantity: this.decimalString(billedQuantity),
+          unitPrice: this.decimalString(new Prisma.Decimal(line.purchaseBillLine.unitPrice)),
+          matchedQuantity: this.decimalString(matchedQuantity),
+          matchedValue: this.decimalString(matchedValue),
+        });
+      } else {
+        unmatchedReceiptValue = lineValue ? unmatchedReceiptValue.plus(lineValue) : unmatchedReceiptValue;
+        totalUnmatchedQuantity = totalUnmatchedQuantity.plus(quantity);
       }
 
       return {
@@ -111,13 +181,23 @@ export class PurchaseReceiptService {
         quantity: this.decimalString(quantity),
         unitCost: line.unitCost === null ? null : this.decimalString(new Prisma.Decimal(line.unitCost)),
         lineValue: lineValue === null ? null : this.decimalString(lineValue),
+        matchedQuantity: this.decimalString(matchedQuantity),
+        unmatchedQuantity: this.decimalString(unmatchedQuantity),
+        matchedBillValue: matchedValue === null ? null : this.decimalString(matchedValue),
+        valueDifference: valueDifference === null ? null : this.decimalString(valueDifference),
+        sourceBillLineId: line.purchaseBillLine?.id ?? null,
         warnings: lineWarnings,
       };
     });
 
     const assetAccount = readiness.settings.inventoryAssetAccount;
+    const clearingAccount = readiness.settings.inventoryClearingAccount;
+    const receiptValueDifference = receiptValue.minus(matchedBillValue);
+    if (sourceKind === "purchaseBill" && receiptValueDifference.eq(0)) {
+      unmatchedReceiptValue = new Prisma.Decimal(0);
+    }
     const journalLines =
-      assetAccount && totalValue.gt(0)
+      assetAccount && clearingAccount && receiptValue.gt(0)
         ? [
             {
               lineNumber: 1,
@@ -125,17 +205,17 @@ export class PurchaseReceiptService {
               accountId: assetAccount.id,
               accountCode: assetAccount.code,
               accountName: assetAccount.name,
-              amount: this.decimalString(totalValue),
+              amount: this.decimalString(receiptValue),
               description: `Purchase receipt ${receipt.receiptNumber} inventory asset preview`,
             },
             {
               lineNumber: 2,
               side: "CREDIT",
-              accountId: null,
-              accountCode: null,
-              accountName: "Inventory Clearing / Accounts Payable placeholder",
-              amount: this.decimalString(totalValue),
-              description: "Placeholder pending bill/receipt matching and inventory clearing design",
+              accountId: clearingAccount.id,
+              accountCode: clearingAccount.code,
+              accountName: clearingAccount.name,
+              amount: this.decimalString(receiptValue),
+              description: "Inventory clearing preview pending bill/receipt matching design",
             },
           ]
         : [];
@@ -148,15 +228,30 @@ export class PurchaseReceiptService {
       postingStatus: "DESIGN_ONLY",
       canPost: false,
       canPostReason: "Purchase receipt accounting is design-only until inventory clearing and bill/receipt matching are finalized.",
+      postingMode: readiness.settings.purchaseReceiptPostingMode,
       valuationMethod: readiness.settings.valuationMethod,
       blockingReasons: this.uniqueStrings(blockingReasons),
       warnings: this.uniqueStrings(warnings),
+      receiptValue: this.decimalString(receiptValue),
+      matchedBillValue: this.decimalString(matchedBillValue),
+      unmatchedReceiptValue: this.decimalString(unmatchedReceiptValue),
+      valueDifference: this.decimalString(receiptValueDifference),
+      matchingSummary: {
+        sourceType: sourceKind,
+        sourceId: receipt.purchaseBillId ?? receipt.purchaseOrderId ?? null,
+        receiptLines: lines,
+        billLines,
+        matchedQuantity: this.decimalString(totalMatchedQuantity),
+        unmatchedQuantity: this.decimalString(totalUnmatchedQuantity),
+        valueDifference: this.decimalString(receiptValueDifference),
+      },
       lines,
+      journalPreview: journalLines,
       journal: {
         description: `Purchase receipt ${receipt.receiptNumber} accounting preview`,
         entryDate: receipt.receiptDate.toISOString(),
-        totalDebit: this.decimalString(totalValue),
-        totalCredit: this.decimalString(totalValue),
+        totalDebit: this.decimalString(receiptValue),
+        totalCredit: this.decimalString(receiptValue),
         lines: journalLines,
       },
     };
@@ -365,6 +460,113 @@ export class PurchaseReceiptService {
     );
   }
 
+  async purchaseOrderReceiptMatchingStatus(organizationId: string, purchaseOrderId: string) {
+    const purchaseOrder = await this.prisma.purchaseOrder.findFirst({
+      where: { id: purchaseOrderId, organizationId },
+      include: {
+        supplier: { select: { id: true, name: true, displayName: true } },
+        convertedBill: { select: { id: true, billNumber: true, status: true, billDate: true, total: true } },
+        lines: {
+          orderBy: { sortOrder: "asc" },
+          include: { item: { select: { id: true, name: true, sku: true, type: true, status: true, inventoryTracking: true } } },
+        },
+      },
+    });
+    if (!purchaseOrder) {
+      throw new NotFoundException("Purchase order not found.");
+    }
+
+    const matching = await this.receiptMatchingStatus(
+      "purchaseOrder",
+      purchaseOrder.id,
+      purchaseOrder.lines.map((line) => ({
+        id: line.id,
+        item: line.item,
+        description: line.description,
+        sourceQuantity: line.quantity,
+        unitPrice: line.unitPrice,
+      })),
+    );
+    const warnings = [
+      "Purchase order receipt matching is operational only; the PO itself is non-accounting.",
+      ...(purchaseOrder.convertedBill ? [] : ["Bill matching is not available until a purchase bill is linked."]),
+      ...matching.warnings,
+    ];
+
+    return {
+      sourceId: purchaseOrder.id,
+      sourceType: "purchaseOrder",
+      purchaseOrder: {
+        id: purchaseOrder.id,
+        purchaseOrderNumber: purchaseOrder.purchaseOrderNumber,
+        status: purchaseOrder.status,
+        total: this.decimalString(new Prisma.Decimal(purchaseOrder.total)),
+      },
+      supplier: purchaseOrder.supplier,
+      convertedBill: purchaseOrder.convertedBill,
+      linkedBills: purchaseOrder.convertedBill ? [purchaseOrder.convertedBill] : [],
+      receiptCount: matching.receiptCount,
+      receiptValueEstimate: matching.receiptValue,
+      status: matching.status,
+      warnings: this.uniqueStrings(warnings),
+      lines: matching.lines,
+    };
+  }
+
+  async purchaseBillReceiptMatchingStatus(organizationId: string, purchaseBillId: string) {
+    const purchaseBill = await this.prisma.purchaseBill.findFirst({
+      where: { id: purchaseBillId, organizationId },
+      include: {
+        supplier: { select: { id: true, name: true, displayName: true } },
+        lines: {
+          orderBy: { sortOrder: "asc" },
+          include: {
+            item: { select: { id: true, name: true, sku: true, type: true, status: true, inventoryTracking: true } },
+            account: { select: { id: true, code: true, name: true, type: true } },
+          },
+        },
+      },
+    });
+    if (!purchaseBill) {
+      throw new NotFoundException("Purchase bill not found.");
+    }
+
+    const matching = await this.receiptMatchingStatus(
+      "purchaseBill",
+      purchaseBill.id,
+      purchaseBill.lines.map((line) => ({
+        id: line.id,
+        item: line.item,
+        description: line.description,
+        sourceQuantity: line.quantity,
+        unitPrice: line.unitPrice,
+        account: line.account,
+      })),
+    );
+    const accountWarnings = purchaseBill.lines.flatMap((line, index) =>
+      line.item?.inventoryTracking && line.account.type !== AccountType.ASSET
+        ? [`Purchase bill line ${index + 1} account is not inventory-related; future clearing workflow needs accountant review.`]
+        : [],
+    );
+
+    return {
+      sourceId: purchaseBill.id,
+      sourceType: "purchaseBill",
+      bill: {
+        id: purchaseBill.id,
+        billNumber: purchaseBill.billNumber,
+        status: purchaseBill.status,
+      },
+      supplier: purchaseBill.supplier,
+      billTotal: this.decimalString(new Prisma.Decimal(purchaseBill.total)),
+      receiptCount: matching.receiptCount,
+      receiptValue: matching.receiptValue,
+      status: matching.status,
+      warnings: this.uniqueStrings(["Operational receipt matching only; no accounting mutation has been posted.", ...accountWarnings, ...matching.warnings]),
+      lines: matching.lines,
+    };
+  }
+
   private async receivingStatus(
     sourceKind: "purchaseOrder" | "purchaseBill",
     sourceId: string,
@@ -408,6 +610,115 @@ export class PurchaseReceiptService {
     const anyRemaining = trackedLines.some((line) => new Prisma.Decimal(line.remainingQuantity).gt(0));
     const overallStatus = trackedLines.length === 0 || !anyReceived ? "NOT_STARTED" : anyRemaining ? "PARTIAL" : "COMPLETE";
     return { sourceId, sourceType: sourceKind, status: overallStatus, lines: statusLines };
+  }
+
+  private async receiptMatchingStatus(
+    sourceKind: "purchaseOrder" | "purchaseBill",
+    sourceId: string,
+    lines: Array<{
+      id: string;
+      item: { id: string; name: string; sku: string | null; type?: string; status?: string; inventoryTracking: boolean } | null;
+      description: string;
+      sourceQuantity: Prisma.Decimal;
+      unitPrice: Prisma.Decimal;
+      account?: { id: string; code: string; name: string; type: AccountType };
+    }>,
+  ) {
+    const lineIds = lines.map((line) => line.id);
+    const receiptLines = await this.prisma.purchaseReceiptLine.findMany({
+      where: {
+        ...(sourceKind === "purchaseOrder" ? { purchaseOrderLineId: { in: lineIds } } : { purchaseBillLineId: { in: lineIds } }),
+        receipt: {
+          status: { not: PurchaseReceiptStatus.VOIDED },
+          ...(sourceKind === "purchaseOrder" ? { purchaseOrderId: sourceId } : { purchaseBillId: sourceId }),
+        },
+      },
+      select: {
+        purchaseOrderLineId: true,
+        purchaseBillLineId: true,
+        quantity: true,
+        unitCost: true,
+        receipt: { select: { id: true, receiptNumber: true, receiptDate: true, status: true } },
+      },
+    });
+
+    const receiptIds = new Set<string>();
+    const receivedByLine = new Map<string, Prisma.Decimal>();
+    const valueByLine = new Map<string, Prisma.Decimal>();
+    const receiptsByLine = new Map<string, Array<{ id: string; receiptNumber: string; receiptDate: Date; quantity: string; unitCost: string | null; value: string | null }>>();
+    const warnings: string[] = [];
+    for (const receiptLine of receiptLines) {
+      receiptIds.add(receiptLine.receipt.id);
+      const key = sourceKind === "purchaseOrder" ? receiptLine.purchaseOrderLineId : receiptLine.purchaseBillLineId;
+      if (!key) continue;
+      const quantity = new Prisma.Decimal(receiptLine.quantity);
+      const lineValue = receiptLine.unitCost === null ? null : quantity.mul(receiptLine.unitCost);
+      receivedByLine.set(key, (receivedByLine.get(key) ?? new Prisma.Decimal(0)).plus(quantity));
+      if (lineValue) {
+        valueByLine.set(key, (valueByLine.get(key) ?? new Prisma.Decimal(0)).plus(lineValue));
+      } else {
+        warnings.push(`Receipt ${receiptLine.receipt.receiptNumber} has a line without unit cost.`);
+      }
+      const list = receiptsByLine.get(key) ?? [];
+      list.push({
+        id: receiptLine.receipt.id,
+        receiptNumber: receiptLine.receipt.receiptNumber,
+        receiptDate: receiptLine.receipt.receiptDate,
+        quantity: this.decimalString(quantity),
+        unitCost: receiptLine.unitCost === null ? null : this.decimalString(new Prisma.Decimal(receiptLine.unitCost)),
+        value: lineValue === null ? null : this.decimalString(lineValue),
+      });
+      receiptsByLine.set(key, list);
+    }
+
+    let receiptValue = new Prisma.Decimal(0);
+    const statusLines = lines.map((line) => {
+      const receivedQuantity = receivedByLine.get(line.id) ?? new Prisma.Decimal(0);
+      const receivedValue = valueByLine.get(line.id) ?? new Prisma.Decimal(0);
+      receiptValue = receiptValue.plus(receivedValue);
+      const inventoryTracking = Boolean(line.item?.inventoryTracking);
+      const sourceQuantity = new Prisma.Decimal(line.sourceQuantity);
+      const remainingQuantity = inventoryTracking ? Prisma.Decimal.max(sourceQuantity.minus(receivedQuantity), 0) : new Prisma.Decimal(0);
+      const overReceivedQuantity = inventoryTracking ? Prisma.Decimal.max(receivedQuantity.minus(sourceQuantity), 0) : new Prisma.Decimal(0);
+      const matchedBillValue = receivedQuantity.mul(line.unitPrice);
+      return {
+        lineId: line.id,
+        item: line.item,
+        description: line.description,
+        account: line.account ?? null,
+        inventoryTracking,
+        ...(sourceKind === "purchaseOrder" ? { orderedQuantity: sourceQuantity.toFixed(4) } : { billedQuantity: sourceQuantity.toFixed(4) }),
+        sourceQuantity: sourceQuantity.toFixed(4),
+        receivedQuantity: receivedQuantity.toFixed(4),
+        remainingQuantity: remainingQuantity.toFixed(4),
+        overReceivedQuantity: overReceivedQuantity.toFixed(4),
+        unitPrice: this.decimalString(new Prisma.Decimal(line.unitPrice)),
+        receivedValue: this.decimalString(receivedValue),
+        matchedBillValue: this.decimalString(matchedBillValue),
+        valueDifference: this.decimalString(receivedValue.minus(matchedBillValue)),
+        receipts: receiptsByLine.get(line.id) ?? [],
+      };
+    });
+    const trackedLines = statusLines.filter((line) => line.inventoryTracking);
+    const anyReceived = trackedLines.some((line) => new Prisma.Decimal(line.receivedQuantity).gt(0));
+    const anyRemaining = trackedLines.some((line) => new Prisma.Decimal(line.remainingQuantity).gt(0));
+    const anyOverReceived = trackedLines.some((line) => new Prisma.Decimal(line.overReceivedQuantity).gt(0));
+    let status: ReceiptMatchingStatus = "NOT_RECEIVED";
+    if (anyOverReceived) {
+      status = "OVER_RECEIVED_WARNING";
+      warnings.push("Received quantity exceeds source quantity on at least one line.");
+    } else if (trackedLines.length > 0 && anyReceived && anyRemaining) {
+      status = "PARTIALLY_RECEIVED";
+    } else if (trackedLines.length > 0 && anyReceived) {
+      status = "FULLY_RECEIVED";
+    }
+    return {
+      receiptCount: receiptIds.size,
+      receiptValue: this.decimalString(receiptValue),
+      status,
+      warnings: this.uniqueStrings(warnings),
+      lines: statusLines,
+    };
   }
 
   private sourceKind(dto: CreatePurchaseReceiptDto): SourceKind {

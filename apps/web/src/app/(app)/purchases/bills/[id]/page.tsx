@@ -8,11 +8,18 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
-import { formatInventoryQuantity, hasRemainingInventoryQuantity, inventoryProgressStatusBadgeClass, inventoryProgressStatusLabel } from "@/lib/inventory";
+import {
+  formatInventoryQuantity,
+  hasRemainingInventoryQuantity,
+  inventoryProgressStatusBadgeClass,
+  inventoryProgressStatusLabel,
+  receiptMatchingStatusBadgeClass,
+  receiptMatchingStatusLabel,
+} from "@/lib/inventory";
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadPdf, purchaseBillPdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { PurchaseBill, PurchaseReceivingStatus } from "@/lib/types";
+import type { PurchaseBill, PurchaseBillReceiptMatchingStatus, PurchaseReceivingStatus } from "@/lib/types";
 
 export default function PurchaseBillDetailPage() {
   const params = useParams<{ id: string }>();
@@ -21,6 +28,7 @@ export default function PurchaseBillDetailPage() {
   const { can } = usePermissions();
   const [bill, setBill] = useState<PurchaseBill | null>(null);
   const [receivingStatus, setReceivingStatus] = useState<PurchaseReceivingStatus | null>(null);
+  const [matchingStatus, setMatchingStatus] = useState<PurchaseBillReceiptMatchingStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
@@ -44,11 +52,13 @@ export default function PurchaseBillDetailPage() {
     Promise.all([
       apiRequest<PurchaseBill>(`/purchase-bills/${params.id}`),
       apiRequest<PurchaseReceivingStatus>(`/purchase-bills/${params.id}/receiving-status`).catch(() => null),
+      apiRequest<PurchaseBillReceiptMatchingStatus>(`/purchase-bills/${params.id}/receipt-matching-status`).catch(() => null),
     ])
-      .then(([result, statusResult]) => {
+      .then(([result, statusResult, matchingResult]) => {
         if (!cancelled) {
           setBill(result);
           setReceivingStatus(statusResult);
+          setMatchingStatus(matchingResult);
         }
       })
       .catch((loadError: unknown) => {
@@ -214,6 +224,7 @@ export default function PurchaseBillDetailPage() {
           </div>
 
           {receivingStatus ? <ReceivingStatusPanel status={receivingStatus} /> : null}
+          {matchingStatus ? <ReceiptMatchingPanel status={matchingStatus} /> : null}
 
           <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
             <table className="w-full min-w-[920px] text-left text-sm">
@@ -398,6 +409,70 @@ export default function PurchaseBillDetailPage() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function ReceiptMatchingPanel({ status }: { status: PurchaseBillReceiptMatchingStatus }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-ink">Receipt matching</h2>
+          <p className="mt-1 text-sm text-steel">Operational bill/receipt matching visibility. No clearing or inventory asset journal is posted.</p>
+        </div>
+        <span className={`rounded-md px-2 py-1 text-xs font-medium ${receiptMatchingStatusBadgeClass(status.status)}`}>
+          {receiptMatchingStatusLabel(status.status)}
+        </span>
+      </div>
+      <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
+        <Summary label="Receipt count" value={String(status.receiptCount)} />
+        <Summary label="Receipt value" value={formatInventoryQuantity(status.receiptValue)} />
+        <Summary label="Bill total" value={formatInventoryQuantity(status.billTotal)} />
+      </div>
+      {status.warnings.length > 0 ? (
+        <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-900">
+          <ul className="space-y-1">
+            {status.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[820px] text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+            <tr>
+              <th className="px-3 py-2">Line</th>
+              <th className="px-3 py-2 text-right">Billed</th>
+              <th className="px-3 py-2 text-right">Received</th>
+              <th className="px-3 py-2 text-right">Remaining</th>
+              <th className="px-3 py-2 text-right">Receipt value</th>
+              <th className="px-3 py-2">Receipts</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {status.lines.map((line) => (
+              <tr key={line.lineId}>
+                <td className="px-3 py-2">{line.item ? `${line.item.name}${line.item.sku ? ` (${line.item.sku})` : ""}` : line.description}</td>
+                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.billedQuantity ?? line.sourceQuantity)}</td>
+                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.receivedQuantity)}</td>
+                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.remainingQuantity)}</td>
+                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.receivedValue)}</td>
+                <td className="px-3 py-2 text-steel">
+                  {line.receipts.length > 0
+                    ? line.receipts.map((receipt) => (
+                        <Link key={receipt.id} href={`/inventory/purchase-receipts/${receipt.id}`} className="mr-2 text-palm hover:underline">
+                          {receipt.receiptNumber}
+                        </Link>
+                      ))
+                    : "-"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 

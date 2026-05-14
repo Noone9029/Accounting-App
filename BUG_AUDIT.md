@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-14
 
-Commit inspected: pending (`Add manual COGS posting for stock issues`)
+Commit inspected: pending (`Add inventory clearing preview groundwork`)
 
 ## Scope
 
@@ -37,6 +37,32 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Inventory clearing preview and matching groundwork added
+
+Added inventory clearing account settings, purchase receipt posting mode, enhanced purchase receipt accounting previews, purchase bill receipt matching status, purchase order receipt/bill matching visibility, UI panels, docs, tests, and smoke coverage. This is design and review groundwork only; purchase receipt previews still create no journals and always return `canPost: false`.
+
+Risk reduced:
+
+- Accountants can map a separate Inventory Clearing account before purchase receipt asset posting exists.
+- Clearing account validation requires a tenant-owned active posting `LIABILITY` or `ASSET` account, blocks reuse of inventory asset, and rejects Accounts Payable code `210`.
+- Purchase receipt previews show receipt value, matched bill value, value difference, matching summary, and Dr Inventory Asset / Cr Inventory Clearing preview lines.
+- Purchase bill and purchase order detail pages expose receipt matching status and warnings without accounting mutation.
+- Seed/foundation data now includes code `240` Inventory Clearing for new organizations.
+
+Remaining risks:
+
+- Purchase receipt GL posting is still disabled.
+- Bill/receipt clearing entries are not implemented.
+- Landed cost is missing.
+- FIFO remains placeholder-only.
+- Accountant review is required before production use.
+
+Tests/smoke added:
+
+- Backend clearing account validation, enhanced receipt preview, bill/receipt matching status, tenant, and permission tests.
+- Frontend helper tests for posting mode, warnings, missing clearing mapping, and matching status labels.
+- Smoke coverage for configuring Inventory Clearing, linked bill receipt preview, bill receipt matching status, and unchanged journal counts from receipt preview.
+
 ### Manual COGS posting added
 
 Added explicit manual COGS posting and reversal for sales stock issues using the existing preview layer. Posting is permission-gated, tenant-scoped, fiscal-period guarded, transactional, and linked back to `SalesStockIssue`. The implementation creates one reviewed Dr COGS / Cr Inventory Asset journal only when the user explicitly posts COGS; invoices and stock issues still do not auto-post COGS.
@@ -52,7 +78,7 @@ Risk reduced:
 Remaining risks:
 
 - No purchase receipt inventory asset posting.
-- No inventory clearing workflow.
+- Inventory clearing mapping and previews exist, but no clearing journals or bill clearing entries.
 - No landed cost.
 - FIFO placeholder only.
 - No automatic COGS posting from invoices or stock issues.
@@ -80,7 +106,7 @@ Remaining risks:
 
 - No automatic COGS posting; manual COGS posting now requires explicit review/action.
 - No inventory asset posting.
-- No inventory clearing workflow.
+- Inventory clearing mapping and previews exist, but no clearing journals or bill clearing entries.
 - No landed cost.
 - No serial/batch tracking.
 - Accountant review is required before any financial inventory posting.

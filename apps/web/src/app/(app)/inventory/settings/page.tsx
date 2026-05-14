@@ -11,11 +11,13 @@ import {
   inventorySettingsWarnings,
   inventoryValuationMethodLabel,
   missingInventoryAccountMappingWarnings,
+  purchaseReceiptPostingModeLabel,
 } from "@/lib/inventory";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { Account, InventoryAccountingSettings, InventorySettings, InventoryValuationMethod } from "@/lib/types";
+import type { Account, InventoryAccountingSettings, InventoryPurchasePostingMode, InventorySettings, InventoryValuationMethod } from "@/lib/types";
 
 const valuationMethods: InventoryValuationMethod[] = ["MOVING_AVERAGE", "FIFO_PLACEHOLDER"];
+const purchaseReceiptPostingModes: InventoryPurchasePostingMode[] = ["DISABLED", "PREVIEW_ONLY"];
 
 export default function InventorySettingsPage() {
   const organizationId = useActiveOrganizationId();
@@ -32,8 +34,10 @@ export default function InventorySettingsPage() {
     enableInventoryAccounting: false,
     inventoryAssetAccountId: "",
     cogsAccountId: "",
+    inventoryClearingAccountId: "",
     inventoryAdjustmentGainAccountId: "",
     inventoryAdjustmentLossAccountId: "",
+    purchaseReceiptPostingMode: "DISABLED" as InventoryPurchasePostingMode,
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -44,6 +48,7 @@ export default function InventorySettingsPage() {
     () => ({
       inventoryAsset: accounts.filter((account) => account.type === "ASSET" && account.isActive && account.allowPosting),
       cogs: accounts.filter((account) => (account.type === "COST_OF_SALES" || account.type === "EXPENSE") && account.isActive && account.allowPosting),
+      inventoryClearing: accounts.filter((account) => (account.type === "LIABILITY" || account.type === "ASSET") && account.isActive && account.allowPosting && account.code !== "210"),
       adjustmentGain: accounts.filter((account) => account.type === "REVENUE" && account.isActive && account.allowPosting),
       adjustmentLoss: accounts.filter((account) => (account.type === "EXPENSE" || account.type === "COST_OF_SALES") && account.isActive && account.allowPosting),
     }),
@@ -78,8 +83,10 @@ export default function InventorySettingsPage() {
           enableInventoryAccounting: accountingResult.enableInventoryAccounting,
           inventoryAssetAccountId: accountingResult.inventoryAssetAccountId ?? "",
           cogsAccountId: accountingResult.cogsAccountId ?? "",
+          inventoryClearingAccountId: accountingResult.inventoryClearingAccountId ?? "",
           inventoryAdjustmentGainAccountId: accountingResult.inventoryAdjustmentGainAccountId ?? "",
           inventoryAdjustmentLossAccountId: accountingResult.inventoryAdjustmentLossAccountId ?? "",
+          purchaseReceiptPostingMode: accountingResult.purchaseReceiptPostingMode,
         });
       })
       .catch((loadError: unknown) => {
@@ -120,8 +127,10 @@ export default function InventorySettingsPage() {
           enableInventoryAccounting: form.enableInventoryAccounting,
           inventoryAssetAccountId: form.inventoryAssetAccountId || null,
           cogsAccountId: form.cogsAccountId || null,
+          inventoryClearingAccountId: form.inventoryClearingAccountId || null,
           inventoryAdjustmentGainAccountId: form.inventoryAdjustmentGainAccountId || null,
           inventoryAdjustmentLossAccountId: form.inventoryAdjustmentLossAccountId || null,
+          purchaseReceiptPostingMode: form.purchaseReceiptPostingMode,
         },
       });
       setSettings(inventoryResult);
@@ -153,7 +162,7 @@ export default function InventorySettingsPage() {
       </div>
 
       <div className="mt-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        Inventory accounting is design groundwork only. Stock movements, purchase receipts, and sales stock issues still do not post GL, COGS, or inventory asset entries.
+        Inventory accounting is guarded. Enabling it only allows manual COGS posting; purchase receipts still do not post GL or inventory asset entries.
       </div>
 
       <form onSubmit={saveSettings} className="mt-5 space-y-5">
@@ -237,6 +246,28 @@ export default function InventorySettingsPage() {
               disabled={!canManage || !canViewAccounts}
               onChange={(value) => setForm((current) => ({ ...current, cogsAccountId: value }))}
             />
+            <AccountSelect
+              label="Inventory clearing account"
+              value={form.inventoryClearingAccountId}
+              accounts={accountOptions.inventoryClearing}
+              disabled={!canManage || !canViewAccounts}
+              onChange={(value) => setForm((current) => ({ ...current, inventoryClearingAccountId: value }))}
+            />
+            <label className="block">
+              <span className="text-xs font-medium uppercase tracking-wide text-steel">Purchase receipt posting mode</span>
+              <select
+                value={form.purchaseReceiptPostingMode}
+                onChange={(event) => setForm((current) => ({ ...current, purchaseReceiptPostingMode: event.target.value as InventoryPurchasePostingMode }))}
+                disabled={!canManage}
+                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm disabled:bg-slate-100"
+              >
+                {purchaseReceiptPostingModes.map((mode) => (
+                  <option key={mode} value={mode}>
+                    {purchaseReceiptPostingModeLabel(mode)}
+                  </option>
+                ))}
+              </select>
+            </label>
             <AccountSelect
               label="Adjustment gain account"
               value={form.inventoryAdjustmentGainAccountId}

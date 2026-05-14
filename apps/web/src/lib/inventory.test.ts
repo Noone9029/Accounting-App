@@ -24,7 +24,11 @@ import {
   inventoryProgressStatusLabel,
   lowStockStatusLabel,
   movementSummaryNetChange,
+  purchaseReceiptGlPostingWarning,
+  purchaseReceiptPostingModeLabel,
   purchaseReceiptSourceTypeLabel,
+  receiptMatchingStatusBadgeClass,
+  receiptMatchingStatusLabel,
   stockMovementDirection,
   stockDocumentStatusBadgeClass,
   stockDocumentStatusLabel,
@@ -117,6 +121,7 @@ describe("inventory helpers", () => {
     expect(inventoryAccountingWarnings()).toEqual(
       expect.arrayContaining([
         "Enabling this only allows manual COGS posting. It does not auto-post inventory journals.",
+        "Purchase receipt GL posting is not enabled yet.",
         "COGS posting requires an explicit manual post action after review.",
         "Accountant review required before enabling financial inventory postings.",
       ]),
@@ -138,6 +143,7 @@ describe("inventory helpers", () => {
       missingInventoryAccountMappingWarnings({
         inventoryAssetAccountId: null,
         cogsAccountId: null,
+        inventoryClearingAccountId: null,
         inventoryAdjustmentGainAccountId: "gain-1",
         inventoryAdjustmentLossAccountId: null,
       }),
@@ -145,9 +151,17 @@ describe("inventory helpers", () => {
       expect.arrayContaining([
         "Inventory asset account mapping is missing.",
         "COGS account mapping is missing.",
+        "Inventory clearing account mapping is missing.",
         "Inventory adjustment loss account mapping is not set.",
       ]),
     );
+    expect(purchaseReceiptPostingModeLabel("PREVIEW_ONLY")).toBe("Preview only");
+    expect(purchaseReceiptPostingModeLabel("DISABLED")).toBe("Disabled");
+    expect(purchaseReceiptGlPostingWarning()).toBe("Purchase receipt GL posting is not enabled yet.");
+    expect(receiptMatchingStatusLabel("PARTIALLY_RECEIVED")).toBe("Partially received");
+    expect(receiptMatchingStatusLabel("OVER_RECEIVED_WARNING")).toBe("Over received");
+    expect(receiptMatchingStatusBadgeClass("FULLY_RECEIVED")).toContain("emerald");
+    expect(receiptMatchingStatusBadgeClass("OVER_RECEIVED_WARNING")).toContain("rose");
   });
 
   it("handles manual COGS posting status and action visibility", () => {

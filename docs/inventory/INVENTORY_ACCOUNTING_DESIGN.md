@@ -21,6 +21,8 @@ This layer records accountant-reviewed settings, exposes journal previews, and n
 - `enableInventoryAccounting`: default `false`.
 - `inventoryAssetAccountId`: optional mapped inventory asset account.
 - `cogsAccountId`: optional mapped COGS account.
+- `inventoryClearingAccountId`: optional mapped clearing account for purchase receipt previews.
+- `purchaseReceiptPostingMode`: `DISABLED` or `PREVIEW_ONLY`; no purchase receipt posting mode posts journals yet.
 - `inventoryAdjustmentGainAccountId`: optional mapped adjustment gain account.
 - `inventoryAdjustmentLossAccountId`: optional mapped adjustment loss account.
 - `valuationMethod`: existing `MOVING_AVERAGE` or `FIFO_PLACEHOLDER`.
@@ -34,6 +36,7 @@ The API exposes:
 
 - Inventory asset must be an active posting `ASSET` account in the same organization.
 - COGS must be an active posting `COST_OF_SALES` or `EXPENSE` account in the same organization.
+- Inventory clearing must be an active posting `LIABILITY` or `ASSET` account in the same organization. The recommended MVP setup is a separate liability-style Inventory Clearing account, not Accounts Payable code `210`, and not the same account as inventory asset.
 - Adjustment gain must be an active posting `REVENUE` account in the same organization. The current account enum has no `OTHER_INCOME` type, so other income cannot be separately mapped yet.
 - Adjustment loss must be an active posting `EXPENSE` or `COST_OF_SALES` account in the same organization.
 
@@ -53,7 +56,9 @@ Purchase receipt accounting remains design-only:
 
 - purchase receipt previews always return `canPost: false`
 - no inventory asset posting exists
-- no inventory clearing workflow exists
+- no inventory clearing journal workflow exists
+- purchase receipt previews can now show receipt value, matched bill value, unmatched receipt value, value difference, and Dr Inventory Asset / Cr Inventory Clearing preview lines when mapped
+- purchase bill and purchase order matching endpoints expose operational receipt status, but do not mutate accounting
 
 ## Proposed Accounting Model
 
@@ -61,6 +66,7 @@ The implementation separates operational inventory events from financial posting
 
 - Purchase receipt preview: Dr Inventory Asset, Cr Inventory Clearing or AP placeholder.
 - Bill matching: resolve whether receipt value should clear against purchase bill lines, a clearing account, or direct AP.
+- Future purchase bill posting model under review: Dr Inventory Clearing and Dr VAT Receivable, Cr Accounts Payable, instead of direct expense/asset posting for inventory lines.
 - Sales issue COGS preview and manual posting: Dr COGS, Cr Inventory Asset.
 - Adjustments: Dr/Cr Inventory Asset against adjustment gain/loss accounts after reason-code and approval design.
 
@@ -78,8 +84,8 @@ The implementation separates operational inventory events from financial posting
 ## Future Implementation Order
 
 1. Harden manual COGS posting review UX and audit reporting.
-2. Finalize inventory clearing account model.
-3. Add bill/receipt matching and variance handling.
+2. Review the new inventory clearing account and bill/receipt matching preview with an accountant.
+3. Finalize inventory clearing account posting model and variance handling.
 4. Add explicit, guarded purchase receipt asset posting.
 5. Add adjustment gain/loss posting with reason-code controls.
 6. Add financial inventory reports reviewed by accountants.

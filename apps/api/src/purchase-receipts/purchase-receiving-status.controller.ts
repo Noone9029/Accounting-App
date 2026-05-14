@@ -18,9 +18,21 @@ export class PurchaseReceivingStatusController {
     return this.purchaseReceiptService.purchaseOrderReceivingStatus(organizationId, id);
   }
 
+  @Get("purchase-orders/:id/receipt-matching-status")
+  @RequirePermissions(PERMISSIONS.purchaseOrders.view)
+  purchaseOrderReceiptMatchingStatus(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.purchaseReceiptService.purchaseOrderReceiptMatchingStatus(organizationId, id);
+  }
+
   @Get("purchase-bills/:id/receiving-status")
   @RequirePermissions(PERMISSIONS.purchaseReceiving.view)
   purchaseBillReceivingStatus(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.purchaseReceiptService.purchaseBillReceivingStatus(organizationId, id);
+  }
+
+  @Get("purchase-bills/:id/receipt-matching-status")
+  @RequirePermissions(PERMISSIONS.purchaseBills.view)
+  purchaseBillReceiptMatchingStatus(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.purchaseReceiptService.purchaseBillReceiptMatchingStatus(organizationId, id);
   }
 }

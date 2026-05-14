@@ -14,6 +14,7 @@ import {
   canVoidPostedStockDocument,
   formatInventoryQuantity,
   inventoryOperationalWarning,
+  purchaseReceiptPostingModeLabel,
   stockDocumentStatusBadgeClass,
   stockDocumentStatusLabel,
   stockMovementTypeLabel,
@@ -219,14 +220,23 @@ function PurchaseReceiptAccountingPreviewPanel({ preview, error }: { preview: Pu
         <PreviewList title="Warnings" items={preview.warnings} emptyText="No warnings." tone="amber" />
       </div>
 
+      <div className="mt-5 grid grid-cols-1 gap-3 text-sm md:grid-cols-4">
+        <Detail label="Posting mode" value={purchaseReceiptPostingModeLabel(preview.postingMode)} />
+        <Detail label="Receipt value" value={formatInventoryQuantity(preview.receiptValue)} />
+        <Detail label="Matched bill value" value={formatInventoryQuantity(preview.matchedBillValue)} />
+        <Detail label="Value difference" value={formatInventoryQuantity(preview.valueDifference)} />
+      </div>
+
       <div className="mt-5 overflow-x-auto rounded-md border border-slate-200">
-        <table className="w-full min-w-[720px] text-left text-sm">
+        <table className="w-full min-w-[920px] text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
             <tr>
               <th className="px-4 py-3">Item</th>
               <th className="px-4 py-3 text-right">Quantity</th>
               <th className="px-4 py-3 text-right">Unit cost</th>
               <th className="px-4 py-3 text-right">Line value</th>
+              <th className="px-4 py-3 text-right">Matched qty</th>
+              <th className="px-4 py-3 text-right">Bill value</th>
               <th className="px-4 py-3">Warnings</th>
             </tr>
           </thead>
@@ -237,6 +247,8 @@ function PurchaseReceiptAccountingPreviewPanel({ preview, error }: { preview: Pu
                 <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(line.quantity)}</td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{line.unitCost ? formatInventoryQuantity(line.unitCost) : "-"}</td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{line.lineValue ? formatInventoryQuantity(line.lineValue) : "-"}</td>
+                <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(line.matchedQuantity)}</td>
+                <td className="px-4 py-3 text-right font-mono text-xs">{line.matchedBillValue ? formatInventoryQuantity(line.matchedBillValue) : "-"}</td>
                 <td className="px-4 py-3 text-steel">{line.warnings.length > 0 ? line.warnings.join("; ") : "-"}</td>
               </tr>
             ))}
@@ -245,6 +257,53 @@ function PurchaseReceiptAccountingPreviewPanel({ preview, error }: { preview: Pu
       </div>
 
       <JournalPreview preview={preview} />
+
+      <MatchingSummary preview={preview} />
+    </div>
+  );
+}
+
+function MatchingSummary({ preview }: { preview: PurchaseReceiptAccountingPreview }) {
+  return (
+    <div className="mt-5 rounded-md bg-slate-50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-ink">Bill/receipt matching</h3>
+          <p className="mt-1 text-sm text-steel">Operational comparison only. No purchase receipt journal is posted.</p>
+        </div>
+        <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{preview.matchingSummary.sourceType}</span>
+      </div>
+      <div className="mt-3 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
+        <Detail label="Matched quantity" value={formatInventoryQuantity(preview.matchingSummary.matchedQuantity)} />
+        <Detail label="Unmatched quantity" value={formatInventoryQuantity(preview.matchingSummary.unmatchedQuantity)} />
+        <Detail label="Unmatched receipt value" value={formatInventoryQuantity(preview.unmatchedReceiptValue)} />
+      </div>
+      {preview.matchingSummary.billLines.length > 0 ? (
+        <div className="mt-4 overflow-x-auto rounded-md border border-slate-200 bg-white">
+          <table className="w-full min-w-[720px] text-left text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+              <tr>
+                <th className="px-3 py-2">Bill line</th>
+                <th className="px-3 py-2">Account</th>
+                <th className="px-3 py-2 text-right">Billed qty</th>
+                <th className="px-3 py-2 text-right">Matched qty</th>
+                <th className="px-3 py-2 text-right">Matched value</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {preview.matchingSummary.billLines.map((line) => (
+                <tr key={line.lineId}>
+                  <td className="px-3 py-2">{line.description}</td>
+                  <td className="px-3 py-2 text-steel">{line.account.code} {line.account.name}</td>
+                  <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.billedQuantity)}</td>
+                  <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.matchedQuantity)}</td>
+                  <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.matchedValue)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
     </div>
   );
 }

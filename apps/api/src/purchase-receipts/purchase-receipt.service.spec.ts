@@ -18,12 +18,22 @@ describe("PurchaseReceiptService", () => {
   const supplier = { id: "supplier-1", type: ContactType.SUPPLIER, isActive: true };
   const warehouse = { id: "warehouse-1", status: WarehouseStatus.ACTIVE };
   const assetAccount = { id: "asset-1", code: "130", name: "Inventory", type: AccountType.ASSET, allowPosting: true, isActive: true };
+  const clearingAccount = { id: "clearing-1", code: "240", name: "Inventory Clearing", type: AccountType.LIABILITY, allowPosting: true, isActive: true };
   const poLine = { id: "po-line-1", itemId: item.id, quantity: new Prisma.Decimal("5.0000"), unitPrice: new Prisma.Decimal("7.0000"), item };
   const billLine = { id: "bill-line-1", itemId: item.id, quantity: new Prisma.Decimal("4.0000"), unitPrice: new Prisma.Decimal("8.0000"), item };
+  const previewBillLine = {
+    id: billLine.id,
+    description: "Tracked bill line",
+    quantity: billLine.quantity,
+    unitPrice: billLine.unitPrice,
+    account: { id: "expense-1", code: "511", name: "General Expenses", type: AccountType.EXPENSE },
+  };
   const receipt = {
     id: "receipt-1",
     organizationId: "org-1",
     receiptNumber: "PRC-000001",
+    purchaseOrderId: null,
+    purchaseBillId: null,
     supplierId: supplier.id,
     warehouseId: warehouse.id,
     status: PurchaseReceiptStatus.POSTED,
@@ -48,6 +58,8 @@ describe("PurchaseReceiptService", () => {
         settings: {
           valuationMethod: InventoryValuationMethod.MOVING_AVERAGE,
           inventoryAssetAccount: assetAccount,
+          inventoryClearingAccount: clearingAccount,
+          purchaseReceiptPostingMode: "PREVIEW_ONLY",
         },
         blockingReasons: [],
         warnings: ["Not posting to GL yet."],
@@ -219,13 +231,145 @@ describe("PurchaseReceiptService", () => {
       }),
     );
     expect(preview.lines[0]).toEqual(expect.objectContaining({ lineValue: "14.0000" }));
+    expect(preview).toEqual(
+      expect.objectContaining({
+        postingMode: "PREVIEW_ONLY",
+        receiptValue: "14.0000",
+        matchedBillValue: "0.0000",
+        unmatchedReceiptValue: "14.0000",
+      }),
+    );
     expect(preview.journal.lines).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ side: "DEBIT", accountCode: "130", amount: "14.0000" }),
-        expect.objectContaining({ side: "CREDIT", accountName: "Inventory Clearing / Accounts Payable placeholder", amount: "14.0000" }),
+        expect.objectContaining({ side: "CREDIT", accountCode: "240", accountName: "Inventory Clearing", amount: "14.0000" }),
       ]),
     );
     expect(prisma.journalEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("shows linked bill quantities and value differences in purchase receipt preview", async () => {
+    const linkedReceipt = {
+      ...receipt,
+      purchaseBillId: "bill-1",
+      purchaseBill: { id: "bill-1", billNumber: "BILL-000001", status: PurchaseBillStatus.FINALIZED, billDate: new Date(), total: new Prisma.Decimal("32.0000") },
+      lines: [{ ...receipt.lines[0], purchaseBillLine: previewBillLine }],
+    };
+    const { service } = makeService(makeTx(), {
+      purchaseReceipt: { findFirst: jest.fn().mockResolvedValue(linkedReceipt) },
+    });
+
+    const preview = await service.accountingPreview("org-1", receipt.id);
+
+    expect(preview.matchingSummary).toEqual(
+      expect.objectContaining({
+        sourceType: "purchaseBill",
+        matchedQuantity: "2.0000",
+        unmatchedQuantity: "0.0000",
+        valueDifference: "-2.0000",
+      }),
+    );
+    expect(preview.matchedBillValue).toBe("16.0000");
+    expect(preview.warnings).toEqual(expect.arrayContaining([expect.stringContaining("not inventory-related")]));
+  });
+
+  it("warns when receipt preview is standalone or linked only to a purchase order", async () => {
+    const { service } = makeService(makeTx(), {
+      purchaseReceipt: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce({ ...receipt, purchaseOrderId: null, purchaseBillId: null })
+          .mockResolvedValueOnce({ ...receipt, purchaseOrderId: "po-1", purchaseBillId: null }),
+      },
+    });
+
+    await expect(service.accountingPreview("org-1", receipt.id)).resolves.toEqual(
+      expect.objectContaining({ warnings: expect.arrayContaining([expect.stringContaining("Standalone receipt")]) }),
+    );
+    await expect(service.accountingPreview("org-1", receipt.id)).resolves.toEqual(
+      expect.objectContaining({ warnings: expect.arrayContaining([expect.stringContaining("Bill matching is not available")]) }),
+    );
+  });
+
+  it("returns purchase bill receipt matching status with matched quantities", async () => {
+    const { service, prisma } = makeService(makeTx(), {
+      purchaseBill: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "bill-1",
+          billNumber: "BILL-000001",
+          status: PurchaseBillStatus.FINALIZED,
+          total: new Prisma.Decimal("32.0000"),
+          supplier: { id: supplier.id, name: "Supplier", displayName: null },
+          lines: [{ ...previewBillLine, item: previewItem }],
+        }),
+      },
+      purchaseReceiptLine: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            purchaseBillLineId: billLine.id,
+            quantity: new Prisma.Decimal("4.0000"),
+            unitCost: new Prisma.Decimal("8.0000"),
+            receipt: { id: receipt.id, receiptNumber: receipt.receiptNumber, receiptDate: receipt.receiptDate, status: PurchaseReceiptStatus.POSTED },
+          },
+        ]),
+      },
+    });
+
+    await expect(service.purchaseBillReceiptMatchingStatus("org-1", "bill-1")).resolves.toEqual(
+      expect.objectContaining({
+        status: "FULLY_RECEIVED",
+        receiptCount: 1,
+        receiptValue: "32.0000",
+        lines: [expect.objectContaining({ receivedQuantity: "4.0000", remainingQuantity: "0.0000" })],
+      }),
+    );
+    expect(prisma.purchaseBill.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "bill-1", organizationId: "org-1" } }));
+  });
+
+  it("returns purchase order receipt matching status with bill matching warning", async () => {
+    const { service } = makeService(makeTx(), {
+      purchaseOrder: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "po-1",
+          purchaseOrderNumber: "PO-000001",
+          status: PurchaseOrderStatus.APPROVED,
+          total: new Prisma.Decimal("35.0000"),
+          supplier: { id: supplier.id, name: "Supplier", displayName: null },
+          convertedBill: null,
+          lines: [{ id: poLine.id, description: "Tracked PO line", item: previewItem, quantity: poLine.quantity, unitPrice: poLine.unitPrice }],
+        }),
+      },
+      purchaseReceiptLine: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            purchaseOrderLineId: poLine.id,
+            quantity: new Prisma.Decimal("2.0000"),
+            unitCost: new Prisma.Decimal("7.0000"),
+            receipt: { id: receipt.id, receiptNumber: receipt.receiptNumber, receiptDate: receipt.receiptDate, status: PurchaseReceiptStatus.POSTED },
+          },
+        ]),
+      },
+    });
+
+    await expect(service.purchaseOrderReceiptMatchingStatus("org-1", "po-1")).resolves.toEqual(
+      expect.objectContaining({
+        status: "PARTIALLY_RECEIVED",
+        receiptValueEstimate: "14.0000",
+        warnings: expect.arrayContaining([expect.stringContaining("Bill matching is not available")]),
+      }),
+    );
+  });
+
+  it("keeps receipt matching status tenant-scoped", async () => {
+    const { service, prisma } = makeService(makeTx(), {
+      purchaseBill: { findFirst: jest.fn().mockResolvedValue(null) },
+      purchaseOrder: { findFirst: jest.fn().mockResolvedValue(null) },
+    });
+
+    await expect(service.purchaseBillReceiptMatchingStatus("other-org", "bill-1")).rejects.toThrow("Purchase bill not found.");
+    await expect(service.purchaseOrderReceiptMatchingStatus("other-org", "po-1")).rejects.toThrow("Purchase order not found.");
+    expect(prisma.purchaseBill.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "bill-1", organizationId: "other-org" } }));
+    expect(prisma.purchaseOrder.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "po-1", organizationId: "other-org" } }));
   });
 
   it("blocks purchase receipt preview lines that are missing unit cost", async () => {

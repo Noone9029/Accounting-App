@@ -22,6 +22,8 @@ Operational reports and COGS previews calculate estimated cost from inbound stoc
 
 The estimate uses costed inbound quantity and value up to the relevant date. Manual sales issue COGS posting uses this estimate after user/accountant review and writes only the reviewed Dr COGS / Cr Inventory Asset journal.
 
+Purchase receipt accounting previews use receipt line unit costs for design-only Dr Inventory Asset / Cr Inventory Clearing previews. Those receipt values are not accounting-grade until bill/receipt matching, clearing, VAT, landed cost, and variance rules are approved.
+
 ## FIFO Placeholder
 
 FIFO can be stored as a settings value for future planning, but no FIFO cost layers exist. FIFO is not previewable, cannot enable inventory accounting readiness, and cannot post COGS.
@@ -53,5 +55,5 @@ Inventory quantities and costs use decimal fields. Future posting work beyond ma
 - No serial or batch valuation exists.
 - No automatic GL posting is enabled.
 - Purchase receipt inventory asset posting is not implemented.
-- Inventory clearing is not implemented.
+- Inventory clearing settings and previews exist, but clearing journals are not implemented.
 - Moving average is still an operational estimate and requires accountant review before each manual COGS post.

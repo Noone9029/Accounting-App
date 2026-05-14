@@ -7,10 +7,12 @@ import type {
   InventoryBalance,
   InventoryLowStockStatus,
   InventoryMovementSummaryRow,
+  InventoryPurchasePostingMode,
   InventorySettings,
   InventorySourceProgressStatus,
   InventoryStockValuationRow,
   InventoryValuationMethod,
+  PurchaseReceiptMatchingStatus,
   PurchaseReceiptStatus,
   SalesStockIssueAccountingPreview,
   SalesStockIssueStatus,
@@ -66,6 +68,7 @@ export function inventoryOperationalWarning(): string {
 export function inventoryAccountingWarnings(): string[] {
   return [
     "Enabling this only allows manual COGS posting. It does not auto-post inventory journals.",
+    "Purchase receipt GL posting is not enabled yet.",
     "COGS posting requires an explicit manual post action after review.",
     "Accountant review required before enabling financial inventory postings.",
   ];
@@ -82,14 +85,52 @@ export function accountingPreviewLineDisplay(line: InventoryAccountingPreviewJou
 }
 
 export function missingInventoryAccountMappingWarnings(
-  settings: Pick<InventoryAccountingSettings, "inventoryAssetAccountId" | "cogsAccountId" | "inventoryAdjustmentGainAccountId" | "inventoryAdjustmentLossAccountId">,
+  settings: Pick<
+    InventoryAccountingSettings,
+    "inventoryAssetAccountId" | "cogsAccountId" | "inventoryClearingAccountId" | "inventoryAdjustmentGainAccountId" | "inventoryAdjustmentLossAccountId"
+  >,
 ): string[] {
   const warnings: string[] = [];
   if (!settings.inventoryAssetAccountId) warnings.push("Inventory asset account mapping is missing.");
   if (!settings.cogsAccountId) warnings.push("COGS account mapping is missing.");
+  if (!settings.inventoryClearingAccountId) warnings.push("Inventory clearing account mapping is missing.");
   if (!settings.inventoryAdjustmentGainAccountId) warnings.push("Inventory adjustment gain account mapping is not set.");
   if (!settings.inventoryAdjustmentLossAccountId) warnings.push("Inventory adjustment loss account mapping is not set.");
   return warnings;
+}
+
+export function purchaseReceiptPostingModeLabel(mode: InventoryPurchasePostingMode): string {
+  return mode === "PREVIEW_ONLY" ? "Preview only" : "Disabled";
+}
+
+export function purchaseReceiptGlPostingWarning(): string {
+  return "Purchase receipt GL posting is not enabled yet.";
+}
+
+export function receiptMatchingStatusLabel(status: PurchaseReceiptMatchingStatus): string {
+  switch (status) {
+    case "NOT_RECEIVED":
+      return "Not received";
+    case "PARTIALLY_RECEIVED":
+      return "Partially received";
+    case "FULLY_RECEIVED":
+      return "Fully received";
+    case "OVER_RECEIVED_WARNING":
+      return "Over received";
+  }
+}
+
+export function receiptMatchingStatusBadgeClass(status: PurchaseReceiptMatchingStatus): string {
+  switch (status) {
+    case "NOT_RECEIVED":
+      return "bg-slate-100 text-slate-700";
+    case "PARTIALLY_RECEIVED":
+      return "bg-amber-50 text-amber-700";
+    case "FULLY_RECEIVED":
+      return "bg-emerald-50 text-emerald-700";
+    case "OVER_RECEIVED_WARNING":
+      return "bg-rose-50 text-rose-700";
+  }
 }
 
 export function cogsPostingStatus(preview: Pick<SalesStockIssueAccountingPreview, "alreadyPosted" | "alreadyReversed">): "Not posted" | "Posted" | "Reversed" {

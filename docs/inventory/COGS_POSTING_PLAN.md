@@ -51,5 +51,5 @@ The preview uses estimated moving-average cost from operational inbound stock mo
 
 - COGS is manual only; invoices and sales stock issues do not auto-post COGS.
 - Purchase receipt inventory asset posting is not implemented.
-- Inventory clearing and bill/receipt matching are not implemented.
+- Inventory clearing settings, preview lines, and bill/receipt matching visibility now exist, but clearing journals and purchase receipt asset posting are not implemented.
 - FIFO, landed cost, serial tracking, batch tracking, returns, and credit-note inventory returns remain out of scope.

@@ -21,7 +21,9 @@ export type WarehouseTransferStatus = "POSTED" | "VOIDED";
 export type PurchaseReceiptStatus = "POSTED" | "VOIDED";
 export type SalesStockIssueStatus = "POSTED" | "VOIDED";
 export type InventorySourceProgressStatus = "NOT_STARTED" | "PARTIAL" | "COMPLETE";
+export type PurchaseReceiptMatchingStatus = "NOT_RECEIVED" | "PARTIALLY_RECEIVED" | "FULLY_RECEIVED" | "OVER_RECEIVED_WARNING";
 export type InventoryValuationMethod = "MOVING_AVERAGE" | "FIFO_PLACEHOLDER";
+export type InventoryPurchasePostingMode = "DISABLED" | "PREVIEW_ONLY";
 export type SalesInvoiceStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type CreditNoteStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type PurchaseOrderStatus = "DRAFT" | "APPROVED" | "SENT" | "PARTIALLY_BILLED" | "BILLED" | "CLOSED" | "VOIDED";
@@ -689,6 +691,59 @@ export interface PurchaseReceivingStatus {
   lines: PurchaseReceivingStatusLine[];
 }
 
+export interface PurchaseReceiptMatchingStatusLine {
+  lineId: string;
+  item: Pick<Item, "id" | "name" | "sku" | "type" | "status" | "inventoryTracking"> | null;
+  description: string;
+  account?: Pick<Account, "id" | "code" | "name" | "type"> | null;
+  inventoryTracking: boolean;
+  sourceQuantity: string;
+  orderedQuantity?: string;
+  billedQuantity?: string;
+  receivedQuantity: string;
+  remainingQuantity: string;
+  overReceivedQuantity: string;
+  unitPrice: string;
+  receivedValue: string;
+  matchedBillValue: string;
+  valueDifference: string;
+  receipts: Array<{
+    id: string;
+    receiptNumber: string;
+    receiptDate: string;
+    quantity: string;
+    unitCost: string | null;
+    value: string | null;
+  }>;
+}
+
+export interface PurchaseBillReceiptMatchingStatus {
+  sourceId: string;
+  sourceType: "purchaseBill";
+  bill: { id: string; billNumber: string; status: PurchaseBillStatus };
+  supplier: Pick<Contact, "id" | "name" | "displayName">;
+  billTotal: string;
+  receiptCount: number;
+  receiptValue: string;
+  status: PurchaseReceiptMatchingStatus;
+  warnings: string[];
+  lines: PurchaseReceiptMatchingStatusLine[];
+}
+
+export interface PurchaseOrderReceiptMatchingStatus {
+  sourceId: string;
+  sourceType: "purchaseOrder";
+  purchaseOrder: { id: string; purchaseOrderNumber: string; status: PurchaseOrderStatus; total: string };
+  supplier: Pick<Contact, "id" | "name" | "displayName">;
+  convertedBill: { id: string; billNumber: string; status: PurchaseBillStatus; billDate: string; total: string } | null;
+  linkedBills: Array<{ id: string; billNumber: string; status: PurchaseBillStatus; billDate: string; total: string }>;
+  receiptCount: number;
+  receiptValueEstimate: string;
+  status: PurchaseReceiptMatchingStatus;
+  warnings: string[];
+  lines: PurchaseReceiptMatchingStatusLine[];
+}
+
 export interface SalesStockIssueStatusLine {
   lineId: string;
   item: Pick<Item, "id" | "name" | "sku" | "type" | "status" | "inventoryTracking"> | null;
@@ -722,8 +777,10 @@ export interface InventorySettings {
   enableInventoryAccounting: boolean;
   inventoryAssetAccountId: string | null;
   cogsAccountId: string | null;
+  inventoryClearingAccountId: string | null;
   inventoryAdjustmentGainAccountId: string | null;
   inventoryAdjustmentLossAccountId: string | null;
+  purchaseReceiptPostingMode: InventoryPurchasePostingMode;
   warnings: string[];
   createdAt: string;
   updatedAt: string;
@@ -733,6 +790,7 @@ export interface InventoryAccountingSettings extends InventorySettings {
   accounts: {
     inventoryAsset: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive"> | null;
     cogs: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive"> | null;
+    inventoryClearing: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive"> | null;
     adjustmentGain: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive"> | null;
     adjustmentLoss: Pick<Account, "id" | "code" | "name" | "type" | "allowPosting" | "isActive"> | null;
   };
@@ -780,11 +838,39 @@ export interface PurchaseReceiptAccountingPreviewLine {
   quantity: string;
   unitCost: string | null;
   lineValue: string | null;
+  matchedQuantity: string;
+  unmatchedQuantity: string;
+  matchedBillValue: string | null;
+  valueDifference: string | null;
+  sourceBillLineId: string | null;
   warnings: string[];
 }
 
 export interface PurchaseReceiptAccountingPreview extends InventoryAccountingPreviewBase {
   sourceType: "PurchaseReceipt";
+  postingMode: InventoryPurchasePostingMode;
+  receiptValue: string;
+  matchedBillValue: string;
+  unmatchedReceiptValue: string;
+  valueDifference: string;
+  journalPreview: InventoryAccountingPreviewJournalLine[];
+  matchingSummary: {
+    sourceType: "purchaseOrder" | "purchaseBill" | "standalone";
+    sourceId: string | null;
+    receiptLines: PurchaseReceiptAccountingPreviewLine[];
+    billLines: Array<{
+      lineId: string;
+      description: string;
+      account: Pick<Account, "id" | "code" | "name" | "type">;
+      billedQuantity: string;
+      unitPrice: string;
+      matchedQuantity: string;
+      matchedValue: string;
+    }>;
+    matchedQuantity: string;
+    unmatchedQuantity: string;
+    valueDifference: string;
+  };
   lines: PurchaseReceiptAccountingPreviewLine[];
 }
 
