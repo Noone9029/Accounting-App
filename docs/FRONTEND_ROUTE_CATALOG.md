@@ -10,7 +10,7 @@ Route source: `apps/web/src/app`
 - The sidebar filters top-level and child nav items by view permissions.
 - Route protection shows an access-denied panel when a user lacks the page permission.
 - High-risk buttons such as approve, convert, finalize, void, delete, apply/reverse allocation, bank account archive/reactivate, opening-balance posting, bank transfer voiding, statement import/match/categorize/ignore, reconciliation close/void, warehouse archive/reactivate, stock movement create, inventory adjustment approve/void, warehouse transfer void, fiscal period lock, ZATCA generate/check, attachment upload/download/delete/manage, and document settings save are hidden unless the active role has the matching permission.
-- Settings/Admin nav now includes Team Members for `users.view` and Roles & Permissions for `roles.view`.
+- Settings/Admin nav now includes Team Members for `users.view`, Roles & Permissions for `roles.view`, Document settings for `documentSettings.view`, and Storage for `documentSettings.view` or `attachments.manage`.
 
 ## Auth And Setup
 
@@ -47,6 +47,7 @@ Route source: `apps/web/src/app`
 | `/documents` | Generated document archive. | Generated documents, including operational and report PDFs. | Filter by document type/status and download archived PDFs; page notes that uploaded attachments are managed on source records. | Implemented | Generated archive and uploaded attachments remain separate; storage/provider status and filters could improve. |
 | `/fiscal-periods` | Fiscal period management. | Fiscal periods. | Create, close, reopen, and lock periods. | Implemented | No unlock/admin approval or fiscal year wizard yet. |
 | `/settings/documents` | Document PDF settings. | Organization document settings. | Update titles/colors/visibility. | Implemented | Template preview/designer missing. |
+| `/settings/storage` | Storage readiness and migration planning. | `/storage/readiness` and `/storage/migration-plan`. | Review active providers, redacted S3 config checks, database storage warnings, and dry-run migration counts. | Groundwork | S3 upload adapter, migration executor, virus scanning, and retention policy are not implemented. |
 | `/settings/zatca` | ZATCA settings, readiness, checklist, SDK readiness. | Profile, EGS units, logs, adapter config, readiness, checklist, SDK readiness. | Update profile, create/update EGS, CSR, mock CSID, dry-run visibility. | Groundwork only | Real ZATCA onboarding/submission not present. |
 | `/settings/team` | Team member administration. | Members and roles. | Change member role/status and create invite placeholders. | Implemented | No email invite delivery, password reset, or onboarding flow yet. |
 | `/settings/roles` | Role list and custom role creation. | Roles and permission matrix. | Create custom roles when allowed. | Implemented | System roles are read-only; no bulk templates beyond seed roles. |

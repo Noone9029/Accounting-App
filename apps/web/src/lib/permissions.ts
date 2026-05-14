@@ -263,6 +263,10 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.documentSettings.view];
   }
 
+  if (pathname.startsWith("/settings/storage")) {
+    return [PERMISSIONS.documentSettings.view, PERMISSIONS.attachments.manage];
+  }
+
   if (pathname.startsWith("/settings/zatca")) {
     return [PERMISSIONS.zatca.view];
   }

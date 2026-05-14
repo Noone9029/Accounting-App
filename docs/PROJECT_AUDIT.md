@@ -2,11 +2,11 @@
 
 Audit date: 2026-05-15
 
-Current commit audited: pending (`Add document attachment groundwork`)
+Current commit audited: pending (`Add storage readiness groundwork`)
 
 ## Summary
 
-LedgerByte is a TypeScript monorepo for a GCC/Saudi-oriented accounting SaaS. The current codebase has a working local MVP for core AR and AP transaction flows, document PDFs, report CSV/PDF exports, generated-document archive, uploaded supporting-file attachment groundwork, operational inventory warehouse/stock-ledger/adjustment/transfer/receipt/issue/report controls, inventory accounting preview, clearing/matching groundwork, accountant-reviewed purchase bill clearing-mode finalization, explicit compatible purchase receipt asset posting, inventory clearing reconciliation/variance reporting, accountant-reviewed inventory variance proposal workflow, inventory accounting integrity audit, purchase receipt posting readiness audit, local smoke coverage, and non-production ZATCA groundwork.
+LedgerByte is a TypeScript monorepo for a GCC/Saudi-oriented accounting SaaS. The current codebase has a working local MVP for core AR and AP transaction flows, document PDFs, report CSV/PDF exports, generated-document archive, uploaded supporting-file attachment groundwork, storage readiness and S3-compatible planning groundwork, operational inventory warehouse/stock-ledger/adjustment/transfer/receipt/issue/report controls, inventory accounting preview, clearing/matching groundwork, accountant-reviewed purchase bill clearing-mode finalization, explicit compatible purchase receipt asset posting, inventory clearing reconciliation/variance reporting, accountant-reviewed inventory variance proposal workflow, inventory accounting integrity audit, purchase receipt posting readiness audit, local smoke coverage, and non-production ZATCA groundwork.
 
 Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated locally for sales invoices, customer payments, credit notes, customer refunds, purchase orders, purchase bills, purchase bill accounting previews, supplier payments, bank account profile balances/transactions, bank transfers, opening-balance posting, local bank statement import preview/reconciliation, reconciliation approval/close/lock review history, reconciliation reports, uploaded attachment upload/list/download/soft-delete on key source records, inventory warehouses, opening-balance movements, inventory adjustment approvals/voids, warehouse transfers/voids, purchase receipts/voids, sales stock issues/voids, inventory balances, inventory settings, inventory accounting settings, purchase receipt posting readiness, purchase receipt accounting previews, compatible receipt asset posting/reversal, bill/receipt matching visibility, inventory clearing reconciliation/variance reports, variance proposal create/submit/approve/post/reverse/void workflow, sales issue COGS previews/posting, stock valuation/movement/low-stock reports, ledgers, statements, core report exports, and PDFs. It is not production-ready as a SaaS and is not production ZATCA compliant.
 
@@ -56,7 +56,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 - Sales invoice, credit note, customer payment, customer refund, customer statement, purchase order, purchase bill, supplier payment, core report, and bank reconciliation PDFs.
 - Core accounting report JSON/CSV/PDF outputs for General Ledger, Trial Balance, Profit & Loss, Balance Sheet, VAT Summary, Aged Receivables, and Aged Payables.
 - Generated document archive for generated PDFs.
-- Uploaded supporting-file attachment groundwork with database storage, metadata, tenant-scoped linked entity validation, and reusable panels on key detail pages.
+- Uploaded supporting-file attachment groundwork with database storage, metadata, tenant-scoped linked entity validation, reusable panels on key detail pages, storage readiness API, S3-compatible stub readiness, dry-run migration counts, and `/settings/storage`.
 - Local-only ZATCA profile, EGS, CSR, mock CSID, XML/QR/hash, compliance checklist, reference maps, and SDK wrapper readiness/dry-run.
 - Full `typecheck`, `test`, `build`, and smoke workflow is run for each release checkpoint.
 
@@ -68,7 +68,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 - Reports have CSV/PDF delivery, but accountant-reviewed filing definitions, scheduling, and email delivery remain missing.
 - Inventory warehouse, stock ledger, adjustment approval, warehouse transfer controls, manual purchase receiving, manual sales stock issue, valuation settings, purchase bill clearing-mode finalization, compatible manual purchase receipt asset posting, inventory clearing preview/matching/reconciliation groundwork, accountant-reviewed variance proposal workflow, purchase receipt posting readiness audit, inventory accounting integrity audit, manual COGS posting, and operational reports exist, but automatic COGS, automatic/direct-mode receipt asset posting, automatic variance posting, automatic receipts/issues, landed cost, serial/batch tracking, and accounting-grade inventory financial reports are not implemented.
 - PDF rendering is operational only, not legal/template-complete.
-- Generated document and uploaded attachment storage is database base64, not object storage.
+- Generated document and uploaded attachment storage is still database base64; storage readiness and migration dry-run planning exist, but object storage is not active.
 - ZATCA is local/mock/scaffold only. No real CSID, signing, official SDK validation, clearance, reporting, or PDF/A-3 exists.
 - Redis is present in local infra but workers/queues are not wired.
 - Production deployment, monitoring, backups, subscription billing, email, WhatsApp, and storage integrations are not implemented.
@@ -80,7 +80,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 3. No broad approval workflow, dual control, or maker-checker policy exists for high-risk accounting actions outside the new bank reconciliation approval path.
 4. Bank reconciliation has local import preview, manual matching, categorization, approval, close/lock, report export groundwork, and basic linked attachments, but there is no live feed, automatic matching, OFX/CAMT/MT940 parser, production-grade bank file parser/storage workflow, or external bank integration.
 5. Inventory warehouses, adjustment controls, transfers, manual receipts/issues, valuation settings, purchase bill clearing-mode finalization, compatible manual receipt asset posting, inventory clearing preview/matching/reconciliation groundwork, variance proposal workflow, purchase receipt posting readiness audit, integrity audit, and manual COGS posting exist, but automatic COGS, automatic/direct-mode receipt asset posting, GL valuation reports, automatic variance posting, automatic receipts/issues, landed cost, serial/batch tracking, and accounting-grade inventory financial reports are still missing.
-6. Generated PDFs and uploaded attachments are stored as base64 in the database, which is not scalable for production.
+6. Generated PDFs and uploaded attachments are stored as base64 in the database; readiness and dry-run migration planning exist, but no real S3 upload adapter or migration executor is active.
 7. Production secrets/key custody is not hardened; ZATCA private key storage is explicitly dev-only.
 8. Frontend has limited end-to-end browser testing and limited UX validation for all routes.
 9. Supplier AP balance display reuses a generic Dr/Cr helper; supplier-specific payable wording should be reviewed to avoid user confusion.
@@ -96,7 +96,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 6. Harden bank reconciliation with upload storage, import file-format samples/parsers, transfer fees, and multi-currency FX handling.
 7. Review accountant-reviewed inventory variance journal proposal outputs, then define historical direct-mode exclusion/migration and landed-cost policy before any automatic posting.
 8. Advance ZATCA official SDK validation, official XML mapping, signing, CSID, clearance/reporting, and PDF/A-3.
-9. Move generated documents and uploaded attachments to object storage.
+9. Implement the real S3-compatible adapter and migration executor for generated documents and uploaded attachments.
 10. Prepare production deployment, monitoring, backups, secrets management, and security review.
 
 ## New Issues Found During Audit

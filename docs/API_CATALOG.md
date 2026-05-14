@@ -373,6 +373,8 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | GET | `/attachments/:id/download` | Download uploaded attachment | Yes | Yes | Implemented | Requires `attachments.download`; streams original MIME type and sanitized filename; deleted attachments are not downloadable. |
 | PATCH | `/attachments/:id` | Update attachment notes | Yes | Yes | Implemented | Requires `attachments.manage`; active attachments only. |
 | DELETE | `/attachments/:id` | Soft-delete attachment | Yes | Yes | Implemented | Requires `attachments.delete`; marks `DELETED` and preserves metadata. |
+| GET | `/storage/readiness` | Storage provider readiness | Yes | Yes | Implemented | Requires `documentSettings.view` or `attachments.manage`; reports active attachment/generated-document providers, database warnings, max upload size, S3 config booleans, and no secret values. |
+| GET | `/storage/migration-plan` | Storage migration dry-run plan | Yes | Yes | Implemented | Requires `documentSettings.view` or `attachments.manage`; counts attachment/generated-document records and bytes by storage domain; does not copy, delete, or rewrite content. |
 
 ## ZATCA And SDK
 

@@ -135,15 +135,20 @@ This document maps implemented accounting workflows to their journal entries, ba
 - Model: `Attachment` stores tenant-scoped metadata, sanitized filename, original filename, MIME type, size, SHA-256 content hash, storage provider marker, optional base64 content, soft-delete status, notes, and upload/delete actors.
 - Storage behavior:
   - The active MVP provider is database/base64 storage behind an `AttachmentStorageService` abstraction.
-  - Future local/object storage provider markers exist, but no S3 dependency or external storage is wired.
+  - `GET /storage/readiness` reports attachment and generated-document storage providers, max upload size, redacted S3 configuration checks, warnings, and blocking reasons without returning secret values.
+  - `GET /storage/migration-plan` reports dry-run counts and byte totals for database-backed attachments and generated documents without copying, deleting, or rewriting content.
+  - The S3-compatible attachment adapter is a readiness/stub implementation only; it reports not-ready configuration and throws a clear error if selected before a real object-storage adapter is implemented.
+  - Future local/object storage provider markers exist, but no S3 dependency or external storage upload path is wired.
 - Linked entity validation:
   - Upload verifies the linked entity exists in the active organization before writing metadata/content.
   - Supported entity types include invoices, payments, credit/debit notes, refunds, purchase orders/bills, cash expenses, bank statement transactions, bank reconciliations, purchase receipts, stock issues, inventory adjustments/transfers, inventory variance proposals, contacts, items, and manual journals.
 - Accounting impact:
   - Attachment upload, metadata update, download, and soft delete create no journal entries and do not mutate source-document accounting state.
+  - Storage readiness and migration-plan endpoints are read-only and create no journal entries or accounting state.
   - Attachments are evidence/supporting documents only; generated PDFs remain separate in `GeneratedDocument`.
 - Gaps/risks:
   - Database/base64 storage is not production-scale.
+  - No active S3/object-storage upload adapter or migration executor exists yet.
   - No virus scanning, OCR, retention policy, drag/drop polish, email attachment sending, or ZATCA attachment submission exists yet.
 
 ## Inventory Warehouse, Adjustment, Receipt, Issue, And Transfer Groundwork

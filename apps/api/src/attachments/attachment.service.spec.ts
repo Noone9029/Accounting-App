@@ -62,12 +62,17 @@ describe("AttachmentService", () => {
       ...overrides,
     };
     const storage: AttachmentStorageService = {
+      provider: "database",
       save: jest.fn().mockResolvedValue({
         storageProvider: AttachmentStorageProvider.DATABASE,
         storageKey: null,
         contentBase64: Buffer.from("hello").toString("base64"),
       }),
       read: jest.fn().mockResolvedValue(Buffer.from("hello")),
+      saveObject: jest.fn(),
+      getObject: jest.fn(),
+      deleteObject: jest.fn(),
+      readiness: jest.fn().mockReturnValue({ provider: "database", ready: true, blockingReasons: [], warnings: [] }),
     };
     const audit = { log: jest.fn() };
     const config = { get: jest.fn().mockReturnValue("10") };
@@ -202,6 +207,14 @@ describe("AttachmentService", () => {
         }),
       }),
     );
+    expect(prisma.attachment.findMany.mock.calls[0][0].select).not.toHaveProperty("contentBase64");
+  });
+
+  it("does not select base64 content for attachment detail metadata", async () => {
+    const { service, prisma } = makeService();
+
+    await service.get("org-1", "attachment-1");
+    expect(prisma.attachment.findFirst.mock.calls[0][0].select).not.toHaveProperty("contentBase64");
   });
 
   it("downloads active attachment content", async () => {

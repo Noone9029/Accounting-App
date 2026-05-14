@@ -746,6 +746,44 @@ interface Attachment {
   notes?: string | null;
 }
 
+interface StorageReadinessResponse {
+  attachmentStorage: {
+    activeProvider: "database" | "s3";
+    ready: boolean;
+    blockingReasons: string[];
+    warnings: string[];
+    maxSizeMb: number;
+  };
+  generatedDocumentStorage: {
+    activeProvider: "database" | "s3";
+    ready: boolean;
+    blockingReasons: string[];
+    warnings: string[];
+  };
+  s3Config: {
+    endpointConfigured: boolean;
+    regionConfigured: boolean;
+    bucketConfigured: boolean;
+    accessKeyConfigured: boolean;
+    secretConfigured: boolean;
+    forcePathStyle: boolean;
+    publicBaseUrlConfigured: boolean;
+  };
+  warnings: string[];
+}
+
+interface StorageMigrationPlanResponse {
+  attachmentCount: number;
+  attachmentTotalBytes: number;
+  generatedDocumentCount: number;
+  generatedDocumentTotalBytes: number;
+  databaseStorageCount: number;
+  s3StorageCount: number;
+  estimatedMigrationRequired: boolean;
+  dryRunOnly: boolean;
+  notes: string[];
+}
+
 interface PurchaseDebitNoteAllocation {
   id: string;
   debitNoteId: string;
@@ -3369,6 +3407,26 @@ async function main(): Promise<void> {
   const journalEntriesAfterAttachments = await get<JournalEntry[]>("/journal-entries", headers);
   assertEqual(journalEntriesAfterAttachments.length, journalEntriesBeforeAttachments.length, "attachment endpoints do not create journal entries");
 
+  const storageReadiness = await get<StorageReadinessResponse>("/storage/readiness", headers);
+  assertEqual(storageReadiness.attachmentStorage.activeProvider, "database", "attachment storage readiness default provider");
+  assertEqual(storageReadiness.generatedDocumentStorage.activeProvider, "database", "generated document storage readiness default provider");
+  assertEqual(storageReadiness.attachmentStorage.ready, true, "attachment database storage readiness");
+  assertEqual(storageReadiness.generatedDocumentStorage.ready, true, "generated document database storage readiness");
+  assertEqual(typeof storageReadiness.s3Config.accessKeyConfigured, "boolean", "storage readiness redacted access key flag");
+  assertEqual(typeof storageReadiness.s3Config.secretConfigured, "boolean", "storage readiness redacted secret key flag");
+  const serializedStorageReadiness = JSON.stringify(storageReadiness);
+  assert(!serializedStorageReadiness.includes("S3_ACCESS_KEY_ID"), "storage readiness does not expose access key field name");
+  assert(!serializedStorageReadiness.includes("S3_SECRET_ACCESS_KEY"), "storage readiness does not expose secret key field name");
+  assert(!serializedStorageReadiness.includes("accessKeyId"), "storage readiness does not expose access key value field");
+  assert(!serializedStorageReadiness.includes("secretAccessKey"), "storage readiness does not expose secret key value field");
+
+  const storageMigrationPlan = await get<StorageMigrationPlanResponse>("/storage/migration-plan", headers);
+  assertEqual(typeof storageMigrationPlan.attachmentCount, "number", "storage migration plan attachment count");
+  assertEqual(typeof storageMigrationPlan.generatedDocumentCount, "number", "storage migration plan generated document count");
+  assertEqual(storageMigrationPlan.dryRunOnly, true, "storage migration plan dry run only");
+  const journalEntriesAfterStorageReports = await get<JournalEntry[]>("/journal-entries", headers);
+  assertEqual(journalEntriesAfterStorageReports.length, journalEntriesAfterAttachments.length, "storage readiness endpoints do not create journal entries");
+
   const voidedCashExpense = await post<CashExpense>(`/cash-expenses/${cashExpense.id}/void`, headers, {});
   assertEqual(voidedCashExpense.status, "VOIDED", "voided cash expense status");
   assertPresent(voidedCashExpense.voidReversalJournalEntryId, "voided cash expense reversal journal");
@@ -4123,6 +4181,13 @@ async function main(): Promise<void> {
         cashExpenseAttachmentDeleted: deletedCashExpenseAttachment.status === "DELETED",
         salesInvoiceAttachmentId: salesInvoiceAttachment.id,
         attachmentJournalCountUnchanged: journalEntriesAfterAttachments.length === journalEntriesBeforeAttachments.length,
+        storageReadinessAttachmentProvider: storageReadiness.attachmentStorage.activeProvider,
+        storageReadinessGeneratedDocumentProvider: storageReadiness.generatedDocumentStorage.activeProvider,
+        storageReadinessSecretsRedacted:
+          typeof storageReadiness.s3Config.accessKeyConfigured === "boolean" &&
+          typeof storageReadiness.s3Config.secretConfigured === "boolean",
+        storageMigrationPlanDryRunOnly: storageMigrationPlan.dryRunOnly,
+        storageMigrationDatabaseCount: storageMigrationPlan.databaseStorageCount,
         purchaseDebitNoteId: draftPurchaseDebitNote.id,
         purchaseDebitNoteNumber: finalizedPurchaseDebitNote.debitNoteNumber,
         purchaseDebitNoteAllocationId: purchaseDebitNoteAllocation.id,

@@ -4,6 +4,8 @@ Audit date: 2026-05-15
 
 Schema source: `apps/api/prisma/schema.prisma`
 
+Storage readiness groundwork in this checkpoint adds no Prisma model changes; it documents the existing `Attachment` and `GeneratedDocument` storage fields and adds API/UI planning around them.
+
 ## Enums
 
 | Enum | Values | Purpose |
@@ -49,7 +51,7 @@ Schema source: `apps/api/prisma/schema.prisma`
 | `InventoryVarianceProposalAction` | `CREATE`, `SUBMIT`, `APPROVE`, `POST`, `REVERSE`, `VOID` | Append-only proposal event action. |
 | `DocumentType` | `SALES_INVOICE`, `CREDIT_NOTE`, `CUSTOMER_PAYMENT_RECEIPT`, `CUSTOMER_REFUND`, `CUSTOMER_STATEMENT`, `PURCHASE_ORDER`, `PURCHASE_BILL`, `PURCHASE_DEBIT_NOTE`, `SUPPLIER_PAYMENT_RECEIPT`, `SUPPLIER_REFUND`, `CASH_EXPENSE`, `REPORT_GENERAL_LEDGER`, `REPORT_TRIAL_BALANCE`, `REPORT_PROFIT_AND_LOSS`, `REPORT_BALANCE_SHEET`, `REPORT_VAT_SUMMARY`, `REPORT_AGED_RECEIVABLES`, `REPORT_AGED_PAYABLES`, `BANK_RECONCILIATION_REPORT` | Generated document classification. |
 | `GeneratedDocumentStatus` | `GENERATED`, `FAILED`, `SUPERSEDED` | Archive status. |
-| `AttachmentStorageProvider` | `DATABASE`, `LOCAL_PLACEHOLDER`, `S3_PLACEHOLDER` | Uploaded attachment storage provider marker; only database storage is active in the MVP. |
+| `AttachmentStorageProvider` | `DATABASE`, `LOCAL_PLACEHOLDER`, `S3_PLACEHOLDER` | Uploaded attachment storage provider marker; only database storage is active in the MVP, while storage readiness can report future S3-compatible configuration. |
 | `AttachmentLinkedEntityType` | `SALES_INVOICE`, `CUSTOMER_PAYMENT`, `CREDIT_NOTE`, `CUSTOMER_REFUND`, `PURCHASE_BILL`, `SUPPLIER_PAYMENT`, `PURCHASE_DEBIT_NOTE`, `SUPPLIER_REFUND`, `PURCHASE_ORDER`, `CASH_EXPENSE`, `BANK_STATEMENT_IMPORT`, `BANK_STATEMENT_TRANSACTION`, `BANK_RECONCILIATION`, `PURCHASE_RECEIPT`, `SALES_STOCK_ISSUE`, `INVENTORY_ADJUSTMENT`, `WAREHOUSE_TRANSFER`, `INVENTORY_VARIANCE_PROPOSAL`, `CONTACT`, `ITEM`, `MANUAL_JOURNAL`, `OTHER` | Polymorphic source-record classification for uploaded attachments. |
 | `AttachmentStatus` | `ACTIVE`, `DELETED` | Uploaded attachment lifecycle; delete is soft-delete only. |
 | `ZatcaEnvironment` | `SANDBOX`, `SIMULATION`, `PRODUCTION` | ZATCA environment marker. |
@@ -78,8 +80,8 @@ Schema source: `apps/api/prisma/schema.prisma`
 | `Branch` | Sales/purchase branch. | `name`, `taxNumber`, address, `isDefault`. | Organization, invoices, credit notes, purchase orders, bills. | Branch context for documents and future taxes. | Active flag not present. | Multiple default branches can exist. |
 | `Contact` | Customer/supplier master. | `type`, `name`, `displayName`, `taxNumber`, address, `isActive`. | Sales invoices, credit notes, purchase orders, bills, purchase receipts, sales stock issues, payments, refunds, optional inventory variance proposals. | AR/AP ledgers are contact-based; receipt/issue links are operational only. | Active boolean. | No bank details or duplicate management. |
 | `OrganizationDocumentSettings` | PDF display settings. | titles, colors, visibility flags, template names. | One per organization. | Document presentation only. | No status enum. | Only standard renderer implemented. |
-| `GeneratedDocument` | PDF archive. | `documentType`, `sourceType`, `sourceId`, `contentBase64`, `contentHash`, `sizeBytes`. | Organization, generatedBy user. | Audit/archive of issued operational documents. | `GeneratedDocumentStatus`. | Base64 DB storage is not production-scale. |
-| `Attachment` | User-uploaded supporting file metadata and MVP content storage. | `linkedEntityType`, `linkedEntityId`, `filename`, `originalFilename`, `mimeType`, `sizeBytes`, `storageProvider`, `storageKey`, `contentBase64`, `contentHash`, `status`, notes, upload/delete actor timestamps. | Organization, uploadedBy User, deletedBy User; polymorphic source record is validated by service logic. | No journal impact; supports audit evidence on accounting and operational records. | `AttachmentStorageProvider`, `AttachmentLinkedEntityType`, `AttachmentStatus`. | Database/base64 storage only; no S3/object storage, virus scanning, OCR, retention policy, or email/ZATCA attachment submission. |
+| `GeneratedDocument` | PDF archive. | `documentType`, `sourceType`, `sourceId`, `storageProvider`, `storageKey`, `contentBase64`, `contentHash`, `sizeBytes`. | Organization, generatedBy user. | Audit/archive of issued operational documents. | `GeneratedDocumentStatus`. | Base64 DB storage remains active; readiness/migration dry-run counts exist, but no object-storage migration executor exists. |
+| `Attachment` | User-uploaded supporting file metadata and MVP content storage. | `linkedEntityType`, `linkedEntityId`, `filename`, `originalFilename`, `mimeType`, `sizeBytes`, `storageProvider`, `storageKey`, `contentBase64`, `contentHash`, `status`, notes, upload/delete actor timestamps. | Organization, uploadedBy User, deletedBy User; polymorphic source record is validated by service logic. | No journal impact; supports audit evidence on accounting and operational records. | `AttachmentStorageProvider`, `AttachmentLinkedEntityType`, `AttachmentStatus`. | Database/base64 storage remains active; S3-compatible adapter is readiness/stub groundwork only; no migration executor, virus scanning, OCR, retention policy, or email/ZATCA attachment submission. |
 | `NumberSequence` | Tenant numbering. | `scope`, `prefix`, `nextNumber`, `padding`. | Organization. | Generates accounting document numbers. | No status enum. | No UI for sequence config. |
 
 ## Accounting Master Data

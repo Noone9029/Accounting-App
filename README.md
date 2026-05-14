@@ -122,7 +122,7 @@ LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! 
 
 The smoke covers seed login, `/auth/me` role permission visibility, role/member API visibility, custom role creation, unknown-permission rejection, organization discovery, bank account profile defaults/transactions/balance movement, bank transfers/opening balances, bank statement preview/import/matching/categorization/reconciliation summary/submit/approve/close/void lock checks, reconciliation report data/CSV/PDF/archive checks, item/customer/supplier setup, warehouse defaults, opening-balance stock movements, inventory adjustment approval/void flows, warehouse transfers/void reversals, purchase receipt posting/voiding, compatible purchase receipt asset post/reverse, finalized-invoice sales stock issue posting/voiding after manual COGS post/reversal, receiving/issue status endpoints, inventory balances, inventory settings, inventory accounting settings, purchase receipt posting readiness, purchase receipt accounting preview, sales issue COGS preview, manual COGS posting, P&L COGS activity, stock valuation/movement/low-stock reports, inventory clearing reconciliation/variance reports and CSV exports, accountant-reviewed inventory variance proposal create/submit/approve/post/reverse flow, no-journal inventory movement checks outside explicit COGS/receipt asset/variance proposal post actions, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, report CSV/PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
 
-The smoke also verifies document settings, PDF archive creation after invoice PDF generation, generated document archive download, and user-uploaded attachment upload/list/download/soft-delete checks without creating journals.
+The smoke also verifies document settings, PDF archive creation after invoice PDF generation, generated document archive download, user-uploaded attachment upload/list/download/soft-delete checks, and storage readiness/migration-plan dry-run checks without creating journals.
 
 On Windows, if `db:generate` fails with Prisma query engine `EPERM`, stop running API/dev Node processes and rerun it. This is usually a file lock on Prisma's generated client DLL.
 
@@ -493,6 +493,11 @@ Uploaded attachments:
 - `GET /attachments/:id/download`
 - `PATCH /attachments/:id`
 - `DELETE /attachments/:id`
+
+Storage readiness:
+
+- `GET /storage/readiness`
+- `GET /storage/migration-plan`
 
 ZATCA foundation:
 
@@ -1252,11 +1257,22 @@ APIs:
 
 Supported file types are PDF, PNG, JPEG, WebP, CSV, XLSX, and XLS. Empty files, unsupported MIME types, invalid base64, and files above `ATTACHMENT_MAX_SIZE_MB` are rejected; the default size limit is 10 MB.
 
-The MVP storage provider is database/base64 through a storage abstraction. `LOCAL_PLACEHOLDER` and `S3_PLACEHOLDER` enum values reserve the future provider direction, but no S3/object-storage integration is active yet. Uploaded attachments validate tenant ownership for supported linked entities such as invoices, customer payments, credit notes, customer refunds, purchase bills, supplier payments, debit notes, supplier refunds, purchase orders, cash expenses, bank statement transactions, bank reconciliations, purchase receipts, sales stock issues, inventory adjustments, warehouse transfers, inventory variance proposals, contacts, items, and journal entries.
+The MVP storage provider is database/base64 through a storage abstraction. `LOCAL_PLACEHOLDER` and `S3_PLACEHOLDER` enum values reserve the future provider direction, and the API now exposes `GET /storage/readiness` plus `GET /storage/migration-plan` for S3-compatible readiness and dry-run migration planning. The active provider remains database by default; no S3/object-storage upload is active yet. Uploaded attachments validate tenant ownership for supported linked entities such as invoices, customer payments, credit notes, customer refunds, purchase bills, supplier payments, debit notes, supplier refunds, purchase orders, cash expenses, bank statement transactions, bank reconciliations, purchase receipts, sales stock issues, inventory adjustments, warehouse transfers, inventory variance proposals, contacts, items, and journal entries.
+
+Storage configuration:
+
+- `ATTACHMENT_STORAGE_PROVIDER=database`
+- `GENERATED_DOCUMENT_STORAGE_PROVIDER=database`
+- `ATTACHMENT_MAX_SIZE_MB=10`
+- Future S3-compatible placeholders: `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE`, and `S3_PUBLIC_BASE_URL`.
+
+Storage readiness returns boolean S3 configuration checks only and does not expose secret values. The migration plan is dry-run only; it counts attachment and generated-document records and byte totals but does not copy, delete, or rewrite content.
 
 Known limitations:
 
-- No external S3/object storage provider is implemented yet.
+- Database/base64 storage remains active and is not production-scale.
+- No external S3/object storage upload adapter is active yet.
+- No storage migration executor exists yet.
 - No OCR, receipt scanning, file parsing, or virus scanning exists yet.
 - No drag/drop polish, retention policy, email attachment sending, or ZATCA attachment submission exists yet.
 

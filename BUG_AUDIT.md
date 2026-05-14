@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Commit inspected: pending (`Add document attachment groundwork`)
+Commit inspected: pending (`Add storage readiness groundwork`)
 
 ## Scope
 
@@ -37,6 +37,27 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Storage readiness/S3 groundwork added
+
+Added production-grade storage planning and S3-compatible adapter groundwork without changing current upload behavior.
+
+Risk reduced:
+
+- Storage provider environment variables keep uploaded attachments and generated documents on database storage by default.
+- `GET /storage/readiness` reports active providers, max size, S3 configuration booleans, warnings, and blocking reasons without returning secret values.
+- `GET /storage/migration-plan` returns dry-run counts and byte totals for uploaded attachments and generated documents without copying, deleting, or rewriting content.
+- `S3AttachmentStorageService` is a non-active stub that reports not-ready configuration and throws a clear error if selected before a real adapter is implemented.
+- The `/settings/storage` page gives administrators a redacted readiness and migration-planning view.
+- Storage architecture, S3 migration, and attachment security docs now define the future production path.
+
+Remaining risks:
+
+- Database storage is still the active upload path.
+- No S3/object-storage upload adapter is active yet.
+- No migration executor exists.
+- No virus scanning.
+- No retention policy.
+
 ### Document attachment groundwork added
 
 Added reusable uploaded supporting-file infrastructure without changing generated document archive behavior or adding external storage.
@@ -44,7 +65,7 @@ Added reusable uploaded supporting-file infrastructure without changing generate
 Risk reduced:
 
 - Uploaded files now have tenant-scoped `Attachment` metadata with sanitized filenames, original filename, MIME type, size, content hash, storage provider marker, active/deleted status, notes, upload/delete actors, and soft-delete lifecycle.
-- The active MVP storage path is database/base64 behind an `AttachmentStorageService` abstraction; S3/object storage remains a future provider.
+- The active MVP storage path is database/base64 behind an `AttachmentStorageService` abstraction; S3/object storage now has readiness/stub groundwork only.
 - Upload validates linked entity ownership before storing content and supports key accounting/operational records across sales, purchases, banking, inventory, contacts, items, and manual journals.
 - Attachment APIs are permission-gated for view, upload, download, notes management, and soft delete.
 - Frontend `AttachmentPanel` is mounted on key sales, purchase, banking, and inventory detail pages.
@@ -55,7 +76,7 @@ Remaining risks:
 - Database storage is not production-scale.
 - No virus scanning.
 - No OCR or receipt scanning.
-- No S3/object storage provider.
+- No active S3/object storage upload provider.
 - No retention policy.
 - No email attachment sending or ZATCA attachment submission.
 

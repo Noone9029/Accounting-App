@@ -74,6 +74,10 @@ describe("permission helpers", () => {
       PERMISSIONS.inventory.varianceProposalsCreate,
     ]);
     expect(getRequiredPermissionsForPathname("/inventory/settings")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/settings/storage")).toEqual([
+      PERMISSIONS.documentSettings.view,
+      PERMISSIONS.attachments.manage,
+    ]);
     expect(getRequiredPermissionsForPathname("/settings/zatca")).toEqual([PERMISSIONS.zatca.view]);
     expect(getRequiredPermissionsForPathname("/settings/team")).toEqual([PERMISSIONS.users.view]);
     expect(getRequiredPermissionsForPathname("/settings/roles/role-1")).toEqual([PERMISSIONS.roles.view]);
@@ -116,5 +120,12 @@ describe("sidebar nav filtering", () => {
     const settings = nav.find((item) => item.label === "Settings / Admin");
 
     expect(settings?.children?.map((item) => item.label)).toEqual(["Team Members", "Roles & Permissions"]);
+  });
+
+  it("shows storage settings when the user can view document settings", () => {
+    const nav = filterSidebarNavItems(subject([PERMISSIONS.documentSettings.view]));
+    const settings = nav.find((item) => item.label === "Settings / Admin");
+
+    expect(settings?.children?.map((item) => item.label)).toEqual(["Document settings", "Storage"]);
   });
 });

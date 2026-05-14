@@ -2424,6 +2424,48 @@ export interface Attachment {
   deletedBy?: { id: string; name: string; email: string } | null;
 }
 
+export type ObjectStorageProviderName = "database" | "s3";
+
+export interface StorageReadinessSection {
+  activeProvider: ObjectStorageProviderName;
+  ready: boolean;
+  blockingReasons: string[];
+  warnings: string[];
+}
+
+export interface AttachmentStorageReadinessSection extends StorageReadinessSection {
+  maxSizeMb: number;
+}
+
+export interface S3ConfigReadiness {
+  endpointConfigured: boolean;
+  regionConfigured: boolean;
+  bucketConfigured: boolean;
+  accessKeyConfigured: boolean;
+  secretConfigured: boolean;
+  forcePathStyle: boolean;
+  publicBaseUrlConfigured: boolean;
+}
+
+export interface StorageReadinessResponse {
+  attachmentStorage: AttachmentStorageReadinessSection;
+  generatedDocumentStorage: StorageReadinessSection;
+  s3Config: S3ConfigReadiness;
+  warnings: string[];
+}
+
+export interface StorageMigrationPlanResponse {
+  attachmentCount: number;
+  attachmentTotalBytes: number;
+  generatedDocumentCount: number;
+  generatedDocumentTotalBytes: number;
+  databaseStorageCount: number;
+  s3StorageCount: number;
+  estimatedMigrationRequired: boolean;
+  dryRunOnly: boolean;
+  notes: string[];
+}
+
 export interface ZatcaOrganizationProfile {
   id: string;
   organizationId: string;

@@ -129,6 +129,7 @@ export const SIDEBAR_NAV_ITEMS: readonly SidebarNavItem[] = [
       { label: "Team Members", href: "/settings/team", requiredAny: [PERMISSIONS.users.view] },
       { label: "Roles & Permissions", href: "/settings/roles", requiredAny: [PERMISSIONS.roles.view] },
       { label: "Document settings", href: "/settings/documents", requiredAny: [PERMISSIONS.documentSettings.view] },
+      { label: "Storage", href: "/settings/storage", requiredAny: [PERMISSIONS.documentSettings.view, PERMISSIONS.attachments.manage] },
       { label: "ZATCA", href: "/settings/zatca", requiredAny: [PERMISSIONS.zatca.view] },
     ],
   },
