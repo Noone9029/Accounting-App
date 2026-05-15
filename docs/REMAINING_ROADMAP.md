@@ -101,7 +101,7 @@ Objective: move from local-only ZATCA groundwork to official validated Phase 2 i
 Tasks:
 
 - Verify official XML requirements against local `reference/` docs and SDK samples.
-- Run SDK-backed XML fixture validation and then add hash comparison tests.
+- Configure Java 11-14, then run SDK-backed XML fixture validation and add hash comparison tests.
 - Implement official XML mapping for standard and simplified tax invoices.
 - Implement signing and canonicalization through SDK-verified tests.
 - Implement compliance CSID onboarding with real FATOORA sandbox OTP.
@@ -117,14 +117,14 @@ Manual dependencies:
 - ZATCA/FATOORA sandbox access.
 - FATOORA OTP.
 - Official endpoint/auth verification.
-- Java/SDK runtime verification.
+- Java 11-14 runtime verification.
 - KMS/secrets manager selection.
 
 Risk level: Critical.
 
 Recommended next prompt:
 
-> Run ZATCA SDK fixture validation locally and close generated XML gaps without signing or real API calls.
+> Configure Java 11-14 for the ZATCA SDK, run official fixture validation locally, then close generated XML gaps without signing or real API calls.
 
 ## Phase 5: Production/SaaS Readiness
 

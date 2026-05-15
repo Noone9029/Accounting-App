@@ -23,9 +23,13 @@ These fixtures prove that LedgerByte's current XML builder is deterministic, esc
 
 The expected XML files are compared directly in automated tests. If the XML builder changes intentionally, update the expected fixture and document why the local skeleton changed.
 
-## Adding Official Fixtures Later
+## Official Fixture Registry
 
-Before adding official fixtures:
+Official SDK sample fixture targets are now registered in `apps/api/src/zatca-sdk/zatca-official-fixtures.ts`. The registry references files under the repo-local `reference/` folder and the current LedgerByte local fixtures without copying official sample XML into application code.
+
+The first validation pass is documented in `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`. Execution is currently blocked because the local Java runtime is 17.0.16 and the SDK README requires Java `>=11` and `<15`.
+
+Before promoting official fixture checks:
 
 1. Obtain current official ZATCA/FATOORA XML, signing, QR, and validation requirements.
 2. Confirm whether fixture data may be committed to the repository.

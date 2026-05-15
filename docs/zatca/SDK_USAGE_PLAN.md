@@ -59,8 +59,15 @@ The local SDK bundle is `reference/zatca-einvoicing-sdk-Java-238-R3.4.8`.
 - The SDK readme documents `fatoora -validate -invoice <filename>`; LedgerByte resolves this as either launcher execution or direct JAR execution with argument-array `execFile` calls.
 - The wrapper enforces a 2 MB XML limit, timeout, temp-file cleanup, output redaction, path traversal blocking, and no-shell command execution.
 - The frontend displays SDK validation readiness on `/settings/zatca` and exposes dry-run plus local validation actions from invoice detail pages.
+- `apps/api/src/zatca-sdk/zatca-official-fixtures.ts` now registers the first official and LedgerByte XML fixtures to validate once Java 11-14 is available.
 
 See `SDK_VALIDATION_WRAPPER.md` for endpoint behavior and safety rules.
+
+## Current Fixture Validation Result
+
+`OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` records the 2026-05-16 fixture pass.
+
+The SDK command is verified as `fatoora -validate -invoice <filename>`. Actual fixture execution is blocked on this machine because `java -version` reports OpenJDK 17.0.16 and the official SDK README requires Java `>=11` and `<15`. No official sample, LedgerByte local fixture, or generated invoice XML was validated by the SDK in this pass.
 
 ## Guardrails For Future Wrapper
 

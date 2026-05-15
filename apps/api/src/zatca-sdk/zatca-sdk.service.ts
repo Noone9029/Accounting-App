@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { extname, isAbsolute, join, relative, resolve } from "node:path";
 import { PrismaService } from "../prisma/prisma.service";
 import { ValidateZatcaSdkFixtureDto, ValidateZatcaSdkXmlDto } from "./dto/validate-zatca-sdk-xml.dto";
+import { isAllowedZatcaFixturePath, normalizeZatcaFixturePath } from "./zatca-official-fixtures";
 import {
   buildZatcaSdkValidationCommand,
   discoverZatcaSdkReadiness,
@@ -237,7 +238,7 @@ export class ZatcaSdkService {
         sdkExitCode: executed.exitCode,
         stdoutSummary,
         stderrSummary,
-        validationMessages: extractValidationMessages(`${stdoutSummary}\n${stderrSummary}`),
+        validationMessages: extractZatcaSdkValidationMessages(`${stdoutSummary}\n${stderrSummary}`),
         blockingReasons: executed.timedOut ? ["ZATCA SDK validation timed out."] : [],
         warnings: [...warnings, ...commandPlan.warnings],
         xmlSource: options.source,
@@ -256,10 +257,13 @@ export class ZatcaSdkService {
     if (extname(trimmed).toLowerCase() !== ".xml") {
       throw new BadRequestException("Only XML fixture files can be validated.");
     }
+    if (!isAllowedZatcaFixturePath(trimmed)) {
+      throw new BadRequestException("Fixture path must be under reference/ or packages/zatca-core/fixtures.");
+    }
 
     const readiness = discoverZatcaSdkReadiness();
     const projectRoot = readiness.projectRoot;
-    const requestedPath = resolve(projectRoot, trimmed);
+    const requestedPath = resolve(projectRoot, normalizeZatcaFixturePath(trimmed));
     const allowedRoots = [resolve(projectRoot, "reference"), resolve(projectRoot, "packages", "zatca-core", "fixtures")];
 
     if (!allowedRoots.some((root) => isInsidePath(requestedPath, root))) {
@@ -366,12 +370,12 @@ export function sanitizeZatcaSdkOutput(output: string): string {
     .slice(0, OUTPUT_SUMMARY_LIMIT);
 }
 
-function extractValidationMessages(output: string): string[] {
+export function extractZatcaSdkValidationMessages(output: string): string[] {
   return output
     .split(/\r?\n/)
     .map((line) => sanitizeZatcaSdkOutput(line.trim()))
     .filter(Boolean)
-    .filter((line) => /(PASS|NOT PASS|ERROR|WARNING|BR-|KSA-|XSD|SCHEMATRON|VALID)/i.test(line))
+    .filter((line) => /(\bNOT PASS\b|\bPASS\b|\bERROR\b|\bWARNING\b|BR-|KSA-|\bXSD\b|\bSCHEMATRON\b|\bVALID\b)/i.test(line))
     .slice(0, 50);
 }
 

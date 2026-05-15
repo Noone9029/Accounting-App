@@ -1,6 +1,7 @@
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { isAllowedZatcaFixturePath, ZATCA_SDK_FIXTURE_REGISTRY } from "./zatca-official-fixtures";
 import { buildZatcaSdkValidationCommand, discoverZatcaSdkReadiness, parseJavaMajorVersion, parseJavaVersion, readZatcaSdkExecutionConfig } from "./zatca-sdk-paths";
 
 describe("ZATCA SDK paths", () => {
@@ -39,6 +40,7 @@ describe("ZATCA SDK paths", () => {
     expect(readiness.canRunLocalValidation).toBe(false);
     expect(readiness.configDirFound).toBe(true);
     expect(readiness.supportedCommandsKnown).toBe(true);
+    expect(readiness.blockingReasons.join(" ")).toContain("outside the SDK-supported range");
   });
 
   it("handles a missing SDK folder safely", () => {
@@ -107,6 +109,21 @@ describe("ZATCA SDK validation command builder", () => {
     expect(plan.args).toEqual(["-jar", "/repo/reference/sdk.jar", "-validate", "-invoice", "/tmp/invoice.xml"]);
   });
 
+  it("builds a launcher validation plan using the SDK readme flags", () => {
+    const plan = buildZatcaSdkValidationCommand({
+      xmlFilePath: "/tmp/invoice.xml",
+      launcherPath: "/repo/reference/Apps/fatoora",
+      jqPath: "/repo/reference/Apps/jq",
+      workingDirectory: "/repo/reference",
+      platform: "linux",
+      javaFound: true,
+    });
+
+    expect(plan.command).toBe("/repo/reference/Apps/fatoora");
+    expect(plan.args).toEqual(["-validate", "-invoice", "/tmp/invoice.xml"]);
+    expect(plan.displayCommand).toContain("-validate -invoice /tmp/invoice.xml");
+  });
+
   it("warns when jq, Java, or SDK JAR are missing", () => {
     const plan = buildZatcaSdkValidationCommand({
       xmlFilePath: "/tmp/invoice.xml",
@@ -134,5 +151,35 @@ describe("ZATCA SDK validation command builder", () => {
     expect(plan.command).toBeNull();
     expect(plan.args).toEqual([]);
     expect(plan.warnings.join(" ")).toContain("Neither SDK JAR nor fatoora launcher is available");
+  });
+});
+
+describe("ZATCA official fixture registry", () => {
+  it("keeps registered fixture paths relative and allowlisted", () => {
+    expect(ZATCA_SDK_FIXTURE_REGISTRY.length).toBeGreaterThanOrEqual(6);
+    expect(ZATCA_SDK_FIXTURE_REGISTRY.map((entry) => entry.id)).toEqual(
+      expect.arrayContaining([
+        "official-standard-invoice",
+        "official-simplified-invoice",
+        "official-standard-credit-note",
+        "official-standard-debit-note",
+        "ledgerbyte-local-standard-invoice",
+        "ledgerbyte-local-simplified-invoice",
+      ]),
+    );
+
+    for (const entry of ZATCA_SDK_FIXTURE_REGISTRY) {
+      expect(entry.relativePath).not.toMatch(/^[a-zA-Z]:/);
+      expect(entry.relativePath).not.toContain("..");
+      expect(isAllowedZatcaFixturePath(entry.relativePath)).toBe(true);
+    }
+  });
+
+  it("rejects fixture path traversal and non-XML inputs", () => {
+    expect(isAllowedZatcaFixturePath("../.env")).toBe(false);
+    expect(isAllowedZatcaFixturePath("reference/../.env.xml")).toBe(false);
+    expect(isAllowedZatcaFixturePath("reference/zatca-docs/reporting.pdf")).toBe(false);
+    expect(isAllowedZatcaFixturePath("C:\\temp\\invoice.xml")).toBe(false);
+    expect(isAllowedZatcaFixturePath("/tmp/invoice.xml")).toBe(false);
   });
 });

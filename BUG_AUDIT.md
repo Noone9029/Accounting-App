@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-16
 
-Commit inspected: pending (`Add SMTP email provider adapter`)
+Commit inspected: pending (`Validate official ZATCA SDK fixtures`)
 
 ## Scope
 
@@ -36,6 +36,31 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Official ZATCA SDK fixture validation pass
+
+Used only the repo-local official `reference/` folder to inspect the ZATCA SDK, docs, schemas, rules, samples, manuals, and data dictionary. The SDK command was verified from official local files as `fatoora -validate -invoice <filename>`.
+
+Risk reduced:
+
+- Added `docs/zatca/OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` with inspected official files, Java result, intended fixture commands, pass/fail/block table, and next technical fixes.
+- Added a code-level fixture registry for first official validation targets: standard invoice, simplified invoice, standard credit note, standard debit note, plus LedgerByte local standard/simplified XML fixtures.
+- Added tests for fixture registry allowlisting, command construction, Java-version blockers, disabled fixture validation, and SDK output message extraction.
+- Smoke now verifies the official fixture validation endpoint returns a disabled local-only response by default and does not expose private-key material.
+
+Result:
+
+- `BLOCKED`: local OpenJDK 17.0.16 is installed, but the official SDK README requires Java `>=11` and `<15`.
+- No SDK validation command was executed under the unsupported runtime.
+
+Remaining risks:
+
+- Signing is not implemented.
+- CSID onboarding is not implemented.
+- Clearance/reporting is not implemented.
+- PDF/A-3 is not implemented.
+- Production compliance is not claimed.
+- Official pass/fail fixture messages still require Java 11-14 and isolated local SDK execution.
 
 ### SMTP provider adapter added
 

@@ -23,6 +23,12 @@ Scope: compare current LedgerByte ZATCA groundwork with the local official refer
 | Error/retry taxonomy | Current errors are safe local blocks. | API docs include endpoint-specific missing/invalid request body, authentication, signature, hash, and already-reported cases. | `apps/api/src/zatca/adapters/zatca-adapter.error.ts`, service tests. | Build official error map from docs plus sandbox responses. |
 | PDF/A-3 archive | Current PDFs are operational documents only. | SDK includes PDF/A-3 samples; production archive expectations require manual confirmation. | `packages/pdf-core`, `apps/api/src/generated-documents`. | Inspect PDF/A-3 samples with tooling, then design archive pipeline later. |
 
+## Official SDK Fixture Validation Pass
+
+`OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` records the first repo-local official fixture validation pass. The SDK command was verified as `fatoora -validate -invoice <filename>`, but execution was blocked because local Java is OpenJDK 17.0.16 and the SDK README requires Java `>=11` and `<15`.
+
+No official fixture pass/fail messages exist yet. Do not infer XML fixes until official standard, simplified, credit-note, and debit-note samples can run under Java 11-14 and produce sanitized SDK output.
+
 ## Code That Should Stay Local-Only For Now
 
 - `packages/zatca-core/src/index.ts`: deterministic local XML/QR/hash/CSR helpers are useful scaffolding but not official validation.

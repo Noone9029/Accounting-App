@@ -114,6 +114,21 @@ Path traversal and non-XML files are rejected.
 
 The SDK readme states that Java must be `>=11` and `<15`. The local machine previously reported Java 17.0.16, which is outside that range. Future execution should use a pinned Java 11-14 runtime, preferably through a Docker wrapper or an explicitly configured JRE path.
 
+## Official Fixture Validation Status
+
+The official fixture validation pass is documented in `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`.
+
+Current result: `BLOCKED`. The SDK command format was verified from official repo-local docs as `fatoora -validate -invoice <filename>`, but this machine has Java 17.0.16 and the official SDK README requires Java `>=11` and `<15`. No SDK validation command was executed under the unsupported runtime.
+
+The first fixture set to validate after Java is corrected is registered in `apps/api/src/zatca-sdk/zatca-official-fixtures.ts`:
+
+- Official standard invoice sample.
+- Official simplified invoice sample.
+- Official standard credit note sample.
+- Official standard debit note sample.
+- LedgerByte local standard XML fixture.
+- LedgerByte local simplified XML fixture.
+
 ## Windows Path-With-Spaces Issue
 
 The repo path is `E:\Accounting App`, which contains a space. Earlier SDK launcher attempts failed because the Windows batch script did not quote all derived paths. Dry-run command plans therefore prefer argument-array execution and warn when paths contain spaces.

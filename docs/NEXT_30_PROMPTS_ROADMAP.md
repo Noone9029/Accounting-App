@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Latest commit audited: `6100714` (`Add dashboard KPI overview`)
+Latest commit audited: `d199c45` (`Add ZATCA SDK local validation groundwork`) plus the current official fixture validation pass.
 
 Each prompt is intentionally scoped so it can be executed as a safe Codex implementation/audit task. Prompts that need credentials say so explicitly.
 
@@ -118,9 +118,9 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 
 ### 14. Run local ZATCA SDK fixture validation
 
-- Objective: Use the feature-flagged SDK wrapper against official/sample XML fixtures and document pass/fail output without signing or network calls.
+- Objective: Configure Java 11-14, then use the feature-flagged SDK wrapper against official/sample XML fixtures and document pass/fail output without signing or network calls.
 - Why it matters: The current XML/hash flow is local-only and unverified.
-- Dependencies: Java/SDK runtime and local references.
+- Dependencies: Java 11-14 runtime and local references.
 - Risk level: High.
 - Manual credentials needed: No.
 

@@ -2923,6 +2923,13 @@ async function main(): Promise<void> {
   assertEqual(zatcaSdkLocalValidation.officialValidationAttempted, false, "ZATCA SDK local validation disabled by default");
   assertEqual(zatcaSdkLocalValidation.disabled, true, "ZATCA SDK local validation disabled flag");
   assertNoPrivateKey(zatcaSdkLocalValidation, "ZATCA SDK local validation response");
+  const zatcaSdkFixtureValidation = await post<ZatcaSdkValidationResponse>("/zatca-sdk/validate-reference-fixture", headers, {
+    fixturePath: "reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml",
+  });
+  assertEqual(zatcaSdkFixtureValidation.localOnly, true, "ZATCA SDK fixture validation localOnly");
+  assertEqual(zatcaSdkFixtureValidation.officialValidationAttempted, false, "ZATCA SDK fixture validation disabled by default");
+  assertEqual(zatcaSdkFixtureValidation.disabled, true, "ZATCA SDK fixture validation disabled flag");
+  assertNoPrivateKey(zatcaSdkFixtureValidation, "ZATCA SDK fixture validation response");
   const zatcaQr = await get<ZatcaQrResponse>(`/sales-invoices/${draftInvoice.id}/zatca/qr`, headers);
   assertPresent(zatcaQr.qrCodeBase64, "ZATCA QR endpoint payload");
   const checkedZatcaMetadata = await post<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca/compliance-check`, headers, {});

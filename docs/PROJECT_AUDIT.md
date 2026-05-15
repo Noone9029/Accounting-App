@@ -23,7 +23,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 estima
 - Frontend: Next.js App Router, React, Tailwind CSS, typed API helpers.
 - Shared packages: `accounting-core`, `pdf-core`, `zatca-core`, `shared`, `ui`.
 - PDF: PDFKit through `packages/pdf-core`.
-- ZATCA: local TypeScript scaffolding plus local official references and Java SDK readiness/local-validation wrapper checks.
+- ZATCA: local TypeScript scaffolding plus local official references, Java SDK readiness/local-validation wrapper checks, and official fixture validation results blocked by local Java 17.
 - Local infra: Docker Compose for PostgreSQL, Redis, API, and web.
 
 ## Monorepo Structure
@@ -64,7 +64,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 estima
 - Core accounting report JSON/CSV/PDF outputs for General Ledger, Trial Balance, Profit & Loss, Balance Sheet, VAT Summary, Aged Receivables, and Aged Payables.
 - Generated document archive for generated PDFs.
 - Uploaded supporting-file attachment groundwork with database-default storage, metadata, tenant-scoped linked entity validation, reusable panels on key detail pages, storage readiness API, feature-flagged S3-compatible upload/download storage for new attachments, dry-run migration counts, and `/settings/storage`.
-- Local-only ZATCA profile, EGS, CSR, mock CSID, XML/QR/hash, compliance checklist, reference maps, and SDK wrapper readiness/dry-run/local-validation disabled path.
+- Local-only ZATCA profile, EGS, CSR, mock CSID, XML/QR/hash, compliance checklist, reference maps, SDK wrapper readiness/dry-run/local-validation disabled path, and official fixture registry/results documentation.
 - Full `typecheck`, `test`, `build`, and API smoke workflow is run for each release checkpoint; browser E2E smoke now exists for local user-facing route checks.
 
 ## Groundwork Or Scaffold Only
@@ -76,7 +76,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 estima
 - Inventory warehouse, stock ledger, adjustment approval, warehouse transfer controls, manual purchase receiving, manual sales stock issue, valuation settings, purchase bill clearing-mode finalization, compatible manual purchase receipt asset posting, inventory clearing preview/matching/reconciliation groundwork, accountant-reviewed variance proposal workflow, purchase receipt posting readiness audit, inventory accounting integrity audit, manual COGS posting, and operational reports exist, but automatic COGS, automatic/direct-mode receipt asset posting, automatic variance posting, automatic receipts/issues, landed cost, serial/batch tracking, and accounting-grade inventory financial reports are not implemented.
 - PDF rendering is operational only, not legal/template-complete.
 - Generated document storage and existing uploaded attachment content still default to database base64; new uploaded attachments can use S3-compatible storage only when explicitly configured, and no migration executor is active.
-- ZATCA is local/mock/scaffold only. Local SDK validation groundwork exists behind a disabled-by-default flag, but no real CSID, signing, clearance, reporting, or PDF/A-3 exists.
+- ZATCA is local/mock/scaffold only. Local SDK validation groundwork exists behind a disabled-by-default flag, but official fixture execution is blocked by Java 17 and no real CSID, signing, clearance, reporting, or PDF/A-3 exists.
 - Redis is present in local infra but workers/queues are not wired.
 - Production deployment, monitoring, backups, subscription billing, email queue/retry/webhook operations, WhatsApp, generated-document object storage, and attachment migration operations are not implemented.
 
@@ -102,7 +102,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 estima
 5. Add partial PO receiving/billing design and purchase matching hardening.
 6. Harden bank reconciliation with upload storage, import file-format samples/parsers, transfer fees, and multi-currency FX handling.
 7. Review accountant-reviewed inventory variance journal proposal outputs, then define historical direct-mode exclusion/migration and landed-cost policy before any automatic posting.
-8. Advance ZATCA official SDK validation, official XML mapping, signing, CSID, clearance/reporting, and PDF/A-3.
+8. Configure Java 11-14, run official ZATCA SDK fixture validation, then advance official XML mapping, signing, CSID, clearance/reporting, and PDF/A-3.
 9. Test the uploaded-attachment S3 adapter with a real non-production bucket, then implement the migration executor and generated-document S3 path.
 10. Prepare production deployment, monitoring, backups, secrets management, and security review.
 

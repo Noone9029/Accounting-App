@@ -107,7 +107,7 @@ Current smoke verifies:
 - Document settings read/update.
 - Account/tax/item/customer setup.
 - Sales invoice draft creation/edit/finalization/idempotency.
-- ZATCA profile, adapter safe defaults, checklist/readiness/XML mapping, EGS private-key redaction, CSR, mock CSID, XML/QR/hash, local validation, SDK readiness/dry-run, and safe blocked clearance/reporting.
+- ZATCA profile, adapter safe defaults, checklist/readiness/XML mapping, EGS private-key redaction, CSR, mock CSID, XML/QR/hash, local validation, SDK readiness/dry-run, disabled official fixture validation, and safe blocked clearance/reporting.
 - Payment over-allocation rejection.
 - Partial and full customer payments.
 - Customer ledgers/statements.
@@ -135,7 +135,7 @@ Current smoke verifies:
 - Full multi-user role/permission behavior across every route.
 - Full visual regression coverage.
 - Load/concurrency testing.
-- Real ZATCA SDK execution, signing, CSID, clearance, reporting, and PDF/A-3 because they are intentionally not implemented.
+- Real ZATCA SDK execution, signing, CSID, clearance, reporting, and PDF/A-3 because they are intentionally not implemented or blocked by runtime prerequisites.
 - Live bank feeds, real email provider delivery, object-storage migration, and production backup/restore drills.
 
 ## Platform Caveats
@@ -144,7 +144,7 @@ Current smoke verifies:
 - PowerShell path parsing: paths containing `(app)` must be quoted or passed with `-LiteralPath`.
 - Docker Desktop pipe unavailable: if Docker commands fail with `open //./pipe/dockerDesktopLinuxEngine`, start Docker Desktop and wait for `docker info`.
 - ZATCA SDK path issue: the local checkout path `E:\Accounting App` contains a space; previous SDK launcher work noted path-with-spaces risk.
-- ZATCA SDK Java version: SDK docs need manual verification; previous notes indicated Java 11-14 expectations while local Java may differ.
+- ZATCA SDK Java version: official SDK docs require Java `>=11` and `<15`; this machine reported OpenJDK 17.0.16 during the fixture pass, so SDK fixture execution was blocked.
 - Prisma seed warning: `package.json#prisma` seed config is deprecated and should move before Prisma 7.
 
 ## Recommended Test Improvements

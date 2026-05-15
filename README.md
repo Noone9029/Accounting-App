@@ -104,6 +104,7 @@ ZATCA_SDK_TIMEOUT_MS=30000
 
 Real ZATCA network calls are disabled by default and remain blocked unless `ZATCA_ADAPTER_MODE=sandbox`, `ZATCA_ENABLE_REAL_NETWORK=true`, and `ZATCA_SANDBOX_BASE_URL` are all configured.
 Local ZATCA Java SDK execution is also disabled by default. `ZATCA_SDK_EXECUTION_ENABLED=true` enables only local SDK XML validation after Java 11-14 and SDK paths are configured; it does not submit invoices, sign XML, request CSIDs, or prove production compliance.
+The official SDK fixture validation pass is documented at `docs/zatca/OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`; current local execution is blocked because this machine has Java 17.0.16 while the SDK README requires Java `>=11` and `<15`.
 
 ## Local Smoke Test
 
@@ -1514,7 +1515,7 @@ Do not treat the current mock CSID, local XML, local QR, or local hash-chain beh
 - Local dev fixtures live under `packages/zatca-core/fixtures`.
 - The local fixtures are not official ZATCA fixtures. They exist to keep LedgerByte's XML skeleton deterministic and to cover XML escaping and Unicode handling.
 - Local XML validation can be called with `GET /sales-invoices/:id/zatca/xml-validation` after local XML is generated.
-- The validation response is local-only and not official ZATCA SDK validation. Future work must add official ZATCA SDK/fixture validation only after official docs/access are obtained.
+- The validation response is local-only and not legal compliance evidence. Official SDK fixture validation is now planned and registered, but live execution is blocked until Java 11-14 is configured.
 
 ### ZATCA Official Reference Maps
 
@@ -1523,6 +1524,7 @@ Do not treat the current mock CSID, local XML, local QR, or local hash-chain beh
 - Future ZATCA implementation work should start with `docs/zatca/OFFICIAL_IMPLEMENTATION_MAP.md` and `docs/zatca/ZATCA_CODE_GAP_REPORT.md` before changing XML, CSR, hash, signing, QR, or API behavior.
 - The Java SDK usage plan lives at `docs/zatca/SDK_USAGE_PLAN.md`; the SDK should be wrapped only in isolated test tooling first, with a Java 11-14 runtime and redacted logs.
 - The test-only SDK wrapper notes live at `docs/zatca/SDK_VALIDATION_WRAPPER.md`.
+- Official sample fixture validation results live at `docs/zatca/OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`.
 - `GET /zatca-sdk/readiness` reports local SDK discovery status, Java readiness, config/work-dir checks, and whether execution is enabled. `POST /zatca-sdk/validate-xml-dry-run` creates a command plan without executing the SDK. `POST /zatca-sdk/validate-xml-local`, `POST /zatca-sdk/validate-reference-fixture`, and `POST /sales-invoices/:id/zatca/sdk-validate` are disabled unless `ZATCA_SDK_EXECUTION_ENABLED=true`; when enabled they run local-only XML validation with timeout, temp cleanup, path traversal protection, and sanitized output.
 - The current code is still not production compliant. Official SDK/API validation, real CSID onboarding, signing, PDF/A-3, clearance, reporting, and KMS-backed key custody are still required.
 

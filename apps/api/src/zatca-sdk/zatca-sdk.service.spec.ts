@@ -5,7 +5,7 @@ import { REQUIRED_PERMISSIONS_KEY } from "../auth/decorators/require-permissions
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { ZatcaSdkController } from "./zatca-sdk.controller";
-import { sanitizeZatcaSdkOutput, ZatcaSdkService } from "./zatca-sdk.service";
+import { extractZatcaSdkValidationMessages, sanitizeZatcaSdkOutput, ZatcaSdkService } from "./zatca-sdk.service";
 
 describe("ZATCA SDK controller", () => {
   it("requires authentication and organization context", () => {
@@ -122,6 +122,25 @@ describe("ZATCA SDK service", () => {
     await expect(service.validateReferenceFixtureLocal("org-1", { fixturePath: "../.env" })).rejects.toThrow(BadRequestException);
   });
 
+  it("returns a disabled official fixture validation response by default", async () => {
+    const service = new ZatcaSdkService({} as never);
+
+    const result = await service.validateReferenceFixtureLocal("org-1", {
+      fixturePath: "reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml",
+    });
+
+    expect(result).toMatchObject({
+      success: false,
+      disabled: true,
+      localOnly: true,
+      officialValidationAttempted: false,
+      sdkExitCode: null,
+      xmlSource: "fixture",
+    });
+    expect(result.blockingReasons.join(" ")).toContain("disabled");
+    expect(JSON.stringify(result)).not.toContain("PRIVATE KEY");
+  });
+
   it("sanitizes SDK output before returning it", () => {
     const output = sanitizeZatcaSdkOutput(
       [
@@ -139,6 +158,25 @@ describe("ZATCA SDK service", () => {
     expect(output).not.toContain("PGZpbGU+");
     expect(output).not.toContain("Bearer raw");
     expect(output).toContain("[REDACTED]");
+  });
+
+  it("extracts pass, warning, and rule messages from SDK output", () => {
+    const messages = extractZatcaSdkValidationMessages(
+      [
+        "INFO startup line",
+        "PASS: XSD validation passed",
+        "WARNING: BR-KSA-33 should be reviewed",
+        "NOT PASS: SCHEMATRON validation failed",
+        "password=should-not-leak",
+      ].join("\n"),
+    );
+
+    expect(messages).toEqual([
+      "PASS: XSD validation passed",
+      "WARNING: BR-KSA-33 should be reviewed",
+      "NOT PASS: SCHEMATRON validation failed",
+    ]);
+    expect(messages.join(" ")).not.toContain("should-not-leak");
   });
 
   it("invoice SDK validation uses generated XML without mutating invoice metadata", async () => {
