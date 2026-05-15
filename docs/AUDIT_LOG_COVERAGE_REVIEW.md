@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Commit scope: pending (`Add audit log coverage and UI`)
+Commit scope: pending (`Add audit log export and retention controls`)
 
 ## Current Audit Log System
 
@@ -11,7 +11,10 @@ Commit scope: pending (`Add audit log coverage and UI`)
 - `sanitizeAuditMetadata` recursively redacts passwords, token values/hashes, secrets, API/access keys, authorization headers, private keys, and base64 document payload fields before audit metadata is persisted or returned.
 - `GET /audit-logs` supports action, entity type, entity id, actor, date, search, limit, and page filters.
 - `GET /audit-logs/:id` returns tenant-scoped sanitized detail.
-- `/settings/audit-logs` provides the admin review UI.
+- `GET /audit-logs/export.csv` exports the same filtered audit trail as sanitized CSV for users with `auditLogs.export`, with sensitive metadata key names and values redacted.
+- `AuditLogRetentionSettings` stores per-organization retention policy controls with a seven-year default, no automatic purge, and an export-before-purge marker.
+- `GET /audit-logs/retention-settings`, `PATCH /audit-logs/retention-settings`, `GET /audit-logs/retention-preview`, and `POST /audit-logs/retention-dry-run` provide admin-only policy visibility and dry-run counts without deleting records.
+- `/settings/audit-logs` provides the admin review UI with CSV export and retention preview/settings panels.
 
 ## Already Audited High-Risk Actions
 
@@ -29,4 +32,6 @@ Commit scope: pending (`Add audit log coverage and UI`)
 - Low-risk GET/list/detail reads are intentionally not logged.
 - Some maintenance or metadata-only operations may still store generic event names if they are outside the standardized high-risk map.
 - Report exports rely on generated-document audit coverage when a PDF is archived; simple JSON/CSV report reads are not logged.
-- No immutable external audit store, export, alerting, anomaly detection, or tamper-evident hash chain exists yet.
+- CSV export is manual only; no scheduled audit export exists yet.
+- Retention preview is dry-run only; no automatic purge job or archive executor exists yet.
+- No immutable external audit store, alerting, anomaly detection, or tamper-evident hash chain exists yet.

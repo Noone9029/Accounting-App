@@ -202,6 +202,8 @@ export const PERMISSIONS = {
   },
   auditLogs: {
     view: "auditLogs.view",
+    export: "auditLogs.export",
+    manageRetention: "auditLogs.manageRetention",
   },
   admin: {
     fullAccess: "admin.fullAccess",
@@ -339,6 +341,8 @@ export const ALL_PERMISSIONS = [
   PERMISSIONS.attachments.manage,
   PERMISSIONS.emailOutbox.view,
   PERMISSIONS.auditLogs.view,
+  PERMISSIONS.auditLogs.export,
+  PERMISSIONS.auditLogs.manageRetention,
   PERMISSIONS.admin.fullAccess,
 ] as const satisfies readonly Permission[];
 
@@ -454,6 +458,7 @@ const ACCOUNTANT_ROLE_PERMISSIONS = [
   PERMISSIONS.attachments.delete,
   PERMISSIONS.attachments.manage,
   PERMISSIONS.auditLogs.view,
+  PERMISSIONS.auditLogs.export,
   PERMISSIONS.zatca.view,
   PERMISSIONS.zatca.generateXml,
   PERMISSIONS.zatca.runChecks,

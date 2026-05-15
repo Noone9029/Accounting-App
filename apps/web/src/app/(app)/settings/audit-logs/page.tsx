@@ -2,16 +2,21 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
-import { apiRequest } from "@/lib/api";
+import { apiBaseUrl, apiRequest, getAccessToken } from "@/lib/api";
 import {
   auditActionLabel,
   auditEntityTypeLabel,
   auditLogSummary,
+  auditRetentionDaysLabel,
+  buildAuditLogExportPath,
   buildAuditLogQuery,
+  retentionPreviewSummary,
   sanitizeMetadataForDisplay,
 } from "@/lib/audit-logs";
-import type { AuditLogEntry, AuditLogListResponse } from "@/lib/types";
+import { PERMISSIONS } from "@/lib/permissions";
+import type { AuditLogEntry, AuditLogListResponse, AuditLogRetentionPreview, AuditLogRetentionSettings } from "@/lib/types";
 
 const defaultFilters = {
   action: "",
@@ -22,17 +27,33 @@ const defaultFilters = {
   to: "",
 };
 
+const defaultRetentionForm = {
+  retentionDays: "2555",
+  autoPurgeEnabled: false,
+  exportBeforePurgeRequired: true,
+};
+
 export default function AuditLogsPage() {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
+  const canExport = can(PERMISSIONS.auditLogs.export);
+  const canManageRetention = can(PERMISSIONS.auditLogs.manageRetention);
   const [filters, setFilters] = useState(defaultFilters);
   const [appliedFilters, setAppliedFilters] = useState(defaultFilters);
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [pagination, setPagination] = useState<AuditLogListResponse["pagination"] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selected, setSelected] = useState<AuditLogEntry | null>(null);
+  const [retentionSettings, setRetentionSettings] = useState<AuditLogRetentionSettings | null>(null);
+  const [retentionPreview, setRetentionPreview] = useState<AuditLogRetentionPreview | null>(null);
+  const [retentionForm, setRetentionForm] = useState(defaultRetentionForm);
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [retentionLoading, setRetentionLoading] = useState(false);
+  const [retentionSaving, setRetentionSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   const listPath = useMemo(() => buildAuditLogQuery({ ...appliedFilters, limit: "100" }), [appliedFilters]);
 
@@ -95,6 +116,43 @@ export default function AuditLogsPage() {
     };
   }, [selectedId, organizationId]);
 
+  useEffect(() => {
+    if (!organizationId) {
+      return;
+    }
+    let cancelled = false;
+    setRetentionLoading(true);
+    setError("");
+    Promise.all([
+      apiRequest<AuditLogRetentionSettings>("/audit-logs/retention-settings"),
+      canManageRetention ? apiRequest<AuditLogRetentionPreview>("/audit-logs/retention-preview") : Promise.resolve(null),
+    ])
+      .then(([settings, preview]) => {
+        if (!cancelled) {
+          setRetentionSettings(settings);
+          setRetentionPreview(preview);
+          setRetentionForm({
+            retentionDays: String(settings.retentionDays),
+            autoPurgeEnabled: settings.autoPurgeEnabled,
+            exportBeforePurgeRequired: settings.exportBeforePurgeRequired,
+          });
+        }
+      })
+      .catch((retentionError: unknown) => {
+        if (!cancelled) {
+          setError(retentionError instanceof Error ? retentionError.message : "Unable to load audit retention settings.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setRetentionLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canManageRetention, organizationId]);
+
   function applyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAppliedFilters(filters);
@@ -103,6 +161,69 @@ export default function AuditLogsPage() {
   function resetFilters() {
     setFilters(defaultFilters);
     setAppliedFilters(defaultFilters);
+  }
+
+  async function exportCsv() {
+    if (!organizationId || !canExport) {
+      return;
+    }
+    setExporting(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(`${apiBaseUrl}${buildAuditLogExportPath(appliedFilters)}`, {
+        headers: {
+          authorization: `Bearer ${getAccessToken() ?? ""}`,
+          "x-organization-id": organizationId,
+          "cache-control": "no-store",
+          pragma: "no-cache",
+        },
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        throw new Error(`Audit export failed with ${response.status}.`);
+      }
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = readDownloadFilename(response.headers.get("content-disposition"));
+      link.click();
+      URL.revokeObjectURL(objectUrl);
+      setNotice("Audit CSV export generated from the current filters.");
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : "Unable to export audit logs.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function saveRetentionSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canManageRetention) {
+      return;
+    }
+    setRetentionSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const settings = await apiRequest<AuditLogRetentionSettings>("/audit-logs/retention-settings", {
+        method: "PATCH",
+        body: {
+          retentionDays: Number(retentionForm.retentionDays),
+          autoPurgeEnabled: retentionForm.autoPurgeEnabled,
+          exportBeforePurgeRequired: retentionForm.exportBeforePurgeRequired,
+        },
+      });
+      const preview = await apiRequest<AuditLogRetentionPreview>("/audit-logs/retention-preview");
+      setRetentionSettings(settings);
+      setRetentionPreview(preview);
+      setNotice("Audit retention settings saved. No audit logs were deleted.");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Unable to save audit retention settings.");
+    } finally {
+      setRetentionSaving(false);
+    }
   }
 
   return (
@@ -115,8 +236,10 @@ export default function AuditLogsPage() {
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to review audit logs.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading audit logs...</StatusMessage> : null}
+        {retentionLoading ? <StatusMessage type="loading">Loading retention settings...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        <StatusMessage type="info">List/detail reads are not logged. Sensitive metadata is redacted before display.</StatusMessage>
+        {notice ? <StatusMessage type="success">{notice}</StatusMessage> : null}
+        <StatusMessage type="info">List/detail reads are not logged. CSV export and retention previews use sanitized metadata only.</StatusMessage>
       </div>
 
       <form onSubmit={applyFilters} className="mt-5 grid gap-3 rounded-md border border-slate-200 bg-white p-4 md:grid-cols-3 xl:grid-cols-6">
@@ -126,16 +249,92 @@ export default function AuditLogsPage() {
         <FilterInput label="Search" value={filters.search} onChange={(value) => setFilters((current) => ({ ...current, search: value }))} placeholder="action, entity, actor" />
         <FilterInput label="From" type="date" value={filters.from} onChange={(value) => setFilters((current) => ({ ...current, from: value }))} />
         <FilterInput label="To" type="date" value={filters.to} onChange={(value) => setFilters((current) => ({ ...current, to: value }))} />
-        <div className="flex items-end gap-2 md:col-span-3 xl:col-span-6">
+        <div className="flex flex-wrap items-end gap-2 md:col-span-3 xl:col-span-6">
           <button type="submit" className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white">
             Apply filters
           </button>
           <button type="button" onClick={resetFilters} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-ink">
             Reset
           </button>
+          {canExport ? (
+            <button type="button" onClick={exportCsv} disabled={exporting} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-ink disabled:opacity-60">
+              {exporting ? "Exporting..." : "Export CSV"}
+            </button>
+          ) : null}
           {pagination ? <span className="text-sm text-steel">{pagination.total} matching log{pagination.total === 1 ? "" : "s"}</span> : null}
         </div>
       </form>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-2">
+        <form onSubmit={saveRetentionSettings} className="rounded-md border border-slate-200 bg-white p-5">
+          <div className="mb-4">
+            <h2 className="text-base font-semibold text-ink">Retention settings</h2>
+            <p className="mt-1 text-sm text-steel">Retention is configuration-only. There is no automatic purge job in this release.</p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <FilterInput
+              label="Retention days"
+              type="text"
+              value={retentionForm.retentionDays}
+              onChange={(value) => setRetentionForm((current) => ({ ...current, retentionDays: value }))}
+              placeholder="2555"
+              disabled={!canManageRetention}
+            />
+            <CheckboxInput
+              label="Auto purge enabled"
+              checked={retentionForm.autoPurgeEnabled}
+              onChange={(checked) => setRetentionForm((current) => ({ ...current, autoPurgeEnabled: checked }))}
+              disabled={!canManageRetention}
+            />
+            <CheckboxInput
+              label="Export before purge"
+              checked={retentionForm.exportBeforePurgeRequired}
+              onChange={(checked) => setRetentionForm((current) => ({ ...current, exportBeforePurgeRequired: checked }))}
+              disabled={!canManageRetention}
+            />
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {canManageRetention ? (
+              <button type="submit" disabled={retentionSaving} className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
+                {retentionSaving ? "Saving..." : "Save retention settings"}
+              </button>
+            ) : (
+              <span className="text-sm text-steel">Retention changes require audit retention management permission.</span>
+            )}
+            {retentionSettings ? <span className="text-sm text-steel">Current: {auditRetentionDaysLabel(retentionSettings.retentionDays)}</span> : null}
+          </div>
+          {retentionSettings?.warnings.map((warning) => (
+            <p key={warning} className="mt-3 text-sm text-amber-700">
+              {warning}
+            </p>
+          ))}
+        </form>
+
+        <section className="rounded-md border border-slate-200 bg-white p-5">
+          <div className="mb-4">
+            <h2 className="text-base font-semibold text-ink">Retention preview</h2>
+            <p className="mt-1 text-sm text-steel">Dry-run only. No audit logs are deleted from this panel.</p>
+          </div>
+          {canManageRetention && retentionPreview ? (
+            <div className="grid gap-3 text-sm md:grid-cols-2">
+              <Detail label="Cutoff date" value={formatDate(retentionPreview.cutoffDate)} />
+              <Detail label="Older than cutoff" value={String(retentionPreview.logsOlderThanCutoff)} />
+              <Detail label="Total audit logs" value={String(retentionPreview.totalAuditLogs)} />
+              <Detail label="Dry run only" value={retentionPreview.dryRunOnly ? "Yes" : "No"} />
+              <Detail label="Oldest log" value={formatOptionalDate(retentionPreview.oldestLogDate)} />
+              <Detail label="Newest log" value={formatOptionalDate(retentionPreview.newestLogDate)} />
+              <p className="md:col-span-2 text-sm text-steel">{retentionPreviewSummary(retentionPreview.logsOlderThanCutoff)}</p>
+              {retentionPreview.warnings.map((warning) => (
+                <p key={warning} className="md:col-span-2 text-sm text-amber-700">
+                  {warning}
+                </p>
+              ))}
+            </div>
+          ) : (
+            <StatusMessage type="info">Retention preview requires audit retention management permission.</StatusMessage>
+          )}
+        </section>
+      </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.5fr_1fr]">
         <section className="overflow-x-auto rounded-md border border-slate-200 bg-white">
@@ -199,12 +398,14 @@ function FilterInput({
   onChange,
   placeholder,
   type = "text",
+  disabled = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   type?: "text" | "date";
+  disabled?: boolean;
 }) {
   return (
     <label className="text-sm">
@@ -214,8 +415,28 @@ function FilterInput({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-ink"
+        disabled={disabled}
+        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-ink disabled:bg-slate-100 disabled:text-slate-500"
       />
+    </label>
+  );
+}
+
+function CheckboxInput({
+  label,
+  checked,
+  onChange,
+  disabled = false,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <label className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-ink">
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} disabled={disabled} className="h-4 w-4" />
+      <span>{label}</span>
     </label>
   );
 }
@@ -246,4 +467,13 @@ function actorLabel(log: AuditLogEntry): string {
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
+
+function formatOptionalDate(value: string | null): string {
+  return value ? formatDate(value) : "-";
+}
+
+function readDownloadFilename(contentDisposition: string | null): string {
+  const match = contentDisposition?.match(/filename="?([^";]+)"?/i);
+  return match?.[1] ?? `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`;
 }

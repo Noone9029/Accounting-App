@@ -118,6 +118,22 @@ interface AuditLogListResponse {
   };
 }
 
+interface AuditLogRetentionSettingsResponse {
+  retentionDays: number;
+  autoPurgeEnabled: boolean;
+  exportBeforePurgeRequired: boolean;
+  warnings: string[];
+}
+
+interface AuditLogRetentionPreviewResponse {
+  retentionDays: number;
+  cutoffDate: string;
+  totalAuditLogs: number;
+  logsOlderThanCutoff: number;
+  dryRunOnly: boolean;
+  warnings: string[];
+}
+
 interface Account {
   id: string;
   code: string;
@@ -3569,6 +3585,25 @@ async function main(): Promise<void> {
   assert(!serializedAuditLogs.includes(invitedPassword), "audit logs do not expose invited user password");
   assert(!serializedAuditLogs.includes(invitedResetPassword), "audit logs do not expose reset password");
   assert(!serializedAuditLogs.includes(attachmentCsvBase64), "audit logs do not expose attachment base64 content");
+  const auditRetentionSettings = await get<AuditLogRetentionSettingsResponse>("/audit-logs/retention-settings", headers);
+  assertEqual(auditRetentionSettings.retentionDays, 2555, "audit retention settings default to seven years");
+  assertEqual(auditRetentionSettings.autoPurgeEnabled, false, "audit retention auto purge is disabled by default");
+  const auditRetentionPreview = await get<AuditLogRetentionPreviewResponse>("/audit-logs/retention-preview", headers);
+  assertEqual(auditRetentionPreview.dryRunOnly, true, "audit retention preview is dry-run only");
+  assert(auditRetentionPreview.totalAuditLogs >= 1, "audit retention preview returns total audit logs");
+  assert(auditRetentionPreview.warnings.some((warning) => warning.includes("No audit logs are deleted")), "audit retention preview warns that no logs are deleted");
+  const auditExportCsv = await getCsvText(
+    `/audit-logs/export.csv?action=ATTACHMENT_UPLOADED&entityType=Attachment&entityId=${encodeURIComponent(purchaseBillAttachment.id)}`,
+    headers,
+    "audit log CSV export",
+  );
+  assert(auditExportCsv.includes("ATTACHMENT_UPLOADED"), "audit log CSV export includes filtered action");
+  assert(!auditExportCsv.includes(inviteToken), "audit log CSV export does not expose raw invite token");
+  assert(!auditExportCsv.includes(resetToken), "audit log CSV export does not expose raw password reset token");
+  assert(!auditExportCsv.includes(invitedPassword), "audit log CSV export does not expose invited user password");
+  assert(!auditExportCsv.includes(invitedResetPassword), "audit log CSV export does not expose reset password");
+  assert(!auditExportCsv.includes(attachmentCsvBase64), "audit log CSV export does not expose attachment base64 content");
+  assert(!auditExportCsv.includes("privateKeyPem"), "audit log CSV export does not expose private key field names from smoke data");
 
   const storageReadiness = await get<StorageReadinessResponse>("/storage/readiness", headers);
   assertEqual(storageReadiness.attachmentStorage.activeProvider, "database", "attachment storage readiness default provider");
@@ -4364,6 +4399,9 @@ async function main(): Promise<void> {
           !serializedAuditLogs.includes(invitedPassword) &&
           !serializedAuditLogs.includes(invitedResetPassword) &&
           !serializedAuditLogs.includes(attachmentCsvBase64),
+        auditRetentionDays: auditRetentionSettings.retentionDays,
+        auditRetentionDryRunOnly: auditRetentionPreview.dryRunOnly,
+        auditLogExportCsvChecked: auditExportCsv.includes("ATTACHMENT_UPLOADED"),
         storageReadinessAttachmentProvider: storageReadiness.attachmentStorage.activeProvider,
         storageReadinessGeneratedDocumentProvider: storageReadiness.generatedDocumentStorage.activeProvider,
         storageReadinessSecretsRedacted:
@@ -4525,6 +4563,24 @@ async function assertCsv(path: string, headers: Record<string, string>, label: s
   assert(contentType.includes("text/csv"), `${label} returns text/csv`);
   const text = await response.text();
   assert(text.includes(expectedText), `${label} includes expected text`);
+}
+
+async function getCsvText(path: string, headers: Record<string, string>, label: string): Promise<string> {
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}${path}`, { headers });
+  } catch (error) {
+    throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new ApiError(`GET ${path} failed with ${response.status}: ${text}`, response.status, safeJson(text));
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  assert(contentType.includes("text/csv"), `${label} returns text/csv`);
+  return response.text();
 }
 
 async function assertAttachmentDownload(path: string, headers: Record<string, string>, label: string, expectedText: string): Promise<void> {

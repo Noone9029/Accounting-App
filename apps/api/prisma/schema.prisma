@@ -500,6 +500,7 @@ model User {
   deletedAttachments                          Attachment[]                         @relation("AttachmentDeletedBy")
   authTokens                                  AuthToken[]                          @relation("AuthTokenUser")
   createdAuthTokens                           AuthToken[]                          @relation("AuthTokenCreatedBy")
+  updatedAuditLogRetentionSettings            AuditLogRetentionSettings[]          @relation("AuditLogRetentionSettingsUpdatedBy")
 }
 
 model Organization {
@@ -563,6 +564,7 @@ model Organization {
   journalLines                        JournalLine[]
   fiscalPeriods                       FiscalPeriod[]
   auditLogs                           AuditLog[]
+  auditLogRetentionSettings           AuditLogRetentionSettings?
   numberSequences                     NumberSequence[]
   documentSettings                    OrganizationDocumentSettings?
   generatedDocuments                  GeneratedDocument[]
@@ -2515,6 +2517,22 @@ model AuditLog {
   @@index([organizationId])
   @@index([entityType, entityId])
   @@index([actorUserId])
+}
+
+model AuditLogRetentionSettings {
+  id                        String       @id @default(uuid()) @db.Uuid
+  organizationId            String       @unique @db.Uuid
+  retentionDays             Int          @default(2555)
+  autoPurgeEnabled          Boolean      @default(false)
+  exportBeforePurgeRequired Boolean      @default(true)
+  updatedById               String?      @db.Uuid
+  createdAt                 DateTime     @default(now())
+  updatedAt                 DateTime     @updatedAt
+  organization              Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  updatedBy                 User?        @relation("AuditLogRetentionSettingsUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([updatedById])
 }
 
 model NumberSequence {

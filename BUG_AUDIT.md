@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Commit inspected: pending (`Add browser E2E smoke suite`)
+Commit inspected: pending (`Add audit log export and retention controls`)
 
 ## Scope
 
@@ -37,6 +37,26 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Audit log export and retention controls added
+
+Added filtered audit-log CSV export, tenant retention policy settings, dry-run retention preview, and admin UI controls without automatic deletion.
+
+Risk reduced:
+
+- `GET /audit-logs/export.csv` exports the same tenant-scoped filters as the audit-log list and serializes only sanitized metadata.
+- `AuditLogRetentionSettings` stores per-organization retention controls with a 2555-day default, `autoPurgeEnabled` disabled by default, and export-before-purge tracking.
+- `GET /audit-logs/retention-settings`, `PATCH /audit-logs/retention-settings`, `GET /audit-logs/retention-preview`, and `POST /audit-logs/retention-dry-run` expose retention policy and dry-run counts without deleting logs.
+- `/settings/audit-logs` now lets permitted users export CSV and lets admins review/update retention settings and preview old-log counts.
+- Smoke now checks retention settings, retention dry-run preview, CSV content type, and CSV redaction of sensitive audit metadata.
+
+Remaining risks:
+
+- No immutable external audit store.
+- No scheduled audit export.
+- No automatic purge or archive executor.
+- No alerting or anomaly detection.
+- No tamper-evident audit chain.
+
 ### Audit log coverage and UI added
 
 Added standardized audit visibility for important accounting, security, user-management, document, bank, inventory, and ZATCA actions.
@@ -54,12 +74,13 @@ Risk reduced:
 Coverage map:
 
 - Already audited: auth token delivery events, role/member administration, journal/fiscal period changes, sales finalization/void/payment/refund/credit note actions, purchase bill/order/payment/refund/debit note/cash expense actions, bank transfers/statements/reconciliations, inventory adjustments/transfers/receipts/issues/COGS/receipt asset/variance proposals, attachments, generated documents, document settings, and ZATCA local actions.
-- Missing or low priority: harmless GET/list/detail reads, report JSON/CSV reads, external immutable audit store, export, alerting, anomaly detection, retention UI, and tamper-evident audit hash chaining.
+- Missing or low priority: harmless GET/list/detail reads, report JSON/CSV reads, external immutable audit store, scheduled export, automatic purge/archive executor, alerting, anomaly detection, and tamper-evident audit hash chaining.
 
 Remaining risks:
 
 - No external immutable audit store.
-- No audit export.
+- No scheduled audit export.
+- No automatic purge or archive executor.
 - No alerting or anomaly detection.
 - No tamper-evident audit chain.
 - Low-risk read activity is not logged by design.

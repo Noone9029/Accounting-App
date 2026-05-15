@@ -256,6 +256,11 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | POST | `/journal-entries/:id/reverse` | Reverse journal | Yes | Yes | Implemented | Creates opposite posted journal. |
 | GET | `/audit-logs` | List audit logs | Yes | Yes | Implemented | Requires `auditLogs.view`; supports `action`, `entityType`, `entityId`, `actorUserId`, `from`, `to`, `search`, `limit`, and `page`; returns newest-first sanitized metadata. |
 | GET | `/audit-logs/:id` | Audit log detail | Yes | Yes | Implemented | Requires `auditLogs.view`; tenant scoped and returns sanitized `before`/`after` metadata. |
+| GET | `/audit-logs/export.csv` | Export audit logs | Yes | Yes | Implemented | Requires `auditLogs.export`; supports the same filters as list, escapes CSV fields, and exports sanitized metadata with sensitive key names and values redacted. |
+| GET | `/audit-logs/retention-settings` | Audit retention settings | Yes | Yes | Implemented | Requires `auditLogs.view`; creates default seven-year settings if missing. |
+| PATCH | `/audit-logs/retention-settings` | Update audit retention settings | Yes | Yes | Implemented | Requires `auditLogs.manageRetention`; validates `retentionDays` between 365 and 3650; stores `autoPurgeEnabled` but no automatic purge executes. |
+| GET | `/audit-logs/retention-preview` | Preview audit retention impact | Yes | Yes | Implemented | Requires `auditLogs.manageRetention`; returns cutoff, total logs, older-than-cutoff count, oldest/newest dates, and `dryRunOnly: true`. |
+| POST | `/audit-logs/retention-dry-run` | Audit retention dry run | Yes | Yes | Implemented | Requires `auditLogs.manageRetention`; same dry-run behavior as preview and never deletes logs. |
 
 ## Sales Invoices
 

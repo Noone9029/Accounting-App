@@ -242,6 +242,32 @@ export interface AuditLogListResponse {
   };
 }
 
+export interface AuditLogRetentionSettings {
+  id: string;
+  organizationId: string;
+  retentionDays: number;
+  autoPurgeEnabled: boolean;
+  exportBeforePurgeRequired: boolean;
+  updatedById: string | null;
+  updatedBy?: AuditLogActor | null;
+  createdAt: string;
+  updatedAt: string;
+  warnings: string[];
+}
+
+export interface AuditLogRetentionPreview {
+  retentionDays: number;
+  cutoffDate: string;
+  totalAuditLogs: number;
+  logsOlderThanCutoff: number;
+  oldestLogDate: string | null;
+  newestLogDate: string | null;
+  autoPurgeEnabled: boolean;
+  exportBeforePurgeRequired: boolean;
+  dryRunOnly: boolean;
+  warnings: string[];
+}
+
 export interface InvitationPreviewResponse {
   valid: boolean;
   reason?: string | null;

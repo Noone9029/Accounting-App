@@ -138,7 +138,7 @@ LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! 
 
 The smoke covers seed login, `/auth/me` role permission visibility, role/member API visibility, custom role creation, unknown-permission rejection, organization discovery, bank account profile defaults/transactions/balance movement, bank transfers/opening balances, bank statement preview/import/matching/categorization/reconciliation summary/submit/approve/close/void lock checks, reconciliation report data/CSV/PDF/archive checks, item/customer/supplier setup, warehouse defaults, opening-balance stock movements, inventory adjustment approval/void flows, warehouse transfers/void reversals, purchase receipt posting/voiding, compatible purchase receipt asset post/reverse, finalized-invoice sales stock issue posting/voiding after manual COGS post/reversal, receiving/issue status endpoints, inventory balances, inventory settings, inventory accounting settings, purchase receipt posting readiness, purchase receipt accounting preview, sales issue COGS preview, manual COGS posting, P&L COGS activity, stock valuation/movement/low-stock reports, inventory clearing reconciliation/variance reports and CSV exports, accountant-reviewed inventory variance proposal create/submit/approve/post/reverse flow, no-journal inventory movement checks outside explicit COGS/receipt asset/variance proposal post actions, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, report CSV/PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
 
-The smoke also verifies document settings, PDF archive creation after invoice PDF generation, generated document archive download, user-uploaded attachment upload/list/download/soft-delete checks, representative audit log records/sensitive metadata redaction, and storage readiness/migration-plan dry-run checks without creating journals.
+The smoke also verifies document settings, PDF archive creation after invoice PDF generation, generated document archive download, user-uploaded attachment upload/list/download/soft-delete checks, representative audit log records/sensitive metadata redaction, audit retention settings/dry-run preview, audit CSV export redaction, and storage readiness/migration-plan dry-run checks without creating journals.
 
 On Windows, if `db:generate` fails with Prisma query engine `EPERM`, stop running API/dev Node processes and rerun it. This is usually a file lock on Prisma's generated client DLL.
 
@@ -604,14 +604,22 @@ Audit logs:
 
 - `GET /audit-logs`
 - `GET /audit-logs/:id`
+- `GET /audit-logs/export.csv`
+- `GET /audit-logs/retention-settings`
+- `PATCH /audit-logs/retention-settings`
+- `GET /audit-logs/retention-preview`
+- `POST /audit-logs/retention-dry-run`
 
 Audit log behavior:
 
-- Requires `auditLogs.view`.
+- List/detail and retention-settings read require `auditLogs.view`; CSV export requires `auditLogs.export`; retention updates and preview/dry-run require `auditLogs.manageRetention`.
 - Supports filters for `action`, `entityType`, `entityId`, `actorUserId`, `from`, `to`, `search`, `limit`, and `page`.
 - Standardized high-risk event names cover auth, team/role changes, journals, fiscal periods, sales, purchases, banking, inventory, attachments, generated documents, document settings, and ZATCA local actions.
 - Audit metadata is sanitized before persistence and response serialization. Passwords, token values/hashes, secrets, API/access keys, private keys, authorization headers, and base64 payload fields are redacted.
-- `/settings/audit-logs` provides the admin review UI with filters and sanitized detail metadata.
+- CSV export uses the same filters as list, escapes CSV fields, includes timestamp, actor, action, entity, summary, and sanitized metadata JSON, and redacts sensitive metadata key names as well as values.
+- Retention settings default to 2555 days, validate between 365 and 3650 days, store `autoPurgeEnabled`, and warn that automatic purge execution is not implemented yet.
+- Retention preview and retention dry run return cutoff/counts and never delete audit logs.
+- `/settings/audit-logs` provides the admin review UI with filters, CSV export, sanitized detail metadata, retention settings, and dry-run preview.
 
 ## Accounting Rules
 
@@ -1562,4 +1570,4 @@ Permission matrix categories:
 - Uploaded attachment storage is database-backed only; OCR, virus scanning, retention policies, email attachment sending, ZATCA attachment submission, and object-storage lifecycle are not implemented yet.
 - Email invitations and password reset use mock/local outbox delivery with DB-backed request rate limits; no real SMTP/API provider, MFA, or advanced session management exists yet.
 - Fine-grained approval workflows, dual control, and delegated approval chains are not implemented yet.
-- Audit logs now have admin UI and standardized high-risk events, but there is no immutable external audit store, audit export, alerting, anomaly detection, or tamper-evident hash chain yet.
+- Audit logs now have admin UI, standardized high-risk events, filtered CSV export, and dry-run retention controls, but there is no immutable external audit store, scheduled export, automatic purge/archive executor, alerting, anomaly detection, or tamper-evident hash chain yet.

@@ -31,6 +31,8 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       permission(PERMISSIONS.roles.view, "View roles", "See roles and permission matrices."),
       permission(PERMISSIONS.roles.manage, "Manage roles", "Create, update, and delete custom roles."),
       permission(PERMISSIONS.auditLogs.view, "View audit logs", "Review high-risk accounting, security, document, bank, inventory, and ZATCA audit events."),
+      permission(PERMISSIONS.auditLogs.export, "Export audit logs", "Export filtered audit logs to CSV with sanitized metadata."),
+      permission(PERMISSIONS.auditLogs.manageRetention, "Manage audit retention", "Manage audit retention settings and dry-run retention previews."),
     ],
   },
   {

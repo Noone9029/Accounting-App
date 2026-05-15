@@ -76,6 +76,7 @@ const ACTION_LABELS: Record<string, string> = {
   ATTACHMENT_DELETED: "Attachment deleted",
   GENERATED_DOCUMENT_CREATED: "Generated document created",
   DOCUMENT_SETTINGS_UPDATED: "Document settings updated",
+  AUDIT_LOG_RETENTION_SETTINGS_UPDATED: "Audit retention settings updated",
   ZATCA_PROFILE_UPDATED: "ZATCA profile updated",
   ZATCA_EGS_CREATED: "ZATCA EGS created",
   ZATCA_CSR_GENERATED: "ZATCA CSR generated",
@@ -104,6 +105,7 @@ const ENTITY_LABELS: Record<string, string> = {
   WarehouseTransfer: "Warehouse Transfer",
   Attachment: "Attachment",
   GeneratedDocument: "Generated Document",
+  AuditLogRetentionSettings: "Audit Log Retention Settings",
   ZatcaOrganizationProfile: "ZATCA Profile",
   ZatcaEgsUnit: "ZATCA EGS Unit",
   ZatcaInvoiceMetadata: "ZATCA Invoice Metadata",
@@ -145,6 +147,25 @@ export function sanitizeMetadataForDisplay(value: unknown): unknown {
 }
 
 export function buildAuditLogQuery(filters: Record<string, string | undefined>): string {
+  return buildAuditLogPath("/audit-logs", filters);
+}
+
+export function buildAuditLogExportPath(filters: Record<string, string | undefined>): string {
+  return buildAuditLogPath("/audit-logs/export.csv", filters);
+}
+
+export function auditRetentionDaysLabel(days: number): string {
+  const years = days / 365;
+  return `${days} days (${years.toFixed(years % 1 === 0 ? 0 : 1)} years)`;
+}
+
+export function retentionPreviewSummary(logsOlderThanCutoff: number): string {
+  return logsOlderThanCutoff === 0
+    ? "No audit logs are older than the current cutoff."
+    : `${logsOlderThanCutoff} audit log${logsOlderThanCutoff === 1 ? "" : "s"} would be eligible in a dry run.`;
+}
+
+function buildAuditLogPath(basePath: string, filters: Record<string, string | undefined>): string {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
     const cleaned = value?.trim();
@@ -153,7 +174,7 @@ export function buildAuditLogQuery(filters: Record<string, string | undefined>):
     }
   });
   const query = params.toString();
-  return query ? `/audit-logs?${query}` : "/audit-logs";
+  return query ? `${basePath}?${query}` : basePath;
 }
 
 export function auditLogSummary(after: unknown, before: unknown): string {
