@@ -32,6 +32,13 @@ export class EmailService {
     return this.provider.isMock;
   }
 
+  readiness() {
+    return {
+      ...this.provider.readiness(),
+      fromEmail: this.fromEmail,
+    };
+  }
+
   async sendOrganizationInvite(input: SendOrganizationInviteInput) {
     const template = buildOrganizationInviteEmail({
       organizationName: input.organizationName,

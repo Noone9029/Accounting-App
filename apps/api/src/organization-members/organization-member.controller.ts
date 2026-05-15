@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { PERMISSIONS } from "@ledgerbyte/shared";
+import type { Request } from "express";
 import type { AuthenticatedUser } from "../auth/auth.types";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -53,7 +54,30 @@ export class OrganizationMemberController {
 
   @Post("invite")
   @RequirePermissions(PERMISSIONS.users.invite)
-  invite(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Body() dto: InviteOrganizationMemberDto) {
-    return this.organizationMemberService.invite(organizationId, user.id, dto);
+  invite(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: InviteOrganizationMemberDto,
+    @Req() request: Request,
+  ) {
+    return this.organizationMemberService.invite(organizationId, user.id, dto, getRequestMeta(request));
   }
+}
+
+function getRequestMeta(request: Request) {
+  return {
+    ipAddress: getClientIp(request),
+    userAgent: typeof request.headers["user-agent"] === "string" ? request.headers["user-agent"] : null,
+  };
+}
+
+function getClientIp(request: Request): string | null {
+  const forwardedFor = request.headers["x-forwarded-for"];
+  if (typeof forwardedFor === "string" && forwardedFor.trim()) {
+    return forwardedFor.split(",")[0]?.trim() || null;
+  }
+  if (Array.isArray(forwardedFor) && forwardedFor[0]) {
+    return forwardedFor[0].split(",")[0]?.trim() || null;
+  }
+  return request.ip ?? request.socket.remoteAddress ?? null;
 }

@@ -11,7 +11,7 @@ Tasks:
 - Run guided QA through every implemented frontend route.
 - Fix UX inconsistencies, especially supplier AP balance labels.
 - Add browser E2E tests for sales invoice, customer payment, credit note, customer refund, purchase order, purchase bill, supplier payment, document archive, and ZATCA settings flows.
-- Replace mock/local email invites and password reset with a real provider adapter, rate limiting, and audit visibility for role/member administration.
+- Replace mock/local email invites and password reset with a real provider adapter, domain authentication, provider webhooks, and audit visibility for role/member administration.
 - Harden fiscal period UX with period templates, optional reversal-date selection, and admin unlock approval design.
 - Add accountant review pass for report layouts and exported report formats.
 - Move Prisma seed config to `prisma.config.ts` before Prisma 7.
@@ -25,7 +25,7 @@ Risk level: Medium.
 
 Recommended next prompt:
 
-> Add production email provider delivery, rate limiting, and domain-authentication readiness for the existing mock invite/password reset groundwork.
+> Add production email provider delivery with DKIM/SPF/domain-authentication checks and provider webhook handling for the existing readiness groundwork.
 
 ## Phase 2: Finish Wafeq Core Accounting Modules
 
@@ -130,7 +130,7 @@ Tasks:
 - WhatsApp provider integration if product requires it.
 - Subscription billing and plan enforcement.
 - Domain, DNS, SSL, and environment management.
-- Security hardening: rate limits, CORS, password policy, audit coverage, secrets rotation.
+- Security hardening: CORS, password policy, audit coverage, secrets rotation, MFA, and session invalidation.
 - Approval workflows and dual-control policies for high-risk accounting actions.
 - Observability: logs, metrics, tracing, alerts.
 - Multi-language polish, Arabic/English layout review, and regional formatting.

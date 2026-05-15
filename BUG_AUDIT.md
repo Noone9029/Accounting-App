@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Commit inspected: pending (`Add email invite and password reset groundwork`)
+Commit inspected: pending (`Add email readiness and auth token rate limits`)
 
 ## Scope
 
@@ -37,6 +37,28 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Email readiness and auth token rate limits added
+
+Added production email provider readiness and DB-backed token delivery rate limits without enabling real sending.
+
+Risk reduced:
+
+- `GET /email/readiness` reports the active provider, mock mode, real-sending flag, SMTP configuration booleans, warnings, and blockers without exposing SMTP secret values.
+- `SmtpEmailProvider` is a non-sending stub: `smtp-disabled` reports intentional non-delivery and `smtp` reports missing config/not-implemented blockers instead of attempting network delivery.
+- Password reset requests are limited by email and IP while preserving the generic response used to avoid account enumeration.
+- Organization invite requests are limited by email/organization/hour and organization/day, with clear authenticated admin errors.
+- `AuthTokenRateLimitEvent` stores rate-limit evidence in the database for multi-instance safety.
+- `POST /auth/tokens/cleanup-expired` removes expired unconsumed tokens older than 30 days for operational cleanup.
+- `/settings/email-outbox` now shows provider readiness, redacted SMTP configuration state, and expired-token cleanup when permitted.
+
+Remaining risks:
+
+- No real SMTP/API provider integration.
+- No DKIM/SPF/domain authentication or deliverability handling.
+- No MFA.
+- No refresh-token rotation or advanced session invalidation.
+- No background email queue, retry worker, bounce handling, or provider webhook handling.
+
 ### Invite/password reset groundwork added
 
 Added mock/local email-token infrastructure for organization member invitations, invited-user onboarding, password reset, and outbox inspection.
@@ -53,7 +75,6 @@ Risk reduced:
 Remaining risks:
 
 - No real SMTP or paid email provider integration.
-- No rate limiting or abuse protection yet.
 - No DKIM/SPF/domain authentication or deliverability handling.
 - No MFA.
 - No refresh-token rotation or advanced session management.

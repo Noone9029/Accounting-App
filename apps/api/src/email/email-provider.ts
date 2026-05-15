@@ -20,8 +20,27 @@ export interface EmailProviderResult {
   sentAt?: Date | null;
 }
 
+export interface SmtpConfigReadiness {
+  hostConfigured: boolean;
+  portConfigured: boolean;
+  userConfigured: boolean;
+  passwordConfigured: boolean;
+  secure: boolean;
+}
+
+export interface EmailProviderReadiness {
+  provider: string;
+  ready: boolean;
+  blockingReasons: string[];
+  warnings: string[];
+  smtp: SmtpConfigReadiness;
+  mockMode: boolean;
+  realSendingEnabled: boolean;
+}
+
 export interface EmailProvider {
   readonly provider: string;
   readonly isMock: boolean;
   send(message: EmailMessage): Promise<EmailProviderResult>;
+  readiness(): EmailProviderReadiness;
 }

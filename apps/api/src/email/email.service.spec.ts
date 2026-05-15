@@ -15,6 +15,21 @@ describe("EmailService", () => {
       provider: "mock",
       isMock: true,
       send: jest.fn().mockResolvedValue({ provider: "mock", status: EmailDeliveryStatus.SENT_MOCK, sentAt: new Date("2026-05-15T00:00:00.000Z") }),
+      readiness: jest.fn().mockReturnValue({
+        provider: "mock",
+        ready: true,
+        blockingReasons: [],
+        warnings: ["Mock email provider is active. No real email will be sent."],
+        smtp: {
+          hostConfigured: false,
+          portConfigured: false,
+          userConfigured: false,
+          passwordConfigured: false,
+          secure: false,
+        },
+        mockMode: true,
+        realSendingEnabled: false,
+      }),
     };
     return { service: new EmailService(prisma as never, config as never, provider), prisma, provider };
   }
@@ -53,5 +68,19 @@ describe("EmailService", () => {
 
     expect(prisma.emailOutbox.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: "org-1" } }));
     expect(prisma.emailOutbox.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "email-1", organizationId: "org-1" } }));
+  });
+
+  it("returns provider readiness without secrets", () => {
+    const { service } = makeService();
+
+    expect(service.readiness()).toEqual(
+      expect.objectContaining({
+        provider: "mock",
+        ready: true,
+        fromEmail: "noreply@example.test",
+        realSendingEnabled: false,
+      }),
+    );
+    expect(JSON.stringify(service.readiness())).not.toContain("SMTP_PASSWORD");
   });
 });

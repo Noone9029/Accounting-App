@@ -9,6 +9,7 @@ describe("AuthTokenService", () => {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         findUnique: jest.fn(),
         update: jest.fn().mockResolvedValue({ id: "token-1", consumedAt: new Date() }),
+        deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
       },
     };
     return { service: new AuthTokenService(prisma as never), prisma };
@@ -57,5 +58,20 @@ describe("AuthTokenService", () => {
     });
 
     await expect(service.getTokenForUse("raw", AuthTokenPurpose.PASSWORD_RESET)).rejects.toThrow("expired");
+  });
+
+  it("cleans up expired unconsumed tokens older than the retention window", async () => {
+    const { service, prisma } = makeService();
+
+    await expect(service.cleanupExpiredUnconsumed("org-1", 30)).resolves.toMatchObject({ deletedCount: 2, olderThanDays: 30 });
+    expect(prisma.authToken.deleteMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          consumedAt: null,
+          expiresAt: expect.objectContaining({ lt: expect.any(Date) }),
+        }),
+      }),
+    );
   });
 });

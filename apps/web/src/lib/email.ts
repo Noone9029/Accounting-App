@@ -1,4 +1,4 @@
-import type { EmailDeliveryStatus, EmailTemplateType } from "./types";
+import type { EmailDeliveryStatus, EmailProviderName, EmailTemplateType } from "./types";
 
 export function emailStatusLabel(status: EmailDeliveryStatus | string): string {
   const labels: Record<EmailDeliveryStatus, string> = {
@@ -25,6 +25,32 @@ export function emailTemplateLabel(templateType: EmailTemplateType | string): st
     PASSWORD_RESET: "Password reset",
   };
   return labels[templateType as EmailTemplateType] ?? templateType;
+}
+
+export function emailProviderLabel(provider: EmailProviderName): string {
+  const labels: Record<string, string> = {
+    mock: "Mock/local",
+    "smtp-disabled": "SMTP disabled",
+    smtp: "SMTP",
+    invalid: "Invalid provider",
+  };
+  return labels[provider] ?? provider;
+}
+
+export function emailReadinessLabel(ready: boolean): string {
+  return ready ? "Ready" : "Needs configuration";
+}
+
+export function emailReadinessClass(ready: boolean): string {
+  return ready ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700";
+}
+
+export function smtpConfigStateLabel(configured: boolean): string {
+  return configured ? "Configured" : "Missing";
+}
+
+export function passwordResetGenericMessage(): string {
+  return "If an account exists, password reset instructions have been sent.";
 }
 
 export function inviteAcceptPath(token: string): string {

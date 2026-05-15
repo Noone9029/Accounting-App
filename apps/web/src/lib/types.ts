@@ -117,6 +117,7 @@ export type GeneratedDocumentStatus = "GENERATED" | "FAILED" | "SUPERSEDED";
 export type AttachmentStorageProvider = "DATABASE" | "LOCAL_PLACEHOLDER" | "S3_PLACEHOLDER";
 export type EmailDeliveryStatus = "QUEUED" | "SENT_MOCK" | "FAILED";
 export type EmailTemplateType = "ORGANIZATION_INVITE" | "PASSWORD_RESET";
+export type EmailProviderName = "mock" | "smtp-disabled" | "smtp" | "invalid" | string;
 export type AttachmentLinkedEntityType =
   | "SALES_INVOICE"
   | "CUSTOMER_PAYMENT"
@@ -239,6 +240,29 @@ export interface EmailOutboxEntry {
 export interface EmailOutboxDetail extends EmailOutboxEntry {
   bodyText: string;
   bodyHtml: string | null;
+}
+
+export interface EmailReadinessResponse {
+  provider: EmailProviderName;
+  ready: boolean;
+  blockingReasons: string[];
+  warnings: string[];
+  fromEmail: string;
+  smtp: {
+    hostConfigured: boolean;
+    portConfigured: boolean;
+    userConfigured: boolean;
+    passwordConfigured: boolean;
+    secure: boolean;
+  };
+  mockMode: boolean;
+  realSendingEnabled: boolean;
+}
+
+export interface AuthTokenCleanupResponse {
+  deletedCount: number;
+  olderThanDays: number;
+  cutoff: string;
 }
 
 export interface Account {

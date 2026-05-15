@@ -81,6 +81,23 @@ interface EmailOutboxDetail extends EmailOutboxEntry {
   bodyHtml: string | null;
 }
 
+interface EmailReadinessResponse {
+  provider: string;
+  ready: boolean;
+  blockingReasons: string[];
+  warnings: string[];
+  fromEmail: string;
+  smtp: {
+    hostConfigured: boolean;
+    portConfigured: boolean;
+    userConfigured: boolean;
+    passwordConfigured: boolean;
+    secure: boolean;
+  };
+  mockMode: boolean;
+  realSendingEnabled: boolean;
+}
+
 interface Account {
   id: string;
   code: string;
@@ -1099,6 +1116,12 @@ async function main(): Promise<void> {
     members.some((member) => member.user.email === seedEmail && member.role.name === "Owner" && member.status === "ACTIVE"),
     "seed user is an active Owner member",
   );
+
+  const emailReadiness = await get<EmailReadinessResponse>("/email/readiness", headers);
+  assertEqual(emailReadiness.provider, "mock", "email readiness provider");
+  assert(emailReadiness.mockMode, "email readiness reports mock mode");
+  assert(!emailReadiness.realSendingEnabled, "email readiness keeps real sending disabled");
+  assert(!JSON.stringify(emailReadiness).includes("SMTP_PASSWORD"), "email readiness does not expose SMTP password");
 
   const invitedEmail = `smoke-invite-${Date.now()}@example.com`;
   const invitedPassword = `Invite${runId}!`;
@@ -4140,6 +4163,9 @@ async function main(): Promise<void> {
         smokeRoleName: context.roleName,
         smokePermissionCount: context.permissionCount,
         roleManagementChecked: true,
+        emailReadinessProvider: emailReadiness.provider,
+        emailReadinessRealSendingEnabled: emailReadiness.realSendingEnabled,
+        emailReadinessSecretsRedacted: !JSON.stringify(emailReadiness).includes("SMTP_PASSWORD"),
         inviteEmailQueued: Boolean(invite.emailOutboxId),
         inviteAcceptedRole: invitedMembership.role.name,
         invitedUserCanLogin: Boolean(invitedLogin.accessToken),

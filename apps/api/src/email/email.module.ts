@@ -4,6 +4,7 @@ import { EmailController } from "./email.controller";
 import { EMAIL_PROVIDER, type EmailProvider } from "./email-provider";
 import { EmailService } from "./email.service";
 import { MockEmailProvider } from "./mock-email.provider";
+import { SmtpEmailProvider } from "./smtp-email.provider";
 
 @Global()
 @Module({
@@ -11,10 +12,14 @@ import { MockEmailProvider } from "./mock-email.provider";
   providers: [
     EmailService,
     MockEmailProvider,
+    SmtpEmailProvider,
     {
       provide: EMAIL_PROVIDER,
-      useFactory: (_config: ConfigService, mockProvider: MockEmailProvider): EmailProvider => mockProvider,
-      inject: [ConfigService, MockEmailProvider],
+      useFactory: (config: ConfigService, mockProvider: MockEmailProvider, smtpProvider: SmtpEmailProvider): EmailProvider => {
+        const provider = config.get<string>("EMAIL_PROVIDER")?.trim().toLowerCase() || "mock";
+        return provider === "mock" ? mockProvider : smtpProvider;
+      },
+      inject: [ConfigService, MockEmailProvider, SmtpEmailProvider],
     },
   ],
   exports: [EmailService, EMAIL_PROVIDER],

@@ -4,7 +4,7 @@ Audit date: 2026-05-15
 
 Schema source: `apps/api/prisma/schema.prisma`
 
-This checkpoint adds email/token models for mock invitation and password reset delivery. Tokens store hashes only; mock email bodies are inspectable through tenant-scoped outbox APIs.
+This checkpoint adds email/token models for mock invitation and password reset delivery plus DB-backed token request rate-limit evidence. Tokens store hashes only; mock email bodies are inspectable through tenant-scoped outbox APIs.
 
 ## Enums
 
@@ -72,11 +72,12 @@ This checkpoint adds email/token models for mock invitation and password reset d
 | --- | --- | --- | --- | --- | --- | --- |
 | `User` | Login identity. | `email`, `passwordHash`, `name`. | Memberships, created/posted records, COGS posted/reversed sales stock issues, receipt asset posted/reversed purchase receipts, inventory variance proposal actors, generated documents, uploaded/deleted attachments, auth tokens. | Tracks actors for accounting events. | No explicit status enum. | No MFA, refresh-token rotation, or advanced session management. |
 | `Organization` | Tenant root. | `name`, `legalName`, `taxNumber`, `baseCurrency`, `timezone`. | Owns almost every business model, including inventory variance proposals, proposal events, attachments, auth tokens, and email outbox records. | Tenant boundary for ledgers/journals. | No explicit status enum. | No subscription/billing state. |
-| `OrganizationMember` | User-to-org link. | `organizationId`, `userId`, `roleId`, `status`. | User, Organization, Role. | Controls org access and permission lookup. | `MembershipStatus`. | Invite acceptance is implemented with mock email only; no MFA or rate limiting. |
+| `OrganizationMember` | User-to-org link. | `organizationId`, `userId`, `roleId`, `status`. | User, Organization, Role. | Controls org access and permission lookup. | `MembershipStatus`. | Invite acceptance is implemented with mock email only; no MFA or real provider delivery. |
 | `Role` | Stored permission set. | `name`, `permissions` JSON, `isSystem`. | Organization, members. | Runtime API/UI access control. | No lifecycle enum. | System roles are protected; no approval workflow. |
 | `AuditLog` | Mutation audit trail. | `action`, `entityType`, `entityId`, `before`, `after`. | Organization, optional actor. | Supports auditability. | Append-only by convention. | Coverage should be verified per mutation. |
-| `AuthToken` | Hashed email-token record for invitations and password reset. | `email`, `purpose`, `tokenHash`, `expiresAt`, `consumedAt`, optional organization/user/creator links. | Optional Organization, optional target User, optional creator User. | No accounting impact. | `AuthTokenPurpose`; consumed timestamp is terminal for a token. | No rate limiting or global session invalidation. |
-| `EmailOutbox` | Mock/local email delivery record. | `toEmail`, `fromEmail`, `subject`, `templateType`, `bodyText`, optional `bodyHtml`, `status`, `provider`, provider metadata, `sentAt`. | Optional Organization. | No accounting impact. | `EmailDeliveryStatus`, `EmailTemplateType`. | Mock provider only; no SMTP/API provider, retries, bounces, DKIM/SPF, or domain auth. |
+| `AuthToken` | Hashed email-token record for invitations and password reset. | `email`, `purpose`, `tokenHash`, `expiresAt`, `consumedAt`, optional organization/user/creator links. | Optional Organization, optional target User, optional creator User. | No accounting impact. | `AuthTokenPurpose`; consumed timestamp is terminal for a token. | No global session invalidation. |
+| `AuthTokenRateLimitEvent` | DB-backed evidence for invitation/password-reset request limits. | `organizationId`, `email`, `purpose`, optional `ipAddress`, optional `userAgent`, `createdAt`. | Optional Organization. | No accounting impact. | Time-window event rows only. | No background pruning job yet; cleanup is manual endpoint/service. |
+| `EmailOutbox` | Mock/local email delivery record. | `toEmail`, `fromEmail`, `subject`, `templateType`, `bodyText`, optional `bodyHtml`, `status`, `provider`, provider metadata, `sentAt`. | Optional Organization. | No accounting impact. | `EmailDeliveryStatus`, `EmailTemplateType`. | Mock provider remains default; SMTP readiness/stub exists, but no real provider sending, retries, bounces, DKIM/SPF, or domain auth. |
 
 ## Organization Setup Models
 

@@ -10,7 +10,7 @@ Route source: `apps/web/src/app`
 - The sidebar filters top-level and child nav items by view permissions.
 - Route protection shows an access-denied panel when a user lacks the page permission.
 - High-risk buttons such as approve, convert, finalize, void, delete, apply/reverse allocation, bank account archive/reactivate, opening-balance posting, bank transfer voiding, statement import/match/categorize/ignore, reconciliation close/void, warehouse archive/reactivate, stock movement create, inventory adjustment approve/void, warehouse transfer void, fiscal period lock, ZATCA generate/check, attachment upload/download/delete/manage, and document settings save are hidden unless the active role has the matching permission.
-- Settings/Admin nav now includes Team Members for `users.view`, Roles & Permissions for `roles.view`, Document settings for `documentSettings.view`, Storage for `documentSettings.view` or `attachments.manage`, and Email outbox for `emailOutbox.view`.
+- Settings/Admin nav now includes Team Members for `users.view`, Roles & Permissions for `roles.view`, Document settings for `documentSettings.view`, Storage for `documentSettings.view` or `attachments.manage`, and Email outbox/readiness for `emailOutbox.view`.
 
 ## Auth And Setup
 
@@ -20,7 +20,7 @@ Route source: `apps/web/src/app`
 | `/login` | User login. | None before submit. | Login, store token, and navigate to password reset. | Implemented | MFA missing. |
 | `/register` | User/org registration. | None before submit. | Register account. | Implemented | Invite acceptance is a separate route. |
 | `/invite/accept` | Invitation acceptance. | Invite preview by token. | Set name/password, activate membership, store JWT, and select organization. | Implemented | Mock/local email only; no MFA. |
-| `/password-reset` | Password reset request. | None before submit. | Submit email and show generic response. | Implemented | No rate limiting or real provider delivery. |
+| `/password-reset` | Password reset request. | None before submit. | Submit email and show generic response. | Implemented | Real provider delivery and MFA are not implemented. |
 | `/password-reset/confirm` | Password reset confirmation. | Token from URL. | Set new password with reset token. | Implemented | No session invalidation UI. |
 | `/organization/setup` | Create/select organization setup. | Auth user/org state. | Create organization. | Implemented | Rich onboarding checklist missing. |
 
@@ -51,9 +51,9 @@ Route source: `apps/web/src/app`
 | `/fiscal-periods` | Fiscal period management. | Fiscal periods. | Create, close, reopen, and lock periods. | Implemented | No unlock/admin approval or fiscal year wizard yet. |
 | `/settings/documents` | Document PDF settings. | Organization document settings. | Update titles/colors/visibility. | Implemented | Template preview/designer missing. |
 | `/settings/storage` | Storage readiness and migration planning. | `/storage/readiness` and `/storage/migration-plan`. | Review active providers, redacted S3 config checks, database storage warnings, and dry-run migration counts. | Groundwork | S3 upload adapter, migration executor, virus scanning, and retention policy are not implemented. |
-| `/settings/email-outbox` | Mock email outbox. | `/email/outbox` and selected detail. | Review mock/local invite and password reset emails. | Groundwork | Real provider delivery, retries, bounce handling, rate limiting, and domain auth are not implemented. |
+| `/settings/email-outbox` | Email provider readiness and mock email outbox. | `/email/readiness`, `/email/outbox`, selected detail, and optional `/auth/tokens/cleanup-expired`. | Review provider mode, redacted SMTP config booleans, warnings/blockers, mock/local invite and password reset emails, and run expired-token cleanup when permitted. | Groundwork | Real provider delivery, retries, bounce handling, background queue, and domain auth are not implemented. |
 | `/settings/zatca` | ZATCA settings, readiness, checklist, SDK readiness. | Profile, EGS units, logs, adapter config, readiness, checklist, SDK readiness. | Update profile, create/update EGS, CSR, mock CSID, dry-run visibility. | Groundwork only | Real ZATCA onboarding/submission not present. |
-| `/settings/team` | Team member administration. | Members and roles. | Change member role/status, send mock/local invites, and show local preview links when available. | Implemented | No real email provider, rate limiting, or approval workflow yet. |
+| `/settings/team` | Team member administration. | Members and roles. | Change member role/status, send mock/local rate-limited invites, and show local preview links when available. | Implemented | No real email provider or approval workflow yet. |
 | `/settings/roles` | Role list and custom role creation. | Roles and permission matrix. | Create custom roles when allowed. | Implemented | System roles are read-only; no bulk templates beyond seed roles. |
 | `/settings/roles/[id]` | Role detail and permission matrix. | Role detail. | Edit/delete custom roles when allowed. | Implemented | No approval workflow for role changes. |
 | `/[...placeholder]` | Placeholder fallback for unbuilt sections. | None. | Navigation. | Placeholder | Replace as modules are implemented. |

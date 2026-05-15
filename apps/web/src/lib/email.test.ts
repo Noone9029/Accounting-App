@@ -1,9 +1,13 @@
 import {
   emailStatusLabel,
   emailTemplateLabel,
+  emailProviderLabel,
+  emailReadinessLabel,
   inviteAcceptPath,
   isValidAuthPassword,
   passwordResetConfirmPath,
+  passwordResetGenericMessage,
+  smtpConfigStateLabel,
 } from "./email";
 
 describe("email helpers", () => {
@@ -17,6 +21,14 @@ describe("email helpers", () => {
     expect(emailTemplateLabel("PASSWORD_RESET")).toBe("Password reset");
   });
 
+  it("labels provider readiness without exposing config values", () => {
+    expect(emailProviderLabel("mock")).toBe("Mock/local");
+    expect(emailProviderLabel("smtp-disabled")).toBe("SMTP disabled");
+    expect(emailReadinessLabel(true)).toBe("Ready");
+    expect(emailReadinessLabel(false)).toBe("Needs configuration");
+    expect(smtpConfigStateLabel(false)).toBe("Missing");
+  });
+
   it("builds token URLs with encoding", () => {
     expect(inviteAcceptPath("a b")).toBe("/invite/accept?token=a%20b");
     expect(passwordResetConfirmPath("a+b")).toBe("/password-reset/confirm?token=a%2Bb");
@@ -25,5 +37,9 @@ describe("email helpers", () => {
   it("validates password length", () => {
     expect(isValidAuthPassword("short")).toBe(false);
     expect(isValidAuthPassword("Password123!")).toBe(true);
+  });
+
+  it("keeps password reset request copy generic", () => {
+    expect(passwordResetGenericMessage()).toBe("If an account exists, password reset instructions have been sent.");
   });
 });

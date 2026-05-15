@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { EmailDeliveryStatus } from "@prisma/client";
-import type { EmailMessage, EmailProvider, EmailProviderResult } from "./email-provider";
+import type { EmailMessage, EmailProvider, EmailProviderReadiness, EmailProviderResult } from "./email-provider";
 
 @Injectable()
 export class MockEmailProvider implements EmailProvider {
@@ -14,6 +14,24 @@ export class MockEmailProvider implements EmailProvider {
       providerMessageId: null,
       errorMessage: null,
       sentAt: new Date(),
+    };
+  }
+
+  readiness(): EmailProviderReadiness {
+    return {
+      provider: this.provider,
+      ready: true,
+      blockingReasons: [],
+      warnings: ["Mock email provider is active. No real email will be sent."],
+      smtp: {
+        hostConfigured: false,
+        portConfigured: false,
+        userConfigured: false,
+        passwordConfigured: false,
+        secure: false,
+      },
+      mockMode: true,
+      realSendingEnabled: false,
     };
   }
 }

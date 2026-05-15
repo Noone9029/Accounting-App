@@ -40,16 +40,25 @@ describe("OrganizationMemberService", () => {
     };
     const auditLogService = { log: jest.fn().mockResolvedValue(undefined) };
     const authTokenService = { create: jest.fn().mockResolvedValue({ rawToken: "invite-token", authToken: { id: "token-1" } }) };
+    const authTokenRateLimitService = { assertInviteAllowed: jest.fn().mockResolvedValue(undefined) };
     const emailService = {
       isMockProvider: true,
       sendOrganizationInvite: jest.fn().mockResolvedValue({ id: "email-1" }),
     };
     const config = { get: jest.fn((key: string) => (key === "APP_WEB_URL" ? "http://web.test" : undefined)) };
     return {
-      service: new OrganizationMemberService(prisma as never, auditLogService as never, authTokenService as never, emailService as never, config as never),
+      service: new OrganizationMemberService(
+        prisma as never,
+        auditLogService as never,
+        authTokenService as never,
+        authTokenRateLimitService as never,
+        emailService as never,
+        config as never,
+      ),
       prisma,
       auditLogService,
       authTokenService,
+      authTokenRateLimitService,
       emailService,
       config,
     };
@@ -87,7 +96,7 @@ describe("OrganizationMemberService", () => {
   });
 
   it("creates an invited user, token, and mock email for new users", async () => {
-    const { service, prisma, authTokenService, emailService } = makeService();
+    const { service, prisma, authTokenService, authTokenRateLimitService, emailService } = makeService();
     const invited = { ...member, id: "member-2", userId: "user-2", status: MembershipStatus.INVITED };
     prisma.role.findFirst.mockResolvedValue({ id: "role-2", name: "Viewer", permissions: [PERMISSIONS.reports.view] });
     prisma.user.findUnique.mockResolvedValue(null);
@@ -103,6 +112,7 @@ describe("OrganizationMemberService", () => {
       }),
     );
     expect(authTokenService.create).toHaveBeenCalledWith(expect.objectContaining({ purpose: "ORGANIZATION_INVITE" }), prisma);
+    expect(authTokenRateLimitService.assertInviteAllowed).toHaveBeenCalledWith(expect.objectContaining({ organizationId: "org-1", email: "new@example.com" }));
     expect(emailService.sendOrganizationInvite).toHaveBeenCalledWith(expect.objectContaining({ toEmail: "new@example.com" }));
   });
 
@@ -128,6 +138,17 @@ describe("OrganizationMemberService", () => {
     await expect(service.invite("org-1", "user-1", { email: "viewer@example.com", roleId: "role-2" })).rejects.toThrow(
       ConflictException,
     );
+  });
+
+  it("blocks invite delivery when the rate limiter rejects the request", async () => {
+    const { service, prisma, authTokenRateLimitService, authTokenService, emailService } = makeService();
+    prisma.role.findFirst.mockResolvedValue({ id: "role-2", name: "Viewer", permissions: [PERMISSIONS.reports.view] });
+    prisma.user.findUnique.mockResolvedValue(null);
+    authTokenRateLimitService.assertInviteAllowed.mockRejectedValue(new Error("rate limited"));
+
+    await expect(service.invite("org-1", "user-1", { email: "new@example.com", roleId: "role-2" })).rejects.toThrow("rate limited");
+    expect(authTokenService.create).not.toHaveBeenCalled();
+    expect(emailService.sendOrganizationInvite).not.toHaveBeenCalled();
   });
 
   it("keeps member reads tenant-scoped", async () => {

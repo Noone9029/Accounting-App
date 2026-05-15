@@ -12,6 +12,12 @@ import { EmailService } from "./email.service";
 export class EmailController {
   constructor(private readonly emailService: EmailService) {}
 
+  @Get("readiness")
+  @RequirePermissions(PERMISSIONS.emailOutbox.view, PERMISSIONS.users.manage)
+  readiness() {
+    return this.emailService.readiness();
+  }
+
   @Get("outbox")
   @RequirePermissions(PERMISSIONS.emailOutbox.view)
   listOutbox(@CurrentOrganizationId() organizationId: string) {

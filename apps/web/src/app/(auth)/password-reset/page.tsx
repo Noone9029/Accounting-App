@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { StatusMessage } from "@/components/common/status-message";
 import { apiRequest } from "@/lib/api";
+import { passwordResetGenericMessage } from "@/lib/email";
 
 export default function PasswordResetRequestPage() {
   const [email, setEmail] = useState("");
@@ -23,7 +24,7 @@ export default function PasswordResetRequestPage() {
         organizationId: null,
         body: { email },
       });
-      setMessage(result.message);
+      setMessage(result.message || passwordResetGenericMessage());
     } catch (resetError) {
       setError(resetError instanceof Error ? resetError.message : "Unable to request password reset.");
     } finally {

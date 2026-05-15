@@ -5,6 +5,7 @@ import { hasPermission, normalizePermissions, PERMISSIONS } from "@ledgerbyte/sh
 import * as bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { AuthTokenRateLimitService, type AuthTokenDeliveryRequestMeta } from "../auth/auth-token-rate-limit.service";
 import { AuthTokenService } from "../auth/auth-token.service";
 import { EmailService } from "../email/email.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -18,6 +19,7 @@ export class OrganizationMemberService {
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
     private readonly authTokenService: AuthTokenService,
+    private readonly authTokenRateLimitService: AuthTokenRateLimitService,
     private readonly emailService: EmailService,
     private readonly config: ConfigService,
   ) {}
@@ -109,7 +111,7 @@ export class OrganizationMemberService {
     return toMemberResponse(updated);
   }
 
-  async invite(organizationId: string, actorUserId: string, dto: InviteOrganizationMemberDto) {
+  async invite(organizationId: string, actorUserId: string, dto: InviteOrganizationMemberDto, requestMeta: AuthTokenDeliveryRequestMeta = {}) {
     const email = dto.email.toLowerCase().trim();
     const role = await this.getRoleOrThrow(organizationId, dto.roleId);
     const organization = await this.prisma.organization.findUnique({
@@ -120,6 +122,30 @@ export class OrganizationMemberService {
     if (!organization) {
       throw new NotFoundException("Organization not found.");
     }
+
+    const existingUserForRateLimit = await this.prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        memberships: {
+          where: { organizationId },
+          select: { id: true, status: true },
+          take: 1,
+        },
+      },
+    });
+
+    const existingMembership = existingUserForRateLimit?.memberships?.[0];
+    if (existingMembership?.status === MembershipStatus.ACTIVE) {
+      throw new ConflictException("User already belongs to this organization.");
+    }
+
+    await this.authTokenRateLimitService.assertInviteAllowed({
+      organizationId,
+      email,
+      ipAddress: requestMeta.ipAddress,
+      userAgent: requestMeta.userAgent,
+    });
 
     const invite = await this.prisma.$transaction(async (tx) => {
       let user = await tx.user.findUnique({

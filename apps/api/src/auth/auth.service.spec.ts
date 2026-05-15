@@ -26,13 +26,18 @@ describe("AuthService invite and password reset flows", () => {
       create: jest.fn().mockResolvedValue({ rawToken: "reset-token", authToken: { id: "token-1" } }),
       getTokenForUse: jest.fn(),
       consume: jest.fn().mockResolvedValue({ id: "token-1" }),
+      cleanupExpiredUnconsumed: jest.fn().mockResolvedValue({ deletedCount: 1, olderThanDays: 30 }),
+    };
+    const rateLimitService = {
+      registerPasswordResetAttempt: jest.fn().mockResolvedValue({ allowed: true, blockingReasons: [] }),
     };
     const emailService = { sendPasswordReset: jest.fn().mockResolvedValue({ id: "email-1" }) };
     return {
-      service: new AuthService(prisma as never, jwt as never, config as never, authTokenService as never, emailService as never),
+      service: new AuthService(prisma as never, jwt as never, config as never, authTokenService as never, rateLimitService as never, emailService as never),
       prisma,
       jwt,
       authTokenService,
+      rateLimitService,
       emailService,
     };
   }
@@ -88,6 +93,22 @@ describe("AuthService invite and password reset flows", () => {
     );
   });
 
+  it("suppresses password reset email when the rate limit is reached but keeps the response generic", async () => {
+    const { service, prisma, authTokenService, rateLimitService, emailService } = makeService();
+    prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      email: "user@example.com",
+      memberships: [{ organizationId: "org-1" }],
+    });
+    rateLimitService.registerPasswordResetAttempt.mockResolvedValue({ allowed: false, blockingReasons: ["rate-limited"] });
+
+    await expect(service.requestPasswordReset({ email: "user@example.com" })).resolves.toEqual({
+      message: "If an account exists, password reset instructions have been sent.",
+    });
+    expect(authTokenService.create).not.toHaveBeenCalled();
+    expect(emailService.sendPasswordReset).not.toHaveBeenCalled();
+  });
+
   it("confirms password reset and consumes token", async () => {
     const { service, prisma, authTokenService } = makeService();
     authTokenService.getTokenForUse.mockResolvedValue({ id: "token-1", userId: "user-1" });
@@ -97,5 +118,12 @@ describe("AuthService invite and password reset flows", () => {
     const passwordHash = prisma.user.update.mock.calls[0][0].data.passwordHash;
     await expect(bcrypt.compare("NewPassword123!", passwordHash)).resolves.toBe(true);
     expect(authTokenService.consume).toHaveBeenCalledWith("token-1", prisma);
+  });
+
+  it("cleans up expired organization tokens", async () => {
+    const { service, authTokenService } = makeService();
+
+    await expect(service.cleanupExpiredTokens("org-1")).resolves.toMatchObject({ deletedCount: 1 });
+    expect(authTokenService.cleanupExpiredUnconsumed).toHaveBeenCalledWith("org-1", 30);
   });
 });

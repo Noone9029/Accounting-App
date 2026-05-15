@@ -2,16 +2,30 @@
 
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { emailStatusClass, emailStatusLabel, emailTemplateLabel } from "@/lib/email";
-import type { EmailOutboxDetail, EmailOutboxEntry } from "@/lib/types";
+import {
+  emailProviderLabel,
+  emailReadinessClass,
+  emailReadinessLabel,
+  emailStatusClass,
+  emailStatusLabel,
+  emailTemplateLabel,
+  smtpConfigStateLabel,
+} from "@/lib/email";
+import { PERMISSIONS } from "@/lib/permissions";
+import type { AuthTokenCleanupResponse, EmailOutboxDetail, EmailOutboxEntry, EmailReadinessResponse } from "@/lib/types";
 
 export default function EmailOutboxPage() {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [emails, setEmails] = useState<EmailOutboxEntry[]>([]);
+  const [readiness, setReadiness] = useState<EmailReadinessResponse | null>(null);
   const [selected, setSelected] = useState<EmailOutboxDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<AuthTokenCleanupResponse | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -20,8 +34,11 @@ export default function EmailOutboxPage() {
     }
     setLoading(true);
     setError("");
-    apiRequest<EmailOutboxEntry[]>("/email/outbox")
-      .then(setEmails)
+    Promise.all([apiRequest<EmailOutboxEntry[]>("/email/outbox"), apiRequest<EmailReadinessResponse>("/email/readiness")])
+      .then(([outbox, emailReadiness]) => {
+        setEmails(outbox);
+        setReadiness(emailReadiness);
+      })
       .catch((loadError) => setError(loadError instanceof Error ? loadError.message : "Unable to load email outbox."))
       .finally(() => setLoading(false));
   }, [organizationId]);
@@ -34,6 +51,21 @@ export default function EmailOutboxPage() {
       setError(detailError instanceof Error ? detailError.message : "Unable to load email detail.");
     }
   }
+
+  async function cleanupExpiredTokens() {
+    setCleanupLoading(true);
+    setCleanupResult(null);
+    setError("");
+    try {
+      setCleanupResult(await apiRequest<AuthTokenCleanupResponse>("/auth/tokens/cleanup-expired", { method: "POST" }));
+    } catch (cleanupError) {
+      setError(cleanupError instanceof Error ? cleanupError.message : "Unable to clean expired tokens.");
+    } finally {
+      setCleanupLoading(false);
+    }
+  }
+
+  const canCleanTokens = can(PERMISSIONS.users.manage);
 
   return (
     <section>
@@ -48,6 +80,65 @@ export default function EmailOutboxPage() {
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         <StatusMessage type="info">Real SMTP/API delivery is not configured yet. Mock messages are stored for local inspection.</StatusMessage>
       </div>
+
+      {readiness ? (
+        <section className="mt-5 rounded-md border border-slate-200 bg-white p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-ink">Email provider readiness</h2>
+              <p className="mt-1 text-sm text-steel">Provider configuration and token-delivery safety checks.</p>
+            </div>
+            <span className={`w-fit rounded-full px-2 py-1 text-xs font-medium ${emailReadinessClass(readiness.ready)}`}>
+              {emailReadinessLabel(readiness.ready)}
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3 text-sm md:grid-cols-4">
+            <Detail label="Provider" value={emailProviderLabel(readiness.provider)} />
+            <Detail label="From email" value={readiness.fromEmail} />
+            <Detail label="Mock mode" value={readiness.mockMode ? "Yes" : "No"} />
+            <Detail label="Real sending" value={readiness.realSendingEnabled ? "Enabled" : "Disabled"} />
+          </div>
+          <div className="mt-4 grid gap-3 text-sm md:grid-cols-5">
+            <Detail label="SMTP host" value={smtpConfigStateLabel(readiness.smtp.hostConfigured)} />
+            <Detail label="SMTP port" value={smtpConfigStateLabel(readiness.smtp.portConfigured)} />
+            <Detail label="SMTP user" value={smtpConfigStateLabel(readiness.smtp.userConfigured)} />
+            <Detail label="SMTP password" value={smtpConfigStateLabel(readiness.smtp.passwordConfigured)} />
+            <Detail label="SMTP secure" value={readiness.smtp.secure ? "True" : "False"} />
+          </div>
+          {readiness.blockingReasons.length > 0 ? (
+            <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+              {readiness.blockingReasons.map((reason) => (
+                <div key={reason}>{reason}</div>
+              ))}
+            </div>
+          ) : null}
+          {readiness.warnings.length > 0 ? (
+            <div className="mt-4 rounded-md bg-slate-50 p-3 text-sm text-steel">
+              {readiness.warnings.map((warning) => (
+                <div key={warning}>{warning}</div>
+              ))}
+            </div>
+          ) : null}
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+            {canCleanTokens ? (
+              <button
+                type="button"
+                onClick={() => void cleanupExpiredTokens()}
+                disabled={cleanupLoading}
+                className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+              >
+                {cleanupLoading ? "Cleaning..." : "Clean expired tokens"}
+              </button>
+            ) : null}
+            {cleanupResult ? (
+              <span className="text-sm text-steel">
+                Deleted {cleanupResult.deletedCount} expired unconsumed token{cleanupResult.deletedCount === 1 ? "" : "s"} older than{" "}
+                {cleanupResult.olderThanDays} days.
+              </span>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[1.4fr_1fr]">
         <section className="overflow-hidden rounded-md border border-slate-200 bg-white">

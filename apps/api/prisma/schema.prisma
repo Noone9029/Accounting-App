@@ -569,6 +569,7 @@ model Organization {
   attachments                         Attachment[]
   emailOutbox                         EmailOutbox[]
   authTokens                          AuthToken[]
+  authTokenRateLimitEvents            AuthTokenRateLimitEvent[]
   zatcaProfile                        ZatcaOrganizationProfile?
   zatcaEgsUnits                       ZatcaEgsUnit[]
   zatcaInvoiceMetadata                ZatcaInvoiceMetadata[]
@@ -878,6 +879,22 @@ model AuthToken {
   @@index([expiresAt])
   @@index([organizationId])
   @@index([userId])
+}
+
+model AuthTokenRateLimitEvent {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String?          @db.Uuid
+  email          String
+  purpose        AuthTokenPurpose
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime         @default(now())
+  organization   Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, email, purpose, createdAt])
+  @@index([email, purpose, createdAt])
+  @@index([ipAddress, purpose, createdAt])
+  @@index([organizationId, purpose, createdAt])
 }
 
 model Branch {

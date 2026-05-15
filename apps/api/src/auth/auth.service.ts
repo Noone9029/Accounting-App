@@ -5,6 +5,7 @@ import { AuthTokenPurpose, MembershipStatus } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { EmailService } from "../email/email.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { AuthTokenRateLimitService, type AuthTokenDeliveryRequestMeta } from "./auth-token-rate-limit.service";
 import { AuthTokenService } from "./auth-token.service";
 import { AcceptInvitationDto } from "./dto/accept-invitation.dto";
 import { LoginDto } from "./dto/login.dto";
@@ -23,6 +24,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly authTokenService: AuthTokenService,
+    private readonly authTokenRateLimitService: AuthTokenRateLimitService,
     private readonly emailService: EmailService,
   ) {}
 
@@ -163,7 +165,7 @@ export class AuthService {
     };
   }
 
-  async requestPasswordReset(dto: PasswordResetRequestDto) {
+  async requestPasswordReset(dto: PasswordResetRequestDto, requestMeta: AuthTokenDeliveryRequestMeta = {}) {
     const email = dto.email.toLowerCase().trim();
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -179,8 +181,19 @@ export class AuthService {
       },
     });
 
+    const organizationId = user?.memberships[0]?.organizationId ?? null;
+    const rateLimit = await this.authTokenRateLimitService.registerPasswordResetAttempt({
+      organizationId,
+      email,
+      ipAddress: requestMeta.ipAddress,
+      userAgent: requestMeta.userAgent,
+    });
+
+    if (!rateLimit.allowed) {
+      return { message: PASSWORD_RESET_GENERIC_MESSAGE };
+    }
+
     if (user) {
-      const organizationId = user.memberships[0]?.organizationId ?? null;
       const { rawToken } = await this.authTokenService.create({
         organizationId,
         userId: user.id,
@@ -216,6 +229,10 @@ export class AuthService {
     });
 
     return { message: "Password has been reset." };
+  }
+
+  cleanupExpiredTokens(organizationId: string) {
+    return this.authTokenService.cleanupExpiredUnconsumed(organizationId, 30);
   }
 
   private signAccessToken(userId: string, email: string): Promise<string> {

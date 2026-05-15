@@ -99,6 +99,23 @@ export class AuthTokenService {
     });
   }
 
+  async cleanupExpiredUnconsumed(organizationId: string, olderThanDays = 30, tx: AuthTokenClient = this.prisma) {
+    const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
+    const result = await tx.authToken.deleteMany({
+      where: {
+        organizationId,
+        consumedAt: null,
+        expiresAt: { lt: cutoff },
+      },
+    });
+
+    return {
+      deletedCount: result.count,
+      olderThanDays,
+      cutoff,
+    };
+  }
+
   hashToken(rawToken: string): string {
     return createHash("sha256").update(rawToken, "utf8").digest("hex");
   }
