@@ -1,6 +1,6 @@
 # Auth Token Security
 
-Audit date: 2026-05-15
+Audit date: 2026-05-16
 
 LedgerByte invitation and password-reset links use short-lived raw tokens that are only shown in generated mock/local links. The database stores SHA-256 token hashes in `AuthToken`; it does not store raw tokens.
 
@@ -45,6 +45,8 @@ If the email does not belong to a user, no token or email is created, but the re
 
 Mock/local `EmailOutbox` records can include preview links in the email body. That is useful for development smoke tests, but it must remain admin-only and should not be treated as production-safe customer support tooling.
 
+SMTP mode can send invite and password-reset links externally when explicitly enabled. Token hashing and expiry rules are unchanged; only delivery routing changes. The SMTP readiness and test-send surfaces never expose `SMTP_PASSWORD`.
+
 ## Future Hardening
 
 - Add MFA.
@@ -52,3 +54,4 @@ Mock/local `EmailOutbox` records can include preview links in the email body. Th
 - Add CAPTCHA or stronger abuse controls if public password-reset traffic grows.
 - Add audit dashboards for invite/password-reset volume.
 - Add provider webhook verification and suppression-list handling.
+- Add background email queueing and retry controls before high-volume use.

@@ -183,7 +183,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       permission(PERMISSIONS.attachments.download, "Download attachments", "Download uploaded supporting files."),
       permission(PERMISSIONS.attachments.delete, "Delete attachments", "Soft-delete uploaded supporting files."),
       permission(PERMISSIONS.attachments.manage, "Manage attachments", "Edit uploaded attachment notes and future attachment metadata."),
-      permission(PERMISSIONS.emailOutbox.view, "View email outbox", "Review mock/local invite and password reset email delivery records."),
+      permission(PERMISSIONS.emailOutbox.view, "View email outbox", "Review invite, password reset, and provider test email delivery records."),
       permission(PERMISSIONS.documentSettings.view, "View document settings", "See document template settings."),
       permission(PERMISSIONS.documentSettings.manage, "Manage document settings", "Save document template settings."),
     ],

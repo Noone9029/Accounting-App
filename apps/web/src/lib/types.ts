@@ -115,8 +115,8 @@ export type DocumentType =
   | "BANK_RECONCILIATION_REPORT";
 export type GeneratedDocumentStatus = "GENERATED" | "FAILED" | "SUPERSEDED";
 export type AttachmentStorageProvider = "DATABASE" | "LOCAL_PLACEHOLDER" | "S3_PLACEHOLDER" | "S3";
-export type EmailDeliveryStatus = "QUEUED" | "SENT_MOCK" | "FAILED";
-export type EmailTemplateType = "ORGANIZATION_INVITE" | "PASSWORD_RESET";
+export type EmailDeliveryStatus = "QUEUED" | "SENT_MOCK" | "SENT_PROVIDER" | "FAILED";
+export type EmailTemplateType = "ORGANIZATION_INVITE" | "PASSWORD_RESET" | "TEST_EMAIL";
 export type EmailProviderName = "mock" | "smtp-disabled" | "smtp" | "invalid" | string;
 export type AttachmentLinkedEntityType =
   | "SALES_INVOICE"

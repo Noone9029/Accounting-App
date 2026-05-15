@@ -7,11 +7,13 @@ import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
   emailProviderLabel,
+  emailProviderWarningText,
   emailReadinessClass,
   emailReadinessLabel,
   emailStatusClass,
   emailStatusLabel,
   emailTemplateLabel,
+  isValidTestEmailAddress,
   smtpConfigStateLabel,
 } from "@/lib/email";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -26,6 +28,9 @@ export default function EmailOutboxPage() {
   const [loading, setLoading] = useState(false);
   const [cleanupLoading, setCleanupLoading] = useState(false);
   const [cleanupResult, setCleanupResult] = useState<AuthTokenCleanupResponse | null>(null);
+  const [testEmail, setTestEmail] = useState("");
+  const [testSending, setTestSending] = useState(false);
+  const [testSendResult, setTestSendResult] = useState<EmailOutboxDetail | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -65,7 +70,28 @@ export default function EmailOutboxPage() {
     }
   }
 
+  async function sendTestEmail() {
+    setTestSending(true);
+    setTestSendResult(null);
+    setError("");
+    try {
+      const result = await apiRequest<EmailOutboxDetail>("/email/test-send", {
+        method: "POST",
+        body: { toEmail: testEmail.trim() },
+      });
+      setTestSendResult(result);
+      setSelected(result);
+      setEmails((current) => [result, ...current.filter((email) => email.id !== result.id)]);
+    } catch (sendError) {
+      setError(sendError instanceof Error ? sendError.message : "Unable to send test email.");
+    } finally {
+      setTestSending(false);
+    }
+  }
+
   const canCleanTokens = can(PERMISSIONS.users.manage);
+  const canSendTestEmail = can(PERMISSIONS.users.manage);
+  const testEmailValid = isValidTestEmailAddress(testEmail);
 
   return (
     <section>
@@ -78,7 +104,7 @@ export default function EmailOutboxPage() {
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to review email outbox records.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading email outbox...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        <StatusMessage type="info">Real SMTP/API delivery is not configured yet. Mock messages are stored for local inspection.</StatusMessage>
+        {readiness ? <StatusMessage type="info">{emailProviderWarningText(readiness.provider, readiness.mockMode, readiness.realSendingEnabled)}</StatusMessage> : null}
       </div>
 
       {readiness ? (
@@ -117,6 +143,35 @@ export default function EmailOutboxPage() {
               {readiness.warnings.map((warning) => (
                 <div key={warning}>{warning}</div>
               ))}
+            </div>
+            ) : null}
+          {canSendTestEmail ? (
+            <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+              <h3 className="text-sm font-semibold text-ink">Send test email</h3>
+              <p className="mt-1 text-sm text-steel">Uses the active provider. Mock mode records the message in this outbox only.</p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <input
+                  type="email"
+                  value={testEmail}
+                  onChange={(event) => setTestEmail(event.target.value)}
+                  placeholder="ops@example.com"
+                  className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => void sendTestEmail()}
+                  disabled={testSending || !testEmailValid}
+                  className="rounded-md bg-palm px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+                >
+                  {testSending ? "Sending..." : "Send test email"}
+                </button>
+              </div>
+              {testEmail && !testEmailValid ? <p className="mt-2 text-sm text-rose-700">Enter a valid email address.</p> : null}
+              {testSendResult ? (
+                <p className="mt-2 text-sm text-steel">
+                  Test email recorded with status <span className="font-medium text-ink">{emailStatusLabel(testSendResult.status)}</span>.
+                </p>
+              ) : null}
             </div>
           ) : null}
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">

@@ -1,8 +1,8 @@
 # LedgerByte Bug Audit
 
-Audit date: 2026-05-15
+Audit date: 2026-05-16
 
-Commit inspected: pending (`Polish frontend route QA states`)
+Commit inspected: pending (`Add SMTP email provider adapter`)
 
 ## Scope
 
@@ -36,6 +36,26 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### SMTP provider adapter added
+
+Added an opt-in transactional SMTP adapter behind `EMAIL_PROVIDER=smtp`, while keeping `EMAIL_PROVIDER=mock` as the default for local development, tests, and smoke runs.
+
+Risk reduced:
+
+- `nodemailer` is now available in the API workspace for provider-neutral SMTP delivery.
+- `EmailDeliveryStatus` now distinguishes `SENT_PROVIDER` from `SENT_MOCK`.
+- `EmailTemplateType` now includes `TEST_EMAIL` for provider verification without touching invite/reset behavior.
+- `GET /email/readiness` reports SMTP readiness and real-send status without exposing `SMTP_PASSWORD`.
+- `POST /email/test-send` exercises the active provider and records the result in `EmailOutbox`.
+- `/settings/email-outbox` now shows provider warnings and a permission-gated test-send form.
+- Smoke verifies mock remains default and test-send records an outbox message without real external delivery.
+
+Remaining risks:
+
+- Mock remains default; real SMTP credentials and sender-domain validation are still required before production use.
+- No background email queue, retry worker, bounce/complaint handling, provider webhooks, suppression list, or DKIM/SPF/DMARC validation workflow.
+- No invoice/statement email sending yet.
 
 ### S3-compatible attachment adapter added
 
@@ -316,12 +336,12 @@ Remaining testing risks:
 
 ### Email readiness and auth token rate limits added
 
-Added production email provider readiness and DB-backed token delivery rate limits without enabling real sending.
+Added production email provider readiness and DB-backed token delivery rate limits without making real sending the default.
 
 Risk reduced:
 
 - `GET /email/readiness` reports the active provider, mock mode, real-sending flag, SMTP configuration booleans, warnings, and blockers without exposing SMTP secret values.
-- `SmtpEmailProvider` is a non-sending stub: `smtp-disabled` reports intentional non-delivery and `smtp` reports missing config/not-implemented blockers instead of attempting network delivery.
+- `SmtpEmailProvider` now has a real opt-in SMTP implementation; `smtp-disabled` still reports intentional non-delivery and `smtp` reports missing config blockers before any send attempt.
 - Password reset requests are limited by email and IP while preserving the generic response used to avoid account enumeration.
 - Organization invite requests are limited by email/organization/hour and organization/day, with clear authenticated admin errors.
 - `AuthTokenRateLimitEvent` stores rate-limit evidence in the database for multi-instance safety.
@@ -330,7 +350,7 @@ Risk reduced:
 
 Remaining risks:
 
-- No real SMTP/API provider integration.
+- SMTP is opt-in and still requires non-production relay validation before production use.
 - No DKIM/SPF/domain authentication or deliverability handling.
 - No MFA.
 - No refresh-token rotation or advanced session invalidation.
@@ -351,7 +371,7 @@ Risk reduced:
 
 Remaining risks:
 
-- No real SMTP or paid email provider integration.
+- SMTP is opt-in; mock remains default, and no paid/provider-specific API adapter exists.
 - No DKIM/SPF/domain authentication or deliverability handling.
 - No MFA.
 - No refresh-token rotation or advanced session management.
@@ -1705,7 +1725,7 @@ Commit inspected: pending (`Add team and role management`)
 
 ### Remaining Team/Role Risks
 
-- Email invite delivery and password reset are mock/local only; no real provider, rate limiting, domain authentication, or MFA exists yet.
+- Email invite delivery and password reset use mock by default with opt-in SMTP support; domain authentication validation and MFA are not implemented yet.
 - Approval workflows and dual-control for high-risk role/member changes are not implemented.
 - Role/member changes write audit logs, but there is no dedicated audit review UI yet.
 

@@ -252,6 +252,8 @@ Organization members:
 
 Email:
 
+- `GET /email/readiness`
+- `POST /email/test-send`
 - `GET /email/outbox`
 - `GET /email/outbox/:id`
 
@@ -1420,7 +1422,7 @@ Known limitations:
 
 ## Email Delivery, Invitations, And Password Reset
 
-LedgerByte includes safe email-token groundwork for organization invitations and password reset without sending real email by default. The default provider remains `mock`; production SMTP/API delivery is not active.
+LedgerByte includes safe email-token groundwork for organization invitations and password reset without sending real email by default. The default provider remains `mock`; SMTP delivery is available only when explicitly enabled with complete SMTP configuration.
 
 Configuration:
 
@@ -1428,7 +1430,8 @@ Configuration:
 - `EMAIL_FROM="no-reply@ledgerbyte.local"`
 - `APP_WEB_URL="http://localhost:3000"`
 - Supported provider modes: `mock`, `smtp-disabled`, and `smtp`.
-- Future SMTP placeholders only: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_SECURE`.
+- SMTP configuration when `EMAIL_PROVIDER=smtp`: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_SECURE`.
+- Do not commit real SMTP credentials. `SMTP_PASSWORD` is never returned by readiness APIs.
 
 Behavior:
 
@@ -1439,6 +1442,7 @@ Behavior:
 - `POST /auth/password-reset/request` always returns a generic response and only creates a reset token/email when the user exists.
 - `POST /auth/password-reset/confirm` validates a one-hour reset token, updates the password, and consumes the token.
 - `GET /email/readiness` reports active provider readiness, SMTP configuration booleans, warnings, and blocking reasons without returning secret values.
+- `POST /email/test-send` creates a `TEST_EMAIL` outbox record through the active provider. Mock mode records `SENT_MOCK`; SMTP mode records `SENT_PROVIDER` when a configured relay accepts the message.
 - `GET /email/outbox` and `GET /email/outbox/:id` expose tenant-scoped mock/local email records for admins with `emailOutbox.view`.
 - `POST /auth/tokens/cleanup-expired` deletes expired, unconsumed auth tokens older than 30 days for the active organization.
 
@@ -1449,8 +1453,8 @@ Rate limits:
 
 Known limitations:
 
-- No real SMTP or paid email provider integration is active.
-- No email deliverability handling, DKIM/SPF/domain setup, bounce handling, or retry queue.
+- No background email queue or scheduled retry worker.
+- No paid/provider-specific API adapter, provider webhook, bounce/complaint handling, or DKIM/SPF/domain validation workflow.
 - No branded HTML template polish.
 - No MFA, refresh-token rotation, or advanced session management.
 
@@ -1618,7 +1622,7 @@ Permission matrix categories:
 - Inventory warehouse, stock ledger, adjustment approval, warehouse transfer, manual purchase receipt, manual sales stock issue, valuation settings, manual COGS posting, manual compatible receipt asset posting, inventory clearing settings, purchase bill clearing-mode finalization, bill/receipt matching visibility, clearing reconciliation/variance reports, and operational reports exist, but no automatic COGS posting, no automatic purchase receipt asset posting, no direct-mode receipt posting, no automatic variance journals, automatic purchase/sales posting, landed cost, serial/batch tracking, or accounting-grade inventory financial reports are implemented yet.
 - BullMQ workers, generated-document S3 storage, and DB-to-S3 migration executors are not wired yet.
 - Uploaded attachment storage remains database-backed by default; S3-compatible storage for new uploads requires explicit env configuration, and OCR, virus scanning, retention policies, email attachment sending, ZATCA attachment submission, signed URLs, and object-storage lifecycle are not implemented yet.
-- Email invitations and password reset use mock/local outbox delivery with DB-backed request rate limits; no real SMTP/API provider, MFA, or advanced session management exists yet.
+- Email invitations and password reset use mock/local outbox delivery by default with DB-backed request rate limits and opt-in SMTP support; MFA and advanced session management are still missing.
 - Fine-grained approval workflows, dual control, and delegated approval chains are not implemented yet.
 - Audit logs now have admin UI, standardized high-risk events, filtered CSV export, dry-run retention controls, and number-sequence update coverage, but there is no immutable external audit store, scheduled export, automatic purge/archive executor, alerting, anomaly detection, or tamper-evident hash chain yet.
 - Number sequence settings are editable for future documents only; there is no reset workflow, per-branch numbering, document-template numbering policy, or historical renumbering.

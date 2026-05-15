@@ -17,12 +17,14 @@ enum MembershipStatus {
 enum EmailDeliveryStatus {
   QUEUED
   SENT_MOCK
+  SENT_PROVIDER
   FAILED
 }
 
 enum EmailTemplateType {
   ORGANIZATION_INVITE
   PASSWORD_RESET
+  TEST_EMAIL
 }
 
 enum AuthTokenPurpose {

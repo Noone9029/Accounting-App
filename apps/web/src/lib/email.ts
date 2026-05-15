@@ -4,13 +4,14 @@ export function emailStatusLabel(status: EmailDeliveryStatus | string): string {
   const labels: Record<EmailDeliveryStatus, string> = {
     QUEUED: "Queued",
     SENT_MOCK: "Sent (mock)",
+    SENT_PROVIDER: "Sent",
     FAILED: "Failed",
   };
   return labels[status as EmailDeliveryStatus] ?? status;
 }
 
 export function emailStatusClass(status: EmailDeliveryStatus | string): string {
-  if (status === "SENT_MOCK") {
+  if (status === "SENT_MOCK" || status === "SENT_PROVIDER") {
     return "bg-emerald-50 text-emerald-700";
   }
   if (status === "FAILED") {
@@ -23,6 +24,7 @@ export function emailTemplateLabel(templateType: EmailTemplateType | string): st
   const labels: Record<EmailTemplateType, string> = {
     ORGANIZATION_INVITE: "Organization invite",
     PASSWORD_RESET: "Password reset",
+    TEST_EMAIL: "Test email",
   };
   return labels[templateType as EmailTemplateType] ?? templateType;
 }
@@ -47,6 +49,23 @@ export function emailReadinessClass(ready: boolean): string {
 
 export function smtpConfigStateLabel(configured: boolean): string {
   return configured ? "Configured" : "Missing";
+}
+
+export function emailProviderWarningText(provider: EmailProviderName, mockMode: boolean, realSendingEnabled: boolean): string {
+  if (mockMode || provider === "mock") {
+    return "Mock mode records email only; it does not send externally.";
+  }
+  if (provider === "smtp-disabled") {
+    return "SMTP disabled mode records failed no-send attempts only.";
+  }
+  if (realSendingEnabled) {
+    return "Real SMTP sending is enabled for explicitly requested email deliveries.";
+  }
+  return "SMTP sending is not ready. Review the readiness blockers before testing delivery.";
+}
+
+export function isValidTestEmailAddress(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }
 
 export function passwordResetGenericMessage(): string {

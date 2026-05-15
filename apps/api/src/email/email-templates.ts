@@ -10,6 +10,10 @@ interface PasswordResetTemplateInput {
   expiresInText: string;
 }
 
+interface TestEmailTemplateInput {
+  provider: string;
+}
+
 export function buildOrganizationInviteEmail(input: OrganizationInviteTemplateInput) {
   const subject = `You're invited to ${input.organizationName} on LedgerByte`;
   const bodyText = [
@@ -47,6 +51,25 @@ export function buildPasswordResetEmail(input: PasswordResetTemplateInput) {
     subject,
     bodyText,
     bodyHtml: `<p>A password reset was requested for your LedgerByte account.</p><p><a href="${escapeHtml(input.resetUrl)}">Reset password</a></p><p>This link expires in ${escapeHtml(input.expiresInText)}.</p><p>If you did not request this, you can ignore this email.</p><p>LedgerByte</p>`,
+  };
+}
+
+export function buildTestEmail(input: TestEmailTemplateInput) {
+  const subject = "LedgerByte test email";
+  const bodyText = [
+    "This is a LedgerByte test email.",
+    "",
+    `Provider: ${input.provider}`,
+    "",
+    "If you received this through a real SMTP mailbox, the configured provider is able to deliver messages.",
+    "",
+    "LedgerByte",
+  ].join("\n");
+
+  return {
+    subject,
+    bodyText,
+    bodyHtml: `<p>This is a LedgerByte test email.</p><p>Provider: ${escapeHtml(input.provider)}</p><p>If you received this through a real SMTP mailbox, the configured provider is able to deliver messages.</p><p>LedgerByte</p>`,
   };
 }
 

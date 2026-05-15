@@ -6,9 +6,9 @@ Latest commit audited: `6100714` (`Add dashboard KPI overview`)
 
 ## Executive Summary
 
-LedgerByte is now a broad accounting SaaS MVP with working local workflows for core AR/AP, banking, reports, documents, inventory controls, manual inventory accounting postings, audit visibility, team/security administration, mock email onboarding, browser smoke coverage, deployment runbooks, and a useful business dashboard.
+LedgerByte is now a broad accounting SaaS MVP with working local workflows for core AR/AP, banking, reports, documents, inventory controls, manual inventory accounting postings, audit visibility, team/security administration, mock-default email onboarding with opt-in SMTP delivery groundwork, browser smoke coverage, deployment runbooks, and a useful business dashboard.
 
-The product is credible as a local demo and internal accountant-review sandbox. It is not yet production SaaS, and it is not Saudi/ZATCA production-ready. The most important remaining gap is not one missing screen; it is production hardening: real email, real object storage, backups, monitoring, security controls, formal approval workflows, official tax/compliance validation, and operations.
+The product is credible as a local demo and internal accountant-review sandbox. It is not yet production SaaS, and it is not Saudi/ZATCA production-ready. The most important remaining gap is not one missing screen; it is production hardening: provider validation, email queue/retry/webhooks, real object storage migration, backups, monitoring, security controls, formal approval workflows, official tax/compliance validation, and operations.
 
 ## Maturity Estimate
 
@@ -35,7 +35,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 - Documents: generated document archive and uploaded attachment groundwork with linked panels.
 - Audit: standardized high-risk event names, metadata redaction, audit UI, CSV export, retention settings, dry-run preview.
 - Numbering: number sequence settings UI/API with safe future-only changes.
-- Email groundwork: mock/local outbox, invites, invite acceptance, password reset, provider readiness, DB-backed rate limits.
+- Email groundwork: mock/local outbox default, invites, invite acceptance, password reset, provider readiness, test-send, opt-in SMTP adapter, DB-backed rate limits.
 - Storage groundwork: database storage default, feature-flagged S3-compatible storage for new uploaded attachments, migration-plan dry run, storage settings UI.
 - QA: backend/frontend/ZATCA unit tests, deep API smoke script, Playwright browser E2E smoke suite, deployed E2E GitHub Actions workflow.
 - Deployment documentation: Vercel/Supabase setup, API root/health/readiness docs, CI database readiness, Supabase security review, deployed E2E runbook.
@@ -47,7 +47,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 - Inventory accounting: safe manual posting exists, but no automatic posting, no landed cost, no FIFO cost layers, no serial/batch tracking, no inventory returns workflow, and no historical direct-mode migration.
 - Reports: broad operational reports exist, but official VAT return, filing exports, scheduled delivery, report pack controls, and accountant sign-off remain.
 - Attachments/storage: upload/download/soft-delete works, new uploaded attachments can use S3-compatible storage when explicitly configured, but database/base64 remains the default and there is no migration executor, generated-document S3 path, scanning, OCR, or retention policy.
-- Email: mock/local flow works with rate limits, but no real provider delivery, retries, bounces, domain authentication, MFA, or session invalidation.
+- Email: mock/local flow works with rate limits and SMTP can be enabled by env, but there is no retry queue, bounce/webhook handling, domain-auth validation workflow, MFA, or session invalidation.
 - ZATCA: extensive local groundwork and docs exist, but official production path is not implemented.
 - Browser QA: route smoke exists and deployed E2E has run, but no visual regression, no full accounting assertions in browser, and no scheduled CI.
 
@@ -55,7 +55,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 
 - Real ZATCA signing, official XML validation, CSID onboarding, clearance, reporting, and PDF/A-3.
 - Real-bucket S3 validation, generated-document object storage, and database-to-S3 migration executor.
-- Real email provider delivery, bounce/retry worker, provider webhooks, and domain authentication.
+- Email provider validation, bounce/retry worker, provider webhooks, and domain authentication.
 - Subscription billing, plans, tenant limits, and customer billing.
 - MFA, refresh-token rotation, advanced session invalidation, anomaly alerts.
 - Live bank feeds, payment gateway integration, bank auto-matching.
@@ -65,7 +65,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 
 ## Production Blockers
 
-1. No production email provider or deliverability setup.
+1. No production email queue/retry, provider webhook, or deliverability/domain-auth setup.
 2. Uploaded/generated documents still default to database/base64 storage unless the attachment S3 provider is explicitly configured.
 3. No production backup/restore and monitoring runbooks proven against hosted infrastructure.
 4. No subscription billing, tenant limits, or SaaS account lifecycle.
@@ -91,7 +91,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 
 - No MFA.
 - No refresh-token rotation or advanced session invalidation.
-- No production email provider security controls or domain authentication.
+- No production email queue/webhook security controls or domain authentication validation.
 - No virus scanning for uploaded attachments.
 - No signed URL policy, generated-document object-storage path, or object lifecycle/retention enforcement.
 - No external immutable audit retention.

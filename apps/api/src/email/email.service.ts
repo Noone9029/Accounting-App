@@ -2,7 +2,7 @@ import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { EmailTemplateType, Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
-import { buildOrganizationInviteEmail, buildPasswordResetEmail } from "./email-templates";
+import { buildOrganizationInviteEmail, buildPasswordResetEmail, buildTestEmail } from "./email-templates";
 import { EMAIL_PROVIDER, type EmailMessage, type EmailProvider } from "./email-provider";
 
 interface SendOrganizationInviteInput {
@@ -17,6 +17,11 @@ interface SendPasswordResetInput {
   organizationId?: string | null;
   toEmail: string;
   resetUrl: string;
+}
+
+interface SendTestEmailInput {
+  organizationId: string;
+  toEmail: string;
 }
 
 @Injectable()
@@ -70,6 +75,20 @@ export class EmailService {
       fromEmail: this.fromEmail,
       subject: template.subject,
       templateType: EmailTemplateType.PASSWORD_RESET,
+      bodyText: template.bodyText,
+      bodyHtml: template.bodyHtml,
+    });
+  }
+
+  async sendTestEmail(input: SendTestEmailInput) {
+    const template = buildTestEmail({ provider: this.provider.provider });
+
+    return this.send({
+      organizationId: input.organizationId,
+      toEmail: input.toEmail,
+      fromEmail: this.fromEmail,
+      subject: template.subject,
+      templateType: EmailTemplateType.TEST_EMAIL,
       bodyText: template.bodyText,
       bodyHtml: template.bodyHtml,
     });

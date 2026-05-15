@@ -74,19 +74,19 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 - Risk level: High.
 - Manual credentials needed: Optional test bucket credentials.
 
-### 9. Implement production email provider adapter
+### 9. Validate SMTP provider with non-production relay
 
-- Objective: Add real SMTP/API provider delivery while keeping mock default.
-- Why it matters: Invites and password reset cannot be production-used without email.
-- Dependencies: Email readiness and outbox groundwork.
+- Objective: Exercise the opt-in SMTP adapter against Mailtrap/Resend SMTP or another non-production relay and document provider caveats.
+- Why it matters: The adapter exists, but production use needs credential/domain validation outside smoke tests.
+- Dependencies: SMTP provider adapter and email readiness/test-send UI.
 - Risk level: Medium.
-- Manual credentials needed: Provider sandbox/API credentials.
+- Manual credentials needed: Provider sandbox SMTP credentials.
 
 ### 10. Add email provider webhooks and retry queue groundwork
 
 - Objective: Track delivery, bounce, failure, and retry states without blocking requests.
 - Why it matters: Production email needs observability and retries.
-- Dependencies: Provider adapter and queue decision.
+- Dependencies: SMTP validation and queue decision.
 - Risk level: Medium.
 - Manual credentials needed: Provider test credentials.
 

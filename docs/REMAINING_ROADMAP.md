@@ -18,7 +18,7 @@ Tasks:
 - Review dashboard KPI definitions, chart thresholds, attention item thresholds, and quick-action placement with an accountant/product owner.
 - Fix UX inconsistencies, especially supplier AP balance labels.
 - Wire the new Playwright browser E2E smoke into CI and expand it where user-facing regressions are found.
-- Replace mock/local email invites and password reset with a real provider adapter, domain authentication, provider webhooks, and audit alerting for role/member administration.
+- Validate the opt-in SMTP provider with a non-production relay, then add domain authentication checks, provider webhooks, retry queue, and audit alerting for role/member administration.
 - Harden fiscal period UX with period templates, optional reversal-date selection, and admin unlock approval design.
 - Harden number sequence administration with reviewed reset/skip workflow, collision preview, and branch/device numbering policy before production.
 - Add accountant review pass for report layouts and exported report formats.
@@ -135,7 +135,7 @@ Tasks:
 - Production deployment target and infrastructure-as-code.
 - Managed Postgres, backups, restore drills, and monitoring.
 - Validate the uploaded-attachment S3 adapter with a real non-production bucket, then implement generated-document object storage and a resumable DB-to-S3 migration executor.
-- Email provider and transactional templates.
+- Email provider validation, background queue/retries, provider webhooks, and transactional template polish.
 - WhatsApp provider integration if product requires it.
 - Subscription billing and plan enforcement.
 - Domain, DNS, SSL, and environment management.

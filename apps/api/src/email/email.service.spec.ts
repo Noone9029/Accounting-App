@@ -59,6 +59,34 @@ describe("EmailService", () => {
     );
   });
 
+  it("stores test-send emails through the active provider", async () => {
+    const { service, prisma, provider } = makeService();
+
+    await service.sendTestEmail({
+      organizationId: "org-1",
+      toEmail: "ops@example.com",
+    });
+
+    expect(provider.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateType: EmailTemplateType.TEST_EMAIL,
+        toEmail: "ops@example.com",
+        fromEmail: "noreply@example.test",
+      }),
+    );
+    expect(prisma.emailOutbox.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          organizationId: "org-1",
+          toEmail: "ops@example.com",
+          templateType: EmailTemplateType.TEST_EMAIL,
+          status: EmailDeliveryStatus.SENT_MOCK,
+          provider: "mock",
+        }),
+      }),
+    );
+  });
+
   it("tenant-scopes outbox list and detail", async () => {
     const { service, prisma } = makeService();
     prisma.emailOutbox.findFirst.mockResolvedValue({ id: "email-1", organizationId: "org-1" });

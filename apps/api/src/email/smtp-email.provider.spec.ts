@@ -1,5 +1,10 @@
 import { EmailDeliveryStatus, EmailTemplateType } from "@prisma/client";
+import nodemailer from "nodemailer";
 import { SmtpEmailProvider } from "./smtp-email.provider";
+
+jest.mock("nodemailer", () => ({
+  createTransport: jest.fn(),
+}));
 
 describe("SmtpEmailProvider", () => {
   function makeProvider(values: Record<string, string | undefined>) {
@@ -29,7 +34,82 @@ describe("SmtpEmailProvider", () => {
     expect(JSON.stringify(readiness)).not.toContain("secret-value");
   });
 
-  it("does not send real SMTP email", async () => {
+  it("reports complete smtp config as real-send ready without exposing secrets", () => {
+    const provider = makeProvider({
+      EMAIL_PROVIDER: "smtp",
+      SMTP_HOST: "smtp.example.test",
+      SMTP_PORT: "587",
+      SMTP_USER: "user",
+      SMTP_PASSWORD: "secret-value",
+      SMTP_SECURE: "true",
+    });
+    const readiness = provider.readiness();
+
+    expect(readiness).toMatchObject({
+      provider: "smtp",
+      ready: true,
+      realSendingEnabled: true,
+      mockMode: false,
+      smtp: {
+        hostConfigured: true,
+        portConfigured: true,
+        userConfigured: true,
+        passwordConfigured: true,
+        secure: true,
+      },
+    });
+    expect(readiness.blockingReasons).toEqual([]);
+    expect(JSON.stringify(readiness)).not.toContain("secret-value");
+  });
+
+  it("sends SMTP email through nodemailer when explicitly enabled", async () => {
+    const sendMail = jest.fn().mockResolvedValue({ messageId: "smtp-message-1" });
+    jest.mocked(nodemailer.createTransport).mockReturnValue({ sendMail } as never);
+    const provider = makeProvider({
+      EMAIL_PROVIDER: "smtp",
+      SMTP_HOST: "smtp.example.test",
+      SMTP_PORT: "587",
+      SMTP_USER: "user",
+      SMTP_PASSWORD: "secret",
+      SMTP_SECURE: "true",
+    });
+
+    await expect(
+      provider.send({
+        toEmail: "user@example.com",
+        fromEmail: "no-reply@example.com",
+        subject: "Test",
+        templateType: EmailTemplateType.PASSWORD_RESET,
+        bodyText: "Hello",
+        bodyHtml: "<p>Hello</p>",
+      }),
+    ).resolves.toMatchObject({
+      provider: "smtp",
+      status: EmailDeliveryStatus.SENT_PROVIDER,
+      providerMessageId: "smtp-message-1",
+      errorMessage: null,
+    });
+
+    expect(nodemailer.createTransport).toHaveBeenCalledWith({
+      host: "smtp.example.test",
+      port: 587,
+      secure: true,
+      auth: { user: "user", pass: "secret" },
+    });
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: "no-reply@example.com",
+        to: "user@example.com",
+        subject: "Test",
+        text: "Hello",
+        html: "<p>Hello</p>",
+      }),
+    );
+  });
+
+  it("stores safe failure details when SMTP send fails", async () => {
+    const sendMail = jest.fn().mockRejectedValue(new Error("bad secret"));
+    jest.mocked(nodemailer.createTransport).mockReturnValue({ sendMail } as never);
     const provider = makeProvider({ EMAIL_PROVIDER: "smtp", SMTP_HOST: "smtp.example.test", SMTP_PORT: "587", SMTP_USER: "user", SMTP_PASSWORD: "secret" });
 
     await expect(
@@ -44,6 +124,16 @@ describe("SmtpEmailProvider", () => {
       provider: "smtp",
       status: EmailDeliveryStatus.FAILED,
       providerMessageId: null,
+      errorMessage: "SMTP delivery failed. Check provider credentials and SMTP availability.",
     });
+
+    const result = await provider.send({
+      toEmail: "user@example.com",
+      fromEmail: "no-reply@example.com",
+      subject: "Test",
+      templateType: EmailTemplateType.PASSWORD_RESET,
+      bodyText: "Hello",
+    });
+    expect(result.errorMessage).not.toContain("secret");
   });
 });

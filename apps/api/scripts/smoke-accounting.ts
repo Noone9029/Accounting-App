@@ -71,8 +71,9 @@ interface InvitationPreviewResponse {
 interface EmailOutboxEntry {
   id: string;
   toEmail: string;
-  templateType: "ORGANIZATION_INVITE" | "PASSWORD_RESET";
-  status: "QUEUED" | "SENT_MOCK" | "FAILED";
+  templateType: "ORGANIZATION_INVITE" | "PASSWORD_RESET" | "TEST_EMAIL";
+  status: "QUEUED" | "SENT_MOCK" | "SENT_PROVIDER" | "FAILED";
+  provider: string;
   createdAt: string;
 }
 
@@ -1200,6 +1201,17 @@ async function main(): Promise<void> {
   assert(emailReadiness.mockMode, "email readiness reports mock mode");
   assert(!emailReadiness.realSendingEnabled, "email readiness keeps real sending disabled");
   assert(!JSON.stringify(emailReadiness).includes("SMTP_PASSWORD"), "email readiness does not expose SMTP password");
+  assert(!JSON.stringify(emailReadiness).includes("SMTP_SECRET"), "email readiness does not expose SMTP secret");
+  const testEmailAddress = `smoke-test-send-${Date.now()}@example.com`;
+  const testEmail = await post<EmailOutboxDetail>("/email/test-send", headers, { toEmail: testEmailAddress });
+  assertEqual(testEmail.templateType, "TEST_EMAIL", "test-send template type");
+  assertEqual(testEmail.status, "SENT_MOCK", "test-send uses mock delivery by default");
+  assertEqual(testEmail.provider, "mock", "test-send records mock provider");
+  const testEmailOutbox = await get<EmailOutboxEntry[]>("/email/outbox", headers);
+  assert(
+    testEmailOutbox.some((email) => email.id === testEmail.id && email.toEmail === testEmailAddress),
+    "test-send email appears in outbox",
+  );
 
   const invitedEmail = `smoke-invite-${Date.now()}@example.com`;
   const invitedPassword = `Invite${runId}!`;
@@ -4345,6 +4357,8 @@ async function main(): Promise<void> {
         emailReadinessProvider: emailReadiness.provider,
         emailReadinessRealSendingEnabled: emailReadiness.realSendingEnabled,
         emailReadinessSecretsRedacted: !JSON.stringify(emailReadiness).includes("SMTP_PASSWORD"),
+        emailTestSendStatus: testEmail.status,
+        emailTestSendProvider: testEmail.provider,
         inviteEmailQueued: Boolean(invite.emailOutboxId),
         inviteAcceptedRole: invitedMembership.role.name,
         invitedUserCanLogin: Boolean(invitedLogin.accessToken),
