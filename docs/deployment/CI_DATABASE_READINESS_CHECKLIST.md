@@ -20,19 +20,21 @@ Current test defaults:
 - Web: `https://ledgerbyte-web-test.vercel.app`
 - API: `https://ledgerbyte-api-test.vercel.app`
 
-Verify API health:
+Verify API root, health, and readiness:
 
 ```bash
+curl -fsS https://ledgerbyte-api-test.vercel.app/
 curl -fsS https://ledgerbyte-api-test.vercel.app/health
+curl -fsS https://ledgerbyte-api-test.vercel.app/readiness
 ```
 
-Expected:
+Expected health:
 
 ```json
 {"status":"ok","service":"api"}
 ```
 
-`GET /` returning `404 Cannot GET /` does not mean the API is down. The API health check is `/health`.
+Expected root status includes `service`, `status`, `healthUrl`, sanitized `environment`, and `timestamp`. Expected readiness is `status: "ok"` when the test Supabase database is reachable. A readiness `503` means the API function is reachable but database connectivity is not ready. `GET /` returning `404 Cannot GET /` now usually means the API alias is serving an older deployment that does not include the root status endpoint.
 
 ## Required GitHub Configuration
 
@@ -88,7 +90,9 @@ Do not run destructive reset or reseed commands against production.
 
 Go:
 
+- `/` returns safe LedgerByte API status JSON.
 - `/health` returns `200`.
+- `/readiness` returns database `ok`, or a readiness failure has been investigated and accepted only for non-DB smoke checks.
 - E2E secrets are configured in GitHub.
 - API login works with the test user.
 - Vercel web points at the test API.

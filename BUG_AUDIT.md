@@ -37,6 +37,24 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### API root status endpoint added
+
+Added safe API status visibility so opening the deployed API base URL no longer looks like downtime.
+
+Risk reduced:
+
+- `GET /` now returns public, non-sensitive LedgerByte API status JSON with `/health` and `/readiness` links, a sanitized environment label, and a timestamp.
+- `GET /health` remains lightweight and independent of database connectivity.
+- `GET /readiness` performs a safe database connectivity check and returns `503` with redacted JSON if the database is unavailable.
+- The deployed E2E environment check script now verifies API root, `/health`, and `/readiness` before running browser smoke.
+- Deployment docs now explain how to distinguish root status, function health, database readiness, CORS failures, stale deployments, and DB outages.
+
+Remaining risks:
+
+- `/readiness` is a minimal database check only; it does not validate migrations, seed data, CORS, or all downstream services.
+- A just-pushed commit still depends on Vercel redeploying the API alias before the deployed root URL reflects the new status endpoint.
+- Supabase RLS remains a separate deployment security review item.
+
 ### Deployed E2E readiness docs added
 
 Added non-production CI database readiness and deployment security documentation for the Vercel/Supabase test environment.

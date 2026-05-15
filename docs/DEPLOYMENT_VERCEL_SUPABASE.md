@@ -78,17 +78,37 @@ ZATCA_SDK_EXECUTION_ENABLED="false"
 `CORS_ORIGIN` accepts comma-separated exact origins and simple wildcard entries like `https://*.vercel.app`.
 `PRISMA_TRANSACTION_TIMEOUT_MS` and `PRISMA_TRANSACTION_MAX_WAIT_MS` are deployment safeguards for Supabase/Vercel latency during multi-step accounting transactions.
 
-After deployment, verify:
+After deployment, verify the API root and health endpoints:
 
 ```text
+https://<api-project>.vercel.app/
 https://<api-project>.vercel.app/health
+https://<api-project>.vercel.app/readiness
 ```
 
-Expected response:
+Expected root response:
+
+```json
+{
+  "service": "LedgerByte API",
+  "status": "ok",
+  "healthUrl": "/health",
+  "readinessUrl": "/readiness",
+  "docs": {
+    "deployment": "docs/DEPLOYMENT_VERCEL_SUPABASE.md"
+  },
+  "environment": "production",
+  "timestamp": "2026-05-15T00:00:00.000Z"
+}
+```
+
+Expected health response:
 
 ```json
 { "status": "ok", "service": "api" }
 ```
+
+`/health` is intentionally lightweight and does not require a database check. `/readiness` checks database connectivity and should return `503` with safe JSON if the API function is alive but the database is unavailable or misconfigured.
 
 ## 4. Create Vercel Web Project
 
@@ -130,7 +150,9 @@ LEDGERBYTE_WEB_URL=https://ledgerbyte-web-test.vercel.app LEDGERBYTE_API_URL=htt
 ## 5. Production Cutover Checklist
 
 - Supabase migrations applied successfully.
+- API `/` returns safe LedgerByte status JSON.
 - API `/health` returns `ok`.
+- API `/readiness` returns `ok`, or any readiness failure is understood and resolved before relying on app workflows.
 - API `CORS_ORIGIN` includes the final web production domain.
 - Web `NEXT_PUBLIC_API_URL` points to the API production domain.
 - Login works with the seeded admin account or a real production user.
@@ -148,3 +170,11 @@ LEDGERBYTE_WEB_URL=https://ledgerbyte-web-test.vercel.app LEDGERBYTE_API_URL=htt
 - Supabase is used as Postgres, not Supabase Auth.
 - Prisma migrations should be run intentionally before promoting production deployments.
 - Supabase row-level security should be reviewed before production exposure. LedgerByte currently enforces tenant isolation in the application layer, and RLS was not enabled automatically during test deployment smoke work.
+
+## 7. Health Troubleshooting
+
+- API root works but web login fails: check web `NEXT_PUBLIC_API_URL`, API `CORS_ORIGIN`, deployed auth credentials, and browser console/network errors.
+- `/health` works but `/readiness` fails: the API serverless function is reachable, but database connectivity, migrations, Supabase pooler configuration, or database credentials need review.
+- `/health` works directly but web requests fail: confirm the web origin is included in API `CORS_ORIGIN` and redeploy the API after changing it.
+- `/` returns `404 Cannot GET /`: the API alias is likely still serving an older deployment that does not include the root status endpoint.
+- Readiness returns `503`: inspect safe Vercel function logs for database connection errors without exposing `DATABASE_URL` or other secrets.

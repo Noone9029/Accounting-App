@@ -61,9 +61,18 @@ async function main() {
   const webStatus = await checkReachable("Web app", webUrl.toString());
   console.log(`Web app reachable with HTTP ${webStatus}.`);
 
+  console.log(`Checking deployed API root: ${apiUrl.toString()}`);
+  const apiRootStatus = await checkReachable("API root", apiUrl.toString(), { requireOk: true });
+  console.log(`API root reachable with HTTP ${apiRootStatus}.`);
+
   console.log(`Checking deployed API health: ${apiHealthUrl.toString()}`);
   const apiStatus = await checkReachable("API health", apiHealthUrl.toString(), { requireOk: true });
   console.log(`API health reachable with HTTP ${apiStatus}.`);
+
+  const readinessUrl = new URL("/readiness", apiUrl);
+  console.log(`Checking deployed API readiness: ${readinessUrl.toString()}`);
+  const readinessStatus = await checkReachable("API readiness", readinessUrl.toString(), { requireOk: true });
+  console.log(`API readiness reachable with HTTP ${readinessStatus}.`);
 
   console.log("Required deployed E2E credentials are configured.");
 }

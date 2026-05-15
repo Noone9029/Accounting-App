@@ -85,27 +85,32 @@ Start with `playwright-test-results` for route crashes, selector failures, and s
 
 Symptoms:
 
-- Preflight fails on API health.
+- Preflight fails on API root, API health, or API readiness.
 - Browser shows network errors.
-- `GET /` returns `404 Cannot GET /`.
+- `GET /` returns `404 Cannot GET /`, which now usually means the API alias is serving an older deployment.
 
 Checks:
 
+- Open `https://ledgerbyte-api-test.vercel.app/`.
+- Expected root status includes `{"service":"LedgerByte API","status":"ok","healthUrl":"/health"}`.
 - Open `https://ledgerbyte-api-test.vercel.app/health`.
 - Expected: `{"status":"ok","service":"api"}`.
-- Remember that API root `/` is not the health endpoint.
+- Open `https://ledgerbyte-api-test.vercel.app/readiness`.
+- Expected: status `ok` when Supabase is reachable; safe `503` JSON when the API is alive but DB connectivity is failing.
 
 Recovery:
 
 - Confirm the API deployment is ready in Vercel.
 - Confirm the API alias points at the latest deployment.
 - Confirm API environment variables are present.
+- If root and health work but readiness fails, inspect Supabase connection strings, migrations, connection pool pressure, and Vercel function logs.
 
 ### Missing Migrations
 
 Symptoms:
 
 - API returns `500`.
+- `/readiness` may work while route handlers that need missing tables fail.
 - Vercel logs mention missing tables, columns, or enum values.
 - E2E fails on routes added recently.
 
@@ -133,7 +138,7 @@ Recovery:
 Symptoms:
 
 - Browser console shows CORS blocked requests.
-- API health works directly, but web cannot call API.
+- API root, health, and readiness work directly, but web cannot call authenticated API routes.
 
 Recovery:
 

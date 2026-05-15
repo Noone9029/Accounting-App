@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints and `GET /health` are exceptions. Status values here describe implementation maturity, not runtime health.
+Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints, API root status, `GET /health`, and `GET /readiness` are exceptions. Status values here describe implementation maturity, not runtime health.
 
 ## Authorization And Permissions
 
@@ -29,7 +29,9 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 
 | Method | Path | Purpose | Auth | Org header | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| GET | `/health` | API liveness check | No | No | Implemented | Used for local readiness checks. |
+| GET | `/` | API root status | No | No | Implemented | Safe public status JSON with health/readiness links, sanitized environment, and timestamp; no secrets. |
+| GET | `/health` | API liveness check | No | No | Implemented | Lightweight function health check; does not require database connectivity. |
+| GET | `/readiness` | API/database readiness check | No | No | Implemented | Runs a safe database connectivity check; returns `503` with redacted JSON if DB is unavailable. |
 
 ## Organizations
 

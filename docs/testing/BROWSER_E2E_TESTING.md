@@ -103,7 +103,7 @@ The workflow:
 2. Sets up Node 22 and Corepack.
 3. Runs `corepack pnpm install --frozen-lockfile`.
 4. Installs Playwright Chromium with Linux dependencies.
-5. Runs `node scripts/check-deployed-e2e-env.cjs`.
+5. Runs `node scripts/check-deployed-e2e-env.cjs`, which checks the deployed web URL, API root, `/health`, `/readiness`, and required credentials without printing secrets.
 6. Runs `corepack pnpm e2e`.
 7. Uploads `playwright-report/` and `test-results/` artifacts when present.
 
@@ -131,6 +131,8 @@ Start local API/web before running E2E.
 ```
 
 The suite does not start Docker, API, or web automatically.
+
+For deployed GitHub Actions runs, `scripts/check-deployed-e2e-env.cjs` performs a stricter deployment preflight: it verifies the API root status response, lightweight `/health`, database-backed `/readiness`, web URL, and required E2E credentials. This separates "API function is reachable" from "database is ready" when diagnosing Vercel/Supabase failures.
 
 ## Covered Flows
 

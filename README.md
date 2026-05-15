@@ -67,6 +67,12 @@ Deployment safety docs:
 - [Supabase security review](docs/deployment/SUPABASE_SECURITY_REVIEW.md)
 - [Deployed E2E runbook](docs/deployment/DEPLOYED_E2E_RUNBOOK.md)
 
+API status links:
+
+- `GET /` returns a public, non-sensitive LedgerByte API status response with links to `/health` and `/readiness`.
+- `GET /health` returns the lightweight function health response `{ "status": "ok", "service": "api" }`.
+- `GET /readiness` checks database connectivity and returns safe JSON, using `503` when the API is reachable but the database is unavailable.
+
 Seed login:
 
 - Email: `admin@example.com`
@@ -196,6 +202,12 @@ The current engineering audit docs live under `docs/`:
 - `docs/MANUAL_DEPENDENCIES.md`: required human/third-party dependencies.
 
 ## Implemented API
+
+Health/status:
+
+- `GET /`
+- `GET /health`
+- `GET /readiness`
 
 Auth:
 
