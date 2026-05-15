@@ -2,6 +2,12 @@
 
 Audit date: 2026-05-15
 
+For the updated Product Audit v2 planning artifacts, see:
+
+- `docs/PRODUCT_AUDIT_V2.md`
+- `docs/PRODUCT_READINESS_SCORECARD.md`
+- `docs/NEXT_30_PROMPTS_ROADMAP.md`
+
 ## Phase 1: Stabilize Current MVP
 
 Objective: make the current AR/AP MVP reliable enough for structured user QA.
@@ -28,7 +34,7 @@ Risk level: Medium.
 
 Recommended next prompt:
 
-> Add production email provider delivery with DKIM/SPF/domain-authentication checks and provider webhook handling for the existing readiness groundwork.
+> Add dashboard chart widgets and KPI drill-down links using existing dashboard summary/report data without changing accounting behavior.
 
 ## Phase 2: Finish Wafeq Core Accounting Modules
 

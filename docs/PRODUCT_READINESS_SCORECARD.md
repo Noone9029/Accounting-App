@@ -1,0 +1,44 @@
+# LedgerByte Product Readiness Scorecard
+
+Audit date: 2026-05-15
+
+Latest commit audited: `6100714` (`Add dashboard KPI overview`)
+
+Scoring uses a 0-100 practical readiness scale for the current codebase. A high score means the area is usable in the current MVP; it does not imply production legal/compliance readiness.
+
+| Category | Score | Current evidence | Biggest gaps | Next priority |
+| --- | ---: | --- | --- | --- |
+| Core accounting | 78 | Chart of accounts, manual journals, fiscal-period guard, posting/reversal, balanced reports, smoke coverage. | Year-end close, retained earnings, approval workflow, concurrency/load testing, accountant sign-off. | Add fiscal year close and accountant-reviewed report definitions. |
+| Sales/AR | 82 | Invoices, payments, unapplied payments, credit notes, refunds, customer ledgers/statements, PDFs, attachments, smoke coverage. | Recurring invoices, quotes/proformas, delivery notes, payment gateway, collection workflow. | Add recurring invoices or quote/proforma workflow after UX QA. |
+| Purchases/AP | 78 | Purchase orders, bills, clearing mode, supplier payments, debit notes, refunds, cash expenses, AP ledgers/statements, PDFs. | Partial billing, multi-PO matching, remittance email, OCR/import, supplier statement PDF parity. | Harden purchase matching and supplier statement/payment UX. |
+| Banking/reconciliation | 64 | Bank profiles, transfers, opening balances, statement import, matching, categorization, reconciliation approval/close/void, reports. | No live feeds, auto-match, OFX/CAMT/MT940 parser, transfer fees, FX handling, production file storage workflow. | Add bank file upload/parser groundwork and approval queue polish. |
+| Reports | 74 | GL, Trial Balance, P&L, Balance Sheet, VAT Summary, AR/AP aging, CSV/PDF exports, generated archive. | Official VAT return, scheduled/email delivery, report packs, accountant layout review. | Accountant-review report definitions and add official VAT return design. |
+| Inventory | 70 | Warehouses, movements, adjustments, transfers, receipts, issues, valuation reports, manual COGS, receipt asset posting, clearing reports, variance proposals. | No landed cost, FIFO, serial/batch, automatic postings, returns workflow, historical direct-mode migration. | Review variance proposal outputs and design landed-cost/direct-mode policy. |
+| Documents/attachments | 58 | Generated PDFs, archive, attachment upload/list/download/soft-delete, linked panels, storage readiness/migration dry run. | DB/base64 storage, no S3 adapter, no migration executor, no virus scanning, no OCR, no retention policy. | Implement S3-compatible adapter and migration dry run/executor. |
+| Roles/permissions/security | 70 | Shared permission strings, backend guards, frontend gating, team/role UI, invite onboarding, rate limits. | No MFA, advanced sessions, dual control, security review, production identity controls. | Add MFA/session plan and maker-checker policy for high-risk actions. |
+| Audit/compliance visibility | 78 | Standard events, metadata redaction, audit UI, filters, CSV export, retention settings, dry-run preview, smoke checks. | No immutable store, scheduled export, purge executor, alerting, anomaly detection, tamper evidence. | Add scheduled export/immutable storage design and sensitive-action alerts. |
+| ZATCA | 22 | Profile, EGS, CSR groundwork, mock CSID, local XML/QR/hash, SDK readiness docs, blocked real network behavior. | No official XML, signing, CSID, clearance, reporting, PDF/A-3, KMS key custody. | Add test-only official SDK XML/hash validation fixtures. |
+| Email/communications | 42 | Mock email outbox, invites, password reset, readiness API/UI, SMTP stub, DB-backed rate limits. | No real provider, retries, bounces, templates, domain auth, background queue, invoice/statement sending. | Add provider adapter and domain readiness checks without changing defaults. |
+| Storage/scalability | 38 | Storage config/readiness, S3-compatible placeholders, migration plan counts, database default works locally. | No real S3 upload, signed URLs, object lifecycle, migration executor, scanning, backup policy. | Build real object-storage adapter and migration rollback plan. |
+| Browser QA/E2E | 64 | 11 Playwright specs for critical routes, deployed E2E workflow/docs, API smoke remains deep accounting check. | No visual regression, no scheduled browser CI, browser tests are smoke-level, no data reset strategy. | Schedule non-production deployed E2E and expand broken-route coverage. |
+| Deployment readiness | 46 | Vercel/Supabase docs, API health/root/readiness, deployed E2E runbook/workflow, CI DB checklist, Supabase security review. | No production IaC, backups, monitoring, RLS/private-network decision, environment promotion policy. | Add production readiness runbook and backup/restore drill plan. |
+| UX/product polish | 56 | Broad route coverage, dashboard, settings pages, panels, helper tests, permission-aware nav. | List filters, bulk actions, charts, onboarding wizard, empty/error states, mobile polish, visual consistency. | Run route QA and add dashboard charts/drill-downs. |
+| Production operations | 25 | Some readiness docs and manual smoke/E2E workflows. | No incident response, observability, background jobs, data retention executors, support tools, billing, SLAs. | Define operations baseline: monitoring, alerts, backups, restore drills, runbooks. |
+
+## Overall Readiness Interpretation
+
+- Local MVP: strong enough to demonstrate serious accounting workflows.
+- Private beta: possible only with limited users and explicit non-production limitations.
+- Production: blocked by operations, security, compliance, storage, email, and SaaS-business gaps.
+- Compliance: ZATCA and official tax filing remain the largest domain-specific blockers.
+
+## Highest Leverage Improvements
+
+1. Real object storage and file migration.
+2. Real email provider with safe delivery controls.
+3. Production backup/restore and monitoring plan.
+4. Official ZATCA SDK validation.
+5. Dashboard/report accountant review.
+6. UX route QA and E2E expansion.
+7. Audit immutable export/alerting.
+8. Advanced inventory policy: landed cost, FIFO, historical direct-mode handling.

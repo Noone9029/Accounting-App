@@ -190,6 +190,9 @@ The E2E preflight fails clearly if the local API or web app is not running: `Sta
 The current engineering audit docs live under `docs/`:
 
 - `docs/PROJECT_AUDIT.md`: high-level current state, maturity, top risks, and next priorities.
+- `docs/PRODUCT_AUDIT_V2.md`: current product maturity, go/no-go status, blockers, and production-readiness view after dashboard, audit, inventory, storage, email, E2E, and deployment-readiness work.
+- `docs/PRODUCT_READINESS_SCORECARD.md`: 0-100 readiness scorecard by product area.
+- `docs/NEXT_30_PROMPTS_ROADMAP.md`: prioritized next 30 Codex prompts grouped by stabilization, production foundations, ZATCA, advanced accounting, and SaaS business layer.
 - `docs/IMPLEMENTATION_STATUS.md`: module-by-module status map.
 - `docs/CODEBASE_MAP.md`: repository structure and ownership map.
 - `docs/API_CATALOG.md`: implemented API endpoint catalog.

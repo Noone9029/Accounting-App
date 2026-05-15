@@ -10,7 +10,7 @@ This document maps implemented accounting workflows to their journal entries, ba
 - Stored and returned audit metadata is sanitized for passwords, tokens, secrets, keys, authorization headers, private keys, and base64 document payload fields.
 - Admin/accountant review is available through `GET /audit-logs`, `GET /audit-logs/:id`, and `/settings/audit-logs`.
 - Low-risk read/list/detail requests are intentionally not logged.
-- Remaining gaps: no export, immutable external audit store, alerting, anomaly detection, retention policy UI, or tamper-evident hash chain.
+- Remaining gaps: no immutable external audit store, scheduled export, alerting, anomaly detection, automatic purge/archive executor, or tamper-evident hash chain.
 
 ## Posting Date Locks
 

@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Commit inspected: pending (`Add dashboard KPI overview`)
+Commit inspected: pending (`Add product audit v2 and roadmap`)
 
 ## Scope
 
@@ -36,6 +36,35 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Product Audit v2 completed
+
+Added a current-state Product Audit v2, readiness scorecard, and prioritized next-30-prompts roadmap after the latest dashboard, audit, inventory, storage, email, E2E, and deployment-readiness work.
+
+Current readiness snapshot:
+
+- Local demo MVP: 88%.
+- Private beta: 62%.
+- Production SaaS: 38%.
+- Saudi/ZATCA production readiness: 18%.
+- Xero/Wafeq competitor readiness: 45%.
+
+Current top 10 risks:
+
+1. ZATCA is not production compliant; official XML, signing, CSID, clearance, reporting, and PDF/A-3 remain missing.
+2. Database/base64 attachment and generated-document storage is still active; real object storage and migration are pending.
+3. Mock/local email remains the default; real provider delivery, retries, bounces, and domain authentication are pending.
+4. Production operations are not ready: backups, restore drills, monitoring, alerts, and incident runbooks are missing.
+5. No SaaS billing, tenant limits, subscription lifecycle, or support tooling exists.
+6. No MFA, advanced session invalidation, or full security review exists.
+7. Audit visibility is strong for MVP but no immutable external audit store, scheduled export, alerting, or tamper evidence exists.
+8. Inventory accounting remains manual and policy-gated; landed cost, FIFO, serial/batch, returns, and automatic postings are not implemented.
+9. Banking has manual reconciliation but no live feeds, OFX/CAMT/MT940 parser, auto-match, fees, or FX transfer handling.
+10. Dashboard/report definitions need accountant/product review before production reliance.
+
+Next recommended prompt:
+
+> Add dashboard chart widgets and KPI drill-down links using existing dashboard summary/report data without changing accounting behavior.
 
 ### Dashboard KPI overview added
 

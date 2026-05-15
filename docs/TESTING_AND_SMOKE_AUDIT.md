@@ -1,6 +1,6 @@
 # Testing And Smoke Audit
 
-Audit date: 2026-05-12
+Audit date: 2026-05-15
 
 ## Test Commands
 
@@ -43,19 +43,19 @@ Test locations:
 - Smoke script: `apps/api/scripts/smoke-accounting.ts`
 - Browser E2E smoke: `tests/e2e/*.spec.ts`
 
-Latest known counts from prior unit-test audits plus the browser E2E additions:
+Latest known counts from the dashboard checkpoint:
 
-- API: 20 test suites, 181 tests.
-- Web helper tests: 7 test suites, 40 tests.
+- API: 78 test suites, 558 tests.
+- Web helper tests: 27 test suites, 139 tests.
 - ZATCA core: 2 suites, 12 tests.
 - Browser E2E smoke: 11 specs covering critical app surfaces.
 
-Audit verification run on 2026-05-12:
+Audit verification run on 2026-05-15:
 
 - `corepack pnpm typecheck`: passed.
 - `corepack pnpm test`: passed with the counts above.
 - `corepack pnpm build`: passed.
-- `corepack pnpm smoke:accounting`: skipped because the local API was not responding on `localhost:4000`.
+- `corepack pnpm smoke:accounting`: passed at the dashboard checkpoint after starting a transient local API.
 
 ## Backend Unit Areas
 
@@ -63,6 +63,7 @@ Audit verification run on 2026-05-12:
 - Chart of accounts guards.
 - Tax rate validation.
 - Number sequence generation.
+- Dashboard summary aggregation and permission metadata.
 - Sales invoice rules and transaction safety.
 - Customer payment posting/allocation/voiding.
 - Unapplied customer payment application/reversal.
@@ -83,6 +84,9 @@ Audit verification run on 2026-05-12:
 - Money/allocation preview helpers.
 - PDF download URL helpers.
 - ZATCA display/readiness helpers.
+- Dashboard KPI formatting, attention labels, quick-action visibility, and empty-state helpers.
+- Number sequence settings helpers.
+- Audit export/retention helpers.
 
 ## Smoke Workflow Coverage
 
@@ -91,6 +95,7 @@ Smoke script: `apps/api/scripts/smoke-accounting.ts`
 Current smoke verifies:
 
 - Seed login and organization discovery.
+- Dashboard summary section checks and sensitive-field absence checks.
 - Document settings read/update.
 - Account/tax/item/customer setup.
 - Sales invoice draft creation/edit/finalization/idempotency.
@@ -108,16 +113,21 @@ Current smoke verifies:
 - Supplier payment posting/allocation/void/receipt PDF.
 - Supplier ledger and supplier statement.
 - Expected rejection paths for unsafe/blocked operations.
+- Number sequence settings/listing/audit logging.
+- Audit retention settings, retention dry-run preview, and audit CSV export redaction.
+- Storage readiness and migration-plan dry-run checks.
+- Email readiness, invite acceptance, password reset, and token cleanup coverage.
+- Inventory COGS, receipt asset posting, clearing reconciliation, and variance proposal flows.
 
 ## What Is Not Covered
 
-- Browser-driven route interaction now has smoke-level Playwright coverage for critical surfaces.
+- Browser-driven route interaction has smoke-level Playwright coverage for critical surfaces, but it intentionally avoids deep accounting assertions.
 - Visual PDF rendering checks beyond endpoint validity.
-- Multi-user role/permission behavior.
-- Fiscal-period locking because it is not implemented.
-- Inventory, purchase orders, debit notes, reports, bank reconciliation because they are not implemented.
+- Full multi-user role/permission behavior across every route.
+- Full visual regression coverage.
+- Load/concurrency testing.
 - Real ZATCA SDK execution, signing, CSID, clearance, reporting, and PDF/A-3 because they are intentionally not implemented.
-- Load/concurrency testing across multiple processes.
+- Live bank feeds, real email provider delivery, object-storage migration, and production backup/restore drills.
 
 ## Platform Caveats
 
@@ -130,8 +140,8 @@ Current smoke verifies:
 
 ## Recommended Test Improvements
 
-- Wire Playwright browser smoke into CI and expand it where browser-only regressions are found.
-- Add report tests once financial reports are implemented.
+- Keep the deployed E2E workflow manual until the test database reset/migration strategy is safe, then consider scheduled runs.
+- Expand browser smoke where browser-only regressions are found.
 - Add load/concurrency tests for simultaneous invoice finalization, payment allocation, refund voiding, supplier payment allocation, and bill voiding.
 - Add PDF snapshot or text extraction tests for all document types.
-- Add role/permission tests when authorization is enforced.
+- Add deeper role/permission browser tests for restricted users.

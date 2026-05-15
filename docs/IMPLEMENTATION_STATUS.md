@@ -2,6 +2,12 @@
 
 Audit date: 2026-05-15
 
+Product Audit v2:
+
+- `docs/PRODUCT_AUDIT_V2.md` summarizes current maturity, blockers, and go/no-go status.
+- `docs/PRODUCT_READINESS_SCORECARD.md` scores readiness by module.
+- `docs/NEXT_30_PROMPTS_ROADMAP.md` lists the next 30 recommended implementation prompts.
+
 Status values:
 
 - `COMPLETE_FOR_MVP`: usable in the current local MVP.
@@ -15,7 +21,7 @@ Status values:
 
 | Module | Status | Files | What works | Gaps | Next step |
 | --- | --- | --- | --- | --- | --- |
-| Monorepo | COMPLETE_FOR_MVP | `package.json`, `pnpm-workspace.yaml`, `apps/*`, `packages/*` | Shared workspace scripts, packages, API/web separation. | No CI file seen in repo. | Add CI pipeline for typecheck/test/build/smoke. |
+| Monorepo | COMPLETE_FOR_MVP | `package.json`, `pnpm-workspace.yaml`, `apps/*`, `packages/*`, `.github/workflows/deployed-e2e.yml` | Shared workspace scripts, packages, API/web separation, and manual deployed browser E2E workflow. | No full CI pipeline for typecheck/test/build/API smoke yet. | Add CI pipeline for typecheck/test/build and safe API smoke. |
 | Docker/local infra | PARTIAL | `infra/docker-compose.yml`, `infra/README.md` | Local Postgres, Redis, API, web services. | Production infra not defined; Docker Desktop may be unavailable locally. | Add production deployment plan and compose health notes. |
 | Auth | COMPLETE_FOR_MVP | `apps/api/src/auth`, `apps/web/src/app/(auth)` | Register, login, JWT, `GET /auth/me`, invite preview/accept, password reset request/confirm using hashed tokens and mock/local email, DB-backed token request rate limits, and expired-token cleanup. | No real email provider, MFA, refresh-token rotation, or advanced session management. | Add provider-backed delivery, MFA, abuse monitoring, and stronger session policy. |
 | Tenant/org model | COMPLETE_FOR_MVP | `organizations`, `OrganizationMember`, `OrganizationContextGuard` | `x-organization-id` scoping and membership checks. | Cross-org test coverage should continue expanding as modules grow. | Add central tenant-scoping checklist for new modules. |
@@ -119,10 +125,10 @@ Status values:
 
 | Module | Status | Files | What works | Gaps | Next step |
 | --- | --- | --- | --- | --- | --- |
-| Frontend UI | PARTIAL | `apps/web/src/app`, `components`, `tests/e2e` | MVP screens for implemented modules, a useful business dashboard, plus Playwright browser smoke coverage for auth, navigation, sales, purchases, banking, reports, inventory, attachments, permissions, email, ZATCA, and storage surfaces. | Browser suite is smoke-level only; no visual regression testing or CI wiring yet. | Add CI Playwright job and UX pass. |
+| Frontend UI | PARTIAL | `apps/web/src/app`, `components`, `tests/e2e` | MVP screens for implemented modules, a useful business dashboard, plus Playwright browser smoke coverage for auth, navigation, sales, purchases, banking, reports, inventory, attachments, permissions, email, ZATCA, and storage surfaces. | Browser suite is smoke-level only; deployed E2E CI is manual-only; no visual regression testing yet. | Expand Playwright coverage, add UX pass, and decide when deployed E2E should run on a schedule. |
 | API coverage | PARTIAL | `apps/api/src` | Broad CRUD/workflow endpoints. | No OpenAPI docs or versioning. | Add API documentation generation. |
-| Smoke tests | COMPLETE_FOR_MVP | `apps/api/scripts/smoke-accounting.ts`, `tests/e2e`, `playwright.config.ts` | API smoke covers deep accounting workflows; Playwright browser smoke covers critical user-facing routes/forms and readiness panels. | Requires local API/web; browser suite does not assert every accounting branch. | Add CI wiring for API smoke and browser smoke. |
-| Production deployment | NOT_STARTED | `infra` only local | Local compose. | No cloud deployment, backups, monitoring. | Choose hosting and IaC. |
+| Smoke tests | COMPLETE_FOR_MVP | `apps/api/scripts/smoke-accounting.ts`, `tests/e2e`, `playwright.config.ts`, `.github/workflows/deployed-e2e.yml` | API smoke covers deep accounting workflows; Playwright browser smoke covers critical user-facing routes/forms and readiness panels; deployed E2E has a manual GitHub Actions workflow. | Requires local API/web for local runs; browser suite does not assert every accounting branch; no automated DB reset before deployed E2E. | Add safe CI wiring for typecheck/test/build/API smoke and decide deployed E2E schedule after DB reset policy. |
+| Production deployment | GROUNDWORK_ONLY | `infra`, `docs/DEPLOYMENT_VERCEL_SUPABASE.md`, `docs/deployment/*`, `.github/workflows/deployed-e2e.yml` | Local compose, Vercel/Supabase deployment checklist, API root/health/readiness docs, CI DB readiness checklist, Supabase security review, and deployed E2E runbook/workflow. | Production IaC, backups, monitoring, RLS/private-network decision, deployment approval gates, and operations runbooks are not complete. | Create production readiness plan covering backups, monitoring, secrets, storage, email, and security controls. |
 | Cloud storage | GROUNDWORK_ONLY | `apps/api/src/storage`, `/settings/storage`, `docs/storage/*` | Provider env config, database default readiness, S3-compatible stub readiness, redacted config checks, and dry-run migration counts for attachments/generated documents. | No real S3 upload adapter, no migration executor, no signed URLs, no object deletion, and DB/base64 storage remains active. | Add tested S3-compatible adapter and resumable migration executor. |
 | Email sending | GROUNDWORK_ONLY | `apps/api/src/email`, `EmailOutbox`, `AuthTokenRateLimitEvent`, `/settings/email-outbox`, `docs/email/*` | Mock/local organization invite and password reset email records are stored and inspectable; readiness endpoint and UI show provider/SMTP readiness without secrets; DB-backed invite/reset rate limits and manual expired-token cleanup exist. | No real SMTP/API provider, invoice/statement send, retries, bounces, domain auth, or background queue. | Select provider and add production delivery controls. |
 | WhatsApp sending | NOT_STARTED | N/A | None. | No WhatsApp provider. | Select provider if needed. |
