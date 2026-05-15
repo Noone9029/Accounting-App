@@ -4,7 +4,7 @@ Audit date: 2026-05-15
 
 Schema source: `apps/api/prisma/schema.prisma`
 
-This checkpoint adds email/token models for mock invitation and password reset delivery plus DB-backed token request rate-limit evidence. Tokens store hashes only; mock email bodies are inspectable through tenant-scoped outbox APIs.
+This checkpoint does not add schema. It hardens `AuditLog` usage with standardized event names, sanitized metadata, filtered APIs, and an admin review UI.
 
 ## Enums
 
@@ -74,7 +74,7 @@ This checkpoint adds email/token models for mock invitation and password reset d
 | `Organization` | Tenant root. | `name`, `legalName`, `taxNumber`, `baseCurrency`, `timezone`. | Owns almost every business model, including inventory variance proposals, proposal events, attachments, auth tokens, and email outbox records. | Tenant boundary for ledgers/journals. | No explicit status enum. | No subscription/billing state. |
 | `OrganizationMember` | User-to-org link. | `organizationId`, `userId`, `roleId`, `status`. | User, Organization, Role. | Controls org access and permission lookup. | `MembershipStatus`. | Invite acceptance is implemented with mock email only; no MFA or real provider delivery. |
 | `Role` | Stored permission set. | `name`, `permissions` JSON, `isSystem`. | Organization, members. | Runtime API/UI access control. | No lifecycle enum. | System roles are protected; no approval workflow. |
-| `AuditLog` | Mutation audit trail. | `action`, `entityType`, `entityId`, `before`, `after`. | Organization, optional actor. | Supports auditability. | Append-only by convention. | Coverage should be verified per mutation. |
+| `AuditLog` | Mutation audit trail. | `action`, `entityType`, `entityId`, sanitized `before`, sanitized `after`, request IP/user agent, `createdAt`. | Organization, optional actor. | Supports auditability for high-risk accounting, security, document, bank, inventory, and ZATCA events. | Append-only by convention; standardized event names are applied in service code. | Low-risk reads are intentionally not logged; no immutable external store, export, alerting, anomaly detection, or tamper-evident chain. |
 | `AuthToken` | Hashed email-token record for invitations and password reset. | `email`, `purpose`, `tokenHash`, `expiresAt`, `consumedAt`, optional organization/user/creator links. | Optional Organization, optional target User, optional creator User. | No accounting impact. | `AuthTokenPurpose`; consumed timestamp is terminal for a token. | No global session invalidation. |
 | `AuthTokenRateLimitEvent` | DB-backed evidence for invitation/password-reset request limits. | `organizationId`, `email`, `purpose`, optional `ipAddress`, optional `userAgent`, `createdAt`. | Optional Organization. | No accounting impact. | Time-window event rows only. | No background pruning job yet; cleanup is manual endpoint/service. |
 | `EmailOutbox` | Mock/local email delivery record. | `toEmail`, `fromEmail`, `subject`, `templateType`, `bodyText`, optional `bodyHtml`, `status`, `provider`, provider metadata, `sentAt`. | Optional Organization. | No accounting impact. | `EmailDeliveryStatus`, `EmailTemplateType`. | Mock provider remains default; SMTP readiness/stub exists, but no real provider sending, retries, bounces, DKIM/SPF, or domain auth. |

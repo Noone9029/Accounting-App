@@ -1,6 +1,7 @@
 import { Global, Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
+import { AuditLogModule } from "../audit-log/audit-log.module";
 import { AuthTokenRateLimitService } from "./auth-token-rate-limit.service";
 import { AuthTokenService } from "./auth-token.service";
 import { AuthController } from "./auth.controller";
@@ -11,7 +12,7 @@ import { PermissionGuard } from "./guards/permission.guard";
 
 @Global()
 @Module({
-  imports: [ConfigModule, JwtModule.register({})],
+  imports: [ConfigModule, JwtModule.register({}), AuditLogModule],
   controllers: [AuthController],
   providers: [AuthService, AuthTokenService, AuthTokenRateLimitService, JwtAuthGuard, OrganizationContextGuard, PermissionGuard],
   exports: [JwtModule, AuthTokenService, AuthTokenRateLimitService, JwtAuthGuard, OrganizationContextGuard, PermissionGuard],

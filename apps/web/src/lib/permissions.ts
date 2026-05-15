@@ -271,6 +271,10 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.emailOutbox.view];
   }
 
+  if (pathname.startsWith("/settings/audit-logs")) {
+    return [PERMISSIONS.auditLogs.view];
+  }
+
   if (pathname.startsWith("/settings/zatca")) {
     return [PERMISSIONS.zatca.view];
   }

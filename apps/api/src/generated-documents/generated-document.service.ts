@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import { DocumentType, GeneratedDocumentStatus, Prisma } from "@prisma/client";
+import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { GeneratedDocumentQueryDto } from "./dto/generated-document-query.dto";
 
@@ -36,7 +37,10 @@ export interface ArchivePdfInput {
 
 @Injectable()
 export class GeneratedDocumentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly auditLogService?: AuditLogService,
+  ) {}
 
   list(organizationId: string, query: GeneratedDocumentQueryDto) {
     return this.prisma.generatedDocument.findMany({
@@ -87,8 +91,8 @@ export class GeneratedDocumentService {
     };
   }
 
-  archivePdf(input: ArchivePdfInput) {
-    return this.prisma.generatedDocument.create({
+  async archivePdf(input: ArchivePdfInput) {
+    const document = await this.prisma.generatedDocument.create({
       data: {
         organizationId: input.organizationId,
         documentType: input.documentType,
@@ -106,6 +110,17 @@ export class GeneratedDocumentService {
       },
       select: generatedDocumentSelect,
     });
+
+    await this.auditLogService?.log({
+      organizationId: input.organizationId,
+      actorUserId: input.generatedById ?? undefined,
+      action: "CREATE",
+      entityType: "GeneratedDocument",
+      entityId: document.id,
+      after: document,
+    });
+
+    return document;
   }
 }
 

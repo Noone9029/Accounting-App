@@ -32,18 +32,28 @@ describe("AuthService invite and password reset flows", () => {
       registerPasswordResetAttempt: jest.fn().mockResolvedValue({ allowed: true, blockingReasons: [] }),
     };
     const emailService = { sendPasswordReset: jest.fn().mockResolvedValue({ id: "email-1" }) };
+    const auditLogService = { log: jest.fn().mockResolvedValue(undefined) };
     return {
-      service: new AuthService(prisma as never, jwt as never, config as never, authTokenService as never, rateLimitService as never, emailService as never),
+      service: new AuthService(
+        prisma as never,
+        jwt as never,
+        config as never,
+        authTokenService as never,
+        rateLimitService as never,
+        emailService as never,
+        auditLogService as never,
+      ),
       prisma,
       jwt,
       authTokenService,
       rateLimitService,
       emailService,
+      auditLogService,
     };
   }
 
   it("accepts a valid invitation, activates membership, consumes token, and signs in", async () => {
-    const { service, prisma, authTokenService } = makeService();
+    const { service, prisma, authTokenService, auditLogService } = makeService();
     authTokenService.getTokenForUse.mockResolvedValue({
       id: "token-1",
       userId: "user-1",
@@ -64,10 +74,11 @@ describe("AuthService invite and password reset flows", () => {
     });
     expect(prisma.organizationMember.update).toHaveBeenCalledWith({ where: { id: "member-1" }, data: { status: MembershipStatus.ACTIVE } });
     expect(authTokenService.consume).toHaveBeenCalledWith("token-1", prisma);
+    expect(auditLogService.log).toHaveBeenCalledWith(expect.objectContaining({ action: "AUTH_INVITE_ACCEPTED", entityType: "OrganizationMember" }));
   });
 
   it("returns generic password reset response for missing users", async () => {
-    const { service, prisma, authTokenService, emailService } = makeService();
+    const { service, prisma, authTokenService, emailService, auditLogService } = makeService();
     prisma.user.findUnique.mockResolvedValue(null);
 
     await expect(service.requestPasswordReset({ email: "missing@example.com" })).resolves.toEqual({
@@ -75,10 +86,11 @@ describe("AuthService invite and password reset flows", () => {
     });
     expect(authTokenService.create).not.toHaveBeenCalled();
     expect(emailService.sendPasswordReset).not.toHaveBeenCalled();
+    expect(auditLogService.log).not.toHaveBeenCalled();
   });
 
   it("creates a reset token and mock email for existing users", async () => {
-    const { service, prisma, authTokenService, emailService } = makeService();
+    const { service, prisma, authTokenService, emailService, auditLogService } = makeService();
     prisma.user.findUnique.mockResolvedValue({
       id: "user-1",
       email: "user@example.com",
@@ -91,6 +103,7 @@ describe("AuthService invite and password reset flows", () => {
     expect(emailService.sendPasswordReset).toHaveBeenCalledWith(
       expect.objectContaining({ organizationId: "org-1", toEmail: "user@example.com", resetUrl: "http://web.test/password-reset/confirm?token=reset-token" }),
     );
+    expect(auditLogService.log).toHaveBeenCalledWith(expect.objectContaining({ action: "AUTH_PASSWORD_RESET_REQUESTED", entityType: "User" }));
   });
 
   it("suppresses password reset email when the rate limit is reached but keeps the response generic", async () => {
@@ -110,14 +123,15 @@ describe("AuthService invite and password reset flows", () => {
   });
 
   it("confirms password reset and consumes token", async () => {
-    const { service, prisma, authTokenService } = makeService();
-    authTokenService.getTokenForUse.mockResolvedValue({ id: "token-1", userId: "user-1" });
+    const { service, prisma, authTokenService, auditLogService } = makeService();
+    authTokenService.getTokenForUse.mockResolvedValue({ id: "token-1", userId: "user-1", organizationId: "org-1" });
 
     await expect(service.confirmPasswordReset({ token: "raw-token", password: "NewPassword123!" })).resolves.toEqual({ message: "Password has been reset." });
     expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "user-1" } }));
     const passwordHash = prisma.user.update.mock.calls[0][0].data.passwordHash;
     await expect(bcrypt.compare("NewPassword123!", passwordHash)).resolves.toBe(true);
     expect(authTokenService.consume).toHaveBeenCalledWith("token-1", prisma);
+    expect(auditLogService.log).toHaveBeenCalledWith(expect.objectContaining({ action: "AUTH_PASSWORD_RESET_COMPLETED", entityType: "User" }));
   });
 
   it("cleans up expired organization tokens", async () => {

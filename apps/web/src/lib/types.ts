@@ -211,6 +211,37 @@ export interface InviteOrganizationMemberResponse {
   invitePreviewUrl?: string;
 }
 
+export interface AuditLogActor {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  organizationId: string;
+  actorUserId: string | null;
+  actorUser?: AuditLogActor | null;
+  action: string;
+  entityType: string;
+  entityId: string;
+  before: unknown;
+  after: unknown;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: string;
+}
+
+export interface AuditLogListResponse {
+  data: AuditLogEntry[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    hasMore: boolean;
+  };
+}
+
 export interface InvitationPreviewResponse {
   valid: boolean;
   reason?: string | null;

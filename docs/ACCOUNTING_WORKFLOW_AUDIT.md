@@ -4,6 +4,14 @@ Audit date: 2026-05-15
 
 This document maps implemented accounting workflows to their journal entries, balance fields, idempotency behavior, and gaps.
 
+## Audit Trail
+
+- High-risk mutating accounting workflows now pass through standardized audit event names before `AuditLog` persistence.
+- Stored and returned audit metadata is sanitized for passwords, tokens, secrets, keys, authorization headers, private keys, and base64 document payload fields.
+- Admin/accountant review is available through `GET /audit-logs`, `GET /audit-logs/:id`, and `/settings/audit-logs`.
+- Low-risk read/list/detail requests are intentionally not logged.
+- Remaining gaps: no export, immutable external audit store, alerting, anomaly detection, retention policy UI, or tamper-evident hash chain.
+
 ## Posting Date Locks
 
 - API/UI: fiscal periods are managed through `GET/POST/PATCH /fiscal-periods` plus `close`, `reopen`, and `lock` actions on `/fiscal-periods`.

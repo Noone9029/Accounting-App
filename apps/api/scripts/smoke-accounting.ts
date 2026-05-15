@@ -98,6 +98,26 @@ interface EmailReadinessResponse {
   realSendingEnabled: boolean;
 }
 
+interface AuditLogEntry {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  before: unknown;
+  after: unknown;
+  createdAt: string;
+}
+
+interface AuditLogListResponse {
+  data: AuditLogEntry[];
+  pagination: {
+    total: number;
+    limit: number;
+    page: number;
+    hasMore: boolean;
+  };
+}
+
 interface Account {
   id: string;
   code: string;
@@ -3512,6 +3532,44 @@ async function main(): Promise<void> {
   const journalEntriesAfterAttachments = await get<JournalEntry[]>("/journal-entries", headers);
   assertEqual(journalEntriesAfterAttachments.length, journalEntriesBeforeAttachments.length, "attachment endpoints do not create journal entries");
 
+  const finalizedInvoiceAuditLogs = await get<AuditLogListResponse>(
+    `/audit-logs?action=SALES_INVOICE_FINALIZED&entityType=SalesInvoice&entityId=${encodeURIComponent(finalizedInvoice.id)}`,
+    headers,
+  );
+  const attachmentUploadAuditLogs = await get<AuditLogListResponse>(
+    `/audit-logs?action=ATTACHMENT_UPLOADED&entityType=Attachment&entityId=${encodeURIComponent(purchaseBillAttachment.id)}`,
+    headers,
+  );
+  const attachmentDeleteAuditLogs = await get<AuditLogListResponse>(
+    `/audit-logs?action=ATTACHMENT_DELETED&entityType=Attachment&entityId=${encodeURIComponent(cashExpenseAttachment.id)}`,
+    headers,
+  );
+  const cogsPostAuditLogs = await get<AuditLogListResponse>(
+    `/audit-logs?action=COGS_POSTED&entityType=SalesStockIssue&entityId=${encodeURIComponent(salesStockIssue.id)}`,
+    headers,
+  );
+  const cogsReverseAuditLogs = await get<AuditLogListResponse>(
+    `/audit-logs?action=COGS_REVERSED&entityType=SalesStockIssue&entityId=${encodeURIComponent(salesStockIssue.id)}`,
+    headers,
+  );
+  assert(finalizedInvoiceAuditLogs.data.length > 0, "audit logs include finalized invoice action");
+  assert(attachmentUploadAuditLogs.data.length > 0, "audit logs include attachment upload action");
+  assert(attachmentDeleteAuditLogs.data.length > 0, "audit logs include attachment delete action");
+  assert(cogsPostAuditLogs.data.length > 0, "audit logs include COGS post action");
+  assert(cogsReverseAuditLogs.data.length > 0, "audit logs include COGS reverse action");
+  const serializedAuditLogs = JSON.stringify([
+    ...finalizedInvoiceAuditLogs.data,
+    ...attachmentUploadAuditLogs.data,
+    ...attachmentDeleteAuditLogs.data,
+    ...cogsPostAuditLogs.data,
+    ...cogsReverseAuditLogs.data,
+  ]);
+  assert(!serializedAuditLogs.includes(inviteToken), "audit logs do not expose raw invite token");
+  assert(!serializedAuditLogs.includes(resetToken), "audit logs do not expose raw password reset token");
+  assert(!serializedAuditLogs.includes(invitedPassword), "audit logs do not expose invited user password");
+  assert(!serializedAuditLogs.includes(invitedResetPassword), "audit logs do not expose reset password");
+  assert(!serializedAuditLogs.includes(attachmentCsvBase64), "audit logs do not expose attachment base64 content");
+
   const storageReadiness = await get<StorageReadinessResponse>("/storage/readiness", headers);
   assertEqual(storageReadiness.attachmentStorage.activeProvider, "database", "attachment storage readiness default provider");
   assertEqual(storageReadiness.generatedDocumentStorage.activeProvider, "database", "generated document storage readiness default provider");
@@ -4295,6 +4353,17 @@ async function main(): Promise<void> {
         cashExpenseAttachmentDeleted: deletedCashExpenseAttachment.status === "DELETED",
         salesInvoiceAttachmentId: salesInvoiceAttachment.id,
         attachmentJournalCountUnchanged: journalEntriesAfterAttachments.length === journalEntriesBeforeAttachments.length,
+        auditLogInvoiceFinalizeFound: finalizedInvoiceAuditLogs.data.length > 0,
+        auditLogAttachmentUploadFound: attachmentUploadAuditLogs.data.length > 0,
+        auditLogAttachmentDeleteFound: attachmentDeleteAuditLogs.data.length > 0,
+        auditLogCogsPostFound: cogsPostAuditLogs.data.length > 0,
+        auditLogCogsReverseFound: cogsReverseAuditLogs.data.length > 0,
+        auditLogSensitiveMetadataRedacted:
+          !serializedAuditLogs.includes(inviteToken) &&
+          !serializedAuditLogs.includes(resetToken) &&
+          !serializedAuditLogs.includes(invitedPassword) &&
+          !serializedAuditLogs.includes(invitedResetPassword) &&
+          !serializedAuditLogs.includes(attachmentCsvBase64),
         storageReadinessAttachmentProvider: storageReadiness.attachmentStorage.activeProvider,
         storageReadinessGeneratedDocumentProvider: storageReadiness.generatedDocumentStorage.activeProvider,
         storageReadinessSecretsRedacted:

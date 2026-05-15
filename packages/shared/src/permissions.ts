@@ -200,6 +200,9 @@ export const PERMISSIONS = {
   emailOutbox: {
     view: "emailOutbox.view",
   },
+  auditLogs: {
+    view: "auditLogs.view",
+  },
   admin: {
     fullAccess: "admin.fullAccess",
   },
@@ -335,6 +338,7 @@ export const ALL_PERMISSIONS = [
   PERMISSIONS.attachments.delete,
   PERMISSIONS.attachments.manage,
   PERMISSIONS.emailOutbox.view,
+  PERMISSIONS.auditLogs.view,
   PERMISSIONS.admin.fullAccess,
 ] as const satisfies readonly Permission[];
 
@@ -449,6 +453,7 @@ const ACCOUNTANT_ROLE_PERMISSIONS = [
   PERMISSIONS.attachments.download,
   PERMISSIONS.attachments.delete,
   PERMISSIONS.attachments.manage,
+  PERMISSIONS.auditLogs.view,
   PERMISSIONS.zatca.view,
   PERMISSIONS.zatca.generateXml,
   PERMISSIONS.zatca.runChecks,

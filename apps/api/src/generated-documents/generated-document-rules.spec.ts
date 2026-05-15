@@ -19,7 +19,8 @@ describe("generated document rules", () => {
         }),
       },
     };
-    const service = new GeneratedDocumentService(prisma as never);
+    const auditLogService = { log: jest.fn().mockResolvedValue(undefined) };
+    const service = new GeneratedDocumentService(prisma as never, auditLogService as never);
     const buffer = Buffer.from("%PDF archive");
 
     await expect(
@@ -44,6 +45,14 @@ describe("generated document rules", () => {
           sizeBytes: buffer.byteLength,
           status: GeneratedDocumentStatus.GENERATED,
         }),
+      }),
+    );
+    expect(auditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: "org-1",
+        actorUserId: "user-1",
+        action: "CREATE",
+        entityType: "GeneratedDocument",
       }),
     );
   });

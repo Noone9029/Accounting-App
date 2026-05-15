@@ -30,6 +30,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       permission(PERMISSIONS.users.manage, "Manage members", "Change member roles and active/suspended status."),
       permission(PERMISSIONS.roles.view, "View roles", "See roles and permission matrices."),
       permission(PERMISSIONS.roles.manage, "Manage roles", "Create, update, and delete custom roles."),
+      permission(PERMISSIONS.auditLogs.view, "View audit logs", "Review high-risk accounting, security, document, bank, inventory, and ZATCA audit events."),
     ],
   },
   {

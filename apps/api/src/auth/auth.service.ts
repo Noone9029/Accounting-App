@@ -3,6 +3,8 @@ import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { AuthTokenPurpose, MembershipStatus } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
+import { AuditLogService } from "../audit-log/audit-log.service";
+import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
 import { EmailService } from "../email/email.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuthTokenRateLimitService, type AuthTokenDeliveryRequestMeta } from "./auth-token-rate-limit.service";
@@ -26,6 +28,7 @@ export class AuthService {
     private readonly authTokenService: AuthTokenService,
     private readonly authTokenRateLimitService: AuthTokenRateLimitService,
     private readonly emailService: EmailService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -54,7 +57,17 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const email = dto.email.toLowerCase().trim();
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: {
+        memberships: {
+          where: { status: MembershipStatus.ACTIVE },
+          select: { organizationId: true },
+          orderBy: { createdAt: "asc" },
+          take: 1,
+        },
+      },
+    });
 
     if (!user) {
       throw new UnauthorizedException("Invalid email or password.");
@@ -63,6 +76,18 @@ export class AuthService {
     const validPassword = await bcrypt.compare(dto.password, user.passwordHash);
     if (!validPassword) {
       throw new UnauthorizedException("Invalid email or password.");
+    }
+
+    const organizationId = user.memberships[0]?.organizationId;
+    if (organizationId) {
+      await this.auditLogService.log({
+        organizationId,
+        actorUserId: user.id,
+        action: AUDIT_EVENTS.AUTH_LOGIN,
+        entityType: AUDIT_ENTITY_TYPES.USER,
+        entityId: user.id,
+        after: { email: user.email },
+      });
     }
 
     return {
@@ -158,6 +183,19 @@ export class AuthService {
       return updatedUser;
     });
 
+    await this.auditLogService.log({
+      organizationId: token.organizationId,
+      actorUserId: user.id,
+      action: AUDIT_EVENTS.AUTH_INVITE_ACCEPTED,
+      entityType: AUDIT_ENTITY_TYPES.ORGANIZATION_MEMBER,
+      entityId: member.id,
+      after: {
+        userId: user.id,
+        email: user.email,
+        membershipStatus: MembershipStatus.ACTIVE,
+      },
+    });
+
     return {
       user,
       organization: member.organization,
@@ -208,6 +246,17 @@ export class AuthService {
         toEmail: user.email,
         resetUrl: this.buildWebUrl(`/password-reset/confirm?token=${encodeURIComponent(rawToken)}`),
       });
+
+      if (organizationId) {
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId: user.id,
+          action: AUDIT_EVENTS.AUTH_PASSWORD_RESET_REQUESTED,
+          entityType: AUDIT_ENTITY_TYPES.USER,
+          entityId: user.id,
+          after: { email: user.email, purpose: AuthTokenPurpose.PASSWORD_RESET },
+        });
+      }
     }
 
     return { message: PASSWORD_RESET_GENERIC_MESSAGE };
@@ -227,6 +276,17 @@ export class AuthService {
       });
       await this.authTokenService.consume(token.id, tx);
     });
+
+    if (token.organizationId) {
+      await this.auditLogService.log({
+        organizationId: token.organizationId,
+        actorUserId: token.userId,
+        action: AUDIT_EVENTS.AUTH_PASSWORD_RESET_COMPLETED,
+        entityType: AUDIT_ENTITY_TYPES.USER,
+        entityId: token.userId,
+        after: { purpose: AuthTokenPurpose.PASSWORD_RESET },
+      });
+    }
 
     return { message: "Password has been reset." };
   }

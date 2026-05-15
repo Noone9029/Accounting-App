@@ -11,7 +11,7 @@ Tasks:
 - Run guided QA through every implemented frontend route.
 - Fix UX inconsistencies, especially supplier AP balance labels.
 - Wire the new Playwright browser E2E smoke into CI and expand it where user-facing regressions are found.
-- Replace mock/local email invites and password reset with a real provider adapter, domain authentication, provider webhooks, and audit visibility for role/member administration.
+- Replace mock/local email invites and password reset with a real provider adapter, domain authentication, provider webhooks, and audit export/alerting for role/member administration.
 - Harden fiscal period UX with period templates, optional reversal-date selection, and admin unlock approval design.
 - Add accountant review pass for report layouts and exported report formats.
 - Move Prisma seed config to `prisma.config.ts` before Prisma 7.
@@ -130,7 +130,7 @@ Tasks:
 - WhatsApp provider integration if product requires it.
 - Subscription billing and plan enforcement.
 - Domain, DNS, SSL, and environment management.
-- Security hardening: CORS, password policy, audit coverage, secrets rotation, MFA, and session invalidation.
+- Security hardening: CORS, password policy, audit export/alerting plus immutable storage, secrets rotation, MFA, and session invalidation.
 - Approval workflows and dual-control policies for high-risk accounting actions.
 - Observability: logs, metrics, tracing, alerts.
 - Multi-language polish, Arabic/English layout review, and regional formatting.

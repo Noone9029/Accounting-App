@@ -79,6 +79,7 @@ describe("permission helpers", () => {
       PERMISSIONS.attachments.manage,
     ]);
     expect(getRequiredPermissionsForPathname("/settings/email-outbox")).toEqual([PERMISSIONS.emailOutbox.view]);
+    expect(getRequiredPermissionsForPathname("/settings/audit-logs")).toEqual([PERMISSIONS.auditLogs.view]);
     expect(getRequiredPermissionsForPathname("/settings/zatca")).toEqual([PERMISSIONS.zatca.view]);
     expect(getRequiredPermissionsForPathname("/settings/team")).toEqual([PERMISSIONS.users.view]);
     expect(getRequiredPermissionsForPathname("/settings/roles/role-1")).toEqual([PERMISSIONS.roles.view]);
@@ -135,5 +136,12 @@ describe("sidebar nav filtering", () => {
     const settings = nav.find((item) => item.label === "Settings / Admin");
 
     expect(settings?.children?.map((item) => item.label)).toEqual(["Email outbox"]);
+  });
+
+  it("shows audit logs when the user has audit log permission", () => {
+    const nav = filterSidebarNavItems(subject([PERMISSIONS.auditLogs.view]));
+    const settings = nav.find((item) => item.label === "Settings / Admin");
+
+    expect(settings?.children?.map((item) => item.label)).toEqual(["Audit logs"]);
   });
 });

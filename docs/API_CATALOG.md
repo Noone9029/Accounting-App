@@ -254,7 +254,8 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | PATCH | `/journal-entries/:id` | Edit draft journal | Yes | Yes | Implemented | Draft only. |
 | POST | `/journal-entries/:id/post` | Post journal | Yes | Yes | Implemented | Idempotency guarded. |
 | POST | `/journal-entries/:id/reverse` | Reverse journal | Yes | Yes | Implemented | Creates opposite posted journal. |
-| GET | `/audit-logs` | List audit logs | Yes | Yes | Implemented | Tenant scoped. |
+| GET | `/audit-logs` | List audit logs | Yes | Yes | Implemented | Requires `auditLogs.view`; supports `action`, `entityType`, `entityId`, `actorUserId`, `from`, `to`, `search`, `limit`, and `page`; returns newest-first sanitized metadata. |
+| GET | `/audit-logs/:id` | Audit log detail | Yes | Yes | Implemented | Requires `auditLogs.view`; tenant scoped and returns sanitized `before`/`after` metadata. |
 
 ## Sales Invoices
 

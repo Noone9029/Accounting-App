@@ -37,6 +37,33 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Audit log coverage and UI added
+
+Added standardized audit visibility for important accounting, security, user-management, document, bank, inventory, and ZATCA actions.
+
+Risk reduced:
+
+- `apps/api/src/audit-log/audit-events.ts` now maps generic service actions to explicit event names such as `SALES_INVOICE_FINALIZED`, `PURCHASE_BILL_FINALIZED`, `COGS_POSTED`, `PURCHASE_RECEIPT_ASSET_POSTED`, `ATTACHMENT_UPLOADED`, `AUTH_PASSWORD_RESET_COMPLETED`, and `ZATCA_XML_GENERATED`.
+- Audit metadata is recursively sanitized before storage and response serialization; passwords, token values/hashes, secrets, API/access keys, private keys, authorization headers, and base64 payload fields are redacted.
+- `GET /audit-logs` now supports action, entity type, entity id, actor, date, search, limit, and page filters.
+- `GET /audit-logs/:id` returns tenant-scoped sanitized detail.
+- `/settings/audit-logs` gives permitted admins/accountants a filterable log table and detail view.
+- Generated document archiving, invite acceptance, login, password reset request/completion, and existing high-risk accounting/inventory/document actions now have stronger audit visibility.
+- Smoke now checks representative audit records for invoice finalization, attachment upload/delete, COGS post/reversal, and sensitive metadata redaction.
+
+Coverage map:
+
+- Already audited: auth token delivery events, role/member administration, journal/fiscal period changes, sales finalization/void/payment/refund/credit note actions, purchase bill/order/payment/refund/debit note/cash expense actions, bank transfers/statements/reconciliations, inventory adjustments/transfers/receipts/issues/COGS/receipt asset/variance proposals, attachments, generated documents, document settings, and ZATCA local actions.
+- Missing or low priority: harmless GET/list/detail reads, report JSON/CSV reads, external immutable audit store, export, alerting, anomaly detection, retention UI, and tamper-evident audit hash chaining.
+
+Remaining risks:
+
+- No external immutable audit store.
+- No audit export.
+- No alerting or anomaly detection.
+- No tamper-evident audit chain.
+- Low-risk read activity is not logged by design.
+
 ### API root status endpoint added
 
 Added safe API status visibility so opening the deployed API base URL no longer looks like downtime.
