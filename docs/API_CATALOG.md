@@ -435,7 +435,9 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | GET | `/sales-invoices/:id/zatca/xml` | Local XML download | Yes | Yes | Groundwork | Not official ZATCA XML. |
 | GET | `/sales-invoices/:id/zatca/xml-validation` | Local XML validation | Yes | Yes | Groundwork | `officialValidation=false`. |
 | GET | `/sales-invoices/:id/zatca/qr` | Local QR payload | Yes | Yes | Groundwork | Phase 2 QR incomplete. |
+| POST | `/sales-invoices/:id/zatca/sdk-validate` | Run local SDK validation for generated invoice XML | Yes | Yes | Groundwork | Disabled by default; no network/submission/compliance marking. |
 | GET | `/zatca/submissions` | Submission/onboarding logs | Yes | Yes | Implemented | Includes mock/safe blocked logs. |
-| GET | `/zatca-sdk/readiness` | Local SDK readiness | Yes | Yes | Groundwork | Does not run SDK. |
+| GET | `/zatca-sdk/readiness` | Local SDK readiness | Yes | Yes | Groundwork | Safe booleans only; no secrets or XML content. |
 | POST | `/zatca-sdk/validate-xml-dry-run` | SDK validation dry-run plan | Yes | Yes | Groundwork | Does not execute SDK. |
-| POST | `/zatca-sdk/validate-xml-local` | Local SDK execution gate | Yes | Yes | Disabled placeholder | Disabled and not command-verified. |
+| POST | `/zatca-sdk/validate-xml-local` | Local SDK XML validation | Yes | Yes | Groundwork | Disabled by default; runs local-only SDK when explicitly enabled. |
+| POST | `/zatca-sdk/validate-reference-fixture` | Local SDK validation for allowlisted fixture XML | Yes | Yes | Groundwork | Only `reference/` and `packages/zatca-core/fixtures`; path traversal blocked. |

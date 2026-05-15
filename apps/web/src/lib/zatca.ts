@@ -45,6 +45,14 @@ export function zatcaSdkValidateXmlLocalPath(): string {
   return "/zatca-sdk/validate-xml-local";
 }
 
+export function zatcaSdkValidateReferenceFixturePath(): string {
+  return "/zatca-sdk/validate-reference-fixture";
+}
+
+export function zatcaInvoiceSdkValidatePath(invoiceId: string): string {
+  return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/sdk-validate`;
+}
+
 export function zatcaEgsCsrDownloadPath(egsUnitId: string): string {
   return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/csr/download`;
 }
@@ -125,6 +133,24 @@ export function zatcaSdkReadinessLabel(value: boolean): string {
 
 export function zatcaSdkCanAttemptLabel(value: boolean): string {
   return value ? "Dry-run ready" : "Blocked";
+}
+
+export function zatcaSdkExecutionLabel(value: boolean): string {
+  return value ? "Enabled locally" : "Disabled";
+}
+
+export function zatcaSdkValidationResultLabel(result: { disabled?: boolean; success?: boolean } | null | undefined): string {
+  if (!result) {
+    return "Not run";
+  }
+  if (result.disabled) {
+    return "Disabled";
+  }
+  return result.success ? "Passed" : "Failed";
+}
+
+export function shouldShowZatcaSdkLocalOnlyWarning(result: { localOnly?: boolean; officialValidationAttempted?: boolean } | null | undefined): boolean {
+  return !result || result.localOnly === true || result.officialValidationAttempted !== true;
 }
 
 export function shouldShowZatcaSdkWarning(readiness: { warnings?: string[]; canAttemptSdkValidation?: boolean } | null | undefined): boolean {

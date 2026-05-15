@@ -29,10 +29,11 @@ Scope: compare current LedgerByte ZATCA groundwork with the local official refer
 - `apps/api/src/zatca/adapters/mock-zatca-onboarding.adapter.ts`: mock CSID and mock compliance-check must remain fake/local.
 - `apps/api/src/zatca/adapters/http-zatca-sandbox.adapter.ts`: network calls must stay blocked unless explicit sandbox flags, base URL, credentials, and verified payloads are in place.
 - `apps/api/src/zatca/zatca.service.ts`: local ICV/hash-chain behavior is useful for sequence testing, but official hash-chain semantics remain unverified.
+- `apps/api/src/zatca-sdk`: local SDK validation is now feature-flagged and disabled by default. It is an engineering validator only and must not mark invoices compliant or enable ZATCA network calls.
 
 ## Safe Implementation Order
 
-1. Add a test-only SDK validation wrapper that runs with Java 11-14 and handles paths with spaces.
+1. Use the feature-flagged local SDK validation wrapper with Java 11-14 and official/sample XML fixtures.
 2. Copy only license-approved SDK sample XML fixtures into a tracked fixture folder or generate equivalent fixtures from official docs.
 3. Replace XML structure incrementally: namespaces/root, header, ADR `ICV`/`PIH`/`QR`, supplier/customer, tax totals, lines, monetary totals.
 4. Compare generated XML against XSD/Schematron/SDK validation.
@@ -49,3 +50,4 @@ Scope: compare current LedgerByte ZATCA groundwork with the local official refer
 - No real network adapter behavior was enabled.
 - No production CSID, clearance, reporting, signing, or PDF/A-3 implementation was added.
 - No SDK dummy certificate/private-key material was copied into application code.
+- Local SDK validation remains disabled unless `ZATCA_SDK_EXECUTION_ENABLED=true` is explicitly configured.

@@ -1358,6 +1358,27 @@ Commit inspected: pending (`Add ZATCA SDK validation wrapper groundwork`)
 - SDK validation is not wired into normal app startup or normal invoice generation.
 - No signing, hash replacement, real API calls, PDF/A-3, production CSID, clearance, or reporting behavior was implemented.
 
+## ZATCA SDK Local Validation Groundwork
+
+Audit date: 2026-05-16
+
+Commit inspected: pending (`Add ZATCA SDK local validation groundwork`)
+
+### SDK Local Validation Groundwork Added
+
+- Added env-configured local SDK execution controls: `ZATCA_SDK_JAR_PATH`, `ZATCA_SDK_CONFIG_DIR`, `ZATCA_SDK_WORK_DIR`, `ZATCA_SDK_JAVA_BIN`, and `ZATCA_SDK_TIMEOUT_MS`, with `ZATCA_SDK_EXECUTION_ENABLED=false` still the default.
+- Enhanced `GET /zatca-sdk/readiness` with execution-enabled, config-directory, work-directory, supported-command, blocking-reason, and `canRunLocalValidation` status.
+- Added disabled-by-default local validation endpoints for request XML, allowlisted reference fixtures, and generated invoice XML.
+- Added path traversal protection, 2 MB XML limit, argument-array command execution, timeout enforcement, temp-file cleanup, and stdout/stderr redaction.
+- Added settings-page SDK readiness details and invoice-detail local SDK validation result display.
+- Extended tests and smoke checks so default runs do not require Java or SDK execution.
+
+### Remaining SDK Local Validation Risks
+
+- Real local execution still needs a pinned Java 11-14 runtime and verification on the target machine.
+- Passing local SDK validation would not prove production compliance.
+- No signing, real CSID, clearance/reporting, PDF/A-3, KMS key custody, or network submission exists.
+
 ## Sales Credit Notes MVP
 
 Audit date: 2026-05-12

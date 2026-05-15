@@ -2835,18 +2835,25 @@ export interface ZatcaXmlFieldMappingResponse {
 }
 
 export interface ZatcaSdkReadinessResponse {
+  enabled: boolean;
   referenceFolderFound: boolean;
   sdkJarFound: boolean;
   fatooraLauncherFound: boolean;
   jqFound: boolean;
+  configDirFound: boolean;
+  workingDirectoryWritable: boolean;
+  supportedCommandsKnown: boolean;
   javaFound: boolean;
   javaVersion: string | null;
   javaMajorVersion: number | null;
   javaVersionSupported: boolean;
   projectPathHasSpaces: boolean;
   canAttemptSdkValidation: boolean;
+  canRunLocalValidation: boolean;
+  blockingReasons: string[];
   warnings: string[];
   suggestedFixes: string[];
+  timeoutMs: number;
 }
 
 export interface ZatcaSdkValidationCommandPlan {
@@ -2878,6 +2885,21 @@ export interface ZatcaSdkDryRunResponse {
   >;
   commandPlan: ZatcaSdkValidationCommandPlan;
   warnings: string[];
+}
+
+export interface ZatcaSdkValidationResponse {
+  success: boolean;
+  disabled: boolean;
+  localOnly: true;
+  officialValidationAttempted: boolean;
+  sdkExitCode: number | null;
+  stdoutSummary: string;
+  stderrSummary: string;
+  validationMessages: string[];
+  blockingReasons: string[];
+  warnings: string[];
+  xmlSource: "generated" | "fixture" | "uploaded" | "invoice" | "request";
+  invoiceType?: "standard" | "simplified";
 }
 
 export interface ZatcaReadinessSummary {

@@ -17,7 +17,7 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 | Documents/attachments | 62 | Generated PDFs, archive, attachment upload/list/download/soft-delete, linked panels, storage readiness/migration dry run, feature-flagged S3-compatible storage for new uploaded attachments. | DB/base64 remains default, no migration executor, no generated-document S3 path, no virus scanning, no OCR, no retention policy. | Validate S3 mode with a non-production bucket and implement migration executor. |
 | Roles/permissions/security | 70 | Shared permission strings, backend guards, frontend gating, team/role UI, invite onboarding, rate limits. | No MFA, advanced sessions, dual control, security review, production identity controls. | Add MFA/session plan and maker-checker policy for high-risk actions. |
 | Audit/compliance visibility | 78 | Standard events, metadata redaction, audit UI, filters, CSV export, retention settings, dry-run preview, smoke checks. | No immutable store, scheduled export, purge executor, alerting, anomaly detection, tamper evidence. | Add scheduled export/immutable storage design and sensitive-action alerts. |
-| ZATCA | 22 | Profile, EGS, CSR groundwork, mock CSID, local XML/QR/hash, SDK readiness docs, blocked real network behavior. | No official XML, signing, CSID, clearance, reporting, PDF/A-3, KMS key custody. | Add test-only official SDK XML/hash validation fixtures. |
+| ZATCA | 24 | Profile, EGS, CSR groundwork, mock CSID, local XML/QR/hash, SDK readiness docs, disabled-by-default local SDK validation endpoints, blocked real network behavior. | No official XML, signing, CSID, clearance, reporting, PDF/A-3, KMS key custody. | Run local SDK validation against official fixtures and compare generated XML/hash. |
 | Email/communications | 50 | Mock email outbox default, invites, password reset, readiness API/UI, opt-in SMTP adapter, test-send, DB-backed rate limits. | No queue/retries, bounces/webhooks, domain-auth validation, polished templates, invoice/statement sending, or MFA/session invalidation. | Validate SMTP with a non-production relay and add deliverability/queue controls. |
 | Storage/scalability | 45 | Storage config/readiness, feature-flagged S3-compatible attachment upload/download, migration plan counts, database default works locally. | No DB-to-S3 migration executor, signed URLs, object lifecycle, generated-document S3 path, scanning, backup policy, or real-bucket validation evidence. | Test S3 mode against a non-production bucket and build migration rollback plan. |
 | Browser QA/E2E | 64 | 11 Playwright specs for critical routes, deployed E2E workflow/docs, API smoke remains deep accounting check. | No visual regression, no scheduled browser CI, browser tests are smoke-level, no data reset strategy. | Schedule non-production deployed E2E and expand broken-route coverage. |
@@ -37,7 +37,7 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 1. Real-bucket object-storage validation and file migration.
 2. Email queue/retry, provider webhooks, and domain-auth validation around the opt-in SMTP adapter.
 3. Production backup/restore and monitoring plan.
-4. Official ZATCA SDK validation.
+4. Official ZATCA SDK fixture validation and generated XML gap closure.
 5. Dashboard/report accountant review.
 6. UX route QA and E2E expansion.
 7. Audit immutable export/alerting.

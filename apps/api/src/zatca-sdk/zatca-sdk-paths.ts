@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { constants, existsSync, readdirSync, statSync, accessSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve, win32 } from "node:path";
 import { cwd, env, platform } from "node:process";
 
@@ -11,22 +12,33 @@ export interface JavaProbeResult {
 }
 
 export interface ZatcaSdkReadiness {
+  enabled: boolean;
   referenceFolderFound: boolean;
   sdkJarFound: boolean;
   fatooraLauncherFound: boolean;
   jqFound: boolean;
+  configDirFound: boolean;
+  workingDirectoryWritable: boolean;
+  supportedCommandsKnown: boolean;
   javaFound: boolean;
   javaVersion: string | null;
   javaMajorVersion: number | null;
   javaVersionSupported: boolean;
   projectPathHasSpaces: boolean;
   canAttemptSdkValidation: boolean;
+  canRunLocalValidation: boolean;
+  blockingReasons: string[];
   warnings: string[];
   suggestedFixes: string[];
   referenceFolderPath?: string;
+  sdkRootPath?: string;
   sdkJarPath?: string;
   fatooraLauncherPath?: string;
   jqPath?: string;
+  configDirPath?: string;
+  workDir: string;
+  javaCommand: string;
+  timeoutMs: number;
   projectRoot: string;
 }
 
@@ -34,6 +46,7 @@ export interface ZatcaSdkDiscoveryOptions {
   projectRoot?: string;
   startDirectory?: string;
   platform?: NodeJS.Platform | string;
+  env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
   runCommand?: (command: string, args: string[]) => { status: number | null; stdout?: string | Buffer; stderr?: string | Buffer; error?: unknown };
 }
 
@@ -57,26 +70,50 @@ export interface ZatcaSdkValidationCommandPlan {
   warnings: string[];
 }
 
+export interface ZatcaSdkExecutionConfig {
+  enabled: boolean;
+  sdkJarPath?: string;
+  configDir?: string;
+  workDir: string;
+  javaBin: string;
+  timeoutMs: number;
+}
+
+const DEFAULT_ZATCA_SDK_TIMEOUT_MS = 30000;
+
 export function discoverZatcaSdkReadiness(options: ZatcaSdkDiscoveryOptions = {}): ZatcaSdkReadiness {
   const projectRoot = resolve(options.projectRoot ?? findProjectRoot(options.startDirectory ?? cwd()));
   const currentPlatform = options.platform ?? platform;
+  const executionConfig = readZatcaSdkExecutionConfig(options.env, projectRoot);
   const referenceFolderPath = join(projectRoot, "reference");
   const referenceFolderFound = existsSync(referenceFolderPath);
   const files = referenceFolderFound ? listFiles(referenceFolderPath) : [];
-  const sdkJarPath = files.find((file) => /zatca-einvoicing-sdk.*\.jar$/i.test(file));
+  const sdkJarPath = executionConfig.sdkJarPath || files.find((file) => /zatca-einvoicing-sdk.*\.jar$/i.test(file));
   const launcherPath = findLauncher(files, currentPlatform);
   const jqPath = files.find((file) => /(?:^|[\\/])jq(?:\.exe)?$/i.test(file));
-  const java = detectJava(options.runCommand);
+  const configDirPath = executionConfig.configDir || findConfigDir(files, sdkJarPath);
+  const sdkRootPath = findSdkRoot(sdkJarPath, configDirPath, launcherPath);
+  const java = detectJava(options.runCommand, executionConfig.javaBin);
   const javaVersionSupported = java.found && java.majorVersion !== null && java.majorVersion >= 11 && java.majorVersion < 15;
   const projectPathHasSpaces = /\s/.test(projectRoot);
+  const configDirFound = Boolean(configDirPath && existsSync(configDirPath) && statSync(configDirPath).isDirectory());
+  const workingDirectoryWritable = canWriteToDirectory(executionConfig.workDir);
+  const supportedCommandsKnown = Boolean(sdkJarPath || launcherPath);
+  const canAttemptSdkValidation = referenceFolderFound && Boolean(sdkJarPath) && javaVersionSupported && supportedCommandsKnown;
+  const blockingReasons: string[] = [];
   const warnings: string[] = [];
   const suggestedFixes: string[] = [];
 
+  if (!executionConfig.enabled) {
+    blockingReasons.push("ZATCA SDK local execution is disabled. Set ZATCA_SDK_EXECUTION_ENABLED=true to run local-only SDK validation.");
+  }
   if (!referenceFolderFound) {
+    blockingReasons.push("Local ZATCA reference folder was not found.");
     warnings.push("Local ZATCA reference folder was not found.");
     suggestedFixes.push("Place the official ZATCA SDK/docs under the repo-local reference/ folder.");
   }
   if (!sdkJarPath) {
+    blockingReasons.push("ZATCA Java SDK JAR was not found.");
     warnings.push("ZATCA Java SDK JAR was not found under reference/.");
     suggestedFixes.push("Verify the SDK archive has been extracted and contains zatca-einvoicing-sdk-*.jar.");
   }
@@ -88,42 +125,75 @@ export function discoverZatcaSdkReadiness(options: ZatcaSdkDiscoveryOptions = {}
     warnings.push("jq helper was not found under the SDK folder.");
     suggestedFixes.push("Keep the SDK-provided jq executable available when using the fatoora launcher.");
   }
+  if (!configDirFound) {
+    blockingReasons.push("ZATCA SDK configuration directory was not found.");
+    warnings.push("ZATCA SDK configuration directory was not found.");
+    suggestedFixes.push("Set ZATCA_SDK_CONFIG_DIR to the SDK Configuration folder or keep Configuration/ beside Apps/.");
+  }
+  if (!workingDirectoryWritable) {
+    blockingReasons.push("ZATCA SDK work directory is not writable.");
+    warnings.push("ZATCA SDK work directory is not writable.");
+    suggestedFixes.push("Set ZATCA_SDK_WORK_DIR to a writable temporary folder.");
+  }
   if (!java.found) {
+    blockingReasons.push("Java was not found.");
     warnings.push("Java was not found on PATH.");
     suggestedFixes.push("Install a Java runtime compatible with the ZATCA SDK before enabling local SDK validation.");
   } else if (!javaVersionSupported) {
+    blockingReasons.push("Detected Java version is outside the SDK-supported range.");
     warnings.push(`Detected Java ${java.version ?? "unknown"}, but the SDK readme expects Java >=11 and <15.`);
     suggestedFixes.push("Use a pinned Java 11-14 runtime or a Docker wrapper for SDK validation.");
+  }
+  if (!supportedCommandsKnown) {
+    blockingReasons.push("No supported local SDK validation command could be resolved.");
+    warnings.push("No supported local SDK validation command could be resolved.");
   }
   if (projectPathHasSpaces) {
     warnings.push("Project path contains spaces, which previously broke the SDK Windows batch launcher.");
     suggestedFixes.push("Use the dry-run command plan, a Docker wrapper, or a no-space temp SDK path before enabling execution.");
   }
+  const canRunLocalValidation =
+    executionConfig.enabled &&
+    canAttemptSdkValidation &&
+    configDirFound &&
+    workingDirectoryWritable &&
+    blockingReasons.length === 0;
 
   return {
+    enabled: executionConfig.enabled,
     referenceFolderFound,
     sdkJarFound: Boolean(sdkJarPath),
     fatooraLauncherFound: Boolean(launcherPath),
     jqFound: Boolean(jqPath),
+    configDirFound,
+    workingDirectoryWritable,
+    supportedCommandsKnown,
     javaFound: java.found,
     javaVersion: java.version,
     javaMajorVersion: java.majorVersion,
     javaVersionSupported,
     projectPathHasSpaces,
-    canAttemptSdkValidation: referenceFolderFound && Boolean(sdkJarPath) && javaVersionSupported,
+    canAttemptSdkValidation,
+    canRunLocalValidation,
+    blockingReasons,
     warnings,
     suggestedFixes,
     referenceFolderPath: referenceFolderFound ? referenceFolderPath : undefined,
+    sdkRootPath,
     sdkJarPath,
     fatooraLauncherPath: launcherPath,
     jqPath,
+    configDirPath: configDirFound ? configDirPath : undefined,
+    workDir: executionConfig.workDir,
+    javaCommand: executionConfig.javaBin,
+    timeoutMs: executionConfig.timeoutMs,
     projectRoot,
   };
 }
 
 export function buildZatcaSdkValidationCommand(input: ZatcaSdkValidationCommandInput): ZatcaSdkValidationCommandPlan {
   const currentPlatform = input.platform;
-  const warnings: string[] = ["Dry-run command plan only; do not treat this as executed SDK validation."];
+  const warnings: string[] = ["Use argument-array execution for this SDK command; do not concatenate a shell string."];
   const envAdditions: Record<string, string> = {};
 
   if (!input.xmlFilePath.trim()) {
@@ -153,7 +223,7 @@ export function buildZatcaSdkValidationCommand(input: ZatcaSdkValidationCommandI
   if (input.sdkJarPath) {
     command = input.javaCommand ?? "java";
     args = ["-jar", input.sdkJarPath, "-validate", "-invoice", input.xmlFilePath];
-    warnings.push("Direct JAR validation avoids the Windows batch path-splitting issue but must be verified against the SDK before real execution is enabled.");
+    warnings.push("Uses the SDK readme documented validation flags: -validate -invoice <filename>.");
   } else if (input.launcherPath) {
     command = input.launcherPath;
     args = ["-validate", "-invoice", input.xmlFilePath];
@@ -170,11 +240,11 @@ export function buildZatcaSdkValidationCommand(input: ZatcaSdkValidationCommandI
   };
 }
 
-export function detectJava(runCommand?: ZatcaSdkDiscoveryOptions["runCommand"]): JavaProbeResult {
+export function detectJava(runCommand?: ZatcaSdkDiscoveryOptions["runCommand"], javaCommand = "java"): JavaProbeResult {
   try {
     const result = runCommand
-      ? runCommand("java", ["-version"])
-      : spawnSync("java", ["-version"], { encoding: "utf8", timeout: 5000, windowsHide: true });
+      ? runCommand(javaCommand, ["-version"])
+      : spawnSync(javaCommand, ["-version"], { encoding: "utf8", timeout: 5000, windowsHide: true });
     const output = [result.stdout, result.stderr]
       .filter(Boolean)
       .map((part) => String(part))
@@ -216,6 +286,20 @@ export function parseJavaMajorVersion(version: string): number | null {
 
 export function isZatcaSdkExecutionEnabled(sourceEnv: NodeJS.ProcessEnv = env): boolean {
   return String(sourceEnv.ZATCA_SDK_EXECUTION_ENABLED ?? "").trim().toLowerCase() === "true";
+}
+
+export function readZatcaSdkExecutionConfig(sourceEnv: NodeJS.ProcessEnv | Record<string, string | undefined> = env, projectRoot = cwd()): ZatcaSdkExecutionConfig {
+  const timeoutRaw = Number(String(sourceEnv.ZATCA_SDK_TIMEOUT_MS ?? DEFAULT_ZATCA_SDK_TIMEOUT_MS).trim());
+  const timeoutMs = Number.isFinite(timeoutRaw) && timeoutRaw > 0 ? Math.min(timeoutRaw, 120000) : DEFAULT_ZATCA_SDK_TIMEOUT_MS;
+
+  return {
+    enabled: isZatcaSdkExecutionEnabled(sourceEnv as NodeJS.ProcessEnv),
+    sdkJarPath: optionalPath(sourceEnv.ZATCA_SDK_JAR_PATH),
+    configDir: optionalPath(sourceEnv.ZATCA_SDK_CONFIG_DIR),
+    workDir: optionalPath(sourceEnv.ZATCA_SDK_WORK_DIR) ?? join(tmpdir(), "ledgerbyte-zatca-sdk"),
+    javaBin: String(sourceEnv.ZATCA_SDK_JAVA_BIN ?? "").trim() || "java",
+    timeoutMs,
+  };
 }
 
 function findProjectRoot(startDirectory: string): string {
@@ -265,6 +349,54 @@ function findLauncher(files: string[], currentPlatform: NodeJS.Platform | string
   }
 
   return undefined;
+}
+
+function findConfigDir(files: string[], sdkJarPath?: string): string | undefined {
+  const fromFile = files.find((file) => /[\\/]Configuration[\\/](config|defaults)\.json$/i.test(file));
+  if (fromFile) {
+    return dirname(fromFile);
+  }
+
+  if (sdkJarPath) {
+    const appsDir = dirname(sdkJarPath);
+    const candidate = join(dirname(appsDir), "Configuration");
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
+function findSdkRoot(sdkJarPath?: string, configDirPath?: string, launcherPath?: string): string | undefined {
+  if (configDirPath) {
+    return dirname(configDirPath);
+  }
+  if (sdkJarPath) {
+    return dirname(dirname(sdkJarPath));
+  }
+  if (launcherPath) {
+    return dirname(dirname(launcherPath));
+  }
+  return undefined;
+}
+
+function canWriteToDirectory(directory: string): boolean {
+  try {
+    if (existsSync(directory)) {
+      accessSync(directory, constants.W_OK);
+      return true;
+    }
+    accessSync(dirname(resolve(directory)), constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function optionalPath(value: string | undefined): string | undefined {
+  const trimmed = String(value ?? "").trim();
+  return trimmed ? resolve(trimmed) : undefined;
 }
 
 function quoteForDisplay(value: string, currentPlatform: NodeJS.Platform | string): string {

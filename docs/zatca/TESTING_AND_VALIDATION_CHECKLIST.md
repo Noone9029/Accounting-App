@@ -7,6 +7,7 @@ This is a working engineering checklist. Official ZATCA/FATOORA documentation mu
 - Add schema/canonicalization/signature validation tests before real sandbox calls.
 - Add sandbox-only integration tests gated behind explicit environment flags.
 - Keep smoke passing in default mock mode with no real OTP, CSID, or network required.
+- Keep smoke asserting that `/zatca-sdk/readiness` reports SDK execution disabled by default and that invoice SDK validation returns a disabled local-only response.
 - Record official validator responses as fixtures after sandbox access is available.
 - Do not promote any mock success state to legal `CLEARED` or `REPORTED` status.
 
@@ -17,4 +18,4 @@ This is a working engineering checklist. Official ZATCA/FATOORA documentation mu
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Schemas/xsds/**/*.xsd`
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Rules/Schematrons/*.xsl`
 
-Testing should first add an isolated SDK wrapper for offline validation and hash comparison. Real sandbox integration tests must remain gated behind explicit environment flags and valid credentials.
+Testing now has an isolated SDK wrapper for offline XML validation attempts. Keep SDK execution off by default. Real sandbox integration tests must remain gated behind explicit environment flags and valid credentials.

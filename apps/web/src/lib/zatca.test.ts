@@ -19,6 +19,11 @@ import {
   zatcaSdkReadinessPath,
   zatcaSdkValidateXmlDryRunPath,
   zatcaSdkValidateXmlLocalPath,
+  zatcaSdkValidateReferenceFixturePath,
+  zatcaInvoiceSdkValidatePath,
+  zatcaSdkExecutionLabel,
+  zatcaSdkValidationResultLabel,
+  shouldShowZatcaSdkLocalOnlyWarning,
   zatcaStatusLabel,
   zatcaXmlValidationLabel,
   shouldShowZatcaSdkWarning,
@@ -44,6 +49,8 @@ describe("ZATCA helpers", () => {
     expect(zatcaSdkReadinessPath()).toBe("/zatca-sdk/readiness");
     expect(zatcaSdkValidateXmlDryRunPath()).toBe("/zatca-sdk/validate-xml-dry-run");
     expect(zatcaSdkValidateXmlLocalPath()).toBe("/zatca-sdk/validate-xml-local");
+    expect(zatcaSdkValidateReferenceFixturePath()).toBe("/zatca-sdk/validate-reference-fixture");
+    expect(zatcaInvoiceSdkValidatePath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/sdk-validate");
     expect(zatcaEgsCsrDownloadPath("egs-1")).toBe("/zatca/egs-units/egs-1/csr/download");
   });
 
@@ -87,5 +94,17 @@ describe("ZATCA helpers", () => {
     expect(shouldShowZatcaSdkWarning(null)).toBe(true);
     expect(shouldShowZatcaSdkWarning({ canAttemptSdkValidation: true, warnings: [] })).toBe(false);
     expect(shouldShowZatcaSdkWarning({ canAttemptSdkValidation: true, warnings: ["Java version mismatch"] })).toBe(true);
+  });
+
+  it("formats local SDK execution and validation results", () => {
+    expect(zatcaSdkExecutionLabel(false)).toBe("Disabled");
+    expect(zatcaSdkExecutionLabel(true)).toBe("Enabled locally");
+    expect(zatcaSdkValidationResultLabel(null)).toBe("Not run");
+    expect(zatcaSdkValidationResultLabel({ disabled: true, success: false })).toBe("Disabled");
+    expect(zatcaSdkValidationResultLabel({ disabled: false, success: true })).toBe("Passed");
+    expect(zatcaSdkValidationResultLabel({ disabled: false, success: false })).toBe("Failed");
+    expect(shouldShowZatcaSdkLocalOnlyWarning(null)).toBe(true);
+    expect(shouldShowZatcaSdkLocalOnlyWarning({ localOnly: true, officialValidationAttempted: false })).toBe(true);
+    expect(shouldShowZatcaSdkLocalOnlyWarning({ localOnly: true, officialValidationAttempted: true })).toBe(true);
   });
 });

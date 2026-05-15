@@ -17,7 +17,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 | Local demo MVP | 88% | Strong enough for guided demos and internal workflow review. |
 | Private beta | 62% | Possible only with carefully selected testers, clear limitations, non-production data, and hands-on support. |
 | Production SaaS | 38% | Blocked by operations, storage, email, billing, security hardening, backups, monitoring, and legal/compliance review. |
-| Saudi/ZATCA production readiness | 18% | ZATCA remains local/mock/scaffold; official XML/signing/CSID/clearance/reporting/PDF-A3 are not implemented. |
+| Saudi/ZATCA production readiness | 20% | ZATCA remains local/mock/scaffold; local SDK validation groundwork exists, but official XML/signing/CSID/clearance/reporting/PDF-A3 are not implemented. |
 | Xero/Wafeq competitor readiness | 45% | Breadth is now meaningful, but production trust, compliance depth, integrations, onboarding, and polish are still behind mature products. |
 
 ## Completed Modules
@@ -78,7 +78,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 
 ## Compliance Blockers
 
-- ZATCA official XML mapping is incomplete.
+- ZATCA official XML mapping is incomplete, though local SDK validation can now be attempted behind an explicit flag.
 - ZATCA invoice hash/canonicalization is local-only and not SDK-verified.
 - ZATCA signing and certificate/key custody are not implemented.
 - Compliance CSID and production CSID onboarding are not implemented.

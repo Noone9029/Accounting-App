@@ -18,6 +18,7 @@ import {
   zatcaEgsCsrDownloadPath,
   zatcaReadinessLabel,
   zatcaSdkCanAttemptLabel,
+  zatcaSdkExecutionLabel,
   zatcaSdkReadinessLabel,
   zatcaSdkReadinessPath,
   zatcaStatusLabel,
@@ -304,22 +305,35 @@ export default function ZatcaSettingsPage() {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <h2 className="text-base font-semibold text-ink">SDK validation readiness</h2>
-                  <p className="mt-1 text-sm text-steel">Optional local SDK validation planning only. The app does not execute the ZATCA SDK unless explicitly enabled later.</p>
+                  <p className="mt-1 text-sm text-steel">Optional local-only SDK validation. The app does not submit invoices to ZATCA or prove production compliance.</p>
                 </div>
-                <span className={`rounded-md px-2 py-1 text-xs font-medium ${sdkReadiness.canAttemptSdkValidation ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-                  {zatcaSdkCanAttemptLabel(sdkReadiness.canAttemptSdkValidation)}
+                <span className={`rounded-md px-2 py-1 text-xs font-medium ${sdkReadiness.canRunLocalValidation ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                  {sdkReadiness.canRunLocalValidation ? "Local validation ready" : zatcaSdkCanAttemptLabel(sdkReadiness.canAttemptSdkValidation)}
                 </span>
               </div>
+              <StatusMessage type="info">SDK execution is {zatcaSdkExecutionLabel(sdkReadiness.enabled)}. This is local validation only, does not submit to ZATCA, and does not prove production compliance.</StatusMessage>
               <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
+                <SdkReadinessSummary label="Execution" value={sdkReadiness.enabled} detail={zatcaSdkExecutionLabel(sdkReadiness.enabled)} />
                 <SdkReadinessSummary label="Reference folder" value={sdkReadiness.referenceFolderFound} />
                 <SdkReadinessSummary label="SDK JAR" value={sdkReadiness.sdkJarFound} />
                 <SdkReadinessSummary label="Launcher" value={sdkReadiness.fatooraLauncherFound} />
                 <SdkReadinessSummary label="jq helper" value={sdkReadiness.jqFound} />
+                <SdkReadinessSummary label="Config directory" value={sdkReadiness.configDirFound} />
+                <SdkReadinessSummary label="Work directory" value={sdkReadiness.workingDirectoryWritable} detail={sdkReadiness.workingDirectoryWritable ? "Writable" : "Not writable"} />
+                <SdkReadinessSummary label="Command support" value={sdkReadiness.supportedCommandsKnown} detail={sdkReadiness.supportedCommandsKnown ? "Readme command resolved" : "Blocked"} />
                 <SdkReadinessSummary label="Java" value={sdkReadiness.javaFound} detail={sdkReadiness.javaVersion ?? "Not detected"} />
                 <SdkReadinessSummary label="Java version" value={sdkReadiness.javaVersionSupported} detail={sdkReadiness.javaVersionSupported ? "Compatible with SDK readme" : "Expected Java 11-14"} />
                 <SdkReadinessSummary label="Path spaces" value={!sdkReadiness.projectPathHasSpaces} detail={sdkReadiness.projectPathHasSpaces ? "Project path contains spaces" : "No path-space warning"} />
                 <SdkReadinessSummary label="Validation plan" value={sdkReadiness.canAttemptSdkValidation} />
+                <SdkReadinessSummary label="Can run local validation" value={sdkReadiness.canRunLocalValidation} detail={`${sdkReadiness.timeoutMs} ms timeout`} />
               </div>
+              {sdkReadiness.blockingReasons.length > 0 ? (
+                <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-rosewood">
+                  {sdkReadiness.blockingReasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              ) : null}
               {shouldShowZatcaSdkWarning(sdkReadiness) ? (
                 <div className="mt-4 space-y-3">
                   {sdkReadiness.warnings.length > 0 ? (

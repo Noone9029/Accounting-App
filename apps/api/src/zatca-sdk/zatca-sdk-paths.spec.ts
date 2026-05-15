@@ -1,7 +1,7 @@
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { buildZatcaSdkValidationCommand, discoverZatcaSdkReadiness, parseJavaMajorVersion, parseJavaVersion } from "./zatca-sdk-paths";
+import { buildZatcaSdkValidationCommand, discoverZatcaSdkReadiness, parseJavaMajorVersion, parseJavaVersion, readZatcaSdkExecutionConfig } from "./zatca-sdk-paths";
 
 describe("ZATCA SDK paths", () => {
   it("parses Java versions", () => {
@@ -13,17 +13,21 @@ describe("ZATCA SDK paths", () => {
   it("discovers SDK readiness and path-space warnings", () => {
     const root = mkdtempSync(join(tmpdir(), "ledgerbyte path "));
     mkdirSync(join(root, "reference", "zatca-einvoicing-sdk-Java", "Apps"), { recursive: true });
+    mkdirSync(join(root, "reference", "zatca-einvoicing-sdk-Java", "Configuration"), { recursive: true });
     writeFileSync(join(root, "pnpm-workspace.yaml"), "");
     writeFileSync(join(root, "reference", "zatca-einvoicing-sdk-Java", "Apps", "zatca-einvoicing-sdk-238-R3.4.8.jar"), "");
     writeFileSync(join(root, "reference", "zatca-einvoicing-sdk-Java", "Apps", "fatoora.bat"), "");
     writeFileSync(join(root, "reference", "zatca-einvoicing-sdk-Java", "Apps", "jq.exe"), "");
+    writeFileSync(join(root, "reference", "zatca-einvoicing-sdk-Java", "Configuration", "config.json"), "{}");
 
     const readiness = discoverZatcaSdkReadiness({
       projectRoot: root,
       platform: "win32",
+      env: { ZATCA_SDK_EXECUTION_ENABLED: "true" },
       runCommand: () => ({ status: 0, stderr: 'openjdk version "17.0.16" 2025-07-15' }),
     });
 
+    expect(readiness.enabled).toBe(true);
     expect(readiness.referenceFolderFound).toBe(true);
     expect(readiness.sdkJarFound).toBe(true);
     expect(readiness.fatooraLauncherFound).toBe(true);
@@ -32,6 +36,9 @@ describe("ZATCA SDK paths", () => {
     expect(readiness.javaVersionSupported).toBe(false);
     expect(readiness.projectPathHasSpaces).toBe(true);
     expect(readiness.canAttemptSdkValidation).toBe(false);
+    expect(readiness.canRunLocalValidation).toBe(false);
+    expect(readiness.configDirFound).toBe(true);
+    expect(readiness.supportedCommandsKnown).toBe(true);
   });
 
   it("handles a missing SDK folder safely", () => {
@@ -44,7 +51,26 @@ describe("ZATCA SDK paths", () => {
     expect(readiness.referenceFolderFound).toBe(false);
     expect(readiness.sdkJarFound).toBe(false);
     expect(readiness.canAttemptSdkValidation).toBe(false);
+    expect(readiness.blockingReasons.join(" ")).toContain("disabled");
     expect(JSON.stringify(readiness)).not.toContain("PRIVATE KEY");
+  });
+
+  it("reads SDK execution config from env without exposing secrets", () => {
+    const config = readZatcaSdkExecutionConfig({
+      ZATCA_SDK_EXECUTION_ENABLED: "true",
+      ZATCA_SDK_JAR_PATH: "C:\\sdk\\zatca.jar",
+      ZATCA_SDK_CONFIG_DIR: "C:\\sdk\\Configuration",
+      ZATCA_SDK_WORK_DIR: "C:\\temp\\zatca",
+      ZATCA_SDK_JAVA_BIN: "C:\\Java 11\\bin\\java.exe",
+      ZATCA_SDK_TIMEOUT_MS: "45000",
+    });
+
+    expect(config.enabled).toBe(true);
+    expect(config.sdkJarPath).toBe("C:\\sdk\\zatca.jar");
+    expect(config.configDir).toBe("C:\\sdk\\Configuration");
+    expect(config.workDir).toBe("C:\\temp\\zatca");
+    expect(config.javaBin).toBe("C:\\Java 11\\bin\\java.exe");
+    expect(config.timeoutMs).toBe(45000);
   });
 });
 
@@ -64,7 +90,7 @@ describe("ZATCA SDK validation command builder", () => {
     expect(plan.args).toContain("E:\\Accounting App\\reference\\sdk.jar");
     expect(plan.displayCommand).toContain('"E:\\Accounting App\\reference\\sdk.jar"');
     expect(plan.envAdditions.PATH_PREPEND).toBe("E:\\Accounting App\\reference\\Apps");
-    expect(plan.warnings.join(" ")).toContain("Dry-run");
+    expect(plan.warnings.join(" ")).toContain("argument-array");
   });
 
   it("builds a Unix dry-run plan", () => {
@@ -74,9 +100,10 @@ describe("ZATCA SDK validation command builder", () => {
       workingDirectory: "/repo/reference",
       platform: "linux",
       javaFound: true,
+      javaCommand: "/opt/java-11/bin/java",
     });
 
-    expect(plan.command).toBe("java");
+    expect(plan.command).toBe("/opt/java-11/bin/java");
     expect(plan.args).toEqual(["-jar", "/repo/reference/sdk.jar", "-validate", "-invoice", "/tmp/invoice.xml"]);
   });
 

@@ -53,9 +53,12 @@ The local SDK bundle is `reference/zatca-einvoicing-sdk-Java-238-R3.4.8`.
 
 - `GET /zatca-sdk/readiness` now reports local SDK discovery and Java readiness without executing the SDK.
 - `POST /zatca-sdk/validate-xml-dry-run` now builds a command plan from invoice XML metadata or request `xmlBase64` without writing temp files or executing Java.
-- `POST /zatca-sdk/validate-xml-local` remains disabled by default through `ZATCA_SDK_EXECUTION_ENABLED=false`.
-- Real local SDK execution intentionally returns a not-implemented response when explicitly enabled until the SDK command format is verified.
-- The frontend displays SDK validation readiness on `/settings/zatca` and exposes a dry-run command plan from invoice detail pages.
+- `POST /zatca-sdk/validate-xml-local` now accepts raw XML, base64 XML, or invoice XML metadata, but remains disabled by default through `ZATCA_SDK_EXECUTION_ENABLED=false`.
+- `POST /zatca-sdk/validate-reference-fixture` validates allowlisted XML fixture paths under `reference/` or `packages/zatca-core/fixtures` only.
+- `POST /sales-invoices/:id/zatca/sdk-validate` runs local validation against generated invoice XML when explicitly enabled and readiness passes.
+- The SDK readme documents `fatoora -validate -invoice <filename>`; LedgerByte resolves this as either launcher execution or direct JAR execution with argument-array `execFile` calls.
+- The wrapper enforces a 2 MB XML limit, timeout, temp-file cleanup, output redaction, path traversal blocking, and no-shell command execution.
+- The frontend displays SDK validation readiness on `/settings/zatca` and exposes dry-run plus local validation actions from invoice detail pages.
 
 See `SDK_VALIDATION_WRAPPER.md` for endpoint behavior and safety rules.
 

@@ -17,17 +17,20 @@ import { downloadAuthenticatedFile, downloadPdf, invoicePdfPath } from "@/lib/pd
 import { PERMISSIONS } from "@/lib/permissions";
 import {
   shouldShowZatcaLocalOnlyWarning,
+  shouldShowZatcaSdkLocalOnlyWarning,
   truncateHash,
+  zatcaInvoiceSdkValidatePath,
   zatcaInvoiceClearancePath,
   zatcaInvoiceComplianceCheckPath,
   zatcaInvoiceReportingPath,
   zatcaInvoiceXmlPath,
   zatcaInvoiceXmlValidationPath,
   zatcaSdkValidateXmlDryRunPath,
+  zatcaSdkValidationResultLabel,
   zatcaStatusLabel,
   zatcaXmlValidationLabel,
 } from "@/lib/zatca";
-import type { SalesInvoice, SalesInvoiceStockIssueStatus, ZatcaInvoiceMetadata, ZatcaQrResponse, ZatcaSdkDryRunResponse, ZatcaXmlValidationResult } from "@/lib/types";
+import type { SalesInvoice, SalesInvoiceStockIssueStatus, ZatcaInvoiceMetadata, ZatcaQrResponse, ZatcaSdkDryRunResponse, ZatcaSdkValidationResponse, ZatcaXmlValidationResult } from "@/lib/types";
 
 export default function SalesInvoiceDetailPage() {
   const params = useParams<{ id: string }>();
@@ -39,6 +42,7 @@ export default function SalesInvoiceDetailPage() {
   const [zatca, setZatca] = useState<ZatcaInvoiceMetadata | null>(null);
   const [xmlValidation, setXmlValidation] = useState<ZatcaXmlValidationResult | null>(null);
   const [sdkDryRun, setSdkDryRun] = useState<ZatcaSdkDryRunResponse | null>(null);
+  const [sdkValidation, setSdkValidation] = useState<ZatcaSdkValidationResponse | null>(null);
   const [qrPayload, setQrPayload] = useState("");
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -170,6 +174,7 @@ export default function SalesInvoiceDetailPage() {
     setSuccess("");
     setQrPayload("");
     setSdkDryRun(null);
+    setSdkValidation(null);
 
     try {
       const result = await apiRequest<ZatcaInvoiceMetadata>(`/sales-invoices/${invoice.id}/zatca/generate`, { method: "POST" });
@@ -257,6 +262,26 @@ export default function SalesInvoiceDetailPage() {
       setSuccess("SDK validation dry-run plan created. The SDK was not executed.");
     } catch (dryRunError) {
       setError(dryRunError instanceof Error ? dryRunError.message : "Unable to build SDK validation dry-run plan.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function runLocalSdkValidation() {
+    if (!invoice) {
+      return;
+    }
+
+    setActionLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const result = await apiRequest<ZatcaSdkValidationResponse>(zatcaInvoiceSdkValidatePath(invoice.id), { method: "POST" });
+      setSdkValidation(result);
+      setSuccess(result.officialValidationAttempted ? "Local SDK validation completed. No ZATCA network call was made." : "Local SDK validation is blocked or disabled. No ZATCA network call was made.");
+    } catch (sdkError) {
+      setError(sdkError instanceof Error ? sdkError.message : "Unable to run local SDK validation.");
     } finally {
       setActionLoading(false);
     }
@@ -715,9 +740,11 @@ export default function SalesInvoiceDetailPage() {
                   SDK validation dry run
                 </button>
               ) : null}
-              <button type="button" disabled className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-400 disabled:cursor-not-allowed">
-                Run local SDK validation disabled
-              </button>
+              {canRunZatcaChecks ? (
+                <button type="button" onClick={() => void runLocalSdkValidation()} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400">
+                  Run local SDK validation
+                </button>
+              ) : null}
             </div>
 
             <div className="mt-5 border-t border-slate-200 pt-4">
@@ -787,6 +814,42 @@ export default function SalesInvoiceDetailPage() {
                   <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-amber-700">
                     {sdkDryRun.warnings.map((warning) => (
                       <li key={warning}>{warning}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
+
+            {sdkValidation ? (
+              <div className="mt-5 border-t border-slate-200 pt-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-ink">Local SDK validation result</h3>
+                    <p className="mt-1 text-xs text-steel">Official SDK local execution only. This does not submit to ZATCA and does not prove production compliance.</p>
+                  </div>
+                  <span className={`rounded-md px-2 py-1 text-xs font-medium ${sdkValidation.success ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                    {zatcaSdkValidationResultLabel(sdkValidation)}
+                  </span>
+                </div>
+                {shouldShowZatcaSdkLocalOnlyWarning(sdkValidation) ? (
+                  <p className="mt-3 text-xs text-amber-700">This is local-only SDK validation. It does not sign, clear, report, or certify the invoice for production.</p>
+                ) : null}
+                <div className="mt-3 grid grid-cols-1 gap-3 text-xs md:grid-cols-3">
+                  <Summary label="SDK exit code" value={sdkValidation.sdkExitCode === null ? "-" : String(sdkValidation.sdkExitCode)} />
+                  <Summary label="XML source" value={sdkValidation.xmlSource} />
+                  <Summary label="Official attempted" value={sdkValidation.officialValidationAttempted ? "Yes, local SDK only" : "No"} />
+                </div>
+                {sdkValidation.blockingReasons.length ? (
+                  <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-rosewood">
+                    {sdkValidation.blockingReasons.map((reason) => (
+                      <li key={reason}>{reason}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                {sdkValidation.validationMessages.length ? (
+                  <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-steel">
+                    {sdkValidation.validationMessages.map((message) => (
+                      <li key={message}>{message}</li>
                     ))}
                   </ul>
                 ) : null}

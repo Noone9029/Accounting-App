@@ -116,9 +116,9 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 
 ## Phase 3: ZATCA Production Path
 
-### 14. Add test-only official ZATCA SDK XML/hash validation
+### 14. Run local ZATCA SDK fixture validation
 
-- Objective: Run official SDK validation against local XML fixtures without signing or network calls.
+- Objective: Use the feature-flagged SDK wrapper against official/sample XML fixtures and document pass/fail output without signing or network calls.
 - Why it matters: The current XML/hash flow is local-only and unverified.
 - Dependencies: Java/SDK runtime and local references.
 - Risk level: High.

@@ -1132,10 +1132,16 @@ interface ZatcaXmlValidationResult {
 }
 
 interface ZatcaSdkReadinessResponse {
+  enabled: boolean;
   referenceFolderFound: boolean;
   sdkJarFound: boolean;
+  configDirFound: boolean;
+  workingDirectoryWritable: boolean;
+  supportedCommandsKnown: boolean;
   javaFound: boolean;
   canAttemptSdkValidation: boolean;
+  canRunLocalValidation: boolean;
+  blockingReasons: string[];
   warnings: string[];
   suggestedFixes: string[];
 }
@@ -1149,6 +1155,19 @@ interface ZatcaSdkDryRunResponse {
     args: string[];
     warnings: string[];
   };
+  warnings: string[];
+}
+
+interface ZatcaSdkValidationResponse {
+  success: boolean;
+  disabled: boolean;
+  localOnly: true;
+  officialValidationAttempted: boolean;
+  sdkExitCode: number | null;
+  stdoutSummary: string;
+  stderrSummary: string;
+  validationMessages: string[];
+  blockingReasons: string[];
   warnings: string[];
 }
 
@@ -2880,9 +2899,15 @@ async function main(): Promise<void> {
   assertEqual(zatcaXmlValidation.valid, true, "ZATCA XML validation valid");
   assertNoPrivateKey(zatcaXmlValidation, "ZATCA XML validation response");
   const zatcaSdkReadiness = await get<ZatcaSdkReadinessResponse>("/zatca-sdk/readiness", headers);
+  assertEqual(zatcaSdkReadiness.enabled, false, "ZATCA SDK execution disabled by default");
   assert(typeof zatcaSdkReadiness.referenceFolderFound === "boolean", "ZATCA SDK readiness returns reference folder flag");
   assert(typeof zatcaSdkReadiness.sdkJarFound === "boolean", "ZATCA SDK readiness returns SDK JAR flag");
+  assert(typeof zatcaSdkReadiness.configDirFound === "boolean", "ZATCA SDK readiness returns config dir flag");
+  assert(typeof zatcaSdkReadiness.workingDirectoryWritable === "boolean", "ZATCA SDK readiness returns work directory flag");
+  assert(typeof zatcaSdkReadiness.supportedCommandsKnown === "boolean", "ZATCA SDK readiness returns command support flag");
   assert(typeof zatcaSdkReadiness.javaFound === "boolean", "ZATCA SDK readiness returns Java flag");
+  assertEqual(zatcaSdkReadiness.canRunLocalValidation, false, "ZATCA SDK local validation cannot run by default");
+  assert(zatcaSdkReadiness.blockingReasons.length > 0, "ZATCA SDK readiness returns disabled blockers");
   assertNoPrivateKey(zatcaSdkReadiness, "ZATCA SDK readiness response");
   const zatcaSdkDryRun = await post<ZatcaSdkDryRunResponse>("/zatca-sdk/validate-xml-dry-run", headers, { invoiceId: draftInvoice.id, mode: "dry-run" });
   assertEqual(zatcaSdkDryRun.dryRun, true, "ZATCA SDK dry-run flag");
@@ -2893,6 +2918,11 @@ async function main(): Promise<void> {
     "ZATCA SDK dry-run returns command plan or safe warnings",
   );
   assertNoPrivateKey(zatcaSdkDryRun, "ZATCA SDK dry-run response");
+  const zatcaSdkLocalValidation = await post<ZatcaSdkValidationResponse>(`/sales-invoices/${draftInvoice.id}/zatca/sdk-validate`, headers, {});
+  assertEqual(zatcaSdkLocalValidation.localOnly, true, "ZATCA SDK local validation localOnly");
+  assertEqual(zatcaSdkLocalValidation.officialValidationAttempted, false, "ZATCA SDK local validation disabled by default");
+  assertEqual(zatcaSdkLocalValidation.disabled, true, "ZATCA SDK local validation disabled flag");
+  assertNoPrivateKey(zatcaSdkLocalValidation, "ZATCA SDK local validation response");
   const zatcaQr = await get<ZatcaQrResponse>(`/sales-invoices/${draftInvoice.id}/zatca/qr`, headers);
   assertPresent(zatcaQr.qrCodeBase64, "ZATCA QR endpoint payload");
   const checkedZatcaMetadata = await post<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca/compliance-check`, headers, {});
