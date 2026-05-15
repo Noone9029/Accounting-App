@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Commit inspected: pending (`Add storage readiness groundwork`)
+Commit inspected: pending (`Add email invite and password reset groundwork`)
 
 ## Scope
 
@@ -36,6 +36,27 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Invite/password reset groundwork added
+
+Added mock/local email-token infrastructure for organization member invitations, invited-user onboarding, password reset, and outbox inspection.
+
+Risk reduced:
+
+- Organization invites now create or update `INVITED` memberships and can create invited users with unusable placeholder passwords until acceptance.
+- Invite and password reset tokens are stored as SHA-256 hashes only; raw tokens appear only in generated mock/local links.
+- Invite acceptance sets the user password, activates the membership, consumes the token, and returns a normal login response.
+- Password reset requests always return a generic response and do not reveal whether an email exists.
+- Password reset confirmation validates a one-hour token, updates the password, and consumes the token.
+- `EmailOutbox` stores mock/local delivery records for invite and password reset templates, and `/settings/email-outbox` exposes tenant-scoped inspection for permitted admins.
+
+Remaining risks:
+
+- No real SMTP or paid email provider integration.
+- No rate limiting or abuse protection yet.
+- No DKIM/SPF/domain authentication or deliverability handling.
+- No MFA.
+- No refresh-token rotation or advanced session management.
 
 ### Storage readiness/S3 groundwork added
 
@@ -1387,8 +1408,7 @@ Commit inspected: pending (`Add team and role management`)
 
 ### Remaining Team/Role Risks
 
-- Email invite delivery is not implemented.
-- Password reset and onboarding for invited users are not implemented.
+- Email invite delivery and password reset are mock/local only; no real provider, rate limiting, domain authentication, or MFA exists yet.
 - Approval workflows and dual-control for high-risk role/member changes are not implemented.
 - Role/member changes write audit logs, but there is no dedicated audit review UI yet.
 

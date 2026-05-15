@@ -26,7 +26,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     label: "Users / Roles",
     permissions: [
       permission(PERMISSIONS.users.view, "View members", "See organization member lists and member details."),
-      permission(PERMISSIONS.users.invite, "Invite members", "Create local invite placeholders for existing users."),
+      permission(PERMISSIONS.users.invite, "Invite members", "Create mock/local email invitations for organization members."),
       permission(PERMISSIONS.users.manage, "Manage members", "Change member roles and active/suspended status."),
       permission(PERMISSIONS.roles.view, "View roles", "See roles and permission matrices."),
       permission(PERMISSIONS.roles.manage, "Manage roles", "Create, update, and delete custom roles."),
@@ -177,6 +177,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       permission(PERMISSIONS.attachments.download, "Download attachments", "Download uploaded supporting files."),
       permission(PERMISSIONS.attachments.delete, "Delete attachments", "Soft-delete uploaded supporting files."),
       permission(PERMISSIONS.attachments.manage, "Manage attachments", "Edit uploaded attachment notes and future attachment metadata."),
+      permission(PERMISSIONS.emailOutbox.view, "View email outbox", "Review mock/local invite and password reset email delivery records."),
       permission(PERMISSIONS.documentSettings.view, "View document settings", "See document template settings."),
       permission(PERMISSIONS.documentSettings.manage, "Manage document settings", "Save document template settings."),
     ],

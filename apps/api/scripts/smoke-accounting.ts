@@ -6,6 +6,7 @@ const seedPassword = process.env.LEDGERBYTE_SMOKE_PASSWORD ?? "Password123!";
 
 interface LoginResponse {
   accessToken: string;
+  organization?: Organization;
 }
 
 interface AuthMeResponse {
@@ -50,6 +51,34 @@ interface OrganizationMember {
     permissions: string[];
     isSystem: boolean;
   };
+}
+
+interface InviteOrganizationMemberResponse {
+  message: string;
+  member: OrganizationMember;
+  emailOutboxId?: string;
+  invitePreviewUrl?: string;
+}
+
+interface InvitationPreviewResponse {
+  valid: boolean;
+  email?: string;
+  organization?: Organization | null;
+  role?: { id: string; name: string } | null;
+  consumed?: boolean;
+}
+
+interface EmailOutboxEntry {
+  id: string;
+  toEmail: string;
+  templateType: "ORGANIZATION_INVITE" | "PASSWORD_RESET";
+  status: "QUEUED" | "SENT_MOCK" | "FAILED";
+  createdAt: string;
+}
+
+interface EmailOutboxDetail extends EmailOutboxEntry {
+  bodyText: string;
+  bodyHtml: string | null;
 }
 
 interface Account {
@@ -1064,11 +1093,64 @@ async function main(): Promise<void> {
   }
   const ownerRole = required(roles.find((role) => role.name === "Owner"), "Owner role");
   assert(ownerRole.permissions.includes("admin.fullAccess"), "Owner role includes admin.fullAccess");
+  const viewerRole = required(roles.find((role) => role.name === "Viewer"), "Viewer role");
   const members = await get<OrganizationMember[]>("/organization-members", headers);
   assert(
     members.some((member) => member.user.email === seedEmail && member.role.name === "Owner" && member.status === "ACTIVE"),
     "seed user is an active Owner member",
   );
+
+  const invitedEmail = `smoke-invite-${Date.now()}@example.com`;
+  const invitedPassword = `Invite${runId}!`;
+  const invitedResetPassword = `Reset${runId}!`;
+  const invite = await post<InviteOrganizationMemberResponse>("/organization-members/invite", headers, {
+    email: invitedEmail,
+    name: "Smoke Invite",
+    roleId: viewerRole.id,
+  });
+  assertEqual(invite.member.status, "INVITED", "invited member status");
+  assertPresent(invite.emailOutboxId, "invite email outbox id");
+  assertPresent(invite.invitePreviewUrl, "mock invite preview URL");
+  const inviteOutbox = await get<EmailOutboxEntry[]>("/email/outbox", headers);
+  assert(
+    inviteOutbox.some((email) => email.id === invite.emailOutboxId && email.templateType === "ORGANIZATION_INVITE" && email.status === "SENT_MOCK"),
+    "invite email appears in mock outbox",
+  );
+  const inviteToken = required(new URL(invite.invitePreviewUrl!).searchParams.get("token"), "invite token from mock preview URL");
+  const invitePreview = await get<InvitationPreviewResponse>(`/auth/invitations/${encodeURIComponent(inviteToken)}/preview`, {});
+  assert(invitePreview.valid, "invite preview is valid");
+  assertEqual(invitePreview.email, invitedEmail, "invite preview email");
+  const inviteAccept = await post<LoginResponse>(`/auth/invitations/${encodeURIComponent(inviteToken)}/accept`, {}, {
+    name: "Smoke Invited User",
+    password: invitedPassword,
+  });
+  assertPresent(inviteAccept.accessToken, "invite acceptance access token");
+  assertEqual(inviteAccept.organization?.id, context.organization.id, "invite acceptance organization");
+  const invitedLogin = await post<LoginResponse>("/auth/login", {}, { email: invitedEmail, password: invitedPassword });
+  const invitedMe = await get<AuthMeResponse>("/auth/me", { Authorization: `Bearer ${invitedLogin.accessToken}` });
+  const invitedMembership = required(
+    invitedMe.memberships.find((membership) => membership.organization.id === context.organization.id),
+    "invited user membership",
+  );
+  assertEqual(invitedMembership.role.name, "Viewer", "invited user role");
+  const invitedPermissions = normalizePermissionList(invitedMembership.role.permissions);
+  assert(invitedPermissions.includes("organization.view"), "invited user has viewer permissions");
+  const resetRequest = await post<{ message: string }>("/auth/password-reset/request", {}, { email: invitedEmail });
+  assertEqual(resetRequest.message, "If an account exists, password reset instructions have been sent.", "password reset generic response");
+  const resetOutbox = await get<EmailOutboxEntry[]>("/email/outbox", headers);
+  const resetEmail = required(
+    resetOutbox.find((email) => email.toEmail === invitedEmail && email.templateType === "PASSWORD_RESET"),
+    "password reset outbox entry",
+  );
+  const resetEmailDetail = await get<EmailOutboxDetail>(`/email/outbox/${resetEmail.id}`, headers);
+  const resetToken = extractTokenFromEmailBody(resetEmailDetail.bodyText);
+  await post<{ message: string }>("/auth/password-reset/confirm", {}, { token: resetToken, password: invitedResetPassword });
+  await expectHttpError("duplicate password reset token use", () =>
+    post<{ message: string }>("/auth/password-reset/confirm", {}, { token: resetToken, password: `${invitedResetPassword}Again` }),
+  );
+  const resetLogin = await post<LoginResponse>("/auth/login", {}, { email: invitedEmail, password: invitedResetPassword });
+  assertPresent(resetLogin.accessToken, "password reset login access token");
+
   const smokeRole = await post<Role>("/roles", headers, {
     name: `Smoke Reports Viewer ${runId}`,
     permissions: ["reports.view"],
@@ -4058,6 +4140,12 @@ async function main(): Promise<void> {
         smokeRoleName: context.roleName,
         smokePermissionCount: context.permissionCount,
         roleManagementChecked: true,
+        inviteEmailQueued: Boolean(invite.emailOutboxId),
+        inviteAcceptedRole: invitedMembership.role.name,
+        invitedUserCanLogin: Boolean(invitedLogin.accessToken),
+        passwordResetGenericResponse: resetRequest.message,
+        passwordResetOutboxStatus: resetEmail.status,
+        passwordResetLoginChecked: Boolean(resetLogin.accessToken),
         smokeCustomRoleId: smokeRole.id,
         memberManagementChecked: true,
         bankAccountProfileId: paidThroughBankProfile.id,
@@ -4450,6 +4538,15 @@ function normalizePermissionList(value: unknown): string[] {
   }
 
   return [];
+}
+
+function extractTokenFromEmailBody(bodyText: string): string {
+  const match = bodyText.match(/token=([^\s]+)/);
+  const token = match?.[1];
+  if (!token) {
+    throw new Error("Password reset email body did not include a token link.");
+  }
+  return decodeURIComponent(token.trim());
 }
 
 function assertMoney(actual: unknown, expected: Decimal, label: string): void {

@@ -1,10 +1,20 @@
-import { ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
+import { AuthTokenPurpose, MembershipStatus } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
+import { EmailService } from "../email/email.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { AuthTokenService } from "./auth-token.service";
+import { AcceptInvitationDto } from "./dto/accept-invitation.dto";
 import { LoginDto } from "./dto/login.dto";
+import { PasswordResetConfirmDto } from "./dto/password-reset-confirm.dto";
+import { PasswordResetRequestDto } from "./dto/password-reset-request.dto";
 import { RegisterDto } from "./dto/register.dto";
+
+const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
+const PASSWORD_RESET_GENERIC_MESSAGE = "If an account exists, password reset instructions have been sent.";
 
 @Injectable()
 export class AuthService {
@@ -12,6 +22,8 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly authTokenService: AuthTokenService,
+    private readonly emailService: EmailService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -87,6 +99,125 @@ export class AuthService {
     });
   }
 
+  async previewInvitation(rawToken: string) {
+    const preview = await this.authTokenService.preview(rawToken, AuthTokenPurpose.ORGANIZATION_INVITE);
+    if (!preview.authToken) {
+      return { valid: false, reason: "INVALID" };
+    }
+
+    const context = await this.getInvitationContext(preview.authToken.organizationId, preview.authToken.userId);
+    return {
+      valid: preview.valid && Boolean(context),
+      reason: preview.valid && context ? null : preview.reason ?? "INVALID",
+      email: preview.authToken.email,
+      organization: context?.organization ?? null,
+      role: context?.role ?? null,
+      expiresAt: preview.authToken.expiresAt,
+      consumed: Boolean(preview.authToken.consumedAt),
+    };
+  }
+
+  async acceptInvitation(rawToken: string, dto: AcceptInvitationDto) {
+    const token = await this.authTokenService.getTokenForUse(rawToken, AuthTokenPurpose.ORGANIZATION_INVITE);
+    if (!token.userId || !token.organizationId) {
+      throw new BadRequestException("Invalid invitation token.");
+    }
+
+    const member = await this.prisma.organizationMember.findFirst({
+      where: { organizationId: token.organizationId, userId: token.userId },
+      select: {
+        id: true,
+        status: true,
+        organization: { select: { id: true, name: true, legalName: true, taxNumber: true, countryCode: true, baseCurrency: true, timezone: true } },
+        user: { select: { id: true, email: true, name: true } },
+      },
+    });
+
+    if (!member || member.status !== MembershipStatus.INVITED) {
+      throw new BadRequestException("Invitation is not pending.");
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const nextName = dto.name?.trim();
+    const user = await this.prisma.$transaction(async (tx) => {
+      const updatedUser = await tx.user.update({
+        where: { id: token.userId! },
+        data: {
+          passwordHash,
+          ...(nextName ? { name: nextName } : {}),
+        },
+        select: { id: true, email: true, name: true },
+      });
+      await tx.organizationMember.update({
+        where: { id: member.id },
+        data: { status: MembershipStatus.ACTIVE },
+      });
+      await this.authTokenService.consume(token.id, tx);
+      return updatedUser;
+    });
+
+    return {
+      user,
+      organization: member.organization,
+      accessToken: await this.signAccessToken(user.id, user.email),
+    };
+  }
+
+  async requestPasswordReset(dto: PasswordResetRequestDto) {
+    const email = dto.email.toLowerCase().trim();
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        memberships: {
+          where: { status: MembershipStatus.ACTIVE },
+          select: { organizationId: true },
+          orderBy: { createdAt: "asc" },
+          take: 1,
+        },
+      },
+    });
+
+    if (user) {
+      const organizationId = user.memberships[0]?.organizationId ?? null;
+      const { rawToken } = await this.authTokenService.create({
+        organizationId,
+        userId: user.id,
+        email: user.email,
+        purpose: AuthTokenPurpose.PASSWORD_RESET,
+        expiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MS),
+        consumeExistingForUser: true,
+      });
+
+      await this.emailService.sendPasswordReset({
+        organizationId,
+        toEmail: user.email,
+        resetUrl: this.buildWebUrl(`/password-reset/confirm?token=${encodeURIComponent(rawToken)}`),
+      });
+    }
+
+    return { message: PASSWORD_RESET_GENERIC_MESSAGE };
+  }
+
+  async confirmPasswordReset(dto: PasswordResetConfirmDto) {
+    const token = await this.authTokenService.getTokenForUse(dto.token, AuthTokenPurpose.PASSWORD_RESET);
+    if (!token.userId) {
+      throw new BadRequestException("Invalid password reset token.");
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: token.userId! },
+        data: { passwordHash },
+      });
+      await this.authTokenService.consume(token.id, tx);
+    });
+
+    return { message: "Password has been reset." };
+  }
+
   private signAccessToken(userId: string, email: string): Promise<string> {
     return this.jwtService.signAsync(
       { sub: userId, email },
@@ -95,5 +226,26 @@ export class AuthService {
         expiresIn: (this.config.get<string>("JWT_EXPIRES_IN") ?? "7d") as never,
       },
     );
+  }
+
+  private async getInvitationContext(organizationId?: string | null, userId?: string | null) {
+    if (!organizationId || !userId) {
+      return null;
+    }
+
+    const member = await this.prisma.organizationMember.findFirst({
+      where: { organizationId, userId },
+      select: {
+        organization: { select: { id: true, name: true } },
+        role: { select: { id: true, name: true } },
+      },
+    });
+
+    return member;
+  }
+
+  private buildWebUrl(path: string): string {
+    const baseUrl = this.config.get<string>("APP_WEB_URL")?.trim() || "http://localhost:3000";
+    return `${baseUrl.replace(/\/$/, "")}${path}`;
   }
 }

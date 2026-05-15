@@ -115,6 +115,8 @@ export type DocumentType =
   | "BANK_RECONCILIATION_REPORT";
 export type GeneratedDocumentStatus = "GENERATED" | "FAILED" | "SUPERSEDED";
 export type AttachmentStorageProvider = "DATABASE" | "LOCAL_PLACEHOLDER" | "S3_PLACEHOLDER";
+export type EmailDeliveryStatus = "QUEUED" | "SENT_MOCK" | "FAILED";
+export type EmailTemplateType = "ORGANIZATION_INVITE" | "PASSWORD_RESET";
 export type AttachmentLinkedEntityType =
   | "SALES_INVOICE"
   | "CUSTOMER_PAYMENT"
@@ -166,6 +168,7 @@ export interface AuthUser {
 export interface AuthResponse {
   user: AuthUser;
   accessToken: string;
+  organization?: Organization;
 }
 
 export interface MeResponse extends AuthUser {
@@ -203,6 +206,39 @@ export interface OrganizationMember {
 export interface InviteOrganizationMemberResponse {
   message: string;
   member: OrganizationMember;
+  emailOutboxId?: string;
+  invitePreviewUrl?: string;
+}
+
+export interface InvitationPreviewResponse {
+  valid: boolean;
+  reason?: string | null;
+  email?: string;
+  organization?: { id: string; name: string } | null;
+  role?: { id: string; name: string } | null;
+  expiresAt?: string;
+  consumed?: boolean;
+}
+
+export interface EmailOutboxEntry {
+  id: string;
+  organizationId: string | null;
+  toEmail: string;
+  fromEmail: string;
+  subject: string;
+  templateType: EmailTemplateType;
+  status: EmailDeliveryStatus;
+  provider: string;
+  providerMessageId: string | null;
+  errorMessage: string | null;
+  sentAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmailOutboxDetail extends EmailOutboxEntry {
+  bodyText: string;
+  bodyHtml: string | null;
 }
 
 export interface Account {

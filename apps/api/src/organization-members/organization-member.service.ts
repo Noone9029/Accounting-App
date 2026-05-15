@@ -1,7 +1,12 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { MembershipStatus, Prisma } from "@prisma/client";
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { AuthTokenPurpose, MembershipStatus, Prisma } from "@prisma/client";
 import { hasPermission, normalizePermissions, PERMISSIONS } from "@ledgerbyte/shared";
+import * as bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { AuthTokenService } from "../auth/auth-token.service";
+import { EmailService } from "../email/email.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { InviteOrganizationMemberDto } from "./dto/invite-organization-member.dto";
 import { UpdateOrganizationMemberRoleDto } from "./dto/update-organization-member-role.dto";
@@ -12,6 +17,9 @@ export class OrganizationMemberService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
+    private readonly authTokenService: AuthTokenService,
+    private readonly emailService: EmailService,
+    private readonly config: ConfigService,
   ) {}
 
   async list(organizationId: string) {
@@ -104,45 +112,97 @@ export class OrganizationMemberService {
   async invite(organizationId: string, actorUserId: string, dto: InviteOrganizationMemberDto) {
     const email = dto.email.toLowerCase().trim();
     const role = await this.getRoleOrThrow(organizationId, dto.roleId);
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      select: { id: true, email: true, name: true },
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { id: true, name: true },
     });
 
-    if (!user) {
-      throw new BadRequestException("Email invite delivery is not implemented. Create the user first or add email provider later.");
+    if (!organization) {
+      throw new NotFoundException("Organization not found.");
     }
 
-    try {
-      const member = await this.prisma.organizationMember.create({
-        data: {
-          organizationId,
-          userId: user.id,
-          roleId: role.id,
-          status: MembershipStatus.INVITED,
-        },
-        select: MEMBER_SELECT,
+    const invite = await this.prisma.$transaction(async (tx) => {
+      let user = await tx.user.findUnique({
+        where: { email },
+        select: { id: true, email: true, name: true },
       });
 
-      await this.auditLogService.log({
-        organizationId,
-        actorUserId,
-        action: "INVITE_PLACEHOLDER",
-        entityType: "OrganizationMember",
-        entityId: member.id,
-        after: member,
+      if (!user) {
+        const placeholderPasswordHash = await bcrypt.hash(randomBytes(32).toString("hex"), 12);
+        user = await tx.user.create({
+          data: {
+            email,
+            name: dto.name?.trim() || email.split("@")[0] || "Invited user",
+            passwordHash: placeholderPasswordHash,
+          },
+          select: { id: true, email: true, name: true },
+        });
+      }
+
+      const existingMember = await tx.organizationMember.findUnique({
+        where: { organizationId_userId: { organizationId, userId: user.id } },
+        select: { id: true, status: true },
       });
 
-      return {
-        message: "Invite placeholder created. Email invitations are not connected yet.",
-        member: toMemberResponse(member),
-      };
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      if (existingMember?.status === MembershipStatus.ACTIVE) {
         throw new ConflictException("User already belongs to this organization.");
       }
-      throw error;
-    }
+
+      const member = existingMember
+        ? await tx.organizationMember.update({
+            where: { id: existingMember.id },
+            data: { roleId: role.id, status: MembershipStatus.INVITED },
+            select: MEMBER_SELECT,
+          })
+        : await tx.organizationMember.create({
+            data: {
+              organizationId,
+              userId: user.id,
+              roleId: role.id,
+              status: MembershipStatus.INVITED,
+            },
+            select: MEMBER_SELECT,
+          });
+
+      const { rawToken } = await this.authTokenService.create(
+        {
+          organizationId,
+          userId: user.id,
+          email,
+          purpose: AuthTokenPurpose.ORGANIZATION_INVITE,
+          expiresAt: new Date(Date.now() + INVITE_TTL_MS),
+          createdById: actorUserId,
+        },
+        tx,
+      );
+
+      return { member, rawToken };
+    });
+
+    const invitePreviewUrl = this.buildWebUrl(`/invite/accept?token=${encodeURIComponent(invite.rawToken)}`);
+    const emailOutbox = await this.emailService.sendOrganizationInvite({
+      organizationId,
+      toEmail: email,
+      organizationName: organization.name,
+      roleName: role.name,
+      acceptUrl: invitePreviewUrl,
+    });
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "INVITE_EMAIL",
+      entityType: "OrganizationMember",
+      entityId: invite.member.id,
+      after: invite.member,
+    });
+
+    return {
+      message: "Invite email queued through the mock email provider.",
+      member: toMemberResponse(invite.member),
+      emailOutboxId: emailOutbox.id,
+      ...(this.emailService.isMockProvider ? { invitePreviewUrl } : {}),
+    };
   }
 
   private async getMemberOrThrow(organizationId: string, id: string) {
@@ -163,6 +223,7 @@ export class OrganizationMemberService {
       where: { id, organizationId },
       select: {
         id: true,
+        name: true,
         permissions: true,
       },
     });
@@ -200,7 +261,14 @@ export class OrganizationMemberService {
       select: { role: { select: { permissions: true } } },
     });
   }
+
+  private buildWebUrl(path: string): string {
+    const baseUrl = this.config.get<string>("APP_WEB_URL")?.trim() || "http://localhost:3000";
+    return `${baseUrl.replace(/\/$/, "")}${path}`;
+  }
 }
+
+const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 const MEMBER_SELECT = {
   id: true,

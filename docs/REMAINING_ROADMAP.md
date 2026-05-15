@@ -11,7 +11,7 @@ Tasks:
 - Run guided QA through every implemented frontend route.
 - Fix UX inconsistencies, especially supplier AP balance labels.
 - Add browser E2E tests for sales invoice, customer payment, credit note, customer refund, purchase order, purchase bill, supplier payment, document archive, and ZATCA settings flows.
-- Connect email-backed invites, password reset/onboarding, and audit visibility for role/member administration.
+- Replace mock/local email invites and password reset with a real provider adapter, rate limiting, and audit visibility for role/member administration.
 - Harden fiscal period UX with period templates, optional reversal-date selection, and admin unlock approval design.
 - Add accountant review pass for report layouts and exported report formats.
 - Move Prisma seed config to `prisma.config.ts` before Prisma 7.
@@ -25,7 +25,7 @@ Risk level: Medium.
 
 Recommended next prompt:
 
-> Add email-backed invite delivery and invited-user onboarding/password reset for the existing team management UI.
+> Add production email provider delivery, rate limiting, and domain-authentication readiness for the existing mock invite/password reset groundwork.
 
 ## Phase 2: Finish Wafeq Core Accounting Modules
 

@@ -4,13 +4,16 @@ Audit date: 2026-05-15
 
 Schema source: `apps/api/prisma/schema.prisma`
 
-Storage readiness groundwork in this checkpoint adds no Prisma model changes; it documents the existing `Attachment` and `GeneratedDocument` storage fields and adds API/UI planning around them.
+This checkpoint adds email/token models for mock invitation and password reset delivery. Tokens store hashes only; mock email bodies are inspectable through tenant-scoped outbox APIs.
 
 ## Enums
 
 | Enum | Values | Purpose |
 | --- | --- | --- |
 | `MembershipStatus` | `ACTIVE`, `INVITED`, `SUSPENDED` | Organization membership state. |
+| `EmailDeliveryStatus` | `QUEUED`, `SENT_MOCK`, `FAILED` | Mock/local email delivery status. |
+| `EmailTemplateType` | `ORGANIZATION_INVITE`, `PASSWORD_RESET` | Email template classification for outbox records. |
+| `AuthTokenPurpose` | `ORGANIZATION_INVITE`, `PASSWORD_RESET` | Purpose boundary for hashed email tokens. |
 | `AccountType` | `ASSET`, `LIABILITY`, `EQUITY`, `REVENUE`, `EXPENSE`, `COST_OF_SALES` | Chart of accounts classification. |
 | `ContactType` | `CUSTOMER`, `SUPPLIER`, `BOTH` | AR/AP contact role. |
 | `TaxRateScope` | `SALES`, `PURCHASES`, `BOTH` | Tax rate use area. |
@@ -67,11 +70,13 @@ Storage readiness groundwork in this checkpoint adds no Prisma model changes; it
 
 | Model | Purpose | Important fields | Relationships | Accounting impact | Lifecycle/status | Known limitations |
 | --- | --- | --- | --- | --- | --- | --- |
-| `User` | Login identity. | `email`, `passwordHash`, `name`. | Memberships, created/posted records, COGS posted/reversed sales stock issues, receipt asset posted/reversed purchase receipts, inventory variance proposal actors, generated documents, uploaded/deleted attachments. | Tracks actors for accounting events. | No explicit status enum. | No password reset/MFA. |
-| `Organization` | Tenant root. | `name`, `legalName`, `taxNumber`, `baseCurrency`, `timezone`. | Owns almost every business model, including inventory variance proposals, proposal events, and attachments. | Tenant boundary for ledgers/journals. | No explicit status enum. | No subscription/billing state. |
-| `OrganizationMember` | User-to-org link. | `organizationId`, `userId`, `roleId`, `status`. | User, Organization, Role. | Controls org access and permission lookup. | `MembershipStatus`. | Invite/member lifecycle UI remains limited. |
+| `User` | Login identity. | `email`, `passwordHash`, `name`. | Memberships, created/posted records, COGS posted/reversed sales stock issues, receipt asset posted/reversed purchase receipts, inventory variance proposal actors, generated documents, uploaded/deleted attachments, auth tokens. | Tracks actors for accounting events. | No explicit status enum. | No MFA, refresh-token rotation, or advanced session management. |
+| `Organization` | Tenant root. | `name`, `legalName`, `taxNumber`, `baseCurrency`, `timezone`. | Owns almost every business model, including inventory variance proposals, proposal events, attachments, auth tokens, and email outbox records. | Tenant boundary for ledgers/journals. | No explicit status enum. | No subscription/billing state. |
+| `OrganizationMember` | User-to-org link. | `organizationId`, `userId`, `roleId`, `status`. | User, Organization, Role. | Controls org access and permission lookup. | `MembershipStatus`. | Invite acceptance is implemented with mock email only; no MFA or rate limiting. |
 | `Role` | Stored permission set. | `name`, `permissions` JSON, `isSystem`. | Organization, members. | Runtime API/UI access control. | No lifecycle enum. | System roles are protected; no approval workflow. |
 | `AuditLog` | Mutation audit trail. | `action`, `entityType`, `entityId`, `before`, `after`. | Organization, optional actor. | Supports auditability. | Append-only by convention. | Coverage should be verified per mutation. |
+| `AuthToken` | Hashed email-token record for invitations and password reset. | `email`, `purpose`, `tokenHash`, `expiresAt`, `consumedAt`, optional organization/user/creator links. | Optional Organization, optional target User, optional creator User. | No accounting impact. | `AuthTokenPurpose`; consumed timestamp is terminal for a token. | No rate limiting or global session invalidation. |
+| `EmailOutbox` | Mock/local email delivery record. | `toEmail`, `fromEmail`, `subject`, `templateType`, `bodyText`, optional `bodyHtml`, `status`, `provider`, provider metadata, `sentAt`. | Optional Organization. | No accounting impact. | `EmailDeliveryStatus`, `EmailTemplateType`. | Mock provider only; no SMTP/API provider, retries, bounces, DKIM/SPF, or domain auth. |
 
 ## Organization Setup Models
 

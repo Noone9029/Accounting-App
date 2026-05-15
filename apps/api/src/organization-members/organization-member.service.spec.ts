@@ -1,14 +1,28 @@
-import { BadRequestException, ForbiddenException } from "@nestjs/common";
+import { ConflictException, ForbiddenException } from "@nestjs/common";
 import { MembershipStatus } from "@prisma/client";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import { OrganizationMemberService } from "./organization-member.service";
 
 describe("OrganizationMemberService", () => {
   function makeService(overrides: Record<string, unknown> = {}) {
-    const prisma = {
+    const prisma: {
+      $transaction: jest.Mock;
+      organizationMember: {
+        findMany: jest.Mock;
+        findFirst: jest.Mock;
+        findUnique: jest.Mock;
+        create: jest.Mock;
+        update: jest.Mock;
+      };
+      role: { findFirst: jest.Mock };
+      user: { findUnique: jest.Mock; create: jest.Mock };
+      organization: { findUnique: jest.Mock };
+    } & Record<string, unknown> = {
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) => callback(prisma)),
       organizationMember: {
         findMany: jest.fn(),
         findFirst: jest.fn(),
+        findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
       },
@@ -17,11 +31,28 @@ describe("OrganizationMemberService", () => {
       },
       user: {
         findUnique: jest.fn(),
+        create: jest.fn(),
+      },
+      organization: {
+        findUnique: jest.fn().mockResolvedValue({ id: "org-1", name: "Demo Org" }),
       },
       ...overrides,
     };
     const auditLogService = { log: jest.fn().mockResolvedValue(undefined) };
-    return { service: new OrganizationMemberService(prisma as never, auditLogService as never), prisma, auditLogService };
+    const authTokenService = { create: jest.fn().mockResolvedValue({ rawToken: "invite-token", authToken: { id: "token-1" } }) };
+    const emailService = {
+      isMockProvider: true,
+      sendOrganizationInvite: jest.fn().mockResolvedValue({ id: "email-1" }),
+    };
+    const config = { get: jest.fn((key: string) => (key === "APP_WEB_URL" ? "http://web.test" : undefined)) };
+    return {
+      service: new OrganizationMemberService(prisma as never, auditLogService as never, authTokenService as never, emailService as never, config as never),
+      prisma,
+      auditLogService,
+      authTokenService,
+      emailService,
+      config,
+    };
   }
 
   const member = {
@@ -55,25 +86,47 @@ describe("OrganizationMemberService", () => {
     await expect(service.updateRole("org-1", "user-1", "member-1", { roleId: "role-2" })).rejects.toThrow(ForbiddenException);
   });
 
-  it("rejects invite placeholders for unknown users", async () => {
-    const { service, prisma } = makeService();
-    prisma.role.findFirst.mockResolvedValue({ id: "role-2", permissions: [PERMISSIONS.reports.view] });
+  it("creates an invited user, token, and mock email for new users", async () => {
+    const { service, prisma, authTokenService, emailService } = makeService();
+    const invited = { ...member, id: "member-2", userId: "user-2", status: MembershipStatus.INVITED };
+    prisma.role.findFirst.mockResolvedValue({ id: "role-2", name: "Viewer", permissions: [PERMISSIONS.reports.view] });
     prisma.user.findUnique.mockResolvedValue(null);
+    prisma.user.create.mockResolvedValue({ id: "user-2", email: "new@example.com", name: "New" });
+    prisma.organizationMember.findUnique.mockResolvedValue(null);
+    prisma.organizationMember.create.mockResolvedValue(invited);
 
-    await expect(service.invite("org-1", "user-1", { email: "missing@example.com", roleId: "role-2" })).rejects.toThrow(
-      BadRequestException,
+    await expect(service.invite("org-1", "user-1", { email: "new@example.com", name: "New", roleId: "role-2" })).resolves.toEqual(
+      expect.objectContaining({
+        member: invited,
+        emailOutboxId: "email-1",
+        invitePreviewUrl: "http://web.test/invite/accept?token=invite-token",
+      }),
     );
+    expect(authTokenService.create).toHaveBeenCalledWith(expect.objectContaining({ purpose: "ORGANIZATION_INVITE" }), prisma);
+    expect(emailService.sendOrganizationInvite).toHaveBeenCalledWith(expect.objectContaining({ toEmail: "new@example.com" }));
   });
 
   it("creates an invited membership for existing users", async () => {
     const { service, prisma } = makeService();
     const invited = { ...member, id: "member-2", userId: "user-2", status: MembershipStatus.INVITED };
-    prisma.role.findFirst.mockResolvedValue({ id: "role-2", permissions: [PERMISSIONS.reports.view] });
+    prisma.role.findFirst.mockResolvedValue({ id: "role-2", name: "Viewer", permissions: [PERMISSIONS.reports.view] });
     prisma.user.findUnique.mockResolvedValue({ id: "user-2", email: "viewer@example.com", name: "Viewer" });
+    prisma.organizationMember.findUnique.mockResolvedValue(null);
     prisma.organizationMember.create.mockResolvedValue(invited);
 
     await expect(service.invite("org-1", "user-1", { email: "viewer@example.com", roleId: "role-2" })).resolves.toEqual(
-      expect.objectContaining({ member: invited }),
+      expect.objectContaining({ member: invited, emailOutboxId: "email-1" }),
+    );
+  });
+
+  it("rejects inviting an already active organization member", async () => {
+    const { service, prisma } = makeService();
+    prisma.role.findFirst.mockResolvedValue({ id: "role-2", name: "Viewer", permissions: [PERMISSIONS.reports.view] });
+    prisma.user.findUnique.mockResolvedValue({ id: "user-2", email: "viewer@example.com", name: "Viewer" });
+    prisma.organizationMember.findUnique.mockResolvedValue({ id: "member-2", status: MembershipStatus.ACTIVE });
+
+    await expect(service.invite("org-1", "user-1", { email: "viewer@example.com", roleId: "role-2" })).rejects.toThrow(
+      ConflictException,
     );
   });
 

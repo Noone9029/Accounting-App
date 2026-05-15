@@ -15,6 +15,7 @@ import { ContactModule } from "./contacts/contact.module";
 import { CreditNoteModule } from "./credit-notes/credit-note.module";
 import { CustomerPaymentModule } from "./customer-payments/customer-payment.module";
 import { CustomerRefundModule } from "./customer-refunds/customer-refund.module";
+import { EmailModule } from "./email/email.module";
 import { GeneratedDocumentModule } from "./generated-documents/generated-document.module";
 import { HealthModule } from "./health/health.module";
 import { InventoryAdjustmentModule } from "./inventory-adjustments/inventory-adjustment.module";
@@ -49,6 +50,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AttachmentModule,
+    EmailModule,
     AuthModule,
     BankAccountModule,
     BankReconciliationModule,

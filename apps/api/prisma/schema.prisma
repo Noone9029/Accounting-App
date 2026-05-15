@@ -14,6 +14,22 @@ enum MembershipStatus {
   SUSPENDED
 }
 
+enum EmailDeliveryStatus {
+  QUEUED
+  SENT_MOCK
+  FAILED
+}
+
+enum EmailTemplateType {
+  ORGANIZATION_INVITE
+  PASSWORD_RESET
+}
+
+enum AuthTokenPurpose {
+  ORGANIZATION_INVITE
+  PASSWORD_RESET
+}
+
 enum AccountType {
   ASSET
   LIABILITY
@@ -482,6 +498,8 @@ model User {
   generatedDocuments                          GeneratedDocument[]                  @relation("GeneratedDocumentGeneratedBy")
   uploadedAttachments                         Attachment[]                         @relation("AttachmentUploadedBy")
   deletedAttachments                          Attachment[]                         @relation("AttachmentDeletedBy")
+  authTokens                                  AuthToken[]                          @relation("AuthTokenUser")
+  createdAuthTokens                           AuthToken[]                          @relation("AuthTokenCreatedBy")
 }
 
 model Organization {
@@ -549,6 +567,8 @@ model Organization {
   documentSettings                    OrganizationDocumentSettings?
   generatedDocuments                  GeneratedDocument[]
   attachments                         Attachment[]
+  emailOutbox                         EmailOutbox[]
+  authTokens                          AuthToken[]
   zatcaProfile                        ZatcaOrganizationProfile?
   zatcaEgsUnits                       ZatcaEgsUnit[]
   zatcaInvoiceMetadata                ZatcaInvoiceMetadata[]
@@ -812,6 +832,52 @@ model OrganizationMember {
   @@unique([organizationId, userId])
   @@index([userId])
   @@index([organizationId])
+}
+
+model EmailOutbox {
+  id                String              @id @default(uuid()) @db.Uuid
+  organizationId    String?             @db.Uuid
+  toEmail           String
+  fromEmail         String
+  subject           String
+  templateType      EmailTemplateType
+  bodyText          String              @db.Text
+  bodyHtml          String?             @db.Text
+  status            EmailDeliveryStatus @default(QUEUED)
+  provider          String              @default("mock")
+  providerMessageId String?
+  errorMessage      String?
+  sentAt            DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  organization      Organization?       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, templateType])
+  @@index([organizationId, status])
+  @@index([toEmail])
+}
+
+model AuthToken {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String?          @db.Uuid
+  userId         String?          @db.Uuid
+  email          String
+  purpose        AuthTokenPurpose
+  tokenHash      String           @unique
+  expiresAt      DateTime
+  consumedAt     DateTime?
+  createdById    String?          @db.Uuid
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  organization   Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?            @relation("AuthTokenUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy      User?            @relation("AuthTokenCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([email, purpose])
+  @@index([expiresAt])
+  @@index([organizationId])
+  @@index([userId])
 }
 
 model Branch {

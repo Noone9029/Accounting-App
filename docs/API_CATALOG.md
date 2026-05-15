@@ -19,6 +19,10 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | POST | `/auth/register` | Register user and organization context | No | No | Implemented | MVP registration. |
 | POST | `/auth/login` | Login and receive JWT | No | No | Implemented | Uses configured JWT secret. |
 | GET | `/auth/me` | Current authenticated user | Yes | No | Implemented | Does not require org context; returns active memberships with role permissions. |
+| GET | `/auth/invitations/:token/preview` | Invitation preview | No | No | Implemented | Validates hashed invite token lookup without consuming it; returns organization/role context when valid. |
+| POST | `/auth/invitations/:token/accept` | Accept organization invitation | No | No | Implemented | Sets password, activates invited membership, consumes token, and returns login response. |
+| POST | `/auth/password-reset/request` | Request password reset | No | No | Implemented | Always returns a generic success response; creates mock email only if account exists. |
+| POST | `/auth/password-reset/confirm` | Confirm password reset | No | No | Implemented | Validates one-hour token, updates password, and consumes token. |
 
 ## Health
 
@@ -53,7 +57,14 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | GET | `/organization-members/:id` | Member detail | Yes | Yes | Implemented | Requires `users.view`; tenant scoped. |
 | PATCH | `/organization-members/:id/role` | Change member role | Yes | Yes | Implemented | Requires `users.manage`; blocks last full-access/user-manager lockout. |
 | PATCH | `/organization-members/:id/status` | Change member status | Yes | Yes | Implemented | Requires `users.manage`; supports `ACTIVE`, `INVITED`, `SUSPENDED`. |
-| POST | `/organization-members/invite` | Create local invite placeholder | Yes | Yes | Placeholder | Requires `users.invite`; only works for an existing user and sends no email. |
+| POST | `/organization-members/invite` | Invite organization member | Yes | Yes | Implemented | Requires `users.invite`; creates invited user/member if needed, hashed invite token, and mock outbox email. |
+
+## Email
+
+| Method | Path | Purpose | Auth | Org header | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| GET | `/email/outbox` | List mock/local email records | Yes | Yes | Implemented | Requires `emailOutbox.view`; tenant scoped; no raw token field. |
+| GET | `/email/outbox/:id` | Email outbox detail | Yes | Yes | Implemented | Requires `emailOutbox.view`; includes mock body text for local inspection. |
 
 ## Branches
 

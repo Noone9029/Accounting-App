@@ -149,6 +149,10 @@ Auth:
 - `POST /auth/register`
 - `POST /auth/login`
 - `GET /auth/me` returns active memberships, role name, and role permissions
+- `GET /auth/invitations/:token/preview`
+- `POST /auth/invitations/:token/accept`
+- `POST /auth/password-reset/request`
+- `POST /auth/password-reset/confirm`
 
 Organizations:
 
@@ -171,7 +175,12 @@ Organization members:
 - `GET /organization-members/:id`
 - `PATCH /organization-members/:id/role`
 - `PATCH /organization-members/:id/status`
-- `POST /organization-members/invite` creates a local invite placeholder only; it does not send email.
+- `POST /organization-members/invite` creates invited users/memberships, hashed invite tokens, and mock/local email outbox records.
+
+Email:
+
+- `GET /email/outbox`
+- `GET /email/outbox/:id`
 
 Accounts:
 
@@ -1276,6 +1285,35 @@ Known limitations:
 - No OCR, receipt scanning, file parsing, or virus scanning exists yet.
 - No drag/drop polish, retention policy, email attachment sending, or ZATCA attachment submission exists yet.
 
+## Mock Email, Invitations, And Password Reset
+
+LedgerByte includes safe email-token groundwork for organization invitations and password reset without sending real email by default.
+
+Configuration:
+
+- `EMAIL_PROVIDER=mock`
+- `EMAIL_FROM="no-reply@ledgerbyte.local"`
+- `APP_WEB_URL="http://localhost:3000"`
+- Future SMTP placeholders only: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_SECURE`.
+
+Behavior:
+
+- `POST /organization-members/invite` creates or updates an invited organization member, creates a hashed `ORGANIZATION_INVITE` token, and writes an `ORGANIZATION_INVITE` record to `EmailOutbox`.
+- In mock/local mode the invite response includes `invitePreviewUrl` for local testing. The database stores only `tokenHash`, not the raw token.
+- `GET /auth/invitations/:token/preview` validates invitation links without consuming them.
+- `POST /auth/invitations/:token/accept` sets the user password, activates the membership, consumes the token, and returns a normal login response.
+- `POST /auth/password-reset/request` always returns a generic response and only creates a reset token/email when the user exists.
+- `POST /auth/password-reset/confirm` validates a one-hour reset token, updates the password, and consumes the token.
+- `GET /email/outbox` and `GET /email/outbox/:id` expose tenant-scoped mock/local email records for admins with `emailOutbox.view`.
+
+Known limitations:
+
+- No real SMTP or paid email provider integration is active.
+- No email deliverability handling, DKIM/SPF/domain setup, bounce handling, or retry queue.
+- No branded HTML template polish.
+- No rate limiting yet.
+- No MFA, refresh-token rotation, or advanced session management.
+
 ## ZATCA Foundation
 
 LedgerByte now has local-only ZATCA Phase 2 groundwork. This is not production ZATCA compliance and does not call ZATCA APIs.
@@ -1394,7 +1432,7 @@ Frontend enforcement:
 - Sidebar navigation is filtered by permissions.
 - Page-level route protection shows an access-denied panel instead of crashing or redirecting forever.
 - High-risk action buttons are hidden when the active role lacks the matching create/update/finalize/void/manage permission.
-- `/settings/team` lists organization members, supports role/status changes for `users.manage`, and exposes a no-email invite placeholder for `users.invite`.
+- `/settings/team` lists organization members, supports role/status changes for `users.manage`, and sends mock/local invite emails for `users.invite`.
 - `/settings/roles` and `/settings/roles/:id` show role lists and grouped permission matrices; custom roles can be edited with `roles.manage`, while system/default roles are protected.
 
 Permission matrix categories:
@@ -1440,7 +1478,6 @@ Permission matrix categories:
 - Inventory warehouse, stock ledger, adjustment approval, warehouse transfer, manual purchase receipt, manual sales stock issue, valuation settings, manual COGS posting, manual compatible receipt asset posting, inventory clearing settings, purchase bill clearing-mode finalization, bill/receipt matching visibility, clearing reconciliation/variance reports, and operational reports exist, but no automatic COGS posting, no automatic purchase receipt asset posting, no direct-mode receipt posting, no automatic variance journals, automatic purchase/sales posting, landed cost, serial/batch tracking, or accounting-grade inventory financial reports are implemented yet.
 - BullMQ workers and S3 upload adapters are not wired yet.
 - Uploaded attachment storage is database-backed only; OCR, virus scanning, retention policies, email attachment sending, ZATCA attachment submission, and object-storage lifecycle are not implemented yet.
-- Email invitations are not implemented; invite placeholders require the target user to already exist.
-- Password reset and onboarding flows for invited users are not implemented yet.
+- Email invitations and password reset use mock/local outbox delivery only; no real SMTP/API provider, rate limiting, MFA, or advanced session management exists yet.
 - Fine-grained approval workflows, dual control, and delegated approval chains are not implemented yet.
 - There is no dedicated audit UI for role/member changes yet, although audit-log records are written.

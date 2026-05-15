@@ -78,6 +78,7 @@ describe("permission helpers", () => {
       PERMISSIONS.documentSettings.view,
       PERMISSIONS.attachments.manage,
     ]);
+    expect(getRequiredPermissionsForPathname("/settings/email-outbox")).toEqual([PERMISSIONS.emailOutbox.view]);
     expect(getRequiredPermissionsForPathname("/settings/zatca")).toEqual([PERMISSIONS.zatca.view]);
     expect(getRequiredPermissionsForPathname("/settings/team")).toEqual([PERMISSIONS.users.view]);
     expect(getRequiredPermissionsForPathname("/settings/roles/role-1")).toEqual([PERMISSIONS.roles.view]);
@@ -127,5 +128,12 @@ describe("sidebar nav filtering", () => {
     const settings = nav.find((item) => item.label === "Settings / Admin");
 
     expect(settings?.children?.map((item) => item.label)).toEqual(["Document settings", "Storage"]);
+  });
+
+  it("shows email outbox when the user has email outbox permission", () => {
+    const nav = filterSidebarNavItems(subject([PERMISSIONS.emailOutbox.view]));
+    const settings = nav.find((item) => item.label === "Settings / Admin");
+
+    expect(settings?.children?.map((item) => item.label)).toEqual(["Email outbox"]);
   });
 });

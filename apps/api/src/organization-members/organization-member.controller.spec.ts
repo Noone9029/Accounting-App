@@ -13,7 +13,7 @@ describe("OrganizationMemberController permissions", () => {
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, OrganizationMemberController.prototype.updateStatus)).toEqual([PERMISSIONS.users.manage]);
   });
 
-  it("requires users.invite for invite placeholders", () => {
+  it("requires users.invite for email invitations", () => {
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, OrganizationMemberController.prototype.invite)).toEqual([PERMISSIONS.users.invite]);
   });
 });

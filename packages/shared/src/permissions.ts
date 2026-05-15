@@ -197,6 +197,9 @@ export const PERMISSIONS = {
     delete: "attachments.delete",
     manage: "attachments.manage",
   },
+  emailOutbox: {
+    view: "emailOutbox.view",
+  },
   admin: {
     fullAccess: "admin.fullAccess",
   },
@@ -331,6 +334,7 @@ export const ALL_PERMISSIONS = [
   PERMISSIONS.attachments.download,
   PERMISSIONS.attachments.delete,
   PERMISSIONS.attachments.manage,
+  PERMISSIONS.emailOutbox.view,
   PERMISSIONS.admin.fullAccess,
 ] as const satisfies readonly Permission[];
 

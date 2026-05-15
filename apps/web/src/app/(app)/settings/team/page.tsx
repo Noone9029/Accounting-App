@@ -18,6 +18,7 @@ export default function TeamSettingsPage() {
   const [savingId, setSavingId] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [invitePreviewUrl, setInvitePreviewUrl] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteName, setInviteName] = useState("");
   const [inviteRoleId, setInviteRoleId] = useState("");
@@ -82,6 +83,7 @@ export default function TeamSettingsPage() {
     setSavingId("invite");
     setError("");
     setMessage("");
+    setInvitePreviewUrl("");
     try {
       const result = await apiRequest<InviteOrganizationMemberResponse>("/organization-members/invite", {
         method: "POST",
@@ -89,10 +91,11 @@ export default function TeamSettingsPage() {
       });
       setInviteEmail("");
       setInviteName("");
+      setInvitePreviewUrl(result.invitePreviewUrl ?? "");
       await refresh();
       setMessage(result.message);
     } catch (inviteError) {
-      setError(inviteError instanceof Error ? inviteError.message : "Unable to create invite placeholder.");
+      setError(inviteError instanceof Error ? inviteError.message : "Unable to send mock invite.");
     } finally {
       setSavingId("");
     }
@@ -110,7 +113,15 @@ export default function TeamSettingsPage() {
       {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
       {message ? <StatusMessage type="success">{message}</StatusMessage> : null}
 
-      <StatusMessage type="info">Email invitations are not connected yet.</StatusMessage>
+      <StatusMessage type="info">Real email delivery is not configured yet. Invites are written to the mock email outbox.</StatusMessage>
+      {invitePreviewUrl ? (
+        <StatusMessage type="info">
+          Mock invite preview link:{" "}
+          <a href={invitePreviewUrl} className="font-medium text-palm">
+            {invitePreviewUrl}
+          </a>
+        </StatusMessage>
+      ) : null}
 
       {canInvite ? (
         <form onSubmit={inviteMember} className="rounded-md border border-slate-200 bg-white p-4">
@@ -123,11 +134,11 @@ export default function TeamSettingsPage() {
                 value={inviteEmail}
                 onChange={(event) => setInviteEmail(event.target.value)}
                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-                placeholder="existing-user@example.com"
+                placeholder="new-user@example.com"
               />
             </label>
             <label className="text-sm">
-              <span className="font-medium text-ink">Name note</span>
+              <span className="font-medium text-ink">Name</span>
               <input
                 value={inviteName}
                 onChange={(event) => setInviteName(event.target.value)}
@@ -155,7 +166,7 @@ export default function TeamSettingsPage() {
               disabled={savingId === "invite" || !inviteRoleId}
               className="self-end rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Add invite
+              Send mock invite
             </button>
           </div>
         </form>

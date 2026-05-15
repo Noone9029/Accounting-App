@@ -16,6 +16,12 @@ export default function LoginPage() {
             Create an account
           </Link>
         </p>
+        <p className="mt-2 text-sm text-steel">
+          Forgot your password?{" "}
+          <Link href="/password-reset" className="font-medium text-palm">
+            Reset it
+          </Link>
+        </p>
       </section>
     </main>
   );
