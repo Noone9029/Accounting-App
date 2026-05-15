@@ -1,0 +1,72 @@
+name: Deployed E2E Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      web_url:
+        description: Deployed LedgerByte web URL
+        required: true
+        default: https://ledgerbyte-web-test.vercel.app
+        type: string
+      api_url:
+        description: Deployed LedgerByte API URL
+        required: true
+        default: https://ledgerbyte-api-test.vercel.app
+        type: string
+
+jobs:
+  deployed-e2e:
+    name: Playwright deployed smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: "true"
+      LEDGERBYTE_WEB_URL: ${{ inputs.web_url || vars.LEDGERBYTE_WEB_URL || 'https://ledgerbyte-web-test.vercel.app' }}
+      LEDGERBYTE_API_URL: ${{ inputs.api_url || vars.LEDGERBYTE_API_URL || 'https://ledgerbyte-api-test.vercel.app' }}
+      LEDGERBYTE_E2E_EMAIL: ${{ secrets.LEDGERBYTE_E2E_EMAIL }}
+      LEDGERBYTE_E2E_PASSWORD: ${{ secrets.LEDGERBYTE_E2E_PASSWORD }}
+      LEDGERBYTE_E2E_WORKERS: "1"
+      LEDGERBYTE_E2E_TEST_TIMEOUT_MS: "90000"
+      LEDGERBYTE_E2E_EXPECT_TIMEOUT_MS: "30000"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: corepack pnpm exec playwright install --with-deps chromium
+
+      - name: Preflight deployed environment
+        run: node scripts/check-deployed-e2e-env.cjs
+
+      - name: Run deployed Playwright E2E
+        run: corepack pnpm e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload Playwright test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 14

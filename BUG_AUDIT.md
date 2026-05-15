@@ -37,6 +37,25 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Deployed E2E GitHub Actions workflow added
+
+Added CI wiring for the deployed Playwright smoke suite without changing product behavior.
+
+Risk reduced:
+
+- `.github/workflows/deployed-e2e.yml` now runs the deployed browser smoke suite through manual GitHub Actions dispatch.
+- The workflow uses `LEDGERBYTE_E2E_EMAIL` and `LEDGERBYTE_E2E_PASSWORD` from GitHub Secrets and keeps deployed web/API URLs configurable through dispatch inputs or repository variables.
+- `scripts/check-deployed-e2e-env.cjs` fails early when test URLs, credentials, or API health are missing before Chromium launches.
+- Playwright failure artifacts are uploaded from `playwright-report/` and `test-results/` when present.
+- Browser E2E docs now explain manual dispatch, required secrets, deployed environment prerequisites, and artifact inspection.
+
+Remaining testing risks:
+
+- The workflow is manual-only; no scheduled or push-triggered deployed run is active yet.
+- It still depends on a migrated, seeded, non-production Supabase test database.
+- Browser smoke remains route/form/readiness coverage and does not replace deep API accounting smoke.
+- Supabase public-table RLS remains a deployment security review item.
+
 ### Deployed browser E2E smoke stabilized
 
 Ran the Playwright browser smoke suite against the deployed LedgerByte test environment:

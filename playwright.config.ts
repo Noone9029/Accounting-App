@@ -14,7 +14,7 @@ export default defineConfig({
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
   workers: Number.isFinite(workers) && workers > 0 ? workers : 1,
-  reporter: [["list"]],
+  reporter: process.env.CI ? [["list"], ["html", { outputFolder: "playwright-report", open: "never" }]] : [["list"]],
   globalSetup: "./tests/e2e/global-setup.ts",
   use: {
     baseURL: webUrl,

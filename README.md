@@ -159,6 +159,13 @@ LEDGERBYTE_WEB_URL=https://ledgerbyte-web-test.vercel.app LEDGERBYTE_API_URL=htt
 
 The suite defaults to one worker and a deployed-friendly timeout. Override with `LEDGERBYTE_E2E_WORKERS`, `LEDGERBYTE_E2E_TEST_TIMEOUT_MS`, or `LEDGERBYTE_E2E_EXPECT_TIMEOUT_MS` only when the target environment can handle the load.
 
+GitHub Actions:
+
+- Manual workflow: **Deployed E2E Smoke** in `.github/workflows/deployed-e2e.yml`.
+- Required secrets: `LEDGERBYTE_E2E_EMAIL` and `LEDGERBYTE_E2E_PASSWORD`.
+- Default deployed URLs: `https://ledgerbyte-web-test.vercel.app` and `https://ledgerbyte-api-test.vercel.app`.
+- Artifacts: `playwright-report` and `playwright-test-results` are uploaded when present.
+
 The E2E preflight fails clearly if the local API or web app is not running: `Start local API/web before running E2E.` See [docs/testing/BROWSER_E2E_TESTING.md](docs/testing/BROWSER_E2E_TESTING.md) for coverage and limitations.
 
 ## Project Audit / Current State
