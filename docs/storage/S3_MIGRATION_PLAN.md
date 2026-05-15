@@ -6,7 +6,7 @@ Audit date: 2026-05-15
 
 Move uploaded attachments and generated documents from database/base64 storage to S3-compatible object storage without losing tenant isolation, content hashes, download behavior, or auditability.
 
-This plan is not implemented yet. The current API only exposes readiness and dry-run counts.
+The S3 attachment upload adapter now exists behind `ATTACHMENT_STORAGE_PROVIDER=s3`, but this migration plan is still not implemented. The current API only exposes readiness and dry-run counts.
 
 ## Required Preconditions
 
@@ -19,10 +19,10 @@ This plan is not implemented yet. The current API only exposes readiness and dry
 
 ## Proposed Object Key Layout
 
-Suggested uploaded attachment key:
+Uploaded attachment key used by the S3 adapter:
 
 ```text
-organizations/{organizationId}/attachments/{attachmentId}/{contentHash}-{filename}
+org/{organizationId}/attachments/{attachmentId}/{safeFilename}
 ```
 
 Suggested generated document key:
@@ -74,7 +74,6 @@ Generated PDFs are system-created archives and should remain separate from uploa
 ## Not Implemented Yet
 
 - Migration executor.
-- S3 upload adapter.
 - Signed URL support.
 - Object deletion.
 - Virus scanning.

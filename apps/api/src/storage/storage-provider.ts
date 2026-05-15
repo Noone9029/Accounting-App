@@ -6,6 +6,8 @@ export interface SaveObjectInput {
   filename?: string | null;
   contentType?: string | null;
   contentHash?: string | null;
+  organizationId?: string | null;
+  attachmentId?: string | null;
 }
 
 export interface SaveObjectResult {

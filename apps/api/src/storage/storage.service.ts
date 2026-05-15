@@ -21,6 +21,16 @@ export class StorageService {
   readiness() {
     const attachmentProvider = this.storageConfig.attachmentProvider;
     const generatedDocumentProvider = this.storageConfig.generatedDocumentProvider;
+    const warnings = new Set<string>();
+    if (attachmentProvider === "database" || generatedDocumentProvider === "database") {
+      warnings.add("Database storage is acceptable for local/dev but not production-scale.");
+    }
+    if (attachmentProvider === "s3" && this.storageConfig.s3BlockingReasons().length > 0) {
+      warnings.add("S3 attachment storage is selected but required configuration is incomplete.");
+    }
+    if (generatedDocumentProvider === "s3") {
+      warnings.add("Generated document S3 storage is not implemented yet; generated documents remain database-backed.");
+    }
     return {
       attachmentStorage: {
         ...this.providerReadiness("Attachment storage", attachmentProvider),
@@ -28,7 +38,7 @@ export class StorageService {
       },
       generatedDocumentStorage: this.providerReadiness("Generated document storage", generatedDocumentProvider),
       s3Config: this.storageConfig.s3Status,
-      warnings: ["Database storage is acceptable for local/dev but not production-scale."],
+      warnings: Array.from(warnings),
     };
   }
 
@@ -44,7 +54,9 @@ export class StorageService {
       _sum: { sizeBytes: true },
     });
     const attachmentDatabaseCount = await this.prisma.attachment.count({ where: { organizationId, storageProvider: AttachmentStorageProvider.DATABASE } });
-    const attachmentS3Count = await this.prisma.attachment.count({ where: { organizationId, storageProvider: AttachmentStorageProvider.S3_PLACEHOLDER } });
+    const attachmentS3Count = await this.prisma.attachment.count({
+      where: { organizationId, storageProvider: { in: [AttachmentStorageProvider.S3, AttachmentStorageProvider.S3_PLACEHOLDER] } },
+    });
     const generatedDocumentDatabaseCount = await this.prisma.generatedDocument.count({ where: { organizationId, storageProvider: "database" } });
     const generatedDocumentS3Count = await this.prisma.generatedDocument.count({ where: { organizationId, storageProvider: "s3" } });
 
@@ -57,10 +69,12 @@ export class StorageService {
       generatedDocumentTotalBytes: generatedDocumentTotals._sum.sizeBytes ?? 0,
       databaseStorageCount,
       s3StorageCount,
+      migrationRequired: databaseStorageCount > 0,
+      targetProvider: this.storageConfig.attachmentProvider,
       estimatedMigrationRequired: databaseStorageCount > 0,
       dryRunOnly: true,
       notes: [
-        "This endpoint only counts database and placeholder object-storage records.",
+        "This endpoint only counts database and object-storage records.",
         "No objects are copied, deleted, or rewritten by this dry-run plan.",
         "Generated documents and user-uploaded attachments remain separate storage domains.",
       ],
@@ -77,14 +91,19 @@ export class StorageService {
       };
     }
 
+    const blockingReasons = this.storageConfig.s3BlockingReasons();
+    const isGeneratedDocumentStorage = label.toLowerCase().startsWith("generated document");
+    const activeBlockingReasons = isGeneratedDocumentStorage
+      ? [...blockingReasons, `${label} S3 writes are not enabled in this groundwork build.`]
+      : blockingReasons;
+
     return {
       activeProvider: provider,
-      ready: false,
-      blockingReasons: [
-        ...this.storageConfig.s3BlockingReasons(),
-        `${label} S3 writes are not enabled in this groundwork build.`,
-      ],
-      warnings: ["S3-compatible storage is planned but no external upload or migration executor is active yet."],
+      ready: activeBlockingReasons.length === 0,
+      blockingReasons: activeBlockingReasons,
+      warnings: isGeneratedDocumentStorage
+        ? ["S3-compatible generated document storage is planned but generated documents remain database-backed in this phase."]
+        : ["S3-compatible attachment storage is configured. Migration remains dry-run only; database attachments are not moved automatically."],
     };
   }
 }

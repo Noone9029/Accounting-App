@@ -37,6 +37,28 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### S3-compatible attachment adapter added
+
+Added a real S3-compatible storage adapter for new uploaded attachments behind `ATTACHMENT_STORAGE_PROVIDER=s3`, while keeping database/base64 storage as the default.
+
+Risk reduced:
+
+- `@aws-sdk/client-s3` is now available for S3-compatible upload/download storage work.
+- `AttachmentStorageProvider` now includes `S3` for active object-storage metadata.
+- `S3AttachmentStorageService` writes new objects to `org/{organizationId}/attachments/{attachmentId}/{safeFilename}` with content type and safe metadata.
+- S3-backed attachments store `storageKey`, `contentHash`, and `sizeBytes` while keeping `contentBase64` null.
+- Downloads read through the API from the configured S3-compatible bucket, preserving tenant-scoped authorization.
+- `/storage/readiness` reports S3 configuration readiness without exposing secrets, and `/storage/migration-plan` distinguishes database and S3 attachment counts.
+- `/settings/storage` shows the active target provider and redacted S3 readiness state.
+
+Remaining risks:
+
+- Database storage remains the default provider.
+- Existing database attachments are not migrated.
+- Generated documents remain database-backed.
+- No virus scanning, OCR, signed URL policy, lifecycle/retention policy, or physical object purge exists yet.
+- The adapter still needs non-production bucket validation with real credentials before production use.
+
 ### Frontend route QA polish pass
 
 Reviewed implemented frontend routes for route stability, stale links, permission-aware dashboard navigation, and narrow-screen table behavior without changing accounting or API business behavior.
@@ -343,15 +365,14 @@ Risk reduced:
 - Storage provider environment variables keep uploaded attachments and generated documents on database storage by default.
 - `GET /storage/readiness` reports active providers, max size, S3 configuration booleans, warnings, and blocking reasons without returning secret values.
 - `GET /storage/migration-plan` returns dry-run counts and byte totals for uploaded attachments and generated documents without copying, deleting, or rewriting content.
-- `S3AttachmentStorageService` is a non-active stub that reports not-ready configuration and throws a clear error if selected before a real adapter is implemented.
+- `S3AttachmentStorageService` has since been implemented for feature-flagged uploaded-attachment storage when S3 config is complete.
 - The `/settings/storage` page gives administrators a redacted readiness and migration-planning view.
 - Storage architecture, S3 migration, and attachment security docs now define the future production path.
 
 Remaining risks:
 
-- Database storage is still the active upload path.
-- No S3/object-storage upload adapter is active yet.
-- No migration executor exists.
+- Database storage is still the default upload path.
+- No DB-to-S3 migration executor exists.
 - No virus scanning.
 - No retention policy.
 
@@ -362,7 +383,7 @@ Added reusable uploaded supporting-file infrastructure without changing generate
 Risk reduced:
 
 - Uploaded files now have tenant-scoped `Attachment` metadata with sanitized filenames, original filename, MIME type, size, content hash, storage provider marker, active/deleted status, notes, upload/delete actors, and soft-delete lifecycle.
-- The active MVP storage path is database/base64 behind an `AttachmentStorageService` abstraction; S3/object storage now has readiness/stub groundwork only.
+- The default MVP storage path is database/base64 behind an `AttachmentStorageService` abstraction; S3/object storage is now available only for new uploads when explicitly configured.
 - Upload validates linked entity ownership before storing content and supports key accounting/operational records across sales, purchases, banking, inventory, contacts, items, and manual journals.
 - Attachment APIs are permission-gated for view, upload, download, notes management, and soft delete.
 - Frontend `AttachmentPanel` is mounted on key sales, purchase, banking, and inventory detail pages.

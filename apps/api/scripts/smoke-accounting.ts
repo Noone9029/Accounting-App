@@ -901,6 +901,8 @@ interface StorageMigrationPlanResponse {
   generatedDocumentTotalBytes: number;
   databaseStorageCount: number;
   s3StorageCount: number;
+  migrationRequired?: boolean;
+  targetProvider?: "database" | "s3";
   estimatedMigrationRequired: boolean;
   dryRunOnly: boolean;
   notes: string[];
@@ -3684,6 +3686,8 @@ async function main(): Promise<void> {
   const storageMigrationPlan = await get<StorageMigrationPlanResponse>("/storage/migration-plan", headers);
   assertEqual(typeof storageMigrationPlan.attachmentCount, "number", "storage migration plan attachment count");
   assertEqual(typeof storageMigrationPlan.generatedDocumentCount, "number", "storage migration plan generated document count");
+  assertEqual(storageMigrationPlan.targetProvider, "database", "storage migration plan default target provider");
+  assertEqual(storageMigrationPlan.migrationRequired, storageMigrationPlan.estimatedMigrationRequired, "storage migration plan compatibility flags align");
   assertEqual(storageMigrationPlan.dryRunOnly, true, "storage migration plan dry run only");
   const journalEntriesAfterStorageReports = await get<JournalEntry[]>("/journal-entries", headers);
   assertEqual(journalEntriesAfterStorageReports.length, journalEntriesAfterAttachments.length, "storage readiness endpoints do not create journal entries");

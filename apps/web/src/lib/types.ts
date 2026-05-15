@@ -114,7 +114,7 @@ export type DocumentType =
   | "REPORT_AGED_PAYABLES"
   | "BANK_RECONCILIATION_REPORT";
 export type GeneratedDocumentStatus = "GENERATED" | "FAILED" | "SUPERSEDED";
-export type AttachmentStorageProvider = "DATABASE" | "LOCAL_PLACEHOLDER" | "S3_PLACEHOLDER";
+export type AttachmentStorageProvider = "DATABASE" | "LOCAL_PLACEHOLDER" | "S3_PLACEHOLDER" | "S3";
 export type EmailDeliveryStatus = "QUEUED" | "SENT_MOCK" | "FAILED";
 export type EmailTemplateType = "ORGANIZATION_INVITE" | "PASSWORD_RESET";
 export type EmailProviderName = "mock" | "smtp-disabled" | "smtp" | "invalid" | string;
@@ -2677,6 +2677,8 @@ export interface StorageMigrationPlanResponse {
   generatedDocumentTotalBytes: number;
   databaseStorageCount: number;
   s3StorageCount: number;
+  migrationRequired?: boolean;
+  targetProvider?: ObjectStorageProviderName;
   estimatedMigrationRequired: boolean;
   dryRunOnly: boolean;
   notes: string[];

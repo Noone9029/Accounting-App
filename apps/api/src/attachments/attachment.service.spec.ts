@@ -91,7 +91,7 @@ describe("AttachmentService", () => {
         contentBase64: Buffer.from("hello").toString("base64"),
         notes: " source file ",
       }),
-    ).resolves.toMatchObject({ id: "attachment-1", filename: "Invoice-Copy.pdf" });
+    ).resolves.toMatchObject({ id: expect.any(String), filename: "Invoice-Copy.pdf" });
 
     expect(prisma.salesInvoice.findFirst).toHaveBeenCalledWith({
       where: { id: baseAttachment.linkedEntityId, organizationId: "org-1" },
@@ -113,6 +113,41 @@ describe("AttachmentService", () => {
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "UPLOAD", entityType: "Attachment" }));
   });
 
+  it("uploads S3 attachments with a generated id, storage key, and no database base64 content", async () => {
+    const { service, prisma, storage } = makeService();
+    storage.save = jest.fn().mockResolvedValue({
+      storageProvider: "S3" as AttachmentStorageProvider,
+      storageKey: "org/org-1/attachments/attachment-1/invoice.pdf",
+      contentBase64: null,
+    });
+
+    await service.upload("org-1", "user-1", {
+      linkedEntityType: AttachmentLinkedEntityType.SALES_INVOICE,
+      linkedEntityId: baseAttachment.linkedEntityId,
+      filename: "invoice.pdf",
+      mimeType: "application/pdf",
+      contentBase64: Buffer.from("hello").toString("base64"),
+    });
+
+    const saveInput = (storage.save as jest.Mock).mock.calls[0][0];
+    expect(saveInput).toMatchObject({
+      organizationId: "org-1",
+      attachmentId: expect.any(String),
+      filename: "invoice.pdf",
+      mimeType: "application/pdf",
+    });
+    expect(prisma.attachment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          id: saveInput.attachmentId,
+          storageProvider: "S3",
+          storageKey: "org/org-1/attachments/attachment-1/invoice.pdf",
+          contentBase64: null,
+        }),
+      }),
+    );
+  });
+
   it("uploads an attachment to a purchase bill", async () => {
     const { service, prisma } = makeService();
 
@@ -124,7 +159,7 @@ describe("AttachmentService", () => {
         mimeType: "text/csv",
         contentBase64: Buffer.from("a,b\n1,2").toString("base64"),
       }),
-    ).resolves.toMatchObject({ id: "attachment-1" });
+    ).resolves.toMatchObject({ id: expect.any(String) });
     expect(prisma.purchaseBill.findFirst).toHaveBeenCalledWith({
       where: { id: "22222222-2222-2222-2222-222222222222", organizationId: "org-1" },
       select: { id: true },

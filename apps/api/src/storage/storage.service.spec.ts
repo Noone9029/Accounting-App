@@ -72,6 +72,27 @@ describe("StorageService", () => {
     });
   });
 
+  it("reports S3 attachment storage as ready when configuration is complete", () => {
+    const { service } = makeService({
+      ATTACHMENT_STORAGE_PROVIDER: "s3",
+      S3_ACCESS_KEY_ID: "do-not-return",
+      S3_SECRET_ACCESS_KEY: "super-secret",
+      S3_ENDPOINT: "https://objects.example.test",
+      S3_REGION: "us-east-1",
+      S3_BUCKET: "ledgerbyte",
+    });
+
+    const readiness = service.readiness();
+
+    expect(readiness.attachmentStorage).toMatchObject({
+      activeProvider: "s3",
+      ready: true,
+      blockingReasons: [],
+    });
+    expect(JSON.stringify(readiness)).not.toContain("do-not-return");
+    expect(JSON.stringify(readiness)).not.toContain("super-secret");
+  });
+
   it("returns dry-run migration counts for attachments and generated documents", async () => {
     const { service, prisma } = makeService();
 
@@ -82,6 +103,8 @@ describe("StorageService", () => {
       generatedDocumentTotalBytes: 2048,
       databaseStorageCount: 3,
       s3StorageCount: 0,
+      migrationRequired: true,
+      targetProvider: "database",
       estimatedMigrationRequired: true,
       dryRunOnly: true,
     });

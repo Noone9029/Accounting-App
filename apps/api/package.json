@@ -16,6 +16,7 @@
     "db:seed": "prisma db seed"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1047.0",
     "@ledgerbyte/accounting-core": "workspace:*",
     "@ledgerbyte/pdf-core": "workspace:*",
     "@ledgerbyte/shared": "workspace:*",

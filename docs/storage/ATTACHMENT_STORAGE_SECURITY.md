@@ -11,13 +11,14 @@ Audit date: 2026-05-15
 - `ATTACHMENT_MAX_SIZE_MB` controls upload size with a default of 10 MB.
 - Filenames are sanitized.
 - SHA-256 `contentHash` is computed at upload.
+- When `ATTACHMENT_STORAGE_PROVIDER=s3`, new uploads are stored in the configured S3-compatible bucket and the database stores metadata plus `storageKey`, not file base64 content.
 - List and detail endpoints return metadata only and exclude `contentBase64`.
 - Download is the only content path.
 - Deleted attachments are soft-deleted and cannot be downloaded.
 
 ## Current Storage Risk
 
-Database/base64 storage is acceptable for local development and early MVP testing but is not production-scale. Risks include:
+Database/base64 storage is still the default and is acceptable for local development and early MVP testing, but it is not production-scale. Risks include:
 
 - Database growth from binary payloads.
 - Backup and restore size growth.
@@ -27,7 +28,7 @@ Database/base64 storage is acceptable for local development and early MVP testin
 
 ## S3-Compatible Security Requirements
 
-Before enabling S3/object storage:
+Before enabling S3/object storage for real tenants:
 
 - Store credentials only in environment or a managed secrets system.
 - Never expose secret values through readiness endpoints, logs, client bundles, or docs.
@@ -37,6 +38,7 @@ Before enabling S3/object storage:
 - Verify content hash after every upload and migration copy.
 - Keep API-level authorization even when signed URLs are introduced.
 - Block download for deleted attachments regardless of object existence.
+- Test the exact bucket/provider with non-production credentials before production use.
 
 ## Future Virus Scanning Hook
 

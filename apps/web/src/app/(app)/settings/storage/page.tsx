@@ -132,7 +132,9 @@ function MigrationPlanCard({ plan }: { plan: StorageMigrationPlanResponse }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-ink">Migration dry run</h2>
-          <p className="mt-1 text-sm text-steel">No content is moved by this plan.</p>
+          <p className="mt-1 text-sm text-steel">
+            Target provider: {storageProviderLabel(plan.targetProvider ?? "database")}. No content is moved by this plan.
+          </p>
         </div>
         <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
           {plan.estimatedMigrationRequired ? "Migration required" : "No migration needed"}

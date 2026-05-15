@@ -58,19 +58,19 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 
 ## Phase 2: Production Foundations
 
-### 7. Implement S3-compatible attachment storage adapter
+### 7. Validate S3-compatible attachment storage adapter
 
-- Objective: Add real S3-compatible upload/download/delete behavior behind the existing storage abstraction, disabled unless configured.
-- Why it matters: Database/base64 storage is not production-scale.
-- Dependencies: Storage readiness groundwork.
+- Objective: Exercise the feature-flagged S3-compatible attachment adapter against a real non-production bucket and document provider-specific caveats.
+- Why it matters: Unit-mocked S3 behavior is not enough for production confidence.
+- Dependencies: S3 attachment adapter and storage readiness groundwork.
 - Risk level: High.
 - Manual credentials needed: Optional test bucket credentials for live verification.
 
-### 8. Add attachment/generated document migration dry-run and executor
+### 8. Add attachment/generated document migration executor
 
 - Objective: Add resumable migration planning/execution from DB storage to object storage with rollback notes.
 - Why it matters: Existing DB-stored files need a safe migration path.
-- Dependencies: Real S3-compatible adapter.
+- Dependencies: Validated S3-compatible adapter.
 - Risk level: High.
 - Manual credentials needed: Optional test bucket credentials.
 

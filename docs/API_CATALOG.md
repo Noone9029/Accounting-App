@@ -397,14 +397,14 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | GET | `/generated-documents` | List archive | Yes | Yes | Implemented | Excludes base64 payload. |
 | GET | `/generated-documents/:id` | Archive detail | Yes | Yes | Implemented | Excludes base64 payload. |
 | GET | `/generated-documents/:id/download` | Download archived PDF | Yes | Yes | Implemented | Streams stored PDF. |
-| POST | `/attachments` | Upload linked supporting file | Yes | Yes | Implemented | Requires `attachments.upload`; JSON/base64 MVP upload; validates MIME type, size, base64, tenant-owned linked entity, and stores metadata/content hash. |
+| POST | `/attachments` | Upload linked supporting file | Yes | Yes | Implemented | Requires `attachments.upload`; JSON/base64 MVP upload; validates MIME type, size, base64, tenant-owned linked entity, and stores metadata/content hash in database storage by default or S3-compatible storage when `ATTACHMENT_STORAGE_PROVIDER=s3` is configured. |
 | GET | `/attachments` | List attachment metadata | Yes | Yes | Implemented | Requires `attachments.view`; supports `linkedEntityType`, `linkedEntityId`, and `status`; excludes base64 content. |
 | GET | `/attachments/:id` | Attachment detail metadata | Yes | Yes | Implemented | Requires `attachments.view`; tenant scoped and excludes base64 content. |
 | GET | `/attachments/:id/download` | Download uploaded attachment | Yes | Yes | Implemented | Requires `attachments.download`; streams original MIME type and sanitized filename; deleted attachments are not downloadable. |
 | PATCH | `/attachments/:id` | Update attachment notes | Yes | Yes | Implemented | Requires `attachments.manage`; active attachments only. |
 | DELETE | `/attachments/:id` | Soft-delete attachment | Yes | Yes | Implemented | Requires `attachments.delete`; marks `DELETED` and preserves metadata. |
-| GET | `/storage/readiness` | Storage provider readiness | Yes | Yes | Implemented | Requires `documentSettings.view` or `attachments.manage`; reports active attachment/generated-document providers, database warnings, max upload size, S3 config booleans, and no secret values. |
-| GET | `/storage/migration-plan` | Storage migration dry-run plan | Yes | Yes | Implemented | Requires `documentSettings.view` or `attachments.manage`; counts attachment/generated-document records and bytes by storage domain; does not copy, delete, or rewrite content. |
+| GET | `/storage/readiness` | Storage provider readiness | Yes | Yes | Implemented | Requires `documentSettings.view` or `attachments.manage`; reports active attachment/generated-document providers, database warnings, max upload size, S3 config booleans, S3 attachment configuration readiness, and no secret values. |
+| GET | `/storage/migration-plan` | Storage migration dry-run plan | Yes | Yes | Implemented | Requires `documentSettings.view` or `attachments.manage`; counts attachment/generated-document records and bytes by storage domain, includes target provider and compatibility migration flags, and does not copy, delete, or rewrite content. |
 
 ## ZATCA And SDK
 

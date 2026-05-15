@@ -336,6 +336,7 @@ enum AttachmentStorageProvider {
   DATABASE
   LOCAL_PLACEHOLDER
   S3_PLACEHOLDER
+  S3
 }
 
 enum AttachmentLinkedEntityType {

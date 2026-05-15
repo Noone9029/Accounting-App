@@ -36,7 +36,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 - Audit: standardized high-risk event names, metadata redaction, audit UI, CSV export, retention settings, dry-run preview.
 - Numbering: number sequence settings UI/API with safe future-only changes.
 - Email groundwork: mock/local outbox, invites, invite acceptance, password reset, provider readiness, DB-backed rate limits.
-- Storage groundwork: database storage default, S3-compatible readiness stubs, migration-plan dry run, storage settings UI.
+- Storage groundwork: database storage default, feature-flagged S3-compatible storage for new uploaded attachments, migration-plan dry run, storage settings UI.
 - QA: backend/frontend/ZATCA unit tests, deep API smoke script, Playwright browser E2E smoke suite, deployed E2E GitHub Actions workflow.
 - Deployment documentation: Vercel/Supabase setup, API root/health/readiness docs, CI database readiness, Supabase security review, deployed E2E runbook.
 
@@ -46,7 +46,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 - Banking: strong manual reconciliation, but no OFX/CAMT/MT940 parser, live feeds, auto-match, payment gateway, transfer fees, or FX handling.
 - Inventory accounting: safe manual posting exists, but no automatic posting, no landed cost, no FIFO cost layers, no serial/batch tracking, no inventory returns workflow, and no historical direct-mode migration.
 - Reports: broad operational reports exist, but official VAT return, filing exports, scheduled delivery, report pack controls, and accountant sign-off remain.
-- Attachments/storage: upload/download/soft-delete works, but database/base64 storage is not production-scale; no S3 adapter, migration executor, scanning, OCR, or retention policy.
+- Attachments/storage: upload/download/soft-delete works, new uploaded attachments can use S3-compatible storage when explicitly configured, but database/base64 remains the default and there is no migration executor, generated-document S3 path, scanning, OCR, or retention policy.
 - Email: mock/local flow works with rate limits, but no real provider delivery, retries, bounces, domain authentication, MFA, or session invalidation.
 - ZATCA: extensive local groundwork and docs exist, but official production path is not implemented.
 - Browser QA: route smoke exists and deployed E2E has run, but no visual regression, no full accounting assertions in browser, and no scheduled CI.
@@ -54,7 +54,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 ## Not Started
 
 - Real ZATCA signing, official XML validation, CSID onboarding, clearance, reporting, and PDF/A-3.
-- Real S3/object storage adapter and migration executor.
+- Real-bucket S3 validation, generated-document object storage, and database-to-S3 migration executor.
 - Real email provider delivery, bounce/retry worker, provider webhooks, and domain authentication.
 - Subscription billing, plans, tenant limits, and customer billing.
 - MFA, refresh-token rotation, advanced session invalidation, anomaly alerts.
@@ -66,7 +66,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 ## Production Blockers
 
 1. No production email provider or deliverability setup.
-2. Uploaded/generated documents still default to database/base64 storage.
+2. Uploaded/generated documents still default to database/base64 storage unless the attachment S3 provider is explicitly configured.
 3. No production backup/restore and monitoring runbooks proven against hosted infrastructure.
 4. No subscription billing, tenant limits, or SaaS account lifecycle.
 5. No MFA, advanced session controls, or formal security review.
@@ -93,7 +93,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 - No refresh-token rotation or advanced session invalidation.
 - No production email provider security controls or domain authentication.
 - No virus scanning for uploaded attachments.
-- No real object-storage permission model or signed URL policy.
+- No signed URL policy, generated-document object-storage path, or object lifecycle/retention enforcement.
 - No external immutable audit retention.
 - No anomaly detection or admin alerting for sensitive changes.
 - No production secrets/key custody design for ZATCA private keys.
@@ -135,7 +135,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 ## Recommended Next Development Focus
 
 1. Stabilize current UX: dashboard chart polish, error/empty states, route QA, and browser smoke expansion.
-2. Turn production groundwork into real infrastructure: S3 adapter, email provider, backup/restore, monitoring, and CI gates.
+2. Turn production groundwork into real infrastructure: S3 migration/generated-document storage, email provider, backup/restore, monitoring, and CI gates.
 3. Advance ZATCA through official SDK validation before signing or network calls.
 4. Add accountant-reviewed advanced accounting only after current report/dashboard/inventory policies are signed off.
 5. Add SaaS business layer after operational foundations are reliable.

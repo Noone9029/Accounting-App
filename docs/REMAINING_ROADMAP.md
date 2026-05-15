@@ -44,7 +44,7 @@ Tasks:
 
 - Supplier debit notes hardening and UI polish.
 - Purchase receiving QA, partial bill matching, and purchase matching hardening.
-- Cash expense import/OCR groundwork and production hardening for uploaded receipt attachments after the storage readiness plan is turned into a real object-storage adapter.
+- Cash expense import/OCR groundwork and production hardening for uploaded receipt attachments after the S3 adapter is validated against a real non-production bucket.
 - Bank account profile, transfer, opening-balance, statement import preview, and reconciliation UX polish.
 - Bank statement file-format samples, upload storage design using the storage readiness groundwork, and approval queue polish.
 - Transfer fees and multi-currency FX transfer handling.
@@ -134,7 +134,7 @@ Tasks:
 
 - Production deployment target and infrastructure-as-code.
 - Managed Postgres, backups, restore drills, and monitoring.
-- Implement the real S3-compatible adapter for generated documents and uploaded attachments using `docs/storage/*`, then add a resumable migration executor.
+- Validate the uploaded-attachment S3 adapter with a real non-production bucket, then implement generated-document object storage and a resumable DB-to-S3 migration executor.
 - Email provider and transactional templates.
 - WhatsApp provider integration if product requires it.
 - Subscription billing and plan enforcement.

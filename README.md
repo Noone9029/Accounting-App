@@ -14,7 +14,7 @@ This is an original implementation inspired by common accounting workflows. It d
 - Database: PostgreSQL + Prisma
 - Auth: JWT bearer auth
 - Queue target: BullMQ + Redis ready infrastructure
-- File storage target: S3-compatible storage env placeholders
+- File storage target: database default with feature-flagged S3-compatible uploaded-attachment storage
 - Testing: Jest
 - Browser E2E: Playwright
 
@@ -1398,24 +1398,25 @@ APIs:
 
 Supported file types are PDF, PNG, JPEG, WebP, CSV, XLSX, and XLS. Empty files, unsupported MIME types, invalid base64, and files above `ATTACHMENT_MAX_SIZE_MB` are rejected; the default size limit is 10 MB.
 
-The MVP storage provider is database/base64 through a storage abstraction. `LOCAL_PLACEHOLDER` and `S3_PLACEHOLDER` enum values reserve the future provider direction, and the API now exposes `GET /storage/readiness` plus `GET /storage/migration-plan` for S3-compatible readiness and dry-run migration planning. The active provider remains database by default; no S3/object-storage upload is active yet. Uploaded attachments validate tenant ownership for supported linked entities such as invoices, customer payments, credit notes, customer refunds, purchase bills, supplier payments, debit notes, supplier refunds, purchase orders, cash expenses, bank statement transactions, bank reconciliations, purchase receipts, sales stock issues, inventory adjustments, warehouse transfers, inventory variance proposals, contacts, items, and journal entries.
+The default storage provider is still database/base64 through a storage abstraction. A real S3-compatible adapter is available for new uploaded attachments only when `ATTACHMENT_STORAGE_PROVIDER=s3` and all required S3 variables are configured. S3-backed attachments store `storageProvider = S3`, an object `storageKey`, content hash, and size metadata while leaving `contentBase64` empty. Uploaded attachments validate tenant ownership for supported linked entities such as invoices, customer payments, credit notes, customer refunds, purchase bills, supplier payments, debit notes, supplier refunds, purchase orders, cash expenses, bank statement transactions, bank reconciliations, purchase receipts, sales stock issues, inventory adjustments, warehouse transfers, inventory variance proposals, contacts, items, and journal entries.
 
 Storage configuration:
 
-- `ATTACHMENT_STORAGE_PROVIDER=database`
+- `ATTACHMENT_STORAGE_PROVIDER=database` or `s3`
 - `GENERATED_DOCUMENT_STORAGE_PROVIDER=database`
 - `ATTACHMENT_MAX_SIZE_MB=10`
-- Future S3-compatible placeholders: `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE`, and `S3_PUBLIC_BASE_URL`.
+- S3-compatible attachment storage variables: `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE`, and optional `S3_PUBLIC_BASE_URL`.
 
-Storage readiness returns boolean S3 configuration checks only and does not expose secret values. The migration plan is dry-run only; it counts attachment and generated-document records and byte totals but does not copy, delete, or rewrite content.
+Storage readiness returns boolean S3 configuration checks only and does not expose secret values. The migration plan is dry-run only; it counts attachment and generated-document records and byte totals, reports the configured target provider, and does not copy, delete, or rewrite content.
 
 Known limitations:
 
-- Database/base64 storage remains active and is not production-scale.
-- No external S3/object storage upload adapter is active yet.
+- Database/base64 storage remains the default and is not production-scale.
+- S3 attachment storage requires real non-production bucket testing before production use.
 - No storage migration executor exists yet.
+- Generated documents still use database/base64 storage.
 - No OCR, receipt scanning, file parsing, or virus scanning exists yet.
-- No drag/drop polish, retention policy, email attachment sending, or ZATCA attachment submission exists yet.
+- No drag/drop polish, retention/lifecycle policy, email attachment sending, or ZATCA attachment submission exists yet.
 
 ## Email Delivery, Invitations, And Password Reset
 
@@ -1602,7 +1603,7 @@ Permission matrix categories:
 - Sandbox adapter scaffolding exists, but real network calls are intentionally disabled by default and official endpoint/payload mapping remains unverified.
 - Current ZATCA XML/QR/hash generation is local-only groundwork. The official reference inventory and code-gap map now exist, but implementation still must be verified against the SDK, schemas, Schematron rules, and current ZATCA/FATOORA sandbox behavior before production use.
 - PDF output is basic operational rendering only; no PDF/A-3, embedded XML, or template designer exists yet.
-- Generated PDFs and user-uploaded attachments are stored as base64 database records for local/dev groundwork; S3-compatible storage is planned before production scale.
+- Generated PDFs and existing user-uploaded attachments default to base64 database records for local/dev groundwork; new uploaded attachments can use S3-compatible storage when `ATTACHMENT_STORAGE_PROVIDER=s3` is explicitly configured.
 - GET PDF endpoints currently archive every download.
 - Unapplied overpayment application is manual only; there is no automatic credit matching yet.
 - Customer refunds are manual accounting records only; no payment gateway refund or bank reconciliation integration exists yet.
@@ -1615,8 +1616,8 @@ Permission matrix categories:
 - Recurring invoices are not implemented yet.
 - Bank reconciliation has local import preview/manual matching, approval, close-lock, and report export groundwork, but no live feed, OFX/CAMT/MT940 support, file upload storage, or auto-match yet.
 - Inventory warehouse, stock ledger, adjustment approval, warehouse transfer, manual purchase receipt, manual sales stock issue, valuation settings, manual COGS posting, manual compatible receipt asset posting, inventory clearing settings, purchase bill clearing-mode finalization, bill/receipt matching visibility, clearing reconciliation/variance reports, and operational reports exist, but no automatic COGS posting, no automatic purchase receipt asset posting, no direct-mode receipt posting, no automatic variance journals, automatic purchase/sales posting, landed cost, serial/batch tracking, or accounting-grade inventory financial reports are implemented yet.
-- BullMQ workers and S3 upload adapters are not wired yet.
-- Uploaded attachment storage is database-backed only; OCR, virus scanning, retention policies, email attachment sending, ZATCA attachment submission, and object-storage lifecycle are not implemented yet.
+- BullMQ workers, generated-document S3 storage, and DB-to-S3 migration executors are not wired yet.
+- Uploaded attachment storage remains database-backed by default; S3-compatible storage for new uploads requires explicit env configuration, and OCR, virus scanning, retention policies, email attachment sending, ZATCA attachment submission, signed URLs, and object-storage lifecycle are not implemented yet.
 - Email invitations and password reset use mock/local outbox delivery with DB-backed request rate limits; no real SMTP/API provider, MFA, or advanced session management exists yet.
 - Fine-grained approval workflows, dual control, and delegated approval chains are not implemented yet.
 - Audit logs now have admin UI, standardized high-risk events, filtered CSV export, dry-run retention controls, and number-sequence update coverage, but there is no immutable external audit store, scheduled export, automatic purge/archive executor, alerting, anomaly detection, or tamper-evident hash chain yet.

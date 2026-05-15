@@ -142,11 +142,11 @@ This document maps implemented accounting workflows to their journal entries, ba
 - API/UI: attachments are managed through `POST /attachments`, `GET /attachments`, `GET /attachments/:id`, `GET /attachments/:id/download`, `PATCH /attachments/:id`, and `DELETE /attachments/:id`, with reusable `AttachmentPanel` instances mounted on key sales, purchase, banking, and inventory detail pages.
 - Model: `Attachment` stores tenant-scoped metadata, sanitized filename, original filename, MIME type, size, SHA-256 content hash, storage provider marker, optional base64 content, soft-delete status, notes, and upload/delete actors.
 - Storage behavior:
-  - The active MVP provider is database/base64 storage behind an `AttachmentStorageService` abstraction.
+  - The active default provider is database/base64 storage behind an `AttachmentStorageService` abstraction.
   - `GET /storage/readiness` reports attachment and generated-document storage providers, max upload size, redacted S3 configuration checks, warnings, and blocking reasons without returning secret values.
   - `GET /storage/migration-plan` reports dry-run counts and byte totals for database-backed attachments and generated documents without copying, deleting, or rewriting content.
-  - The S3-compatible attachment adapter is a readiness/stub implementation only; it reports not-ready configuration and throws a clear error if selected before a real object-storage adapter is implemented.
-  - Future local/object storage provider markers exist, but no S3 dependency or external storage upload path is wired.
+  - The S3-compatible attachment adapter can be enabled with `ATTACHMENT_STORAGE_PROVIDER=s3`; it stores new uploads in the configured bucket under `org/{organizationId}/attachments/{attachmentId}/{safeFilename}` and leaves `contentBase64` empty.
+  - Generated documents remain separate in `GeneratedDocument` database/base64 storage and are not migrated to object storage yet.
 - Linked entity validation:
   - Upload verifies the linked entity exists in the active organization before writing metadata/content.
   - Supported entity types include invoices, payments, credit/debit notes, refunds, purchase orders/bills, cash expenses, bank statement transactions, bank reconciliations, purchase receipts, stock issues, inventory adjustments/transfers, inventory variance proposals, contacts, items, and manual journals.
@@ -156,7 +156,7 @@ This document maps implemented accounting workflows to their journal entries, ba
   - Attachments are evidence/supporting documents only; generated PDFs remain separate in `GeneratedDocument`.
 - Gaps/risks:
   - Database/base64 storage is not production-scale.
-  - No active S3/object-storage upload adapter or migration executor exists yet.
+  - No DB-to-S3 migration executor, generated-document object-storage path, signed URL policy, or real-bucket production validation exists yet.
   - No virus scanning, OCR, retention policy, drag/drop polish, email attachment sending, or ZATCA attachment submission exists yet.
 
 ## Inventory Warehouse, Adjustment, Receipt, Issue, And Transfer Groundwork

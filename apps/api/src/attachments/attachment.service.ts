@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { AttachmentLinkedEntityType, AttachmentStatus, Prisma } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -96,9 +96,11 @@ export class AttachmentService {
       throw new BadRequestException(`Attachment file exceeds the ${this.maxSizeMb()} MB limit.`);
     }
     const contentHash = createHash("sha256").update(buffer).digest("hex");
-    const stored = await this.storage.save({ buffer, filename, contentHash });
+    const attachmentId = randomUUID();
+    const stored = await this.storage.save({ buffer, filename, contentHash, organizationId, attachmentId, mimeType });
     const created = await this.prisma.attachment.create({
       data: {
+        id: attachmentId,
         organizationId,
         linkedEntityType: dto.linkedEntityType,
         linkedEntityId: dto.linkedEntityId,
