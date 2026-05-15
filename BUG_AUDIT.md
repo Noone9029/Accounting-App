@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Commit inspected: pending (`Add email readiness and auth token rate limits`)
+Commit inspected: pending (`Add browser E2E smoke suite`)
 
 ## Scope
 
@@ -36,6 +36,25 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Browser E2E smoke suite added
+
+Added a Playwright browser smoke suite for critical LedgerByte workflows without changing product behavior.
+
+Risk reduced:
+
+- `corepack pnpm e2e` now runs a repeatable browser smoke suite against local `http://localhost:3000` and `http://localhost:4000`.
+- E2E preflight checks fail with a clear "Start local API/web before running E2E." message if the app is not running.
+- Shared helpers cover seeded-admin login, app navigation, API discovery for detail pages, unique-name generation, and browser console/page error capture.
+- Browser coverage now includes auth/navigation, sales, purchases, banking, reports, inventory, attachments panel rendering, permissions/team pages, password reset/mock email outbox, ZATCA readiness, and storage readiness.
+- `docs/testing/BROWSER_E2E_TESTING.md` documents local setup, commands, environment overrides, coverage boundaries, and known limitations.
+
+Remaining testing risks:
+
+- Browser E2E does not replace deep accounting assertions; API smoke remains the source of truth for journal and financial behavior.
+- Attachment upload/download/delete and invite token acceptance remain API-smoke-owned for now.
+- No visual regression testing.
+- No CI wiring for Playwright yet.
 
 ### Email readiness and auth token rate limits added
 

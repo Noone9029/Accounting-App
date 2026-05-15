@@ -10,7 +10,7 @@ Tasks:
 
 - Run guided QA through every implemented frontend route.
 - Fix UX inconsistencies, especially supplier AP balance labels.
-- Add browser E2E tests for sales invoice, customer payment, credit note, customer refund, purchase order, purchase bill, supplier payment, document archive, and ZATCA settings flows.
+- Wire the new Playwright browser E2E smoke into CI and expand it where user-facing regressions are found.
 - Replace mock/local email invites and password reset with a real provider adapter, domain authentication, provider webhooks, and audit visibility for role/member administration.
 - Harden fiscal period UX with period templates, optional reversal-date selection, and admin unlock approval design.
 - Add accountant review pass for report layouts and exported report formats.

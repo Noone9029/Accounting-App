@@ -4,6 +4,8 @@ Audit date: 2026-05-15
 
 Route source: `apps/web/src/app`
 
+Browser smoke coverage: critical app routes now have Playwright smoke checks under `tests/e2e`. These checks validate route/form/readiness-panel stability and leave detailed accounting assertions to API smoke.
+
 ## Permission Behavior
 
 - App routes are wrapped in a permission provider that loads `/auth/me` and the active organization membership.

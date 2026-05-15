@@ -10,12 +10,19 @@ Run from repo root:
 corepack pnpm typecheck
 corepack pnpm test
 corepack pnpm build
+corepack pnpm e2e
 ```
 
 Optional live API smoke, only when local DB/API is running:
 
 ```bash
 corepack pnpm smoke:accounting
+```
+
+Optional browser smoke, only when local DB/API/web are running:
+
+```bash
+corepack pnpm e2e
 ```
 
 Database setup commands:
@@ -34,12 +41,14 @@ Test locations:
 - Frontend Jest tests: `apps/web/src/lib/*.test.ts`
 - ZATCA core Node tests: `packages/zatca-core/test/*.test.ts`
 - Smoke script: `apps/api/scripts/smoke-accounting.ts`
+- Browser E2E smoke: `tests/e2e/*.spec.ts`
 
-Latest known counts after `dd498c7`:
+Latest known counts from prior unit-test audits plus the browser E2E additions:
 
 - API: 20 test suites, 181 tests.
 - Web helper tests: 7 test suites, 40 tests.
 - ZATCA core: 2 suites, 12 tests.
+- Browser E2E smoke: 11 specs covering critical app surfaces.
 
 Audit verification run on 2026-05-12:
 
@@ -102,7 +111,7 @@ Current smoke verifies:
 
 ## What Is Not Covered
 
-- Browser-driven route interaction.
+- Browser-driven route interaction now has smoke-level Playwright coverage for critical surfaces.
 - Visual PDF rendering checks beyond endpoint validity.
 - Multi-user role/permission behavior.
 - Fiscal-period locking because it is not implemented.
@@ -121,7 +130,7 @@ Current smoke verifies:
 
 ## Recommended Test Improvements
 
-- Add Playwright or equivalent browser flows for invoices, payments, credit notes, purchase bills, supplier payments, documents, and ZATCA settings.
+- Wire Playwright browser smoke into CI and expand it where browser-only regressions are found.
 - Add report tests once financial reports are implemented.
 - Add load/concurrency tests for simultaneous invoice finalization, payment allocation, refund voiding, supplier payment allocation, and bill voiding.
 - Add PDF snapshot or text extraction tests for all document types.

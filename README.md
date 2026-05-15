@@ -14,6 +14,7 @@ This is an original implementation inspired by common accounting workflows. It d
 - Queue target: BullMQ + Redis ready infrastructure
 - File storage target: S3-compatible storage env placeholders
 - Testing: Jest
+- Browser E2E: Playwright
 
 ## Setup
 
@@ -41,6 +42,7 @@ pnpm dev
 pnpm build
 pnpm test
 pnpm typecheck
+pnpm e2e
 pnpm smoke:accounting
 pnpm db:migrate
 pnpm db:seed
@@ -125,6 +127,31 @@ The smoke covers seed login, `/auth/me` role permission visibility, role/member 
 The smoke also verifies document settings, PDF archive creation after invoice PDF generation, generated document archive download, user-uploaded attachment upload/list/download/soft-delete checks, and storage readiness/migration-plan dry-run checks without creating journals.
 
 On Windows, if `db:generate` fails with Prisma query engine `EPERM`, stop running API/dev Node processes and rerun it. This is usually a file lock on Prisma's generated client DLL.
+
+## Browser E2E Smoke
+
+Playwright browser smoke coverage lives in `tests/e2e` and runs against the local web/API apps. It checks the most important user-facing surfaces without replacing the deeper API smoke accounting assertions.
+
+Suggested local flow:
+
+```bash
+docker compose -f infra/docker-compose.yml up -d postgres redis
+corepack pnpm db:migrate
+corepack pnpm db:seed
+corepack pnpm dev
+corepack pnpm e2e
+```
+
+If Playwright reports a missing Chromium browser, run `corepack pnpm exec playwright install chromium` once on the machine.
+
+Optional overrides:
+
+```bash
+LEDGERBYTE_WEB_URL=http://localhost:3000 LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm e2e
+LEDGERBYTE_E2E_EMAIL=admin@example.com LEDGERBYTE_E2E_PASSWORD=Password123! corepack pnpm e2e
+```
+
+The E2E preflight fails clearly if the local API or web app is not running: `Start local API/web before running E2E.` See [docs/testing/BROWSER_E2E_TESTING.md](docs/testing/BROWSER_E2E_TESTING.md) for coverage and limitations.
 
 ## Project Audit / Current State
 
