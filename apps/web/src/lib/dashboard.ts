@@ -24,13 +24,18 @@ export type DashboardDrilldownKey =
   | "overdueInvoices"
   | "unpaidBills"
   | "overdueBills"
+  | "customerPayments"
+  | "supplierPayments"
   | "bankBalance"
+  | "bankReconciliations"
   | "unreconciledTransactions"
   | "lowStock"
+  | "negativeStock"
   | "clearingVariances"
   | "trialBalance"
   | "profitAndLoss"
   | "balanceSheet"
+  | "fiscalPeriods"
   | "zatcaReadiness"
   | "auditLogs"
   | "storage";
@@ -46,13 +51,18 @@ export const DASHBOARD_DRILLDOWN_LINKS: Record<DashboardDrilldownKey, DashboardD
   overdueInvoices: { label: "View aged receivables", href: "/reports/aged-receivables", permissions: [PERMISSIONS.reports.view] },
   unpaidBills: { label: "View bills", href: "/purchases/bills", permissions: [PERMISSIONS.purchaseBills.view] },
   overdueBills: { label: "View aged payables", href: "/reports/aged-payables", permissions: [PERMISSIONS.reports.view] },
+  customerPayments: { label: "View customer payments", href: "/sales/customer-payments", permissions: [PERMISSIONS.customerPayments.view] },
+  supplierPayments: { label: "View supplier payments", href: "/purchases/supplier-payments", permissions: [PERMISSIONS.supplierPayments.view] },
   bankBalance: { label: "View bank accounts", href: "/bank-accounts", permissions: [PERMISSIONS.bankAccounts.view] },
+  bankReconciliations: { label: "View bank accounts", href: "/bank-accounts", permissions: [PERMISSIONS.bankAccounts.view] },
   unreconciledTransactions: { label: "Review bank accounts", href: "/bank-accounts", permissions: [PERMISSIONS.bankAccounts.view] },
   lowStock: { label: "View low stock", href: "/inventory/reports/low-stock", permissions: [PERMISSIONS.inventory.view] },
+  negativeStock: { label: "View inventory balances", href: "/inventory/balances", permissions: [PERMISSIONS.inventory.view] },
   clearingVariances: { label: "View variances", href: "/inventory/reports/clearing-variance", permissions: [PERMISSIONS.inventory.view] },
   trialBalance: { label: "View trial balance", href: "/reports/trial-balance", permissions: [PERMISSIONS.reports.view] },
   profitAndLoss: { label: "View P&L", href: "/reports/profit-and-loss", permissions: [PERMISSIONS.reports.view] },
   balanceSheet: { label: "View balance sheet", href: "/reports/balance-sheet", permissions: [PERMISSIONS.reports.view] },
+  fiscalPeriods: { label: "View fiscal periods", href: "/fiscal-periods", permissions: [PERMISSIONS.fiscalPeriods.view] },
   zatcaReadiness: { label: "View ZATCA", href: "/settings/zatca", permissions: [PERMISSIONS.zatca.view] },
   auditLogs: { label: "View audit logs", href: "/settings/audit-logs", permissions: [PERMISSIONS.auditLogs.view] },
   storage: {

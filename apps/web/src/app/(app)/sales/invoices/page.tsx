@@ -131,8 +131,8 @@ export default function SalesInvoicesPage() {
       ) : null}
 
       {filteredInvoices.length > 0 ? (
-        <div className="mt-5 overflow-hidden rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full text-left text-sm">
+        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+          <table className="w-full min-w-[1280px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Number</th>

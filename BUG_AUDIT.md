@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Commit inspected: pending (`Add product audit v2 and roadmap`)
+Commit inspected: pending (`Polish frontend route QA states`)
 
 ## Scope
 
@@ -36,6 +36,24 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Frontend route QA polish pass
+
+Reviewed implemented frontend routes for route stability, stale links, permission-aware dashboard navigation, and narrow-screen table behavior without changing accounting or API business behavior.
+
+Risk reduced:
+
+- Static route inventory covered 111 `page.tsx` route patterns under `apps/web/src/app`.
+- Literal app-link sweep found no unmatched frontend app links after fixes.
+- Dashboard KPI and metric drill-downs now use the shared permission-aware drill-down helper for customer payments, supplier payments, bank account/reconciliation review, negative stock, and fiscal periods.
+- The stale dashboard `/bank-reconciliations` link was replaced with the existing `/bank-accounts` review route.
+- Accounts, contacts, branches, tax rates, fiscal periods, manual journals, and sales invoices now use horizontal table overflow wrappers with stable minimum widths on narrow screens.
+
+Remaining risks:
+
+- Browser E2E remains smoke-level and does not replace full visual regression testing.
+- Dynamic detail pages still need periodic manual responsive review as data volumes grow.
+- No custom empty/error-state component refactor was added in this pass because existing route-local states were already present across the reviewed surfaces.
 
 ### Dashboard charts and drilldowns added
 

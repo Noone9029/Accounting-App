@@ -48,13 +48,18 @@ export default function DashboardPage() {
       overdueInvoices: dashboardDrilldownLink("overdueInvoices", activeMembership),
       unpaidBills: dashboardDrilldownLink("unpaidBills", activeMembership),
       overdueBills: dashboardDrilldownLink("overdueBills", activeMembership),
+      customerPayments: dashboardDrilldownLink("customerPayments", activeMembership),
+      supplierPayments: dashboardDrilldownLink("supplierPayments", activeMembership),
       bankBalance: dashboardDrilldownLink("bankBalance", activeMembership),
+      bankReconciliations: dashboardDrilldownLink("bankReconciliations", activeMembership),
       unreconciledTransactions: dashboardDrilldownLink("unreconciledTransactions", activeMembership),
       lowStock: dashboardDrilldownLink("lowStock", activeMembership),
+      negativeStock: dashboardDrilldownLink("negativeStock", activeMembership),
       clearingVariances: dashboardDrilldownLink("clearingVariances", activeMembership),
       trialBalance: dashboardDrilldownLink("trialBalance", activeMembership),
       profitAndLoss: dashboardDrilldownLink("profitAndLoss", activeMembership),
       balanceSheet: dashboardDrilldownLink("balanceSheet", activeMembership),
+      fiscalPeriods: dashboardDrilldownLink("fiscalPeriods", activeMembership),
       zatcaReadiness: dashboardDrilldownLink("zatcaReadiness", activeMembership),
       auditLogs: dashboardDrilldownLink("auditLogs", activeMembership),
       storage: dashboardDrilldownLink("storage", activeMembership),
@@ -181,13 +186,13 @@ export default function DashboardPage() {
                     {
                       label: "Customer payments",
                       value: formatDashboardMoney(summary.sales.customerPaymentThisMonth, summary.currency),
-                      href: "/sales/customer-payments",
+                      href: drilldownLinks.customerPayments?.href,
                     },
                     { label: "Purchases this month", value: formatDashboardMoney(summary.purchases.purchasesThisMonth, summary.currency), href: drilldownLinks.unpaidBills?.href },
                     {
                       label: "Supplier payments",
                       value: formatDashboardMoney(summary.purchases.supplierPaymentThisMonth, summary.currency),
-                      href: "/purchases/supplier-payments",
+                      href: drilldownLinks.supplierPayments?.href,
                     },
                   ]}
                 />
@@ -219,11 +224,11 @@ export default function DashboardPage() {
                     {
                       label: "Latest reconciliation",
                       value: summary.banking.latestReconciliationDate ? formatOptionalDate(summary.banking.latestReconciliationDate, "-") : "-",
-                      href: "/bank-reconciliations",
+                      href: drilldownLinks.bankReconciliations?.href,
                     },
                     { label: "Low-stock items", value: String(summary.inventory.lowStockCount), href: drilldownLinks.lowStock?.href },
                     { label: "Clearing variances", value: String(summary.inventory.clearingVarianceCount), href: drilldownLinks.clearingVariances?.href },
-                    { label: "Negative-stock items", value: String(summary.inventory.negativeStockCount), href: "/inventory/balances" },
+                    { label: "Negative-stock items", value: String(summary.inventory.negativeStockCount), href: drilldownLinks.negativeStock?.href },
                   ]}
                 />
                 <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -237,7 +242,7 @@ export default function DashboardPage() {
                   items={[
                     { label: "ZATCA production ready", value: summary.compliance.zatcaProductionReady ? "Yes" : "No", href: drilldownLinks.zatcaReadiness?.href },
                     { label: "ZATCA blockers", value: String(summary.compliance.zatcaBlockingReasonCount), href: drilldownLinks.zatcaReadiness?.href },
-                    { label: "Locked fiscal periods", value: String(summary.compliance.fiscalPeriodsLockedCount), href: "/fiscal-periods" },
+                    { label: "Locked fiscal periods", value: String(summary.compliance.fiscalPeriodsLockedCount), href: drilldownLinks.fiscalPeriods?.href },
                     { label: "Audit logs this month", value: String(summary.compliance.auditLogCountThisMonth), href: drilldownLinks.auditLogs?.href },
                     { label: "Balance sheet", value: dashboardHealthLabel(summary.reports.balanceSheetBalanced), href: drilldownLinks.balanceSheet?.href },
                   ]}

@@ -32,10 +32,24 @@ describe("dashboard helpers", () => {
   });
 
   it("resolves drill-down links by permission", () => {
-    const subject = { role: { permissions: [PERMISSIONS.salesInvoices.view, PERMISSIONS.inventory.view] } };
+    const subject = {
+      role: {
+        permissions: [
+          PERMISSIONS.salesInvoices.view,
+          PERMISSIONS.customerPayments.view,
+          PERMISSIONS.bankAccounts.view,
+          PERMISSIONS.fiscalPeriods.view,
+          PERMISSIONS.inventory.view,
+        ],
+      },
+    };
 
     expect(dashboardDrilldownLink("unpaidInvoices", subject)?.href).toBe("/sales/invoices");
+    expect(dashboardDrilldownLink("customerPayments", subject)?.href).toBe("/sales/customer-payments");
+    expect(dashboardDrilldownLink("bankReconciliations", subject)?.href).toBe("/bank-accounts");
     expect(dashboardDrilldownLink("lowStock", subject)?.href).toBe("/inventory/reports/low-stock");
+    expect(dashboardDrilldownLink("negativeStock", subject)?.href).toBe("/inventory/balances");
+    expect(dashboardDrilldownLink("fiscalPeriods", subject)?.href).toBe("/fiscal-periods");
     expect(dashboardDrilldownLink("profitAndLoss", subject)).toBeNull();
   });
 

@@ -50,6 +50,13 @@ Latest known counts from the dashboard checkpoint:
 - ZATCA core: 2 suites, 12 tests.
 - Browser E2E smoke: 11 specs covering critical app surfaces.
 
+Route QA polish pass on 2026-05-15:
+
+- Static route inventory covered 111 frontend `page.tsx` route patterns.
+- Literal app-link sweep found no unmatched frontend app links after replacing the stale dashboard reconciliation URL.
+- Focused dashboard helper test verifies permission-aware drill-down links for customer payments, bank account/reconciliation review, negative stock, fiscal periods, and restricted P&L visibility.
+- Responsive table polish was applied to older list routes that still clipped wide tables instead of allowing horizontal scrolling.
+
 Audit verification run on 2026-05-15:
 
 - `corepack pnpm typecheck`: passed.
@@ -85,6 +92,7 @@ Audit verification run on 2026-05-15:
 - PDF download URL helpers.
 - ZATCA display/readiness helpers.
 - Dashboard KPI formatting, attention labels, quick-action visibility, and empty-state helpers.
+- Dashboard drill-down visibility and route helper coverage.
 - Number sequence settings helpers.
 - Audit export/retention helpers.
 
@@ -122,6 +130,7 @@ Current smoke verifies:
 ## What Is Not Covered
 
 - Browser-driven route interaction has smoke-level Playwright coverage for critical surfaces, but it intentionally avoids deep accounting assertions.
+- Route QA is still smoke/static focused; it does not replace visual regression testing or manual responsive review on every dynamic detail page.
 - Visual PDF rendering checks beyond endpoint validity.
 - Full multi-user role/permission behavior across every route.
 - Full visual regression coverage.

@@ -6,6 +6,13 @@ Route source: `apps/web/src/app`
 
 Browser smoke coverage: critical app routes now have Playwright smoke checks under `tests/e2e`. These checks validate route/form/readiness-panel stability and leave detailed accounting assertions to API smoke.
 
+Route QA polish pass on 2026-05-15:
+
+- Static app-route sweep covered 111 `page.tsx` route patterns and found no unmatched literal app links after the dashboard fix.
+- Dashboard KPI and metric drill-downs now use the shared permission-aware drill-down map instead of hardcoded links.
+- The stale dashboard link to `/bank-reconciliations` was replaced with the existing bank accounts review route.
+- Older high-traffic list tables for accounts, contacts, branches, tax rates, fiscal periods, manual journals, and sales invoices now use horizontal overflow wrappers and stable minimum widths for narrow screens.
+
 ## Permission Behavior
 
 - App routes are wrapped in a permission provider that loads `/auth/me` and the active organization membership.
@@ -167,7 +174,7 @@ Inventory routes are operational by default and clearly warn that opening balanc
 
 ## Route-Level Risks
 
-- Most implemented routes use API helper errors, but full browser E2E coverage is not yet present.
+- Most implemented routes use API helper errors and smoke-level Playwright coverage, but this is not full visual regression testing.
 - Supplier ledger/statement views use the same table component as customer ledgers; AP-specific wording should be refined.
 - Settings and document routes are operational but not production-grade administration screens.
 - Permission gating is MVP-grade UI hardening only; backend guards remain the source of truth.
