@@ -37,6 +37,25 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Dashboard charts and drilldowns added
+
+Added lightweight dashboard chart widgets and permission-aware KPI drill-down links without changing accounting behavior or report calculations.
+
+Risk reduced:
+
+- `GET /dashboard/summary` now includes last-six-month sales, purchases, net profit, and cash balance trend arrays.
+- The summary response includes AR/AP aging buckets and a low-stock watchlist for dashboard widgets.
+- `/dashboard` renders simple CSS/HTML trend bars, aging bars, low-stock rows, severity grouping, last-updated text, and "View report" links.
+- KPI cards and attention rows link to existing review/report pages where the active role has the needed permission.
+- Smoke checks now verify the trend/aging payload shape and sensitive-field exclusion.
+
+Remaining risks:
+
+- No customizable dashboard or saved widget preferences.
+- No advanced charting, forecasting, or visual regression testing.
+- KPI and alert definitions still need accountant/product review before production reliance.
+- Dashboard remains read-only and does not replace detailed reports, ledgers, or reconciliations.
+
 ### Product Audit v2 completed
 
 Added a current-state Product Audit v2, readiness scorecard, and prioritized next-30-prompts roadmap after the latest dashboard, audit, inventory, storage, email, E2E, and deployment-readiness work.
@@ -64,7 +83,7 @@ Current top 10 risks:
 
 Next recommended prompt:
 
-> Add dashboard chart widgets and KPI drill-down links using existing dashboard summary/report data without changing accounting behavior.
+> Run a full route QA polish pass across implemented LedgerByte screens, fixing only real loading, empty, error, permission, and responsive UI defects without changing accounting behavior.
 
 ### Dashboard KPI overview added
 
@@ -80,7 +99,7 @@ Risk reduced:
 Remaining risks:
 
 - No customizable dashboard.
-- No charts or historical trends.
+- No advanced charting, saved widget preferences, or accountant-approved chart thresholds.
 - KPI definitions need accountant/product review before production reliance.
 - Dashboard is read-only and does not replace detailed reports, ledgers, or reconciliations.
 

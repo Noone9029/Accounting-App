@@ -221,6 +221,28 @@ export interface DashboardAttentionItem {
   href: string;
 }
 
+export interface DashboardTrendPoint {
+  month: string;
+  amount: string;
+}
+
+export interface DashboardCashTrendPoint {
+  date: string;
+  balance: string;
+}
+
+export interface DashboardAgingBucket {
+  bucket: string;
+  amount: string;
+}
+
+export interface DashboardLowStockItem {
+  itemId: string;
+  name: string;
+  quantityOnHand: string;
+  reorderPoint: string;
+}
+
 export interface DashboardSummary {
   asOf: string;
   currency: string;
@@ -252,11 +274,22 @@ export interface DashboardSummary {
     negativeStockCount: number;
     inventoryEstimatedValue: string;
     clearingVarianceCount: number;
+    lowStockItems: DashboardLowStockItem[];
   };
   reports: {
     trialBalanceBalanced: boolean;
     profitAndLossNetProfit: string;
     balanceSheetBalanced: boolean;
+  };
+  trends: {
+    monthlySales: DashboardTrendPoint[];
+    monthlyPurchases: DashboardTrendPoint[];
+    monthlyNetProfit: DashboardTrendPoint[];
+    cashBalanceTrend: DashboardCashTrendPoint[];
+  };
+  aging: {
+    receivablesBuckets: DashboardAgingBucket[];
+    payablesBuckets: DashboardAgingBucket[];
   };
   compliance: {
     zatcaProductionReady: boolean;

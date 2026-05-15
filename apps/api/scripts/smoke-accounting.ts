@@ -327,17 +327,29 @@ interface GeneralLedgerReport {
   }>;
 }
 
-interface DashboardSummary {
-  asOf: string;
-  currency: string;
-  sales: Record<string, unknown>;
-  purchases: Record<string, unknown>;
-  banking: Record<string, unknown>;
-  inventory: Record<string, unknown>;
-  reports: Record<string, unknown>;
-  compliance: Record<string, unknown>;
-  attentionItems: Array<{
-    type: string;
+  interface DashboardSummary {
+    asOf: string;
+    currency: string;
+    sales: Record<string, unknown>;
+    purchases: Record<string, unknown>;
+    banking: Record<string, unknown>;
+    inventory: Record<string, unknown> & {
+      lowStockItems?: unknown[];
+    };
+    reports: Record<string, unknown>;
+    trends: {
+      monthlySales: unknown[];
+      monthlyPurchases: unknown[];
+      monthlyNetProfit: unknown[];
+      cashBalanceTrend: unknown[];
+    };
+    aging: {
+      receivablesBuckets: unknown[];
+      payablesBuckets: unknown[];
+    };
+    compliance: Record<string, unknown>;
+    attentionItems: Array<{
+      type: string;
     severity: string;
     title: string;
     description: string;
@@ -4256,6 +4268,16 @@ async function main(): Promise<void> {
   for (const section of ["sales", "purchases", "banking", "inventory", "reports", "compliance"] as const) {
     assert(typeof dashboardSummary[section] === "object" && dashboardSummary[section] !== null, `dashboard summary ${section} section exists`);
   }
+  assert(typeof dashboardSummary.trends === "object" && dashboardSummary.trends !== null, "dashboard summary trends section exists");
+  assert(Array.isArray(dashboardSummary.trends.monthlySales), "dashboard monthly sales trend is an array");
+  assert(Array.isArray(dashboardSummary.trends.monthlyPurchases), "dashboard monthly purchases trend is an array");
+  assert(Array.isArray(dashboardSummary.trends.monthlyNetProfit), "dashboard monthly net profit trend is an array");
+  assert(Array.isArray(dashboardSummary.trends.cashBalanceTrend), "dashboard cash balance trend is an array");
+  assert(dashboardSummary.trends.monthlySales.length === 6, "dashboard monthly sales trend returns six months");
+  assert(typeof dashboardSummary.aging === "object" && dashboardSummary.aging !== null, "dashboard aging section exists");
+  assert(Array.isArray(dashboardSummary.aging.receivablesBuckets), "dashboard receivables aging buckets exist");
+  assert(Array.isArray(dashboardSummary.aging.payablesBuckets), "dashboard payables aging buckets exist");
+  assert(Array.isArray(dashboardSummary.inventory.lowStockItems), "dashboard low-stock item list exists");
   assert(Array.isArray(dashboardSummary.attentionItems), "dashboard summary attentionItems is an array");
   const serializedDashboardSummary = JSON.stringify(dashboardSummary);
   assert(!/password|tokenHash|contentBase64|DATABASE_URL|JWT_SECRET/i.test(serializedDashboardSummary), "dashboard summary does not expose sensitive fields");
@@ -4497,6 +4519,8 @@ async function main(): Promise<void> {
         dashboardSummaryChecked: true,
         dashboardAttentionCount: dashboardSummary.attentionItems.length,
         dashboardCurrency: dashboardSummary.currency,
+        dashboardMonthlySalesTrendPoints: dashboardSummary.trends.monthlySales.length,
+        dashboardReceivablesAgingBuckets: dashboardSummary.aging.receivablesBuckets.length,
         archivedInvoicePdfId: archivedInvoicePdf.id,
         archivedCreditNotePdfId: archivedCreditNotePdf.id,
         finalInvoiceBalance: afterSecondPaymentVoid.balanceDue,

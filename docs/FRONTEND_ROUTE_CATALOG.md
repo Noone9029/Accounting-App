@@ -31,7 +31,7 @@ Browser smoke coverage: critical app routes now have Playwright smoke checks und
 
 | Route | Purpose | Data fetched | Actions | Status | Missing UX pieces |
 | --- | --- | --- | --- | --- | --- |
-| `/dashboard` | Business overview dashboard. | `/dashboard/summary`. | Review KPI cards, AR/AP/banking/inventory/compliance sections, attention items, and permission-gated quick actions. | Implemented | No charting, trend history, customizable layout, or accountant-reviewed KPI definitions yet. |
+| `/dashboard` | Business overview dashboard. | `/dashboard/summary`. | Review KPI cards, lightweight trend/aging charts, AR/AP/banking/inventory/compliance sections, attention items, permission-aware drill-down links, and permission-gated quick actions. | Implemented | No customizable layout, advanced charting, saved widgets, or accountant-reviewed KPI definitions yet. |
 | `/accounts` | Chart of accounts. | Accounts. | Create/update/delete accounts. | Implemented | Hierarchical drag/drop and COA templates missing. |
 | `/bank-accounts` | Bank/cash account profile list. | Bank account profiles with linked accounts and ledger summaries. | View detail, create profile, archive/reactivate when allowed. | Implemented | No live feed, transfer fee, or FX workflow. |
 | `/bank-accounts/new` | Link bank account profile. | Accounts and existing profiles. | Create profile for an unlinked active posting asset account. | Implemented | Cannot create chart account inline. |

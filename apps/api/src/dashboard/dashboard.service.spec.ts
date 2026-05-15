@@ -36,11 +36,21 @@ describe("DashboardService", () => {
       },
       journalLine: {
         findMany: jest.fn().mockResolvedValue([
-          { debit: new Prisma.Decimal("120.0000"), credit: new Prisma.Decimal("0.0000") },
-          { debit: new Prisma.Decimal("0.0000"), credit: new Prisma.Decimal("10.0000") },
+          {
+            debit: new Prisma.Decimal("120.0000"),
+            credit: new Prisma.Decimal("0.0000"),
+            journalEntry: { entryDate: new Date("2026-05-01T00:00:00.000Z") },
+          },
+          {
+            debit: new Prisma.Decimal("0.0000"),
+            credit: new Prisma.Decimal("10.0000"),
+            journalEntry: { entryDate: new Date("2026-05-02T00:00:00.000Z") },
+          },
         ]),
       },
-      item: { findMany: jest.fn().mockResolvedValue([{ id: "item-1", reorderPoint: new Prisma.Decimal("10.0000") }]) },
+      item: {
+        findMany: jest.fn().mockResolvedValue([{ id: "item-1", name: "E2E Widget", reorderPoint: new Prisma.Decimal("10.0000") }]),
+      },
       stockMovement: {
         findMany: jest.fn().mockResolvedValue([
           {
@@ -66,6 +76,12 @@ describe("DashboardService", () => {
       trialBalance: jest.fn().mockResolvedValue({ totals: { balanced: true } }),
       profitAndLoss: jest.fn().mockResolvedValue({ netProfit: "42.0000" }),
       balanceSheet: jest.fn().mockResolvedValue({ balanced: true }),
+      agedReceivables: jest.fn().mockResolvedValue({
+        bucketTotals: { CURRENT: "10.0000", "1_30": "5.0000", "31_60": "0.0000", "61_90": "0.0000", "90_PLUS": "0.0000" },
+      }),
+      agedPayables: jest.fn().mockResolvedValue({
+        bucketTotals: { CURRENT: "3.0000", "1_30": "2.0000", "31_60": "0.0000", "61_90": "0.0000", "90_PLUS": "0.0000" },
+      }),
     };
     const clearingReportService = {
       clearingVarianceReport: jest.fn().mockResolvedValue({ summary: { rowCount: 1 } }),
@@ -107,11 +123,36 @@ describe("DashboardService", () => {
     expect(summary.banking.totalBankBalance).toBe("110.0000");
     expect(summary.inventory.lowStockCount).toBe(1);
     expect(summary.inventory.inventoryEstimatedValue).toBe("20.0000");
+    expect(summary.inventory.lowStockItems).toEqual([
+      {
+        itemId: "item-1",
+        name: "E2E Widget",
+        quantityOnHand: "5.0000",
+        reorderPoint: "10.0000",
+      },
+    ]);
     expect(summary.reports).toEqual({
       trialBalanceBalanced: true,
       profitAndLossNetProfit: "42.0000",
       balanceSheetBalanced: true,
     });
+    expect(summary.trends.monthlySales).toHaveLength(6);
+    expect(summary.trends.monthlySales.at(-1)).toEqual({ month: "2026-05", amount: "100.0000" });
+    expect(summary.trends.monthlyPurchases.at(-1)).toEqual({ month: "2026-05", amount: "50.0000" });
+    expect(summary.trends.monthlyNetProfit).toHaveLength(6);
+    expect(summary.trends.cashBalanceTrend.at(-1)).toEqual({ date: "2026-05-01", balance: "110.0000" });
+    expect(summary.aging.receivablesBuckets).toEqual(
+      expect.arrayContaining([
+        { bucket: "Current", amount: "10.0000" },
+        { bucket: "1-30", amount: "5.0000" },
+      ]),
+    );
+    expect(summary.aging.payablesBuckets).toEqual(
+      expect.arrayContaining([
+        { bucket: "Current", amount: "3.0000" },
+        { bucket: "1-30", amount: "2.0000" },
+      ]),
+    );
     expect(summary.attentionItems.map((item) => item.type)).toEqual(
       expect.arrayContaining([
         "OVERDUE_INVOICES",
@@ -149,6 +190,9 @@ describe("DashboardService", () => {
     expect(summary.purchases.unpaidBillCount).toBe(0);
     expect(summary.banking.bankAccountCount).toBe(0);
     expect(summary.inventory.trackedItemCount).toBe(0);
+    expect(summary.trends.monthlySales).toHaveLength(6);
+    expect(summary.trends.cashBalanceTrend.every((point) => point.balance === "0.0000")).toBe(true);
+    expect(summary.aging.receivablesBuckets).toHaveLength(5);
     expect(summary.attentionItems.map((item) => item.type)).toContain("FISCAL_PERIOD_MISSING");
   });
 });

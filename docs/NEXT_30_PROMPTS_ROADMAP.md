@@ -8,21 +8,21 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 
 ## Phase 1: Stabilization And UX Polish
 
-### 1. Add dashboard chart widgets and KPI drill-down links
-
-- Objective: Add trend charts, drill-down links, and reviewed empty states for dashboard KPIs.
-- Why it matters: The new dashboard is useful but still snapshot-only.
-- Dependencies: Existing `/dashboard/summary`, report routes.
-- Risk level: Low.
-- Manual credentials needed: No.
-
-### 2. Run a full route QA polish pass
+### 1. Run a full route QA polish pass
 
 - Objective: Inspect every implemented route for loading, empty, error, and permission states; fix only real UI defects.
 - Why it matters: The app is wide enough that route-level polish matters before beta.
 - Dependencies: Browser E2E suite and seeded data.
 - Risk level: Medium.
 - Manual credentials needed: No.
+
+### 2. Add dashboard customization and accountant-reviewed KPI definitions
+
+- Objective: Review dashboard KPI definitions with an accountant/product owner, then add saved widget preferences only after definitions are approved.
+- Why it matters: The dashboard now has charts and drill-downs, but production reliance needs reviewed definitions and configurable presentation.
+- Dependencies: Existing `/dashboard/summary`, report routes, accountant/product input.
+- Risk level: Medium.
+- Manual credentials needed: Accountant/product input.
 
 ### 3. Expand browser E2E for critical create/detail flows
 

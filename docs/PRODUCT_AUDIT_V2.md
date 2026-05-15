@@ -24,7 +24,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 
 - Auth foundation: register, login, JWT, `/auth/me`, organization membership context.
 - Team and role management: role permissions, member invite/status/role changes, permission-aware frontend.
-- Dashboard: read-only business overview with KPIs, attention items, and quick actions.
+- Dashboard: read-only business overview with KPIs, lightweight trend/aging charts, permission-aware drill-down links, attention items, and quick actions.
 - Core accounting: chart of accounts, manual journals, posting/reversal, fiscal-period guard.
 - Sales/AR: invoices, payments, unapplied payment application, credit notes, refunds, customer ledgers/statements, PDFs.
 - Purchases/AP: purchase orders, bills, supplier payments, debit notes, refunds, cash expenses, supplier ledgers/statements, PDFs.
@@ -42,7 +42,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 
 ## Partial Modules
 
-- Dashboard analytics: useful read-only snapshot, but no trends, charts, customization, accountant-approved KPI definitions, or drill-down charts.
+- Dashboard analytics: useful read-only snapshot with lightweight charts and drill-down links, but no customization, saved widgets, advanced charting, or accountant-approved KPI definitions.
 - Banking: strong manual reconciliation, but no OFX/CAMT/MT940 parser, live feeds, auto-match, payment gateway, transfer fees, or FX handling.
 - Inventory accounting: safe manual posting exists, but no automatic posting, no landed cost, no FIFO cost layers, no serial/batch tracking, no inventory returns workflow, and no historical direct-mode migration.
 - Reports: broad operational reports exist, but official VAT return, filing exports, scheduled delivery, report pack controls, and accountant sign-off remain.
@@ -101,7 +101,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 
 ## UX Blockers
 
-- Dashboard lacks drill-down charts and trend context.
+- Dashboard has lightweight drill-downs and trend context, but still needs advanced charting, saved preferences, and accountant-approved KPI definitions.
 - Many list pages need filters, saved views, bulk actions, and clearer empty states.
 - Supplier AP balance wording should be accountant-reviewed.
 - Error recovery and validation messages need a product-wide pass.
@@ -134,7 +134,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 
 ## Recommended Next Development Focus
 
-1. Stabilize current UX: dashboard drill-downs, error/empty states, route QA, and browser smoke expansion.
+1. Stabilize current UX: dashboard chart polish, error/empty states, route QA, and browser smoke expansion.
 2. Turn production groundwork into real infrastructure: S3 adapter, email provider, backup/restore, monitoring, and CI gates.
 3. Advance ZATCA through official SDK validation before signing or network calls.
 4. Add accountant-reviewed advanced accounting only after current report/dashboard/inventory policies are signed off.

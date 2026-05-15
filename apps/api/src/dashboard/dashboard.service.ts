@@ -22,6 +22,13 @@ import { StorageService } from "../storage/storage.service";
 import { getZatcaProfileReadiness } from "../zatca/zatca.service";
 
 const REPORT_LEDGER_STATUSES = [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED];
+const AGING_BUCKET_LABELS = {
+  CURRENT: "Current",
+  "1_30": "1-30",
+  "31_60": "31-60",
+  "61_90": "61-90",
+  "90_PLUS": "90+",
+} as const;
 
 type AttentionSeverity = "info" | "warning" | "critical";
 
@@ -31,6 +38,12 @@ interface AttentionItem {
   title: string;
   description: string;
   href: string;
+}
+
+interface DashboardMonth {
+  key: string;
+  start: Date;
+  end: Date;
 }
 
 @Injectable()
@@ -48,18 +61,21 @@ export class DashboardService {
     const monthStart = startOfUtcMonth(now);
     const monthStartLabel = dateOnly(monthStart);
     const asOfLabel = dateOnly(now);
+    const trendMonths = lastSixUtcMonths(now);
     const organization = await this.prisma.organization.findFirst({
       where: { id: organizationId },
       select: { id: true, baseCurrency: true },
     });
     const currency = organization?.baseCurrency ?? "SAR";
 
-    const [sales, purchases, banking, inventory, reports, compliance, storageReadiness] = await Promise.all([
+    const [sales, purchases, banking, inventory, reports, trends, aging, compliance, storageReadiness] = await Promise.all([
       this.salesSummary(organizationId, monthStart, todayStart),
       this.purchaseSummary(organizationId, monthStart, todayStart),
       this.bankingSummary(organizationId),
       this.inventorySummary(organizationId),
       this.reportSummary(organizationId, monthStartLabel, asOfLabel),
+      this.trendSummary(organizationId, trendMonths),
+      this.agingSummary(organizationId, asOfLabel),
       this.complianceSummary(organizationId, monthStart, now),
       Promise.resolve(this.storageService.readiness()),
     ]);
@@ -72,6 +88,8 @@ export class DashboardService {
       banking,
       inventory,
       reports,
+      trends,
+      aging,
       compliance: {
         zatcaProductionReady: compliance.zatcaProductionReady,
         zatcaBlockingReasonCount: compliance.zatcaBlockingReasonCount,
@@ -175,11 +193,112 @@ export class DashboardService {
     };
   }
 
+  private async trendSummary(organizationId: string, months: DashboardMonth[]) {
+    const firstMonth = months[0];
+    const lastMonth = months[months.length - 1];
+    if (!firstMonth || !lastMonth) {
+      return { monthlySales: [], monthlyPurchases: [], monthlyNetProfit: [], cashBalanceTrend: [] };
+    }
+
+    const [invoices, bills, profitAndLossReports, cashBalanceTrend] = await Promise.all([
+      this.prisma.salesInvoice.findMany({
+        where: {
+          organizationId,
+          status: SalesInvoiceStatus.FINALIZED,
+          issueDate: { gte: firstMonth.start, lte: lastMonth.end },
+        },
+        select: { issueDate: true, total: true },
+      }),
+      this.prisma.purchaseBill.findMany({
+        where: {
+          organizationId,
+          status: PurchaseBillStatus.FINALIZED,
+          billDate: { gte: firstMonth.start, lte: lastMonth.end },
+        },
+        select: { billDate: true, total: true },
+      }),
+      Promise.all(
+        months.map((month) =>
+          this.reportsService.profitAndLoss(organizationId, {
+            from: dateOnly(month.start),
+            to: dateOnly(month.end),
+          }),
+        ),
+      ),
+      this.cashBalanceTrend(organizationId, months),
+    ]);
+
+    const salesByMonth = monthlyTotals(
+      months,
+      invoices,
+      (invoice) => invoice.issueDate,
+      (invoice) => invoice.total,
+    );
+    const purchasesByMonth = monthlyTotals(
+      months,
+      bills,
+      (bill) => bill.billDate,
+      (bill) => bill.total,
+    );
+
+    return {
+      monthlySales: months.map((month) => ({ month: month.key, amount: this.decimalString(salesByMonth.get(month.key) ?? 0) })),
+      monthlyPurchases: months.map((month) => ({ month: month.key, amount: this.decimalString(purchasesByMonth.get(month.key) ?? 0) })),
+      monthlyNetProfit: months.map((month, index) => ({
+        month: month.key,
+        amount: this.decimalString(profitAndLossReports[index]?.netProfit ?? 0),
+      })),
+      cashBalanceTrend,
+    };
+  }
+
+  private async cashBalanceTrend(organizationId: string, months: DashboardMonth[]) {
+    const accountIds = (
+      await this.prisma.bankAccountProfile.findMany({
+        where: { organizationId, status: BankAccountStatus.ACTIVE },
+        select: { accountId: true },
+      })
+    ).map((profile) => profile.accountId);
+
+    if (accountIds.length === 0) {
+      return months.map((month) => ({ date: dateOnly(month.start), balance: "0.0000" }));
+    }
+
+    const latestEnd = months[months.length - 1]?.end;
+    const lines = await this.prisma.journalLine.findMany({
+      where: {
+        organizationId,
+        accountId: { in: accountIds },
+        journalEntry: {
+          status: { in: REPORT_LEDGER_STATUSES },
+          ...(latestEnd ? { entryDate: { lte: latestEnd } } : {}),
+        },
+      },
+      select: {
+        debit: true,
+        credit: true,
+        journalEntry: { select: { entryDate: true } },
+      },
+    });
+
+    return months.map((month) => {
+      const balance = lines.reduce((total, line) => {
+        const entryDate = line.journalEntry?.entryDate ? new Date(line.journalEntry.entryDate) : null;
+        if (entryDate && entryDate > month.end) {
+          return total;
+        }
+        return total.plus(this.decimal(line.debit)).minus(this.decimal(line.credit));
+      }, new Prisma.Decimal(0));
+      return { date: dateOnly(month.start), balance: this.decimalString(balance) };
+    });
+  }
+
   private async inventorySummary(organizationId: string) {
     const [items, movements, varianceReport] = await Promise.all([
       this.prisma.item.findMany({
         where: { organizationId, inventoryTracking: true, status: ItemStatus.ACTIVE },
-        select: { id: true, reorderPoint: true },
+        orderBy: [{ name: "asc" }],
+        select: { id: true, name: true, reorderPoint: true },
       }),
       this.prisma.stockMovement.findMany({
         where: { organizationId },
@@ -195,6 +314,7 @@ export class DashboardService {
     let lowStockCount = 0;
     let negativeStockCount = 0;
     let inventoryEstimatedValue = new Prisma.Decimal(0);
+    const lowStockItems: Array<{ itemId: string; name: string; quantityOnHand: string; reorderPoint: string }> = [];
     for (const item of items) {
       const summary = this.stockSummary(movementsByItem.get(item.id) ?? []);
       if (summary.quantityOnHand.lt(0)) {
@@ -202,6 +322,12 @@ export class DashboardService {
       }
       if (item.reorderPoint && summary.quantityOnHand.lte(item.reorderPoint)) {
         lowStockCount += 1;
+        lowStockItems.push({
+          itemId: item.id,
+          name: item.name,
+          quantityOnHand: this.decimalString(summary.quantityOnHand),
+          reorderPoint: this.decimalString(item.reorderPoint),
+        });
       }
       if (summary.inventoryValue) {
         inventoryEstimatedValue = inventoryEstimatedValue.plus(summary.inventoryValue);
@@ -214,6 +340,21 @@ export class DashboardService {
       negativeStockCount,
       inventoryEstimatedValue: this.decimalString(inventoryEstimatedValue),
       clearingVarianceCount: varianceReport.summary.rowCount,
+      lowStockItems: lowStockItems
+        .sort((a, b) => new Prisma.Decimal(a.quantityOnHand).cmp(new Prisma.Decimal(b.quantityOnHand)))
+        .slice(0, 5),
+    };
+  }
+
+  private async agingSummary(organizationId: string, asOf: string) {
+    const [receivables, payables] = await Promise.all([
+      this.reportsService.agedReceivables(organizationId, { asOf }),
+      this.reportsService.agedPayables(organizationId, { asOf }),
+    ]);
+
+    return {
+      receivablesBuckets: agingBuckets(receivables.bucketTotals),
+      payablesBuckets: agingBuckets(payables.bucketTotals),
     };
   }
 
@@ -320,7 +461,7 @@ export class DashboardService {
         severity: "warning",
         title: "Bank transactions are unreconciled",
         description: `${input.banking.unreconciledTransactionCount} imported bank transactions are still unmatched.`,
-        href: "/bank-statement-transactions",
+        href: "/bank-accounts",
       });
     }
     if (input.inventory.lowStockCount > 0) {
@@ -429,12 +570,60 @@ function sum(values: Prisma.Decimal.Value[]): Prisma.Decimal {
   return values.reduce<Prisma.Decimal>((total, value) => total.plus(value), new Prisma.Decimal(0));
 }
 
+function monthlyTotals<T>(
+  months: DashboardMonth[],
+  records: T[],
+  getDate: (record: T) => Date,
+  getAmount: (record: T) => Prisma.Decimal.Value,
+): Map<string, Prisma.Decimal> {
+  const totals = new Map(months.map((month) => [month.key, new Prisma.Decimal(0)]));
+  for (const record of records) {
+    const key = monthKey(getDate(record));
+    const current = totals.get(key);
+    if (current) {
+      totals.set(key, current.plus(getAmount(record)));
+    }
+  }
+  return totals;
+}
+
+function agingBuckets(bucketTotals: Record<string, Prisma.Decimal.Value>) {
+  return Object.entries(AGING_BUCKET_LABELS).map(([key, label]) => ({
+    bucket: label,
+    amount: new Prisma.Decimal(bucketTotals[key] ?? 0).toFixed(4),
+  }));
+}
+
+function lastSixUtcMonths(now: Date): DashboardMonth[] {
+  const currentMonth = startOfUtcMonth(now);
+  return Array.from({ length: 6 }, (_, index) => {
+    const start = addUtcMonths(currentMonth, index - 5);
+    return {
+      key: monthKey(start),
+      start,
+      end: endOfUtcMonth(start),
+    };
+  });
+}
+
 function startOfUtcDay(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 
 function startOfUtcMonth(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+}
+
+function addUtcMonths(date: Date, delta: number): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + delta, 1));
+}
+
+function endOfUtcMonth(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+}
+
+function monthKey(date: Date): string {
+  return date.toISOString().slice(0, 7);
 }
 
 function dateOnly(date: Date): string {
