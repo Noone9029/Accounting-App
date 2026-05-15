@@ -2,5 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "corepack enable && corepack pnpm install --frozen-lockfile",
   "buildCommand": "corepack pnpm --filter @ledgerbyte/web build",
-  "outputDirectory": "apps/web/.next"
+  "outputDirectory": ".next"
 }

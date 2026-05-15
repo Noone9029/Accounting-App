@@ -96,11 +96,11 @@ Import the same GitHub repository into Vercel as a second project named, for exa
 
 Project settings:
 
-- Root Directory: `.`
+- Root Directory: `apps/web`
 - Framework Preset: Next.js
 - Include source files outside Root Directory: enabled
 - Build Command: `corepack pnpm --filter @ledgerbyte/web build`
-- Output Directory: `apps/web/.next`
+- Output Directory: `.next`
 
 For CLI deployment from this monorepo, link the repository root to the web project and deploy with:
 
@@ -116,6 +116,17 @@ NEXT_PUBLIC_API_URL="https://<api-project>.vercel.app"
 
 Deploy the web project after the API project URL is known.
 
+The current test deployment uses:
+
+- Web: `https://ledgerbyte-web-test.vercel.app`
+- API: `https://ledgerbyte-api-test.vercel.app`
+
+Run deployed browser smoke after both projects are promoted:
+
+```bash
+LEDGERBYTE_WEB_URL=https://ledgerbyte-web-test.vercel.app LEDGERBYTE_API_URL=https://ledgerbyte-api-test.vercel.app LEDGERBYTE_E2E_EMAIL=admin@example.com LEDGERBYTE_E2E_PASSWORD=Password123! corepack pnpm e2e
+```
+
 ## 5. Production Cutover Checklist
 
 - Supabase migrations applied successfully.
@@ -127,6 +138,7 @@ Deploy the web project after the API project URL is known.
 - Trial Balance, invoices, purchase bills, inventory pages, and PDF endpoints are manually smoke-tested.
 - `JWT_SECRET` is strong and not reused from local development.
 - Preview deployments do not point at production data unless intentionally allowed.
+- For small Supabase pooler deployments, set `PRISMA_CONNECTION_LIMIT=1` or rely on the Vercel default in `PrismaService` to keep serverless database session usage conservative.
 
 ## 6. Known Deployment Limits
 
@@ -135,3 +147,4 @@ Deploy the web project after the API project URL is known.
 - S3-compatible document upload storage is still not wired; generated PDFs are database-backed local/dev groundwork.
 - Supabase is used as Postgres, not Supabase Auth.
 - Prisma migrations should be run intentionally before promoting production deployments.
+- Supabase row-level security should be reviewed before production exposure. LedgerByte currently enforces tenant isolation in the application layer, and RLS was not enabled automatically during test deployment smoke work.

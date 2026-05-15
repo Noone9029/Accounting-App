@@ -33,23 +33,20 @@ export class StorageService {
   }
 
   async migrationPlan(organizationId: string) {
-    const [attachmentTotals, generatedDocumentTotals, attachmentDatabaseCount, attachmentS3Count, generatedDocumentDatabaseCount, generatedDocumentS3Count] =
-      await Promise.all([
-        this.prisma.attachment.aggregate({
-          where: { organizationId },
-          _count: { _all: true },
-          _sum: { sizeBytes: true },
-        }),
-        this.prisma.generatedDocument.aggregate({
-          where: { organizationId },
-          _count: { _all: true },
-          _sum: { sizeBytes: true },
-        }),
-        this.prisma.attachment.count({ where: { organizationId, storageProvider: AttachmentStorageProvider.DATABASE } }),
-        this.prisma.attachment.count({ where: { organizationId, storageProvider: AttachmentStorageProvider.S3_PLACEHOLDER } }),
-        this.prisma.generatedDocument.count({ where: { organizationId, storageProvider: "database" } }),
-        this.prisma.generatedDocument.count({ where: { organizationId, storageProvider: "s3" } }),
-      ]);
+    const attachmentTotals = await this.prisma.attachment.aggregate({
+      where: { organizationId },
+      _count: { _all: true },
+      _sum: { sizeBytes: true },
+    });
+    const generatedDocumentTotals = await this.prisma.generatedDocument.aggregate({
+      where: { organizationId },
+      _count: { _all: true },
+      _sum: { sizeBytes: true },
+    });
+    const attachmentDatabaseCount = await this.prisma.attachment.count({ where: { organizationId, storageProvider: AttachmentStorageProvider.DATABASE } });
+    const attachmentS3Count = await this.prisma.attachment.count({ where: { organizationId, storageProvider: AttachmentStorageProvider.S3_PLACEHOLDER } });
+    const generatedDocumentDatabaseCount = await this.prisma.generatedDocument.count({ where: { organizationId, storageProvider: "database" } });
+    const generatedDocumentS3Count = await this.prisma.generatedDocument.count({ where: { organizationId, storageProvider: "s3" } });
 
     const databaseStorageCount = attachmentDatabaseCount + generatedDocumentDatabaseCount;
     const s3StorageCount = attachmentS3Count + generatedDocumentS3Count;

@@ -88,17 +88,14 @@ export default function ZatcaSettingsPage() {
     setLoading(true);
     setError("");
 
-    Promise.all([
-      apiRequest<ZatcaOrganizationProfile>("/zatca/profile"),
-      apiRequest<ZatcaAdapterConfigSummary>("/zatca/adapter-config"),
-      apiRequest<ZatcaComplianceChecklistResponse>("/zatca/compliance-checklist"),
-      apiRequest<ZatcaXmlFieldMappingResponse>("/zatca/xml-field-mapping"),
-      apiRequest<ZatcaReadinessSummary>("/zatca/readiness"),
-      apiRequest<ZatcaSdkReadinessResponse>(zatcaSdkReadinessPath()),
-      apiRequest<ZatcaEgsUnit[]>("/zatca/egs-units"),
-      apiRequest<ZatcaSubmissionLog[]>("/zatca/submissions"),
-    ])
-      .then(([loadedProfile, loadedAdapterConfig, loadedChecklist, loadedXmlFieldMapping, loadedReadiness, loadedSdkReadiness, loadedUnits, loadedLogs]) => {
+    void (async () => {
+      try {
+        const loadedProfile = await apiRequest<ZatcaOrganizationProfile>("/zatca/profile");
+        const loadedAdapterConfig = await apiRequest<ZatcaAdapterConfigSummary>("/zatca/adapter-config");
+        const loadedChecklist = await apiRequest<ZatcaComplianceChecklistResponse>("/zatca/compliance-checklist");
+        const loadedXmlFieldMapping = await apiRequest<ZatcaXmlFieldMappingResponse>("/zatca/xml-field-mapping");
+        const loadedReadiness = await apiRequest<ZatcaReadinessSummary>("/zatca/readiness");
+        const loadedSdkReadiness = await apiRequest<ZatcaSdkReadinessResponse>(zatcaSdkReadinessPath());
         if (!cancelled) {
           setProfile(loadedProfile);
           setAdapterConfig(loadedAdapterConfig);
@@ -107,20 +104,24 @@ export default function ZatcaSettingsPage() {
           setReadiness(loadedReadiness);
           setSdkReadiness(loadedSdkReadiness);
           setForm(profileToForm(loadedProfile));
+        }
+
+        const loadedUnits = await apiRequest<ZatcaEgsUnit[]>("/zatca/egs-units");
+        const loadedLogs = await apiRequest<ZatcaSubmissionLog[]>("/zatca/submissions");
+        if (!cancelled) {
           setEgsUnits(loadedUnits);
           setSubmissionLogs(loadedLogs);
         }
-      })
-      .catch((loadError: unknown) => {
+      } catch (loadError: unknown) {
         if (!cancelled) {
           setError(loadError instanceof Error ? loadError.message : "Unable to load ZATCA settings.");
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) {
           setLoading(false);
         }
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;

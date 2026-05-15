@@ -68,13 +68,17 @@ export async function loginByApi(page: Page): Promise<E2eSession> {
     body: JSON.stringify({ email: e2eConfig.email, password: e2eConfig.password }),
   });
   const me = await apiRequest<{
-    memberships: Array<{ organizationId: string; status: string }>;
+    memberships: Array<{ organizationId?: string; organization?: { id?: string }; status: string }>;
   }>("/auth/me", {}, { token: login.accessToken, organizationId: "" });
   const membership = me.memberships.find((item) => item.status === "ACTIVE") ?? me.memberships[0];
   if (!membership) {
     throw new Error("Seeded E2E user has no organization membership.");
   }
-  const session = { token: login.accessToken, organizationId: membership.organizationId };
+  const organizationId = membership.organizationId ?? membership.organization?.id;
+  if (!organizationId) {
+    throw new Error("Seeded E2E user membership does not include an organization id.");
+  }
+  const session = { token: login.accessToken, organizationId };
   await page.addInitScript(({ token, organizationId }) => {
     window.localStorage.setItem("ledgerbyte.accessToken", token);
     window.localStorage.setItem("ledgerbyte.activeOrganizationId", organizationId);
@@ -105,11 +109,11 @@ export async function gotoApp(page: Page, path: string, heading?: string | RegEx
 export async function expectAppShell(page: Page) {
   await expect(page.getByText("LedgerByte").first()).toBeVisible();
   await expect(page.getByText("Organization").first()).toBeVisible();
-  await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Reports" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Sales" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Purchases" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Inventory" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Dashboard", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Reports", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Sales", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Purchases", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Inventory", exact: true })).toBeVisible();
 }
 
 export function uniqueName(prefix: string) {

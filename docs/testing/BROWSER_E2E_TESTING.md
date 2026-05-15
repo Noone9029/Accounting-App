@@ -54,6 +54,24 @@ LEDGERBYTE_WEB_URL=http://localhost:3000 LEDGERBYTE_API_URL=http://localhost:400
 LEDGERBYTE_E2E_EMAIL=admin@example.com LEDGERBYTE_E2E_PASSWORD=Password123! corepack pnpm e2e
 ```
 
+Run against the deployed test environment:
+
+```bash
+LEDGERBYTE_WEB_URL=https://ledgerbyte-web-test.vercel.app LEDGERBYTE_API_URL=https://ledgerbyte-api-test.vercel.app LEDGERBYTE_E2E_EMAIL=admin@example.com LEDGERBYTE_E2E_PASSWORD=Password123! corepack pnpm e2e
+```
+
+PowerShell equivalent:
+
+```powershell
+$env:LEDGERBYTE_WEB_URL = "https://ledgerbyte-web-test.vercel.app"
+$env:LEDGERBYTE_API_URL = "https://ledgerbyte-api-test.vercel.app"
+$env:LEDGERBYTE_E2E_EMAIL = "admin@example.com"
+$env:LEDGERBYTE_E2E_PASSWORD = "Password123!"
+corepack pnpm e2e
+```
+
+The deployed test suite runs with one worker by default to avoid overwhelming the small Vercel/Supabase test environment. The per-test and expectation timeouts are configurable with `LEDGERBYTE_E2E_TEST_TIMEOUT_MS` and `LEDGERBYTE_E2E_EXPECT_TIMEOUT_MS`.
+
 ## Preflight
 
 `tests/e2e/global-setup.ts` checks that:
@@ -98,3 +116,5 @@ The suite does not start Docker, API, or web automatically.
 - Attachment upload/download/delete remains covered by API smoke; browser coverage is currently render-only.
 - Email invite acceptance and token extraction remain covered by API smoke; browser coverage checks the visible password reset/outbox/readiness surfaces.
 - CI wiring is not added yet.
+- The deployed test environment must already have Prisma migrations applied and the seeded test admin available.
+- Supabase test projects with small session-pool limits can surface route-load flakiness if API functions open too many concurrent database sessions.

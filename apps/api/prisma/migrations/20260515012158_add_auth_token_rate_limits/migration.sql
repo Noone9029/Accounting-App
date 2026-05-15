@@ -1,69 +1,101 @@
--- AlterTable
-ALTER TABLE "Attachment" ALTER COLUMN "id" DROP DEFAULT;
+-- Compatibility migration kept safe for fresh deployments.
+-- The AuthTokenRateLimitEvent table depends on AuthTokenPurpose, which is
+-- created by a later email-auth migration in existing history. The actual
+-- rate-limit table is created by 20260515190000_add_auth_token_rate_limits.
 
 -- AlterTable
-ALTER TABLE "CashExpense" ALTER COLUMN "id" DROP DEFAULT;
+ALTER TABLE IF EXISTS "Attachment" ALTER COLUMN "id" DROP DEFAULT;
 
 -- AlterTable
-ALTER TABLE "CashExpenseLine" ALTER COLUMN "id" DROP DEFAULT;
+ALTER TABLE IF EXISTS "CashExpense" ALTER COLUMN "id" DROP DEFAULT;
 
 -- AlterTable
-ALTER TABLE "InventoryVarianceProposal" ALTER COLUMN "id" DROP DEFAULT;
+ALTER TABLE IF EXISTS "CashExpenseLine" ALTER COLUMN "id" DROP DEFAULT;
 
 -- AlterTable
-ALTER TABLE "InventoryVarianceProposalEvent" ALTER COLUMN "id" DROP DEFAULT;
+ALTER TABLE IF EXISTS "InventoryVarianceProposal" ALTER COLUMN "id" DROP DEFAULT;
 
 -- AlterTable
-ALTER TABLE "StockMovement" ALTER COLUMN "id" DROP DEFAULT;
+ALTER TABLE IF EXISTS "InventoryVarianceProposalEvent" ALTER COLUMN "id" DROP DEFAULT;
 
 -- AlterTable
-ALTER TABLE "SupplierPaymentUnappliedAllocation" ALTER COLUMN "id" DROP DEFAULT;
+ALTER TABLE IF EXISTS "StockMovement" ALTER COLUMN "id" DROP DEFAULT;
 
 -- AlterTable
-ALTER TABLE "SupplierRefund" ALTER COLUMN "id" DROP DEFAULT;
+ALTER TABLE IF EXISTS "SupplierPaymentUnappliedAllocation" ALTER COLUMN "id" DROP DEFAULT;
 
 -- AlterTable
-ALTER TABLE "Warehouse" ALTER COLUMN "id" DROP DEFAULT;
+ALTER TABLE IF EXISTS "SupplierRefund" ALTER COLUMN "id" DROP DEFAULT;
 
--- CreateTable
-CREATE TABLE "AuthTokenRateLimitEvent" (
-    "id" UUID NOT NULL,
-    "organizationId" UUID,
-    "email" TEXT NOT NULL,
-    "purpose" "AuthTokenPurpose" NOT NULL,
-    "ipAddress" TEXT,
-    "userAgent" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+-- AlterTable
+ALTER TABLE IF EXISTS "Warehouse" ALTER COLUMN "id" DROP DEFAULT;
 
-    CONSTRAINT "AuthTokenRateLimitEvent_pkey" PRIMARY KEY ("id")
-);
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_class WHERE relkind = 'i'
+      AND relname = 'BankReconciliation_organizationId_bankAccountProfileId_periodSt'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM pg_class WHERE relkind = 'i'
+      AND relname = 'BankReconciliation_organizationId_bankAccountProfileId_peri_idx'
+  ) THEN
+    ALTER INDEX "BankReconciliation_organizationId_bankAccountProfileId_periodSt"
+      RENAME TO "BankReconciliation_organizationId_bankAccountProfileId_peri_idx";
+  END IF;
+END $$;
 
--- CreateIndex
-CREATE INDEX "AuthTokenRateLimitEvent_organizationId_email_purpose_create_idx" ON "AuthTokenRateLimitEvent"("organizationId", "email", "purpose", "createdAt");
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_class WHERE relkind = 'i'
+      AND relname = 'BankReconciliation_organizationId_bankAccountProfileId_status_i'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM pg_class WHERE relkind = 'i'
+      AND relname = 'BankReconciliation_organizationId_bankAccountProfileId_stat_idx'
+  ) THEN
+    ALTER INDEX "BankReconciliation_organizationId_bankAccountProfileId_status_i"
+      RENAME TO "BankReconciliation_organizationId_bankAccountProfileId_stat_idx";
+  END IF;
+END $$;
 
--- CreateIndex
-CREATE INDEX "AuthTokenRateLimitEvent_email_purpose_createdAt_idx" ON "AuthTokenRateLimitEvent"("email", "purpose", "createdAt");
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_class WHERE relkind = 'i'
+      AND relname = 'BankReconciliationItem_reconciliationId_statementTransactionId_'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM pg_class WHERE relkind = 'i'
+      AND relname = 'BankReconciliationItem_reconciliationId_statementTransactio_key'
+  ) THEN
+    ALTER INDEX "BankReconciliationItem_reconciliationId_statementTransactionId_"
+      RENAME TO "BankReconciliationItem_reconciliationId_statementTransactio_key";
+  END IF;
+END $$;
 
--- CreateIndex
-CREATE INDEX "AuthTokenRateLimitEvent_ipAddress_purpose_createdAt_idx" ON "AuthTokenRateLimitEvent"("ipAddress", "purpose", "createdAt");
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_class WHERE relkind = 'i'
+      AND relname = 'BankReconciliationReviewEvent_organizationId_reconciliationId_c'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM pg_class WHERE relkind = 'i'
+      AND relname = 'BankReconciliationReviewEvent_organizationId_reconciliation_idx'
+  ) THEN
+    ALTER INDEX "BankReconciliationReviewEvent_organizationId_reconciliationId_c"
+      RENAME TO "BankReconciliationReviewEvent_organizationId_reconciliation_idx";
+  END IF;
+END $$;
 
--- CreateIndex
-CREATE INDEX "AuthTokenRateLimitEvent_organizationId_purpose_createdAt_idx" ON "AuthTokenRateLimitEvent"("organizationId", "purpose", "createdAt");
-
--- AddForeignKey
-ALTER TABLE "AuthTokenRateLimitEvent" ADD CONSTRAINT "AuthTokenRateLimitEvent_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- RenameIndex
-ALTER INDEX "BankReconciliation_organizationId_bankAccountProfileId_periodSt" RENAME TO "BankReconciliation_organizationId_bankAccountProfileId_peri_idx";
-
--- RenameIndex
-ALTER INDEX "BankReconciliation_organizationId_bankAccountProfileId_status_i" RENAME TO "BankReconciliation_organizationId_bankAccountProfileId_stat_idx";
-
--- RenameIndex
-ALTER INDEX "BankReconciliationItem_reconciliationId_statementTransactionId_" RENAME TO "BankReconciliationItem_reconciliationId_statementTransactio_key";
-
--- RenameIndex
-ALTER INDEX "BankReconciliationReviewEvent_organizationId_reconciliationId_c" RENAME TO "BankReconciliationReviewEvent_organizationId_reconciliation_idx";
-
--- RenameIndex
-ALTER INDEX "InventoryVarianceProposalEvent_organizationId_proposalId_create" RENAME TO "InventoryVarianceProposalEvent_organizationId_proposalId_cr_idx";
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_class WHERE relkind = 'i'
+      AND relname = 'InventoryVarianceProposalEvent_organizationId_proposalId_create'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM pg_class WHERE relkind = 'i'
+      AND relname = 'InventoryVarianceProposalEvent_organizationId_proposalId_cr_idx'
+  ) THEN
+    ALTER INDEX "InventoryVarianceProposalEvent_organizationId_proposalId_create"
+      RENAME TO "InventoryVarianceProposalEvent_organizationId_proposalId_cr_idx";
+  END IF;
+END $$;

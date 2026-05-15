@@ -37,6 +37,31 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Deployed browser E2E smoke stabilized
+
+Ran the Playwright browser smoke suite against the deployed LedgerByte test environment:
+
+- Web: `https://ledgerbyte-web-test.vercel.app`
+- API: `https://ledgerbyte-api-test.vercel.app`
+- Result: 11 specs passed.
+
+Bugs found and fixed:
+
+- The deployed Supabase database was missing recent Prisma migrations for inventory variance proposals, attachments, email invite/password reset, and token rate-limit tables. The missing migrations were applied to the test database and the migration history was aligned.
+- One migration referenced tables and enums before their own migrations were guaranteed to exist. The migration was made compatibility-safe and the rate-limit table creation was moved into a later ordered migration.
+- The API opened too many concurrent Prisma sessions for the small Supabase/Vercel test environment. Prisma now defaults to `connection_limit=1` on Vercel unless explicitly overridden.
+- Storage migration-plan and ZATCA readiness pages triggered unnecessary concurrent API/database pressure in the deployed environment. Those paths now load sequentially enough for smoke reliability.
+- The web API client could receive cached/304 auth responses in the deployed browser, which caused transient access-denied states. App API requests now use `no-store` cache behavior.
+- A few smoke selectors were too broad or too strict for deployed pages and were tightened to stable headings/text.
+- The inventory route smoke needed a deployed-friendly per-test timeout because it checks many pages in a single browser test.
+
+Remaining deployment/testing caveats:
+
+- Browser E2E is still smoke-level and does not replace API accounting assertions.
+- Supabase reported row-level security disabled on public tables during inspection; this remains a deployment security review item and was not auto-changed during browser QA.
+- The deployed test database must be intentionally migrated before running deployed E2E.
+- No CI wiring for deployed Playwright runs exists yet.
+
 ### Browser E2E smoke suite added
 
 Added a Playwright browser smoke suite for critical LedgerByte workflows without changing product behavior.

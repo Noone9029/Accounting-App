@@ -87,9 +87,17 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     headers.set("x-organization-id", organizationId);
   }
 
+  if (!headers.has("cache-control")) {
+    headers.set("cache-control", "no-store");
+  }
+  if (!headers.has("pragma")) {
+    headers.set("pragma", "no-cache");
+  }
+
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...options,
     method,
+    cache: options.cache ?? "no-store",
     headers,
     body: serializeBody(options.body),
   });

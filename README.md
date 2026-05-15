@@ -151,6 +151,14 @@ LEDGERBYTE_WEB_URL=http://localhost:3000 LEDGERBYTE_API_URL=http://localhost:400
 LEDGERBYTE_E2E_EMAIL=admin@example.com LEDGERBYTE_E2E_PASSWORD=Password123! corepack pnpm e2e
 ```
 
+Deployed test environment:
+
+```bash
+LEDGERBYTE_WEB_URL=https://ledgerbyte-web-test.vercel.app LEDGERBYTE_API_URL=https://ledgerbyte-api-test.vercel.app LEDGERBYTE_E2E_EMAIL=admin@example.com LEDGERBYTE_E2E_PASSWORD=Password123! corepack pnpm e2e
+```
+
+The suite defaults to one worker and a deployed-friendly timeout. Override with `LEDGERBYTE_E2E_WORKERS`, `LEDGERBYTE_E2E_TEST_TIMEOUT_MS`, or `LEDGERBYTE_E2E_EXPECT_TIMEOUT_MS` only when the target environment can handle the load.
+
 The E2E preflight fails clearly if the local API or web app is not running: `Start local API/web before running E2E.` See [docs/testing/BROWSER_E2E_TESTING.md](docs/testing/BROWSER_E2E_TESTING.md) for coverage and limitations.
 
 ## Project Audit / Current State
