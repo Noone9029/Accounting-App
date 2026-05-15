@@ -180,6 +180,10 @@ export const PERMISSIONS = {
     view: "documentSettings.view",
     manage: "documentSettings.manage",
   },
+  numberSequences: {
+    view: "numberSequences.view",
+    manage: "numberSequences.manage",
+  },
   zatca: {
     view: "zatca.view",
     manage: "zatca.manage",
@@ -328,6 +332,8 @@ export const ALL_PERMISSIONS = [
   PERMISSIONS.documents.download,
   PERMISSIONS.documentSettings.view,
   PERMISSIONS.documentSettings.manage,
+  PERMISSIONS.numberSequences.view,
+  PERMISSIONS.numberSequences.manage,
   PERMISSIONS.zatca.view,
   PERMISSIONS.zatca.manage,
   PERMISSIONS.zatca.generateXml,
@@ -459,6 +465,8 @@ const ACCOUNTANT_ROLE_PERMISSIONS = [
   PERMISSIONS.attachments.manage,
   PERMISSIONS.auditLogs.view,
   PERMISSIONS.auditLogs.export,
+  PERMISSIONS.numberSequences.view,
+  PERMISSIONS.numberSequences.manage,
   PERMISSIONS.zatca.view,
   PERMISSIONS.zatca.generateXml,
   PERMISSIONS.zatca.runChecks,

@@ -13,6 +13,7 @@ Tasks:
 - Wire the new Playwright browser E2E smoke into CI and expand it where user-facing regressions are found.
 - Replace mock/local email invites and password reset with a real provider adapter, domain authentication, provider webhooks, and audit alerting for role/member administration.
 - Harden fiscal period UX with period templates, optional reversal-date selection, and admin unlock approval design.
+- Harden number sequence administration with reviewed reset/skip workflow, collision preview, and branch/device numbering policy before production.
 - Add accountant review pass for report layouts and exported report formats.
 - Move Prisma seed config to `prisma.config.ts` before Prisma 7.
 

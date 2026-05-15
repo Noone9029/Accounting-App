@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Commit scope: pending (`Add audit log export and retention controls`)
+Commit scope: pending (`Add number sequence settings`)
 
 ## Current Audit Log System
 
@@ -15,6 +15,7 @@ Commit scope: pending (`Add audit log export and retention controls`)
 - `AuditLogRetentionSettings` stores per-organization retention policy controls with a seven-year default, no automatic purge, and an export-before-purge marker.
 - `GET /audit-logs/retention-settings`, `PATCH /audit-logs/retention-settings`, `GET /audit-logs/retention-preview`, and `POST /audit-logs/retention-dry-run` provide admin-only policy visibility and dry-run counts without deleting records.
 - `/settings/audit-logs` provides the admin review UI with CSV export and retention preview/settings panels.
+- `NUMBER_SEQUENCE_UPDATED` captures old/new prefix, next number, padding, and example values when a permitted admin/accountant changes future numbering settings.
 
 ## Already Audited High-Risk Actions
 
@@ -24,7 +25,7 @@ Commit scope: pending (`Add audit log export and retention controls`)
 - Purchases: purchase bill create/update/finalize/void, purchase order create/update/approve/send/close/void/convert, supplier payment create/void, purchase debit note create/update/finalize/void, supplier refund create/void, cash expense create/void.
 - Banking: bank account profile create/update/archive/reactivate, bank transfer create/void, statement import/void, statement match/categorize/ignore, reconciliation create/submit/approve/reopen/close/void.
 - Inventory: warehouse create/update/archive/reactivate, stock movement create, adjustment create/update/approve/void, warehouse transfer create/void, purchase receipt create/void/asset post/asset reverse, sales stock issue create/void/COGS post/COGS reverse, variance proposal create/submit/approve/post/reverse/void.
-- Documents/storage: attachment upload/update/delete, generated document archive creation, document settings update.
+- Documents/storage/admin: attachment upload/update/delete, generated document archive creation, document settings update, number sequence update.
 - ZATCA: profile update, EGS create/update/activate, CSR generation, mock/production CSID request attempts, XML generation, compliance check run.
 
 ## Missing Or Low-Priority Coverage

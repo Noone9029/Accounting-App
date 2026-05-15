@@ -2,11 +2,11 @@
 
 Audit date: 2026-05-15
 
-Current commit audited: pending (`Add audit log export and retention controls`)
+Current commit audited: pending (`Add number sequence settings`)
 
 ## Summary
 
-LedgerByte is a TypeScript monorepo for a GCC/Saudi-oriented accounting SaaS. The current codebase has a working local MVP for core AR and AP transaction flows, document PDFs, report CSV/PDF exports, generated-document archive, uploaded supporting-file attachment groundwork, storage readiness and S3-compatible planning groundwork, mock email invitation/password reset groundwork with provider readiness and DB-backed rate limits, standardized audit logging with admin review UI, filtered CSV export, retention settings, dry-run retention preview, operational inventory warehouse/stock-ledger/adjustment/transfer/receipt/issue/report controls, inventory accounting preview, clearing/matching groundwork, accountant-reviewed purchase bill clearing-mode finalization, explicit compatible purchase receipt asset posting, inventory clearing reconciliation/variance reporting, accountant-reviewed inventory variance proposal workflow, inventory accounting integrity audit, purchase receipt posting readiness audit, local API smoke coverage, browser E2E smoke coverage, and non-production ZATCA groundwork.
+LedgerByte is a TypeScript monorepo for a GCC/Saudi-oriented accounting SaaS. The current codebase has a working local MVP for core AR and AP transaction flows, document PDFs, report CSV/PDF exports, generated-document archive, uploaded supporting-file attachment groundwork, storage readiness and S3-compatible planning groundwork, mock email invitation/password reset groundwork with provider readiness and DB-backed rate limits, standardized audit logging with admin review UI, filtered CSV export, retention settings, dry-run retention preview, guarded number-sequence settings, operational inventory warehouse/stock-ledger/adjustment/transfer/receipt/issue/report controls, inventory accounting preview, clearing/matching groundwork, accountant-reviewed purchase bill clearing-mode finalization, explicit compatible purchase receipt asset posting, inventory clearing reconciliation/variance reporting, accountant-reviewed inventory variance proposal workflow, inventory accounting integrity audit, purchase receipt posting readiness audit, local API smoke coverage, browser E2E smoke coverage, and non-production ZATCA groundwork.
 
 Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated locally for sales invoices, customer payments, credit notes, customer refunds, purchase orders, purchase bills, purchase bill accounting previews, supplier payments, bank account profile balances/transactions, bank transfers, opening-balance posting, local bank statement import preview/reconciliation, reconciliation approval/close/lock review history, reconciliation reports, uploaded attachment upload/list/download/soft-delete on key source records, inventory warehouses, opening-balance movements, inventory adjustment approvals/voids, warehouse transfers/voids, purchase receipts/voids, sales stock issues/voids, inventory balances, inventory settings, inventory accounting settings, purchase receipt posting readiness, purchase receipt accounting previews, compatible receipt asset posting/reversal, bill/receipt matching visibility, inventory clearing reconciliation/variance reports, variance proposal create/submit/approve/post/reverse/void workflow, sales issue COGS previews/posting, stock valuation/movement/low-stock reports, ledgers, statements, core report exports, and PDFs. It is not production-ready as a SaaS and is not production ZATCA compliant.
 
@@ -37,10 +37,10 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 
 - Register/login, organization selection, and role-aware `/auth/me` membership responses.
 - Tenant-scoped role permissions with protected default Owner/Admin/Accountant/Sales/Purchases/Viewer roles.
-- Role and organization member management UI/API with custom role creation, permission matrices, role/status changes, mock email invites, invite acceptance, password reset, email provider readiness, token request rate limits, expired-token cleanup, email outbox inspection, audit log review UI, filtered audit CSV export, and retention dry-run controls.
+- Role and organization member management UI/API with custom role creation, permission matrices, role/status changes, mock email invites, invite acceptance, password reset, email provider readiness, token request rate limits, expired-token cleanup, email outbox inspection, audit log review UI, filtered audit CSV export, retention dry-run controls, and guarded number-sequence settings.
 - API permission guards for sensitive accounting, document, report, fiscal period, and ZATCA actions.
 - Frontend sidebar, route access, and high-risk action visibility based on active role permissions.
-- Tenant-scoped CRUD foundations for accounts, branches, contacts, tax rates, items, and journals.
+- Tenant-scoped CRUD foundations for accounts, branches, contacts, tax rates, items, journals, and future document numbering settings.
 - Bank account profiles for cash/bank asset accounts, posted transaction visibility, bank-aware payment/expense account labels, posted bank transfers, transfer voids, guarded one-time opening-balance journals, local statement import preview/validation, manual matching, categorization journals, ignores, reconciliation summaries, reconciliation submit/approve/reopen/close records, review events, close item snapshots, void history, and closed-period statement/import locks.
 - Sales invoice draft/create/edit/finalize/void with AR journal posting.
 - Customer payment posting with invoice allocation and balance updates.
@@ -84,12 +84,12 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The app can be demonstrated
 7. Production secrets/key custody is not hardened; ZATCA private key storage is explicitly dev-only.
 8. Browser E2E exists for critical route smoke, but there is no CI wiring or visual regression coverage yet.
 9. Supplier AP balance display reuses a generic Dr/Cr helper; supplier-specific payable wording should be reviewed to avoid user confusion.
-10. Audit logs cover high-risk events, admin review, filtered CSV export, and retention dry-run controls, but scheduled export, automatic purge, immutable external storage, alerting, anomaly detection, and tamper evidence are not implemented.
+10. Audit logs cover high-risk events, admin review, filtered CSV export, retention dry-run controls, and number-sequence update events, but scheduled export, automatic purge, immutable external storage, alerting, anomaly detection, and tamper evidence are not implemented.
 
 ## Top 10 Next Priorities
 
 1. Run a human QA pass through all sales, purchase, payment, refund, and PDF routes, then wire the new browser E2E smoke into CI.
-2. Add production email provider delivery, DKIM/SPF/domain-authentication checks, MFA planning, scheduled audit export, and audit alerting for role/member changes.
+2. Add production email provider delivery, DKIM/SPF/domain-authentication checks, MFA planning, scheduled audit export, audit alerting for role/member changes, and a reviewed number-sequence reset/skip workflow.
 3. Add official VAT return work, accountant review for report definitions, and scheduled/email report delivery.
 4. Add fiscal year close, retained earnings close, and controlled unlock/approval workflows.
 5. Add partial PO receiving/billing design and purchase matching hardening.

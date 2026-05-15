@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Commit inspected: pending (`Add audit log export and retention controls`)
+Commit inspected: pending (`Add number sequence settings`)
 
 ## Scope
 
@@ -36,6 +36,27 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Number sequence settings added
+
+Added guarded number-sequence list/detail/update APIs and a Settings UI for document numbering configuration without changing existing generated numbers.
+
+Risk reduced:
+
+- `GET /number-sequences` and `GET /number-sequences/:id` expose tenant-scoped scope, prefix, next number, padding, example, and update timestamp to users with `numberSequences.view`.
+- `PATCH /number-sequences/:id` requires `numberSequences.manage`, validates prefix characters/length, validates padding, and rejects lowering `nextNumber`.
+- Prefix, padding, and next-number updates affect future documents only and do not renumber historical records.
+- `NUMBER_SEQUENCE_UPDATED` audit logs record old/new prefix, next number, padding, and example values.
+- `/settings/number-sequences` gives permitted admins/accountants a review and edit surface.
+- Smoke checks number-sequence listing, safe no-op patch behavior, example formatting, and audit-log creation.
+
+Remaining risks:
+
+- No reset workflow.
+- No per-branch numbering.
+- No document-type template rules.
+- No historical renumbering.
+- No deeper collision analysis beyond blocking lower `nextNumber` values.
 
 ### Audit log export and retention controls added
 

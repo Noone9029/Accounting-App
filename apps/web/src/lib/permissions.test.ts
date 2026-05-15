@@ -80,6 +80,7 @@ describe("permission helpers", () => {
     ]);
     expect(getRequiredPermissionsForPathname("/settings/email-outbox")).toEqual([PERMISSIONS.emailOutbox.view]);
     expect(getRequiredPermissionsForPathname("/settings/audit-logs")).toEqual([PERMISSIONS.auditLogs.view]);
+    expect(getRequiredPermissionsForPathname("/settings/number-sequences")).toEqual([PERMISSIONS.numberSequences.view]);
     expect(getRequiredPermissionsForPathname("/settings/zatca")).toEqual([PERMISSIONS.zatca.view]);
     expect(getRequiredPermissionsForPathname("/settings/team")).toEqual([PERMISSIONS.users.view]);
     expect(getRequiredPermissionsForPathname("/settings/roles/role-1")).toEqual([PERMISSIONS.roles.view]);
@@ -143,5 +144,12 @@ describe("sidebar nav filtering", () => {
     const settings = nav.find((item) => item.label === "Settings / Admin");
 
     expect(settings?.children?.map((item) => item.label)).toEqual(["Audit logs"]);
+  });
+
+  it("shows number sequences when the user has number sequence permission", () => {
+    const nav = filterSidebarNavItems(subject([PERMISSIONS.numberSequences.view]));
+    const settings = nav.find((item) => item.label === "Settings / Admin");
+
+    expect(settings?.children?.map((item) => item.label)).toEqual(["Number sequences"]);
   });
 });

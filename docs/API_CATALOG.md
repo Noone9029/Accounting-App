@@ -261,6 +261,9 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | PATCH | `/audit-logs/retention-settings` | Update audit retention settings | Yes | Yes | Implemented | Requires `auditLogs.manageRetention`; validates `retentionDays` between 365 and 3650; stores `autoPurgeEnabled` but no automatic purge executes. |
 | GET | `/audit-logs/retention-preview` | Preview audit retention impact | Yes | Yes | Implemented | Requires `auditLogs.manageRetention`; returns cutoff, total logs, older-than-cutoff count, oldest/newest dates, and `dryRunOnly: true`. |
 | POST | `/audit-logs/retention-dry-run` | Audit retention dry run | Yes | Yes | Implemented | Requires `auditLogs.manageRetention`; same dry-run behavior as preview and never deletes logs. |
+| GET | `/number-sequences` | List number sequences | Yes | Yes | Implemented | Requires `numberSequences.view`; tenant scoped; returns scope, prefix, next number, padding, example next number, and update timestamp. |
+| GET | `/number-sequences/:id` | Number sequence detail | Yes | Yes | Implemented | Requires `numberSequences.view`; tenant scoped. |
+| PATCH | `/number-sequences/:id` | Update future numbering settings | Yes | Yes | Implemented | Requires `numberSequences.manage`; validates prefix, padding, and positive next number; rejects lowering `nextNumber`; changes affect future documents only and write `NUMBER_SEQUENCE_UPDATED` audit logs. |
 
 ## Sales Invoices
 

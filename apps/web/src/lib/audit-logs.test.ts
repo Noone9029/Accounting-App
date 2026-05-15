@@ -12,8 +12,10 @@ import {
 describe("audit log helpers", () => {
   it("labels audit actions and entity types", () => {
     expect(auditActionLabel("SALES_INVOICE_FINALIZED")).toBe("Sales invoice finalized");
+    expect(auditActionLabel("NUMBER_SEQUENCE_UPDATED")).toBe("Number sequence updated");
     expect(auditActionLabel("CUSTOM_EVENT_NAME")).toBe("CUSTOM EVENT NAME");
     expect(auditEntityTypeLabel("InventoryVarianceProposal")).toBe("Inventory Variance Proposal");
+    expect(auditEntityTypeLabel("NumberSequence")).toBe("Number Sequence");
     expect(auditEntityTypeLabel("CustomEntity")).toBe("Custom Entity");
   });
 

@@ -68,6 +68,8 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       permission(PERMISSIONS.fiscalPeriods.view, "View fiscal periods", "See fiscal period status."),
       permission(PERMISSIONS.fiscalPeriods.manage, "Manage fiscal periods", "Create, close, and reopen fiscal periods."),
       permission(PERMISSIONS.fiscalPeriods.lock, "Lock fiscal periods", "Irreversibly lock fiscal periods in the MVP."),
+      permission(PERMISSIONS.numberSequences.view, "View number sequences", "See document numbering prefixes, next numbers, padding, and examples."),
+      permission(PERMISSIONS.numberSequences.manage, "Manage number sequences", "Update future numbering prefixes, next numbers, and padding with duplicate-prevention checks."),
       permission(PERMISSIONS.contacts.view, "View contacts", "See customer and supplier records."),
       permission(PERMISSIONS.contacts.manage, "Manage contacts", "Create and update contacts."),
       permission(PERMISSIONS.items.view, "View items", "See product and service items."),

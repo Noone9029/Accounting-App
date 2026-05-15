@@ -132,6 +132,7 @@ export const SIDEBAR_NAV_ITEMS: readonly SidebarNavItem[] = [
       { label: "Storage", href: "/settings/storage", requiredAny: [PERMISSIONS.documentSettings.view, PERMISSIONS.attachments.manage] },
       { label: "Email outbox", href: "/settings/email-outbox", requiredAny: [PERMISSIONS.emailOutbox.view] },
       { label: "Audit logs", href: "/settings/audit-logs", requiredAny: [PERMISSIONS.auditLogs.view] },
+      { label: "Number sequences", href: "/settings/number-sequences", requiredAny: [PERMISSIONS.numberSequences.view] },
       { label: "ZATCA", href: "/settings/zatca", requiredAny: [PERMISSIONS.zatca.view] },
     ],
   },

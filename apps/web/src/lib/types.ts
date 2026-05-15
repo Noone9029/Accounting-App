@@ -268,6 +268,16 @@ export interface AuditLogRetentionPreview {
   warnings: string[];
 }
 
+export interface NumberSequenceSetting {
+  id: string;
+  scope: string;
+  prefix: string;
+  nextNumber: number;
+  padding: number;
+  exampleNextNumber: string;
+  updatedAt: string;
+}
+
 export interface InvitationPreviewResponse {
   valid: boolean;
   reason?: string | null;

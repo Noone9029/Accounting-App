@@ -134,6 +134,16 @@ interface AuditLogRetentionPreviewResponse {
   warnings: string[];
 }
 
+interface NumberSequenceResponse {
+  id: string;
+  scope: string;
+  prefix: string;
+  nextNumber: number;
+  padding: number;
+  exampleNextNumber: string;
+  updatedAt: string;
+}
+
 interface Account {
   id: string;
   code: string;
@@ -3605,6 +3615,29 @@ async function main(): Promise<void> {
   assert(!auditExportCsv.includes(attachmentCsvBase64), "audit log CSV export does not expose attachment base64 content");
   assert(!auditExportCsv.includes("privateKeyPem"), "audit log CSV export does not expose private key field names from smoke data");
 
+  const numberSequences = await get<NumberSequenceResponse[]>("/number-sequences", headers);
+  assert(numberSequences.length > 0, "number sequence list returns configured scopes");
+  const contactSequence = required(
+    numberSequences.find((sequence) => sequence.scope === "CONTACT") ?? numberSequences[0],
+    "number sequence for smoke no-op patch",
+  );
+  assertEqual(
+    contactSequence.exampleNextNumber,
+    `${contactSequence.prefix}${String(contactSequence.nextNumber).padStart(contactSequence.padding, "0")}`,
+    "number sequence example matches prefix, next number, and padding",
+  );
+  const patchedNumberSequence = await patch<NumberSequenceResponse>(`/number-sequences/${contactSequence.id}`, headers, {
+    prefix: contactSequence.prefix,
+    nextNumber: contactSequence.nextNumber,
+    padding: contactSequence.padding,
+  });
+  assertEqual(patchedNumberSequence.exampleNextNumber, contactSequence.exampleNextNumber, "number sequence safe no-op patch preserves example");
+  const numberSequenceAuditLogs = await get<AuditLogListResponse>(
+    `/audit-logs?action=NUMBER_SEQUENCE_UPDATED&entityType=NumberSequence&entityId=${encodeURIComponent(contactSequence.id)}`,
+    headers,
+  );
+  assert(numberSequenceAuditLogs.data.length > 0, "audit logs include number sequence update action");
+
   const storageReadiness = await get<StorageReadinessResponse>("/storage/readiness", headers);
   assertEqual(storageReadiness.attachmentStorage.activeProvider, "database", "attachment storage readiness default provider");
   assertEqual(storageReadiness.generatedDocumentStorage.activeProvider, "database", "generated document storage readiness default provider");
@@ -4402,6 +4435,8 @@ async function main(): Promise<void> {
         auditRetentionDays: auditRetentionSettings.retentionDays,
         auditRetentionDryRunOnly: auditRetentionPreview.dryRunOnly,
         auditLogExportCsvChecked: auditExportCsv.includes("ATTACHMENT_UPLOADED"),
+        numberSequenceExample: patchedNumberSequence.exampleNextNumber,
+        numberSequenceAuditFound: numberSequenceAuditLogs.data.length > 0,
         storageReadinessAttachmentProvider: storageReadiness.attachmentStorage.activeProvider,
         storageReadinessGeneratedDocumentProvider: storageReadiness.generatedDocumentStorage.activeProvider,
         storageReadinessSecretsRedacted:

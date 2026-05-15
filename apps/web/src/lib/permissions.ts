@@ -275,6 +275,10 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.auditLogs.view];
   }
 
+  if (pathname.startsWith("/settings/number-sequences")) {
+    return [PERMISSIONS.numberSequences.view];
+  }
+
   if (pathname.startsWith("/settings/zatca")) {
     return [PERMISSIONS.zatca.view];
   }
