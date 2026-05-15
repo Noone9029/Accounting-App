@@ -51,6 +51,10 @@ describe("ZATCA SDK service", () => {
 
     expect(readiness.enabled).toBe(false);
     expect(readiness.canRunLocalValidation).toBe(false);
+    expect(readiness.requiredJavaRange).toBe(">=11 <15");
+    expect(readiness.javaSupported).toBe(readiness.javaVersionSupported);
+    expect(readiness.sdkCommand).toBe("fatoora -validate -invoice <filename>");
+    expect(typeof readiness.javaBinUsed).toBe("string");
     expect(readiness.blockingReasons.join(" ")).toContain("disabled");
     expect(JSON.stringify(readiness)).not.toContain("C:\\secret");
     expect(JSON.stringify(readiness)).not.toContain("PRIVATE KEY");
@@ -73,6 +77,8 @@ describe("ZATCA SDK service", () => {
     expect(prisma.zatcaInvoiceMetadata.findFirst).toHaveBeenCalledWith({ where: { organizationId: "org-1", invoiceId: "invoice-1" }, select: { xmlBase64: true } });
     expect(result).toMatchObject({ dryRun: true, localOnly: true, officialSdkValidation: false, xmlSource: "invoice" });
     expect(result.temporaryXmlFilePath).toContain("invoice-1.xml");
+    expect(result.readiness.requiredJavaRange).toBe(">=11 <15");
+    expect(result.readiness.sdkCommand).toBe("fatoora -validate -invoice <filename>");
     expect(result.commandPlan.warnings.join(" ")).toContain("argument-array");
     expect(JSON.stringify(result)).not.toContain("PRIVATE KEY");
   });

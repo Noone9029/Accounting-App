@@ -437,7 +437,7 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | GET | `/sales-invoices/:id/zatca/qr` | Local QR payload | Yes | Yes | Groundwork | Phase 2 QR incomplete. |
 | POST | `/sales-invoices/:id/zatca/sdk-validate` | Run local SDK validation for generated invoice XML | Yes | Yes | Groundwork | Disabled by default; no network/submission/compliance marking; current local fixture pass is blocked by Java 17. |
 | GET | `/zatca/submissions` | Submission/onboarding logs | Yes | Yes | Implemented | Includes mock/safe blocked logs. |
-| GET | `/zatca-sdk/readiness` | Local SDK readiness | Yes | Yes | Groundwork | Safe booleans only; no secrets or XML content; reports Java 11-14 compatibility. |
-| POST | `/zatca-sdk/validate-xml-dry-run` | SDK validation dry-run plan | Yes | Yes | Groundwork | Does not execute SDK. |
-| POST | `/zatca-sdk/validate-xml-local` | Local SDK XML validation | Yes | Yes | Groundwork | Disabled by default; runs local-only SDK when explicitly enabled. |
-| POST | `/zatca-sdk/validate-reference-fixture` | Local SDK validation for allowlisted fixture XML | Yes | Yes | Groundwork | Only `reference/` and `packages/zatca-core/fixtures`; path traversal blocked; default smoke expects disabled local-only response. |
+| GET | `/zatca-sdk/readiness` | Local SDK readiness | Yes | Yes | Groundwork | Safe booleans only; no secrets or XML content; reports Java 11-14 compatibility, required range, Java binary string, blocker message, and official command. |
+| POST | `/zatca-sdk/validate-xml-dry-run` | SDK validation dry-run plan | Yes | Yes | Groundwork | Does not execute SDK; plans official launcher/JAR fallback and SDK config environment safely. |
+| POST | `/zatca-sdk/validate-xml-local` | Local SDK XML validation | Yes | Yes | Groundwork | Disabled by default; runs local-only SDK when explicitly enabled, preferring the official fatoora launcher when available. |
+| POST | `/zatca-sdk/validate-reference-fixture` | Local SDK validation for allowlisted fixture XML | Yes | Yes | Groundwork | Only `reference/` and `packages/zatca-core/fixtures`; path traversal blocked; default smoke expects disabled local-only response; official samples pass under Java 11 but LedgerByte fixtures currently fail. |

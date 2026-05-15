@@ -10,7 +10,7 @@ The local SDK bundle is `reference/zatca-einvoicing-sdk-Java-238-R3.4.8`.
 | --- | --- |
 | SDK language/runtime | Java CLI/JAR. |
 | Primary executable | `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Apps/fatoora` and `Apps/fatoora.bat`, backed by `Apps/zatca-einvoicing-sdk-238-R3.4.8.jar`. |
-| Java requirement from SDK readme | Java >=11 and <15. Local Java inspected as 17.0.16, which is outside that range. |
+| Java requirement from SDK readme | Java >=11 and <15. Default local Java is 17.0.16, but Java 11.0.26 was found under `C:\Program Files\Microsoft\jdk-11.0.26.4-hotspot\bin\java.exe` and was used for fixture validation without changing global Java. |
 | License | `LICENSE.txt` is LGPL v3. Legal review is needed before bundling or linking the SDK in distributed software. |
 | Validates XML | Yes, SDK readme documents `fatoora -validate -invoice <filename>`. |
 | Signs invoices | Yes, SDK readme documents `fatoora -sign -invoice <filename> -signedInvoice <filename>`. Do not integrate signing yet. |
@@ -24,9 +24,11 @@ The local SDK bundle is `reference/zatca-einvoicing-sdk-Java-238-R3.4.8`.
 
 ## Local Execution Findings
 
-- Running the JAR directly with `java -jar ... -help` returned a configuration null-pointer error outside the launcher context.
+- Running without `SDK_CONFIG` returned a configuration null-pointer error from `Config.readResourcesPaths`.
 - Running the Windows launcher initially failed because `jq` was not on `PATH`.
-- After adding the SDK `Apps` directory to `PATH`, the launcher still failed because paths derived from `E:\Accounting App` were not fully quoted and the space split the path.
+- Running the launcher from `E:\Accounting App` can fail because paths derived from the checkout are not fully quoted and the space can split the path.
+- Running from a no-space temporary SDK copy with Java 11, `SDK_CONFIG`, `FATOORA_HOME`, and the SDK `Apps` folder on `PATH` successfully validated official fixtures.
+- Direct JAR validation was not equivalent to the official launcher for the simplified invoice sample; it reported QR/signature failures while `fatoora.bat -validate -invoice` passed. Prefer the official launcher.
 - The SDK readme identifies bundled certificate/private-key files as dummy/testing material. They must never be loaded into LedgerByte tenant state or logs.
 
 ## Node/NestJS Integration Options
@@ -43,7 +45,7 @@ The local SDK bundle is `reference/zatca-einvoicing-sdk-Java-238-R3.4.8`.
 
 1. Keep the current LedgerByte runtime in mock mode with real network calls disabled.
 2. Build a test-only SDK wrapper that runs in a temporary directory and never writes tenant secrets to logs.
-3. Pin Java 11-14 with Docker or a local toolchain path; do not rely on the currently installed Java 17.
+3. Pin Java 11-14 with Docker or a local toolchain path; do not rely on the default installed Java 17.
 4. First use the SDK only for offline XML validation and hash comparison against copied, license-approved fixtures.
 5. Add SDK validation to CI only after the wrapper is deterministic on Windows paths with spaces and Linux CI paths.
 6. Treat SDK signing and QR generation as future validation oracles until production key custody is designed.
@@ -56,10 +58,10 @@ The local SDK bundle is `reference/zatca-einvoicing-sdk-Java-238-R3.4.8`.
 - `POST /zatca-sdk/validate-xml-local` now accepts raw XML, base64 XML, or invoice XML metadata, but remains disabled by default through `ZATCA_SDK_EXECUTION_ENABLED=false`.
 - `POST /zatca-sdk/validate-reference-fixture` validates allowlisted XML fixture paths under `reference/` or `packages/zatca-core/fixtures` only.
 - `POST /sales-invoices/:id/zatca/sdk-validate` runs local validation against generated invoice XML when explicitly enabled and readiness passes.
-- The SDK readme documents `fatoora -validate -invoice <filename>`; LedgerByte resolves this as either launcher execution or direct JAR execution with argument-array `execFile` calls.
-- The wrapper enforces a 2 MB XML limit, timeout, temp-file cleanup, output redaction, path traversal blocking, and no-shell command execution.
+- The SDK readme documents `fatoora -validate -invoice <filename>`; LedgerByte now prefers launcher execution and uses direct JAR execution only as a fallback if no launcher is present.
+- The wrapper enforces a 2 MB XML limit, timeout, temp-file cleanup, output redaction, and path traversal blocking. Windows `.bat` launcher execution uses `cmd.exe` with an argument array only; it does not concatenate a command string.
 - The frontend displays SDK validation readiness on `/settings/zatca` and exposes dry-run plus local validation actions from invoice detail pages.
-- `apps/api/src/zatca-sdk/zatca-official-fixtures.ts` now registers the first official and LedgerByte XML fixtures to validate once Java 11-14 is available.
+- `apps/api/src/zatca-sdk/zatca-official-fixtures.ts` registers the first official and LedgerByte XML fixtures used for the Java 11 validation pass.
 
 See `SDK_VALIDATION_WRAPPER.md` for endpoint behavior and safety rules.
 
@@ -67,7 +69,12 @@ See `SDK_VALIDATION_WRAPPER.md` for endpoint behavior and safety rules.
 
 `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` records the 2026-05-16 fixture pass.
 
-The SDK command is verified as `fatoora -validate -invoice <filename>`. Actual fixture execution is blocked on this machine because `java -version` reports OpenJDK 17.0.16 and the official SDK README requires Java `>=11` and `<15`. No official sample, LedgerByte local fixture, or generated invoice XML was validated by the SDK in this pass.
+The SDK command is verified as `fatoora -validate -invoice <filename>`. Actual fixture execution was completed with Java 11.0.26 and the official Windows launcher from a no-space temporary SDK copy:
+
+- Official standard invoice, simplified invoice, standard credit note, and standard debit note samples passed.
+- The simplified official invoice produced warning `BR-KSA-98` about submitting simplified invoices within 24 hours, while the global result still passed.
+- LedgerByte standard and simplified local XML fixtures failed. The primary gaps are UBL element ordering, official `ICV`/`PIH` shape, invoice type transaction-code flags, seller/customer identifiers, tax total shape, and simplified line amount calculation.
+- Generated invoice XML validation through the API was not attempted because the local API/database stack was not confirmed running during this pass.
 
 ## Guardrails For Future Wrapper
 

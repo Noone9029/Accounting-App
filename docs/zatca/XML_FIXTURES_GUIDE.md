@@ -27,7 +27,7 @@ The expected XML files are compared directly in automated tests. If the XML buil
 
 Official SDK sample fixture targets are now registered in `apps/api/src/zatca-sdk/zatca-official-fixtures.ts`. The registry references files under the repo-local `reference/` folder and the current LedgerByte local fixtures without copying official sample XML into application code.
 
-The first validation pass is documented in `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`. Execution is currently blocked because the local Java runtime is 17.0.16 and the SDK README requires Java `>=11` and `<15`.
+The first validation pass is documented in `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`. Official SDK samples now pass under Java 11 and the official launcher, while the current LedgerByte standard/simplified XML fixtures fail with XSD/KSA rule messages.
 
 Before promoting official fixture checks:
 

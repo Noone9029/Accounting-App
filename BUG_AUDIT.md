@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-16
 
-Commit inspected: pending (`Validate official ZATCA SDK fixtures`)
+Commit inspected: pending (`Run ZATCA SDK fixture validation readiness`)
 
 ## Scope
 
@@ -39,19 +39,24 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ### Official ZATCA SDK fixture validation pass
 
-Used only the repo-local official `reference/` folder to inspect the ZATCA SDK, docs, schemas, rules, samples, manuals, and data dictionary. The SDK command was verified from official local files as `fatoora -validate -invoice <filename>`.
+Used only the repo-local official `reference/` folder to inspect the ZATCA SDK, docs, schemas, rules, samples, manuals, and data dictionary. The SDK command was verified from official local files as `fatoora -validate -invoice <filename>`. A supported Java 11 runtime was found locally and used without changing global Java.
 
 Risk reduced:
 
-- Added `docs/zatca/OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` with inspected official files, Java result, intended fixture commands, pass/fail/block table, and next technical fixes.
-- Added a code-level fixture registry for first official validation targets: standard invoice, simplified invoice, standard credit note, standard debit note, plus LedgerByte local standard/simplified XML fixtures.
-- Added tests for fixture registry allowlisting, command construction, Java-version blockers, disabled fixture validation, and SDK output message extraction.
-- Smoke now verifies the official fixture validation endpoint returns a disabled local-only response by default and does not expose private-key material.
+- `GET /zatca-sdk/readiness` now reports explicit Java support fields, required range `>=11 <15`, the Java command used, Java blocker message, and official SDK command string.
+- The SDK wrapper now prefers the official launcher over direct JAR execution and passes `SDK_CONFIG`/`FATOORA_HOME` through the execution environment.
+- Added `scripts/zatca-sdk-readiness.cjs` to print local Java/SDK readiness without network calls or secrets.
+- Updated `docs/zatca/OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` with Java detection, exact official fixture pass output, exact LedgerByte fixture failure messages, and next technical fixes.
+- Added/updated tests for Java 11-14 support detection, Java 15/17 blockers, command construction, readiness fields, disabled default behavior, and SDK output safety.
 
 Result:
 
-- `BLOCKED`: local OpenJDK 17.0.16 is installed, but the official SDK README requires Java `>=11` and `<15`.
-- No SDK validation command was executed under the unsupported runtime.
+- Default local Java is OpenJDK 17.0.16 and remains unsupported for the SDK.
+- Java 11.0.26 was found at `C:\Program Files\Microsoft\jdk-11.0.26.4-hotspot\bin\java.exe`.
+- Official standard invoice, simplified invoice, standard credit note, and standard debit note samples passed with the official launcher.
+- The official simplified invoice also emitted warning `BR-KSA-98` about simplified invoice submission within 24 hours.
+- LedgerByte local standard and simplified XML fixtures failed official SDK validation with XSD ordering, `ICV`/`PIH`, transaction-code, party-identifier, tax-total, and simplified line-calculation gaps.
+- Generated invoice XML validation through the API was skipped because the local API/database stack was not confirmed running.
 
 Remaining risks:
 
@@ -60,7 +65,8 @@ Remaining risks:
 - Clearance/reporting is not implemented.
 - PDF/A-3 is not implemented.
 - Production compliance is not claimed.
-- Official pass/fail fixture messages still require Java 11-14 and isolated local SDK execution.
+- LedgerByte XML mapping still fails official SDK validation.
+- Real local/CI fixture validation still needs a repeatable Java 11-14 runtime or Docker wrapper.
 
 ### SMTP provider adapter added
 

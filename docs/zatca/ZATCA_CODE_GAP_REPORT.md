@@ -25,9 +25,21 @@ Scope: compare current LedgerByte ZATCA groundwork with the local official refer
 
 ## Official SDK Fixture Validation Pass
 
-`OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` records the first repo-local official fixture validation pass. The SDK command was verified as `fatoora -validate -invoice <filename>`, but execution was blocked because local Java is OpenJDK 17.0.16 and the SDK README requires Java `>=11` and `<15`.
+`OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` records the first repo-local official fixture validation pass. The SDK command was verified as `fatoora -validate -invoice <filename>` and executed locally with Java 11.0.26 from a no-space temporary SDK copy. No network calls were made.
 
-No official fixture pass/fail messages exist yet. Do not infer XML fixes until official standard, simplified, credit-note, and debit-note samples can run under Java 11-14 and produce sanitized SDK output.
+Official fixture results:
+
+- Official standard invoice: `PASS`.
+- Official simplified invoice: `PASS`, with warning `BR-KSA-98` about simplified invoice submission within 24 hours.
+- Official standard credit note: `PASS`.
+- Official standard debit note: `PASS`.
+
+LedgerByte local fixture results:
+
+- Standard fixture: `FAIL` with XSD ordering error, `BR-KSA-33`, `BR-KSA-44`, `BR-KSA-06`, `KSA-13`, and warnings for seller identification, transaction-code length, and tax total shape.
+- Simplified fixture: `FAIL` with XSD ordering error, `BR-KSA-33`, `BR-KSA-06`, `KSA-13`, and warnings for seller identification, transaction-code length, invoice line net amount, and tax total shape.
+
+The next XML work should be driven by these SDK messages, starting with UBL ordering and official `ICV`/`PIH` additional document references before signing or API submission.
 
 ## Code That Should Stay Local-Only For Now
 

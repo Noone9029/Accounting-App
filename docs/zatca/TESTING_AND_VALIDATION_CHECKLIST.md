@@ -9,6 +9,7 @@ This is a working engineering checklist. Official ZATCA/FATOORA documentation mu
 - Keep smoke passing in default mock mode with no real OTP, CSID, or network required.
 - Keep smoke asserting that `/zatca-sdk/readiness` reports SDK execution disabled by default and that invoice SDK validation returns a disabled local-only response.
 - Keep smoke asserting that `/zatca-sdk/validate-reference-fixture` returns a disabled local-only response by default.
+- Keep smoke asserting that SDK readiness returns `requiredJavaRange`, `javaSupported`, and the official command string without requiring Java execution.
 - Record official validator responses as fixtures after sandbox access is available.
 - Do not promote any mock success state to legal `CLEARED` or `REPORTED` status.
 
@@ -25,5 +26,8 @@ Testing now has an isolated SDK wrapper for offline XML validation attempts. Kee
 
 - Result doc: `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`
 - Verified command: `fatoora -validate -invoice <filename>`
-- Current blocker: local OpenJDK 17.0.16 is outside the official SDK README requirement of Java `>=11` and `<15`
-- Required before fixture execution: install or configure Java 11-14, then run official SDK samples before LedgerByte-generated XML
+- Default Java remains OpenJDK 17.0.16, which is outside the official SDK README requirement of Java `>=11` and `<15`.
+- Java 11.0.26 was found locally and used without changing global Java.
+- Official standard invoice, simplified invoice, standard credit note, and standard debit note samples pass with the official launcher.
+- LedgerByte standard and simplified fixtures fail and must be corrected against SDK output before generated invoice validation can be trusted.
+- Generated invoice XML validation through the local API remains pending because the API/database stack was not confirmed running during the fixture pass.

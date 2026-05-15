@@ -2,7 +2,7 @@
 
 This is a working engineering checklist. Official ZATCA/FATOORA documentation must be verified before production. Do not treat current mock implementation as legal compliance.
 
-Status values: `DONE_LOCAL`, `MOCK_ONLY`, `SKELETON`, `NOT_STARTED`, `NEEDS_OFFICIAL_VERIFICATION`, `BLOCKED_RUNTIME`.
+Status values: `DONE_LOCAL`, `MOCK_ONLY`, `PARTIAL`, `SKELETON`, `NOT_STARTED`, `NEEDS_OFFICIAL_VERIFICATION`, `BLOCKED_RUNTIME`.
 
 Official reference files have now been inventoried under `reference/` and mapped in `OFFICIAL_IMPLEMENTATION_MAP.md`. Treat the table below as LedgerByte's code-status map; use `OFFICIAL_IMPLEMENTATION_MAP.md` and `ZATCA_CODE_GAP_REPORT.md` for reference-backed implementation sequencing.
 
@@ -16,7 +16,7 @@ Official reference files have now been inventoried under `reference/` and mapped
 | Previous invoice hash | `DONE_LOCAL` | `apps/api/src/zatca/zatca.service.ts`, `packages/zatca-core/src/index.ts` | Replace skeleton hash input with canonical signed XML flow. | Official hash-chain input/canonicalization rules. |
 | Invoice hash | `SKELETON` | `packages/zatca-core/src/index.ts`, `apps/api/src/zatca-core.spec.ts` | Hash official canonical XML instead of local skeleton XML. | Official canonicalization and hash algorithm samples. |
 | UBL XML | `SKELETON` | `packages/zatca-core/src/index.ts` | Build official UBL/KSA extension mapping and validation fixtures. | Official XML implementation standard and sample files. |
-| Official SDK local XML validation | `BLOCKED_RUNTIME` | `apps/api/src/zatca-sdk`, `apps/web/src/app/(app)/settings/zatca/page.tsx`, invoice detail ZATCA panel, `docs/zatca/OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` | Install or configure Java 11-14, then validate official SDK sample XML fixtures before LedgerByte-generated XML. | Java 11-14 runtime and verified local SDK paths. |
+| Official SDK local XML validation | `PARTIAL` | `apps/api/src/zatca-sdk`, `apps/web/src/app/(app)/settings/zatca/page.tsx`, invoice detail ZATCA panel, `docs/zatca/OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` | Official SDK samples pass under Java 11 and the launcher; now fix LedgerByte XML fixture failures before generated invoice validation. | Java 11-14 runtime and verified local SDK paths for repeatable local/CI validation. |
 | QR TLV | `SKELETON` | `packages/zatca-core/src/index.ts` | Add Phase 2 cryptographic QR tags after signing exists. | Official QR tag list and byte encoding rules. |
 | CSR generation | `DONE_LOCAL` | `packages/zatca-core/src/index.ts`, `apps/api/src/zatca/zatca.service.ts` | Align CSR subject/extensions with official profile. | FATOORA CSR profile requirements. |
 | Compliance CSID | `MOCK_ONLY` | `apps/api/src/zatca/adapters/mock-zatca-onboarding.adapter.ts` | Implement only after OTP/API contract is verified. | Sandbox access, OTP, endpoint, auth, response fields. |

@@ -109,7 +109,7 @@ Summary:
 
 ## Notes From Inspection
 
-- The SDK readme states the Java requirement as Java 11 through below 15; local `java -version` reported Java 17.0.16, so a wrapper should pin a compatible JRE or Docker image before any SDK automation.
+- The SDK readme states the Java requirement as Java 11 through below 15; local default `java -version` reports Java 17.0.16, but Java 11.0.26 was found and used for official sample validation. A wrapper should still pin a compatible JRE or Docker image before repeatable SDK automation.
 - Direct `java -jar ... -help` returned a configuration null-pointer error when run outside the SDK launcher context.
 - The Windows launcher currently fails from this checkout path because `E:\Accounting App` contains a space and the SDK batch script does not quote all derived paths.
 - The SDK readme identifies the provided certificate and private key as dummy/testing material. These files must not be copied into application state or logs.

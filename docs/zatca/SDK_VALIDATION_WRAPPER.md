@@ -34,6 +34,12 @@ LedgerByte has a test-only wrapper for the official ZATCA Java SDK files stored 
 - `javaFound`
 - `javaVersion`
 - `javaVersionSupported`
+- `detectedJavaVersion`
+- `javaSupported`
+- `requiredJavaRange`
+- `javaBinUsed`
+- `javaBlockerMessage`
+- `sdkCommand`
 - `projectPathHasSpaces`
 - `canAttemptSdkValidation`
 - `canRunLocalValidation`
@@ -41,7 +47,7 @@ LedgerByte has a test-only wrapper for the official ZATCA Java SDK files stored 
 - `warnings`
 - `suggestedFixes`
 
-The endpoint requires authentication and `x-organization-id`. It does not read or return private keys, CSIDs, OTPs, XML content, absolute SDK paths, or certificate material.
+The endpoint requires authentication and `x-organization-id`. It does not read or return private keys, CSIDs, OTPs, XML content, database URLs, secrets, or certificate material. It may return the configured Java binary string because developers need to confirm the Java 11-14 runtime used for local-only validation.
 
 ## Dry-Run Command Planning
 
@@ -82,7 +88,7 @@ When the flag is false or unset, validation endpoints return a safe disabled res
 
 When enabled, `POST /zatca-sdk/validate-xml-local`, `POST /zatca-sdk/validate-reference-fixture`, and `POST /sales-invoices/:id/zatca/sdk-validate` run local-only validation only after readiness passes.
 
-The wrapper writes XML to a temporary work directory, runs the SDK with argument-array execution, enforces a timeout, sanitizes stdout/stderr, and deletes temp files. It does not call ZATCA network endpoints.
+The wrapper writes XML to a temporary work directory, runs the SDK with argument-array execution, sets `SDK_CONFIG` from the resolved SDK `Configuration/config.json`, enforces a timeout, sanitizes stdout/stderr, and deletes temp files. It does not call ZATCA network endpoints.
 
 ## Validation Endpoints
 
@@ -110,15 +116,30 @@ Path traversal and non-XML files are rejected.
 
 `POST /sales-invoices/:id/zatca/sdk-validate` uses already generated local invoice XML, if present. It does not update invoice accounting, does not submit to ZATCA, and does not mark the invoice production compliant.
 
-## Java Version Warning
+## Java Version Status
 
-The SDK readme states that Java must be `>=11` and `<15`. The local machine previously reported Java 17.0.16, which is outside that range. Future execution should use a pinned Java 11-14 runtime, preferably through a Docker wrapper or an explicitly configured JRE path.
+The SDK readme states that Java must be `>=11` and `<15`. The local default Java is OpenJDK 17.0.16, which is outside that range, but a supported Java 11 runtime was found at:
+
+```text
+C:\Program Files\Microsoft\jdk-11.0.26.4-hotspot\bin\java.exe
+```
+
+Do not change global Java. For local SDK validation, set `ZATCA_SDK_JAVA_BIN` to a Java 11-14 binary or use an isolated temp/Docker wrapper.
 
 ## Official Fixture Validation Status
 
 The official fixture validation pass is documented in `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`.
 
-Current result: `BLOCKED`. The SDK command format was verified from official repo-local docs as `fatoora -validate -invoice <filename>`, but this machine has Java 17.0.16 and the official SDK README requires Java `>=11` and `<15`. No SDK validation command was executed under the unsupported runtime.
+Current result: official sample validation is no longer blocked. Using Java 11.0.26 and the official `fatoora.bat` launcher from a no-space temporary SDK copy:
+
+- Official standard invoice: `PASS`
+- Official simplified invoice: `PASS` with warning `BR-KSA-98`
+- Official standard credit note: `PASS`
+- Official standard debit note: `PASS`
+- LedgerByte local standard fixture: `FAIL`
+- LedgerByte local simplified fixture: `FAIL`
+
+The failure messages for LedgerByte fixtures are documented in `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`.
 
 The first fixture set to validate after Java is corrected is registered in `apps/api/src/zatca-sdk/zatca-official-fixtures.ts`:
 
@@ -131,15 +152,15 @@ The first fixture set to validate after Java is corrected is registered in `apps
 
 ## Windows Path-With-Spaces Issue
 
-The repo path is `E:\Accounting App`, which contains a space. Earlier SDK launcher attempts failed because the Windows batch script did not quote all derived paths. Dry-run command plans therefore prefer argument-array execution and warn when paths contain spaces.
+The repo path is `E:\Accounting App`, which contains a space. Earlier SDK launcher attempts failed because the Windows batch script did not quote all derived paths. The successful fixture validation pass copied the SDK to `E:\Work\Temp\ledgerbyte-zatca-sdk-238-R3.4.8`, rewrote only the temporary copy's `Configuration/config.json`, and ran the official launcher with `SDK_CONFIG` and `FATOORA_HOME` set. The repo-local `reference/` folder was not changed.
 
 ## Future Enablement Steps
 
-1. Pin Java 11-14 in CI or Docker.
-2. Verify whether the SDK should be invoked through the launcher or direct JAR call.
-3. Run SDK validation against official sample XML only in isolated test tooling.
+1. Keep Java 11-14 explicit through `ZATCA_SDK_JAVA_BIN`, Docker, or isolated SDK temp workspaces.
+2. Prefer the official `fatoora -validate -invoice <filename>` launcher because direct JAR execution was not equivalent for the simplified sample.
+3. Fix LedgerByte XML structure in small, SDK-backed steps: UBL order, official `ICV`/`PIH`, invoice type flags, party identifiers, tax totals, and line formulas.
 4. Compare SDK hash output to LedgerByte hash output before changing app hash logic.
-5. Keep signing, real API calls, production CSID, clearance/reporting, and PDF/A-3 out of scope until the earlier validation steps pass.
+5. Keep signing, real API calls, production CSID, clearance/reporting, and PDF/A-3 out of scope until XML validation passes locally.
 
 ## Compliance Warning
 

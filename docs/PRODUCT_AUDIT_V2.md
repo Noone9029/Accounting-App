@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-16
 
-Latest commit audited: `d199c45` (`Add ZATCA SDK local validation groundwork`) plus the current official fixture validation pass.
+Latest commit audited: `482237e` (`Validate official ZATCA SDK fixtures`) plus the current Java 11 readiness and official fixture execution pass.
 
 ## Executive Summary
 
@@ -17,7 +17,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 | Local demo MVP | 88% | Strong enough for guided demos and internal workflow review. |
 | Private beta | 62% | Possible only with carefully selected testers, clear limitations, non-production data, and hands-on support. |
 | Production SaaS | 38% | Blocked by operations, storage, email, billing, security hardening, backups, monitoring, and legal/compliance review. |
-| Saudi/ZATCA production readiness | 20% | ZATCA remains local/mock/scaffold; local SDK validation groundwork exists, but official fixture execution is blocked by Java 17 and official XML/signing/CSID/clearance/reporting/PDF-A3 are not implemented. |
+| Saudi/ZATCA production readiness | 24% | ZATCA remains local/mock/scaffold; official SDK samples now pass locally under Java 11, but LedgerByte XML fixtures fail and signing/CSID/clearance/reporting/PDF-A3 are not implemented. |
 | Xero/Wafeq competitor readiness | 45% | Breadth is now meaningful, but production trust, compliance depth, integrations, onboarding, and polish are still behind mature products. |
 
 ## Completed Modules
@@ -48,12 +48,12 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 - Reports: broad operational reports exist, but official VAT return, filing exports, scheduled delivery, report pack controls, and accountant sign-off remain.
 - Attachments/storage: upload/download/soft-delete works, new uploaded attachments can use S3-compatible storage when explicitly configured, but database/base64 remains the default and there is no migration executor, generated-document S3 path, scanning, OCR, or retention policy.
 - Email: mock/local flow works with rate limits and SMTP can be enabled by env, but there is no retry queue, bounce/webhook handling, domain-auth validation workflow, MFA, or session invalidation.
-- ZATCA: extensive local groundwork and docs exist, but official production path is not implemented.
+- ZATCA: extensive local groundwork and docs exist; official SDK sample fixtures now pass locally under Java 11, but LedgerByte-generated XML remains non-compliant and the production path is not implemented.
 - Browser QA: route smoke exists and deployed E2E has run, but no visual regression, no full accounting assertions in browser, and no scheduled CI.
 
 ## Not Started
 
-- Real ZATCA signing, official XML validation, CSID onboarding, clearance, reporting, and PDF/A-3.
+- Real ZATCA signing, compliant LedgerByte XML validation, CSID onboarding, clearance, reporting, and PDF/A-3.
 - Real-bucket S3 validation, generated-document object storage, and database-to-S3 migration executor.
 - Email provider validation, bounce/retry worker, provider webhooks, and domain authentication.
 - Subscription billing, plans, tenant limits, and customer billing.
@@ -78,7 +78,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 
 ## Compliance Blockers
 
-- ZATCA official XML mapping is incomplete; local SDK validation is feature-flagged but current fixture execution is blocked until Java 11-14 is configured.
+- ZATCA official XML mapping is incomplete; official SDK samples pass locally under Java 11, while LedgerByte standard/simplified XML fixtures fail with XSD/KSA rule messages.
 - ZATCA invoice hash/canonicalization is local-only and not SDK-verified.
 - ZATCA signing and certificate/key custody are not implemented.
 - Compliance CSID and production CSID onboarding are not implemented.
@@ -136,6 +136,6 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 
 1. Stabilize current UX: dashboard chart polish, error/empty states, route QA, and browser smoke expansion.
 2. Turn production groundwork into real infrastructure: S3 migration/generated-document storage, email provider, backup/restore, monitoring, and CI gates.
-3. Configure Java 11-14 and run official ZATCA SDK fixture validation before signing or network calls.
+3. Fix LedgerByte ZATCA XML against official SDK fixture failures before signing or network calls.
 4. Add accountant-reviewed advanced accounting only after current report/dashboard/inventory policies are signed off.
 5. Add SaaS business layer after operational foundations are reliable.

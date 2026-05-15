@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Latest commit audited: `d199c45` (`Add ZATCA SDK local validation groundwork`) plus the current official fixture validation pass.
+Latest commit audited: `482237e` (`Validate official ZATCA SDK fixtures`) plus the current Java 11 readiness and official fixture execution pass.
 
 Each prompt is intentionally scoped so it can be executed as a safe Codex implementation/audit task. Prompts that need credentials say so explicitly.
 
@@ -116,11 +116,11 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 
 ## Phase 3: ZATCA Production Path
 
-### 14. Run local ZATCA SDK fixture validation
+### 14. Fix LedgerByte ZATCA XML fixture failures
 
-- Objective: Configure Java 11-14, then use the feature-flagged SDK wrapper against official/sample XML fixtures and document pass/fail output without signing or network calls.
-- Why it matters: The current XML/hash flow is local-only and unverified.
-- Dependencies: Java 11-14 runtime and local references.
+- Objective: Fix the local standard/simplified XML fixtures against the official SDK failures without signing or network calls.
+- Why it matters: Official sample fixtures now pass locally, but LedgerByte XML fails XSD/KSA rules and cannot advance to hash/signing.
+- Dependencies: Java 11-14 runtime and official fixture result doc.
 - Risk level: High.
 - Manual credentials needed: No.
 

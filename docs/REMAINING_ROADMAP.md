@@ -101,8 +101,9 @@ Objective: move from local-only ZATCA groundwork to official validated Phase 2 i
 Tasks:
 
 - Verify official XML requirements against local `reference/` docs and SDK samples.
-- Configure Java 11-14, then run SDK-backed XML fixture validation and add hash comparison tests.
-- Implement official XML mapping for standard and simplified tax invoices.
+- Keep Java 11-14 configured for repeatable local/CI SDK validation; official sample fixtures now pass under Java 11.
+- Implement official XML mapping fixes for standard and simplified tax invoices based on current LedgerByte fixture failures.
+- Add SDK-backed generated invoice validation and hash comparison tests after XML fixtures pass.
 - Implement signing and canonicalization through SDK-verified tests.
 - Implement compliance CSID onboarding with real FATOORA sandbox OTP.
 - Implement compliance invoice API tests.
@@ -117,14 +118,14 @@ Manual dependencies:
 - ZATCA/FATOORA sandbox access.
 - FATOORA OTP.
 - Official endpoint/auth verification.
-- Java 11-14 runtime verification.
+- Repeatable Java 11-14 runtime verification for local and CI environments.
 - KMS/secrets manager selection.
 
 Risk level: Critical.
 
 Recommended next prompt:
 
-> Configure Java 11-14 for the ZATCA SDK, run official fixture validation locally, then close generated XML gaps without signing or real API calls.
+> Fix LedgerByte ZATCA XML mapping against official SDK failure messages, then validate generated invoice XML locally without signing or real API calls.
 
 ## Phase 5: Production/SaaS Readiness
 

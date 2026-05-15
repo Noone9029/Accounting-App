@@ -1139,6 +1139,12 @@ interface ZatcaSdkReadinessResponse {
   workingDirectoryWritable: boolean;
   supportedCommandsKnown: boolean;
   javaFound: boolean;
+  detectedJavaVersion: string | null;
+  javaSupported: boolean;
+  requiredJavaRange: string;
+  javaBinUsed: string;
+  javaBlockerMessage: string | null;
+  sdkCommand: string;
   canAttemptSdkValidation: boolean;
   canRunLocalValidation: boolean;
   blockingReasons: string[];
@@ -2906,6 +2912,10 @@ async function main(): Promise<void> {
   assert(typeof zatcaSdkReadiness.workingDirectoryWritable === "boolean", "ZATCA SDK readiness returns work directory flag");
   assert(typeof zatcaSdkReadiness.supportedCommandsKnown === "boolean", "ZATCA SDK readiness returns command support flag");
   assert(typeof zatcaSdkReadiness.javaFound === "boolean", "ZATCA SDK readiness returns Java flag");
+  assert(typeof zatcaSdkReadiness.javaSupported === "boolean", "ZATCA SDK readiness returns Java supported flag");
+  assertEqual(zatcaSdkReadiness.requiredJavaRange, ">=11 <15", "ZATCA SDK readiness required Java range");
+  assertEqual(zatcaSdkReadiness.sdkCommand, "fatoora -validate -invoice <filename>", "ZATCA SDK readiness documented command");
+  assert(typeof zatcaSdkReadiness.javaBinUsed === "string", "ZATCA SDK readiness returns Java bin used");
   assertEqual(zatcaSdkReadiness.canRunLocalValidation, false, "ZATCA SDK local validation cannot run by default");
   assert(zatcaSdkReadiness.blockingReasons.length > 0, "ZATCA SDK readiness returns disabled blockers");
   assertNoPrivateKey(zatcaSdkReadiness, "ZATCA SDK readiness response");

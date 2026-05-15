@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { constants, existsSync, readdirSync, statSync, accessSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve, win32 } from "node:path";
+import { dirname, join, posix, resolve, win32 } from "node:path";
 import { cwd, env, platform } from "node:process";
 
 export interface JavaProbeResult {
@@ -24,6 +24,12 @@ export interface ZatcaSdkReadiness {
   javaVersion: string | null;
   javaMajorVersion: number | null;
   javaVersionSupported: boolean;
+  detectedJavaVersion: string | null;
+  javaSupported: boolean;
+  requiredJavaRange: string;
+  javaBinUsed: string;
+  javaBlockerMessage: string | null;
+  sdkCommand: string;
   projectPathHasSpaces: boolean;
   canAttemptSdkValidation: boolean;
   canRunLocalValidation: boolean;
@@ -55,6 +61,7 @@ export interface ZatcaSdkValidationCommandInput {
   sdkJarPath?: string | null;
   launcherPath?: string | null;
   jqPath?: string | null;
+  configDirPath?: string | null;
   workingDirectory: string;
   platform: NodeJS.Platform | string;
   javaFound?: boolean;
@@ -80,6 +87,8 @@ export interface ZatcaSdkExecutionConfig {
 }
 
 const DEFAULT_ZATCA_SDK_TIMEOUT_MS = 30000;
+export const ZATCA_SDK_REQUIRED_JAVA_RANGE = ">=11 <15";
+export const ZATCA_SDK_VALIDATE_COMMAND = "fatoora -validate -invoice <filename>";
 
 export function discoverZatcaSdkReadiness(options: ZatcaSdkDiscoveryOptions = {}): ZatcaSdkReadiness {
   const projectRoot = resolve(options.projectRoot ?? findProjectRoot(options.startDirectory ?? cwd()));
@@ -95,6 +104,11 @@ export function discoverZatcaSdkReadiness(options: ZatcaSdkDiscoveryOptions = {}
   const sdkRootPath = findSdkRoot(sdkJarPath, configDirPath, launcherPath);
   const java = detectJava(options.runCommand, executionConfig.javaBin);
   const javaVersionSupported = java.found && java.majorVersion !== null && java.majorVersion >= 11 && java.majorVersion < 15;
+  const javaBlockerMessage = !java.found
+    ? "Java was not found."
+    : !javaVersionSupported
+      ? `Detected Java ${java.version ?? "unknown"} is outside the SDK-supported range ${ZATCA_SDK_REQUIRED_JAVA_RANGE}.`
+      : null;
   const projectPathHasSpaces = /\s/.test(projectRoot);
   const configDirFound = Boolean(configDirPath && existsSync(configDirPath) && statSync(configDirPath).isDirectory());
   const workingDirectoryWritable = canWriteToDirectory(executionConfig.workDir);
@@ -136,12 +150,12 @@ export function discoverZatcaSdkReadiness(options: ZatcaSdkDiscoveryOptions = {}
     suggestedFixes.push("Set ZATCA_SDK_WORK_DIR to a writable temporary folder.");
   }
   if (!java.found) {
-    blockingReasons.push("Java was not found.");
+    blockingReasons.push(javaBlockerMessage ?? "Java was not found.");
     warnings.push("Java was not found on PATH.");
     suggestedFixes.push("Install a Java runtime compatible with the ZATCA SDK before enabling local SDK validation.");
   } else if (!javaVersionSupported) {
-    blockingReasons.push("Detected Java version is outside the SDK-supported range.");
-    warnings.push(`Detected Java ${java.version ?? "unknown"}, but the SDK readme expects Java >=11 and <15.`);
+    blockingReasons.push(javaBlockerMessage ?? "Detected Java version is outside the SDK-supported range.");
+    warnings.push(`Detected Java ${java.version ?? "unknown"}, but the SDK readme expects Java ${ZATCA_SDK_REQUIRED_JAVA_RANGE}.`);
     suggestedFixes.push("Use a pinned Java 11-14 runtime or a Docker wrapper for SDK validation.");
   }
   if (!supportedCommandsKnown) {
@@ -172,6 +186,12 @@ export function discoverZatcaSdkReadiness(options: ZatcaSdkDiscoveryOptions = {}
     javaVersion: java.version,
     javaMajorVersion: java.majorVersion,
     javaVersionSupported,
+    detectedJavaVersion: java.version,
+    javaSupported: javaVersionSupported,
+    requiredJavaRange: ZATCA_SDK_REQUIRED_JAVA_RANGE,
+    javaBinUsed: executionConfig.javaBin,
+    javaBlockerMessage,
+    sdkCommand: ZATCA_SDK_VALIDATE_COMMAND,
     projectPathHasSpaces,
     canAttemptSdkValidation,
     canRunLocalValidation,
@@ -195,6 +215,7 @@ export function buildZatcaSdkValidationCommand(input: ZatcaSdkValidationCommandI
   const currentPlatform = input.platform;
   const warnings: string[] = ["Use argument-array execution for this SDK command; do not concatenate a shell string."];
   const envAdditions: Record<string, string> = {};
+  const pathPrepend: string[] = [];
 
   if (!input.xmlFilePath.trim()) {
     warnings.push("XML file path is missing.");
@@ -208,8 +229,22 @@ export function buildZatcaSdkValidationCommand(input: ZatcaSdkValidationCommandI
   if (input.launcherPath && !input.jqPath) {
     warnings.push("fatoora launcher may require jq, but jq was not found.");
   }
+  if (input.configDirPath) {
+    envAdditions.SDK_CONFIG = currentPlatform === "win32" ? win32.join(input.configDirPath, "config.json") : posix.join(input.configDirPath, "config.json");
+  } else {
+    warnings.push("SDK_CONFIG could not be planned because the SDK Configuration directory was not resolved.");
+  }
+  if (input.launcherPath) {
+    envAdditions.FATOORA_HOME = currentPlatform === "win32" ? win32.dirname(input.launcherPath) : dirname(input.launcherPath);
+  }
   if (input.jqPath) {
-    envAdditions.PATH_PREPEND = currentPlatform === "win32" ? win32.dirname(input.jqPath) : dirname(input.jqPath);
+    pathPrepend.push(currentPlatform === "win32" ? win32.dirname(input.jqPath) : dirname(input.jqPath));
+  }
+  if (input.javaCommand && input.javaCommand !== "java" && /[\\/]/.test(input.javaCommand)) {
+    pathPrepend.push(currentPlatform === "win32" ? win32.dirname(input.javaCommand) : dirname(input.javaCommand));
+  }
+  if (pathPrepend.length > 0) {
+    envAdditions.PATH_PREPEND = pathPrepend.join(currentPlatform === "win32" ? ";" : ":");
   }
 
   const pathContainsSpaces = /\s/.test(input.workingDirectory) || /\s/.test(input.xmlFilePath) || Boolean(input.sdkJarPath && /\s/.test(input.sdkJarPath));
@@ -220,14 +255,20 @@ export function buildZatcaSdkValidationCommand(input: ZatcaSdkValidationCommandI
   let command: string | null = null;
   let args: string[] = [];
 
-  if (input.sdkJarPath) {
+  if (input.launcherPath) {
+    if (currentPlatform === "win32" && /\.bat$/i.test(input.launcherPath)) {
+      command = "cmd.exe";
+      args = ["/d", "/c", input.launcherPath, "-validate", "-invoice", input.xmlFilePath];
+      warnings.push("Uses cmd.exe argument-array execution only to run the official Windows fatoora.bat launcher.");
+    } else {
+      command = input.launcherPath;
+      args = ["-validate", "-invoice", input.xmlFilePath];
+    }
+    warnings.push(`Uses the SDK readme documented validation command: ${ZATCA_SDK_VALIDATE_COMMAND}.`);
+  } else if (input.sdkJarPath) {
     command = input.javaCommand ?? "java";
     args = ["-jar", input.sdkJarPath, "-validate", "-invoice", input.xmlFilePath];
-    warnings.push("Uses the SDK readme documented validation flags: -validate -invoice <filename>.");
-  } else if (input.launcherPath) {
-    command = input.launcherPath;
-    args = ["-validate", "-invoice", input.xmlFilePath];
-    warnings.push("Launcher validation plan depends on the SDK launcher resolving its configuration correctly.");
+    warnings.push("Direct JAR validation is a fallback; prefer the official fatoora launcher when available.");
   }
 
   return {

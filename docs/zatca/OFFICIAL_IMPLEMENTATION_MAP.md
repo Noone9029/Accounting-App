@@ -44,5 +44,5 @@ Status language:
 
 - The SDK sample XML uses `cac:AdditionalDocumentReference` entries for `ICV`, `PIH`, and `QR`; current LedgerByte XML does not yet follow that structure.
 - The Schematron rules include explicit hash-generation guidance: remove `ext:UBLExtensions`, remove the `QR` additional-document-reference block, remove `cac:Signature`, canonicalize with C14N11, hash with SHA-256, then base64 encode.
-- The SDK readme states Java 11 through below 15 is required, while the local machine has Java 17. A Docker or pinned-JRE wrapper is safer than calling the local Java installation.
+- The SDK readme states Java 11 through below 15 is required. The default local Java is 17, but Java 11 was found and used to pass official sample validation; a Docker or pinned-JRE wrapper is still safer for repeatable local/CI validation.
 - API docs in `reference/zatca-docs` provide endpoint paths and payload fields, but real calls remain disabled until credentials, base URLs, and sandbox behavior are verified manually.

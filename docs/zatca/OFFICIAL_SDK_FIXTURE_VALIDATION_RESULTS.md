@@ -2,11 +2,11 @@
 
 Audit date: 2026-05-16
 
-Base commit audited: `d199c45 Add ZATCA SDK local validation groundwork`
+Base commit audited: `482237e Validate official ZATCA SDK fixtures`
 
 ## Scope
 
-This pass used only the official ZATCA documentation, SDK, schemas, rules, samples, and manuals present under the repo-local `reference/` folder. No ZATCA network calls were enabled or attempted. No invoices were submitted, no CSIDs were requested, no production credentials were used, no signing was implemented, and PDF/A-3 was not implemented.
+This pass used only the official ZATCA documentation, SDK, schemas, rules, samples, and manuals present under the repo-local `reference/` folder. No ZATCA network calls were enabled or attempted. No invoices were submitted, no CSIDs were requested, no production credentials were used, no invoice signing was implemented, and PDF/A-3 was not implemented.
 
 ## Official Reference Files Inspected
 
@@ -19,9 +19,12 @@ SDK bundle:
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Apps/fatoora`
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Apps/fatoora.bat`
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Apps/global.json`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Apps/jq.exe`
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/config.json`
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/defaults.json`
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/usage.txt`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/install.bat`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/install.sh`
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/**/*.xml`
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/PDF-A3/*.pdf`
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Schemas/xsds/**/*.xsd`
@@ -55,77 +58,90 @@ The SDK README and `Configuration/usage.txt` confirm local invoice validation us
 fatoora -validate -invoice <filename>
 ```
 
-The README also states the Java prerequisite is a Java JRE/SDK `>=11` and `<15`.
+The README also states the Java prerequisite is Java `>=11` and `<15`.
 
-The local wrapper now keeps this command format in code:
+The Windows launcher wraps the JAR with SDK-specific runtime arguments and `--globalVersion`. In this pass, direct JAR execution was not equivalent for the simplified official sample: it produced QR/signature failures while the official `fatoora.bat` launcher passed the same XML. The LedgerByte wrapper therefore now prefers the official launcher when present and keeps direct JAR execution as a fallback only.
 
-- Direct JAR execution plan: `java -jar <sdk-jar> -validate -invoice <xml-file>`
-- Launcher execution plan: `<fatoora launcher> -validate -invoice <xml-file>`
-
-Both plans use argument-array execution and never concatenate a shell command string.
-
-## Java Runtime Result
+## Java Runtime Detection
 
 Commands run:
 
 ```powershell
 java -version
 where.exe java
+node scripts/zatca-sdk-readiness.cjs
 ```
 
-Observed Java:
+Detected runtimes:
+
+| Runtime | Version | Supported by SDK README |
+| --- | --- | --- |
+| `C:\Users\Ahmad\AppData\Local\Programs\Eclipse Adoptium\jdk-17.0.16.8-hotspot\bin\java.exe` | OpenJDK 17.0.16 | No |
+| `C:\Program Files\Java\jre1.8.0_441\bin\java.exe` | Java 8 | No |
+| `C:\Program Files\Java\jre1.8.0_51\bin\java.exe` | Java 8 | No |
+| `C:\Program Files\Microsoft\jdk-11.0.26.4-hotspot\bin\java.exe` | OpenJDK 11.0.26 | Yes |
+
+`ZATCA_SDK_JAVA_BIN` was not globally set. Local validation was run with the Java 11 runtime path directly and without changing global Java.
+
+## Execution Setup
+
+The repo path is `E:\Accounting App`, which contains a space. To avoid launcher path splitting, the official SDK folder was copied to this temporary no-space workspace:
 
 ```text
-openjdk version "17.0.16" 2025-07-15
-OpenJDK Runtime Environment Temurin-17.0.16+8
-OpenJDK 64-Bit Server VM Temurin-17.0.16+8
-C:\Users\Ahmad\AppData\Local\Programs\Eclipse Adoptium\jdk-17.0.16.8-hotspot\bin\java.exe
+E:\Work\Temp\ledgerbyte-zatca-sdk-238-R3.4.8
 ```
 
-Result: `BLOCKED`. Java 17 is outside the official SDK README requirement of `>=11` and `<15`.
+Only the temporary SDK copy was adjusted. The repo-local `reference/` folder was not modified.
 
-No local SDK validation command was executed because this task requires SDK commands only when Java `>=11` and `<15` is available. No repo-local Java 11-14 runtime was found under the SDK reference folder.
+The temporary execution environment used:
+
+- `FATOORA_HOME=E:\Work\Temp\ledgerbyte-zatca-sdk-238-R3.4.8\Apps`
+- `SDK_CONFIG=E:\Work\Temp\ledgerbyte-zatca-sdk-238-R3.4.8\Configuration\config.json`
+- `PATH` prepended with `C:\Program Files\Microsoft\jdk-11.0.26.4-hotspot\bin` and the temporary SDK `Apps` folder
+- Command shape: `cmd.exe /d /c <temp-sdk>\Apps\fatoora.bat -validate -invoice <xml-file>`
+
+`install.bat` and `install.sh` confirmed that `SDK_CONFIG` is expected by the launcher setup. Without `SDK_CONFIG`, the SDK failed before validation with a `NullPointerException` in `Config.readResourcesPaths` and XML parser output `Content is not allowed in prolog`.
 
 ## Fixture Validation Results
 
-| Fixture | Source | Path | Intended command | Result | Notes |
-| --- | --- | --- | --- | --- | --- |
-| Standard invoice | Official SDK sample | `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml` | `fatoora -validate -invoice Standard_Invoice.xml` | `BLOCKED` | Java 17 is unsupported by the official SDK README. |
-| Simplified invoice | Official SDK sample | `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Simplified/Invoice/Simplified_Invoice.xml` | `fatoora -validate -invoice Simplified_Invoice.xml` | `BLOCKED` | Java 17 is unsupported by the official SDK README. |
-| Standard credit note | Official SDK sample | `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Credit/Standard_Credit_Note.xml` | `fatoora -validate -invoice Standard_Credit_Note.xml` | `BLOCKED` | Java 17 is unsupported by the official SDK README. |
-| Standard debit note | Official SDK sample | `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Debit/Standard_Debit_Note.xml` | `fatoora -validate -invoice Standard_Debit_Note.xml` | `BLOCKED` | Java 17 is unsupported by the official SDK README. |
-| LedgerByte standard local fixture | Local deterministic fixture | `packages/zatca-core/fixtures/local-standard-tax-invoice.expected.xml` | `fatoora -validate -invoice local-standard-tax-invoice.expected.xml` | `BLOCKED` | Not an official ZATCA fixture. Validate only after official samples can run first. |
-| LedgerByte simplified local fixture | Local deterministic fixture | `packages/zatca-core/fixtures/local-simplified-tax-invoice.expected.xml` | `fatoora -validate -invoice local-simplified-tax-invoice.expected.xml` | `BLOCKED` | Not an official ZATCA fixture. Validate only after official samples can run first. |
+| Fixture | Path | Exit code | Status | SDK messages |
+| --- | --- | ---: | --- | --- |
+| Official standard invoice | `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml` | 0 | PASS | `[XSD] validation result : PASSED`; `[EN] validation result : PASSED`; `[KSA] validation result : PASSED`; `[PIH] validation result : PASSED`; `*** GLOBAL VALIDATION RESULT = PASSED` |
+| Official simplified invoice | `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Simplified/Invoice/Simplified_Invoice.xml` | 0 | PASS | `[XSD] validation result : PASSED`; `[EN] validation result : PASSED`; `[KSA] validation result : PASSED`; warning `CODE : BR-KSA-98` about 24-hour simplified invoice submission; `[QR] validation result : PASSED`; `[SIGNATURE] validation result : PASSED`; `[PIH] validation result : PASSED`; `*** GLOBAL VALIDATION RESULT = PASSED` |
+| Official standard credit note | `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Credit/Standard_Credit_Note.xml` | 0 | PASS | `[XSD] validation result : PASSED`; `[EN] validation result : PASSED`; `[KSA] validation result : PASSED`; `[PIH] validation result : PASSED`; `*** GLOBAL VALIDATION RESULT = PASSED` |
+| Official standard debit note | `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Debit/Standard_Debit_Note.xml` | 0 | PASS | `[XSD] validation result : PASSED`; `[EN] validation result : PASSED`; `[KSA] validation result : PASSED`; `[PIH] validation result : PASSED`; `*** GLOBAL VALIDATION RESULT = PASSED` |
+| LedgerByte standard local fixture | `packages/zatca-core/fixtures/local-standard-tax-invoice.expected.xml` | 0 | FAIL | `[XSD] validation result : FAILED`; `CODE : SAXParseException` with line 11 saying `cbc:IssueDate` was expected instead of another `cbc:ID`; `[EN] validation result : FAILED`; `CODE : SaxonApiException` with `("STD-&-001", "42")`; `[KSA] validation result : FAILED`; `CODE : BR-KSA-33`; `CODE : BR-KSA-44`; `CODE : BR-KSA-06`; warnings `BR-KSA-08`, `BR-KSA-F-06-C40`, `BR-KSA-EN16931-09`; `[PIH] validation result : FAILED`; `CODE : KSA-13`; `*** GLOBAL VALIDATION RESULT = FAILED` |
+| LedgerByte simplified local fixture | `packages/zatca-core/fixtures/local-simplified-tax-invoice.expected.xml` | 0 | FAIL | `[XSD] validation result : FAILED`; `CODE : SAXParseException` with line 11 saying `cbc:IssueDate` was expected instead of another `cbc:ID`; `[EN] validation result : FAILED`; `CODE : SaxonApiException` with `("SIM-000001", "43")`; `[KSA] validation result : FAILED`; `CODE : BR-KSA-33`; `CODE : BR-KSA-06`; warnings `BR-KSA-08`, `BR-KSA-F-06-C40`, `BR-KSA-EN16931-11`, `BR-KSA-EN16931-09`; `[PIH] validation result : FAILED`; `CODE : KSA-13`; `*** GLOBAL VALIDATION RESULT = FAILED` |
 
 ## Generated Invoice XML Validation
 
-Generated invoice XML validation through the local API was not attempted with live SDK execution because the local Java runtime is unsupported. The existing API remains safe by default:
+Generated invoice XML validation through the local API was not attempted because the local API/database stack was not confirmed running for this pass. The existing API remains safe by default:
 
 - `GET /zatca-sdk/readiness` reports execution disabled unless explicitly enabled.
 - `POST /zatca-sdk/validate-reference-fixture` returns a disabled local-only response by default.
 - `POST /sales-invoices/:id/zatca/sdk-validate` returns a disabled local-only response by default.
 
-## Official Fixture Observations
+## LedgerByte XML Gap Summary From SDK Output
 
-The selected official samples include populated UBL extensions, signature-related structures, `cbc:InvoiceTypeCode` numeric values with multi-position `name` flags, `ICV` and `PIH` additional document references, SAR document/tax currency fields, and full line/tax/party structures.
-
-The current LedgerByte local fixtures are intentionally deterministic skeletons. They are not official validation artifacts and should not be treated as compliance evidence.
-
-## Gap Summary
-
-- Runtime blocker: Java 17 is installed, but the official SDK README requires Java `>=11` and `<15`.
-- Configuration gap: `Configuration/config.json` contains `C:\SDK\...` absolute paths, while `Configuration/defaults.json` uses relative SDK paths. Future execution should verify the launcher/JAR configuration from a no-space working directory.
-- Path gap: the repo lives at `E:\Accounting App`, which contains a space. The wrapper must continue using `execFile` argument arrays and may need a no-space SDK temp copy if the launcher itself does not quote paths correctly.
-- LedgerByte XML gap: local generated XML has not yet been evaluated by the official SDK. Do not change XML structure until official samples run and their pass/fail messages are captured.
+- UBL element ordering is wrong: the SDK XSD expected `cbc:IssueDate` where the local fixtures currently emit a second `cbc:ID` for the ICV placeholder.
+- ICV is not in the official KSA-16 structure: SDK rule `BR-KSA-33` says each invoice must have an invoice counter value.
+- Standard buyer VAT format is invalid for the fixture: SDK rule `BR-KSA-44` requires a 15-digit number beginning and ending with `3` when buyer VAT exists.
+- Invoice transaction code mapping is wrong: SDK rule `BR-KSA-06` expects the `NNPNESBCG` flag structure, not the current enum-like text.
+- Seller identification is incomplete: SDK warning `BR-KSA-08` expects one allowed seller identification scheme such as `CRN`, `MOM`, `MLS`, `SAG`, `OTH`, or `700`.
+- PIH is invalid: SDK rule `KSA-13` fails for both LedgerByte fixtures.
+- The simplified local fixture also fails/warns on invoice line net amount formula through `BR-KSA-EN16931-11`.
+- Tax total shape needs review: SDK warning `BR-KSA-EN16931-09` appears for both LedgerByte fixtures when tax currency code is present.
 
 ## Next Technical Fixes
 
-1. Install or pin Java 11-14 and set `ZATCA_SDK_JAVA_BIN` to that runtime.
-2. Run official SDK sample XML files first, starting with standard invoice, simplified invoice, standard credit note, and standard debit note.
-3. Capture sanitized stdout/stderr and exact SDK exit codes for each official sample.
-4. Only after official samples run, validate LedgerByte local fixtures and generated invoice XML.
-5. Use official SDK messages to update XML mapping, hash/canonicalization, signing, and QR work in separate scoped tasks.
+1. Keep SDK execution disabled by default in normal app and smoke runs.
+2. Use Java 11-14 through `ZATCA_SDK_JAVA_BIN` or an isolated temp/Docker SDK workspace when running local SDK validation.
+3. Update XML builder ordering and official `AdditionalDocumentReference` structures for `ICV` and `PIH` before changing signing/hash logic.
+4. Replace invoice type-code `name` mapping with the official `NNPNESBCG` structure.
+5. Fix party identifier/VAT and tax/line mappings using the official samples as the oracle.
+6. Add generated-invoice XML validation after local API/DB fixture generation is available.
+7. Do not start signing, CSID, clearance/reporting, or PDF/A-3 work until XML mapping passes official SDK validation locally.
 
 ## Compliance Warning
 
-This validation pass does not prove production compliance. Production readiness still requires official validation, signing, CSID onboarding, clearance/reporting, PDF/A-3/archive review, legal/accounting review, and controlled sandbox testing.
+This validation pass does not prove production compliance. Production readiness still requires official XML mapping, canonicalization, signing, CSID onboarding, clearance/reporting, PDF/A-3/archive review, legal/accounting review, and controlled sandbox testing.

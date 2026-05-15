@@ -2,12 +2,23 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { isAllowedZatcaFixturePath, ZATCA_SDK_FIXTURE_REGISTRY } from "./zatca-official-fixtures";
-import { buildZatcaSdkValidationCommand, discoverZatcaSdkReadiness, parseJavaMajorVersion, parseJavaVersion, readZatcaSdkExecutionConfig } from "./zatca-sdk-paths";
+import {
+  buildZatcaSdkValidationCommand,
+  discoverZatcaSdkReadiness,
+  parseJavaMajorVersion,
+  parseJavaVersion,
+  readZatcaSdkExecutionConfig,
+  ZATCA_SDK_REQUIRED_JAVA_RANGE,
+  ZATCA_SDK_VALIDATE_COMMAND,
+} from "./zatca-sdk-paths";
 
 describe("ZATCA SDK paths", () => {
   it("parses Java versions", () => {
     expect(parseJavaVersion('openjdk version "17.0.16" 2025-07-15')).toBe("17.0.16");
+    expect(parseJavaVersion('openjdk version "11.0.26" 2025-01-21 LTS')).toBe("11.0.26");
     expect(parseJavaMajorVersion("17.0.16")).toBe(17);
+    expect(parseJavaMajorVersion("14.0.2")).toBe(14);
+    expect(parseJavaMajorVersion("15.0.2")).toBe(15);
     expect(parseJavaMajorVersion("1.8.0_402")).toBe(8);
   });
 
@@ -35,12 +46,48 @@ describe("ZATCA SDK paths", () => {
     expect(readiness.jqFound).toBe(true);
     expect(readiness.javaFound).toBe(true);
     expect(readiness.javaVersionSupported).toBe(false);
+    expect(readiness.detectedJavaVersion).toBe("17.0.16");
+    expect(readiness.javaSupported).toBe(false);
+    expect(readiness.requiredJavaRange).toBe(ZATCA_SDK_REQUIRED_JAVA_RANGE);
+    expect(readiness.javaBlockerMessage).toContain("outside the SDK-supported range");
+    expect(readiness.sdkCommand).toBe(ZATCA_SDK_VALIDATE_COMMAND);
     expect(readiness.projectPathHasSpaces).toBe(true);
     expect(readiness.canAttemptSdkValidation).toBe(false);
     expect(readiness.canRunLocalValidation).toBe(false);
     expect(readiness.configDirFound).toBe(true);
     expect(readiness.supportedCommandsKnown).toBe(true);
     expect(readiness.blockingReasons.join(" ")).toContain("outside the SDK-supported range");
+  });
+
+  it("accepts Java 11-14 and blocks Java 15+", () => {
+    const root = mkdtempSync(join(tmpdir(), "ledgerbyte-zatca-java-"));
+    mkdirSync(join(root, "reference", "zatca-einvoicing-sdk-Java", "Apps"), { recursive: true });
+    mkdirSync(join(root, "reference", "zatca-einvoicing-sdk-Java", "Configuration"), { recursive: true });
+    writeFileSync(join(root, "pnpm-workspace.yaml"), "");
+    writeFileSync(join(root, "reference", "zatca-einvoicing-sdk-Java", "Apps", "zatca-einvoicing-sdk-238-R3.4.8.jar"), "");
+    writeFileSync(join(root, "reference", "zatca-einvoicing-sdk-Java", "Configuration", "config.json"), "{}");
+
+    const java11 = discoverZatcaSdkReadiness({
+      projectRoot: root,
+      env: { ZATCA_SDK_EXECUTION_ENABLED: "true" },
+      runCommand: () => ({ status: 0, stderr: 'openjdk version "11.0.26" 2025-01-21 LTS' }),
+    });
+    const java14 = discoverZatcaSdkReadiness({
+      projectRoot: root,
+      env: { ZATCA_SDK_EXECUTION_ENABLED: "true" },
+      runCommand: () => ({ status: 0, stderr: 'openjdk version "14.0.2" 2020-07-14' }),
+    });
+    const java15 = discoverZatcaSdkReadiness({
+      projectRoot: root,
+      env: { ZATCA_SDK_EXECUTION_ENABLED: "true" },
+      runCommand: () => ({ status: 0, stderr: 'openjdk version "15.0.2" 2021-01-19' }),
+    });
+
+    expect(java11.javaSupported).toBe(true);
+    expect(java11.javaBlockerMessage).toBeNull();
+    expect(java14.javaSupported).toBe(true);
+    expect(java15.javaSupported).toBe(false);
+    expect(java15.javaBlockerMessage).toContain("outside the SDK-supported range");
   });
 
   it("handles a missing SDK folder safely", () => {
@@ -83,22 +130,27 @@ describe("ZATCA SDK validation command builder", () => {
       sdkJarPath: "E:\\Accounting App\\reference\\sdk.jar",
       launcherPath: "E:\\Accounting App\\reference\\Apps\\fatoora.bat",
       jqPath: "E:\\Accounting App\\reference\\Apps\\jq.exe",
+      configDirPath: "E:\\Accounting App\\reference\\Configuration",
       workingDirectory: "E:\\Accounting App\\reference",
       platform: "win32",
       javaFound: true,
     });
 
-    expect(plan.command).toBe("java");
-    expect(plan.args).toContain("E:\\Accounting App\\reference\\sdk.jar");
-    expect(plan.displayCommand).toContain('"E:\\Accounting App\\reference\\sdk.jar"');
+    expect(plan.command).toBe("cmd.exe");
+    expect(plan.args).toEqual(["/d", "/c", "E:\\Accounting App\\reference\\Apps\\fatoora.bat", "-validate", "-invoice", "C:\\Temp Path\\invoice.xml"]);
+    expect(plan.displayCommand).toContain('"E:\\Accounting App\\reference\\Apps\\fatoora.bat"');
     expect(plan.envAdditions.PATH_PREPEND).toBe("E:\\Accounting App\\reference\\Apps");
+    expect(plan.envAdditions.SDK_CONFIG).toBe("E:\\Accounting App\\reference\\Configuration\\config.json");
+    expect(plan.envAdditions.FATOORA_HOME).toBe("E:\\Accounting App\\reference\\Apps");
     expect(plan.warnings.join(" ")).toContain("argument-array");
+    expect(plan.warnings.join(" ")).toContain("official Windows fatoora.bat launcher");
   });
 
   it("builds a Unix dry-run plan", () => {
     const plan = buildZatcaSdkValidationCommand({
       xmlFilePath: "/tmp/invoice.xml",
       sdkJarPath: "/repo/reference/sdk.jar",
+      configDirPath: "/repo/reference/Configuration",
       workingDirectory: "/repo/reference",
       platform: "linux",
       javaFound: true,
@@ -107,6 +159,7 @@ describe("ZATCA SDK validation command builder", () => {
 
     expect(plan.command).toBe("/opt/java-11/bin/java");
     expect(plan.args).toEqual(["-jar", "/repo/reference/sdk.jar", "-validate", "-invoice", "/tmp/invoice.xml"]);
+    expect(plan.envAdditions.SDK_CONFIG).toBe("/repo/reference/Configuration/config.json");
   });
 
   it("builds a launcher validation plan using the SDK readme flags", () => {
@@ -114,6 +167,7 @@ describe("ZATCA SDK validation command builder", () => {
       xmlFilePath: "/tmp/invoice.xml",
       launcherPath: "/repo/reference/Apps/fatoora",
       jqPath: "/repo/reference/Apps/jq",
+      configDirPath: "/repo/reference/Configuration",
       workingDirectory: "/repo/reference",
       platform: "linux",
       javaFound: true,
@@ -122,6 +176,7 @@ describe("ZATCA SDK validation command builder", () => {
     expect(plan.command).toBe("/repo/reference/Apps/fatoora");
     expect(plan.args).toEqual(["-validate", "-invoice", "/tmp/invoice.xml"]);
     expect(plan.displayCommand).toContain("-validate -invoice /tmp/invoice.xml");
+    expect(plan.envAdditions.FATOORA_HOME).toBe("/repo/reference/Apps");
   });
 
   it("warns when jq, Java, or SDK JAR are missing", () => {

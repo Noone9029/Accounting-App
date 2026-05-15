@@ -29,6 +29,12 @@ export interface ZatcaSdkDryRunResponse {
     | "javaFound"
     | "javaVersion"
     | "javaVersionSupported"
+    | "detectedJavaVersion"
+    | "javaSupported"
+    | "requiredJavaRange"
+    | "javaBinUsed"
+    | "javaBlockerMessage"
+    | "sdkCommand"
     | "projectPathHasSpaces"
     | "canAttemptSdkValidation"
   >;
@@ -76,6 +82,7 @@ export class ZatcaSdkService {
       sdkJarPath: readiness.sdkJarPath,
       launcherPath: readiness.fatooraLauncherPath,
       jqPath: readiness.jqPath,
+      configDirPath: readiness.configDirPath,
       workingDirectory: readiness.referenceFolderPath ?? readiness.projectRoot,
       platform: process.platform,
       javaFound: readiness.javaFound,
@@ -102,6 +109,12 @@ export class ZatcaSdkService {
         javaFound: readiness.javaFound,
         javaVersion: readiness.javaVersion,
         javaVersionSupported: readiness.javaVersionSupported,
+        detectedJavaVersion: readiness.detectedJavaVersion,
+        javaSupported: readiness.javaSupported,
+        requiredJavaRange: readiness.requiredJavaRange,
+        javaBinUsed: readiness.javaBinUsed,
+        javaBlockerMessage: readiness.javaBlockerMessage,
+        sdkCommand: readiness.sdkCommand,
         projectPathHasSpaces: readiness.projectPathHasSpaces,
         canAttemptSdkValidation: readiness.canAttemptSdkValidation,
       },
@@ -210,6 +223,7 @@ export class ZatcaSdkService {
         sdkJarPath: readiness.sdkJarPath,
         launcherPath: readiness.fatooraLauncherPath,
         jqPath: readiness.jqPath,
+        configDirPath: readiness.configDirPath,
         workingDirectory: readiness.sdkRootPath ?? readiness.referenceFolderPath ?? readiness.projectRoot,
         platform: process.platform,
         javaFound: readiness.javaFound,
@@ -291,6 +305,12 @@ function redactReadiness(readiness: ZatcaSdkReadiness) {
     javaVersion: readiness.javaVersion,
     javaMajorVersion: readiness.javaMajorVersion,
     javaVersionSupported: readiness.javaVersionSupported,
+    detectedJavaVersion: readiness.detectedJavaVersion,
+    javaSupported: readiness.javaSupported,
+    requiredJavaRange: readiness.requiredJavaRange,
+    javaBinUsed: readiness.javaBinUsed,
+    javaBlockerMessage: readiness.javaBlockerMessage,
+    sdkCommand: readiness.sdkCommand,
     projectPathHasSpaces: readiness.projectPathHasSpaces,
     canAttemptSdkValidation: readiness.canAttemptSdkValidation,
     canRunLocalValidation: readiness.canRunLocalValidation,
@@ -348,6 +368,12 @@ function executeCommand(commandPlan: ZatcaSdkValidationCommandPlan, timeoutMs: n
     const env = { ...process.env };
     if (commandPlan.envAdditions.PATH_PREPEND) {
       env.PATH = `${commandPlan.envAdditions.PATH_PREPEND}${process.platform === "win32" ? ";" : ":"}${env.PATH ?? ""}`;
+    }
+    if (commandPlan.envAdditions.SDK_CONFIG) {
+      env.SDK_CONFIG = commandPlan.envAdditions.SDK_CONFIG;
+    }
+    if (commandPlan.envAdditions.FATOORA_HOME) {
+      env.FATOORA_HOME = commandPlan.envAdditions.FATOORA_HOME;
     }
 
     execFile(commandPlan.command!, commandPlan.args, { cwd: commandPlan.workingDirectory, env, timeout: timeoutMs, windowsHide: true }, (error, stdout, stderr) => {

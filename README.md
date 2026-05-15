@@ -104,7 +104,19 @@ ZATCA_SDK_TIMEOUT_MS=30000
 
 Real ZATCA network calls are disabled by default and remain blocked unless `ZATCA_ADAPTER_MODE=sandbox`, `ZATCA_ENABLE_REAL_NETWORK=true`, and `ZATCA_SANDBOX_BASE_URL` are all configured.
 Local ZATCA Java SDK execution is also disabled by default. `ZATCA_SDK_EXECUTION_ENABLED=true` enables only local SDK XML validation after Java 11-14 and SDK paths are configured; it does not submit invoices, sign XML, request CSIDs, or prove production compliance.
-The official SDK fixture validation pass is documented at `docs/zatca/OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`; current local execution is blocked because this machine has Java 17.0.16 while the SDK README requires Java `>=11` and `<15`.
+The official SDK fixture validation pass is documented at `docs/zatca/OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`. Default local Java is 17.0.16, but a Java 11.0.26 runtime was found and used without changing global Java. The official standard invoice, simplified invoice, standard credit note, and standard debit note samples pass through the official `fatoora -validate -invoice <filename>` launcher. LedgerByte's current local standard/simplified XML fixtures fail official SDK validation and remain non-compliant skeletons.
+
+To run local fixture validation safely, point the wrapper at a Java 11-14 runtime and SDK paths in a local shell only:
+
+```powershell
+$env:ZATCA_SDK_EXECUTION_ENABLED="true"
+$env:ZATCA_SDK_JAVA_BIN="C:\Program Files\Microsoft\jdk-11.0.26.4-hotspot\bin\java.exe"
+$env:ZATCA_SDK_JAR_PATH="E:\Accounting App\reference\zatca-einvoicing-sdk-Java-238-R3.4.8\Apps\zatca-einvoicing-sdk-238-R3.4.8.jar"
+$env:ZATCA_SDK_CONFIG_DIR="E:\Accounting App\reference\zatca-einvoicing-sdk-Java-238-R3.4.8\Configuration"
+$env:ZATCA_SDK_WORK_DIR="$env:TEMP\ledgerbyte-zatca-sdk"
+```
+
+The repo path contains a space, so the documented fixture pass used a no-space temporary SDK copy. Do not commit machine-specific SDK/Java paths, and do not treat local SDK validation as production compliance.
 
 ## Local Smoke Test
 
@@ -1515,7 +1527,7 @@ Do not treat the current mock CSID, local XML, local QR, or local hash-chain beh
 - Local dev fixtures live under `packages/zatca-core/fixtures`.
 - The local fixtures are not official ZATCA fixtures. They exist to keep LedgerByte's XML skeleton deterministic and to cover XML escaping and Unicode handling.
 - Local XML validation can be called with `GET /sales-invoices/:id/zatca/xml-validation` after local XML is generated.
-- The validation response is local-only and not legal compliance evidence. Official SDK fixture validation is now planned and registered, but live execution is blocked until Java 11-14 is configured.
+- The validation response is local-only and not legal compliance evidence. Official SDK sample fixtures now pass locally under Java 11, but LedgerByte's current local XML fixtures fail official SDK validation and remain non-compliant skeletons.
 
 ### ZATCA Official Reference Maps
 
