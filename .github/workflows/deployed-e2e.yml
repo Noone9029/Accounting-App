@@ -1,5 +1,8 @@
 name: Deployed E2E Smoke
 
+permissions:
+  contents: read
+
 on:
   workflow_dispatch:
     inputs:
@@ -19,6 +22,9 @@ jobs:
     name: Playwright deployed smoke
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    concurrency:
+      group: deployed-e2e-smoke
+      cancel-in-progress: false
     env:
       CI: "true"
       LEDGERBYTE_WEB_URL: ${{ inputs.web_url || vars.LEDGERBYTE_WEB_URL || 'https://ledgerbyte-web-test.vercel.app' }}

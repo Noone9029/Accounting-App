@@ -1,5 +1,7 @@
 # LedgerByte
 
+[![Deployed E2E Smoke](https://github.com/Noone9029/Accounting-App/actions/workflows/deployed-e2e.yml/badge.svg)](https://github.com/Noone9029/Accounting-App/actions/workflows/deployed-e2e.yml)
+
 LedgerByte accounting SaaS foundation with a Next.js frontend, NestJS API, Prisma/PostgreSQL persistence, Redis-ready queue infrastructure, and package boundaries for accounting, ZATCA, PDF, shared types, and UI.
 
 This is an original implementation inspired by common accounting workflows. It does not copy Wafeq branding, proprietary text, logos, UI assets, or copyrighted material.
@@ -58,6 +60,12 @@ LedgerByte is prepared for a two-project Vercel deployment backed by Supabase Po
 - Prisma transaction timing can be tuned with `PRISMA_TRANSACTION_MAX_WAIT_MS` and `PRISMA_TRANSACTION_TIMEOUT_MS` for hosted Supabase/Vercel latency.
 
 See [docs/DEPLOYMENT_VERCEL_SUPABASE.md](docs/DEPLOYMENT_VERCEL_SUPABASE.md) for the full setup checklist, required Vercel project settings, and environment variables.
+
+Deployment safety docs:
+
+- [CI database readiness checklist](docs/deployment/CI_DATABASE_READINESS_CHECKLIST.md)
+- [Supabase security review](docs/deployment/SUPABASE_SECURITY_REVIEW.md)
+- [Deployed E2E runbook](docs/deployment/DEPLOYED_E2E_RUNBOOK.md)
 
 Seed login:
 
@@ -165,6 +173,9 @@ GitHub Actions:
 - Required secrets: `LEDGERBYTE_E2E_EMAIL` and `LEDGERBYTE_E2E_PASSWORD`.
 - Default deployed URLs: `https://ledgerbyte-web-test.vercel.app` and `https://ledgerbyte-api-test.vercel.app`.
 - Artifacts: `playwright-report` and `playwright-test-results` are uploaded when present.
+- Runbook: [docs/deployment/DEPLOYED_E2E_RUNBOOK.md](docs/deployment/DEPLOYED_E2E_RUNBOOK.md).
+
+Do not point the deployed E2E workflow at production data or production user credentials.
 
 The E2E preflight fails clearly if the local API or web app is not running: `Start local API/web before running E2E.` See [docs/testing/BROWSER_E2E_TESTING.md](docs/testing/BROWSER_E2E_TESTING.md) for coverage and limitations.
 

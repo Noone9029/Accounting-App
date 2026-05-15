@@ -32,6 +32,15 @@ async function checkReachable(label, url, options = {}) {
   return response.status;
 }
 
+function redactEmail(email) {
+  const [name, domain] = email.split("@");
+  if (!name || !domain) {
+    return "<configured>";
+  }
+  const visible = name.length <= 2 ? `${name[0] ?? ""}***` : `${name.slice(0, 2)}***`;
+  return `${visible}@${domain}`;
+}
+
 async function main() {
   for (const name of required) {
     readRequiredEnv(name);
@@ -40,6 +49,13 @@ async function main() {
   const webUrl = normalizeUrl(process.env.LEDGERBYTE_WEB_URL, "LEDGERBYTE_WEB_URL");
   const apiUrl = normalizeUrl(process.env.LEDGERBYTE_API_URL, "LEDGERBYTE_API_URL");
   const apiHealthUrl = new URL("/health", apiUrl);
+  const email = readRequiredEnv("LEDGERBYTE_E2E_EMAIL");
+
+  console.log("Deployed E2E preflight configuration:");
+  console.log(`- Web URL: ${webUrl.toString()}`);
+  console.log(`- API URL: ${apiUrl.toString()}`);
+  console.log(`- E2E email: ${redactEmail(email)}`);
+  console.log("- E2E password: <configured>");
 
   console.log(`Checking deployed web: ${webUrl.toString()}`);
   const webStatus = await checkReachable("Web app", webUrl.toString());

@@ -76,6 +76,12 @@ The deployed test suite runs with one worker by default to avoid overwhelming th
 
 `.github/workflows/deployed-e2e.yml` runs the deployed Playwright smoke suite through a manual **Deployed E2E Smoke** workflow.
 
+Runbook and readiness docs:
+
+- [Deployed E2E runbook](../deployment/DEPLOYED_E2E_RUNBOOK.md)
+- [CI database readiness checklist](../deployment/CI_DATABASE_READINESS_CHECKLIST.md)
+- [Supabase security review](../deployment/SUPABASE_SECURITY_REVIEW.md)
+
 Required GitHub Actions secrets:
 
 - `LEDGERBYTE_E2E_EMAIL`

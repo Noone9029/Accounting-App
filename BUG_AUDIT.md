@@ -37,6 +37,27 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Deployed E2E readiness docs added
+
+Added non-production CI database readiness and deployment security documentation for the Vercel/Supabase test environment.
+
+Risk reduced:
+
+- `docs/deployment/CI_DATABASE_READINESS_CHECKLIST.md` defines the non-production database, migration, seed user, test organization, API/web URL, GitHub secrets, and go/no-go checks required before trusting deployed E2E.
+- `docs/deployment/SUPABASE_SECURITY_REVIEW.md` documents the current RLS-disabled posture, API-layer tenant isolation boundary, direct database access risk, and production go/no-go security review items.
+- `docs/deployment/DEPLOYED_E2E_RUNBOOK.md` explains manual GitHub Actions execution, artifacts, common deployment failures, and recovery steps.
+- `scripts/check-deployed-e2e-env.cjs` now prints a safe redacted preflight summary without exposing the E2E password.
+- The deployed E2E workflow now has a conservative concurrency group and read-only repository permissions.
+- README now links the readiness docs and shows the deployed E2E workflow badge.
+
+Remaining risks:
+
+- No automatic DB reset before deployed E2E.
+- Supabase RLS policies are not enabled yet.
+- Deployed E2E remains manual-only; no scheduled CI.
+- No production deployment approval gates.
+- Browser E2E remains smoke-level and does not replace API accounting smoke.
+
 ### Deployed E2E GitHub Actions workflow added
 
 Added CI wiring for the deployed Playwright smoke suite without changing product behavior.
