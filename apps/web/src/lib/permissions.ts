@@ -57,7 +57,7 @@ export function canViewNavItem(subject: PermissionSubject, requiredAny: readonly
 
 export function getRequiredPermissionsForPathname(pathname: string): Permission[] {
   if (pathname === "/dashboard") {
-    return [PERMISSIONS.organization.view];
+    return [PERMISSIONS.dashboard.view];
   }
 
   if (pathname.startsWith("/reports")) {

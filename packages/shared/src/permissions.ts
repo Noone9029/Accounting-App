@@ -1,4 +1,7 @@
 export const PERMISSIONS = {
+  dashboard: {
+    view: "dashboard.view",
+  },
   organization: {
     view: "organization.view",
     update: "organization.update",
@@ -219,6 +222,7 @@ type DeepValue<T> = T extends string ? T : T[keyof T] extends infer Value ? Deep
 export type Permission = DeepValue<typeof PERMISSIONS>;
 
 export const ALL_PERMISSIONS = [
+  PERMISSIONS.dashboard.view,
   PERMISSIONS.organization.view,
   PERMISSIONS.organization.update,
   PERMISSIONS.users.view,
@@ -357,6 +361,7 @@ export const LEGACY_FULL_ACCESS_PERMISSION = "*";
 const ADMIN_ROLE_PERMISSIONS = ALL_PERMISSIONS.filter((permission) => permission !== PERMISSIONS.admin.fullAccess);
 
 const ACCOUNTANT_ROLE_PERMISSIONS = [
+  PERMISSIONS.dashboard.view,
   PERMISSIONS.organization.view,
   PERMISSIONS.accounts.view,
   PERMISSIONS.accounts.manage,
@@ -473,6 +478,7 @@ const ACCOUNTANT_ROLE_PERMISSIONS = [
 ] as const satisfies readonly Permission[];
 
 const SALES_ROLE_PERMISSIONS = [
+  PERMISSIONS.dashboard.view,
   PERMISSIONS.organization.view,
   PERMISSIONS.contacts.view,
   PERMISSIONS.contacts.manage,
@@ -499,6 +505,7 @@ const SALES_ROLE_PERMISSIONS = [
 ] as const satisfies readonly Permission[];
 
 const PURCHASES_ROLE_PERMISSIONS = [
+  PERMISSIONS.dashboard.view,
   PERMISSIONS.organization.view,
   PERMISSIONS.contacts.view,
   PERMISSIONS.contacts.manage,
@@ -542,6 +549,7 @@ const PURCHASES_ROLE_PERMISSIONS = [
 ] as const satisfies readonly Permission[];
 
 const VIEWER_ROLE_PERMISSIONS = [
+  PERMISSIONS.dashboard.view,
   PERMISSIONS.organization.view,
   PERMISSIONS.accounts.view,
   PERMISSIONS.taxRates.view,

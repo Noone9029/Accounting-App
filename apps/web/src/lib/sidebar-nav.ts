@@ -18,7 +18,7 @@ export const SIDEBAR_NAV_ITEMS: readonly SidebarNavItem[] = [
   {
     label: "Dashboard",
     href: "/dashboard",
-    requiredAny: [PERMISSIONS.organization.view],
+    requiredAny: [PERMISSIONS.dashboard.view],
   },
   {
     label: "Reports",

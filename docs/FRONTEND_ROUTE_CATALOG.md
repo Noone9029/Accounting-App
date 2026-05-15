@@ -12,6 +12,7 @@ Browser smoke coverage: critical app routes now have Playwright smoke checks und
 - The sidebar filters top-level and child nav items by view permissions.
 - Route protection shows an access-denied panel when a user lacks the page permission.
 - High-risk buttons such as approve, convert, finalize, void, delete, apply/reverse allocation, bank account archive/reactivate, opening-balance posting, bank transfer voiding, statement import/match/categorize/ignore, reconciliation close/void, warehouse archive/reactivate, stock movement create, inventory adjustment approve/void, warehouse transfer void, fiscal period lock, number sequence save, ZATCA generate/check, attachment upload/download/delete/manage, and document settings save are hidden unless the active role has the matching permission.
+- Dashboard navigation is gated by `dashboard.view`.
 - Settings/Admin nav now includes Team Members for `users.view`, Roles & Permissions for `roles.view`, Document settings for `documentSettings.view`, Storage for `documentSettings.view` or `attachments.manage`, Email outbox/readiness for `emailOutbox.view`, Audit logs for `auditLogs.view`, and Number sequences for `numberSequences.view`; audit CSV export/retention controls and number-sequence editing are additionally gated by `auditLogs.export`, `auditLogs.manageRetention`, and `numberSequences.manage`.
 
 ## Auth And Setup
@@ -30,7 +31,7 @@ Browser smoke coverage: critical app routes now have Playwright smoke checks und
 
 | Route | Purpose | Data fetched | Actions | Status | Missing UX pieces |
 | --- | --- | --- | --- | --- | --- |
-| `/dashboard` | App dashboard shell. | Current org/user summary. | Navigation. | Partial | Real KPIs and reports missing. |
+| `/dashboard` | Business overview dashboard. | `/dashboard/summary`. | Review KPI cards, AR/AP/banking/inventory/compliance sections, attention items, and permission-gated quick actions. | Implemented | No charting, trend history, customizable layout, or accountant-reviewed KPI definitions yet. |
 | `/accounts` | Chart of accounts. | Accounts. | Create/update/delete accounts. | Implemented | Hierarchical drag/drop and COA templates missing. |
 | `/bank-accounts` | Bank/cash account profile list. | Bank account profiles with linked accounts and ledger summaries. | View detail, create profile, archive/reactivate when allowed. | Implemented | No live feed, transfer fee, or FX workflow. |
 | `/bank-accounts/new` | Link bank account profile. | Accounts and existing profiles. | Create profile for an unlinked active posting asset account. | Implemented | Cannot create chart account inline. |

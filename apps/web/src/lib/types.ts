@@ -211,6 +211,62 @@ export interface InviteOrganizationMemberResponse {
   invitePreviewUrl?: string;
 }
 
+export type DashboardAttentionSeverity = "info" | "warning" | "critical";
+
+export interface DashboardAttentionItem {
+  type: string;
+  severity: DashboardAttentionSeverity;
+  title: string;
+  description: string;
+  href: string;
+}
+
+export interface DashboardSummary {
+  asOf: string;
+  currency: string;
+  sales: {
+    unpaidInvoiceCount: number;
+    unpaidInvoiceBalance: string;
+    overdueInvoiceCount: number;
+    overdueInvoiceBalance: string;
+    salesThisMonth: string;
+    customerPaymentThisMonth: string;
+  };
+  purchases: {
+    unpaidBillCount: number;
+    unpaidBillBalance: string;
+    overdueBillCount: number;
+    overdueBillBalance: string;
+    purchasesThisMonth: string;
+    supplierPaymentThisMonth: string;
+  };
+  banking: {
+    bankAccountCount: number;
+    totalBankBalance: string;
+    unreconciledTransactionCount: number;
+    latestReconciliationDate: string | null;
+  };
+  inventory: {
+    trackedItemCount: number;
+    lowStockCount: number;
+    negativeStockCount: number;
+    inventoryEstimatedValue: string;
+    clearingVarianceCount: number;
+  };
+  reports: {
+    trialBalanceBalanced: boolean;
+    profitAndLossNetProfit: string;
+    balanceSheetBalanced: boolean;
+  };
+  compliance: {
+    zatcaProductionReady: boolean;
+    zatcaBlockingReasonCount: number;
+    fiscalPeriodsLockedCount: number;
+    auditLogCountThisMonth: number;
+  };
+  attentionItems: DashboardAttentionItem[];
+}
+
 export interface AuditLogActor {
   id: string;
   name: string;

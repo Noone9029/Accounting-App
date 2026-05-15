@@ -9,12 +9,14 @@ Objective: make the current AR/AP MVP reliable enough for structured user QA.
 Tasks:
 
 - Run guided QA through every implemented frontend route.
+- Review dashboard KPI definitions, attention item thresholds, and quick-action placement with an accountant/product owner.
 - Fix UX inconsistencies, especially supplier AP balance labels.
 - Wire the new Playwright browser E2E smoke into CI and expand it where user-facing regressions are found.
 - Replace mock/local email invites and password reset with a real provider adapter, domain authentication, provider webhooks, and audit alerting for role/member administration.
 - Harden fiscal period UX with period templates, optional reversal-date selection, and admin unlock approval design.
 - Harden number sequence administration with reviewed reset/skip workflow, collision preview, and branch/device numbering policy before production.
 - Add accountant review pass for report layouts and exported report formats.
+- Add dashboard trend charts and customizable widgets after KPI definitions are approved.
 - Move Prisma seed config to `prisma.config.ts` before Prisma 7.
 
 Manual dependencies:

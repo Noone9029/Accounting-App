@@ -15,6 +15,7 @@ import { ContactModule } from "./contacts/contact.module";
 import { CreditNoteModule } from "./credit-notes/credit-note.module";
 import { CustomerPaymentModule } from "./customer-payments/customer-payment.module";
 import { CustomerRefundModule } from "./customer-refunds/customer-refund.module";
+import { DashboardModule } from "./dashboard/dashboard.module";
 import { EmailModule } from "./email/email.module";
 import { GeneratedDocumentModule } from "./generated-documents/generated-document.module";
 import { HealthModule } from "./health/health.module";
@@ -63,6 +64,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     CreditNoteModule,
     CustomerPaymentModule,
     CustomerRefundModule,
+    DashboardModule,
     GeneratedDocumentModule,
     FiscalPeriodModule,
     OrganizationMemberModule,

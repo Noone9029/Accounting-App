@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Commit inspected: pending (`Add number sequence settings`)
+Commit inspected: pending (`Add dashboard KPI overview`)
 
 ## Scope
 
@@ -36,6 +36,24 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Dashboard KPI overview added
+
+Added a read-only dashboard summary API and business overview UI without changing accounting behavior.
+
+Risk reduced:
+
+- `GET /dashboard/summary` requires `dashboard.view` and returns tenant-scoped sales, purchase, banking, inventory, report-health, compliance/admin, and attention-item metrics.
+- `/dashboard` now shows KPI cards, AR/AP monthly totals, banking and inventory review counts, compliance/admin status, attention links, and permission-gated quick actions.
+- Attention items highlight overdue invoices, overdue bills, unreconciled bank transactions, low stock, clearing variances, ZATCA readiness blockers, fiscal-period issues, and database-backed storage warnings.
+- Smoke now checks the dashboard summary shape and verifies no obvious sensitive fields are exposed.
+
+Remaining risks:
+
+- No customizable dashboard.
+- No charts or historical trends.
+- KPI definitions need accountant/product review before production reliance.
+- Dashboard is read-only and does not replace detailed reports, ledgers, or reconciliations.
 
 ### Number sequence settings added
 

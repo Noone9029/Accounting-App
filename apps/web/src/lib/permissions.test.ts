@@ -30,6 +30,7 @@ describe("permission helpers", () => {
   });
 
   it("maps routes to required permissions for access-denied checks", () => {
+    expect(getRequiredPermissionsForPathname("/dashboard")).toEqual([PERMISSIONS.dashboard.view]);
     expect(getRequiredPermissionsForPathname("/reports/trial-balance")).toEqual([PERMISSIONS.reports.view]);
     expect(getRequiredPermissionsForPathname("/bank-accounts")).toEqual([PERMISSIONS.bankAccounts.view]);
     expect(getRequiredPermissionsForPathname("/bank-accounts/new")).toEqual([PERMISSIONS.bankAccounts.manage]);
@@ -91,7 +92,7 @@ describe("permission helpers", () => {
 describe("sidebar nav filtering", () => {
   it("shows only permitted nav groups and children", () => {
     const nav = filterSidebarNavItems(
-      subject([PERMISSIONS.organization.view, PERMISSIONS.reports.view, PERMISSIONS.salesInvoices.view]),
+      subject([PERMISSIONS.dashboard.view, PERMISSIONS.organization.view, PERMISSIONS.reports.view, PERMISSIONS.salesInvoices.view]),
     );
 
     expect(nav.map((item) => item.label)).toEqual(["Dashboard", "Reports", "Sales", "Branches"]);

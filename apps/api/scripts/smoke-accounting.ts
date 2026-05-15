@@ -327,6 +327,24 @@ interface GeneralLedgerReport {
   }>;
 }
 
+interface DashboardSummary {
+  asOf: string;
+  currency: string;
+  sales: Record<string, unknown>;
+  purchases: Record<string, unknown>;
+  banking: Record<string, unknown>;
+  inventory: Record<string, unknown>;
+  reports: Record<string, unknown>;
+  compliance: Record<string, unknown>;
+  attentionItems: Array<{
+    type: string;
+    severity: string;
+    title: string;
+    description: string;
+    href: string;
+  }>;
+}
+
 interface TaxRate {
   id: string;
   name: string;
@@ -4232,6 +4250,15 @@ async function main(): Promise<void> {
   assertPresent(agedReceivablesReport.grandTotal, "aged receivables grand total");
   const agedPayablesReport = await get<AgingReport>("/reports/aged-payables", headers);
   assertPresent(agedPayablesReport.grandTotal, "aged payables grand total");
+  const dashboardSummary = await get<DashboardSummary>("/dashboard/summary", headers);
+  assertPresent(dashboardSummary.asOf, "dashboard summary asOf");
+  assertPresent(dashboardSummary.currency, "dashboard summary currency");
+  for (const section of ["sales", "purchases", "banking", "inventory", "reports", "compliance"] as const) {
+    assert(typeof dashboardSummary[section] === "object" && dashboardSummary[section] !== null, `dashboard summary ${section} section exists`);
+  }
+  assert(Array.isArray(dashboardSummary.attentionItems), "dashboard summary attentionItems is an array");
+  const serializedDashboardSummary = JSON.stringify(dashboardSummary);
+  assert(!/password|tokenHash|contentBase64|DATABASE_URL|JWT_SECRET/i.test(serializedDashboardSummary), "dashboard summary does not expose sensitive fields");
   const bankTransactions = await get<BankAccountTransactionsResponse>(`/bank-accounts/${paidThroughBankProfile.id}/transactions`, headers);
   assert(bankTransactions.transactions.length > 0, "bank account transactions endpoint returns posted activity");
   assert(
@@ -4467,6 +4494,9 @@ async function main(): Promise<void> {
         ],
         reportCsvChecked: "trial-balance",
         reportPdfDocumentId: trialBalanceReportDocuments[0]?.id,
+        dashboardSummaryChecked: true,
+        dashboardAttentionCount: dashboardSummary.attentionItems.length,
+        dashboardCurrency: dashboardSummary.currency,
         archivedInvoicePdfId: archivedInvoicePdf.id,
         archivedCreditNotePdfId: archivedCreditNotePdf.id,
         finalInvoiceBalance: afterSecondPaymentVoid.balanceDue,

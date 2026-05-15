@@ -33,6 +33,12 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | GET | `/health` | API liveness check | No | No | Implemented | Lightweight function health check; does not require database connectivity. |
 | GET | `/readiness` | API/database readiness check | No | No | Implemented | Runs a safe database connectivity check; returns `503` with redacted JSON if DB is unavailable. |
 
+## Dashboard
+
+| Method | Path | Purpose | Auth | Org header | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| GET | `/dashboard/summary` | Business overview dashboard summary | Yes | Yes | Implemented | Requires `dashboard.view`; returns read-only sales, purchases, banking, inventory, report health, compliance/admin counts, and attention items for the active organization. Creates no journals and changes no accounting state. |
+
 ## Organizations
 
 | Method | Path | Purpose | Auth | Org header | Status | Notes |

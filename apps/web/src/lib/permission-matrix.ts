@@ -17,6 +17,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     id: "organization",
     label: "Organization",
     permissions: [
+      permission(PERMISSIONS.dashboard.view, "View dashboard", "See the business overview dashboard and read-only KPI summary."),
       permission(PERMISSIONS.organization.view, "View organization", "See organization profile, branches, and tenant-level context."),
       permission(PERMISSIONS.organization.update, "Update organization", "Edit organization and branch-level administration data."),
     ],

@@ -136,7 +136,7 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
-The smoke covers seed login, `/auth/me` role permission visibility, role/member API visibility, custom role creation, unknown-permission rejection, organization discovery, bank account profile defaults/transactions/balance movement, bank transfers/opening balances, bank statement preview/import/matching/categorization/reconciliation summary/submit/approve/close/void lock checks, reconciliation report data/CSV/PDF/archive checks, item/customer/supplier setup, warehouse defaults, opening-balance stock movements, inventory adjustment approval/void flows, warehouse transfers/void reversals, purchase receipt posting/voiding, compatible purchase receipt asset post/reverse, finalized-invoice sales stock issue posting/voiding after manual COGS post/reversal, receiving/issue status endpoints, inventory balances, inventory settings, inventory accounting settings, purchase receipt posting readiness, purchase receipt accounting preview, sales issue COGS preview, manual COGS posting, P&L COGS activity, stock valuation/movement/low-stock reports, inventory clearing reconciliation/variance reports and CSV exports, accountant-reviewed inventory variance proposal create/submit/approve/post/reverse flow, no-journal inventory movement checks outside explicit COGS/receipt asset/variance proposal post actions, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, report CSV/PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
+The smoke covers seed login, `/auth/me` role permission visibility, role/member API visibility, custom role creation, unknown-permission rejection, organization discovery, dashboard summary section checks, bank account profile defaults/transactions/balance movement, bank transfers/opening balances, bank statement preview/import/matching/categorization/reconciliation summary/submit/approve/close/void lock checks, reconciliation report data/CSV/PDF/archive checks, item/customer/supplier setup, warehouse defaults, opening-balance stock movements, inventory adjustment approval/void flows, warehouse transfers/void reversals, purchase receipt posting/voiding, compatible purchase receipt asset post/reverse, finalized-invoice sales stock issue posting/voiding after manual COGS post/reversal, receiving/issue status endpoints, inventory balances, inventory settings, inventory accounting settings, purchase receipt posting readiness, purchase receipt accounting preview, sales issue COGS preview, manual COGS posting, P&L COGS activity, stock valuation/movement/low-stock reports, inventory clearing reconciliation/variance reports and CSV exports, accountant-reviewed inventory variance proposal create/submit/approve/post/reverse flow, no-journal inventory movement checks outside explicit COGS/receipt asset/variance proposal post actions, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, report CSV/PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, number sequence settings/listing/audit logging, PDF archive creation after invoice PDF generation, generated document archive download, user-uploaded attachment upload/list/download/soft-delete checks, representative audit log records/sensitive metadata redaction, audit retention settings/dry-run preview, audit CSV export redaction, and storage readiness/migration-plan dry-run checks without creating journals.
 
@@ -209,6 +209,10 @@ Health/status:
 - `GET /`
 - `GET /health`
 - `GET /readiness`
+
+Dashboard:
+
+- `GET /dashboard/summary` returns the read-only business overview for the active organization. It requires `dashboard.view` and includes sales AR, purchase AP, banking, inventory, report health, compliance/admin counts, and attention items. The endpoint derives values from existing records and posted report services only; it does not create journals or mutate accounting data.
 
 Auth:
 
@@ -1092,6 +1096,28 @@ Known limitations:
 - No fiscal year wizard or formal year-end close exists yet.
 - No retained earnings close process exists yet.
 
+## Dashboard Overview
+
+The app dashboard is a read-only accountant/admin overview backed by `GET /dashboard/summary`.
+
+Dashboard widgets currently show:
+
+- Cash/bank balance from posted ledger activity for active bank profiles.
+- Unpaid and overdue invoice/bill balances.
+- Sales, purchases, customer payments, and supplier payments for the current month.
+- Inventory tracked-item count, low-stock count, negative-stock count, estimated stock value, and clearing variance count.
+- Trial Balance and Balance Sheet balanced flags plus month-to-date net profit.
+- ZATCA readiness blocker count, locked fiscal period count, and current-month audit log count.
+
+Attention items link to the relevant review surfaces for overdue AR/AP, unreconciled bank rows, low stock, inventory clearing variances, ZATCA readiness, fiscal period coverage, and database-backed document storage.
+
+Known limitations:
+
+- No charting or trend history yet.
+- No customizable dashboard layout.
+- KPI definitions are MVP business-overview definitions and still need accountant/product review.
+- Dashboard data is read-only and does not replace detailed reports or ledgers.
+
 ## Core Accounting Reports
 
 Reports are accountant-facing MVP outputs derived from real LedgerByte data. Journal-based reports use posted journal activity only, including historical entries marked `REVERSED` plus their posted reversal journals. AR/AP aging uses current finalized open invoice and bill balances.
@@ -1519,12 +1545,12 @@ Default seeded roles:
 
 - `Owner`: full access, including `admin.fullAccess`.
 - `Admin`: broad business access without the system-level `admin.fullAccess` flag.
-- `Accountant`: chart of accounts, bank accounts, bank transfers, statement preview/import/reconciliation, bank reconciliation approval/reopen/close, opening-balance posting, tax, journals, reports, documents, attachments, inventory, manual COGS posting/reversal, manual receipt asset posting/reversal, warehouses, stock movements, inventory adjustments, warehouse transfers, purchase receiving, sales stock issue, fiscal period management, and accounting workflow posting/void permissions.
-- `Sales`: contacts, items/inventory/warehouse view, sales invoices, sales stock issue view/create, customer payments, credit notes, customer refunds, document access, and attachment view/upload/download for sales workflows.
-- `Purchases`: contacts, items view, bank account view/transactions, purchase orders, purchase bills, supplier payments, debit notes, supplier refunds, cash expenses, inventory view, warehouse view, stock movement view, inventory adjustment view/create, warehouse transfer view/create, purchase receiving view/create, document access, and attachment view/upload/download for purchase workflows.
-- `Viewer`: read-only access across core accounting, inventory balances, warehouses, stock movements, adjustments, transfers, reports, documents, attachment metadata/downloads, and ZATCA status, excluding bank account profiles by default.
+- `Accountant`: dashboard, chart of accounts, bank accounts, bank transfers, statement preview/import/reconciliation, bank reconciliation approval/reopen/close, opening-balance posting, tax, journals, reports, documents, attachments, inventory, manual COGS posting/reversal, manual receipt asset posting/reversal, warehouses, stock movements, inventory adjustments, warehouse transfers, purchase receiving, sales stock issue, fiscal period management, and accounting workflow posting/void permissions.
+- `Sales`: dashboard, contacts, items/inventory/warehouse view, sales invoices, sales stock issue view/create, customer payments, credit notes, customer refunds, document access, and attachment view/upload/download for sales workflows.
+- `Purchases`: dashboard, contacts, items view, bank account view/transactions, purchase orders, purchase bills, supplier payments, debit notes, supplier refunds, cash expenses, inventory view, warehouse view, stock movement view, inventory adjustment view/create, warehouse transfer view/create, purchase receiving view/create, document access, and attachment view/upload/download for purchase workflows.
+- `Viewer`: dashboard and read-only access across core accounting, inventory balances, warehouses, stock movements, adjustments, transfers, reports, documents, attachment metadata/downloads, and ZATCA status, excluding bank account profiles by default.
 
-Permission names are dotted strings such as `reports.view`, `salesInvoices.finalize`, `customerPayments.void`, `purchaseOrders.convertToBill`, `purchaseBills.finalize`, `bankAccounts.manage`, `bankAccounts.transactions.view`, `bankStatements.reconcile`, `attachments.view`, `attachments.upload`, `attachments.download`, `attachments.delete`, `attachments.manage`, `inventory.cogs.post`, `inventory.cogs.reverse`, `inventory.receipts.postAsset`, `inventory.receipts.reverseAsset`, `warehouses.manage`, `stockMovements.create`, `inventoryAdjustments.approve`, `warehouseTransfers.void`, `fiscalPeriods.lock`, and `zatca.manage`.
+Permission names are dotted strings such as `dashboard.view`, `reports.view`, `salesInvoices.finalize`, `customerPayments.void`, `purchaseOrders.convertToBill`, `purchaseBills.finalize`, `bankAccounts.manage`, `bankAccounts.transactions.view`, `bankStatements.reconcile`, `attachments.view`, `attachments.upload`, `attachments.download`, `attachments.delete`, `attachments.manage`, `inventory.cogs.post`, `inventory.cogs.reverse`, `inventory.receipts.postAsset`, `inventory.receipts.reverseAsset`, `warehouses.manage`, `stockMovements.create`, `inventoryAdjustments.approve`, `warehouseTransfers.void`, `fiscalPeriods.lock`, and `zatca.manage`.
 
 Backend enforcement:
 
