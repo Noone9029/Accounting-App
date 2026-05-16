@@ -83,6 +83,10 @@ export function zatcaEgsCsrPlanPath(egsUnitId: string): string {
   return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/csr-plan`;
 }
 
+export function zatcaEgsCsrFieldsPath(egsUnitId: string): string {
+  return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/csr-fields`;
+}
+
 export type ZatcaAdapterMode = "mock" | "sandbox-disabled" | "sandbox";
 
 export interface ZatcaAdapterConfigSummary {

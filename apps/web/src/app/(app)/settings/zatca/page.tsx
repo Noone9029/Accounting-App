@@ -16,6 +16,7 @@ import {
   zatcaChecklistRiskBadgeClass,
   zatcaChecklistStatusBadgeClass,
   zatcaEgsCsrDownloadPath,
+  zatcaEgsCsrFieldsPath,
   zatcaEgsSdkHashModeEnablePath,
   zatcaHashChainResetPlanPath,
   zatcaHashModeLabel,
@@ -69,6 +70,14 @@ interface EgsForm {
   deviceSerialNumber: string;
 }
 
+interface EgsCsrFieldsForm {
+  csrCommonName: string;
+  csrSerialNumber: string;
+  csrOrganizationUnitName: string;
+  csrInvoiceType: string;
+  csrLocationAddress: string;
+}
+
 export default function ZatcaSettingsPage() {
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
@@ -83,6 +92,7 @@ export default function ZatcaSettingsPage() {
   const [egsUnits, setEgsUnits] = useState<ZatcaEgsUnit[]>([]);
   const [submissionLogs, setSubmissionLogs] = useState<ZatcaSubmissionLog[]>([]);
   const [egsForm, setEgsForm] = useState<EgsForm>({ name: "LedgerByte Dev EGS", deviceSerialNumber: "LEDGERBYTE-DEV-EGS" });
+  const [csrFieldsByUnit, setCsrFieldsByUnit] = useState<Record<string, EgsCsrFieldsForm>>({});
   const [otpByUnit, setOtpByUnit] = useState<Record<string, string>>({});
   const [hashModeReasonByUnit, setHashModeReasonByUnit] = useState<Record<string, string>>({});
   const [hashModeConfirmByUnit, setHashModeConfirmByUnit] = useState<Record<string, boolean>>({});
@@ -126,6 +136,7 @@ export default function ZatcaSettingsPage() {
         const loadedLogs = await apiRequest<ZatcaSubmissionLog[]>("/zatca/submissions");
         if (!cancelled) {
           setEgsUnits(loadedUnits);
+          setCsrFieldsByUnit(buildCsrFieldsByUnit(loadedUnits));
           setSubmissionLogs(loadedLogs);
         }
       } catch (loadError: unknown) {
@@ -290,8 +301,30 @@ export default function ZatcaSettingsPage() {
     }
   }
 
+  async function saveEgsCsrFields(event: FormEvent<HTMLFormElement>, unit: ZatcaEgsUnit) {
+    event.preventDefault();
+    setActionLoading(`csr-fields-${unit.id}`);
+    setError("");
+    setSuccess("");
+
+    try {
+      const updated = await apiRequest<ZatcaEgsUnit>(zatcaEgsCsrFieldsPath(unit.id), {
+        method: "PATCH",
+        body: csrFieldsByUnit[unit.id] ?? unitToCsrFieldsForm(unit),
+      });
+      replaceUnit(updated);
+      await refreshReadiness();
+      setSuccess(`CSR onboarding fields saved for ${updated.name}. No CSID request, SDK execution, signing, or network call was performed.`);
+    } catch (csrFieldError) {
+      setError(csrFieldError instanceof Error ? csrFieldError.message : "Unable to save CSR onboarding fields.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
   function replaceUnit(unit: ZatcaEgsUnit) {
     setEgsUnits((current) => current.map((item) => (item.id === unit.id ? unit : { ...item, isActive: unit.isActive ? false : item.isActive })));
+    setCsrFieldsByUnit((current) => ({ ...current, [unit.id]: unitToCsrFieldsForm(unit) }));
   }
 
   async function refreshReadiness() {
@@ -305,6 +338,16 @@ export default function ZatcaSettingsPage() {
 
   function updateProfileField<K extends keyof ZatcaProfileForm>(field: K, value: ZatcaProfileForm[K]) {
     setForm((current) => (current ? { ...current, [field]: value } : current));
+  }
+
+  function updateCsrField(unitId: string, field: keyof EgsCsrFieldsForm, value: string) {
+    setCsrFieldsByUnit((current) => ({
+      ...current,
+      [unitId]: {
+        ...(current[unitId] ?? unitToCsrFieldsForm(egsUnits.find((unit) => unit.id === unitId))),
+        [field]: value,
+      },
+    }));
   }
 
   const missingProfileFields = profile?.readiness?.missingFields ?? (profile ? getZatcaProfileMissingFields(profile) : []);
@@ -540,6 +583,7 @@ export default function ZatcaSettingsPage() {
                     <th className="px-4 py-3">Environment</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">CSR</th>
+                    <th className="px-4 py-3">CSR onboarding fields</th>
                     <th className="px-4 py-3">Compliance CSID</th>
                     <th className="px-4 py-3">Production CSID</th>
                     <th className="px-4 py-3">Key custody</th>
@@ -553,7 +597,7 @@ export default function ZatcaSettingsPage() {
                 <tbody className="divide-y divide-slate-100">
                   {egsUnits.length === 0 ? (
                     <tr>
-                      <td colSpan={13} className="px-4 py-4">
+                      <td colSpan={14} className="px-4 py-4">
                         <StatusMessage type="empty">No EGS units have been created yet.</StatusMessage>
                       </td>
                     </tr>
@@ -569,6 +613,28 @@ export default function ZatcaSettingsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-steel">{unit.hasCsr ? "Generated" : "Missing"}</td>
+                        <td className="min-w-[360px] px-4 py-3">
+                          <form onSubmit={(event) => void saveEgsCsrFields(event, unit)} className="space-y-2">
+                            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                              <SmallInput label="Common name" value={(csrFieldsByUnit[unit.id] ?? unitToCsrFieldsForm(unit)).csrCommonName} onChange={(value) => updateCsrField(unit.id, "csrCommonName", value)} disabled={!canManageZatca || unit.environment === "PRODUCTION"} />
+                              <SmallInput label="Invoice type" value={(csrFieldsByUnit[unit.id] ?? unitToCsrFieldsForm(unit)).csrInvoiceType} onChange={(value) => updateCsrField(unit.id, "csrInvoiceType", value)} disabled={!canManageZatca || unit.environment === "PRODUCTION"} placeholder="1100" />
+                              <SmallInput label="Location address" value={(csrFieldsByUnit[unit.id] ?? unitToCsrFieldsForm(unit)).csrLocationAddress} onChange={(value) => updateCsrField(unit.id, "csrLocationAddress", value)} disabled={!canManageZatca || unit.environment === "PRODUCTION"} />
+                              <SmallInput label="Organization unit" value={(csrFieldsByUnit[unit.id] ?? unitToCsrFieldsForm(unit)).csrOrganizationUnitName} onChange={(value) => updateCsrField(unit.id, "csrOrganizationUnitName", value)} disabled={!canManageZatca || unit.environment === "PRODUCTION"} />
+                              <SmallInput label="Serial number" value={(csrFieldsByUnit[unit.id] ?? unitToCsrFieldsForm(unit)).csrSerialNumber} onChange={(value) => updateCsrField(unit.id, "csrSerialNumber", value)} disabled={!canManageZatca || unit.environment === "PRODUCTION"} />
+                            </div>
+                            <div className="text-[11px] text-steel">Used for local CSR planning only. Does not request CSID. Does not call ZATCA. Do not enter secrets.</div>
+                            <div className="text-[11px] text-amber-700">Invoice type is limited to the official SDK example value currently modeled: 1100.</div>
+                            {canManageZatca ? (
+                              <button
+                                type="submit"
+                                disabled={unit.environment === "PRODUCTION" || actionLoading === `csr-fields-${unit.id}`}
+                                className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
+                              >
+                                {actionLoading === `csr-fields-${unit.id}` ? "Saving..." : "Save CSR fields"}
+                              </button>
+                            ) : null}
+                          </form>
+                        </td>
                         <td className="px-4 py-3 text-steel">{unit.hasComplianceCsid ? "Mock issued" : "Missing"}</td>
                         <td className="px-4 py-3 text-steel">{unit.hasProductionCsid ? "Configured" : "Missing"}</td>
                         <td className="px-4 py-3 text-steel">
@@ -717,6 +783,20 @@ function profileToForm(profile: ZatcaOrganizationProfile): ZatcaProfileForm {
   };
 }
 
+function unitToCsrFieldsForm(unit?: ZatcaEgsUnit): EgsCsrFieldsForm {
+  return {
+    csrCommonName: unit?.csrCommonName ?? "",
+    csrSerialNumber: unit?.csrSerialNumber ?? "",
+    csrOrganizationUnitName: unit?.csrOrganizationUnitName ?? "",
+    csrInvoiceType: unit?.csrInvoiceType ?? "",
+    csrLocationAddress: unit?.csrLocationAddress ?? "",
+  };
+}
+
+function buildCsrFieldsByUnit(units: ZatcaEgsUnit[]): Record<string, EgsCsrFieldsForm> {
+  return Object.fromEntries(units.map((unit) => [unit.id, unitToCsrFieldsForm(unit)]));
+}
+
 function buildProfilePayload(form: ZatcaProfileForm): Record<string, string> {
   return {
     environment: form.environment,
@@ -751,6 +831,33 @@ function TextField({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
+      />
+    </label>
+  );
+}
+
+function SmallInput({
+  label,
+  value,
+  onChange,
+  disabled,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-steel">{label}</span>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
+        placeholder={placeholder}
+        className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-xs outline-none focus:border-palm disabled:bg-slate-50 disabled:text-slate-400"
       />
     </label>
   );

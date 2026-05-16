@@ -61,6 +61,105 @@ describe("ZATCA service rules", () => {
     expect(audit.log).toHaveBeenCalledTimes(2);
   });
 
+  it("captures non-secret CSR onboarding fields for non-production EGS units only", async () => {
+    const existing = { ...makeEgsUnit({ environment: "SANDBOX", lastIcv: 7, lastInvoiceHash: "previous-hash" }), privateKeyPem: "PRIVATE-KEY-SECRET" };
+    const updated = makeEgsUnit({
+      environment: "SANDBOX",
+      lastIcv: 7,
+      lastInvoiceHash: "previous-hash",
+      csrCommonName: "TST-886431145-399999999900003",
+      csrSerialNumber: "1-TST|2-TST|3-ed22f1d8-e6a2-1118-9b58-d9a8f11e445f",
+      csrOrganizationUnitName: "Riyadh Branch",
+      csrInvoiceType: "1100",
+      csrLocationAddress: "RRRD2929",
+    });
+    const prisma = {
+      zatcaEgsUnit: {
+        findFirst: jest.fn().mockResolvedValue(existing),
+        update: jest.fn().mockResolvedValue(updated),
+      },
+    };
+    const auditLogService = { log: jest.fn() };
+    const service = new ZatcaService(prisma as never, auditLogService as never);
+
+    const result = await service.updateEgsUnitCsrFields("org-1", "user-1", "egs-1", {
+      csrCommonName: " TST-886431145-399999999900003 ",
+      csrSerialNumber: "1-TST|2-TST|3-ed22f1d8-e6a2-1118-9b58-d9a8f11e445f",
+      csrOrganizationUnitName: "Riyadh Branch",
+      csrInvoiceType: "1100",
+      csrLocationAddress: "RRRD2929",
+    });
+
+    const updateData = prisma.zatcaEgsUnit.update.mock.calls[0][0].data;
+    expect(updateData).toEqual({
+      csrCommonName: "TST-886431145-399999999900003",
+      csrSerialNumber: "1-TST|2-TST|3-ed22f1d8-e6a2-1118-9b58-d9a8f11e445f",
+      csrOrganizationUnitName: "Riyadh Branch",
+      csrInvoiceType: "1100",
+      csrLocationAddress: "RRRD2929",
+    });
+    expect(updateData).not.toHaveProperty("lastIcv");
+    expect(updateData).not.toHaveProperty("lastInvoiceHash");
+    expect(updateData).not.toHaveProperty("privateKeyPem");
+    expect(updateData).not.toHaveProperty("csrPem");
+    expect(result).toMatchObject({
+      csrCommonName: "TST-886431145-399999999900003",
+      csrInvoiceType: "1100",
+      csrLocationAddress: "RRRD2929",
+      lastIcv: 7,
+      lastInvoiceHash: "previous-hash",
+    });
+    expect(JSON.stringify(result)).not.toContain("PRIVATE-KEY-SECRET");
+    expect(JSON.stringify(auditLogService.log.mock.calls)).not.toContain("PRIVATE-KEY-SECRET");
+    expect(auditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "UPDATE",
+        entityType: "ZatcaEgsUnitCsrFields",
+        entityId: "egs-1",
+      }),
+    );
+  });
+
+  it("rejects CSR field capture for production EGS units", async () => {
+    const prisma = {
+      zatcaEgsUnit: {
+        findFirst: jest.fn().mockResolvedValue({ ...makeEgsUnit({ environment: "PRODUCTION" }), privateKeyPem: null }),
+        update: jest.fn(),
+      },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    await expect(
+      service.updateEgsUnitCsrFields("org-1", "user-1", "egs-1", {
+        csrCommonName: "TST-886431145-399999999900003",
+        csrInvoiceType: "1100",
+      }),
+    ).rejects.toThrow("non-production EGS units");
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsafe CSR field content and unmodeled invoice type values", async () => {
+    const prisma = {
+      zatcaEgsUnit: {
+        findFirst: jest.fn().mockResolvedValue({ ...makeEgsUnit({ environment: "SANDBOX" }), privateKeyPem: null }),
+        update: jest.fn(),
+      },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    await expect(
+      service.updateEgsUnitCsrFields("org-1", "user-1", "egs-1", {
+        csrCommonName: "TST\ncsr.invoice.type=1100",
+      }),
+    ).rejects.toThrow("cannot contain");
+    await expect(
+      service.updateEgsUnitCsrFields("org-1", "user-1", "egs-1", {
+        csrInvoiceType: "0100",
+      }),
+    ).rejects.toThrow("1100");
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+  });
+
   it("generates CSR only when profile fields are ready and never returns the private key", async () => {
     const egsUnit = makeEgsUnit({ id: "egs-1", csrPem: null });
     const updatedUnit = makeEgsUnit({ id: "egs-1", csrPem: "-----BEGIN CERTIFICATE REQUEST-----\nCSR\n-----END CERTIFICATE REQUEST-----", status: ZatcaRegistrationStatus.OTP_REQUIRED });
@@ -1098,6 +1197,84 @@ describe("ZATCA service rules", () => {
     }
   });
 
+  it("uses captured CSR fields to clear missing dry-run config blockers without CSID, network, or SDK execution", async () => {
+    const previousFlag = process.env.ZATCA_SDK_CSR_EXECUTION_ENABLED;
+    process.env.ZATCA_SDK_CSR_EXECUTION_ENABLED = "false";
+    const onboardingAdapter = { requestComplianceCsid: jest.fn(), requestProductionCsid: jest.fn() };
+    const auditLogService = { log: jest.fn() };
+    const prisma = {
+      organization: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "org-1",
+          name: "Org",
+          legalName: "Org Legal",
+          taxNumber: "300000000000003",
+          countryCode: "SA",
+        }),
+      },
+      zatcaOrganizationProfile: {
+        findFirst: jest.fn().mockResolvedValue({
+          sellerName: "Org Legal",
+          vatNumber: "300000000000003",
+          countryCode: "SA",
+          businessCategory: "Services",
+        }),
+      },
+      zatcaEgsUnit: {
+        findFirst: jest.fn().mockResolvedValue({
+          ...makeEgsUnit({
+            environment: "SANDBOX",
+            csrCommonName: "TST-886431145-399999999900003",
+            csrSerialNumber: "1-TST|2-TST|3-ed22f1d8-e6a2-1118-9b58-d9a8f11e445f",
+            csrOrganizationUnitName: "Riyadh Branch",
+            csrInvoiceType: "1100",
+            csrLocationAddress: "RRRD2929",
+          }),
+          privateKeyPem: null,
+        }),
+        update: jest.fn(),
+      },
+      zatcaSubmissionLog: { create: jest.fn() },
+    };
+    const service = new ZatcaService(prisma as never, auditLogService as never, onboardingAdapter as never);
+
+    try {
+      const result = await service.getEgsUnitCsrDryRun("org-1", "egs-1", { prepareFiles: true });
+
+      expect(result.missingValues).toEqual([]);
+      expect(result.requiredFields).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ sdkConfigKey: "csr.common.name", currentValue: "TST-886431145-399999999900003", status: "AVAILABLE" }),
+          expect.objectContaining({ sdkConfigKey: "csr.serial.number", currentValue: "1-TST|2-TST|3-ed22f1d8-e6a2-1118-9b58-d9a8f11e445f", status: "AVAILABLE" }),
+          expect.objectContaining({ sdkConfigKey: "csr.organization.unit.name", currentValue: "Riyadh Branch", status: "AVAILABLE" }),
+          expect.objectContaining({ sdkConfigKey: "csr.invoice.type", currentValue: "1100", status: "AVAILABLE" }),
+          expect.objectContaining({ sdkConfigKey: "csr.location.address", currentValue: "RRRD2929", status: "AVAILABLE" }),
+        ]),
+      );
+      expect(result.blockers).not.toEqual(expect.arrayContaining([expect.stringContaining("required official CSR fields")]));
+      expect(result.noNetwork).toBe(true);
+      expect(result.noCsidRequest).toBe(true);
+      expect(result.executionEnabled).toBe(false);
+      expect(result.executionSkipped).toBe(true);
+      expect(result.productionCompliance).toBe(false);
+      expect(result.preparedFiles.csrConfigWritten).toBe(true);
+      expect(result.preparedFiles.privateKeyWritten).toBe(false);
+      expect(result.preparedFiles.generatedCsrWritten).toBe(false);
+      expect(JSON.stringify(result)).not.toContain("PRIVATE KEY");
+      expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+      expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+      expect(auditLogService.log).not.toHaveBeenCalled();
+      expect(onboardingAdapter.requestComplianceCsid).not.toHaveBeenCalled();
+      expect(onboardingAdapter.requestProductionCsid).not.toHaveBeenCalled();
+    } finally {
+      if (previousFlag === undefined) {
+        delete process.env.ZATCA_SDK_CSR_EXECUTION_ENABLED;
+      } else {
+        process.env.ZATCA_SDK_CSR_EXECUTION_ENABLED = previousFlag;
+      }
+    }
+  });
+
   it("blocks CSR dry-run file preparation for production EGS units", async () => {
     const prisma = {
       organization: { findFirst: jest.fn().mockResolvedValue({ id: "org-1", name: "Org", legalName: "Org Legal", taxNumber: "300000000000003", countryCode: "SA" }) },
@@ -1298,6 +1475,11 @@ function makeEgsUnit(overrides: Record<string, unknown> = {}) {
     status: ZatcaRegistrationStatus.DRAFT,
     deviceSerialNumber: "DEV-001",
     solutionName: "LedgerByte",
+    csrCommonName: null,
+    csrSerialNumber: null,
+    csrOrganizationUnitName: null,
+    csrInvoiceType: null,
+    csrLocationAddress: null,
     csrPem: null,
     complianceCsidPem: null,
     productionCsidPem: null,

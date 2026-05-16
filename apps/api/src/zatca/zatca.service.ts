@@ -41,6 +41,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { CreateZatcaEgsUnitDto } from "./dto/create-zatca-egs-unit.dto";
 import { EnableZatcaSdkHashModeDto } from "./dto/enable-zatca-sdk-hash-mode.dto";
 import { RequestComplianceCsidDto } from "./dto/request-compliance-csid.dto";
+import { UpdateZatcaCsrFieldsDto } from "./dto/update-zatca-csr-fields.dto";
 import { UpdateZatcaEgsUnitDto } from "./dto/update-zatca-egs-unit.dto";
 import { UpdateZatcaProfileDto } from "./dto/update-zatca-profile.dto";
 import { ZatcaSdkService } from "../zatca-sdk/zatca-sdk.service";
@@ -73,6 +74,11 @@ const safeEgsUnitSelect = {
   status: true,
   deviceSerialNumber: true,
   solutionName: true,
+  csrCommonName: true,
+  csrSerialNumber: true,
+  csrOrganizationUnitName: true,
+  csrInvoiceType: true,
+  csrLocationAddress: true,
   csrPem: true,
   complianceCsidPem: true,
   productionCsidPem: true,
@@ -98,6 +104,7 @@ type SafeEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof safeEgsU
 type InternalEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof internalEgsUnitSelect }>;
 type ZatcaKeyCustodyMode = "MISSING" | "RAW_DATABASE_PEM";
 type ZatcaCsrPlanFieldStatus = "AVAILABLE" | "MISSING" | "NEEDS_REVIEW";
+const officialExampleCsrInvoiceTypes = new Set(["1100"]);
 
 interface ZatcaCsrProfileSource {
   sellerName?: string | null;
@@ -531,6 +538,38 @@ export class ZatcaService {
 
     const publicUnit = this.toPublicEgsUnit(updated);
     await this.auditLogService.log({ organizationId, actorUserId, action: "UPDATE", entityType: "ZatcaEgsUnit", entityId: id, before, after: publicUnit });
+    return publicUnit;
+  }
+
+  async updateEgsUnitCsrFields(organizationId: string, actorUserId: string, id: string, dto: UpdateZatcaCsrFieldsDto) {
+    const existing = await this.getEgsUnitInternal(organizationId, id);
+    if (existing.environment === "PRODUCTION") {
+      throw new BadRequestException("CSR onboarding field capture is restricted to non-production EGS units.");
+    }
+
+    const before = this.toPublicEgsUnit(existing);
+    const updated = await this.prisma.zatcaEgsUnit.update({
+      where: { id },
+      data: {
+        csrCommonName: dto.csrCommonName === undefined ? undefined : this.optionalCsrField(dto.csrCommonName, "CSR common name"),
+        csrSerialNumber: dto.csrSerialNumber === undefined ? undefined : this.optionalCsrField(dto.csrSerialNumber, "CSR serial number"),
+        csrOrganizationUnitName: dto.csrOrganizationUnitName === undefined ? undefined : this.optionalCsrField(dto.csrOrganizationUnitName, "CSR organization unit name"),
+        csrInvoiceType: dto.csrInvoiceType === undefined ? undefined : this.optionalCsrInvoiceType(dto.csrInvoiceType),
+        csrLocationAddress: dto.csrLocationAddress === undefined ? undefined : this.optionalCsrField(dto.csrLocationAddress, "CSR location address"),
+      },
+      select: safeEgsUnitSelect,
+    });
+
+    const publicUnit = this.toPublicEgsUnit(updated);
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "UPDATE",
+      entityType: "ZatcaEgsUnitCsrFields",
+      entityId: id,
+      before,
+      after: publicUnit,
+    });
     return publicUnit;
   }
 
@@ -1973,24 +2012,24 @@ export class ZatcaService {
     return egsUnit;
   }
 
-  private buildCsrPlanFields(profile: ZatcaCsrProfileSource, egsUnit: Pick<InternalEgsUnitRecord, "name" | "deviceSerialNumber">): ZatcaCsrPlanField[] {
+  private buildCsrPlanFields(profile: ZatcaCsrProfileSource, egsUnit: Pick<InternalEgsUnitRecord, "name" | "deviceSerialNumber" | "csrCommonName" | "csrSerialNumber" | "csrOrganizationUnitName" | "csrInvoiceType" | "csrLocationAddress">): ZatcaCsrPlanField[] {
     return [
-      this.csrPlanField("csr.common.name", "Common name", null, "NOT_MODELED", "MISSING", "SDK_README_CSR", "Official examples populate CN with an EGS/taxpayer identifier; LedgerByte does not infer it from the EGS display name."),
+      this.csrPlanField("csr.common.name", "Common name", egsUnit.csrCommonName, "EGS_UNIT", hasText(egsUnit.csrCommonName) ? "AVAILABLE" : "MISSING", "CSR_CONFIG_TEMPLATE", "Official examples populate CN with an EGS/taxpayer identifier; capture it explicitly for the EGS and do not infer it from the display name."),
       this.csrPlanField(
         "csr.serial.number",
         "EGS serial number",
-        egsUnit.deviceSerialNumber,
+        egsUnit.csrSerialNumber ?? egsUnit.deviceSerialNumber,
         "EGS_UNIT",
-        hasText(egsUnit.deviceSerialNumber) ? "NEEDS_REVIEW" : "MISSING",
+        hasText(egsUnit.csrSerialNumber) ? "AVAILABLE" : hasText(egsUnit.deviceSerialNumber) ? "NEEDS_REVIEW" : "MISSING",
         "CSR_CONFIG_TEMPLATE",
-        "Official examples use a structured serial-number value; the stored device serial is displayed for review only.",
+        "Official examples use a structured serial-number value; capture it explicitly, otherwise the stored device serial is displayed for review only.",
       ),
       this.csrPlanField("csr.organization.identifier", "Organization VAT identifier", profile.vatNumber, "ZATCA_PROFILE", hasText(profile.vatNumber) ? "AVAILABLE" : "MISSING", "CSR_CONFIG_TEMPLATE", "Use the taxpayer VAT/TIN identifier from the ZATCA seller profile."),
-      this.csrPlanField("csr.organization.unit.name", "Organization unit name", egsUnit.name, "EGS_UNIT", hasText(egsUnit.name) ? "NEEDS_REVIEW" : "MISSING", "CSR_CONFIG_TEMPLATE", "Official examples use branch or VAT group unit details; the EGS name is displayed for review only."),
+      this.csrPlanField("csr.organization.unit.name", "Organization unit name", egsUnit.csrOrganizationUnitName ?? egsUnit.name, "EGS_UNIT", hasText(egsUnit.csrOrganizationUnitName) ? "AVAILABLE" : hasText(egsUnit.name) ? "NEEDS_REVIEW" : "MISSING", "CSR_CONFIG_TEMPLATE", "Official examples use branch or VAT group unit details; capture the official unit name explicitly, otherwise the EGS name is displayed for review only."),
       this.csrPlanField("csr.organization.name", "Organization legal name", profile.sellerName, "ZATCA_PROFILE", hasText(profile.sellerName) ? "AVAILABLE" : "MISSING", "CSR_CONFIG_TEMPLATE", "Use the official taxpayer legal name from the ZATCA seller profile."),
       this.csrPlanField("csr.country.name", "Country code", profile.countryCode, "ZATCA_PROFILE", hasText(profile.countryCode) ? "AVAILABLE" : "MISSING", "CSR_CONFIG_TEMPLATE", "Official CSR examples use SA for Saudi Arabia."),
-      this.csrPlanField("csr.invoice.type", "Invoice type capability flags", null, "NOT_MODELED", "MISSING", "CSR_CONFIG_TEMPLATE", "Official examples use invoice type flags such as 1100; LedgerByte does not model the final EGS invoice-type capability yet."),
-      this.csrPlanField("csr.location.address", "EGS location address", null, "NOT_MODELED", "MISSING", "CSR_CONFIG_TEMPLATE", "Official examples use a location-address value; LedgerByte does not infer this from postal address fields."),
+      this.csrPlanField("csr.invoice.type", "Invoice type capability flags", egsUnit.csrInvoiceType, "EGS_UNIT", hasText(egsUnit.csrInvoiceType) ? "AVAILABLE" : "MISSING", "CSR_CONFIG_TEMPLATE", "Official SDK examples use invoice type flags such as 1100; LedgerByte stores only explicitly captured values."),
+      this.csrPlanField("csr.location.address", "EGS location address", egsUnit.csrLocationAddress, "EGS_UNIT", hasText(egsUnit.csrLocationAddress) ? "AVAILABLE" : "MISSING", "CSR_CONFIG_TEMPLATE", "Official examples use a location-address value; LedgerByte does not infer this from postal address fields."),
       this.csrPlanField(
         "csr.industry.business.category",
         "Industry/business category",
@@ -2038,6 +2077,11 @@ export class ZatcaService {
       status: unit.status,
       deviceSerialNumber: unit.deviceSerialNumber,
       solutionName: unit.solutionName,
+      csrCommonName: unit.csrCommonName,
+      csrSerialNumber: unit.csrSerialNumber,
+      csrOrganizationUnitName: unit.csrOrganizationUnitName,
+      csrInvoiceType: unit.csrInvoiceType,
+      csrLocationAddress: unit.csrLocationAddress,
       hasCsr: Boolean(unit.csrPem),
       hasComplianceCsid: Boolean(unit.complianceCsidPem),
       hasProductionCsid: Boolean(unit.productionCsidPem),
@@ -2558,5 +2602,30 @@ export class ZatcaService {
   private optionalText(value: string | undefined): string | null {
     const trimmed = value?.trim();
     return trimmed || null;
+  }
+
+  private optionalCsrField(value: string | undefined, label: string, maxLength = 128): string | null {
+    const trimmed = this.optionalText(value);
+    if (!trimmed) {
+      return null;
+    }
+    if (trimmed.length > maxLength) {
+      throw new BadRequestException(`${label} must be ${maxLength} characters or fewer.`);
+    }
+    if (/[\r\n=]/.test(trimmed) || /[\u0000-\u001f\u007f]/.test(trimmed)) {
+      throw new BadRequestException(`${label} cannot contain control characters, newlines, or equals signs.`);
+    }
+    return trimmed;
+  }
+
+  private optionalCsrInvoiceType(value: string | undefined): string | null {
+    const trimmed = this.optionalCsrField(value, "CSR invoice type", 16);
+    if (!trimmed) {
+      return null;
+    }
+    if (!officialExampleCsrInvoiceTypes.has(trimmed)) {
+      throw new BadRequestException("CSR invoice type must match an official SDK example value currently modeled by LedgerByte: 1100.");
+    }
+    return trimmed;
   }
 }

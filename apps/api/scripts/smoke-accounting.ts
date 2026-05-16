@@ -1156,6 +1156,7 @@ interface ZatcaEgsCsrPlanResponse {
   noCsidRequest: true;
   sdkCommand: string;
   requiredFields: Array<{ sdkConfigKey: string; currentValue: string | null; status: "AVAILABLE" | "MISSING" | "NEEDS_REVIEW" }>;
+  missingValues: Array<{ sdkConfigKey: string; currentValue: string | null; status: "AVAILABLE" | "MISSING" | "NEEDS_REVIEW" }>;
   plannedFiles: { csrConfig: string; privateKey: string; generatedCsr: string };
   keyCustody: { mode: "MISSING" | "RAW_DATABASE_PEM"; privateKeyConfigured: boolean; privateKeyReturned: false };
   blockers: string[];
@@ -1176,6 +1177,11 @@ interface ZatcaEgsUnit {
   id: string;
   name: string;
   deviceSerialNumber: string;
+  csrCommonName?: string | null;
+  csrSerialNumber?: string | null;
+  csrOrganizationUnitName?: string | null;
+  csrInvoiceType?: string | null;
+  csrLocationAddress?: string | null;
   status: string;
   isActive: boolean;
   hasCsr: boolean;
@@ -3023,6 +3029,19 @@ async function main(): Promise<void> {
       solutionName: "LedgerByte",
     }));
   assertNoPrivateKey(smokeEgs, "ZATCA EGS create/detail response");
+  const egsBeforeCsrFieldCapture = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  smokeEgs = await patch<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/csr-fields`, headers, {
+    csrCommonName: "TST-886431145-399999999900003",
+    csrSerialNumber: "1-TST|2-TST|3-ed22f1d8-e6a2-1118-9b58-d9a8f11e445f",
+    csrOrganizationUnitName: "Riyadh Branch",
+    csrInvoiceType: "1100",
+    csrLocationAddress: "RRRD2929",
+  });
+  assertNoPrivateKey(smokeEgs, "ZATCA EGS CSR field capture response");
+  assertEqual(smokeEgs.csrInvoiceType, "1100", "ZATCA smoke EGS CSR invoice type captured");
+  assertEqual(smokeEgs.csrLocationAddress, "RRRD2929", "ZATCA smoke EGS CSR location address captured");
+  assertEqual(smokeEgs.lastIcv, egsBeforeCsrFieldCapture.lastIcv, "ZATCA CSR field capture does not mutate EGS ICV");
+  assertEqual(smokeEgs.lastInvoiceHash, egsBeforeCsrFieldCapture.lastInvoiceHash, "ZATCA CSR field capture does not mutate EGS previous hash");
   smokeEgs = await post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/generate-csr`, headers, {});
   assertNoPrivateKey(smokeEgs, "ZATCA EGS CSR generation response");
   assertEqual(smokeEgs.hasCsr, true, "ZATCA smoke EGS CSR flag");
@@ -3039,7 +3058,10 @@ async function main(): Promise<void> {
   assertEqual(zatcaCsrPlan.noCsidRequest, true, "ZATCA CSR plan noCsidRequest");
   assert(zatcaCsrPlan.sdkCommand.includes("-csr"), "ZATCA CSR plan uses SDK CSR command");
   assert(zatcaCsrPlan.requiredFields.some((field) => field.sdkConfigKey === "csr.organization.identifier"), "ZATCA CSR plan lists organization identifier");
-  assert(zatcaCsrPlan.requiredFields.some((field) => field.sdkConfigKey === "csr.invoice.type" && field.status === "MISSING"), "ZATCA CSR plan lists missing invoice type");
+  assert(zatcaCsrPlan.requiredFields.some((field) => field.sdkConfigKey === "csr.common.name" && field.status === "AVAILABLE"), "ZATCA CSR plan uses captured common name");
+  assert(zatcaCsrPlan.requiredFields.some((field) => field.sdkConfigKey === "csr.invoice.type" && field.currentValue === "1100" && field.status === "AVAILABLE"), "ZATCA CSR plan uses captured invoice type");
+  assert(zatcaCsrPlan.requiredFields.some((field) => field.sdkConfigKey === "csr.location.address" && field.currentValue === "RRRD2929" && field.status === "AVAILABLE"), "ZATCA CSR plan uses captured location address");
+  assert(!zatcaCsrPlan.missingValues.some((field) => field.sdkConfigKey === "csr.invoice.type" || field.sdkConfigKey === "csr.location.address" || field.sdkConfigKey === "csr.common.name"), "ZATCA CSR plan captured fields clear missing CSR blockers");
   assert(zatcaCsrPlan.blockers.some((blocker) => blocker.includes("CSID requests are intentionally disabled")), "ZATCA CSR plan blocks CSID requests");
   assertNoPrivateKey(zatcaCsrPlan, "ZATCA CSR plan response");
   const egsAfterCsrPlan = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);

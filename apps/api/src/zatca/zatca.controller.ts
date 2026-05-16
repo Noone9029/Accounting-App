@@ -11,6 +11,7 @@ import { PermissionGuard } from "../auth/guards/permission.guard";
 import { CreateZatcaEgsUnitDto } from "./dto/create-zatca-egs-unit.dto";
 import { EnableZatcaSdkHashModeDto } from "./dto/enable-zatca-sdk-hash-mode.dto";
 import { RequestComplianceCsidDto } from "./dto/request-compliance-csid.dto";
+import { UpdateZatcaCsrFieldsDto } from "./dto/update-zatca-csr-fields.dto";
 import { UpdateZatcaEgsUnitDto } from "./dto/update-zatca-egs-unit.dto";
 import { UpdateZatcaProfileDto } from "./dto/update-zatca-profile.dto";
 import { ZatcaService } from "./zatca.service";
@@ -84,6 +85,12 @@ export class ZatcaController {
   @RequirePermissions(PERMISSIONS.zatca.manage)
   updateEgsUnit(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string, @Body() dto: UpdateZatcaEgsUnitDto) {
     return this.zatcaService.updateEgsUnit(organizationId, user.id, id, dto);
+  }
+
+  @Patch("zatca/egs-units/:id/csr-fields")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  updateEgsUnitCsrFields(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string, @Body() dto: UpdateZatcaCsrFieldsDto) {
+    return this.zatcaService.updateEgsUnitCsrFields(organizationId, user.id, id, dto);
   }
 
   @Post("zatca/egs-units/:id/activate-dev")

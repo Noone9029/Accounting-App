@@ -734,6 +734,11 @@ model ZatcaEgsUnit {
   status               ZatcaRegistrationStatus  @default(DRAFT)
   deviceSerialNumber   String
   solutionName         String                   @default("LedgerByte")
+  csrCommonName        String?
+  csrSerialNumber      String?
+  csrOrganizationUnitName String?
+  csrInvoiceType       String?
+  csrLocationAddress   String?
   csrPem               String?                  @db.Text
   /// TODO: production must store private keys in a secrets manager/KMS, not in the database.
   privateKeyPem        String?                  @db.Text

@@ -2728,6 +2728,11 @@ export interface ZatcaEgsUnit {
   status: ZatcaRegistrationStatus;
   deviceSerialNumber: string;
   solutionName: string;
+  csrCommonName?: string | null;
+  csrSerialNumber?: string | null;
+  csrOrganizationUnitName?: string | null;
+  csrInvoiceType?: string | null;
+  csrLocationAddress?: string | null;
   hasCsr: boolean;
   hasComplianceCsid: boolean;
   hasProductionCsid: boolean;

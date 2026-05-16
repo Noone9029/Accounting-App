@@ -138,6 +138,21 @@ async function main() {
             workingDirectory: result.commandPlan.workingDirectory,
             warnings: result.commandPlan.warnings,
           },
+          capturedCsrFields: result.requiredFields
+            .filter((field) => field.currentValue?.trim())
+            .map((field) => ({
+              key: field.sdkConfigKey,
+              status: field.status,
+              source: field.source,
+              valuePreview: field.currentValue && field.currentValue.length > 24 ? `${field.currentValue.slice(0, 24)}...` : field.currentValue,
+            })),
+          missingCsrFields: result.requiredFields
+            .filter((field) => field.status === "MISSING")
+            .map((field) => ({ key: field.sdkConfigKey, source: field.source })),
+          reviewCsrFields: result.requiredFields
+            .filter((field) => field.status === "NEEDS_REVIEW")
+            .map((field) => ({ key: field.sdkConfigKey, source: field.source, hasValue: Boolean(field.currentValue?.trim()) })),
+          configPreparationBlocked: result.blockers.some((blocker) => blocker.includes("required official CSR fields") || blocker.includes("non-production EGS units")),
           csrFields: result.requiredFields.map((field) => ({
             key: field.sdkConfigKey,
             status: field.status,
