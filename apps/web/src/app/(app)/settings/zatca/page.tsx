@@ -247,7 +247,7 @@ export default function ZatcaSettingsPage() {
       const updated = await apiRequest<ZatcaEgsUnit>(`/zatca/egs-units/${unit.id}/generate-csr`, { method: "POST" });
       replaceUnit(updated);
       await refreshReadiness();
-      setSuccess(`CSR generated for ${updated.name}. Private key is stored only as a development placeholder and is not shown.`);
+      setSuccess(`Development CSR placeholder generated for ${updated.name}. Private key is stored only as a development placeholder and is not shown.`);
     } catch (csrError) {
       setError(csrError instanceof Error ? csrError.message : "Unable to generate CSR.");
     } finally {
@@ -779,7 +779,16 @@ export default function ZatcaSettingsPage() {
                                 onClick={() => void generateCsr(unit)}
                                 className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
                               >
-                                {actionLoading === `csr-${unit.id}` ? "Generating..." : "Generate CSR"}
+                                {actionLoading === `csr-${unit.id}` ? "Generating..." : "Generate dev CSR placeholder"}
+                              </button>
+                            ) : null}
+                            {canManageZatca ? (
+                              <button
+                                type="button"
+                                disabled
+                                className="rounded-md border border-amber-300 px-2 py-1 text-xs font-medium text-amber-700 disabled:cursor-not-allowed disabled:opacity-70"
+                              >
+                                Local SDK CSR gate disabled
                               </button>
                             ) : null}
                             {unit.hasCsr ? (
@@ -832,7 +841,10 @@ export default function ZatcaSettingsPage() {
                               </button>
                             ) : null}
                           </div>
-                          <div className="mt-2 text-[11px] text-steel">Use 000000 for local mock mode. Real OTP will come from the ZATCA/FATOORA portal later.</div>
+                          <div className="mt-2 text-[11px] text-steel">
+                            Local SDK CSR generation requires an approved CSR config review and ZATCA_SDK_CSR_EXECUTION_ENABLED=true. It uses temp files only and still makes no CSID request or network call.
+                          </div>
+                          <div className="mt-1 text-[11px] text-steel">Use 000000 for local mock mode. Real OTP will come from the ZATCA/FATOORA portal later.</div>
                         </td>
                       </tr>
                     ))
@@ -959,7 +971,7 @@ function CsrConfigReviewPanel({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <div className="text-xs font-semibold text-ink">CSR config review</div>
-          <div className="mt-1 text-[11px] text-steel">Local operator approval tracking only. No SDK execution, CSID request, signing, or network call.</div>
+          <div className="mt-1 text-[11px] text-steel">Local operator approval tracking only. Approval is required before the disabled-by-default SDK CSR generation gate can run.</div>
         </div>
         <span className={`rounded-md px-2 py-1 text-[11px] font-medium ${latest?.status === "APPROVED" ? "bg-emerald-50 text-emerald-700" : latest ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-700"}`}>
           {latest ? latest.status.replaceAll("_", " ") : "NO REVIEW"}
@@ -1005,7 +1017,9 @@ function CsrConfigReviewPanel({
       </div>
       {!preview ? <div className="mt-2 text-[11px] text-amber-700">Preview must be loaded before creating or approving a review.</div> : null}
       {latest && !canApprove && latest.status === "DRAFT" ? <div className="mt-2 text-[11px] text-amber-700">Approval requires a ready preview with no missing fields or blockers.</div> : null}
-      <div className="mt-2 text-[11px] text-steel">Approval is local-only, does not request CSID, does not execute SDK, and does not prove production compliance.</div>
+      <div className="mt-2 text-[11px] text-steel">
+        Approval is local-only. It does not request CSID, does not call ZATCA, does not sign invoices, and does not prove production compliance. SDK CSR execution still requires ZATCA_SDK_CSR_EXECUTION_ENABLED=true.
+      </div>
     </div>
   );
 }

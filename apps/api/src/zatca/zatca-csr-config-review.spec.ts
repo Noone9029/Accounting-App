@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { writeFileSync } from "node:fs";
 import { ZatcaController } from "./zatca.controller";
 import { ZatcaService } from "./zatca.service";
 
@@ -174,16 +175,101 @@ function makePlan() {
   };
 }
 
+function makeDryRun(overrides: Record<string, unknown> = {}) {
+  const plan = makePlan();
+  const csrConfigEntries = officialKeyOrder.map((key) => ({
+    key,
+    valuePreview: key === "csr.common.name" ? "TST-886431145-399999999900003" : key,
+    status: "AVAILABLE",
+    source: key === "csr.organization.identifier" ? "ZATCA_PROFILE" : "EGS_UNIT",
+    officialSource: "CSR_CONFIG_TEMPLATE",
+    notes: "Official SDK CSR config preview field.",
+  }));
+
+  return {
+    ...plan,
+    noNetwork: true,
+    configReviewRequired: true,
+    latestReviewId: "review-1",
+    latestReviewStatus: "APPROVED",
+    configApprovedForDryRun: true,
+    currentConfigHash: sha256(sanitizedPreview),
+    executionEnabled: process.env.ZATCA_SDK_CSR_EXECUTION_ENABLED === "true",
+    executionSkipped: true,
+    executionSkipReason: "SDK execution is gated.",
+    prepareFilesRequested: false,
+    tempDirectory: null,
+    plannedFiles: {
+      csrConfig: "csr-config.properties",
+      privateKey: "generated-private-key.pem",
+      generatedCsr: "generated-csr.pem",
+    },
+    preparedFiles: { csrConfig: false, privateKey: false, generatedCsr: false, cleanupPerformed: false, retained: false },
+    csrConfigEntries,
+    commandPlan: {
+      command: "node",
+      args: [
+        "-csr",
+        "-csrConfig",
+        "csr-config.properties",
+        "-privateKey",
+        "generated-private-key.pem",
+        "-generatedCsr",
+        "generated-csr.pem",
+        "-pem",
+      ],
+      displayCommand: "node -csr -csrConfig csr-config.properties -privateKey generated-private-key.pem -generatedCsr generated-csr.pem -pem",
+      envAdditions: {},
+      workingDirectory: "temp",
+      warnings: [],
+    },
+    sdkReadiness: {
+      enabled: true,
+      referenceFolderFound: true,
+      sdkJarFound: true,
+      fatooraLauncherFound: true,
+      jqFound: true,
+      configDirFound: true,
+      workingDirectoryWritable: true,
+      supportedCommandsKnown: true,
+      javaFound: true,
+      javaVersion: "11.0.20",
+      javaMajorVersion: 11,
+      javaVersionSupported: true,
+      canAttemptSdkValidation: true,
+      canRunLocalValidation: true,
+      blockingReasons: [],
+      warnings: [],
+      timeoutMs: 30000,
+    },
+    blockers: [],
+    warnings: [],
+    ...overrides,
+  };
+}
+
 describe("ZATCA CSR config review workflow routes", () => {
   it("exposes local-only CSR config review route handlers", () => {
     expect(typeof ZatcaController.prototype.createEgsUnitCsrConfigReview).toBe("function");
     expect(typeof ZatcaController.prototype.listEgsUnitCsrConfigReviews).toBe("function");
     expect(typeof ZatcaController.prototype.approveCsrConfigReview).toBe("function");
     expect(typeof ZatcaController.prototype.revokeCsrConfigReview).toBe("function");
+    expect(typeof ZatcaController.prototype.getEgsCsrLocalGenerate).toBe("function");
   });
 });
 
 describe("ZATCA CSR config review workflow", () => {
+  const originalCsrExecutionFlag = process.env.ZATCA_SDK_CSR_EXECUTION_ENABLED;
+
+  afterEach(() => {
+    if (originalCsrExecutionFlag === undefined) {
+      delete process.env.ZATCA_SDK_CSR_EXECUTION_ENABLED;
+    } else {
+      process.env.ZATCA_SDK_CSR_EXECUTION_ENABLED = originalCsrExecutionFlag;
+    }
+    jest.restoreAllMocks();
+  });
+
   it("creates a review from the sanitized preview, hashes it, supersedes active reviews, and audits without secrets", async () => {
     const createdReview = makeReview();
     const tx = {
@@ -315,6 +401,155 @@ describe("ZATCA CSR config review workflow", () => {
       latestReviewStatus: "APPROVED",
       configApprovedForDryRun: true,
     });
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+  });
+
+  it("keeps CSR local generation blocked when the execution gate is disabled", async () => {
+    process.env.ZATCA_SDK_CSR_EXECUTION_ENABLED = "false";
+    const prisma = {
+      zatcaEgsUnit: { update: jest.fn() },
+      zatcaSubmissionLog: { create: jest.fn() },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+    jest.spyOn(service, "getEgsUnitCsrDryRun").mockResolvedValue(makeDryRun({ executionEnabled: false }) as never);
+    const executeSpy = jest.spyOn(service as unknown as { executeZatcaSdkCsrCommand: () => Promise<unknown> }, "executeZatcaSdkCsrCommand");
+
+    const result = await service.getEgsUnitCsrLocalGenerate("org-1", "egs-1");
+
+    expect(result).toMatchObject({
+      localOnly: true,
+      noMutation: true,
+      noCsidRequest: true,
+      noNetwork: true,
+      noSigning: true,
+      noPersistence: true,
+      productionCompliance: false,
+      executionEnabled: false,
+      executionAttempted: false,
+      executionSkipped: true,
+    });
+    expect(result.blockers).toEqual(expect.arrayContaining(["ZATCA_SDK_CSR_EXECUTION_ENABLED is false; local SDK CSR generation is skipped."]));
+    expect(executeSpy).not.toHaveBeenCalled();
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+  });
+
+  it("blocks CSR local generation without an approved current review", async () => {
+    process.env.ZATCA_SDK_CSR_EXECUTION_ENABLED = "true";
+    const prisma = {
+      zatcaEgsUnit: { update: jest.fn() },
+      zatcaSubmissionLog: { create: jest.fn() },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+    jest
+      .spyOn(service, "getEgsUnitCsrDryRun")
+      .mockResolvedValue(makeDryRun({ latestReviewStatus: "DRAFT", configApprovedForDryRun: false, executionEnabled: true }) as never);
+    const executeSpy = jest.spyOn(service as unknown as { executeZatcaSdkCsrCommand: () => Promise<unknown> }, "executeZatcaSdkCsrCommand");
+
+    const result = await service.getEgsUnitCsrLocalGenerate("org-1", "egs-1");
+
+    expect(result.executionAttempted).toBe(false);
+    expect(result.blockers).toEqual(expect.arrayContaining(["An APPROVED CSR config review is required before local SDK CSR generation can run."]));
+    expect(executeSpy).not.toHaveBeenCalled();
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+  });
+
+  it("blocks CSR local generation when the approved review hash no longer matches the current preview", async () => {
+    process.env.ZATCA_SDK_CSR_EXECUTION_ENABLED = "true";
+    const prisma = {
+      zatcaEgsUnit: { update: jest.fn() },
+      zatcaSubmissionLog: { create: jest.fn() },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+    jest
+      .spyOn(service, "getEgsUnitCsrDryRun")
+      .mockResolvedValue(makeDryRun({ latestReviewStatus: "APPROVED", configApprovedForDryRun: false, executionEnabled: true }) as never);
+    const executeSpy = jest.spyOn(service as unknown as { executeZatcaSdkCsrCommand: () => Promise<unknown> }, "executeZatcaSdkCsrCommand");
+
+    const result = await service.getEgsUnitCsrLocalGenerate("org-1", "egs-1");
+
+    expect(result.executionAttempted).toBe(false);
+    expect(result.blockers).toEqual(expect.arrayContaining(["Current CSR config preview hash must match the latest approved review before execution."]));
+    expect(executeSpy).not.toHaveBeenCalled();
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+  });
+
+  it("blocks CSR local generation when dry-run planning reports production or missing-field blockers", async () => {
+    process.env.ZATCA_SDK_CSR_EXECUTION_ENABLED = "true";
+    const prisma = {
+      zatcaEgsUnit: { update: jest.fn() },
+      zatcaSubmissionLog: { create: jest.fn() },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+    jest
+      .spyOn(service, "getEgsUnitCsrDryRun")
+      .mockResolvedValue(makeDryRun({ executionEnabled: true, blockers: ["CSR dry-run is restricted to non-production EGS units.", "Missing required official CSR fields: csr.common.name."] }) as never);
+    const executeSpy = jest.spyOn(service as unknown as { executeZatcaSdkCsrCommand: () => Promise<unknown> }, "executeZatcaSdkCsrCommand");
+
+    const result = await service.getEgsUnitCsrLocalGenerate("org-1", "egs-1");
+
+    expect(result.executionAttempted).toBe(false);
+    expect(result.blockers).toEqual(expect.arrayContaining(["CSR dry-run is restricted to non-production EGS units.", "Missing required official CSR fields: csr.common.name."]));
+    expect(executeSpy).not.toHaveBeenCalled();
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+  });
+
+  it("executes CSR local generation only behind the gate, writes temp files, redacts output, cleans up, and does not persist secrets", async () => {
+    process.env.ZATCA_SDK_CSR_EXECUTION_ENABLED = "true";
+    const prisma = {
+      zatcaEgsUnit: { update: jest.fn() },
+      zatcaSubmissionLog: { create: jest.fn() },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+    jest.spyOn(service, "getEgsUnitCsrDryRun").mockResolvedValue(makeDryRun({ executionEnabled: true }) as never);
+    jest.spyOn(service as unknown as { executeZatcaSdkCsrCommand: (commandPlan: { args: string[] }) => Promise<unknown> }, "executeZatcaSdkCsrCommand").mockImplementation(async (commandPlan) => {
+      const privateKeyIndex = commandPlan.args.indexOf("-privateKey") + 1;
+      const generatedCsrIndex = commandPlan.args.indexOf("-generatedCsr") + 1;
+      const privateKeyPath = commandPlan.args[privateKeyIndex];
+      const generatedCsrPath = commandPlan.args[generatedCsrIndex];
+      if (!privateKeyPath || !generatedCsrPath) {
+        throw new Error("CSR command plan did not include expected output paths.");
+      }
+      writeFileSync(privateKeyPath, "-----BEGIN PRIVATE KEY-----\nsecret\n-----END PRIVATE KEY-----\n");
+      writeFileSync(generatedCsrPath, "-----BEGIN CERTIFICATE REQUEST-----\ncsr\n-----END CERTIFICATE REQUEST-----\n");
+      return {
+        exitCode: 0,
+        stdout: "created PRIVATE KEY and -----BEGIN CERTIFICATE REQUEST-----csr-----END CERTIFICATE REQUEST----- binarySecurityToken=abc OTP=123",
+        stderr: "privateKeyPem=secret token=abc",
+        timedOut: false,
+      };
+    });
+
+    const result = await service.getEgsUnitCsrLocalGenerate("org-1", "egs-1");
+    const serialized = JSON.stringify(result);
+
+    expect(result).toMatchObject({
+      localOnly: true,
+      noMutation: true,
+      noCsidRequest: true,
+      noNetwork: true,
+      noSigning: true,
+      noPersistence: true,
+      productionCompliance: false,
+      executionEnabled: true,
+      executionAttempted: true,
+      executionSkipped: false,
+      reviewId: "review-1",
+      configHash: sha256(sanitizedPreview),
+      privateKeyDetected: true,
+      generatedCsrDetected: true,
+    });
+    expect(result.tempFilesWritten).toMatchObject({ csrConfig: true, privateKey: true, generatedCsr: true });
+    expect(result.cleanup).toMatchObject({ performed: true, success: true, filesRetained: false });
+    expect(serialized).not.toContain("BEGIN PRIVATE KEY");
+    expect(serialized).not.toContain("BEGIN CERTIFICATE REQUEST");
+    expect(serialized).not.toContain("binarySecurityToken");
+    expect(serialized).not.toContain("OTP");
+    expect(serialized).not.toContain("privateKeyPem=secret");
     expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
     expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
   });

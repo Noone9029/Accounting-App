@@ -3,34 +3,31 @@ import { ZatcaService } from "../src/zatca/zatca.service";
 
 interface CliOptions {
   help: boolean;
-  prepareFiles: boolean;
   keepTempFiles: boolean;
 }
 
 function parseOptions(argv: string[]): CliOptions {
   return {
     help: argv.includes("--help") || argv.includes("-h"),
-    prepareFiles: argv.includes("--prepare-files") || process.env.ZATCA_CSR_DRY_RUN_PREPARE_FILES === "true",
-    keepTempFiles: argv.includes("--keep-temp-files") || process.env.ZATCA_CSR_DRY_RUN_KEEP_TEMP_FILES === "true",
+    keepTempFiles: argv.includes("--keep-temp-files") || process.env.ZATCA_CSR_LOCAL_GENERATE_KEEP_TEMP_FILES === "true",
   };
 }
 
 function printHelp() {
   console.log(
     [
-      "ZATCA CSR dry-run planner",
+      "ZATCA CSR local generation gate",
       "",
-      "Local/non-production only. No CSID request, no ZATCA network call, no invoice signing, and no production compliance claim.",
+      "Local/non-production only. Requires ZATCA_SDK_CSR_EXECUTION_ENABLED=true and an APPROVED CSR config review.",
+      "No CSID request, no ZATCA network call, no invoice signing, no clearance/reporting, no PDF/A-3, and no production compliance claim.",
       "",
       "Environment:",
-      "  ZATCA_CSR_DRY_RUN_ORGANIZATION_ID  Optional organization id.",
-      "  ZATCA_CSR_DRY_RUN_EGS_ID           Optional EGS unit id.",
-      "  ZATCA_CSR_DRY_RUN_PREPARE_FILES    Set true to request temp CSR config preparation.",
-      "  ZATCA_CSR_DRY_RUN_KEEP_TEMP_FILES  Set true to retain prepared temp files for debugging.",
-      "  ZATCA_SDK_CSR_EXECUTION_ENABLED    Defaults false; dry-run still skips SDK execution. Use zatca:csr-local-generate for the gated execution path.",
+      "  ZATCA_CSR_LOCAL_GENERATE_ORGANIZATION_ID  Optional organization id.",
+      "  ZATCA_CSR_LOCAL_GENERATE_EGS_ID           Optional EGS unit id.",
+      "  ZATCA_CSR_LOCAL_GENERATE_KEEP_TEMP_FILES  Set true to retain temp files for local debugging.",
+      "  ZATCA_SDK_CSR_EXECUTION_ENABLED           Defaults false; when false, no SDK execution or temp key/CSR generation occurs.",
       "",
       "Flags:",
-      "  --prepare-files       Request temp CSR config file preparation if no blockers exist.",
       "  --keep-temp-files     Retain prepared temp files. Otherwise cleanup is performed.",
       "  --help                Print this help without touching the database.",
     ].join("\n"),
@@ -46,8 +43,8 @@ async function main() {
 
   const prisma = new PrismaClient();
   try {
-    const egsIdFromEnv = process.env.ZATCA_CSR_DRY_RUN_EGS_ID?.trim() || "";
-    let organizationId = process.env.ZATCA_CSR_DRY_RUN_ORGANIZATION_ID?.trim() || "";
+    const egsIdFromEnv = process.env.ZATCA_CSR_LOCAL_GENERATE_EGS_ID?.trim() || "";
+    let organizationId = process.env.ZATCA_CSR_LOCAL_GENERATE_ORGANIZATION_ID?.trim() || "";
 
     if (!organizationId && egsIdFromEnv) {
       const egs = await prisma.zatcaEgsUnit.findUnique({ where: { id: egsIdFromEnv }, select: { organizationId: true } });
@@ -64,13 +61,16 @@ async function main() {
         JSON.stringify(
           {
             localOnly: true,
-            dryRun: true,
             noMutation: true,
             noCsidRequest: true,
             noNetwork: true,
+            noSigning: true,
+            noPersistence: true,
             productionCompliance: false,
+            executionEnabled: process.env.ZATCA_SDK_CSR_EXECUTION_ENABLED === "true",
+            executionAttempted: false,
             executionSkipped: true,
-            blockers: ["No organization was found for CSR dry-run planning."],
+            blockers: ["No organization was found for CSR local generation."],
           },
           null,
           2,
@@ -92,13 +92,16 @@ async function main() {
         JSON.stringify(
           {
             localOnly: true,
-            dryRun: true,
             noMutation: true,
             noCsidRequest: true,
             noNetwork: true,
+            noSigning: true,
+            noPersistence: true,
             productionCompliance: false,
+            executionEnabled: process.env.ZATCA_SDK_CSR_EXECUTION_ENABLED === "true",
+            executionAttempted: false,
             executionSkipped: true,
-            blockers: ["No non-production EGS unit was found for CSR dry-run planning."],
+            blockers: ["No non-production EGS unit was found for CSR local generation."],
           },
           null,
           2,
@@ -108,8 +111,7 @@ async function main() {
     }
 
     const service = new ZatcaService(prisma as never, { log: async () => undefined } as never);
-    const result = await service.getEgsUnitCsrDryRun(organizationId, egsUnit.id, {
-      prepareFiles: options.prepareFiles,
+    const result = await service.getEgsUnitCsrLocalGenerate(organizationId, egsUnit.id, {
       keepTempFiles: options.keepTempFiles,
     });
 
@@ -117,18 +119,19 @@ async function main() {
       JSON.stringify(
         {
           localOnly: result.localOnly,
-          dryRun: result.dryRun,
           noMutation: result.noMutation,
           noCsidRequest: result.noCsidRequest,
           noNetwork: result.noNetwork,
+          noSigning: result.noSigning,
+          noPersistence: result.noPersistence,
           productionCompliance: result.productionCompliance,
           executionEnabled: result.executionEnabled,
+          executionAttempted: result.executionAttempted,
           executionSkipped: result.executionSkipped,
           executionSkipReason: result.executionSkipReason,
-          prepareFilesRequested: result.prepareFilesRequested,
-          tempDirectory: result.tempDirectory,
-          plannedFiles: result.plannedFiles,
-          preparedFiles: result.preparedFiles,
+          reviewId: result.reviewId,
+          latestReviewStatus: result.latestReviewStatus,
+          configHash: result.configHash,
           sdkCommand: result.sdkCommand,
           commandPlan: {
             displayCommand: result.commandPlan.displayCommand,
@@ -138,30 +141,16 @@ async function main() {
             workingDirectory: result.commandPlan.workingDirectory,
             warnings: result.commandPlan.warnings,
           },
-          capturedCsrFields: result.requiredFields
-            .filter((field) => field.currentValue?.trim())
-            .map((field) => ({
-              key: field.sdkConfigKey,
-              status: field.status,
-              source: field.source,
-              valuePreview: field.currentValue && field.currentValue.length > 24 ? `${field.currentValue.slice(0, 24)}...` : field.currentValue,
-            })),
-          missingCsrFields: result.requiredFields
-            .filter((field) => field.status === "MISSING")
-            .map((field) => ({ key: field.sdkConfigKey, source: field.source })),
-          reviewCsrFields: result.requiredFields
-            .filter((field) => field.status === "NEEDS_REVIEW")
-            .map((field) => ({ key: field.sdkConfigKey, source: field.source, hasValue: Boolean(field.currentValue?.trim()) })),
-          configPreparationBlocked: result.blockers.some((blocker) => blocker.includes("required official CSR fields") || blocker.includes("non-production EGS units")),
-          csrFields: result.requiredFields.map((field) => ({
-            key: field.sdkConfigKey,
-            status: field.status,
-            source: field.source,
-            hasValue: Boolean(field.currentValue?.trim()),
-          })),
+          tempFilesWritten: result.tempFilesWritten,
+          cleanup: result.cleanup,
+          sdkExitCode: result.sdkExitCode,
+          timedOut: result.timedOut,
+          generatedCsrDetected: result.generatedCsrDetected,
+          privateKeyDetected: result.privateKeyDetected,
+          stdoutSummary: result.stdoutSummary,
+          stderrSummary: result.stderrSummary,
           blockers: result.blockers,
           warnings: result.warnings,
-          recommendedNextSteps: result.recommendedNextSteps,
         },
         null,
         2,
@@ -173,6 +162,6 @@ async function main() {
 }
 
 main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : "CSR dry-run failed.");
+  console.error(error instanceof Error ? error.message : "CSR local generation gate failed.");
   process.exitCode = 1;
 });

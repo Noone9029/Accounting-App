@@ -177,6 +177,16 @@ export class ZatcaController {
     return this.zatcaService.getEgsUnitCsrDryRun(organizationId, id, dto);
   }
 
+  @Post("zatca/egs-units/:id/csr-local-generate")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  getEgsCsrLocalGenerate(
+    @CurrentOrganizationId() organizationId: string,
+    @Param("id") id: string,
+    @Body() dto: { keepTempFiles?: boolean } = {},
+  ) {
+    return this.zatcaService.getEgsUnitCsrLocalGenerate(organizationId, id, dto);
+  }
+
   @Get("zatca/egs-units/:id/csr")
   @RequirePermissions(PERMISSIONS.zatca.view)
   async getEgsCsr(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {

@@ -3275,6 +3275,47 @@ export interface ZatcaCsrConfigReview {
   updatedAt: string;
 }
 
+export interface ZatcaEgsCsrLocalGenerateResponse {
+  localOnly: true;
+  dryRun: false;
+  noMutation: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  noSigning: true;
+  noPersistence: true;
+  productionCompliance: false;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  executionSkipped: boolean;
+  executionSkipReason: string | null;
+  reviewId: string | null;
+  latestReviewStatus: ZatcaCsrConfigReviewStatus | null;
+  configHash: string;
+  sdkCommand: string;
+  commandPlan: ZatcaSdkValidationCommandPlan;
+  tempFilesWritten: {
+    csrConfig: boolean;
+    privateKey: boolean;
+    generatedCsr: boolean;
+    tempDirectory: string | null;
+    filesRetained: boolean;
+  };
+  cleanup: {
+    performed: boolean;
+    success: boolean;
+    filesRetained: boolean;
+    tempDirectory: string | null;
+  };
+  stdoutSummary: string;
+  stderrSummary: string;
+  sdkExitCode: number | null;
+  timedOut: boolean;
+  generatedCsrDetected: boolean;
+  privateKeyDetected: boolean;
+  blockers: string[];
+  warnings: string[];
+}
+
 export interface ZatcaXmlValidationResult {
   localOnly: true;
   officialValidation: false;

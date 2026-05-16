@@ -1,9 +1,9 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { execFile } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BadRequestException, Inject, Injectable, NotFoundException, NotImplementedException, Optional } from "@nestjs/common";
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
 import {
   combineZatcaReadinessStatus,
   createZatcaReadinessSection,
@@ -45,13 +45,14 @@ import { RequestComplianceCsidDto } from "./dto/request-compliance-csid.dto";
 import { UpdateZatcaCsrFieldsDto } from "./dto/update-zatca-csr-fields.dto";
 import { UpdateZatcaEgsUnitDto } from "./dto/update-zatca-egs-unit.dto";
 import { UpdateZatcaProfileDto } from "./dto/update-zatca-profile.dto";
-import { ZatcaSdkService } from "../zatca-sdk/zatca-sdk.service";
+import { sanitizeZatcaSdkOutput, ZatcaSdkService } from "../zatca-sdk/zatca-sdk.service";
 import {
   buildZatcaSdkCsrCommand,
   buildZatcaSdkSigningCommand,
   discoverZatcaSdkReadiness,
   isZatcaSdkCsrExecutionEnabled,
   isZatcaSdkSigningExecutionEnabled,
+  type ZatcaSdkValidationCommandPlan,
   ZATCA_SDK_CSR_COMMAND,
   ZATCA_SDK_SIGN_COMMAND,
 } from "../zatca-sdk/zatca-sdk-paths";
@@ -1496,10 +1497,6 @@ export class ZatcaService {
         `CSR config values need official-format review before any real CSR generation: ${reviewFields.map((field) => field.sdkConfigKey).join(", ")}.`,
       );
     }
-    if (executionEnabled) {
-      blockers.push("SDK CSR execution remains intentionally unimplemented in this safe dry-run workflow; only the command plan is returned.");
-    }
-
     const canPrepareFiles = prepareFiles && missingFields.length === 0 && sanitizedPreview.unsafeFields.length === 0 && plan.egsUnit.environment !== "PRODUCTION";
     const preparedFiles = {
       requested: prepareFiles,
@@ -1556,7 +1553,7 @@ export class ZatcaService {
       executionEnabled,
       executionSkipped: true,
       executionSkipReason: executionEnabled
-        ? "Execution flag is true, but SDK CSR execution is intentionally not implemented in this safe dry-run workflow."
+        ? "Execution flag is true, but CSR dry-run never executes SDK; use the gated csr-local-generate endpoint/script for local execution."
         : "ZATCA_SDK_CSR_EXECUTION_ENABLED is not true; SDK CSR execution is skipped by default.",
       prepareFilesRequested: prepareFiles,
       tempDirectory,
@@ -1592,6 +1589,149 @@ export class ZatcaService {
         "Do not request compliance or production CSIDs until a dedicated onboarding phase is approved.",
         "Use KMS/HSM-style key custody before any production signing design is implemented.",
       ],
+    };
+  }
+
+  async getEgsUnitCsrLocalGenerate(
+    organizationId: string,
+    id: string,
+    options: { keepTempFiles?: boolean } = {},
+  ) {
+    const keepTempFiles = options.keepTempFiles === true;
+    const executionEnabled = isZatcaSdkCsrExecutionEnabled();
+    const dryRun = await this.getEgsUnitCsrDryRun(organizationId, id, { prepareFiles: false, keepTempFiles: false });
+    const configHash = String((dryRun as { currentConfigHash?: string }).currentConfigHash ?? this.hashCsrConfigPreview(this.csrConfigPreviewFromDryRun(dryRun)));
+    const blockers = [...(dryRun.blockers ?? [])];
+    const warnings = [
+      ...(dryRun.warnings ?? []),
+      "Local CSR generation never requests compliance or production CSIDs.",
+      "Local CSR generation never calls ZATCA network endpoints, signs invoices, performs clearance/reporting, or claims production compliance.",
+      "Generated private key and CSR files are temporary and are deleted by default.",
+    ];
+
+    if (!executionEnabled) {
+      blockers.push("ZATCA_SDK_CSR_EXECUTION_ENABLED is false; local SDK CSR generation is skipped.");
+    }
+    if (dryRun.egsUnit?.environment === "PRODUCTION") {
+      blockers.push("CSR local generation is restricted to non-production EGS units.");
+    }
+    if (dryRun.latestReviewStatus !== ZatcaCsrConfigReviewStatus.APPROVED) {
+      blockers.push("An APPROVED CSR config review is required before local SDK CSR generation can run.");
+    } else if (!dryRun.configApprovedForDryRun) {
+      blockers.push("Current CSR config preview hash must match the latest approved review before execution.");
+    }
+    if ((dryRun.missingValues?.length ?? 0) > 0) {
+      blockers.push(`Missing required official CSR fields: ${dryRun.missingValues.map((field: ZatcaCsrPlanField) => field.sdkConfigKey).join(", ")}.`);
+    }
+    const sdkReadinessBlockers = (dryRun.sdkReadiness?.blockingReasons ?? []).filter(
+      (reason: string) => !/ZATCA SDK local execution is disabled/i.test(reason),
+    );
+    blockers.push(...sdkReadinessBlockers.map((reason: string) => `SDK readiness: ${reason}`));
+    if (!dryRun.commandPlan?.command) {
+      blockers.push("Official SDK CSR command could not be resolved locally.");
+    }
+
+    const blockedResponse = () => ({
+      localOnly: true,
+      dryRun: false,
+      noMutation: true,
+      noCsidRequest: true,
+      noNetwork: true,
+      noSigning: true,
+      noPersistence: true,
+      productionCompliance: false,
+      executionEnabled,
+      executionAttempted: false,
+      executionSkipped: true,
+      executionSkipReason: executionEnabled ? "CSR local generation prerequisites are blocked." : "Execution gate is disabled by default.",
+      reviewId: dryRun.latestReviewId ?? null,
+      latestReviewStatus: dryRun.latestReviewStatus ?? null,
+      configHash,
+      sdkCommand: ZATCA_SDK_CSR_COMMAND,
+      commandPlan: dryRun.commandPlan,
+      tempFilesWritten: { csrConfig: false, privateKey: false, generatedCsr: false, tempDirectory: null, filesRetained: false },
+      cleanup: { performed: false, success: true, filesRetained: false, tempDirectory: null },
+      stdoutSummary: "",
+      stderrSummary: "",
+      sdkExitCode: null,
+      timedOut: false,
+      generatedCsrDetected: false,
+      privateKeyDetected: false,
+      blockers: [...new Set(blockers)],
+      warnings: [...new Set(warnings)],
+    });
+
+    if (blockers.length > 0) {
+      return blockedResponse();
+    }
+
+    const tempRoot = join(tmpdir(), "ledgerbyte-zatca-csr-local-generate");
+    mkdirSync(tempRoot, { recursive: true });
+    const tempDirectory = mkdtempSync(join(tempRoot, `${safeZatcaTempName(`${dryRun.egsUnit.environment}-${dryRun.egsUnit.id}`)}-`));
+    const plannedFiles = {
+      csrConfig: join(tempDirectory, "csr-config.properties"),
+      privateKey: join(tempDirectory, "generated-private-key.pem"),
+      generatedCsr: join(tempDirectory, "generated-csr.pem"),
+    };
+    const commandPlan = this.withLocalCsrCommandPaths(dryRun.commandPlan, plannedFiles, tempDirectory);
+    const cleanup = { performed: false, success: true, filesRetained: keepTempFiles, tempDirectory };
+    const tempFilesWritten = { csrConfig: false, privateKey: false, generatedCsr: false, tempDirectory, filesRetained: keepTempFiles };
+    let executed: { exitCode: number | null; stdout: string; stderr: string; timedOut: boolean } = { exitCode: null, stdout: "", stderr: "", timedOut: false };
+
+    try {
+      writeFileSync(plannedFiles.csrConfig, this.csrConfigPreviewFromDryRun(dryRun), { encoding: "utf8", mode: 0o600 });
+      tempFilesWritten.csrConfig = true;
+      executed = await this.executeZatcaSdkCsrCommand(commandPlan, (dryRun.sdkReadiness as { timeoutMs?: number } | undefined)?.timeoutMs ?? 30000);
+      tempFilesWritten.privateKey = this.fileExistsAndNotEmpty(plannedFiles.privateKey);
+      tempFilesWritten.generatedCsr = this.fileExistsAndNotEmpty(plannedFiles.generatedCsr);
+      if (executed.timedOut) {
+        warnings.push("Official SDK CSR command timed out.");
+      }
+      if (executed.exitCode !== 0) {
+        warnings.push("Official SDK CSR command returned a non-zero exit code. Review sanitized stderr/stdout summaries.");
+      }
+    } finally {
+      if (!keepTempFiles) {
+        try {
+          rmSync(tempDirectory, { recursive: true, force: true });
+          cleanup.performed = true;
+          cleanup.success = true;
+        } catch {
+          cleanup.performed = true;
+          cleanup.success = false;
+          warnings.push("Temporary CSR generation directory cleanup failed; inspect the local temp directory manually.");
+        }
+      }
+    }
+
+    return {
+      localOnly: true,
+      dryRun: false,
+      noMutation: true,
+      noCsidRequest: true,
+      noNetwork: true,
+      noSigning: true,
+      noPersistence: true,
+      productionCompliance: false,
+      executionEnabled,
+      executionAttempted: true,
+      executionSkipped: false,
+      executionSkipReason: null,
+      reviewId: dryRun.latestReviewId,
+      latestReviewStatus: dryRun.latestReviewStatus,
+      configHash,
+      sdkCommand: ZATCA_SDK_CSR_COMMAND,
+      commandPlan,
+      tempFilesWritten,
+      cleanup,
+      stdoutSummary: this.sanitizeCsrSdkOutput(executed.stdout),
+      stderrSummary: this.sanitizeCsrSdkOutput(executed.stderr),
+      sdkExitCode: executed.exitCode,
+      timedOut: executed.timedOut,
+      generatedCsrDetected: tempFilesWritten.generatedCsr,
+      privateKeyDetected: tempFilesWritten.privateKey,
+      blockers: [],
+      warnings: [...new Set(warnings)],
     };
   }
 
@@ -2387,6 +2527,107 @@ export class ZatcaService {
       createdAt: review.createdAt.toISOString(),
       updatedAt: review.updatedAt.toISOString(),
     };
+  }
+
+  private csrConfigPreviewFromDryRun(dryRun: { csrConfigEntries?: Array<{ key: string; value?: string | null; valuePreview?: string | null }> }): string {
+    const entriesByKey = new Map((dryRun.csrConfigEntries ?? []).map((entry) => [entry.key, entry]));
+    return officialCsrConfigKeyOrder
+      .map((key) => {
+        const entry = entriesByKey.get(key);
+        return `${key}=${entry?.value ?? entry?.valuePreview ?? ""}`;
+      })
+      .join("\n") + "\n";
+  }
+
+  private withLocalCsrCommandPaths(
+    commandPlan: ZatcaSdkValidationCommandPlan,
+    files: { csrConfig: string; privateKey: string; generatedCsr: string },
+    tempDirectory: string,
+  ): ZatcaSdkValidationCommandPlan {
+    const args = [...commandPlan.args];
+    this.replaceArgAfterFlag(args, "-csrConfig", files.csrConfig);
+    this.replaceArgAfterFlag(args, "-privateKey", files.privateKey);
+    this.replaceArgAfterFlag(args, "-generatedCsr", files.generatedCsr);
+    return {
+      ...commandPlan,
+      args,
+      workingDirectory: tempDirectory,
+      displayCommand: commandPlan.command ? [commandPlan.command, ...args].map((part) => this.quoteForDisplay(part)).join(" ") : "",
+    };
+  }
+
+  private replaceArgAfterFlag(args: string[], flag: string, value: string): void {
+    const index = args.indexOf(flag);
+    if (index >= 0 && index + 1 < args.length) {
+      args[index + 1] = value;
+    }
+  }
+
+  private quoteForDisplay(value: string): string {
+    return /\s/.test(value) ? `"${value.replace(/"/g, '\\"')}"` : value;
+  }
+
+  private executeZatcaSdkCsrCommand(
+    commandPlan: ZatcaSdkValidationCommandPlan,
+    timeoutMs: number,
+  ): Promise<{ exitCode: number | null; stdout: string; stderr: string; timedOut: boolean }> {
+    return new Promise((resolveResult) => {
+      if (!commandPlan.command) {
+        resolveResult({ exitCode: null, stdout: "", stderr: "SDK CSR command is unavailable.", timedOut: false });
+        return;
+      }
+
+      const env = { ...process.env };
+      if (commandPlan.envAdditions.PATH_PREPEND) {
+        const delimiter = process.platform === "win32" ? ";" : ":";
+        const existingPath = env.PATH ?? env.Path ?? "";
+        env.PATH = `${commandPlan.envAdditions.PATH_PREPEND}${delimiter}${existingPath}`;
+        if (process.platform === "win32") {
+          env.Path = env.PATH;
+        }
+      }
+      if (commandPlan.envAdditions.SDK_CONFIG) {
+        env.SDK_CONFIG = commandPlan.envAdditions.SDK_CONFIG;
+      }
+      if (commandPlan.envAdditions.FATOORA_HOME) {
+        env.FATOORA_HOME = commandPlan.envAdditions.FATOORA_HOME;
+      }
+
+      const command =
+        process.platform === "win32" && commandPlan.command.toLowerCase() === "cmd.exe"
+          ? process.env.ComSpec || join(process.env.SystemRoot ?? "C:\\Windows", "System32", "cmd.exe")
+          : commandPlan.command;
+
+      execFile(command, commandPlan.args, { cwd: commandPlan.workingDirectory, env, timeout: timeoutMs, windowsHide: true, maxBuffer: 5 * 1024 * 1024 }, (error, stdout, stderr) => {
+        const maybeCode =
+          error && typeof (error as NodeJS.ErrnoException & { code?: unknown }).code === "number"
+            ? (error as NodeJS.ErrnoException & { code: number }).code
+            : null;
+        resolveResult({
+          exitCode: error ? maybeCode : 0,
+          stdout: String(stdout ?? ""),
+          stderr: String(stderr || error?.message || ""),
+          timedOut: Boolean(error && /timed out/i.test(error.message)),
+        });
+      });
+    });
+  }
+
+  private sanitizeCsrSdkOutput(output: string): string {
+    return sanitizeZatcaSdkOutput(output)
+      .replace(/-----BEGIN CERTIFICATE REQUEST-----[\s\S]*?-----END CERTIFICATE REQUEST-----/gi, "[REDACTED_CSR]")
+      .replace(/binarySecurityToken/gi, "[REDACTED_FIELD]")
+      .replace(/\bOTP\b\s*[:=]?\s*[^\s,;]*/gi, "one-time portal code=[REDACTED]")
+      .replace(/\bCSID\b/gi, "certificate identifier")
+      .replace(/csrPem\s*[:=]\s*[^\s,;]+/gi, "csrPem=[REDACTED]");
+  }
+
+  private fileExistsAndNotEmpty(path: string): boolean {
+    try {
+      return existsSync(path) && statSync(path).size > 0;
+    } catch {
+      return false;
+    }
   }
 
   private hashCsrConfigPreview(preview: string): string {

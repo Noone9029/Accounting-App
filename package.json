@@ -17,6 +17,7 @@
     "zatca:debug-pih-chain": "node scripts/debug-zatca-pih-chain.cjs",
     "zatca:validate-sdk-hash-mode": "node scripts/validate-zatca-sdk-hash-mode.cjs",
     "zatca:csr-dry-run": "corepack pnpm --filter @ledgerbyte/api zatca:csr-dry-run",
+    "zatca:csr-local-generate": "corepack pnpm --filter @ledgerbyte/api zatca:csr-local-generate",
     "db:generate": "corepack pnpm --filter @ledgerbyte/api db:generate",
     "db:migrate": "corepack pnpm --filter @ledgerbyte/api db:migrate",
     "db:seed": "corepack pnpm --filter @ledgerbyte/api db:seed"

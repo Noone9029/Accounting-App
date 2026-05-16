@@ -103,6 +103,10 @@ export function zatcaEgsCsrFieldsPath(egsUnitId: string): string {
   return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/csr-fields`;
 }
 
+export function zatcaEgsCsrLocalGeneratePath(egsUnitId: string): string {
+  return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/csr-local-generate`;
+}
+
 export type ZatcaAdapterMode = "mock" | "sandbox-disabled" | "sandbox";
 
 export interface ZatcaAdapterConfigSummary {

@@ -1210,6 +1210,43 @@ interface ZatcaEgsCsrDryRunResponse {
   warnings: string[];
 }
 
+interface ZatcaEgsCsrLocalGenerateResponse {
+  localOnly: true;
+  noMutation: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  noSigning: true;
+  noPersistence: true;
+  productionCompliance: false;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  executionSkipped: boolean;
+  executionSkipReason: string | null;
+  reviewId: string | null;
+  latestReviewStatus: "DRAFT" | "APPROVED" | "SUPERSEDED" | "REVOKED" | null;
+  configHash: string;
+  tempFilesWritten: {
+    csrConfig: boolean;
+    privateKey: boolean;
+    generatedCsr: boolean;
+    tempDirectory: string | null;
+    filesRetained: boolean;
+  };
+  cleanup: {
+    performed: boolean;
+    success: boolean;
+    filesRetained: boolean;
+    tempDirectory: string | null;
+  };
+  stdoutSummary: string;
+  stderrSummary: string;
+  sdkExitCode: number | null;
+  generatedCsrDetected: boolean;
+  privateKeyDetected: boolean;
+  blockers: string[];
+  warnings: string[];
+}
+
 interface ZatcaXmlFieldMappingResponse {
   warning: string;
   summary: {
@@ -3190,6 +3227,32 @@ async function main(): Promise<void> {
   assertEqual(zatcaCsrDryRunAfterReview.latestReviewId, approvedZatcaCsrConfigReview.id, "ZATCA CSR dry-run reports latest review id");
   assertEqual(zatcaCsrDryRunAfterReview.latestReviewStatus, "APPROVED", "ZATCA CSR dry-run reports approved review status");
   assertEqual(zatcaCsrDryRunAfterReview.configApprovedForDryRun, true, "ZATCA CSR dry-run reports config approved for future dry-run phase");
+  const egsBeforeCsrLocalGenerate = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  const submissionsBeforeCsrLocalGenerate = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  const zatcaCsrLocalGenerate = await post<ZatcaEgsCsrLocalGenerateResponse>(`/zatca/egs-units/${smokeEgs.id}/csr-local-generate`, headers, {});
+  assertEqual(zatcaCsrLocalGenerate.localOnly, true, "ZATCA CSR local generate localOnly");
+  assertEqual(zatcaCsrLocalGenerate.noCsidRequest, true, "ZATCA CSR local generate noCsidRequest");
+  assertEqual(zatcaCsrLocalGenerate.noNetwork, true, "ZATCA CSR local generate noNetwork");
+  assertEqual(zatcaCsrLocalGenerate.noSigning, true, "ZATCA CSR local generate noSigning");
+  assertEqual(zatcaCsrLocalGenerate.noPersistence, true, "ZATCA CSR local generate noPersistence");
+  assertEqual(zatcaCsrLocalGenerate.productionCompliance, false, "ZATCA CSR local generate productionCompliance");
+  assertEqual(zatcaCsrLocalGenerate.executionEnabled, false, "ZATCA CSR local generate disabled by default");
+  assertEqual(zatcaCsrLocalGenerate.executionAttempted, false, "ZATCA CSR local generate does not execute by default");
+  assertEqual(zatcaCsrLocalGenerate.executionSkipped, true, "ZATCA CSR local generate skipped by default");
+  assertEqual(zatcaCsrLocalGenerate.reviewId, approvedZatcaCsrConfigReview.id, "ZATCA CSR local generate reports approved review id");
+  assertEqual(zatcaCsrLocalGenerate.tempFilesWritten.privateKey, false, "ZATCA CSR local generate does not write private key by default");
+  assertEqual(zatcaCsrLocalGenerate.generatedCsrDetected, false, "ZATCA CSR local generate does not generate CSR by default");
+  const serializedCsrLocalGenerate = JSON.stringify(zatcaCsrLocalGenerate);
+  assertNoPrivateKey(zatcaCsrLocalGenerate, "ZATCA CSR local generate response");
+  assert(!serializedCsrLocalGenerate.includes("BEGIN CERTIFICATE"), "ZATCA CSR local generate does not expose certificate bodies");
+  assert(!serializedCsrLocalGenerate.includes("binarySecurityToken"), "ZATCA CSR local generate does not expose CSID token field names");
+  assert(!serializedCsrLocalGenerate.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA CSR local generate does not expose generated CSR bodies");
+  assert(!serializedCsrLocalGenerate.includes("OTP"), "ZATCA CSR local generate does not expose one-time portal codes");
+  const egsAfterCsrLocalGenerate = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  assertEqual(egsAfterCsrLocalGenerate.lastIcv, egsBeforeCsrLocalGenerate.lastIcv, "ZATCA CSR local generate does not mutate EGS ICV");
+  assertEqual(egsAfterCsrLocalGenerate.lastInvoiceHash, egsBeforeCsrLocalGenerate.lastInvoiceHash, "ZATCA CSR local generate does not mutate EGS previous hash");
+  const submissionsAfterCsrLocalGenerate = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterCsrLocalGenerate.length, submissionsBeforeCsrLocalGenerate.length, "ZATCA CSR local generate does not create submission logs by default");
   smokeEgs = await post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/request-compliance-csid`, headers, { otp: "000000", mode: "mock" });
   assertNoPrivateKey(smokeEgs, "ZATCA compliance CSID response");
   assertEqual(smokeEgs.hasComplianceCsid, true, "ZATCA smoke EGS compliance CSID flag");
@@ -4933,6 +4996,9 @@ async function main(): Promise<void> {
         zatcaCsrConfigReviewNoNetwork: approvedZatcaCsrConfigReview.noNetwork,
         zatcaCsrDryRunLatestReviewStatus: zatcaCsrDryRunAfterReview.latestReviewStatus,
         zatcaCsrDryRunConfigApprovedForDryRun: zatcaCsrDryRunAfterReview.configApprovedForDryRun,
+        zatcaCsrLocalGenerateExecutionEnabled: zatcaCsrLocalGenerate.executionEnabled,
+        zatcaCsrLocalGenerateExecutionAttempted: zatcaCsrLocalGenerate.executionAttempted,
+        zatcaCsrLocalGenerateNoNetwork: zatcaCsrLocalGenerate.noNetwork,
         paymentIds: [partialPayment.id, remainingPayment.id],
         paymentRefundId: paymentRefund.id,
         paymentUnappliedInvoiceId: paymentUnappliedInvoice.id,
