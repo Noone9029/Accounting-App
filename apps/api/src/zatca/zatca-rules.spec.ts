@@ -920,12 +920,15 @@ describe("ZATCA service rules", () => {
     expect(readiness.signing.status).toBe("BLOCKED");
     expect(readiness.phase2Qr.status).toBe("BLOCKED");
     expect(readiness.signedArtifactPromotion.status).toBe("BLOCKED");
+    expect(readiness.signedArtifactStorage.status).toBe("BLOCKED");
     expect(readiness.checks).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: "ZATCA_SIGNING_NOT_IMPLEMENTED", severity: "ERROR" }),
         expect.objectContaining({ code: "ZATCA_PHASE_2_QR_NOT_IMPLEMENTED", severity: "ERROR" }),
         expect.objectContaining({ code: "ZATCA_SIGNED_XML_PROMOTION_NOT_IMPLEMENTED", severity: "ERROR" }),
         expect.objectContaining({ code: "ZATCA_DUMMY_SIGNED_XML_CANNOT_BE_PROMOTED", severity: "ERROR" }),
+        expect.objectContaining({ code: "ZATCA_SIGNED_ARTIFACT_METADATA_MODEL_NOT_IMPLEMENTED", severity: "ERROR" }),
+        expect.objectContaining({ code: "ZATCA_SIGNED_XML_BODY_PERSISTENCE_BLOCKED", severity: "ERROR" }),
       ]),
     );
   });
@@ -997,6 +1000,92 @@ describe("ZATCA service rules", () => {
     expect(JSON.stringify(plan)).not.toContain("COMPLIANCE-CERT-SECRET");
     expect(JSON.stringify(plan)).not.toContain("BEGIN EC PRIVATE KEY");
     expect(JSON.stringify(plan)).not.toContain("binarySecurityToken");
+    expect(prisma.zatcaInvoiceMetadata.upsert).not.toHaveBeenCalled();
+    expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(onboardingAdapter.requestComplianceCsid).not.toHaveBeenCalled();
+    expect(onboardingAdapter.requestProductionCsid).not.toHaveBeenCalled();
+  });
+
+  it("returns a metadata-only signed artifact storage plan without bodies, SDK, network, or mutation", async () => {
+    const prisma = makeInvoiceReadinessPrisma({
+      zatcaInvoiceType: ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE,
+      metadata: {
+        id: "metadata-1",
+        invoiceId: "invoice-1",
+        invoiceUuid: "8e6000cf-1a98-4174-b3e7-b5d5954bc10d",
+        zatcaInvoiceType: ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE,
+        xmlBase64: Buffer.from("<Invoice>SECRET XML BODY</Invoice>", "utf8").toString("base64"),
+        icv: 37,
+        previousInvoiceHash: "previous-hash",
+        invoiceHash: "invoice-hash",
+        xmlHash: "xml-hash",
+        hashModeSnapshot: "SDK_GENERATED",
+        egsUnitId: "egs-1",
+        generatedAt: new Date("2026-05-16T00:00:00.000Z"),
+        zatcaStatus: ZatcaInvoiceStatus.XML_GENERATED,
+      },
+    });
+    const onboardingAdapter = { requestComplianceCsid: jest.fn(), requestProductionCsid: jest.fn() };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never, onboardingAdapter as never);
+
+    const plan = await service.getInvoiceZatcaSignedArtifactStoragePlan("org-1", "invoice-1");
+
+    expect(plan).toMatchObject({
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noCsidRequest: true,
+      noNetwork: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      productionCompliance: false,
+      metadataOnly: true,
+      futureObjectStorageRequired: true,
+      storageBlocked: true,
+      schemaDecision: {
+        schemaAdded: false,
+      },
+      metadataSource: {
+        metadataId: "metadata-1",
+        invoiceUuid: "8e6000cf-1a98-4174-b3e7-b5d5954bc10d",
+        icv: 37,
+        hasUnsignedXml: true,
+        hasInvoiceHash: true,
+      },
+    });
+    expect(plan.proposedStorageKeys).toEqual(
+      expect.objectContaining({
+        signedXmlObjectKey: expect.stringContaining("future-only"),
+        qrPayloadObjectKey: expect.stringContaining("future-only"),
+      }),
+    );
+    expect(plan.proposedMetadataFields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "signedXmlStorageKey", safeNow: false }),
+        expect.objectContaining({ name: "signedXmlSha256", safeNow: true }),
+        expect.objectContaining({ name: "validationResultsJson", safeNow: true }),
+        expect.objectContaining({ name: "productionCompliance", value: false }),
+      ]),
+    );
+    expect(plan.blockers).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("metadata model is not implemented"),
+        expect.stringContaining("Object-storage retention"),
+        expect.stringContaining("Signed XML body persistence is intentionally blocked"),
+        expect.stringContaining("QR payload persistence is intentionally blocked"),
+        expect.stringContaining("Clearance/reporting linkage is not implemented"),
+      ]),
+    );
+    const serialized = JSON.stringify(plan);
+    expect(serialized).not.toContain("SECRET XML BODY");
+    expect(serialized).not.toContain("<Invoice");
+    expect(serialized).not.toContain("QR PAYLOAD");
+    expect(serialized).not.toContain("PRIVATE KEY");
+    expect(serialized).not.toContain("binarySecurityToken");
     expect(prisma.zatcaInvoiceMetadata.upsert).not.toHaveBeenCalled();
     expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
     expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();

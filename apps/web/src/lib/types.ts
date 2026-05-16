@@ -3059,6 +3059,7 @@ export interface ZatcaReadinessSummary {
   keyCustody: ZatcaReadinessSection;
   csr: ZatcaReadinessSection;
   signedArtifactPromotion: ZatcaReadinessSection;
+  signedArtifactStorage: ZatcaReadinessSection;
   phase2Qr: ZatcaReadinessSection;
   pdfA3: ZatcaReadinessSection;
   checks: ZatcaReadinessCheck[];
@@ -3111,6 +3112,7 @@ export interface ZatcaInvoiceReadinessResponse {
   xml: ZatcaReadinessSection;
   signing: ZatcaReadinessSection;
   signedArtifactPromotion: ZatcaReadinessSection;
+  signedArtifactStorage: ZatcaReadinessSection;
   phase2Qr: ZatcaReadinessSection;
   pdfA3: ZatcaReadinessSection;
   checks: ZatcaReadinessCheck[];
@@ -3277,6 +3279,46 @@ export interface ZatcaInvoiceSignedXmlPromotionPlanResponse {
   blockers: string[];
   warnings: string[];
   recommendedNextSteps: string[];
+}
+
+export interface ZatcaInvoiceSignedArtifactStoragePlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  noProductionCredentials: true;
+  noPersistence: true;
+  productionCompliance: false;
+  metadataOnly: true;
+  futureObjectStorageRequired: true;
+  storageBlocked: true;
+  schemaDecision: { schemaAdded: false; reason: string };
+  proposedStorageKeys: {
+    keyPrefix: string;
+    signedXmlObjectKey: string;
+    qrPayloadObjectKey: string;
+    validationSummaryObjectKey: string;
+    note: string;
+  };
+  proposedMetadataFields: Array<{ name: string; safeNow: boolean; value: string | boolean | null; notes: string }>;
+  retentionPolicyPlan: {
+    currentPhase: string;
+    futureObjectStorageRequired: boolean;
+    immutableArchiveRequired: boolean;
+    encryptionAtRestRequired: boolean;
+    tenantScopedKeysRequired: boolean;
+    retentionRule: string;
+    deletionRule: string;
+  };
+  redactionRules: string[];
+  storageReadiness: ZatcaReadinessSection;
+  blockers: string[];
+  warnings: string[];
 }
 
 export interface ZatcaEgsCsrPlanResponse {

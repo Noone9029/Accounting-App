@@ -303,9 +303,10 @@ export class ZatcaService {
     const keyCustody = this.buildKeyCustodyReadinessSection(activeEgs);
     const csr = this.buildCsrReadinessSection(profile, activeEgs);
     const signedArtifactPromotion = this.buildSignedArtifactPromotionReadinessSection(null, activeEgs);
+    const signedArtifactStorage = this.buildSignedArtifactStorageReadinessSection(null);
     const phase2Qr = this.buildPhase2QrReadinessSection();
     const pdfA3 = this.buildPdfA3ReadinessSection();
-    const sections = [sellerProfile, egs, xml, sdk, signing, keyCustody, csr, signedArtifactPromotion, phase2Qr, pdfA3];
+    const sections = [sellerProfile, egs, xml, sdk, signing, keyCustody, csr, signedArtifactPromotion, signedArtifactStorage, phase2Qr, pdfA3];
     const checks = sections.flatMap((section) => section.checks);
     const status = combineZatcaReadinessStatus(sections);
     const profileMissingFields = legacyProfileReadiness.missingFields;
@@ -341,6 +342,7 @@ export class ZatcaService {
       keyCustody,
       csr,
       signedArtifactPromotion,
+      signedArtifactStorage,
       phase2Qr,
       pdfA3,
       checks,
@@ -981,9 +983,10 @@ export class ZatcaService {
     const xml = this.buildInvoiceXmlReadinessSection(metadata);
     const signing = this.buildSigningReadinessSection(activeEgs);
     const signedArtifactPromotion = this.buildSignedArtifactPromotionReadinessSection(metadata, activeEgs);
+    const signedArtifactStorage = this.buildSignedArtifactStorageReadinessSection(metadata);
     const phase2Qr = this.buildPhase2QrReadinessSection(metadata);
     const pdfA3 = this.buildPdfA3ReadinessSection();
-    const sections = [sellerProfile, buyerContact, invoiceReadiness, egs, xml, signing, signedArtifactPromotion, phase2Qr, pdfA3];
+    const sections = [sellerProfile, buyerContact, invoiceReadiness, egs, xml, signing, signedArtifactPromotion, signedArtifactStorage, phase2Qr, pdfA3];
     const status = combineZatcaReadinessStatus(sections);
     const checks = sections.flatMap((section) => section.checks);
 
@@ -1008,6 +1011,7 @@ export class ZatcaService {
       xml,
       signing,
       signedArtifactPromotion,
+      signedArtifactStorage,
       phase2Qr,
       pdfA3,
       checks,
@@ -1704,6 +1708,167 @@ export class ZatcaService {
         "Keep signed XML validation temp-only until real certificate/key custody and storage rules are designed.",
         "Design metadata-only signed artifact state and object-storage retention before persisting signed XML bodies.",
         "After promotion storage is designed, add a separate submission plan for clearance/reporting request bodies using uuid, invoiceHash, and base64 signed invoice.",
+      ],
+    };
+  }
+
+  async getInvoiceZatcaSignedArtifactStoragePlan(organizationId: string, invoiceId: string) {
+    const invoice = await this.prisma.salesInvoice.findFirst({
+      where: { id: invoiceId, organizationId },
+      select: { id: true, invoiceNumber: true, status: true },
+    });
+    if (!invoice) {
+      throw new NotFoundException("Sales invoice not found.");
+    }
+
+    const [metadata, activeEgs] = await Promise.all([
+      this.prisma.zatcaInvoiceMetadata.findFirst({
+        where: { organizationId, invoiceId },
+        select: {
+          id: true,
+          invoiceUuid: true,
+          zatcaInvoiceType: true,
+          xmlBase64: true,
+          invoiceHash: true,
+          xmlHash: true,
+          icv: true,
+          previousInvoiceHash: true,
+          hashModeSnapshot: true,
+          egsUnitId: true,
+          generatedAt: true,
+          zatcaStatus: true,
+        },
+      }),
+      this.prisma.zatcaEgsUnit.findFirst({
+        where: { organizationId, isActive: true, status: ZatcaRegistrationStatus.ACTIVE },
+        orderBy: { updatedAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          environment: true,
+          status: true,
+          isActive: true,
+          hashMode: true,
+          lastIcv: true,
+          lastInvoiceHash: true,
+          csrPem: true,
+          complianceCsidPem: true,
+          productionCsidPem: true,
+        },
+      }),
+    ]);
+    const safeInvoiceNumber = safeZatcaTempName(invoice.invoiceNumber);
+    const safeInvoiceId = safeZatcaTempName(invoice.id);
+    const keyPrefix = `zatca/signed-artifacts/${organizationId}/${invoice.id}`;
+    const storageReadiness = this.buildSignedArtifactStorageReadinessSection(metadata);
+
+    return {
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noCsidRequest: true,
+      noNetwork: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      noProductionCredentials: true,
+      noPersistence: true,
+      productionCompliance: false,
+      metadataOnly: true,
+      futureObjectStorageRequired: true,
+      storageBlocked: true,
+      invoice: {
+        id: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        status: invoice.status,
+        zatcaInvoiceType: metadata?.zatcaInvoiceType ?? ZatcaInvoiceType.STANDARD_TAX_INVOICE,
+      },
+      metadataSource: metadata
+        ? {
+            metadataId: metadata.id,
+            invoiceUuid: metadata.invoiceUuid,
+            zatcaStatus: metadata.zatcaStatus,
+            icv: metadata.icv,
+            previousInvoiceHash: metadata.previousInvoiceHash,
+            invoiceHash: metadata.invoiceHash,
+            xmlHash: metadata.xmlHash,
+            hashModeSnapshot: metadata.hashModeSnapshot,
+            egsUnitId: metadata.egsUnitId,
+            generatedAt: metadata.generatedAt,
+            hasUnsignedXml: Boolean(metadata.xmlBase64),
+            hasInvoiceHash: Boolean(metadata.invoiceHash),
+          }
+        : null,
+      activeEgsUnit: activeEgs
+        ? {
+            id: activeEgs.id,
+            name: activeEgs.name,
+            environment: activeEgs.environment,
+            status: activeEgs.status,
+            isActive: activeEgs.isActive,
+            hashMode: activeEgs.hashMode,
+            lastIcv: activeEgs.lastIcv,
+            lastInvoiceHash: activeEgs.lastInvoiceHash,
+            hasCsr: Boolean(activeEgs.csrPem),
+            hasComplianceCsid: Boolean(activeEgs.complianceCsidPem),
+            hasProductionCsid: Boolean(activeEgs.productionCsidPem),
+          }
+        : null,
+      schemaDecision: {
+        schemaAdded: false,
+        reason: "No ZatcaSignedArtifactRecord table is added in this phase because signed artifact state is not safe to persist until object storage retention, immutability, and approval rules are implemented.",
+      },
+      proposedStorageKeys: {
+        keyPrefix,
+        signedXmlObjectKey: `${keyPrefix}/future-only/${safeInvoiceNumber}-${safeInvoiceId}-signed.xml`,
+        qrPayloadObjectKey: `${keyPrefix}/future-only/${safeInvoiceNumber}-${safeInvoiceId}-qr.txt`,
+        validationSummaryObjectKey: `${keyPrefix}/future-only/${safeInvoiceNumber}-${safeInvoiceId}-validation.json`,
+        note: "Proposed keys are for future design only; no objects are written by this endpoint.",
+      },
+      proposedMetadataFields: [
+        { name: "status", safeNow: true, value: "PLANNED_OR_BLOCKED", notes: "Metadata-only status can be modeled later without storing artifact bodies." },
+        { name: "source", safeNow: true, value: "LOCAL_DRY_RUN_OR_FUTURE_PRODUCTION_SIGNING", notes: "Source must distinguish dummy local experiments from future production signing." },
+        { name: "signedXmlStorageKey", safeNow: false, value: null, notes: "Must remain null until object storage retention and immutable archive rules are implemented." },
+        { name: "signedXmlSha256", safeNow: true, value: null, notes: "Future metadata hash of a signed artifact; no body is stored in this task." },
+        { name: "signedXmlSizeBytes", safeNow: true, value: null, notes: "Future metadata size for retention/audit checks." },
+        { name: "qrPayloadStorageKey", safeNow: false, value: null, notes: "Must remain null until QR payload storage policy is approved." },
+        { name: "qrSha256", safeNow: true, value: null, notes: "Future metadata hash of QR payload." },
+        { name: "validationGlobalResult", safeNow: true, value: null, notes: "Sanitized validation result summary only." },
+        { name: "validationResultsJson", safeNow: true, value: null, notes: "Sanitized category results only; no signed XML or QR body." },
+        { name: "signedWithDummyMaterial", safeNow: true, value: true, notes: "Dummy-material records must remain blocked from promotion." },
+        { name: "productionCompliance", safeNow: true, value: false, notes: "Always false in this local-only phase." },
+        { name: "promotionBlockedReason", safeNow: true, value: "Signed artifact storage/promotion is not implemented.", notes: "Human-readable blocker for UI/audit readiness." },
+      ],
+      retentionPolicyPlan: {
+        currentPhase: "NO_BODY_PERSISTENCE",
+        futureObjectStorageRequired: true,
+        immutableArchiveRequired: true,
+        encryptionAtRestRequired: true,
+        tenantScopedKeysRequired: true,
+        retentionRule: "Define legal/tax retention with counsel before storing signed XML bodies; no retention duration is guessed in this phase.",
+        deletionRule: "Future signed artifacts should be append-only/superseded rather than silently deleted.",
+      },
+      redactionRules: [
+        "Never return signed XML bodies from plan/readiness endpoints.",
+        "Never return QR payload bodies from plan/readiness endpoints.",
+        "Never return private key PEM, certificate body, CSID token, OTP, generated CSR body, or production credential.",
+        "Return hashes, sizes, storage keys, and validation summaries only after a future storage phase approves them.",
+      ],
+      storageReadiness,
+      blockers: [
+        "Signed artifact metadata model is not implemented; no database record is created by this endpoint.",
+        "Object-storage retention and tenant-scoped immutable archive rules are not implemented.",
+        "Immutable archive and supersession workflow is not implemented.",
+        "Signed XML body persistence is intentionally blocked in this task.",
+        "QR payload persistence is intentionally blocked in this task.",
+        "Clearance/reporting linkage is not implemented; future API payloads need uuid, invoiceHash, and base64 signed invoice design.",
+        "Production certificate/CSID and production key custody are not configured for signed artifact storage.",
+      ],
+      warnings: [
+        "This is metadata-only storage planning. It writes no signed XML, QR payload, metadata record, submission log, or object storage object.",
+        "Official references show future API payloads use invoiceHash, uuid, and base64 invoice, but this endpoint does not generate or submit those payloads.",
+        "Do not infer legal/tax retention duration from this plan; define retention policy before signed XML body persistence.",
       ],
     };
   }
@@ -4026,6 +4191,83 @@ export class ZatcaService {
       checks.push(this.check("ZATCA_COMPLIANCE_CSID_MISSING_FOR_PROMOTION", "ERROR", "egs.complianceCsidPem", "Compliance CSID/certificate is missing for official pre-production signing validation.", "COMPLIANCE_CSID", "Keep this as a blocker until a dedicated onboarding phase."));
     }
     return createZatcaReadinessSection("SIGNED_ARTIFACT_PROMOTION", checks);
+  }
+
+  private buildSignedArtifactStorageReadinessSection(metadata?: { xmlBase64?: string | null; invoiceHash?: string | null } | null): ZatcaReadinessSection {
+    const checks: ZatcaReadinessCheck[] = [
+      this.check(
+        "ZATCA_SIGNED_ARTIFACT_METADATA_MODEL_NOT_IMPLEMENTED",
+        "ERROR",
+        "signedArtifactStorage.metadataModel",
+        "Signed artifact metadata model is not implemented.",
+        "SIGNED_ARTIFACT_STORAGE_PLAN",
+        "Keep storage planning metadata-only until schema, retention, immutability, and audit rules are approved.",
+      ),
+      this.check(
+        "ZATCA_OBJECT_STORAGE_RETENTION_NOT_IMPLEMENTED",
+        "ERROR",
+        "signedArtifactStorage.objectRetention",
+        "Object-storage retention rules for signed XML artifacts are not implemented.",
+        "SIGNED_ARTIFACT_STORAGE_PLAN",
+        "Define tenant-scoped object keys, encryption, retention, legal hold, and restore behavior before storing signed XML bodies.",
+      ),
+      this.check(
+        "ZATCA_IMMUTABLE_ARCHIVE_NOT_IMPLEMENTED",
+        "ERROR",
+        "signedArtifactStorage.immutableArchive",
+        "Immutable signed artifact archive behavior is not implemented.",
+        "SIGNED_ARTIFACT_STORAGE_PLAN",
+        "Use append-only/superseded records in a future phase instead of mutable replacement.",
+      ),
+      this.check(
+        "ZATCA_SIGNED_XML_BODY_PERSISTENCE_BLOCKED",
+        "ERROR",
+        "signedArtifactStorage.signedXmlBody",
+        "Signed XML body persistence is intentionally blocked.",
+        "CLEARANCE_REPORTING_API",
+        "Do not store signed XML bodies until storage and retention controls are implemented.",
+      ),
+      this.check(
+        "ZATCA_QR_PAYLOAD_PERSISTENCE_BLOCKED",
+        "ERROR",
+        "signedArtifactStorage.qrPayload",
+        "QR payload persistence is intentionally blocked.",
+        "KSA-14",
+        "Store QR payload only after signed artifact storage and redaction rules are approved.",
+      ),
+      this.check(
+        "ZATCA_CLEARANCE_REPORTING_LINKAGE_MISSING",
+        "ERROR",
+        "signedArtifactStorage.clearanceReportingLinkage",
+        "Clearance/reporting linkage for signed artifacts is not implemented.",
+        "CLEARANCE_REPORTING_API",
+        "Design future linkage to uuid, invoiceHash, base64 signed invoice payload, and ZATCA response status separately from storage planning.",
+      ),
+    ];
+    if (metadata?.xmlBase64 && metadata.invoiceHash) {
+      checks.push(
+        this.check(
+          "ZATCA_STORAGE_SOURCE_METADATA_AVAILABLE",
+          "INFO",
+          "signedArtifactStorage.sourceMetadata",
+          "Unsigned XML metadata and invoice hash exist as future storage-planning inputs.",
+          "KSA-13",
+          "Keep this as source metadata only; do not infer signed XML persistence.",
+        ),
+      );
+    } else {
+      checks.push(
+        this.check(
+          "ZATCA_STORAGE_SOURCE_METADATA_MISSING",
+          "WARNING",
+          "signedArtifactStorage.sourceMetadata",
+          "Unsigned XML metadata or invoice hash is missing.",
+          "KSA-13",
+          "Generate local XML before planning signed artifact storage for this invoice.",
+        ),
+      );
+    }
+    return createZatcaReadinessSection("SIGNED_ARTIFACT_STORAGE", checks);
   }
 
   private buildPhase2QrReadinessSection(metadata?: { xmlBase64?: string | null; invoiceHash?: string | null } | null): ZatcaReadinessSection {

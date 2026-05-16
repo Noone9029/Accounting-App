@@ -17,4 +17,8 @@ describe("ZATCA controller", () => {
   it("exposes the signed XML promotion plan handler", () => {
     expect(typeof ZatcaController.prototype.invoiceSignedXmlPromotionPlan).toBe("function");
   });
+
+  it("exposes the signed artifact storage plan handler", () => {
+    expect(typeof ZatcaController.prototype.invoiceSignedArtifactStoragePlan).toBe("function");
+  });
 });

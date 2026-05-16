@@ -810,11 +810,12 @@ export default function SalesInvoiceDetailPage() {
                   <InvoiceReadinessSectionCard title="XML" section={zatcaReadiness.xml} />
                   <InvoiceReadinessSectionCard title="Signing" section={zatcaReadiness.signing} />
                   <InvoiceReadinessSectionCard title="Signed artifact" section={zatcaReadiness.signedArtifactPromotion} />
+                  <InvoiceReadinessSectionCard title="Artifact storage" section={zatcaReadiness.signedArtifactStorage} />
                   <InvoiceReadinessSectionCard title="Phase 2 QR" section={zatcaReadiness.phase2Qr} />
                   <InvoiceReadinessSectionCard title="PDF/A-3" section={zatcaReadiness.pdfA3} />
                 </div>
                 <p className="mt-3 text-xs text-amber-700">
-                  Local signed validation success is not promoted invoice state. Dummy-material signed XML cannot be promoted; real CSID/certificate/key custody and clearance/reporting remain blocked.
+                  Metadata-only storage planning is available through the API, but signed XML bodies and QR payloads are not persisted. Future object storage, retention, real CSID/certificate/key custody, and clearance/reporting remain blocked.
                 </p>
               </div>
             ) : null}

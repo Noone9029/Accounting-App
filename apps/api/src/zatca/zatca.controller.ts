@@ -249,6 +249,12 @@ export class ZatcaController {
     return this.zatcaService.getInvoiceZatcaSignedXmlPromotionPlan(organizationId, id);
   }
 
+  @Get("sales-invoices/:id/zatca/signed-artifact-storage-plan")
+  @RequirePermissions(PERMISSIONS.zatca.view)
+  invoiceSignedArtifactStoragePlan(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.zatcaService.getInvoiceZatcaSignedArtifactStoragePlan(organizationId, id);
+  }
+
   @Post("sales-invoices/:id/zatca/local-signing-dry-run")
   @RequirePermissions(PERMISSIONS.zatca.manage)
   invoiceLocalSigningDryRun(

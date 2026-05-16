@@ -582,6 +582,7 @@ export default function ZatcaSettingsPage() {
                 <ReadinessCheckCard title="Key custody" section={readiness.keyCustody} />
                 <ReadinessCheckCard title="CSR onboarding" section={readiness.csr} />
                 <ReadinessCheckCard title="Signed XML promotion" section={readiness.signedArtifactPromotion} />
+                <ReadinessCheckCard title="Signed artifact storage" section={readiness.signedArtifactStorage} />
                 <ReadinessCheckCard title="Phase 2 QR" section={readiness.phase2Qr} />
                 <ReadinessCheckCard title="PDF/A-3" section={readiness.pdfA3} />
               </div>

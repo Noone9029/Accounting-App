@@ -10,6 +10,7 @@ import {
   zatcaEgsCsrPlanPath,
   zatcaInvoiceClearancePath,
   zatcaInvoiceComplianceCheckPath,
+  zatcaInvoiceSignedArtifactStoragePlanPath,
   zatcaInvoiceSignedXmlPromotionPlanPath,
   zatcaInvoiceLocalSigningDryRunPath,
   zatcaInvoiceQrPath,
@@ -55,6 +56,7 @@ describe("ZATCA helpers", () => {
     expect(zatcaInvoiceXmlPath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/xml");
     expect(zatcaInvoiceXmlValidationPath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/xml-validation");
     expect(zatcaInvoiceSignedXmlPromotionPlanPath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/signed-xml-promotion-plan");
+    expect(zatcaInvoiceSignedArtifactStoragePlanPath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/signed-artifact-storage-plan");
     expect(zatcaInvoiceLocalSigningDryRunPath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/local-signing-dry-run");
     expect(zatcaInvoiceQrPath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/qr");
     expect(zatcaInvoiceComplianceCheckPath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/compliance-check");
