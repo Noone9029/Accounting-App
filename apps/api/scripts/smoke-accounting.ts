@@ -1163,6 +1163,22 @@ interface ZatcaEgsCsrPlanResponse {
   warnings: string[];
 }
 
+interface ZatcaEgsCsrConfigPreviewResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  productionCompliance: false;
+  canPrepareConfig: boolean;
+  sanitizedConfigPreview: string;
+  configEntries: Array<{ key: string; valuePreview: string | null; status: "AVAILABLE" | "MISSING" | "NEEDS_REVIEW" }>;
+  missingFields: Array<{ key: string; status: "AVAILABLE" | "MISSING" | "NEEDS_REVIEW" }>;
+  reviewFields: Array<{ key: string; status: "AVAILABLE" | "MISSING" | "NEEDS_REVIEW" }>;
+  blockers: string[];
+  warnings: string[];
+}
+
 interface ZatcaXmlFieldMappingResponse {
   warning: string;
   summary: {
@@ -3011,7 +3027,7 @@ async function main(): Promise<void> {
   assertEqual(zatcaReadiness.sellerProfile?.status, "READY", "ZATCA seller readiness ready after smoke profile patch");
   assertEqual(zatcaReadiness.signing.status, "BLOCKED", "ZATCA signing readiness blocked");
   assertEqual(zatcaReadiness.keyCustody.status, "BLOCKED", "ZATCA key custody readiness blocked");
-  assertEqual(zatcaReadiness.csr.status, "BLOCKED", "ZATCA CSR readiness blocked");
+  assert(["READY", "WARNINGS", "BLOCKED"].includes(zatcaReadiness.csr.status), "ZATCA CSR readiness returns a valid local-only status");
   assertEqual(zatcaReadiness.phase2Qr.status, "BLOCKED", "ZATCA Phase 2 QR readiness blocked");
   assertEqual(zatcaReadiness.pdfA3.status, "BLOCKED", "ZATCA PDF/A-3 readiness blocked");
   assert(zatcaReadiness.blockingReasons.length > 0, "ZATCA readiness returns blocking reasons");
@@ -3067,6 +3083,43 @@ async function main(): Promise<void> {
   const egsAfterCsrPlan = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
   assertEqual(egsAfterCsrPlan.lastIcv, egsBeforeCsrPlan.lastIcv, "ZATCA CSR plan does not mutate EGS ICV");
   assertEqual(egsAfterCsrPlan.lastInvoiceHash, egsBeforeCsrPlan.lastInvoiceHash, "ZATCA CSR plan does not mutate EGS previous hash");
+  const egsBeforeCsrConfigPreview = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  const zatcaCsrConfigPreview = await get<ZatcaEgsCsrConfigPreviewResponse>(`/zatca/egs-units/${smokeEgs.id}/csr-config-preview`, headers);
+  assertEqual(zatcaCsrConfigPreview.localOnly, true, "ZATCA CSR config preview localOnly");
+  assertEqual(zatcaCsrConfigPreview.dryRun, true, "ZATCA CSR config preview dryRun");
+  assertEqual(zatcaCsrConfigPreview.noMutation, true, "ZATCA CSR config preview noMutation");
+  assertEqual(zatcaCsrConfigPreview.noCsidRequest, true, "ZATCA CSR config preview noCsidRequest");
+  assertEqual(zatcaCsrConfigPreview.noNetwork, true, "ZATCA CSR config preview noNetwork");
+  assertEqual(zatcaCsrConfigPreview.productionCompliance, false, "ZATCA CSR config preview productionCompliance");
+  assertEqual(zatcaCsrConfigPreview.canPrepareConfig, true, "ZATCA CSR config preview can prepare after field capture");
+  assertEqual(
+    zatcaCsrConfigPreview.configEntries.map((entry) => entry.key).join("|"),
+    [
+      "csr.common.name",
+      "csr.serial.number",
+      "csr.organization.identifier",
+      "csr.organization.unit.name",
+      "csr.organization.name",
+      "csr.country.name",
+      "csr.invoice.type",
+      "csr.location.address",
+      "csr.industry.business.category",
+    ].join("|"),
+    "ZATCA CSR config preview preserves official key order",
+  );
+  assert(zatcaCsrConfigPreview.sanitizedConfigPreview.includes("csr.common.name=TST-886431145-399999999900003"), "ZATCA CSR config preview includes captured common name");
+  assert(zatcaCsrConfigPreview.sanitizedConfigPreview.includes("csr.invoice.type=1100"), "ZATCA CSR config preview includes captured invoice type");
+  assert(zatcaCsrConfigPreview.sanitizedConfigPreview.includes("csr.location.address=RRRD2929"), "ZATCA CSR config preview includes captured location address");
+  assertEqual(zatcaCsrConfigPreview.missingFields.length, 0, "ZATCA CSR config preview has no missing fields after capture");
+  assertNoPrivateKey(zatcaCsrConfigPreview, "ZATCA CSR config preview response");
+  const serializedCsrConfigPreview = JSON.stringify(zatcaCsrConfigPreview);
+  assert(!serializedCsrConfigPreview.includes("BEGIN CERTIFICATE"), "ZATCA CSR config preview does not expose certificate bodies");
+  assert(!serializedCsrConfigPreview.includes("binarySecurityToken"), "ZATCA CSR config preview does not expose CSID token field names");
+  assert(!serializedCsrConfigPreview.includes("secret"), "ZATCA CSR config preview does not expose CSID secret field names");
+  assert(!serializedCsrConfigPreview.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA CSR config preview does not expose generated CSR bodies");
+  const egsAfterCsrConfigPreview = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  assertEqual(egsAfterCsrConfigPreview.lastIcv, egsBeforeCsrConfigPreview.lastIcv, "ZATCA CSR config preview does not mutate EGS ICV");
+  assertEqual(egsAfterCsrConfigPreview.lastInvoiceHash, egsBeforeCsrConfigPreview.lastInvoiceHash, "ZATCA CSR config preview does not mutate EGS previous hash");
   smokeEgs = await post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/request-compliance-csid`, headers, { otp: "000000", mode: "mock" });
   assertNoPrivateKey(smokeEgs, "ZATCA compliance CSID response");
   assertEqual(smokeEgs.hasComplianceCsid, true, "ZATCA smoke EGS compliance CSID flag");

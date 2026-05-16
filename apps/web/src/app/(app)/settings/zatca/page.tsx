@@ -15,6 +15,7 @@ import {
   zatcaAdapterModeLabel,
   zatcaChecklistRiskBadgeClass,
   zatcaChecklistStatusBadgeClass,
+  zatcaEgsCsrConfigPreviewPath,
   zatcaEgsCsrDownloadPath,
   zatcaEgsCsrFieldsPath,
   zatcaEgsSdkHashModeEnablePath,
@@ -36,6 +37,7 @@ import type {
   ZatcaAdapterConfigSummary,
   ZatcaChecklistItem,
   ZatcaComplianceChecklistResponse,
+  ZatcaEgsCsrConfigPreviewResponse,
   ZatcaEgsUnit,
   ZatcaEnvironment,
   ZatcaHashChainResetPlan,
@@ -93,6 +95,7 @@ export default function ZatcaSettingsPage() {
   const [submissionLogs, setSubmissionLogs] = useState<ZatcaSubmissionLog[]>([]);
   const [egsForm, setEgsForm] = useState<EgsForm>({ name: "LedgerByte Dev EGS", deviceSerialNumber: "LEDGERBYTE-DEV-EGS" });
   const [csrFieldsByUnit, setCsrFieldsByUnit] = useState<Record<string, EgsCsrFieldsForm>>({});
+  const [csrConfigPreviewByUnit, setCsrConfigPreviewByUnit] = useState<Record<string, ZatcaEgsCsrConfigPreviewResponse>>({});
   const [otpByUnit, setOtpByUnit] = useState<Record<string, string>>({});
   const [hashModeReasonByUnit, setHashModeReasonByUnit] = useState<Record<string, string>>({});
   const [hashModeConfirmByUnit, setHashModeConfirmByUnit] = useState<Record<string, boolean>>({});
@@ -322,9 +325,30 @@ export default function ZatcaSettingsPage() {
     }
   }
 
+  async function loadEgsCsrConfigPreview(unit: ZatcaEgsUnit) {
+    setActionLoading(`csr-config-preview-${unit.id}`);
+    setError("");
+    setSuccess("");
+
+    try {
+      const preview = await apiRequest<ZatcaEgsCsrConfigPreviewResponse>(zatcaEgsCsrConfigPreviewPath(unit.id));
+      setCsrConfigPreviewByUnit((current) => ({ ...current, [unit.id]: preview }));
+      setSuccess(`Sanitized CSR config preview loaded for ${unit.name}. No file, SDK execution, CSID request, or network call was performed.`);
+    } catch (previewError) {
+      setError(previewError instanceof Error ? previewError.message : "Unable to load CSR config preview.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
   function replaceUnit(unit: ZatcaEgsUnit) {
     setEgsUnits((current) => current.map((item) => (item.id === unit.id ? unit : { ...item, isActive: unit.isActive ? false : item.isActive })));
     setCsrFieldsByUnit((current) => ({ ...current, [unit.id]: unitToCsrFieldsForm(unit) }));
+    setCsrConfigPreviewByUnit((current) => {
+      const next = { ...current };
+      delete next[unit.id];
+      return next;
+    });
   }
 
   async function refreshReadiness() {
@@ -624,6 +648,7 @@ export default function ZatcaSettingsPage() {
                             </div>
                             <div className="text-[11px] text-steel">Used for local CSR planning only. Does not request CSID. Does not call ZATCA. Do not enter secrets.</div>
                             <div className="text-[11px] text-amber-700">Invoice type is limited to the official SDK example value currently modeled: 1100.</div>
+                            <div className="flex flex-wrap gap-2">
                             {canManageZatca ? (
                               <button
                                 type="submit"
@@ -633,6 +658,17 @@ export default function ZatcaSettingsPage() {
                                 {actionLoading === `csr-fields-${unit.id}` ? "Saving..." : "Save CSR fields"}
                               </button>
                             ) : null}
+                              <button
+                                type="button"
+                                disabled={unit.environment === "PRODUCTION" || actionLoading === `csr-config-preview-${unit.id}`}
+                                onClick={() => void loadEgsCsrConfigPreview(unit)}
+                                className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
+                              >
+                                {actionLoading === `csr-config-preview-${unit.id}` ? "Loading preview..." : "Preview CSR config"}
+                              </button>
+                            </div>
+                            {unit.environment === "PRODUCTION" ? <div className="text-[11px] text-rosewood">CSR config preview is restricted to non-production EGS units.</div> : null}
+                            {csrConfigPreviewByUnit[unit.id] ? <CsrConfigPreviewPanel preview={csrConfigPreviewByUnit[unit.id]!} /> : null}
                           </form>
                         </td>
                         <td className="px-4 py-3 text-steel">{unit.hasComplianceCsid ? "Mock issued" : "Missing"}</td>
@@ -762,6 +798,47 @@ export default function ZatcaSettingsPage() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function CsrConfigPreviewPanel({ preview }: { preview: ZatcaEgsCsrConfigPreviewResponse }) {
+  return (
+    <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <div className="text-xs font-semibold text-ink">Sanitized CSR config preview</div>
+          <div className="mt-1 text-[11px] text-steel">Official SDK key order, plain key=value format, no file write, no CSID request, no network call.</div>
+        </div>
+        <span className={`rounded-md px-2 py-1 text-[11px] font-medium ${preview.canPrepareConfig ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+          {preview.canPrepareConfig ? "Config preview ready" : "Missing fields"}
+        </span>
+      </div>
+      {preview.missingFields.length > 0 ? (
+        <div className="mt-2 text-[11px] text-rosewood">Missing: {preview.missingFields.map((field) => field.key).join(", ")}</div>
+      ) : null}
+      {preview.reviewFields.length > 0 ? (
+        <div className="mt-2 text-[11px] text-amber-700">Needs review: {preview.reviewFields.map((field) => field.key).join(", ")}</div>
+      ) : null}
+      <pre className="mt-3 max-h-64 overflow-auto rounded-md bg-white p-3 font-mono text-[11px] text-slate-800">{preview.sanitizedConfigPreview}</pre>
+      <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] text-steel md:grid-cols-2">
+        <div>No private key, certificate body, CSID token, one-time portal code, or generated CSR body is displayed.</div>
+        <div>SDK execution disabled by default. Production compliance: {preview.productionCompliance ? "true" : "false"}.</div>
+      </div>
+      {preview.blockers.length > 0 ? (
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-[11px] text-rosewood">
+          {preview.blockers.map((blocker) => (
+            <li key={blocker}>{blocker}</li>
+          ))}
+        </ul>
+      ) : null}
+      {preview.warnings.length > 0 ? (
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-[11px] text-steel">
+          {preview.warnings.slice(0, 4).map((warning) => (
+            <li key={warning}>{warning}</li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }
 

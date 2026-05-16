@@ -122,6 +122,12 @@ export class ZatcaController {
     return this.zatcaService.getEgsUnitCsrPlan(organizationId, id);
   }
 
+  @Get("zatca/egs-units/:id/csr-config-preview")
+  @RequirePermissions(PERMISSIONS.zatca.view)
+  getEgsCsrConfigPreview(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.zatcaService.getEgsUnitCsrConfigPreview(organizationId, id);
+  }
+
   @Post("zatca/egs-units/:id/csr-dry-run")
   @RequirePermissions(PERMISSIONS.zatca.manage)
   getEgsCsrDryRun(

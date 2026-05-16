@@ -104,6 +104,17 @@ type SafeEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof safeEgsU
 type InternalEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof internalEgsUnitSelect }>;
 type ZatcaKeyCustodyMode = "MISSING" | "RAW_DATABASE_PEM";
 type ZatcaCsrPlanFieldStatus = "AVAILABLE" | "MISSING" | "NEEDS_REVIEW";
+const officialCsrConfigKeyOrder = [
+  "csr.common.name",
+  "csr.serial.number",
+  "csr.organization.identifier",
+  "csr.organization.unit.name",
+  "csr.organization.name",
+  "csr.country.name",
+  "csr.invoice.type",
+  "csr.location.address",
+  "csr.industry.business.category",
+] as const;
 const officialExampleCsrInvoiceTypes = new Set(["1100"]);
 
 interface ZatcaCsrProfileSource {
@@ -1194,6 +1205,57 @@ export class ZatcaService {
     };
   }
 
+  async getEgsUnitCsrConfigPreview(organizationId: string, id: string) {
+    const plan = await this.getEgsUnitCsrPlan(organizationId, id);
+    if (plan.egsUnit.environment === "PRODUCTION") {
+      throw new BadRequestException("CSR config preview is restricted to non-production EGS units.");
+    }
+
+    const preview = this.buildSanitizedCsrConfigPreview(plan.requiredFields);
+    const configEntries = preview.configEntries.map((entry) => ({
+      key: entry.key,
+      valuePreview: entry.valuePreview,
+      status: entry.status,
+      source: entry.source,
+      officialSource: entry.officialSource,
+      notes: entry.notes,
+    }));
+    const missingFields = configEntries.filter((entry) => entry.status === "MISSING");
+    const reviewFields = configEntries.filter((entry) => entry.status === "NEEDS_REVIEW");
+    const blockers = [
+      ...missingFields.map((field) => `Missing CSR config value ${field.key}; no placeholder value is invented.`),
+      ...preview.unsafeFields.map((field) => `CSR config value for ${field.key} contains characters that are unsafe for the official plain key=value properties format.`),
+    ];
+    const warnings = [
+      "Sanitized CSR config preview only. No file is written and the SDK is not executed.",
+      "No private key, certificate body, CSID token, one-time portal code, generated CSR body, signing, clearance/reporting, PDF/A-3, or ZATCA network call is included.",
+      "Values are emitted in the official SDK CSR config template order using plain key=value lines.",
+      "Production compliance remains false.",
+      ...reviewFields.map((field) => `Review CSR config value ${field.key}: ${field.notes}`),
+    ];
+
+    return {
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      noCsidRequest: true,
+      noNetwork: true,
+      productionCompliance: false,
+      canPrepareConfig: blockers.length === 0,
+      sanitizedConfigPreview: preview.sanitizedConfigPreview,
+      configEntries,
+      missingFields,
+      reviewFields,
+      blockers,
+      warnings,
+      officialSources: [
+        "reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Input/csr-config-template.properties",
+        "reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Input/csr-config-example-EN.properties",
+        "reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Input/csr-config-example-EN-VAT-group.properties",
+      ],
+    };
+  }
+
   async getEgsUnitCsrDryRun(
     organizationId: string,
     id: string,
@@ -1225,9 +1287,10 @@ export class ZatcaService {
       javaFound: sdkReadiness.javaFound,
       javaCommand: sdkReadiness.javaCommand,
     });
-    const csrConfigEntries = plan.requiredFields.map((field) => ({
-      key: field.sdkConfigKey,
-      value: field.currentValue,
+    const sanitizedPreview = this.buildSanitizedCsrConfigPreview(plan.requiredFields);
+    const csrConfigEntries = sanitizedPreview.configEntries.map((field) => ({
+      key: field.key,
+      value: field.valuePreview,
       status: field.status,
       source: field.source,
       officialSource: field.officialSource,
@@ -1251,6 +1314,9 @@ export class ZatcaService {
           .join(", ")}.`,
       );
     }
+    if (sanitizedPreview.unsafeFields.length > 0) {
+      blockers.push(`CSR dry-run cannot prepare an SDK config while values contain unsafe properties-file characters: ${sanitizedPreview.unsafeFields.map((field) => field.key).join(", ")}.`);
+    }
     if (reviewFields.length > 0) {
       warnings.push(
         `CSR config values need official-format review before any real CSR generation: ${reviewFields.map((field) => field.sdkConfigKey).join(", ")}.`,
@@ -1260,7 +1326,7 @@ export class ZatcaService {
       blockers.push("SDK CSR execution remains intentionally unimplemented in this safe dry-run workflow; only the command plan is returned.");
     }
 
-    const canPrepareFiles = prepareFiles && missingFields.length === 0 && plan.egsUnit.environment !== "PRODUCTION";
+    const canPrepareFiles = prepareFiles && missingFields.length === 0 && sanitizedPreview.unsafeFields.length === 0 && plan.egsUnit.environment !== "PRODUCTION";
     const preparedFiles = {
       requested: prepareFiles,
       csrConfigWritten: false,
@@ -1273,8 +1339,7 @@ export class ZatcaService {
 
     if (canPrepareFiles) {
       mkdirSync(tempDirectory, { recursive: true });
-      const configText = csrConfigEntries.map((entry) => `${entry.key}=${entry.value ?? ""}`).join("\n") + "\n";
-      writeFileSync(plannedFiles.csrConfig, configText, { encoding: "utf8", mode: 0o600 });
+      writeFileSync(plannedFiles.csrConfig, sanitizedPreview.sanitizedConfigPreview, { encoding: "utf8", mode: 0o600 });
       preparedFiles.csrConfigWritten = true;
       preparedFiles.filesRetained = keepTempFiles;
       if (!keepTempFiles) {
@@ -2060,6 +2125,35 @@ export class ZatcaService {
       source,
       notes,
     };
+  }
+
+  private buildSanitizedCsrConfigPreview(fields: ZatcaCsrPlanField[]) {
+    const fieldsByKey = new Map(fields.map((field) => [field.sdkConfigKey, field]));
+    const configEntries = officialCsrConfigKeyOrder.map((key) => {
+      const field =
+        fieldsByKey.get(key) ??
+        this.csrPlanField(key, key, null, "NOT_MODELED", "MISSING", "CSR_CONFIG_TEMPLATE", "Official SDK CSR config key is not mapped in LedgerByte yet.");
+      const unsafeForPropertiesFile = !this.isSafeCsrConfigValue(field.currentValue);
+      return {
+        key,
+        valuePreview: unsafeForPropertiesFile ? null : field.currentValue,
+        status: unsafeForPropertiesFile ? "MISSING" : field.status,
+        source: field.source,
+        officialSource: field.officialSource,
+        notes: field.notes,
+        unsafeForPropertiesFile,
+      };
+    });
+
+    return {
+      sanitizedConfigPreview: configEntries.map((entry) => `${entry.key}=${entry.valuePreview ?? ""}`).join("\n") + "\n",
+      configEntries,
+      unsafeFields: configEntries.filter((entry) => entry.unsafeForPropertiesFile),
+    };
+  }
+
+  private isSafeCsrConfigValue(value: string | null): boolean {
+    return value === null || (!/[\r\n=]/.test(value) && !/[\u0000-\u001f\u007f]/.test(value));
   }
 
   private getKeyCustodyMode(unit: { privateKeyPem?: string | null } | null): ZatcaKeyCustodyMode {

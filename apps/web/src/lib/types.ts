@@ -3222,6 +3222,30 @@ export interface ZatcaEgsCsrPlanResponse {
   recommendedNextSteps: string[];
 }
 
+export interface ZatcaEgsCsrConfigPreviewResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  productionCompliance: false;
+  canPrepareConfig: boolean;
+  sanitizedConfigPreview: string;
+  configEntries: Array<{
+    key: string;
+    valuePreview: string | null;
+    status: "AVAILABLE" | "MISSING" | "NEEDS_REVIEW";
+    source: "ZATCA_PROFILE" | "EGS_UNIT" | "NOT_MODELED";
+    officialSource: string;
+    notes: string;
+  }>;
+  missingFields: ZatcaEgsCsrConfigPreviewResponse["configEntries"];
+  reviewFields: ZatcaEgsCsrConfigPreviewResponse["configEntries"];
+  blockers: string[];
+  warnings: string[];
+  officialSources: string[];
+}
+
 export interface ZatcaXmlValidationResult {
   localOnly: true;
   officialValidation: false;
