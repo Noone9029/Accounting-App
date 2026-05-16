@@ -1,6 +1,10 @@
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { ZatcaInvoiceStatus, ZatcaInvoiceType, ZatcaRegistrationStatus, ZatcaSubmissionStatus, ZatcaSubmissionType } from "@prisma/client";
 import { initialPreviousInvoiceHash } from "@ledgerbyte/zatca-core";
+import * as ZatcaSdkPaths from "../zatca-sdk/zatca-sdk-paths";
 import { SandboxDisabledZatcaOnboardingAdapter } from "./adapters/sandbox-disabled-zatca-onboarding.adapter";
 import type { ZatcaAdapterConfig } from "./zatca.config";
 import { ZatcaService } from "./zatca.service";
@@ -1101,6 +1105,149 @@ describe("ZATCA service rules", () => {
     expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
   });
 
+  it("blocks enabled local signing execution when SDK dummy certificate material is unavailable", async () => {
+    const previousFlag = process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED;
+    process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED = "true";
+    const fixture = makeLocalSigningSdkFixture({ includeDummyMaterial: false });
+    const readinessSpy = jest.spyOn(ZatcaSdkPaths, "discoverZatcaSdkReadiness").mockReturnValue(fixture.readiness);
+    const prisma = makeInvoiceReadinessPrisma({ zatcaInvoiceType: ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE });
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+    const executeSpy = jest.spyOn(service as never as { executeZatcaSdkCommand: jest.Mock }, "executeZatcaSdkCommand").mockResolvedValue({
+      exitCode: 0,
+      stdout: "should-not-run",
+      stderr: "",
+      timedOut: false,
+    });
+
+    try {
+      const result = await service.getInvoiceZatcaLocalSigningDryRun("org-1", "invoice-1");
+
+      expect(result.executionEnabled).toBe(true);
+      expect(result.executionAttempted).toBe(false);
+      expect(result.executionStatus).toBe("SKIPPED");
+      expect(result.blockers).toEqual(expect.arrayContaining([expect.stringContaining("SDK dummy certificate"), expect.stringContaining("SDK dummy private key")]));
+      expect(executeSpy).not.toHaveBeenCalled();
+      expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+      expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+      expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    } finally {
+      readinessSpy.mockRestore();
+      executeSpy.mockRestore();
+      rmSync(fixture.root, { recursive: true, force: true });
+      if (previousFlag === undefined) {
+        delete process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED;
+      } else {
+        process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED = previousFlag;
+      }
+    }
+  });
+
+  it("uses temp SDK config and cleans signed XML on mocked local signing success", async () => {
+    const previousFlag = process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED;
+    process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED = "true";
+    const fixture = makeLocalSigningSdkFixture({ includeDummyMaterial: true });
+    const readinessSpy = jest.spyOn(ZatcaSdkPaths, "discoverZatcaSdkReadiness").mockReturnValue(fixture.readiness);
+    const prisma = makeInvoiceReadinessPrisma({ zatcaInvoiceType: ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE });
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+    const executeSpy = jest.spyOn(service as never as { executeZatcaSdkCommand: jest.Mock }, "executeZatcaSdkCommand").mockImplementation(async (plan: { args: string[] }) => {
+      if (plan.args.includes("-sign")) {
+        const signedInvoicePath = plan.args[plan.args.indexOf("-signedInvoice") + 1];
+        expect(signedInvoicePath).toBeTruthy();
+        writeFileSync(signedInvoicePath!, "<Invoice><ds:X509Certificate>SECRET-CERT</ds:X509Certificate></Invoice>", "utf8");
+        return {
+          exitCode: 0,
+          stdout: "Signed <Invoice>SECRET XML</Invoice> -----BEGIN EC PRIVATE KEY-----SECRET-----END EC PRIVATE KEY-----",
+          stderr: "",
+          timedOut: false,
+        };
+      }
+      return {
+        exitCode: 0,
+        stdout: `QR ${"A".repeat(140)}`,
+        stderr: "OTP 123456",
+        timedOut: false,
+      };
+    });
+
+    try {
+      const result = await service.getInvoiceZatcaLocalSigningDryRun("org-1", "invoice-1");
+
+      expect(result.executionEnabled).toBe(true);
+      expect(result.executionAttempted).toBe(true);
+      expect(result.executionStatus).toBe("SUCCEEDED_LOCALLY");
+      expect(result.signingExecuted).toBe(true);
+      expect(result.qrExecuted).toBe(true);
+      expect(result.signedXmlDetected).toBe(true);
+      expect(result.qrDetected).toBe(true);
+      expect(result.tempFilesWritten.sdkConfig).toBe(true);
+      expect(result.commandPlan.envAdditions.SDK_CONFIG).toContain(result.tempFilesWritten.tempDirectory);
+      expect(result.cleanup).toMatchObject({ performed: true, success: true, filesRetained: false });
+      expect(result.tempFilesWritten.tempDirectory).toBeTruthy();
+      expect(existsSync(result.tempFilesWritten.tempDirectory as string)).toBe(false);
+      expect(JSON.stringify(result)).not.toContain("SECRET-CERT");
+      expect(JSON.stringify(result)).not.toContain("BEGIN EC PRIVATE KEY");
+      expect(JSON.stringify(result)).not.toContain("SECRET XML");
+      expect(JSON.stringify(result)).not.toContain("123456");
+      expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+      expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+      expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    } finally {
+      readinessSpy.mockRestore();
+      executeSpy.mockRestore();
+      rmSync(fixture.root, { recursive: true, force: true });
+      if (previousFlag === undefined) {
+        delete process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED;
+      } else {
+        process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED = previousFlag;
+      }
+    }
+  });
+
+  it("reports sanitized blockers when mocked local signing execution fails", async () => {
+    const previousFlag = process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED;
+    process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED = "true";
+    const fixture = makeLocalSigningSdkFixture({ includeDummyMaterial: true });
+    const readinessSpy = jest.spyOn(ZatcaSdkPaths, "discoverZatcaSdkReadiness").mockReturnValue(fixture.readiness);
+    const prisma = makeInvoiceReadinessPrisma({ zatcaInvoiceType: ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE });
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+    const executeSpy = jest.spyOn(service as never as { executeZatcaSdkCommand: jest.Mock }, "executeZatcaSdkCommand").mockResolvedValue({
+      exitCode: 1,
+      stdout: "",
+      stderr: "failed <Invoice>SECRET XML</Invoice> -----BEGIN PRIVATE KEY-----SECRET-----END PRIVATE KEY----- CSID TOKEN",
+      timedOut: false,
+    });
+
+    try {
+      const result = await service.getInvoiceZatcaLocalSigningDryRun("org-1", "invoice-1");
+
+      expect(result.executionAttempted).toBe(true);
+      expect(result.executionStatus).toBe("FAILED");
+      expect(result.signingExecuted).toBe(true);
+      expect(result.qrExecuted).toBe(false);
+      expect(result.signedXmlDetected).toBe(false);
+      expect(result.qrDetected).toBe(false);
+      expect(result.blockers).toEqual(expect.arrayContaining([expect.stringContaining("Official SDK -sign command failed")]));
+      expect(result.stderrSummary).toContain("[REDACTED_XML]");
+      expect(result.stderrSummary).toContain("[REDACTED");
+      expect(JSON.stringify(result)).not.toContain("SECRET XML");
+      expect(JSON.stringify(result)).not.toContain("PRIVATE KEY");
+      expect(JSON.stringify(result)).not.toContain("CSID TOKEN");
+      expect(result.cleanup.success).toBe(true);
+      expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+      expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+      expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    } finally {
+      readinessSpy.mockRestore();
+      executeSpy.mockRestore();
+      rmSync(fixture.root, { recursive: true, force: true });
+      if (previousFlag === undefined) {
+        delete process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED;
+      } else {
+        process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED = previousFlag;
+      }
+    }
+  });
+
   it("settings readiness reports CSR and key-custody blockers without exposing private key content", async () => {
     const prisma = makeReadinessPrisma({
       activeEgs: {
@@ -1898,6 +2045,86 @@ function makeInvoiceReadinessPrisma(options: {
     zatcaSubmissionLog: {
       create: jest.fn(),
     },
+  };
+}
+
+function makeLocalSigningSdkFixture(options: { includeDummyMaterial: boolean }) {
+  const root = mkdtempSync(join(tmpdir(), "ledgerbyte-zatca-signing-test-"));
+  const sdkRootPath = join(root, "zatca-einvoicing-sdk-Java-238-R3.4.8");
+  const appsDir = join(sdkRootPath, "Apps");
+  const configDirPath = join(sdkRootPath, "Configuration");
+  const certificateDir = join(sdkRootPath, "Data", "Certificates");
+  const schemasDir = join(sdkRootPath, "Data", "Schemas", "xsds", "UBL2.1", "xsd", "maindoc");
+  const schematronDir = join(sdkRootPath, "Data", "Rules", "Schematrons");
+  const inputDir = join(sdkRootPath, "Data", "Input");
+  const pihDir = join(sdkRootPath, "Data", "PIH");
+  for (const dir of [appsDir, configDirPath, certificateDir, schemasDir, schematronDir, inputDir, pihDir]) {
+    mkdirSync(dir, { recursive: true });
+  }
+  const sdkJarPath = join(appsDir, "zatca-einvoicing-sdk-test.jar");
+  writeFileSync(sdkJarPath, "not-a-real-jar", "utf8");
+  writeFileSync(join(configDirPath, "usage.txt"), "[-sign]\n[-qr]\n", "utf8");
+  writeFileSync(join(schemasDir, "UBL-Invoice-2.1.xsd"), "<schema />", "utf8");
+  writeFileSync(join(schematronDir, "CEN-EN16931-UBL.xsl"), "<xsl />", "utf8");
+  writeFileSync(join(schematronDir, "20210819_ZATCA_E-invoice_Validation_Rules.xsl"), "<xsl />", "utf8");
+  writeFileSync(join(pihDir, "pih.txt"), "previous-hash", "utf8");
+  writeFileSync(
+    join(configDirPath, "config.json"),
+    JSON.stringify({
+      xsdPath: "C:\\SDK\\Data\\Schemas\\xsds\\UBL2.1\\xsd\\maindoc\\UBL-Invoice-2.1.xsd",
+      enSchematron: "C:\\SDK\\Data\\Rules\\Schematrons\\CEN-EN16931-UBL.xsl",
+      zatcaSchematron: "C:\\SDK\\Data\\Rules\\Schematrons\\20210819_ZATCA_E-invoice_Validation_Rules.xsl",
+      certPath: "C:\\SDK\\Data\\Certificates\\cert.pem",
+      privateKeyPath: "C:\\SDK\\Data\\Certificates\\ec-secp256k1-priv-key.pem",
+      pihPath: "C:\\SDK\\Data\\PIH\\pih.txt",
+      inputPath: "C:\\SDK\\Data\\Input",
+      usagePathFile: "C:\\SDK\\Configuration\\usage.txt",
+    }),
+    "utf8",
+  );
+  if (options.includeDummyMaterial) {
+    writeFileSync(join(certificateDir, "cert.pem"), "-----BEGIN CERTIFICATE-----\nDUMMY\n-----END CERTIFICATE-----", "utf8");
+    writeFileSync(join(certificateDir, "ec-secp256k1-priv-key.pem"), "-----BEGIN EC PRIVATE KEY-----\nDUMMY\n-----END EC PRIVATE KEY-----", "utf8");
+  }
+
+  return {
+    root,
+    readiness: {
+      enabled: true,
+      referenceFolderFound: true,
+      sdkJarFound: true,
+      fatooraLauncherFound: false,
+      jqFound: false,
+      configDirFound: true,
+      workingDirectoryWritable: true,
+      supportedCommandsKnown: true,
+      javaFound: true,
+      javaVersion: "11.0.22",
+      javaMajorVersion: 11,
+      javaVersionSupported: true,
+      detectedJavaVersion: "11.0.22",
+      javaSupported: true,
+      requiredJavaRange: ">=11 <15",
+      javaBinUsed: "java",
+      javaBlockerMessage: null,
+      sdkCommand: "fatoora -validate -invoice <filename>",
+      projectPathHasSpaces: false,
+      canAttemptSdkValidation: true,
+      canRunLocalValidation: true,
+      blockingReasons: [],
+      warnings: [],
+      suggestedFixes: [],
+      referenceFolderPath: root,
+      sdkRootPath,
+      sdkJarPath,
+      fatooraLauncherPath: undefined,
+      jqPath: undefined,
+      configDirPath,
+      workDir: join(root, "work"),
+      javaCommand: "java",
+      timeoutMs: 1000,
+      projectRoot: root,
+    } as ReturnType<typeof ZatcaSdkPaths.discoverZatcaSdkReadiness>,
   };
 }
 

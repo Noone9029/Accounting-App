@@ -1162,10 +1162,13 @@ interface ZatcaInvoiceLocalSigningDryRunResponse {
   executionEnabled: boolean;
   executionAttempted: boolean;
   executionSkipped: boolean;
+  executionStatus: "SKIPPED" | "FAILED" | "SUCCEEDED_LOCALLY";
+  signingExecuted: boolean;
+  qrExecuted: boolean;
   signedXmlDetected: boolean;
   qrDetected: boolean;
   phase2Qr: { blockers: string[]; dependencyChain: string[] };
-  tempFilesWritten: { unsignedXml: boolean; signedXml: boolean; tempDirectory: string | null; filesRetained: boolean };
+  tempFilesWritten: { unsignedXml: boolean; sdkConfig: boolean; signedXml: boolean; tempDirectory: string | null; filesRetained: boolean };
   cleanup: { performed: boolean; success: boolean; filesRetained: boolean; tempDirectory: string | null };
   blockers: string[];
   warnings: string[];
@@ -3371,6 +3374,10 @@ async function main(): Promise<void> {
   assertEqual(zatcaLocalSigningDryRun.productionCompliance, false, "ZATCA local signing dry-run productionCompliance");
   assertEqual(zatcaLocalSigningDryRun.executionEnabled, false, "ZATCA local signing dry-run execution disabled by default");
   assertEqual(zatcaLocalSigningDryRun.executionAttempted, false, "ZATCA local signing dry-run execution not attempted by default");
+  assertEqual(zatcaLocalSigningDryRun.executionStatus, "SKIPPED", "ZATCA local signing dry-run skipped by default");
+  assertEqual(zatcaLocalSigningDryRun.signingExecuted, false, "ZATCA local signing dry-run signing not executed by default");
+  assertEqual(zatcaLocalSigningDryRun.qrExecuted, false, "ZATCA local signing dry-run QR not executed by default");
+  assertEqual(zatcaLocalSigningDryRun.tempFilesWritten.sdkConfig, false, "ZATCA local signing dry-run SDK config not written by default");
   assertEqual(zatcaLocalSigningDryRun.signedXmlDetected, false, "ZATCA local signing dry-run signed XML not detected by default");
   assertEqual(zatcaLocalSigningDryRun.qrDetected, false, "ZATCA local signing dry-run QR not detected by default");
   assert(zatcaLocalSigningDryRun.phase2Qr.blockers.length > 0, "ZATCA local signing dry-run reports Phase 2 QR blockers");
@@ -5036,6 +5043,7 @@ async function main(): Promise<void> {
         zatcaSigningPlanNoMutation: zatcaSigningPlan.noMutation,
         zatcaLocalSigningDryRunExecutionEnabled: zatcaLocalSigningDryRun.executionEnabled,
         zatcaLocalSigningDryRunExecutionAttempted: zatcaLocalSigningDryRun.executionAttempted,
+        zatcaLocalSigningDryRunExecutionStatus: zatcaLocalSigningDryRun.executionStatus,
         zatcaLocalSigningDryRunSignedXmlDetected: zatcaLocalSigningDryRun.signedXmlDetected,
         zatcaLocalSigningDryRunQrDetected: zatcaLocalSigningDryRun.qrDetected,
         zatcaCsrPlanDryRun: zatcaCsrPlan.dryRun,

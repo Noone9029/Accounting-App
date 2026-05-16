@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { accessSync, constants, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BadRequestException, Inject, Injectable, NotFoundException, NotImplementedException, Optional } from "@nestjs/common";
@@ -1163,6 +1163,7 @@ export class ZatcaService {
     const plannedTempRoot = sdkReadiness.workDir || join(tmpdir(), "ledgerbyte-zatca-local-signing");
     const plannedUnsignedXmlPath = join(plannedTempRoot, `${safeName}-unsigned.xml`);
     const plannedSignedXmlPath = join(plannedTempRoot, `${safeName}-signed-dummy-only.xml`);
+    const sdkDummyMaterial = this.getSdkDummySigningMaterial(sdkReadiness);
     const qrCommandPlan = buildZatcaSdkQrCommand({
       xmlFilePath: plannedSignedXmlPath,
       sdkJarPath: sdkReadiness.sdkJarPath,
@@ -1184,7 +1185,9 @@ export class ZatcaService {
       ...qrCommandPlan.warnings,
     ];
 
-    if (!signingPlan.metadata?.hasXml) {
+    if (!signingPlan.metadata) {
+      blockers.push("Invoice ZATCA metadata is missing; generate local XML metadata before local SDK signing can be planned.");
+    } else if (!signingPlan.metadata.hasXml) {
       blockers.push("Generated invoice XML is missing; generate local unsigned XML before local SDK signing can be planned.");
     }
     if (!executionEnabled) {
@@ -1211,6 +1214,18 @@ export class ZatcaService {
     if (!sdkReadiness.configDirFound) {
       blockers.push("Official ZATCA SDK Configuration directory is missing.");
     }
+    if (!sdkReadiness.workingDirectoryWritable || !this.canWriteToDirectory(tmpdir())) {
+      blockers.push("Local temporary directory is not writable; SDK signing execution cannot use temp files safely.");
+    }
+    if (!sdkDummyMaterial.certificateReady) {
+      blockers.push("SDK dummy certificate file is missing or empty; local signing execution only allows the SDK Data/Certificates/cert.pem test material.");
+    }
+    if (!sdkDummyMaterial.privateKeyReady) {
+      blockers.push("SDK dummy private key file is missing or empty; local signing execution only allows the SDK Data/Certificates/ec-secp256k1-priv-key.pem test material.");
+    }
+    if (this.commandPlanLooksNetworked(signingPlan.commandPlan) || this.commandPlanLooksNetworked(qrCommandPlan)) {
+      blockers.push("Local signing command plan unexpectedly contains network-like arguments; execution is blocked.");
+    }
 
     const baseResponse = (overrides: Partial<Record<string, unknown>> = {}) => ({
       localOnly: true,
@@ -1230,8 +1245,12 @@ export class ZatcaService {
       executionAttempted: false,
       executionSkipped: true,
       executionSkipReason: executionEnabled ? "Local signing dry-run prerequisites are blocked." : "Execution gate is disabled by default.",
+      executionStatus: "SKIPPED",
+      signingExecuted: false,
+      qrExecuted: false,
       sdkCommand: ZATCA_SDK_SIGN_COMMAND,
       qrSdkCommand: ZATCA_SDK_QR_COMMAND,
+      sdkMaterial: sdkDummyMaterial.summary,
       commandPlan: signingPlan.commandPlan,
       qrCommandPlan,
       phase2Qr: {
@@ -1242,7 +1261,7 @@ export class ZatcaService {
         blockers: ["Phase 2 QR generation is blocked until signed XML exists and SDK -qr succeeds with certificate/signature material."],
         warnings: ["Do not fake Phase 2 QR cryptographic tags; QR must be regenerated after signing."],
       },
-      tempFilesWritten: { unsignedXml: false, signedXml: false, tempDirectory: null, filesRetained: false },
+      tempFilesWritten: { unsignedXml: false, sdkConfig: false, signedXml: false, tempDirectory: null as string | null, filesRetained: false },
       cleanup: { performed: false, success: true, filesRetained: false, tempDirectory: null },
       signedXmlDetected: false,
       qrDetected: false,
@@ -1266,13 +1285,14 @@ export class ZatcaService {
     const tempDirectory = mkdtempSync(join(tempRoot, `${safeName}-`));
     const unsignedXmlPath = join(tempDirectory, "unsigned.xml");
     const signedXmlPath = join(tempDirectory, "signed.xml");
+    const tempSdkConfig = this.prepareLocalSigningSdkConfig(sdkReadiness, tempDirectory);
     const executionCommandPlan = buildZatcaSdkSigningCommand({
       xmlFilePath: unsignedXmlPath,
       signedInvoiceFilePath: signedXmlPath,
       sdkJarPath: sdkReadiness.sdkJarPath,
       launcherPath: sdkReadiness.fatooraLauncherPath,
       jqPath: sdkReadiness.jqPath,
-      configDirPath: sdkReadiness.configDirPath,
+      configDirPath: tempSdkConfig.configDirPath ?? sdkReadiness.configDirPath,
       workingDirectory: sdkReadiness.sdkRootPath ?? sdkReadiness.referenceFolderPath ?? sdkReadiness.projectRoot,
       platform: process.platform,
       javaFound: sdkReadiness.javaFound,
@@ -1283,16 +1303,39 @@ export class ZatcaService {
       sdkJarPath: sdkReadiness.sdkJarPath,
       launcherPath: sdkReadiness.fatooraLauncherPath,
       jqPath: sdkReadiness.jqPath,
-      configDirPath: sdkReadiness.configDirPath,
+      configDirPath: tempSdkConfig.configDirPath ?? sdkReadiness.configDirPath,
       workingDirectory: sdkReadiness.sdkRootPath ?? sdkReadiness.referenceFolderPath ?? sdkReadiness.projectRoot,
       platform: process.platform,
       javaFound: sdkReadiness.javaFound,
       javaCommand: sdkReadiness.javaCommand,
     });
-    const tempFilesWritten = { unsignedXml: false, signedXml: false, tempDirectory, filesRetained: keepTempFiles };
+    const tempFilesWritten = { unsignedXml: false, sdkConfig: tempSdkConfig.configWritten, signedXml: false, tempDirectory, filesRetained: keepTempFiles };
     const cleanup = { performed: false, success: true, filesRetained: keepTempFiles, tempDirectory };
     let signingResult: { exitCode: number | null; stdout: string; stderr: string; timedOut: boolean } = { exitCode: null, stdout: "", stderr: "", timedOut: false };
     let qrResult: { exitCode: number | null; stdout: string; stderr: string; timedOut: boolean } = { exitCode: null, stdout: "", stderr: "", timedOut: false };
+
+    if (tempSdkConfig.warnings.length > 0) {
+      warnings.push(...tempSdkConfig.warnings);
+    }
+    if (tempSdkConfig.blockers.length > 0) {
+      if (!keepTempFiles) {
+        try {
+          rmSync(tempDirectory, { recursive: true, force: true });
+          cleanup.performed = true;
+          cleanup.success = true;
+        } catch {
+          cleanup.performed = true;
+          cleanup.success = false;
+          warnings.push("Temporary local signing directory cleanup failed; inspect local temp storage manually.");
+        }
+      }
+      return baseResponse({
+        tempFilesWritten,
+        cleanup,
+        blockers: [...new Set([...blockers, ...tempSdkConfig.blockers])],
+        warnings: [...new Set(warnings)],
+      });
+    }
 
     try {
       writeFileSync(unsignedXmlPath, Buffer.from(metadata.xmlBase64, "base64").toString("utf8"), { encoding: "utf8", mode: 0o600 });
@@ -1328,29 +1371,44 @@ export class ZatcaService {
     }
 
     const qrOutput = `${qrResult.stdout}\n${qrResult.stderr}`.trim();
+    const signingExecuted = signingResult.exitCode !== null || signingResult.timedOut;
+    const qrExecuted = qrResult.exitCode !== null || qrResult.timedOut;
+    const signedXmlDetected = tempFilesWritten.signedXml;
+    const qrDetected = qrResult.exitCode === 0 && qrOutput.length > 0;
+    const executionBlockers: string[] = [];
+    if (signingResult.exitCode !== 0 || !signedXmlDetected) {
+      executionBlockers.push("Official SDK -sign command failed or did not produce signed XML; no success is inferred.");
+    }
+    if (signedXmlDetected && !qrDetected) {
+      executionBlockers.push("Official SDK -qr command failed or did not produce QR output; Phase 2 QR remains blocked.");
+    }
+    const executionStatus = executionBlockers.length === 0 ? "SUCCEEDED_LOCALLY" : "FAILED";
     return baseResponse({
       executionAttempted: true,
       executionSkipped: false,
       executionSkipReason: null,
+      executionStatus,
+      signingExecuted,
+      qrExecuted,
       commandPlan: executionCommandPlan,
       qrCommandPlan: executionQrCommandPlan,
       tempFilesWritten,
       cleanup,
-      signedXmlDetected: tempFilesWritten.signedXml,
-      qrDetected: qrResult.exitCode === 0 && qrOutput.length > 0,
+      signedXmlDetected,
+      qrDetected,
       sdkExitCode: signingResult.exitCode,
       qrSdkExitCode: qrResult.exitCode,
       timedOut: signingResult.timedOut || qrResult.timedOut,
       stdoutSummary: this.sanitizeSigningSdkOutput(`${signingResult.stdout}\n${qrResult.stdout}`),
       stderrSummary: this.sanitizeSigningSdkOutput(`${signingResult.stderr}\n${qrResult.stderr}`),
-      blockers: [],
+      blockers: executionBlockers,
       warnings: [...new Set(warnings)],
       phase2Qr: {
         currentBasicQrExists: true,
         sdkCommand: ZATCA_SDK_QR_COMMAND,
         commandPlan: executionQrCommandPlan,
         dependencyChain: ["unsigned XML", "SDK hash", "signed XML", "Phase 2 QR", "final validation"],
-        blockers: tempFilesWritten.signedXml && qrResult.exitCode === 0 ? [] : ["Phase 2 QR output was not detected from the local SDK dry-run."],
+        blockers: signedXmlDetected && qrDetected ? [] : ["Phase 2 QR output was not detected from the local SDK dry-run."],
         warnings: ["QR payload body is intentionally not returned; use official SDK validation artifacts only in a controlled local experiment."],
       },
     });
@@ -2785,6 +2843,90 @@ export class ZatcaService {
     timeoutMs: number,
   ): Promise<{ exitCode: number | null; stdout: string; stderr: string; timedOut: boolean }> {
     return this.executeZatcaSdkCommand(commandPlan, timeoutMs);
+  }
+
+  private getSdkDummySigningMaterial(sdkReadiness: ReturnType<typeof discoverZatcaSdkReadiness>) {
+    const sdkRootPath = sdkReadiness.sdkRootPath ?? null;
+    const certificatePath = sdkRootPath ? join(sdkRootPath, "Data", "Certificates", "cert.pem") : null;
+    const privateKeyPath = sdkRootPath ? join(sdkRootPath, "Data", "Certificates", "ec-secp256k1-priv-key.pem") : null;
+    const certificateReady = certificatePath ? this.fileExistsAndNotEmpty(certificatePath) : false;
+    const privateKeyReady = privateKeyPath ? this.fileExistsAndNotEmpty(privateKeyPath) : false;
+
+    return {
+      sdkRootPath,
+      certificatePath,
+      privateKeyPath,
+      certificateReady,
+      privateKeyReady,
+      summary: {
+        source: "SDK_DUMMY_TEST_MATERIAL",
+        certificateFileName: "cert.pem",
+        privateKeyFileName: "ec-secp256k1-priv-key.pem",
+        certificateReady,
+        privateKeyReady,
+        productionCredentialsUsed: false,
+        contentReturned: false,
+      },
+    };
+  }
+
+  private prepareLocalSigningSdkConfig(sdkReadiness: ReturnType<typeof discoverZatcaSdkReadiness>, tempDirectory: string) {
+    const blockers: string[] = [];
+    const warnings: string[] = [];
+    const material = this.getSdkDummySigningMaterial(sdkReadiness);
+    const sdkRootPath = material.sdkRootPath;
+    const baseConfigPath = sdkReadiness.configDirPath ? join(sdkReadiness.configDirPath, "config.json") : null;
+    const configDirPath = join(tempDirectory, "Configuration");
+    const configPath = join(configDirPath, "config.json");
+
+    if (!sdkRootPath) {
+      blockers.push("SDK root path could not be resolved for local signing config preparation.");
+      return { configDirPath: null as string | null, configPath: null as string | null, configWritten: false, blockers, warnings };
+    }
+    if (!baseConfigPath || !this.fileExistsAndNotEmpty(baseConfigPath)) {
+      blockers.push("Official SDK config.json was not found for local signing config preparation.");
+      return { configDirPath: null as string | null, configPath: null as string | null, configWritten: false, blockers, warnings };
+    }
+    if (!material.certificateReady || !material.privateKeyReady || !material.certificatePath || !material.privateKeyPath) {
+      blockers.push("SDK dummy certificate/private-key files are required before writing the local signing SDK config.");
+      return { configDirPath: null as string | null, configPath: null as string | null, configWritten: false, blockers, warnings };
+    }
+
+    try {
+      const baseConfig = JSON.parse(readFileSync(baseConfigPath, "utf8")) as Record<string, unknown>;
+      const config = {
+        ...baseConfig,
+        xsdPath: join(sdkRootPath, "Data", "Schemas", "xsds", "UBL2.1", "xsd", "maindoc", "UBL-Invoice-2.1.xsd"),
+        enSchematron: join(sdkRootPath, "Data", "Rules", "Schematrons", "CEN-EN16931-UBL.xsl"),
+        zatcaSchematron: join(sdkRootPath, "Data", "Rules", "Schematrons", "20210819_ZATCA_E-invoice_Validation_Rules.xsl"),
+        certPath: material.certificatePath,
+        privateKeyPath: material.privateKeyPath,
+        pihPath: join(sdkRootPath, "Data", "PIH", "pih.txt"),
+        inputPath: join(sdkRootPath, "Data", "Input"),
+        usagePathFile: join(sdkReadiness.configDirPath ?? join(sdkRootPath, "Configuration"), "usage.txt"),
+      };
+      mkdirSync(configDirPath, { recursive: true });
+      writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+      warnings.push("Temporary SDK_CONFIG was written with SDK dummy/test certificate paths only and will be deleted by default.");
+      return { configDirPath, configPath, configWritten: true, blockers, warnings };
+    } catch {
+      blockers.push("Temporary local signing SDK config could not be prepared.");
+      return { configDirPath: null as string | null, configPath: null as string | null, configWritten: false, blockers, warnings };
+    }
+  }
+
+  private canWriteToDirectory(directory: string): boolean {
+    try {
+      accessSync(directory, constants.W_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private commandPlanLooksNetworked(commandPlan: ZatcaSdkValidationCommandPlan): boolean {
+    const text = [commandPlan.displayCommand, ...commandPlan.args].join(" ");
+    return /https?:\/\//i.test(text) || /\b(clearance|reporting|compliance|productionCsid|binarySecurityToken)\b/i.test(text);
   }
 
   private executeZatcaSdkCommand(

@@ -3178,8 +3178,20 @@ export interface ZatcaInvoiceLocalSigningDryRunResponse {
   executionAttempted: boolean;
   executionSkipped: boolean;
   executionSkipReason: string | null;
+  executionStatus: "SKIPPED" | "FAILED" | "SUCCEEDED_LOCALLY";
+  signingExecuted: boolean;
+  qrExecuted: boolean;
   sdkCommand: string;
   qrSdkCommand: string;
+  sdkMaterial: {
+    source: "SDK_DUMMY_TEST_MATERIAL";
+    certificateFileName: string;
+    privateKeyFileName: string;
+    certificateReady: boolean;
+    privateKeyReady: boolean;
+    productionCredentialsUsed: false;
+    contentReturned: false;
+  };
   commandPlan: ZatcaSdkValidationCommandPlan;
   qrCommandPlan: ZatcaSdkValidationCommandPlan;
   phase2Qr: {
@@ -3192,6 +3204,7 @@ export interface ZatcaInvoiceLocalSigningDryRunResponse {
   };
   tempFilesWritten: {
     unsignedXml: boolean;
+    sdkConfig: boolean;
     signedXml: boolean;
     tempDirectory: string | null;
     filesRetained: boolean;
