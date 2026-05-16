@@ -2,6 +2,21 @@
 
 This is a working engineering checklist. Official ZATCA/FATOORA documentation must be verified before production. Do not treat current mock implementation as legal compliance.
 
+## Current SDK Hash Mode Coverage
+
+New local-only tests cover:
+
+- SDK hash mode enablement blocked when SDK execution/readiness is unavailable.
+- SDK hash mode enablement blocked for EGS units that already have invoice metadata.
+- Successful SDK hash mode enablement on a fresh EGS with mocked readiness, including audit logging.
+- Default local deterministic metadata generation remains unchanged.
+- SDK mode metadata generation stores the SDK hash, uses the official first PIH seed for the first invoice, uses the previous SDK hash for the second invoice, and remains idempotent.
+- SDK hash generation failure rolls back metadata and EGS hash/ICV mutation.
+- Hash comparison reports EGS hash mode and metadata hash-mode snapshot without mutation.
+- Reset-plan dry run reports SDK-mode blockers.
+
+Normal tests and smoke do not require Java or SDK execution.
+
 - Keep unit tests for XML escaping, QR byte lengths, deterministic hashes, ICV idempotency, and adapter safety.
 - Add official sample invoice fixtures when available.
 - Add schema/canonicalization/signature validation tests before real sandbox calls.

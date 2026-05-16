@@ -1106,6 +1106,7 @@ interface ZatcaEgsUnit {
   certificateRequestId?: string | null;
   lastIcv: number;
   lastInvoiceHash?: string | null;
+  hashMode: "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
 }
 
 interface ZatcaInvoiceMetadata {
@@ -1115,6 +1116,7 @@ interface ZatcaInvoiceMetadata {
   icv?: number | null;
   previousInvoiceHash?: string | null;
   invoiceHash?: string | null;
+  hashModeSnapshot?: "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
   qrCodeBase64?: string | null;
   xmlBase64?: string | null;
 }
@@ -1206,6 +1208,8 @@ interface ZatcaInvoiceHashCompareResponse {
   previousInvoiceHash: string | null;
   icv: number | null;
   egsUnitId: string | null;
+  egsHashMode: "LOCAL_DETERMINISTIC" | "SDK_GENERATED" | null;
+  metadataHashModeSnapshot: "LOCAL_DETERMINISTIC" | "SDK_GENERATED" | null;
   hashMode: {
     mode: "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
     envValue: "local" | "sdk";
@@ -1223,9 +1227,17 @@ interface ZatcaHashChainResetPlanResponse {
   summary: {
     activeEgsUnitCount: number;
     invoicesWithMetadataCount: number;
+    sdkModeEgsUnitCount: number;
     currentIcv: number | null;
     currentLastInvoiceHash: string | null;
   };
+  egsUnits: Array<{
+    id: string;
+    hashMode: "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
+    metadataCount: number;
+    canEnableSdkHashMode: boolean;
+    enableSdkHashModeBlockers: string[];
+  }>;
   resetRisks: string[];
   recommendedNextSteps: string[];
 }
@@ -2925,6 +2937,7 @@ async function main(): Promise<void> {
   }
   assertNoPrivateKey(smokeEgs, "ZATCA EGS activation response");
   assert(smokeEgs.isActive || smokeEgs.status === "ACTIVE" || smokeEgs.status === "CERTIFICATE_ISSUED", "ZATCA smoke EGS active or certificate state");
+  assertEqual(smokeEgs.hashMode, "LOCAL_DETERMINISTIC", "ZATCA smoke EGS default hash mode");
   const zatcaSubmissions = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
   assert(
     zatcaSubmissions.some((log) => log.egsUnitId === smokeEgs.id && log.responseCode === "LOCAL_MOCK" && log.status === "SUCCESS"),
@@ -2937,6 +2950,7 @@ async function main(): Promise<void> {
   assertPresent(zatcaMetadata.xmlBase64, "ZATCA XML base64");
   assertPresent(zatcaMetadata.qrCodeBase64, "ZATCA QR base64");
   assertPresent(zatcaMetadata.icv, "ZATCA ICV");
+  assertEqual(zatcaMetadata.hashModeSnapshot, "LOCAL_DETERMINISTIC", "ZATCA metadata hash mode snapshot");
   assertEqual(zatcaMetadata.zatcaStatus, "XML_GENERATED", "ZATCA metadata status");
   const egsAfterFirstZatcaGenerate = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
   const repeatedZatcaMetadata = await post<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca/generate`, headers, {});
@@ -2997,6 +3011,8 @@ async function main(): Promise<void> {
   assertEqual(zatcaHashCompare.officialHashAttempted, false, "ZATCA hash compare disabled by default");
   assertEqual(zatcaHashCompare.hashComparisonStatus, "BLOCKED", "ZATCA hash compare blocked by default");
   assertEqual(zatcaHashCompare.hashMode.mode, "LOCAL_DETERMINISTIC", "ZATCA hash compare local hash mode");
+  assertEqual(zatcaHashCompare.egsHashMode, "LOCAL_DETERMINISTIC", "ZATCA hash compare EGS hash mode");
+  assertEqual(zatcaHashCompare.metadataHashModeSnapshot, "LOCAL_DETERMINISTIC", "ZATCA hash compare metadata hash mode snapshot");
   const metadataAfterHashCompare = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
   assertEqual(metadataAfterHashCompare.icv, metadataBeforeHashCompare.icv, "ZATCA hash compare does not mutate ICV");
   assertEqual(metadataAfterHashCompare.invoiceHash, metadataBeforeHashCompare.invoiceHash, "ZATCA hash compare does not mutate invoice hash");
@@ -3006,6 +3022,19 @@ async function main(): Promise<void> {
   assertEqual(zatcaHashResetPlan.dryRunOnly, true, "ZATCA hash-chain reset plan dryRunOnly");
   assertEqual(zatcaHashResetPlan.noMutation, true, "ZATCA hash-chain reset plan noMutation");
   assertEqual(zatcaHashResetPlan.hashMode.mode, "LOCAL_DETERMINISTIC", "ZATCA hash-chain reset plan local hash mode");
+  assert(typeof zatcaHashResetPlan.summary.sdkModeEgsUnitCount === "number", "ZATCA hash-chain reset plan SDK mode count");
+  assert(
+    zatcaHashResetPlan.egsUnits.some(
+      (unit) => unit.id === smokeEgs.id && unit.hashMode === "LOCAL_DETERMINISTIC" && unit.metadataCount > 0 && unit.canEnableSdkHashMode === false,
+    ),
+    "ZATCA hash-chain reset plan blocks SDK hash mode on EGS with metadata",
+  );
+  await expectHttpError("SDK hash mode enable blocked by default", () =>
+    post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/enable-sdk-hash-mode`, headers, {
+      reason: "Smoke confirms SDK hash mode remains explicitly blocked by default.",
+      confirmReset: true,
+    }),
+  );
   assert(zatcaHashResetPlan.resetRisks.length > 0, "ZATCA hash-chain reset plan returns risks");
   assertNoPrivateKey(zatcaHashResetPlan, "ZATCA hash-chain reset plan response");
   const zatcaSdkFixtureValidation = await post<ZatcaSdkValidationResponse>("/zatca-sdk/validate-reference-fixture", headers, {

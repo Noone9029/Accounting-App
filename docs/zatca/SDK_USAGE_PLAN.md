@@ -2,6 +2,16 @@
 
 This is a working engineering checklist. Official ZATCA/FATOORA documentation must be verified before production. Do not treat current mock implementation as legal compliance.
 
+## Current SDK Hash Mode Update
+
+LedgerByte now has a local-only persistence path for SDK-generated invoice hashes, but it is intentionally not the default:
+
+- `ZatcaEgsUnit.hashMode` defaults to `LOCAL_DETERMINISTIC`.
+- `SDK_GENERATED` can be enabled only through the admin endpoint on a fresh EGS unit after SDK execution/readiness passes.
+- Existing EGS units with invoice metadata are blocked from in-place migration; create a new EGS unit for SDK hash mode.
+- `ZatcaInvoiceMetadata.hashModeSnapshot` records the mode used when metadata is generated.
+- SDK mode persists `fatoora -generateHash -invoice <filename>` output only; it still does not sign, submit, request CSIDs, clear/report, or embed XML in PDF/A-3.
+
 The local SDK bundle is `reference/zatca-einvoicing-sdk-Java-238-R3.4.8`.
 
 ## SDK Summary

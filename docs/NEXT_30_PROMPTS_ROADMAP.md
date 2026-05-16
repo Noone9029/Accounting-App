@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Latest commit audited: `f350999` (`Validate API generated ZATCA XML and hash`) plus the current official hash-chain replacement planning pass.
+Latest commit audited: `3ed2568` (`Add ZATCA hash-chain replacement groundwork`) plus the current SDK hash persistence opt-in pass.
 
 Each prompt is intentionally scoped so it can be executed as a safe Codex implementation/audit task. Prompts that need credentials say so explicitly.
 
@@ -124,19 +124,19 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 - Risk level: High.
 - Manual credentials needed: No.
 
-### 15. Implement ZATCA hash persistence safety gates
+### 15. Validate fresh-EGS SDK hash persistence
 
-- Objective: Persist SDK `fatoora -generateHash -invoice <filename>` or verified C14N11 hashes behind explicit local-only flags, using no-mutation comparison and reset dry-run output as safety gates.
-- Why it matters: API-generated XML now has safe hash comparison and reset planning; signing and API submission depend on official canonical invoice hashes being stored, not only compared.
-- Dependencies: Current structural XML fixtures, SDK validation wrapper, hash comparison endpoint, and reset-plan endpoint.
+- Objective: Create a fresh test EGS, enable SDK hash mode with local SDK readiness, generate multiple invoices, and verify persisted hashes/PIH chain against SDK `fatoora -generateHash -invoice <filename>`.
+- Why it matters: The app now has explicit SDK hash persistence safeguards; signing and API submission depend on proving the stored chain remains stable across real generated invoices.
+- Dependencies: Current structural XML fixtures, SDK validation wrapper, hash comparison endpoint, reset-plan endpoint, and fresh-EGS enablement.
 - Risk level: Critical.
 - Manual credentials needed: No.
 
-### 16. Implement verified XML canonicalization or SDK hash path
+### 16. Implement verified XML canonicalization fallback
 
-- Objective: Replace the blocked hash groundwork helper with a verified C14N11 implementation or controlled SDK hash path.
-- Why it matters: Production hash-chain, signing, clearance, and reporting depend on correct hashes.
-- Dependencies: SDK hash comparison tests.
+- Objective: Replace the blocked in-process hash groundwork helper with a verified C14N11 implementation or keep the SDK executable path as the controlled production-adjacent hash oracle.
+- Why it matters: Production hash-chain, signing, clearance, and reporting depend on correct hashes even when the SDK process is unavailable.
+- Dependencies: Fresh-EGS SDK hash persistence evidence.
 - Risk level: Critical.
 - Manual credentials needed: No.
 

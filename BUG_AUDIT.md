@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-16
 
-Commit inspected: pending (`Add ZATCA hash-chain replacement groundwork`)
+Commit inspected: pending (`Add ZATCA SDK hash mode persistence groundwork`)
 
 ## Scope
 
@@ -37,6 +37,34 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### ZATCA SDK hash mode persistence groundwork added
+
+Used only the repo-local official ZATCA SDK readme, `Configuration/usage.txt`, Schematron rules, `Data/PIH/pih.txt`, official samples, and XML/security PDFs to add explicit local-only SDK hash persistence safeguards.
+
+Risk reduced:
+
+- Added persistent `ZatcaHashMode` with `LOCAL_DETERMINISTIC` as the default and `SDK_GENERATED` as an explicit per-EGS opt-in.
+- Added fresh-EGS-only `POST /zatca/egs-units/:id/enable-sdk-hash-mode` requiring `zatca.manage`, SDK readiness, `confirmReset=true`, a reason, and zero existing invoice metadata.
+- Added `ZatcaInvoiceMetadata.hashModeSnapshot` so generated metadata records show whether local or SDK hash mode was active.
+- SDK mode now persists SDK `-generateHash` output as invoice hash/XML hash for future metadata, chains PIH from the prior SDK hash, stays idempotent on repeated generation, and rolls back on SDK hash failure.
+- `GET /zatca/hash-chain-reset-plan` now shows per-EGS hash mode, metadata counts, SDK readiness blockers, and enablement recommendations.
+- `/settings/zatca` now shows a hash mode/SDK hash chain panel with blockers, reason/confirmation controls, and local-only warnings.
+- Invoice detail hash comparison now shows EGS hash mode, metadata hash mode, stored hash, and SDK mismatch warnings.
+- Added audit event `ZATCA_SDK_HASH_MODE_ENABLED`.
+- Updated smoke to verify default local mode, blocked SDK-mode enablement, reset-plan blockers, and no metadata mutation.
+
+Current state:
+
+- SDK hash persistence is not automatic and does not apply to existing EGS units with metadata.
+- Existing local deterministic hash chains are not migrated in place; use a fresh EGS unit for SDK mode.
+- SDK hash mode is still local-only and requires explicit SDK execution/readiness.
+
+Remaining risks:
+
+- LedgerByte is still not ZATCA production compliant.
+- Signing/certificate handling, real CSID onboarding, clearance/reporting, Phase 2 QR, and PDF/A-3 remain unimplemented.
+- Repeatable Java 11-14 CI/Docker execution, real key custody, sandbox credentials, and accountant/legal review are still required before production use.
+
 ### ZATCA official hash-chain replacement planning added
 
 Used only the repo-local official ZATCA SDK readme, `Configuration/usage.txt`, Schematron rules, `Data/PIH/pih.txt`, official samples, and XML/security PDFs to plan the transition from LedgerByte's local deterministic hash chain to SDK/C14N11-backed hashes.
@@ -52,15 +80,15 @@ Risk reduced:
 
 Current state:
 
-- SDK hash is not yet stored as official invoice metadata.
-- EGS last hash and invoice metadata still use the local deterministic hash until a future explicit migration/reset task.
+- SDK hash can now be stored only for future metadata generated under a fresh EGS unit explicitly enabled for `SDK_GENERATED`.
+- EGS units with existing metadata still use the local deterministic hash chain and are blocked from in-place SDK-mode migration.
 - Reset planning is visibility only; no automatic reset or purge exists.
 
 Remaining risks:
 
 - LedgerByte is still not ZATCA production compliant.
 - Signing/certificate handling, real CSID onboarding, clearance/reporting, Phase 2 QR, and PDF/A-3 remain unimplemented.
-- Official hash persistence still needs fixture coverage, local/CI Java strategy, reset approval, and key custody design before production use.
+- Official hash persistence still needs repeatable fresh-EGS runtime validation, local/CI Java strategy, reset approval, and key custody design before production use.
 
 ### API-generated ZATCA XML validation and SDK hash comparison
 

@@ -17,8 +17,8 @@ export function readZatcaHashModeConfig(sourceEnv: NodeJS.ProcessEnv | Record<st
       mode: "SDK_GENERATED",
       envValue: "sdk",
       sdkModeRequested: true,
-      blockingReasons: ["SDK hash mode is a planning flag only; LedgerByte does not store SDK hashes as official metadata yet."],
-      warnings: ["SDK hash mode requires ZATCA_SDK_EXECUTION_ENABLED=true, Java 11-14, official SDK paths, signing design, and an EGS reset plan before production use."],
+      blockingReasons: ["SDK hash mode requires explicit per-EGS enablement before LedgerByte stores SDK-generated hashes."],
+      warnings: ["SDK hash mode requires ZATCA_SDK_EXECUTION_ENABLED=true, Java 11-14, official SDK paths, and a fresh EGS unit before generating invoice metadata."],
     };
   }
 

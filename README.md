@@ -627,6 +627,7 @@ ZATCA foundation:
 - `GET /zatca/egs-units/:id`
 - `PATCH /zatca/egs-units/:id`
 - `POST /zatca/egs-units/:id/activate-dev`
+- `POST /zatca/egs-units/:id/enable-sdk-hash-mode`
 - `POST /zatca/egs-units/:id/generate-csr`
 - `GET /zatca/egs-units/:id/csr`
 - `GET /zatca/egs-units/:id/csr/download`
@@ -1511,7 +1512,8 @@ Implemented:
 - Repeating local XML/QR/hash generation for the same invoice is idempotent and returns the existing metadata instead of consuming another ICV or mutating the active EGS hash chain.
 - Local/mock invoice compliance checks can be recorded through `POST /sales-invoices/:id/zatca/compliance-check`; they only move local metadata to `READY_FOR_SUBMISSION` and do not mark invoices cleared or reported.
 - `POST /sales-invoices/:id/zatca/hash-compare` regenerates the current invoice XML, reads the stored app hash, and runs SDK `-generateHash` only when local SDK execution is explicitly enabled and ready. The response includes `sdkHash`, `appHash`, `hashMatches`, `hashComparisonStatus`, hash mode, warnings/blockers, and `noMutation=true`; it never updates invoice metadata or EGS ICV/hash state.
-- `GET /zatca/hash-chain-reset-plan` is an admin dry run. It summarizes active EGS units, current ICV/last-hash state, existing ZATCA invoice metadata, reset risks, and recommended next steps. It returns `dryRunOnly=true` and does not reset anything.
+- `POST /zatca/egs-units/:id/enable-sdk-hash-mode` is an explicit opt-in for local SDK hash persistence on a fresh EGS unit only. It requires `zatca.manage`, `confirmReset=true`, a reason, SDK execution/readiness, and zero existing invoice metadata on that EGS. It does not sign invoices, submit to ZATCA, request CSIDs, or migrate old local hash chains.
+- `GET /zatca/hash-chain-reset-plan` is an admin dry run. It summarizes active EGS units, hash mode, current ICV/last-hash state, existing ZATCA invoice metadata, SDK readiness blockers, per-EGS enablement eligibility, reset risks, and recommended next steps. It returns `dryRunOnly=true` and does not reset anything.
 - XML downloads use `application/xml`; QR returns a base64 TLV payload as JSON.
 - `GET /sales-invoices/:id/zatca/xml-validation` runs local-only structural XML/input checks and always reports `officialValidation=false`.
 - Invoice PDFs can display a small local ZATCA-generated placeholder when QR metadata exists. XML is not embedded into PDFs yet.
@@ -1555,7 +1557,7 @@ Do not treat the current mock CSID, local XML, local QR, or local hash-chain beh
 - The test-only SDK wrapper notes live at `docs/zatca/SDK_VALIDATION_WRAPPER.md`.
 - Official sample fixture validation results live at `docs/zatca/OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`.
 - Hash-chain/PIH planning lives at `docs/zatca/HASH_CHAIN_AND_PIH_PLAN.md`.
-- `GET /zatca-sdk/readiness` reports local SDK discovery status, Java readiness, config/work-dir checks, hash mode, and whether execution is enabled. `POST /zatca-sdk/validate-xml-dry-run` creates a command plan without executing the SDK. `POST /zatca-sdk/validate-xml-local`, `POST /zatca-sdk/validate-reference-fixture`, `POST /sales-invoices/:id/zatca/sdk-validate`, and `POST /sales-invoices/:id/zatca/hash-compare` are disabled unless `ZATCA_SDK_EXECUTION_ENABLED=true`; when enabled they run local-only XML validation or SDK hash comparison with timeout, temp cleanup, path traversal protection, sanitized output, and no metadata mutation.
+- `GET /zatca-sdk/readiness` reports local SDK discovery status, Java readiness, config/work-dir checks, hash mode, and whether execution is enabled. `POST /zatca-sdk/validate-xml-dry-run` creates a command plan without executing the SDK. `POST /zatca-sdk/validate-xml-local`, `POST /zatca-sdk/validate-reference-fixture`, `POST /sales-invoices/:id/zatca/sdk-validate`, and `POST /sales-invoices/:id/zatca/hash-compare` are disabled unless `ZATCA_SDK_EXECUTION_ENABLED=true`; when enabled they run local-only XML validation or SDK hash comparison with timeout, temp cleanup, path traversal protection, sanitized output, and no metadata mutation. SDK hash persistence is separate and requires a fresh EGS unit explicitly enabled through `/zatca/egs-units/:id/enable-sdk-hash-mode`.
 - The current code is still not production compliant. Official SDK/API validation, real CSID onboarding, signing, PDF/A-3, clearance, reporting, and KMS-backed key custody are still required.
 
 Not implemented yet:
@@ -1566,7 +1568,7 @@ Not implemented yet:
 - production CSID issuance
 - real ZATCA compliance, clearance, or reporting APIs
 - cryptographic signing/stamping
-- official ZATCA hash-chain/canonicalization replacement
+- production ZATCA hash-chain/signature behavior; SDK hash persistence exists only as an explicit local-only opt-in for fresh EGS units
 - Phase 2 QR signature/public-key fields
 - PDF/A-3 conversion
 - embedded XML in PDF archives

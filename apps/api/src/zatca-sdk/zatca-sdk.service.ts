@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { extname, isAbsolute, join, relative, resolve } from "node:path";
+import { ZatcaHashMode } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { ValidateZatcaSdkFixtureDto, ValidateZatcaSdkXmlDto } from "./dto/validate-zatca-sdk-xml.dto";
 import { isAllowedZatcaFixturePath, normalizeZatcaFixturePath } from "./zatca-official-fixtures";
@@ -91,6 +92,8 @@ export interface ZatcaInvoiceHashCompareResponse extends ZatcaOfficialHashResult
   previousInvoiceHash: string | null;
   icv: number | null;
   egsUnitId: string | null;
+  egsHashMode: ZatcaHashMode | null;
+  metadataHashModeSnapshot: ZatcaHashMode | null;
 }
 
 const MAX_ZATCA_XML_BYTES = 2 * 1024 * 1024;
@@ -274,9 +277,11 @@ export class ZatcaSdkService {
         invoiceId: true,
         xmlBase64: true,
         invoiceHash: true,
+        hashModeSnapshot: true,
         previousInvoiceHash: true,
         icv: true,
         egsUnitId: true,
+        egsUnit: { select: { hashMode: true } },
       },
     });
 
@@ -290,13 +295,23 @@ export class ZatcaSdkService {
     }
 
     const result = await this.generateOfficialZatcaHash(xml, { appHash: metadata.invoiceHash, tempName: invoiceId });
+    const warnings = [...result.warnings];
+    if (
+      result.hashComparisonStatus === "MISMATCH" &&
+      (metadata.hashModeSnapshot === ZatcaHashMode.SDK_GENERATED || metadata.egsUnit?.hashMode === ZatcaHashMode.SDK_GENERATED)
+    ) {
+      warnings.push("Stored hash does not match current SDK hash; XML may have changed or metadata is stale.");
+    }
     return {
       ...result,
+      warnings,
       invoiceId: metadata.invoiceId,
       metadataId: metadata.id,
       previousInvoiceHash: metadata.previousInvoiceHash,
       icv: metadata.icv,
       egsUnitId: metadata.egsUnitId,
+      egsHashMode: metadata.egsUnit?.hashMode ?? null,
+      metadataHashModeSnapshot: metadata.hashModeSnapshot ?? null,
     };
   }
 

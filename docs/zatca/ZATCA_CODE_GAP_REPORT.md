@@ -2,6 +2,15 @@
 
 This is a working engineering checklist. Official ZATCA/FATOORA documentation must be verified before production. Do not treat current mock implementation as legal compliance.
 
+## Current SDK Hash Persistence Update
+
+The local hash-chain gap is reduced but not closed for production:
+
+- SDK `-generateHash` persistence can now be enabled only on a fresh EGS unit with explicit admin confirmation and SDK readiness.
+- Metadata generated under SDK mode stores the SDK hash and `hashModeSnapshot=SDK_GENERATED`.
+- Existing local deterministic EGS chains are not migrated and remain development-only.
+- The remaining production blockers are signing/certificate handling, Phase 2 QR, real CSID onboarding, clearance/reporting, PDF/A-3, repeatable Java/SDK runtime strategy, and key custody.
+
 Scope: compare current LedgerByte ZATCA groundwork with the local official reference files under `reference/`. This report intentionally does not change the real ZATCA adapter, signing, PDF/A-3, clearance, reporting, or production CSID behavior.
 
 ## High-Risk Gaps
@@ -10,7 +19,7 @@ Scope: compare current LedgerByte ZATCA groundwork with the local official refer
 | --- | --- | --- | --- | --- |
 | ICV XML placement | Local ICV now emits the official sample-backed `AdditionalDocumentReference` structure. `BR-KSA-33` no longer appears for the local standard/simplified fixtures. | Data dictionary and Schematron show KSA-16 as `cac:AdditionalDocumentReference` with `cbc:ID` = `ICV` and `cbc:UUID`; Schematron BR-KSA-33/34 validates that shape. | Further device/branch sequence policy in `apps/api/src/zatca/zatca.service.ts` if needed later. | Keep the current structure under fixture tests; review ICV sequence boundaries before production. |
 | Previous invoice hash XML placement and seed | Local PIH uses the official sample-backed ADR attachment shape and official first-invoice fallback value. The standard local fixture now passes SDK PIH validation. | Data dictionary maps KSA-13 to ADR `PIH`; Schematron includes PIH attachment validation and first-PIH guidance. | `packages/zatca-core/src/index.ts`, `apps/api/src/zatca/zatca.service.ts`, fixtures/tests. | Keep the official fallback under tests, then validate generated-invoice hash-chain sequencing before signing. |
-| Invoice hash source | Current production-facing hash-chain behavior is still local groundwork. `computeZatcaInvoiceHash` intentionally returns blocked status until SDK `-generateHash` or verified C14N11 is used. The SDK wrapper now exposes no-mutation SDK/app hash comparison, confirms generated invoice app hash currently mismatches the SDK hash oracle, and exposes a dry-run metadata/EGS reset plan. | Schematron describes removing extension/QR/signature blocks, C14N11 canonicalization, SHA-256 binary hash, and base64 encoding. SDK also exposes `-generateHash`. | `packages/zatca-core/src/index.ts`, `apps/api/src/zatca-sdk`, `apps/api/src/zatca/zatca-hash-mode.ts`, `apps/api/src/zatca/zatca.service.ts`. | Use the dry-run reset plan plus SDK hash comparison before replacing local hash storage. |
+| Invoice hash source | Current production-facing hash-chain behavior is still local groundwork. `computeZatcaInvoiceHash` intentionally returns blocked status until SDK `-generateHash` or verified C14N11 is used. The SDK wrapper exposes no-mutation SDK/app hash comparison, confirms existing local-mode generated invoice app hashes can mismatch the SDK hash oracle, and exposes a dry-run metadata/EGS reset plan. Fresh EGS units can now explicitly opt into persisting SDK hashes. | Schematron describes removing extension/QR/signature blocks, C14N11 canonicalization, SHA-256 binary hash, and base64 encoding. SDK also exposes `-generateHash`. | `packages/zatca-core/src/index.ts`, `apps/api/src/zatca-sdk`, `apps/api/src/zatca/zatca-hash-mode.ts`, `apps/api/src/zatca/zatca.service.ts`. | Validate fresh-EGS SDK mode repeatedly before signing; keep existing local chains out of production. |
 | Supply date | Local XML now emits `cac:Delivery/cbc:ActualDeliveryDate` when `supplyDate` is provided. Generated sales invoice XML currently falls back to issue date because LedgerByte has no dedicated supply date field yet. | Schematron `BR-KSA-15` and data dictionary `KSA-5` require supply date for standard tax invoices. | `packages/zatca-core/src/index.ts`, `apps/api/src/zatca/zatca.service.ts`, future sales invoice model/UI if a separate supply date is added. | Keep the fixture passing, then add a real supply/delivery date field only as a separate product/accounting change. |
 | `ext:UBLExtensions` and signature structure | Current XML has local TODO placeholders only. | SDK samples include populated `ext:UBLExtensions`/UBL signature structure; Schematron references signature information IDs and XAdES/enveloped method values. | `packages/zatca-core`, future signing module. | Implement only after canonicalization and key custody design. |
 | QR in XML | Current QR payload is embedded as an ADR attachment using the local TLV tags 1-5. Simplified fixture still fails SDK QR validation because Phase 2 cryptographic QR tags and signing are not implemented. | Schematron expects QR ADR attachment for simplified invoices, with base64 text/plain. Data dictionary maps KSA-14 similarly. | `packages/zatca-core/src/index.ts`, future signing/QR module. | Replace local TLV-only QR with SDK-verified Phase 2 QR output after signing exists. |
@@ -40,16 +49,16 @@ LedgerByte local fixture results after the supply-date and PIH/hash groundwork p
 - Standard fixture: `PASS`. `[XSD]`, `[EN]`, `[KSA]`, and `[PIH]` pass, including the prior `BR-KSA-15` and `KSA-13` issues.
 - Simplified fixture: `FAIL`, improved. `[XSD]`, `[EN]`, and `[PIH]` pass. Remaining failures are signing/QR/certificate related: `BR-KSA-30`, `BR-KSA-28`, `QRCODE_INVALID`, signature certificate parsing, and expected warnings `BR-KSA-29`, `BR-KSA-60`, and `BR-KSA-98`.
 
-API-generated standard invoice XML now validates locally through the SDK wrapper with SDK exit code `0`, but it returns production-quality seller/buyer address and identifier warnings and `hashComparisonStatus=MISMATCH` because the app still stores a local deterministic hash instead of the SDK/C14N11 hash. A separate no-mutation hash compare endpoint and dry-run reset-plan endpoint now exist so the replacement can be designed without changing stored metadata.
+API-generated standard invoice XML now validates locally through the SDK wrapper with SDK exit code `0`, but existing local-mode metadata can return production-quality seller/buyer address and identifier warnings plus `hashComparisonStatus=MISMATCH` because that metadata was generated with the local deterministic hash. A separate no-mutation hash compare endpoint, dry-run reset-plan endpoint, and fresh-EGS SDK hash mode now exist so the replacement can be validated without migrating old local chains.
 
-The next XML work should be driven by these remaining SDK messages, starting with app hash-chain replacement planning, generated XML seller/buyer field polish, and signing/certificate/Phase 2 QR design before any API submission.
+The next XML work should be driven by these remaining SDK messages, starting with fresh-EGS SDK hash-mode validation, generated XML seller/buyer field polish, and signing/certificate/Phase 2 QR design before any API submission.
 
 ## Code That Should Stay Local-Only For Now
 
 - `packages/zatca-core/src/index.ts`: deterministic local XML/QR/hash/CSR helpers are useful scaffolding but not official validation.
 - `apps/api/src/zatca/adapters/mock-zatca-onboarding.adapter.ts`: mock CSID and mock compliance-check must remain fake/local.
 - `apps/api/src/zatca/adapters/http-zatca-sandbox.adapter.ts`: network calls must stay blocked unless explicit sandbox flags, base URL, credentials, and verified payloads are in place.
-- `apps/api/src/zatca/zatca.service.ts`: local ICV/hash-chain behavior is useful for sequence testing, and `GET /zatca/hash-chain-reset-plan` now exposes a dry-run replacement plan, but official hash persistence is not active.
+- `apps/api/src/zatca/zatca.service.ts`: local ICV/hash-chain behavior remains the default; `GET /zatca/hash-chain-reset-plan` exposes dry-run blockers, and SDK hash persistence is active only for fresh explicitly enabled EGS units.
 - `apps/api/src/zatca-sdk`: local SDK validation is now feature-flagged and disabled by default. It is an engineering validator only and must not mark invoices compliant or enable ZATCA network calls.
 
 ## Safe Implementation Order
@@ -58,7 +67,7 @@ The next XML work should be driven by these remaining SDK messages, starting wit
 2. Copy only license-approved SDK sample XML fixtures into a tracked fixture folder or generate equivalent fixtures from official docs.
 3. Keep the corrected UBL ordering, ADR `ICV`/`PIH`/`QR`, supplier/customer, tax total, line, and monetary total structures under tests.
 4. Keep validating generated invoice XML through the API with SDK execution enabled in a local-only environment.
-5. Replace app hash-chain behavior only after SDK `-generateHash` or verified C14N11 output is integrated behind explicit flags and the dry-run metadata/EGS reset plan is reviewed.
+5. Validate SDK-generated hash persistence on a fresh EGS unit before signing; do not migrate existing local deterministic chains in place.
 6. Design KMS/secrets-manager key custody before signing.
 7. Add signing only after canonicalization, certificate handling, and SDK validation are stable.
 8. Add compliance-check sandbox calls only after signed XML and compliance CSID are working in a controlled sandbox.

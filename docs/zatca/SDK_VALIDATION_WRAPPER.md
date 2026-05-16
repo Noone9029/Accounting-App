@@ -6,6 +6,16 @@ This is a working engineering checklist. Official ZATCA/FATOORA documentation mu
 
 LedgerByte has a test-only wrapper for the official ZATCA Java SDK files stored under `reference/`. The wrapper is for local XML validation only. It does not call ZATCA APIs, does not sign invoices, does not request CSIDs, does not embed XML into PDF/A-3, and does not make the app production compliant.
 
+## Current SDK Hash Persistence Groundwork
+
+The current pass adds explicit local-only SDK hash persistence behind per-EGS opt-in:
+
+- Default behavior remains `LOCAL_DETERMINISTIC`; existing EGS units keep their current local hash-chain behavior.
+- `POST /zatca/egs-units/:id/enable-sdk-hash-mode` can set `hashMode=SDK_GENERATED` only for a fresh EGS unit with zero invoice metadata, `confirmReset=true`, a reason, and passing SDK readiness.
+- Metadata generated under SDK mode runs SDK `fatoora -generateHash -invoice <filename>`, persists that SDK hash as `invoiceHash`/`xmlHash`, stores `hashModeSnapshot=SDK_GENERATED`, and advances PIH from the previous SDK hash.
+- SDK failures roll back metadata/EGS mutation; repeated metadata generation remains idempotent.
+- This is not signing, not submission, not CSID onboarding, and not production compliance.
+
 ## Reference Inventory Findings
 
 - SDK root: `reference/zatca-einvoicing-sdk-Java-238-R3.4.8`
@@ -118,9 +128,9 @@ Path traversal and non-XML files are rejected.
 
 `POST /sales-invoices/:id/zatca/sdk-validate` uses already generated local invoice XML, if present. It does not update invoice accounting, does not submit to ZATCA, and does not mark the invoice production compliant.
 
-`POST /sales-invoices/:id/zatca/hash-compare` runs the same SDK `-generateHash` oracle path without running XML validation. It returns `appHash`, `sdkHash`, `hashMatches`, `hashComparisonStatus`, `hashMode`, and `noMutation=true`. With default SDK execution disabled it returns a blocked response. It never updates `ZatcaInvoiceMetadata`, `ZatcaEgsUnit.lastIcv`, or `ZatcaEgsUnit.lastInvoiceHash`.
+`POST /sales-invoices/:id/zatca/hash-compare` runs the same SDK `-generateHash` oracle path without running XML validation. It returns `appHash`, `sdkHash`, `hashMatches`, `hashComparisonStatus`, env `hashMode`, EGS `hashMode`, metadata `hashModeSnapshot`, and `noMutation=true`. With default SDK execution disabled it returns a blocked response. It never updates `ZatcaInvoiceMetadata`, `ZatcaEgsUnit.lastIcv`, or `ZatcaEgsUnit.lastInvoiceHash`.
 
-`GET /zatca/hash-chain-reset-plan` is an admin-only dry run. It returns active EGS units, current local ICV/hash state, latest generated invoice metadata, reset risks, and recommended next steps. It does not reset or delete anything.
+`GET /zatca/hash-chain-reset-plan` is an admin-only dry run. It returns active EGS units, hash modes, metadata counts, current local ICV/hash state, latest generated invoice metadata, SDK readiness blockers, SDK-mode enablement eligibility, reset risks, and recommended next steps. It does not reset or delete anything.
 
 When SDK execution is enabled, the response includes hash comparison fields:
 
@@ -179,8 +189,9 @@ The repo path is `E:\Accounting App`, which contains a space. Earlier SDK launch
 2. Prefer the official `fatoora -validate -invoice <filename>` launcher because direct JAR execution was not equivalent for the simplified sample.
 3. Keep the first XML structural fixes under tests: UBL order, official `ICV`/`PIH`/`QR` ADRs, invoice type flags, party identifiers, tax totals, and line formulas.
 4. Keep validating API-generated invoice XML with the SDK wrapper as XML mapping changes.
-5. Replace local app hash-chain behavior only after SDK `-generateHash` or verified C14N11 hashing is integrated with a controlled metadata/EGS reset plan.
-6. Keep signing, real API calls, production CSID, clearance/reporting, and PDF/A-3 out of scope until canonical hash-chain and signed XML validation are stable locally.
+5. Validate the fresh-EGS SDK hash mode against SDK `-generateHash` output before any signing work.
+6. Decide whether production uses SDK `-generateHash` directly or a verified in-process C14N11 fallback.
+7. Keep signing, real API calls, production CSID, clearance/reporting, and PDF/A-3 out of scope until canonical hash-chain and signed XML validation are stable locally.
 
 ## Compliance Warning
 

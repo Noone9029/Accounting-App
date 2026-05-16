@@ -19,16 +19,20 @@ import {
   SalesInvoiceStatus,
   ZatcaInvoiceStatus,
   ZatcaInvoiceType,
+  ZatcaHashMode,
   ZatcaRegistrationStatus,
   ZatcaSubmissionStatus,
   ZatcaSubmissionType,
 } from "@prisma/client";
+import { AUDIT_EVENTS, AUDIT_ENTITY_TYPES } from "../audit-log/audit-events";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateZatcaEgsUnitDto } from "./dto/create-zatca-egs-unit.dto";
+import { EnableZatcaSdkHashModeDto } from "./dto/enable-zatca-sdk-hash-mode.dto";
 import { RequestComplianceCsidDto } from "./dto/request-compliance-csid.dto";
 import { UpdateZatcaEgsUnitDto } from "./dto/update-zatca-egs-unit.dto";
 import { UpdateZatcaProfileDto } from "./dto/update-zatca-profile.dto";
+import { ZatcaSdkService } from "../zatca-sdk/zatca-sdk.service";
 import { isZatcaAdapterError, ZatcaAdapterError } from "./adapters/zatca-adapter.error";
 import { MockZatcaOnboardingAdapter } from "./adapters/mock-zatca-onboarding.adapter";
 import { ZATCA_ONBOARDING_ADAPTER, type ComplianceCsidResult, type ZatcaAdapterResult, type ZatcaOnboardingAdapter } from "./adapters/zatca-onboarding.adapter";
@@ -36,7 +40,7 @@ import { readZatcaAdapterConfig, summarizeZatcaAdapterConfig, type ZatcaAdapterC
 import { readZatcaHashModeConfig } from "./zatca-hash-mode";
 
 const zatcaMetadataInclude = {
-  egsUnit: { select: { id: true, name: true, environment: true, isActive: true, lastIcv: true } },
+  egsUnit: { select: { id: true, name: true, environment: true, isActive: true, lastIcv: true, hashMode: true } },
   submissionLogs: { orderBy: { createdAt: "desc" as const }, take: 5 },
 };
 
@@ -55,6 +59,11 @@ const safeEgsUnitSelect = {
   certificateRequestId: true,
   lastInvoiceHash: true,
   lastIcv: true,
+  hashMode: true,
+  hashModeEnabledAt: true,
+  hashModeEnabledById: true,
+  hashModeResetReason: true,
+  sdkHashChainStartedAt: true,
   isActive: true,
   createdAt: true,
   updatedAt: true,
@@ -105,6 +114,8 @@ export class ZatcaService {
     @Optional()
     @Inject(ZATCA_ADAPTER_CONFIG)
     adapterConfig?: ZatcaAdapterConfig,
+    @Optional()
+    private readonly zatcaSdkService?: ZatcaSdkService,
   ) {
     this.adapterConfig = adapterConfig ?? readZatcaAdapterConfig();
     this.onboardingAdapter = onboardingAdapter ?? new MockZatcaOnboardingAdapter();
@@ -173,6 +184,7 @@ export class ZatcaService {
         complianceCsidPem: true,
         lastIcv: true,
         lastInvoiceHash: true,
+        hashMode: true,
       },
     });
     const localXmlCount = await this.prisma.zatcaInvoiceMetadata.count({
@@ -220,6 +232,7 @@ export class ZatcaService {
             hasComplianceCsid: Boolean(activeEgs.complianceCsidPem),
             lastIcv: activeEgs.lastIcv,
             lastInvoiceHash: activeEgs.lastInvoiceHash,
+            hashMode: activeEgs.hashMode,
           }
         : null,
       localXmlReady,
@@ -231,7 +244,7 @@ export class ZatcaService {
   }
 
   async getHashChainResetPlan(organizationId: string) {
-    const [egsUnits, metadata] = await Promise.all([
+    const [egsUnits, metadata, metadataCounts] = await Promise.all([
       this.prisma.zatcaEgsUnit.findMany({
         where: { organizationId },
         orderBy: [{ isActive: "desc" }, { updatedAt: "desc" }],
@@ -251,36 +264,75 @@ export class ZatcaService {
           invoiceHash: true,
           xmlHash: true,
           egsUnitId: true,
+          hashModeSnapshot: true,
           generatedAt: true,
           invoice: { select: { invoiceNumber: true, status: true } },
         },
       }),
+      this.prisma.zatcaInvoiceMetadata.groupBy({
+        by: ["egsUnitId"],
+        where: { organizationId, egsUnitId: { not: null } },
+        _count: { _all: true },
+      }),
     ]);
     const activeEgsUnits = egsUnits.filter((unit) => unit.isActive && unit.status === ZatcaRegistrationStatus.ACTIVE);
     const newestActiveEgs = activeEgsUnits[0] ?? null;
+    const sdkReadiness = this.zatcaSdkService?.getReadiness() ?? null;
+    const sdkReadinessBlockers = sdkReadiness?.canRunLocalValidation ? [] : sdkReadiness?.blockingReasons?.length ? sdkReadiness.blockingReasons : ["ZATCA SDK local execution is not ready."];
+    const metadataCountByEgsUnit = new Map<string, number>();
+    for (const item of metadataCounts) {
+      if (item.egsUnitId) {
+        metadataCountByEgsUnit.set(item.egsUnitId, item._count._all);
+      }
+    }
 
     return {
       dryRunOnly: true,
       localOnly: true,
       noMutation: true,
       hashMode: readZatcaHashModeConfig(),
+      sdkReadiness: sdkReadiness
+        ? {
+            enabled: sdkReadiness.enabled,
+            javaSupported: sdkReadiness.javaSupported,
+            sdkJarFound: sdkReadiness.sdkJarFound,
+            configDirFound: sdkReadiness.configDirFound,
+            canRunLocalValidation: sdkReadiness.canRunLocalValidation,
+            blockingReasons: sdkReadiness.blockingReasons,
+            warnings: sdkReadiness.warnings,
+          }
+        : null,
       summary: {
         activeEgsUnitCount: activeEgsUnits.length,
         totalEgsUnitCount: egsUnits.length,
         invoicesWithMetadataCount: metadata.length,
+        sdkModeEgsUnitCount: egsUnits.filter((unit) => unit.hashMode === ZatcaHashMode.SDK_GENERATED).length,
         currentIcv: newestActiveEgs?.lastIcv ?? null,
         currentLastInvoiceHash: newestActiveEgs?.lastInvoiceHash ?? null,
       },
-      egsUnits: egsUnits.map((unit) => ({
-        id: unit.id,
-        name: unit.name,
-        environment: unit.environment,
-        status: unit.status,
-        isActive: unit.isActive,
-        lastIcv: unit.lastIcv,
-        lastInvoiceHash: unit.lastInvoiceHash,
-        updatedAt: unit.updatedAt,
-      })),
+      egsUnits: egsUnits.map((unit) => {
+        const metadataCount = metadataCountByEgsUnit.get(unit.id) ?? 0;
+        const blockers = this.getSdkHashModeEnableBlockers(unit, metadataCount, sdkReadinessBlockers);
+        return {
+          id: unit.id,
+          name: unit.name,
+          environment: unit.environment,
+          status: unit.status,
+          isActive: unit.isActive,
+          lastIcv: unit.lastIcv,
+          lastInvoiceHash: unit.lastInvoiceHash,
+          hashMode: unit.hashMode,
+          hashModeEnabledAt: unit.hashModeEnabledAt,
+          hashModeEnabledById: unit.hashModeEnabledById,
+          hashModeResetReason: unit.hashModeResetReason,
+          sdkHashChainStartedAt: unit.sdkHashChainStartedAt,
+          metadataCount,
+          canEnableSdkHashMode: blockers.length === 0,
+          enableSdkHashModeBlockers: blockers,
+          recommendedAction: blockers.length === 0 ? "Enable SDK hash mode before generating invoices for this fresh EGS unit." : "Create a new EGS unit or keep local deterministic mode.",
+          updatedAt: unit.updatedAt,
+        };
+      }),
       invoicesWithMetadata: metadata.map((item) => ({
         id: item.id,
         invoiceId: item.invoiceId,
@@ -293,6 +345,7 @@ export class ZatcaService {
         invoiceHash: item.invoiceHash,
         xmlHash: item.xmlHash,
         egsUnitId: item.egsUnitId,
+        hashModeSnapshot: item.hashModeSnapshot,
         generatedAt: item.generatedAt,
       })),
       resetRisks: [
@@ -406,6 +459,61 @@ export class ZatcaService {
     const publicUnit = this.toPublicEgsUnit(updated);
     await this.auditLogService.log({ organizationId, actorUserId, action: "UPDATE", entityType: "ZatcaEgsUnit", entityId: id, before, after: publicUnit });
     return publicUnit;
+  }
+
+  async enableSdkHashMode(organizationId: string, actorUserId: string, id: string, dto: EnableZatcaSdkHashModeDto) {
+    if (!dto.confirmReset) {
+      throw new BadRequestException("confirmReset must be true before enabling SDK hash mode.");
+    }
+    const reason = this.requiredText(dto.reason, "SDK hash mode enable reason");
+    if (reason.length < 10) {
+      throw new BadRequestException("SDK hash mode enable reason must be at least 10 characters.");
+    }
+
+    const existing = await this.prisma.zatcaEgsUnit.findFirst({ where: { id, organizationId }, select: safeEgsUnitSelect });
+    if (!existing) {
+      throw new NotFoundException("ZATCA EGS unit not found.");
+    }
+
+    const sdkReadiness = this.zatcaSdkService?.getReadiness();
+    if (!sdkReadiness?.canRunLocalValidation) {
+      const reasons = sdkReadiness?.blockingReasons?.length ? sdkReadiness.blockingReasons.join("; ") : "ZATCA SDK local execution is not ready.";
+      throw new BadRequestException(`ZATCA SDK local execution is not ready. ${reasons}`);
+    }
+
+    const metadataCount = await this.prisma.zatcaInvoiceMetadata.count({ where: { organizationId, egsUnitId: id } });
+    const blockers = this.getSdkHashModeEnableBlockers(existing, metadataCount, []);
+    if (blockers.length > 0) {
+      throw new BadRequestException(blockers.join(" "));
+    }
+
+    const now = new Date();
+    const updated = await this.prisma.zatcaEgsUnit.update({
+      where: { id },
+      data: {
+        hashMode: ZatcaHashMode.SDK_GENERATED,
+        hashModeEnabledAt: now,
+        hashModeEnabledById: actorUserId,
+        hashModeResetReason: reason,
+        sdkHashChainStartedAt: now,
+        lastIcv: 0,
+        lastInvoiceHash: initialPreviousInvoiceHash,
+      },
+      select: safeEgsUnitSelect,
+    });
+
+    const publicBefore = this.toPublicEgsUnit(existing);
+    const publicUpdated = this.toPublicEgsUnit(updated);
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: AUDIT_EVENTS.ZATCA_SDK_HASH_MODE_ENABLED,
+      entityType: AUDIT_ENTITY_TYPES.ZATCA_EGS_UNIT,
+      entityId: id,
+      before: publicBefore,
+      after: { ...publicUpdated, reason },
+    });
+    return publicUpdated;
   }
 
   async activateDevEgsUnit(organizationId: string, actorUserId: string, id: string) {
@@ -700,6 +808,13 @@ export class ZatcaService {
       const nextIcv = activeEgs ? activeEgs.lastIcv + 1 : metadata.icv;
       const previousInvoiceHash = activeEgs?.lastInvoiceHash ?? initialPreviousInvoiceHash;
       const payload = buildZatcaInvoicePayload(this.toZatcaInvoiceInput(invoice, profile, metadata.invoiceUuid, previousInvoiceHash, nextIcv));
+      const hashModeSnapshot = activeEgs?.hashMode ?? ZatcaHashMode.LOCAL_DETERMINISTIC;
+      const invoiceHash = await this.resolveInvoiceHashForMode({
+        hashMode: hashModeSnapshot,
+        xmlBase64: payload.xmlBase64,
+        appHash: payload.invoiceHash,
+        invoiceId,
+      });
 
       const updatedMetadata = await tx.zatcaInvoiceMetadata.update({
         where: { id: metadata.id },
@@ -707,11 +822,12 @@ export class ZatcaService {
           zatcaStatus: ZatcaInvoiceStatus.XML_GENERATED,
           icv: nextIcv,
           previousInvoiceHash,
-          invoiceHash: payload.invoiceHash,
+          invoiceHash,
           qrCodeBase64: payload.qrCodeBase64,
           xmlBase64: payload.xmlBase64,
-          xmlHash: payload.invoiceHash,
+          xmlHash: invoiceHash,
           egsUnitId: activeEgs?.id ?? null,
+          hashModeSnapshot,
           generatedAt: new Date(),
           lastErrorCode: null,
           lastErrorMessage: null,
@@ -722,7 +838,7 @@ export class ZatcaService {
       if (activeEgs) {
         await tx.zatcaEgsUnit.update({
           where: { id: activeEgs.id },
-          data: { lastIcv: nextIcv ?? activeEgs.lastIcv, lastInvoiceHash: payload.invoiceHash },
+          data: { lastIcv: nextIcv ?? activeEgs.lastIcv, lastInvoiceHash: invoiceHash },
         });
       }
 
@@ -1289,10 +1405,46 @@ export class ZatcaService {
       certificateRequestId: unit.certificateRequestId,
       lastInvoiceHash: unit.lastInvoiceHash,
       lastIcv: unit.lastIcv,
+      hashMode: unit.hashMode,
+      hashModeEnabledAt: unit.hashModeEnabledAt,
+      hashModeEnabledById: unit.hashModeEnabledById,
+      hashModeResetReason: unit.hashModeResetReason,
+      sdkHashChainStartedAt: unit.sdkHashChainStartedAt,
       isActive: unit.isActive,
       createdAt: unit.createdAt,
       updatedAt: unit.updatedAt,
     };
+  }
+
+  private async resolveInvoiceHashForMode(params: { hashMode: ZatcaHashMode; xmlBase64: string; appHash: string; invoiceId: string }): Promise<string> {
+    if (params.hashMode === ZatcaHashMode.LOCAL_DETERMINISTIC) {
+      return params.appHash;
+    }
+    if (!this.zatcaSdkService) {
+      throw new BadRequestException("SDK hash generation service is not available.");
+    }
+
+    const xml = Buffer.from(params.xmlBase64, "base64").toString("utf8");
+    const result = await this.zatcaSdkService.generateOfficialZatcaHash(xml, { appHash: params.appHash, tempName: params.invoiceId });
+    if (result.hashComparisonStatus === "BLOCKED" || !result.sdkHash) {
+      const reason = result.blockingReasons.length > 0 ? result.blockingReasons.join("; ") : "No SDK hash was returned.";
+      throw new BadRequestException(`SDK hash generation failed or is blocked: ${reason}`);
+    }
+    return result.sdkHash;
+  }
+
+  private getSdkHashModeEnableBlockers(unit: SafeEgsUnitRecord, metadataCount: number, sdkReadinessBlockers: string[]): string[] {
+    const blockers = [...sdkReadinessBlockers];
+    if (unit.hashMode === ZatcaHashMode.SDK_GENERATED) {
+      blockers.push("SDK hash mode is already enabled for this EGS unit.");
+    }
+    if (metadataCount > 0) {
+      blockers.push("This EGS already has ZATCA invoice metadata; Create a new EGS unit for SDK hash mode.");
+    }
+    if (unit.environment === "PRODUCTION" || unit.productionCsidPem) {
+      blockers.push("SDK hash mode cannot be enabled on an EGS unit with production CSID state.");
+    }
+    return blockers;
   }
 
   private withReadiness<T extends { sellerName?: string | null; vatNumber?: string | null; city?: string | null; countryCode?: string | null }>(profile: T) {

@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { AuditLogModule } from "../audit-log/audit-log.module";
 import { PrismaModule } from "../prisma/prisma.module";
+import { ZatcaSdkModule } from "../zatca-sdk/zatca-sdk.module";
 import { HttpZatcaSandboxAdapter } from "./adapters/http-zatca-sandbox.adapter";
 import { MockZatcaOnboardingAdapter } from "./adapters/mock-zatca-onboarding.adapter";
 import { SandboxDisabledZatcaOnboardingAdapter } from "./adapters/sandbox-disabled-zatca-onboarding.adapter";
@@ -10,7 +11,7 @@ import { ZatcaController } from "./zatca.controller";
 import { ZatcaService } from "./zatca.service";
 
 @Module({
-  imports: [PrismaModule, AuditLogModule],
+  imports: [PrismaModule, AuditLogModule, ZatcaSdkModule],
   controllers: [ZatcaController],
   providers: [
     ZatcaService,

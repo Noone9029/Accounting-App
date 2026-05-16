@@ -21,6 +21,7 @@ import {
   shouldShowZatcaSdkLocalOnlyWarning,
   truncateHash,
   zatcaHashComparisonLabel,
+  zatcaHashModeLabel,
   zatcaInvoiceHashComparePath,
   zatcaInvoiceSdkValidatePath,
   zatcaInvoiceClearancePath,
@@ -908,14 +909,21 @@ export default function SalesInvoiceDetailPage() {
                 </div>
                 <p className="mt-3 text-xs text-amber-700">Local-only, no mutation, no signing, no clearance/reporting, and no production compliance claim.</p>
                 {shouldShowZatcaHashMismatchWarning(hashComparison) ? (
-                  <p className="mt-2 text-xs text-rosewood">LedgerByte still stores a local deterministic hash. SDK hash persistence requires a future controlled EGS reset/migration plan.</p>
+                  <p className="mt-2 text-xs text-rosewood">
+                    {hashComparison.egsHashMode === "SDK_GENERATED" || hashComparison.metadataHashModeSnapshot === "SDK_GENERATED"
+                      ? "Stored hash does not match current SDK hash; XML may have changed or metadata is stale."
+                      : "LedgerByte stores local deterministic hashes unless SDK hash mode is explicitly enabled on a fresh EGS unit."}
+                  </p>
                 ) : null}
                 <div className="mt-3 grid grid-cols-1 gap-3 text-xs md:grid-cols-3">
                   <Summary label="App hash" value={truncateHash(hashComparison.appHash)} />
                   <Summary label="SDK hash" value={truncateHash(hashComparison.sdkHash)} />
+                  <Summary label="Stored hash" value={truncateHash(zatca?.invoiceHash)} />
                   <Summary label="No mutation" value={hashComparison.noMutation ? "Yes" : "No"} />
                   <Summary label="SDK exit code" value={hashComparison.sdkExitCode === null ? "-" : String(hashComparison.sdkExitCode)} />
                   <Summary label="Hash mode" value={hashComparison.hashMode.mode.replaceAll("_", " ")} />
+                  <Summary label="EGS hash mode" value={zatcaHashModeLabel(hashComparison.egsHashMode)} />
+                  <Summary label="Metadata hash mode" value={zatcaHashModeLabel(hashComparison.metadataHashModeSnapshot)} />
                   <Summary label="ICV" value={hashComparison.icv === null ? "-" : String(hashComparison.icv)} />
                 </div>
                 {hashComparison.blockingReasons.length ? (

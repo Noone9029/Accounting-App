@@ -9,6 +9,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { CreateZatcaEgsUnitDto } from "./dto/create-zatca-egs-unit.dto";
+import { EnableZatcaSdkHashModeDto } from "./dto/enable-zatca-sdk-hash-mode.dto";
 import { RequestComplianceCsidDto } from "./dto/request-compliance-csid.dto";
 import { UpdateZatcaEgsUnitDto } from "./dto/update-zatca-egs-unit.dto";
 import { UpdateZatcaProfileDto } from "./dto/update-zatca-profile.dto";
@@ -89,6 +90,17 @@ export class ZatcaController {
   @RequirePermissions(PERMISSIONS.zatca.manage)
   activateDevEgsUnit(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
     return this.zatcaService.activateDevEgsUnit(organizationId, user.id, id);
+  }
+
+  @Post("zatca/egs-units/:id/enable-sdk-hash-mode")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  enableSdkHashMode(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: EnableZatcaSdkHashModeDto,
+  ) {
+    return this.zatcaService.enableSdkHashMode(organizationId, user.id, id, dto);
   }
 
   @Post("zatca/egs-units/:id/generate-csr")

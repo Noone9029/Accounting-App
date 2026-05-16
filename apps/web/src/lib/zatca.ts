@@ -61,6 +61,10 @@ export function zatcaHashChainResetPlanPath(): string {
   return "/zatca/hash-chain-reset-plan";
 }
 
+export function zatcaEgsSdkHashModeEnablePath(egsUnitId: string): string {
+  return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/enable-sdk-hash-mode`;
+}
+
 export function zatcaEgsCsrDownloadPath(egsUnitId: string): string {
   return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/csr/download`;
 }
@@ -183,6 +187,14 @@ export function shouldShowZatcaHashMismatchWarning(result: { hashComparisonStatu
 
 export function zatcaResetPlanWarningLabel(dryRunOnly: boolean): string {
   return dryRunOnly ? "This is a dry run; no ZATCA hash-chain metadata is reset." : "Reset execution is not implemented.";
+}
+
+export function canEnableZatcaSdkHashMode(unit: { canEnableSdkHashMode?: boolean; enableSdkHashModeBlockers?: string[] | null } | null | undefined): boolean {
+  return Boolean(unit?.canEnableSdkHashMode && (unit.enableSdkHashModeBlockers?.length ?? 0) === 0);
+}
+
+export function zatcaSdkHashModeEnableBlockerLabel(blockers: string[] | null | undefined): string {
+  return blockers?.length ? blockers.join("; ") : "No blockers";
 }
 
 export function shouldShowZatcaSdkLocalOnlyWarning(result: { localOnly?: boolean; officialValidationAttempted?: boolean } | null | undefined): boolean {

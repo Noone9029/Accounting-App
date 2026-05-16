@@ -103,7 +103,7 @@ Tasks:
 - Verify official XML requirements against local `reference/` docs and SDK samples.
 - Keep Java 11-14 configured for repeatable local/CI SDK validation; official sample fixtures now pass under Java 11.
 - Complete the remaining official XML gaps: generated invoice address/identifier warnings, broader invoice scenarios, signing/certificate, and Phase 2 QR.
-- Use the new no-mutation hash comparison and dry-run reset plan to implement SDK/C14N11-backed hash persistence safely before replacing the local hash-chain behavior.
+- Use the new no-mutation hash comparison, dry-run reset plan, and explicit fresh-EGS SDK hash mode to validate SDK/C14N11-backed hash persistence before any signing or network work.
 - Implement signing and Phase 2 QR only after canonicalization and key custody are designed.
 - Implement compliance CSID onboarding with real FATOORA sandbox OTP.
 - Implement compliance invoice API tests.
@@ -125,7 +125,7 @@ Risk level: Critical.
 
 Recommended next prompt:
 
-> Implement SDK/C14N11-backed ZATCA hash persistence behind explicit local-only flags, using the no-mutation hash comparison and dry-run reset plan as safety gates, without signing or network calls.
+> Validate fresh-EGS SDK-generated ZATCA hash persistence against local SDK output, then fix remaining generated XML address/identifier warnings without signing or network calls.
 
 ## Phase 5: Production/SaaS Readiness
 

@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Current commit audited: pending (`Add ZATCA hash-chain replacement groundwork`)
+Current commit audited: pending (`Add ZATCA SDK hash mode persistence groundwork`)
 
 See also:
 
@@ -14,7 +14,7 @@ See also:
 
 LedgerByte is a TypeScript monorepo for a GCC/Saudi-oriented accounting SaaS. The current codebase has a working local MVP for core AR and AP transaction flows, dashboard KPI overview, document PDFs, report CSV/PDF exports, generated-document archive, uploaded supporting-file attachment groundwork with database-default storage and feature-flagged S3-compatible storage for new uploads, storage readiness and dry-run migration planning, email invitation/password reset groundwork with mock-default delivery, opt-in SMTP adapter, provider readiness, test-send, and DB-backed rate limits, standardized audit logging with admin review UI, filtered CSV export, retention settings, dry-run retention preview, guarded number-sequence settings, operational inventory warehouse/stock-ledger/adjustment/transfer/receipt/issue/report controls, inventory accounting preview, clearing/matching groundwork, accountant-reviewed purchase bill clearing-mode finalization, explicit compatible purchase receipt asset posting, inventory clearing reconciliation/variance reporting, accountant-reviewed inventory variance proposal workflow, inventory accounting integrity audit, purchase receipt posting readiness audit, local API smoke coverage, browser E2E smoke coverage, and non-production ZATCA groundwork.
 
-Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now estimates local demo MVP readiness at 88%, private beta readiness at 62%, production SaaS readiness at 38%, Saudi/ZATCA production readiness at 33%, and Xero/Wafeq competitor readiness at 45%. The app can be demonstrated locally for dashboard KPI overview, sales invoices, customer payments, credit notes, customer refunds, purchase orders, purchase bills, purchase bill accounting previews, supplier payments, bank account profile balances/transactions, bank transfers, opening-balance posting, local bank statement import preview/reconciliation, reconciliation approval/close/lock review history, reconciliation reports, uploaded attachment upload/list/download/soft-delete on key source records, inventory warehouses, opening-balance movements, inventory adjustment approvals/voids, warehouse transfers/voids, purchase receipts/voids, sales stock issues/voids, inventory balances, inventory settings, inventory accounting settings, purchase receipt posting readiness, purchase receipt accounting previews, compatible receipt asset posting/reversal, bill/receipt matching visibility, inventory clearing reconciliation/variance reports, variance proposal create/submit/approve/post/reverse/void workflow, sales issue COGS previews/posting, stock valuation/movement/low-stock reports, ledgers, statements, core report exports, and PDFs. It is not production-ready as a SaaS and is not production ZATCA compliant.
+Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now estimates local demo MVP readiness at 88%, private beta readiness at 62%, production SaaS readiness at 38%, Saudi/ZATCA production readiness at 36%, and Xero/Wafeq competitor readiness at 45%. The app can be demonstrated locally for dashboard KPI overview, sales invoices, customer payments, credit notes, customer refunds, purchase orders, purchase bills, purchase bill accounting previews, supplier payments, bank account profile balances/transactions, bank transfers, opening-balance posting, local bank statement import preview/reconciliation, reconciliation approval/close/lock review history, reconciliation reports, uploaded attachment upload/list/download/soft-delete on key source records, inventory warehouses, opening-balance movements, inventory adjustment approvals/voids, warehouse transfers/voids, purchase receipts/voids, sales stock issues/voids, inventory balances, inventory settings, inventory accounting settings, purchase receipt posting readiness, purchase receipt accounting previews, compatible receipt asset posting/reversal, bill/receipt matching visibility, inventory clearing reconciliation/variance reports, variance proposal create/submit/approve/post/reverse/void workflow, sales issue COGS previews/posting, stock valuation/movement/low-stock reports, ledgers, statements, core report exports, and PDFs. It is not production-ready as a SaaS and is not production ZATCA compliant.
 
 ## Tech Stack
 
@@ -23,7 +23,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Frontend: Next.js App Router, React, Tailwind CSS, typed API helpers.
 - Shared packages: `accounting-core`, `pdf-core`, `zatca-core`, `shared`, `ui`.
 - PDF: PDFKit through `packages/pdf-core`.
-- ZATCA: local TypeScript scaffolding plus local official references, Java SDK readiness/local-validation wrapper checks, official sample fixture validation pass under Java 11, LedgerByte XML structural fixes against SDK output, API-generated XML validation, read-only SDK/app hash comparison, and dry-run hash-chain reset planning.
+- ZATCA: local TypeScript scaffolding plus local official references, Java SDK readiness/local-validation wrapper checks, official sample fixture validation pass under Java 11, LedgerByte XML structural fixes against SDK output, API-generated XML validation, read-only SDK/app hash comparison, dry-run hash-chain reset planning, and explicit fresh-EGS SDK hash persistence.
 - Local infra: Docker Compose for PostgreSQL, Redis, API, and web.
 
 ## Monorepo Structure
@@ -64,7 +64,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Core accounting report JSON/CSV/PDF outputs for General Ledger, Trial Balance, Profit & Loss, Balance Sheet, VAT Summary, Aged Receivables, and Aged Payables.
 - Generated document archive for generated PDFs.
 - Uploaded supporting-file attachment groundwork with database-default storage, metadata, tenant-scoped linked entity validation, reusable panels on key detail pages, storage readiness API, feature-flagged S3-compatible upload/download storage for new attachments, dry-run migration counts, and `/settings/storage`.
-- Local-only ZATCA profile, EGS, CSR, mock CSID, XML/QR/hash, compliance checklist, reference maps, SDK wrapper readiness/dry-run/local-validation disabled path, official fixture registry/results documentation, and no-mutation hash-chain comparison/reset planning.
+- Local-only ZATCA profile, EGS, CSR, mock CSID, XML/QR/hash, compliance checklist, reference maps, SDK wrapper readiness/dry-run/local-validation disabled path, official fixture registry/results documentation, no-mutation hash-chain comparison/reset planning, and fresh-EGS SDK hash mode persistence safeguards.
 - Full `typecheck`, `test`, `build`, and API smoke workflow is run for each release checkpoint; browser E2E smoke now exists for local user-facing route checks.
 
 ## Groundwork Or Scaffold Only
@@ -76,13 +76,13 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Inventory warehouse, stock ledger, adjustment approval, warehouse transfer controls, manual purchase receiving, manual sales stock issue, valuation settings, purchase bill clearing-mode finalization, compatible manual purchase receipt asset posting, inventory clearing preview/matching/reconciliation groundwork, accountant-reviewed variance proposal workflow, purchase receipt posting readiness audit, inventory accounting integrity audit, manual COGS posting, and operational reports exist, but automatic COGS, automatic/direct-mode receipt asset posting, automatic variance posting, automatic receipts/issues, landed cost, serial/batch tracking, and accounting-grade inventory financial reports are not implemented.
 - PDF rendering is operational only, not legal/template-complete.
 - Generated document storage and existing uploaded attachment content still default to database base64; new uploaded attachments can use S3-compatible storage only when explicitly configured, and no migration executor is active.
-- ZATCA is local/mock/scaffold only. Local SDK validation groundwork exists behind a disabled-by-default flag; official SDK sample fixtures now pass under Java 11, LedgerByte standard XML fixture now passes SDK global validation, simplified XML fixture passes XSD/EN/PIH, API-generated standard XML validates locally with warnings, and hash-chain reset planning is dry-run only. App hash-chain storage still uses local deterministic hashes, and signing, Phase 2 QR, real CSID, clearance, reporting, and PDF/A-3 do not exist.
+- ZATCA is local/mock/scaffold only. Local SDK validation groundwork exists behind a disabled-by-default flag; official SDK sample fixtures now pass under Java 11, LedgerByte standard XML fixture now passes SDK global validation, simplified XML fixture passes XSD/EN/PIH, API-generated standard XML validates locally with warnings, and hash-chain reset planning is dry-run only. SDK hash persistence exists only for fresh explicitly enabled EGS units; signing, Phase 2 QR, real CSID, clearance, reporting, and PDF/A-3 do not exist.
 - Redis is present in local infra but workers/queues are not wired.
 - Production deployment, monitoring, backups, subscription billing, email queue/retry/webhook operations, WhatsApp, generated-document object storage, and attachment migration operations are not implemented.
 
 ## Top 10 Risks
 
-1. ZATCA is not production compliant; LedgerByte simplified XML still fails signing/QR/certificate checks, API-generated XML still has address/identifier warnings, app hashes are only compared to SDK hash output and not stored as official metadata, and real onboarding, signing, and API submission are missing.
+1. ZATCA is not production compliant; LedgerByte simplified XML still fails signing/QR/certificate checks, API-generated XML still has address/identifier warnings, SDK hashes are persisted only for fresh local-only opt-in EGS units, and real onboarding, signing, and API submission are missing.
 2. Invite/onboarding/password reset default to mock/local delivery with provider readiness, test-send, opt-in SMTP, and DB-backed request rate limits; MFA, queue/retry, webhooks, and advanced session management are still missing.
 3. No broad approval workflow, dual control, or maker-checker policy exists for high-risk accounting actions outside the new bank reconciliation approval path.
 4. Bank reconciliation has local import preview, manual matching, categorization, approval, close/lock, report export groundwork, and basic linked attachments, but there is no live feed, automatic matching, OFX/CAMT/MT940 parser, production-grade bank file parser/storage workflow, or external bank integration.
@@ -102,7 +102,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 5. Add partial PO receiving/billing design and purchase matching hardening.
 6. Harden bank reconciliation with upload storage, import file-format samples/parsers, transfer fees, and multi-currency FX handling.
 7. Review accountant-reviewed inventory variance journal proposal outputs, then define historical direct-mode exclusion/migration and landed-cost policy before any automatic posting.
-8. Implement official SDK/C14N11 hash persistence using the dry-run reset plan, resolve remaining generated XML warnings, then advance signing/certificate, Phase 2 QR, CSID, clearance/reporting, and PDF/A-3.
+8. Validate fresh-EGS SDK hash persistence using the dry-run reset plan, resolve remaining generated XML warnings, then advance signing/certificate, Phase 2 QR, CSID, clearance/reporting, and PDF/A-3.
 9. Test the uploaded-attachment S3 adapter with a real non-production bucket, then implement the migration executor and generated-document S3 path.
 10. Prepare production deployment, monitoring, backups, secrets management, and security review.
 

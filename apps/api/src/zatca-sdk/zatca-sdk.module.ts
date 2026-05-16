@@ -7,5 +7,6 @@ import { ZatcaSdkService } from "./zatca-sdk.service";
   imports: [PrismaModule],
   controllers: [ZatcaSdkController],
   providers: [ZatcaSdkService],
+  exports: [ZatcaSdkService],
 })
 export class ZatcaSdkModule {}

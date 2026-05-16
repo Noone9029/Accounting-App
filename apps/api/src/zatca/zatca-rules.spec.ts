@@ -286,6 +286,76 @@ describe("ZATCA service rules", () => {
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "GENERATE", entityType: "ZatcaInvoiceMetadata" }));
   });
 
+  it("persists SDK-generated hashes for SDK hash-mode EGS units without changing signing or submission behavior", async () => {
+    const tx = makeGenerationTransactionMock({
+      activeEgsHashMode: "SDK_GENERATED",
+      activeEgsLastIcv: 0,
+      activeEgsLastInvoiceHash: initialPreviousInvoiceHash,
+    });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const sdk = makeSdkServiceMock({ sdkHash: "sdk-generated-hash" });
+    const service = new (ZatcaService as never as new (...args: unknown[]) => ZatcaService)(prisma, { log: jest.fn() }, undefined, undefined, sdk);
+
+    const result = await service.generateInvoiceCompliance("org-1", "user-1", "invoice-1");
+
+    expect(sdk.generateOfficialZatcaHash).toHaveBeenCalledWith(expect.stringContaining("<Invoice"), expect.objectContaining({ appHash: expect.any(String) }));
+    expect(result).toMatchObject({
+      icv: 1,
+      previousInvoiceHash: initialPreviousInvoiceHash,
+      invoiceHash: "sdk-generated-hash",
+      xmlHash: "sdk-generated-hash",
+      hashModeSnapshot: "SDK_GENERATED",
+    });
+    expect(tx.zatcaInvoiceMetadata.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          invoiceHash: "sdk-generated-hash",
+          xmlHash: "sdk-generated-hash",
+          hashModeSnapshot: "SDK_GENERATED",
+        }),
+      }),
+    );
+    expect(tx.zatcaEgsUnit.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ lastIcv: 1, lastInvoiceHash: "sdk-generated-hash" }) }));
+    expect(tx.zatcaSubmissionLog.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ requestUrl: "local-generation-only" }) }));
+  });
+
+  it("uses the previous SDK hash as PIH for the next SDK hash-mode invoice", async () => {
+    const tx = makeGenerationTransactionMock({
+      activeEgsHashMode: "SDK_GENERATED",
+      activeEgsLastIcv: 5,
+      activeEgsLastInvoiceHash: "previous-sdk-hash",
+    });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const sdk = makeSdkServiceMock({ sdkHash: "next-sdk-hash" });
+    const service = new (ZatcaService as never as new (...args: unknown[]) => ZatcaService)(prisma, { log: jest.fn() }, undefined, undefined, sdk);
+
+    await service.generateInvoiceCompliance("org-1", "user-1", "invoice-1");
+
+    expect(tx.zatcaInvoiceMetadata.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          icv: 6,
+          previousInvoiceHash: "previous-sdk-hash",
+          invoiceHash: "next-sdk-hash",
+          hashModeSnapshot: "SDK_GENERATED",
+        }),
+      }),
+    );
+  });
+
+  it("does not partially mutate invoice metadata or EGS state when SDK hash generation fails", async () => {
+    const tx = makeGenerationTransactionMock({ activeEgsHashMode: "SDK_GENERATED" });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const sdk = makeSdkServiceMock({ sdkHash: null, blockingReasons: ["SDK hash generation is blocked."] });
+    const service = new (ZatcaService as never as new (...args: unknown[]) => ZatcaService)(prisma, { log: jest.fn() }, undefined, undefined, sdk);
+
+    await expect(service.generateInvoiceCompliance("org-1", "user-1", "invoice-1")).rejects.toThrow("SDK hash generation");
+
+    expect(tx.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+    expect(tx.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(tx.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+  });
+
   it("returns existing generated metadata without consuming another ICV", async () => {
     const existingMetadata = makeGeneratedMetadata({ icv: 7, previousInvoiceHash: "previous-hash", invoiceHash: "existing-hash" });
     const tx = makeGenerationTransactionMock({
@@ -321,6 +391,70 @@ describe("ZATCA service rules", () => {
       expect.objectContaining({ data: expect.objectContaining({ previousInvoiceHash: initialPreviousInvoiceHash, icv: null }) }),
     );
     expect(tx.zatcaEgsUnit.update).not.toHaveBeenCalled();
+  });
+
+  it("blocks SDK hash mode enablement when SDK execution is not ready", async () => {
+    const prisma = makeSdkHashEnablePrisma({ egsUnit: makeEgsUnit({ status: ZatcaRegistrationStatus.ACTIVE, isActive: true }) });
+    const sdk = makeSdkServiceMock({ readiness: { enabled: false, canRunLocalValidation: false, blockingReasons: ["ZATCA SDK local execution is disabled."] } });
+    const service = new (ZatcaService as never as new (...args: unknown[]) => ZatcaService)(prisma, { log: jest.fn() }, undefined, undefined, sdk);
+
+    await expect(
+      (service as unknown as { enableSdkHashMode: (organizationId: string, actorUserId: string, id: string, dto: { reason: string; confirmReset: boolean }) => Promise<unknown> })
+        .enableSdkHashMode("org-1", "user-1", "egs-1", { reason: "Testing SDK generated hashes locally", confirmReset: true }),
+    ).rejects.toThrow("ZATCA SDK local execution is not ready");
+
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+  });
+
+  it("blocks SDK hash mode enablement when the EGS already has invoice metadata", async () => {
+    const prisma = makeSdkHashEnablePrisma({
+      egsUnit: makeEgsUnit({ status: ZatcaRegistrationStatus.ACTIVE, isActive: true }),
+      metadataCount: 2,
+    });
+    const sdk = makeSdkServiceMock();
+    const service = new (ZatcaService as never as new (...args: unknown[]) => ZatcaService)(prisma, { log: jest.fn() }, undefined, undefined, sdk);
+
+    await expect(
+      (service as unknown as { enableSdkHashMode: (organizationId: string, actorUserId: string, id: string, dto: { reason: string; confirmReset: boolean }) => Promise<unknown> })
+        .enableSdkHashMode("org-1", "user-1", "egs-1", { reason: "Testing SDK generated hashes locally", confirmReset: true }),
+    ).rejects.toThrow("Create a new EGS unit");
+
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+  });
+
+  it("enables SDK hash mode only on a fresh EGS unit and writes an audit log", async () => {
+    const egsUnit = makeEgsUnit({ status: ZatcaRegistrationStatus.ACTIVE, isActive: true, lastIcv: 4, lastInvoiceHash: "local-hash" });
+    const prisma = makeSdkHashEnablePrisma({ egsUnit, metadataCount: 0 });
+    const audit = { log: jest.fn() };
+    const sdk = makeSdkServiceMock();
+    const service = new (ZatcaService as never as new (...args: unknown[]) => ZatcaService)(prisma, audit, undefined, undefined, sdk);
+
+    const result = await (
+      service as unknown as { enableSdkHashMode: (organizationId: string, actorUserId: string, id: string, dto: { reason: string; confirmReset: boolean }) => Promise<unknown> }
+    ).enableSdkHashMode("org-1", "user-1", "egs-1", { reason: "Testing SDK generated hashes locally", confirmReset: true });
+
+    expect(result).toMatchObject({ id: "egs-1", hashMode: "SDK_GENERATED", lastIcv: 0, lastInvoiceHash: initialPreviousInvoiceHash });
+    expect(prisma.zatcaEgsUnit.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          hashMode: "SDK_GENERATED",
+          hashModeEnabledById: "user-1",
+          hashModeResetReason: "Testing SDK generated hashes locally",
+          lastIcv: 0,
+          lastInvoiceHash: initialPreviousInvoiceHash,
+          hashModeEnabledAt: expect.any(Date),
+          sdkHashChainStartedAt: expect.any(Date),
+        }),
+      }),
+    );
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "ZATCA_SDK_HASH_MODE_ENABLED",
+        entityType: "ZatcaEgsUnit",
+        entityId: "egs-1",
+        after: expect.objectContaining({ hashMode: "SDK_GENERATED" }),
+      }),
+    );
   });
 
   it("runs mock invoice compliance checks, updates local readiness, and logs the submission", async () => {
@@ -573,6 +707,7 @@ describe("ZATCA service rules", () => {
         update: jest.fn(),
       },
       zatcaInvoiceMetadata: {
+        groupBy: jest.fn().mockResolvedValue([{ egsUnitId: "egs-1", _count: { _all: 1 } }]),
         findMany: jest.fn().mockResolvedValue([
           {
             id: "metadata-1",
@@ -606,6 +741,12 @@ describe("ZATCA service rules", () => {
       },
     });
     expect(plan.egsUnits[0]).toMatchObject({ id: "egs-1", name: "Active EGS", lastIcv: 8, lastInvoiceHash: "local-last-hash" });
+    expect(plan.egsUnits[0]).toMatchObject({
+      hashMode: "LOCAL_DETERMINISTIC",
+      metadataCount: 1,
+      canEnableSdkHashMode: false,
+      enableSdkHashModeBlockers: expect.arrayContaining([expect.stringContaining("already has ZATCA invoice metadata")]),
+    });
     expect(plan.invoicesWithMetadata[0]).toMatchObject({ invoiceId: "invoice-1", invoiceNumber: "INV-000008", invoiceHash: "local-last-hash" });
     expect(plan.resetRisks.join(" ")).toContain("Do not reset");
     expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
@@ -619,6 +760,7 @@ function makeGenerationTransactionMock(options: {
   vatNumber?: string | null;
   activeEgsLastIcv?: number;
   activeEgsLastInvoiceHash?: string | null;
+  activeEgsHashMode?: "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
   activeEgs?: null;
   existingMetadata?: ReturnType<typeof makeGeneratedMetadata>;
 } = {}) {
@@ -629,6 +771,7 @@ function makeGenerationTransactionMock(options: {
           id: "egs-1",
           lastIcv: options.activeEgsLastIcv ?? 0,
           lastInvoiceHash: options.activeEgsLastInvoiceHash ?? null,
+          hashMode: options.activeEgsHashMode ?? "LOCAL_DETERMINISTIC",
         };
 
   return {
@@ -696,6 +839,7 @@ function makeGenerationTransactionMock(options: {
           qrCodeBase64: null,
           invoiceHash: null,
           generatedAt: null,
+          hashModeSnapshot: "LOCAL_DETERMINISTIC",
         },
       ),
       findUniqueOrThrow: jest.fn().mockResolvedValue(options.existingMetadata ?? makeGeneratedMetadata()),
@@ -733,10 +877,71 @@ function makeEgsUnit(overrides: Record<string, unknown> = {}) {
     certificateRequestId: null,
     lastInvoiceHash: null,
     lastIcv: 0,
+    hashMode: "LOCAL_DETERMINISTIC",
+    hashModeEnabledAt: null,
+    hashModeEnabledById: null,
+    hashModeResetReason: null,
+    sdkHashChainStartedAt: null,
     isActive: false,
     createdAt: new Date("2026-05-07T00:00:00.000Z"),
     updatedAt: new Date("2026-05-07T00:00:00.000Z"),
     ...overrides,
+  };
+}
+
+function makeSdkServiceMock(options: {
+  sdkHash?: string | null;
+  blockingReasons?: string[];
+  readiness?: Record<string, unknown>;
+} = {}) {
+  return {
+    getReadiness: jest.fn().mockReturnValue({
+      enabled: true,
+      canRunLocalValidation: true,
+      blockingReasons: [],
+      warnings: [],
+      ...options.readiness,
+    }),
+    generateOfficialZatcaHash: jest.fn().mockResolvedValue({
+      disabled: false,
+      localOnly: true,
+      noMutation: true,
+      officialHashAttempted: true,
+      sdkExitCode: options.sdkHash === null ? null : 0,
+      sdkHash: options.sdkHash ?? "sdk-generated-hash",
+      appHash: "local-app-hash",
+      hashMatches: false,
+      hashComparisonStatus: options.sdkHash === null ? "BLOCKED" : "MISMATCH",
+      stdoutSummary: "",
+      stderrSummary: "",
+      blockingReasons: options.blockingReasons ?? [],
+      warnings: [],
+      hashMode: { mode: "LOCAL_DETERMINISTIC", envValue: "local", sdkModeRequested: false, blockingReasons: [], warnings: [] },
+    }),
+  };
+}
+
+function makeSdkHashEnablePrisma(options: { egsUnit: Record<string, unknown> | null; metadataCount?: number }) {
+  const updated = options.egsUnit
+    ? {
+        ...options.egsUnit,
+        hashMode: "SDK_GENERATED",
+        lastIcv: 0,
+        lastInvoiceHash: initialPreviousInvoiceHash,
+        hashModeEnabledAt: new Date("2026-05-16T12:00:00.000Z"),
+        hashModeEnabledById: "user-1",
+        hashModeResetReason: "Testing SDK generated hashes locally",
+        sdkHashChainStartedAt: new Date("2026-05-16T12:00:00.000Z"),
+      }
+    : null;
+  return {
+    zatcaEgsUnit: {
+      findFirst: jest.fn().mockResolvedValue(options.egsUnit),
+      update: jest.fn().mockResolvedValue(updated),
+    },
+    zatcaInvoiceMetadata: {
+      count: jest.fn().mockResolvedValue(options.metadataCount ?? 0),
+    },
   };
 }
 
@@ -797,6 +1002,7 @@ function makeGeneratedMetadata(overrides: Record<string, unknown> = {}) {
     xmlBase64: Buffer.from("<Invoice />", "utf8").toString("base64"),
     xmlHash: "invoice-hash",
     egsUnitId: "egs-1",
+    hashModeSnapshot: "LOCAL_DETERMINISTIC",
     generatedAt: new Date("2026-05-07T00:00:00.000Z"),
     clearedAt: null,
     reportedAt: null,

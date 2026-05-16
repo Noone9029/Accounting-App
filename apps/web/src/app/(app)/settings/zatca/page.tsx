@@ -16,14 +16,17 @@ import {
   zatcaChecklistRiskBadgeClass,
   zatcaChecklistStatusBadgeClass,
   zatcaEgsCsrDownloadPath,
+  zatcaEgsSdkHashModeEnablePath,
   zatcaHashChainResetPlanPath,
   zatcaHashModeLabel,
   zatcaResetPlanWarningLabel,
   zatcaReadinessLabel,
+  zatcaSdkHashModeEnableBlockerLabel,
   zatcaSdkCanAttemptLabel,
   zatcaSdkExecutionLabel,
   zatcaSdkReadinessLabel,
   zatcaSdkReadinessPath,
+  canEnableZatcaSdkHashMode,
   zatcaStatusLabel,
 } from "@/lib/zatca";
 import type {
@@ -78,6 +81,8 @@ export default function ZatcaSettingsPage() {
   const [submissionLogs, setSubmissionLogs] = useState<ZatcaSubmissionLog[]>([]);
   const [egsForm, setEgsForm] = useState<EgsForm>({ name: "LedgerByte Dev EGS", deviceSerialNumber: "LEDGERBYTE-DEV-EGS" });
   const [otpByUnit, setOtpByUnit] = useState<Record<string, string>>({});
+  const [hashModeReasonByUnit, setHashModeReasonByUnit] = useState<Record<string, string>>({});
+  const [hashModeConfirmByUnit, setHashModeConfirmByUnit] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState("");
@@ -257,6 +262,31 @@ export default function ZatcaSettingsPage() {
     }
   }
 
+  async function enableSdkHashMode(unitId: string) {
+    setActionLoading(`sdk-hash-${unitId}`);
+    setError("");
+    setSuccess("");
+
+    try {
+      const updated = await apiRequest<ZatcaEgsUnit>(zatcaEgsSdkHashModeEnablePath(unitId), {
+        method: "POST",
+        body: {
+          reason: hashModeReasonByUnit[unitId] ?? "",
+          confirmReset: hashModeConfirmByUnit[unitId] === true,
+        },
+      });
+      replaceUnit(updated);
+      await refreshReadiness();
+      setHashModeReasonByUnit((current) => ({ ...current, [unitId]: "" }));
+      setHashModeConfirmByUnit((current) => ({ ...current, [unitId]: false }));
+      setSuccess(`${updated.name} is now in local SDK hash mode. Signing and ZATCA submission remain disabled.`);
+    } catch (hashModeError) {
+      setError(hashModeError instanceof Error ? hashModeError.message : "Unable to enable SDK hash mode.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
   function replaceUnit(unit: ZatcaEgsUnit) {
     setEgsUnits((current) => current.map((item) => (item.id === unit.id ? unit : { ...item, isActive: unit.isActive ? false : item.isActive })));
   }
@@ -366,7 +396,19 @@ export default function ZatcaSettingsPage() {
             </div>
           ) : null}
 
-          {sdkReadiness || hashResetPlan ? <HashChainStatusPanel sdkReadiness={sdkReadiness} resetPlan={hashResetPlan} canManage={canManageZatca} /> : null}
+          {sdkReadiness || hashResetPlan ? (
+            <HashChainStatusPanel
+              sdkReadiness={sdkReadiness}
+              resetPlan={hashResetPlan}
+              canManage={canManageZatca}
+              actionLoading={actionLoading}
+              reasonByUnit={hashModeReasonByUnit}
+              confirmByUnit={hashModeConfirmByUnit}
+              onReasonChange={(unitId, value) => setHashModeReasonByUnit((current) => ({ ...current, [unitId]: value }))}
+              onConfirmChange={(unitId, value) => setHashModeConfirmByUnit((current) => ({ ...current, [unitId]: value }))}
+              onEnableSdkHashMode={(unitId) => void enableSdkHashMode(unitId)}
+            />
+          ) : null}
 
           {readiness ? (
             <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
@@ -751,10 +793,22 @@ function HashChainStatusPanel({
   sdkReadiness,
   resetPlan,
   canManage,
+  actionLoading,
+  reasonByUnit,
+  confirmByUnit,
+  onReasonChange,
+  onConfirmChange,
+  onEnableSdkHashMode,
 }: {
   sdkReadiness: ZatcaSdkReadinessResponse | null;
   resetPlan: ZatcaHashChainResetPlan | null;
   canManage: boolean;
+  actionLoading: string;
+  reasonByUnit: Record<string, string>;
+  confirmByUnit: Record<string, boolean>;
+  onReasonChange: (unitId: string, value: string) => void;
+  onConfirmChange: (unitId: string, value: boolean) => void;
+  onEnableSdkHashMode: (unitId: string) => void;
 }) {
   const hashMode = resetPlan?.hashMode ?? sdkReadiness?.hashMode ?? null;
   return (
@@ -792,22 +846,94 @@ function HashChainStatusPanel({
         </ul>
       ) : null}
       {resetPlan ? (
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div>
-            <h3 className="text-sm font-semibold text-ink">{zatcaResetPlanWarningLabel(resetPlan.dryRunOnly)}</h3>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-steel">
-              {resetPlan.resetRisks.map((risk) => (
-                <li key={risk}>{risk}</li>
-              ))}
-            </ul>
+        <div className="mt-4 space-y-4">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div>
+              <h3 className="text-sm font-semibold text-ink">{zatcaResetPlanWarningLabel(resetPlan.dryRunOnly)}</h3>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-steel">
+                {resetPlan.resetRisks.map((risk) => (
+                  <li key={risk}>{risk}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-ink">Recommended next steps</h3>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-steel">
+                {resetPlan.recommendedNextSteps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ul>
+            </div>
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-ink">Recommended next steps</h3>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-steel">
-              {resetPlan.recommendedNextSteps.map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ul>
+            <h3 className="text-sm font-semibold text-ink">EGS hash mode enablement</h3>
+            <div className="mt-2 overflow-x-auto rounded-md border border-slate-200">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 uppercase tracking-wide text-steel">
+                  <tr>
+                    <th className="px-3 py-2">EGS unit</th>
+                    <th className="px-3 py-2">Hash mode</th>
+                    <th className="px-3 py-2">Metadata</th>
+                    <th className="px-3 py-2">ICV</th>
+                    <th className="px-3 py-2">Enable SDK mode</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {resetPlan.egsUnits.map((unit) => {
+                    const reason = reasonByUnit[unit.id] ?? "";
+                    const confirmed = confirmByUnit[unit.id] === true;
+                    const canEnable = canManage && canEnableZatcaSdkHashMode(unit);
+                    const enableDisabled = !canEnable || reason.trim().length < 10 || !confirmed || actionLoading === `sdk-hash-${unit.id}`;
+                    return (
+                      <tr key={unit.id} className="align-top">
+                        <td className="px-3 py-3">
+                          <div className="font-medium text-ink">{unit.name}</div>
+                          <div className="mt-1 text-steel">{unit.environment} {unit.isActive ? "active" : "inactive"}</div>
+                          <div className="mt-1 font-mono text-[11px] text-steel">{truncateHash(unit.lastInvoiceHash)}</div>
+                        </td>
+                        <td className="px-3 py-3">{zatcaHashModeLabel(unit.hashMode)}</td>
+                        <td className="px-3 py-3">{unit.metadataCount}</td>
+                        <td className="px-3 py-3">{unit.lastIcv}</td>
+                        <td className="min-w-[260px] px-3 py-3">
+                          <div className={canEnable ? "text-emerald-700" : "text-amber-700"}>
+                            {canEnable ? "Eligible after confirmation" : zatcaSdkHashModeEnableBlockerLabel(unit.enableSdkHashModeBlockers)}
+                          </div>
+                          {canManage ? (
+                            <div className="mt-3 space-y-2">
+                              <input
+                                value={reason}
+                                onChange={(event) => onReasonChange(unit.id, event.target.value)}
+                                placeholder="Reason for fresh EGS SDK hash mode"
+                                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                                disabled={!canEnable}
+                              />
+                              <label className="flex items-start gap-2 text-xs text-steel">
+                                <input
+                                  type="checkbox"
+                                  className="mt-1"
+                                  checked={confirmed}
+                                  disabled={!canEnable}
+                                  onChange={(event) => onConfirmChange(unit.id, event.target.checked)}
+                                />
+                                <span>I confirm this fresh EGS starts a local-only SDK hash chain. No signing or submission is enabled.</span>
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => onEnableSdkHashMode(unit.id)}
+                                disabled={enableDisabled}
+                                className="rounded-md bg-palm px-3 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                              >
+                                {actionLoading === `sdk-hash-${unit.id}` ? "Enabling..." : "Enable SDK hash mode"}
+                              </button>
+                            </div>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       ) : null}

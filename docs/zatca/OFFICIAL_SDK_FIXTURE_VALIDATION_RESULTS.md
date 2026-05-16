@@ -8,6 +8,18 @@ Base commit audited: `482237e Validate official ZATCA SDK fixtures`
 
 This pass used only the official ZATCA documentation, SDK, schemas, rules, samples, and manuals present under the repo-local `reference/` folder. No ZATCA network calls were enabled or attempted. No invoices were submitted, no CSIDs were requested, no production credentials were used, no invoice signing was implemented, and PDF/A-3 was not implemented.
 
+## SDK Hash Persistence Groundwork Update
+
+Commit context: current working tree after `3ed2568 Add ZATCA hash-chain replacement groundwork`.
+
+This update did not change the official fixture validation results. It uses the previously verified SDK `-generateHash` command as the local hash oracle for an explicit fresh-EGS persistence path:
+
+- Default EGS hash mode remains `LOCAL_DETERMINISTIC`.
+- Fresh EGS units can opt into `SDK_GENERATED` only after local SDK execution/readiness passes and an admin confirms the reset reason.
+- Existing EGS units with invoice metadata are blocked from in-place SDK hash migration.
+- Metadata generated in SDK mode stores the SDK hash and `hashModeSnapshot=SDK_GENERATED`.
+- No signing, ZATCA network calls, CSID requests, clearance/reporting, or PDF/A-3 work was added.
+
 ## Official Reference Files Inspected
 
 SDK bundle:
@@ -241,7 +253,7 @@ cmd.exe /d /c "<temp-sdk>\Apps\fatoora.bat" -validate -invoice "<fixture.xml>"
 | LedgerByte standard local fixture | PASS | `[XSD]`, `[EN]`, `[KSA]`, `[PIH]` passed; global passed. Previous `BR-KSA-15` and `KSA-13` messages are resolved for this local fixture. |
 | LedgerByte simplified local fixture | FAIL, improved | `[XSD]`, `[EN]`, and `[PIH]` passed. Remaining KSA/signature/QR failures are `BR-KSA-30`, `BR-KSA-28`, warnings `BR-KSA-29`, `BR-KSA-60`, `BR-KSA-98`, `QRCODE_INVALID`, signature `NullPointerException`, and wrong `invoiceCertificate`; global failed. |
 
-SDK `-generateHash` was run as a local oracle only. The values are recorded for future comparison tests and are not yet wired into LedgerByte production behavior:
+SDK `-generateHash` was run as a local oracle only. The values are recorded for future comparison tests. Later work added explicit fresh-EGS SDK hash persistence, but these fixture values still do not represent signing, submission, CSID issuance, or production compliance:
 
 - LedgerByte standard fixture: `Lt2QoJTH0yk6yJYK7vtb59zfyYwFOb8RsWWrpMdGCVg=`
 - LedgerByte simplified fixture: `5Ikqk68Pa1SveBTWh+K5tF55LUoj+GhLzj/Ib78Bpfw=`
@@ -309,7 +321,7 @@ Result:
 
 The API-generated invoice produced a successful local SDK validation run but with production-quality address/identifier warnings including `BR-KSA-08`, `BR-KSA-F-06-C23`, `BR-KSA-09`, `BR-KSA-81`, `BR-KSA-F-06-C25`, `BR-KSA-63`, `BR-KSA-10`, `BR-KSA-66`, and `BR-KSA-67`.
 
-The hash mismatch is expected and is now documented in `HASH_CHAIN_AND_PIH_PLAN.md`: LedgerByte still stores a local deterministic hash in `ZatcaInvoiceMetadata.invoiceHash` and `ZatcaEgsUnit.lastInvoiceHash`, not the official SDK/C14N11 hash.
+The hash mismatch is expected for metadata generated in the default local mode and is documented in `HASH_CHAIN_AND_PIH_PLAN.md`: LedgerByte stores a local deterministic hash unless a fresh EGS unit has been explicitly enabled for SDK-generated hash mode.
 
 ## Hash-Chain Replacement Groundwork Pass
 

@@ -266,12 +266,14 @@ describe("ZATCA SDK service", () => {
         findFirst: jest.fn().mockResolvedValue({
           id: "metadata-1",
           invoiceId: "invoice-1",
-          xmlBase64,
-          invoiceHash: "local-app-hash",
-          previousInvoiceHash: "previous-hash",
-          icv: 5,
-          egsUnitId: "egs-1",
-        }),
+        xmlBase64,
+        invoiceHash: "local-app-hash",
+        hashModeSnapshot: "SDK_GENERATED",
+        previousInvoiceHash: "previous-hash",
+        icv: 5,
+        egsUnitId: "egs-1",
+        egsUnit: { hashMode: "SDK_GENERATED" },
+      }),
         update: jest.fn(),
       },
       zatcaEgsUnit: { update: jest.fn() },
@@ -287,9 +289,11 @@ describe("ZATCA SDK service", () => {
         invoiceId: true,
         xmlBase64: true,
         invoiceHash: true,
+        hashModeSnapshot: true,
         previousInvoiceHash: true,
         icv: true,
         egsUnitId: true,
+        egsUnit: { select: { hashMode: true } },
       },
     });
     expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
@@ -302,6 +306,8 @@ describe("ZATCA SDK service", () => {
       appHash: "local-app-hash",
       sdkHash: null,
       hashComparisonStatus: "BLOCKED",
+      egsHashMode: "SDK_GENERATED",
+      metadataHashModeSnapshot: "SDK_GENERATED",
     });
   });
 });

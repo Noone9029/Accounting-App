@@ -28,7 +28,10 @@ import {
   zatcaHashModeLabel,
   shouldShowZatcaHashMismatchWarning,
   zatcaHashChainResetPlanPath,
+  zatcaEgsSdkHashModeEnablePath,
   zatcaResetPlanWarningLabel,
+  canEnableZatcaSdkHashMode,
+  zatcaSdkHashModeEnableBlockerLabel,
   shouldShowZatcaSdkLocalOnlyWarning,
   zatcaStatusLabel,
   zatcaXmlValidationLabel,
@@ -59,6 +62,7 @@ describe("ZATCA helpers", () => {
     expect(zatcaInvoiceSdkValidatePath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/sdk-validate");
     expect(zatcaInvoiceHashComparePath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/hash-compare");
     expect(zatcaHashChainResetPlanPath()).toBe("/zatca/hash-chain-reset-plan");
+    expect(zatcaEgsSdkHashModeEnablePath("egs 1")).toBe("/zatca/egs-units/egs%201/enable-sdk-hash-mode");
     expect(zatcaEgsCsrDownloadPath("egs-1")).toBe("/zatca/egs-units/egs-1/csr/download");
   });
 
@@ -127,5 +131,9 @@ describe("ZATCA helpers", () => {
     expect(shouldShowZatcaHashMismatchWarning({ hashComparisonStatus: "MISMATCH" })).toBe(true);
     expect(shouldShowZatcaHashMismatchWarning({ hashComparisonStatus: "MATCH" })).toBe(false);
     expect(zatcaResetPlanWarningLabel(true)).toContain("dry run");
+    expect(canEnableZatcaSdkHashMode({ canEnableSdkHashMode: true, enableSdkHashModeBlockers: [] })).toBe(true);
+    expect(canEnableZatcaSdkHashMode({ canEnableSdkHashMode: false, enableSdkHashModeBlockers: ["SDK disabled"] })).toBe(false);
+    expect(zatcaSdkHashModeEnableBlockerLabel(["SDK disabled", "metadata exists"])).toBe("SDK disabled; metadata exists");
+    expect(zatcaSdkHashModeEnableBlockerLabel([])).toBe("No blockers");
   });
 });

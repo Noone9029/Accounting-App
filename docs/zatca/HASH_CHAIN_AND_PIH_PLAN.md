@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-16
 
-Latest pass context: API-generated invoice XML was validated locally through the SDK wrapper after `f350999 Validate API generated ZATCA XML and hash`; this pass adds read-only SDK hash-chain replacement planning and dry-run reset visibility.
+Latest pass context: after `3ed2568 Add ZATCA hash-chain replacement groundwork`, this pass adds explicit opt-in SDK hash persistence for fresh EGS units only. The default remains local deterministic hashing, and SDK persistence is blocked unless local SDK execution/readiness is explicitly enabled.
 
 This document is local engineering planning only. It does not enable ZATCA network calls, invoice signing, CSID onboarding, clearance/reporting, PDF/A-3, or production compliance.
 
@@ -33,17 +33,19 @@ NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2Zi
 
 - `packages/zatca-core/src/index.ts` emits official sample-backed PIH structure and uses the official first-invoice PIH fallback when no previous hash is supplied.
 - `packages/zatca-core/src/index.ts` still computes `invoiceHash` using local SHA-256 over generated XML. This is deterministic, but it is not the official SDK/C14N11 hash.
-- `apps/api/src/zatca/zatca.service.ts` stores that local hash in `ZatcaInvoiceMetadata.invoiceHash`.
-- `apps/api/src/zatca/zatca.service.ts` updates `ZatcaEgsUnit.lastInvoiceHash` with that local hash after XML generation.
-- Subsequent generated invoices use `activeEgs.lastInvoiceHash` as `previousInvoiceHash`, so today's generated local chain is a development chain, not a production ZATCA chain.
+- `apps/api/src/zatca/zatca.service.ts` stores the active-mode hash in `ZatcaInvoiceMetadata.invoiceHash` and `xmlHash`.
+- `ZatcaEgsUnit.hashMode` defaults to `LOCAL_DETERMINISTIC`; `ZatcaInvoiceMetadata.hashModeSnapshot` records the mode used for each generated metadata row.
+- In `LOCAL_DETERMINISTIC` mode, `apps/api/src/zatca/zatca.service.ts` updates `ZatcaEgsUnit.lastInvoiceHash` with the local deterministic hash after XML generation.
+- In `SDK_GENERATED` mode, enabled only on a fresh EGS unit, metadata generation runs the local SDK `-generateHash` command and persists the SDK hash as the invoice hash/XML hash before advancing EGS ICV/last-hash state.
+- Subsequent generated invoices use `activeEgs.lastInvoiceHash` as `previousInvoiceHash`, so SDK mode chains use previous SDK hashes while local mode chains remain development-only.
 - Repeating generation for an existing generated invoice returns the existing metadata and does not consume another ICV or mutate `ZatcaEgsUnit.lastInvoiceHash`.
 - `POST /sales-invoices/:id/zatca/hash-compare` now compares the stored app hash to SDK `-generateHash` output when SDK execution is enabled. The endpoint is explicitly read-only and returns `noMutation=true`.
-- `GET /zatca/hash-chain-reset-plan` now returns active EGS state, latest generated invoice metadata, reset risks, and recommended next steps as a dry run only.
+- `GET /zatca/hash-chain-reset-plan` now returns active EGS state, hash mode, metadata counts, SDK readiness blockers, per-EGS enablement eligibility, reset risks, and recommended next steps as a dry run only.
 - `packages/zatca-core/src/index.ts` exposes canonicalization/hash groundwork helpers but intentionally blocks official hash output until SDK `-generateHash` or a verified C14N11 implementation is wired in.
 
 ## Hash Mode Configuration
 
-LedgerByte now exposes a non-persistent planning flag:
+LedgerByte exposes both an environment planning flag and persistent per-EGS hash mode state:
 
 ```env
 ZATCA_HASH_MODE=local
@@ -51,10 +53,16 @@ ZATCA_HASH_MODE=local
 
 Supported values:
 
-- `local`: default. Existing deterministic app hash storage remains active.
-- `sdk`: planning-only. Readiness surfaces that SDK-generated hash mode was requested, but LedgerByte still does not store SDK hashes as official metadata. This mode must remain blocked for production until SDK execution, Java 11-14, signing, CSID onboarding, clearance/reporting, and an EGS reset plan are approved.
+- `local`: default. Existing deterministic app hash storage remains active for EGS units whose persistent `hashMode` is `LOCAL_DETERMINISTIC`.
+- `sdk`: env request only. SDK persistence still requires `ZATCA_SDK_EXECUTION_ENABLED=true`, Java 11-14, SDK/config/work-dir readiness, and explicit per-EGS enablement.
 
-No database schema change was made in this pass. The flag is intentionally operational guidance only; it does not change invoice generation behavior.
+Persistent fields added:
+
+- `ZatcaEgsUnit.hashMode`: `LOCAL_DETERMINISTIC` by default, optionally `SDK_GENERATED` after explicit enablement.
+- `ZatcaEgsUnit.hashModeEnabledAt`, `hashModeEnabledById`, `hashModeResetReason`, and `sdkHashChainStartedAt`: administrative traceability for enabling SDK mode.
+- `ZatcaInvoiceMetadata.hashModeSnapshot`: records the active hash mode used when invoice metadata was generated.
+
+SDK mode is not enabled automatically and is blocked on EGS units that already have ZATCA invoice metadata. Existing local hash chains are not migrated.
 
 ## Read-Only Hash Comparison Endpoint
 
@@ -64,7 +72,7 @@ No database schema change was made in this pass. The flag is intentionally opera
 - Generates no new accounting records.
 - Reads existing generated XML metadata only.
 - Runs SDK `fatoora -generateHash -invoice <filename>` only when `ZATCA_SDK_EXECUTION_ENABLED=true` and readiness passes.
-- Returns `appHash`, `sdkHash`, `hashMatches`, `hashComparisonStatus`, `hashMode`, `blockingReasons`, `warnings`, and `noMutation=true`.
+- Returns `appHash`, `sdkHash`, `hashMatches`, `hashComparisonStatus`, env `hashMode`, `egsHashMode`, `metadataHashModeSnapshot`, `blockingReasons`, `warnings`, and `noMutation=true`.
 - Does not update `ZatcaInvoiceMetadata.invoiceHash`, `ZatcaInvoiceMetadata.previousInvoiceHash`, `ZatcaEgsUnit.lastIcv`, or `ZatcaEgsUnit.lastInvoiceHash`.
 
 With the default disabled SDK setting, this endpoint returns `hashComparisonStatus=BLOCKED` and still confirms the current stored app hash.
@@ -74,16 +82,17 @@ With the default disabled SDK setting, this endpoint returns `hashComparisonStat
 `GET /zatca/hash-chain-reset-plan`:
 
 - Requires auth, `x-organization-id`, and `zatca.manage`.
-- Returns active EGS unit count, current ICV, current last hash, latest generated invoice metadata, reset risks, and recommended next steps.
+- Returns active EGS unit count, current ICV, current last hash, latest generated invoice metadata, per-EGS metadata counts, hash mode, SDK readiness blockers, `canEnableSdkHashMode`, reset risks, and recommended next steps.
 - Always returns `dryRunOnly=true`, `localOnly=true`, and `noMutation=true`.
 - Does not reset or delete metadata.
 
 Recommended reset approach before any future official SDK hash persistence:
 
 1. Treat all current `ZatcaInvoiceMetadata.invoiceHash` and `ZatcaEgsUnit.lastInvoiceHash` values as local-development-only.
-2. For non-production testing, prefer a fresh database seed or a fresh EGS unit before testing SDK hash persistence.
-3. Before any production CSID flow, decide whether to archive local metadata, regenerate local XML, or start a new official chain from the ZATCA first-invoice PIH seed.
-4. Never reset an EGS unit used for real submission without a formally approved ZATCA recovery procedure.
+2. For non-production testing, create a fresh EGS unit and enable `SDK_GENERATED` before generating invoices.
+3. If an EGS already has invoice metadata, do not migrate it in place; create a new EGS unit for SDK hash mode.
+4. Before any production CSID flow, decide whether to archive local metadata, regenerate local XML, or start a new official chain from the ZATCA first-invoice PIH seed.
+5. Never reset an EGS unit used for real submission without a formally approved ZATCA recovery procedure.
 
 ## SDK Hash Oracle Results
 
@@ -117,27 +126,26 @@ Result:
 - SDK hash: `ZVhjW6kwGeZ58ZYw1l9+9dBPm+m2CIWxKX4pDXVzTsU=`.
 - Hash comparison: `MISMATCH`.
 
-This mismatch is expected for the current code because app metadata still stores the local deterministic hash, not the SDK/C14N11 hash oracle output.
+This mismatch is expected for local-mode metadata because the app stores the local deterministic hash. Fresh EGS units explicitly enabled for `SDK_GENERATED` mode store the SDK hash for future generated metadata; signing and submission remain disabled.
 
 ## Migration Impact
 
 Changing LedgerByte from the local hash to the official SDK/C14N11 hash is not a simple field swap:
 
 - Existing local `ZatcaInvoiceMetadata.invoiceHash` values are not production-grade.
-- Existing `ZatcaEgsUnit.lastInvoiceHash` values are not production-grade.
+- Existing local `ZatcaEgsUnit.lastInvoiceHash` values are not production-grade.
 - Existing dev PIH chains should not be reused for a real CSID or production reporting chain.
-- A future migration or reset strategy must define whether to reset test EGS hash state, re-generate XML, or archive local-only metadata before enabling signing.
+- SDK mode enablement is blocked when an EGS already has metadata; use a fresh EGS unit rather than migrating a local chain in place.
 - Once official hashes are used, generated XML, signed XML, QR tag 6, PIH, ICV, and metadata persistence must agree.
 
 ## Recommended Implementation Order
 
-1. Keep SDK hash comparison available but read-only.
-2. Add unit tests around recorded SDK hash oracle output and parser behavior.
-3. Introduce a feature-flagged SDK hash oracle path for local validation only.
+1. Keep local deterministic mode as the default for existing EGS units and existing metadata.
+2. Use `POST /zatca/egs-units/:id/enable-sdk-hash-mode` only for fresh non-production EGS units after SDK readiness passes.
+3. Continue comparing stored/app hashes to SDK `-generateHash` output when investigating XML changes.
 4. Decide whether production uses SDK `-generateHash` directly or a verified in-process C14N11 implementation.
-5. Add a controlled migration/reset plan for `ZatcaInvoiceMetadata.invoiceHash` and `ZatcaEgsUnit.lastInvoiceHash`.
-6. Implement signing and Phase 2 QR only after hash-chain behavior is verified.
-7. Keep real clearance/reporting blocked until signed XML passes local SDK and official sandbox checks.
+5. Implement signing and Phase 2 QR only after SDK-mode hash-chain behavior is verified on fresh test EGS units.
+6. Keep real clearance/reporting blocked until signed XML passes local SDK and official sandbox checks.
 
 ## Non-Goals For This Pass
 

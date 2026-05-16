@@ -148,6 +148,7 @@ export type ZatcaInvoiceType = "STANDARD_TAX_INVOICE" | "SIMPLIFIED_TAX_INVOICE"
 export type ZatcaInvoiceStatus = "NOT_SUBMITTED" | "XML_GENERATED" | "READY_FOR_SUBMISSION" | "SUBMISSION_PENDING" | "CLEARED" | "REPORTED" | "REJECTED" | "FAILED";
 export type ZatcaSubmissionType = "COMPLIANCE_CHECK" | "CLEARANCE" | "REPORTING";
 export type ZatcaSubmissionStatus = "PENDING" | "SUCCESS" | "REJECTED" | "FAILED";
+export type ZatcaHashMode = "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
 export type MembershipStatus = "ACTIVE" | "INVITED" | "SUSPENDED";
 
 export interface Organization {
@@ -2724,6 +2725,11 @@ export interface ZatcaEgsUnit {
   certificateRequestId: string | null;
   lastInvoiceHash: string | null;
   lastIcv: number;
+  hashMode: ZatcaHashMode;
+  hashModeEnabledAt: string | null;
+  hashModeEnabledById: string | null;
+  hashModeResetReason: string | null;
+  sdkHashChainStartedAt: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -2743,13 +2749,14 @@ export interface ZatcaInvoiceMetadata {
   xmlBase64: string | null;
   xmlHash: string | null;
   egsUnitId: string | null;
+  hashModeSnapshot: ZatcaHashMode;
   generatedAt: string | null;
   clearedAt: string | null;
   reportedAt: string | null;
   rejectedAt: string | null;
   lastErrorCode: string | null;
   lastErrorMessage: string | null;
-  egsUnit?: Pick<ZatcaEgsUnit, "id" | "name" | "environment" | "isActive" | "lastIcv"> | null;
+  egsUnit?: Pick<ZatcaEgsUnit, "id" | "name" | "environment" | "isActive" | "lastIcv" | "hashMode"> | null;
   submissionLogs?: ZatcaSubmissionLog[];
 }
 
@@ -2834,7 +2841,6 @@ export interface ZatcaXmlFieldMappingResponse {
   items: ZatcaXmlFieldMappingItem[];
 }
 
-export type ZatcaHashMode = "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
 export type ZatcaHashComparisonStatus = "MATCH" | "MISMATCH" | "NOT_AVAILABLE" | "BLOCKED";
 
 export interface ZatcaHashModeConfig {
@@ -2951,6 +2957,8 @@ export interface ZatcaInvoiceHashCompareResponse {
   previousInvoiceHash: string | null;
   icv: number | null;
   egsUnitId: string | null;
+  egsHashMode: ZatcaHashMode | null;
+  metadataHashModeSnapshot: ZatcaHashMode | null;
 }
 
 export interface ZatcaHashChainResetPlan {
@@ -2962,10 +2970,42 @@ export interface ZatcaHashChainResetPlan {
     activeEgsUnitCount: number;
     totalEgsUnitCount: number;
     invoicesWithMetadataCount: number;
+    sdkModeEgsUnitCount: number;
     currentIcv: number | null;
     currentLastInvoiceHash: string | null;
   };
-  egsUnits: Array<Pick<ZatcaEgsUnit, "id" | "name" | "environment" | "status" | "isActive" | "lastIcv" | "lastInvoiceHash" | "updatedAt">>;
+  sdkReadiness: {
+    enabled: boolean;
+    javaSupported: boolean;
+    sdkJarFound: boolean;
+    configDirFound: boolean;
+    canRunLocalValidation: boolean;
+    blockingReasons: string[];
+    warnings: string[];
+  } | null;
+  egsUnits: Array<
+    Pick<
+      ZatcaEgsUnit,
+      | "id"
+      | "name"
+      | "environment"
+      | "status"
+      | "isActive"
+      | "lastIcv"
+      | "lastInvoiceHash"
+      | "hashMode"
+      | "hashModeEnabledAt"
+      | "hashModeEnabledById"
+      | "hashModeResetReason"
+      | "sdkHashChainStartedAt"
+      | "updatedAt"
+    > & {
+      metadataCount: number;
+      canEnableSdkHashMode: boolean;
+      enableSdkHashModeBlockers: string[];
+      recommendedAction: string;
+    }
+  >;
   invoicesWithMetadata: Array<{
     id: string;
     invoiceId: string;
@@ -2978,6 +3018,7 @@ export interface ZatcaHashChainResetPlan {
     invoiceHash: string | null;
     xmlHash: string | null;
     egsUnitId: string | null;
+    hashModeSnapshot?: ZatcaHashMode;
     generatedAt: string | null;
   }>;
   resetRisks: string[];
@@ -2999,6 +3040,7 @@ export interface ZatcaReadinessSummary {
     hasComplianceCsid: boolean;
     lastIcv: number;
     lastInvoiceHash: string | null;
+    hashMode: ZatcaHashMode;
   } | null;
   localXmlReady: boolean;
   mockCsidReady: boolean;

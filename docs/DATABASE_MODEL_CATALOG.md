@@ -4,7 +4,7 @@ Audit date: 2026-05-15
 
 Schema source: `apps/api/prisma/schema.prisma`
 
-This checkpoint keeps the existing `NumberSequence` schema, adds guarded API/UI management for future numbering settings, and extends `AttachmentStorageProvider` with `S3` for feature-flagged uploaded-attachment object storage. `AuditLog` remains the mutation trail and now includes `NUMBER_SEQUENCE_UPDATED` events when admins change future sequence behavior.
+This checkpoint adds guarded ZATCA SDK hash-mode persistence fields while keeping local deterministic hash behavior as the default. SDK-generated hash persistence is explicit per fresh EGS unit only and is recorded in audit logs; it does not enable signing, ZATCA network calls, CSIDs, clearance/reporting, or PDF/A-3.
 
 ## Enums
 
@@ -59,6 +59,7 @@ This checkpoint keeps the existing `NumberSequence` schema, adds guarded API/UI 
 | `AttachmentStatus` | `ACTIVE`, `DELETED` | Uploaded attachment lifecycle; delete is soft-delete only. |
 | `ZatcaEnvironment` | `SANDBOX`, `SIMULATION`, `PRODUCTION` | ZATCA environment marker. |
 | `ZatcaRegistrationStatus` | `NOT_CONFIGURED`, `DRAFT`, `READY_FOR_CSR`, `OTP_REQUIRED`, `CERTIFICATE_ISSUED`, `ACTIVE`, `SUSPENDED` | ZATCA profile/EGS state. |
+| `ZatcaHashMode` | `LOCAL_DETERMINISTIC`, `SDK_GENERATED` | Per-EGS hash-chain mode. `LOCAL_DETERMINISTIC` remains default; `SDK_GENERATED` requires explicit local-only enablement on a fresh EGS unit. |
 | `ZatcaInvoiceType` | `STANDARD_TAX_INVOICE`, `SIMPLIFIED_TAX_INVOICE`, `CREDIT_NOTE`, `DEBIT_NOTE` | Future ZATCA invoice type. |
 | `ZatcaInvoiceStatus` | `NOT_SUBMITTED`, `XML_GENERATED`, `READY_FOR_SUBMISSION`, `SUBMISSION_PENDING`, `CLEARED`, `REPORTED`, `REJECTED`, `FAILED` | Local ZATCA metadata lifecycle. |
 | `ZatcaSubmissionType` | `COMPLIANCE_CHECK`, `CLEARANCE`, `REPORTING` | ZATCA submission/log type. |
@@ -70,7 +71,7 @@ This checkpoint keeps the existing `NumberSequence` schema, adds guarded API/UI 
 
 | Model | Purpose | Important fields | Relationships | Accounting impact | Lifecycle/status | Known limitations |
 | --- | --- | --- | --- | --- | --- | --- |
-| `User` | Login identity. | `email`, `passwordHash`, `name`. | Memberships, created/posted records, COGS posted/reversed sales stock issues, receipt asset posted/reversed purchase receipts, inventory variance proposal actors, generated documents, uploaded/deleted attachments, auth tokens, audit retention settings updates. | Tracks actors for accounting and administration events. | No explicit status enum. | No MFA, refresh-token rotation, or advanced session management. |
+| `User` | Login identity. | `email`, `passwordHash`, `name`. | Memberships, created/posted records, COGS posted/reversed sales stock issues, receipt asset posted/reversed purchase receipts, inventory variance proposal actors, generated documents, uploaded/deleted attachments, auth tokens, audit retention settings updates, ZATCA SDK hash-mode enablement actors. | Tracks actors for accounting and administration events. | No explicit status enum. | No MFA, refresh-token rotation, or advanced session management. |
 | `Organization` | Tenant root. | `name`, `legalName`, `taxNumber`, `baseCurrency`, `timezone`. | Owns almost every business model, including inventory variance proposals, proposal events, attachments, auth tokens, email outbox records, and audit retention settings. | Tenant boundary for ledgers/journals. | No explicit status enum. | No subscription/billing state. |
 | `OrganizationMember` | User-to-org link. | `organizationId`, `userId`, `roleId`, `status`. | User, Organization, Role. | Controls org access and permission lookup. | `MembershipStatus`. | Invite acceptance is implemented; mock remains default, SMTP is opt-in, and no MFA exists. |
 | `Role` | Stored permission set. | `name`, `permissions` JSON, `isSystem`. | Organization, members. | Runtime API/UI access control. | No lifecycle enum. | System roles are protected; no approval workflow. |
@@ -155,6 +156,6 @@ This checkpoint keeps the existing `NumberSequence` schema, adds guarded API/UI 
 | Model | Purpose | Important fields | Relationships | Accounting impact | Lifecycle/status | Known limitations |
 | --- | --- | --- | --- | --- | --- | --- |
 | `ZatcaOrganizationProfile` | Seller profile. | environment, registration status, seller/VAT/address fields. | Organization, EGS units. | Supports invoice compliance metadata. | `ZatcaRegistrationStatus`. | Needs official validation. |
-| `ZatcaEgsUnit` | EGS/device record. | device serial, CSR/private key/CSIDs, active flag, last ICV/hash. | Profile, invoice metadata, submission logs. | Tracks local hash-chain state. | `ZatcaRegistrationStatus`. | Private key DB field is dev-only; real keys need KMS. |
-| `ZatcaInvoiceMetadata` | Per-invoice ZATCA local metadata. | invoice UUID, status, ICV, previous hash, invoice hash, XML/QR base64. | Sales invoice, EGS, logs. | Does not change GL; compliance metadata only. Local SDK validation reads generated XML without changing this model. | `ZatcaInvoiceStatus`. | XML/hash/signing are not official production implementation. |
+| `ZatcaEgsUnit` | EGS/device record. | device serial, CSR/private key/CSIDs, active flag, last ICV/hash, `hashMode`, SDK hash-mode enablement timestamp/actor/reason, SDK hash-chain start timestamp. | Profile, invoice metadata, submission logs, optional hash-mode enabling User. | Tracks local or SDK-generated hash-chain state for generated metadata. | `ZatcaRegistrationStatus`, `ZatcaHashMode`. | Private key DB field is dev-only; real keys need KMS. SDK hash mode is local-only, fresh-EGS opt-in and does not imply production compliance. |
+| `ZatcaInvoiceMetadata` | Per-invoice ZATCA local metadata. | invoice UUID, status, ICV, previous hash, invoice hash, XML/QR base64, `hashModeSnapshot`. | Sales invoice, EGS, logs. | Does not change GL; compliance metadata only. Local SDK validation/hash comparison can read generated XML without changing this model. | `ZatcaInvoiceStatus`, `ZatcaHashMode`. | XML/hash/signing are not official production implementation. SDK hashes are persisted only for future metadata generated under an explicitly enabled fresh EGS. |
 | `ZatcaSubmissionLog` | Submission/onboarding attempt log. | submission type/status, request/response payloads, response/error codes. | Organization, invoice metadata, EGS. | Audit trail only. | `ZatcaSubmissionStatus`. | Payload logging must continue redacting secrets. |

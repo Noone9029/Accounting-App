@@ -418,6 +418,11 @@ enum ZatcaSubmissionStatus {
   FAILED
 }
 
+enum ZatcaHashMode {
+  LOCAL_DETERMINISTIC
+  SDK_GENERATED
+}
+
 enum FiscalPeriodStatus {
   OPEN
   CLOSED
@@ -504,6 +509,7 @@ model User {
   authTokens                                  AuthToken[]                          @relation("AuthTokenUser")
   createdAuthTokens                           AuthToken[]                          @relation("AuthTokenCreatedBy")
   updatedAuditLogRetentionSettings            AuditLogRetentionSettings[]          @relation("AuditLogRetentionSettingsUpdatedBy")
+  zatcaHashModeEnabledEgsUnits                ZatcaEgsUnit[]                       @relation("ZatcaHashModeEnabledBy")
 }
 
 model Organization {
@@ -736,11 +742,17 @@ model ZatcaEgsUnit {
   certificateRequestId String?
   lastInvoiceHash      String?
   lastIcv              Int                      @default(0)
+  hashMode             ZatcaHashMode            @default(LOCAL_DETERMINISTIC)
+  hashModeEnabledAt    DateTime?
+  hashModeEnabledById  String?                  @db.Uuid
+  hashModeResetReason  String?
+  sdkHashChainStartedAt DateTime?
   isActive             Boolean                  @default(false)
   createdAt            DateTime                 @default(now())
   updatedAt            DateTime                 @updatedAt
   organization         Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   profile              ZatcaOrganizationProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  hashModeEnabledBy    User?                    @relation("ZatcaHashModeEnabledBy", fields: [hashModeEnabledById], references: [id], onDelete: SetNull)
   invoiceMetadata      ZatcaInvoiceMetadata[]
   submissionLogs       ZatcaSubmissionLog[]
 
@@ -748,6 +760,8 @@ model ZatcaEgsUnit {
   @@index([organizationId])
   @@index([profileId])
   @@index([organizationId, isActive])
+  @@index([organizationId, hashMode])
+  @@index([hashModeEnabledById])
 }
 
 model ZatcaInvoiceMetadata {
@@ -764,6 +778,7 @@ model ZatcaInvoiceMetadata {
   xmlBase64           String?              @db.Text
   xmlHash             String?
   egsUnitId           String?              @db.Uuid
+  hashModeSnapshot    ZatcaHashMode        @default(LOCAL_DETERMINISTIC)
   generatedAt         DateTime?
   clearedAt           DateTime?
   reportedAt          DateTime?
@@ -780,6 +795,7 @@ model ZatcaInvoiceMetadata {
   @@index([organizationId])
   @@index([organizationId, zatcaStatus])
   @@index([egsUnitId])
+  @@index([hashModeSnapshot])
 }
 
 model ZatcaSubmissionLog {
