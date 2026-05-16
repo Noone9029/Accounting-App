@@ -7,6 +7,8 @@
   "seller": {
     "name": "LedgerByte Seller",
     "vatNumber": "300000000000003",
+    "companyIdType": "CRN",
+    "companyIdNumber": "1010010000",
     "buildingNumber": "5678",
     "streetName": "Tahlia Street",
     "district": "Andalus",
@@ -20,10 +22,10 @@
     "countryCode": "SA"
   },
   "subtotal": "200.0000",
-  "discountTotal": "10.0000",
-  "taxableTotal": "190.0000",
-  "taxTotal": "28.5000",
-  "total": "218.5000",
+  "discountTotal": "0.0000",
+  "taxableTotal": "200.0000",
+  "taxTotal": "30.0000",
+  "total": "230.0000",
   "previousInvoiceHash": "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRjMTI0N2QxYjU3NjY2YjA2N2Y4Y2YyOA==",
   "icv": 43,
   "lines": [
@@ -32,9 +34,9 @@
       "description": "Retail sale & support",
       "quantity": "2.0000",
       "unitPrice": "100.0000",
-      "taxableAmount": "190.0000",
-      "taxAmount": "28.5000",
-      "lineTotal": "218.5000",
+      "taxableAmount": "200.0000",
+      "taxAmount": "30.0000",
+      "lineTotal": "230.0000",
       "taxRateName": "VAT on Sales 15%"
     }
   ]

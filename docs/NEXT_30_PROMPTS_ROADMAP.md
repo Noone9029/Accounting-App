@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Latest commit audited: `482237e` (`Validate official ZATCA SDK fixtures`) plus the current Java 11 readiness and official fixture execution pass.
+Latest commit audited: `9e350d6` (`Run ZATCA SDK fixture validation readiness`) plus the current ZATCA XML structural correction pass.
 
 Each prompt is intentionally scoped so it can be executed as a safe Codex implementation/audit task. Prompts that need credentials say so explicitly.
 
@@ -116,19 +116,19 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 
 ## Phase 3: ZATCA Production Path
 
-### 14. Fix LedgerByte ZATCA XML fixture failures
+### 14. Add ZATCA supply date and generated XML validation
 
-- Objective: Fix the local standard/simplified XML fixtures against the official SDK failures without signing or network calls.
-- Why it matters: Official sample fixtures now pass locally, but LedgerByte XML fails XSD/KSA rules and cannot advance to hash/signing.
+- Objective: Add standard supply/delivery date mapping and run SDK validation against API-generated invoice XML without signing or network calls.
+- Why it matters: The local standard fixture now clears SDK XSD/EN/KSA checks except supply-date warning and PIH; generated XML still needs the same evidence.
 - Dependencies: Java 11-14 runtime and official fixture result doc.
 - Risk level: High.
 - Manual credentials needed: No.
 
-### 15. Implement official XML field mapping incrementally
+### 15. Implement SDK-verified canonical PIH/hash
 
-- Objective: Replace local XML skeleton pieces with official UBL/ZATCA structures under fixture tests.
-- Why it matters: Official XML is the foundation for every ZATCA production step.
-- Dependencies: SDK validation wrapper.
+- Objective: Replace the local PIH/hash placeholder with SDK-verified canonical invoice hash behavior and fixture tests.
+- Why it matters: `KSA-13` remains the main local fixture blocker before signing.
+- Dependencies: Current structural XML fixtures and SDK validation wrapper.
 - Risk level: Critical.
 - Manual credentials needed: No.
 

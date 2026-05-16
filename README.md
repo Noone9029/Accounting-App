@@ -104,7 +104,7 @@ ZATCA_SDK_TIMEOUT_MS=30000
 
 Real ZATCA network calls are disabled by default and remain blocked unless `ZATCA_ADAPTER_MODE=sandbox`, `ZATCA_ENABLE_REAL_NETWORK=true`, and `ZATCA_SANDBOX_BASE_URL` are all configured.
 Local ZATCA Java SDK execution is also disabled by default. `ZATCA_SDK_EXECUTION_ENABLED=true` enables only local SDK XML validation after Java 11-14 and SDK paths are configured; it does not submit invoices, sign XML, request CSIDs, or prove production compliance.
-The official SDK fixture validation pass is documented at `docs/zatca/OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`. Default local Java is 17.0.16, but a Java 11.0.26 runtime was found and used without changing global Java. The official standard invoice, simplified invoice, standard credit note, and standard debit note samples pass through the official `fatoora -validate -invoice <filename>` launcher. LedgerByte's current local standard/simplified XML fixtures fail official SDK validation and remain non-compliant skeletons.
+The official SDK fixture validation pass is documented at `docs/zatca/OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`. Default local Java is 17.0.16, but a Java 11.0.26 runtime was found and used without changing global Java. The official standard invoice, simplified invoice, standard credit note, and standard debit note samples pass through the official `fatoora -validate -invoice <filename>` launcher. LedgerByte's local standard/simplified XML fixtures now clear the first structural SDK gaps, but they remain non-compliant until supply-date, canonical PIH/hash-chain, signing, certificate, Phase 2 QR, CSID, clearance/reporting, and PDF/A-3 work are completed.
 
 To run local fixture validation safely, point the wrapper at a Java 11-14 runtime and SDK paths in a local shell only:
 
@@ -1527,7 +1527,7 @@ Do not treat the current mock CSID, local XML, local QR, or local hash-chain beh
 - Local dev fixtures live under `packages/zatca-core/fixtures`.
 - The local fixtures are not official ZATCA fixtures. They exist to keep LedgerByte's XML skeleton deterministic and to cover XML escaping and Unicode handling.
 - Local XML validation can be called with `GET /sales-invoices/:id/zatca/xml-validation` after local XML is generated.
-- The validation response is local-only and not legal compliance evidence. Official SDK sample fixtures now pass locally under Java 11, but LedgerByte's current local XML fixtures fail official SDK validation and remain non-compliant skeletons.
+- The validation response is local-only and not legal compliance evidence. Official SDK sample fixtures now pass locally under Java 11. LedgerByte's local standard fixture now passes SDK XSD/EN/KSA checks but still fails PIH and warns about supply date; the simplified fixture now passes SDK XSD/EN checks but still fails signing, QR, and PIH checks.
 
 ### ZATCA Official Reference Maps
 

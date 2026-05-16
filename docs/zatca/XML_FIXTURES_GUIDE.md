@@ -27,7 +27,7 @@ The expected XML files are compared directly in automated tests. If the XML buil
 
 Official SDK sample fixture targets are now registered in `apps/api/src/zatca-sdk/zatca-official-fixtures.ts`. The registry references files under the repo-local `reference/` folder and the current LedgerByte local fixtures without copying official sample XML into application code.
 
-The first validation pass is documented in `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`. Official SDK samples now pass under Java 11 and the official launcher, while the current LedgerByte standard/simplified XML fixtures fail with XSD/KSA rule messages.
+The fixture validation passes are documented in `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`. Official SDK samples pass under Java 11 and the official launcher. After the structural mapping correction pass, LedgerByte's local standard fixture now passes SDK XSD/EN/KSA validation but still fails PIH validation and warns about missing supply date. The local simplified fixture now passes SDK XSD/EN validation but still fails signing, QR, and PIH checks because real signing, certificate, canonical hash-chain, and Phase 2 QR behavior are not implemented.
 
 Before promoting official fixture checks:
 
@@ -45,5 +45,8 @@ The local tests compare generated XML against the expected local XML text. They 
 - XML escaping for `&`, `<`, `>`, quotes, and apostrophes
 - Arabic/Unicode text survives generation
 - local validation rejects missing seller VAT and missing invoice lines
+- UBL header element order around issue date/time and additional document references
+- official sample-backed ICV, PIH, and QR additional document reference shapes
+- standard and simplified invoice transaction-code flags
 
 These tests are engineering guardrails only. Official ZATCA/FATOORA validation remains a future manual dependency.

@@ -73,7 +73,7 @@ The SDK command is verified as `fatoora -validate -invoice <filename>`. Actual f
 
 - Official standard invoice, simplified invoice, standard credit note, and standard debit note samples passed.
 - The simplified official invoice produced warning `BR-KSA-98` about submitting simplified invoices within 24 hours, while the global result still passed.
-- LedgerByte standard and simplified local XML fixtures failed. The primary gaps are UBL element ordering, official `ICV`/`PIH` shape, invoice type transaction-code flags, seller/customer identifiers, tax total shape, and simplified line amount calculation.
+- LedgerByte standard and simplified local XML fixtures were improved in the follow-up structural pass. UBL ordering, official `ICV`/`PIH`/`QR` ADR shapes, standard/simplified transaction flags, seller/customer identifiers, tax total shape, and the simplified line amount warning were corrected. The standard fixture now passes SDK XSD/EN/KSA validation but still fails PIH and warns about missing supply date. The simplified fixture now passes SDK XSD/EN validation but still fails signing, QR, and PIH checks because real signing/certificate/canonical hash-chain behavior is not implemented.
 - Generated invoice XML validation through the API was not attempted because the local API/database stack was not confirmed running during this pass.
 
 ## Guardrails For Future Wrapper

@@ -7,6 +7,8 @@
   "seller": {
     "name": "شركة ليدجر & بايت",
     "vatNumber": "300000000000003",
+    "companyIdType": "CRN",
+    "companyIdNumber": "1010010000",
     "buildingNumber": "1234",
     "streetName": "King <Road>",
     "district": "Olaya",
@@ -17,7 +19,10 @@
   },
   "buyer": {
     "name": "Buyer & Co <Test>",
-    "vatNumber": "300000000000004",
+    "vatNumber": "399999999800003",
+    "buildingNumber": "2322",
+    "streetName": "Prince Sultan",
+    "district": "Al-Murabba",
     "city": "Jeddah",
     "postalCode": "21442",
     "countryCode": "SA"

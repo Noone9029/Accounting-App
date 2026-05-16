@@ -102,9 +102,9 @@ Tasks:
 
 - Verify official XML requirements against local `reference/` docs and SDK samples.
 - Keep Java 11-14 configured for repeatable local/CI SDK validation; official sample fixtures now pass under Java 11.
-- Implement official XML mapping fixes for standard and simplified tax invoices based on current LedgerByte fixture failures.
-- Add SDK-backed generated invoice validation and hash comparison tests after XML fixtures pass.
-- Implement signing and canonicalization through SDK-verified tests.
+- Complete the remaining official XML gaps: standard supply/delivery date, broader invoice scenarios, and generated invoice validation.
+- Add SDK-backed canonical hash/PIH comparison tests after the current structural fixtures pass.
+- Implement signing and Phase 2 QR only after canonicalization and key custody are designed.
 - Implement compliance CSID onboarding with real FATOORA sandbox OTP.
 - Implement compliance invoice API tests.
 - Implement production CSID request after sandbox success.
@@ -125,7 +125,7 @@ Risk level: Critical.
 
 Recommended next prompt:
 
-> Fix LedgerByte ZATCA XML mapping against official SDK failure messages, then validate generated invoice XML locally without signing or real API calls.
+> Add ZATCA supply-date mapping and SDK-verified canonical PIH/hash validation for LedgerByte XML without signing or real API calls.
 
 ## Phase 5: Production/SaaS Readiness
 

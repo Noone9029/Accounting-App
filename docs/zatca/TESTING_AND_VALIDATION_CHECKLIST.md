@@ -29,5 +29,5 @@ Testing now has an isolated SDK wrapper for offline XML validation attempts. Kee
 - Default Java remains OpenJDK 17.0.16, which is outside the official SDK README requirement of Java `>=11` and `<15`.
 - Java 11.0.26 was found locally and used without changing global Java.
 - Official standard invoice, simplified invoice, standard credit note, and standard debit note samples pass with the official launcher.
-- LedgerByte standard and simplified fixtures fail and must be corrected against SDK output before generated invoice validation can be trusted.
+- LedgerByte standard and simplified fixtures have had their first structural correction pass. The standard fixture now passes SDK XSD/EN/KSA validation and fails only PIH, with a supply-date warning. The simplified fixture now passes SDK XSD/EN validation and fails the expected non-production signing/QR/PIH checks.
 - Generated invoice XML validation through the local API remains pending because the API/database stack was not confirmed running during the fixture pass.

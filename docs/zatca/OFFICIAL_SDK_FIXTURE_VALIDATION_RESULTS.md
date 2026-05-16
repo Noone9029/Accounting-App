@@ -132,15 +132,72 @@ Generated invoice XML validation through the local API was not attempted because
 - The simplified local fixture also fails/warns on invoice line net amount formula through `BR-KSA-EN16931-11`.
 - Tax total shape needs review: SDK warning `BR-KSA-EN16931-09` appears for both LedgerByte fixtures when tax currency code is present.
 
+## Structural Mapping Correction Pass
+
+Follow-up date: 2026-05-16
+
+Commit context: current working tree after `9e350d6 Run ZATCA SDK fixture validation readiness`.
+
+Official files used again for this pass:
+
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Simplified/Invoice/Simplified_Invoice.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Credit/Standard_Credit_Note.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Debit/Standard_Debit_Note.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Schemas/xsds/UBL2.1/xsd/maindoc/UBL-Invoice-2.1.xsd`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Schemas/xsds/UBL2.1/xsd/common/UBL-CommonAggregateComponents-2.1.xsd`
+
+Changes made:
+
+- Moved ICV from an invalid root `cbc:ID schemeID="ICV"` into official `cac:AdditionalDocumentReference/cbc:ID=ICV/cbc:UUID`.
+- Kept PIH as `cac:AdditionalDocumentReference/cbc:ID=PIH/cac:Attachment/cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain"`.
+- Added QR `AdditionalDocumentReference` structure using the existing local TLV output; Phase 2 cryptographic QR tags are still not implemented.
+- Mapped standard invoice `InvoiceTypeCode@name` to `0100000` and simplified invoice `InvoiceTypeCode@name` to `0200000`, matching the official invoice samples.
+- Reordered UBL address and item children to satisfy the official UBL XSD.
+- Changed tax totals, legal monetary totals, and line classified tax category shape to match the official invoice samples for the current single-standard-VAT local fixtures.
+- Updated the standard fixture buyer VAT to the official sample-style valid pattern and corrected the simplified fixture line totals to remove the local line-net warning.
+
+Revalidation used the same Java 11 runtime and official launcher command:
+
+```powershell
+cmd.exe /d /c "<temp-sdk>\Apps\fatoora.bat" -validate -invoice "<fixture.xml>"
+```
+
+| Fixture | Status after structural pass | SDK messages |
+| --- | --- | --- |
+| Official standard invoice | PASS | `[XSD]`, `[EN]`, `[KSA]`, `[PIH]` passed; global passed. |
+| Official simplified invoice | PASS | `[XSD]`, `[EN]`, `[KSA]`, `[QR]`, `[SIGNATURE]`, `[PIH]` passed; warning `BR-KSA-98`; global passed. |
+| Official standard credit note | PASS | `[XSD]`, `[EN]`, `[KSA]`, `[PIH]` passed; global passed. |
+| Official standard debit note | PASS | `[XSD]`, `[EN]`, `[KSA]`, `[PIH]` passed; global passed. |
+| LedgerByte standard local fixture | FAIL, improved | `[XSD]`, `[EN]`, `[KSA]` now pass. Remaining warning `BR-KSA-15` says a tax invoice with standard transaction code must contain supply date. `[PIH]` fails with `KSA-13`; global failed. |
+| LedgerByte simplified local fixture | FAIL, improved | `[XSD]` and `[EN]` now pass. Remaining KSA/signature/QR failures are `BR-KSA-30`, `BR-KSA-28`, warning `BR-KSA-29`, warning `BR-KSA-60`, warning `BR-KSA-98`, `QRCODE_INVALID`, signature `NullPointerException`, signature `certificate wrong invoiceCertificate`, and `[PIH]` `KSA-13`; global failed. |
+
+Resolved from the first LedgerByte fixture failure set:
+
+- XSD ordering error around `cbc:IssueDate`.
+- `BR-KSA-33` missing invoice counter value shape.
+- `BR-KSA-06` invalid transaction-code flag structure.
+- `BR-KSA-44` invalid buyer VAT in the local standard fixture.
+- `BR-KSA-08` missing seller identification warning in the local fixtures.
+- `BR-KSA-EN16931-09` tax total shape warning in the local fixtures.
+- `BR-KSA-EN16931-11` simplified invoice line net amount warning.
+
+Remaining non-production gaps:
+
+- `KSA-13` remains because official PIH/hash-chain/canonicalization is not implemented.
+- Simplified invoices still require real cryptographic stamp/signature and Phase 2 QR tags.
+- Standard invoices still need a real supply/delivery date mapping (`BR-KSA-15`) before official validation can pass cleanly.
+- This pass still does not sign invoices, call ZATCA, request CSIDs, or prove production compliance.
+
 ## Next Technical Fixes
 
 1. Keep SDK execution disabled by default in normal app and smoke runs.
 2. Use Java 11-14 through `ZATCA_SDK_JAVA_BIN` or an isolated temp/Docker SDK workspace when running local SDK validation.
-3. Update XML builder ordering and official `AdditionalDocumentReference` structures for `ICV` and `PIH` before changing signing/hash logic.
-4. Replace invoice type-code `name` mapping with the official `NNPNESBCG` structure.
-5. Fix party identifier/VAT and tax/line mappings using the official samples as the oracle.
-6. Add generated-invoice XML validation after local API/DB fixture generation is available.
-7. Do not start signing, CSID, clearance/reporting, or PDF/A-3 work until XML mapping passes official SDK validation locally.
+3. Add standard supply/delivery date mapping and revalidate the standard fixture.
+4. Replace the local PIH/hash-chain placeholder with SDK-verified canonical invoice hash behavior, then resolve `KSA-13`.
+5. Add generated-invoice XML validation after local API/DB fixture generation is available.
+6. Design signing/certificate/key custody before attempting to resolve simplified signature and Phase 2 QR failures.
+7. Do not start CSID, clearance/reporting, or PDF/A-3 work until XML/hash/signature validation is stable locally.
 
 ## Compliance Warning
 
