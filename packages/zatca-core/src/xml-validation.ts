@@ -43,6 +43,8 @@ export function validateLocalZatcaXml(input: ZatcaInvoiceInput): ZatcaLocalXmlVa
     checkNonNegative(line.lineTotal, `${label} total`, errors);
   });
 
+  addBuyerAddressReadinessWarnings(input, warnings);
+
   return {
     localOnly: true,
     officialValidation: false,
@@ -50,6 +52,35 @@ export function validateLocalZatcaXml(input: ZatcaInvoiceInput): ZatcaLocalXmlVa
     errors,
     warnings,
   };
+}
+
+function addBuyerAddressReadinessWarnings(input: ZatcaInvoiceInput, warnings: string[]): void {
+  const buyerCountryCode = String(input.buyer?.countryCode ?? "SA").trim().toUpperCase();
+  const standardBuyerAddressRulesApply = buyerCountryCode === "SA" && input.invoiceType !== "SIMPLIFIED_TAX_INVOICE";
+  if (!standardBuyerAddressRulesApply) {
+    return;
+  }
+
+  const requiredFields = [
+    ["StreetName", input.buyer.streetName],
+    ["BuildingNumber", input.buyer.buildingNumber],
+    ["PostalZone", input.buyer.postalCode],
+    ["CityName", input.buyer.city],
+    ["CitySubdivisionName", input.buyer.district],
+    ["Country/IdentificationCode", input.buyer.countryCode],
+  ];
+  const missingFields = requiredFields.filter(([, value]) => !String(value ?? "").trim()).map(([field]) => field);
+
+  if (missingFields.length > 0) {
+    warnings.push(
+      `BR-KSA-63 readiness: Saudi standard buyer address is missing ${missingFields.join(", ")}. Populate real contact address data; LedgerByte does not hardcode fake buyer address values.`,
+    );
+  }
+
+  const buildingNumber = String(input.buyer.buildingNumber ?? "").trim();
+  if (buildingNumber && !/^[0-9]{4}$/.test(buildingNumber)) {
+    warnings.push("Saudi buyer BuildingNumber should be 4 digits for clean ZATCA buyer address validation.");
+  }
 }
 
 function requireText(value: string | null | undefined, message: string, errors: string[]): void {

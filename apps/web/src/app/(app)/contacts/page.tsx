@@ -67,7 +67,12 @@ export default function ContactsPage() {
           email: String(formData.get("email") || "") || undefined,
           phone: String(formData.get("phone") || "") || undefined,
           taxNumber: String(formData.get("taxNumber") || "") || undefined,
+          addressLine1: String(formData.get("addressLine1") || "") || undefined,
+          addressLine2: String(formData.get("addressLine2") || "") || undefined,
+          buildingNumber: String(formData.get("buildingNumber") || "") || undefined,
+          district: String(formData.get("district") || "") || undefined,
           city: String(formData.get("city") || "") || undefined,
+          postalCode: String(formData.get("postalCode") || "") || undefined,
           countryCode: String(formData.get("countryCode") || "SA"),
         },
       });
@@ -99,7 +104,19 @@ export default function ContactsPage() {
           <input name="email" type="email" placeholder="Email" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
           <input name="phone" placeholder="Phone" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
           <input name="taxNumber" placeholder="VAT number" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          <div className="pt-2 text-xs font-semibold uppercase tracking-wide text-steel md:col-span-4">Address and ZATCA buyer fields</div>
+          <input name="addressLine1" placeholder="Street name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          <input name="addressLine2" placeholder="Additional street" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          <div>
+            <input name="buildingNumber" placeholder="Building number" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <p className="mt-1 text-[11px] text-steel">Usually 4 digits for Saudi national address.</p>
+          </div>
+          <div>
+            <input name="district" placeholder="District" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <p className="mt-1 text-[11px] text-steel">Required for clean Saudi ZATCA buyer address validation where applicable.</p>
+          </div>
           <input name="city" placeholder="City" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          <input name="postalCode" placeholder="Postal code" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
           <input name="countryCode" defaultValue="SA" placeholder="Country" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
           <button type="submit" disabled={!organizationId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
             Add contact
@@ -126,6 +143,7 @@ export default function ContactsPage() {
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">VAT number</th>
+                <th className="px-4 py-3">ZATCA address</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Actions</th>
               </tr>
@@ -138,6 +156,7 @@ export default function ContactsPage() {
                   <td className="px-4 py-3 text-steel">{contact.email ?? "-"}</td>
                   <td className="px-4 py-3 text-steel">{contact.phone ?? "-"}</td>
                   <td className="px-4 py-3 text-steel">{contact.taxNumber ?? "-"}</td>
+                  <td className="px-4 py-3 text-steel">{contact.buildingNumber && contact.district ? `${contact.buildingNumber}, ${contact.district}` : "Incomplete"}</td>
                   <td className="px-4 py-3 text-steel">{contact.isActive ? "Active" : "Inactive"}</td>
                   <td className="px-4 py-3">
                     <Link href={`/contacts/${contact.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">

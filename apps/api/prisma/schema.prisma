@@ -955,6 +955,8 @@ model Contact {
   taxNumber                  String?
   addressLine1               String?
   addressLine2               String?
+  buildingNumber             String?
+  district                   String?
   city                       String?
   countryCode                String                      @default("SA")
   postalCode                 String?

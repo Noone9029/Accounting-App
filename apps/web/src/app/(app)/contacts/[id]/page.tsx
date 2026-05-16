@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { defaultStatementFromDate, defaultStatementToDate, formatLedgerBalance } from "@/lib/ledger-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadPdf, statementPdfPath } from "@/lib/pdf-download";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { Contact, CustomerLedger, CustomerLedgerRow, CustomerStatement, SupplierLedger, SupplierLedgerRow, SupplierStatement } from "@/lib/types";
 
 type ActiveSection = "overview" | "ledger" | "statement" | "supplier-ledger" | "supplier-statement";
@@ -17,6 +19,7 @@ type ActiveSection = "overview" | "ledger" | "statement" | "supplier-ledger" | "
 export default function ContactDetailPage() {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const [contact, setContact] = useState<Contact | null>(null);
   const [ledger, setLedger] = useState<CustomerLedger | null>(null);
   const [statement, setStatement] = useState<CustomerStatement | null>(null);
@@ -28,11 +31,14 @@ export default function ContactDetailPage() {
   const [loading, setLoading] = useState(false);
   const [statementLoading, setStatementLoading] = useState(false);
   const [statementPdfLoading, setStatementPdfLoading] = useState(false);
+  const [addressSaving, setAddressSaving] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [statementError, setStatementError] = useState("");
   const ledgerAvailable = contact?.type === "CUSTOMER" || contact?.type === "BOTH";
   const supplierLedgerAvailable = contact?.type === "SUPPLIER" || contact?.type === "BOTH";
   const profile = contact ?? ledger?.contact ?? supplierLedger?.contact ?? null;
+  const canManageContacts = can(PERMISSIONS.contacts.manage);
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -158,6 +164,39 @@ export default function ContactDetailPage() {
     }
   }
 
+  async function updateAddress(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!contact) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    setAddressSaving(true);
+    const formData = new FormData(event.currentTarget);
+
+    try {
+      const updated = await apiRequest<Contact>(`/contacts/${contact.id}`, {
+        method: "PATCH",
+        body: {
+          addressLine1: String(formData.get("addressLine1") || "") || undefined,
+          addressLine2: String(formData.get("addressLine2") || "") || undefined,
+          buildingNumber: String(formData.get("buildingNumber") || "") || undefined,
+          district: String(formData.get("district") || "") || undefined,
+          city: String(formData.get("city") || "") || undefined,
+          postalCode: String(formData.get("postalCode") || "") || undefined,
+          countryCode: String(formData.get("countryCode") || "SA"),
+        },
+      });
+      setContact(updated);
+      setSuccess("Updated contact address fields.");
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : "Unable to update contact address.");
+    } finally {
+      setAddressSaving(false);
+    }
+  }
+
   return (
     <section>
       <div className="mb-6 flex items-start justify-between gap-4">
@@ -174,6 +213,7 @@ export default function ContactDetailPage() {
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load contacts.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading contact ledger...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
       </div>
 
       {profile ? (
@@ -206,7 +246,34 @@ export default function ContactDetailPage() {
                   <Summary label="Email" value={profile.email ?? "-"} />
                   <Summary label="Phone" value={profile.phone ?? "-"} />
                   <Summary label="VAT number" value={profile.taxNumber ?? "-"} />
+                  <Summary label="Street" value={contact?.addressLine1 ?? "-"} />
+                  <Summary label="Additional street" value={contact?.addressLine2 ?? "-"} />
+                  <Summary label="Building number" value={contact?.buildingNumber ?? "-"} />
+                  <Summary label="District" value={contact?.district ?? "-"} />
+                  <Summary label="City" value={contact?.city ?? "-"} />
+                  <Summary label="Postal code" value={contact?.postalCode ?? "-"} />
+                  <Summary label="Country" value={contact?.countryCode ?? "-"} />
                 </div>
+                {canManageContacts && contact ? (
+                  <form onSubmit={updateAddress} className="mt-5 grid grid-cols-1 gap-3 border-t border-slate-100 pt-5 md:grid-cols-3">
+                    <div className="md:col-span-3">
+                      <h3 className="text-sm font-semibold text-ink">Edit address fields</h3>
+                      <p className="mt-1 text-xs text-steel">
+                        Required for clean Saudi ZATCA buyer address validation where applicable. Building number is usually 4 digits for Saudi national address.
+                      </p>
+                    </div>
+                    <input name="addressLine1" defaultValue={contact.addressLine1 ?? ""} placeholder="Street name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                    <input name="addressLine2" defaultValue={contact.addressLine2 ?? ""} placeholder="Additional street" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                    <input name="buildingNumber" defaultValue={contact.buildingNumber ?? ""} placeholder="Building number" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                    <input name="district" defaultValue={contact.district ?? ""} placeholder="District" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                    <input name="city" defaultValue={contact.city ?? ""} placeholder="City" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                    <input name="postalCode" defaultValue={contact.postalCode ?? ""} placeholder="Postal code" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                    <input name="countryCode" defaultValue={contact.countryCode ?? "SA"} placeholder="Country code" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                    <button type="submit" disabled={addressSaving} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+                      {addressSaving ? "Saving..." : "Save address"}
+                    </button>
+                  </form>
+                ) : null}
               </div>
               <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
                 <h2 className="text-base font-semibold text-ink">Balance</h2>

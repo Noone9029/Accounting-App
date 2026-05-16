@@ -759,6 +759,8 @@ export class ZatcaService {
               taxNumber: true,
               addressLine1: true,
               addressLine2: true,
+              buildingNumber: true,
+              district: true,
               city: true,
               postalCode: true,
               countryCode: true,
@@ -1046,6 +1048,8 @@ export class ZatcaService {
             taxNumber: true,
             addressLine1: true,
             addressLine2: true,
+            buildingNumber: true,
+            district: true,
             city: true,
             postalCode: true,
             countryCode: true,
@@ -1321,6 +1325,8 @@ export class ZatcaService {
             taxNumber: true;
             addressLine1: true;
             addressLine2: true;
+            buildingNumber: true;
+            district: true;
             city: true;
             postalCode: true;
             countryCode: true;
@@ -1358,7 +1364,9 @@ export class ZatcaService {
         name: invoice.customer.displayName ?? invoice.customer.name,
         vatNumber: invoice.customer.taxNumber,
         streetName: invoice.customer.addressLine1,
-        district: invoice.customer.addressLine2,
+        additionalAddressNumber: invoice.customer.addressLine2,
+        buildingNumber: invoice.customer.buildingNumber,
+        district: invoice.customer.district,
         city: invoice.customer.city,
         postalCode: invoice.customer.postalCode,
         countryCode: invoice.customer.countryCode,

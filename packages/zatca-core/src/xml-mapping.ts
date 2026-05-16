@@ -115,6 +115,16 @@ export const ZATCA_XML_FIELD_MAPPING = [
     officialVerificationRequired: true,
   },
   {
+    id: "customer-party-address",
+    category: "buyer-customer-party",
+    ledgerByteSource: "Contact.addressLine1, Contact.addressLine2, Contact.buildingNumber, Contact.district, Contact.city, Contact.postalCode, Contact.countryCode",
+    xmlTarget: "/Invoice/cac:AccountingCustomerParty/cac:Party/cac:PostalAddress",
+    status: "IMPLEMENTED_LOCAL",
+    requiredForProduction: true,
+    notes: "Local generated XML maps street, optional additional street, dedicated buyer building number, district, city, postal code, and country code in the official sample order. Missing Saudi standard buyer address data is reported as readiness warnings; fake defaults are not inserted.",
+    officialVerificationRequired: true,
+  },
+  {
     id: "invoice-line-core-amounts",
     category: "invoice-lines",
     ledgerByteSource: "SalesInvoiceLine quantity, unitPrice, taxableAmount, taxAmount, lineTotal",

@@ -369,6 +369,13 @@ interface Contact {
   id: string;
   name: string;
   displayName?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  buildingNumber?: string | null;
+  district?: string | null;
+  city?: string | null;
+  postalCode?: string | null;
+  countryCode?: string | null;
 }
 
 interface Item {
@@ -2831,6 +2838,13 @@ async function main(): Promise<void> {
     type: "CUSTOMER",
     name: `Smoke Test Customer ${runId}`,
     displayName: `Smoke Test Customer ${runId}`,
+    taxNumber: "399999999800003",
+    addressLine1: "Salah Al-Din",
+    addressLine2: "Unit 12",
+    buildingNumber: "1111",
+    district: "Al Murooj",
+    city: "Riyadh",
+    postalCode: "12222",
     countryCode: "SA",
   });
 
@@ -2886,6 +2900,10 @@ async function main(): Promise<void> {
     vatNumber: "300000000000003",
     countryCode: "SA",
     city: "Riyadh",
+    streetName: "King Fahd Road",
+    buildingNumber: "1234",
+    district: "Olaya",
+    postalCode: "12271",
     businessCategory: "Smoke testing",
     environment: "SANDBOX",
   });
@@ -2967,6 +2985,7 @@ async function main(): Promise<void> {
   );
   await assertXml(`/sales-invoices/${draftInvoice.id}/zatca/xml`, headers, "invoice ZATCA XML", finalizedInvoice.invoiceNumber);
   await assertXml(`/sales-invoices/${draftInvoice.id}/zatca/xml`, headers, "invoice ZATCA XML supply date", "<cbc:ActualDeliveryDate>");
+  await assertXml(`/sales-invoices/${draftInvoice.id}/zatca/xml`, headers, "invoice ZATCA buyer building number", "<cbc:BuildingNumber>1111</cbc:BuildingNumber>");
   const zatcaXmlValidation = await get<ZatcaXmlValidationResult>(`/sales-invoices/${draftInvoice.id}/zatca/xml-validation`, headers);
   assertEqual(zatcaXmlValidation.localOnly, true, "ZATCA XML validation localOnly");
   assertEqual(zatcaXmlValidation.officialValidation, false, "ZATCA XML validation officialValidation");

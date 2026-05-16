@@ -1486,7 +1486,12 @@ export interface Contact {
   email: string | null;
   phone: string | null;
   taxNumber: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  buildingNumber: string | null;
+  district: string | null;
   city: string | null;
+  postalCode: string | null;
   countryCode: string;
   isActive: boolean;
 }

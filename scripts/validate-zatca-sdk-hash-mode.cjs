@@ -127,7 +127,9 @@ async function main() {
       displayName: `SDK Hash Customer ${runId}`,
       taxNumber: "399999999900003",
       addressLine1: "King Abdullah Financial District",
-      addressLine2: "Al Aqeeq",
+      addressLine2: "Unit 9",
+      buildingNumber: "2322",
+      district: "Al Aqeeq",
       city: "Riyadh",
       postalCode: "13519",
       countryCode: "SA",
@@ -304,6 +306,9 @@ async function generateValidateAndCompare({ headers, invoice, sdkConfig, expecte
 
   const directValidation = await runFatoora(sdkConfig, "validate", xmlPath, { previousInvoiceHash: metadata.previousInvoiceHash });
   const validationMessages = extractValidationMessages(`${directValidation.stdout}\n${directValidation.stderr}`);
+  if (validationMessages.some((message) => message.includes("BR-KSA-63"))) {
+    throw new Error(`${invoice.invoiceNumber} still has BR-KSA-63 buyer-address warning.`);
+  }
   const hashCompare = await requestJson(`/sales-invoices/${encodeURIComponent(invoice.id)}/zatca/hash-compare`, {
     method: "POST",
     ...headers,

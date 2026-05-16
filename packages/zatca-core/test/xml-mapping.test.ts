@@ -71,6 +71,20 @@ describe("ZATCA XML mapping scaffold", () => {
     ]);
   });
 
+  it("preserves official buyer PostalAddress child order including building number", () => {
+    const xml = buildZatcaInvoiceXml(readFixtureInput("local-standard-tax-invoice"));
+
+    assertMarkersInOrder(xml, [
+      "<cac:AccountingCustomerParty>",
+      "<cbc:StreetName>Prince Sultan</cbc:StreetName>",
+      "<cbc:BuildingNumber>2322</cbc:BuildingNumber>",
+      "<cbc:CitySubdivisionName>Al-Murabba</cbc:CitySubdivisionName>",
+      "<cbc:CityName>Jeddah</cbc:CityName>",
+      "<cbc:PostalZone>21442</cbc:PostalZone>",
+      "<cac:Country><cbc:IdentificationCode>SA</cbc:IdentificationCode></cac:Country>",
+    ]);
+  });
+
   it("emits official ICV AdditionalDocumentReference structure", () => {
     const xml = buildZatcaInvoiceXml(readFixtureInput("local-standard-tax-invoice"));
 
@@ -201,6 +215,19 @@ describe("ZATCA XML mapping scaffold", () => {
     assert.equal(result.valid, false);
     assert.ok(result.errors.includes("At least one invoice line is required."));
   });
+
+  it("warns about missing Saudi standard buyer building number without inserting fake XML data", () => {
+    const input = readFixtureInput("local-standard-tax-invoice");
+    const result = validateLocalZatcaXml({ ...input, buyer: { ...input.buyer, buildingNumber: null } });
+    const xml = buildZatcaInvoiceXml({ ...input, buyer: { ...input.buyer, buildingNumber: null } });
+
+    assert.equal(result.valid, true);
+    assert.ok(result.warnings.some((warning) => warning.includes("BR-KSA-63 readiness")));
+    const customerPartyStart = xml.indexOf("<cac:AccountingCustomerParty>");
+    const customerTaxSchemeStart = xml.indexOf("<cac:PartyTaxScheme>", customerPartyStart);
+    const buyerAddressXml = xml.slice(customerPartyStart, customerTaxSchemeStart);
+    assert.doesNotMatch(buyerAddressXml, /<cbc:BuildingNumber>/);
+  });
 });
 
 function readFixtureInput(name: string): ZatcaInvoiceInput {
@@ -214,7 +241,7 @@ function readFixtureXml(name: string): string {
 function assertMarkersInOrder(xml: string, markers: string[]): void {
   let previousIndex = -1;
   for (const marker of markers) {
-    const index = xml.indexOf(marker);
+    const index = xml.indexOf(marker, previousIndex + 1);
     assert.notEqual(index, -1, `Expected marker ${marker} to exist.`);
     assert.ok(index > previousIndex, `Expected marker ${marker} to appear after the previous marker.`);
     previousIndex = index;
