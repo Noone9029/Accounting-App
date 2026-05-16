@@ -9,4 +9,8 @@ describe("ZATCA controller", () => {
 
     expect(guards).toEqual(expect.arrayContaining([JwtAuthGuard, OrganizationContextGuard]));
   });
+
+  it("exposes the local signing dry-run handler", () => {
+    expect(typeof ZatcaController.prototype.invoiceLocalSigningDryRun).toBe("function");
+  });
 });

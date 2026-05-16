@@ -18,6 +18,7 @@
     "zatca:validate-sdk-hash-mode": "node scripts/validate-zatca-sdk-hash-mode.cjs",
     "zatca:csr-dry-run": "corepack pnpm --filter @ledgerbyte/api zatca:csr-dry-run",
     "zatca:csr-local-generate": "corepack pnpm --filter @ledgerbyte/api zatca:csr-local-generate",
+    "zatca:local-signing-dry-run": "corepack pnpm --filter @ledgerbyte/api zatca:local-signing-dry-run",
     "db:generate": "corepack pnpm --filter @ledgerbyte/api db:generate",
     "db:migrate": "corepack pnpm --filter @ledgerbyte/api db:migrate",
     "db:seed": "corepack pnpm --filter @ledgerbyte/api db:seed"

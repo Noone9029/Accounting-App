@@ -1021,6 +1021,86 @@ describe("ZATCA service rules", () => {
     expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
   });
 
+  it("returns a default-disabled local signing dry-run without mutating metadata or EGS state", async () => {
+    const previousFlag = process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED;
+    delete process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED;
+    const prisma = makeInvoiceReadinessPrisma({
+      zatcaInvoiceType: ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE,
+      activeEgs: {
+        id: "egs-1",
+        name: "Dev EGS",
+        environment: "SANDBOX",
+        status: ZatcaRegistrationStatus.ACTIVE,
+        isActive: true,
+        lastIcv: 2,
+        lastInvoiceHash: "last-hash",
+        hashMode: "SDK_GENERATED",
+        privateKeyPem: "-----BEGIN EC PRIVATE KEY-----\nSUPER-SECRET-PRIVATE-KEY\n-----END EC PRIVATE KEY-----",
+      },
+    });
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    try {
+      const result = await service.getInvoiceZatcaLocalSigningDryRun("org-1", "invoice-1");
+
+      expect(result).toMatchObject({
+        localOnly: true,
+        dryRun: true,
+        noMutation: true,
+        noCsidRequest: true,
+        noNetwork: true,
+        noClearanceReporting: true,
+        noPdfA3: true,
+        noProductionCredentials: true,
+        productionCompliance: false,
+        executionEnabled: false,
+        executionAttempted: false,
+        signedXmlDetected: false,
+        qrDetected: false,
+        invoiceType: ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE,
+      });
+      expect(result.blockers).toEqual(expect.arrayContaining([expect.stringContaining("ZATCA_SDK_SIGNING_EXECUTION_ENABLED is false")]));
+      expect(result.phase2Qr.blockers).toEqual(expect.arrayContaining([expect.stringContaining("Phase 2 QR generation is blocked until signed XML exists")]));
+      expect(JSON.stringify(result)).not.toContain("SUPER-SECRET-PRIVATE-KEY");
+      expect(JSON.stringify(result)).not.toContain("BEGIN EC PRIVATE KEY");
+      expect(prisma.zatcaInvoiceMetadata.upsert).not.toHaveBeenCalled();
+      expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+      expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+      expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    } finally {
+      if (previousFlag === undefined) {
+        delete process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED;
+      } else {
+        process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED = previousFlag;
+      }
+    }
+  });
+
+  it("blocks local signing dry-run when generated XML is missing", async () => {
+    const prisma = makeInvoiceReadinessPrisma({
+      metadata: {
+        id: "metadata-1",
+        invoiceId: "invoice-1",
+        zatcaInvoiceType: ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE,
+        xmlBase64: null,
+        icv: null,
+        previousInvoiceHash: null,
+        invoiceHash: null,
+        hashModeSnapshot: "LOCAL_DETERMINISTIC",
+        egsUnitId: "egs-1",
+        generatedAt: null,
+      },
+    });
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const result = await service.getInvoiceZatcaLocalSigningDryRun("org-1", "invoice-1");
+
+    expect(result.executionAttempted).toBe(false);
+    expect(result.blockers).toEqual(expect.arrayContaining([expect.stringContaining("Generated invoice XML is missing")]));
+    expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+  });
+
   it("settings readiness reports CSR and key-custody blockers without exposing private key content", async () => {
     const prisma = makeReadinessPrisma({
       activeEgs: {

@@ -23,6 +23,7 @@ import {
   zatcaHashComparisonLabel,
   zatcaHashModeLabel,
   zatcaInvoiceHashComparePath,
+  zatcaInvoiceLocalSigningDryRunPath,
   zatcaInvoiceReadinessPath,
   zatcaInvoiceSigningPlanPath,
   zatcaInvoiceSdkValidatePath,
@@ -42,6 +43,7 @@ import type {
   SalesInvoice,
   SalesInvoiceStockIssueStatus,
   ZatcaInvoiceHashCompareResponse,
+  ZatcaInvoiceLocalSigningDryRunResponse,
   ZatcaInvoiceMetadata,
   ZatcaInvoiceReadinessResponse,
   ZatcaInvoiceSigningPlanResponse,
@@ -62,6 +64,7 @@ export default function SalesInvoiceDetailPage() {
   const [zatca, setZatca] = useState<ZatcaInvoiceMetadata | null>(null);
   const [zatcaReadiness, setZatcaReadiness] = useState<ZatcaInvoiceReadinessResponse | null>(null);
   const [signingPlan, setSigningPlan] = useState<ZatcaInvoiceSigningPlanResponse | null>(null);
+  const [localSigningDryRun, setLocalSigningDryRun] = useState<ZatcaInvoiceLocalSigningDryRunResponse | null>(null);
   const [xmlValidation, setXmlValidation] = useState<ZatcaXmlValidationResult | null>(null);
   const [sdkDryRun, setSdkDryRun] = useState<ZatcaSdkDryRunResponse | null>(null);
   const [sdkValidation, setSdkValidation] = useState<ZatcaSdkValidationResponse | null>(null);
@@ -197,6 +200,24 @@ export default function SalesInvoiceDetailPage() {
     const result = await apiRequest<ZatcaInvoiceSigningPlanResponse>(zatcaInvoiceSigningPlanPath(invoiceId));
     setSigningPlan(result);
     return result;
+  }
+
+  async function runLocalSigningDryRun() {
+    if (!invoice) {
+      return;
+    }
+    setActionLoading(true);
+    setError("");
+    setSuccess("");
+    try {
+      const result = await apiRequest<ZatcaInvoiceLocalSigningDryRunResponse>(zatcaInvoiceLocalSigningDryRunPath(invoice.id), { method: "POST" });
+      setLocalSigningDryRun(result);
+      setSuccess("Local signing dry-run refreshed. No CSID request, network call, submission, or persistence was performed.");
+    } catch (signingError: unknown) {
+      setError(signingError instanceof Error ? signingError.message : "Unable to run local signing dry-run.");
+    } finally {
+      setActionLoading(false);
+    }
   }
 
   async function fetchZatcaXmlValidation(invoiceId: string) {
@@ -824,7 +845,38 @@ export default function SalesInvoiceDetailPage() {
                     ))}
                   </ul>
                 ) : null}
-                <p className="mt-3 text-xs text-amber-700">No button is exposed for real signing. Certificate/private-key material is not shown or stored by this plan.</p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={runLocalSigningDryRun}
+                    disabled={actionLoading}
+                    className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    View local signing dry-run
+                  </button>
+                  <span className="text-xs text-amber-700">Local-only. Default gate is disabled; no CSID, network, submission, or persistence.</span>
+                </div>
+                {localSigningDryRun ? (
+                  <div className="mt-3 rounded-md border border-amber-200 bg-white p-3 text-xs">
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
+                      <Summary label="Execution enabled" value={localSigningDryRun.executionEnabled ? "Yes" : "No"} />
+                      <Summary label="Execution attempted" value={localSigningDryRun.executionAttempted ? "Yes" : "No"} />
+                      <Summary label="Signed XML detected" value={localSigningDryRun.signedXmlDetected ? "Yes" : "No"} />
+                      <Summary label="Phase 2 QR detected" value={localSigningDryRun.qrDetected ? "Yes" : "No"} />
+                    </div>
+                    {localSigningDryRun.phase2Qr.dependencyChain.length ? (
+                      <p className="mt-2 text-steel">QR dependency chain: {localSigningDryRun.phase2Qr.dependencyChain.join(" -> ")}</p>
+                    ) : null}
+                    {localSigningDryRun.blockers.length ? (
+                      <ul className="mt-2 list-disc space-y-1 pl-5 text-rosewood">
+                        {localSigningDryRun.blockers.slice(0, 4).map((blocker) => (
+                          <li key={blocker}>{blocker}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                ) : null}
+                <p className="mt-3 text-xs text-amber-700">Certificate/private-key material, signed XML bodies, CSID tokens, OTPs, and QR payload bodies are not shown or stored.</p>
               </div>
             ) : null}
 

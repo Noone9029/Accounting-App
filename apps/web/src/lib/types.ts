@@ -3126,6 +3126,7 @@ export interface ZatcaInvoiceSigningPlanResponse {
     id: string;
     invoiceNumber: string;
     status: SalesInvoiceStatus;
+    zatcaInvoiceType: string;
   };
   metadata: {
     id: string;
@@ -3138,6 +3139,7 @@ export interface ZatcaInvoiceSigningPlanResponse {
   egs: {
     id: string;
     name: string;
+    environment: ZatcaEnvironment;
     status: ZatcaRegistrationStatus;
     isActive: boolean;
     hasCsr: boolean;
@@ -3154,6 +3156,59 @@ export interface ZatcaInvoiceSigningPlanResponse {
     note?: string;
   }>;
   commandPlan: ZatcaSdkValidationCommandPlan;
+  blockers: string[];
+  warnings: string[];
+}
+
+export interface ZatcaInvoiceLocalSigningDryRunResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  noProductionCredentials: true;
+  noPersistence: true;
+  productionCompliance: false;
+  invoiceId: string;
+  invoiceNumber: string;
+  invoiceType: string;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  executionSkipped: boolean;
+  executionSkipReason: string | null;
+  sdkCommand: string;
+  qrSdkCommand: string;
+  commandPlan: ZatcaSdkValidationCommandPlan;
+  qrCommandPlan: ZatcaSdkValidationCommandPlan;
+  phase2Qr: {
+    currentBasicQrExists: boolean;
+    sdkCommand: string;
+    commandPlan: ZatcaSdkValidationCommandPlan;
+    dependencyChain: string[];
+    blockers: string[];
+    warnings: string[];
+  };
+  tempFilesWritten: {
+    unsignedXml: boolean;
+    signedXml: boolean;
+    tempDirectory: string | null;
+    filesRetained: boolean;
+  };
+  cleanup: {
+    performed: boolean;
+    success: boolean;
+    filesRetained: boolean;
+    tempDirectory: string | null;
+  };
+  signedXmlDetected: boolean;
+  qrDetected: boolean;
+  sdkExitCode: number | null;
+  qrSdkExitCode: number | null;
+  timedOut: boolean;
+  stdoutSummary: string;
+  stderrSummary: string;
   blockers: string[];
   warnings: string[];
 }

@@ -105,6 +105,7 @@ export const ZATCA_SDK_REQUIRED_JAVA_RANGE = ">=11 <15";
 export const ZATCA_SDK_VALIDATE_COMMAND = "fatoora -validate -invoice <filename>";
 export const ZATCA_SDK_GENERATE_HASH_COMMAND = "fatoora -generateHash -invoice <filename>";
 export const ZATCA_SDK_SIGN_COMMAND = "fatoora -sign -invoice <filename> -signedInvoice <filename>";
+export const ZATCA_SDK_QR_COMMAND = "fatoora -qr -invoice <filename>";
 export const ZATCA_SDK_CSR_COMMAND = "fatoora -csr -csrConfig <filename> -privateKey <filename> -generatedCsr <filename> -pem";
 
 export function discoverZatcaSdkReadiness(options: ZatcaSdkDiscoveryOptions = {}): ZatcaSdkReadiness {
@@ -243,6 +244,10 @@ export function buildZatcaSdkSigningCommand(input: ZatcaSdkValidationCommandInpu
   return buildZatcaSdkCommand(input, "sign");
 }
 
+export function buildZatcaSdkQrCommand(input: ZatcaSdkValidationCommandInput): ZatcaSdkValidationCommandPlan {
+  return buildZatcaSdkCommand(input, "qr");
+}
+
 export function buildZatcaSdkCsrCommand(input: ZatcaSdkCsrCommandInput): ZatcaSdkValidationCommandPlan {
   const currentPlatform = input.platform;
   const warnings: string[] = [
@@ -336,13 +341,20 @@ export function buildZatcaSdkCsrCommand(input: ZatcaSdkCsrCommandInput): ZatcaSd
   };
 }
 
-function buildZatcaSdkCommand(input: ZatcaSdkValidationCommandInput & { signedInvoiceFilePath?: string | null }, operation: "validate" | "generateHash" | "sign"): ZatcaSdkValidationCommandPlan {
+function buildZatcaSdkCommand(input: ZatcaSdkValidationCommandInput & { signedInvoiceFilePath?: string | null }, operation: "validate" | "generateHash" | "sign" | "qr"): ZatcaSdkValidationCommandPlan {
   const currentPlatform = input.platform;
   const warnings: string[] = ["Use argument-array execution for this SDK command; do not concatenate a shell string."];
   const envAdditions: Record<string, string> = {};
   const pathPrepend: string[] = [];
-  const operationFlag = operation === "validate" ? "-validate" : operation === "generateHash" ? "-generateHash" : "-sign";
-  const documentedCommand = operation === "validate" ? ZATCA_SDK_VALIDATE_COMMAND : operation === "generateHash" ? ZATCA_SDK_GENERATE_HASH_COMMAND : ZATCA_SDK_SIGN_COMMAND;
+  const operationFlag = operation === "validate" ? "-validate" : operation === "generateHash" ? "-generateHash" : operation === "qr" ? "-qr" : "-sign";
+  const documentedCommand =
+    operation === "validate"
+      ? ZATCA_SDK_VALIDATE_COMMAND
+      : operation === "generateHash"
+        ? ZATCA_SDK_GENERATE_HASH_COMMAND
+        : operation === "qr"
+          ? ZATCA_SDK_QR_COMMAND
+          : ZATCA_SDK_SIGN_COMMAND;
 
   if (!input.xmlFilePath.trim()) {
     warnings.push("XML file path is missing.");

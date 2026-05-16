@@ -13,6 +13,7 @@
     "smoke:accounting": "tsx scripts/smoke-accounting.ts",
     "zatca:csr-dry-run": "tsx scripts/zatca-csr-dry-run.ts",
     "zatca:csr-local-generate": "tsx scripts/zatca-csr-local-generate.ts",
+    "zatca:local-signing-dry-run": "tsx scripts/zatca-local-signing-dry-run.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed"

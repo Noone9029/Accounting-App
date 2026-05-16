@@ -1148,6 +1148,29 @@ interface ZatcaInvoiceSigningPlanResponse {
   warnings: string[];
 }
 
+interface ZatcaInvoiceLocalSigningDryRunResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  noProductionCredentials: true;
+  noPersistence: true;
+  productionCompliance: false;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  executionSkipped: boolean;
+  signedXmlDetected: boolean;
+  qrDetected: boolean;
+  phase2Qr: { blockers: string[]; dependencyChain: string[] };
+  tempFilesWritten: { unsignedXml: boolean; signedXml: boolean; tempDirectory: string | null; filesRetained: boolean };
+  cleanup: { performed: boolean; success: boolean; filesRetained: boolean; tempDirectory: string | null };
+  blockers: string[];
+  warnings: string[];
+}
+
 interface ZatcaEgsCsrPlanResponse {
   localOnly: true;
   dryRun: true;
@@ -3335,6 +3358,27 @@ async function main(): Promise<void> {
   assertEqual(metadataAfterSigningPlan.icv, metadataBeforeSigningPlan.icv, "ZATCA signing plan does not mutate ICV");
   assertEqual(metadataAfterSigningPlan.invoiceHash, metadataBeforeSigningPlan.invoiceHash, "ZATCA signing plan does not mutate invoice hash");
   assertEqual(metadataAfterSigningPlan.previousInvoiceHash, metadataBeforeSigningPlan.previousInvoiceHash, "ZATCA signing plan does not mutate previous hash");
+  const metadataBeforeLocalSigningDryRun = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  const zatcaLocalSigningDryRun = await post<ZatcaInvoiceLocalSigningDryRunResponse>(`/sales-invoices/${draftInvoice.id}/zatca/local-signing-dry-run`, headers, {});
+  assertEqual(zatcaLocalSigningDryRun.localOnly, true, "ZATCA local signing dry-run localOnly");
+  assertEqual(zatcaLocalSigningDryRun.dryRun, true, "ZATCA local signing dry-run dryRun");
+  assertEqual(zatcaLocalSigningDryRun.noMutation, true, "ZATCA local signing dry-run noMutation");
+  assertEqual(zatcaLocalSigningDryRun.noCsidRequest, true, "ZATCA local signing dry-run no CSID request");
+  assertEqual(zatcaLocalSigningDryRun.noNetwork, true, "ZATCA local signing dry-run no network");
+  assertEqual(zatcaLocalSigningDryRun.noClearanceReporting, true, "ZATCA local signing dry-run no clearance/reporting");
+  assertEqual(zatcaLocalSigningDryRun.noPdfA3, true, "ZATCA local signing dry-run no PDF/A-3");
+  assertEqual(zatcaLocalSigningDryRun.noProductionCredentials, true, "ZATCA local signing dry-run no production credentials");
+  assertEqual(zatcaLocalSigningDryRun.productionCompliance, false, "ZATCA local signing dry-run productionCompliance");
+  assertEqual(zatcaLocalSigningDryRun.executionEnabled, false, "ZATCA local signing dry-run execution disabled by default");
+  assertEqual(zatcaLocalSigningDryRun.executionAttempted, false, "ZATCA local signing dry-run execution not attempted by default");
+  assertEqual(zatcaLocalSigningDryRun.signedXmlDetected, false, "ZATCA local signing dry-run signed XML not detected by default");
+  assertEqual(zatcaLocalSigningDryRun.qrDetected, false, "ZATCA local signing dry-run QR not detected by default");
+  assert(zatcaLocalSigningDryRun.phase2Qr.blockers.length > 0, "ZATCA local signing dry-run reports Phase 2 QR blockers");
+  assertNoPrivateKey(zatcaLocalSigningDryRun, "ZATCA local signing dry-run response");
+  const metadataAfterLocalSigningDryRun = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  assertEqual(metadataAfterLocalSigningDryRun.icv, metadataBeforeLocalSigningDryRun.icv, "ZATCA local signing dry-run does not mutate ICV");
+  assertEqual(metadataAfterLocalSigningDryRun.invoiceHash, metadataBeforeLocalSigningDryRun.invoiceHash, "ZATCA local signing dry-run does not mutate invoice hash");
+  assertEqual(metadataAfterLocalSigningDryRun.previousInvoiceHash, metadataBeforeLocalSigningDryRun.previousInvoiceHash, "ZATCA local signing dry-run does not mutate previous hash");
   const zatcaSdkReadiness = await get<ZatcaSdkReadinessResponse>("/zatca-sdk/readiness", headers);
   assertEqual(zatcaSdkReadiness.enabled, false, "ZATCA SDK execution disabled by default");
   assert(typeof zatcaSdkReadiness.referenceFolderFound === "boolean", "ZATCA SDK readiness returns reference folder flag");
@@ -4990,6 +5034,10 @@ async function main(): Promise<void> {
         zatcaPhase2QrReadinessStatus: invoiceZatcaReadiness.phase2Qr.status,
         zatcaSigningPlanDryRun: zatcaSigningPlan.dryRun,
         zatcaSigningPlanNoMutation: zatcaSigningPlan.noMutation,
+        zatcaLocalSigningDryRunExecutionEnabled: zatcaLocalSigningDryRun.executionEnabled,
+        zatcaLocalSigningDryRunExecutionAttempted: zatcaLocalSigningDryRun.executionAttempted,
+        zatcaLocalSigningDryRunSignedXmlDetected: zatcaLocalSigningDryRun.signedXmlDetected,
+        zatcaLocalSigningDryRunQrDetected: zatcaLocalSigningDryRun.qrDetected,
         zatcaCsrPlanDryRun: zatcaCsrPlan.dryRun,
         zatcaCsrPlanNoMutation: zatcaCsrPlan.noMutation,
         zatcaCsrConfigReviewStatus: approvedZatcaCsrConfigReview.status,
