@@ -44,3 +44,22 @@ Official reference files have now been inventoried under `reference/` and mapped
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/**/*.xml`
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Schemas/xsds/**/*.xsd`
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Rules/Schematrons/*.xsl`
+
+## 2026-05-16 Fresh EGS Hash-Mode Evidence
+
+Fresh-EGS SDK hash persistence has been validated locally as an engineering milestone:
+
+- Java 11.0.26 and the official SDK launcher were used.
+- A fresh EGS with zero metadata was explicitly enabled for `SDK_GENERATED`.
+- Two generated standard invoices stored SDK `-generateHash` output in metadata.
+- Invoice 1 PIH used the official first seed from `Data/PIH/pih.txt`.
+- Invoice 2 PIH used invoice 1's persisted SDK hash.
+- Hash compare returned `MATCH` and `noMutation=true` for both invoices.
+- Repeated generation did not advance ICV or mutate EGS last hash.
+
+Remaining Phase 2 blockers:
+
+- Generated invoice 2 still fails official SDK PIH validation with `KSA-13`.
+- Generated invoices still show buyer-address quality warnings.
+- Signing, certificate/key custody, Phase 2 QR, CSID onboarding, clearance/reporting, and PDF/A-3 remain unimplemented.
+- No production compliance is claimed.

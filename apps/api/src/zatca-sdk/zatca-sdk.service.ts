@@ -426,7 +426,7 @@ export class ZatcaSdkService {
       const hashResult = await generateSdkHashComparison(readiness, xmlFilePath, options.appHash ?? null);
 
       return {
-        success: executed.exitCode === 0,
+        success: inferZatcaSdkValidationSuccess(`${stdoutSummary}\n${stderrSummary}`, executed.exitCode),
         disabled: false,
         localOnly: true,
         officialValidationAttempted: true,
@@ -708,6 +708,22 @@ export function extractZatcaSdkValidationMessages(output: string): string[] {
     .filter(Boolean)
     .filter((line) => /(\bNOT PASS\b|\bPASS\b|\bERROR\b|\bWARNING\b|BR-|KSA-|\bXSD\b|\bSCHEMATRON\b|\bVALID\b)/i.test(line))
     .slice(0, 50);
+}
+
+export function inferZatcaSdkValidationSuccess(output: string, exitCode: number | null): boolean {
+  if (exitCode !== 0) {
+    return false;
+  }
+
+  const sanitized = sanitizeZatcaSdkOutput(output);
+  if (/GLOBAL\s+VALIDATION\s+RESULT\s*=\s*FAILED/i.test(sanitized) || /\bvalidation\s+result\s*:\s*FAILED\b/i.test(sanitized)) {
+    return false;
+  }
+  if (/GLOBAL\s+VALIDATION\s+RESULT\s*=\s*PASSED/i.test(sanitized)) {
+    return true;
+  }
+
+  return true;
 }
 
 function isInsidePath(child: string, parent: string): boolean {

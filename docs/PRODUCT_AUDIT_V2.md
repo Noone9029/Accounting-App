@@ -136,6 +136,12 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 
 1. Stabilize current UX: dashboard chart polish, error/empty states, route QA, and browser smoke expansion.
 2. Turn production groundwork into real infrastructure: S3 migration/generated-document storage, email provider, backup/restore, monitoring, and CI gates.
-3. Validate fresh-EGS SDK hash persistence repeatedly, resolve generated-invoice SDK warnings, then address signing, certificate, and Phase 2 QR gaps before any network calls.
+3. Resolve the fresh-EGS SDK-mode generated XML gaps now exposed by local validation: invoice 2 `KSA-13` PIH validation, buyer-address warnings, signing, certificate, and Phase 2 QR before any network calls.
 4. Add accountant-reviewed advanced accounting only after current report/dashboard/inventory policies are signed off.
 5. Add SaaS business layer after operational foundations are reliable.
+
+## Fresh EGS SDK Hash Validation Update
+
+Update date: 2026-05-16.
+
+The fresh-EGS SDK hash persistence path has now been validated end-to-end locally with Java 11.0.26 and no ZATCA network calls. A zero-metadata EGS was explicitly enabled for `SDK_GENERATED`; two invoices persisted SDK hashes; invoice 2 PIH equaled invoice 1's SDK hash; hash compare returned `MATCH` for both invoices; repeated generation did not mutate ICV or last hash. This raises confidence in the local hash persistence design but does not change production readiness because generated invoice 2 still fails official SDK PIH validation with `KSA-13`, generated buyer-address warnings remain, and signing/CSID/clearance/PDF-A3 are still absent.

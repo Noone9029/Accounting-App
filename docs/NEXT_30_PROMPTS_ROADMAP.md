@@ -116,19 +116,19 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 
 ## Phase 3: ZATCA Production Path
 
-### 14. Resolve generated ZATCA XML warnings
+### 14. Resolve generated ZATCA PIH/address warnings
 
-- Objective: Use the local SDK warning output from API-generated XML to fix seller/buyer address and identifier mapping without signing or network calls.
-- Why it matters: API-generated XML now validates locally, but production-quality address/identifier warnings remain.
-- Dependencies: Java 11-14 runtime and official fixture result doc.
+- Objective: Use the fresh-EGS SDK hash-mode output to investigate invoice 2 `KSA-13` PIH validation failure and fix generated buyer-address warnings without signing or network calls.
+- Why it matters: SDK hash persistence now works locally, but generated XML still needs official PIH validation and cleaner address mapping before signing work.
+- Dependencies: Java 11-14 runtime, official fixture result doc, fresh-EGS validation evidence.
 - Risk level: High.
 - Manual credentials needed: No.
 
-### 15. Validate fresh-EGS SDK hash persistence
+### 15. Re-run fresh-EGS SDK hash persistence after PIH fixes
 
-- Objective: Create a fresh test EGS, enable SDK hash mode with local SDK readiness, generate multiple invoices, and verify persisted hashes/PIH chain against SDK `fatoora -generateHash -invoice <filename>`.
-- Why it matters: The app now has explicit SDK hash persistence safeguards; signing and API submission depend on proving the stored chain remains stable across real generated invoices.
-- Dependencies: Current structural XML fixtures, SDK validation wrapper, hash comparison endpoint, reset-plan endpoint, and fresh-EGS enablement.
+- Objective: Repeat the two-invoice fresh-EGS validation after PIH/address fixes and confirm both SDK `-generateHash` and SDK XML validation pass where signing is not required.
+- Why it matters: The current pass proves persisted SDK hashes and idempotency but leaves invoice 2 `KSA-13`; the next pass should prove that remaining non-signing generated XML gap is closed.
+- Dependencies: Prompt 14 PIH/address fixes, SDK validation wrapper, hash comparison endpoint, reset-plan endpoint, and fresh-EGS enablement.
 - Risk level: Critical.
 - Manual credentials needed: No.
 

@@ -348,6 +348,62 @@ Changes made:
 - Added settings and invoice-detail UI panels for hash mode, SDK readiness, reset-plan review, and no-mutation hash comparison.
 - Kept normal smoke and tests disabled-by-default for SDK execution; no signing, CSID, clearance/reporting, network calls, or metadata mutation were added.
 
+## Fresh EGS SDK Hash-Mode End-to-End Validation
+
+Follow-up date: 2026-05-16
+
+Commit context: current working tree after `da6540f Add ZATCA SDK hash mode persistence groundwork`.
+
+The local API was started with SDK execution enabled only in the process environment. A new local organization and fresh EGS were created so no existing local deterministic hash chain was reset or migrated.
+
+Official source files inspected again:
+
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/usage.txt`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/PIH/pih.txt`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Simplified/Invoice/Simplified_Invoice.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Rules/Schematrons/20210819_ZATCA_E-invoice_Validation_Rules.xsl`
+- `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_XML_Implementation_Standard_vF.pdf`
+- `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards.pdf`
+
+Runtime:
+
+- Java: `11.0.26`
+- Java path: `C:\Program Files\Microsoft\jdk-11.0.26.4-hotspot\bin\java.exe`
+- SDK temp copy: `E:\Work\Temp\ledgerbyte-zatca-sdk-238-R3.4.8`
+- Command: `fatoora -generateHash -invoice <filename>` and `fatoora -validate -invoice <filename>`
+- Network calls: none
+
+Fresh EGS setup:
+
+- Organization: `SDK Hash Validation 20260516075536`
+- EGS: `SDK Hash EGS 20260516075536`
+- Metadata count before enablement: `0`
+- SDK hash mode enabled: yes
+- Audit event `ZATCA_SDK_HASH_MODE_ENABLED`: found
+
+Results:
+
+| Invoice | SDK mode snapshot | PIH | Persisted hash | Direct SDK hash | Hash compare | SDK XML validation |
+| --- | --- | --- | --- | --- | --- | --- |
+| `INV-000001` | `SDK_GENERATED` | First PIH seed from `Data/PIH/pih.txt` | `3G0f1iTuJNYnHJY8dJWsoGfz9jfCBaTwNb+UK84ILaU=` | `3G0f1iTuJNYnHJY8dJWsoGfz9jfCBaTwNb+UK84ILaU=` | `MATCH` | Global `PASSED`; buyer-address warnings remain |
+| `INV-000002` | `SDK_GENERATED` | `INV-000001` SDK hash | `Eoo9jY0Tcf1zof/rjR3LPIXXsyxnLNvzrIcZLR9OczY=` | `Eoo9jY0Tcf1zof/rjR3LPIXXsyxnLNvzrIcZLR9OczY=` | `MATCH` | Global `FAILED`; `KSA-13` PIH invalid remains |
+
+Idempotency:
+
+- Repeated generation did not increment ICV.
+- Repeated generation did not change either invoice hash.
+- EGS `lastInvoiceHash` stayed equal to invoice 2's SDK hash.
+- Hash comparison remained read-only and returned `noMutation=true`.
+
+Wrapper behavior correction:
+
+- The SDK can return process exit code `0` even when stdout contains `GLOBAL VALIDATION RESULT = FAILED`.
+- The API wrapper now parses the official global validation output and returns `success=false` for that case.
+
+This pass validates SDK hash persistence and stored PIH chaining on a fresh EGS, but it also leaves the second generated XML's official PIH validator failure visible for the next ZATCA pass. No signing, CSID, clearance/reporting, PDF/A-3, or ZATCA network calls were performed.
+
 ## Next Technical Fixes
 
 1. Keep SDK execution disabled by default in normal app and smoke runs.

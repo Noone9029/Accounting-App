@@ -9,6 +9,7 @@ import {
   buildZatcaHashComparison,
   extractZatcaSdkInvoiceHash,
   extractZatcaSdkValidationMessages,
+  inferZatcaSdkValidationSuccess,
   sanitizeZatcaSdkOutput,
   ZatcaSdkService,
 } from "./zatca-sdk.service";
@@ -213,6 +214,13 @@ describe("ZATCA SDK service", () => {
     expect(extractZatcaSdkInvoiceHash("no hash here")).toBeNull();
   });
 
+  it("infers SDK validation success from the official global validation result", () => {
+    expect(inferZatcaSdkValidationSuccess("GLOBAL VALIDATION RESULT = PASSED", 0)).toBe(true);
+    expect(inferZatcaSdkValidationSuccess("GLOBAL VALIDATION RESULT = FAILED", 0)).toBe(false);
+    expect(inferZatcaSdkValidationSuccess("[PIH] validation result : FAILED", 0)).toBe(false);
+    expect(inferZatcaSdkValidationSuccess("GLOBAL VALIDATION RESULT = PASSED", 1)).toBe(false);
+  });
+
   it("builds SDK/app hash comparison status safely", () => {
     expect(buildZatcaHashComparison("app-hash", "app-hash")).toEqual({
       appHash: "app-hash",
@@ -309,5 +317,66 @@ describe("ZATCA SDK service", () => {
       egsHashMode: "SDK_GENERATED",
       metadataHashModeSnapshot: "SDK_GENERATED",
     });
+  });
+
+  it("hash compare endpoint reports MATCH for SDK-mode metadata when the official hash equals the stored hash", async () => {
+    const prisma = {
+      zatcaInvoiceMetadata: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "metadata-1",
+          invoiceId: "invoice-1",
+          xmlBase64,
+          invoiceHash: "sdk-hash",
+          hashModeSnapshot: "SDK_GENERATED",
+          previousInvoiceHash: "previous-hash",
+          icv: 5,
+          egsUnitId: "egs-1",
+          egsUnit: { hashMode: "SDK_GENERATED" },
+        }),
+        update: jest.fn(),
+      },
+      zatcaEgsUnit: { update: jest.fn() },
+    };
+    const service = new ZatcaSdkService(prisma as never);
+    jest.spyOn(service, "generateOfficialZatcaHash").mockResolvedValue({
+      disabled: false,
+      localOnly: true,
+      noMutation: true,
+      officialHashAttempted: true,
+      sdkExitCode: 0,
+      sdkHash: "sdk-hash",
+      appHash: "sdk-hash",
+      hashMatches: true,
+      hashComparisonStatus: "MATCH",
+      stdoutSummary: "INVOICE HASH = sdk-hash",
+      stderrSummary: "",
+      blockingReasons: [],
+      warnings: ["This is local SDK hash generation only."],
+      hashMode: {
+        mode: "SDK_GENERATED",
+        envValue: "sdk",
+        sdkModeRequested: true,
+        blockingReasons: [],
+        warnings: [],
+      },
+    });
+
+    const result = await service.compareInvoiceHash("org-1", "invoice-1");
+
+    expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      localOnly: true,
+      noMutation: true,
+      invoiceId: "invoice-1",
+      metadataId: "metadata-1",
+      appHash: "sdk-hash",
+      sdkHash: "sdk-hash",
+      hashMatches: true,
+      hashComparisonStatus: "MATCH",
+      egsHashMode: "SDK_GENERATED",
+      metadataHashModeSnapshot: "SDK_GENERATED",
+    });
+    expect(result.warnings.join(" ")).not.toContain("Stored hash does not match");
   });
 });

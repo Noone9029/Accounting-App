@@ -37,8 +37,12 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 1. Real-bucket object-storage validation and file migration.
 2. Email queue/retry, provider webhooks, and domain-auth validation around the opt-in SMTP adapter.
 3. Production backup/restore and monitoring plan.
-4. LedgerByte fresh-EGS SDK hash-mode validation, generated XML warning cleanup, signing/certificate, and Phase 2 QR work.
+4. LedgerByte generated XML warning cleanup, invoice 2 SDK `KSA-13` PIH investigation, signing/certificate, and Phase 2 QR work.
 5. Dashboard/report accountant review.
 6. UX route QA and E2E expansion.
 7. Audit immutable export/alerting.
 8. Advanced inventory policy: landed cost, FIFO, historical direct-mode handling.
+
+## Fresh EGS SDK Hash Update
+
+The fresh-EGS SDK hash-mode validation step is now complete locally. It proved opt-in SDK hash persistence, first-PIH seed usage, invoice-to-invoice SDK PIH chaining, hash-compare `MATCH`, and idempotent regeneration for two invoices without network calls. The ZATCA score remains constrained because invoice 2 still fails official SDK PIH validation with `KSA-13`, buyer-address warnings remain, and signing/CSID/clearance/PDF-A3 are not implemented.

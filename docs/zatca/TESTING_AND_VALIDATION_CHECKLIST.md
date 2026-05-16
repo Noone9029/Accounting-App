@@ -50,3 +50,21 @@ Testing now has an isolated SDK wrapper for offline XML validation attempts. Kee
 - LedgerByte standard and simplified fixtures have had their first structural correction pass plus supply-date/PIH groundwork. The standard fixture now passes SDK XSD/EN/KSA/PIH validation and the global SDK result passes. The simplified fixture now passes SDK XSD/EN/PIH validation and fails the expected non-production signing/QR/certificate checks.
 - Generated invoice XML validation through the local API now succeeds with SDK execution explicitly enabled and Java 11 configured. The tested invoice returned SDK exit code `0`; the app hash and SDK hash mismatched, confirming that current app hash-chain storage is still local groundwork.
 - Hash groundwork tests verify the documented transform inputs, SDK hash output parsing, read-only comparison shape, hash mode labels, and reset dry-run shape while keeping official C14N11 hash output blocked in normal app code until SDK `-generateHash` or a verified canonicalization library is used.
+
+## Fresh EGS SDK Hash-Mode Checklist Result
+
+Validated locally on 2026-05-16 with Java 11.0.26:
+
+- Fresh EGS with zero invoice metadata can enable `SDK_GENERATED`.
+- Enablement writes `ZATCA_SDK_HASH_MODE_ENABLED`.
+- First SDK-mode invoice uses the official first PIH seed and stores SDK hash `3G0f1iTuJNYnHJY8dJWsoGfz9jfCBaTwNb+UK84ILaU=`.
+- Second SDK-mode invoice uses the first invoice SDK hash as PIH and stores SDK hash `Eoo9jY0Tcf1zof/rjR3LPIXXsyxnLNvzrIcZLR9OczY=`.
+- Direct SDK `-generateHash` matches persisted hashes for both invoices.
+- Hash compare returns `MATCH`, `hashMatches=true`, and `noMutation=true` for both invoices.
+- Repeated generation is idempotent and does not advance ICV.
+- SDK validation success parsing now treats official global validation failure output as `success=false` even when the SDK exits `0`.
+
+Still failing or warning:
+
+- Invoice 1 SDK XML validation globally passes but has buyer-address warnings.
+- Invoice 2 SDK XML validation fails `KSA-13` PIH validation. Do not proceed to signing or sandbox calls until this is understood and resolved.

@@ -53,6 +53,30 @@ API-generated standard invoice XML now validates locally through the SDK wrapper
 
 The next XML work should be driven by these remaining SDK messages, starting with fresh-EGS SDK hash-mode validation, generated XML seller/buyer field polish, and signing/certificate/Phase 2 QR design before any API submission.
 
+## Fresh EGS SDK Hash-Mode Validation Pass
+
+The fresh-EGS SDK hash-mode pass was completed locally with Java 11.0.26, SDK execution enabled only for the temporary API process, and no ZATCA network calls.
+
+Results:
+
+- A new local organization and zero-metadata EGS were created for the run.
+- `POST /zatca/egs-units/:id/enable-sdk-hash-mode` switched the EGS to `SDK_GENERATED` and wrote `ZATCA_SDK_HASH_MODE_ENABLED`.
+- `INV-000001` stored SDK hash `3G0f1iTuJNYnHJY8dJWsoGfz9jfCBaTwNb+UK84ILaU=` with the official first PIH seed.
+- `INV-000002` stored SDK hash `Eoo9jY0Tcf1zof/rjR3LPIXXsyxnLNvzrIcZLR9OczY=` with invoice 1's SDK hash as PIH.
+- Direct SDK `-generateHash` matched both persisted hashes.
+- `POST /sales-invoices/:id/zatca/hash-compare` returned `MATCH` and `noMutation=true` for both invoices.
+- Repeated generation left ICV and EGS last hash unchanged.
+- SDK XML validation passed globally for invoice 1 with buyer-address warnings, but invoice 2 still failed official PIH validation with `KSA-13`.
+
+Wrapper correction:
+
+- The SDK can exit `0` while printing `GLOBAL VALIDATION RESULT = FAILED`.
+- The wrapper now parses official output and reports `success=false` for explicit global or rule validation failures.
+
+Updated gap:
+
+- SDK hash persistence is proven for a fresh local EGS, but the second generated XML's official PIH validation failure must be resolved before signing or sandbox submission work.
+
 ## Code That Should Stay Local-Only For Now
 
 - `packages/zatca-core/src/index.ts`: deterministic local XML/QR/hash/CSR helpers are useful scaffolding but not official validation.

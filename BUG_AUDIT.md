@@ -1986,3 +1986,30 @@ Commit inspected: pending (`Add inventory adjustments and transfers`)
 3. Add a lightweight Playwright or browser smoke suite once the local Node runtime supports the in-app browser backend.
 4. Normalize branch default behavior and account parent cycle validation.
 5. Move Prisma seed configuration to `prisma.config.ts` before upgrading to Prisma 7.
+
+## ZATCA Fresh EGS SDK Hash Mode Validation
+
+Audit date: 2026-05-16
+
+Commit inspected: pending (`Validate SDK hash mode end to end`)
+
+### Validation Added
+
+- Added repeatable local helper `corepack pnpm zatca:validate-sdk-hash-mode`.
+- Validated Java 11.0.26 with the official SDK launcher from a no-space temp SDK copy.
+- Created an isolated local organization and fresh zero-metadata EGS.
+- Enabled `SDK_GENERATED` hash mode with explicit confirmation and verified `ZATCA_SDK_HASH_MODE_ENABLED` audit logging.
+- Generated two finalized invoices through the API.
+- Verified invoice 1 uses the official first PIH seed and persisted SDK hash `3G0f1iTuJNYnHJY8dJWsoGfz9jfCBaTwNb+UK84ILaU=`.
+- Verified invoice 2 uses invoice 1's SDK hash as PIH and persisted SDK hash `Eoo9jY0Tcf1zof/rjR3LPIXXsyxnLNvzrIcZLR9OczY=`.
+- Verified persisted hashes match direct SDK `fatoora -generateHash -invoice <filename>`.
+- Verified `POST /sales-invoices/:id/zatca/hash-compare` returns `MATCH` and `noMutation=true` for both invoices.
+- Verified repeated generation does not increment ICV or mutate EGS last hash.
+- Tightened SDK validation success parsing so `GLOBAL VALIDATION RESULT = FAILED` returns `success=false` even when the SDK exits `0`.
+
+### Remaining ZATCA Risks
+
+- Generated invoice 2 still fails official SDK PIH validation with `KSA-13`.
+- Generated invoices still show buyer-address quality warnings.
+- No signing, certificate/key custody, Phase 2 QR, CSID, clearance/reporting, PDF/A-3, or real ZATCA network calls exist.
+- Fresh-EGS SDK hash mode is local-only evidence and is not production compliance.

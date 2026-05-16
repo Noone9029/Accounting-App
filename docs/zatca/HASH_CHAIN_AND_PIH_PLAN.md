@@ -128,6 +128,60 @@ Result:
 
 This mismatch is expected for local-mode metadata because the app stores the local deterministic hash. Fresh EGS units explicitly enabled for `SDK_GENERATED` mode store the SDK hash for future generated metadata; signing and submission remain disabled.
 
+## Fresh EGS SDK Hash-Mode Validation
+
+Validation date: 2026-05-16.
+
+Commit context: current working tree after `da6540f Add ZATCA SDK hash mode persistence groundwork`.
+
+Official files inspected for this pass:
+
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/usage.txt`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/PIH/pih.txt`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Simplified/Invoice/Simplified_Invoice.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Rules/Schematrons/20210819_ZATCA_E-invoice_Validation_Rules.xsl`
+- `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_XML_Implementation_Standard_vF.pdf`
+- `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards.pdf`
+
+Runtime used:
+
+- Java: `11.0.26` from `C:\Program Files\Microsoft\jdk-11.0.26.4-hotspot\bin\java.exe`
+- SDK copy: `E:\Work\Temp\ledgerbyte-zatca-sdk-238-R3.4.8`
+- Work dir: `E:\Work\Temp\ledgerbyte-zatca-sdk-hash-mode`
+- Commands: `fatoora -generateHash -invoice <filename>` and `fatoora -validate -invoice <filename>`
+- Network: none
+
+Fresh local validation setup:
+
+- Test organization: `SDK Hash Validation 20260516075536` (`31160055-0d77-44ad-8578-743e0f9b5f57`)
+- Fresh EGS: `SDK Hash EGS 20260516075536` (`81e1ade0-dfb8-4c64-bf1a-1719dd0774f9`)
+- Metadata count before enablement: `0`
+- SDK hash mode enablement: `SDK_GENERATED`
+- Audit event: `ZATCA_SDK_HASH_MODE_ENABLED` found
+
+Invoice hash-chain results:
+
+| Invoice | ICV | Persisted hash | Direct SDK hash | PIH | Hash compare |
+| --- | ---: | --- | --- | --- | --- |
+| `INV-000001` | 1 | `3G0f1iTuJNYnHJY8dJWsoGfz9jfCBaTwNb+UK84ILaU=` | `3G0f1iTuJNYnHJY8dJWsoGfz9jfCBaTwNb+UK84ILaU=` | Official first PIH seed from `Data/PIH/pih.txt` | `MATCH` |
+| `INV-000002` | 2 | `Eoo9jY0Tcf1zof/rjR3LPIXXsyxnLNvzrIcZLR9OczY=` | `Eoo9jY0Tcf1zof/rjR3LPIXXsyxnLNvzrIcZLR9OczY=` | `INV-000001` SDK hash | `MATCH` |
+
+Idempotency result:
+
+- Re-running XML/metadata generation for both invoices returned existing metadata.
+- `ZatcaEgsUnit.lastIcv` remained `2`.
+- `ZatcaEgsUnit.lastInvoiceHash` remained `Eoo9jY0Tcf1zof/rjR3LPIXXsyxnLNvzrIcZLR9OczY=`.
+- No metadata, ICV, or EGS last-hash mutation occurred during hash comparison.
+
+SDK XML validation result:
+
+- `INV-000001`: XSD/EN/KSA/PIH passed and global validation passed. Remaining warnings were buyer-address data quality rules: `BR-KSA-F-06-C23`, `BR-KSA-63`, `BR-KSA-10`, and `BR-KSA-F-06-C28`.
+- `INV-000002`: XSD/EN/KSA passed and hash comparison matched, but SDK PIH validation failed with `KSA-13` and global validation failed. The API wrapper now reports `success=false` when official SDK output says global validation failed, even if the SDK process exits `0`.
+
+This confirms SDK hash persistence and LedgerByte's stored PIH chain behave as designed for a fresh EGS. The remaining SDK PIH validator failure on the second generated XML must be investigated against official hash-chain/signing expectations before any production compliance claim.
+
 ## Migration Impact
 
 Changing LedgerByte from the local hash to the official SDK/C14N11 hash is not a simple field swap:
