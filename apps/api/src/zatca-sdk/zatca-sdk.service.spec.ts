@@ -5,7 +5,13 @@ import { REQUIRED_PERMISSIONS_KEY } from "../auth/decorators/require-permissions
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { ZatcaSdkController } from "./zatca-sdk.controller";
-import { extractZatcaSdkValidationMessages, sanitizeZatcaSdkOutput, ZatcaSdkService } from "./zatca-sdk.service";
+import {
+  buildZatcaHashComparison,
+  extractZatcaSdkInvoiceHash,
+  extractZatcaSdkValidationMessages,
+  sanitizeZatcaSdkOutput,
+  ZatcaSdkService,
+} from "./zatca-sdk.service";
 
 describe("ZATCA SDK controller", () => {
   it("requires authentication and organization context", () => {
@@ -74,7 +80,10 @@ describe("ZATCA SDK service", () => {
 
     const result = await service.buildValidationDryRun("org-1", { mode: "dry-run", invoiceId: "invoice-1" });
 
-    expect(prisma.zatcaInvoiceMetadata.findFirst).toHaveBeenCalledWith({ where: { organizationId: "org-1", invoiceId: "invoice-1" }, select: { xmlBase64: true } });
+    expect(prisma.zatcaInvoiceMetadata.findFirst).toHaveBeenCalledWith({
+      where: { organizationId: "org-1", invoiceId: "invoice-1" },
+      select: { xmlBase64: true, invoiceHash: true },
+    });
     expect(result).toMatchObject({ dryRun: true, localOnly: true, officialSdkValidation: false, xmlSource: "invoice" });
     expect(result.temporaryXmlFilePath).toContain("invoice-1.xml");
     expect(result.readiness.requiredJavaRange).toBe(">=11 <15");
@@ -109,6 +118,10 @@ describe("ZATCA SDK service", () => {
       localOnly: true,
       officialValidationAttempted: false,
       sdkExitCode: null,
+      sdkHash: null,
+      appHash: null,
+      hashMatches: null,
+      hashComparisonStatus: "BLOCKED",
     });
     expect(result.blockingReasons.join(" ")).toContain("disabled");
   });
@@ -185,10 +198,33 @@ describe("ZATCA SDK service", () => {
     expect(messages.join(" ")).not.toContain("should-not-leak");
   });
 
+  it("extracts SDK generateHash output", () => {
+    const output = [
+      "2026-05-16 10:00:00 INFO startup",
+      "2026-05-16 10:00:01 INFO HashGenerationService -  *** INVOICE HASH = Lt2QoJTH0yk6yJYK7vtb59zfyYwFOb8RsWWrpMdGCVg=",
+      "2026-05-16 10:00:02 INFO done",
+    ].join("\n");
+
+    expect(extractZatcaSdkInvoiceHash(output)).toBe("Lt2QoJTH0yk6yJYK7vtb59zfyYwFOb8RsWWrpMdGCVg=");
+    expect(extractZatcaSdkInvoiceHash("no hash here")).toBeNull();
+  });
+
+  it("builds SDK/app hash comparison status safely", () => {
+    expect(buildZatcaHashComparison("app-hash", "app-hash")).toEqual({
+      appHash: "app-hash",
+      sdkHash: "app-hash",
+      hashMatches: true,
+      hashComparisonStatus: "MATCH",
+    });
+    expect(buildZatcaHashComparison("local-hash", "sdk-hash")).toMatchObject({ hashMatches: false, hashComparisonStatus: "MISMATCH" });
+    expect(buildZatcaHashComparison(null, "sdk-hash")).toMatchObject({ hashMatches: null, hashComparisonStatus: "NOT_AVAILABLE" });
+    expect(buildZatcaHashComparison("local-hash", null, "BLOCKED")).toMatchObject({ hashMatches: null, hashComparisonStatus: "BLOCKED" });
+  });
+
   it("invoice SDK validation uses generated XML without mutating invoice metadata", async () => {
     const prisma = {
       zatcaInvoiceMetadata: {
-        findFirst: jest.fn().mockResolvedValue({ xmlBase64, zatcaStatus: "XML_GENERATED" }),
+        findFirst: jest.fn().mockResolvedValue({ xmlBase64, zatcaStatus: "XML_GENERATED", invoiceHash: "local-app-hash" }),
         update: jest.fn(),
       },
     };
@@ -196,8 +232,11 @@ describe("ZATCA SDK service", () => {
 
     const result = await service.validateInvoiceXmlLocal("org-1", "invoice-1");
 
-    expect(prisma.zatcaInvoiceMetadata.findFirst).toHaveBeenCalledWith({ where: { organizationId: "org-1", invoiceId: "invoice-1" }, select: { xmlBase64: true } });
+    expect(prisma.zatcaInvoiceMetadata.findFirst).toHaveBeenCalledWith({
+      where: { organizationId: "org-1", invoiceId: "invoice-1" },
+      select: { xmlBase64: true, invoiceHash: true },
+    });
     expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
-    expect(result).toMatchObject({ localOnly: true, officialValidationAttempted: false, disabled: true });
+    expect(result).toMatchObject({ localOnly: true, officialValidationAttempted: false, disabled: true, appHash: "local-app-hash", hashComparisonStatus: "BLOCKED" });
   });
 });

@@ -29,6 +29,8 @@ Official SDK sample fixture targets are now registered in `apps/api/src/zatca-sd
 
 The fixture validation passes are documented in `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`. Official SDK samples pass under Java 11 and the official launcher. After the supply-date and PIH/hash groundwork pass, LedgerByte's local standard fixture passes SDK XSD/EN/KSA/PIH validation and the global SDK result passes. The local simplified fixture passes SDK XSD/EN/PIH validation but still fails signing, QR, and certificate checks because real signing, certificate, canonical hash-chain sequencing, and Phase 2 QR behavior are not implemented.
 
+SDK `-generateHash` values are now recorded for the official standard/simplified samples and the LedgerByte standard/simplified local fixtures. These values are hash-oracle evidence only; normal unit tests parse recorded output and do not require Java or the SDK.
+
 Before promoting official fixture checks:
 
 1. Obtain current official ZATCA/FATOORA XML, signing, QR, and validation requirements.
@@ -51,5 +53,6 @@ The local tests compare generated XML against the expected local XML text. They 
 - supply-date `cac:Delivery/cbc:ActualDeliveryDate` mapping for the standard invoice fixture
 - official first-invoice PIH fallback and explicit PIH override behavior
 - documented hash-input transforms while blocking official C14N11 hash computation until SDK `-generateHash` or verified canonicalization is used
+- SDK hash output parsing and read-only hash comparison response shape
 
 These tests are engineering guardrails only. Official ZATCA/FATOORA validation remains a future manual dependency.

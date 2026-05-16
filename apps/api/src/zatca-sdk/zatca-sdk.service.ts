@@ -8,6 +8,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { ValidateZatcaSdkFixtureDto, ValidateZatcaSdkXmlDto } from "./dto/validate-zatca-sdk-xml.dto";
 import { isAllowedZatcaFixturePath, normalizeZatcaFixturePath } from "./zatca-official-fixtures";
 import {
+  buildZatcaSdkGenerateHashCommand,
   buildZatcaSdkValidationCommand,
   discoverZatcaSdkReadiness,
   type ZatcaSdkReadiness,
@@ -48,6 +49,10 @@ export interface ZatcaSdkValidationResponse {
   localOnly: true;
   officialValidationAttempted: boolean;
   sdkExitCode: number | null;
+  sdkHash: string | null;
+  appHash: string | null;
+  hashMatches: boolean | null;
+  hashComparisonStatus: ZatcaHashComparisonStatus;
   stdoutSummary: string;
   stderrSummary: string;
   validationMessages: string[];
@@ -55,6 +60,15 @@ export interface ZatcaSdkValidationResponse {
   warnings: string[];
   xmlSource: "generated" | "fixture" | "uploaded" | "invoice" | "request";
   invoiceType?: "standard" | "simplified";
+}
+
+export type ZatcaHashComparisonStatus = "MATCH" | "MISMATCH" | "NOT_AVAILABLE" | "BLOCKED";
+
+export interface ZatcaHashComparison {
+  sdkHash: string | null;
+  appHash: string | null;
+  hashMatches: boolean | null;
+  hashComparisonStatus: ZatcaHashComparisonStatus;
 }
 
 const MAX_ZATCA_XML_BYTES = 2 * 1024 * 1024;
@@ -129,6 +143,7 @@ export class ZatcaSdkService {
       source: payload.source === "invoice" ? "generated" : dto.source ?? "uploaded",
       invoiceType: dto.invoiceType,
       tempName: dto.invoiceId ?? "request-xml",
+      appHash: payload.appHash,
     });
   }
 
@@ -139,11 +154,11 @@ export class ZatcaSdkService {
   }
 
   async validateInvoiceXmlLocal(organizationId: string, invoiceId: string): Promise<ZatcaSdkValidationResponse> {
-    const { xml } = await this.resolveXmlStringPayload(organizationId, { invoiceId });
-    return this.validateXmlStringLocal(xml, { source: "generated", tempName: invoiceId });
+    const { xml, appHash } = await this.resolveXmlStringPayload(organizationId, { invoiceId });
+    return this.validateXmlStringLocal(xml, { source: "generated", tempName: invoiceId, appHash });
   }
 
-  private async resolveXmlPayload(organizationId: string, dto: ValidateZatcaSdkXmlDto): Promise<{ xmlBase64: string; source: "invoice" | "request" }> {
+  private async resolveXmlPayload(organizationId: string, dto: ValidateZatcaSdkXmlDto): Promise<{ xmlBase64: string; source: "invoice" | "request"; appHash: string | null }> {
     if (dto.invoiceId && (dto.xmlBase64 || dto.xml)) {
       throw new BadRequestException("Provide either invoiceId or XML payload, not both.");
     }
@@ -151,40 +166,45 @@ export class ZatcaSdkService {
     if (dto.invoiceId) {
       const metadata = await this.prisma.zatcaInvoiceMetadata.findFirst({
         where: { organizationId, invoiceId: dto.invoiceId },
-        select: { xmlBase64: true },
+        select: { xmlBase64: true, invoiceHash: true },
       });
 
       if (!metadata?.xmlBase64) {
         throw new BadRequestException("ZATCA XML has not been generated for this invoice.");
       }
 
-      return { xmlBase64: metadata.xmlBase64, source: "invoice" };
+      return { xmlBase64: metadata.xmlBase64, source: "invoice", appHash: metadata.invoiceHash ?? null };
     }
 
     if (dto.xml?.trim()) {
-      return { xmlBase64: Buffer.from(dto.xml, "utf8").toString("base64"), source: "request" };
+      return { xmlBase64: Buffer.from(dto.xml, "utf8").toString("base64"), source: "request", appHash: null };
     }
 
     if (!dto.xmlBase64?.trim()) {
       throw new BadRequestException("Provide xml, xmlBase64, or invoiceId for SDK validation.");
     }
 
-    return { xmlBase64: dto.xmlBase64, source: "request" };
+    return { xmlBase64: dto.xmlBase64, source: "request", appHash: null };
   }
 
-  private async resolveXmlStringPayload(organizationId: string, dto: ValidateZatcaSdkXmlDto): Promise<{ xml: string; source: "invoice" | "request" }> {
-    const { xmlBase64, source } = await this.resolveXmlPayload(organizationId, dto);
+  private async resolveXmlStringPayload(organizationId: string, dto: ValidateZatcaSdkXmlDto): Promise<{ xml: string; source: "invoice" | "request"; appHash: string | null }> {
+    const { xmlBase64, source, appHash } = await this.resolveXmlPayload(organizationId, dto);
     const xml = Buffer.from(xmlBase64, "base64").toString("utf8").trim();
     if (!xml) {
       throw new BadRequestException("ZATCA XML payload is empty.");
     }
     assertXmlSize(xml);
-    return { xml, source };
+    return { xml, source, appHash };
   }
 
   private async validateXmlStringLocal(
     xml: string,
-    options: { source: ZatcaSdkValidationResponse["xmlSource"]; tempName: string; invoiceType?: "standard" | "simplified" },
+    options: {
+      source: ZatcaSdkValidationResponse["xmlSource"];
+      tempName: string;
+      invoiceType?: "standard" | "simplified";
+      appHash?: string | null;
+    },
   ): Promise<ZatcaSdkValidationResponse> {
     assertXmlSize(xml);
     const readiness = discoverZatcaSdkReadiness();
@@ -201,6 +221,7 @@ export class ZatcaSdkService {
         warnings,
         source: options.source,
         invoiceType: options.invoiceType,
+        appHash: options.appHash ?? null,
       });
     }
 
@@ -210,6 +231,7 @@ export class ZatcaSdkService {
         warnings,
         source: options.source,
         invoiceType: options.invoiceType,
+        appHash: options.appHash ?? null,
       });
     }
 
@@ -236,6 +258,7 @@ export class ZatcaSdkService {
           warnings: [...warnings, ...commandPlan.warnings],
           source: options.source,
           invoiceType: options.invoiceType,
+          appHash: options.appHash ?? null,
           blockingReasons: ["No executable ZATCA SDK command could be resolved."],
         });
       }
@@ -243,6 +266,7 @@ export class ZatcaSdkService {
       const executed = await executeCommand(commandPlan, readiness.timeoutMs);
       const stdoutSummary = sanitizeZatcaSdkOutput(executed.stdout);
       const stderrSummary = sanitizeZatcaSdkOutput(executed.stderr);
+      const hashResult = await generateSdkHashComparison(readiness, xmlFilePath, options.appHash ?? null);
 
       return {
         success: executed.exitCode === 0,
@@ -250,11 +274,12 @@ export class ZatcaSdkService {
         localOnly: true,
         officialValidationAttempted: true,
         sdkExitCode: executed.exitCode,
+        ...hashResult.comparison,
         stdoutSummary,
         stderrSummary,
         validationMessages: extractZatcaSdkValidationMessages(`${stdoutSummary}\n${stderrSummary}`),
         blockingReasons: executed.timedOut ? ["ZATCA SDK validation timed out."] : [],
-        warnings: [...warnings, ...commandPlan.warnings],
+        warnings: [...warnings, ...commandPlan.warnings, ...hashResult.warnings],
         xmlSource: options.source,
         invoiceType: options.invoiceType,
       };
@@ -337,6 +362,49 @@ function assertXmlSize(xml: string): void {
   }
 }
 
+async function generateSdkHashComparison(
+  readiness: ZatcaSdkReadiness,
+  xmlFilePath: string,
+  appHash: string | null,
+): Promise<{ comparison: ZatcaHashComparison; warnings: string[] }> {
+  const commandPlan = buildZatcaSdkGenerateHashCommand({
+    xmlFilePath,
+    sdkJarPath: readiness.sdkJarPath,
+    launcherPath: readiness.fatooraLauncherPath,
+    jqPath: readiness.jqPath,
+    configDirPath: readiness.configDirPath,
+    workingDirectory: readiness.sdkRootPath ?? readiness.referenceFolderPath ?? readiness.projectRoot,
+    platform: process.platform,
+    javaFound: readiness.javaFound,
+    javaCommand: readiness.javaCommand,
+  });
+
+  if (!commandPlan.command) {
+    return {
+      comparison: buildZatcaHashComparison(appHash, null, "NOT_AVAILABLE"),
+      warnings: [...commandPlan.warnings, "SDK hash comparison was not available because no executable ZATCA SDK hash command could be resolved."],
+    };
+  }
+
+  const executed = await executeCommand(commandPlan, readiness.timeoutMs);
+  const output = sanitizeZatcaSdkOutput(`${executed.stdout}\n${executed.stderr}`);
+  const sdkHash = extractZatcaSdkInvoiceHash(output);
+  const blocking = executed.timedOut ? "BLOCKED" : undefined;
+  const warnings = [...commandPlan.warnings];
+
+  if (executed.timedOut) {
+    warnings.push("ZATCA SDK hash generation timed out.");
+  }
+  if (!sdkHash) {
+    warnings.push("ZATCA SDK hash output could not be parsed from generateHash output.");
+  }
+
+  return {
+    comparison: buildZatcaHashComparison(appHash, sdkHash, blocking),
+    warnings,
+  };
+}
+
 function buildBlockedValidationResponse(
   readiness: ZatcaSdkReadiness,
   options: {
@@ -344,15 +412,18 @@ function buildBlockedValidationResponse(
     warnings: string[];
     source: ZatcaSdkValidationResponse["xmlSource"];
     invoiceType?: "standard" | "simplified";
+    appHash?: string | null;
     blockingReasons?: string[];
   },
 ): ZatcaSdkValidationResponse {
+  const comparison = buildZatcaHashComparison(options.appHash ?? null, null, "BLOCKED");
   return {
     success: false,
     disabled: options.disabled,
     localOnly: true,
     officialValidationAttempted: false,
     sdkExitCode: null,
+    ...comparison,
     stdoutSummary: "",
     stderrSummary: "",
     validationMessages: [],
@@ -367,7 +438,12 @@ function executeCommand(commandPlan: ZatcaSdkValidationCommandPlan, timeoutMs: n
   return new Promise((resolveResult) => {
     const env = { ...process.env };
     if (commandPlan.envAdditions.PATH_PREPEND) {
-      env.PATH = `${commandPlan.envAdditions.PATH_PREPEND}${process.platform === "win32" ? ";" : ":"}${env.PATH ?? ""}`;
+      const delimiter = process.platform === "win32" ? ";" : ":";
+      const existingPath = env.PATH ?? env.Path ?? "";
+      env.PATH = `${commandPlan.envAdditions.PATH_PREPEND}${delimiter}${existingPath}`;
+      if (process.platform === "win32") {
+        env.Path = env.PATH;
+      }
     }
     if (commandPlan.envAdditions.SDK_CONFIG) {
       env.SDK_CONFIG = commandPlan.envAdditions.SDK_CONFIG;
@@ -376,15 +452,22 @@ function executeCommand(commandPlan: ZatcaSdkValidationCommandPlan, timeoutMs: n
       env.FATOORA_HOME = commandPlan.envAdditions.FATOORA_HOME;
     }
 
-    execFile(commandPlan.command!, commandPlan.args, { cwd: commandPlan.workingDirectory, env, timeout: timeoutMs, windowsHide: true }, (error, stdout, stderr) => {
+    const command = process.platform === "win32" && commandPlan.command?.toLowerCase() === "cmd.exe" ? process.env.ComSpec || join(process.env.SystemRoot ?? "C:\\Windows", "System32", "cmd.exe") : commandPlan.command!;
+
+    execFile(
+      command,
+      commandPlan.args,
+      { cwd: commandPlan.workingDirectory, env, timeout: timeoutMs, windowsHide: true, maxBuffer: 5 * 1024 * 1024 },
+      (error, stdout, stderr) => {
       const maybeCode = error && typeof (error as NodeJS.ErrnoException & { code?: unknown }).code === "number" ? ((error as NodeJS.ErrnoException & { code: number }).code) : null;
       resolveResult({
         exitCode: error ? maybeCode : 0,
         stdout: String(stdout ?? ""),
-        stderr: String(stderr ?? error?.message ?? ""),
+        stderr: String(stderr || error?.message || ""),
         timedOut: Boolean(error && /timed out/i.test(error.message)),
       });
-    });
+      },
+    );
   });
 }
 
@@ -394,6 +477,43 @@ export function sanitizeZatcaSdkOutput(output: string): string {
     .replace(/(password|passwordHash|token|tokenHash|secret|apiKey|accessKey|privateKey|privateKeyPem|authorization|contentBase64)\s*[:=]\s*[^\s,;]+/gi, "$1=[REDACTED]")
     .replace(/(DATABASE_URL|DIRECT_URL|SMTP_PASSWORD|JWT_SECRET|S3_SECRET_ACCESS_KEY)\s*[:=]\s*[^\s,;]+/gi, "$1=[REDACTED]")
     .slice(0, OUTPUT_SUMMARY_LIMIT);
+}
+
+export function extractZatcaSdkInvoiceHash(output: string): string | null {
+  const sanitized = sanitizeZatcaSdkOutput(output);
+  const match = sanitized.match(/INVOICE\s+HASH\s*=\s*([A-Za-z0-9+/=]+)/i);
+  return match?.[1] ?? null;
+}
+
+export function buildZatcaHashComparison(appHash: string | null | undefined, sdkHash: string | null | undefined, statusOverride?: ZatcaHashComparisonStatus): ZatcaHashComparison {
+  const normalizedAppHash = appHash?.trim() || null;
+  const normalizedSdkHash = sdkHash?.trim() || null;
+
+  if (statusOverride) {
+    return {
+      appHash: normalizedAppHash,
+      sdkHash: normalizedSdkHash,
+      hashMatches: null,
+      hashComparisonStatus: statusOverride,
+    };
+  }
+
+  if (!normalizedAppHash || !normalizedSdkHash) {
+    return {
+      appHash: normalizedAppHash,
+      sdkHash: normalizedSdkHash,
+      hashMatches: null,
+      hashComparisonStatus: "NOT_AVAILABLE",
+    };
+  }
+
+  const hashMatches = normalizedAppHash === normalizedSdkHash;
+  return {
+    appHash: normalizedAppHash,
+    sdkHash: normalizedSdkHash,
+    hashMatches,
+    hashComparisonStatus: hashMatches ? "MATCH" : "MISMATCH",
+  };
 }
 
 export function extractZatcaSdkValidationMessages(output: string): string[] {

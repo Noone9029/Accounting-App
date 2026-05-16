@@ -103,8 +103,8 @@ ZATCA_SDK_TIMEOUT_MS=30000
 ```
 
 Real ZATCA network calls are disabled by default and remain blocked unless `ZATCA_ADAPTER_MODE=sandbox`, `ZATCA_ENABLE_REAL_NETWORK=true`, and `ZATCA_SANDBOX_BASE_URL` are all configured.
-Local ZATCA Java SDK execution is also disabled by default. `ZATCA_SDK_EXECUTION_ENABLED=true` enables only local SDK XML validation after Java 11-14 and SDK paths are configured; it does not submit invoices, sign XML, request CSIDs, or prove production compliance.
-The official SDK fixture validation pass is documented at `docs/zatca/OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`. Default local Java is 17.0.16, but a Java 11.0.26 runtime was found and used without changing global Java. The official standard invoice, simplified invoice, standard credit note, and standard debit note samples pass through the official `fatoora -validate -invoice <filename>` launcher. LedgerByte's local standard XML fixture now passes SDK XSD/EN/KSA/PIH and global validation after supply-date and first-PIH mapping. The local simplified fixture passes SDK XSD/EN/PIH but remains non-compliant until signing, certificate handling, Phase 2 QR, CSID, clearance/reporting, and PDF/A-3 work are completed.
+Local ZATCA Java SDK execution is also disabled by default. `ZATCA_SDK_EXECUTION_ENABLED=true` enables only local SDK XML validation and SDK hash comparison after Java 11-14 and SDK paths are configured; it does not submit invoices, sign XML, request CSIDs, or prove production compliance.
+The official SDK fixture validation pass is documented at `docs/zatca/OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`. Default local Java is 17.0.16, but a Java 11.0.26 runtime was found and used without changing global Java. The official standard invoice, simplified invoice, standard credit note, and standard debit note samples pass through the official `fatoora -validate -invoice <filename>` launcher. LedgerByte's local standard XML fixture now passes SDK XSD/EN/KSA/PIH and global validation after supply-date and first-PIH mapping. The local simplified fixture passes SDK XSD/EN/PIH but remains non-compliant until signing, certificate handling, Phase 2 QR, CSID, clearance/reporting, and PDF/A-3 work are completed. API-generated standard invoice XML now validates locally through the SDK wrapper with address/identifier warnings and a documented app-vs-SDK hash mismatch.
 
 To run local fixture validation safely, point the wrapper at a Java 11-14 runtime and SDK paths in a local shell only:
 
@@ -117,6 +117,17 @@ $env:ZATCA_SDK_WORK_DIR="$env:TEMP\ledgerbyte-zatca-sdk"
 ```
 
 The repo path contains a space, so the documented fixture pass used a no-space temporary SDK copy. Do not commit machine-specific SDK/Java paths, and do not treat local SDK validation as production compliance.
+
+To validate generated invoice XML against a running local API after explicitly enabling SDK execution, provide a finalized invoice id:
+
+```powershell
+$env:LEDGERBYTE_API_URL="http://localhost:4000"
+$env:LEDGERBYTE_E2E_EMAIL="admin@example.com"
+$env:LEDGERBYTE_E2E_PASSWORD="Password123!"
+corepack pnpm zatca:validate-generated -- --invoice-id <sales-invoice-id>
+```
+
+The script prints a safe summary with `sdkHash`, `appHash`, and `hashComparisonStatus` presence/status only; it does not print passwords, tokens, or XML.
 
 ## Local Smoke Test
 
@@ -1527,7 +1538,7 @@ Do not treat the current mock CSID, local XML, local QR, or local hash-chain beh
 - Local dev fixtures live under `packages/zatca-core/fixtures`.
 - The local fixtures are not official ZATCA fixtures. They exist to keep LedgerByte's XML skeleton deterministic and to cover XML escaping and Unicode handling.
 - Local XML validation can be called with `GET /sales-invoices/:id/zatca/xml-validation` after local XML is generated.
-- The validation response is local-only and not legal compliance evidence. Official SDK sample fixtures now pass locally under Java 11. LedgerByte's local standard fixture now passes SDK XSD/EN/KSA/PIH and global validation; the simplified fixture now passes SDK XSD/EN/PIH but still fails signing, QR, and certificate checks.
+- The validation response is local-only and not legal compliance evidence. Official SDK sample fixtures now pass locally under Java 11. LedgerByte's local standard fixture now passes SDK XSD/EN/KSA/PIH and global validation; the simplified fixture now passes SDK XSD/EN/PIH but still fails signing, QR, and certificate checks. API-generated standard invoice XML now validates locally with address/identifier warnings.
 
 ### ZATCA Official Reference Maps
 
@@ -1537,7 +1548,8 @@ Do not treat the current mock CSID, local XML, local QR, or local hash-chain beh
 - The Java SDK usage plan lives at `docs/zatca/SDK_USAGE_PLAN.md`; the SDK should be wrapped only in isolated test tooling first, with a Java 11-14 runtime and redacted logs.
 - The test-only SDK wrapper notes live at `docs/zatca/SDK_VALIDATION_WRAPPER.md`.
 - Official sample fixture validation results live at `docs/zatca/OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`.
-- `GET /zatca-sdk/readiness` reports local SDK discovery status, Java readiness, config/work-dir checks, and whether execution is enabled. `POST /zatca-sdk/validate-xml-dry-run` creates a command plan without executing the SDK. `POST /zatca-sdk/validate-xml-local`, `POST /zatca-sdk/validate-reference-fixture`, and `POST /sales-invoices/:id/zatca/sdk-validate` are disabled unless `ZATCA_SDK_EXECUTION_ENABLED=true`; when enabled they run local-only XML validation with timeout, temp cleanup, path traversal protection, and sanitized output.
+- Hash-chain/PIH planning lives at `docs/zatca/HASH_CHAIN_AND_PIH_PLAN.md`.
+- `GET /zatca-sdk/readiness` reports local SDK discovery status, Java readiness, config/work-dir checks, and whether execution is enabled. `POST /zatca-sdk/validate-xml-dry-run` creates a command plan without executing the SDK. `POST /zatca-sdk/validate-xml-local`, `POST /zatca-sdk/validate-reference-fixture`, and `POST /sales-invoices/:id/zatca/sdk-validate` are disabled unless `ZATCA_SDK_EXECUTION_ENABLED=true`; when enabled they run local-only XML validation with timeout, temp cleanup, path traversal protection, sanitized output, and read-only SDK hash comparison where available.
 - The current code is still not production compliant. Official SDK/API validation, real CSID onboarding, signing, PDF/A-3, clearance, reporting, and KMS-backed key custody are still required.
 
 Not implemented yet:
@@ -1548,7 +1560,7 @@ Not implemented yet:
 - production CSID issuance
 - real ZATCA compliance, clearance, or reporting APIs
 - cryptographic signing/stamping
-- official ZATCA canonicalization/profile validation
+- official ZATCA hash-chain/canonicalization replacement
 - Phase 2 QR signature/public-key fields
 - PDF/A-3 conversion
 - embedded XML in PDF archives

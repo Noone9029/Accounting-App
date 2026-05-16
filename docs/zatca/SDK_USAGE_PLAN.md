@@ -57,11 +57,13 @@ The local SDK bundle is `reference/zatca-einvoicing-sdk-Java-238-R3.4.8`.
 - `POST /zatca-sdk/validate-xml-dry-run` now builds a command plan from invoice XML metadata or request `xmlBase64` without writing temp files or executing Java.
 - `POST /zatca-sdk/validate-xml-local` now accepts raw XML, base64 XML, or invoice XML metadata, but remains disabled by default through `ZATCA_SDK_EXECUTION_ENABLED=false`.
 - `POST /zatca-sdk/validate-reference-fixture` validates allowlisted XML fixture paths under `reference/` or `packages/zatca-core/fixtures` only.
-- `POST /sales-invoices/:id/zatca/sdk-validate` runs local validation against generated invoice XML when explicitly enabled and readiness passes.
+- `POST /sales-invoices/:id/zatca/sdk-validate` runs local validation against generated invoice XML when explicitly enabled and readiness passes. It also runs SDK `-generateHash` and returns read-only `sdkHash`, `appHash`, `hashMatches`, and `hashComparisonStatus` fields.
 - The SDK readme documents `fatoora -validate -invoice <filename>`; LedgerByte now prefers launcher execution and uses direct JAR execution only as a fallback if no launcher is present.
+- The SDK readme documents `fatoora -generateHash -invoice <filename>`; LedgerByte uses it as the hash oracle and does not mutate metadata during comparison.
 - The wrapper enforces a 2 MB XML limit, timeout, temp-file cleanup, output redaction, and path traversal blocking. Windows `.bat` launcher execution uses `cmd.exe` with an argument array only; it does not concatenate a command string.
 - The frontend displays SDK validation readiness on `/settings/zatca` and exposes dry-run plus local validation actions from invoice detail pages.
 - `apps/api/src/zatca-sdk/zatca-official-fixtures.ts` registers the first official and LedgerByte XML fixtures used for the Java 11 validation pass.
+- `scripts/validate-generated-zatca-invoice.cjs` validates a generated invoice through a running local API and prints a safe hash comparison summary.
 
 See `SDK_VALIDATION_WRAPPER.md` for endpoint behavior and safety rules.
 
@@ -75,7 +77,7 @@ The SDK command is verified as `fatoora -validate -invoice <filename>`. Actual f
 - The simplified official invoice produced warning `BR-KSA-98` about submitting simplified invoices within 24 hours, while the global result still passed.
 - LedgerByte standard and simplified local XML fixtures were improved in the follow-up structural and supply-date/PIH passes. UBL ordering, official `ICV`/`PIH`/`QR` ADR shapes, standard/simplified transaction flags, seller/customer identifiers, tax total shape, supply date, official first PIH fallback, and the simplified line amount warning were corrected. The standard fixture now passes SDK XSD/EN/KSA/PIH validation and global validation. The simplified fixture now passes SDK XSD/EN/PIH validation but still fails signing, QR, and certificate checks because real signing/certificate/Phase 2 QR behavior is not implemented.
 - SDK `-generateHash` has been used as a local oracle for LedgerByte fixtures. The app intentionally does not compute official hashes yet; the core helper returns blocked status until SDK hash output or verified C14N11 support is wired in.
-- Generated invoice XML validation through the API was not attempted because the local API/database stack was not confirmed running during this pass.
+- Generated invoice XML validation through the API now succeeds locally when SDK execution is explicitly enabled. The tested finalized invoice returned SDK exit code `0`; SDK hash `ZVhjW6kwGeZ58ZYw1l9+9dBPm+m2CIWxKX4pDXVzTsU=` and app hash `X8UbEeT1oEdrpx2lMCNRUljZtcylcMoj1HSnaCWSDb8=` produced `hashComparisonStatus=MISMATCH`, which is expected until official SDK/C14N11 hashing replaces the local deterministic app hash.
 
 ## Guardrails For Future Wrapper
 

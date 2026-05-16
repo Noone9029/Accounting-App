@@ -259,12 +259,64 @@ Remaining non-production gaps:
 - Simplified invoices still require real cryptographic stamp/signature, certificate handling, and Phase 2 QR tags.
 - No signing, ZATCA network calls, CSID, clearance/reporting, or PDF/A-3 work was added.
 
+## API Generated XML And Hash Comparison Pass
+
+Follow-up date: 2026-05-16
+
+Commit context: current working tree after `9a4f3ea Add ZATCA supply date and PIH hash groundwork`.
+
+Official files used again for this pass:
+
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/usage.txt`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Simplified/Invoice/Simplified_Invoice.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Rules/Schematrons/20210819_ZATCA_E-invoice_Validation_Rules.xsl`
+- `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_XML_Implementation_Standard_vF.pdf`
+- `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards.pdf`
+
+The SDK readme and `Configuration/usage.txt` confirm the local hash command:
+
+```powershell
+fatoora -generateHash -invoice <filename>
+```
+
+The SDK hash oracle was rerun with Java 11.0.26 from `C:\Program Files\Microsoft\jdk-11.0.26.4-hotspot\bin\java.exe`, using the official launcher from a no-space temporary SDK copy and a temporary `Configuration/config.json` with absolute local SDK paths. No ZATCA network call was made.
+
+| XML | SDK validation result | SDK hash |
+| --- | --- | --- |
+| Official standard invoice sample | PASS | `V4U5qlZ3yXQ/Si1AC/R8SLc3F+iNy27wdVe8IWRqFAQ=` |
+| Official simplified invoice sample | PASS with `BR-KSA-98` warning | `z5F9qsS6oWyDhehD8u8S0DaxV+2CUiUz9Y+UsR61JgQ=` |
+| LedgerByte standard local fixture | PASS | `Lt2QoJTH0yk6yJYK7vtb59zfyYwFOb8RsWWrpMdGCVg=` |
+| LedgerByte simplified local fixture | FAIL on expected signing/certificate/Phase 2 QR gaps; XSD/EN/PIH pass | `5Ikqk68Pa1SveBTWh+K5tF55LUoj+GhLzj/Ib78Bpfw=` |
+
+Generated invoice XML was validated through the API wrapper with SDK execution explicitly enabled:
+
+```powershell
+node scripts/validate-generated-zatca-invoice.cjs --invoice-id 9c08f3ce-e9e9-4ec9-a79c-5e6842de5e4b
+```
+
+Result:
+
+- Invoice: `INV-000072`
+- Organization: `00000000-0000-0000-0000-000000000001`
+- SDK validation attempted: yes.
+- SDK exit code: `0`.
+- Wrapper `success`: `true`.
+- SDK hash: `ZVhjW6kwGeZ58ZYw1l9+9dBPm+m2CIWxKX4pDXVzTsU=`
+- App stored hash: `X8UbEeT1oEdrpx2lMCNRUljZtcylcMoj1HSnaCWSDb8=`
+- Hash comparison: `MISMATCH`
+
+The API-generated invoice produced a successful local SDK validation run but with production-quality address/identifier warnings including `BR-KSA-08`, `BR-KSA-F-06-C23`, `BR-KSA-09`, `BR-KSA-81`, `BR-KSA-F-06-C25`, `BR-KSA-63`, `BR-KSA-10`, `BR-KSA-66`, and `BR-KSA-67`.
+
+The hash mismatch is expected and is now documented in `HASH_CHAIN_AND_PIH_PLAN.md`: LedgerByte still stores a local deterministic hash in `ZatcaInvoiceMetadata.invoiceHash` and `ZatcaEgsUnit.lastInvoiceHash`, not the official SDK/C14N11 hash.
+
 ## Next Technical Fixes
 
 1. Keep SDK execution disabled by default in normal app and smoke runs.
 2. Use Java 11-14 through `ZATCA_SDK_JAVA_BIN` or an isolated temp/Docker SDK workspace when running local SDK validation.
-3. Validate API-generated invoice XML using the local SDK wrapper with execution explicitly enabled in a no-network environment.
-4. Add SDK `-generateHash` comparison tests, then replace local hash-chain behavior only after the canonicalization path is verified.
+3. Replace local hash-chain behavior only after SDK `-generateHash` or verified C14N11 hash generation is wired in behind a controlled migration/reset plan.
+4. Resolve generated XML seller/buyer address and identifier warnings from official samples/rules.
 5. Design signing/certificate/key custody before attempting to resolve simplified signature and Phase 2 QR failures.
 6. Do not start CSID, clearance/reporting, or PDF/A-3 work until XML/hash/signature validation is stable locally.
 

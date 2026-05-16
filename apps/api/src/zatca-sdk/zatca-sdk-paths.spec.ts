@@ -3,11 +3,13 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { isAllowedZatcaFixturePath, ZATCA_SDK_FIXTURE_REGISTRY } from "./zatca-official-fixtures";
 import {
+  buildZatcaSdkGenerateHashCommand,
   buildZatcaSdkValidationCommand,
   discoverZatcaSdkReadiness,
   parseJavaMajorVersion,
   parseJavaVersion,
   readZatcaSdkExecutionConfig,
+  ZATCA_SDK_GENERATE_HASH_COMMAND,
   ZATCA_SDK_REQUIRED_JAVA_RANGE,
   ZATCA_SDK_VALIDATE_COMMAND,
 } from "./zatca-sdk-paths";
@@ -177,6 +179,53 @@ describe("ZATCA SDK validation command builder", () => {
     expect(plan.args).toEqual(["-validate", "-invoice", "/tmp/invoice.xml"]);
     expect(plan.displayCommand).toContain("-validate -invoice /tmp/invoice.xml");
     expect(plan.envAdditions.FATOORA_HOME).toBe("/repo/reference/Apps");
+  });
+
+  it("builds a launcher hash-generation plan using the SDK readme flags", () => {
+    const plan = buildZatcaSdkGenerateHashCommand({
+      xmlFilePath: "/tmp/invoice.xml",
+      launcherPath: "/repo/reference/Apps/fatoora",
+      jqPath: "/repo/reference/Apps/jq",
+      configDirPath: "/repo/reference/Configuration",
+      workingDirectory: "/repo/reference",
+      platform: "linux",
+      javaFound: true,
+    });
+
+    expect(plan.command).toBe("/repo/reference/Apps/fatoora");
+    expect(plan.args).toEqual(["-generateHash", "-invoice", "/tmp/invoice.xml"]);
+    expect(plan.displayCommand).toContain("-generateHash -invoice /tmp/invoice.xml");
+    expect(plan.warnings.join(" ")).toContain(ZATCA_SDK_GENERATE_HASH_COMMAND);
+    expect(plan.envAdditions.FATOORA_HOME).toBe("/repo/reference/Apps");
+  });
+
+  it("prefers a configured no-space SDK launcher beside ZATCA_SDK_JAR_PATH", () => {
+    const root = mkdtempSync(join(tmpdir(), "ledgerbyte-configured-sdk-root-"));
+    const configuredSdkRoot = join(root, "sdk-copy");
+    mkdirSync(join(root, "reference"), { recursive: true });
+    mkdirSync(join(configuredSdkRoot, "Apps"), { recursive: true });
+    mkdirSync(join(configuredSdkRoot, "Configuration"), { recursive: true });
+    writeFileSync(join(root, "pnpm-workspace.yaml"), "");
+    writeFileSync(join(configuredSdkRoot, "Apps", "zatca-einvoicing-sdk-238-R3.4.8.jar"), "");
+    writeFileSync(join(configuredSdkRoot, "Apps", "fatoora.bat"), "");
+    writeFileSync(join(configuredSdkRoot, "Apps", "jq.exe"), "");
+    writeFileSync(join(configuredSdkRoot, "Configuration", "config.json"), "{}");
+
+    const readiness = discoverZatcaSdkReadiness({
+      projectRoot: root,
+      platform: "win32",
+      env: {
+        ZATCA_SDK_EXECUTION_ENABLED: "true",
+        ZATCA_SDK_JAR_PATH: join(configuredSdkRoot, "Apps", "zatca-einvoicing-sdk-238-R3.4.8.jar"),
+        ZATCA_SDK_CONFIG_DIR: join(configuredSdkRoot, "Configuration"),
+      },
+      runCommand: () => ({ status: 0, stderr: 'openjdk version "11.0.26" 2025-01-21 LTS' }),
+    });
+
+    expect(readiness.fatooraLauncherPath).toBe(join(configuredSdkRoot, "Apps", "fatoora.bat"));
+    expect(readiness.jqPath).toBe(join(configuredSdkRoot, "Apps", "jq.exe"));
+    expect(readiness.sdkRootPath).toBe(configuredSdkRoot);
+    expect(readiness.canRunLocalValidation).toBe(true);
   });
 
   it("warns when jq, Java, or SDK JAR are missing", () => {

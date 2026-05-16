@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-16
 
-Commit inspected: pending (`Add ZATCA supply date and PIH hash groundwork`)
+Commit inspected: pending (`Validate API generated ZATCA XML and hash`)
 
 ## Scope
 
@@ -36,6 +36,35 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### API-generated ZATCA XML validation and SDK hash comparison
+
+Used only the repo-local official ZATCA SDK readme, `Configuration/usage.txt`, official standard/simplified samples, Schematron rules, and XML/security PDFs to validate generated invoice XML and add read-only SDK hash comparison.
+
+Risk reduced:
+
+- Added SDK `fatoora -generateHash -invoice <filename>` command planning through the existing argument-array wrapper.
+- Added SDK hash output parsing and response fields: `sdkHash`, `appHash`, `hashMatches`, and `hashComparisonStatus`.
+- Kept SDK execution disabled by default; normal smoke still expects `hashComparisonStatus=BLOCKED`.
+- Fixed Windows SDK execution under sanitized child-process env by resolving `cmd.exe` through ComSpec/SystemRoot and preserving `Path`/`PATH`.
+- Added `scripts/validate-generated-zatca-invoice.cjs` to validate generated invoice XML through a running local API without printing tokens, passwords, or XML.
+- Added `docs/zatca/HASH_CHAIN_AND_PIH_PLAN.md` to document current metadata hash behavior and migration/reset impact.
+
+Result:
+
+- Official standard invoice sample SDK hash: `V4U5qlZ3yXQ/Si1AC/R8SLc3F+iNy27wdVe8IWRqFAQ=`.
+- Official simplified invoice sample SDK hash: `z5F9qsS6oWyDhehD8u8S0DaxV+2CUiUz9Y+UsR61JgQ=`.
+- LedgerByte standard fixture SDK hash remains `Lt2QoJTH0yk6yJYK7vtb59zfyYwFOb8RsWWrpMdGCVg=`.
+- LedgerByte simplified fixture SDK hash remains `5Ikqk68Pa1SveBTWh+K5tF55LUoj+GhLzj/Ib78Bpfw=`.
+- API-generated invoice XML for `INV-000072` validated locally through the wrapper with SDK exit code `0`.
+- Generated invoice app hash `X8UbEeT1oEdrpx2lMCNRUljZtcylcMoj1HSnaCWSDb8=` did not match SDK hash `ZVhjW6kwGeZ58ZYw1l9+9dBPm+m2CIWxKX4pDXVzTsU=`, which confirms current app hash-chain storage is still local-only groundwork.
+
+Remaining risks:
+
+- LedgerByte is still not ZATCA production compliant.
+- Generated XML still has production-quality seller/buyer address and identifier warnings.
+- App hash-chain storage still uses a local deterministic hash and must not be used for real ZATCA chains.
+- Signing/certificate handling, Phase 2 QR, CSID onboarding, clearance/reporting, and PDF/A-3 are not implemented.
 
 ### ZATCA supply-date and PIH/hash groundwork
 

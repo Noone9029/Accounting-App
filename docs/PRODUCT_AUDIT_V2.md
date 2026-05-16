@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-16
 
-Latest commit audited: `35a5358` (`Fix ZATCA XML structure against SDK gaps`) plus the current ZATCA supply-date and PIH/hash groundwork pass.
+Latest commit audited: `9a4f3ea` (`Add ZATCA supply date and PIH hash groundwork`) plus the current API-generated XML SDK validation and hash comparison pass.
 
 ## Executive Summary
 
@@ -17,7 +17,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 | Local demo MVP | 88% | Strong enough for guided demos and internal workflow review. |
 | Private beta | 62% | Possible only with carefully selected testers, clear limitations, non-production data, and hands-on support. |
 | Production SaaS | 38% | Blocked by operations, storage, email, billing, security hardening, backups, monitoring, and legal/compliance review. |
-| Saudi/ZATCA production readiness | 30% | ZATCA remains local/mock/scaffold; official SDK samples pass locally under Java 11, LedgerByte standard fixture now passes SDK global validation, and simplified fixture passes XSD/EN/PIH, but signing, Phase 2 QR, CSID, clearance/reporting, and PDF-A3 are not implemented. |
+| Saudi/ZATCA production readiness | 33% | ZATCA remains local/mock/scaffold; official SDK samples pass locally under Java 11, LedgerByte standard fixture now passes SDK global validation, simplified fixture passes XSD/EN/PIH, and API-generated standard XML validates locally with warnings. App hash-chain storage still mismatches SDK hash output, and signing, Phase 2 QR, CSID, clearance/reporting, and PDF-A3 are not implemented. |
 | Xero/Wafeq competitor readiness | 45% | Breadth is now meaningful, but production trust, compliance depth, integrations, onboarding, and polish are still behind mature products. |
 
 ## Completed Modules
@@ -48,12 +48,12 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 - Reports: broad operational reports exist, but official VAT return, filing exports, scheduled delivery, report pack controls, and accountant sign-off remain.
 - Attachments/storage: upload/download/soft-delete works, new uploaded attachments can use S3-compatible storage when explicitly configured, but database/base64 remains the default and there is no migration executor, generated-document S3 path, scanning, OCR, or retention policy.
 - Email: mock/local flow works with rate limits and SMTP can be enabled by env, but there is no retry queue, bounce/webhook handling, domain-auth validation workflow, MFA, or session invalidation.
-- ZATCA: extensive local groundwork and docs exist; official SDK sample fixtures now pass locally under Java 11. LedgerByte's local standard XML fixture now passes SDK global validation after supply-date and PIH fallback work, and the simplified fixture passes XSD/EN/PIH. Production signing, Phase 2 QR, CSID, clearance/reporting, and PDF/A-3 remain unimplemented.
+- ZATCA: extensive local groundwork and docs exist; official SDK sample fixtures now pass locally under Java 11. LedgerByte's local standard XML fixture now passes SDK global validation after supply-date and PIH fallback work, the simplified fixture passes XSD/EN/PIH, and API-generated standard XML validates locally with address/identifier warnings. Production hash-chain replacement, signing, Phase 2 QR, CSID, clearance/reporting, and PDF/A-3 remain unimplemented.
 - Browser QA: route smoke exists and deployed E2E has run, but no visual regression, no full accounting assertions in browser, and no scheduled CI.
 
 ## Not Started
 
-- Real ZATCA signing, compliant LedgerByte XML validation, CSID onboarding, clearance, reporting, and PDF/A-3.
+- Real ZATCA hash-chain replacement, signing, compliant XML/signature validation, CSID onboarding, clearance, reporting, and PDF/A-3.
 - Real-bucket S3 validation, generated-document object storage, and database-to-S3 migration executor.
 - Email provider validation, bounce/retry worker, provider webhooks, and domain authentication.
 - Subscription billing, plans, tenant limits, and customer billing.
@@ -78,8 +78,8 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 
 ## Compliance Blockers
 
-- ZATCA official XML mapping is incomplete; official SDK samples pass locally under Java 11, the LedgerByte standard fixture now passes SDK global validation, and the simplified fixture now passes SDK XSD/EN/PIH, but signing, QR/certificate, generated-invoice validation, CSID, clearance/reporting, and PDF/A-3 remain blockers.
-- ZATCA invoice hash/canonicalization has SDK `-generateHash` oracle evidence for fixtures, but application hash-chain behavior is still local-only and intentionally not replaced until C14N11 or SDK hash integration is verified.
+- ZATCA official XML mapping is incomplete; official SDK samples pass locally under Java 11, the LedgerByte standard fixture now passes SDK global validation, the simplified fixture now passes SDK XSD/EN/PIH, and API-generated standard XML validates locally with warnings, but signing, QR/certificate, hash-chain replacement, CSID, clearance/reporting, and PDF/A-3 remain blockers.
+- ZATCA invoice hash/canonicalization has SDK `-generateHash` oracle evidence for fixtures and generated XML, but application hash-chain behavior is still local-only and currently mismatches SDK output until C14N11 or SDK hash integration is verified.
 - ZATCA signing and certificate/key custody are not implemented.
 - Compliance CSID and production CSID onboarding are not implemented.
 - Clearance/reporting endpoints are intentionally blocked for real network behavior.

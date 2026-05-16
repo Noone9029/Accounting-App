@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Latest commit audited: `9e350d6` (`Run ZATCA SDK fixture validation readiness`) plus the current ZATCA XML structural correction pass.
+Latest commit audited: `9a4f3ea` (`Add ZATCA supply date and PIH hash groundwork`) plus the current API-generated XML SDK validation and hash comparison pass.
 
 Each prompt is intentionally scoped so it can be executed as a safe Codex implementation/audit task. Prompts that need credentials say so explicitly.
 
@@ -116,18 +116,18 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 
 ## Phase 3: ZATCA Production Path
 
-### 14. Validate API-generated ZATCA XML
+### 14. Resolve generated ZATCA XML warnings
 
-- Objective: Run SDK validation against API-generated invoice XML without signing or network calls.
-- Why it matters: The local standard fixture now passes SDK global validation, but generated invoice XML still needs the same evidence.
+- Objective: Use the local SDK warning output from API-generated XML to fix seller/buyer address and identifier mapping without signing or network calls.
+- Why it matters: API-generated XML now validates locally, but production-quality address/identifier warnings remain.
 - Dependencies: Java 11-14 runtime and official fixture result doc.
 - Risk level: High.
 - Manual credentials needed: No.
 
-### 15. Add SDK hash comparison tests
+### 15. Design ZATCA hash-chain replacement
 
-- Objective: Compare LedgerByte fixture/generated XML against SDK `fatoora -generateHash -invoice <filename>` output without replacing app behavior yet.
-- Why it matters: Signing and API submission depend on correct canonical invoice hashes.
+- Objective: Replace local deterministic hash-chain storage with SDK `fatoora -generateHash -invoice <filename>` or verified C14N11 output behind a controlled migration/reset plan.
+- Why it matters: API-generated XML now shows app hash and SDK hash mismatch; signing and API submission depend on correct canonical invoice hashes.
 - Dependencies: Current structural XML fixtures and SDK validation wrapper.
 - Risk level: Critical.
 - Manual credentials needed: No.

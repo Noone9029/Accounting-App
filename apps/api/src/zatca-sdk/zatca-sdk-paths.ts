@@ -89,6 +89,7 @@ export interface ZatcaSdkExecutionConfig {
 const DEFAULT_ZATCA_SDK_TIMEOUT_MS = 30000;
 export const ZATCA_SDK_REQUIRED_JAVA_RANGE = ">=11 <15";
 export const ZATCA_SDK_VALIDATE_COMMAND = "fatoora -validate -invoice <filename>";
+export const ZATCA_SDK_GENERATE_HASH_COMMAND = "fatoora -generateHash -invoice <filename>";
 
 export function discoverZatcaSdkReadiness(options: ZatcaSdkDiscoveryOptions = {}): ZatcaSdkReadiness {
   const projectRoot = resolve(options.projectRoot ?? findProjectRoot(options.startDirectory ?? cwd()));
@@ -96,7 +97,10 @@ export function discoverZatcaSdkReadiness(options: ZatcaSdkDiscoveryOptions = {}
   const executionConfig = readZatcaSdkExecutionConfig(options.env, projectRoot);
   const referenceFolderPath = join(projectRoot, "reference");
   const referenceFolderFound = existsSync(referenceFolderPath);
-  const files = referenceFolderFound ? listFiles(referenceFolderPath) : [];
+  const configuredSdkRoot = executionConfig.sdkJarPath && existsSync(executionConfig.sdkJarPath) ? dirname(dirname(executionConfig.sdkJarPath)) : undefined;
+  const configuredFiles =
+    configuredSdkRoot && existsSync(configuredSdkRoot) && statSync(configuredSdkRoot).isDirectory() ? listFiles(configuredSdkRoot) : [];
+  const files = [...configuredFiles, ...(referenceFolderFound ? listFiles(referenceFolderPath) : [])];
   const sdkJarPath = executionConfig.sdkJarPath || files.find((file) => /zatca-einvoicing-sdk.*\.jar$/i.test(file));
   const launcherPath = findLauncher(files, currentPlatform);
   const jqPath = files.find((file) => /(?:^|[\\/])jq(?:\.exe)?$/i.test(file));
@@ -212,10 +216,20 @@ export function discoverZatcaSdkReadiness(options: ZatcaSdkDiscoveryOptions = {}
 }
 
 export function buildZatcaSdkValidationCommand(input: ZatcaSdkValidationCommandInput): ZatcaSdkValidationCommandPlan {
+  return buildZatcaSdkCommand(input, "validate");
+}
+
+export function buildZatcaSdkGenerateHashCommand(input: ZatcaSdkValidationCommandInput): ZatcaSdkValidationCommandPlan {
+  return buildZatcaSdkCommand(input, "generateHash");
+}
+
+function buildZatcaSdkCommand(input: ZatcaSdkValidationCommandInput, operation: "validate" | "generateHash"): ZatcaSdkValidationCommandPlan {
   const currentPlatform = input.platform;
   const warnings: string[] = ["Use argument-array execution for this SDK command; do not concatenate a shell string."];
   const envAdditions: Record<string, string> = {};
   const pathPrepend: string[] = [];
+  const operationFlag = operation === "validate" ? "-validate" : "-generateHash";
+  const documentedCommand = operation === "validate" ? ZATCA_SDK_VALIDATE_COMMAND : ZATCA_SDK_GENERATE_HASH_COMMAND;
 
   if (!input.xmlFilePath.trim()) {
     warnings.push("XML file path is missing.");
@@ -258,17 +272,17 @@ export function buildZatcaSdkValidationCommand(input: ZatcaSdkValidationCommandI
   if (input.launcherPath) {
     if (currentPlatform === "win32" && /\.bat$/i.test(input.launcherPath)) {
       command = "cmd.exe";
-      args = ["/d", "/c", input.launcherPath, "-validate", "-invoice", input.xmlFilePath];
+      args = ["/d", "/c", input.launcherPath, operationFlag, "-invoice", input.xmlFilePath];
       warnings.push("Uses cmd.exe argument-array execution only to run the official Windows fatoora.bat launcher.");
     } else {
       command = input.launcherPath;
-      args = ["-validate", "-invoice", input.xmlFilePath];
+      args = [operationFlag, "-invoice", input.xmlFilePath];
     }
-    warnings.push(`Uses the SDK readme documented validation command: ${ZATCA_SDK_VALIDATE_COMMAND}.`);
+    warnings.push(`Uses the SDK readme documented command: ${documentedCommand}.`);
   } else if (input.sdkJarPath) {
     command = input.javaCommand ?? "java";
-    args = ["-jar", input.sdkJarPath, "-validate", "-invoice", input.xmlFilePath];
-    warnings.push("Direct JAR validation is a fallback; prefer the official fatoora launcher when available.");
+    args = ["-jar", input.sdkJarPath, operationFlag, "-invoice", input.xmlFilePath];
+    warnings.push("Direct JAR execution is a fallback; prefer the official fatoora launcher when available.");
   }
 
   return {

@@ -13,6 +13,7 @@
     "e2e:headed": "playwright test --headed",
     "postinstall": "node scripts/vercel-postinstall.cjs",
     "smoke:accounting": "corepack pnpm --filter @ledgerbyte/api smoke:accounting",
+    "zatca:validate-generated": "node scripts/validate-generated-zatca-invoice.cjs",
     "db:generate": "corepack pnpm --filter @ledgerbyte/api db:generate",
     "db:migrate": "corepack pnpm --filter @ledgerbyte/api db:migrate",
     "db:seed": "corepack pnpm --filter @ledgerbyte/api db:seed"

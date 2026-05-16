@@ -1170,6 +1170,10 @@ interface ZatcaSdkValidationResponse {
   localOnly: true;
   officialValidationAttempted: boolean;
   sdkExitCode: number | null;
+  sdkHash: string | null;
+  appHash: string | null;
+  hashMatches: boolean | null;
+  hashComparisonStatus: "MATCH" | "MISMATCH" | "NOT_AVAILABLE" | "BLOCKED";
   stdoutSummary: string;
   stderrSummary: string;
   validationMessages: string[];
@@ -2933,6 +2937,8 @@ async function main(): Promise<void> {
   assertEqual(zatcaSdkLocalValidation.localOnly, true, "ZATCA SDK local validation localOnly");
   assertEqual(zatcaSdkLocalValidation.officialValidationAttempted, false, "ZATCA SDK local validation disabled by default");
   assertEqual(zatcaSdkLocalValidation.disabled, true, "ZATCA SDK local validation disabled flag");
+  assertEqual(zatcaSdkLocalValidation.hashComparisonStatus, "BLOCKED", "ZATCA SDK local hash comparison blocked by default");
+  assertEqual(zatcaSdkLocalValidation.hashMatches, null, "ZATCA SDK local hash comparison does not run by default");
   assertNoPrivateKey(zatcaSdkLocalValidation, "ZATCA SDK local validation response");
   const zatcaSdkFixtureValidation = await post<ZatcaSdkValidationResponse>("/zatca-sdk/validate-reference-fixture", headers, {
     fixturePath: "reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml",
@@ -2940,6 +2946,7 @@ async function main(): Promise<void> {
   assertEqual(zatcaSdkFixtureValidation.localOnly, true, "ZATCA SDK fixture validation localOnly");
   assertEqual(zatcaSdkFixtureValidation.officialValidationAttempted, false, "ZATCA SDK fixture validation disabled by default");
   assertEqual(zatcaSdkFixtureValidation.disabled, true, "ZATCA SDK fixture validation disabled flag");
+  assertEqual(zatcaSdkFixtureValidation.hashComparisonStatus, "BLOCKED", "ZATCA SDK fixture hash comparison blocked by default");
   assertNoPrivateKey(zatcaSdkFixtureValidation, "ZATCA SDK fixture validation response");
   const zatcaQr = await get<ZatcaQrResponse>(`/sales-invoices/${draftInvoice.id}/zatca/qr`, headers);
   assertPresent(zatcaQr.qrCodeBase64, "ZATCA QR endpoint payload");
