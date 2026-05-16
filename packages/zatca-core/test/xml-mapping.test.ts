@@ -3,7 +3,10 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
   buildZatcaInvoiceXml,
+  canonicalizeZatcaInvoiceXmlForHash,
+  computeZatcaInvoiceHash,
   escapeXml,
+  initialPreviousInvoiceHash,
   validateLocalZatcaXml,
   ZATCA_XML_FIELD_MAPPING,
   ZATCA_XML_FIELD_MAPPING_STATUSES,
@@ -53,6 +56,21 @@ describe("ZATCA XML mapping scaffold", () => {
     assertMarkersInOrder(xml, orderedMarkers);
   });
 
+  it("emits official supply date structure after customer party for standard invoices", () => {
+    const xml = buildZatcaInvoiceXml(readFixtureInput("local-standard-tax-invoice"));
+
+    assert.match(
+      xml,
+      /<cac:Delivery>\n    <cbc:ActualDeliveryDate>2026-05-12<\/cbc:ActualDeliveryDate>\n  <\/cac:Delivery>/,
+    );
+    assertMarkersInOrder(xml, [
+      "<cac:AccountingCustomerParty>",
+      "<cac:Delivery>",
+      "<cbc:ActualDeliveryDate>2026-05-12</cbc:ActualDeliveryDate>",
+      "<cac:TaxTotal>",
+    ]);
+  });
+
   it("emits official ICV AdditionalDocumentReference structure", () => {
     const xml = buildZatcaInvoiceXml(readFixtureInput("local-standard-tax-invoice"));
 
@@ -68,8 +86,26 @@ describe("ZATCA XML mapping scaffold", () => {
 
     assert.match(
       xml,
-      /<cac:AdditionalDocumentReference>\n    <cbc:ID>PIH<\/cbc:ID>\n    <cac:Attachment>\n      <cbc:EmbeddedDocumentBinaryObject mimeCode="text\/plain">NWZlY2Vi/,
+      /<cac:AdditionalDocumentReference>\n    <cbc:ID>PIH<\/cbc:ID>\n    <cac:Attachment>\n      <cbc:EmbeddedDocumentBinaryObject mimeCode="text\/plain">NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==<\/cbc:EmbeddedDocumentBinaryObject>/,
     );
+  });
+
+  it("uses the official first invoice PIH fallback when no previous hash is supplied", () => {
+    const input = { ...readFixtureInput("local-standard-tax-invoice"), previousInvoiceHash: undefined };
+    const xml = buildZatcaInvoiceXml(input);
+
+    assert.equal(initialPreviousInvoiceHash, "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==");
+    assert.match(xml, new RegExp(`<cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">${initialPreviousInvoiceHash}</cbc:EmbeddedDocumentBinaryObject>`));
+  });
+
+  it("renders an explicitly supplied PIH value instead of the first invoice fallback", () => {
+    const xml = buildZatcaInvoiceXml({
+      ...readFixtureInput("local-standard-tax-invoice"),
+      previousInvoiceHash: "EXPLICIT_PREVIOUS_HASH_BASE64",
+    });
+
+    assert.match(xml, /<cbc:EmbeddedDocumentBinaryObject mimeCode="text\/plain">EXPLICIT_PREVIOUS_HASH_BASE64<\/cbc:EmbeddedDocumentBinaryObject>/);
+    assert.doesNotMatch(xml, new RegExp(initialPreviousInvoiceHash));
   });
 
   it("emits official QR AdditionalDocumentReference attachment structure when QR content is available", () => {
@@ -88,6 +124,36 @@ describe("ZATCA XML mapping scaffold", () => {
 
     assert.match(standardXml, /<cbc:InvoiceTypeCode name="0100000">388<\/cbc:InvoiceTypeCode>/);
     assert.match(simplifiedXml, /<cbc:InvoiceTypeCode name="0200000">388<\/cbc:InvoiceTypeCode>/);
+  });
+
+  it("prepares documented hash input transforms without pretending to run official C14N11", () => {
+    const xml = [
+      '<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2">',
+      "  <ext:UBLExtensions><ext:UBLExtension /></ext:UBLExtensions>",
+      "  <cbc:ID>INV-1</cbc:ID>",
+      "  <cac:AdditionalDocumentReference><cbc:ID>PIH</cbc:ID></cac:AdditionalDocumentReference>",
+      "  <cac:AdditionalDocumentReference><cbc:ID>QR</cbc:ID></cac:AdditionalDocumentReference>",
+      "  <cac:Signature><cbc:ID>urn:oasis:names:specification:ubl:signature:Invoice</cbc:ID></cac:Signature>",
+      "</Invoice>",
+    ].join("\n");
+
+    const result = canonicalizeZatcaInvoiceXmlForHash(xml);
+
+    assert.equal(result.officialC14n11Applied, false);
+    assert.equal(result.xmlForHash.includes("<ext:UBLExtensions>"), false);
+    assert.equal(result.xmlForHash.includes("<cbc:ID>QR</cbc:ID>"), false);
+    assert.equal(result.xmlForHash.includes("<cac:Signature>"), false);
+    assert.equal(result.xmlForHash.includes("<cbc:ID>PIH</cbc:ID>"), true);
+    assert.ok(result.blockingReasons.some((reason) => reason.includes("C14N11")));
+  });
+
+  it("blocks local official invoice hash computation until SDK C14N11 hash output is used", () => {
+    const result = computeZatcaInvoiceHash(buildZatcaInvoiceXml(readFixtureInput("local-standard-tax-invoice")));
+
+    assert.equal(result.invoiceHash, null);
+    assert.equal(result.officialHashComputed, false);
+    assert.equal(result.sdkCommand, "fatoora -generateHash -invoice <filename>");
+    assert.ok(result.blockingReasons.some((reason) => reason.includes("SDK")));
   });
 
   it("preserves Arabic and Unicode text", () => {

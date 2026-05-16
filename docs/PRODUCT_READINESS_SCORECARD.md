@@ -1,8 +1,8 @@
 # LedgerByte Product Readiness Scorecard
 
-Audit date: 2026-05-15
+Audit date: 2026-05-16
 
-Latest commit audited: `9e350d6` (`Run ZATCA SDK fixture validation readiness`) plus the current ZATCA XML structural correction pass.
+Latest commit audited: `35a5358` (`Fix ZATCA XML structure against SDK gaps`) plus the current ZATCA supply-date and PIH/hash groundwork pass.
 
 Scoring uses a 0-100 practical readiness scale for the current codebase. A high score means the area is usable in the current MVP; it does not imply production legal/compliance readiness.
 
@@ -17,7 +17,7 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 | Documents/attachments | 62 | Generated PDFs, archive, attachment upload/list/download/soft-delete, linked panels, storage readiness/migration dry run, feature-flagged S3-compatible storage for new uploaded attachments. | DB/base64 remains default, no migration executor, no generated-document S3 path, no virus scanning, no OCR, no retention policy. | Validate S3 mode with a non-production bucket and implement migration executor. |
 | Roles/permissions/security | 70 | Shared permission strings, backend guards, frontend gating, team/role UI, invite onboarding, rate limits. | No MFA, advanced sessions, dual control, security review, production identity controls. | Add MFA/session plan and maker-checker policy for high-risk actions. |
 | Audit/compliance visibility | 78 | Standard events, metadata redaction, audit UI, filters, CSV export, retention settings, dry-run preview, smoke checks. | No immutable store, scheduled export, purge executor, alerting, anomaly detection, tamper evidence. | Add scheduled export/immutable storage design and sensitive-action alerts. |
-| ZATCA | 30 | Profile, EGS, CSR groundwork, mock CSID, local XML/QR/hash, SDK readiness docs, disabled-by-default local SDK validation endpoints, official fixture registry/results doc, official sample validation pass under Java 11, first LedgerByte XML structural SDK fixes, blocked real network behavior. | PIH/hash-chain, signing, Phase 2 QR, CSID, clearance, reporting, PDF/A-3, generated-invoice SDK validation, and KMS key custody remain missing. | Add supply date and SDK-verified canonical PIH/hash behavior, then validate generated XML before signing. |
+| ZATCA | 32 | Profile, EGS, CSR groundwork, mock CSID, local XML/QR/hash, SDK readiness docs, disabled-by-default local SDK validation endpoints, official fixture registry/results doc, official sample validation pass under Java 11, local standard fixture SDK global pass, simplified fixture XSD/EN/PIH pass, blocked real network behavior. | Signing, Phase 2 QR, CSID, clearance, reporting, PDF/A-3, generated-invoice SDK validation, SDK hash integration, and KMS key custody remain missing. | Validate generated XML and add SDK hash comparison before signing/certificate work. |
 | Email/communications | 50 | Mock email outbox default, invites, password reset, readiness API/UI, opt-in SMTP adapter, test-send, DB-backed rate limits. | No queue/retries, bounces/webhooks, domain-auth validation, polished templates, invoice/statement sending, or MFA/session invalidation. | Validate SMTP with a non-production relay and add deliverability/queue controls. |
 | Storage/scalability | 45 | Storage config/readiness, feature-flagged S3-compatible attachment upload/download, migration plan counts, database default works locally. | No DB-to-S3 migration executor, signed URLs, object lifecycle, generated-document S3 path, scanning, backup policy, or real-bucket validation evidence. | Test S3 mode against a non-production bucket and build migration rollback plan. |
 | Browser QA/E2E | 64 | 11 Playwright specs for critical routes, deployed E2E workflow/docs, API smoke remains deep accounting check. | No visual regression, no scheduled browser CI, browser tests are smoke-level, no data reset strategy. | Schedule non-production deployed E2E and expand broken-route coverage. |
@@ -37,7 +37,7 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 1. Real-bucket object-storage validation and file migration.
 2. Email queue/retry, provider webhooks, and domain-auth validation around the opt-in SMTP adapter.
 3. Production backup/restore and monitoring plan.
-4. Remaining LedgerByte ZATCA PIH/hash-chain, supply-date, and generated XML SDK validation work.
+4. Remaining LedgerByte ZATCA generated XML SDK validation, SDK hash comparison, signing/certificate, and Phase 2 QR work.
 5. Dashboard/report accountant review.
 6. UX route QA and E2E expansion.
 7. Audit immutable export/alerting.

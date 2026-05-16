@@ -76,13 +76,13 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Inventory warehouse, stock ledger, adjustment approval, warehouse transfer controls, manual purchase receiving, manual sales stock issue, valuation settings, purchase bill clearing-mode finalization, compatible manual purchase receipt asset posting, inventory clearing preview/matching/reconciliation groundwork, accountant-reviewed variance proposal workflow, purchase receipt posting readiness audit, inventory accounting integrity audit, manual COGS posting, and operational reports exist, but automatic COGS, automatic/direct-mode receipt asset posting, automatic variance posting, automatic receipts/issues, landed cost, serial/batch tracking, and accounting-grade inventory financial reports are not implemented.
 - PDF rendering is operational only, not legal/template-complete.
 - Generated document storage and existing uploaded attachment content still default to database base64; new uploaded attachments can use S3-compatible storage only when explicitly configured, and no migration executor is active.
-- ZATCA is local/mock/scaffold only. Local SDK validation groundwork exists behind a disabled-by-default flag; official SDK sample fixtures now pass under Java 11, and LedgerByte local fixtures now pass first structural checks, but PIH/hash-chain, signing, real CSID, clearance, reporting, and PDF/A-3 do not exist.
+- ZATCA is local/mock/scaffold only. Local SDK validation groundwork exists behind a disabled-by-default flag; official SDK sample fixtures now pass under Java 11, LedgerByte standard XML fixture now passes SDK global validation, and simplified XML fixture passes XSD/EN/PIH, but signing, Phase 2 QR, real CSID, clearance, reporting, and PDF/A-3 do not exist.
 - Redis is present in local infra but workers/queues are not wired.
 - Production deployment, monitoring, backups, subscription billing, email queue/retry/webhook operations, WhatsApp, generated-document object storage, and attachment migration operations are not implemented.
 
 ## Top 10 Risks
 
-1. ZATCA is not production compliant; LedgerByte XML still fails PIH/signature/QR production checks and real onboarding, signing, SDK-verified generated XML, and API submission are missing.
+1. ZATCA is not production compliant; LedgerByte simplified XML still fails signing/QR/certificate checks and real onboarding, signing, SDK-verified generated XML, and API submission are missing.
 2. Invite/onboarding/password reset default to mock/local delivery with provider readiness, test-send, opt-in SMTP, and DB-backed request rate limits; MFA, queue/retry, webhooks, and advanced session management are still missing.
 3. No broad approval workflow, dual control, or maker-checker policy exists for high-risk accounting actions outside the new bank reconciliation approval path.
 4. Bank reconciliation has local import preview, manual matching, categorization, approval, close/lock, report export groundwork, and basic linked attachments, but there is no live feed, automatic matching, OFX/CAMT/MT940 parser, production-grade bank file parser/storage workflow, or external bank integration.
@@ -102,7 +102,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 5. Add partial PO receiving/billing design and purchase matching hardening.
 6. Harden bank reconciliation with upload storage, import file-format samples/parsers, transfer fees, and multi-currency FX handling.
 7. Review accountant-reviewed inventory variance journal proposal outputs, then define historical direct-mode exclusion/migration and landed-cost policy before any automatic posting.
-8. Resolve remaining LedgerByte PIH/hash-chain, supply-date, generated XML, and signing gaps, then advance CSID, clearance/reporting, and PDF/A-3.
+8. Resolve remaining LedgerByte generated XML, SDK hash comparison, signing/certificate, and Phase 2 QR gaps, then advance CSID, clearance/reporting, and PDF/A-3.
 9. Test the uploaded-attachment S3 adapter with a real non-production bucket, then implement the migration executor and generated-document S3 path.
 10. Prepare production deployment, monitoring, backups, secrets management, and security review.
 

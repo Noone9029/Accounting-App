@@ -73,12 +73,13 @@ The SDK command is verified as `fatoora -validate -invoice <filename>`. Actual f
 
 - Official standard invoice, simplified invoice, standard credit note, and standard debit note samples passed.
 - The simplified official invoice produced warning `BR-KSA-98` about submitting simplified invoices within 24 hours, while the global result still passed.
-- LedgerByte standard and simplified local XML fixtures were improved in the follow-up structural pass. UBL ordering, official `ICV`/`PIH`/`QR` ADR shapes, standard/simplified transaction flags, seller/customer identifiers, tax total shape, and the simplified line amount warning were corrected. The standard fixture now passes SDK XSD/EN/KSA validation but still fails PIH and warns about missing supply date. The simplified fixture now passes SDK XSD/EN validation but still fails signing, QR, and PIH checks because real signing/certificate/canonical hash-chain behavior is not implemented.
+- LedgerByte standard and simplified local XML fixtures were improved in the follow-up structural and supply-date/PIH passes. UBL ordering, official `ICV`/`PIH`/`QR` ADR shapes, standard/simplified transaction flags, seller/customer identifiers, tax total shape, supply date, official first PIH fallback, and the simplified line amount warning were corrected. The standard fixture now passes SDK XSD/EN/KSA/PIH validation and global validation. The simplified fixture now passes SDK XSD/EN/PIH validation but still fails signing, QR, and certificate checks because real signing/certificate/Phase 2 QR behavior is not implemented.
+- SDK `-generateHash` has been used as a local oracle for LedgerByte fixtures. The app intentionally does not compute official hashes yet; the core helper returns blocked status until SDK hash output or verified C14N11 support is wired in.
 - Generated invoice XML validation through the API was not attempted because the local API/database stack was not confirmed running during this pass.
 
 ## Guardrails For Future Wrapper
 
-- Use an allowlisted command set (`-validate`, then later `-generateHash`; signing only after explicit design approval).
+- Use an allowlisted command set (`-validate` and `-generateHash`; signing only after explicit design approval).
 - Execute with a per-run temp directory outside `reference/`.
 - Redact paths and payloads that may contain private key, certificate, OTP, CSID secret, or full signed XML.
 - Enforce timeout and max output length.

@@ -189,15 +189,84 @@ Remaining non-production gaps:
 - Standard invoices still need a real supply/delivery date mapping (`BR-KSA-15`) before official validation can pass cleanly.
 - This pass still does not sign invoices, call ZATCA, request CSIDs, or prove production compliance.
 
+## Supply Date And PIH/Hash Groundwork Pass
+
+Follow-up date: 2026-05-16
+
+Commit context: current working tree after `35a5358 Fix ZATCA XML structure against SDK gaps`.
+
+Official files used for this pass:
+
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Simplified/Invoice/Simplified_Invoice.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Credit/Standard_Credit_Note.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Debit/Standard_Debit_Note.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Rules/Schematrons/20210819_ZATCA_E-invoice_Validation_Rules.xsl`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/usage.txt`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/PIH/pih.txt`
+- `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_XML_Implementation_Standard_vF.pdf`
+- `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards.pdf`
+- `reference/zatca-docs/E-Invoicing_Detailed__Guideline.pdf`
+- `reference/zatca-docs/EInvoice_Data_Dictionary.xlsx`
+
+Reference findings:
+
+- Schematron `BR-KSA-15` requires `cac:Delivery/cbc:ActualDeliveryDate` for standard tax invoices with transaction-code prefix `01`.
+- Data dictionary field `KSA-5` maps supply date to `cac:Delivery / cbc:ActualDeliveryDate`.
+- Schematron `BR-KSA-26`, the security features PDF, and the SDK `Data/PIH/pih.txt` support the first-invoice PIH value `NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==`, the base64 SHA-256 value for `0`.
+- Schematron and the XML/security docs describe invoice-hash input transforms: remove `ext:UBLExtensions`, remove `cac:AdditionalDocumentReference` where `cbc:ID = QR`, remove `cac:Signature`, canonicalize using C14N11, SHA-256 hash the canonical bytes, then base64 encode.
+- SDK docs expose a local hash oracle command: `fatoora -generateHash -invoice <filename>`.
+
+Changes made:
+
+- Added `ZatcaInvoiceInput.supplyDate` and emitted `cac:Delivery/cbc:ActualDeliveryDate` in UBL order after the customer party.
+- Mapped generated sales invoice XML to use `SalesInvoice.issueDate` as the local supply-date fallback until LedgerByte has a dedicated supply/delivery date field.
+- Changed the first-invoice PIH fallback to the official SDK/Schematron value above while preserving explicit `previousInvoiceHash` overrides.
+- Added hash-input groundwork helpers that remove the documented nodes but intentionally return a blocked result until SDK `-generateHash` or a verified C14N11 implementation is used.
+- Updated local standard/simplified fixtures and fixture tests.
+
+Revalidation used Java 11.0.26 and the official launcher from the same no-space temporary SDK workflow:
+
+```powershell
+cmd.exe /d /c "<temp-sdk>\Apps\fatoora.bat" -validate -invoice "<fixture.xml>"
+```
+
+| Fixture | Status after supply/PIH pass | SDK messages |
+| --- | --- | --- |
+| Official standard invoice | PASS | `[XSD]`, `[EN]`, `[KSA]`, `[PIH]` passed; global passed. |
+| Official simplified invoice | PASS | `[XSD]`, `[EN]`, `[KSA]`, `[QR]`, `[SIGNATURE]`, `[PIH]` passed; warning `BR-KSA-98`; global passed. |
+| Official standard credit note | PASS | `[XSD]`, `[EN]`, `[KSA]`, `[PIH]` passed; global passed. |
+| Official standard debit note | PASS | `[XSD]`, `[EN]`, `[KSA]`, `[PIH]` passed; global passed. |
+| LedgerByte standard local fixture | PASS | `[XSD]`, `[EN]`, `[KSA]`, `[PIH]` passed; global passed. Previous `BR-KSA-15` and `KSA-13` messages are resolved for this local fixture. |
+| LedgerByte simplified local fixture | FAIL, improved | `[XSD]`, `[EN]`, and `[PIH]` passed. Remaining KSA/signature/QR failures are `BR-KSA-30`, `BR-KSA-28`, warnings `BR-KSA-29`, `BR-KSA-60`, `BR-KSA-98`, `QRCODE_INVALID`, signature `NullPointerException`, and wrong `invoiceCertificate`; global failed. |
+
+SDK `-generateHash` was run as a local oracle only. The values are recorded for future comparison tests and are not yet wired into LedgerByte production behavior:
+
+- LedgerByte standard fixture: `Lt2QoJTH0yk6yJYK7vtb59zfyYwFOb8RsWWrpMdGCVg=`
+- LedgerByte simplified fixture: `5Ikqk68Pa1SveBTWh+K5tF55LUoj+GhLzj/Ib78Bpfw=`
+
+Resolved from the previous LedgerByte fixture failure set:
+
+- Standard `BR-KSA-15` supply-date warning.
+- Standard `KSA-13` PIH failure.
+- Simplified `KSA-13` PIH failure.
+
+Remaining non-production gaps:
+
+- The app still does not compute official invoice hashes in-process; the core helper blocks until SDK `-generateHash` or verified C14N11 support is added.
+- Generated invoice XML through the API still needs SDK validation with a local DB/API stack.
+- Simplified invoices still require real cryptographic stamp/signature, certificate handling, and Phase 2 QR tags.
+- No signing, ZATCA network calls, CSID, clearance/reporting, or PDF/A-3 work was added.
+
 ## Next Technical Fixes
 
 1. Keep SDK execution disabled by default in normal app and smoke runs.
 2. Use Java 11-14 through `ZATCA_SDK_JAVA_BIN` or an isolated temp/Docker SDK workspace when running local SDK validation.
-3. Add standard supply/delivery date mapping and revalidate the standard fixture.
-4. Replace the local PIH/hash-chain placeholder with SDK-verified canonical invoice hash behavior, then resolve `KSA-13`.
-5. Add generated-invoice XML validation after local API/DB fixture generation is available.
-6. Design signing/certificate/key custody before attempting to resolve simplified signature and Phase 2 QR failures.
-7. Do not start CSID, clearance/reporting, or PDF/A-3 work until XML/hash/signature validation is stable locally.
+3. Validate API-generated invoice XML using the local SDK wrapper with execution explicitly enabled in a no-network environment.
+4. Add SDK `-generateHash` comparison tests, then replace local hash-chain behavior only after the canonicalization path is verified.
+5. Design signing/certificate/key custody before attempting to resolve simplified signature and Phase 2 QR failures.
+6. Do not start CSID, clearance/reporting, or PDF/A-3 work until XML/hash/signature validation is stable locally.
 
 ## Compliance Warning
 

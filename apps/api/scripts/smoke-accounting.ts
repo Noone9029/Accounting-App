@@ -2899,6 +2899,7 @@ async function main(): Promise<void> {
     "repeated ZATCA generate does not change EGS previous hash",
   );
   await assertXml(`/sales-invoices/${draftInvoice.id}/zatca/xml`, headers, "invoice ZATCA XML", finalizedInvoice.invoiceNumber);
+  await assertXml(`/sales-invoices/${draftInvoice.id}/zatca/xml`, headers, "invoice ZATCA XML supply date", "<cbc:ActualDeliveryDate>");
   const zatcaXmlValidation = await get<ZatcaXmlValidationResult>(`/sales-invoices/${draftInvoice.id}/zatca/xml-validation`, headers);
   assertEqual(zatcaXmlValidation.localOnly, true, "ZATCA XML validation localOnly");
   assertEqual(zatcaXmlValidation.officialValidation, false, "ZATCA XML validation officialValidation");
@@ -4772,7 +4773,7 @@ async function assertXml(path: string, headers: Record<string, string>, label: s
   const contentType = response.headers.get("content-type") ?? "";
   assert(contentType.includes("application/xml"), `${label} returns application/xml`);
   const text = await response.text();
-  assert(text.includes(expectedText), `${label} includes invoice number`);
+  assert(text.includes(expectedText), `${label} includes expected XML content`);
 }
 
 async function assertText(path: string, headers: Record<string, string>, label: string, expectedText: string): Promise<void> {

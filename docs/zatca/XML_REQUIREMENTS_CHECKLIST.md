@@ -9,7 +9,7 @@ This is a working engineering checklist. Official ZATCA/FATOORA documentation mu
 - Implement official XML canonicalization before hashing/signing.
 - Add official signed properties and certificate digest fields.
 - Validate generated XML against official schemas and sample validator responses.
-- Keep local XML generation labeled as skeleton until these items pass.
+- Keep local XML generation labeled as non-production until generated invoice XML, official hash behavior, signing, and QR checks pass.
 
 ## Reference-backed source files
 
@@ -20,4 +20,4 @@ This is a working engineering checklist. Official ZATCA/FATOORA documentation mu
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Schemas/xsds/UBL2.1/xsd/maindoc/UBL-Invoice-2.1.xsd`
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Rules/Schematrons/20210819_ZATCA_E-invoice_Validation_Rules.xsl`
 
-Key gap found: current local XML does not yet emit the official `cac:AdditionalDocumentReference` structures for `ICV`, `PIH`, and `QR`, and does not implement official canonicalization, signatures, or populated UBL extensions.
+Current status: local fixtures now emit official `cac:AdditionalDocumentReference` structures for `ICV`, `PIH`, and `QR`, and the standard fixture passes SDK global validation. Remaining gaps are generated invoice validation, official C14N11/hash integration, signatures/certificate handling, Phase 2 QR validation, and populated production UBL extensions.

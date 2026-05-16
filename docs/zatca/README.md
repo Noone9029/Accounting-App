@@ -15,7 +15,7 @@ These notes track LedgerByte's local ZATCA Phase 2 groundwork and the manual evi
 - `OFFICIAL_IMPLEMENTATION_MAP.md` maps official reference files to future implementation areas and risk levels.
 - `SDK_USAGE_PLAN.md` documents how the Java SDK should be evaluated safely before integration.
 - `SDK_VALIDATION_WRAPPER.md` documents the test-only readiness and dry-run wrapper endpoints.
-- `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` records the current official fixture pass; official samples pass under Java 11, and LedgerByte local fixtures now clear first structural SDK checks but remain non-compliant because PIH/hash-chain, signing, QR, CSID, clearance/reporting, and PDF/A-3 are still missing.
+- `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` records the current official fixture pass; official samples pass under Java 11, LedgerByte standard fixture passes SDK global validation, and the simplified fixture passes XSD/EN/PIH but remains non-compliant because signing, QR/certificate, CSID, clearance/reporting, and PDF/A-3 are still missing.
 - `ZATCA_CODE_GAP_REPORT.md` compares current LedgerByte code to the inspected official references and lists safe implementation order.
 - `QR_REQUIREMENTS_CHECKLIST.md` tracks TLV QR requirements.
 - `CSR_CSID_ONBOARDING_CHECKLIST.md` tracks OTP, CSR, compliance CSID, and production CSID work.

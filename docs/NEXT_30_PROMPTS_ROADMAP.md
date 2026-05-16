@@ -116,27 +116,27 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 
 ## Phase 3: ZATCA Production Path
 
-### 14. Add ZATCA supply date and generated XML validation
+### 14. Validate API-generated ZATCA XML
 
-- Objective: Add standard supply/delivery date mapping and run SDK validation against API-generated invoice XML without signing or network calls.
-- Why it matters: The local standard fixture now clears SDK XSD/EN/KSA checks except supply-date warning and PIH; generated XML still needs the same evidence.
+- Objective: Run SDK validation against API-generated invoice XML without signing or network calls.
+- Why it matters: The local standard fixture now passes SDK global validation, but generated invoice XML still needs the same evidence.
 - Dependencies: Java 11-14 runtime and official fixture result doc.
 - Risk level: High.
 - Manual credentials needed: No.
 
-### 15. Implement SDK-verified canonical PIH/hash
+### 15. Add SDK hash comparison tests
 
-- Objective: Replace the local PIH/hash placeholder with SDK-verified canonical invoice hash behavior and fixture tests.
-- Why it matters: `KSA-13` remains the main local fixture blocker before signing.
+- Objective: Compare LedgerByte fixture/generated XML against SDK `fatoora -generateHash -invoice <filename>` output without replacing app behavior yet.
+- Why it matters: Signing and API submission depend on correct canonical invoice hashes.
 - Dependencies: Current structural XML fixtures and SDK validation wrapper.
 - Risk level: Critical.
 - Manual credentials needed: No.
 
-### 16. Add XML canonicalization and invoice hash verification
+### 16. Implement verified XML canonicalization or SDK hash path
 
-- Objective: Match official canonicalization/hash behavior against SDK output.
-- Why it matters: Signing and reporting depend on correct hashes.
-- Dependencies: Official XML mapping and SDK validation.
+- Objective: Replace the blocked hash groundwork helper with a verified C14N11 implementation or controlled SDK hash path.
+- Why it matters: Production hash-chain, signing, clearance, and reporting depend on correct hashes.
+- Dependencies: SDK hash comparison tests.
 - Risk level: Critical.
 - Manual credentials needed: No.
 

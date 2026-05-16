@@ -16,6 +16,12 @@ The table below maps LedgerByte's current local XML skeleton to future Phase 2 w
 | Invoice type code | `ZatcaInvoiceMetadata.zatcaInvoiceType` | `/Invoice/cbc:InvoiceTypeCode` plus `name` transaction flags | `IMPLEMENTED_LOCAL` | Yes | Standard and simplified invoice fixtures use official sample flags `0100000` and `0200000`. Broader scenario flags still need official fixture coverage. |
 | Currency | `SalesInvoice.currency` | `/Invoice/cbc:DocumentCurrencyCode`, `/Invoice/cbc:TaxCurrencyCode` | `IMPLEMENTED_LOCAL` | Yes | Local skeleton emits the invoice currency. |
 
+## Delivery/Supply Date
+
+| Requirement area | LedgerByte source | XML target | Status | Official verification required | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Supply date | `ZatcaInvoiceInput.supplyDate`; generated sales invoice XML currently falls back to `SalesInvoice.issueDate` | `/Invoice/cac:Delivery/cbc:ActualDeliveryDate` | `IMPLEMENTED_LOCAL` | Yes | Official Schematron rule `BR-KSA-15` and data dictionary field `KSA-5` require the supply date for standard tax invoices. The local standard fixture now clears the previous supply-date warning, but LedgerByte still needs a dedicated supply/delivery date field before production. |
+
 ## Seller/Supplier Party
 
 | Requirement area | LedgerByte source | XML target | Status | Official verification required | Notes |
@@ -65,9 +71,9 @@ The table below maps LedgerByte's current local XML skeleton to future Phase 2 w
 | Requirement area | LedgerByte source | XML target | Status | Official verification required | Notes |
 | --- | --- | --- | --- | --- | --- |
 | ICV | `ZatcaInvoiceMetadata.icv` | `/Invoice/cac:AdditionalDocumentReference[cbc:ID='ICV']/cbc:UUID` | `IMPLEMENTED_LOCAL` | Yes | Official sample-backed structure is emitted and `BR-KSA-33` is resolved for local fixtures. |
-| Previous invoice hash | `ZatcaInvoiceMetadata.previousInvoiceHash` | `/Invoice/cac:AdditionalDocumentReference[cbc:ID='PIH']/cac:Attachment/cbc:EmbeddedDocumentBinaryObject` | `IMPLEMENTED_LOCAL` | Yes | Official sample-backed structure is emitted, but the value is still local/dev hash-chain groundwork and `KSA-13` remains until canonical hash-chain work is implemented. |
+| Previous invoice hash | `ZatcaInvoiceMetadata.previousInvoiceHash` or official first-invoice PIH fallback | `/Invoice/cac:AdditionalDocumentReference[cbc:ID='PIH']/cac:Attachment/cbc:EmbeddedDocumentBinaryObject` | `IMPLEMENTED_LOCAL` | Yes | Official sample-backed structure is emitted. Missing PIH values now fall back to the official first-invoice value from SDK Schematron/docs: base64 SHA-256 of `0`. The local standard fixture now passes SDK PIH validation; production hash-chain sequencing still needs generated-invoice and signing-flow review. |
 | QR attachment | Local QR TLV output | `/Invoice/cac:AdditionalDocumentReference[cbc:ID='QR']/cac:Attachment/cbc:EmbeddedDocumentBinaryObject` | `IMPLEMENTED_LOCAL` | Yes | Official attachment shape is emitted. Simplified SDK QR validation still fails until Phase 2 cryptographic QR/signature tags are implemented. |
-| Invoice hash | Generated from current XML string | Not final | `NEEDS_OFFICIAL_VERIFICATION` | Yes | Current hash is deterministic local SHA-256 over generated XML, not official canonicalized signing hash. |
+| Invoice hash | `canonicalizeZatcaInvoiceXmlForHash`, `computeZatcaInvoiceHash`, and SDK `fatoora -generateHash -invoice <filename>` | Hash input after removing `ext:UBLExtensions`, QR `AdditionalDocumentReference`, and `cac:Signature` | `NEEDS_OFFICIAL_VERIFICATION` | Yes | LedgerByte now exposes documented transform groundwork but intentionally blocks official hash output until SDK `-generateHash` or a verified C14N11 implementation is used. Local SDK hash outputs are recorded for fixtures; app hash-chain behavior remains non-production. |
 
 ## Signature Placeholders
 

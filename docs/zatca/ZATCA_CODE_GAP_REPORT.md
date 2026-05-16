@@ -9,8 +9,9 @@ Scope: compare current LedgerByte ZATCA groundwork with the local official refer
 | Gap | Current code behavior | Official references appear to require | Files to change later | Safe implementation order |
 | --- | --- | --- | --- | --- |
 | ICV XML placement | Local ICV now emits the official sample-backed `AdditionalDocumentReference` structure. `BR-KSA-33` no longer appears for the local standard/simplified fixtures. | Data dictionary and Schematron show KSA-16 as `cac:AdditionalDocumentReference` with `cbc:ID` = `ICV` and `cbc:UUID`; Schematron BR-KSA-33/34 validates that shape. | Further device/branch sequence policy in `apps/api/src/zatca/zatca.service.ts` if needed later. | Keep the current structure under fixture tests; review ICV sequence boundaries before production. |
-| Previous invoice hash XML placement and seed | Local PIH now uses the official sample-backed ADR attachment shape, but the value is still local groundwork. `KSA-13` still fails because real canonical hash-chain semantics are not implemented. | Data dictionary maps KSA-13 to ADR `PIH`; Schematron includes PIH attachment validation and first-PIH guidance. | `packages/zatca-core/src/index.ts`, `apps/api/src/zatca/zatca.service.ts`, fixtures/tests. | Add official initial PIH/canonical hash fixture, then change only after hash-chain regression coverage. |
-| Invoice hash source | Current hash is SHA-256 over local deterministic XML. | Schematron describes removing extension/QR/signature blocks, C14N11 canonicalization, SHA-256 binary hash, and base64 encoding. SDK also exposes `-generateHash`. | `packages/zatca-core/src/index.ts`, future SDK wrapper. | Add SDK hash oracle tests before replacing local hash logic. |
+| Previous invoice hash XML placement and seed | Local PIH uses the official sample-backed ADR attachment shape and official first-invoice fallback value. The standard local fixture now passes SDK PIH validation. | Data dictionary maps KSA-13 to ADR `PIH`; Schematron includes PIH attachment validation and first-PIH guidance. | `packages/zatca-core/src/index.ts`, `apps/api/src/zatca/zatca.service.ts`, fixtures/tests. | Keep the official fallback under tests, then validate generated-invoice hash-chain sequencing before signing. |
+| Invoice hash source | Current production-facing hash-chain behavior is still local groundwork. `computeZatcaInvoiceHash` intentionally returns blocked status until SDK `-generateHash` or verified C14N11 is used. | Schematron describes removing extension/QR/signature blocks, C14N11 canonicalization, SHA-256 binary hash, and base64 encoding. SDK also exposes `-generateHash`. | `packages/zatca-core/src/index.ts`, future SDK wrapper/hash oracle. | Use SDK hash outputs as oracle tests before replacing local hash logic. |
+| Supply date | Local XML now emits `cac:Delivery/cbc:ActualDeliveryDate` when `supplyDate` is provided. Generated sales invoice XML currently falls back to issue date because LedgerByte has no dedicated supply date field yet. | Schematron `BR-KSA-15` and data dictionary `KSA-5` require supply date for standard tax invoices. | `packages/zatca-core/src/index.ts`, `apps/api/src/zatca/zatca.service.ts`, future sales invoice model/UI if a separate supply date is added. | Keep the fixture passing, then add a real supply/delivery date field only as a separate product/accounting change. |
 | `ext:UBLExtensions` and signature structure | Current XML has local TODO placeholders only. | SDK samples include populated `ext:UBLExtensions`/UBL signature structure; Schematron references signature information IDs and XAdES/enveloped method values. | `packages/zatca-core`, future signing module. | Implement only after canonicalization and key custody design. |
 | QR in XML | Current QR payload is embedded as an ADR attachment using the local TLV tags 1-5. Simplified fixture still fails SDK QR validation because Phase 2 cryptographic QR tags and signing are not implemented. | Schematron expects QR ADR attachment for simplified invoices, with base64 text/plain. Data dictionary maps KSA-14 similarly. | `packages/zatca-core/src/index.ts`, future signing/QR module. | Replace local TLV-only QR with SDK-verified Phase 2 QR output after signing exists. |
 | Phase 2 QR cryptographic tags | Current TLV builder covers basic tags 1-5. | Security docs/SDK imply cryptographic QR data is tied to signing/certificate output. | `packages/zatca-core/src/index.ts`, future signing/QR module. | Use SDK QR output as a fixture oracle after signing exists. |
@@ -34,12 +35,12 @@ Official fixture results:
 - Official standard credit note: `PASS`.
 - Official standard debit note: `PASS`.
 
-LedgerByte local fixture results after the structural correction pass:
+LedgerByte local fixture results after the supply-date and PIH/hash groundwork pass:
 
-- Standard fixture: `FAIL`, improved. `[XSD]`, `[EN]`, and `[KSA]` now pass. Remaining warning `BR-KSA-15` requires supply date for the standard transaction code, and `[PIH]` still fails with `KSA-13`.
-- Simplified fixture: `FAIL`, improved. `[XSD]` and `[EN]` now pass. Remaining failures are signing/QR/PIH related: `BR-KSA-30`, `BR-KSA-28`, `QRCODE_INVALID`, signature validation errors, and `KSA-13`.
+- Standard fixture: `PASS`. `[XSD]`, `[EN]`, `[KSA]`, and `[PIH]` pass, including the prior `BR-KSA-15` and `KSA-13` issues.
+- Simplified fixture: `FAIL`, improved. `[XSD]`, `[EN]`, and `[PIH]` pass. Remaining failures are signing/QR/certificate related: `BR-KSA-30`, `BR-KSA-28`, `QRCODE_INVALID`, signature certificate parsing, and expected warnings `BR-KSA-29`, `BR-KSA-60`, and `BR-KSA-98`.
 
-The next XML work should be driven by these remaining SDK messages, starting with standard supply date mapping and official PIH/canonical hash behavior before signing or API submission.
+The next XML work should be driven by these remaining SDK messages, starting with generated invoice XML validation and signing/certificate/Phase 2 QR design before any API submission.
 
 ## Code That Should Stay Local-Only For Now
 
@@ -54,8 +55,8 @@ The next XML work should be driven by these remaining SDK messages, starting wit
 1. Use the feature-flagged local SDK validation wrapper with Java 11-14 and official/sample XML fixtures.
 2. Copy only license-approved SDK sample XML fixtures into a tracked fixture folder or generate equivalent fixtures from official docs.
 3. Keep the corrected UBL ordering, ADR `ICV`/`PIH`/`QR`, supplier/customer, tax total, line, and monetary total structures under tests.
-4. Add standard supply/delivery date mapping and validate generated invoice XML through the API.
-5. Add canonicalization/hash comparison against SDK `-generateHash`, then resolve `KSA-13`.
+4. Validate generated invoice XML through the API with SDK execution enabled in a local-only environment.
+5. Add canonicalization/hash comparison against SDK `-generateHash` before replacing app hash-chain behavior.
 6. Design KMS/secrets-manager key custody before signing.
 7. Add signing only after canonicalization, certificate handling, and SDK validation are stable.
 8. Add compliance-check sandbox calls only after signed XML and compliance CSID are working in a controlled sandbox.

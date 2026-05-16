@@ -136,8 +136,8 @@ Current result: official sample validation is no longer blocked. Using Java 11.0
 - Official simplified invoice: `PASS` with warning `BR-KSA-98`
 - Official standard credit note: `PASS`
 - Official standard debit note: `PASS`
-- LedgerByte local standard fixture: `FAIL`, improved; XSD/EN/KSA pass, but PIH fails with `KSA-13` and supply date warning `BR-KSA-15` remains.
-- LedgerByte local simplified fixture: `FAIL`, improved; XSD/EN pass, but signing, QR, and PIH checks fail until real signature/certificate/hash-chain work exists.
+- LedgerByte local standard fixture: `PASS`; XSD/EN/KSA/PIH pass and the global SDK result passes after supply-date and official first-PIH fallback mapping.
+- LedgerByte local simplified fixture: `FAIL`, improved; XSD/EN/PIH pass, but signing, QR, and certificate checks fail until real signature/certificate/Phase 2 QR work exists.
 
 The failure messages for LedgerByte fixtures are documented in `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`.
 
@@ -159,8 +159,9 @@ The repo path is `E:\Accounting App`, which contains a space. Earlier SDK launch
 1. Keep Java 11-14 explicit through `ZATCA_SDK_JAVA_BIN`, Docker, or isolated SDK temp workspaces.
 2. Prefer the official `fatoora -validate -invoice <filename>` launcher because direct JAR execution was not equivalent for the simplified sample.
 3. Keep the first XML structural fixes under tests: UBL order, official `ICV`/`PIH`/`QR` ADRs, invoice type flags, party identifiers, tax totals, and line formulas.
-4. Add standard supply date mapping and compare SDK hash output to LedgerByte hash output before changing app hash logic.
-5. Keep signing, real API calls, production CSID, clearance/reporting, and PDF/A-3 out of scope until canonical hash-chain and signed XML validation are stable locally.
+4. Validate API-generated invoice XML with the SDK wrapper after local API/DB fixture generation is available.
+5. Compare SDK `-generateHash` output to LedgerByte hash output before changing app hash logic.
+6. Keep signing, real API calls, production CSID, clearance/reporting, and PDF/A-3 out of scope until canonical hash-chain and signed XML validation are stable locally.
 
 ## Compliance Warning
 

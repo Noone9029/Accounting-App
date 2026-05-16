@@ -20,7 +20,7 @@
   <cac:AdditionalDocumentReference>
     <cbc:ID>PIH</cbc:ID>
     <cac:Attachment>
-      <cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRjMTI0N2QxYjU3NjY2YjA2N2Y4Y2YyOA==</cbc:EmbeddedDocumentBinaryObject>
+      <cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==</cbc:EmbeddedDocumentBinaryObject>
     </cac:Attachment>
   </cac:AdditionalDocumentReference>
   <cac:AdditionalDocumentReference>
@@ -61,6 +61,9 @@
       <cac:PartyLegalEntity><cbc:RegistrationName>Buyer &amp; Co &lt;Test&gt;</cbc:RegistrationName></cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingCustomerParty>
+  <cac:Delivery>
+    <cbc:ActualDeliveryDate>2026-05-12</cbc:ActualDeliveryDate>
+  </cac:Delivery>
   <cac:TaxTotal>
     <cbc:TaxAmount currencyID="SAR">15.00</cbc:TaxAmount>
   </cac:TaxTotal>

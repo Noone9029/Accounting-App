@@ -3,6 +3,7 @@
   "invoiceNumber": "STD-&-001",
   "invoiceType": "STANDARD_TAX_INVOICE",
   "issueDate": "2026-05-12T10:30:15.000Z",
+  "supplyDate": "2026-05-12",
   "currency": "SAR",
   "seller": {
     "name": "شركة ليدجر & بايت",
@@ -32,7 +33,7 @@
   "taxableTotal": "100.0000",
   "taxTotal": "15.0000",
   "total": "115.0000",
-  "previousInvoiceHash": "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRjMTI0N2QxYjU3NjY2YjA2N2Y4Y2YyOA==",
+  "previousInvoiceHash": "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==",
   "icv": 42,
   "lines": [
     {

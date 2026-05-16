@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-16
 
-Commit inspected: pending (`Fix ZATCA XML structure against SDK gaps`)
+Commit inspected: pending (`Add ZATCA supply date and PIH hash groundwork`)
 
 ## Scope
 
@@ -36,6 +36,33 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### ZATCA supply-date and PIH/hash groundwork
+
+Used only the repo-local official ZATCA SDK samples, Schematron rules, SDK docs, XML/security PDFs, data dictionary, and `Data/PIH/pih.txt` to close the remaining non-signing XML fixture gaps.
+
+Risk reduced:
+
+- Added standard invoice supply-date mapping as `cac:Delivery/cbc:ActualDeliveryDate`, based on `BR-KSA-15` and data dictionary `KSA-5`.
+- Changed missing previous-invoice-hash behavior to use the official first-invoice PIH fallback value, base64 SHA-256 of `0`.
+- Preserved explicit PIH overrides for future hash-chain sequencing.
+- Added blocked hash-input groundwork helpers that remove the documented UBL extension, QR ADR, and signature nodes but do not fake official C14N11 output.
+- Recorded SDK `-generateHash` fixture outputs as future oracle values without changing app hash behavior.
+- Mapped generated sales invoice XML to use issue date as the current local supply-date fallback until a separate supply/delivery date field exists.
+
+Result:
+
+- Official standard invoice, simplified invoice, standard credit note, and standard debit note samples still pass under Java 11 with the official launcher.
+- LedgerByte standard fixture now passes SDK `[XSD]`, `[EN]`, `[KSA]`, `[PIH]`, and global validation.
+- LedgerByte simplified fixture now passes SDK `[XSD]`, `[EN]`, and `[PIH]`; remaining failures are expected non-production signing, certificate, and Phase 2 QR gaps.
+
+Remaining risks:
+
+- LedgerByte is still not ZATCA production compliant.
+- Official C14N11 hash computation is not implemented in app code.
+- Generated invoice XML still needs SDK validation through the local API.
+- Signing/certificate handling and Phase 2 QR are not implemented.
+- CSID onboarding, clearance/reporting, and PDF/A-3 are not implemented.
 
 ### ZATCA XML structural fixes against SDK gaps
 
@@ -92,7 +119,7 @@ Remaining risks:
 - Clearance/reporting is not implemented.
 - PDF/A-3 is not implemented.
 - Production compliance is not claimed.
-- LedgerByte XML still fails production-critical PIH/signature/QR checks, even though first structural XSD/EN/KSA gaps have been reduced in the current follow-up pass.
+- LedgerByte simplified XML still fails production-critical signing/QR/certificate checks, even though the local standard fixture now passes SDK global validation.
 - Real local/CI fixture validation still needs a repeatable Java 11-14 runtime or Docker wrapper.
 
 ### SMTP provider adapter added
@@ -188,7 +215,7 @@ Current readiness snapshot:
 
 Current top 10 risks:
 
-1. ZATCA is not production compliant; first XML structural fixes exist, but PIH/hash-chain, signing, CSID, clearance, reporting, and PDF/A-3 remain missing.
+1. ZATCA is not production compliant; local standard fixture validation now passes, but generated XML validation, official hash integration, signing, CSID, clearance, reporting, and PDF/A-3 remain missing.
 2. Database/base64 attachment and generated-document storage is still active; real object storage and migration are pending.
 3. Mock/local email remains the default; real provider delivery, retries, bounces, and domain authentication are pending.
 4. Production operations are not ready: backups, restore drills, monitoring, alerts, and incident runbooks are missing.

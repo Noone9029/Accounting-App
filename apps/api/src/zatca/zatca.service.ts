@@ -1143,6 +1143,7 @@ export class ZatcaService {
       invoiceNumber: invoice.invoiceNumber,
       invoiceType: ZatcaInvoiceType.STANDARD_TAX_INVOICE,
       issueDate: invoice.issueDate,
+      supplyDate: invoice.issueDate,
       currency: invoice.currency,
       seller: {
         name: profile.sellerName ?? invoice.organization.legalName ?? invoice.organization.name,
