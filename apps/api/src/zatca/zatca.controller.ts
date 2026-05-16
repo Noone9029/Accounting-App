@@ -225,6 +225,18 @@ export class ZatcaController {
     return this.zatcaService.requestProductionCsid(organizationId, user.id, id);
   }
 
+  @Get("zatca/signed-artifact-storage/probe-plan")
+  @RequirePermissions(PERMISSIONS.zatca.view)
+  signedArtifactStorageProbePlan(@CurrentOrganizationId() organizationId: string) {
+    return this.zatcaService.getSignedArtifactStorageProbePlan(organizationId);
+  }
+
+  @Post("zatca/signed-artifact-storage/probe")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  runSignedArtifactStorageProbe(@CurrentOrganizationId() organizationId: string) {
+    return this.zatcaService.runSignedArtifactStorageProbe(organizationId);
+  }
+
   @Get("sales-invoices/:id/zatca")
   @RequirePermissions(PERMISSIONS.zatca.view)
   invoiceCompliance(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {

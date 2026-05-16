@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { accessSync, constants, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -181,6 +182,13 @@ const emptyZatcaSignedXmlValidationResults = {
   pih: "NOT_RUN",
   global: "NOT_RUN",
 } as const;
+const signedArtifactStorageProbePayload = "LedgerByte ZATCA signed artifact storage probe only. No invoice data.";
+
+interface SignedArtifactStorageProbeClient {
+  putObject(input: { key: string; body: Buffer; contentType: string; metadata: Record<string, string> }): Promise<void>;
+  getObject(input: { key: string }): Promise<Buffer>;
+  deleteObject(input: { key: string }): Promise<void>;
+}
 
 interface ZatcaCsrProfileSource {
   sellerName?: string | null;
@@ -238,6 +246,38 @@ function safeZatcaTempName(value: string): string {
       .replace(/^-+|-+$/g, "")
       .slice(0, 80) || "zatca-invoice"
   );
+}
+
+function formatZatcaProbeTimestamp(value: Date): string {
+  return value.toISOString().replace(/[-:]/g, "").replace(".", "").replace("Z", "Z");
+}
+
+async function zatcaStorageProbeBodyToBuffer(body: unknown): Promise<Buffer> {
+  if (!body) {
+    return Buffer.alloc(0);
+  }
+  if (Buffer.isBuffer(body)) {
+    return body;
+  }
+  if (body instanceof Uint8Array) {
+    return Buffer.from(body);
+  }
+  if (typeof (body as { transformToByteArray?: unknown }).transformToByteArray === "function") {
+    const bytes = await (body as { transformToByteArray: () => Promise<Uint8Array> }).transformToByteArray();
+    return Buffer.from(bytes);
+  }
+  if (typeof (body as { arrayBuffer?: unknown }).arrayBuffer === "function") {
+    const bytes = await (body as { arrayBuffer: () => Promise<ArrayBuffer> }).arrayBuffer();
+    return Buffer.from(bytes);
+  }
+  if (typeof (body as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator] === "function") {
+    const chunks: Buffer[] = [];
+    for await (const chunk of body as AsyncIterable<Buffer | Uint8Array | string>) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
+  }
+  return Buffer.from(String(body));
 }
 
 @Injectable()
@@ -1872,6 +1912,153 @@ export class ZatcaService {
     };
   }
 
+  getSignedArtifactStorageProbePlan(organizationId: string) {
+    const objectStorageCapability = this.buildSignedArtifactObjectStorageCapability();
+    const testPrefix = this.buildSignedArtifactStorageProbePrefix(organizationId);
+    return {
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noCsidRequest: true,
+      noNetworkToZatca: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      noProductionCredentials: true,
+      productionCompliance: false,
+      objectStorageConfigured: objectStorageCapability.objectStorageConfigured,
+      provider: objectStorageCapability.provider,
+      bucketConfigured: objectStorageCapability.bucketConfigured,
+      testPrefix,
+      plannedTestObjectKey: this.buildSignedArtifactStorageProbeKey(organizationId, new Date()),
+      writeProbeEnabled: false,
+      executionFlagEnabled: this.isSignedArtifactStorageProbeEnabled(),
+      retentionConfigured: false,
+      immutabilityConfigured: false,
+      signedArtifactBodyStorageAllowed: false,
+      blockers: [
+        ...objectStorageCapability.missingSettings.map((setting) => `Object storage setting missing: ${setting}.`),
+        "Signed XML body persistence remains blocked.",
+        "QR payload body persistence remains blocked.",
+        "Retention and immutability controls are not implemented.",
+      ],
+      warnings: [
+        "Probe plan only. No object is uploaded, read, or deleted by this endpoint.",
+        "The execution endpoint is disabled unless ZATCA_SIGNED_ARTIFACT_STORAGE_PROBE_ENABLED=true.",
+        "The future probe object is harmless text only and must not contain invoice XML, QR payload, keys, certificates, CSIDs, OTPs, or production credentials.",
+      ],
+    };
+  }
+
+  async runSignedArtifactStorageProbe(
+    organizationId: string,
+    options: { probeClient?: SignedArtifactStorageProbeClient; now?: Date } = {},
+  ) {
+    const objectStorageCapability = this.buildSignedArtifactObjectStorageCapability();
+    const executionEnabled = this.isSignedArtifactStorageProbeEnabled();
+    const testObjectKey = this.buildSignedArtifactStorageProbeKey(organizationId, options.now ?? new Date());
+    const base = {
+      localOnly: true,
+      probe: true,
+      noMutation: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noCsidRequest: true,
+      noNetworkToZatca: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      noProductionCredentials: true,
+      productionCompliance: false,
+      executionEnabled,
+      testObjectKey,
+      testPrefix: this.buildSignedArtifactStorageProbePrefix(organizationId),
+      signedArtifactBodyStorageAllowed: false,
+    };
+
+    if (!executionEnabled) {
+      return {
+        ...base,
+        executionAttempted: false,
+        testObjectWritten: false,
+        testObjectRead: false,
+        testObjectDeleted: false,
+        cleanupSuccess: true,
+        blockers: ["ZATCA_SIGNED_ARTIFACT_STORAGE_PROBE_ENABLED is not enabled."],
+        warnings: [
+          "Probe execution skipped. No object upload, read, delete, signed XML body persistence, QR payload persistence, CSID request, ZATCA network call, or submission occurred.",
+        ],
+      };
+    }
+
+    if (!objectStorageCapability.objectStorageConfigured) {
+      return {
+        ...base,
+        executionAttempted: false,
+        testObjectWritten: false,
+        testObjectRead: false,
+        testObjectDeleted: false,
+        cleanupSuccess: true,
+        blockers: objectStorageCapability.missingSettings.map((setting) => `Object storage setting missing: ${setting}.`),
+        warnings: ["Probe execution skipped because object storage configuration is incomplete."],
+      };
+    }
+
+    const body = Buffer.from(signedArtifactStorageProbePayload, "utf8");
+    const client = options.probeClient ?? this.buildSignedArtifactStorageProbeClient();
+    let testObjectWritten = false;
+    let testObjectRead = false;
+    let testObjectDeleted = false;
+    let cleanupSuccess = true;
+    const blockers: string[] = [];
+    const warnings: string[] = [
+      "Probe uses a harmless temporary text object only. It does not contain invoice XML, QR payload, private keys, certificates, CSIDs, OTPs, or production credentials.",
+      "Signed artifact body persistence remains blocked after this probe.",
+    ];
+
+    try {
+      await client.putObject({
+        key: testObjectKey,
+        body,
+        contentType: "text/plain; charset=utf-8",
+        metadata: {
+          purpose: "zatca-signed-artifact-storage-probe",
+          noInvoiceData: "true",
+          productionCompliance: "false",
+        },
+      });
+      testObjectWritten = true;
+      const readBuffer = await client.getObject({ key: testObjectKey });
+      testObjectRead = true;
+      if (readBuffer.toString("utf8") !== signedArtifactStorageProbePayload) {
+        blockers.push("Probe object readback did not match the harmless test payload.");
+      }
+    } catch (error) {
+      blockers.push(`Storage probe failed: ${this.sanitizeProbeError(error)}.`);
+    } finally {
+      if (testObjectWritten) {
+        try {
+          await client.deleteObject({ key: testObjectKey });
+          testObjectDeleted = true;
+        } catch (error) {
+          cleanupSuccess = false;
+          blockers.push(`Storage probe cleanup failed: ${this.sanitizeProbeError(error)}.`);
+        }
+      }
+    }
+
+    return {
+      ...base,
+      executionAttempted: true,
+      testObjectWritten,
+      testObjectRead,
+      testObjectDeleted,
+      cleanupSuccess,
+      blockers,
+      warnings,
+    };
+  }
+
   async getInvoiceZatcaSignedArtifactStoragePlan(organizationId: string, invoiceId: string) {
     const invoice = await this.prisma.salesInvoice.findFirst({
       where: { id: invoiceId, organizationId },
@@ -1948,6 +2135,9 @@ export class ZatcaService {
       metadataOnly: true,
       futureObjectStorageRequired: true,
       storageBlocked: true,
+      storageProbeRequired: true,
+      latestStorageProbeStatus: "NOT_RUN",
+      storageProbePlan: this.getSignedArtifactStorageProbePlan(organizationId),
       metadataOnlyDraftAllowed,
       bodyPersistenceAllowed: false,
       signedXmlStorageKey: null,
@@ -4418,8 +4608,10 @@ export class ZatcaService {
       generatedDocumentProvider === "s3" ||
       Object.values(requiredSettings).some(Boolean);
     const storageCapabilityStatus = objectStorageConfigured ? "WARNINGS" : "BLOCKED";
+    const provider = objectStorageConfigured || providerConfigured ? "s3" : "database";
 
     return {
+      provider,
       providerConfigured,
       objectStorageConfigured,
       bucketConfigured: requiredSettings.bucketConfigured,
@@ -4440,12 +4632,66 @@ export class ZatcaService {
       signedArtifactBodyStorageAllowed: false,
       bodyPersistenceBlocked: true,
       storageCapabilityStatus,
+      probeExecutionFlagEnabled: this.isSignedArtifactStorageProbeEnabled(),
       warnings: [
         "No object upload is attempted by this capability check.",
         "Write capability remains unknown until a future explicit storage probe is designed.",
         "Signed artifact body persistence is blocked until retention, immutability, and access-control rules are implemented.",
       ],
     };
+  }
+
+  private buildSignedArtifactStorageProbePrefix(organizationId: string) {
+    return `zatca/signed-artifacts/probe/${safeZatcaTempName(organizationId)}`;
+  }
+
+  private buildSignedArtifactStorageProbeKey(organizationId: string, now: Date) {
+    return `${this.buildSignedArtifactStorageProbePrefix(organizationId)}/${formatZatcaProbeTimestamp(now)}-probe.txt`;
+  }
+
+  private isSignedArtifactStorageProbeEnabled() {
+    return ["1", "true", "yes", "on"].includes((process.env.ZATCA_SIGNED_ARTIFACT_STORAGE_PROBE_ENABLED ?? "").trim().toLowerCase());
+  }
+
+  private buildSignedArtifactStorageProbeClient(): SignedArtifactStorageProbeClient {
+    const bucket = process.env.S3_BUCKET?.trim() ?? "";
+    const client = new S3Client({
+      endpoint: process.env.S3_ENDPOINT?.trim(),
+      region: process.env.S3_REGION?.trim() || "us-east-1",
+      forcePathStyle: (process.env.S3_FORCE_PATH_STYLE ?? "true").trim().toLowerCase() !== "false",
+      credentials: {
+        accessKeyId: process.env.S3_ACCESS_KEY_ID?.trim() ?? "",
+        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY?.trim() ?? "",
+      },
+    });
+    return {
+      putObject: async (input) => {
+        await client.send(
+          new PutObjectCommand({
+            Bucket: bucket,
+            Key: input.key,
+            Body: input.body,
+            ContentType: input.contentType,
+            Metadata: input.metadata,
+          }),
+        );
+      },
+      getObject: async (input) => {
+        const result = await client.send(new GetObjectCommand({ Bucket: bucket, Key: input.key }));
+        return zatcaStorageProbeBodyToBuffer(result.Body);
+      },
+      deleteObject: async (input) => {
+        await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: input.key }));
+      },
+    };
+  }
+
+  private sanitizeProbeError(error: unknown) {
+    const raw = error instanceof Error ? error.message : String(error);
+    return raw
+      .replace(/-----BEGIN[\s\S]*?-----END [^-]+-----/g, "[REDACTED_PEM]")
+      .replace(/(secret|token|password|access[_-]?key|private[_-]?key|authorization)[^,\s]*/gi, "$1=[REDACTED]")
+      .slice(0, 300);
   }
 
   private buildSignedArtifactStorageReadinessSection(metadata?: { xmlBase64?: string | null; invoiceHash?: string | null } | null): ZatcaReadinessSection {

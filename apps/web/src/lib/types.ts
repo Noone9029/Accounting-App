@@ -3311,6 +3311,7 @@ export interface ZatcaSignedArtifactDraft {
 }
 
 export interface ZatcaSignedArtifactObjectStorageCapability {
+  provider: "database" | "s3";
   providerConfigured: boolean;
   objectStorageConfigured: boolean;
   bucketConfigured: boolean;
@@ -3331,6 +3332,56 @@ export interface ZatcaSignedArtifactObjectStorageCapability {
   signedArtifactBodyStorageAllowed: false;
   bodyPersistenceBlocked: true;
   storageCapabilityStatus: ZatcaSignedArtifactStorageCapabilityStatus;
+  probeExecutionFlagEnabled: boolean;
+  warnings: string[];
+}
+
+export interface ZatcaSignedArtifactStorageProbePlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetworkToZatca: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  noProductionCredentials: true;
+  productionCompliance: false;
+  objectStorageConfigured: boolean;
+  provider: "database" | "s3";
+  bucketConfigured: boolean;
+  testPrefix: string;
+  plannedTestObjectKey: string;
+  writeProbeEnabled: false;
+  executionFlagEnabled: boolean;
+  retentionConfigured: false;
+  immutabilityConfigured: false;
+  signedArtifactBodyStorageAllowed: false;
+  blockers: string[];
+  warnings: string[];
+}
+
+export interface ZatcaSignedArtifactStorageProbeResponse {
+  localOnly: true;
+  probe: true;
+  noMutation: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetworkToZatca: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  noProductionCredentials: true;
+  productionCompliance: false;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  testObjectWritten: boolean;
+  testObjectRead: boolean;
+  testObjectDeleted: boolean;
+  cleanupSuccess: boolean;
+  signedArtifactBodyStorageAllowed: false;
+  blockers: string[];
   warnings: string[];
 }
 
@@ -3378,6 +3429,9 @@ export interface ZatcaInvoiceSignedArtifactStoragePlanResponse {
   metadataOnly: true;
   futureObjectStorageRequired: true;
   storageBlocked: true;
+  storageProbeRequired: true;
+  latestStorageProbeStatus: "NOT_RUN";
+  storageProbePlan: ZatcaSignedArtifactStorageProbePlanResponse;
   metadataOnlyDraftAllowed: boolean;
   bodyPersistenceAllowed: false;
   signedXmlStorageKey: null;

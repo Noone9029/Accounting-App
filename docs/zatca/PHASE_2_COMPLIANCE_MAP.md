@@ -461,3 +461,50 @@ Findings applied:
 
 Recommended next step:
 - Add a future object-storage probe design that checks write/read/delete capability in an isolated test prefix without storing signed XML bodies, then define retention/immutability controls before any artifact-body persistence.
+
+## 2026-05-17 - ZATCA signed artifact object-storage probe
+
+Official sources inspected for this phase:
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/usage.txt
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Simplified/Invoice/Simplified_Invoice.xml
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Rules/Schematrons/20210819_ZATCA_E-invoice_Validation_Rules.xsl
+- reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards.pdf
+- reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_XML_Implementation_Standard_vF.pdf
+- reference/zatca-docs/EInvoice_Data_Dictionary.xlsx
+- reference/zatca-docs/compliance_invoice.pdf
+- reference/zatca-docs/reporting.pdf
+- reference/zatca-docs/clearance.pdf
+
+Storage implementation inspected:
+- apps/api/src/storage/storage-configuration.service.ts
+- apps/api/src/storage/storage-provider.ts
+- apps/api/src/storage/storage.controller.ts
+- apps/api/src/storage/storage.module.ts
+- apps/api/src/attachments/attachment-storage.service.ts
+- apps/api/src/attachments/attachment.module.ts
+- apps/api/src/storage/storage.service.spec.ts
+- apps/api/src/storage/storage.controller.spec.ts
+
+Implemented behavior:
+- Added `GET /zatca/signed-artifact-storage/probe-plan` for a read-only local probe plan. It returns object-storage configuration status, test prefix, planned test object key, and explicit blockers without uploading any object.
+- Added `POST /zatca/signed-artifact-storage/probe` behind `ZATCA_SIGNED_ARTIFACT_STORAGE_PROBE_ENABLED=false` by default. When disabled, it skips execution and writes/deletes nothing.
+- When explicitly enabled in a local/test environment, the probe writes only this harmless text payload under `zatca/signed-artifacts/probe/<organizationId>/<timestamp>-probe.txt`: `LedgerByte ZATCA signed artifact storage probe only. No invoice data.`
+- The enabled probe reads the harmless object back when supported, deletes it afterward, reports cleanup, and still keeps signed artifact body storage blocked.
+- The probe does not upload signed XML, QR payload, invoice data, private keys, certificates, CSID tokens, OTPs, production credentials, or ZATCA submission payloads.
+- The invoice signed artifact storage plan now reports `storageProbeRequired=true`, `latestStorageProbeStatus=NOT_RUN`, and includes the probe plan while body persistence remains blocked.
+- The invoice ZATCA panel shows object-storage status and that the probe is disabled by default unless the env flag is enabled.
+
+Safety boundary:
+- No signed XML body persistence.
+- No QR payload body persistence.
+- No CSID requests.
+- No ZATCA network calls.
+- No clearance/reporting.
+- No PDF/A-3.
+- No production credentials.
+- No production compliance claim.
+
+Recommended next step:
+- Add a future signed artifact retention and immutability design review before any endpoint can persist signed XML or QR payload bodies.

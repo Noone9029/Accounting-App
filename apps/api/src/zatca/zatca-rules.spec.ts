@@ -1268,6 +1268,8 @@ describe("ZATCA service rules", () => {
       dryRun: true,
       noMutation: true,
       metadataOnly: true,
+      storageProbeRequired: true,
+      latestStorageProbeStatus: "NOT_RUN",
       metadataOnlyDraftAllowed: true,
       bodyPersistenceAllowed: false,
       signedXmlStorageKey: null,
@@ -1283,6 +1285,13 @@ describe("ZATCA service rules", () => {
         immutableRetentionConfigured: false,
         generatedDocumentStorageDistinct: true,
       },
+      storageProbePlan: {
+        localOnly: true,
+        dryRun: true,
+        noSignedXmlBody: true,
+        noQrPayloadBody: true,
+        writeProbeEnabled: false,
+      },
     });
     expect(["BLOCKED", "WARNINGS", "READY_FOR_METADATA_ONLY"]).toContain(
       plan.objectStorageCapability.storageCapabilityStatus,
@@ -1291,6 +1300,141 @@ describe("ZATCA service rules", () => {
     expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
     expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
     expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+  });
+
+  it("returns a signed artifact storage probe plan without uploading objects or exposing bodies", () => {
+    const service = new ZatcaService({} as never, { log: jest.fn() } as never);
+
+    const plan = service.getSignedArtifactStorageProbePlan("org-1");
+
+    expect(plan).toMatchObject({
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noCsidRequest: true,
+      noNetworkToZatca: true,
+      productionCompliance: false,
+      testPrefix: "zatca/signed-artifacts/probe/org-1",
+      writeProbeEnabled: false,
+      retentionConfigured: false,
+      immutabilityConfigured: false,
+    });
+    expect(plan.plannedTestObjectKey).toContain("zatca/signed-artifacts/probe/org-1/");
+    expect(JSON.stringify(plan)).not.toContain("<Invoice");
+    expect(JSON.stringify(plan)).not.toContain("QR PAYLOAD");
+    expect(JSON.stringify(plan)).not.toContain("SECRET");
+  });
+
+  it("skips signed artifact storage probe execution when the env gate is false", async () => {
+    const previous = process.env.ZATCA_SIGNED_ARTIFACT_STORAGE_PROBE_ENABLED;
+    delete process.env.ZATCA_SIGNED_ARTIFACT_STORAGE_PROBE_ENABLED;
+    const probeClient = {
+      putObject: jest.fn(),
+      getObject: jest.fn(),
+      deleteObject: jest.fn(),
+    };
+    const prisma = {
+      zatcaSubmissionLog: { create: jest.fn() },
+      zatcaInvoiceMetadata: { update: jest.fn() },
+      zatcaSignedArtifactDraft: { create: jest.fn() },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    try {
+      const result = await service.runSignedArtifactStorageProbe("org-1", { probeClient });
+
+      expect(result).toMatchObject({
+        localOnly: true,
+        probe: true,
+        executionEnabled: false,
+        executionAttempted: false,
+        testObjectWritten: false,
+        testObjectRead: false,
+        testObjectDeleted: false,
+        cleanupSuccess: true,
+        signedArtifactBodyStorageAllowed: false,
+        productionCompliance: false,
+      });
+      expect(probeClient.putObject).not.toHaveBeenCalled();
+      expect(probeClient.getObject).not.toHaveBeenCalled();
+      expect(probeClient.deleteObject).not.toHaveBeenCalled();
+      expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+      expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+      expect(prisma.zatcaSignedArtifactDraft.create).not.toHaveBeenCalled();
+    } finally {
+      if (previous === undefined) {
+        delete process.env.ZATCA_SIGNED_ARTIFACT_STORAGE_PROBE_ENABLED;
+      } else {
+        process.env.ZATCA_SIGNED_ARTIFACT_STORAGE_PROBE_ENABLED = previous;
+      }
+    }
+  });
+
+  it("runs a harmless signed artifact storage probe with a mocked adapter when explicitly enabled", async () => {
+    const previousEnv = {
+      flag: process.env.ZATCA_SIGNED_ARTIFACT_STORAGE_PROBE_ENABLED,
+      endpoint: process.env.S3_ENDPOINT,
+      region: process.env.S3_REGION,
+      bucket: process.env.S3_BUCKET,
+      accessKey: process.env.S3_ACCESS_KEY_ID,
+      secret: process.env.S3_SECRET_ACCESS_KEY,
+    };
+    process.env.ZATCA_SIGNED_ARTIFACT_STORAGE_PROBE_ENABLED = "true";
+    process.env.S3_ENDPOINT = "https://objects.example.test";
+    process.env.S3_REGION = "us-east-1";
+    process.env.S3_BUCKET = "ledgerbyte-test";
+    process.env.S3_ACCESS_KEY_ID = "do-not-return";
+    process.env.S3_SECRET_ACCESS_KEY = "super-secret";
+    const probeClient = {
+      putObject: jest.fn().mockResolvedValue(undefined),
+      getObject: jest.fn().mockResolvedValue(Buffer.from("LedgerByte ZATCA signed artifact storage probe only. No invoice data.", "utf8")),
+      deleteObject: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = new ZatcaService({} as never, { log: jest.fn() } as never);
+
+    try {
+      const result = await service.runSignedArtifactStorageProbe("org-1", {
+        probeClient,
+        now: new Date("2026-05-17T10:11:12.000Z"),
+      });
+
+      expect(result).toMatchObject({
+        localOnly: true,
+        probe: true,
+        executionEnabled: true,
+        executionAttempted: true,
+        testObjectWritten: true,
+        testObjectRead: true,
+        testObjectDeleted: true,
+        cleanupSuccess: true,
+        signedArtifactBodyStorageAllowed: false,
+        productionCompliance: false,
+      });
+      expect(probeClient.putObject).toHaveBeenCalledWith(
+        expect.objectContaining({
+          key: expect.stringContaining("zatca/signed-artifacts/probe/org-1/20260517T101112000Z-probe.txt"),
+          contentType: "text/plain; charset=utf-8",
+        }),
+      );
+      const putInput = probeClient.putObject.mock.calls[0][0];
+      expect(putInput.body.toString("utf8")).toBe("LedgerByte ZATCA signed artifact storage probe only. No invoice data.");
+      expect(probeClient.getObject).toHaveBeenCalledWith(expect.objectContaining({ key: putInput.key }));
+      expect(probeClient.deleteObject).toHaveBeenCalledWith(expect.objectContaining({ key: putInput.key }));
+      const serialized = JSON.stringify(result);
+      expect(serialized).not.toContain("do-not-return");
+      expect(serialized).not.toContain("super-secret");
+      expect(serialized).not.toContain("<Invoice");
+      expect(serialized).not.toContain("QR PAYLOAD");
+    } finally {
+      restoreEnv("ZATCA_SIGNED_ARTIFACT_STORAGE_PROBE_ENABLED", previousEnv.flag);
+      restoreEnv("S3_ENDPOINT", previousEnv.endpoint);
+      restoreEnv("S3_REGION", previousEnv.region);
+      restoreEnv("S3_BUCKET", previousEnv.bucket);
+      restoreEnv("S3_ACCESS_KEY_ID", previousEnv.accessKey);
+      restoreEnv("S3_SECRET_ACCESS_KEY", previousEnv.secret);
+    }
   });
 
   it("invoice readiness blocks Saudi standard buyer missing building number", async () => {
@@ -2802,6 +2946,14 @@ function makeSignedArtifactDraft(overrides: Record<string, unknown> = {}) {
     },
     ...overrides,
   };
+}
+
+function restoreEnv(key: string, value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
 }
 
 function makeValidationInvoice() {

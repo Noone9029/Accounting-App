@@ -877,10 +877,11 @@ export default function SalesInvoiceDetailPage() {
                     {signedArtifactStoragePlan.storageCapabilityStatus}
                   </span>
                 </div>
-                <div className="mt-3 grid grid-cols-1 gap-3 text-xs md:grid-cols-4">
+                <div className="mt-3 grid grid-cols-1 gap-3 text-xs md:grid-cols-5">
                   <Summary label="Draft count" value={String(signedArtifactStoragePlan.draftCount)} />
                   <Summary label="Latest draft" value={latestSignedArtifactDraft?.status ?? "-"} />
                   <Summary label="Object storage" value={signedArtifactStoragePlan.objectStorageCapability.objectStorageConfigured ? "Configured with warnings" : "Blocked"} />
+                  <Summary label="Probe" value={signedArtifactStoragePlan.storageProbePlan.executionFlagEnabled ? "Enabled by env" : "Disabled by default"} />
                   <Summary label="Body persistence" value={signedArtifactStoragePlan.bodyPersistenceAllowed ? "Allowed" : "Blocked"} />
                 </div>
                 <div className="mt-3 rounded-md bg-white p-3 text-xs text-steel">

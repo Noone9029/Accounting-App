@@ -1241,6 +1241,9 @@ interface ZatcaInvoiceSignedArtifactStoragePlanResponse {
   metadataOnly: true;
   futureObjectStorageRequired: true;
   storageBlocked: true;
+  storageProbeRequired: true;
+  latestStorageProbeStatus: "NOT_RUN";
+  storageProbePlan: ZatcaSignedArtifactStorageProbePlanResponse;
   metadataOnlyDraftAllowed: boolean;
   bodyPersistenceAllowed: false;
   signedXmlStorageKey: null;
@@ -1259,6 +1262,49 @@ interface ZatcaInvoiceSignedArtifactStoragePlanResponse {
   proposedStorageKeys: { signedXmlObjectKey: string; qrPayloadObjectKey: string; validationSummaryObjectKey: string };
   proposedMetadataFields: Array<{ name: string; safeNow: boolean; value: string | boolean | null }>;
   storageReadiness: ZatcaReadinessSection;
+  blockers: string[];
+  warnings: string[];
+}
+
+interface ZatcaSignedArtifactStorageProbePlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetworkToZatca: true;
+  productionCompliance: false;
+  objectStorageConfigured: boolean;
+  provider: "database" | "s3";
+  bucketConfigured: boolean;
+  testPrefix: string;
+  plannedTestObjectKey: string;
+  writeProbeEnabled: false;
+  executionFlagEnabled: boolean;
+  retentionConfigured: false;
+  immutabilityConfigured: false;
+  signedArtifactBodyStorageAllowed: false;
+  blockers: string[];
+  warnings: string[];
+}
+
+interface ZatcaSignedArtifactStorageProbeResponse {
+  localOnly: true;
+  probe: true;
+  noMutation: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetworkToZatca: true;
+  productionCompliance: false;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  testObjectWritten: boolean;
+  testObjectRead: boolean;
+  testObjectDeleted: boolean;
+  cleanupSuccess: boolean;
+  signedArtifactBodyStorageAllowed: false;
   blockers: string[];
   warnings: string[];
 }
@@ -3584,6 +3630,9 @@ async function main(): Promise<void> {
   assertEqual(zatcaSignedArtifactStoragePlan.metadataOnly, true, "ZATCA signed artifact storage plan metadataOnly");
   assertEqual(zatcaSignedArtifactStoragePlan.futureObjectStorageRequired, true, "ZATCA signed artifact storage plan needs future object storage");
   assertEqual(zatcaSignedArtifactStoragePlan.storageBlocked, true, "ZATCA signed artifact storage plan blocked");
+  assertEqual(zatcaSignedArtifactStoragePlan.storageProbeRequired, true, "ZATCA signed artifact storage plan requires future probe");
+  assertEqual(zatcaSignedArtifactStoragePlan.latestStorageProbeStatus, "NOT_RUN", "ZATCA signed artifact storage plan latest probe not persisted");
+  assertEqual(zatcaSignedArtifactStoragePlan.storageProbePlan.writeProbeEnabled, false, "ZATCA signed artifact storage plan probe plan does not write");
   assertEqual(zatcaSignedArtifactStoragePlan.schemaDecision.schemaAdded, true, "ZATCA signed artifact storage plan has metadata-only draft schema");
   assertEqual(zatcaSignedArtifactStoragePlan.bodyPersistenceAllowed, false, "ZATCA signed artifact storage plan body persistence blocked");
   assertEqual(zatcaSignedArtifactStoragePlan.signedXmlStorageKey, null, "ZATCA signed artifact storage plan signed XML key null");
@@ -3627,6 +3676,41 @@ async function main(): Promise<void> {
   const zatcaSignedArtifactStoragePlanAfterDraft = await get<ZatcaInvoiceSignedArtifactStoragePlanResponse>(`/sales-invoices/${draftInvoice.id}/zatca/signed-artifact-storage-plan`, headers);
   assertEqual(zatcaSignedArtifactStoragePlanAfterDraft.latestDraft?.id ?? null, zatcaSignedArtifactDraft.draft.id, "ZATCA signed artifact storage plan returns latest draft");
   assert(zatcaSignedArtifactStoragePlanAfterDraft.draftCount >= 1, "ZATCA signed artifact storage plan returns draft count");
+  const zatcaSignedArtifactStorageProbePlan = await get<ZatcaSignedArtifactStorageProbePlanResponse>("/zatca/signed-artifact-storage/probe-plan", headers);
+  assertEqual(zatcaSignedArtifactStorageProbePlan.localOnly, true, "ZATCA signed artifact storage probe plan localOnly");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.dryRun, true, "ZATCA signed artifact storage probe plan dryRun");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.noMutation, true, "ZATCA signed artifact storage probe plan noMutation");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.noSignedXmlBody, true, "ZATCA signed artifact storage probe plan no signed XML body");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.noQrPayloadBody, true, "ZATCA signed artifact storage probe plan no QR payload body");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.noCsidRequest, true, "ZATCA signed artifact storage probe plan no CSID request");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.noNetworkToZatca, true, "ZATCA signed artifact storage probe plan no ZATCA network");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.productionCompliance, false, "ZATCA signed artifact storage probe plan productionCompliance false");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.writeProbeEnabled, false, "ZATCA signed artifact storage probe plan write disabled");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.retentionConfigured, false, "ZATCA signed artifact storage probe plan retention not configured");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.immutabilityConfigured, false, "ZATCA signed artifact storage probe plan immutability not configured");
+  assert(zatcaSignedArtifactStorageProbePlan.plannedTestObjectKey.includes("zatca/signed-artifacts/probe/"), "ZATCA signed artifact storage probe plan uses test prefix");
+  assertNoPrivateKey(zatcaSignedArtifactStorageProbePlan, "ZATCA signed artifact storage probe plan response");
+  assert(!JSON.stringify(zatcaSignedArtifactStorageProbePlan).includes("<Invoice"), "ZATCA signed artifact storage probe plan does not expose XML body");
+  const submissionsBeforeStorageProbe = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  const draftsBeforeStorageProbe = await get<ZatcaSignedArtifactDraftListResponse>(`/sales-invoices/${draftInvoice.id}/zatca/signed-artifact-drafts`, headers);
+  const zatcaSignedArtifactStorageProbe = await post<ZatcaSignedArtifactStorageProbeResponse>("/zatca/signed-artifact-storage/probe", headers, {});
+  assertEqual(zatcaSignedArtifactStorageProbe.localOnly, true, "ZATCA signed artifact storage probe localOnly");
+  assertEqual(zatcaSignedArtifactStorageProbe.noMutation, true, "ZATCA signed artifact storage probe noMutation");
+  assertEqual(zatcaSignedArtifactStorageProbe.noSignedXmlBody, true, "ZATCA signed artifact storage probe no signed XML body");
+  assertEqual(zatcaSignedArtifactStorageProbe.noQrPayloadBody, true, "ZATCA signed artifact storage probe no QR payload body");
+  assertEqual(zatcaSignedArtifactStorageProbe.noCsidRequest, true, "ZATCA signed artifact storage probe no CSID request");
+  assertEqual(zatcaSignedArtifactStorageProbe.noNetworkToZatca, true, "ZATCA signed artifact storage probe no ZATCA network");
+  assertEqual(zatcaSignedArtifactStorageProbe.productionCompliance, false, "ZATCA signed artifact storage probe productionCompliance false");
+  assertEqual(zatcaSignedArtifactStorageProbe.executionEnabled, false, "ZATCA signed artifact storage probe disabled by default");
+  assertEqual(zatcaSignedArtifactStorageProbe.executionAttempted, false, "ZATCA signed artifact storage probe not attempted by default");
+  assertEqual(zatcaSignedArtifactStorageProbe.testObjectWritten, false, "ZATCA signed artifact storage probe writes no object by default");
+  assertEqual(zatcaSignedArtifactStorageProbe.testObjectDeleted, false, "ZATCA signed artifact storage probe deletes no object by default");
+  assertNoPrivateKey(zatcaSignedArtifactStorageProbe, "ZATCA signed artifact storage probe response");
+  assert(!JSON.stringify(zatcaSignedArtifactStorageProbe).includes("<Invoice"), "ZATCA signed artifact storage probe does not expose XML body");
+  const submissionsAfterStorageProbe = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterStorageProbe.length, submissionsBeforeStorageProbe.length, "ZATCA signed artifact storage probe does not create submission logs");
+  const draftsAfterStorageProbe = await get<ZatcaSignedArtifactDraftListResponse>(`/sales-invoices/${draftInvoice.id}/zatca/signed-artifact-drafts`, headers);
+  assertEqual(draftsAfterStorageProbe.count, draftsBeforeStorageProbe.count, "ZATCA signed artifact storage probe does not create signed artifact drafts");
   const zatcaSdkReadiness = await get<ZatcaSdkReadinessResponse>("/zatca-sdk/readiness", headers);
   assertEqual(zatcaSdkReadiness.enabled, false, "ZATCA SDK execution disabled by default");
   assert(typeof zatcaSdkReadiness.referenceFolderFound === "boolean", "ZATCA SDK readiness returns reference folder flag");
