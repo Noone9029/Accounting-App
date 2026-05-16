@@ -100,10 +100,11 @@ ZATCA_SDK_CONFIG_DIR=
 ZATCA_SDK_WORK_DIR=
 ZATCA_SDK_JAVA_BIN=java
 ZATCA_SDK_TIMEOUT_MS=30000
+ZATCA_HASH_MODE=local
 ```
 
 Real ZATCA network calls are disabled by default and remain blocked unless `ZATCA_ADAPTER_MODE=sandbox`, `ZATCA_ENABLE_REAL_NETWORK=true`, and `ZATCA_SANDBOX_BASE_URL` are all configured.
-Local ZATCA Java SDK execution is also disabled by default. `ZATCA_SDK_EXECUTION_ENABLED=true` enables only local SDK XML validation and SDK hash comparison after Java 11-14 and SDK paths are configured; it does not submit invoices, sign XML, request CSIDs, or prove production compliance.
+Local ZATCA Java SDK execution is also disabled by default. `ZATCA_SDK_EXECUTION_ENABLED=true` enables only local SDK XML validation and SDK hash comparison after Java 11-14 and SDK paths are configured; it does not submit invoices, sign XML, request CSIDs, or prove production compliance. `ZATCA_HASH_MODE=local` remains the default. The planned `sdk` mode is blocked unless SDK execution is explicitly enabled and ready, and current endpoints only compare hashes or report reset plans without mutating metadata.
 The official SDK fixture validation pass is documented at `docs/zatca/OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`. Default local Java is 17.0.16, but a Java 11.0.26 runtime was found and used without changing global Java. The official standard invoice, simplified invoice, standard credit note, and standard debit note samples pass through the official `fatoora -validate -invoice <filename>` launcher. LedgerByte's local standard XML fixture now passes SDK XSD/EN/KSA/PIH and global validation after supply-date and first-PIH mapping. The local simplified fixture passes SDK XSD/EN/PIH but remains non-compliant until signing, certificate handling, Phase 2 QR, CSID, clearance/reporting, and PDF/A-3 work are completed. API-generated standard invoice XML now validates locally through the SDK wrapper with address/identifier warnings and a documented app-vs-SDK hash mismatch.
 
 To run local fixture validation safely, point the wrapper at a Java 11-14 runtime and SDK paths in a local shell only:
@@ -465,6 +466,7 @@ Sales invoices:
 - `GET /sales-invoices/:id/zatca/xml`
 - `GET /sales-invoices/:id/zatca/xml-validation`
 - `GET /sales-invoices/:id/zatca/qr`
+- `POST /sales-invoices/:id/zatca/hash-compare`
 - `POST /sales-invoices/:id/generate-pdf`
 - `PATCH /sales-invoices/:id`
 - `DELETE /sales-invoices/:id`
@@ -630,6 +632,7 @@ ZATCA foundation:
 - `GET /zatca/egs-units/:id/csr/download`
 - `POST /zatca/egs-units/:id/request-compliance-csid`
 - `POST /zatca/egs-units/:id/request-production-csid`
+- `GET /zatca/hash-chain-reset-plan`
 - `GET /zatca/submissions`
 
 ZATCA SDK wrapper:
@@ -639,6 +642,7 @@ ZATCA SDK wrapper:
 - `POST /zatca-sdk/validate-xml-local`
 - `POST /zatca-sdk/validate-reference-fixture`
 - `POST /sales-invoices/:id/zatca/sdk-validate`
+- `POST /sales-invoices/:id/zatca/hash-compare`
 
 Audit logs:
 
@@ -1506,6 +1510,8 @@ Implemented:
 - Finalized invoices get local ZATCA metadata records, but XML/QR/hash generation is explicit through `POST /sales-invoices/:id/zatca/generate`.
 - Repeating local XML/QR/hash generation for the same invoice is idempotent and returns the existing metadata instead of consuming another ICV or mutating the active EGS hash chain.
 - Local/mock invoice compliance checks can be recorded through `POST /sales-invoices/:id/zatca/compliance-check`; they only move local metadata to `READY_FOR_SUBMISSION` and do not mark invoices cleared or reported.
+- `POST /sales-invoices/:id/zatca/hash-compare` regenerates the current invoice XML, reads the stored app hash, and runs SDK `-generateHash` only when local SDK execution is explicitly enabled and ready. The response includes `sdkHash`, `appHash`, `hashMatches`, `hashComparisonStatus`, hash mode, warnings/blockers, and `noMutation=true`; it never updates invoice metadata or EGS ICV/hash state.
+- `GET /zatca/hash-chain-reset-plan` is an admin dry run. It summarizes active EGS units, current ICV/last-hash state, existing ZATCA invoice metadata, reset risks, and recommended next steps. It returns `dryRunOnly=true` and does not reset anything.
 - XML downloads use `application/xml`; QR returns a base64 TLV payload as JSON.
 - `GET /sales-invoices/:id/zatca/xml-validation` runs local-only structural XML/input checks and always reports `officialValidation=false`.
 - Invoice PDFs can display a small local ZATCA-generated placeholder when QR metadata exists. XML is not embedded into PDFs yet.
@@ -1549,7 +1555,7 @@ Do not treat the current mock CSID, local XML, local QR, or local hash-chain beh
 - The test-only SDK wrapper notes live at `docs/zatca/SDK_VALIDATION_WRAPPER.md`.
 - Official sample fixture validation results live at `docs/zatca/OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md`.
 - Hash-chain/PIH planning lives at `docs/zatca/HASH_CHAIN_AND_PIH_PLAN.md`.
-- `GET /zatca-sdk/readiness` reports local SDK discovery status, Java readiness, config/work-dir checks, and whether execution is enabled. `POST /zatca-sdk/validate-xml-dry-run` creates a command plan without executing the SDK. `POST /zatca-sdk/validate-xml-local`, `POST /zatca-sdk/validate-reference-fixture`, and `POST /sales-invoices/:id/zatca/sdk-validate` are disabled unless `ZATCA_SDK_EXECUTION_ENABLED=true`; when enabled they run local-only XML validation with timeout, temp cleanup, path traversal protection, sanitized output, and read-only SDK hash comparison where available.
+- `GET /zatca-sdk/readiness` reports local SDK discovery status, Java readiness, config/work-dir checks, hash mode, and whether execution is enabled. `POST /zatca-sdk/validate-xml-dry-run` creates a command plan without executing the SDK. `POST /zatca-sdk/validate-xml-local`, `POST /zatca-sdk/validate-reference-fixture`, `POST /sales-invoices/:id/zatca/sdk-validate`, and `POST /sales-invoices/:id/zatca/hash-compare` are disabled unless `ZATCA_SDK_EXECUTION_ENABLED=true`; when enabled they run local-only XML validation or SDK hash comparison with timeout, temp cleanup, path traversal protection, sanitized output, and no metadata mutation.
 - The current code is still not production compliant. Official SDK/API validation, real CSID onboarding, signing, PDF/A-3, clearance, reporting, and KMS-backed key custody are still required.
 
 Not implemented yet:

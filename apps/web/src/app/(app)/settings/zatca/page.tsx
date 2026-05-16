@@ -16,6 +16,9 @@ import {
   zatcaChecklistRiskBadgeClass,
   zatcaChecklistStatusBadgeClass,
   zatcaEgsCsrDownloadPath,
+  zatcaHashChainResetPlanPath,
+  zatcaHashModeLabel,
+  zatcaResetPlanWarningLabel,
   zatcaReadinessLabel,
   zatcaSdkCanAttemptLabel,
   zatcaSdkExecutionLabel,
@@ -29,6 +32,7 @@ import type {
   ZatcaComplianceChecklistResponse,
   ZatcaEgsUnit,
   ZatcaEnvironment,
+  ZatcaHashChainResetPlan,
   ZatcaOrganizationProfile,
   ZatcaReadinessSummary,
   ZatcaSdkReadinessResponse,
@@ -68,6 +72,7 @@ export default function ZatcaSettingsPage() {
   const [xmlFieldMapping, setXmlFieldMapping] = useState<ZatcaXmlFieldMappingResponse | null>(null);
   const [readiness, setReadiness] = useState<ZatcaReadinessSummary | null>(null);
   const [sdkReadiness, setSdkReadiness] = useState<ZatcaSdkReadinessResponse | null>(null);
+  const [hashResetPlan, setHashResetPlan] = useState<ZatcaHashChainResetPlan | null>(null);
   const [form, setForm] = useState<ZatcaProfileForm | null>(null);
   const [egsUnits, setEgsUnits] = useState<ZatcaEgsUnit[]>([]);
   const [submissionLogs, setSubmissionLogs] = useState<ZatcaSubmissionLog[]>([]);
@@ -97,6 +102,7 @@ export default function ZatcaSettingsPage() {
         const loadedXmlFieldMapping = await apiRequest<ZatcaXmlFieldMappingResponse>("/zatca/xml-field-mapping");
         const loadedReadiness = await apiRequest<ZatcaReadinessSummary>("/zatca/readiness");
         const loadedSdkReadiness = await apiRequest<ZatcaSdkReadinessResponse>(zatcaSdkReadinessPath());
+        const loadedHashResetPlan = canManageZatca ? await apiRequest<ZatcaHashChainResetPlan>(zatcaHashChainResetPlanPath()).catch(() => null) : null;
         if (!cancelled) {
           setProfile(loadedProfile);
           setAdapterConfig(loadedAdapterConfig);
@@ -104,6 +110,7 @@ export default function ZatcaSettingsPage() {
           setXmlFieldMapping(loadedXmlFieldMapping);
           setReadiness(loadedReadiness);
           setSdkReadiness(loadedSdkReadiness);
+          setHashResetPlan(loadedHashResetPlan);
           setForm(profileToForm(loadedProfile));
         }
 
@@ -127,7 +134,7 @@ export default function ZatcaSettingsPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId]);
+  }, [canManageZatca, organizationId]);
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -257,6 +264,10 @@ export default function ZatcaSettingsPage() {
   async function refreshReadiness() {
     const updatedReadiness = await apiRequest<ZatcaReadinessSummary>("/zatca/readiness");
     setReadiness(updatedReadiness);
+    if (canManageZatca) {
+      const updatedHashResetPlan = await apiRequest<ZatcaHashChainResetPlan>(zatcaHashChainResetPlanPath()).catch(() => null);
+      setHashResetPlan(updatedHashResetPlan);
+    }
   }
 
   function updateProfileField<K extends keyof ZatcaProfileForm>(field: K, value: ZatcaProfileForm[K]) {
@@ -354,6 +365,8 @@ export default function ZatcaSettingsPage() {
               ) : null}
             </div>
           ) : null}
+
+          {sdkReadiness || hashResetPlan ? <HashChainStatusPanel sdkReadiness={sdkReadiness} resetPlan={hashResetPlan} canManage={canManageZatca} /> : null}
 
           {readiness ? (
             <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
@@ -730,6 +743,74 @@ function SdkReadinessSummary({ label, value, detail }: { label: string; value: b
         {zatcaSdkReadinessLabel(value)}
       </div>
       {detail ? <div className="mt-1 text-xs text-steel">{detail}</div> : null}
+    </div>
+  );
+}
+
+function HashChainStatusPanel({
+  sdkReadiness,
+  resetPlan,
+  canManage,
+}: {
+  sdkReadiness: ZatcaSdkReadinessResponse | null;
+  resetPlan: ZatcaHashChainResetPlan | null;
+  canManage: boolean;
+}) {
+  const hashMode = resetPlan?.hashMode ?? sdkReadiness?.hashMode ?? null;
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-base font-semibold text-ink">Hash-chain status</h2>
+          <p className="mt-1 text-sm text-steel">Read-only planning for replacing LedgerByte local hashes with official SDK/C14N11 hashes later.</p>
+        </div>
+        <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">SDK hash not stored</span>
+      </div>
+      <StatusMessage type="info">SDK hash replacement is not active. No EGS ICV, last hash, or invoice metadata is reset from this page.</StatusMessage>
+      <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
+        <AdapterSummary label="Hash mode" value={zatcaHashModeLabel(hashMode?.mode)} />
+        <AdapterSummary label="SDK execution" value={sdkReadiness ? zatcaSdkExecutionLabel(sdkReadiness.enabled) : "Unknown"} />
+        <AdapterSummary label="SDK hash readiness" value={sdkReadiness?.canRunLocalValidation ? "Ready locally" : "Blocked"} />
+        <AdapterSummary label="Reset plan" value={resetPlan?.dryRunOnly ? "Dry run only" : canManage ? "Unavailable" : "Admin only"} />
+        <AdapterSummary label="Active EGS units" value={resetPlan ? String(resetPlan.summary.activeEgsUnitCount) : "-"} />
+        <AdapterSummary label="Current ICV" value={resetPlan?.summary.currentIcv === null || resetPlan?.summary.currentIcv === undefined ? "-" : String(resetPlan.summary.currentIcv)} />
+        <AdapterSummary label="Current last hash" value={truncateHash(resetPlan?.summary.currentLastInvoiceHash)} />
+        <AdapterSummary label="Invoice metadata rows" value={resetPlan ? String(resetPlan.summary.invoicesWithMetadataCount) : "-"} />
+      </div>
+      {hashMode?.blockingReasons.length ? (
+        <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-rosewood">
+          {hashMode.blockingReasons.map((reason) => (
+            <li key={reason}>{reason}</li>
+          ))}
+        </ul>
+      ) : null}
+      {hashMode?.warnings.length ? (
+        <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-amber-700">
+          {hashMode.warnings.map((warning) => (
+            <li key={warning}>{warning}</li>
+          ))}
+        </ul>
+      ) : null}
+      {resetPlan ? (
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div>
+            <h3 className="text-sm font-semibold text-ink">{zatcaResetPlanWarningLabel(resetPlan.dryRunOnly)}</h3>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-steel">
+              {resetPlan.resetRisks.map((risk) => (
+                <li key={risk}>{risk}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-ink">Recommended next steps</h3>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-steel">
+              {resetPlan.recommendedNextSteps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

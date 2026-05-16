@@ -53,6 +53,14 @@ export function zatcaInvoiceSdkValidatePath(invoiceId: string): string {
   return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/sdk-validate`;
 }
 
+export function zatcaInvoiceHashComparePath(invoiceId: string): string {
+  return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/hash-compare`;
+}
+
+export function zatcaHashChainResetPlanPath(): string {
+  return "/zatca/hash-chain-reset-plan";
+}
+
 export function zatcaEgsCsrDownloadPath(egsUnitId: string): string {
   return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/csr/download`;
 }
@@ -147,6 +155,34 @@ export function zatcaSdkValidationResultLabel(result: { disabled?: boolean; succ
     return "Disabled";
   }
   return result.success ? "Passed" : "Failed";
+}
+
+export function zatcaHashModeLabel(value: string | null | undefined): string {
+  if (value === "SDK_GENERATED") {
+    return "SDK generated";
+  }
+  return "Local deterministic";
+}
+
+export function zatcaHashComparisonLabel(value: string | null | undefined): string {
+  if (value === "MATCH") {
+    return "Match";
+  }
+  if (value === "MISMATCH") {
+    return "Mismatch";
+  }
+  if (value === "BLOCKED") {
+    return "Blocked";
+  }
+  return "Not available";
+}
+
+export function shouldShowZatcaHashMismatchWarning(result: { hashComparisonStatus?: string | null } | null | undefined): boolean {
+  return result?.hashComparisonStatus === "MISMATCH";
+}
+
+export function zatcaResetPlanWarningLabel(dryRunOnly: boolean): string {
+  return dryRunOnly ? "This is a dry run; no ZATCA hash-chain metadata is reset." : "Reset execution is not implemented.";
 }
 
 export function shouldShowZatcaSdkLocalOnlyWarning(result: { localOnly?: boolean; officialValidationAttempted?: boolean } | null | undefined): boolean {

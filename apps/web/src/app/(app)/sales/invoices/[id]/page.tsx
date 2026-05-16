@@ -17,8 +17,11 @@ import { downloadAuthenticatedFile, downloadPdf, invoicePdfPath } from "@/lib/pd
 import { PERMISSIONS } from "@/lib/permissions";
 import {
   shouldShowZatcaLocalOnlyWarning,
+  shouldShowZatcaHashMismatchWarning,
   shouldShowZatcaSdkLocalOnlyWarning,
   truncateHash,
+  zatcaHashComparisonLabel,
+  zatcaInvoiceHashComparePath,
   zatcaInvoiceSdkValidatePath,
   zatcaInvoiceClearancePath,
   zatcaInvoiceComplianceCheckPath,
@@ -30,7 +33,16 @@ import {
   zatcaStatusLabel,
   zatcaXmlValidationLabel,
 } from "@/lib/zatca";
-import type { SalesInvoice, SalesInvoiceStockIssueStatus, ZatcaInvoiceMetadata, ZatcaQrResponse, ZatcaSdkDryRunResponse, ZatcaSdkValidationResponse, ZatcaXmlValidationResult } from "@/lib/types";
+import type {
+  SalesInvoice,
+  SalesInvoiceStockIssueStatus,
+  ZatcaInvoiceHashCompareResponse,
+  ZatcaInvoiceMetadata,
+  ZatcaQrResponse,
+  ZatcaSdkDryRunResponse,
+  ZatcaSdkValidationResponse,
+  ZatcaXmlValidationResult,
+} from "@/lib/types";
 
 export default function SalesInvoiceDetailPage() {
   const params = useParams<{ id: string }>();
@@ -43,6 +55,7 @@ export default function SalesInvoiceDetailPage() {
   const [xmlValidation, setXmlValidation] = useState<ZatcaXmlValidationResult | null>(null);
   const [sdkDryRun, setSdkDryRun] = useState<ZatcaSdkDryRunResponse | null>(null);
   const [sdkValidation, setSdkValidation] = useState<ZatcaSdkValidationResponse | null>(null);
+  const [hashComparison, setHashComparison] = useState<ZatcaInvoiceHashCompareResponse | null>(null);
   const [qrPayload, setQrPayload] = useState("");
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -175,6 +188,7 @@ export default function SalesInvoiceDetailPage() {
     setQrPayload("");
     setSdkDryRun(null);
     setSdkValidation(null);
+    setHashComparison(null);
 
     try {
       const result = await apiRequest<ZatcaInvoiceMetadata>(`/sales-invoices/${invoice.id}/zatca/generate`, { method: "POST" });
@@ -282,6 +296,26 @@ export default function SalesInvoiceDetailPage() {
       setSuccess(result.officialValidationAttempted ? "Local SDK validation completed. No ZATCA network call was made." : "Local SDK validation is blocked or disabled. No ZATCA network call was made.");
     } catch (sdkError) {
       setError(sdkError instanceof Error ? sdkError.message : "Unable to run local SDK validation.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function runHashComparison() {
+    if (!invoice) {
+      return;
+    }
+
+    setActionLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const result = await apiRequest<ZatcaInvoiceHashCompareResponse>(zatcaInvoiceHashComparePath(invoice.id), { method: "POST" });
+      setHashComparison(result);
+      setSuccess(result.officialHashAttempted ? "SDK hash comparison completed without mutating ZATCA metadata." : "SDK hash comparison is blocked or disabled. No metadata was changed.");
+    } catch (hashError) {
+      setError(hashError instanceof Error ? hashError.message : "Unable to compare SDK hash.");
     } finally {
       setActionLoading(false);
     }
@@ -745,6 +779,11 @@ export default function SalesInvoiceDetailPage() {
                   Run local SDK validation
                 </button>
               ) : null}
+              {canRunZatcaChecks ? (
+                <button type="button" onClick={() => void runHashComparison()} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                  Compare SDK hash
+                </button>
+              ) : null}
             </div>
 
             <div className="mt-5 border-t border-slate-200 pt-4">
@@ -850,6 +889,46 @@ export default function SalesInvoiceDetailPage() {
                   <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-steel">
                     {sdkValidation.validationMessages.map((message) => (
                       <li key={message}>{message}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
+
+            {hashComparison ? (
+              <div className="mt-5 border-t border-slate-200 pt-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-ink">SDK hash comparison</h3>
+                    <p className="mt-1 text-xs text-steel">Read-only comparison against the official SDK generateHash command. Metadata, ICV, and EGS last hash are not updated.</p>
+                  </div>
+                  <span className={`rounded-md px-2 py-1 text-xs font-medium ${hashComparison.hashComparisonStatus === "MATCH" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                    {zatcaHashComparisonLabel(hashComparison.hashComparisonStatus)}
+                  </span>
+                </div>
+                <p className="mt-3 text-xs text-amber-700">Local-only, no mutation, no signing, no clearance/reporting, and no production compliance claim.</p>
+                {shouldShowZatcaHashMismatchWarning(hashComparison) ? (
+                  <p className="mt-2 text-xs text-rosewood">LedgerByte still stores a local deterministic hash. SDK hash persistence requires a future controlled EGS reset/migration plan.</p>
+                ) : null}
+                <div className="mt-3 grid grid-cols-1 gap-3 text-xs md:grid-cols-3">
+                  <Summary label="App hash" value={truncateHash(hashComparison.appHash)} />
+                  <Summary label="SDK hash" value={truncateHash(hashComparison.sdkHash)} />
+                  <Summary label="No mutation" value={hashComparison.noMutation ? "Yes" : "No"} />
+                  <Summary label="SDK exit code" value={hashComparison.sdkExitCode === null ? "-" : String(hashComparison.sdkExitCode)} />
+                  <Summary label="Hash mode" value={hashComparison.hashMode.mode.replaceAll("_", " ")} />
+                  <Summary label="ICV" value={hashComparison.icv === null ? "-" : String(hashComparison.icv)} />
+                </div>
+                {hashComparison.blockingReasons.length ? (
+                  <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-rosewood">
+                    {hashComparison.blockingReasons.map((reason) => (
+                      <li key={reason}>{reason}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                {hashComparison.warnings.length ? (
+                  <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-steel">
+                    {hashComparison.warnings.map((warning) => (
+                      <li key={warning}>{warning}</li>
                     ))}
                   </ul>
                 ) : null}

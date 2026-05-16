@@ -21,8 +21,14 @@ import {
   zatcaSdkValidateXmlLocalPath,
   zatcaSdkValidateReferenceFixturePath,
   zatcaInvoiceSdkValidatePath,
+  zatcaInvoiceHashComparePath,
   zatcaSdkExecutionLabel,
   zatcaSdkValidationResultLabel,
+  zatcaHashComparisonLabel,
+  zatcaHashModeLabel,
+  shouldShowZatcaHashMismatchWarning,
+  zatcaHashChainResetPlanPath,
+  zatcaResetPlanWarningLabel,
   shouldShowZatcaSdkLocalOnlyWarning,
   zatcaStatusLabel,
   zatcaXmlValidationLabel,
@@ -51,6 +57,8 @@ describe("ZATCA helpers", () => {
     expect(zatcaSdkValidateXmlLocalPath()).toBe("/zatca-sdk/validate-xml-local");
     expect(zatcaSdkValidateReferenceFixturePath()).toBe("/zatca-sdk/validate-reference-fixture");
     expect(zatcaInvoiceSdkValidatePath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/sdk-validate");
+    expect(zatcaInvoiceHashComparePath("invoice-1")).toBe("/sales-invoices/invoice-1/zatca/hash-compare");
+    expect(zatcaHashChainResetPlanPath()).toBe("/zatca/hash-chain-reset-plan");
     expect(zatcaEgsCsrDownloadPath("egs-1")).toBe("/zatca/egs-units/egs-1/csr/download");
   });
 
@@ -106,5 +114,18 @@ describe("ZATCA helpers", () => {
     expect(shouldShowZatcaSdkLocalOnlyWarning(null)).toBe(true);
     expect(shouldShowZatcaSdkLocalOnlyWarning({ localOnly: true, officialValidationAttempted: false })).toBe(true);
     expect(shouldShowZatcaSdkLocalOnlyWarning({ localOnly: true, officialValidationAttempted: true })).toBe(true);
+  });
+
+  it("formats hash mode and SDK hash comparison helpers", () => {
+    expect(zatcaHashModeLabel("LOCAL_DETERMINISTIC")).toBe("Local deterministic");
+    expect(zatcaHashModeLabel("SDK_GENERATED")).toBe("SDK generated");
+    expect(zatcaHashModeLabel("unknown")).toBe("Local deterministic");
+    expect(zatcaHashComparisonLabel("MATCH")).toBe("Match");
+    expect(zatcaHashComparisonLabel("MISMATCH")).toBe("Mismatch");
+    expect(zatcaHashComparisonLabel("BLOCKED")).toBe("Blocked");
+    expect(zatcaHashComparisonLabel("NOT_AVAILABLE")).toBe("Not available");
+    expect(shouldShowZatcaHashMismatchWarning({ hashComparisonStatus: "MISMATCH" })).toBe(true);
+    expect(shouldShowZatcaHashMismatchWarning({ hashComparisonStatus: "MATCH" })).toBe(false);
+    expect(zatcaResetPlanWarningLabel(true)).toContain("dry run");
   });
 });

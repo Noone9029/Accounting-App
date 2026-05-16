@@ -1150,6 +1150,14 @@ interface ZatcaSdkReadinessResponse {
   blockingReasons: string[];
   warnings: string[];
   suggestedFixes: string[];
+  hashMode?: {
+    mode: "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
+    envValue: "local" | "sdk";
+    sdkModeRequested: boolean;
+    blockingReasons: string[];
+    warnings: string[];
+  };
+  sdkHashModeBlocked?: boolean;
 }
 
 interface ZatcaSdkDryRunResponse {
@@ -1179,6 +1187,47 @@ interface ZatcaSdkValidationResponse {
   validationMessages: string[];
   blockingReasons: string[];
   warnings: string[];
+}
+
+interface ZatcaInvoiceHashCompareResponse {
+  disabled: boolean;
+  localOnly: true;
+  noMutation: true;
+  officialHashAttempted: boolean;
+  sdkExitCode: number | null;
+  sdkHash: string | null;
+  appHash: string | null;
+  hashMatches: boolean | null;
+  hashComparisonStatus: "MATCH" | "MISMATCH" | "NOT_AVAILABLE" | "BLOCKED";
+  blockingReasons: string[];
+  warnings: string[];
+  invoiceId: string;
+  metadataId: string;
+  previousInvoiceHash: string | null;
+  icv: number | null;
+  egsUnitId: string | null;
+  hashMode: {
+    mode: "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
+    envValue: "local" | "sdk";
+  };
+}
+
+interface ZatcaHashChainResetPlanResponse {
+  dryRunOnly: true;
+  localOnly: true;
+  noMutation: true;
+  hashMode: {
+    mode: "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
+    envValue: "local" | "sdk";
+  };
+  summary: {
+    activeEgsUnitCount: number;
+    invoicesWithMetadataCount: number;
+    currentIcv: number | null;
+    currentLastInvoiceHash: string | null;
+  };
+  resetRisks: string[];
+  recommendedNextSteps: string[];
 }
 
 interface ZatcaSubmissionLog {
@@ -2921,6 +2970,7 @@ async function main(): Promise<void> {
   assertEqual(zatcaSdkReadiness.requiredJavaRange, ">=11 <15", "ZATCA SDK readiness required Java range");
   assertEqual(zatcaSdkReadiness.sdkCommand, "fatoora -validate -invoice <filename>", "ZATCA SDK readiness documented command");
   assert(typeof zatcaSdkReadiness.javaBinUsed === "string", "ZATCA SDK readiness returns Java bin used");
+  assertEqual(zatcaSdkReadiness.hashMode?.mode, "LOCAL_DETERMINISTIC", "ZATCA hash mode default remains local deterministic");
   assertEqual(zatcaSdkReadiness.canRunLocalValidation, false, "ZATCA SDK local validation cannot run by default");
   assert(zatcaSdkReadiness.blockingReasons.length > 0, "ZATCA SDK readiness returns disabled blockers");
   assertNoPrivateKey(zatcaSdkReadiness, "ZATCA SDK readiness response");
@@ -2940,6 +2990,24 @@ async function main(): Promise<void> {
   assertEqual(zatcaSdkLocalValidation.hashComparisonStatus, "BLOCKED", "ZATCA SDK local hash comparison blocked by default");
   assertEqual(zatcaSdkLocalValidation.hashMatches, null, "ZATCA SDK local hash comparison does not run by default");
   assertNoPrivateKey(zatcaSdkLocalValidation, "ZATCA SDK local validation response");
+  const metadataBeforeHashCompare = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  const zatcaHashCompare = await post<ZatcaInvoiceHashCompareResponse>(`/sales-invoices/${draftInvoice.id}/zatca/hash-compare`, headers, {});
+  assertEqual(zatcaHashCompare.localOnly, true, "ZATCA hash compare localOnly");
+  assertEqual(zatcaHashCompare.noMutation, true, "ZATCA hash compare noMutation");
+  assertEqual(zatcaHashCompare.officialHashAttempted, false, "ZATCA hash compare disabled by default");
+  assertEqual(zatcaHashCompare.hashComparisonStatus, "BLOCKED", "ZATCA hash compare blocked by default");
+  assertEqual(zatcaHashCompare.hashMode.mode, "LOCAL_DETERMINISTIC", "ZATCA hash compare local hash mode");
+  const metadataAfterHashCompare = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  assertEqual(metadataAfterHashCompare.icv, metadataBeforeHashCompare.icv, "ZATCA hash compare does not mutate ICV");
+  assertEqual(metadataAfterHashCompare.invoiceHash, metadataBeforeHashCompare.invoiceHash, "ZATCA hash compare does not mutate invoice hash");
+  assertEqual(metadataAfterHashCompare.previousInvoiceHash, metadataBeforeHashCompare.previousInvoiceHash, "ZATCA hash compare does not mutate previous hash");
+  assertNoPrivateKey(zatcaHashCompare, "ZATCA hash compare response");
+  const zatcaHashResetPlan = await get<ZatcaHashChainResetPlanResponse>("/zatca/hash-chain-reset-plan", headers);
+  assertEqual(zatcaHashResetPlan.dryRunOnly, true, "ZATCA hash-chain reset plan dryRunOnly");
+  assertEqual(zatcaHashResetPlan.noMutation, true, "ZATCA hash-chain reset plan noMutation");
+  assertEqual(zatcaHashResetPlan.hashMode.mode, "LOCAL_DETERMINISTIC", "ZATCA hash-chain reset plan local hash mode");
+  assert(zatcaHashResetPlan.resetRisks.length > 0, "ZATCA hash-chain reset plan returns risks");
+  assertNoPrivateKey(zatcaHashResetPlan, "ZATCA hash-chain reset plan response");
   const zatcaSdkFixtureValidation = await post<ZatcaSdkValidationResponse>("/zatca-sdk/validate-reference-fixture", headers, {
     fixturePath: "reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml",
   });

@@ -14,6 +14,7 @@ import {
   type ZatcaSdkReadiness,
   type ZatcaSdkValidationCommandPlan,
 } from "./zatca-sdk-paths";
+import { readZatcaHashModeConfig, type ZatcaHashModeConfig } from "../zatca/zatca-hash-mode";
 
 export interface ZatcaSdkDryRunResponse {
   dryRun: true;
@@ -69,6 +70,27 @@ export interface ZatcaHashComparison {
   appHash: string | null;
   hashMatches: boolean | null;
   hashComparisonStatus: ZatcaHashComparisonStatus;
+}
+
+export interface ZatcaOfficialHashResult extends ZatcaHashComparison {
+  disabled: boolean;
+  localOnly: true;
+  noMutation: true;
+  officialHashAttempted: boolean;
+  sdkExitCode: number | null;
+  stdoutSummary: string;
+  stderrSummary: string;
+  blockingReasons: string[];
+  warnings: string[];
+  hashMode: ZatcaHashModeConfig;
+}
+
+export interface ZatcaInvoiceHashCompareResponse extends ZatcaOfficialHashResult {
+  invoiceId: string;
+  metadataId: string;
+  previousInvoiceHash: string | null;
+  icv: number | null;
+  egsUnitId: string | null;
 }
 
 const MAX_ZATCA_XML_BYTES = 2 * 1024 * 1024;
@@ -156,6 +178,126 @@ export class ZatcaSdkService {
   async validateInvoiceXmlLocal(organizationId: string, invoiceId: string): Promise<ZatcaSdkValidationResponse> {
     const { xml, appHash } = await this.resolveXmlStringPayload(organizationId, { invoiceId });
     return this.validateXmlStringLocal(xml, { source: "generated", tempName: invoiceId, appHash });
+  }
+
+  async generateOfficialZatcaHash(xml: string, options: { appHash?: string | null; tempName?: string } = {}): Promise<ZatcaOfficialHashResult> {
+    assertXmlSize(xml);
+    const readiness = discoverZatcaSdkReadiness();
+    const hashMode = readZatcaHashModeConfig();
+    const warnings = [
+      "This is local SDK hash generation only.",
+      "This does not submit to ZATCA.",
+      "This does not mutate invoice metadata, EGS ICV, or EGS last hash.",
+      "This does not prove production compliance.",
+      ...readiness.warnings,
+      ...hashMode.warnings,
+    ];
+
+    if (!readiness.enabled) {
+      return buildBlockedOfficialHashResponse(readiness, {
+        disabled: true,
+        appHash: options.appHash ?? null,
+        warnings,
+        hashMode,
+      });
+    }
+
+    if (!readiness.canRunLocalValidation) {
+      return buildBlockedOfficialHashResponse(readiness, {
+        disabled: false,
+        appHash: options.appHash ?? null,
+        warnings,
+        hashMode,
+      });
+    }
+
+    await mkdir(readiness.workDir, { recursive: true });
+    const runDir = await mkdtemp(join(readiness.workDir, "hash-"));
+    const xmlFilePath = join(runDir, `${safeTempName(options.tempName ?? "hash-compare")}.xml`);
+    try {
+      await writeFile(xmlFilePath, xml, "utf8");
+      const commandPlan = buildZatcaSdkGenerateHashCommand({
+        xmlFilePath,
+        sdkJarPath: readiness.sdkJarPath,
+        launcherPath: readiness.fatooraLauncherPath,
+        jqPath: readiness.jqPath,
+        configDirPath: readiness.configDirPath,
+        workingDirectory: readiness.sdkRootPath ?? readiness.referenceFolderPath ?? readiness.projectRoot,
+        platform: process.platform,
+        javaFound: readiness.javaFound,
+        javaCommand: readiness.javaCommand,
+      });
+
+      if (!commandPlan.command) {
+        return buildBlockedOfficialHashResponse(readiness, {
+          disabled: false,
+          appHash: options.appHash ?? null,
+          warnings: [...warnings, ...commandPlan.warnings, "No executable ZATCA SDK hash command could be resolved."],
+          blockingReasons: ["No executable ZATCA SDK hash command could be resolved."],
+          hashMode,
+        });
+      }
+
+      const executed = await executeCommand(commandPlan, readiness.timeoutMs);
+      const stdoutSummary = sanitizeZatcaSdkOutput(executed.stdout);
+      const stderrSummary = sanitizeZatcaSdkOutput(executed.stderr);
+      const sdkHash = extractZatcaSdkInvoiceHash(`${stdoutSummary}\n${stderrSummary}`);
+      const blockingReasons = executed.timedOut ? ["ZATCA SDK hash generation timed out."] : [];
+      const hashWarnings = [...warnings, ...commandPlan.warnings];
+      if (!sdkHash) {
+        hashWarnings.push("ZATCA SDK hash output could not be parsed from generateHash output.");
+      }
+
+      return {
+        disabled: false,
+        localOnly: true,
+        noMutation: true,
+        officialHashAttempted: true,
+        sdkExitCode: executed.exitCode,
+        stdoutSummary,
+        stderrSummary,
+        ...buildZatcaHashComparison(options.appHash ?? null, sdkHash, executed.timedOut ? "BLOCKED" : undefined),
+        blockingReasons,
+        warnings: hashWarnings,
+        hashMode,
+      };
+    } finally {
+      await rm(runDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  }
+
+  async compareInvoiceHash(organizationId: string, invoiceId: string): Promise<ZatcaInvoiceHashCompareResponse> {
+    const metadata = await this.prisma.zatcaInvoiceMetadata.findFirst({
+      where: { organizationId, invoiceId },
+      select: {
+        id: true,
+        invoiceId: true,
+        xmlBase64: true,
+        invoiceHash: true,
+        previousInvoiceHash: true,
+        icv: true,
+        egsUnitId: true,
+      },
+    });
+
+    if (!metadata?.xmlBase64) {
+      throw new BadRequestException("ZATCA XML has not been generated for this invoice.");
+    }
+
+    const xml = Buffer.from(metadata.xmlBase64, "base64").toString("utf8").trim();
+    if (!xml) {
+      throw new BadRequestException("ZATCA XML payload is empty.");
+    }
+
+    const result = await this.generateOfficialZatcaHash(xml, { appHash: metadata.invoiceHash, tempName: invoiceId });
+    return {
+      ...result,
+      invoiceId: metadata.invoiceId,
+      metadataId: metadata.id,
+      previousInvoiceHash: metadata.previousInvoiceHash,
+      icv: metadata.icv,
+      egsUnitId: metadata.egsUnitId,
+    };
   }
 
   private async resolveXmlPayload(organizationId: string, dto: ValidateZatcaSdkXmlDto): Promise<{ xmlBase64: string; source: "invoice" | "request"; appHash: string | null }> {
@@ -317,6 +459,7 @@ export class ZatcaSdkService {
 }
 
 function redactReadiness(readiness: ZatcaSdkReadiness) {
+  const hashMode = readZatcaHashModeConfig();
   return {
     enabled: readiness.enabled,
     referenceFolderFound: readiness.referenceFolderFound,
@@ -343,6 +486,8 @@ function redactReadiness(readiness: ZatcaSdkReadiness) {
     warnings: readiness.warnings,
     suggestedFixes: readiness.suggestedFixes,
     timeoutMs: readiness.timeoutMs,
+    hashMode,
+    sdkHashModeBlocked: hashMode.mode === "SDK_GENERATED" && !readiness.canRunLocalValidation,
   };
 }
 
@@ -431,6 +576,31 @@ function buildBlockedValidationResponse(
     warnings: options.warnings,
     xmlSource: options.source,
     invoiceType: options.invoiceType,
+  };
+}
+
+function buildBlockedOfficialHashResponse(
+  readiness: ZatcaSdkReadiness,
+  options: {
+    disabled: boolean;
+    appHash: string | null;
+    warnings: string[];
+    hashMode: ZatcaHashModeConfig;
+    blockingReasons?: string[];
+  },
+): ZatcaOfficialHashResult {
+  return {
+    disabled: options.disabled,
+    localOnly: true,
+    noMutation: true,
+    officialHashAttempted: false,
+    sdkExitCode: null,
+    stdoutSummary: "",
+    stderrSummary: "",
+    ...buildZatcaHashComparison(options.appHash, null, "BLOCKED"),
+    blockingReasons: options.blockingReasons ?? readiness.blockingReasons,
+    warnings: options.warnings,
+    hashMode: options.hashMode,
   };
 }
 

@@ -11,6 +11,8 @@ This is a working engineering checklist. Official ZATCA/FATOORA documentation mu
 - Keep smoke asserting that `/zatca-sdk/validate-reference-fixture` returns a disabled local-only response by default.
 - Keep smoke asserting that SDK readiness returns `requiredJavaRange`, `javaSupported`, and the official command string without requiring Java execution.
 - Keep smoke asserting that disabled local SDK validation returns `hashComparisonStatus=BLOCKED` and does not require Java.
+- Keep smoke asserting that `POST /sales-invoices/:id/zatca/hash-compare` is disabled/blocked by default, returns `noMutation=true`, and does not change invoice metadata or EGS ICV/hash state.
+- Keep smoke asserting that `GET /zatca/hash-chain-reset-plan` returns `dryRunOnly=true`, `noMutation=true`, reset risks, and no reset executor.
 - Record official validator responses as fixtures after sandbox access is available.
 - Do not promote any mock success state to legal `CLEARED` or `REPORTED` status.
 
@@ -32,4 +34,4 @@ Testing now has an isolated SDK wrapper for offline XML validation attempts. Kee
 - Official standard invoice, simplified invoice, standard credit note, and standard debit note samples pass with the official launcher.
 - LedgerByte standard and simplified fixtures have had their first structural correction pass plus supply-date/PIH groundwork. The standard fixture now passes SDK XSD/EN/KSA/PIH validation and the global SDK result passes. The simplified fixture now passes SDK XSD/EN/PIH validation and fails the expected non-production signing/QR/certificate checks.
 - Generated invoice XML validation through the local API now succeeds with SDK execution explicitly enabled and Java 11 configured. The tested invoice returned SDK exit code `0`; the app hash and SDK hash mismatched, confirming that current app hash-chain storage is still local groundwork.
-- Hash groundwork tests verify the documented transform inputs, SDK hash output parsing, and read-only comparison shape while keeping official C14N11 hash output blocked in normal app code until SDK `-generateHash` or a verified canonicalization library is used.
+- Hash groundwork tests verify the documented transform inputs, SDK hash output parsing, read-only comparison shape, hash mode labels, and reset dry-run shape while keeping official C14N11 hash output blocked in normal app code until SDK `-generateHash` or a verified canonicalization library is used.

@@ -311,6 +311,31 @@ The API-generated invoice produced a successful local SDK validation run but wit
 
 The hash mismatch is expected and is now documented in `HASH_CHAIN_AND_PIH_PLAN.md`: LedgerByte still stores a local deterministic hash in `ZatcaInvoiceMetadata.invoiceHash` and `ZatcaEgsUnit.lastInvoiceHash`, not the official SDK/C14N11 hash.
 
+## Hash-Chain Replacement Groundwork Pass
+
+Follow-up date: 2026-05-16
+
+Commit context: current working tree after `f350999 Validate API generated ZATCA XML and hash`.
+
+Official files used again for this pass:
+
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/usage.txt`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/PIH/pih.txt`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Simplified/Invoice/Simplified_Invoice.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Rules/Schematrons/20210819_ZATCA_E-invoice_Validation_Rules.xsl`
+- `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_XML_Implementation_Standard_vF.pdf`
+- `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards.pdf`
+
+Changes made:
+
+- Added `ZATCA_HASH_MODE=local` as the default planning mode.
+- Added read-only `POST /sales-invoices/:id/zatca/hash-compare`, which runs SDK `-generateHash` only when local SDK execution is enabled and ready.
+- Added dry-run `GET /zatca/hash-chain-reset-plan`, which reports current EGS ICV/last-hash state, existing invoice metadata, risks, and next steps without reset or deletion.
+- Added settings and invoice-detail UI panels for hash mode, SDK readiness, reset-plan review, and no-mutation hash comparison.
+- Kept normal smoke and tests disabled-by-default for SDK execution; no signing, CSID, clearance/reporting, network calls, or metadata mutation were added.
+
 ## Next Technical Fixes
 
 1. Keep SDK execution disabled by default in normal app and smoke runs.

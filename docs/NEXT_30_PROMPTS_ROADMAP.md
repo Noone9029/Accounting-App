@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Latest commit audited: `9a4f3ea` (`Add ZATCA supply date and PIH hash groundwork`) plus the current API-generated XML SDK validation and hash comparison pass.
+Latest commit audited: `f350999` (`Validate API generated ZATCA XML and hash`) plus the current official hash-chain replacement planning pass.
 
 Each prompt is intentionally scoped so it can be executed as a safe Codex implementation/audit task. Prompts that need credentials say so explicitly.
 
@@ -124,11 +124,11 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 - Risk level: High.
 - Manual credentials needed: No.
 
-### 15. Design ZATCA hash-chain replacement
+### 15. Implement ZATCA hash persistence safety gates
 
-- Objective: Replace local deterministic hash-chain storage with SDK `fatoora -generateHash -invoice <filename>` or verified C14N11 output behind a controlled migration/reset plan.
-- Why it matters: API-generated XML now shows app hash and SDK hash mismatch; signing and API submission depend on correct canonical invoice hashes.
-- Dependencies: Current structural XML fixtures and SDK validation wrapper.
+- Objective: Persist SDK `fatoora -generateHash -invoice <filename>` or verified C14N11 hashes behind explicit local-only flags, using no-mutation comparison and reset dry-run output as safety gates.
+- Why it matters: API-generated XML now has safe hash comparison and reset planning; signing and API submission depend on official canonical invoice hashes being stored, not only compared.
+- Dependencies: Current structural XML fixtures, SDK validation wrapper, hash comparison endpoint, and reset-plan endpoint.
 - Risk level: Critical.
 - Manual credentials needed: No.
 

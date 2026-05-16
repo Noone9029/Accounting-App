@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-15
 
-Current commit audited: pending (`Validate API generated ZATCA XML and hash`)
+Current commit audited: pending (`Add ZATCA hash-chain replacement groundwork`)
 
 See also:
 
@@ -23,7 +23,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Frontend: Next.js App Router, React, Tailwind CSS, typed API helpers.
 - Shared packages: `accounting-core`, `pdf-core`, `zatca-core`, `shared`, `ui`.
 - PDF: PDFKit through `packages/pdf-core`.
-- ZATCA: local TypeScript scaffolding plus local official references, Java SDK readiness/local-validation wrapper checks, official sample fixture validation pass under Java 11, LedgerByte XML structural fixes against SDK output, API-generated XML validation, and read-only SDK/app hash comparison.
+- ZATCA: local TypeScript scaffolding plus local official references, Java SDK readiness/local-validation wrapper checks, official sample fixture validation pass under Java 11, LedgerByte XML structural fixes against SDK output, API-generated XML validation, read-only SDK/app hash comparison, and dry-run hash-chain reset planning.
 - Local infra: Docker Compose for PostgreSQL, Redis, API, and web.
 
 ## Monorepo Structure
@@ -64,7 +64,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Core accounting report JSON/CSV/PDF outputs for General Ledger, Trial Balance, Profit & Loss, Balance Sheet, VAT Summary, Aged Receivables, and Aged Payables.
 - Generated document archive for generated PDFs.
 - Uploaded supporting-file attachment groundwork with database-default storage, metadata, tenant-scoped linked entity validation, reusable panels on key detail pages, storage readiness API, feature-flagged S3-compatible upload/download storage for new attachments, dry-run migration counts, and `/settings/storage`.
-- Local-only ZATCA profile, EGS, CSR, mock CSID, XML/QR/hash, compliance checklist, reference maps, SDK wrapper readiness/dry-run/local-validation disabled path, and official fixture registry/results documentation.
+- Local-only ZATCA profile, EGS, CSR, mock CSID, XML/QR/hash, compliance checklist, reference maps, SDK wrapper readiness/dry-run/local-validation disabled path, official fixture registry/results documentation, and no-mutation hash-chain comparison/reset planning.
 - Full `typecheck`, `test`, `build`, and API smoke workflow is run for each release checkpoint; browser E2E smoke now exists for local user-facing route checks.
 
 ## Groundwork Or Scaffold Only
@@ -76,13 +76,13 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Inventory warehouse, stock ledger, adjustment approval, warehouse transfer controls, manual purchase receiving, manual sales stock issue, valuation settings, purchase bill clearing-mode finalization, compatible manual purchase receipt asset posting, inventory clearing preview/matching/reconciliation groundwork, accountant-reviewed variance proposal workflow, purchase receipt posting readiness audit, inventory accounting integrity audit, manual COGS posting, and operational reports exist, but automatic COGS, automatic/direct-mode receipt asset posting, automatic variance posting, automatic receipts/issues, landed cost, serial/batch tracking, and accounting-grade inventory financial reports are not implemented.
 - PDF rendering is operational only, not legal/template-complete.
 - Generated document storage and existing uploaded attachment content still default to database base64; new uploaded attachments can use S3-compatible storage only when explicitly configured, and no migration executor is active.
-- ZATCA is local/mock/scaffold only. Local SDK validation groundwork exists behind a disabled-by-default flag; official SDK sample fixtures now pass under Java 11, LedgerByte standard XML fixture now passes SDK global validation, simplified XML fixture passes XSD/EN/PIH, and API-generated standard XML validates locally with warnings. App hash-chain storage still mismatches SDK hash output, and signing, Phase 2 QR, real CSID, clearance, reporting, and PDF/A-3 do not exist.
+- ZATCA is local/mock/scaffold only. Local SDK validation groundwork exists behind a disabled-by-default flag; official SDK sample fixtures now pass under Java 11, LedgerByte standard XML fixture now passes SDK global validation, simplified XML fixture passes XSD/EN/PIH, API-generated standard XML validates locally with warnings, and hash-chain reset planning is dry-run only. App hash-chain storage still uses local deterministic hashes, and signing, Phase 2 QR, real CSID, clearance, reporting, and PDF/A-3 do not exist.
 - Redis is present in local infra but workers/queues are not wired.
 - Production deployment, monitoring, backups, subscription billing, email queue/retry/webhook operations, WhatsApp, generated-document object storage, and attachment migration operations are not implemented.
 
 ## Top 10 Risks
 
-1. ZATCA is not production compliant; LedgerByte simplified XML still fails signing/QR/certificate checks, API-generated XML still has address/identifier warnings, app hashes mismatch SDK hash output, and real onboarding, signing, and API submission are missing.
+1. ZATCA is not production compliant; LedgerByte simplified XML still fails signing/QR/certificate checks, API-generated XML still has address/identifier warnings, app hashes are only compared to SDK hash output and not stored as official metadata, and real onboarding, signing, and API submission are missing.
 2. Invite/onboarding/password reset default to mock/local delivery with provider readiness, test-send, opt-in SMTP, and DB-backed request rate limits; MFA, queue/retry, webhooks, and advanced session management are still missing.
 3. No broad approval workflow, dual control, or maker-checker policy exists for high-risk accounting actions outside the new bank reconciliation approval path.
 4. Bank reconciliation has local import preview, manual matching, categorization, approval, close/lock, report export groundwork, and basic linked attachments, but there is no live feed, automatic matching, OFX/CAMT/MT940 parser, production-grade bank file parser/storage workflow, or external bank integration.
@@ -102,7 +102,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 5. Add partial PO receiving/billing design and purchase matching hardening.
 6. Harden bank reconciliation with upload storage, import file-format samples/parsers, transfer fees, and multi-currency FX handling.
 7. Review accountant-reviewed inventory variance journal proposal outputs, then define historical direct-mode exclusion/migration and landed-cost policy before any automatic posting.
-8. Resolve remaining LedgerByte generated XML, SDK hash comparison, signing/certificate, and Phase 2 QR gaps, then advance CSID, clearance/reporting, and PDF/A-3.
+8. Implement official SDK/C14N11 hash persistence using the dry-run reset plan, resolve remaining generated XML warnings, then advance signing/certificate, Phase 2 QR, CSID, clearance/reporting, and PDF/A-3.
 9. Test the uploaded-attachment S3 adapter with a real non-production bucket, then implement the migration executor and generated-document S3 path.
 10. Prepare production deployment, monitoring, backups, secrets management, and security review.
 

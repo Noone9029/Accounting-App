@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-16
 
-Latest commit audited: `9a4f3ea` (`Add ZATCA supply date and PIH hash groundwork`) plus the current API-generated XML SDK validation and hash comparison pass.
+Latest commit audited: `f350999` (`Validate API generated ZATCA XML and hash`) plus the current official hash-chain replacement planning pass.
 
 ## Executive Summary
 
@@ -17,7 +17,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 | Local demo MVP | 88% | Strong enough for guided demos and internal workflow review. |
 | Private beta | 62% | Possible only with carefully selected testers, clear limitations, non-production data, and hands-on support. |
 | Production SaaS | 38% | Blocked by operations, storage, email, billing, security hardening, backups, monitoring, and legal/compliance review. |
-| Saudi/ZATCA production readiness | 33% | ZATCA remains local/mock/scaffold; official SDK samples pass locally under Java 11, LedgerByte standard fixture now passes SDK global validation, simplified fixture passes XSD/EN/PIH, and API-generated standard XML validates locally with warnings. App hash-chain storage still mismatches SDK hash output, and signing, Phase 2 QR, CSID, clearance/reporting, and PDF-A3 are not implemented. |
+| Saudi/ZATCA production readiness | 34% | ZATCA remains local/mock/scaffold; official SDK samples pass locally under Java 11, LedgerByte standard fixture now passes SDK global validation, simplified fixture passes XSD/EN/PIH, API-generated standard XML validates locally with warnings, read-only hash comparison exists, and hash-chain reset planning is documented. App hash-chain storage still uses local deterministic hashes, and signing, Phase 2 QR, CSID, clearance/reporting, and PDF-A3 are not implemented. |
 | Xero/Wafeq competitor readiness | 45% | Breadth is now meaningful, but production trust, compliance depth, integrations, onboarding, and polish are still behind mature products. |
 
 ## Completed Modules
@@ -48,7 +48,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 - Reports: broad operational reports exist, but official VAT return, filing exports, scheduled delivery, report pack controls, and accountant sign-off remain.
 - Attachments/storage: upload/download/soft-delete works, new uploaded attachments can use S3-compatible storage when explicitly configured, but database/base64 remains the default and there is no migration executor, generated-document S3 path, scanning, OCR, or retention policy.
 - Email: mock/local flow works with rate limits and SMTP can be enabled by env, but there is no retry queue, bounce/webhook handling, domain-auth validation workflow, MFA, or session invalidation.
-- ZATCA: extensive local groundwork and docs exist; official SDK sample fixtures now pass locally under Java 11. LedgerByte's local standard XML fixture now passes SDK global validation after supply-date and PIH fallback work, the simplified fixture passes XSD/EN/PIH, and API-generated standard XML validates locally with address/identifier warnings. Production hash-chain replacement, signing, Phase 2 QR, CSID, clearance/reporting, and PDF/A-3 remain unimplemented.
+- ZATCA: extensive local groundwork and docs exist; official SDK sample fixtures now pass locally under Java 11. LedgerByte's local standard XML fixture now passes SDK global validation after supply-date and PIH fallback work, the simplified fixture passes XSD/EN/PIH, API-generated standard XML validates locally with address/identifier warnings, and the app now has no-mutation SDK hash comparison plus a dry-run reset plan. Production hash persistence, signing, Phase 2 QR, CSID, clearance/reporting, and PDF/A-3 remain unimplemented.
 - Browser QA: route smoke exists and deployed E2E has run, but no visual regression, no full accounting assertions in browser, and no scheduled CI.
 
 ## Not Started

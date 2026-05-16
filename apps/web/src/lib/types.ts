@@ -2834,6 +2834,17 @@ export interface ZatcaXmlFieldMappingResponse {
   items: ZatcaXmlFieldMappingItem[];
 }
 
+export type ZatcaHashMode = "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
+export type ZatcaHashComparisonStatus = "MATCH" | "MISMATCH" | "NOT_AVAILABLE" | "BLOCKED";
+
+export interface ZatcaHashModeConfig {
+  mode: ZatcaHashMode;
+  envValue: "local" | "sdk";
+  sdkModeRequested: boolean;
+  blockingReasons: string[];
+  warnings: string[];
+}
+
 export interface ZatcaSdkReadinessResponse {
   enabled: boolean;
   referenceFolderFound: boolean;
@@ -2847,6 +2858,12 @@ export interface ZatcaSdkReadinessResponse {
   javaVersion: string | null;
   javaMajorVersion: number | null;
   javaVersionSupported: boolean;
+  detectedJavaVersion?: string | null;
+  javaSupported?: boolean;
+  requiredJavaRange?: string;
+  javaBinUsed?: string;
+  javaBlockerMessage?: string | null;
+  sdkCommand?: string;
   projectPathHasSpaces: boolean;
   canAttemptSdkValidation: boolean;
   canRunLocalValidation: boolean;
@@ -2854,6 +2871,8 @@ export interface ZatcaSdkReadinessResponse {
   warnings: string[];
   suggestedFixes: string[];
   timeoutMs: number;
+  hashMode?: ZatcaHashModeConfig;
+  sdkHashModeBlocked?: boolean;
 }
 
 export interface ZatcaSdkValidationCommandPlan {
@@ -2880,6 +2899,12 @@ export interface ZatcaSdkDryRunResponse {
     | "javaFound"
     | "javaVersion"
     | "javaVersionSupported"
+    | "detectedJavaVersion"
+    | "javaSupported"
+    | "requiredJavaRange"
+    | "javaBinUsed"
+    | "javaBlockerMessage"
+    | "sdkCommand"
     | "projectPathHasSpaces"
     | "canAttemptSdkValidation"
   >;
@@ -2893,6 +2918,10 @@ export interface ZatcaSdkValidationResponse {
   localOnly: true;
   officialValidationAttempted: boolean;
   sdkExitCode: number | null;
+  sdkHash: string | null;
+  appHash: string | null;
+  hashMatches: boolean | null;
+  hashComparisonStatus: ZatcaHashComparisonStatus;
   stdoutSummary: string;
   stderrSummary: string;
   validationMessages: string[];
@@ -2900,6 +2929,60 @@ export interface ZatcaSdkValidationResponse {
   warnings: string[];
   xmlSource: "generated" | "fixture" | "uploaded" | "invoice" | "request";
   invoiceType?: "standard" | "simplified";
+}
+
+export interface ZatcaInvoiceHashCompareResponse {
+  disabled: boolean;
+  localOnly: true;
+  noMutation: true;
+  officialHashAttempted: boolean;
+  sdkExitCode: number | null;
+  sdkHash: string | null;
+  appHash: string | null;
+  hashMatches: boolean | null;
+  hashComparisonStatus: ZatcaHashComparisonStatus;
+  stdoutSummary: string;
+  stderrSummary: string;
+  blockingReasons: string[];
+  warnings: string[];
+  hashMode: ZatcaHashModeConfig;
+  invoiceId: string;
+  metadataId: string;
+  previousInvoiceHash: string | null;
+  icv: number | null;
+  egsUnitId: string | null;
+}
+
+export interface ZatcaHashChainResetPlan {
+  dryRunOnly: true;
+  localOnly: true;
+  noMutation: true;
+  hashMode: ZatcaHashModeConfig;
+  summary: {
+    activeEgsUnitCount: number;
+    totalEgsUnitCount: number;
+    invoicesWithMetadataCount: number;
+    currentIcv: number | null;
+    currentLastInvoiceHash: string | null;
+  };
+  egsUnits: Array<Pick<ZatcaEgsUnit, "id" | "name" | "environment" | "status" | "isActive" | "lastIcv" | "lastInvoiceHash" | "updatedAt">>;
+  invoicesWithMetadata: Array<{
+    id: string;
+    invoiceId: string;
+    invoiceNumber: string;
+    invoiceStatus: string | null;
+    invoiceUuid: string;
+    zatcaStatus: ZatcaInvoiceStatus;
+    icv: number | null;
+    previousInvoiceHash: string | null;
+    invoiceHash: string | null;
+    xmlHash: string | null;
+    egsUnitId: string | null;
+    generatedAt: string | null;
+  }>;
+  resetRisks: string[];
+  recommendedNextSteps: string[];
+  warning: string;
 }
 
 export interface ZatcaReadinessSummary {

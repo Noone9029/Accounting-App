@@ -58,6 +58,9 @@ The local SDK bundle is `reference/zatca-einvoicing-sdk-Java-238-R3.4.8`.
 - `POST /zatca-sdk/validate-xml-local` now accepts raw XML, base64 XML, or invoice XML metadata, but remains disabled by default through `ZATCA_SDK_EXECUTION_ENABLED=false`.
 - `POST /zatca-sdk/validate-reference-fixture` validates allowlisted XML fixture paths under `reference/` or `packages/zatca-core/fixtures` only.
 - `POST /sales-invoices/:id/zatca/sdk-validate` runs local validation against generated invoice XML when explicitly enabled and readiness passes. It also runs SDK `-generateHash` and returns read-only `sdkHash`, `appHash`, `hashMatches`, and `hashComparisonStatus` fields.
+- `POST /sales-invoices/:id/zatca/hash-compare` runs the SDK hash oracle only, when enabled, and always returns `noMutation=true`.
+- `GET /zatca/hash-chain-reset-plan` returns active EGS/local metadata state plus reset risks as a dry run only.
+- `ZATCA_HASH_MODE=local` remains the default. `ZATCA_HASH_MODE=sdk` is a planning flag only and does not make LedgerByte persist SDK hashes.
 - The SDK readme documents `fatoora -validate -invoice <filename>`; LedgerByte now prefers launcher execution and uses direct JAR execution only as a fallback if no launcher is present.
 - The SDK readme documents `fatoora -generateHash -invoice <filename>`; LedgerByte uses it as the hash oracle and does not mutate metadata during comparison.
 - The wrapper enforces a 2 MB XML limit, timeout, temp-file cleanup, output redaction, and path traversal blocking. Windows `.bat` launcher execution uses `cmd.exe` with an argument array only; it does not concatenate a command string.

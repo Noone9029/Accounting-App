@@ -49,6 +49,12 @@ export class ZatcaController {
     return this.zatcaService.getZatcaReadinessSummary(organizationId);
   }
 
+  @Get("zatca/hash-chain-reset-plan")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  hashChainResetPlan(@CurrentOrganizationId() organizationId: string) {
+    return this.zatcaService.getHashChainResetPlan(organizationId);
+  }
+
   @Patch("zatca/profile")
   @RequirePermissions(PERMISSIONS.zatca.manage)
   updateProfile(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateZatcaProfileDto) {

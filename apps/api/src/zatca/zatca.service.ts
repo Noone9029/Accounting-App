@@ -33,6 +33,7 @@ import { isZatcaAdapterError, ZatcaAdapterError } from "./adapters/zatca-adapter
 import { MockZatcaOnboardingAdapter } from "./adapters/mock-zatca-onboarding.adapter";
 import { ZATCA_ONBOARDING_ADAPTER, type ComplianceCsidResult, type ZatcaAdapterResult, type ZatcaOnboardingAdapter } from "./adapters/zatca-onboarding.adapter";
 import { readZatcaAdapterConfig, summarizeZatcaAdapterConfig, type ZatcaAdapterConfig, ZATCA_ADAPTER_CONFIG } from "./zatca.config";
+import { readZatcaHashModeConfig } from "./zatca-hash-mode";
 
 const zatcaMetadataInclude = {
   egsUnit: { select: { id: true, name: true, environment: true, isActive: true, lastIcv: true } },
@@ -226,6 +227,85 @@ export class ZatcaService {
       realNetworkEnabled: adapterConfig.effectiveRealNetworkEnabled,
       productionReady: false,
       blockingReasons,
+    };
+  }
+
+  async getHashChainResetPlan(organizationId: string) {
+    const [egsUnits, metadata] = await Promise.all([
+      this.prisma.zatcaEgsUnit.findMany({
+        where: { organizationId },
+        orderBy: [{ isActive: "desc" }, { updatedAt: "desc" }],
+        select: safeEgsUnitSelect,
+      }),
+      this.prisma.zatcaInvoiceMetadata.findMany({
+        where: { organizationId },
+        orderBy: { generatedAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          invoiceId: true,
+          invoiceUuid: true,
+          zatcaStatus: true,
+          icv: true,
+          previousInvoiceHash: true,
+          invoiceHash: true,
+          xmlHash: true,
+          egsUnitId: true,
+          generatedAt: true,
+          invoice: { select: { invoiceNumber: true, status: true } },
+        },
+      }),
+    ]);
+    const activeEgsUnits = egsUnits.filter((unit) => unit.isActive && unit.status === ZatcaRegistrationStatus.ACTIVE);
+    const newestActiveEgs = activeEgsUnits[0] ?? null;
+
+    return {
+      dryRunOnly: true,
+      localOnly: true,
+      noMutation: true,
+      hashMode: readZatcaHashModeConfig(),
+      summary: {
+        activeEgsUnitCount: activeEgsUnits.length,
+        totalEgsUnitCount: egsUnits.length,
+        invoicesWithMetadataCount: metadata.length,
+        currentIcv: newestActiveEgs?.lastIcv ?? null,
+        currentLastInvoiceHash: newestActiveEgs?.lastInvoiceHash ?? null,
+      },
+      egsUnits: egsUnits.map((unit) => ({
+        id: unit.id,
+        name: unit.name,
+        environment: unit.environment,
+        status: unit.status,
+        isActive: unit.isActive,
+        lastIcv: unit.lastIcv,
+        lastInvoiceHash: unit.lastInvoiceHash,
+        updatedAt: unit.updatedAt,
+      })),
+      invoicesWithMetadata: metadata.map((item) => ({
+        id: item.id,
+        invoiceId: item.invoiceId,
+        invoiceNumber: item.invoice?.invoiceNumber ?? item.invoiceId,
+        invoiceStatus: item.invoice?.status ?? null,
+        invoiceUuid: item.invoiceUuid,
+        zatcaStatus: item.zatcaStatus,
+        icv: item.icv,
+        previousInvoiceHash: item.previousInvoiceHash,
+        invoiceHash: item.invoiceHash,
+        xmlHash: item.xmlHash,
+        egsUnitId: item.egsUnitId,
+        generatedAt: item.generatedAt,
+      })),
+      resetRisks: [
+        "Do not reset hash-chain metadata after production CSID issuance without a formally approved ZATCA recovery procedure.",
+        "Existing development invoices use LedgerByte local deterministic hashes; switching to SDK hashes requires regenerating local metadata or starting a fresh test EGS sequence.",
+        "Resetting ICV or last hash can create duplicate or broken chains if any invoices have been submitted outside local development.",
+      ],
+      recommendedNextSteps: [
+        "Keep ZATCA_HASH_MODE=local until SDK hash storage, signing, CSID onboarding, and clearance/reporting are implemented.",
+        "Use the invoice hash-compare endpoint to identify local app hash versus official SDK hash differences without mutating metadata.",
+        "For local development, create a fresh EGS unit or reset the non-production test database before testing SDK-generated hash persistence.",
+      ],
+      warning: "Dry-run only. No EGS ICV, last hash, or invoice metadata is reset by this endpoint.",
     };
   }
 

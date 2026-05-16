@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-16
 
-Commit inspected: pending (`Validate API generated ZATCA XML and hash`)
+Commit inspected: pending (`Add ZATCA hash-chain replacement groundwork`)
 
 ## Scope
 
@@ -36,6 +36,31 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### ZATCA official hash-chain replacement planning added
+
+Used only the repo-local official ZATCA SDK readme, `Configuration/usage.txt`, Schematron rules, `Data/PIH/pih.txt`, official samples, and XML/security PDFs to plan the transition from LedgerByte's local deterministic hash chain to SDK/C14N11-backed hashes.
+
+Risk reduced:
+
+- Added `ZATCA_HASH_MODE=local` as the safe default planning mode.
+- Added no-mutation `POST /sales-invoices/:id/zatca/hash-compare` for app-hash vs SDK `-generateHash` comparison.
+- Added dry-run `GET /zatca/hash-chain-reset-plan` for active EGS ICV/last-hash state, existing invoice metadata, reset risks, and recommended next steps.
+- Added `/settings/zatca` hash-chain status and reset-plan visibility.
+- Added invoice-detail SDK hash comparison UI with local-only/no-mutation warnings.
+- Updated smoke to assert disabled-by-default hash compare behavior and verify metadata/EGS state is not mutated.
+
+Current state:
+
+- SDK hash is not yet stored as official invoice metadata.
+- EGS last hash and invoice metadata still use the local deterministic hash until a future explicit migration/reset task.
+- Reset planning is visibility only; no automatic reset or purge exists.
+
+Remaining risks:
+
+- LedgerByte is still not ZATCA production compliant.
+- Signing/certificate handling, real CSID onboarding, clearance/reporting, Phase 2 QR, and PDF/A-3 remain unimplemented.
+- Official hash persistence still needs fixture coverage, local/CI Java strategy, reset approval, and key custody design before production use.
 
 ### API-generated ZATCA XML validation and SDK hash comparison
 

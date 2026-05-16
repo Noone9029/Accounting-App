@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-16
 
-Latest pass context: API-generated invoice XML was validated locally through the SDK wrapper after `9a4f3ea Add ZATCA supply date and PIH hash groundwork`.
+Latest pass context: API-generated invoice XML was validated locally through the SDK wrapper after `f350999 Validate API generated ZATCA XML and hash`; this pass adds read-only SDK hash-chain replacement planning and dry-run reset visibility.
 
 This document is local engineering planning only. It does not enable ZATCA network calls, invoice signing, CSID onboarding, clearance/reporting, PDF/A-3, or production compliance.
 
@@ -12,6 +12,7 @@ This document is local engineering planning only. It does not enable ZATCA netwo
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/usage.txt`
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml`
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Simplified/Invoice/Simplified_Invoice.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/PIH/pih.txt`
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Rules/Schematrons/20210819_ZATCA_E-invoice_Validation_Rules.xsl`
 - `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_XML_Implementation_Standard_vF.pdf`
 - `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards.pdf`
@@ -35,7 +36,54 @@ NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2Zi
 - `apps/api/src/zatca/zatca.service.ts` stores that local hash in `ZatcaInvoiceMetadata.invoiceHash`.
 - `apps/api/src/zatca/zatca.service.ts` updates `ZatcaEgsUnit.lastInvoiceHash` with that local hash after XML generation.
 - Subsequent generated invoices use `activeEgs.lastInvoiceHash` as `previousInvoiceHash`, so today's generated local chain is a development chain, not a production ZATCA chain.
+- Repeating generation for an existing generated invoice returns the existing metadata and does not consume another ICV or mutate `ZatcaEgsUnit.lastInvoiceHash`.
+- `POST /sales-invoices/:id/zatca/hash-compare` now compares the stored app hash to SDK `-generateHash` output when SDK execution is enabled. The endpoint is explicitly read-only and returns `noMutation=true`.
+- `GET /zatca/hash-chain-reset-plan` now returns active EGS state, latest generated invoice metadata, reset risks, and recommended next steps as a dry run only.
 - `packages/zatca-core/src/index.ts` exposes canonicalization/hash groundwork helpers but intentionally blocks official hash output until SDK `-generateHash` or a verified C14N11 implementation is wired in.
+
+## Hash Mode Configuration
+
+LedgerByte now exposes a non-persistent planning flag:
+
+```env
+ZATCA_HASH_MODE=local
+```
+
+Supported values:
+
+- `local`: default. Existing deterministic app hash storage remains active.
+- `sdk`: planning-only. Readiness surfaces that SDK-generated hash mode was requested, but LedgerByte still does not store SDK hashes as official metadata. This mode must remain blocked for production until SDK execution, Java 11-14, signing, CSID onboarding, clearance/reporting, and an EGS reset plan are approved.
+
+No database schema change was made in this pass. The flag is intentionally operational guidance only; it does not change invoice generation behavior.
+
+## Read-Only Hash Comparison Endpoint
+
+`POST /sales-invoices/:id/zatca/hash-compare`:
+
+- Requires auth, `x-organization-id`, and `zatca.runChecks` or `zatca.manage`.
+- Generates no new accounting records.
+- Reads existing generated XML metadata only.
+- Runs SDK `fatoora -generateHash -invoice <filename>` only when `ZATCA_SDK_EXECUTION_ENABLED=true` and readiness passes.
+- Returns `appHash`, `sdkHash`, `hashMatches`, `hashComparisonStatus`, `hashMode`, `blockingReasons`, `warnings`, and `noMutation=true`.
+- Does not update `ZatcaInvoiceMetadata.invoiceHash`, `ZatcaInvoiceMetadata.previousInvoiceHash`, `ZatcaEgsUnit.lastIcv`, or `ZatcaEgsUnit.lastInvoiceHash`.
+
+With the default disabled SDK setting, this endpoint returns `hashComparisonStatus=BLOCKED` and still confirms the current stored app hash.
+
+## Dry-Run Reset Strategy
+
+`GET /zatca/hash-chain-reset-plan`:
+
+- Requires auth, `x-organization-id`, and `zatca.manage`.
+- Returns active EGS unit count, current ICV, current last hash, latest generated invoice metadata, reset risks, and recommended next steps.
+- Always returns `dryRunOnly=true`, `localOnly=true`, and `noMutation=true`.
+- Does not reset or delete metadata.
+
+Recommended reset approach before any future official SDK hash persistence:
+
+1. Treat all current `ZatcaInvoiceMetadata.invoiceHash` and `ZatcaEgsUnit.lastInvoiceHash` values as local-development-only.
+2. For non-production testing, prefer a fresh database seed or a fresh EGS unit before testing SDK hash persistence.
+3. Before any production CSID flow, decide whether to archive local metadata, regenerate local XML, or start a new official chain from the ZATCA first-invoice PIH seed.
+4. Never reset an EGS unit used for real submission without a formally approved ZATCA recovery procedure.
 
 ## SDK Hash Oracle Results
 

@@ -42,4 +42,10 @@ export class ZatcaSdkController {
   validateInvoiceXmlLocal(@CurrentOrganizationId() organizationId: string, @Param("id") invoiceId: string) {
     return this.zatcaSdkService.validateInvoiceXmlLocal(organizationId, invoiceId);
   }
+
+  @Post("sales-invoices/:id/zatca/hash-compare")
+  @RequirePermissions(PERMISSIONS.zatca.runChecks, PERMISSIONS.zatca.manage)
+  compareInvoiceHash(@CurrentOrganizationId() organizationId: string, @Param("id") invoiceId: string) {
+    return this.zatcaSdkService.compareInvoiceHash(organizationId, invoiceId);
+  }
 }

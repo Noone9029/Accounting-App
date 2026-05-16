@@ -78,6 +78,7 @@ Local SDK execution is blocked by default:
 
 ```env
 ZATCA_SDK_EXECUTION_ENABLED=false
+ZATCA_HASH_MODE="local"
 ZATCA_SDK_JAR_PATH=""
 ZATCA_SDK_CONFIG_DIR=""
 ZATCA_SDK_WORK_DIR=""
@@ -116,6 +117,10 @@ It also still accepts `xmlBase64` or `invoiceId` for compatibility. XML payloads
 Path traversal and non-XML files are rejected.
 
 `POST /sales-invoices/:id/zatca/sdk-validate` uses already generated local invoice XML, if present. It does not update invoice accounting, does not submit to ZATCA, and does not mark the invoice production compliant.
+
+`POST /sales-invoices/:id/zatca/hash-compare` runs the same SDK `-generateHash` oracle path without running XML validation. It returns `appHash`, `sdkHash`, `hashMatches`, `hashComparisonStatus`, `hashMode`, and `noMutation=true`. With default SDK execution disabled it returns a blocked response. It never updates `ZatcaInvoiceMetadata`, `ZatcaEgsUnit.lastIcv`, or `ZatcaEgsUnit.lastInvoiceHash`.
+
+`GET /zatca/hash-chain-reset-plan` is an admin-only dry run. It returns active EGS units, current local ICV/hash state, latest generated invoice metadata, reset risks, and recommended next steps. It does not reset or delete anything.
 
 When SDK execution is enabled, the response includes hash comparison fields:
 

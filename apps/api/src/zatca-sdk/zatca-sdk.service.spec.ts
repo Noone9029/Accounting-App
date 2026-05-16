@@ -33,6 +33,10 @@ describe("ZATCA SDK controller", () => {
       PERMISSIONS.zatca.runChecks,
       PERMISSIONS.zatca.manage,
     ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, ZatcaSdkController.prototype.compareInvoiceHash)).toEqual([
+      PERMISSIONS.zatca.runChecks,
+      PERMISSIONS.zatca.manage,
+    ]);
   });
 });
 
@@ -238,5 +242,66 @@ describe("ZATCA SDK service", () => {
     });
     expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
     expect(result).toMatchObject({ localOnly: true, officialValidationAttempted: false, disabled: true, appHash: "local-app-hash", hashComparisonStatus: "BLOCKED" });
+  });
+
+  it("generates official SDK hash as a blocked no-network result when execution is disabled", async () => {
+    const service = new ZatcaSdkService({} as never);
+
+    const result = await service.generateOfficialZatcaHash("<Invoice/>", { appHash: "local-app-hash" });
+
+    expect(result).toMatchObject({
+      localOnly: true,
+      noMutation: true,
+      sdkHash: null,
+      appHash: "local-app-hash",
+      hashMatches: null,
+      hashComparisonStatus: "BLOCKED",
+    });
+    expect(result.blockingReasons.join(" ")).toContain("disabled");
+  });
+
+  it("hash compare endpoint reads generated metadata and does not mutate invoice metadata or EGS state", async () => {
+    const prisma = {
+      zatcaInvoiceMetadata: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "metadata-1",
+          invoiceId: "invoice-1",
+          xmlBase64,
+          invoiceHash: "local-app-hash",
+          previousInvoiceHash: "previous-hash",
+          icv: 5,
+          egsUnitId: "egs-1",
+        }),
+        update: jest.fn(),
+      },
+      zatcaEgsUnit: { update: jest.fn() },
+    };
+    const service = new ZatcaSdkService(prisma as never);
+
+    const result = await service.compareInvoiceHash("org-1", "invoice-1");
+
+    expect(prisma.zatcaInvoiceMetadata.findFirst).toHaveBeenCalledWith({
+      where: { organizationId: "org-1", invoiceId: "invoice-1" },
+      select: {
+        id: true,
+        invoiceId: true,
+        xmlBase64: true,
+        invoiceHash: true,
+        previousInvoiceHash: true,
+        icv: true,
+        egsUnitId: true,
+      },
+    });
+    expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      localOnly: true,
+      noMutation: true,
+      invoiceId: "invoice-1",
+      metadataId: "metadata-1",
+      appHash: "local-app-hash",
+      sdkHash: null,
+      hashComparisonStatus: "BLOCKED",
+    });
   });
 });

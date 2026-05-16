@@ -417,6 +417,7 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | GET | `/zatca/compliance-checklist` | Static compliance checklist | Yes | Yes | Implemented | Not legal certification. |
 | GET | `/zatca/xml-field-mapping` | Local XML mapping | Yes | Yes | Implemented | Not official validation. |
 | GET | `/zatca/readiness` | Local readiness booleans | Yes | Yes | Implemented | `productionReady=false`. |
+| GET | `/zatca/hash-chain-reset-plan` | ZATCA hash-chain reset dry-run plan | Yes | Yes | Groundwork | Requires `zatca.manage`; returns active EGS ICV/last hash, latest generated invoice metadata, reset risks, recommended next steps, `dryRunOnly=true`, and `noMutation=true`; does not reset metadata. |
 | GET | `/zatca/egs-units` | List EGS units | Yes | Yes | Implemented | Private key redacted. |
 | POST | `/zatca/egs-units` | Create EGS unit | Yes | Yes | Implemented | Local/dev data. |
 | GET | `/zatca/egs-units/:id` | EGS detail | Yes | Yes | Implemented | Private key redacted. |
@@ -436,6 +437,7 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | GET | `/sales-invoices/:id/zatca/xml-validation` | Local XML validation | Yes | Yes | Groundwork | `officialValidation=false`. |
 | GET | `/sales-invoices/:id/zatca/qr` | Local QR payload | Yes | Yes | Groundwork | Phase 2 QR incomplete. |
 | POST | `/sales-invoices/:id/zatca/sdk-validate` | Run local SDK validation for generated invoice XML | Yes | Yes | Groundwork | Disabled by default; no network/submission/compliance marking; when explicitly enabled, returns SDK validation output plus read-only `sdkHash`, `appHash`, `hashMatches`, and `hashComparisonStatus`. Local generated XML validation succeeds with address/identifier warnings and current app/SDK hash mismatch. |
+| POST | `/sales-invoices/:id/zatca/hash-compare` | Compare app hash to SDK hash oracle | Yes | Yes | Groundwork | Requires `zatca.runChecks` or `zatca.manage`; runs SDK `-generateHash` only when enabled and ready; returns `noMutation=true`, hash mode, blockers, warnings, and never mutates invoice metadata or EGS ICV/hash state. |
 | GET | `/zatca/submissions` | Submission/onboarding logs | Yes | Yes | Implemented | Includes mock/safe blocked logs. |
 | GET | `/zatca-sdk/readiness` | Local SDK readiness | Yes | Yes | Groundwork | Safe booleans only; no secrets or XML content; reports Java 11-14 compatibility, required range, Java binary string, blocker message, and official command. |
 | POST | `/zatca-sdk/validate-xml-dry-run` | SDK validation dry-run plan | Yes | Yes | Groundwork | Does not execute SDK; plans official launcher/JAR fallback and SDK config environment safely. |

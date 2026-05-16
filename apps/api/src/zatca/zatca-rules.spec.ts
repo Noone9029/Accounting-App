@@ -563,6 +563,54 @@ describe("ZATCA service rules", () => {
     expect(readiness.egsReady).toBe(false);
     expect(readiness.blockingReasons).toContain("No active development EGS unit is configured.");
   });
+
+  it("returns a hash-chain reset dry-run plan without mutating EGS or metadata", async () => {
+    const prisma = {
+      zatcaEgsUnit: {
+        findMany: jest.fn().mockResolvedValue([
+          makeEgsUnit({ id: "egs-1", name: "Active EGS", status: ZatcaRegistrationStatus.ACTIVE, isActive: true, lastIcv: 8, lastInvoiceHash: "local-last-hash" }),
+        ]),
+        update: jest.fn(),
+      },
+      zatcaInvoiceMetadata: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "metadata-1",
+            invoiceId: "invoice-1",
+            invoiceUuid: "00000000-0000-0000-0000-000000000001",
+            zatcaStatus: ZatcaInvoiceStatus.XML_GENERATED,
+            icv: 8,
+            previousInvoiceHash: "previous-hash",
+            invoiceHash: "local-last-hash",
+            xmlHash: "local-last-hash",
+            egsUnitId: "egs-1",
+            generatedAt: new Date("2026-05-16T10:00:00.000Z"),
+            invoice: { invoiceNumber: "INV-000008", status: "FINALIZED" },
+          },
+        ]),
+        update: jest.fn(),
+      },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const plan = await service.getHashChainResetPlan("org-1");
+
+    expect(plan).toMatchObject({
+      dryRunOnly: true,
+      hashMode: { mode: "LOCAL_DETERMINISTIC", envValue: "local" },
+      summary: {
+        activeEgsUnitCount: 1,
+        invoicesWithMetadataCount: 1,
+        currentIcv: 8,
+        currentLastInvoiceHash: "local-last-hash",
+      },
+    });
+    expect(plan.egsUnits[0]).toMatchObject({ id: "egs-1", name: "Active EGS", lastIcv: 8, lastInvoiceHash: "local-last-hash" });
+    expect(plan.invoicesWithMetadata[0]).toMatchObject({ invoiceId: "invoice-1", invoiceNumber: "INV-000008", invoiceHash: "local-last-hash" });
+    expect(plan.resetRisks.join(" ")).toContain("Do not reset");
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+  });
 });
 
 function makeGenerationTransactionMock(options: {
