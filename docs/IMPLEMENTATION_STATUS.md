@@ -401,3 +401,81 @@ Security and redaction guarantees:
 Remaining blockers and next step:
 - Install/use an officially supported Java runtime for the SDK experiment, preferably Java 11, then rerun the gated local experiment with SDK dummy/test material only.
 - Even if local dummy signing succeeds later, production signing remains blocked until proper compliance/production CSID onboarding, key custody, certificate handling, clearance/reporting design, and production validation are implemented.
+
+## 2026-05-16 - Java 11 controlled ZATCA SDK signing experiment
+
+Scope: local-only SDK signing and QR experiment with SDK dummy/test material. No CSID request, no ZATCA network call, no invoice submission, no clearance/reporting, no PDF-A3, no production credentials, no signed XML persistence, and no production-compliance claim.
+
+Official sources inspected:
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/usage.txt
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/config.json
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Certificates/cert.pem
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Certificates/ec-secp256k1-priv-key.pem
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Simplified/Invoice/Simplified_Invoice.xml
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Rules/Schematrons/20210819_ZATCA_E-invoice_Validation_Rules.xsl
+- reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards.pdf
+- reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_XML_Implementation_Standard_vF.pdf
+- reference/zatca-docs/EInvoice_Data_Dictionary.xlsx
+
+Confirmed official behavior:
+- The SDK readme requires Java versions `>=11` and `<15`.
+- The documented local signing command is `fatoora -sign -invoice <filename> -signedInvoice <filename>`.
+- The documented QR command is `fatoora -qr -invoice <filename>`.
+- SDK bundled `cert.pem` and `ec-secp256k1-priv-key.pem` are dummy/testing material only and are not production credentials.
+- Simplified invoices require the signature/cryptographic stamp structure and QR flow; official rules include BR-KSA-27, BR-KSA-28, BR-KSA-29, BR-KSA-30, and BR-KSA-60.
+- The official simplified sample includes `ext:UBLExtensions`, `sac:SignatureInformation`, signature ID `urn:oasis:names:specification:ubl:signature:1`, referenced signature/signature ID `urn:oasis:names:specification:ubl:signature:Invoice`, signature method `urn:oasis:names:specification:ubl:dsig:enveloped:xades`, and a `QR` additional document reference.
+
+Java runtime configuration:
+- Default Java remains OpenJDK `17.0.16` from `C:\Users\Ahmad\AppData\Local\Programs\Eclipse Adoptium\jdk-17.0.16.8-hotspot\bin\java.exe`.
+- Supported local Java used for the experiment: `C:\Program Files\Microsoft\jdk-11.0.26.4-hotspot\bin\java.exe`.
+- Java 11 version output: OpenJDK `11.0.26` Microsoft build `11.0.26+4-LTS`.
+- No global Java change was made; the command used `ZATCA_SDK_JAVA_BIN` only for the local experiment process.
+
+Wrapper hardening added:
+- The official Windows `fatoora.bat` expands `FATOORA_HOME` without quotes, so the repo path `E:\Accounting App` broke the launcher under Java 11.
+- The local signing wrapper now stages the SDK launcher, JAR, `jq`, and `global.json` into the existing no-space temp directory before execution.
+- The temp SDK config is still rewritten only in temp storage and points at SDK dummy/test certificate/private-key material.
+- `tempFilesWritten.sdkRuntime` reports whether the temporary SDK runtime staging occurred.
+- The sales invoice ZATCA panel displays whether the temp SDK runtime was staged.
+- `corepack pnpm zatca:local-signing-dry-run -- --help` now documents `ZATCA_SDK_JAVA_BIN`.
+
+Controlled signing/QR experiment result:
+- Invoice: `INV-000163` / `faa19714-abdd-4732-a012-283b5d4ff8c6`.
+- Invoice type: `SIMPLIFIED_TAX_INVOICE`.
+- Local ICV: `33` from the previously generated unsigned XML.
+- Command: `corepack pnpm zatca:local-signing-dry-run -- --invoice-id faa19714-abdd-4732-a012-283b5d4ff8c6` with `ZATCA_SDK_SIGNING_EXECUTION_ENABLED=true` and `ZATCA_SDK_JAVA_BIN` set to Java 11 for that command only.
+- Result: `executionEnabled=true`, `executionAttempted=true`, `executionSkipped=false`, `executionStatus=SUCCEEDED_LOCALLY`.
+- `signingExecuted=true`; `qrExecuted=true`.
+- `sdkExitCode=0`; `qrSdkExitCode=0`.
+- `signedXmlDetected=true`; `qrDetected=true`.
+- `tempFilesWritten`: unsigned XML true, SDK config true, SDK runtime true, signed XML true, files retained false.
+- Cleanup: performed true, success true, temp files removed by default.
+- Sanitized SDK output: signing reported `InvoiceSigningService - invoice has been signed successfully`; QR reported `QrGenerationService - Qr has been generated successfully`; QR payload body was redacted.
+
+Optional local validation of signed temp XML:
+- A second keep-temp run was used only long enough to validate `signed.xml` locally, then the temp directory was deleted.
+- Validation command used the temp staged SDK launcher/config and Java 11, with no ZATCA network call and no CSID request.
+- Validation exit code: `0`.
+- XSD: PASSED.
+- EN: PASSED.
+- KSA: PASSED.
+- QR: PASSED.
+- SIGNATURE: PASSED.
+- PIH: FAILED.
+- GLOBAL: FAILED.
+- Remaining warning: `BR-KSA-08` seller identification warning in the local demo data.
+- Remaining error: `KSA-13` PIH invalid. This is expected for the isolated dummy signing experiment because the signed temp artifact is not persisted and the hash chain/PIH is not mutated or promoted as an official signed invoice.
+
+Redaction and no-mutation guarantees:
+- No private key PEM, certificate body, CSID token, OTP, signed XML body, generated CSR body, or QR payload body is returned or stored.
+- Signed XML is temp-only and deleted by default.
+- The validation temp directory from the keep-temp run was manually deleted after validation.
+- No invoice metadata is marked signed.
+- No signed XML or QR payload is persisted to the database.
+- No ICV, PIH, invoice hash, previous hash, EGS last hash, or submission log is mutated by the local signing dry-run path.
+
+Remaining limitations and next step:
+- This proves the local SDK dummy-material signing/QR path can execute under Java 11 only; it does not prove production compliance.
+- Production signing remains blocked until real compliance/production CSID onboarding, secure key custody, certificate lifecycle handling, official clearance/reporting behavior, PDF-A3, and production validation are implemented.
+- Recommended next step: add an explicit local signed-XML validation dry-run endpoint/script that keeps signed XML temp-only, returns only sanitized validation categories, and continues to block all CSID/network/persistence behavior.

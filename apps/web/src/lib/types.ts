@@ -3205,6 +3205,7 @@ export interface ZatcaInvoiceLocalSigningDryRunResponse {
   tempFilesWritten: {
     unsignedXml: boolean;
     sdkConfig: boolean;
+    sdkRuntime: boolean;
     signedXml: boolean;
     tempDirectory: string | null;
     filesRetained: boolean;

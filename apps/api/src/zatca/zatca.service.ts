@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
-import { accessSync, constants, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { accessSync, constants, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { BadRequestException, Inject, Injectable, NotFoundException, NotImplementedException, Optional } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import {
@@ -1261,7 +1261,7 @@ export class ZatcaService {
         blockers: ["Phase 2 QR generation is blocked until signed XML exists and SDK -qr succeeds with certificate/signature material."],
         warnings: ["Do not fake Phase 2 QR cryptographic tags; QR must be regenerated after signing."],
       },
-      tempFilesWritten: { unsignedXml: false, sdkConfig: false, signedXml: false, tempDirectory: null as string | null, filesRetained: false },
+      tempFilesWritten: { unsignedXml: false, sdkConfig: false, sdkRuntime: false, signedXml: false, tempDirectory: null as string | null, filesRetained: false },
       cleanup: { performed: false, success: true, filesRetained: false, tempDirectory: null },
       signedXmlDetected: false,
       qrDetected: false,
@@ -1289,27 +1289,34 @@ export class ZatcaService {
     const executionCommandPlan = buildZatcaSdkSigningCommand({
       xmlFilePath: unsignedXmlPath,
       signedInvoiceFilePath: signedXmlPath,
-      sdkJarPath: sdkReadiness.sdkJarPath,
-      launcherPath: sdkReadiness.fatooraLauncherPath,
-      jqPath: sdkReadiness.jqPath,
+      sdkJarPath: tempSdkConfig.sdkJarPath ?? sdkReadiness.sdkJarPath,
+      launcherPath: tempSdkConfig.launcherPath ?? sdkReadiness.fatooraLauncherPath,
+      jqPath: tempSdkConfig.jqPath ?? sdkReadiness.jqPath,
       configDirPath: tempSdkConfig.configDirPath ?? sdkReadiness.configDirPath,
-      workingDirectory: sdkReadiness.sdkRootPath ?? sdkReadiness.referenceFolderPath ?? sdkReadiness.projectRoot,
+      workingDirectory: tempSdkConfig.workingDirectory ?? sdkReadiness.sdkRootPath ?? sdkReadiness.referenceFolderPath ?? sdkReadiness.projectRoot,
       platform: process.platform,
       javaFound: sdkReadiness.javaFound,
       javaCommand: sdkReadiness.javaCommand,
     });
     const executionQrCommandPlan = buildZatcaSdkQrCommand({
       xmlFilePath: signedXmlPath,
-      sdkJarPath: sdkReadiness.sdkJarPath,
-      launcherPath: sdkReadiness.fatooraLauncherPath,
-      jqPath: sdkReadiness.jqPath,
+      sdkJarPath: tempSdkConfig.sdkJarPath ?? sdkReadiness.sdkJarPath,
+      launcherPath: tempSdkConfig.launcherPath ?? sdkReadiness.fatooraLauncherPath,
+      jqPath: tempSdkConfig.jqPath ?? sdkReadiness.jqPath,
       configDirPath: tempSdkConfig.configDirPath ?? sdkReadiness.configDirPath,
-      workingDirectory: sdkReadiness.sdkRootPath ?? sdkReadiness.referenceFolderPath ?? sdkReadiness.projectRoot,
+      workingDirectory: tempSdkConfig.workingDirectory ?? sdkReadiness.sdkRootPath ?? sdkReadiness.referenceFolderPath ?? sdkReadiness.projectRoot,
       platform: process.platform,
       javaFound: sdkReadiness.javaFound,
       javaCommand: sdkReadiness.javaCommand,
     });
-    const tempFilesWritten = { unsignedXml: false, sdkConfig: tempSdkConfig.configWritten, signedXml: false, tempDirectory, filesRetained: keepTempFiles };
+    const tempFilesWritten = {
+      unsignedXml: false,
+      sdkConfig: tempSdkConfig.configWritten,
+      sdkRuntime: tempSdkConfig.sdkRuntimePrepared,
+      signedXml: false,
+      tempDirectory,
+      filesRetained: keepTempFiles,
+    };
     const cleanup = { performed: false, success: true, filesRetained: keepTempFiles, tempDirectory };
     let signingResult: { exitCode: number | null; stdout: string; stderr: string; timedOut: boolean } = { exitCode: null, stdout: "", stderr: "", timedOut: false };
     let qrResult: { exitCode: number | null; stdout: string; stderr: string; timedOut: boolean } = { exitCode: null, stdout: "", stderr: "", timedOut: false };
@@ -2878,21 +2885,62 @@ export class ZatcaService {
     const baseConfigPath = sdkReadiness.configDirPath ? join(sdkReadiness.configDirPath, "config.json") : null;
     const configDirPath = join(tempDirectory, "Configuration");
     const configPath = join(configDirPath, "config.json");
+    const runtimeAppsDirPath = join(tempDirectory, "Apps");
+    const runtimeLauncherPath = sdkReadiness.fatooraLauncherPath ? join(runtimeAppsDirPath, basename(sdkReadiness.fatooraLauncherPath)) : null;
+    const runtimeJqPath = sdkReadiness.jqPath ? join(runtimeAppsDirPath, basename(sdkReadiness.jqPath)) : null;
+    const runtimeSdkJarPath = sdkReadiness.sdkJarPath ? join(runtimeAppsDirPath, basename(sdkReadiness.sdkJarPath)) : null;
+    const originalGlobalJsonPath = sdkRootPath ? join(sdkRootPath, "Apps", "global.json") : null;
+    const runtimeGlobalJsonPath = join(runtimeAppsDirPath, "global.json");
+    const emptyRuntime = {
+      launcherPath: null as string | null,
+      jqPath: null as string | null,
+      sdkJarPath: null as string | null,
+      workingDirectory: null as string | null,
+      sdkRuntimePrepared: false,
+    };
 
     if (!sdkRootPath) {
       blockers.push("SDK root path could not be resolved for local signing config preparation.");
-      return { configDirPath: null as string | null, configPath: null as string | null, configWritten: false, blockers, warnings };
+      return { configDirPath: null as string | null, configPath: null as string | null, configWritten: false, blockers, warnings, ...emptyRuntime };
     }
     if (!baseConfigPath || !this.fileExistsAndNotEmpty(baseConfigPath)) {
       blockers.push("Official SDK config.json was not found for local signing config preparation.");
-      return { configDirPath: null as string | null, configPath: null as string | null, configWritten: false, blockers, warnings };
+      return { configDirPath: null as string | null, configPath: null as string | null, configWritten: false, blockers, warnings, ...emptyRuntime };
     }
     if (!material.certificateReady || !material.privateKeyReady || !material.certificatePath || !material.privateKeyPath) {
       blockers.push("SDK dummy certificate/private-key files are required before writing the local signing SDK config.");
-      return { configDirPath: null as string | null, configPath: null as string | null, configWritten: false, blockers, warnings };
+      return { configDirPath: null as string | null, configPath: null as string | null, configWritten: false, blockers, warnings, ...emptyRuntime };
     }
 
     try {
+      let sdkRuntimePrepared = false;
+      let launcherPath: string | null = null;
+      let jqPath: string | null = null;
+      let sdkJarPath: string | null = null;
+      let workingDirectory: string | null = null;
+
+      if (sdkReadiness.fatooraLauncherPath && sdkReadiness.sdkJarPath && sdkReadiness.jqPath) {
+        if (!originalGlobalJsonPath || !this.fileExistsAndNotEmpty(originalGlobalJsonPath)) {
+          blockers.push("Official SDK Apps/global.json was not found for temp launcher preparation.");
+        } else {
+          mkdirSync(runtimeAppsDirPath, { recursive: true });
+          copyFileSync(sdkReadiness.fatooraLauncherPath, runtimeLauncherPath!);
+          copyFileSync(sdkReadiness.sdkJarPath, runtimeSdkJarPath!);
+          copyFileSync(sdkReadiness.jqPath, runtimeJqPath!);
+          copyFileSync(originalGlobalJsonPath, runtimeGlobalJsonPath);
+          launcherPath = runtimeLauncherPath;
+          jqPath = runtimeJqPath;
+          sdkJarPath = runtimeSdkJarPath;
+          workingDirectory = tempDirectory;
+          sdkRuntimePrepared = true;
+          warnings.push("Temporary SDK launcher/JAR/jq runtime files were staged in a no-space temp directory and will be deleted by default.");
+        }
+      }
+
+      if (blockers.length > 0) {
+        return { configDirPath: null as string | null, configPath: null as string | null, configWritten: false, blockers, warnings, ...emptyRuntime };
+      }
+
       const baseConfig = JSON.parse(readFileSync(baseConfigPath, "utf8")) as Record<string, unknown>;
       const config = {
         ...baseConfig,
@@ -2908,10 +2956,21 @@ export class ZatcaService {
       mkdirSync(configDirPath, { recursive: true });
       writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
       warnings.push("Temporary SDK_CONFIG was written with SDK dummy/test certificate paths only and will be deleted by default.");
-      return { configDirPath, configPath, configWritten: true, blockers, warnings };
+      return {
+        configDirPath,
+        configPath,
+        configWritten: true,
+        launcherPath,
+        jqPath,
+        sdkJarPath,
+        workingDirectory,
+        sdkRuntimePrepared,
+        blockers,
+        warnings,
+      };
     } catch {
       blockers.push("Temporary local signing SDK config could not be prepared.");
-      return { configDirPath: null as string | null, configPath: null as string | null, configWritten: false, blockers, warnings };
+      return { configDirPath: null as string | null, configPath: null as string | null, configWritten: false, blockers, warnings, ...emptyRuntime };
     }
   }
 

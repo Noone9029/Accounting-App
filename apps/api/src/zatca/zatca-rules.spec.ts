@@ -1203,6 +1203,48 @@ describe("ZATCA service rules", () => {
     }
   });
 
+  it("stages the Windows SDK launcher into the no-space temp directory before local signing execution", async () => {
+    const previousFlag = process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED;
+    process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED = "true";
+    const fixture = makeLocalSigningSdkFixture({ includeDummyMaterial: true, includeLauncher: true, pathWithSpaces: true });
+    const readinessSpy = jest.spyOn(ZatcaSdkPaths, "discoverZatcaSdkReadiness").mockReturnValue(fixture.readiness);
+    const prisma = makeInvoiceReadinessPrisma({ zatcaInvoiceType: ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE });
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+    const executeSpy = jest.spyOn(service as never as { executeZatcaSdkCommand: jest.Mock }, "executeZatcaSdkCommand").mockImplementation(async (plan: { args: string[] }) => {
+      if (plan.args.includes("-sign")) {
+        const signedInvoicePath = plan.args[plan.args.indexOf("-signedInvoice") + 1];
+        writeFileSync(signedInvoicePath!, "<Invoice />", "utf8");
+      }
+      return { exitCode: 0, stdout: plan.args.includes("-qr") ? "QR generated" : "", stderr: "", timedOut: false };
+    });
+
+    try {
+      const result = await service.getInvoiceZatcaLocalSigningDryRun("org-1", "invoice-1");
+      const signPlan = executeSpy.mock.calls[0]![0] as { args: string[]; envAdditions: Record<string, string>; workingDirectory: string };
+
+      expect(result.executionStatus).toBe("SUCCEEDED_LOCALLY");
+      expect(result.tempFilesWritten.sdkRuntime).toBe(true);
+      expect(signPlan.args[2]).toContain(result.tempFilesWritten.tempDirectory);
+      expect(signPlan.args[2]).not.toContain(fixture.root);
+      expect(signPlan.envAdditions.FATOORA_HOME).toContain(result.tempFilesWritten.tempDirectory);
+      expect(signPlan.envAdditions.PATH_PREPEND).toContain(result.tempFilesWritten.tempDirectory);
+      expect(signPlan.workingDirectory).toBe(result.tempFilesWritten.tempDirectory);
+      expect(existsSync(result.tempFilesWritten.tempDirectory as string)).toBe(false);
+      expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+      expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+      expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    } finally {
+      readinessSpy.mockRestore();
+      executeSpy.mockRestore();
+      rmSync(fixture.root, { recursive: true, force: true });
+      if (previousFlag === undefined) {
+        delete process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED;
+      } else {
+        process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED = previousFlag;
+      }
+    }
+  });
+
   it("reports sanitized blockers when mocked local signing execution fails", async () => {
     const previousFlag = process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED;
     process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED = "true";
@@ -2048,8 +2090,8 @@ function makeInvoiceReadinessPrisma(options: {
   };
 }
 
-function makeLocalSigningSdkFixture(options: { includeDummyMaterial: boolean }) {
-  const root = mkdtempSync(join(tmpdir(), "ledgerbyte-zatca-signing-test-"));
+function makeLocalSigningSdkFixture(options: { includeDummyMaterial: boolean; includeLauncher?: boolean; pathWithSpaces?: boolean }) {
+  const root = mkdtempSync(join(tmpdir(), options.pathWithSpaces ? "ledgerbyte zatca signing test-" : "ledgerbyte-zatca-signing-test-"));
   const sdkRootPath = join(root, "zatca-einvoicing-sdk-Java-238-R3.4.8");
   const appsDir = join(sdkRootPath, "Apps");
   const configDirPath = join(sdkRootPath, "Configuration");
@@ -2063,6 +2105,13 @@ function makeLocalSigningSdkFixture(options: { includeDummyMaterial: boolean }) 
   }
   const sdkJarPath = join(appsDir, "zatca-einvoicing-sdk-test.jar");
   writeFileSync(sdkJarPath, "not-a-real-jar", "utf8");
+  const launcherPath = join(appsDir, "fatoora.bat");
+  const jqPath = join(appsDir, "jq.exe");
+  if (options.includeLauncher) {
+    writeFileSync(launcherPath, "@echo off\n", "utf8");
+    writeFileSync(jqPath, "not-real-jq", "utf8");
+    writeFileSync(join(appsDir, "global.json"), JSON.stringify({ version: "test" }), "utf8");
+  }
   writeFileSync(join(configDirPath, "usage.txt"), "[-sign]\n[-qr]\n", "utf8");
   writeFileSync(join(schemasDir, "UBL-Invoice-2.1.xsd"), "<schema />", "utf8");
   writeFileSync(join(schematronDir, "CEN-EN16931-UBL.xsl"), "<xsl />", "utf8");
@@ -2093,8 +2142,8 @@ function makeLocalSigningSdkFixture(options: { includeDummyMaterial: boolean }) 
       enabled: true,
       referenceFolderFound: true,
       sdkJarFound: true,
-      fatooraLauncherFound: false,
-      jqFound: false,
+      fatooraLauncherFound: Boolean(options.includeLauncher),
+      jqFound: Boolean(options.includeLauncher),
       configDirFound: true,
       workingDirectoryWritable: true,
       supportedCommandsKnown: true,
@@ -2117,8 +2166,8 @@ function makeLocalSigningSdkFixture(options: { includeDummyMaterial: boolean }) 
       referenceFolderPath: root,
       sdkRootPath,
       sdkJarPath,
-      fatooraLauncherPath: undefined,
-      jqPath: undefined,
+      fatooraLauncherPath: options.includeLauncher ? launcherPath : undefined,
+      jqPath: options.includeLauncher ? jqPath : undefined,
       configDirPath,
       workDir: join(root, "work"),
       javaCommand: "java",

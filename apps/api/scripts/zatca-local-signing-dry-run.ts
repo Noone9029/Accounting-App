@@ -34,6 +34,7 @@ function printHelp() {
       "  ZATCA_LOCAL_SIGNING_INVOICE_ID          Invoice id if --invoice-id is not supplied.",
       "  ZATCA_LOCAL_SIGNING_KEEP_TEMP_FILES     Set true to retain temp files for local debugging.",
       "  ZATCA_SDK_SIGNING_EXECUTION_ENABLED     Defaults false; when false, no SDK signing or QR execution occurs.",
+      "  ZATCA_SDK_JAVA_BIN                      Optional pinned Java 11-14 executable for local SDK execution.",
       "",
       "Flags:",
       "  --invoice-id <id>      Required invoice id.",

@@ -858,10 +858,11 @@ export default function SalesInvoiceDetailPage() {
                 </div>
                 {localSigningDryRun ? (
                   <div className="mt-3 rounded-md border border-amber-200 bg-white p-3 text-xs">
-                    <div className="grid grid-cols-1 gap-2 md:grid-cols-6">
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-8">
                       <Summary label="Execution status" value={localSigningDryRun.executionStatus} />
                       <Summary label="Execution enabled" value={localSigningDryRun.executionEnabled ? "Yes" : "No"} />
                       <Summary label="Execution attempted" value={localSigningDryRun.executionAttempted ? "Yes" : "No"} />
+                      <Summary label="Temp SDK staged" value={localSigningDryRun.tempFilesWritten.sdkRuntime ? "Yes" : "No"} />
                       <Summary label="SDK signing executed" value={localSigningDryRun.signingExecuted ? "Yes" : "No"} />
                       <Summary label="SDK QR executed" value={localSigningDryRun.qrExecuted ? "Yes" : "No"} />
                       <Summary label="Signed XML detected" value={localSigningDryRun.signedXmlDetected ? "Yes" : "No"} />
