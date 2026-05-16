@@ -3044,6 +3044,9 @@ export interface ZatcaReadinessSummary {
   egs: ZatcaReadinessSection;
   xml: ZatcaReadinessSection;
   sdk: ZatcaReadinessSection;
+  signing: ZatcaReadinessSection;
+  phase2Qr: ZatcaReadinessSection;
+  pdfA3: ZatcaReadinessSection;
   checks: ZatcaReadinessCheck[];
   profileReady: boolean;
   profileMissingFields: string[];
@@ -3085,7 +3088,53 @@ export interface ZatcaInvoiceReadinessResponse {
   invoice: ZatcaReadinessSection;
   egs: ZatcaReadinessSection;
   xml: ZatcaReadinessSection;
+  signing: ZatcaReadinessSection;
+  phase2Qr: ZatcaReadinessSection;
+  pdfA3: ZatcaReadinessSection;
   checks: ZatcaReadinessCheck[];
+  warnings: string[];
+}
+
+export interface ZatcaInvoiceSigningPlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  productionCompliance: false;
+  executionEnabled: boolean;
+  sdkCommand: string;
+  invoice: {
+    id: string;
+    invoiceNumber: string;
+    status: SalesInvoiceStatus;
+  };
+  metadata: {
+    id: string;
+    hasXml: boolean;
+    hasInvoiceHash: boolean;
+    icv: number | null;
+    previousInvoiceHash: string | null;
+    egsUnitId: string | null;
+  } | null;
+  egs: {
+    id: string;
+    name: string;
+    status: ZatcaRegistrationStatus;
+    isActive: boolean;
+    hasCsr: boolean;
+    hasComplianceCsid: boolean;
+    hasProductionCsid: boolean;
+    hashMode: ZatcaHashMode;
+  } | null;
+  requiredInputs: Array<{
+    id: string;
+    label: string;
+    required: boolean;
+    available: boolean;
+    path: string | null;
+    note?: string;
+  }>;
+  commandPlan: ZatcaSdkValidationCommandPlan;
+  blockers: string[];
   warnings: string[];
 }
 

@@ -435,6 +435,9 @@ export default function ZatcaSettingsPage() {
                 <ReadinessCheckCard title="EGS/hash mode" section={readiness.egs} />
                 <ReadinessCheckCard title="Generated XML inventory" section={readiness.xml} />
                 <ReadinessCheckCard title="Local SDK wrapper" section={readiness.sdk} />
+                <ReadinessCheckCard title="Signing/certificate" section={readiness.signing} />
+                <ReadinessCheckCard title="Phase 2 QR" section={readiness.phase2Qr} />
+                <ReadinessCheckCard title="PDF/A-3" section={readiness.pdfA3} />
               </div>
               <p className="mt-4 text-xs text-amber-700">Local-only readiness. No signing, CSID request, clearance/reporting, network submission, PDF/A-3, or production compliance is enabled.</p>
               {readiness.blockingReasons.length > 0 ? (

@@ -90,6 +90,7 @@ const DEFAULT_ZATCA_SDK_TIMEOUT_MS = 30000;
 export const ZATCA_SDK_REQUIRED_JAVA_RANGE = ">=11 <15";
 export const ZATCA_SDK_VALIDATE_COMMAND = "fatoora -validate -invoice <filename>";
 export const ZATCA_SDK_GENERATE_HASH_COMMAND = "fatoora -generateHash -invoice <filename>";
+export const ZATCA_SDK_SIGN_COMMAND = "fatoora -sign -invoice <filename> -signedInvoice <filename>";
 
 export function discoverZatcaSdkReadiness(options: ZatcaSdkDiscoveryOptions = {}): ZatcaSdkReadiness {
   const projectRoot = resolve(options.projectRoot ?? findProjectRoot(options.startDirectory ?? cwd()));
@@ -223,16 +224,23 @@ export function buildZatcaSdkGenerateHashCommand(input: ZatcaSdkValidationComman
   return buildZatcaSdkCommand(input, "generateHash");
 }
 
-function buildZatcaSdkCommand(input: ZatcaSdkValidationCommandInput, operation: "validate" | "generateHash"): ZatcaSdkValidationCommandPlan {
+export function buildZatcaSdkSigningCommand(input: ZatcaSdkValidationCommandInput & { signedInvoiceFilePath?: string | null }): ZatcaSdkValidationCommandPlan {
+  return buildZatcaSdkCommand(input, "sign");
+}
+
+function buildZatcaSdkCommand(input: ZatcaSdkValidationCommandInput & { signedInvoiceFilePath?: string | null }, operation: "validate" | "generateHash" | "sign"): ZatcaSdkValidationCommandPlan {
   const currentPlatform = input.platform;
   const warnings: string[] = ["Use argument-array execution for this SDK command; do not concatenate a shell string."];
   const envAdditions: Record<string, string> = {};
   const pathPrepend: string[] = [];
-  const operationFlag = operation === "validate" ? "-validate" : "-generateHash";
-  const documentedCommand = operation === "validate" ? ZATCA_SDK_VALIDATE_COMMAND : ZATCA_SDK_GENERATE_HASH_COMMAND;
+  const operationFlag = operation === "validate" ? "-validate" : operation === "generateHash" ? "-generateHash" : "-sign";
+  const documentedCommand = operation === "validate" ? ZATCA_SDK_VALIDATE_COMMAND : operation === "generateHash" ? ZATCA_SDK_GENERATE_HASH_COMMAND : ZATCA_SDK_SIGN_COMMAND;
 
   if (!input.xmlFilePath.trim()) {
     warnings.push("XML file path is missing.");
+  }
+  if (operation === "sign" && !input.signedInvoiceFilePath?.trim()) {
+    warnings.push("Signed invoice output file path is missing.");
   }
   if (input.javaFound === false) {
     warnings.push("Java is missing; the planned command cannot run until Java is installed.");
@@ -273,15 +281,24 @@ function buildZatcaSdkCommand(input: ZatcaSdkValidationCommandInput, operation: 
     if (currentPlatform === "win32" && /\.bat$/i.test(input.launcherPath)) {
       command = "cmd.exe";
       args = ["/d", "/c", input.launcherPath, operationFlag, "-invoice", input.xmlFilePath];
+      if (operation === "sign" && input.signedInvoiceFilePath) {
+        args.push("-signedInvoice", input.signedInvoiceFilePath);
+      }
       warnings.push("Uses cmd.exe argument-array execution only to run the official Windows fatoora.bat launcher.");
     } else {
       command = input.launcherPath;
       args = [operationFlag, "-invoice", input.xmlFilePath];
+      if (operation === "sign" && input.signedInvoiceFilePath) {
+        args.push("-signedInvoice", input.signedInvoiceFilePath);
+      }
     }
     warnings.push(`Uses the SDK readme documented command: ${documentedCommand}.`);
   } else if (input.sdkJarPath) {
     command = input.javaCommand ?? "java";
     args = ["-jar", input.sdkJarPath, operationFlag, "-invoice", input.xmlFilePath];
+    if (operation === "sign" && input.signedInvoiceFilePath) {
+      args.push("-signedInvoice", input.signedInvoiceFilePath);
+    }
     warnings.push("Direct JAR execution is a fallback; prefer the official fatoora launcher when available.");
   }
 
@@ -341,6 +358,10 @@ export function parseJavaMajorVersion(version: string): number | null {
 
 export function isZatcaSdkExecutionEnabled(sourceEnv: NodeJS.ProcessEnv = env): boolean {
   return String(sourceEnv.ZATCA_SDK_EXECUTION_ENABLED ?? "").trim().toLowerCase() === "true";
+}
+
+export function isZatcaSdkSigningExecutionEnabled(sourceEnv: NodeJS.ProcessEnv = env): boolean {
+  return String(sourceEnv.ZATCA_SDK_SIGNING_EXECUTION_ENABLED ?? "").trim().toLowerCase() === "true";
 }
 
 export function readZatcaSdkExecutionConfig(sourceEnv: NodeJS.ProcessEnv | Record<string, string | undefined> = env, projectRoot = cwd()): ZatcaSdkExecutionConfig {

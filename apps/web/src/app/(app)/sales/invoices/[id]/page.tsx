@@ -24,6 +24,7 @@ import {
   zatcaHashModeLabel,
   zatcaInvoiceHashComparePath,
   zatcaInvoiceReadinessPath,
+  zatcaInvoiceSigningPlanPath,
   zatcaInvoiceSdkValidatePath,
   zatcaInvoiceClearancePath,
   zatcaInvoiceComplianceCheckPath,
@@ -43,6 +44,7 @@ import type {
   ZatcaInvoiceHashCompareResponse,
   ZatcaInvoiceMetadata,
   ZatcaInvoiceReadinessResponse,
+  ZatcaInvoiceSigningPlanResponse,
   ZatcaQrResponse,
   ZatcaReadinessSection,
   ZatcaSdkDryRunResponse,
@@ -59,6 +61,7 @@ export default function SalesInvoiceDetailPage() {
   const [stockIssueStatus, setStockIssueStatus] = useState<SalesInvoiceStockIssueStatus | null>(null);
   const [zatca, setZatca] = useState<ZatcaInvoiceMetadata | null>(null);
   const [zatcaReadiness, setZatcaReadiness] = useState<ZatcaInvoiceReadinessResponse | null>(null);
+  const [signingPlan, setSigningPlan] = useState<ZatcaInvoiceSigningPlanResponse | null>(null);
   const [xmlValidation, setXmlValidation] = useState<ZatcaXmlValidationResult | null>(null);
   const [sdkDryRun, setSdkDryRun] = useState<ZatcaSdkDryRunResponse | null>(null);
   const [sdkValidation, setSdkValidation] = useState<ZatcaSdkValidationResponse | null>(null);
@@ -83,14 +86,16 @@ export default function SalesInvoiceDetailPage() {
       apiRequest<SalesInvoiceStockIssueStatus>(`/sales-invoices/${params.id}/stock-issue-status`).catch(() => null),
       apiRequest<ZatcaInvoiceMetadata>(`/sales-invoices/${params.id}/zatca`).catch(() => null),
       apiRequest<ZatcaInvoiceReadinessResponse>(zatcaInvoiceReadinessPath(params.id)).catch(() => null),
+      apiRequest<ZatcaInvoiceSigningPlanResponse>(zatcaInvoiceSigningPlanPath(params.id)).catch(() => null),
       apiRequest<ZatcaXmlValidationResult>(zatcaInvoiceXmlValidationPath(params.id)).catch(() => null),
     ])
-      .then(([result, stockStatusResult, zatcaResult, readinessResult, validationResult]) => {
+      .then(([result, stockStatusResult, zatcaResult, readinessResult, signingPlanResult, validationResult]) => {
         if (!cancelled) {
           setInvoice(result);
           setStockIssueStatus(stockStatusResult);
           setZatca(zatcaResult);
           setZatcaReadiness(readinessResult);
+          setSigningPlan(signingPlanResult);
           setXmlValidation(validationResult);
         }
       })
@@ -129,6 +134,7 @@ export default function SalesInvoiceDetailPage() {
       if (action === "finalize") {
         await refreshZatca(updated.id);
         await fetchZatcaReadiness(updated.id).catch(() => undefined);
+        await fetchZatcaSigningPlan(updated.id).catch(() => undefined);
       }
       setSuccess(action === "finalize" ? `Finalized invoice ${updated.invoiceNumber}.` : `Voided invoice ${updated.invoiceNumber}.`);
     } catch (actionError) {
@@ -187,6 +193,12 @@ export default function SalesInvoiceDetailPage() {
     return result;
   }
 
+  async function fetchZatcaSigningPlan(invoiceId: string) {
+    const result = await apiRequest<ZatcaInvoiceSigningPlanResponse>(zatcaInvoiceSigningPlanPath(invoiceId));
+    setSigningPlan(result);
+    return result;
+  }
+
   async function fetchZatcaXmlValidation(invoiceId: string) {
     const result = await apiRequest<ZatcaXmlValidationResult>(zatcaInvoiceXmlValidationPath(invoiceId));
     setXmlValidation(result);
@@ -210,6 +222,7 @@ export default function SalesInvoiceDetailPage() {
       const result = await apiRequest<ZatcaInvoiceMetadata>(`/sales-invoices/${invoice.id}/zatca/generate`, { method: "POST" });
       setZatca(result);
       await fetchZatcaReadiness(invoice.id);
+      await fetchZatcaSigningPlan(invoice.id).catch(() => undefined);
       await fetchZatcaXmlValidation(invoice.id);
       setSuccess("Local ZATCA XML, QR payload, and hash metadata generated.");
     } catch (generateError) {
@@ -268,6 +281,7 @@ export default function SalesInvoiceDetailPage() {
     try {
       await fetchZatcaXmlValidation(invoice.id);
       await fetchZatcaReadiness(invoice.id).catch(() => undefined);
+      await fetchZatcaSigningPlan(invoice.id).catch(() => undefined);
       setSuccess("Local XML validation refreshed.");
     } catch (validationError) {
       setError(validationError instanceof Error ? validationError.message : "Unable to validate local ZATCA XML.");
@@ -773,8 +787,44 @@ export default function SalesInvoiceDetailPage() {
                   <InvoiceReadinessSectionCard title="Invoice" section={zatcaReadiness.invoice} />
                   <InvoiceReadinessSectionCard title="EGS" section={zatcaReadiness.egs} />
                   <InvoiceReadinessSectionCard title="XML" section={zatcaReadiness.xml} />
+                  <InvoiceReadinessSectionCard title="Signing" section={zatcaReadiness.signing} />
+                  <InvoiceReadinessSectionCard title="Phase 2 QR" section={zatcaReadiness.phase2Qr} />
+                  <InvoiceReadinessSectionCard title="PDF/A-3" section={zatcaReadiness.pdfA3} />
                 </div>
                 <p className="mt-3 text-xs text-amber-700">Local-only. No signing, CSID request, clearance/reporting, network call, PDF/A-3, or production compliance claim.</p>
+              </div>
+            ) : null}
+
+            {signingPlan ? (
+              <div className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-ink">Signing plan</h3>
+                    <p className="mt-1 text-xs text-steel">Dry-run SDK `-sign` command planning only. The command is not executed and no invoice metadata is changed.</p>
+                  </div>
+                  <span className={`rounded-md px-2 py-1 text-xs font-medium ${signingPlan.executionEnabled ? "bg-amber-100 text-amber-800" : "bg-rose-50 text-rosewood"}`}>
+                    {signingPlan.executionEnabled ? "Execution flag enabled" : "Execution disabled"}
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-1 gap-3 text-xs md:grid-cols-3">
+                  <Summary label="Dry run" value={signingPlan.dryRun ? "Yes" : "No"} />
+                  <Summary label="No mutation" value={signingPlan.noMutation ? "Yes" : "No"} />
+                  <Summary label="Production compliance" value={signingPlan.productionCompliance ? "Yes" : "No"} />
+                </div>
+                {signingPlan.commandPlan.displayCommand ? (
+                  <div className="mt-3 rounded-md bg-white p-3">
+                    <div className="text-xs font-medium uppercase tracking-wide text-steel">Planned command</div>
+                    <div className="mt-1 break-all font-mono text-xs text-ink">{signingPlan.commandPlan.displayCommand}</div>
+                  </div>
+                ) : null}
+                {signingPlan.blockers.length ? (
+                  <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-rosewood">
+                    {signingPlan.blockers.slice(0, 5).map((blocker) => (
+                      <li key={blocker}>{blocker}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                <p className="mt-3 text-xs text-amber-700">No button is exposed for real signing. Certificate/private-key material is not shown or stored by this plan.</p>
               </div>
             ) : null}
 

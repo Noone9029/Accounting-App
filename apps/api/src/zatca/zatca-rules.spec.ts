@@ -740,6 +740,32 @@ describe("ZATCA service rules", () => {
     );
   });
 
+  it("settings readiness exposes signing and Phase 2 QR production blockers without blocking local XML status", async () => {
+    const prisma = makeReadinessPrisma({ localXmlCount: 1 });
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const readiness = await service.getZatcaReadinessSummary("org-1");
+
+    expect(readiness.localXmlReady).toBe(true);
+    expect(readiness.productionCompliance).toBe(false);
+    expect(readiness.signing.status).toBe("BLOCKED");
+    expect(readiness.phase2Qr.status).toBe("BLOCKED");
+    expect(readiness.pdfA3.status).toBe("BLOCKED");
+    expect(readiness.signing.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "ZATCA_SIGNING_NOT_IMPLEMENTED", severity: "ERROR", sourceRule: "KSA-15" }),
+        expect.objectContaining({ code: "ZATCA_SIGNING_CERTIFICATE_NOT_CONFIGURED", severity: "ERROR", sourceRule: "SDK_README_SIGN" }),
+        expect.objectContaining({ code: "ZATCA_PRIVATE_KEY_CUSTODY_NOT_CONFIGURED", severity: "ERROR", sourceRule: "SECURITY_FEATURES_XADES" }),
+      ]),
+    );
+    expect(readiness.phase2Qr.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "ZATCA_PHASE_2_QR_NOT_IMPLEMENTED", severity: "ERROR", sourceRule: "KSA-14" }),
+        expect.objectContaining({ code: "ZATCA_PHASE_2_QR_SIGNATURE_DEPENDENCY", severity: "ERROR", sourceRule: "SECURITY_FEATURES_QR_TAGS_6_9" }),
+      ]),
+    );
+  });
+
   it("invoice readiness passes Saudi standard buyer required address fields", async () => {
     const prisma = makeInvoiceReadinessPrisma({
       customer: {
@@ -760,6 +786,24 @@ describe("ZATCA service rules", () => {
     expect(readiness.productionCompliance).toBe(false);
     expect(readiness.buyerContact.status).toBe("READY");
     expect(readiness.buyerContact.checks).toContainEqual(expect.objectContaining({ code: "ZATCA_BUYER_STANDARD_SA_ADDRESS_READY", severity: "INFO", sourceRule: "BR-KSA-63" }));
+  });
+
+  it("invoice readiness includes signing and Phase 2 QR blockers while generated XML stays ready", async () => {
+    const prisma = makeInvoiceReadinessPrisma();
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const readiness = await service.getInvoiceZatcaReadiness("org-1", "invoice-1");
+
+    expect(readiness.productionCompliance).toBe(false);
+    expect(readiness.xml.status).toBe("READY");
+    expect(readiness.signing.status).toBe("BLOCKED");
+    expect(readiness.phase2Qr.status).toBe("BLOCKED");
+    expect(readiness.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "ZATCA_SIGNING_NOT_IMPLEMENTED", severity: "ERROR" }),
+        expect.objectContaining({ code: "ZATCA_PHASE_2_QR_NOT_IMPLEMENTED", severity: "ERROR" }),
+      ]),
+    );
   });
 
   it("invoice readiness blocks Saudi standard buyer missing building number", async () => {
@@ -815,6 +859,45 @@ describe("ZATCA service rules", () => {
     const readiness = await service.getInvoiceZatcaReadiness("org-1", "invoice-1");
 
     expect(readiness.noMutation).toBe(true);
+    expect(prisma.zatcaInvoiceMetadata.upsert).not.toHaveBeenCalled();
+    expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+  });
+
+  it("returns an SDK signing plan as dry-run/no-mutation and does not expose private key content", async () => {
+    const prisma = makeInvoiceReadinessPrisma({
+      activeEgs: {
+        id: "egs-1",
+        name: "Dev EGS",
+        status: ZatcaRegistrationStatus.ACTIVE,
+        isActive: true,
+        lastIcv: 2,
+        lastInvoiceHash: "last-hash",
+        hashMode: "SDK_GENERATED",
+        complianceCsidPem: null,
+        productionCsidPem: null,
+        privateKeyPem: "-----BEGIN EC PRIVATE KEY-----\nSUPER-SECRET-PRIVATE-KEY\n-----END EC PRIVATE KEY-----",
+      },
+    });
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const plan = await service.getInvoiceZatcaSigningPlan("org-1", "invoice-1");
+
+    expect(plan).toMatchObject({
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      productionCompliance: false,
+      executionEnabled: false,
+      sdkCommand: "fatoora -sign -invoice <filename> -signedInvoice <filename>",
+    });
+    expect(plan.commandPlan.displayCommand).toContain("-sign");
+    expect(plan.commandPlan.displayCommand).toContain("-signedInvoice");
+    expect(plan.blockers).toEqual(expect.arrayContaining([expect.stringContaining("ZATCA_SDK_SIGNING_EXECUTION_ENABLED=false")]));
+    expect(plan.requiredInputs).toEqual(expect.arrayContaining([expect.objectContaining({ id: "certificate" }), expect.objectContaining({ id: "privateKeyCustody" })]));
+    expect(JSON.stringify(plan)).not.toContain("SUPER-SECRET-PRIVATE-KEY");
+    expect(JSON.stringify(plan)).not.toContain("BEGIN EC PRIVATE KEY");
     expect(prisma.zatcaInvoiceMetadata.upsert).not.toHaveBeenCalled();
     expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
     expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();

@@ -1094,6 +1094,9 @@ interface ZatcaReadinessSummary {
   productionReady: boolean;
   blockingReasons: string[];
   sellerProfile?: ZatcaReadinessSection;
+  signing: ZatcaReadinessSection;
+  phase2Qr: ZatcaReadinessSection;
+  pdfA3: ZatcaReadinessSection;
 }
 
 interface ZatcaReadinessSection {
@@ -1115,11 +1118,32 @@ interface ZatcaInvoiceReadinessResponse {
   invoice: ZatcaReadinessSection;
   egs: ZatcaReadinessSection;
   xml: ZatcaReadinessSection;
+  signing: ZatcaReadinessSection;
+  phase2Qr: ZatcaReadinessSection;
+  pdfA3: ZatcaReadinessSection;
   checks: Array<{
     code: string;
     severity: "ERROR" | "WARNING" | "INFO";
     sourceRule?: string;
   }>;
+}
+
+interface ZatcaInvoiceSigningPlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  productionCompliance: false;
+  executionEnabled: boolean;
+  sdkCommand: string;
+  commandPlan: {
+    command: string | null;
+    args: string[];
+    displayCommand: string;
+    warnings: string[];
+  };
+  requiredInputs: Array<{ id: string; available: boolean; path: string | null }>;
+  blockers: string[];
+  warnings: string[];
 }
 
 interface ZatcaXmlFieldMappingResponse {
@@ -2957,6 +2981,9 @@ async function main(): Promise<void> {
   assertEqual(zatcaReadiness.productionCompliance, false, "ZATCA readiness productionCompliance");
   assertEqual(zatcaReadiness.productionReady, false, "ZATCA readiness productionReady");
   assertEqual(zatcaReadiness.sellerProfile?.status, "READY", "ZATCA seller readiness ready after smoke profile patch");
+  assertEqual(zatcaReadiness.signing.status, "BLOCKED", "ZATCA signing readiness blocked");
+  assertEqual(zatcaReadiness.phase2Qr.status, "BLOCKED", "ZATCA Phase 2 QR readiness blocked");
+  assertEqual(zatcaReadiness.pdfA3.status, "BLOCKED", "ZATCA PDF/A-3 readiness blocked");
   assert(zatcaReadiness.blockingReasons.length > 0, "ZATCA readiness returns blocking reasons");
   assertNoPrivateKey(zatcaReadiness, "ZATCA readiness response");
 
@@ -3031,6 +3058,9 @@ async function main(): Promise<void> {
   assertEqual(invoiceZatcaReadiness.productionCompliance, false, "ZATCA invoice readiness productionCompliance");
   assertEqual(invoiceZatcaReadiness.sellerProfile.status, "READY", "ZATCA seller invoice readiness ready");
   assertEqual(invoiceZatcaReadiness.buyerContact.status, "READY", "ZATCA buyer invoice readiness ready");
+  assertEqual(invoiceZatcaReadiness.signing.status, "BLOCKED", "ZATCA invoice signing readiness blocked");
+  assertEqual(invoiceZatcaReadiness.phase2Qr.status, "BLOCKED", "ZATCA invoice Phase 2 QR readiness blocked");
+  assertEqual(invoiceZatcaReadiness.pdfA3.status, "BLOCKED", "ZATCA invoice PDF/A-3 readiness blocked");
   assert(invoiceZatcaReadiness.buyerContact.checks.every((check) => check.severity !== "ERROR"), "ZATCA buyer invoice readiness has no blocking checks");
   assert(
     invoiceZatcaReadiness.checks.every((check) => check.code !== "ZATCA_BUYER_BUILDING_NUMBER_MISSING"),
@@ -3041,6 +3071,23 @@ async function main(): Promise<void> {
   assertEqual(metadataAfterReadiness.invoiceHash, metadataBeforeReadiness.invoiceHash, "ZATCA invoice readiness does not mutate invoice hash");
   assertEqual(metadataAfterReadiness.previousInvoiceHash, metadataBeforeReadiness.previousInvoiceHash, "ZATCA invoice readiness does not mutate previous hash");
   assertNoPrivateKey(invoiceZatcaReadiness, "ZATCA invoice readiness response");
+  const metadataBeforeSigningPlan = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  const zatcaSigningPlan = await get<ZatcaInvoiceSigningPlanResponse>(`/sales-invoices/${draftInvoice.id}/zatca/signing-plan`, headers);
+  assertEqual(zatcaSigningPlan.localOnly, true, "ZATCA signing plan localOnly");
+  assertEqual(zatcaSigningPlan.dryRun, true, "ZATCA signing plan dryRun");
+  assertEqual(zatcaSigningPlan.noMutation, true, "ZATCA signing plan noMutation");
+  assertEqual(zatcaSigningPlan.productionCompliance, false, "ZATCA signing plan productionCompliance");
+  assertEqual(zatcaSigningPlan.executionEnabled, false, "ZATCA signing plan execution disabled");
+  assert(zatcaSigningPlan.sdkCommand.includes("-sign"), "ZATCA signing plan uses SDK sign command");
+  assert(zatcaSigningPlan.commandPlan.displayCommand.includes("-signedInvoice"), "ZATCA signing plan includes signed output path");
+  assert(zatcaSigningPlan.requiredInputs.some((input) => input.id === "certificate"), "ZATCA signing plan lists certificate input");
+  assert(zatcaSigningPlan.requiredInputs.some((input) => input.id === "privateKeyCustody"), "ZATCA signing plan lists private key custody input");
+  assert(zatcaSigningPlan.blockers.length > 0, "ZATCA signing plan returns blockers");
+  assertNoPrivateKey(zatcaSigningPlan, "ZATCA signing plan response");
+  const metadataAfterSigningPlan = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  assertEqual(metadataAfterSigningPlan.icv, metadataBeforeSigningPlan.icv, "ZATCA signing plan does not mutate ICV");
+  assertEqual(metadataAfterSigningPlan.invoiceHash, metadataBeforeSigningPlan.invoiceHash, "ZATCA signing plan does not mutate invoice hash");
+  assertEqual(metadataAfterSigningPlan.previousInvoiceHash, metadataBeforeSigningPlan.previousInvoiceHash, "ZATCA signing plan does not mutate previous hash");
   const zatcaSdkReadiness = await get<ZatcaSdkReadinessResponse>("/zatca-sdk/readiness", headers);
   assertEqual(zatcaSdkReadiness.enabled, false, "ZATCA SDK execution disabled by default");
   assert(typeof zatcaSdkReadiness.referenceFolderFound === "boolean", "ZATCA SDK readiness returns reference folder flag");
@@ -4690,6 +4737,10 @@ async function main(): Promise<void> {
         zatcaReadinessStatus: invoiceZatcaReadiness.status,
         zatcaSellerReadinessStatus: invoiceZatcaReadiness.sellerProfile.status,
         zatcaBuyerReadinessStatus: invoiceZatcaReadiness.buyerContact.status,
+        zatcaSigningReadinessStatus: invoiceZatcaReadiness.signing.status,
+        zatcaPhase2QrReadinessStatus: invoiceZatcaReadiness.phase2Qr.status,
+        zatcaSigningPlanDryRun: zatcaSigningPlan.dryRun,
+        zatcaSigningPlanNoMutation: zatcaSigningPlan.noMutation,
         paymentIds: [partialPayment.id, remainingPayment.id],
         paymentRefundId: paymentRefund.id,
         paymentUnappliedInvoiceId: paymentUnappliedInvoice.id,

@@ -1,5 +1,8 @@
 import { BadRequestException, Inject, Injectable, NotFoundException, NotImplementedException, Optional } from "@nestjs/common";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   combineZatcaReadinessStatus,
   createZatcaReadinessSection,
@@ -40,6 +43,12 @@ import { RequestComplianceCsidDto } from "./dto/request-compliance-csid.dto";
 import { UpdateZatcaEgsUnitDto } from "./dto/update-zatca-egs-unit.dto";
 import { UpdateZatcaProfileDto } from "./dto/update-zatca-profile.dto";
 import { ZatcaSdkService } from "../zatca-sdk/zatca-sdk.service";
+import {
+  buildZatcaSdkSigningCommand,
+  discoverZatcaSdkReadiness,
+  isZatcaSdkSigningExecutionEnabled,
+  ZATCA_SDK_SIGN_COMMAND,
+} from "../zatca-sdk/zatca-sdk-paths";
 import { isZatcaAdapterError, ZatcaAdapterError } from "./adapters/zatca-adapter.error";
 import { MockZatcaOnboardingAdapter } from "./adapters/mock-zatca-onboarding.adapter";
 import { ZATCA_ONBOARDING_ADAPTER, type ComplianceCsidResult, type ZatcaAdapterResult, type ZatcaOnboardingAdapter } from "./adapters/zatca-onboarding.adapter";
@@ -113,6 +122,16 @@ function hasText(value: string | null | undefined): boolean {
 
 function isSaudiVatNumber(value: string | null | undefined): boolean {
   return /^[0-9]{15}$/.test(value?.trim() ?? "") && value?.trim().startsWith("3") === true && value?.trim().endsWith("3") === true;
+}
+
+function safeZatcaTempName(value: string): string {
+  return (
+    value
+      .trim()
+      .replace(/[^a-zA-Z0-9._-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80) || "zatca-invoice"
+  );
 }
 
 @Injectable()
@@ -197,6 +216,7 @@ export class ZatcaService {
         isActive: true,
         csrPem: true,
         complianceCsidPem: true,
+        productionCsidPem: true,
         lastIcv: true,
         lastInvoiceHash: true,
         hashMode: true,
@@ -210,7 +230,10 @@ export class ZatcaService {
     const egs = this.buildEgsReadinessSection(activeEgs);
     const xml = this.buildSettingsXmlReadinessSection(localXmlCount);
     const sdk = this.buildSdkReadinessSection(this.zatcaSdkService?.getReadiness() ?? null);
-    const sections = [sellerProfile, egs, xml, sdk];
+    const signing = this.buildSigningReadinessSection(activeEgs);
+    const phase2Qr = this.buildPhase2QrReadinessSection();
+    const pdfA3 = this.buildPdfA3ReadinessSection();
+    const sections = [sellerProfile, egs, xml, sdk, signing, phase2Qr, pdfA3];
     const checks = sections.flatMap((section) => section.checks);
     const status = combineZatcaReadinessStatus(sections);
     const profileMissingFields = legacyProfileReadiness.missingFields;
@@ -242,6 +265,9 @@ export class ZatcaService {
       egs,
       xml,
       sdk,
+      signing,
+      phase2Qr,
+      pdfA3,
       checks,
       profileReady,
       profileMissingFields,
@@ -821,6 +847,7 @@ export class ZatcaService {
           isActive: true,
           csrPem: true,
           complianceCsidPem: true,
+          productionCsidPem: true,
           lastIcv: true,
           lastInvoiceHash: true,
           hashMode: true,
@@ -838,7 +865,10 @@ export class ZatcaService {
     const invoiceReadiness = this.buildInvoiceReadinessSection(invoice, zatcaInvoiceType);
     const egs = this.buildEgsReadinessSection(activeEgs);
     const xml = this.buildInvoiceXmlReadinessSection(metadata);
-    const sections = [sellerProfile, buyerContact, invoiceReadiness, egs, xml];
+    const signing = this.buildSigningReadinessSection(activeEgs);
+    const phase2Qr = this.buildPhase2QrReadinessSection(metadata);
+    const pdfA3 = this.buildPdfA3ReadinessSection();
+    const sections = [sellerProfile, buyerContact, invoiceReadiness, egs, xml, signing, phase2Qr, pdfA3];
     const status = combineZatcaReadinessStatus(sections);
     const checks = sections.flatMap((section) => section.checks);
 
@@ -861,10 +891,160 @@ export class ZatcaService {
       invoice: invoiceReadiness,
       egs,
       xml,
+      signing,
+      phase2Qr,
+      pdfA3,
       checks,
       warnings: [
         "Local readiness only. No ZATCA network call is made.",
         "This does not sign, clear, report, embed PDF/A-3, request CSIDs, or prove production compliance.",
+      ],
+    };
+  }
+
+  async getInvoiceZatcaSigningPlan(organizationId: string, invoiceId: string) {
+    const invoice = await this.prisma.salesInvoice.findFirst({
+      where: { id: invoiceId, organizationId },
+      select: { id: true, invoiceNumber: true, status: true },
+    });
+    if (!invoice) {
+      throw new NotFoundException("Sales invoice not found.");
+    }
+
+    const [metadata, activeEgs] = await Promise.all([
+      this.prisma.zatcaInvoiceMetadata.findFirst({
+        where: { organizationId, invoiceId },
+        select: {
+          id: true,
+          xmlBase64: true,
+          invoiceHash: true,
+          icv: true,
+          previousInvoiceHash: true,
+          egsUnitId: true,
+        },
+      }),
+      this.prisma.zatcaEgsUnit.findFirst({
+        where: { organizationId, isActive: true, status: ZatcaRegistrationStatus.ACTIVE },
+        orderBy: { updatedAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          isActive: true,
+          csrPem: true,
+          complianceCsidPem: true,
+          productionCsidPem: true,
+          lastIcv: true,
+          lastInvoiceHash: true,
+          hashMode: true,
+        },
+      }),
+    ]);
+
+    const sdkReadiness = discoverZatcaSdkReadiness();
+    const executionEnabled = isZatcaSdkSigningExecutionEnabled();
+    const tempRoot = sdkReadiness.workDir || join(tmpdir(), "ledgerbyte-zatca-sdk");
+    const unsignedXmlPath = join(tempRoot, `${safeZatcaTempName(invoice.id)}-unsigned.xml`);
+    const signedXmlPath = join(tempRoot, `${safeZatcaTempName(invoice.id)}-signed-dummy-only.xml`);
+    const commandPlan = buildZatcaSdkSigningCommand({
+      xmlFilePath: unsignedXmlPath,
+      signedInvoiceFilePath: signedXmlPath,
+      sdkJarPath: sdkReadiness.sdkJarPath,
+      launcherPath: sdkReadiness.fatooraLauncherPath,
+      jqPath: sdkReadiness.jqPath,
+      configDirPath: sdkReadiness.configDirPath,
+      workingDirectory: sdkReadiness.sdkRootPath ?? sdkReadiness.referenceFolderPath ?? sdkReadiness.projectRoot,
+      platform: process.platform,
+      javaFound: sdkReadiness.javaFound,
+      javaCommand: sdkReadiness.javaCommand,
+    });
+    const sdkRootPath = sdkReadiness.sdkRootPath ?? join(sdkReadiness.projectRoot, "reference", "zatca-einvoicing-sdk-Java-238-R3.4.8");
+    const certificatePath = join(sdkRootPath, "Data", "Certificates", "cert.pem");
+    const privateKeyPath = join(sdkRootPath, "Data", "Certificates", "ec-secp256k1-priv-key.pem");
+    const blockers: string[] = [];
+
+    if (!metadata?.xmlBase64) {
+      blockers.push("Generated invoice XML is missing; create local XML before planning SDK signing.");
+    }
+    if (!executionEnabled) {
+      blockers.push("SDK signing execution is disabled by default. Set ZATCA_SDK_SIGNING_EXECUTION_ENABLED=false unless a controlled dummy-material experiment is explicitly approved.");
+    }
+    blockers.push("LedgerByte does not implement XAdES signing or certificate/key custody yet.");
+    blockers.push("Private key custody is not configured; production must use a controlled KMS/HSM or equivalent secure key store.");
+    if (!activeEgs?.complianceCsidPem) {
+      blockers.push("Compliance CSID/certificate is missing; do not request CSIDs in this local-only phase.");
+    }
+    if (!activeEgs?.productionCsidPem) {
+      blockers.push("Production CSID is missing and production credentials must not be used in this phase.");
+    }
+    if (!commandPlan.command) {
+      blockers.push("No local SDK signing command could be planned from the official SDK files.");
+    }
+
+    return {
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      productionCompliance: false,
+      executionEnabled,
+      sdkCommand: ZATCA_SDK_SIGN_COMMAND,
+      invoice: {
+        id: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        status: invoice.status,
+      },
+      metadata: metadata
+        ? {
+            id: metadata.id,
+            hasXml: Boolean(metadata.xmlBase64),
+            hasInvoiceHash: Boolean(metadata.invoiceHash),
+            icv: metadata.icv,
+            previousInvoiceHash: metadata.previousInvoiceHash,
+            egsUnitId: metadata.egsUnitId,
+          }
+        : null,
+      egs: activeEgs
+        ? {
+            id: activeEgs.id,
+            name: activeEgs.name,
+            status: activeEgs.status,
+            isActive: activeEgs.isActive,
+            hasCsr: Boolean(activeEgs.csrPem),
+            hasComplianceCsid: Boolean(activeEgs.complianceCsidPem),
+            hasProductionCsid: Boolean(activeEgs.productionCsidPem),
+            hashMode: activeEgs.hashMode,
+          }
+        : null,
+      requiredInputs: [
+        { id: "invoiceXml", label: "Unsigned generated XML", required: true, available: Boolean(metadata?.xmlBase64), path: unsignedXmlPath },
+        { id: "signedInvoiceOutput", label: "Temporary signed XML output", required: true, available: true, path: signedXmlPath },
+        { id: "sdkConfiguration", label: "Official SDK Configuration directory", required: true, available: Boolean(sdkReadiness.configDirPath), path: sdkReadiness.configDirPath ?? null },
+        {
+          id: "certificate",
+          label: "Signing certificate",
+          required: true,
+          available: false,
+          path: certificatePath,
+          note: existsSync(certificatePath) ? "SDK bundled certificate exists but is dummy/testing-only and must not be treated as production signing material." : "No SDK certificate file was found.",
+        },
+        {
+          id: "privateKeyCustody",
+          label: "Private key custody",
+          required: true,
+          available: false,
+          path: privateKeyPath,
+          note: "Private key bytes are never returned by this endpoint. Production custody should use KMS/HSM-backed signing.",
+        },
+      ],
+      commandPlan,
+      blockers,
+      warnings: [
+        "Dry-run planning only. The SDK -sign command is not executed.",
+        "Do not use SDK dummy certificate/private-key material for production invoices.",
+        "Phase 2 QR tags that depend on signature/certificate material remain blocked until signing is implemented safely.",
+        "No ZATCA network call, clearance, reporting, CSID request, or PDF/A-3 generation is performed.",
+        ...sdkReadiness.warnings,
+        ...commandPlan.warnings,
       ],
     };
   }
@@ -1762,6 +1942,93 @@ export class ZatcaService {
       checks.push(this.check("ZATCA_SDK_WARNING", "INFO", "sdk.warnings", warning, undefined, "Review the local SDK setup note."));
     }
     return createZatcaReadinessSection("XML", checks);
+  }
+
+  private buildSigningReadinessSection(
+    activeEgs: {
+      csrPem?: string | null;
+      complianceCsidPem?: string | null;
+      productionCsidPem?: string | null;
+    } | null,
+  ): ZatcaReadinessSection {
+    const checks: ZatcaReadinessCheck[] = [
+      this.check(
+        "ZATCA_SIGNING_NOT_IMPLEMENTED",
+        "ERROR",
+        "signing.implementation",
+        "XAdES invoice signing is not implemented in LedgerByte yet.",
+        "KSA-15",
+        "Keep generated XML unsigned until certificate lifecycle, signing, validation, and key custody are implemented safely.",
+      ),
+      this.check(
+        "ZATCA_SIGNING_CERTIFICATE_NOT_CONFIGURED",
+        "ERROR",
+        "signing.certificate",
+        "A signing certificate is not configured for local or production signing.",
+        "SDK_README_SIGN",
+        "Use the official CSR/CSID lifecycle before enabling signing; SDK dummy certificates are test-only.",
+      ),
+      this.check(
+        "ZATCA_PRIVATE_KEY_CUSTODY_NOT_CONFIGURED",
+        "ERROR",
+        "signing.privateKeyCustody",
+        "Private key custody is not configured.",
+        "SECURITY_FEATURES_XADES",
+        "Use KMS/HSM-backed custody for production instead of storing private keys in application tables.",
+      ),
+    ];
+
+    if (!activeEgs?.csrPem) {
+      checks.push(this.check("ZATCA_CSR_NOT_GENERATED_FOR_SIGNING", "ERROR", "egs.csrPem", "CSR material is missing for the signing/onboarding lifecycle.", "CSR_CONFIG_TEMPLATE", "Generate CSR only when continuing into controlled onboarding work."));
+    }
+    if (!activeEgs?.complianceCsidPem) {
+      checks.push(this.check("ZATCA_COMPLIANCE_CSID_MISSING_FOR_SIGNING", "ERROR", "egs.complianceCsidPem", "Compliance CSID/certificate is missing for safe signing validation.", "SDK_README_SIGN", "Do not request CSIDs in this local-only planning phase."));
+    }
+    if (!activeEgs?.productionCsidPem) {
+      checks.push(this.check("ZATCA_PRODUCTION_CSID_MISSING_FOR_SIGNING", "ERROR", "egs.productionCsidPem", "Production CSID is missing.", "SECURITY_FEATURES_AUTH", "Production credentials must wait for a dedicated production onboarding phase."));
+    }
+    checks.push(this.check("ZATCA_SDK_DUMMY_MATERIAL_TEST_ONLY", "WARNING", "sdk.certificates", "The official SDK bundled certificate/private key are dummy testing material only.", "SDK_README_DUMMY_CERT", "Never persist or use SDK dummy material as tenant production credentials."));
+    return createZatcaReadinessSection("SIGNING", checks);
+  }
+
+  private buildPhase2QrReadinessSection(metadata?: { xmlBase64?: string | null; invoiceHash?: string | null } | null): ZatcaReadinessSection {
+    const checks: ZatcaReadinessCheck[] = [
+      this.check(
+        "ZATCA_PHASE_2_QR_NOT_IMPLEMENTED",
+        "ERROR",
+        "qr.phase2",
+        "Phase 2 QR cryptographic tags are not implemented.",
+        "KSA-14",
+        "Keep using the current basic QR payload only as local groundwork until signing/certificate material is available.",
+      ),
+      this.check(
+        "ZATCA_PHASE_2_QR_SIGNATURE_DEPENDENCY",
+        "ERROR",
+        "qr.tags6to9",
+        "Phase 2 QR tags 6-9 depend on the XML hash, ECDSA signature, public key, and simplified-invoice certificate signature.",
+        "SECURITY_FEATURES_QR_TAGS_6_9",
+        "Generate Phase 2 QR only after signed XML and certificate validation are implemented.",
+      ),
+    ];
+    if (metadata?.xmlBase64 && metadata.invoiceHash) {
+      checks.push(this.check("ZATCA_BASIC_QR_SOURCE_AVAILABLE", "INFO", "qr.basic", "Generated XML and invoice hash exist for current local basic QR payloads.", "KSA-14", "Regenerate QR after signing is implemented so cryptographic tags are included correctly."));
+    } else {
+      checks.push(this.check("ZATCA_BASIC_QR_SOURCE_MISSING", "WARNING", "qr.basic", "Generated XML/hash are missing for this invoice.", "KSA-14", "Generate unsigned XML before planning Phase 2 QR work."));
+    }
+    return createZatcaReadinessSection("PHASE_2_QR", checks);
+  }
+
+  private buildPdfA3ReadinessSection(): ZatcaReadinessSection {
+    return createZatcaReadinessSection("PDF_A3", [
+      this.check(
+        "ZATCA_PDF_A3_NOT_IMPLEMENTED",
+        "ERROR",
+        "pdfA3",
+        "PDF/A-3 embedding is not implemented.",
+        "SECURITY_FEATURES_PADES",
+        "Implement signed XML first, then add PDF/A-3 embedding in a separate controlled phase.",
+      ),
+    ]);
   }
 
   private addRequiredCheck(checks: ZatcaReadinessCheck[], value: string | null | undefined, code: string, field: string, message: string, sourceRule: string, fixHint: string): void {
