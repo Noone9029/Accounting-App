@@ -1,3 +1,7 @@
+import type { ZatcaReadinessCheck, ZatcaReadinessSection, ZatcaReadinessStatus } from "@ledgerbyte/shared";
+
+export type { ZatcaReadinessCheck, ZatcaReadinessSection, ZatcaReadinessStatus } from "@ledgerbyte/shared";
+
 export type AccountType = "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE" | "COST_OF_SALES";
 export type ContactType = "CUSTOMER" | "SUPPLIER" | "BOTH";
 export type TaxRateScope = "SALES" | "PURCHASES" | "BOTH";
@@ -3033,6 +3037,14 @@ export interface ZatcaHashChainResetPlan {
 
 export interface ZatcaReadinessSummary {
   warning: string;
+  status: ZatcaReadinessStatus;
+  localOnly: true;
+  productionCompliance: false;
+  sellerProfile: ZatcaReadinessSection;
+  egs: ZatcaReadinessSection;
+  xml: ZatcaReadinessSection;
+  sdk: ZatcaReadinessSection;
+  checks: ZatcaReadinessCheck[];
   profileReady: boolean;
   profileMissingFields: string[];
   egsReady: boolean;
@@ -3052,6 +3064,29 @@ export interface ZatcaReadinessSummary {
   realNetworkEnabled: boolean;
   productionReady: false;
   blockingReasons: string[];
+}
+
+export interface ZatcaInvoiceReadinessResponse {
+  status: ZatcaReadinessStatus;
+  localOnly: true;
+  noMutation: true;
+  productionCompliance: false;
+  invoiceSummary: {
+    id: string;
+    invoiceNumber: string;
+    status: SalesInvoiceStatus;
+    zatcaInvoiceType: string;
+    transactionCodeFlags: string;
+    customerId: string | null;
+    customerName: string | null;
+  };
+  sellerProfile: ZatcaReadinessSection;
+  buyerContact: ZatcaReadinessSection;
+  invoice: ZatcaReadinessSection;
+  egs: ZatcaReadinessSection;
+  xml: ZatcaReadinessSection;
+  checks: ZatcaReadinessCheck[];
+  warnings: string[];
 }
 
 export interface ZatcaXmlValidationResult {

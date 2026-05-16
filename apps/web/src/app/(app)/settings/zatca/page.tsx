@@ -21,6 +21,8 @@ import {
   zatcaHashModeLabel,
   zatcaResetPlanWarningLabel,
   zatcaReadinessLabel,
+  zatcaReadinessStatusBadgeClass,
+  zatcaReadinessStatusLabel,
   zatcaSdkHashModeEnableBlockerLabel,
   zatcaSdkCanAttemptLabel,
   zatcaSdkExecutionLabel,
@@ -37,6 +39,7 @@ import type {
   ZatcaEnvironment,
   ZatcaHashChainResetPlan,
   ZatcaOrganizationProfile,
+  ZatcaReadinessSection,
   ZatcaReadinessSummary,
   ZatcaSdkReadinessResponse,
   ZatcaSubmissionLog,
@@ -427,6 +430,13 @@ export default function ZatcaSettingsPage() {
                 <ReadinessSummary label="Real network" ready={readiness.realNetworkEnabled} detail={readiness.realNetworkEnabled ? "Explicitly enabled" : "Disabled by configuration"} />
                 <ReadinessSummary label="Production" ready={readiness.productionReady} detail="Always blocked until official validation is complete" />
               </div>
+              <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <ReadinessCheckCard title="Seller invoice XML profile" section={readiness.sellerProfile} />
+                <ReadinessCheckCard title="EGS/hash mode" section={readiness.egs} />
+                <ReadinessCheckCard title="Generated XML inventory" section={readiness.xml} />
+                <ReadinessCheckCard title="Local SDK wrapper" section={readiness.sdk} />
+              </div>
+              <p className="mt-4 text-xs text-amber-700">Local-only readiness. No signing, CSID request, clearance/reporting, network submission, PDF/A-3, or production compliance is enabled.</p>
               {readiness.blockingReasons.length > 0 ? (
                 <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-steel">
                   {readiness.blockingReasons.map((reason) => (
@@ -773,6 +783,38 @@ function ReadinessSummary({ label, ready, detail }: { label: string; ready: bool
         {zatcaReadinessLabel(ready)}
       </div>
       <div className="mt-1 text-xs text-steel">{detail}</div>
+    </div>
+  );
+}
+
+function ReadinessCheckCard({ title, section }: { title: string; section: ZatcaReadinessSection }) {
+  const visibleChecks = section.checks.slice(0, 4);
+
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-ink">{title}</h3>
+          <p className="mt-1 text-xs text-steel">{section.scope.replaceAll("_", " ").toLowerCase()}</p>
+        </div>
+        <span className={`rounded-md px-2 py-1 text-xs font-medium ${zatcaReadinessStatusBadgeClass(section.status)}`}>
+          {zatcaReadinessStatusLabel(section.status)}
+        </span>
+      </div>
+      {visibleChecks.length ? (
+        <ul className="mt-3 space-y-2 text-xs text-steel">
+          {visibleChecks.map((check) => (
+            <li key={`${check.code}-${check.field}`}>
+              <span className="font-medium text-ink">{check.field}</span>: {check.message}
+              {check.sourceRule ? <span className="ml-1 text-slate-500">({check.sourceRule})</span> : null}
+              <div className="mt-1 text-slate-500">{check.fixHint}</div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 text-xs text-emerald-700">No readiness issues detected for this section.</p>
+      )}
+      {section.checks.length > visibleChecks.length ? <p className="mt-2 text-xs text-steel">+{section.checks.length - visibleChecks.length} more checks.</p> : null}
     </div>
   );
 }

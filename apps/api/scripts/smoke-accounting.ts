@@ -1088,8 +1088,38 @@ interface ZatcaComplianceChecklistResponse {
 
 interface ZatcaReadinessSummary {
   warning: string;
+  status: "READY" | "WARNINGS" | "BLOCKED";
+  localOnly: true;
+  productionCompliance: false;
   productionReady: boolean;
   blockingReasons: string[];
+  sellerProfile?: ZatcaReadinessSection;
+}
+
+interface ZatcaReadinessSection {
+  status: "READY" | "WARNINGS" | "BLOCKED";
+  checks: Array<{
+    code: string;
+    severity: "ERROR" | "WARNING" | "INFO";
+    sourceRule?: string;
+  }>;
+}
+
+interface ZatcaInvoiceReadinessResponse {
+  status: "READY" | "WARNINGS" | "BLOCKED";
+  localOnly: true;
+  noMutation: true;
+  productionCompliance: false;
+  sellerProfile: ZatcaReadinessSection;
+  buyerContact: ZatcaReadinessSection;
+  invoice: ZatcaReadinessSection;
+  egs: ZatcaReadinessSection;
+  xml: ZatcaReadinessSection;
+  checks: Array<{
+    code: string;
+    severity: "ERROR" | "WARNING" | "INFO";
+    sourceRule?: string;
+  }>;
 }
 
 interface ZatcaXmlFieldMappingResponse {
@@ -2923,7 +2953,10 @@ async function main(): Promise<void> {
   assert(zatcaXmlFieldMapping.items.length === zatcaXmlFieldMapping.summary.total, "ZATCA XML field mapping item count matches summary");
   const zatcaReadiness = await get<ZatcaReadinessSummary>("/zatca/readiness", headers);
   assert(zatcaReadiness.warning.includes("not legal certification"), "ZATCA readiness warning is present");
+  assertEqual(zatcaReadiness.localOnly, true, "ZATCA readiness localOnly");
+  assertEqual(zatcaReadiness.productionCompliance, false, "ZATCA readiness productionCompliance");
   assertEqual(zatcaReadiness.productionReady, false, "ZATCA readiness productionReady");
+  assertEqual(zatcaReadiness.sellerProfile?.status, "READY", "ZATCA seller readiness ready after smoke profile patch");
   assert(zatcaReadiness.blockingReasons.length > 0, "ZATCA readiness returns blocking reasons");
   assertNoPrivateKey(zatcaReadiness, "ZATCA readiness response");
 
@@ -2991,6 +3024,23 @@ async function main(): Promise<void> {
   assertEqual(zatcaXmlValidation.officialValidation, false, "ZATCA XML validation officialValidation");
   assertEqual(zatcaXmlValidation.valid, true, "ZATCA XML validation valid");
   assertNoPrivateKey(zatcaXmlValidation, "ZATCA XML validation response");
+  const metadataBeforeReadiness = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  const invoiceZatcaReadiness = await get<ZatcaInvoiceReadinessResponse>(`/sales-invoices/${draftInvoice.id}/zatca/readiness`, headers);
+  assertEqual(invoiceZatcaReadiness.localOnly, true, "ZATCA invoice readiness localOnly");
+  assertEqual(invoiceZatcaReadiness.noMutation, true, "ZATCA invoice readiness noMutation");
+  assertEqual(invoiceZatcaReadiness.productionCompliance, false, "ZATCA invoice readiness productionCompliance");
+  assertEqual(invoiceZatcaReadiness.sellerProfile.status, "READY", "ZATCA seller invoice readiness ready");
+  assertEqual(invoiceZatcaReadiness.buyerContact.status, "READY", "ZATCA buyer invoice readiness ready");
+  assert(invoiceZatcaReadiness.buyerContact.checks.every((check) => check.severity !== "ERROR"), "ZATCA buyer invoice readiness has no blocking checks");
+  assert(
+    invoiceZatcaReadiness.checks.every((check) => check.code !== "ZATCA_BUYER_BUILDING_NUMBER_MISSING"),
+    "ZATCA buyer building-number warning cleared in smoke data",
+  );
+  const metadataAfterReadiness = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  assertEqual(metadataAfterReadiness.icv, metadataBeforeReadiness.icv, "ZATCA invoice readiness does not mutate ICV");
+  assertEqual(metadataAfterReadiness.invoiceHash, metadataBeforeReadiness.invoiceHash, "ZATCA invoice readiness does not mutate invoice hash");
+  assertEqual(metadataAfterReadiness.previousInvoiceHash, metadataBeforeReadiness.previousInvoiceHash, "ZATCA invoice readiness does not mutate previous hash");
+  assertNoPrivateKey(invoiceZatcaReadiness, "ZATCA invoice readiness response");
   const zatcaSdkReadiness = await get<ZatcaSdkReadinessResponse>("/zatca-sdk/readiness", headers);
   assertEqual(zatcaSdkReadiness.enabled, false, "ZATCA SDK execution disabled by default");
   assert(typeof zatcaSdkReadiness.referenceFolderFound === "boolean", "ZATCA SDK readiness returns reference folder flag");
@@ -4637,6 +4687,9 @@ async function main(): Promise<void> {
         creditApplicationInvoiceId: creditApplicationInvoice.id,
         zatcaMetadataId: zatcaMetadata.id,
         zatcaIcv: zatcaMetadata.icv,
+        zatcaReadinessStatus: invoiceZatcaReadiness.status,
+        zatcaSellerReadinessStatus: invoiceZatcaReadiness.sellerProfile.status,
+        zatcaBuyerReadinessStatus: invoiceZatcaReadiness.buyerContact.status,
         paymentIds: [partialPayment.id, remainingPayment.id],
         paymentRefundId: paymentRefund.id,
         paymentUnappliedInvoiceId: paymentUnappliedInvoice.id,

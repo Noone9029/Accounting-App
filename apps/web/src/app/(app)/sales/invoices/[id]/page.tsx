@@ -23,6 +23,7 @@ import {
   zatcaHashComparisonLabel,
   zatcaHashModeLabel,
   zatcaInvoiceHashComparePath,
+  zatcaInvoiceReadinessPath,
   zatcaInvoiceSdkValidatePath,
   zatcaInvoiceClearancePath,
   zatcaInvoiceComplianceCheckPath,
@@ -31,6 +32,8 @@ import {
   zatcaInvoiceXmlValidationPath,
   zatcaSdkValidateXmlDryRunPath,
   zatcaSdkValidationResultLabel,
+  zatcaReadinessStatusBadgeClass,
+  zatcaReadinessStatusLabel,
   zatcaStatusLabel,
   zatcaXmlValidationLabel,
 } from "@/lib/zatca";
@@ -39,7 +42,9 @@ import type {
   SalesInvoiceStockIssueStatus,
   ZatcaInvoiceHashCompareResponse,
   ZatcaInvoiceMetadata,
+  ZatcaInvoiceReadinessResponse,
   ZatcaQrResponse,
+  ZatcaReadinessSection,
   ZatcaSdkDryRunResponse,
   ZatcaSdkValidationResponse,
   ZatcaXmlValidationResult,
@@ -53,6 +58,7 @@ export default function SalesInvoiceDetailPage() {
   const [invoice, setInvoice] = useState<SalesInvoice | null>(null);
   const [stockIssueStatus, setStockIssueStatus] = useState<SalesInvoiceStockIssueStatus | null>(null);
   const [zatca, setZatca] = useState<ZatcaInvoiceMetadata | null>(null);
+  const [zatcaReadiness, setZatcaReadiness] = useState<ZatcaInvoiceReadinessResponse | null>(null);
   const [xmlValidation, setXmlValidation] = useState<ZatcaXmlValidationResult | null>(null);
   const [sdkDryRun, setSdkDryRun] = useState<ZatcaSdkDryRunResponse | null>(null);
   const [sdkValidation, setSdkValidation] = useState<ZatcaSdkValidationResponse | null>(null);
@@ -76,13 +82,15 @@ export default function SalesInvoiceDetailPage() {
       apiRequest<SalesInvoice>(`/sales-invoices/${params.id}`),
       apiRequest<SalesInvoiceStockIssueStatus>(`/sales-invoices/${params.id}/stock-issue-status`).catch(() => null),
       apiRequest<ZatcaInvoiceMetadata>(`/sales-invoices/${params.id}/zatca`).catch(() => null),
+      apiRequest<ZatcaInvoiceReadinessResponse>(zatcaInvoiceReadinessPath(params.id)).catch(() => null),
       apiRequest<ZatcaXmlValidationResult>(zatcaInvoiceXmlValidationPath(params.id)).catch(() => null),
     ])
-      .then(([result, stockStatusResult, zatcaResult, validationResult]) => {
+      .then(([result, stockStatusResult, zatcaResult, readinessResult, validationResult]) => {
         if (!cancelled) {
           setInvoice(result);
           setStockIssueStatus(stockStatusResult);
           setZatca(zatcaResult);
+          setZatcaReadiness(readinessResult);
           setXmlValidation(validationResult);
         }
       })
@@ -120,6 +128,7 @@ export default function SalesInvoiceDetailPage() {
       setInvoice(updated);
       if (action === "finalize") {
         await refreshZatca(updated.id);
+        await fetchZatcaReadiness(updated.id).catch(() => undefined);
       }
       setSuccess(action === "finalize" ? `Finalized invoice ${updated.invoiceNumber}.` : `Voided invoice ${updated.invoiceNumber}.`);
     } catch (actionError) {
@@ -172,6 +181,12 @@ export default function SalesInvoiceDetailPage() {
     return result;
   }
 
+  async function fetchZatcaReadiness(invoiceId: string) {
+    const result = await apiRequest<ZatcaInvoiceReadinessResponse>(zatcaInvoiceReadinessPath(invoiceId));
+    setZatcaReadiness(result);
+    return result;
+  }
+
   async function fetchZatcaXmlValidation(invoiceId: string) {
     const result = await apiRequest<ZatcaXmlValidationResult>(zatcaInvoiceXmlValidationPath(invoiceId));
     setXmlValidation(result);
@@ -194,6 +209,7 @@ export default function SalesInvoiceDetailPage() {
     try {
       const result = await apiRequest<ZatcaInvoiceMetadata>(`/sales-invoices/${invoice.id}/zatca/generate`, { method: "POST" });
       setZatca(result);
+      await fetchZatcaReadiness(invoice.id);
       await fetchZatcaXmlValidation(invoice.id);
       setSuccess("Local ZATCA XML, QR payload, and hash metadata generated.");
     } catch (generateError) {
@@ -251,6 +267,7 @@ export default function SalesInvoiceDetailPage() {
 
     try {
       await fetchZatcaXmlValidation(invoice.id);
+      await fetchZatcaReadiness(invoice.id).catch(() => undefined);
       setSuccess("Local XML validation refreshed.");
     } catch (validationError) {
       setError(validationError instanceof Error ? validationError.message : "Unable to validate local ZATCA XML.");
@@ -739,6 +756,28 @@ export default function SalesInvoiceDetailPage() {
               <Summary label="Submission error" value={latestZatcaSubmission?.errorMessage ?? "-"} />
             </div>
 
+            {zatcaReadiness ? (
+              <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-ink">ZATCA readiness</h3>
+                    <p className="mt-1 text-xs text-steel">Read-only seller, buyer, invoice, EGS, and XML checks. No ICV, metadata, or EGS hash mutation.</p>
+                  </div>
+                  <span className={`rounded-md px-2 py-1 text-xs font-medium ${zatcaReadinessStatusBadgeClass(zatcaReadiness.status)}`}>
+                    {zatcaReadinessStatusLabel(zatcaReadiness.status)}
+                  </span>
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+                  <InvoiceReadinessSectionCard title="Seller" section={zatcaReadiness.sellerProfile} />
+                  <InvoiceReadinessSectionCard title="Buyer" section={zatcaReadiness.buyerContact} />
+                  <InvoiceReadinessSectionCard title="Invoice" section={zatcaReadiness.invoice} />
+                  <InvoiceReadinessSectionCard title="EGS" section={zatcaReadiness.egs} />
+                  <InvoiceReadinessSectionCard title="XML" section={zatcaReadiness.xml} />
+                </div>
+                <p className="mt-3 text-xs text-amber-700">Local-only. No signing, CSID request, clearance/reporting, network call, PDF/A-3, or production compliance claim.</p>
+              </div>
+            ) : null}
+
             <div className="mt-4 flex flex-wrap gap-2">
               {invoice.status === "FINALIZED" && canGenerateZatca ? (
                 <button type="button" onClick={() => void generateZatca()} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
@@ -962,6 +1001,30 @@ function Summary({ label, value }: { label: string; value: string }) {
     <div>
       <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
       <div className="mt-1 break-words font-medium text-ink">{value}</div>
+    </div>
+  );
+}
+
+function InvoiceReadinessSectionCard({ title, section }: { title: string; section: ZatcaReadinessSection }) {
+  const primaryCheck = section.checks.find((check) => check.severity === "ERROR") ?? section.checks.find((check) => check.severity === "WARNING") ?? section.checks[0];
+
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium uppercase tracking-wide text-steel">{title}</span>
+        <span className={`rounded-md px-2 py-1 text-[11px] font-medium ${zatcaReadinessStatusBadgeClass(section.status)}`}>
+          {zatcaReadinessStatusLabel(section.status)}
+        </span>
+      </div>
+      {primaryCheck ? (
+        <div className="mt-2 text-xs text-steel">
+          <div className="font-medium text-ink">{primaryCheck.field}</div>
+          <div>{primaryCheck.message}</div>
+          {primaryCheck.sourceRule ? <div className="mt-1 text-slate-500">{primaryCheck.sourceRule}</div> : null}
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-emerald-700">No readiness issues detected.</p>
+      )}
     </div>
   );
 }

@@ -1,3 +1,5 @@
+import type { Contact, ZatcaReadinessCheck, ZatcaReadinessSection, ZatcaReadinessStatus } from "@/lib/types";
+
 export function truncateHash(value: string | null | undefined, size = 12): string {
   if (!value) {
     return "-";
@@ -15,6 +17,10 @@ export function zatcaInvoiceXmlPath(invoiceId: string): string {
 
 export function zatcaInvoiceXmlValidationPath(invoiceId: string): string {
   return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/xml-validation`;
+}
+
+export function zatcaInvoiceReadinessPath(invoiceId: string): string {
+  return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/readiness`;
 }
 
 export function zatcaInvoiceQrPath(invoiceId: string): string {
@@ -135,6 +141,26 @@ export function zatcaReadinessLabel(value: boolean): string {
   return value ? "Ready locally" : "Blocked";
 }
 
+export function zatcaReadinessStatusLabel(status: ZatcaReadinessStatus | null | undefined): string {
+  if (status === "READY") {
+    return "Ready";
+  }
+  if (status === "WARNINGS") {
+    return "Warnings";
+  }
+  return "Blocked";
+}
+
+export function zatcaReadinessStatusBadgeClass(status: ZatcaReadinessStatus | null | undefined): string {
+  if (status === "READY") {
+    return "bg-emerald-50 text-emerald-700";
+  }
+  if (status === "WARNINGS") {
+    return "bg-amber-50 text-amber-700";
+  }
+  return "bg-rose-50 text-rosewood";
+}
+
 export function shouldShowZatcaRealNetworkWarning(config: Pick<ZatcaAdapterConfigSummary, "effectiveRealNetworkEnabled"> | null | undefined): boolean {
   return !config?.effectiveRealNetworkEnabled;
 }
@@ -219,4 +245,119 @@ export function getZatcaProfileMissingFields(profile: {
   ]
     .filter(([, value]) => !String(value ?? "").trim())
     .map(([field]) => String(field));
+}
+
+export function buildContactBuyerAddressReadiness(contact: Pick<Contact, "addressLine1" | "buildingNumber" | "district" | "city" | "postalCode" | "countryCode" | "taxNumber">): ZatcaReadinessSection {
+  const checks: ZatcaReadinessCheck[] = [];
+  const countryCode = contact.countryCode?.trim().toUpperCase() || "SA";
+  const isSaudiBuyer = countryCode === "SA";
+
+  if (!isSaudiBuyer) {
+    checks.push({
+      code: "ZATCA_BUYER_NON_SA_ADDRESS_CONTEXT",
+      severity: "INFO",
+      field: "buyer.countryCode",
+      message: "This contact is not marked as a Saudi buyer; Saudi buyer postal-address checks are invoice-specific.",
+      sourceRule: "BR-KSA-10",
+      fixHint: "Review the generated invoice readiness when this buyer is used on a standard invoice.",
+    });
+    return createFrontendReadinessSection("BUYER_CONTACT", checks);
+  }
+
+  addFrontendRequiredCheck(checks, contact.addressLine1, {
+    code: "ZATCA_BUYER_STREET_MISSING",
+    field: "buyer.addressLine1",
+    message: "Buyer street name is required for a clean Saudi standard invoice postal address.",
+    sourceRule: "BR-KSA-63",
+    fixHint: "Add the buyer street name on the contact address.",
+  });
+  addFrontendRequiredCheck(checks, contact.buildingNumber, {
+    code: "ZATCA_BUYER_BUILDING_NUMBER_MISSING",
+    field: "buyer.buildingNumber",
+    message: "Buyer building number is required for a clean Saudi standard invoice postal address.",
+    sourceRule: "BR-KSA-63",
+    fixHint: "Add the real buyer building number. Saudi national-address building numbers are usually 4 digits.",
+  });
+  addFrontendRequiredCheck(checks, contact.district, {
+    code: "ZATCA_BUYER_DISTRICT_MISSING",
+    field: "buyer.district",
+    message: "Buyer district is required for a clean Saudi standard invoice postal address.",
+    sourceRule: "BR-KSA-63",
+    fixHint: "Add the buyer district on the contact address.",
+  });
+  addFrontendRequiredCheck(checks, contact.city, {
+    code: "ZATCA_BUYER_CITY_MISSING",
+    field: "buyer.city",
+    message: "Buyer city is required for a clean Saudi standard invoice postal address.",
+    sourceRule: "BR-KSA-63",
+    fixHint: "Add the buyer city on the contact address.",
+  });
+  addFrontendRequiredCheck(checks, contact.postalCode, {
+    code: "ZATCA_BUYER_POSTAL_CODE_MISSING",
+    field: "buyer.postalCode",
+    message: "Buyer postal code is required for a clean Saudi standard invoice postal address.",
+    sourceRule: "BR-KSA-63",
+    fixHint: "Add the buyer postal code on the contact address.",
+  });
+  addFrontendRequiredCheck(checks, contact.countryCode, {
+    code: "ZATCA_BUYER_COUNTRY_CODE_MISSING",
+    field: "buyer.countryCode",
+    message: "Buyer country code is required for a clean Saudi standard invoice postal address.",
+    sourceRule: "BR-KSA-63",
+    fixHint: "Set the buyer country code to SA for Saudi buyers.",
+  });
+
+  const postalCode = contact.postalCode?.trim() ?? "";
+  if (postalCode && !/^[0-9]{5}$/.test(postalCode)) {
+    checks.push({
+      code: "ZATCA_BUYER_POSTAL_CODE_INVALID",
+      severity: "WARNING",
+      field: "buyer.postalCode",
+      message: "Saudi buyer postal code should be 5 digits for clean SDK validation.",
+      sourceRule: "BR-KSA-67",
+      fixHint: "Use the 5-digit Saudi postal code from the buyer national address.",
+    });
+  }
+
+  const taxNumber = contact.taxNumber?.trim() ?? "";
+  if (taxNumber && (!/^[0-9]{15}$/.test(taxNumber) || !taxNumber.startsWith("3") || !taxNumber.endsWith("3"))) {
+    checks.push({
+      code: "ZATCA_BUYER_VAT_NUMBER_INVALID",
+      severity: "ERROR",
+      field: "buyer.taxNumber",
+      message: "Buyer VAT number, when provided, must be 15 digits and start/end with 3.",
+      sourceRule: "BR-KSA-44",
+      fixHint: "Use the buyer VAT number exactly as registered or leave it blank if not applicable.",
+    });
+  }
+
+  return createFrontendReadinessSection("BUYER_CONTACT", checks);
+}
+
+function createFrontendReadinessSection(scope: ZatcaReadinessSection["scope"], checks: ZatcaReadinessCheck[]): ZatcaReadinessSection {
+  return {
+    scope,
+    status: deriveFrontendReadinessStatus(checks),
+    checks,
+  };
+}
+
+function deriveFrontendReadinessStatus(checks: ZatcaReadinessCheck[]): ZatcaReadinessStatus {
+  if (checks.some((check) => check.severity === "ERROR")) {
+    return "BLOCKED";
+  }
+  if (checks.some((check) => check.severity === "WARNING")) {
+    return "WARNINGS";
+  }
+  return "READY";
+}
+
+function addFrontendRequiredCheck(
+  checks: ZatcaReadinessCheck[],
+  value: string | null | undefined,
+  check: Omit<ZatcaReadinessCheck, "severity">,
+) {
+  if (!String(value ?? "").trim()) {
+    checks.push({ ...check, severity: "ERROR" });
+  }
 }

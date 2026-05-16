@@ -1,6 +1,13 @@
 import { BadRequestException, Inject, Injectable, NotFoundException, NotImplementedException, Optional } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import {
+  combineZatcaReadinessStatus,
+  createZatcaReadinessSection,
+  type ZatcaReadinessCheck,
+  type ZatcaReadinessSection,
+  type ZatcaReadinessSeverity,
+} from "@ledgerbyte/shared";
+import {
   buildZatcaInvoicePayload,
   generateZatcaCsrPem,
   initialPreviousInvoiceHash,
@@ -100,6 +107,14 @@ export function getZatcaProfileReadiness(profile: {
   return { ready: missingFields.length === 0, missingFields };
 }
 
+function hasText(value: string | null | undefined): boolean {
+  return Boolean(value?.trim());
+}
+
+function isSaudiVatNumber(value: string | null | undefined): boolean {
+  return /^[0-9]{15}$/.test(value?.trim() ?? "") && value?.trim().startsWith("3") === true && value?.trim().endsWith("3") === true;
+}
+
 @Injectable()
 export class ZatcaService {
   private readonly onboardingAdapter: ZatcaOnboardingAdapter;
@@ -190,28 +205,29 @@ export class ZatcaService {
     const localXmlCount = await this.prisma.zatcaInvoiceMetadata.count({
       where: { organizationId, xmlBase64: { not: null } },
     });
-    const profileReady = profile.readiness.ready;
+    const legacyProfileReadiness = getZatcaProfileReadiness(profile);
+    const sellerProfile = this.buildSellerProfileReadiness(profile);
+    const egs = this.buildEgsReadinessSection(activeEgs);
+    const xml = this.buildSettingsXmlReadinessSection(localXmlCount);
+    const sdk = this.buildSdkReadinessSection(this.zatcaSdkService?.getReadiness() ?? null);
+    const sections = [sellerProfile, egs, xml, sdk];
+    const checks = sections.flatMap((section) => section.checks);
+    const status = combineZatcaReadinessStatus(sections);
+    const profileMissingFields = legacyProfileReadiness.missingFields;
+    const profileReady = legacyProfileReadiness.ready;
     const egsReady = Boolean(activeEgs);
     const localXmlReady = localXmlCount > 0;
     const mockCsidReady = Boolean(activeEgs?.complianceCsidPem);
     const adapterConfig = this.getAdapterConfig();
-    const blockingReasons: string[] = [];
+    const blockingReasons = checks.filter((check) => check.severity === "ERROR").map((check) => `${check.code}: ${check.message}`);
 
-    if (!profileReady) {
-      blockingReasons.push(`ZATCA profile is missing: ${profile.readiness.missingFields.join(", ")}.`);
+    if (!legacyProfileReadiness.ready) {
+      blockingReasons.unshift(`Missing ZATCA profile fields: ${legacyProfileReadiness.missingFields.join(", ")}`);
     }
     if (!egsReady) {
       blockingReasons.push("No active development EGS unit is configured.");
     }
-    if (egsReady && !activeEgs?.csrPem) {
-      blockingReasons.push("Active EGS unit does not have a CSR yet.");
-    }
-    if (!mockCsidReady) {
-      blockingReasons.push("No active EGS unit has a local mock compliance CSID.");
-    }
-    if (!localXmlReady) {
-      blockingReasons.push("No local ZATCA XML has been generated for an invoice yet.");
-    }
+
     if (!adapterConfig.effectiveRealNetworkEnabled) {
       blockingReasons.push("Real ZATCA network calls are disabled by configuration.");
     }
@@ -219,8 +235,16 @@ export class ZatcaService {
 
     return {
       warning: "This readiness summary is local engineering guidance only and is not legal certification.",
+      status,
+      localOnly: true,
+      productionCompliance: false,
+      sellerProfile,
+      egs,
+      xml,
+      sdk,
+      checks,
       profileReady,
-      profileMissingFields: profile.readiness.missingFields,
+      profileMissingFields,
       egsReady,
       activeEgsUnit: activeEgs
         ? {
@@ -743,6 +767,106 @@ export class ZatcaService {
   async getInvoiceCompliance(organizationId: string, invoiceId: string) {
     await this.ensureInvoiceBelongsToOrganization(organizationId, invoiceId);
     return this.ensureInvoiceMetadata(organizationId, invoiceId);
+  }
+
+  async getInvoiceZatcaReadiness(organizationId: string, invoiceId: string) {
+    const invoice = await this.prisma.salesInvoice.findFirst({
+      where: { id: invoiceId, organizationId },
+      include: {
+        organization: { select: { id: true, name: true, legalName: true, taxNumber: true, countryCode: true } },
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+            taxNumber: true,
+            addressLine1: true,
+            addressLine2: true,
+            buildingNumber: true,
+            district: true,
+            city: true,
+            postalCode: true,
+            countryCode: true,
+          },
+        },
+      },
+    });
+    if (!invoice) {
+      throw new NotFoundException("Sales invoice not found.");
+    }
+
+    const [profile, metadata, activeEgs] = await Promise.all([
+      this.prisma.zatcaOrganizationProfile.findUnique({ where: { organizationId } }),
+      this.prisma.zatcaInvoiceMetadata.findFirst({
+        where: { organizationId, invoiceId },
+        select: {
+          id: true,
+          zatcaInvoiceType: true,
+          xmlBase64: true,
+          icv: true,
+          previousInvoiceHash: true,
+          invoiceHash: true,
+          hashModeSnapshot: true,
+          egsUnitId: true,
+          generatedAt: true,
+        },
+      }),
+      this.prisma.zatcaEgsUnit.findFirst({
+        where: { organizationId, isActive: true, status: ZatcaRegistrationStatus.ACTIVE },
+        orderBy: { updatedAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          isActive: true,
+          csrPem: true,
+          complianceCsidPem: true,
+          lastIcv: true,
+          lastInvoiceHash: true,
+          hashMode: true,
+        },
+      }),
+    ]);
+
+    const zatcaInvoiceType = metadata?.zatcaInvoiceType ?? ZatcaInvoiceType.STANDARD_TAX_INVOICE;
+    const sellerProfile = profile
+      ? this.buildSellerProfileReadiness(profile)
+      : createZatcaReadinessSection("SELLER_PROFILE", [
+          this.check("ZATCA_SELLER_PROFILE_MISSING", "ERROR", "seller.profile", "ZATCA seller profile is not configured.", "BR-06", "Configure the ZATCA seller profile before generating invoice XML."),
+        ]);
+    const buyerContact = this.buildBuyerContactReadiness(invoice.customer, zatcaInvoiceType);
+    const invoiceReadiness = this.buildInvoiceReadinessSection(invoice, zatcaInvoiceType);
+    const egs = this.buildEgsReadinessSection(activeEgs);
+    const xml = this.buildInvoiceXmlReadinessSection(metadata);
+    const sections = [sellerProfile, buyerContact, invoiceReadiness, egs, xml];
+    const status = combineZatcaReadinessStatus(sections);
+    const checks = sections.flatMap((section) => section.checks);
+
+    return {
+      status,
+      localOnly: true,
+      noMutation: true,
+      productionCompliance: false,
+      invoiceSummary: {
+        id: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        status: invoice.status,
+        zatcaInvoiceType,
+        transactionCodeFlags: this.transactionCodeFlagsForReadiness(zatcaInvoiceType),
+        customerId: invoice.customer.id,
+        customerName: invoice.customer.displayName ?? invoice.customer.name,
+      },
+      sellerProfile,
+      buyerContact,
+      invoice: invoiceReadiness,
+      egs,
+      xml,
+      checks,
+      warnings: [
+        "Local readiness only. No ZATCA network call is made.",
+        "This does not sign, clear, report, embed PDF/A-3, request CSIDs, or prove production compliance.",
+      ],
+    };
   }
 
   async generateInvoiceCompliance(organizationId: string, actorUserId: string, invoiceId: string) {
@@ -1455,6 +1579,203 @@ export class ZatcaService {
       blockers.push("SDK hash mode cannot be enabled on an EGS unit with production CSID state.");
     }
     return blockers;
+  }
+
+  private buildSellerProfileReadiness(profile: {
+    sellerName?: string | null;
+    vatNumber?: string | null;
+    streetName?: string | null;
+    buildingNumber?: string | null;
+    district?: string | null;
+    city?: string | null;
+    postalCode?: string | null;
+    countryCode?: string | null;
+  }): ZatcaReadinessSection {
+    const checks: ZatcaReadinessCheck[] = [];
+    this.addRequiredCheck(checks, profile.sellerName, "ZATCA_SELLER_NAME_MISSING", "seller.sellerName", "Seller name is required in generated invoice XML.", "BR-06", "Add seller name in ZATCA profile settings.");
+    this.addRequiredCheck(checks, profile.vatNumber, "ZATCA_SELLER_VAT_NUMBER_MISSING", "seller.vatNumber", "Seller VAT registration number is required in generated invoice XML.", "BR-KSA-39", "Add the seller VAT number in ZATCA profile settings.");
+    if (hasText(profile.vatNumber) && !isSaudiVatNumber(profile.vatNumber)) {
+      checks.push(this.check("ZATCA_SELLER_VAT_NUMBER_INVALID", "ERROR", "seller.vatNumber", "Seller VAT registration number must be 15 digits and start/end with 3 when present.", "BR-KSA-40", "Enter a 15-digit Saudi VAT number that starts and ends with 3."));
+    }
+    this.addRequiredCheck(checks, profile.streetName, "ZATCA_SELLER_STREET_MISSING", "seller.streetName", "Seller street name is required in generated invoice XML.", "BR-KSA-09", "Add seller street in ZATCA profile settings.");
+    this.addRequiredCheck(checks, profile.buildingNumber, "ZATCA_SELLER_BUILDING_NUMBER_MISSING", "seller.buildingNumber", "Seller building number is required in generated invoice XML.", "BR-KSA-09", "Add a 4-digit building number in ZATCA profile settings.");
+    const sellerBuildingNumber = profile.buildingNumber?.trim() ?? "";
+    if (sellerBuildingNumber && !/^[0-9]{4}$/.test(sellerBuildingNumber)) {
+      checks.push(this.check("ZATCA_SELLER_BUILDING_NUMBER_INVALID", "WARNING", "seller.buildingNumber", "Seller building number must contain 4 digits.", "BR-KSA-37", "Use the 4-digit Saudi national address building number."));
+    }
+    this.addRequiredCheck(checks, profile.district, "ZATCA_SELLER_DISTRICT_MISSING", "seller.district", "Seller district is required in generated invoice XML.", "BR-KSA-09", "Add seller district in ZATCA profile settings.");
+    this.addRequiredCheck(checks, profile.city, "ZATCA_SELLER_CITY_MISSING", "seller.city", "Seller city is required in generated invoice XML.", "BR-KSA-09", "Add seller city in ZATCA profile settings.");
+    this.addRequiredCheck(checks, profile.postalCode, "ZATCA_SELLER_POSTAL_CODE_MISSING", "seller.postalCode", "Seller postal code is required in generated invoice XML.", "BR-KSA-09", "Add the 5-digit seller postal code in ZATCA profile settings.");
+    const sellerPostalCode = profile.postalCode?.trim() ?? "";
+    if (sellerPostalCode && !/^[0-9]{5}$/.test(sellerPostalCode)) {
+      checks.push(this.check("ZATCA_SELLER_POSTAL_CODE_INVALID", "WARNING", "seller.postalCode", "Seller postal code must be 5 digits.", "BR-KSA-66", "Use the 5-digit Saudi postal code."));
+    }
+    this.addRequiredCheck(checks, profile.countryCode, "ZATCA_SELLER_COUNTRY_CODE_MISSING", "seller.countryCode", "Seller country code is required in generated invoice XML.", "BR-KSA-09", "Add seller country code in ZATCA profile settings.");
+    if (checks.length === 0) {
+      checks.push(this.check("ZATCA_SELLER_INVOICE_XML_READY", "INFO", "seller", "Seller invoice XML address fields are ready locally.", "BR-KSA-09", "No seller address action is required for local XML readiness."));
+    }
+    return createZatcaReadinessSection("SELLER_PROFILE", checks);
+  }
+
+  private buildBuyerContactReadiness(
+    buyer: {
+      name?: string | null;
+      displayName?: string | null;
+      taxNumber?: string | null;
+      addressLine1?: string | null;
+      buildingNumber?: string | null;
+      district?: string | null;
+      city?: string | null;
+      postalCode?: string | null;
+      countryCode?: string | null;
+    },
+    invoiceType: ZatcaInvoiceType,
+  ): ZatcaReadinessSection {
+    const checks: ZatcaReadinessCheck[] = [];
+    const simplified = invoiceType === ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE;
+    const buyerCountryCode = buyer.countryCode?.trim().toUpperCase() ?? "";
+
+    if (simplified) {
+      checks.push(this.check("ZATCA_BUYER_SIMPLIFIED_ADDRESS_OPTIONAL", "INFO", "buyer", "Official simplified invoice samples inspected do not require buyer postal address.", "KSA-2=0200000", "Do not block simplified invoices only because buyer address fields are empty."));
+      return createZatcaReadinessSection("BUYER_CONTACT", checks);
+    }
+
+    if (!hasText(buyer.displayName) && !hasText(buyer.name)) {
+      checks.push(this.check("ZATCA_BUYER_NAME_MISSING", "WARNING", "buyer.name", "Buyer name should be present on standard tax invoices.", "BR-KSA-42", "Add a buyer display name on the contact."));
+    }
+    if (hasText(buyer.taxNumber) && !isSaudiVatNumber(buyer.taxNumber)) {
+      checks.push(this.check("ZATCA_BUYER_VAT_NUMBER_INVALID", "ERROR", "buyer.taxNumber", "Buyer VAT number must be 15 digits and start/end with 3 when it exists.", "BR-KSA-44", "Fix the buyer VAT number or leave it empty when not applicable."));
+    } else if (!hasText(buyer.taxNumber)) {
+      checks.push(this.check("ZATCA_BUYER_VAT_NUMBER_CONDITIONAL", "INFO", "buyer.taxNumber", "Buyer VAT number is conditional; when present it must match the Saudi VAT format.", "BR-KSA-44", "Add a valid buyer VAT number only when applicable to the transaction."));
+    }
+
+    if (!hasText(buyer.countryCode)) {
+      checks.push(this.check("ZATCA_BUYER_COUNTRY_CODE_MISSING", "ERROR", "buyer.countryCode", "Buyer country code is required for standard buyer address readiness.", "BR-KSA-63", "Add buyer country code on the contact."));
+    }
+
+    if (buyerCountryCode === "SA") {
+      this.addRequiredCheck(checks, buyer.addressLine1, "ZATCA_BUYER_STREET_MISSING", "buyer.addressLine1", "Saudi standard buyer street name is required.", "BR-KSA-63", "Add buyer street name on the contact.");
+      this.addRequiredCheck(checks, buyer.buildingNumber, "ZATCA_BUYER_BUILDING_NUMBER_MISSING", "buyer.buildingNumber", "Saudi standard buyer building number is required.", "BR-KSA-63", "Add the buyer building number on the contact.");
+      this.addRequiredCheck(checks, buyer.district, "ZATCA_BUYER_DISTRICT_MISSING", "buyer.district", "Saudi standard buyer district is required.", "BR-KSA-63", "Add buyer district on the contact.");
+      this.addRequiredCheck(checks, buyer.city, "ZATCA_BUYER_CITY_MISSING", "buyer.city", "Saudi standard buyer city is required.", "BR-KSA-63", "Add buyer city on the contact.");
+      this.addRequiredCheck(checks, buyer.postalCode, "ZATCA_BUYER_POSTAL_CODE_MISSING", "buyer.postalCode", "Saudi standard buyer postal code is required.", "BR-KSA-63", "Add buyer postal code on the contact.");
+      const buyerPostalCode = buyer.postalCode?.trim() ?? "";
+      if (buyerPostalCode && !/^[0-9]{5}$/.test(buyerPostalCode)) {
+        checks.push(this.check("ZATCA_BUYER_POSTAL_CODE_INVALID", "WARNING", "buyer.postalCode", "Saudi buyer postal code must be 5 digits.", "BR-KSA-67", "Use the 5-digit Saudi postal code."));
+      }
+      if (!checks.some((check) => check.severity === "ERROR" || check.severity === "WARNING")) {
+        checks.push(this.check("ZATCA_BUYER_STANDARD_SA_ADDRESS_READY", "INFO", "buyer", "Saudi standard buyer address fields are ready locally.", "BR-KSA-63", "No buyer address action is required for local XML readiness."));
+      }
+      return createZatcaReadinessSection("BUYER_CONTACT", checks);
+    }
+
+    this.addRequiredCheck(checks, buyer.addressLine1, "ZATCA_BUYER_NON_SA_STREET_MISSING", "buyer.addressLine1", "Non-Saudi standard buyer street name is expected.", "BR-KSA-10", "Add buyer street name on the contact.");
+    this.addRequiredCheck(checks, buyer.city, "ZATCA_BUYER_NON_SA_CITY_MISSING", "buyer.city", "Non-Saudi standard buyer city is expected.", "BR-KSA-10", "Add buyer city on the contact.");
+    if (!checks.some((check) => check.severity === "ERROR" || check.severity === "WARNING")) {
+      checks.push(this.check("ZATCA_BUYER_STANDARD_NON_SA_ADDRESS_READY", "INFO", "buyer", "Non-Saudi standard buyer address fields are ready locally.", "BR-KSA-10", "No buyer address action is required for local XML readiness."));
+    }
+    return createZatcaReadinessSection("BUYER_CONTACT", checks);
+  }
+
+  private buildInvoiceReadinessSection(invoice: { status: SalesInvoiceStatus | string; invoiceNumber: string }, invoiceType: ZatcaInvoiceType): ZatcaReadinessSection {
+    const checks: ZatcaReadinessCheck[] = [
+      this.check("ZATCA_INVOICE_TYPE_FLAGS_LOCAL", "INFO", "invoice.zatcaInvoiceType", `Invoice readiness uses transaction code flags ${this.transactionCodeFlagsForReadiness(invoiceType)} for ${invoiceType}.`, "BR-KSA-06", "Confirm the invoice type before generating XML."),
+    ];
+    if (invoice.status !== SalesInvoiceStatus.FINALIZED) {
+      checks.push(this.check("ZATCA_INVOICE_NOT_FINALIZED", "ERROR", "invoice.status", "ZATCA XML readiness requires a finalized invoice.", "BR-02", "Finalize the invoice before generating ZATCA XML."));
+    }
+    return createZatcaReadinessSection("INVOICE", checks);
+  }
+
+  private buildEgsReadinessSection(
+    activeEgs: {
+      id: string;
+      name: string;
+      status: ZatcaRegistrationStatus;
+      isActive: boolean;
+      csrPem?: string | null;
+      complianceCsidPem?: string | null;
+      lastIcv: number;
+      lastInvoiceHash: string | null;
+      hashMode: ZatcaHashMode;
+    } | null,
+  ): ZatcaReadinessSection {
+    const checks: ZatcaReadinessCheck[] = [];
+    if (!activeEgs) {
+      checks.push(this.check("ZATCA_EGS_ACTIVE_MISSING", "ERROR", "egs.active", "No active development EGS unit is configured for local hash-chain continuity.", undefined, "Create and activate a development EGS unit."));
+      return createZatcaReadinessSection("EGS", checks);
+    }
+    checks.push(this.check("ZATCA_EGS_ACTIVE_READY", "INFO", "egs.active", `Active EGS unit '${activeEgs.name}' is available for local generated invoice metadata.`, undefined, "No EGS action is required for local invoice readiness."));
+    if (activeEgs.hashMode !== ZatcaHashMode.SDK_GENERATED) {
+      checks.push(this.check("ZATCA_EGS_HASH_MODE_LOCAL", "WARNING", "egs.hashMode", "EGS unit is using local deterministic hash mode, not SDK-generated hash mode.", undefined, "Use SDK hash mode only on a fresh local EGS when local SDK validation is configured."));
+    }
+    if (!activeEgs.csrPem) {
+      checks.push(this.check("ZATCA_EGS_CSR_NOT_REQUIRED_FOR_XML", "INFO", "egs.csrPem", "CSR is future onboarding/signing readiness and is not required for unsigned generated XML readiness.", undefined, "Generate CSR only when continuing into onboarding/signing work."));
+    }
+    if (!activeEgs.complianceCsidPem) {
+      checks.push(this.check("ZATCA_EGS_CSID_NOT_REQUIRED_FOR_XML", "INFO", "egs.complianceCsidPem", "Compliance CSID is future onboarding/signing readiness and is not required for unsigned generated XML readiness.", undefined, "Do not request CSIDs in this readiness-only phase."));
+    }
+    return createZatcaReadinessSection("EGS", checks);
+  }
+
+  private buildSettingsXmlReadinessSection(localXmlCount: number): ZatcaReadinessSection {
+    const checks = [
+      localXmlCount > 0
+        ? this.check("ZATCA_XML_GENERATED_LOCALLY", "INFO", "xml.generatedCount", `${localXmlCount} local generated XML record(s) exist.`, undefined, "Use invoice readiness for invoice-specific field checks.")
+        : this.check("ZATCA_XML_NOT_GENERATED_YET", "WARNING", "xml.generatedCount", "No local ZATCA XML has been generated for an invoice yet.", undefined, "Generate XML from a finalized invoice after seller and buyer readiness is clean."),
+    ];
+    return createZatcaReadinessSection("XML", checks);
+  }
+
+  private buildInvoiceXmlReadinessSection(metadata: { xmlBase64: string | null; generatedAt: Date | null; hashModeSnapshot?: ZatcaHashMode | null } | null): ZatcaReadinessSection {
+    const checks: ZatcaReadinessCheck[] = [];
+    if (!metadata?.xmlBase64) {
+      checks.push(this.check("ZATCA_XML_NOT_GENERATED_FOR_INVOICE", "WARNING", "xml.xmlBase64", "ZATCA XML has not been generated for this invoice yet.", undefined, "Generate XML only after readiness checks are clean."));
+    } else {
+      checks.push(this.check("ZATCA_XML_EXISTS_FOR_INVOICE", "INFO", "xml.xmlBase64", "Generated XML exists for this invoice.", undefined, "Refresh readiness if seller or buyer data changes after generation."));
+    }
+    return createZatcaReadinessSection("XML", checks);
+  }
+
+  private buildSdkReadinessSection(
+    sdkReadiness: {
+      enabled: boolean;
+      canRunLocalValidation: boolean;
+      blockingReasons: string[];
+      warnings: string[];
+    } | null,
+  ): ZatcaReadinessSection {
+    const checks: ZatcaReadinessCheck[] = [];
+    if (!sdkReadiness) {
+      checks.push(this.check("ZATCA_SDK_READINESS_UNAVAILABLE", "INFO", "sdk", "Local SDK readiness service is not available in this process.", undefined, "Use local XML readiness when SDK validation is not configured."));
+      return createZatcaReadinessSection("XML", checks);
+    }
+    if (sdkReadiness.canRunLocalValidation) {
+      checks.push(this.check("ZATCA_SDK_LOCAL_VALIDATION_READY", "INFO", "sdk.canRunLocalValidation", "Local SDK validation can run when explicitly requested.", undefined, "Keep SDK validation local-only and disabled by default where appropriate."));
+    } else {
+      checks.push(this.check("ZATCA_SDK_LOCAL_VALIDATION_BLOCKED", "WARNING", "sdk.canRunLocalValidation", "Local SDK validation is not ready or is disabled.", undefined, "Configure Java 11-14, official SDK paths, and local execution only if SDK validation is needed."));
+    }
+    for (const reason of sdkReadiness.blockingReasons ?? []) {
+      checks.push(this.check("ZATCA_SDK_BLOCKING_REASON", "WARNING", "sdk.blockingReasons", reason, undefined, "Resolve local SDK setup only for optional local validation."));
+    }
+    for (const warning of sdkReadiness.warnings ?? []) {
+      checks.push(this.check("ZATCA_SDK_WARNING", "INFO", "sdk.warnings", warning, undefined, "Review the local SDK setup note."));
+    }
+    return createZatcaReadinessSection("XML", checks);
+  }
+
+  private addRequiredCheck(checks: ZatcaReadinessCheck[], value: string | null | undefined, code: string, field: string, message: string, sourceRule: string, fixHint: string): void {
+    if (!hasText(value)) {
+      checks.push(this.check(code, "ERROR", field, message, sourceRule, fixHint));
+    }
+  }
+
+  private check(code: string, severity: ZatcaReadinessSeverity, field: string, message: string, sourceRule: string | undefined, fixHint: string): ZatcaReadinessCheck {
+    return sourceRule ? { code, severity, field, message, sourceRule, fixHint } : { code, severity, field, message, fixHint };
+  }
+
+  private transactionCodeFlagsForReadiness(invoiceType: ZatcaInvoiceType): string {
+    return invoiceType === ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE ? "0200000" : "0100000";
   }
 
   private withReadiness<T extends { sellerName?: string | null; vatNumber?: string | null; city?: string | null; countryCode?: string | null }>(profile: T) {

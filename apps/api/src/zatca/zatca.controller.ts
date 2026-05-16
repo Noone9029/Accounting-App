@@ -153,6 +153,12 @@ export class ZatcaController {
     return this.zatcaService.getInvoiceCompliance(organizationId, id);
   }
 
+  @Get("sales-invoices/:id/zatca/readiness")
+  @RequirePermissions(PERMISSIONS.zatca.view)
+  invoiceReadiness(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.zatcaService.getInvoiceZatcaReadiness(organizationId, id);
+  }
+
   @Post("sales-invoices/:id/zatca/generate")
   @RequirePermissions(PERMISSIONS.zatca.generateXml)
   generateInvoiceCompliance(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {

@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { ZatcaInvoiceStatus, ZatcaRegistrationStatus, ZatcaSubmissionStatus, ZatcaSubmissionType } from "@prisma/client";
+import { ZatcaInvoiceStatus, ZatcaInvoiceType, ZatcaRegistrationStatus, ZatcaSubmissionStatus, ZatcaSubmissionType } from "@prisma/client";
 import { initialPreviousInvoiceHash } from "@ledgerbyte/zatca-core";
 import { SandboxDisabledZatcaOnboardingAdapter } from "./adapters/sandbox-disabled-zatca-onboarding.adapter";
 import type { ZatcaAdapterConfig } from "./zatca.config";
@@ -711,6 +711,116 @@ describe("ZATCA service rules", () => {
     expect(readiness.blockingReasons).toContain("No active development EGS unit is configured.");
   });
 
+  it("settings readiness reports official seller invoice XML address checks", async () => {
+    const prisma = makeReadinessPrisma({
+      profile: {
+        sellerName: "Org Legal",
+        vatNumber: "300000000000003",
+        streetName: null,
+        buildingNumber: null,
+        district: "Olaya",
+        city: null,
+        postalCode: null,
+        countryCode: "SA",
+      },
+    });
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const readiness = await service.getZatcaReadinessSummary("org-1");
+
+    expect(readiness.productionCompliance).toBe(false);
+    expect(readiness.sellerProfile.status).toBe("BLOCKED");
+    expect(readiness.sellerProfile.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "ZATCA_SELLER_STREET_MISSING", sourceRule: "BR-KSA-09", field: "seller.streetName" }),
+        expect.objectContaining({ code: "ZATCA_SELLER_BUILDING_NUMBER_MISSING", sourceRule: "BR-KSA-09", field: "seller.buildingNumber" }),
+        expect.objectContaining({ code: "ZATCA_SELLER_CITY_MISSING", sourceRule: "BR-KSA-09", field: "seller.city" }),
+        expect.objectContaining({ code: "ZATCA_SELLER_POSTAL_CODE_MISSING", sourceRule: "BR-KSA-09", field: "seller.postalCode" }),
+      ]),
+    );
+  });
+
+  it("invoice readiness passes Saudi standard buyer required address fields", async () => {
+    const prisma = makeInvoiceReadinessPrisma({
+      customer: {
+        taxNumber: "399999999900003",
+        addressLine1: "Salah Al-Din",
+        buildingNumber: "1111",
+        district: "Al Murooj",
+        city: "Riyadh",
+        postalCode: "12222",
+        countryCode: "SA",
+      },
+    });
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const readiness = await service.getInvoiceZatcaReadiness("org-1", "invoice-1");
+
+    expect(readiness.localOnly).toBe(true);
+    expect(readiness.productionCompliance).toBe(false);
+    expect(readiness.buyerContact.status).toBe("READY");
+    expect(readiness.buyerContact.checks).toContainEqual(expect.objectContaining({ code: "ZATCA_BUYER_STANDARD_SA_ADDRESS_READY", severity: "INFO", sourceRule: "BR-KSA-63" }));
+  });
+
+  it("invoice readiness blocks Saudi standard buyer missing building number", async () => {
+    const prisma = makeInvoiceReadinessPrisma({
+      customer: {
+        addressLine1: "Salah Al-Din",
+        buildingNumber: null,
+        district: "Al Murooj",
+        city: "Riyadh",
+        postalCode: "12222",
+        countryCode: "SA",
+      },
+    });
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const readiness = await service.getInvoiceZatcaReadiness("org-1", "invoice-1");
+
+    expect(readiness.status).toBe("BLOCKED");
+    expect(readiness.buyerContact.checks).toContainEqual(
+      expect.objectContaining({
+        code: "ZATCA_BUYER_BUILDING_NUMBER_MISSING",
+        severity: "ERROR",
+        field: "buyer.buildingNumber",
+        sourceRule: "BR-KSA-63",
+      }),
+    );
+  });
+
+  it("invoice readiness does not block simplified buyer postal address", async () => {
+    const prisma = makeInvoiceReadinessPrisma({
+      zatcaInvoiceType: ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE,
+      customer: {
+        addressLine1: null,
+        buildingNumber: null,
+        district: null,
+        city: null,
+        postalCode: null,
+        countryCode: "SA",
+      },
+    });
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const readiness = await service.getInvoiceZatcaReadiness("org-1", "invoice-1");
+
+    expect(readiness.buyerContact.status).not.toBe("BLOCKED");
+    expect(readiness.buyerContact.checks).toContainEqual(expect.objectContaining({ code: "ZATCA_BUYER_SIMPLIFIED_ADDRESS_OPTIONAL", severity: "INFO" }));
+  });
+
+  it("invoice readiness is read-only for metadata and EGS state", async () => {
+    const prisma = makeInvoiceReadinessPrisma();
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const readiness = await service.getInvoiceZatcaReadiness("org-1", "invoice-1");
+
+    expect(readiness.noMutation).toBe(true);
+    expect(prisma.zatcaInvoiceMetadata.upsert).not.toHaveBeenCalled();
+    expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+  });
+
   it("returns a hash-chain reset dry-run plan without mutating EGS or metadata", async () => {
     const prisma = {
       zatcaEgsUnit: {
@@ -1002,6 +1112,82 @@ function makeReadinessPrisma(options: {
     },
     zatcaInvoiceMetadata: {
       count: jest.fn().mockResolvedValue(options.localXmlCount ?? 0),
+    },
+  };
+}
+
+function makeInvoiceReadinessPrisma(options: {
+  invoiceStatus?: "DRAFT" | "FINALIZED";
+  zatcaInvoiceType?: ZatcaInvoiceType;
+  profile?: Record<string, unknown>;
+  customer?: Record<string, unknown>;
+  activeEgs?: Record<string, unknown> | null;
+  metadata?: Record<string, unknown> | null;
+} = {}) {
+  const invoice = {
+    ...makeValidationInvoice(),
+    status: options.invoiceStatus ?? "FINALIZED",
+    customer: {
+      ...makeValidationInvoice().customer,
+      taxNumber: "399999999900003",
+      addressLine1: "Salah Al-Din",
+      buildingNumber: "1111",
+      district: "Al Murooj",
+      city: "Riyadh",
+      postalCode: "12222",
+      countryCode: "SA",
+      ...options.customer,
+    },
+  };
+  const activeEgs =
+    options.activeEgs === undefined
+      ? {
+          id: "egs-1",
+          name: "Dev EGS",
+          status: ZatcaRegistrationStatus.ACTIVE,
+          isActive: true,
+          lastIcv: 2,
+          lastInvoiceHash: "last-hash",
+          hashMode: "SDK_GENERATED",
+        }
+      : options.activeEgs;
+  const metadata =
+    options.metadata === undefined
+      ? {
+          id: "metadata-1",
+          invoiceId: "invoice-1",
+          zatcaInvoiceType: options.zatcaInvoiceType ?? ZatcaInvoiceType.STANDARD_TAX_INVOICE,
+          xmlBase64: Buffer.from("<Invoice />", "utf8").toString("base64"),
+          icv: 2,
+          previousInvoiceHash: "previous-hash",
+          invoiceHash: "invoice-hash",
+          hashModeSnapshot: "SDK_GENERATED",
+          egsUnitId: "egs-1",
+          generatedAt: new Date("2026-05-16T00:00:00.000Z"),
+        }
+      : options.metadata;
+
+  return {
+    salesInvoice: {
+      findFirst: jest.fn().mockResolvedValue(invoice),
+    },
+    zatcaOrganizationProfile: {
+      findUnique: jest.fn().mockResolvedValue({
+        ...makeValidationProfile(),
+        ...options.profile,
+      }),
+    },
+    zatcaEgsUnit: {
+      findFirst: jest.fn().mockResolvedValue(activeEgs),
+      update: jest.fn(),
+    },
+    zatcaInvoiceMetadata: {
+      findFirst: jest.fn().mockResolvedValue(metadata),
+      upsert: jest.fn(),
+      update: jest.fn(),
+    },
+    zatcaSubmissionLog: {
+      create: jest.fn(),
     },
   };
 }

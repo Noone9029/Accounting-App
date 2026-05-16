@@ -12,7 +12,8 @@ import { defaultStatementFromDate, defaultStatementToDate, formatLedgerBalance }
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadPdf, statementPdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { Contact, CustomerLedger, CustomerLedgerRow, CustomerStatement, SupplierLedger, SupplierLedgerRow, SupplierStatement } from "@/lib/types";
+import { buildContactBuyerAddressReadiness, zatcaReadinessStatusBadgeClass, zatcaReadinessStatusLabel } from "@/lib/zatca";
+import type { Contact, CustomerLedger, CustomerLedgerRow, CustomerStatement, SupplierLedger, SupplierLedgerRow, SupplierStatement, ZatcaReadinessSection } from "@/lib/types";
 
 type ActiveSection = "overview" | "ledger" | "statement" | "supplier-ledger" | "supplier-statement";
 
@@ -39,6 +40,7 @@ export default function ContactDetailPage() {
   const supplierLedgerAvailable = contact?.type === "SUPPLIER" || contact?.type === "BOTH";
   const profile = contact ?? ledger?.contact ?? supplierLedger?.contact ?? null;
   const canManageContacts = can(PERMISSIONS.contacts.manage);
+  const buyerReadiness = contact && (contact.type === "CUSTOMER" || contact.type === "BOTH") ? buildContactBuyerAddressReadiness(contact) : null;
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -254,6 +256,7 @@ export default function ContactDetailPage() {
                   <Summary label="Postal code" value={contact?.postalCode ?? "-"} />
                   <Summary label="Country" value={contact?.countryCode ?? "-"} />
                 </div>
+                {buyerReadiness ? <ContactZatcaReadinessCard section={buyerReadiness} /> : null}
                 {canManageContacts && contact ? (
                   <form onSubmit={updateAddress} className="mt-5 grid grid-cols-1 gap-3 border-t border-slate-100 pt-5 md:grid-cols-3">
                     <div className="md:col-span-3">
@@ -601,6 +604,38 @@ function Summary({ label, value }: { label: string; value: string }) {
     <div>
       <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
       <div className="mt-1 break-words font-medium text-ink">{value}</div>
+    </div>
+  );
+}
+
+function ContactZatcaReadinessCard({ section }: { section: ZatcaReadinessSection }) {
+  const visibleChecks = section.checks.slice(0, 5);
+
+  return (
+    <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-ink">ZATCA buyer address readiness</h3>
+          <p className="mt-1 text-xs text-steel">Saudi standard invoice buyer postal-address checks only. Simplified invoice buyer address rules are invoice-specific.</p>
+        </div>
+        <span className={`rounded-md px-2 py-1 text-xs font-medium ${zatcaReadinessStatusBadgeClass(section.status)}`}>
+          {zatcaReadinessStatusLabel(section.status)}
+        </span>
+      </div>
+      {visibleChecks.length ? (
+        <ul className="mt-3 space-y-2 text-xs text-steel">
+          {visibleChecks.map((check) => (
+            <li key={`${check.code}-${check.field}`}>
+              <span className="font-medium text-ink">{check.field}</span>: {check.message}
+              {check.sourceRule ? <span className="ml-1 text-slate-500">({check.sourceRule})</span> : null}
+              <div className="mt-1 text-slate-500">{check.fixHint}</div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 text-xs text-emerald-700">Ready for Saudi standard invoice buyer address generation.</p>
+      )}
+      <p className="mt-3 text-xs text-amber-700">Local-only readiness. This does not sign, submit, clear, report, or certify the invoice.</p>
     </div>
   );
 }
