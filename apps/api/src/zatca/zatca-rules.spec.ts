@@ -919,12 +919,90 @@ describe("ZATCA service rules", () => {
     expect(readiness.xml.status).toBe("READY");
     expect(readiness.signing.status).toBe("BLOCKED");
     expect(readiness.phase2Qr.status).toBe("BLOCKED");
+    expect(readiness.signedArtifactPromotion.status).toBe("BLOCKED");
     expect(readiness.checks).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: "ZATCA_SIGNING_NOT_IMPLEMENTED", severity: "ERROR" }),
         expect.objectContaining({ code: "ZATCA_PHASE_2_QR_NOT_IMPLEMENTED", severity: "ERROR" }),
+        expect.objectContaining({ code: "ZATCA_SIGNED_XML_PROMOTION_NOT_IMPLEMENTED", severity: "ERROR" }),
+        expect.objectContaining({ code: "ZATCA_DUMMY_SIGNED_XML_CANNOT_BE_PROMOTED", severity: "ERROR" }),
       ]),
     );
+  });
+
+  it("returns a signed XML promotion plan as blocked, redacted, and no-mutation", async () => {
+    const prisma = makeInvoiceReadinessPrisma({
+      zatcaInvoiceType: ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE,
+      activeEgs: {
+        id: "egs-1",
+        name: "Dev EGS",
+        environment: "SANDBOX",
+        status: ZatcaRegistrationStatus.ACTIVE,
+        isActive: true,
+        lastIcv: 37,
+        lastInvoiceHash: "last-hash",
+        hashMode: "SDK_GENERATED",
+        csrPem: "-----BEGIN CERTIFICATE REQUEST-----\nCSR-CONTENT\n-----END CERTIFICATE REQUEST-----",
+        complianceCsidPem: "COMPLIANCE-CERT-SECRET",
+        productionCsidPem: null,
+        privateKeyPem: "-----BEGIN EC PRIVATE KEY-----\nSUPER-SECRET-PRIVATE-KEY\n-----END EC PRIVATE KEY-----",
+      },
+    });
+    const onboardingAdapter = { requestComplianceCsid: jest.fn(), requestProductionCsid: jest.fn() };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never, onboardingAdapter as never);
+
+    const plan = await service.getInvoiceZatcaSignedXmlPromotionPlan("org-1", "invoice-1");
+
+    expect(plan).toMatchObject({
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      noCsidRequest: true,
+      noNetwork: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      productionCompliance: false,
+      promotionBlocked: true,
+      signedXmlPersisted: false,
+      latestLocalSignedValidationStatus: "NOT_PERSISTED",
+      invoice: {
+        id: "invoice-1",
+        invoiceNumber: "INV-000001",
+        zatcaInvoiceType: ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE,
+      },
+      currentMetadataState: {
+        hasUnsignedXml: true,
+        hasInvoiceHash: true,
+        signedXmlStorageKey: null,
+      },
+    });
+    expect(plan.blockers).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("dummy/test material"),
+        expect.stringContaining("real ZATCA certificate"),
+        expect.stringContaining("production key custody"),
+        expect.stringContaining("Signed XML promotion workflow is not implemented"),
+        expect.stringContaining("clearance/reporting workflow is not implemented"),
+      ]),
+    );
+    expect(plan.requiredFutureArtifacts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "signedXmlStorage", required: true, available: false }),
+        expect.objectContaining({ id: "realSigningCertificate", required: true, available: false }),
+        expect.objectContaining({ id: "invoiceHashForSubmission", required: true, available: true }),
+      ]),
+    );
+    expect(JSON.stringify(plan)).not.toContain("<Invoice");
+    expect(JSON.stringify(plan)).not.toContain("SUPER-SECRET-PRIVATE-KEY");
+    expect(JSON.stringify(plan)).not.toContain("COMPLIANCE-CERT-SECRET");
+    expect(JSON.stringify(plan)).not.toContain("BEGIN EC PRIVATE KEY");
+    expect(JSON.stringify(plan)).not.toContain("binarySecurityToken");
+    expect(prisma.zatcaInvoiceMetadata.upsert).not.toHaveBeenCalled();
+    expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(onboardingAdapter.requestComplianceCsid).not.toHaveBeenCalled();
+    expect(onboardingAdapter.requestProductionCsid).not.toHaveBeenCalled();
   });
 
   it("invoice readiness blocks Saudi standard buyer missing building number", async () => {

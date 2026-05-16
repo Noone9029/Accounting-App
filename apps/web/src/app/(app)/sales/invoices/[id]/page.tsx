@@ -809,10 +809,13 @@ export default function SalesInvoiceDetailPage() {
                   <InvoiceReadinessSectionCard title="EGS" section={zatcaReadiness.egs} />
                   <InvoiceReadinessSectionCard title="XML" section={zatcaReadiness.xml} />
                   <InvoiceReadinessSectionCard title="Signing" section={zatcaReadiness.signing} />
+                  <InvoiceReadinessSectionCard title="Signed artifact" section={zatcaReadiness.signedArtifactPromotion} />
                   <InvoiceReadinessSectionCard title="Phase 2 QR" section={zatcaReadiness.phase2Qr} />
                   <InvoiceReadinessSectionCard title="PDF/A-3" section={zatcaReadiness.pdfA3} />
                 </div>
-                <p className="mt-3 text-xs text-amber-700">Local-only. No signing, CSID request, clearance/reporting, network call, PDF/A-3, or production compliance claim.</p>
+                <p className="mt-3 text-xs text-amber-700">
+                  Local signed validation success is not promoted invoice state. Dummy-material signed XML cannot be promoted; real CSID/certificate/key custody and clearance/reporting remain blocked.
+                </p>
               </div>
             ) : null}
 

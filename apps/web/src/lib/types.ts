@@ -3058,6 +3058,7 @@ export interface ZatcaReadinessSummary {
   signing: ZatcaReadinessSection;
   keyCustody: ZatcaReadinessSection;
   csr: ZatcaReadinessSection;
+  signedArtifactPromotion: ZatcaReadinessSection;
   phase2Qr: ZatcaReadinessSection;
   pdfA3: ZatcaReadinessSection;
   checks: ZatcaReadinessCheck[];
@@ -3109,6 +3110,7 @@ export interface ZatcaInvoiceReadinessResponse {
   egs: ZatcaReadinessSection;
   xml: ZatcaReadinessSection;
   signing: ZatcaReadinessSection;
+  signedArtifactPromotion: ZatcaReadinessSection;
   phase2Qr: ZatcaReadinessSection;
   pdfA3: ZatcaReadinessSection;
   checks: ZatcaReadinessCheck[];
@@ -3225,6 +3227,56 @@ export interface ZatcaInvoiceLocalSigningDryRunResponse {
   stderrSummary: string;
   blockers: string[];
   warnings: string[];
+}
+
+export interface ZatcaInvoiceSignedXmlPromotionPlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  noProductionCredentials: true;
+  noPersistence: true;
+  productionCompliance: false;
+  invoice: {
+    id: string;
+    invoiceNumber: string;
+    status: SalesInvoiceStatus;
+    zatcaInvoiceType: string;
+  };
+  currentMetadataState: {
+    id: string;
+    zatcaStatus: string;
+    invoiceUuid: string | null;
+    icv: number | null;
+    previousInvoiceHash: string | null;
+    invoiceHash: string | null;
+    xmlHash: string | null;
+    hashModeSnapshot: ZatcaHashMode | null;
+    egsUnitId: string | null;
+    generatedAt: string | null;
+    hasUnsignedXml: boolean;
+    hasInvoiceHash: boolean;
+    signedXmlPersisted: false;
+    signedXmlStorageKey: null;
+  } | null;
+  latestLocalSignedValidationStatus: "NOT_PERSISTED";
+  latestLocalSignedValidationSource: string;
+  promotionDefinition: string;
+  promotionBlocked: true;
+  signedXmlPersisted: false;
+  signedXmlStorageKey: null;
+  qrPersisted: false;
+  requiresRealCertificate: true;
+  requiresProductionKeyCustody: true;
+  validationSuccessIsPreconditionOnly: true;
+  requiredFutureArtifacts: Array<{ id: string; label: string; required: boolean; available: boolean }>;
+  promotionReadiness: ZatcaReadinessSection;
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
 }
 
 export interface ZatcaEgsCsrPlanResponse {

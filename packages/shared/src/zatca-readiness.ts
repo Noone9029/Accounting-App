@@ -6,6 +6,7 @@ export type ZatcaReadinessScope =
   | "EGS"
   | "XML"
   | "SIGNING"
+  | "SIGNED_ARTIFACT_PROMOTION"
   | "PHASE_2_QR"
   | "PDF_A3"
   | "KEY_CUSTODY"

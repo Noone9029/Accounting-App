@@ -27,6 +27,10 @@ export function zatcaInvoiceSigningPlanPath(invoiceId: string): string {
   return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/signing-plan`;
 }
 
+export function zatcaInvoiceSignedXmlPromotionPlanPath(invoiceId: string): string {
+  return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/signed-xml-promotion-plan`;
+}
+
 export function zatcaInvoiceLocalSigningDryRunPath(invoiceId: string): string {
   return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/local-signing-dry-run`;
 }

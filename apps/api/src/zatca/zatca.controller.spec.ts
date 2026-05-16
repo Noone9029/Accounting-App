@@ -13,4 +13,8 @@ describe("ZATCA controller", () => {
   it("exposes the local signing dry-run handler", () => {
     expect(typeof ZatcaController.prototype.invoiceLocalSigningDryRun).toBe("function");
   });
+
+  it("exposes the signed XML promotion plan handler", () => {
+    expect(typeof ZatcaController.prototype.invoiceSignedXmlPromotionPlan).toBe("function");
+  });
 });

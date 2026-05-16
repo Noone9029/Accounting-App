@@ -1097,6 +1097,7 @@ interface ZatcaReadinessSummary {
   signing: ZatcaReadinessSection;
   keyCustody: ZatcaReadinessSection;
   csr: ZatcaReadinessSection;
+  signedArtifactPromotion: ZatcaReadinessSection;
   phase2Qr: ZatcaReadinessSection;
   pdfA3: ZatcaReadinessSection;
 }
@@ -1121,6 +1122,7 @@ interface ZatcaInvoiceReadinessResponse {
   egs: ZatcaReadinessSection;
   xml: ZatcaReadinessSection;
   signing: ZatcaReadinessSection;
+  signedArtifactPromotion: ZatcaReadinessSection;
   phase2Qr: ZatcaReadinessSection;
   pdfA3: ZatcaReadinessSection;
   checks: Array<{
@@ -1196,6 +1198,27 @@ interface ZatcaInvoiceLocalSignedXmlValidationDryRunResponse {
   qrDetected: boolean;
   tempFilesWritten: { unsignedXml: boolean; sdkConfig: boolean; sdkRuntime: boolean; signedXml: boolean; validationConfig: boolean; validationPih: boolean; tempDirectory: string | null; filesRetained: boolean };
   cleanup: { performed: boolean; success: boolean; filesRetained: boolean; tempDirectory: string | null };
+  blockers: string[];
+  warnings: string[];
+}
+
+interface ZatcaInvoiceSignedXmlPromotionPlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  noProductionCredentials: true;
+  noPersistence: true;
+  productionCompliance: false;
+  promotionBlocked: true;
+  signedXmlPersisted: false;
+  latestLocalSignedValidationStatus: "NOT_PERSISTED";
+  currentMetadataState: { icv: number | null; invoiceHash: string | null; previousInvoiceHash: string | null; hasUnsignedXml: boolean; hasInvoiceHash: boolean } | null;
+  requiredFutureArtifacts: Array<{ id: string; required: boolean; available: boolean }>;
+  promotionReadiness: ZatcaReadinessSection;
   blockers: string[];
   warnings: string[];
 }
@@ -3360,6 +3383,7 @@ async function main(): Promise<void> {
   assertEqual(invoiceZatcaReadiness.sellerProfile.status, "READY", "ZATCA seller invoice readiness ready");
   assertEqual(invoiceZatcaReadiness.buyerContact.status, "READY", "ZATCA buyer invoice readiness ready");
   assertEqual(invoiceZatcaReadiness.signing.status, "BLOCKED", "ZATCA invoice signing readiness blocked");
+  assertEqual(invoiceZatcaReadiness.signedArtifactPromotion.status, "BLOCKED", "ZATCA invoice signed XML promotion readiness blocked");
   assertEqual(invoiceZatcaReadiness.phase2Qr.status, "BLOCKED", "ZATCA invoice Phase 2 QR readiness blocked");
   assertEqual(invoiceZatcaReadiness.pdfA3.status, "BLOCKED", "ZATCA invoice PDF/A-3 readiness blocked");
   assert(invoiceZatcaReadiness.buyerContact.checks.every((check) => check.severity !== "ERROR"), "ZATCA buyer invoice readiness has no blocking checks");
@@ -3438,6 +3462,29 @@ async function main(): Promise<void> {
   assertEqual(metadataAfterSignedXmlValidationDryRun.icv, metadataBeforeSignedXmlValidationDryRun.icv, "ZATCA signed XML validation dry-run does not mutate ICV");
   assertEqual(metadataAfterSignedXmlValidationDryRun.invoiceHash, metadataBeforeSignedXmlValidationDryRun.invoiceHash, "ZATCA signed XML validation dry-run does not mutate invoice hash");
   assertEqual(metadataAfterSignedXmlValidationDryRun.previousInvoiceHash, metadataBeforeSignedXmlValidationDryRun.previousInvoiceHash, "ZATCA signed XML validation dry-run does not mutate previous hash");
+  const metadataBeforeSignedXmlPromotionPlan = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  const zatcaSignedXmlPromotionPlan = await get<ZatcaInvoiceSignedXmlPromotionPlanResponse>(`/sales-invoices/${draftInvoice.id}/zatca/signed-xml-promotion-plan`, headers);
+  assertEqual(zatcaSignedXmlPromotionPlan.localOnly, true, "ZATCA signed XML promotion plan localOnly");
+  assertEqual(zatcaSignedXmlPromotionPlan.dryRun, true, "ZATCA signed XML promotion plan dryRun");
+  assertEqual(zatcaSignedXmlPromotionPlan.noMutation, true, "ZATCA signed XML promotion plan noMutation");
+  assertEqual(zatcaSignedXmlPromotionPlan.noCsidRequest, true, "ZATCA signed XML promotion plan no CSID request");
+  assertEqual(zatcaSignedXmlPromotionPlan.noNetwork, true, "ZATCA signed XML promotion plan no network");
+  assertEqual(zatcaSignedXmlPromotionPlan.noClearanceReporting, true, "ZATCA signed XML promotion plan no clearance/reporting");
+  assertEqual(zatcaSignedXmlPromotionPlan.noPdfA3, true, "ZATCA signed XML promotion plan no PDF/A-3");
+  assertEqual(zatcaSignedXmlPromotionPlan.noProductionCredentials, true, "ZATCA signed XML promotion plan no production credentials");
+  assertEqual(zatcaSignedXmlPromotionPlan.noPersistence, true, "ZATCA signed XML promotion plan no persistence");
+  assertEqual(zatcaSignedXmlPromotionPlan.productionCompliance, false, "ZATCA signed XML promotion plan productionCompliance");
+  assertEqual(zatcaSignedXmlPromotionPlan.promotionBlocked, true, "ZATCA signed XML promotion remains blocked");
+  assertEqual(zatcaSignedXmlPromotionPlan.signedXmlPersisted, false, "ZATCA signed XML promotion plan reports no signed XML persistence");
+  assertEqual(zatcaSignedXmlPromotionPlan.latestLocalSignedValidationStatus, "NOT_PERSISTED", "ZATCA signed XML promotion plan reports local validation not persisted");
+  assert(zatcaSignedXmlPromotionPlan.requiredFutureArtifacts.some((artifact) => artifact.id === "signedXmlStorage" && !artifact.available), "ZATCA signed XML promotion plan requires future signed XML storage");
+  assert(zatcaSignedXmlPromotionPlan.blockers.length > 0, "ZATCA signed XML promotion plan returns blockers");
+  assertNoPrivateKey(zatcaSignedXmlPromotionPlan, "ZATCA signed XML promotion plan response");
+  assert(!JSON.stringify(zatcaSignedXmlPromotionPlan).includes("<Invoice"), "ZATCA signed XML promotion plan does not expose signed XML body");
+  const metadataAfterSignedXmlPromotionPlan = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  assertEqual(metadataAfterSignedXmlPromotionPlan.icv, metadataBeforeSignedXmlPromotionPlan.icv, "ZATCA signed XML promotion plan does not mutate ICV");
+  assertEqual(metadataAfterSignedXmlPromotionPlan.invoiceHash, metadataBeforeSignedXmlPromotionPlan.invoiceHash, "ZATCA signed XML promotion plan does not mutate invoice hash");
+  assertEqual(metadataAfterSignedXmlPromotionPlan.previousInvoiceHash, metadataBeforeSignedXmlPromotionPlan.previousInvoiceHash, "ZATCA signed XML promotion plan does not mutate previous hash");
   const zatcaSdkReadiness = await get<ZatcaSdkReadinessResponse>("/zatca-sdk/readiness", headers);
   assertEqual(zatcaSdkReadiness.enabled, false, "ZATCA SDK execution disabled by default");
   assert(typeof zatcaSdkReadiness.referenceFolderFound === "boolean", "ZATCA SDK readiness returns reference folder flag");
@@ -5088,6 +5135,7 @@ async function main(): Promise<void> {
         zatcaSellerReadinessStatus: invoiceZatcaReadiness.sellerProfile.status,
         zatcaBuyerReadinessStatus: invoiceZatcaReadiness.buyerContact.status,
         zatcaSigningReadinessStatus: invoiceZatcaReadiness.signing.status,
+        zatcaSignedArtifactPromotionReadinessStatus: invoiceZatcaReadiness.signedArtifactPromotion.status,
         zatcaKeyCustodyReadinessStatus: zatcaReadiness.keyCustody.status,
         zatcaCsrReadinessStatus: zatcaReadiness.csr.status,
         zatcaPhase2QrReadinessStatus: invoiceZatcaReadiness.phase2Qr.status,
@@ -5101,6 +5149,8 @@ async function main(): Promise<void> {
         zatcaSignedXmlValidationDryRunExecutionEnabled: zatcaSignedXmlValidationDryRun.executionEnabled,
         zatcaSignedXmlValidationDryRunValidationAttempted: zatcaSignedXmlValidationDryRun.validationAttempted,
         zatcaSignedXmlValidationDryRunGlobalResult: zatcaSignedXmlValidationDryRun.validationGlobalResult,
+        zatcaSignedXmlPromotionPlanBlocked: zatcaSignedXmlPromotionPlan.promotionBlocked,
+        zatcaSignedXmlPromotionPlanSignedXmlPersisted: zatcaSignedXmlPromotionPlan.signedXmlPersisted,
         zatcaCsrPlanDryRun: zatcaCsrPlan.dryRun,
         zatcaCsrPlanNoMutation: zatcaCsrPlan.noMutation,
         zatcaCsrConfigReviewStatus: approvedZatcaCsrConfigReview.status,

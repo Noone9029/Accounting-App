@@ -302,9 +302,10 @@ export class ZatcaService {
     const signing = this.buildSigningReadinessSection(activeEgs);
     const keyCustody = this.buildKeyCustodyReadinessSection(activeEgs);
     const csr = this.buildCsrReadinessSection(profile, activeEgs);
+    const signedArtifactPromotion = this.buildSignedArtifactPromotionReadinessSection(null, activeEgs);
     const phase2Qr = this.buildPhase2QrReadinessSection();
     const pdfA3 = this.buildPdfA3ReadinessSection();
-    const sections = [sellerProfile, egs, xml, sdk, signing, keyCustody, csr, phase2Qr, pdfA3];
+    const sections = [sellerProfile, egs, xml, sdk, signing, keyCustody, csr, signedArtifactPromotion, phase2Qr, pdfA3];
     const checks = sections.flatMap((section) => section.checks);
     const status = combineZatcaReadinessStatus(sections);
     const profileMissingFields = legacyProfileReadiness.missingFields;
@@ -339,6 +340,7 @@ export class ZatcaService {
       signing,
       keyCustody,
       csr,
+      signedArtifactPromotion,
       phase2Qr,
       pdfA3,
       checks,
@@ -978,9 +980,10 @@ export class ZatcaService {
     const egs = this.buildEgsReadinessSection(activeEgs);
     const xml = this.buildInvoiceXmlReadinessSection(metadata);
     const signing = this.buildSigningReadinessSection(activeEgs);
+    const signedArtifactPromotion = this.buildSignedArtifactPromotionReadinessSection(metadata, activeEgs);
     const phase2Qr = this.buildPhase2QrReadinessSection(metadata);
     const pdfA3 = this.buildPdfA3ReadinessSection();
-    const sections = [sellerProfile, buyerContact, invoiceReadiness, egs, xml, signing, phase2Qr, pdfA3];
+    const sections = [sellerProfile, buyerContact, invoiceReadiness, egs, xml, signing, signedArtifactPromotion, phase2Qr, pdfA3];
     const status = combineZatcaReadinessStatus(sections);
     const checks = sections.flatMap((section) => section.checks);
 
@@ -1004,6 +1007,7 @@ export class ZatcaService {
       egs,
       xml,
       signing,
+      signedArtifactPromotion,
       phase2Qr,
       pdfA3,
       checks,
@@ -1551,6 +1555,156 @@ export class ZatcaService {
       cleanup,
       blockers: [...new Set(blockers)],
       warnings: [...new Set(warnings)],
+    };
+  }
+
+  async getInvoiceZatcaSignedXmlPromotionPlan(organizationId: string, invoiceId: string) {
+    const invoice = await this.prisma.salesInvoice.findFirst({
+      where: { id: invoiceId, organizationId },
+      select: { id: true, invoiceNumber: true, status: true },
+    });
+    if (!invoice) {
+      throw new NotFoundException("Sales invoice not found.");
+    }
+
+    const [metadata, activeEgs] = await Promise.all([
+      this.prisma.zatcaInvoiceMetadata.findFirst({
+        where: { organizationId, invoiceId },
+        select: {
+          id: true,
+          zatcaInvoiceType: true,
+          xmlBase64: true,
+          invoiceUuid: true,
+          invoiceHash: true,
+          xmlHash: true,
+          icv: true,
+          previousInvoiceHash: true,
+          hashModeSnapshot: true,
+          egsUnitId: true,
+          generatedAt: true,
+          zatcaStatus: true,
+        },
+      }),
+      this.prisma.zatcaEgsUnit.findFirst({
+        where: { organizationId, isActive: true, status: ZatcaRegistrationStatus.ACTIVE },
+        orderBy: { updatedAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          environment: true,
+          status: true,
+          isActive: true,
+          csrPem: true,
+          complianceCsidPem: true,
+          productionCsidPem: true,
+          lastIcv: true,
+          lastInvoiceHash: true,
+          hashMode: true,
+        },
+      }),
+    ]);
+
+    const promotionReadiness = this.buildSignedArtifactPromotionReadinessSection(metadata, activeEgs);
+    const blockers = [
+      "Local signed XML generated with SDK dummy/test material must never be promoted to persisted or production invoice state.",
+      "Promotion requires a real ZATCA certificate/CSID and verified certificate-to-private-key custody design.",
+      "Promotion requires production key custody, preferably KMS/HSM-backed signing, before any production path.",
+      "Signed XML promotion workflow is not implemented; local validation success is only a precondition for a future controlled promotion phase.",
+      "ZATCA submission workflow is not implemented and promotion must remain separate from submission.",
+      "ZATCA clearance/reporting workflow is not implemented; no invoice is submitted to ZATCA from this plan.",
+      "PDF/A-3 embedding is not implemented and is out of scope for this promotion plan.",
+    ];
+    if (!metadata) {
+      blockers.push("Invoice ZATCA metadata is missing; unsigned XML metadata must exist before any future signed artifact lifecycle can be considered.");
+    } else if (!metadata.xmlBase64) {
+      blockers.push("Unsigned generated XML is missing; no signed artifact can be planned without a generated XML source.");
+    }
+    if (!activeEgs) {
+      blockers.push("Active non-production EGS context is missing; promotion planning remains blocked.");
+    }
+
+    return {
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      noCsidRequest: true,
+      noNetwork: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      noProductionCredentials: true,
+      noPersistence: true,
+      productionCompliance: false,
+      invoice: {
+        id: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        status: invoice.status,
+        zatcaInvoiceType: metadata?.zatcaInvoiceType ?? ZatcaInvoiceType.STANDARD_TAX_INVOICE,
+      },
+      currentMetadataState: metadata
+        ? {
+            id: metadata.id,
+            zatcaStatus: metadata.zatcaStatus,
+            invoiceUuid: metadata.invoiceUuid,
+            icv: metadata.icv,
+            previousInvoiceHash: metadata.previousInvoiceHash,
+            invoiceHash: metadata.invoiceHash,
+            xmlHash: metadata.xmlHash,
+            hashModeSnapshot: metadata.hashModeSnapshot,
+            egsUnitId: metadata.egsUnitId,
+            generatedAt: metadata.generatedAt,
+            hasUnsignedXml: Boolean(metadata.xmlBase64),
+            hasInvoiceHash: Boolean(metadata.invoiceHash),
+            signedXmlPersisted: false,
+            signedXmlStorageKey: null,
+          }
+        : null,
+      activeEgsUnit: activeEgs
+        ? {
+            id: activeEgs.id,
+            name: activeEgs.name,
+            environment: activeEgs.environment,
+            status: activeEgs.status,
+            isActive: activeEgs.isActive,
+            hashMode: activeEgs.hashMode,
+            lastIcv: activeEgs.lastIcv,
+            lastInvoiceHash: activeEgs.lastInvoiceHash,
+            hasCsr: Boolean(activeEgs.csrPem),
+            hasComplianceCsid: Boolean(activeEgs.complianceCsidPem),
+            hasProductionCsid: Boolean(activeEgs.productionCsidPem),
+          }
+        : null,
+      latestLocalSignedValidationStatus: "NOT_PERSISTED",
+      latestLocalSignedValidationSource: "Temp-only SDK validation results are intentionally not stored as invoice state.",
+      promotionDefinition: "Promotion means an approved signed XML artifact is stored as invoice state for later audit/submission workflows. LedgerByte does not implement this yet.",
+      promotionBlocked: true,
+      signedXmlPersisted: false,
+      signedXmlStorageKey: null,
+      qrPersisted: false,
+      requiresRealCertificate: true,
+      requiresProductionKeyCustody: true,
+      validationSuccessIsPreconditionOnly: true,
+      requiredFutureArtifacts: [
+        { id: "signedXmlStorage", label: "Persisted signed XML artifact storage key", required: true, available: false },
+        { id: "signedXmlHash", label: "Hash of the promoted signed XML artifact", required: true, available: false },
+        { id: "phase2QrPayload", label: "QR generated after signing", required: true, available: false },
+        { id: "realSigningCertificate", label: "Real ZATCA-issued signing certificate/CSID", required: true, available: Boolean(activeEgs?.productionCsidPem) },
+        { id: "productionKeyCustody", label: "Production private-key custody/KMS/HSM integration", required: true, available: false },
+        { id: "invoiceHashForSubmission", label: "Invoice hash to include in future clearance/reporting payloads", required: true, available: Boolean(metadata?.invoiceHash) },
+        { id: "invoiceBase64ForSubmission", label: "Base64 signed invoice payload for future clearance/reporting", required: true, available: false },
+        { id: "clearanceReportingResult", label: "Future ZATCA clearance/reporting result state", required: true, available: false },
+      ],
+      promotionReadiness,
+      blockers: [...new Set(blockers)],
+      warnings: [
+        "Local dummy-material signed XML validation success does not equal persisted signed invoice state.",
+        "Promotion is separate from future ZATCA clearance/reporting submission and separate from PDF/A-3 embedding.",
+        "No signed XML body, QR payload, private key, certificate body, CSID token, OTP, or production credential is returned.",
+      ],
+      recommendedNextSteps: [
+        "Keep signed XML validation temp-only until real certificate/key custody and storage rules are designed.",
+        "Design metadata-only signed artifact state and object-storage retention before persisting signed XML bodies.",
+        "After promotion storage is designed, add a separate submission plan for clearance/reporting request bodies using uuid, invoiceHash, and base64 signed invoice.",
+      ],
     };
   }
 
@@ -3761,6 +3915,117 @@ export class ZatcaService {
     }
     checks.push(this.check("ZATCA_SDK_DUMMY_MATERIAL_TEST_ONLY", "WARNING", "sdk.certificates", "The official SDK bundled certificate/private key are dummy testing material only.", "SDK_README_DUMMY_CERT", "Never persist or use SDK dummy material as tenant production credentials."));
     return createZatcaReadinessSection("SIGNING", checks);
+  }
+
+  private buildSignedArtifactPromotionReadinessSection(
+    metadata?: { xmlBase64?: string | null; invoiceHash?: string | null; generatedAt?: Date | null } | null,
+    activeEgs?: { complianceCsidPem?: string | null; productionCsidPem?: string | null } | null,
+  ): ZatcaReadinessSection {
+    const checks: ZatcaReadinessCheck[] = [
+      this.check(
+        "ZATCA_SIGNED_XML_NOT_PERSISTED",
+        "ERROR",
+        "signedArtifact.signedXml",
+        "Signed XML is not persisted as invoice state.",
+        "SIGNED_XML_PROMOTION_PLAN",
+        "Design signed artifact storage, retention, and audit rules before persisting signed XML.",
+      ),
+      this.check(
+        "ZATCA_DUMMY_SIGNED_XML_CANNOT_BE_PROMOTED",
+        "ERROR",
+        "signedArtifact.material",
+        "Local SDK dummy/test signed XML must never be promoted to production or legal invoice state.",
+        "SDK_README_DUMMY_CERT",
+        "Use dummy material only for local validation experiments; real promotion requires ZATCA-issued certificate material.",
+      ),
+      this.check(
+        "ZATCA_REAL_CERTIFICATE_REQUIRED_FOR_PROMOTION",
+        "ERROR",
+        "signedArtifact.certificate",
+        "A real ZATCA-issued signing certificate/CSID is required before signed XML promotion can be designed for production.",
+        "SECURITY_FEATURES_CERTIFICATE",
+        "Complete certificate/key custody architecture before enabling any promotion workflow.",
+      ),
+      this.check(
+        "ZATCA_PRODUCTION_KEY_CUSTODY_REQUIRED_FOR_PROMOTION",
+        "ERROR",
+        "signedArtifact.keyCustody",
+        "Production private-key custody is not configured.",
+        "SECURITY_FEATURES_XADES",
+        "Use KMS/HSM-backed custody or an equivalent controlled signing boundary before production signing/promotion.",
+      ),
+      this.check(
+        "ZATCA_SIGNED_XML_PROMOTION_NOT_IMPLEMENTED",
+        "ERROR",
+        "signedArtifact.promotion",
+        "Signed XML promotion workflow is not implemented.",
+        "SIGNED_XML_PROMOTION_PLAN",
+        "Keep signed XML validation temp-only until artifact storage, idempotency, rollback, and audit behavior are approved.",
+      ),
+      this.check(
+        "ZATCA_SUBMISSION_WORKFLOW_NOT_IMPLEMENTED",
+        "ERROR",
+        "submission.workflow",
+        "ZATCA submission workflow is not implemented.",
+        "CLEARANCE_REPORTING_API",
+        "Treat artifact promotion as separate from any future clearance/reporting request.",
+      ),
+      this.check(
+        "ZATCA_CLEARANCE_REPORTING_NOT_IMPLEMENTED",
+        "ERROR",
+        "submission.clearanceReporting",
+        "Clearance/reporting is not implemented.",
+        "CLEARANCE_REPORTING_API",
+        "Do not submit invoices to ZATCA from local signing or promotion planning endpoints.",
+      ),
+      this.check(
+        "ZATCA_PDF_A3_NOT_IMPLEMENTED_FOR_PROMOTION",
+        "ERROR",
+        "pdfA3",
+        "PDF/A-3 embedding is not implemented for signed artifacts.",
+        "SECURITY_FEATURES_PADES",
+        "Implement PDF/A-3 in a separate phase after signed XML promotion and submission boundaries are defined.",
+      ),
+      this.check(
+        "ZATCA_LOCAL_SIGNED_VALIDATION_NOT_PERSISTED",
+        "WARNING",
+        "signedArtifact.localValidation",
+        "Local signed XML validation results are temp-only and are not persisted as invoice state.",
+        "SDK_VALIDATE",
+        "Use the local signed XML validation dry-run for evidence, but do not infer persisted signed invoice state from it.",
+      ),
+    ];
+
+    if (metadata?.xmlBase64 && metadata.invoiceHash) {
+      checks.push(
+        this.check(
+          "ZATCA_UNSIGNED_XML_SOURCE_AVAILABLE",
+          "INFO",
+          "signedArtifact.unsignedXml",
+          "Unsigned XML and invoice hash exist as inputs for local temp signing validation.",
+          "KSA-13",
+          "Do not promote these inputs until signed artifact storage and real certificate custody are implemented.",
+        ),
+      );
+    } else {
+      checks.push(
+        this.check(
+          "ZATCA_UNSIGNED_XML_SOURCE_MISSING_FOR_PROMOTION",
+          "WARNING",
+          "signedArtifact.unsignedXml",
+          "Generated unsigned XML/hash are missing for signed artifact planning.",
+          "KSA-13",
+          "Generate local XML before running temp-only signing validation.",
+        ),
+      );
+    }
+    if (!activeEgs?.productionCsidPem) {
+      checks.push(this.check("ZATCA_PRODUCTION_CSID_MISSING_FOR_PROMOTION", "ERROR", "egs.productionCsidPem", "Production CSID is missing for any future production promotion design.", "SECURITY_FEATURES_AUTH", "Do not request production CSIDs in this local-only planning phase."));
+    }
+    if (!activeEgs?.complianceCsidPem) {
+      checks.push(this.check("ZATCA_COMPLIANCE_CSID_MISSING_FOR_PROMOTION", "ERROR", "egs.complianceCsidPem", "Compliance CSID/certificate is missing for official pre-production signing validation.", "COMPLIANCE_CSID", "Keep this as a blocker until a dedicated onboarding phase."));
+    }
+    return createZatcaReadinessSection("SIGNED_ARTIFACT_PROMOTION", checks);
   }
 
   private buildPhase2QrReadinessSection(metadata?: { xmlBase64?: string | null; invoiceHash?: string | null } | null): ZatcaReadinessSection {
