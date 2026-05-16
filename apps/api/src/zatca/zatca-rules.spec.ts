@@ -1021,6 +1021,104 @@ describe("ZATCA service rules", () => {
     expect(onboardingAdapter.requestProductionCsid).not.toHaveBeenCalled();
   });
 
+
+  it("returns a CSR dry-run plan without exposing secrets or mutating EGS", async () => {
+    const previousFlag = process.env.ZATCA_SDK_CSR_EXECUTION_ENABLED;
+    delete process.env.ZATCA_SDK_CSR_EXECUTION_ENABLED;
+    const onboardingAdapter = { requestComplianceCsid: jest.fn(), requestProductionCsid: jest.fn() };
+    const auditLogService = { log: jest.fn() };
+    const prisma = {
+      organization: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "org-1",
+          name: "Org",
+          legalName: "Org Legal",
+          taxNumber: "300000000000003",
+          countryCode: "SA",
+        }),
+      },
+      zatcaOrganizationProfile: {
+        findFirst: jest.fn().mockResolvedValue({
+          sellerName: "Org Legal",
+          vatNumber: "300000000000003",
+          countryCode: "SA",
+          businessCategory: "Services",
+        }),
+      },
+      zatcaEgsUnit: {
+        findFirst: jest.fn().mockResolvedValue({
+          ...makeEgsUnit({
+            environment: "SANDBOX",
+            csrPem: "-----BEGIN CERTIFICATE REQUEST-----\nCSR-SECRET\n-----END CERTIFICATE REQUEST-----",
+            complianceCsidPem: "COMPLIANCE-CERT-SECRET",
+            productionCsidPem: "PRODUCTION-CERT-SECRET",
+          }),
+          privateKeyPem: "-----BEGIN PRIVATE KEY-----\nSUPER-SECRET-PRIVATE-KEY\n-----END PRIVATE KEY-----",
+        }),
+        update: jest.fn(),
+      },
+      zatcaSubmissionLog: { create: jest.fn() },
+    };
+    const service = new ZatcaService(prisma as never, auditLogService as never, onboardingAdapter as never);
+
+    try {
+      const result = await service.getEgsUnitCsrDryRun("org-1", "egs-1", { prepareFiles: true });
+
+      expect(result).toMatchObject({
+        localOnly: true,
+        dryRun: true,
+        noMutation: true,
+        noCsidRequest: true,
+        noNetwork: true,
+        productionCompliance: false,
+        executionEnabled: false,
+        executionSkipped: true,
+        prepareFilesRequested: true,
+      });
+      expect(result.sdkCommand).toContain("-csr");
+      expect(result.commandPlan.displayCommand).toContain("-csr");
+      expect(result.preparedFiles.csrConfigWritten).toBe(false);
+      expect(result.preparedFiles.privateKeyWritten).toBe(false);
+      expect(result.preparedFiles.generatedCsrWritten).toBe(false);
+      expect(result.blockers).toEqual(expect.arrayContaining([expect.stringContaining("csr.invoice.type"), expect.stringContaining("csr.location.address")]));
+      expect(JSON.stringify(result)).not.toContain("SUPER-SECRET-PRIVATE-KEY");
+      expect(JSON.stringify(result)).not.toContain("COMPLIANCE-CERT-SECRET");
+      expect(JSON.stringify(result)).not.toContain("PRODUCTION-CERT-SECRET");
+      expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+      expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+      expect(auditLogService.log).not.toHaveBeenCalled();
+      expect(onboardingAdapter.requestComplianceCsid).not.toHaveBeenCalled();
+      expect(onboardingAdapter.requestProductionCsid).not.toHaveBeenCalled();
+    } finally {
+      if (previousFlag === undefined) {
+        delete process.env.ZATCA_SDK_CSR_EXECUTION_ENABLED;
+      } else {
+        process.env.ZATCA_SDK_CSR_EXECUTION_ENABLED = previousFlag;
+      }
+    }
+  });
+
+  it("blocks CSR dry-run file preparation for production EGS units", async () => {
+    const prisma = {
+      organization: { findFirst: jest.fn().mockResolvedValue({ id: "org-1", name: "Org", legalName: "Org Legal", taxNumber: "300000000000003", countryCode: "SA" }) },
+      zatcaOrganizationProfile: { findFirst: jest.fn().mockResolvedValue({ sellerName: "Org Legal", vatNumber: "300000000000003", countryCode: "SA", businessCategory: "Services" }) },
+      zatcaEgsUnit: {
+        findFirst: jest.fn().mockResolvedValue({ ...makeEgsUnit({ environment: "PRODUCTION" }), privateKeyPem: null }),
+        update: jest.fn(),
+      },
+      zatcaSubmissionLog: { create: jest.fn() },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const result = await service.getEgsUnitCsrDryRun("org-1", "egs-1", { prepareFiles: true, keepTempFiles: true });
+
+    expect(result.blockers).toEqual(expect.arrayContaining([expect.stringContaining("non-production EGS units")]));
+    expect(result.preparedFiles.csrConfigWritten).toBe(false);
+    expect(result.productionCompliance).toBe(false);
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+  });
+
   it("returns a hash-chain reset dry-run plan without mutating EGS or metadata", async () => {
     const prisma = {
       zatcaEgsUnit: {

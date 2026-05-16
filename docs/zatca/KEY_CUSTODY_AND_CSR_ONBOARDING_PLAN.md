@@ -133,3 +133,48 @@ Never log or return:
 - Clearance/reporting.
 - PDF/A-3.
 - Production compliance.
+
+## 2026-05-16 - ZATCA CSR dry-run workflow
+
+Official sources inspected for this update:
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/usage.txt
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/config.json
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Input/csr-config-template.properties
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Input/csr-config-example-EN.properties
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Input/csr-config-example-EN-VAT-group.properties
+- reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards.pdf
+- reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_XML_Implementation_Standard_vF.pdf
+- reference/zatca-docs/compliance_csid.pdf
+- reference/zatca-docs/EInvoice_Data_Dictionary.xlsx
+- reference/zatca-docs/onboarding.pdf
+- reference/zatca-docs/renewal.pdf
+
+Implemented local/non-production CSR dry-run scaffolding:
+- Added a sanitized CSR dry-run path at `POST /zatca/egs-units/:id/csr-dry-run`.
+- Added `corepack pnpm zatca:csr-dry-run` for local operators to print a sanitized CSR plan.
+- The dry-run returns `localOnly: true`, `dryRun: true`, `noMutation: true`, `noCsidRequest: true`, `noNetwork: true`, and `productionCompliance: false`.
+- The SDK command is planned from the official syntax: `fatoora -csr -csrConfig <filename> -privateKey <filename> -generatedCsr <filename> -pem`.
+- Required CSR config keys are taken from the official SDK template: `csr.common.name`, `csr.serial.number`, `csr.organization.identifier`, `csr.organization.unit.name`, `csr.organization.name`, `csr.country.name`, `csr.invoice.type`, `csr.location.address`, and `csr.industry.business.category`.
+- Missing required CSR values block temp file preparation. LedgerByte does not invent `csr.invoice.type`, EGS location, common name, OTP, CSID, certificate, or token values.
+
+Temp file and execution strategy:
+- Temp planning uses the OS temp folder under `ledgerbyte-zatca-csr-dry-run/<egs>`.
+- Planned filenames are `csr-config.properties`, `generated-private-key.pem`, and `generated-csr.pem`.
+- The service writes only `csr-config.properties`, only when `prepareFiles` is explicitly requested and no required CSR fields are missing.
+- The service never writes private key content, never returns private key content, and never persists generated CSR/private key output to the database.
+- Files are cleaned unless `keepTempFiles` is explicitly requested for local debugging.
+- `ZATCA_SDK_CSR_EXECUTION_ENABLED` defaults to `false`; this phase still skips SDK execution even if the flag is set, returning the command plan only.
+
+Security boundary:
+- No compliance CSID request is made.
+- No production CSID request is made.
+- No ZATCA network adapter is called.
+- No invoice signing is performed.
+- No clearance/reporting is performed.
+- No PDF/A-3 is implemented.
+- No production credentials are used or requested.
+- No production compliance is claimed.
+
+Recommended next step:
+- Add explicit, official CSR onboarding fields to the EGS/profile model only after confirming each value source with the taxpayer onboarding data, then keep SDK CSR execution in a separate gated local experiment.

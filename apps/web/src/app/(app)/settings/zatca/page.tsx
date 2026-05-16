@@ -951,6 +951,7 @@ function HashChainStatusPanel({
                           <div className="font-medium text-ink">{unit.name}</div>
                           <div className="mt-1 text-steel">{unit.environment} {unit.isActive ? "active" : "inactive"}</div>
                           <div className="mt-1 font-mono text-[11px] text-steel">{truncateHash(unit.lastInvoiceHash)}</div>
+                          <div className="mt-1 text-[11px] text-amber-700">CSR dry-run only; no CSID request or network call.</div>
                         </td>
                         <td className="px-3 py-3">{zatcaHashModeLabel(unit.hashMode)}</td>
                         <td className="px-3 py-3">{unit.metadataCount}</td>

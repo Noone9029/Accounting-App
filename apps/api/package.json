@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "jest --config jest.config.cjs",
     "smoke:accounting": "tsx scripts/smoke-accounting.ts",
+    "zatca:csr-dry-run": "tsx scripts/zatca-csr-dry-run.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed"

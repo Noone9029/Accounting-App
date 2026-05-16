@@ -1,8 +1,9 @@
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { BadRequestException, Inject, Injectable, NotFoundException, NotImplementedException, Optional } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import {
   combineZatcaReadinessStatus,
   createZatcaReadinessSection,
@@ -44,8 +45,10 @@ import { UpdateZatcaEgsUnitDto } from "./dto/update-zatca-egs-unit.dto";
 import { UpdateZatcaProfileDto } from "./dto/update-zatca-profile.dto";
 import { ZatcaSdkService } from "../zatca-sdk/zatca-sdk.service";
 import {
+  buildZatcaSdkCsrCommand,
   buildZatcaSdkSigningCommand,
   discoverZatcaSdkReadiness,
+  isZatcaSdkCsrExecutionEnabled,
   isZatcaSdkSigningExecutionEnabled,
   ZATCA_SDK_CSR_COMMAND,
   ZATCA_SDK_SIGN_COMMAND,
@@ -1148,6 +1151,148 @@ export class ZatcaService {
         "Finalize CSR field ownership and validation from the official CSR config template before generating any real CSR.",
         "Choose production key custody before signing work; prefer KMS/HSM-backed signing and audit logging over raw PEM storage.",
         "Keep CSID requests, production credentials, and signing disabled until an explicit onboarding implementation phase.",
+      ],
+    };
+  }
+
+  async getEgsUnitCsrDryRun(
+    organizationId: string,
+    id: string,
+    options: { prepareFiles?: boolean; keepTempFiles?: boolean } = {},
+  ) {
+    const plan = await this.getEgsUnitCsrPlan(organizationId, id);
+    const prepareFiles = options.prepareFiles === true;
+    const keepTempFiles = options.keepTempFiles === true;
+    const executionEnabled = isZatcaSdkCsrExecutionEnabled();
+    const sdkReadiness = discoverZatcaSdkReadiness();
+    const missingFields = plan.requiredFields.filter((field) => field.status === "MISSING");
+    const reviewFields = plan.requiredFields.filter((field) => field.status === "NEEDS_REVIEW");
+    const tempDirectory = join(tmpdir(), "ledgerbyte-zatca-csr-dry-run", safeZatcaTempName(`${plan.egsUnit.environment}-${plan.egsUnit.id}`));
+    const plannedFiles = {
+      csrConfig: join(tempDirectory, "csr-config.properties"),
+      privateKey: join(tempDirectory, "generated-private-key.pem"),
+      generatedCsr: join(tempDirectory, "generated-csr.pem"),
+    };
+    const commandPlan = buildZatcaSdkCsrCommand({
+      csrConfigFilePath: plannedFiles.csrConfig,
+      privateKeyFilePath: plannedFiles.privateKey,
+      generatedCsrFilePath: plannedFiles.generatedCsr,
+      sdkJarPath: sdkReadiness.sdkJarPath,
+      launcherPath: sdkReadiness.fatooraLauncherPath,
+      jqPath: sdkReadiness.jqPath,
+      configDirPath: sdkReadiness.configDirPath,
+      workingDirectory: tempDirectory,
+      platform: process.platform,
+      javaFound: sdkReadiness.javaFound,
+      javaCommand: sdkReadiness.javaCommand,
+    });
+    const csrConfigEntries = plan.requiredFields.map((field) => ({
+      key: field.sdkConfigKey,
+      value: field.currentValue,
+      status: field.status,
+      source: field.source,
+      officialSource: field.officialSource,
+      notes: field.notes,
+    }));
+    const blockers = plan.blockers.filter((reason) => !/CSID requests are intentionally disabled/i.test(reason));
+    const warnings = [
+      ...plan.warnings,
+      "No CSID request is made by this CSR dry-run.",
+      "No ZATCA network call is made by this CSR dry-run.",
+      "SDK CSR execution is disabled by default with ZATCA_SDK_CSR_EXECUTION_ENABLED=false.",
+    ];
+
+    if (plan.egsUnit.environment === "PRODUCTION") {
+      blockers.push("CSR dry-run file preparation is restricted to non-production EGS units.");
+    }
+    if (missingFields.length > 0) {
+      blockers.push(
+        `CSR dry-run cannot prepare an SDK config until required official CSR fields are mapped: ${missingFields
+          .map((field) => field.sdkConfigKey)
+          .join(", ")}.`,
+      );
+    }
+    if (reviewFields.length > 0) {
+      warnings.push(
+        `CSR config values need official-format review before any real CSR generation: ${reviewFields.map((field) => field.sdkConfigKey).join(", ")}.`,
+      );
+    }
+    if (executionEnabled) {
+      blockers.push("SDK CSR execution remains intentionally unimplemented in this safe dry-run workflow; only the command plan is returned.");
+    }
+
+    const canPrepareFiles = prepareFiles && missingFields.length === 0 && plan.egsUnit.environment !== "PRODUCTION";
+    const preparedFiles = {
+      requested: prepareFiles,
+      csrConfigWritten: false,
+      privateKeyWritten: false,
+      generatedCsrWritten: false,
+      filesRetained: false,
+      cleanupPerformed: false,
+      keepTempFiles,
+    };
+
+    if (canPrepareFiles) {
+      mkdirSync(tempDirectory, { recursive: true });
+      const configText = csrConfigEntries.map((entry) => `${entry.key}=${entry.value ?? ""}`).join("\n") + "\n";
+      writeFileSync(plannedFiles.csrConfig, configText, { encoding: "utf8", mode: 0o600 });
+      preparedFiles.csrConfigWritten = true;
+      preparedFiles.filesRetained = keepTempFiles;
+      if (!keepTempFiles) {
+        rmSync(tempDirectory, { recursive: true, force: true });
+        preparedFiles.cleanupPerformed = true;
+      }
+    } else if (prepareFiles) {
+      warnings.push("No temporary CSR config file was written because dry-run blockers are present.");
+    }
+
+    return {
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      noCsidRequest: true,
+      noNetwork: true,
+      productionCompliance: false,
+      warning: "Non-production CSR dry-run only. No CSID request, signing, clearance/reporting, PDF/A-3, network submission, or production compliance is enabled.",
+      sdkCommand: ZATCA_SDK_CSR_COMMAND,
+      executionEnabled,
+      executionSkipped: true,
+      executionSkipReason: executionEnabled
+        ? "Execution flag is true, but SDK CSR execution is intentionally not implemented in this safe dry-run workflow."
+        : "ZATCA_SDK_CSR_EXECUTION_ENABLED is not true; SDK CSR execution is skipped by default.",
+      prepareFilesRequested: prepareFiles,
+      tempDirectory,
+      plannedFiles,
+      preparedFiles,
+      commandPlan,
+      sdkReadiness: {
+        referenceFolderFound: sdkReadiness.referenceFolderFound,
+        sdkJarFound: sdkReadiness.sdkJarFound,
+        fatooraLauncherFound: sdkReadiness.fatooraLauncherFound,
+        configDirFound: sdkReadiness.configDirFound,
+        javaFound: sdkReadiness.javaFound,
+        javaVersion: sdkReadiness.javaVersion,
+        javaVersionSupported: sdkReadiness.javaVersionSupported,
+        canAttemptSdkValidation: sdkReadiness.canAttemptSdkValidation,
+        canRunLocalValidation: sdkReadiness.canRunLocalValidation,
+        blockingReasons: sdkReadiness.blockingReasons,
+        warnings: sdkReadiness.warnings,
+      },
+      egsUnit: plan.egsUnit,
+      requiredFields: plan.requiredFields,
+      availableValues: plan.availableValues,
+      missingValues: plan.missingValues,
+      plannedSdkConfigFields: plan.plannedSdkConfigFields,
+      csrConfigEntries,
+      keyCustody: plan.keyCustody,
+      certificateState: plan.certificateState,
+      blockers,
+      warnings,
+      recommendedNextSteps: [
+        "Complete missing official CSR config values before preparing SDK input files.",
+        "Keep CSR dry-runs in non-production EGS units only.",
+        "Do not request compliance or production CSIDs until a dedicated onboarding phase is approved.",
+        "Use KMS/HSM-style key custody before any production signing design is implemented.",
       ],
     };
   }

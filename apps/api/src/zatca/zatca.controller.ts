@@ -115,6 +115,16 @@ export class ZatcaController {
     return this.zatcaService.getEgsUnitCsrPlan(organizationId, id);
   }
 
+  @Post("zatca/egs-units/:id/csr-dry-run")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  getEgsCsrDryRun(
+    @CurrentOrganizationId() organizationId: string,
+    @Param("id") id: string,
+    @Body() dto: { prepareFiles?: boolean; keepTempFiles?: boolean } = {},
+  ) {
+    return this.zatcaService.getEgsUnitCsrDryRun(organizationId, id, dto);
+  }
+
   @Get("zatca/egs-units/:id/csr")
   @RequirePermissions(PERMISSIONS.zatca.view)
   async getEgsCsr(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {

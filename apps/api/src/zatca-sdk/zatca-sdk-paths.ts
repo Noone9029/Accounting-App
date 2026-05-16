@@ -68,6 +68,20 @@ export interface ZatcaSdkValidationCommandInput {
   javaCommand?: string;
 }
 
+export interface ZatcaSdkCsrCommandInput {
+  csrConfigFilePath: string;
+  privateKeyFilePath: string;
+  generatedCsrFilePath: string;
+  sdkJarPath?: string | null;
+  launcherPath?: string | null;
+  jqPath?: string | null;
+  configDirPath?: string | null;
+  workingDirectory: string;
+  platform: NodeJS.Platform | string;
+  javaFound?: boolean;
+  javaCommand?: string;
+}
+
 export interface ZatcaSdkValidationCommandPlan {
   command: string | null;
   args: string[];
@@ -229,6 +243,99 @@ export function buildZatcaSdkSigningCommand(input: ZatcaSdkValidationCommandInpu
   return buildZatcaSdkCommand(input, "sign");
 }
 
+export function buildZatcaSdkCsrCommand(input: ZatcaSdkCsrCommandInput): ZatcaSdkValidationCommandPlan {
+  const currentPlatform = input.platform;
+  const warnings: string[] = [
+    "Use argument-array execution for this SDK CSR command; do not concatenate a shell string.",
+    `Uses the SDK readme documented command: ${ZATCA_SDK_CSR_COMMAND}.`,
+  ];
+  const envAdditions: Record<string, string> = {};
+  const pathPrepend: string[] = [];
+
+  if (!input.csrConfigFilePath.trim()) {
+    warnings.push("CSR config file path is missing.");
+  }
+  if (!input.privateKeyFilePath.trim()) {
+    warnings.push("Private key output file path is missing.");
+  }
+  if (!input.generatedCsrFilePath.trim()) {
+    warnings.push("Generated CSR output file path is missing.");
+  }
+  if (input.javaFound === false) {
+    warnings.push("Java is missing; the planned CSR command cannot run until Java is installed.");
+  }
+  if (!input.sdkJarPath && !input.launcherPath) {
+    warnings.push("Neither SDK JAR nor fatoora launcher is available.");
+  }
+  if (input.launcherPath && !input.jqPath) {
+    warnings.push("fatoora launcher may require jq, but jq was not found.");
+  }
+  if (input.configDirPath) {
+    envAdditions.SDK_CONFIG = currentPlatform === "win32" ? win32.join(input.configDirPath, "config.json") : posix.join(input.configDirPath, "config.json");
+  } else {
+    warnings.push("SDK_CONFIG could not be planned because the SDK Configuration directory was not resolved.");
+  }
+  if (input.launcherPath) {
+    envAdditions.FATOORA_HOME = currentPlatform === "win32" ? win32.dirname(input.launcherPath) : dirname(input.launcherPath);
+  }
+  if (input.jqPath) {
+    pathPrepend.push(currentPlatform === "win32" ? win32.dirname(input.jqPath) : dirname(input.jqPath));
+  }
+  if (input.javaCommand && input.javaCommand !== "java" && /[\\/]/.test(input.javaCommand)) {
+    pathPrepend.push(currentPlatform === "win32" ? win32.dirname(input.javaCommand) : dirname(input.javaCommand));
+  }
+  if (pathPrepend.length > 0) {
+    envAdditions.PATH_PREPEND = pathPrepend.join(currentPlatform === "win32" ? ";" : ":");
+  }
+
+  const pathContainsSpaces =
+    /\s/.test(input.workingDirectory) ||
+    /\s/.test(input.csrConfigFilePath) ||
+    /\s/.test(input.privateKeyFilePath) ||
+    /\s/.test(input.generatedCsrFilePath) ||
+    Boolean(input.sdkJarPath && /\s/.test(input.sdkJarPath));
+  if (pathContainsSpaces) {
+    warnings.push("One or more planned CSR paths contain spaces; use argument-array execution, not shell string concatenation.");
+  }
+
+  const csrArgs = [
+    "-csr",
+    "-csrConfig",
+    input.csrConfigFilePath,
+    "-privateKey",
+    input.privateKeyFilePath,
+    "-generatedCsr",
+    input.generatedCsrFilePath,
+    "-pem",
+  ];
+  let command: string | null = null;
+  let args: string[] = [];
+
+  if (input.launcherPath) {
+    if (currentPlatform === "win32" && /\.bat$/i.test(input.launcherPath)) {
+      command = "cmd.exe";
+      args = ["/d", "/c", input.launcherPath, ...csrArgs];
+      warnings.push("Uses cmd.exe argument-array execution only to run the official Windows fatoora.bat launcher.");
+    } else {
+      command = input.launcherPath;
+      args = csrArgs;
+    }
+  } else if (input.sdkJarPath) {
+    command = input.javaCommand ?? "java";
+    args = ["-jar", input.sdkJarPath, ...csrArgs];
+    warnings.push("Direct JAR execution is a fallback; prefer the official fatoora launcher when available.");
+  }
+
+  return {
+    command,
+    args,
+    displayCommand: command ? [command, ...args].map((part) => quoteForDisplay(part, currentPlatform)).join(" ") : "",
+    envAdditions,
+    workingDirectory: input.workingDirectory,
+    warnings,
+  };
+}
+
 function buildZatcaSdkCommand(input: ZatcaSdkValidationCommandInput & { signedInvoiceFilePath?: string | null }, operation: "validate" | "generateHash" | "sign"): ZatcaSdkValidationCommandPlan {
   const currentPlatform = input.platform;
   const warnings: string[] = ["Use argument-array execution for this SDK command; do not concatenate a shell string."];
@@ -363,6 +470,10 @@ export function isZatcaSdkExecutionEnabled(sourceEnv: NodeJS.ProcessEnv = env): 
 
 export function isZatcaSdkSigningExecutionEnabled(sourceEnv: NodeJS.ProcessEnv = env): boolean {
   return String(sourceEnv.ZATCA_SDK_SIGNING_EXECUTION_ENABLED ?? "").trim().toLowerCase() === "true";
+}
+
+export function isZatcaSdkCsrExecutionEnabled(sourceEnv: NodeJS.ProcessEnv = env): boolean {
+  return String(sourceEnv.ZATCA_SDK_CSR_EXECUTION_ENABLED ?? "").trim().toLowerCase() === "true";
 }
 
 export function readZatcaSdkExecutionConfig(sourceEnv: NodeJS.ProcessEnv | Record<string, string | undefined> = env, projectRoot = cwd()): ZatcaSdkExecutionConfig {
