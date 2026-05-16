@@ -1357,6 +1357,8 @@ export class ZatcaService {
       buyer: {
         name: invoice.customer.displayName ?? invoice.customer.name,
         vatNumber: invoice.customer.taxNumber,
+        streetName: invoice.customer.addressLine1,
+        district: invoice.customer.addressLine2,
         city: invoice.customer.city,
         postalCode: invoice.customer.postalCode,
         countryCode: invoice.customer.countryCode,

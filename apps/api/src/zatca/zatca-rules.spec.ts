@@ -260,7 +260,12 @@ describe("ZATCA service rules", () => {
   });
 
   it("generates metadata, increments ICV, and updates the previous hash chain", async () => {
-    const tx = makeGenerationTransactionMock({ activeEgsLastIcv: 4, activeEgsLastInvoiceHash: "previous-hash" });
+    const tx = makeGenerationTransactionMock({
+      activeEgsLastIcv: 4,
+      activeEgsLastInvoiceHash: "previous-hash",
+      customerAddressLine1: "King Abdullah Road",
+      customerAddressLine2: "Al Murooj",
+    });
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
     const audit = { log: jest.fn() };
     const service = new ZatcaService(prisma as never, audit as never);
@@ -281,6 +286,8 @@ describe("ZATCA service rules", () => {
     );
     const generatedXml = Buffer.from(tx.zatcaInvoiceMetadata.update.mock.calls[0]![0].data.xmlBase64, "base64").toString("utf8");
     expect(generatedXml).toContain("<cbc:ActualDeliveryDate>2026-05-07</cbc:ActualDeliveryDate>");
+    expect(generatedXml).toContain("<cbc:StreetName>King Abdullah Road</cbc:StreetName>");
+    expect(generatedXml).toContain("<cbc:CitySubdivisionName>Al Murooj</cbc:CitySubdivisionName>");
     expect(tx.zatcaEgsUnit.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ lastIcv: 5, lastInvoiceHash: expect.any(String) }) }));
     expect(tx.zatcaSubmissionLog.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ requestUrl: "local-generation-only" }) }));
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "GENERATE", entityType: "ZatcaInvoiceMetadata" }));
@@ -763,6 +770,8 @@ function makeGenerationTransactionMock(options: {
   activeEgsHashMode?: "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
   activeEgs?: null;
   existingMetadata?: ReturnType<typeof makeGeneratedMetadata>;
+  customerAddressLine1?: string | null;
+  customerAddressLine2?: string | null;
 } = {}) {
   const activeEgs =
     options.activeEgs === null
@@ -794,8 +803,8 @@ function makeGenerationTransactionMock(options: {
           name: "Customer",
           displayName: "Customer",
           taxNumber: null,
-          addressLine1: null,
-          addressLine2: null,
+          addressLine1: options.customerAddressLine1 ?? null,
+          addressLine2: options.customerAddressLine2 ?? null,
           city: "Riyadh",
           postalCode: "12345",
           countryCode: "SA",

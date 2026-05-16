@@ -388,7 +388,7 @@ Results:
 | Invoice | SDK mode snapshot | PIH | Persisted hash | Direct SDK hash | Hash compare | SDK XML validation |
 | --- | --- | --- | --- | --- | --- | --- |
 | `INV-000001` | `SDK_GENERATED` | First PIH seed from `Data/PIH/pih.txt` | `3G0f1iTuJNYnHJY8dJWsoGfz9jfCBaTwNb+UK84ILaU=` | `3G0f1iTuJNYnHJY8dJWsoGfz9jfCBaTwNb+UK84ILaU=` | `MATCH` | Global `PASSED`; buyer-address warnings remain |
-| `INV-000002` | `SDK_GENERATED` | `INV-000001` SDK hash | `Eoo9jY0Tcf1zof/rjR3LPIXXsyxnLNvzrIcZLR9OczY=` | `Eoo9jY0Tcf1zof/rjR3LPIXXsyxnLNvzrIcZLR9OczY=` | `MATCH` | Global `FAILED`; `KSA-13` PIH invalid remains |
+| `INV-000002` | `SDK_GENERATED` | `INV-000001` SDK hash | `Eoo9jY0Tcf1zof/rjR3LPIXXsyxnLNvzrIcZLR9OczY=` | `Eoo9jY0Tcf1zof/rjR3LPIXXsyxnLNvzrIcZLR9OczY=` | `MATCH` | Historical result: global `FAILED`; `KSA-13` PIH invalid. Superseded by the PIH debug fix below. |
 
 Idempotency:
 
@@ -416,3 +416,46 @@ This pass validates SDK hash persistence and stored PIH chaining on a fresh EGS,
 ## Compliance Warning
 
 This validation pass does not prove production compliance. Production readiness still requires official XML mapping, canonicalization, signing, CSID onboarding, clearance/reporting, PDF/A-3/archive review, legal/accounting review, and controlled sandbox testing.
+
+## Fresh EGS PIH Chain Debug Fix
+
+Follow-up date: 2026-05-16
+
+Official files rechecked for this pass:
+
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/usage.txt`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/PIH/pih.txt`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Simplified/Invoice/Simplified_Invoice.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Rules/Schematrons/20210819_ZATCA_E-invoice_Validation_Rules.xsl`
+- `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_XML_Implementation_Standard_vF.pdf`
+- `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards.pdf`
+- `reference/zatca-docs/EInvoice_Data_Dictionary.xlsx`
+
+Confirmed `KSA-13` cause:
+
+- LedgerByte persisted invoice 2 PIH correctly as invoice 1's SDK hash.
+- SDK `-generateHash` matched LedgerByte's persisted hashes for both invoices.
+- The SDK `-validate` command reads the expected previous hash from `Configuration/config.json` `pihPath`.
+- The default SDK `pihPath` points at `Data/PIH/pih.txt`, which contains the official first-invoice seed.
+- Invoice 2 validation therefore failed because the local SDK process was comparing invoice 2 PIH against the first seed, not invoice 1's hash.
+
+Fix:
+
+- The SDK wrapper and `corepack pnpm zatca:debug-pih-chain` now write a temporary SDK config for invoice validation when metadata has `previousInvoiceHash`.
+- The temporary config keeps SDK paths absolute and points `pihPath` at a temp file containing the invoice-specific previous hash.
+- No committed SDK config, invoice metadata, EGS ICV/last hash, signing state, CSID state, or network behavior is changed.
+
+Latest debug run:
+
+| Invoice | PIH | Persisted/direct SDK hash | SDK validation |
+| --- | --- | --- | --- |
+| `INV-000001` | Official first seed | `LjCY8QibCBOF4IHSmbwyLFevrxfCi7wD5+XP2D2plS4=` | Global `PASSED`; `BR-KSA-63` buyer-address warning remains |
+| `INV-000002` | `INV-000001` SDK hash | `5HwroZhItrbnJyQf0a+aiPXzTCLlIci14fnPgKZmNS0=` | Global `PASSED`; `KSA-13` resolved; `BR-KSA-63` buyer-address warning remains |
+
+Buyer-address status:
+
+- Generated buyer address mapping now emits `cbc:StreetName` from `Contact.addressLine1` and `cbc:CitySubdivisionName` from `Contact.addressLine2`.
+- The remaining `BR-KSA-63` warning is caused by missing buyer `cbc:BuildingNumber`; the current `Contact` schema does not capture a dedicated 4-digit building number.
+- This is a data-model/product gap for a future address-field pass, not a reason to invent or hardcode buyer address values.

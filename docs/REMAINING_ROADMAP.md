@@ -104,7 +104,8 @@ Tasks:
 - Keep Java 11-14 configured for repeatable local/CI SDK validation; official sample fixtures now pass under Java 11.
 - Complete the remaining official XML gaps: generated invoice address/identifier warnings, broader invoice scenarios, signing/certificate, and Phase 2 QR.
 - Use the no-mutation hash comparison, dry-run reset plan, and explicit fresh-EGS SDK hash mode as the verified baseline. The first two generated SDK-mode invoices now persist hashes that match SDK `-generateHash`, and repeated generation is idempotent.
-- Investigate the remaining generated XML findings from the fresh-EGS pass: invoice 2 `KSA-13` PIH validation failure and buyer-address warnings.
+- The invoice 2 `KSA-13` PIH validation failure is resolved for local fresh-EGS validation by passing metadata `previousInvoiceHash` through an invoice-specific temporary SDK `pihPath`.
+- Resolve remaining generated XML buyer-address warning `BR-KSA-63` by adding real buyer building-number data later; do not hardcode fake address values.
 - Implement signing and Phase 2 QR only after canonicalization and key custody are designed.
 - Implement compliance CSID onboarding with real FATOORA sandbox OTP.
 - Implement compliance invoice API tests.
@@ -126,7 +127,7 @@ Risk level: Critical.
 
 Recommended next prompt:
 
-> Fix generated ZATCA XML PIH/address warnings from the fresh-EGS SDK hash-mode validation, starting with invoice 2 KSA-13, without signing or network calls.
+> Add official buyer address field support for ZATCA generated XML, including customer building number/district validation and UI/API data capture, without signing or network calls.
 
 ## Phase 5: Production/SaaS Readiness
 

@@ -14,6 +14,7 @@
     "postinstall": "node scripts/vercel-postinstall.cjs",
     "smoke:accounting": "corepack pnpm --filter @ledgerbyte/api smoke:accounting",
     "zatca:validate-generated": "node scripts/validate-generated-zatca-invoice.cjs",
+    "zatca:debug-pih-chain": "node scripts/debug-zatca-pih-chain.cjs",
     "zatca:validate-sdk-hash-mode": "node scripts/validate-zatca-sdk-hash-mode.cjs",
     "db:generate": "corepack pnpm --filter @ledgerbyte/api db:generate",
     "db:migrate": "corepack pnpm --filter @ledgerbyte/api db:migrate",

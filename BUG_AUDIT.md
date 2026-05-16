@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-16
 
-Commit inspected: pending (`Add ZATCA SDK hash mode persistence groundwork`)
+Commit inspected: pending (`Fix ZATCA PIH chain and address warnings`)
 
 ## Scope
 
@@ -36,6 +36,29 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### ZATCA PIH chain and generated address warning pass
+
+Used only the repo-local official ZATCA SDK readme, `Configuration/usage.txt`, Schematron rules, `Data/PIH/pih.txt`, official samples, XML/security PDFs, and data dictionary to investigate the fresh-EGS invoice 2 `KSA-13` failure.
+
+Confirmed cause:
+
+- LedgerByte persisted invoice 2 PIH as invoice 1's SDK hash and hash compare returned `MATCH`.
+- The SDK `-validate` command reads the expected previous hash from `Configuration/config.json` `pihPath`.
+- The default `pihPath` file contains the official first-invoice PIH seed, so invoice 2 validation was comparing against the wrong previous hash.
+
+Risk reduced:
+
+- The SDK validation wrapper now uses a temporary invoice-specific `pihPath` file containing `ZatcaInvoiceMetadata.previousInvoiceHash` when validating generated invoice XML.
+- Added `corepack pnpm zatca:debug-pih-chain` as a local-only debug runner for fresh-EGS two-invoice PIH-chain validation.
+- Generated buyer mapping now emits `Contact.addressLine1` as buyer `StreetName` and `Contact.addressLine2` as buyer `CitySubdivisionName`.
+- Latest local debug run validated `INV-000001` and `INV-000002` globally through the SDK; `KSA-13` is resolved for this local fresh-EGS generated standard-invoice path.
+
+Remaining risks:
+
+- Generated XML still warns `BR-KSA-63` because the current `Contact` model does not capture a dedicated 4-digit buyer building number.
+- LedgerByte is still not ZATCA production compliant.
+- Signing/certificate handling, real CSID onboarding, clearance/reporting, Phase 2 QR, PDF/A-3, key custody, and sandbox credentials remain unimplemented.
 
 ### ZATCA SDK hash mode persistence groundwork added
 
@@ -2009,7 +2032,7 @@ Commit inspected: pending (`Validate SDK hash mode end to end`)
 
 ### Remaining ZATCA Risks
 
-- Generated invoice 2 still fails official SDK PIH validation with `KSA-13`.
-- Generated invoices still show buyer-address quality warnings.
+- Superseded by the later PIH-chain debug pass above: generated invoice 2 `KSA-13` is resolved for local fresh-EGS validation by using an invoice-specific temporary SDK `pihPath`.
+- Generated invoices still show buyer-address quality warning `BR-KSA-63` because customer records do not capture a dedicated 4-digit buyer building number.
 - No signing, certificate/key custody, Phase 2 QR, CSID, clearance/reporting, PDF/A-3, or real ZATCA network calls exist.
 - Fresh-EGS SDK hash mode is local-only evidence and is not production compliance.

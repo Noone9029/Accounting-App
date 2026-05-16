@@ -66,7 +66,7 @@ Results:
 - Direct SDK `-generateHash` matched both persisted hashes.
 - `POST /sales-invoices/:id/zatca/hash-compare` returned `MATCH` and `noMutation=true` for both invoices.
 - Repeated generation left ICV and EGS last hash unchanged.
-- SDK XML validation passed globally for invoice 1 with buyer-address warnings, but invoice 2 still failed official PIH validation with `KSA-13`.
+- Historical result: SDK XML validation passed globally for invoice 1 with buyer-address warnings, but invoice 2 failed official PIH validation with `KSA-13`. This is superseded by the PIH-chain follow-up below.
 
 Wrapper correction:
 
@@ -105,3 +105,26 @@ Updated gap:
 - No production CSID, clearance, reporting, signing, or PDF/A-3 implementation was added.
 - No SDK dummy certificate/private-key material was copied into application code.
 - Local SDK validation remains disabled unless `ZATCA_SDK_EXECUTION_ENABLED=true` is explicitly configured.
+
+## Fresh EGS PIH Chain Follow-Up
+
+The previous fresh-EGS pass proved SDK hash persistence and idempotent PIH chaining, but invoice 2 failed official SDK XML validation with `KSA-13`. The follow-up debug pass confirmed the cause: local SDK `-validate` uses the configured `pihPath` file as the expected previous invoice hash. The default SDK file `Data/PIH/pih.txt` contains the first-invoice seed, so invoice 2 was being validated against the wrong previous hash even though LedgerByte's metadata and XML contained invoice 1's SDK hash.
+
+Implemented fix:
+
+- `apps/api/src/zatca-sdk/zatca-sdk.service.ts` now creates a temporary SDK config with `pihPath` pointed at the invoice metadata `previousInvoiceHash` when running local validation.
+- `scripts/validate-zatca-sdk-hash-mode.cjs` and `scripts/debug-zatca-pih-chain.cjs` use the same invoice-specific PIH validation path.
+- The wrapper keeps the operation local-only, uses temp files, sanitizes output, and does not mutate invoice metadata or EGS state.
+
+Latest generated standard invoice evidence:
+
+- `INV-000001`: SDK hash `LjCY8QibCBOF4IHSmbwyLFevrxfCi7wD5+XP2D2plS4=`, PIH first seed, global SDK validation passed.
+- `INV-000002`: SDK hash `5HwroZhItrbnJyQf0a+aiPXzTCLlIci14fnPgKZmNS0=`, PIH equals invoice 1 SDK hash, global SDK validation passed.
+- Hash compare returned `MATCH` and `noMutation=true` for both invoices.
+- `KSA-13` is resolved for this local fresh-EGS generated standard-invoice path.
+
+Remaining generated XML gap:
+
+- `BR-KSA-63` still appears because the generated buyer address lacks `cbc:BuildingNumber`.
+- The API now maps `Contact.addressLine1` to buyer `StreetName` and `Contact.addressLine2` to buyer `CitySubdivisionName`, but the `Contact` model does not have a dedicated 4-digit building-number field.
+- Do not hardcode fake buyer building numbers; add proper address fields later as a data-model/product change.

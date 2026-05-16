@@ -37,7 +37,7 @@ The table below maps LedgerByte's current local XML skeleton to future Phase 2 w
 | --- | --- | --- | --- | --- | --- |
 | Buyer name | `Contact.displayName` or `Contact.name` | `AccountingCustomerParty/PartyLegalEntity/RegistrationName` | `IMPLEMENTED_LOCAL` | Yes | Escaped and emitted from customer data. |
 | Buyer VAT | `Contact.taxNumber` | `AccountingCustomerParty/PartyTaxScheme/CompanyID` | `IMPLEMENTED_LOCAL` | Yes | Emitted when present. The standard fixture now uses an SDK-accepted 15-digit VAT pattern. Standard vs simplified requirements need broader verification. |
-| Buyer address | `Contact` address fields | `AccountingCustomerParty/PostalAddress` | `IMPLEMENTED_LOCAL` | Yes | Current contact model has partial address coverage, but emitted fields now follow official UBL child ordering. |
+| Buyer address | `Contact.addressLine1`, `Contact.addressLine2`, `Contact.city`, `Contact.postalCode`, `Contact.countryCode` | `AccountingCustomerParty/PostalAddress` | `PARTIAL_LOCAL` | Yes | Generated XML maps `addressLine1` to `StreetName` and `addressLine2` to `CitySubdivisionName`, then emits city, postal code, and country in official sample order. `BR-KSA-63` still warns for Saudi buyers because LedgerByte does not yet capture a dedicated 4-digit buyer `BuildingNumber`. Do not hardcode fake building numbers. |
 
 ## Invoice Lines
 
@@ -86,3 +86,17 @@ The table below maps LedgerByte's current local XML skeleton to future Phase 2 w
 | Requirement area | LedgerByte source | XML target | Status | Official verification required | Notes |
 | --- | --- | --- | --- | --- | --- |
 | ZATCA UBL extensions | Not mapped | `/Invoice/ext:UBLExtensions` | `NEEDS_OFFICIAL_VERIFICATION` | Yes | Current XML includes TODO comments only. Official namespaces and extension bodies must be verified. |
+
+## 2026-05-16 Generated XML PIH And Address Update
+
+The fresh-EGS `SDK_GENERATED` pass now validates two generated standard invoices globally with the official local SDK when the wrapper points SDK `pihPath` at each invoice metadata `previousInvoiceHash`. This resolves the invoice 2 `KSA-13` failure without changing invoice metadata, EGS state, signing, CSID, or network behavior.
+
+Buyer-address warnings have been reduced but not fully closed. The current safe generated mapping is:
+
+- `Contact.addressLine1` -> `AccountingCustomerParty/Party/PostalAddress/cbc:StreetName`
+- `Contact.addressLine2` -> `AccountingCustomerParty/Party/PostalAddress/cbc:CitySubdivisionName`
+- `Contact.city` -> `cbc:CityName`
+- `Contact.postalCode` -> `cbc:PostalZone`
+- `Contact.countryCode` -> `cac:Country/cbc:IdentificationCode`
+
+The remaining `BR-KSA-63` warning requires buyer `cbc:BuildingNumber` for Saudi buyers. LedgerByte needs a real customer address-field expansion before that can be emitted safely.

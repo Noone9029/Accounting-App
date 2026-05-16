@@ -177,24 +177,26 @@ The first fixture set to validate after Java is corrected is registered in `apps
 - LedgerByte local standard XML fixture.
 - LedgerByte local simplified XML fixture.
 
-Generated invoice XML validation through the API now succeeds locally when SDK execution is explicitly enabled. The tested finalized smoke invoice validated with SDK exit code `0`; the SDK hash `ZVhjW6kwGeZ58ZYw1l9+9dBPm+m2CIWxKX4pDXVzTsU=` did not match the current app-stored local hash `X8UbEeT1oEdrpx2lMCNRUljZtcylcMoj1HSnaCWSDb8=`, confirming that app hash-chain storage still needs official SDK/C14N11 integration before production.
+Generated invoice XML validation through the API now succeeds locally when SDK execution is explicitly enabled. For local deterministic metadata, SDK hash comparison can still show `MISMATCH`, confirming that old/default app hash-chain storage is not production hash-chain evidence. For fresh `SDK_GENERATED` EGS metadata, persisted hashes now match SDK `-generateHash`.
 
 ## Fresh EGS SDK Hash-Mode Validation Status
 
 `scripts/validate-zatca-sdk-hash-mode.cjs` provides a repeatable local-only runner for the explicit `SDK_GENERATED` hash mode path. It requires a running local API, Java 11-14, and SDK execution env vars, then creates an isolated local organization, creates a fresh zero-metadata EGS, enables SDK hash mode, generates two finalized invoices, and compares persisted hashes to direct SDK `-generateHash` output.
 
-Latest run:
+Latest PIH debug run:
 
 - Java: `11.0.26`
-- EGS: `SDK Hash EGS 20260516075536`
-- Invoice 1: `INV-000001`, persisted hash `3G0f1iTuJNYnHJY8dJWsoGfz9jfCBaTwNb+UK84ILaU=`, direct SDK hash matched, PIH used the official first seed from `Data/PIH/pih.txt`.
-- Invoice 2: `INV-000002`, persisted hash `Eoo9jY0Tcf1zof/rjR3LPIXXsyxnLNvzrIcZLR9OczY=`, direct SDK hash matched, PIH used invoice 1's SDK hash.
+- EGS: fresh local zero-metadata `SDK Hash EGS 20260516090352`
+- Invoice 1: `INV-000001`, persisted hash `LjCY8QibCBOF4IHSmbwyLFevrxfCi7wD5+XP2D2plS4=`, direct SDK hash matched, PIH used the official first seed from `Data/PIH/pih.txt`.
+- Invoice 2: `INV-000002`, persisted hash `5HwroZhItrbnJyQf0a+aiPXzTCLlIci14fnPgKZmNS0=`, direct SDK hash matched, PIH used invoice 1's SDK hash.
 - Hash compare returned `MATCH` and `noMutation=true` for both invoices.
 - Repeated generation did not increment ICV or change EGS last hash.
-- XML validation for invoice 1 globally passed with buyer-address warnings.
-- XML validation for invoice 2 still failed official PIH validation with `KSA-13`, even though stored hash comparison matched.
+- XML validation for both invoices globally passed after the wrapper supplied invoice-specific `pihPath` values to the SDK validator.
+- Remaining XML validation warning is `BR-KSA-63` for buyer building number.
 
 The wrapper now treats official SDK output containing `GLOBAL VALIDATION RESULT = FAILED` or `validation result : FAILED` as `success=false` even when the SDK process exits `0`.
+
+For invoice-chain validation, the wrapper writes a temporary SDK config when `previousInvoiceHash` is available. The temp config points `pihPath` at a temp file containing that invoice metadata value. This avoids validating invoice 2 against the SDK bundle's default first-seed `Data/PIH/pih.txt` file and keeps the repo-local reference folder unchanged.
 
 ## Windows Path-With-Spaces Issue
 

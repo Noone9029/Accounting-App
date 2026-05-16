@@ -116,19 +116,19 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 
 ## Phase 3: ZATCA Production Path
 
-### 14. Resolve generated ZATCA PIH/address warnings
+### 14. Add official buyer address field support
 
-- Objective: Use the fresh-EGS SDK hash-mode output to investigate invoice 2 `KSA-13` PIH validation failure and fix generated buyer-address warnings without signing or network calls.
-- Why it matters: SDK hash persistence now works locally, but generated XML still needs official PIH validation and cleaner address mapping before signing work.
-- Dependencies: Java 11-14 runtime, official fixture result doc, fresh-EGS validation evidence.
+- Objective: Add customer address fields needed by the official Saudi buyer-address rules, especially 4-digit building number, and map them into generated ZATCA XML without signing or network calls.
+- Why it matters: Fresh-EGS SDK hash persistence and PIH validation now work locally, but generated XML still warns `BR-KSA-63` when buyer building-number data is missing.
+- Dependencies: Official fixture result doc, fresh-EGS validation evidence, contact/customer data model review.
 - Risk level: High.
 - Manual credentials needed: No.
 
-### 15. Re-run fresh-EGS SDK hash persistence after PIH fixes
+### 15. Re-run fresh-EGS SDK validation after address fixes
 
-- Objective: Repeat the two-invoice fresh-EGS validation after PIH/address fixes and confirm both SDK `-generateHash` and SDK XML validation pass where signing is not required.
-- Why it matters: The current pass proves persisted SDK hashes and idempotency but leaves invoice 2 `KSA-13`; the next pass should prove that remaining non-signing generated XML gap is closed.
-- Dependencies: Prompt 14 PIH/address fixes, SDK validation wrapper, hash comparison endpoint, reset-plan endpoint, and fresh-EGS enablement.
+- Objective: Repeat the two-invoice fresh-EGS validation after buyer-address data support and confirm both SDK `-generateHash` and SDK XML validation pass without address warnings where signing is not required.
+- Why it matters: The current pass resolves invoice 2 `KSA-13`; the next pass should prove generated standard XML is clean before signing work.
+- Dependencies: Prompt 14 buyer address fields, SDK validation wrapper, hash comparison endpoint, reset-plan endpoint, and fresh-EGS enablement.
 - Risk level: Critical.
 - Manual credentials needed: No.
 

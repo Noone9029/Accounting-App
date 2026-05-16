@@ -209,3 +209,18 @@ Changing LedgerByte from the local hash to the official SDK/C14N11 hash is not a
 - No CSID was requested.
 - No generated metadata was mutated by SDK validation.
 - No production compliance is claimed.
+
+## 2026-05-16 PIH Validator Configuration Fix
+
+Fresh-EGS SDK hash-mode validation exposed a local SDK validation issue, not a stored hash-chain issue. `INV-000002` embedded `INV-000001`'s SDK `-generateHash` output as PIH and hash compare returned `MATCH`, but the standalone SDK `-validate` command still failed `KSA-13`. The confirmed cause was the SDK validator reading `pihPath` from `Configuration/config.json`; the default file `Data/PIH/pih.txt` contains the first-invoice PIH seed, so validating invoice 2 against that default file compared the XML PIH against the wrong previous hash.
+
+The wrapper and debug runner now create an invoice-specific temporary SDK config for validation when metadata includes `previousInvoiceHash`. That temporary config points `pihPath` at a temp `pih.txt` containing the invoice metadata previous hash. No invoice metadata, EGS ICV, EGS last hash, SDK bundle, committed config, or production setting is mutated.
+
+Latest fresh-EGS evidence after the fix:
+
+| Invoice | ICV | PIH used | Persisted/direct SDK hash | SDK XML validation |
+| --- | ---: | --- | --- | --- |
+| `INV-000001` | 1 | Official first PIH seed | `LjCY8QibCBOF4IHSmbwyLFevrxfCi7wD5+XP2D2plS4=` | Global `PASSED`; buyer-address warning remains |
+| `INV-000002` | 2 | `INV-000001` SDK hash | `5HwroZhItrbnJyQf0a+aiPXzTCLlIci14fnPgKZmNS0=` | Global `PASSED`; `KSA-13` resolved; buyer-address warning remains |
+
+Buyer address warnings are now narrowed to data quality rather than PIH/hash-chain correctness. Generated XML maps `Contact.addressLine1` to buyer `cbc:StreetName` and `Contact.addressLine2` to buyer `cbc:CitySubdivisionName`, matching the official sample order. `BR-KSA-63` remains because the current `Contact` model does not have a dedicated 4-digit buyer building-number field. Do not hardcode fake buyer building numbers in production XML.

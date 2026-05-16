@@ -1,11 +1,13 @@
 import { BadRequestException } from "@nestjs/common";
 import { GUARDS_METADATA } from "@nestjs/common/constants";
 import { PERMISSIONS } from "@ledgerbyte/shared";
+import { resolve } from "node:path";
 import { REQUIRED_PERMISSIONS_KEY } from "../auth/decorators/require-permissions.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { ZatcaSdkController } from "./zatca-sdk.controller";
 import {
+  buildZatcaSdkConfigWithPihOverride,
   buildZatcaHashComparison,
   extractZatcaSdkInvoiceHash,
   extractZatcaSdkValidationMessages,
@@ -87,7 +89,7 @@ describe("ZATCA SDK service", () => {
 
     expect(prisma.zatcaInvoiceMetadata.findFirst).toHaveBeenCalledWith({
       where: { organizationId: "org-1", invoiceId: "invoice-1" },
-      select: { xmlBase64: true, invoiceHash: true },
+      select: { xmlBase64: true, invoiceHash: true, previousInvoiceHash: true },
     });
     expect(result).toMatchObject({ dryRun: true, localOnly: true, officialSdkValidation: false, xmlSource: "invoice" });
     expect(result.temporaryXmlFilePath).toContain("invoice-1.xml");
@@ -214,6 +216,29 @@ describe("ZATCA SDK service", () => {
     expect(extractZatcaSdkInvoiceHash("no hash here")).toBeNull();
   });
 
+  it("builds a temporary SDK config with the invoice PIH override", () => {
+    const configDirPath = resolve("tmp", "zatca-sdk", "Configuration");
+    const pihPath = resolve("tmp", "ledgerbyte-pih.txt");
+    const config = buildZatcaSdkConfigWithPihOverride(
+      {
+        xsdPath: "../Data/Schemas/xsds/UBL2.1/xsd/maindoc/UBL-Invoice-2.1.xsd",
+        enSchematron: "../Data/Rules/Schematrons/CEN-EN16931-UBL.xsl",
+        zatcaSchematron: "../Data/Rules/Schematrons/20210819_ZATCA_E-invoice_Validation_Rules.xsl",
+        certPath: "../Data/Certificates/cert.pem",
+        privateKeyPath: "../Data/Certificates/ec-secp256k1-priv-key.pem",
+        pihPath: "../Data/PIH/pih.txt",
+        inputPath: "../Data/Input",
+        usagePathFile: "../Configuration/usage.txt",
+      },
+      configDirPath,
+      pihPath,
+    );
+
+    expect(config.pihPath).toBe(pihPath);
+    expect(config.xsdPath).toBe(resolve(configDirPath, "../Data/Schemas/xsds/UBL2.1/xsd/maindoc/UBL-Invoice-2.1.xsd"));
+    expect(config.zatcaSchematron).toBe(resolve(configDirPath, "../Data/Rules/Schematrons/20210819_ZATCA_E-invoice_Validation_Rules.xsl"));
+  });
+
   it("infers SDK validation success from the official global validation result", () => {
     expect(inferZatcaSdkValidationSuccess("GLOBAL VALIDATION RESULT = PASSED", 0)).toBe(true);
     expect(inferZatcaSdkValidationSuccess("GLOBAL VALIDATION RESULT = FAILED", 0)).toBe(false);
@@ -246,7 +271,7 @@ describe("ZATCA SDK service", () => {
 
     expect(prisma.zatcaInvoiceMetadata.findFirst).toHaveBeenCalledWith({
       where: { organizationId: "org-1", invoiceId: "invoice-1" },
-      select: { xmlBase64: true, invoiceHash: true },
+      select: { xmlBase64: true, invoiceHash: true, previousInvoiceHash: true },
     });
     expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
     expect(result).toMatchObject({ localOnly: true, officialValidationAttempted: false, disabled: true, appHash: "local-app-hash", hashComparisonStatus: "BLOCKED" });

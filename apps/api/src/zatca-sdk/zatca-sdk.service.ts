@@ -169,6 +169,7 @@ export class ZatcaSdkService {
       invoiceType: dto.invoiceType,
       tempName: dto.invoiceId ?? "request-xml",
       appHash: payload.appHash,
+      previousInvoiceHash: payload.previousInvoiceHash,
     });
   }
 
@@ -179,8 +180,8 @@ export class ZatcaSdkService {
   }
 
   async validateInvoiceXmlLocal(organizationId: string, invoiceId: string): Promise<ZatcaSdkValidationResponse> {
-    const { xml, appHash } = await this.resolveXmlStringPayload(organizationId, { invoiceId });
-    return this.validateXmlStringLocal(xml, { source: "generated", tempName: invoiceId, appHash });
+    const { xml, appHash, previousInvoiceHash } = await this.resolveXmlStringPayload(organizationId, { invoiceId });
+    return this.validateXmlStringLocal(xml, { source: "generated", tempName: invoiceId, appHash, previousInvoiceHash });
   }
 
   async generateOfficialZatcaHash(xml: string, options: { appHash?: string | null; tempName?: string } = {}): Promise<ZatcaOfficialHashResult> {
@@ -315,7 +316,10 @@ export class ZatcaSdkService {
     };
   }
 
-  private async resolveXmlPayload(organizationId: string, dto: ValidateZatcaSdkXmlDto): Promise<{ xmlBase64: string; source: "invoice" | "request"; appHash: string | null }> {
+  private async resolveXmlPayload(
+    organizationId: string,
+    dto: ValidateZatcaSdkXmlDto,
+  ): Promise<{ xmlBase64: string; source: "invoice" | "request"; appHash: string | null; previousInvoiceHash: string | null }> {
     if (dto.invoiceId && (dto.xmlBase64 || dto.xml)) {
       throw new BadRequestException("Provide either invoiceId or XML payload, not both.");
     }
@@ -323,35 +327,38 @@ export class ZatcaSdkService {
     if (dto.invoiceId) {
       const metadata = await this.prisma.zatcaInvoiceMetadata.findFirst({
         where: { organizationId, invoiceId: dto.invoiceId },
-        select: { xmlBase64: true, invoiceHash: true },
+        select: { xmlBase64: true, invoiceHash: true, previousInvoiceHash: true },
       });
 
       if (!metadata?.xmlBase64) {
         throw new BadRequestException("ZATCA XML has not been generated for this invoice.");
       }
 
-      return { xmlBase64: metadata.xmlBase64, source: "invoice", appHash: metadata.invoiceHash ?? null };
+      return { xmlBase64: metadata.xmlBase64, source: "invoice", appHash: metadata.invoiceHash ?? null, previousInvoiceHash: metadata.previousInvoiceHash ?? null };
     }
 
     if (dto.xml?.trim()) {
-      return { xmlBase64: Buffer.from(dto.xml, "utf8").toString("base64"), source: "request", appHash: null };
+      return { xmlBase64: Buffer.from(dto.xml, "utf8").toString("base64"), source: "request", appHash: null, previousInvoiceHash: null };
     }
 
     if (!dto.xmlBase64?.trim()) {
       throw new BadRequestException("Provide xml, xmlBase64, or invoiceId for SDK validation.");
     }
 
-    return { xmlBase64: dto.xmlBase64, source: "request", appHash: null };
+    return { xmlBase64: dto.xmlBase64, source: "request", appHash: null, previousInvoiceHash: null };
   }
 
-  private async resolveXmlStringPayload(organizationId: string, dto: ValidateZatcaSdkXmlDto): Promise<{ xml: string; source: "invoice" | "request"; appHash: string | null }> {
-    const { xmlBase64, source, appHash } = await this.resolveXmlPayload(organizationId, dto);
+  private async resolveXmlStringPayload(
+    organizationId: string,
+    dto: ValidateZatcaSdkXmlDto,
+  ): Promise<{ xml: string; source: "invoice" | "request"; appHash: string | null; previousInvoiceHash: string | null }> {
+    const { xmlBase64, source, appHash, previousInvoiceHash } = await this.resolveXmlPayload(organizationId, dto);
     const xml = Buffer.from(xmlBase64, "base64").toString("utf8").trim();
     if (!xml) {
       throw new BadRequestException("ZATCA XML payload is empty.");
     }
     assertXmlSize(xml);
-    return { xml, source, appHash };
+    return { xml, source, appHash, previousInvoiceHash };
   }
 
   private async validateXmlStringLocal(
@@ -361,6 +368,7 @@ export class ZatcaSdkService {
       tempName: string;
       invoiceType?: "standard" | "simplified";
       appHash?: string | null;
+      previousInvoiceHash?: string | null;
     },
   ): Promise<ZatcaSdkValidationResponse> {
     assertXmlSize(xml);
@@ -397,12 +405,13 @@ export class ZatcaSdkService {
     const xmlFilePath = join(runDir, `${safeTempName(options.tempName)}.xml`);
     try {
       await writeFile(xmlFilePath, xml, "utf8");
+      const pihOverride = await prepareSdkConfigWithPihOverride(readiness, runDir, options.previousInvoiceHash);
       const commandPlan = buildZatcaSdkValidationCommand({
         xmlFilePath,
         sdkJarPath: readiness.sdkJarPath,
         launcherPath: readiness.fatooraLauncherPath,
         jqPath: readiness.jqPath,
-        configDirPath: readiness.configDirPath,
+        configDirPath: pihOverride.configDirPath ?? readiness.configDirPath,
         workingDirectory: readiness.sdkRootPath ?? readiness.referenceFolderPath ?? readiness.projectRoot,
         platform: process.platform,
         javaFound: readiness.javaFound,
@@ -436,7 +445,7 @@ export class ZatcaSdkService {
         stderrSummary,
         validationMessages: extractZatcaSdkValidationMessages(`${stdoutSummary}\n${stderrSummary}`),
         blockingReasons: executed.timedOut ? ["ZATCA SDK validation timed out."] : [],
-        warnings: [...warnings, ...commandPlan.warnings, ...hashResult.warnings],
+        warnings: [...warnings, ...pihOverride.warnings, ...commandPlan.warnings, ...hashResult.warnings],
         xmlSource: options.source,
         invoiceType: options.invoiceType,
       };
@@ -470,6 +479,62 @@ export class ZatcaSdkService {
     }
 
     return requestedPath;
+  }
+}
+
+type ZatcaSdkConfigFile = Record<string, unknown>;
+
+const SDK_CONFIG_PATH_KEYS = ["xsdPath", "enSchematron", "zatcaSchematron", "certPath", "privateKeyPath", "inputPath", "usagePathFile"] as const;
+
+export function buildZatcaSdkConfigWithPihOverride(baseConfig: ZatcaSdkConfigFile, configDirPath: string, pihPath: string): ZatcaSdkConfigFile {
+  const config: ZatcaSdkConfigFile = { ...baseConfig };
+  for (const key of SDK_CONFIG_PATH_KEYS) {
+    const value = config[key];
+    if (typeof value === "string" && value.trim()) {
+      config[key] = isAbsolute(value) ? value : resolve(configDirPath, value);
+    }
+  }
+  config.pihPath = pihPath;
+  return config;
+}
+
+async function prepareSdkConfigWithPihOverride(
+  readiness: ZatcaSdkReadiness,
+  runDir: string,
+  previousInvoiceHash: string | null | undefined,
+): Promise<{ configDirPath: string | null; warnings: string[] }> {
+  const pihValue = previousInvoiceHash?.trim();
+  if (!pihValue || !readiness.configDirPath) {
+    return { configDirPath: null, warnings: [] };
+  }
+
+  const baseConfigPath = join(readiness.configDirPath, "config.json");
+  if (!existsSync(baseConfigPath)) {
+    return {
+      configDirPath: null,
+      warnings: ["Could not prepare invoice-specific PIH validation config because the SDK config.json file was not found."],
+    };
+  }
+
+  try {
+    const pihPath = join(runDir, "pih.txt");
+    const configDirPath = join(runDir, "Configuration");
+    const tempConfigPath = join(configDirPath, "config.json");
+    const baseConfig = JSON.parse(await readFile(baseConfigPath, "utf8")) as ZatcaSdkConfigFile;
+    const tempConfig = buildZatcaSdkConfigWithPihOverride(baseConfig, readiness.configDirPath, pihPath);
+    await mkdir(configDirPath, { recursive: true });
+    await writeFile(pihPath, pihValue, "ascii");
+    await writeFile(tempConfigPath, JSON.stringify(tempConfig, null, 2), "utf8");
+
+    return {
+      configDirPath,
+      warnings: ["SDK validation pihPath was pointed at the invoice metadata previous hash for local hash-chain validation."],
+    };
+  } catch {
+    return {
+      configDirPath: null,
+      warnings: ["Could not prepare invoice-specific PIH validation config; SDK validation used the default PIH config."],
+    };
   }
 }
 

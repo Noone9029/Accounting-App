@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 const { execFile } = require("node:child_process");
-const { mkdir, writeFile } = require("node:fs/promises");
+const { mkdir, mkdtemp, readFile, rm, writeFile } = require("node:fs/promises");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -127,6 +127,7 @@ async function main() {
       displayName: `SDK Hash Customer ${runId}`,
       taxNumber: "399999999900003",
       addressLine1: "King Abdullah Financial District",
+      addressLine2: "Al Aqeeq",
       city: "Riyadh",
       postalCode: "13519",
       countryCode: "SA",
@@ -301,7 +302,7 @@ async function generateValidateAndCompare({ headers, invoice, sdkConfig, expecte
     throw new Error(`${invoice.invoiceNumber} persisted hash did not match direct SDK hash.`);
   }
 
-  const directValidation = await runFatoora(sdkConfig, "validate", xmlPath);
+  const directValidation = await runFatoora(sdkConfig, "validate", xmlPath, { previousInvoiceHash: metadata.previousInvoiceHash });
   const validationMessages = extractValidationMessages(`${directValidation.stdout}\n${directValidation.stderr}`);
   const hashCompare = await requestJson(`/sales-invoices/${encodeURIComponent(invoice.id)}/zatca/hash-compare`, {
     method: "POST",
@@ -384,7 +385,7 @@ function resolveSdkConfig() {
   return { sdkRoot, sdkJar, launcher, configDir, javaBin, workDir, jqPath };
 }
 
-function runFatoora(config, operation, xmlPath) {
+async function runFatoora(config, operation, xmlPath, options = {}) {
   const operationFlag = operation === "validate" ? "-validate" : "-generateHash";
   const env = { ...process.env };
   const pathParts = [path.dirname(config.javaBin)];
@@ -394,22 +395,51 @@ function runFatoora(config, operation, xmlPath) {
   const delimiter = process.platform === "win32" ? ";" : ":";
   env.PATH = `${pathParts.join(delimiter)}${delimiter}${env.PATH || env.Path || ""}`;
   if (process.platform === "win32") env.Path = env.PATH;
-  env.SDK_CONFIG = path.join(config.configDir, "config.json");
+  const override = operation === "validate" && options.previousInvoiceHash ? await preparePihOverrideConfig(config, options.previousInvoiceHash) : null;
+  env.SDK_CONFIG = override?.configPath || path.join(config.configDir, "config.json");
   env.FATOORA_HOME = path.join(config.sdkRoot, "Apps");
 
   const command = process.platform === "win32" && /\.bat$/i.test(config.launcher) ? process.env.ComSpec || "cmd.exe" : config.launcher;
   const args = command.toLowerCase().endsWith("cmd.exe") ? ["/d", "/c", config.launcher, operationFlag, "-invoice", xmlPath] : [operationFlag, "-invoice", xmlPath];
 
-  return new Promise((resolveResult) => {
-    execFile(command, args, { cwd: config.sdkRoot, env, timeout: 60000, windowsHide: true, maxBuffer: 5 * 1024 * 1024 }, (error, stdout, stderr) => {
-      const maybeCode = error && typeof error.code === "number" ? error.code : null;
-      resolveResult({
-        exitCode: error ? maybeCode : 0,
-        stdout: sanitize(String(stdout || "")),
-        stderr: sanitize(String(stderr || error?.message || "")),
+  try {
+    return await new Promise((resolveResult) => {
+      execFile(command, args, { cwd: config.sdkRoot, env, timeout: 60000, windowsHide: true, maxBuffer: 5 * 1024 * 1024 }, (error, stdout, stderr) => {
+        const maybeCode = error && typeof error.code === "number" ? error.code : null;
+        resolveResult({
+          exitCode: error ? maybeCode : 0,
+          stdout: sanitize(String(stdout || "")),
+          stderr: sanitize(String(stderr || error?.message || "")),
+        });
       });
     });
-  });
+  } finally {
+    if (override?.dir) {
+      await rm(override.dir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  }
+}
+
+async function preparePihOverrideConfig(config, previousInvoiceHash) {
+  const pihValue = String(previousInvoiceHash || "").trim();
+  if (!pihValue) return null;
+
+  const dir = await mkdtemp(path.join(config.workDir, "pih-config-"));
+  const configDir = path.join(dir, "Configuration");
+  const pihPath = path.join(dir, "pih.txt");
+  const configPath = path.join(configDir, "config.json");
+  const baseConfigPath = path.join(config.configDir, "config.json");
+  const baseConfig = JSON.parse(await readFile(baseConfigPath, "utf8"));
+  const tempConfig = { ...baseConfig, pihPath };
+  for (const key of ["xsdPath", "enSchematron", "zatcaSchematron", "certPath", "privateKeyPath", "inputPath", "usagePathFile"]) {
+    if (typeof tempConfig[key] === "string" && tempConfig[key].trim() && !path.isAbsolute(tempConfig[key])) {
+      tempConfig[key] = path.resolve(config.configDir, tempConfig[key]);
+    }
+  }
+  await mkdir(configDir, { recursive: true });
+  await writeFile(pihPath, pihValue, "ascii");
+  await writeFile(configPath, JSON.stringify(tempConfig, null, 2), "utf8");
+  return { dir, configPath };
 }
 
 async function javaVersion(javaBin) {

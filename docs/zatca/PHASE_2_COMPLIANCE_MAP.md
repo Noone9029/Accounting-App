@@ -59,7 +59,7 @@ Fresh-EGS SDK hash persistence has been validated locally as an engineering mile
 
 Remaining Phase 2 blockers:
 
-- Generated invoice 2 still fails official SDK PIH validation with `KSA-13`.
-- Generated invoices still show buyer-address quality warnings.
+- Generated invoice 2 `KSA-13` is resolved for local fresh-EGS validation after the wrapper supplies an invoice-specific SDK `pihPath` containing metadata `previousInvoiceHash`.
+- Generated invoices still show buyer-address quality warning `BR-KSA-63` because customer records do not have a dedicated 4-digit buyer building-number field.
 - Signing, certificate/key custody, Phase 2 QR, CSID onboarding, clearance/reporting, and PDF/A-3 remain unimplemented.
 - No production compliance is claimed.

@@ -66,5 +66,20 @@ Validated locally on 2026-05-16 with Java 11.0.26:
 
 Still failing or warning:
 
-- Invoice 1 SDK XML validation globally passes but has buyer-address warnings.
-- Invoice 2 SDK XML validation fails `KSA-13` PIH validation. Do not proceed to signing or sandbox calls until this is understood and resolved.
+- Invoice 1 SDK XML validation globally passes but has buyer-address warning `BR-KSA-63`.
+- Invoice 2 SDK XML validation now globally passes after the SDK wrapper supplies an invoice-specific temp `pihPath` containing metadata `previousInvoiceHash`; `KSA-13` is resolved for the local fresh-EGS generated standard-invoice path.
+- The remaining generated XML warning is buyer-address data quality: LedgerByte maps street and district fields, but does not yet capture a dedicated 4-digit buyer building number required by the official Saudi buyer-address rule.
+
+## PIH Chain Debug Regression
+
+Use `corepack pnpm zatca:debug-pih-chain` only in local SDK-enabled environments. It requires a running local API, Java 11-14, SDK execution env vars, and test credentials. It does not call ZATCA, does not sign invoices, and does not mutate metadata during hash comparison.
+
+The regression should prove:
+
+- fresh EGS can enable `SDK_GENERATED`;
+- invoice 1 PIH is the official first seed;
+- invoice 2 PIH is invoice 1's SDK hash;
+- both direct SDK hashes match persisted hashes;
+- both hash-compare calls return `MATCH`;
+- SDK XML validation passes globally for both generated standard invoices except documented address data warnings;
+- repeated generation remains idempotent.

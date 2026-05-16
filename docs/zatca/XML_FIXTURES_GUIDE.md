@@ -56,3 +56,15 @@ The local tests compare generated XML against the expected local XML text. They 
 - SDK hash output parsing and read-only hash comparison response shape
 
 These tests are engineering guardrails only. Official ZATCA/FATOORA validation remains a future manual dependency.
+
+## Generated XML PIH Debug Fixture
+
+`corepack pnpm zatca:debug-pih-chain` is the current local regression helper for generated API XML under a fresh `SDK_GENERATED` EGS. It creates two generated standard invoices, runs SDK `-generateHash`, validates XML with the SDK, and checks that invoice 2 PIH equals invoice 1's SDK hash.
+
+The helper also mirrors the API wrapper's invoice-specific PIH validation behavior: when validating an invoice with metadata, it writes a temporary SDK config whose `pihPath` points to that invoice's `previousInvoiceHash`. This is needed because the SDK's default `Data/PIH/pih.txt` contains only the first-invoice seed. Normal unit tests do not require Java or the SDK.
+
+Latest generated XML debug output:
+
+- `INV-000001`: global SDK validation passed with SDK hash `LjCY8QibCBOF4IHSmbwyLFevrxfCi7wD5+XP2D2plS4=`.
+- `INV-000002`: global SDK validation passed with SDK hash `5HwroZhItrbnJyQf0a+aiPXzTCLlIci14fnPgKZmNS0=` and PIH equal to invoice 1's SDK hash.
+- Remaining generated XML warning: `BR-KSA-63`, caused by missing buyer building number data in the current contact model.
