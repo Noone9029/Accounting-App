@@ -128,6 +128,45 @@ export class ZatcaController {
     return this.zatcaService.getEgsUnitCsrConfigPreview(organizationId, id);
   }
 
+  @Get("zatca/egs-units/:id/csr-config-reviews")
+  @RequirePermissions(PERMISSIONS.zatca.view)
+  listEgsUnitCsrConfigReviews(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.zatcaService.listEgsUnitCsrConfigReviews(organizationId, id);
+  }
+
+  @Post("zatca/egs-units/:id/csr-config-reviews")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  createEgsUnitCsrConfigReview(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: { note?: string } = {},
+  ) {
+    return this.zatcaService.createEgsUnitCsrConfigReview(organizationId, user.id, id, dto);
+  }
+
+  @Post("zatca/csr-config-reviews/:reviewId/approve")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  approveCsrConfigReview(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("reviewId") reviewId: string,
+    @Body() dto: { note?: string } = {},
+  ) {
+    return this.zatcaService.approveCsrConfigReview(organizationId, user.id, reviewId, dto);
+  }
+
+  @Post("zatca/csr-config-reviews/:reviewId/revoke")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  revokeCsrConfigReview(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("reviewId") reviewId: string,
+    @Body() dto: { note?: string } = {},
+  ) {
+    return this.zatcaService.revokeCsrConfigReview(organizationId, user.id, reviewId, dto);
+  }
+
   @Post("zatca/egs-units/:id/csr-dry-run")
   @RequirePermissions(PERMISSIONS.zatca.manage)
   getEgsCsrDryRun(

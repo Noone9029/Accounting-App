@@ -153,6 +153,7 @@ export type ZatcaInvoiceStatus = "NOT_SUBMITTED" | "XML_GENERATED" | "READY_FOR_
 export type ZatcaSubmissionType = "COMPLIANCE_CHECK" | "CLEARANCE" | "REPORTING";
 export type ZatcaSubmissionStatus = "PENDING" | "SUCCESS" | "REJECTED" | "FAILED";
 export type ZatcaHashMode = "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
+export type ZatcaCsrConfigReviewStatus = "DRAFT" | "APPROVED" | "SUPERSEDED" | "REVOKED";
 export type MembershipStatus = "ACTIVE" | "INVITED" | "SUSPENDED";
 
 export interface Organization {
@@ -3244,6 +3245,34 @@ export interface ZatcaEgsCsrConfigPreviewResponse {
   blockers: string[];
   warnings: string[];
   officialSources: string[];
+}
+
+export interface ZatcaCsrConfigReview {
+  id: string;
+  organizationId: string;
+  egsUnitId: string;
+  status: ZatcaCsrConfigReviewStatus;
+  configHash: string;
+  configPreviewRedacted: string;
+  configKeyOrder: string[];
+  missingFieldsJson: unknown;
+  reviewFieldsJson: unknown;
+  blockersJson: unknown;
+  warningsJson: unknown;
+  approvedById: string | null;
+  approvedAt: string | null;
+  approvedBy?: { id: string; name: string; email: string } | null;
+  revokedById: string | null;
+  revokedAt: string | null;
+  revokedBy?: { id: string; name: string; email: string } | null;
+  note: string | null;
+  localOnly: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  sdkExecution: false;
+  productionCompliance: false;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ZatcaXmlValidationResult {

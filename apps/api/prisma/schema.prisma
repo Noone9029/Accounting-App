@@ -423,6 +423,13 @@ enum ZatcaHashMode {
   SDK_GENERATED
 }
 
+enum ZatcaCsrConfigReviewStatus {
+  DRAFT
+  APPROVED
+  SUPERSEDED
+  REVOKED
+}
+
 enum FiscalPeriodStatus {
   OPEN
   CLOSED
@@ -510,6 +517,8 @@ model User {
   createdAuthTokens                           AuthToken[]                          @relation("AuthTokenCreatedBy")
   updatedAuditLogRetentionSettings            AuditLogRetentionSettings[]          @relation("AuditLogRetentionSettingsUpdatedBy")
   zatcaHashModeEnabledEgsUnits                ZatcaEgsUnit[]                       @relation("ZatcaHashModeEnabledBy")
+  approvedZatcaCsrConfigReviews               ZatcaCsrConfigReview[]               @relation("ZatcaCsrConfigReviewApprovedBy")
+  revokedZatcaCsrConfigReviews                ZatcaCsrConfigReview[]               @relation("ZatcaCsrConfigReviewRevokedBy")
 }
 
 model Organization {
@@ -585,6 +594,7 @@ model Organization {
   zatcaEgsUnits                       ZatcaEgsUnit[]
   zatcaInvoiceMetadata                ZatcaInvoiceMetadata[]
   zatcaSubmissionLogs                 ZatcaSubmissionLog[]
+  zatcaCsrConfigReviews               ZatcaCsrConfigReview[]
 }
 
 model OrganizationDocumentSettings {
@@ -760,6 +770,7 @@ model ZatcaEgsUnit {
   hashModeEnabledBy    User?                    @relation("ZatcaHashModeEnabledBy", fields: [hashModeEnabledById], references: [id], onDelete: SetNull)
   invoiceMetadata      ZatcaInvoiceMetadata[]
   submissionLogs       ZatcaSubmissionLog[]
+  csrConfigReviews     ZatcaCsrConfigReview[]
 
   @@unique([organizationId, deviceSerialNumber])
   @@index([organizationId])
@@ -767,6 +778,40 @@ model ZatcaEgsUnit {
   @@index([organizationId, isActive])
   @@index([organizationId, hashMode])
   @@index([hashModeEnabledById])
+}
+
+model ZatcaCsrConfigReview {
+  id                    String                     @id @default(uuid()) @db.Uuid
+  organizationId        String                     @db.Uuid
+  egsUnitId             String                     @db.Uuid
+  status                ZatcaCsrConfigReviewStatus @default(DRAFT)
+  configHash            String
+  configPreviewRedacted String                     @db.Text
+  configKeyOrder        Json
+  missingFieldsJson     Json
+  reviewFieldsJson      Json
+  blockersJson          Json?
+  warningsJson          Json?
+  approvedById          String?                    @db.Uuid
+  approvedAt            DateTime?
+  revokedById           String?                    @db.Uuid
+  revokedAt             DateTime?
+  note                  String?
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  egsUnit      ZatcaEgsUnit @relation(fields: [egsUnitId], references: [id], onDelete: Cascade)
+  approvedBy   User?        @relation("ZatcaCsrConfigReviewApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  revokedBy    User?        @relation("ZatcaCsrConfigReviewRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([egsUnitId])
+  @@index([organizationId, egsUnitId])
+  @@index([organizationId, egsUnitId, status])
+  @@index([configHash])
+  @@index([approvedById])
+  @@index([revokedById])
 }
 
 model ZatcaInvoiceMetadata {

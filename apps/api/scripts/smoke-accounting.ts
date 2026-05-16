@@ -1179,6 +1179,37 @@ interface ZatcaEgsCsrConfigPreviewResponse {
   warnings: string[];
 }
 
+interface ZatcaCsrConfigReview {
+  id: string;
+  egsUnitId: string;
+  status: "DRAFT" | "APPROVED" | "SUPERSEDED" | "REVOKED";
+  configHash: string;
+  configPreviewRedacted: string;
+  missingFieldsJson: unknown;
+  blockersJson: unknown;
+  approvedById?: string | null;
+  approvedAt?: string | null;
+  localOnly: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  sdkExecution: false;
+  productionCompliance: false;
+}
+
+interface ZatcaEgsCsrDryRunResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  productionCompliance: false;
+  configReviewRequired: true;
+  latestReviewId: string | null;
+  latestReviewStatus: "DRAFT" | "APPROVED" | "SUPERSEDED" | "REVOKED" | null;
+  configApprovedForDryRun: boolean;
+  warnings: string[];
+}
+
 interface ZatcaXmlFieldMappingResponse {
   warning: string;
   summary: {
@@ -3120,6 +3151,45 @@ async function main(): Promise<void> {
   const egsAfterCsrConfigPreview = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
   assertEqual(egsAfterCsrConfigPreview.lastIcv, egsBeforeCsrConfigPreview.lastIcv, "ZATCA CSR config preview does not mutate EGS ICV");
   assertEqual(egsAfterCsrConfigPreview.lastInvoiceHash, egsBeforeCsrConfigPreview.lastInvoiceHash, "ZATCA CSR config preview does not mutate EGS previous hash");
+  const egsBeforeCsrReview = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  const submissionsBeforeCsrReview = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  const zatcaCsrConfigReview = await post<ZatcaCsrConfigReview>(`/zatca/egs-units/${smokeEgs.id}/csr-config-reviews`, headers, {
+    note: "Smoke reviewed sanitized CSR config preview only.",
+  });
+  assertEqual(zatcaCsrConfigReview.localOnly, true, "ZATCA CSR config review localOnly");
+  assertEqual(zatcaCsrConfigReview.noCsidRequest, true, "ZATCA CSR config review noCsidRequest");
+  assertEqual(zatcaCsrConfigReview.noNetwork, true, "ZATCA CSR config review noNetwork");
+  assertEqual(zatcaCsrConfigReview.sdkExecution, false, "ZATCA CSR config review sdkExecution false");
+  assertEqual(zatcaCsrConfigReview.productionCompliance, false, "ZATCA CSR config review productionCompliance");
+  assertEqual(zatcaCsrConfigReview.status, "DRAFT", "ZATCA CSR config review starts as DRAFT");
+  assert(zatcaCsrConfigReview.configPreviewRedacted.includes("csr.common.name=TST-886431145-399999999900003"), "ZATCA CSR config review stores sanitized preview");
+  const approvedZatcaCsrConfigReview = await post<ZatcaCsrConfigReview>(`/zatca/csr-config-reviews/${zatcaCsrConfigReview.id}/approve`, headers, {
+    note: "Smoke approved sanitized CSR config preview locally.",
+  });
+  assertEqual(approvedZatcaCsrConfigReview.status, "APPROVED", "ZATCA CSR config review approves when preview is ready");
+  assertPresent(approvedZatcaCsrConfigReview.approvedAt, "ZATCA CSR config review approvedAt");
+  const listedCsrConfigReviews = await get<ZatcaCsrConfigReview[]>(`/zatca/egs-units/${smokeEgs.id}/csr-config-reviews`, headers);
+  assert(listedCsrConfigReviews.some((review) => review.id === approvedZatcaCsrConfigReview.id && review.status === "APPROVED"), "ZATCA CSR config review list returns approved review");
+  const serializedCsrConfigReview = JSON.stringify([zatcaCsrConfigReview, approvedZatcaCsrConfigReview, listedCsrConfigReviews]);
+  assertNoPrivateKey([zatcaCsrConfigReview, approvedZatcaCsrConfigReview, listedCsrConfigReviews], "ZATCA CSR config review responses");
+  assert(!serializedCsrConfigReview.includes("BEGIN CERTIFICATE"), "ZATCA CSR config review does not expose certificate bodies");
+  assert(!serializedCsrConfigReview.includes("binarySecurityToken"), "ZATCA CSR config review does not expose CSID token field names");
+  assert(!serializedCsrConfigReview.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA CSR config review does not expose generated CSR bodies");
+  assert(!serializedCsrConfigReview.includes("OTP"), "ZATCA CSR config review does not expose one-time portal codes");
+  const egsAfterCsrReview = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  assertEqual(egsAfterCsrReview.lastIcv, egsBeforeCsrReview.lastIcv, "ZATCA CSR config review does not mutate EGS ICV");
+  assertEqual(egsAfterCsrReview.lastInvoiceHash, egsBeforeCsrReview.lastInvoiceHash, "ZATCA CSR config review does not mutate EGS previous hash");
+  const submissionsAfterCsrReview = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterCsrReview.length, submissionsBeforeCsrReview.length, "ZATCA CSR config review does not create submission logs");
+  const zatcaCsrDryRunAfterReview = await post<ZatcaEgsCsrDryRunResponse>(`/zatca/egs-units/${smokeEgs.id}/csr-dry-run`, headers, {});
+  assertEqual(zatcaCsrDryRunAfterReview.localOnly, true, "ZATCA CSR dry-run after review localOnly");
+  assertEqual(zatcaCsrDryRunAfterReview.noCsidRequest, true, "ZATCA CSR dry-run after review noCsidRequest");
+  assertEqual(zatcaCsrDryRunAfterReview.noNetwork, true, "ZATCA CSR dry-run after review noNetwork");
+  assertEqual(zatcaCsrDryRunAfterReview.productionCompliance, false, "ZATCA CSR dry-run after review productionCompliance");
+  assertEqual(zatcaCsrDryRunAfterReview.configReviewRequired, true, "ZATCA CSR dry-run reports review required");
+  assertEqual(zatcaCsrDryRunAfterReview.latestReviewId, approvedZatcaCsrConfigReview.id, "ZATCA CSR dry-run reports latest review id");
+  assertEqual(zatcaCsrDryRunAfterReview.latestReviewStatus, "APPROVED", "ZATCA CSR dry-run reports approved review status");
+  assertEqual(zatcaCsrDryRunAfterReview.configApprovedForDryRun, true, "ZATCA CSR dry-run reports config approved for future dry-run phase");
   smokeEgs = await post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/request-compliance-csid`, headers, { otp: "000000", mode: "mock" });
   assertNoPrivateKey(smokeEgs, "ZATCA compliance CSID response");
   assertEqual(smokeEgs.hasComplianceCsid, true, "ZATCA smoke EGS compliance CSID flag");
@@ -4859,6 +4929,10 @@ async function main(): Promise<void> {
         zatcaSigningPlanNoMutation: zatcaSigningPlan.noMutation,
         zatcaCsrPlanDryRun: zatcaCsrPlan.dryRun,
         zatcaCsrPlanNoMutation: zatcaCsrPlan.noMutation,
+        zatcaCsrConfigReviewStatus: approvedZatcaCsrConfigReview.status,
+        zatcaCsrConfigReviewNoNetwork: approvedZatcaCsrConfigReview.noNetwork,
+        zatcaCsrDryRunLatestReviewStatus: zatcaCsrDryRunAfterReview.latestReviewStatus,
+        zatcaCsrDryRunConfigApprovedForDryRun: zatcaCsrDryRunAfterReview.configApprovedForDryRun,
         paymentIds: [partialPayment.id, remainingPayment.id],
         paymentRefundId: paymentRefund.id,
         paymentUnappliedInvoiceId: paymentUnappliedInvoice.id,

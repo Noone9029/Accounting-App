@@ -30,6 +30,7 @@ import {
   SalesInvoiceStatus,
   ZatcaInvoiceStatus,
   ZatcaInvoiceType,
+  ZatcaCsrConfigReviewStatus,
   ZatcaHashMode,
   ZatcaRegistrationStatus,
   ZatcaSubmissionStatus,
@@ -100,8 +101,32 @@ const internalEgsUnitSelect = {
   privateKeyPem: true,
 } satisfies Prisma.ZatcaEgsUnitSelect;
 
+const safeCsrConfigReviewSelect = {
+  id: true,
+  organizationId: true,
+  egsUnitId: true,
+  status: true,
+  configHash: true,
+  configPreviewRedacted: true,
+  configKeyOrder: true,
+  missingFieldsJson: true,
+  reviewFieldsJson: true,
+  blockersJson: true,
+  warningsJson: true,
+  approvedById: true,
+  approvedAt: true,
+  revokedById: true,
+  revokedAt: true,
+  note: true,
+  createdAt: true,
+  updatedAt: true,
+  approvedBy: { select: { id: true, name: true, email: true } },
+  revokedBy: { select: { id: true, name: true, email: true } },
+} satisfies Prisma.ZatcaCsrConfigReviewSelect;
+
 type SafeEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof safeEgsUnitSelect }>;
 type InternalEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof internalEgsUnitSelect }>;
+type SafeCsrConfigReviewRecord = Prisma.ZatcaCsrConfigReviewGetPayload<{ select: typeof safeCsrConfigReviewSelect }>;
 type ZatcaKeyCustodyMode = "MISSING" | "RAW_DATABASE_PEM";
 type ZatcaCsrPlanFieldStatus = "AVAILABLE" | "MISSING" | "NEEDS_REVIEW";
 const officialCsrConfigKeyOrder = [
@@ -1256,6 +1281,155 @@ export class ZatcaService {
     };
   }
 
+  async listEgsUnitCsrConfigReviews(organizationId: string, id: string) {
+    const egsUnit = await this.getEgsUnitInternal(organizationId, id);
+    if (egsUnit.environment === "PRODUCTION") {
+      throw new BadRequestException("CSR config review records are restricted to non-production EGS units.");
+    }
+
+    const reviews = await this.prisma.zatcaCsrConfigReview.findMany({
+      where: { organizationId, egsUnitId: id },
+      orderBy: { createdAt: "desc" },
+      select: safeCsrConfigReviewSelect,
+    });
+    return reviews.map((review) => this.toPublicCsrConfigReview(review));
+  }
+
+  async createEgsUnitCsrConfigReview(organizationId: string, actorUserId: string, id: string, dto: { note?: string } = {}) {
+    const preview = await this.getEgsUnitCsrConfigPreview(organizationId, id);
+    const configHash = this.hashCsrConfigPreview(preview.sanitizedConfigPreview);
+    const note = this.optionalCsrReviewNote(dto.note);
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      await tx.zatcaCsrConfigReview.updateMany({
+        where: {
+          organizationId,
+          egsUnitId: id,
+          status: { in: [ZatcaCsrConfigReviewStatus.DRAFT, ZatcaCsrConfigReviewStatus.APPROVED] },
+        },
+        data: { status: ZatcaCsrConfigReviewStatus.SUPERSEDED },
+      });
+
+      return tx.zatcaCsrConfigReview.create({
+        data: {
+          organizationId,
+          egsUnitId: id,
+          status: ZatcaCsrConfigReviewStatus.DRAFT,
+          configHash,
+          configPreviewRedacted: preview.sanitizedConfigPreview,
+          configKeyOrder: [...officialCsrConfigKeyOrder] as Prisma.InputJsonValue,
+          missingFieldsJson: this.sanitizeCsrReviewJson(preview.missingFields),
+          reviewFieldsJson: this.sanitizeCsrReviewJson(preview.reviewFields),
+          blockersJson: this.sanitizeCsrReviewJson(preview.blockers),
+          warningsJson: this.sanitizeCsrReviewJson(preview.warnings),
+          note,
+        },
+        select: safeCsrConfigReviewSelect,
+      });
+    });
+
+    const response = this.toPublicCsrConfigReview(created);
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "CREATE",
+      entityType: "ZatcaCsrConfigReview",
+      entityId: created.id,
+      after: response,
+    });
+    return response;
+  }
+
+  async approveCsrConfigReview(organizationId: string, actorUserId: string, reviewId: string, dto: { note?: string } = {}) {
+    const review = await this.prisma.zatcaCsrConfigReview.findFirst({
+      where: { id: reviewId, organizationId },
+      select: safeCsrConfigReviewSelect,
+    });
+    if (!review) {
+      throw new NotFoundException("ZATCA CSR config review not found.");
+    }
+    if (review.status !== ZatcaCsrConfigReviewStatus.DRAFT) {
+      throw new BadRequestException("Only DRAFT CSR config reviews can be approved.");
+    }
+
+    const egsUnit = await this.getEgsUnitInternal(organizationId, review.egsUnitId);
+    if (egsUnit.environment === "PRODUCTION") {
+      throw new BadRequestException("CSR config review approval is restricted to non-production EGS units.");
+    }
+
+    const preview = await this.getEgsUnitCsrConfigPreview(organizationId, review.egsUnitId);
+    const currentConfigHash = this.hashCsrConfigPreview(preview.sanitizedConfigPreview);
+    if (review.configHash !== currentConfigHash) {
+      throw new BadRequestException("CSR config preview changed after this review was created. Create a new review before approving.");
+    }
+    if (!preview.canPrepareConfig || preview.blockers.length > 0 || preview.missingFields.length > 0) {
+      throw new BadRequestException("CSR config review cannot be approved while config preparation is blocked or required fields are missing.");
+    }
+
+    const note = this.optionalCsrReviewNote(dto.note);
+    const approved = await this.prisma.zatcaCsrConfigReview.update({
+      where: { id: review.id },
+      data: {
+        status: ZatcaCsrConfigReviewStatus.APPROVED,
+        approvedById: actorUserId,
+        approvedAt: new Date(),
+        ...(note !== null ? { note } : {}),
+      },
+      select: safeCsrConfigReviewSelect,
+    });
+    const response = this.toPublicCsrConfigReview(approved);
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "APPROVE",
+      entityType: "ZatcaCsrConfigReview",
+      entityId: approved.id,
+      before: this.toPublicCsrConfigReview(review),
+      after: response,
+    });
+    return response;
+  }
+
+  async revokeCsrConfigReview(organizationId: string, actorUserId: string, reviewId: string, dto: { note?: string } = {}) {
+    const review = await this.prisma.zatcaCsrConfigReview.findFirst({
+      where: { id: reviewId, organizationId },
+      select: safeCsrConfigReviewSelect,
+    });
+    if (!review) {
+      throw new NotFoundException("ZATCA CSR config review not found.");
+    }
+    if (review.status === ZatcaCsrConfigReviewStatus.REVOKED || review.status === ZatcaCsrConfigReviewStatus.SUPERSEDED) {
+      throw new BadRequestException("Only active DRAFT or APPROVED CSR config reviews can be revoked.");
+    }
+
+    const egsUnit = await this.getEgsUnitInternal(organizationId, review.egsUnitId);
+    if (egsUnit.environment === "PRODUCTION") {
+      throw new BadRequestException("CSR config review revocation is restricted to non-production EGS units.");
+    }
+
+    const note = this.optionalCsrReviewNote(dto.note);
+    const revoked = await this.prisma.zatcaCsrConfigReview.update({
+      where: { id: review.id },
+      data: {
+        status: ZatcaCsrConfigReviewStatus.REVOKED,
+        revokedById: actorUserId,
+        revokedAt: new Date(),
+        ...(note !== null ? { note } : {}),
+      },
+      select: safeCsrConfigReviewSelect,
+    });
+    const response = this.toPublicCsrConfigReview(revoked);
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "REVOKE",
+      entityType: "ZatcaCsrConfigReview",
+      entityId: revoked.id,
+      before: this.toPublicCsrConfigReview(review),
+      after: response,
+    });
+    return response;
+  }
   async getEgsUnitCsrDryRun(
     organizationId: string,
     id: string,
@@ -1350,6 +1524,22 @@ export class ZatcaService {
       warnings.push("No temporary CSR config file was written because dry-run blockers are present.");
     }
 
+    const currentConfigHash = this.hashCsrConfigPreview(sanitizedPreview.sanitizedConfigPreview);
+    const latestReview = await this.getLatestCsrConfigReviewOrNull(organizationId, id);
+    const configApprovedForDryRun =
+      latestReview?.status === ZatcaCsrConfigReviewStatus.APPROVED &&
+      latestReview.configHash === currentConfigHash &&
+      plan.egsUnit.environment !== "PRODUCTION" &&
+      missingFields.length === 0 &&
+      sanitizedPreview.unsafeFields.length === 0;
+    if (!latestReview) {
+      warnings.push("Operator CSR config review is required before any future controlled local SDK CSR generation phase.");
+    } else if (latestReview.configHash !== currentConfigHash) {
+      warnings.push("Latest CSR config review does not match the current sanitized config preview; create a fresh review before future SDK CSR generation.");
+    } else if (latestReview.status !== ZatcaCsrConfigReviewStatus.APPROVED) {
+      warnings.push(`Latest CSR config review is ${latestReview.status}; approval is required before future SDK CSR generation.`);
+    }
+
     return {
       localOnly: true,
       dryRun: true,
@@ -1357,6 +1547,10 @@ export class ZatcaService {
       noCsidRequest: true,
       noNetwork: true,
       productionCompliance: false,
+      configReviewRequired: true,
+      latestReviewId: latestReview?.id ?? null,
+      latestReviewStatus: latestReview?.status ?? null,
+      configApprovedForDryRun,
       warning: "Non-production CSR dry-run only. No CSID request, signing, clearance/reporting, PDF/A-3, network submission, or production compliance is enabled.",
       sdkCommand: ZATCA_SDK_CSR_COMMAND,
       executionEnabled,
@@ -2150,6 +2344,80 @@ export class ZatcaService {
       configEntries,
       unsafeFields: configEntries.filter((entry) => entry.unsafeForPropertiesFile),
     };
+  }
+
+  private async getLatestCsrConfigReviewOrNull(organizationId: string, egsUnitId: string): Promise<SafeCsrConfigReviewRecord | null> {
+    const reviewModel = (this.prisma as PrismaService & { zatcaCsrConfigReview?: { findFirst: (args: unknown) => Promise<SafeCsrConfigReviewRecord | null> } }).zatcaCsrConfigReview;
+    if (!reviewModel?.findFirst) {
+      return null;
+    }
+
+    return reviewModel.findFirst({
+      where: { organizationId, egsUnitId },
+      orderBy: { createdAt: "desc" },
+      select: safeCsrConfigReviewSelect,
+    });
+  }
+
+  private toPublicCsrConfigReview(review: SafeCsrConfigReviewRecord) {
+    return {
+      id: review.id,
+      organizationId: review.organizationId,
+      egsUnitId: review.egsUnitId,
+      status: review.status,
+      configHash: review.configHash,
+      configPreviewRedacted: review.configPreviewRedacted,
+      configKeyOrder: review.configKeyOrder,
+      missingFieldsJson: review.missingFieldsJson,
+      reviewFieldsJson: review.reviewFieldsJson,
+      blockersJson: review.blockersJson,
+      warningsJson: review.warningsJson,
+      approvedById: review.approvedById,
+      approvedAt: review.approvedAt?.toISOString() ?? null,
+      approvedBy: review.approvedBy ?? null,
+      revokedById: review.revokedById,
+      revokedAt: review.revokedAt?.toISOString() ?? null,
+      revokedBy: review.revokedBy ?? null,
+      note: review.note,
+      localOnly: true,
+      noCsidRequest: true,
+      noNetwork: true,
+      sdkExecution: false,
+      productionCompliance: false,
+      createdAt: review.createdAt.toISOString(),
+      updatedAt: review.updatedAt.toISOString(),
+    };
+  }
+
+  private hashCsrConfigPreview(preview: string): string {
+    return createHash("sha256").update(preview, "utf8").digest("hex");
+  }
+
+  private optionalCsrReviewNote(value: string | undefined): string | null {
+    if (value === undefined) {
+      return null;
+    }
+    const note = this.optionalText(value);
+    if (!note) {
+      return null;
+    }
+    if (note.length > 500) {
+      throw new BadRequestException("CSR config review note must be 500 characters or fewer.");
+    }
+    if (/PRIVATE KEY|BEGIN CERTIFICATE|CERTIFICATE REQUEST|binarySecurityToken|CSID|OTP|SECRET|TOKEN/i.test(note)) {
+      throw new BadRequestException("CSR config review notes must not include private keys, certificates, CSID tokens, OTPs, CSR bodies, or secrets.");
+    }
+    return note;
+  }
+
+  private sanitizeCsrReviewJson(value: unknown): Prisma.InputJsonValue {
+    const serialized = JSON.stringify(value ?? null)
+      .replace(/-----BEGIN [^-]+-----[\s\S]*?-----END [^-]+-----/gi, "[REDACTED]")
+      .replace(/binarySecurityToken/gi, "[REDACTED_FIELD]")
+      .replace(/\bOTP\b/gi, "one-time portal code")
+      .replace(/\bCSID\b/gi, "certificate identifier")
+      .replace(/\bSECRET\b/gi, "[REDACTED]");
+    return JSON.parse(serialized) as Prisma.InputJsonValue;
   }
 
   private isSafeCsrConfigValue(value: string | null): boolean {

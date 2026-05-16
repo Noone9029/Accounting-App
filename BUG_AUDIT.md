@@ -2170,3 +2170,36 @@ Remaining limitations:
 - ZATCA settings now shows a per-non-production-EGS CSR config preview card with readiness, missing/review fields, sanitized key=value text, and no CSID/no network/no secrets/no SDK execution disclaimers.
 - Remaining limitations are unchanged: no SDK CSR execution, no compliance CSID request, no production CSID request, no invoice signing, no production credentials, no clearance/reporting, no PDF/A-3, no real ZATCA network calls, and no production compliance claim.
 - Recommended next step: add an operator review/approval record for sanitized CSR config previews before any future controlled local SDK CSR generation phase.
+
+## ZATCA CSR config review workflow update (2026-05-16)
+
+Official references inspected for this phase:
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/usage.txt`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Input/csr-config-template.properties`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Input/csr-config-example-EN.properties`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Input/csr-config-example-EN-VAT-group.properties`
+- `reference/zatca-docs/compliance_csid.pdf`
+- `reference/zatca-docs/onboarding.pdf`
+- `reference/zatca-docs/renewal.pdf`
+- `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards.pdf`
+- `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_XML_Implementation_Standard_vF.pdf`
+- `reference/zatca-docs/EInvoice_Data_Dictionary.xlsx`
+
+Implemented local-only operator review tracking for sanitized non-production CSR config previews:
+- Added `ZatcaCsrConfigReview` records with `DRAFT`, `APPROVED`, `SUPERSEDED`, and `REVOKED` status.
+- Stored only sanitized `key=value` CSR config preview text, official key order, config hash, missing/review/blocker metadata, operator approval fields, and audit-friendly notes.
+- Added endpoints to create/list reviews and approve/revoke review records.
+- New reviews supersede previous active reviews for the same EGS unit so only the latest preview review remains active.
+- Approval is blocked when the current preview has missing fields, blockers, or a changed config hash.
+- `POST /zatca/egs-units/:id/csr-dry-run` now reports `configReviewRequired`, `latestReviewId`, `latestReviewStatus`, and `configApprovedForDryRun` for future controlled SDK CSR planning.
+- The ZATCA settings UI shows review status, config hash, approval metadata, and create/approve/revoke actions next to the sanitized CSR config preview.
+- Audit logs capture create/approve/revoke actions without private keys, certificate bodies, CSID tokens, one-time portal codes, generated CSR bodies, or production credentials.
+
+Safety boundary remains unchanged:
+- No SDK CSR execution is implemented.
+- No compliance CSID or production CSID request is made.
+- No invoice signing, clearance/reporting, PDF/A-3, real ZATCA network call, production credentials, or production compliance claim is enabled.
+
+Recommended next step:
+- Add an explicitly gated, temp-directory-only local CSR file preparation review gate that requires an approved review hash before any future non-production SDK CSR execution experiment.

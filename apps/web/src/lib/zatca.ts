@@ -87,6 +87,18 @@ export function zatcaEgsCsrConfigPreviewPath(egsUnitId: string): string {
   return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/csr-config-preview`;
 }
 
+export function zatcaEgsCsrConfigReviewsPath(egsUnitId: string): string {
+  return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/csr-config-reviews`;
+}
+
+export function zatcaCsrConfigReviewApprovePath(reviewId: string): string {
+  return `/zatca/csr-config-reviews/${encodeURIComponent(reviewId)}/approve`;
+}
+
+export function zatcaCsrConfigReviewRevokePath(reviewId: string): string {
+  return `/zatca/csr-config-reviews/${encodeURIComponent(reviewId)}/revoke`;
+}
+
 export function zatcaEgsCsrFieldsPath(egsUnitId: string): string {
   return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/csr-fields`;
 }

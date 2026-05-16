@@ -15,7 +15,10 @@ import {
   zatcaAdapterModeLabel,
   zatcaChecklistRiskBadgeClass,
   zatcaChecklistStatusBadgeClass,
+  zatcaCsrConfigReviewApprovePath,
+  zatcaCsrConfigReviewRevokePath,
   zatcaEgsCsrConfigPreviewPath,
+  zatcaEgsCsrConfigReviewsPath,
   zatcaEgsCsrDownloadPath,
   zatcaEgsCsrFieldsPath,
   zatcaEgsSdkHashModeEnablePath,
@@ -37,6 +40,7 @@ import type {
   ZatcaAdapterConfigSummary,
   ZatcaChecklistItem,
   ZatcaComplianceChecklistResponse,
+  ZatcaCsrConfigReview,
   ZatcaEgsCsrConfigPreviewResponse,
   ZatcaEgsUnit,
   ZatcaEnvironment,
@@ -96,6 +100,7 @@ export default function ZatcaSettingsPage() {
   const [egsForm, setEgsForm] = useState<EgsForm>({ name: "LedgerByte Dev EGS", deviceSerialNumber: "LEDGERBYTE-DEV-EGS" });
   const [csrFieldsByUnit, setCsrFieldsByUnit] = useState<Record<string, EgsCsrFieldsForm>>({});
   const [csrConfigPreviewByUnit, setCsrConfigPreviewByUnit] = useState<Record<string, ZatcaEgsCsrConfigPreviewResponse>>({});
+  const [csrConfigReviewsByUnit, setCsrConfigReviewsByUnit] = useState<Record<string, ZatcaCsrConfigReview[]>>({});
   const [otpByUnit, setOtpByUnit] = useState<Record<string, string>>({});
   const [hashModeReasonByUnit, setHashModeReasonByUnit] = useState<Record<string, string>>({});
   const [hashModeConfirmByUnit, setHashModeConfirmByUnit] = useState<Record<string, boolean>>({});
@@ -137,9 +142,15 @@ export default function ZatcaSettingsPage() {
 
         const loadedUnits = await apiRequest<ZatcaEgsUnit[]>("/zatca/egs-units");
         const loadedLogs = await apiRequest<ZatcaSubmissionLog[]>("/zatca/submissions");
+        const loadedReviewPairs = await Promise.all(
+          loadedUnits
+            .filter((unit) => unit.environment !== "PRODUCTION")
+            .map(async (unit) => [unit.id, await apiRequest<ZatcaCsrConfigReview[]>(zatcaEgsCsrConfigReviewsPath(unit.id)).catch(() => [])] as const),
+        );
         if (!cancelled) {
           setEgsUnits(loadedUnits);
           setCsrFieldsByUnit(buildCsrFieldsByUnit(loadedUnits));
+          setCsrConfigReviewsByUnit(Object.fromEntries(loadedReviewPairs));
           setSubmissionLogs(loadedLogs);
         }
       } catch (loadError: unknown) {
@@ -336,6 +347,69 @@ export default function ZatcaSettingsPage() {
       setSuccess(`Sanitized CSR config preview loaded for ${unit.name}. No file, SDK execution, CSID request, or network call was performed.`);
     } catch (previewError) {
       setError(previewError instanceof Error ? previewError.message : "Unable to load CSR config preview.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
+  async function refreshCsrConfigReviews(unitId: string) {
+    const reviews = await apiRequest<ZatcaCsrConfigReview[]>(zatcaEgsCsrConfigReviewsPath(unitId));
+    setCsrConfigReviewsByUnit((current) => ({ ...current, [unitId]: reviews }));
+    return reviews;
+  }
+
+  async function createCsrConfigReview(unit: ZatcaEgsUnit) {
+    setActionLoading(`csr-review-create-${unit.id}`);
+    setError("");
+    setSuccess("");
+
+    try {
+      const review = await apiRequest<ZatcaCsrConfigReview>(zatcaEgsCsrConfigReviewsPath(unit.id), {
+        method: "POST",
+        body: { note: "Operator review record created from sanitized CSR config preview." },
+      });
+      await refreshCsrConfigReviews(unit.id);
+      setSuccess(`CSR config review ${review.configHash.slice(0, 12)} created for ${unit.name}. No SDK execution, CSID request, or network call was performed.`);
+    } catch (reviewError) {
+      setError(reviewError instanceof Error ? reviewError.message : "Unable to create CSR config review.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
+  async function approveCsrConfigReview(unit: ZatcaEgsUnit, review: ZatcaCsrConfigReview) {
+    setActionLoading(`csr-review-approve-${review.id}`);
+    setError("");
+    setSuccess("");
+
+    try {
+      const approved = await apiRequest<ZatcaCsrConfigReview>(zatcaCsrConfigReviewApprovePath(review.id), {
+        method: "POST",
+        body: { note: "Operator approved sanitized CSR config preview for future controlled local dry-run planning." },
+      });
+      await refreshCsrConfigReviews(unit.id);
+      setSuccess(`CSR config review ${approved.configHash.slice(0, 12)} approved locally. This does not request CSID, execute SDK, or prove production compliance.`);
+    } catch (approveError) {
+      setError(approveError instanceof Error ? approveError.message : "Unable to approve CSR config review.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
+  async function revokeCsrConfigReview(unit: ZatcaEgsUnit, review: ZatcaCsrConfigReview) {
+    setActionLoading(`csr-review-revoke-${review.id}`);
+    setError("");
+    setSuccess("");
+
+    try {
+      const revoked = await apiRequest<ZatcaCsrConfigReview>(zatcaCsrConfigReviewRevokePath(review.id), {
+        method: "POST",
+        body: { note: "Operator revoked local CSR config preview approval." },
+      });
+      await refreshCsrConfigReviews(unit.id);
+      setSuccess(`CSR config review ${revoked.configHash.slice(0, 12)} revoked locally. No SDK execution, CSID request, or network call was performed.`);
+    } catch (revokeError) {
+      setError(revokeError instanceof Error ? revokeError.message : "Unable to revoke CSR config review.");
     } finally {
       setActionLoading("");
     }
@@ -669,6 +743,18 @@ export default function ZatcaSettingsPage() {
                             </div>
                             {unit.environment === "PRODUCTION" ? <div className="text-[11px] text-rosewood">CSR config preview is restricted to non-production EGS units.</div> : null}
                             {csrConfigPreviewByUnit[unit.id] ? <CsrConfigPreviewPanel preview={csrConfigPreviewByUnit[unit.id]!} /> : null}
+                            {unit.environment !== "PRODUCTION" ? (
+                              <CsrConfigReviewPanel
+                                unit={unit}
+                                reviews={csrConfigReviewsByUnit[unit.id] ?? []}
+                                preview={csrConfigPreviewByUnit[unit.id] ?? null}
+                                canManage={canManageZatca}
+                                actionLoading={actionLoading}
+                                onCreate={() => void createCsrConfigReview(unit)}
+                                onApprove={(review) => void approveCsrConfigReview(unit, review)}
+                                onRevoke={(review) => void revokeCsrConfigReview(unit, review)}
+                              />
+                            ) : null}
                           </form>
                         </td>
                         <td className="px-4 py-3 text-steel">{unit.hasComplianceCsid ? "Mock issued" : "Missing"}</td>
@@ -840,6 +926,92 @@ function CsrConfigPreviewPanel({ preview }: { preview: ZatcaEgsCsrConfigPreviewR
       ) : null}
     </div>
   );
+}
+
+function CsrConfigReviewPanel({
+  unit,
+  reviews,
+  preview,
+  canManage,
+  actionLoading,
+  onCreate,
+  onApprove,
+  onRevoke,
+}: {
+  unit: ZatcaEgsUnit;
+  reviews: ZatcaCsrConfigReview[];
+  preview: ZatcaEgsCsrConfigPreviewResponse | null;
+  canManage: boolean;
+  actionLoading: string;
+  onCreate: () => void;
+  onApprove: (review: ZatcaCsrConfigReview) => void;
+  onRevoke: (review: ZatcaCsrConfigReview) => void;
+}) {
+  const latest = reviews[0] ?? null;
+  const missingCount = jsonArrayLength(latest?.missingFieldsJson);
+  const blockerCount = jsonArrayLength(latest?.blockersJson);
+  const canApprove = Boolean(canManage && latest?.status === "DRAFT" && preview?.canPrepareConfig && missingCount === 0 && blockerCount === 0);
+  const canRevoke = Boolean(canManage && latest && (latest.status === "DRAFT" || latest.status === "APPROVED"));
+  const createDisabled = !canManage || !preview || actionLoading === `csr-review-create-${unit.id}`;
+
+  return (
+    <div className="mt-3 rounded-md border border-slate-200 bg-white p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <div className="text-xs font-semibold text-ink">CSR config review</div>
+          <div className="mt-1 text-[11px] text-steel">Local operator approval tracking only. No SDK execution, CSID request, signing, or network call.</div>
+        </div>
+        <span className={`rounded-md px-2 py-1 text-[11px] font-medium ${latest?.status === "APPROVED" ? "bg-emerald-50 text-emerald-700" : latest ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-700"}`}>
+          {latest ? latest.status.replaceAll("_", " ") : "NO REVIEW"}
+        </span>
+      </div>
+      {latest ? (
+        <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] text-steel md:grid-cols-2">
+          <div>Config hash: <span className="font-mono text-ink">{truncateHash(latest.configHash, 10)}</span></div>
+          <div>Created: {new Date(latest.createdAt).toLocaleString()}</div>
+          <div>Missing fields at review: {missingCount}</div>
+          <div>Blockers at review: {blockerCount}</div>
+          <div>Approved by: {latest.approvedBy?.email ?? latest.approvedById ?? "-"}</div>
+          <div>Approved at: {latest.approvedAt ? new Date(latest.approvedAt).toLocaleString() : "-"}</div>
+        </div>
+      ) : (
+        <div className="mt-3 text-[11px] text-steel">Load the sanitized CSR config preview, then create a local review record before any future controlled SDK CSR generation phase.</div>
+      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={createDisabled}
+          onClick={onCreate}
+          className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
+        >
+          {actionLoading === `csr-review-create-${unit.id}` ? "Creating review..." : "Create CSR config review"}
+        </button>
+        <button
+          type="button"
+          disabled={!latest || !canApprove || actionLoading === `csr-review-approve-${latest?.id}`}
+          onClick={() => latest && onApprove(latest)}
+          className="rounded-md border border-emerald-600 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
+        >
+          {latest && actionLoading === `csr-review-approve-${latest.id}` ? "Approving..." : "Approve review"}
+        </button>
+        <button
+          type="button"
+          disabled={!latest || !canRevoke || actionLoading === `csr-review-revoke-${latest?.id}`}
+          onClick={() => latest && onRevoke(latest)}
+          className="rounded-md border border-rose-300 px-2 py-1 text-xs font-medium text-rosewood hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
+        >
+          {latest && actionLoading === `csr-review-revoke-${latest.id}` ? "Revoking..." : "Revoke review"}
+        </button>
+      </div>
+      {!preview ? <div className="mt-2 text-[11px] text-amber-700">Preview must be loaded before creating or approving a review.</div> : null}
+      {latest && !canApprove && latest.status === "DRAFT" ? <div className="mt-2 text-[11px] text-amber-700">Approval requires a ready preview with no missing fields or blockers.</div> : null}
+      <div className="mt-2 text-[11px] text-steel">Approval is local-only, does not request CSID, does not execute SDK, and does not prove production compliance.</div>
+    </div>
+  );
+}
+
+function jsonArrayLength(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0;
 }
 
 function profileToForm(profile: ZatcaOrganizationProfile): ZatcaProfileForm {
