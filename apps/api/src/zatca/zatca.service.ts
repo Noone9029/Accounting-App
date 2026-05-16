@@ -1797,10 +1797,14 @@ export class ZatcaService {
         where: { organizationId, isActive: true, status: ZatcaRegistrationStatus.ACTIVE },
         orderBy: { updatedAt: "desc" },
       });
-      const nextIcv = activeEgs ? activeEgs.lastIcv + 1 : metadata.icv;
-      const previousInvoiceHash = activeEgs?.lastInvoiceHash ?? initialPreviousInvoiceHash;
-      const payload = buildZatcaInvoicePayload(this.toZatcaInvoiceInput(invoice, profile, metadata.invoiceUuid, previousInvoiceHash, nextIcv));
-      const hashModeSnapshot = activeEgs?.hashMode ?? ZatcaHashMode.LOCAL_DETERMINISTIC;
+      if (!activeEgs) {
+        throw new BadRequestException("Active ZATCA EGS unit is required before XML generation so a valid invoice counter value (ICV/KSA-16) can be assigned.");
+      }
+
+      const nextIcv = activeEgs.lastIcv + 1;
+      const previousInvoiceHash = activeEgs.lastInvoiceHash ?? initialPreviousInvoiceHash;
+      const payload = buildZatcaInvoicePayload(this.toZatcaInvoiceInput(invoice, profile, metadata.zatcaInvoiceType, metadata.invoiceUuid, previousInvoiceHash, nextIcv));
+      const hashModeSnapshot = activeEgs.hashMode ?? ZatcaHashMode.LOCAL_DETERMINISTIC;
       const invoiceHash = await this.resolveInvoiceHashForMode({
         hashMode: hashModeSnapshot,
         xmlBase64: payload.xmlBase64,
@@ -2064,7 +2068,7 @@ export class ZatcaService {
     }
 
     const validation = validateLocalZatcaXml(
-      this.toZatcaInvoiceInput(invoice, profile, metadata.invoiceUuid, metadata.previousInvoiceHash ?? initialPreviousInvoiceHash, metadata.icv),
+      this.toZatcaInvoiceInput(invoice, profile, metadata.zatcaInvoiceType, metadata.invoiceUuid, metadata.previousInvoiceHash ?? initialPreviousInvoiceHash, metadata.icv),
     );
     const xml = Buffer.from(metadata.xmlBase64, "base64").toString("utf8");
     const warnings = [...validation.warnings];
@@ -2326,6 +2330,7 @@ export class ZatcaService {
       };
     }>,
     profile: { sellerName: string | null; vatNumber: string | null; companyIdType: string | null; companyIdNumber: string | null; buildingNumber: string | null; streetName: string | null; district: string | null; city: string | null; postalCode: string | null; countryCode: string; additionalAddressNumber: string | null },
+    invoiceType: ZatcaInvoiceType,
     invoiceUuid: string,
     previousInvoiceHash: string,
     icv?: number | null,
@@ -2333,7 +2338,7 @@ export class ZatcaService {
     return {
       invoiceUuid,
       invoiceNumber: invoice.invoiceNumber,
-      invoiceType: ZatcaInvoiceType.STANDARD_TAX_INVOICE,
+      invoiceType,
       issueDate: invoice.issueDate,
       supplyDate: invoice.issueDate,
       currency: invoice.currency,

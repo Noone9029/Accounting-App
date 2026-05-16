@@ -398,6 +398,26 @@ describe("ZATCA service rules", () => {
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "GENERATE", entityType: "ZatcaInvoiceMetadata" }));
   });
 
+  it("uses the stored simplified invoice type and emits ICV when generating XML", async () => {
+    const tx = makeGenerationTransactionMock({
+      activeEgsLastIcv: 1,
+      zatcaInvoiceType: ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE,
+      customerAddressLine1: "Olaya Street",
+      customerAddressLine2: "Retail Counter",
+      customerBuildingNumber: "2468",
+      customerDistrict: "Al Olaya",
+    });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    await service.generateInvoiceCompliance("org-1", "user-1", "invoice-1");
+
+    const generatedXml = Buffer.from(tx.zatcaInvoiceMetadata.update.mock.calls[0]![0].data.xmlBase64, "base64").toString("utf8");
+    expect(generatedXml).toContain('<cbc:InvoiceTypeCode name="0200000">388</cbc:InvoiceTypeCode>');
+    expect(generatedXml).toContain("<cbc:ID>ICV</cbc:ID>");
+    expect(generatedXml).toContain("<cbc:UUID>2</cbc:UUID>");
+  });
+
   it("persists SDK-generated hashes for SDK hash-mode EGS units without changing signing or submission behavior", async () => {
     const tx = makeGenerationTransactionMock({
       activeEgsHashMode: "SDK_GENERATED",
@@ -492,16 +512,14 @@ describe("ZATCA service rules", () => {
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "GENERATE", entityType: "ZatcaInvoiceMetadata" }));
   });
 
-  it("uses the initial previous hash when no active EGS unit exists", async () => {
+  it("blocks XML generation when no active EGS unit exists because ICV cannot be assigned", async () => {
     const tx = makeGenerationTransactionMock({ activeEgs: null });
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
     const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
 
-    await service.generateInvoiceCompliance("org-1", "user-1", "invoice-1");
+    await expect(service.generateInvoiceCompliance("org-1", "user-1", "invoice-1")).rejects.toThrow("Active ZATCA EGS unit is required");
 
-    expect(tx.zatcaInvoiceMetadata.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ previousInvoiceHash: initialPreviousInvoiceHash, icv: null }) }),
-    );
+    expect(tx.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
     expect(tx.zatcaEgsUnit.update).not.toHaveBeenCalled();
   });
 
@@ -1490,6 +1508,7 @@ function makeGenerationTransactionMock(options: {
   activeEgsHashMode?: "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
   activeEgs?: null;
   existingMetadata?: ReturnType<typeof makeGeneratedMetadata>;
+  zatcaInvoiceType?: ZatcaInvoiceType;
   customerAddressLine1?: string | null;
   customerAddressLine2?: string | null;
   customerBuildingNumber?: string | null;
@@ -1567,6 +1586,7 @@ function makeGenerationTransactionMock(options: {
         options.existingMetadata ?? {
           id: "metadata-1",
           invoiceUuid: "00000000-0000-0000-0000-000000000001",
+          zatcaInvoiceType: options.zatcaInvoiceType ?? ZatcaInvoiceType.STANDARD_TAX_INVOICE,
           icv: null,
           xmlBase64: null,
           qrCodeBase64: null,
