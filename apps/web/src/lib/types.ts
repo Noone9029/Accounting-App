@@ -2731,6 +2731,11 @@ export interface ZatcaEgsUnit {
   hasCsr: boolean;
   hasComplianceCsid: boolean;
   hasProductionCsid: boolean;
+  hasPrivateKey?: boolean;
+  keyCustodyMode?: "MISSING" | "RAW_DATABASE_PEM";
+  certificateExpiryKnown?: boolean;
+  certificateExpiresAt?: string | null;
+  renewalStatus?: string;
   certificateRequestId: string | null;
   lastInvoiceHash: string | null;
   lastIcv: number;
@@ -3045,6 +3050,8 @@ export interface ZatcaReadinessSummary {
   xml: ZatcaReadinessSection;
   sdk: ZatcaReadinessSection;
   signing: ZatcaReadinessSection;
+  keyCustody: ZatcaReadinessSection;
+  csr: ZatcaReadinessSection;
   phase2Qr: ZatcaReadinessSection;
   pdfA3: ZatcaReadinessSection;
   checks: ZatcaReadinessCheck[];
@@ -3058,6 +3065,13 @@ export interface ZatcaReadinessSummary {
     isActive: boolean;
     hasCsr: boolean;
     hasComplianceCsid: boolean;
+    hasProductionCsid: boolean;
+    hasPrivateKey?: boolean;
+    keyCustodyMode?: "MISSING" | "RAW_DATABASE_PEM";
+    certificateRequestId?: string | null;
+    certificateExpiryKnown?: boolean;
+    certificateExpiresAt?: string | null;
+    renewalStatus?: string;
     lastIcv: number;
     lastInvoiceHash: string | null;
     hashMode: ZatcaHashMode;
@@ -3136,6 +3150,71 @@ export interface ZatcaInvoiceSigningPlanResponse {
   commandPlan: ZatcaSdkValidationCommandPlan;
   blockers: string[];
   warnings: string[];
+}
+
+export interface ZatcaEgsCsrPlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  productionCompliance: false;
+  noCsidRequest: true;
+  warning: string;
+  sdkCommand: string;
+  egsUnit: {
+    id: string;
+    name: string;
+    status: ZatcaRegistrationStatus;
+    environment: ZatcaEnvironment;
+    isActive: boolean;
+    hasCsr: boolean;
+    hasComplianceCsid: boolean;
+    hasProductionCsid: boolean;
+    hasPrivateKey: boolean;
+    certificateRequestId: string | null;
+    keyCustodyMode: "MISSING" | "RAW_DATABASE_PEM";
+    certificateExpiryKnown: boolean;
+    certificateExpiresAt: string | null;
+    renewalStatus: string;
+  };
+  requiredFields: Array<{
+    sdkConfigKey: string;
+    label: string;
+    officialSource: string;
+    currentValue: string | null;
+    status: "AVAILABLE" | "MISSING" | "NEEDS_REVIEW";
+    source: "ZATCA_PROFILE" | "EGS_UNIT" | "NOT_MODELED";
+    notes: string;
+  }>;
+  availableValues: ZatcaEgsCsrPlanResponse["requiredFields"];
+  missingValues: ZatcaEgsCsrPlanResponse["requiredFields"];
+  plannedSdkConfigFields: Array<{
+    key: string;
+    currentValue: string | null;
+    status: "AVAILABLE" | "MISSING" | "NEEDS_REVIEW";
+    source: "ZATCA_PROFILE" | "EGS_UNIT" | "NOT_MODELED";
+  }>;
+  plannedFiles: {
+    csrConfig: string;
+    privateKey: string;
+    generatedCsr: string;
+  };
+  keyCustody: {
+    mode: "MISSING" | "RAW_DATABASE_PEM";
+    privateKeyConfigured: boolean;
+    privateKeyReturned: false;
+    redaction: string;
+  };
+  certificateState: {
+    complianceCsid: "present-redacted" | "missing";
+    productionCsid: "present-redacted" | "missing";
+    certificateRequestId: string | null;
+    certificateExpiryKnown: boolean;
+    certificateExpiresAt: string | null;
+    renewalStatus: string;
+  };
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
 }
 
 export interface ZatcaXmlValidationResult {

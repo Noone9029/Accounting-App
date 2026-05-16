@@ -904,6 +904,123 @@ describe("ZATCA service rules", () => {
     expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
   });
 
+  it("settings readiness reports CSR and key-custody blockers without exposing private key content", async () => {
+    const prisma = makeReadinessPrisma({
+      activeEgs: {
+        id: "egs-1",
+        name: "Dev EGS",
+        status: ZatcaRegistrationStatus.ACTIVE,
+        isActive: true,
+        csrPem: null,
+        complianceCsidPem: null,
+        productionCsidPem: null,
+        certificateRequestId: null,
+        privateKeyPem: "-----BEGIN EC PRIVATE KEY-----\nSUPER-SECRET-PRIVATE-KEY\n-----END EC PRIVATE KEY-----",
+        lastIcv: 0,
+        lastInvoiceHash: null,
+        hashMode: "LOCAL_DETERMINISTIC",
+      },
+    });
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const readiness = await service.getZatcaReadinessSummary("org-1");
+
+    expect(readiness.productionCompliance).toBe(false);
+    expect(readiness.keyCustody.status).toBe("BLOCKED");
+    expect(readiness.csr.status).toBe("BLOCKED");
+    expect(readiness.keyCustody.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "ZATCA_PRIVATE_KEY_STORED_IN_DATABASE", severity: "ERROR" }),
+        expect.objectContaining({ code: "ZATCA_CERTIFICATE_EXPIRY_UNKNOWN", severity: "WARNING" }),
+        expect.objectContaining({ code: "ZATCA_RENEWAL_WORKFLOW_MISSING", severity: "ERROR" }),
+        expect.objectContaining({ code: "ZATCA_KMS_HSM_NOT_CONFIGURED", severity: "ERROR" }),
+      ]),
+    );
+    expect(readiness.csr.checks).toEqual(expect.arrayContaining([expect.objectContaining({ code: "ZATCA_CSR_REQUIRED_FIELDS_MISSING", severity: "ERROR" })]));
+    expect(JSON.stringify(readiness)).not.toContain("SUPER-SECRET-PRIVATE-KEY");
+    expect(JSON.stringify(readiness)).not.toContain("BEGIN EC PRIVATE KEY");
+  });
+
+  it("returns a CSR plan as local-only dry-run/no-mutation without exposing secrets or calling onboarding adapters", async () => {
+    const prisma = {
+      organization: {
+        findFirst: jest.fn().mockResolvedValue({ id: "org-1", name: "Org", legalName: "Org Legal", taxNumber: "300000000000003", countryCode: "SA" }),
+      },
+      zatcaOrganizationProfile: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "profile-1",
+          organizationId: "org-1",
+          sellerName: "Org Legal",
+          vatNumber: "300000000000003",
+          countryCode: "SA",
+          businessCategory: "Supply activities",
+        }),
+        upsert: jest.fn().mockResolvedValue({
+          id: "profile-1",
+          organizationId: "org-1",
+          sellerName: "Org Legal",
+          vatNumber: "300000000000003",
+          countryCode: "SA",
+          businessCategory: "Supply activities",
+        }),
+      },
+      zatcaEgsUnit: {
+        findFirst: jest.fn().mockResolvedValue({
+          ...makeEgsUnit({
+            id: "egs-1",
+            name: "Dev EGS",
+            status: ZatcaRegistrationStatus.ACTIVE,
+            isActive: true,
+            deviceSerialNumber: "EGS-UNIT-001",
+            certificateRequestId: "REQ-123",
+            csrPem: "-----BEGIN CERTIFICATE REQUEST-----\nCSR-CONTENT\n-----END CERTIFICATE REQUEST-----",
+            complianceCsidPem: "COMPLIANCE-CERT-SECRET",
+            productionCsidPem: "PRODUCTION-CERT-SECRET",
+          }),
+          privateKeyPem: "-----BEGIN EC PRIVATE KEY-----\nSUPER-SECRET-PRIVATE-KEY\n-----END EC PRIVATE KEY-----",
+        }),
+        update: jest.fn(),
+      },
+      zatcaSubmissionLog: {
+        create: jest.fn(),
+      },
+    };
+    const auditLogService = { log: jest.fn() };
+    const onboardingAdapter = {
+      requestComplianceCsid: jest.fn(),
+      requestProductionCsid: jest.fn(),
+    };
+    const service = new ZatcaService(prisma as never, auditLogService as never, onboardingAdapter as never);
+
+    const plan = await service.getEgsUnitCsrPlan("org-1", "egs-1");
+
+    expect(plan).toMatchObject({
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      productionCompliance: false,
+      noCsidRequest: true,
+      sdkCommand: "fatoora -csr -csrConfig <filename> -privateKey <filename> -generatedCsr <filename> -pem",
+    });
+    expect(plan.requiredFields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ sdkConfigKey: "csr.organization.identifier", currentValue: "300000000000003", status: "AVAILABLE" }),
+        expect.objectContaining({ sdkConfigKey: "csr.serial.number", currentValue: "EGS-UNIT-001", status: "NEEDS_REVIEW" }),
+        expect.objectContaining({ sdkConfigKey: "csr.invoice.type", status: "MISSING" }),
+        expect.objectContaining({ sdkConfigKey: "csr.location.address", status: "MISSING" }),
+      ]),
+    );
+    expect(plan.blockers).toEqual(expect.arrayContaining([expect.stringContaining("CSID requests are intentionally disabled")]));
+    expect(JSON.stringify(plan)).not.toContain("SUPER-SECRET-PRIVATE-KEY");
+    expect(JSON.stringify(plan)).not.toContain("COMPLIANCE-CERT-SECRET");
+    expect(JSON.stringify(plan)).not.toContain("PRODUCTION-CERT-SECRET");
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    expect(auditLogService.log).not.toHaveBeenCalled();
+    expect(onboardingAdapter.requestComplianceCsid).not.toHaveBeenCalled();
+    expect(onboardingAdapter.requestProductionCsid).not.toHaveBeenCalled();
+  });
+
   it("returns a hash-chain reset dry-run plan without mutating EGS or metadata", async () => {
     const prisma = {
       zatcaEgsUnit: {

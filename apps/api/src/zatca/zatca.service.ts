@@ -47,6 +47,7 @@ import {
   buildZatcaSdkSigningCommand,
   discoverZatcaSdkReadiness,
   isZatcaSdkSigningExecutionEnabled,
+  ZATCA_SDK_CSR_COMMAND,
   ZATCA_SDK_SIGN_COMMAND,
 } from "../zatca-sdk/zatca-sdk-paths";
 import { isZatcaAdapterError, ZatcaAdapterError } from "./adapters/zatca-adapter.error";
@@ -92,6 +93,25 @@ const internalEgsUnitSelect = {
 
 type SafeEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof safeEgsUnitSelect }>;
 type InternalEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof internalEgsUnitSelect }>;
+type ZatcaKeyCustodyMode = "MISSING" | "RAW_DATABASE_PEM";
+type ZatcaCsrPlanFieldStatus = "AVAILABLE" | "MISSING" | "NEEDS_REVIEW";
+
+interface ZatcaCsrProfileSource {
+  sellerName?: string | null;
+  vatNumber?: string | null;
+  countryCode?: string | null;
+  businessCategory?: string | null;
+}
+
+interface ZatcaCsrPlanField {
+  sdkConfigKey: string;
+  label: string;
+  officialSource: string;
+  currentValue: string | null;
+  status: ZatcaCsrPlanFieldStatus;
+  source: "ZATCA_PROFILE" | "EGS_UNIT" | "NOT_MODELED";
+  notes: string;
+}
 
 export interface ZatcaProfileReadiness {
   ready: boolean;
@@ -209,18 +229,7 @@ export class ZatcaService {
     const activeEgs = await this.prisma.zatcaEgsUnit.findFirst({
       where: { organizationId, isActive: true, status: ZatcaRegistrationStatus.ACTIVE },
       orderBy: { updatedAt: "desc" },
-      select: {
-        id: true,
-        name: true,
-        status: true,
-        isActive: true,
-        csrPem: true,
-        complianceCsidPem: true,
-        productionCsidPem: true,
-        lastIcv: true,
-        lastInvoiceHash: true,
-        hashMode: true,
-      },
+      select: internalEgsUnitSelect,
     });
     const localXmlCount = await this.prisma.zatcaInvoiceMetadata.count({
       where: { organizationId, xmlBase64: { not: null } },
@@ -231,9 +240,11 @@ export class ZatcaService {
     const xml = this.buildSettingsXmlReadinessSection(localXmlCount);
     const sdk = this.buildSdkReadinessSection(this.zatcaSdkService?.getReadiness() ?? null);
     const signing = this.buildSigningReadinessSection(activeEgs);
+    const keyCustody = this.buildKeyCustodyReadinessSection(activeEgs);
+    const csr = this.buildCsrReadinessSection(profile, activeEgs);
     const phase2Qr = this.buildPhase2QrReadinessSection();
     const pdfA3 = this.buildPdfA3ReadinessSection();
-    const sections = [sellerProfile, egs, xml, sdk, signing, phase2Qr, pdfA3];
+    const sections = [sellerProfile, egs, xml, sdk, signing, keyCustody, csr, phase2Qr, pdfA3];
     const checks = sections.flatMap((section) => section.checks);
     const status = combineZatcaReadinessStatus(sections);
     const profileMissingFields = legacyProfileReadiness.missingFields;
@@ -266,6 +277,8 @@ export class ZatcaService {
       xml,
       sdk,
       signing,
+      keyCustody,
+      csr,
       phase2Qr,
       pdfA3,
       checks,
@@ -280,6 +293,13 @@ export class ZatcaService {
             isActive: activeEgs.isActive,
             hasCsr: Boolean(activeEgs.csrPem),
             hasComplianceCsid: Boolean(activeEgs.complianceCsidPem),
+            hasProductionCsid: Boolean(activeEgs.productionCsidPem),
+            hasPrivateKey: hasText(activeEgs.privateKeyPem),
+            certificateRequestId: activeEgs.certificateRequestId,
+            keyCustodyMode: this.getKeyCustodyMode(activeEgs),
+            certificateExpiryKnown: false,
+            certificateExpiresAt: null,
+            renewalStatus: "NOT_IMPLEMENTED",
             lastIcv: activeEgs.lastIcv,
             lastInvoiceHash: activeEgs.lastInvoiceHash,
             hashMode: activeEgs.hashMode,
@@ -459,7 +479,7 @@ export class ZatcaService {
     const units = await this.prisma.zatcaEgsUnit.findMany({
       where: { organizationId },
       orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
-      select: safeEgsUnitSelect,
+      select: internalEgsUnitSelect,
     });
     return units.map((unit) => this.toPublicEgsUnit(unit));
   }
@@ -484,7 +504,7 @@ export class ZatcaService {
   }
 
   async getEgsUnit(organizationId: string, id: string) {
-    const egsUnit = await this.prisma.zatcaEgsUnit.findFirst({ where: { id, organizationId }, select: safeEgsUnitSelect });
+    const egsUnit = await this.prisma.zatcaEgsUnit.findFirst({ where: { id, organizationId }, select: internalEgsUnitSelect });
     if (!egsUnit) {
       throw new NotFoundException("ZATCA EGS unit not found.");
     }
@@ -1045,6 +1065,89 @@ export class ZatcaService {
         "No ZATCA network call, clearance, reporting, CSID request, or PDF/A-3 generation is performed.",
         ...sdkReadiness.warnings,
         ...commandPlan.warnings,
+      ],
+    };
+  }
+
+  async getEgsUnitCsrPlan(organizationId: string, id: string) {
+    const [profile, egsUnit] = await Promise.all([this.getCsrProfileSnapshot(organizationId), this.getEgsUnitInternal(organizationId, id)]);
+    const requiredFields = this.buildCsrPlanFields(profile, egsUnit);
+    const missingValues = requiredFields.filter((field) => field.status === "MISSING");
+    const reviewValues = requiredFields.filter((field) => field.status === "NEEDS_REVIEW");
+    const safeName = safeZatcaTempName(egsUnit.id);
+    const tempRoot = join(tmpdir(), "ledgerbyte-zatca-csr");
+    const keyCustodyMode = this.getKeyCustodyMode(egsUnit);
+    const blockers = [
+      "CSID requests are intentionally disabled in this local-only CSR planning endpoint.",
+      "Compliance CSID and production CSID issuance require controlled ZATCA onboarding access and must not be requested from this phase.",
+      "Production private key custody is not configured; use KMS/HSM-backed custody before any production signing design.",
+      ...missingValues.map((field) => `Missing CSR field ${field.sdkConfigKey}: ${field.label}.`),
+    ];
+    const warnings = [
+      "Dry-run planning only. No CSR file, private key, CSID request, SDK execution, signing, clearance, reporting, or network call is performed.",
+      "Official SDK dummy certificate/private-key material is testing-only and must not be stored as tenant production credentials.",
+      "Certificate expiry, renewal, rotation, revocation, and token custody remain design blockers.",
+      ...reviewValues.map((field) => `Review CSR field ${field.sdkConfigKey}: ${field.notes}`),
+    ];
+
+    return {
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      productionCompliance: false,
+      noCsidRequest: true,
+      warning: "This CSR plan is local architecture guidance only; it does not request a CSID or run the official SDK.",
+      egsUnit: {
+        id: egsUnit.id,
+        name: egsUnit.name,
+        status: egsUnit.status,
+        environment: egsUnit.environment,
+        isActive: egsUnit.isActive,
+        hasCsr: Boolean(egsUnit.csrPem),
+        hasComplianceCsid: Boolean(egsUnit.complianceCsidPem),
+        hasProductionCsid: Boolean(egsUnit.productionCsidPem),
+        hasPrivateKey: hasText(egsUnit.privateKeyPem),
+        certificateRequestId: egsUnit.certificateRequestId,
+        keyCustodyMode,
+        certificateExpiryKnown: false,
+        certificateExpiresAt: null,
+        renewalStatus: "NOT_IMPLEMENTED",
+      },
+      sdkCommand: ZATCA_SDK_CSR_COMMAND,
+      requiredFields,
+      availableValues: requiredFields.filter((field) => field.status !== "MISSING"),
+      missingValues,
+      plannedSdkConfigFields: requiredFields.map((field) => ({
+        key: field.sdkConfigKey,
+        currentValue: field.currentValue,
+        status: field.status,
+        source: field.source,
+      })),
+      plannedFiles: {
+        csrConfig: join(tempRoot, `${safeName}.properties`),
+        privateKey: join(tempRoot, `${safeName}-private-key.pem`),
+        generatedCsr: join(tempRoot, `${safeName}.csr`),
+      },
+      keyCustody: {
+        mode: keyCustodyMode,
+        privateKeyConfigured: hasText(egsUnit.privateKeyPem),
+        privateKeyReturned: false,
+        redaction: "Private key PEM, certificates, binary security tokens, and CSID secrets are never returned by this endpoint.",
+      },
+      certificateState: {
+        complianceCsid: egsUnit.complianceCsidPem ? "present-redacted" : "missing",
+        productionCsid: egsUnit.productionCsidPem ? "present-redacted" : "missing",
+        certificateRequestId: egsUnit.certificateRequestId,
+        certificateExpiryKnown: false,
+        certificateExpiresAt: null,
+        renewalStatus: "NOT_IMPLEMENTED",
+      },
+      blockers,
+      warnings,
+      recommendedNextSteps: [
+        "Finalize CSR field ownership and validation from the official CSR config template before generating any real CSR.",
+        "Choose production key custody before signing work; prefer KMS/HSM-backed signing and audit logging over raw PEM storage.",
+        "Keep CSID requests, production credentials, and signing disabled until an explicit onboarding implementation phase.",
       ],
     };
   }
@@ -1695,6 +1798,28 @@ export class ZatcaService {
     };
   }
 
+  private async getCsrProfileSnapshot(organizationId: string): Promise<ZatcaCsrProfileSource> {
+    const [organization, profile] = await Promise.all([
+      this.prisma.organization.findFirst({
+        where: { id: organizationId },
+        select: { id: true, name: true, legalName: true, taxNumber: true, countryCode: true },
+      }),
+      this.prisma.zatcaOrganizationProfile.findFirst({
+        where: { organizationId },
+        select: { sellerName: true, vatNumber: true, countryCode: true, businessCategory: true },
+      }),
+    ]);
+    if (!organization) {
+      throw new NotFoundException("Organization not found.");
+    }
+    return {
+      sellerName: profile?.sellerName ?? organization.legalName ?? organization.name,
+      vatNumber: profile?.vatNumber ?? organization.taxNumber,
+      countryCode: profile?.countryCode ?? organization.countryCode,
+      businessCategory: profile?.businessCategory ?? null,
+    };
+  }
+
   private async getEgsUnitInternal(organizationId: string, id: string): Promise<InternalEgsUnitRecord> {
     const egsUnit = await this.prisma.zatcaEgsUnit.findFirst({ where: { id, organizationId }, select: internalEgsUnitSelect });
     if (!egsUnit) {
@@ -1703,7 +1828,62 @@ export class ZatcaService {
     return egsUnit;
   }
 
+  private buildCsrPlanFields(profile: ZatcaCsrProfileSource, egsUnit: Pick<InternalEgsUnitRecord, "name" | "deviceSerialNumber">): ZatcaCsrPlanField[] {
+    return [
+      this.csrPlanField("csr.common.name", "Common name", null, "NOT_MODELED", "MISSING", "SDK_README_CSR", "Official examples populate CN with an EGS/taxpayer identifier; LedgerByte does not infer it from the EGS display name."),
+      this.csrPlanField(
+        "csr.serial.number",
+        "EGS serial number",
+        egsUnit.deviceSerialNumber,
+        "EGS_UNIT",
+        hasText(egsUnit.deviceSerialNumber) ? "NEEDS_REVIEW" : "MISSING",
+        "CSR_CONFIG_TEMPLATE",
+        "Official examples use a structured serial-number value; the stored device serial is displayed for review only.",
+      ),
+      this.csrPlanField("csr.organization.identifier", "Organization VAT identifier", profile.vatNumber, "ZATCA_PROFILE", hasText(profile.vatNumber) ? "AVAILABLE" : "MISSING", "CSR_CONFIG_TEMPLATE", "Use the taxpayer VAT/TIN identifier from the ZATCA seller profile."),
+      this.csrPlanField("csr.organization.unit.name", "Organization unit name", egsUnit.name, "EGS_UNIT", hasText(egsUnit.name) ? "NEEDS_REVIEW" : "MISSING", "CSR_CONFIG_TEMPLATE", "Official examples use branch or VAT group unit details; the EGS name is displayed for review only."),
+      this.csrPlanField("csr.organization.name", "Organization legal name", profile.sellerName, "ZATCA_PROFILE", hasText(profile.sellerName) ? "AVAILABLE" : "MISSING", "CSR_CONFIG_TEMPLATE", "Use the official taxpayer legal name from the ZATCA seller profile."),
+      this.csrPlanField("csr.country.name", "Country code", profile.countryCode, "ZATCA_PROFILE", hasText(profile.countryCode) ? "AVAILABLE" : "MISSING", "CSR_CONFIG_TEMPLATE", "Official CSR examples use SA for Saudi Arabia."),
+      this.csrPlanField("csr.invoice.type", "Invoice type capability flags", null, "NOT_MODELED", "MISSING", "CSR_CONFIG_TEMPLATE", "Official examples use invoice type flags such as 1100; LedgerByte does not model the final EGS invoice-type capability yet."),
+      this.csrPlanField("csr.location.address", "EGS location address", null, "NOT_MODELED", "MISSING", "CSR_CONFIG_TEMPLATE", "Official examples use a location-address value; LedgerByte does not infer this from postal address fields."),
+      this.csrPlanField(
+        "csr.industry.business.category",
+        "Industry/business category",
+        profile.businessCategory,
+        "ZATCA_PROFILE",
+        hasText(profile.businessCategory) ? "AVAILABLE" : "MISSING",
+        "CSR_CONFIG_TEMPLATE",
+        "Use the taxpayer industry/business category captured in ZATCA profile settings.",
+      ),
+    ];
+  }
+
+  private csrPlanField(
+    sdkConfigKey: string,
+    label: string,
+    currentValue: string | null | undefined,
+    source: ZatcaCsrPlanField["source"],
+    status: ZatcaCsrPlanFieldStatus,
+    officialSource: string,
+    notes: string,
+  ): ZatcaCsrPlanField {
+    return {
+      sdkConfigKey,
+      label,
+      officialSource,
+      currentValue: hasText(currentValue) ? currentValue!.trim() : null,
+      status,
+      source,
+      notes,
+    };
+  }
+
+  private getKeyCustodyMode(unit: { privateKeyPem?: string | null } | null): ZatcaKeyCustodyMode {
+    return hasText(unit?.privateKeyPem) ? "RAW_DATABASE_PEM" : "MISSING";
+  }
+
   private toPublicEgsUnit(unit: SafeEgsUnitRecord | InternalEgsUnitRecord) {
+    const keyCustodyMode = "privateKeyPem" in unit ? this.getKeyCustodyMode(unit) : "MISSING";
     return {
       id: unit.id,
       organizationId: unit.organizationId,
@@ -1716,6 +1896,11 @@ export class ZatcaService {
       hasCsr: Boolean(unit.csrPem),
       hasComplianceCsid: Boolean(unit.complianceCsidPem),
       hasProductionCsid: Boolean(unit.productionCsidPem),
+      hasPrivateKey: keyCustodyMode === "RAW_DATABASE_PEM",
+      keyCustodyMode,
+      certificateExpiryKnown: false,
+      certificateExpiresAt: null,
+      renewalStatus: "NOT_IMPLEMENTED",
       certificateRequestId: unit.certificateRequestId,
       lastInvoiceHash: unit.lastInvoiceHash,
       lastIcv: unit.lastIcv,
@@ -1942,6 +2127,126 @@ export class ZatcaService {
       checks.push(this.check("ZATCA_SDK_WARNING", "INFO", "sdk.warnings", warning, undefined, "Review the local SDK setup note."));
     }
     return createZatcaReadinessSection("XML", checks);
+  }
+
+  private buildKeyCustodyReadinessSection(activeEgs: InternalEgsUnitRecord | null): ZatcaReadinessSection {
+    const checks: ZatcaReadinessCheck[] = [];
+    if (!activeEgs) {
+      checks.push(
+        this.check(
+          "ZATCA_KEY_CUSTODY_EGS_MISSING",
+          "ERROR",
+          "egs.active",
+          "No active EGS unit exists for certificate/key custody planning.",
+          "SECURITY_FEATURES_EGS_ONBOARDING",
+          "Create and activate a development EGS unit before CSR/key-custody planning.",
+        ),
+      );
+    } else if (hasText(activeEgs.privateKeyPem)) {
+      checks.push(
+        this.check(
+          "ZATCA_PRIVATE_KEY_STORED_IN_DATABASE",
+          "ERROR",
+          "egs.privateKeyCustody",
+          "The current schema can contain raw private key PEM material, which is not acceptable for production key custody.",
+          "SECURITY_FEATURES_PRIVATE_KEY",
+          "Do not use raw database PEM for production signing; move production custody to KMS/HSM-backed signing.",
+        ),
+      );
+    } else {
+      checks.push(
+        this.check(
+          "ZATCA_PRIVATE_KEY_CUSTODY_MODE_MISSING",
+          "ERROR",
+          "egs.privateKeyCustody",
+          "Private key custody mode is not configured.",
+          "SECURITY_FEATURES_PRIVATE_KEY",
+          "Choose local temporary files only for development experiments and KMS/HSM-backed custody for production.",
+        ),
+      );
+    }
+
+    if (!activeEgs?.complianceCsidPem) {
+      checks.push(this.check("ZATCA_COMPLIANCE_CSID_MISSING", "ERROR", "egs.complianceCsidPem", "Compliance CSID/certificate is missing.", "COMPLIANCE_CSID_API", "Do not request a CSID in this local-only phase; plan the controlled onboarding flow first."));
+    }
+    if (!activeEgs?.productionCsidPem) {
+      checks.push(this.check("ZATCA_PRODUCTION_CSID_MISSING", "ERROR", "egs.productionCsidPem", "Production CSID/certificate is missing.", "PRODUCTION_CSID_ONBOARDING_API", "Production credentials must wait for a dedicated onboarding phase."));
+    }
+    checks.push(
+      this.check(
+        "ZATCA_CERTIFICATE_EXPIRY_UNKNOWN",
+        "WARNING",
+        "egs.certificateExpiresAt",
+        "Certificate expiry metadata is not modelled yet.",
+        "RENEWAL_API",
+        "Track certificate issue/expiry dates before implementing renewal or signing.",
+      ),
+      this.check(
+        "ZATCA_RENEWAL_WORKFLOW_MISSING",
+        "ERROR",
+        "egs.renewal",
+        "Certificate renewal workflow is not implemented.",
+        "RENEWAL_API",
+        "Design renewal, OTP handling, current CSID usage, and safe token rotation before production onboarding.",
+      ),
+      this.check(
+        "ZATCA_KEY_ROTATION_WORKFLOW_MISSING",
+        "ERROR",
+        "egs.keyRotation",
+        "Key rotation and revocation workflow is not implemented.",
+        "SECURITY_FEATURES_KEY_LIFECYCLE",
+        "Define rotation, revocation, restore, and incident-response procedures before signing.",
+      ),
+      this.check(
+        "ZATCA_KMS_HSM_NOT_CONFIGURED",
+        "ERROR",
+        "egs.keyCustodyMode",
+        "KMS/HSM-style key custody is not configured for production.",
+        "SECURITY_FEATURES_PRIVATE_KEY",
+        "Use KMS/HSM-backed custody for production private keys; do not persist production keys as application-table PEM.",
+      ),
+    );
+    return createZatcaReadinessSection("KEY_CUSTODY", checks);
+  }
+
+  private buildCsrReadinessSection(profile: ZatcaCsrProfileSource, activeEgs: InternalEgsUnitRecord | null): ZatcaReadinessSection {
+    const checks: ZatcaReadinessCheck[] = [];
+    if (!activeEgs) {
+      checks.push(this.check("ZATCA_CSR_EGS_MISSING", "ERROR", "egs.active", "No active EGS unit exists for CSR planning.", "CSR_CONFIG_TEMPLATE", "Create and activate a development EGS unit first."));
+      return createZatcaReadinessSection("CSR", checks);
+    }
+
+    const fields = this.buildCsrPlanFields(profile, activeEgs);
+    const missingFields = fields.filter((field) => field.status === "MISSING");
+    const reviewFields = fields.filter((field) => field.status === "NEEDS_REVIEW");
+    if (!activeEgs.csrPem) {
+      checks.push(this.check("ZATCA_CSR_NOT_GENERATED", "ERROR", "egs.csrPem", "CSR PEM is missing for this EGS unit.", "SDK_README_CSR", "Generate CSR material only in a controlled local onboarding phase; do not request CSIDs here."));
+    }
+    if (missingFields.length > 0) {
+      checks.push(
+        this.check(
+          "ZATCA_CSR_REQUIRED_FIELDS_MISSING",
+          "ERROR",
+          "csr.config",
+          `CSR config values are missing: ${missingFields.map((field) => field.sdkConfigKey).join(", ")}.`,
+          "CSR_CONFIG_TEMPLATE",
+          "Complete the official CSR config mapping before generating any real CSR.",
+        ),
+      );
+    }
+    if (reviewFields.length > 0) {
+      checks.push(
+        this.check(
+          "ZATCA_CSR_FIELDS_NEED_REVIEW",
+          "WARNING",
+          "csr.config",
+          `CSR config values need official-format review: ${reviewFields.map((field) => field.sdkConfigKey).join(", ")}.`,
+          "CSR_CONFIG_TEMPLATE",
+          "Do not infer official CSR values; confirm them against the taxpayer/EGS onboarding data.",
+        ),
+      );
+    }
+    return createZatcaReadinessSection("CSR", checks);
   }
 
   private buildSigningReadinessSection(

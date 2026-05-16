@@ -7,6 +7,7 @@ import {
   zatcaChecklistRiskBadgeClass,
   zatcaChecklistStatusBadgeClass,
   zatcaEgsCsrDownloadPath,
+  zatcaEgsCsrPlanPath,
   zatcaInvoiceClearancePath,
   zatcaInvoiceComplianceCheckPath,
   zatcaInvoiceQrPath,
@@ -64,6 +65,7 @@ describe("ZATCA helpers", () => {
     expect(zatcaHashChainResetPlanPath()).toBe("/zatca/hash-chain-reset-plan");
     expect(zatcaEgsSdkHashModeEnablePath("egs 1")).toBe("/zatca/egs-units/egs%201/enable-sdk-hash-mode");
     expect(zatcaEgsCsrDownloadPath("egs-1")).toBe("/zatca/egs-units/egs-1/csr/download");
+    expect(zatcaEgsCsrPlanPath("egs 1")).toBe("/zatca/egs-units/egs%201/csr-plan");
   });
 
   it("formats adapter mode and warning state", () => {

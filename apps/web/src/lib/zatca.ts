@@ -79,6 +79,10 @@ export function zatcaEgsCsrDownloadPath(egsUnitId: string): string {
   return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/csr/download`;
 }
 
+export function zatcaEgsCsrPlanPath(egsUnitId: string): string {
+  return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/csr-plan`;
+}
+
 export type ZatcaAdapterMode = "mock" | "sandbox-disabled" | "sandbox";
 
 export interface ZatcaAdapterConfigSummary {

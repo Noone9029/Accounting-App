@@ -1095,6 +1095,8 @@ interface ZatcaReadinessSummary {
   blockingReasons: string[];
   sellerProfile?: ZatcaReadinessSection;
   signing: ZatcaReadinessSection;
+  keyCustody: ZatcaReadinessSection;
+  csr: ZatcaReadinessSection;
   phase2Qr: ZatcaReadinessSection;
   pdfA3: ZatcaReadinessSection;
 }
@@ -1146,6 +1148,20 @@ interface ZatcaInvoiceSigningPlanResponse {
   warnings: string[];
 }
 
+interface ZatcaEgsCsrPlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  productionCompliance: false;
+  noCsidRequest: true;
+  sdkCommand: string;
+  requiredFields: Array<{ sdkConfigKey: string; currentValue: string | null; status: "AVAILABLE" | "MISSING" | "NEEDS_REVIEW" }>;
+  plannedFiles: { csrConfig: string; privateKey: string; generatedCsr: string };
+  keyCustody: { mode: "MISSING" | "RAW_DATABASE_PEM"; privateKeyConfigured: boolean; privateKeyReturned: false };
+  blockers: string[];
+  warnings: string[];
+}
+
 interface ZatcaXmlFieldMappingResponse {
   warning: string;
   summary: {
@@ -1164,6 +1180,12 @@ interface ZatcaEgsUnit {
   isActive: boolean;
   hasCsr: boolean;
   hasComplianceCsid: boolean;
+  hasProductionCsid?: boolean;
+  hasPrivateKey?: boolean;
+  keyCustodyMode?: "MISSING" | "RAW_DATABASE_PEM";
+  certificateExpiryKnown?: boolean;
+  certificateExpiresAt?: string | null;
+  renewalStatus?: string;
   certificateRequestId?: string | null;
   lastIcv: number;
   lastInvoiceHash?: string | null;
@@ -2982,6 +3004,8 @@ async function main(): Promise<void> {
   assertEqual(zatcaReadiness.productionReady, false, "ZATCA readiness productionReady");
   assertEqual(zatcaReadiness.sellerProfile?.status, "READY", "ZATCA seller readiness ready after smoke profile patch");
   assertEqual(zatcaReadiness.signing.status, "BLOCKED", "ZATCA signing readiness blocked");
+  assertEqual(zatcaReadiness.keyCustody.status, "BLOCKED", "ZATCA key custody readiness blocked");
+  assertEqual(zatcaReadiness.csr.status, "BLOCKED", "ZATCA CSR readiness blocked");
   assertEqual(zatcaReadiness.phase2Qr.status, "BLOCKED", "ZATCA Phase 2 QR readiness blocked");
   assertEqual(zatcaReadiness.pdfA3.status, "BLOCKED", "ZATCA PDF/A-3 readiness blocked");
   assert(zatcaReadiness.blockingReasons.length > 0, "ZATCA readiness returns blocking reasons");
@@ -3006,6 +3030,21 @@ async function main(): Promise<void> {
   assert(csrResponse.csrPem.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA CSR endpoint returns CSR PEM");
   assert(!csrResponse.csrPem.includes("PRIVATE KEY"), "ZATCA CSR endpoint does not return private key material");
   await assertText(`/zatca/egs-units/${smokeEgs.id}/csr/download`, headers, "EGS CSR download", "BEGIN CERTIFICATE REQUEST");
+  const egsBeforeCsrPlan = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  const zatcaCsrPlan = await get<ZatcaEgsCsrPlanResponse>(`/zatca/egs-units/${smokeEgs.id}/csr-plan`, headers);
+  assertEqual(zatcaCsrPlan.localOnly, true, "ZATCA CSR plan localOnly");
+  assertEqual(zatcaCsrPlan.dryRun, true, "ZATCA CSR plan dryRun");
+  assertEqual(zatcaCsrPlan.noMutation, true, "ZATCA CSR plan noMutation");
+  assertEqual(zatcaCsrPlan.productionCompliance, false, "ZATCA CSR plan productionCompliance");
+  assertEqual(zatcaCsrPlan.noCsidRequest, true, "ZATCA CSR plan noCsidRequest");
+  assert(zatcaCsrPlan.sdkCommand.includes("-csr"), "ZATCA CSR plan uses SDK CSR command");
+  assert(zatcaCsrPlan.requiredFields.some((field) => field.sdkConfigKey === "csr.organization.identifier"), "ZATCA CSR plan lists organization identifier");
+  assert(zatcaCsrPlan.requiredFields.some((field) => field.sdkConfigKey === "csr.invoice.type" && field.status === "MISSING"), "ZATCA CSR plan lists missing invoice type");
+  assert(zatcaCsrPlan.blockers.some((blocker) => blocker.includes("CSID requests are intentionally disabled")), "ZATCA CSR plan blocks CSID requests");
+  assertNoPrivateKey(zatcaCsrPlan, "ZATCA CSR plan response");
+  const egsAfterCsrPlan = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  assertEqual(egsAfterCsrPlan.lastIcv, egsBeforeCsrPlan.lastIcv, "ZATCA CSR plan does not mutate EGS ICV");
+  assertEqual(egsAfterCsrPlan.lastInvoiceHash, egsBeforeCsrPlan.lastInvoiceHash, "ZATCA CSR plan does not mutate EGS previous hash");
   smokeEgs = await post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/request-compliance-csid`, headers, { otp: "000000", mode: "mock" });
   assertNoPrivateKey(smokeEgs, "ZATCA compliance CSID response");
   assertEqual(smokeEgs.hasComplianceCsid, true, "ZATCA smoke EGS compliance CSID flag");
@@ -4738,9 +4777,13 @@ async function main(): Promise<void> {
         zatcaSellerReadinessStatus: invoiceZatcaReadiness.sellerProfile.status,
         zatcaBuyerReadinessStatus: invoiceZatcaReadiness.buyerContact.status,
         zatcaSigningReadinessStatus: invoiceZatcaReadiness.signing.status,
+        zatcaKeyCustodyReadinessStatus: zatcaReadiness.keyCustody.status,
+        zatcaCsrReadinessStatus: zatcaReadiness.csr.status,
         zatcaPhase2QrReadinessStatus: invoiceZatcaReadiness.phase2Qr.status,
         zatcaSigningPlanDryRun: zatcaSigningPlan.dryRun,
         zatcaSigningPlanNoMutation: zatcaSigningPlan.noMutation,
+        zatcaCsrPlanDryRun: zatcaCsrPlan.dryRun,
+        zatcaCsrPlanNoMutation: zatcaCsrPlan.noMutation,
         paymentIds: [partialPayment.id, remainingPayment.id],
         paymentRefundId: paymentRefund.id,
         paymentUnappliedInvoiceId: paymentUnappliedInvoice.id,

@@ -91,6 +91,7 @@ export const ZATCA_SDK_REQUIRED_JAVA_RANGE = ">=11 <15";
 export const ZATCA_SDK_VALIDATE_COMMAND = "fatoora -validate -invoice <filename>";
 export const ZATCA_SDK_GENERATE_HASH_COMMAND = "fatoora -generateHash -invoice <filename>";
 export const ZATCA_SDK_SIGN_COMMAND = "fatoora -sign -invoice <filename> -signedInvoice <filename>";
+export const ZATCA_SDK_CSR_COMMAND = "fatoora -csr -csrConfig <filename> -privateKey <filename> -generatedCsr <filename> -pem";
 
 export function discoverZatcaSdkReadiness(options: ZatcaSdkDiscoveryOptions = {}): ZatcaSdkReadiness {
   const projectRoot = resolve(options.projectRoot ?? findProjectRoot(options.startDirectory ?? cwd()));

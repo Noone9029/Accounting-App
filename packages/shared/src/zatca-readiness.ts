@@ -1,5 +1,15 @@
 export type ZatcaReadinessStatus = "READY" | "WARNINGS" | "BLOCKED";
-export type ZatcaReadinessScope = "SELLER_PROFILE" | "BUYER_CONTACT" | "INVOICE" | "EGS" | "XML" | "SIGNING" | "PHASE_2_QR" | "PDF_A3";
+export type ZatcaReadinessScope =
+  | "SELLER_PROFILE"
+  | "BUYER_CONTACT"
+  | "INVOICE"
+  | "EGS"
+  | "XML"
+  | "SIGNING"
+  | "PHASE_2_QR"
+  | "PDF_A3"
+  | "KEY_CUSTODY"
+  | "CSR";
 export type ZatcaReadinessSeverity = "ERROR" | "WARNING" | "INFO";
 
 export interface ZatcaReadinessCheck {

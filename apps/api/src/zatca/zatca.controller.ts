@@ -109,6 +109,12 @@ export class ZatcaController {
     return this.zatcaService.generateEgsCsr(organizationId, user.id, id);
   }
 
+  @Get("zatca/egs-units/:id/csr-plan")
+  @RequirePermissions(PERMISSIONS.zatca.view)
+  getEgsCsrPlan(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.zatcaService.getEgsUnitCsrPlan(organizationId, id);
+  }
+
   @Get("zatca/egs-units/:id/csr")
   @RequirePermissions(PERMISSIONS.zatca.view)
   async getEgsCsr(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {

@@ -429,6 +429,8 @@ export default function ZatcaSettingsPage() {
                 <ReadinessSummary label="Mock CSID" ready={readiness.mockCsidReady} detail={readiness.mockCsidReady ? "Local mock CSID exists" : "Request mock CSID after CSR"} />
                 <ReadinessSummary label="Real network" ready={readiness.realNetworkEnabled} detail={readiness.realNetworkEnabled ? "Explicitly enabled" : "Disabled by configuration"} />
                 <ReadinessSummary label="Production" ready={readiness.productionReady} detail="Always blocked until official validation is complete" />
+                <ReadinessSummary label="Key custody" ready={readiness.keyCustody.status !== "BLOCKED"} detail={readiness.activeEgsUnit?.keyCustodyMode === "RAW_DATABASE_PEM" ? "Raw DB PEM detected; production KMS/HSM required" : "No private key custody configured"} />
+                <ReadinessSummary label="CSR readiness" ready={readiness.csr.status !== "BLOCKED"} detail={readiness.activeEgsUnit?.hasCsr ? "CSR exists locally" : "CSR fields still need planning"} />
               </div>
               <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <ReadinessCheckCard title="Seller invoice XML profile" section={readiness.sellerProfile} />
@@ -436,6 +438,8 @@ export default function ZatcaSettingsPage() {
                 <ReadinessCheckCard title="Generated XML inventory" section={readiness.xml} />
                 <ReadinessCheckCard title="Local SDK wrapper" section={readiness.sdk} />
                 <ReadinessCheckCard title="Signing/certificate" section={readiness.signing} />
+                <ReadinessCheckCard title="Key custody" section={readiness.keyCustody} />
+                <ReadinessCheckCard title="CSR onboarding" section={readiness.csr} />
                 <ReadinessCheckCard title="Phase 2 QR" section={readiness.phase2Qr} />
                 <ReadinessCheckCard title="PDF/A-3" section={readiness.pdfA3} />
               </div>
@@ -537,6 +541,9 @@ export default function ZatcaSettingsPage() {
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">CSR</th>
                     <th className="px-4 py-3">Compliance CSID</th>
+                    <th className="px-4 py-3">Production CSID</th>
+                    <th className="px-4 py-3">Key custody</th>
+                    <th className="px-4 py-3">Renewal</th>
                     <th className="px-4 py-3">Certificate request</th>
                     <th className="px-4 py-3">ICV</th>
                     <th className="px-4 py-3">Last hash</th>
@@ -546,7 +553,7 @@ export default function ZatcaSettingsPage() {
                 <tbody className="divide-y divide-slate-100">
                   {egsUnits.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="px-4 py-4">
+                      <td colSpan={13} className="px-4 py-4">
                         <StatusMessage type="empty">No EGS units have been created yet.</StatusMessage>
                       </td>
                     </tr>
@@ -563,6 +570,15 @@ export default function ZatcaSettingsPage() {
                         </td>
                         <td className="px-4 py-3 text-steel">{unit.hasCsr ? "Generated" : "Missing"}</td>
                         <td className="px-4 py-3 text-steel">{unit.hasComplianceCsid ? "Mock issued" : "Missing"}</td>
+                        <td className="px-4 py-3 text-steel">{unit.hasProductionCsid ? "Configured" : "Missing"}</td>
+                        <td className="px-4 py-3 text-steel">
+                          {unit.keyCustodyMode === "RAW_DATABASE_PEM" ? "DB PEM (dev risk)" : "Missing"}
+                          <div className="mt-1 text-[11px] text-amber-700">KMS/HSM recommended for production.</div>
+                        </td>
+                        <td className="px-4 py-3 text-steel">
+                          {unit.certificateExpiryKnown ? unit.certificateExpiresAt ?? "Known" : "Expiry unknown"}
+                          <div className="mt-1 text-[11px] text-steel">{unit.renewalStatus ?? "Not implemented"}</div>
+                        </td>
                         <td className="px-4 py-3 font-mono text-xs">{unit.certificateRequestId ?? "-"}</td>
                         <td className="px-4 py-3 font-mono text-xs">{unit.lastIcv}</td>
                         <td className="px-4 py-3 font-mono text-xs">{truncateHash(unit.lastInvoiceHash)}</td>
