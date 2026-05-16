@@ -14,6 +14,7 @@
     "zatca:csr-dry-run": "tsx scripts/zatca-csr-dry-run.ts",
     "zatca:csr-local-generate": "tsx scripts/zatca-csr-local-generate.ts",
     "zatca:local-signing-dry-run": "tsx scripts/zatca-local-signing-dry-run.ts",
+    "zatca:local-signed-xml-validate": "tsx scripts/zatca-local-signed-xml-validate.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed"

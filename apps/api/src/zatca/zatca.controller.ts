@@ -253,6 +253,16 @@ export class ZatcaController {
     return this.zatcaService.getInvoiceZatcaLocalSigningDryRun(organizationId, id, dto);
   }
 
+  @Post("sales-invoices/:id/zatca/local-signed-xml-validation-dry-run")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  invoiceLocalSignedXmlValidationDryRun(
+    @CurrentOrganizationId() organizationId: string,
+    @Param("id") id: string,
+    @Body() dto: { keepTempFiles?: boolean } = {},
+  ) {
+    return this.zatcaService.getInvoiceZatcaLocalSignedXmlValidationDryRun(organizationId, id, dto);
+  }
+
   @Post("sales-invoices/:id/zatca/generate")
   @RequirePermissions(PERMISSIONS.zatca.generateXml)
   generateInvoiceCompliance(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {

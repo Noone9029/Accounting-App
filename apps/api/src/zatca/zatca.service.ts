@@ -57,6 +57,7 @@ import {
   ZATCA_SDK_CSR_COMMAND,
   ZATCA_SDK_QR_COMMAND,
   ZATCA_SDK_SIGN_COMMAND,
+  ZATCA_SDK_VALIDATE_COMMAND,
 } from "../zatca-sdk/zatca-sdk-paths";
 import { isZatcaAdapterError, ZatcaAdapterError } from "./adapters/zatca-adapter.error";
 import { MockZatcaOnboardingAdapter } from "./adapters/mock-zatca-onboarding.adapter";
@@ -144,6 +145,16 @@ const officialCsrConfigKeyOrder = [
   "csr.industry.business.category",
 ] as const;
 const officialExampleCsrInvoiceTypes = new Set(["1100"]);
+const officialSellerIdentificationSchemeIds = new Set(["CRN", "MOM", "MLS", "SAG", "OTH", "700"]);
+const emptyZatcaSignedXmlValidationResults = {
+  xsd: "NOT_RUN",
+  en: "NOT_RUN",
+  ksa: "NOT_RUN",
+  qr: "NOT_RUN",
+  signature: "NOT_RUN",
+  pih: "NOT_RUN",
+  global: "NOT_RUN",
+} as const;
 
 interface ZatcaCsrProfileSource {
   sellerName?: string | null;
@@ -1419,6 +1430,128 @@ export class ZatcaService {
         warnings: ["QR payload body is intentionally not returned; use official SDK validation artifacts only in a controlled local experiment."],
       },
     });
+  }
+
+  async getInvoiceZatcaLocalSignedXmlValidationDryRun(organizationId: string, invoiceId: string, options: { keepTempFiles?: boolean } = {}) {
+    const keepTempFiles = options.keepTempFiles === true;
+    const signingRun = await this.getInvoiceZatcaLocalSigningDryRun(organizationId, invoiceId, { keepTempFiles: true });
+    const validationResults = { ...emptyZatcaSignedXmlValidationResults };
+    const validationMessages: Array<{ code: string; message: string; severity: "ERROR" | "WARNING" | "INFO" }> = [];
+    const blockers: string[] = [...(signingRun.blockers ?? [])];
+    const warnings: string[] = [
+      ...(signingRun.warnings ?? []),
+      "Signed XML validation is local-only, temp-only, and uses official SDK validation with sanitized output.",
+      "No signed XML, QR payload, private key, certificate body, CSID token, OTP, or production credential is returned or persisted.",
+    ];
+    const tempDirectory = typeof signingRun.tempFilesWritten?.tempDirectory === "string" ? signingRun.tempFilesWritten.tempDirectory : null;
+    const signedXmlPath = tempDirectory ? join(tempDirectory, "signed.xml") : null;
+    let validationAttempted = false;
+    let validationExitCode: number | null = null;
+    let validationTimedOut = false;
+    let validationStdoutSummary = "";
+    let validationStderrSummary = "";
+    let validationCommandPlan: ZatcaSdkValidationCommandPlan | null = null;
+    const tempFilesWritten = {
+      ...(signingRun.tempFilesWritten ?? { unsignedXml: false, sdkConfig: false, sdkRuntime: false, signedXml: false, tempDirectory: null }),
+      validationConfig: false,
+      validationPih: false,
+      filesRetained: keepTempFiles,
+    };
+    const cleanup = { performed: false, success: true, filesRetained: keepTempFiles, tempDirectory };
+
+    try {
+      if (!signingRun.executionEnabled || !signingRun.signedXmlDetected || !signedXmlPath || !tempDirectory) {
+        if (signingRun.executionEnabled && !signingRun.signedXmlDetected) {
+          blockers.push("Signed XML was not detected; official SDK validation was not attempted.");
+        }
+      } else {
+        const metadata = await this.getMetadataWithXml(organizationId, invoiceId);
+        const pihSetup = this.prepareSignedXmlValidationPihOverride(signingRun.commandPlan, tempDirectory, metadata.previousInvoiceHash ?? initialPreviousInvoiceHash);
+        tempFilesWritten.validationConfig = pihSetup.configWritten;
+        tempFilesWritten.validationPih = pihSetup.pihWritten;
+        blockers.push(...pihSetup.blockers);
+        warnings.push(...pihSetup.warnings);
+        if (pihSetup.blockers.length === 0) {
+          validationCommandPlan = this.buildSignedXmlValidationCommandPlan(signingRun.commandPlan, signedXmlPath);
+          if (!validationCommandPlan.command) {
+            blockers.push("Official SDK -validate command could not be planned for the signed temp XML.");
+          } else if (this.commandPlanLooksNetworked(validationCommandPlan)) {
+            blockers.push("Local signed XML validation command plan unexpectedly contains network-like arguments; execution is blocked.");
+          } else {
+            validationAttempted = true;
+            const validationResult = await this.executeZatcaSdkCommand(validationCommandPlan, discoverZatcaSdkReadiness().timeoutMs);
+            validationExitCode = validationResult.exitCode;
+            validationTimedOut = validationResult.timedOut;
+            validationStdoutSummary = this.sanitizeSigningSdkOutput(validationResult.stdout);
+            validationStderrSummary = this.sanitizeSigningSdkOutput(validationResult.stderr);
+            const parsed = this.parseSignedXmlValidationOutput(`${validationResult.stdout}\n${validationResult.stderr}`);
+            Object.assign(validationResults, parsed.results);
+            validationMessages.push(...parsed.messages);
+            if (validationResult.timedOut) {
+              warnings.push("Official SDK signed XML validation timed out.");
+            }
+            if (parsed.results.pih === "FAILED") {
+              warnings.push("PIH validation failed; the temporary SDK config was pointed at the invoice metadata previous hash before validation.");
+            }
+            if (parsed.results.global === "FAILED") {
+              blockers.push("Official SDK signed XML validation global result failed; inspect sanitized validation messages.");
+            }
+          }
+        }
+      }
+    } finally {
+      if (tempDirectory && !keepTempFiles) {
+        try {
+          rmSync(tempDirectory, { recursive: true, force: true });
+          cleanup.performed = true;
+          cleanup.success = true;
+        } catch {
+          cleanup.performed = true;
+          cleanup.success = false;
+          warnings.push("Temporary signed XML validation directory cleanup failed; inspect local temp storage manually.");
+        }
+      }
+    }
+
+    const validationGlobalResult = validationResults.global;
+    return {
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      noCsidRequest: true,
+      noNetwork: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      noProductionCredentials: true,
+      noPersistence: true,
+      productionCompliance: false,
+      invoiceId: signingRun.invoiceId,
+      invoiceNumber: signingRun.invoiceNumber,
+      invoiceType: signingRun.invoiceType,
+      executionEnabled: signingRun.executionEnabled,
+      executionAttempted: signingRun.executionAttempted,
+      executionSkipped: signingRun.executionSkipped,
+      signingExecutionStatus: signingRun.executionStatus,
+      signingExecuted: signingRun.signingExecuted,
+      qrExecuted: signingRun.qrExecuted,
+      sdkExitCode: signingRun.sdkExitCode,
+      qrSdkExitCode: signingRun.qrSdkExitCode,
+      validationAttempted,
+      validationExitCode,
+      validationTimedOut,
+      validationGlobalResult,
+      validationResults,
+      validationMessages,
+      validationStdoutSummary,
+      validationStderrSummary,
+      validationCommandPlan,
+      signedXmlDetected: signingRun.signedXmlDetected,
+      qrDetected: signingRun.qrDetected,
+      tempFilesWritten,
+      cleanup,
+      blockers: [...new Set(blockers)],
+      warnings: [...new Set(warnings)],
+    };
   }
 
   async getEgsUnitCsrPlan(organizationId: string, id: string) {
@@ -2974,6 +3107,102 @@ export class ZatcaService {
     }
   }
 
+  private prepareSignedXmlValidationPihOverride(commandPlan: ZatcaSdkValidationCommandPlan, tempDirectory: string, previousInvoiceHash: string | null | undefined) {
+    const blockers: string[] = [];
+    const warnings: string[] = [];
+    const configPath = commandPlan.envAdditions.SDK_CONFIG;
+    const pihValue = previousInvoiceHash?.trim() || initialPreviousInvoiceHash;
+    if (!configPath || !this.fileExistsAndNotEmpty(configPath)) {
+      blockers.push("Temporary SDK_CONFIG was not available for signed XML validation PIH override.");
+      return { configWritten: false, pihWritten: false, blockers, warnings };
+    }
+    if (!pihValue) {
+      blockers.push("Invoice previous hash is missing; signed XML validation cannot prepare an invoice-specific pihPath.");
+      return { configWritten: false, pihWritten: false, blockers, warnings };
+    }
+
+    try {
+      const pihDirPath = join(tempDirectory, "PIH");
+      const pihPath = join(pihDirPath, "pih.txt");
+      const config = JSON.parse(readFileSync(configPath, "utf8")) as Record<string, unknown>;
+      mkdirSync(pihDirPath, { recursive: true });
+      writeFileSync(pihPath, pihValue, { encoding: "ascii", mode: 0o600 });
+      writeFileSync(configPath, `${JSON.stringify({ ...config, pihPath }, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+      warnings.push("Signed XML validation pihPath was pointed at the invoice metadata previous hash in the temporary SDK config.");
+      return { configWritten: true, pihWritten: true, blockers, warnings };
+    } catch {
+      blockers.push("Temporary SDK_CONFIG pihPath override could not be prepared for signed XML validation.");
+      return { configWritten: false, pihWritten: false, blockers, warnings };
+    }
+  }
+
+  private buildSignedXmlValidationCommandPlan(commandPlan: ZatcaSdkValidationCommandPlan, signedXmlPath: string): ZatcaSdkValidationCommandPlan {
+    const args: string[] = [];
+    for (let index = 0; index < commandPlan.args.length; index += 1) {
+      const arg = commandPlan.args[index];
+      if (arg === undefined) {
+        continue;
+      }
+      if (arg === "-sign") {
+        args.push("-validate");
+        continue;
+      }
+      if (arg === "-signedInvoice") {
+        index += 1;
+        continue;
+      }
+      if (arg === "-invoice") {
+        args.push(arg, signedXmlPath);
+        index += 1;
+        continue;
+      }
+      args.push(arg);
+    }
+    const displayCommand = commandPlan.command ? [commandPlan.command, ...args].map((part) => (/\s/.test(part) ? `"${part.replaceAll('"', '\\"')}"` : part)).join(" ") : "";
+    return {
+      ...commandPlan,
+      args,
+      displayCommand,
+      warnings: [...commandPlan.warnings, `Uses the SDK readme documented command: ${ZATCA_SDK_VALIDATE_COMMAND}.`],
+    };
+  }
+
+  private parseSignedXmlValidationOutput(output: string) {
+    const sanitized = this.sanitizeSigningSdkOutput(output);
+    const resultFor = (label: string): "PASSED" | "FAILED" | "NOT_RUN" | "UNKNOWN" => {
+      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const direct = sanitized.match(new RegExp(`${escaped}[^\\r\\n]*(?:validation\\s+result|VALIDATION\\s+RESULT)\\s*[:=]\\s*(PASSED|FAILED)`, "i"));
+      if (direct?.[1]) {
+        return direct[1].toUpperCase() as "PASSED" | "FAILED";
+      }
+      const bracketed = sanitized.match(new RegExp(`\\[${escaped}\\][^\\r\\n]*(PASSED|FAILED)`, "i"));
+      if (bracketed?.[1]) {
+        return bracketed[1].toUpperCase() as "PASSED" | "FAILED";
+      }
+      return "UNKNOWN";
+    };
+    const globalMatch = sanitized.match(/GLOBAL\s+VALIDATION\s+RESULT\s*=?\s*(PASSED|FAILED)/i);
+    const results = {
+      xsd: resultFor("XSD"),
+      en: resultFor("EN"),
+      ksa: resultFor("KSA"),
+      qr: resultFor("QR"),
+      signature: resultFor("SIGNATURE"),
+      pih: resultFor("PIH"),
+      global: globalMatch?.[1] ? (globalMatch[1].toUpperCase() as "PASSED" | "FAILED") : resultFor("GLOBAL"),
+    };
+    const messages: Array<{ code: string; message: string; severity: "ERROR" | "WARNING" | "INFO" }> = [];
+    const messagePattern = /CODE\s*:\s*([^,\r\n]+)\s*,?\s*MESSAGE\s*:\s*([^\r\n]+)/gi;
+    for (const match of sanitized.matchAll(messagePattern)) {
+      const code = match[1]?.trim();
+      const message = match[2]?.trim();
+      if (code && message) {
+        messages.push({ code, message: message.slice(0, 700), severity: code.includes("WARNING") || code.includes("BR-KSA-08") ? "WARNING" : "ERROR" });
+      }
+    }
+    return { results, messages };
+  }
+
   private canWriteToDirectory(directory: string): boolean {
     try {
       accessSync(directory, constants.W_OK);
@@ -3173,6 +3402,8 @@ export class ZatcaService {
   private buildSellerProfileReadiness(profile: {
     sellerName?: string | null;
     vatNumber?: string | null;
+    companyIdType?: string | null;
+    companyIdNumber?: string | null;
     streetName?: string | null;
     buildingNumber?: string | null;
     district?: string | null;
@@ -3185,6 +3416,18 @@ export class ZatcaService {
     this.addRequiredCheck(checks, profile.vatNumber, "ZATCA_SELLER_VAT_NUMBER_MISSING", "seller.vatNumber", "Seller VAT registration number is required in generated invoice XML.", "BR-KSA-39", "Add the seller VAT number in ZATCA profile settings.");
     if (hasText(profile.vatNumber) && !isSaudiVatNumber(profile.vatNumber)) {
       checks.push(this.check("ZATCA_SELLER_VAT_NUMBER_INVALID", "ERROR", "seller.vatNumber", "Seller VAT registration number must be 15 digits and start/end with 3 when present.", "BR-KSA-40", "Enter a 15-digit Saudi VAT number that starts and ends with 3."));
+    }
+    const sellerIdScheme = profile.companyIdType?.trim().toUpperCase() ?? "";
+    const sellerIdNumber = profile.companyIdNumber?.trim() ?? "";
+    if (!sellerIdScheme || !sellerIdNumber) {
+      checks.push(this.check("ZATCA_SELLER_IDENTIFICATION_MISSING", "WARNING", "seller.companyIdNumber", "Seller identification BT-29 is missing; official validation may report BR-KSA-08.", "BR-KSA-08", "Add one seller ID such as CRN, MOM, MLS, SAG, OTH, or 700 with an alphanumeric value."));
+    } else {
+      if (!officialSellerIdentificationSchemeIds.has(sellerIdScheme)) {
+        checks.push(this.check("ZATCA_SELLER_IDENTIFICATION_SCHEME_INVALID", "WARNING", "seller.companyIdType", "Seller identification scheme must be one of CRN, MOM, MLS, SAG, OTH, or 700.", "BR-KSA-08", "Use an official seller identification scheme ID from the ZATCA XML rules."));
+      }
+      if (!/^[a-zA-Z0-9]+$/.test(sellerIdNumber)) {
+        checks.push(this.check("ZATCA_SELLER_IDENTIFICATION_NUMBER_INVALID", "WARNING", "seller.companyIdNumber", "Seller identification number must contain only alphanumeric characters.", "BR-KSA-08", "Remove spaces, hyphens, punctuation, or other non-alphanumeric characters from the seller ID."));
+      }
     }
     this.addRequiredCheck(checks, profile.streetName, "ZATCA_SELLER_STREET_MISSING", "seller.streetName", "Seller street name is required in generated invoice XML.", "BR-KSA-09", "Add seller street in ZATCA profile settings.");
     this.addRequiredCheck(checks, profile.buildingNumber, "ZATCA_SELLER_BUILDING_NUMBER_MISSING", "seller.buildingNumber", "Seller building number is required in generated invoice XML.", "BR-KSA-09", "Add a 4-digit building number in ZATCA profile settings.");

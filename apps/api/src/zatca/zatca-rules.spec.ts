@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
@@ -1288,6 +1288,193 @@ describe("ZATCA service rules", () => {
         process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED = previousFlag;
       }
     }
+  });
+
+  it("returns a default-disabled signed XML validation dry-run without mutating metadata or EGS state", async () => {
+    const previousFlag = process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED;
+    delete process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED;
+    const prisma = makeInvoiceReadinessPrisma({
+      zatcaInvoiceType: ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE,
+      activeEgs: {
+        id: "egs-1",
+        name: "Dev EGS",
+        environment: "SANDBOX",
+        status: ZatcaRegistrationStatus.ACTIVE,
+        isActive: true,
+        lastIcv: 2,
+        lastInvoiceHash: "last-hash",
+        hashMode: "SDK_GENERATED",
+      },
+    });
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    try {
+      const result = await service.getInvoiceZatcaLocalSignedXmlValidationDryRun("org-1", "invoice-1");
+
+      expect(result).toMatchObject({
+        localOnly: true,
+        dryRun: true,
+        noMutation: true,
+        noCsidRequest: true,
+        noNetwork: true,
+        noClearanceReporting: true,
+        noPdfA3: true,
+        noProductionCredentials: true,
+        noPersistence: true,
+        productionCompliance: false,
+        executionEnabled: false,
+        executionAttempted: false,
+        signingExecutionStatus: "SKIPPED",
+        validationAttempted: false,
+        validationGlobalResult: "NOT_RUN",
+        signedXmlDetected: false,
+        qrDetected: false,
+      });
+      expect(result.blockers).toEqual(expect.arrayContaining([expect.stringContaining("ZATCA_SDK_SIGNING_EXECUTION_ENABLED is false")]));
+      expect(JSON.stringify(result)).not.toContain("PRIVATE KEY");
+      expect(JSON.stringify(result)).not.toContain("<Invoice");
+      expect(prisma.zatcaInvoiceMetadata.upsert).not.toHaveBeenCalled();
+      expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+      expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+      expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    } finally {
+      if (previousFlag === undefined) {
+        delete process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED;
+      } else {
+        process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED = previousFlag;
+      }
+    }
+  });
+
+  it("validates mocked signed XML with invoice-specific pihPath and sanitizes KSA-13 output", async () => {
+    const previousFlag = process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED;
+    process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED = "true";
+    const fixture = makeLocalSigningSdkFixture({ includeDummyMaterial: true });
+    const readinessSpy = jest.spyOn(ZatcaSdkPaths, "discoverZatcaSdkReadiness").mockReturnValue(fixture.readiness);
+    const prisma = makeInvoiceReadinessPrisma({
+      zatcaInvoiceType: ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE,
+      metadata: makeGeneratedMetadata({
+        zatcaInvoiceType: ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE,
+        previousInvoiceHash: "invoice-specific-previous-hash",
+      }),
+    });
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+    const executeSpy = jest.spyOn(service as never as { executeZatcaSdkCommand: jest.Mock }, "executeZatcaSdkCommand").mockImplementation(async (plan: { args: string[]; envAdditions: Record<string, string> }) => {
+      if (plan.args.includes("-sign")) {
+        const signedInvoicePath = plan.args[plan.args.indexOf("-signedInvoice") + 1];
+        writeFileSync(signedInvoicePath!, "<Invoice><ds:X509Certificate>SECRET-CERT</ds:X509Certificate></Invoice>", "utf8");
+        return { exitCode: 0, stdout: "signed", stderr: "", timedOut: false };
+      }
+      if (plan.args.includes("-qr")) {
+        return { exitCode: 0, stdout: `QR ${"A".repeat(140)}`, stderr: "", timedOut: false };
+      }
+      if (plan.args.includes("-validate")) {
+        const configPath = plan.envAdditions.SDK_CONFIG;
+        expect(configPath).toBeTruthy();
+        const config = JSON.parse(readFileSync(configPath!, "utf8")) as { pihPath: string };
+        expect(config.pihPath).toContain("pih.txt");
+        expect(readFileSync(config.pihPath, "utf8")).toBe("invoice-specific-previous-hash");
+        return {
+          exitCode: 1,
+          stdout: [
+            "XSD validation result : PASSED",
+            "EN validation result : PASSED",
+            "KSA validation result : PASSED",
+            "QR validation result : PASSED",
+            "SIGNATURE validation result : PASSED",
+            "PIH validation result : FAILED",
+            "CODE : KSA-13, MESSAGE : PIH is inValid <Invoice>SECRET XML</Invoice> -----BEGIN PRIVATE KEY-----SECRET-----END PRIVATE KEY-----",
+            "GLOBAL VALIDATION RESULT = FAILED",
+          ].join("\n"),
+          stderr: "OTP 123456 binarySecurityToken SHOULD-REDACT",
+          timedOut: false,
+        };
+      }
+      throw new Error(`Unexpected SDK command: ${plan.args.join(" ")}`);
+    });
+
+    try {
+      const result = await service.getInvoiceZatcaLocalSignedXmlValidationDryRun("org-1", "invoice-1");
+
+      expect(result.executionEnabled).toBe(true);
+      expect(result.executionAttempted).toBe(true);
+      expect(result.signingExecutionStatus).toBe("SUCCEEDED_LOCALLY");
+      expect(result.validationAttempted).toBe(true);
+      expect(result.validationExitCode).toBe(1);
+      expect(result.validationGlobalResult).toBe("FAILED");
+      expect(result.validationResults).toMatchObject({
+        xsd: "PASSED",
+        en: "PASSED",
+        ksa: "PASSED",
+        qr: "PASSED",
+        signature: "PASSED",
+        pih: "FAILED",
+        global: "FAILED",
+      });
+      expect(result.validationMessages).toEqual(expect.arrayContaining([expect.objectContaining({ code: "KSA-13", message: expect.stringContaining("PIH is inValid") })]));
+      expect(result.warnings).toEqual(expect.arrayContaining([expect.stringContaining("invoice metadata previous hash")]));
+      expect(result.cleanup).toMatchObject({ performed: true, success: true, filesRetained: false });
+      expect(existsSync(result.tempFilesWritten.tempDirectory as string)).toBe(false);
+      expect(JSON.stringify(result)).not.toContain("SECRET XML");
+      expect(JSON.stringify(result)).not.toContain("PRIVATE KEY");
+      expect(JSON.stringify(result)).not.toContain("SECRET-CERT");
+      expect(JSON.stringify(result)).not.toContain("123456");
+      expect(JSON.stringify(result)).not.toContain("binarySecurityToken");
+      expect(prisma.zatcaInvoiceMetadata.upsert).not.toHaveBeenCalled();
+      expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+      expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+      expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    } finally {
+      readinessSpy.mockRestore();
+      executeSpy.mockRestore();
+      rmSync(fixture.root, { recursive: true, force: true });
+      if (previousFlag === undefined) {
+        delete process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED;
+      } else {
+        process.env.ZATCA_SDK_SIGNING_EXECUTION_ENABLED = previousFlag;
+      }
+    }
+  });
+
+  it("seller readiness reports BR-KSA-08 missing and invalid seller identification", async () => {
+    const missingPrisma = makeInvoiceReadinessPrisma({
+      profile: { companyIdType: null, companyIdNumber: null },
+    });
+    const missingService = new ZatcaService(missingPrisma as never, { log: jest.fn() } as never);
+
+    const missingReadiness = await missingService.getInvoiceZatcaReadiness("org-1", "invoice-1");
+
+    expect(missingReadiness.sellerProfile.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "ZATCA_SELLER_IDENTIFICATION_MISSING",
+          severity: "WARNING",
+          sourceRule: "BR-KSA-08",
+        }),
+      ]),
+    );
+
+    const invalidPrisma = makeInvoiceReadinessPrisma({
+      profile: { companyIdType: "BAD", companyIdNumber: "CRN-123" },
+    });
+    const invalidService = new ZatcaService(invalidPrisma as never, { log: jest.fn() } as never);
+
+    const invalidReadiness = await invalidService.getInvoiceZatcaReadiness("org-1", "invoice-1");
+
+    expect(invalidReadiness.sellerProfile.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "ZATCA_SELLER_IDENTIFICATION_SCHEME_INVALID",
+          severity: "WARNING",
+          sourceRule: "BR-KSA-08",
+        }),
+        expect.objectContaining({
+          code: "ZATCA_SELLER_IDENTIFICATION_NUMBER_INVALID",
+          severity: "WARNING",
+          sourceRule: "BR-KSA-08",
+        }),
+      ]),
+    );
   });
 
   it("settings readiness reports CSR and key-custody blockers without exposing private key content", async () => {

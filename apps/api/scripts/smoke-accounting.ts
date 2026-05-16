@@ -1174,6 +1174,32 @@ interface ZatcaInvoiceLocalSigningDryRunResponse {
   warnings: string[];
 }
 
+interface ZatcaInvoiceLocalSignedXmlValidationDryRunResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  noProductionCredentials: true;
+  noPersistence: true;
+  productionCompliance: false;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  signingExecutionStatus: "SKIPPED" | "FAILED" | "SUCCEEDED_LOCALLY";
+  validationAttempted: boolean;
+  validationGlobalResult: "NOT_RUN" | "PASSED" | "FAILED" | "UNKNOWN";
+  validationResults: Record<string, string>;
+  validationMessages: Array<{ code: string; message: string; severity: string }>;
+  signedXmlDetected: boolean;
+  qrDetected: boolean;
+  tempFilesWritten: { unsignedXml: boolean; sdkConfig: boolean; sdkRuntime: boolean; signedXml: boolean; validationConfig: boolean; validationPih: boolean; tempDirectory: string | null; filesRetained: boolean };
+  cleanup: { performed: boolean; success: boolean; filesRetained: boolean; tempDirectory: string | null };
+  blockers: string[];
+  warnings: string[];
+}
+
 interface ZatcaEgsCsrPlanResponse {
   localOnly: true;
   dryRun: true;
@@ -3090,6 +3116,8 @@ async function main(): Promise<void> {
   const patchedZatcaProfile = await patch<ZatcaOrganizationProfile>("/zatca/profile", headers, {
     sellerName: "LedgerByte Smoke Seller",
     vatNumber: "300000000000003",
+    companyIdType: "CRN",
+    companyIdNumber: "1010010000",
     countryCode: "SA",
     city: "Riyadh",
     streetName: "King Fahd Road",
@@ -3387,6 +3415,29 @@ async function main(): Promise<void> {
   assertEqual(metadataAfterLocalSigningDryRun.icv, metadataBeforeLocalSigningDryRun.icv, "ZATCA local signing dry-run does not mutate ICV");
   assertEqual(metadataAfterLocalSigningDryRun.invoiceHash, metadataBeforeLocalSigningDryRun.invoiceHash, "ZATCA local signing dry-run does not mutate invoice hash");
   assertEqual(metadataAfterLocalSigningDryRun.previousInvoiceHash, metadataBeforeLocalSigningDryRun.previousInvoiceHash, "ZATCA local signing dry-run does not mutate previous hash");
+  const metadataBeforeSignedXmlValidationDryRun = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  const zatcaSignedXmlValidationDryRun = await post<ZatcaInvoiceLocalSignedXmlValidationDryRunResponse>(`/sales-invoices/${draftInvoice.id}/zatca/local-signed-xml-validation-dry-run`, headers, {});
+  assertEqual(zatcaSignedXmlValidationDryRun.localOnly, true, "ZATCA signed XML validation dry-run localOnly");
+  assertEqual(zatcaSignedXmlValidationDryRun.dryRun, true, "ZATCA signed XML validation dry-run dryRun");
+  assertEqual(zatcaSignedXmlValidationDryRun.noMutation, true, "ZATCA signed XML validation dry-run noMutation");
+  assertEqual(zatcaSignedXmlValidationDryRun.noCsidRequest, true, "ZATCA signed XML validation dry-run no CSID request");
+  assertEqual(zatcaSignedXmlValidationDryRun.noNetwork, true, "ZATCA signed XML validation dry-run no network");
+  assertEqual(zatcaSignedXmlValidationDryRun.noClearanceReporting, true, "ZATCA signed XML validation dry-run no clearance/reporting");
+  assertEqual(zatcaSignedXmlValidationDryRun.noPdfA3, true, "ZATCA signed XML validation dry-run no PDF/A-3");
+  assertEqual(zatcaSignedXmlValidationDryRun.noProductionCredentials, true, "ZATCA signed XML validation dry-run no production credentials");
+  assertEqual(zatcaSignedXmlValidationDryRun.noPersistence, true, "ZATCA signed XML validation dry-run no persistence");
+  assertEqual(zatcaSignedXmlValidationDryRun.productionCompliance, false, "ZATCA signed XML validation dry-run productionCompliance");
+  assertEqual(zatcaSignedXmlValidationDryRun.executionEnabled, false, "ZATCA signed XML validation dry-run disabled by default");
+  assertEqual(zatcaSignedXmlValidationDryRun.executionAttempted, false, "ZATCA signed XML validation dry-run signing not attempted by default");
+  assertEqual(zatcaSignedXmlValidationDryRun.validationAttempted, false, "ZATCA signed XML validation dry-run validation not attempted by default");
+  assertEqual(zatcaSignedXmlValidationDryRun.validationGlobalResult, "NOT_RUN", "ZATCA signed XML validation dry-run global result not run by default");
+  assertEqual(zatcaSignedXmlValidationDryRun.signedXmlDetected, false, "ZATCA signed XML validation dry-run signed XML not detected by default");
+  assertEqual(zatcaSignedXmlValidationDryRun.qrDetected, false, "ZATCA signed XML validation dry-run QR not detected by default");
+  assertNoPrivateKey(zatcaSignedXmlValidationDryRun, "ZATCA signed XML validation dry-run response");
+  const metadataAfterSignedXmlValidationDryRun = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  assertEqual(metadataAfterSignedXmlValidationDryRun.icv, metadataBeforeSignedXmlValidationDryRun.icv, "ZATCA signed XML validation dry-run does not mutate ICV");
+  assertEqual(metadataAfterSignedXmlValidationDryRun.invoiceHash, metadataBeforeSignedXmlValidationDryRun.invoiceHash, "ZATCA signed XML validation dry-run does not mutate invoice hash");
+  assertEqual(metadataAfterSignedXmlValidationDryRun.previousInvoiceHash, metadataBeforeSignedXmlValidationDryRun.previousInvoiceHash, "ZATCA signed XML validation dry-run does not mutate previous hash");
   const zatcaSdkReadiness = await get<ZatcaSdkReadinessResponse>("/zatca-sdk/readiness", headers);
   assertEqual(zatcaSdkReadiness.enabled, false, "ZATCA SDK execution disabled by default");
   assert(typeof zatcaSdkReadiness.referenceFolderFound === "boolean", "ZATCA SDK readiness returns reference folder flag");
@@ -5047,6 +5098,9 @@ async function main(): Promise<void> {
         zatcaLocalSigningDryRunExecutionStatus: zatcaLocalSigningDryRun.executionStatus,
         zatcaLocalSigningDryRunSignedXmlDetected: zatcaLocalSigningDryRun.signedXmlDetected,
         zatcaLocalSigningDryRunQrDetected: zatcaLocalSigningDryRun.qrDetected,
+        zatcaSignedXmlValidationDryRunExecutionEnabled: zatcaSignedXmlValidationDryRun.executionEnabled,
+        zatcaSignedXmlValidationDryRunValidationAttempted: zatcaSignedXmlValidationDryRun.validationAttempted,
+        zatcaSignedXmlValidationDryRunGlobalResult: zatcaSignedXmlValidationDryRun.validationGlobalResult,
         zatcaCsrPlanDryRun: zatcaCsrPlan.dryRun,
         zatcaCsrPlanNoMutation: zatcaCsrPlan.noMutation,
         zatcaCsrConfigReviewStatus: approvedZatcaCsrConfigReview.status,

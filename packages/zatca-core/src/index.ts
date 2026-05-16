@@ -68,6 +68,8 @@ export interface ZatcaBuildResult {
   qrCodeBase64: string;
 }
 
+const officialSellerIdentificationSchemeIds = new Set(["CRN", "MOM", "MLS", "SAG", "OTH", "700"]);
+
 export interface ZatcaCanonicalHashInputResult {
   xmlForHash: string;
   transformsApplied: string[];
@@ -460,13 +462,14 @@ function buildPartyIdentificationXml(party: ZatcaSellerInput | ZatcaBuyerInput):
   }
 
   const companyIdNumber = party.companyIdNumber?.trim();
-  if (!companyIdNumber) {
+  const companyIdType = party.companyIdType?.trim().toUpperCase() ?? "";
+  if (!companyIdNumber || !companyIdType || !officialSellerIdentificationSchemeIds.has(companyIdType) || !/^[a-zA-Z0-9]+$/.test(companyIdNumber)) {
     return "";
   }
 
   return [
     "      <cac:PartyIdentification>",
-    `        <cbc:ID schemeID="${escapeXml(party.companyIdType ?? "CRN")}">${escapeXml(companyIdNumber)}</cbc:ID>`,
+    `        <cbc:ID schemeID="${escapeXml(companyIdType)}">${escapeXml(companyIdNumber)}</cbc:ID>`,
     "      </cac:PartyIdentification>",
   ].join("\n");
 }

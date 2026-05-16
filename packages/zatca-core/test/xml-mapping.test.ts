@@ -140,6 +140,21 @@ describe("ZATCA XML mapping scaffold", () => {
     assert.match(simplifiedXml, /<cbc:InvoiceTypeCode name="0200000">388<\/cbc:InvoiceTypeCode>/);
   });
 
+  it("emits seller PartyIdentification only for official BR-KSA-08 scheme and alphanumeric value", () => {
+    const input = readFixtureInput("local-standard-tax-invoice");
+    const validXml = buildZatcaInvoiceXml({
+      ...input,
+      seller: { ...input.seller, companyIdType: "crn", companyIdNumber: "1010010000" },
+    });
+    const invalidXml = buildZatcaInvoiceXml({
+      ...input,
+      seller: { ...input.seller, companyIdType: "BAD", companyIdNumber: "CRN-123" },
+    });
+
+    assert.match(validXml, /<cac:PartyIdentification>\n        <cbc:ID schemeID="CRN">1010010000<\/cbc:ID>\n      <\/cac:PartyIdentification>/);
+    assert.doesNotMatch(invalidXml, /<cac:PartyIdentification>/);
+  });
+
   it("prepares documented hash input transforms without pretending to run official C14N11", () => {
     const xml = [
       '<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2">',
