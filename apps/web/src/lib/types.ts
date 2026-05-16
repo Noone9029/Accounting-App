@@ -3281,6 +3281,87 @@ export interface ZatcaInvoiceSignedXmlPromotionPlanResponse {
   recommendedNextSteps: string[];
 }
 
+export type ZatcaSignedArtifactDraftStatus = "PLANNED" | "BLOCKED" | "SUPERSEDED";
+export type ZatcaSignedArtifactDraftSource = "LOCAL_DRY_RUN" | "FUTURE_PRODUCTION_SIGNING";
+export type ZatcaSignedArtifactStorageCapabilityStatus = "BLOCKED" | "WARNINGS" | "READY_FOR_METADATA_ONLY";
+
+export interface ZatcaSignedArtifactDraft {
+  id: string;
+  organizationId: string;
+  invoiceId: string;
+  metadataId: string;
+  status: ZatcaSignedArtifactDraftStatus;
+  source: ZatcaSignedArtifactDraftSource;
+  signedXmlStorageKey: string | null;
+  signedXmlSha256: string | null;
+  signedXmlSizeBytes: number | null;
+  qrPayloadStorageKey: string | null;
+  qrPayloadSha256: string | null;
+  validationGlobalResult: string | null;
+  validationResultsJson: unknown;
+  signedWithDummyMaterial: boolean;
+  productionCompliance: false;
+  promotionBlockedReason: string | null;
+  createdById: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: { id: string; name: string | null; email: string } | null;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+}
+
+export interface ZatcaSignedArtifactObjectStorageCapability {
+  providerConfigured: boolean;
+  objectStorageConfigured: boolean;
+  bucketConfigured: boolean;
+  configuredProviders: {
+    attachmentStorageProvider: string;
+    generatedDocumentStorageProvider: string;
+  };
+  requiredSettings: Record<string, boolean>;
+  missingSettings: string[];
+  writeCapability: "UNKNOWN_NOT_TESTED";
+  writeCapabilityTested: false;
+  retentionConfigured: false;
+  immutableRetentionConfigured: false;
+  objectVersioningConfigured: false;
+  tenantScopedKeyPrefixPlanned: true;
+  generatedDocumentStorageDistinct: true;
+  encryptionAtRestExpected: true;
+  signedArtifactBodyStorageAllowed: false;
+  bodyPersistenceBlocked: true;
+  storageCapabilityStatus: ZatcaSignedArtifactStorageCapabilityStatus;
+  warnings: string[];
+}
+
+export interface ZatcaSignedArtifactDraftListResponse {
+  localOnly: true;
+  metadataOnly: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  productionCompliance: false;
+  count: number;
+  drafts: ZatcaSignedArtifactDraft[];
+}
+
+export interface ZatcaSignedArtifactDraftCreateResponse {
+  localOnly: true;
+  metadataOnly: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  productionCompliance: false;
+  draft: ZatcaSignedArtifactDraft;
+  warnings: string[];
+}
+
 export interface ZatcaInvoiceSignedArtifactStoragePlanResponse {
   localOnly: true;
   dryRun: true;
@@ -3297,7 +3378,15 @@ export interface ZatcaInvoiceSignedArtifactStoragePlanResponse {
   metadataOnly: true;
   futureObjectStorageRequired: true;
   storageBlocked: true;
-  schemaDecision: { schemaAdded: false; reason: string };
+  metadataOnlyDraftAllowed: boolean;
+  bodyPersistenceAllowed: false;
+  signedXmlStorageKey: null;
+  qrPayloadStorageKey: null;
+  latestDraft: ZatcaSignedArtifactDraft | null;
+  draftCount: number;
+  objectStorageCapability: ZatcaSignedArtifactObjectStorageCapability;
+  storageCapabilityStatus: ZatcaSignedArtifactStorageCapabilityStatus;
+  schemaDecision: { schemaAdded: true; model: string; reason: string };
   proposedStorageKeys: {
     keyPrefix: string;
     signedXmlObjectKey: string;

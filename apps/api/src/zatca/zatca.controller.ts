@@ -255,6 +255,22 @@ export class ZatcaController {
     return this.zatcaService.getInvoiceZatcaSignedArtifactStoragePlan(organizationId, id);
   }
 
+  @Get("sales-invoices/:id/zatca/signed-artifact-drafts")
+  @RequirePermissions(PERMISSIONS.zatca.view)
+  listInvoiceZatcaSignedArtifactDrafts(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.zatcaService.listInvoiceZatcaSignedArtifactDrafts(organizationId, id);
+  }
+
+  @Post("sales-invoices/:id/zatca/signed-artifact-drafts")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  createInvoiceZatcaSignedArtifactDraft(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+  ) {
+    return this.zatcaService.createInvoiceZatcaSignedArtifactDraft(organizationId, user.id, id);
+  }
+
   @Post("sales-invoices/:id/zatca/local-signing-dry-run")
   @RequirePermissions(PERMISSIONS.zatca.manage)
   invoiceLocalSigningDryRun(

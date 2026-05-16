@@ -21,4 +21,9 @@ describe("ZATCA controller", () => {
   it("exposes the signed artifact storage plan handler", () => {
     expect(typeof ZatcaController.prototype.invoiceSignedArtifactStoragePlan).toBe("function");
   });
+
+  it("exposes signed artifact draft handlers", () => {
+    expect(typeof ZatcaController.prototype.createInvoiceZatcaSignedArtifactDraft).toBe("function");
+    expect(typeof ZatcaController.prototype.listInvoiceZatcaSignedArtifactDrafts).toBe("function");
+  });
 });

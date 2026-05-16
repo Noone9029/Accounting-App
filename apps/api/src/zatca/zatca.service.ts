@@ -33,6 +33,8 @@ import {
   ZatcaCsrConfigReviewStatus,
   ZatcaHashMode,
   ZatcaRegistrationStatus,
+  ZatcaSignedArtifactDraftSource,
+  ZatcaSignedArtifactDraftStatus,
   ZatcaSubmissionStatus,
   ZatcaSubmissionType,
 } from "@prisma/client";
@@ -128,9 +130,33 @@ const safeCsrConfigReviewSelect = {
   revokedBy: { select: { id: true, name: true, email: true } },
 } satisfies Prisma.ZatcaCsrConfigReviewSelect;
 
+const safeSignedArtifactDraftSelect = {
+  id: true,
+  organizationId: true,
+  invoiceId: true,
+  metadataId: true,
+  status: true,
+  source: true,
+  signedXmlStorageKey: true,
+  signedXmlSha256: true,
+  signedXmlSizeBytes: true,
+  qrPayloadStorageKey: true,
+  qrPayloadSha256: true,
+  validationGlobalResult: true,
+  validationResultsJson: true,
+  signedWithDummyMaterial: true,
+  productionCompliance: true,
+  promotionBlockedReason: true,
+  createdById: true,
+  createdAt: true,
+  updatedAt: true,
+  createdBy: { select: { id: true, name: true, email: true } },
+} satisfies Prisma.ZatcaSignedArtifactDraftSelect;
+
 type SafeEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof safeEgsUnitSelect }>;
 type InternalEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof internalEgsUnitSelect }>;
 type SafeCsrConfigReviewRecord = Prisma.ZatcaCsrConfigReviewGetPayload<{ select: typeof safeCsrConfigReviewSelect }>;
+type SafeSignedArtifactDraftRecord = Prisma.ZatcaSignedArtifactDraftGetPayload<{ select: typeof safeSignedArtifactDraftSelect }>;
 type ZatcaKeyCustodyMode = "MISSING" | "RAW_DATABASE_PEM";
 type ZatcaCsrPlanFieldStatus = "AVAILABLE" | "MISSING" | "NEEDS_REVIEW";
 const officialCsrConfigKeyOrder = [
@@ -1712,6 +1738,140 @@ export class ZatcaService {
     };
   }
 
+  async createInvoiceZatcaSignedArtifactDraft(organizationId: string, userId: string, invoiceId: string) {
+    const invoice = await this.prisma.salesInvoice.findFirst({
+      where: { id: invoiceId, organizationId },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        status: true,
+        zatcaMetadata: {
+          select: {
+            id: true,
+            xmlBase64: true,
+            invoiceHash: true,
+            xmlHash: true,
+            invoiceUuid: true,
+            icv: true,
+            previousInvoiceHash: true,
+            hashModeSnapshot: true,
+          },
+        },
+      },
+    });
+    if (!invoice) {
+      throw new NotFoundException("Sales invoice not found.");
+    }
+    if (!invoice.zatcaMetadata) {
+      throw new BadRequestException("ZATCA invoice metadata is missing; generate local XML before creating a signed artifact draft.");
+    }
+    if (!invoice.zatcaMetadata.xmlBase64) {
+      throw new BadRequestException("Generated unsigned XML is missing; signed artifact drafts cannot invent XML content.");
+    }
+    if (!invoice.zatcaMetadata.invoiceHash) {
+      throw new BadRequestException("Invoice hash metadata is missing; signed artifact drafts require existing XML hash metadata.");
+    }
+
+    await this.prisma.zatcaSignedArtifactDraft.updateMany({
+      where: {
+        organizationId,
+        invoiceId: invoice.id,
+        status: ZatcaSignedArtifactDraftStatus.PLANNED,
+      },
+      data: { status: ZatcaSignedArtifactDraftStatus.SUPERSEDED },
+    });
+
+    const promotionBlockedReason =
+      "Metadata-only draft. Signed XML and QR body persistence remain blocked until object-storage retention, immutable archive controls, real certificate/key custody, and promotion workflow are implemented.";
+    const draft = await this.prisma.zatcaSignedArtifactDraft.create({
+      data: {
+        organizationId,
+        invoiceId: invoice.id,
+        metadataId: invoice.zatcaMetadata.id,
+        status: ZatcaSignedArtifactDraftStatus.PLANNED,
+        source: ZatcaSignedArtifactDraftSource.LOCAL_DRY_RUN,
+        signedXmlStorageKey: null,
+        signedXmlSha256: null,
+        signedXmlSizeBytes: null,
+        qrPayloadStorageKey: null,
+        qrPayloadSha256: null,
+        validationGlobalResult: null,
+        signedWithDummyMaterial: true,
+        productionCompliance: false,
+        promotionBlockedReason,
+        createdById: userId,
+      },
+      select: safeSignedArtifactDraftSelect,
+    });
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId: userId,
+      action: "CREATE",
+      entityType: AUDIT_ENTITY_TYPES.ZATCA_SIGNED_ARTIFACT_DRAFT,
+      entityId: draft.id,
+      after: {
+        id: draft.id,
+        invoiceId: draft.invoiceId,
+        metadataId: draft.metadataId,
+        status: draft.status,
+        source: draft.source,
+        signedXmlStorageKey: null,
+        qrPayloadStorageKey: null,
+        signedWithDummyMaterial: draft.signedWithDummyMaterial,
+        productionCompliance: false,
+        noSignedXmlBody: true,
+        noQrPayloadBody: true,
+      },
+    });
+
+    return {
+      localOnly: true,
+      metadataOnly: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noCsidRequest: true,
+      noNetwork: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      productionCompliance: false,
+      draft: this.toSafeSignedArtifactDraft(draft),
+      warnings: [
+        "Metadata-only draft created. No signed XML body, QR payload body, object, SDK execution, CSID request, ZATCA network call, or submission log was created.",
+      ],
+    };
+  }
+
+  async listInvoiceZatcaSignedArtifactDrafts(organizationId: string, invoiceId: string) {
+    const invoice = await this.prisma.salesInvoice.findFirst({
+      where: { id: invoiceId, organizationId },
+      select: { id: true },
+    });
+    if (!invoice) {
+      throw new NotFoundException("Sales invoice not found.");
+    }
+
+    const drafts = await this.prisma.zatcaSignedArtifactDraft.findMany({
+      where: { organizationId, invoiceId },
+      orderBy: { createdAt: "desc" },
+      select: safeSignedArtifactDraftSelect,
+    });
+
+    return {
+      localOnly: true,
+      metadataOnly: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noCsidRequest: true,
+      noNetwork: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      productionCompliance: false,
+      count: drafts.length,
+      drafts: drafts.map((draft) => this.toSafeSignedArtifactDraft(draft)),
+    };
+  }
+
   async getInvoiceZatcaSignedArtifactStoragePlan(organizationId: string, invoiceId: string) {
     const invoice = await this.prisma.salesInvoice.findFirst({
       where: { id: invoiceId, organizationId },
@@ -1721,7 +1881,7 @@ export class ZatcaService {
       throw new NotFoundException("Sales invoice not found.");
     }
 
-    const [metadata, activeEgs] = await Promise.all([
+    const [metadata, activeEgs, latestDraft, draftCount] = await Promise.all([
       this.prisma.zatcaInvoiceMetadata.findFirst({
         where: { organizationId, invoiceId },
         select: {
@@ -1756,11 +1916,21 @@ export class ZatcaService {
           productionCsidPem: true,
         },
       }),
+      this.prisma.zatcaSignedArtifactDraft.findFirst({
+        where: { organizationId, invoiceId },
+        orderBy: { createdAt: "desc" },
+        select: safeSignedArtifactDraftSelect,
+      }),
+      this.prisma.zatcaSignedArtifactDraft.count({
+        where: { organizationId, invoiceId },
+      }),
     ]);
     const safeInvoiceNumber = safeZatcaTempName(invoice.invoiceNumber);
     const safeInvoiceId = safeZatcaTempName(invoice.id);
     const keyPrefix = `zatca/signed-artifacts/${organizationId}/${invoice.id}`;
     const storageReadiness = this.buildSignedArtifactStorageReadinessSection(metadata);
+    const objectStorageCapability = this.buildSignedArtifactObjectStorageCapability();
+    const metadataOnlyDraftAllowed = Boolean(metadata?.xmlBase64 && metadata.invoiceHash);
 
     return {
       localOnly: true,
@@ -1778,6 +1948,14 @@ export class ZatcaService {
       metadataOnly: true,
       futureObjectStorageRequired: true,
       storageBlocked: true,
+      metadataOnlyDraftAllowed,
+      bodyPersistenceAllowed: false,
+      signedXmlStorageKey: null,
+      qrPayloadStorageKey: null,
+      latestDraft: latestDraft ? this.toSafeSignedArtifactDraft(latestDraft) : null,
+      draftCount,
+      objectStorageCapability,
+      storageCapabilityStatus: objectStorageCapability.storageCapabilityStatus,
       invoice: {
         id: invoice.id,
         invoiceNumber: invoice.invoiceNumber,
@@ -1816,8 +1994,9 @@ export class ZatcaService {
           }
         : null,
       schemaDecision: {
-        schemaAdded: false,
-        reason: "No ZatcaSignedArtifactRecord table is added in this phase because signed artifact state is not safe to persist until object storage retention, immutability, and approval rules are implemented.",
+        schemaAdded: true,
+        model: "ZatcaSignedArtifactDraft",
+        reason: "A metadata-only draft table is added for planning/audit visibility; signed XML and QR payload bodies remain intentionally unstored.",
       },
       proposedStorageKeys: {
         keyPrefix,
@@ -1857,7 +2036,7 @@ export class ZatcaService {
       ],
       storageReadiness,
       blockers: [
-        "Signed artifact metadata model is not implemented; no database record is created by this endpoint.",
+        "Signed artifact body storage remains blocked even though metadata-only drafts can be created.",
         "Object-storage retention and tenant-scoped immutable archive rules are not implemented.",
         "Immutable archive and supersession workflow is not implemented.",
         "Signed XML body persistence is intentionally blocked in this task.",
@@ -4193,16 +4372,114 @@ export class ZatcaService {
     return createZatcaReadinessSection("SIGNED_ARTIFACT_PROMOTION", checks);
   }
 
+  private toSafeSignedArtifactDraft(draft: SafeSignedArtifactDraftRecord) {
+    return {
+      id: draft.id,
+      organizationId: draft.organizationId,
+      invoiceId: draft.invoiceId,
+      metadataId: draft.metadataId,
+      status: draft.status,
+      source: draft.source,
+      signedXmlStorageKey: draft.signedXmlStorageKey,
+      signedXmlSha256: draft.signedXmlSha256,
+      signedXmlSizeBytes: draft.signedXmlSizeBytes,
+      qrPayloadStorageKey: draft.qrPayloadStorageKey,
+      qrPayloadSha256: draft.qrPayloadSha256,
+      validationGlobalResult: draft.validationGlobalResult,
+      validationResultsJson: draft.validationResultsJson,
+      signedWithDummyMaterial: draft.signedWithDummyMaterial,
+      productionCompliance: draft.productionCompliance,
+      promotionBlockedReason: draft.promotionBlockedReason,
+      createdById: draft.createdById,
+      createdAt: draft.createdAt,
+      updatedAt: draft.updatedAt,
+      createdBy: draft.createdBy,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+    };
+  }
+
+  private buildSignedArtifactObjectStorageCapability() {
+    const attachmentProvider = (process.env.ATTACHMENT_STORAGE_PROVIDER ?? "database").toLowerCase();
+    const generatedDocumentProvider = (process.env.GENERATED_DOCUMENT_STORAGE_PROVIDER ?? "database").toLowerCase();
+    const requiredSettings = {
+      endpointConfigured: Boolean(process.env.S3_ENDPOINT),
+      regionConfigured: Boolean(process.env.S3_REGION),
+      bucketConfigured: Boolean(process.env.S3_BUCKET),
+      accessKeyConfigured: Boolean(process.env.S3_ACCESS_KEY_ID),
+      secretKeyConfigured: Boolean(process.env.S3_SECRET_ACCESS_KEY),
+    };
+    const missingSettings = Object.entries(requiredSettings)
+      .filter(([, configured]) => !configured)
+      .map(([key]) => key);
+    const objectStorageConfigured = missingSettings.length === 0;
+    const providerConfigured =
+      attachmentProvider === "s3" ||
+      generatedDocumentProvider === "s3" ||
+      Object.values(requiredSettings).some(Boolean);
+    const storageCapabilityStatus = objectStorageConfigured ? "WARNINGS" : "BLOCKED";
+
+    return {
+      providerConfigured,
+      objectStorageConfigured,
+      bucketConfigured: requiredSettings.bucketConfigured,
+      configuredProviders: {
+        attachmentStorageProvider: attachmentProvider,
+        generatedDocumentStorageProvider: generatedDocumentProvider,
+      },
+      requiredSettings,
+      missingSettings,
+      writeCapability: "UNKNOWN_NOT_TESTED",
+      writeCapabilityTested: false,
+      retentionConfigured: false,
+      immutableRetentionConfigured: false,
+      objectVersioningConfigured: false,
+      tenantScopedKeyPrefixPlanned: true,
+      generatedDocumentStorageDistinct: true,
+      encryptionAtRestExpected: true,
+      signedArtifactBodyStorageAllowed: false,
+      bodyPersistenceBlocked: true,
+      storageCapabilityStatus,
+      warnings: [
+        "No object upload is attempted by this capability check.",
+        "Write capability remains unknown until a future explicit storage probe is designed.",
+        "Signed artifact body persistence is blocked until retention, immutability, and access-control rules are implemented.",
+      ],
+    };
+  }
+
   private buildSignedArtifactStorageReadinessSection(metadata?: { xmlBase64?: string | null; invoiceHash?: string | null } | null): ZatcaReadinessSection {
+    const objectStorageCapability = this.buildSignedArtifactObjectStorageCapability();
     const checks: ZatcaReadinessCheck[] = [
       this.check(
-        "ZATCA_SIGNED_ARTIFACT_METADATA_MODEL_NOT_IMPLEMENTED",
-        "ERROR",
+        "ZATCA_SIGNED_ARTIFACT_METADATA_DRAFT_MODEL_READY",
+        "INFO",
         "signedArtifactStorage.metadataModel",
-        "Signed artifact metadata model is not implemented.",
+        "Metadata-only signed artifact draft records are available for planning/audit visibility.",
         "SIGNED_ARTIFACT_STORAGE_PLAN",
-        "Keep storage planning metadata-only until schema, retention, immutability, and audit rules are approved.",
+        "Keep draft records metadata-only; do not store signed XML or QR bodies in this phase.",
       ),
+      ...(objectStorageCapability.objectStorageConfigured
+        ? [
+            this.check(
+              "ZATCA_SIGNED_ARTIFACT_OBJECT_STORAGE_CONFIGURED_WITH_WARNINGS",
+              "WARNING" as ZatcaReadinessSeverity,
+              "signedArtifactStorage.objectStorage",
+              "S3-style object storage settings appear configured, but write capability, retention, and immutability are not verified.",
+              "SIGNED_ARTIFACT_STORAGE_PLAN",
+              "Do not enable signed artifact body persistence until object storage probes, immutable retention, and tenant access controls are implemented.",
+            ),
+          ]
+        : [
+            this.check(
+              "ZATCA_SIGNED_ARTIFACT_OBJECT_STORAGE_NOT_CONFIGURED",
+              "ERROR" as ZatcaReadinessSeverity,
+              "signedArtifactStorage.objectStorage",
+              "Object storage is not configured for future signed artifact bodies.",
+              "SIGNED_ARTIFACT_STORAGE_PLAN",
+              "Configure a tenant-scoped object storage provider with retention and immutable archive controls before storing signed XML bodies.",
+            ),
+          ]),
       this.check(
         "ZATCA_OBJECT_STORAGE_RETENTION_NOT_IMPLEMENTED",
         "ERROR",

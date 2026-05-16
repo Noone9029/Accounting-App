@@ -430,6 +430,17 @@ enum ZatcaCsrConfigReviewStatus {
   REVOKED
 }
 
+enum ZatcaSignedArtifactDraftStatus {
+  PLANNED
+  BLOCKED
+  SUPERSEDED
+}
+
+enum ZatcaSignedArtifactDraftSource {
+  LOCAL_DRY_RUN
+  FUTURE_PRODUCTION_SIGNING
+}
+
 enum FiscalPeriodStatus {
   OPEN
   CLOSED
@@ -519,6 +530,7 @@ model User {
   zatcaHashModeEnabledEgsUnits                ZatcaEgsUnit[]                       @relation("ZatcaHashModeEnabledBy")
   approvedZatcaCsrConfigReviews               ZatcaCsrConfigReview[]               @relation("ZatcaCsrConfigReviewApprovedBy")
   revokedZatcaCsrConfigReviews                ZatcaCsrConfigReview[]               @relation("ZatcaCsrConfigReviewRevokedBy")
+  createdZatcaSignedArtifactDrafts            ZatcaSignedArtifactDraft[]            @relation("ZatcaSignedArtifactDraftCreatedBy")
 }
 
 model Organization {
@@ -595,6 +607,7 @@ model Organization {
   zatcaInvoiceMetadata                ZatcaInvoiceMetadata[]
   zatcaSubmissionLogs                 ZatcaSubmissionLog[]
   zatcaCsrConfigReviews               ZatcaCsrConfigReview[]
+  zatcaSignedArtifactDrafts           ZatcaSignedArtifactDraft[]
 }
 
 model OrganizationDocumentSettings {
@@ -841,11 +854,45 @@ model ZatcaInvoiceMetadata {
   invoice             SalesInvoice         @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   egsUnit             ZatcaEgsUnit?        @relation(fields: [egsUnitId], references: [id], onDelete: SetNull)
   submissionLogs      ZatcaSubmissionLog[]
+  signedArtifactDrafts ZatcaSignedArtifactDraft[]
 
   @@index([organizationId])
   @@index([organizationId, zatcaStatus])
   @@index([egsUnitId])
   @@index([hashModeSnapshot])
+}
+
+model ZatcaSignedArtifactDraft {
+  id                      String                         @id @default(uuid()) @db.Uuid
+  organizationId          String                         @db.Uuid
+  invoiceId               String                         @db.Uuid
+  metadataId              String                         @db.Uuid
+  status                  ZatcaSignedArtifactDraftStatus @default(PLANNED)
+  source                  ZatcaSignedArtifactDraftSource @default(LOCAL_DRY_RUN)
+  signedXmlStorageKey     String?
+  signedXmlSha256         String?
+  signedXmlSizeBytes      Int?
+  qrPayloadStorageKey     String?
+  qrPayloadSha256         String?
+  validationGlobalResult  String?
+  validationResultsJson   Json?
+  signedWithDummyMaterial Boolean                        @default(false)
+  productionCompliance    Boolean                        @default(false)
+  promotionBlockedReason  String?
+  createdById             String?                        @db.Uuid
+  createdAt               DateTime                       @default(now())
+  updatedAt               DateTime                       @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      SalesInvoice         @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  metadata     ZatcaInvoiceMetadata @relation(fields: [metadataId], references: [id], onDelete: Cascade)
+  createdBy    User?                @relation("ZatcaSignedArtifactDraftCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([invoiceId])
+  @@index([metadataId])
+  @@index([status])
+  @@index([createdById])
 }
 
 model ZatcaSubmissionLog {
@@ -1550,6 +1597,7 @@ model SalesInvoice {
   creditNoteAllocations       CreditNoteAllocation[]
   creditNotes                 CreditNote[]
   zatcaMetadata               ZatcaInvoiceMetadata?
+  zatcaSignedArtifactDrafts   ZatcaSignedArtifactDraft[]
 
   @@unique([organizationId, invoiceNumber])
   @@index([organizationId])

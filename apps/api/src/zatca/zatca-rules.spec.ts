@@ -927,7 +927,7 @@ describe("ZATCA service rules", () => {
         expect.objectContaining({ code: "ZATCA_PHASE_2_QR_NOT_IMPLEMENTED", severity: "ERROR" }),
         expect.objectContaining({ code: "ZATCA_SIGNED_XML_PROMOTION_NOT_IMPLEMENTED", severity: "ERROR" }),
         expect.objectContaining({ code: "ZATCA_DUMMY_SIGNED_XML_CANNOT_BE_PROMOTED", severity: "ERROR" }),
-        expect.objectContaining({ code: "ZATCA_SIGNED_ARTIFACT_METADATA_MODEL_NOT_IMPLEMENTED", severity: "ERROR" }),
+        expect.objectContaining({ code: "ZATCA_SIGNED_ARTIFACT_METADATA_DRAFT_MODEL_READY", severity: "INFO" }),
         expect.objectContaining({ code: "ZATCA_SIGNED_XML_BODY_PERSISTENCE_BLOCKED", severity: "ERROR" }),
       ]),
     );
@@ -1047,7 +1047,7 @@ describe("ZATCA service rules", () => {
       futureObjectStorageRequired: true,
       storageBlocked: true,
       schemaDecision: {
-        schemaAdded: false,
+        schemaAdded: true,
       },
       metadataSource: {
         metadataId: "metadata-1",
@@ -1073,7 +1073,7 @@ describe("ZATCA service rules", () => {
     );
     expect(plan.blockers).toEqual(
       expect.arrayContaining([
-        expect.stringContaining("metadata model is not implemented"),
+        expect.stringContaining("metadata-only drafts can be created"),
         expect.stringContaining("Object-storage retention"),
         expect.stringContaining("Signed XML body persistence is intentionally blocked"),
         expect.stringContaining("QR payload persistence is intentionally blocked"),
@@ -1092,6 +1092,205 @@ describe("ZATCA service rules", () => {
     expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
     expect(onboardingAdapter.requestComplianceCsid).not.toHaveBeenCalled();
     expect(onboardingAdapter.requestProductionCsid).not.toHaveBeenCalled();
+  });
+
+  it("creates signed artifact draft records as metadata-only local planning records", async () => {
+    const metadata = makeGeneratedMetadata();
+    const draft = makeSignedArtifactDraft();
+    const prisma = {
+      salesInvoice: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "invoice-1",
+          organizationId: "org-1",
+          invoiceNumber: "INV-000001",
+          zatcaMetadata: metadata,
+        }),
+      },
+      zatcaSignedArtifactDraft: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        create: jest.fn().mockResolvedValue(draft),
+      },
+      zatcaInvoiceMetadata: { update: jest.fn() },
+      zatcaEgsUnit: { update: jest.fn() },
+      zatcaSubmissionLog: { create: jest.fn() },
+    };
+    const auditLogService = { log: jest.fn() };
+    const service = new ZatcaService(prisma as never, auditLogService as never);
+
+    const result = await service.createInvoiceZatcaSignedArtifactDraft("org-1", "user-1", "invoice-1");
+
+    expect(result).toMatchObject({
+      localOnly: true,
+      metadataOnly: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noCsidRequest: true,
+      noNetwork: true,
+      productionCompliance: false,
+      draft: {
+        id: "draft-1",
+        status: "PLANNED",
+        source: "LOCAL_DRY_RUN",
+        signedXmlStorageKey: null,
+        qrPayloadStorageKey: null,
+        signedWithDummyMaterial: true,
+        productionCompliance: false,
+      },
+    });
+    expect(prisma.zatcaSignedArtifactDraft.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          organizationId: "org-1",
+          invoiceId: "invoice-1",
+          metadataId: "metadata-1",
+          status: "PLANNED",
+          source: "LOCAL_DRY_RUN",
+          signedXmlStorageKey: null,
+          qrPayloadStorageKey: null,
+          signedWithDummyMaterial: true,
+          productionCompliance: false,
+          createdById: "user-1",
+        }),
+      }),
+    );
+    expect(JSON.stringify(result)).not.toContain("<Invoice");
+    expect(JSON.stringify(result)).not.toContain("QR PAYLOAD");
+    expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    expect(auditLogService.log).toHaveBeenCalled();
+  });
+
+  it("blocks metadata-only signed artifact draft creation when invoice XML metadata is missing", async () => {
+    const prisma = {
+      salesInvoice: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "invoice-1",
+          organizationId: "org-1",
+          invoiceNumber: "INV-000001",
+          zatcaMetadata: null,
+        }),
+      },
+      zatcaSignedArtifactDraft: {
+        updateMany: jest.fn(),
+        create: jest.fn(),
+      },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    await expect(service.createInvoiceZatcaSignedArtifactDraft("org-1", "user-1", "invoice-1")).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(prisma.zatcaSignedArtifactDraft.create).not.toHaveBeenCalled();
+  });
+
+  it("lists signed artifact draft records without returning XML or QR bodies", async () => {
+    const draft = makeSignedArtifactDraft({ validationGlobalResult: "PASSED" });
+    const prisma = {
+      salesInvoice: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "invoice-1",
+          organizationId: "org-1",
+          invoiceNumber: "INV-000001",
+        }),
+      },
+      zatcaSignedArtifactDraft: {
+        findMany: jest.fn().mockResolvedValue([draft]),
+      },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const result = await service.listInvoiceZatcaSignedArtifactDrafts("org-1", "invoice-1");
+
+    expect(result).toMatchObject({
+      localOnly: true,
+      metadataOnly: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      productionCompliance: false,
+      count: 1,
+      drafts: [
+        {
+          id: "draft-1",
+          signedXmlStorageKey: null,
+          qrPayloadStorageKey: null,
+          productionCompliance: false,
+        },
+      ],
+    });
+    expect(JSON.stringify(result)).not.toContain("<Invoice");
+    expect(JSON.stringify(result)).not.toContain("QR PAYLOAD");
+  });
+
+  it("includes metadata-only draft and object-storage capability status in the storage plan", async () => {
+    const metadata = makeGeneratedMetadata();
+    const draft = makeSignedArtifactDraft({ id: "draft-latest" });
+    const prisma = {
+      salesInvoice: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "invoice-1",
+          organizationId: "org-1",
+          invoiceNumber: "INV-000001",
+        }),
+      },
+      zatcaInvoiceMetadata: {
+        findFirst: jest.fn().mockResolvedValue(metadata),
+        update: jest.fn(),
+      },
+      zatcaEgsUnit: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "egs-1",
+          name: "Dev EGS",
+          environment: "SANDBOX",
+          status: ZatcaRegistrationStatus.ACTIVE,
+          isActive: true,
+          hashMode: "SDK_GENERATED",
+          lastIcv: 37,
+          lastInvoiceHash: "last-hash",
+          csrPem: null,
+          complianceCsidPem: null,
+          productionCsidPem: null,
+        }),
+        update: jest.fn(),
+      },
+      zatcaSignedArtifactDraft: {
+        findFirst: jest.fn().mockResolvedValue(draft),
+        count: jest.fn().mockResolvedValue(1),
+      },
+      zatcaSubmissionLog: { create: jest.fn() },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const plan = await service.getInvoiceZatcaSignedArtifactStoragePlan("org-1", "invoice-1");
+
+    expect(plan).toMatchObject({
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      metadataOnly: true,
+      metadataOnlyDraftAllowed: true,
+      bodyPersistenceAllowed: false,
+      signedXmlStorageKey: null,
+      qrPayloadStorageKey: null,
+      latestDraft: {
+        id: "draft-latest",
+        signedXmlStorageKey: null,
+        qrPayloadStorageKey: null,
+      },
+      draftCount: 1,
+      objectStorageCapability: {
+        signedArtifactBodyStorageAllowed: false,
+        immutableRetentionConfigured: false,
+        generatedDocumentStorageDistinct: true,
+      },
+    });
+    expect(["BLOCKED", "WARNINGS", "READY_FOR_METADATA_ONLY"]).toContain(
+      plan.objectStorageCapability.storageCapabilityStatus,
+    );
+    expect(JSON.stringify(plan)).not.toContain("<Invoice");
+    expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
   });
 
   it("invoice readiness blocks Saudi standard buyer missing building number", async () => {
@@ -2219,6 +2418,7 @@ function makeGenerationTransactionMock(options: {
         },
       ),
       findUniqueOrThrow: jest.fn().mockResolvedValue(options.existingMetadata ?? makeGeneratedMetadata()),
+      findFirst: jest.fn().mockResolvedValue(options.existingMetadata ?? makeGeneratedMetadata()),
       update: jest.fn(({ data }) =>
         Promise.resolve({
           id: "metadata-1",
@@ -2233,6 +2433,13 @@ function makeGenerationTransactionMock(options: {
     },
     zatcaSubmissionLog: {
       create: jest.fn().mockResolvedValue({ id: "log-1" }),
+    },
+    zatcaSignedArtifactDraft: {
+      findFirst: jest.fn().mockResolvedValue(null),
+      count: jest.fn().mockResolvedValue(0),
+      findMany: jest.fn().mockResolvedValue([]),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      create: jest.fn().mockResolvedValue(makeSignedArtifactDraft()),
     },
   };
 }
@@ -2441,6 +2648,13 @@ function makeInvoiceReadinessPrisma(options: {
     zatcaSubmissionLog: {
       create: jest.fn(),
     },
+    zatcaSignedArtifactDraft: {
+      findFirst: jest.fn().mockResolvedValue(null),
+      count: jest.fn().mockResolvedValue(0),
+      findMany: jest.fn().mockResolvedValue([]),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      create: jest.fn().mockResolvedValue(makeSignedArtifactDraft()),
+    },
   };
 }
 
@@ -2555,6 +2769,37 @@ function makeGeneratedMetadata(overrides: Record<string, unknown> = {}) {
     lastErrorMessage: null,
     createdAt: new Date("2026-05-07T00:00:00.000Z"),
     updatedAt: new Date("2026-05-07T00:00:00.000Z"),
+    ...overrides,
+  };
+}
+
+function makeSignedArtifactDraft(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "draft-1",
+    organizationId: "org-1",
+    invoiceId: "invoice-1",
+    metadataId: "metadata-1",
+    status: "PLANNED",
+    source: "LOCAL_DRY_RUN",
+    signedXmlStorageKey: null,
+    signedXmlSha256: null,
+    signedXmlSizeBytes: null,
+    qrPayloadStorageKey: null,
+    qrPayloadSha256: null,
+    validationGlobalResult: null,
+    validationResultsJson: null,
+    signedWithDummyMaterial: true,
+    productionCompliance: false,
+    promotionBlockedReason:
+      "Metadata-only draft. Signed XML and QR body persistence remain blocked until production storage and promotion are implemented.",
+    createdById: "user-1",
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+    createdBy: {
+      id: "user-1",
+      name: "Demo User",
+      email: "demo@example.com",
+    },
     ...overrides,
   };
 }

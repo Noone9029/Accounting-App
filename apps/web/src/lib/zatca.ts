@@ -35,6 +35,10 @@ export function zatcaInvoiceSignedArtifactStoragePlanPath(invoiceId: string): st
   return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/signed-artifact-storage-plan`;
 }
 
+export function zatcaInvoiceSignedArtifactDraftsPath(invoiceId: string): string {
+  return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/signed-artifact-drafts`;
+}
+
 export function zatcaInvoiceLocalSigningDryRunPath(invoiceId: string): string {
   return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/local-signing-dry-run`;
 }

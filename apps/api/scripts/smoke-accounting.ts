@@ -1241,12 +1241,67 @@ interface ZatcaInvoiceSignedArtifactStoragePlanResponse {
   metadataOnly: true;
   futureObjectStorageRequired: true;
   storageBlocked: true;
-  schemaDecision: { schemaAdded: false };
+  metadataOnlyDraftAllowed: boolean;
+  bodyPersistenceAllowed: false;
+  signedXmlStorageKey: null;
+  qrPayloadStorageKey: null;
+  latestDraft: ZatcaSignedArtifactDraft | null;
+  draftCount: number;
+  objectStorageCapability: {
+    objectStorageConfigured: boolean;
+    bucketConfigured: boolean;
+    signedArtifactBodyStorageAllowed: false;
+    immutableRetentionConfigured: false;
+    generatedDocumentStorageDistinct: true;
+    storageCapabilityStatus: "BLOCKED" | "WARNINGS" | "READY_FOR_METADATA_ONLY";
+  };
+  schemaDecision: { schemaAdded: true };
   proposedStorageKeys: { signedXmlObjectKey: string; qrPayloadObjectKey: string; validationSummaryObjectKey: string };
   proposedMetadataFields: Array<{ name: string; safeNow: boolean; value: string | boolean | null }>;
   storageReadiness: ZatcaReadinessSection;
   blockers: string[];
   warnings: string[];
+}
+
+interface ZatcaSignedArtifactDraft {
+  id: string;
+  invoiceId: string;
+  metadataId: string;
+  status: "PLANNED" | "BLOCKED" | "SUPERSEDED";
+  source: "LOCAL_DRY_RUN" | "FUTURE_PRODUCTION_SIGNING";
+  signedXmlStorageKey: string | null;
+  qrPayloadStorageKey: string | null;
+  signedWithDummyMaterial: boolean;
+  productionCompliance: false;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+}
+
+interface ZatcaSignedArtifactDraftCreateResponse {
+  localOnly: true;
+  metadataOnly: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  productionCompliance: false;
+  draft: ZatcaSignedArtifactDraft;
+}
+
+interface ZatcaSignedArtifactDraftListResponse {
+  localOnly: true;
+  metadataOnly: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  productionCompliance: false;
+  count: number;
+  drafts: ZatcaSignedArtifactDraft[];
 }
 
 interface ZatcaEgsCsrPlanResponse {
@@ -3529,7 +3584,12 @@ async function main(): Promise<void> {
   assertEqual(zatcaSignedArtifactStoragePlan.metadataOnly, true, "ZATCA signed artifact storage plan metadataOnly");
   assertEqual(zatcaSignedArtifactStoragePlan.futureObjectStorageRequired, true, "ZATCA signed artifact storage plan needs future object storage");
   assertEqual(zatcaSignedArtifactStoragePlan.storageBlocked, true, "ZATCA signed artifact storage plan blocked");
-  assertEqual(zatcaSignedArtifactStoragePlan.schemaDecision.schemaAdded, false, "ZATCA signed artifact storage plan adds no schema in smoke");
+  assertEqual(zatcaSignedArtifactStoragePlan.schemaDecision.schemaAdded, true, "ZATCA signed artifact storage plan has metadata-only draft schema");
+  assertEqual(zatcaSignedArtifactStoragePlan.bodyPersistenceAllowed, false, "ZATCA signed artifact storage plan body persistence blocked");
+  assertEqual(zatcaSignedArtifactStoragePlan.signedXmlStorageKey, null, "ZATCA signed artifact storage plan signed XML key null");
+  assertEqual(zatcaSignedArtifactStoragePlan.qrPayloadStorageKey, null, "ZATCA signed artifact storage plan QR payload key null");
+  assertEqual(zatcaSignedArtifactStoragePlan.objectStorageCapability.signedArtifactBodyStorageAllowed, false, "ZATCA signed artifact body storage disabled");
+  assertEqual(zatcaSignedArtifactStoragePlan.objectStorageCapability.immutableRetentionConfigured, false, "ZATCA signed artifact immutable retention not configured");
   assert(zatcaSignedArtifactStoragePlan.proposedStorageKeys.signedXmlObjectKey.includes("future-only"), "ZATCA signed artifact storage plan proposed signed XML key is future-only");
   assert(zatcaSignedArtifactStoragePlan.proposedMetadataFields.some((field) => field.name === "signedXmlStorageKey" && !field.safeNow), "ZATCA signed artifact storage plan blocks signed XML storage key");
   assertNoPrivateKey(zatcaSignedArtifactStoragePlan, "ZATCA signed artifact storage plan response");
@@ -3538,6 +3598,35 @@ async function main(): Promise<void> {
   assertEqual(metadataAfterSignedArtifactStoragePlan.icv, metadataBeforeSignedArtifactStoragePlan.icv, "ZATCA signed artifact storage plan does not mutate ICV");
   assertEqual(metadataAfterSignedArtifactStoragePlan.invoiceHash, metadataBeforeSignedArtifactStoragePlan.invoiceHash, "ZATCA signed artifact storage plan does not mutate invoice hash");
   assertEqual(metadataAfterSignedArtifactStoragePlan.previousInvoiceHash, metadataBeforeSignedArtifactStoragePlan.previousInvoiceHash, "ZATCA signed artifact storage plan does not mutate previous hash");
+  const submissionsBeforeSignedArtifactDraft = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  const metadataBeforeSignedArtifactDraft = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  const zatcaSignedArtifactDraft = await post<ZatcaSignedArtifactDraftCreateResponse>(`/sales-invoices/${draftInvoice.id}/zatca/signed-artifact-drafts`, headers, {});
+  assertEqual(zatcaSignedArtifactDraft.localOnly, true, "ZATCA signed artifact draft localOnly");
+  assertEqual(zatcaSignedArtifactDraft.metadataOnly, true, "ZATCA signed artifact draft metadataOnly");
+  assertEqual(zatcaSignedArtifactDraft.noSignedXmlBody, true, "ZATCA signed artifact draft no signed XML body");
+  assertEqual(zatcaSignedArtifactDraft.noQrPayloadBody, true, "ZATCA signed artifact draft no QR payload body");
+  assertEqual(zatcaSignedArtifactDraft.noCsidRequest, true, "ZATCA signed artifact draft no CSID request");
+  assertEqual(zatcaSignedArtifactDraft.noNetwork, true, "ZATCA signed artifact draft no network");
+  assertEqual(zatcaSignedArtifactDraft.productionCompliance, false, "ZATCA signed artifact draft productionCompliance false");
+  assertEqual(zatcaSignedArtifactDraft.draft.signedXmlStorageKey, null, "ZATCA signed artifact draft signed XML storage key null");
+  assertEqual(zatcaSignedArtifactDraft.draft.qrPayloadStorageKey, null, "ZATCA signed artifact draft QR payload storage key null");
+  assertEqual(zatcaSignedArtifactDraft.draft.signedWithDummyMaterial, true, "ZATCA signed artifact draft marks dummy local source");
+  assertNoPrivateKey(zatcaSignedArtifactDraft, "ZATCA signed artifact draft response");
+  const serializedSignedArtifactDraft = JSON.stringify(zatcaSignedArtifactDraft);
+  assert(!serializedSignedArtifactDraft.includes("<Invoice"), "ZATCA signed artifact draft does not expose XML body");
+  assert(!serializedSignedArtifactDraft.includes("QR PAYLOAD"), "ZATCA signed artifact draft does not expose QR payload body");
+  const metadataAfterSignedArtifactDraft = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  assertEqual(metadataAfterSignedArtifactDraft.icv, metadataBeforeSignedArtifactDraft.icv, "ZATCA signed artifact draft does not mutate ICV");
+  assertEqual(metadataAfterSignedArtifactDraft.invoiceHash, metadataBeforeSignedArtifactDraft.invoiceHash, "ZATCA signed artifact draft does not mutate invoice hash");
+  assertEqual(metadataAfterSignedArtifactDraft.previousInvoiceHash, metadataBeforeSignedArtifactDraft.previousInvoiceHash, "ZATCA signed artifact draft does not mutate previous hash");
+  const submissionsAfterSignedArtifactDraft = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterSignedArtifactDraft.length, submissionsBeforeSignedArtifactDraft.length, "ZATCA signed artifact draft does not create submission logs");
+  const zatcaSignedArtifactDrafts = await get<ZatcaSignedArtifactDraftListResponse>(`/sales-invoices/${draftInvoice.id}/zatca/signed-artifact-drafts`, headers);
+  assertEqual(zatcaSignedArtifactDrafts.localOnly, true, "ZATCA signed artifact draft list localOnly");
+  assert(zatcaSignedArtifactDrafts.drafts.some((draft) => draft.id === zatcaSignedArtifactDraft.draft.id), "ZATCA signed artifact draft list includes created draft");
+  const zatcaSignedArtifactStoragePlanAfterDraft = await get<ZatcaInvoiceSignedArtifactStoragePlanResponse>(`/sales-invoices/${draftInvoice.id}/zatca/signed-artifact-storage-plan`, headers);
+  assertEqual(zatcaSignedArtifactStoragePlanAfterDraft.latestDraft?.id ?? null, zatcaSignedArtifactDraft.draft.id, "ZATCA signed artifact storage plan returns latest draft");
+  assert(zatcaSignedArtifactStoragePlanAfterDraft.draftCount >= 1, "ZATCA signed artifact storage plan returns draft count");
   const zatcaSdkReadiness = await get<ZatcaSdkReadinessResponse>("/zatca-sdk/readiness", headers);
   assertEqual(zatcaSdkReadiness.enabled, false, "ZATCA SDK execution disabled by default");
   assert(typeof zatcaSdkReadiness.referenceFolderFound === "boolean", "ZATCA SDK readiness returns reference folder flag");

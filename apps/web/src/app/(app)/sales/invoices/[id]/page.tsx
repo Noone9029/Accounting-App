@@ -26,6 +26,8 @@ import {
   zatcaInvoiceLocalSigningDryRunPath,
   zatcaInvoiceReadinessPath,
   zatcaInvoiceSigningPlanPath,
+  zatcaInvoiceSignedArtifactDraftsPath,
+  zatcaInvoiceSignedArtifactStoragePlanPath,
   zatcaInvoiceSdkValidatePath,
   zatcaInvoiceClearancePath,
   zatcaInvoiceComplianceCheckPath,
@@ -46,11 +48,15 @@ import type {
   ZatcaInvoiceLocalSigningDryRunResponse,
   ZatcaInvoiceMetadata,
   ZatcaInvoiceReadinessResponse,
+  ZatcaInvoiceSignedArtifactStoragePlanResponse,
   ZatcaInvoiceSigningPlanResponse,
   ZatcaQrResponse,
   ZatcaReadinessSection,
   ZatcaSdkDryRunResponse,
   ZatcaSdkValidationResponse,
+  ZatcaSignedArtifactDraft,
+  ZatcaSignedArtifactDraftCreateResponse,
+  ZatcaSignedArtifactDraftListResponse,
   ZatcaXmlValidationResult,
 } from "@/lib/types";
 
@@ -65,6 +71,8 @@ export default function SalesInvoiceDetailPage() {
   const [zatcaReadiness, setZatcaReadiness] = useState<ZatcaInvoiceReadinessResponse | null>(null);
   const [signingPlan, setSigningPlan] = useState<ZatcaInvoiceSigningPlanResponse | null>(null);
   const [localSigningDryRun, setLocalSigningDryRun] = useState<ZatcaInvoiceLocalSigningDryRunResponse | null>(null);
+  const [signedArtifactDrafts, setSignedArtifactDrafts] = useState<ZatcaSignedArtifactDraft[]>([]);
+  const [signedArtifactStoragePlan, setSignedArtifactStoragePlan] = useState<ZatcaInvoiceSignedArtifactStoragePlanResponse | null>(null);
   const [xmlValidation, setXmlValidation] = useState<ZatcaXmlValidationResult | null>(null);
   const [sdkDryRun, setSdkDryRun] = useState<ZatcaSdkDryRunResponse | null>(null);
   const [sdkValidation, setSdkValidation] = useState<ZatcaSdkValidationResponse | null>(null);
@@ -90,15 +98,19 @@ export default function SalesInvoiceDetailPage() {
       apiRequest<ZatcaInvoiceMetadata>(`/sales-invoices/${params.id}/zatca`).catch(() => null),
       apiRequest<ZatcaInvoiceReadinessResponse>(zatcaInvoiceReadinessPath(params.id)).catch(() => null),
       apiRequest<ZatcaInvoiceSigningPlanResponse>(zatcaInvoiceSigningPlanPath(params.id)).catch(() => null),
+      apiRequest<ZatcaSignedArtifactDraftListResponse>(zatcaInvoiceSignedArtifactDraftsPath(params.id)).catch(() => null),
+      apiRequest<ZatcaInvoiceSignedArtifactStoragePlanResponse>(zatcaInvoiceSignedArtifactStoragePlanPath(params.id)).catch(() => null),
       apiRequest<ZatcaXmlValidationResult>(zatcaInvoiceXmlValidationPath(params.id)).catch(() => null),
     ])
-      .then(([result, stockStatusResult, zatcaResult, readinessResult, signingPlanResult, validationResult]) => {
+      .then(([result, stockStatusResult, zatcaResult, readinessResult, signingPlanResult, draftListResult, storagePlanResult, validationResult]) => {
         if (!cancelled) {
           setInvoice(result);
           setStockIssueStatus(stockStatusResult);
           setZatca(zatcaResult);
           setZatcaReadiness(readinessResult);
           setSigningPlan(signingPlanResult);
+          setSignedArtifactDrafts(draftListResult?.drafts ?? []);
+          setSignedArtifactStoragePlan(storagePlanResult);
           setXmlValidation(validationResult);
         }
       })
@@ -202,6 +214,38 @@ export default function SalesInvoiceDetailPage() {
     return result;
   }
 
+  async function fetchSignedArtifactDrafts(invoiceId: string) {
+    const result = await apiRequest<ZatcaSignedArtifactDraftListResponse>(zatcaInvoiceSignedArtifactDraftsPath(invoiceId));
+    setSignedArtifactDrafts(result.drafts);
+    return result;
+  }
+
+  async function fetchSignedArtifactStoragePlan(invoiceId: string) {
+    const result = await apiRequest<ZatcaInvoiceSignedArtifactStoragePlanResponse>(zatcaInvoiceSignedArtifactStoragePlanPath(invoiceId));
+    setSignedArtifactStoragePlan(result);
+    return result;
+  }
+
+  async function createSignedArtifactDraft() {
+    if (!invoice) {
+      return;
+    }
+    setActionLoading(true);
+    setError("");
+    setSuccess("");
+    try {
+      const result = await apiRequest<ZatcaSignedArtifactDraftCreateResponse>(zatcaInvoiceSignedArtifactDraftsPath(invoice.id), { method: "POST" });
+      setSignedArtifactDrafts((current) => [result.draft, ...current.filter((draft) => draft.id !== result.draft.id)]);
+      await fetchSignedArtifactDrafts(invoice.id).catch(() => undefined);
+      await fetchSignedArtifactStoragePlan(invoice.id).catch(() => undefined);
+      setSuccess("Metadata-only signed artifact draft created. No signed XML body, QR payload, CSID request, network call, or submission was performed.");
+    } catch (draftError: unknown) {
+      setError(draftError instanceof Error ? draftError.message : "Unable to create signed artifact draft.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   async function runLocalSigningDryRun() {
     if (!invoice) {
       return;
@@ -244,6 +288,7 @@ export default function SalesInvoiceDetailPage() {
       setZatca(result);
       await fetchZatcaReadiness(invoice.id);
       await fetchZatcaSigningPlan(invoice.id).catch(() => undefined);
+      await fetchSignedArtifactStoragePlan(invoice.id).catch(() => undefined);
       await fetchZatcaXmlValidation(invoice.id);
       setSuccess("Local ZATCA XML, QR payload, and hash metadata generated.");
     } catch (generateError) {
@@ -412,6 +457,7 @@ export default function SalesInvoiceDetailPage() {
   const canGenerateZatca = can(PERMISSIONS.zatca.generateXml);
   const canRunZatcaChecks = can(PERMISSIONS.zatca.runChecks);
   const canManageZatca = can(PERMISSIONS.zatca.manage);
+  const latestSignedArtifactDraft = signedArtifactDrafts[0] ?? signedArtifactStoragePlan?.latestDraft ?? null;
 
   return (
     <section>
@@ -817,6 +863,47 @@ export default function SalesInvoiceDetailPage() {
                 <p className="mt-3 text-xs text-amber-700">
                   Metadata-only storage planning is available through the API, but signed XML bodies and QR payloads are not persisted. Future object storage, retention, real CSID/certificate/key custody, and clearance/reporting remain blocked.
                 </p>
+              </div>
+            ) : null}
+
+            {signedArtifactStoragePlan ? (
+              <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-ink">Signed artifact metadata drafts</h3>
+                    <p className="mt-1 text-xs text-steel">Metadata-only planning records. Signed XML bodies and QR payload bodies are not stored.</p>
+                  </div>
+                  <span className="rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">
+                    {signedArtifactStoragePlan.storageCapabilityStatus}
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-1 gap-3 text-xs md:grid-cols-4">
+                  <Summary label="Draft count" value={String(signedArtifactStoragePlan.draftCount)} />
+                  <Summary label="Latest draft" value={latestSignedArtifactDraft?.status ?? "-"} />
+                  <Summary label="Object storage" value={signedArtifactStoragePlan.objectStorageCapability.objectStorageConfigured ? "Configured with warnings" : "Blocked"} />
+                  <Summary label="Body persistence" value={signedArtifactStoragePlan.bodyPersistenceAllowed ? "Allowed" : "Blocked"} />
+                </div>
+                <div className="mt-3 rounded-md bg-white p-3 text-xs text-steel">
+                  Storage keys remain null in this phase. Future body storage needs tenant-scoped object keys, retention, immutability, real CSID/certificate/key custody, and a separate promotion workflow.
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void createSignedArtifactDraft()}
+                    disabled={actionLoading || !canManageZatca || !signedArtifactStoragePlan.metadataOnlyDraftAllowed}
+                    className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Create metadata-only draft
+                  </button>
+                  <span className="text-xs text-amber-700">No signed XML body, QR payload body, CSID request, ZATCA network call, or submission.</span>
+                </div>
+                {latestSignedArtifactDraft ? (
+                  <div className="mt-3 grid grid-cols-1 gap-2 text-xs md:grid-cols-3">
+                    <Summary label="Source" value={latestSignedArtifactDraft.source} />
+                    <Summary label="Dummy material" value={latestSignedArtifactDraft.signedWithDummyMaterial ? "Yes" : "No"} />
+                    <Summary label="Production compliance" value={latestSignedArtifactDraft.productionCompliance ? "Yes" : "No"} />
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
