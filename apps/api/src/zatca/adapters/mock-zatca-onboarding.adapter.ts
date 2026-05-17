@@ -10,6 +10,7 @@ import {
   type ZatcaAdapterResult,
   type ZatcaOnboardingAdapter,
 } from "./zatca-onboarding.adapter";
+import { buildComplianceCsidHttpRequestPlan, mapComplianceCsidHttpResponse } from "./compliance-csid-http.mapper";
 import { createMockNotImplementedError } from "./zatca-adapter.error";
 import type { ProductionCsidResult, ZatcaClearanceResponse, ZatcaComplianceCheckResponse, ZatcaReportingResponse } from "./zatca-adapter.types";
 
@@ -47,6 +48,15 @@ export class MockZatcaOnboardingAdapter implements ZatcaOnboardingAdapter {
       throw new BadRequestException("Mock compliance CSID adapter simulated a malformed response.");
     }
 
+    buildComplianceCsidHttpRequestPlan({
+      environment: input.environment,
+      csrPem,
+      otp,
+      egsUnitId: input.egsUnitId,
+      organizationId: input.organizationId,
+      requestIdempotencyKey: input.request.requestIdempotencyKey,
+    });
+
     const suffix = createHash("sha256").update(`${input.organizationId}:${input.egsUnitId}:${csrPem}`).digest("hex").slice(0, 24);
     const requestId = `LOCAL-MOCK-REQUEST-${suffix}`;
     const certificateRequestId = `LOCAL-MOCK-${suffix}`;
@@ -57,6 +67,13 @@ export class MockZatcaOnboardingAdapter implements ZatcaOnboardingAdapter {
     ].join("\n");
     const binarySecurityToken = `LOCAL-MOCK-BINARY-SECURITY-TOKEN-${suffix}`;
     const secret = `LOCAL-MOCK-SECRET-${suffix}`;
+    const responseContract = mapComplianceCsidHttpResponse({
+      requestID: requestId,
+      certificateRequestId,
+      binarySecurityToken,
+      secret,
+      certificate: rawCertificatePem,
+    }).publicSummary;
     return {
       requestUrl: `mock://zatca/${input.environment.toLowerCase()}/compliance`,
       requestId,
@@ -71,14 +88,14 @@ export class MockZatcaOnboardingAdapter implements ZatcaOnboardingAdapter {
         message: "Local mock compliance CSID contract exercised. No ZATCA network call was made.",
         requestId,
         certificateRequestId,
-        hasBinarySecurityToken: true,
-        hasSecret: true,
-        hasCertificate: true,
-        tokenReturned: false,
-        secretReturned: false,
-        certificateBodyReturned: false,
-        otpReturned: false,
-        csrReturned: false,
+        hasBinarySecurityToken: responseContract.hasBinarySecurityToken,
+        hasSecret: responseContract.hasSecret,
+        hasCertificate: responseContract.hasCertificate,
+        tokenReturned: responseContract.tokenReturned,
+        secretReturned: responseContract.secretReturned,
+        certificateBodyReturned: responseContract.certificateBodyReturned,
+        otpReturned: responseContract.otpReturned,
+        csrReturned: responseContract.csrReturned,
         environment: input.environment,
         isSandboxMock: true,
       },

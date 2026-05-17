@@ -14,14 +14,14 @@ export type ComplianceCsidMockScenario = (typeof complianceCsidMockScenarios)[nu
 
 export class ComplianceCsidRequestDryRunDto {
   @IsOptional()
-  @IsIn(["plan", "mock"])
-  mode?: "plan" | "mock";
+  @IsIn(["plan", "mock", "real"])
+  mode?: "plan" | "mock" | "real";
 
-  @ValidateIf((dto: ComplianceCsidRequestDryRunDto) => dto.mode === "mock")
+  @ValidateIf((dto: ComplianceCsidRequestDryRunDto) => dto.mode === "mock" || dto.mode === "real")
   @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   @IsString()
   @Matches(/^[0-9]{6}$/, {
-    message: "OTP must be a 6-digit numeric value for mock sandbox dry-run.",
+    message: "OTP must be a 6-digit numeric value for sandbox compliance CSID dry-run.",
   })
   otp?: string;
 

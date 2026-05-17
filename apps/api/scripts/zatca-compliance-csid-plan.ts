@@ -4,7 +4,7 @@ import { ZatcaService } from "../src/zatca/zatca.service";
 interface CliOptions {
   help: boolean;
   egsId: string;
-  mode: "plan" | "mock";
+  mode: "plan" | "mock" | "real";
   otp: string;
   mockScenario: "success" | "invalid-otp" | "expired-otp" | "duplicate-request" | "adapter-disabled" | "malformed-response";
 }
@@ -20,7 +20,7 @@ function parseOptions(argv: string[]): CliOptions {
   return {
     help: argv.includes("--help") || argv.includes("-h"),
     egsId: optionValue(argv, "--egs-id") || process.env.ZATCA_COMPLIANCE_CSID_PLAN_EGS_ID?.trim() || "",
-    mode: requestedMode === "mock" ? "mock" : "plan",
+    mode: requestedMode === "mock" || requestedMode === "real" ? requestedMode : "plan",
     otp: optionValue(argv, "--otp") || process.env.ZATCA_COMPLIANCE_CSID_DRY_RUN_OTP?.trim() || "",
     mockScenario: ["success", "invalid-otp", "expired-otp", "duplicate-request", "adapter-disabled", "malformed-response"].includes(requestedScenario)
       ? (requestedScenario as CliOptions["mockScenario"])
@@ -44,8 +44,8 @@ function printHelp() {
       "",
       "Flags:",
       "  --egs-id <id>       EGS unit id. Defaults to the latest non-production EGS for the organization.",
-      "  --mode plan|mock    plan prints sanitized plan; mock exercises local mock adapter only when env gate is true.",
-      "  --otp <otp>         OTP for mock mode only. The value is never printed or stored.",
+      "  --mode plan|mock|real  plan prints sanitized plan; mock exercises local mock adapter only when env gate is true; real prints a blocker and performs no network.",
+      "  --otp <otp>            OTP for mock/real dry-run modes only. The value is never printed or stored.",
       "  --mock-scenario <scenario>  success, invalid-otp, expired-otp, duplicate-request, adapter-disabled, malformed-response.",
       "  --help              Print this help without touching the database.",
       "",
@@ -150,6 +150,8 @@ async function main() {
           executionEnabled: plan.executionEnabled,
           executionAttempted: plan.executionAttempted,
           executionStatus: "executionStatus" in plan ? plan.executionStatus : "PLAN_ONLY",
+          requestMapperReady: "requestMapperReady" in plan ? plan.requestMapperReady : true,
+          responseMapperReady: "responseMapperReady" in plan ? plan.responseMapperReady : true,
           mockAdapterContractAvailable: "mockAdapterContractAvailable" in plan ? plan.mockAdapterContractAvailable : true,
           realSandboxAdapterImplemented: "realSandboxAdapterImplemented" in plan ? plan.realSandboxAdapterImplemented : false,
           tokenReturned: "tokenReturned" in plan ? plan.tokenReturned : false,
@@ -162,6 +164,8 @@ async function main() {
           otpStatus: plan.otpStatus,
           plannedEndpointEnvironment: plan.plannedEndpointEnvironment,
           plannedEndpoint: plan.plannedEndpoint,
+          requestContract: "requestContract" in plan ? plan.requestContract : null,
+          responseContract: "responseContract" in plan ? plan.responseContract : null,
           plannedHeadersRedacted: plan.plannedHeadersRedacted,
           plannedBodyFieldsRedacted: plan.plannedBodyFieldsRedacted,
           sensitiveResponseFields: plan.sensitiveResponseFields,

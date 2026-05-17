@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { isZatcaRealNetworkAllowed, type ZatcaAdapterConfig, ZATCA_ADAPTER_CONFIG } from "../zatca.config";
+import { buildComplianceCsidHttpRequestPlan } from "./compliance-csid-http.mapper";
 import {
   type ClearanceInput,
   type ComplianceCheckInput,
@@ -25,30 +26,24 @@ export class HttpZatcaSandboxAdapter implements ZatcaOnboardingAdapter {
   constructor(@Inject(ZATCA_ADAPTER_CONFIG) private readonly config: ZatcaAdapterConfig) {}
 
   async requestComplianceCsid(input: RequestComplianceCsidInput): Promise<ComplianceCsidResult> {
-    const result = await this.safeZatcaRequest<ZatcaComplianceCsidResponse>("requestComplianceCsid", input.request.endpointPath, input.request);
-    const complianceCsidPem = typeof result.responsePayload.complianceCsidPem === "string" ? result.responsePayload.complianceCsidPem : "";
-    const certificateRequestId = typeof result.responsePayload.certificateRequestId === "string" ? result.responsePayload.certificateRequestId : "";
-    const requestId =
-      typeof result.responsePayload.requestId === "string"
-        ? result.responsePayload.requestId
-        : typeof result.responsePayload.requestID === "string"
-          ? result.responsePayload.requestID
-          : null;
-    const binarySecurityToken = typeof result.responsePayload.binarySecurityToken === "string" ? result.responsePayload.binarySecurityToken : "";
-    const secret = typeof result.responsePayload.secret === "string" ? result.responsePayload.secret : "";
-    const rawCertificatePem = typeof result.responsePayload.rawCertificatePem === "string" ? result.responsePayload.rawCertificatePem : complianceCsidPem;
+    const requestPlan = buildComplianceCsidHttpRequestPlan({
+      environment: input.environment,
+      csrPem: input.request.csrPem ?? "",
+      otp: input.request.otp ?? "",
+      egsUnitId: input.egsUnitId,
+      organizationId: input.organizationId,
+      requestIdempotencyKey: input.request.requestIdempotencyKey,
+    });
 
-    if (!complianceCsidPem || !certificateRequestId || !binarySecurityToken || !secret) {
-      throw new ZatcaAdapterError("Sandbox compliance CSID response mapping is incomplete. Verify official ZATCA response fields before enabling this flow.", {
-        responseCode: "OFFICIAL_RESPONSE_UNMAPPED",
-        errorCode: "OFFICIAL_RESPONSE_UNMAPPED",
-        responsePayload: result.responsePayload,
-        requestUrl: result.requestUrl,
-        httpStatus: 501,
-      });
-    }
-
-    return { ...result, requestId, complianceCsidPem, certificateRequestId, binarySecurityToken, secret, rawCertificatePem, warnings: [] };
+    throw new ZatcaAdapterError("Real sandbox compliance CSID HTTP adapter execution is not implemented in this phase. No ZATCA network call was made.", {
+      responseCode: "REAL_SANDBOX_CSID_HTTP_NOT_IMPLEMENTED",
+      errorCode: "REAL_SANDBOX_CSID_HTTP_NOT_IMPLEMENTED",
+      responsePayload: {
+        message: "Real sandbox compliance CSID HTTP adapter execution is not implemented in this phase. No ZATCA network call was made.",
+        requestContract: requestPlan.publicSummary,
+      },
+      httpStatus: 501,
+    });
   }
 
   async requestProductionCsid(_input: RequestProductionCsidInput): Promise<ProductionCsidResult> {

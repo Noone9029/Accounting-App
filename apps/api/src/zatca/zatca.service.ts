@@ -75,6 +75,11 @@ import {
 } from "../zatca-sdk/zatca-sdk-paths";
 import { isZatcaAdapterError, ZatcaAdapterError } from "./adapters/zatca-adapter.error";
 import { MockZatcaOnboardingAdapter } from "./adapters/mock-zatca-onboarding.adapter";
+import {
+  buildComplianceCsidHttpRequestContractSummary,
+  buildComplianceCsidHttpRequestPlan,
+  mapComplianceCsidHttpResponse,
+} from "./adapters/compliance-csid-http.mapper";
 import { ZATCA_ONBOARDING_ADAPTER, type ComplianceCsidResult, type ZatcaAdapterResult, type ZatcaOnboardingAdapter } from "./adapters/zatca-onboarding.adapter";
 import { readZatcaAdapterConfig, summarizeZatcaAdapterConfig, type ZatcaAdapterConfig, ZATCA_ADAPTER_CONFIG } from "./zatca.config";
 import { readZatcaHashModeConfig } from "./zatca-hash-mode";
@@ -932,6 +937,7 @@ export class ZatcaService {
     const approvedReviewHashMatches = Boolean(latestApprovedReview && latestApprovedReview.configHash === configHash);
     const isProductionEgs = egsUnit.environment === "PRODUCTION";
     const hasGeneratedCsrBody = hasText(egsUnit.csrPem);
+    const requestContract = buildComplianceCsidHttpRequestContractSummary(egsUnit.environment);
     const blockers: string[] = [];
     const warnings: string[] = [
       "Planning only. No compliance CSID request, production CSID request, clearance/reporting, signing, PDF/A-3, signed XML storage, QR payload storage, or production compliance claim is performed.",
@@ -984,6 +990,8 @@ export class ZatcaService {
       productionCompliance: false,
       executionEnabled,
       executionAttempted: false,
+      requestMapperReady: true,
+      responseMapperReady: true,
       mockAdapterContractAvailable: true,
       realSandboxAdapterImplemented: false,
       tokenReturned: false,
@@ -1029,15 +1037,14 @@ export class ZatcaService {
         urlConfigured: false,
         urlReturned: false,
         networkCallPlannedByDefault: false,
+        method: requestContract.method,
+        endpointPath: requestContract.endpointPath,
+        contentType: requestContract.contentType,
       },
-      plannedHeadersRedacted: [
-        { name: "OTP", required: true, value: "[REDACTED_OTP]", source: "compliance_csid.pdf" },
-        { name: "Accept-Version", required: true, value: "V2", source: "compliance_csid.pdf" },
-        { name: "Accept-Language", required: false, value: "en", source: "official API examples" },
-      ],
-      plannedBodyFieldsRedacted: [
-        { name: "csr", required: true, value: "[REDACTED_CSR_BODY]", source: "compliance_csid.pdf" },
-      ],
+      requestContract,
+      responseContract: null,
+      plannedHeadersRedacted: requestContract.redactedHeaders,
+      plannedBodyFieldsRedacted: requestContract.redactedBody,
       sensitiveResponseFields: ["binarySecurityToken", "secret", "requestID", "certificate", "errors"],
       blockers: [...new Set(blockers)],
       warnings: [...new Set(warnings)],
@@ -1068,6 +1075,8 @@ export class ZatcaService {
       productionCompliance: false,
       executionEnabled,
       mode,
+      requestMapperReady: true,
+      responseMapperReady: true,
       mockAdapterContractAvailable: true,
       realSandboxAdapterImplemented: false,
       realNetworkCalled: false,
@@ -1081,6 +1090,8 @@ export class ZatcaService {
       otpStatus: plan.otpStatus,
       plannedEndpointEnvironment: plan.plannedEndpointEnvironment,
       plannedEndpoint: plan.plannedEndpoint,
+      requestContract: plan.requestContract,
+      responseContract: null,
       plannedHeadersRedacted: plan.plannedHeadersRedacted,
       plannedBodyFieldsRedacted: plan.plannedBodyFieldsRedacted,
       sensitiveResponseFields: plan.sensitiveResponseFields,
@@ -1100,16 +1111,19 @@ export class ZatcaService {
       };
     }
 
-    if (mode !== "mock") {
-      const blockers = [...plan.blockers.filter((blocker) => !blocker.includes(ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED_ENV)), "Set mode=mock with a valid OTP to exercise the local mock adapter contract."];
+    if (mode === "plan") {
+      const blockers = [
+        ...plan.blockers.filter((blocker) => !blocker.includes(ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED_ENV)),
+        "Plan mode does not call the mock adapter or real sandbox HTTP adapter.",
+      ];
       return {
         ...baseResponse,
         executionAttempted: false,
         executionSkipped: true,
-        executionStatus: "BLOCKED_PLAN_MODE",
+        executionStatus: "PLAN_ONLY",
         mockAdapterCalled: false,
         blockers: [...new Set(blockers)],
-        warnings: [...plan.warnings, "The real sandbox HTTP adapter remains intentionally disabled; only the mock adapter contract can be exercised."],
+        warnings: [...plan.warnings, "The request mapper contract is returned as a redacted public summary only."],
       };
     }
 
@@ -1151,6 +1165,29 @@ export class ZatcaService {
     }
 
     const existing = await this.getEgsUnitInternal(organizationId, id);
+    const mappedRequest = buildComplianceCsidHttpRequestPlan({
+      organizationId,
+      egsUnitId: id,
+      environment: existing.environment,
+      csrPem: existing.csrPem ?? "",
+      otp,
+      requestIdempotencyKey: createHash("sha256").update(`${organizationId}:${id}:${plan.csrStatus.configHash}`).digest("hex"),
+    });
+
+    if (mode === "real") {
+      return {
+        ...baseResponse,
+        requestContract: mappedRequest.publicSummary,
+        executionAttempted: false,
+        executionSkipped: true,
+        executionStatus: "BLOCKED_REAL_HTTP_NOT_IMPLEMENTED",
+        mockAdapterCalled: false,
+        realNetworkCalled: false,
+        blockers: ["Real sandbox HTTP adapter execution is not implemented in this phase."],
+        warnings: [...plan.warnings, "The real request mapper contract was built and redacted; no HTTP request was sent."],
+      };
+    }
+
     const mockAdapter = new MockZatcaOnboardingAdapter();
     try {
       const adapterResult = await mockAdapter.requestComplianceCsid({
@@ -1163,12 +1200,21 @@ export class ZatcaService {
           requestedMode: mode,
           adapterMode: "mock",
           mockScenario: dto.mockScenario ?? "success",
-          requestIdempotencyKey: createHash("sha256").update(`${organizationId}:${id}:${plan.csrStatus.configHash}`).digest("hex"),
+          requestIdempotencyKey: mappedRequest.headers["X-Request-Idempotency-Key"] ?? createHash("sha256").update(`${organizationId}:${id}:${plan.csrStatus.configHash}`).digest("hex"),
         },
       });
+      const responseContract = mapComplianceCsidHttpResponse({
+        requestID: adapterResult.requestId,
+        certificateRequestId: adapterResult.certificateRequestId,
+        binarySecurityToken: adapterResult.binarySecurityToken,
+        secret: adapterResult.secret,
+        certificate: adapterResult.rawCertificatePem ?? adapterResult.complianceCsidPem,
+      }).publicSummary;
 
       return {
         ...baseResponse,
+        requestContract: mappedRequest.publicSummary,
+        responseContract,
         executionAttempted: true,
         executionSkipped: false,
         executionStatus: "MOCK_SUCCEEDED",
@@ -5510,6 +5556,22 @@ export class ZatcaService {
       checks.push(this.check("ZATCA_COMPLIANCE_CSID_CSR_REVIEW_NOT_APPROVED", "ERROR", "complianceCsid.csrReview", "No approved CSR config review is available for this EGS unit.", "CSR_CONFIG_TEMPLATE", "Approve the sanitized CSR config preview before any future sandbox CSID request."));
     }
     checks.push(
+      this.check(
+        "ZATCA_COMPLIANCE_CSID_REQUEST_MAPPER_READY",
+        "INFO",
+        "complianceCsid.requestMapper",
+        "The official sandbox compliance CSID request mapper is implemented for POST /compliance with redacted OTP and CSR fields.",
+        "COMPLIANCE_CSID_API",
+        "Use this mapper for recorded-contract tests only; it does not send HTTP.",
+      ),
+      this.check(
+        "ZATCA_COMPLIANCE_CSID_RESPONSE_MAPPER_READY",
+        "INFO",
+        "complianceCsid.responseMapper",
+        "The compliance CSID response mapper summarizes requestID, binarySecurityToken, secret, and certificate presence without returning sensitive bodies.",
+        "COMPLIANCE_CSID_API",
+        "Keep token, secret, and certificate body persistence blocked until a separate custody phase.",
+      ),
       this.check(
         "ZATCA_COMPLIANCE_CSID_OTP_DTO_VALIDATION_READY",
         "INFO",

@@ -1266,7 +1266,7 @@ function ComplianceCsidPlanPanel({ plan }: { plan: ZatcaComplianceCsidRequestPla
         <div>
           <div className="text-xs font-semibold text-ink">Sandbox compliance CSID request plan</div>
           <div className="mt-1 text-[11px] text-steel">
-            Sanitized planning only. The mock adapter contract is local-only and disabled by default. OTP is validated for mock mode but never stored or displayed, no real CSID request is made, and no ZATCA network call is performed.
+                Sanitized planning only. The official request/response mapper is local-only, the mock adapter contract is disabled by default, real sandbox HTTP remains blocked, no real CSID request is made, and no ZATCA network call is performed.
           </div>
         </div>
         <span className="rounded-md bg-white px-2 py-1 text-[11px] font-medium text-amber-700">
@@ -1279,10 +1279,13 @@ function ComplianceCsidPlanPanel({ plan }: { plan: ZatcaComplianceCsidRequestPla
         <div>Approved review: {plan.csrStatus.latestApprovedReviewStatus}</div>
         <div>CSR body available: {plan.csrStatus.generatedCsrAvailable ? "Yes, redacted" : "No"}</div>
         <div>OTP: {plan.otpStatus.required ? "Required, not stored" : "Not required"}</div>
-        <div>Production compliance: {plan.productionCompliance ? "true" : "false"}</div>
+          <div>Production compliance: {plan.productionCompliance ? "true" : "false"}</div>
+        <div>Request mapper: {plan.requestMapperReady === false ? "Not ready" : "Ready"}</div>
+        <div>Response mapper: {plan.responseMapperReady === false ? "Not ready" : "Ready"}</div>
         <div>Mock adapter contract: {plan.mockAdapterContractAvailable === false ? "Unavailable" : "Available locally"}</div>
         <div>Real sandbox HTTP: {plan.realSandboxAdapterImplemented ? "Implemented" : "Not implemented"}</div>
-      </div>
+        <div>Mapped method/path: {plan.requestContract?.method ?? plan.plannedEndpoint.method ?? "POST"} {plan.requestContract?.endpointPath ?? plan.plannedEndpoint.endpointPath ?? "/compliance"}</div>
+        </div>
       <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] text-steel md:grid-cols-2">
         <div>
           <div className="font-semibold text-ink">Planned headers</div>

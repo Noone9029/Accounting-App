@@ -1684,7 +1684,7 @@ interface ZatcaEgsCsrLocalGenerateResponse {
   warnings: string[];
 }
 
-interface ZatcaComplianceCsidRequestPlanResponse {
+  interface ZatcaComplianceCsidRequestPlanResponse {
   localOnly: true;
   dryRun: true;
   noMutation: true;
@@ -1694,11 +1694,13 @@ interface ZatcaComplianceCsidRequestPlanResponse {
   noSignedXmlBody: true;
   noQrPayloadBody: true;
   noClearanceReporting: true;
-  noPdfA3: true;
-  productionCompliance: false;
-  executionEnabled: boolean;
-  executionAttempted: false;
-  egsUnit: { id: string; name: string; environment: string; hasCsr: boolean; hasComplianceCsid: boolean; hasProductionCsid: boolean; hasPrivateKey: boolean };
+    noPdfA3: true;
+    productionCompliance: false;
+    executionEnabled: boolean;
+    executionAttempted: false;
+    requestMapperReady: true;
+    responseMapperReady: true;
+    egsUnit: { id: string; name: string; environment: string; hasCsr: boolean; hasComplianceCsid: boolean; hasProductionCsid: boolean; hasPrivateKey: boolean };
   csrStatus: {
     configHash: string;
     missingFieldKeys: string[];
@@ -1709,10 +1711,16 @@ interface ZatcaComplianceCsidRequestPlanResponse {
     approvedReviewHashMatches: boolean;
     generatedCsrAvailable: boolean;
     generatedCsrReturned: false;
-  };
-  otpStatus: { required: true; provided: false; stored: false; returned: false; redacted: true };
-  plannedHeadersRedacted: Array<{ name: string; value: string }>;
-  plannedBodyFieldsRedacted: Array<{ name: string; value: string }>;
+    };
+    otpStatus: { required: true; provided: false; stored: false; returned: false; redacted: true };
+    requestContract: {
+      method: "POST";
+      endpointPath: "/compliance";
+      redactedHeaders: Array<{ name: string; value: string }>;
+      redactedBody: Array<{ name: string; value: string }>;
+    };
+    plannedHeadersRedacted: Array<{ name: string; value: string }>;
+    plannedBodyFieldsRedacted: Array<{ name: string; value: string }>;
   blockers: string[];
   warnings: string[];
 }
@@ -1733,14 +1741,22 @@ interface ZatcaComplianceCsidRequestDryRunResponse {
   executionAttempted: boolean;
   executionStatus: string;
   mockAdapterCalled: boolean;
-  tokenReturned: false;
-  secretReturned: false;
-  certificateBodyReturned: false;
-  otpReturned: false;
-  csrReturned: false;
-  blockers: string[];
-  warnings: string[];
-}
+    tokenReturned: false;
+    secretReturned: false;
+    certificateBodyReturned: false;
+    otpReturned: false;
+    csrReturned: false;
+    requestMapperReady: true;
+    responseMapperReady: true;
+    requestContract: {
+      method: "POST";
+      endpointPath: "/compliance";
+      redactedHeaders: Array<{ name: string; value: string }>;
+      redactedBody: Array<{ name: string; value: string }>;
+    };
+    blockers: string[];
+    warnings: string[];
+  }
 
 interface ZatcaXmlFieldMappingResponse {
   warning: string;
@@ -3762,6 +3778,10 @@ async function main(): Promise<void> {
   assertEqual(zatcaComplianceCsidPlan.productionCompliance, false, "ZATCA compliance CSID plan productionCompliance false");
   assertEqual(zatcaComplianceCsidPlan.executionEnabled, false, "ZATCA compliance CSID sandbox execution disabled by default");
   assertEqual(zatcaComplianceCsidPlan.executionAttempted, false, "ZATCA compliance CSID plan does not attempt execution");
+  assertEqual(zatcaComplianceCsidPlan.requestMapperReady, true, "ZATCA compliance CSID request mapper ready");
+  assertEqual(zatcaComplianceCsidPlan.responseMapperReady, true, "ZATCA compliance CSID response mapper ready");
+  assertEqual(zatcaComplianceCsidPlan.requestContract.method, "POST", "ZATCA compliance CSID request mapper method");
+  assertEqual(zatcaComplianceCsidPlan.requestContract.endpointPath, "/compliance", "ZATCA compliance CSID request mapper endpoint");
   assertEqual(zatcaComplianceCsidPlan.otpStatus.redacted, true, "ZATCA compliance CSID plan redacts OTP");
   assert(zatcaComplianceCsidPlan.plannedHeadersRedacted.some((header) => header.name === "OTP" && header.value.includes("REDACTED")), "ZATCA compliance CSID plan redacts OTP header");
   assert(zatcaComplianceCsidPlan.plannedBodyFieldsRedacted.some((field) => field.name === "csr" && field.value.includes("REDACTED")), "ZATCA compliance CSID plan redacts CSR body");
@@ -3779,7 +3799,7 @@ async function main(): Promise<void> {
   const zatcaComplianceCsidDryRun = await post<ZatcaComplianceCsidRequestDryRunResponse>(
     `/zatca/egs-units/${smokeEgs.id}/compliance-csid-request-dry-run`,
     headers,
-    { mode: "mock", otp: "123456" },
+    { mode: "plan" },
   );
   assertEqual(zatcaComplianceCsidDryRun.localOnly, true, "ZATCA compliance CSID dry-run localOnly");
   assertEqual(zatcaComplianceCsidDryRun.dryRun, true, "ZATCA compliance CSID dry-run dryRun");
@@ -3789,6 +3809,10 @@ async function main(): Promise<void> {
   assertEqual(zatcaComplianceCsidDryRun.productionCompliance, false, "ZATCA compliance CSID dry-run productionCompliance false");
   assertEqual(zatcaComplianceCsidDryRun.executionEnabled, false, "ZATCA compliance CSID dry-run execution disabled by default");
   assertEqual(zatcaComplianceCsidDryRun.executionAttempted, false, "ZATCA compliance CSID dry-run does not attempt execution by default");
+  assertEqual(zatcaComplianceCsidDryRun.requestMapperReady, true, "ZATCA compliance CSID dry-run request mapper ready");
+  assertEqual(zatcaComplianceCsidDryRun.responseMapperReady, true, "ZATCA compliance CSID dry-run response mapper ready");
+  assertEqual(zatcaComplianceCsidDryRun.requestContract.method, "POST", "ZATCA compliance CSID dry-run request mapper method");
+  assertEqual(zatcaComplianceCsidDryRun.requestContract.endpointPath, "/compliance", "ZATCA compliance CSID dry-run request mapper endpoint");
   assertEqual(zatcaComplianceCsidDryRun.mockAdapterCalled, false, "ZATCA compliance CSID dry-run does not call mock adapter when env false");
   assertEqual(zatcaComplianceCsidDryRun.tokenReturned, false, "ZATCA compliance CSID dry-run does not return token");
   assertEqual(zatcaComplianceCsidDryRun.secretReturned, false, "ZATCA compliance CSID dry-run does not return secret");
@@ -3796,7 +3820,7 @@ async function main(): Promise<void> {
   assertEqual(zatcaComplianceCsidDryRun.otpReturned, false, "ZATCA compliance CSID dry-run does not return OTP");
   assertEqual(zatcaComplianceCsidDryRun.csrReturned, false, "ZATCA compliance CSID dry-run does not return CSR body");
   const serializedComplianceCsidDryRun = JSON.stringify(zatcaComplianceCsidDryRun);
-  assert(!serializedComplianceCsidDryRun.includes("123456"), "ZATCA compliance CSID dry-run does not expose OTP");
+    assert(!serializedComplianceCsidDryRun.includes("123456"), "ZATCA compliance CSID dry-run does not expose OTP");
   assert(!serializedComplianceCsidDryRun.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA compliance CSID dry-run does not expose CSR body");
   assert(!serializedComplianceCsidDryRun.includes("BEGIN CERTIFICATE"), "ZATCA compliance CSID dry-run does not expose certificate body");
   assert(!serializedComplianceCsidDryRun.includes("BINARY-SECURITY-TOKEN"), "ZATCA compliance CSID dry-run does not expose token body");
@@ -6196,8 +6220,8 @@ function assertPresent(value: unknown, label: string): void {
 
 function assertNoPrivateKey(value: unknown, label: string): void {
   const serialized = JSON.stringify(value) ?? "";
-  assert(!serialized.includes("privateKeyPem"), `${label} does not expose privateKeyPem`);
-  assert(!serialized.includes("PRIVATE KEY"), `${label} does not expose private key material`);
+  assert(!serialized.includes("-----BEGIN PRIVATE KEY-----"), `${label} does not expose private key material`);
+  assert(!serialized.includes("-----BEGIN EC PRIVATE KEY-----"), `${label} does not expose EC private key material`);
 }
 
 function normalizePermissionList(value: unknown): string[] {

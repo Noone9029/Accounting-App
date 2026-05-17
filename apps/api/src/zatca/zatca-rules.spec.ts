@@ -3134,6 +3134,12 @@ describe("ZATCA service rules", () => {
     const planOnly = plainToInstance(ComplianceCsidRequestDryRunDto, { mode: "plan" });
     await expect(validate(planOnly)).resolves.toHaveLength(0);
 
+    const realOnly = plainToInstance(ComplianceCsidRequestDryRunDto, { mode: "real" });
+    expect(await validate(realOnly)).not.toHaveLength(0);
+
+    const validReal = plainToInstance(ComplianceCsidRequestDryRunDto, { mode: "real", otp: "123456" });
+    await expect(validate(validReal)).resolves.toHaveLength(0);
+
     const validMock = plainToInstance(ComplianceCsidRequestDryRunDto, { mode: "mock", otp: " 123456 " });
     await expect(validate(validMock)).resolves.toHaveLength(0);
     expect(validMock.otp).toBe("123456");
@@ -3160,8 +3166,45 @@ describe("ZATCA service rules", () => {
       expect(result.executionEnabled).toBe(false);
       expect(result.executionAttempted).toBe(false);
       expect(result.executionStatus).toBe("SKIPPED_DISABLED");
+      expect(result.requestMapperReady).toBe(true);
+      expect(result.requestContract.method).toBe("POST");
+      expect(result.requestContract.endpointPath).toBe("/compliance");
       expect(result.noNetwork).toBe(true);
       expect(result.noMutation).toBe(true);
+      expect(adapter.requestComplianceCsid).not.toHaveBeenCalled();
+      expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+      expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    } finally {
+      process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED = previous;
+    }
+  });
+
+  it("returns a request mapper summary for compliance CSID plan mode without calling any adapter", async () => {
+    const previous = process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED;
+    process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED = "true";
+    try {
+      const egs = makeMockComplianceCsidReadyEgs();
+      const review = makeCsrConfigReview({ status: ZatcaCsrConfigReviewStatus.APPROVED });
+      const prisma = makeComplianceCsidPlanPrisma(egs, review);
+      const adapter = makeNoopOnboardingAdapter();
+      const service = new ZatcaService(prisma as never, { log: jest.fn() } as never, adapter as never);
+      const plan = await service.getEgsUnitComplianceCsidRequestPlan("org-1", "egs-1");
+      review.configHash = plan.csrStatus.configHash;
+
+      const result = await service.getEgsUnitComplianceCsidRequestDryRun("org-1", "egs-1", { mode: "plan" });
+      const serialized = JSON.stringify(result);
+
+      expect(result.executionEnabled).toBe(true);
+      expect(result.executionAttempted).toBe(false);
+      expect(result.executionStatus).toBe("PLAN_ONLY");
+      expect(result.requestMapperReady).toBe(true);
+      expect(result.responseMapperReady).toBe(true);
+      expect(result.requestContract.method).toBe("POST");
+      expect(result.requestContract.endpointPath).toBe("/compliance");
+      expect(result.requestContract.redactedHeaders).toEqual(expect.arrayContaining([expect.objectContaining({ name: "OTP", value: "[REDACTED_OTP]" })]));
+      expect(result.requestContract.redactedBody).toEqual(expect.arrayContaining([expect.objectContaining({ name: "csr", value: "[REDACTED_CSR_BODY]" })]));
+      expect(serialized).not.toContain("CSR-BODY");
+      expect(serialized).not.toContain("123456");
       expect(adapter.requestComplianceCsid).not.toHaveBeenCalled();
       expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
       expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
@@ -3192,6 +3235,10 @@ describe("ZATCA service rules", () => {
       expect((result as any).hasBinarySecurityToken).toBe(true);
       expect((result as any).hasSecret).toBe(true);
       expect((result as any).hasCertificate).toBe(true);
+      expect(result.requestContract.method).toBe("POST");
+      expect(result.requestContract.endpointPath).toBe("/compliance");
+      expect((result as any).responseContract.hasBinarySecurityToken).toBe(true);
+      expect((result as any).responseContract.tokenReturned).toBe(false);
       expect(result.tokenReturned).toBe(false);
       expect(result.secretReturned).toBe(false);
       expect(result.certificateBodyReturned).toBe(false);
@@ -3202,6 +3249,37 @@ describe("ZATCA service rules", () => {
       expect(serialized).not.toContain("BEGIN CERTIFICATE");
       expect(serialized).not.toContain("LOCAL-MOCK-SECRET");
       expect(serialized).not.toContain("BINARY-SECURITY-TOKEN");
+      expect(adapter.requestComplianceCsid).not.toHaveBeenCalled();
+      expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+      expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    } finally {
+      process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED = previous;
+    }
+  });
+
+  it("blocks real compliance CSID dry-run mode before any network-capable adapter call", async () => {
+    const previous = process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED;
+    process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED = "true";
+    try {
+      const egs = makeMockComplianceCsidReadyEgs();
+      const review = makeCsrConfigReview({ status: ZatcaCsrConfigReviewStatus.APPROVED });
+      const prisma = makeComplianceCsidPlanPrisma(egs, review);
+      const adapter = makeNoopOnboardingAdapter();
+      const service = new ZatcaService(prisma as never, { log: jest.fn() } as never, adapter as never);
+      const plan = await service.getEgsUnitComplianceCsidRequestPlan("org-1", "egs-1");
+      review.configHash = plan.csrStatus.configHash;
+
+      const result = await service.getEgsUnitComplianceCsidRequestDryRun("org-1", "egs-1", { mode: "real", otp: "123456" });
+      const serialized = JSON.stringify(result);
+
+      expect(result.executionAttempted).toBe(false);
+      expect(result.executionStatus).toBe("BLOCKED_REAL_HTTP_NOT_IMPLEMENTED");
+      expect(result.realNetworkCalled).toBe(false);
+      expect(result.noNetwork).toBe(true);
+      expect(result.requestContract.method).toBe("POST");
+      expect(result.requestContract.endpointPath).toBe("/compliance");
+      expect(serialized).not.toContain("123456");
+      expect(serialized).not.toContain("CSR-BODY");
       expect(adapter.requestComplianceCsid).not.toHaveBeenCalled();
       expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
       expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
