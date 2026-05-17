@@ -21,6 +21,7 @@
     "zatca:local-signing-dry-run": "corepack pnpm --filter @ledgerbyte/api zatca:local-signing-dry-run",
     "zatca:local-signed-xml-validate": "corepack pnpm --filter @ledgerbyte/api zatca:local-signed-xml-validate",
     "zatca:compliance-csid-plan": "corepack pnpm --filter @ledgerbyte/api zatca:compliance-csid-plan",
+    "zatca:compliance-csid-dry-run": "corepack pnpm --filter @ledgerbyte/api zatca:compliance-csid-dry-run",
     "db:generate": "corepack pnpm --filter @ledgerbyte/api db:generate",
     "db:migrate": "corepack pnpm --filter @ledgerbyte/api db:migrate",
     "db:seed": "corepack pnpm --filter @ledgerbyte/api db:seed"

@@ -1717,6 +1717,31 @@ interface ZatcaComplianceCsidRequestPlanResponse {
   warnings: string[];
 }
 
+interface ZatcaComplianceCsidRequestDryRunResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noNetwork: true;
+  noCsidRequest: true;
+  noProductionCredentials: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  productionCompliance: false;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  executionStatus: string;
+  mockAdapterCalled: boolean;
+  tokenReturned: false;
+  secretReturned: false;
+  certificateBodyReturned: false;
+  otpReturned: false;
+  csrReturned: false;
+  blockers: string[];
+  warnings: string[];
+}
+
 interface ZatcaXmlFieldMappingResponse {
   warning: string;
   summary: {
@@ -3751,6 +3776,36 @@ async function main(): Promise<void> {
   assertEqual(egsAfterComplianceCsidPlan.lastInvoiceHash, egsBeforeComplianceCsidPlan.lastInvoiceHash, "ZATCA compliance CSID plan does not mutate EGS previous hash");
   const submissionsAfterComplianceCsidPlan = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
   assertEqual(submissionsAfterComplianceCsidPlan.length, submissionsBeforeComplianceCsidPlan.length, "ZATCA compliance CSID plan does not create submission logs");
+  const zatcaComplianceCsidDryRun = await post<ZatcaComplianceCsidRequestDryRunResponse>(
+    `/zatca/egs-units/${smokeEgs.id}/compliance-csid-request-dry-run`,
+    headers,
+    { mode: "mock", otp: "123456" },
+  );
+  assertEqual(zatcaComplianceCsidDryRun.localOnly, true, "ZATCA compliance CSID dry-run localOnly");
+  assertEqual(zatcaComplianceCsidDryRun.dryRun, true, "ZATCA compliance CSID dry-run dryRun");
+  assertEqual(zatcaComplianceCsidDryRun.noMutation, true, "ZATCA compliance CSID dry-run noMutation");
+  assertEqual(zatcaComplianceCsidDryRun.noNetwork, true, "ZATCA compliance CSID dry-run noNetwork");
+  assertEqual(zatcaComplianceCsidDryRun.noCsidRequest, true, "ZATCA compliance CSID dry-run noCsidRequest");
+  assertEqual(zatcaComplianceCsidDryRun.productionCompliance, false, "ZATCA compliance CSID dry-run productionCompliance false");
+  assertEqual(zatcaComplianceCsidDryRun.executionEnabled, false, "ZATCA compliance CSID dry-run execution disabled by default");
+  assertEqual(zatcaComplianceCsidDryRun.executionAttempted, false, "ZATCA compliance CSID dry-run does not attempt execution by default");
+  assertEqual(zatcaComplianceCsidDryRun.mockAdapterCalled, false, "ZATCA compliance CSID dry-run does not call mock adapter when env false");
+  assertEqual(zatcaComplianceCsidDryRun.tokenReturned, false, "ZATCA compliance CSID dry-run does not return token");
+  assertEqual(zatcaComplianceCsidDryRun.secretReturned, false, "ZATCA compliance CSID dry-run does not return secret");
+  assertEqual(zatcaComplianceCsidDryRun.certificateBodyReturned, false, "ZATCA compliance CSID dry-run does not return certificate body");
+  assertEqual(zatcaComplianceCsidDryRun.otpReturned, false, "ZATCA compliance CSID dry-run does not return OTP");
+  assertEqual(zatcaComplianceCsidDryRun.csrReturned, false, "ZATCA compliance CSID dry-run does not return CSR body");
+  const serializedComplianceCsidDryRun = JSON.stringify(zatcaComplianceCsidDryRun);
+  assert(!serializedComplianceCsidDryRun.includes("123456"), "ZATCA compliance CSID dry-run does not expose OTP");
+  assert(!serializedComplianceCsidDryRun.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA compliance CSID dry-run does not expose CSR body");
+  assert(!serializedComplianceCsidDryRun.includes("BEGIN CERTIFICATE"), "ZATCA compliance CSID dry-run does not expose certificate body");
+  assert(!serializedComplianceCsidDryRun.includes("BINARY-SECURITY-TOKEN"), "ZATCA compliance CSID dry-run does not expose token body");
+  assert(!serializedComplianceCsidDryRun.includes("LOCAL-MOCK-SECRET"), "ZATCA compliance CSID dry-run does not expose secret body");
+  const egsAfterComplianceCsidDryRun = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  assertEqual(egsAfterComplianceCsidDryRun.lastIcv, egsAfterComplianceCsidPlan.lastIcv, "ZATCA compliance CSID dry-run does not mutate EGS ICV");
+  assertEqual(egsAfterComplianceCsidDryRun.lastInvoiceHash, egsAfterComplianceCsidPlan.lastInvoiceHash, "ZATCA compliance CSID dry-run does not mutate EGS previous hash");
+  const submissionsAfterComplianceCsidDryRun = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterComplianceCsidDryRun.length, submissionsAfterComplianceCsidPlan.length, "ZATCA compliance CSID dry-run does not create submission logs");
   smokeEgs = await post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/request-compliance-csid`, headers, { otp: "000000", mode: "mock" });
   assertNoPrivateKey(smokeEgs, "ZATCA compliance CSID response");
   assertEqual(smokeEgs.hasComplianceCsid, true, "ZATCA smoke EGS compliance CSID flag");
@@ -5815,6 +5870,11 @@ async function main(): Promise<void> {
         zatcaComplianceCsidPlanExecutionEnabled: zatcaComplianceCsidPlan.executionEnabled,
         zatcaComplianceCsidPlanNoNetwork: zatcaComplianceCsidPlan.noNetwork,
         zatcaComplianceCsidPlanNoCsidRequest: zatcaComplianceCsidPlan.noCsidRequest,
+        zatcaComplianceCsidDryRunExecutionEnabled: zatcaComplianceCsidDryRun.executionEnabled,
+        zatcaComplianceCsidDryRunExecutionAttempted: zatcaComplianceCsidDryRun.executionAttempted,
+        zatcaComplianceCsidDryRunExecutionStatus: zatcaComplianceCsidDryRun.executionStatus,
+        zatcaComplianceCsidDryRunNoNetwork: zatcaComplianceCsidDryRun.noNetwork,
+        zatcaComplianceCsidDryRunNoCsidRequest: zatcaComplianceCsidDryRun.noCsidRequest,
         paymentIds: [partialPayment.id, remainingPayment.id],
         paymentRefundId: paymentRefund.id,
         paymentUnappliedInvoiceId: paymentUnappliedInvoice.id,

@@ -7,14 +7,21 @@ export interface FlexibleZatcaPayload {
 export interface ZatcaComplianceCsidRequest extends FlexibleZatcaPayload {
   csrPem?: string;
   otp?: string;
+  requestedMode?: string;
+  adapterMode?: string;
+  requestIdempotencyKey?: string;
+  mockScenario?: "success" | "invalid-otp" | "expired-otp" | "duplicate-request" | "adapter-disabled" | "malformed-response";
   endpointPath?: string;
-  // TODO: Verify the official FATOORA sandbox compliance CSID request fields before real use.
 }
 
 export interface ZatcaComplianceCsidResponse extends FlexibleZatcaPayload {
+  requestId?: string | null;
   complianceCsidPem?: string;
   certificateRequestId?: string;
-  // TODO: Verify official response token/certificate field names before mapping these values.
+  binarySecurityToken?: string;
+  secret?: string;
+  rawCertificatePem?: string | null;
+  warnings?: string[];
 }
 
 export interface ZatcaProductionCsidRequest extends FlexibleZatcaPayload {
@@ -123,8 +130,13 @@ export interface ZatcaAdapterResult<TResponse extends FlexibleZatcaPayload = Fle
 }
 
 export interface ComplianceCsidResult extends ZatcaAdapterResult<ZatcaComplianceCsidResponse> {
+  requestId: string | null;
   complianceCsidPem: string;
   certificateRequestId: string;
+  binarySecurityToken: string;
+  secret: string;
+  rawCertificatePem?: string | null;
+  warnings: string[];
 }
 
 export interface ProductionCsidResult extends ZatcaAdapterResult<ZatcaProductionCsidResponse> {

@@ -28,8 +28,17 @@ export class HttpZatcaSandboxAdapter implements ZatcaOnboardingAdapter {
     const result = await this.safeZatcaRequest<ZatcaComplianceCsidResponse>("requestComplianceCsid", input.request.endpointPath, input.request);
     const complianceCsidPem = typeof result.responsePayload.complianceCsidPem === "string" ? result.responsePayload.complianceCsidPem : "";
     const certificateRequestId = typeof result.responsePayload.certificateRequestId === "string" ? result.responsePayload.certificateRequestId : "";
+    const requestId =
+      typeof result.responsePayload.requestId === "string"
+        ? result.responsePayload.requestId
+        : typeof result.responsePayload.requestID === "string"
+          ? result.responsePayload.requestID
+          : null;
+    const binarySecurityToken = typeof result.responsePayload.binarySecurityToken === "string" ? result.responsePayload.binarySecurityToken : "";
+    const secret = typeof result.responsePayload.secret === "string" ? result.responsePayload.secret : "";
+    const rawCertificatePem = typeof result.responsePayload.rawCertificatePem === "string" ? result.responsePayload.rawCertificatePem : complianceCsidPem;
 
-    if (!complianceCsidPem || !certificateRequestId) {
+    if (!complianceCsidPem || !certificateRequestId || !binarySecurityToken || !secret) {
       throw new ZatcaAdapterError("Sandbox compliance CSID response mapping is incomplete. Verify official ZATCA response fields before enabling this flow.", {
         responseCode: "OFFICIAL_RESPONSE_UNMAPPED",
         errorCode: "OFFICIAL_RESPONSE_UNMAPPED",
@@ -39,7 +48,7 @@ export class HttpZatcaSandboxAdapter implements ZatcaOnboardingAdapter {
       });
     }
 
-    return { ...result, complianceCsidPem, certificateRequestId };
+    return { ...result, requestId, complianceCsidPem, certificateRequestId, binarySecurityToken, secret, rawCertificatePem, warnings: [] };
   }
 
   async requestProductionCsid(_input: RequestProductionCsidInput): Promise<ProductionCsidResult> {

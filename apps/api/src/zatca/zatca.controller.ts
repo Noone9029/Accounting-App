@@ -9,6 +9,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { ApproveZatcaStoragePolicyApprovalDto } from "./dto/approve-zatca-storage-policy-approval.dto";
+import { ComplianceCsidRequestDryRunDto } from "./dto/compliance-csid-request-dry-run.dto";
 import { CreateZatcaEgsUnitDto } from "./dto/create-zatca-egs-unit.dto";
 import { CreateZatcaStoragePolicyApprovalDto } from "./dto/create-zatca-storage-policy-approval.dto";
 import { CreateZatcaStorageControlEvidenceDto } from "./dto/create-zatca-storage-control-evidence.dto";
@@ -201,8 +202,8 @@ export class ZatcaController {
 
   @Post("zatca/egs-units/:id/compliance-csid-request-dry-run")
   @RequirePermissions(PERMISSIONS.zatca.manage)
-  getEgsComplianceCsidRequestDryRun(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
-    return this.zatcaService.getEgsUnitComplianceCsidRequestDryRun(organizationId, id);
+  getEgsComplianceCsidRequestDryRun(@CurrentOrganizationId() organizationId: string, @Param("id") id: string, @Body() dto: ComplianceCsidRequestDryRunDto) {
+    return this.zatcaService.getEgsUnitComplianceCsidRequestDryRun(organizationId, id, dto);
   }
 
   @Get("zatca/egs-units/:id/csr")

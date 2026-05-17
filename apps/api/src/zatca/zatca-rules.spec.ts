@@ -2,6 +2,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { plainToInstance } from "class-transformer";
+import { validate } from "class-validator";
 import {
   ZatcaCsrConfigReviewStatus,
   ZatcaInvoiceStatus,
@@ -15,6 +17,7 @@ import {
 import { initialPreviousInvoiceHash } from "@ledgerbyte/zatca-core";
 import * as ZatcaSdkPaths from "../zatca-sdk/zatca-sdk-paths";
 import { SandboxDisabledZatcaOnboardingAdapter } from "./adapters/sandbox-disabled-zatca-onboarding.adapter";
+import { ComplianceCsidRequestDryRunDto } from "./dto/compliance-csid-request-dry-run.dto";
 import type { ZatcaAdapterConfig } from "./zatca.config";
 import { ZatcaService } from "./zatca.service";
 
@@ -3127,6 +3130,138 @@ describe("ZATCA service rules", () => {
     );
     expect(readiness.productionCompliance).toBe(false);
   });
+  it("validates OTP only for mock compliance CSID dry-run mode", async () => {
+    const planOnly = plainToInstance(ComplianceCsidRequestDryRunDto, { mode: "plan" });
+    await expect(validate(planOnly)).resolves.toHaveLength(0);
+
+    const validMock = plainToInstance(ComplianceCsidRequestDryRunDto, { mode: "mock", otp: " 123456 " });
+    await expect(validate(validMock)).resolves.toHaveLength(0);
+    expect(validMock.otp).toBe("123456");
+
+    const blankMock = plainToInstance(ComplianceCsidRequestDryRunDto, { mode: "mock", otp: "   " });
+    expect(await validate(blankMock)).not.toHaveLength(0);
+
+    const unsafeMock = plainToInstance(ComplianceCsidRequestDryRunDto, { mode: "mock", otp: "12345\n" });
+    expect(await validate(unsafeMock)).not.toHaveLength(0);
+  });
+
+  it("skips compliance CSID mock dry-run when sandbox gate is disabled", async () => {
+    const previous = process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED;
+    process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED = "false";
+    try {
+      const egs = makeMockComplianceCsidReadyEgs();
+      const review = makeCsrConfigReview({ status: ZatcaCsrConfigReviewStatus.APPROVED });
+      const prisma = makeComplianceCsidPlanPrisma(egs, review);
+      const adapter = makeNoopOnboardingAdapter();
+      const service = new ZatcaService(prisma as never, { log: jest.fn() } as never, adapter as never);
+
+      const result = await service.getEgsUnitComplianceCsidRequestDryRun("org-1", "egs-1", { mode: "mock", otp: "123456" });
+
+      expect(result.executionEnabled).toBe(false);
+      expect(result.executionAttempted).toBe(false);
+      expect(result.executionStatus).toBe("SKIPPED_DISABLED");
+      expect(result.noNetwork).toBe(true);
+      expect(result.noMutation).toBe(true);
+      expect(adapter.requestComplianceCsid).not.toHaveBeenCalled();
+      expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+      expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    } finally {
+      process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED = previous;
+    }
+  });
+
+  it("runs only the local mock compliance CSID adapter when explicitly gated and redacts sensitive output", async () => {
+    const previous = process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED;
+    process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED = "true";
+    try {
+      const egs = makeMockComplianceCsidReadyEgs();
+      const review = makeCsrConfigReview({ status: ZatcaCsrConfigReviewStatus.APPROVED });
+      const prisma = makeComplianceCsidPlanPrisma(egs, review);
+      const adapter = makeNoopOnboardingAdapter();
+      const service = new ZatcaService(prisma as never, { log: jest.fn() } as never, adapter as never);
+      const plan = await service.getEgsUnitComplianceCsidRequestPlan("org-1", "egs-1");
+      review.configHash = plan.csrStatus.configHash;
+
+      const result = await service.getEgsUnitComplianceCsidRequestDryRun("org-1", "egs-1", { mode: "mock", otp: "123456" });
+      const serialized = JSON.stringify(result);
+
+      expect(result.executionEnabled).toBe(true);
+      expect(result.executionAttempted).toBe(true);
+      expect(result.executionStatus).toBe("MOCK_SUCCEEDED");
+      expect(result.mockAdapterCalled).toBe(true);
+      expect((result as any).hasBinarySecurityToken).toBe(true);
+      expect((result as any).hasSecret).toBe(true);
+      expect((result as any).hasCertificate).toBe(true);
+      expect(result.tokenReturned).toBe(false);
+      expect(result.secretReturned).toBe(false);
+      expect(result.certificateBodyReturned).toBe(false);
+      expect(result.otpReturned).toBe(false);
+      expect(result.csrReturned).toBe(false);
+      expect(serialized).not.toContain("123456");
+      expect(serialized).not.toContain("CSR-BODY");
+      expect(serialized).not.toContain("BEGIN CERTIFICATE");
+      expect(serialized).not.toContain("LOCAL-MOCK-SECRET");
+      expect(serialized).not.toContain("BINARY-SECURITY-TOKEN");
+      expect(adapter.requestComplianceCsid).not.toHaveBeenCalled();
+      expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+      expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    } finally {
+      process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED = previous;
+    }
+  });
+
+  it("blocks compliance CSID mock dry-run for production EGS and missing CSR prerequisites", async () => {
+    const previous = process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED;
+    process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED = "true";
+    try {
+      const review = makeCsrConfigReview({ status: ZatcaCsrConfigReviewStatus.APPROVED });
+      const productionPrisma = makeComplianceCsidPlanPrisma(makeMockComplianceCsidReadyEgs({ environment: "PRODUCTION" }), review);
+      const productionService = new ZatcaService(productionPrisma as never, { log: jest.fn() } as never, makeNoopOnboardingAdapter() as never);
+      const productionResult = await productionService.getEgsUnitComplianceCsidRequestDryRun("org-1", "egs-1", { mode: "mock", otp: "123456" });
+      expect(productionResult.executionAttempted).toBe(false);
+      expect(productionResult.executionStatus).toBe("BLOCKED_PRECONDITION");
+      expect(productionResult.blockers.join(" ")).toContain("Production");
+
+      const missingCsrPrisma = makeComplianceCsidPlanPrisma(makeMockComplianceCsidReadyEgs({ csrPem: null }), review);
+      const missingCsrService = new ZatcaService(missingCsrPrisma as never, { log: jest.fn() } as never, makeNoopOnboardingAdapter() as never);
+      const missingCsrResult = await missingCsrService.getEgsUnitComplianceCsidRequestDryRun("org-1", "egs-1", { mode: "mock", otp: "123456" });
+      expect(missingCsrResult.executionAttempted).toBe(false);
+      expect(missingCsrResult.executionStatus).toBe("BLOCKED_PRECONDITION");
+      expect(missingCsrResult.blockers.join(" ")).toContain("CSR");
+    } finally {
+      process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED = previous;
+    }
+  });
+
+  it("sanitizes compliance CSID mock adapter errors", async () => {
+    const previous = process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED;
+    process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED = "true";
+    try {
+      const egs = makeMockComplianceCsidReadyEgs();
+      const review = makeCsrConfigReview({ status: ZatcaCsrConfigReviewStatus.APPROVED });
+      const prisma = makeComplianceCsidPlanPrisma(egs, review);
+      const service = new ZatcaService(prisma as never, { log: jest.fn() } as never, makeNoopOnboardingAdapter() as never);
+      const plan = await service.getEgsUnitComplianceCsidRequestPlan("org-1", "egs-1");
+      review.configHash = plan.csrStatus.configHash;
+
+      const result = await service.getEgsUnitComplianceCsidRequestDryRun("org-1", "egs-1", {
+        mode: "mock",
+        otp: "123456",
+        mockScenario: "invalid-otp",
+      });
+      const serialized = JSON.stringify(result);
+
+      expect(result.executionStatus).toBe("MOCK_FAILED");
+      expect((result as any).adapterError.message).toContain("OTP");
+      expect(serialized).not.toContain("123456");
+      expect(serialized).not.toContain("CSR-BODY");
+      expect(serialized).not.toContain("BEGIN CERTIFICATE");
+      expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+      expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    } finally {
+      process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED = previous;
+    }
+  });
 });
 
 function makeGenerationTransactionMock(options: {
@@ -3311,6 +3446,18 @@ function makeCsrConfigReview(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function makeMockComplianceCsidReadyEgs(overrides: Record<string, unknown> = {}) {
+  return makeEgsUnit({
+    environment: "SANDBOX",
+    csrCommonName: "TST-886431145-399999999900003",
+    csrSerialNumber: "1-TST|2-TST|3-ed22f1d8-e6a2-1118-9b58-d9a8f11e445f",
+    csrOrganizationUnitName: "Riyadh Branch",
+    csrInvoiceType: "1100",
+    csrLocationAddress: "RRRD2929",
+    csrPem: "-----BEGIN CERTIFICATE REQUEST-----\nCSR-BODY\n-----END CERTIFICATE REQUEST-----",
+    ...overrides,
+  });
+}
 function makeComplianceCsidPlanPrisma(egsUnit: Record<string, unknown>, review: Record<string, unknown> | null) {
   return {
     organization: {

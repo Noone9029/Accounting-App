@@ -3341,6 +3341,14 @@ export interface ZatcaComplianceCsidRequestPlanResponse {
   productionCompliance: false;
   executionEnabled: boolean;
   executionAttempted: false;
+  executionStatus?: string;
+  mockAdapterContractAvailable?: boolean;
+  realSandboxAdapterImplemented?: boolean;
+  tokenReturned?: false;
+  secretReturned?: false;
+  certificateBodyReturned?: false;
+  otpReturned?: false;
+  csrReturned?: false;
   egsUnit: {
     id: string;
     name: string;

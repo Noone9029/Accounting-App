@@ -1265,7 +1265,9 @@ function ComplianceCsidPlanPanel({ plan }: { plan: ZatcaComplianceCsidRequestPla
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <div className="text-xs font-semibold text-ink">Sandbox compliance CSID request plan</div>
-          <div className="mt-1 text-[11px] text-steel">Sanitized planning only. No OTP is stored, no CSID request is made, and no ZATCA network call is performed.</div>
+          <div className="mt-1 text-[11px] text-steel">
+            Sanitized planning only. The mock adapter contract is local-only and disabled by default. OTP is validated for mock mode but never stored or displayed, no real CSID request is made, and no ZATCA network call is performed.
+          </div>
         </div>
         <span className="rounded-md bg-white px-2 py-1 text-[11px] font-medium text-amber-700">
           {plan.executionEnabled ? "Gate enabled but blocked" : "Execution disabled"}
@@ -1278,6 +1280,8 @@ function ComplianceCsidPlanPanel({ plan }: { plan: ZatcaComplianceCsidRequestPla
         <div>CSR body available: {plan.csrStatus.generatedCsrAvailable ? "Yes, redacted" : "No"}</div>
         <div>OTP: {plan.otpStatus.required ? "Required, not stored" : "Not required"}</div>
         <div>Production compliance: {plan.productionCompliance ? "true" : "false"}</div>
+        <div>Mock adapter contract: {plan.mockAdapterContractAvailable === false ? "Unavailable" : "Available locally"}</div>
+        <div>Real sandbox HTTP: {plan.realSandboxAdapterImplemented ? "Implemented" : "Not implemented"}</div>
       </div>
       <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] text-steel md:grid-cols-2">
         <div>
@@ -1305,7 +1309,7 @@ function ComplianceCsidPlanPanel({ plan }: { plan: ZatcaComplianceCsidRequestPla
         </ul>
       ) : null}
       <div className="mt-3 text-[11px] text-amber-800">
-        Token, secret, certificate body, CSR body, OTP, private key, signed XML, and QR payload bodies are never displayed here.
+        Token, secret, certificate body, CSR body, OTP, private key, signed XML, and QR payload bodies are never displayed here. No production CSID or production compliance claim is available from this panel.
       </div>
     </div>
   );

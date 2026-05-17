@@ -4,6 +4,9 @@ import { ZatcaService } from "../src/zatca/zatca.service";
 interface CliOptions {
   help: boolean;
   egsId: string;
+  mode: "plan" | "mock";
+  otp: string;
+  mockScenario: "success" | "invalid-otp" | "expired-otp" | "duplicate-request" | "adapter-disabled" | "malformed-response";
 }
 
 function optionValue(argv: string[], name: string): string {
@@ -12,9 +15,16 @@ function optionValue(argv: string[], name: string): string {
 }
 
 function parseOptions(argv: string[]): CliOptions {
+  const requestedMode = optionValue(argv, "--mode") || "plan";
+  const requestedScenario = optionValue(argv, "--mock-scenario") || "success";
   return {
     help: argv.includes("--help") || argv.includes("-h"),
     egsId: optionValue(argv, "--egs-id") || process.env.ZATCA_COMPLIANCE_CSID_PLAN_EGS_ID?.trim() || "",
+    mode: requestedMode === "mock" ? "mock" : "plan",
+    otp: optionValue(argv, "--otp") || process.env.ZATCA_COMPLIANCE_CSID_DRY_RUN_OTP?.trim() || "",
+    mockScenario: ["success", "invalid-otp", "expired-otp", "duplicate-request", "adapter-disabled", "malformed-response"].includes(requestedScenario)
+      ? (requestedScenario as CliOptions["mockScenario"])
+      : "success",
   };
 }
 
@@ -29,11 +39,17 @@ function printHelp() {
       "Environment:",
       "  ZATCA_COMPLIANCE_CSID_PLAN_ORGANIZATION_ID     Optional organization id.",
       "  ZATCA_COMPLIANCE_CSID_PLAN_EGS_ID              Optional EGS unit id.",
-      "  ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED Defaults false; this script still prints a plan only.",
+      "  ZATCA_COMPLIANCE_CSID_DRY_RUN_OTP              Optional OTP for mock mode only; never printed.",
+      "  ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED Defaults false; mock adapter is skipped unless true.",
       "",
       "Flags:",
       "  --egs-id <id>       EGS unit id. Defaults to the latest non-production EGS for the organization.",
+      "  --mode plan|mock    plan prints sanitized plan; mock exercises local mock adapter only when env gate is true.",
+      "  --otp <otp>         OTP for mock mode only. The value is never printed or stored.",
+      "  --mock-scenario <scenario>  success, invalid-otp, expired-otp, duplicate-request, adapter-disabled, malformed-response.",
       "  --help              Print this help without touching the database.",
+      "",
+      "This script never performs a real ZATCA network call, never requests a real CSID, never prints CSR/certificate/token/secret/OTP bodies, and never claims production compliance.",
     ].join("\n"),
   );
 }
@@ -110,7 +126,14 @@ async function main() {
     }
 
     const service = new ZatcaService(prisma as never, { log: async () => undefined } as never);
-    const plan = await service.getEgsUnitComplianceCsidRequestPlan(organizationId, egsUnit.id);
+    const plan =
+      options.mode === "mock"
+        ? await service.getEgsUnitComplianceCsidRequestDryRun(organizationId, egsUnit.id, {
+            mode: "mock",
+            otp: options.otp,
+            mockScenario: options.mockScenario,
+          })
+        : await service.getEgsUnitComplianceCsidRequestPlan(organizationId, egsUnit.id);
 
     console.log(
       JSON.stringify(
@@ -126,6 +149,14 @@ async function main() {
           productionCompliance: plan.productionCompliance,
           executionEnabled: plan.executionEnabled,
           executionAttempted: plan.executionAttempted,
+          executionStatus: "executionStatus" in plan ? plan.executionStatus : "PLAN_ONLY",
+          mockAdapterContractAvailable: "mockAdapterContractAvailable" in plan ? plan.mockAdapterContractAvailable : true,
+          realSandboxAdapterImplemented: "realSandboxAdapterImplemented" in plan ? plan.realSandboxAdapterImplemented : false,
+          tokenReturned: "tokenReturned" in plan ? plan.tokenReturned : false,
+          secretReturned: "secretReturned" in plan ? plan.secretReturned : false,
+          certificateBodyReturned: "certificateBodyReturned" in plan ? plan.certificateBodyReturned : false,
+          otpReturned: "otpReturned" in plan ? plan.otpReturned : false,
+          csrReturned: "csrReturned" in plan ? plan.csrReturned : false,
           egsUnit: plan.egsUnit,
           csrStatus: plan.csrStatus,
           otpStatus: plan.otpStatus,

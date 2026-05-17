@@ -47,6 +47,7 @@ import { AUDIT_EVENTS, AUDIT_ENTITY_TYPES } from "../audit-log/audit-events";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ApproveZatcaStoragePolicyApprovalDto } from "./dto/approve-zatca-storage-policy-approval.dto";
+import { ComplianceCsidRequestDryRunDto } from "./dto/compliance-csid-request-dry-run.dto";
 import { CreateZatcaEgsUnitDto } from "./dto/create-zatca-egs-unit.dto";
 import { CreateZatcaStoragePolicyApprovalDto } from "./dto/create-zatca-storage-policy-approval.dto";
 import { CreateZatcaStorageControlEvidenceDto } from "./dto/create-zatca-storage-control-evidence.dto";
@@ -983,6 +984,13 @@ export class ZatcaService {
       productionCompliance: false,
       executionEnabled,
       executionAttempted: false,
+      mockAdapterContractAvailable: true,
+      realSandboxAdapterImplemented: false,
+      tokenReturned: false,
+      secretReturned: false,
+      certificateBodyReturned: false,
+      otpReturned: false,
+      csrReturned: false,
       egsUnit: {
         id: egsUnit.id,
         name: egsUnit.name,
@@ -1042,17 +1050,11 @@ export class ZatcaService {
     };
   }
 
-  async getEgsUnitComplianceCsidRequestDryRun(organizationId: string, id: string) {
+  async getEgsUnitComplianceCsidRequestDryRun(organizationId: string, id: string, dto: ComplianceCsidRequestDryRunDto = {}) {
     const plan = await this.getEgsUnitComplianceCsidRequestPlan(organizationId, id);
     const executionEnabled = isSandboxComplianceCsidRequestEnabled();
-    const blockers = [
-      ...plan.blockers,
-      executionEnabled
-        ? "Sandbox compliance CSID HTTP adapter execution is intentionally not implemented in this phase; no request is attempted."
-        : `${ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED_ENV}=false; execution is skipped by default.`,
-    ];
-
-    return {
+    const mode = dto.mode ?? "plan";
+    const baseResponse = {
       localOnly: true,
       dryRun: true,
       noMutation: true,
@@ -1065,18 +1067,134 @@ export class ZatcaService {
       noPdfA3: true,
       productionCompliance: false,
       executionEnabled,
-      executionAttempted: false,
-      executionSkipped: true,
-      executionStatus: executionEnabled ? "BLOCKED_NOT_IMPLEMENTED" : "SKIPPED_DISABLED",
+      mode,
+      mockAdapterContractAvailable: true,
+      realSandboxAdapterImplemented: false,
+      realNetworkCalled: false,
+      tokenReturned: false,
+      secretReturned: false,
+      certificateBodyReturned: false,
+      otpReturned: false,
+      csrReturned: false,
       egsUnit: plan.egsUnit,
       csrStatus: plan.csrStatus,
       otpStatus: plan.otpStatus,
+      plannedEndpointEnvironment: plan.plannedEndpointEnvironment,
+      plannedEndpoint: plan.plannedEndpoint,
       plannedHeadersRedacted: plan.plannedHeadersRedacted,
       plannedBodyFieldsRedacted: plan.plannedBodyFieldsRedacted,
-      blockers: [...new Set(blockers)],
-      warnings: plan.warnings,
+      sensitiveResponseFields: plan.sensitiveResponseFields,
       recommendedNextSteps: plan.recommendedNextSteps,
     };
+
+    if (!executionEnabled) {
+      const blockers = [...plan.blockers, `${ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED_ENV}=false; execution is skipped by default.`];
+      return {
+        ...baseResponse,
+        executionAttempted: false,
+        executionSkipped: true,
+        executionStatus: "SKIPPED_DISABLED",
+        mockAdapterCalled: false,
+        blockers: [...new Set(blockers)],
+        warnings: plan.warnings,
+      };
+    }
+
+    if (mode !== "mock") {
+      const blockers = [...plan.blockers.filter((blocker) => !blocker.includes(ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED_ENV)), "Set mode=mock with a valid OTP to exercise the local mock adapter contract."];
+      return {
+        ...baseResponse,
+        executionAttempted: false,
+        executionSkipped: true,
+        executionStatus: "BLOCKED_PLAN_MODE",
+        mockAdapterCalled: false,
+        blockers: [...new Set(blockers)],
+        warnings: [...plan.warnings, "The real sandbox HTTP adapter remains intentionally disabled; only the mock adapter contract can be exercised."],
+      };
+    }
+
+    const otp = typeof dto.otp === "string" ? dto.otp.trim() : "";
+    const preconditionBlockers = [
+      ...plan.blockers.filter(
+        (blocker) =>
+          !blocker.includes("OTP") &&
+          !blocker.includes(ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED_ENV) &&
+          !blocker.includes("Sandbox compliance CSID HTTP execution remains blocked"),
+      ),
+    ];
+    if (plan.egsUnit.environment === "PRODUCTION") {
+      preconditionBlockers.push("Production EGS units cannot run compliance CSID mock dry-run.");
+    }
+    if (!plan.csrStatus.generatedCsrAvailable) {
+      preconditionBlockers.push("CSR body is missing; mock compliance CSID adapter requires a generated CSR.");
+    }
+    if (plan.csrStatus.latestApprovedReviewStatus !== ZatcaCsrConfigReviewStatus.APPROVED) {
+      preconditionBlockers.push("Approved CSR config review is required before mock compliance CSID dry-run.");
+    }
+    if (!plan.csrStatus.approvedReviewHashMatches) {
+      preconditionBlockers.push("Current CSR config preview hash must match the approved review before mock compliance CSID dry-run.");
+    }
+    if (!/^[0-9]{6}$/.test(otp)) {
+      preconditionBlockers.push("Valid 6-digit OTP is required for mock compliance CSID dry-run and is never stored or returned.");
+    }
+
+    if (preconditionBlockers.length > 0) {
+      return {
+        ...baseResponse,
+        executionAttempted: false,
+        executionSkipped: true,
+        executionStatus: "BLOCKED_PRECONDITION",
+        mockAdapterCalled: false,
+        blockers: [...new Set(preconditionBlockers)],
+        warnings: plan.warnings,
+      };
+    }
+
+    const existing = await this.getEgsUnitInternal(organizationId, id);
+    const mockAdapter = new MockZatcaOnboardingAdapter();
+    try {
+      const adapterResult = await mockAdapter.requestComplianceCsid({
+        organizationId,
+        egsUnitId: id,
+        environment: existing.environment,
+        request: {
+          csrPem: existing.csrPem ?? "",
+          otp,
+          requestedMode: mode,
+          adapterMode: "mock",
+          mockScenario: dto.mockScenario ?? "success",
+          requestIdempotencyKey: createHash("sha256").update(`${organizationId}:${id}:${plan.csrStatus.configHash}`).digest("hex"),
+        },
+      });
+
+      return {
+        ...baseResponse,
+        executionAttempted: true,
+        executionSkipped: false,
+        executionStatus: "MOCK_SUCCEEDED",
+        mockAdapterCalled: true,
+        mockRequestId: adapterResult.requestId,
+        certificateRequestId: adapterResult.certificateRequestId,
+        hasBinarySecurityToken: hasText(adapterResult.binarySecurityToken),
+        hasSecret: hasText(adapterResult.secret),
+        hasCertificate: hasText(adapterResult.rawCertificatePem ?? adapterResult.complianceCsidPem),
+        adapterResponseCode: adapterResult.responseCode,
+        adapterWarnings: adapterResult.warnings,
+        blockers: [],
+        warnings: [...plan.warnings, "Mock adapter result was not persisted. Token, secret, certificate, CSR, and OTP bodies were not returned."],
+      };
+    } catch (error) {
+      return {
+        ...baseResponse,
+        executionAttempted: true,
+        executionSkipped: false,
+        executionStatus: "MOCK_FAILED",
+        mockAdapterCalled: true,
+        adapterError: this.sanitizedComplianceCsidAdapterError(error),
+        blockers: ["Local mock compliance CSID adapter failed. No token, secret, certificate, OTP, CSR, or CSID was persisted."],
+        warnings: plan.warnings,
+      };
+    }
   }
 
   async requestComplianceCsid(organizationId: string, actorUserId: string, id: string, dto: RequestComplianceCsidDto) {
@@ -4238,6 +4356,49 @@ export class ZatcaService {
     };
   }
 
+  private sanitizedComplianceCsidAdapterError(error: unknown): { message: string; responseCode: string; errorCode: string; responsePayload: unknown } {
+    const details = this.adapterErrorDetails(error);
+    return {
+      message: this.redactZatcaOnboardingSensitiveText(details.message),
+      responseCode: details.responseCode,
+      errorCode: details.errorCode,
+      responsePayload: this.redactZatcaOnboardingSensitivePayload(details.responsePayload),
+    };
+  }
+
+  private redactZatcaOnboardingSensitivePayload(value: unknown): unknown {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.redactZatcaOnboardingSensitivePayload(item));
+    }
+    if (value && typeof value === "object") {
+      return Object.fromEntries(
+        Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
+          key,
+          this.isZatcaSensitiveKey(key) ? "[REDACTED]" : this.redactZatcaOnboardingSensitivePayload(entry),
+        ]),
+      );
+    }
+    if (typeof value === "string") {
+      return this.redactZatcaOnboardingSensitiveText(value);
+    }
+    return value;
+  }
+
+  private redactZatcaOnboardingSensitiveText(value: string): string {
+    return value
+      .replace(/-----BEGIN [\s\S]+?-----END [A-Z ]+-----/g, "[REDACTED_PEM]")
+      .replace(/\b(?:LOCAL-MOCK-)?BINARY-SECURITY-TOKEN[-_A-Z0-9]*\b/gi, "[REDACTED_TOKEN]")
+      .replace(/\b(?:LOCAL-MOCK-)?SECRET[-_A-Z0-9]*\b/gi, "[REDACTED_SECRET]")
+      .replace(/\bOTP\s*[:=]\s*[0-9A-Za-z-]+/gi, "OTP=[REDACTED]")
+      .replace(/\b[0-9]{6}\b/g, "[REDACTED_OTP]");
+  }
+
+  private isZatcaSensitiveKey(key: string): boolean {
+    return /otp|csr|privatekey|private_key|certificate|binarysecuritytoken|binary_security_token|secret|authorization|token|signedxml|signed_xml|qrpayload|qr_payload|productioncredential/i.test(
+      key,
+    );
+  }
+
   private throwAdapterError(error: unknown): never {
     if (isZatcaAdapterError(error)) {
       if (error.httpStatus === 501) {
@@ -5349,6 +5510,30 @@ export class ZatcaService {
       checks.push(this.check("ZATCA_COMPLIANCE_CSID_CSR_REVIEW_NOT_APPROVED", "ERROR", "complianceCsid.csrReview", "No approved CSR config review is available for this EGS unit.", "CSR_CONFIG_TEMPLATE", "Approve the sanitized CSR config preview before any future sandbox CSID request."));
     }
     checks.push(
+      this.check(
+        "ZATCA_COMPLIANCE_CSID_OTP_DTO_VALIDATION_READY",
+        "INFO",
+        "complianceCsid.otpValidation",
+        "OTP dry-run DTO validation is implemented for the local mock adapter path.",
+        "COMPLIANCE_CSID_API",
+        "OTP values are trimmed, restricted to a conservative 6-digit mock format, and never stored or returned.",
+      ),
+      this.check(
+        "ZATCA_COMPLIANCE_CSID_MOCK_ADAPTER_CONTRACT_READY",
+        "INFO",
+        "complianceCsid.mockAdapter",
+        "A sandbox-only mock compliance CSID adapter contract exists for local dry-run tests.",
+        "COMPLIANCE_CSID_API",
+        "Use it only with the disabled-by-default execution gate; real sandbox HTTP remains blocked.",
+      ),
+      this.check(
+        "ZATCA_COMPLIANCE_CSID_REAL_SANDBOX_ADAPTER_NOT_IMPLEMENTED",
+        "ERROR",
+        "complianceCsid.realSandboxAdapter",
+        "Real sandbox compliance CSID HTTP execution is not implemented in this phase.",
+        "COMPLIANCE_CSID_API",
+        "Keep real ZATCA network calls disabled until a separate explicit sandbox execution phase is approved.",
+      ),
       this.check(
         "ZATCA_COMPLIANCE_CSID_OTP_REQUIRED",
         "ERROR",
