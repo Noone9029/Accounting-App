@@ -42,4 +42,11 @@ describe("ZATCA controller", () => {
     expect(typeof ZatcaController.prototype.approveSignedArtifactStoragePolicyApproval).toBe("function");
     expect(typeof ZatcaController.prototype.revokeSignedArtifactStoragePolicyApproval).toBe("function");
   });
+
+  it("exposes signed artifact storage control evidence handlers", () => {
+    expect(typeof ZatcaController.prototype.createSignedArtifactStorageControlEvidence).toBe("function");
+    expect(typeof ZatcaController.prototype.listSignedArtifactStorageControlEvidence).toBe("function");
+    expect(typeof ZatcaController.prototype.verifySignedArtifactStorageControlEvidence).toBe("function");
+    expect(typeof ZatcaController.prototype.revokeSignedArtifactStorageControlEvidence).toBe("function");
+  });
 });

@@ -2,7 +2,15 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { ZatcaInvoiceStatus, ZatcaInvoiceType, ZatcaRegistrationStatus, ZatcaSubmissionStatus, ZatcaSubmissionType } from "@prisma/client";
+import {
+  ZatcaInvoiceStatus,
+  ZatcaInvoiceType,
+  ZatcaRegistrationStatus,
+  ZatcaSignedArtifactStorageControlEvidenceStatus,
+  ZatcaSignedArtifactStorageControlEvidenceType,
+  ZatcaSubmissionStatus,
+  ZatcaSubmissionType,
+} from "@prisma/client";
 import { initialPreviousInvoiceHash } from "@ledgerbyte/zatca-core";
 import * as ZatcaSdkPaths from "../zatca-sdk/zatca-sdk-paths";
 import { SandboxDisabledZatcaOnboardingAdapter } from "./adapters/sandbox-disabled-zatca-onboarding.adapter";
@@ -1587,6 +1595,185 @@ describe("ZATCA service rules", () => {
     expect(serialized).not.toContain("SECRET");
     expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
     expect(prisma.zatcaSignedArtifactDraft.create).not.toHaveBeenCalled();
+  });
+
+  it("creates metadata-only storage control evidence records without enabling body persistence", async () => {
+    const evidence = makeStorageControlEvidence();
+    const prisma = {
+      zatcaSignedArtifactStorageControlEvidence: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        create: jest.fn().mockResolvedValue(evidence),
+      },
+      zatcaSubmissionLog: { create: jest.fn() },
+    };
+    const auditLogService = { log: jest.fn() };
+    const service = new ZatcaService(prisma as never, auditLogService as never);
+
+    const result = await service.createSignedArtifactStorageControlEvidence("org-1", "user-1", {
+      evidenceType: ZatcaSignedArtifactStorageControlEvidenceType.STORAGE_PROBE,
+      provider: "s3-compatible",
+      bucketNameRedacted: "ledgerbyte-test-[redacted]",
+      evidenceSummaryJson: { probeRan: true, testObjectOnly: true, noInvoiceData: true },
+      note: "Metadata-only storage probe evidence.",
+    });
+
+    expect(result).toMatchObject({
+      localOnly: true,
+      metadataOnly: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noCsidRequest: true,
+      noNetworkToZatca: true,
+      productionCompliance: false,
+      signedXmlBodyPersistenceAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
+      controlEvidence: {
+        id: "evidence-1",
+        status: "DRAFT",
+        evidenceType: "STORAGE_PROBE",
+        signedXmlBodyPersistenceAllowed: false,
+        qrPayloadBodyPersistenceAllowed: false,
+        productionCompliance: false,
+      },
+    });
+    expect(prisma.zatcaSignedArtifactStorageControlEvidence.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          organizationId: "org-1",
+          status: "DRAFT",
+          evidenceType: "STORAGE_PROBE",
+          evidenceDocumentStorageKey: null,
+          signedXmlBodyPersistenceAllowed: false,
+          qrPayloadBodyPersistenceAllowed: false,
+          productionCompliance: false,
+          createdById: "user-1",
+        }),
+      }),
+    );
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain("<Invoice");
+    expect(serialized).not.toContain("QR PAYLOAD");
+    expect(serialized).not.toContain("BEGIN PRIVATE KEY");
+    expect(serialized).not.toContain("BEGIN CERTIFICATE");
+    expect(serialized).not.toContain("binarySecurityToken");
+    expect(serialized).not.toContain("OTP");
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    expect(auditLogService.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CREATE" }));
+  });
+
+  it("rejects storage control evidence containing XML, QR, PEM, token, OTP, or credential-like values", async () => {
+    const service = new ZatcaService({ zatcaSignedArtifactStorageControlEvidence: { create: jest.fn() } } as never, { log: jest.fn() } as never);
+    const unsafeSummaries = [
+      { invoiceXml: "<Invoice>secret</Invoice>", probeRan: true, testObjectOnly: true, noInvoiceData: true },
+      { qrPayloadBody: "QR PAYLOAD BODY", probeRan: true, testObjectOnly: true, noInvoiceData: true },
+      { probeRan: true, testObjectOnly: true, noInvoiceData: true, certificate: "-----BEGIN CERTIFICATE-----" },
+      { probeRan: true, testObjectOnly: true, noInvoiceData: true, binarySecurityToken: "token" },
+      { probeRan: true, testObjectOnly: true, noInvoiceData: true, otp: "123456" },
+      { probeRan: true, testObjectOnly: true, noInvoiceData: true, accessKey: "AKIA0000000000000000" },
+    ];
+
+    for (const evidenceSummaryJson of unsafeSummaries) {
+      await expect(
+        service.createSignedArtifactStorageControlEvidence("org-1", "user-1", {
+          evidenceType: ZatcaSignedArtifactStorageControlEvidenceType.STORAGE_PROBE,
+          provider: "s3-compatible",
+          evidenceSummaryJson,
+          note: "Unsafe evidence should be rejected.",
+        }),
+      ).rejects.toThrow(BadRequestException);
+    }
+  });
+
+  it("verifies and revokes storage control evidence while persistence and production compliance remain blocked", async () => {
+    const draft = makeStorageControlEvidence();
+    const verified = makeStorageControlEvidence({
+      status: ZatcaSignedArtifactStorageControlEvidenceStatus.VERIFIED,
+      verifiedById: "user-1",
+      verifiedAt: new Date("2026-05-17T01:00:00.000Z"),
+    });
+    const revoked = makeStorageControlEvidence({
+      ...verified,
+      status: ZatcaSignedArtifactStorageControlEvidenceStatus.REVOKED,
+      revokedById: "user-1",
+      revokedAt: new Date("2026-05-17T02:00:00.000Z"),
+    });
+    const prisma = {
+      zatcaSignedArtifactStorageControlEvidence: {
+        findFirst: jest.fn().mockResolvedValueOnce(draft).mockResolvedValueOnce(verified),
+        update: jest.fn().mockResolvedValueOnce(verified).mockResolvedValueOnce(revoked),
+      },
+      zatcaSubmissionLog: { create: jest.fn() },
+    };
+    const auditLogService = { log: jest.fn() };
+    const service = new ZatcaService(prisma as never, auditLogService as never);
+
+    const verifyResult = await service.verifySignedArtifactStorageControlEvidence("org-1", "user-1", "evidence-1", { note: "Verified metadata only." });
+    const revokeResult = await service.revokeSignedArtifactStorageControlEvidence("org-1", "user-1", "evidence-1", { note: "Revoked metadata only." });
+
+    expect(verifyResult.controlEvidence).toMatchObject({ status: "VERIFIED", signedXmlBodyPersistenceAllowed: false, qrPayloadBodyPersistenceAllowed: false, productionCompliance: false });
+    expect(revokeResult.controlEvidence).toMatchObject({ status: "REVOKED", signedXmlBodyPersistenceAllowed: false, qrPayloadBodyPersistenceAllowed: false, productionCompliance: false });
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    expect(auditLogService.log).toHaveBeenCalledWith(expect.objectContaining({ action: "VERIFY" }));
+    expect(auditLogService.log).toHaveBeenCalledWith(expect.objectContaining({ action: "REVOKE" }));
+  });
+
+  it("includes storage control evidence state in immutable policy, storage, and probe plans", async () => {
+    const evidence = makeStorageControlEvidence({ status: ZatcaSignedArtifactStorageControlEvidenceStatus.VERIFIED });
+    const prisma = {
+      zatcaSignedArtifactStorageControlEvidence: {
+        findMany: jest.fn().mockResolvedValue([evidence]),
+      },
+      zatcaSignedArtifactStoragePolicyApproval: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      salesInvoice: {
+        findFirst: jest.fn().mockResolvedValue({ id: "invoice-1", organizationId: "org-1", invoiceNumber: "INV-000001", status: "FINALIZED" }),
+      },
+      zatcaInvoiceMetadata: {
+        findFirst: jest.fn().mockResolvedValue(makeGeneratedMetadata()),
+        update: jest.fn(),
+      },
+      zatcaEgsUnit: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "egs-1",
+          name: "Dev EGS",
+          environment: "SANDBOX",
+          status: ZatcaRegistrationStatus.ACTIVE,
+          isActive: true,
+          hashMode: "SDK_GENERATED",
+          lastIcv: 37,
+          lastInvoiceHash: "last-hash",
+          csrPem: null,
+          complianceCsidPem: null,
+          productionCsidPem: null,
+        }),
+        update: jest.fn(),
+      },
+      zatcaSignedArtifactDraft: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      zatcaSubmissionLog: { create: jest.fn() },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const policyPlan = await service.getSignedArtifactImmutableStoragePolicyPlan("org-1");
+    const probePlan = await service.getSignedArtifactStorageProbePlan("org-1");
+    const storagePlan = await service.getInvoiceZatcaSignedArtifactStoragePlan("org-1", "invoice-1");
+
+    for (const response of [policyPlan, probePlan, storagePlan]) {
+      expect(response).toMatchObject({
+        evidenceRequired: true,
+        verifiedEvidenceTypes: expect.arrayContaining(["STORAGE_PROBE"]),
+        missingEvidenceTypes: expect.any(Array),
+        objectStorageTechnicalControlsStatus: "BLOCKED",
+      });
+      expect(JSON.stringify(response)).not.toContain("<Invoice");
+      expect(JSON.stringify(response)).not.toContain("QR PAYLOAD");
+    }
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
   });
 
   it("skips signed artifact storage probe execution when the env gate is false", async () => {
@@ -3206,6 +3393,41 @@ function makeSignedArtifactDraft(overrides: Record<string, unknown> = {}) {
       name: "Demo User",
       email: "demo@example.com",
     },
+    ...overrides,
+  };
+}
+
+function makeStorageControlEvidence(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "evidence-1",
+    organizationId: "org-1",
+    policyApprovalId: null,
+    status: ZatcaSignedArtifactStorageControlEvidenceStatus.DRAFT,
+    evidenceType: ZatcaSignedArtifactStorageControlEvidenceType.STORAGE_PROBE,
+    provider: "s3-compatible",
+    bucketNameRedacted: "ledgerbyte-test-[redacted]",
+    evidenceSummaryJson: { probeRan: true, testObjectOnly: true, noInvoiceData: true },
+    evidenceHash: "evidence-hash-1",
+    evidenceDocumentStorageKey: null,
+    verifiedById: null,
+    verifiedAt: null,
+    revokedById: null,
+    revokedAt: null,
+    note: "Metadata-only storage probe evidence.",
+    productionCompliance: false,
+    signedXmlBodyPersistenceAllowed: false,
+    qrPayloadBodyPersistenceAllowed: false,
+    createdById: "user-1",
+    createdAt: new Date("2026-05-17T00:00:00.000Z"),
+    updatedAt: new Date("2026-05-17T00:00:00.000Z"),
+    createdBy: {
+      id: "user-1",
+      name: "Demo User",
+      email: "demo@example.com",
+    },
+    verifiedBy: null,
+    revokedBy: null,
+    policyApproval: null,
     ...overrides,
   };
 }

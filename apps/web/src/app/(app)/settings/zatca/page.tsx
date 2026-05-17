@@ -36,6 +36,9 @@ import {
   zatcaSignedArtifactImmutablePolicyPlanPath,
   zatcaSignedArtifactStoragePolicyApprovalRevokePath,
   zatcaSignedArtifactStoragePolicyApprovalsPath,
+  zatcaSignedArtifactStorageControlEvidencePath,
+  zatcaSignedArtifactStorageControlEvidenceRevokePath,
+  zatcaSignedArtifactStorageControlEvidenceVerifyPath,
   canEnableZatcaSdkHashMode,
   zatcaStatusLabel,
 } from "@/lib/zatca";
@@ -56,6 +59,9 @@ import type {
   ZatcaSignedArtifactStoragePolicyApproval,
   ZatcaSignedArtifactStoragePolicyApprovalListResponse,
   ZatcaSignedArtifactStoragePolicyApprovalResponse,
+  ZatcaSignedArtifactStorageControlEvidence,
+  ZatcaSignedArtifactStorageControlEvidenceListResponse,
+  ZatcaSignedArtifactStorageControlEvidenceResponse,
   ZatcaSubmissionLog,
   ZatcaXmlFieldMappingResponse,
 } from "@/lib/types";
@@ -103,6 +109,7 @@ export default function ZatcaSettingsPage() {
   const [hashResetPlan, setHashResetPlan] = useState<ZatcaHashChainResetPlan | null>(null);
   const [immutablePolicyPlan, setImmutablePolicyPlan] = useState<ZatcaSignedArtifactImmutablePolicyPlanResponse | null>(null);
   const [policyApprovals, setPolicyApprovals] = useState<ZatcaSignedArtifactStoragePolicyApproval[]>([]);
+  const [storageControlEvidence, setStorageControlEvidence] = useState<ZatcaSignedArtifactStorageControlEvidence[]>([]);
   const [form, setForm] = useState<ZatcaProfileForm | null>(null);
   const [egsUnits, setEgsUnits] = useState<ZatcaEgsUnit[]>([]);
   const [submissionLogs, setSubmissionLogs] = useState<ZatcaSubmissionLog[]>([]);
@@ -140,6 +147,7 @@ export default function ZatcaSettingsPage() {
         const loadedHashResetPlan = canManageZatca ? await apiRequest<ZatcaHashChainResetPlan>(zatcaHashChainResetPlanPath()).catch(() => null) : null;
         const loadedImmutablePolicyPlan = await apiRequest<ZatcaSignedArtifactImmutablePolicyPlanResponse>(zatcaSignedArtifactImmutablePolicyPlanPath()).catch(() => null);
         const loadedPolicyApprovals = await apiRequest<ZatcaSignedArtifactStoragePolicyApprovalListResponse>(zatcaSignedArtifactStoragePolicyApprovalsPath()).catch(() => null);
+        const loadedStorageControlEvidence = await apiRequest<ZatcaSignedArtifactStorageControlEvidenceListResponse>(zatcaSignedArtifactStorageControlEvidencePath()).catch(() => null);
         if (!cancelled) {
           setProfile(loadedProfile);
           setAdapterConfig(loadedAdapterConfig);
@@ -150,6 +158,7 @@ export default function ZatcaSettingsPage() {
           setHashResetPlan(loadedHashResetPlan);
           setImmutablePolicyPlan(loadedImmutablePolicyPlan);
           setPolicyApprovals(loadedPolicyApprovals?.policyApprovals ?? []);
+          setStorageControlEvidence(loadedStorageControlEvidence?.controlEvidence ?? []);
           setForm(profileToForm(loadedProfile));
         }
 
@@ -448,12 +457,14 @@ export default function ZatcaSettingsPage() {
   }
 
   async function refreshImmutablePolicyApprovalState() {
-    const [updatedPlan, updatedApprovals] = await Promise.all([
+    const [updatedPlan, updatedApprovals, updatedEvidence] = await Promise.all([
       apiRequest<ZatcaSignedArtifactImmutablePolicyPlanResponse>(zatcaSignedArtifactImmutablePolicyPlanPath()).catch(() => null),
       apiRequest<ZatcaSignedArtifactStoragePolicyApprovalListResponse>(zatcaSignedArtifactStoragePolicyApprovalsPath()).catch(() => null),
+      apiRequest<ZatcaSignedArtifactStorageControlEvidenceListResponse>(zatcaSignedArtifactStorageControlEvidencePath()).catch(() => null),
     ]);
     setImmutablePolicyPlan(updatedPlan);
     setPolicyApprovals(updatedApprovals?.policyApprovals ?? []);
+    setStorageControlEvidence(updatedEvidence?.controlEvidence ?? []);
   }
 
   async function createImmutablePolicyApprovalDraft() {
@@ -497,6 +508,69 @@ export default function ZatcaSettingsPage() {
     }
   }
 
+  async function createStorageControlEvidenceDraft() {
+    setActionLoading("storage-control-evidence-draft");
+    setError("");
+    setSuccess("");
+
+    try {
+      const created = await apiRequest<ZatcaSignedArtifactStorageControlEvidenceResponse>(zatcaSignedArtifactStorageControlEvidencePath(), {
+        method: "POST",
+        body: {
+          evidenceType: "STORAGE_PROBE",
+          provider: "s3-compatible",
+          bucketNameRedacted: "ledgerbyte-test-[redacted]",
+          evidenceSummaryJson: { probeRan: true, testObjectOnly: true, noInvoiceData: true },
+          note: "Metadata-only storage probe evidence draft. No invoice data, signed XML body, or QR payload body is stored.",
+        },
+      });
+      await refreshImmutablePolicyApprovalState();
+      setSuccess(`Storage control evidence draft ${created.controlEvidence.evidenceHash?.slice(0, 12) ?? created.controlEvidence.id} created. Body persistence remains blocked.`);
+    } catch (evidenceError) {
+      setError(evidenceError instanceof Error ? evidenceError.message : "Unable to create storage control evidence draft.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
+  async function verifyStorageControlEvidence(evidence: ZatcaSignedArtifactStorageControlEvidence) {
+    setActionLoading(`storage-control-evidence-verify-${evidence.id}`);
+    setError("");
+    setSuccess("");
+
+    try {
+      await apiRequest<ZatcaSignedArtifactStorageControlEvidenceResponse>(zatcaSignedArtifactStorageControlEvidenceVerifyPath(evidence.id), {
+        method: "POST",
+        body: { note: "Operator verified metadata-only storage control evidence. Body persistence remains blocked." },
+      });
+      await refreshImmutablePolicyApprovalState();
+      setSuccess("Storage control evidence verified. Signed XML and QR body persistence remain blocked.");
+    } catch (evidenceError) {
+      setError(evidenceError instanceof Error ? evidenceError.message : "Unable to verify storage control evidence.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
+  async function revokeStorageControlEvidence(evidence: ZatcaSignedArtifactStorageControlEvidence) {
+    setActionLoading(`storage-control-evidence-revoke-${evidence.id}`);
+    setError("");
+    setSuccess("");
+
+    try {
+      await apiRequest<ZatcaSignedArtifactStorageControlEvidenceResponse>(zatcaSignedArtifactStorageControlEvidenceRevokePath(evidence.id), {
+        method: "POST",
+        body: { note: "Operator revoked metadata-only storage control evidence." },
+      });
+      await refreshImmutablePolicyApprovalState();
+      setSuccess("Storage control evidence revoked. Body persistence remains blocked.");
+    } catch (evidenceError) {
+      setError(evidenceError instanceof Error ? evidenceError.message : "Unable to revoke storage control evidence.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
   function updateProfileField<K extends keyof ZatcaProfileForm>(field: K, value: ZatcaProfileForm[K]) {
     setForm((current) => (current ? { ...current, [field]: value } : current));
   }
@@ -513,6 +587,7 @@ export default function ZatcaSettingsPage() {
 
   const missingProfileFields = profile?.readiness?.missingFields ?? (profile ? getZatcaProfileMissingFields(profile) : []);
   const latestPolicyApproval = policyApprovals[0] ?? immutablePolicyPlan?.latestApproval ?? null;
+  const latestStorageControlEvidence = storageControlEvidence[0] ?? null;
 
   return (
     <section>
@@ -693,6 +768,65 @@ export default function ZatcaSettingsPage() {
                   <div className="mt-1">Signed XML body persistence: {latestPolicyApproval.signedXmlBodyPersistenceAllowed ? "Allowed" : "Blocked"}. QR payload body persistence: {latestPolicyApproval.qrPayloadBodyPersistenceAllowed ? "Allowed" : "Blocked"}.</div>
                 </div>
               ) : null}
+
+              <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-ink">Storage technical control evidence</h3>
+                    <p className="mt-1 text-xs text-steel">
+                      Metadata-only evidence for versioning, immutable retention, encryption, access control, backup/restore, restore tests, tenant key scoping, deletion/supersession, and storage probes.
+                    </p>
+                  </div>
+                  <span className="rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rosewood">
+                    {immutablePolicyPlan.objectStorageTechnicalControlsStatus}
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-1 gap-3 text-xs md:grid-cols-3">
+                  <AdapterSummary label="Verified evidence" value={`${immutablePolicyPlan.verifiedEvidenceTypes.length}`} />
+                  <AdapterSummary label="Missing evidence" value={`${immutablePolicyPlan.missingEvidenceTypes.length}`} />
+                  <AdapterSummary label="Latest evidence" value={latestStorageControlEvidence ? `${latestStorageControlEvidence.evidenceType} / ${latestStorageControlEvidence.status}` : "NONE"} />
+                </div>
+                {immutablePolicyPlan.missingEvidenceTypes.length > 0 ? (
+                  <p className="mt-3 text-xs text-amber-700">Missing or unverified evidence: {immutablePolicyPlan.missingEvidenceTypes.join(", ")}.</p>
+                ) : null}
+                {storageControlEvidence.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    {storageControlEvidence.slice(0, 4).map((evidence) => (
+                      <div key={evidence.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white p-2 text-xs">
+                        <div>
+                          <div className="font-medium text-ink">{evidence.evidenceType}</div>
+                          <div className="text-steel">{evidence.status} - hash {evidence.evidenceHash?.slice(0, 12) ?? "not set"} - body persistence blocked</div>
+                        </div>
+                        {canManageZatca ? (
+                          <div className="flex flex-wrap gap-2">
+                            {evidence.status === "DRAFT" ? (
+                              <button type="button" onClick={() => void verifyStorageControlEvidence(evidence)} disabled={actionLoading === `storage-control-evidence-verify-${evidence.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100">
+                                {actionLoading === `storage-control-evidence-verify-${evidence.id}` ? "Verifying..." : "Verify"}
+                              </button>
+                            ) : null}
+                            {evidence.status !== "REVOKED" ? (
+                              <button type="button" onClick={() => void revokeStorageControlEvidence(evidence)} disabled={actionLoading === `storage-control-evidence-revoke-${evidence.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100">
+                                {actionLoading === `storage-control-evidence-revoke-${evidence.id}` ? "Revoking..." : "Revoke"}
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {canManageZatca ? (
+                  <button
+                    type="button"
+                    onClick={() => void createStorageControlEvidenceDraft()}
+                    disabled={actionLoading === "storage-control-evidence-draft"}
+                    className="mt-3 rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-white disabled:cursor-not-allowed disabled:bg-slate-100"
+                  >
+                    {actionLoading === "storage-control-evidence-draft" ? "Creating..." : "Create storage probe evidence draft"}
+                  </button>
+                ) : null}
+                <p className="mt-3 text-xs text-amber-700">Evidence records are metadata only. They do not store signed XML bodies, QR payload bodies, secrets, credentials, CSIDs, OTPs, certificates, or production compliance claims.</p>
+              </div>
 
               {immutablePolicyPlan.approvalBlockedReasons.length > 0 ? (
                 <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-steel">

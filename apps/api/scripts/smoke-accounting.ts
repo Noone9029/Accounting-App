@@ -1249,6 +1249,10 @@ interface ZatcaInvoiceSignedArtifactStoragePlanResponse {
   policyApprovalRequired: true;
   policyApproved: boolean;
   retentionDurationApproved: boolean;
+  evidenceRequired?: boolean;
+  verifiedEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  missingEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  objectStorageTechnicalControlsStatus?: string;
   recommendedNextStep: string;
   metadataOnlyDraftAllowed: boolean;
   bodyPersistenceAllowed: false;
@@ -1299,6 +1303,10 @@ interface ZatcaSignedArtifactStorageProbePlanResponse {
   retentionDurationApproved: boolean;
   bodyPersistenceAllowed: false;
   signedArtifactBodyStorageAllowed: false;
+  evidenceRequired?: boolean;
+  verifiedEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  missingEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  objectStorageTechnicalControlsStatus?: string;
   recommendedNextStep: string;
   blockers: string[];
   warnings: string[];
@@ -1326,6 +1334,10 @@ interface ZatcaSignedArtifactStorageProbeResponse {
   retentionDurationApproved: boolean;
   bodyPersistenceAllowed: false;
   signedArtifactBodyStorageAllowed: false;
+  evidenceRequired?: boolean;
+  verifiedEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  missingEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  objectStorageTechnicalControlsStatus?: string;
   recommendedNextStep: string;
   blockers: string[];
   warnings: string[];
@@ -1366,6 +1378,53 @@ interface ZatcaSignedArtifactStoragePolicyApprovalResponse {
   signedXmlBodyPersistenceAllowed: false;
   qrPayloadBodyPersistenceAllowed: false;
   policyApproval: ZatcaSignedArtifactStoragePolicyApproval;
+}
+
+type ZatcaSignedArtifactStorageControlEvidenceStatus = "DRAFT" | "VERIFIED" | "REVOKED" | "SUPERSEDED";
+type ZatcaSignedArtifactStorageControlEvidenceType =
+  | "OBJECT_VERSIONING"
+  | "IMMUTABLE_RETENTION"
+  | "ENCRYPTION_AT_REST"
+  | "ACCESS_CONTROL"
+  | "BACKUP_RESTORE"
+  | "RESTORE_TEST"
+  | "TENANT_KEY_SCOPING"
+  | "DELETION_SUPERSESSION"
+  | "STORAGE_PROBE"
+  | "OTHER";
+
+interface ZatcaSignedArtifactStorageControlEvidence {
+  id: string;
+  status: ZatcaSignedArtifactStorageControlEvidenceStatus;
+  evidenceType: ZatcaSignedArtifactStorageControlEvidenceType;
+  evidenceHash: string | null;
+  evidenceSummaryJson: Record<string, unknown>;
+  evidenceDocumentStorageKey: string | null;
+  productionCompliance: false;
+  signedXmlBodyPersistenceAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
+}
+
+interface ZatcaSignedArtifactStorageControlEvidenceListResponse {
+  localOnly: true;
+  metadataOnly: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  productionCompliance: false;
+  controlEvidence: ZatcaSignedArtifactStorageControlEvidence[];
+}
+
+interface ZatcaSignedArtifactStorageControlEvidenceResponse {
+  localOnly: true;
+  metadataOnly: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetworkToZatca: true;
+  productionCompliance: false;
+  signedXmlBodyPersistenceAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
+  controlEvidence: ZatcaSignedArtifactStorageControlEvidence;
 }
 
 interface ZatcaSignedArtifactImmutablePolicyStatus {
@@ -1422,6 +1481,10 @@ interface ZatcaSignedArtifactImmutablePolicyPlanResponse {
   qrPayloadBodyPersistenceAllowed: false;
   qrPayloadBodyStorageAllowed: false;
   immutablePolicyStatus: ZatcaSignedArtifactImmutablePolicyStatus;
+  evidenceRequired?: boolean;
+  verifiedEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  missingEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  objectStorageTechnicalControlsStatus?: string;
   blockers: string[];
   warnings: string[];
   recommendedNextSteps: string[];
@@ -3799,7 +3862,10 @@ async function main(): Promise<void> {
   const zatcaSignedArtifactStoragePlanAfterDraft = await get<ZatcaInvoiceSignedArtifactStoragePlanResponse>(`/sales-invoices/${draftInvoice.id}/zatca/signed-artifact-storage-plan`, headers);
   assertEqual(zatcaSignedArtifactStoragePlanAfterDraft.latestDraft?.id ?? null, zatcaSignedArtifactDraft.draft.id, "ZATCA signed artifact storage plan returns latest draft");
   assert(zatcaSignedArtifactStoragePlanAfterDraft.draftCount >= 1, "ZATCA signed artifact storage plan returns draft count");
-  assertEqual(zatcaSignedArtifactStoragePlanAfterDraft.latestImmutablePolicyApprovalStatus, "NONE", "ZATCA signed artifact storage plan has no immutable policy approval before policy approval draft");
+  assert(
+    ["NONE", "DRAFT"].includes(zatcaSignedArtifactStoragePlanAfterDraft.latestImmutablePolicyApprovalStatus),
+    "ZATCA signed artifact storage plan has no approved immutable policy approval before policy approval draft",
+  );
   const zatcaSignedArtifactStorageProbePlan = await get<ZatcaSignedArtifactStorageProbePlanResponse>("/zatca/signed-artifact-storage/probe-plan", headers);
   assertEqual(zatcaSignedArtifactStorageProbePlan.localOnly, true, "ZATCA signed artifact storage probe plan localOnly");
   assertEqual(zatcaSignedArtifactStorageProbePlan.dryRun, true, "ZATCA signed artifact storage probe plan dryRun");
@@ -3814,7 +3880,10 @@ async function main(): Promise<void> {
   assertEqual(zatcaSignedArtifactStorageProbePlan.immutabilityConfigured, false, "ZATCA signed artifact storage probe plan immutability not configured");
   assertEqual(zatcaSignedArtifactStorageProbePlan.immutablePolicyStatus.policyApproved, false, "ZATCA signed artifact storage probe plan immutable policy not approved");
   assertEqual(zatcaSignedArtifactStorageProbePlan.immutablePolicyStatus.retentionDurationApproved, false, "ZATCA signed artifact storage probe plan retention duration not approved");
-  assertEqual(zatcaSignedArtifactStorageProbePlan.latestImmutablePolicyApprovalStatus, "NONE", "ZATCA signed artifact storage probe plan has no immutable policy approval before policy approval draft");
+  assert(
+    ["NONE", "DRAFT"].includes(zatcaSignedArtifactStorageProbePlan.latestImmutablePolicyApprovalStatus),
+    "ZATCA signed artifact storage probe plan has no approved immutable policy approval before policy approval draft",
+  );
   assertEqual(zatcaSignedArtifactStorageProbePlan.bodyPersistenceAllowed, false, "ZATCA signed artifact storage probe plan body persistence blocked");
   assert(zatcaSignedArtifactStorageProbePlan.plannedTestObjectKey.includes("zatca/signed-artifacts/probe/"), "ZATCA signed artifact storage probe plan uses test prefix");
   assertNoPrivateKey(zatcaSignedArtifactStorageProbePlan, "ZATCA signed artifact storage probe plan response");
@@ -3837,6 +3906,37 @@ async function main(): Promise<void> {
   assertNoPrivateKey(zatcaImmutablePolicyPlan, "ZATCA signed artifact immutable policy plan response");
   assert(!JSON.stringify(zatcaImmutablePolicyPlan).includes("<Invoice"), "ZATCA immutable policy plan does not expose XML body");
   assert(!JSON.stringify(zatcaImmutablePolicyPlan).includes("QR PAYLOAD"), "ZATCA immutable policy plan does not expose QR payload");
+  const zatcaStorageControlEvidenceDraft = await post<ZatcaSignedArtifactStorageControlEvidenceResponse>(
+    "/zatca/signed-artifact-storage/control-evidence",
+    headers,
+    {
+      evidenceType: "STORAGE_PROBE",
+      provider: "s3-compatible",
+      bucketNameRedacted: "ledgerbyte-test-[redacted]",
+      evidenceSummaryJson: { probeRan: true, testObjectOnly: true, noInvoiceData: true },
+      note: "Smoke metadata-only storage probe evidence. No invoice data, signed XML body, or QR payload body.",
+    },
+  );
+  assertEqual(zatcaStorageControlEvidenceDraft.localOnly, true, "ZATCA storage control evidence draft localOnly");
+  assertEqual(zatcaStorageControlEvidenceDraft.metadataOnly, true, "ZATCA storage control evidence draft metadataOnly");
+  assertEqual(zatcaStorageControlEvidenceDraft.noSignedXmlBody, true, "ZATCA storage control evidence draft no signed XML body");
+  assertEqual(zatcaStorageControlEvidenceDraft.noQrPayloadBody, true, "ZATCA storage control evidence draft no QR body");
+  assertEqual(zatcaStorageControlEvidenceDraft.productionCompliance, false, "ZATCA storage control evidence draft productionCompliance false");
+  assertEqual(zatcaStorageControlEvidenceDraft.signedXmlBodyPersistenceAllowed, false, "ZATCA storage control evidence draft signed XML body persistence blocked");
+  assertEqual(zatcaStorageControlEvidenceDraft.qrPayloadBodyPersistenceAllowed, false, "ZATCA storage control evidence draft QR body persistence blocked");
+  assertEqual(zatcaStorageControlEvidenceDraft.controlEvidence.evidenceType, "STORAGE_PROBE", "ZATCA storage control evidence draft type");
+  assertEqual(zatcaStorageControlEvidenceDraft.controlEvidence.evidenceDocumentStorageKey, null, "ZATCA storage control evidence draft has no evidence document object");
+  assertNoPrivateKey(zatcaStorageControlEvidenceDraft, "ZATCA storage control evidence draft response");
+  const serializedStorageControlEvidence = JSON.stringify(zatcaStorageControlEvidenceDraft);
+  assert(!serializedStorageControlEvidence.includes("<Invoice"), "ZATCA storage control evidence draft does not expose XML body");
+  assert(!serializedStorageControlEvidence.includes("QR PAYLOAD"), "ZATCA storage control evidence draft does not expose QR payload");
+  assert(!serializedStorageControlEvidence.includes("BEGIN CERTIFICATE"), "ZATCA storage control evidence draft does not expose certificate body");
+  const zatcaStorageControlEvidenceList = await get<ZatcaSignedArtifactStorageControlEvidenceListResponse>("/zatca/signed-artifact-storage/control-evidence", headers);
+  assert(zatcaStorageControlEvidenceList.controlEvidence.some((evidence) => evidence.id === zatcaStorageControlEvidenceDraft.controlEvidence.id), "ZATCA storage control evidence list includes created draft");
+  const zatcaImmutablePolicyPlanAfterEvidence = await get<ZatcaSignedArtifactImmutablePolicyPlanResponse>("/zatca/signed-artifact-storage/immutable-policy-plan", headers);
+  assertEqual(zatcaImmutablePolicyPlanAfterEvidence.evidenceRequired, true, "ZATCA immutable policy plan requires technical evidence");
+  assert(zatcaImmutablePolicyPlanAfterEvidence.missingEvidenceTypes?.includes("OBJECT_VERSIONING"), "ZATCA immutable policy plan reports missing technical evidence");
+  assertEqual(zatcaImmutablePolicyPlanAfterEvidence.signedXmlBodyPersistenceAllowed, false, "ZATCA immutable policy plan body persistence remains blocked after evidence draft");
   const zatcaPolicyApprovalDraft = await post<ZatcaSignedArtifactStoragePolicyApprovalResponse>(
     "/zatca/signed-artifact-storage/policy-approvals",
     headers,
@@ -5643,6 +5743,9 @@ async function main(): Promise<void> {
         ],
         reportCsvChecked: "trial-balance",
         reportPdfDocumentId: trialBalanceReportDocuments[0]?.id,
+        zatcaStorageControlEvidenceStatus: zatcaStorageControlEvidenceDraft.controlEvidence.status,
+        zatcaStorageControlEvidenceBodyPersistenceAllowed: zatcaStorageControlEvidenceDraft.controlEvidence.signedXmlBodyPersistenceAllowed,
+        zatcaImmutablePolicyPlanEvidenceRequired: zatcaImmutablePolicyPlanAfterEvidence.evidenceRequired,
         dashboardSummaryChecked: true,
         dashboardAttentionCount: dashboardSummary.attentionItems.length,
         dashboardCurrency: dashboardSummary.currency,

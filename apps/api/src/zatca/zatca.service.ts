@@ -37,6 +37,8 @@ import {
   ZatcaSignedArtifactDraftSource,
   ZatcaSignedArtifactDraftStatus,
   ZatcaSignedArtifactStoragePolicyApprovalStatus,
+  ZatcaSignedArtifactStorageControlEvidenceStatus,
+  ZatcaSignedArtifactStorageControlEvidenceType,
   ZatcaSignedArtifactStoragePolicyRetentionStatus,
   ZatcaSubmissionStatus,
   ZatcaSubmissionType,
@@ -47,12 +49,15 @@ import { PrismaService } from "../prisma/prisma.service";
 import { ApproveZatcaStoragePolicyApprovalDto } from "./dto/approve-zatca-storage-policy-approval.dto";
 import { CreateZatcaEgsUnitDto } from "./dto/create-zatca-egs-unit.dto";
 import { CreateZatcaStoragePolicyApprovalDto } from "./dto/create-zatca-storage-policy-approval.dto";
+import { CreateZatcaStorageControlEvidenceDto } from "./dto/create-zatca-storage-control-evidence.dto";
 import { EnableZatcaSdkHashModeDto } from "./dto/enable-zatca-sdk-hash-mode.dto";
 import { RequestComplianceCsidDto } from "./dto/request-compliance-csid.dto";
 import { RevokeZatcaStoragePolicyApprovalDto } from "./dto/revoke-zatca-storage-policy-approval.dto";
+import { RevokeZatcaStorageControlEvidenceDto } from "./dto/revoke-zatca-storage-control-evidence.dto";
 import { UpdateZatcaCsrFieldsDto } from "./dto/update-zatca-csr-fields.dto";
 import { UpdateZatcaEgsUnitDto } from "./dto/update-zatca-egs-unit.dto";
 import { UpdateZatcaProfileDto } from "./dto/update-zatca-profile.dto";
+import { VerifyZatcaStorageControlEvidenceDto } from "./dto/verify-zatca-storage-control-evidence.dto";
 import { sanitizeZatcaSdkOutput, ZatcaSdkService } from "../zatca-sdk/zatca-sdk.service";
 import {
   buildZatcaSdkCsrCommand,
@@ -192,11 +197,40 @@ const safeSignedArtifactStoragePolicyApprovalSelect = {
   revokedBy: { select: { id: true, name: true, email: true } },
 } satisfies Prisma.ZatcaSignedArtifactStoragePolicyApprovalSelect;
 
+const safeSignedArtifactStorageControlEvidenceSelect = {
+  id: true,
+  organizationId: true,
+  policyApprovalId: true,
+  status: true,
+  evidenceType: true,
+  provider: true,
+  bucketNameRedacted: true,
+  evidenceSummaryJson: true,
+  evidenceHash: true,
+  evidenceDocumentStorageKey: true,
+  verifiedById: true,
+  verifiedAt: true,
+  revokedById: true,
+  revokedAt: true,
+  note: true,
+  productionCompliance: true,
+  signedXmlBodyPersistenceAllowed: true,
+  qrPayloadBodyPersistenceAllowed: true,
+  createdById: true,
+  createdAt: true,
+  updatedAt: true,
+  createdBy: { select: { id: true, name: true, email: true } },
+  verifiedBy: { select: { id: true, name: true, email: true } },
+  revokedBy: { select: { id: true, name: true, email: true } },
+  policyApproval: { select: { id: true, status: true, retentionDurationStatus: true, retentionDurationValue: true } },
+} satisfies Prisma.ZatcaSignedArtifactStorageControlEvidenceSelect;
+
 type SafeEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof safeEgsUnitSelect }>;
 type InternalEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof internalEgsUnitSelect }>;
 type SafeCsrConfigReviewRecord = Prisma.ZatcaCsrConfigReviewGetPayload<{ select: typeof safeCsrConfigReviewSelect }>;
 type SafeSignedArtifactDraftRecord = Prisma.ZatcaSignedArtifactDraftGetPayload<{ select: typeof safeSignedArtifactDraftSelect }>;
 type SafeSignedArtifactStoragePolicyApprovalRecord = Prisma.ZatcaSignedArtifactStoragePolicyApprovalGetPayload<{ select: typeof safeSignedArtifactStoragePolicyApprovalSelect }>;
+type SafeSignedArtifactStorageControlEvidenceRecord = Prisma.ZatcaSignedArtifactStorageControlEvidenceGetPayload<{ select: typeof safeSignedArtifactStorageControlEvidenceSelect }>;
 type ZatcaKeyCustodyMode = "MISSING" | "RAW_DATABASE_PEM";
 type ZatcaCsrPlanFieldStatus = "AVAILABLE" | "MISSING" | "NEEDS_REVIEW";
 const officialCsrConfigKeyOrder = [
@@ -222,6 +256,17 @@ const emptyZatcaSignedXmlValidationResults = {
   pih: "NOT_RUN",
   global: "NOT_RUN",
 } as const;
+const requiredSignedArtifactStorageControlEvidenceTypes = [
+  ZatcaSignedArtifactStorageControlEvidenceType.OBJECT_VERSIONING,
+  ZatcaSignedArtifactStorageControlEvidenceType.IMMUTABLE_RETENTION,
+  ZatcaSignedArtifactStorageControlEvidenceType.ENCRYPTION_AT_REST,
+  ZatcaSignedArtifactStorageControlEvidenceType.ACCESS_CONTROL,
+  ZatcaSignedArtifactStorageControlEvidenceType.BACKUP_RESTORE,
+  ZatcaSignedArtifactStorageControlEvidenceType.RESTORE_TEST,
+  ZatcaSignedArtifactStorageControlEvidenceType.TENANT_KEY_SCOPING,
+  ZatcaSignedArtifactStorageControlEvidenceType.DELETION_SUPERSESSION,
+  ZatcaSignedArtifactStorageControlEvidenceType.STORAGE_PROBE,
+] as const;
 const signedArtifactStorageProbePayload = "LedgerByte ZATCA signed artifact storage probe only. No invoice data.";
 
 interface SignedArtifactStorageProbeClient {
@@ -2154,10 +2199,202 @@ export class ZatcaService {
     return this.wrapPolicyApprovalResponse(policyApproval);
   }
 
+  async listSignedArtifactStorageControlEvidence(organizationId: string) {
+    const evidenceModel = this.getSignedArtifactStorageControlEvidenceModel();
+    const evidence = evidenceModel?.findMany
+      ? await evidenceModel.findMany({
+          where: { organizationId },
+          orderBy: { createdAt: "desc" },
+          select: safeSignedArtifactStorageControlEvidenceSelect,
+        })
+      : [];
+
+    return {
+      localOnly: true,
+      metadataOnly: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noCsidRequest: true,
+      noNetworkToZatca: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      noProductionCredentials: true,
+      productionCompliance: false,
+      controlEvidence: evidence.map((record) => this.toSafeSignedArtifactStorageControlEvidence(record)),
+    };
+  }
+
+  async createSignedArtifactStorageControlEvidence(
+    organizationId: string,
+    actorUserId: string,
+    dto: CreateZatcaStorageControlEvidenceDto,
+  ) {
+    const evidenceModel = this.requireSignedArtifactStorageControlEvidenceModel();
+    const policyApproval = dto.policyApprovalId ? await this.requireStorageControlEvidencePolicyApproval(organizationId, dto.policyApprovalId) : null;
+    const provider = this.cleanPolicyText(dto.provider, 80);
+    const bucketNameRedacted = this.cleanPolicyText(dto.bucketNameRedacted, 160);
+    const note = this.cleanPolicyText(dto.note, 500);
+    const evidenceSummaryJson = this.sanitizeStorageControlEvidenceSummary(dto.evidenceSummaryJson);
+    const blockers = this.getStorageControlEvidenceValidationBlockers(dto.evidenceType, evidenceSummaryJson, {
+      provider,
+      note,
+      policyApproval,
+    });
+    if (blockers.length > 0) {
+      throw new BadRequestException(`ZATCA storage control evidence is invalid: ${blockers.join("; ")}`);
+    }
+    const evidenceHash = createHash("sha256")
+      .update(JSON.stringify({ evidenceType: dto.evidenceType, provider, bucketNameRedacted, evidenceSummaryJson }), "utf8")
+      .digest("hex");
+
+    await evidenceModel.updateMany?.({
+      where: {
+        organizationId,
+        evidenceType: dto.evidenceType,
+        status: { in: [ZatcaSignedArtifactStorageControlEvidenceStatus.DRAFT, ZatcaSignedArtifactStorageControlEvidenceStatus.VERIFIED] },
+      },
+      data: { status: ZatcaSignedArtifactStorageControlEvidenceStatus.SUPERSEDED },
+    });
+
+    const created = await evidenceModel.create({
+      data: {
+        organizationId,
+        policyApprovalId: policyApproval?.id ?? null,
+        status: ZatcaSignedArtifactStorageControlEvidenceStatus.DRAFT,
+        evidenceType: dto.evidenceType,
+        provider,
+        bucketNameRedacted,
+        evidenceSummaryJson: evidenceSummaryJson as Prisma.InputJsonObject,
+        evidenceHash,
+        evidenceDocumentStorageKey: null,
+        productionCompliance: false,
+        signedXmlBodyPersistenceAllowed: false,
+        qrPayloadBodyPersistenceAllowed: false,
+        createdById: actorUserId,
+        note,
+      },
+      select: safeSignedArtifactStorageControlEvidenceSelect,
+    });
+    const safeEvidence = this.toSafeSignedArtifactStorageControlEvidence(created);
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "CREATE",
+      entityType: AUDIT_ENTITY_TYPES.ZATCA_STORAGE_CONTROL_EVIDENCE,
+      entityId: created.id,
+      after: safeEvidence,
+    });
+
+    return this.wrapStorageControlEvidenceResponse(safeEvidence);
+  }
+
+  async verifySignedArtifactStorageControlEvidence(
+    organizationId: string,
+    actorUserId: string,
+    evidenceId: string,
+    dto: VerifyZatcaStorageControlEvidenceDto = {},
+  ) {
+    const evidenceModel = this.requireSignedArtifactStorageControlEvidenceModel();
+    const existing = await evidenceModel.findFirst({
+      where: { id: evidenceId, organizationId },
+      select: safeSignedArtifactStorageControlEvidenceSelect,
+    });
+    if (!existing) {
+      throw new NotFoundException("ZATCA storage control evidence record not found.");
+    }
+    if (existing.status !== ZatcaSignedArtifactStorageControlEvidenceStatus.DRAFT) {
+      throw new BadRequestException("Only DRAFT storage control evidence records can be verified.");
+    }
+    const evidenceSummaryJson = this.sanitizeStorageControlEvidenceSummary(existing.evidenceSummaryJson as Record<string, unknown>);
+    const blockers = this.getStorageControlEvidenceValidationBlockers(existing.evidenceType, evidenceSummaryJson, {
+      provider: existing.provider,
+      note: this.cleanPolicyText(dto.note, 500) ?? existing.note,
+      policyApproval: existing.policyApproval,
+    });
+    if (blockers.length > 0) {
+      throw new BadRequestException(`ZATCA storage control evidence verification is blocked: ${blockers.join("; ")}`);
+    }
+
+    const verified = await evidenceModel.update({
+      where: { id: evidenceId },
+      data: {
+        status: ZatcaSignedArtifactStorageControlEvidenceStatus.VERIFIED,
+        verifiedById: actorUserId,
+        verifiedAt: new Date(),
+        note: this.cleanPolicyText(dto.note, 500) ?? existing.note,
+        productionCompliance: false,
+        signedXmlBodyPersistenceAllowed: false,
+        qrPayloadBodyPersistenceAllowed: false,
+      },
+      select: safeSignedArtifactStorageControlEvidenceSelect,
+    });
+    const safeEvidence = this.toSafeSignedArtifactStorageControlEvidence(verified);
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "VERIFY",
+      entityType: AUDIT_ENTITY_TYPES.ZATCA_STORAGE_CONTROL_EVIDENCE,
+      entityId: verified.id,
+      before: this.toSafeSignedArtifactStorageControlEvidence(existing),
+      after: safeEvidence,
+    });
+
+    return this.wrapStorageControlEvidenceResponse(safeEvidence);
+  }
+
+  async revokeSignedArtifactStorageControlEvidence(
+    organizationId: string,
+    actorUserId: string,
+    evidenceId: string,
+    dto: RevokeZatcaStorageControlEvidenceDto = {},
+  ) {
+    const evidenceModel = this.requireSignedArtifactStorageControlEvidenceModel();
+    const existing = await evidenceModel.findFirst({
+      where: { id: evidenceId, organizationId },
+      select: safeSignedArtifactStorageControlEvidenceSelect,
+    });
+    if (!existing) {
+      throw new NotFoundException("ZATCA storage control evidence record not found.");
+    }
+    if (existing.status === ZatcaSignedArtifactStorageControlEvidenceStatus.REVOKED) {
+      throw new BadRequestException("Storage control evidence record is already revoked.");
+    }
+
+    const revoked = await evidenceModel.update({
+      where: { id: evidenceId },
+      data: {
+        status: ZatcaSignedArtifactStorageControlEvidenceStatus.REVOKED,
+        revokedById: actorUserId,
+        revokedAt: new Date(),
+        note: this.cleanPolicyText(dto.note, 500) ?? existing.note,
+        productionCompliance: false,
+        signedXmlBodyPersistenceAllowed: false,
+        qrPayloadBodyPersistenceAllowed: false,
+      },
+      select: safeSignedArtifactStorageControlEvidenceSelect,
+    });
+    const safeEvidence = this.toSafeSignedArtifactStorageControlEvidence(revoked);
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "REVOKE",
+      entityType: AUDIT_ENTITY_TYPES.ZATCA_STORAGE_CONTROL_EVIDENCE,
+      entityId: revoked.id,
+      before: this.toSafeSignedArtifactStorageControlEvidence(existing),
+      after: safeEvidence,
+    });
+
+    return this.wrapStorageControlEvidenceResponse(safeEvidence);
+  }
+
   async getSignedArtifactStorageProbePlan(organizationId: string) {
     const latestApproval = await this.getLatestSignedArtifactStoragePolicyApprovalOrNull(organizationId);
     const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus(latestApproval);
     const objectStorageCapability = this.buildSignedArtifactObjectStorageCapability(immutablePolicyStatus);
+    const evidenceState = await this.buildSignedArtifactStorageControlEvidenceState(organizationId);
     const testPrefix = this.buildSignedArtifactStorageProbePrefix(organizationId);
     return {
       localOnly: true,
@@ -2187,13 +2424,20 @@ export class ZatcaService {
       retentionDurationApproved: immutablePolicyStatus.retentionDurationApproved,
       bodyPersistenceAllowed: false,
       signedArtifactBodyStorageAllowed: false,
-      recommendedNextStep: "Approve immutable storage policy before signed artifact body persistence.",
+      evidenceRequired: evidenceState.evidenceRequired,
+      evidenceSummary: evidenceState.evidenceSummary,
+      verifiedEvidenceTypes: evidenceState.verifiedEvidenceTypes,
+      missingEvidenceTypes: evidenceState.missingEvidenceTypes,
+      latestEvidenceByType: evidenceState.latestEvidenceByType,
+      objectStorageTechnicalControlsStatus: evidenceState.objectStorageTechnicalControlsStatus,
+      recommendedNextStep: "Capture and verify technical control evidence before any signed XML/QR body persistence.",
       blockers: [
         ...objectStorageCapability.missingSettings.map((setting) => `Object storage setting missing: ${setting}.`),
         "Signed XML body persistence remains blocked.",
         "QR payload body persistence remains blocked.",
         "Retention and immutability controls are not implemented.",
         "Immutable signed artifact storage policy is not approved.",
+        ...evidenceState.missingEvidenceTypes.map((evidenceType) => `Technical control evidence missing or unverified: ${evidenceType}.`),
       ],
       warnings: [
         "Probe plan only. No object is uploaded, read, or deleted by this endpoint.",
@@ -2207,6 +2451,7 @@ export class ZatcaService {
   async getSignedArtifactImmutableStoragePolicyPlan(organizationId: string) {
     const latestApproval = await this.getLatestSignedArtifactStoragePolicyApprovalOrNull(organizationId);
     const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus(latestApproval);
+    const evidenceState = await this.buildSignedArtifactStorageControlEvidenceState(organizationId);
     const approvalBlockedReasons = this.getImmutablePolicyPlanApprovalBlockedReasons(latestApproval);
     return {
       localOnly: true,
@@ -2240,6 +2485,12 @@ export class ZatcaService {
       qrPayloadBodyPersistenceAllowed: false,
       qrPayloadBodyStorageAllowed: false,
       immutablePolicyStatus,
+      evidenceRequired: evidenceState.evidenceRequired,
+      evidenceSummary: evidenceState.evidenceSummary,
+      verifiedEvidenceTypes: evidenceState.verifiedEvidenceTypes,
+      missingEvidenceTypes: evidenceState.missingEvidenceTypes,
+      latestEvidenceByType: evidenceState.latestEvidenceByType,
+      objectStorageTechnicalControlsStatus: evidenceState.objectStorageTechnicalControlsStatus,
       blockers: [
         "Immutable signed artifact storage policy is not approved.",
         "Retention duration requires legal/accounting review; no retention duration is guessed.",
@@ -2252,6 +2503,7 @@ export class ZatcaService {
         "Encryption-at-rest review is missing.",
         "Signed XML body persistence remains blocked.",
         "QR payload body persistence remains blocked.",
+        ...evidenceState.missingEvidenceTypes.map((evidenceType) => `Technical control evidence missing or unverified: ${evidenceType}.`),
       ],
       warnings: [
         "Policy plan only. No storage adapter, SDK, ZATCA network, CSID, clearance/reporting, PDF/A-3, or object upload is used.",
@@ -2259,6 +2511,7 @@ export class ZatcaService {
         "Signed XML and QR payloads are future artifacts only until real certificate/key custody, immutable storage approval, and submission boundaries are designed.",
       ],
       recommendedNextSteps: [
+        "Capture and verify technical control evidence before any signed XML/QR body persistence.",
         "Approve immutable storage policy before signed artifact body persistence.",
         "Obtain legal/accounting retention guidance instead of guessing a retention duration.",
         "Confirm object versioning, immutable retention/legal hold, encryption-at-rest, access control, restore testing, and append-only supersession behavior.",
@@ -2273,6 +2526,7 @@ export class ZatcaService {
     const latestApproval = await this.getLatestSignedArtifactStoragePolicyApprovalOrNull(organizationId);
     const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus(latestApproval);
     const objectStorageCapability = this.buildSignedArtifactObjectStorageCapability(immutablePolicyStatus);
+    const evidenceState = await this.buildSignedArtifactStorageControlEvidenceState(organizationId);
     const executionEnabled = this.isSignedArtifactStorageProbeEnabled();
     const testObjectKey = this.buildSignedArtifactStorageProbeKey(organizationId, options.now ?? new Date());
     const base = {
@@ -2297,7 +2551,13 @@ export class ZatcaService {
       retentionDurationApproved: immutablePolicyStatus.retentionDurationApproved,
       bodyPersistenceAllowed: false,
       signedArtifactBodyStorageAllowed: false,
-      recommendedNextStep: "Approve immutable storage policy before signed artifact body persistence.",
+      evidenceRequired: evidenceState.evidenceRequired,
+      evidenceSummary: evidenceState.evidenceSummary,
+      verifiedEvidenceTypes: evidenceState.verifiedEvidenceTypes,
+      missingEvidenceTypes: evidenceState.missingEvidenceTypes,
+      latestEvidenceByType: evidenceState.latestEvidenceByType,
+      objectStorageTechnicalControlsStatus: evidenceState.objectStorageTechnicalControlsStatus,
+      recommendedNextStep: "Capture and verify technical control evidence before any signed XML/QR body persistence.",
     };
 
     if (!executionEnabled) {
@@ -2443,6 +2703,7 @@ export class ZatcaService {
     const storageReadiness = this.buildSignedArtifactStorageReadinessSection(metadata);
     const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus(latestPolicyApproval);
     const objectStorageCapability = this.buildSignedArtifactObjectStorageCapability(immutablePolicyStatus);
+    const evidenceState = await this.buildSignedArtifactStorageControlEvidenceState(organizationId);
     const metadataOnlyDraftAllowed = Boolean(metadata?.xmlBase64 && metadata.invoiceHash);
 
     return {
@@ -2469,7 +2730,13 @@ export class ZatcaService {
       policyApprovalRequired: true,
       policyApproved: immutablePolicyStatus.policyApproved,
       retentionDurationApproved: immutablePolicyStatus.retentionDurationApproved,
-      recommendedNextStep: "Approve immutable storage policy before signed artifact body persistence.",
+      evidenceRequired: evidenceState.evidenceRequired,
+      evidenceSummary: evidenceState.evidenceSummary,
+      verifiedEvidenceTypes: evidenceState.verifiedEvidenceTypes,
+      missingEvidenceTypes: evidenceState.missingEvidenceTypes,
+      latestEvidenceByType: evidenceState.latestEvidenceByType,
+      objectStorageTechnicalControlsStatus: evidenceState.objectStorageTechnicalControlsStatus,
+      recommendedNextStep: "Capture and verify technical control evidence before any signed XML/QR body persistence.",
       metadataOnlyDraftAllowed,
       bodyPersistenceAllowed: false,
       signedXmlStorageKey: null,
@@ -2565,6 +2832,7 @@ export class ZatcaService {
         "QR payload persistence is intentionally blocked in this task.",
         "Clearance/reporting linkage is not implemented; future API payloads need uuid, invoiceHash, and base64 signed invoice design.",
         "Production certificate/CSID and production key custody are not configured for signed artifact storage.",
+        ...evidenceState.missingEvidenceTypes.map((evidenceType) => `Technical control evidence missing or unverified: ${evidenceType}.`),
       ],
       warnings: [
         "This is metadata-only storage planning. It writes no signed XML, QR payload, metadata record, submission log, or object storage object.",
@@ -4938,6 +5206,251 @@ export class ZatcaService {
     };
   }
 
+  private toSafeSignedArtifactStorageControlEvidence(record: SafeSignedArtifactStorageControlEvidenceRecord) {
+    return {
+      id: record.id,
+      organizationId: record.organizationId,
+      policyApprovalId: record.policyApprovalId,
+      status: record.status,
+      evidenceType: record.evidenceType,
+      provider: record.provider,
+      bucketNameRedacted: record.bucketNameRedacted,
+      evidenceSummaryJson: record.evidenceSummaryJson,
+      evidenceHash: record.evidenceHash,
+      evidenceDocumentStorageKey: record.evidenceDocumentStorageKey,
+      verifiedById: record.verifiedById,
+      verifiedAt: record.verifiedAt,
+      revokedById: record.revokedById,
+      revokedAt: record.revokedAt,
+      createdById: record.createdById,
+      note: record.note,
+      productionCompliance: false,
+      signedXmlBodyPersistenceAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      createdBy: record.createdBy,
+      verifiedBy: record.verifiedBy,
+      revokedBy: record.revokedBy,
+      policyApproval: record.policyApproval,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+    };
+  }
+
+  private wrapStorageControlEvidenceResponse(controlEvidence: Record<string, unknown>) {
+    return {
+      localOnly: true,
+      metadataOnly: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noCsidRequest: true,
+      noNetworkToZatca: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      noProductionCredentials: true,
+      productionCompliance: false,
+      bodyPersistenceAllowed: false,
+      signedXmlBodyPersistenceAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
+      controlEvidence,
+      warnings: [
+        "Storage control evidence is metadata only.",
+        "Signed XML and QR payload body persistence remain blocked in this phase.",
+        "This does not call the SDK, upload objects, request CSIDs, call ZATCA, submit invoices, clear/report, embed PDF/A-3, or prove production compliance.",
+      ],
+    };
+  }
+
+  private async buildSignedArtifactStorageControlEvidenceState(organizationId: string) {
+    const evidenceModel = this.getSignedArtifactStorageControlEvidenceModel();
+    const records = evidenceModel?.findMany
+      ? await evidenceModel.findMany({
+          where: {
+            organizationId,
+            status: { in: [ZatcaSignedArtifactStorageControlEvidenceStatus.DRAFT, ZatcaSignedArtifactStorageControlEvidenceStatus.VERIFIED] },
+          },
+          orderBy: { createdAt: "desc" },
+          select: safeSignedArtifactStorageControlEvidenceSelect,
+        })
+      : [];
+    const safeRecords = records.map((record) => this.toSafeSignedArtifactStorageControlEvidence(record));
+    const latestEvidenceByType: Record<
+      string,
+      { id: string; status: ZatcaSignedArtifactStorageControlEvidenceStatus; evidenceType: ZatcaSignedArtifactStorageControlEvidenceType } & Record<string, unknown>
+    > = {};
+    for (const record of safeRecords) {
+      if (!latestEvidenceByType[record.evidenceType]) {
+        latestEvidenceByType[record.evidenceType] = record;
+      }
+    }
+    const verifiedEvidenceTypes = requiredSignedArtifactStorageControlEvidenceTypes.filter(
+      (evidenceType) => latestEvidenceByType[evidenceType]?.status === ZatcaSignedArtifactStorageControlEvidenceStatus.VERIFIED,
+    );
+    const missingEvidenceTypes = requiredSignedArtifactStorageControlEvidenceTypes.filter(
+      (evidenceType) => !verifiedEvidenceTypes.includes(evidenceType),
+    );
+    return {
+      evidenceRequired: true,
+      evidenceSummary: requiredSignedArtifactStorageControlEvidenceTypes.map((evidenceType) => ({
+        evidenceType,
+        latestStatus: latestEvidenceByType[evidenceType]?.status ?? "MISSING",
+        latestEvidenceId: latestEvidenceByType[evidenceType]?.id ?? null,
+        verified: latestEvidenceByType[evidenceType]?.status === ZatcaSignedArtifactStorageControlEvidenceStatus.VERIFIED,
+      })),
+      verifiedEvidenceTypes,
+      missingEvidenceTypes,
+      latestEvidenceByType,
+      objectStorageTechnicalControlsStatus: missingEvidenceTypes.length > 0 ? "BLOCKED" : "READY_FOR_METADATA_ONLY",
+    };
+  }
+
+  private getStorageControlEvidenceValidationBlockers(
+    evidenceType: ZatcaSignedArtifactStorageControlEvidenceType,
+    evidenceSummaryJson: Record<string, unknown>,
+    context: { provider?: string | null; note?: string | null; policyApproval?: { retentionDurationStatus?: string | null } | null },
+  ): string[] {
+    const blockers: string[] = [];
+    const hasBooleanTrue = (key: string) => evidenceSummaryJson[key] === true;
+    const hasTextValue = (...keys: string[]) => keys.some((key) => typeof evidenceSummaryJson[key] === "string" && String(evidenceSummaryJson[key]).trim().length > 0);
+
+    switch (evidenceType) {
+      case ZatcaSignedArtifactStorageControlEvidenceType.OBJECT_VERSIONING:
+        if (!context.provider) blockers.push("provider is required for object versioning evidence");
+        if (!hasBooleanTrue("versioningEnabled")) blockers.push("versioningEnabled must be true");
+        if (!hasTextValue("scope", "bucketKeyPrefix", "keyPrefix")) blockers.push("scope or bucket/key-prefix description is required");
+        break;
+      case ZatcaSignedArtifactStorageControlEvidenceType.IMMUTABLE_RETENTION: {
+        if (!hasTextValue("immutabilityMode") && !hasBooleanTrue("legalHoldEquivalent")) {
+          blockers.push("immutabilityMode or legalHoldEquivalent is required");
+        }
+        const retentionStatus = String(evidenceSummaryJson.retentionDurationStatus ?? context.policyApproval?.retentionDurationStatus ?? "").trim();
+        if (!retentionStatus) {
+          blockers.push("retentionDurationStatus must be documented without guessing a duration");
+        } else if (retentionStatus !== ZatcaSignedArtifactStoragePolicyRetentionStatus.APPROVED) {
+          blockers.push("retention duration is not legally/accounting approved; do not guess it");
+        }
+        break;
+      }
+      case ZatcaSignedArtifactStorageControlEvidenceType.ENCRYPTION_AT_REST:
+        if (!hasBooleanTrue("encryptionEnabled")) blockers.push("encryptionEnabled must be true");
+        if (!hasTextValue("encryptionType")) blockers.push("redacted encryptionType is required");
+        break;
+      case ZatcaSignedArtifactStorageControlEvidenceType.ACCESS_CONTROL:
+        if (!hasBooleanTrue("tenantScopedAccess")) blockers.push("tenantScopedAccess must be true");
+        if (!hasBooleanTrue("leastPrivilegeReviewed")) blockers.push("leastPrivilegeReviewed must be true");
+        break;
+      case ZatcaSignedArtifactStorageControlEvidenceType.BACKUP_RESTORE:
+        if (!hasBooleanTrue("backupConfigured")) blockers.push("backupConfigured must be true");
+        if (!hasBooleanTrue("restoreProcedureDocumented")) blockers.push("restoreProcedureDocumented must be true");
+        break;
+      case ZatcaSignedArtifactStorageControlEvidenceType.RESTORE_TEST:
+        if (!hasBooleanTrue("restoreTested")) blockers.push("restoreTested must be true");
+        if (!hasTextValue("testedAt") && !context.note) blockers.push("testedAt or a note explaining the planned/actual restore test is required");
+        break;
+      case ZatcaSignedArtifactStorageControlEvidenceType.TENANT_KEY_SCOPING:
+        if (!hasBooleanTrue("tenantScopedPrefix")) blockers.push("tenantScopedPrefix must be true");
+        if (!hasTextValue("keyPatternSample")) blockers.push("redacted keyPatternSample is required");
+        break;
+      case ZatcaSignedArtifactStorageControlEvidenceType.DELETION_SUPERSESSION:
+        if (!hasBooleanTrue("appendOnlyOrSupersede")) blockers.push("appendOnlyOrSupersede must be true");
+        if (!hasBooleanTrue("deletePolicyReviewed")) blockers.push("deletePolicyReviewed must be true");
+        break;
+      case ZatcaSignedArtifactStorageControlEvidenceType.STORAGE_PROBE:
+        if (!hasBooleanTrue("probeRan")) blockers.push("probeRan must be true");
+        if (!hasBooleanTrue("testObjectOnly")) blockers.push("testObjectOnly must be true");
+        if (!hasBooleanTrue("noInvoiceData")) blockers.push("noInvoiceData must be true");
+        break;
+      case ZatcaSignedArtifactStorageControlEvidenceType.OTHER:
+        if (!context.note) blockers.push("note is required for OTHER evidence");
+        if (!hasTextValue("description")) blockers.push("description is required for OTHER evidence");
+        break;
+      default:
+        blockers.push("unsupported evidence type");
+    }
+    return blockers;
+  }
+
+  private sanitizeStorageControlEvidenceSummary(value: unknown): Record<string, unknown> {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new BadRequestException("evidenceSummaryJson must be an object.");
+    }
+    return this.normalizeStorageControlEvidenceValue(value, "evidenceSummaryJson") as Record<string, unknown>;
+  }
+
+  private normalizeStorageControlEvidenceValue(value: unknown, path: string): unknown {
+    this.assertStorageControlEvidenceValueSafe(path, value);
+    if (value === null || typeof value === "boolean" || typeof value === "number") {
+      return value;
+    }
+    if (typeof value === "string") {
+      return value.replace(/[\u0000-\u001F\u007F]/g, " ").trim().slice(0, 500);
+    }
+    if (Array.isArray(value)) {
+      return value.slice(0, 25).map((item, index) => this.normalizeStorageControlEvidenceValue(item, `${path}.${index}`));
+    }
+    if (typeof value === "object") {
+      const output: Record<string, unknown> = {};
+      for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>).slice(0, 50)) {
+        const cleanedKey = key.replace(/[\u0000-\u001F\u007F]/g, " ").trim().slice(0, 80);
+        if (!cleanedKey) {
+          throw new BadRequestException("Evidence summary keys must not be blank.");
+        }
+        this.assertStorageControlEvidenceValueSafe(`${path}.${cleanedKey}`, nestedValue);
+        output[cleanedKey] = this.normalizeStorageControlEvidenceValue(nestedValue, `${path}.${cleanedKey}`);
+      }
+      return output;
+    }
+    return String(value).slice(0, 500);
+  }
+
+  private assertStorageControlEvidenceValueSafe(path: string, value: unknown): void {
+    const unsafeKeyPattern = /(signed\s*xml\s*body|xml\s*body|invoice\s*xml|invoice\s*base64|qr\s*payload\s*body|private\s*key|secret|password|credential|access\s*key|secret\s*access|binary\s*security\s*token|token|otp|csid|certificate|pem)/i;
+    if (unsafeKeyPattern.test(path.replace(/[._-]/g, " "))) {
+      throw new BadRequestException("Evidence summary must not include secret, XML body, QR payload body, credential, certificate, token, OTP, or CSID fields.");
+    }
+    if (typeof value !== "string") {
+      return;
+    }
+    const unsafeValuePattern = /-----BEGIN [A-Z ]+-----|<\?xml|<Invoice\b|<\w+:Invoice\b|<cbc:EmbeddedDocumentBinaryObject\b|binarySecurityToken|X509Certificate|privateKey|secretAccessKey|accessKeyId|AKIA[0-9A-Z]{16}|\bOTP\b|\bCSID\b|Bearer\s+[A-Za-z0-9._-]+/i;
+    if (unsafeValuePattern.test(value)) {
+      throw new BadRequestException("Evidence summary must not include XML bodies, QR payload bodies, PEM/certificate material, tokens, OTPs, CSIDs, access keys, or credentials.");
+    }
+  }
+
+  private getSignedArtifactStorageControlEvidenceModel() {
+    return (
+      this.prisma as unknown as {
+        zatcaSignedArtifactStorageControlEvidence?: {
+          findMany(args: unknown): Promise<SafeSignedArtifactStorageControlEvidenceRecord[]>;
+          findFirst(args: unknown): Promise<SafeSignedArtifactStorageControlEvidenceRecord | null>;
+          create(args: unknown): Promise<SafeSignedArtifactStorageControlEvidenceRecord>;
+          update(args: unknown): Promise<SafeSignedArtifactStorageControlEvidenceRecord>;
+          updateMany?(args: unknown): Promise<{ count: number }>;
+        };
+      }
+    ).zatcaSignedArtifactStorageControlEvidence ?? null;
+  }
+
+  private requireSignedArtifactStorageControlEvidenceModel() {
+    const model = this.getSignedArtifactStorageControlEvidenceModel();
+    if (!model) {
+      throw new NotImplementedException("ZATCA storage control evidence model is not available. Run Prisma generate/migrate before using this endpoint.");
+    }
+    return model;
+  }
+
+  private async requireStorageControlEvidencePolicyApproval(organizationId: string, policyApprovalId: string) {
+    const policyApproval = await this.prisma.zatcaSignedArtifactStoragePolicyApproval.findFirst({
+      where: { id: policyApprovalId, organizationId },
+      select: { id: true, status: true, retentionDurationStatus: true, retentionDurationValue: true },
+    });
+    if (!policyApproval) {
+      throw new NotFoundException("ZATCA immutable storage policy approval record not found.");
+    }
+    return policyApproval;
+  }
+
   private toSafeSignedArtifactStoragePolicyApproval(approval: SafeSignedArtifactStoragePolicyApprovalRecord) {
     return {
       id: approval.id,
@@ -5268,6 +5781,22 @@ export class ZatcaService {
         "Metadata-only signed artifact draft records are available for planning/audit visibility.",
         "SIGNED_ARTIFACT_STORAGE_PLAN",
         "Keep draft records metadata-only; do not store signed XML or QR bodies in this phase.",
+      ),
+      this.check(
+        "ZATCA_STORAGE_CONTROL_EVIDENCE_MODEL_READY",
+        "INFO",
+        "signedArtifactStorage.controlEvidence",
+        "Metadata-only storage technical control evidence records are available for planning/audit visibility.",
+        "SIGNED_ARTIFACT_IMMUTABLE_STORAGE_POLICY",
+        "Capture only redacted metadata evidence; do not store signed XML bodies, QR payload bodies, secrets, credentials, CSIDs, OTPs, or certificates.",
+      ),
+      this.check(
+        "ZATCA_STORAGE_CONTROL_EVIDENCE_NOT_VERIFIED",
+        "ERROR",
+        "signedArtifactStorage.controlEvidenceVerification",
+        "Object-storage technical control evidence is not fully verified.",
+        "SIGNED_ARTIFACT_IMMUTABLE_STORAGE_POLICY",
+        "Verify versioning, immutable retention, encryption-at-rest, access control, backup/restore, restore-test, tenant key scoping, deletion/supersession, and storage probe evidence before any body persistence.",
       ),
       ...(objectStorageCapability.objectStorageConfigured
         ? [

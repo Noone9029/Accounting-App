@@ -11,12 +11,15 @@ import { PermissionGuard } from "../auth/guards/permission.guard";
 import { ApproveZatcaStoragePolicyApprovalDto } from "./dto/approve-zatca-storage-policy-approval.dto";
 import { CreateZatcaEgsUnitDto } from "./dto/create-zatca-egs-unit.dto";
 import { CreateZatcaStoragePolicyApprovalDto } from "./dto/create-zatca-storage-policy-approval.dto";
+import { CreateZatcaStorageControlEvidenceDto } from "./dto/create-zatca-storage-control-evidence.dto";
 import { EnableZatcaSdkHashModeDto } from "./dto/enable-zatca-sdk-hash-mode.dto";
 import { RequestComplianceCsidDto } from "./dto/request-compliance-csid.dto";
 import { RevokeZatcaStoragePolicyApprovalDto } from "./dto/revoke-zatca-storage-policy-approval.dto";
+import { RevokeZatcaStorageControlEvidenceDto } from "./dto/revoke-zatca-storage-control-evidence.dto";
 import { UpdateZatcaCsrFieldsDto } from "./dto/update-zatca-csr-fields.dto";
 import { UpdateZatcaEgsUnitDto } from "./dto/update-zatca-egs-unit.dto";
 import { UpdateZatcaProfileDto } from "./dto/update-zatca-profile.dto";
+import { VerifyZatcaStorageControlEvidenceDto } from "./dto/verify-zatca-storage-control-evidence.dto";
 import { ZatcaService } from "./zatca.service";
 
 @Controller()
@@ -282,6 +285,44 @@ export class ZatcaController {
     @Body() dto: RevokeZatcaStoragePolicyApprovalDto,
   ) {
     return this.zatcaService.revokeSignedArtifactStoragePolicyApproval(organizationId, user.id, id, dto);
+  }
+
+  @Get("zatca/signed-artifact-storage/control-evidence")
+  @RequirePermissions(PERMISSIONS.zatca.view)
+  listSignedArtifactStorageControlEvidence(@CurrentOrganizationId() organizationId: string) {
+    return this.zatcaService.listSignedArtifactStorageControlEvidence(organizationId);
+  }
+
+  @Post("zatca/signed-artifact-storage/control-evidence")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  createSignedArtifactStorageControlEvidence(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateZatcaStorageControlEvidenceDto,
+  ) {
+    return this.zatcaService.createSignedArtifactStorageControlEvidence(organizationId, user.id, dto);
+  }
+
+  @Post("zatca/signed-artifact-storage/control-evidence/:id/verify")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  verifySignedArtifactStorageControlEvidence(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: VerifyZatcaStorageControlEvidenceDto,
+  ) {
+    return this.zatcaService.verifySignedArtifactStorageControlEvidence(organizationId, user.id, id, dto);
+  }
+
+  @Post("zatca/signed-artifact-storage/control-evidence/:id/revoke")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  revokeSignedArtifactStorageControlEvidence(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: RevokeZatcaStorageControlEvidenceDto,
+  ) {
+    return this.zatcaService.revokeSignedArtifactStorageControlEvidence(organizationId, user.id, id, dto);
   }
 
   @Get("sales-invoices/:id/zatca")

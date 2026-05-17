@@ -39,6 +39,9 @@ import {
   zatcaSdkHashModeEnableBlockerLabel,
   shouldShowZatcaSdkLocalOnlyWarning,
   zatcaStatusLabel,
+  zatcaSignedArtifactStorageControlEvidencePath,
+  zatcaSignedArtifactStorageControlEvidenceRevokePath,
+  zatcaSignedArtifactStorageControlEvidenceVerifyPath,
   zatcaXmlValidationLabel,
   shouldShowZatcaSdkWarning,
 } from "./zatca";
@@ -74,6 +77,9 @@ describe("ZATCA helpers", () => {
     expect(zatcaEgsSdkHashModeEnablePath("egs 1")).toBe("/zatca/egs-units/egs%201/enable-sdk-hash-mode");
     expect(zatcaEgsCsrDownloadPath("egs-1")).toBe("/zatca/egs-units/egs-1/csr/download");
     expect(zatcaEgsCsrPlanPath("egs 1")).toBe("/zatca/egs-units/egs%201/csr-plan");
+    expect(zatcaSignedArtifactStorageControlEvidencePath()).toBe("/zatca/signed-artifact-storage/control-evidence");
+    expect(zatcaSignedArtifactStorageControlEvidenceVerifyPath("evidence 1")).toBe("/zatca/signed-artifact-storage/control-evidence/evidence%201/verify");
+    expect(zatcaSignedArtifactStorageControlEvidenceRevokePath("evidence 1")).toBe("/zatca/signed-artifact-storage/control-evidence/evidence%201/revoke");
   });
 
   it("formats adapter mode and warning state", () => {
