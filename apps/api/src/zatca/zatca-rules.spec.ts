@@ -823,6 +823,88 @@ describe("ZATCA service rules", () => {
     expect(JSON.stringify(readiness)).not.toContain("PRIVATE KEY");
   });
 
+  it("returns compliance CSID custody planning without exposing token, secret, certificate, OTP, CSR, or private key material", async () => {
+    const prisma = {
+      zatcaEgsUnit: {
+        findFirst: jest.fn().mockResolvedValue({
+          ...makeEgsUnit({
+            id: "egs-1",
+            csrPem: "-----BEGIN CERTIFICATE REQUEST-----\nCSR\n-----END CERTIFICATE REQUEST-----",
+            complianceCsidPem: "-----BEGIN CERTIFICATE-----\nMOCK-CERT\n-----END CERTIFICATE-----",
+            productionCsidPem: null,
+            certificateRequestId: "1234567890123",
+          }),
+          privateKeyPem: "-----BEGIN PRIVATE KEY-----\nSECRET\n-----END PRIVATE KEY-----",
+        }),
+      },
+      zatcaSubmissionLog: { create: jest.fn() },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const plan = await service.getEgsUnitComplianceCsidCustodyPlan("org-1", "egs-1");
+    const serialized = JSON.stringify(plan);
+
+    expect(plan).toMatchObject({
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      noNetwork: true,
+      noCsidRequest: true,
+      noProductionCredentials: true,
+      productionCompliance: false,
+      hasMockResponse: true,
+      hasComplianceCsid: true,
+      hasProductionCsid: false,
+      certificateExpiryKnown: false,
+      renewalMetadataModeled: false,
+      recommendedCustodyMode: "FUTURE_SECRETS_MANAGER_OR_KMS",
+    });
+    expect(plan.tokenCustodyStatus).toMatchObject({ implemented: false, persisted: false, bodyReturned: false });
+    expect(plan.secretCustodyStatus).toMatchObject({ implemented: false, persisted: false, bodyReturned: false });
+    expect(plan.certificateCustodyStatus).toMatchObject({ implemented: false, persisted: false, bodyReturned: false });
+    expect(plan.sensitiveFields).toEqual(["binarySecurityToken", "secret", "certificate", "privateKey", "OTP", "CSR"]);
+    expect(plan.blockers).toEqual(expect.arrayContaining(["Token custody is not implemented.", "Secret custody is not implemented.", "Certificate custody is not implemented."]));
+    expect(serialized).not.toContain("BEGIN CERTIFICATE REQUEST");
+    expect(serialized).not.toContain("BEGIN CERTIFICATE");
+    expect(serialized).not.toContain("BEGIN PRIVATE KEY");
+    expect(serialized).not.toContain("MOCK-CERT");
+    expect(serialized).not.toContain("LOCAL-MOCK-SECRET");
+    expect(serialized).not.toContain("binarySecurityToken:");
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+  });
+
+  it("adds compliance CSID custody blockers to readiness without exposing sensitive material", async () => {
+    const prisma = makeReadinessPrisma({
+      activeEgs: {
+        id: "egs-1",
+        name: "Dev EGS",
+        status: ZatcaRegistrationStatus.ACTIVE,
+        isActive: true,
+        csrPem: "-----BEGIN CERTIFICATE REQUEST-----\nCSR\n-----END CERTIFICATE REQUEST-----",
+        complianceCsidPem: "-----BEGIN CERTIFICATE-----\nMOCK\n-----END CERTIFICATE-----",
+        privateKeyPem: "-----BEGIN PRIVATE KEY-----\nSECRET\n-----END PRIVATE KEY-----",
+        lastIcv: 2,
+        lastInvoiceHash: "hash",
+      },
+      localXmlCount: 1,
+    });
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const readiness = await service.getZatcaReadinessSummary("org-1");
+
+    expect(readiness.complianceCsidCustody.status).toBe("BLOCKED");
+    expect(readiness.complianceCsidCustody.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "ZATCA_COMPLIANCE_CSID_TOKEN_CUSTODY_NOT_IMPLEMENTED", severity: "ERROR" }),
+        expect.objectContaining({ code: "ZATCA_COMPLIANCE_CSID_SECRET_CUSTODY_NOT_IMPLEMENTED", severity: "ERROR" }),
+        expect.objectContaining({ code: "ZATCA_COMPLIANCE_CSID_CERTIFICATE_CUSTODY_NOT_IMPLEMENTED", severity: "ERROR" }),
+      ]),
+    );
+    expect(readiness.productionCompliance).toBe(false);
+    expect(JSON.stringify(readiness)).not.toContain("BEGIN CERTIFICATE");
+    expect(JSON.stringify(readiness)).not.toContain("BEGIN PRIVATE KEY");
+  });
+
   it("readiness identifies missing profile fields", async () => {
     const prisma = makeReadinessPrisma({ profile: { sellerName: "", vatNumber: "300", city: null, countryCode: "SA" } });
     const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);

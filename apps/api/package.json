@@ -17,6 +17,7 @@
     "zatca:local-signed-xml-validate": "tsx scripts/zatca-local-signed-xml-validate.ts",
     "zatca:compliance-csid-plan": "tsx scripts/zatca-compliance-csid-plan.ts",
     "zatca:compliance-csid-dry-run": "tsx scripts/zatca-compliance-csid-plan.ts",
+    "zatca:compliance-csid-custody-plan": "tsx scripts/zatca-compliance-csid-plan.ts --mode custody",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed"

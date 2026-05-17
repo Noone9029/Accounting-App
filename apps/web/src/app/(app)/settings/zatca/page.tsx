@@ -738,6 +738,7 @@ export default function ZatcaSettingsPage() {
                 <ReadinessSummary label="Key custody" ready={readiness.keyCustody.status !== "BLOCKED"} detail={readiness.activeEgsUnit?.keyCustodyMode === "RAW_DATABASE_PEM" ? "Raw DB PEM detected; production KMS/HSM required" : "No private key custody configured"} />
                 <ReadinessSummary label="CSR readiness" ready={readiness.csr.status !== "BLOCKED"} detail={readiness.activeEgsUnit?.hasCsr ? "CSR exists locally" : "CSR fields still need planning"} />
                 <ReadinessSummary label="Sandbox CSID plan" ready={readiness.complianceCsidOnboarding.status !== "BLOCKED"} detail="OTP required, execution disabled, no network by default" />
+                <ReadinessSummary label="CSID custody" ready={readiness.complianceCsidCustody.status !== "BLOCKED"} detail="Token, secret, certificate custody not implemented" />
               </div>
               <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <ReadinessCheckCard title="Seller invoice XML profile" section={readiness.sellerProfile} />
@@ -748,12 +749,13 @@ export default function ZatcaSettingsPage() {
                 <ReadinessCheckCard title="Key custody" section={readiness.keyCustody} />
                 <ReadinessCheckCard title="CSR onboarding" section={readiness.csr} />
                 <ReadinessCheckCard title="Compliance CSID onboarding" section={readiness.complianceCsidOnboarding} />
+                <ReadinessCheckCard title="Compliance CSID custody" section={readiness.complianceCsidCustody} />
                 <ReadinessCheckCard title="Signed XML promotion" section={readiness.signedArtifactPromotion} />
                 <ReadinessCheckCard title="Signed artifact storage" section={readiness.signedArtifactStorage} />
                 <ReadinessCheckCard title="Phase 2 QR" section={readiness.phase2Qr} />
                 <ReadinessCheckCard title="PDF/A-3" section={readiness.pdfA3} />
               </div>
-              <p className="mt-4 text-xs text-amber-700">Local-only readiness. No signing, CSID request, clearance/reporting, network submission, PDF/A-3, or production compliance is enabled.</p>
+              <p className="mt-4 text-xs text-amber-700">Local-only readiness. No token/certificate bodies are shown. No signing, CSID request, clearance/reporting, network submission, PDF/A-3, or production compliance is enabled.</p>
               {readiness.blockingReasons.length > 0 ? (
                 <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-steel">
                   {readiness.blockingReasons.map((reason) => (

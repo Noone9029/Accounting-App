@@ -4,7 +4,7 @@ import { ZatcaService } from "../src/zatca/zatca.service";
 interface CliOptions {
   help: boolean;
   egsId: string;
-  mode: "plan" | "mock" | "real";
+  mode: "plan" | "mock" | "real" | "custody";
   otp: string;
   mockScenario: "success" | "invalid-otp" | "expired-otp" | "duplicate-request" | "adapter-disabled" | "malformed-response";
 }
@@ -20,7 +20,7 @@ function parseOptions(argv: string[]): CliOptions {
   return {
     help: argv.includes("--help") || argv.includes("-h"),
     egsId: optionValue(argv, "--egs-id") || process.env.ZATCA_COMPLIANCE_CSID_PLAN_EGS_ID?.trim() || "",
-    mode: requestedMode === "mock" || requestedMode === "real" ? requestedMode : "plan",
+    mode: requestedMode === "mock" || requestedMode === "real" || requestedMode === "custody" ? requestedMode : "plan",
     otp: optionValue(argv, "--otp") || process.env.ZATCA_COMPLIANCE_CSID_DRY_RUN_OTP?.trim() || "",
     mockScenario: ["success", "invalid-otp", "expired-otp", "duplicate-request", "adapter-disabled", "malformed-response"].includes(requestedScenario)
       ? (requestedScenario as CliOptions["mockScenario"])
@@ -33,7 +33,7 @@ function printHelp() {
     [
       "ZATCA compliance CSID onboarding plan",
       "",
-      "Prints a sanitized local-only sandbox compliance CSID request plan for a non-production EGS unit.",
+      "Prints a sanitized local-only sandbox compliance CSID request or custody plan for a non-production EGS unit.",
       "No CSID request, no OTP storage, no private key/certificate/token/secret output, no ZATCA network call, no clearance/reporting, no PDF/A-3, and no production compliance claim.",
       "",
       "Environment:",
@@ -44,7 +44,7 @@ function printHelp() {
       "",
       "Flags:",
       "  --egs-id <id>       EGS unit id. Defaults to the latest non-production EGS for the organization.",
-      "  --mode plan|mock|real  plan prints sanitized plan; mock exercises local mock adapter only when env gate is true; real prints a blocker and performs no network.",
+      "  --mode plan|mock|real|custody  plan prints sanitized request plan; mock exercises local mock adapter only when env gate is true; real prints a blocker and performs no network; custody prints token/secret/certificate custody planning only.",
       "  --otp <otp>            OTP for mock/real dry-run modes only. The value is never printed or stored.",
       "  --mock-scenario <scenario>  success, invalid-otp, expired-otp, duplicate-request, adapter-disabled, malformed-response.",
       "  --help              Print this help without touching the database.",
@@ -127,9 +127,11 @@ async function main() {
 
     const service = new ZatcaService(prisma as never, { log: async () => undefined } as never);
     const plan =
-      options.mode === "mock"
+      options.mode === "custody"
+        ? await service.getEgsUnitComplianceCsidCustodyPlan(organizationId, egsUnit.id)
+        : options.mode === "mock" || options.mode === "real"
         ? await service.getEgsUnitComplianceCsidRequestDryRun(organizationId, egsUnit.id, {
-            mode: "mock",
+            mode: options.mode,
             otp: options.otp,
             mockScenario: options.mockScenario,
           })
@@ -147,8 +149,8 @@ async function main() {
           noClearanceReporting: plan.noClearanceReporting,
           noPdfA3: plan.noPdfA3,
           productionCompliance: plan.productionCompliance,
-          executionEnabled: plan.executionEnabled,
-          executionAttempted: plan.executionAttempted,
+          executionEnabled: "executionEnabled" in plan ? plan.executionEnabled : false,
+          executionAttempted: "executionAttempted" in plan ? plan.executionAttempted : false,
           executionStatus: "executionStatus" in plan ? plan.executionStatus : "PLAN_ONLY",
           requestMapperReady: "requestMapperReady" in plan ? plan.requestMapperReady : true,
           responseMapperReady: "responseMapperReady" in plan ? plan.responseMapperReady : true,
@@ -160,15 +162,29 @@ async function main() {
           otpReturned: "otpReturned" in plan ? plan.otpReturned : false,
           csrReturned: "csrReturned" in plan ? plan.csrReturned : false,
           egsUnit: plan.egsUnit,
-          csrStatus: plan.csrStatus,
-          otpStatus: plan.otpStatus,
-          plannedEndpointEnvironment: plan.plannedEndpointEnvironment,
-          plannedEndpoint: plan.plannedEndpoint,
+          csrStatus: "csrStatus" in plan ? plan.csrStatus : null,
+          otpStatus: "otpStatus" in plan ? plan.otpStatus : null,
+          plannedEndpointEnvironment: "plannedEndpointEnvironment" in plan ? plan.plannedEndpointEnvironment : null,
+          plannedEndpoint: "plannedEndpoint" in plan ? plan.plannedEndpoint : null,
           requestContract: "requestContract" in plan ? plan.requestContract : null,
           responseContract: "responseContract" in plan ? plan.responseContract : null,
-          plannedHeadersRedacted: plan.plannedHeadersRedacted,
-          plannedBodyFieldsRedacted: plan.plannedBodyFieldsRedacted,
-          sensitiveResponseFields: plan.sensitiveResponseFields,
+          tokenWouldRequireCustody: "tokenWouldRequireCustody" in plan ? plan.tokenWouldRequireCustody : true,
+          secretWouldRequireCustody: "secretWouldRequireCustody" in plan ? plan.secretWouldRequireCustody : true,
+          certificateWouldRequireCustody: "certificateWouldRequireCustody" in plan ? plan.certificateWouldRequireCustody : true,
+          tokenPersisted: "tokenPersisted" in plan ? plan.tokenPersisted : false,
+          secretPersisted: "secretPersisted" in plan ? plan.secretPersisted : false,
+          certificatePersisted: "certificatePersisted" in plan ? plan.certificatePersisted : false,
+          custodyPlanRequired: "custodyPlanRequired" in plan ? plan.custodyPlanRequired : true,
+          custodySummary: "custodySummary" in plan ? plan.custodySummary : null,
+          tokenCustodyStatus: "tokenCustodyStatus" in plan ? plan.tokenCustodyStatus : null,
+          secretCustodyStatus: "secretCustodyStatus" in plan ? plan.secretCustodyStatus : null,
+          certificateCustodyStatus: "certificateCustodyStatus" in plan ? plan.certificateCustodyStatus : null,
+          certificateExpiryKnown: "certificateExpiryKnown" in plan ? plan.certificateExpiryKnown : false,
+          renewalMetadataModeled: "renewalMetadataModeled" in plan ? plan.renewalMetadataModeled : false,
+          recommendedCustodyMode: "recommendedCustodyMode" in plan ? plan.recommendedCustodyMode : "FUTURE_SECRETS_MANAGER_OR_KMS",
+          plannedHeadersRedacted: "plannedHeadersRedacted" in plan ? plan.plannedHeadersRedacted : [],
+          plannedBodyFieldsRedacted: "plannedBodyFieldsRedacted" in plan ? plan.plannedBodyFieldsRedacted : [],
+          sensitiveResponseFields: "sensitiveResponseFields" in plan ? plan.sensitiveResponseFields : ["binarySecurityToken", "secret", "certificate", "OTP", "CSR"],
           blockers: plan.blockers,
           warnings: plan.warnings,
           recommendedNextSteps: plan.recommendedNextSteps,

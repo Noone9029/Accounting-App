@@ -200,6 +200,12 @@ export class ZatcaController {
     return this.zatcaService.getEgsUnitComplianceCsidRequestPlan(organizationId, id);
   }
 
+  @Get("zatca/egs-units/:id/compliance-csid-custody-plan")
+  @RequirePermissions(PERMISSIONS.zatca.view)
+  getEgsComplianceCsidCustodyPlan(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.zatcaService.getEgsUnitComplianceCsidCustodyPlan(organizationId, id);
+  }
+
   @Post("zatca/egs-units/:id/compliance-csid-request-dry-run")
   @RequirePermissions(PERMISSIONS.zatca.manage)
   getEgsComplianceCsidRequestDryRun(@CurrentOrganizationId() organizationId: string, @Param("id") id: string, @Body() dto: ComplianceCsidRequestDryRunDto) {

@@ -1098,6 +1098,7 @@ interface ZatcaReadinessSummary {
   keyCustody: ZatcaReadinessSection;
   csr: ZatcaReadinessSection;
   complianceCsidOnboarding: ZatcaReadinessSection;
+  complianceCsidCustody: ZatcaReadinessSection;
   signedArtifactPromotion: ZatcaReadinessSection;
   signedArtifactStorage: ZatcaReadinessSection;
   phase2Qr: ZatcaReadinessSection;
@@ -1125,6 +1126,7 @@ interface ZatcaInvoiceReadinessResponse {
   xml: ZatcaReadinessSection;
   signing: ZatcaReadinessSection;
   complianceCsidOnboarding: ZatcaReadinessSection;
+  complianceCsidCustody: ZatcaReadinessSection;
   signedArtifactPromotion: ZatcaReadinessSection;
   signedArtifactStorage: ZatcaReadinessSection;
   phase2Qr: ZatcaReadinessSection;
@@ -1923,6 +1925,30 @@ interface ZatcaHashChainResetPlanResponse {
     enableSdkHashModeBlockers: string[];
   }>;
   resetRisks: string[];
+  recommendedNextSteps: string[];
+}
+
+interface ZatcaComplianceCsidCustodyPlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noNetwork: true;
+  noCsidRequest: true;
+  noProductionCredentials: true;
+  productionCompliance: false;
+  hasMockResponse: boolean;
+  hasComplianceCsid: boolean;
+  hasProductionCsid: boolean;
+  tokenCustodyStatus: { implemented: false; persisted: false; bodyReturned: false };
+  secretCustodyStatus: { implemented: false; persisted: false; bodyReturned: false };
+  certificateCustodyStatus: { implemented: false; persisted: false; bodyReturned: false };
+  certificateExpiryKnown: boolean;
+  renewalMetadataModeled: boolean;
+  recommendedCustodyMode: string;
+  sensitiveFields: string[];
+  redactionGuarantees: string[];
+  blockers: string[];
+  warnings: string[];
   recommendedNextSteps: string[];
 }
 
@@ -3608,6 +3634,7 @@ async function main(): Promise<void> {
   assertEqual(zatcaReadiness.sellerProfile?.status, "READY", "ZATCA seller readiness ready after smoke profile patch");
   assertEqual(zatcaReadiness.signing.status, "BLOCKED", "ZATCA signing readiness blocked");
   assertEqual(zatcaReadiness.keyCustody.status, "BLOCKED", "ZATCA key custody readiness blocked");
+  assertEqual(zatcaReadiness.complianceCsidCustody.status, "BLOCKED", "ZATCA compliance CSID custody readiness blocked");
   assert(["READY", "WARNINGS", "BLOCKED"].includes(zatcaReadiness.csr.status), "ZATCA CSR readiness returns a valid local-only status");
   assertEqual(zatcaReadiness.phase2Qr.status, "BLOCKED", "ZATCA Phase 2 QR readiness blocked");
   assertEqual(zatcaReadiness.pdfA3.status, "BLOCKED", "ZATCA PDF/A-3 readiness blocked");
@@ -3796,6 +3823,33 @@ async function main(): Promise<void> {
   assertEqual(egsAfterComplianceCsidPlan.lastInvoiceHash, egsBeforeComplianceCsidPlan.lastInvoiceHash, "ZATCA compliance CSID plan does not mutate EGS previous hash");
   const submissionsAfterComplianceCsidPlan = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
   assertEqual(submissionsAfterComplianceCsidPlan.length, submissionsBeforeComplianceCsidPlan.length, "ZATCA compliance CSID plan does not create submission logs");
+  const zatcaComplianceCsidCustodyPlan = await get<ZatcaComplianceCsidCustodyPlanResponse>(`/zatca/egs-units/${smokeEgs.id}/compliance-csid-custody-plan`, headers);
+  assertEqual(zatcaComplianceCsidCustodyPlan.localOnly, true, "ZATCA compliance CSID custody plan localOnly");
+  assertEqual(zatcaComplianceCsidCustodyPlan.dryRun, true, "ZATCA compliance CSID custody plan dryRun");
+  assertEqual(zatcaComplianceCsidCustodyPlan.noMutation, true, "ZATCA compliance CSID custody plan noMutation");
+  assertEqual(zatcaComplianceCsidCustodyPlan.noNetwork, true, "ZATCA compliance CSID custody plan noNetwork");
+  assertEqual(zatcaComplianceCsidCustodyPlan.noCsidRequest, true, "ZATCA compliance CSID custody plan noCsidRequest");
+  assertEqual(zatcaComplianceCsidCustodyPlan.noProductionCredentials, true, "ZATCA compliance CSID custody plan no production credentials");
+  assertEqual(zatcaComplianceCsidCustodyPlan.productionCompliance, false, "ZATCA compliance CSID custody plan productionCompliance false");
+  assertEqual(zatcaComplianceCsidCustodyPlan.tokenCustodyStatus.implemented, false, "ZATCA compliance CSID token custody not implemented");
+  assertEqual(zatcaComplianceCsidCustodyPlan.secretCustodyStatus.implemented, false, "ZATCA compliance CSID secret custody not implemented");
+  assertEqual(zatcaComplianceCsidCustodyPlan.certificateCustodyStatus.implemented, false, "ZATCA compliance CSID certificate custody not implemented");
+  assertEqual(zatcaComplianceCsidCustodyPlan.certificateExpiryKnown, false, "ZATCA compliance CSID certificate expiry unknown");
+  assertEqual(zatcaComplianceCsidCustodyPlan.renewalMetadataModeled, false, "ZATCA compliance CSID renewal metadata not modeled");
+  assert(zatcaComplianceCsidCustodyPlan.sensitiveFields.includes("binarySecurityToken"), "ZATCA compliance CSID custody plan marks token sensitive");
+  assert(zatcaComplianceCsidCustodyPlan.sensitiveFields.includes("secret"), "ZATCA compliance CSID custody plan marks secret sensitive");
+  assert(zatcaComplianceCsidCustodyPlan.blockers.some((blocker) => blocker.includes("Token custody")), "ZATCA compliance CSID custody plan reports token custody blocker");
+  assertNoPrivateKey(zatcaComplianceCsidCustodyPlan, "ZATCA compliance CSID custody plan response");
+  const serializedComplianceCsidCustodyPlan = JSON.stringify(zatcaComplianceCsidCustodyPlan);
+  assert(!serializedComplianceCsidCustodyPlan.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA compliance CSID custody plan does not expose CSR body");
+  assert(!serializedComplianceCsidCustodyPlan.includes("BEGIN CERTIFICATE"), "ZATCA compliance CSID custody plan does not expose certificate body");
+  assert(!serializedComplianceCsidCustodyPlan.includes("BINARY-SECURITY-TOKEN"), "ZATCA compliance CSID custody plan does not expose token body");
+  assert(!serializedComplianceCsidCustodyPlan.includes("LOCAL-MOCK-SECRET"), "ZATCA compliance CSID custody plan does not expose secret body");
+  const egsAfterComplianceCsidCustodyPlan = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  assertEqual(egsAfterComplianceCsidCustodyPlan.lastIcv, egsAfterComplianceCsidPlan.lastIcv, "ZATCA compliance CSID custody plan does not mutate EGS ICV");
+  assertEqual(egsAfterComplianceCsidCustodyPlan.lastInvoiceHash, egsAfterComplianceCsidPlan.lastInvoiceHash, "ZATCA compliance CSID custody plan does not mutate EGS previous hash");
+  const submissionsAfterComplianceCsidCustodyPlan = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterComplianceCsidCustodyPlan.length, submissionsAfterComplianceCsidPlan.length, "ZATCA compliance CSID custody plan does not create submission logs");
   const zatcaComplianceCsidDryRun = await post<ZatcaComplianceCsidRequestDryRunResponse>(
     `/zatca/egs-units/${smokeEgs.id}/compliance-csid-request-dry-run`,
     headers,

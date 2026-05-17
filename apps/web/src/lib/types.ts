@@ -3103,6 +3103,7 @@ export interface ZatcaReadinessSummary {
   keyCustody: ZatcaReadinessSection;
   csr: ZatcaReadinessSection;
   complianceCsidOnboarding: ZatcaReadinessSection;
+  complianceCsidCustody: ZatcaReadinessSection;
   signedArtifactPromotion: ZatcaReadinessSection;
   signedArtifactStorage: ZatcaReadinessSection;
   phase2Qr: ZatcaReadinessSection;
@@ -3157,6 +3158,7 @@ export interface ZatcaInvoiceReadinessResponse {
   xml: ZatcaReadinessSection;
   signing: ZatcaReadinessSection;
   complianceCsidOnboarding: ZatcaReadinessSection;
+  complianceCsidCustody: ZatcaReadinessSection;
   signedArtifactPromotion: ZatcaReadinessSection;
   signedArtifactStorage: ZatcaReadinessSection;
   phase2Qr: ZatcaReadinessSection;
@@ -3427,6 +3429,48 @@ export interface ZatcaComplianceCsidRequestPlanResponse {
   plannedHeadersRedacted: Array<{ name: string; required: boolean; value: string; source: string }>;
   plannedBodyFieldsRedacted: Array<{ name: string; required: boolean; value: string; source: string }>;
   sensitiveResponseFields: string[];
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
+}
+
+export interface ZatcaComplianceCsidCustodyPlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noNetwork: true;
+  noCsidRequest: true;
+  noProductionCredentials: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  noSignedXmlBodyPersistence: true;
+  noQrPayloadBodyPersistence: true;
+  productionCompliance: false;
+  egsUnit: {
+    id: string;
+    name: string;
+    environment: ZatcaEnvironment;
+    status: ZatcaRegistrationStatus;
+    isActive: boolean;
+    hasCsr: boolean;
+    hasComplianceCsid: boolean;
+    hasProductionCsid: boolean;
+    hasPrivateKey: boolean;
+    certificateRequestId: string | null;
+  };
+  hasMockResponse: boolean;
+  hasComplianceCsid: boolean;
+  hasProductionCsid: boolean;
+  tokenCustodyStatus: { status: "BLOCKED"; implemented: false; persisted: false; bodyReturned: false; storageMode: "NOT_STORED"; recommendedMode: string };
+  secretCustodyStatus: { status: "BLOCKED"; implemented: false; persisted: false; bodyReturned: false; storageMode: "NOT_STORED"; recommendedMode: string };
+  certificateCustodyStatus: { status: "BLOCKED"; implemented: false; persisted: false; bodyReturned: false; storageMode: "NOT_STORED"; recommendedMode: string };
+  certificateExpiryKnown: boolean;
+  certificateExpiresAt: string | null;
+  renewalMetadataModeled: boolean;
+  renewalRequired: boolean;
+  recommendedCustodyMode: string;
+  sensitiveFields: string[];
+  redactionGuarantees: string[];
   blockers: string[];
   warnings: string[];
   recommendedNextSteps: string[];

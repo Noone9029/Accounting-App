@@ -466,11 +466,12 @@ export class ZatcaService {
     const csr = this.buildCsrReadinessSection(profile, activeEgs);
     const latestCsrConfigReview = activeEgs ? await this.getLatestCsrConfigReviewOrNull(organizationId, activeEgs.id) : null;
     const complianceCsidOnboarding = this.buildComplianceCsidOnboardingReadinessSection(activeEgs, latestCsrConfigReview);
+    const complianceCsidCustody = this.buildComplianceCsidCustodyReadinessSection(activeEgs);
     const signedArtifactPromotion = this.buildSignedArtifactPromotionReadinessSection(null, activeEgs);
     const signedArtifactStorage = this.buildSignedArtifactStorageReadinessSection(null);
     const phase2Qr = this.buildPhase2QrReadinessSection();
     const pdfA3 = this.buildPdfA3ReadinessSection();
-    const sections = [sellerProfile, egs, xml, sdk, signing, keyCustody, csr, complianceCsidOnboarding, signedArtifactPromotion, signedArtifactStorage, phase2Qr, pdfA3];
+    const sections = [sellerProfile, egs, xml, sdk, signing, keyCustody, csr, complianceCsidOnboarding, complianceCsidCustody, signedArtifactPromotion, signedArtifactStorage, phase2Qr, pdfA3];
     const checks = sections.flatMap((section) => section.checks);
     const status = combineZatcaReadinessStatus(sections);
     const profileMissingFields = legacyProfileReadiness.missingFields;
@@ -506,6 +507,7 @@ export class ZatcaService {
       keyCustody,
       csr,
       complianceCsidOnboarding,
+      complianceCsidCustody,
       signedArtifactPromotion,
       signedArtifactStorage,
       phase2Qr,
@@ -1057,6 +1059,92 @@ export class ZatcaService {
     };
   }
 
+  async getEgsUnitComplianceCsidCustodyPlan(organizationId: string, id: string) {
+    const egsUnit = await this.getEgsUnitInternal(organizationId, id);
+    const hasComplianceCsid = Boolean(egsUnit.complianceCsidPem);
+    const hasProductionCsid = Boolean(egsUnit.productionCsidPem);
+    const hasMockResponse = hasComplianceCsid && egsUnit.environment !== "PRODUCTION";
+    const custodyStatus = {
+      status: "BLOCKED" as const,
+      implemented: false,
+      persisted: false,
+      bodyReturned: false,
+      storageMode: "NOT_STORED" as const,
+      recommendedMode: "FUTURE_SECRETS_MANAGER_OR_KMS" as const,
+    };
+    const blockers = [
+      "Token custody is not implemented.",
+      "Secret custody is not implemented.",
+      "Certificate custody is not implemented.",
+      "Certificate expiry is unknown until a real sandbox response is received and parsed safely.",
+      "Renewal metadata is not modeled.",
+      "Real sandbox response custody is not implemented.",
+      "Production CSID remains missing and blocked.",
+      "Production key custody remains incomplete.",
+    ];
+
+    return {
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      noNetwork: true,
+      noCsidRequest: true,
+      noProductionCredentials: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      noSignedXmlBodyPersistence: true,
+      noQrPayloadBodyPersistence: true,
+      productionCompliance: false,
+      egsUnit: {
+        id: egsUnit.id,
+        name: egsUnit.name,
+        environment: egsUnit.environment,
+        status: egsUnit.status,
+        isActive: egsUnit.isActive,
+        hasCsr: Boolean(egsUnit.csrPem),
+        hasComplianceCsid,
+        hasProductionCsid,
+        hasPrivateKey: Boolean(egsUnit.privateKeyPem),
+        certificateRequestId: egsUnit.certificateRequestId ?? null,
+      },
+      hasMockResponse,
+      hasComplianceCsid,
+      hasProductionCsid,
+      tokenCustodyStatus: custodyStatus,
+      secretCustodyStatus: custodyStatus,
+      certificateCustodyStatus: {
+        ...custodyStatus,
+        recommendedMode: "FUTURE_ENCRYPTED_DB_OR_OBJECT_STORAGE_METADATA_ONLY" as const,
+      },
+      certificateExpiryKnown: false,
+      certificateExpiresAt: null,
+      renewalMetadataModeled: false,
+      renewalRequired: false,
+      recommendedCustodyMode: "FUTURE_SECRETS_MANAGER_OR_KMS" as const,
+      sensitiveFields: ["binarySecurityToken", "secret", "certificate", "privateKey", "OTP", "CSR"],
+      redactionGuarantees: [
+        "binarySecurityToken body is never returned.",
+        "secret body is never returned.",
+        "certificate body is never returned.",
+        "private key material is never returned.",
+        "OTP is never returned or stored.",
+        "CSR body is not returned from custody planning responses.",
+        "Production credentials are never returned.",
+      ],
+      blockers,
+      warnings: [
+        "Compliance CSID is not a production CSID.",
+        "Mock CSID material is local test material and must not be treated as a real sandbox or production credential.",
+        "No real sandbox response is persisted in this phase.",
+      ],
+      recommendedNextSteps: [
+        "Design encrypted token/secret custody before any real sandbox response persistence.",
+        "Model certificate expiry and renewal metadata only after a real sandbox response shape is safely handled.",
+        "Keep production CSID onboarding, clearance/reporting, PDF/A-3, and signed XML/QR persistence out of scope.",
+      ],
+    };
+  }
+
   async getEgsUnitComplianceCsidRequestDryRun(organizationId: string, id: string, dto: ComplianceCsidRequestDryRunDto = {}) {
     const plan = await this.getEgsUnitComplianceCsidRequestPlan(organizationId, id);
     const executionEnabled = isSandboxComplianceCsidRequestEnabled();
@@ -1095,6 +1183,22 @@ export class ZatcaService {
       plannedHeadersRedacted: plan.plannedHeadersRedacted,
       plannedBodyFieldsRedacted: plan.plannedBodyFieldsRedacted,
       sensitiveResponseFields: plan.sensitiveResponseFields,
+      tokenWouldRequireCustody: true,
+      secretWouldRequireCustody: true,
+      certificateWouldRequireCustody: true,
+      tokenPersisted: false,
+      secretPersisted: false,
+      certificatePersisted: false,
+      custodyPlanRequired: true,
+      custodySummary: {
+        tokenCustodyImplemented: false,
+        secretCustodyImplemented: false,
+        certificateCustodyImplemented: false,
+        certificateExpiryKnown: false,
+        renewalMetadataModeled: false,
+        recommendedCustodyMode: "FUTURE_SECRETS_MANAGER_OR_KMS",
+        productionCompliance: false,
+      },
       recommendedNextSteps: plan.recommendedNextSteps,
     };
 
@@ -5655,6 +5759,44 @@ export class ZatcaService {
     }
 
     return createZatcaReadinessSection("COMPLIANCE_CSID_ONBOARDING", checks);
+  }
+
+  private buildComplianceCsidCustodyReadinessSection(
+    activeEgs:
+      | {
+          id: string;
+          environment?: string | null;
+          csrPem?: string | null;
+          complianceCsidPem?: string | null;
+          productionCsidPem?: string | null;
+          certificateRequestId?: string | null;
+          privateKeyPem?: string | null;
+        }
+      | null,
+  ): ZatcaReadinessSection {
+    const checks: ZatcaReadinessCheck[] = [];
+    if (!activeEgs) {
+      checks.push(this.check("ZATCA_COMPLIANCE_CSID_CUSTODY_EGS_MISSING", "ERROR", "complianceCsidCustody.egs", "No active EGS unit exists for CSID response custody planning.", "COMPLIANCE_CSID_API", "Create and activate a non-production EGS unit before planning CSID response custody."));
+      return createZatcaReadinessSection("COMPLIANCE_CSID_CUSTODY", checks);
+    }
+
+    checks.push(
+      this.check("ZATCA_COMPLIANCE_CSID_TOKEN_CUSTODY_NOT_IMPLEMENTED", "ERROR", "complianceCsidCustody.binarySecurityToken", "Compliance CSID binarySecurityToken custody is not implemented.", "COMPLIANCE_CSID_RESPONSE", "Do not persist or return token bodies until encrypted custody is designed and reviewed."),
+      this.check("ZATCA_COMPLIANCE_CSID_SECRET_CUSTODY_NOT_IMPLEMENTED", "ERROR", "complianceCsidCustody.secret", "Compliance CSID secret custody is not implemented.", "COMPLIANCE_CSID_RESPONSE", "Do not persist or return secret bodies; use secrets-manager/KMS-style custody in a future phase."),
+      this.check("ZATCA_COMPLIANCE_CSID_CERTIFICATE_CUSTODY_NOT_IMPLEMENTED", "ERROR", "complianceCsidCustody.certificate", "Compliance CSID certificate custody is not implemented.", "COMPLIANCE_CSID_RESPONSE", "Model certificate metadata separately from certificate body storage before any real response persistence."),
+      this.check("ZATCA_COMPLIANCE_CSID_CERTIFICATE_EXPIRY_UNKNOWN", "ERROR", "complianceCsidCustody.expiresAt", "Compliance CSID certificate expiry is unknown.", "SECURITY_FEATURES_RENEWAL", "Parse and store only safe expiry metadata after real sandbox response handling is approved."),
+      this.check("ZATCA_COMPLIANCE_CSID_RENEWAL_METADATA_NOT_MODELED", "ERROR", "complianceCsidCustody.renewal", "Compliance CSID renewal metadata is not modeled.", "RENEWAL_API", "Design renewal metadata and expiry reminders before real certificate custody."),
+      this.check("ZATCA_COMPLIANCE_CSID_REAL_RESPONSE_NOT_RECEIVED", activeEgs.complianceCsidPem ? "WARNING" : "ERROR", "complianceCsidCustody.realResponse", activeEgs.complianceCsidPem ? "Only local/mock compliance CSID material is present; real sandbox response custody is still not implemented." : "No real sandbox compliance CSID response has been received.", "COMPLIANCE_CSID_API", "Keep real sandbox response persistence blocked until custody design is complete."),
+    );
+
+    if (!activeEgs.productionCsidPem) {
+      checks.push(this.check("ZATCA_PRODUCTION_CSID_MISSING_FOR_CUSTODY", "ERROR", "productionCsid.storage", "Production CSID is missing and remains out of scope.", "ONBOARDING_API", "Do not request or store production CSIDs in this phase."));
+    }
+    if (!activeEgs.privateKeyPem || activeEgs.environment !== "PRODUCTION") {
+      checks.push(this.check("ZATCA_PRODUCTION_KEY_CUSTODY_INCOMPLETE_FOR_CSID", "ERROR", "productionKeyCustody", "Production key custody remains incomplete.", "SECURITY_FEATURES_PRIVATE_KEY", "Use a dedicated production key-custody phase; do not use local/mock material as production credentials."));
+    }
+
+    return createZatcaReadinessSection("COMPLIANCE_CSID_CUSTODY", checks);
   }
 
   private buildSigningReadinessSection(
