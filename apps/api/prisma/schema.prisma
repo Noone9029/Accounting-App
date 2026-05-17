@@ -1109,6 +1109,8 @@ model Contact {
   email                      String?
   phone                      String?
   taxNumber                  String?
+  identificationType         String?
+  identificationNumber       String?
   addressLine1               String?
   addressLine2               String?
   buildingNumber             String?

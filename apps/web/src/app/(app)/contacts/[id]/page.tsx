@@ -7,6 +7,7 @@ import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { contactIdentificationOptions, formatContactIdentificationType, getContactIdentificationOption } from "@/lib/contact-identification";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { defaultStatementFromDate, defaultStatementToDate, formatLedgerBalance } from "@/lib/ledger-display";
 import { formatMoneyAmount } from "@/lib/money";
@@ -33,6 +34,7 @@ export default function ContactDetailPage() {
   const [statementLoading, setStatementLoading] = useState(false);
   const [statementPdfLoading, setStatementPdfLoading] = useState(false);
   const [addressSaving, setAddressSaving] = useState(false);
+  const [identificationTypeDraft, setIdentificationTypeDraft] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [statementError, setStatementError] = useState("");
@@ -41,6 +43,7 @@ export default function ContactDetailPage() {
   const profile = contact ?? ledger?.contact ?? supplierLedger?.contact ?? null;
   const canManageContacts = can(PERMISSIONS.contacts.manage);
   const buyerReadiness = contact && (contact.type === "CUSTOMER" || contact.type === "BOTH") ? buildContactBuyerAddressReadiness(contact) : null;
+  const identificationOption = getContactIdentificationOption(identificationTypeDraft);
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -102,6 +105,10 @@ export default function ContactDetailPage() {
       setActiveSection("overview");
     }
   }, [activeSection, contact, ledgerAvailable, supplierLedgerAvailable]);
+
+  useEffect(() => {
+    setIdentificationTypeDraft(contact?.identificationType ?? "");
+  }, [contact?.identificationType]);
 
   async function loadStatement(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -178,9 +185,13 @@ export default function ContactDetailPage() {
     const formData = new FormData(event.currentTarget);
 
     try {
+      const identificationType = String(formData.get("identificationType") || "").trim();
+      const identificationNumber = String(formData.get("identificationNumber") || "").trim().toUpperCase();
       const updated = await apiRequest<Contact>(`/contacts/${contact.id}`, {
         method: "PATCH",
         body: {
+          identificationType: identificationType || undefined,
+          identificationNumber: identificationNumber || undefined,
           addressLine1: String(formData.get("addressLine1") || "") || undefined,
           addressLine2: String(formData.get("addressLine2") || "") || undefined,
           buildingNumber: String(formData.get("buildingNumber") || "") || undefined,
@@ -248,6 +259,8 @@ export default function ContactDetailPage() {
                   <Summary label="Email" value={profile.email ?? "-"} />
                   <Summary label="Phone" value={profile.phone ?? "-"} />
                   <Summary label="VAT number" value={profile.taxNumber ?? "-"} />
+                  <Summary label="ID Type" value={formatContactIdentificationType(contact?.identificationType)} />
+                  <Summary label="ID Number" value={contact?.identificationNumber ?? "-"} />
                   <Summary label="Street" value={contact?.addressLine1 ?? "-"} />
                   <Summary label="Additional street" value={contact?.addressLine2 ?? "-"} />
                   <Summary label="Building number" value={contact?.buildingNumber ?? "-"} />
@@ -260,11 +273,41 @@ export default function ContactDetailPage() {
                 {canManageContacts && contact ? (
                   <form onSubmit={updateAddress} className="mt-5 grid grid-cols-1 gap-3 border-t border-slate-100 pt-5 md:grid-cols-3">
                     <div className="md:col-span-3">
-                      <h3 className="text-sm font-semibold text-ink">Edit address fields</h3>
+                      <h3 className="text-sm font-semibold text-ink">Edit identification and address fields</h3>
                       <p className="mt-1 text-xs text-steel">
-                        Required for clean Saudi ZATCA buyer address validation where applicable. Building number is usually 4 digits for Saudi national address.
+                        ID type and ID number support buyer identification when VAT is not available. Address fields are required for clean Saudi ZATCA buyer address validation where applicable.
                       </p>
                     </div>
+                    <div>
+                      <select
+                        name="identificationType"
+                        value={identificationTypeDraft}
+                        onChange={(event) => setIdentificationTypeDraft(event.target.value)}
+                        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
+                      >
+                        <option value="">ID Type</option>
+                        {contactIdentificationOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-[11px] text-steel">Choose the contact ID type.</p>
+                    </div>
+                    <div>
+                      <input
+                        name="identificationNumber"
+                        defaultValue={contact.identificationNumber ?? ""}
+                        placeholder="ID number"
+                        disabled={!identificationOption}
+                        required={Boolean(identificationOption)}
+                        inputMode={identificationOption?.inputMode ?? "text"}
+                        pattern={identificationOption?.pattern}
+                        maxLength={identificationOption?.maxLength}
+                        title={identificationOption ? `${identificationOption.label}: ${identificationOption.hint}` : "Choose an ID type first."}
+                        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm uppercase outline-none focus:border-palm disabled:bg-slate-100"
+                      />
+                      <p className="mt-1 text-[11px] text-steel">{identificationOption?.hint ?? "Choose an ID type first."}</p>
+                    </div>
+                    <div />
                     <input name="addressLine1" defaultValue={contact.addressLine1 ?? ""} placeholder="Street name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
                     <input name="addressLine2" defaultValue={contact.addressLine2 ?? ""} placeholder="Additional street" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
                     <input name="buildingNumber" defaultValue={contact.buildingNumber ?? ""} placeholder="Building number" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />

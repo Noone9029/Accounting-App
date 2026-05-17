@@ -212,6 +212,7 @@ const officialCsrConfigKeyOrder = [
 ] as const;
 const officialExampleCsrInvoiceTypes = new Set(["1100"]);
 const officialSellerIdentificationSchemeIds = new Set(["CRN", "MOM", "MLS", "SAG", "OTH", "700"]);
+const officialBuyerIdentificationSchemeIds = new Set(["CRN", "MOM", "MLS", "SAG", "NAT", "IQA", "PAS", "GCC", "OTH", "700"]);
 const emptyZatcaSignedXmlValidationResults = {
   xsd: "NOT_RUN",
   en: "NOT_RUN",
@@ -1027,6 +1028,8 @@ export class ZatcaService {
             name: true,
             displayName: true,
             taxNumber: true,
+            identificationType: true,
+            identificationNumber: true,
             addressLine1: true,
             addressLine2: true,
             buildingNumber: true,
@@ -3170,6 +3173,8 @@ export class ZatcaService {
               name: true,
               displayName: true,
               taxNumber: true,
+              identificationType: true,
+              identificationNumber: true,
               addressLine1: true,
               addressLine2: true,
               buildingNumber: true,
@@ -3463,6 +3468,8 @@ export class ZatcaService {
             name: true,
             displayName: true,
             taxNumber: true,
+            identificationType: true,
+            identificationNumber: true,
             addressLine1: true,
             addressLine2: true,
             buildingNumber: true,
@@ -3740,6 +3747,8 @@ export class ZatcaService {
             name: true;
             displayName: true;
             taxNumber: true;
+            identificationType: true;
+            identificationNumber: true;
             addressLine1: true;
             addressLine2: true;
             buildingNumber: true;
@@ -3781,6 +3790,8 @@ export class ZatcaService {
       buyer: {
         name: invoice.customer.displayName ?? invoice.customer.name,
         vatNumber: invoice.customer.taxNumber,
+        companyIdType: invoice.customer.identificationType,
+        companyIdNumber: invoice.customer.identificationNumber,
         streetName: invoice.customer.addressLine1,
         additionalAddressNumber: invoice.customer.addressLine2,
         buildingNumber: invoice.customer.buildingNumber,
@@ -4471,6 +4482,8 @@ export class ZatcaService {
       name?: string | null;
       displayName?: string | null;
       taxNumber?: string | null;
+      identificationType?: string | null;
+      identificationNumber?: string | null;
       addressLine1?: string | null;
       buildingNumber?: string | null;
       district?: string | null;
@@ -4496,6 +4509,13 @@ export class ZatcaService {
       checks.push(this.check("ZATCA_BUYER_VAT_NUMBER_INVALID", "ERROR", "buyer.taxNumber", "Buyer VAT number must be 15 digits and start/end with 3 when it exists.", "BR-KSA-44", "Fix the buyer VAT number or leave it empty when not applicable."));
     } else if (!hasText(buyer.taxNumber)) {
       checks.push(this.check("ZATCA_BUYER_VAT_NUMBER_CONDITIONAL", "INFO", "buyer.taxNumber", "Buyer VAT number is conditional; when present it must match the Saudi VAT format.", "BR-KSA-44", "Add a valid buyer VAT number only when applicable to the transaction."));
+      const buyerIdType = buyer.identificationType?.trim().toUpperCase() ?? "";
+      const buyerIdNumber = buyer.identificationNumber?.trim() ?? "";
+      if (!buyerIdType || !buyerIdNumber) {
+        checks.push(this.check("ZATCA_BUYER_OTHER_ID_MISSING", "WARNING", "buyer.identificationNumber", "Buyer other ID should be present on standard tax invoices when buyer VAT is not provided.", "BR-KSA-81", "Add the buyer ID type and ID number on the contact."));
+      } else if (!officialBuyerIdentificationSchemeIds.has(buyerIdType) || !/^[A-Za-z0-9]+$/.test(buyerIdNumber)) {
+        checks.push(this.check("ZATCA_BUYER_OTHER_ID_INVALID", "WARNING", "buyer.identificationNumber", "Buyer other ID must use a supported ID type and alphanumeric value.", "BR-KSA-81", "Fix the contact ID type and ID number before generating standard tax invoice XML."));
+      }
     }
 
     if (!hasText(buyer.countryCode)) {

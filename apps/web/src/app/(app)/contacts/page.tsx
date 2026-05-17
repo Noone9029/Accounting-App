@@ -6,6 +6,7 @@ import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { contactIdentificationOptions, formatContactIdentificationType, getContactIdentificationOption } from "@/lib/contact-identification";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { Contact, ContactType } from "@/lib/types";
 
@@ -18,7 +19,9 @@ export default function ContactsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [createIdentificationType, setCreateIdentificationType] = useState("");
   const canManageContacts = can(PERMISSIONS.contacts.manage);
+  const createIdentificationOption = getContactIdentificationOption(createIdentificationType);
 
   useEffect(() => {
     if (!organizationId) {
@@ -59,6 +62,9 @@ export default function ContactsPage() {
     const formData = new FormData(form);
 
     try {
+      const taxNumber = String(formData.get("taxNumber") || "").trim();
+      const identificationType = String(formData.get("identificationType") || "").trim();
+      const identificationNumber = String(formData.get("identificationNumber") || "").trim().toUpperCase();
       const created = await apiRequest<Contact>("/contacts", {
         method: "POST",
         body: {
@@ -66,7 +72,9 @@ export default function ContactsPage() {
           name: String(formData.get("name")),
           email: String(formData.get("email") || "") || undefined,
           phone: String(formData.get("phone") || "") || undefined,
-          taxNumber: String(formData.get("taxNumber") || "") || undefined,
+          taxNumber: taxNumber || undefined,
+          identificationType: identificationType || undefined,
+          identificationNumber: identificationNumber || undefined,
           addressLine1: String(formData.get("addressLine1") || "") || undefined,
           addressLine2: String(formData.get("addressLine2") || "") || undefined,
           buildingNumber: String(formData.get("buildingNumber") || "") || undefined,
@@ -79,6 +87,7 @@ export default function ContactsPage() {
       setContacts((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
       setSuccess(`Created contact ${created.name}.`);
       form.reset();
+      setCreateIdentificationType("");
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Unable to create contact.");
     }
@@ -103,7 +112,38 @@ export default function ContactsPage() {
           <input name="name" required placeholder="Name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
           <input name="email" type="email" placeholder="Email" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
           <input name="phone" placeholder="Phone" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <input name="taxNumber" placeholder="VAT number" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          <div>
+            <input name="taxNumber" placeholder="VAT number" inputMode="numeric" pattern="[0-9]{15}" minLength={15} maxLength={15} title="VAT number must be exactly 15 digits." className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <p className="mt-1 text-[11px] text-steel">Exactly 15 digits.</p>
+          </div>
+          <div>
+            <select
+              name="identificationType"
+              value={createIdentificationType}
+              onChange={(event) => setCreateIdentificationType(event.target.value)}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
+            >
+              <option value="">ID Type</option>
+              {contactIdentificationOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-[11px] text-steel">Used for buyer identification when VAT is not available.</p>
+          </div>
+          <div>
+            <input
+              name="identificationNumber"
+              placeholder="ID number"
+              disabled={!createIdentificationOption}
+              required={Boolean(createIdentificationOption)}
+              inputMode={createIdentificationOption?.inputMode ?? "text"}
+              pattern={createIdentificationOption?.pattern}
+              maxLength={createIdentificationOption?.maxLength}
+              title={createIdentificationOption ? `${createIdentificationOption.label}: ${createIdentificationOption.hint}` : "Choose an ID type first."}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm uppercase outline-none focus:border-palm disabled:bg-slate-100"
+            />
+            <p className="mt-1 text-[11px] text-steel">{createIdentificationOption?.hint ?? "Choose an ID type first."}</p>
+          </div>
           <div className="pt-2 text-xs font-semibold uppercase tracking-wide text-steel md:col-span-4">Address and ZATCA buyer fields</div>
           <input name="addressLine1" placeholder="Street name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
           <input name="addressLine2" placeholder="Additional street" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
@@ -143,6 +183,8 @@ export default function ContactsPage() {
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">VAT number</th>
+                <th className="px-4 py-3">ID Type</th>
+                <th className="px-4 py-3">ID Number</th>
                 <th className="px-4 py-3">ZATCA address</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Actions</th>
@@ -156,6 +198,8 @@ export default function ContactsPage() {
                   <td className="px-4 py-3 text-steel">{contact.email ?? "-"}</td>
                   <td className="px-4 py-3 text-steel">{contact.phone ?? "-"}</td>
                   <td className="px-4 py-3 text-steel">{contact.taxNumber ?? "-"}</td>
+                  <td className="px-4 py-3 text-steel">{formatContactIdentificationType(contact.identificationType)}</td>
+                  <td className="px-4 py-3 text-steel">{contact.identificationNumber ?? "-"}</td>
                   <td className="px-4 py-3 text-steel">{contact.buildingNumber && contact.district ? `${contact.buildingNumber}, ${contact.district}` : "Incomplete"}</td>
                   <td className="px-4 py-3 text-steel">{contact.isActive ? "Active" : "Inactive"}</td>
                   <td className="px-4 py-3">

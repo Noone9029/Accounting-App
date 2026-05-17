@@ -4,6 +4,7 @@ export type { ZatcaReadinessCheck, ZatcaReadinessSection, ZatcaReadinessStatus }
 
 export type AccountType = "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE" | "COST_OF_SALES";
 export type ContactType = "CUSTOMER" | "SUPPLIER" | "BOTH";
+export type ContactIdentificationType = "CRN" | "MOM" | "MLS" | "SAG" | "NAT" | "IQA" | "PAS" | "GCC" | "700" | "OTH";
 export type TaxRateScope = "SALES" | "PURCHASES" | "BOTH";
 export type TaxRateCategory = "STANDARD" | "ZERO_RATED" | "EXEMPT" | "OUT_OF_SCOPE" | "REVERSE_CHARGE";
 export type JournalStatus = "DRAFT" | "POSTED" | "VOIDED" | "REVERSED";
@@ -1491,6 +1492,8 @@ export interface Contact {
   email: string | null;
   phone: string | null;
   taxNumber: string | null;
+  identificationType: ContactIdentificationType | null;
+  identificationNumber: string | null;
   addressLine1: string | null;
   addressLine2: string | null;
   buildingNumber: string | null;

@@ -307,7 +307,7 @@ export function getZatcaProfileMissingFields(profile: {
     .map(([field]) => String(field));
 }
 
-export function buildContactBuyerAddressReadiness(contact: Pick<Contact, "addressLine1" | "buildingNumber" | "district" | "city" | "postalCode" | "countryCode" | "taxNumber">): ZatcaReadinessSection {
+export function buildContactBuyerAddressReadiness(contact: Pick<Contact, "addressLine1" | "buildingNumber" | "district" | "city" | "postalCode" | "countryCode" | "taxNumber" | "identificationType" | "identificationNumber">): ZatcaReadinessSection {
   const checks: ZatcaReadinessCheck[] = [];
   const countryCode = contact.countryCode?.trim().toUpperCase() || "SA";
   const isSaudiBuyer = countryCode === "SA";
@@ -388,6 +388,15 @@ export function buildContactBuyerAddressReadiness(contact: Pick<Contact, "addres
       message: "Buyer VAT number, when provided, must be 15 digits and start/end with 3.",
       sourceRule: "BR-KSA-44",
       fixHint: "Use the buyer VAT number exactly as registered or leave it blank if not applicable.",
+    });
+  } else if (!taxNumber && (!contact.identificationType?.trim() || !contact.identificationNumber?.trim())) {
+    checks.push({
+      code: "ZATCA_BUYER_OTHER_ID_MISSING",
+      severity: "WARNING",
+      field: "buyer.identificationNumber",
+      message: "Buyer other ID should be present on standard tax invoices when buyer VAT is not provided.",
+      sourceRule: "BR-KSA-81",
+      fixHint: "Add the buyer ID type and ID number on the contact.",
     });
   }
 

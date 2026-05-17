@@ -1,5 +1,8 @@
+import { BadRequestException } from "@nestjs/common";
 import { ContactType } from "@prisma/client";
+import { validate } from "class-validator";
 import { ContactService } from "./contact.service";
+import { CreateContactDto } from "./dto/create-contact.dto";
 
 describe("ContactService ZATCA address fields", () => {
   it("creates contacts with dedicated Saudi buyer address fields", async () => {
@@ -21,6 +24,8 @@ describe("ContactService ZATCA address fields", () => {
       city: "Riyadh",
       postalCode: "12222",
       countryCode: "SA",
+      identificationType: "CRN",
+      identificationNumber: "1010010000",
     });
 
     expect(prisma.contact.create).toHaveBeenCalledWith({
@@ -30,9 +35,11 @@ describe("ContactService ZATCA address fields", () => {
         buildingNumber: "1111",
         district: "Al Murooj",
         addressLine2: "Unit 12",
+        identificationType: "CRN",
+        identificationNumber: "1010010000",
       }),
     });
-    expect(contact).toMatchObject({ buildingNumber: "1111", district: "Al Murooj" });
+    expect(contact).toMatchObject({ buildingNumber: "1111", district: "Al Murooj", identificationType: "CRN", identificationNumber: "1010010000" });
     expect(auditLogService.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CREATE", entityType: "Contact" }));
   });
 
@@ -45,6 +52,8 @@ describe("ContactService ZATCA address fields", () => {
       buildingNumber: null,
       district: null,
       countryCode: "SA",
+      identificationType: null,
+      identificationNumber: null,
     };
     const prisma = {
       contact: {
@@ -70,6 +79,63 @@ describe("ContactService ZATCA address fields", () => {
         before: existing,
         after: expect.objectContaining({ buildingNumber: "2222", district: "Al Olaya" }),
       }),
+    );
+  });
+
+  it("rejects mismatched or malformed contact ID values", async () => {
+    const prisma = {
+      contact: {
+        create: jest.fn(),
+      },
+    };
+    const auditLogService = { log: jest.fn().mockResolvedValue(undefined) };
+    const service = new ContactService(prisma as never, auditLogService as never);
+
+    await expect(
+      service.create("org-1", "user-1", {
+        type: ContactType.CUSTOMER,
+        name: "Bad ID",
+        identificationType: "NAT",
+        identificationNumber: "2000000000",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      service.create("org-1", "user-1", {
+        type: ContactType.CUSTOMER,
+        name: "Missing ID Type",
+        identificationNumber: "1010010000",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.contact.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("Contact VAT number validation", () => {
+  async function validateContactTaxNumber(taxNumber: string) {
+    const dto = Object.assign(new CreateContactDto(), {
+      type: ContactType.CUSTOMER,
+      name: "VAT Buyer",
+      taxNumber,
+    });
+
+    return validate(dto);
+  }
+
+  it("accepts exactly 15 digits", async () => {
+    await expect(validateContactTaxNumber("300000000000003")).resolves.toHaveLength(0);
+  });
+
+  it("rejects VAT numbers that are shorter, longer, or not digits only", async () => {
+    await expect(validateContactTaxNumber("30000000000003")).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ property: "taxNumber" })]),
+    );
+    await expect(validateContactTaxNumber("3000000000000039")).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ property: "taxNumber" })]),
+    );
+    await expect(validateContactTaxNumber("3000000000000A3")).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ property: "taxNumber" })]),
     );
   });
 });

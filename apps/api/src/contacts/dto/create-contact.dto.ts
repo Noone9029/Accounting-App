@@ -1,5 +1,7 @@
 import { ContactType } from "@prisma/client";
-import { IsBoolean, IsEmail, IsEnum, IsOptional, IsString, Length, Matches, MaxLength, ValidateIf } from "class-validator";
+import { IsBoolean, IsEmail, IsEnum, IsIn, IsOptional, IsString, Length, Matches, MaxLength, ValidateIf } from "class-validator";
+
+export const contactIdentificationTypes = ["CRN", "MOM", "MLS", "SAG", "NAT", "IQA", "PAS", "GCC", "700", "OTH"] as const;
 
 export class CreateContactDto {
   @IsEnum(ContactType)
@@ -22,7 +24,19 @@ export class CreateContactDto {
 
   @IsOptional()
   @IsString()
+  @Matches(/^[0-9]{15}$/, { message: "taxNumber must be exactly 15 digits." })
   taxNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(contactIdentificationTypes, { message: "identificationType must be one of CRN, MOM, MLS, SAG, NAT, IQA, PAS, GCC, 700, or OTH." })
+  identificationType?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  @Matches(/^[A-Za-z0-9]+$/, { message: "identificationNumber must contain only letters and digits." })
+  identificationNumber?: string;
 
   @IsOptional()
   @IsString()

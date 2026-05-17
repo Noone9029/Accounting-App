@@ -28,6 +28,8 @@ export interface ZatcaSellerInput extends ZatcaAddressInput {
 export interface ZatcaBuyerInput extends ZatcaAddressInput {
   name: string;
   vatNumber?: string | null;
+  companyIdType?: string | null;
+  companyIdNumber?: string | null;
 }
 
 export interface ZatcaInvoiceLineInput {
@@ -69,6 +71,7 @@ export interface ZatcaBuildResult {
 }
 
 const officialSellerIdentificationSchemeIds = new Set(["CRN", "MOM", "MLS", "SAG", "OTH", "700"]);
+const officialBuyerIdentificationSchemeIds = new Set(["CRN", "MOM", "MLS", "SAG", "NAT", "IQA", "PAS", "GCC", "OTH", "700"]);
 
 export interface ZatcaCanonicalHashInputResult {
   xmlForHash: string;
@@ -246,11 +249,11 @@ function buildBinaryAdditionalDocumentReferenceXml(id: "PIH" | "QR", value: stri
 }
 
 export function buildSupplierPartyXml(seller: ZatcaSellerInput): string {
-  return buildPartyXml("AccountingSupplierParty", seller, seller.vatNumber);
+  return buildPartyXml("AccountingSupplierParty", seller, seller.vatNumber, officialSellerIdentificationSchemeIds);
 }
 
 export function buildCustomerPartyXml(buyer: ZatcaBuyerInput): string {
-  return buildPartyXml("AccountingCustomerParty", buyer, buyer.vatNumber ?? null);
+  return buildPartyXml("AccountingCustomerParty", buyer, buyer.vatNumber ?? null, officialBuyerIdentificationSchemeIds);
 }
 
 export function buildDeliveryXml(input: Pick<ZatcaInvoiceInput, "supplyDate">): string {
@@ -430,8 +433,8 @@ export function validateZatcaCsrInput(input: ZatcaCsrInput): void {
   }
 }
 
-function buildPartyXml(tagName: "AccountingSupplierParty" | "AccountingCustomerParty", party: ZatcaSellerInput | ZatcaBuyerInput, vatNumber: string | null): string {
-  const partyIdentification = buildPartyIdentificationXml(party);
+function buildPartyXml(tagName: "AccountingSupplierParty" | "AccountingCustomerParty", party: ZatcaSellerInput | ZatcaBuyerInput, vatNumber: string | null, allowedIdentificationSchemeIds: Set<string>): string {
+  const partyIdentification = buildPartyIdentificationXml(party, allowedIdentificationSchemeIds);
   return [
     `  <cac:${tagName}>`,
     `    <cac:Party>`,
@@ -456,14 +459,10 @@ function buildPartyXml(tagName: "AccountingSupplierParty" | "AccountingCustomerP
     .join("\n");
 }
 
-function buildPartyIdentificationXml(party: ZatcaSellerInput | ZatcaBuyerInput): string {
-  if (!("companyIdNumber" in party)) {
-    return "";
-  }
-
+function buildPartyIdentificationXml(party: ZatcaSellerInput | ZatcaBuyerInput, allowedIdentificationSchemeIds: Set<string>): string {
   const companyIdNumber = party.companyIdNumber?.trim();
   const companyIdType = party.companyIdType?.trim().toUpperCase() ?? "";
-  if (!companyIdNumber || !companyIdType || !officialSellerIdentificationSchemeIds.has(companyIdType) || !/^[a-zA-Z0-9]+$/.test(companyIdNumber)) {
+  if (!companyIdNumber || !companyIdType || !allowedIdentificationSchemeIds.has(companyIdType) || !/^[a-zA-Z0-9]+$/.test(companyIdNumber)) {
     return "";
   }
 

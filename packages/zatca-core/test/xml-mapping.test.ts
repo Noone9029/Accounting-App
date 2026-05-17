@@ -155,6 +155,21 @@ describe("ZATCA XML mapping scaffold", () => {
     assert.doesNotMatch(invalidXml, /<cac:PartyIdentification>/);
   });
 
+  it("emits buyer PartyIdentification for supported buyer ID schemes", () => {
+    const input = readFixtureInput("local-standard-tax-invoice");
+    const validXml = buildZatcaInvoiceXml({
+      ...input,
+      buyer: { ...input.buyer, vatNumber: null, companyIdType: "nat", companyIdNumber: "1010010000" },
+    });
+    const invalidXml = buildZatcaInvoiceXml({
+      ...input,
+      buyer: { ...input.buyer, vatNumber: null, companyIdType: "BAD", companyIdNumber: "ID-123" },
+    });
+
+    assert.match(validXml, /<cac:AccountingCustomerParty>[\s\S]*<cac:PartyIdentification>\n        <cbc:ID schemeID="NAT">1010010000<\/cbc:ID>\n      <\/cac:PartyIdentification>/);
+    assert.doesNotMatch(invalidXml.slice(invalidXml.indexOf("<cac:AccountingCustomerParty>")), /<cac:PartyIdentification>/);
+  });
+
   it("prepares documented hash input transforms without pretending to run official C14N11", () => {
     const xml = [
       '<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2">',
