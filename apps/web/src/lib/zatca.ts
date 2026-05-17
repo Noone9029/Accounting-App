@@ -151,6 +151,14 @@ export function zatcaEgsCsrLocalGeneratePath(egsUnitId: string): string {
   return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/csr-local-generate`;
 }
 
+export function zatcaEgsComplianceCsidRequestPlanPath(egsUnitId: string): string {
+  return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/compliance-csid-request-plan`;
+}
+
+export function zatcaEgsComplianceCsidRequestDryRunPath(egsUnitId: string): string {
+  return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/compliance-csid-request-dry-run`;
+}
+
 export type ZatcaAdapterMode = "mock" | "sandbox-disabled" | "sandbox";
 
 export interface ZatcaAdapterConfigSummary {

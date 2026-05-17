@@ -1097,6 +1097,7 @@ interface ZatcaReadinessSummary {
   signing: ZatcaReadinessSection;
   keyCustody: ZatcaReadinessSection;
   csr: ZatcaReadinessSection;
+  complianceCsidOnboarding: ZatcaReadinessSection;
   signedArtifactPromotion: ZatcaReadinessSection;
   signedArtifactStorage: ZatcaReadinessSection;
   phase2Qr: ZatcaReadinessSection;
@@ -1123,6 +1124,7 @@ interface ZatcaInvoiceReadinessResponse {
   egs: ZatcaReadinessSection;
   xml: ZatcaReadinessSection;
   signing: ZatcaReadinessSection;
+  complianceCsidOnboarding: ZatcaReadinessSection;
   signedArtifactPromotion: ZatcaReadinessSection;
   signedArtifactStorage: ZatcaReadinessSection;
   phase2Qr: ZatcaReadinessSection;
@@ -1678,6 +1680,39 @@ interface ZatcaEgsCsrLocalGenerateResponse {
   sdkExitCode: number | null;
   generatedCsrDetected: boolean;
   privateKeyDetected: boolean;
+  blockers: string[];
+  warnings: string[];
+}
+
+interface ZatcaComplianceCsidRequestPlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noNetwork: true;
+  noCsidRequest: true;
+  noProductionCredentials: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  productionCompliance: false;
+  executionEnabled: boolean;
+  executionAttempted: false;
+  egsUnit: { id: string; name: string; environment: string; hasCsr: boolean; hasComplianceCsid: boolean; hasProductionCsid: boolean; hasPrivateKey: boolean };
+  csrStatus: {
+    configHash: string;
+    missingFieldKeys: string[];
+    latestReviewId: string | null;
+    latestReviewStatus: string;
+    latestApprovedReviewId: string | null;
+    latestApprovedReviewStatus: string;
+    approvedReviewHashMatches: boolean;
+    generatedCsrAvailable: boolean;
+    generatedCsrReturned: false;
+  };
+  otpStatus: { required: true; provided: false; stored: false; returned: false; redacted: true };
+  plannedHeadersRedacted: Array<{ name: string; value: string }>;
+  plannedBodyFieldsRedacted: Array<{ name: string; value: string }>;
   blockers: string[];
   warnings: string[];
 }
@@ -3690,6 +3725,32 @@ async function main(): Promise<void> {
   assertEqual(egsAfterCsrLocalGenerate.lastInvoiceHash, egsBeforeCsrLocalGenerate.lastInvoiceHash, "ZATCA CSR local generate does not mutate EGS previous hash");
   const submissionsAfterCsrLocalGenerate = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
   assertEqual(submissionsAfterCsrLocalGenerate.length, submissionsBeforeCsrLocalGenerate.length, "ZATCA CSR local generate does not create submission logs by default");
+  const egsBeforeComplianceCsidPlan = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  const submissionsBeforeComplianceCsidPlan = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  const zatcaComplianceCsidPlan = await get<ZatcaComplianceCsidRequestPlanResponse>(`/zatca/egs-units/${smokeEgs.id}/compliance-csid-request-plan`, headers);
+  assertEqual(zatcaComplianceCsidPlan.localOnly, true, "ZATCA compliance CSID plan localOnly");
+  assertEqual(zatcaComplianceCsidPlan.dryRun, true, "ZATCA compliance CSID plan dryRun");
+  assertEqual(zatcaComplianceCsidPlan.noMutation, true, "ZATCA compliance CSID plan noMutation");
+  assertEqual(zatcaComplianceCsidPlan.noNetwork, true, "ZATCA compliance CSID plan noNetwork");
+  assertEqual(zatcaComplianceCsidPlan.noCsidRequest, true, "ZATCA compliance CSID plan noCsidRequest");
+  assertEqual(zatcaComplianceCsidPlan.noProductionCredentials, true, "ZATCA compliance CSID plan no production credentials");
+  assertEqual(zatcaComplianceCsidPlan.productionCompliance, false, "ZATCA compliance CSID plan productionCompliance false");
+  assertEqual(zatcaComplianceCsidPlan.executionEnabled, false, "ZATCA compliance CSID sandbox execution disabled by default");
+  assertEqual(zatcaComplianceCsidPlan.executionAttempted, false, "ZATCA compliance CSID plan does not attempt execution");
+  assertEqual(zatcaComplianceCsidPlan.otpStatus.redacted, true, "ZATCA compliance CSID plan redacts OTP");
+  assert(zatcaComplianceCsidPlan.plannedHeadersRedacted.some((header) => header.name === "OTP" && header.value.includes("REDACTED")), "ZATCA compliance CSID plan redacts OTP header");
+  assert(zatcaComplianceCsidPlan.plannedBodyFieldsRedacted.some((field) => field.name === "csr" && field.value.includes("REDACTED")), "ZATCA compliance CSID plan redacts CSR body");
+  assert(zatcaComplianceCsidPlan.blockers.some((blocker) => blocker.includes("OTP")), "ZATCA compliance CSID plan reports OTP blocker");
+  assertNoPrivateKey(zatcaComplianceCsidPlan, "ZATCA compliance CSID plan response");
+  const serializedComplianceCsidPlan = JSON.stringify(zatcaComplianceCsidPlan);
+  assert(!serializedComplianceCsidPlan.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA compliance CSID plan does not expose CSR body");
+  assert(!serializedComplianceCsidPlan.includes("BEGIN CERTIFICATE"), "ZATCA compliance CSID plan does not expose certificate body");
+  assert(!serializedComplianceCsidPlan.includes("PRIVATE KEY"), "ZATCA compliance CSID plan does not expose private key");
+  const egsAfterComplianceCsidPlan = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  assertEqual(egsAfterComplianceCsidPlan.lastIcv, egsBeforeComplianceCsidPlan.lastIcv, "ZATCA compliance CSID plan does not mutate EGS ICV");
+  assertEqual(egsAfterComplianceCsidPlan.lastInvoiceHash, egsBeforeComplianceCsidPlan.lastInvoiceHash, "ZATCA compliance CSID plan does not mutate EGS previous hash");
+  const submissionsAfterComplianceCsidPlan = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterComplianceCsidPlan.length, submissionsBeforeComplianceCsidPlan.length, "ZATCA compliance CSID plan does not create submission logs");
   smokeEgs = await post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/request-compliance-csid`, headers, { otp: "000000", mode: "mock" });
   assertNoPrivateKey(smokeEgs, "ZATCA compliance CSID response");
   assertEqual(smokeEgs.hasComplianceCsid, true, "ZATCA smoke EGS compliance CSID flag");
@@ -5723,6 +5784,7 @@ async function main(): Promise<void> {
         zatcaSignedArtifactStorageReadinessStatus: invoiceZatcaReadiness.signedArtifactStorage.status,
         zatcaKeyCustodyReadinessStatus: zatcaReadiness.keyCustody.status,
         zatcaCsrReadinessStatus: zatcaReadiness.csr.status,
+        zatcaComplianceCsidOnboardingReadinessStatus: zatcaReadiness.complianceCsidOnboarding.status,
         zatcaPhase2QrReadinessStatus: invoiceZatcaReadiness.phase2Qr.status,
         zatcaSigningPlanDryRun: zatcaSigningPlan.dryRun,
         zatcaSigningPlanNoMutation: zatcaSigningPlan.noMutation,
@@ -5750,6 +5812,9 @@ async function main(): Promise<void> {
         zatcaCsrLocalGenerateExecutionEnabled: zatcaCsrLocalGenerate.executionEnabled,
         zatcaCsrLocalGenerateExecutionAttempted: zatcaCsrLocalGenerate.executionAttempted,
         zatcaCsrLocalGenerateNoNetwork: zatcaCsrLocalGenerate.noNetwork,
+        zatcaComplianceCsidPlanExecutionEnabled: zatcaComplianceCsidPlan.executionEnabled,
+        zatcaComplianceCsidPlanNoNetwork: zatcaComplianceCsidPlan.noNetwork,
+        zatcaComplianceCsidPlanNoCsidRequest: zatcaComplianceCsidPlan.noCsidRequest,
         paymentIds: [partialPayment.id, remainingPayment.id],
         paymentRefundId: paymentRefund.id,
         paymentUnappliedInvoiceId: paymentUnappliedInvoice.id,

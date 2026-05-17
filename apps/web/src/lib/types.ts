@@ -3102,6 +3102,7 @@ export interface ZatcaReadinessSummary {
   signing: ZatcaReadinessSection;
   keyCustody: ZatcaReadinessSection;
   csr: ZatcaReadinessSection;
+  complianceCsidOnboarding: ZatcaReadinessSection;
   signedArtifactPromotion: ZatcaReadinessSection;
   signedArtifactStorage: ZatcaReadinessSection;
   phase2Qr: ZatcaReadinessSection;
@@ -3155,6 +3156,7 @@ export interface ZatcaInvoiceReadinessResponse {
   egs: ZatcaReadinessSection;
   xml: ZatcaReadinessSection;
   signing: ZatcaReadinessSection;
+  complianceCsidOnboarding: ZatcaReadinessSection;
   signedArtifactPromotion: ZatcaReadinessSection;
   signedArtifactStorage: ZatcaReadinessSection;
   phase2Qr: ZatcaReadinessSection;
@@ -3320,6 +3322,67 @@ export interface ZatcaInvoiceSignedXmlPromotionPlanResponse {
   validationSuccessIsPreconditionOnly: true;
   requiredFutureArtifacts: Array<{ id: string; label: string; required: boolean; available: boolean }>;
   promotionReadiness: ZatcaReadinessSection;
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
+}
+
+export interface ZatcaComplianceCsidRequestPlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noNetwork: true;
+  noCsidRequest: true;
+  noProductionCredentials: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  productionCompliance: false;
+  executionEnabled: boolean;
+  executionAttempted: false;
+  egsUnit: {
+    id: string;
+    name: string;
+    environment: ZatcaEnvironment;
+    status: ZatcaRegistrationStatus;
+    isActive: boolean;
+    hasCsr: boolean;
+    hasComplianceCsid: boolean;
+    hasProductionCsid: boolean;
+    hasPrivateKey: boolean;
+    certificateRequestId: string | null;
+  };
+  csrStatus: {
+    configHash: string;
+    requiredFieldCount: number;
+    missingFieldKeys: string[];
+    reviewFieldKeys: string[];
+    latestReviewId: string | null;
+    latestReviewStatus: string;
+    latestApprovedReviewId: string | null;
+    latestApprovedReviewStatus: string;
+    approvedReviewHashMatches: boolean;
+    generatedCsrAvailable: boolean;
+    generatedCsrReturned: false;
+  };
+  otpStatus: {
+    required: true;
+    provided: false;
+    stored: false;
+    returned: false;
+    redacted: true;
+  };
+  plannedEndpointEnvironment: string;
+  plannedEndpoint: {
+    source: string;
+    urlConfigured: boolean;
+    urlReturned: false;
+    networkCallPlannedByDefault: false;
+  };
+  plannedHeadersRedacted: Array<{ name: string; required: boolean; value: string; source: string }>;
+  plannedBodyFieldsRedacted: Array<{ name: string; required: boolean; value: string; source: string }>;
+  sensitiveResponseFields: string[];
   blockers: string[];
   warnings: string[];
   recommendedNextSteps: string[];

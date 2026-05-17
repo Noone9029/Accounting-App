@@ -268,6 +268,7 @@ const requiredSignedArtifactStorageControlEvidenceTypes = [
   ZatcaSignedArtifactStorageControlEvidenceType.STORAGE_PROBE,
 ] as const;
 const signedArtifactStorageProbePayload = "LedgerByte ZATCA signed artifact storage probe only. No invoice data.";
+const ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED_ENV = "ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED";
 
 interface SignedArtifactStorageProbeClient {
   putObject(input: { key: string; body: Buffer; contentType: string; metadata: Record<string, string> }): Promise<void>;
@@ -290,6 +291,10 @@ interface ZatcaCsrPlanField {
   status: ZatcaCsrPlanFieldStatus;
   source: "ZATCA_PROFILE" | "EGS_UNIT" | "NOT_MODELED";
   notes: string;
+}
+
+function isSandboxComplianceCsidRequestEnabled(): boolean {
+  return ["1", "true", "yes", "on"].includes((process.env[ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED_ENV] ?? "").trim().toLowerCase());
 }
 
 export interface ZatcaProfileReadiness {
@@ -453,11 +458,13 @@ export class ZatcaService {
     const signing = this.buildSigningReadinessSection(activeEgs);
     const keyCustody = this.buildKeyCustodyReadinessSection(activeEgs);
     const csr = this.buildCsrReadinessSection(profile, activeEgs);
+    const latestCsrConfigReview = activeEgs ? await this.getLatestCsrConfigReviewOrNull(organizationId, activeEgs.id) : null;
+    const complianceCsidOnboarding = this.buildComplianceCsidOnboardingReadinessSection(activeEgs, latestCsrConfigReview);
     const signedArtifactPromotion = this.buildSignedArtifactPromotionReadinessSection(null, activeEgs);
     const signedArtifactStorage = this.buildSignedArtifactStorageReadinessSection(null);
     const phase2Qr = this.buildPhase2QrReadinessSection();
     const pdfA3 = this.buildPdfA3ReadinessSection();
-    const sections = [sellerProfile, egs, xml, sdk, signing, keyCustody, csr, signedArtifactPromotion, signedArtifactStorage, phase2Qr, pdfA3];
+    const sections = [sellerProfile, egs, xml, sdk, signing, keyCustody, csr, complianceCsidOnboarding, signedArtifactPromotion, signedArtifactStorage, phase2Qr, pdfA3];
     const checks = sections.flatMap((section) => section.checks);
     const status = combineZatcaReadinessStatus(sections);
     const profileMissingFields = legacyProfileReadiness.missingFields;
@@ -492,6 +499,7 @@ export class ZatcaService {
       signing,
       keyCustody,
       csr,
+      complianceCsidOnboarding,
       signedArtifactPromotion,
       signedArtifactStorage,
       phase2Qr,
@@ -907,6 +915,170 @@ export class ZatcaService {
     return egsUnit.csrPem;
   }
 
+  async getEgsUnitComplianceCsidRequestPlan(organizationId: string, id: string) {
+    const [profile, egsUnit, latestReview, latestApprovedReview] = await Promise.all([
+      this.getCsrProfileSnapshot(organizationId),
+      this.getEgsUnitInternal(organizationId, id),
+      this.getLatestCsrConfigReviewOrNull(organizationId, id),
+      this.getLatestApprovedCsrConfigReviewOrNull(organizationId, id),
+    ]);
+    const requiredFields = this.buildCsrPlanFields(profile, egsUnit);
+    const sanitizedPreview = this.buildSanitizedCsrConfigPreview(requiredFields);
+    const configHash = this.hashCsrConfigPreview(sanitizedPreview.sanitizedConfigPreview);
+    const missingFields = sanitizedPreview.configEntries.filter((entry) => entry.status === "MISSING");
+    const reviewFields = sanitizedPreview.configEntries.filter((entry) => entry.status === "NEEDS_REVIEW");
+    const executionEnabled = isSandboxComplianceCsidRequestEnabled();
+    const approvedReviewHashMatches = Boolean(latestApprovedReview && latestApprovedReview.configHash === configHash);
+    const isProductionEgs = egsUnit.environment === "PRODUCTION";
+    const hasGeneratedCsrBody = hasText(egsUnit.csrPem);
+    const blockers: string[] = [];
+    const warnings: string[] = [
+      "Planning only. No compliance CSID request, production CSID request, clearance/reporting, signing, PDF/A-3, signed XML storage, QR payload storage, or production compliance claim is performed.",
+      "Official compliance CSID onboarding requires an OTP header and CSR JSON body; both remain redacted and no OTP is accepted or stored by this plan.",
+      "Compliance CSID response fields such as binarySecurityToken, secret, requestID, and certificate content must be handled as sensitive future onboarding material.",
+    ];
+
+    if (isProductionEgs) {
+      blockers.push("Compliance CSID sandbox planning is restricted to non-production EGS units; production CSID requests remain blocked.");
+    }
+    if (missingFields.length > 0) {
+      blockers.push(`CSR config fields are incomplete: ${missingFields.map((field) => field.key).join(", ")}.`);
+    }
+    if (!latestApprovedReview) {
+      blockers.push("An APPROVED CSR config review is required before any future sandbox compliance CSID request can be considered.");
+    } else if (!approvedReviewHashMatches) {
+      blockers.push("The current sanitized CSR config hash does not match the latest approved CSR config review.");
+    }
+    if (!hasGeneratedCsrBody) {
+      blockers.push("Generated CSR body is not available through the current reviewed local CSR path.");
+    }
+    blockers.push("OTP is required by the official Compliance CSID API and is not accepted, stored, or printed by this planning endpoint.");
+    if (!executionEnabled) {
+      blockers.push(`${ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED_ENV}=false; no sandbox compliance CSID request will be attempted.`);
+    } else {
+      blockers.push("Sandbox compliance CSID HTTP execution remains blocked in this phase; this planner does not call ZATCA.");
+    }
+
+    if (reviewFields.length > 0) {
+      warnings.push(`CSR config values still need operator review: ${reviewFields.map((field) => field.key).join(", ")}.`);
+    }
+    if (hasText(egsUnit.privateKeyPem)) {
+      warnings.push("Raw private key PEM material exists in the current EGS record; production key custody must move to a controlled KMS/HSM-backed boundary before any production onboarding.");
+    }
+    if (hasText(egsUnit.complianceCsidPem)) {
+      warnings.push("A compliance CSID/certificate body exists in storage and is never returned by this planner; production-safe token/certificate custody remains a blocker.");
+    }
+
+    return {
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      noNetwork: true,
+      noCsidRequest: true,
+      noProductionCredentials: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      productionCompliance: false,
+      executionEnabled,
+      executionAttempted: false,
+      egsUnit: {
+        id: egsUnit.id,
+        name: egsUnit.name,
+        environment: egsUnit.environment,
+        status: egsUnit.status,
+        isActive: egsUnit.isActive,
+        hasCsr: hasGeneratedCsrBody,
+        hasComplianceCsid: hasText(egsUnit.complianceCsidPem),
+        hasProductionCsid: hasText(egsUnit.productionCsidPem),
+        hasPrivateKey: hasText(egsUnit.privateKeyPem),
+        certificateRequestId: egsUnit.certificateRequestId,
+      },
+      csrStatus: {
+        configHash,
+        requiredFieldCount: sanitizedPreview.configEntries.length,
+        missingFieldKeys: missingFields.map((field) => field.key),
+        reviewFieldKeys: reviewFields.map((field) => field.key),
+        latestReviewId: latestReview?.id ?? null,
+        latestReviewStatus: latestReview?.status ?? "NONE",
+        latestApprovedReviewId: latestApprovedReview?.id ?? null,
+        latestApprovedReviewStatus: latestApprovedReview?.status ?? "NONE",
+        approvedReviewHashMatches,
+        generatedCsrAvailable: hasGeneratedCsrBody,
+        generatedCsrReturned: false,
+      },
+      otpStatus: {
+        required: true,
+        provided: false,
+        stored: false,
+        returned: false,
+        redacted: true,
+      },
+      plannedEndpointEnvironment: isProductionEgs ? "BLOCKED_PRODUCTION" : egsUnit.environment,
+      plannedEndpoint: {
+        source: "Official Compliance CSID API sandbox documentation.",
+        urlConfigured: false,
+        urlReturned: false,
+        networkCallPlannedByDefault: false,
+      },
+      plannedHeadersRedacted: [
+        { name: "OTP", required: true, value: "[REDACTED_OTP]", source: "compliance_csid.pdf" },
+        { name: "Accept-Version", required: true, value: "V2", source: "compliance_csid.pdf" },
+        { name: "Accept-Language", required: false, value: "en", source: "official API examples" },
+      ],
+      plannedBodyFieldsRedacted: [
+        { name: "csr", required: true, value: "[REDACTED_CSR_BODY]", source: "compliance_csid.pdf" },
+      ],
+      sensitiveResponseFields: ["binarySecurityToken", "secret", "requestID", "certificate", "errors"],
+      blockers: [...new Set(blockers)],
+      warnings: [...new Set(warnings)],
+      recommendedNextSteps: [
+        "Keep this as a sanitized plan until real sandbox access and OTP handling are explicitly approved.",
+        "Complete approved CSR config review and controlled local CSR generation before any future sandbox CSID execution gate.",
+        "Design secrets-manager custody for binarySecurityToken, secret, certificate content, and certificate request metadata before storing real responses.",
+        "Implement a separate disabled-by-default sandbox adapter phase; production CSID onboarding remains out of scope.",
+      ],
+    };
+  }
+
+  async getEgsUnitComplianceCsidRequestDryRun(organizationId: string, id: string) {
+    const plan = await this.getEgsUnitComplianceCsidRequestPlan(organizationId, id);
+    const executionEnabled = isSandboxComplianceCsidRequestEnabled();
+    const blockers = [
+      ...plan.blockers,
+      executionEnabled
+        ? "Sandbox compliance CSID HTTP adapter execution is intentionally not implemented in this phase; no request is attempted."
+        : `${ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED_ENV}=false; execution is skipped by default.`,
+    ];
+
+    return {
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      noNetwork: true,
+      noCsidRequest: true,
+      noProductionCredentials: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      productionCompliance: false,
+      executionEnabled,
+      executionAttempted: false,
+      executionSkipped: true,
+      executionStatus: executionEnabled ? "BLOCKED_NOT_IMPLEMENTED" : "SKIPPED_DISABLED",
+      egsUnit: plan.egsUnit,
+      csrStatus: plan.csrStatus,
+      otpStatus: plan.otpStatus,
+      plannedHeadersRedacted: plan.plannedHeadersRedacted,
+      plannedBodyFieldsRedacted: plan.plannedBodyFieldsRedacted,
+      blockers: [...new Set(blockers)],
+      warnings: plan.warnings,
+      recommendedNextSteps: plan.recommendedNextSteps,
+    };
+  }
+
   async requestComplianceCsid(organizationId: string, actorUserId: string, id: string, dto: RequestComplianceCsidDto) {
     const existing = await this.getEgsUnitInternal(organizationId, id);
     if (!existing.csrPem) {
@@ -1135,11 +1307,13 @@ export class ZatcaService {
     const egs = this.buildEgsReadinessSection(activeEgs);
     const xml = this.buildInvoiceXmlReadinessSection(metadata);
     const signing = this.buildSigningReadinessSection(activeEgs);
+    const latestCsrConfigReview = activeEgs ? await this.getLatestCsrConfigReviewOrNull(organizationId, activeEgs.id) : null;
+    const complianceCsidOnboarding = this.buildComplianceCsidOnboardingReadinessSection(activeEgs, latestCsrConfigReview);
     const signedArtifactPromotion = this.buildSignedArtifactPromotionReadinessSection(metadata, activeEgs);
     const signedArtifactStorage = this.buildSignedArtifactStorageReadinessSection(metadata);
     const phase2Qr = this.buildPhase2QrReadinessSection(metadata);
     const pdfA3 = this.buildPdfA3ReadinessSection();
-    const sections = [sellerProfile, buyerContact, invoiceReadiness, egs, xml, signing, signedArtifactPromotion, signedArtifactStorage, phase2Qr, pdfA3];
+    const sections = [sellerProfile, buyerContact, invoiceReadiness, egs, xml, signing, complianceCsidOnboarding, signedArtifactPromotion, signedArtifactStorage, phase2Qr, pdfA3];
     const status = combineZatcaReadinessStatus(sections);
     const checks = sections.flatMap((section) => section.checks);
 
@@ -1163,6 +1337,7 @@ export class ZatcaService {
       egs,
       xml,
       signing,
+      complianceCsidOnboarding,
       signedArtifactPromotion,
       signedArtifactStorage,
       phase2Qr,
@@ -4299,6 +4474,19 @@ export class ZatcaService {
     });
   }
 
+  private async getLatestApprovedCsrConfigReviewOrNull(organizationId: string, egsUnitId: string): Promise<SafeCsrConfigReviewRecord | null> {
+    const reviewModel = (this.prisma as PrismaService & { zatcaCsrConfigReview?: { findFirst: (args: unknown) => Promise<SafeCsrConfigReviewRecord | null> } }).zatcaCsrConfigReview;
+    if (!reviewModel?.findFirst) {
+      return null;
+    }
+
+    return reviewModel.findFirst({
+      where: { organizationId, egsUnitId, status: ZatcaCsrConfigReviewStatus.APPROVED },
+      orderBy: { updatedAt: "desc" },
+      select: safeCsrConfigReviewSelect,
+    });
+  }
+
   private toPublicCsrConfigReview(review: SafeCsrConfigReviewRecord) {
     return {
       id: review.id,
@@ -5112,6 +5300,114 @@ export class ZatcaService {
       );
     }
     return createZatcaReadinessSection("CSR", checks);
+  }
+
+  private buildComplianceCsidOnboardingReadinessSection(
+    activeEgs:
+      | {
+          id: string;
+          environment?: string | null;
+          csrPem?: string | null;
+          complianceCsidPem?: string | null;
+          productionCsidPem?: string | null;
+          certificateRequestId?: string | null;
+        }
+      | null,
+    latestCsrConfigReview: SafeCsrConfigReviewRecord | null,
+  ): ZatcaReadinessSection {
+    const checks: ZatcaReadinessCheck[] = [];
+    if (!activeEgs) {
+      checks.push(
+        this.check(
+          "ZATCA_COMPLIANCE_CSID_EGS_MISSING",
+          "ERROR",
+          "complianceCsid.egs",
+          "No active EGS unit exists for compliance CSID onboarding planning.",
+          "COMPLIANCE_CSID_API",
+          "Create and activate a non-production EGS unit before planning sandbox compliance CSID onboarding.",
+        ),
+      );
+      return createZatcaReadinessSection("COMPLIANCE_CSID_ONBOARDING", checks);
+    }
+
+    if (activeEgs.environment === "PRODUCTION") {
+      checks.push(
+        this.check(
+          "ZATCA_COMPLIANCE_CSID_PRODUCTION_EGS_BLOCKED",
+          "ERROR",
+          "complianceCsid.environment",
+          "Compliance CSID sandbox planning is restricted to non-production EGS units.",
+          "COMPLIANCE_CSID_API",
+          "Use sandbox/simulation planning only; production CSID onboarding remains a separate blocked phase.",
+        ),
+      );
+    }
+    if (!activeEgs.csrPem) {
+      checks.push(this.check("ZATCA_COMPLIANCE_CSID_CSR_NOT_GENERATED", "ERROR", "complianceCsid.csr", "Generated CSR body is missing for compliance CSID onboarding planning.", "COMPLIANCE_CSID_API", "Generate CSR only through the reviewed local CSR gate before future sandbox onboarding."));
+    }
+    if (latestCsrConfigReview?.status !== ZatcaCsrConfigReviewStatus.APPROVED) {
+      checks.push(this.check("ZATCA_COMPLIANCE_CSID_CSR_REVIEW_NOT_APPROVED", "ERROR", "complianceCsid.csrReview", "No approved CSR config review is available for this EGS unit.", "CSR_CONFIG_TEMPLATE", "Approve the sanitized CSR config preview before any future sandbox CSID request."));
+    }
+    checks.push(
+      this.check(
+        "ZATCA_COMPLIANCE_CSID_OTP_REQUIRED",
+        "ERROR",
+        "complianceCsid.otp",
+        "Official compliance CSID onboarding requires an OTP header; LedgerByte does not store or print OTP values.",
+        "COMPLIANCE_CSID_API",
+        "Obtain OTP through the official portal only for a later explicitly gated sandbox phase.",
+      ),
+      this.check(
+        "ZATCA_COMPLIANCE_CSID_ONBOARDING_EXECUTION_DISABLED",
+        "ERROR",
+        "complianceCsid.executionGate",
+        `${ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED_ENV} is disabled by default; no sandbox compliance CSID request is attempted.`,
+        "COMPLIANCE_CSID_API",
+        "Keep CSID requests disabled until a dedicated sandbox execution phase with safe OTP/token custody is approved.",
+      ),
+      this.check(
+        "ZATCA_COMPLIANCE_CSID_TOKEN_CUSTODY_NOT_PRODUCTION_SAFE",
+        "ERROR",
+        "complianceCsid.tokenCustody",
+        "Binary security token, secret, and certificate response custody is not production-safe yet.",
+        "ONBOARDING_API",
+        "Design secret storage, redaction, audit logging, and rotation before storing real CSID response material.",
+      ),
+      this.check(
+        "ZATCA_PRODUCTION_CSID_REQUEST_BLOCKED",
+        "ERROR",
+        "productionCsid.request",
+        "Production CSID requests remain blocked.",
+        "ONBOARDING_API",
+        "Do not request production credentials until compliance CSID, legal readiness, signing, and production onboarding are separately approved.",
+      ),
+      this.check(
+        "ZATCA_CSID_RENEWAL_WORKFLOW_INCOMPLETE",
+        "ERROR",
+        "complianceCsid.renewal",
+        "CSID renewal workflow is incomplete.",
+        "RENEWAL_API",
+        "Design renewal OTP/current-CSID handling and safe response rotation before production onboarding.",
+      ),
+      this.check(
+        "ZATCA_REAL_NETWORK_DISABLED_FOR_CSID",
+        "ERROR",
+        "complianceCsid.network",
+        "Real ZATCA network calls are disabled for compliance CSID onboarding planning.",
+        "COMPLIANCE_CSID_API",
+        "Keep this as a local plan unless a later sandbox gate explicitly enables a redacted request path.",
+      ),
+    );
+    if (activeEgs.complianceCsidPem) {
+      checks.push(this.check("ZATCA_COMPLIANCE_CSID_BODY_PRESENT_REDACTED", "WARNING", "complianceCsid.storage", "A compliance CSID/certificate body exists in storage and is never returned by readiness responses.", "SECURITY_FEATURES_CSID", "Treat existing certificate/token fields as non-production-only until custody is redesigned."));
+    } else {
+      checks.push(this.check("ZATCA_COMPLIANCE_CSID_MISSING_FOR_ONBOARDING", "ERROR", "complianceCsid.storage", "Compliance CSID is missing.", "COMPLIANCE_CSID_API", "Missing is expected in this planning phase; do not request CSIDs by default."));
+    }
+    if (!activeEgs.productionCsidPem) {
+      checks.push(this.check("ZATCA_PRODUCTION_CSID_MISSING_FOR_ONBOARDING", "ERROR", "productionCsid.storage", "Production CSID is missing.", "ONBOARDING_API", "Production onboarding remains explicitly out of scope."));
+    }
+
+    return createZatcaReadinessSection("COMPLIANCE_CSID_ONBOARDING", checks);
   }
 
   private buildSigningReadinessSection(

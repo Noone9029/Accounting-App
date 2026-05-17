@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import {
+  ZatcaCsrConfigReviewStatus,
   ZatcaInvoiceStatus,
   ZatcaInvoiceType,
   ZatcaRegistrationStatus,
@@ -3035,6 +3036,97 @@ describe("ZATCA service rules", () => {
     expect(onboardingAdapter.requestComplianceCsid).not.toHaveBeenCalled();
     expect(onboardingAdapter.requestProductionCsid).not.toHaveBeenCalled();
   });
+
+  it("returns a sanitized compliance CSID request plan without exposing secrets or making requests", async () => {
+    const approvedReview = makeCsrConfigReview({ status: ZatcaCsrConfigReviewStatus.APPROVED });
+    const egsUnit = makeEgsUnit({
+      environment: "SANDBOX",
+      status: ZatcaRegistrationStatus.ACTIVE,
+      isActive: true,
+      csrCommonName: "TST-Org",
+      csrSerialNumber: "1-TST|2-TST|3-TST",
+      csrOrganizationUnitName: "Riyadh Branch",
+      csrInvoiceType: "1100",
+      csrLocationAddress: "Riyadh",
+      csrPem: "-----BEGIN CERTIFICATE REQUEST-----SECRET_CSR-----END CERTIFICATE REQUEST-----",
+      complianceCsidPem: "-----BEGIN CERTIFICATE-----SECRET_CERT-----END CERTIFICATE-----",
+      privateKeyPem: "-----BEGIN PRIVATE KEY-----SECRET_PRIVATE_KEY-----END PRIVATE KEY-----",
+    });
+    const service = new ZatcaService(makeComplianceCsidPlanPrisma(egsUnit, approvedReview) as never, { log: jest.fn() } as never, makeNoopOnboardingAdapter() as never);
+
+    const plan = await service.getEgsUnitComplianceCsidRequestPlan("org-1", "egs-1");
+    const serialized = JSON.stringify(plan);
+
+    expect(plan.localOnly).toBe(true);
+    expect(plan.dryRun).toBe(true);
+    expect(plan.noNetwork).toBe(true);
+    expect(plan.noCsidRequest).toBe(true);
+    expect(plan.productionCompliance).toBe(false);
+    expect(plan.plannedHeadersRedacted).toEqual(expect.arrayContaining([expect.objectContaining({ name: "OTP", value: "[REDACTED_OTP]" })]));
+    expect(plan.plannedBodyFieldsRedacted).toEqual(expect.arrayContaining([expect.objectContaining({ name: "csr", value: "[REDACTED_CSR_BODY]" })]));
+    expect(serialized).not.toContain("SECRET_PRIVATE_KEY");
+    expect(serialized).not.toContain("SECRET_CERT");
+    expect(serialized).not.toContain("SECRET_CSR");
+    expect(serialized).not.toContain("000000");
+  });
+
+  it("blocks compliance CSID planning for production EGS units and missing OTP without network calls", async () => {
+    const egsUnit = makeEgsUnit({
+      environment: "PRODUCTION",
+      status: ZatcaRegistrationStatus.ACTIVE,
+      isActive: true,
+      csrPem: "CSR-BODY",
+    });
+    const onboardingAdapter = makeNoopOnboardingAdapter();
+    const service = new ZatcaService(makeComplianceCsidPlanPrisma(egsUnit, null) as never, { log: jest.fn() } as never, onboardingAdapter as never);
+
+    const plan = await service.getEgsUnitComplianceCsidRequestPlan("org-1", "egs-1");
+
+    expect(plan.blockers.join(" ")).toContain("production");
+    expect(plan.blockers.join(" ")).toContain("OTP");
+    expect(plan.noNetwork).toBe(true);
+    expect(plan.noCsidRequest).toBe(true);
+    expect(onboardingAdapter.requestComplianceCsid).not.toHaveBeenCalled();
+    expect(onboardingAdapter.requestProductionCsid).not.toHaveBeenCalled();
+  });
+
+  it("skips compliance CSID execution dry-run when the sandbox gate is disabled", async () => {
+    const originalFlag = process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED;
+    delete process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED;
+    const prisma = makeComplianceCsidPlanPrisma(makeEgsUnit({ csrPem: "CSR-BODY", status: ZatcaRegistrationStatus.ACTIVE, isActive: true }), null);
+    const onboardingAdapter = makeNoopOnboardingAdapter();
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never, onboardingAdapter as never);
+
+    const result = await service.getEgsUnitComplianceCsidRequestDryRun("org-1", "egs-1");
+
+    expect(result.executionEnabled).toBe(false);
+    expect(result.executionAttempted).toBe(false);
+    expect(result.executionStatus).toBe("SKIPPED_DISABLED");
+    expect(result.noMutation).toBe(true);
+    expect(result.noNetwork).toBe(true);
+    expect(result.noCsidRequest).toBe(true);
+    expect(onboardingAdapter.requestComplianceCsid).not.toHaveBeenCalled();
+    expect(onboardingAdapter.requestProductionCsid).not.toHaveBeenCalled();
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    restoreEnv("ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED", originalFlag);
+  });
+
+  it("includes compliance CSID onboarding blockers in ZATCA readiness", async () => {
+    const prisma = {
+      ...makeReadinessPrisma(),
+      zatcaCsrConfigReview: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never, makeNoopOnboardingAdapter() as never);
+
+    const readiness = await service.getZatcaReadinessSummary("org-1");
+
+    expect(readiness.complianceCsidOnboarding.status).toBe("BLOCKED");
+    expect(readiness.complianceCsidOnboarding.checks.map((check) => check.code)).toEqual(
+      expect.arrayContaining(["ZATCA_COMPLIANCE_CSID_OTP_REQUIRED", "ZATCA_COMPLIANCE_CSID_ONBOARDING_EXECUTION_DISABLED"]),
+    );
+    expect(readiness.productionCompliance).toBe(false);
+  });
 });
 
 function makeGenerationTransactionMock(options: {
@@ -3190,6 +3282,67 @@ function makeEgsUnit(overrides: Record<string, unknown> = {}) {
     createdAt: new Date("2026-05-07T00:00:00.000Z"),
     updatedAt: new Date("2026-05-07T00:00:00.000Z"),
     ...overrides,
+  };
+}
+
+function makeCsrConfigReview(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "review-1",
+    organizationId: "org-1",
+    egsUnitId: "egs-1",
+    status: ZatcaCsrConfigReviewStatus.DRAFT,
+    configHash: "stale-hash",
+    configPreviewRedacted: "csr.common.name=TST-Org\n",
+    configKeyOrder: [],
+    missingFieldsJson: [],
+    reviewFieldsJson: [],
+    blockersJson: [],
+    warningsJson: [],
+    approvedById: null,
+    approvedAt: null,
+    revokedById: null,
+    revokedAt: null,
+    note: null,
+    createdAt: new Date("2026-05-17T00:00:00.000Z"),
+    updatedAt: new Date("2026-05-17T00:00:00.000Z"),
+    approvedBy: null,
+    revokedBy: null,
+    ...overrides,
+  };
+}
+
+function makeComplianceCsidPlanPrisma(egsUnit: Record<string, unknown>, review: Record<string, unknown> | null) {
+  return {
+    organization: {
+      findFirst: jest.fn().mockResolvedValue({ id: "org-1", name: "Org", legalName: "Org Legal", taxNumber: "300000000000003", countryCode: "SA" }),
+    },
+    zatcaOrganizationProfile: {
+      findFirst: jest.fn().mockResolvedValue({
+        sellerName: "Org Legal",
+        vatNumber: "300000000000003",
+        countryCode: "SA",
+        businessCategory: "Technology",
+      }),
+    },
+    zatcaEgsUnit: {
+      findFirst: jest.fn().mockResolvedValue(egsUnit),
+      update: jest.fn(),
+    },
+    zatcaCsrConfigReview: {
+      findFirst: jest.fn((args: { where?: { status?: ZatcaCsrConfigReviewStatus } }) =>
+        Promise.resolve(args.where?.status === ZatcaCsrConfigReviewStatus.APPROVED ? (review?.status === ZatcaCsrConfigReviewStatus.APPROVED ? review : null) : review),
+      ),
+    },
+    zatcaSubmissionLog: {
+      create: jest.fn(),
+    },
+  };
+}
+
+function makeNoopOnboardingAdapter() {
+  return {
+    requestComplianceCsid: jest.fn(),
+    requestProductionCsid: jest.fn(),
   };
 }
 

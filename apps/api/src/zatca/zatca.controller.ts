@@ -193,6 +193,18 @@ export class ZatcaController {
     return this.zatcaService.getEgsUnitCsrLocalGenerate(organizationId, id, dto);
   }
 
+  @Get("zatca/egs-units/:id/compliance-csid-request-plan")
+  @RequirePermissions(PERMISSIONS.zatca.view)
+  getEgsComplianceCsidRequestPlan(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.zatcaService.getEgsUnitComplianceCsidRequestPlan(organizationId, id);
+  }
+
+  @Post("zatca/egs-units/:id/compliance-csid-request-dry-run")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  getEgsComplianceCsidRequestDryRun(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.zatcaService.getEgsUnitComplianceCsidRequestDryRun(organizationId, id);
+  }
+
   @Get("zatca/egs-units/:id/csr")
   @RequirePermissions(PERMISSIONS.zatca.view)
   async getEgsCsr(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {

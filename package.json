@@ -20,6 +20,7 @@
     "zatca:csr-local-generate": "corepack pnpm --filter @ledgerbyte/api zatca:csr-local-generate",
     "zatca:local-signing-dry-run": "corepack pnpm --filter @ledgerbyte/api zatca:local-signing-dry-run",
     "zatca:local-signed-xml-validate": "corepack pnpm --filter @ledgerbyte/api zatca:local-signed-xml-validate",
+    "zatca:compliance-csid-plan": "corepack pnpm --filter @ledgerbyte/api zatca:compliance-csid-plan",
     "db:generate": "corepack pnpm --filter @ledgerbyte/api db:generate",
     "db:migrate": "corepack pnpm --filter @ledgerbyte/api db:migrate",
     "db:seed": "corepack pnpm --filter @ledgerbyte/api db:seed"

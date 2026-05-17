@@ -50,4 +50,9 @@ describe("ZATCA controller", () => {
     expect(typeof ZatcaController.prototype.verifySignedArtifactStorageControlEvidence).toBe("function");
     expect(typeof ZatcaController.prototype.revokeSignedArtifactStorageControlEvidence).toBe("function");
   });
+
+  it("exposes compliance CSID onboarding plan handlers", () => {
+    expect(typeof ZatcaController.prototype.getEgsComplianceCsidRequestPlan).toBe("function");
+    expect(typeof ZatcaController.prototype.getEgsComplianceCsidRequestDryRun).toBe("function");
+  });
 });

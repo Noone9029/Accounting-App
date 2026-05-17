@@ -15,6 +15,7 @@ import {
   zatcaAdapterModeLabel,
   zatcaChecklistRiskBadgeClass,
   zatcaChecklistStatusBadgeClass,
+  zatcaEgsComplianceCsidRequestPlanPath,
   zatcaCsrConfigReviewApprovePath,
   zatcaCsrConfigReviewRevokePath,
   zatcaEgsCsrConfigPreviewPath,
@@ -46,6 +47,7 @@ import {
 import type {
   ZatcaAdapterConfigSummary,
   ZatcaChecklistItem,
+  ZatcaComplianceCsidRequestPlanResponse,
   ZatcaComplianceChecklistResponse,
   ZatcaCsrConfigReview,
   ZatcaEgsCsrConfigPreviewResponse,
@@ -120,6 +122,7 @@ export default function ZatcaSettingsPage() {
   const [csrFieldsByUnit, setCsrFieldsByUnit] = useState<Record<string, EgsCsrFieldsForm>>({});
   const [csrConfigPreviewByUnit, setCsrConfigPreviewByUnit] = useState<Record<string, ZatcaEgsCsrConfigPreviewResponse>>({});
   const [csrConfigReviewsByUnit, setCsrConfigReviewsByUnit] = useState<Record<string, ZatcaCsrConfigReview[]>>({});
+  const [complianceCsidPlanByUnit, setComplianceCsidPlanByUnit] = useState<Record<string, ZatcaComplianceCsidRequestPlanResponse>>({});
   const [otpByUnit, setOtpByUnit] = useState<Record<string, string>>({});
   const [hashModeReasonByUnit, setHashModeReasonByUnit] = useState<Record<string, string>>({});
   const [hashModeConfirmByUnit, setHashModeConfirmByUnit] = useState<Record<string, boolean>>({});
@@ -374,6 +377,22 @@ export default function ZatcaSettingsPage() {
       setSuccess(`Sanitized CSR config preview loaded for ${unit.name}. No file, SDK execution, CSID request, or network call was performed.`);
     } catch (previewError) {
       setError(previewError instanceof Error ? previewError.message : "Unable to load CSR config preview.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
+  async function loadComplianceCsidPlan(unit: ZatcaEgsUnit) {
+    setActionLoading(`compliance-csid-plan-${unit.id}`);
+    setError("");
+    setSuccess("");
+
+    try {
+      const plan = await apiRequest<ZatcaComplianceCsidRequestPlanResponse>(zatcaEgsComplianceCsidRequestPlanPath(unit.id));
+      setComplianceCsidPlanByUnit((current) => ({ ...current, [unit.id]: plan }));
+      setSuccess(`Sandbox compliance CSID plan loaded for ${unit.name}. No CSID request, OTP storage, token display, or ZATCA network call was performed.`);
+    } catch (planError) {
+      setError(planError instanceof Error ? planError.message : "Unable to load compliance CSID plan.");
     } finally {
       setActionLoading("");
     }
@@ -718,6 +737,7 @@ export default function ZatcaSettingsPage() {
                 <ReadinessSummary label="Production" ready={readiness.productionReady} detail="Always blocked until official validation is complete" />
                 <ReadinessSummary label="Key custody" ready={readiness.keyCustody.status !== "BLOCKED"} detail={readiness.activeEgsUnit?.keyCustodyMode === "RAW_DATABASE_PEM" ? "Raw DB PEM detected; production KMS/HSM required" : "No private key custody configured"} />
                 <ReadinessSummary label="CSR readiness" ready={readiness.csr.status !== "BLOCKED"} detail={readiness.activeEgsUnit?.hasCsr ? "CSR exists locally" : "CSR fields still need planning"} />
+                <ReadinessSummary label="Sandbox CSID plan" ready={readiness.complianceCsidOnboarding.status !== "BLOCKED"} detail="OTP required, execution disabled, no network by default" />
               </div>
               <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <ReadinessCheckCard title="Seller invoice XML profile" section={readiness.sellerProfile} />
@@ -727,6 +747,7 @@ export default function ZatcaSettingsPage() {
                 <ReadinessCheckCard title="Signing/certificate" section={readiness.signing} />
                 <ReadinessCheckCard title="Key custody" section={readiness.keyCustody} />
                 <ReadinessCheckCard title="CSR onboarding" section={readiness.csr} />
+                <ReadinessCheckCard title="Compliance CSID onboarding" section={readiness.complianceCsidOnboarding} />
                 <ReadinessCheckCard title="Signed XML promotion" section={readiness.signedArtifactPromotion} />
                 <ReadinessCheckCard title="Signed artifact storage" section={readiness.signedArtifactStorage} />
                 <ReadinessCheckCard title="Phase 2 QR" section={readiness.phase2Qr} />
@@ -1029,9 +1050,18 @@ export default function ZatcaSettingsPage() {
                               >
                                 {actionLoading === `csr-config-preview-${unit.id}` ? "Loading preview..." : "Preview CSR config"}
                               </button>
+                              <button
+                                type="button"
+                                disabled={unit.environment === "PRODUCTION" || actionLoading === `compliance-csid-plan-${unit.id}`}
+                                onClick={() => void loadComplianceCsidPlan(unit)}
+                                className="rounded-md border border-amber-300 px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
+                              >
+                                {actionLoading === `compliance-csid-plan-${unit.id}` ? "Loading CSID plan..." : "View sandbox CSID plan"}
+                              </button>
                             </div>
                             {unit.environment === "PRODUCTION" ? <div className="text-[11px] text-rosewood">CSR config preview is restricted to non-production EGS units.</div> : null}
                             {csrConfigPreviewByUnit[unit.id] ? <CsrConfigPreviewPanel preview={csrConfigPreviewByUnit[unit.id]!} /> : null}
+                            {complianceCsidPlanByUnit[unit.id] ? <ComplianceCsidPlanPanel plan={complianceCsidPlanByUnit[unit.id]!} /> : null}
                             {unit.environment !== "PRODUCTION" ? (
                               <CsrConfigReviewPanel
                                 unit={unit}
@@ -1225,6 +1255,58 @@ function CsrConfigPreviewPanel({ preview }: { preview: ZatcaEgsCsrConfigPreviewR
           ))}
         </ul>
       ) : null}
+    </div>
+  );
+}
+
+function ComplianceCsidPlanPanel({ plan }: { plan: ZatcaComplianceCsidRequestPlanResponse }) {
+  return (
+    <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <div className="text-xs font-semibold text-ink">Sandbox compliance CSID request plan</div>
+          <div className="mt-1 text-[11px] text-steel">Sanitized planning only. No OTP is stored, no CSID request is made, and no ZATCA network call is performed.</div>
+        </div>
+        <span className="rounded-md bg-white px-2 py-1 text-[11px] font-medium text-amber-700">
+          {plan.executionEnabled ? "Gate enabled but blocked" : "Execution disabled"}
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] text-steel md:grid-cols-2">
+        <div>Environment: <span className="font-medium text-ink">{plan.plannedEndpointEnvironment}</span></div>
+        <div>Current CSR hash: <span className="font-mono text-ink">{truncateHash(plan.csrStatus.configHash, 10)}</span></div>
+        <div>Approved review: {plan.csrStatus.latestApprovedReviewStatus}</div>
+        <div>CSR body available: {plan.csrStatus.generatedCsrAvailable ? "Yes, redacted" : "No"}</div>
+        <div>OTP: {plan.otpStatus.required ? "Required, not stored" : "Not required"}</div>
+        <div>Production compliance: {plan.productionCompliance ? "true" : "false"}</div>
+      </div>
+      <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] text-steel md:grid-cols-2">
+        <div>
+          <div className="font-semibold text-ink">Planned headers</div>
+          <ul className="mt-1 list-disc space-y-1 pl-4">
+            {plan.plannedHeadersRedacted.map((header) => (
+              <li key={header.name}>{header.name}: <span className="font-mono">{header.value}</span></li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <div className="font-semibold text-ink">Planned body fields</div>
+          <ul className="mt-1 list-disc space-y-1 pl-4">
+            {plan.plannedBodyFieldsRedacted.map((field) => (
+              <li key={field.name}>{field.name}: <span className="font-mono">{field.value}</span></li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      {plan.blockers.length > 0 ? (
+        <ul className="mt-3 list-disc space-y-1 pl-5 text-[11px] text-rosewood">
+          {plan.blockers.slice(0, 6).map((blocker) => (
+            <li key={blocker}>{blocker}</li>
+          ))}
+        </ul>
+      ) : null}
+      <div className="mt-3 text-[11px] text-amber-800">
+        Token, secret, certificate body, CSR body, OTP, private key, signed XML, and QR payload bodies are never displayed here.
+      </div>
     </div>
   );
 }
