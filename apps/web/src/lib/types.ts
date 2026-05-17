@@ -18,6 +18,7 @@ export type ZatcaSignedArtifactStorageControlEvidenceType =
   | "STORAGE_PROBE"
   | "OTHER";
 export type ZatcaSignedArtifactStorageTechnicalControlsStatus = "BLOCKED" | "READY_FOR_METADATA_ONLY";
+export type ZatcaSignedArtifactStorageEvidenceCompletenessStatus = "BLOCKED" | "COMPLETE_FOR_REVIEW";
 export type TaxRateScope = "SALES" | "PURCHASES" | "BOTH";
 export type TaxRateCategory = "STANDARD" | "ZERO_RATED" | "EXEMPT" | "OUT_OF_SCOPE" | "REVERSE_CHARGE";
 export type JournalStatus = "DRAFT" | "POSTED" | "VOIDED" | "REVERSED";
@@ -3488,6 +3489,7 @@ export interface ZatcaSignedArtifactStorageControlEvidence {
 
 export interface ZatcaSignedArtifactStorageControlEvidenceState {
   evidenceRequired: true;
+  requiredEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
   evidenceSummary: Array<{
     evidenceType: ZatcaSignedArtifactStorageControlEvidenceType;
     latestStatus: ZatcaSignedArtifactStorageControlEvidenceStatus | "MISSING";
@@ -3496,8 +3498,43 @@ export interface ZatcaSignedArtifactStorageControlEvidenceState {
   }>;
   verifiedEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
   missingEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  draftEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  revokedEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  supersededEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
   latestEvidenceByType: Partial<Record<ZatcaSignedArtifactStorageControlEvidenceType, ZatcaSignedArtifactStorageControlEvidence>>;
+  completenessStatus: ZatcaSignedArtifactStorageEvidenceCompletenessStatus;
+  evidenceCompletenessStatus: ZatcaSignedArtifactStorageEvidenceCompletenessStatus;
+  bodyPersistenceAllowed: false;
+  signedXmlBodyPersistenceAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
   objectStorageTechnicalControlsStatus: ZatcaSignedArtifactStorageTechnicalControlsStatus;
+}
+
+export interface ZatcaSignedArtifactBodyPersistenceGate {
+  allowed: false;
+  bodyPersistenceAllowed: false;
+  signedXmlBodyPersistenceAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
+  productionCompliance: false;
+  reasons: string[];
+}
+
+export interface ZatcaSignedArtifactStorageEvidenceCompletenessResponse extends ZatcaSignedArtifactStorageControlEvidenceState {
+  localOnly: true;
+  readOnly: true;
+  noMutation: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetworkToZatca: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  noProductionCredentials: true;
+  productionCompliance: false;
+  bodyPersistenceGate: ZatcaSignedArtifactBodyPersistenceGate;
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
 }
 
 export interface ZatcaSignedArtifactStorageControlEvidenceListResponse {
@@ -3585,11 +3622,16 @@ export interface ZatcaSignedArtifactImmutablePolicyPlanResponse {
   signedArtifactBodyStorageAllowed: false;
   qrPayloadBodyPersistenceAllowed: false;
   qrPayloadBodyStorageAllowed: false;
+  bodyPersistenceGate: ZatcaSignedArtifactBodyPersistenceGate;
   immutablePolicyStatus: ZatcaSignedArtifactImmutablePolicyStatus;
   evidenceRequired: true;
+  evidenceCompletenessStatus: ZatcaSignedArtifactStorageEvidenceCompletenessStatus;
+  requiredEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
   evidenceSummary: ZatcaSignedArtifactStorageControlEvidenceState["evidenceSummary"];
   verifiedEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
   missingEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  draftEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  revokedEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
   latestEvidenceByType: ZatcaSignedArtifactStorageControlEvidenceState["latestEvidenceByType"];
   objectStorageTechnicalControlsStatus: ZatcaSignedArtifactStorageTechnicalControlsStatus;
   blockers: string[];
@@ -3625,10 +3667,17 @@ export interface ZatcaSignedArtifactStorageProbePlanResponse {
   retentionDurationApproved: boolean;
   bodyPersistenceAllowed: false;
   signedArtifactBodyStorageAllowed: false;
+  signedXmlBodyPersistenceAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
+  bodyPersistenceGate: ZatcaSignedArtifactBodyPersistenceGate;
   evidenceRequired: true;
+  evidenceCompletenessStatus: ZatcaSignedArtifactStorageEvidenceCompletenessStatus;
+  requiredEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
   evidenceSummary: ZatcaSignedArtifactStorageControlEvidenceState["evidenceSummary"];
   verifiedEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
   missingEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  draftEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  revokedEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
   latestEvidenceByType: ZatcaSignedArtifactStorageControlEvidenceState["latestEvidenceByType"];
   objectStorageTechnicalControlsStatus: ZatcaSignedArtifactStorageTechnicalControlsStatus;
   recommendedNextStep: string;
@@ -3661,10 +3710,17 @@ export interface ZatcaSignedArtifactStorageProbeResponse {
   retentionDurationApproved: boolean;
   bodyPersistenceAllowed: false;
   signedArtifactBodyStorageAllowed: false;
+  signedXmlBodyPersistenceAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
+  bodyPersistenceGate: ZatcaSignedArtifactBodyPersistenceGate;
   evidenceRequired: true;
+  evidenceCompletenessStatus: ZatcaSignedArtifactStorageEvidenceCompletenessStatus;
+  requiredEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
   evidenceSummary: ZatcaSignedArtifactStorageControlEvidenceState["evidenceSummary"];
   verifiedEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
   missingEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  draftEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  revokedEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
   latestEvidenceByType: ZatcaSignedArtifactStorageControlEvidenceState["latestEvidenceByType"];
   objectStorageTechnicalControlsStatus: ZatcaSignedArtifactStorageTechnicalControlsStatus;
   recommendedNextStep: string;
@@ -3725,14 +3781,22 @@ export interface ZatcaInvoiceSignedArtifactStoragePlanResponse {
   policyApproved: boolean;
   retentionDurationApproved: boolean;
   evidenceRequired: true;
+  evidenceCompletenessStatus: ZatcaSignedArtifactStorageEvidenceCompletenessStatus;
+  requiredEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
   evidenceSummary: ZatcaSignedArtifactStorageControlEvidenceState["evidenceSummary"];
   verifiedEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
   missingEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  draftEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  revokedEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
   latestEvidenceByType: ZatcaSignedArtifactStorageControlEvidenceState["latestEvidenceByType"];
   objectStorageTechnicalControlsStatus: ZatcaSignedArtifactStorageTechnicalControlsStatus;
   recommendedNextStep: string;
   metadataOnlyDraftAllowed: boolean;
   bodyPersistenceAllowed: false;
+  signedArtifactBodyStorageAllowed: false;
+  signedXmlBodyPersistenceAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
+  bodyPersistenceGate: ZatcaSignedArtifactBodyPersistenceGate;
   signedXmlStorageKey: null;
   qrPayloadStorageKey: null;
   latestDraft: ZatcaSignedArtifactDraft | null;

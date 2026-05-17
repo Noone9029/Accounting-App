@@ -39,6 +39,7 @@ import {
   zatcaSignedArtifactStorageControlEvidencePath,
   zatcaSignedArtifactStorageControlEvidenceRevokePath,
   zatcaSignedArtifactStorageControlEvidenceVerifyPath,
+  zatcaSignedArtifactStorageEvidenceCompletenessPath,
   canEnableZatcaSdkHashMode,
   zatcaStatusLabel,
 } from "@/lib/zatca";
@@ -60,6 +61,7 @@ import type {
   ZatcaSignedArtifactStoragePolicyApprovalListResponse,
   ZatcaSignedArtifactStoragePolicyApprovalResponse,
   ZatcaSignedArtifactStorageControlEvidence,
+  ZatcaSignedArtifactStorageEvidenceCompletenessResponse,
   ZatcaSignedArtifactStorageControlEvidenceListResponse,
   ZatcaSignedArtifactStorageControlEvidenceResponse,
   ZatcaSubmissionLog,
@@ -110,6 +112,7 @@ export default function ZatcaSettingsPage() {
   const [immutablePolicyPlan, setImmutablePolicyPlan] = useState<ZatcaSignedArtifactImmutablePolicyPlanResponse | null>(null);
   const [policyApprovals, setPolicyApprovals] = useState<ZatcaSignedArtifactStoragePolicyApproval[]>([]);
   const [storageControlEvidence, setStorageControlEvidence] = useState<ZatcaSignedArtifactStorageControlEvidence[]>([]);
+  const [evidenceCompleteness, setEvidenceCompleteness] = useState<ZatcaSignedArtifactStorageEvidenceCompletenessResponse | null>(null);
   const [form, setForm] = useState<ZatcaProfileForm | null>(null);
   const [egsUnits, setEgsUnits] = useState<ZatcaEgsUnit[]>([]);
   const [submissionLogs, setSubmissionLogs] = useState<ZatcaSubmissionLog[]>([]);
@@ -148,6 +151,7 @@ export default function ZatcaSettingsPage() {
         const loadedImmutablePolicyPlan = await apiRequest<ZatcaSignedArtifactImmutablePolicyPlanResponse>(zatcaSignedArtifactImmutablePolicyPlanPath()).catch(() => null);
         const loadedPolicyApprovals = await apiRequest<ZatcaSignedArtifactStoragePolicyApprovalListResponse>(zatcaSignedArtifactStoragePolicyApprovalsPath()).catch(() => null);
         const loadedStorageControlEvidence = await apiRequest<ZatcaSignedArtifactStorageControlEvidenceListResponse>(zatcaSignedArtifactStorageControlEvidencePath()).catch(() => null);
+        const loadedEvidenceCompleteness = await apiRequest<ZatcaSignedArtifactStorageEvidenceCompletenessResponse>(zatcaSignedArtifactStorageEvidenceCompletenessPath()).catch(() => null);
         if (!cancelled) {
           setProfile(loadedProfile);
           setAdapterConfig(loadedAdapterConfig);
@@ -159,6 +163,7 @@ export default function ZatcaSettingsPage() {
           setImmutablePolicyPlan(loadedImmutablePolicyPlan);
           setPolicyApprovals(loadedPolicyApprovals?.policyApprovals ?? []);
           setStorageControlEvidence(loadedStorageControlEvidence?.controlEvidence ?? []);
+          setEvidenceCompleteness(loadedEvidenceCompleteness);
           setForm(profileToForm(loadedProfile));
         }
 
@@ -457,14 +462,16 @@ export default function ZatcaSettingsPage() {
   }
 
   async function refreshImmutablePolicyApprovalState() {
-    const [updatedPlan, updatedApprovals, updatedEvidence] = await Promise.all([
+    const [updatedPlan, updatedApprovals, updatedEvidence, updatedEvidenceCompleteness] = await Promise.all([
       apiRequest<ZatcaSignedArtifactImmutablePolicyPlanResponse>(zatcaSignedArtifactImmutablePolicyPlanPath()).catch(() => null),
       apiRequest<ZatcaSignedArtifactStoragePolicyApprovalListResponse>(zatcaSignedArtifactStoragePolicyApprovalsPath()).catch(() => null),
       apiRequest<ZatcaSignedArtifactStorageControlEvidenceListResponse>(zatcaSignedArtifactStorageControlEvidencePath()).catch(() => null),
+      apiRequest<ZatcaSignedArtifactStorageEvidenceCompletenessResponse>(zatcaSignedArtifactStorageEvidenceCompletenessPath()).catch(() => null),
     ]);
     setImmutablePolicyPlan(updatedPlan);
     setPolicyApprovals(updatedApprovals?.policyApprovals ?? []);
     setStorageControlEvidence(updatedEvidence?.controlEvidence ?? []);
+    setEvidenceCompleteness(updatedEvidenceCompleteness);
   }
 
   async function createImmutablePolicyApprovalDraft() {
@@ -778,17 +785,29 @@ export default function ZatcaSettingsPage() {
                     </p>
                   </div>
                   <span className="rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rosewood">
-                    {immutablePolicyPlan.objectStorageTechnicalControlsStatus}
+                    {evidenceCompleteness?.completenessStatus ?? immutablePolicyPlan.evidenceCompletenessStatus ?? immutablePolicyPlan.objectStorageTechnicalControlsStatus}
                   </span>
                 </div>
                 <div className="mt-3 grid grid-cols-1 gap-3 text-xs md:grid-cols-3">
-                  <AdapterSummary label="Verified evidence" value={`${immutablePolicyPlan.verifiedEvidenceTypes.length}`} />
-                  <AdapterSummary label="Missing evidence" value={`${immutablePolicyPlan.missingEvidenceTypes.length}`} />
+                  <AdapterSummary label="Required evidence" value={`${(evidenceCompleteness?.requiredEvidenceTypes ?? immutablePolicyPlan.requiredEvidenceTypes ?? immutablePolicyPlan.evidenceSummary.map((item) => item.evidenceType)).length}`} />
+                  <AdapterSummary label="Verified evidence" value={`${(evidenceCompleteness?.verifiedEvidenceTypes ?? immutablePolicyPlan.verifiedEvidenceTypes).length}`} />
+                  <AdapterSummary label="Missing evidence" value={`${(evidenceCompleteness?.missingEvidenceTypes ?? immutablePolicyPlan.missingEvidenceTypes).length}`} />
                   <AdapterSummary label="Latest evidence" value={latestStorageControlEvidence ? `${latestStorageControlEvidence.evidenceType} / ${latestStorageControlEvidence.status}` : "NONE"} />
+                  <AdapterSummary label="Body persistence" value="Blocked" />
+                  <AdapterSummary label="Production compliance" value="False" />
                 </div>
-                {immutablePolicyPlan.missingEvidenceTypes.length > 0 ? (
-                  <p className="mt-3 text-xs text-amber-700">Missing or unverified evidence: {immutablePolicyPlan.missingEvidenceTypes.join(", ")}.</p>
+                {(evidenceCompleteness?.missingEvidenceTypes ?? immutablePolicyPlan.missingEvidenceTypes).length > 0 ? (
+                  <p className="mt-3 text-xs text-amber-700">Missing or unverified evidence: {(evidenceCompleteness?.missingEvidenceTypes ?? immutablePolicyPlan.missingEvidenceTypes).join(", ")}.</p>
                 ) : null}
+                <div className="mt-3 rounded-md bg-white p-3 text-xs text-steel">
+                  <div className="font-medium text-ink">Completeness rule</div>
+                  <p className="mt-1">
+                    Every required technical evidence type must have latest VERIFIED evidence before body persistence can even be reviewed. DRAFT, REVOKED, SUPERSEDED, and OTHER evidence do not satisfy required controls.
+                  </p>
+                  <p className="mt-1 text-amber-700">
+                    Gate status: {(evidenceCompleteness?.bodyPersistenceGate.allowed ?? immutablePolicyPlan.bodyPersistenceGate?.allowed) ? "Review only" : "Blocked"}. Signed XML and QR payload body persistence remain blocked.
+                  </p>
+                </div>
                 {storageControlEvidence.length > 0 ? (
                   <div className="mt-3 space-y-2">
                     {storageControlEvidence.slice(0, 4).map((evidence) => (

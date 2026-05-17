@@ -55,6 +55,10 @@ export function zatcaSignedArtifactStorageControlEvidencePath(): string {
   return "/zatca/signed-artifact-storage/control-evidence";
 }
 
+export function zatcaSignedArtifactStorageEvidenceCompletenessPath(): string {
+  return "/zatca/signed-artifact-storage/evidence-completeness";
+}
+
 export function zatcaSignedArtifactStorageControlEvidenceVerifyPath(evidenceId: string): string {
   return `/zatca/signed-artifact-storage/control-evidence/${encodeURIComponent(evidenceId)}/verify`;
 }

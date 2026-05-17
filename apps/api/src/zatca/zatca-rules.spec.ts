@@ -2912,6 +2912,129 @@ describe("ZATCA service rules", () => {
     expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
     expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
   });
+
+  it("reports signed artifact storage evidence completeness as blocked when required evidence is missing", async () => {
+    const { service, prisma, onboardingAdapter } = makeEvidenceCompletenessService([]);
+
+    const result = await service.getSignedArtifactStorageEvidenceCompleteness("org-1");
+
+    expect(result).toMatchObject({
+      localOnly: true,
+      readOnly: true,
+      noMutation: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      bodyPersistenceAllowed: false,
+      signedXmlBodyPersistenceAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
+      productionCompliance: false,
+      completenessStatus: "BLOCKED",
+      evidenceCompletenessStatus: "BLOCKED",
+    });
+    expect(result.requiredEvidenceTypes).toEqual(requiredStorageControlEvidenceTypesForTest());
+    expect(result.missingEvidenceTypes).toEqual(requiredStorageControlEvidenceTypesForTest());
+    expect(result.verifiedEvidenceTypes).toEqual([]);
+    expect(result.bodyPersistenceGate.allowed).toBe(false);
+    expect(result.bodyPersistenceGate.reasons.join(" ")).toContain("Evidence completeness is BLOCKED");
+    expect(JSON.stringify(result)).not.toContain("<Invoice");
+    expect(JSON.stringify(result)).not.toContain("PRIVATE KEY");
+    expect(prisma.zatcaSignedArtifactStorageControlEvidence.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { organizationId: "org-1" },
+        orderBy: { createdAt: "desc" },
+      }),
+    );
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    expect(onboardingAdapter.requestComplianceCsid).not.toHaveBeenCalled();
+    expect(onboardingAdapter.requestProductionCsid).not.toHaveBeenCalled();
+  });
+
+  it("does not count draft or revoked evidence toward signed artifact storage completeness", async () => {
+    const { service } = makeEvidenceCompletenessService([
+      makeStorageControlEvidence({
+        id: "draft-storage-probe",
+        status: ZatcaSignedArtifactStorageControlEvidenceStatus.DRAFT,
+        evidenceType: ZatcaSignedArtifactStorageControlEvidenceType.STORAGE_PROBE,
+      }),
+      makeStorageControlEvidence({
+        id: "revoked-access-control",
+        status: ZatcaSignedArtifactStorageControlEvidenceStatus.REVOKED,
+        evidenceType: ZatcaSignedArtifactStorageControlEvidenceType.ACCESS_CONTROL,
+        revokedAt: new Date("2026-05-17T02:00:00.000Z"),
+      }),
+    ]);
+
+    const result = await service.getSignedArtifactStorageEvidenceCompleteness("org-1");
+
+    expect(result.completenessStatus).toBe("BLOCKED");
+    expect(result.draftEvidenceTypes).toContain(ZatcaSignedArtifactStorageControlEvidenceType.STORAGE_PROBE);
+    expect(result.revokedEvidenceTypes).toContain(ZatcaSignedArtifactStorageControlEvidenceType.ACCESS_CONTROL);
+    expect(result.missingEvidenceTypes).toEqual(
+      expect.arrayContaining([
+        ZatcaSignedArtifactStorageControlEvidenceType.STORAGE_PROBE,
+        ZatcaSignedArtifactStorageControlEvidenceType.ACCESS_CONTROL,
+      ]),
+    );
+    expect(result.verifiedEvidenceTypes).not.toContain(ZatcaSignedArtifactStorageControlEvidenceType.STORAGE_PROBE);
+    expect(result.verifiedEvidenceTypes).not.toContain(ZatcaSignedArtifactStorageControlEvidenceType.ACCESS_CONTROL);
+  });
+
+  it("reports complete-for-review when every required evidence type is verified but keeps body persistence blocked", async () => {
+    const verifiedEvidence = requiredStorageControlEvidenceTypesForTest().map((evidenceType, index) =>
+      makeStorageControlEvidence({
+        id: `verified-${index}`,
+        status: ZatcaSignedArtifactStorageControlEvidenceStatus.VERIFIED,
+        evidenceType,
+        verifiedAt: new Date("2026-05-17T03:00:00.000Z"),
+      }),
+    );
+    const { service } = makeEvidenceCompletenessService(verifiedEvidence);
+
+    const result = await service.getSignedArtifactStorageEvidenceCompleteness("org-1");
+
+    expect(result.completenessStatus).toBe("COMPLETE_FOR_REVIEW");
+    expect(result.evidenceCompletenessStatus).toBe("COMPLETE_FOR_REVIEW");
+    expect(result.verifiedEvidenceTypes).toEqual(requiredStorageControlEvidenceTypesForTest());
+    expect(result.missingEvidenceTypes).toEqual([]);
+    expect(result.bodyPersistenceAllowed).toBe(false);
+    expect(result.signedXmlBodyPersistenceAllowed).toBe(false);
+    expect(result.qrPayloadBodyPersistenceAllowed).toBe(false);
+    expect(result.productionCompliance).toBe(false);
+    expect(result.bodyPersistenceGate.allowed).toBe(false);
+    expect(result.bodyPersistenceGate.reasons.join(" ")).toContain("Signed XML/QR body persistence is not implemented");
+  });
+
+  it("includes evidence completeness in immutable policy, storage, and probe plans while the body gate remains blocked", async () => {
+    const prisma = {
+      ...makeInvoiceReadinessPrisma(),
+      zatcaSignedArtifactStoragePolicyApproval: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      zatcaSignedArtifactStorageControlEvidence: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    const onboardingAdapter = { requestComplianceCsid: jest.fn(), requestProductionCsid: jest.fn() };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never, onboardingAdapter as never);
+
+    const immutablePlan = await service.getSignedArtifactImmutableStoragePolicyPlan("org-1");
+    const probePlan = await service.getSignedArtifactStorageProbePlan("org-1");
+    const storagePlan = await service.getInvoiceZatcaSignedArtifactStoragePlan("org-1", "invoice-1");
+
+    for (const plan of [immutablePlan, probePlan, storagePlan]) {
+      expect(plan.evidenceCompletenessStatus).toBe("BLOCKED");
+      expect(plan.requiredEvidenceTypes).toEqual(requiredStorageControlEvidenceTypesForTest());
+      expect(plan.missingEvidenceTypes).toEqual(requiredStorageControlEvidenceTypesForTest());
+      expect(plan.bodyPersistenceAllowed).toBe(false);
+      expect(plan.bodyPersistenceGate.allowed).toBe(false);
+      expect(plan.productionCompliance).toBe(false);
+    }
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+    expect(onboardingAdapter.requestComplianceCsid).not.toHaveBeenCalled();
+    expect(onboardingAdapter.requestProductionCsid).not.toHaveBeenCalled();
+  });
 });
 
 function makeGenerationTransactionMock(options: {
@@ -3429,6 +3552,42 @@ function makeStorageControlEvidence(overrides: Record<string, unknown> = {}) {
     revokedBy: null,
     policyApproval: null,
     ...overrides,
+  };
+}
+
+function requiredStorageControlEvidenceTypesForTest() {
+  return [
+    ZatcaSignedArtifactStorageControlEvidenceType.OBJECT_VERSIONING,
+    ZatcaSignedArtifactStorageControlEvidenceType.IMMUTABLE_RETENTION,
+    ZatcaSignedArtifactStorageControlEvidenceType.ENCRYPTION_AT_REST,
+    ZatcaSignedArtifactStorageControlEvidenceType.ACCESS_CONTROL,
+    ZatcaSignedArtifactStorageControlEvidenceType.BACKUP_RESTORE,
+    ZatcaSignedArtifactStorageControlEvidenceType.RESTORE_TEST,
+    ZatcaSignedArtifactStorageControlEvidenceType.TENANT_KEY_SCOPING,
+    ZatcaSignedArtifactStorageControlEvidenceType.DELETION_SUPERSESSION,
+    ZatcaSignedArtifactStorageControlEvidenceType.STORAGE_PROBE,
+  ];
+}
+
+function makeEvidenceCompletenessService(records: Array<ReturnType<typeof makeStorageControlEvidence>>) {
+  const prisma = {
+    zatcaSignedArtifactStoragePolicyApproval: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
+    zatcaSignedArtifactStorageControlEvidence: {
+      findMany: jest.fn().mockResolvedValue(records),
+    },
+    zatcaSubmissionLog: {
+      create: jest.fn(),
+    },
+  };
+  const auditLogService = { log: jest.fn() };
+  const onboardingAdapter = { requestComplianceCsid: jest.fn(), requestProductionCsid: jest.fn() };
+  return {
+    prisma,
+    auditLogService,
+    onboardingAdapter,
+    service: new ZatcaService(prisma as never, auditLogService as never, onboardingAdapter as never),
   };
 }
 

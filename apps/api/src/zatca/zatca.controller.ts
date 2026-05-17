@@ -293,6 +293,12 @@ export class ZatcaController {
     return this.zatcaService.listSignedArtifactStorageControlEvidence(organizationId);
   }
 
+  @Get("zatca/signed-artifact-storage/evidence-completeness")
+  @RequirePermissions(PERMISSIONS.zatca.view)
+  signedArtifactStorageEvidenceCompleteness(@CurrentOrganizationId() organizationId: string) {
+    return this.zatcaService.getSignedArtifactStorageEvidenceCompleteness(organizationId);
+  }
+
   @Post("zatca/signed-artifact-storage/control-evidence")
   @RequirePermissions(PERMISSIONS.zatca.manage)
   createSignedArtifactStorageControlEvidence(

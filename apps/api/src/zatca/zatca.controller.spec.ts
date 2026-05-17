@@ -46,6 +46,7 @@ describe("ZATCA controller", () => {
   it("exposes signed artifact storage control evidence handlers", () => {
     expect(typeof ZatcaController.prototype.createSignedArtifactStorageControlEvidence).toBe("function");
     expect(typeof ZatcaController.prototype.listSignedArtifactStorageControlEvidence).toBe("function");
+    expect(typeof ZatcaController.prototype.signedArtifactStorageEvidenceCompleteness).toBe("function");
     expect(typeof ZatcaController.prototype.verifySignedArtifactStorageControlEvidence).toBe("function");
     expect(typeof ZatcaController.prototype.revokeSignedArtifactStorageControlEvidence).toBe("function");
   });

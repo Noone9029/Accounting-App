@@ -2224,6 +2224,65 @@ export class ZatcaService {
     };
   }
 
+  async getSignedArtifactStorageEvidenceCompleteness(organizationId: string) {
+    const [latestApproval, evidenceState] = await Promise.all([
+      this.getLatestSignedArtifactStoragePolicyApprovalOrNull(organizationId),
+      this.buildSignedArtifactStorageControlEvidenceState(organizationId),
+    ]);
+    const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus(latestApproval);
+    const bodyPersistenceGate = this.getSignedArtifactBodyPersistenceGate(evidenceState, immutablePolicyStatus);
+
+    return {
+      localOnly: true,
+      readOnly: true,
+      noMutation: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noCsidRequest: true,
+      noNetworkToZatca: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      noProductionCredentials: true,
+      productionCompliance: false,
+      bodyPersistenceAllowed: false,
+      signedXmlBodyPersistenceAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
+      requiredEvidenceTypes: evidenceState.requiredEvidenceTypes,
+      verifiedEvidenceTypes: evidenceState.verifiedEvidenceTypes,
+      missingEvidenceTypes: evidenceState.missingEvidenceTypes,
+      draftEvidenceTypes: evidenceState.draftEvidenceTypes,
+      revokedEvidenceTypes: evidenceState.revokedEvidenceTypes,
+      latestEvidenceByType: evidenceState.latestEvidenceByType,
+      evidenceSummary: evidenceState.evidenceSummary,
+      completenessStatus: evidenceState.evidenceCompletenessStatus,
+      evidenceCompletenessStatus: evidenceState.evidenceCompletenessStatus,
+      objectStorageTechnicalControlsStatus: evidenceState.objectStorageTechnicalControlsStatus,
+      bodyPersistenceGate,
+      blockers: [
+        ...bodyPersistenceGate.reasons,
+        ...(evidenceState.missingEvidenceTypes.length > 0
+          ? evidenceState.missingEvidenceTypes.map((evidenceType) => `Required technical evidence is not VERIFIED: ${evidenceType}.`)
+          : []),
+      ],
+      warnings: [
+        "Completeness reporting is read-only and metadata-only.",
+        "DRAFT, REVOKED, and SUPERSEDED evidence do not satisfy required technical controls.",
+        "OTHER evidence does not satisfy a required control unless explicitly mapped in a future phase.",
+        "Even COMPLETE_FOR_REVIEW does not enable signed XML or QR payload body persistence in this task.",
+      ],
+      recommendedNextSteps:
+        evidenceState.evidenceCompletenessStatus === "COMPLETE_FOR_REVIEW"
+          ? [
+              "Complete separate legal/accounting and body-storage approval gates before any future body persistence.",
+              "Keep signed XML/QR body persistence blocked until a future explicit storage phase.",
+            ]
+          : [
+              "Verify all required technical evidence types before body persistence can even be considered.",
+              "Keep signed XML/QR body persistence blocked until a separate explicit body-storage approval phase.",
+            ],
+    };
+  }
+
   async createSignedArtifactStorageControlEvidence(
     organizationId: string,
     actorUserId: string,
@@ -2395,6 +2454,7 @@ export class ZatcaService {
     const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus(latestApproval);
     const objectStorageCapability = this.buildSignedArtifactObjectStorageCapability(immutablePolicyStatus);
     const evidenceState = await this.buildSignedArtifactStorageControlEvidenceState(organizationId);
+    const bodyPersistenceGate = this.getSignedArtifactBodyPersistenceGate(evidenceState, immutablePolicyStatus);
     const testPrefix = this.buildSignedArtifactStorageProbePrefix(organizationId);
     return {
       localOnly: true,
@@ -2424,14 +2484,22 @@ export class ZatcaService {
       retentionDurationApproved: immutablePolicyStatus.retentionDurationApproved,
       bodyPersistenceAllowed: false,
       signedArtifactBodyStorageAllowed: false,
+      signedXmlBodyPersistenceAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
+      bodyPersistenceGate,
       evidenceRequired: evidenceState.evidenceRequired,
+      evidenceCompletenessStatus: evidenceState.evidenceCompletenessStatus,
+      requiredEvidenceTypes: evidenceState.requiredEvidenceTypes,
       evidenceSummary: evidenceState.evidenceSummary,
       verifiedEvidenceTypes: evidenceState.verifiedEvidenceTypes,
       missingEvidenceTypes: evidenceState.missingEvidenceTypes,
+      draftEvidenceTypes: evidenceState.draftEvidenceTypes,
+      revokedEvidenceTypes: evidenceState.revokedEvidenceTypes,
       latestEvidenceByType: evidenceState.latestEvidenceByType,
       objectStorageTechnicalControlsStatus: evidenceState.objectStorageTechnicalControlsStatus,
-      recommendedNextStep: "Capture and verify technical control evidence before any signed XML/QR body persistence.",
+      recommendedNextStep: "Verify all required technical evidence and keep signed XML/QR body persistence blocked until a separate explicit body-storage approval phase.",
       blockers: [
+        ...bodyPersistenceGate.reasons,
         ...objectStorageCapability.missingSettings.map((setting) => `Object storage setting missing: ${setting}.`),
         "Signed XML body persistence remains blocked.",
         "QR payload body persistence remains blocked.",
@@ -2452,6 +2520,7 @@ export class ZatcaService {
     const latestApproval = await this.getLatestSignedArtifactStoragePolicyApprovalOrNull(organizationId);
     const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus(latestApproval);
     const evidenceState = await this.buildSignedArtifactStorageControlEvidenceState(organizationId);
+    const bodyPersistenceGate = this.getSignedArtifactBodyPersistenceGate(evidenceState, immutablePolicyStatus);
     const approvalBlockedReasons = this.getImmutablePolicyPlanApprovalBlockedReasons(latestApproval);
     return {
       localOnly: true,
@@ -2484,14 +2553,20 @@ export class ZatcaService {
       signedArtifactBodyStorageAllowed: false,
       qrPayloadBodyPersistenceAllowed: false,
       qrPayloadBodyStorageAllowed: false,
+      bodyPersistenceGate,
       immutablePolicyStatus,
       evidenceRequired: evidenceState.evidenceRequired,
+      evidenceCompletenessStatus: evidenceState.evidenceCompletenessStatus,
+      requiredEvidenceTypes: evidenceState.requiredEvidenceTypes,
       evidenceSummary: evidenceState.evidenceSummary,
       verifiedEvidenceTypes: evidenceState.verifiedEvidenceTypes,
       missingEvidenceTypes: evidenceState.missingEvidenceTypes,
+      draftEvidenceTypes: evidenceState.draftEvidenceTypes,
+      revokedEvidenceTypes: evidenceState.revokedEvidenceTypes,
       latestEvidenceByType: evidenceState.latestEvidenceByType,
       objectStorageTechnicalControlsStatus: evidenceState.objectStorageTechnicalControlsStatus,
       blockers: [
+        ...bodyPersistenceGate.reasons,
         "Immutable signed artifact storage policy is not approved.",
         "Retention duration requires legal/accounting review; no retention duration is guessed.",
         "Object versioning is required but not confirmed.",
@@ -2511,7 +2586,8 @@ export class ZatcaService {
         "Signed XML and QR payloads are future artifacts only until real certificate/key custody, immutable storage approval, and submission boundaries are designed.",
       ],
       recommendedNextSteps: [
-        "Capture and verify technical control evidence before any signed XML/QR body persistence.",
+        "Verify all required technical evidence before signed XML/QR body persistence can even be considered.",
+        "Keep signed XML/QR body persistence blocked until a separate explicit body-storage approval phase.",
         "Approve immutable storage policy before signed artifact body persistence.",
         "Obtain legal/accounting retention guidance instead of guessing a retention duration.",
         "Confirm object versioning, immutable retention/legal hold, encryption-at-rest, access control, restore testing, and append-only supersession behavior.",
@@ -2527,6 +2603,7 @@ export class ZatcaService {
     const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus(latestApproval);
     const objectStorageCapability = this.buildSignedArtifactObjectStorageCapability(immutablePolicyStatus);
     const evidenceState = await this.buildSignedArtifactStorageControlEvidenceState(organizationId);
+    const bodyPersistenceGate = this.getSignedArtifactBodyPersistenceGate(evidenceState, immutablePolicyStatus);
     const executionEnabled = this.isSignedArtifactStorageProbeEnabled();
     const testObjectKey = this.buildSignedArtifactStorageProbeKey(organizationId, options.now ?? new Date());
     const base = {
@@ -2551,13 +2628,20 @@ export class ZatcaService {
       retentionDurationApproved: immutablePolicyStatus.retentionDurationApproved,
       bodyPersistenceAllowed: false,
       signedArtifactBodyStorageAllowed: false,
+      signedXmlBodyPersistenceAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
+      bodyPersistenceGate,
       evidenceRequired: evidenceState.evidenceRequired,
+      evidenceCompletenessStatus: evidenceState.evidenceCompletenessStatus,
+      requiredEvidenceTypes: evidenceState.requiredEvidenceTypes,
       evidenceSummary: evidenceState.evidenceSummary,
       verifiedEvidenceTypes: evidenceState.verifiedEvidenceTypes,
       missingEvidenceTypes: evidenceState.missingEvidenceTypes,
+      draftEvidenceTypes: evidenceState.draftEvidenceTypes,
+      revokedEvidenceTypes: evidenceState.revokedEvidenceTypes,
       latestEvidenceByType: evidenceState.latestEvidenceByType,
       objectStorageTechnicalControlsStatus: evidenceState.objectStorageTechnicalControlsStatus,
-      recommendedNextStep: "Capture and verify technical control evidence before any signed XML/QR body persistence.",
+      recommendedNextStep: "Verify all required technical evidence and keep signed XML/QR body persistence blocked until a separate explicit body-storage approval phase.",
     };
 
     if (!executionEnabled) {
@@ -2704,6 +2788,7 @@ export class ZatcaService {
     const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus(latestPolicyApproval);
     const objectStorageCapability = this.buildSignedArtifactObjectStorageCapability(immutablePolicyStatus);
     const evidenceState = await this.buildSignedArtifactStorageControlEvidenceState(organizationId);
+    const bodyPersistenceGate = this.getSignedArtifactBodyPersistenceGate(evidenceState, immutablePolicyStatus);
     const metadataOnlyDraftAllowed = Boolean(metadata?.xmlBase64 && metadata.invoiceHash);
 
     return {
@@ -2731,14 +2816,22 @@ export class ZatcaService {
       policyApproved: immutablePolicyStatus.policyApproved,
       retentionDurationApproved: immutablePolicyStatus.retentionDurationApproved,
       evidenceRequired: evidenceState.evidenceRequired,
+      evidenceCompletenessStatus: evidenceState.evidenceCompletenessStatus,
+      requiredEvidenceTypes: evidenceState.requiredEvidenceTypes,
       evidenceSummary: evidenceState.evidenceSummary,
       verifiedEvidenceTypes: evidenceState.verifiedEvidenceTypes,
       missingEvidenceTypes: evidenceState.missingEvidenceTypes,
+      draftEvidenceTypes: evidenceState.draftEvidenceTypes,
+      revokedEvidenceTypes: evidenceState.revokedEvidenceTypes,
       latestEvidenceByType: evidenceState.latestEvidenceByType,
       objectStorageTechnicalControlsStatus: evidenceState.objectStorageTechnicalControlsStatus,
-      recommendedNextStep: "Capture and verify technical control evidence before any signed XML/QR body persistence.",
+      bodyPersistenceGate,
+      recommendedNextStep: "Verify all required technical evidence and keep signed XML/QR body persistence blocked until a separate explicit body-storage approval phase.",
       metadataOnlyDraftAllowed,
       bodyPersistenceAllowed: false,
+      signedArtifactBodyStorageAllowed: false,
+      signedXmlBodyPersistenceAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
       signedXmlStorageKey: null,
       qrPayloadStorageKey: null,
       latestDraft: latestDraft ? this.toSafeSignedArtifactDraft(latestDraft) : null,
@@ -5262,14 +5355,35 @@ export class ZatcaService {
     };
   }
 
+  private getSignedArtifactBodyPersistenceGate(
+    evidenceState: { missingEvidenceTypes: readonly ZatcaSignedArtifactStorageControlEvidenceType[]; evidenceCompletenessStatus: "BLOCKED" | "COMPLETE_FOR_REVIEW" },
+    immutablePolicyStatus?: { policyApproved?: boolean; retentionDurationApproved?: boolean } | null,
+  ) {
+    return {
+      allowed: false,
+      bodyPersistenceAllowed: false,
+      signedXmlBodyPersistenceAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
+      productionCompliance: false,
+      reasons: [
+        ...(evidenceState.missingEvidenceTypes.length > 0
+          ? [`Evidence completeness is ${evidenceState.evidenceCompletenessStatus}; missing required evidence: ${evidenceState.missingEvidenceTypes.join(", ")}.`]
+          : []),
+        ...(immutablePolicyStatus?.policyApproved ? [] : ["Immutable signed artifact storage policy is not approved."]),
+        ...(immutablePolicyStatus?.retentionDurationApproved ? [] : ["Retention duration is not legally/accounting approved; no duration is guessed."]),
+        "Production certificate/CSID and production key custody are not configured for signed artifact storage.",
+        "Clearance/reporting workflow is not implemented.",
+        "PDF/A-3 workflow is not implemented.",
+        "Signed XML/QR body persistence is not implemented and remains blocked.",
+      ],
+    };
+  }
+
   private async buildSignedArtifactStorageControlEvidenceState(organizationId: string) {
     const evidenceModel = this.getSignedArtifactStorageControlEvidenceModel();
     const records = evidenceModel?.findMany
       ? await evidenceModel.findMany({
-          where: {
-            organizationId,
-            status: { in: [ZatcaSignedArtifactStorageControlEvidenceStatus.DRAFT, ZatcaSignedArtifactStorageControlEvidenceStatus.VERIFIED] },
-          },
+          where: { organizationId },
           orderBy: { createdAt: "desc" },
           select: safeSignedArtifactStorageControlEvidenceSelect,
         })
@@ -5290,8 +5404,19 @@ export class ZatcaService {
     const missingEvidenceTypes = requiredSignedArtifactStorageControlEvidenceTypes.filter(
       (evidenceType) => !verifiedEvidenceTypes.includes(evidenceType),
     );
+    const draftEvidenceTypes = requiredSignedArtifactStorageControlEvidenceTypes.filter(
+      (evidenceType) => latestEvidenceByType[evidenceType]?.status === ZatcaSignedArtifactStorageControlEvidenceStatus.DRAFT,
+    );
+    const revokedEvidenceTypes = requiredSignedArtifactStorageControlEvidenceTypes.filter(
+      (evidenceType) => latestEvidenceByType[evidenceType]?.status === ZatcaSignedArtifactStorageControlEvidenceStatus.REVOKED,
+    );
+    const supersededEvidenceTypes = requiredSignedArtifactStorageControlEvidenceTypes.filter(
+      (evidenceType) => latestEvidenceByType[evidenceType]?.status === ZatcaSignedArtifactStorageControlEvidenceStatus.SUPERSEDED,
+    );
+    const evidenceCompletenessStatus: "BLOCKED" | "COMPLETE_FOR_REVIEW" = missingEvidenceTypes.length > 0 ? "BLOCKED" : "COMPLETE_FOR_REVIEW";
     return {
       evidenceRequired: true,
+      requiredEvidenceTypes: requiredSignedArtifactStorageControlEvidenceTypes,
       evidenceSummary: requiredSignedArtifactStorageControlEvidenceTypes.map((evidenceType) => ({
         evidenceType,
         latestStatus: latestEvidenceByType[evidenceType]?.status ?? "MISSING",
@@ -5300,7 +5425,15 @@ export class ZatcaService {
       })),
       verifiedEvidenceTypes,
       missingEvidenceTypes,
+      draftEvidenceTypes,
+      revokedEvidenceTypes,
+      supersededEvidenceTypes,
       latestEvidenceByType,
+      completenessStatus: evidenceCompletenessStatus,
+      evidenceCompletenessStatus,
+      bodyPersistenceAllowed: false,
+      signedXmlBodyPersistenceAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
       objectStorageTechnicalControlsStatus: missingEvidenceTypes.length > 0 ? "BLOCKED" : "READY_FOR_METADATA_ONLY",
     };
   }

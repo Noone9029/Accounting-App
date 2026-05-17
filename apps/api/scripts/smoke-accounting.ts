@@ -1250,8 +1250,11 @@ interface ZatcaInvoiceSignedArtifactStoragePlanResponse {
   policyApproved: boolean;
   retentionDurationApproved: boolean;
   evidenceRequired?: boolean;
+  evidenceCompletenessStatus?: ZatcaSignedArtifactStorageEvidenceCompletenessStatus;
+  requiredEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
   verifiedEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
   missingEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  bodyPersistenceGate?: ZatcaSignedArtifactBodyPersistenceGate;
   objectStorageTechnicalControlsStatus?: string;
   recommendedNextStep: string;
   metadataOnlyDraftAllowed: boolean;
@@ -1304,8 +1307,11 @@ interface ZatcaSignedArtifactStorageProbePlanResponse {
   bodyPersistenceAllowed: false;
   signedArtifactBodyStorageAllowed: false;
   evidenceRequired?: boolean;
+  evidenceCompletenessStatus?: ZatcaSignedArtifactStorageEvidenceCompletenessStatus;
+  requiredEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
   verifiedEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
   missingEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  bodyPersistenceGate?: ZatcaSignedArtifactBodyPersistenceGate;
   objectStorageTechnicalControlsStatus?: string;
   recommendedNextStep: string;
   blockers: string[];
@@ -1335,8 +1341,11 @@ interface ZatcaSignedArtifactStorageProbeResponse {
   bodyPersistenceAllowed: false;
   signedArtifactBodyStorageAllowed: false;
   evidenceRequired?: boolean;
+  evidenceCompletenessStatus?: ZatcaSignedArtifactStorageEvidenceCompletenessStatus;
+  requiredEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
   verifiedEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
   missingEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  bodyPersistenceGate?: ZatcaSignedArtifactBodyPersistenceGate;
   objectStorageTechnicalControlsStatus?: string;
   recommendedNextStep: string;
   blockers: string[];
@@ -1392,6 +1401,16 @@ type ZatcaSignedArtifactStorageControlEvidenceType =
   | "DELETION_SUPERSESSION"
   | "STORAGE_PROBE"
   | "OTHER";
+type ZatcaSignedArtifactStorageEvidenceCompletenessStatus = "BLOCKED" | "COMPLETE_FOR_REVIEW";
+
+interface ZatcaSignedArtifactBodyPersistenceGate {
+  allowed: false;
+  bodyPersistenceAllowed: false;
+  signedXmlBodyPersistenceAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
+  productionCompliance: false;
+  reasons: string[];
+}
 
 interface ZatcaSignedArtifactStorageControlEvidence {
   id: string;
@@ -1425,6 +1444,36 @@ interface ZatcaSignedArtifactStorageControlEvidenceResponse {
   signedXmlBodyPersistenceAllowed: false;
   qrPayloadBodyPersistenceAllowed: false;
   controlEvidence: ZatcaSignedArtifactStorageControlEvidence;
+}
+
+interface ZatcaSignedArtifactStorageEvidenceCompletenessResponse {
+  localOnly: true;
+  readOnly: true;
+  noMutation: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetworkToZatca: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  noProductionCredentials: true;
+  productionCompliance: false;
+  bodyPersistenceAllowed: false;
+  signedXmlBodyPersistenceAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
+  requiredEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  verifiedEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  missingEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  draftEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  revokedEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  latestEvidenceByType: Partial<Record<ZatcaSignedArtifactStorageControlEvidenceType, ZatcaSignedArtifactStorageControlEvidence>>;
+  completenessStatus: ZatcaSignedArtifactStorageEvidenceCompletenessStatus;
+  evidenceCompletenessStatus: ZatcaSignedArtifactStorageEvidenceCompletenessStatus;
+  objectStorageTechnicalControlsStatus: string;
+  bodyPersistenceGate: ZatcaSignedArtifactBodyPersistenceGate;
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
 }
 
 interface ZatcaSignedArtifactImmutablePolicyStatus {
@@ -1482,8 +1531,11 @@ interface ZatcaSignedArtifactImmutablePolicyPlanResponse {
   qrPayloadBodyStorageAllowed: false;
   immutablePolicyStatus: ZatcaSignedArtifactImmutablePolicyStatus;
   evidenceRequired?: boolean;
+  evidenceCompletenessStatus?: ZatcaSignedArtifactStorageEvidenceCompletenessStatus;
+  requiredEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
   verifiedEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
   missingEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  bodyPersistenceGate?: ZatcaSignedArtifactBodyPersistenceGate;
   objectStorageTechnicalControlsStatus?: string;
   blockers: string[];
   warnings: string[];
@@ -3936,7 +3988,30 @@ async function main(): Promise<void> {
   const zatcaImmutablePolicyPlanAfterEvidence = await get<ZatcaSignedArtifactImmutablePolicyPlanResponse>("/zatca/signed-artifact-storage/immutable-policy-plan", headers);
   assertEqual(zatcaImmutablePolicyPlanAfterEvidence.evidenceRequired, true, "ZATCA immutable policy plan requires technical evidence");
   assert(zatcaImmutablePolicyPlanAfterEvidence.missingEvidenceTypes?.includes("OBJECT_VERSIONING"), "ZATCA immutable policy plan reports missing technical evidence");
+  assertEqual(zatcaImmutablePolicyPlanAfterEvidence.evidenceCompletenessStatus, "BLOCKED", "ZATCA immutable policy plan includes evidence completeness status");
   assertEqual(zatcaImmutablePolicyPlanAfterEvidence.signedXmlBodyPersistenceAllowed, false, "ZATCA immutable policy plan body persistence remains blocked after evidence draft");
+  assertEqual(zatcaImmutablePolicyPlanAfterEvidence.bodyPersistenceGate?.allowed, false, "ZATCA immutable policy plan body persistence gate remains blocked");
+  const submissionsBeforeEvidenceCompleteness = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  const zatcaEvidenceCompleteness = await get<ZatcaSignedArtifactStorageEvidenceCompletenessResponse>("/zatca/signed-artifact-storage/evidence-completeness", headers);
+  assertEqual(zatcaEvidenceCompleteness.localOnly, true, "ZATCA evidence completeness localOnly");
+  assertEqual(zatcaEvidenceCompleteness.readOnly, true, "ZATCA evidence completeness readOnly");
+  assertEqual(zatcaEvidenceCompleteness.noMutation, true, "ZATCA evidence completeness noMutation");
+  assertEqual(zatcaEvidenceCompleteness.noSignedXmlBody, true, "ZATCA evidence completeness no signed XML body");
+  assertEqual(zatcaEvidenceCompleteness.noQrPayloadBody, true, "ZATCA evidence completeness no QR payload body");
+  assertEqual(zatcaEvidenceCompleteness.noCsidRequest, true, "ZATCA evidence completeness no CSID request");
+  assertEqual(zatcaEvidenceCompleteness.noNetworkToZatca, true, "ZATCA evidence completeness no ZATCA network");
+  assertEqual(zatcaEvidenceCompleteness.bodyPersistenceAllowed, false, "ZATCA evidence completeness body persistence blocked");
+  assertEqual(zatcaEvidenceCompleteness.productionCompliance, false, "ZATCA evidence completeness productionCompliance false");
+  assertEqual(zatcaEvidenceCompleteness.completenessStatus, "BLOCKED", "ZATCA evidence completeness remains blocked with only draft evidence");
+  assert(zatcaEvidenceCompleteness.requiredEvidenceTypes.includes("OBJECT_VERSIONING"), "ZATCA evidence completeness returns required evidence types");
+  assert(zatcaEvidenceCompleteness.missingEvidenceTypes.includes("OBJECT_VERSIONING"), "ZATCA evidence completeness returns missing evidence types");
+  assertEqual(zatcaEvidenceCompleteness.bodyPersistenceGate.allowed, false, "ZATCA evidence completeness gate remains blocked");
+  assertNoPrivateKey(zatcaEvidenceCompleteness, "ZATCA evidence completeness response");
+  const serializedEvidenceCompleteness = JSON.stringify(zatcaEvidenceCompleteness);
+  assert(!serializedEvidenceCompleteness.includes("<Invoice"), "ZATCA evidence completeness does not expose XML body");
+  assert(!serializedEvidenceCompleteness.includes("QR PAYLOAD"), "ZATCA evidence completeness does not expose QR payload");
+  const submissionsAfterEvidenceCompleteness = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterEvidenceCompleteness.length, submissionsBeforeEvidenceCompleteness.length, "ZATCA evidence completeness does not create submission logs");
   const zatcaPolicyApprovalDraft = await post<ZatcaSignedArtifactStoragePolicyApprovalResponse>(
     "/zatca/signed-artifact-storage/policy-approvals",
     headers,
@@ -5746,6 +5821,8 @@ async function main(): Promise<void> {
         zatcaStorageControlEvidenceStatus: zatcaStorageControlEvidenceDraft.controlEvidence.status,
         zatcaStorageControlEvidenceBodyPersistenceAllowed: zatcaStorageControlEvidenceDraft.controlEvidence.signedXmlBodyPersistenceAllowed,
         zatcaImmutablePolicyPlanEvidenceRequired: zatcaImmutablePolicyPlanAfterEvidence.evidenceRequired,
+        zatcaEvidenceCompletenessStatus: zatcaEvidenceCompleteness.completenessStatus,
+        zatcaEvidenceCompletenessBodyPersistenceAllowed: zatcaEvidenceCompleteness.bodyPersistenceAllowed,
         dashboardSummaryChecked: true,
         dashboardAttentionCount: dashboardSummary.attentionItems.length,
         dashboardCurrency: dashboardSummary.currency,

@@ -40,6 +40,7 @@ import {
   shouldShowZatcaSdkLocalOnlyWarning,
   zatcaStatusLabel,
   zatcaSignedArtifactStorageControlEvidencePath,
+  zatcaSignedArtifactStorageEvidenceCompletenessPath,
   zatcaSignedArtifactStorageControlEvidenceRevokePath,
   zatcaSignedArtifactStorageControlEvidenceVerifyPath,
   zatcaXmlValidationLabel,
@@ -78,6 +79,7 @@ describe("ZATCA helpers", () => {
     expect(zatcaEgsCsrDownloadPath("egs-1")).toBe("/zatca/egs-units/egs-1/csr/download");
     expect(zatcaEgsCsrPlanPath("egs 1")).toBe("/zatca/egs-units/egs%201/csr-plan");
     expect(zatcaSignedArtifactStorageControlEvidencePath()).toBe("/zatca/signed-artifact-storage/control-evidence");
+    expect(zatcaSignedArtifactStorageEvidenceCompletenessPath()).toBe("/zatca/signed-artifact-storage/evidence-completeness");
     expect(zatcaSignedArtifactStorageControlEvidenceVerifyPath("evidence 1")).toBe("/zatca/signed-artifact-storage/control-evidence/evidence%201/verify");
     expect(zatcaSignedArtifactStorageControlEvidenceRevokePath("evidence 1")).toBe("/zatca/signed-artifact-storage/control-evidence/evidence%201/revoke");
   });
