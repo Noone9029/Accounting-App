@@ -35,4 +35,11 @@ describe("ZATCA controller", () => {
   it("exposes the signed artifact immutable storage policy plan handler", () => {
     expect(typeof ZatcaController.prototype.signedArtifactImmutableStoragePolicyPlan).toBe("function");
   });
+
+  it("exposes signed artifact immutable storage policy approval handlers", () => {
+    expect(typeof ZatcaController.prototype.createSignedArtifactStoragePolicyApproval).toBe("function");
+    expect(typeof ZatcaController.prototype.listSignedArtifactStoragePolicyApprovals).toBe("function");
+    expect(typeof ZatcaController.prototype.approveSignedArtifactStoragePolicyApproval).toBe("function");
+    expect(typeof ZatcaController.prototype.revokeSignedArtifactStoragePolicyApproval).toBe("function");
+  });
 });

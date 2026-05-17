@@ -36,15 +36,20 @@ import {
   ZatcaRegistrationStatus,
   ZatcaSignedArtifactDraftSource,
   ZatcaSignedArtifactDraftStatus,
+  ZatcaSignedArtifactStoragePolicyApprovalStatus,
+  ZatcaSignedArtifactStoragePolicyRetentionStatus,
   ZatcaSubmissionStatus,
   ZatcaSubmissionType,
 } from "@prisma/client";
 import { AUDIT_EVENTS, AUDIT_ENTITY_TYPES } from "../audit-log/audit-events";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { ApproveZatcaStoragePolicyApprovalDto } from "./dto/approve-zatca-storage-policy-approval.dto";
 import { CreateZatcaEgsUnitDto } from "./dto/create-zatca-egs-unit.dto";
+import { CreateZatcaStoragePolicyApprovalDto } from "./dto/create-zatca-storage-policy-approval.dto";
 import { EnableZatcaSdkHashModeDto } from "./dto/enable-zatca-sdk-hash-mode.dto";
 import { RequestComplianceCsidDto } from "./dto/request-compliance-csid.dto";
+import { RevokeZatcaStoragePolicyApprovalDto } from "./dto/revoke-zatca-storage-policy-approval.dto";
 import { UpdateZatcaCsrFieldsDto } from "./dto/update-zatca-csr-fields.dto";
 import { UpdateZatcaEgsUnitDto } from "./dto/update-zatca-egs-unit.dto";
 import { UpdateZatcaProfileDto } from "./dto/update-zatca-profile.dto";
@@ -154,10 +159,44 @@ const safeSignedArtifactDraftSelect = {
   createdBy: { select: { id: true, name: true, email: true } },
 } satisfies Prisma.ZatcaSignedArtifactDraftSelect;
 
+const safeSignedArtifactStoragePolicyApprovalSelect = {
+  id: true,
+  organizationId: true,
+  status: true,
+  policyVersion: true,
+  policyHash: true,
+  policySummaryJson: true,
+  retentionDurationStatus: true,
+  retentionDurationValue: true,
+  objectVersioningApproved: true,
+  immutableArchiveApproved: true,
+  deletionPolicyApproved: true,
+  supersessionPolicyApproved: true,
+  accessControlApproved: true,
+  encryptionAtRestApproved: true,
+  backupRestoreApproved: true,
+  archiveRestoreTested: true,
+  signedXmlBodyPersistenceAllowed: true,
+  qrPayloadBodyPersistenceAllowed: true,
+  productionCompliance: true,
+  approvedById: true,
+  approvedAt: true,
+  revokedById: true,
+  revokedAt: true,
+  createdById: true,
+  note: true,
+  createdAt: true,
+  updatedAt: true,
+  createdBy: { select: { id: true, name: true, email: true } },
+  approvedBy: { select: { id: true, name: true, email: true } },
+  revokedBy: { select: { id: true, name: true, email: true } },
+} satisfies Prisma.ZatcaSignedArtifactStoragePolicyApprovalSelect;
+
 type SafeEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof safeEgsUnitSelect }>;
 type InternalEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof internalEgsUnitSelect }>;
 type SafeCsrConfigReviewRecord = Prisma.ZatcaCsrConfigReviewGetPayload<{ select: typeof safeCsrConfigReviewSelect }>;
 type SafeSignedArtifactDraftRecord = Prisma.ZatcaSignedArtifactDraftGetPayload<{ select: typeof safeSignedArtifactDraftSelect }>;
+type SafeSignedArtifactStoragePolicyApprovalRecord = Prisma.ZatcaSignedArtifactStoragePolicyApprovalGetPayload<{ select: typeof safeSignedArtifactStoragePolicyApprovalSelect }>;
 type ZatcaKeyCustodyMode = "MISSING" | "RAW_DATABASE_PEM";
 type ZatcaCsrPlanFieldStatus = "AVAILABLE" | "MISSING" | "NEEDS_REVIEW";
 const officialCsrConfigKeyOrder = [
@@ -1912,9 +1951,210 @@ export class ZatcaService {
     };
   }
 
-  getSignedArtifactStorageProbePlan(organizationId: string) {
-    const objectStorageCapability = this.buildSignedArtifactObjectStorageCapability();
-    const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus();
+  async listSignedArtifactStoragePolicyApprovals(organizationId: string) {
+    const approvalModel = this.getSignedArtifactStoragePolicyApprovalModel();
+    const approvals = approvalModel?.findMany
+      ? await approvalModel.findMany({
+          where: { organizationId },
+          orderBy: { createdAt: "desc" },
+          select: safeSignedArtifactStoragePolicyApprovalSelect,
+        })
+      : [];
+
+    return {
+      localOnly: true,
+      metadataOnly: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noCsidRequest: true,
+      noNetworkToZatca: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      productionCompliance: false,
+      policyApprovals: approvals.map((approval) => this.toSafeSignedArtifactStoragePolicyApproval(approval)),
+    };
+  }
+
+  async createSignedArtifactStoragePolicyApproval(
+    organizationId: string,
+    actorUserId: string,
+    dto: CreateZatcaStoragePolicyApprovalDto = {},
+  ) {
+    const approvalModel = this.requireSignedArtifactStoragePolicyApprovalModel();
+    const policySummaryJson = this.buildImmutableStoragePolicyApprovalSummary();
+    const policyVersion = this.cleanPolicyText(dto.policyVersion, 64) ?? "2026-05-17.metadata-only";
+    const retentionDurationStatus =
+      dto.retentionDurationStatus ?? ZatcaSignedArtifactStoragePolicyRetentionStatus.REQUIRES_LEGAL_REVIEW;
+    const retentionDurationValue = this.cleanPolicyText(dto.retentionDurationValue, 160);
+    const note = this.cleanPolicyText(dto.note, 500);
+    const policyHash = createHash("sha256").update(JSON.stringify({ policyVersion, policySummaryJson }), "utf8").digest("hex");
+
+    await approvalModel.updateMany?.({
+      where: {
+        organizationId,
+        status: ZatcaSignedArtifactStoragePolicyApprovalStatus.DRAFT,
+      },
+      data: { status: ZatcaSignedArtifactStoragePolicyApprovalStatus.SUPERSEDED },
+    });
+
+    const created = await approvalModel.create({
+      data: {
+        organizationId,
+        status: ZatcaSignedArtifactStoragePolicyApprovalStatus.DRAFT,
+        policyVersion,
+        policyHash,
+        policySummaryJson,
+        retentionDurationStatus,
+        retentionDurationValue,
+        objectVersioningApproved: false,
+        immutableArchiveApproved: false,
+        deletionPolicyApproved: false,
+        supersessionPolicyApproved: false,
+        accessControlApproved: false,
+        encryptionAtRestApproved: false,
+        backupRestoreApproved: false,
+        archiveRestoreTested: false,
+        signedXmlBodyPersistenceAllowed: false,
+        qrPayloadBodyPersistenceAllowed: false,
+        productionCompliance: false,
+        createdById: actorUserId,
+        note,
+      },
+      select: safeSignedArtifactStoragePolicyApprovalSelect,
+    });
+    const policyApproval = this.toSafeSignedArtifactStoragePolicyApproval(created);
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "CREATE",
+      entityType: "ZatcaSignedArtifactStoragePolicyApproval",
+      entityId: created.id,
+      after: policyApproval,
+    });
+
+    return this.wrapPolicyApprovalResponse(policyApproval);
+  }
+
+  async approveSignedArtifactStoragePolicyApproval(
+    organizationId: string,
+    actorUserId: string,
+    approvalId: string,
+    dto: Partial<ApproveZatcaStoragePolicyApprovalDto>,
+  ) {
+    const approvalModel = this.requireSignedArtifactStoragePolicyApprovalModel();
+    const existing = await approvalModel.findFirst({
+      where: { id: approvalId, organizationId },
+      select: safeSignedArtifactStoragePolicyApprovalSelect,
+    });
+    if (!existing) {
+      throw new NotFoundException("ZATCA signed artifact storage policy approval record not found.");
+    }
+    if (existing.status !== ZatcaSignedArtifactStoragePolicyApprovalStatus.DRAFT) {
+      throw new BadRequestException("Only DRAFT immutable policy approval records can be approved.");
+    }
+
+    const blockers = this.getImmutablePolicyApprovalBlockers(dto);
+    if (blockers.length > 0) {
+      throw new BadRequestException(`Immutable policy approval is blocked: ${blockers.join("; ")}`);
+    }
+
+    await approvalModel.updateMany?.({
+      where: {
+        organizationId,
+        status: ZatcaSignedArtifactStoragePolicyApprovalStatus.APPROVED,
+      },
+      data: { status: ZatcaSignedArtifactStoragePolicyApprovalStatus.SUPERSEDED },
+    });
+
+    const approved = await approvalModel.update({
+      where: { id: approvalId },
+      data: {
+        status: ZatcaSignedArtifactStoragePolicyApprovalStatus.APPROVED,
+        retentionDurationStatus: ZatcaSignedArtifactStoragePolicyRetentionStatus.APPROVED,
+        retentionDurationValue: this.cleanPolicyText(dto.retentionDurationValue, 160),
+        objectVersioningApproved: true,
+        immutableArchiveApproved: true,
+        deletionPolicyApproved: true,
+        supersessionPolicyApproved: true,
+        accessControlApproved: true,
+        encryptionAtRestApproved: true,
+        backupRestoreApproved: true,
+        archiveRestoreTested: true,
+        signedXmlBodyPersistenceAllowed: false,
+        qrPayloadBodyPersistenceAllowed: false,
+        productionCompliance: false,
+        approvedById: actorUserId,
+        approvedAt: new Date(),
+        note: this.cleanPolicyText(dto.note, 500),
+      },
+      select: safeSignedArtifactStoragePolicyApprovalSelect,
+    });
+    const policyApproval = this.toSafeSignedArtifactStoragePolicyApproval(approved);
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "APPROVE",
+      entityType: "ZatcaSignedArtifactStoragePolicyApproval",
+      entityId: approved.id,
+      before: this.toSafeSignedArtifactStoragePolicyApproval(existing),
+      after: policyApproval,
+    });
+
+    return this.wrapPolicyApprovalResponse(policyApproval);
+  }
+
+  async revokeSignedArtifactStoragePolicyApproval(
+    organizationId: string,
+    actorUserId: string,
+    approvalId: string,
+    dto: RevokeZatcaStoragePolicyApprovalDto = {},
+  ) {
+    const approvalModel = this.requireSignedArtifactStoragePolicyApprovalModel();
+    const existing = await approvalModel.findFirst({
+      where: { id: approvalId, organizationId },
+      select: safeSignedArtifactStoragePolicyApprovalSelect,
+    });
+    if (!existing) {
+      throw new NotFoundException("ZATCA signed artifact storage policy approval record not found.");
+    }
+    if (existing.status === ZatcaSignedArtifactStoragePolicyApprovalStatus.REVOKED) {
+      throw new BadRequestException("Immutable policy approval record is already revoked.");
+    }
+
+    const revoked = await approvalModel.update({
+      where: { id: approvalId },
+      data: {
+        status: ZatcaSignedArtifactStoragePolicyApprovalStatus.REVOKED,
+        revokedById: actorUserId,
+        revokedAt: new Date(),
+        signedXmlBodyPersistenceAllowed: false,
+        qrPayloadBodyPersistenceAllowed: false,
+        productionCompliance: false,
+        note: this.cleanPolicyText(dto.note, 500) ?? existing.note,
+      },
+      select: safeSignedArtifactStoragePolicyApprovalSelect,
+    });
+    const policyApproval = this.toSafeSignedArtifactStoragePolicyApproval(revoked);
+
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "REVOKE",
+      entityType: "ZatcaSignedArtifactStoragePolicyApproval",
+      entityId: revoked.id,
+      before: this.toSafeSignedArtifactStoragePolicyApproval(existing),
+      after: policyApproval,
+    });
+
+    return this.wrapPolicyApprovalResponse(policyApproval);
+  }
+
+  async getSignedArtifactStorageProbePlan(organizationId: string) {
+    const latestApproval = await this.getLatestSignedArtifactStoragePolicyApprovalOrNull(organizationId);
+    const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus(latestApproval);
+    const objectStorageCapability = this.buildSignedArtifactObjectStorageCapability(immutablePolicyStatus);
     const testPrefix = this.buildSignedArtifactStorageProbePrefix(organizationId);
     return {
       localOnly: true,
@@ -1938,8 +2178,10 @@ export class ZatcaService {
       retentionConfigured: false,
       immutabilityConfigured: false,
       immutablePolicyStatus,
-      policyApproved: false,
-      retentionDurationApproved: false,
+      latestImmutablePolicyApprovalStatus: latestApproval?.status ?? "NONE",
+      policyApprovalRequired: true,
+      policyApproved: immutablePolicyStatus.policyApproved,
+      retentionDurationApproved: immutablePolicyStatus.retentionDurationApproved,
       bodyPersistenceAllowed: false,
       signedArtifactBodyStorageAllowed: false,
       recommendedNextStep: "Approve immutable storage policy before signed artifact body persistence.",
@@ -1959,8 +2201,10 @@ export class ZatcaService {
     };
   }
 
-  getSignedArtifactImmutableStoragePolicyPlan() {
-    const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus();
+  async getSignedArtifactImmutableStoragePolicyPlan(organizationId: string) {
+    const latestApproval = await this.getLatestSignedArtifactStoragePolicyApprovalOrNull(organizationId);
+    const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus(latestApproval);
+    const approvalBlockedReasons = this.getImmutablePolicyPlanApprovalBlockedReasons(latestApproval);
     return {
       localOnly: true,
       dryRun: true,
@@ -1973,17 +2217,24 @@ export class ZatcaService {
       noPdfA3: true,
       noProductionCredentials: true,
       productionCompliance: false,
-      policyApproved: false,
-      retentionDurationApproved: false,
+      latestApprovalId: latestApproval?.id ?? null,
+      latestApprovalStatus: latestApproval?.status ?? "NONE",
+      latestApproval: latestApproval ? this.toSafeSignedArtifactStoragePolicyApproval(latestApproval) : null,
+      approvalRequired: true,
+      approvalBlockedReasons,
+      policyApproved: immutablePolicyStatus.policyApproved,
+      retentionDurationApproved: immutablePolicyStatus.retentionDurationApproved,
       objectVersioningRequired: true,
       immutableArchiveRequired: true,
-      deletionPolicyApproved: false,
-      supersessionPolicyApproved: false,
-      accessControlReviewed: false,
-      encryptionAtRestReviewed: false,
-      backupRestoreReviewed: false,
+      deletionPolicyApproved: immutablePolicyStatus.deletionPolicyApproved,
+      supersessionPolicyApproved: immutablePolicyStatus.supersessionPolicyApproved,
+      accessControlReviewed: immutablePolicyStatus.accessControlReviewed,
+      encryptionAtRestReviewed: immutablePolicyStatus.encryptionAtRestReviewed,
+      backupRestoreReviewed: immutablePolicyStatus.backupRestoreReviewed,
       bodyPersistenceAllowed: false,
+      signedXmlBodyPersistenceAllowed: false,
       signedArtifactBodyStorageAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
       qrPayloadBodyStorageAllowed: false,
       immutablePolicyStatus,
       blockers: [
@@ -2016,8 +2267,9 @@ export class ZatcaService {
     organizationId: string,
     options: { probeClient?: SignedArtifactStorageProbeClient; now?: Date } = {},
   ) {
-    const objectStorageCapability = this.buildSignedArtifactObjectStorageCapability();
-    const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus();
+    const latestApproval = await this.getLatestSignedArtifactStoragePolicyApprovalOrNull(organizationId);
+    const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus(latestApproval);
+    const objectStorageCapability = this.buildSignedArtifactObjectStorageCapability(immutablePolicyStatus);
     const executionEnabled = this.isSignedArtifactStorageProbeEnabled();
     const testObjectKey = this.buildSignedArtifactStorageProbeKey(organizationId, options.now ?? new Date());
     const base = {
@@ -2036,8 +2288,10 @@ export class ZatcaService {
       testObjectKey,
       testPrefix: this.buildSignedArtifactStorageProbePrefix(organizationId),
       immutablePolicyStatus,
-      policyApproved: false,
-      retentionDurationApproved: false,
+      latestImmutablePolicyApprovalStatus: latestApproval?.status ?? "NONE",
+      policyApprovalRequired: true,
+      policyApproved: immutablePolicyStatus.policyApproved,
+      retentionDurationApproved: immutablePolicyStatus.retentionDurationApproved,
       bodyPersistenceAllowed: false,
       signedArtifactBodyStorageAllowed: false,
       recommendedNextStep: "Approve immutable storage policy before signed artifact body persistence.",
@@ -2135,7 +2389,7 @@ export class ZatcaService {
       throw new NotFoundException("Sales invoice not found.");
     }
 
-    const [metadata, activeEgs, latestDraft, draftCount] = await Promise.all([
+    const [metadata, activeEgs, latestDraft, draftCount, latestPolicyApproval] = await Promise.all([
       this.prisma.zatcaInvoiceMetadata.findFirst({
         where: { organizationId, invoiceId },
         select: {
@@ -2178,13 +2432,14 @@ export class ZatcaService {
       this.prisma.zatcaSignedArtifactDraft.count({
         where: { organizationId, invoiceId },
       }),
+      this.getLatestSignedArtifactStoragePolicyApprovalOrNull(organizationId),
     ]);
     const safeInvoiceNumber = safeZatcaTempName(invoice.invoiceNumber);
     const safeInvoiceId = safeZatcaTempName(invoice.id);
     const keyPrefix = `zatca/signed-artifacts/${organizationId}/${invoice.id}`;
     const storageReadiness = this.buildSignedArtifactStorageReadinessSection(metadata);
-    const objectStorageCapability = this.buildSignedArtifactObjectStorageCapability();
-    const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus();
+    const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus(latestPolicyApproval);
+    const objectStorageCapability = this.buildSignedArtifactObjectStorageCapability(immutablePolicyStatus);
     const metadataOnlyDraftAllowed = Boolean(metadata?.xmlBase64 && metadata.invoiceHash);
 
     return {
@@ -2205,10 +2460,12 @@ export class ZatcaService {
       storageBlocked: true,
       storageProbeRequired: true,
       latestStorageProbeStatus: "NOT_RUN",
-      storageProbePlan: this.getSignedArtifactStorageProbePlan(organizationId),
+      storageProbePlan: await this.getSignedArtifactStorageProbePlan(organizationId),
       immutablePolicyStatus,
-      policyApproved: false,
-      retentionDurationApproved: false,
+      latestImmutablePolicyApprovalStatus: latestPolicyApproval?.status ?? "NONE",
+      policyApprovalRequired: true,
+      policyApproved: immutablePolicyStatus.policyApproved,
+      retentionDurationApproved: immutablePolicyStatus.retentionDurationApproved,
       recommendedNextStep: "Approve immutable storage policy before signed artifact body persistence.",
       metadataOnlyDraftAllowed,
       bodyPersistenceAllowed: false,
@@ -4661,7 +4918,192 @@ export class ZatcaService {
     };
   }
 
-  private buildSignedArtifactObjectStorageCapability() {
+  private toSafeSignedArtifactStoragePolicyApproval(approval: SafeSignedArtifactStoragePolicyApprovalRecord) {
+    return {
+      id: approval.id,
+      organizationId: approval.organizationId,
+      status: approval.status,
+      policyVersion: approval.policyVersion,
+      policyHash: approval.policyHash,
+      policySummaryJson: approval.policySummaryJson,
+      retentionDurationStatus: approval.retentionDurationStatus,
+      retentionDurationValue: approval.retentionDurationValue,
+      objectVersioningApproved: approval.objectVersioningApproved,
+      immutableArchiveApproved: approval.immutableArchiveApproved,
+      deletionPolicyApproved: approval.deletionPolicyApproved,
+      supersessionPolicyApproved: approval.supersessionPolicyApproved,
+      accessControlApproved: approval.accessControlApproved,
+      encryptionAtRestApproved: approval.encryptionAtRestApproved,
+      backupRestoreApproved: approval.backupRestoreApproved,
+      archiveRestoreTested: approval.archiveRestoreTested,
+      signedXmlBodyPersistenceAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
+      productionCompliance: false,
+      approvedById: approval.approvedById,
+      approvedAt: approval.approvedAt,
+      revokedById: approval.revokedById,
+      revokedAt: approval.revokedAt,
+      createdById: approval.createdById,
+      note: approval.note,
+      createdAt: approval.createdAt,
+      updatedAt: approval.updatedAt,
+      createdBy: approval.createdBy,
+      approvedBy: approval.approvedBy,
+      revokedBy: approval.revokedBy,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+    };
+  }
+
+  private wrapPolicyApprovalResponse(policyApproval: Record<string, unknown>) {
+    return {
+      localOnly: true,
+      metadataOnly: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noCsidRequest: true,
+      noNetworkToZatca: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      noProductionCredentials: true,
+      productionCompliance: false,
+      bodyPersistenceAllowed: false,
+      signedXmlBodyPersistenceAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
+      policyApproval,
+      warnings: [
+        "Immutable policy approval is metadata only.",
+        "Signed XML and QR payload body persistence remain blocked in this phase.",
+        "This does not request CSIDs, call ZATCA, sign production invoices, clear/report, embed PDF/A-3, or prove production compliance.",
+      ],
+    };
+  }
+
+  private buildImmutableStoragePolicyApprovalSummary() {
+    return {
+      officialSources: [
+        "SDK Readme/readme.md",
+        "SDK Configuration/usage.txt",
+        "SDK Simplified_Invoice.xml",
+        "SDK Standard_Invoice.xml",
+        "SDK Schematron 20210819_ZATCA_E-invoice_Validation_Rules.xsl",
+        "ZATCA XML Implementation Standard PDF",
+        "ZATCA Security Features Implementation Standards PDF",
+        "EInvoice_Data_Dictionary.xlsx",
+        "compliance_invoice.pdf",
+        "reporting.pdf",
+        "clearance.pdf",
+      ],
+      currentPhase: "METADATA_ONLY_POLICY_APPROVAL",
+      signedXmlBodyPersistenceAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
+      productionCompliance: false,
+      retentionDuration: "LEGAL_ACCOUNTING_REVIEW_REQUIRED_NO_DURATION_GUESSED",
+      requiredTechnicalReviews: [
+        "objectVersioningApproved",
+        "immutableArchiveApproved",
+        "deletionPolicyApproved",
+        "supersessionPolicyApproved",
+        "accessControlApproved",
+        "encryptionAtRestApproved",
+        "backupRestoreApproved",
+        "archiveRestoreTested",
+      ],
+    };
+  }
+
+  private getImmutablePolicyApprovalBlockers(dto: Partial<ApproveZatcaStoragePolicyApprovalDto>): string[] {
+    const blockers: string[] = [];
+    if (dto.retentionDurationStatus !== ZatcaSignedArtifactStoragePolicyRetentionStatus.APPROVED) {
+      blockers.push("retention duration must be legally/accounting reviewed and marked APPROVED");
+    }
+    if (!this.cleanPolicyText(dto.retentionDurationValue, 160)) {
+      blockers.push("retention duration value or legal review reference is required; do not guess it");
+    }
+    const requiredBooleanControls: Array<keyof ApproveZatcaStoragePolicyApprovalDto> = [
+      "objectVersioningApproved",
+      "immutableArchiveApproved",
+      "deletionPolicyApproved",
+      "supersessionPolicyApproved",
+      "accessControlApproved",
+      "encryptionAtRestApproved",
+      "backupRestoreApproved",
+      "archiveRestoreTested",
+    ];
+    for (const key of requiredBooleanControls) {
+      if (dto[key] !== true) {
+        blockers.push(`${key} must be explicitly reviewed and approved`);
+      }
+    }
+    if (!this.cleanPolicyText(dto.note, 500)) {
+      blockers.push("approval note is required");
+    }
+    return blockers;
+  }
+
+  private getImmutablePolicyPlanApprovalBlockedReasons(latestApproval: SafeSignedArtifactStoragePolicyApprovalRecord | null): string[] {
+    if (!latestApproval) {
+      return [
+        "No immutable storage policy approval record exists.",
+        "Retention duration requires legal/accounting review; no retention duration is guessed.",
+        "Technical storage controls must be reviewed before future body persistence.",
+      ];
+    }
+    if (latestApproval.status !== ZatcaSignedArtifactStoragePolicyApprovalStatus.APPROVED) {
+      return [
+        `Latest immutable storage policy approval status is ${latestApproval.status}.`,
+        "Approval must be APPROVED before it can be used as a future precondition.",
+      ];
+    }
+    return [
+      "Signed XML body persistence remains blocked in this phase even with policy approval metadata.",
+      "QR payload body persistence remains blocked in this phase even with policy approval metadata.",
+    ];
+  }
+
+  private cleanPolicyText(value: string | undefined | null, maxLength: number): string | null {
+    if (typeof value !== "string") {
+      return null;
+    }
+    const cleaned = value.replace(/[\u0000-\u001F\u007F]/g, " ").trim();
+    return cleaned ? cleaned.slice(0, maxLength) : null;
+  }
+
+  private getSignedArtifactStoragePolicyApprovalModel() {
+    return (
+      this.prisma as PrismaService & {
+        zatcaSignedArtifactStoragePolicyApproval?: {
+          findFirst: (args: unknown) => Promise<SafeSignedArtifactStoragePolicyApprovalRecord | null>;
+          findMany: (args: unknown) => Promise<SafeSignedArtifactStoragePolicyApprovalRecord[]>;
+          create: (args: unknown) => Promise<SafeSignedArtifactStoragePolicyApprovalRecord>;
+          update: (args: unknown) => Promise<SafeSignedArtifactStoragePolicyApprovalRecord>;
+          updateMany?: (args: unknown) => Promise<{ count: number }>;
+        };
+      }
+    ).zatcaSignedArtifactStoragePolicyApproval;
+  }
+
+  private requireSignedArtifactStoragePolicyApprovalModel() {
+    const approvalModel = this.getSignedArtifactStoragePolicyApprovalModel();
+    if (!approvalModel) {
+      throw new NotImplementedException("ZATCA signed artifact storage policy approval model is not available.");
+    }
+    return approvalModel;
+  }
+
+  private async getLatestSignedArtifactStoragePolicyApprovalOrNull(organizationId: string): Promise<SafeSignedArtifactStoragePolicyApprovalRecord | null> {
+    const approvalModel = this.getSignedArtifactStoragePolicyApprovalModel();
+    if (!approvalModel?.findFirst) {
+      return null;
+    }
+    return approvalModel.findFirst({
+      where: { organizationId },
+      orderBy: { createdAt: "desc" },
+      select: safeSignedArtifactStoragePolicyApprovalSelect,
+    });
+  }
+
+  private buildSignedArtifactObjectStorageCapability(immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus(null)) {
     const attachmentProvider = (process.env.ATTACHMENT_STORAGE_PROVIDER ?? "database").toLowerCase();
     const generatedDocumentProvider = (process.env.GENERATED_DOCUMENT_STORAGE_PROVIDER ?? "database").toLowerCase();
     const requiredSettings = {
@@ -4697,9 +5139,9 @@ export class ZatcaService {
       writeCapabilityTested: false,
       retentionConfigured: false,
       immutableRetentionConfigured: false,
-      policyApproved: false,
-      retentionDurationApproved: false,
-      immutablePolicyStatus: this.buildSignedArtifactImmutablePolicyStatus(),
+      policyApproved: immutablePolicyStatus.policyApproved,
+      retentionDurationApproved: immutablePolicyStatus.retentionDurationApproved,
+      immutablePolicyStatus,
       objectVersioningConfigured: false,
       tenantScopedKeyPrefixPlanned: true,
       generatedDocumentStorageDistinct: true,
@@ -4718,20 +5160,24 @@ export class ZatcaService {
     };
   }
 
-  private buildSignedArtifactImmutablePolicyStatus() {
+  private buildSignedArtifactImmutablePolicyStatus(latestApproval: SafeSignedArtifactStoragePolicyApprovalRecord | null = null) {
+    const policyApproved = latestApproval?.status === ZatcaSignedArtifactStoragePolicyApprovalStatus.APPROVED;
     return {
-      status: "BLOCKED",
-      policyApproved: false,
-      retentionDurationApproved: false,
+      status: policyApproved ? "WARNINGS" : "BLOCKED",
+      latestApprovalId: latestApproval?.id ?? null,
+      latestApprovalStatus: latestApproval?.status ?? "NONE",
+      approvalRequired: true,
+      policyApproved,
+      retentionDurationApproved: policyApproved && latestApproval.retentionDurationStatus === ZatcaSignedArtifactStoragePolicyRetentionStatus.APPROVED,
       objectVersioningRequired: true,
-      objectVersioningConfirmed: false,
+      objectVersioningConfirmed: Boolean(latestApproval?.objectVersioningApproved),
       immutableArchiveRequired: true,
-      deletionPolicyApproved: false,
-      supersessionPolicyApproved: false,
-      archiveRestoreTested: false,
-      accessControlReviewed: false,
-      encryptionAtRestReviewed: false,
-      backupRestoreReviewed: false,
+      deletionPolicyApproved: Boolean(latestApproval?.deletionPolicyApproved),
+      supersessionPolicyApproved: Boolean(latestApproval?.supersessionPolicyApproved),
+      archiveRestoreTested: Boolean(latestApproval?.archiveRestoreTested),
+      accessControlReviewed: Boolean(latestApproval?.accessControlApproved),
+      encryptionAtRestReviewed: Boolean(latestApproval?.encryptionAtRestApproved),
+      backupRestoreReviewed: Boolean(latestApproval?.backupRestoreApproved),
       bodyPersistenceAllowed: false,
       signedArtifactBodyStorageAllowed: false,
       qrPayloadBodyStorageAllowed: false,

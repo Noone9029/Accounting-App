@@ -441,6 +441,19 @@ enum ZatcaSignedArtifactDraftSource {
   FUTURE_PRODUCTION_SIGNING
 }
 
+enum ZatcaSignedArtifactStoragePolicyApprovalStatus {
+  DRAFT
+  APPROVED
+  REVOKED
+  SUPERSEDED
+}
+
+enum ZatcaSignedArtifactStoragePolicyRetentionStatus {
+  NOT_REVIEWED
+  APPROVED
+  REQUIRES_LEGAL_REVIEW
+}
+
 enum FiscalPeriodStatus {
   OPEN
   CLOSED
@@ -531,6 +544,9 @@ model User {
   approvedZatcaCsrConfigReviews               ZatcaCsrConfigReview[]               @relation("ZatcaCsrConfigReviewApprovedBy")
   revokedZatcaCsrConfigReviews                ZatcaCsrConfigReview[]               @relation("ZatcaCsrConfigReviewRevokedBy")
   createdZatcaSignedArtifactDrafts            ZatcaSignedArtifactDraft[]            @relation("ZatcaSignedArtifactDraftCreatedBy")
+  createdZatcaSignedArtifactStoragePolicyApprovals  ZatcaSignedArtifactStoragePolicyApproval[] @relation("ZatcaSignedArtifactStoragePolicyApprovalCreatedBy")
+  approvedZatcaSignedArtifactStoragePolicyApprovals ZatcaSignedArtifactStoragePolicyApproval[] @relation("ZatcaSignedArtifactStoragePolicyApprovalApprovedBy")
+  revokedZatcaSignedArtifactStoragePolicyApprovals  ZatcaSignedArtifactStoragePolicyApproval[] @relation("ZatcaSignedArtifactStoragePolicyApprovalRevokedBy")
 }
 
 model Organization {
@@ -608,6 +624,7 @@ model Organization {
   zatcaSubmissionLogs                 ZatcaSubmissionLog[]
   zatcaCsrConfigReviews               ZatcaCsrConfigReview[]
   zatcaSignedArtifactDrafts           ZatcaSignedArtifactDraft[]
+  zatcaSignedArtifactStoragePolicyApprovals ZatcaSignedArtifactStoragePolicyApproval[]
 }
 
 model OrganizationDocumentSettings {
@@ -893,6 +910,48 @@ model ZatcaSignedArtifactDraft {
   @@index([metadataId])
   @@index([status])
   @@index([createdById])
+}
+
+model ZatcaSignedArtifactStoragePolicyApproval {
+  id                              String                                          @id @default(uuid()) @db.Uuid
+  organizationId                  String                                          @db.Uuid
+  status                          ZatcaSignedArtifactStoragePolicyApprovalStatus  @default(DRAFT)
+  policyVersion                   String
+  policyHash                      String
+  policySummaryJson               Json
+  retentionDurationStatus         ZatcaSignedArtifactStoragePolicyRetentionStatus @default(REQUIRES_LEGAL_REVIEW)
+  retentionDurationValue          String?
+  objectVersioningApproved        Boolean                                         @default(false)
+  immutableArchiveApproved        Boolean                                         @default(false)
+  deletionPolicyApproved          Boolean                                         @default(false)
+  supersessionPolicyApproved      Boolean                                         @default(false)
+  accessControlApproved           Boolean                                         @default(false)
+  encryptionAtRestApproved        Boolean                                         @default(false)
+  backupRestoreApproved           Boolean                                         @default(false)
+  archiveRestoreTested            Boolean                                         @default(false)
+  signedXmlBodyPersistenceAllowed Boolean                                         @default(false)
+  qrPayloadBodyPersistenceAllowed Boolean                                         @default(false)
+  productionCompliance            Boolean                                         @default(false)
+  approvedById                    String?                                         @db.Uuid
+  approvedAt                      DateTime?
+  revokedById                     String?                                         @db.Uuid
+  revokedAt                       DateTime?
+  createdById                     String?                                         @db.Uuid
+  note                            String?
+  createdAt                       DateTime                                        @default(now())
+  updatedAt                       DateTime                                        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("ZatcaSignedArtifactStoragePolicyApprovalCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedBy   User?        @relation("ZatcaSignedArtifactStoragePolicyApprovalApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  revokedBy    User?        @relation("ZatcaSignedArtifactStoragePolicyApprovalRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([policyHash])
+  @@index([createdById])
+  @@index([approvedById])
+  @@index([revokedById])
 }
 
 model ZatcaSubmissionLog {

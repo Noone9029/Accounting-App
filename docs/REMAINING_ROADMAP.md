@@ -617,3 +617,14 @@ Recommended next step:
 - No retention duration is guessed. Retention duration remains legal/accounting review required.
 - No signed XML body, QR payload body, invoice data, private key, certificate body, CSID token, OTP, production credential, ZATCA network call, clearance/reporting, PDF/A-3, or production compliance claim is introduced.
 - Recommended next step: run a legal/accounting retention review and object-storage immutability review before designing any signed XML/QR body persistence endpoint.
+
+## Roadmap update: ZATCA signed artifact policy approvals
+
+Completed: metadata-only immutable storage policy approval records and settings visibility.
+
+Next required phases before signed XML body persistence:
+- Legal/accounting retention-duration decision.
+- Technical immutable storage controls and restore testing.
+- Real certificate/key custody and CSID onboarding design.
+- Production signing, promotion, and clearance/reporting workflows.
+- PDF-A3 design if required by product scope.

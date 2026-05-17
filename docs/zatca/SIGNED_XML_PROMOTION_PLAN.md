@@ -249,3 +249,9 @@ Recommended next step:
 - No retention duration is guessed. Retention duration remains legal/accounting review required.
 - No signed XML body, QR payload body, invoice data, private key, certificate body, CSID token, OTP, production credential, ZATCA network call, clearance/reporting, PDF/A-3, or production compliance claim is introduced.
 - Recommended next step: run a legal/accounting retention review and object-storage immutability review before designing any signed XML/QR body persistence endpoint.
+
+## Immutable storage policy approval dependency
+
+Signed XML promotion remains blocked. A metadata-only immutable policy approval record can now document storage policy review status, but it is not a promotion event and it does not permit signed XML or QR payload body persistence.
+
+Future promotion still requires real certificate/key custody, real CSID onboarding, production signing design, immutable object storage, clearance/reporting design, and separate production readiness review. Dummy-material signed XML must never be promoted to production state.

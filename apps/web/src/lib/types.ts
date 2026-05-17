@@ -3341,23 +3341,139 @@ export interface ZatcaSignedArtifactObjectStorageCapability {
   warnings: string[];
 }
 
+export type ZatcaSignedArtifactStoragePolicyApprovalStatus = "DRAFT" | "APPROVED" | "REVOKED" | "SUPERSEDED";
+export type ZatcaSignedArtifactStoragePolicyRetentionStatus =
+  | "NOT_REVIEWED"
+  | "APPROVED"
+  | "REQUIRES_LEGAL_REVIEW";
+
+export interface ZatcaSignedArtifactStoragePolicyApprovalActor {
+  id: string;
+  name: string | null;
+  email: string | null;
+}
+
+export interface ZatcaSignedArtifactStoragePolicyApproval {
+  id: string;
+  organizationId: string;
+  status: ZatcaSignedArtifactStoragePolicyApprovalStatus;
+  policyVersion: string;
+  policyHash: string;
+  policySummaryJson: Record<string, unknown>;
+  retentionDurationStatus: ZatcaSignedArtifactStoragePolicyRetentionStatus;
+  retentionDurationValue: string | null;
+  objectVersioningApproved: boolean;
+  immutableArchiveApproved: boolean;
+  deletionPolicyApproved: boolean;
+  supersessionPolicyApproved: boolean;
+  accessControlApproved: boolean;
+  encryptionAtRestApproved: boolean;
+  backupRestoreApproved: boolean;
+  archiveRestoreTested: boolean;
+  signedXmlBodyPersistenceAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
+  productionCompliance: false;
+  approvedById: string | null;
+  approvedAt: string | null;
+  revokedById: string | null;
+  revokedAt: string | null;
+  createdById: string | null;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: ZatcaSignedArtifactStoragePolicyApprovalActor | null;
+  approvedBy: ZatcaSignedArtifactStoragePolicyApprovalActor | null;
+  revokedBy: ZatcaSignedArtifactStoragePolicyApprovalActor | null;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+}
+
+export interface ZatcaSignedArtifactStoragePolicyApprovalListResponse {
+  localOnly: true;
+  metadataOnly: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetworkToZatca: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  productionCompliance: false;
+  policyApprovals: ZatcaSignedArtifactStoragePolicyApproval[];
+}
+
+export interface ZatcaSignedArtifactStoragePolicyApprovalResponse {
+  localOnly: true;
+  metadataOnly: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetworkToZatca: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  productionCompliance: false;
+  signedXmlBodyPersistenceAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
+  policyApproval: ZatcaSignedArtifactStoragePolicyApproval;
+  warnings: string[];
+}
+
 export interface ZatcaSignedArtifactImmutablePolicyStatus {
-  status: "BLOCKED";
-  policyApproved: false;
-  retentionDurationApproved: false;
+  status: "BLOCKED" | "WARNINGS";
+  latestApprovalId: string | null;
+  latestApprovalStatus: ZatcaSignedArtifactStoragePolicyApprovalStatus | "NONE";
+  approvalRequired: true;
+  policyApproved: boolean;
+  retentionDurationApproved: boolean;
   objectVersioningRequired: true;
-  objectVersioningConfirmed: false;
+  objectVersioningConfirmed: boolean;
   immutableArchiveRequired: true;
-  deletionPolicyApproved: false;
-  supersessionPolicyApproved: false;
-  archiveRestoreTested: false;
-  accessControlReviewed: false;
-  encryptionAtRestReviewed: false;
-  backupRestoreReviewed: false;
+  deletionPolicyApproved: boolean;
+  supersessionPolicyApproved: boolean;
+  archiveRestoreTested: boolean;
+  accessControlReviewed: boolean;
+  encryptionAtRestReviewed: boolean;
+  backupRestoreReviewed: boolean;
   bodyPersistenceAllowed: false;
   signedArtifactBodyStorageAllowed: false;
   qrPayloadBodyStorageAllowed: false;
   recommendedNextStep: string;
+}
+
+export interface ZatcaSignedArtifactImmutablePolicyPlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetworkToZatca: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  noProductionCredentials: true;
+  productionCompliance: false;
+  latestApprovalId: string | null;
+  latestApprovalStatus: ZatcaSignedArtifactStoragePolicyApprovalStatus | "NONE";
+  latestApproval: ZatcaSignedArtifactStoragePolicyApproval | null;
+  approvalRequired: true;
+  approvalBlockedReasons: string[];
+  policyApproved: boolean;
+  retentionDurationApproved: boolean;
+  objectVersioningRequired: true;
+  immutableArchiveRequired: true;
+  deletionPolicyApproved: boolean;
+  supersessionPolicyApproved: boolean;
+  accessControlReviewed: boolean;
+  encryptionAtRestReviewed: boolean;
+  backupRestoreReviewed: boolean;
+  bodyPersistenceAllowed: false;
+  signedXmlBodyPersistenceAllowed: false;
+  signedArtifactBodyStorageAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
+  qrPayloadBodyStorageAllowed: false;
+  immutablePolicyStatus: ZatcaSignedArtifactImmutablePolicyStatus;
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
 }
 
 export interface ZatcaSignedArtifactStorageProbePlanResponse {
@@ -3382,8 +3498,10 @@ export interface ZatcaSignedArtifactStorageProbePlanResponse {
   retentionConfigured: false;
   immutabilityConfigured: false;
   immutablePolicyStatus: ZatcaSignedArtifactImmutablePolicyStatus;
-  policyApproved: false;
-  retentionDurationApproved: false;
+  latestImmutablePolicyApprovalStatus: ZatcaSignedArtifactStoragePolicyApprovalStatus | "NONE";
+  policyApprovalRequired: true;
+  policyApproved: boolean;
+  retentionDurationApproved: boolean;
   bodyPersistenceAllowed: false;
   signedArtifactBodyStorageAllowed: false;
   recommendedNextStep: string;
@@ -3410,8 +3528,10 @@ export interface ZatcaSignedArtifactStorageProbeResponse {
   testObjectDeleted: boolean;
   cleanupSuccess: boolean;
   immutablePolicyStatus: ZatcaSignedArtifactImmutablePolicyStatus;
-  policyApproved: false;
-  retentionDurationApproved: false;
+  latestImmutablePolicyApprovalStatus: ZatcaSignedArtifactStoragePolicyApprovalStatus | "NONE";
+  policyApprovalRequired: true;
+  policyApproved: boolean;
+  retentionDurationApproved: boolean;
   bodyPersistenceAllowed: false;
   signedArtifactBodyStorageAllowed: false;
   recommendedNextStep: string;
@@ -3467,8 +3587,10 @@ export interface ZatcaInvoiceSignedArtifactStoragePlanResponse {
   latestStorageProbeStatus: "NOT_RUN";
   storageProbePlan: ZatcaSignedArtifactStorageProbePlanResponse;
   immutablePolicyStatus: ZatcaSignedArtifactImmutablePolicyStatus;
-  policyApproved: false;
-  retentionDurationApproved: false;
+  latestImmutablePolicyApprovalStatus: ZatcaSignedArtifactStoragePolicyApprovalStatus | "NONE";
+  policyApprovalRequired: true;
+  policyApproved: boolean;
+  retentionDurationApproved: boolean;
   recommendedNextStep: string;
   metadataOnlyDraftAllowed: boolean;
   bodyPersistenceAllowed: false;

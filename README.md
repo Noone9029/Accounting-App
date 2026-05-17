@@ -2126,3 +2126,26 @@ Recommended next step:
 - No retention duration is guessed. Retention duration remains legal/accounting review required.
 - No signed XML body, QR payload body, invoice data, private key, certificate body, CSID token, OTP, production credential, ZATCA network call, clearance/reporting, PDF/A-3, or production compliance claim is introduced.
 - Recommended next step: run a legal/accounting retention review and object-storage immutability review before designing any signed XML/QR body persistence endpoint.
+
+## ZATCA immutable signed artifact policy approval records
+
+This repository now includes metadata-only immutable storage policy approval records for future ZATCA signed artifact storage. The records are planning and audit metadata only. They do not store signed XML bodies, QR payload bodies, private keys, certificates, CSID tokens, OTPs, CSR bodies, production credentials, or production compliance claims.
+
+Official local references inspected for this phase:
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/usage.txt`
+- SDK standard and simplified invoice samples
+- SDK Schematron validation rules
+- ZATCA XML and security implementation PDFs
+- ZATCA `EInvoice_Data_Dictionary.xlsx`
+- ZATCA `compliance_invoice.pdf`, `reporting.pdf`, and `clearance.pdf`
+
+The approval workflow records whether retention duration, object versioning, immutable archive, deletion, supersession, access control, encryption at rest, backup/restore, and restore testing have been reviewed. Approval is blocked unless the legal/accounting retention review and technical storage controls are explicitly provided. No legal retention duration is guessed by LedgerByte.
+
+Local-only API additions:
+- `GET /zatca/signed-artifact-storage/policy-approvals`
+- `POST /zatca/signed-artifact-storage/policy-approvals`
+- `POST /zatca/signed-artifact-storage/policy-approvals/:id/approve`
+- `POST /zatca/signed-artifact-storage/policy-approvals/:id/revoke`
+
+Signed XML body persistence and QR payload persistence remain disabled. CSID requests, ZATCA network calls, clearance/reporting, PDF-A3, production credentials, and production compliance claims remain out of scope.

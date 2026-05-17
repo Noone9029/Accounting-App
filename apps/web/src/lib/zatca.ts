@@ -39,6 +39,18 @@ export function zatcaInvoiceSignedArtifactDraftsPath(invoiceId: string): string 
   return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/signed-artifact-drafts`;
 }
 
+export function zatcaSignedArtifactImmutablePolicyPlanPath(): string {
+  return "/zatca/signed-artifact-storage/immutable-policy-plan";
+}
+
+export function zatcaSignedArtifactStoragePolicyApprovalsPath(): string {
+  return "/zatca/signed-artifact-storage/policy-approvals";
+}
+
+export function zatcaSignedArtifactStoragePolicyApprovalRevokePath(approvalId: string): string {
+  return `/zatca/signed-artifact-storage/policy-approvals/${encodeURIComponent(approvalId)}/revoke`;
+}
+
 export function zatcaInvoiceLocalSigningDryRunPath(invoiceId: string): string {
   return `/sales-invoices/${encodeURIComponent(invoiceId)}/zatca/local-signing-dry-run`;
 }

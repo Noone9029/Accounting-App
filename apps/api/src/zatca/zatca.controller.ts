@@ -8,9 +8,12 @@ import { RequirePermissions } from "../auth/decorators/require-permissions.decor
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
+import { ApproveZatcaStoragePolicyApprovalDto } from "./dto/approve-zatca-storage-policy-approval.dto";
 import { CreateZatcaEgsUnitDto } from "./dto/create-zatca-egs-unit.dto";
+import { CreateZatcaStoragePolicyApprovalDto } from "./dto/create-zatca-storage-policy-approval.dto";
 import { EnableZatcaSdkHashModeDto } from "./dto/enable-zatca-sdk-hash-mode.dto";
 import { RequestComplianceCsidDto } from "./dto/request-compliance-csid.dto";
+import { RevokeZatcaStoragePolicyApprovalDto } from "./dto/revoke-zatca-storage-policy-approval.dto";
 import { UpdateZatcaCsrFieldsDto } from "./dto/update-zatca-csr-fields.dto";
 import { UpdateZatcaEgsUnitDto } from "./dto/update-zatca-egs-unit.dto";
 import { UpdateZatcaProfileDto } from "./dto/update-zatca-profile.dto";
@@ -239,8 +242,46 @@ export class ZatcaController {
 
   @Get("zatca/signed-artifact-storage/immutable-policy-plan")
   @RequirePermissions(PERMISSIONS.zatca.view)
-  signedArtifactImmutableStoragePolicyPlan() {
-    return this.zatcaService.getSignedArtifactImmutableStoragePolicyPlan();
+  signedArtifactImmutableStoragePolicyPlan(@CurrentOrganizationId() organizationId: string) {
+    return this.zatcaService.getSignedArtifactImmutableStoragePolicyPlan(organizationId);
+  }
+
+  @Get("zatca/signed-artifact-storage/policy-approvals")
+  @RequirePermissions(PERMISSIONS.zatca.view)
+  listSignedArtifactStoragePolicyApprovals(@CurrentOrganizationId() organizationId: string) {
+    return this.zatcaService.listSignedArtifactStoragePolicyApprovals(organizationId);
+  }
+
+  @Post("zatca/signed-artifact-storage/policy-approvals")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  createSignedArtifactStoragePolicyApproval(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateZatcaStoragePolicyApprovalDto,
+  ) {
+    return this.zatcaService.createSignedArtifactStoragePolicyApproval(organizationId, user.id, dto);
+  }
+
+  @Post("zatca/signed-artifact-storage/policy-approvals/:id/approve")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  approveSignedArtifactStoragePolicyApproval(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: ApproveZatcaStoragePolicyApprovalDto,
+  ) {
+    return this.zatcaService.approveSignedArtifactStoragePolicyApproval(organizationId, user.id, id, dto);
+  }
+
+  @Post("zatca/signed-artifact-storage/policy-approvals/:id/revoke")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  revokeSignedArtifactStoragePolicyApproval(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: RevokeZatcaStoragePolicyApprovalDto,
+  ) {
+    return this.zatcaService.revokeSignedArtifactStoragePolicyApproval(organizationId, user.id, id, dto);
   }
 
   @Get("sales-invoices/:id/zatca")

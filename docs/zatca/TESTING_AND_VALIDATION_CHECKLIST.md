@@ -539,3 +539,17 @@ Recommended next step:
 - No retention duration is guessed. Retention duration remains legal/accounting review required.
 - No signed XML body, QR payload body, invoice data, private key, certificate body, CSID token, OTP, production credential, ZATCA network call, clearance/reporting, PDF/A-3, or production compliance claim is introduced.
 - Recommended next step: run a legal/accounting retention review and object-storage immutability review before designing any signed XML/QR body persistence endpoint.
+
+## Immutable policy approval validation checklist
+
+Added checks for metadata-only immutable policy approval records:
+- Draft creation stores metadata only.
+- Approval is blocked when retention duration is not legally/accounting reviewed.
+- Approval is blocked when technical storage controls are missing.
+- `signedXmlBodyPersistenceAllowed` remains false.
+- `qrPayloadBodyPersistenceAllowed` remains false.
+- `productionCompliance` remains false.
+- Plan/probe responses include latest approval status.
+- No SDK, storage adapter upload, ZATCA network call, submission log, signed XML body, QR payload body, private key, certificate, token, OTP, or CSR body is produced or returned.
+
+Default smoke remains safe and does not execute SDK signing, object-storage probes, CSID calls, clearance/reporting, or PDF-A3 flows.

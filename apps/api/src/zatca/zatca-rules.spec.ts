@@ -1314,10 +1314,187 @@ describe("ZATCA service rules", () => {
     expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
   });
 
-  it("returns a signed artifact storage probe plan without uploading objects or exposing bodies", () => {
+  it("creates metadata-only immutable storage policy approval drafts without enabling body persistence", async () => {
+    const draft = makeStoragePolicyApproval();
+    const prisma = {
+      zatcaSignedArtifactStoragePolicyApproval: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        create: jest.fn().mockResolvedValue(draft),
+      },
+      zatcaSubmissionLog: { create: jest.fn() },
+    };
+    const auditLogService = { log: jest.fn() };
+    const service = new ZatcaService(prisma as never, auditLogService as never);
+
+    const result = await service.createSignedArtifactStoragePolicyApproval("org-1", "user-1", {
+      note: "Draft only; legal retention review is pending.",
+    });
+
+    expect(result).toMatchObject({
+      localOnly: true,
+      metadataOnly: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noCsidRequest: true,
+      noNetworkToZatca: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      productionCompliance: false,
+      policyApproval: {
+        id: "policy-approval-1",
+        status: "DRAFT",
+        retentionDurationStatus: "REQUIRES_LEGAL_REVIEW",
+        signedXmlBodyPersistenceAllowed: false,
+        qrPayloadBodyPersistenceAllowed: false,
+        productionCompliance: false,
+      },
+    });
+    expect(prisma.zatcaSignedArtifactStoragePolicyApproval.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          organizationId: "org-1",
+          status: "DRAFT",
+          retentionDurationStatus: "REQUIRES_LEGAL_REVIEW",
+          signedXmlBodyPersistenceAllowed: false,
+          qrPayloadBodyPersistenceAllowed: false,
+          productionCompliance: false,
+          createdById: "user-1",
+        }),
+      }),
+    );
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain("<Invoice");
+    expect(serialized).not.toContain("QR PAYLOAD");
+    expect(serialized).not.toContain("PRIVATE KEY");
+    expect(serialized).not.toContain("BEGIN CERTIFICATE");
+    expect(serialized).not.toContain("OTP");
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    expect(auditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "CREATE",
+        entityType: "ZatcaSignedArtifactStoragePolicyApproval",
+        entityId: "policy-approval-1",
+      }),
+    );
+  });
+
+  it("blocks immutable policy approval until retention and technical controls are reviewed", async () => {
+    const draft = makeStoragePolicyApproval();
+    const prisma = {
+      zatcaSignedArtifactStoragePolicyApproval: {
+        findFirst: jest.fn().mockResolvedValue(draft),
+        update: jest.fn(),
+      },
+      zatcaSubmissionLog: { create: jest.fn() },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    await expect(
+      service.approveSignedArtifactStoragePolicyApproval("org-1", "user-1", "policy-approval-1", {
+        note: "Missing legal retention and storage controls.",
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(prisma.zatcaSignedArtifactStoragePolicyApproval.update).not.toHaveBeenCalled();
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+  });
+
+  it("approves and revokes immutable policy approval metadata while body persistence stays blocked", async () => {
+    const approved = makeStoragePolicyApproval({
+      status: "APPROVED",
+      retentionDurationStatus: "APPROVED",
+      retentionDurationValue: "Legal-reviewed duration reference: TAX-RETENTION-REVIEW-1",
+      objectVersioningApproved: true,
+      immutableArchiveApproved: true,
+      deletionPolicyApproved: true,
+      supersessionPolicyApproved: true,
+      accessControlApproved: true,
+      encryptionAtRestApproved: true,
+      backupRestoreApproved: true,
+      archiveRestoreTested: true,
+      approvedById: "user-1",
+      approvedAt: new Date("2026-05-17T10:00:00.000Z"),
+      signedXmlBodyPersistenceAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
+      productionCompliance: false,
+    });
+    const revoked = { ...approved, status: "REVOKED", revokedById: "user-1", revokedAt: new Date("2026-05-17T11:00:00.000Z") };
+    const prisma = {
+      zatcaSignedArtifactStoragePolicyApproval: {
+        findFirst: jest.fn().mockResolvedValueOnce(makeStoragePolicyApproval()).mockResolvedValueOnce(approved),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        update: jest.fn().mockResolvedValueOnce(approved).mockResolvedValueOnce(revoked),
+      },
+      zatcaSubmissionLog: { create: jest.fn() },
+    };
+    const auditLogService = { log: jest.fn() };
+    const service = new ZatcaService(prisma as never, auditLogService as never);
+
+    const approvalResult = await service.approveSignedArtifactStoragePolicyApproval("org-1", "user-1", "policy-approval-1", {
+      retentionDurationStatus: "APPROVED",
+      retentionDurationValue: "Legal-reviewed duration reference: TAX-RETENTION-REVIEW-1",
+      objectVersioningApproved: true,
+      immutableArchiveApproved: true,
+      deletionPolicyApproved: true,
+      supersessionPolicyApproved: true,
+      accessControlApproved: true,
+      encryptionAtRestApproved: true,
+      backupRestoreApproved: true,
+      archiveRestoreTested: true,
+      note: "Policy controls reviewed; body persistence still blocked in this phase.",
+    });
+    const revokeResult = await service.revokeSignedArtifactStoragePolicyApproval("org-1", "user-1", "policy-approval-1", {
+      note: "Revoke local approval metadata.",
+    });
+
+    expect(approvalResult.policyApproval).toMatchObject({
+      status: "APPROVED",
+      signedXmlBodyPersistenceAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
+      productionCompliance: false,
+    });
+    expect(revokeResult.policyApproval).toMatchObject({
+      status: "REVOKED",
+      signedXmlBodyPersistenceAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
+      productionCompliance: false,
+    });
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    expect(auditLogService.log).toHaveBeenCalledWith(expect.objectContaining({ action: "APPROVE" }));
+    expect(auditLogService.log).toHaveBeenCalledWith(expect.objectContaining({ action: "REVOKE" }));
+  });
+
+  it("includes latest immutable policy approval state in policy and storage probe plans", async () => {
+    const approved = makeStoragePolicyApproval({ status: "APPROVED", retentionDurationStatus: "APPROVED" });
+    const prisma = {
+      zatcaSignedArtifactStoragePolicyApproval: {
+        findFirst: jest.fn().mockResolvedValue(approved),
+      },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const policyPlan = await service.getSignedArtifactImmutableStoragePolicyPlan("org-1");
+    const probePlan = await service.getSignedArtifactStorageProbePlan("org-1");
+
+    expect(policyPlan).toMatchObject({
+      latestApprovalId: "policy-approval-1",
+      latestApprovalStatus: "APPROVED",
+      approvalRequired: true,
+      signedXmlBodyPersistenceAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
+      productionCompliance: false,
+    });
+    expect(probePlan).toMatchObject({
+      latestImmutablePolicyApprovalStatus: "APPROVED",
+      policyApprovalRequired: true,
+      bodyPersistenceAllowed: false,
+      signedArtifactBodyStorageAllowed: false,
+    });
+  });
+
+  it("returns a signed artifact storage probe plan without uploading objects or exposing bodies", async () => {
     const service = new ZatcaService({} as never, { log: jest.fn() } as never);
 
-    const plan = service.getSignedArtifactStorageProbePlan("org-1");
+    const plan = await service.getSignedArtifactStorageProbePlan("org-1");
 
     expect(plan).toMatchObject({
       localOnly: true,
@@ -1345,14 +1522,15 @@ describe("ZATCA service rules", () => {
     expect(JSON.stringify(plan)).not.toContain("SECRET");
   });
 
-  it("returns an immutable signed artifact storage policy plan as blocked and no-mutation", () => {
+  it("returns an immutable signed artifact storage policy plan as blocked and no-mutation", async () => {
     const prisma = {
       zatcaSubmissionLog: { create: jest.fn() },
       zatcaSignedArtifactDraft: { create: jest.fn() },
+      zatcaSignedArtifactStoragePolicyApproval: { findFirst: jest.fn().mockResolvedValue(null) },
     };
     const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
 
-    const plan = service.getSignedArtifactImmutableStoragePolicyPlan();
+    const plan = await service.getSignedArtifactImmutableStoragePolicyPlan("org-1");
 
     expect(plan).toMatchObject({
       localOnly: true,
@@ -1366,6 +1544,8 @@ describe("ZATCA service rules", () => {
       noPdfA3: true,
       productionCompliance: false,
       policyApproved: false,
+      latestApprovalStatus: "NONE",
+      approvalRequired: true,
       retentionDurationApproved: false,
       objectVersioningRequired: true,
       immutableArchiveRequired: true,
@@ -1375,6 +1555,8 @@ describe("ZATCA service rules", () => {
       encryptionAtRestReviewed: false,
       backupRestoreReviewed: false,
       bodyPersistenceAllowed: false,
+      signedXmlBodyPersistenceAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
       signedArtifactBodyStorageAllowed: false,
       immutablePolicyStatus: {
         policyApproved: false,
@@ -3019,6 +3201,51 @@ function makeSignedArtifactDraft(overrides: Record<string, unknown> = {}) {
     createdById: "user-1",
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+    createdBy: {
+      id: "user-1",
+      name: "Demo User",
+      email: "demo@example.com",
+    },
+    ...overrides,
+  };
+}
+
+function makeStoragePolicyApproval(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "policy-approval-1",
+    organizationId: "org-1",
+    status: "DRAFT",
+    policyVersion: "2026-05-17.metadata-only",
+    policyHash: "policy-hash-1",
+    policySummaryJson: {
+      source: "SIGNED_ARTIFACT_IMMUTABLE_STORAGE_POLICY",
+      retentionDuration: "LEGAL_ACCOUNTING_REVIEW_REQUIRED",
+      noSignedXmlBodyPersistence: true,
+      noQrPayloadBodyPersistence: true,
+    },
+    retentionDurationStatus: "REQUIRES_LEGAL_REVIEW",
+    retentionDurationValue: null,
+    objectVersioningApproved: false,
+    immutableArchiveApproved: false,
+    deletionPolicyApproved: false,
+    supersessionPolicyApproved: false,
+    accessControlApproved: false,
+    encryptionAtRestApproved: false,
+    backupRestoreApproved: false,
+    archiveRestoreTested: false,
+    signedXmlBodyPersistenceAllowed: false,
+    qrPayloadBodyPersistenceAllowed: false,
+    productionCompliance: false,
+    approvedById: null,
+    approvedAt: null,
+    revokedById: null,
+    revokedAt: null,
+    createdById: "user-1",
+    note: "Draft only.",
+    createdAt: new Date("2026-05-17T00:00:00.000Z"),
+    updatedAt: new Date("2026-05-17T00:00:00.000Z"),
+    approvedBy: null,
+    revokedBy: null,
     createdBy: {
       id: "user-1",
       name: "Demo User",

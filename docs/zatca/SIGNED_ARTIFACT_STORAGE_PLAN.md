@@ -258,3 +258,11 @@ Recommended next step:
 - No retention duration is guessed. Retention duration remains legal/accounting review required.
 - No signed XML body, QR payload body, invoice data, private key, certificate body, CSID token, OTP, production credential, ZATCA network call, clearance/reporting, PDF/A-3, or production compliance claim is introduced.
 - Recommended next step: run a legal/accounting retention review and object-storage immutability review before designing any signed XML/QR body persistence endpoint.
+
+## Immutable policy approval metadata update
+
+Signed artifact storage planning now includes metadata-only immutable policy approval records. Draft, approve, and revoke operations store policy metadata and review-state booleans only. They do not store signed XML bodies or QR payload bodies, and they do not enable body persistence.
+
+The storage plan response now includes latest immutable policy approval status, `policyApprovalRequired=true`, `bodyPersistenceAllowed=false`, and `signedArtifactBodyStorageAllowed=false`. Object storage remains a future dependency, and body persistence remains blocked until legal/accounting retention review and technical storage controls are completed in a separate phase.
+
+No retention duration is guessed. The official references inspected for this phase link future clearance/reporting to UUID, invoice hash, and base64 invoice payloads, but do not define a LedgerByte retention duration.

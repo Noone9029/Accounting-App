@@ -33,6 +33,9 @@ import {
   zatcaSdkExecutionLabel,
   zatcaSdkReadinessLabel,
   zatcaSdkReadinessPath,
+  zatcaSignedArtifactImmutablePolicyPlanPath,
+  zatcaSignedArtifactStoragePolicyApprovalRevokePath,
+  zatcaSignedArtifactStoragePolicyApprovalsPath,
   canEnableZatcaSdkHashMode,
   zatcaStatusLabel,
 } from "@/lib/zatca";
@@ -49,6 +52,10 @@ import type {
   ZatcaReadinessSection,
   ZatcaReadinessSummary,
   ZatcaSdkReadinessResponse,
+  ZatcaSignedArtifactImmutablePolicyPlanResponse,
+  ZatcaSignedArtifactStoragePolicyApproval,
+  ZatcaSignedArtifactStoragePolicyApprovalListResponse,
+  ZatcaSignedArtifactStoragePolicyApprovalResponse,
   ZatcaSubmissionLog,
   ZatcaXmlFieldMappingResponse,
 } from "@/lib/types";
@@ -94,6 +101,8 @@ export default function ZatcaSettingsPage() {
   const [readiness, setReadiness] = useState<ZatcaReadinessSummary | null>(null);
   const [sdkReadiness, setSdkReadiness] = useState<ZatcaSdkReadinessResponse | null>(null);
   const [hashResetPlan, setHashResetPlan] = useState<ZatcaHashChainResetPlan | null>(null);
+  const [immutablePolicyPlan, setImmutablePolicyPlan] = useState<ZatcaSignedArtifactImmutablePolicyPlanResponse | null>(null);
+  const [policyApprovals, setPolicyApprovals] = useState<ZatcaSignedArtifactStoragePolicyApproval[]>([]);
   const [form, setForm] = useState<ZatcaProfileForm | null>(null);
   const [egsUnits, setEgsUnits] = useState<ZatcaEgsUnit[]>([]);
   const [submissionLogs, setSubmissionLogs] = useState<ZatcaSubmissionLog[]>([]);
@@ -129,6 +138,8 @@ export default function ZatcaSettingsPage() {
         const loadedReadiness = await apiRequest<ZatcaReadinessSummary>("/zatca/readiness");
         const loadedSdkReadiness = await apiRequest<ZatcaSdkReadinessResponse>(zatcaSdkReadinessPath());
         const loadedHashResetPlan = canManageZatca ? await apiRequest<ZatcaHashChainResetPlan>(zatcaHashChainResetPlanPath()).catch(() => null) : null;
+        const loadedImmutablePolicyPlan = await apiRequest<ZatcaSignedArtifactImmutablePolicyPlanResponse>(zatcaSignedArtifactImmutablePolicyPlanPath()).catch(() => null);
+        const loadedPolicyApprovals = await apiRequest<ZatcaSignedArtifactStoragePolicyApprovalListResponse>(zatcaSignedArtifactStoragePolicyApprovalsPath()).catch(() => null);
         if (!cancelled) {
           setProfile(loadedProfile);
           setAdapterConfig(loadedAdapterConfig);
@@ -137,6 +148,8 @@ export default function ZatcaSettingsPage() {
           setReadiness(loadedReadiness);
           setSdkReadiness(loadedSdkReadiness);
           setHashResetPlan(loadedHashResetPlan);
+          setImmutablePolicyPlan(loadedImmutablePolicyPlan);
+          setPolicyApprovals(loadedPolicyApprovals?.policyApprovals ?? []);
           setForm(profileToForm(loadedProfile));
         }
 
@@ -434,6 +447,56 @@ export default function ZatcaSettingsPage() {
     }
   }
 
+  async function refreshImmutablePolicyApprovalState() {
+    const [updatedPlan, updatedApprovals] = await Promise.all([
+      apiRequest<ZatcaSignedArtifactImmutablePolicyPlanResponse>(zatcaSignedArtifactImmutablePolicyPlanPath()).catch(() => null),
+      apiRequest<ZatcaSignedArtifactStoragePolicyApprovalListResponse>(zatcaSignedArtifactStoragePolicyApprovalsPath()).catch(() => null),
+    ]);
+    setImmutablePolicyPlan(updatedPlan);
+    setPolicyApprovals(updatedApprovals?.policyApprovals ?? []);
+  }
+
+  async function createImmutablePolicyApprovalDraft() {
+    setActionLoading("immutable-policy-draft");
+    setError("");
+    setSuccess("");
+
+    try {
+      const created = await apiRequest<ZatcaSignedArtifactStoragePolicyApprovalResponse>(zatcaSignedArtifactStoragePolicyApprovalsPath(), {
+        method: "POST",
+        body: { note: "Metadata-only immutable policy approval draft. Legal/accounting retention review is still required." },
+      });
+      await refreshImmutablePolicyApprovalState();
+      setSuccess(`Immutable policy approval draft ${created.policyApproval.policyHash.slice(0, 12)} created. Signed XML and QR body persistence remain blocked.`);
+    } catch (policyError) {
+      setError(policyError instanceof Error ? policyError.message : "Unable to create immutable policy approval draft.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
+  async function revokeImmutablePolicyApproval(approval: ZatcaSignedArtifactStoragePolicyApproval) {
+    setActionLoading(`immutable-policy-revoke-${approval.id}`);
+    setError("");
+    setSuccess("");
+
+    try {
+      const revoked = await apiRequest<ZatcaSignedArtifactStoragePolicyApprovalResponse>(
+        zatcaSignedArtifactStoragePolicyApprovalRevokePath(approval.id),
+        {
+          method: "POST",
+          body: { note: "Operator revoked metadata-only immutable storage policy approval." },
+        },
+      );
+      await refreshImmutablePolicyApprovalState();
+      setSuccess(`Immutable policy approval ${revoked.policyApproval.policyHash.slice(0, 12)} revoked. Body persistence remains blocked.`);
+    } catch (policyError) {
+      setError(policyError instanceof Error ? policyError.message : "Unable to revoke immutable policy approval.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
   function updateProfileField<K extends keyof ZatcaProfileForm>(field: K, value: ZatcaProfileForm[K]) {
     setForm((current) => (current ? { ...current, [field]: value } : current));
   }
@@ -449,6 +512,7 @@ export default function ZatcaSettingsPage() {
   }
 
   const missingProfileFields = profile?.readiness?.missingFields ?? (profile ? getZatcaProfileMissingFields(profile) : []);
+  const latestPolicyApproval = policyApprovals[0] ?? immutablePolicyPlan?.latestApproval ?? null;
 
   return (
     <section>
@@ -594,6 +658,76 @@ export default function ZatcaSettingsPage() {
                   ))}
                 </ul>
               ) : null}
+            </div>
+          ) : null}
+
+          {immutablePolicyPlan ? (
+            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-semibold text-ink">Immutable signed artifact policy approval</h2>
+                  <p className="mt-1 text-sm text-steel">
+                    Metadata-only approval tracking for future signed XML object storage. No signed XML body, QR payload, CSID request, SDK signing, ZATCA network call, or production compliance claim is enabled.
+                  </p>
+                </div>
+                <span className={`rounded-md px-2 py-1 text-xs font-medium ${immutablePolicyPlan.policyApproved ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rosewood"}`}>
+                  {immutablePolicyPlan.latestApprovalStatus}
+                </span>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
+                <AdapterSummary label="Latest approval" value={latestPolicyApproval ? latestPolicyApproval.status : "NONE"} />
+                <AdapterSummary label="Retention review" value={immutablePolicyPlan.retentionDurationApproved ? "Approved" : "Legal/accounting review required"} />
+                <AdapterSummary label="Object versioning" value={immutablePolicyPlan.immutablePolicyStatus.objectVersioningConfirmed ? "Reviewed" : "Not confirmed"} />
+                <AdapterSummary label="Immutable archive" value={latestPolicyApproval?.immutableArchiveApproved ? "Reviewed" : "Not approved"} />
+                <AdapterSummary label="Access control" value={immutablePolicyPlan.accessControlReviewed ? "Reviewed" : "Missing"} />
+                <AdapterSummary label="Encryption at rest" value={immutablePolicyPlan.encryptionAtRestReviewed ? "Reviewed" : "Missing"} />
+                <AdapterSummary label="Backup/restore" value={immutablePolicyPlan.backupRestoreReviewed ? "Reviewed" : "Missing"} />
+                <AdapterSummary label="Body persistence" value="Blocked" />
+              </div>
+
+              {latestPolicyApproval ? (
+                <div className="mt-4 rounded-md bg-slate-50 p-3 text-xs text-steel">
+                  <div className="font-medium text-ink">Latest draft hash: {latestPolicyApproval.policyHash}</div>
+                  <div className="mt-1">Retention duration status: {latestPolicyApproval.retentionDurationStatus}. No retention duration is guessed in this UI.</div>
+                  <div className="mt-1">Signed XML body persistence: {latestPolicyApproval.signedXmlBodyPersistenceAllowed ? "Allowed" : "Blocked"}. QR payload body persistence: {latestPolicyApproval.qrPayloadBodyPersistenceAllowed ? "Allowed" : "Blocked"}.</div>
+                </div>
+              ) : null}
+
+              {immutablePolicyPlan.approvalBlockedReasons.length > 0 ? (
+                <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-steel">
+                  {immutablePolicyPlan.approvalBlockedReasons.slice(0, 6).map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              ) : null}
+
+              {canManageZatca ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void createImmutablePolicyApprovalDraft()}
+                    disabled={actionLoading === "immutable-policy-draft"}
+                    className="rounded-md bg-palm px-3 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  >
+                    {actionLoading === "immutable-policy-draft" ? "Creating..." : "Create draft policy approval"}
+                  </button>
+                  {latestPolicyApproval && latestPolicyApproval.status !== "REVOKED" ? (
+                    <button
+                      type="button"
+                      onClick={() => void revokeImmutablePolicyApproval(latestPolicyApproval)}
+                      disabled={actionLoading === `immutable-policy-revoke-${latestPolicyApproval.id}`}
+                      className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100"
+                    >
+                      {actionLoading === `immutable-policy-revoke-${latestPolicyApproval.id}` ? "Revoking..." : "Revoke latest approval metadata"}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <p className="mt-4 text-xs text-amber-700">
+                Approval records are metadata only. They do not authorize signed XML body storage, QR payload storage, production credentials, CSID requests, clearance/reporting, PDF/A-3, or production compliance.
+              </p>
             </div>
           ) : null}
 

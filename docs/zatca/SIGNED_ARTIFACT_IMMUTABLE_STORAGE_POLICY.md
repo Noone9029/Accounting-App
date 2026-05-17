@@ -154,3 +154,43 @@ A future implementation must test restore behavior before enabling signed artifa
 5. Add metadata-only policy approval records if needed.
 6. Only after real certificate/key custody and promotion design are approved, design signed XML body persistence.
 7. Keep clearance/reporting submission as a separate phase.
+
+## Metadata-only policy approval records
+
+This phase adds `ZatcaSignedArtifactStoragePolicyApproval` as a metadata-only approval record for future immutable signed artifact storage. It records the current policy summary, a policy hash, review status, review gates, approver/revoker metadata, and notes. It intentionally does not store signed XML bodies, QR payload bodies, private keys, certificate bodies, CSID tokens, OTPs, CSR bodies, or production credentials.
+
+Official references inspected for this policy approval phase:
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/usage.txt`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Simplified/Invoice/Simplified_Invoice.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml`
+- `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Rules/Schematrons/20210819_ZATCA_E-invoice_Validation_Rules.xsl`
+- `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards.pdf`
+- `reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_XML_Implementation_Standard_vF.pdf`
+- `reference/zatca-docs/EInvoice_Data_Dictionary.xlsx`
+- `reference/zatca-docs/compliance_invoice.pdf`
+- `reference/zatca-docs/reporting.pdf`
+- `reference/zatca-docs/clearance.pdf`
+
+The official API documents confirm future payload linkage around UUID, invoice hash, and base64 invoice content for compliance invoice, reporting, and clearance flows. The signed XML samples and security/XML standards show cryptographic stamp, QR, PIH, and signature structures that make signed XML a future artifact. These references do not provide a LedgerByte storage-retention duration. Therefore, retention duration remains `REQUIRES_LEGAL_REVIEW` unless a legal/accounting reviewer supplies an explicit value.
+
+Approval gates:
+- Retention duration must be reviewed and supplied. LedgerByte does not invent this value.
+- Object versioning must be reviewed and approved.
+- Immutable archive behavior must be reviewed and approved.
+- Deletion policy must be reviewed and approved.
+- Supersession policy must be reviewed and approved.
+- Access control must be reviewed and approved.
+- Encryption at rest must be reviewed and approved.
+- Backup and restore behavior must be reviewed and approved.
+- Archive restore testing must be marked complete.
+
+Even when an approval record is approved, `signedXmlBodyPersistenceAllowed`, `qrPayloadBodyPersistenceAllowed`, and `productionCompliance` remain `false` in this phase. Body persistence requires a separate future implementation after real certificate/key custody, CSID onboarding, immutable object-storage controls, clearance/reporting design, and production readiness review.
+
+Local-only endpoints:
+- `GET /zatca/signed-artifact-storage/policy-approvals` lists safe metadata records.
+- `POST /zatca/signed-artifact-storage/policy-approvals` creates a draft from the current immutable policy plan.
+- `POST /zatca/signed-artifact-storage/policy-approvals/:id/approve` records reviewed metadata only and keeps body persistence blocked.
+- `POST /zatca/signed-artifact-storage/policy-approvals/:id/revoke` revokes metadata approval and keeps body persistence blocked.
+
+Current out-of-scope boundaries remain unchanged: no signed XML body storage, no QR payload body storage, no CSID request, no ZATCA network call, no invoice submission, no clearance/reporting, no PDF-A3, no production credentials, and no production compliance claim.

@@ -711,3 +711,7 @@ Recommended next step:
 - No retention duration is guessed. Retention duration remains legal/accounting review required.
 - No signed XML body, QR payload body, invoice data, private key, certificate body, CSID token, OTP, production credential, ZATCA network call, clearance/reporting, PDF/A-3, or production compliance claim is introduced.
 - Recommended next step: run a legal/accounting retention review and object-storage immutability review before designing any signed XML/QR body persistence endpoint.
+
+## Next prompt option: ZATCA immutable storage control evidence
+
+Recommended next prompt: add evidence capture for immutable object-storage technical controls, still metadata-only, including object versioning review, encryption-at-rest review, access-control review, backup/restore review, and restore-test evidence, without storing signed XML or QR payload bodies.

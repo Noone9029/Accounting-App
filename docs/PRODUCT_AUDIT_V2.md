@@ -603,3 +603,9 @@ Recommended next step:
 - No retention duration is guessed. Retention duration remains legal/accounting review required.
 - No signed XML body, QR payload body, invoice data, private key, certificate body, CSID token, OTP, production credential, ZATCA network call, clearance/reporting, PDF/A-3, or production compliance claim is introduced.
 - Recommended next step: run a legal/accounting retention review and object-storage immutability review before designing any signed XML/QR body persistence endpoint.
+
+## Audit update: ZATCA immutable artifact policy approval
+
+LedgerByte now records metadata-only immutable storage policy approvals for future ZATCA signed artifacts. This improves audit traceability before any future body persistence work. The system still does not store signed XML bodies or QR payload bodies and does not infer a legal retention period.
+
+Remaining audit gaps: legal/accounting retention approval, technical immutable storage approval, object-storage retention enforcement, real CSID/certificate flow, clearance/reporting, PDF-A3, and production compliance review.
