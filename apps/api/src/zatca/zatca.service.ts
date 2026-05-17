@@ -1914,6 +1914,7 @@ export class ZatcaService {
 
   getSignedArtifactStorageProbePlan(organizationId: string) {
     const objectStorageCapability = this.buildSignedArtifactObjectStorageCapability();
+    const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus();
     const testPrefix = this.buildSignedArtifactStorageProbePrefix(organizationId);
     return {
       localOnly: true,
@@ -1936,17 +1937,77 @@ export class ZatcaService {
       executionFlagEnabled: this.isSignedArtifactStorageProbeEnabled(),
       retentionConfigured: false,
       immutabilityConfigured: false,
+      immutablePolicyStatus,
+      policyApproved: false,
+      retentionDurationApproved: false,
+      bodyPersistenceAllowed: false,
       signedArtifactBodyStorageAllowed: false,
+      recommendedNextStep: "Approve immutable storage policy before signed artifact body persistence.",
       blockers: [
         ...objectStorageCapability.missingSettings.map((setting) => `Object storage setting missing: ${setting}.`),
         "Signed XML body persistence remains blocked.",
         "QR payload body persistence remains blocked.",
         "Retention and immutability controls are not implemented.",
+        "Immutable signed artifact storage policy is not approved.",
       ],
       warnings: [
         "Probe plan only. No object is uploaded, read, or deleted by this endpoint.",
         "The execution endpoint is disabled unless ZATCA_SIGNED_ARTIFACT_STORAGE_PROBE_ENABLED=true.",
         "The future probe object is harmless text only and must not contain invoice XML, QR payload, keys, certificates, CSIDs, OTPs, or production credentials.",
+        "Retention duration is not guessed; legal/accounting review is required before artifact body persistence.",
+      ],
+    };
+  }
+
+  getSignedArtifactImmutableStoragePolicyPlan() {
+    const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus();
+    return {
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noCsidRequest: true,
+      noNetworkToZatca: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      noProductionCredentials: true,
+      productionCompliance: false,
+      policyApproved: false,
+      retentionDurationApproved: false,
+      objectVersioningRequired: true,
+      immutableArchiveRequired: true,
+      deletionPolicyApproved: false,
+      supersessionPolicyApproved: false,
+      accessControlReviewed: false,
+      encryptionAtRestReviewed: false,
+      backupRestoreReviewed: false,
+      bodyPersistenceAllowed: false,
+      signedArtifactBodyStorageAllowed: false,
+      qrPayloadBodyStorageAllowed: false,
+      immutablePolicyStatus,
+      blockers: [
+        "Immutable signed artifact storage policy is not approved.",
+        "Retention duration requires legal/accounting review; no retention duration is guessed.",
+        "Object versioning is required but not confirmed.",
+        "Immutable archive controls are required but not implemented.",
+        "Deletion/voiding policy is not approved.",
+        "Append-only supersession policy is not approved.",
+        "Archive restore test is missing.",
+        "Access-control review is missing.",
+        "Encryption-at-rest review is missing.",
+        "Signed XML body persistence remains blocked.",
+        "QR payload body persistence remains blocked.",
+      ],
+      warnings: [
+        "Policy plan only. No storage adapter, SDK, ZATCA network, CSID, clearance/reporting, PDF/A-3, or object upload is used.",
+        "Official clearance/reporting references show future payload linkage to uuid, invoiceHash, and base64 invoice artifacts; this plan does not generate or persist those bodies.",
+        "Signed XML and QR payloads are future artifacts only until real certificate/key custody, immutable storage approval, and submission boundaries are designed.",
+      ],
+      recommendedNextSteps: [
+        "Approve immutable storage policy before signed artifact body persistence.",
+        "Obtain legal/accounting retention guidance instead of guessing a retention duration.",
+        "Confirm object versioning, immutable retention/legal hold, encryption-at-rest, access control, restore testing, and append-only supersession behavior.",
       ],
     };
   }
@@ -1956,6 +2017,7 @@ export class ZatcaService {
     options: { probeClient?: SignedArtifactStorageProbeClient; now?: Date } = {},
   ) {
     const objectStorageCapability = this.buildSignedArtifactObjectStorageCapability();
+    const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus();
     const executionEnabled = this.isSignedArtifactStorageProbeEnabled();
     const testObjectKey = this.buildSignedArtifactStorageProbeKey(organizationId, options.now ?? new Date());
     const base = {
@@ -1973,7 +2035,12 @@ export class ZatcaService {
       executionEnabled,
       testObjectKey,
       testPrefix: this.buildSignedArtifactStorageProbePrefix(organizationId),
+      immutablePolicyStatus,
+      policyApproved: false,
+      retentionDurationApproved: false,
+      bodyPersistenceAllowed: false,
       signedArtifactBodyStorageAllowed: false,
+      recommendedNextStep: "Approve immutable storage policy before signed artifact body persistence.",
     };
 
     if (!executionEnabled) {
@@ -2117,6 +2184,7 @@ export class ZatcaService {
     const keyPrefix = `zatca/signed-artifacts/${organizationId}/${invoice.id}`;
     const storageReadiness = this.buildSignedArtifactStorageReadinessSection(metadata);
     const objectStorageCapability = this.buildSignedArtifactObjectStorageCapability();
+    const immutablePolicyStatus = this.buildSignedArtifactImmutablePolicyStatus();
     const metadataOnlyDraftAllowed = Boolean(metadata?.xmlBase64 && metadata.invoiceHash);
 
     return {
@@ -2138,6 +2206,10 @@ export class ZatcaService {
       storageProbeRequired: true,
       latestStorageProbeStatus: "NOT_RUN",
       storageProbePlan: this.getSignedArtifactStorageProbePlan(organizationId),
+      immutablePolicyStatus,
+      policyApproved: false,
+      retentionDurationApproved: false,
+      recommendedNextStep: "Approve immutable storage policy before signed artifact body persistence.",
       metadataOnlyDraftAllowed,
       bodyPersistenceAllowed: false,
       signedXmlStorageKey: null,
@@ -4625,19 +4697,45 @@ export class ZatcaService {
       writeCapabilityTested: false,
       retentionConfigured: false,
       immutableRetentionConfigured: false,
+      policyApproved: false,
+      retentionDurationApproved: false,
+      immutablePolicyStatus: this.buildSignedArtifactImmutablePolicyStatus(),
       objectVersioningConfigured: false,
       tenantScopedKeyPrefixPlanned: true,
       generatedDocumentStorageDistinct: true,
       encryptionAtRestExpected: true,
       signedArtifactBodyStorageAllowed: false,
       bodyPersistenceBlocked: true,
+      bodyPersistenceAllowed: false,
       storageCapabilityStatus,
       probeExecutionFlagEnabled: this.isSignedArtifactStorageProbeEnabled(),
+      recommendedNextStep: "Approve immutable storage policy before signed artifact body persistence.",
       warnings: [
         "No object upload is attempted by this capability check.",
         "Write capability remains unknown until a future explicit storage probe is designed.",
         "Signed artifact body persistence is blocked until retention, immutability, and access-control rules are implemented.",
       ],
+    };
+  }
+
+  private buildSignedArtifactImmutablePolicyStatus() {
+    return {
+      status: "BLOCKED",
+      policyApproved: false,
+      retentionDurationApproved: false,
+      objectVersioningRequired: true,
+      objectVersioningConfirmed: false,
+      immutableArchiveRequired: true,
+      deletionPolicyApproved: false,
+      supersessionPolicyApproved: false,
+      archiveRestoreTested: false,
+      accessControlReviewed: false,
+      encryptionAtRestReviewed: false,
+      backupRestoreReviewed: false,
+      bodyPersistenceAllowed: false,
+      signedArtifactBodyStorageAllowed: false,
+      qrPayloadBodyStorageAllowed: false,
+      recommendedNextStep: "Approve immutable storage policy before signed artifact body persistence.",
     };
   }
 
@@ -4733,6 +4831,70 @@ export class ZatcaService {
         "Object-storage retention rules for signed XML artifacts are not implemented.",
         "SIGNED_ARTIFACT_STORAGE_PLAN",
         "Define tenant-scoped object keys, encryption, retention, legal hold, and restore behavior before storing signed XML bodies.",
+      ),
+      this.check(
+        "ZATCA_IMMUTABLE_STORAGE_POLICY_NOT_APPROVED",
+        "ERROR",
+        "signedArtifactStorage.immutablePolicy",
+        "Immutable signed artifact storage policy is not approved.",
+        "SIGNED_ARTIFACT_IMMUTABLE_STORAGE_POLICY",
+        "Approve object versioning, retention, deletion/voiding, supersession, restore, access-control, and encryption rules before storing signed XML bodies.",
+      ),
+      this.check(
+        "ZATCA_RETENTION_DURATION_NOT_LEGALLY_APPROVED",
+        "ERROR",
+        "signedArtifactStorage.retentionDuration",
+        "Retention duration is not legally/accounting approved and no duration is guessed.",
+        "SIGNED_ARTIFACT_IMMUTABLE_STORAGE_POLICY",
+        "Get legal/accounting retention guidance before any signed artifact body persistence.",
+      ),
+      this.check(
+        "ZATCA_OBJECT_VERSIONING_NOT_CONFIRMED",
+        "ERROR",
+        "signedArtifactStorage.objectVersioning",
+        "Object versioning is not confirmed for future signed artifact storage.",
+        "SIGNED_ARTIFACT_IMMUTABLE_STORAGE_POLICY",
+        "Confirm provider versioning or equivalent immutability before enabling artifact storage.",
+      ),
+      this.check(
+        "ZATCA_DELETION_POLICY_NOT_APPROVED",
+        "ERROR",
+        "signedArtifactStorage.deletionPolicy",
+        "Deletion/voiding policy is not approved.",
+        "SIGNED_ARTIFACT_IMMUTABLE_STORAGE_POLICY",
+        "Use append-only/superseded behavior and define deletion/legal hold rules before persistence.",
+      ),
+      this.check(
+        "ZATCA_SUPERSESSION_POLICY_MISSING",
+        "ERROR",
+        "signedArtifactStorage.supersessionPolicy",
+        "Append-only supersession policy is missing.",
+        "SIGNED_ARTIFACT_IMMUTABLE_STORAGE_POLICY",
+        "Define how corrected/replaced signed artifacts are linked without overwriting prior artifacts.",
+      ),
+      this.check(
+        "ZATCA_ARCHIVE_RESTORE_TEST_MISSING",
+        "ERROR",
+        "signedArtifactStorage.restore",
+        "Archive restore testing is missing.",
+        "SIGNED_ARTIFACT_IMMUTABLE_STORAGE_POLICY",
+        "Test backup/restore and disaster recovery before storing legal/tax artifacts.",
+      ),
+      this.check(
+        "ZATCA_SIGNED_ARTIFACT_ACCESS_CONTROL_REVIEW_MISSING",
+        "ERROR",
+        "signedArtifactStorage.accessControl",
+        "Access-control review is missing for future signed artifact storage.",
+        "SIGNED_ARTIFACT_IMMUTABLE_STORAGE_POLICY",
+        "Review tenant isolation, operator access, audit logging, and break-glass controls before persistence.",
+      ),
+      this.check(
+        "ZATCA_ENCRYPTION_AT_REST_REVIEW_MISSING",
+        "ERROR",
+        "signedArtifactStorage.encryptionAtRest",
+        "Encryption-at-rest review is missing for future signed artifact storage.",
+        "SIGNED_ARTIFACT_IMMUTABLE_STORAGE_POLICY",
+        "Confirm provider encryption-at-rest and key management expectations before persistence.",
       ),
       this.check(
         "ZATCA_IMMUTABLE_ARCHIVE_NOT_IMPLEMENTED",

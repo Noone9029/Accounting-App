@@ -882,10 +882,12 @@ export default function SalesInvoiceDetailPage() {
                   <Summary label="Latest draft" value={latestSignedArtifactDraft?.status ?? "-"} />
                   <Summary label="Object storage" value={signedArtifactStoragePlan.objectStorageCapability.objectStorageConfigured ? "Configured with warnings" : "Blocked"} />
                   <Summary label="Probe" value={signedArtifactStoragePlan.storageProbePlan.executionFlagEnabled ? "Enabled by env" : "Disabled by default"} />
+                  <Summary label="Immutable policy" value={signedArtifactStoragePlan.immutablePolicyStatus.policyApproved ? "Approved" : "Not approved"} />
+                  <Summary label="Retention review" value={signedArtifactStoragePlan.immutablePolicyStatus.retentionDurationApproved ? "Approved" : "Required"} />
                   <Summary label="Body persistence" value={signedArtifactStoragePlan.bodyPersistenceAllowed ? "Allowed" : "Blocked"} />
                 </div>
                 <div className="mt-3 rounded-md bg-white p-3 text-xs text-steel">
-                  Storage keys remain null in this phase. Future body storage needs tenant-scoped object keys, retention, immutability, real CSID/certificate/key custody, and a separate promotion workflow.
+                  Storage keys remain null in this phase. Future body storage needs tenant-scoped object keys, approved immutable policy, legal retention review, object versioning, restore testing, real CSID/certificate/key custody, and a separate promotion workflow.
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button

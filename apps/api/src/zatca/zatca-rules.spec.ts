@@ -1291,6 +1291,18 @@ describe("ZATCA service rules", () => {
         noSignedXmlBody: true,
         noQrPayloadBody: true,
         writeProbeEnabled: false,
+        immutablePolicyStatus: {
+          policyApproved: false,
+          retentionDurationApproved: false,
+          bodyPersistenceAllowed: false,
+          signedArtifactBodyStorageAllowed: false,
+        },
+      },
+      immutablePolicyStatus: {
+        policyApproved: false,
+        retentionDurationApproved: false,
+        bodyPersistenceAllowed: false,
+        signedArtifactBodyStorageAllowed: false,
       },
     });
     expect(["BLOCKED", "WARNINGS", "READY_FOR_METADATA_ONLY"]).toContain(
@@ -1320,11 +1332,79 @@ describe("ZATCA service rules", () => {
       writeProbeEnabled: false,
       retentionConfigured: false,
       immutabilityConfigured: false,
+      immutablePolicyStatus: {
+        policyApproved: false,
+        retentionDurationApproved: false,
+        bodyPersistenceAllowed: false,
+        signedArtifactBodyStorageAllowed: false,
+      },
     });
     expect(plan.plannedTestObjectKey).toContain("zatca/signed-artifacts/probe/org-1/");
     expect(JSON.stringify(plan)).not.toContain("<Invoice");
     expect(JSON.stringify(plan)).not.toContain("QR PAYLOAD");
     expect(JSON.stringify(plan)).not.toContain("SECRET");
+  });
+
+  it("returns an immutable signed artifact storage policy plan as blocked and no-mutation", () => {
+    const prisma = {
+      zatcaSubmissionLog: { create: jest.fn() },
+      zatcaSignedArtifactDraft: { create: jest.fn() },
+    };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    const plan = service.getSignedArtifactImmutableStoragePolicyPlan();
+
+    expect(plan).toMatchObject({
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noCsidRequest: true,
+      noNetworkToZatca: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      productionCompliance: false,
+      policyApproved: false,
+      retentionDurationApproved: false,
+      objectVersioningRequired: true,
+      immutableArchiveRequired: true,
+      deletionPolicyApproved: false,
+      supersessionPolicyApproved: false,
+      accessControlReviewed: false,
+      encryptionAtRestReviewed: false,
+      backupRestoreReviewed: false,
+      bodyPersistenceAllowed: false,
+      signedArtifactBodyStorageAllowed: false,
+      immutablePolicyStatus: {
+        policyApproved: false,
+        retentionDurationApproved: false,
+        objectVersioningConfirmed: false,
+        deletionPolicyApproved: false,
+        supersessionPolicyApproved: false,
+        archiveRestoreTested: false,
+        accessControlReviewed: false,
+        encryptionAtRestReviewed: false,
+        bodyPersistenceAllowed: false,
+        signedArtifactBodyStorageAllowed: false,
+      },
+    });
+    expect(plan.blockers).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("Immutable signed artifact storage policy is not approved"),
+        expect.stringContaining("Retention duration requires legal/accounting review"),
+      ]),
+    );
+    expect(plan.recommendedNextSteps).toEqual(
+      expect.arrayContaining([expect.stringContaining("Approve immutable storage policy")]),
+    );
+    const serialized = JSON.stringify(plan);
+    expect(serialized).not.toContain("<Invoice");
+    expect(serialized).not.toContain("QR PAYLOAD");
+    expect(serialized).not.toContain("PRIVATE KEY");
+    expect(serialized).not.toContain("SECRET");
+    expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    expect(prisma.zatcaSignedArtifactDraft.create).not.toHaveBeenCalled();
   });
 
   it("skips signed artifact storage probe execution when the env gate is false", async () => {

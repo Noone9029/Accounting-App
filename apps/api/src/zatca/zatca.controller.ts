@@ -237,6 +237,12 @@ export class ZatcaController {
     return this.zatcaService.runSignedArtifactStorageProbe(organizationId);
   }
 
+  @Get("zatca/signed-artifact-storage/immutable-policy-plan")
+  @RequirePermissions(PERMISSIONS.zatca.view)
+  signedArtifactImmutableStoragePolicyPlan() {
+    return this.zatcaService.getSignedArtifactImmutableStoragePolicyPlan();
+  }
+
   @Get("sales-invoices/:id/zatca")
   @RequirePermissions(PERMISSIONS.zatca.view)
   invoiceCompliance(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
