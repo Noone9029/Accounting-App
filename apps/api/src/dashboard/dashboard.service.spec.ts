@@ -195,6 +195,95 @@ describe("DashboardService", () => {
     expect(summary.aging.receivablesBuckets).toHaveLength(5);
     expect(summary.attentionItems.map((item) => item.type)).toContain("FISCAL_PERIOD_MISSING");
   });
+
+  it("returns partial data with sanitized warning metadata when compliance queries hit a Prisma pool timeout", async () => {
+    const poolError = Object.assign(new Error("Invalid `prisma.zatcaInvoiceMetadata.count()` invocation with stack details"), {
+      code: "P2024",
+      meta: { connection_limit: 1, timeout: 10 },
+    });
+    const { service } = makeService({
+      zatcaInvoiceMetadata: { count: jest.fn().mockRejectedValue(poolError) },
+    });
+
+    const summary = await service.summary(organizationId);
+
+    expect(summary.sales.unpaidInvoiceCount).toBe(1);
+    expect(summary.compliance).toEqual({
+      zatcaProductionReady: false,
+      zatcaBlockingReasonCount: 1,
+      fiscalPeriodsLockedCount: 0,
+      auditLogCountThisMonth: 0,
+    });
+    expect(summary.sectionStatus.compliance).toEqual({
+      status: "UNAVAILABLE",
+      code: "P2024",
+      message: "Dashboard section is temporarily unavailable.",
+    });
+    expect(summary.warnings).toEqual(
+      expect.arrayContaining([
+        {
+          section: "compliance",
+          code: "P2024",
+          message: "Dashboard section is temporarily unavailable.",
+        },
+      ]),
+    );
+    const serialized = JSON.stringify(summary);
+    expect(serialized).not.toContain("Invalid `prisma");
+    expect(serialized).not.toContain("stack details");
+  });
+
+  it("keeps storage readiness failures from killing the whole dashboard", async () => {
+    const { service } = makeService();
+    (service as unknown as { storageService: { readiness: jest.Mock } }).storageService.readiness.mockImplementation(() => {
+      throw new Error("storage credential failure with secret-like details");
+    });
+
+    const summary = await service.summary(organizationId);
+
+    expect(summary.sales.unpaidInvoiceCount).toBe(1);
+    expect(summary.sectionStatus.storage).toEqual({
+      status: "UNAVAILABLE",
+      code: "Error",
+      message: "Dashboard section is temporarily unavailable.",
+    });
+    expect(summary.warnings).toEqual(
+      expect.arrayContaining([
+        {
+          section: "storage",
+          code: "Error",
+          message: "Dashboard section is temporarily unavailable.",
+        },
+      ]),
+    );
+    expect(JSON.stringify(summary)).not.toContain("secret-like");
+  });
+
+  it("does not run Prisma dashboard queries concurrently", async () => {
+    const { service, prisma } = makeService();
+    const tracker = { active: 0, max: 0 };
+    for (const model of Object.values(prisma)) {
+      for (const [methodName, method] of Object.entries(model)) {
+        if (jest.isMockFunction(method)) {
+          const currentImplementation = method.getMockImplementation();
+          method.mockImplementation(async (...args: unknown[]) => {
+            tracker.active += 1;
+            tracker.max = Math.max(tracker.max, tracker.active);
+            await new Promise((resolve) => setTimeout(resolve, 1));
+            try {
+              return currentImplementation?.(...args);
+            } finally {
+              tracker.active -= 1;
+            }
+          });
+        }
+      }
+    }
+
+    await service.summary(organizationId);
+
+    expect(tracker.max).toBeLessThanOrEqual(1);
+  });
 });
 
 type MockPrisma = {

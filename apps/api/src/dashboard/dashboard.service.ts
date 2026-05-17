@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import {
   BankAccountStatus,
   BankReconciliationStatus,
@@ -31,6 +31,20 @@ const AGING_BUCKET_LABELS = {
 } as const;
 
 type AttentionSeverity = "info" | "warning" | "critical";
+type DashboardSectionName = "sales" | "purchases" | "banking" | "inventory" | "reports" | "trends" | "aging" | "compliance" | "storage";
+type DashboardSectionStatus =
+  | { status: "READY" }
+  | {
+      status: "UNAVAILABLE";
+      code: string;
+      message: string;
+    };
+
+interface DashboardSectionWarning {
+  section: DashboardSectionName;
+  code: string;
+  message: string;
+}
 
 interface AttentionItem {
   type: string;
@@ -48,6 +62,8 @@ interface DashboardMonth {
 
 @Injectable()
 export class DashboardService {
+  private readonly logger = new Logger(DashboardService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly reportsService: ReportsService,
@@ -68,17 +84,35 @@ export class DashboardService {
     });
     const currency = organization?.baseCurrency ?? "SAR";
 
-    const [sales, purchases, banking, inventory, reports, trends, aging, compliance, storageReadiness] = await Promise.all([
-      this.salesSummary(organizationId, monthStart, todayStart),
-      this.purchaseSummary(organizationId, monthStart, todayStart),
-      this.bankingSummary(organizationId),
-      this.inventorySummary(organizationId),
-      this.reportSummary(organizationId, monthStartLabel, asOfLabel),
-      this.trendSummary(organizationId, trendMonths),
-      this.agingSummary(organizationId, asOfLabel),
-      this.complianceSummary(organizationId, monthStart, now),
-      Promise.resolve(this.storageService.readiness()),
-    ]);
+    const sectionStatus = {} as Record<DashboardSectionName, DashboardSectionStatus>;
+    const warnings: DashboardSectionWarning[] = [];
+    const runSection = async <T>(section: DashboardSectionName, load: () => Promise<T> | T, fallback: () => T): Promise<T> => {
+      try {
+        const value = await load();
+        sectionStatus[section] = { status: "READY" };
+        return value;
+      } catch (error) {
+        const warning = this.sanitizeDashboardSectionError(section, error);
+        sectionStatus[section] = {
+          status: "UNAVAILABLE",
+          code: warning.code,
+          message: warning.message,
+        };
+        warnings.push(warning);
+        this.logger.warn(`Dashboard section ${section} unavailable for organization ${organizationId}: ${warning.code}`);
+        return fallback();
+      }
+    };
+
+    const sales = await runSection("sales", () => this.salesSummary(organizationId, monthStart, todayStart), () => this.emptySalesSummary());
+    const purchases = await runSection("purchases", () => this.purchaseSummary(organizationId, monthStart, todayStart), () => this.emptyPurchaseSummary());
+    const banking = await runSection("banking", () => this.bankingSummary(organizationId), () => this.emptyBankingSummary());
+    const inventory = await runSection("inventory", () => this.inventorySummary(organizationId), () => this.emptyInventorySummary());
+    const reports = await runSection("reports", () => this.reportSummary(organizationId, monthStartLabel, asOfLabel), () => this.emptyReportSummary());
+    const trends = await runSection("trends", () => this.trendSummary(organizationId, trendMonths), () => this.emptyTrendSummary(trendMonths));
+    const aging = await runSection("aging", () => this.agingSummary(organizationId, asOfLabel), () => this.emptyAgingSummary());
+    const compliance = await runSection("compliance", () => this.complianceSummary(organizationId, monthStart, now), () => this.emptyComplianceSummary());
+    const storageReadiness = await runSection("storage", () => this.storageService.readiness(), () => this.emptyStorageReadiness());
 
     return {
       asOf: now.toISOString(),
@@ -105,7 +139,10 @@ export class DashboardService {
         storageDatabaseActive:
           storageReadiness.attachmentStorage.activeProvider === "database" ||
           storageReadiness.generatedDocumentStorage.activeProvider === "database",
+        warnings,
       }),
+      sectionStatus,
+      warnings,
     };
   }
 
@@ -154,20 +191,18 @@ export class DashboardService {
   }
 
   private async bankingSummary(organizationId: string) {
-    const [profiles, unreconciledTransactionCount, latestReconciliation] = await Promise.all([
-      this.prisma.bankAccountProfile.findMany({
-        where: { organizationId, status: BankAccountStatus.ACTIVE },
-        select: { accountId: true },
-      }),
-      this.prisma.bankStatementTransaction.count({
-        where: { organizationId, status: BankStatementTransactionStatus.UNMATCHED },
-      }),
-      this.prisma.bankReconciliation.findFirst({
-        where: { organizationId, status: BankReconciliationStatus.CLOSED },
-        orderBy: [{ closedAt: "desc" }, { periodEnd: "desc" }],
-        select: { closedAt: true, periodEnd: true },
-      }),
-    ]);
+    const profiles = await this.prisma.bankAccountProfile.findMany({
+      where: { organizationId, status: BankAccountStatus.ACTIVE },
+      select: { accountId: true },
+    });
+    const unreconciledTransactionCount = await this.prisma.bankStatementTransaction.count({
+      where: { organizationId, status: BankStatementTransactionStatus.UNMATCHED },
+    });
+    const latestReconciliation = await this.prisma.bankReconciliation.findFirst({
+      where: { organizationId, status: BankReconciliationStatus.CLOSED },
+      orderBy: [{ closedAt: "desc" }, { periodEnd: "desc" }],
+      select: { closedAt: true, periodEnd: true },
+    });
     const accountIds = profiles.map((profile) => profile.accountId);
     const lines =
       accountIds.length === 0
@@ -200,33 +235,34 @@ export class DashboardService {
       return { monthlySales: [], monthlyPurchases: [], monthlyNetProfit: [], cashBalanceTrend: [] };
     }
 
-    const [invoices, bills, profitAndLossReports, cashBalanceTrend] = await Promise.all([
-      this.prisma.salesInvoice.findMany({
-        where: {
-          organizationId,
-          status: SalesInvoiceStatus.FINALIZED,
-          issueDate: { gte: firstMonth.start, lte: lastMonth.end },
-        },
-        select: { issueDate: true, total: true },
-      }),
-      this.prisma.purchaseBill.findMany({
-        where: {
-          organizationId,
-          status: PurchaseBillStatus.FINALIZED,
-          billDate: { gte: firstMonth.start, lte: lastMonth.end },
-        },
-        select: { billDate: true, total: true },
-      }),
-      Promise.all(
-        months.map((month) =>
-          this.reportsService.profitAndLoss(organizationId, {
-            from: dateOnly(month.start),
-            to: dateOnly(month.end),
-          }),
-        ),
-      ),
-      this.cashBalanceTrend(organizationId, months),
-    ]);
+    const invoices = await this.prisma.salesInvoice.findMany({
+      where: {
+        organizationId,
+        status: SalesInvoiceStatus.FINALIZED,
+        issueDate: { gte: firstMonth.start, lte: lastMonth.end },
+      },
+      select: { issueDate: true, total: true },
+    });
+    const bills = await this.prisma.purchaseBill.findMany({
+      where: {
+        organizationId,
+        status: PurchaseBillStatus.FINALIZED,
+        billDate: { gte: firstMonth.start, lte: lastMonth.end },
+      },
+      select: { billDate: true, total: true },
+    });
+    const profitAndLossReports: Array<
+      Awaited<ReturnType<ReportsService["profitAndLoss"]>>
+    > = [];
+    for (const month of months) {
+      profitAndLossReports.push(
+        await this.reportsService.profitAndLoss(organizationId, {
+          from: dateOnly(month.start),
+          to: dateOnly(month.end),
+        }),
+      );
+    }
+    const cashBalanceTrend = await this.cashBalanceTrend(organizationId, months);
 
     const salesByMonth = monthlyTotals(
       months,
@@ -294,18 +330,16 @@ export class DashboardService {
   }
 
   private async inventorySummary(organizationId: string) {
-    const [items, movements, varianceReport] = await Promise.all([
-      this.prisma.item.findMany({
-        where: { organizationId, inventoryTracking: true, status: ItemStatus.ACTIVE },
-        orderBy: [{ name: "asc" }],
-        select: { id: true, name: true, reorderPoint: true },
-      }),
-      this.prisma.stockMovement.findMany({
-        where: { organizationId },
-        select: { itemId: true, type: true, quantity: true, unitCost: true, totalCost: true },
-      }),
-      this.inventoryClearingReportService.clearingVarianceReport(organizationId),
-    ]);
+    const items = await this.prisma.item.findMany({
+      where: { organizationId, inventoryTracking: true, status: ItemStatus.ACTIVE },
+      orderBy: [{ name: "asc" }],
+      select: { id: true, name: true, reorderPoint: true },
+    });
+    const movements = await this.prisma.stockMovement.findMany({
+      where: { organizationId },
+      select: { itemId: true, type: true, quantity: true, unitCost: true, totalCost: true },
+    });
+    const varianceReport = await this.inventoryClearingReportService.clearingVarianceReport(organizationId);
     const movementsByItem = new Map<string, typeof movements>();
     for (const movement of movements) {
       movementsByItem.set(movement.itemId, [...(movementsByItem.get(movement.itemId) ?? []), movement]);
@@ -347,10 +381,8 @@ export class DashboardService {
   }
 
   private async agingSummary(organizationId: string, asOf: string) {
-    const [receivables, payables] = await Promise.all([
-      this.reportsService.agedReceivables(organizationId, { asOf }),
-      this.reportsService.agedPayables(organizationId, { asOf }),
-    ]);
+    const receivables = await this.reportsService.agedReceivables(organizationId, { asOf });
+    const payables = await this.reportsService.agedPayables(organizationId, { asOf });
 
     return {
       receivablesBuckets: agingBuckets(receivables.bucketTotals),
@@ -359,11 +391,9 @@ export class DashboardService {
   }
 
   private async reportSummary(organizationId: string, monthStart: string, asOf: string) {
-    const [trialBalance, profitAndLoss, balanceSheet] = await Promise.all([
-      this.reportsService.trialBalance(organizationId, { to: asOf }),
-      this.reportsService.profitAndLoss(organizationId, { from: monthStart, to: asOf }),
-      this.reportsService.balanceSheet(organizationId, { asOf }),
-    ]);
+    const trialBalance = await this.reportsService.trialBalance(organizationId, { to: asOf });
+    const profitAndLoss = await this.reportsService.profitAndLoss(organizationId, { from: monthStart, to: asOf });
+    const balanceSheet = await this.reportsService.balanceSheet(organizationId, { asOf });
 
     return {
       trialBalanceBalanced: trialBalance.totals.balanced,
@@ -373,15 +403,13 @@ export class DashboardService {
   }
 
   private async complianceSummary(organizationId: string, monthStart: Date, now: Date) {
-    const [zatca, fiscalPeriodsLockedCount, auditLogCountThisMonth, currentPeriod] = await Promise.all([
-      this.zatcaSummary(organizationId),
-      this.prisma.fiscalPeriod.count({ where: { organizationId, status: FiscalPeriodStatus.LOCKED } }),
-      this.prisma.auditLog.count({ where: { organizationId, createdAt: { gte: monthStart } } }),
-      this.prisma.fiscalPeriod.findFirst({
-        where: { organizationId, startsOn: { lte: now }, endsOn: { gte: now } },
-        select: { status: true },
-      }),
-    ]);
+    const zatca = await this.zatcaSummary(organizationId);
+    const fiscalPeriodsLockedCount = await this.prisma.fiscalPeriod.count({ where: { organizationId, status: FiscalPeriodStatus.LOCKED } });
+    const auditLogCountThisMonth = await this.prisma.auditLog.count({ where: { organizationId, createdAt: { gte: monthStart } } });
+    const currentPeriod = await this.prisma.fiscalPeriod.findFirst({
+      where: { organizationId, startsOn: { lte: now }, endsOn: { gte: now } },
+      select: { status: true },
+    });
 
     return {
       ...zatca,
@@ -392,17 +420,15 @@ export class DashboardService {
   }
 
   private async zatcaSummary(organizationId: string) {
-    const [profile, activeEgs, localXmlCount] = await Promise.all([
-      this.prisma.zatcaOrganizationProfile.findUnique({
-        where: { organizationId },
-        select: { sellerName: true, vatNumber: true, city: true, countryCode: true },
-      }),
-      this.prisma.zatcaEgsUnit.findFirst({
-        where: { organizationId, isActive: true, status: ZatcaRegistrationStatus.ACTIVE },
-        select: { id: true, csrPem: true, complianceCsidPem: true },
-      }),
-      this.prisma.zatcaInvoiceMetadata.count({ where: { organizationId, xmlBase64: { not: null } } }),
-    ]);
+    const profile = await this.prisma.zatcaOrganizationProfile.findUnique({
+      where: { organizationId },
+      select: { sellerName: true, vatNumber: true, city: true, countryCode: true },
+    });
+    const activeEgs = await this.prisma.zatcaEgsUnit.findFirst({
+      where: { organizationId, isActive: true, status: ZatcaRegistrationStatus.ACTIVE },
+      select: { id: true, csrPem: true, complianceCsidPem: true },
+    });
+    const localXmlCount = await this.prisma.zatcaInvoiceMetadata.count({ where: { organizationId, xmlBase64: { not: null } } });
     const profileReadiness = getZatcaProfileReadiness(profile ?? {});
     const blockingReasons: string[] = [];
     if (!profileReadiness.ready) {
@@ -435,8 +461,18 @@ export class DashboardService {
     inventory: Awaited<ReturnType<DashboardService["inventorySummary"]>>;
     compliance: Awaited<ReturnType<DashboardService["complianceSummary"]>>;
     storageDatabaseActive: boolean;
+    warnings: DashboardSectionWarning[];
   }): AttentionItem[] {
     const items: AttentionItem[] = [];
+    for (const warning of input.warnings) {
+      items.push({
+        type: `DASHBOARD_SECTION_UNAVAILABLE_${warning.section.toUpperCase()}`,
+        severity: "warning",
+        title: "Dashboard section temporarily unavailable",
+        description: `${warning.section} data could not be loaded. Other dashboard sections are still shown.`,
+        href: "/dashboard",
+      });
+    }
     if (input.sales.overdueInvoiceCount > 0) {
       items.push({
         type: "OVERDUE_INVOICES",
@@ -564,6 +600,103 @@ export class DashboardService {
   private decimalString(value: Prisma.Decimal.Value): string {
     return this.decimal(value).toFixed(4);
   }
+
+  private sanitizeDashboardSectionError(section: DashboardSectionName, error: unknown): DashboardSectionWarning {
+    const code = isErrorWithCode(error) ? error.code : error instanceof Error ? error.name : "UNKNOWN";
+    return {
+      section,
+      code,
+      message: "Dashboard section is temporarily unavailable.",
+    };
+  }
+
+  private emptySalesSummary() {
+    return {
+      unpaidInvoiceCount: 0,
+      unpaidInvoiceBalance: "0.0000",
+      overdueInvoiceCount: 0,
+      overdueInvoiceBalance: "0.0000",
+      salesThisMonth: "0.0000",
+      customerPaymentThisMonth: "0.0000",
+    };
+  }
+
+  private emptyPurchaseSummary() {
+    return {
+      unpaidBillCount: 0,
+      unpaidBillBalance: "0.0000",
+      overdueBillCount: 0,
+      overdueBillBalance: "0.0000",
+      purchasesThisMonth: "0.0000",
+      supplierPaymentThisMonth: "0.0000",
+    };
+  }
+
+  private emptyBankingSummary() {
+    return {
+      bankAccountCount: 0,
+      totalBankBalance: "0.0000",
+      unreconciledTransactionCount: 0,
+      latestReconciliationDate: null,
+    };
+  }
+
+  private emptyInventorySummary() {
+    return {
+      trackedItemCount: 0,
+      lowStockCount: 0,
+      negativeStockCount: 0,
+      inventoryEstimatedValue: "0.0000",
+      clearingVarianceCount: 0,
+      lowStockItems: [],
+    };
+  }
+
+  private emptyReportSummary() {
+    return {
+      trialBalanceBalanced: false,
+      profitAndLossNetProfit: "0.0000",
+      balanceSheetBalanced: false,
+    };
+  }
+
+  private emptyTrendSummary(months: DashboardMonth[]) {
+    return {
+      monthlySales: months.map((month) => ({ month: month.key, amount: "0.0000" })),
+      monthlyPurchases: months.map((month) => ({ month: month.key, amount: "0.0000" })),
+      monthlyNetProfit: months.map((month) => ({ month: month.key, amount: "0.0000" })),
+      cashBalanceTrend: months.map((month) => ({ date: dateOnly(month.start), balance: "0.0000" })),
+    };
+  }
+
+  private emptyAgingSummary() {
+    const emptyBuckets = Object.values(AGING_BUCKET_LABELS).map((bucket) => ({ bucket, amount: "0.0000" }));
+    return {
+      receivablesBuckets: emptyBuckets,
+      payablesBuckets: emptyBuckets,
+    };
+  }
+
+  private emptyComplianceSummary() {
+    return {
+      zatcaProductionReady: false,
+      zatcaBlockingReasonCount: 1,
+      fiscalPeriodsLockedCount: 0,
+      auditLogCountThisMonth: 0,
+      currentFiscalPeriodStatus: null,
+    };
+  }
+
+  private emptyStorageReadiness() {
+    return {
+      attachmentStorage: { activeProvider: "unavailable" },
+      generatedDocumentStorage: { activeProvider: "unavailable" },
+    };
+  }
+}
+
+function isErrorWithCode(error: unknown): error is { code: string } {
+  return typeof error === "object" && error !== null && "code" in error && typeof (error as { code?: unknown }).code === "string";
 }
 
 function sum(values: Prisma.Decimal.Value[]): Prisma.Decimal {

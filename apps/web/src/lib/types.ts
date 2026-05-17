@@ -250,7 +250,34 @@ export interface DashboardLowStockItem {
   reorderPoint: string;
 }
 
+export type DashboardSectionName =
+  | "sales"
+  | "purchases"
+  | "banking"
+  | "inventory"
+  | "reports"
+  | "trends"
+  | "aging"
+  | "compliance"
+  | "storage";
+
+export type DashboardSectionStatus =
+  | { status: "READY" }
+  | {
+      status: "UNAVAILABLE";
+      code: string;
+      message: string;
+    };
+
+export interface DashboardSectionWarning {
+  section: DashboardSectionName;
+  code: string;
+  message: string;
+}
+
 export interface DashboardSummary {
+  sectionStatus?: Record<DashboardSectionName, DashboardSectionStatus>;
+  warnings?: DashboardSectionWarning[];
   asOf: string;
   currency: string;
   sales: {
