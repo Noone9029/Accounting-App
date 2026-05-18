@@ -785,7 +785,8 @@ Recommended next step:
 
 # Sellable-v1 audit update - 2026-05-18
 
-- Overall controlled beta readiness is now assessed at 74%, with ZATCA production compliance excluded and still blocked.
-- Implemented a dashboard onboarding checklist to reduce first-run ambiguity for organization setup, COA, tax, contacts, invoices, bank/payment setup, ZATCA local visibility, contact VAT/ID validation, and storage readiness.
+- Overall controlled beta readiness is now assessed at 75%, with ZATCA production compliance excluded and still blocked.
+- Implemented a dashboard onboarding checklist and `/setup` guided wizard to reduce first-run ambiguity for organization setup, COA, tax, contacts, invoices, bank/payment setup, ZATCA local visibility, contact VAT/ID validation, and storage readiness.
+- The wizard is navigation-only and does not mutate setup data, execute ZATCA, request CSIDs, call real ZATCA network endpoints, persist signed XML/QR bodies, or claim production compliance.
 - Remaining highest-risk non-ZATCA gaps are production SMTP validation, production storage migration/readiness, backup/restore evidence, monitoring/alerting, browser E2E coverage, and SaaS billing/support operations.
 - See `docs/SELLABLE_V1_READINESS_AUDIT.md`.

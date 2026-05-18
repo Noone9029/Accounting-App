@@ -6,18 +6,16 @@ import {
   Banknote,
   BarChart3,
   Box,
-  CheckCircle2,
-  CircleDashed,
   FileText,
   ReceiptText,
   ShieldCheck,
   TrendingUp,
-  XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { DashboardOnboardingCard } from "@/components/onboarding/setup-wizard";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
@@ -33,10 +31,6 @@ import {
   dashboardIsEmpty,
   formatDashboardMoney,
   groupAttentionBySeverity,
-  onboardingChecklistItemStatusClass,
-  onboardingChecklistProgressPercent,
-  onboardingChecklistStatusClass,
-  onboardingChecklistStatusLabel,
   visibleDashboardQuickActions,
   type DashboardDrilldownLink,
 } from "@/lib/dashboard";
@@ -47,7 +41,6 @@ import type {
   DashboardCashTrendPoint,
   DashboardLowStockItem,
   DashboardOnboardingChecklist,
-  DashboardOnboardingChecklistItem,
   DashboardSummary,
   DashboardTrendPoint,
 } from "@/lib/types";
@@ -293,7 +286,7 @@ export default function DashboardPage() {
 
             <div className="space-y-5">
               {onboardingChecklist ? (
-                <OnboardingChecklistCard checklist={onboardingChecklist} />
+                <DashboardOnboardingCard checklist={onboardingChecklist} />
               ) : onboardingLoading ? (
                 <Section title="Onboarding checklist">
                   <StatusMessage type="loading">Loading onboarding checklist...</StatusMessage>
@@ -372,63 +365,6 @@ function Kpi({ icon, label, value, detail, href }: Readonly<{ icon: ReactNode; l
     </Link>
   ) : (
     <div className={className}>{content}</div>
-  );
-}
-
-function OnboardingChecklistCard({ checklist }: Readonly<{ checklist: DashboardOnboardingChecklist }>) {
-  return (
-    <Section title="Sellable-v1 onboarding">
-      <div className={`rounded-md border px-3 py-3 text-sm ${onboardingChecklistStatusClass(checklist.status)}`}>
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="font-semibold">{onboardingChecklistStatusLabel(checklist.status)}</div>
-            <div className="mt-1 text-xs">
-              {checklist.completedCount} of {checklist.totalCount} checks complete.
-            </div>
-          </div>
-          <div className="font-mono text-lg font-semibold">{checklist.readinessScore}%</div>
-        </div>
-        <div className="mt-3 h-2 rounded-full bg-white/70">
-          <div className="h-2 rounded-full bg-current" style={{ width: onboardingChecklistProgressPercent(checklist.completedCount, checklist.totalCount) }} />
-        </div>
-      </div>
-      <div className="mt-3 space-y-2">
-        {checklist.items.map((item) => (
-          <OnboardingChecklistItemRow key={item.id} item={item} />
-        ))}
-      </div>
-      <div className="mt-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
-        ZATCA remains local-only: productionCompliance=false, real ZATCA network disabled, signed XML/QR body persistence blocked.
-      </div>
-    </Section>
-  );
-}
-
-function OnboardingChecklistItemRow({ item }: Readonly<{ item: DashboardOnboardingChecklistItem }>) {
-  const icon =
-    item.status === "COMPLETE" ? (
-      <CheckCircle2 className="mt-0.5 h-4 w-4 flex-none" aria-hidden="true" />
-    ) : item.status === "WARNING" ? (
-      <CircleDashed className="mt-0.5 h-4 w-4 flex-none" aria-hidden="true" />
-    ) : (
-      <XCircle className="mt-0.5 h-4 w-4 flex-none" aria-hidden="true" />
-    );
-  const content = (
-    <div className={`flex items-start gap-2 ${onboardingChecklistItemStatusClass(item.status)}`}>
-      {icon}
-      <div>
-        <div className="font-medium">{item.label}</div>
-        <div className="mt-0.5 text-xs text-steel">{item.description}</div>
-      </div>
-    </div>
-  );
-
-  return item.href ? (
-    <Link href={item.href} className="block rounded-md border border-slate-100 px-3 py-2 text-sm hover:bg-slate-50">
-      {content}
-    </Link>
-  ) : (
-    <div className="rounded-md border border-slate-100 px-3 py-2 text-sm">{content}</div>
   );
 }
 

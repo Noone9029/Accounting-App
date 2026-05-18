@@ -12,14 +12,14 @@ This audit covers LedgerByte SaaS/product readiness while ZATCA OTP and sandbox 
 | --- | ---: | --- |
 | Authentication, users, roles, permissions | 82% | MVP-ready, with mock email and no MFA as production gaps. |
 | Tenant isolation and organization context | 84% | Tenant-scoped guards and x-organization-id workflows are in place; continued route-level regression coverage is required. |
-| Onboarding | 78% | Improved with a dashboard sellable-v1 checklist; still needs guided first-run setup and production email. |
+| Onboarding | 82% | Improved with a dashboard sellable-v1 checklist and `/setup` guided first-run wizard; still needs production email. |
 | Accounting workflows | 82% | Sales, purchases, payments, journals, reports, bank workflows, and operational inventory are usable for MVP-style testing. |
 | Reliability and deployment readiness | 76% | Health/readiness, smoke, dashboard partial fallback, and Vercel/Supabase notes exist; production monitoring/backups remain incomplete. |
 | Documents and storage | 62% | Generated docs and attachments exist; database/base64 fallback is still a scale and operations risk. |
 | Admin/supportability | 70% | Audit logs, readiness docs, and settings pages exist; support dashboards and structured incident tooling remain limited. |
 | ZATCA local readiness | 36% | Local planning, validation, custody boundaries, and evidence workflows exist; real sandbox/prod flows remain blocked. |
 
-Overall sellable-v1 readiness: **74%** for a controlled test/beta workspace, not production ZATCA compliance.
+Overall sellable-v1 readiness: **75%** for a controlled test/beta workspace, not production ZATCA compliance.
 
 ## What is ready
 
@@ -27,6 +27,7 @@ Overall sellable-v1 readiness: **74%** for a controlled test/beta workspace, not
 - Tenant-scoped accounting APIs using organization context.
 - Chart of accounts, tax rates, contacts, items, journals, sales invoices, purchase bills, payments, refunds, notes, reports, bank profiles, bank reconciliation, attachments, and generated documents at MVP or partial-MVP depth.
 - Dashboard summary with sequential database reads, partial section fallback, sanitized section warnings, and reduced Prisma pool pressure.
+- Guided `/setup` wizard backed by `GET /dashboard/onboarding-checklist`, with read-only navigation for organization profile, chart of accounts, VAT/tax profile, first customer, first invoice, bank/payment method, ZATCA local readiness visibility, contact VAT/ID validation, and storage readiness.
 - Contact VAT validation locked to exactly 15 digits and buyer ID Type / ID Number validation mapped into local ZATCA XML.
 - ZATCA local-only planning, validation, evidence, storage, CSID mapper, mock adapter, and custody boundaries without real network calls.
 - Smoke coverage for major accounting workflows and ZATCA safety gates.
@@ -43,14 +44,14 @@ Overall sellable-v1 readiness: **74%** for a controlled test/beta workspace, not
 ## High-priority fixes implemented in this audit
 
 - Added GET /dashboard/onboarding-checklist, a tenant-scoped, read-only, no-mutation sellable-v1 checklist.
-- Added a dashboard onboarding checklist card showing organization setup, COA, tax, customer, invoice, bank/payment, ZATCA visibility, contact VAT/ID validation, and storage readiness.
+- Added a dashboard onboarding card with progress, next incomplete step, blocker summary, and an `Open setup wizard` link.
+- Added `/setup`, a checklist-backed guided first-run wizard with evidence, blockers, warnings, and safe action links for each setup step.
 - Added smoke assertions proving the checklist is safe, no-mutation, tenant-scoped, and keeps ZATCA production compliance/network/body persistence disabled.
-- Added backend and frontend targeted tests for checklist behavior and helper formatting.
+- Added frontend targeted tests for wizard helper logic, rendered setup steps, safe fallback, ZATCA local-only messaging, and the dashboard setup link.
 - Updated readiness docs to make the sellable-v1 boundary explicit.
 
 ## Medium-priority fixes still recommended
 
-- Add a first-run setup wizard that links directly to organization profile, tax rates, contacts, and first invoice creation.
 - Add production SMTP readiness validation and admin-visible outbound email diagnostics.
 - Add deployment runbooks for Vercel/Supabase pooled connection strings, migrations, backups, restore tests, and rollback.
 - Add Playwright browser E2E coverage for login, dashboard, contact creation, invoice creation, payment, and report views.
@@ -88,15 +89,25 @@ Overall sellable-v1 readiness: **74%** for a controlled test/beta workspace, not
 - Add browser smoke for deployed login/dashboard when domain or CORS settings change.
 - Do not run Java SDK or real ZATCA network commands unless the task explicitly touches local SDK validation.
 
+Latest guided setup verification:
+- `corepack pnpm --filter @ledgerbyte/web test -- --runTestsByPath src/lib/dashboard.test.ts src/components/onboarding/setup-wizard.test.tsx` passed.
+- `corepack pnpm --filter @ledgerbyte/web typecheck` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed and included the static `/setup` route.
+- `corepack pnpm smoke:accounting` passed against a transient local API; the smoke still verifies `/dashboard/onboarding-checklist`, `productionCompliance=false`, and real ZATCA network disabled.
+- `git diff --check` passed.
+- Skipped backend dashboard tests because no backend code changed.
+- Skipped `pnpm install`, Prisma generate/migrate/seed, Java SDK execution, real ZATCA network, CSID request, clearance/reporting, and PDF-A3 work because dependencies, schema, seed data, and ZATCA execution scope did not change.
+
 ## Next 10 implementation prompts
 
-1. Add a guided first-run setup wizard that uses the onboarding checklist as its source of truth.
-2. Add production SMTP readiness validation and email diagnostics without sending real customer emails by default.
-3. Add Vercel/Supabase deployment runbook checks for pooled DB URLs, migration status, and safe environment summaries.
-4. Add Playwright E2E coverage for login, dashboard, customer creation, invoice creation, payment, and reports.
-5. Add attachment/generated-document object-store migration executor after a safe non-prod object-store rehearsal.
-6. Add admin-visible support diagnostics for tenant configuration and common deployment failures.
-7. Add accountant-reviewed dashboard KPI definitions and documentation.
-8. Add contact/item import-export with validation previews.
-9. Add backup/restore runbook evidence capture and smoke-level restore verification metadata.
+1. Add production SMTP readiness validation and email diagnostics without sending real customer emails by default.
+2. Add Vercel/Supabase deployment runbook checks for pooled DB URLs, migration status, and safe environment summaries.
+3. Add Playwright E2E coverage for login, dashboard, setup wizard, customer creation, invoice creation, payment, and reports.
+4. Add attachment/generated-document object-store migration executor after a safe non-prod object-store rehearsal.
+5. Add admin-visible support diagnostics for tenant configuration and common deployment failures.
+6. Add accountant-reviewed dashboard KPI definitions and documentation.
+7. Add contact/item import-export with validation previews.
+8. Add backup/restore runbook evidence capture and smoke-level restore verification metadata.
+9. Add controlled beta review checklist export for support and implementation handoff.
 10. Resume ZATCA sandbox onboarding only after official OTP/sandbox access is available.

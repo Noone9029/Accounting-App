@@ -3,6 +3,8 @@ import { hasPermission, PERMISSIONS, type Permission, type PermissionSubject } f
 import type {
   DashboardAttentionItem,
   DashboardAttentionSeverity,
+  DashboardOnboardingChecklist,
+  DashboardOnboardingChecklistItem,
   DashboardOnboardingChecklistItemStatus,
   DashboardOnboardingChecklistStatus,
   DashboardSummary,
@@ -13,6 +15,8 @@ export interface DashboardQuickAction {
   href: string;
   permission: Permission;
 }
+
+export const SETUP_WIZARD_ROUTE = "/setup";
 
 export const DASHBOARD_QUICK_ACTIONS: readonly DashboardQuickAction[] = [
   { label: "Create invoice", href: "/sales/invoices/new", permission: PERMISSIONS.salesInvoices.create },
@@ -141,11 +145,201 @@ export function onboardingChecklistItemStatusClass(status: DashboardOnboardingCh
   }
 }
 
+export function onboardingChecklistItemStatusLabel(status: DashboardOnboardingChecklistItemStatus): string {
+  switch (status) {
+    case "COMPLETE":
+      return "Complete";
+    case "WARNING":
+      return "Needs review";
+    case "INCOMPLETE":
+      return "Incomplete";
+  }
+}
+
 export function onboardingChecklistProgressPercent(completedCount: number, totalCount: number): string {
   if (totalCount <= 0 || completedCount <= 0) {
     return "0%";
   }
   return `${Math.max(4, Math.min(100, (completedCount / totalCount) * 100)).toFixed(1)}%`;
+}
+
+export interface SetupWizardStep {
+  id: string;
+  title: string;
+  status: DashboardOnboardingChecklistItemStatus;
+  statusLabel: string;
+  statusClassName: string;
+  description: string;
+  actionHref: string;
+  actionLabel: string;
+  evidence: string[];
+  blockers: string[];
+  warnings: string[];
+  safeExplanation: string;
+}
+
+export interface SetupWizardSummary {
+  completedSteps: number;
+  totalSteps: number;
+  progressPercent: number;
+  progressWidth: string;
+  statusLabel: string;
+  statusClassName: string;
+  nextStep: SetupWizardStep | null;
+  topBlockers: string[];
+  readyForControlledBetaReview: boolean;
+}
+
+export interface SetupWizardDashboardSummary {
+  setupHref: string;
+  progressPercent: number;
+  nextIncompleteStep: SetupWizardStep | null;
+  conciseBlockerSummary: string;
+}
+
+const SETUP_STEP_COPY: Record<
+  string,
+  {
+    title: string;
+    actionHref: string;
+    actionLabel: string;
+    safeExplanation: string;
+  }
+> = {
+  organization_profile: {
+    title: "Organization profile",
+    actionHref: "/organization/setup",
+    actionLabel: "Review organization",
+    safeExplanation: "Review legal name, country, base currency, timezone, and VAT/tax identity. This wizard only links to setup screens.",
+  },
+  chart_of_accounts: {
+    title: "Chart of accounts",
+    actionHref: "/accounts",
+    actionLabel: "Open accounts",
+    safeExplanation: "Posting workflows need active posting accounts. The wizard does not create, seed, or alter accounts.",
+  },
+  tax_profile: {
+    title: "VAT/tax profile",
+    actionHref: "/tax-rates",
+    actionLabel: "Open tax rates",
+    safeExplanation: "Review VAT identity and active tax-rate setup before first invoices. Existing contact VAT/ID validation is not changed here.",
+  },
+  customer_created: {
+    title: "First customer",
+    actionHref: "/contacts",
+    actionLabel: "Open contacts",
+    safeExplanation: "Create or review customer records from the contacts page. The wizard does not create contacts automatically.",
+  },
+  first_invoice: {
+    title: "First invoice",
+    actionHref: "/sales/invoices",
+    actionLabel: "Open invoices",
+    safeExplanation: "Use the sales invoice workflow for a draft or test invoice. The wizard does not finalize or submit invoices.",
+  },
+  bank_payment_method: {
+    title: "Bank/payment method",
+    actionHref: "/bank-accounts",
+    actionLabel: "Open bank accounts",
+    safeExplanation: "Review bank, cash, card, wallet, or other payment profiles. The wizard does not post balances or payments.",
+  },
+  zatca_local_readiness_visible: {
+    title: "ZATCA local readiness visibility",
+    actionHref: "/settings/zatca",
+    actionLabel: "Review local ZATCA readiness",
+    safeExplanation:
+      "ZATCA status shown here is local readiness only: real ZATCA network is disabled, production compliance remains false, OTP and CSID are still required, and clearance, reporting, and PDF-A3 are not implemented.",
+  },
+  contact_vat_id_validation: {
+    title: "Contact VAT/ID validation",
+    actionHref: "/contacts",
+    actionLabel: "Review contacts",
+    safeExplanation: "Contact VAT and buyer identification validation stays in the existing contact workflows. This wizard only reports checklist evidence.",
+  },
+  storage_readiness_checked: {
+    title: "Storage readiness",
+    actionHref: "/settings/storage",
+    actionLabel: "Open storage settings",
+    safeExplanation: "Review generated-document and attachment storage readiness. Signed XML and QR payload body persistence remain blocked.",
+  },
+};
+
+export function setupWizardSteps(checklist: DashboardOnboardingChecklist): SetupWizardStep[] {
+  return checklist.items.map((item) => {
+    const copy = SETUP_STEP_COPY[item.id] ?? fallbackSetupStepCopy(item);
+    return {
+      id: item.id,
+      title: copy.title,
+      status: item.status,
+      statusLabel: onboardingChecklistItemStatusLabel(item.status),
+      statusClassName: onboardingChecklistItemStatusClass(item.status),
+      description: item.description,
+      actionHref: copy.actionHref,
+      actionLabel: copy.actionLabel,
+      evidence: item.evidence,
+      blockers: item.blockers,
+      warnings: item.warnings,
+      safeExplanation: copy.safeExplanation,
+    };
+  });
+}
+
+export function setupWizardSummary(checklist: DashboardOnboardingChecklist): SetupWizardSummary {
+  const steps = setupWizardSteps(checklist);
+  const totalSteps = steps.length;
+  const completedSteps = steps.filter((step) => step.status === "COMPLETE").length;
+  const progressPercent = setupWizardProgressPercent(completedSteps, totalSteps);
+  return {
+    completedSteps,
+    totalSteps,
+    progressPercent,
+    progressWidth: onboardingChecklistProgressPercent(completedSteps, totalSteps),
+    statusLabel: onboardingChecklistStatusLabel(checklist.status),
+    statusClassName: onboardingChecklistStatusClass(checklist.status),
+    nextStep: nextIncompleteSetupWizardStep(steps),
+    topBlockers: checklist.blockers.slice(0, 3),
+    readyForControlledBetaReview: checklist.status === "READY_FOR_SELLABLE_V1_REVIEW",
+  };
+}
+
+export function setupWizardDashboardSummary(checklist: DashboardOnboardingChecklist): SetupWizardDashboardSummary {
+  const summary = setupWizardSummary(checklist);
+  return {
+    setupHref: SETUP_WIZARD_ROUTE,
+    progressPercent: summary.progressPercent,
+    nextIncompleteStep: summary.nextStep,
+    conciseBlockerSummary: conciseSetupBlockerSummary(summary.topBlockers.length),
+  };
+}
+
+export function setupWizardLoadFailureMessage(_error: unknown): string {
+  return "Setup checklist could not be loaded. Setup is not marked complete; open the dashboard checklist later or retry from this page.";
+}
+
+function setupWizardProgressPercent(completedCount: number, totalCount: number): number {
+  if (totalCount <= 0 || completedCount <= 0) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, Math.round((completedCount / totalCount) * 100)));
+}
+
+function nextIncompleteSetupWizardStep(steps: SetupWizardStep[]): SetupWizardStep | null {
+  return steps.find((step) => step.status === "INCOMPLETE") ?? steps.find((step) => step.status === "WARNING") ?? null;
+}
+
+function conciseSetupBlockerSummary(blockerCount: number): string {
+  if (blockerCount <= 0) {
+    return "No blockers in the top setup checks.";
+  }
+  return blockerCount === 1 ? "1 blocker needs review." : `${blockerCount} blockers need review.`;
+}
+
+function fallbackSetupStepCopy(item: DashboardOnboardingChecklistItem): (typeof SETUP_STEP_COPY)[string] {
+  return {
+    title: item.label,
+    actionHref: item.href,
+    actionLabel: "Open",
+    safeExplanation: "This wizard shows checklist evidence and links to the relevant page without mutating setup data.",
+  };
 }
 
 export function visibleDashboardQuickActions(subject: PermissionSubject): DashboardQuickAction[] {

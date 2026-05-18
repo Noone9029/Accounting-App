@@ -2326,5 +2326,9 @@ Recommended next step:
 ## Sellable-v1 readiness note
 
 - `GET /dashboard/onboarding-checklist` returns a tenant-scoped, read-only sellable-v1 onboarding checklist for organization profile, COA, tax, customer, invoice, bank/payment, ZATCA local visibility, contact VAT/ID validation, and storage readiness.
+- `/setup` provides a guided first-run setup wizard backed by that checklist. It shows each step status, evidence, blockers, warnings, and safe navigation links without creating or changing data.
+- The dashboard onboarding card now keeps the dashboard compact with progress percentage, next incomplete step, top blocker summary, and an `Open setup wizard` action.
 - The checklist does not mutate data, expose secrets, enable real ZATCA network calls, persist signed XML/QR bodies, or claim production compliance.
+- The ZATCA wizard step remains local-readiness only: real ZATCA network calls, OTP/CSID execution, clearance/reporting, PDF-A3, production credentials, signed XML/QR body persistence, and production compliance claims remain blocked.
+- Latest setup-wizard verification passed targeted web tests, web typecheck, workspace typecheck, build, smoke:accounting, and git diff --check; no backend mutation or schema/seed command was needed.
 - See `docs/SELLABLE_V1_READINESS_AUDIT.md` for current readiness percentages, blockers, deployment recommendations, and next implementation prompts.

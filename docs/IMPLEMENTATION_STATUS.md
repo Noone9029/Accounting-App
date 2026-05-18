@@ -777,3 +777,10 @@ Recommended next step:
 - Dashboard now shows a sellable-v1 onboarding card without mutating data or changing dashboard query concurrency.
 - ZATCA remains blocked for real CSID requests, real network calls, clearance/reporting, PDF-A3, signed XML/QR body persistence, production credentials, and production compliance claims.
 - Detailed audit: `docs/SELLABLE_V1_READINESS_AUDIT.md`.
+
+## Guided setup wizard update - 2026-05-18
+
+- Added `/setup`, a read-only wizard sourced from `GET /dashboard/onboarding-checklist`.
+- The wizard maps checklist items to existing setup routes and shows status, evidence, blockers, warnings, safe explanations, and action links.
+- Dashboard onboarding now links to `/setup` and shows progress percentage, next incomplete step, and concise blocker summary.
+- No backend mutation, schema change, contact VAT/ID validation change, dashboard concurrency change, ZATCA execution change, CSID request, real ZATCA network call, clearance/reporting, PDF-A3, signed XML/QR body persistence, production credential use, or production compliance claim was added.

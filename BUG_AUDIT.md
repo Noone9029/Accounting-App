@@ -2675,6 +2675,7 @@ Recommended next step:
 # Sellable-v1 bug audit update - 2026-05-18
 
 - Added regression coverage for the dashboard onboarding checklist and smoke assertions that it remains read-only, no-mutation, tenant-scoped, and ZATCA-safe.
+- Added frontend regression coverage for the `/setup` wizard rendering checklist steps, progress, next incomplete step, blockers/warnings, safe failed-load fallback, dashboard link, and ZATCA non-production messaging.
 - No regression was found or intentionally changed in contact VAT/ID validation.
 - No regression was found or intentionally changed in dashboard summary concurrency hardening.
 - Open risk: production deployment still needs SMTP, storage, backup/restore, and browser E2E validation before paid customer use.

@@ -759,5 +759,6 @@ Recommended next step:
 # Sellable-v1 audit update - 2026-05-18
 
 - Added `docs/SELLABLE_V1_READINESS_AUDIT.md` with area-level readiness percentages, blockers, safe fixes, deployment recommendations, smoke recommendations, and next prompts.
-- Added a read-only onboarding checklist API and dashboard card to improve onboarding and supportability without changing accounting postings, dashboard concurrency, contact VAT/ID validation, or ZATCA execution behavior.
+- Added a read-only onboarding checklist API, dashboard card, and `/setup` guided setup wizard to improve onboarding and supportability without changing accounting postings, dashboard concurrency, contact VAT/ID validation, or ZATCA execution behavior.
+- The wizard stays no-mutation and navigation-only, with explicit ZATCA local-only messaging and no CSID/network/clearance/reporting/PDF-A3 action.
 - Critical blockers remain production ZATCA, production email, production storage/backup/restore, monitoring, billing/subscription operations, and production secrets custody.

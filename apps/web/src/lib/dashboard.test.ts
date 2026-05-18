@@ -9,6 +9,10 @@ import {
   dashboardIsEmpty,
   formatDashboardMoney,
   groupAttentionBySeverity,
+  setupWizardDashboardSummary,
+  setupWizardLoadFailureMessage,
+  setupWizardSteps,
+  setupWizardSummary,
   onboardingChecklistItemStatusClass,
   onboardingChecklistProgressPercent,
   onboardingChecklistStatusClass,
@@ -16,7 +20,7 @@ import {
   visibleDashboardQuickActions,
 } from "./dashboard";
 import { PERMISSIONS } from "./permissions";
-import type { DashboardSummary } from "./types";
+import type { DashboardOnboardingChecklist, DashboardSummary } from "./types";
 
 describe("dashboard helpers", () => {
   it("formats KPI money and status labels", () => {
@@ -75,6 +79,75 @@ describe("dashboard helpers", () => {
     expect(onboardingChecklistProgressPercent(0, 9)).toBe("0%");
     expect(onboardingChecklistProgressPercent(1, 9)).toBe("11.1%");
     expect(onboardingChecklistProgressPercent(9, 9)).toBe("100.0%");
+  });
+
+  it("builds guided setup wizard steps from onboarding checklist items", () => {
+    const steps = setupWizardSteps(sampleChecklist());
+
+    expect(steps.map((step) => step.title)).toEqual([
+      "Organization profile",
+      "Chart of accounts",
+      "VAT/tax profile",
+      "First customer",
+      "First invoice",
+      "Bank/payment method",
+      "ZATCA local readiness visibility",
+      "Contact VAT/ID validation",
+      "Storage readiness",
+    ]);
+    expect(steps[0]).toEqual(
+      expect.objectContaining({
+        id: "organization_profile",
+        status: "COMPLETE",
+        statusLabel: "Complete",
+        actionHref: "/organization/setup",
+      }),
+    );
+    expect(steps[2]?.evidence).toContain("Active tax rates: 0");
+    expect(steps[2]?.blockers).toContain("Create at least one active tax rate.");
+    expect(steps[4]?.warnings).toContain("Create a test invoice before go-live rehearsals.");
+  });
+
+  it("calculates setup progress and next incomplete step", () => {
+    const summary = setupWizardSummary(sampleChecklist());
+
+    expect(summary.completedSteps).toBe(3);
+    expect(summary.totalSteps).toBe(9);
+    expect(summary.progressPercent).toBe(33);
+    expect(summary.nextStep?.id).toBe("tax_profile");
+    expect(summary.nextStep?.title).toBe("VAT/tax profile");
+    expect(summary.statusLabel).toBe("Blocked");
+    expect(summary.topBlockers).toEqual([
+      "VAT/tax profile: Create at least one active tax rate.",
+      "First customer: Create a customer contact.",
+      "Bank/payment method: Create an active bank, cash, wallet, card, or other payment profile.",
+    ]);
+  });
+
+  it("keeps ZATCA wizard messaging local-only and non-production", () => {
+    const zatcaStep = setupWizardSteps(sampleChecklist()).find((step) => step.id === "zatca_local_readiness_visible");
+
+    expect(zatcaStep?.safeExplanation).toContain("local readiness only");
+    expect(zatcaStep?.safeExplanation).toContain("real ZATCA network is disabled");
+    expect(zatcaStep?.safeExplanation).toContain("production compliance remains false");
+    expect(zatcaStep?.safeExplanation).toContain("OTP and CSID are still required");
+    expect(zatcaStep?.safeExplanation).toContain("clearance, reporting, and PDF-A3 are not implemented");
+    expect(zatcaStep?.actionLabel).toBe("Review local ZATCA readiness");
+  });
+
+  it("returns a safe fallback message when setup checklist loading fails", () => {
+    expect(setupWizardLoadFailureMessage(new Error("stack trace with private details"))).toBe(
+      "Setup checklist could not be loaded. Setup is not marked complete; open the dashboard checklist later or retry from this page.",
+    );
+  });
+
+  it("summarizes dashboard onboarding card state with setup wizard link", () => {
+    const summary = setupWizardDashboardSummary(sampleChecklist());
+
+    expect(summary.setupHref).toBe("/setup");
+    expect(summary.progressPercent).toBe(33);
+    expect(summary.nextIncompleteStep?.title).toBe("VAT/tax profile");
+    expect(summary.conciseBlockerSummary).toBe("3 blockers need review.");
   });
 
   it("groups attention items by severity", () => {
@@ -153,5 +226,124 @@ function emptySummary(): DashboardSummary {
       auditLogCountThisMonth: 0,
     },
     attentionItems: [],
+  };
+}
+
+function sampleChecklist(): DashboardOnboardingChecklist {
+  return {
+    readOnly: true,
+    noMutation: true,
+    tenantScoped: true,
+    organizationId: "org-1",
+    generatedAt: "2026-05-18T00:00:00.000Z",
+    status: "BLOCKED",
+    readinessScore: 33,
+    completedCount: 3,
+    totalCount: 9,
+    productionCompliance: false,
+    zatcaProductionCompliance: false,
+    realZatcaNetworkEnabled: false,
+    signedXmlBodyPersistenceAllowed: false,
+    qrPayloadBodyPersistenceAllowed: false,
+    blockers: [
+      "VAT/tax profile: Create at least one active tax rate.",
+      "First customer: Create a customer contact.",
+      "Bank/payment method: Create an active bank, cash, wallet, card, or other payment profile.",
+      "Extra blocker: Keep summary short.",
+    ],
+    warnings: ["First invoice: Create a test invoice before go-live rehearsals."],
+    recommendedNextSteps: ["Complete: VAT/tax profile."],
+    items: [
+      {
+        id: "organization_profile",
+        label: "Organization profile complete",
+        status: "COMPLETE",
+        description: "Legal profile is ready.",
+        href: "/settings/organization",
+        evidence: ["Legal profile fields complete: yes"],
+        blockers: [],
+        warnings: [],
+      },
+      {
+        id: "chart_of_accounts",
+        label: "Chart of accounts available",
+        status: "COMPLETE",
+        description: "Posting accounts exist.",
+        href: "/accounts",
+        evidence: ["Active posting accounts: 8"],
+        blockers: [],
+        warnings: [],
+      },
+      {
+        id: "tax_profile",
+        label: "VAT/tax profile complete",
+        status: "INCOMPLETE",
+        description: "VAT and tax rates are needed.",
+        href: "/tax-rates",
+        evidence: ["Active tax rates: 0"],
+        blockers: ["Create at least one active tax rate."],
+        warnings: [],
+      },
+      {
+        id: "customer_created",
+        label: "At least one customer",
+        status: "INCOMPLETE",
+        description: "Create a customer.",
+        href: "/contacts",
+        evidence: ["Customer contacts: 0"],
+        blockers: ["Create a customer contact."],
+        warnings: [],
+      },
+      {
+        id: "first_invoice",
+        label: "At least one sales invoice",
+        status: "WARNING",
+        description: "Create the first invoice.",
+        href: "/sales/invoices",
+        evidence: ["Sales invoices: 0"],
+        blockers: [],
+        warnings: ["Create a test invoice before go-live rehearsals."],
+      },
+      {
+        id: "bank_payment_method",
+        label: "Payment method or bank account configured",
+        status: "INCOMPLETE",
+        description: "Add a payment profile.",
+        href: "/bank-accounts",
+        evidence: ["Active bank/cash profiles: 0"],
+        blockers: ["Create an active bank, cash, wallet, card, or other payment profile."],
+        warnings: [],
+      },
+      {
+        id: "zatca_local_readiness_visible",
+        label: "ZATCA local readiness visible",
+        status: "WARNING",
+        description: "Local-only ZATCA visibility.",
+        href: "/settings/zatca",
+        evidence: ["Production compliance: false", "Real ZATCA network enabled: false"],
+        blockers: [],
+        warnings: ["OTP and CSID are still required."],
+      },
+      {
+        id: "contact_vat_id_validation",
+        label: "Contact VAT and ID validation ready",
+        status: "COMPLETE",
+        description: "Contact validation is enabled.",
+        href: "/contacts",
+        evidence: ["Backend/frontend validation is enabled."],
+        blockers: [],
+        warnings: [],
+      },
+      {
+        id: "storage_readiness_checked",
+        label: "Backup and storage readiness checked",
+        status: "WARNING",
+        description: "Storage readiness is checked.",
+        href: "/settings/storage",
+        evidence: ["Storage providers: database, database"],
+        blockers: [],
+        warnings: ["Signed XML and QR body persistence remain blocked."],
+      },
+    ],
   };
 }
