@@ -58,6 +58,7 @@ describe("ZATCA controller", () => {
 
   it("exposes the compliance CSID custody plan handler", () => {
     expect(typeof ZatcaController.prototype.getEgsComplianceCsidCustodyPlan).toBe("function");
+    expect(typeof ZatcaController.prototype.getComplianceCsidCustodyProviderReadiness).toBe("function");
   });
 
   it("exposes compliance CSID custody record handlers", () => {

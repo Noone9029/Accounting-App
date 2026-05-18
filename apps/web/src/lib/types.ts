@@ -3434,6 +3434,27 @@ export interface ZatcaComplianceCsidRequestPlanResponse {
   recommendedNextSteps: string[];
 }
 
+export interface ZatcaComplianceCsidCustodyProviderReadiness {
+  localOnly?: true;
+  dryRun?: true;
+  noMutation?: true;
+  noNetwork?: true;
+  noCsidRequest?: true;
+  noProductionCredentials?: true;
+  provider: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
+  enabled: boolean;
+  tokenStorageReady: boolean;
+  secretStorageReady: boolean;
+  certificateStorageReady: boolean;
+  kmsConfigured: boolean;
+  secretsManagerConfigured: boolean;
+  encryptedDbApproved: boolean;
+  productionCompliance: false;
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
+}
+
 export interface ZatcaComplianceCsidCustodyGate {
   allowed: false;
   tokenStorageReady: false;
@@ -3444,6 +3465,7 @@ export interface ZatcaComplianceCsidCustodyGate {
   encryptedDbApproved: false;
   bodyPersistenceAllowed: false;
   productionCompliance: false;
+  providerReadiness?: ZatcaComplianceCsidCustodyProviderReadiness;
   reasons: string[];
 }
 
@@ -3537,6 +3559,7 @@ export interface ZatcaComplianceCsidCustodyPlanResponse {
   bodyPersistenceAllowed: false;
   latestCustodyRecord?: ZatcaComplianceCsidCustodyRecord | null;
   custodyRecordCount?: number;
+  providerReadiness?: ZatcaComplianceCsidCustodyProviderReadiness;
   custodyGate?: ZatcaComplianceCsidCustodyGate;
   tokenStorageReady?: false;
   secretStorageReady?: false;

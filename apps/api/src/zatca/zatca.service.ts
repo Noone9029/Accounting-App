@@ -86,6 +86,7 @@ import {
   mapComplianceCsidHttpResponse,
 } from "./adapters/compliance-csid-http.mapper";
 import { ZATCA_ONBOARDING_ADAPTER, type ComplianceCsidResult, type ZatcaAdapterResult, type ZatcaOnboardingAdapter } from "./adapters/zatca-onboarding.adapter";
+import { DisabledComplianceCsidSecretCustodyProvider, type CustodyProviderReadiness } from "./custody/compliance-csid-secret-custody.provider";
 import { readZatcaAdapterConfig, summarizeZatcaAdapterConfig, type ZatcaAdapterConfig, ZATCA_ADAPTER_CONFIG } from "./zatca.config";
 import { readZatcaHashModeConfig } from "./zatca-hash-mode";
 
@@ -416,6 +417,7 @@ async function zatcaStorageProbeBodyToBuffer(body: unknown): Promise<Buffer> {
 export class ZatcaService {
   private readonly onboardingAdapter: ZatcaOnboardingAdapter;
   private readonly adapterConfig: ZatcaAdapterConfig;
+  private readonly complianceCsidSecretCustodyProvider = new DisabledComplianceCsidSecretCustodyProvider();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -1123,6 +1125,29 @@ export class ZatcaService {
     };
   }
 
+  getComplianceCsidCustodyProviderReadiness() {
+    const readiness = this.getComplianceCsidSecretCustodyProviderReadiness();
+    return {
+      localOnly: true,
+      dryRun: true,
+      noMutation: true,
+      noNetwork: true,
+      noCsidRequest: true,
+      noProductionCredentials: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noTokenBody: true,
+      noSecretBody: true,
+      noCertificateBody: true,
+      noPrivateKey: true,
+      noOtp: true,
+      noCsrBody: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      ...readiness,
+    };
+  }
+
   async createComplianceCsidCustodyRecord(
     organizationId: string,
     actorUserId: string,
@@ -1260,7 +1285,8 @@ export class ZatcaService {
       : null;
     const custodyRecordCount = model?.count ? await model.count({ where: { organizationId, egsUnitId: id } }) : 0;
     const latestCustodyRecord = latestRecord ? this.toSafeComplianceCsidCustodyRecord(latestRecord) : null;
-    const custodyGate = this.getComplianceCsidCustodyGate(egsUnit);
+    const providerReadiness = this.getComplianceCsidSecretCustodyProviderReadiness();
+    const custodyGate = this.getComplianceCsidCustodyGate(egsUnit, providerReadiness);
 
     return {
       localOnly: true,
@@ -1298,6 +1324,7 @@ export class ZatcaService {
       hasProductionCsid: Boolean(egsUnit.productionCsidPem),
       latestCustodyRecord,
       custodyRecordCount,
+      providerReadiness,
       custodyGate,
       tokenStorageReady: false,
       secretStorageReady: false,
@@ -1339,6 +1366,8 @@ export class ZatcaService {
     const plan = await this.getEgsUnitComplianceCsidRequestPlan(organizationId, id);
     const executionEnabled = isSandboxComplianceCsidRequestEnabled();
     const mode = dto.mode ?? "plan";
+    const providerReadiness = this.getComplianceCsidSecretCustodyProviderReadiness();
+    const custodyGate = this.getComplianceCsidCustodyGate(plan.egsUnit, providerReadiness);
     const baseResponse = {
       localOnly: true,
       dryRun: true,
@@ -1381,7 +1410,8 @@ export class ZatcaService {
       certificatePersisted: false,
       custodyPlanRequired: true,
       custodyRecordRequired: true,
-      custodyGate: this.getComplianceCsidCustodyGate(plan.egsUnit),
+      providerReadiness,
+      custodyGate,
       tokenStorageReady: false,
       secretStorageReady: false,
       certificateStorageReady: false,
@@ -5976,6 +6006,8 @@ export class ZatcaService {
     }
 
     checks.push(
+      this.check("ZATCA_COMPLIANCE_CSID_CUSTODY_PROVIDER_INTERFACE_READY", "INFO", "complianceCsidCustody.providerInterface", "A CSID secret custody provider interface exists for future token, secret, and certificate references.", "COMPLIANCE_CSID_RESPONSE", "Keep the provider disabled until a real secrets-manager/KMS boundary is approved."),
+      this.check("ZATCA_COMPLIANCE_CSID_CUSTODY_PROVIDER_DISABLED", "ERROR", "complianceCsidCustody.provider", "The CSID secret custody provider is disabled.", "COMPLIANCE_CSID_RESPONSE", "Configure an approved secrets-manager/KMS provider before receiving or persisting real sandbox CSID response material."),
       this.check("ZATCA_COMPLIANCE_CSID_TOKEN_CUSTODY_NOT_IMPLEMENTED", "ERROR", "complianceCsidCustody.binarySecurityToken", "Compliance CSID binarySecurityToken custody is not implemented.", "COMPLIANCE_CSID_RESPONSE", "Do not persist or return token bodies until encrypted custody is designed and reviewed."),
       this.check("ZATCA_COMPLIANCE_CSID_SECRET_CUSTODY_NOT_IMPLEMENTED", "ERROR", "complianceCsidCustody.secret", "Compliance CSID secret custody is not implemented.", "COMPLIANCE_CSID_RESPONSE", "Do not persist or return secret bodies; use secrets-manager/KMS-style custody in a future phase."),
       this.check("ZATCA_COMPLIANCE_CSID_CERTIFICATE_CUSTODY_NOT_IMPLEMENTED", "ERROR", "complianceCsidCustody.certificate", "Compliance CSID certificate custody is not implemented.", "COMPLIANCE_CSID_RESPONSE", "Model certificate metadata separately from certificate body storage before any real response persistence."),
@@ -6466,27 +6498,33 @@ export class ZatcaService {
     return egsUnit;
   }
 
-  private getComplianceCsidCustodyGate(_egsUnit?: { complianceCsidPem?: string | null; productionCsidPem?: string | null; certificateRequestId?: string | null } | null) {
+  private getComplianceCsidSecretCustodyProviderReadiness(): CustodyProviderReadiness {
+    return this.complianceCsidSecretCustodyProvider.getReadiness();
+  }
+
+  private getComplianceCsidCustodyGate(
+    _egsUnit?: { complianceCsidPem?: string | null; productionCsidPem?: string | null; certificateRequestId?: string | null } | null,
+    providerReadiness = this.getComplianceCsidSecretCustodyProviderReadiness(),
+  ) {
+    const reasons = [
+      ...providerReadiness.blockers,
+      "real sandbox response not received",
+      "production CSID missing",
+      "renewal metadata incomplete",
+      "production compliance false",
+    ];
     return {
       allowed: false,
-      tokenStorageReady: false,
-      secretStorageReady: false,
-      certificateStorageReady: false,
-      kmsConfigured: false,
-      secretsManagerConfigured: false,
-      encryptedDbApproved: false,
+      tokenStorageReady: providerReadiness.tokenStorageReady,
+      secretStorageReady: providerReadiness.secretStorageReady,
+      certificateStorageReady: providerReadiness.certificateStorageReady,
+      kmsConfigured: providerReadiness.kmsConfigured,
+      secretsManagerConfigured: providerReadiness.secretsManagerConfigured,
+      encryptedDbApproved: providerReadiness.encryptedDbApproved,
       bodyPersistenceAllowed: false,
       productionCompliance: false,
-      reasons: [
-        "token custody not implemented",
-        "secret custody not implemented",
-        "certificate custody not implemented",
-        "KMS/secrets manager not configured",
-        "real sandbox response not received",
-        "production CSID missing",
-        "renewal metadata incomplete",
-        "production compliance false",
-      ],
+      providerReadiness,
+      reasons: [...new Set(reasons)],
     };
   }
 

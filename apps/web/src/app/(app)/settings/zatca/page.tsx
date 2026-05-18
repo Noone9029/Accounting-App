@@ -1354,12 +1354,13 @@ function ComplianceCsidCustodyPlanPanel({
       <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] text-steel md:grid-cols-3">
         <div>Records: <span className="font-semibold text-ink">{plan?.custodyRecordCount ?? 0}</span></div>
         <div>Latest: <span className="font-semibold text-ink">{latest?.status ?? "NONE"}</span></div>
+        <div>Provider: <span className="font-semibold text-rosewood">{plan?.providerReadiness?.provider ?? "DISABLED"}</span></div>
         <div>Gate: <span className="font-semibold text-rosewood">{plan?.custodyGate?.allowed ? "ALLOWED" : "BLOCKED"}</span></div>
-        <div>Token storage: <span className="font-semibold text-rosewood">not ready</span></div>
-        <div>Secret storage: <span className="font-semibold text-rosewood">not ready</span></div>
-        <div>Certificate storage: <span className="font-semibold text-rosewood">not ready</span></div>
-        <div>KMS configured: <span className="font-semibold text-rosewood">false</span></div>
-        <div>Secrets manager: <span className="font-semibold text-rosewood">false</span></div>
+        <div>Token storage: <span className="font-semibold text-rosewood">{plan?.providerReadiness?.tokenStorageReady ? "ready" : "not ready"}</span></div>
+        <div>Secret storage: <span className="font-semibold text-rosewood">{plan?.providerReadiness?.secretStorageReady ? "ready" : "not ready"}</span></div>
+        <div>Certificate storage: <span className="font-semibold text-rosewood">{plan?.providerReadiness?.certificateStorageReady ? "ready" : "not ready"}</span></div>
+        <div>KMS configured: <span className="font-semibold text-rosewood">{plan?.providerReadiness?.kmsConfigured ? "true" : "false"}</span></div>
+        <div>Secrets manager: <span className="font-semibold text-rosewood">{plan?.providerReadiness?.secretsManagerConfigured ? "true" : "false"}</span></div>
         <div>Body persistence: <span className="font-semibold text-rosewood">blocked</span></div>
       </div>
       {plan?.custodyGate?.reasons?.length ? (

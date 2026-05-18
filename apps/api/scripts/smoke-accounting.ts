@@ -1777,7 +1777,29 @@ interface ZatcaComplianceCsidCustodyGate {
   secretsManagerConfigured: false;
   encryptedDbApproved: false;
   productionCompliance: false;
+  providerReadiness?: ZatcaComplianceCsidCustodyProviderReadiness;
   reasons: string[];
+}
+
+interface ZatcaComplianceCsidCustodyProviderReadiness {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noNetwork: true;
+  noCsidRequest: true;
+  noProductionCredentials: true;
+  provider: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
+  enabled: boolean;
+  tokenStorageReady: boolean;
+  secretStorageReady: boolean;
+  certificateStorageReady: boolean;
+  kmsConfigured: boolean;
+  secretsManagerConfigured: boolean;
+  encryptedDbApproved: boolean;
+  productionCompliance: false;
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
 }
 
 interface ZatcaComplianceCsidCustodyRecord {
@@ -2009,6 +2031,7 @@ interface ZatcaComplianceCsidCustodyPlanResponse {
   hasProductionCsid: boolean;
   latestCustodyRecord: ZatcaComplianceCsidCustodyRecord | null;
   custodyRecordCount: number;
+  providerReadiness: ZatcaComplianceCsidCustodyProviderReadiness;
   custodyGate: ZatcaComplianceCsidCustodyGate;
   tokenStorageReady: false;
   secretStorageReady: false;
@@ -3898,6 +3921,26 @@ async function main(): Promise<void> {
   assertEqual(egsAfterComplianceCsidPlan.lastInvoiceHash, egsBeforeComplianceCsidPlan.lastInvoiceHash, "ZATCA compliance CSID plan does not mutate EGS previous hash");
   const submissionsAfterComplianceCsidPlan = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
   assertEqual(submissionsAfterComplianceCsidPlan.length, submissionsBeforeComplianceCsidPlan.length, "ZATCA compliance CSID plan does not create submission logs");
+  const submissionsBeforeComplianceCsidProviderReadiness = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  const zatcaComplianceCsidCustodyProviderReadiness = await get<ZatcaComplianceCsidCustodyProviderReadiness>("/zatca/compliance-csid-custody/provider-readiness", headers);
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.localOnly, true, "ZATCA CSID custody provider readiness localOnly");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.dryRun, true, "ZATCA CSID custody provider readiness dryRun");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.noMutation, true, "ZATCA CSID custody provider readiness noMutation");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.noNetwork, true, "ZATCA CSID custody provider readiness no network");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.noCsidRequest, true, "ZATCA CSID custody provider readiness no CSID request");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.provider, "DISABLED", "ZATCA CSID custody provider disabled by default");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.enabled, false, "ZATCA CSID custody provider execution disabled");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.tokenStorageReady, false, "ZATCA CSID custody provider token storage not ready");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.secretStorageReady, false, "ZATCA CSID custody provider secret storage not ready");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.certificateStorageReady, false, "ZATCA CSID custody provider certificate storage not ready");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.productionCompliance, false, "ZATCA CSID custody provider productionCompliance false");
+  const serializedComplianceCsidProviderReadiness = JSON.stringify(zatcaComplianceCsidCustodyProviderReadiness);
+  assert(!serializedComplianceCsidProviderReadiness.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA CSID custody provider readiness does not expose CSR body");
+  assert(!serializedComplianceCsidProviderReadiness.includes("BEGIN CERTIFICATE"), "ZATCA CSID custody provider readiness does not expose certificate body");
+  assert(!serializedComplianceCsidProviderReadiness.includes("BINARY-SECURITY-TOKEN"), "ZATCA CSID custody provider readiness does not expose token body");
+  assert(!serializedComplianceCsidProviderReadiness.includes("LOCAL-MOCK-SECRET"), "ZATCA CSID custody provider readiness does not expose secret body");
+  const submissionsAfterComplianceCsidProviderReadiness = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterComplianceCsidProviderReadiness.length, submissionsBeforeComplianceCsidProviderReadiness.length, "ZATCA CSID custody provider readiness does not create submission logs");
   const zatcaComplianceCsidCustodyPlan = await get<ZatcaComplianceCsidCustodyPlanResponse>(`/zatca/egs-units/${smokeEgs.id}/compliance-csid-custody-plan`, headers);
   assertEqual(zatcaComplianceCsidCustodyPlan.localOnly, true, "ZATCA compliance CSID custody plan localOnly");
   assertEqual(zatcaComplianceCsidCustodyPlan.dryRun, true, "ZATCA compliance CSID custody plan dryRun");
@@ -3907,13 +3950,15 @@ async function main(): Promise<void> {
   assertEqual(zatcaComplianceCsidCustodyPlan.noProductionCredentials, true, "ZATCA compliance CSID custody plan no production credentials");
   assertEqual(zatcaComplianceCsidCustodyPlan.productionCompliance, false, "ZATCA compliance CSID custody plan productionCompliance false");
   assertEqual(zatcaComplianceCsidCustodyPlan.tokenCustodyStatus.implemented, false, "ZATCA compliance CSID token custody not implemented");
+  assertEqual(zatcaComplianceCsidCustodyPlan.providerReadiness.provider, "DISABLED", "ZATCA compliance CSID custody plan includes disabled provider readiness");
+  assertEqual(zatcaComplianceCsidCustodyPlan.providerReadiness.enabled, false, "ZATCA compliance CSID custody plan provider disabled");
   assertEqual(zatcaComplianceCsidCustodyPlan.secretCustodyStatus.implemented, false, "ZATCA compliance CSID secret custody not implemented");
   assertEqual(zatcaComplianceCsidCustodyPlan.certificateCustodyStatus.implemented, false, "ZATCA compliance CSID certificate custody not implemented");
   assertEqual(zatcaComplianceCsidCustodyPlan.certificateExpiryKnown, false, "ZATCA compliance CSID certificate expiry unknown");
   assertEqual(zatcaComplianceCsidCustodyPlan.renewalMetadataModeled, false, "ZATCA compliance CSID renewal metadata not modeled");
   assert(zatcaComplianceCsidCustodyPlan.sensitiveFields.includes("binarySecurityToken"), "ZATCA compliance CSID custody plan marks token sensitive");
   assert(zatcaComplianceCsidCustodyPlan.sensitiveFields.includes("secret"), "ZATCA compliance CSID custody plan marks secret sensitive");
-  assert(zatcaComplianceCsidCustodyPlan.blockers.some((blocker) => blocker.toLowerCase().includes("token custody")), "ZATCA compliance CSID custody plan reports token custody blocker");
+  assert(zatcaComplianceCsidCustodyPlan.providerReadiness.blockers.some((blocker) => blocker.toLowerCase().includes("token storage")), "ZATCA compliance CSID custody plan reports token storage blocker");
   assertNoPrivateKey(zatcaComplianceCsidCustodyPlan, "ZATCA compliance CSID custody plan response");
   const serializedComplianceCsidCustodyPlan = JSON.stringify(zatcaComplianceCsidCustodyPlan);
   assert(!serializedComplianceCsidCustodyPlan.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA compliance CSID custody plan does not expose CSR body");
@@ -6079,6 +6124,8 @@ async function main(): Promise<void> {
         zatcaComplianceCsidDryRunNoCsidRequest: zatcaComplianceCsidDryRun.noCsidRequest,
         zatcaComplianceCsidCustodyRecordStatus: zatcaComplianceCsidCustodyRecord.custodyRecord.status,
         zatcaComplianceCsidCustodyRecordProductionCompliance: zatcaComplianceCsidCustodyRecord.custodyRecord.productionCompliance,
+        zatcaComplianceCsidCustodyProvider: zatcaComplianceCsidCustodyProviderReadiness.provider,
+        zatcaComplianceCsidCustodyProviderEnabled: zatcaComplianceCsidCustodyProviderReadiness.enabled,
         zatcaComplianceCsidCustodyGateAllowed: zatcaComplianceCsidCustodyPlanAfterRecord.custodyGate.allowed,
         zatcaComplianceCsidCustodyTokenStorageReady: zatcaComplianceCsidCustodyPlanAfterRecord.tokenStorageReady,
         paymentIds: [partialPayment.id, remainingPayment.id],
