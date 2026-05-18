@@ -4,6 +4,8 @@ import {
   emailProviderLabel,
   emailProviderWarningText,
   emailReadinessLabel,
+  emailProductionReadinessLabel,
+  emailDiagnosticsStatusLabel,
   inviteAcceptPath,
   isValidAuthPassword,
   passwordResetConfirmPath,
@@ -30,6 +32,10 @@ describe("email helpers", () => {
     expect(emailProviderLabel("smtp-disabled")).toBe("SMTP disabled");
     expect(emailReadinessLabel(true)).toBe("Ready");
     expect(emailReadinessLabel(false)).toBe("Needs configuration");
+    expect(emailProductionReadinessLabel(true)).toBe("Production email configured");
+    expect(emailProductionReadinessLabel(false)).toBe("Production email not ready");
+    expect(emailDiagnosticsStatusLabel("SKIPPED_DISABLED")).toBe("Diagnostics disabled");
+    expect(emailDiagnosticsStatusLabel("ATTEMPTED")).toBe("Diagnostics attempted");
     expect(smtpConfigStateLabel(false)).toBe("Missing");
   });
 

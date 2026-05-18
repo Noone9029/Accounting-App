@@ -47,6 +47,18 @@ export function emailReadinessClass(ready: boolean): string {
   return ready ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700";
 }
 
+export function emailProductionReadinessLabel(productionReady: boolean): string {
+  return productionReady ? "Production email configured" : "Production email not ready";
+}
+
+export function emailDiagnosticsStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    SKIPPED_DISABLED: "Diagnostics disabled",
+    ATTEMPTED: "Diagnostics attempted",
+  };
+  return labels[status] ?? status;
+}
+
 export function smtpConfigStateLabel(configured: boolean): string {
   return configured ? "Configured" : "Missing";
 }

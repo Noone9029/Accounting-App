@@ -18,6 +18,8 @@ Required local/default values:
 
 - `EMAIL_PROVIDER=mock`
 - `EMAIL_FROM="no-reply@ledgerbyte.local"`
+- `EMAIL_REPLY_TO=""`
+- `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED=false`
 - `APP_WEB_URL="http://localhost:3000"`
 
 SMTP configuration:
@@ -27,6 +29,8 @@ SMTP configuration:
 - `SMTP_USER`
 - `SMTP_PASSWORD`
 - `SMTP_SECURE`
+- `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS`
+- `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS`
 
 `SMTP_PASSWORD` must never be logged, returned from an API, stored in frontend bundles, or copied into documentation with a real value.
 
@@ -39,11 +43,24 @@ SMTP configuration:
 - blocking reasons
 - warnings
 - from email
+- from/reply-to configured booleans
 - SMTP configuration booleans
+- production-ready flag
+- diagnostics execution gate
+- redaction guarantees
 - mock-mode flag
 - real-sending-enabled flag
 
-The endpoint does not expose raw SMTP host values, usernames, passwords, tokens, or message links outside the existing mock outbox behavior.
+The endpoint is read-only/no-mutation and does not send email. It does not expose raw SMTP host values, usernames, passwords, API keys, tokens, connection URLs, authorization headers, provider secrets, or message links outside the existing mock outbox behavior.
+
+## Safe Diagnostics
+
+`POST /email/diagnostics` returns a diagnostic plan/status without creating outbox records.
+
+- Default `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED=false`: returns `SKIPPED_DISABLED`, `executionAttempted=false`, `noEmailSent=true`, `noCustomerEmailSent=true`, and `noMutation=true`.
+- Enabled mode requires a request recipient and an allowlist match through `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS` or `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS`.
+- Diagnostic subjects/bodies are test-only and contain no tenant records or business data.
+- Responses mask recipients and return redacted delivery summaries only.
 
 ## Test Send
 

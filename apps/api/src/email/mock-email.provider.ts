@@ -28,6 +28,7 @@ export class MockEmailProvider implements EmailProvider {
         portConfigured: false,
         userConfigured: false,
         passwordConfigured: false,
+        secureModeConfigured: false,
         secure: false,
       },
       mockMode: true,

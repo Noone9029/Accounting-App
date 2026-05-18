@@ -283,6 +283,7 @@ Organization members:
 Email:
 
 - `GET /email/readiness`
+- `POST /email/diagnostics`
 - `POST /email/test-send`
 - `GET /email/outbox`
 - `GET /email/outbox/:id`
@@ -1466,7 +1467,8 @@ Configuration:
 - `EMAIL_FROM="no-reply@ledgerbyte.local"`
 - `APP_WEB_URL="http://localhost:3000"`
 - Supported provider modes: `mock`, `smtp-disabled`, and `smtp`.
-- SMTP configuration when `EMAIL_PROVIDER=smtp`: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_SECURE`.
+- SMTP configuration when `EMAIL_PROVIDER=smtp`: `EMAIL_REPLY_TO`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_SECURE`.
+- Diagnostics configuration: `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS`, and `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS`.
 - Do not commit real SMTP credentials. `SMTP_PASSWORD` is never returned by readiness APIs.
 
 Behavior:
@@ -1477,7 +1479,8 @@ Behavior:
 - `POST /auth/invitations/:token/accept` sets the user password, activates the membership, consumes the token, and returns a normal login response.
 - `POST /auth/password-reset/request` always returns a generic response and only creates a reset token/email when the user exists.
 - `POST /auth/password-reset/confirm` validates a one-hour reset token, updates the password, and consumes the token.
-- `GET /email/readiness` reports active provider readiness, SMTP configuration booleans, warnings, and blocking reasons without returning secret values.
+- `GET /email/readiness` reports active provider readiness, production SMTP configuration booleans, diagnostics gate state, warnings, and blocking reasons without sending email or returning secret values.
+- `POST /email/diagnostics` is disabled by default, sends no customer email, creates no outbox record, and only attempts an allowlisted test recipient when explicitly enabled.
 - `POST /email/test-send` creates a `TEST_EMAIL` outbox record through the active provider. Mock mode records `SENT_MOCK`; SMTP mode records `SENT_PROVIDER` when a configured relay accepts the message.
 - `GET /email/outbox` and `GET /email/outbox/:id` expose tenant-scoped mock/local email records for admins with `emailOutbox.view`.
 - `POST /auth/tokens/cleanup-expired` deletes expired, unconsumed auth tokens older than 30 days for the active organization.
@@ -2332,3 +2335,13 @@ Recommended next step:
 - The ZATCA wizard step remains local-readiness only: real ZATCA network calls, OTP/CSID execution, clearance/reporting, PDF-A3, production credentials, signed XML/QR body persistence, and production compliance claims remain blocked.
 - Latest setup-wizard verification passed targeted web tests, web typecheck, workspace typecheck, build, smoke:accounting, and git diff --check; no backend mutation or schema/seed command was needed.
 - See `docs/SELLABLE_V1_READINESS_AUDIT.md` for current readiness percentages, blockers, deployment recommendations, and next implementation prompts.
+
+## Email readiness and diagnostics
+
+- `GET /email/readiness` is an admin/settings readiness check. It is read-only, no-mutation, sends no customer email, and returns provider/SMTP booleans, blockers, warnings, `productionReady`, and redaction guarantees without raw SMTP host, username, password, API key, token, connection URL, authorization header, or provider secret values.
+- `POST /email/diagnostics` is disabled by default with `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED=false`. In the default state it returns `SKIPPED_DISABLED`, `executionAttempted=false`, `noEmailSent=true`, `noCustomerEmailSent=true`, and creates no outbox record.
+- Diagnostic sending can only be attempted when `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED=true` and the requested recipient matches `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS`, or the built-in internal test domains. Responses return a redacted delivery summary only.
+- Email environment variables: `EMAIL_PROVIDER`, `EMAIL_FROM`, `EMAIL_REPLY_TO`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS`, and `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS`.
+- `/settings/email-outbox` shows production email readiness, invite/password-reset reliability warnings, diagnostics disabled-by-default status, redacted SMTP configuration state, and no-customer-email safety messaging.
+- Production SMTP is still not validated until a non-production relay/provider, sender domain authentication, bounces/webhooks, retries, and monitoring are reviewed.
+- Latest email-readiness verification: targeted API email/auth tests, targeted web email status tests, `corepack pnpm typecheck`, `corepack pnpm build`, `corepack pnpm smoke:accounting`, and `git diff --check` passed.

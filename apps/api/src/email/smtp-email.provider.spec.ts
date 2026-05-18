@@ -30,8 +30,9 @@ describe("SmtpEmailProvider", () => {
 
     expect(readiness.ready).toBe(false);
     expect(readiness.smtp.passwordConfigured).toBe(true);
-    expect(readiness.blockingReasons).toEqual(expect.arrayContaining(["SMTP_HOST is required when EMAIL_PROVIDER=smtp."]));
+    expect(readiness.blockingReasons).toEqual(expect.arrayContaining(["SMTP host is required when SMTP delivery is enabled."]));
     expect(JSON.stringify(readiness)).not.toContain("secret-value");
+    expect(JSON.stringify(readiness)).not.toContain("SMTP_PASSWORD");
   });
 
   it("reports complete smtp config as real-send ready without exposing secrets", () => {
@@ -56,6 +57,7 @@ describe("SmtpEmailProvider", () => {
         userConfigured: true,
         passwordConfigured: true,
         secure: true,
+        secureModeConfigured: true,
       },
     });
     expect(readiness.blockingReasons).toEqual([]);

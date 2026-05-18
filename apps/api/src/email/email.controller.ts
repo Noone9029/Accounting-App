@@ -5,6 +5,7 @@ import { RequirePermissions } from "../auth/decorators/require-permissions.decor
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
+import { RunEmailDiagnosticsDto } from "./dto/run-email-diagnostics.dto";
 import { SendTestEmailDto } from "./dto/send-test-email.dto";
 import { EmailService } from "./email.service";
 
@@ -17,6 +18,15 @@ export class EmailController {
   @RequirePermissions(PERMISSIONS.emailOutbox.view, PERMISSIONS.users.manage)
   readiness() {
     return this.emailService.readiness();
+  }
+
+  @Post("diagnostics")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  runDiagnostics(@CurrentOrganizationId() organizationId: string, @Body() dto: RunEmailDiagnosticsDto) {
+    return this.emailService.runDiagnostics({
+      organizationId,
+      toEmail: dto.toEmail,
+    });
   }
 
   @Post("test-send")

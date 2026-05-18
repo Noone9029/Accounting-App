@@ -15,11 +15,15 @@ LedgerByte supports an opt-in SMTP adapter for transactional emails. The default
 ```bash
 EMAIL_PROVIDER=smtp
 EMAIL_FROM="no-reply@example.com"
+EMAIL_REPLY_TO="support@example.com"
 SMTP_HOST="smtp.example.com"
 SMTP_PORT="587"
 SMTP_USER="smtp-user"
 SMTP_PASSWORD="smtp-password"
 SMTP_SECURE="false"
+LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED="false"
+LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS=""
+LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS="example.test,ledgerbyte.local"
 ```
 
 Never commit real SMTP credentials. `SMTP_PASSWORD` is not returned by readiness APIs and must not be logged.
@@ -29,7 +33,10 @@ Never commit real SMTP credentials. `SMTP_PASSWORD` is not returned by readiness
 Use a sandbox SMTP service such as Mailtrap, Resend SMTP, or another provider test mailbox before using production sender domains. Verify:
 
 - `GET /email/readiness` shows `ready: true` and `realSendingEnabled: true`.
-- `POST /email/test-send` creates an `EmailOutbox` record with `SENT_PROVIDER`.
+- `GET /email/readiness` shows `productionReady: true` only when provider, from/reply-to, SMTP host/port/secure mode, and credentials are configured.
+- Default `POST /email/diagnostics` returns `SKIPPED_DISABLED`, sends no email, and creates no outbox record.
+- If diagnostics sending is explicitly enabled, use only an allowlisted sandbox recipient; responses mask the recipient and return a redacted delivery summary.
+- `POST /email/test-send` still creates an `EmailOutbox` record with `SENT_PROVIDER` when explicitly used against a configured SMTP relay.
 - The provider message id is stored when the SMTP relay returns one.
 - Failed sends store a safe failure summary without credentials.
 

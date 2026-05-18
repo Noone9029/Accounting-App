@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { EmailReadinessSafeStatus } from "@/components/email/email-readiness-safe-status";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
@@ -10,6 +11,7 @@ import {
   emailProviderWarningText,
   emailReadinessClass,
   emailReadinessLabel,
+  emailDiagnosticsStatusLabel,
   emailStatusClass,
   emailStatusLabel,
   emailTemplateLabel,
@@ -17,7 +19,7 @@ import {
   smtpConfigStateLabel,
 } from "@/lib/email";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { AuthTokenCleanupResponse, EmailOutboxDetail, EmailOutboxEntry, EmailReadinessResponse } from "@/lib/types";
+import type { AuthTokenCleanupResponse, EmailDiagnosticsResponse, EmailOutboxDetail, EmailOutboxEntry, EmailReadinessResponse } from "@/lib/types";
 
 export default function EmailOutboxPage() {
   const organizationId = useActiveOrganizationId();
@@ -28,9 +30,9 @@ export default function EmailOutboxPage() {
   const [loading, setLoading] = useState(false);
   const [cleanupLoading, setCleanupLoading] = useState(false);
   const [cleanupResult, setCleanupResult] = useState<AuthTokenCleanupResponse | null>(null);
-  const [testEmail, setTestEmail] = useState("");
-  const [testSending, setTestSending] = useState(false);
-  const [testSendResult, setTestSendResult] = useState<EmailOutboxDetail | null>(null);
+  const [diagnosticsEmail, setDiagnosticsEmail] = useState("");
+  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
+  const [diagnosticsResult, setDiagnosticsResult] = useState<EmailDiagnosticsResponse | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -70,28 +72,27 @@ export default function EmailOutboxPage() {
     }
   }
 
-  async function sendTestEmail() {
-    setTestSending(true);
-    setTestSendResult(null);
+  async function runDiagnostics() {
+    setDiagnosticsLoading(true);
+    setDiagnosticsResult(null);
     setError("");
     try {
-      const result = await apiRequest<EmailOutboxDetail>("/email/test-send", {
+      const body = diagnosticsEmail.trim() ? { toEmail: diagnosticsEmail.trim() } : {};
+      const result = await apiRequest<EmailDiagnosticsResponse>("/email/diagnostics", {
         method: "POST",
-        body: { toEmail: testEmail.trim() },
+        body,
       });
-      setTestSendResult(result);
-      setSelected(result);
-      setEmails((current) => [result, ...current.filter((email) => email.id !== result.id)]);
+      setDiagnosticsResult(result);
     } catch (sendError) {
-      setError(sendError instanceof Error ? sendError.message : "Unable to send test email.");
+      setError(sendError instanceof Error ? sendError.message : "Unable to run email diagnostics.");
     } finally {
-      setTestSending(false);
+      setDiagnosticsLoading(false);
     }
   }
 
   const canCleanTokens = can(PERMISSIONS.users.manage);
-  const canSendTestEmail = can(PERMISSIONS.users.manage);
-  const testEmailValid = isValidTestEmailAddress(testEmail);
+  const canRunDiagnostics = can(PERMISSIONS.users.manage);
+  const diagnosticsEmailValid = !readiness?.diagnostics.executionEnabled || isValidTestEmailAddress(diagnosticsEmail);
 
   return (
     <section>
@@ -129,11 +130,14 @@ export default function EmailOutboxPage() {
             <Detail label="SMTP port" value={smtpConfigStateLabel(readiness.smtp.portConfigured)} />
             <Detail label="SMTP user" value={smtpConfigStateLabel(readiness.smtp.userConfigured)} />
             <Detail label="SMTP password" value={smtpConfigStateLabel(readiness.smtp.passwordConfigured)} />
-            <Detail label="SMTP secure" value={readiness.smtp.secure ? "True" : "False"} />
+            <Detail label="SMTP secure mode" value={readiness.smtp.secureModeConfigured ? (readiness.smtp.secure ? "Secure" : "Non-secure") : "Missing"} />
           </div>
-          {readiness.blockingReasons.length > 0 ? (
+          <div className="mt-4">
+            <EmailReadinessSafeStatus readiness={readiness} diagnosticsResult={diagnosticsResult} />
+          </div>
+          {(readiness.blockers.length > 0 || readiness.blockingReasons.length > 0) ? (
             <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
-              {readiness.blockingReasons.map((reason) => (
+              {(readiness.blockers.length > 0 ? readiness.blockers : readiness.blockingReasons).map((reason) => (
                 <div key={reason}>{reason}</div>
               ))}
             </div>
@@ -145,31 +149,35 @@ export default function EmailOutboxPage() {
               ))}
             </div>
             ) : null}
-          {canSendTestEmail ? (
+          {canRunDiagnostics ? (
             <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
-              <h3 className="text-sm font-semibold text-ink">Send test email</h3>
-              <p className="mt-1 text-sm text-steel">Uses the active provider. Mock mode records the message in this outbox only.</p>
+              <h3 className="text-sm font-semibold text-ink">Safe email diagnostics</h3>
+              <p className="mt-1 text-sm text-steel">
+                Disabled by default. It sends no customer email unless server diagnostics are explicitly enabled and the recipient is allowlisted.
+              </p>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <input
                   type="email"
-                  value={testEmail}
-                  onChange={(event) => setTestEmail(event.target.value)}
-                  placeholder="ops@example.com"
+                  value={diagnosticsEmail}
+                  onChange={(event) => setDiagnosticsEmail(event.target.value)}
+                  placeholder={readiness.diagnostics.executionEnabled ? "ops@example.test" : "Optional while disabled"}
                   className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
                 />
                 <button
                   type="button"
-                  onClick={() => void sendTestEmail()}
-                  disabled={testSending || !testEmailValid}
+                  onClick={() => void runDiagnostics()}
+                  disabled={diagnosticsLoading || !diagnosticsEmailValid}
                   className="rounded-md bg-palm px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-400"
                 >
-                  {testSending ? "Sending..." : "Send test email"}
+                  {diagnosticsLoading ? "Checking..." : "Run diagnostics"}
                 </button>
               </div>
-              {testEmail && !testEmailValid ? <p className="mt-2 text-sm text-rose-700">Enter a valid email address.</p> : null}
-              {testSendResult ? (
+              {diagnosticsEmail && !diagnosticsEmailValid ? <p className="mt-2 text-sm text-rose-700">Enter a valid diagnostics email address.</p> : null}
+              {diagnosticsResult ? (
                 <p className="mt-2 text-sm text-steel">
-                  Test email recorded with status <span className="font-medium text-ink">{emailStatusLabel(testSendResult.status)}</span>.
+                  {emailDiagnosticsStatusLabel(diagnosticsResult.status)} with provider{" "}
+                  <span className="font-medium text-ink">{diagnosticsResult.provider}</span>;{" "}
+                  {diagnosticsResult.noEmailSent ? "no email sent" : "delivery was attempted"}.
                 </p>
               ) : null}
             </div>

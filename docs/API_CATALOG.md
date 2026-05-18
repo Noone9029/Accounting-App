@@ -72,7 +72,8 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 
 | Method | Path | Purpose | Auth | Org header | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| GET | `/email/readiness` | Email provider readiness | Yes | Yes | Implemented | Requires `emailOutbox.view` or `users.manage`; reports provider readiness, SMTP config booleans, warnings, real-send flag, and blockers without exposing secrets. |
+| GET | `/email/readiness` | Email provider readiness | Yes | Yes | Implemented | Requires `emailOutbox.view` or `users.manage`; read-only/no-mutation; reports production readiness, SMTP config booleans, diagnostics gate state, warnings, real-send flag, blockers, and redaction guarantees without exposing secrets. |
+| POST | `/email/diagnostics` | Safe email diagnostics | Yes | Yes | Implemented | Requires `users.manage`; disabled by default, sends no customer email, creates no outbox record, and only attempts an allowlisted diagnostic recipient when explicitly enabled. |
 | POST | `/email/test-send` | Send provider test email | Yes | Yes | Implemented | Requires `users.manage`; uses active provider, records `TEST_EMAIL` in outbox, defaults to mock `SENT_MOCK`, and records `SENT_PROVIDER` only when SMTP is explicitly configured. |
 | GET | `/email/outbox` | List email records | Yes | Yes | Implemented | Requires `emailOutbox.view`; tenant scoped; no raw token field. |
 | GET | `/email/outbox/:id` | Email outbox detail | Yes | Yes | Implemented | Requires `emailOutbox.view`; includes mock/test body text for local/admin inspection. |

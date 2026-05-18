@@ -79,16 +79,19 @@ export class SmtpEmailProvider implements EmailProvider {
 
     if (provider === "smtp") {
       if (!smtp.hostConfigured) {
-        blockingReasons.push("SMTP_HOST is required when EMAIL_PROVIDER=smtp.");
+        blockingReasons.push("SMTP host is required when SMTP delivery is enabled.");
       }
       if (!smtp.portConfigured) {
-        blockingReasons.push("SMTP_PORT is required when EMAIL_PROVIDER=smtp.");
+        blockingReasons.push("SMTP port is required when SMTP delivery is enabled.");
       }
       if (!smtp.userConfigured) {
-        blockingReasons.push("SMTP_USER is required when EMAIL_PROVIDER=smtp.");
+        blockingReasons.push("SMTP username is required when SMTP delivery is enabled.");
       }
       if (!smtp.passwordConfigured) {
-        blockingReasons.push("SMTP_PASSWORD is required when EMAIL_PROVIDER=smtp.");
+        blockingReasons.push("SMTP password is required when SMTP delivery is enabled.");
+      }
+      if (!smtp.secureModeConfigured) {
+        warnings.push("SMTP secure mode is not explicit. The provider will default to non-secure SMTP unless configured otherwise.");
       }
       if (blockingReasons.length === 0) {
         warnings.push("Real SMTP sending is enabled. Verify provider credentials, DKIM/SPF, and test-domain safety before production use.");
@@ -116,12 +119,14 @@ export class SmtpEmailProvider implements EmailProvider {
 
   private smtpConfigReadiness(): SmtpConfigReadiness {
     const port = Number(this.config.get<string>("SMTP_PORT")?.trim());
+    const secureMode = this.config.get<string>("SMTP_SECURE")?.trim().toLowerCase();
     return {
       hostConfigured: Boolean(this.config.get<string>("SMTP_HOST")?.trim()),
       portConfigured: Number.isInteger(port) && port > 0,
       userConfigured: Boolean(this.config.get<string>("SMTP_USER")?.trim()),
       passwordConfigured: Boolean(this.config.get<string>("SMTP_PASSWORD")?.trim()),
-      secure: (this.config.get<string>("SMTP_SECURE")?.trim().toLowerCase() ?? "false") === "true",
+      secureModeConfigured: secureMode === "true" || secureMode === "false",
+      secure: (secureMode ?? "false") === "true",
     };
   }
 

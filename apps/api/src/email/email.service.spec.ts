@@ -2,7 +2,7 @@ import { EmailDeliveryStatus, EmailTemplateType } from "@prisma/client";
 import { EmailService } from "./email.service";
 
 describe("EmailService", () => {
-  function makeService() {
+  function makeService(options: { config?: Record<string, string | undefined>; provider?: Partial<ReturnType<typeof makeProvider>> } = {}) {
     const prisma = {
       emailOutbox: {
         create: jest.fn((args: { data: Record<string, unknown>; select: unknown }) => Promise.resolve({ id: "email-1", ...args.data })),
@@ -10,8 +10,17 @@ describe("EmailService", () => {
         findFirst: jest.fn(),
       },
     };
-    const config = { get: jest.fn((key: string) => (key === "EMAIL_FROM" ? "noreply@example.test" : undefined)) };
+    const configValues: Record<string, string | undefined> = { EMAIL_FROM: "noreply@example.test", ...options.config };
+    const config = { get: jest.fn((key: string) => configValues[key]) };
     const provider = {
+      ...makeProvider(),
+      ...options.provider,
+    };
+    return { service: new EmailService(prisma as never, config as never, provider), prisma, provider };
+  }
+
+  function makeProvider() {
+    return {
       provider: "mock",
       isMock: true,
       send: jest.fn().mockResolvedValue({ provider: "mock", status: EmailDeliveryStatus.SENT_MOCK, sentAt: new Date("2026-05-15T00:00:00.000Z") }),
@@ -25,13 +34,13 @@ describe("EmailService", () => {
           portConfigured: false,
           userConfigured: false,
           passwordConfigured: false,
+          secureModeConfigured: false,
           secure: false,
         },
         mockMode: true,
         realSendingEnabled: false,
       }),
     };
-    return { service: new EmailService(prisma as never, config as never, provider), prisma, provider };
   }
 
   it("stores organization invite emails in the outbox", async () => {
@@ -99,16 +108,157 @@ describe("EmailService", () => {
   });
 
   it("returns provider readiness without secrets", () => {
-    const { service } = makeService();
+    const { service } = makeService({
+      config: {
+        EMAIL_REPLY_TO: "support@example.test",
+        SMTP_HOST: "smtp.internal.example",
+        SMTP_USER: "smtp-user-secret",
+        SMTP_PASSWORD: "smtp-password-secret",
+        API_KEY: "api-key-secret",
+      },
+    });
 
-    expect(service.readiness()).toEqual(
+    const readiness = service.readiness();
+
+    expect(readiness).toEqual(
       expect.objectContaining({
         provider: "mock",
         ready: true,
+        localOnly: true,
+        noCustomerEmailSent: true,
+        readOnly: true,
+        noMutation: true,
+        providerConfigured: true,
+        fromAddressConfigured: true,
+        replyToConfigured: true,
+        smtpHostConfigured: false,
+        smtpPortConfigured: false,
+        smtpSecureModeConfigured: false,
+        credentialsConfigured: false,
+        productionReady: false,
         fromEmail: "noreply@example.test",
         realSendingEnabled: false,
       }),
     );
-    expect(JSON.stringify(service.readiness())).not.toContain("SMTP_PASSWORD");
+    expect(readiness.redactionGuarantees.length).toBeGreaterThan(0);
+    const serialized = JSON.stringify(readiness);
+    expect(serialized).not.toContain("smtp.internal.example");
+    expect(serialized).not.toContain("smtp-user-secret");
+    expect(serialized).not.toContain("smtp-password-secret");
+    expect(serialized).not.toContain("api-key-secret");
+    expect(serialized).not.toContain("SMTP_PASSWORD");
+  });
+
+  it("returns production SMTP readiness blockers without sending email", () => {
+    const provider = makeProvider();
+    provider.readiness.mockReturnValue({
+      provider: "smtp",
+      ready: false,
+      blockingReasons: ["SMTP host is required when SMTP delivery is enabled."],
+      warnings: [],
+      smtp: {
+        hostConfigured: false,
+        portConfigured: true,
+        userConfigured: true,
+        passwordConfigured: true,
+        secure: false,
+        secureModeConfigured: true,
+      },
+      mockMode: false,
+      realSendingEnabled: false,
+    });
+    const { service, prisma } = makeService({
+      config: {
+        EMAIL_PROVIDER: "smtp",
+        EMAIL_FROM: "",
+        SMTP_USER: "smtp-user-secret",
+        SMTP_PASSWORD: "smtp-password-secret",
+        SMTP_SECURE: "false",
+      },
+      provider,
+    });
+
+    const readiness = service.readiness();
+
+    expect(readiness.productionReady).toBe(false);
+    expect(readiness.noCustomerEmailSent).toBe(true);
+    expect(readiness.blockers).toEqual(
+      expect.arrayContaining([
+        "SMTP host is required when SMTP delivery is enabled.",
+        "Email from address must be configured for production delivery.",
+        "Email reply-to address should be configured for production support workflows.",
+      ]),
+    );
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.emailOutbox.create).not.toHaveBeenCalled();
+    expect(JSON.stringify(readiness)).not.toContain("smtp-password-secret");
+  });
+
+  it("skips diagnostics by default without sending or mutating", async () => {
+    const { service, provider, prisma } = makeService();
+
+    await expect(service.runDiagnostics({ organizationId: "org-1" })).resolves.toEqual(
+      expect.objectContaining({
+        executionEnabled: false,
+        executionAttempted: false,
+        noEmailSent: true,
+        noCustomerEmailSent: true,
+        noMutation: true,
+        status: "SKIPPED_DISABLED",
+      }),
+    );
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.emailOutbox.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsafe diagnostics recipients when execution is enabled", async () => {
+    const { service, provider } = makeService({
+      config: {
+        LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED: "true",
+        LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS: "ops@example.test",
+      },
+    });
+
+    await expect(service.runDiagnostics({ organizationId: "org-1", toEmail: "customer@example.com" })).rejects.toThrow(
+      "Diagnostic recipient is not allowed.",
+    );
+    expect(provider.send).not.toHaveBeenCalled();
+  });
+
+  it("runs diagnostics against an allowed recipient with a safe summary only", async () => {
+    const { service, provider, prisma } = makeService({
+      config: {
+        LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED: "true",
+        LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS: "ops@example.test",
+        SMTP_PASSWORD: "smtp-password-secret",
+      },
+    });
+
+    const result = await service.runDiagnostics({ organizationId: "org-1", toEmail: "ops@example.test" });
+
+    expect(provider.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: "org-1",
+        toEmail: "ops@example.test",
+        subject: expect.stringContaining("diagnostic"),
+        bodyText: expect.not.stringContaining("customer"),
+      }),
+    );
+    expect(prisma.emailOutbox.create).not.toHaveBeenCalled();
+    expect(result).toEqual(
+      expect.objectContaining({
+        executionEnabled: true,
+        executionAttempted: true,
+        noCustomerEmailSent: true,
+        noMutation: true,
+        status: "ATTEMPTED",
+        delivery: expect.objectContaining({
+          provider: "mock",
+          status: EmailDeliveryStatus.SENT_MOCK,
+        }),
+      }),
+    );
+    expect(JSON.stringify(result)).not.toContain("smtp-password-secret");
+    expect(JSON.stringify(result)).not.toContain("ops@example.test");
   });
 });

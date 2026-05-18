@@ -18,7 +18,7 @@ Tasks:
 - Review dashboard KPI definitions, chart thresholds, attention item thresholds, and quick-action placement with an accountant/product owner.
 - Fix UX inconsistencies, especially supplier AP balance labels.
 - Wire the new Playwright browser E2E smoke into CI and expand it where user-facing regressions are found.
-- Validate the opt-in SMTP provider with a non-production relay, then add domain authentication checks, provider webhooks, retry queue, and audit alerting for role/member administration.
+- Validate the opt-in SMTP provider with a non-production relay using the safe diagnostics gate, then add domain authentication checks, provider webhooks, retry queue, and audit alerting for role/member administration.
 - Harden fiscal period UX with period templates, optional reversal-date selection, and admin unlock approval design.
 - Harden number sequence administration with reviewed reset/skip workflow, collision preview, and branch/device numbering policy before production.
 - Add accountant review pass for report layouts and exported report formats.
@@ -138,7 +138,7 @@ Tasks:
 - Production deployment target and infrastructure-as-code.
 - Managed Postgres, backups, restore drills, and monitoring.
 - Validate the uploaded-attachment S3 adapter with a real non-production bucket, then implement generated-document object storage and a resumable DB-to-S3 migration executor.
-- Email provider validation, background queue/retries, provider webhooks, and transactional template polish.
+- Email provider validation using allowlisted diagnostics, background queue/retries, provider webhooks, and transactional template polish.
 - WhatsApp provider integration if product requires it.
 - Subscription billing and plan enforcement.
 - Domain, DNS, SSL, and environment management.
@@ -161,6 +161,14 @@ Risk level: High.
 Recommended next prompt:
 
 > Create a production readiness plan for LedgerByte covering deployment, storage, backups, monitoring, secrets, email, billing, and security controls.
+
+## 2026-05-18 Email readiness diagnostics
+
+- `GET /email/readiness` now reports production SMTP readiness fields without sending email or exposing SMTP/password/API-key/token/URL/authorization/provider secret values.
+- `POST /email/diagnostics` is disabled by default, returns skipped/no-send/no-mutation status, and requires an explicit allowlisted test recipient when execution is enabled.
+- `/settings/email-outbox` shows email readiness, invite/password-reset reliability warnings, diagnostics disabled-by-default status, and no-customer-email messaging.
+- Remaining roadmap item: validate SMTP against a non-production relay and add sender-domain authentication evidence, retries, bounces/webhooks, and monitoring before real customer email use.
+- Recommended next prompt: validate SMTP readiness against a non-production relay and add sender-domain authentication evidence without sending customer emails.
 
 ## 2026-05-16 ZATCA buyer address field support
 

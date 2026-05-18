@@ -6,7 +6,7 @@ Latest commit audited: `3ed2568` (`Add ZATCA hash-chain replacement groundwork`)
 
 ## Executive Summary
 
-LedgerByte is now a broad accounting SaaS MVP with working local workflows for core AR/AP, banking, reports, documents, inventory controls, manual inventory accounting postings, audit visibility, team/security administration, mock-default email onboarding with opt-in SMTP delivery groundwork, browser smoke coverage, deployment runbooks, and a useful business dashboard.
+LedgerByte is now a broad accounting SaaS MVP with working local workflows for core AR/AP, banking, reports, documents, inventory controls, manual inventory accounting postings, audit visibility, team/security administration, mock-default email onboarding with opt-in SMTP delivery groundwork, safe email readiness diagnostics, browser smoke coverage, deployment runbooks, and a useful business dashboard.
 
 The product is credible as a local demo and internal accountant-review sandbox. It is not yet production SaaS, and it is not Saudi/ZATCA production-ready. The most important remaining gap is not one missing screen; it is production hardening: provider validation, email queue/retry/webhooks, real object storage migration, backups, monitoring, security controls, formal approval workflows, official tax/compliance validation, and operations.
 
@@ -35,7 +35,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 - Documents: generated document archive and uploaded attachment groundwork with linked panels.
 - Audit: standardized high-risk event names, metadata redaction, audit UI, CSV export, retention settings, dry-run preview.
 - Numbering: number sequence settings UI/API with safe future-only changes.
-- Email groundwork: mock/local outbox default, invites, invite acceptance, password reset, provider readiness, test-send, opt-in SMTP adapter, DB-backed rate limits.
+- Email groundwork: mock/local outbox default, invites, invite acceptance, password reset, provider readiness, disabled-by-default diagnostics, test-send, opt-in SMTP adapter, DB-backed rate limits.
 - Storage groundwork: database storage default, feature-flagged S3-compatible storage for new uploaded attachments, migration-plan dry run, storage settings UI.
 - QA: backend/frontend/ZATCA unit tests, deep API smoke script, Playwright browser E2E smoke suite, deployed E2E GitHub Actions workflow.
 - Deployment documentation: Vercel/Supabase setup, API root/health/readiness docs, CI database readiness, Supabase security review, deployed E2E runbook.
@@ -47,7 +47,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 - Inventory accounting: safe manual posting exists, but no automatic posting, no landed cost, no FIFO cost layers, no serial/batch tracking, no inventory returns workflow, and no historical direct-mode migration.
 - Reports: broad operational reports exist, but official VAT return, filing exports, scheduled delivery, report pack controls, and accountant sign-off remain.
 - Attachments/storage: upload/download/soft-delete works, new uploaded attachments can use S3-compatible storage when explicitly configured, but database/base64 remains the default and there is no migration executor, generated-document S3 path, scanning, OCR, or retention policy.
-- Email: mock/local flow works with rate limits and SMTP can be enabled by env, but there is no retry queue, bounce/webhook handling, domain-auth validation workflow, MFA, or session invalidation.
+- Email: mock/local flow works with rate limits, redacted production-readiness checks, and disabled-by-default diagnostics; SMTP can be enabled by env, but there is no retry queue, bounce/webhook handling, domain-auth validation workflow, MFA, or session invalidation.
 - ZATCA: extensive local groundwork and docs exist; official SDK sample fixtures now pass locally under Java 11. LedgerByte's local standard XML fixture now passes SDK global validation after supply-date and PIH fallback work, the simplified fixture passes XSD/EN/PIH, API-generated standard XML validates locally with address/identifier warnings, and the app now has no-mutation SDK hash comparison, a dry-run reset plan, and explicit fresh-EGS SDK hash persistence. Signing, Phase 2 QR, CSID, clearance/reporting, and PDF/A-3 remain unimplemented.
 - Browser QA: route smoke exists and deployed E2E has run, but no visual regression, no full accounting assertions in browser, and no scheduled CI.
 
@@ -55,7 +55,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 
 - Real ZATCA hash-chain replacement, signing, compliant XML/signature validation, CSID onboarding, clearance, reporting, and PDF/A-3.
 - Real-bucket S3 validation, generated-document object storage, and database-to-S3 migration executor.
-- Email provider validation, bounce/retry worker, provider webhooks, and domain authentication.
+- Email provider relay validation, bounce/retry worker, provider webhooks, and domain authentication.
 - Subscription billing, plans, tenant limits, and customer billing.
 - MFA, refresh-token rotation, advanced session invalidation, anomaly alerts.
 - Live bank feeds, payment gateway integration, bank auto-matching.
@@ -65,7 +65,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 
 ## Production Blockers
 
-1. No production email queue/retry, provider webhook, or deliverability/domain-auth setup.
+1. No production email queue/retry, provider webhook, real relay validation, or deliverability/domain-auth setup.
 2. Uploaded/generated documents still default to database/base64 storage unless the attachment S3 provider is explicitly configured.
 3. No production backup/restore and monitoring runbooks proven against hosted infrastructure.
 4. No subscription billing, tenant limits, or SaaS account lifecycle.
@@ -91,7 +91,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 
 - No MFA.
 - No refresh-token rotation or advanced session invalidation.
-- No production email queue/webhook security controls or domain authentication validation.
+- No production email queue/webhook security controls, real relay validation, or domain authentication validation.
 - No virus scanning for uploaded attachments.
 - No signed URL policy, generated-document object-storage path, or object lifecycle/retention enforcement.
 - No external immutable audit retention.
@@ -105,7 +105,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 - Many list pages need filters, saved views, bulk actions, and clearer empty states.
 - Supplier AP balance wording should be accountant-reviewed.
 - Error recovery and validation messages need a product-wide pass.
-- No onboarding wizard or setup checklist for new organizations.
+- Setup wizard and checklist now exist; deeper onboarding still needs browser E2E, templates, and guided empty-state polish.
 - No guided approval inbox for reconciliations, inventory variances, or high-risk actions.
 - Attachment upload is functional but not polished for drag/drop, previews, or OCR.
 
@@ -121,6 +121,14 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 - Direct-mode historical purchase bill policy needs review before any migration or automatic receipt posting.
 - Approval thresholds and maker-checker rules are not defined.
 
+## 2026-05-18 Email readiness diagnostics update
+
+- Added a richer `GET /email/readiness` response for provider configuration, from/reply-to configuration, SMTP booleans, `productionReady`, blockers, warnings, and redaction guarantees. The endpoint remains read-only and sends no email.
+- Added `POST /email/diagnostics`, disabled by default via `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED=false`. Default diagnostics returns a skipped plan with `noEmailSent=true`, `noCustomerEmailSent=true`, and `noMutation=true`.
+- Optional diagnostics execution requires an explicit allowlisted test recipient and returns a redacted delivery summary. It does not persist outbox records and does not return SMTP passwords, usernames, API keys, tokens, URLs, authorization headers, or provider secrets.
+- `/settings/email-outbox` now shows production email readiness, password-reset/invite reliability warnings, and diagnostics disabled-by-default messaging.
+- Production email remains blocked until SMTP is validated against a non-production relay with sender-domain authentication, retry/bounce/webhook handling, and monitoring.
+
 ## Go/No-Go
 
 | Target | Recommendation |
@@ -135,7 +143,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 ## Recommended Next Development Focus
 
 1. Stabilize current UX: dashboard chart polish, error/empty states, route QA, and browser smoke expansion.
-2. Turn production groundwork into real infrastructure: S3 migration/generated-document storage, email provider, backup/restore, monitoring, and CI gates.
+2. Turn production groundwork into real infrastructure: S3 migration/generated-document storage, non-production SMTP relay validation, backup/restore, monitoring, and CI gates.
 3. Resolve the fresh-EGS SDK-mode generated XML gaps now exposed by local validation: invoice 2 `KSA-13` PIH validation, buyer-address warnings, signing, certificate, and Phase 2 QR before any network calls.
 4. Add accountant-reviewed advanced accounting only after current report/dashboard/inventory policies are signed off.
 5. Add SaaS business layer after operational foundations are reliable.

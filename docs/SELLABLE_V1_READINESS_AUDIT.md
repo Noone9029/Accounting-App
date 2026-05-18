@@ -10,16 +10,16 @@ This audit covers LedgerByte SaaS/product readiness while ZATCA OTP and sandbox 
 
 | Area | Readiness | Status |
 | --- | ---: | --- |
-| Authentication, users, roles, permissions | 82% | MVP-ready, with mock email and no MFA as production gaps. |
+| Authentication, users, roles, permissions | 83% | MVP-ready, with email readiness diagnostics and no MFA/real-provider validation as production gaps. |
 | Tenant isolation and organization context | 84% | Tenant-scoped guards and x-organization-id workflows are in place; continued route-level regression coverage is required. |
 | Onboarding | 82% | Improved with a dashboard sellable-v1 checklist and `/setup` guided first-run wizard; still needs production email. |
 | Accounting workflows | 82% | Sales, purchases, payments, journals, reports, bank workflows, and operational inventory are usable for MVP-style testing. |
-| Reliability and deployment readiness | 76% | Health/readiness, smoke, dashboard partial fallback, and Vercel/Supabase notes exist; production monitoring/backups remain incomplete. |
+| Reliability and deployment readiness | 77% | Health/readiness, smoke, dashboard partial fallback, email diagnostics, and Vercel/Supabase notes exist; production monitoring/backups remain incomplete. |
 | Documents and storage | 62% | Generated docs and attachments exist; database/base64 fallback is still a scale and operations risk. |
-| Admin/supportability | 70% | Audit logs, readiness docs, and settings pages exist; support dashboards and structured incident tooling remain limited. |
+| Admin/supportability | 72% | Audit logs, readiness docs, email diagnostics, and settings pages exist; support dashboards and structured incident tooling remain limited. |
 | ZATCA local readiness | 36% | Local planning, validation, custody boundaries, and evidence workflows exist; real sandbox/prod flows remain blocked. |
 
-Overall sellable-v1 readiness: **75%** for a controlled test/beta workspace, not production ZATCA compliance.
+Overall sellable-v1 readiness: **76%** for a controlled test/beta workspace, not production ZATCA compliance.
 
 ## What is ready
 
@@ -28,6 +28,7 @@ Overall sellable-v1 readiness: **75%** for a controlled test/beta workspace, not
 - Chart of accounts, tax rates, contacts, items, journals, sales invoices, purchase bills, payments, refunds, notes, reports, bank profiles, bank reconciliation, attachments, and generated documents at MVP or partial-MVP depth.
 - Dashboard summary with sequential database reads, partial section fallback, sanitized section warnings, and reduced Prisma pool pressure.
 - Guided `/setup` wizard backed by `GET /dashboard/onboarding-checklist`, with read-only navigation for organization profile, chart of accounts, VAT/tax profile, first customer, first invoice, bank/payment method, ZATCA local readiness visibility, contact VAT/ID validation, and storage readiness.
+- Email readiness and diagnostics for production SMTP configuration visibility: `GET /email/readiness` is read-only/no-mutation and `POST /email/diagnostics` skips by default without sending customer email or creating outbox records.
 - Contact VAT validation locked to exactly 15 digits and buyer ID Type / ID Number validation mapped into local ZATCA XML.
 - ZATCA local-only planning, validation, evidence, storage, CSID mapper, mock adapter, and custody boundaries without real network calls.
 - Smoke coverage for major accounting workflows and ZATCA safety gates.
@@ -35,7 +36,7 @@ Overall sellable-v1 readiness: **75%** for a controlled test/beta workspace, not
 ## Critical blockers
 
 - Real ZATCA sandbox OTP/CSID credentials are not available, so no real CSID request, clearance/reporting, or production compliance can be claimed.
-- Production email delivery is not validated; mock email remains acceptable only for development/test.
+- Production email delivery is not validated against a real provider; readiness and disabled-by-default diagnostics exist, but mock email remains acceptable only for development/test.
 - Production storage strategy is incomplete: database/base64 fallback is not a scalable attachment/generated-document archive.
 - Backup/restore, monitoring, alerting, and incident runbooks need deployment-owner validation.
 - Subscription billing, tenant lifecycle, and customer support operations are not implemented as a sellable SaaS package.
@@ -48,11 +49,12 @@ Overall sellable-v1 readiness: **75%** for a controlled test/beta workspace, not
 - Added `/setup`, a checklist-backed guided first-run wizard with evidence, blockers, warnings, and safe action links for each setup step.
 - Added smoke assertions proving the checklist is safe, no-mutation, tenant-scoped, and keeps ZATCA production compliance/network/body persistence disabled.
 - Added frontend targeted tests for wizard helper logic, rendered setup steps, safe fallback, ZATCA local-only messaging, and the dashboard setup link.
+- Added production email readiness fields, disabled-by-default diagnostics, redaction guarantees, settings-page status, and smoke assertions for no-send/no-mutation diagnostics.
 - Updated readiness docs to make the sellable-v1 boundary explicit.
 
 ## Medium-priority fixes still recommended
 
-- Add production SMTP readiness validation and admin-visible outbound email diagnostics.
+- Validate SMTP readiness against a non-production relay and add provider/domain authentication evidence.
 - Add deployment runbooks for Vercel/Supabase pooled connection strings, migrations, backups, restore tests, and rollback.
 - Add Playwright browser E2E coverage for login, dashboard, contact creation, invoice creation, payment, and report views.
 - Add production storage migration execution for attachments/generated documents after a non-prod object-store rehearsal.
@@ -99,9 +101,18 @@ Latest guided setup verification:
 - Skipped backend dashboard tests because no backend code changed.
 - Skipped `pnpm install`, Prisma generate/migrate/seed, Java SDK execution, real ZATCA network, CSID request, clearance/reporting, and PDF-A3 work because dependencies, schema, seed data, and ZATCA execution scope did not change.
 
+Latest email readiness diagnostics verification:
+- `corepack pnpm --filter @ledgerbyte/api exec jest --config jest.config.cjs src/email src/auth src/organization-members` passed and covers missing SMTP blockers, redaction, no-send readiness, disabled diagnostics, unsafe-recipient rejection, mocked allowed-recipient delivery summaries, invite, and password reset paths.
+- `corepack pnpm --dir apps/web exec jest --config jest.config.cjs --passWithNoTests --runTestsByPath src/lib/email.test.ts src/components/email/email-readiness-safe-status.test.tsx` passed and covers readiness/diagnostics labels plus safe settings status rendering without secret values.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed.
+- `smoke:accounting` now verifies `/email/readiness`, default-disabled `/email/diagnostics`, `noCustomerEmailSent=true`, no outbox mutation, secret-marker redaction, and continued mock `test-send` behavior.
+- `git diff --check` passed with line-ending warnings only.
+- ZATCA execution, real CSID, clearance/reporting, and PDF-A3 commands remain skipped because this change is email-only.
+
 ## Next 10 implementation prompts
 
-1. Add production SMTP readiness validation and email diagnostics without sending real customer emails by default.
+1. Validate SMTP readiness against a non-production relay and add sender-domain authentication evidence without sending customer emails.
 2. Add Vercel/Supabase deployment runbook checks for pooled DB URLs, migration status, and safe environment summaries.
 3. Add Playwright E2E coverage for login, dashboard, setup wizard, customer creation, invoice creation, payment, and reports.
 4. Add attachment/generated-document object-store migration executor after a safe non-prod object-store rehearsal.

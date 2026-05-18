@@ -25,6 +25,7 @@ export interface SmtpConfigReadiness {
   portConfigured: boolean;
   userConfigured: boolean;
   passwordConfigured: boolean;
+  secureModeConfigured: boolean;
   secure: boolean;
 }
 

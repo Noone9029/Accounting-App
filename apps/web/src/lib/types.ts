@@ -485,17 +485,60 @@ export interface EmailReadinessResponse {
   provider: EmailProviderName;
   ready: boolean;
   blockingReasons: string[];
+  blockers: string[];
   warnings: string[];
   fromEmail: string;
+  localOnly: boolean;
+  noCustomerEmailSent: true;
+  readOnly: true;
+  noMutation: true;
+  providerConfigured: boolean;
+  fromAddressConfigured: boolean;
+  replyToConfigured: boolean;
+  smtpHostConfigured: boolean;
+  smtpPortConfigured: boolean;
+  smtpSecureModeConfigured: boolean;
+  credentialsConfigured: boolean;
+  productionReady: boolean;
+  redactionGuarantees: string[];
+  diagnostics: {
+    executionEnabled: boolean;
+    allowedRecipientsConfigured: boolean;
+    allowedDomainsConfigured: boolean;
+    noCustomerEmailSentByDefault: true;
+  };
   smtp: {
     hostConfigured: boolean;
     portConfigured: boolean;
     userConfigured: boolean;
     passwordConfigured: boolean;
+    secureModeConfigured: boolean;
     secure: boolean;
   };
   mockMode: boolean;
   realSendingEnabled: boolean;
+}
+
+export type EmailDiagnosticsStatus = "SKIPPED_DISABLED" | "ATTEMPTED" | string;
+
+export interface EmailDiagnosticsResponse {
+  status: EmailDiagnosticsStatus;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  noEmailSent: boolean;
+  noCustomerEmailSent: true;
+  noMutation: true;
+  provider: string;
+  message?: string;
+  recipient?: string;
+  delivery?: {
+    provider: string;
+    status: EmailDeliveryStatus | string;
+    providerMessageId: string | null;
+    errorMessage: string | null;
+    sentAt: string | null;
+  };
+  redactionGuarantees: string[];
 }
 
 export interface AuthTokenCleanupResponse {

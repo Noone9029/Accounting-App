@@ -37,6 +37,23 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Email readiness diagnostics added
+
+Added production SMTP/email readiness validation and disabled-by-default diagnostics without sending real customer email by default.
+
+Risk reduced:
+
+- `GET /email/readiness` now returns read-only/no-mutation provider readiness, production SMTP configuration booleans, blockers, warnings, diagnostics gate status, and redaction guarantees.
+- `POST /email/diagnostics` returns `SKIPPED_DISABLED`, `executionAttempted=false`, `noEmailSent=true`, `noCustomerEmailSent=true`, and `noMutation=true` unless `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED=true` and an allowlisted recipient is provided.
+- Optional diagnostics execution uses a safe diagnostic subject/body, does not persist outbox records, masks recipients in responses, and returns only redacted delivery summaries.
+- `/settings/email-outbox` now shows production readiness, password-reset/invite reliability warnings, diagnostics disabled-by-default status, and no-customer-email messaging.
+- Smoke now asserts readiness/diagnostics no-send behavior, no outbox mutation, and common secret-marker redaction.
+
+Remaining risks:
+
+- Production SMTP still needs a real non-production relay validation, DKIM/SPF/DMARC/domain-auth evidence, retries, bounces/webhooks, monitoring, and template review.
+- Diagnostics sending must remain disabled by default in production until the allowlist and provider test process are approved.
+
 ### ZATCA PIH chain and generated address warning pass
 
 Used only the repo-local official ZATCA SDK readme, `Configuration/usage.txt`, Schematron rules, `Data/PIH/pih.txt`, official samples, XML/security PDFs, and data dictionary to investigate the fresh-EGS invoice 2 `KSA-13` failure.
@@ -2678,4 +2695,4 @@ Recommended next step:
 - Added frontend regression coverage for the `/setup` wizard rendering checklist steps, progress, next incomplete step, blockers/warnings, safe failed-load fallback, dashboard link, and ZATCA non-production messaging.
 - No regression was found or intentionally changed in contact VAT/ID validation.
 - No regression was found or intentionally changed in dashboard summary concurrency hardening.
-- Open risk: production deployment still needs SMTP, storage, backup/restore, and browser E2E validation before paid customer use.
+- Open risk: production deployment still needs real SMTP relay/domain-auth validation, storage, backup/restore, and browser E2E validation before paid customer use.

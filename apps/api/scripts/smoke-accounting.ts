@@ -86,17 +86,38 @@ interface EmailReadinessResponse {
   provider: string;
   ready: boolean;
   blockingReasons: string[];
+  blockers: string[];
   warnings: string[];
   fromEmail: string;
+  localOnly: boolean;
+  noCustomerEmailSent: boolean;
+  readOnly: boolean;
+  noMutation: boolean;
+  productionReady: boolean;
+  diagnostics: {
+    executionEnabled: boolean;
+    noCustomerEmailSentByDefault: boolean;
+  };
   smtp: {
     hostConfigured: boolean;
     portConfigured: boolean;
     userConfigured: boolean;
     passwordConfigured: boolean;
+    secureModeConfigured: boolean;
     secure: boolean;
   };
   mockMode: boolean;
   realSendingEnabled: boolean;
+}
+
+interface EmailDiagnosticsResponse {
+  status: string;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  noEmailSent: boolean;
+  noCustomerEmailSent: boolean;
+  noMutation: boolean;
+  provider: string;
 }
 
 interface AuditLogEntry {
@@ -2191,8 +2212,23 @@ async function main(): Promise<void> {
   assertEqual(emailReadiness.provider, "mock", "email readiness provider");
   assert(emailReadiness.mockMode, "email readiness reports mock mode");
   assert(!emailReadiness.realSendingEnabled, "email readiness keeps real sending disabled");
-  assert(!JSON.stringify(emailReadiness).includes("SMTP_PASSWORD"), "email readiness does not expose SMTP password");
-  assert(!JSON.stringify(emailReadiness).includes("SMTP_SECRET"), "email readiness does not expose SMTP secret");
+  assert(emailReadiness.noCustomerEmailSent, "email readiness does not send customer email");
+  assert(emailReadiness.readOnly, "email readiness is read-only");
+  assert(emailReadiness.noMutation, "email readiness reports no mutation");
+  assert(!emailReadiness.productionReady, "default mock email readiness is not production-ready");
+  assert(!emailReadiness.diagnostics.executionEnabled, "email diagnostics sending is disabled by default");
+  assertNoEmailSecretExposure(emailReadiness, "email readiness");
+  const emailOutboxBeforeDiagnostics = await get<EmailOutboxEntry[]>("/email/outbox", headers);
+  const emailDiagnostics = await post<EmailDiagnosticsResponse>("/email/diagnostics", headers, {});
+  assertEqual(emailDiagnostics.status, "SKIPPED_DISABLED", "email diagnostics skipped by default");
+  assert(!emailDiagnostics.executionEnabled, "email diagnostics execution is disabled by default");
+  assert(!emailDiagnostics.executionAttempted, "email diagnostics execution is not attempted by default");
+  assert(emailDiagnostics.noEmailSent, "email diagnostics sends no email by default");
+  assert(emailDiagnostics.noCustomerEmailSent, "email diagnostics sends no customer email by default");
+  assert(emailDiagnostics.noMutation, "email diagnostics is no-mutation by default");
+  assertNoEmailSecretExposure(emailDiagnostics, "email diagnostics");
+  const emailOutboxAfterDiagnostics = await get<EmailOutboxEntry[]>("/email/outbox", headers);
+  assertEqual(emailOutboxAfterDiagnostics.length, emailOutboxBeforeDiagnostics.length, "email diagnostics does not create outbox records");
   const testEmailAddress = `smoke-test-send-${Date.now()}@example.com`;
   const testEmail = await post<EmailOutboxDetail>("/email/test-send", headers, { toEmail: testEmailAddress });
   assertEqual(testEmail.templateType, "TEST_EMAIL", "test-send template type");
@@ -6108,7 +6144,13 @@ async function main(): Promise<void> {
         roleManagementChecked: true,
         emailReadinessProvider: emailReadiness.provider,
         emailReadinessRealSendingEnabled: emailReadiness.realSendingEnabled,
+        emailReadinessNoCustomerEmailSent: emailReadiness.noCustomerEmailSent,
+        emailReadinessProductionReady: emailReadiness.productionReady,
         emailReadinessSecretsRedacted: !JSON.stringify(emailReadiness).includes("SMTP_PASSWORD"),
+        emailDiagnosticsStatus: emailDiagnostics.status,
+        emailDiagnosticsExecutionEnabled: emailDiagnostics.executionEnabled,
+        emailDiagnosticsNoEmailSent: emailDiagnostics.noEmailSent,
+        emailDiagnosticsNoMutation: emailDiagnostics.noMutation,
         emailTestSendStatus: testEmail.status,
         emailTestSendProvider: testEmail.provider,
         inviteEmailQueued: Boolean(invite.emailOutboxId),
@@ -6601,6 +6643,14 @@ function assertNoPrivateKey(value: unknown, label: string): void {
   const serialized = JSON.stringify(value) ?? "";
   assert(!serialized.includes("-----BEGIN PRIVATE KEY-----"), `${label} does not expose private key material`);
   assert(!serialized.includes("-----BEGIN EC PRIVATE KEY-----"), `${label} does not expose EC private key material`);
+}
+
+function assertNoEmailSecretExposure(value: unknown, label: string): void {
+  const serialized = JSON.stringify(value) ?? "";
+  const forbidden = ["SMTP_PASSWORD", "SMTP_SECRET", "API_KEY", "AUTHORIZATION", "Bearer ", "smtp-password-secret", "api-key-secret"];
+  for (const marker of forbidden) {
+    assert(!serialized.includes(marker), `${label} does not expose ${marker}`);
+  }
 }
 
 function normalizePermissionList(value: unknown): string[] {
