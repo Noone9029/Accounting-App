@@ -328,7 +328,7 @@ interface GeneralLedgerReport {
   }>;
 }
 
-  interface DashboardSummary {
+interface DashboardSummary {
     asOf: string;
     currency: string;
     sales: Record<string, unknown>;
@@ -356,6 +356,24 @@ interface GeneralLedgerReport {
     description: string;
     href: string;
   }>;
+}
+
+interface DashboardOnboardingChecklist {
+  readOnly: boolean;
+  noMutation: boolean;
+  tenantScoped: boolean;
+  status: string;
+  readinessScore: number;
+  completedCount: number;
+  totalCount: number;
+  items: Array<{ id: string; status: string; evidence: string[]; blockers: string[]; warnings: string[] }>;
+  blockers: string[];
+  warnings: string[];
+  productionCompliance: boolean;
+  zatcaProductionCompliance: boolean;
+  realZatcaNetworkEnabled: boolean;
+  signedXmlBodyPersistenceAllowed: boolean;
+  qrPayloadBodyPersistenceAllowed: boolean;
 }
 
 interface TaxRate {
@@ -5999,6 +6017,20 @@ async function main(): Promise<void> {
   const agedPayablesReport = await get<AgingReport>("/reports/aged-payables", headers);
   assertPresent(agedPayablesReport.grandTotal, "aged payables grand total");
   const dashboardSummary = await get<DashboardSummary>("/dashboard/summary", headers);
+  const dashboardOnboardingChecklist = await get<DashboardOnboardingChecklist>("/dashboard/onboarding-checklist", headers);
+  assert(dashboardOnboardingChecklist.readOnly, "dashboard onboarding checklist is read-only");
+  assert(dashboardOnboardingChecklist.noMutation, "dashboard onboarding checklist is no-mutation");
+  assert(dashboardOnboardingChecklist.tenantScoped, "dashboard onboarding checklist is tenant-scoped");
+  assert(dashboardOnboardingChecklist.items.length >= 8, "dashboard onboarding checklist returns sellable-v1 checks");
+  assert(dashboardOnboardingChecklist.readinessScore >= 0, "dashboard onboarding readiness score is present");
+  assertEqual(dashboardOnboardingChecklist.productionCompliance, false, "dashboard onboarding checklist keeps production compliance false");
+  assertEqual(dashboardOnboardingChecklist.zatcaProductionCompliance, false, "dashboard onboarding checklist keeps ZATCA production compliance false");
+  assertEqual(dashboardOnboardingChecklist.realZatcaNetworkEnabled, false, "dashboard onboarding checklist keeps real ZATCA network disabled");
+  assertEqual(dashboardOnboardingChecklist.signedXmlBodyPersistenceAllowed, false, "dashboard onboarding checklist keeps signed XML body persistence blocked");
+  assertEqual(dashboardOnboardingChecklist.qrPayloadBodyPersistenceAllowed, false, "dashboard onboarding checklist keeps QR payload persistence blocked");
+  const serializedOnboardingChecklist = JSON.stringify(dashboardOnboardingChecklist);
+  assert(!serializedOnboardingChecklist.includes("binarySecurityToken"), "dashboard onboarding checklist does not expose CSID token names");
+  assert(!serializedOnboardingChecklist.includes("-----BEGIN PRIVATE KEY-----"), "dashboard onboarding checklist does not expose private key material");
   assertPresent(dashboardSummary.asOf, "dashboard summary asOf");
   assertPresent(dashboardSummary.currency, "dashboard summary currency");
   for (const section of ["sales", "purchases", "banking", "inventory", "reports", "compliance"] as const) {
@@ -6315,6 +6347,11 @@ async function main(): Promise<void> {
         zatcaEvidenceCompletenessStatus: zatcaEvidenceCompleteness.completenessStatus,
         zatcaEvidenceCompletenessBodyPersistenceAllowed: zatcaEvidenceCompleteness.bodyPersistenceAllowed,
         dashboardSummaryChecked: true,
+        dashboardOnboardingChecklistChecked: true,
+        dashboardOnboardingChecklistStatus: dashboardOnboardingChecklist.status,
+        dashboardOnboardingReadinessScore: dashboardOnboardingChecklist.readinessScore,
+        dashboardOnboardingProductionCompliance: dashboardOnboardingChecklist.productionCompliance,
+        dashboardOnboardingRealZatcaNetworkEnabled: dashboardOnboardingChecklist.realZatcaNetworkEnabled,
         dashboardAttentionCount: dashboardSummary.attentionItems.length,
         dashboardCurrency: dashboardSummary.currency,
         dashboardMonthlySalesTrendPoints: dashboardSummary.trends.monthlySales.length,

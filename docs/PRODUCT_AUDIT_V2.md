@@ -782,3 +782,10 @@ Safety guarantees:
 
 Recommended next step:
 - Add a non-executing provider-reference audit and rotation plan before any real sandbox custody provider implementation.
+
+# Sellable-v1 audit update - 2026-05-18
+
+- Overall controlled beta readiness is now assessed at 74%, with ZATCA production compliance excluded and still blocked.
+- Implemented a dashboard onboarding checklist to reduce first-run ambiguity for organization setup, COA, tax, contacts, invoices, bank/payment setup, ZATCA local visibility, contact VAT/ID validation, and storage readiness.
+- Remaining highest-risk non-ZATCA gaps are production SMTP validation, production storage migration/readiness, backup/restore evidence, monitoring/alerting, browser E2E coverage, and SaaS billing/support operations.
+- See `docs/SELLABLE_V1_READINESS_AUDIT.md`.

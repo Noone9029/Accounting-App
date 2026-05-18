@@ -2322,3 +2322,9 @@ Safety guarantees:
 
 Recommended next step:
 - Add a non-executing provider-reference audit and rotation plan before any real sandbox custody provider implementation.
+
+## Sellable-v1 readiness note
+
+- `GET /dashboard/onboarding-checklist` returns a tenant-scoped, read-only sellable-v1 onboarding checklist for organization profile, COA, tax, customer, invoice, bank/payment, ZATCA local visibility, contact VAT/ID validation, and storage readiness.
+- The checklist does not mutate data, expose secrets, enable real ZATCA network calls, persist signed XML/QR bodies, or claim production compliance.
+- See `docs/SELLABLE_V1_READINESS_AUDIT.md` for current readiness percentages, blockers, deployment recommendations, and next implementation prompts.

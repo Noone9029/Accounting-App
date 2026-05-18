@@ -9,6 +9,10 @@ import {
   dashboardIsEmpty,
   formatDashboardMoney,
   groupAttentionBySeverity,
+  onboardingChecklistItemStatusClass,
+  onboardingChecklistProgressPercent,
+  onboardingChecklistStatusClass,
+  onboardingChecklistStatusLabel,
   visibleDashboardQuickActions,
 } from "./dashboard";
 import { PERMISSIONS } from "./permissions";
@@ -61,6 +65,16 @@ describe("dashboard helpers", () => {
     expect(chartHasData([{ balance: "0.0000" }], "balance")).toBe(false);
     expect(agingBucketLabel("31_60")).toBe("31-60");
     expect(agingBucketLabel("Current")).toBe("Current");
+  });
+
+  it("formats onboarding checklist helper labels and progress", () => {
+    expect(onboardingChecklistStatusLabel("READY_FOR_SELLABLE_V1_REVIEW")).toBe("Ready for sellable-v1 review");
+    expect(onboardingChecklistStatusLabel("BLOCKED")).toBe("Blocked");
+    expect(onboardingChecklistStatusClass("IN_PROGRESS")).toContain("amber");
+    expect(onboardingChecklistItemStatusClass("COMPLETE")).toContain("emerald");
+    expect(onboardingChecklistProgressPercent(0, 9)).toBe("0%");
+    expect(onboardingChecklistProgressPercent(1, 9)).toBe("11.1%");
+    expect(onboardingChecklistProgressPercent(9, 9)).toBe("100.0%");
   });
 
   it("groups attention items by severity", () => {

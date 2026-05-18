@@ -7,6 +7,9 @@ describe("DashboardService", () => {
   function makeService(overrides: Partial<MockPrisma> = {}) {
     const prisma = {
       organization: { findFirst: jest.fn().mockResolvedValue({ id: organizationId, baseCurrency: "SAR" }) },
+      account: { count: jest.fn().mockResolvedValue(8) },
+      taxRate: { count: jest.fn().mockResolvedValue(1) },
+      contact: { count: jest.fn().mockResolvedValue(1) },
       salesInvoice: {
         findMany: jest.fn().mockResolvedValue([
           {
@@ -16,6 +19,7 @@ describe("DashboardService", () => {
             balanceDue: new Prisma.Decimal("75.0000"),
           },
         ]),
+        count: jest.fn().mockResolvedValue(1),
       },
       customerPayment: { findMany: jest.fn().mockResolvedValue([{ amountReceived: new Prisma.Decimal("25.0000") }]) },
       purchaseBill: {
@@ -29,7 +33,7 @@ describe("DashboardService", () => {
         ]),
       },
       supplierPayment: { findMany: jest.fn().mockResolvedValue([{ amountPaid: new Prisma.Decimal("20.0000") }]) },
-      bankAccountProfile: { findMany: jest.fn().mockResolvedValue([{ accountId: "bank-account-1" }]) },
+      bankAccountProfile: { findMany: jest.fn().mockResolvedValue([{ accountId: "bank-account-1" }]), count: jest.fn().mockResolvedValue(1) },
       bankStatementTransaction: { count: jest.fn().mockResolvedValue(2) },
       bankReconciliation: {
         findFirst: jest.fn().mockResolvedValue({ closedAt: new Date("2026-05-10T00:00:00.000Z"), periodEnd: new Date("2026-05-09T00:00:00.000Z") }),
@@ -171,11 +175,11 @@ describe("DashboardService", () => {
 
   it("handles empty data without crashing", async () => {
     const { service } = makeService({
-      salesInvoice: { findMany: jest.fn().mockResolvedValue([]) },
+      salesInvoice: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
       customerPayment: { findMany: jest.fn().mockResolvedValue([]) },
       purchaseBill: { findMany: jest.fn().mockResolvedValue([]) },
       supplierPayment: { findMany: jest.fn().mockResolvedValue([]) },
-      bankAccountProfile: { findMany: jest.fn().mockResolvedValue([]) },
+      bankAccountProfile: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
       bankStatementTransaction: { count: jest.fn().mockResolvedValue(0) },
       bankReconciliation: { findFirst: jest.fn().mockResolvedValue(null) },
       item: { findMany: jest.fn().mockResolvedValue([]) },
@@ -284,15 +288,127 @@ describe("DashboardService", () => {
 
     expect(tracker.max).toBeLessThanOrEqual(1);
   });
+
+  it("returns a tenant-scoped read-only onboarding checklist with safe readiness metadata", async () => {
+    const { service, prisma } = makeService({
+      organization: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: organizationId,
+          name: "LedgerByte Demo",
+          legalName: "LedgerByte Demo LLC",
+          taxNumber: "300000000000003",
+          countryCode: "SA",
+          baseCurrency: "SAR",
+          timezone: "Asia/Riyadh",
+        }),
+      },
+      zatcaOrganizationProfile: {
+        findUnique: jest.fn().mockResolvedValue({
+          sellerName: "LedgerByte Demo LLC",
+          vatNumber: "300000000000003",
+          city: "Riyadh",
+          countryCode: "SA",
+        }),
+      },
+      zatcaEgsUnit: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "egs-1",
+          csrPem: "redacted-csr-present",
+          complianceCsidPem: "redacted-mock-csid-present",
+          productionCsidPem: null,
+        }),
+      },
+      zatcaInvoiceMetadata: { count: jest.fn().mockResolvedValue(1) },
+    });
+
+    const checklist = await service.onboardingChecklist(organizationId);
+
+    expect(checklist).toEqual(
+      expect.objectContaining({
+        readOnly: true,
+        noMutation: true,
+        tenantScoped: true,
+        organizationId,
+        readinessScore: 89,
+        completedCount: 8,
+        totalCount: 9,
+        productionCompliance: false,
+        zatcaProductionCompliance: false,
+        realZatcaNetworkEnabled: false,
+        signedXmlBodyPersistenceAllowed: false,
+        qrPayloadBodyPersistenceAllowed: false,
+      }),
+    );
+    expect(checklist.items.map((item) => item.id)).toEqual([
+      "organization_profile",
+      "chart_of_accounts",
+      "tax_profile",
+      "customer_created",
+      "first_invoice",
+      "bank_payment_method",
+      "zatca_local_readiness_visible",
+      "contact_vat_id_validation",
+      "storage_readiness_checked",
+    ]);
+    expect(prisma.account.count).toHaveBeenCalledWith({ where: { organizationId, isActive: true, allowPosting: true } });
+    expect(prisma.contact.count).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ organizationId }) }),
+    );
+    const serialized = JSON.stringify(checklist);
+    expect(serialized).not.toContain("PRIVATE KEY");
+    expect(serialized).not.toContain("binarySecurityToken");
+    expect(serialized).not.toContain("secret");
+  });
+
+  it("reports onboarding blockers without exposing storage errors", async () => {
+    const { service, storageService } = makeService({
+      organization: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: organizationId,
+          name: "Demo",
+          legalName: null,
+          taxNumber: null,
+          countryCode: "SA",
+          baseCurrency: "SAR",
+          timezone: "Asia/Riyadh",
+        }),
+      },
+      account: { count: jest.fn().mockResolvedValue(0) },
+      taxRate: { count: jest.fn().mockResolvedValue(0) },
+      contact: { count: jest.fn().mockResolvedValue(0) },
+      salesInvoice: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
+      bankAccountProfile: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
+      zatcaInvoiceMetadata: { count: jest.fn().mockResolvedValue(0) },
+    });
+    storageService.readiness.mockImplementation(() => {
+      throw new Error("storage access key AKIA_SECRET should not leak");
+    });
+
+    const checklist = await service.onboardingChecklist(organizationId);
+
+    expect(checklist.status).toBe("BLOCKED");
+    expect(checklist.blockers).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("Organization profile complete"),
+        expect.stringContaining("Chart of accounts available"),
+        expect.stringContaining("At least one customer"),
+      ]),
+    );
+    expect(checklist.warnings).toEqual(expect.arrayContaining([expect.stringContaining("Storage readiness could not be loaded")]));
+    expect(JSON.stringify(checklist)).not.toContain("AKIA_SECRET");
+  });
 });
 
 type MockPrisma = {
   organization: { findFirst: jest.Mock };
-  salesInvoice: { findMany: jest.Mock };
+  account: { count: jest.Mock };
+  taxRate: { count: jest.Mock };
+  contact: { count: jest.Mock };
+  salesInvoice: { findMany: jest.Mock; count: jest.Mock };
   customerPayment: { findMany: jest.Mock };
   purchaseBill: { findMany: jest.Mock };
   supplierPayment: { findMany: jest.Mock };
-  bankAccountProfile: { findMany: jest.Mock };
+  bankAccountProfile: { findMany: jest.Mock; count: jest.Mock };
   bankStatementTransaction: { count: jest.Mock };
   bankReconciliation: { findFirst: jest.Mock };
   journalLine: { findMany: jest.Mock };

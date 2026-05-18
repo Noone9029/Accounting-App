@@ -17,4 +17,10 @@ export class DashboardController {
   summary(@CurrentOrganizationId() organizationId: string) {
     return this.dashboardService.summary(organizationId);
   }
+
+  @Get("onboarding-checklist")
+  @RequirePermissions(PERMISSIONS.dashboard.view)
+  onboardingChecklist(@CurrentOrganizationId() organizationId: string) {
+    return this.dashboardService.onboardingChecklist(organizationId);
+  }
 }

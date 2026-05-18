@@ -1,6 +1,12 @@
 import { formatMoneyAmount } from "./money";
 import { hasPermission, PERMISSIONS, type Permission, type PermissionSubject } from "./permissions";
-import type { DashboardAttentionItem, DashboardAttentionSeverity, DashboardSummary } from "./types";
+import type {
+  DashboardAttentionItem,
+  DashboardAttentionSeverity,
+  DashboardOnboardingChecklistItemStatus,
+  DashboardOnboardingChecklistStatus,
+  DashboardSummary,
+} from "./types";
 
 export interface DashboardQuickAction {
   label: string;
@@ -100,6 +106,46 @@ export function attentionSeverityClass(severity: DashboardAttentionSeverity): st
 
 export function dashboardHealthLabel(value: boolean): string {
   return value ? "Balanced" : "Needs review";
+}
+
+export function onboardingChecklistStatusLabel(status: DashboardOnboardingChecklistStatus): string {
+  switch (status) {
+    case "READY_FOR_SELLABLE_V1_REVIEW":
+      return "Ready for sellable-v1 review";
+    case "IN_PROGRESS":
+      return "In progress";
+    case "BLOCKED":
+      return "Blocked";
+  }
+}
+
+export function onboardingChecklistStatusClass(status: DashboardOnboardingChecklistStatus): string {
+  switch (status) {
+    case "READY_FOR_SELLABLE_V1_REVIEW":
+      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+    case "IN_PROGRESS":
+      return "border-amber-200 bg-amber-50 text-amber-900";
+    case "BLOCKED":
+      return "border-red-200 bg-red-50 text-red-800";
+  }
+}
+
+export function onboardingChecklistItemStatusClass(status: DashboardOnboardingChecklistItemStatus): string {
+  switch (status) {
+    case "COMPLETE":
+      return "text-emerald-700";
+    case "WARNING":
+      return "text-amber-700";
+    case "INCOMPLETE":
+      return "text-red-700";
+  }
+}
+
+export function onboardingChecklistProgressPercent(completedCount: number, totalCount: number): string {
+  if (totalCount <= 0 || completedCount <= 0) {
+    return "0%";
+  }
+  return `${Math.max(4, Math.min(100, (completedCount / totalCount) * 100)).toFixed(1)}%`;
 }
 
 export function visibleDashboardQuickActions(subject: PermissionSubject): DashboardQuickAction[] {

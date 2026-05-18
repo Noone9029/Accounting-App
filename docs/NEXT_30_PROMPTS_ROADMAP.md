@@ -888,3 +888,16 @@ Safety guarantees:
 
 Recommended next step:
 - Add a non-executing provider-reference audit and rotation plan before any real sandbox custody provider implementation.
+
+# Sellable-v1 prompt roadmap update - 2026-05-18
+
+1. Add a guided first-run setup wizard backed by `GET /dashboard/onboarding-checklist`.
+2. Add production SMTP readiness validation and email diagnostics.
+3. Add Vercel/Supabase deployment runbook checks and safe env summaries.
+4. Add Playwright E2E coverage for login, dashboard, contact, invoice, payment, and reports.
+5. Add a non-prod object-storage migration executor for attachments/generated documents.
+6. Add support diagnostics for tenant configuration and deployment issues.
+7. Add accountant-reviewed KPI definitions and dashboard documentation.
+8. Add contact and item import/export with validation preview.
+9. Add backup/restore evidence capture and restore-test smoke metadata.
+10. Resume ZATCA sandbox onboarding only after official OTP/sandbox access is available.

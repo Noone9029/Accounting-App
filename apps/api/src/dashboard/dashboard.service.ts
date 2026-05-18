@@ -3,6 +3,7 @@ import {
   BankAccountStatus,
   BankReconciliationStatus,
   BankStatementTransactionStatus,
+  ContactType,
   CustomerPaymentStatus,
   FiscalPeriodStatus,
   ItemStatus,
@@ -58,6 +59,20 @@ interface DashboardMonth {
   key: string;
   start: Date;
   end: Date;
+}
+
+type OnboardingChecklistItemStatus = "COMPLETE" | "INCOMPLETE" | "WARNING";
+type OnboardingChecklistStatus = "BLOCKED" | "IN_PROGRESS" | "READY_FOR_SELLABLE_V1_REVIEW";
+
+interface OnboardingChecklistItem {
+  id: string;
+  label: string;
+  status: OnboardingChecklistItemStatus;
+  description: string;
+  href: string;
+  evidence: string[];
+  blockers: string[];
+  warnings: string[];
 }
 
 @Injectable()
@@ -143,6 +158,217 @@ export class DashboardService {
       }),
       sectionStatus,
       warnings,
+    };
+  }
+
+  async onboardingChecklist(organizationId: string) {
+    const organization = await this.prisma.organization.findFirst({
+      where: { id: organizationId },
+      select: {
+        id: true,
+        name: true,
+        legalName: true,
+        taxNumber: true,
+        countryCode: true,
+        baseCurrency: true,
+        timezone: true,
+      },
+    });
+    const chartAccountCount = await this.prisma.account.count({
+      where: { organizationId, isActive: true, allowPosting: true },
+    });
+    const activeTaxRateCount = await this.prisma.taxRate.count({
+      where: { organizationId, isActive: true },
+    });
+    const customerCount = await this.prisma.contact.count({
+      where: { organizationId, type: { in: [ContactType.CUSTOMER, ContactType.BOTH] } },
+    });
+    const identifiedCustomerCount = await this.prisma.contact.count({
+      where: {
+        organizationId,
+        type: { in: [ContactType.CUSTOMER, ContactType.BOTH] },
+        OR: [
+          { taxNumber: { not: null } },
+          { identificationType: { not: null }, identificationNumber: { not: null } },
+        ],
+      },
+    });
+    const salesInvoiceCount = await this.prisma.salesInvoice.count({ where: { organizationId } });
+    const activeBankAccountCount = await this.prisma.bankAccountProfile.count({
+      where: { organizationId, status: BankAccountStatus.ACTIVE },
+    });
+    const zatcaProfile = await this.prisma.zatcaOrganizationProfile.findUnique({
+      where: { organizationId },
+      select: { sellerName: true, vatNumber: true, city: true, countryCode: true },
+    });
+    const activeEgs = await this.prisma.zatcaEgsUnit.findFirst({
+      where: { organizationId, isActive: true, status: ZatcaRegistrationStatus.ACTIVE },
+      select: { id: true, csrPem: true, complianceCsidPem: true, productionCsidPem: true },
+    });
+    const localXmlCount = await this.prisma.zatcaInvoiceMetadata.count({ where: { organizationId, xmlBase64: { not: null } } });
+    const storageReadiness = await this.safeStorageReadiness();
+
+    const hasOrganizationProfile = Boolean(
+      organization?.name &&
+        organization.legalName &&
+        organization.countryCode &&
+        organization.baseCurrency &&
+        organization.timezone,
+    );
+    const hasValidVat = hasFifteenDigitVat(organization?.taxNumber) || hasFifteenDigitVat(zatcaProfile?.vatNumber);
+    const zatcaProfileReadiness = getZatcaProfileReadiness(zatcaProfile ?? {});
+    const storageProviders = storageReadiness
+      ? [storageReadiness.attachmentStorage.activeProvider, storageReadiness.generatedDocumentStorage.activeProvider]
+      : ["unavailable"];
+    const databaseStorageActive = storageProviders.includes("database");
+    const storageChecked = storageProviders.every((provider) => provider !== "unavailable");
+
+    const items: OnboardingChecklistItem[] = [
+      {
+        id: "organization_profile",
+        label: "Organization profile complete",
+        status: hasOrganizationProfile && hasValidVat ? "COMPLETE" : "INCOMPLETE",
+        description: "Legal name, country, currency, timezone, and a 15-digit VAT/tax number are needed for a sellable accounting workspace.",
+        href: "/settings/organization",
+        evidence: [
+          `Organization found: ${organization ? "yes" : "no"}`,
+          `Legal profile fields complete: ${hasOrganizationProfile ? "yes" : "no"}`,
+          `15-digit VAT/tax number present: ${hasValidVat ? "yes" : "no"}`,
+        ],
+        blockers: [
+          ...(organization ? [] : ["Organization record is missing."]),
+          ...(hasOrganizationProfile ? [] : ["Complete legal name, country, currency, and timezone."]),
+          ...(hasValidVat ? [] : ["Add a 15-digit VAT/tax number before customer-facing Saudi VAT workflows."]),
+        ],
+        warnings: [],
+      },
+      {
+        id: "chart_of_accounts",
+        label: "Chart of accounts available",
+        status: chartAccountCount > 0 ? "COMPLETE" : "INCOMPLETE",
+        description: "Posting workflows need active posting accounts before invoices, bills, payments, and journals can be used safely.",
+        href: "/accounts",
+        evidence: [`Active posting accounts: ${chartAccountCount}`],
+        blockers: chartAccountCount > 0 ? [] : ["Create or seed an active chart of accounts."],
+        warnings: [],
+      },
+      {
+        id: "tax_profile",
+        label: "VAT/tax profile complete",
+        status: hasValidVat && activeTaxRateCount > 0 ? "COMPLETE" : "INCOMPLETE",
+        description: "A valid organization VAT number and active tax rates reduce first-invoice setup failures.",
+        href: "/settings/tax-rates",
+        evidence: [`15-digit VAT/tax number present: ${hasValidVat ? "yes" : "no"}`, `Active tax rates: ${activeTaxRateCount}`],
+        blockers: [
+          ...(hasValidVat ? [] : ["Add a 15-digit VAT/tax number."]),
+          ...(activeTaxRateCount > 0 ? [] : ["Create at least one active tax rate."]),
+        ],
+        warnings: [],
+      },
+      {
+        id: "customer_created",
+        label: "At least one customer",
+        status: customerCount > 0 ? "COMPLETE" : "INCOMPLETE",
+        description: "The first invoice flow needs at least one customer contact.",
+        href: "/contacts",
+        evidence: [`Customer contacts: ${customerCount}`],
+        blockers: customerCount > 0 ? [] : ["Create a customer contact."],
+        warnings: [],
+      },
+      {
+        id: "first_invoice",
+        label: "At least one sales invoice",
+        status: salesInvoiceCount > 0 ? "COMPLETE" : "INCOMPLETE",
+        description: "Creating a draft or finalized invoice proves the first-sale workflow is reachable.",
+        href: "/sales/invoices",
+        evidence: [`Sales invoices: ${salesInvoiceCount}`],
+        blockers: [],
+        warnings: salesInvoiceCount > 0 ? [] : ["Create a test invoice before go-live rehearsals."],
+      },
+      {
+        id: "bank_payment_method",
+        label: "Payment method or bank account configured",
+        status: activeBankAccountCount > 0 ? "COMPLETE" : "INCOMPLETE",
+        description: "Cash and bank workflows need at least one active bank/cash profile.",
+        href: "/bank-accounts",
+        evidence: [`Active bank/cash profiles: ${activeBankAccountCount}`],
+        blockers: activeBankAccountCount > 0 ? [] : ["Create an active bank, cash, wallet, card, or other payment profile."],
+        warnings: [],
+      },
+      {
+        id: "zatca_local_readiness_visible",
+        label: "ZATCA local readiness visible",
+        status: zatcaProfileReadiness.ready && activeEgs && localXmlCount > 0 ? "COMPLETE" : "WARNING",
+        description: "ZATCA remains local-only until official OTP/sandbox access, CSID custody, and later clearance/reporting phases are approved.",
+        href: "/settings/zatca",
+        evidence: [
+          `ZATCA profile ready: ${zatcaProfileReadiness.ready ? "yes" : "no"}`,
+          `Active development EGS: ${activeEgs ? "yes" : "no"}`,
+          `Local XML records: ${localXmlCount}`,
+          "Production compliance: false",
+          "Real ZATCA network enabled: false",
+        ],
+        blockers: [],
+        warnings: [
+          ...(zatcaProfileReadiness.ready ? [] : [`ZATCA profile missing: ${zatcaProfileReadiness.missingFields.join(", ") || "required fields"}.`]),
+          ...(activeEgs ? [] : ["No active development EGS unit is configured."]),
+          ...(localXmlCount > 0 ? [] : ["No local ZATCA XML has been generated yet."]),
+          "Do not request CSIDs, call ZATCA, or claim production compliance until official sandbox credentials and approvals are available.",
+        ],
+      },
+      {
+        id: "contact_vat_id_validation",
+        label: "Contact VAT and ID validation ready",
+        status: "COMPLETE",
+        description: "Contacts support exactly 15-digit VAT numbers plus validated buyer identification type/number pairs.",
+        href: "/contacts",
+        evidence: [`Customer contacts with VAT or ID metadata: ${identifiedCustomerCount}`, "Backend/frontend validation is enabled."],
+        blockers: [],
+        warnings: customerCount > 0 && identifiedCustomerCount === 0 ? ["Add VAT or ID metadata to key customers before ZATCA rehearsals."] : [],
+      },
+      {
+        id: "storage_readiness_checked",
+        label: "Backup and storage readiness checked",
+        status: storageChecked && !databaseStorageActive ? "COMPLETE" : "WARNING",
+        description: "Generated document and attachment storage are checked without exposing raw storage credentials.",
+        href: "/settings/storage",
+        evidence: [`Storage providers: ${storageProviders.join(", ")}`],
+        blockers: [],
+        warnings: [
+          ...(storageChecked ? [] : ["Storage readiness could not be loaded."]),
+          ...(databaseStorageActive ? ["Database/base64 storage is acceptable for testing but should be reviewed before production scale."] : []),
+          "Signed XML and QR body persistence remain blocked.",
+        ],
+      },
+    ];
+
+    const completedCount = items.filter((item) => item.status === "COMPLETE").length;
+    const totalCount = items.length;
+    const blockers = items.flatMap((item) => item.blockers.map((blocker) => `${item.label}: ${blocker}`));
+    const warnings = items.flatMap((item) => item.warnings.map((warning) => `${item.label}: ${warning}`));
+    const readinessScore = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
+    const status: OnboardingChecklistStatus =
+      blockers.length > 0 ? "BLOCKED" : completedCount === totalCount ? "READY_FOR_SELLABLE_V1_REVIEW" : "IN_PROGRESS";
+
+    return {
+      readOnly: true,
+      noMutation: true,
+      tenantScoped: true,
+      organizationId,
+      generatedAt: new Date().toISOString(),
+      status,
+      readinessScore,
+      completedCount,
+      totalCount,
+      items,
+      blockers,
+      warnings,
+      recommendedNextSteps: this.onboardingRecommendedNextSteps(status, items),
+      zatcaProductionCompliance: false,
+      realZatcaNetworkEnabled: false,
+      signedXmlBodyPersistenceAllowed: false,
+      qrPayloadBodyPersistenceAllowed: false,
+      productionCompliance: false,
     };
   }
 
@@ -454,6 +680,31 @@ export class DashboardService {
     };
   }
 
+  private async safeStorageReadiness(): Promise<Awaited<ReturnType<StorageService["readiness"]>> | null> {
+    try {
+      return await this.storageService.readiness();
+    } catch {
+      this.logger.warn("Onboarding checklist storage readiness unavailable.");
+      return null;
+    }
+  }
+
+  private onboardingRecommendedNextSteps(status: OnboardingChecklistStatus, items: OnboardingChecklistItem[]): string[] {
+    const incomplete = items.filter((item) => item.status === "INCOMPLETE");
+    if (status === "READY_FOR_SELLABLE_V1_REVIEW") {
+      return [
+        "Run a go-live rehearsal with demo invoices, payments, reports, storage checks, and dashboard smoke.",
+        "Keep ZATCA production compliance blocked until official sandbox OTP/CSID and later clearance/reporting phases are implemented.",
+      ];
+    }
+
+    return [
+      ...incomplete.slice(0, 3).map((item) => `Complete: ${item.label}.`),
+      "Review warnings before using LedgerByte with real customer data.",
+      "Do not enable real ZATCA network calls or production compliance claims in this phase.",
+    ];
+  }
+
   private attentionItems(input: {
     sales: Awaited<ReturnType<DashboardService["salesSummary"]>>;
     purchases: Awaited<ReturnType<DashboardService["purchaseSummary"]>>;
@@ -761,4 +1012,8 @@ function monthKey(date: Date): string {
 
 function dateOnly(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+function hasFifteenDigitVat(value: string | null | undefined): boolean {
+  return /^\d{15}$/.test(value ?? "");
 }

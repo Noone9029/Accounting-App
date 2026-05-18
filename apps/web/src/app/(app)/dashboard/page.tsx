@@ -1,6 +1,19 @@
 "use client";
 
-import { AlertTriangle, ArrowRight, Banknote, BarChart3, Box, FileText, ReceiptText, ShieldCheck, TrendingUp } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  Banknote,
+  BarChart3,
+  Box,
+  CheckCircle2,
+  CircleDashed,
+  FileText,
+  ReceiptText,
+  ShieldCheck,
+  TrendingUp,
+  XCircle,
+} from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -20,6 +33,10 @@ import {
   dashboardIsEmpty,
   formatDashboardMoney,
   groupAttentionBySeverity,
+  onboardingChecklistItemStatusClass,
+  onboardingChecklistProgressPercent,
+  onboardingChecklistStatusClass,
+  onboardingChecklistStatusLabel,
   visibleDashboardQuickActions,
   type DashboardDrilldownLink,
 } from "@/lib/dashboard";
@@ -29,6 +46,8 @@ import type {
   DashboardAttentionItem,
   DashboardCashTrendPoint,
   DashboardLowStockItem,
+  DashboardOnboardingChecklist,
+  DashboardOnboardingChecklistItem,
   DashboardSummary,
   DashboardTrendPoint,
 } from "@/lib/types";
@@ -39,8 +58,11 @@ export default function DashboardPage() {
   const organizationId = useActiveOrganizationId();
   const { activeMembership } = usePermissions();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [onboardingChecklist, setOnboardingChecklist] = useState<DashboardOnboardingChecklist | null>(null);
   const [loading, setLoading] = useState(false);
+  const [onboardingLoading, setOnboardingLoading] = useState(false);
   const [error, setError] = useState("");
+  const [onboardingError, setOnboardingError] = useState("");
   const quickActions = useMemo(() => visibleDashboardQuickActions(activeMembership), [activeMembership]);
   const drilldownLinks = useMemo(
     () => ({
@@ -75,7 +97,9 @@ export default function DashboardPage() {
 
     let cancelled = false;
     setLoading(true);
+    setOnboardingLoading(true);
     setError("");
+    setOnboardingError("");
 
     apiRequest<DashboardSummary>("/dashboard/summary")
       .then((result) => {
@@ -91,6 +115,23 @@ export default function DashboardPage() {
       .finally(() => {
         if (!cancelled) {
           setLoading(false);
+        }
+      });
+
+    apiRequest<DashboardOnboardingChecklist>("/dashboard/onboarding-checklist")
+      .then((result) => {
+        if (!cancelled) {
+          setOnboardingChecklist(result);
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (!cancelled) {
+          setOnboardingError(loadError instanceof Error ? loadError.message : "Unable to load onboarding checklist.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setOnboardingLoading(false);
         }
       });
 
@@ -251,6 +292,18 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-5">
+              {onboardingChecklist ? (
+                <OnboardingChecklistCard checklist={onboardingChecklist} />
+              ) : onboardingLoading ? (
+                <Section title="Onboarding checklist">
+                  <StatusMessage type="loading">Loading onboarding checklist...</StatusMessage>
+                </Section>
+              ) : onboardingError ? (
+                <Section title="Onboarding checklist">
+                  <StatusMessage type="error">{onboardingError}</StatusMessage>
+                </Section>
+              ) : null}
+
               <Section title="Attention">
                 {summary.attentionItems.length > 0 && attentionGroups ? (
                   <div className="space-y-4">
@@ -319,6 +372,63 @@ function Kpi({ icon, label, value, detail, href }: Readonly<{ icon: ReactNode; l
     </Link>
   ) : (
     <div className={className}>{content}</div>
+  );
+}
+
+function OnboardingChecklistCard({ checklist }: Readonly<{ checklist: DashboardOnboardingChecklist }>) {
+  return (
+    <Section title="Sellable-v1 onboarding">
+      <div className={`rounded-md border px-3 py-3 text-sm ${onboardingChecklistStatusClass(checklist.status)}`}>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="font-semibold">{onboardingChecklistStatusLabel(checklist.status)}</div>
+            <div className="mt-1 text-xs">
+              {checklist.completedCount} of {checklist.totalCount} checks complete.
+            </div>
+          </div>
+          <div className="font-mono text-lg font-semibold">{checklist.readinessScore}%</div>
+        </div>
+        <div className="mt-3 h-2 rounded-full bg-white/70">
+          <div className="h-2 rounded-full bg-current" style={{ width: onboardingChecklistProgressPercent(checklist.completedCount, checklist.totalCount) }} />
+        </div>
+      </div>
+      <div className="mt-3 space-y-2">
+        {checklist.items.map((item) => (
+          <OnboardingChecklistItemRow key={item.id} item={item} />
+        ))}
+      </div>
+      <div className="mt-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
+        ZATCA remains local-only: productionCompliance=false, real ZATCA network disabled, signed XML/QR body persistence blocked.
+      </div>
+    </Section>
+  );
+}
+
+function OnboardingChecklistItemRow({ item }: Readonly<{ item: DashboardOnboardingChecklistItem }>) {
+  const icon =
+    item.status === "COMPLETE" ? (
+      <CheckCircle2 className="mt-0.5 h-4 w-4 flex-none" aria-hidden="true" />
+    ) : item.status === "WARNING" ? (
+      <CircleDashed className="mt-0.5 h-4 w-4 flex-none" aria-hidden="true" />
+    ) : (
+      <XCircle className="mt-0.5 h-4 w-4 flex-none" aria-hidden="true" />
+    );
+  const content = (
+    <div className={`flex items-start gap-2 ${onboardingChecklistItemStatusClass(item.status)}`}>
+      {icon}
+      <div>
+        <div className="font-medium">{item.label}</div>
+        <div className="mt-0.5 text-xs text-steel">{item.description}</div>
+      </div>
+    </div>
+  );
+
+  return item.href ? (
+    <Link href={item.href} className="block rounded-md border border-slate-100 px-3 py-2 text-sm hover:bg-slate-50">
+      {content}
+    </Link>
+  ) : (
+    <div className="rounded-md border border-slate-100 px-3 py-2 text-sm">{content}</div>
   );
 }
 

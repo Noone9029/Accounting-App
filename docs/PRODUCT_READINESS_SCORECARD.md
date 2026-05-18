@@ -679,3 +679,15 @@ Safety guarantees:
 
 Recommended next step:
 - Add a non-executing provider-reference audit and rotation plan before any real sandbox custody provider implementation.
+
+# Sellable-v1 scorecard update - 2026-05-18
+
+- Authentication/users/permissions: 82%.
+- Tenant isolation and organization context: 84%.
+- Onboarding: 78% after adding the read-only dashboard onboarding checklist.
+- Accounting workflows: 82%.
+- Reliability and deployment readiness: 76%.
+- Documents and storage: 62%.
+- Admin/supportability: 70%.
+- ZATCA local readiness: 36%; production compliance remains false and blocked.
+- Overall controlled beta readiness: 74%.

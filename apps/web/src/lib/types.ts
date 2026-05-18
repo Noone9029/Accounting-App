@@ -289,6 +289,41 @@ export interface DashboardSectionWarning {
   message: string;
 }
 
+export type DashboardOnboardingChecklistItemStatus = "COMPLETE" | "INCOMPLETE" | "WARNING";
+export type DashboardOnboardingChecklistStatus = "BLOCKED" | "IN_PROGRESS" | "READY_FOR_SELLABLE_V1_REVIEW";
+
+export interface DashboardOnboardingChecklistItem {
+  id: string;
+  label: string;
+  status: DashboardOnboardingChecklistItemStatus;
+  description: string;
+  href: string;
+  evidence: string[];
+  blockers: string[];
+  warnings: string[];
+}
+
+export interface DashboardOnboardingChecklist {
+  readOnly: true;
+  noMutation: true;
+  tenantScoped: true;
+  organizationId: string;
+  generatedAt: string;
+  status: DashboardOnboardingChecklistStatus;
+  readinessScore: number;
+  completedCount: number;
+  totalCount: number;
+  items: DashboardOnboardingChecklistItem[];
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
+  zatcaProductionCompliance: false;
+  realZatcaNetworkEnabled: false;
+  signedXmlBodyPersistenceAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
+  productionCompliance: false;
+}
+
 export interface DashboardSummary {
   sectionStatus?: Record<DashboardSectionName, DashboardSectionStatus>;
   warnings?: DashboardSectionWarning[];

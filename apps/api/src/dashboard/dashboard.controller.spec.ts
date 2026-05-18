@@ -8,4 +8,10 @@ describe("DashboardController permissions", () => {
       PERMISSIONS.dashboard.view,
     ]);
   });
+
+  it("requires dashboard view permission for the onboarding checklist endpoint", () => {
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, DashboardController.prototype.onboardingChecklist)).toEqual([
+      PERMISSIONS.dashboard.view,
+    ]);
+  });
 });

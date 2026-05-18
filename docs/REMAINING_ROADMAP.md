@@ -801,3 +801,9 @@ Safety guarantees:
 
 Recommended next step:
 - Add a non-executing provider-reference audit and rotation plan before any real sandbox custody provider implementation.
+
+# Sellable-v1 roadmap update - 2026-05-18
+
+- New completed item: read-only dashboard onboarding checklist for sellable-v1 setup visibility.
+- Next non-ZATCA priorities: first-run setup wizard, SMTP readiness validation, Vercel/Supabase deployment runbook checks, browser E2E coverage, object-storage migration executor, support diagnostics, accountant-reviewed KPI definitions, contact/item import-export, and backup/restore evidence.
+- Keep ZATCA real CSID requests, real network calls, clearance/reporting, PDF-A3, signed XML/QR body persistence, production credentials, and production compliance claims blocked until official OTP/sandbox access and later approvals are available.

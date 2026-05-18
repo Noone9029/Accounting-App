@@ -2671,3 +2671,10 @@ Safety guarantees:
 
 Recommended next step:
 - Add a non-executing provider-reference audit and rotation plan before any real sandbox custody provider implementation.
+
+# Sellable-v1 bug audit update - 2026-05-18
+
+- Added regression coverage for the dashboard onboarding checklist and smoke assertions that it remains read-only, no-mutation, tenant-scoped, and ZATCA-safe.
+- No regression was found or intentionally changed in contact VAT/ID validation.
+- No regression was found or intentionally changed in dashboard summary concurrency hardening.
+- Open risk: production deployment still needs SMTP, storage, backup/restore, and browser E2E validation before paid customer use.
