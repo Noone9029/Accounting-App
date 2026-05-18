@@ -31,6 +31,11 @@ import {
   SalesInvoiceStatus,
   ZatcaInvoiceStatus,
   ZatcaInvoiceType,
+  ZatcaComplianceCsidCertificateStorageMode,
+  ZatcaComplianceCsidCustodyRecordSource,
+  ZatcaComplianceCsidCustodyRecordStatus,
+  ZatcaComplianceCsidSecretStorageMode,
+  ZatcaComplianceCsidTokenStorageMode,
   ZatcaCsrConfigReviewStatus,
   ZatcaHashMode,
   ZatcaRegistrationStatus,
@@ -231,12 +236,43 @@ const safeSignedArtifactStorageControlEvidenceSelect = {
   policyApproval: { select: { id: true, status: true, retentionDurationStatus: true, retentionDurationValue: true } },
 } satisfies Prisma.ZatcaSignedArtifactStorageControlEvidenceSelect;
 
+const safeComplianceCsidCustodyRecordSelect = {
+  id: true,
+  organizationId: true,
+  egsUnitId: true,
+  source: true,
+  status: true,
+  requestId: true,
+  certificateRequestId: true,
+  hasBinarySecurityToken: true,
+  hasSecret: true,
+  hasCertificate: true,
+  tokenStorageMode: true,
+  secretStorageMode: true,
+  certificateStorageMode: true,
+  expiryKnown: true,
+  expiresAt: true,
+  renewalRequired: true,
+  signedWithProductionMaterial: true,
+  productionCompliance: true,
+  custodyBlockedReason: true,
+  createdById: true,
+  revokedById: true,
+  revokedAt: true,
+  createdAt: true,
+  updatedAt: true,
+  createdBy: { select: { id: true, name: true, email: true } },
+  revokedBy: { select: { id: true, name: true, email: true } },
+  egsUnit: { select: { id: true, name: true, environment: true } },
+} satisfies Prisma.ZatcaComplianceCsidCustodyRecordSelect;
+
 type SafeEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof safeEgsUnitSelect }>;
 type InternalEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof internalEgsUnitSelect }>;
 type SafeCsrConfigReviewRecord = Prisma.ZatcaCsrConfigReviewGetPayload<{ select: typeof safeCsrConfigReviewSelect }>;
 type SafeSignedArtifactDraftRecord = Prisma.ZatcaSignedArtifactDraftGetPayload<{ select: typeof safeSignedArtifactDraftSelect }>;
 type SafeSignedArtifactStoragePolicyApprovalRecord = Prisma.ZatcaSignedArtifactStoragePolicyApprovalGetPayload<{ select: typeof safeSignedArtifactStoragePolicyApprovalSelect }>;
 type SafeSignedArtifactStorageControlEvidenceRecord = Prisma.ZatcaSignedArtifactStorageControlEvidenceGetPayload<{ select: typeof safeSignedArtifactStorageControlEvidenceSelect }>;
+type SafeComplianceCsidCustodyRecord = Prisma.ZatcaComplianceCsidCustodyRecordGetPayload<{ select: typeof safeComplianceCsidCustodyRecordSelect }>;
 type ZatcaKeyCustodyMode = "MISSING" | "RAW_DATABASE_PEM";
 type ZatcaCsrPlanFieldStatus = "AVAILABLE" | "MISSING" | "NEEDS_REVIEW";
 const officialCsrConfigKeyOrder = [
@@ -1059,29 +1095,172 @@ export class ZatcaService {
     };
   }
 
-  async getEgsUnitComplianceCsidCustodyPlan(organizationId: string, id: string) {
-    const egsUnit = await this.getEgsUnitInternal(organizationId, id);
-    const hasComplianceCsid = Boolean(egsUnit.complianceCsidPem);
-    const hasProductionCsid = Boolean(egsUnit.productionCsidPem);
-    const hasMockResponse = hasComplianceCsid && egsUnit.environment !== "PRODUCTION";
-    const custodyStatus = {
-      status: "BLOCKED" as const,
-      implemented: false,
-      persisted: false,
-      bodyReturned: false,
-      storageMode: "NOT_STORED" as const,
-      recommendedMode: "FUTURE_SECRETS_MANAGER_OR_KMS" as const,
+  async listComplianceCsidCustodyRecords(organizationId: string, egsUnitId: string) {
+    await this.requireEgsUnitForComplianceCsidCustody(organizationId, egsUnitId);
+    const model = this.requireComplianceCsidCustodyRecordModel();
+    const records = await model.findMany({
+      where: { organizationId, egsUnitId },
+      orderBy: { createdAt: "desc" },
+      select: safeComplianceCsidCustodyRecordSelect,
+    });
+    return {
+      localOnly: true,
+      readOnly: true,
+      metadataOnly: true,
+      noNetwork: true,
+      noCsidRequest: true,
+      noTokenBody: true,
+      noSecretBody: true,
+      noCertificateBody: true,
+      noPrivateKey: true,
+      noOtp: true,
+      noCsrBody: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noSubmissionLogs: true,
+      productionCompliance: false,
+      custodyRecords: records.map((record) => this.toSafeComplianceCsidCustodyRecord(record)),
     };
-    const blockers = [
-      "Token custody is not implemented.",
-      "Secret custody is not implemented.",
-      "Certificate custody is not implemented.",
-      "Certificate expiry is unknown until a real sandbox response is received and parsed safely.",
-      "Renewal metadata is not modeled.",
-      "Real sandbox response custody is not implemented.",
-      "Production CSID remains missing and blocked.",
-      "Production key custody remains incomplete.",
-    ];
+  }
+
+  async createComplianceCsidCustodyRecord(
+    organizationId: string,
+    actorUserId: string,
+    egsUnitId: string,
+    dto: {
+      source?: "MOCK" | "FUTURE_SANDBOX";
+      status?: "PLANNED" | "BLOCKED" | "FUTURE_READY";
+      requestId?: string;
+      certificateRequestId?: string;
+      hasBinarySecurityToken?: boolean;
+      hasSecret?: boolean;
+      hasCertificate?: boolean;
+      expiryKnown?: boolean;
+      expiresAt?: string;
+      renewalRequired?: boolean;
+      custodyBlockedReason?: string;
+    },
+  ) {
+    this.assertSafeComplianceCsidCustodyMetadata(dto, new Set([
+      "source",
+      "status",
+      "requestId",
+      "certificateRequestId",
+      "hasBinarySecurityToken",
+      "hasSecret",
+      "hasCertificate",
+      "expiryKnown",
+      "expiresAt",
+      "renewalRequired",
+      "custodyBlockedReason",
+    ]));
+    const egsUnit = await this.requireEgsUnitForComplianceCsidCustody(organizationId, egsUnitId);
+    if (egsUnit.environment === "PRODUCTION") {
+      throw new BadRequestException("Compliance CSID custody records are restricted to non-production EGS units in this phase.");
+    }
+
+    const expiresAt = dto.expiresAt?.trim() ? new Date(dto.expiresAt.trim()) : null;
+    if (expiresAt && Number.isNaN(expiresAt.getTime())) {
+      throw new BadRequestException("expiresAt must be a valid date-time when provided.");
+    }
+
+    const model = this.requireComplianceCsidCustodyRecordModel();
+    const created = await model.create({
+      data: {
+        organizationId,
+        egsUnitId,
+        source: dto.source === "FUTURE_SANDBOX" ? ZatcaComplianceCsidCustodyRecordSource.FUTURE_SANDBOX : ZatcaComplianceCsidCustodyRecordSource.MOCK,
+        status:
+          dto.status === "FUTURE_READY"
+            ? ZatcaComplianceCsidCustodyRecordStatus.FUTURE_READY
+            : dto.status === "BLOCKED"
+              ? ZatcaComplianceCsidCustodyRecordStatus.BLOCKED
+              : ZatcaComplianceCsidCustodyRecordStatus.PLANNED,
+        requestId: dto.requestId?.trim() || null,
+        certificateRequestId: dto.certificateRequestId?.trim() || egsUnit.certificateRequestId || null,
+        hasBinarySecurityToken: Boolean(dto.hasBinarySecurityToken),
+        hasSecret: Boolean(dto.hasSecret),
+        hasCertificate: Boolean(dto.hasCertificate),
+        tokenStorageMode: ZatcaComplianceCsidTokenStorageMode.NOT_STORED,
+        secretStorageMode: ZatcaComplianceCsidSecretStorageMode.NOT_STORED,
+        certificateStorageMode: ZatcaComplianceCsidCertificateStorageMode.NOT_STORED,
+        expiryKnown: Boolean(dto.expiryKnown && expiresAt),
+        expiresAt,
+        renewalRequired: Boolean(dto.renewalRequired),
+        signedWithProductionMaterial: false,
+        productionCompliance: false,
+        custodyBlockedReason:
+          dto.custodyBlockedReason?.trim() || "Metadata-only CSID custody record. Token, secret, certificate, CSR, OTP, and key bodies are not stored.",
+        createdById: actorUserId,
+      },
+      select: safeComplianceCsidCustodyRecordSelect,
+    });
+    const custodyRecord = this.toSafeComplianceCsidCustodyRecord(created);
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "CREATE",
+      entityType: AUDIT_ENTITY_TYPES.ZATCA_COMPLIANCE_CSID_CUSTODY_RECORD,
+      entityId: created.id,
+      after: custodyRecord,
+    });
+    return this.wrapComplianceCsidCustodyRecordResponse(custodyRecord, { readOnly: false });
+  }
+
+  async revokeComplianceCsidCustodyRecord(
+    organizationId: string,
+    actorUserId: string,
+    recordId: string,
+    dto: { note?: string } = {},
+  ) {
+    this.assertSafeComplianceCsidCustodyMetadata(dto, new Set(["note"]));
+    const model = this.requireComplianceCsidCustodyRecordModel();
+    const existing = await model.findFirst({
+      where: { id: recordId, organizationId },
+      select: safeComplianceCsidCustodyRecordSelect,
+    });
+    if (!existing) {
+      throw new NotFoundException("ZATCA compliance CSID custody record not found.");
+    }
+    const revoked = await model.update({
+      where: { id: recordId },
+      data: {
+        status: ZatcaComplianceCsidCustodyRecordStatus.REVOKED,
+        revokedById: actorUserId,
+        revokedAt: new Date(),
+        custodyBlockedReason:
+          dto.note?.trim() || existing.custodyBlockedReason || "Metadata-only CSID custody record revoked; sensitive body persistence remains blocked.",
+        productionCompliance: false,
+        signedWithProductionMaterial: false,
+      },
+      select: safeComplianceCsidCustodyRecordSelect,
+    });
+    const custodyRecord = this.toSafeComplianceCsidCustodyRecord(revoked);
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "REVOKE",
+      entityType: AUDIT_ENTITY_TYPES.ZATCA_COMPLIANCE_CSID_CUSTODY_RECORD,
+      entityId: revoked.id,
+      before: this.toSafeComplianceCsidCustodyRecord(existing),
+      after: custodyRecord,
+    });
+    return this.wrapComplianceCsidCustodyRecordResponse(custodyRecord, { readOnly: false });
+  }
+
+  async getEgsUnitComplianceCsidCustodyPlan(organizationId: string, id: string) {
+    const egsUnit = await this.requireEgsUnitForComplianceCsidCustody(organizationId, id);
+    const model = this.getComplianceCsidCustodyRecordModel();
+    const latestRecord = model?.findFirst
+      ? await model.findFirst({
+          where: { organizationId, egsUnitId: id },
+          orderBy: { createdAt: "desc" },
+          select: safeComplianceCsidCustodyRecordSelect,
+        })
+      : null;
+    const custodyRecordCount = model?.count ? await model.count({ where: { organizationId, egsUnitId: id } }) : 0;
+    const latestCustodyRecord = latestRecord ? this.toSafeComplianceCsidCustodyRecord(latestRecord) : null;
+    const custodyGate = this.getComplianceCsidCustodyGate(egsUnit);
 
     return {
       localOnly: true,
@@ -1094,6 +1273,13 @@ export class ZatcaService {
       noPdfA3: true,
       noSignedXmlBodyPersistence: true,
       noQrPayloadBodyPersistence: true,
+      noTokenBody: true,
+      noSecretBody: true,
+      noCertificateBody: true,
+      noPrivateKey: true,
+      noOtp: true,
+      noCsrBody: true,
+      bodyPersistenceAllowed: false,
       productionCompliance: false,
       egsUnit: {
         id: egsUnit.id,
@@ -1102,45 +1288,49 @@ export class ZatcaService {
         status: egsUnit.status,
         isActive: egsUnit.isActive,
         hasCsr: Boolean(egsUnit.csrPem),
-        hasComplianceCsid,
-        hasProductionCsid,
+        hasComplianceCsid: Boolean(egsUnit.complianceCsidPem),
+        hasProductionCsid: Boolean(egsUnit.productionCsidPem),
         hasPrivateKey: Boolean(egsUnit.privateKeyPem),
         certificateRequestId: egsUnit.certificateRequestId ?? null,
       },
-      hasMockResponse,
-      hasComplianceCsid,
-      hasProductionCsid,
-      tokenCustodyStatus: custodyStatus,
-      secretCustodyStatus: custodyStatus,
-      certificateCustodyStatus: {
-        ...custodyStatus,
-        recommendedMode: "FUTURE_ENCRYPTED_DB_OR_OBJECT_STORAGE_METADATA_ONLY" as const,
-      },
+      hasMockResponse: Boolean(egsUnit.complianceCsidPem),
+      hasComplianceCsid: Boolean(egsUnit.complianceCsidPem),
+      hasProductionCsid: Boolean(egsUnit.productionCsidPem),
+      latestCustodyRecord,
+      custodyRecordCount,
+      custodyGate,
+      tokenStorageReady: false,
+      secretStorageReady: false,
+      certificateStorageReady: false,
+      tokenCustodyStatus: { status: "BLOCKED", implemented: false, persisted: false, bodyReturned: false, storageMode: "NOT_STORED", recommendedMode: "secrets-manager/KMS" },
+      secretCustodyStatus: { status: "BLOCKED", implemented: false, persisted: false, bodyReturned: false, storageMode: "NOT_STORED", recommendedMode: "secrets-manager/KMS" },
+      certificateCustodyStatus: { status: "BLOCKED", implemented: false, persisted: false, bodyReturned: false, storageMode: "NOT_STORED", recommendedMode: "encrypted controlled certificate storage" },
       certificateExpiryKnown: false,
       certificateExpiresAt: null,
       renewalMetadataModeled: false,
       renewalRequired: false,
-      recommendedCustodyMode: "FUTURE_SECRETS_MANAGER_OR_KMS" as const,
+      recommendedCustodyMode: "Use a secrets-manager/KMS custody design for binarySecurityToken and secret, with controlled encrypted certificate storage; no body persistence is enabled in this phase.",
+      recommendedStorageMode: {
+        token: "FUTURE_SECRETS_MANAGER_OR_KMS",
+        secret: "FUTURE_SECRETS_MANAGER_OR_KMS",
+        certificate: "FUTURE_ENCRYPTED_CONTROLLED_STORAGE",
+      },
       sensitiveFields: ["binarySecurityToken", "secret", "certificate", "privateKey", "OTP", "CSR"],
       redactionGuarantees: [
-        "binarySecurityToken body is never returned.",
-        "secret body is never returned.",
-        "certificate body is never returned.",
-        "private key material is never returned.",
-        "OTP is never returned or stored.",
-        "CSR body is not returned from custody planning responses.",
-        "Production credentials are never returned.",
+        "binarySecurityToken body is never returned or stored by this custody plan.",
+        "secret body is never returned or stored by this custody plan.",
+        "certificate body is never returned or stored by this custody plan.",
+        "private key, OTP, and CSR bodies are never returned by this custody plan.",
       ],
-      blockers,
+      blockers: custodyGate.reasons,
       warnings: [
-        "Compliance CSID is not a production CSID.",
-        "Mock CSID material is local test material and must not be treated as a real sandbox or production credential.",
-        "No real sandbox response is persisted in this phase.",
+        "Compliance CSID custody metadata is planning-only and not a production CSID.",
+        "No real sandbox CSID response is received or persisted in this phase.",
       ],
       recommendedNextSteps: [
-        "Design encrypted token/secret custody before any real sandbox response persistence.",
-        "Model certificate expiry and renewal metadata only after a real sandbox response shape is safely handled.",
-        "Keep production CSID onboarding, clearance/reporting, PDF/A-3, and signed XML/QR persistence out of scope.",
+        "Configure and approve secrets-manager/KMS custody before any real CSID token or secret persistence.",
+        "Model certificate expiry and renewal metadata after a real sandbox response is safely received.",
+        "Keep production CSID, clearance/reporting, PDF/A-3, signed XML storage, and production compliance claims blocked.",
       ],
     };
   }
@@ -1190,6 +1380,11 @@ export class ZatcaService {
       secretPersisted: false,
       certificatePersisted: false,
       custodyPlanRequired: true,
+      custodyRecordRequired: true,
+      custodyGate: this.getComplianceCsidCustodyGate(plan.egsUnit),
+      tokenStorageReady: false,
+      secretStorageReady: false,
+      certificateStorageReady: false,
       custodySummary: {
         tokenCustodyImplemented: false,
         secretCustodyImplemented: false,
@@ -5807,6 +6002,11 @@ export class ZatcaService {
     } | null,
   ): ZatcaReadinessSection {
     const checks: ZatcaReadinessCheck[] = [
+      this.check("ZATCA_COMPLIANCE_CSID_CUSTODY_RECORD_METADATA_SUPPORT", "INFO", "complianceCsidCustody.records", "Metadata-only CSID custody record support exists; sensitive token, secret, certificate, CSR, OTP, and key bodies remain blocked.", "COMPLIANCE_CSID_API", "Use metadata records only until secure custody is approved."),
+      this.check("ZATCA_COMPLIANCE_CSID_KMS_SECRETS_MANAGER_NOT_CONFIGURED", "ERROR", "complianceCsidCustody.kms", "Secrets-manager/KMS custody is not configured for compliance CSID token or secret material.", "SECURITY_FEATURES_CERTIFICATE", "Configure secrets-manager/KMS custody before any real CSID material persistence."),
+      this.check("ZATCA_COMPLIANCE_CSID_TOKEN_STORAGE_NOT_READY", "ERROR", "complianceCsidCustody.tokenStorage", "binarySecurityToken storage is not ready and remains metadata-only.", "COMPLIANCE_CSID_API", "Keep token body persistence blocked."),
+      this.check("ZATCA_COMPLIANCE_CSID_SECRET_STORAGE_NOT_READY", "ERROR", "complianceCsidCustody.secretStorage", "CSID secret storage is not ready and remains metadata-only.", "COMPLIANCE_CSID_API", "Keep secret body persistence blocked."),
+      this.check("ZATCA_COMPLIANCE_CSID_CERTIFICATE_STORAGE_NOT_READY", "ERROR", "complianceCsidCustody.certificateStorage", "CSID certificate storage is not ready and remains metadata-only.", "COMPLIANCE_CSID_API", "Keep certificate body persistence blocked."),
       this.check(
         "ZATCA_SIGNING_NOT_IMPLEMENTED",
         "ERROR",
@@ -6233,6 +6433,148 @@ export class ZatcaService {
     const unsafeValuePattern = /-----BEGIN [A-Z ]+-----|<\?xml|<Invoice\b|<\w+:Invoice\b|<cbc:EmbeddedDocumentBinaryObject\b|binarySecurityToken|X509Certificate|privateKey|secretAccessKey|accessKeyId|AKIA[0-9A-Z]{16}|\bOTP\b|\bCSID\b|Bearer\s+[A-Za-z0-9._-]+/i;
     if (unsafeValuePattern.test(value)) {
       throw new BadRequestException("Evidence summary must not include XML bodies, QR payload bodies, PEM/certificate material, tokens, OTPs, CSIDs, access keys, or credentials.");
+    }
+  }
+
+  private getComplianceCsidCustodyRecordModel() {
+    return (
+      this.prisma as unknown as {
+        zatcaComplianceCsidCustodyRecord?: {
+          findMany(args: unknown): Promise<SafeComplianceCsidCustodyRecord[]>;
+          findFirst(args: unknown): Promise<SafeComplianceCsidCustodyRecord | null>;
+          count(args: unknown): Promise<number>;
+          create(args: unknown): Promise<SafeComplianceCsidCustodyRecord>;
+          update(args: unknown): Promise<SafeComplianceCsidCustodyRecord>;
+        };
+      }
+    ).zatcaComplianceCsidCustodyRecord ?? null;
+  }
+
+  private requireComplianceCsidCustodyRecordModel() {
+    const model = this.getComplianceCsidCustodyRecordModel();
+    if (!model) {
+      throw new NotImplementedException("ZATCA compliance CSID custody record model is not available. Run Prisma generate/migrate before using this endpoint.");
+    }
+    return model;
+  }
+
+  private async requireEgsUnitForComplianceCsidCustody(organizationId: string, egsUnitId: string) {
+    const egsUnit = await this.prisma.zatcaEgsUnit.findFirst({ where: { id: egsUnitId, organizationId }, select: internalEgsUnitSelect });
+    if (!egsUnit) {
+      throw new NotFoundException("ZATCA EGS unit not found.");
+    }
+    return egsUnit;
+  }
+
+  private getComplianceCsidCustodyGate(_egsUnit?: { complianceCsidPem?: string | null; productionCsidPem?: string | null; certificateRequestId?: string | null } | null) {
+    return {
+      allowed: false,
+      tokenStorageReady: false,
+      secretStorageReady: false,
+      certificateStorageReady: false,
+      kmsConfigured: false,
+      secretsManagerConfigured: false,
+      encryptedDbApproved: false,
+      bodyPersistenceAllowed: false,
+      productionCompliance: false,
+      reasons: [
+        "token custody not implemented",
+        "secret custody not implemented",
+        "certificate custody not implemented",
+        "KMS/secrets manager not configured",
+        "real sandbox response not received",
+        "production CSID missing",
+        "renewal metadata incomplete",
+        "production compliance false",
+      ],
+    };
+  }
+
+  private toSafeComplianceCsidCustodyRecord(record: SafeComplianceCsidCustodyRecord) {
+    return {
+      id: record.id,
+      organizationId: record.organizationId,
+      egsUnitId: record.egsUnitId,
+      source: record.source,
+      status: record.status,
+      requestId: record.requestId,
+      certificateRequestId: record.certificateRequestId,
+      hasBinarySecurityToken: record.hasBinarySecurityToken,
+      hasSecret: record.hasSecret,
+      hasCertificate: record.hasCertificate,
+      tokenStorageMode: record.tokenStorageMode,
+      secretStorageMode: record.secretStorageMode,
+      certificateStorageMode: record.certificateStorageMode,
+      expiryKnown: record.expiryKnown,
+      expiresAt: record.expiresAt,
+      renewalRequired: record.renewalRequired,
+      signedWithProductionMaterial: false,
+      productionCompliance: false,
+      custodyBlockedReason: record.custodyBlockedReason,
+      createdById: record.createdById,
+      revokedById: record.revokedById,
+      revokedAt: record.revokedAt,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      createdBy: record.createdBy,
+      revokedBy: record.revokedBy,
+      egsUnit: record.egsUnit,
+      tokenReturned: false,
+      secretReturned: false,
+      certificateBodyReturned: false,
+      otpReturned: false,
+      csrReturned: false,
+    };
+  }
+
+  private wrapComplianceCsidCustodyRecordResponse(custodyRecord: ReturnType<ZatcaService["toSafeComplianceCsidCustodyRecord"]>, options: { readOnly: boolean }) {
+    return {
+      localOnly: true,
+      metadataOnly: true,
+      readOnly: options.readOnly,
+      noEgsMutation: true,
+      noNetwork: true,
+      noCsidRequest: true,
+      noTokenBody: true,
+      noSecretBody: true,
+      noCertificateBody: true,
+      noPrivateKey: true,
+      noOtp: true,
+      noCsrBody: true,
+      noSignedXmlBody: true,
+      noQrPayloadBody: true,
+      noSubmissionLogs: true,
+      tokenPersisted: false,
+      secretPersisted: false,
+      certificatePersisted: false,
+      productionCompliance: false,
+      custodyRecord,
+    };
+  }
+
+  private assertSafeComplianceCsidCustodyMetadata(value: unknown, allowedKeys: Set<string>, path = "metadata") {
+    const sensitiveValuePattern = /-----BEGIN [A-Z ]+-----|<\?xml|<Invoice\b|<\w+:Invoice\b|binarySecurityToken\s*=|secret\s*=|privateKey\s*=|csr\s*=|certificate\s*=|\bOTP\s*\d{4,8}\b|Bearer\s+[A-Za-z0-9._-]+|AKIA[0-9A-Z]{16}/i;
+    const sensitiveKeyPattern = /^(binarySecurityToken|binarySecurityTokenBody|tokenBody|secret|secretBody|certificate|certificateBody|certificatePem|rawCertificatePem|privateKey|privateKeyPem|otp|csr|csrPem|csrBody|productionCredential|signedXml|signedXmlBody|qrPayload|qrPayloadBody)$/i;
+    if (value === null || value === undefined) {
+      return;
+    }
+    if (typeof value === "string") {
+      if (sensitiveValuePattern.test(value)) {
+        throw new BadRequestException(`Sensitive CSID custody material is not allowed in ${path}.`);
+      }
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => this.assertSafeComplianceCsidCustodyMetadata(item, allowedKeys, `${path}[${index}]`));
+      return;
+    }
+    if (typeof value === "object") {
+      for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+        if (!allowedKeys.has(key) || sensitiveKeyPattern.test(key)) {
+          throw new BadRequestException(`Field ${key} is not allowed in CSID custody metadata.`);
+        }
+        this.assertSafeComplianceCsidCustodyMetadata(nestedValue, allowedKeys, `${path}.${key}`);
+      }
     }
   }
 

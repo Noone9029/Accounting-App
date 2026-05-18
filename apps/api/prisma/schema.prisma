@@ -474,6 +474,39 @@ enum ZatcaSignedArtifactStorageControlEvidenceType {
   OTHER
 }
 
+enum ZatcaComplianceCsidCustodyRecordSource {
+  MOCK
+  FUTURE_SANDBOX
+}
+
+enum ZatcaComplianceCsidCustodyRecordStatus {
+  PLANNED
+  BLOCKED
+  FUTURE_READY
+  REVOKED
+}
+
+enum ZatcaComplianceCsidTokenStorageMode {
+  NOT_STORED
+  FUTURE_SECRETS_MANAGER
+  FUTURE_ENCRYPTED_DB
+  FUTURE_KMS
+}
+
+enum ZatcaComplianceCsidSecretStorageMode {
+  NOT_STORED
+  FUTURE_SECRETS_MANAGER
+  FUTURE_ENCRYPTED_DB
+  FUTURE_KMS
+}
+
+enum ZatcaComplianceCsidCertificateStorageMode {
+  NOT_STORED
+  FUTURE_SECRETS_MANAGER
+  FUTURE_ENCRYPTED_DB
+  FUTURE_OBJECT_STORAGE
+}
+
 enum FiscalPeriodStatus {
   OPEN
   CLOSED
@@ -570,6 +603,8 @@ model User {
   createdZatcaSignedArtifactStorageControlEvidence   ZatcaSignedArtifactStorageControlEvidence[] @relation("ZatcaSignedArtifactStorageControlEvidenceCreatedBy")
   verifiedZatcaSignedArtifactStorageControlEvidence  ZatcaSignedArtifactStorageControlEvidence[] @relation("ZatcaSignedArtifactStorageControlEvidenceVerifiedBy")
   revokedZatcaSignedArtifactStorageControlEvidence   ZatcaSignedArtifactStorageControlEvidence[] @relation("ZatcaSignedArtifactStorageControlEvidenceRevokedBy")
+  zatcaComplianceCsidCustodyRecordsCreated  ZatcaComplianceCsidCustodyRecord[] @relation("ZatcaComplianceCsidCustodyRecordCreatedBy")
+  zatcaComplianceCsidCustodyRecordsRevoked  ZatcaComplianceCsidCustodyRecord[] @relation("ZatcaComplianceCsidCustodyRecordRevokedBy")
 }
 
 model Organization {
@@ -649,6 +684,7 @@ model Organization {
   zatcaSignedArtifactDrafts           ZatcaSignedArtifactDraft[]
   zatcaSignedArtifactStoragePolicyApprovals ZatcaSignedArtifactStoragePolicyApproval[]
   zatcaSignedArtifactStorageControlEvidence ZatcaSignedArtifactStorageControlEvidence[]
+  zatcaComplianceCsidCustodyRecords ZatcaComplianceCsidCustodyRecord[]
 }
 
 model OrganizationDocumentSettings {
@@ -825,6 +861,7 @@ model ZatcaEgsUnit {
   invoiceMetadata      ZatcaInvoiceMetadata[]
   submissionLogs       ZatcaSubmissionLog[]
   csrConfigReviews     ZatcaCsrConfigReview[]
+  complianceCsidCustodyRecords ZatcaComplianceCsidCustodyRecord[]
 
   @@unique([organizationId, deviceSerialNumber])
   @@index([organizationId])
@@ -1015,6 +1052,46 @@ model ZatcaSignedArtifactStorageControlEvidence {
   @@index([evidenceHash])
   @@index([createdById])
   @@index([verifiedById])
+  @@index([revokedById])
+}
+
+model ZatcaComplianceCsidCustodyRecord {
+  id                           String                                      @id @default(uuid()) @db.Uuid
+  organizationId               String                                      @db.Uuid
+  egsUnitId                    String                                      @db.Uuid
+  source                       ZatcaComplianceCsidCustodyRecordSource
+  status                       ZatcaComplianceCsidCustodyRecordStatus      @default(PLANNED)
+  requestId                    String?
+  certificateRequestId         String?
+  hasBinarySecurityToken       Boolean                                     @default(false)
+  hasSecret                    Boolean                                     @default(false)
+  hasCertificate               Boolean                                     @default(false)
+  tokenStorageMode             ZatcaComplianceCsidTokenStorageMode         @default(NOT_STORED)
+  secretStorageMode            ZatcaComplianceCsidSecretStorageMode        @default(NOT_STORED)
+  certificateStorageMode       ZatcaComplianceCsidCertificateStorageMode   @default(NOT_STORED)
+  expiryKnown                  Boolean                                     @default(false)
+  expiresAt                    DateTime?
+  renewalRequired              Boolean                                     @default(false)
+  signedWithProductionMaterial Boolean                                     @default(false)
+  productionCompliance         Boolean                                     @default(false)
+  custodyBlockedReason         String?
+  createdById                  String?                                     @db.Uuid
+  revokedById                  String?                                     @db.Uuid
+  revokedAt                    DateTime?
+  createdAt                    DateTime                                    @default(now())
+  updatedAt                    DateTime                                    @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  egsUnit      ZatcaEgsUnit @relation(fields: [egsUnitId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("ZatcaComplianceCsidCustodyRecordCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  revokedBy    User?        @relation("ZatcaComplianceCsidCustodyRecordRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([egsUnitId])
+  @@index([source])
+  @@index([status])
+  @@index([certificateRequestId])
+  @@index([createdById])
   @@index([revokedById])
 }
 

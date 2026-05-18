@@ -10,6 +10,7 @@ import { OrganizationContextGuard } from "../auth/guards/organization-context.gu
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { ApproveZatcaStoragePolicyApprovalDto } from "./dto/approve-zatca-storage-policy-approval.dto";
 import { ComplianceCsidRequestDryRunDto } from "./dto/compliance-csid-request-dry-run.dto";
+import { CreateComplianceCsidCustodyRecordDto } from "./dto/create-compliance-csid-custody-record.dto";
 import { CreateZatcaEgsUnitDto } from "./dto/create-zatca-egs-unit.dto";
 import { CreateZatcaStoragePolicyApprovalDto } from "./dto/create-zatca-storage-policy-approval.dto";
 import { CreateZatcaStorageControlEvidenceDto } from "./dto/create-zatca-storage-control-evidence.dto";
@@ -17,6 +18,7 @@ import { EnableZatcaSdkHashModeDto } from "./dto/enable-zatca-sdk-hash-mode.dto"
 import { RequestComplianceCsidDto } from "./dto/request-compliance-csid.dto";
 import { RevokeZatcaStoragePolicyApprovalDto } from "./dto/revoke-zatca-storage-policy-approval.dto";
 import { RevokeZatcaStorageControlEvidenceDto } from "./dto/revoke-zatca-storage-control-evidence.dto";
+import { RevokeComplianceCsidCustodyRecordDto } from "./dto/revoke-compliance-csid-custody-record.dto";
 import { UpdateZatcaCsrFieldsDto } from "./dto/update-zatca-csr-fields.dto";
 import { UpdateZatcaEgsUnitDto } from "./dto/update-zatca-egs-unit.dto";
 import { UpdateZatcaProfileDto } from "./dto/update-zatca-profile.dto";
@@ -204,6 +206,34 @@ export class ZatcaController {
   @RequirePermissions(PERMISSIONS.zatca.view)
   getEgsComplianceCsidCustodyPlan(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.zatcaService.getEgsUnitComplianceCsidCustodyPlan(organizationId, id);
+  }
+
+  @Get("zatca/egs-units/:id/compliance-csid-custody-records")
+  @RequirePermissions(PERMISSIONS.zatca.view)
+  listComplianceCsidCustodyRecords(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.zatcaService.listComplianceCsidCustodyRecords(organizationId, id);
+  }
+
+  @Post("zatca/egs-units/:id/compliance-csid-custody-records")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  createComplianceCsidCustodyRecord(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: CreateComplianceCsidCustodyRecordDto,
+  ) {
+    return this.zatcaService.createComplianceCsidCustodyRecord(organizationId, user.id, id, dto);
+  }
+
+  @Post("zatca/compliance-csid-custody-records/:id/revoke")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  revokeComplianceCsidCustodyRecord(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: RevokeComplianceCsidCustodyRecordDto,
+  ) {
+    return this.zatcaService.revokeComplianceCsidCustodyRecord(organizationId, user.id, id, dto);
   }
 
   @Post("zatca/egs-units/:id/compliance-csid-request-dry-run")

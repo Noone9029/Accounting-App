@@ -3434,6 +3434,94 @@ export interface ZatcaComplianceCsidRequestPlanResponse {
   recommendedNextSteps: string[];
 }
 
+export interface ZatcaComplianceCsidCustodyGate {
+  allowed: false;
+  tokenStorageReady: false;
+  secretStorageReady: false;
+  certificateStorageReady: false;
+  kmsConfigured: false;
+  secretsManagerConfigured: false;
+  encryptedDbApproved: false;
+  bodyPersistenceAllowed: false;
+  productionCompliance: false;
+  reasons: string[];
+}
+
+export interface ZatcaComplianceCsidCustodyRecord {
+  id: string;
+  organizationId: string;
+  egsUnitId: string;
+  source: "MOCK" | "FUTURE_SANDBOX";
+  status: "PLANNED" | "BLOCKED" | "FUTURE_READY" | "REVOKED";
+  requestId: string | null;
+  certificateRequestId: string | null;
+  hasBinarySecurityToken: boolean;
+  hasSecret: boolean;
+  hasCertificate: boolean;
+  tokenStorageMode: "NOT_STORED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_ENCRYPTED_DB" | "FUTURE_KMS";
+  secretStorageMode: "NOT_STORED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_ENCRYPTED_DB" | "FUTURE_KMS";
+  certificateStorageMode: "NOT_STORED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_ENCRYPTED_DB" | "FUTURE_OBJECT_STORAGE";
+  expiryKnown: boolean;
+  expiresAt: string | null;
+  renewalRequired: boolean;
+  signedWithProductionMaterial: false;
+  productionCompliance: false;
+  custodyBlockedReason: string | null;
+  createdById: string | null;
+  revokedById: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  tokenReturned: false;
+  secretReturned: false;
+  certificateBodyReturned: false;
+  otpReturned: false;
+  csrReturned: false;
+  egsUnit?: { id: string; name: string; environment: ZatcaEnvironment } | null;
+}
+
+export interface ZatcaComplianceCsidCustodyRecordResponse {
+  localOnly: true;
+  metadataOnly: true;
+  readOnly: boolean;
+  noEgsMutation: true;
+  noNetwork: true;
+  noCsidRequest: true;
+  noTokenBody: true;
+  noSecretBody: true;
+  noCertificateBody: true;
+  noPrivateKey: true;
+  noOtp: true;
+  noCsrBody: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noSubmissionLogs: true;
+  tokenPersisted: false;
+  secretPersisted: false;
+  certificatePersisted: false;
+  productionCompliance: false;
+  custodyRecord: ZatcaComplianceCsidCustodyRecord;
+}
+
+export interface ZatcaComplianceCsidCustodyRecordListResponse {
+  localOnly: true;
+  readOnly: true;
+  metadataOnly: true;
+  noNetwork: true;
+  noCsidRequest: true;
+  noTokenBody: true;
+  noSecretBody: true;
+  noCertificateBody: true;
+  noPrivateKey: true;
+  noOtp: true;
+  noCsrBody: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noSubmissionLogs: true;
+  productionCompliance: false;
+  custodyRecords: ZatcaComplianceCsidCustodyRecord[];
+}
+
 export interface ZatcaComplianceCsidCustodyPlanResponse {
   localOnly: true;
   dryRun: true;
@@ -3446,6 +3534,14 @@ export interface ZatcaComplianceCsidCustodyPlanResponse {
   noSignedXmlBodyPersistence: true;
   noQrPayloadBodyPersistence: true;
   productionCompliance: false;
+  bodyPersistenceAllowed: false;
+  latestCustodyRecord?: ZatcaComplianceCsidCustodyRecord | null;
+  custodyRecordCount?: number;
+  custodyGate?: ZatcaComplianceCsidCustodyGate;
+  tokenStorageReady?: false;
+  secretStorageReady?: false;
+  certificateStorageReady?: false;
+  recommendedStorageMode?: { token: string; secret: string; certificate: string };
   egsUnit: {
     id: string;
     name: string;

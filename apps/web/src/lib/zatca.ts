@@ -454,3 +454,15 @@ function addFrontendRequiredCheck(
     checks.push({ ...check, severity: "ERROR" });
   }
 }
+
+export function zatcaEgsComplianceCsidCustodyPlanPath(egsUnitId: string) {
+  return `/zatca/egs-units/${egsUnitId}/compliance-csid-custody-plan`;
+}
+
+export function zatcaEgsComplianceCsidCustodyRecordsPath(egsUnitId: string) {
+  return `/zatca/egs-units/${egsUnitId}/compliance-csid-custody-records`;
+}
+
+export function zatcaComplianceCsidCustodyRecordRevokePath(recordId: string) {
+  return `/zatca/compliance-csid-custody-records/${recordId}/revoke`;
+}

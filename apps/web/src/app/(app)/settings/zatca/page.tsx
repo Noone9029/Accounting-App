@@ -16,6 +16,8 @@ import {
   zatcaChecklistRiskBadgeClass,
   zatcaChecklistStatusBadgeClass,
   zatcaEgsComplianceCsidRequestPlanPath,
+  zatcaEgsComplianceCsidCustodyPlanPath,
+  zatcaEgsComplianceCsidCustodyRecordsPath,
   zatcaCsrConfigReviewApprovePath,
   zatcaCsrConfigReviewRevokePath,
   zatcaEgsCsrConfigPreviewPath,
@@ -48,6 +50,8 @@ import type {
   ZatcaAdapterConfigSummary,
   ZatcaChecklistItem,
   ZatcaComplianceCsidRequestPlanResponse,
+  ZatcaComplianceCsidCustodyPlanResponse,
+  ZatcaComplianceCsidCustodyRecordResponse,
   ZatcaComplianceChecklistResponse,
   ZatcaCsrConfigReview,
   ZatcaEgsCsrConfigPreviewResponse,
@@ -123,6 +127,7 @@ export default function ZatcaSettingsPage() {
   const [csrConfigPreviewByUnit, setCsrConfigPreviewByUnit] = useState<Record<string, ZatcaEgsCsrConfigPreviewResponse>>({});
   const [csrConfigReviewsByUnit, setCsrConfigReviewsByUnit] = useState<Record<string, ZatcaCsrConfigReview[]>>({});
   const [complianceCsidPlanByUnit, setComplianceCsidPlanByUnit] = useState<Record<string, ZatcaComplianceCsidRequestPlanResponse>>({});
+  const [complianceCsidCustodyPlanByUnit, setComplianceCsidCustodyPlanByUnit] = useState<Record<string, ZatcaComplianceCsidCustodyPlanResponse>>({});
   const [otpByUnit, setOtpByUnit] = useState<Record<string, string>>({});
   const [hashModeReasonByUnit, setHashModeReasonByUnit] = useState<Record<string, string>>({});
   const [hashModeConfirmByUnit, setHashModeConfirmByUnit] = useState<Record<string, boolean>>({});
@@ -177,10 +182,16 @@ export default function ZatcaSettingsPage() {
             .filter((unit) => unit.environment !== "PRODUCTION")
             .map(async (unit) => [unit.id, await apiRequest<ZatcaCsrConfigReview[]>(zatcaEgsCsrConfigReviewsPath(unit.id)).catch(() => [])] as const),
         );
+        const loadedCustodyPlanPairs = await Promise.all(
+          loadedUnits
+            .filter((unit) => unit.environment !== "PRODUCTION")
+            .map(async (unit) => [unit.id, await apiRequest<ZatcaComplianceCsidCustodyPlanResponse>(zatcaEgsComplianceCsidCustodyPlanPath(unit.id)).catch(() => null)] as const),
+        );
         if (!cancelled) {
           setEgsUnits(loadedUnits);
           setCsrFieldsByUnit(buildCsrFieldsByUnit(loadedUnits));
           setCsrConfigReviewsByUnit(Object.fromEntries(loadedReviewPairs));
+          setComplianceCsidCustodyPlanByUnit(Object.fromEntries(loadedCustodyPlanPairs.filter(([, plan]) => Boolean(plan))) as Record<string, ZatcaComplianceCsidCustodyPlanResponse>);
           setSubmissionLogs(loadedLogs);
         }
       } catch (loadError: unknown) {
@@ -592,6 +603,47 @@ export default function ZatcaSettingsPage() {
       setSuccess("Storage control evidence revoked. Body persistence remains blocked.");
     } catch (evidenceError) {
       setError(evidenceError instanceof Error ? evidenceError.message : "Unable to revoke storage control evidence.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
+  async function loadComplianceCsidCustodyPlan(unit: ZatcaEgsUnit) {
+    setActionLoading(`csid-custody-${unit.id}`);
+    setError("");
+    setSuccess("");
+    try {
+      const plan = await apiRequest<ZatcaComplianceCsidCustodyPlanResponse>(zatcaEgsComplianceCsidCustodyPlanPath(unit.id));
+      setComplianceCsidCustodyPlanByUnit((current: Record<string, ZatcaComplianceCsidCustodyPlanResponse>) => ({ ...current, [unit.id]: plan }));
+      setSuccess(`CSID custody plan loaded for ${unit.name}. No token, secret, certificate, OTP, CSR, or ZATCA network call was used.`);
+    } catch (planError) {
+      setError(planError instanceof Error ? planError.message : "Unable to load CSID custody plan.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
+  async function createComplianceCsidCustodyRecord(unit: ZatcaEgsUnit) {
+    setActionLoading(`csid-custody-record-${unit.id}`);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await apiRequest<ZatcaComplianceCsidCustodyRecordResponse>(zatcaEgsComplianceCsidCustodyRecordsPath(unit.id), {
+        method: "POST",
+        body: {
+          source: "MOCK",
+          status: "PLANNED",
+          hasBinarySecurityToken: false,
+          hasSecret: false,
+          hasCertificate: false,
+          custodyBlockedReason: "Metadata-only CSID custody planning record. Token, secret, certificate, CSR, OTP, and key bodies remain blocked.",
+        },
+      });
+      const plan = await apiRequest<ZatcaComplianceCsidCustodyPlanResponse>(zatcaEgsComplianceCsidCustodyPlanPath(unit.id));
+      setComplianceCsidCustodyPlanByUnit((current: Record<string, ZatcaComplianceCsidCustodyPlanResponse>) => ({ ...current, [unit.id]: plan }));
+      setSuccess(`Metadata-only CSID custody record ${response.custodyRecord.status.toLowerCase()} for ${unit.name}. Body persistence remains blocked.`);
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "Unable to create CSID custody metadata record.");
     } finally {
       setActionLoading("");
     }
@@ -1064,6 +1116,14 @@ export default function ZatcaSettingsPage() {
                             {unit.environment === "PRODUCTION" ? <div className="text-[11px] text-rosewood">CSR config preview is restricted to non-production EGS units.</div> : null}
                             {csrConfigPreviewByUnit[unit.id] ? <CsrConfigPreviewPanel preview={csrConfigPreviewByUnit[unit.id]!} /> : null}
                             {complianceCsidPlanByUnit[unit.id] ? <ComplianceCsidPlanPanel plan={complianceCsidPlanByUnit[unit.id]!} /> : null}
+                            <ComplianceCsidCustodyPlanPanel
+                              plan={complianceCsidCustodyPlanByUnit[unit.id] ?? null}
+                              unit={unit}
+                              canManage={canManageZatca}
+                              actionLoading={actionLoading}
+                              onLoad={() => void loadComplianceCsidCustodyPlan(unit)}
+                              onCreate={() => void createComplianceCsidCustodyRecord(unit)}
+                            />
                             {unit.environment !== "PRODUCTION" ? (
                               <CsrConfigReviewPanel
                                 unit={unit}
@@ -1257,6 +1317,66 @@ function CsrConfigPreviewPanel({ preview }: { preview: ZatcaEgsCsrConfigPreviewR
           ))}
         </ul>
       ) : null}
+    </div>
+  );
+}
+
+function ComplianceCsidCustodyPlanPanel({
+  plan,
+  unit,
+  canManage,
+  actionLoading,
+  onLoad,
+  onCreate,
+}: {
+  plan: ZatcaComplianceCsidCustodyPlanResponse | null;
+  unit: ZatcaEgsUnit;
+  canManage: boolean;
+  actionLoading: string;
+  onLoad: () => void;
+  onCreate: () => void;
+}) {
+  const latest = plan?.latestCustodyRecord ?? null;
+  const createDisabled = !canManage || unit.environment === "PRODUCTION" || actionLoading === `csid-custody-record-${unit.id}`;
+  return (
+    <div className="mt-3 rounded-md border border-slate-200 bg-white p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <div className="text-xs font-semibold text-ink">CSID custody metadata gate</div>
+          <div className="mt-1 text-[11px] text-steel">
+            Metadata-only records are allowed; token, secret, certificate, OTP, CSR, private key, signed XML, and QR bodies are not stored or shown.
+          </div>
+        </div>
+        <span className="rounded-full bg-rose-100 px-2 py-1 text-[10px] font-semibold uppercase text-rosewood">
+          productionCompliance false
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] text-steel md:grid-cols-3">
+        <div>Records: <span className="font-semibold text-ink">{plan?.custodyRecordCount ?? 0}</span></div>
+        <div>Latest: <span className="font-semibold text-ink">{latest?.status ?? "NONE"}</span></div>
+        <div>Gate: <span className="font-semibold text-rosewood">{plan?.custodyGate?.allowed ? "ALLOWED" : "BLOCKED"}</span></div>
+        <div>Token storage: <span className="font-semibold text-rosewood">not ready</span></div>
+        <div>Secret storage: <span className="font-semibold text-rosewood">not ready</span></div>
+        <div>Certificate storage: <span className="font-semibold text-rosewood">not ready</span></div>
+        <div>KMS configured: <span className="font-semibold text-rosewood">false</span></div>
+        <div>Secrets manager: <span className="font-semibold text-rosewood">false</span></div>
+        <div>Body persistence: <span className="font-semibold text-rosewood">blocked</span></div>
+      </div>
+      {plan?.custodyGate?.reasons?.length ? (
+        <ul className="mt-3 list-disc space-y-1 pl-5 text-[11px] text-amber-700">
+          {plan.custodyGate.reasons.slice(0, 4).map((reason) => (
+            <li key={reason}>{reason}</li>
+          ))}
+        </ul>
+      ) : null}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button type="button" className="rounded-md border border-slate-300 px-3 py-1 text-[11px] font-semibold text-ink" onClick={onLoad} disabled={actionLoading === `csid-custody-${unit.id}`}>
+          Load custody plan
+        </button>
+        <button type="button" className="rounded-md bg-ink px-3 py-1 text-[11px] font-semibold text-white disabled:bg-slate-300" onClick={onCreate} disabled={createDisabled}>
+          Create metadata-only record
+        </button>
+      </div>
     </div>
   );
 }

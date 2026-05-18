@@ -2578,3 +2578,30 @@ Recommended next step:
 - Schema decision: no Prisma schema was added because this phase does not request or persist a real sandbox CSID response. Custody storage remains a future approval phase.
 - No real ZATCA network call, real CSID request, production CSID request, production credentials, clearance/reporting, PDF/A-3, signed XML body persistence, QR payload persistence, or production compliance claim was introduced.
 - Recommended next step: design a metadata-only custody record and secrets-manager/KMS integration gate before any real sandbox response persistence.
+
+### ZATCA CSID custody records and secrets/KMS gate - 2026-05-18
+
+Official files inspected for this phase:
+- reference/zatca-docs/compliance_csid.pdf
+- reference/zatca-docs/onboarding.pdf
+- reference/zatca-docs/renewal.pdf
+- reference/zatca-docs/compliance_invoice.pdf
+- reference/zatca-docs/reporting.pdf
+- reference/zatca-docs/clearance.pdf
+- reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards.pdf
+- reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_XML_Implementation_Standard_vF.pdf
+- reference/zatca-docs/EInvoice_Data_Dictionary.xlsx
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/usage.txt
+
+LedgerByte now has metadata-only `ZatcaComplianceCsidCustodyRecord` records for future sandbox compliance CSID custody planning. The record stores safe metadata such as request ids, certificate request ids, boolean presence flags, storage mode placeholders, expiry/renewal metadata, status, and audit user ids. It does not store `binarySecurityToken` bodies, secret bodies, certificate bodies, private keys, OTPs, CSR bodies, signed XML bodies, QR payload bodies, or production credentials.
+
+New safe API behavior:
+- `POST /zatca/egs-units/:id/compliance-csid-custody-records` creates metadata-only records for non-production EGS units.
+- `GET /zatca/egs-units/:id/compliance-csid-custody-records` lists safe metadata only.
+- `POST /zatca/compliance-csid-custody-records/:id/revoke` revokes metadata only.
+- `GET /zatca/egs-units/:id/compliance-csid-custody-plan` now reports the latest custody record, record count, and a secrets-manager/KMS custody gate.
+
+The custody gate remains blocked in this phase: `allowed=false`, token storage ready is false, secret storage ready is false, certificate storage ready is false, KMS configured is false, secrets-manager configured is false, encrypted DB approval is false, and `productionCompliance=false`. Metadata records do not enable CSID persistence, signed XML persistence, QR payload persistence, real ZATCA network calls, production CSID requests, clearance/reporting, PDF/A-3, production credentials, or any production compliance claim.
+
+Recommended next step: design and approve the real secrets-manager/KMS custody implementation for sandbox compliance CSID response material before enabling any real sandbox response persistence. Production CSID, clearance/reporting, PDF/A-3, signed artifact body persistence, and production compliance remain separate blocked phases.
