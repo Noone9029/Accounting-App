@@ -9,6 +9,11 @@ describe("EmailController permissions", () => {
       PERMISSIONS.users.manage,
     ]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.runDiagnostics)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.diagnosticsPlan)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.listSenderDomainEvidence)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.createSenderDomainEvidence)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.verifySenderDomainEvidence)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.revokeSenderDomainEvidence)).toEqual([PERMISSIONS.users.manage]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.sendTestEmail)).toEqual([PERMISSIONS.users.manage]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.listOutbox)).toEqual([PERMISSIONS.emailOutbox.view]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.getOutbox)).toEqual([PERMISSIONS.emailOutbox.view]);

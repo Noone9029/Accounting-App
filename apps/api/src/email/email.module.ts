@@ -1,5 +1,6 @@
 import { Global, Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { AuditLogModule } from "../audit-log/audit-log.module";
 import { EmailController } from "./email.controller";
 import { EMAIL_PROVIDER, type EmailProvider } from "./email-provider";
 import { EmailService } from "./email.service";
@@ -8,6 +9,7 @@ import { SmtpEmailProvider } from "./smtp-email.provider";
 
 @Global()
 @Module({
+  imports: [AuditLogModule],
   controllers: [EmailController],
   providers: [
     EmailService,

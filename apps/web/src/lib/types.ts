@@ -137,6 +137,16 @@ export type AttachmentStorageProvider = "DATABASE" | "LOCAL_PLACEHOLDER" | "S3_P
 export type EmailDeliveryStatus = "QUEUED" | "SENT_MOCK" | "SENT_PROVIDER" | "FAILED";
 export type EmailTemplateType = "ORGANIZATION_INVITE" | "PASSWORD_RESET" | "TEST_EMAIL";
 export type EmailProviderName = "mock" | "smtp-disabled" | "smtp" | "invalid" | string;
+export type EmailSenderDomainEvidenceStatus = "DRAFT" | "VERIFIED" | "REVOKED" | "SUPERSEDED";
+export type EmailSenderDomainEvidenceType = "SPF" | "DKIM" | "DMARC" | "MX" | "RETURN_PATH" | "PROVIDER_VERIFICATION" | "OTHER";
+export type EmailSenderDomainReadinessStatus = "BLOCKED" | "PARTIAL" | "READY_FOR_REVIEW";
+export type EmailRelayDiagnosticsStatus =
+  | "NOT_RUN"
+  | "SKIPPED_DISABLED"
+  | "READY_FOR_NON_PRODUCTION_TEST"
+  | "ATTEMPTED"
+  | "FAILED"
+  | string;
 export type AttachmentLinkedEntityType =
   | "SALES_INVOICE"
   | "CUSTOMER_PAYMENT"
@@ -481,6 +491,55 @@ export interface EmailOutboxDetail extends EmailOutboxEntry {
   bodyHtml: string | null;
 }
 
+export interface EmailSenderDomainEvidence {
+  id: string;
+  organizationId: string;
+  domain: string;
+  status: EmailSenderDomainEvidenceStatus;
+  evidenceType: EmailSenderDomainEvidenceType;
+  provider: string | null;
+  evidenceSummaryJson: Record<string, unknown>;
+  verifiedById: string | null;
+  verifiedAt: string | null;
+  revokedById: string | null;
+  revokedAt: string | null;
+  note: string | null;
+  productionReadyContribution: boolean;
+  createdById: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmailSenderDomainEvidenceListResponse {
+  metadataOnly: true;
+  noCustomerEmail: true;
+  noEmailSent: true;
+  noOutboxRecord: true;
+  redactionGuarantees: string[];
+  evidence: EmailSenderDomainEvidence[];
+}
+
+export interface EmailSenderDomainEvidenceResponse {
+  metadataOnly: true;
+  noCustomerEmail: true;
+  noEmailSent: true;
+  noOutboxRecord: true;
+  redactionGuarantees: string[];
+  evidence: EmailSenderDomainEvidence;
+}
+
+export interface EmailDiagnosticsPlan {
+  executionEnabled: boolean;
+  allowedRecipientsConfigured: boolean;
+  allowedDomainsConfigured: boolean;
+  provider: string;
+  smtpConfigured: boolean;
+  wouldSendToRedactedRecipient: string | null;
+  noCustomerEmailSentByDefault: true;
+  noMutationByDefault: true;
+  productionReady: false;
+}
+
 export interface EmailReadinessResponse {
   provider: EmailProviderName;
   ready: boolean;
@@ -501,12 +560,24 @@ export interface EmailReadinessResponse {
   credentialsConfigured: boolean;
   productionReady: boolean;
   redactionGuarantees: string[];
-  diagnostics: {
-    executionEnabled: boolean;
-    allowedRecipientsConfigured: boolean;
-    allowedDomainsConfigured: boolean;
-    noCustomerEmailSentByDefault: true;
+  diagnostics: EmailDiagnosticsPlan;
+  senderDomain: {
+    fromDomain: string | null;
+    replyToDomain: string | null;
+    evidenceRequired: true;
+    requiredEvidenceTypes: EmailSenderDomainEvidenceType[];
+    verifiedEvidenceTypes: EmailSenderDomainEvidenceType[];
+    missingEvidenceTypes: EmailSenderDomainEvidenceType[];
+    evidenceStatus: EmailSenderDomainReadinessStatus;
+    productionReadyContribution: boolean;
+    blockers: string[];
+    warnings: string[];
   };
+  relayDiagnosticsStatus: EmailRelayDiagnosticsStatus;
+  relayDiagnosticsRequired: true;
+  bounceWebhookConfigured: boolean;
+  retryPolicyConfigured: boolean;
+  monitoringConfigured: boolean;
   smtp: {
     hostConfigured: boolean;
     portConfigured: boolean;
@@ -539,6 +610,7 @@ export interface EmailDiagnosticsResponse {
     sentAt: string | null;
   };
   redactionGuarantees: string[];
+  plan?: EmailDiagnosticsPlan;
 }
 
 export interface AuthTokenCleanupResponse {

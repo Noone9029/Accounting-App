@@ -3,11 +3,14 @@ const SENSITIVE_ASSIGNMENT =
 const CONNECTION_URL = /\b(smtp|smtps|postgres|postgresql|mysql|redis|amqp|mongodb):\/\/[^\s]+/gi;
 const AUTH_HEADER = /\bAuthorization:\s*[^\r\n]+/gi;
 const BEARER_TOKEN = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
+const PRIVATE_KEY_BLOCK = /-----BEGIN [A-Z ]*PRIVATE KEY-----/i;
+const SENSITIVE_KEY_NAME = /\b(password|passwd|pwd|secret|token|api[_-]?key|authorization|auth[_-]?header|bearer|smtp[_-]?user|smtp[_-]?password|private[_-]?key|dkim[_-]?private[_-]?key)\b/i;
 
 export const EMAIL_REDACTION_GUARANTEES = [
-  "SMTP host, username, password, API key, token, connection URL, authorization header, and provider secret values are not returned.",
+  "SMTP host, username, password, API key, token, connection URL, authorization header, private DKIM key, and provider secret values are not returned.",
   "Readiness and diagnostics responses expose booleans, labels, and redacted summaries only.",
   "Diagnostics does not persist message bodies or delivery records.",
+  "Sender-domain evidence stores metadata only and rejects secret-bearing fields.",
 ];
 
 export function redactEmailDiagnosticText(value: unknown): string | null {
@@ -35,4 +38,36 @@ export function maskEmailAddress(email: string): string {
 
   const prefix = localPart.slice(0, 1);
   return `${prefix}***@${domain}`;
+}
+
+export function containsEmailSecret(value: unknown): boolean {
+  if (value === undefined || value === null) {
+    return false;
+  }
+
+  if (typeof value === "string") {
+    return hasSecretText(value);
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return false;
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((entry) => containsEmailSecret(entry));
+  }
+
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).some(([key, entry]) => SENSITIVE_KEY_NAME.test(key) || containsEmailSecret(entry));
+  }
+
+  return hasSecretText(String(value));
+}
+
+function hasSecretText(value: string): boolean {
+  const patterns = [PRIVATE_KEY_BLOCK, AUTH_HEADER, BEARER_TOKEN, CONNECTION_URL, SENSITIVE_ASSIGNMENT];
+  return patterns.some((pattern) => {
+    pattern.lastIndex = 0;
+    return pattern.test(value);
+  });
 }

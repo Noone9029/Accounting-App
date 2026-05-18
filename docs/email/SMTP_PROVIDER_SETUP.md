@@ -28,12 +28,25 @@ LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS="example.test,ledgerbyte.local"
 
 Never commit real SMTP credentials. `SMTP_PASSWORD` is not returned by readiness APIs and must not be logged.
 
+## Sender-Domain Evidence
+
+Before production review, capture metadata-only evidence for the sender domain:
+
+- SPF
+- DKIM
+- DMARC
+
+Use `/settings/email-outbox` or the `/email/sender-domain-evidence` endpoints to create draft evidence, then verify or revoke it after review. Do not paste DNS provider secrets, SMTP usernames/passwords, API keys, tokens, authorization headers, connection URLs, provider secrets, raw private DKIM keys, or customer email content.
+
+This is manual evidence capture only. LedgerByte does not perform live DNS lookups or provider verification yet.
+
 ## Testing Safely
 
 Use a sandbox SMTP service such as Mailtrap, Resend SMTP, or another provider test mailbox before using production sender domains. Verify:
 
 - `GET /email/readiness` shows `ready: true` and `realSendingEnabled: true`.
-- `GET /email/readiness` shows `productionReady: true` only when provider, from/reply-to, SMTP host/port/secure mode, and credentials are configured.
+- `GET /email/readiness` shows sender-domain SPF/DKIM/DMARC status, relay diagnostics status, and `productionReady=false` until relay diagnostics, domain evidence, bounces, retries, and monitoring are all ready.
+- `GET /email/diagnostics-plan` reports whether diagnostics execution is enabled, whether allowlisted recipients/domains are configured, and that no customer email/no mutation is the default.
 - Default `POST /email/diagnostics` returns `SKIPPED_DISABLED`, sends no email, and creates no outbox record.
 - If diagnostics sending is explicitly enabled, use only an allowlisted sandbox recipient; responses mask the recipient and return a redacted delivery summary.
 - `POST /email/test-send` still creates an `EmailOutbox` record with `SENT_PROVIDER` when explicitly used against a configured SMTP relay.
@@ -44,6 +57,6 @@ Use a sandbox SMTP service such as Mailtrap, Resend SMTP, or another provider te
 
 - No background queue or scheduled retry worker.
 - No bounce, complaint, suppression-list, or webhook handling.
-- No DKIM/SPF/DMARC validation workflow.
+- DKIM/SPF/DMARC evidence is metadata-only; no live DNS or provider validation workflow is implemented.
 - No invoice/statement email sending yet.
 - Mock remains the default and should remain active for tests/smoke.

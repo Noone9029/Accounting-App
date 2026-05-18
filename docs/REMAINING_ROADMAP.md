@@ -167,8 +167,17 @@ Recommended next prompt:
 - `GET /email/readiness` now reports production SMTP readiness fields without sending email or exposing SMTP/password/API-key/token/URL/authorization/provider secret values.
 - `POST /email/diagnostics` is disabled by default, returns skipped/no-send/no-mutation status, and requires an explicit allowlisted test recipient when execution is enabled.
 - `/settings/email-outbox` shows email readiness, invite/password-reset reliability warnings, diagnostics disabled-by-default status, and no-customer-email messaging.
-- Remaining roadmap item: validate SMTP against a non-production relay and add sender-domain authentication evidence, retries, bounces/webhooks, and monitoring before real customer email use.
-- Recommended next prompt: validate SMTP readiness against a non-production relay and add sender-domain authentication evidence without sending customer emails.
+- Remaining roadmap item: execute SMTP diagnostics against an allowlisted non-production relay and add retries, bounces/webhooks, monitoring, and live DNS/provider validation before real customer email use.
+- Recommended next prompt: run an allowlisted non-production SMTP relay diagnostic and record provider result evidence without sending customer emails.
+
+## 2026-05-19 Email sender-domain readiness
+
+- Added `EmailSenderDomainEvidence` for metadata-only SPF/DKIM/DMARC/MX/return-path/provider evidence.
+- Added `/email/sender-domain-evidence` list/create/verify/revoke endpoints and `/settings/email-outbox` controls. They send no email, create no outbox record, and reject SMTP/API/provider secrets and private DKIM keys.
+- `GET /email/readiness` now reports sender-domain status, missing/verified SPF/DKIM/DMARC, relay diagnostics status, and false bounce/retry/monitoring states.
+- `GET /email/diagnostics-plan` documents the non-production relay plan while diagnostics remain disabled by default.
+- Remaining roadmap item: run a non-production relay diagnostic with an allowlisted sandbox recipient, then implement retry queue, provider webhooks, bounces, monitoring, and live DNS/provider validation.
+- Recommended next prompt: execute the SMTP diagnostics gate against a sandbox relay and save only safe provider-result metadata.
 
 ## 2026-05-16 ZATCA buyer address field support
 

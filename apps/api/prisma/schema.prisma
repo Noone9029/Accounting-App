@@ -27,6 +27,23 @@ enum EmailTemplateType {
   TEST_EMAIL
 }
 
+enum EmailSenderDomainEvidenceStatus {
+  DRAFT
+  VERIFIED
+  REVOKED
+  SUPERSEDED
+}
+
+enum EmailSenderDomainEvidenceType {
+  SPF
+  DKIM
+  DMARC
+  MX
+  RETURN_PATH
+  PROVIDER_VERIFICATION
+  OTHER
+}
+
 enum AuthTokenPurpose {
   ORGANIZATION_INVITE
   PASSWORD_RESET
@@ -536,155 +553,159 @@ enum NumberSequenceScope {
 }
 
 model User {
-  id                                          String                               @id @default(uuid()) @db.Uuid
-  email                                       String                               @unique
-  passwordHash                                String
-  name                                        String
-  createdAt                                   DateTime                             @default(now())
-  updatedAt                                   DateTime                             @updatedAt
-  memberships                                 OrganizationMember[]
-  createdLogs                                 AuditLog[]                           @relation("AuditActor")
-  postedEntries                               JournalEntry[]                       @relation("PostedBy")
-  createdEntries                              JournalEntry[]                       @relation("CreatedBy")
-  createdSalesInvoices                        SalesInvoice[]                       @relation("SalesInvoiceCreatedBy")
-  createdCreditNotes                          CreditNote[]                         @relation("CreditNoteCreatedBy")
-  createdPurchaseOrders                       PurchaseOrder[]                      @relation("PurchaseOrderCreatedBy")
-  createdPurchaseBills                        PurchaseBill[]                       @relation("PurchaseBillCreatedBy")
-  createdPurchaseDebitNotes                   PurchaseDebitNote[]                  @relation("PurchaseDebitNoteCreatedBy")
-  createdCashExpenses                         CashExpense[]                        @relation("CashExpenseCreatedBy")
-  createdCustomerPayments                     CustomerPayment[]                    @relation("CustomerPaymentCreatedBy")
-  createdSupplierPayments                     SupplierPayment[]                    @relation("SupplierPaymentCreatedBy")
-  createdCustomerRefunds                      CustomerRefund[]                     @relation("CustomerRefundCreatedBy")
-  createdSupplierRefunds                      SupplierRefund[]                     @relation("SupplierRefundCreatedBy")
-  createdBankTransfers                        BankTransfer[]                       @relation("BankTransferCreatedBy")
-  importedBankStatements                      BankStatementImport[]                @relation("BankStatementImportImportedBy")
-  createdBankReconciliations                  BankReconciliation[]                 @relation("BankReconciliationCreatedBy")
-  submittedBankReconciliations                BankReconciliation[]                 @relation("BankReconciliationSubmittedBy")
-  approvedBankReconciliations                 BankReconciliation[]                 @relation("BankReconciliationApprovedBy")
-  reopenedBankReconciliations                 BankReconciliation[]                 @relation("BankReconciliationReopenedBy")
-  closedBankReconciliations                   BankReconciliation[]                 @relation("BankReconciliationClosedBy")
-  voidedBankReconciliations                   BankReconciliation[]                 @relation("BankReconciliationVoidedBy")
-  bankReconciliationReviewEvents              BankReconciliationReviewEvent[]      @relation("BankReconciliationReviewEventActor")
-  reversedCreditNoteAllocations               CreditNoteAllocation[]               @relation("CreditNoteAllocationReversedBy")
-  reversedPurchaseDebitNoteAllocations        PurchaseDebitNoteAllocation[]        @relation("PurchaseDebitNoteAllocationReversedBy")
-  reversedCustomerPaymentUnappliedAllocations CustomerPaymentUnappliedAllocation[] @relation("CustomerPaymentUnappliedAllocationReversedBy")
-  reversedSupplierPaymentUnappliedAllocations SupplierPaymentUnappliedAllocation[] @relation("SupplierPaymentUnappliedAllocationReversedBy")
-  createdStockMovements                       StockMovement[]                      @relation("StockMovementCreatedBy")
-  createdInventoryAdjustments                 InventoryAdjustment[]                @relation("InventoryAdjustmentCreatedBy")
-  approvedInventoryAdjustments                InventoryAdjustment[]                @relation("InventoryAdjustmentApprovedBy")
-  voidedInventoryAdjustments                  InventoryAdjustment[]                @relation("InventoryAdjustmentVoidedBy")
-  createdWarehouseTransfers                   WarehouseTransfer[]                  @relation("WarehouseTransferCreatedBy")
-  createdPurchaseReceipts                     PurchaseReceipt[]                    @relation("PurchaseReceiptCreatedBy")
-  inventoryAssetPostedPurchaseReceipts        PurchaseReceipt[]                    @relation("PurchaseReceiptInventoryAssetPostedBy")
-  inventoryAssetReversedPurchaseReceipts      PurchaseReceipt[]                    @relation("PurchaseReceiptInventoryAssetReversedBy")
-  createdSalesStockIssues                     SalesStockIssue[]                    @relation("SalesStockIssueCreatedBy")
-  cogsPostedSalesStockIssues                  SalesStockIssue[]                    @relation("SalesStockIssueCogsPostedBy")
-  cogsReversedSalesStockIssues                SalesStockIssue[]                    @relation("SalesStockIssueCogsReversedBy")
-  createdInventoryVarianceProposals           InventoryVarianceProposal[]          @relation("InventoryVarianceProposalCreatedBy")
-  submittedInventoryVarianceProposals         InventoryVarianceProposal[]          @relation("InventoryVarianceProposalSubmittedBy")
-  approvedInventoryVarianceProposals          InventoryVarianceProposal[]          @relation("InventoryVarianceProposalApprovedBy")
-  postedInventoryVarianceProposals            InventoryVarianceProposal[]          @relation("InventoryVarianceProposalPostedBy")
-  reversedInventoryVarianceProposals          InventoryVarianceProposal[]          @relation("InventoryVarianceProposalReversedBy")
-  voidedInventoryVarianceProposals            InventoryVarianceProposal[]          @relation("InventoryVarianceProposalVoidedBy")
-  inventoryVarianceProposalEvents             InventoryVarianceProposalEvent[]     @relation("InventoryVarianceProposalEventActor")
-  generatedDocuments                          GeneratedDocument[]                  @relation("GeneratedDocumentGeneratedBy")
-  uploadedAttachments                         Attachment[]                         @relation("AttachmentUploadedBy")
-  deletedAttachments                          Attachment[]                         @relation("AttachmentDeletedBy")
-  authTokens                                  AuthToken[]                          @relation("AuthTokenUser")
-  createdAuthTokens                           AuthToken[]                          @relation("AuthTokenCreatedBy")
-  updatedAuditLogRetentionSettings            AuditLogRetentionSettings[]          @relation("AuditLogRetentionSettingsUpdatedBy")
-  zatcaHashModeEnabledEgsUnits                ZatcaEgsUnit[]                       @relation("ZatcaHashModeEnabledBy")
-  approvedZatcaCsrConfigReviews               ZatcaCsrConfigReview[]               @relation("ZatcaCsrConfigReviewApprovedBy")
-  revokedZatcaCsrConfigReviews                ZatcaCsrConfigReview[]               @relation("ZatcaCsrConfigReviewRevokedBy")
-  createdZatcaSignedArtifactDrafts            ZatcaSignedArtifactDraft[]            @relation("ZatcaSignedArtifactDraftCreatedBy")
-  createdZatcaSignedArtifactStoragePolicyApprovals  ZatcaSignedArtifactStoragePolicyApproval[] @relation("ZatcaSignedArtifactStoragePolicyApprovalCreatedBy")
-  approvedZatcaSignedArtifactStoragePolicyApprovals ZatcaSignedArtifactStoragePolicyApproval[] @relation("ZatcaSignedArtifactStoragePolicyApprovalApprovedBy")
-  revokedZatcaSignedArtifactStoragePolicyApprovals  ZatcaSignedArtifactStoragePolicyApproval[] @relation("ZatcaSignedArtifactStoragePolicyApprovalRevokedBy")
-  createdZatcaSignedArtifactStorageControlEvidence   ZatcaSignedArtifactStorageControlEvidence[] @relation("ZatcaSignedArtifactStorageControlEvidenceCreatedBy")
-  verifiedZatcaSignedArtifactStorageControlEvidence  ZatcaSignedArtifactStorageControlEvidence[] @relation("ZatcaSignedArtifactStorageControlEvidenceVerifiedBy")
-  revokedZatcaSignedArtifactStorageControlEvidence   ZatcaSignedArtifactStorageControlEvidence[] @relation("ZatcaSignedArtifactStorageControlEvidenceRevokedBy")
-  zatcaComplianceCsidCustodyRecordsCreated  ZatcaComplianceCsidCustodyRecord[] @relation("ZatcaComplianceCsidCustodyRecordCreatedBy")
-  zatcaComplianceCsidCustodyRecordsRevoked  ZatcaComplianceCsidCustodyRecord[] @relation("ZatcaComplianceCsidCustodyRecordRevokedBy")
+  id                                                String                                      @id @default(uuid()) @db.Uuid
+  email                                             String                                      @unique
+  passwordHash                                      String
+  name                                              String
+  createdAt                                         DateTime                                    @default(now())
+  updatedAt                                         DateTime                                    @updatedAt
+  memberships                                       OrganizationMember[]
+  createdLogs                                       AuditLog[]                                  @relation("AuditActor")
+  postedEntries                                     JournalEntry[]                              @relation("PostedBy")
+  createdEntries                                    JournalEntry[]                              @relation("CreatedBy")
+  createdSalesInvoices                              SalesInvoice[]                              @relation("SalesInvoiceCreatedBy")
+  createdCreditNotes                                CreditNote[]                                @relation("CreditNoteCreatedBy")
+  createdPurchaseOrders                             PurchaseOrder[]                             @relation("PurchaseOrderCreatedBy")
+  createdPurchaseBills                              PurchaseBill[]                              @relation("PurchaseBillCreatedBy")
+  createdPurchaseDebitNotes                         PurchaseDebitNote[]                         @relation("PurchaseDebitNoteCreatedBy")
+  createdCashExpenses                               CashExpense[]                               @relation("CashExpenseCreatedBy")
+  createdCustomerPayments                           CustomerPayment[]                           @relation("CustomerPaymentCreatedBy")
+  createdSupplierPayments                           SupplierPayment[]                           @relation("SupplierPaymentCreatedBy")
+  createdCustomerRefunds                            CustomerRefund[]                            @relation("CustomerRefundCreatedBy")
+  createdSupplierRefunds                            SupplierRefund[]                            @relation("SupplierRefundCreatedBy")
+  createdBankTransfers                              BankTransfer[]                              @relation("BankTransferCreatedBy")
+  importedBankStatements                            BankStatementImport[]                       @relation("BankStatementImportImportedBy")
+  createdBankReconciliations                        BankReconciliation[]                        @relation("BankReconciliationCreatedBy")
+  submittedBankReconciliations                      BankReconciliation[]                        @relation("BankReconciliationSubmittedBy")
+  approvedBankReconciliations                       BankReconciliation[]                        @relation("BankReconciliationApprovedBy")
+  reopenedBankReconciliations                       BankReconciliation[]                        @relation("BankReconciliationReopenedBy")
+  closedBankReconciliations                         BankReconciliation[]                        @relation("BankReconciliationClosedBy")
+  voidedBankReconciliations                         BankReconciliation[]                        @relation("BankReconciliationVoidedBy")
+  bankReconciliationReviewEvents                    BankReconciliationReviewEvent[]             @relation("BankReconciliationReviewEventActor")
+  reversedCreditNoteAllocations                     CreditNoteAllocation[]                      @relation("CreditNoteAllocationReversedBy")
+  reversedPurchaseDebitNoteAllocations              PurchaseDebitNoteAllocation[]               @relation("PurchaseDebitNoteAllocationReversedBy")
+  reversedCustomerPaymentUnappliedAllocations       CustomerPaymentUnappliedAllocation[]        @relation("CustomerPaymentUnappliedAllocationReversedBy")
+  reversedSupplierPaymentUnappliedAllocations       SupplierPaymentUnappliedAllocation[]        @relation("SupplierPaymentUnappliedAllocationReversedBy")
+  createdStockMovements                             StockMovement[]                             @relation("StockMovementCreatedBy")
+  createdInventoryAdjustments                       InventoryAdjustment[]                       @relation("InventoryAdjustmentCreatedBy")
+  approvedInventoryAdjustments                      InventoryAdjustment[]                       @relation("InventoryAdjustmentApprovedBy")
+  voidedInventoryAdjustments                        InventoryAdjustment[]                       @relation("InventoryAdjustmentVoidedBy")
+  createdWarehouseTransfers                         WarehouseTransfer[]                         @relation("WarehouseTransferCreatedBy")
+  createdPurchaseReceipts                           PurchaseReceipt[]                           @relation("PurchaseReceiptCreatedBy")
+  inventoryAssetPostedPurchaseReceipts              PurchaseReceipt[]                           @relation("PurchaseReceiptInventoryAssetPostedBy")
+  inventoryAssetReversedPurchaseReceipts            PurchaseReceipt[]                           @relation("PurchaseReceiptInventoryAssetReversedBy")
+  createdSalesStockIssues                           SalesStockIssue[]                           @relation("SalesStockIssueCreatedBy")
+  cogsPostedSalesStockIssues                        SalesStockIssue[]                           @relation("SalesStockIssueCogsPostedBy")
+  cogsReversedSalesStockIssues                      SalesStockIssue[]                           @relation("SalesStockIssueCogsReversedBy")
+  createdInventoryVarianceProposals                 InventoryVarianceProposal[]                 @relation("InventoryVarianceProposalCreatedBy")
+  submittedInventoryVarianceProposals               InventoryVarianceProposal[]                 @relation("InventoryVarianceProposalSubmittedBy")
+  approvedInventoryVarianceProposals                InventoryVarianceProposal[]                 @relation("InventoryVarianceProposalApprovedBy")
+  postedInventoryVarianceProposals                  InventoryVarianceProposal[]                 @relation("InventoryVarianceProposalPostedBy")
+  reversedInventoryVarianceProposals                InventoryVarianceProposal[]                 @relation("InventoryVarianceProposalReversedBy")
+  voidedInventoryVarianceProposals                  InventoryVarianceProposal[]                 @relation("InventoryVarianceProposalVoidedBy")
+  inventoryVarianceProposalEvents                   InventoryVarianceProposalEvent[]            @relation("InventoryVarianceProposalEventActor")
+  generatedDocuments                                GeneratedDocument[]                         @relation("GeneratedDocumentGeneratedBy")
+  uploadedAttachments                               Attachment[]                                @relation("AttachmentUploadedBy")
+  deletedAttachments                                Attachment[]                                @relation("AttachmentDeletedBy")
+  authTokens                                        AuthToken[]                                 @relation("AuthTokenUser")
+  createdAuthTokens                                 AuthToken[]                                 @relation("AuthTokenCreatedBy")
+  createdEmailSenderDomainEvidence                  EmailSenderDomainEvidence[]                 @relation("EmailSenderDomainEvidenceCreatedBy")
+  verifiedEmailSenderDomainEvidence                 EmailSenderDomainEvidence[]                 @relation("EmailSenderDomainEvidenceVerifiedBy")
+  revokedEmailSenderDomainEvidence                  EmailSenderDomainEvidence[]                 @relation("EmailSenderDomainEvidenceRevokedBy")
+  updatedAuditLogRetentionSettings                  AuditLogRetentionSettings[]                 @relation("AuditLogRetentionSettingsUpdatedBy")
+  zatcaHashModeEnabledEgsUnits                      ZatcaEgsUnit[]                              @relation("ZatcaHashModeEnabledBy")
+  approvedZatcaCsrConfigReviews                     ZatcaCsrConfigReview[]                      @relation("ZatcaCsrConfigReviewApprovedBy")
+  revokedZatcaCsrConfigReviews                      ZatcaCsrConfigReview[]                      @relation("ZatcaCsrConfigReviewRevokedBy")
+  createdZatcaSignedArtifactDrafts                  ZatcaSignedArtifactDraft[]                  @relation("ZatcaSignedArtifactDraftCreatedBy")
+  createdZatcaSignedArtifactStoragePolicyApprovals  ZatcaSignedArtifactStoragePolicyApproval[]  @relation("ZatcaSignedArtifactStoragePolicyApprovalCreatedBy")
+  approvedZatcaSignedArtifactStoragePolicyApprovals ZatcaSignedArtifactStoragePolicyApproval[]  @relation("ZatcaSignedArtifactStoragePolicyApprovalApprovedBy")
+  revokedZatcaSignedArtifactStoragePolicyApprovals  ZatcaSignedArtifactStoragePolicyApproval[]  @relation("ZatcaSignedArtifactStoragePolicyApprovalRevokedBy")
+  createdZatcaSignedArtifactStorageControlEvidence  ZatcaSignedArtifactStorageControlEvidence[] @relation("ZatcaSignedArtifactStorageControlEvidenceCreatedBy")
+  verifiedZatcaSignedArtifactStorageControlEvidence ZatcaSignedArtifactStorageControlEvidence[] @relation("ZatcaSignedArtifactStorageControlEvidenceVerifiedBy")
+  revokedZatcaSignedArtifactStorageControlEvidence  ZatcaSignedArtifactStorageControlEvidence[] @relation("ZatcaSignedArtifactStorageControlEvidenceRevokedBy")
+  zatcaComplianceCsidCustodyRecordsCreated          ZatcaComplianceCsidCustodyRecord[]          @relation("ZatcaComplianceCsidCustodyRecordCreatedBy")
+  zatcaComplianceCsidCustodyRecordsRevoked          ZatcaComplianceCsidCustodyRecord[]          @relation("ZatcaComplianceCsidCustodyRecordRevokedBy")
 }
 
 model Organization {
-  id                                  String                               @id @default(uuid()) @db.Uuid
-  name                                String
-  legalName                           String?
-  taxNumber                           String?
-  countryCode                         String                               @default("SA")
-  baseCurrency                        String                               @default("SAR")
-  timezone                            String                               @default("Asia/Riyadh")
-  createdAt                           DateTime                             @default(now())
-  updatedAt                           DateTime                             @updatedAt
-  memberships                         OrganizationMember[]
-  roles                               Role[]
-  branches                            Branch[]
-  contacts                            Contact[]
-  accounts                            Account[]
-  bankAccountProfiles                 BankAccountProfile[]
-  bankTransfers                       BankTransfer[]
-  bankStatementImports                BankStatementImport[]
-  bankStatementTransactions           BankStatementTransaction[]
-  bankReconciliations                 BankReconciliation[]
-  bankReconciliationItems             BankReconciliationItem[]
-  bankReconciliationReviewEvents      BankReconciliationReviewEvent[]
-  taxRates                            TaxRate[]
-  items                               Item[]
-  warehouses                          Warehouse[]
-  stockMovements                      StockMovement[]
-  inventoryAdjustments                InventoryAdjustment[]
-  warehouseTransfers                  WarehouseTransfer[]
-  inventorySettings                   InventorySettings?
-  purchaseReceipts                    PurchaseReceipt[]
-  purchaseReceiptLines                PurchaseReceiptLine[]
-  salesStockIssues                    SalesStockIssue[]
-  salesStockIssueLines                SalesStockIssueLine[]
-  inventoryVarianceProposals          InventoryVarianceProposal[]
-  inventoryVarianceProposalEvents     InventoryVarianceProposalEvent[]
-  salesInvoices                       SalesInvoice[]
-  salesInvoiceLines                   SalesInvoiceLine[]
-  creditNotes                         CreditNote[]
-  creditNoteLines                     CreditNoteLine[]
-  creditNoteAllocations               CreditNoteAllocation[]
-  purchaseOrders                      PurchaseOrder[]
-  purchaseOrderLines                  PurchaseOrderLine[]
-  purchaseBills                       PurchaseBill[]
-  purchaseBillLines                   PurchaseBillLine[]
-  purchaseDebitNotes                  PurchaseDebitNote[]
-  purchaseDebitNoteLines              PurchaseDebitNoteLine[]
-  purchaseDebitNoteAllocations        PurchaseDebitNoteAllocation[]
-  cashExpenses                        CashExpense[]
-  cashExpenseLines                    CashExpenseLine[]
-  customerPayments                    CustomerPayment[]
-  customerPaymentAllocations          CustomerPaymentAllocation[]
-  customerPaymentUnappliedAllocations CustomerPaymentUnappliedAllocation[]
-  supplierPayments                    SupplierPayment[]
-  supplierPaymentAllocations          SupplierPaymentAllocation[]
-  supplierPaymentUnappliedAllocations SupplierPaymentUnappliedAllocation[]
-  customerRefunds                     CustomerRefund[]
-  supplierRefunds                     SupplierRefund[]
-  journalEntries                      JournalEntry[]
-  journalLines                        JournalLine[]
-  fiscalPeriods                       FiscalPeriod[]
-  auditLogs                           AuditLog[]
-  auditLogRetentionSettings           AuditLogRetentionSettings?
-  numberSequences                     NumberSequence[]
-  documentSettings                    OrganizationDocumentSettings?
-  generatedDocuments                  GeneratedDocument[]
-  attachments                         Attachment[]
-  emailOutbox                         EmailOutbox[]
-  authTokens                          AuthToken[]
-  authTokenRateLimitEvents            AuthTokenRateLimitEvent[]
-  zatcaProfile                        ZatcaOrganizationProfile?
-  zatcaEgsUnits                       ZatcaEgsUnit[]
-  zatcaInvoiceMetadata                ZatcaInvoiceMetadata[]
-  zatcaSubmissionLogs                 ZatcaSubmissionLog[]
-  zatcaCsrConfigReviews               ZatcaCsrConfigReview[]
-  zatcaSignedArtifactDrafts           ZatcaSignedArtifactDraft[]
+  id                                        String                                      @id @default(uuid()) @db.Uuid
+  name                                      String
+  legalName                                 String?
+  taxNumber                                 String?
+  countryCode                               String                                      @default("SA")
+  baseCurrency                              String                                      @default("SAR")
+  timezone                                  String                                      @default("Asia/Riyadh")
+  createdAt                                 DateTime                                    @default(now())
+  updatedAt                                 DateTime                                    @updatedAt
+  memberships                               OrganizationMember[]
+  roles                                     Role[]
+  branches                                  Branch[]
+  contacts                                  Contact[]
+  accounts                                  Account[]
+  bankAccountProfiles                       BankAccountProfile[]
+  bankTransfers                             BankTransfer[]
+  bankStatementImports                      BankStatementImport[]
+  bankStatementTransactions                 BankStatementTransaction[]
+  bankReconciliations                       BankReconciliation[]
+  bankReconciliationItems                   BankReconciliationItem[]
+  bankReconciliationReviewEvents            BankReconciliationReviewEvent[]
+  taxRates                                  TaxRate[]
+  items                                     Item[]
+  warehouses                                Warehouse[]
+  stockMovements                            StockMovement[]
+  inventoryAdjustments                      InventoryAdjustment[]
+  warehouseTransfers                        WarehouseTransfer[]
+  inventorySettings                         InventorySettings?
+  purchaseReceipts                          PurchaseReceipt[]
+  purchaseReceiptLines                      PurchaseReceiptLine[]
+  salesStockIssues                          SalesStockIssue[]
+  salesStockIssueLines                      SalesStockIssueLine[]
+  inventoryVarianceProposals                InventoryVarianceProposal[]
+  inventoryVarianceProposalEvents           InventoryVarianceProposalEvent[]
+  salesInvoices                             SalesInvoice[]
+  salesInvoiceLines                         SalesInvoiceLine[]
+  creditNotes                               CreditNote[]
+  creditNoteLines                           CreditNoteLine[]
+  creditNoteAllocations                     CreditNoteAllocation[]
+  purchaseOrders                            PurchaseOrder[]
+  purchaseOrderLines                        PurchaseOrderLine[]
+  purchaseBills                             PurchaseBill[]
+  purchaseBillLines                         PurchaseBillLine[]
+  purchaseDebitNotes                        PurchaseDebitNote[]
+  purchaseDebitNoteLines                    PurchaseDebitNoteLine[]
+  purchaseDebitNoteAllocations              PurchaseDebitNoteAllocation[]
+  cashExpenses                              CashExpense[]
+  cashExpenseLines                          CashExpenseLine[]
+  customerPayments                          CustomerPayment[]
+  customerPaymentAllocations                CustomerPaymentAllocation[]
+  customerPaymentUnappliedAllocations       CustomerPaymentUnappliedAllocation[]
+  supplierPayments                          SupplierPayment[]
+  supplierPaymentAllocations                SupplierPaymentAllocation[]
+  supplierPaymentUnappliedAllocations       SupplierPaymentUnappliedAllocation[]
+  customerRefunds                           CustomerRefund[]
+  supplierRefunds                           SupplierRefund[]
+  journalEntries                            JournalEntry[]
+  journalLines                              JournalLine[]
+  fiscalPeriods                             FiscalPeriod[]
+  auditLogs                                 AuditLog[]
+  auditLogRetentionSettings                 AuditLogRetentionSettings?
+  numberSequences                           NumberSequence[]
+  documentSettings                          OrganizationDocumentSettings?
+  generatedDocuments                        GeneratedDocument[]
+  attachments                               Attachment[]
+  emailOutbox                               EmailOutbox[]
+  emailSenderDomainEvidence                 EmailSenderDomainEvidence[]
+  authTokens                                AuthToken[]
+  authTokenRateLimitEvents                  AuthTokenRateLimitEvent[]
+  zatcaProfile                              ZatcaOrganizationProfile?
+  zatcaEgsUnits                             ZatcaEgsUnit[]
+  zatcaInvoiceMetadata                      ZatcaInvoiceMetadata[]
+  zatcaSubmissionLogs                       ZatcaSubmissionLog[]
+  zatcaCsrConfigReviews                     ZatcaCsrConfigReview[]
+  zatcaSignedArtifactDrafts                 ZatcaSignedArtifactDraft[]
   zatcaSignedArtifactStoragePolicyApprovals ZatcaSignedArtifactStoragePolicyApproval[]
   zatcaSignedArtifactStorageControlEvidence ZatcaSignedArtifactStorageControlEvidence[]
-  zatcaComplianceCsidCustodyRecords ZatcaComplianceCsidCustodyRecord[]
+  zatcaComplianceCsidCustodyRecords         ZatcaComplianceCsidCustodyRecord[]
 }
 
 model OrganizationDocumentSettings {
@@ -826,41 +847,41 @@ model ZatcaOrganizationProfile {
 }
 
 model ZatcaEgsUnit {
-  id                   String                   @id @default(uuid()) @db.Uuid
-  organizationId       String                   @db.Uuid
-  profileId            String                   @db.Uuid
-  name                 String
-  environment          ZatcaEnvironment
-  status               ZatcaRegistrationStatus  @default(DRAFT)
-  deviceSerialNumber   String
-  solutionName         String                   @default("LedgerByte")
-  csrCommonName        String?
-  csrSerialNumber      String?
-  csrOrganizationUnitName String?
-  csrInvoiceType       String?
-  csrLocationAddress   String?
-  csrPem               String?                  @db.Text
+  id                           String                             @id @default(uuid()) @db.Uuid
+  organizationId               String                             @db.Uuid
+  profileId                    String                             @db.Uuid
+  name                         String
+  environment                  ZatcaEnvironment
+  status                       ZatcaRegistrationStatus            @default(DRAFT)
+  deviceSerialNumber           String
+  solutionName                 String                             @default("LedgerByte")
+  csrCommonName                String?
+  csrSerialNumber              String?
+  csrOrganizationUnitName      String?
+  csrInvoiceType               String?
+  csrLocationAddress           String?
+  csrPem                       String?                            @db.Text
   /// TODO: production must store private keys in a secrets manager/KMS, not in the database.
-  privateKeyPem        String?                  @db.Text
-  complianceCsidPem    String?                  @db.Text
-  productionCsidPem    String?                  @db.Text
-  certificateRequestId String?
-  lastInvoiceHash      String?
-  lastIcv              Int                      @default(0)
-  hashMode             ZatcaHashMode            @default(LOCAL_DETERMINISTIC)
-  hashModeEnabledAt    DateTime?
-  hashModeEnabledById  String?                  @db.Uuid
-  hashModeResetReason  String?
-  sdkHashChainStartedAt DateTime?
-  isActive             Boolean                  @default(false)
-  createdAt            DateTime                 @default(now())
-  updatedAt            DateTime                 @updatedAt
-  organization         Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  profile              ZatcaOrganizationProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  hashModeEnabledBy    User?                    @relation("ZatcaHashModeEnabledBy", fields: [hashModeEnabledById], references: [id], onDelete: SetNull)
-  invoiceMetadata      ZatcaInvoiceMetadata[]
-  submissionLogs       ZatcaSubmissionLog[]
-  csrConfigReviews     ZatcaCsrConfigReview[]
+  privateKeyPem                String?                            @db.Text
+  complianceCsidPem            String?                            @db.Text
+  productionCsidPem            String?                            @db.Text
+  certificateRequestId         String?
+  lastInvoiceHash              String?
+  lastIcv                      Int                                @default(0)
+  hashMode                     ZatcaHashMode                      @default(LOCAL_DETERMINISTIC)
+  hashModeEnabledAt            DateTime?
+  hashModeEnabledById          String?                            @db.Uuid
+  hashModeResetReason          String?
+  sdkHashChainStartedAt        DateTime?
+  isActive                     Boolean                            @default(false)
+  createdAt                    DateTime                           @default(now())
+  updatedAt                    DateTime                           @updatedAt
+  organization                 Organization                       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  profile                      ZatcaOrganizationProfile           @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  hashModeEnabledBy            User?                              @relation("ZatcaHashModeEnabledBy", fields: [hashModeEnabledById], references: [id], onDelete: SetNull)
+  invoiceMetadata              ZatcaInvoiceMetadata[]
+  submissionLogs               ZatcaSubmissionLog[]
+  csrConfigReviews             ZatcaCsrConfigReview[]
   complianceCsidCustodyRecords ZatcaComplianceCsidCustodyRecord[]
 
   @@unique([organizationId, deviceSerialNumber])
@@ -906,32 +927,32 @@ model ZatcaCsrConfigReview {
 }
 
 model ZatcaInvoiceMetadata {
-  id                  String               @id @default(uuid()) @db.Uuid
-  organizationId      String               @db.Uuid
-  invoiceId           String               @unique @db.Uuid
-  zatcaInvoiceType    ZatcaInvoiceType
-  zatcaStatus         ZatcaInvoiceStatus   @default(NOT_SUBMITTED)
-  invoiceUuid         String               @unique @default(uuid()) @db.Uuid
-  icv                 Int?
-  previousInvoiceHash String?
-  invoiceHash         String?
-  qrCodeBase64        String?              @db.Text
-  xmlBase64           String?              @db.Text
-  xmlHash             String?
-  egsUnitId           String?              @db.Uuid
-  hashModeSnapshot    ZatcaHashMode        @default(LOCAL_DETERMINISTIC)
-  generatedAt         DateTime?
-  clearedAt           DateTime?
-  reportedAt          DateTime?
-  rejectedAt          DateTime?
-  lastErrorCode       String?
-  lastErrorMessage    String?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  invoice             SalesInvoice         @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  egsUnit             ZatcaEgsUnit?        @relation(fields: [egsUnitId], references: [id], onDelete: SetNull)
-  submissionLogs      ZatcaSubmissionLog[]
+  id                   String                     @id @default(uuid()) @db.Uuid
+  organizationId       String                     @db.Uuid
+  invoiceId            String                     @unique @db.Uuid
+  zatcaInvoiceType     ZatcaInvoiceType
+  zatcaStatus          ZatcaInvoiceStatus         @default(NOT_SUBMITTED)
+  invoiceUuid          String                     @unique @default(uuid()) @db.Uuid
+  icv                  Int?
+  previousInvoiceHash  String?
+  invoiceHash          String?
+  qrCodeBase64         String?                    @db.Text
+  xmlBase64            String?                    @db.Text
+  xmlHash              String?
+  egsUnitId            String?                    @db.Uuid
+  hashModeSnapshot     ZatcaHashMode              @default(LOCAL_DETERMINISTIC)
+  generatedAt          DateTime?
+  clearedAt            DateTime?
+  reportedAt           DateTime?
+  rejectedAt           DateTime?
+  lastErrorCode        String?
+  lastErrorMessage     String?
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  organization         Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice              SalesInvoice               @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  egsUnit              ZatcaEgsUnit?              @relation(fields: [egsUnitId], references: [id], onDelete: SetNull)
+  submissionLogs       ZatcaSubmissionLog[]
   signedArtifactDrafts ZatcaSignedArtifactDraft[]
 
   @@index([organizationId])
@@ -1002,10 +1023,10 @@ model ZatcaSignedArtifactStoragePolicyApproval {
   createdAt                       DateTime                                        @default(now())
   updatedAt                       DateTime                                        @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdBy    User?        @relation("ZatcaSignedArtifactStoragePolicyApprovalCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  approvedBy   User?        @relation("ZatcaSignedArtifactStoragePolicyApprovalApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
-  revokedBy    User?        @relation("ZatcaSignedArtifactStoragePolicyApprovalRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+  organization    Organization                                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy       User?                                       @relation("ZatcaSignedArtifactStoragePolicyApprovalCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedBy      User?                                       @relation("ZatcaSignedArtifactStoragePolicyApprovalApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  revokedBy       User?                                       @relation("ZatcaSignedArtifactStoragePolicyApprovalRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
   controlEvidence ZatcaSignedArtifactStorageControlEvidence[]
 
   @@index([organizationId])
@@ -1017,30 +1038,30 @@ model ZatcaSignedArtifactStoragePolicyApproval {
 }
 
 model ZatcaSignedArtifactStorageControlEvidence {
-  id                                  String                                             @id @default(uuid()) @db.Uuid
-  organizationId                      String                                             @db.Uuid
-  policyApprovalId                    String?                                            @db.Uuid
-  status                              ZatcaSignedArtifactStorageControlEvidenceStatus    @default(DRAFT)
-  evidenceType                        ZatcaSignedArtifactStorageControlEvidenceType
-  provider                            String?
-  bucketNameRedacted                  String?
-  evidenceSummaryJson                 Json
-  evidenceHash                        String?
-  evidenceDocumentStorageKey          String?
-  verifiedById                        String?                                            @db.Uuid
-  verifiedAt                          DateTime?
-  revokedById                         String?                                            @db.Uuid
-  revokedAt                           DateTime?
-  note                                String?
-  productionCompliance                Boolean                                            @default(false)
-  signedXmlBodyPersistenceAllowed     Boolean                                            @default(false)
-  qrPayloadBodyPersistenceAllowed     Boolean                                            @default(false)
-  createdById                         String?                                            @db.Uuid
-  createdAt                           DateTime                                           @default(now())
-  updatedAt                           DateTime                                           @updatedAt
+  id                              String                                          @id @default(uuid()) @db.Uuid
+  organizationId                  String                                          @db.Uuid
+  policyApprovalId                String?                                         @db.Uuid
+  status                          ZatcaSignedArtifactStorageControlEvidenceStatus @default(DRAFT)
+  evidenceType                    ZatcaSignedArtifactStorageControlEvidenceType
+  provider                        String?
+  bucketNameRedacted              String?
+  evidenceSummaryJson             Json
+  evidenceHash                    String?
+  evidenceDocumentStorageKey      String?
+  verifiedById                    String?                                         @db.Uuid
+  verifiedAt                      DateTime?
+  revokedById                     String?                                         @db.Uuid
+  revokedAt                       DateTime?
+  note                            String?
+  productionCompliance            Boolean                                         @default(false)
+  signedXmlBodyPersistenceAllowed Boolean                                         @default(false)
+  qrPayloadBodyPersistenceAllowed Boolean                                         @default(false)
+  createdById                     String?                                         @db.Uuid
+  createdAt                       DateTime                                        @default(now())
+  updatedAt                       DateTime                                        @updatedAt
 
   organization   Organization                              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  policyApproval ZatcaSignedArtifactStoragePolicyApproval?  @relation(fields: [policyApprovalId], references: [id], onDelete: SetNull)
+  policyApproval ZatcaSignedArtifactStoragePolicyApproval? @relation(fields: [policyApprovalId], references: [id], onDelete: SetNull)
   createdBy      User?                                     @relation("ZatcaSignedArtifactStorageControlEvidenceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   verifiedBy     User?                                     @relation("ZatcaSignedArtifactStorageControlEvidenceVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
   revokedBy      User?                                     @relation("ZatcaSignedArtifactStorageControlEvidenceRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
@@ -1056,30 +1077,30 @@ model ZatcaSignedArtifactStorageControlEvidence {
 }
 
 model ZatcaComplianceCsidCustodyRecord {
-  id                           String                                      @id @default(uuid()) @db.Uuid
-  organizationId               String                                      @db.Uuid
-  egsUnitId                    String                                      @db.Uuid
+  id                           String                                    @id @default(uuid()) @db.Uuid
+  organizationId               String                                    @db.Uuid
+  egsUnitId                    String                                    @db.Uuid
   source                       ZatcaComplianceCsidCustodyRecordSource
-  status                       ZatcaComplianceCsidCustodyRecordStatus      @default(PLANNED)
+  status                       ZatcaComplianceCsidCustodyRecordStatus    @default(PLANNED)
   requestId                    String?
   certificateRequestId         String?
-  hasBinarySecurityToken       Boolean                                     @default(false)
-  hasSecret                    Boolean                                     @default(false)
-  hasCertificate               Boolean                                     @default(false)
-  tokenStorageMode             ZatcaComplianceCsidTokenStorageMode         @default(NOT_STORED)
-  secretStorageMode            ZatcaComplianceCsidSecretStorageMode        @default(NOT_STORED)
-  certificateStorageMode       ZatcaComplianceCsidCertificateStorageMode   @default(NOT_STORED)
-  expiryKnown                  Boolean                                     @default(false)
+  hasBinarySecurityToken       Boolean                                   @default(false)
+  hasSecret                    Boolean                                   @default(false)
+  hasCertificate               Boolean                                   @default(false)
+  tokenStorageMode             ZatcaComplianceCsidTokenStorageMode       @default(NOT_STORED)
+  secretStorageMode            ZatcaComplianceCsidSecretStorageMode      @default(NOT_STORED)
+  certificateStorageMode       ZatcaComplianceCsidCertificateStorageMode @default(NOT_STORED)
+  expiryKnown                  Boolean                                   @default(false)
   expiresAt                    DateTime?
-  renewalRequired              Boolean                                     @default(false)
-  signedWithProductionMaterial Boolean                                     @default(false)
-  productionCompliance         Boolean                                     @default(false)
+  renewalRequired              Boolean                                   @default(false)
+  signedWithProductionMaterial Boolean                                   @default(false)
+  productionCompliance         Boolean                                   @default(false)
   custodyBlockedReason         String?
-  createdById                  String?                                     @db.Uuid
-  revokedById                  String?                                     @db.Uuid
+  createdById                  String?                                   @db.Uuid
+  revokedById                  String?                                   @db.Uuid
   revokedAt                    DateTime?
-  createdAt                    DateTime                                    @default(now())
-  updatedAt                    DateTime                                    @updatedAt
+  createdAt                    DateTime                                  @default(now())
+  updatedAt                    DateTime                                  @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   egsUnit      ZatcaEgsUnit @relation(fields: [egsUnitId], references: [id], onDelete: Cascade)
@@ -1175,6 +1196,37 @@ model EmailOutbox {
   @@index([organizationId, templateType])
   @@index([organizationId, status])
   @@index([toEmail])
+}
+
+model EmailSenderDomainEvidence {
+  id                          String                          @id @default(uuid()) @db.Uuid
+  organizationId              String                          @db.Uuid
+  domain                      String
+  status                      EmailSenderDomainEvidenceStatus @default(DRAFT)
+  evidenceType                EmailSenderDomainEvidenceType
+  provider                    String?
+  evidenceSummaryJson         Json
+  verifiedById                String?                         @db.Uuid
+  verifiedAt                  DateTime?
+  revokedById                 String?                         @db.Uuid
+  revokedAt                   DateTime?
+  note                        String?
+  productionReadyContribution Boolean                         @default(false)
+  createdById                 String?                         @db.Uuid
+  createdAt                   DateTime                        @default(now())
+  updatedAt                   DateTime                        @updatedAt
+  organization                Organization                    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy                   User?                           @relation("EmailSenderDomainEvidenceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  verifiedBy                  User?                           @relation("EmailSenderDomainEvidenceVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+  revokedBy                   User?                           @relation("EmailSenderDomainEvidenceRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([organizationId, domain])
+  @@index([organizationId, status])
+  @@index([organizationId, evidenceType])
+  @@index([createdById])
+  @@index([verifiedById])
+  @@index([revokedById])
 }
 
 model AuthToken {

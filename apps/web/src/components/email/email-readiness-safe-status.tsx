@@ -1,4 +1,9 @@
-import { emailDiagnosticsStatusLabel, emailProductionReadinessLabel } from "@/lib/email";
+import {
+  emailDiagnosticsStatusLabel,
+  emailProductionReadinessLabel,
+  emailRelayDiagnosticsStatusLabel,
+  emailSenderDomainStatusLabel,
+} from "@/lib/email";
 import type { EmailDiagnosticsResponse, EmailReadinessResponse } from "@/lib/types";
 
 export function EmailReadinessSafeStatus({
@@ -18,10 +23,19 @@ export function EmailReadinessSafeStatus({
           label="Diagnostics gate"
           value={readiness.diagnostics.executionEnabled ? "Allowlist required" : "Disabled by default"}
         />
+        <SafeStatusItem label="Sender domain" value={emailSenderDomainStatusLabel(readiness.senderDomain.evidenceStatus)} />
+        <SafeStatusItem label="Relay diagnostics" value={emailRelayDiagnosticsStatusLabel(readiness.relayDiagnosticsStatus)} />
+        <SafeStatusItem label="Bounces" value={readiness.bounceWebhookConfigured ? "Webhook configured" : "Bounce webhooks missing"} />
+        <SafeStatusItem label="Retries" value={readiness.retryPolicyConfigured ? "Retry policy configured" : "Retry policy missing"} />
+        <SafeStatusItem label="Monitoring" value={readiness.monitoringConfigured ? "Monitoring configured" : "Monitoring missing"} />
       </div>
       <p className="mt-3 text-steel">
         Password reset and invite reliability depend on production SMTP, from/reply-to addresses, credentials, and provider delivery checks. Diagnostic
         execution is disabled unless the server flag and recipient allowlist are configured.
+      </p>
+      <p className="mt-2 text-steel">
+        Sender-domain readiness requires SPF, DKIM, and DMARC evidence for the configured sender domain. Evidence capture is metadata-only and does not
+        perform DNS provider actions or send customer email.
       </p>
       {diagnosticsResult ? (
         <p className="mt-2 font-medium text-ink">

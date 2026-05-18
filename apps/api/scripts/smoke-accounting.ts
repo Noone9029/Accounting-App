@@ -96,8 +96,32 @@ interface EmailReadinessResponse {
   productionReady: boolean;
   diagnostics: {
     executionEnabled: boolean;
+    allowedRecipientsConfigured: boolean;
+    allowedDomainsConfigured: boolean;
+    provider: string;
+    smtpConfigured: boolean;
+    wouldSendToRedactedRecipient: string | null;
     noCustomerEmailSentByDefault: boolean;
+    noMutationByDefault: boolean;
+    productionReady: boolean;
   };
+  senderDomain: {
+    fromDomain: string | null;
+    replyToDomain: string | null;
+    evidenceRequired: boolean;
+    requiredEvidenceTypes: string[];
+    verifiedEvidenceTypes: string[];
+    missingEvidenceTypes: string[];
+    evidenceStatus: string;
+    productionReadyContribution: boolean;
+    blockers: string[];
+    warnings: string[];
+  };
+  relayDiagnosticsStatus: string;
+  relayDiagnosticsRequired: boolean;
+  bounceWebhookConfigured: boolean;
+  retryPolicyConfigured: boolean;
+  monitoringConfigured: boolean;
   smtp: {
     hostConfigured: boolean;
     portConfigured: boolean;
@@ -118,6 +142,15 @@ interface EmailDiagnosticsResponse {
   noCustomerEmailSent: boolean;
   noMutation: boolean;
   provider: string;
+  plan?: EmailReadinessResponse["diagnostics"];
+}
+
+interface EmailSenderDomainEvidenceListResponse {
+  metadataOnly: boolean;
+  noCustomerEmail: boolean;
+  noEmailSent: boolean;
+  noOutboxRecord: boolean;
+  evidence: unknown[];
 }
 
 interface AuditLogEntry {
@@ -2217,7 +2250,31 @@ async function main(): Promise<void> {
   assert(emailReadiness.noMutation, "email readiness reports no mutation");
   assert(!emailReadiness.productionReady, "default mock email readiness is not production-ready");
   assert(!emailReadiness.diagnostics.executionEnabled, "email diagnostics sending is disabled by default");
+  assert(emailReadiness.diagnostics.noCustomerEmailSentByDefault, "email diagnostics plan defaults to no customer email");
+  assert(emailReadiness.diagnostics.noMutationByDefault, "email diagnostics plan defaults to no mutation");
+  assertEqual(emailReadiness.diagnostics.productionReady, false, "email diagnostics plan is not production-ready");
+  assert(emailReadiness.senderDomain.evidenceRequired, "email sender-domain evidence is required");
+  assert(emailReadiness.senderDomain.requiredEvidenceTypes.includes("SPF"), "email sender-domain readiness requires SPF evidence");
+  assert(emailReadiness.senderDomain.requiredEvidenceTypes.includes("DKIM"), "email sender-domain readiness requires DKIM evidence");
+  assert(emailReadiness.senderDomain.requiredEvidenceTypes.includes("DMARC"), "email sender-domain readiness requires DMARC evidence");
+  assert(["BLOCKED", "PARTIAL", "READY_FOR_REVIEW"].includes(emailReadiness.senderDomain.evidenceStatus), "email sender-domain status is safe");
+  if (emailReadiness.senderDomain.productionReadyContribution) {
+    assertEqual(emailReadiness.senderDomain.evidenceStatus, "READY_FOR_REVIEW", "verified sender-domain evidence is ready for review");
+  } else {
+    assert(emailReadiness.senderDomain.missingEvidenceTypes.length > 0, "missing sender-domain evidence is reported safely");
+  }
+  assertEqual(emailReadiness.relayDiagnosticsStatus, "SKIPPED_DISABLED", "email relay diagnostics are skipped while disabled");
+  assert(emailReadiness.relayDiagnosticsRequired, "email relay diagnostics are required");
+  assert(!emailReadiness.bounceWebhookConfigured, "email bounce webhook remains unconfigured");
+  assert(!emailReadiness.retryPolicyConfigured, "email retry policy remains unconfigured");
+  assert(!emailReadiness.monitoringConfigured, "email monitoring remains unconfigured");
   assertNoEmailSecretExposure(emailReadiness, "email readiness");
+  const emailSenderEvidence = await get<EmailSenderDomainEvidenceListResponse>("/email/sender-domain-evidence", headers);
+  assert(emailSenderEvidence.metadataOnly, "email sender-domain evidence is metadata-only");
+  assert(emailSenderEvidence.noCustomerEmail, "email sender-domain evidence sends no customer email");
+  assert(emailSenderEvidence.noEmailSent, "email sender-domain evidence sends no email");
+  assert(emailSenderEvidence.noOutboxRecord, "email sender-domain evidence creates no outbox record");
+  assertNoEmailSecretExposure(emailSenderEvidence, "email sender-domain evidence");
   const emailOutboxBeforeDiagnostics = await get<EmailOutboxEntry[]>("/email/outbox", headers);
   const emailDiagnostics = await post<EmailDiagnosticsResponse>("/email/diagnostics", headers, {});
   assertEqual(emailDiagnostics.status, "SKIPPED_DISABLED", "email diagnostics skipped by default");
@@ -2226,6 +2283,9 @@ async function main(): Promise<void> {
   assert(emailDiagnostics.noEmailSent, "email diagnostics sends no email by default");
   assert(emailDiagnostics.noCustomerEmailSent, "email diagnostics sends no customer email by default");
   assert(emailDiagnostics.noMutation, "email diagnostics is no-mutation by default");
+  assert(emailDiagnostics.plan?.noCustomerEmailSentByDefault, "email diagnostics skipped response includes no-customer-email plan");
+  assert(emailDiagnostics.plan?.noMutationByDefault, "email diagnostics skipped response includes no-mutation plan");
+  assertEqual(emailDiagnostics.plan?.productionReady, false, "email diagnostics plan is not production-ready");
   assertNoEmailSecretExposure(emailDiagnostics, "email diagnostics");
   const emailOutboxAfterDiagnostics = await get<EmailOutboxEntry[]>("/email/outbox", headers);
   assertEqual(emailOutboxAfterDiagnostics.length, emailOutboxBeforeDiagnostics.length, "email diagnostics does not create outbox records");
@@ -6146,6 +6206,12 @@ async function main(): Promise<void> {
         emailReadinessRealSendingEnabled: emailReadiness.realSendingEnabled,
         emailReadinessNoCustomerEmailSent: emailReadiness.noCustomerEmailSent,
         emailReadinessProductionReady: emailReadiness.productionReady,
+        emailSenderDomainStatus: emailReadiness.senderDomain.evidenceStatus,
+        emailSenderDomainMissingEvidenceTypes: emailReadiness.senderDomain.missingEvidenceTypes,
+        emailRelayDiagnosticsStatus: emailReadiness.relayDiagnosticsStatus,
+        emailBounceWebhookConfigured: emailReadiness.bounceWebhookConfigured,
+        emailRetryPolicyConfigured: emailReadiness.retryPolicyConfigured,
+        emailMonitoringConfigured: emailReadiness.monitoringConfigured,
         emailReadinessSecretsRedacted: !JSON.stringify(emailReadiness).includes("SMTP_PASSWORD"),
         emailDiagnosticsStatus: emailDiagnostics.status,
         emailDiagnosticsExecutionEnabled: emailDiagnostics.executionEnabled,
@@ -6647,7 +6713,16 @@ function assertNoPrivateKey(value: unknown, label: string): void {
 
 function assertNoEmailSecretExposure(value: unknown, label: string): void {
   const serialized = JSON.stringify(value) ?? "";
-  const forbidden = ["SMTP_PASSWORD", "SMTP_SECRET", "API_KEY", "AUTHORIZATION", "Bearer ", "smtp-password-secret", "api-key-secret"];
+  const forbidden = [
+    "SMTP_PASSWORD",
+    "SMTP_SECRET",
+    "API_KEY",
+    "AUTHORIZATION",
+    "Bearer ",
+    "PRIVATE KEY",
+    "smtp-password-secret",
+    "api-key-secret",
+  ];
   for (const marker of forbidden) {
     assert(!serialized.includes(marker), `${label} does not expose ${marker}`);
   }

@@ -47,17 +47,34 @@ SMTP configuration:
 - SMTP configuration booleans
 - production-ready flag
 - diagnostics execution gate
+- diagnostics plan fields for allowlisted recipients/domains and non-production relay testing
+- sender-domain readiness for SPF, DKIM, and DMARC metadata evidence
+- relay diagnostics status
+- bounce webhook, retry policy, and monitoring booleans
 - redaction guarantees
 - mock-mode flag
 - real-sending-enabled flag
 
 The endpoint is read-only/no-mutation and does not send email. It does not expose raw SMTP host values, usernames, passwords, API keys, tokens, connection URLs, authorization headers, provider secrets, or message links outside the existing mock outbox behavior.
 
+Production readiness remains blocked until SMTP configuration, sender-domain evidence, non-production relay diagnostics, bounce handling, retries, and monitoring are all implemented and reviewed.
+
+## Sender-Domain Evidence
+
+`EmailSenderDomainEvidence` stores manual, tenant-scoped metadata for sender-domain authentication review.
+
+- Evidence types: `SPF`, `DKIM`, `DMARC`, `MX`, `RETURN_PATH`, `PROVIDER_VERIFICATION`, and `OTHER`.
+- Endpoints: `GET /email/sender-domain-evidence`, `POST /email/sender-domain-evidence`, `POST /email/sender-domain-evidence/:id/verify`, and `POST /email/sender-domain-evidence/:id/revoke`.
+- The evidence workflow sends no email, creates no outbox record, performs no DNS-provider action, and stores no customer email body.
+- Secret-bearing values are rejected, including SMTP passwords, usernames when submitted as sensitive keys, API keys, tokens, authorization headers, connection URLs, provider secrets, and private DKIM keys.
+- Verified SPF/DKIM/DMARC evidence can move sender-domain status to `READY_FOR_REVIEW`, but does not make full email `productionReady=true` while relay, bounce, retry, and monitoring gaps remain.
+
 ## Safe Diagnostics
 
 `POST /email/diagnostics` returns a diagnostic plan/status without creating outbox records.
 
 - Default `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED=false`: returns `SKIPPED_DISABLED`, `executionAttempted=false`, `noEmailSent=true`, `noCustomerEmailSent=true`, and `noMutation=true`.
+- `GET /email/diagnostics-plan` exposes the same no-send plan for settings UI use.
 - Enabled mode requires a request recipient and an allowlist match through `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS` or `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS`.
 - Diagnostic subjects/bodies are test-only and contain no tenant records or business data.
 - Responses mask recipients and return redacted delivery summaries only.
@@ -82,7 +99,7 @@ Mock outbox bodies can contain local invite/reset preview links. That is useful 
 1. Add provider-specific API adapters if SMTP is not sufficient.
 2. Add explicit timeout and retry policy around provider sends.
 3. Add delivery status updates for queued, sent, failed, bounced, and complained messages.
-4. Add DKIM/SPF/DMARC/domain verification checks to admin settings.
+4. Add live DNS/provider verification checks for captured DKIM/SPF/DMARC evidence.
 5. Add a queue/worker for asynchronous sending.
 6. Add provider webhook verification for delivery events.
 7. Add rate-limit and abuse monitoring dashboards.
@@ -93,5 +110,5 @@ Mock outbox bodies can contain local invite/reset preview links. That is useful 
 - No paid/provider-specific API adapter is implemented.
 - No background queue or retry worker exists.
 - No bounce, complaint, suppression-list, or provider webhook handling exists.
-- No DKIM/SPF/DMARC/domain verification exists.
+- DKIM/SPF/DMARC/domain evidence is metadata-only; no live DNS lookup or provider verification is implemented.
 - No branded HTML template polish exists.

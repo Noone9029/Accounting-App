@@ -76,9 +76,9 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 
 ### 9. Validate SMTP readiness with non-production relay
 
-- Objective: Exercise the opt-in SMTP adapter through the allowlisted diagnostics gate against Mailtrap/Resend SMTP or another non-production relay and document provider/domain caveats.
-- Why it matters: Readiness and disabled diagnostics exist, but production use still needs credential/domain validation outside smoke tests.
-- Dependencies: SMTP provider adapter, `GET /email/readiness`, `POST /email/diagnostics`, and `/settings/email-outbox`.
+- Objective: Exercise the opt-in SMTP adapter through the allowlisted diagnostics gate against Mailtrap/Resend SMTP or another non-production relay and document safe provider-result evidence.
+- Why it matters: Readiness, disabled diagnostics, and sender-domain evidence capture exist, but production use still needs executed relay validation and live provider/domain validation outside smoke tests.
+- Dependencies: SMTP provider adapter, `GET /email/readiness`, `GET /email/diagnostics-plan`, `POST /email/diagnostics`, `/email/sender-domain-evidence`, and `/settings/email-outbox`.
 - Risk level: Medium.
 - Manual credentials needed: Provider sandbox SMTP credentials.
 
@@ -895,7 +895,9 @@ Completed: `/setup` guided first-run setup wizard backed by `GET /dashboard/onbo
 
 Completed: production SMTP/email readiness validation and safe diagnostics. `GET /email/readiness` is read-only/no-mutation and redacted, while `POST /email/diagnostics` is disabled by default and sends no customer email unless explicitly enabled with an allowlisted test recipient.
 
-1. Validate SMTP readiness against a non-production relay and add sender-domain authentication evidence without sending customer emails.
+Completed: metadata-only sender-domain authentication evidence capture. `EmailSenderDomainEvidence` and `/email/sender-domain-evidence` support SPF/DKIM/DMARC review without DNS-provider secrets, customer email, outbox mutation, or live DNS/provider validation.
+
+1. Run an allowlisted non-production SMTP relay diagnostic and record safe provider-result evidence without sending customer emails.
 2. Add Vercel/Supabase deployment runbook checks and safe env summaries.
 3. Add Playwright E2E coverage for login, dashboard, setup wizard, contact, invoice, payment, and reports.
 4. Add a non-prod object-storage migration executor for attachments/generated documents.

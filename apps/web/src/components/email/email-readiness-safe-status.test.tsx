@@ -30,8 +30,30 @@ describe("EmailReadinessSafeStatus", () => {
             executionEnabled: false,
             allowedRecipientsConfigured: false,
             allowedDomainsConfigured: true,
+            provider: "mock",
+            smtpConfigured: false,
+            wouldSendToRedactedRecipient: null,
             noCustomerEmailSentByDefault: true,
+            noMutationByDefault: true,
+            productionReady: false,
           },
+          senderDomain: {
+            fromDomain: "ledgerbyte.local",
+            replyToDomain: null,
+            evidenceRequired: true,
+            requiredEvidenceTypes: ["SPF", "DKIM", "DMARC"],
+            verifiedEvidenceTypes: [],
+            missingEvidenceTypes: ["SPF", "DKIM", "DMARC"],
+            evidenceStatus: "BLOCKED",
+            productionReadyContribution: false,
+            blockers: ["SPF, DKIM, and DMARC evidence must be captured before production email readiness review."],
+            warnings: ["Sender-domain evidence is metadata-only. No DNS provider secrets are stored."],
+          },
+          relayDiagnosticsStatus: "SKIPPED_DISABLED",
+          relayDiagnosticsRequired: true,
+          bounceWebhookConfigured: false,
+          retryPolicyConfigured: false,
+          monitoringConfigured: false,
           smtp: {
             hostConfigured: false,
             portConfigured: false,
@@ -60,7 +82,12 @@ describe("EmailReadinessSafeStatus", () => {
     expect(screen.getByText("Production email not ready")).toBeTruthy();
     expect(screen.getByText("No customer email sent")).toBeTruthy();
     expect(screen.getByText("Disabled by default")).toBeTruthy();
-    expect(screen.getByText(/Diagnostics disabled/)).toBeTruthy();
+    expect(screen.getByText("SPF/DKIM/DMARC required")).toBeTruthy();
+    expect(screen.getByText("Bounce webhooks missing")).toBeTruthy();
+    expect(screen.getByText("Retry policy missing")).toBeTruthy();
+    expect(screen.getByText("Monitoring missing")).toBeTruthy();
+    expect(screen.getAllByText(/Diagnostics disabled/).length).toBeGreaterThan(0);
     expect(document.body.textContent).not.toContain("smtp-password-secret");
+    expect(document.body.textContent).not.toContain("PRIVATE KEY");
   });
 });

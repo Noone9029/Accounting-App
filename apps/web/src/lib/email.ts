@@ -59,6 +59,36 @@ export function emailDiagnosticsStatusLabel(status: string): string {
   return labels[status] ?? status;
 }
 
+export function emailRelayDiagnosticsStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    NOT_RUN: "Not run",
+    SKIPPED_DISABLED: "Diagnostics disabled",
+    READY_FOR_NON_PRODUCTION_TEST: "Ready for non-production relay test",
+    ATTEMPTED: "Diagnostics attempted",
+    FAILED: "Diagnostics failed",
+  };
+  return labels[status] ?? status;
+}
+
+export function emailSenderDomainStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    BLOCKED: "SPF/DKIM/DMARC required",
+    PARTIAL: "Partially reviewed",
+    READY_FOR_REVIEW: "Ready for review",
+  };
+  return labels[status] ?? status;
+}
+
+export function emailSenderDomainEvidenceStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    DRAFT: "Draft",
+    VERIFIED: "Verified",
+    REVOKED: "Revoked",
+    SUPERSEDED: "Superseded",
+  };
+  return labels[status] ?? status;
+}
+
 export function smtpConfigStateLabel(configured: boolean): string {
   return configured ? "Configured" : "Missing";
 }

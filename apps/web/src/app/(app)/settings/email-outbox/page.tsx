@@ -12,6 +12,9 @@ import {
   emailReadinessClass,
   emailReadinessLabel,
   emailDiagnosticsStatusLabel,
+  emailRelayDiagnosticsStatusLabel,
+  emailSenderDomainEvidenceStatusLabel,
+  emailSenderDomainStatusLabel,
   emailStatusClass,
   emailStatusLabel,
   emailTemplateLabel,
@@ -19,13 +22,27 @@ import {
   smtpConfigStateLabel,
 } from "@/lib/email";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { AuthTokenCleanupResponse, EmailDiagnosticsResponse, EmailOutboxDetail, EmailOutboxEntry, EmailReadinessResponse } from "@/lib/types";
+import type {
+  AuthTokenCleanupResponse,
+  EmailDiagnosticsResponse,
+  EmailOutboxDetail,
+  EmailOutboxEntry,
+  EmailReadinessResponse,
+  EmailSenderDomainEvidence,
+  EmailSenderDomainEvidenceListResponse,
+  EmailSenderDomainEvidenceResponse,
+  EmailSenderDomainEvidenceType,
+} from "@/lib/types";
+
+const EVIDENCE_TYPES: EmailSenderDomainEvidenceType[] = ["SPF", "DKIM", "DMARC", "MX", "RETURN_PATH", "PROVIDER_VERIFICATION", "OTHER"];
 
 export default function EmailOutboxPage() {
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
+  const canManageEmail = can(PERMISSIONS.users.manage);
   const [emails, setEmails] = useState<EmailOutboxEntry[]>([]);
   const [readiness, setReadiness] = useState<EmailReadinessResponse | null>(null);
+  const [senderEvidence, setSenderEvidence] = useState<EmailSenderDomainEvidence[]>([]);
   const [selected, setSelected] = useState<EmailOutboxDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [cleanupLoading, setCleanupLoading] = useState(false);
@@ -33,6 +50,12 @@ export default function EmailOutboxPage() {
   const [diagnosticsEmail, setDiagnosticsEmail] = useState("");
   const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
   const [diagnosticsResult, setDiagnosticsResult] = useState<EmailDiagnosticsResponse | null>(null);
+  const [evidenceDomain, setEvidenceDomain] = useState("");
+  const [evidenceType, setEvidenceType] = useState<EmailSenderDomainEvidenceType>("SPF");
+  const [evidenceProvider, setEvidenceProvider] = useState("");
+  const [evidenceSummary, setEvidenceSummary] = useState("");
+  const [evidenceNote, setEvidenceNote] = useState("");
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -41,14 +64,25 @@ export default function EmailOutboxPage() {
     }
     setLoading(true);
     setError("");
-    Promise.all([apiRequest<EmailOutboxEntry[]>("/email/outbox"), apiRequest<EmailReadinessResponse>("/email/readiness")])
-      .then(([outbox, emailReadiness]) => {
+    const evidenceRequest = canManageEmail
+      ? apiRequest<EmailSenderDomainEvidenceListResponse>("/email/sender-domain-evidence")
+      : Promise.resolve({
+          metadataOnly: true,
+          noCustomerEmail: true,
+          noEmailSent: true,
+          noOutboxRecord: true,
+          redactionGuarantees: [],
+          evidence: [],
+        } as EmailSenderDomainEvidenceListResponse);
+    Promise.all([apiRequest<EmailOutboxEntry[]>("/email/outbox"), apiRequest<EmailReadinessResponse>("/email/readiness"), evidenceRequest])
+      .then(([outbox, emailReadiness, evidenceResponse]) => {
         setEmails(outbox);
         setReadiness(emailReadiness);
+        setSenderEvidence(evidenceResponse.evidence);
       })
       .catch((loadError) => setError(loadError instanceof Error ? loadError.message : "Unable to load email outbox."))
       .finally(() => setLoading(false));
-  }, [organizationId]);
+  }, [canManageEmail, organizationId]);
 
   async function openDetail(id: string) {
     setError("");
@@ -90,9 +124,77 @@ export default function EmailOutboxPage() {
     }
   }
 
-  const canCleanTokens = can(PERMISSIONS.users.manage);
-  const canRunDiagnostics = can(PERMISSIONS.users.manage);
+  async function refreshReadinessAndEvidence() {
+    const [emailReadiness, evidenceResponse] = await Promise.all([
+      apiRequest<EmailReadinessResponse>("/email/readiness"),
+      apiRequest<EmailSenderDomainEvidenceListResponse>("/email/sender-domain-evidence"),
+    ]);
+    setReadiness(emailReadiness);
+    setSenderEvidence(evidenceResponse.evidence);
+  }
+
+  async function createEvidence() {
+    setEvidenceLoading(true);
+    setError("");
+    try {
+      await apiRequest<EmailSenderDomainEvidenceResponse>("/email/sender-domain-evidence", {
+        method: "POST",
+        body: {
+          domain: evidenceDomain,
+          evidenceType,
+          provider: evidenceProvider || undefined,
+          evidenceSummaryJson: {
+            summary: evidenceSummary || "Manual sender-domain evidence captured for review.",
+          },
+          note: evidenceNote || undefined,
+        },
+      });
+      setEvidenceSummary("");
+      setEvidenceNote("");
+      await refreshReadinessAndEvidence();
+    } catch (evidenceError) {
+      setError(evidenceError instanceof Error ? evidenceError.message : "Unable to save sender-domain evidence.");
+    } finally {
+      setEvidenceLoading(false);
+    }
+  }
+
+  async function verifyEvidence(id: string) {
+    setEvidenceLoading(true);
+    setError("");
+    try {
+      await apiRequest<EmailSenderDomainEvidenceResponse>(`/email/sender-domain-evidence/${id}/verify`, {
+        method: "POST",
+        body: {},
+      });
+      await refreshReadinessAndEvidence();
+    } catch (evidenceError) {
+      setError(evidenceError instanceof Error ? evidenceError.message : "Unable to verify sender-domain evidence.");
+    } finally {
+      setEvidenceLoading(false);
+    }
+  }
+
+  async function revokeEvidence(id: string) {
+    setEvidenceLoading(true);
+    setError("");
+    try {
+      await apiRequest<EmailSenderDomainEvidenceResponse>(`/email/sender-domain-evidence/${id}/revoke`, {
+        method: "POST",
+        body: {},
+      });
+      await refreshReadinessAndEvidence();
+    } catch (evidenceError) {
+      setError(evidenceError instanceof Error ? evidenceError.message : "Unable to revoke sender-domain evidence.");
+    } finally {
+      setEvidenceLoading(false);
+    }
+  }
+
+  const canCleanTokens = canManageEmail;
+  const canRunDiagnostics = canManageEmail;
   const diagnosticsEmailValid = !readiness?.diagnostics.executionEnabled || isValidTestEmailAddress(diagnosticsEmail);
+  const evidenceDomainValid = evidenceDomain.trim().includes(".");
 
   return (
     <section>
@@ -134,6 +236,22 @@ export default function EmailOutboxPage() {
           </div>
           <div className="mt-4">
             <EmailReadinessSafeStatus readiness={readiness} diagnosticsResult={diagnosticsResult} />
+          </div>
+          <div className="mt-4 grid gap-3 text-sm md:grid-cols-4">
+            <Detail label="Sender domain" value={emailSenderDomainStatusLabel(readiness.senderDomain.evidenceStatus)} />
+            <Detail label="Required evidence" value={readiness.senderDomain.requiredEvidenceTypes.join(", ")} />
+            <Detail label="Relay diagnostics" value={emailRelayDiagnosticsStatusLabel(readiness.relayDiagnosticsStatus)} />
+            <Detail label="Production email" value={readiness.productionReady ? "Ready" : "Not ready"} />
+          </div>
+          <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+            <Detail label="Allowed recipients" value={readiness.diagnostics.allowedRecipientsConfigured ? "Configured" : "Missing"} />
+            <Detail label="Allowed domains" value={readiness.diagnostics.allowedDomainsConfigured ? "Configured" : "Missing"} />
+            <Detail label="Default behavior" value={readiness.diagnostics.noCustomerEmailSentByDefault ? "No customer email sent" : "Review required"} />
+          </div>
+          <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+            <Detail label="Bounce webhook" value={readiness.bounceWebhookConfigured ? "Configured" : "Missing"} />
+            <Detail label="Retry policy" value={readiness.retryPolicyConfigured ? "Configured" : "Missing"} />
+            <Detail label="Monitoring" value={readiness.monitoringConfigured ? "Configured" : "Missing"} />
           </div>
           {(readiness.blockers.length > 0 || readiness.blockingReasons.length > 0) ? (
             <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
@@ -180,6 +298,101 @@ export default function EmailOutboxPage() {
                   {diagnosticsResult.noEmailSent ? "no email sent" : "delivery was attempted"}.
                 </p>
               ) : null}
+            </div>
+          ) : null}
+          {canManageEmail ? (
+            <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+              <h3 className="text-sm font-semibold text-ink">Sender-domain evidence</h3>
+              <p className="mt-1 text-sm text-steel">
+                Capture SPF, DKIM, DMARC, and provider-verification metadata only. Do not paste SMTP credentials, API keys, DNS provider tokens, auth
+                headers, connection URLs, private DKIM keys, or customer email content.
+              </p>
+              <div className="mt-3 grid gap-2 md:grid-cols-[1fr_170px_1fr]">
+                <input
+                  type="text"
+                  value={evidenceDomain}
+                  onChange={(event) => setEvidenceDomain(event.target.value)}
+                  placeholder={readiness.senderDomain.fromDomain ?? "example.test"}
+                  className="min-w-0 rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+                <select
+                  value={evidenceType}
+                  onChange={(event) => setEvidenceType(event.target.value as EmailSenderDomainEvidenceType)}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                >
+                  {EVIDENCE_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  value={evidenceProvider}
+                  onChange={(event) => setEvidenceProvider(event.target.value)}
+                  placeholder="Provider"
+                  className="min-w-0 rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <textarea
+                value={evidenceSummary}
+                onChange={(event) => setEvidenceSummary(event.target.value)}
+                placeholder="Short metadata summary, no secrets"
+                className="mt-2 min-h-20 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              />
+              <input
+                type="text"
+                value={evidenceNote}
+                onChange={(event) => setEvidenceNote(event.target.value)}
+                placeholder="Optional review note"
+                className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => void createEvidence()}
+                disabled={evidenceLoading || !evidenceDomainValid}
+                className="mt-3 rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+              >
+                {evidenceLoading ? "Saving..." : "Create draft evidence"}
+              </button>
+              {senderEvidence.length > 0 ? (
+                <div className="mt-4 overflow-hidden rounded-md border border-slate-200 bg-white">
+                  {senderEvidence.map((evidence) => (
+                    <div key={evidence.id} className="grid gap-2 border-b border-slate-100 p-3 text-sm md:grid-cols-[1fr_110px_120px_160px]">
+                      <div>
+                        <div className="font-medium text-ink">{evidence.domain}</div>
+                        <div className="text-steel">{evidence.evidenceType}</div>
+                      </div>
+                      <div>{emailSenderDomainEvidenceStatusLabel(evidence.status)}</div>
+                      <div>{evidence.provider ?? "Manual"}</div>
+                      <div className="flex gap-2">
+                        {evidence.status === "DRAFT" ? (
+                          <button
+                            type="button"
+                            onClick={() => void verifyEvidence(evidence.id)}
+                            disabled={evidenceLoading}
+                            className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-ink disabled:cursor-not-allowed disabled:text-slate-400"
+                          >
+                            Verify
+                          </button>
+                        ) : null}
+                        {evidence.status !== "REVOKED" ? (
+                          <button
+                            type="button"
+                            onClick={() => void revokeEvidence(evidence.id)}
+                            disabled={evidenceLoading}
+                            className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-ink disabled:cursor-not-allowed disabled:text-slate-400"
+                          >
+                            Revoke
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-steel">No sender-domain evidence captured yet.</p>
+              )}
             </div>
           ) : null}
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">

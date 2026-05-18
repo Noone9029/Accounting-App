@@ -283,7 +283,12 @@ Organization members:
 Email:
 
 - `GET /email/readiness`
+- `GET /email/diagnostics-plan`
 - `POST /email/diagnostics`
+- `GET /email/sender-domain-evidence`
+- `POST /email/sender-domain-evidence`
+- `POST /email/sender-domain-evidence/:id/verify`
+- `POST /email/sender-domain-evidence/:id/revoke`
 - `POST /email/test-send`
 - `GET /email/outbox`
 - `GET /email/outbox/:id`
@@ -2338,10 +2343,13 @@ Recommended next step:
 
 ## Email readiness and diagnostics
 
-- `GET /email/readiness` is an admin/settings readiness check. It is read-only, no-mutation, sends no customer email, and returns provider/SMTP booleans, blockers, warnings, `productionReady`, and redaction guarantees without raw SMTP host, username, password, API key, token, connection URL, authorization header, or provider secret values.
+- `GET /email/readiness` is an admin/settings readiness check. It is read-only, no-mutation, sends no customer email, and returns provider/SMTP booleans, sender-domain SPF/DKIM/DMARC evidence status, relay diagnostics status, bounce/retry/monitoring gaps, blockers, warnings, `productionReady`, and redaction guarantees without raw SMTP host, username, password, API key, token, connection URL, authorization header, private DKIM key, or provider secret values.
+- `GET /email/diagnostics-plan` is a read-only/no-mutation plan endpoint for non-production relay testing. It reports whether diagnostics execution and allowlists are configured and keeps `productionReady=false`.
 - `POST /email/diagnostics` is disabled by default with `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED=false`. In the default state it returns `SKIPPED_DISABLED`, `executionAttempted=false`, `noEmailSent=true`, `noCustomerEmailSent=true`, and creates no outbox record.
 - Diagnostic sending can only be attempted when `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED=true` and the requested recipient matches `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS`, or the built-in internal test domains. Responses return a redacted delivery summary only.
+- Sender-domain evidence is captured through metadata-only `/email/sender-domain-evidence` endpoints and `/settings/email-outbox`. Evidence can be drafted, verified, or revoked for `SPF`, `DKIM`, `DMARC`, `MX`, `RETURN_PATH`, `PROVIDER_VERIFICATION`, or `OTHER` without DNS-provider actions, customer email, or outbox mutation.
+- Evidence rejects SMTP passwords, API keys, tokens, authorization headers, connection URLs, provider secrets, private DKIM keys, and customer email content. Verified SPF/DKIM/DMARC can make the sender-domain section ready for review, but full `productionReady` remains false until relay diagnostics, bounces, retries, and monitoring are implemented.
 - Email environment variables: `EMAIL_PROVIDER`, `EMAIL_FROM`, `EMAIL_REPLY_TO`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS`, and `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS`.
-- `/settings/email-outbox` shows production email readiness, invite/password-reset reliability warnings, diagnostics disabled-by-default status, redacted SMTP configuration state, and no-customer-email safety messaging.
-- Production SMTP is still not validated until a non-production relay/provider, sender domain authentication, bounces/webhooks, retries, and monitoring are reviewed.
-- Latest email-readiness verification: targeted API email/auth tests, targeted web email status tests, `corepack pnpm typecheck`, `corepack pnpm build`, `corepack pnpm smoke:accounting`, and `git diff --check` passed.
+- `/settings/email-outbox` shows production email readiness, invite/password-reset reliability warnings, diagnostics disabled-by-default status, sender-domain evidence state, relay/bounce/retry/monitoring gaps, redacted SMTP configuration state, and no-customer-email safety messaging.
+- Production SMTP is still not ready until a non-production relay/provider run, sender-domain evidence review, bounces/webhooks, retries, and monitoring are completed.
+- Latest email sender-domain readiness verification: targeted API email tests, targeted web email status tests, `corepack pnpm db:generate`, typecheck, build, `corepack pnpm smoke:accounting`, and `git diff --check`.

@@ -37,6 +37,25 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Email sender-domain readiness added
+
+Added metadata-only sender-domain evidence capture and non-production relay diagnostics planning without sending customer email by default.
+
+Risk reduced:
+
+- `EmailSenderDomainEvidence` stores tenant-scoped SPF/DKIM/DMARC/MX/return-path/provider-verification metadata only.
+- `/email/sender-domain-evidence` list/create/verify/revoke endpoints require `users.manage`, send no email, create no outbox record, and reject SMTP passwords, API keys, tokens, authorization headers, connection URLs, provider secrets, private DKIM keys, and customer email content.
+- `GET /email/readiness` now reports sender-domain status, missing/verified SPF/DKIM/DMARC, relay diagnostics status, and explicit false states for bounce webhooks, retry policy, and monitoring.
+- `GET /email/diagnostics-plan` exposes a no-send/non-mutation plan; `POST /email/diagnostics` remains disabled by default and still creates no outbox record.
+- `/settings/email-outbox` now shows sender-domain evidence status, relay/bounce/retry/monitoring blockers, and safe metadata capture controls.
+- Smoke now asserts sender-domain readiness shape, default-disabled diagnostics, no outbox mutation, and secret-marker redaction.
+
+Remaining risks:
+
+- Relay diagnostics still need an explicitly enabled sandbox/non-production SMTP run against an allowlisted recipient.
+- DKIM/SPF/DMARC evidence is manual metadata only; there is no live DNS/provider validation.
+- Retries, bounces/webhooks, monitoring, provider event verification, and production template review remain incomplete.
+
 ### Email readiness diagnostics added
 
 Added production SMTP/email readiness validation and disabled-by-default diagnostics without sending real customer email by default.
@@ -51,7 +70,7 @@ Risk reduced:
 
 Remaining risks:
 
-- Production SMTP still needs a real non-production relay validation, DKIM/SPF/DMARC/domain-auth evidence, retries, bounces/webhooks, monitoring, and template review.
+- Production SMTP still needs a real non-production relay validation run, live DKIM/SPF/DMARC/provider validation, retries, bounces/webhooks, monitoring, and template review.
 - Diagnostics sending must remain disabled by default in production until the allowlist and provider test process are approved.
 
 ### ZATCA PIH chain and generated address warning pass
