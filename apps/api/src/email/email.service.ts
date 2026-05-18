@@ -1,18 +1,23 @@
 import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import {
   EmailDeliveryStatus,
   EmailProviderEventType,
   EmailSenderDomainEvidenceStatus,
   EmailSenderDomainEvidenceType,
+  EmailSuppressionReason,
   EmailTemplateType,
   Prisma,
 } from "@prisma/client";
 import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { CreateEmailSuppressionDto } from "./dto/create-email-suppression.dto";
 import { CreateEmailSenderDomainEvidenceDto } from "./dto/create-email-sender-domain-evidence.dto";
+import { ReceiveEmailProviderWebhookDto } from "./dto/receive-email-provider-webhook.dto";
 import { ReceiveMockEmailProviderEventDto } from "./dto/receive-mock-email-provider-event.dto";
+import { RevokeEmailSuppressionDto } from "./dto/revoke-email-suppression.dto";
 import { RevokeEmailSenderDomainEvidenceDto } from "./dto/revoke-email-sender-domain-evidence.dto";
 import { RunEmailRetryProcessDto } from "./dto/run-email-retry-process.dto";
 import { VerifyEmailSenderDomainEvidenceDto } from "./dto/verify-email-sender-domain-evidence.dto";
@@ -54,6 +59,7 @@ type RelayDiagnosticsStatus = "NOT_RUN" | "SKIPPED_DISABLED" | "READY_FOR_NON_PR
 type SenderDomainEvidenceStatus = "BLOCKED" | "PARTIAL" | "READY_FOR_REVIEW";
 
 type EmailRetryProcessStatus = "SKIPPED_DISABLED" | "ATTEMPTED";
+type EmailWebhookProcessStatus = "REJECTED_UNVERIFIED" | "ACCEPTED_VERIFIED";
 
 const REQUIRED_SENDER_DOMAIN_EVIDENCE_TYPES = [
   EmailSenderDomainEvidenceType.SPF,
@@ -62,6 +68,8 @@ const REQUIRED_SENDER_DOMAIN_EVIDENCE_TYPES = [
 ];
 const DEFAULT_EMAIL_MAX_ATTEMPTS = 3;
 const MAX_EMAIL_RETRY_PROCESS_LIMIT = 50;
+const EMAIL_SUPPRESSED_STATUS = "SUPPRESSED";
+const EMAIL_WEBHOOK_SIGNATURE_MODE = "GENERIC_HMAC_SHA256_TEST_ONLY";
 
 @Injectable()
 export class EmailService {
@@ -90,7 +98,11 @@ export class EmailService {
     const senderDomain = await this.senderDomainReadiness(organizationId);
     const relayDiagnosticsStatus = this.currentRelayDiagnosticsStatus(providerReadiness.realSendingEnabled);
     const retryPlan = await this.retryPlan(organizationId);
-    const providerEventPlan = this.providerEventsPlan();
+    const providerEventPlan = await this.providerEventsPlan(organizationId);
+    const webhookPlan = await this.providerWebhookPlan(organizationId);
+    const activeSuppressionCount = await this.prisma.emailSuppression.count({
+      where: { organizationId, active: true },
+    });
     const operationalBlockers = this.operationalReadinessBlockers({
       senderDomainReady: senderDomain.productionReadyContribution,
       relayDiagnosticsStatus,
@@ -98,6 +110,10 @@ export class EmailService {
       providerEventIngestionReady: providerEventPlan.providerEventIngestionReady,
       bounceWebhookConfigured: providerEventPlan.bounceWebhookConfigured,
       monitoringConfigured: false,
+      webhookVerificationEnabled: webhookPlan.webhookVerificationEnabled,
+      webhookSecretConfigured: webhookPlan.webhookSecretConfigured,
+      providerWebhookSignatureVerified: webhookPlan.providerWebhookSignatureVerified,
+      alertingConfigured: false,
     });
     const productionBlockers = [
       ...this.productionReadinessBlockers({
@@ -138,10 +154,21 @@ export class EmailService {
       retryProcessorEnabled: retryPlan.retryProcessorEnabled,
       retryPendingCount: retryPlan.pendingCount,
       retryBlockedCount: retryPlan.blockedCount,
+      retrySuppressedCount: retryPlan.suppressedOutboxCount,
       bounceWebhookConfigured: providerEventPlan.bounceWebhookConfigured,
       bounceWebhookSignatureVerified: providerEventPlan.bounceWebhookSignatureVerified,
+      webhookVerificationConfigured: webhookPlan.webhookVerificationConfigured,
+      webhookVerificationEnabled: webhookPlan.webhookVerificationEnabled,
+      webhookSecretConfigured: webhookPlan.webhookSecretConfigured,
+      providerWebhookSignatureVerified: webhookPlan.providerWebhookSignatureVerified,
+      suppressionListConfigured: true,
+      activeSuppressionCount,
       providerEventIngestionReady: providerEventPlan.providerEventIngestionReady,
       monitoringConfigured: false,
+      alertingConfigured: false,
+      bounceAlertThresholdConfigured: false,
+      complaintAlertThresholdConfigured: false,
+      providerWebhookAlertsReady: false,
     };
   }
 
@@ -175,6 +202,7 @@ export class EmailService {
         attemptCount: { lt: DEFAULT_EMAIL_MAX_ATTEMPTS },
         bouncedAt: null,
         complainedAt: null,
+        NOT: { providerEventStatus: EMAIL_SUPPRESSED_STATUS },
       },
     });
     const blockedCount = await this.prisma.emailOutbox.count({
@@ -184,6 +212,7 @@ export class EmailService {
           { status: EmailDeliveryStatus.FAILED, attemptCount: { gte: DEFAULT_EMAIL_MAX_ATTEMPTS } },
           { bouncedAt: { not: null } },
           { complainedAt: { not: null } },
+          { providerEventStatus: EMAIL_SUPPRESSED_STATUS },
         ],
       },
     });
@@ -194,7 +223,20 @@ export class EmailService {
         attemptCount: { lt: DEFAULT_EMAIL_MAX_ATTEMPTS },
         bouncedAt: null,
         complainedAt: null,
+        NOT: { providerEventStatus: EMAIL_SUPPRESSED_STATUS },
         OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+      },
+    });
+    const suppressedOutboxCount = await this.prisma.emailOutbox.count({
+      where: {
+        organizationId,
+        providerEventStatus: EMAIL_SUPPRESSED_STATUS,
+      },
+    });
+    const activeSuppressionCount = await this.prisma.emailSuppression.count({
+      where: {
+        organizationId,
+        active: true,
       },
     });
     const blockers = [];
@@ -218,6 +260,8 @@ export class EmailService {
       failedRetryableCount,
       blockedCount,
       nextAttemptCount,
+      suppressedOutboxCount,
+      activeSuppressionCount,
       maxAttemptsPolicy: {
         defaultMaxAttempts: DEFAULT_EMAIL_MAX_ATTEMPTS,
         maxBatchLimit: MAX_EMAIL_RETRY_PROCESS_LIMIT,
@@ -228,26 +272,85 @@ export class EmailService {
     };
   }
 
-  providerEventsPlan() {
+  async providerEventsPlan(organizationId: string) {
+    const webhookPlan = await this.providerWebhookPlan(organizationId);
     return {
       readOnly: true,
       noMutation: true,
       noCustomerEmailSent: true,
       metadataOnly: true,
       mockIngestionAvailable: true,
-      providerEventIngestionReady: false,
-      bounceWebhookConfigured: false,
-      bounceWebhookSignatureVerified: false,
+      providerEventIngestionReady: webhookPlan.productionReadyContribution,
+      bounceWebhookConfigured: webhookPlan.webhookVerificationConfigured,
+      bounceWebhookSignatureVerified: webhookPlan.providerWebhookSignatureVerified,
+      webhookVerificationConfigured: webhookPlan.webhookVerificationConfigured,
+      webhookVerificationEnabled: webhookPlan.webhookVerificationEnabled,
+      webhookSecretConfigured: webhookPlan.webhookSecretConfigured,
       monitoringConfigured: false,
+      alertingConfigured: false,
+      bounceAlertThresholdConfigured: false,
+      complaintAlertThresholdConfigured: false,
+      providerWebhookAlertsReady: false,
       productionReadyContribution: false,
       blockers: [
-        "Bounce webhook handling is not configured.",
-        "Provider event ingestion is mock-only and unsigned.",
+        ...(webhookPlan.webhookVerificationConfigured ? [] : ["Signed provider webhook verification is not configured."]),
+        ...(webhookPlan.providerWebhookSignatureVerified ? [] : ["No verified signed provider webhook event has been captured."]),
         "Email monitoring is not configured.",
+        "Email alerting is not configured.",
       ],
       warnings: [
         "Mock provider events are for local/admin readiness evidence only.",
-        "Unsigned provider events do not make production email monitoring ready.",
+        "Provider-agnostic webhook verification is test-only until a production provider adapter and signature contract are reviewed.",
+      ],
+    };
+  }
+
+  async providerWebhookPlan(organizationId: string) {
+    const verifiedEventCount = await this.prisma.emailProviderEvent.count({
+      where: { organizationId, signatureVerified: true },
+    });
+    const allowedProviders = this.allowedWebhookProviders;
+    const webhookVerificationEnabled = this.webhookVerificationEnabled;
+    const webhookSecretConfigured = this.webhookSecretConfigured;
+    const allowedProvidersConfigured = allowedProviders.length > 0;
+    const webhookVerificationConfigured = webhookVerificationEnabled && webhookSecretConfigured && allowedProvidersConfigured;
+    const providerWebhookSignatureVerified = verifiedEventCount > 0;
+    const blockers = [];
+
+    if (!webhookVerificationEnabled) {
+      blockers.push("Signed provider webhook verification is disabled by default.");
+    }
+    if (!webhookSecretConfigured) {
+      blockers.push("Email provider webhook secret is not configured.");
+    }
+    if (!allowedProvidersConfigured) {
+      blockers.push("Allowed email webhook providers are not configured.");
+    }
+    if (!providerWebhookSignatureVerified) {
+      blockers.push("No verified signed provider webhook event has been captured.");
+    }
+
+    return {
+      readOnly: true,
+      noMutation: true,
+      noCustomerEmailSent: true,
+      metadataOnly: true,
+      webhookVerificationConfigured,
+      webhookVerificationEnabled,
+      webhookSecretConfigured,
+      allowedProvidersConfigured,
+      allowedProviders,
+      signatureVerificationMode: EMAIL_WEBHOOK_SIGNATURE_MODE,
+      rawHeadersReturned: false,
+      rawProviderPayloadReturned: false,
+      webhookSecretReturned: false,
+      providerWebhookSignatureVerified,
+      verifiedEventCount,
+      productionReadyContribution: webhookVerificationConfigured && providerWebhookSignatureVerified,
+      blockers,
+      warnings: [
+        "Webhook verification is disabled by default and uses a provider-agnostic HMAC test verifier in this phase.",
+        "No raw webhook headers, provider payloads, auth headers, tokens, provider secrets, or webhook secrets are returned.",
       ],
     };
   }
@@ -283,13 +386,34 @@ export class EmailService {
       select: EMAIL_OUTBOX_RETRY_SELECT,
     });
     const retryable = candidates.filter((candidate) => candidate.attemptCount < candidate.maxAttempts);
-    const blockedCount = candidates.length - retryable.length;
+    let blockedCount = candidates.length - retryable.length;
     const lockedBy = `email-retry:${actorUserId}:${Date.now()}`;
     const attempted = [];
     let sentCount = 0;
     let failedCount = 0;
+    let suppressedCount = 0;
 
     for (const email of retryable) {
+      const suppression = email.organizationId ? await this.findActiveSuppression(email.organizationId, email.toEmail) : null;
+      if (suppression) {
+        suppressedCount += 1;
+        blockedCount += 1;
+        await this.prisma.emailOutbox.update({
+          where: { id: email.id },
+          data: {
+            status: EmailDeliveryStatus.FAILED,
+            providerEventStatus: EMAIL_SUPPRESSED_STATUS,
+            errorMessage: "Email delivery blocked by active suppression.",
+            lastErrorRedacted: "Email delivery blocked by active suppression.",
+            nextAttemptAt: null,
+            retryLockedAt: null,
+            retryLockedBy: null,
+          },
+          select: EMAIL_OUTBOX_LIST_SELECT,
+        });
+        continue;
+      }
+
       await this.prisma.emailOutbox.update({
         where: { id: email.id },
         data: {
@@ -360,6 +484,7 @@ export class EmailService {
       sentCount,
       failedCount,
       blockedCount,
+      suppressedCount,
       attempted,
       redactionGuarantees: EMAIL_REDACTION_GUARANTEES,
     };
@@ -375,6 +500,7 @@ export class EmailService {
         sentCount: response.sentCount,
         failedCount: response.failedCount,
         blockedCount: response.blockedCount,
+        suppressedCount: response.suppressedCount,
         provider: response.provider,
       },
     });
@@ -383,11 +509,11 @@ export class EmailService {
   }
 
   async receiveMockProviderEvent(organizationId: string, actorUserId: string, dto: ReceiveMockEmailProviderEventDto) {
-    this.assertProviderEventContainsNoSecrets(dto);
+    this.assertProviderEventContainsNoSecrets(dto.payloadSummaryJson ?? {});
     const emailOutbox = dto.emailOutboxId
       ? await this.prisma.emailOutbox.findFirst({
           where: { id: dto.emailOutboxId, organizationId },
-          select: { id: true, organizationId: true },
+          select: { id: true, organizationId: true, toEmail: true },
         })
       : null;
 
@@ -416,6 +542,15 @@ export class EmailService {
         select: EMAIL_OUTBOX_LIST_SELECT,
       });
     }
+    const suppression = await this.createEventSuppressionIfNeeded({
+      organizationId,
+      actorUserId,
+      eventId: event.id,
+      eventType: dto.eventType,
+      provider: normalizeOptionalText(dto.provider) ?? "mock",
+      recipientEmail: dto.recipientEmail ?? emailOutbox?.toEmail,
+      localMock: true,
+    });
 
     await this.auditLogService?.log({
       organizationId,
@@ -435,6 +570,118 @@ export class EmailService {
       productionReadyContribution: false,
       redactionGuarantees: EMAIL_REDACTION_GUARANTEES,
       event,
+      suppression,
+    };
+  }
+
+  async receiveSignedProviderWebhook(organizationId: string, actorUserId: string, dto: ReceiveEmailProviderWebhookDto) {
+    const plan = await this.providerWebhookPlan(organizationId);
+    if (!plan.webhookVerificationEnabled) {
+      return {
+        status: "REJECTED_UNVERIFIED" satisfies EmailWebhookProcessStatus,
+        executionEnabled: false,
+        executionAttempted: false,
+        noEmailSent: true,
+        noCustomerEmail: true,
+        noMutation: true,
+        noOutboxMutation: true,
+        noEventPersisted: true,
+        reason: "Email provider webhook verification is disabled by default.",
+        redactionGuarantees: EMAIL_REDACTION_GUARANTEES,
+        plan,
+      };
+    }
+    if (!this.webhookSecretConfigured) {
+      throw new BadRequestException("Email provider webhook secret is not configured.");
+    }
+
+    const provider = normalizeOptionalText(dto.provider)?.toLowerCase() ?? "";
+    if (!provider) {
+      throw new BadRequestException("Email provider webhook requires a provider.");
+    }
+    if (this.allowedWebhookProviders.length > 0 && !this.allowedWebhookProviders.includes(provider)) {
+      throw new BadRequestException("Email provider is not allowlisted for webhook ingestion.");
+    }
+    if (!isProviderEventType(dto.eventType)) {
+      throw new BadRequestException("Email provider webhook event type is not supported.");
+    }
+    this.assertProviderEventContainsNoSecrets(dto.payloadSummaryJson ?? {});
+    if (!this.verifyProviderWebhookSignature(dto)) {
+      throw new BadRequestException("Email provider webhook signature is invalid.");
+    }
+
+    const emailOutbox = dto.emailOutboxId
+      ? await this.prisma.emailOutbox.findFirst({
+          where: { id: dto.emailOutboxId, organizationId },
+          select: { id: true, organizationId: true, toEmail: true },
+        })
+      : null;
+    if (dto.emailOutboxId && !emailOutbox) {
+      throw new NotFoundException("Email outbox record not found.");
+    }
+
+    const recipientEmail = normalizeOptionalText(dto.recipientEmail)?.toLowerCase();
+    if (recipientEmail && !isEmailAddress(recipientEmail)) {
+      throw new BadRequestException("Email provider webhook recipient must be a valid email address.");
+    }
+
+    const event = await this.prisma.emailProviderEvent.create({
+      data: {
+        organizationId,
+        emailOutboxId: emailOutbox?.id ?? null,
+        provider,
+        eventType: dto.eventType,
+        providerMessageIdRedacted: dto.providerMessageId ? "present" : null,
+        payloadSummaryJson: sanitizeEvidenceSummary({
+          ...(dto.payloadSummaryJson ?? {}),
+          ...(recipientEmail || emailOutbox?.toEmail ? { recipientMasked: maskEmailAddress(recipientEmail ?? emailOutbox?.toEmail ?? "") } : {}),
+        }),
+        signatureVerified: true,
+        productionReadyContribution: true,
+      },
+      select: EMAIL_PROVIDER_EVENT_SELECT,
+    });
+
+    if (emailOutbox) {
+      await this.prisma.emailOutbox.update({
+        where: { id: emailOutbox.id },
+        data: providerEventOutboxUpdate(dto.eventType),
+        select: EMAIL_OUTBOX_LIST_SELECT,
+      });
+    }
+    const suppression = await this.createEventSuppressionIfNeeded({
+      organizationId,
+      actorUserId,
+      eventId: event.id,
+      eventType: dto.eventType,
+      provider,
+      recipientEmail: recipientEmail ?? emailOutbox?.toEmail,
+      localMock: false,
+    });
+
+    await this.auditLogService?.log({
+      organizationId,
+      actorUserId,
+      action: AUDIT_EVENTS.EMAIL_PROVIDER_EVENT_RECEIVED,
+      entityType: AUDIT_ENTITY_TYPES.EMAIL_PROVIDER_EVENT,
+      entityId: event.id,
+      after: {
+        ...event,
+        suppressionId: suppression?.id ?? null,
+      },
+    });
+
+    return {
+      status: "ACCEPTED_VERIFIED" satisfies EmailWebhookProcessStatus,
+      metadataOnly: true,
+      noEmailSent: true,
+      noCustomerEmail: true,
+      noOutboxRecordCreated: true,
+      signatureVerified: true,
+      productionReadyContribution: true,
+      redactionGuarantees: EMAIL_REDACTION_GUARANTEES,
+      event,
+      suppression,
     };
   }
 
@@ -547,6 +794,83 @@ export class EmailService {
       bodyText: template.bodyText,
       bodyHtml: template.bodyHtml,
     });
+  }
+
+  async listSuppressions(organizationId: string) {
+    return {
+      metadataOnly: true,
+      noCustomerEmail: true,
+      noEmailSent: true,
+      noOutboxRecord: true,
+      redactionGuarantees: EMAIL_REDACTION_GUARANTEES,
+      suppressions: await this.prisma.emailSuppression.findMany({
+        where: { organizationId },
+        orderBy: [{ active: "desc" }, { createdAt: "desc" }],
+        select: EMAIL_SUPPRESSION_SELECT,
+      }),
+    };
+  }
+
+  async createSuppression(organizationId: string, actorUserId: string, dto: CreateEmailSuppressionDto) {
+    this.assertSuppressionInputContainsNoSecrets(dto);
+    const email = normalizeEmailAddress(dto.email);
+    const suppression = await this.createOrActivateSuppression({
+      organizationId,
+      actorUserId,
+      email,
+      reason: dto.reason ?? EmailSuppressionReason.MANUAL,
+      sourceProvider: null,
+      providerEventId: null,
+      note: normalizeOptionalText(dto.note),
+    });
+
+    await this.auditLogService?.log({
+      organizationId,
+      actorUserId,
+      action: AUDIT_EVENTS.EMAIL_SUPPRESSION_CREATED,
+      entityType: AUDIT_ENTITY_TYPES.EMAIL_SUPPRESSION,
+      entityId: suppression.id,
+      after: suppression,
+    });
+
+    return this.suppressionResponse(suppression);
+  }
+
+  async revokeSuppression(organizationId: string, actorUserId: string, id: string, dto: RevokeEmailSuppressionDto = {}) {
+    this.assertSuppressionInputContainsNoSecrets(dto);
+    const existing = await this.prisma.emailSuppression.findFirst({
+      where: { id, organizationId },
+      select: EMAIL_SUPPRESSION_SELECT,
+    });
+    if (!existing) {
+      throw new NotFoundException("Email suppression not found.");
+    }
+    if (!existing.active) {
+      throw new BadRequestException("Email suppression is already revoked.");
+    }
+
+    const revoked = await this.prisma.emailSuppression.update({
+      where: { id },
+      data: {
+        active: false,
+        revokedById: actorUserId,
+        revokedAt: new Date(),
+        note: normalizeOptionalText(dto.note) ?? existing.note,
+      },
+      select: EMAIL_SUPPRESSION_SELECT,
+    });
+
+    await this.auditLogService?.log({
+      organizationId,
+      actorUserId,
+      action: AUDIT_EVENTS.EMAIL_SUPPRESSION_REVOKED,
+      entityType: AUDIT_ENTITY_TYPES.EMAIL_SUPPRESSION,
+      entityId: revoked.id,
+      before: existing,
+      after: revoked,
+    });
+
+    return this.suppressionResponse(revoked);
   }
 
   async listSenderDomainEvidence(organizationId: string) {
@@ -710,6 +1034,33 @@ export class EmailService {
   }
 
   private async send(message: EmailMessage) {
+    const suppression = message.organizationId ? await this.findActiveSuppression(message.organizationId, message.toEmail) : null;
+    if (suppression) {
+      return this.prisma.emailOutbox.create({
+        data: {
+          organizationId: message.organizationId ?? null,
+          toEmail: message.toEmail,
+          fromEmail: message.fromEmail,
+          subject: message.subject,
+          templateType: message.templateType,
+          bodyText: message.bodyText,
+          bodyHtml: message.bodyHtml ?? null,
+          status: EmailDeliveryStatus.FAILED,
+          provider: this.provider.provider,
+          providerMessageId: null,
+          errorMessage: "Email delivery blocked by active suppression.",
+          sentAt: null,
+          attemptCount: 0,
+          maxAttempts: DEFAULT_EMAIL_MAX_ATTEMPTS,
+          nextAttemptAt: null,
+          lastAttemptAt: null,
+          lastErrorRedacted: "Email delivery blocked by active suppression.",
+          providerEventStatus: EMAIL_SUPPRESSED_STATUS,
+        },
+        select: EMAIL_OUTBOX_DETAIL_SELECT,
+      });
+    }
+
     const result = await this.provider.send(message);
     const failed = result.status === EmailDeliveryStatus.FAILED;
     const errorMessage = redactEmailDiagnosticText(result.errorMessage);
@@ -751,6 +1102,22 @@ export class EmailService {
 
   private get retryProcessorEnabled(): boolean {
     return this.config.get<string>("LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED")?.trim().toLowerCase() === "true";
+  }
+
+  private get webhookVerificationEnabled(): boolean {
+    return this.config.get<string>("EMAIL_PROVIDER_WEBHOOK_VERIFICATION_ENABLED")?.trim().toLowerCase() === "true";
+  }
+
+  private get webhookSecret(): string {
+    return this.config.get<string>("EMAIL_PROVIDER_WEBHOOK_SECRET")?.trim() ?? "";
+  }
+
+  private get webhookSecretConfigured(): boolean {
+    return this.webhookSecret.length > 0;
+  }
+
+  private get allowedWebhookProviders(): string[] {
+    return this.configuredList("EMAIL_PROVIDER_WEBHOOK_ALLOWED_PROVIDERS");
   }
 
   private get allowedDiagnosticDomains(): string[] {
@@ -843,6 +1210,10 @@ export class EmailService {
     providerEventIngestionReady: boolean;
     bounceWebhookConfigured: boolean;
     monitoringConfigured: boolean;
+    webhookVerificationEnabled: boolean;
+    webhookSecretConfigured: boolean;
+    providerWebhookSignatureVerified: boolean;
+    alertingConfigured: boolean;
   }): string[] {
     const blockers: string[] = [];
 
@@ -858,14 +1229,37 @@ export class EmailService {
     if (!input.bounceWebhookConfigured) {
       blockers.push("Bounce webhook handling is not configured.");
     }
+    if (!input.webhookVerificationEnabled) {
+      blockers.push("Signed provider webhook verification is disabled by default.");
+    }
+    if (!input.webhookSecretConfigured) {
+      blockers.push("Email provider webhook secret is not configured.");
+    }
+    if (!input.providerWebhookSignatureVerified) {
+      blockers.push("No verified signed provider webhook event has been captured.");
+    }
     if (!input.providerEventIngestionReady) {
       blockers.push("Provider event ingestion is mock-only and unsigned.");
     }
     if (!input.monitoringConfigured) {
       blockers.push("Email monitoring is not configured.");
     }
+    if (!input.alertingConfigured) {
+      blockers.push("Email alerting is not configured.");
+    }
 
     return blockers;
+  }
+
+  private suppressionResponse(suppression: unknown) {
+    return {
+      metadataOnly: true,
+      noCustomerEmail: true,
+      noEmailSent: true,
+      noOutboxRecord: true,
+      redactionGuarantees: EMAIL_REDACTION_GUARANTEES,
+      suppression,
+    };
   }
 
   private senderDomainEvidenceResponse(evidence: unknown) {
@@ -889,6 +1283,118 @@ export class EmailService {
     if (containsEmailSecret(value) || containsCustomerEmailContent(value)) {
       throw new BadRequestException("Email provider event payload must not contain secrets or customer email content.");
     }
+  }
+
+  private assertSuppressionInputContainsNoSecrets(value: unknown) {
+    if (containsEmailSecret(value)) {
+      throw new BadRequestException("Email suppression metadata must not contain secrets.");
+    }
+    const withoutEmail = typeof value === "object" && value !== null ? { ...(value as Record<string, unknown>), email: undefined } : value;
+    if (containsCustomerEmailContent(withoutEmail)) {
+      throw new BadRequestException("Email suppression metadata must not contain customer message content.");
+    }
+  }
+
+  private async findActiveSuppression(organizationId: string, email: string) {
+    return this.prisma.emailSuppression.findFirst({
+      where: {
+        organizationId,
+        emailHash: hashEmailAddress(normalizeEmailAddress(email)),
+        active: true,
+      },
+      select: EMAIL_SUPPRESSION_SELECT,
+    });
+  }
+
+  private async createEventSuppressionIfNeeded(input: {
+    organizationId: string;
+    actorUserId: string;
+    eventId: string;
+    eventType: EmailProviderEventType;
+    provider: string;
+    recipientEmail?: string | null;
+    localMock: boolean;
+  }) {
+    if (input.eventType !== EmailProviderEventType.BOUNCED && input.eventType !== EmailProviderEventType.COMPLAINED) {
+      return null;
+    }
+    const email = input.recipientEmail ? normalizeEmailAddress(input.recipientEmail) : null;
+    if (!email) {
+      return null;
+    }
+    const suppression = await this.createOrActivateSuppression({
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      email,
+      reason: input.eventType === EmailProviderEventType.BOUNCED ? EmailSuppressionReason.BOUNCE : EmailSuppressionReason.COMPLAINT,
+      sourceProvider: input.provider,
+      providerEventId: input.eventId,
+      note: input.localMock ? "Local mock provider event suppression metadata." : "Verified provider webhook suppression metadata.",
+    });
+
+    await this.auditLogService?.log({
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      action: AUDIT_EVENTS.EMAIL_SUPPRESSION_CREATED,
+      entityType: AUDIT_ENTITY_TYPES.EMAIL_SUPPRESSION,
+      entityId: suppression.id,
+      after: suppression,
+    });
+
+    return suppression;
+  }
+
+  private async createOrActivateSuppression(input: {
+    organizationId: string;
+    actorUserId: string;
+    email: string;
+    reason: EmailSuppressionReason;
+    sourceProvider?: string | null;
+    providerEventId?: string | null;
+    note?: string | null;
+  }) {
+    const email = normalizeEmailAddress(input.email);
+    const existing = await this.prisma.emailSuppression.findFirst({
+      where: {
+        organizationId: input.organizationId,
+        emailHash: hashEmailAddress(email),
+        active: true,
+      },
+      select: EMAIL_SUPPRESSION_SELECT,
+    });
+    if (existing) {
+      return existing;
+    }
+
+    return this.prisma.emailSuppression.create({
+      data: {
+        organizationId: input.organizationId,
+        emailHash: hashEmailAddress(email),
+        emailMasked: maskEmailAddress(email),
+        reason: input.reason,
+        sourceProvider: normalizeOptionalText(input.sourceProvider),
+        providerEventId: input.providerEventId ?? null,
+        active: true,
+        createdById: input.actorUserId,
+        note: normalizeOptionalText(input.note),
+      },
+      select: EMAIL_SUPPRESSION_SELECT,
+    });
+  }
+
+  buildProviderWebhookTestSignature(dto: Omit<ReceiveEmailProviderWebhookDto, "signature">) {
+    if (!this.webhookSecretConfigured) {
+      throw new BadRequestException("Email provider webhook secret is not configured.");
+    }
+    return createHmac("sha256", this.webhookSecret).update(providerWebhookSignaturePayload(dto)).digest("hex");
+  }
+
+  private verifyProviderWebhookSignature(dto: ReceiveEmailProviderWebhookDto): boolean {
+    if (!dto.signature || !this.webhookSecretConfigured) {
+      return false;
+    }
+    const expected = this.buildProviderWebhookTestSignature(dto);
+    return safeCompareHex(expected, dto.signature);
   }
 
   private productionReadinessBlockers(input: {
@@ -1002,8 +1508,37 @@ const EMAIL_PROVIDER_EVENT_SELECT = {
   createdAt: true,
 } satisfies Prisma.EmailProviderEventSelect;
 
+const EMAIL_SUPPRESSION_SELECT = {
+  id: true,
+  organizationId: true,
+  emailHash: true,
+  emailMasked: true,
+  reason: true,
+  sourceProvider: true,
+  providerEventId: true,
+  active: true,
+  createdById: true,
+  revokedById: true,
+  revokedAt: true,
+  note: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.EmailSuppressionSelect;
+
 function isEmailAddress(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function normalizeEmailAddress(value: string): string {
+  const email = value.trim().toLowerCase();
+  if (!isEmailAddress(email)) {
+    throw new BadRequestException("Email suppression requires a valid email address.");
+  }
+  return email;
+}
+
+function hashEmailAddress(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
 }
 
 function emailDomain(email: string): string | null {
@@ -1036,8 +1571,44 @@ function sanitizeEvidenceSummary(value: Record<string, unknown>): Prisma.InputJs
   return JSON.parse(JSON.stringify(value ?? {})) as Prisma.InputJsonValue;
 }
 
+function providerWebhookSignaturePayload(dto: Omit<ReceiveEmailProviderWebhookDto, "signature"> | ReceiveEmailProviderWebhookDto): string {
+  return stableStringify({
+    provider: normalizeOptionalText(dto.provider)?.toLowerCase() ?? "",
+    eventType: dto.eventType,
+    providerMessageId: normalizeOptionalText(dto.providerMessageId),
+    emailOutboxId: normalizeOptionalText(dto.emailOutboxId),
+    recipientEmail: normalizeOptionalText(dto.recipientEmail)?.toLowerCase() ?? null,
+    payloadSummaryJson: dto.payloadSummaryJson ?? {},
+  });
+}
+
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableStringify(entry)).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .filter(([, entry]) => entry !== undefined)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => `${JSON.stringify(key)}:${stableStringify(entry)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function safeCompareHex(expected: string, actual: string): boolean {
+  if (!/^[a-f0-9]+$/i.test(actual) || expected.length !== actual.length) {
+    return false;
+  }
+  return timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(actual, "hex"));
+}
+
 function isProductionReadyEvidenceType(evidenceType: EmailSenderDomainEvidenceType): boolean {
   return evidenceType !== EmailSenderDomainEvidenceType.OTHER;
+}
+
+function isProviderEventType(value: unknown): value is EmailProviderEventType {
+  return Object.values(EmailProviderEventType).includes(value as EmailProviderEventType);
 }
 
 function clampRetryLimit(value?: number): number {

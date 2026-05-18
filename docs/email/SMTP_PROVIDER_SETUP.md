@@ -25,9 +25,12 @@ LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED="false"
 LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS=""
 LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS="example.test,ledgerbyte.local"
 LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED="false"
+EMAIL_PROVIDER_WEBHOOK_VERIFICATION_ENABLED="false"
+EMAIL_PROVIDER_WEBHOOK_SECRET=""
+EMAIL_PROVIDER_WEBHOOK_ALLOWED_PROVIDERS=""
 ```
 
-Never commit real SMTP credentials. `SMTP_PASSWORD` is not returned by readiness APIs and must not be logged.
+Never commit real SMTP credentials or webhook secrets. `SMTP_PASSWORD` and `EMAIL_PROVIDER_WEBHOOK_SECRET` are not returned by readiness APIs and must not be logged.
 
 ## Sender-Domain Evidence
 
@@ -51,7 +54,10 @@ Use a sandbox SMTP service such as Mailtrap, Resend SMTP, or another provider te
 - Default `POST /email/diagnostics` returns `SKIPPED_DISABLED`, sends no email, and creates no outbox record.
 - `GET /email/retry-plan` reports retry counts and max-attempts policy without sending email or mutating data.
 - Default `POST /email/retry-process` returns `SKIPPED_DISABLED`, sends no email, and mutates nothing because `LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED=false`.
-- `GET /email/provider-events/plan` reports mock-only event readiness; unsigned mock events do not make bounce/webhook or monitoring production-ready.
+- `GET /email/provider-events/plan` reports signed-webhook, bounce, suppression, alerting, and monitoring readiness; unsigned mock events do not make bounce/webhook or monitoring production-ready.
+- `GET /email/provider-events/webhook-plan` reports whether webhook verification is enabled, whether a webhook secret and allowed providers are configured, and confirms raw headers, raw provider payloads, and webhook secrets are not returned.
+- Default `POST /email/provider-events/webhook` rejects/skips unsigned or disabled webhook input without persisting provider events, mutating outbox records, or sending email.
+- `GET /email/suppressions` and manual `POST /email/suppressions` store masked/hash metadata only; active suppressions block future matched send/retry attempts without returning the raw email.
 - If diagnostics sending is explicitly enabled, use only an allowlisted sandbox recipient; responses mask the recipient and return a redacted delivery summary.
 - `POST /email/test-send` still creates an `EmailOutbox` record with `SENT_PROVIDER` when explicitly used against a configured SMTP relay.
 - The provider message id is stored when the SMTP relay returns one.
@@ -60,7 +66,12 @@ Use a sandbox SMTP service such as Mailtrap, Resend SMTP, or another provider te
 ## Current Limitations
 
 - Retry metadata and a disabled-by-default manual processor exist, but no scheduled background worker.
-- Mock bounce/complaint/provider event capture exists, but no signed production webhook or suppression-list handling.
+- Provider-agnostic signed webhook verification and suppression metadata exist, but no provider-specific production webhook adapter or scheduled provider webhook exposure has been approved.
+- Monitoring-safe alert flags exist, but no real alert thresholds, dashboards, or external monitoring integration.
 - DKIM/SPF/DMARC evidence is metadata-only; no live DNS or provider validation workflow is implemented.
 - No invoice/statement email sending yet.
 - Mock remains the default and should remain active for tests/smoke.
+
+Tests run for this phase: targeted API email specs, targeted frontend email specs, typecheck, build, `smoke:accounting`, `git diff --check`, and `git diff --cached --check`.
+
+Recommended next prompt: add a scheduled retry worker plus monitoring/readiness evidence for bounce and complaint alert thresholds, still disabled for real customer sends by default.

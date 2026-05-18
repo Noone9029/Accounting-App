@@ -289,6 +289,11 @@ Email:
 - `POST /email/retry-process`
 - `GET /email/provider-events/plan`
 - `POST /email/provider-events/mock`
+- `GET /email/provider-events/webhook-plan`
+- `POST /email/provider-events/webhook`
+- `GET /email/suppressions`
+- `POST /email/suppressions`
+- `POST /email/suppressions/:id/revoke`
 - `GET /email/sender-domain-evidence`
 - `POST /email/sender-domain-evidence`
 - `POST /email/sender-domain-evidence/:id/verify`
@@ -1489,12 +1494,15 @@ Behavior:
 - `POST /auth/invitations/:token/accept` sets the user password, activates the membership, consumes the token, and returns a normal login response.
 - `POST /auth/password-reset/request` always returns a generic response and only creates a reset token/email when the user exists.
 - `POST /auth/password-reset/confirm` validates a one-hour reset token, updates the password, and consumes the token.
-- `GET /email/readiness` reports active provider readiness, production SMTP configuration booleans, diagnostics gate state, retry/bounce/provider-event/monitoring gaps, warnings, and blocking reasons without sending email or returning secret values.
+- `GET /email/readiness` reports active provider readiness, production SMTP configuration booleans, diagnostics gate state, retry/bounce/provider-event/webhook/suppression/alerting/monitoring gaps, warnings, and blocking reasons without sending email or returning secret values.
 - `POST /email/diagnostics` is disabled by default, sends no customer email, creates no outbox record, and only attempts an allowlisted test recipient when explicitly enabled.
-- `GET /email/retry-plan` is read-only/no-mutation and reports retryable, blocked, and due outbox counts without sending email.
-- `POST /email/retry-process` is disabled by default with `LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED=false`; default responses are skipped/no-send/no-mutation. When explicitly enabled, it processes due retryable records only, obeys max attempts, updates existing outbox retry metadata, and returns redacted provider summaries.
-- `GET /email/provider-events/plan` reports mock-only provider event readiness, unsigned webhook status, bounce handling gaps, and `productionReady=false`.
+- `GET /email/retry-plan` is read-only/no-mutation and reports retryable, blocked, suppressed, active-suppression, and due outbox counts without sending email.
+- `POST /email/retry-process` is disabled by default with `LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED=false`; default responses are skipped/no-send/no-mutation. When explicitly enabled, it processes due retryable records only, obeys max attempts, skips active suppressions without provider calls, updates existing outbox retry metadata, and returns redacted provider summaries.
+- `GET /email/provider-events/plan` reports provider event readiness, signed-webhook status, bounce/suppression/alerting gaps, and `productionReady=false`.
+- `GET /email/provider-events/webhook-plan` reports disabled-by-default webhook verification, webhook-secret/allowed-provider booleans, verified-event count, no raw headers, no raw payload, and no webhook secret returned.
+- `POST /email/provider-events/webhook` rejects/skips while webhook verification is disabled. When explicitly enabled with a webhook secret and allowed providers, it accepts only valid provider-agnostic HMAC test signatures and stores redacted metadata only.
 - `POST /email/provider-events/mock` captures metadata-only local/mock delivery events, rejects secrets and customer message content, and never marks production monitoring ready because signatures are not verified.
+- `GET /email/suppressions`, `POST /email/suppressions`, and `POST /email/suppressions/:id/revoke` manage tenant-scoped suppression metadata. Manual suppression accepts an email for matching but stores and returns only a hash plus masked address; active suppressions block future matched send/retry attempts.
 - `POST /email/test-send` creates a `TEST_EMAIL` outbox record through the active provider. Mock mode records `SENT_MOCK`; SMTP mode records `SENT_PROVIDER` when a configured relay accepts the message.
 - `GET /email/outbox` and `GET /email/outbox/:id` expose tenant-scoped mock/local email records for admins with `emailOutbox.view`.
 - `POST /auth/tokens/cleanup-expired` deletes expired, unconsumed auth tokens older than 30 days for the active organization.
@@ -1507,7 +1515,8 @@ Rate limits:
 Known limitations:
 
 - Retry metadata and disabled-by-default manual processing exist, but no scheduled worker is configured.
-- Mock-only provider event capture exists, but no signed production webhook, suppression list, paid/provider-specific API adapter, or live DKIM/SPF/domain validation workflow exists.
+- Provider-agnostic signed webhook verification and suppression metadata exist, but no provider-specific production webhook adapter, scheduled webhook exposure, paid/provider-specific API adapter, or live DKIM/SPF/domain validation workflow exists.
+- Alerting/readiness booleans exist for bounce/complaint monitoring, but no real alert thresholds, dashboards, or external monitoring integration exist.
 - No branded HTML template polish.
 - No MFA, refresh-token rotation, or advanced session management.
 
@@ -2352,17 +2361,19 @@ Recommended next step:
 
 ## Email readiness and diagnostics
 
-- `GET /email/readiness` is an admin/settings readiness check. It is read-only, no-mutation, sends no customer email, and returns provider/SMTP booleans, sender-domain SPF/DKIM/DMARC evidence status, relay diagnostics status, bounce/retry/monitoring gaps, blockers, warnings, `productionReady`, and redaction guarantees without raw SMTP host, username, password, API key, token, connection URL, authorization header, private DKIM key, or provider secret values.
+- `GET /email/readiness` is an admin/settings readiness check. It is read-only, no-mutation, sends no customer email, and returns provider/SMTP booleans, sender-domain SPF/DKIM/DMARC evidence status, relay diagnostics status, bounce/retry/webhook/suppression/alerting/monitoring gaps, blockers, warnings, `productionReady`, and redaction guarantees without raw SMTP host, username, password, API key, token, connection URL, authorization header, private DKIM key, webhook secret, or provider secret values.
 - `GET /email/diagnostics-plan` is a read-only/no-mutation plan endpoint for non-production relay testing. It reports whether diagnostics execution and allowlists are configured and keeps `productionReady=false`.
 - `POST /email/diagnostics` is disabled by default with `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED=false`. In the default state it returns `SKIPPED_DISABLED`, `executionAttempted=false`, `noEmailSent=true`, `noCustomerEmailSent=true`, and creates no outbox record.
 - Diagnostic sending can only be attempted when `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED=true` and the requested recipient matches `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS`, or the built-in internal test domains. Responses return a redacted delivery summary only.
-- `GET /email/retry-plan` is read-only/no-mutation and reports pending, retryable failed, blocked, and due retry counts plus the max-attempts policy.
+- `GET /email/retry-plan` is read-only/no-mutation and reports pending, retryable failed, blocked, suppressed, active-suppression, and due retry counts plus the max-attempts policy.
 - `POST /email/retry-process` is disabled by default with `LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED=false`; default responses return `SKIPPED_DISABLED`, `executionAttempted=false`, `noEmailSent=true`, `noCustomerEmailSent=true`, and `noMutation=true`.
-- Enabled retry processing is manual/admin-gated, uses the active provider only for due retryable outbox records, obeys max attempts and `nextAttemptAt`, updates existing retry metadata, and creates no new outbox record.
-- `GET /email/provider-events/plan` and `POST /email/provider-events/mock` provide metadata-only provider event readiness and unsigned mock event capture. Mock events can update existing outbox delivery/bounce/complaint metadata but do not make webhook, monitoring, or production readiness true.
+- Enabled retry processing is manual/admin-gated, uses the active provider only for due retryable outbox records, obeys max attempts and `nextAttemptAt`, skips active suppressions without provider calls, updates existing retry metadata, and creates no new outbox record.
+- `GET /email/provider-events/plan`, `GET /email/provider-events/webhook-plan`, `POST /email/provider-events/webhook`, and `POST /email/provider-events/mock` provide metadata-only provider event readiness, disabled-by-default signed webhook verification, and local/mock event capture. Mock events can update existing outbox delivery/bounce/complaint metadata but do not make webhook, monitoring, alerting, or production readiness true.
+- `GET /email/suppressions`, `POST /email/suppressions`, and `POST /email/suppressions/:id/revoke` manage metadata-only suppressions. Raw suppression emails are accepted only as request input for matching, then stored/returned as `emailHash` plus `emailMasked`.
 - Sender-domain evidence is captured through metadata-only `/email/sender-domain-evidence` endpoints and `/settings/email-outbox`. Evidence can be drafted, verified, or revoked for `SPF`, `DKIM`, `DMARC`, `MX`, `RETURN_PATH`, `PROVIDER_VERIFICATION`, or `OTHER` without DNS-provider actions, customer email, or outbox mutation.
-- Evidence and provider events reject SMTP passwords, API keys, tokens, authorization headers, connection URLs, provider secrets, private DKIM keys, raw payloads, customer recipients, and customer email content. Verified SPF/DKIM/DMARC can make the sender-domain section ready for review, but full `productionReady` remains false until relay diagnostics, signed bounces/webhooks, enabled retries, and monitoring are implemented.
-- Email environment variables: `EMAIL_PROVIDER`, `EMAIL_FROM`, `EMAIL_REPLY_TO`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS`, and `LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED`.
-- `/settings/email-outbox` shows production email readiness, invite/password-reset reliability warnings, diagnostics disabled-by-default status, sender-domain evidence state, retry plan/event readiness controls, relay/bounce/retry/monitoring gaps, redacted SMTP configuration state, and no-customer-email safety messaging.
-- Production SMTP is still not ready until a non-production relay/provider run, sender-domain evidence review, signed bounces/webhooks, enabled retry processing, and monitoring are completed.
-- Latest email retry and bounce readiness verification: targeted API email tests, targeted web email status tests, `corepack pnpm db:generate`, `corepack pnpm db:migrate`, typecheck, build, `corepack pnpm smoke:accounting`, and `git diff --check`.
+- Evidence, provider events, and suppression notes reject SMTP passwords, API keys, tokens, authorization headers, connection URLs, provider secrets, webhook secrets, private DKIM keys, raw payloads, customer recipients in payloads, and customer email content. Verified SPF/DKIM/DMARC can make the sender-domain section ready for review, but full `productionReady` remains false until relay diagnostics, provider-specific signed webhooks, enabled retries, alerting, and monitoring are implemented.
+- Email environment variables: `EMAIL_PROVIDER`, `EMAIL_FROM`, `EMAIL_REPLY_TO`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS`, `LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED`, `EMAIL_PROVIDER_WEBHOOK_VERIFICATION_ENABLED`, `EMAIL_PROVIDER_WEBHOOK_SECRET`, and `EMAIL_PROVIDER_WEBHOOK_ALLOWED_PROVIDERS`.
+- `/settings/email-outbox` shows production email readiness, invite/password-reset reliability warnings, diagnostics disabled-by-default status, sender-domain evidence state, retry plan/event/webhook readiness controls, suppression-list controls, relay/bounce/retry/webhook/suppression/alerting/monitoring gaps, redacted SMTP configuration state, and no-customer-email safety messaging.
+- Production SMTP is still not ready until a non-production relay/provider run, sender-domain evidence review, provider-specific signed bounces/webhooks, enabled retry processing, alerting, and monitoring are completed.
+- Latest email webhook/suppression readiness verification: targeted API email tests, targeted web email status tests, `corepack pnpm db:generate`, `corepack pnpm db:migrate`, typecheck, build, `corepack pnpm smoke:accounting`, `git diff --check`, and `git diff --cached --check`.
+- Recommended next prompt: add a scheduled transactional email worker and monitoring dashboard evidence for retry throughput, bounce/complaint alert thresholds, and suppression trends while keeping real customer sends disabled by default.

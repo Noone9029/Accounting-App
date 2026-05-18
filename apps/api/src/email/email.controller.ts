@@ -7,8 +7,11 @@ import type { AuthenticatedUser } from "../auth/auth.types";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
+import { CreateEmailSuppressionDto } from "./dto/create-email-suppression.dto";
 import { CreateEmailSenderDomainEvidenceDto } from "./dto/create-email-sender-domain-evidence.dto";
+import { ReceiveEmailProviderWebhookDto } from "./dto/receive-email-provider-webhook.dto";
 import { ReceiveMockEmailProviderEventDto } from "./dto/receive-mock-email-provider-event.dto";
+import { RevokeEmailSuppressionDto } from "./dto/revoke-email-suppression.dto";
 import { RevokeEmailSenderDomainEvidenceDto } from "./dto/revoke-email-sender-domain-evidence.dto";
 import { RunEmailDiagnosticsDto } from "./dto/run-email-diagnostics.dto";
 import { RunEmailRetryProcessDto } from "./dto/run-email-retry-process.dto";
@@ -56,8 +59,8 @@ export class EmailController {
 
   @Get("provider-events/plan")
   @RequirePermissions(PERMISSIONS.users.manage)
-  providerEventsPlan() {
-    return this.emailService.providerEventsPlan();
+  providerEventsPlan(@CurrentOrganizationId() organizationId: string) {
+    return this.emailService.providerEventsPlan(organizationId);
   }
 
   @Post("provider-events/mock")
@@ -68,6 +71,49 @@ export class EmailController {
     @Body() dto: ReceiveMockEmailProviderEventDto,
   ) {
     return this.emailService.receiveMockProviderEvent(organizationId, user.id, dto);
+  }
+
+  @Get("provider-events/webhook-plan")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  providerWebhookPlan(@CurrentOrganizationId() organizationId: string) {
+    return this.emailService.providerWebhookPlan(organizationId);
+  }
+
+  @Post("provider-events/webhook")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  receiveProviderWebhook(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ReceiveEmailProviderWebhookDto,
+  ) {
+    return this.emailService.receiveSignedProviderWebhook(organizationId, user.id, dto);
+  }
+
+  @Get("suppressions")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  listSuppressions(@CurrentOrganizationId() organizationId: string) {
+    return this.emailService.listSuppressions(organizationId);
+  }
+
+  @Post("suppressions")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  createSuppression(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateEmailSuppressionDto,
+  ) {
+    return this.emailService.createSuppression(organizationId, user.id, dto);
+  }
+
+  @Post("suppressions/:id/revoke")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  revokeSuppression(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: RevokeEmailSuppressionDto,
+  ) {
+    return this.emailService.revokeSuppression(organizationId, user.id, id, dto);
   }
 
   @Get("sender-domain-evidence")

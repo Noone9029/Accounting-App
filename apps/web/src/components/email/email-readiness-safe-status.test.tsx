@@ -53,12 +53,23 @@ describe("EmailReadinessSafeStatus", () => {
           relayDiagnosticsRequired: true,
           bounceWebhookConfigured: false,
           bounceWebhookSignatureVerified: false,
+          webhookVerificationConfigured: false,
+          webhookVerificationEnabled: false,
+          webhookSecretConfigured: false,
+          providerWebhookSignatureVerified: false,
           providerEventIngestionReady: false,
+          suppressionListConfigured: true,
+          activeSuppressionCount: 0,
           retryPolicyConfigured: false,
           retryProcessorEnabled: false,
           retryPendingCount: 0,
           retryBlockedCount: 0,
+          retrySuppressedCount: 0,
           monitoringConfigured: false,
+          alertingConfigured: false,
+          bounceAlertThresholdConfigured: false,
+          complaintAlertThresholdConfigured: false,
+          providerWebhookAlertsReady: false,
           smtp: {
             hostConfigured: false,
             portConfigured: false,
@@ -89,6 +100,8 @@ describe("EmailReadinessSafeStatus", () => {
     expect(screen.getByText("Disabled by default")).toBeTruthy();
     expect(screen.getByText("SPF/DKIM/DMARC required")).toBeTruthy();
     expect(screen.getByText("Bounce webhooks missing")).toBeTruthy();
+    expect(screen.getByText("Webhook verification disabled")).toBeTruthy();
+    expect(screen.getByText("0 active suppressions")).toBeTruthy();
     expect(screen.getByText("Retry processor disabled")).toBeTruthy();
     expect(screen.getByText("Mock-only event ingestion")).toBeTruthy();
     expect(screen.getByText("Monitoring missing")).toBeTruthy();

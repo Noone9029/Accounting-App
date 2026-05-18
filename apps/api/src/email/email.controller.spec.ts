@@ -18,6 +18,11 @@ describe("EmailController permissions", () => {
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.retryProcess)).toEqual([PERMISSIONS.users.manage]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.providerEventsPlan)).toEqual([PERMISSIONS.users.manage]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.receiveMockProviderEvent)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.providerWebhookPlan)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.receiveProviderWebhook)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.listSuppressions)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.createSuppression)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.revokeSuppression)).toEqual([PERMISSIONS.users.manage]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.sendTestEmail)).toEqual([PERMISSIONS.users.manage]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.listOutbox)).toEqual([PERMISSIONS.emailOutbox.view]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.getOutbox)).toEqual([PERMISSIONS.emailOutbox.view]);

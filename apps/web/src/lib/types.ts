@@ -141,6 +141,7 @@ export type EmailSenderDomainEvidenceStatus = "DRAFT" | "VERIFIED" | "REVOKED" |
 export type EmailSenderDomainEvidenceType = "SPF" | "DKIM" | "DMARC" | "MX" | "RETURN_PATH" | "PROVIDER_VERIFICATION" | "OTHER";
 export type EmailSenderDomainReadinessStatus = "BLOCKED" | "PARTIAL" | "READY_FOR_REVIEW";
 export type EmailProviderEventType = "DELIVERED" | "BOUNCED" | "COMPLAINED" | "FAILED" | "OPENED" | "CLICKED" | "UNKNOWN";
+export type EmailSuppressionReason = "BOUNCE" | "COMPLAINT" | "MANUAL" | "PROVIDER_EVENT";
 export type EmailRelayDiagnosticsStatus =
   | "NOT_RUN"
   | "SKIPPED_DISABLED"
@@ -561,6 +562,8 @@ export interface EmailRetryPlan {
   failedRetryableCount: number;
   blockedCount: number;
   nextAttemptCount: number;
+  suppressedOutboxCount: number;
+  activeSuppressionCount: number;
   maxAttemptsPolicy: {
     defaultMaxAttempts: number;
     maxBatchLimit: number;
@@ -579,10 +582,73 @@ export interface EmailProviderEventsPlan {
   providerEventIngestionReady: boolean;
   bounceWebhookConfigured: boolean;
   bounceWebhookSignatureVerified: boolean;
+  webhookVerificationConfigured: boolean;
+  webhookVerificationEnabled: boolean;
+  webhookSecretConfigured: boolean;
   monitoringConfigured: boolean;
+  alertingConfigured: boolean;
+  bounceAlertThresholdConfigured: boolean;
+  complaintAlertThresholdConfigured: boolean;
+  providerWebhookAlertsReady: boolean;
   productionReadyContribution: boolean;
   blockers: string[];
   warnings: string[];
+}
+
+export interface EmailProviderWebhookPlan {
+  readOnly: true;
+  noMutation: true;
+  noCustomerEmailSent: true;
+  metadataOnly: true;
+  webhookVerificationConfigured: boolean;
+  webhookVerificationEnabled: boolean;
+  webhookSecretConfigured: boolean;
+  allowedProvidersConfigured: boolean;
+  allowedProviders: string[];
+  signatureVerificationMode: string;
+  rawHeadersReturned: false;
+  rawProviderPayloadReturned: false;
+  webhookSecretReturned: false;
+  providerWebhookSignatureVerified: boolean;
+  verifiedEventCount: number;
+  productionReadyContribution: boolean;
+  blockers: string[];
+  warnings: string[];
+}
+
+export interface EmailSuppression {
+  id: string;
+  organizationId: string;
+  emailHash: string;
+  emailMasked: string;
+  reason: EmailSuppressionReason;
+  sourceProvider: string | null;
+  providerEventId: string | null;
+  active: boolean;
+  createdById: string | null;
+  revokedById: string | null;
+  revokedAt: string | null;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmailSuppressionListResponse {
+  metadataOnly: true;
+  noCustomerEmail: true;
+  noEmailSent: true;
+  noOutboxRecord: true;
+  redactionGuarantees: string[];
+  suppressions: EmailSuppression[];
+}
+
+export interface EmailSuppressionResponse {
+  metadataOnly: true;
+  noCustomerEmail: true;
+  noEmailSent: true;
+  noOutboxRecord: true;
+  redactionGuarantees: string[];
+  suppression: EmailSuppression;
 }
 
 export interface EmailReadinessResponse {
@@ -622,12 +688,23 @@ export interface EmailReadinessResponse {
   relayDiagnosticsRequired: true;
   bounceWebhookConfigured: boolean;
   bounceWebhookSignatureVerified: boolean;
+  webhookVerificationConfigured: boolean;
+  webhookVerificationEnabled: boolean;
+  webhookSecretConfigured: boolean;
+  providerWebhookSignatureVerified: boolean;
+  suppressionListConfigured: boolean;
+  activeSuppressionCount: number;
   providerEventIngestionReady: boolean;
   retryPolicyConfigured: boolean;
   retryProcessorEnabled: boolean;
   retryPendingCount: number;
   retryBlockedCount: number;
+  retrySuppressedCount: number;
   monitoringConfigured: boolean;
+  alertingConfigured: boolean;
+  bounceAlertThresholdConfigured: boolean;
+  complaintAlertThresholdConfigured: boolean;
+  providerWebhookAlertsReady: boolean;
   smtp: {
     hostConfigured: boolean;
     portConfigured: boolean;

@@ -96,7 +96,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 ## Top 10 Next Priorities
 
 1. Run a human QA pass through the dashboard, sales, purchase, payment, refund, and PDF routes, then wire typecheck/test/build/API smoke into CI and decide when the manual deployed E2E workflow should become scheduled.
-2. Add signed email provider webhook verification, suppression-list handling, monitoring-safe alerts, live DKIM/SPF/domain-authentication checks, MFA planning, scheduled audit export, audit alerting for role/member changes, and a reviewed number-sequence reset/skip workflow.
+2. Add a scheduled email retry worker, provider-specific webhook adapters, monitoring-safe bounce/complaint alert thresholds, live DKIM/SPF/domain-authentication checks, MFA planning, scheduled audit export, audit alerting for role/member changes, and a reviewed number-sequence reset/skip workflow.
 3. Add official VAT return work, accountant review for report definitions, and scheduled/email report delivery.
 4. Add fiscal year close, retained earnings close, and controlled unlock/approval workflows.
 5. Add partial PO receiving/billing design and purchase matching hardening.
@@ -144,7 +144,9 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Added disabled-by-default `/email/retry-process` behind `LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED=false`; default responses skip without sending email or mutating data, and enabled runs update existing outbox retry metadata only.
 - Added `EmailProviderEvent`, `/email/provider-events/plan`, and unsigned `/email/provider-events/mock` for metadata-only delivery/bounce/complaint evidence. Mock events reject secrets, raw payloads, customer recipients, and customer message bodies.
 - `/settings/email-outbox` now shows retry processor state, pending/blocked counts, mock-only provider event readiness, bounce signature state, and monitoring blockers.
-- Remaining gap: signed production provider webhooks, suppression-list handling, scheduled retry worker, monitoring/alerts, real relay execution, and live DNS/provider validation.
+- Added provider-agnostic signed webhook verification planning, disabled-by-default `/email/provider-events/webhook`, and metadata-only `EmailSuppression` list/create/revoke handling. Suppressions store masked/hash email metadata only and block matched send/retry attempts.
+- Remaining gap: provider-specific production webhook adapter, scheduled retry worker, monitoring/alert thresholds, real relay execution, and live DNS/provider validation.
+- Recommended next prompt: add a scheduled transactional email worker and monitoring dashboard evidence for retry throughput, bounce/complaint thresholds, and suppression trends while real customer sends remain disabled by default.
 
 ## 2026-05-16 ZATCA buyer address field support
 

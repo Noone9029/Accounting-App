@@ -78,6 +78,23 @@ export function emailProviderEventIngestionStatusLabel(ready: boolean): string {
   return ready ? "Provider events ready" : "Mock-only event ingestion";
 }
 
+export function emailWebhookVerificationStatusLabel(enabled: boolean, secretConfigured: boolean): string {
+  if (!enabled) {
+    return "Webhook verification disabled";
+  }
+  if (!secretConfigured) {
+    return "Webhook secret missing";
+  }
+  return "Webhook verification configured";
+}
+
+export function emailSuppressionStatusLabel(configured: boolean, activeCount: number): string {
+  if (!configured) {
+    return "Suppression list missing";
+  }
+  return `${activeCount} active suppression${activeCount === 1 ? "" : "s"}`;
+}
+
 export function emailSenderDomainStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     BLOCKED: "SPF/DKIM/DMARC required",

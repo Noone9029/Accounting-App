@@ -29,6 +29,19 @@ describe("EmailService", () => {
           Promise.resolve({ id: "event-1", createdAt: new Date("2026-05-15T00:00:00.000Z"), receivedAt: new Date("2026-05-15T00:00:00.000Z"), ...args.data }),
         ),
         findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      emailSuppression: {
+        create: jest.fn((args: { data: Record<string, unknown>; select: unknown }) =>
+          Promise.resolve({ id: "suppression-1", active: true, createdAt: new Date("2026-05-15T00:00:00.000Z"), updatedAt: new Date("2026-05-15T00:00:00.000Z"), ...args.data }),
+        ),
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
+        count: jest.fn().mockResolvedValue(0),
+        update: jest.fn((args: { data: Record<string, unknown>; where: Record<string, unknown>; select: unknown }) =>
+          Promise.resolve({ id: args.where.id, active: false, updatedAt: new Date("2026-05-15T00:00:00.000Z"), ...args.data }),
+        ),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
     };
     const audit = { log: jest.fn().mockResolvedValue({ id: "audit-1" }) };
@@ -571,6 +584,254 @@ describe("EmailService", () => {
     );
     expect(provider.send).not.toHaveBeenCalled();
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "EMAIL_PROVIDER_EVENT_RECEIVED" }));
+  });
+
+  it("builds a signed webhook plan without mutating data or exposing secrets", async () => {
+    const { service, prisma, provider } = makeService({
+      config: {
+        EMAIL_PROVIDER_WEBHOOK_VERIFICATION_ENABLED: "true",
+        EMAIL_PROVIDER_WEBHOOK_SECRET: "webhook-secret-value",
+        EMAIL_PROVIDER_WEBHOOK_ALLOWED_PROVIDERS: "mailtrap",
+      },
+    });
+
+    const plan = await (service as any).providerWebhookPlan("org-1");
+
+    expect(plan).toEqual(
+      expect.objectContaining({
+        readOnly: true,
+        noMutation: true,
+        noCustomerEmailSent: true,
+        webhookVerificationEnabled: true,
+        webhookSecretConfigured: true,
+        allowedProvidersConfigured: true,
+        productionReadyContribution: false,
+      }),
+    );
+    expect(JSON.stringify(plan)).not.toContain("webhook-secret-value");
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.emailProviderEvent.create).not.toHaveBeenCalled();
+    expect(prisma.emailSuppression.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsigned and invalid signed provider webhooks without persistence", async () => {
+    const disabled = makeService();
+
+    await expect(
+      (disabled.service as any).receiveSignedProviderWebhook("org-1", "user-1", {
+        provider: "mailtrap",
+        eventType: "BOUNCED",
+        recipientEmail: "customer@example.com",
+        payloadSummaryJson: { event: "bounced" },
+      }),
+    ).resolves.toEqual(expect.objectContaining({ status: "REJECTED_UNVERIFIED", noEmailSent: true, noMutation: true }));
+    expect(disabled.prisma.emailProviderEvent.create).not.toHaveBeenCalled();
+    expect(disabled.prisma.emailSuppression.create).not.toHaveBeenCalled();
+
+    const enabled = makeService({
+      config: {
+        EMAIL_PROVIDER_WEBHOOK_VERIFICATION_ENABLED: "true",
+        EMAIL_PROVIDER_WEBHOOK_SECRET: "webhook-secret-value",
+        EMAIL_PROVIDER_WEBHOOK_ALLOWED_PROVIDERS: "mailtrap",
+      },
+    });
+
+    await expect(
+      (enabled.service as any).receiveSignedProviderWebhook("org-1", "user-1", {
+        provider: "mailtrap",
+        eventType: "BOUNCED",
+        recipientEmail: "customer@example.com",
+        signature: "invalid",
+        payloadSummaryJson: { event: "bounced" },
+      }),
+    ).rejects.toThrow("Email provider webhook signature is invalid.");
+    expect(enabled.prisma.emailProviderEvent.create).not.toHaveBeenCalled();
+    expect(enabled.prisma.emailSuppression.create).not.toHaveBeenCalled();
+  });
+
+  it("stores verified webhook events as redacted metadata and creates bounce suppressions", async () => {
+    const { service, prisma, provider, audit } = makeService({
+      config: {
+        EMAIL_PROVIDER_WEBHOOK_VERIFICATION_ENABLED: "true",
+        EMAIL_PROVIDER_WEBHOOK_SECRET: "webhook-secret-value",
+        EMAIL_PROVIDER_WEBHOOK_ALLOWED_PROVIDERS: "mailtrap",
+      },
+    });
+    prisma.emailOutbox.findFirst.mockResolvedValue({ id: "email-1", organizationId: "org-1", toEmail: "customer@example.com" });
+    const dto = {
+      provider: "mailtrap",
+      eventType: "BOUNCED",
+      providerMessageId: "provider-message-1",
+      emailOutboxId: "email-1",
+      recipientEmail: "customer@example.com",
+      payloadSummaryJson: { event: "bounced", reason: "mailbox unavailable" },
+    };
+    const signature = (service as any).buildProviderWebhookTestSignature(dto);
+
+    const result = await (service as any).receiveSignedProviderWebhook("org-1", "user-1", { ...dto, signature });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        metadataOnly: true,
+        noEmailSent: true,
+        noCustomerEmail: true,
+        signatureVerified: true,
+        productionReadyContribution: true,
+        suppression: expect.objectContaining({
+          emailMasked: "c***@example.com",
+          active: true,
+        }),
+      }),
+    );
+    expect(prisma.emailProviderEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          organizationId: "org-1",
+          eventType: "BOUNCED",
+          providerMessageIdRedacted: "present",
+          signatureVerified: true,
+          productionReadyContribution: true,
+        }),
+      }),
+    );
+    expect(prisma.emailSuppression.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          organizationId: "org-1",
+          emailMasked: "c***@example.com",
+          reason: "BOUNCE",
+          active: true,
+        }),
+      }),
+    );
+    expect(JSON.stringify(result)).not.toContain("customer@example.com");
+    expect(JSON.stringify(result)).not.toContain("webhook-secret-value");
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "EMAIL_PROVIDER_EVENT_RECEIVED" }));
+  });
+
+  it("stores manual suppressions as masked/hash metadata and revokes them", async () => {
+    const { service, prisma, audit } = makeService();
+    prisma.emailSuppression.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: "suppression-1",
+      organizationId: "org-1",
+      emailHash: "hash",
+      emailMasked: "c***@example.com",
+      reason: "MANUAL",
+      sourceProvider: null,
+      providerEventId: null,
+      active: true,
+      createdById: "user-1",
+      revokedById: null,
+      revokedAt: null,
+      note: "Do not contact",
+      createdAt: new Date("2026-05-15T00:00:00.000Z"),
+      updatedAt: new Date("2026-05-15T00:00:00.000Z"),
+    });
+
+    const created = await (service as any).createSuppression("org-1", "user-1", {
+      email: "customer@example.com",
+      reason: "MANUAL",
+      note: "Do not contact",
+    });
+    const revoked = await (service as any).revokeSuppression("org-1", "user-1", "suppression-1", { note: "reviewed" });
+
+    expect(created).toEqual(
+      expect.objectContaining({
+        metadataOnly: true,
+        noEmailSent: true,
+        suppression: expect.objectContaining({
+          emailMasked: "c***@example.com",
+          emailHash: expect.any(String),
+        }),
+      }),
+    );
+    expect(prisma.emailSuppression.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.not.objectContaining({ email: "customer@example.com" }),
+      }),
+    );
+    expect(revoked).toEqual(expect.objectContaining({ suppression: expect.objectContaining({ active: false, revokedById: "user-1" }) }));
+    expect(JSON.stringify(created)).not.toContain("customer@example.com");
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "EMAIL_SUPPRESSION_CREATED" }));
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "EMAIL_SUPPRESSION_REVOKED" }));
+  });
+
+  it("blocks suppressed sends and retries without calling the provider", async () => {
+    const { service, prisma, provider } = makeService({
+      config: {
+        LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED: "true",
+      },
+    });
+    prisma.emailSuppression.findFirst.mockResolvedValue({
+      id: "suppression-1",
+      organizationId: "org-1",
+      emailMasked: "c***@example.com",
+      active: true,
+    });
+    prisma.emailOutbox.findMany.mockResolvedValue([
+      {
+        id: "email-retry-1",
+        organizationId: "org-1",
+        toEmail: "customer@example.com",
+        fromEmail: "noreply@example.test",
+        subject: "Password reset",
+        templateType: EmailTemplateType.PASSWORD_RESET,
+        bodyText: "Reset body",
+        bodyHtml: null,
+        status: EmailDeliveryStatus.FAILED,
+        provider: "smtp",
+        attemptCount: 1,
+        maxAttempts: 3,
+        nextAttemptAt: null,
+        bouncedAt: null,
+        complainedAt: null,
+      },
+    ]);
+
+    const sendResult = await service.sendTestEmail({ organizationId: "org-1", toEmail: "customer@example.com" });
+    const retryResult = await service.retryProcess("org-1", "user-1", { limit: 5 });
+
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(sendResult).toEqual(expect.objectContaining({ status: EmailDeliveryStatus.FAILED, providerEventStatus: "SUPPRESSED" }));
+    expect(retryResult).toEqual(expect.objectContaining({ attemptedCount: 0, suppressedCount: 1, blockedCount: 1 }));
+    expect(prisma.emailOutbox.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "email-retry-1" },
+        data: expect.objectContaining({
+          providerEventStatus: "SUPPRESSED",
+          retryLockedAt: null,
+          retryLockedBy: null,
+        }),
+      }),
+    );
+  });
+
+  it("includes webhook, suppression, and monitoring blockers in readiness", async () => {
+    const { service, prisma } = makeService();
+    prisma.emailSuppression.count.mockResolvedValue(2);
+
+    const readiness = await service.readiness("org-1");
+
+    expect(readiness).toEqual(
+      expect.objectContaining({
+        suppressionListConfigured: true,
+        activeSuppressionCount: 2,
+        webhookVerificationEnabled: false,
+        webhookSecretConfigured: false,
+        providerWebhookSignatureVerified: false,
+        monitoringConfigured: false,
+        alertingConfigured: false,
+        productionReady: false,
+      }),
+    );
+    expect(readiness.blockers).toEqual(
+      expect.arrayContaining([
+        "Signed provider webhook verification is disabled by default.",
+        "No verified signed provider webhook event has been captured.",
+        "Email alerting is not configured.",
+      ]),
+    );
   });
 
   it("includes retry, bounce, and monitoring blockers in readiness", async () => {

@@ -17,9 +17,11 @@ import {
   emailRetryProcessorStatusLabel,
   emailSenderDomainEvidenceStatusLabel,
   emailSenderDomainStatusLabel,
+  emailSuppressionStatusLabel,
   emailStatusClass,
   emailStatusLabel,
   emailTemplateLabel,
+  emailWebhookVerificationStatusLabel,
   isValidTestEmailAddress,
   smtpConfigStateLabel,
 } from "@/lib/email";
@@ -30,12 +32,16 @@ import type {
   EmailOutboxDetail,
   EmailOutboxEntry,
   EmailProviderEventsPlan,
+  EmailProviderWebhookPlan,
   EmailReadinessResponse,
   EmailRetryPlan,
   EmailSenderDomainEvidence,
   EmailSenderDomainEvidenceListResponse,
   EmailSenderDomainEvidenceResponse,
   EmailSenderDomainEvidenceType,
+  EmailSuppression,
+  EmailSuppressionListResponse,
+  EmailSuppressionResponse,
 } from "@/lib/types";
 
 const EVIDENCE_TYPES: EmailSenderDomainEvidenceType[] = ["SPF", "DKIM", "DMARC", "MX", "RETURN_PATH", "PROVIDER_VERIFICATION", "OTHER"];
@@ -47,6 +53,7 @@ export default function EmailOutboxPage() {
   const [emails, setEmails] = useState<EmailOutboxEntry[]>([]);
   const [readiness, setReadiness] = useState<EmailReadinessResponse | null>(null);
   const [senderEvidence, setSenderEvidence] = useState<EmailSenderDomainEvidence[]>([]);
+  const [suppressions, setSuppressions] = useState<EmailSuppression[]>([]);
   const [selected, setSelected] = useState<EmailOutboxDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [cleanupLoading, setCleanupLoading] = useState(false);
@@ -58,12 +65,17 @@ export default function EmailOutboxPage() {
   const [retryPlanLoading, setRetryPlanLoading] = useState(false);
   const [eventPlan, setEventPlan] = useState<EmailProviderEventsPlan | null>(null);
   const [eventPlanLoading, setEventPlanLoading] = useState(false);
+  const [webhookPlan, setWebhookPlan] = useState<EmailProviderWebhookPlan | null>(null);
+  const [webhookPlanLoading, setWebhookPlanLoading] = useState(false);
   const [evidenceDomain, setEvidenceDomain] = useState("");
   const [evidenceType, setEvidenceType] = useState<EmailSenderDomainEvidenceType>("SPF");
   const [evidenceProvider, setEvidenceProvider] = useState("");
   const [evidenceSummary, setEvidenceSummary] = useState("");
   const [evidenceNote, setEvidenceNote] = useState("");
   const [evidenceLoading, setEvidenceLoading] = useState(false);
+  const [suppressionEmail, setSuppressionEmail] = useState("");
+  const [suppressionNote, setSuppressionNote] = useState("");
+  const [suppressionLoading, setSuppressionLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -82,11 +94,27 @@ export default function EmailOutboxPage() {
           redactionGuarantees: [],
           evidence: [],
         } as EmailSenderDomainEvidenceListResponse);
-    Promise.all([apiRequest<EmailOutboxEntry[]>("/email/outbox"), apiRequest<EmailReadinessResponse>("/email/readiness"), evidenceRequest])
-      .then(([outbox, emailReadiness, evidenceResponse]) => {
+    const suppressionRequest = canManageEmail
+      ? apiRequest<EmailSuppressionListResponse>("/email/suppressions")
+      : Promise.resolve({
+          metadataOnly: true,
+          noCustomerEmail: true,
+          noEmailSent: true,
+          noOutboxRecord: true,
+          redactionGuarantees: [],
+          suppressions: [],
+        } as EmailSuppressionListResponse);
+    Promise.all([
+      apiRequest<EmailOutboxEntry[]>("/email/outbox"),
+      apiRequest<EmailReadinessResponse>("/email/readiness"),
+      evidenceRequest,
+      suppressionRequest,
+    ])
+      .then(([outbox, emailReadiness, evidenceResponse, suppressionResponse]) => {
         setEmails(outbox);
         setReadiness(emailReadiness);
         setSenderEvidence(evidenceResponse.evidence);
+        setSuppressions(suppressionResponse.suppressions);
       })
       .catch((loadError) => setError(loadError instanceof Error ? loadError.message : "Unable to load email outbox."))
       .finally(() => setLoading(false));
@@ -156,13 +184,27 @@ export default function EmailOutboxPage() {
     }
   }
 
+  async function viewWebhookPlan() {
+    setWebhookPlanLoading(true);
+    setError("");
+    try {
+      setWebhookPlan(await apiRequest<EmailProviderWebhookPlan>("/email/provider-events/webhook-plan"));
+    } catch (webhookError) {
+      setError(webhookError instanceof Error ? webhookError.message : "Unable to load provider webhook readiness.");
+    } finally {
+      setWebhookPlanLoading(false);
+    }
+  }
+
   async function refreshReadinessAndEvidence() {
-    const [emailReadiness, evidenceResponse] = await Promise.all([
+    const [emailReadiness, evidenceResponse, suppressionResponse] = await Promise.all([
       apiRequest<EmailReadinessResponse>("/email/readiness"),
       apiRequest<EmailSenderDomainEvidenceListResponse>("/email/sender-domain-evidence"),
+      apiRequest<EmailSuppressionListResponse>("/email/suppressions"),
     ]);
     setReadiness(emailReadiness);
     setSenderEvidence(evidenceResponse.evidence);
+    setSuppressions(suppressionResponse.suppressions);
   }
 
   async function createEvidence() {
@@ -223,10 +265,49 @@ export default function EmailOutboxPage() {
     }
   }
 
+  async function createSuppression() {
+    setSuppressionLoading(true);
+    setError("");
+    try {
+      await apiRequest<EmailSuppressionResponse>("/email/suppressions", {
+        method: "POST",
+        body: {
+          email: suppressionEmail.trim(),
+          reason: "MANUAL",
+          note: suppressionNote || undefined,
+        },
+      });
+      setSuppressionEmail("");
+      setSuppressionNote("");
+      await refreshReadinessAndEvidence();
+    } catch (suppressionError) {
+      setError(suppressionError instanceof Error ? suppressionError.message : "Unable to save email suppression.");
+    } finally {
+      setSuppressionLoading(false);
+    }
+  }
+
+  async function revokeSuppression(id: string) {
+    setSuppressionLoading(true);
+    setError("");
+    try {
+      await apiRequest<EmailSuppressionResponse>(`/email/suppressions/${id}/revoke`, {
+        method: "POST",
+        body: {},
+      });
+      await refreshReadinessAndEvidence();
+    } catch (suppressionError) {
+      setError(suppressionError instanceof Error ? suppressionError.message : "Unable to revoke email suppression.");
+    } finally {
+      setSuppressionLoading(false);
+    }
+  }
+
   const canCleanTokens = canManageEmail;
   const canRunDiagnostics = canManageEmail;
   const diagnosticsEmailValid = !readiness?.diagnostics.executionEnabled || isValidTestEmailAddress(diagnosticsEmail);
   const evidenceDomainValid = evidenceDomain.trim().includes(".");
+  const suppressionEmailValid = isValidTestEmailAddress(suppressionEmail);
 
   return (
     <section>
@@ -282,19 +363,27 @@ export default function EmailOutboxPage() {
           </div>
           <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
             <Detail label="Bounce webhook" value={readiness.bounceWebhookConfigured ? "Configured" : "Missing"} />
+            <Detail
+              label="Webhook verification"
+              value={emailWebhookVerificationStatusLabel(readiness.webhookVerificationEnabled, readiness.webhookSecretConfigured)}
+            />
+            <Detail label="Webhook secret" value={readiness.webhookSecretConfigured ? "Configured" : "Missing"} />
+            <Detail label="Suppressions" value={emailSuppressionStatusLabel(readiness.suppressionListConfigured, readiness.activeSuppressionCount)} />
             <Detail label="Retry policy" value={readiness.retryPolicyConfigured ? "Configured" : "Missing"} />
             <Detail label="Retry processor" value={emailRetryProcessorStatusLabel(readiness.retryProcessorEnabled)} />
             <Detail label="Pending retries" value={String(readiness.retryPendingCount)} />
             <Detail label="Blocked retries" value={String(readiness.retryBlockedCount)} />
+            <Detail label="Suppressed retries" value={String(readiness.retrySuppressedCount)} />
             <Detail label="Provider events" value={emailProviderEventIngestionStatusLabel(readiness.providerEventIngestionReady)} />
             <Detail label="Monitoring" value={readiness.monitoringConfigured ? "Configured" : "Missing"} />
+            <Detail label="Alerting" value={readiness.alertingConfigured ? "Configured" : "Missing"} />
           </div>
           {canManageEmail ? (
             <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
               <h3 className="text-sm font-semibold text-ink">Retry and provider event readiness</h3>
               <p className="mt-1 text-sm text-steel">
                 Retry processing is disabled by default and this page only shows safe plans. Provider event capture is mock-only until a signed webhook is
-                implemented.
+                configured, and webhook secrets are never displayed.
               </p>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <button
@@ -313,12 +402,21 @@ export default function EmailOutboxPage() {
                 >
                   {eventPlanLoading ? "Loading..." : "View event readiness"}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => void viewWebhookPlan()}
+                  disabled={webhookPlanLoading}
+                  className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  {webhookPlanLoading ? "Loading..." : "View webhook plan"}
+                </button>
               </div>
               {retryPlan ? (
                 <div className="mt-3 grid gap-3 text-sm md:grid-cols-4">
                   <Detail label="Execution" value={retryPlan.executionEnabled ? "Enabled" : "Disabled"} />
                   <Detail label="Retryable failed" value={String(retryPlan.failedRetryableCount)} />
                   <Detail label="Due attempts" value={String(retryPlan.nextAttemptCount)} />
+                  <Detail label="Suppressed outbox" value={String(retryPlan.suppressedOutboxCount)} />
                   <Detail label="Max attempts" value={String(retryPlan.maxAttemptsPolicy.defaultMaxAttempts)} />
                 </div>
               ) : null}
@@ -328,6 +426,17 @@ export default function EmailOutboxPage() {
                   <Detail label="Signature verified" value={eventPlan.bounceWebhookSignatureVerified ? "Yes" : "No"} />
                   <Detail label="Webhook" value={eventPlan.bounceWebhookConfigured ? "Configured" : "Missing"} />
                   <Detail label="Production contribution" value={eventPlan.productionReadyContribution ? "Yes" : "No"} />
+                </div>
+              ) : null}
+              {webhookPlan ? (
+                <div className="mt-3 grid gap-3 text-sm md:grid-cols-4">
+                  <Detail
+                    label="Verification"
+                    value={emailWebhookVerificationStatusLabel(webhookPlan.webhookVerificationEnabled, webhookPlan.webhookSecretConfigured)}
+                  />
+                  <Detail label="Allowed providers" value={webhookPlan.allowedProvidersConfigured ? webhookPlan.allowedProviders.join(", ") : "Missing"} />
+                  <Detail label="Verified events" value={String(webhookPlan.verifiedEventCount)} />
+                  <Detail label="Raw secret" value={webhookPlan.webhookSecretReturned ? "Returned" : "Not returned"} />
                 </div>
               ) : null}
             </div>
@@ -471,6 +580,68 @@ export default function EmailOutboxPage() {
                 </div>
               ) : (
                 <p className="mt-3 text-sm text-steel">No sender-domain evidence captured yet.</p>
+              )}
+            </div>
+          ) : null}
+          {canManageEmail ? (
+            <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+              <h3 className="text-sm font-semibold text-ink">Suppression list</h3>
+              <p className="mt-1 text-sm text-steel">
+                Manual entries and verified bounce/complaint events store masked and hashed email metadata only. Active suppressions block future send attempts;
+                no customer email is sent by default.
+              </p>
+              <div className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+                <input
+                  type="email"
+                  value={suppressionEmail}
+                  onChange={(event) => setSuppressionEmail(event.target.value)}
+                  placeholder="recipient@example.test"
+                  className="min-w-0 rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+                <input
+                  type="text"
+                  value={suppressionNote}
+                  onChange={(event) => setSuppressionNote(event.target.value)}
+                  placeholder="Optional metadata note, no secrets"
+                  className="min-w-0 rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => void createSuppression()}
+                  disabled={suppressionLoading || !suppressionEmailValid}
+                  className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+                >
+                  {suppressionLoading ? "Saving..." : "Add suppression"}
+                </button>
+              </div>
+              {suppressionEmail && !suppressionEmailValid ? <p className="mt-2 text-sm text-rose-700">Enter a valid suppression email address.</p> : null}
+              {suppressions.length > 0 ? (
+                <div className="mt-4 overflow-hidden rounded-md border border-slate-200 bg-white">
+                  {suppressions.map((suppression) => (
+                    <div key={suppression.id} className="grid gap-2 border-b border-slate-100 p-3 text-sm md:grid-cols-[1fr_130px_90px_110px]">
+                      <div>
+                        <div className="font-medium text-ink">{suppression.emailMasked}</div>
+                        <div className="text-xs text-steel">Hash {suppression.emailHash.slice(0, 12)}...</div>
+                      </div>
+                      <div>{suppression.reason}</div>
+                      <div>{suppression.active ? "Active" : "Revoked"}</div>
+                      <div>
+                        {suppression.active ? (
+                          <button
+                            type="button"
+                            onClick={() => void revokeSuppression(suppression.id)}
+                            disabled={suppressionLoading}
+                            className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-ink disabled:cursor-not-allowed disabled:text-slate-400"
+                          >
+                            Revoke
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-steel">No email suppressions captured yet.</p>
               )}
             </div>
           ) : null}

@@ -54,6 +54,13 @@ enum EmailProviderEventType {
   UNKNOWN
 }
 
+enum EmailSuppressionReason {
+  BOUNCE
+  COMPLAINT
+  MANUAL
+  PROVIDER_EVENT
+}
+
 enum AuthTokenPurpose {
   ORGANIZATION_INVITE
   PASSWORD_RESET
@@ -622,6 +629,8 @@ model User {
   createdEmailSenderDomainEvidence                  EmailSenderDomainEvidence[]                 @relation("EmailSenderDomainEvidenceCreatedBy")
   verifiedEmailSenderDomainEvidence                 EmailSenderDomainEvidence[]                 @relation("EmailSenderDomainEvidenceVerifiedBy")
   revokedEmailSenderDomainEvidence                  EmailSenderDomainEvidence[]                 @relation("EmailSenderDomainEvidenceRevokedBy")
+  createdEmailSuppressions                          EmailSuppression[]                          @relation("EmailSuppressionCreatedBy")
+  revokedEmailSuppressions                          EmailSuppression[]                          @relation("EmailSuppressionRevokedBy")
   updatedAuditLogRetentionSettings                  AuditLogRetentionSettings[]                 @relation("AuditLogRetentionSettingsUpdatedBy")
   zatcaHashModeEnabledEgsUnits                      ZatcaEgsUnit[]                              @relation("ZatcaHashModeEnabledBy")
   approvedZatcaCsrConfigReviews                     ZatcaCsrConfigReview[]                      @relation("ZatcaCsrConfigReviewApprovedBy")
@@ -706,6 +715,7 @@ model Organization {
   emailOutbox                               EmailOutbox[]
   emailSenderDomainEvidence                 EmailSenderDomainEvidence[]
   emailProviderEvents                       EmailProviderEvent[]
+  emailSuppressions                         EmailSuppression[]
   authTokens                                AuthToken[]
   authTokenRateLimitEvents                  AuthTokenRateLimitEvent[]
   zatcaProfile                              ZatcaOrganizationProfile?
@@ -1237,11 +1247,41 @@ model EmailProviderEvent {
   createdAt                   DateTime               @default(now())
   organization                Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   emailOutbox                 EmailOutbox?           @relation(fields: [emailOutboxId], references: [id], onDelete: SetNull)
+  suppressions                EmailSuppression[]
 
   @@index([organizationId])
   @@index([organizationId, eventType])
   @@index([organizationId, emailOutboxId])
   @@index([organizationId, signatureVerified])
+}
+
+model EmailSuppression {
+  id              String                 @id @default(uuid()) @db.Uuid
+  organizationId  String                 @db.Uuid
+  emailHash       String
+  emailMasked     String
+  reason          EmailSuppressionReason
+  sourceProvider  String?
+  providerEventId String?                @db.Uuid
+  active          Boolean                @default(true)
+  createdById     String?                @db.Uuid
+  revokedById     String?                @db.Uuid
+  revokedAt       DateTime?
+  note            String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  organization    Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  providerEvent   EmailProviderEvent?    @relation(fields: [providerEventId], references: [id], onDelete: SetNull)
+  createdBy       User?                  @relation("EmailSuppressionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  revokedBy       User?                  @relation("EmailSuppressionRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([organizationId, emailHash])
+  @@index([organizationId, active])
+  @@index([organizationId, emailHash, active])
+  @@index([providerEventId])
+  @@index([createdById])
+  @@index([revokedById])
 }
 
 model EmailSenderDomainEvidence {

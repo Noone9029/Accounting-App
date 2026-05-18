@@ -47,7 +47,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 - Inventory accounting: safe manual posting exists, but no automatic posting, no landed cost, no FIFO cost layers, no serial/batch tracking, no inventory returns workflow, and no historical direct-mode migration.
 - Reports: broad operational reports exist, but official VAT return, filing exports, scheduled delivery, report pack controls, and accountant sign-off remain.
 - Attachments/storage: upload/download/soft-delete works, new uploaded attachments can use S3-compatible storage when explicitly configured, but database/base64 remains the default and there is no migration executor, generated-document S3 path, scanning, OCR, or retention policy.
-- Email: mock/local flow works with rate limits, redacted production-readiness checks, disabled-by-default diagnostics/retry processing, durable retry metadata, mock-only provider events, and metadata-only sender-domain evidence; SMTP can be enabled by env, but there is no scheduled retry worker, signed webhook/suppression handling, live DNS/provider validation, MFA, or session invalidation.
+- Email: mock/local flow works with rate limits, redacted production-readiness checks, disabled-by-default diagnostics/retry processing, durable retry metadata, metadata-only provider events, provider-agnostic signed webhook planning, suppression metadata, and metadata-only sender-domain evidence; SMTP can be enabled by env, but there is no scheduled retry worker, provider-specific production webhook adapter, live DNS/provider validation, MFA, or session invalidation.
 - ZATCA: extensive local groundwork and docs exist; official SDK sample fixtures now pass locally under Java 11. LedgerByte's local standard XML fixture now passes SDK global validation after supply-date and PIH fallback work, the simplified fixture passes XSD/EN/PIH, API-generated standard XML validates locally with address/identifier warnings, and the app now has no-mutation SDK hash comparison, a dry-run reset plan, and explicit fresh-EGS SDK hash persistence. Signing, Phase 2 QR, CSID, clearance/reporting, and PDF/A-3 remain unimplemented.
 - Browser QA: route smoke exists and deployed E2E has run, but no visual regression, no full accounting assertions in browser, and no scheduled CI.
 
@@ -55,7 +55,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 
 - Real ZATCA hash-chain replacement, signing, compliant XML/signature validation, CSID onboarding, clearance, reporting, and PDF/A-3.
 - Real-bucket S3 validation, generated-document object storage, and database-to-S3 migration executor.
-- Email provider relay validation, scheduled retry worker, signed provider webhooks/suppression handling, monitoring, and live domain-authentication validation.
+- Email provider relay validation, scheduled retry worker, provider-specific signed webhooks, monitoring/alert thresholds, and live domain-authentication validation.
 - Subscription billing, plans, tenant limits, and customer billing.
 - MFA, refresh-token rotation, advanced session invalidation, anomaly alerts.
 - Live bank feeds, payment gateway integration, bank auto-matching.
@@ -65,7 +65,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 
 ## Production Blockers
 
-1. No scheduled production email retry worker, signed provider webhook/suppression handling, executed relay validation, monitoring, or live deliverability/domain-auth validation.
+1. No scheduled production email retry worker, provider-specific signed webhook adapter, executed relay validation, monitoring/alert thresholds, or live deliverability/domain-auth validation.
 2. Uploaded/generated documents still default to database/base64 storage unless the attachment S3 provider is explicitly configured.
 3. No production backup/restore and monitoring runbooks proven against hosted infrastructure.
 4. No subscription billing, tenant limits, or SaaS account lifecycle.
@@ -143,6 +143,14 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 - Added `EmailProviderEvent`, `GET /email/provider-events/plan`, and unsigned `POST /email/provider-events/mock` for metadata-only delivery/bounce/complaint evidence. Mock events reject secrets, raw payloads, customer recipients, and customer message bodies.
 - `/settings/email-outbox` now surfaces retry counts, retry processor state, mock-only provider event readiness, bounce signature status, and monitoring blockers.
 - Full email `productionReady` remains false until relay diagnostics, sender-domain evidence, enabled retry processing, signed provider webhooks, suppression handling, and monitoring are complete.
+
+## 2026-05-19 Email webhook suppression readiness update
+
+- Email/communications moved from 58 to 60 because LedgerByte now has metadata-only `EmailSuppression`, disabled-by-default signed webhook verification planning, a provider-agnostic HMAC test verifier, and settings UI controls for suppression review/revoke.
+- `GET /email/provider-events/webhook-plan`, `POST /email/provider-events/webhook`, `GET /email/suppressions`, `POST /email/suppressions`, and `POST /email/suppressions/:id/revoke` are `users.manage` gated and expose no SMTP/API/webhook/provider secrets or customer message bodies.
+- Active suppressions block matched send/retry attempts without provider calls. Bounce/complaint suppressions are created only from signed webhook events or explicit local/mock provider events.
+- The score remains limited because there is no provider-specific production webhook adapter, no scheduled retry worker, no real relay evidence, no alert thresholds/monitoring dashboard, and no live DNS/provider validation.
+- Recommended next prompt: add a scheduled transactional email retry worker and monitoring dashboard evidence for retry throughput, bounce/complaint thresholds, and suppression trends while real customer sends remain disabled by default.
 
 ## Go/No-Go
 

@@ -9,11 +9,12 @@ const CUSTOMER_EMAIL_CONTENT_KEY = /\b(body|body[_-]?text|body[_-]?html|html|mes
 const EMAIL_ADDRESS = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 
 export const EMAIL_REDACTION_GUARANTEES = [
-  "SMTP host, username, password, API key, token, connection URL, authorization header, private DKIM key, and provider secret values are not returned.",
+  "SMTP host, username, password, API key, token, connection URL, authorization header, private DKIM key, webhook secret, and provider secret values are not returned.",
   "Readiness and diagnostics responses expose booleans, labels, and redacted summaries only.",
   "Diagnostics does not persist message bodies or delivery records.",
   "Sender-domain evidence stores metadata only and rejects secret-bearing fields.",
-  "Provider event capture stores redacted metadata only and rejects secrets, raw payloads, customer recipients, and customer message bodies.",
+  "Provider event capture stores redacted metadata only and rejects secrets, raw payloads, customer recipients in payloads, and customer message bodies.",
+  "Suppression records store hashed and masked email metadata only; raw suppression emails are not returned.",
 ];
 
 export function redactEmailDiagnosticText(value: unknown): string | null {

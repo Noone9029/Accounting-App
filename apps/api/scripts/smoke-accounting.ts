@@ -121,12 +121,23 @@ interface EmailReadinessResponse {
   relayDiagnosticsRequired: boolean;
   bounceWebhookConfigured: boolean;
   bounceWebhookSignatureVerified: boolean;
+  webhookVerificationConfigured: boolean;
+  webhookVerificationEnabled: boolean;
+  webhookSecretConfigured: boolean;
+  providerWebhookSignatureVerified: boolean;
+  suppressionListConfigured: boolean;
+  activeSuppressionCount: number;
   providerEventIngestionReady: boolean;
   retryPolicyConfigured: boolean;
   retryProcessorEnabled: boolean;
   retryPendingCount: number;
   retryBlockedCount: number;
+  retrySuppressedCount: number;
   monitoringConfigured: boolean;
+  alertingConfigured: boolean;
+  bounceAlertThresholdConfigured: boolean;
+  complaintAlertThresholdConfigured: boolean;
+  providerWebhookAlertsReady: boolean;
   smtp: {
     hostConfigured: boolean;
     portConfigured: boolean;
@@ -161,6 +172,8 @@ interface EmailRetryPlanResponse {
   failedRetryableCount: number;
   blockedCount: number;
   nextAttemptCount: number;
+  suppressedOutboxCount: number;
+  activeSuppressionCount: number;
   maxAttemptsPolicy: {
     defaultMaxAttempts: number;
     maxBatchLimit: number;
@@ -190,10 +203,64 @@ interface EmailProviderEventsPlanResponse {
   providerEventIngestionReady: boolean;
   bounceWebhookConfigured: boolean;
   bounceWebhookSignatureVerified: boolean;
+  webhookVerificationConfigured: boolean;
+  webhookVerificationEnabled: boolean;
+  webhookSecretConfigured: boolean;
   monitoringConfigured: boolean;
+  alertingConfigured: boolean;
+  bounceAlertThresholdConfigured: boolean;
+  complaintAlertThresholdConfigured: boolean;
+  providerWebhookAlertsReady: boolean;
   productionReadyContribution: boolean;
   blockers: string[];
   warnings: string[];
+}
+
+interface EmailProviderWebhookPlanResponse {
+  readOnly: boolean;
+  noMutation: boolean;
+  noCustomerEmailSent: boolean;
+  metadataOnly: boolean;
+  webhookVerificationConfigured: boolean;
+  webhookVerificationEnabled: boolean;
+  webhookSecretConfigured: boolean;
+  allowedProvidersConfigured: boolean;
+  allowedProviders: string[];
+  signatureVerificationMode: string;
+  rawHeadersReturned: boolean;
+  rawProviderPayloadReturned: boolean;
+  webhookSecretReturned: boolean;
+  providerWebhookSignatureVerified: boolean;
+  verifiedEventCount: number;
+  productionReadyContribution: boolean;
+  blockers: string[];
+  warnings: string[];
+}
+
+interface EmailSuppressionListResponse {
+  metadataOnly: boolean;
+  noCustomerEmail: boolean;
+  noEmailSent: boolean;
+  noOutboxRecord: boolean;
+  suppressions: Array<{
+    id: string;
+    emailHash: string;
+    emailMasked: string;
+    active: boolean;
+  }>;
+}
+
+interface EmailSuppressionResponse {
+  metadataOnly: boolean;
+  noCustomerEmail: boolean;
+  noEmailSent: boolean;
+  noOutboxRecord: boolean;
+  suppression: {
+    id: string;
+    emailHash: string;
+    emailMasked: string;
+    active: boolean;
+  };
 }
 
 interface EmailSenderDomainEvidenceListResponse {
@@ -2318,12 +2385,20 @@ async function main(): Promise<void> {
   assert(emailReadiness.relayDiagnosticsRequired, "email relay diagnostics are required");
   assert(!emailReadiness.bounceWebhookConfigured, "email bounce webhook remains unconfigured");
   assert(!emailReadiness.bounceWebhookSignatureVerified, "email bounce webhook signature remains unverified");
+  assert(!emailReadiness.webhookVerificationEnabled, "email provider webhook verification is disabled by default");
+  assert(!emailReadiness.webhookSecretConfigured, "email provider webhook secret is not exposed or configured by default");
+  assert(!emailReadiness.providerWebhookSignatureVerified, "email provider webhook signature evidence is not verified by default");
+  assert(emailReadiness.suppressionListConfigured, "email suppression list support is configured");
+  assert(emailReadiness.activeSuppressionCount >= 0, "email active suppression count is safe");
   assert(!emailReadiness.providerEventIngestionReady, "email provider event ingestion remains mock-only");
   assert(emailReadiness.retryPolicyConfigured, "email retry policy metadata is configured");
   assert(!emailReadiness.retryProcessorEnabled, "email retry processor is disabled by default");
   assert(emailReadiness.retryPendingCount >= 0, "email retry pending count is safe");
   assert(emailReadiness.retryBlockedCount >= 0, "email retry blocked count is safe");
+  assert(emailReadiness.retrySuppressedCount >= 0, "email retry suppressed count is safe");
   assert(!emailReadiness.monitoringConfigured, "email monitoring remains unconfigured");
+  assert(!emailReadiness.alertingConfigured, "email alerting remains unconfigured");
+  assert(!emailReadiness.providerWebhookAlertsReady, "email provider webhook alerts are not production-ready");
   assertNoEmailSecretExposure(emailReadiness, "email readiness");
   const emailSenderEvidence = await get<EmailSenderDomainEvidenceListResponse>("/email/sender-domain-evidence", headers);
   assert(emailSenderEvidence.metadataOnly, "email sender-domain evidence is metadata-only");
@@ -2339,6 +2414,8 @@ async function main(): Promise<void> {
   assert(!emailRetryPlan.retryWorkerConfigured, "email retry worker is not configured by default");
   assertEqual(emailRetryPlan.productionReadyContribution, false, "email retry plan is not production-ready by default");
   assert(emailRetryPlan.maxAttemptsPolicy.defaultMaxAttempts >= 1, "email retry plan exposes safe max-attempts policy");
+  assert(emailRetryPlan.activeSuppressionCount >= 0, "email retry plan reports active suppressions safely");
+  assert(emailRetryPlan.suppressedOutboxCount >= 0, "email retry plan reports suppressed outbox safely");
   assertNoEmailSecretExposure(emailRetryPlan, "email retry plan");
   const emailProviderEventsPlan = await get<EmailProviderEventsPlanResponse>("/email/provider-events/plan", headers);
   assert(emailProviderEventsPlan.readOnly, "email provider events plan is read-only");
@@ -2349,9 +2426,46 @@ async function main(): Promise<void> {
   assert(!emailProviderEventsPlan.providerEventIngestionReady, "email provider events are not production-ready");
   assert(!emailProviderEventsPlan.bounceWebhookConfigured, "email bounce webhook remains unconfigured in event plan");
   assert(!emailProviderEventsPlan.bounceWebhookSignatureVerified, "email bounce webhook signature remains unverified in event plan");
+  assert(!emailProviderEventsPlan.webhookVerificationEnabled, "email provider event webhook verification is disabled by default");
+  assert(!emailProviderEventsPlan.webhookSecretConfigured, "email provider event webhook secret is not configured by default");
   assert(!emailProviderEventsPlan.monitoringConfigured, "email monitoring remains unconfigured in event plan");
+  assert(!emailProviderEventsPlan.alertingConfigured, "email alerting remains unconfigured in event plan");
   assertEqual(emailProviderEventsPlan.productionReadyContribution, false, "email provider events do not contribute to production readiness");
   assertNoEmailSecretExposure(emailProviderEventsPlan, "email provider events plan");
+  const emailWebhookPlan = await get<EmailProviderWebhookPlanResponse>("/email/provider-events/webhook-plan", headers);
+  assert(emailWebhookPlan.readOnly, "email provider webhook plan is read-only");
+  assert(emailWebhookPlan.noMutation, "email provider webhook plan is no-mutation");
+  assert(emailWebhookPlan.noCustomerEmailSent, "email provider webhook plan sends no customer email");
+  assert(emailWebhookPlan.metadataOnly, "email provider webhook plan is metadata-only");
+  assert(!emailWebhookPlan.webhookVerificationEnabled, "email provider webhook plan is disabled by default");
+  assert(!emailWebhookPlan.webhookSecretConfigured, "email provider webhook secret remains configured/not-configured boolean only");
+  assert(!emailWebhookPlan.rawHeadersReturned, "email provider webhook plan returns no raw headers");
+  assert(!emailWebhookPlan.rawProviderPayloadReturned, "email provider webhook plan returns no raw provider payload");
+  assert(!emailWebhookPlan.webhookSecretReturned, "email provider webhook plan returns no webhook secret");
+  assertEqual(emailWebhookPlan.productionReadyContribution, false, "email provider webhook plan is not production-ready");
+  assertNoEmailSecretExposure(emailWebhookPlan, "email provider webhook plan");
+  const emailSuppressionsBefore = await get<EmailSuppressionListResponse>("/email/suppressions", headers);
+  assert(emailSuppressionsBefore.metadataOnly, "email suppressions list is metadata-only");
+  assert(emailSuppressionsBefore.noCustomerEmail, "email suppressions list sends no customer email");
+  assert(emailSuppressionsBefore.noEmailSent, "email suppressions list sends no email");
+  assert(emailSuppressionsBefore.noOutboxRecord, "email suppressions list creates no outbox record");
+  assertNoEmailSecretExposure(emailSuppressionsBefore, "email suppressions list");
+  const suppressionEmail = `smoke-suppression-${Date.now()}@example.test`;
+  const createdSuppression = await post<EmailSuppressionResponse>("/email/suppressions", headers, { email: suppressionEmail, reason: "MANUAL" });
+  assert(createdSuppression.metadataOnly, "email suppression create is metadata-only");
+  assert(createdSuppression.noCustomerEmail, "email suppression create sends no customer email");
+  assert(createdSuppression.noEmailSent, "email suppression create sends no email");
+  assert(createdSuppression.noOutboxRecord, "email suppression create creates no outbox record");
+  assert(createdSuppression.suppression.active, "email suppression create returns active metadata");
+  assert(createdSuppression.suppression.emailMasked.includes("***@example.test"), "email suppression create masks email");
+  assert(!JSON.stringify(createdSuppression).includes(suppressionEmail), "email suppression create does not return raw email");
+  assertNoEmailSecretExposure(createdSuppression, "email suppression create");
+  const emailRetryPlanAfterSuppression = await get<EmailRetryPlanResponse>("/email/retry-plan", headers);
+  assert(
+    emailRetryPlanAfterSuppression.activeSuppressionCount >= emailRetryPlan.activeSuppressionCount,
+    "email retry plan reports active suppression count after manual suppression",
+  );
+  assertNoEmailSecretExposure(emailRetryPlanAfterSuppression, "email retry plan after suppression");
   const emailOutboxBeforeDiagnostics = await get<EmailOutboxEntry[]>("/email/outbox", headers);
   const emailRetryProcess = await post<EmailRetryProcessResponse>("/email/retry-process", headers, {});
   assertEqual(emailRetryProcess.status, "SKIPPED_DISABLED", "email retry processor skipped by default");
@@ -6814,6 +6928,8 @@ function assertNoEmailSecretExposure(value: unknown, label: string): void {
     "AUTHORIZATION",
     "Bearer ",
     "PRIVATE KEY",
+    "WEBHOOK_SECRET",
+    "webhook-secret-value",
     "smtp-password-secret",
     "api-key-secret",
   ];

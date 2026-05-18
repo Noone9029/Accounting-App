@@ -11,7 +11,7 @@ const EMAIL_PROVIDER_EVENT_TYPES: EmailProviderEventType[] = [
   EmailProviderEventType.UNKNOWN,
 ];
 
-export class ReceiveMockEmailProviderEventDto {
+export class ReceiveEmailProviderWebhookDto {
   @IsString()
   @MaxLength(80)
   provider!: string;
@@ -32,6 +32,10 @@ export class ReceiveMockEmailProviderEventDto {
   @IsString()
   @MaxLength(320)
   recipientEmail?: string;
+
+  @IsString()
+  @MaxLength(200)
+  signature!: string;
 
   @IsOptional()
   @IsObject()

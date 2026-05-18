@@ -82,13 +82,13 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 - Risk level: Medium.
 - Manual credentials needed: Provider sandbox SMTP credentials.
 
-### 10. Add signed email provider webhooks and monitoring
+### 10. Add scheduled email retry worker and monitoring evidence
 
-- Objective: Verify provider webhook signatures, apply bounce/complaint suppression metadata, and emit monitoring-safe alerts without exposing provider payloads or customer message bodies.
-- Why it matters: Durable retry metadata and mock provider-event capture exist, but production email still needs signed webhook trust and operational monitoring.
-- Dependencies: `EmailProviderEvent`, `/email/provider-events/plan`, `/email/provider-events/mock`, email readiness blockers, and chosen provider webhook contract.
+- Objective: Add a controlled scheduled email retry worker plus monitoring/readiness evidence for retry throughput, bounce/complaint alert thresholds, and suppression trends without enabling real customer sends by default.
+- Why it matters: Durable retry metadata, provider-event capture, signed webhook planning, and suppression handling exist, but production email still needs scheduled execution and operational monitoring evidence.
+- Dependencies: `EmailOutbox`, `EmailSuppression`, `EmailProviderEvent`, `/email/retry-plan`, `/email/retry-process`, `/email/provider-events/webhook-plan`, `/email/suppressions`, and email readiness blockers.
 - Risk level: Medium.
-- Manual credentials needed: Provider test credentials.
+- Manual credentials needed: No for local worker/readiness evidence; provider credentials only for a later relay/webhook validation pass.
 
 ### 11. Add background job queue foundation
 
@@ -899,7 +899,9 @@ Completed: metadata-only sender-domain authentication evidence capture. `EmailSe
 
 Completed: durable email retry/outbox readiness and mock provider-event capture. `EmailOutbox` now tracks retry metadata, `/email/retry-plan` is read-only, `/email/retry-process` skips by default with no send/no mutation, and `EmailProviderEvent` captures unsigned metadata-only local events without production-readiness claims.
 
-1. Add signed provider webhook verification, suppression-list handling, and monitoring-safe bounce/complaint alerts without enabling real customer email by default.
+Completed: signed webhook/suppression readiness groundwork. `/email/provider-events/webhook-plan` is read-only/no-mutation, `/email/provider-events/webhook` rejects/skips while disabled, `EmailSuppression` stores masked/hash metadata only, and active suppressions block matched send/retry attempts.
+
+1. Add a scheduled transactional email retry worker and monitoring dashboard evidence for retry throughput, bounce/complaint thresholds, and suppression trends while real customer sends remain disabled by default.
 2. Run an allowlisted non-production SMTP relay diagnostic and record safe provider-result evidence without sending customer emails.
 3. Add Vercel/Supabase deployment runbook checks and safe env summaries.
 4. Add Playwright E2E coverage for login, dashboard, setup wizard, contact, invoice, payment, and reports.

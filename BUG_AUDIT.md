@@ -37,6 +37,27 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Email webhook suppression readiness added
+
+Added disabled-by-default signed provider webhook verification planning, metadata-only suppression handling, and monitoring-safe bounce/complaint readiness without sending customer email by default.
+
+Risk reduced:
+
+- `EmailSuppression` stores tenant-scoped masked/hash suppression metadata for bounce, complaint, manual, and provider-event sources; raw suppression emails are accepted only as request input and are not returned.
+- `GET /email/provider-events/webhook-plan` is read-only/no-mutation and reports webhook verification enabled/configured state, allowed-provider configuration, verified-event count, no raw headers, no raw provider payload, and no webhook secret returned.
+- `POST /email/provider-events/webhook` is disabled by default; disabled or unsigned input persists no provider event, mutates no outbox record, and sends no email. When explicitly enabled, it accepts only allowlisted provider-agnostic HMAC test signatures.
+- `GET /email/suppressions`, `POST /email/suppressions`, and `POST /email/suppressions/:id/revoke` require `users.manage`, send no email, create no outbox record, and expose only metadata.
+- Active suppressions block matched send/retry attempts without calling the provider.
+- `/settings/email-outbox` now shows webhook verification, webhook secret configured/missing, suppression list controls, suppressed retry counts, and alerting/monitoring blockers.
+- Smoke now asserts webhook plan safety, suppression masking/hash behavior, retry-plan suppression counts, no secret exposure, no customer email by default, and `productionReady=false`.
+
+Remaining risks:
+
+- The webhook verifier is provider-agnostic/test-only; production still needs provider-specific signature contracts and exposure strategy.
+- Retry processing is not scheduled; a real worker/queue is still required before production delivery.
+- Monitoring-safe flags exist, but no alert thresholds, dashboards, or external monitoring integration exist.
+- Real non-production relay execution and live DNS/provider validation remain pending.
+
 ### Email retry and bounce readiness added
 
 Added durable transactional email retry metadata, disabled-by-default retry processing, and metadata-only provider event capture without sending customer email by default.

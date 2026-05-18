@@ -5,6 +5,8 @@ import {
   emailRelayDiagnosticsStatusLabel,
   emailRetryProcessorStatusLabel,
   emailSenderDomainStatusLabel,
+  emailSuppressionStatusLabel,
+  emailWebhookVerificationStatusLabel,
 } from "@/lib/email";
 import type { EmailDiagnosticsResponse, EmailReadinessResponse } from "@/lib/types";
 
@@ -28,6 +30,11 @@ export function EmailReadinessSafeStatus({
         <SafeStatusItem label="Sender domain" value={emailSenderDomainStatusLabel(readiness.senderDomain.evidenceStatus)} />
         <SafeStatusItem label="Relay diagnostics" value={emailRelayDiagnosticsStatusLabel(readiness.relayDiagnosticsStatus)} />
         <SafeStatusItem label="Bounces" value={readiness.bounceWebhookConfigured ? "Webhook configured" : "Bounce webhooks missing"} />
+        <SafeStatusItem
+          label="Webhook verification"
+          value={emailWebhookVerificationStatusLabel(readiness.webhookVerificationEnabled, readiness.webhookSecretConfigured)}
+        />
+        <SafeStatusItem label="Suppressions" value={emailSuppressionStatusLabel(readiness.suppressionListConfigured, readiness.activeSuppressionCount)} />
         <SafeStatusItem label="Retries" value={emailRetryProcessorStatusLabel(readiness.retryProcessorEnabled)} />
         <SafeStatusItem label="Provider events" value={emailProviderEventIngestionStatusLabel(readiness.providerEventIngestionReady)} />
         <SafeStatusItem label="Monitoring" value={readiness.monitoringConfigured ? "Monitoring configured" : "Monitoring missing"} />
@@ -41,7 +48,12 @@ export function EmailReadinessSafeStatus({
         perform DNS provider actions or send customer email.
       </p>
       <p className="mt-2 text-steel">
-        Retry processing is plan-first and disabled by default. Provider events are mock-only and unsigned until a verified webhook integration is added.
+        Retry processing is plan-first and disabled by default. Provider events use metadata-only mock capture or signed provider-agnostic test webhooks; webhook
+        secrets, headers, and raw provider payloads are never displayed.
+      </p>
+      <p className="mt-2 text-steel">
+        Bounce and complaint suppressions store hashed and masked email metadata only. Active suppressions block future real send attempts without sending
+        customer email by default.
       </p>
       {diagnosticsResult ? (
         <p className="mt-2 font-medium text-ink">
