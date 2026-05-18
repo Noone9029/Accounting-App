@@ -463,6 +463,10 @@ export function zatcaComplianceCsidCustodyProviderReadinessPath() {
   return "/zatca/compliance-csid-custody/provider-readiness";
 }
 
+export function zatcaComplianceCsidCustodyProviderConfigurationPlanPath() {
+  return "/zatca/compliance-csid-custody/provider-configuration-plan";
+}
+
 export function zatcaEgsComplianceCsidCustodyRecordsPath(egsUnitId: string) {
   return `/zatca/egs-units/${egsUnitId}/compliance-csid-custody-records`;
 }

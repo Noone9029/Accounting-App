@@ -214,6 +214,12 @@ export class ZatcaController {
     return this.zatcaService.getComplianceCsidCustodyProviderReadiness();
   }
 
+  @Get("zatca/compliance-csid-custody/provider-configuration-plan")
+  @RequirePermissions(PERMISSIONS.zatca.view)
+  getComplianceCsidCustodyProviderConfigurationPlan() {
+    return this.zatcaService.getComplianceCsidCustodyProviderConfigurationPlan();
+  }
+
   @Get("zatca/egs-units/:id/compliance-csid-custody-records")
   @RequirePermissions(PERMISSIONS.zatca.view)
   listComplianceCsidCustodyRecords(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {

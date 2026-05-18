@@ -1355,14 +1355,22 @@ function ComplianceCsidCustodyPlanPanel({
         <div>Records: <span className="font-semibold text-ink">{plan?.custodyRecordCount ?? 0}</span></div>
         <div>Latest: <span className="font-semibold text-ink">{latest?.status ?? "NONE"}</span></div>
         <div>Provider: <span className="font-semibold text-rosewood">{plan?.providerReadiness?.provider ?? "DISABLED"}</span></div>
+        <div>Configured provider: <span className="font-semibold text-rosewood">{plan?.configuredProvider ?? plan?.providerReadiness?.configuredProvider ?? "DISABLED"}</span></div>
+        <div>Config detected: <span className="font-semibold text-rosewood">{plan?.providerConfigPresent ? "true" : "false"}</span></div>
         <div>Gate: <span className="font-semibold text-rosewood">{plan?.custodyGate?.allowed ? "ALLOWED" : "BLOCKED"}</span></div>
         <div>Token storage: <span className="font-semibold text-rosewood">{plan?.providerReadiness?.tokenStorageReady ? "ready" : "not ready"}</span></div>
         <div>Secret storage: <span className="font-semibold text-rosewood">{plan?.providerReadiness?.secretStorageReady ? "ready" : "not ready"}</span></div>
         <div>Certificate storage: <span className="font-semibold text-rosewood">{plan?.providerReadiness?.certificateStorageReady ? "ready" : "not ready"}</span></div>
         <div>KMS configured: <span className="font-semibold text-rosewood">{plan?.providerReadiness?.kmsConfigured ? "true" : "false"}</span></div>
         <div>Secrets manager: <span className="font-semibold text-rosewood">{plan?.providerReadiness?.secretsManagerConfigured ? "true" : "false"}</span></div>
+        <div>Encrypted DB approved: <span className="font-semibold text-rosewood">{plan?.providerReadiness?.encryptedDbApproved ? "true" : "false"}</span></div>
         <div>Body persistence: <span className="font-semibold text-rosewood">blocked</span></div>
       </div>
+      {plan?.providerConfiguration?.redactedConfigurationSummary ? (
+        <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-[11px] text-steel">
+          Provider configuration summary is redacted: KMS key {plan.providerConfiguration.redactedConfigurationSummary.kmsKeyId}, prefix {plan.providerConfiguration.redactedConfigurationSummary.secretPrefix}, region {plan.providerConfiguration.redactedConfigurationSummary.region}. Provider remains disabled and body storage remains blocked.
+        </div>
+      ) : null}
       {plan?.custodyGate?.reasons?.length ? (
         <ul className="mt-3 list-disc space-y-1 pl-5 text-[11px] text-amber-700">
           {plan.custodyGate.reasons.slice(0, 4).map((reason) => (

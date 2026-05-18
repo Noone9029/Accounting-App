@@ -3443,6 +3443,25 @@ export interface ZatcaComplianceCsidCustodyProviderReadiness {
   noProductionCredentials?: true;
   provider: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
   enabled: boolean;
+  configuredProvider: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
+  providerConfigPresent: boolean;
+  providerEnabled: false;
+  providerConfigurationReady: false;
+  configurationPlanSummary: {
+    configuredProvider: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
+    providerEnabled: false;
+    providerConfigPresent: boolean;
+    providerConfigurationReady: false;
+    redactedConfigurationSummary: {
+      provider: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
+      kmsKeyId: string;
+      secretPrefix: string;
+      region: string;
+      encryptedDbApproved: boolean;
+      allowBodyStorageRequested: boolean;
+    };
+    bodyStorageAllowed: false;
+  };
   tokenStorageReady: boolean;
   secretStorageReady: boolean;
   certificateStorageReady: boolean;
@@ -3450,6 +3469,47 @@ export interface ZatcaComplianceCsidCustodyProviderReadiness {
   secretsManagerConfigured: boolean;
   encryptedDbApproved: boolean;
   productionCompliance: false;
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
+}
+
+export interface ZatcaComplianceCsidProviderConfigurationPlan {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noNetwork: true;
+  noCsidRequest: true;
+  noProductionCredentials: true;
+  noSecretBodyStorage: true;
+  productionCompliance: false;
+  configuredProvider: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
+  providerEnabled: false;
+  providerConfigPresent: boolean;
+  providerConfigurationReady: false;
+  configurationPresent: {
+    provider: boolean;
+    kmsKeyId: boolean;
+    secretPrefix: boolean;
+    region: boolean;
+    encryptedDbApproval: boolean;
+    allowBodyStorage: boolean;
+  };
+  redactedConfigurationSummary: {
+    provider: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
+    kmsKeyId: string;
+    secretPrefix: string;
+    region: string;
+    encryptedDbApproved: boolean;
+    allowBodyStorageRequested: boolean;
+  };
+  tokenStorageReady: false;
+  secretStorageReady: false;
+  certificateStorageReady: false;
+  kmsConfigured: boolean;
+  secretsManagerConfigured: boolean;
+  encryptedDbApproved: boolean;
+  bodyStorageAllowed: false;
   blockers: string[];
   warnings: string[];
   recommendedNextSteps: string[];
@@ -3465,6 +3525,7 @@ export interface ZatcaComplianceCsidCustodyGate {
   encryptedDbApproved: false;
   bodyPersistenceAllowed: false;
   productionCompliance: false;
+  providerConfiguration?: ZatcaComplianceCsidProviderConfigurationPlan;
   providerReadiness?: ZatcaComplianceCsidCustodyProviderReadiness;
   reasons: string[];
 }
@@ -3559,6 +3620,11 @@ export interface ZatcaComplianceCsidCustodyPlanResponse {
   bodyPersistenceAllowed: false;
   latestCustodyRecord?: ZatcaComplianceCsidCustodyRecord | null;
   custodyRecordCount?: number;
+  configuredProvider?: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
+  providerConfiguration?: ZatcaComplianceCsidProviderConfigurationPlan;
+  providerConfigurationReady?: false;
+  providerConfigPresent?: boolean;
+  futureReferenceModeOnly?: true;
   providerReadiness?: ZatcaComplianceCsidCustodyProviderReadiness;
   custodyGate?: ZatcaComplianceCsidCustodyGate;
   tokenStorageReady?: false;

@@ -114,3 +114,15 @@ All store/revoke methods throw a sanitized disabled error and do not include sec
 4. Add provider-specific integration tests using fakes only.
 5. Add a separately gated sandbox execution path after OTP and response custody are approved.
 6. Keep production CSID, clearance/reporting, PDF/A-3, and production compliance as separate blocked phases.
+
+## ZATCA CSID secrets provider configuration plan - 2026-05-18
+
+Official files inspected for this phase: `compliance_csid.pdf`, `onboarding.pdf`, `renewal.pdf`, `compliance_invoice.pdf`, `reporting.pdf`, `clearance.pdf`, the XML/security standards, the data dictionary, and the SDK readme/usage files under `reference/`.
+
+LedgerByte now has a non-executing CSID custody provider configuration planner. It reads only planning environment variables for future `FUTURE_SECRETS_MANAGER`, `FUTURE_KMS`, and `FUTURE_ENCRYPTED_DB` modes, redacts key IDs/prefixes/regions, and keeps the runtime provider disabled.
+
+The provider configuration endpoint and custody plan report `providerEnabled=false`, `bodyStorageAllowed=false`, `tokenStorageReady=false`, `secretStorageReady=false`, `certificateStorageReady=false`, and `productionCompliance=false`. `ZATCA_CSID_CUSTODY_ALLOW_BODY_STORAGE` is intentionally ignored in this phase.
+
+No real secrets-manager/KMS call, real ZATCA network call, real CSID request, token/secret/certificate/private-key/OTP/CSR/signed-XML/QR body persistence, clearance/reporting, PDF/A-3, production credential use, or production compliance claim is implemented.
+
+Recommended next step: add mocked secrets-manager/KMS provider client contract tests that still never store real CSID material.
