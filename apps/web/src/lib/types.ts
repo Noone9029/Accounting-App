@@ -140,6 +140,7 @@ export type EmailProviderName = "mock" | "smtp-disabled" | "smtp" | "invalid" | 
 export type EmailSenderDomainEvidenceStatus = "DRAFT" | "VERIFIED" | "REVOKED" | "SUPERSEDED";
 export type EmailSenderDomainEvidenceType = "SPF" | "DKIM" | "DMARC" | "MX" | "RETURN_PATH" | "PROVIDER_VERIFICATION" | "OTHER";
 export type EmailSenderDomainReadinessStatus = "BLOCKED" | "PARTIAL" | "READY_FOR_REVIEW";
+export type EmailProviderEventType = "DELIVERED" | "BOUNCED" | "COMPLAINED" | "FAILED" | "OPENED" | "CLICKED" | "UNKNOWN";
 export type EmailRelayDiagnosticsStatus =
   | "NOT_RUN"
   | "SKIPPED_DISABLED"
@@ -482,6 +483,15 @@ export interface EmailOutboxEntry {
   providerMessageId: string | null;
   errorMessage: string | null;
   sentAt: string | null;
+  attemptCount: number;
+  maxAttempts: number;
+  nextAttemptAt: string | null;
+  lastAttemptAt: string | null;
+  lastErrorRedacted: string | null;
+  providerEventStatus: string | null;
+  bouncedAt: string | null;
+  complainedAt: string | null;
+  deliveredAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -540,6 +550,41 @@ export interface EmailDiagnosticsPlan {
   productionReady: false;
 }
 
+export interface EmailRetryPlan {
+  readOnly: true;
+  noMutation: true;
+  noCustomerEmailSent: true;
+  executionEnabled: boolean;
+  retryWorkerConfigured: boolean;
+  retryProcessorEnabled: boolean;
+  pendingCount: number;
+  failedRetryableCount: number;
+  blockedCount: number;
+  nextAttemptCount: number;
+  maxAttemptsPolicy: {
+    defaultMaxAttempts: number;
+    maxBatchLimit: number;
+  };
+  productionReadyContribution: boolean;
+  blockers: string[];
+  warnings: string[];
+}
+
+export interface EmailProviderEventsPlan {
+  readOnly: true;
+  noMutation: true;
+  noCustomerEmailSent: true;
+  metadataOnly: true;
+  mockIngestionAvailable: boolean;
+  providerEventIngestionReady: boolean;
+  bounceWebhookConfigured: boolean;
+  bounceWebhookSignatureVerified: boolean;
+  monitoringConfigured: boolean;
+  productionReadyContribution: boolean;
+  blockers: string[];
+  warnings: string[];
+}
+
 export interface EmailReadinessResponse {
   provider: EmailProviderName;
   ready: boolean;
@@ -576,7 +621,12 @@ export interface EmailReadinessResponse {
   relayDiagnosticsStatus: EmailRelayDiagnosticsStatus;
   relayDiagnosticsRequired: true;
   bounceWebhookConfigured: boolean;
+  bounceWebhookSignatureVerified: boolean;
+  providerEventIngestionReady: boolean;
   retryPolicyConfigured: boolean;
+  retryProcessorEnabled: boolean;
+  retryPendingCount: number;
+  retryBlockedCount: number;
   monitoringConfigured: boolean;
   smtp: {
     hostConfigured: boolean;

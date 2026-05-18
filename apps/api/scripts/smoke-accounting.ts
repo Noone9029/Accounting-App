@@ -120,7 +120,12 @@ interface EmailReadinessResponse {
   relayDiagnosticsStatus: string;
   relayDiagnosticsRequired: boolean;
   bounceWebhookConfigured: boolean;
+  bounceWebhookSignatureVerified: boolean;
+  providerEventIngestionReady: boolean;
   retryPolicyConfigured: boolean;
+  retryProcessorEnabled: boolean;
+  retryPendingCount: number;
+  retryBlockedCount: number;
   monitoringConfigured: boolean;
   smtp: {
     hostConfigured: boolean;
@@ -143,6 +148,52 @@ interface EmailDiagnosticsResponse {
   noMutation: boolean;
   provider: string;
   plan?: EmailReadinessResponse["diagnostics"];
+}
+
+interface EmailRetryPlanResponse {
+  readOnly: boolean;
+  noMutation: boolean;
+  noCustomerEmailSent: boolean;
+  executionEnabled: boolean;
+  retryWorkerConfigured: boolean;
+  retryProcessorEnabled: boolean;
+  pendingCount: number;
+  failedRetryableCount: number;
+  blockedCount: number;
+  nextAttemptCount: number;
+  maxAttemptsPolicy: {
+    defaultMaxAttempts: number;
+    maxBatchLimit: number;
+  };
+  productionReadyContribution: boolean;
+  blockers: string[];
+  warnings: string[];
+}
+
+interface EmailRetryProcessResponse {
+  status: string;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  noEmailSent: boolean;
+  noCustomerEmailSent: boolean;
+  noMutation: boolean;
+  provider: string;
+  plan?: EmailRetryPlanResponse;
+}
+
+interface EmailProviderEventsPlanResponse {
+  readOnly: boolean;
+  noMutation: boolean;
+  noCustomerEmailSent: boolean;
+  metadataOnly: boolean;
+  mockIngestionAvailable: boolean;
+  providerEventIngestionReady: boolean;
+  bounceWebhookConfigured: boolean;
+  bounceWebhookSignatureVerified: boolean;
+  monitoringConfigured: boolean;
+  productionReadyContribution: boolean;
+  blockers: string[];
+  warnings: string[];
 }
 
 interface EmailSenderDomainEvidenceListResponse {
@@ -2266,7 +2317,12 @@ async function main(): Promise<void> {
   assertEqual(emailReadiness.relayDiagnosticsStatus, "SKIPPED_DISABLED", "email relay diagnostics are skipped while disabled");
   assert(emailReadiness.relayDiagnosticsRequired, "email relay diagnostics are required");
   assert(!emailReadiness.bounceWebhookConfigured, "email bounce webhook remains unconfigured");
-  assert(!emailReadiness.retryPolicyConfigured, "email retry policy remains unconfigured");
+  assert(!emailReadiness.bounceWebhookSignatureVerified, "email bounce webhook signature remains unverified");
+  assert(!emailReadiness.providerEventIngestionReady, "email provider event ingestion remains mock-only");
+  assert(emailReadiness.retryPolicyConfigured, "email retry policy metadata is configured");
+  assert(!emailReadiness.retryProcessorEnabled, "email retry processor is disabled by default");
+  assert(emailReadiness.retryPendingCount >= 0, "email retry pending count is safe");
+  assert(emailReadiness.retryBlockedCount >= 0, "email retry blocked count is safe");
   assert(!emailReadiness.monitoringConfigured, "email monitoring remains unconfigured");
   assertNoEmailSecretExposure(emailReadiness, "email readiness");
   const emailSenderEvidence = await get<EmailSenderDomainEvidenceListResponse>("/email/sender-domain-evidence", headers);
@@ -2275,7 +2331,36 @@ async function main(): Promise<void> {
   assert(emailSenderEvidence.noEmailSent, "email sender-domain evidence sends no email");
   assert(emailSenderEvidence.noOutboxRecord, "email sender-domain evidence creates no outbox record");
   assertNoEmailSecretExposure(emailSenderEvidence, "email sender-domain evidence");
+  const emailRetryPlan = await get<EmailRetryPlanResponse>("/email/retry-plan", headers);
+  assert(emailRetryPlan.readOnly, "email retry plan is read-only");
+  assert(emailRetryPlan.noMutation, "email retry plan is no-mutation");
+  assert(emailRetryPlan.noCustomerEmailSent, "email retry plan sends no customer email");
+  assert(!emailRetryPlan.executionEnabled, "email retry processor is disabled by default");
+  assert(!emailRetryPlan.retryWorkerConfigured, "email retry worker is not configured by default");
+  assertEqual(emailRetryPlan.productionReadyContribution, false, "email retry plan is not production-ready by default");
+  assert(emailRetryPlan.maxAttemptsPolicy.defaultMaxAttempts >= 1, "email retry plan exposes safe max-attempts policy");
+  assertNoEmailSecretExposure(emailRetryPlan, "email retry plan");
+  const emailProviderEventsPlan = await get<EmailProviderEventsPlanResponse>("/email/provider-events/plan", headers);
+  assert(emailProviderEventsPlan.readOnly, "email provider events plan is read-only");
+  assert(emailProviderEventsPlan.noMutation, "email provider events plan is no-mutation");
+  assert(emailProviderEventsPlan.noCustomerEmailSent, "email provider events plan sends no customer email");
+  assert(emailProviderEventsPlan.metadataOnly, "email provider events plan is metadata-only");
+  assert(emailProviderEventsPlan.mockIngestionAvailable, "email provider events mock ingestion is available");
+  assert(!emailProviderEventsPlan.providerEventIngestionReady, "email provider events are not production-ready");
+  assert(!emailProviderEventsPlan.bounceWebhookConfigured, "email bounce webhook remains unconfigured in event plan");
+  assert(!emailProviderEventsPlan.bounceWebhookSignatureVerified, "email bounce webhook signature remains unverified in event plan");
+  assert(!emailProviderEventsPlan.monitoringConfigured, "email monitoring remains unconfigured in event plan");
+  assertEqual(emailProviderEventsPlan.productionReadyContribution, false, "email provider events do not contribute to production readiness");
+  assertNoEmailSecretExposure(emailProviderEventsPlan, "email provider events plan");
   const emailOutboxBeforeDiagnostics = await get<EmailOutboxEntry[]>("/email/outbox", headers);
+  const emailRetryProcess = await post<EmailRetryProcessResponse>("/email/retry-process", headers, {});
+  assertEqual(emailRetryProcess.status, "SKIPPED_DISABLED", "email retry processor skipped by default");
+  assert(!emailRetryProcess.executionEnabled, "email retry processor execution disabled by default");
+  assert(!emailRetryProcess.executionAttempted, "email retry processor does not attempt by default");
+  assert(emailRetryProcess.noEmailSent, "email retry processor sends no email by default");
+  assert(emailRetryProcess.noCustomerEmailSent, "email retry processor sends no customer email by default");
+  assert(emailRetryProcess.noMutation, "email retry processor is no-mutation by default");
+  assertNoEmailSecretExposure(emailRetryProcess, "email retry processor");
   const emailDiagnostics = await post<EmailDiagnosticsResponse>("/email/diagnostics", headers, {});
   assertEqual(emailDiagnostics.status, "SKIPPED_DISABLED", "email diagnostics skipped by default");
   assert(!emailDiagnostics.executionEnabled, "email diagnostics execution is disabled by default");
@@ -2288,7 +2373,7 @@ async function main(): Promise<void> {
   assertEqual(emailDiagnostics.plan?.productionReady, false, "email diagnostics plan is not production-ready");
   assertNoEmailSecretExposure(emailDiagnostics, "email diagnostics");
   const emailOutboxAfterDiagnostics = await get<EmailOutboxEntry[]>("/email/outbox", headers);
-  assertEqual(emailOutboxAfterDiagnostics.length, emailOutboxBeforeDiagnostics.length, "email diagnostics does not create outbox records");
+  assertEqual(emailOutboxAfterDiagnostics.length, emailOutboxBeforeDiagnostics.length, "email retry and diagnostics do not create outbox records");
   const testEmailAddress = `smoke-test-send-${Date.now()}@example.com`;
   const testEmail = await post<EmailOutboxDetail>("/email/test-send", headers, { toEmail: testEmailAddress });
   assertEqual(testEmail.templateType, "TEST_EMAIL", "test-send template type");
@@ -6210,9 +6295,18 @@ async function main(): Promise<void> {
         emailSenderDomainMissingEvidenceTypes: emailReadiness.senderDomain.missingEvidenceTypes,
         emailRelayDiagnosticsStatus: emailReadiness.relayDiagnosticsStatus,
         emailBounceWebhookConfigured: emailReadiness.bounceWebhookConfigured,
+        emailBounceWebhookSignatureVerified: emailReadiness.bounceWebhookSignatureVerified,
         emailRetryPolicyConfigured: emailReadiness.retryPolicyConfigured,
+        emailRetryProcessorEnabled: emailReadiness.retryProcessorEnabled,
+        emailRetryPendingCount: emailReadiness.retryPendingCount,
+        emailRetryBlockedCount: emailReadiness.retryBlockedCount,
+        emailProviderEventIngestionReady: emailReadiness.providerEventIngestionReady,
         emailMonitoringConfigured: emailReadiness.monitoringConfigured,
         emailReadinessSecretsRedacted: !JSON.stringify(emailReadiness).includes("SMTP_PASSWORD"),
+        emailRetryPlanExecutionEnabled: emailRetryPlan.executionEnabled,
+        emailRetryProcessStatus: emailRetryProcess.status,
+        emailRetryProcessNoEmailSent: emailRetryProcess.noEmailSent,
+        emailProviderEventsMockIngestionAvailable: emailProviderEventsPlan.mockIngestionAvailable,
         emailDiagnosticsStatus: emailDiagnostics.status,
         emailDiagnosticsExecutionEnabled: emailDiagnostics.executionEnabled,
         emailDiagnosticsNoEmailSent: emailDiagnostics.noEmailSent,

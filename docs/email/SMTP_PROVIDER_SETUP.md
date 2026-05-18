@@ -24,6 +24,7 @@ SMTP_SECURE="false"
 LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED="false"
 LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS=""
 LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS="example.test,ledgerbyte.local"
+LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED="false"
 ```
 
 Never commit real SMTP credentials. `SMTP_PASSWORD` is not returned by readiness APIs and must not be logged.
@@ -48,6 +49,9 @@ Use a sandbox SMTP service such as Mailtrap, Resend SMTP, or another provider te
 - `GET /email/readiness` shows sender-domain SPF/DKIM/DMARC status, relay diagnostics status, and `productionReady=false` until relay diagnostics, domain evidence, bounces, retries, and monitoring are all ready.
 - `GET /email/diagnostics-plan` reports whether diagnostics execution is enabled, whether allowlisted recipients/domains are configured, and that no customer email/no mutation is the default.
 - Default `POST /email/diagnostics` returns `SKIPPED_DISABLED`, sends no email, and creates no outbox record.
+- `GET /email/retry-plan` reports retry counts and max-attempts policy without sending email or mutating data.
+- Default `POST /email/retry-process` returns `SKIPPED_DISABLED`, sends no email, and mutates nothing because `LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED=false`.
+- `GET /email/provider-events/plan` reports mock-only event readiness; unsigned mock events do not make bounce/webhook or monitoring production-ready.
 - If diagnostics sending is explicitly enabled, use only an allowlisted sandbox recipient; responses mask the recipient and return a redacted delivery summary.
 - `POST /email/test-send` still creates an `EmailOutbox` record with `SENT_PROVIDER` when explicitly used against a configured SMTP relay.
 - The provider message id is stored when the SMTP relay returns one.
@@ -55,8 +59,8 @@ Use a sandbox SMTP service such as Mailtrap, Resend SMTP, or another provider te
 
 ## Current Limitations
 
-- No background queue or scheduled retry worker.
-- No bounce, complaint, suppression-list, or webhook handling.
+- Retry metadata and a disabled-by-default manual processor exist, but no scheduled background worker.
+- Mock bounce/complaint/provider event capture exists, but no signed production webhook or suppression-list handling.
 - DKIM/SPF/DMARC evidence is metadata-only; no live DNS or provider validation workflow is implemented.
 - No invoice/statement email sending yet.
 - Mock remains the default and should remain active for tests/smoke.

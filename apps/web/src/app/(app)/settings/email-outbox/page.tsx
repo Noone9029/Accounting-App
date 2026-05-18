@@ -8,11 +8,13 @@ import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
   emailProviderLabel,
+  emailProviderEventIngestionStatusLabel,
   emailProviderWarningText,
   emailReadinessClass,
   emailReadinessLabel,
   emailDiagnosticsStatusLabel,
   emailRelayDiagnosticsStatusLabel,
+  emailRetryProcessorStatusLabel,
   emailSenderDomainEvidenceStatusLabel,
   emailSenderDomainStatusLabel,
   emailStatusClass,
@@ -27,7 +29,9 @@ import type {
   EmailDiagnosticsResponse,
   EmailOutboxDetail,
   EmailOutboxEntry,
+  EmailProviderEventsPlan,
   EmailReadinessResponse,
+  EmailRetryPlan,
   EmailSenderDomainEvidence,
   EmailSenderDomainEvidenceListResponse,
   EmailSenderDomainEvidenceResponse,
@@ -50,6 +54,10 @@ export default function EmailOutboxPage() {
   const [diagnosticsEmail, setDiagnosticsEmail] = useState("");
   const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
   const [diagnosticsResult, setDiagnosticsResult] = useState<EmailDiagnosticsResponse | null>(null);
+  const [retryPlan, setRetryPlan] = useState<EmailRetryPlan | null>(null);
+  const [retryPlanLoading, setRetryPlanLoading] = useState(false);
+  const [eventPlan, setEventPlan] = useState<EmailProviderEventsPlan | null>(null);
+  const [eventPlanLoading, setEventPlanLoading] = useState(false);
   const [evidenceDomain, setEvidenceDomain] = useState("");
   const [evidenceType, setEvidenceType] = useState<EmailSenderDomainEvidenceType>("SPF");
   const [evidenceProvider, setEvidenceProvider] = useState("");
@@ -121,6 +129,30 @@ export default function EmailOutboxPage() {
       setError(sendError instanceof Error ? sendError.message : "Unable to run email diagnostics.");
     } finally {
       setDiagnosticsLoading(false);
+    }
+  }
+
+  async function viewRetryPlan() {
+    setRetryPlanLoading(true);
+    setError("");
+    try {
+      setRetryPlan(await apiRequest<EmailRetryPlan>("/email/retry-plan"));
+    } catch (retryError) {
+      setError(retryError instanceof Error ? retryError.message : "Unable to load email retry plan.");
+    } finally {
+      setRetryPlanLoading(false);
+    }
+  }
+
+  async function viewEventReadiness() {
+    setEventPlanLoading(true);
+    setError("");
+    try {
+      setEventPlan(await apiRequest<EmailProviderEventsPlan>("/email/provider-events/plan"));
+    } catch (eventError) {
+      setError(eventError instanceof Error ? eventError.message : "Unable to load provider event readiness.");
+    } finally {
+      setEventPlanLoading(false);
     }
   }
 
@@ -251,8 +283,55 @@ export default function EmailOutboxPage() {
           <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
             <Detail label="Bounce webhook" value={readiness.bounceWebhookConfigured ? "Configured" : "Missing"} />
             <Detail label="Retry policy" value={readiness.retryPolicyConfigured ? "Configured" : "Missing"} />
+            <Detail label="Retry processor" value={emailRetryProcessorStatusLabel(readiness.retryProcessorEnabled)} />
+            <Detail label="Pending retries" value={String(readiness.retryPendingCount)} />
+            <Detail label="Blocked retries" value={String(readiness.retryBlockedCount)} />
+            <Detail label="Provider events" value={emailProviderEventIngestionStatusLabel(readiness.providerEventIngestionReady)} />
             <Detail label="Monitoring" value={readiness.monitoringConfigured ? "Configured" : "Missing"} />
           </div>
+          {canManageEmail ? (
+            <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+              <h3 className="text-sm font-semibold text-ink">Retry and provider event readiness</h3>
+              <p className="mt-1 text-sm text-steel">
+                Retry processing is disabled by default and this page only shows safe plans. Provider event capture is mock-only until a signed webhook is
+                implemented.
+              </p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => void viewRetryPlan()}
+                  disabled={retryPlanLoading}
+                  className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  {retryPlanLoading ? "Loading..." : "View retry plan"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void viewEventReadiness()}
+                  disabled={eventPlanLoading}
+                  className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  {eventPlanLoading ? "Loading..." : "View event readiness"}
+                </button>
+              </div>
+              {retryPlan ? (
+                <div className="mt-3 grid gap-3 text-sm md:grid-cols-4">
+                  <Detail label="Execution" value={retryPlan.executionEnabled ? "Enabled" : "Disabled"} />
+                  <Detail label="Retryable failed" value={String(retryPlan.failedRetryableCount)} />
+                  <Detail label="Due attempts" value={String(retryPlan.nextAttemptCount)} />
+                  <Detail label="Max attempts" value={String(retryPlan.maxAttemptsPolicy.defaultMaxAttempts)} />
+                </div>
+              ) : null}
+              {eventPlan ? (
+                <div className="mt-3 grid gap-3 text-sm md:grid-cols-4">
+                  <Detail label="Mock ingestion" value={eventPlan.mockIngestionAvailable ? "Available" : "Missing"} />
+                  <Detail label="Signature verified" value={eventPlan.bounceWebhookSignatureVerified ? "Yes" : "No"} />
+                  <Detail label="Webhook" value={eventPlan.bounceWebhookConfigured ? "Configured" : "Missing"} />
+                  <Detail label="Production contribution" value={eventPlan.productionReadyContribution ? "Yes" : "No"} />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {(readiness.blockers.length > 0 || readiness.blockingReasons.length > 0) ? (
             <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
               {(readiness.blockers.length > 0 ? readiness.blockers : readiness.blockingReasons).map((reason) => (

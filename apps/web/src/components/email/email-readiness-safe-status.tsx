@@ -1,7 +1,9 @@
 import {
   emailDiagnosticsStatusLabel,
+  emailProviderEventIngestionStatusLabel,
   emailProductionReadinessLabel,
   emailRelayDiagnosticsStatusLabel,
+  emailRetryProcessorStatusLabel,
   emailSenderDomainStatusLabel,
 } from "@/lib/email";
 import type { EmailDiagnosticsResponse, EmailReadinessResponse } from "@/lib/types";
@@ -26,7 +28,8 @@ export function EmailReadinessSafeStatus({
         <SafeStatusItem label="Sender domain" value={emailSenderDomainStatusLabel(readiness.senderDomain.evidenceStatus)} />
         <SafeStatusItem label="Relay diagnostics" value={emailRelayDiagnosticsStatusLabel(readiness.relayDiagnosticsStatus)} />
         <SafeStatusItem label="Bounces" value={readiness.bounceWebhookConfigured ? "Webhook configured" : "Bounce webhooks missing"} />
-        <SafeStatusItem label="Retries" value={readiness.retryPolicyConfigured ? "Retry policy configured" : "Retry policy missing"} />
+        <SafeStatusItem label="Retries" value={emailRetryProcessorStatusLabel(readiness.retryProcessorEnabled)} />
+        <SafeStatusItem label="Provider events" value={emailProviderEventIngestionStatusLabel(readiness.providerEventIngestionReady)} />
         <SafeStatusItem label="Monitoring" value={readiness.monitoringConfigured ? "Monitoring configured" : "Monitoring missing"} />
       </div>
       <p className="mt-3 text-steel">
@@ -36,6 +39,9 @@ export function EmailReadinessSafeStatus({
       <p className="mt-2 text-steel">
         Sender-domain readiness requires SPF, DKIM, and DMARC evidence for the configured sender domain. Evidence capture is metadata-only and does not
         perform DNS provider actions or send customer email.
+      </p>
+      <p className="mt-2 text-steel">
+        Retry processing is plan-first and disabled by default. Provider events are mock-only and unsigned until a verified webhook integration is added.
       </p>
       {diagnosticsResult ? (
         <p className="mt-2 font-medium text-ink">

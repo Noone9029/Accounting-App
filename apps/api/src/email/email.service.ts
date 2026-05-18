@@ -1,15 +1,30 @@
 import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { EmailDeliveryStatus, EmailSenderDomainEvidenceStatus, EmailSenderDomainEvidenceType, EmailTemplateType, Prisma } from "@prisma/client";
+import {
+  EmailDeliveryStatus,
+  EmailProviderEventType,
+  EmailSenderDomainEvidenceStatus,
+  EmailSenderDomainEvidenceType,
+  EmailTemplateType,
+  Prisma,
+} from "@prisma/client";
 import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateEmailSenderDomainEvidenceDto } from "./dto/create-email-sender-domain-evidence.dto";
+import { ReceiveMockEmailProviderEventDto } from "./dto/receive-mock-email-provider-event.dto";
 import { RevokeEmailSenderDomainEvidenceDto } from "./dto/revoke-email-sender-domain-evidence.dto";
+import { RunEmailRetryProcessDto } from "./dto/run-email-retry-process.dto";
 import { VerifyEmailSenderDomainEvidenceDto } from "./dto/verify-email-sender-domain-evidence.dto";
 import { buildOrganizationInviteEmail, buildPasswordResetEmail, buildTestEmail } from "./email-templates";
 import { EMAIL_PROVIDER, type EmailMessage, type EmailProvider } from "./email-provider";
-import { EMAIL_REDACTION_GUARANTEES, containsEmailSecret, maskEmailAddress, redactEmailDiagnosticText } from "./email-redaction";
+import {
+  EMAIL_REDACTION_GUARANTEES,
+  containsCustomerEmailContent,
+  containsEmailSecret,
+  maskEmailAddress,
+  redactEmailDiagnosticText,
+} from "./email-redaction";
 
 interface SendOrganizationInviteInput {
   organizationId: string;
@@ -38,11 +53,15 @@ interface RunDiagnosticsInput {
 type RelayDiagnosticsStatus = "NOT_RUN" | "SKIPPED_DISABLED" | "READY_FOR_NON_PRODUCTION_TEST" | "ATTEMPTED" | "FAILED";
 type SenderDomainEvidenceStatus = "BLOCKED" | "PARTIAL" | "READY_FOR_REVIEW";
 
+type EmailRetryProcessStatus = "SKIPPED_DISABLED" | "ATTEMPTED";
+
 const REQUIRED_SENDER_DOMAIN_EVIDENCE_TYPES = [
   EmailSenderDomainEvidenceType.SPF,
   EmailSenderDomainEvidenceType.DKIM,
   EmailSenderDomainEvidenceType.DMARC,
 ];
+const DEFAULT_EMAIL_MAX_ATTEMPTS = 3;
+const MAX_EMAIL_RETRY_PROCESS_LIMIT = 50;
 
 @Injectable()
 export class EmailService {
@@ -70,9 +89,15 @@ export class EmailService {
     const providerConfigured = providerReadiness.provider !== "invalid";
     const senderDomain = await this.senderDomainReadiness(organizationId);
     const relayDiagnosticsStatus = this.currentRelayDiagnosticsStatus(providerReadiness.realSendingEnabled);
+    const retryPlan = await this.retryPlan(organizationId);
+    const providerEventPlan = this.providerEventsPlan();
     const operationalBlockers = this.operationalReadinessBlockers({
       senderDomainReady: senderDomain.productionReadyContribution,
       relayDiagnosticsStatus,
+      retryProcessorEnabled: retryPlan.retryProcessorEnabled,
+      providerEventIngestionReady: providerEventPlan.providerEventIngestionReady,
+      bounceWebhookConfigured: providerEventPlan.bounceWebhookConfigured,
+      monitoringConfigured: false,
     });
     const productionBlockers = [
       ...this.productionReadinessBlockers({
@@ -109,8 +134,13 @@ export class EmailService {
       senderDomain,
       relayDiagnosticsStatus,
       relayDiagnosticsRequired: true,
-      bounceWebhookConfigured: false,
-      retryPolicyConfigured: false,
+      retryPolicyConfigured: true,
+      retryProcessorEnabled: retryPlan.retryProcessorEnabled,
+      retryPendingCount: retryPlan.pendingCount,
+      retryBlockedCount: retryPlan.blockedCount,
+      bounceWebhookConfigured: providerEventPlan.bounceWebhookConfigured,
+      bounceWebhookSignatureVerified: providerEventPlan.bounceWebhookSignatureVerified,
+      providerEventIngestionReady: providerEventPlan.providerEventIngestionReady,
       monitoringConfigured: false,
     };
   }
@@ -127,6 +157,284 @@ export class EmailService {
       noCustomerEmailSentByDefault: true,
       noMutationByDefault: true,
       productionReady: false,
+    };
+  }
+
+  async retryPlan(organizationId: string) {
+    const now = new Date();
+    const pendingCount = await this.prisma.emailOutbox.count({
+      where: {
+        organizationId,
+        status: EmailDeliveryStatus.QUEUED,
+      },
+    });
+    const failedRetryableCount = await this.prisma.emailOutbox.count({
+      where: {
+        organizationId,
+        status: EmailDeliveryStatus.FAILED,
+        attemptCount: { lt: DEFAULT_EMAIL_MAX_ATTEMPTS },
+        bouncedAt: null,
+        complainedAt: null,
+      },
+    });
+    const blockedCount = await this.prisma.emailOutbox.count({
+      where: {
+        organizationId,
+        OR: [
+          { status: EmailDeliveryStatus.FAILED, attemptCount: { gte: DEFAULT_EMAIL_MAX_ATTEMPTS } },
+          { bouncedAt: { not: null } },
+          { complainedAt: { not: null } },
+        ],
+      },
+    });
+    const nextAttemptCount = await this.prisma.emailOutbox.count({
+      where: {
+        organizationId,
+        status: { in: [EmailDeliveryStatus.QUEUED, EmailDeliveryStatus.FAILED] },
+        attemptCount: { lt: DEFAULT_EMAIL_MAX_ATTEMPTS },
+        bouncedAt: null,
+        complainedAt: null,
+        OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+      },
+    });
+    const blockers = [];
+    const warnings = [
+      "Retry processing is disabled by default and must be explicitly enabled for a controlled worker or admin run.",
+      "Retry processing updates existing outbox metadata only; it must not create customer-facing outbox records.",
+    ];
+
+    if (!this.retryProcessorEnabled) {
+      blockers.push("Email retry processor is disabled by default.");
+    }
+
+    return {
+      readOnly: true,
+      noMutation: true,
+      noCustomerEmailSent: true,
+      executionEnabled: this.retryProcessorEnabled,
+      retryWorkerConfigured: this.retryProcessorEnabled,
+      retryProcessorEnabled: this.retryProcessorEnabled,
+      pendingCount,
+      failedRetryableCount,
+      blockedCount,
+      nextAttemptCount,
+      maxAttemptsPolicy: {
+        defaultMaxAttempts: DEFAULT_EMAIL_MAX_ATTEMPTS,
+        maxBatchLimit: MAX_EMAIL_RETRY_PROCESS_LIMIT,
+      },
+      productionReadyContribution: this.retryProcessorEnabled,
+      blockers,
+      warnings,
+    };
+  }
+
+  providerEventsPlan() {
+    return {
+      readOnly: true,
+      noMutation: true,
+      noCustomerEmailSent: true,
+      metadataOnly: true,
+      mockIngestionAvailable: true,
+      providerEventIngestionReady: false,
+      bounceWebhookConfigured: false,
+      bounceWebhookSignatureVerified: false,
+      monitoringConfigured: false,
+      productionReadyContribution: false,
+      blockers: [
+        "Bounce webhook handling is not configured.",
+        "Provider event ingestion is mock-only and unsigned.",
+        "Email monitoring is not configured.",
+      ],
+      warnings: [
+        "Mock provider events are for local/admin readiness evidence only.",
+        "Unsigned provider events do not make production email monitoring ready.",
+      ],
+    };
+  }
+
+  async retryProcess(organizationId: string, actorUserId: string, dto: RunEmailRetryProcessDto = {}) {
+    const plan = await this.retryPlan(organizationId);
+    if (!this.retryProcessorEnabled) {
+      return {
+        status: "SKIPPED_DISABLED" satisfies EmailRetryProcessStatus,
+        executionEnabled: false,
+        executionAttempted: false,
+        noEmailSent: true,
+        noCustomerEmailSent: true,
+        noMutation: true,
+        provider: this.provider.provider,
+        plan,
+        redactionGuarantees: EMAIL_REDACTION_GUARANTEES,
+      };
+    }
+
+    const limit = clampRetryLimit(dto.limit);
+    const now = new Date();
+    const candidates = await this.prisma.emailOutbox.findMany({
+      where: {
+        organizationId,
+        status: { in: [EmailDeliveryStatus.QUEUED, EmailDeliveryStatus.FAILED] },
+        bouncedAt: null,
+        complainedAt: null,
+        OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+      },
+      orderBy: [{ nextAttemptAt: "asc" }, { createdAt: "asc" }],
+      take: limit,
+      select: EMAIL_OUTBOX_RETRY_SELECT,
+    });
+    const retryable = candidates.filter((candidate) => candidate.attemptCount < candidate.maxAttempts);
+    const blockedCount = candidates.length - retryable.length;
+    const lockedBy = `email-retry:${actorUserId}:${Date.now()}`;
+    const attempted = [];
+    let sentCount = 0;
+    let failedCount = 0;
+
+    for (const email of retryable) {
+      await this.prisma.emailOutbox.update({
+        where: { id: email.id },
+        data: {
+          retryLockedAt: new Date(),
+          retryLockedBy: lockedBy,
+        },
+        select: EMAIL_OUTBOX_LIST_SELECT,
+      });
+
+      const result = await this.provider.send({
+        organizationId: email.organizationId,
+        toEmail: email.toEmail,
+        fromEmail: email.fromEmail,
+        subject: email.subject,
+        templateType: email.templateType,
+        bodyText: email.bodyText,
+        bodyHtml: email.bodyHtml,
+      });
+      const attemptCount = email.attemptCount + 1;
+      const errorMessage = redactEmailDiagnosticText(result.errorMessage);
+      const failed = result.status === EmailDeliveryStatus.FAILED;
+      if (failed) {
+        failedCount += 1;
+      } else {
+        sentCount += 1;
+      }
+
+      const updated = await this.prisma.emailOutbox.update({
+        where: { id: email.id },
+        data: {
+          attemptCount,
+          lastAttemptAt: new Date(),
+          status: result.status,
+          provider: result.provider,
+          providerMessageId: result.providerMessageId ?? email.providerMessageId ?? null,
+          errorMessage,
+          lastErrorRedacted: errorMessage,
+          sentAt: result.sentAt ?? (failed ? email.sentAt : new Date()),
+          nextAttemptAt: failed && attemptCount < email.maxAttempts ? nextRetryAttemptAt(attemptCount) : null,
+          retryLockedAt: null,
+          retryLockedBy: null,
+        },
+        select: EMAIL_OUTBOX_LIST_SELECT,
+      });
+
+      attempted.push({
+        id: updated.id,
+        status: updated.status,
+        provider: updated.provider,
+        attemptCount,
+        providerMessageId: updated.providerMessageId ? "present" : null,
+        errorMessage: redactEmailDiagnosticText(updated.errorMessage),
+        nextAttemptAt: updated.nextAttemptAt,
+      });
+    }
+
+    const response = {
+      status: "ATTEMPTED" satisfies EmailRetryProcessStatus,
+      executionEnabled: true,
+      executionAttempted: true,
+      noCustomerEmailSentByDefault: true,
+      noRealCustomerEmailSent: !this.provider.readiness().realSendingEnabled,
+      customerEmailSendAttempted: attempted.length > 0,
+      noMutation: false,
+      noOutboxRecordCreated: true,
+      provider: this.provider.provider,
+      attemptedCount: attempted.length,
+      sentCount,
+      failedCount,
+      blockedCount,
+      attempted,
+      redactionGuarantees: EMAIL_REDACTION_GUARANTEES,
+    };
+
+    await this.auditLogService?.log({
+      organizationId,
+      actorUserId,
+      action: AUDIT_EVENTS.EMAIL_RETRY_ATTEMPTED,
+      entityType: AUDIT_ENTITY_TYPES.EMAIL_OUTBOX,
+      entityId: organizationId,
+      after: {
+        attemptedCount: response.attemptedCount,
+        sentCount: response.sentCount,
+        failedCount: response.failedCount,
+        blockedCount: response.blockedCount,
+        provider: response.provider,
+      },
+    });
+
+    return response;
+  }
+
+  async receiveMockProviderEvent(organizationId: string, actorUserId: string, dto: ReceiveMockEmailProviderEventDto) {
+    this.assertProviderEventContainsNoSecrets(dto);
+    const emailOutbox = dto.emailOutboxId
+      ? await this.prisma.emailOutbox.findFirst({
+          where: { id: dto.emailOutboxId, organizationId },
+          select: { id: true, organizationId: true },
+        })
+      : null;
+
+    if (dto.emailOutboxId && !emailOutbox) {
+      throw new NotFoundException("Email outbox record not found.");
+    }
+
+    const event = await this.prisma.emailProviderEvent.create({
+      data: {
+        organizationId,
+        emailOutboxId: emailOutbox?.id ?? null,
+        provider: normalizeOptionalText(dto.provider) ?? "mock",
+        eventType: dto.eventType,
+        providerMessageIdRedacted: dto.providerMessageId ? "present" : null,
+        payloadSummaryJson: sanitizeEvidenceSummary(dto.payloadSummaryJson ?? {}),
+        signatureVerified: false,
+        productionReadyContribution: false,
+      },
+      select: EMAIL_PROVIDER_EVENT_SELECT,
+    });
+
+    if (emailOutbox) {
+      await this.prisma.emailOutbox.update({
+        where: { id: emailOutbox.id },
+        data: providerEventOutboxUpdate(dto.eventType),
+        select: EMAIL_OUTBOX_LIST_SELECT,
+      });
+    }
+
+    await this.auditLogService?.log({
+      organizationId,
+      actorUserId,
+      action: AUDIT_EVENTS.EMAIL_PROVIDER_EVENT_RECEIVED,
+      entityType: AUDIT_ENTITY_TYPES.EMAIL_PROVIDER_EVENT,
+      entityId: event.id,
+      after: event,
+    });
+
+    return {
+      metadataOnly: true,
+      noEmailSent: true,
+      noCustomerEmail: true,
+      noOutboxRecordCreated: true,
+      signatureVerified: false,
+      productionReadyContribution: false,
+      redactionGuarantees: EMAIL_REDACTION_GUARANTEES,
+      event,
     };
   }
 
@@ -403,6 +711,8 @@ export class EmailService {
 
   private async send(message: EmailMessage) {
     const result = await this.provider.send(message);
+    const failed = result.status === EmailDeliveryStatus.FAILED;
+    const errorMessage = redactEmailDiagnosticText(result.errorMessage);
     return this.prisma.emailOutbox.create({
       data: {
         organizationId: message.organizationId ?? null,
@@ -415,8 +725,13 @@ export class EmailService {
         status: result.status,
         provider: result.provider,
         providerMessageId: result.providerMessageId ?? null,
-        errorMessage: result.errorMessage ?? null,
+        errorMessage,
         sentAt: result.sentAt ?? null,
+        attemptCount: 1,
+        maxAttempts: DEFAULT_EMAIL_MAX_ATTEMPTS,
+        nextAttemptAt: failed ? nextRetryAttemptAt(1) : null,
+        lastAttemptAt: new Date(),
+        lastErrorRedacted: errorMessage,
       },
       select: EMAIL_OUTBOX_DETAIL_SELECT,
     });
@@ -432,6 +747,10 @@ export class EmailService {
 
   private get diagnosticsExecutionEnabled(): boolean {
     return this.config.get<string>("LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED")?.trim().toLowerCase() === "true";
+  }
+
+  private get retryProcessorEnabled(): boolean {
+    return this.config.get<string>("LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED")?.trim().toLowerCase() === "true";
   }
 
   private get allowedDiagnosticDomains(): string[] {
@@ -517,7 +836,14 @@ export class EmailService {
     return "NOT_RUN";
   }
 
-  private operationalReadinessBlockers(input: { senderDomainReady: boolean; relayDiagnosticsStatus: RelayDiagnosticsStatus }): string[] {
+  private operationalReadinessBlockers(input: {
+    senderDomainReady: boolean;
+    relayDiagnosticsStatus: RelayDiagnosticsStatus;
+    retryProcessorEnabled: boolean;
+    providerEventIngestionReady: boolean;
+    bounceWebhookConfigured: boolean;
+    monitoringConfigured: boolean;
+  }): string[] {
     const blockers: string[] = [];
 
     if (!input.senderDomainReady) {
@@ -526,9 +852,18 @@ export class EmailService {
     if (input.relayDiagnosticsStatus !== "ATTEMPTED") {
       blockers.push("Non-production relay diagnostics must be completed before production email delivery is considered ready.");
     }
-    blockers.push("Bounce webhook handling is not configured.");
-    blockers.push("Email retry policy is not configured.");
-    blockers.push("Email monitoring is not configured.");
+    if (!input.retryProcessorEnabled) {
+      blockers.push("Email retry processor is disabled by default.");
+    }
+    if (!input.bounceWebhookConfigured) {
+      blockers.push("Bounce webhook handling is not configured.");
+    }
+    if (!input.providerEventIngestionReady) {
+      blockers.push("Provider event ingestion is mock-only and unsigned.");
+    }
+    if (!input.monitoringConfigured) {
+      blockers.push("Email monitoring is not configured.");
+    }
 
     return blockers;
   }
@@ -547,6 +882,12 @@ export class EmailService {
   private assertEvidenceContainsNoSecrets(value: unknown) {
     if (containsEmailSecret(value)) {
       throw new BadRequestException("Email sender-domain evidence must not contain secrets.");
+    }
+  }
+
+  private assertProviderEventContainsNoSecrets(value: unknown) {
+    if (containsEmailSecret(value) || containsCustomerEmailContent(value)) {
+      throw new BadRequestException("Email provider event payload must not contain secrets or customer email content.");
     }
   }
 
@@ -603,6 +944,15 @@ const EMAIL_OUTBOX_LIST_SELECT = {
   providerMessageId: true,
   errorMessage: true,
   sentAt: true,
+  attemptCount: true,
+  maxAttempts: true,
+  nextAttemptAt: true,
+  lastAttemptAt: true,
+  lastErrorRedacted: true,
+  providerEventStatus: true,
+  bouncedAt: true,
+  complainedAt: true,
+  deliveredAt: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.EmailOutboxSelect;
@@ -611,6 +961,12 @@ const EMAIL_OUTBOX_DETAIL_SELECT = {
   ...EMAIL_OUTBOX_LIST_SELECT,
   bodyText: true,
   bodyHtml: true,
+} satisfies Prisma.EmailOutboxSelect;
+
+const EMAIL_OUTBOX_RETRY_SELECT = {
+  ...EMAIL_OUTBOX_DETAIL_SELECT,
+  retryLockedAt: true,
+  retryLockedBy: true,
 } satisfies Prisma.EmailOutboxSelect;
 
 const EMAIL_SENDER_DOMAIN_EVIDENCE_SELECT = {
@@ -631,6 +987,20 @@ const EMAIL_SENDER_DOMAIN_EVIDENCE_SELECT = {
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.EmailSenderDomainEvidenceSelect;
+
+const EMAIL_PROVIDER_EVENT_SELECT = {
+  id: true,
+  organizationId: true,
+  emailOutboxId: true,
+  provider: true,
+  eventType: true,
+  providerMessageIdRedacted: true,
+  payloadSummaryJson: true,
+  signatureVerified: true,
+  productionReadyContribution: true,
+  receivedAt: true,
+  createdAt: true,
+} satisfies Prisma.EmailProviderEventSelect;
 
 function isEmailAddress(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -668,4 +1038,51 @@ function sanitizeEvidenceSummary(value: Record<string, unknown>): Prisma.InputJs
 
 function isProductionReadyEvidenceType(evidenceType: EmailSenderDomainEvidenceType): boolean {
   return evidenceType !== EmailSenderDomainEvidenceType.OTHER;
+}
+
+function clampRetryLimit(value?: number): number {
+  if (!Number.isInteger(value) || value === undefined) {
+    return 10;
+  }
+  return Math.min(Math.max(value, 1), MAX_EMAIL_RETRY_PROCESS_LIMIT);
+}
+
+function nextRetryAttemptAt(attemptCount: number): Date {
+  const minutes = Math.min(60, Math.max(5, attemptCount * 15));
+  return new Date(Date.now() + minutes * 60 * 1000);
+}
+
+function providerEventOutboxUpdate(eventType: EmailProviderEventType): Prisma.EmailOutboxUpdateInput {
+  const now = new Date();
+  if (eventType === EmailProviderEventType.DELIVERED) {
+    return {
+      providerEventStatus: eventType,
+      deliveredAt: now,
+    };
+  }
+  if (eventType === EmailProviderEventType.BOUNCED) {
+    return {
+      providerEventStatus: eventType,
+      bouncedAt: now,
+      status: EmailDeliveryStatus.FAILED,
+      nextAttemptAt: null,
+    };
+  }
+  if (eventType === EmailProviderEventType.COMPLAINED) {
+    return {
+      providerEventStatus: eventType,
+      complainedAt: now,
+      status: EmailDeliveryStatus.FAILED,
+      nextAttemptAt: null,
+    };
+  }
+  if (eventType === EmailProviderEventType.FAILED) {
+    return {
+      providerEventStatus: eventType,
+      status: EmailDeliveryStatus.FAILED,
+    };
+  }
+  return {
+    providerEventStatus: eventType,
+  };
 }

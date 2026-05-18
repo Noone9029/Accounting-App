@@ -8,8 +8,10 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { CreateEmailSenderDomainEvidenceDto } from "./dto/create-email-sender-domain-evidence.dto";
+import { ReceiveMockEmailProviderEventDto } from "./dto/receive-mock-email-provider-event.dto";
 import { RevokeEmailSenderDomainEvidenceDto } from "./dto/revoke-email-sender-domain-evidence.dto";
 import { RunEmailDiagnosticsDto } from "./dto/run-email-diagnostics.dto";
+import { RunEmailRetryProcessDto } from "./dto/run-email-retry-process.dto";
 import { SendTestEmailDto } from "./dto/send-test-email.dto";
 import { VerifyEmailSenderDomainEvidenceDto } from "./dto/verify-email-sender-domain-evidence.dto";
 import { EmailService } from "./email.service";
@@ -38,6 +40,34 @@ export class EmailController {
       organizationId,
       toEmail: dto.toEmail,
     });
+  }
+
+  @Get("retry-plan")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  retryPlan(@CurrentOrganizationId() organizationId: string) {
+    return this.emailService.retryPlan(organizationId);
+  }
+
+  @Post("retry-process")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  retryProcess(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Body() dto: RunEmailRetryProcessDto) {
+    return this.emailService.retryProcess(organizationId, user.id, dto);
+  }
+
+  @Get("provider-events/plan")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  providerEventsPlan() {
+    return this.emailService.providerEventsPlan();
+  }
+
+  @Post("provider-events/mock")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  receiveMockProviderEvent(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ReceiveMockEmailProviderEventDto,
+  ) {
+    return this.emailService.receiveMockProviderEvent(organizationId, user.id, dto);
   }
 
   @Get("sender-domain-evidence")

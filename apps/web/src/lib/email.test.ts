@@ -7,7 +7,9 @@ import {
   emailProductionReadinessLabel,
   emailDiagnosticsStatusLabel,
   emailRelayDiagnosticsStatusLabel,
+  emailRetryProcessorStatusLabel,
   emailSenderDomainStatusLabel,
+  emailProviderEventIngestionStatusLabel,
   inviteAcceptPath,
   isValidAuthPassword,
   passwordResetConfirmPath,
@@ -39,6 +41,8 @@ describe("email helpers", () => {
     expect(emailDiagnosticsStatusLabel("SKIPPED_DISABLED")).toBe("Diagnostics disabled");
     expect(emailDiagnosticsStatusLabel("ATTEMPTED")).toBe("Diagnostics attempted");
     expect(emailRelayDiagnosticsStatusLabel("READY_FOR_NON_PRODUCTION_TEST")).toBe("Ready for non-production relay test");
+    expect(emailRetryProcessorStatusLabel(false)).toBe("Retry processor disabled");
+    expect(emailProviderEventIngestionStatusLabel(false)).toBe("Mock-only event ingestion");
     expect(emailSenderDomainStatusLabel("BLOCKED")).toBe("SPF/DKIM/DMARC required");
     expect(emailSenderDomainStatusLabel("READY_FOR_REVIEW")).toBe("Ready for review");
     expect(smtpConfigStateLabel(false)).toBe("Missing");

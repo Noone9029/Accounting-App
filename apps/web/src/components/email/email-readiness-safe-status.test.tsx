@@ -52,7 +52,12 @@ describe("EmailReadinessSafeStatus", () => {
           relayDiagnosticsStatus: "SKIPPED_DISABLED",
           relayDiagnosticsRequired: true,
           bounceWebhookConfigured: false,
+          bounceWebhookSignatureVerified: false,
+          providerEventIngestionReady: false,
           retryPolicyConfigured: false,
+          retryProcessorEnabled: false,
+          retryPendingCount: 0,
+          retryBlockedCount: 0,
           monitoringConfigured: false,
           smtp: {
             hostConfigured: false,
@@ -84,7 +89,8 @@ describe("EmailReadinessSafeStatus", () => {
     expect(screen.getByText("Disabled by default")).toBeTruthy();
     expect(screen.getByText("SPF/DKIM/DMARC required")).toBeTruthy();
     expect(screen.getByText("Bounce webhooks missing")).toBeTruthy();
-    expect(screen.getByText("Retry policy missing")).toBeTruthy();
+    expect(screen.getByText("Retry processor disabled")).toBeTruthy();
+    expect(screen.getByText("Mock-only event ingestion")).toBeTruthy();
     expect(screen.getByText("Monitoring missing")).toBeTruthy();
     expect(screen.getAllByText(/Diagnostics disabled/).length).toBeGreaterThan(0);
     expect(document.body.textContent).not.toContain("smtp-password-secret");

@@ -70,6 +70,14 @@ export function emailRelayDiagnosticsStatusLabel(status: string): string {
   return labels[status] ?? status;
 }
 
+export function emailRetryProcessorStatusLabel(enabled: boolean): string {
+  return enabled ? "Retry processor enabled" : "Retry processor disabled";
+}
+
+export function emailProviderEventIngestionStatusLabel(ready: boolean): string {
+  return ready ? "Provider events ready" : "Mock-only event ingestion";
+}
+
 export function emailSenderDomainStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     BLOCKED: "SPF/DKIM/DMARC required",

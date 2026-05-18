@@ -8,6 +8,10 @@ describe("EmailService", () => {
         create: jest.fn((args: { data: Record<string, unknown>; select: unknown }) => Promise.resolve({ id: "email-1", ...args.data })),
         findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
+        update: jest.fn((args: { data: Record<string, unknown>; where: Record<string, unknown>; select: unknown }) =>
+          Promise.resolve({ id: args.where.id, ...args.data }),
+        ),
       },
       emailSenderDomainEvidence: {
         create: jest.fn((args: { data: Record<string, unknown>; select: unknown }) =>
@@ -19,6 +23,12 @@ describe("EmailService", () => {
           Promise.resolve({ id: args.where.id, status: "VERIFIED", productionReadyContribution: true, createdAt: new Date(), updatedAt: new Date(), ...args.data }),
         ),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      emailProviderEvent: {
+        create: jest.fn((args: { data: Record<string, unknown>; select: unknown }) =>
+          Promise.resolve({ id: "event-1", createdAt: new Date("2026-05-15T00:00:00.000Z"), receivedAt: new Date("2026-05-15T00:00:00.000Z"), ...args.data }),
+        ),
+        findMany: jest.fn().mockResolvedValue([]),
       },
     };
     const audit = { log: jest.fn().mockResolvedValue({ id: "audit-1" }) };
@@ -341,19 +351,254 @@ describe("EmailService", () => {
     expect(readiness.relayDiagnosticsRequired).toBe(true);
     expect(readiness.relayDiagnosticsStatus).toBe("SKIPPED_DISABLED");
     expect(readiness.bounceWebhookConfigured).toBe(false);
-    expect(readiness.retryPolicyConfigured).toBe(false);
+    expect(readiness.retryPolicyConfigured).toBe(true);
+    expect(readiness.retryProcessorEnabled).toBe(false);
     expect(readiness.monitoringConfigured).toBe(false);
     expect(readiness.productionReady).toBe(false);
     expect(readiness.blockers).toEqual(
       expect.arrayContaining([
         "Non-production relay diagnostics must be completed before production email delivery is considered ready.",
         "Bounce webhook handling is not configured.",
-        "Email retry policy is not configured.",
+        "Email retry processor is disabled by default.",
+        "Provider event ingestion is mock-only and unsigned.",
         "Email monitoring is not configured.",
       ]),
     );
     expect(provider.send).not.toHaveBeenCalled();
     expect(JSON.stringify(readiness)).not.toContain("smtp-password-secret");
+  });
+
+  it("builds a retry plan without sending email or mutating outbox", async () => {
+    const { service, prisma, provider } = makeService();
+    prisma.emailOutbox.count
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(1);
+
+    const plan = await service.retryPlan("org-1");
+
+    expect(plan).toEqual(
+      expect.objectContaining({
+        readOnly: true,
+        noMutation: true,
+        noCustomerEmailSent: true,
+        executionEnabled: false,
+        retryWorkerConfigured: false,
+        pendingCount: 2,
+        failedRetryableCount: 1,
+        blockedCount: 3,
+        nextAttemptCount: 1,
+        productionReadyContribution: false,
+      }),
+    );
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.emailOutbox.create).not.toHaveBeenCalled();
+    expect(prisma.emailOutbox.update).not.toHaveBeenCalled();
+  });
+
+  it("skips retry processing by default without sending or mutating", async () => {
+    const { service, prisma, provider } = makeService();
+
+    const result = await service.retryProcess("org-1", "user-1", { limit: 5 });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: "SKIPPED_DISABLED",
+        executionEnabled: false,
+        executionAttempted: false,
+        noEmailSent: true,
+        noCustomerEmailSent: true,
+        noMutation: true,
+      }),
+    );
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.emailOutbox.update).not.toHaveBeenCalled();
+  });
+
+  it("processes retryable outbox records when enabled and redacts provider errors", async () => {
+    const { service, prisma, provider, audit } = makeService({
+      config: {
+        LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED: "true",
+      },
+    });
+    prisma.emailOutbox.findMany.mockResolvedValue([
+      {
+        id: "email-retry-1",
+        organizationId: "org-1",
+        toEmail: "customer@example.com",
+        fromEmail: "noreply@example.test",
+        subject: "Password reset",
+        templateType: EmailTemplateType.PASSWORD_RESET,
+        bodyText: "Reset body",
+        bodyHtml: null,
+        status: EmailDeliveryStatus.FAILED,
+        provider: "smtp",
+        attemptCount: 1,
+        maxAttempts: 3,
+        nextAttemptAt: null,
+        bouncedAt: null,
+        complainedAt: null,
+      },
+    ]);
+    provider.send.mockResolvedValue({
+      provider: "smtp",
+      status: EmailDeliveryStatus.FAILED,
+      errorMessage: "password=smtp-password-secret Authorization: Bearer abc123",
+      providerMessageId: "smtp-message-2",
+      sentAt: null,
+    });
+
+    const result = await service.retryProcess("org-1", "user-1", { limit: 5 });
+
+    expect(provider.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: "org-1",
+        toEmail: "customer@example.com",
+        templateType: EmailTemplateType.PASSWORD_RESET,
+        bodyText: "Reset body",
+      }),
+    );
+    expect(prisma.emailOutbox.create).not.toHaveBeenCalled();
+    expect(prisma.emailOutbox.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "email-retry-1" },
+        data: expect.objectContaining({
+          attemptCount: 2,
+          lastErrorRedacted: expect.not.stringContaining("smtp-password-secret"),
+          errorMessage: expect.not.stringContaining("Bearer abc123"),
+          retryLockedAt: null,
+          retryLockedBy: null,
+        }),
+      }),
+    );
+    expect(result).toEqual(expect.objectContaining({ status: "ATTEMPTED", attemptedCount: 1, sentCount: 0, failedCount: 1 }));
+    expect(JSON.stringify(result)).not.toContain("smtp-password-secret");
+    expect(JSON.stringify(result)).not.toContain("Bearer abc123");
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "EMAIL_RETRY_ATTEMPTED" }));
+  });
+
+  it("does not retry records that reached max attempts", async () => {
+    const { service, prisma, provider } = makeService({
+      config: {
+        LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED: "true",
+      },
+    });
+    prisma.emailOutbox.findMany.mockResolvedValue([
+      {
+        id: "email-retry-1",
+        organizationId: "org-1",
+        attemptCount: 3,
+        maxAttempts: 3,
+        nextAttemptAt: null,
+        bouncedAt: null,
+        complainedAt: null,
+      },
+    ]);
+
+    const result = await service.retryProcess("org-1", "user-1", { limit: 5 });
+
+    expect(result).toEqual(expect.objectContaining({ status: "ATTEMPTED", attemptedCount: 0, blockedCount: 1 }));
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.emailOutbox.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects mock provider events that include secrets or customer message content", async () => {
+    const { service, prisma } = makeService();
+
+    await expect(
+      service.receiveMockProviderEvent("org-1", "user-1", {
+        provider: "mailtrap",
+        eventType: "BOUNCED",
+        providerMessageId: "provider-message-1",
+        payloadSummaryJson: { authorization: "Bearer provider-token" },
+      }),
+    ).rejects.toThrow("Email provider event payload must not contain secrets or customer email content.");
+
+    await expect(
+      service.receiveMockProviderEvent("org-1", "user-1", {
+        provider: "mailtrap",
+        eventType: "BOUNCED",
+        payloadSummaryJson: { bodyText: "Customer message body" },
+      }),
+    ).rejects.toThrow("Email provider event payload must not contain secrets or customer email content.");
+
+    expect(prisma.emailProviderEvent.create).not.toHaveBeenCalled();
+  });
+
+  it("stores unsigned mock provider events without making production monitoring ready", async () => {
+    const { service, prisma, provider, audit } = makeService();
+    prisma.emailOutbox.findFirst.mockResolvedValue({ id: "email-1", organizationId: "org-1" });
+
+    const event = await service.receiveMockProviderEvent("org-1", "user-1", {
+      provider: "mailtrap",
+      eventType: "BOUNCED",
+      providerMessageId: "provider-message-secret",
+      emailOutboxId: "email-1",
+      payloadSummaryJson: { event: "bounced", reason: "mailbox unavailable" },
+    });
+
+    expect(event).toEqual(
+      expect.objectContaining({
+        metadataOnly: true,
+        noEmailSent: true,
+        noCustomerEmail: true,
+        noOutboxRecordCreated: true,
+        signatureVerified: false,
+        productionReadyContribution: false,
+      }),
+    );
+    expect(prisma.emailProviderEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          organizationId: "org-1",
+          emailOutboxId: "email-1",
+          eventType: "BOUNCED",
+          providerMessageIdRedacted: "present",
+          signatureVerified: false,
+          productionReadyContribution: false,
+        }),
+      }),
+    );
+    expect(prisma.emailOutbox.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "email-1" },
+        data: expect.objectContaining({
+          providerEventStatus: "BOUNCED",
+          bouncedAt: expect.any(Date),
+        }),
+      }),
+    );
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "EMAIL_PROVIDER_EVENT_RECEIVED" }));
+  });
+
+  it("includes retry, bounce, and monitoring blockers in readiness", async () => {
+    const { service } = makeService();
+
+    const readiness = await service.readiness("org-1");
+
+    expect(readiness).toEqual(
+      expect.objectContaining({
+        retryPolicyConfigured: true,
+        retryProcessorEnabled: false,
+        retryPendingCount: 0,
+        retryBlockedCount: 0,
+        bounceWebhookConfigured: false,
+        bounceWebhookSignatureVerified: false,
+        providerEventIngestionReady: false,
+        monitoringConfigured: false,
+        productionReady: false,
+      }),
+    );
+    expect(readiness.blockers).toEqual(
+      expect.arrayContaining([
+        "Email retry processor is disabled by default.",
+        "Bounce webhook handling is not configured.",
+        "Provider event ingestion is mock-only and unsigned.",
+        "Email monitoring is not configured.",
+      ]),
+    );
   });
 
   it("skips diagnostics by default without sending or mutating", async () => {

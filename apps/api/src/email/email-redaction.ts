@@ -5,12 +5,15 @@ const AUTH_HEADER = /\bAuthorization:\s*[^\r\n]+/gi;
 const BEARER_TOKEN = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
 const PRIVATE_KEY_BLOCK = /-----BEGIN [A-Z ]*PRIVATE KEY-----/i;
 const SENSITIVE_KEY_NAME = /\b(password|passwd|pwd|secret|token|api[_-]?key|authorization|auth[_-]?header|bearer|smtp[_-]?user|smtp[_-]?password|private[_-]?key|dkim[_-]?private[_-]?key)\b/i;
+const CUSTOMER_EMAIL_CONTENT_KEY = /\b(body|body[_-]?text|body[_-]?html|html|message[_-]?body|raw[_-]?payload|customer[_-]?content|customer[_-]?email[_-]?content)\b/i;
+const EMAIL_ADDRESS = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 
 export const EMAIL_REDACTION_GUARANTEES = [
   "SMTP host, username, password, API key, token, connection URL, authorization header, private DKIM key, and provider secret values are not returned.",
   "Readiness and diagnostics responses expose booleans, labels, and redacted summaries only.",
   "Diagnostics does not persist message bodies or delivery records.",
   "Sender-domain evidence stores metadata only and rejects secret-bearing fields.",
+  "Provider event capture stores redacted metadata only and rejects secrets, raw payloads, customer recipients, and customer message bodies.",
 ];
 
 export function redactEmailDiagnosticText(value: unknown): string | null {
@@ -62,6 +65,32 @@ export function containsEmailSecret(value: unknown): boolean {
   }
 
   return hasSecretText(String(value));
+}
+
+export function containsCustomerEmailContent(value: unknown): boolean {
+  if (value === undefined || value === null) {
+    return false;
+  }
+
+  if (typeof value === "string") {
+    return EMAIL_ADDRESS.test(value);
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return false;
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((entry) => containsCustomerEmailContent(entry));
+  }
+
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).some(
+      ([key, entry]) => CUSTOMER_EMAIL_CONTENT_KEY.test(key) || containsCustomerEmailContent(entry),
+    );
+  }
+
+  return EMAIL_ADDRESS.test(String(value));
 }
 
 function hasSecretText(value: string): boolean {

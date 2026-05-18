@@ -82,11 +82,11 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 - Risk level: Medium.
 - Manual credentials needed: Provider sandbox SMTP credentials.
 
-### 10. Add email provider webhooks and retry queue groundwork
+### 10. Add signed email provider webhooks and monitoring
 
-- Objective: Track delivery, bounce, failure, and retry states without blocking requests.
-- Why it matters: Production email needs observability and retries.
-- Dependencies: SMTP validation and queue decision.
+- Objective: Verify provider webhook signatures, apply bounce/complaint suppression metadata, and emit monitoring-safe alerts without exposing provider payloads or customer message bodies.
+- Why it matters: Durable retry metadata and mock provider-event capture exist, but production email still needs signed webhook trust and operational monitoring.
+- Dependencies: `EmailProviderEvent`, `/email/provider-events/plan`, `/email/provider-events/mock`, email readiness blockers, and chosen provider webhook contract.
 - Risk level: Medium.
 - Manual credentials needed: Provider test credentials.
 
@@ -897,13 +897,15 @@ Completed: production SMTP/email readiness validation and safe diagnostics. `GET
 
 Completed: metadata-only sender-domain authentication evidence capture. `EmailSenderDomainEvidence` and `/email/sender-domain-evidence` support SPF/DKIM/DMARC review without DNS-provider secrets, customer email, outbox mutation, or live DNS/provider validation.
 
-1. Run an allowlisted non-production SMTP relay diagnostic and record safe provider-result evidence without sending customer emails.
-2. Add Vercel/Supabase deployment runbook checks and safe env summaries.
-3. Add Playwright E2E coverage for login, dashboard, setup wizard, contact, invoice, payment, and reports.
-4. Add a non-prod object-storage migration executor for attachments/generated documents.
-5. Add support diagnostics for tenant configuration and deployment issues.
-6. Add accountant-reviewed KPI definitions and dashboard documentation.
-7. Add contact and item import/export with validation preview.
-8. Add backup/restore evidence capture and restore-test smoke metadata.
-9. Add controlled beta review checklist export for support and implementation handoff.
+Completed: durable email retry/outbox readiness and mock provider-event capture. `EmailOutbox` now tracks retry metadata, `/email/retry-plan` is read-only, `/email/retry-process` skips by default with no send/no mutation, and `EmailProviderEvent` captures unsigned metadata-only local events without production-readiness claims.
+
+1. Add signed provider webhook verification, suppression-list handling, and monitoring-safe bounce/complaint alerts without enabling real customer email by default.
+2. Run an allowlisted non-production SMTP relay diagnostic and record safe provider-result evidence without sending customer emails.
+3. Add Vercel/Supabase deployment runbook checks and safe env summaries.
+4. Add Playwright E2E coverage for login, dashboard, setup wizard, contact, invoice, payment, and reports.
+5. Add a non-prod object-storage migration executor for attachments/generated documents.
+6. Add support diagnostics for tenant configuration and deployment issues.
+7. Add accountant-reviewed KPI definitions and dashboard documentation.
+8. Add contact and item import/export with validation preview.
+9. Add backup/restore evidence capture and restore-test smoke metadata.
 10. Resume ZATCA sandbox onboarding only after official OTP/sandbox access is available.

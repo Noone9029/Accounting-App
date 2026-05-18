@@ -285,6 +285,10 @@ Email:
 - `GET /email/readiness`
 - `GET /email/diagnostics-plan`
 - `POST /email/diagnostics`
+- `GET /email/retry-plan`
+- `POST /email/retry-process`
+- `GET /email/provider-events/plan`
+- `POST /email/provider-events/mock`
 - `GET /email/sender-domain-evidence`
 - `POST /email/sender-domain-evidence`
 - `POST /email/sender-domain-evidence/:id/verify`
@@ -1474,6 +1478,7 @@ Configuration:
 - Supported provider modes: `mock`, `smtp-disabled`, and `smtp`.
 - SMTP configuration when `EMAIL_PROVIDER=smtp`: `EMAIL_REPLY_TO`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_SECURE`.
 - Diagnostics configuration: `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS`, and `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS`.
+- Retry processor configuration: `LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED=false` by default.
 - Do not commit real SMTP credentials. `SMTP_PASSWORD` is never returned by readiness APIs.
 
 Behavior:
@@ -1484,8 +1489,12 @@ Behavior:
 - `POST /auth/invitations/:token/accept` sets the user password, activates the membership, consumes the token, and returns a normal login response.
 - `POST /auth/password-reset/request` always returns a generic response and only creates a reset token/email when the user exists.
 - `POST /auth/password-reset/confirm` validates a one-hour reset token, updates the password, and consumes the token.
-- `GET /email/readiness` reports active provider readiness, production SMTP configuration booleans, diagnostics gate state, warnings, and blocking reasons without sending email or returning secret values.
+- `GET /email/readiness` reports active provider readiness, production SMTP configuration booleans, diagnostics gate state, retry/bounce/provider-event/monitoring gaps, warnings, and blocking reasons without sending email or returning secret values.
 - `POST /email/diagnostics` is disabled by default, sends no customer email, creates no outbox record, and only attempts an allowlisted test recipient when explicitly enabled.
+- `GET /email/retry-plan` is read-only/no-mutation and reports retryable, blocked, and due outbox counts without sending email.
+- `POST /email/retry-process` is disabled by default with `LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED=false`; default responses are skipped/no-send/no-mutation. When explicitly enabled, it processes due retryable records only, obeys max attempts, updates existing outbox retry metadata, and returns redacted provider summaries.
+- `GET /email/provider-events/plan` reports mock-only provider event readiness, unsigned webhook status, bounce handling gaps, and `productionReady=false`.
+- `POST /email/provider-events/mock` captures metadata-only local/mock delivery events, rejects secrets and customer message content, and never marks production monitoring ready because signatures are not verified.
 - `POST /email/test-send` creates a `TEST_EMAIL` outbox record through the active provider. Mock mode records `SENT_MOCK`; SMTP mode records `SENT_PROVIDER` when a configured relay accepts the message.
 - `GET /email/outbox` and `GET /email/outbox/:id` expose tenant-scoped mock/local email records for admins with `emailOutbox.view`.
 - `POST /auth/tokens/cleanup-expired` deletes expired, unconsumed auth tokens older than 30 days for the active organization.
@@ -1497,8 +1506,8 @@ Rate limits:
 
 Known limitations:
 
-- No background email queue or scheduled retry worker.
-- No paid/provider-specific API adapter, provider webhook, bounce/complaint handling, or DKIM/SPF/domain validation workflow.
+- Retry metadata and disabled-by-default manual processing exist, but no scheduled worker is configured.
+- Mock-only provider event capture exists, but no signed production webhook, suppression list, paid/provider-specific API adapter, or live DKIM/SPF/domain validation workflow exists.
 - No branded HTML template polish.
 - No MFA, refresh-token rotation, or advanced session management.
 
@@ -2347,9 +2356,13 @@ Recommended next step:
 - `GET /email/diagnostics-plan` is a read-only/no-mutation plan endpoint for non-production relay testing. It reports whether diagnostics execution and allowlists are configured and keeps `productionReady=false`.
 - `POST /email/diagnostics` is disabled by default with `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED=false`. In the default state it returns `SKIPPED_DISABLED`, `executionAttempted=false`, `noEmailSent=true`, `noCustomerEmailSent=true`, and creates no outbox record.
 - Diagnostic sending can only be attempted when `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED=true` and the requested recipient matches `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS`, or the built-in internal test domains. Responses return a redacted delivery summary only.
+- `GET /email/retry-plan` is read-only/no-mutation and reports pending, retryable failed, blocked, and due retry counts plus the max-attempts policy.
+- `POST /email/retry-process` is disabled by default with `LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED=false`; default responses return `SKIPPED_DISABLED`, `executionAttempted=false`, `noEmailSent=true`, `noCustomerEmailSent=true`, and `noMutation=true`.
+- Enabled retry processing is manual/admin-gated, uses the active provider only for due retryable outbox records, obeys max attempts and `nextAttemptAt`, updates existing retry metadata, and creates no new outbox record.
+- `GET /email/provider-events/plan` and `POST /email/provider-events/mock` provide metadata-only provider event readiness and unsigned mock event capture. Mock events can update existing outbox delivery/bounce/complaint metadata but do not make webhook, monitoring, or production readiness true.
 - Sender-domain evidence is captured through metadata-only `/email/sender-domain-evidence` endpoints and `/settings/email-outbox`. Evidence can be drafted, verified, or revoked for `SPF`, `DKIM`, `DMARC`, `MX`, `RETURN_PATH`, `PROVIDER_VERIFICATION`, or `OTHER` without DNS-provider actions, customer email, or outbox mutation.
-- Evidence rejects SMTP passwords, API keys, tokens, authorization headers, connection URLs, provider secrets, private DKIM keys, and customer email content. Verified SPF/DKIM/DMARC can make the sender-domain section ready for review, but full `productionReady` remains false until relay diagnostics, bounces, retries, and monitoring are implemented.
-- Email environment variables: `EMAIL_PROVIDER`, `EMAIL_FROM`, `EMAIL_REPLY_TO`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS`, and `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS`.
-- `/settings/email-outbox` shows production email readiness, invite/password-reset reliability warnings, diagnostics disabled-by-default status, sender-domain evidence state, relay/bounce/retry/monitoring gaps, redacted SMTP configuration state, and no-customer-email safety messaging.
-- Production SMTP is still not ready until a non-production relay/provider run, sender-domain evidence review, bounces/webhooks, retries, and monitoring are completed.
-- Latest email sender-domain readiness verification: targeted API email tests, targeted web email status tests, `corepack pnpm db:generate`, typecheck, build, `corepack pnpm smoke:accounting`, and `git diff --check`.
+- Evidence and provider events reject SMTP passwords, API keys, tokens, authorization headers, connection URLs, provider secrets, private DKIM keys, raw payloads, customer recipients, and customer email content. Verified SPF/DKIM/DMARC can make the sender-domain section ready for review, but full `productionReady` remains false until relay diagnostics, signed bounces/webhooks, enabled retries, and monitoring are implemented.
+- Email environment variables: `EMAIL_PROVIDER`, `EMAIL_FROM`, `EMAIL_REPLY_TO`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS`, and `LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED`.
+- `/settings/email-outbox` shows production email readiness, invite/password-reset reliability warnings, diagnostics disabled-by-default status, sender-domain evidence state, retry plan/event readiness controls, relay/bounce/retry/monitoring gaps, redacted SMTP configuration state, and no-customer-email safety messaging.
+- Production SMTP is still not ready until a non-production relay/provider run, sender-domain evidence review, signed bounces/webhooks, enabled retry processing, and monitoring are completed.
+- Latest email retry and bounce readiness verification: targeted API email tests, targeted web email status tests, `corepack pnpm db:generate`, `corepack pnpm db:migrate`, typecheck, build, `corepack pnpm smoke:accounting`, and `git diff --check`.

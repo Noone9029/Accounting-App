@@ -10,11 +10,11 @@ This audit covers LedgerByte SaaS/product readiness while ZATCA OTP and sandbox 
 
 | Area | Readiness | Status |
 | --- | ---: | --- |
-| Authentication, users, roles, permissions | 84% | MVP-ready, with email readiness diagnostics, sender-domain evidence capture, and no MFA/real-provider validation as production gaps. |
+| Authentication, users, roles, permissions | 85% | MVP-ready, with email readiness diagnostics, sender-domain evidence capture, retry/outbox metadata, and no MFA/real-provider validation as production gaps. |
 | Tenant isolation and organization context | 84% | Tenant-scoped guards and x-organization-id workflows are in place; continued route-level regression coverage is required. |
 | Onboarding | 82% | Improved with a dashboard sellable-v1 checklist and `/setup` guided first-run wizard; still needs production email. |
 | Accounting workflows | 82% | Sales, purchases, payments, journals, reports, bank workflows, and operational inventory are usable for MVP-style testing. |
-| Reliability and deployment readiness | 78% | Health/readiness, smoke, dashboard partial fallback, email diagnostics/domain evidence, and Vercel/Supabase notes exist; production monitoring/backups remain incomplete. |
+| Reliability and deployment readiness | 79% | Health/readiness, smoke, dashboard partial fallback, email diagnostics/domain evidence, retry/provider-event readiness, and Vercel/Supabase notes exist; production monitoring/backups remain incomplete. |
 | Documents and storage | 62% | Generated docs and attachments exist; database/base64 fallback is still a scale and operations risk. |
 | Admin/supportability | 72% | Audit logs, readiness docs, email diagnostics, and settings pages exist; support dashboards and structured incident tooling remain limited. |
 | ZATCA local readiness | 36% | Local planning, validation, custody boundaries, and evidence workflows exist; real sandbox/prod flows remain blocked. |
@@ -28,7 +28,7 @@ Overall sellable-v1 readiness: **77%** for a controlled test/beta workspace, not
 - Chart of accounts, tax rates, contacts, items, journals, sales invoices, purchase bills, payments, refunds, notes, reports, bank profiles, bank reconciliation, attachments, and generated documents at MVP or partial-MVP depth.
 - Dashboard summary with sequential database reads, partial section fallback, sanitized section warnings, and reduced Prisma pool pressure.
 - Guided `/setup` wizard backed by `GET /dashboard/onboarding-checklist`, with read-only navigation for organization profile, chart of accounts, VAT/tax profile, first customer, first invoice, bank/payment method, ZATCA local readiness visibility, contact VAT/ID validation, and storage readiness.
-- Email readiness, diagnostics, and sender-domain evidence for production SMTP visibility: `GET /email/readiness` is read-only/no-mutation, `POST /email/diagnostics` skips by default without sending customer email or creating outbox records, and SPF/DKIM/DMARC evidence capture is metadata-only.
+- Email readiness, diagnostics, sender-domain evidence, retry planning, and mock provider-event capture for production SMTP visibility: `GET /email/readiness` is read-only/no-mutation, `POST /email/diagnostics` and default `POST /email/retry-process` skip without sending customer email or creating outbox records, and SPF/DKIM/DMARC evidence plus provider events are metadata-only.
 - Contact VAT validation locked to exactly 15 digits and buyer ID Type / ID Number validation mapped into local ZATCA XML.
 - ZATCA local-only planning, validation, evidence, storage, CSID mapper, mock adapter, and custody boundaries without real network calls.
 - Smoke coverage for major accounting workflows and ZATCA safety gates.
@@ -36,7 +36,7 @@ Overall sellable-v1 readiness: **77%** for a controlled test/beta workspace, not
 ## Critical blockers
 
 - Real ZATCA sandbox OTP/CSID credentials are not available, so no real CSID request, clearance/reporting, or production compliance can be claimed.
-- Production email delivery is not validated against a real provider; readiness, disabled-by-default diagnostics, and sender-domain evidence capture exist, but mock email remains acceptable only for development/test.
+- Production email delivery is not validated against a real provider; readiness, disabled-by-default diagnostics/retry processing, sender-domain evidence, and mock provider-event capture exist, but mock email remains acceptable only for development/test.
 - Production storage strategy is incomplete: database/base64 fallback is not a scalable attachment/generated-document archive.
 - Backup/restore, monitoring, alerting, and incident runbooks need deployment-owner validation.
 - Subscription billing, tenant lifecycle, and customer support operations are not implemented as a sellable SaaS package.
@@ -51,11 +51,13 @@ Overall sellable-v1 readiness: **77%** for a controlled test/beta workspace, not
 - Added frontend targeted tests for wizard helper logic, rendered setup steps, safe fallback, ZATCA local-only messaging, and the dashboard setup link.
 - Added production email readiness fields, disabled-by-default diagnostics, redaction guarantees, settings-page status, and smoke assertions for no-send/no-mutation diagnostics.
 - Added `EmailSenderDomainEvidence`, metadata-only SPF/DKIM/DMARC evidence endpoints, diagnostics plan visibility, relay/bounce/retry/monitoring readiness blockers, settings-page evidence controls, and smoke assertions for no-send/no-outbox behavior.
+- Added durable outbox retry metadata, disabled-by-default `/email/retry-process`, read-only `/email/retry-plan`, metadata-only `EmailProviderEvent`, unsigned `/email/provider-events/mock`, settings-page retry/event readiness, and smoke assertions for no-send/no-mutation default behavior.
 - Updated readiness docs to make the sellable-v1 boundary explicit.
 
 ## Medium-priority fixes still recommended
 
 - Run an explicitly enabled non-production SMTP relay diagnostic against an allowlisted sandbox recipient and document provider evidence.
+- Add signed provider webhook verification, suppression-list handling, and monitoring-safe bounce/complaint alerts.
 - Add deployment runbooks for Vercel/Supabase pooled connection strings, migrations, backups, restore tests, and rollback.
 - Add Playwright browser E2E coverage for login, dashboard, contact creation, invoice creation, payment, and report views.
 - Add production storage migration execution for attachments/generated documents after a non-prod object-store rehearsal.
@@ -117,15 +119,21 @@ Latest email sender-domain readiness verification:
 - `smoke:accounting` now checks `senderDomain`, SPF/DKIM/DMARC requirements, relay diagnostics status, bounce/retry/monitoring blockers, `/email/sender-domain-evidence`, diagnostics default no-send/no-mutation behavior, no outbox mutation, and secret-marker redaction.
 - The task did not run Java SDK, real ZATCA network, real CSID, clearance/reporting, PDF-A3, or real customer email sends.
 
+Latest email retry and bounce readiness verification:
+- Targeted API email tests now cover read-only retry plans, default-skipped retry processing, enabled mocked retry metadata updates, max-attempt blocking, redacted provider errors, secret/customer-content rejection for mock provider events, unsigned event non-contribution to production readiness, and readiness retry/bounce/monitoring blockers.
+- Targeted web email tests now cover retry processor and provider event readiness labels plus production-not-ready/no-secret status rendering.
+- `smoke:accounting` now checks `/email/retry-plan`, default `/email/retry-process`, `/email/provider-events/plan`, retry/bounce/provider-event readiness fields, no email sent, no mutation by default, no new outbox records, and secret-marker redaction.
+- The task did not run Java SDK, real ZATCA network, real CSID, clearance/reporting, PDF-A3, or real customer email sends.
+
 ## Next 10 implementation prompts
 
-1. Run a non-production SMTP relay diagnostic using an allowlisted sandbox recipient, then record provider result evidence without sending customer emails.
-2. Add Vercel/Supabase deployment runbook checks for pooled DB URLs, migration status, and safe environment summaries.
-3. Add Playwright E2E coverage for login, dashboard, setup wizard, customer creation, invoice creation, payment, and reports.
-4. Add attachment/generated-document object-store migration executor after a safe non-prod object-store rehearsal.
-5. Add admin-visible support diagnostics for tenant configuration and common deployment failures.
-6. Add accountant-reviewed dashboard KPI definitions and documentation.
-7. Add contact/item import-export with validation previews.
-8. Add backup/restore runbook evidence capture and smoke-level restore verification metadata.
-9. Add controlled beta review checklist export for support and implementation handoff.
+1. Add signed provider webhook verification, suppression-list handling, and monitoring-safe bounce/complaint alerts without enabling real customer email by default.
+2. Run a non-production SMTP relay diagnostic using an allowlisted sandbox recipient, then record provider result evidence without sending customer emails.
+3. Add Vercel/Supabase deployment runbook checks for pooled DB URLs, migration status, and safe environment summaries.
+4. Add Playwright E2E coverage for login, dashboard, setup wizard, customer creation, invoice creation, payment, and reports.
+5. Add attachment/generated-document object-store migration executor after a safe non-prod object-store rehearsal.
+6. Add admin-visible support diagnostics for tenant configuration and common deployment failures.
+7. Add accountant-reviewed dashboard KPI definitions and documentation.
+8. Add contact/item import-export with validation previews.
+9. Add backup/restore runbook evidence capture and smoke-level restore verification metadata.
 10. Resume ZATCA sandbox onboarding only after official OTP/sandbox access is available.

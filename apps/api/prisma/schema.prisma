@@ -44,6 +44,16 @@ enum EmailSenderDomainEvidenceType {
   OTHER
 }
 
+enum EmailProviderEventType {
+  DELIVERED
+  BOUNCED
+  COMPLAINED
+  FAILED
+  OPENED
+  CLICKED
+  UNKNOWN
+}
+
 enum AuthTokenPurpose {
   ORGANIZATION_INVITE
   PASSWORD_RESET
@@ -695,6 +705,7 @@ model Organization {
   attachments                               Attachment[]
   emailOutbox                               EmailOutbox[]
   emailSenderDomainEvidence                 EmailSenderDomainEvidence[]
+  emailProviderEvents                       EmailProviderEvent[]
   authTokens                                AuthToken[]
   authTokenRateLimitEvents                  AuthTokenRateLimitEvent[]
   zatcaProfile                              ZatcaOrganizationProfile?
@@ -1175,27 +1186,62 @@ model OrganizationMember {
 }
 
 model EmailOutbox {
-  id                String              @id @default(uuid()) @db.Uuid
-  organizationId    String?             @db.Uuid
-  toEmail           String
-  fromEmail         String
-  subject           String
-  templateType      EmailTemplateType
-  bodyText          String              @db.Text
-  bodyHtml          String?             @db.Text
-  status            EmailDeliveryStatus @default(QUEUED)
-  provider          String              @default("mock")
-  providerMessageId String?
-  errorMessage      String?
-  sentAt            DateTime?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  organization      Organization?       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id                  String               @id @default(uuid()) @db.Uuid
+  organizationId      String?              @db.Uuid
+  toEmail             String
+  fromEmail           String
+  subject             String
+  templateType        EmailTemplateType
+  bodyText            String               @db.Text
+  bodyHtml            String?              @db.Text
+  status              EmailDeliveryStatus  @default(QUEUED)
+  provider            String               @default("mock")
+  providerMessageId   String?
+  errorMessage        String?
+  sentAt              DateTime?
+  attemptCount        Int                  @default(0)
+  maxAttempts         Int                  @default(3)
+  nextAttemptAt       DateTime?
+  lastAttemptAt       DateTime?
+  lastErrorRedacted   String?
+  providerEventStatus String?
+  bouncedAt           DateTime?
+  complainedAt        DateTime?
+  deliveredAt         DateTime?
+  retryLockedAt       DateTime?
+  retryLockedBy       String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  organization        Organization?        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  providerEvents      EmailProviderEvent[]
 
   @@index([organizationId])
   @@index([organizationId, templateType])
   @@index([organizationId, status])
+  @@index([organizationId, nextAttemptAt])
+  @@index([organizationId, providerEventStatus])
   @@index([toEmail])
+}
+
+model EmailProviderEvent {
+  id                          String                 @id @default(uuid()) @db.Uuid
+  organizationId              String                 @db.Uuid
+  emailOutboxId               String?                @db.Uuid
+  provider                    String
+  eventType                   EmailProviderEventType
+  providerMessageIdRedacted   String?
+  payloadSummaryJson          Json
+  signatureVerified           Boolean                @default(false)
+  productionReadyContribution Boolean                @default(false)
+  receivedAt                  DateTime               @default(now())
+  createdAt                   DateTime               @default(now())
+  organization                Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  emailOutbox                 EmailOutbox?           @relation(fields: [emailOutboxId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([organizationId, eventType])
+  @@index([organizationId, emailOutboxId])
+  @@index([organizationId, signatureVerified])
 }
 
 model EmailSenderDomainEvidence {

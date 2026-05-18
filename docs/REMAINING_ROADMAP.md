@@ -18,7 +18,7 @@ Tasks:
 - Review dashboard KPI definitions, chart thresholds, attention item thresholds, and quick-action placement with an accountant/product owner.
 - Fix UX inconsistencies, especially supplier AP balance labels.
 - Wire the new Playwright browser E2E smoke into CI and expand it where user-facing regressions are found.
-- Validate the opt-in SMTP provider with a non-production relay using the safe diagnostics gate, then add domain authentication checks, provider webhooks, retry queue, and audit alerting for role/member administration.
+- Validate the opt-in SMTP provider with a non-production relay using the safe diagnostics gate, then add live domain authentication checks, signed provider webhooks/suppression handling, scheduled retry worker, monitoring, and audit alerting for role/member administration.
 - Harden fiscal period UX with period templates, optional reversal-date selection, and admin unlock approval design.
 - Harden number sequence administration with reviewed reset/skip workflow, collision preview, and branch/device numbering policy before production.
 - Add accountant review pass for report layouts and exported report formats.
@@ -138,7 +138,7 @@ Tasks:
 - Production deployment target and infrastructure-as-code.
 - Managed Postgres, backups, restore drills, and monitoring.
 - Validate the uploaded-attachment S3 adapter with a real non-production bucket, then implement generated-document object storage and a resumable DB-to-S3 migration executor.
-- Email provider validation using allowlisted diagnostics, background queue/retries, provider webhooks, and transactional template polish.
+- Email provider validation using allowlisted diagnostics, signed provider webhooks/suppression handling, scheduled retry worker, monitoring, and transactional template polish.
 - WhatsApp provider integration if product requires it.
 - Subscription billing and plan enforcement.
 - Domain, DNS, SSL, and environment management.
@@ -176,8 +176,16 @@ Recommended next prompt:
 - Added `/email/sender-domain-evidence` list/create/verify/revoke endpoints and `/settings/email-outbox` controls. They send no email, create no outbox record, and reject SMTP/API/provider secrets and private DKIM keys.
 - `GET /email/readiness` now reports sender-domain status, missing/verified SPF/DKIM/DMARC, relay diagnostics status, and false bounce/retry/monitoring states.
 - `GET /email/diagnostics-plan` documents the non-production relay plan while diagnostics remain disabled by default.
-- Remaining roadmap item: run a non-production relay diagnostic with an allowlisted sandbox recipient, then implement retry queue, provider webhooks, bounces, monitoring, and live DNS/provider validation.
-- Recommended next prompt: execute the SMTP diagnostics gate against a sandbox relay and save only safe provider-result metadata.
+- Remaining roadmap item: run a non-production relay diagnostic with an allowlisted sandbox recipient, then implement signed provider webhooks, suppression handling, monitoring, scheduled retry execution, and live DNS/provider validation.
+- Recommended next prompt: add signed provider webhook verification, suppression-list handling, and monitoring-safe bounce/complaint alerts without enabling real customer email by default.
+
+## 2026-05-19 Email retry and bounce readiness
+
+- Added durable `EmailOutbox` retry metadata, read-only `/email/retry-plan`, and disabled-by-default `/email/retry-process`.
+- Added `EmailProviderEvent`, `/email/provider-events/plan`, and unsigned `/email/provider-events/mock` for metadata-only mock delivery/bounce/complaint capture.
+- `/settings/email-outbox` now shows retry pending/blocked counts, retry processor state, provider event readiness, bounce signature status, monitoring blockers, and no-customer-email safety messaging.
+- Remaining roadmap item: add signed production provider webhooks, suppression-list handling, monitoring/alerts, a scheduled retry worker, real relay execution, and live DNS/provider validation.
+- Recommended next prompt: add signed provider webhook verification, suppression-list handling, and monitoring-safe bounce/complaint alerts without enabling real customer email by default.
 
 ## 2026-05-16 ZATCA buyer address field support
 
@@ -822,5 +830,5 @@ Recommended next step:
 # Sellable-v1 roadmap update - 2026-05-18
 
 - New completed item: read-only dashboard onboarding checklist plus `/setup` guided first-run wizard for sellable-v1 setup visibility.
-- Next non-ZATCA priorities: SMTP readiness validation, Vercel/Supabase deployment runbook checks, browser E2E coverage including `/setup`, object-storage migration executor, support diagnostics, accountant-reviewed KPI definitions, contact/item import-export, and backup/restore evidence.
+- Next non-ZATCA priorities: signed email webhook/suppression/monitoring, SMTP readiness validation, Vercel/Supabase deployment runbook checks, browser E2E coverage including `/setup`, object-storage migration executor, support diagnostics, accountant-reviewed KPI definitions, contact/item import-export, and backup/restore evidence.
 - Keep ZATCA real CSID requests, real network calls, clearance/reporting, PDF-A3, signed XML/QR body persistence, production credentials, and production compliance claims blocked until official OTP/sandbox access and later approvals are available.

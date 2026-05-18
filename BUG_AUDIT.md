@@ -37,6 +37,26 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Email retry and bounce readiness added
+
+Added durable transactional email retry metadata, disabled-by-default retry processing, and metadata-only provider event capture without sending customer email by default.
+
+Risk reduced:
+
+- `EmailOutbox` now records attempt count, max attempts, next/last attempt timestamps, redacted last error, provider event status, delivery/bounce/complaint timestamps, and retry lock metadata.
+- `GET /email/retry-plan` is read-only/no-mutation and reports pending, retryable failed, blocked, and due retry counts without sending email.
+- `POST /email/retry-process` requires `users.manage` and is disabled by default with `LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED=false`; default responses skip without sending email or mutating data.
+- Enabled retry processing only handles due retryable outbox records, obeys max attempts, creates no new outbox records, updates existing metadata, and returns redacted provider summaries.
+- `EmailProviderEvent`, `GET /email/provider-events/plan`, and unsigned `POST /email/provider-events/mock` capture metadata-only local/mock provider events while rejecting SMTP/API/provider secrets, auth headers, URLs, private DKIM keys, raw payloads, customer recipients, and customer message bodies.
+- `/settings/email-outbox` now shows retry pending/blocked counts, retry processor state, mock-only provider event readiness, bounce signature status, monitoring blockers, and no-customer-email safety messaging.
+- Smoke now asserts retry-plan shape, default retry processor skip/no-send/no-mutation behavior, provider-event readiness, no outbox mutation, and secret-marker redaction.
+
+Remaining risks:
+
+- Retry processing is not scheduled; a real worker/queue is still required before production delivery.
+- Provider events are mock-only and unsigned; production still needs signed webhook verification, suppression-list handling, monitoring, and alerting.
+- Real non-production relay execution and live DNS/provider validation remain pending.
+
 ### Email sender-domain readiness added
 
 Added metadata-only sender-domain evidence capture and non-production relay diagnostics planning without sending customer email by default.
@@ -54,7 +74,7 @@ Remaining risks:
 
 - Relay diagnostics still need an explicitly enabled sandbox/non-production SMTP run against an allowlisted recipient.
 - DKIM/SPF/DMARC evidence is manual metadata only; there is no live DNS/provider validation.
-- Retries, bounces/webhooks, monitoring, provider event verification, and production template review remain incomplete.
+- Scheduled retry execution, signed bounces/webhooks, monitoring, provider event verification, and production template review remain incomplete.
 
 ### Email readiness diagnostics added
 
