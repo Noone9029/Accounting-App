@@ -5,6 +5,9 @@ export interface ComplianceCsidCustodyProviderConfigurationPlan {
   providerEnabled: false;
   providerConfigPresent: boolean;
   providerConfigurationReady: false;
+  mockProviderContractsAvailable: boolean;
+  realProviderImplementationReady: false;
+  defaultProvider: "DISABLED";
   configurationPresent: {
     provider: boolean;
     kmsKeyId: boolean;
@@ -42,12 +45,18 @@ export interface CustodyProviderReadiness {
   providerConfigPresent: boolean;
   providerEnabled: false;
   providerConfigurationReady: false;
+  mockProviderContractsAvailable: boolean;
+  realProviderImplementationReady: false;
+  defaultProvider: "DISABLED";
   configurationPlanSummary: Pick<
     ComplianceCsidCustodyProviderConfigurationPlan,
     | "configuredProvider"
     | "providerEnabled"
     | "providerConfigPresent"
     | "providerConfigurationReady"
+    | "mockProviderContractsAvailable"
+    | "realProviderImplementationReady"
+    | "defaultProvider"
     | "redactedConfigurationSummary"
     | "bodyStorageAllowed"
   >;
@@ -69,6 +78,7 @@ export interface StoredSecretReference {
   versionId: string | null;
   createdAt: Date;
   bodyReturned: false;
+  productionCompliance: false;
 }
 
 export interface StoreComplianceCsidSecretInput {
@@ -82,6 +92,22 @@ export interface RevokeStoredSecretReferenceInput {
   organizationId: string;
   egsUnitId: string;
   referenceId: string;
+}
+
+export type ComplianceCsidSecretMaterialKind = "TOKEN" | "SECRET" | "CERTIFICATE";
+
+export interface SecretsManagerLikeClient {
+  putSecret(input: StoreComplianceCsidSecretInput & { kind: ComplianceCsidSecretMaterialKind }): Promise<{ referenceId: string; versionId?: string | null }>;
+  revokeReference(input: RevokeStoredSecretReferenceInput): Promise<void>;
+}
+
+export interface KmsLikeClient {
+  encrypt(input: Omit<StoreComplianceCsidSecretInput, "value"> & { kind: ComplianceCsidSecretMaterialKind; plaintext: string }): Promise<{
+    ciphertextReference: string;
+    keyReference: string;
+    versionId?: string | null;
+  }>;
+  revokeReference(input: RevokeStoredSecretReferenceInput): Promise<void>;
 }
 
 export interface ComplianceCsidSecretCustodyProvider {
@@ -118,6 +144,31 @@ function redactConfigValue(value: string | undefined, label: string): string {
   return `[redacted:${label}:length-${trimmed.length}]`;
 }
 
+export function redactSecretReference(rawReference: string | null | undefined): string {
+  const trimmed = rawReference?.trim();
+  if (!trimmed) {
+    return "[redacted-reference:empty]";
+  }
+  return `[redacted-reference:length-${trimmed.length}]`;
+}
+
+function createStoredReference(provider: ComplianceCsidSecretCustodyProviderKind, referenceId: string, versionId?: string | null): StoredSecretReference {
+  return {
+    provider,
+    referenceId: redactSecretReference(referenceId),
+    versionId: versionId ? redactSecretReference(versionId) : null,
+    createdAt: new Date(),
+    bodyReturned: false,
+    productionCompliance: false,
+  };
+}
+
+function sanitizeProviderError(): Error {
+  const error = new Error("CSID secret custody provider operation failed. Sensitive provider details were redacted.");
+  error.name = "ComplianceCsidSecretCustodyProviderError";
+  return error;
+}
+
 export function readComplianceCsidCustodyProviderConfig(env: NodeJS.ProcessEnv = process.env): ComplianceCsidCustodyProviderConfigurationPlan {
   const configuredProvider = normalizeProvider(env.ZATCA_CSID_CUSTODY_PROVIDER);
   const kmsKeyId = env.ZATCA_CSID_CUSTODY_KMS_KEY_ID?.trim();
@@ -148,6 +199,9 @@ export function readComplianceCsidCustodyProviderConfig(env: NodeJS.ProcessEnv =
     providerEnabled: false,
     providerConfigPresent,
     providerConfigurationReady: false,
+    mockProviderContractsAvailable: true,
+    realProviderImplementationReady: false,
+    defaultProvider: "DISABLED",
     configurationPresent: {
       provider: Boolean(env.ZATCA_CSID_CUSTODY_PROVIDER?.trim()),
       kmsKeyId: Boolean(kmsKeyId),
@@ -176,6 +230,7 @@ export function readComplianceCsidCustodyProviderConfig(env: NodeJS.ProcessEnv =
     blockers: [
       "provider configuration not approved",
       "provider implementation disabled",
+      "real provider implementation not enabled",
       "body storage explicitly blocked",
       "real secure storage not tested",
       "reference ID strategy not approved",
@@ -185,6 +240,7 @@ export function readComplianceCsidCustodyProviderConfig(env: NodeJS.ProcessEnv =
     warnings,
     recommendedNextSteps: [
       "Approve a non-production custody provider configuration plan before implementing any real provider.",
+      "Use mocked provider client contract tests only as interface validation; they do not enable real secrets-manager, KMS, or encrypted DB custody.",
       "Define redacted reference IDs, version handling, access review, audit logging, rotation, renewal, backup, and recovery controls.",
       "Keep token, secret, certificate, CSR, OTP, private key, signed XML, and QR bodies out of API/UI responses.",
     ],
@@ -208,11 +264,17 @@ export class DisabledComplianceCsidSecretCustodyProvider implements ComplianceCs
       providerConfigPresent: configurationPlan.providerConfigPresent,
       providerEnabled: false,
       providerConfigurationReady: false,
+      mockProviderContractsAvailable: configurationPlan.mockProviderContractsAvailable,
+      realProviderImplementationReady: false,
+      defaultProvider: "DISABLED",
       configurationPlanSummary: {
         configuredProvider: configurationPlan.configuredProvider,
         providerEnabled: false,
         providerConfigPresent: configurationPlan.providerConfigPresent,
         providerConfigurationReady: false,
+        mockProviderContractsAvailable: configurationPlan.mockProviderContractsAvailable,
+        realProviderImplementationReady: false,
+        defaultProvider: "DISABLED",
         redactedConfigurationSummary: configurationPlan.redactedConfigurationSummary,
         bodyStorageAllowed: false,
       },
@@ -226,6 +288,7 @@ export class DisabledComplianceCsidSecretCustodyProvider implements ComplianceCs
       blockers: [
         ...configurationPlan.blockers,
         "custody provider disabled",
+        "real provider implementation not enabled",
         "token storage not ready",
         "secret storage not ready",
         "certificate storage not ready",
@@ -235,6 +298,7 @@ export class DisabledComplianceCsidSecretCustodyProvider implements ComplianceCs
       warnings: [
         ...configurationPlan.warnings,
         "No real secrets-manager, KMS, or encrypted DB custody provider is configured.",
+        "Mocked provider client contracts are available for tests only and are not wired as runtime providers.",
         "This provider boundary is metadata-only and must not receive real ZATCA CSID response bodies in normal application paths.",
       ],
       recommendedNextSteps: [
@@ -259,4 +323,152 @@ export class DisabledComplianceCsidSecretCustodyProvider implements ComplianceCs
   async revokeReference(_input: RevokeStoredSecretReferenceInput): Promise<void> {
     throw new ComplianceCsidSecretCustodyDisabledError();
   }
+}
+
+export class MockedSecretsManagerComplianceCsidCustodyProvider implements ComplianceCsidSecretCustodyProvider {
+  constructor(private readonly client: SecretsManagerLikeClient) {}
+
+  getReadiness(): CustodyProviderReadiness {
+    const configurationPlan = readComplianceCsidCustodyProviderConfig();
+    return {
+      provider: "FUTURE_SECRETS_MANAGER",
+      enabled: false,
+      configuredProvider: configurationPlan.configuredProvider,
+      providerConfigPresent: configurationPlan.providerConfigPresent,
+      providerEnabled: false,
+      providerConfigurationReady: false,
+      mockProviderContractsAvailable: true,
+      realProviderImplementationReady: false,
+      defaultProvider: "DISABLED",
+      configurationPlanSummary: {
+        configuredProvider: configurationPlan.configuredProvider,
+        providerEnabled: false,
+        providerConfigPresent: configurationPlan.providerConfigPresent,
+        providerConfigurationReady: false,
+        mockProviderContractsAvailable: true,
+        realProviderImplementationReady: false,
+        defaultProvider: "DISABLED",
+        redactedConfigurationSummary: configurationPlan.redactedConfigurationSummary,
+        bodyStorageAllowed: false,
+      },
+      tokenStorageReady: false,
+      secretStorageReady: false,
+      certificateStorageReady: false,
+      kmsConfigured: configurationPlan.kmsConfigured,
+      secretsManagerConfigured: configurationPlan.secretsManagerConfigured,
+      encryptedDbApproved: configurationPlan.encryptedDbApproved,
+      productionCompliance: false,
+      blockers: ["mock secrets-manager provider is test-only", "real provider implementation not enabled", "body storage explicitly blocked"],
+      warnings: ["No real secrets-manager SDK, credentials, or network call is used by this mocked provider."],
+      recommendedNextSteps: ["Implement and approve a real custody provider only after secure custody review."],
+    };
+  }
+
+  async storeComplianceToken(input: StoreComplianceCsidSecretInput): Promise<StoredSecretReference> {
+    return this.store("TOKEN", input);
+  }
+
+  async storeComplianceSecret(input: StoreComplianceCsidSecretInput): Promise<StoredSecretReference> {
+    return this.store("SECRET", input);
+  }
+
+  async storeComplianceCertificate(input: StoreComplianceCsidSecretInput): Promise<StoredSecretReference> {
+    return this.store("CERTIFICATE", input);
+  }
+
+  async revokeReference(input: RevokeStoredSecretReferenceInput): Promise<void> {
+    try {
+      await this.client.revokeReference(input);
+    } catch {
+      throw sanitizeProviderError();
+    }
+  }
+
+  private async store(kind: ComplianceCsidSecretMaterialKind, input: StoreComplianceCsidSecretInput): Promise<StoredSecretReference> {
+    try {
+      const result = await this.client.putSecret({ ...input, kind });
+      return createStoredReference("FUTURE_SECRETS_MANAGER", result.referenceId, result.versionId);
+    } catch {
+      throw sanitizeProviderError();
+    }
+  }
+}
+
+export class MockedKmsComplianceCsidCustodyProvider implements ComplianceCsidSecretCustodyProvider {
+  constructor(private readonly client: KmsLikeClient) {}
+
+  getReadiness(): CustodyProviderReadiness {
+    const configurationPlan = readComplianceCsidCustodyProviderConfig();
+    return {
+      provider: "FUTURE_KMS",
+      enabled: false,
+      configuredProvider: configurationPlan.configuredProvider,
+      providerConfigPresent: configurationPlan.providerConfigPresent,
+      providerEnabled: false,
+      providerConfigurationReady: false,
+      mockProviderContractsAvailable: true,
+      realProviderImplementationReady: false,
+      defaultProvider: "DISABLED",
+      configurationPlanSummary: {
+        configuredProvider: configurationPlan.configuredProvider,
+        providerEnabled: false,
+        providerConfigPresent: configurationPlan.providerConfigPresent,
+        providerConfigurationReady: false,
+        mockProviderContractsAvailable: true,
+        realProviderImplementationReady: false,
+        defaultProvider: "DISABLED",
+        redactedConfigurationSummary: configurationPlan.redactedConfigurationSummary,
+        bodyStorageAllowed: false,
+      },
+      tokenStorageReady: false,
+      secretStorageReady: false,
+      certificateStorageReady: false,
+      kmsConfigured: configurationPlan.kmsConfigured,
+      secretsManagerConfigured: configurationPlan.secretsManagerConfigured,
+      encryptedDbApproved: configurationPlan.encryptedDbApproved,
+      productionCompliance: false,
+      blockers: ["mock KMS provider is test-only", "real provider implementation not enabled", "body storage explicitly blocked"],
+      warnings: ["No real KMS SDK, credentials, key operation, or network call is used by this mocked provider."],
+      recommendedNextSteps: ["Implement and approve a real custody provider only after secure custody review."],
+    };
+  }
+
+  async storeComplianceToken(input: StoreComplianceCsidSecretInput): Promise<StoredSecretReference> {
+    return this.store("TOKEN", input);
+  }
+
+  async storeComplianceSecret(input: StoreComplianceCsidSecretInput): Promise<StoredSecretReference> {
+    return this.store("SECRET", input);
+  }
+
+  async storeComplianceCertificate(input: StoreComplianceCsidSecretInput): Promise<StoredSecretReference> {
+    return this.store("CERTIFICATE", input);
+  }
+
+  async revokeReference(input: RevokeStoredSecretReferenceInput): Promise<void> {
+    try {
+      await this.client.revokeReference(input);
+    } catch {
+      throw sanitizeProviderError();
+    }
+  }
+
+  private async store(kind: ComplianceCsidSecretMaterialKind, input: StoreComplianceCsidSecretInput): Promise<StoredSecretReference> {
+    try {
+      const result = await this.client.encrypt({
+        organizationId: input.organizationId,
+        egsUnitId: input.egsUnitId,
+        certificateRequestId: input.certificateRequestId,
+        kind,
+        plaintext: input.value,
+      });
+      return createStoredReference("FUTURE_KMS", `${result.ciphertextReference}|${result.keyReference}`, result.versionId);
+    } catch {
+      throw sanitizeProviderError();
+    }
+  }
+}
+
+export function createComplianceCsidSecretCustodyProvider(_config: ComplianceCsidCustodyProviderConfigurationPlan = readComplianceCsidCustodyProviderConfig()): ComplianceCsidSecretCustodyProvider {
+  return new DisabledComplianceCsidSecretCustodyProvider();
 }

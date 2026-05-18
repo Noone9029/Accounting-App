@@ -1357,6 +1357,9 @@ function ComplianceCsidCustodyPlanPanel({
         <div>Provider: <span className="font-semibold text-rosewood">{plan?.providerReadiness?.provider ?? "DISABLED"}</span></div>
         <div>Configured provider: <span className="font-semibold text-rosewood">{plan?.configuredProvider ?? plan?.providerReadiness?.configuredProvider ?? "DISABLED"}</span></div>
         <div>Config detected: <span className="font-semibold text-rosewood">{plan?.providerConfigPresent ? "true" : "false"}</span></div>
+        <div>Provider contracts: <span className="font-semibold text-ink">{plan?.providerReadiness?.mockProviderContractsAvailable ? "mocked tests available" : "not reported"}</span></div>
+        <div>Real provider: <span className="font-semibold text-rosewood">{plan?.providerReadiness?.realProviderImplementationReady ? "enabled" : "not implemented"}</span></div>
+        <div>Runtime default: <span className="font-semibold text-rosewood">{plan?.providerReadiness?.defaultProvider ?? "DISABLED"}</span></div>
         <div>Gate: <span className="font-semibold text-rosewood">{plan?.custodyGate?.allowed ? "ALLOWED" : "BLOCKED"}</span></div>
         <div>Token storage: <span className="font-semibold text-rosewood">{plan?.providerReadiness?.tokenStorageReady ? "ready" : "not ready"}</span></div>
         <div>Secret storage: <span className="font-semibold text-rosewood">{plan?.providerReadiness?.secretStorageReady ? "ready" : "not ready"}</span></div>

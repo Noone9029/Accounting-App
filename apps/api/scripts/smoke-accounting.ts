@@ -1795,11 +1795,17 @@ interface ZatcaComplianceCsidCustodyProviderReadiness {
   providerConfigPresent: boolean;
   providerEnabled: false;
   providerConfigurationReady: false;
+  mockProviderContractsAvailable: boolean;
+  realProviderImplementationReady: false;
+  defaultProvider: "DISABLED";
   configurationPlanSummary: {
     configuredProvider: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
     providerEnabled: false;
     providerConfigPresent: boolean;
     providerConfigurationReady: false;
+    mockProviderContractsAvailable: boolean;
+    realProviderImplementationReady: false;
+    defaultProvider: "DISABLED";
     redactedConfigurationSummary: {
       provider: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
       kmsKeyId: string;
@@ -2050,6 +2056,9 @@ interface ZatcaComplianceCsidProviderConfigurationPlan {
   providerEnabled: false;
   providerConfigPresent: boolean;
   providerConfigurationReady: false;
+  mockProviderContractsAvailable: boolean;
+  realProviderImplementationReady: false;
+  defaultProvider: "DISABLED";
   configurationPresent: {
     provider: boolean;
     kmsKeyId: boolean;
@@ -3996,6 +4005,9 @@ async function main(): Promise<void> {
   assertEqual(zatcaComplianceCsidCustodyProviderReadiness.noCsidRequest, true, "ZATCA CSID custody provider readiness no CSID request");
   assertEqual(zatcaComplianceCsidCustodyProviderReadiness.provider, "DISABLED", "ZATCA CSID custody provider disabled by default");
   assertEqual(zatcaComplianceCsidCustodyProviderReadiness.enabled, false, "ZATCA CSID custody provider execution disabled");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.mockProviderContractsAvailable, true, "ZATCA CSID custody mocked provider contracts reported");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.realProviderImplementationReady, false, "ZATCA CSID custody real provider implementation not ready");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.defaultProvider, "DISABLED", "ZATCA CSID custody runtime provider default disabled");
   assertEqual(zatcaComplianceCsidCustodyProviderReadiness.tokenStorageReady, false, "ZATCA CSID custody provider token storage not ready");
   assertEqual(zatcaComplianceCsidCustodyProviderReadiness.secretStorageReady, false, "ZATCA CSID custody provider secret storage not ready");
   assertEqual(zatcaComplianceCsidCustodyProviderReadiness.certificateStorageReady, false, "ZATCA CSID custody provider certificate storage not ready");
@@ -4016,6 +4028,9 @@ async function main(): Promise<void> {
   assertEqual(zatcaComplianceCsidProviderConfigurationPlan.noCsidRequest, true, "ZATCA CSID custody provider configuration plan no CSID request");
   assertEqual(zatcaComplianceCsidProviderConfigurationPlan.configuredProvider, "DISABLED", "ZATCA CSID custody provider configuration disabled by default");
   assertEqual(zatcaComplianceCsidProviderConfigurationPlan.providerEnabled, false, "ZATCA CSID custody provider configuration does not enable provider");
+  assertEqual(zatcaComplianceCsidProviderConfigurationPlan.mockProviderContractsAvailable, true, "ZATCA CSID custody provider configuration reports mocked contracts");
+  assertEqual(zatcaComplianceCsidProviderConfigurationPlan.realProviderImplementationReady, false, "ZATCA CSID custody provider configuration real provider not ready");
+  assertEqual(zatcaComplianceCsidProviderConfigurationPlan.defaultProvider, "DISABLED", "ZATCA CSID custody provider configuration runtime default disabled");
   assertEqual(zatcaComplianceCsidProviderConfigurationPlan.bodyStorageAllowed, false, "ZATCA CSID custody provider configuration body storage blocked");
   assertEqual(zatcaComplianceCsidProviderConfigurationPlan.productionCompliance, false, "ZATCA CSID custody provider configuration productionCompliance false");
   const serializedComplianceCsidProviderConfiguration = JSON.stringify(zatcaComplianceCsidProviderConfigurationPlan);
@@ -4037,6 +4052,8 @@ async function main(): Promise<void> {
   assertEqual(zatcaComplianceCsidCustodyPlan.tokenCustodyStatus.implemented, false, "ZATCA compliance CSID token custody not implemented");
   assertEqual(zatcaComplianceCsidCustodyPlan.providerReadiness.provider, "DISABLED", "ZATCA compliance CSID custody plan includes disabled provider readiness");
   assertEqual(zatcaComplianceCsidCustodyPlan.providerReadiness.enabled, false, "ZATCA compliance CSID custody plan provider disabled");
+  assertEqual(zatcaComplianceCsidCustodyPlan.providerReadiness.mockProviderContractsAvailable, true, "ZATCA compliance CSID custody plan reports mocked provider contracts");
+  assertEqual(zatcaComplianceCsidCustodyPlan.providerReadiness.realProviderImplementationReady, false, "ZATCA compliance CSID custody plan real provider not ready");
   assertEqual(zatcaComplianceCsidCustodyPlan.configuredProvider, "DISABLED", "ZATCA compliance CSID custody plan configured provider disabled");
   assertEqual(zatcaComplianceCsidCustodyPlan.providerConfigurationReady, false, "ZATCA compliance CSID custody plan provider configuration not ready");
   assertEqual(zatcaComplianceCsidCustodyPlan.providerConfiguration.bodyStorageAllowed, false, "ZATCA compliance CSID custody plan provider configuration body storage blocked");
@@ -4100,6 +4117,8 @@ async function main(): Promise<void> {
   assertEqual(zatcaComplianceCsidCustodyPlanAfterRecord.latestCustodyRecord?.id, zatcaComplianceCsidCustodyRecord.custodyRecord.id, "ZATCA compliance CSID custody plan includes latest record");
   assert(zatcaComplianceCsidCustodyPlanAfterRecord.custodyRecordCount > 0, "ZATCA compliance CSID custody plan returns custody record count");
   assertEqual(zatcaComplianceCsidCustodyPlanAfterRecord.custodyGate.allowed, false, "ZATCA compliance CSID custody gate remains blocked after metadata record");
+  assertEqual(zatcaComplianceCsidCustodyPlanAfterRecord.providerConfiguration.mockProviderContractsAvailable, true, "ZATCA compliance CSID custody gate plan keeps mocked provider contracts visible");
+  assertEqual(zatcaComplianceCsidCustodyPlanAfterRecord.providerConfiguration.realProviderImplementationReady, false, "ZATCA compliance CSID custody gate plan real provider remains disabled");
   assertEqual(zatcaComplianceCsidCustodyPlanAfterRecord.tokenStorageReady, false, "ZATCA compliance CSID token storage remains not ready");
   assertEqual(zatcaComplianceCsidCustodyPlanAfterRecord.secretStorageReady, false, "ZATCA compliance CSID secret storage remains not ready");
   assertEqual(zatcaComplianceCsidCustodyPlanAfterRecord.certificateStorageReady, false, "ZATCA compliance CSID certificate storage remains not ready");
@@ -6215,6 +6234,8 @@ async function main(): Promise<void> {
         zatcaComplianceCsidCustodyRecordProductionCompliance: zatcaComplianceCsidCustodyRecord.custodyRecord.productionCompliance,
         zatcaComplianceCsidCustodyProvider: zatcaComplianceCsidCustodyProviderReadiness.provider,
         zatcaComplianceCsidCustodyProviderEnabled: zatcaComplianceCsidCustodyProviderReadiness.enabled,
+        zatcaComplianceCsidMockedProviderContractsAvailable: zatcaComplianceCsidCustodyProviderReadiness.mockProviderContractsAvailable,
+        zatcaComplianceCsidRealProviderImplementationReady: zatcaComplianceCsidCustodyProviderReadiness.realProviderImplementationReady,
         zatcaComplianceCsidConfiguredProvider: zatcaComplianceCsidProviderConfigurationPlan.configuredProvider,
         zatcaComplianceCsidProviderConfigPresent: zatcaComplianceCsidProviderConfigurationPlan.providerConfigPresent,
         zatcaComplianceCsidProviderBodyStorageAllowed: zatcaComplianceCsidProviderConfigurationPlan.bodyStorageAllowed,

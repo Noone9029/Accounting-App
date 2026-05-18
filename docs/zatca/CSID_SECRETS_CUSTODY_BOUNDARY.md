@@ -126,3 +126,34 @@ The provider configuration endpoint and custody plan report `providerEnabled=fal
 No real secrets-manager/KMS call, real ZATCA network call, real CSID request, token/secret/certificate/private-key/OTP/CSR/signed-XML/QR body persistence, clearance/reporting, PDF/A-3, production credential use, or production compliance claim is implemented.
 
 Recommended next step: add mocked secrets-manager/KMS provider client contract tests that still never store real CSID material.
+
+## ZATCA CSID mocked custody provider contracts update (2026-05-18)
+
+Official files inspected for this update:
+- reference/zatca-docs/compliance_csid.pdf
+- reference/zatca-docs/onboarding.pdf
+- reference/zatca-docs/renewal.pdf
+- reference/zatca-docs/compliance_invoice.pdf
+- reference/zatca-docs/reporting.pdf
+- reference/zatca-docs/clearance.pdf
+- reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards.pdf
+- reference/zatca-docs/20220624_ZATCA_Electronic_Invoice_XML_Implementation_Standard_vF.pdf
+- reference/zatca-docs/EInvoice_Data_Dictionary.xlsx
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md
+- reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Configuration/usage.txt
+
+Implemented scope:
+- Added local TypeScript-only mocked secrets-manager and KMS client contracts for future compliance CSID custody tests.
+- Added mocked provider skeletons that accept fake injected clients, return redacted references only, and report productionCompliance=false.
+- Added redacted reference handling that never exposes full ARNs, URLs, UUIDs, secret paths, KMS key IDs, provider credentials, token bodies, secret bodies, or certificate bodies.
+- Kept the runtime factory/default provider disabled; providerEnabled=false, bodyStorageAllowed=false, and realProviderImplementationReady=false.
+- Updated provider readiness, provider configuration plan, smoke output, and ZATCA settings UI to show mocked provider contract availability without enabling real storage.
+
+Safety guarantees:
+- No real secrets-manager, KMS, cloud provider, database secret storage, or ZATCA network call is performed.
+- No real CSID request, production CSID request, clearance/reporting, PDF/A-3, production credentials, signed XML body storage, or QR payload body storage is implemented.
+- binarySecurityToken, secret, certificate body, private key, OTP, CSR body, signed XML, and QR payload bodies remain blocked from API/UI responses and persistence.
+- productionCompliance remains false.
+
+Recommended next step:
+- Add a non-executing provider-reference audit and rotation plan before any real sandbox custody provider implementation.

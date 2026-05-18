@@ -3447,11 +3447,17 @@ export interface ZatcaComplianceCsidCustodyProviderReadiness {
   providerConfigPresent: boolean;
   providerEnabled: false;
   providerConfigurationReady: false;
+  mockProviderContractsAvailable: boolean;
+  realProviderImplementationReady: false;
+  defaultProvider: "DISABLED";
   configurationPlanSummary: {
     configuredProvider: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
     providerEnabled: false;
     providerConfigPresent: boolean;
     providerConfigurationReady: false;
+    mockProviderContractsAvailable: boolean;
+    realProviderImplementationReady: false;
+    defaultProvider: "DISABLED";
     redactedConfigurationSummary: {
       provider: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
       kmsKeyId: string;
@@ -3487,6 +3493,9 @@ export interface ZatcaComplianceCsidProviderConfigurationPlan {
   providerEnabled: false;
   providerConfigPresent: boolean;
   providerConfigurationReady: false;
+  mockProviderContractsAvailable: boolean;
+  realProviderImplementationReady: false;
+  defaultProvider: "DISABLED";
   configurationPresent: {
     provider: boolean;
     kmsKeyId: boolean;

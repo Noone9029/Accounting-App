@@ -54,6 +54,7 @@ function printHelp() {
       "  --mock-scenario <scenario>  success, invalid-otp, expired-otp, duplicate-request, adapter-disabled, malformed-response.",
       "  --help              Print this help without touching the database.",
       "",
+      "Custody output includes mocked provider contract status, but the runtime provider remains disabled.",
       "This script never performs a real ZATCA network call, never requests a real CSID, never prints CSR/certificate/token/secret/OTP bodies, and never claims production compliance.",
     ].join("\n"),
   );
@@ -188,6 +189,24 @@ async function main() {
           providerConfigurationReady: "providerConfigurationReady" in plan ? plan.providerConfigurationReady : false,
           providerConfiguration: "providerConfiguration" in plan ? plan.providerConfiguration : null,
           providerReadiness: "providerReadiness" in plan ? plan.providerReadiness : null,
+          mockProviderContractsAvailable:
+            "providerConfiguration" in plan
+              ? plan.providerConfiguration.mockProviderContractsAvailable
+              : "providerReadiness" in plan
+              ? plan.providerReadiness.mockProviderContractsAvailable
+              : false,
+          realProviderImplementationReady:
+            "providerConfiguration" in plan
+              ? plan.providerConfiguration.realProviderImplementationReady
+              : "providerReadiness" in plan
+              ? plan.providerReadiness.realProviderImplementationReady
+              : false,
+          defaultCustodyProvider:
+            "providerConfiguration" in plan
+              ? plan.providerConfiguration.defaultProvider
+              : "providerReadiness" in plan
+              ? plan.providerReadiness.defaultProvider
+              : "DISABLED",
           custodyGate: "custodyGate" in plan ? plan.custodyGate : null,
           tokenStorageReady: "tokenStorageReady" in plan ? plan.tokenStorageReady : false,
           secretStorageReady: "secretStorageReady" in plan ? plan.secretStorageReady : false,

@@ -1,6 +1,10 @@
 import {
   DisabledComplianceCsidSecretCustodyProvider,
+  MockedKmsComplianceCsidCustodyProvider,
+  MockedSecretsManagerComplianceCsidCustodyProvider,
+  createComplianceCsidSecretCustodyProvider,
   readComplianceCsidCustodyProviderConfig,
+  redactSecretReference,
 } from "./custody/compliance-csid-secret-custody.provider";
 import { ZatcaService } from "./zatca.service";
 
@@ -247,5 +251,128 @@ describe("ZATCA compliance CSID custody provider boundary", () => {
         process.env.ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED = previous;
       }
     }
+  });
+});
+
+describe("ZATCA mocked CSID custody provider client contracts", () => {
+  const sensitiveToken = "binary-security-token-body-should-never-return";
+  const sensitiveSecret = "secret-body-should-never-return";
+  const sensitiveCertificate = "-----BEGIN CERTIFICATE-----certificate-body-should-never-return-----END CERTIFICATE-----";
+
+  it("redacts raw cloud references without exposing provider paths, UUIDs, or key ids", () => {
+    const rawReference = "arn:aws:secretsmanager:me-south-1:123456789012:secret:ledgerbyte/zatca/csid/550e8400-e29b-41d4-a716-446655440000";
+
+    const redacted = redactSecretReference(rawReference);
+
+    expect(redacted).toBe(`[redacted-reference:length-${rawReference.length}]`);
+    expect(redacted).not.toContain("arn:aws");
+    expect(redacted).not.toContain("ledgerbyte/zatca");
+    expect(redacted).not.toContain("550e8400-e29b-41d4-a716-446655440000");
+  });
+
+  it("stores mocked secrets-manager token, secret, and certificate references without returning bodies", async () => {
+    const putSecret = jest.fn(async (input) => ({
+      referenceId: `arn:aws:secretsmanager:me-south-1:123456789012:secret:${input.kind}/raw-reference-id`,
+      versionId: `raw-version-${input.kind}`,
+    }));
+    const revokeReference = jest.fn(async () => undefined);
+    const provider = new MockedSecretsManagerComplianceCsidCustodyProvider({ putSecret, revokeReference });
+
+    const tokenReference = await provider.storeComplianceToken({ organizationId, egsUnitId, value: sensitiveToken });
+    const secretReference = await provider.storeComplianceSecret({ organizationId, egsUnitId, value: sensitiveSecret });
+    const certificateReference = await provider.storeComplianceCertificate({ organizationId, egsUnitId, value: sensitiveCertificate });
+    const serialized = JSON.stringify({ tokenReference, secretReference, certificateReference });
+
+    expect(putSecret).toHaveBeenCalledTimes(3);
+    expect(putSecret.mock.calls[0]![0].value).toBe(sensitiveToken);
+    expect(putSecret.mock.calls[1]![0].value).toBe(sensitiveSecret);
+    expect(putSecret.mock.calls[2]![0].value).toBe(sensitiveCertificate);
+    expect(tokenReference.provider).toBe("FUTURE_SECRETS_MANAGER");
+    expect(tokenReference.bodyReturned).toBe(false);
+    expect(tokenReference.productionCompliance).toBe(false);
+    expect(secretReference.bodyReturned).toBe(false);
+    expect(secretReference.productionCompliance).toBe(false);
+    expect(certificateReference.bodyReturned).toBe(false);
+    expect(certificateReference.productionCompliance).toBe(false);
+    expect(serialized).not.toContain(sensitiveToken);
+    expect(serialized).not.toContain(sensitiveSecret);
+    expect(serialized).not.toContain("certificate-body-should-never-return");
+    expect(serialized).not.toContain("arn:aws");
+    expect(serialized).not.toContain("raw-version");
+
+    await provider.revokeReference({ organizationId, egsUnitId, referenceId: tokenReference.referenceId });
+    expect(revokeReference).toHaveBeenCalledWith({ organizationId, egsUnitId, referenceId: tokenReference.referenceId });
+  });
+
+  it("sanitizes mocked secrets-manager client errors without leaking input bodies", async () => {
+    const putSecret = jest.fn(async () => {
+      throw new Error(`provider failed for ${sensitiveToken} and raw cloud path`);
+    });
+    const provider = new MockedSecretsManagerComplianceCsidCustodyProvider({ putSecret, revokeReference: jest.fn() });
+
+    await expect(provider.storeComplianceToken({ organizationId, egsUnitId, value: sensitiveToken })).rejects.toThrow(
+      "CSID secret custody provider operation failed",
+    );
+    await expect(provider.storeComplianceToken({ organizationId, egsUnitId, value: sensitiveToken })).rejects.not.toThrow(sensitiveToken);
+    await expect(provider.storeComplianceToken({ organizationId, egsUnitId, value: sensitiveToken })).rejects.not.toThrow("raw cloud path");
+  });
+
+  it("stores mocked KMS encrypted references without exposing plaintext, ciphertext paths, or key ids", async () => {
+    const encrypt = jest.fn(async (input) => ({
+      ciphertextReference: `kms-ciphertext-reference-${input.kind}-raw`,
+      keyReference: "arn:aws:kms:me-south-1:123456789012:key/raw-kms-key-id",
+      versionId: `kms-version-${input.kind}`,
+    }));
+    const revokeReference = jest.fn(async () => undefined);
+    const provider = new MockedKmsComplianceCsidCustodyProvider({ encrypt, revokeReference });
+
+    const tokenReference = await provider.storeComplianceToken({ organizationId, egsUnitId, value: sensitiveToken });
+    const secretReference = await provider.storeComplianceSecret({ organizationId, egsUnitId, value: sensitiveSecret });
+    const certificateReference = await provider.storeComplianceCertificate({ organizationId, egsUnitId, value: sensitiveCertificate });
+    const serialized = JSON.stringify({ tokenReference, secretReference, certificateReference });
+
+    expect(encrypt).toHaveBeenCalledTimes(3);
+    expect(encrypt.mock.calls[0]![0].plaintext).toBe(sensitiveToken);
+    expect(encrypt.mock.calls[1]![0].plaintext).toBe(sensitiveSecret);
+    expect(encrypt.mock.calls[2]![0].plaintext).toBe(sensitiveCertificate);
+    expect(tokenReference.provider).toBe("FUTURE_KMS");
+    expect(tokenReference.bodyReturned).toBe(false);
+    expect(tokenReference.productionCompliance).toBe(false);
+    expect(serialized).not.toContain(sensitiveToken);
+    expect(serialized).not.toContain(sensitiveSecret);
+    expect(serialized).not.toContain("certificate-body-should-never-return");
+    expect(serialized).not.toContain("kms-ciphertext-reference");
+    expect(serialized).not.toContain("raw-kms-key-id");
+
+    await provider.revokeReference({ organizationId, egsUnitId, referenceId: certificateReference.referenceId });
+    expect(revokeReference).toHaveBeenCalledWith({ organizationId, egsUnitId, referenceId: certificateReference.referenceId });
+  });
+
+  it("sanitizes mocked KMS client errors and keeps the runtime factory disabled", async () => {
+    const encrypt = jest.fn(async () => {
+      throw new Error(`kms failed for ${sensitiveCertificate} and raw-kms-key-id`);
+    });
+    const provider = new MockedKmsComplianceCsidCustodyProvider({ encrypt, revokeReference: jest.fn() });
+
+    await expect(provider.storeComplianceCertificate({ organizationId, egsUnitId, value: sensitiveCertificate })).rejects.toThrow(
+      "CSID secret custody provider operation failed",
+    );
+    await expect(provider.storeComplianceCertificate({ organizationId, egsUnitId, value: sensitiveCertificate })).rejects.not.toThrow(
+      "certificate-body-should-never-return",
+    );
+    await expect(provider.storeComplianceCertificate({ organizationId, egsUnitId, value: sensitiveCertificate })).rejects.not.toThrow("raw-kms-key-id");
+
+    const runtimeProvider = createComplianceCsidSecretCustodyProvider(
+      readComplianceCsidCustodyProviderConfig({
+        ZATCA_CSID_CUSTODY_PROVIDER: "kms",
+        ZATCA_CSID_CUSTODY_KMS_KEY_ID: "raw-kms-key-id",
+      } as NodeJS.ProcessEnv),
+    );
+    const readiness = runtimeProvider.getReadiness();
+    expect(runtimeProvider).toBeInstanceOf(DisabledComplianceCsidSecretCustodyProvider);
+    expect(readiness.provider).toBe("DISABLED");
+    expect(readiness.enabled).toBe(false);
+    expect(readiness.realProviderImplementationReady).toBe(false);
+    expect(readiness.productionCompliance).toBe(false);
   });
 });
