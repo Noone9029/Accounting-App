@@ -169,13 +169,27 @@ Symptoms:
 
 - Intermittent API `500`.
 - Logs mention max clients, pool size, or session pool pressure.
+- Logs containing `EMAXCONNSESSION` indicate Supabase session-mode pool exhaustion.
 
 Recovery:
 
 - Keep E2E workers at `1`.
-- Keep API Prisma runtime connection limits conservative.
+- Confirm the API runtime is using Supabase transaction-mode pooling for Vercel/serverless traffic. For Supabase pooler URLs, session mode uses port `5432`; transaction mode uses port `6543`.
+- Keep API Prisma runtime connection limits conservative. The API defaults to `connection_limit=1` on Vercel unless `PRISMA_CONNECTION_LIMIT` is explicitly set.
+- Confirm the Vercel API wrapper caches the in-flight Nest bootstrap promise so concurrent cold requests do not create multiple Prisma clients in the same warm function instance.
 - Avoid adding highly parallel page-load requests in smoke tests.
+- Use sanitized pool diagnostics only: connection counts by safe labels are acceptable; connection strings, usernames, passwords, tokens, SQL bodies with customer data, document bodies, and auth headers are not.
 - Retry only after checking logs; do not hide persistent pool exhaustion.
+
+Official references used for the 2026-05-20 pool-exhaustion repair:
+
+- Supabase Prisma guide: https://supabase.com/docs/guides/database/prisma
+- Supabase connection management: https://supabase.com/docs/guides/database/connection-management
+- Supabase Postgres connection strings and pooler modes: https://supabase.com/docs/guides/database/connecting-to-postgres
+- Prisma serverless connection management: https://docs.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections
+- Prisma Vercel deployment guide: https://docs.prisma.io/docs/orm/prisma-client/deployment/serverless/deploy-to-vercel
+- Prisma PgBouncer/Supavisor guidance: https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections/pgbouncer
+- Vercel function connection pooling guide: https://vercel.com/kb/guide/connection-pooling-with-functions
 
 ## Safety Rules
 

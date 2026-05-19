@@ -92,6 +92,32 @@ Required API environment variables are presence-checked only in audits. Do not p
 - `ZATCA_SDK_EXECUTION_ENABLED=false`
 - Empty or disabled real ZATCA base URLs unless a separate approved ZATCA sandbox phase exists.
 
+### API Runtime Database Pooling
+
+Official references inspected for the 2026-05-20 deployed E2E pool repair:
+
+- Supabase Prisma guide: https://supabase.com/docs/guides/database/prisma
+- Supabase connection management: https://supabase.com/docs/guides/database/connection-management
+- Supabase Postgres connection strings and pooler modes: https://supabase.com/docs/guides/database/connecting-to-postgres
+- Prisma serverless deployment guide: https://docs.prisma.io/docs/v6/orm/prisma-client/deployment/serverless
+- Prisma Vercel deployment guide: https://docs.prisma.io/docs/orm/prisma-client/deployment/serverless/deploy-to-vercel
+- Prisma database connection management: https://docs.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections
+- Prisma PgBouncer/Supavisor guidance: https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections/pgbouncer
+- Vercel function connection pooling: https://vercel.com/kb/guide/connection-pooling-with-functions
+
+Sanitized finding from the failed secret-store deployed E2E runs: the API runtime hit Supabase `EMAXCONNSESSION` in session mode with a session pool limit of 15. Vercel env inspection confirmed `DATABASE_URL`, `DIRECT_URL`, and `PRISMA_CONNECTION_LIMIT` are present on the API project, while the web project does not have database credentials. The actual connection strings were not printed or documented.
+
+Root cause: browser-driven deployed E2E created enough concurrent API traffic across Vercel serverless function instances to exhaust Supabase session-mode pooling. `PRISMA_CONNECTION_LIMIT=1` limits each Prisma client, but session mode still pins a backend session per client. The Vercel API wrapper also cached only the resolved Nest server, so concurrent cold requests inside the same function instance could race and create more than one Nest/Prisma bootstrap.
+
+Runtime fix:
+
+- Vercel API runtime normalizes Supabase pooler `DATABASE_URL` values from session-mode port `5432` to transaction-mode port `6543` and adds `pgbouncer=true` when needed.
+- Vercel API runtime keeps `connection_limit=1` unless `PRISMA_CONNECTION_LIMIT` is explicitly set.
+- `DIRECT_URL` remains reserved for migrations/direct operations and is not rewritten by runtime code.
+- The API wrapper now uses a single in-flight Nest bootstrap promise for warm function reuse.
+
+No Supabase pool-size setting was raised for this fix. Do not increase pool size until transaction-mode runtime traffic and Prisma lifecycle behavior have been verified and sanitized pool diagnostics show the intended user-testing load genuinely needs more capacity.
+
 ## Web Deployment Method
 
 The web app Git deployment is deployed from the `apps/web` project root with `apps/web/vercel.json`.

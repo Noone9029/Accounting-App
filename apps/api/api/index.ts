@@ -5,8 +5,7 @@ import { NestFactory } from "@nestjs/core";
 import { ExpressAdapter } from "@nestjs/platform-express";
 import { configureApp } from "../src/app-bootstrap";
 import { AppModule } from "../src/app.module";
-
-let cachedServer: express.Express | null = null;
+import { createSingleFlight } from "./single-flight";
 
 async function createServer(): Promise<express.Express> {
   const server = express();
@@ -20,7 +19,9 @@ async function createServer(): Promise<express.Express> {
   return server;
 }
 
+const getServer = createSingleFlight(createServer);
+
 export default async function handler(req: Request, res: Response): Promise<void> {
-  const server = cachedServer ?? (cachedServer = await createServer());
+  const server = await getServer();
   server(req, res);
 }

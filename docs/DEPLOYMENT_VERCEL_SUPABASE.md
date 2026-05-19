@@ -10,7 +10,14 @@ Official references:
 
 - Vercel monorepos: https://vercel.com/docs/monorepos
 - Vercel environment variables: https://vercel.com/docs/environment-variables
+- Vercel function connection pooling: https://vercel.com/kb/guide/connection-pooling-with-functions
 - Supabase Prisma guide: https://supabase.com/docs/guides/database/prisma
+- Supabase connection management: https://supabase.com/docs/guides/database/connection-management
+- Supabase Postgres connection strings and pooler modes: https://supabase.com/docs/guides/database/connecting-to-postgres
+- Prisma serverless deployment guide: https://docs.prisma.io/docs/v6/orm/prisma-client/deployment/serverless
+- Prisma Vercel deployment guide: https://docs.prisma.io/docs/orm/prisma-client/deployment/serverless/deploy-to-vercel
+- Prisma database connection management: https://docs.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections
+- Prisma PgBouncer/Supavisor guidance: https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections/pgbouncer
 
 ## 1. Create Supabase Database
 
@@ -80,6 +87,8 @@ ZATCA_SDK_EXECUTION_ENABLED="false"
 
 `CORS_ORIGIN` accepts comma-separated exact origins and simple wildcard entries like `https://*.vercel.app`.
 `PRISMA_TRANSACTION_TIMEOUT_MS` and `PRISMA_TRANSACTION_MAX_WAIT_MS` are deployment safeguards for Supabase/Vercel latency during multi-step accounting transactions.
+
+For Vercel/serverless runtime traffic, the API must use the Supabase transaction pooler. The runtime `DATABASE_URL` should be a Supabase pooler URL on transaction-mode port `6543`, or a session-mode Supabase pooler URL that the API normalizes to transaction mode at startup. `DIRECT_URL` remains reserved for Prisma CLI/migration/direct database operations. Do not point Prisma migration commands at the transaction pooler unless Prisma's migration configuration has been reviewed for that workflow.
 
 After deployment, verify the API root and health endpoints:
 
@@ -167,7 +176,7 @@ Deployed smoke and E2E must load credentials from local secret storage or CI sec
 - Trial Balance, invoices, purchase bills, inventory pages, and PDF endpoints are manually smoke-tested.
 - `JWT_SECRET` is strong and not reused from local development.
 - Preview deployments do not point at production data unless intentionally allowed.
-- For small Supabase pooler deployments, set `PRISMA_CONNECTION_LIMIT=1` or rely on the Vercel default in `PrismaService` to keep serverless database session usage conservative.
+- For small Supabase pooler deployments, set `PRISMA_CONNECTION_LIMIT=1` or rely on the Vercel default in `PrismaService` to keep each warm serverless instance conservative.
 
 ## 6. Known Deployment Limits
 
@@ -186,4 +195,4 @@ Deployed smoke and E2E must load credentials from local secret storage or CI sec
 - `/health` works directly but web requests fail: confirm the web origin is included in API `CORS_ORIGIN` and redeploy the API after changing it.
 - `/` returns `404 Cannot GET /`: the API alias is likely still serving an older deployment that does not include the root status endpoint.
 - Readiness returns `503`: inspect safe Vercel function logs for database connection errors without exposing `DATABASE_URL` or other secrets.
-- Intermittent API `500` responses with Vercel logs containing `EMAXCONNSESSION` mean the Supabase session pool is exhausted. Wait for health to recover, then review pooler capacity, Prisma connection limits, serverless function concurrency/region behavior, or a deployed E2E throttle strategy. Do not reset data to fix this symptom.
+- Intermittent API `500` responses with Vercel logs containing `EMAXCONNSESSION` mean the Supabase session pool is exhausted. First confirm runtime traffic is using transaction-mode pooling and that the Vercel wrapper reuses one warm Nest/Prisma bootstrap promise; then review Prisma connection limits, serverless function concurrency/region behavior, or Supabase pool capacity. Do not reset data to fix this symptom.

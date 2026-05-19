@@ -82,7 +82,7 @@ Remove-Item Env:\LEDGERBYTE_ALLOW_GENERATED_TEST_USER -ErrorAction SilentlyConti
 corepack pnpm e2e
 ```
 
-The deployed test suite runs with one worker by default to avoid overwhelming the small Vercel/Supabase test environment. The per-test and expectation timeouts are configurable with `LEDGERBYTE_E2E_TEST_TIMEOUT_MS` and `LEDGERBYTE_E2E_EXPECT_TIMEOUT_MS`. If Vercel logs show `EMAXCONNSESSION`, wait for API health to recover and review Supabase pooler capacity or a deployed-run throttle before rerunning.
+The deployed test suite runs with one worker by default to avoid overwhelming the small Vercel/Supabase test environment. The per-test and expectation timeouts are configurable with `LEDGERBYTE_E2E_TEST_TIMEOUT_MS` and `LEDGERBYTE_E2E_EXPECT_TIMEOUT_MS`. If Vercel logs show `EMAXCONNSESSION`, wait for API health to recover, confirm runtime traffic is on the Supabase transaction pooler, and review Prisma connection limits or Vercel function concurrency before rerunning.
 
 ## GitHub Actions
 
@@ -178,5 +178,5 @@ For deployed GitHub Actions runs, `scripts/check-deployed-e2e-env.cjs` performs 
 - Email invite acceptance and token extraction remain covered by API smoke; browser coverage checks the visible password reset/outbox/readiness surfaces.
 - CI wiring is currently manual-dispatch only.
 - The deployed test environment must already have Prisma migrations applied and the seeded test admin available.
-- Supabase test projects with small session-pool limits can surface route-load flakiness if API functions open too many concurrent database sessions.
+- Supabase test projects with small pooler limits can surface route-load flakiness if API functions open too many concurrent database sessions. Deployed Vercel API runtime traffic should use Supabase transaction-mode pooling plus a conservative Prisma runtime connection limit.
 - The GitHub Actions workflow is manual-only for now; scheduled or push-triggered deployed testing should be added only after the test environment is treated as disposable and non-production.
