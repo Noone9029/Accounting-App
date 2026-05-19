@@ -1176,6 +1176,65 @@ interface StorageMigrationPlanResponse {
   notes: string[];
 }
 
+interface BackupReadinessResponse {
+  readOnly: boolean;
+  noMutation: boolean;
+  noBackupExecuted: boolean;
+  noRestoreExecuted: boolean;
+  noSecretsReturned: boolean;
+  productionReady: boolean;
+  databaseBackupConfigured: boolean;
+  pointInTimeRecoveryConfigured: boolean;
+  migrationHistoryAvailable: boolean;
+  objectStorageBackupConfigured: boolean;
+  generatedDocumentBackupConfigured: boolean;
+  attachmentBackupConfigured: boolean;
+  restoreDrillVerified: boolean;
+  restoreVerificationVerified: boolean;
+  rpoRtoReviewed: boolean;
+  evidenceRequired: boolean;
+  requiredEvidenceTypes: string[];
+  verifiedEvidenceTypes: string[];
+  missingEvidenceTypes: string[];
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
+}
+
+interface RestoreDrillPlanResponse {
+  readOnly: boolean;
+  noMutation: boolean;
+  noRestoreExecuted: boolean;
+  noCustomerDataExported: boolean;
+  noSecretsReturned: boolean;
+  productionReady: boolean;
+  plannedSteps: string[];
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
+}
+
+interface BackupRestoreEvidenceListResponse {
+  metadataOnly: boolean;
+  noBackupExecuted: boolean;
+  noRestoreExecuted: boolean;
+  noSecretsReturned: boolean;
+  evidence: unknown[];
+}
+
+interface BackupRestoreEvidenceResponse {
+  metadataOnly: boolean;
+  noBackupExecuted: boolean;
+  noRestoreExecuted: boolean;
+  noSecretsReturned: boolean;
+  evidence: {
+    id: string;
+    status: string;
+    evidenceType: string;
+    provider: string | null;
+  };
+}
+
 interface PurchaseDebitNoteAllocation {
   id: string;
   debitNoteId: string;
@@ -5850,6 +5909,52 @@ async function main(): Promise<void> {
   assertEqual(storageMigrationPlan.targetProvider, "database", "storage migration plan default target provider");
   assertEqual(storageMigrationPlan.migrationRequired, storageMigrationPlan.estimatedMigrationRequired, "storage migration plan compatibility flags align");
   assertEqual(storageMigrationPlan.dryRunOnly, true, "storage migration plan dry run only");
+  const backupReadiness = await get<BackupReadinessResponse>("/system/backup-readiness", headers);
+  assert(backupReadiness.readOnly, "backup readiness is read-only");
+  assert(backupReadiness.noMutation, "backup readiness reports no mutation");
+  assert(backupReadiness.noBackupExecuted, "backup readiness executes no backup");
+  assert(backupReadiness.noRestoreExecuted, "backup readiness executes no restore");
+  assert(backupReadiness.noSecretsReturned, "backup readiness returns no secrets");
+  assert(!backupReadiness.productionReady, "backup readiness is not production-ready by default");
+  assert(backupReadiness.evidenceRequired, "backup readiness requires evidence");
+  assert(backupReadiness.requiredEvidenceTypes.includes("DATABASE_BACKUP"), "backup readiness requires database backup evidence");
+  assert(backupReadiness.requiredEvidenceTypes.includes("POINT_IN_TIME_RECOVERY"), "backup readiness requires PITR evidence");
+  assert(backupReadiness.requiredEvidenceTypes.includes("OBJECT_STORAGE_BACKUP"), "backup readiness requires object storage evidence");
+  assert(backupReadiness.requiredEvidenceTypes.includes("RESTORE_DRILL"), "backup readiness requires restore drill evidence");
+  assert(backupReadiness.requiredEvidenceTypes.includes("RPO_RTO_REVIEW"), "backup readiness requires RPO/RTO review evidence");
+  assert(!backupReadiness.rpoRtoReviewed || backupReadiness.verifiedEvidenceTypes.includes("RPO_RTO_REVIEW"), "backup readiness RPO/RTO state is evidence-backed");
+  assertNoBackupSecretExposure(backupReadiness, "backup readiness");
+
+  const restoreDrillPlan = await get<RestoreDrillPlanResponse>("/system/restore-drill-plan", headers);
+  assert(restoreDrillPlan.readOnly, "restore drill plan is read-only");
+  assert(restoreDrillPlan.noMutation, "restore drill plan reports no mutation");
+  assert(restoreDrillPlan.noRestoreExecuted, "restore drill plan executes no restore");
+  assert(restoreDrillPlan.noCustomerDataExported, "restore drill plan exports no customer data");
+  assert(restoreDrillPlan.noSecretsReturned, "restore drill plan returns no secrets");
+  assert(!restoreDrillPlan.productionReady, "restore drill plan is not production-ready");
+  assert(restoreDrillPlan.plannedSteps.some((step) => step.includes("isolated environment")), "restore drill plan includes isolated environment step");
+  assert(restoreDrillPlan.plannedSteps.some((step) => step.includes("email sending disabled")), "restore drill plan keeps email sending disabled");
+  assertNoBackupSecretExposure(restoreDrillPlan, "restore drill plan");
+
+  const backupEvidenceBefore = await get<BackupRestoreEvidenceListResponse>("/system/backup-evidence", headers);
+  assert(backupEvidenceBefore.metadataOnly, "backup evidence list is metadata-only");
+  assert(backupEvidenceBefore.noBackupExecuted, "backup evidence list executes no backup");
+  assert(backupEvidenceBefore.noRestoreExecuted, "backup evidence list executes no restore");
+  assert(backupEvidenceBefore.noSecretsReturned, "backup evidence list returns no secrets");
+  assertNoBackupSecretExposure(backupEvidenceBefore, "backup evidence list");
+  const createdBackupEvidence = await post<BackupRestoreEvidenceResponse>("/system/backup-evidence", headers, {
+    evidenceType: "OTHER",
+    scope: "ORGANIZATION",
+    provider: "smoke",
+    evidenceSummaryJson: { summary: "metadata-only smoke evidence; no backup or restore executed" },
+    note: "Smoke metadata-only backup evidence.",
+  });
+  assert(createdBackupEvidence.metadataOnly, "backup evidence create is metadata-only");
+  assert(createdBackupEvidence.noBackupExecuted, "backup evidence create executes no backup");
+  assert(createdBackupEvidence.noRestoreExecuted, "backup evidence create executes no restore");
+  assert(createdBackupEvidence.noSecretsReturned, "backup evidence create returns no secrets");
+  assertEqual(createdBackupEvidence.evidence.evidenceType, "OTHER", "backup evidence smoke type");
+  assertNoBackupSecretExposure(createdBackupEvidence, "backup evidence create");
   const journalEntriesAfterStorageReports = await get<JournalEntry[]>("/journal-entries", headers);
   assertEqual(journalEntriesAfterStorageReports.length, journalEntriesAfterAttachments.length, "storage readiness endpoints do not create journal entries");
 
@@ -6548,6 +6653,12 @@ async function main(): Promise<void> {
         emailDiagnosticsNoMutation: emailDiagnostics.noMutation,
         emailTestSendStatus: testEmail.status,
         emailTestSendProvider: testEmail.provider,
+        backupReadinessProductionReady: backupReadiness.productionReady,
+        backupReadinessNoBackupExecuted: backupReadiness.noBackupExecuted,
+        backupReadinessNoRestoreExecuted: backupReadiness.noRestoreExecuted,
+        backupReadinessMissingEvidenceTypes: backupReadiness.missingEvidenceTypes,
+        restoreDrillNoRestoreExecuted: restoreDrillPlan.noRestoreExecuted,
+        backupEvidenceMetadataOnly: createdBackupEvidence.metadataOnly,
         inviteEmailQueued: Boolean(invite.emailOutboxId),
         inviteAcceptedRole: invitedMembership.role.name,
         invitedUserCanLogin: Boolean(invitedLogin.accessToken),
@@ -7053,6 +7164,31 @@ function assertNoEmailSecretExposure(value: unknown, label: string): void {
     "webhook-secret-value",
     "smtp-password-secret",
     "api-key-secret",
+  ];
+  for (const marker of forbidden) {
+    assert(!serialized.includes(marker), `${label} does not expose ${marker}`);
+  }
+}
+
+function assertNoBackupSecretExposure(value: unknown, label: string): void {
+  const serialized = JSON.stringify(value) ?? "";
+  const forbidden = [
+    "DATABASE_URL",
+    "DIRECT_URL",
+    "postgresql://",
+    "postgres://",
+    "service_role",
+    "SERVICE_ROLE",
+    "S3_SECRET_ACCESS_KEY",
+    "S3_ACCESS_KEY_ID",
+    "SMTP_PASSWORD",
+    "API_KEY",
+    "AUTHORIZATION",
+    "Bearer ",
+    "PRIVATE KEY",
+    "WEBHOOK_SECRET",
+    "<Invoice",
+    "contentBase64",
   ];
   for (const marker of forbidden) {
     assert(!serialized.includes(marker), `${label} does not expose ${marker}`);

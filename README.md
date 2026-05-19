@@ -66,6 +66,7 @@ Deployment safety docs:
 - [CI database readiness checklist](docs/deployment/CI_DATABASE_READINESS_CHECKLIST.md)
 - [Supabase security review](docs/deployment/SUPABASE_SECURITY_REVIEW.md)
 - [Deployed E2E runbook](docs/deployment/DEPLOYED_E2E_RUNBOOK.md)
+- [Backup and restore readiness plan](docs/BACKUP_AND_RESTORE_READINESS_PLAN.md)
 
 API status links:
 
@@ -168,7 +169,7 @@ LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! 
 
 The smoke covers seed login, `/auth/me` role permission visibility, role/member API visibility, custom role creation, unknown-permission rejection, organization discovery, dashboard summary section/trend/aging checks, bank account profile defaults/transactions/balance movement, bank transfers/opening balances, bank statement preview/import/matching/categorization/reconciliation summary/submit/approve/close/void lock checks, reconciliation report data/CSV/PDF/archive checks, item/customer/supplier setup, warehouse defaults, opening-balance stock movements, inventory adjustment approval/void flows, warehouse transfers/void reversals, purchase receipt posting/voiding, compatible purchase receipt asset post/reverse, finalized-invoice sales stock issue posting/voiding after manual COGS post/reversal, receiving/issue status endpoints, inventory balances, inventory settings, inventory accounting settings, purchase receipt posting readiness, purchase receipt accounting preview, sales issue COGS preview, manual COGS posting, P&L COGS activity, stock valuation/movement/low-stock reports, inventory clearing reconciliation/variance reports and CSV exports, accountant-reviewed inventory variance proposal create/submit/approve/post/reverse flow, no-journal inventory movement checks outside explicit COGS/receipt asset/variance proposal post actions, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run/local-validation disabled endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, report CSV/PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
 
-The smoke also verifies document settings, number sequence settings/listing/audit logging, PDF archive creation after invoice PDF generation, generated document archive download, user-uploaded attachment upload/list/download/soft-delete checks, representative audit log records/sensitive metadata redaction, audit retention settings/dry-run preview, audit CSV export redaction, and storage readiness/migration-plan dry-run checks without creating journals.
+The smoke also verifies document settings, number sequence settings/listing/audit logging, PDF archive creation after invoice PDF generation, generated document archive download, user-uploaded attachment upload/list/download/soft-delete checks, representative audit log records/sensitive metadata redaction, audit retention settings/dry-run preview, audit CSV export redaction, storage readiness/migration-plan dry-run checks, and backup/restore readiness plus restore-drill planning without creating journals, running backups, running restores, or exposing secrets.
 
 On Windows, if `db:generate` fails with Prisma query engine `EPERM`, stop running API/dev Node processes and rerun it. This is usually a file lock on Prisma's generated client DLL.
 
@@ -228,6 +229,7 @@ The current engineering audit docs live under `docs/`:
 - `docs/API_CATALOG.md`: implemented API endpoint catalog.
 - `docs/DATABASE_MODEL_CATALOG.md`: Prisma model and enum catalog.
 - `docs/FRONTEND_ROUTE_CATALOG.md`: frontend route catalog.
+- `docs/BACKUP_AND_RESTORE_READINESS_PLAN.md`: database, Supabase/Postgres, object storage, generated-document, attachment, restore-drill, RPO/RTO, tenant-isolation, and redaction readiness plan.
 - `docs/AUDIT_LOG_COVERAGE_REVIEW.md`: standardized audit event coverage and remaining audit risks.
 - `docs/ACCOUNTING_WORKFLOW_AUDIT.md`: journal and subledger workflow audit.
 - `docs/ZATCA_STATUS_AUDIT.md`: current ZATCA status and production warnings.
@@ -242,6 +244,15 @@ Health/status:
 - `GET /`
 - `GET /health`
 - `GET /readiness`
+
+System readiness:
+
+- `GET /system/backup-readiness`
+- `GET /system/restore-drill-plan`
+- `GET /system/backup-evidence`
+- `POST /system/backup-evidence`
+- `POST /system/backup-evidence/:id/verify`
+- `POST /system/backup-evidence/:id/revoke`
 
 Dashboard:
 
@@ -2392,3 +2403,13 @@ Recommended next step:
 - Production SMTP is still not ready until a non-production relay/provider run, sender-domain evidence review, provider-specific signed bounces/webhooks, scheduled retry worker review, alerting thresholds, and monitoring evidence are completed.
 - Latest email worker/monitoring readiness verification: targeted API email tests, targeted web email status tests, `corepack pnpm db:generate`, `corepack pnpm db:migrate`, typecheck, build, `corepack pnpm smoke:accounting`, `git diff --check`, and `git diff --cached --check`.
 - Recommended next prompt: add provider-specific production webhook adapters and an external monitoring integration runbook for email delivery alerts while keeping real customer sends disabled by default.
+
+## Backup and restore readiness
+
+- `GET /system/backup-readiness` is an admin/system readiness check. It is read-only, no-mutation, executes no backup, executes no restore, exports no customer data, and returns database backup, point-in-time recovery, migration-history, object-storage backup, generated-document backup, attachment backup, restore-drill, restore-verification, and RPO/RTO evidence state without database URLs, Supabase service role keys, storage credentials, connection strings, API keys, tokens, private keys, signed XML/QR bodies, customer document bodies, or attachment bodies.
+- `GET /system/restore-drill-plan` returns the isolated restore drill checklist only. It does not restore snapshots, run migrations, export customer data, send email, call ZATCA, or mutate accounting records.
+- `/system/backup-evidence` list/create/verify/revoke endpoints store metadata-only `BackupRestoreEvidence`. Evidence supports global or organization scope and rejects database URLs, service role keys, storage credentials, SMTP/provider secrets, auth headers, private keys, signed XML/QR bodies, customer document contents, and attachment contents.
+- `/settings/storage` now shows backup readiness, restore-drill planning, evidence completeness, safe metadata-only evidence capture, and `productionReady=false` until every required evidence type is reviewed. It has no run-backup or restore button.
+- RPO/RTO and legal/accounting retention durations remain business-review items. LedgerByte does not infer legal retention periods in code or docs.
+- Latest backup/restore readiness verification: `corepack pnpm db:generate`, `corepack pnpm db:migrate`, targeted API system tests, targeted web storage tests, `corepack pnpm typecheck`, `corepack pnpm build`, `corepack pnpm smoke:accounting`, `git diff --check`, and `git diff --cached --check`.
+- Recommended next prompt: execute a non-production Supabase/Postgres restore drill and object-storage backup verification with sanitized evidence, without exposing secrets or customer content.

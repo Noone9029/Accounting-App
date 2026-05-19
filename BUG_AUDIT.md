@@ -37,6 +37,26 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Backup restore readiness added
+
+Added backup/restore readiness planning and metadata-only evidence capture without running backups, running restores, exporting customer data, or exposing secrets.
+
+Risk reduced:
+
+- `BackupRestoreEvidence` stores review metadata for database backup, point-in-time recovery, migration history, object-storage backup, generated-document backup, attachment backup, restore drill, restore verification, RPO/RTO review, and other evidence.
+- `GET /system/backup-readiness` is read-only/no-mutation and reports missing/verified evidence, blockers, warnings, and `productionReady=false` until required evidence is verified.
+- `GET /system/restore-drill-plan` returns an isolated restore-drill checklist only; it does not restore snapshots, run migrations, export customer data, send email, or call ZATCA.
+- `/system/backup-evidence` list/create/verify/revoke endpoints are metadata-only, audit create/verify/revoke actions, and reject database URLs, service role keys, storage credentials, connection strings, SMTP/API/provider secrets, auth headers, private keys, signed XML/QR bodies, customer document contents, and attachment contents.
+- `/settings/storage` now shows backup readiness, restore-drill planning, evidence completeness, safe evidence controls, and `productionReady=false` without any run-backup or restore button.
+- Smoke now asserts no backup execution, no restore execution, no secret exposure, metadata-only evidence behavior, and continued ZATCA/email safety gates.
+
+Remaining risks:
+
+- Real Supabase/Postgres backup/PITR validation must be performed outside LedgerByte.
+- Object-storage backup validation and a non-production restore drill are still pending.
+- RPO/RTO targets and legal/accounting retention duration still require business review.
+- Production monitoring, alerting, incident runbooks, storage migration execution, and real ZATCA OTP/CSID remain separate blockers.
+
 ### Email worker monitoring readiness added
 
 Added scheduled retry-worker planning, a disabled-by-default worker run shell, and metadata-only delivery monitoring evidence without sending customer email by default.

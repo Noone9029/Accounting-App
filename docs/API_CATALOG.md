@@ -33,6 +33,17 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | GET | `/health` | API liveness check | No | No | Implemented | Lightweight function health check; does not require database connectivity. |
 | GET | `/readiness` | API/database readiness check | No | No | Implemented | Runs a safe database connectivity check; returns `503` with redacted JSON if DB is unavailable. |
 
+## System Readiness
+
+| Method | Path | Purpose | Auth | Org header | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| GET | `/system/backup-readiness` | Backup and restore readiness | Yes | Yes | Implemented | Requires `auditLogs.manageRetention`; read-only/no-mutation; reports database backup, PITR, migration-history, object-storage backup, generated-document backup, attachment backup, restore-drill, restore-verification, and RPO/RTO evidence state without executing backup/restore or returning secrets. |
+| GET | `/system/restore-drill-plan` | Restore drill plan | Yes | Yes | Implemented | Requires `auditLogs.manageRetention`; read-only/no-mutation; returns isolated restore-drill steps, blockers, and warnings; does not restore snapshots, run migrations, export customer data, send email, call ZATCA, or mutate accounting records. |
+| GET | `/system/backup-evidence` | List backup/restore evidence | Yes | Yes | Implemented | Requires `auditLogs.manageRetention`; returns global and organization-scoped metadata-only evidence; no database URLs, service role keys, storage credentials, document bodies, attachment bodies, signed XML/QR bodies, or provider secrets. |
+| POST | `/system/backup-evidence` | Create backup/restore evidence draft | Yes | Yes | Implemented | Requires `auditLogs.manageRetention`; stores metadata-only evidence and rejects database URLs, connection strings, Supabase service role keys, storage credentials, SMTP/provider secrets, auth headers, private keys, signed XML/QR bodies, customer document contents, and attachment contents. |
+| POST | `/system/backup-evidence/:id/verify` | Verify backup/restore evidence | Yes | Yes | Implemented | Requires `auditLogs.manageRetention`; marks reviewed metadata as verified; can contribute to backup readiness only for the relevant evidence type and does not run backup/restore. |
+| POST | `/system/backup-evidence/:id/revoke` | Revoke backup/restore evidence | Yes | Yes | Implemented | Requires `auditLogs.manageRetention`; revokes metadata evidence without backup execution, restore execution, customer export, or secret exposure. |
+
 ## Dashboard
 
 | Method | Path | Purpose | Auth | Org header | Status | Notes |

@@ -152,6 +152,20 @@ export type EmailDeliveryMonitoringEvidenceType =
   | "PROVIDER_WEBHOOK_HEALTH"
   | "OTHER";
 export type EmailMonitoringEvidenceReadinessStatus = "BLOCKED" | "PARTIAL" | "READY_FOR_REVIEW";
+
+export type BackupRestoreEvidenceScope = "GLOBAL" | "ORGANIZATION";
+export type BackupRestoreEvidenceStatus = "DRAFT" | "VERIFIED" | "REVOKED" | "SUPERSEDED";
+export type BackupRestoreEvidenceType =
+  | "DATABASE_BACKUP"
+  | "POINT_IN_TIME_RECOVERY"
+  | "MIGRATION_HISTORY"
+  | "OBJECT_STORAGE_BACKUP"
+  | "GENERATED_DOCUMENT_BACKUP"
+  | "ATTACHMENT_BACKUP"
+  | "RESTORE_DRILL"
+  | "RESTORE_VERIFICATION"
+  | "RPO_RTO_REVIEW"
+  | "OTHER";
 export type EmailRelayDiagnosticsStatus =
   | "NOT_RUN"
   | "SKIPPED_DISABLED"
@@ -3125,6 +3139,80 @@ export interface StorageMigrationPlanResponse {
   estimatedMigrationRequired: boolean;
   dryRunOnly: boolean;
   notes: string[];
+}
+
+export interface BackupRestoreEvidence {
+  id: string;
+  organizationId: string | null;
+  scope: BackupRestoreEvidenceScope;
+  status: BackupRestoreEvidenceStatus;
+  evidenceType: BackupRestoreEvidenceType;
+  provider: string | null;
+  evidenceSummaryJson: unknown;
+  verifiedById: string | null;
+  verifiedAt: string | null;
+  revokedById: string | null;
+  revokedAt: string | null;
+  note: string | null;
+  productionReadyContribution: boolean;
+  createdById: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BackupReadinessResponse {
+  readOnly: boolean;
+  noMutation: boolean;
+  noBackupExecuted: boolean;
+  noRestoreExecuted: boolean;
+  noSecretsReturned: boolean;
+  productionReady: boolean;
+  databaseBackupConfigured: boolean;
+  pointInTimeRecoveryConfigured: boolean;
+  migrationHistoryAvailable: boolean;
+  objectStorageBackupConfigured: boolean;
+  generatedDocumentBackupConfigured: boolean;
+  attachmentBackupConfigured: boolean;
+  restoreDrillVerified: boolean;
+  restoreVerificationVerified: boolean;
+  rpoRtoReviewed: boolean;
+  evidenceRequired: boolean;
+  requiredEvidenceTypes: BackupRestoreEvidenceType[];
+  verifiedEvidenceTypes: BackupRestoreEvidenceType[];
+  missingEvidenceTypes: BackupRestoreEvidenceType[];
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
+  redactionGuarantees?: string[];
+}
+
+export interface BackupRestoreEvidenceListResponse {
+  metadataOnly: boolean;
+  noBackupExecuted: boolean;
+  noRestoreExecuted: boolean;
+  noSecretsReturned: boolean;
+  evidence: BackupRestoreEvidence[];
+}
+
+export interface BackupRestoreEvidenceResponse {
+  metadataOnly: boolean;
+  noBackupExecuted: boolean;
+  noRestoreExecuted: boolean;
+  noSecretsReturned: boolean;
+  evidence: BackupRestoreEvidence;
+}
+
+export interface RestoreDrillPlanResponse {
+  readOnly: boolean;
+  noMutation: boolean;
+  noRestoreExecuted: boolean;
+  noCustomerDataExported: boolean;
+  noSecretsReturned: boolean;
+  productionReady: boolean;
+  plannedSteps: string[];
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
 }
 
 export interface ZatcaOrganizationProfile {

@@ -136,7 +136,7 @@ Objective: harden LedgerByte for real users, operations, billing, and scale.
 Tasks:
 
 - Production deployment target and infrastructure-as-code.
-- Managed Postgres, backups, restore drills, and monitoring.
+- Managed Postgres backup/PITR validation, restore drills, evidence review, and monitoring.
 - Validate the uploaded-attachment S3 adapter with a real non-production bucket, then implement generated-document object storage and a resumable DB-to-S3 migration executor.
 - Email provider validation using allowlisted diagnostics, provider-specific signed webhooks, production retry scheduler, external monitoring/alert delivery, and transactional template polish.
 - WhatsApp provider integration if product requires it.
@@ -160,7 +160,7 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Create a production readiness plan for LedgerByte covering deployment, storage, backups, monitoring, secrets, email, billing, and security controls.
+> Execute a non-production Supabase/Postgres restore drill and object-storage backup verification with sanitized evidence, without exposing secrets or customer content.
 
 ## 2026-05-18 Email readiness diagnostics
 
@@ -202,6 +202,14 @@ Recommended next prompt:
 - `/settings/email-outbox` now shows retry worker state, monitoring evidence status, bounce/complaint threshold blockers, suppression trend monitoring, webhook health monitoring, and metadata-only monitoring evidence controls.
 - Remaining roadmap item: add provider-specific production webhook adapters, external monitoring/alert delivery, real relay execution evidence, production retry scheduler, and live DNS/provider validation.
 - Recommended next prompt: add provider-specific production webhook adapters and an external monitoring integration runbook for email delivery alerts while keeping real customer sends disabled by default.
+
+## 2026-05-19 Backup restore readiness
+
+- Added `BackupRestoreEvidence` for metadata-only database backup, point-in-time recovery, migration history, object-storage backup, generated-document backup, attachment backup, restore-drill, restore-verification, RPO/RTO review, and other evidence.
+- Added `GET /system/backup-readiness`, `GET /system/restore-drill-plan`, and backup evidence list/create/verify/revoke endpoints. They execute no backup, run no restore, export no customer data, and expose no database URLs, Supabase service role keys, storage credentials, connection strings, signed XML/QR bodies, customer document contents, attachment bodies, API keys, tokens, auth headers, private keys, or provider secrets.
+- `/settings/storage` now shows backup readiness, restore-drill planning, evidence completeness, missing evidence, and metadata-only evidence controls without any run-backup or restore button.
+- Remaining roadmap item: verify real Supabase/Postgres backups and PITR, validate object-storage backup policy, execute an isolated non-production restore drill, complete RPO/RTO review, and connect production monitoring/incident runbooks.
+- Recommended next prompt: execute a non-production Supabase/Postgres restore drill and object-storage backup verification with sanitized evidence, without exposing secrets or customer content.
 
 ## 2026-05-16 ZATCA buyer address field support
 

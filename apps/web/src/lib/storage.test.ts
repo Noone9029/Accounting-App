@@ -1,4 +1,13 @@
-import { formatStorageBytes, s3ConfigRows, storageProviderLabel, storageReadinessLabel, storageReadinessTone } from "./storage";
+import {
+  backupEvidenceStatusLabel,
+  backupEvidenceTypeLabel,
+  backupReadinessLabel,
+  formatStorageBytes,
+  s3ConfigRows,
+  storageProviderLabel,
+  storageReadinessLabel,
+  storageReadinessTone,
+} from "./storage";
 
 describe("storage helpers", () => {
   it("labels storage providers and readiness", () => {
@@ -31,5 +40,18 @@ describe("storage helpers", () => {
 
     expect(rows).toContainEqual({ label: "Secret key", configured: true });
     expect(JSON.stringify(rows)).not.toContain("secret=");
+  });
+
+  it("labels backup readiness and evidence without secret values", () => {
+    expect(backupReadinessLabel(false)).toBe("Backup readiness not production-ready");
+    expect(backupReadinessLabel(true)).toBe("Backup readiness review complete");
+    expect(backupEvidenceTypeLabel("DATABASE_BACKUP")).toBe("Database backup");
+    expect(backupEvidenceTypeLabel("RPO_RTO_REVIEW")).toBe("RPO/RTO review");
+    expect(backupEvidenceStatusLabel("VERIFIED")).toBe("Verified");
+    expect(backupEvidenceStatusLabel("DRAFT")).toBe("Draft");
+    expect(JSON.stringify([
+      backupEvidenceTypeLabel("OBJECT_STORAGE_BACKUP"),
+      backupEvidenceStatusLabel("REVOKED"),
+    ])).not.toContain("DATABASE_URL");
   });
 });

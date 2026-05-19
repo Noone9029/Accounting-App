@@ -78,6 +78,31 @@ enum EmailDeliveryMonitoringEvidenceType {
   OTHER
 }
 
+enum BackupRestoreEvidenceScope {
+  GLOBAL
+  ORGANIZATION
+}
+
+enum BackupRestoreEvidenceStatus {
+  DRAFT
+  VERIFIED
+  REVOKED
+  SUPERSEDED
+}
+
+enum BackupRestoreEvidenceType {
+  DATABASE_BACKUP
+  POINT_IN_TIME_RECOVERY
+  MIGRATION_HISTORY
+  OBJECT_STORAGE_BACKUP
+  GENERATED_DOCUMENT_BACKUP
+  ATTACHMENT_BACKUP
+  RESTORE_DRILL
+  RESTORE_VERIFICATION
+  RPO_RTO_REVIEW
+  OTHER
+}
+
 enum AuthTokenPurpose {
   ORGANIZATION_INVITE
   PASSWORD_RESET
@@ -651,6 +676,9 @@ model User {
   createdEmailDeliveryMonitoringEvidence            EmailDeliveryMonitoringEvidence[]           @relation("EmailDeliveryMonitoringEvidenceCreatedBy")
   verifiedEmailDeliveryMonitoringEvidence           EmailDeliveryMonitoringEvidence[]           @relation("EmailDeliveryMonitoringEvidenceVerifiedBy")
   revokedEmailDeliveryMonitoringEvidence            EmailDeliveryMonitoringEvidence[]           @relation("EmailDeliveryMonitoringEvidenceRevokedBy")
+  createdBackupRestoreEvidence                      BackupRestoreEvidence[]                     @relation("BackupRestoreEvidenceCreatedBy")
+  verifiedBackupRestoreEvidence                     BackupRestoreEvidence[]                     @relation("BackupRestoreEvidenceVerifiedBy")
+  revokedBackupRestoreEvidence                      BackupRestoreEvidence[]                     @relation("BackupRestoreEvidenceRevokedBy")
   updatedAuditLogRetentionSettings                  AuditLogRetentionSettings[]                 @relation("AuditLogRetentionSettingsUpdatedBy")
   zatcaHashModeEnabledEgsUnits                      ZatcaEgsUnit[]                              @relation("ZatcaHashModeEnabledBy")
   approvedZatcaCsrConfigReviews                     ZatcaCsrConfigReview[]                      @relation("ZatcaCsrConfigReviewApprovedBy")
@@ -737,6 +765,7 @@ model Organization {
   emailProviderEvents                       EmailProviderEvent[]
   emailSuppressions                         EmailSuppression[]
   emailDeliveryMonitoringEvidence           EmailDeliveryMonitoringEvidence[]
+  backupRestoreEvidence                     BackupRestoreEvidence[]
   authTokens                                AuthToken[]
   authTokenRateLimitEvents                  AuthTokenRateLimitEvent[]
   zatcaProfile                              ZatcaOrganizationProfile?
@@ -1327,6 +1356,39 @@ model EmailDeliveryMonitoringEvidence {
   revokedBy                   User?                                 @relation("EmailDeliveryMonitoringEvidenceRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, evidenceType])
+  @@index([createdById])
+  @@index([verifiedById])
+  @@index([revokedById])
+}
+
+model BackupRestoreEvidence {
+  id                          String                      @id @default(uuid()) @db.Uuid
+  organizationId              String?                     @db.Uuid
+  scope                       BackupRestoreEvidenceScope  @default(ORGANIZATION)
+  status                      BackupRestoreEvidenceStatus @default(DRAFT)
+  evidenceType                BackupRestoreEvidenceType
+  provider                    String?
+  evidenceSummaryJson         Json
+  verifiedById                String?                     @db.Uuid
+  verifiedAt                  DateTime?
+  revokedById                 String?                     @db.Uuid
+  revokedAt                   DateTime?
+  note                        String?
+  productionReadyContribution Boolean                     @default(false)
+  createdById                 String?                     @db.Uuid
+  createdAt                   DateTime                    @default(now())
+  updatedAt                   DateTime                    @updatedAt
+  organization                Organization?               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy                   User?                       @relation("BackupRestoreEvidenceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  verifiedBy                  User?                       @relation("BackupRestoreEvidenceVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+  revokedBy                   User?                       @relation("BackupRestoreEvidenceRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([scope])
+  @@index([status])
+  @@index([evidenceType])
   @@index([organizationId, status])
   @@index([organizationId, evidenceType])
   @@index([createdById])

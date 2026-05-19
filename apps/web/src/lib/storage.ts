@@ -1,4 +1,4 @@
-import type { ObjectStorageProviderName, S3ConfigReadiness, StorageReadinessSection } from "./types";
+import type { BackupRestoreEvidenceStatus, BackupRestoreEvidenceType, ObjectStorageProviderName, S3ConfigReadiness, StorageReadinessSection } from "./types";
 
 export function storageProviderLabel(provider: ObjectStorageProviderName | string): string {
   return provider === "s3" ? "S3-compatible object storage" : "Database storage";
@@ -40,6 +40,36 @@ export function s3ConfigRows(config: S3ConfigReadiness): Array<{ label: string; 
     { label: "Force path style", configured: config.forcePathStyle },
     { label: "Public base URL", configured: config.publicBaseUrlConfigured },
   ];
+}
+
+export function backupReadinessLabel(productionReady: boolean): string {
+  return productionReady ? "Backup readiness review complete" : "Backup readiness not production-ready";
+}
+
+export function backupEvidenceTypeLabel(type: BackupRestoreEvidenceType): string {
+  const labels: Record<BackupRestoreEvidenceType, string> = {
+    DATABASE_BACKUP: "Database backup",
+    POINT_IN_TIME_RECOVERY: "Point-in-time recovery",
+    MIGRATION_HISTORY: "Migration history",
+    OBJECT_STORAGE_BACKUP: "Object storage backup",
+    GENERATED_DOCUMENT_BACKUP: "Generated document backup",
+    ATTACHMENT_BACKUP: "Attachment backup",
+    RESTORE_DRILL: "Restore drill",
+    RESTORE_VERIFICATION: "Restore verification",
+    RPO_RTO_REVIEW: "RPO/RTO review",
+    OTHER: "Other evidence",
+  };
+  return labels[type] ?? type;
+}
+
+export function backupEvidenceStatusLabel(status: BackupRestoreEvidenceStatus): string {
+  const labels: Record<BackupRestoreEvidenceStatus, string> = {
+    DRAFT: "Draft",
+    VERIFIED: "Verified",
+    REVOKED: "Revoked",
+    SUPERSEDED: "Superseded",
+  };
+  return labels[status] ?? status;
 }
 
 function trim(value: number): string {

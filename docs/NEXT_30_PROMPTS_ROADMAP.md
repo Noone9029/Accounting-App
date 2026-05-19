@@ -98,11 +98,11 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 - Risk level: High.
 - Manual credentials needed: No for local; managed Redis later.
 
-### 12. Add backup and restore runbooks
+### 12. Execute backup and restore drill evidence
 
-- Objective: Document and script non-production backup/restore drills for Supabase/Postgres and stored files.
+- Objective: Execute a non-production Supabase/Postgres restore drill and object-storage backup verification, then record sanitized evidence.
 - Why it matters: Production trust depends on restore, not just backup.
-- Dependencies: Deployment docs and storage plan.
+- Dependencies: `docs/BACKUP_AND_RESTORE_READINESS_PLAN.md`, `BackupRestoreEvidence`, `/system/backup-readiness`, `/system/restore-drill-plan`, `/system/backup-evidence`, storage readiness, and deployment owner access.
 - Risk level: Medium.
 - Manual credentials needed: Supabase/project access for live drill.
 
@@ -255,6 +255,13 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 - Dependencies: Plan/tenant limit model.
 - Risk level: High.
 - Manual credentials needed: Stripe test keys and webhook secret.
+
+## 2026-05-19 Backup restore readiness
+
+- Added `docs/BACKUP_AND_RESTORE_READINESS_PLAN.md`, metadata-only `BackupRestoreEvidence`, read-only `/system/backup-readiness`, read-only `/system/restore-drill-plan`, and backup evidence list/create/verify/revoke endpoints.
+- `/settings/storage` now shows backup readiness, restore-drill planning, evidence completeness, missing evidence, and safe metadata-only evidence controls.
+- The readiness surface executes no backup, runs no restore, exports no customer data, and rejects database URLs, Supabase service role keys, storage credentials, signed XML/QR bodies, customer document contents, attachment contents, API keys, tokens, auth headers, private keys, and provider secrets.
+- Remaining next prompt #12 is now the actual non-production drill: execute a Supabase/Postgres restore drill and object-storage backup verification, then capture sanitized evidence without exposing secrets or customer content.
 
 ## 2026-05-16 ZATCA buyer address field support
 

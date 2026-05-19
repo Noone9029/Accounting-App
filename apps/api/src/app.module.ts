@@ -41,6 +41,7 @@ import { SupplierPaymentModule } from "./supplier-payments/supplier-payment.modu
 import { TaxRateModule } from "./tax-rates/tax-rate.module";
 import { StockMovementModule } from "./stock-movements/stock-movement.module";
 import { StorageModule } from "./storage/storage.module";
+import { SystemModule } from "./system/system.module";
 import { WarehouseTransferModule } from "./warehouse-transfers/warehouse-transfer.module";
 import { WarehouseModule } from "./warehouses/warehouse.module";
 import { ZatcaModule } from "./zatca/zatca.module";
@@ -73,6 +74,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     WarehouseModule,
     StockMovementModule,
     StorageModule,
+    SystemModule,
     InventoryAdjustmentModule,
     WarehouseTransferModule,
     InventoryModule,

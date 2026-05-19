@@ -6,17 +6,17 @@ Latest commit audited: `3ed2568` (`Add ZATCA hash-chain replacement groundwork`)
 
 ## Executive Summary
 
-LedgerByte is now a broad accounting SaaS MVP with working local workflows for core AR/AP, banking, reports, documents, inventory controls, manual inventory accounting postings, audit visibility, team/security administration, mock-default email onboarding with opt-in SMTP delivery groundwork, safe email readiness diagnostics, sender-domain evidence capture, durable retry metadata, mock provider-event capture, worker/monitoring evidence readiness, browser smoke coverage, deployment runbooks, and a useful business dashboard.
+LedgerByte is now a broad accounting SaaS MVP with working local workflows for core AR/AP, banking, reports, documents, inventory controls, manual inventory accounting postings, audit visibility, team/security administration, mock-default email onboarding with opt-in SMTP delivery groundwork, safe email readiness diagnostics, sender-domain evidence capture, durable retry metadata, mock provider-event capture, worker/monitoring evidence readiness, backup/restore readiness planning, browser smoke coverage, deployment runbooks, and a useful business dashboard.
 
-The product is credible as a local demo and internal accountant-review sandbox. It is not yet production SaaS, and it is not Saudi/ZATCA production-ready. The most important remaining gap is not one missing screen; it is production hardening: provider validation, provider-specific signed email webhooks, external monitoring/alerts, production scheduled email retries, real object storage migration, backups, security controls, formal approval workflows, official tax/compliance validation, and operations.
+The product is credible as a local demo and internal accountant-review sandbox. It is not yet production SaaS, and it is not Saudi/ZATCA production-ready. The most important remaining gap is not one missing screen; it is production hardening: provider validation, provider-specific signed email webhooks, external monitoring/alerts, production scheduled email retries, real object storage migration, executed backup/restore drills, security controls, formal approval workflows, official tax/compliance validation, and operations.
 
 ## Maturity Estimate
 
 | Readiness area | Estimate | Verdict |
 | --- | ---: | --- |
 | Local demo MVP | 88% | Strong enough for guided demos and internal workflow review. |
-| Private beta | 62% | Possible only with carefully selected testers, clear limitations, non-production data, and hands-on support. |
-| Production SaaS | 38% | Blocked by operations, storage, email, billing, security hardening, backups, monitoring, and legal/compliance review. |
+| Private beta | 64% | Possible only with carefully selected testers, clear limitations, non-production data, and hands-on support. Backup/restore planning now exists, but real drills are still required. |
+| Production SaaS | 39% | Blocked by operations, storage, email, billing, security hardening, real backup/restore drills, monitoring, and legal/compliance review. |
 | Saudi/ZATCA production readiness | 36% | ZATCA remains local/mock/scaffold; official SDK samples pass locally under Java 11, LedgerByte standard fixture now passes SDK global validation, simplified fixture passes XSD/EN/PIH, API-generated standard XML validates locally with warnings, read-only hash comparison exists, and SDK hash persistence can be explicitly enabled for fresh EGS units only. Signing, Phase 2 QR, CSID, clearance/reporting, and PDF-A3 are not implemented. |
 | Xero/Wafeq competitor readiness | 45% | Breadth is now meaningful, but production trust, compliance depth, integrations, onboarding, and polish are still behind mature products. |
 
@@ -39,6 +39,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 - Storage groundwork: database storage default, feature-flagged S3-compatible storage for new uploaded attachments, migration-plan dry run, storage settings UI.
 - QA: backend/frontend/ZATCA unit tests, deep API smoke script, Playwright browser E2E smoke suite, deployed E2E GitHub Actions workflow.
 - Deployment documentation: Vercel/Supabase setup, API root/health/readiness docs, CI database readiness, Supabase security review, deployed E2E runbook.
+- Backup/restore readiness: metadata-only `BackupRestoreEvidence`, read-only backup readiness, restore drill plan, storage settings evidence UI, and redaction checks for database/storage/customer-content secrets.
 
 ## Partial Modules
 
@@ -61,13 +62,13 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 - Live bank feeds, payment gateway integration, bank auto-matching.
 - Recurring invoices, quotes/proformas, delivery notes, fixed assets, payroll, project/job costing.
 - Background job queue workers for email, exports, cleanup, and scheduled reports.
-- Production observability, backups, restore drills, incident runbooks, uptime/error alerting.
+- Production observability, executed backups, restore drills, incident runbooks, uptime/error alerting.
 
 ## Production Blockers
 
 1. No production email retry scheduler, provider-specific signed webhook adapter, executed relay validation, external monitoring/alert delivery, or live deliverability/domain-auth validation.
 2. Uploaded/generated documents still default to database/base64 storage unless the attachment S3 provider is explicitly configured.
-3. No production backup/restore and monitoring runbooks proven against hosted infrastructure.
+3. Backup/restore readiness planning and metadata evidence exist, but no hosted Supabase/Postgres backup/PITR proof, object-storage restore drill, monitoring runbook, or incident runbook has been proven against real infrastructure.
 4. No subscription billing, tenant limits, or SaaS account lifecycle.
 5. No MFA, advanced session controls, or formal security review.
 6. No immutable external audit store, scheduled audit export, tamper-evident chain, or alerting.
@@ -159,6 +160,14 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 - `/settings/email-outbox` now surfaces retry worker state, monitoring evidence status, alert threshold blockers, suppression trend status, webhook health status, and metadata-only monitoring evidence controls.
 - The score remains limited because there is no production scheduler, provider-specific production webhook adapter, real relay evidence, external monitoring integration, real alert delivery, or live DNS/provider validation.
 - Recommended next prompt: add provider-specific production webhook adapters and an external monitoring integration runbook for email delivery alerts while keeping real customer sends disabled by default.
+
+## 2026-05-19 Backup restore readiness update
+
+- Deployment/storage readiness improved because LedgerByte now has metadata-only `BackupRestoreEvidence`, read-only `/system/backup-readiness`, read-only `/system/restore-drill-plan`, and backup evidence list/create/verify/revoke endpoints.
+- The storage settings page now shows database backup, point-in-time recovery, migration-history, object-storage backup, generated-document backup, attachment backup, restore-drill, restore-verification, and RPO/RTO review evidence state without any run-backup or restore action.
+- Evidence capture rejects database URLs, Supabase service role keys, storage credentials, SMTP/provider secrets, auth headers, private keys, signed XML/QR bodies, customer document contents, and attachment contents.
+- The score remains limited because no real Supabase/Postgres backup or PITR setting was verified, no object-storage backup policy was exercised, no restore drill was executed, and RPO/RTO plus retention requirements still need business review.
+- Recommended next prompt: execute a non-production Supabase/Postgres restore drill and object-storage backup verification with sanitized evidence, without exposing secrets or customer content.
 
 ## Go/No-Go
 
