@@ -187,6 +187,15 @@ corepack pnpm dev
 corepack pnpm e2e
 ```
 
+Local Playwright setup now seeds validated demo workflow records by default through the running API before tests start. The seeded local-only records cover a VAT-valid customer, supplier, finalized sales invoice, customer payment, finalized purchase bill, supplier payment, posted cash expense, opening stock movement, and harmless attachment placeholder. To seed those workflows manually against a local API, run:
+
+```bash
+corepack pnpm demo:seed-workflows
+```
+
+The demo workflow seeder refuses non-local API URLs unless `LEDGERBYTE_DEMO_SEED_ALLOW_REMOTE=true` is set for a disposable non-production target. Set `LEDGERBYTE_E2E_SEED_WORKFLOWS=false` to skip automatic workflow seeding in browser E2E, for example when running against a deployed environment that is not resettable.
+Both browser E2E and API smoke prefer the canonical demo organization by default; override with `LEDGERBYTE_E2E_ORGANIZATION_ID` or `LEDGERBYTE_SMOKE_ORGANIZATION_ID` only for disposable test tenants.
+
 If Playwright reports a missing Chromium browser, run `corepack pnpm exec playwright install chromium` once on the machine.
 
 Optional overrides:

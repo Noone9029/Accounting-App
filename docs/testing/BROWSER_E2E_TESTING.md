@@ -20,6 +20,15 @@ Start the API and web apps in another terminal:
 corepack pnpm dev
 ```
 
+When the API URL is local, Playwright global setup also seeds validated demo workflow records through the running API before tests start. This creates or reuses local-only demo data for a VAT-valid customer, supplier, finalized sales invoice, customer payment, finalized purchase bill, supplier payment, posted cash expense, opening stock movement, and harmless attachment placeholder. The same seed can be run directly:
+
+```bash
+corepack pnpm demo:seed-workflows
+```
+
+The workflow seeder is guarded against accidental production use: it refuses non-local API URLs unless `LEDGERBYTE_DEMO_SEED_ALLOW_REMOTE=true` is set for a disposable non-production target. Set `LEDGERBYTE_E2E_SEED_WORKFLOWS=false` to skip automatic workflow seeding.
+By default, browser E2E selects organization `00000000-0000-0000-0000-000000000001`; set `LEDGERBYTE_E2E_ORGANIZATION_ID` only when the target is a disposable test tenant.
+
 The browser suite expects:
 
 - Web: `http://localhost:3000`
@@ -147,12 +156,14 @@ For deployed GitHub Actions runs, `scripts/check-deployed-e2e-env.cjs` performs 
 - Email/auth groundwork: password reset generic response, mock email outbox, email readiness panel.
 - ZATCA: readiness/settings surface without real network credentials.
 - Storage: database storage readiness, generated document storage readiness, redacted S3 readiness, dry-run migration notice.
+- Validated demo workflow data: customer/supplier VAT fields, finalized AR/AP documents, payments, posted cash expense, opening stock movement, and app-list rendering for those records.
 
 ## Data Strategy
 
 - Uses the seeded admin for login.
-- Uses API setup helpers only to discover existing records for detail-page smoke checks.
-- Skips record-specific detail checks when no suitable seeded record exists.
+- Seeds local demo workflow records through validated API endpoints when the API target is local.
+- Uses API setup helpers to discover existing records for detail-page smoke checks.
+- Skips the new seeded workflow assertions on remote targets unless workflow seeding is explicitly enabled.
 - Avoids external services and real email/S3/ZATCA credentials.
 
 ## Known Limits

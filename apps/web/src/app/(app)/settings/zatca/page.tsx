@@ -731,8 +731,8 @@ export default function ZatcaSettingsPage() {
               </div>
               {sdkReadiness.blockingReasons.length > 0 ? (
                 <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-rosewood">
-                  {sdkReadiness.blockingReasons.map((reason) => (
-                    <li key={reason}>{reason}</li>
+                  {sdkReadiness.blockingReasons.map((reason, index) => (
+                    <li key={`${reason}-${index}`}>{reason}</li>
                   ))}
                 </ul>
               ) : null}
@@ -810,8 +810,8 @@ export default function ZatcaSettingsPage() {
               <p className="mt-4 text-xs text-amber-700">Local-only readiness. No token/certificate bodies are shown. No signing, CSID request, clearance/reporting, network submission, PDF/A-3, or production compliance is enabled.</p>
               {readiness.blockingReasons.length > 0 ? (
                 <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-steel">
-                  {readiness.blockingReasons.map((reason) => (
-                    <li key={reason}>{reason}</li>
+                  {readiness.blockingReasons.map((reason, index) => (
+                    <li key={`${reason}-${index}`}>{reason}</li>
                   ))}
                 </ul>
               ) : null}
@@ -924,8 +924,8 @@ export default function ZatcaSettingsPage() {
 
               {immutablePolicyPlan.approvalBlockedReasons.length > 0 ? (
                 <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-steel">
-                  {immutablePolicyPlan.approvalBlockedReasons.slice(0, 6).map((reason) => (
-                    <li key={reason}>{reason}</li>
+                  {immutablePolicyPlan.approvalBlockedReasons.slice(0, 6).map((reason, index) => (
+                    <li key={`${reason}-${index}`}>{reason}</li>
                   ))}
                 </ul>
               ) : null}
@@ -1376,8 +1376,8 @@ function ComplianceCsidCustodyPlanPanel({
       ) : null}
       {plan?.custodyGate?.reasons?.length ? (
         <ul className="mt-3 list-disc space-y-1 pl-5 text-[11px] text-amber-700">
-          {plan.custodyGate.reasons.slice(0, 4).map((reason) => (
-            <li key={reason}>{reason}</li>
+          {plan.custodyGate.reasons.slice(0, 4).map((reason, index) => (
+            <li key={`${reason}-${index}`}>{reason}</li>
           ))}
         </ul>
       ) : null}
@@ -1704,8 +1704,8 @@ function ReadinessCheckCard({ title, section }: { title: string; section: ZatcaR
       </div>
       {visibleChecks.length ? (
         <ul className="mt-3 space-y-2 text-xs text-steel">
-          {visibleChecks.map((check) => (
-            <li key={`${check.code}-${check.field}`}>
+          {visibleChecks.map((check, index) => (
+            <li key={`${check.code}-${check.field}-${index}`}>
               <span className="font-medium text-ink">{check.field}</span>: {check.message}
               {check.sourceRule ? <span className="ml-1 text-slate-500">({check.sourceRule})</span> : null}
               <div className="mt-1 text-slate-500">{check.fixHint}</div>
@@ -1776,8 +1776,8 @@ function HashChainStatusPanel({
       </div>
       {hashMode?.blockingReasons.length ? (
         <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-rosewood">
-          {hashMode.blockingReasons.map((reason) => (
-            <li key={reason}>{reason}</li>
+          {hashMode.blockingReasons.map((reason, index) => (
+            <li key={`${reason}-${index}`}>{reason}</li>
           ))}
         </ul>
       ) : null}

@@ -10,6 +10,6 @@ test("password reset and mock email outbox surfaces load", async ({ page }) => {
   await loginByApi(page);
   await gotoApp(page, "/settings/email-outbox", /Email outbox/i);
   await expect(page.getByRole("heading", { name: /Email provider readiness/i })).toBeVisible();
-  await expect(page.getByText(/Mock mode/i)).toBeVisible();
+  await expect(page.getByText("Mock mode", { exact: true })).toBeVisible();
   await expect(page.getByText(/Real sending/i)).toBeVisible();
 });

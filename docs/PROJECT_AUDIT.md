@@ -118,8 +118,14 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 
 - `corepack pnpm add -D @playwright/test -w`: passed.
 - `corepack pnpm typecheck`: passed.
-- `corepack pnpm e2e --list`: passed and discovered 11 Playwright smoke specs.
+- `corepack pnpm e2e --list`: passed and discovered 12 Playwright smoke specs, including the validated demo workflow data spec.
 - `corepack pnpm build`: passed.
+
+## 2026-05-19 E2E workflow data pass
+
+- Added local-only workflow seeding through `corepack pnpm demo:seed-workflows`; it creates/reuses demo customer, supplier, AR/AP documents, payments, posted cash expense, opening stock, and a harmless attachment placeholder through validated API endpoints.
+- Playwright global setup seeds those records automatically when `LEDGERBYTE_API_URL` is local, and remote runs skip by default unless explicitly enabled for disposable non-production targets.
+- `corepack pnpm e2e` passed 12 specs against local Postgres, API, and web.
 
 ## 2026-05-18 Email readiness diagnostics
 

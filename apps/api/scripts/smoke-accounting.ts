@@ -3,6 +3,7 @@ import { Decimal } from "decimal.js";
 const apiUrl = (process.env.LEDGERBYTE_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
 const seedEmail = process.env.LEDGERBYTE_SMOKE_EMAIL ?? "admin@example.com";
 const seedPassword = process.env.LEDGERBYTE_SMOKE_PASSWORD ?? "Password123!";
+const seedOrganizationId = process.env.LEDGERBYTE_SMOKE_ORGANIZATION_ID ?? "00000000-0000-0000-0000-000000000001";
 
 interface LoginResponse {
   accessToken: string;
@@ -6920,7 +6921,10 @@ async function loginAndSelectOrganization(): Promise<SmokeContext> {
   const login = await post<LoginResponse>("/auth/login", {}, { email: seedEmail, password: seedPassword });
   const authHeaders = { Authorization: `Bearer ${login.accessToken}` };
   const me = await get<AuthMeResponse>("/auth/me", authHeaders);
-  const membership = me.memberships.find((item) => item.status === "ACTIVE") ?? me.memberships[0];
+  const membership =
+    me.memberships.find((item) => item.status === "ACTIVE" && item.organization.id === seedOrganizationId) ??
+    me.memberships.find((item) => item.status === "ACTIVE") ??
+    me.memberships[0];
   if (!membership) {
     throw new Error("Seed user does not have an organization membership.");
   }

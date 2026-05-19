@@ -43,12 +43,12 @@ Test locations:
 - Smoke script: `apps/api/scripts/smoke-accounting.ts`
 - Browser E2E smoke: `tests/e2e/*.spec.ts`
 
-Latest known counts from the dashboard checkpoint:
+Latest known counts from the dashboard checkpoint plus the 2026-05-19 E2E workflow-data pass:
 
 - API: 78 test suites, 558 tests.
 - Web helper tests: 27 test suites, 139 tests.
 - ZATCA core: 2 suites, 12 tests.
-- Browser E2E smoke: 11 specs covering critical app surfaces.
+- Browser E2E smoke: 12 specs covering critical app surfaces and validated seeded demo workflow data.
 
 Route QA polish pass on 2026-05-15:
 
@@ -63,6 +63,16 @@ Audit verification run on 2026-05-15:
 - `corepack pnpm test`: passed with the counts above.
 - `corepack pnpm build`: passed.
 - `corepack pnpm smoke:accounting`: passed at the dashboard checkpoint after starting a transient local API.
+
+E2E workflow-data verification on 2026-05-19:
+
+- `corepack pnpm db:migrate`: passed; no pending migrations.
+- `corepack pnpm db:seed`: passed for the canonical demo organization.
+- `corepack pnpm demo:seed-workflows`: passed against local API and created/reused VAT-valid customer/supplier, finalized AR/AP documents, payments, posted cash expense, opening stock, and a harmless attachment placeholder through validated endpoints.
+- `corepack pnpm e2e`: passed 12 specs against local Postgres, API, and web.
+- `corepack pnpm typecheck`: passed.
+- `corepack pnpm build`: passed.
+- `corepack pnpm smoke:accounting`: passed against the canonical demo organization.
 
 ## Backend Unit Areas
 
@@ -126,6 +136,7 @@ Current smoke verifies:
 - Storage readiness and migration-plan dry-run checks.
 - Email readiness, invite acceptance, password reset, and token cleanup coverage.
 - Inventory COGS, receipt asset posting, clearing reconciliation, and variance proposal flows.
+- Browser E2E local setup seeds validated workflow records through the API by default when the API URL is local; use `LEDGERBYTE_E2E_SEED_WORKFLOWS=false` to skip or `LEDGERBYTE_DEMO_SEED_ALLOW_REMOTE=true` only for disposable non-production remote targets.
 
 ## What Is Not Covered
 

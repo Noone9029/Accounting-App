@@ -5,6 +5,7 @@ export const e2eConfig = {
   apiUrl: (process.env.LEDGERBYTE_API_URL ?? "http://localhost:4000").replace(/\/$/, ""),
   email: process.env.LEDGERBYTE_E2E_EMAIL ?? "admin@example.com",
   password: process.env.LEDGERBYTE_E2E_PASSWORD ?? "Password123!",
+  organizationId: process.env.LEDGERBYTE_E2E_ORGANIZATION_ID ?? "00000000-0000-0000-0000-000000000001",
 };
 
 export interface E2eSession {
@@ -70,7 +71,10 @@ export async function loginByApi(page: Page): Promise<E2eSession> {
   const me = await apiRequest<{
     memberships: Array<{ organizationId?: string; organization?: { id?: string }; status: string }>;
   }>("/auth/me", {}, { token: login.accessToken, organizationId: "" });
-  const membership = me.memberships.find((item) => item.status === "ACTIVE") ?? me.memberships[0];
+  const membership =
+    me.memberships.find((item) => item.status === "ACTIVE" && (item.organizationId ?? item.organization?.id) === e2eConfig.organizationId) ??
+    me.memberships.find((item) => item.status === "ACTIVE") ??
+    me.memberships[0];
   if (!membership) {
     throw new Error("Seeded E2E user has no organization membership.");
   }
