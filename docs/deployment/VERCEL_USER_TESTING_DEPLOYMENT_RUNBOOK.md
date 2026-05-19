@@ -40,6 +40,8 @@ Required proof before treating Git auto-deploy as reliable:
 4. Run deployed smoke and Playwright E2E against the new aliases.
 5. Record the deployment ids and commit hash in this runbook or a dated release note.
 
+Proof marker: this runbook was touched on 2026-05-19 to trigger a harmless Git auto-deploy proof after reconnecting both user-testing Vercel projects to the GitHub repository.
+
 Until that proof exists, use the explicit CLI deployment path below.
 
 ## API Deployment Method
