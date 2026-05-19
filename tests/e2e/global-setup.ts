@@ -1,8 +1,6 @@
 import type { FullConfig } from "@playwright/test";
 import { seedDemoWorkflows } from "../../apps/api/scripts/seed-demo-workflows";
-
-const DEFAULT_WEB_URL = "http://localhost:3000";
-const DEFAULT_API_URL = "http://localhost:4000";
+import { e2eConfig, isLocalApiUrl } from "./utils/e2e-config";
 
 async function assertReachable(label: string, url: string) {
   try {
@@ -18,10 +16,10 @@ async function assertReachable(label: string, url: string) {
 }
 
 export default async function globalSetup(_config: FullConfig) {
-  const webUrl = process.env.LEDGERBYTE_WEB_URL ?? DEFAULT_WEB_URL;
-  const apiUrl = process.env.LEDGERBYTE_API_URL ?? DEFAULT_API_URL;
-  const email = process.env.LEDGERBYTE_E2E_EMAIL ?? "admin@example.com";
-  const password = process.env.LEDGERBYTE_E2E_PASSWORD ?? "Password123!";
+  const webUrl = e2eConfig.webUrl;
+  const apiUrl = e2eConfig.apiUrl;
+  const email = e2eConfig.email;
+  const password = e2eConfig.password;
   const seedWorkflows =
     process.env.LEDGERBYTE_E2E_SEED_WORKFLOWS === undefined
       ? isLocalApiUrl(apiUrl)
@@ -48,9 +46,4 @@ export default async function globalSetup(_config: FullConfig) {
   if (seedWorkflows) {
     await seedDemoWorkflows({ apiUrl, email, password });
   }
-}
-
-function isLocalApiUrl(value: string) {
-  const hostname = new URL(value).hostname.toLowerCase();
-  return ["localhost", "127.0.0.1", "::1", "0.0.0.0"].includes(hostname);
 }

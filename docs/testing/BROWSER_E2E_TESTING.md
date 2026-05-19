@@ -27,7 +27,7 @@ corepack pnpm demo:seed-workflows
 ```
 
 The workflow seeder is guarded against accidental production use: it refuses non-local API URLs unless `LEDGERBYTE_DEMO_SEED_ALLOW_REMOTE=true` is set for a disposable non-production target. Set `LEDGERBYTE_E2E_SEED_WORKFLOWS=false` to skip automatic workflow seeding.
-By default, browser E2E selects organization `00000000-0000-0000-0000-000000000001`; set `LEDGERBYTE_E2E_ORGANIZATION_ID` only when the target is a disposable test tenant.
+By default, browser E2E selects organization `00000000-0000-0000-0000-000000000001` only for local targets. Deployed targets must provide `LEDGERBYTE_E2E_ORGANIZATION_ID` from the user-testing secret store or CI configuration.
 
 The browser suite expects:
 
@@ -66,7 +66,7 @@ LEDGERBYTE_E2E_EMAIL=admin@example.com LEDGERBYTE_E2E_PASSWORD=Password123! core
 Run against the deployed test environment:
 
 ```bash
-LEDGERBYTE_WEB_URL=https://ledgerbyte-web-test.vercel.app LEDGERBYTE_API_URL=https://ledgerbyte-api-test.vercel.app LEDGERBYTE_E2E_EMAIL=admin@example.com LEDGERBYTE_E2E_PASSWORD=Password123! corepack pnpm e2e
+LEDGERBYTE_WEB_URL=https://ledgerbyte-web-test.vercel.app LEDGERBYTE_API_URL=https://ledgerbyte-api-test.vercel.app LEDGERBYTE_E2E_EMAIL=<from-secret-store> LEDGERBYTE_E2E_PASSWORD=<from-secret-store> LEDGERBYTE_E2E_ORGANIZATION_ID=<from-secret-store> LEDGERBYTE_E2E_SEED_WORKFLOWS=false corepack pnpm e2e
 ```
 
 PowerShell equivalent:
@@ -74,12 +74,15 @@ PowerShell equivalent:
 ```powershell
 $env:LEDGERBYTE_WEB_URL = "https://ledgerbyte-web-test.vercel.app"
 $env:LEDGERBYTE_API_URL = "https://ledgerbyte-api-test.vercel.app"
-$env:LEDGERBYTE_E2E_EMAIL = "admin@example.com"
-$env:LEDGERBYTE_E2E_PASSWORD = "Password123!"
+$env:LEDGERBYTE_E2E_EMAIL = "<from secret store>"
+$env:LEDGERBYTE_E2E_PASSWORD = "<from secret store>"
+$env:LEDGERBYTE_E2E_ORGANIZATION_ID = "<from secret store>"
+$env:LEDGERBYTE_E2E_SEED_WORKFLOWS = "false"
+Remove-Item Env:\LEDGERBYTE_ALLOW_GENERATED_TEST_USER -ErrorAction SilentlyContinue
 corepack pnpm e2e
 ```
 
-The deployed test suite runs with one worker by default to avoid overwhelming the small Vercel/Supabase test environment. The per-test and expectation timeouts are configurable with `LEDGERBYTE_E2E_TEST_TIMEOUT_MS` and `LEDGERBYTE_E2E_EXPECT_TIMEOUT_MS`.
+The deployed test suite runs with one worker by default to avoid overwhelming the small Vercel/Supabase test environment. The per-test and expectation timeouts are configurable with `LEDGERBYTE_E2E_TEST_TIMEOUT_MS` and `LEDGERBYTE_E2E_EXPECT_TIMEOUT_MS`. If Vercel logs show `EMAXCONNSESSION`, wait for API health to recover and review Supabase pooler capacity or a deployed-run throttle before rerunning.
 
 ## GitHub Actions
 
@@ -95,6 +98,7 @@ Required GitHub Actions secrets:
 
 - `LEDGERBYTE_E2E_EMAIL`
 - `LEDGERBYTE_E2E_PASSWORD`
+- `LEDGERBYTE_E2E_ORGANIZATION_ID`
 
 Optional repository variables:
 

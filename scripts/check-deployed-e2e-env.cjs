@@ -1,4 +1,10 @@
-const required = ["LEDGERBYTE_WEB_URL", "LEDGERBYTE_API_URL", "LEDGERBYTE_E2E_EMAIL", "LEDGERBYTE_E2E_PASSWORD"];
+const required = [
+  "LEDGERBYTE_WEB_URL",
+  "LEDGERBYTE_API_URL",
+  "LEDGERBYTE_E2E_EMAIL",
+  "LEDGERBYTE_E2E_PASSWORD",
+  "LEDGERBYTE_E2E_ORGANIZATION_ID",
+];
 
 function readRequiredEnv(name) {
   const value = process.env[name];
@@ -56,6 +62,7 @@ async function main() {
   console.log(`- API URL: ${apiUrl.toString()}`);
   console.log(`- E2E email: ${redactEmail(email)}`);
   console.log("- E2E password: <configured>");
+  console.log("- E2E organization id: <configured>");
 
   console.log(`Checking deployed web: ${webUrl.toString()}`);
   const webStatus = await checkReachable("Web app", webUrl.toString());

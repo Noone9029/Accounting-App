@@ -29,8 +29,9 @@ Configure these in GitHub repository settings before running the workflow:
 
 - `LEDGERBYTE_E2E_EMAIL`
 - `LEDGERBYTE_E2E_PASSWORD`
+- `LEDGERBYTE_E2E_ORGANIZATION_ID`
 
-Do not store production user credentials in these secrets.
+Do not store production user credentials in these secrets. The organization id can also be stored as a repository variable, but the workflow must receive it so the suite targets the intended user-testing tenant.
 
 Optional repository variables:
 
@@ -66,9 +67,14 @@ $env:LEDGERBYTE_WEB_URL = "https://ledgerbyte-web-test.vercel.app"
 $env:LEDGERBYTE_API_URL = "https://ledgerbyte-api-test.vercel.app"
 $env:LEDGERBYTE_E2E_EMAIL = "<test-email>"
 $env:LEDGERBYTE_E2E_PASSWORD = "<test-password>"
+$env:LEDGERBYTE_E2E_ORGANIZATION_ID = "<test-organization-id>"
+$env:LEDGERBYTE_E2E_SEED_WORKFLOWS = "false"
+Remove-Item Env:\LEDGERBYTE_ALLOW_GENERATED_TEST_USER -ErrorAction SilentlyContinue
 node scripts/check-deployed-e2e-env.cjs
 corepack pnpm e2e
 ```
+
+For local Windows operator runs, load those values from `%LOCALAPPDATA%\LedgerByte\user-testing-credentials.json`; the password field in that file must be DPAPI-encrypted, not plaintext. `LEDGERBYTE_ALLOW_GENERATED_TEST_USER=true` is only for isolated non-production debugging and should stay unset for normal deployed proof.
 
 ## Artifacts
 

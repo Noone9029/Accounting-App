@@ -1,12 +1,7 @@
 import { expect, test as base, type Page } from "@playwright/test";
+import { e2eConfig } from "./e2e-config";
 
-export const e2eConfig = {
-  webUrl: process.env.LEDGERBYTE_WEB_URL ?? "http://localhost:3000",
-  apiUrl: (process.env.LEDGERBYTE_API_URL ?? "http://localhost:4000").replace(/\/$/, ""),
-  email: process.env.LEDGERBYTE_E2E_EMAIL ?? "admin@example.com",
-  password: process.env.LEDGERBYTE_E2E_PASSWORD ?? "Password123!",
-  organizationId: process.env.LEDGERBYTE_E2E_ORGANIZATION_ID ?? "00000000-0000-0000-0000-000000000001",
-};
+export { e2eConfig };
 
 export interface E2eSession {
   token: string;

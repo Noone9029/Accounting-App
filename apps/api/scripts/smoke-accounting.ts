@@ -1,8 +1,30 @@
 import { Decimal } from "decimal.js";
 
+interface TestCredentialOptions {
+  label: string;
+  targetUrls: string[];
+  emailVar: string;
+  passwordVar: string;
+}
+
+interface TestCredentialResult {
+  email: string;
+  password: string;
+}
+
+const { resolveTestCredentials } = require("../../../scripts/test-credential-env.cjs") as {
+  resolveTestCredentials(options: TestCredentialOptions): TestCredentialResult;
+};
+
 const apiUrl = (process.env.LEDGERBYTE_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
-const seedEmail = process.env.LEDGERBYTE_SMOKE_EMAIL ?? "admin@example.com";
-const seedPassword = process.env.LEDGERBYTE_SMOKE_PASSWORD ?? "Password123!";
+const smokeCredentials = resolveTestCredentials({
+  label: "Smoke",
+  targetUrls: [apiUrl],
+  emailVar: "LEDGERBYTE_SMOKE_EMAIL",
+  passwordVar: "LEDGERBYTE_SMOKE_PASSWORD",
+});
+const seedEmail = smokeCredentials.email;
+const seedPassword = smokeCredentials.password;
 const seedOrganizationId = process.env.LEDGERBYTE_SMOKE_ORGANIZATION_ID ?? "00000000-0000-0000-0000-000000000001";
 
 interface LoginResponse {

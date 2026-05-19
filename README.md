@@ -178,6 +178,8 @@ LEDGERBYTE_API_URL=http://localhost:4000 corepack pnpm smoke:accounting
 LEDGERBYTE_SMOKE_EMAIL=admin@example.com LEDGERBYTE_SMOKE_PASSWORD=Password123! corepack pnpm smoke:accounting
 ```
 
+For deployed smoke targets, set `LEDGERBYTE_SMOKE_EMAIL`, `LEDGERBYTE_SMOKE_PASSWORD`, and `LEDGERBYTE_SMOKE_ORGANIZATION_ID` from the secret store. Deployed targets fail fast when credentials are missing unless `LEDGERBYTE_ALLOW_GENERATED_TEST_USER=true` is intentionally set for isolated non-production debugging.
+
 The smoke covers seed login, `/auth/me` role permission visibility, role/member API visibility, custom role creation, unknown-permission rejection, organization discovery, dashboard summary section/trend/aging checks, bank account profile defaults/transactions/balance movement, bank transfers/opening balances, bank statement preview/import/matching/categorization/reconciliation summary/submit/approve/close/void lock checks, reconciliation report data/CSV/PDF/archive checks, item/customer/supplier setup, warehouse defaults, opening-balance stock movements, inventory adjustment approval/void flows, warehouse transfers/void reversals, purchase receipt posting/voiding, compatible purchase receipt asset post/reverse, finalized-invoice sales stock issue posting/voiding after manual COGS post/reversal, receiving/issue status endpoints, inventory balances, inventory settings, inventory accounting settings, purchase receipt posting readiness, purchase receipt accounting preview, sales issue COGS preview, manual COGS posting, P&L COGS activity, stock valuation/movement/low-stock reports, inventory clearing reconciliation/variance reports and CSV exports, accountant-reviewed inventory variance proposal create/submit/approve/post/reverse flow, no-journal inventory movement checks outside explicit COGS/receipt asset/variance proposal post actions, fiscal period posting lock rejection, draft invoice edit, invoice finalization idempotency, ZATCA profile setup, safe adapter defaults, compliance checklist/readiness/XML mapping endpoints, SDK readiness/dry-run/local-validation disabled endpoints, EGS private-key response redaction, CSR generation/download, mock compliance CSID onboarding, local ZATCA XML/QR/hash generation, local-only XML validation, repeated-generation ICV idempotency, local/mock compliance-check logging, safe blocked clearance/reporting responses, payment over-allocation rejection, partial and full payments, customer overpayment application/reversal from unapplied payments, customer refund posting/voiding from unapplied payments and credit notes, credit note creation/finalization/application/allocation reversal/PDF/archive/ledger rows, purchase bill creation/finalization/AP posting/PDF/archive, purchase debit note finalization/application/allocation reversal/void/PDF/archive/ledger rows, supplier payment posting/voiding/receipt PDF, supplier ledger/statement rows, ledger/statement balances, receipt-data, report CSV/PDF endpoint availability, payment void idempotency, active allocation/refund void blocking, and invoice void rejection while active payments exist.
 
 The smoke also verifies document settings, number sequence settings/listing/audit logging, PDF archive creation after invoice PDF generation, generated document archive download, user-uploaded attachment upload/list/download/soft-delete checks, representative audit log records/sensitive metadata redaction, audit retention settings/dry-run preview, audit CSV export redaction, storage readiness/migration-plan dry-run checks, and backup/restore readiness plus restore-drill planning without creating journals, running backups, running restores, or exposing secrets.
@@ -205,7 +207,7 @@ corepack pnpm demo:seed-workflows
 ```
 
 The demo workflow seeder refuses non-local API URLs unless `LEDGERBYTE_DEMO_SEED_ALLOW_REMOTE=true` is set for a disposable non-production target. Set `LEDGERBYTE_E2E_SEED_WORKFLOWS=false` to skip automatic workflow seeding in browser E2E, for example when running against a deployed environment that is not resettable.
-Both browser E2E and API smoke prefer the canonical demo organization by default; override with `LEDGERBYTE_E2E_ORGANIZATION_ID` or `LEDGERBYTE_SMOKE_ORGANIZATION_ID` only for disposable test tenants.
+Both browser E2E and API smoke prefer the canonical demo organization only for local targets. Deployed targets require explicit secret-store credentials and should set `LEDGERBYTE_E2E_ORGANIZATION_ID` or `LEDGERBYTE_SMOKE_ORGANIZATION_ID` for the dedicated user-testing tenant.
 
 If Playwright reports a missing Chromium browser, run `corepack pnpm exec playwright install chromium` once on the machine.
 
@@ -219,15 +221,15 @@ LEDGERBYTE_E2E_EMAIL=admin@example.com LEDGERBYTE_E2E_PASSWORD=Password123! core
 Deployed test environment:
 
 ```bash
-LEDGERBYTE_WEB_URL=https://ledgerbyte-web-test.vercel.app LEDGERBYTE_API_URL=https://ledgerbyte-api-test.vercel.app LEDGERBYTE_E2E_EMAIL=<from-secret-store> LEDGERBYTE_E2E_PASSWORD=<from-secret-store> LEDGERBYTE_E2E_SEED_WORKFLOWS=false corepack pnpm e2e
+LEDGERBYTE_WEB_URL=https://ledgerbyte-web-test.vercel.app LEDGERBYTE_API_URL=https://ledgerbyte-api-test.vercel.app LEDGERBYTE_E2E_EMAIL=<from-secret-store> LEDGERBYTE_E2E_PASSWORD=<from-secret-store> LEDGERBYTE_E2E_ORGANIZATION_ID=<from-secret-store> LEDGERBYTE_E2E_SEED_WORKFLOWS=false corepack pnpm e2e
 ```
 
-The suite defaults to one worker and a deployed-friendly timeout. Override with `LEDGERBYTE_E2E_WORKERS`, `LEDGERBYTE_E2E_TEST_TIMEOUT_MS`, or `LEDGERBYTE_E2E_EXPECT_TIMEOUT_MS` only when the target environment can handle the load.
+The suite defaults to one worker and a deployed-friendly timeout. Override with `LEDGERBYTE_E2E_WORKERS`, `LEDGERBYTE_E2E_TEST_TIMEOUT_MS`, or `LEDGERBYTE_E2E_EXPECT_TIMEOUT_MS` only when the target environment can handle the load. Keep `LEDGERBYTE_ALLOW_GENERATED_TEST_USER` unset for normal deployed validation; use it only for isolated non-production debugging where generated/default test credentials are intentional.
 
 GitHub Actions:
 
 - Manual workflow: **Deployed E2E Smoke** in `.github/workflows/deployed-e2e.yml`.
-- Required secrets: `LEDGERBYTE_E2E_EMAIL` and `LEDGERBYTE_E2E_PASSWORD`.
+- Required secrets: `LEDGERBYTE_E2E_EMAIL`, `LEDGERBYTE_E2E_PASSWORD`, and `LEDGERBYTE_E2E_ORGANIZATION_ID`.
 - Default deployed URLs: `https://ledgerbyte-web-test.vercel.app` and `https://ledgerbyte-api-test.vercel.app`.
 - Artifacts: `playwright-report` and `playwright-test-results` are uploaded when present.
 - Runbook: [docs/deployment/DEPLOYED_E2E_RUNBOOK.md](docs/deployment/DEPLOYED_E2E_RUNBOOK.md).

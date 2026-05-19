@@ -102,11 +102,14 @@ $env:LEDGERBYTE_WEB_URL="https://ledgerbyte-web-test.vercel.app"
 $env:LEDGERBYTE_API_URL="https://ledgerbyte-api-test.vercel.app"
 $env:LEDGERBYTE_E2E_EMAIL="<from secret store>"
 $env:LEDGERBYTE_E2E_PASSWORD="<from secret store>"
+$env:LEDGERBYTE_E2E_ORGANIZATION_ID="<from secret store>"
 $env:LEDGERBYTE_E2E_SEED_WORKFLOWS="false"
+Remove-Item Env:\LEDGERBYTE_ALLOW_GENERATED_TEST_USER -ErrorAction SilentlyContinue
 corepack pnpm e2e
 ```
 
 Use `LEDGERBYTE_E2E_SEED_WORKFLOWS=false` for already-seeded remote environments unless the target was intentionally reset and approved for reseeding.
+The dedicated user-testing identity is stored outside the repository in local/CI secret storage. On Windows, the local operator store is `%LOCALAPPDATA%\LedgerByte\user-testing-credentials.json` with a DPAPI-encrypted password field. Do not commit it or add plaintext password fields.
 
 ## Revoking Test User Access
 
@@ -114,6 +117,7 @@ Manual options:
 
 - Disable or rotate the test user's password through approved admin tooling.
 - Change organization member status if the UI/API supports the desired access state.
+- Delete the local DPAPI credential store and rotate matching CI secrets after access is revoked.
 - Rotate JWT secret only with a coordinated redeploy and user sign-out plan.
 - Rotate E2E credentials stored in GitHub Actions and local secret storage.
 

@@ -149,8 +149,10 @@ The dated user-testing deployment runbook records the currently verified Git aut
 Run deployed browser smoke after both projects are promoted:
 
 ```bash
-LEDGERBYTE_WEB_URL=https://ledgerbyte-web-test.vercel.app LEDGERBYTE_API_URL=https://ledgerbyte-api-test.vercel.app LEDGERBYTE_E2E_EMAIL=<from-secret-store> LEDGERBYTE_E2E_PASSWORD=<from-secret-store> LEDGERBYTE_E2E_SEED_WORKFLOWS=false corepack pnpm e2e
+LEDGERBYTE_WEB_URL=https://ledgerbyte-web-test.vercel.app LEDGERBYTE_API_URL=https://ledgerbyte-api-test.vercel.app LEDGERBYTE_E2E_EMAIL=<from-secret-store> LEDGERBYTE_E2E_PASSWORD=<from-secret-store> LEDGERBYTE_E2E_ORGANIZATION_ID=<from-secret-store> LEDGERBYTE_E2E_SEED_WORKFLOWS=false corepack pnpm e2e
 ```
+
+Deployed smoke and E2E must load credentials from local secret storage or CI secrets. The local Windows operator store is `%LOCALAPPDATA%\LedgerByte\user-testing-credentials.json` with a DPAPI-encrypted password field. Do not commit this file, do not add plaintext password fields, and keep `LEDGERBYTE_ALLOW_GENERATED_TEST_USER` unset for normal deployed validation.
 
 ## 5. Production Cutover Checklist
 
@@ -184,3 +186,4 @@ LEDGERBYTE_WEB_URL=https://ledgerbyte-web-test.vercel.app LEDGERBYTE_API_URL=htt
 - `/health` works directly but web requests fail: confirm the web origin is included in API `CORS_ORIGIN` and redeploy the API after changing it.
 - `/` returns `404 Cannot GET /`: the API alias is likely still serving an older deployment that does not include the root status endpoint.
 - Readiness returns `503`: inspect safe Vercel function logs for database connection errors without exposing `DATABASE_URL` or other secrets.
+- Intermittent API `500` responses with Vercel logs containing `EMAXCONNSESSION` mean the Supabase session pool is exhausted. Wait for health to recover, then review pooler capacity, Prisma connection limits, serverless function concurrency/region behavior, or a deployed E2E throttle strategy. Do not reset data to fix this symptom.

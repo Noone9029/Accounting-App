@@ -16,12 +16,12 @@ This runbook documents the current LedgerByte user-testing deployment path for t
 - Web user-testing URL: `https://ledgerbyte-web-test.vercel.app`
 - Supabase test project ref: `xynelbjqcmbgtscfmmzv`
 
-Latest proven Git-triggered deployments on 2026-05-20:
+Current Git-triggered alias deployments inspected on 2026-05-20:
 
-- API deployment `dpl_GbGmuk5pfDwiJwD337auhYBkozkR`, state `READY`, commit `c5b4f290eedc1dc8f84958087c748d5b08618fca`.
-- Web deployment `dpl_FV4LjD3PDheC74rQJ9b3XR15doAW`, state `READY`, commit `c5b4f290eedc1dc8f84958087c748d5b08618fca`.
-- API alias `https://ledgerbyte-api-test.vercel.app` points at `dpl_GbGmuk5pfDwiJwD337auhYBkozkR`.
-- Web alias `https://ledgerbyte-web-test.vercel.app` points at `dpl_FV4LjD3PDheC74rQJ9b3XR15doAW`.
+- API deployment `dpl_Gt5KbDuKzYUEAAAVciNSRZKuKvbG`, state `READY`, commit `b42feb374d60a2d3d8ac1811be4aba7ba4bd8e36`.
+- Web deployment `dpl_22LjHgNzu6sSinpyZNa5JQiekvTT`, state `READY`, commit `b42feb374d60a2d3d8ac1811be4aba7ba4bd8e36`.
+- API alias `https://ledgerbyte-api-test.vercel.app` points at `dpl_Gt5KbDuKzYUEAAAVciNSRZKuKvbG`.
+- Web alias `https://ledgerbyte-web-test.vercel.app` points at `dpl_22LjHgNzu6sSinpyZNa5JQiekvTT`.
 
 ## Git Auto-Deploy Status
 
@@ -43,6 +43,7 @@ Proof sequence:
 4. Web deployment for `09e9b4f` became `READY`; API deployment `dpl_9rYNkHzMrGeUT757aXuudRnx5SMn` failed because the Git build did not use `vercel.api.json` and expected a `public` output directory.
 5. Pushed repair commit `07551b065cf7e393b3fb39aeabad2cb236aba916` to add root API Git deployment config. API and web Git deployments became `READY`, but API runtime returned `500` because workspace package build outputs were absent in the fresh Git build.
 6. Pushed repair commit `c5b4f290eedc1dc8f84958087c748d5b08618fca` to build API workspace package dependencies during Vercel API postinstall. API and web Git deployments became `READY`, and aliases pointed to the Git-triggered deployments.
+7. Pushed documentation commit `b42feb374d60a2d3d8ac1811be4aba7ba4bd8e36`. Vercel Git created API deployment `dpl_Gt5KbDuKzYUEAAAVciNSRZKuKvbG` and web deployment `dpl_22LjHgNzu6sSinpyZNa5JQiekvTT`; both aliases pointed to those deployments during the 2026-05-20 credential validation.
 
 Project settings observed during repair:
 
@@ -156,7 +157,7 @@ Invoke-WebRequest https://ledgerbyte-web-test.vercel.app/settings/storage -UseBa
 
 Then sign in through the browser test flow, not by inspecting tokens.
 
-2026-05-20 Git-triggered deployment checks:
+2026-05-20 Git-triggered deployment checks before secret-store smoke:
 
 - `https://ledgerbyte-api-test.vercel.app/` returned HTTP `200`.
 - `https://ledgerbyte-api-test.vercel.app/health` returned HTTP `200`.
@@ -164,6 +165,49 @@ Then sign in through the browser test flow, not by inspecting tokens.
 - `https://ledgerbyte-web-test.vercel.app` returned HTTP `200`.
 - `https://ledgerbyte-web-test.vercel.app/setup` returned HTTP `200`.
 - `https://ledgerbyte-web-test.vercel.app/settings/storage` returned HTTP `200`.
+
+## User-Testing Test Credentials
+
+Use the dedicated non-production test identity `ledgerbyte-user-testing@example.test` for deployed smoke and E2E. It belongs to the `LedgerByte User Testing Sandbox` organization. The password is stored outside the repository in secret storage and must never be printed, committed, pasted into docs, or copied into shell history.
+
+Local Windows operators can use the current-user DPAPI-backed store at:
+
+```text
+%LOCALAPPDATA%\LedgerByte\user-testing-credentials.json
+```
+
+The store contains metadata plus a DPAPI-encrypted password field. It must not contain plaintext password fields. CI should use secret variables with the same names rather than the DPAPI file.
+
+Required smoke variables:
+
+- `LEDGERBYTE_API_URL`
+- `LEDGERBYTE_SMOKE_EMAIL`
+- `LEDGERBYTE_SMOKE_PASSWORD`
+- `LEDGERBYTE_SMOKE_ORGANIZATION_ID`
+
+Required E2E variables:
+
+- `LEDGERBYTE_WEB_URL`
+- `LEDGERBYTE_API_URL`
+- `LEDGERBYTE_E2E_EMAIL`
+- `LEDGERBYTE_E2E_PASSWORD`
+- `LEDGERBYTE_E2E_ORGANIZATION_ID`
+- `LEDGERBYTE_E2E_SEED_WORKFLOWS=false`
+
+For deployed URLs, `smoke:accounting` and `e2e` require explicit credentials. Local demo defaults are allowed only for local targets. `LEDGERBYTE_ALLOW_GENERATED_TEST_USER=true` is reserved for isolated non-production debugging and should remain unset for normal user-testing validation.
+
+Rotation:
+
+1. Rotate the dedicated test user's password through an approved app/admin flow.
+2. Update the DPAPI store or CI secrets without printing the password.
+3. Re-run `/auth/login` and `/auth/me` checks without logging tokens.
+4. Re-run deployed smoke, then E2E if API health is stable.
+
+Revocation:
+
+1. Disable the test user's organization membership or remove access through approved app/admin tooling.
+2. Delete the local DPAPI store and remove matching CI secrets.
+3. Do not rotate production secrets for a non-production test-user revocation unless a separate incident review requires it.
 
 ## Post-Deploy Smoke
 
@@ -173,6 +217,8 @@ Use the seeded test credentials from local secret storage or CI secrets. Do not 
 $env:LEDGERBYTE_API_URL="https://ledgerbyte-api-test.vercel.app"
 $env:LEDGERBYTE_SMOKE_EMAIL="<from secret store>"
 $env:LEDGERBYTE_SMOKE_PASSWORD="<from secret store>"
+$env:LEDGERBYTE_SMOKE_ORGANIZATION_ID="<from secret store>"
+Remove-Item Env:\LEDGERBYTE_ALLOW_GENERATED_TEST_USER -ErrorAction SilentlyContinue
 corepack pnpm smoke:accounting
 ```
 
@@ -185,6 +231,8 @@ Expected safety gates:
 
 2026-05-20 result against Git-triggered API deployment `dpl_GbGmuk5pfDwiJwD337auhYBkozkR`: `corepack pnpm smoke:accounting` passed. The summary confirmed mock email mode with no customer email sending by default, ZATCA production compliance `false`, real ZATCA network disabled, CSID execution disabled, and backup/readiness no-backup/no-restore behavior. Local secret-store credentials were not available in the shell, so the proof used an isolated generated test user and organization with the generated password kept in-process and not printed.
 
+2026-05-20 secret-store rerun against Git-triggered API deployment `dpl_Gt5KbDuKzYUEAAAVciNSRZKuKvbG`, commit `b42feb374d60a2d3d8ac1811be4aba7ba4bd8e36`: `corepack pnpm smoke:accounting` passed with credentials loaded from the DPAPI-backed secret store. `LEDGERBYTE_ALLOW_GENERATED_TEST_USER` was unset, so no generated main test credential fallback was used. The summary again confirmed mock email mode with no customer email sending by default, ZATCA production compliance `false`, real ZATCA network disabled, CSID execution disabled/no real CSID request, and backup/readiness no-backup/no-restore behavior.
+
 ## Post-Deploy E2E
 
 ```powershell
@@ -192,13 +240,17 @@ $env:LEDGERBYTE_WEB_URL="https://ledgerbyte-web-test.vercel.app"
 $env:LEDGERBYTE_API_URL="https://ledgerbyte-api-test.vercel.app"
 $env:LEDGERBYTE_E2E_EMAIL="<from secret store>"
 $env:LEDGERBYTE_E2E_PASSWORD="<from secret store>"
+$env:LEDGERBYTE_E2E_ORGANIZATION_ID="<from secret store>"
 $env:LEDGERBYTE_E2E_SEED_WORKFLOWS="false"
+Remove-Item Env:\LEDGERBYTE_ALLOW_GENERATED_TEST_USER -ErrorAction SilentlyContinue
 corepack pnpm e2e
 ```
 
 For GitHub Actions, use the manual **Deployed E2E Smoke** workflow. It does not deploy; it only validates an already deployed environment.
 
 2026-05-20 result against Git-triggered API deployment `dpl_GbGmuk5pfDwiJwD337auhYBkozkR` and web deployment `dpl_FV4LjD3PDheC74rQJ9b3XR15doAW`: `corepack pnpm e2e` passed with `10 passed` and `2 skipped` in 3.7 minutes. `LEDGERBYTE_E2E_SEED_WORKFLOWS=false` was set. No real customer email send, real ZATCA network, CSID request, clearance, reporting, PDF/A-3 workflow, destructive DB reset, migration, or seed was run.
+
+2026-05-20 secret-store reruns against API deployment `dpl_Gt5KbDuKzYUEAAAVciNSRZKuKvbG` and web deployment `dpl_22LjHgNzu6sSinpyZNa5JQiekvTT`, commit `b42feb374d60a2d3d8ac1811be4aba7ba4bd8e36`, did not pass. The first run reported `5 passed`, `1 skipped`, and `6 failed`; the rerun after API health recovered reported `7 passed`, `1 skipped`, and `4 failed`. Both runs used DPAPI-backed credentials, `LEDGERBYTE_E2E_SEED_WORKFLOWS=false`, and no generated-user override. Vercel API logs showed `PrismaClientUnknownRequestError` with Supabase/Postgres `EMAXCONNSESSION` session-pool exhaustion (`max clients reached in session mode - max clients are limited to pool_size: 15`). Public `/health` and `/readiness` returned `500` during the failure window and later recovered to HTTP `200` after cooldown. Treat this as a deployed database/session-pool capacity blocker, not a credential failure. No destructive DB reset, migration, seed, real customer email send, real ZATCA network, CSID request, clearance, reporting, or PDF/A-3 workflow was run.
 
 ## Rollback Plan
 
@@ -217,3 +269,4 @@ For GitHub Actions, use the manual **Deployed E2E Smoke** workflow. It does not 
 - Treat Vercel project ids as non-secret identifiers, but do not publish auth tokens.
 - Do not enable real ZATCA network or customer email sending as part of deployment verification.
 - Supabase RLS remains disabled on 76 public tables in the user-testing project as of the 2026-05-19 review. Do not enable RLS as part of deployment proof; handle it in a separate phased hardening task.
+- Browser E2E can exhaust the small Supabase session pool on Vercel serverless deployments even with one Playwright worker. If logs show `EMAXCONNSESSION`, wait for health to recover, then review pooler capacity, Prisma connection limits, Vercel function concurrency/region behavior, or an E2E throttle strategy before rerunning the full suite.
