@@ -1,6 +1,6 @@
 # LedgerByte Vercel User-Testing Deployment Runbook
 
-Date: 2026-05-19
+Date: 2026-05-20
 
 This runbook documents the current LedgerByte user-testing deployment path for the API and web projects. It is operational documentation only; it does not contain Vercel tokens, database URLs, Supabase service keys, SMTP secrets, ZATCA credential material, XML bodies, QR bodies, document bodies, or attachment bodies.
 
@@ -16,46 +16,56 @@ This runbook documents the current LedgerByte user-testing deployment path for t
 - Web user-testing URL: `https://ledgerbyte-web-test.vercel.app`
 - Supabase test project ref: `xynelbjqcmbgtscfmmzv`
 
-Observed latest deployments on 2026-05-19:
+Latest proven Git-triggered deployments on 2026-05-20:
 
-- API deployment `dpl_7m9dEBuTSPv94XVZxN2bqm5SAxVH`, state `READY`, commit `6c3917046711c6bafd21ec1400ba9809306c7b93`.
-- Web deployment `dpl_AFEMwVrHwzVRr9t4BXxGH8ZtbkKm`, state `READY`, commit `6c3917046711c6bafd21ec1400ba9809306c7b93`.
+- API deployment `dpl_GbGmuk5pfDwiJwD337auhYBkozkR`, state `READY`, commit `c5b4f290eedc1dc8f84958087c748d5b08618fca`.
+- Web deployment `dpl_FV4LjD3PDheC74rQJ9b3XR15doAW`, state `READY`, commit `c5b4f290eedc1dc8f84958087c748d5b08618fca`.
+- API alias `https://ledgerbyte-api-test.vercel.app` points at `dpl_GbGmuk5pfDwiJwD337auhYBkozkR`.
+- Web alias `https://ledgerbyte-web-test.vercel.app` points at `dpl_FV4LjD3PDheC74rQJ9b3XR15doAW`.
 
 ## Git Auto-Deploy Status
 
-Current status: connected Git metadata is visible, but push-only automatic deployment is not yet proven.
+Current status: push-only Git auto-deploy is proven for both user-testing projects.
 
 Evidence:
 
-- Vercel deployment metadata includes `githubOrg=Noone9029`, `githubRepo=Accounting-App`, `githubCommitRef=main`, and `githubCommitSha`.
-- The current known-good deployments were created by authenticated CLI deployment with explicit project IDs.
+- Both projects are connected to GitHub repository `Noone9029/Accounting-App` on production branch `main`.
+- Deployment list metadata for the final deployments includes `githubOrg=Noone9029`, `githubRepo=Accounting-App`, `githubCommitRef=main`, `githubCommitSha=c5b4f290eedc1dc8f84958087c748d5b08618fca`, and `githubDeployment=1`.
+- Git provider deployment creation is enabled. Commit comments are disabled for commits and enabled for pull requests; that does not disable deployment creation.
 - `.github/workflows/deployed-e2e.yml` is manual `workflow_dispatch` only and does not deploy.
-- There is no repository GitHub Actions workflow that deploys the API or web projects.
+- There is no repository GitHub Actions workflow that deploys the API or web projects; Vercel Git integration created the deployments.
 
-Required proof before treating Git auto-deploy as reliable:
+Proof sequence:
 
-1. Push a harmless test commit to `main` or a controlled preview branch.
-2. Confirm both Vercel projects create new deployments from that commit without CLI deploy commands.
-3. Confirm the deployments use the expected build/install commands and environment variables.
-4. Run deployed smoke and Playwright E2E against the new aliases.
-5. Record the deployment ids and commit hash in this runbook or a dated release note.
+1. Reconnected both projects with `vercel git connect https://github.com/Noone9029/Accounting-App`.
+2. Pushed harmless proof commit `09e9b4f674bd21cf38bcf19ffb4fc2d45055295f` (`Prove Vercel Git auto deploy`).
+3. Vercel Git created deployments without `vercel deploy`.
+4. Web deployment for `09e9b4f` became `READY`; API deployment `dpl_9rYNkHzMrGeUT757aXuudRnx5SMn` failed because the Git build did not use `vercel.api.json` and expected a `public` output directory.
+5. Pushed repair commit `07551b065cf7e393b3fb39aeabad2cb236aba916` to add root API Git deployment config. API and web Git deployments became `READY`, but API runtime returned `500` because workspace package build outputs were absent in the fresh Git build.
+6. Pushed repair commit `c5b4f290eedc1dc8f84958087c748d5b08618fca` to build API workspace package dependencies during Vercel API postinstall. API and web Git deployments became `READY`, and aliases pointed to the Git-triggered deployments.
 
-Proof marker: this runbook was touched on 2026-05-19 to trigger a harmless Git auto-deploy proof after reconnecting both user-testing Vercel projects to the GitHub repository.
+Project settings observed during repair:
 
-Until that proof exists, use the explicit CLI deployment path below.
+- API project `ledgerbyte-api-test`: framework `Other`, root directory `.`, source files outside root enabled, Git link `github/Noone9029/Accounting-App`, production branch `main`, no ignored-build command observed.
+- Web project `ledgerbyte-web-test`: framework `Next.js`, root directory `apps/web`, source files outside root enabled, Git link `github/Noone9029/Accounting-App`, production branch `main`, no ignored-build command observed.
+- API build behavior is controlled by root `vercel.json` and `scripts/vercel-postinstall.cjs`.
+- Web build behavior is controlled by `apps/web/vercel.json` and the `apps/web` project root.
+
+Keep the explicit CLI deployment path below as the fallback if Git integration is later disconnected or blocked.
 
 ## API Deployment Method
 
-The API is deployed from the repository root through the Vercel Node wrapper in `api/index.js` and `vercel.api.json`.
+The API Git deployment is deployed from the repository root through the Vercel Node wrapper in `api/index.js` and root `vercel.json`.
 
 Important implementation details:
 
 - `api/index.js` loads `apps/api/dist/apps/api/api/index.js`.
-- `scripts/vercel-postinstall.cjs` builds the Nest API only when `VERCEL=1` and `LEDGERBYTE_DEPLOY_TARGET=api`.
+- Root `vercel.json` maps all routes to `api/index.js` and sets install to `corepack enable && corepack pnpm install --frozen-lockfile`.
+- `scripts/vercel-postinstall.cjs` builds workspace package dependencies, generates Prisma, and builds the Nest API only when `VERCEL=1` and `LEDGERBYTE_DEPLOY_TARGET=api`.
 - The API Vercel project must install with pnpm/corepack, not plain `npm install`, because the monorepo uses `workspace:*` dependencies.
 - The API Vercel project must keep `LEDGERBYTE_DEPLOY_TARGET=api` configured.
 
-Recommended CLI shape from repository root:
+Fallback CLI shape from repository root:
 
 ```powershell
 $env:VERCEL_ORG_ID="team_lAUvESBraFO74ZDE8jwU6xN4"
@@ -83,9 +93,9 @@ Required API environment variables are presence-checked only in audits. Do not p
 
 ## Web Deployment Method
 
-The web app is deployed from the repository root with `vercel.web.json`.
+The web app Git deployment is deployed from the `apps/web` project root with `apps/web/vercel.json`.
 
-Recommended CLI shape from repository root:
+Fallback CLI shape from repository root:
 
 ```powershell
 $env:VERCEL_ORG_ID="team_lAUvESBraFO74ZDE8jwU6xN4"
@@ -140,9 +150,20 @@ Run this after every web deployment:
 
 ```powershell
 Invoke-WebRequest https://ledgerbyte-web-test.vercel.app -UseBasicParsing
+Invoke-WebRequest https://ledgerbyte-web-test.vercel.app/setup -UseBasicParsing
+Invoke-WebRequest https://ledgerbyte-web-test.vercel.app/settings/storage -UseBasicParsing
 ```
 
 Then sign in through the browser test flow, not by inspecting tokens.
+
+2026-05-20 Git-triggered deployment checks:
+
+- `https://ledgerbyte-api-test.vercel.app/` returned HTTP `200`.
+- `https://ledgerbyte-api-test.vercel.app/health` returned HTTP `200`.
+- `https://ledgerbyte-api-test.vercel.app/readiness` returned HTTP `200`.
+- `https://ledgerbyte-web-test.vercel.app` returned HTTP `200`.
+- `https://ledgerbyte-web-test.vercel.app/setup` returned HTTP `200`.
+- `https://ledgerbyte-web-test.vercel.app/settings/storage` returned HTTP `200`.
 
 ## Post-Deploy Smoke
 
@@ -162,6 +183,8 @@ Expected safety gates:
 - Email diagnostics, retry processor, retry worker, provider webhooks, and customer email sends remain disabled by default.
 - Backup/restore readiness remains plan/evidence only unless an approved non-production drill has been run.
 
+2026-05-20 result against Git-triggered API deployment `dpl_GbGmuk5pfDwiJwD337auhYBkozkR`: `corepack pnpm smoke:accounting` passed. The summary confirmed mock email mode with no customer email sending by default, ZATCA production compliance `false`, real ZATCA network disabled, CSID execution disabled, and backup/readiness no-backup/no-restore behavior. Local secret-store credentials were not available in the shell, so the proof used an isolated generated test user and organization with the generated password kept in-process and not printed.
+
 ## Post-Deploy E2E
 
 ```powershell
@@ -174,6 +197,8 @@ corepack pnpm e2e
 ```
 
 For GitHub Actions, use the manual **Deployed E2E Smoke** workflow. It does not deploy; it only validates an already deployed environment.
+
+2026-05-20 result against Git-triggered API deployment `dpl_GbGmuk5pfDwiJwD337auhYBkozkR` and web deployment `dpl_FV4LjD3PDheC74rQJ9b3XR15doAW`: `corepack pnpm e2e` passed with `10 passed` and `2 skipped` in 3.7 minutes. `LEDGERBYTE_E2E_SEED_WORKFLOWS=false` was set. No real customer email send, real ZATCA network, CSID request, clearance, reporting, PDF/A-3 workflow, destructive DB reset, migration, or seed was run.
 
 ## Rollback Plan
 
@@ -191,3 +216,4 @@ For GitHub Actions, use the manual **Deployed E2E Smoke** workflow. It does not 
 - Do not rely on shell history for tokens or secret values.
 - Treat Vercel project ids as non-secret identifiers, but do not publish auth tokens.
 - Do not enable real ZATCA network or customer email sending as part of deployment verification.
+- Supabase RLS remains disabled on 76 public tables in the user-testing project as of the 2026-05-19 review. Do not enable RLS as part of deployment proof; handle it in a separate phased hardening task.

@@ -49,7 +49,10 @@ Project settings:
 - Root Directory: `.`
 - Framework Preset: Other
 - Include source files outside Root Directory: enabled
-- Build Command: `corepack pnpm --filter @ledgerbyte/api db:generate`
+- Build Command: leave unset/default for the current Git deployment path.
+- Install Command: root `vercel.json` sets `corepack enable && corepack pnpm install --frozen-lockfile`.
+
+The root `vercel.json` is required for Git auto-deploy. It routes all requests to `api/index.js`, and `scripts/vercel-postinstall.cjs` builds the workspace package dependencies plus the Nest API when `LEDGERBYTE_DEPLOY_TARGET=api` is present. Do not rely on `vercel.api.json` for Git-triggered API deployments; that file is the CLI fallback config.
 
 For CLI deployment from this monorepo, link the repository root to the API project and deploy with:
 
@@ -141,12 +144,12 @@ The current test deployment uses:
 - Web: `https://ledgerbyte-web-test.vercel.app`
 - API: `https://ledgerbyte-api-test.vercel.app`
 
-The dated user-testing deployment runbook records the currently verified CLI deployment path, project ids, Git auto-deploy status, health checks, smoke/E2E commands, rollback notes, and root-context API wrapper caveats: [docs/deployment/VERCEL_USER_TESTING_DEPLOYMENT_RUNBOOK.md](deployment/VERCEL_USER_TESTING_DEPLOYMENT_RUNBOOK.md).
+The dated user-testing deployment runbook records the currently verified Git auto-deploy path, CLI fallback path, project ids, deployment ids, health checks, smoke/E2E commands, rollback notes, and root-context API wrapper caveats: [docs/deployment/VERCEL_USER_TESTING_DEPLOYMENT_RUNBOOK.md](deployment/VERCEL_USER_TESTING_DEPLOYMENT_RUNBOOK.md).
 
 Run deployed browser smoke after both projects are promoted:
 
 ```bash
-LEDGERBYTE_WEB_URL=https://ledgerbyte-web-test.vercel.app LEDGERBYTE_API_URL=https://ledgerbyte-api-test.vercel.app LEDGERBYTE_E2E_EMAIL=admin@example.com LEDGERBYTE_E2E_PASSWORD=Password123! corepack pnpm e2e
+LEDGERBYTE_WEB_URL=https://ledgerbyte-web-test.vercel.app LEDGERBYTE_API_URL=https://ledgerbyte-api-test.vercel.app LEDGERBYTE_E2E_EMAIL=<from-secret-store> LEDGERBYTE_E2E_PASSWORD=<from-secret-store> LEDGERBYTE_E2E_SEED_WORKFLOWS=false corepack pnpm e2e
 ```
 
 ## 5. Production Cutover Checklist
