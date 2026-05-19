@@ -2795,3 +2795,13 @@ Recommended next step:
 - No regression was found or intentionally changed in contact VAT/ID validation.
 - No regression was found or intentionally changed in dashboard summary concurrency hardening.
 - Open risk: production deployment still needs real SMTP relay/domain-auth validation, storage, backup/restore, and browser E2E validation before paid customer use.
+
+# Backup/restore verification update - 2026-05-19
+
+- Executed a local non-production Docker Postgres restore drill using seeded local/demo data only. The check verified counts only and did not inspect or export customer document payloads, attachment payloads, signed XML bodies, QR payloads, database URLs, service role keys, storage credentials, SMTP secrets, API keys, auth headers, private keys, or provider secrets.
+- Verified matching counts for 76 tables, 55 migrations, 11 organizations, 77 users, 186 attachments, 820 generated documents, and 3121 journal entries.
+- Created verified metadata-only `BackupRestoreEvidence` for `DATABASE_BACKUP`, `MIGRATION_HISTORY`, `RESTORE_DRILL`, `RESTORE_VERIFICATION`, `GENERATED_DOCUMENT_BACKUP`, and `ATTACHMENT_BACKUP`.
+- Created draft blocked `OBJECT_STORAGE_BACKUP` evidence because no S3-compatible object-storage backup/provider export was configured locally.
+- `GET /system/backup-readiness` remains `productionReady=false`; missing evidence is still `POINT_IN_TIME_RECOVERY`, `OBJECT_STORAGE_BACKUP`, and `RPO_RTO_REVIEW`.
+- No bug was found or intentionally changed in ZATCA execution/network behavior, contact VAT/ID validation, dashboard summary concurrency hardening, or email retry/webhook/suppression behavior.
+- Recommended next step: verify hosted Supabase backup/PITR and S3-compatible object-storage backup/restore in a real non-production project, then capture sanitized evidence without exposing secrets or customer content.

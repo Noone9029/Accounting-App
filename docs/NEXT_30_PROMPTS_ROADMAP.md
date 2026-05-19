@@ -98,13 +98,13 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 - Risk level: High.
 - Manual credentials needed: No for local; managed Redis later.
 
-### 12. Execute backup and restore drill evidence
+### 12. Verify hosted backup/PITR and object-storage restore evidence
 
-- Objective: Execute a non-production Supabase/Postgres restore drill and object-storage backup verification, then record sanitized evidence.
+- Objective: Verify hosted Supabase backup/PITR and S3-compatible object-storage backup/restore in a real non-production project, then record sanitized evidence.
 - Why it matters: Production trust depends on restore, not just backup.
-- Dependencies: `docs/BACKUP_AND_RESTORE_READINESS_PLAN.md`, `BackupRestoreEvidence`, `/system/backup-readiness`, `/system/restore-drill-plan`, `/system/backup-evidence`, storage readiness, and deployment owner access.
+- Dependencies: `docs/BACKUP_AND_RESTORE_READINESS_PLAN.md`, `BackupRestoreEvidence`, `/system/backup-readiness`, `/system/restore-drill-plan`, `/system/backup-evidence`, storage readiness, and deployment owner access. Local Postgres restore-count evidence already exists.
 - Risk level: Medium.
-- Manual credentials needed: Supabase/project access for live drill.
+- Manual credentials needed: Non-production Supabase project access and non-production object-storage provider access.
 
 ### 13. Harden CI pipelines for typecheck/test/build/smoke
 
@@ -113,6 +113,13 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 - Dependencies: Existing scripts and workflow.
 - Risk level: Medium.
 - Manual credentials needed: GitHub secrets for deployed E2E only.
+
+## 2026-05-19 Backup/Restore Roadmap Update
+
+- Completed local non-production Postgres restore-count evidence for database backup, migration history, restore drill, restore verification, generated-document rows, and attachment rows.
+- Local evidence used seeded demo data only, verified counts only, and kept production data, connection details, document payloads, attachment payloads, signed XML bodies, and QR payloads out of output.
+- Remaining prompt 12 now focuses on hosted Supabase backup/PITR and S3-compatible object-storage backup/restore in a real non-production project.
+- RPO/RTO business review remains a manual dependency and should not be guessed.
 
 ## Phase 3: ZATCA Production Path
 

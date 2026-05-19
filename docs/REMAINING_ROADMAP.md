@@ -136,7 +136,7 @@ Objective: harden LedgerByte for real users, operations, billing, and scale.
 Tasks:
 
 - Production deployment target and infrastructure-as-code.
-- Managed Postgres backup/PITR validation, restore drills, evidence review, and monitoring.
+- Hosted Supabase/Postgres backup/PITR validation, object-storage restore drills, evidence review, and monitoring.
 - Validate the uploaded-attachment S3 adapter with a real non-production bucket, then implement generated-document object storage and a resumable DB-to-S3 migration executor.
 - Email provider validation using allowlisted diagnostics, provider-specific signed webhooks, production retry scheduler, external monitoring/alert delivery, and transactional template polish.
 - WhatsApp provider integration if product requires it.
@@ -160,7 +160,7 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Execute a non-production Supabase/Postgres restore drill and object-storage backup verification with sanitized evidence, without exposing secrets or customer content.
+> Verify hosted Supabase backup/PITR and S3-compatible object-storage backup/restore in a real non-production project, then capture sanitized evidence without exposing secrets or customer content.
 
 ## 2026-05-18 Email readiness diagnostics
 
@@ -178,6 +178,15 @@ Recommended next prompt:
 - `GET /email/diagnostics-plan` documents the non-production relay plan while diagnostics remain disabled by default.
 - Remaining roadmap item: run a non-production relay diagnostic with an allowlisted sandbox recipient, then implement signed provider webhooks, suppression handling, monitoring, scheduled retry execution, and live DNS/provider validation.
 - Recommended next prompt: add signed provider webhook verification, suppression-list handling, and monitoring-safe bounce/complaint alerts without enabling real customer email by default.
+
+## 2026-05-19 Non-production restore drill evidence
+
+- Executed a local Docker Postgres restore drill using seeded non-production data only. The temporary restored database and temporary dump were removed after verification.
+- Captured verified metadata-only evidence for `DATABASE_BACKUP`, `MIGRATION_HISTORY`, `RESTORE_DRILL`, `RESTORE_VERIFICATION`, `GENERATED_DOCUMENT_BACKUP`, and `ATTACHMENT_BACKUP`.
+- The drill verified counts only: 76 tables, 55 migrations, 11 organizations, 77 users, 186 attachments, 820 generated documents, and 3121 journal entries.
+- Captured draft blocked `OBJECT_STORAGE_BACKUP` evidence because no S3-compatible object-storage backup/provider export was configured for this local environment.
+- Remaining roadmap item: verify hosted Supabase backup/PITR and real object-storage backup/restore in a non-production project; RPO/RTO business review is still required.
+- Recommended next prompt: verify hosted Supabase backup/PITR and S3-compatible object-storage backup/restore in a real non-production project, then capture sanitized evidence without exposing secrets or customer content.
 
 ## 2026-05-19 Email retry and bounce readiness
 

@@ -14,12 +14,12 @@ This audit covers LedgerByte SaaS/product readiness while ZATCA OTP and sandbox 
 | Tenant isolation and organization context | 84% | Tenant-scoped guards and x-organization-id workflows are in place; continued route-level regression coverage is required. |
 | Onboarding | 82% | Improved with a dashboard sellable-v1 checklist and `/setup` guided first-run wizard; still needs production email. |
 | Accounting workflows | 82% | Sales, purchases, payments, journals, reports, bank workflows, and operational inventory are usable for MVP-style testing. |
-| Reliability and deployment readiness | 84% | Health/readiness, smoke, dashboard partial fallback, email diagnostics/domain evidence, retry/provider-event/webhook/suppression/worker/monitoring readiness, backup/restore readiness planning, and Vercel/Supabase notes exist; production monitoring and real restore drills remain incomplete. |
-| Documents and storage | 66% | Generated docs and attachments exist, with storage readiness, migration planning, and backup evidence planning; database/base64 fallback is still a scale and operations risk. |
-| Admin/supportability | 75% | Audit logs, readiness docs, email diagnostics, backup/restore evidence, and settings pages exist; support dashboards and structured incident tooling remain limited. |
+| Reliability and deployment readiness | 86% | Health/readiness, smoke, dashboard partial fallback, email diagnostics/domain evidence, retry/provider-event/webhook/suppression/worker/monitoring readiness, backup/restore planning, and a local non-production restore drill now exist; hosted Supabase PITR, production monitoring, and incident runbooks remain incomplete. |
+| Documents and storage | 68% | Generated docs and attachments exist, with storage readiness, migration planning, and local database-backed restore-count evidence; database/base64 fallback and unverified object storage remain scale and operations risks. |
+| Admin/supportability | 76% | Audit logs, readiness docs, email diagnostics, backup/restore evidence, and settings pages exist; support dashboards and structured incident tooling remain limited. |
 | ZATCA local readiness | 36% | Local planning, validation, custody boundaries, and evidence workflows exist; real sandbox/prod flows remain blocked. |
 
-Overall controlled-beta readiness: **84%** for a controlled test/beta workspace, not production ZATCA compliance.
+Overall controlled-beta readiness: **85%** for a controlled test/beta workspace, not production ZATCA compliance.
 
 ## What is ready
 
@@ -29,7 +29,7 @@ Overall controlled-beta readiness: **84%** for a controlled test/beta workspace,
 - Dashboard summary with sequential database reads, partial section fallback, sanitized section warnings, and reduced Prisma pool pressure.
 - Guided `/setup` wizard backed by `GET /dashboard/onboarding-checklist`, with read-only navigation for organization profile, chart of accounts, VAT/tax profile, first customer, first invoice, bank/payment method, ZATCA local readiness visibility, contact VAT/ID validation, and storage readiness.
 - Email readiness, diagnostics, sender-domain evidence, retry planning, worker planning, provider-event capture, webhook readiness, suppression metadata, and monitoring evidence for production SMTP visibility: `GET /email/readiness` is read-only/no-mutation, `POST /email/diagnostics`, default `POST /email/retry-process`, and default `POST /email/retry-worker/run` skip without sending customer email or creating outbox records, SPF/DKIM/DMARC evidence plus provider/monitoring events are metadata-only, webhook verification is disabled by default, and suppressions store masked/hash metadata only.
-- Backup and restore readiness planning for Supabase/Postgres and document/object storage: `GET /system/backup-readiness` and `GET /system/restore-drill-plan` are read-only/no-mutation, execute no backup/restore, export no customer data, and `BackupRestoreEvidence` stores metadata-only evidence with strict secret/body rejection.
+- Backup and restore readiness planning for Supabase/Postgres and document/object storage: `GET /system/backup-readiness` and `GET /system/restore-drill-plan` are read-only/no-mutation, execute no backup/restore, export no customer data, and `BackupRestoreEvidence` stores metadata-only evidence with strict secret/body rejection. A local non-production Postgres restore drill verified schema, migration history, and database-backed attachment/generated-document row counts only.
 - Contact VAT validation locked to exactly 15 digits and buyer ID Type / ID Number validation mapped into local ZATCA XML.
 - ZATCA local-only planning, validation, evidence, storage, CSID mapper, mock adapter, and custody boundaries without real network calls.
 - Smoke coverage for major accounting workflows and ZATCA safety gates.
@@ -39,7 +39,7 @@ Overall controlled-beta readiness: **84%** for a controlled test/beta workspace,
 - Real ZATCA sandbox OTP/CSID credentials are not available, so no real CSID request, clearance/reporting, or production compliance can be claimed.
 - Production email delivery is not validated against a real provider; readiness, disabled-by-default diagnostics/retry/worker processing, sender-domain evidence, webhook/suppression metadata, monitoring evidence, and provider-event capture exist, but mock email remains acceptable only for development/test.
 - Production storage strategy is incomplete: database/base64 fallback is not a scalable attachment/generated-document archive.
-- Backup/restore readiness planning exists, but real Supabase/Postgres backup validation, point-in-time recovery proof, object-storage backup validation, restore drill execution, monitoring, alerting, and incident runbooks still need deployment-owner validation.
+- Backup/restore readiness planning and a local non-production restore drill exist, but real Supabase hosted backup/PITR proof, object-storage backup validation, monitoring, alerting, and incident runbooks still need deployment-owner validation.
 - Subscription billing, tenant lifecycle, and customer support operations are not implemented as a sellable SaaS package.
 - Production key/secret custody for ZATCA and other sensitive material remains blocked.
 
@@ -62,7 +62,7 @@ Overall controlled-beta readiness: **84%** for a controlled test/beta workspace,
 
 - Run an explicitly enabled non-production SMTP relay diagnostic against an allowlisted sandbox recipient and document provider evidence.
 - Replace the worker shell with a real scheduled retry worker, add provider-specific webhook adapters, and connect external monitoring/alert delivery.
-- Execute a non-production restore drill for Supabase/Postgres plus object/document storage, then capture sanitized evidence without database URLs, service role keys, customer document bodies, or attachment contents.
+- Validate hosted Supabase backup/PITR and S3-compatible object-storage backup/restore in a non-production project, then capture sanitized evidence without database URLs, service role keys, customer document bodies, or attachment contents.
 - Add Playwright browser E2E coverage for login, dashboard, contact creation, invoice creation, payment, and report views.
 - Add production storage migration execution for attachments/generated documents after a non-prod object-store rehearsal.
 
@@ -147,9 +147,18 @@ Latest backup/restore readiness verification:
 - `corepack pnpm db:generate`, `corepack pnpm db:migrate`, `corepack pnpm typecheck`, `corepack pnpm build`, and `corepack pnpm smoke:accounting` passed. Smoke now checks `/system/backup-readiness`, `/system/restore-drill-plan`, safe metadata-only evidence creation, no backup execution, no restore execution, no secret exposure, and `productionReady=false`.
 - The task did not run real backup execution, real restore execution, Java SDK, real ZATCA network, real CSID request, clearance/reporting, PDF-A3, real customer email sending, or real provider webhook calls.
 
+Latest non-production restore drill verification:
+- A local Docker Postgres restore drill used seeded non-production data only, restored a custom-format dump into an isolated temporary local database, verified counts only, then removed the temporary database and dump.
+- Verified counts matched for 76 tables, 55 Prisma migrations, 11 organizations, 77 users, 186 attachments, 820 generated documents, and 3121 journal entries. Latest migration was `20260519162000_add_backup_restore_evidence`.
+- Created verified metadata-only evidence for `DATABASE_BACKUP` (`770cd703-47b7-4718-a976-99ecc3e8fdb4`), `MIGRATION_HISTORY` (`3003d418-0d41-4ebe-be91-dbd6a8a5ec2e`), `RESTORE_DRILL` (`43f10270-aa12-4734-ab6f-931173d86b6e`), `RESTORE_VERIFICATION` (`76de8f05-5cf4-499f-b65a-1c6b9ccde6ec`), `GENERATED_DOCUMENT_BACKUP` (`68978692-c1ed-460c-92a0-bf0001199a98`), and `ATTACHMENT_BACKUP` (`ac7ddaf8-7df1-4153-acc2-9b8099f85053`).
+- Created draft blocked `OBJECT_STORAGE_BACKUP` evidence (`c1897bb0-8ea4-4601-967e-b1bf251532b6`) because no S3-compatible object-storage backup/provider export was configured.
+- `GET /system/backup-readiness` remains `productionReady=false` with `POINT_IN_TIME_RECOVERY`, `OBJECT_STORAGE_BACKUP`, and `RPO_RTO_REVIEW` still missing.
+- Endpoint checks confirmed no backup was executed by the app, no restore was executed by the app, no secrets were returned, email remained no-customer-send, and dashboard onboarding still reported `productionCompliance=false` plus real ZATCA network disabled.
+- No code changed, so typecheck/build/smoke were skipped; `git diff --check` was run for documentation changes.
+
 ## Next 10 implementation prompts
 
-1. Execute a non-production Supabase/Postgres restore drill and object-storage backup verification with sanitized runbook evidence, without exposing secrets or customer content.
+1. Verify hosted Supabase backup/PITR and S3-compatible object-storage backup/restore in a real non-production project, then capture sanitized evidence without exposing secrets or customer content.
 2. Add provider-specific production webhook adapters and an external monitoring integration runbook for email delivery alerts while keeping real customer sends disabled by default.
 3. Run a non-production SMTP relay diagnostic using an allowlisted sandbox recipient, then record provider result evidence without sending customer emails.
 4. Replace the retry worker shell with a reviewed scheduler/queue integration after provider and monitoring gates are approved.

@@ -77,21 +77,69 @@ Restore verification must prove tenant isolation survives the restore. Evidence 
 
 The verification does not include real backup execution, real restore execution, Java SDK execution, real ZATCA network calls, real CSID requests, clearance/reporting, PDF-A3, real customer email sending, or real provider webhook calls.
 
+## Non-Production Restore Drill - 2026-05-19
+
+A local non-production Postgres restore drill was executed against the Docker Postgres service using seeded local/demo data only. No production database, Supabase project, hosted backup, service role key, database URL, object-storage credential, customer document body, attachment body, signed XML body, or QR payload body was used or printed.
+
+Method:
+
+- Created a custom-format dump from the local non-production `accounting` database inside the Docker Postgres container.
+- Restored it into an isolated temporary local database.
+- Verified schema/table and tenant-scoped record counts only.
+- Verified generated-document and attachment rows by count only; no file payloads were read or exported.
+- Verified ZATCA artifact body-persistence controls stayed inactive by count only.
+- Verified real customer email sending stayed disabled for the restored environment evidence.
+- Dropped the temporary restored database and removed the temporary dump after verification.
+
+Sanitized results:
+
+- Source tables: 76; restored tables: 76.
+- Source migrations: 55; restored migrations: 55.
+- Latest migration verified: `20260519162000_add_backup_restore_evidence`.
+- Organizations: 11 source and 11 restored.
+- Users: 77 source and 77 restored.
+- Attachments: 186 source and 186 restored.
+- Generated documents: 820 source and 820 restored.
+- Journal entries: 3121 source and 3121 restored.
+- ZATCA signed-artifact storage-key rows: 0.
+- ZATCA artifact body-persistence approval rows: 0.
+- Temporary restore database remaining after cleanup: 0.
+- Temporary dump removed: true.
+
+Evidence records created:
+
+- `DATABASE_BACKUP`: `770cd703-47b7-4718-a976-99ecc3e8fdb4`, `VERIFIED`, local non-production Postgres dump/restore evidence only.
+- `MIGRATION_HISTORY`: `3003d418-0d41-4ebe-be91-dbd6a8a5ec2e`, `VERIFIED`.
+- `RESTORE_DRILL`: `43f10270-aa12-4734-ab6f-931173d86b6e`, `VERIFIED`.
+- `RESTORE_VERIFICATION`: `76de8f05-5cf4-499f-b65a-1c6b9ccde6ec`, `VERIFIED`.
+- `GENERATED_DOCUMENT_BACKUP`: `68978692-c1ed-460c-92a0-bf0001199a98`, `VERIFIED` for database-backed generated-document rows by count only.
+- `ATTACHMENT_BACKUP`: `ac7ddaf8-7df1-4153-acc2-9b8099f85053`, `VERIFIED` for database-backed attachment rows by count only.
+- `OBJECT_STORAGE_BACKUP`: `c1897bb0-8ea4-4601-967e-b1bf251532b6`, `DRAFT`, blocked because no S3-compatible object-storage backup/provider export was configured in the local non-production environment.
+
+Readiness after evidence capture:
+
+- `GET /system/backup-readiness` still returns `productionReady=false`.
+- Verified evidence types: `DATABASE_BACKUP`, `MIGRATION_HISTORY`, `GENERATED_DOCUMENT_BACKUP`, `ATTACHMENT_BACKUP`, `RESTORE_DRILL`, and `RESTORE_VERIFICATION`.
+- Missing evidence types: `POINT_IN_TIME_RECOVERY`, `OBJECT_STORAGE_BACKUP`, and `RPO_RTO_REVIEW`.
+- `GET /system/restore-drill-plan` remains read-only and still reports no app-executed restore.
+- Endpoint response checks found no database URL, service role key, storage credential, SMTP secret, API key, authorization header, bearer token, private key, Postgres URL, or SMTP URL pattern.
+
 ## Blocked / Remaining
 
-- Real Supabase backup and PITR configuration must be verified outside LedgerByte.
-- Real object-storage backup policy and restore test are not implemented by the app.
-- Generated documents remain database-backed.
-- No restore executor exists in LedgerByte.
-- RPO/RTO review is not complete.
+- Real Supabase hosted backup and PITR configuration must still be verified against a non-production Supabase project.
+- Real S3-compatible object-storage backup policy and restore test remain blocked; local storage is database-backed.
+- Generated documents remain database-backed and do not yet have an S3-compatible write path.
+- No restore executor exists in LedgerByte; restore drills remain operator-run outside the app.
+- RPO/RTO review is not complete and no business targets were inferred.
 - Legal/accounting retention duration is not decided here.
 - Production storage hardening, monitoring/alerts, browser E2E expansion, billing/support operations, and real ZATCA OTP/CSID remain separate blockers.
 
 ## Staged Implementation Plan
 
 1. Capture metadata-only evidence for database backups, PITR, migration history, object storage backups, generated document backups, and attachment backups.
-2. Run a non-production restore drill outside LedgerByte and capture restore drill evidence.
-3. Verify accounting reports, documents, attachments, ZATCA non-production state, and disabled email sending in the restored environment.
-4. Complete business review for RPO/RTO and retention requirements.
-5. Add external monitoring/alert evidence once provider operations are live.
-6. Reassess controlled-beta readiness after all required evidence is verified.
+2. Repeat the restore drill against a real non-production Supabase project and capture hosted backup/PITR evidence.
+3. Validate S3-compatible object-storage backup/restore with a non-production bucket before moving document storage.
+4. Verify accounting reports, documents, attachments, ZATCA non-production state, and disabled email sending in each restored environment.
+5. Complete business review for RPO/RTO and retention requirements.
+6. Add external monitoring/alert evidence once provider operations are live.
+7. Reassess controlled-beta readiness after all required evidence is verified.
