@@ -82,13 +82,13 @@ Each prompt is intentionally scoped so it can be executed as a safe Codex implem
 - Risk level: Medium.
 - Manual credentials needed: Provider sandbox SMTP credentials.
 
-### 10. Add scheduled email retry worker and monitoring evidence
+### 10. Add provider-specific email webhook adapters and monitoring integration runbook
 
-- Objective: Add a controlled scheduled email retry worker plus monitoring/readiness evidence for retry throughput, bounce/complaint alert thresholds, and suppression trends without enabling real customer sends by default.
-- Why it matters: Durable retry metadata, provider-event capture, signed webhook planning, and suppression handling exist, but production email still needs scheduled execution and operational monitoring evidence.
-- Dependencies: `EmailOutbox`, `EmailSuppression`, `EmailProviderEvent`, `/email/retry-plan`, `/email/retry-process`, `/email/provider-events/webhook-plan`, `/email/suppressions`, and email readiness blockers.
+- Objective: Add provider-specific webhook verification contracts and an external monitoring integration runbook for delivery alerts without enabling real customer sends by default.
+- Why it matters: Durable retry metadata, provider-event capture, signed webhook planning, suppression handling, worker planning, and monitoring evidence now exist, but production email still needs provider-specific signatures and real monitoring/alert delivery.
+- Dependencies: `EmailOutbox`, `EmailSuppression`, `EmailProviderEvent`, `EmailDeliveryMonitoringEvidence`, `/email/retry-worker/plan`, `/email/monitoring-plan`, `/email/provider-events/webhook-plan`, `/email/suppressions`, and email readiness blockers.
 - Risk level: Medium.
-- Manual credentials needed: No for local worker/readiness evidence; provider credentials only for a later relay/webhook validation pass.
+- Manual credentials needed: Provider webhook docs/secret semantics and external monitoring provider details; no real customer email sends.
 
 ### 11. Add background job queue foundation
 

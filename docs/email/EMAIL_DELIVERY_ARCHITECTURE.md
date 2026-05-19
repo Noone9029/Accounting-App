@@ -21,6 +21,7 @@ Required local/default values:
 - `EMAIL_REPLY_TO=""`
 - `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED=false`
 - `LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED=false`
+- `LEDGERBYTE_EMAIL_RETRY_WORKER_ENABLED=false`
 - `EMAIL_PROVIDER_WEBHOOK_VERIFICATION_ENABLED=false`
 - `EMAIL_PROVIDER_WEBHOOK_SECRET=""`
 - `EMAIL_PROVIDER_WEBHOOK_ALLOWED_PROVIDERS=""`
@@ -36,6 +37,7 @@ SMTP configuration:
 - `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS`
 - `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS`
 - `LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED=false`
+- `LEDGERBYTE_EMAIL_RETRY_WORKER_ENABLED=false`
 - `EMAIL_PROVIDER_WEBHOOK_VERIFICATION_ENABLED=false`
 - `EMAIL_PROVIDER_WEBHOOK_SECRET`
 - `EMAIL_PROVIDER_WEBHOOK_ALLOWED_PROVIDERS`
@@ -58,14 +60,14 @@ SMTP configuration:
 - diagnostics plan fields for allowlisted recipients/domains and non-production relay testing
 - sender-domain readiness for SPF, DKIM, and DMARC metadata evidence
 - relay diagnostics status
-- retry policy, retry processor, pending/blocked/suppressed retry counts, bounce webhook, provider event ingestion, signed webhook verification booleans, suppression counts, alerting, and monitoring booleans
+- retry policy, retry processor, retry worker, pending/blocked/suppressed retry counts, bounce webhook, provider event ingestion, signed webhook verification booleans, suppression counts, alert threshold evidence, suppression trend evidence, webhook health evidence, alerting, and monitoring booleans
 - redaction guarantees
 - mock-mode flag
 - real-sending-enabled flag
 
 The endpoint is read-only/no-mutation and does not send email. It does not expose raw SMTP host values, usernames, passwords, API keys, tokens, connection URLs, authorization headers, provider secrets, or message links outside the existing mock outbox behavior.
 
-Production readiness remains blocked until SMTP configuration, sender-domain evidence, non-production relay diagnostics, enabled retry processing, signed bounce/webhook handling, suppression policy, provider event ingestion, alerting, and monitoring are all implemented and reviewed.
+Production readiness remains blocked until SMTP configuration, sender-domain evidence, non-production relay diagnostics, enabled retry processing, scheduled retry-worker evidence, signed bounce/webhook handling, suppression policy, provider event ingestion, alerting thresholds, and monitoring are all implemented and reviewed.
 
 ## Sender-Domain Evidence
 
@@ -95,7 +97,22 @@ Production readiness remains blocked until SMTP configuration, sender-domain evi
 
 `POST /email/retry-process` is disabled by default through `LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED=false`. In the default state it returns `SKIPPED_DISABLED`, sends no email, and mutates nothing. When explicitly enabled by an operator, it processes only due retryable records, obeys `maxAttempts` and `nextAttemptAt`, skips active suppressions without calling the provider, updates existing outbox metadata, creates no new outbox record, and returns redacted provider summaries.
 
-This is not a scheduled worker yet. It is a controlled manual/admin processor surface for reliability validation.
+`GET /email/retry-worker/plan` is read-only/no-mutation and sends no email. It reports whether a scheduled worker is configured/enabled, the scheduler provider (`NONE` by default), retry processor gate state, pending/due/blocked/suppressed counts, active suppression count, max-attempts policy, blockers, warnings, and a recommended five-minute cadence.
+
+`POST /email/retry-worker/run` is disabled by default through `LEDGERBYTE_EMAIL_RETRY_WORKER_ENABLED=false`. In the default state it returns `SKIPPED_DISABLED`, sends no email, and mutates nothing. If the worker flag is enabled but the retry processor flag remains disabled, it returns `SKIPPED_PROCESSOR_DISABLED` with no mutation. Only when both worker and retry processor gates are explicitly enabled does it delegate to the existing due-record retry processor, which still respects suppressions and max attempts.
+
+This is not a production scheduler yet. It is a disabled-by-default worker execution shell and plan surface for reliability validation.
+
+## Monitoring Evidence And Alerts
+
+`EmailDeliveryMonitoringEvidence` stores manual, tenant-scoped metadata for delivery monitoring readiness.
+
+- Evidence types: `RETRY_WORKER`, `BOUNCE_ALERTS`, `COMPLAINT_ALERTS`, `SUPPRESSION_TRENDS`, `DELIVERY_DASHBOARD`, `PROVIDER_WEBHOOK_HEALTH`, and `OTHER`.
+- Endpoints: `GET /email/monitoring-plan`, `GET /email/monitoring-evidence`, `POST /email/monitoring-evidence`, `POST /email/monitoring-evidence/:id/verify`, and `POST /email/monitoring-evidence/:id/revoke`.
+- The evidence workflow sends no email, creates no outbox record, performs no external monitoring call, and stores no customer recipient list or customer email body.
+- Evidence rejects SMTP passwords, API keys, tokens, authorization headers, connection URLs, provider secrets, webhook secrets, private DKIM keys, raw provider payloads, customer recipients, and customer message bodies.
+- Verified monitoring evidence can move monitoring status to `READY_FOR_REVIEW`, but does not make full email `productionReady=true` while relay, provider, webhook, and worker gates remain blocked.
+- Bounce and complaint alert threshold fields remain readiness evidence only; no alert email, webhook, or external monitoring notification is sent by default.
 
 ## Provider Events And Bounces
 
@@ -137,21 +154,21 @@ Mock outbox bodies can contain local invite/reset preview links. That is useful 
 
 1. Add provider-specific API adapters if SMTP is not sufficient.
 2. Replace the generic HMAC test verifier with provider-specific signed webhook adapters and production signature contracts.
-3. Add a scheduled queue/worker for asynchronous sending.
+3. Replace the disabled worker shell with a real scheduled queue/worker after production gates are approved.
 4. Add live DNS/provider verification checks for captured DKIM/SPF/DMARC evidence.
-5. Add rate-limit, bounce, complaint, and abuse monitoring dashboards with thresholds.
+5. Connect rate-limit, bounce, complaint, retry-throughput, suppression-trend, and abuse monitoring dashboards with real alert thresholds.
 6. Add production template review and invoice/statement send flows.
 
 ## Current Limitations
 
 - Real SMTP sending is implemented but opt-in and not enabled by default.
 - No paid/provider-specific API adapter is implemented.
-- Retry metadata and a disabled-by-default manual processor exist, but no scheduled background worker exists.
+- Retry metadata, a disabled-by-default manual processor, and a disabled-by-default worker shell exist, but no production scheduler exists.
 - Provider-agnostic signed webhook verification and suppression metadata exist, but no provider-specific production webhook adapter or real provider signature contract is implemented.
-- Monitoring-safe alert flags are surfaced, but no alert thresholds, dashboards, or external monitoring integration exist.
+- Monitoring evidence and alert threshold readiness are surfaced, but no external monitoring integration, real alert delivery, or production dashboard connection exists.
 - DKIM/SPF/DMARC/domain evidence is metadata-only; no live DNS lookup or provider verification is implemented.
 - No branded HTML template polish exists.
 
 Tests run for this phase: targeted API email specs, targeted frontend email specs, typecheck, build, `smoke:accounting`, `git diff --check`, and `git diff --cached --check`.
 
-Recommended next prompt: add a scheduled transactional email worker and monitoring dashboard evidence for retries, bounce/complaint rates, and suppression trends while keeping real customer sends disabled by default.
+Recommended next prompt: add provider-specific production webhook adapters and an external monitoring integration runbook for email delivery alerts while keeping real customer sends disabled by default.

@@ -1,9 +1,11 @@
 import {
   emailDiagnosticsStatusLabel,
+  emailMonitoringEvidenceStatusLabel,
   emailProviderEventIngestionStatusLabel,
   emailProductionReadinessLabel,
   emailRelayDiagnosticsStatusLabel,
   emailRetryProcessorStatusLabel,
+  emailRetryWorkerStatusLabel,
   emailSenderDomainStatusLabel,
   emailSuppressionStatusLabel,
   emailWebhookVerificationStatusLabel,
@@ -36,7 +38,9 @@ export function EmailReadinessSafeStatus({
         />
         <SafeStatusItem label="Suppressions" value={emailSuppressionStatusLabel(readiness.suppressionListConfigured, readiness.activeSuppressionCount)} />
         <SafeStatusItem label="Retries" value={emailRetryProcessorStatusLabel(readiness.retryProcessorEnabled)} />
+        <SafeStatusItem label="Retry worker" value={emailRetryWorkerStatusLabel(readiness.retryWorkerEnabled, readiness.retryWorkerConfigured)} />
         <SafeStatusItem label="Provider events" value={emailProviderEventIngestionStatusLabel(readiness.providerEventIngestionReady)} />
+        <SafeStatusItem label="Monitoring evidence" value={emailMonitoringEvidenceStatusLabel(readiness.monitoringEvidenceStatus)} />
         <SafeStatusItem label="Monitoring" value={readiness.monitoringConfigured ? "Monitoring configured" : "Monitoring missing"} />
       </div>
       <p className="mt-3 text-steel">
@@ -54,6 +58,10 @@ export function EmailReadinessSafeStatus({
       <p className="mt-2 text-steel">
         Bounce and complaint suppressions store hashed and masked email metadata only. Active suppressions block future real send attempts without sending
         customer email by default.
+      </p>
+      <p className="mt-2 text-steel">
+        Scheduled retry-worker and monitoring evidence are metadata-only. Alert thresholds, suppression trends, and webhook-health dashboards remain blockers
+        until reviewed evidence is verified.
       </p>
       {diagnosticsResult ? (
         <p className="mt-2 font-medium text-ink">

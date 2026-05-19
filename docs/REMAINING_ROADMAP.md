@@ -18,7 +18,7 @@ Tasks:
 - Review dashboard KPI definitions, chart thresholds, attention item thresholds, and quick-action placement with an accountant/product owner.
 - Fix UX inconsistencies, especially supplier AP balance labels.
 - Wire the new Playwright browser E2E smoke into CI and expand it where user-facing regressions are found.
-- Validate the opt-in SMTP provider with a non-production relay using the safe diagnostics gate, then add live domain authentication checks, provider-specific signed webhooks, scheduled retry worker, monitoring/alert thresholds, and audit alerting for role/member administration.
+- Validate the opt-in SMTP provider with a non-production relay using the safe diagnostics gate, then add live domain authentication checks, provider-specific signed webhooks, production retry scheduler, external monitoring/alert delivery, and audit alerting for role/member administration.
 - Harden fiscal period UX with period templates, optional reversal-date selection, and admin unlock approval design.
 - Harden number sequence administration with reviewed reset/skip workflow, collision preview, and branch/device numbering policy before production.
 - Add accountant review pass for report layouts and exported report formats.
@@ -138,7 +138,7 @@ Tasks:
 - Production deployment target and infrastructure-as-code.
 - Managed Postgres, backups, restore drills, and monitoring.
 - Validate the uploaded-attachment S3 adapter with a real non-production bucket, then implement generated-document object storage and a resumable DB-to-S3 migration executor.
-- Email provider validation using allowlisted diagnostics, provider-specific signed webhooks, scheduled retry worker, monitoring/alert thresholds, and transactional template polish.
+- Email provider validation using allowlisted diagnostics, provider-specific signed webhooks, production retry scheduler, external monitoring/alert delivery, and transactional template polish.
 - WhatsApp provider integration if product requires it.
 - Subscription billing and plan enforcement.
 - Domain, DNS, SSL, and environment management.
@@ -194,6 +194,14 @@ Recommended next prompt:
 - `/settings/email-outbox` now shows webhook verification, webhook secret configured/missing, suppression counts/controls, suppressed retry counts, and alerting/monitoring blockers.
 - Remaining roadmap item: replace the generic HMAC test verifier with provider-specific webhook adapters, add scheduled retry execution, prove non-production relay diagnostics, and build monitoring/alert threshold evidence.
 - Recommended next prompt: add a scheduled transactional email retry worker and monitoring dashboard evidence for retry throughput, bounce/complaint thresholds, and suppression trends while real customer sends remain disabled by default.
+
+## 2026-05-19 Email worker monitoring readiness
+
+- Added read-only `GET /email/retry-worker/plan` and disabled-by-default `POST /email/retry-worker/run`; worker execution sends no email and mutates nothing while `LEDGERBYTE_EMAIL_RETRY_WORKER_ENABLED=false`.
+- Added `EmailDeliveryMonitoringEvidence` plus `/email/monitoring-plan` and monitoring evidence list/create/verify/revoke endpoints for retry throughput, bounce/complaint alert thresholds, suppression trends, delivery dashboard evidence, and provider webhook health.
+- `/settings/email-outbox` now shows retry worker state, monitoring evidence status, bounce/complaint threshold blockers, suppression trend monitoring, webhook health monitoring, and metadata-only monitoring evidence controls.
+- Remaining roadmap item: add provider-specific production webhook adapters, external monitoring/alert delivery, real relay execution evidence, production retry scheduler, and live DNS/provider validation.
+- Recommended next prompt: add provider-specific production webhook adapters and an external monitoring integration runbook for email delivery alerts while keeping real customer sends disabled by default.
 
 ## 2026-05-16 ZATCA buyer address field support
 

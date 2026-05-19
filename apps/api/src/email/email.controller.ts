@@ -7,15 +7,19 @@ import type { AuthenticatedUser } from "../auth/auth.types";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
+import { CreateEmailDeliveryMonitoringEvidenceDto } from "./dto/create-email-delivery-monitoring-evidence.dto";
 import { CreateEmailSuppressionDto } from "./dto/create-email-suppression.dto";
 import { CreateEmailSenderDomainEvidenceDto } from "./dto/create-email-sender-domain-evidence.dto";
 import { ReceiveEmailProviderWebhookDto } from "./dto/receive-email-provider-webhook.dto";
 import { ReceiveMockEmailProviderEventDto } from "./dto/receive-mock-email-provider-event.dto";
+import { RevokeEmailDeliveryMonitoringEvidenceDto } from "./dto/revoke-email-delivery-monitoring-evidence.dto";
 import { RevokeEmailSuppressionDto } from "./dto/revoke-email-suppression.dto";
 import { RevokeEmailSenderDomainEvidenceDto } from "./dto/revoke-email-sender-domain-evidence.dto";
 import { RunEmailDiagnosticsDto } from "./dto/run-email-diagnostics.dto";
 import { RunEmailRetryProcessDto } from "./dto/run-email-retry-process.dto";
+import { RunEmailRetryWorkerDto } from "./dto/run-email-retry-worker.dto";
 import { SendTestEmailDto } from "./dto/send-test-email.dto";
+import { VerifyEmailDeliveryMonitoringEvidenceDto } from "./dto/verify-email-delivery-monitoring-evidence.dto";
 import { VerifyEmailSenderDomainEvidenceDto } from "./dto/verify-email-sender-domain-evidence.dto";
 import { EmailService } from "./email.service";
 
@@ -55,6 +59,62 @@ export class EmailController {
   @RequirePermissions(PERMISSIONS.users.manage)
   retryProcess(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Body() dto: RunEmailRetryProcessDto) {
     return this.emailService.retryProcess(organizationId, user.id, dto);
+  }
+
+  @Get("retry-worker/plan")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  retryWorkerPlan(@CurrentOrganizationId() organizationId: string) {
+    return this.emailService.retryWorkerPlan(organizationId);
+  }
+
+  @Post("retry-worker/run")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  retryWorkerRun(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Body() dto: RunEmailRetryWorkerDto) {
+    return this.emailService.retryWorkerRun(organizationId, user.id, dto);
+  }
+
+  @Get("monitoring-plan")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  monitoringPlan(@CurrentOrganizationId() organizationId: string) {
+    return this.emailService.monitoringPlan(organizationId);
+  }
+
+  @Get("monitoring-evidence")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  listMonitoringEvidence(@CurrentOrganizationId() organizationId: string) {
+    return this.emailService.listMonitoringEvidence(organizationId);
+  }
+
+  @Post("monitoring-evidence")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  createMonitoringEvidence(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateEmailDeliveryMonitoringEvidenceDto,
+  ) {
+    return this.emailService.createMonitoringEvidence(organizationId, user.id, dto);
+  }
+
+  @Post("monitoring-evidence/:id/verify")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  verifyMonitoringEvidence(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: VerifyEmailDeliveryMonitoringEvidenceDto,
+  ) {
+    return this.emailService.verifyMonitoringEvidence(organizationId, user.id, id, dto);
+  }
+
+  @Post("monitoring-evidence/:id/revoke")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  revokeMonitoringEvidence(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: RevokeEmailDeliveryMonitoringEvidenceDto,
+  ) {
+    return this.emailService.revokeMonitoringEvidence(organizationId, user.id, id, dto);
   }
 
   @Get("provider-events/plan")

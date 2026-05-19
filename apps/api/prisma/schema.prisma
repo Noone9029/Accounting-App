@@ -61,6 +61,23 @@ enum EmailSuppressionReason {
   PROVIDER_EVENT
 }
 
+enum EmailDeliveryMonitoringEvidenceStatus {
+  DRAFT
+  VERIFIED
+  REVOKED
+  SUPERSEDED
+}
+
+enum EmailDeliveryMonitoringEvidenceType {
+  RETRY_WORKER
+  BOUNCE_ALERTS
+  COMPLAINT_ALERTS
+  SUPPRESSION_TRENDS
+  DELIVERY_DASHBOARD
+  PROVIDER_WEBHOOK_HEALTH
+  OTHER
+}
+
 enum AuthTokenPurpose {
   ORGANIZATION_INVITE
   PASSWORD_RESET
@@ -631,6 +648,9 @@ model User {
   revokedEmailSenderDomainEvidence                  EmailSenderDomainEvidence[]                 @relation("EmailSenderDomainEvidenceRevokedBy")
   createdEmailSuppressions                          EmailSuppression[]                          @relation("EmailSuppressionCreatedBy")
   revokedEmailSuppressions                          EmailSuppression[]                          @relation("EmailSuppressionRevokedBy")
+  createdEmailDeliveryMonitoringEvidence            EmailDeliveryMonitoringEvidence[]           @relation("EmailDeliveryMonitoringEvidenceCreatedBy")
+  verifiedEmailDeliveryMonitoringEvidence           EmailDeliveryMonitoringEvidence[]           @relation("EmailDeliveryMonitoringEvidenceVerifiedBy")
+  revokedEmailDeliveryMonitoringEvidence            EmailDeliveryMonitoringEvidence[]           @relation("EmailDeliveryMonitoringEvidenceRevokedBy")
   updatedAuditLogRetentionSettings                  AuditLogRetentionSettings[]                 @relation("AuditLogRetentionSettingsUpdatedBy")
   zatcaHashModeEnabledEgsUnits                      ZatcaEgsUnit[]                              @relation("ZatcaHashModeEnabledBy")
   approvedZatcaCsrConfigReviews                     ZatcaCsrConfigReview[]                      @relation("ZatcaCsrConfigReviewApprovedBy")
@@ -716,6 +736,7 @@ model Organization {
   emailSenderDomainEvidence                 EmailSenderDomainEvidence[]
   emailProviderEvents                       EmailProviderEvent[]
   emailSuppressions                         EmailSuppression[]
+  emailDeliveryMonitoringEvidence           EmailDeliveryMonitoringEvidence[]
   authTokens                                AuthToken[]
   authTokenRateLimitEvents                  AuthTokenRateLimitEvent[]
   zatcaProfile                              ZatcaOrganizationProfile?
@@ -1281,6 +1302,35 @@ model EmailSuppression {
   @@index([organizationId, emailHash, active])
   @@index([providerEventId])
   @@index([createdById])
+  @@index([revokedById])
+}
+
+model EmailDeliveryMonitoringEvidence {
+  id                          String                                @id @default(uuid()) @db.Uuid
+  organizationId              String                                @db.Uuid
+  status                      EmailDeliveryMonitoringEvidenceStatus @default(DRAFT)
+  evidenceType                EmailDeliveryMonitoringEvidenceType
+  provider                    String?
+  evidenceSummaryJson         Json
+  verifiedById                String?                               @db.Uuid
+  verifiedAt                  DateTime?
+  revokedById                 String?                               @db.Uuid
+  revokedAt                   DateTime?
+  note                        String?
+  productionReadyContribution Boolean                               @default(false)
+  createdById                 String?                               @db.Uuid
+  createdAt                   DateTime                              @default(now())
+  updatedAt                   DateTime                              @updatedAt
+  organization                Organization                          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy                   User?                                 @relation("EmailDeliveryMonitoringEvidenceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  verifiedBy                  User?                                 @relation("EmailDeliveryMonitoringEvidenceVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+  revokedBy                   User?                                 @relation("EmailDeliveryMonitoringEvidenceRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, evidenceType])
+  @@index([createdById])
+  @@index([verifiedById])
   @@index([revokedById])
 }
 

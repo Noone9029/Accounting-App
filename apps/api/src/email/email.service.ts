@@ -2,6 +2,8 @@ import { BadRequestException, Inject, Injectable, NotFoundException, Optional } 
 import { ConfigService } from "@nestjs/config";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import {
+  EmailDeliveryMonitoringEvidenceStatus,
+  EmailDeliveryMonitoringEvidenceType,
   EmailDeliveryStatus,
   EmailProviderEventType,
   EmailSenderDomainEvidenceStatus,
@@ -13,13 +15,17 @@ import {
 import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { CreateEmailDeliveryMonitoringEvidenceDto } from "./dto/create-email-delivery-monitoring-evidence.dto";
 import { CreateEmailSuppressionDto } from "./dto/create-email-suppression.dto";
 import { CreateEmailSenderDomainEvidenceDto } from "./dto/create-email-sender-domain-evidence.dto";
 import { ReceiveEmailProviderWebhookDto } from "./dto/receive-email-provider-webhook.dto";
 import { ReceiveMockEmailProviderEventDto } from "./dto/receive-mock-email-provider-event.dto";
+import { RevokeEmailDeliveryMonitoringEvidenceDto } from "./dto/revoke-email-delivery-monitoring-evidence.dto";
 import { RevokeEmailSuppressionDto } from "./dto/revoke-email-suppression.dto";
 import { RevokeEmailSenderDomainEvidenceDto } from "./dto/revoke-email-sender-domain-evidence.dto";
 import { RunEmailRetryProcessDto } from "./dto/run-email-retry-process.dto";
+import { RunEmailRetryWorkerDto } from "./dto/run-email-retry-worker.dto";
+import { VerifyEmailDeliveryMonitoringEvidenceDto } from "./dto/verify-email-delivery-monitoring-evidence.dto";
 import { VerifyEmailSenderDomainEvidenceDto } from "./dto/verify-email-sender-domain-evidence.dto";
 import { buildOrganizationInviteEmail, buildPasswordResetEmail, buildTestEmail } from "./email-templates";
 import { EMAIL_PROVIDER, type EmailMessage, type EmailProvider } from "./email-provider";
@@ -57,8 +63,11 @@ interface RunDiagnosticsInput {
 
 type RelayDiagnosticsStatus = "NOT_RUN" | "SKIPPED_DISABLED" | "READY_FOR_NON_PRODUCTION_TEST" | "ATTEMPTED" | "FAILED";
 type SenderDomainEvidenceStatus = "BLOCKED" | "PARTIAL" | "READY_FOR_REVIEW";
+type MonitoringEvidenceStatus = "BLOCKED" | "PARTIAL" | "READY_FOR_REVIEW";
+type EmailRetryWorkerSchedulerProvider = "NONE" | "FUTURE_CRON" | "FUTURE_QUEUE" | "FUTURE_SERVERLESS_CRON";
 
 type EmailRetryProcessStatus = "SKIPPED_DISABLED" | "ATTEMPTED";
+type EmailRetryWorkerRunStatus = "SKIPPED_DISABLED" | "SKIPPED_PROCESSOR_DISABLED" | "ATTEMPTED";
 type EmailWebhookProcessStatus = "REJECTED_UNVERIFIED" | "ACCEPTED_VERIFIED";
 
 const REQUIRED_SENDER_DOMAIN_EVIDENCE_TYPES = [
@@ -70,6 +79,14 @@ const DEFAULT_EMAIL_MAX_ATTEMPTS = 3;
 const MAX_EMAIL_RETRY_PROCESS_LIMIT = 50;
 const EMAIL_SUPPRESSED_STATUS = "SUPPRESSED";
 const EMAIL_WEBHOOK_SIGNATURE_MODE = "GENERIC_HMAC_SHA256_TEST_ONLY";
+const REQUIRED_MONITORING_EVIDENCE_TYPES = [
+  EmailDeliveryMonitoringEvidenceType.RETRY_WORKER,
+  EmailDeliveryMonitoringEvidenceType.BOUNCE_ALERTS,
+  EmailDeliveryMonitoringEvidenceType.COMPLAINT_ALERTS,
+  EmailDeliveryMonitoringEvidenceType.SUPPRESSION_TRENDS,
+  EmailDeliveryMonitoringEvidenceType.DELIVERY_DASHBOARD,
+  EmailDeliveryMonitoringEvidenceType.PROVIDER_WEBHOOK_HEALTH,
+];
 
 @Injectable()
 export class EmailService {
@@ -98,8 +115,10 @@ export class EmailService {
     const senderDomain = await this.senderDomainReadiness(organizationId);
     const relayDiagnosticsStatus = this.currentRelayDiagnosticsStatus(providerReadiness.realSendingEnabled);
     const retryPlan = await this.retryPlan(organizationId);
+    const retryWorkerPlan = await this.retryWorkerPlan(organizationId);
     const providerEventPlan = await this.providerEventsPlan(organizationId);
     const webhookPlan = await this.providerWebhookPlan(organizationId);
+    const monitoringPlan = await this.monitoringPlan(organizationId);
     const activeSuppressionCount = await this.prisma.emailSuppression.count({
       where: { organizationId, active: true },
     });
@@ -107,13 +126,15 @@ export class EmailService {
       senderDomainReady: senderDomain.productionReadyContribution,
       relayDiagnosticsStatus,
       retryProcessorEnabled: retryPlan.retryProcessorEnabled,
+      retryWorkerConfigured: retryWorkerPlan.workerConfigured,
+      retryWorkerEnabled: retryWorkerPlan.workerEnabled,
       providerEventIngestionReady: providerEventPlan.providerEventIngestionReady,
       bounceWebhookConfigured: providerEventPlan.bounceWebhookConfigured,
-      monitoringConfigured: false,
+      monitoringConfigured: monitoringPlan.monitoringConfigured,
       webhookVerificationEnabled: webhookPlan.webhookVerificationEnabled,
       webhookSecretConfigured: webhookPlan.webhookSecretConfigured,
       providerWebhookSignatureVerified: webhookPlan.providerWebhookSignatureVerified,
-      alertingConfigured: false,
+      alertingConfigured: monitoringPlan.alertingConfigured,
     });
     const productionBlockers = [
       ...this.productionReadinessBlockers({
@@ -152,6 +173,8 @@ export class EmailService {
       relayDiagnosticsRequired: true,
       retryPolicyConfigured: true,
       retryProcessorEnabled: retryPlan.retryProcessorEnabled,
+      retryWorkerConfigured: retryWorkerPlan.workerConfigured,
+      retryWorkerEnabled: retryWorkerPlan.workerEnabled,
       retryPendingCount: retryPlan.pendingCount,
       retryBlockedCount: retryPlan.blockedCount,
       retrySuppressedCount: retryPlan.suppressedOutboxCount,
@@ -164,11 +187,15 @@ export class EmailService {
       suppressionListConfigured: true,
       activeSuppressionCount,
       providerEventIngestionReady: providerEventPlan.providerEventIngestionReady,
-      monitoringConfigured: false,
-      alertingConfigured: false,
-      bounceAlertThresholdConfigured: false,
-      complaintAlertThresholdConfigured: false,
-      providerWebhookAlertsReady: false,
+      monitoringEvidenceStatus: monitoringPlan.evidenceStatus,
+      monitoringConfigured: monitoringPlan.monitoringConfigured,
+      alertingConfigured: monitoringPlan.alertingConfigured,
+      retryThroughputMonitoringConfigured: monitoringPlan.retryThroughputMonitoringConfigured,
+      bounceAlertThresholdConfigured: monitoringPlan.bounceAlertThresholdConfigured,
+      complaintAlertThresholdConfigured: monitoringPlan.complaintAlertThresholdConfigured,
+      suppressionTrendMonitoringConfigured: monitoringPlan.suppressionTrendMonitoringConfigured,
+      providerWebhookHealthMonitoringConfigured: monitoringPlan.providerWebhookHealthMonitoringConfigured,
+      providerWebhookAlertsReady: monitoringPlan.providerWebhookHealthMonitoringConfigured && monitoringPlan.alertingConfigured,
     };
   }
 
@@ -272,7 +299,147 @@ export class EmailService {
     };
   }
 
+  async retryWorkerPlan(organizationId: string) {
+    const retryPlan = await this.retryPlan(organizationId);
+    const schedulerProvider = this.retryWorkerSchedulerProvider;
+    const workerEnabled = this.retryWorkerEnabled;
+    const workerConfigured = workerEnabled && this.retryProcessorEnabled && schedulerProvider !== "NONE";
+    const blockers = [
+      ...(workerConfigured ? [] : ["Scheduled email retry worker is not configured."]),
+      ...(workerEnabled ? [] : ["Email retry worker execution is disabled by default."]),
+      ...(this.retryProcessorEnabled ? [] : ["Email retry processor is disabled by default."]),
+      ...(schedulerProvider === "NONE" ? ["Email retry worker scheduler provider is not configured."] : []),
+    ];
+
+    return {
+      readOnly: true,
+      noMutation: true,
+      noCustomerEmailSent: true,
+      workerConfigured,
+      workerEnabled,
+      schedulerProvider,
+      retryProcessorEnabled: this.retryProcessorEnabled,
+      pendingCount: retryPlan.pendingCount,
+      dueRetryCount: retryPlan.nextAttemptCount,
+      suppressedCount: retryPlan.suppressedOutboxCount,
+      activeSuppressionCount: retryPlan.activeSuppressionCount,
+      blockedCount: retryPlan.blockedCount,
+      maxAttemptsPolicy: retryPlan.maxAttemptsPolicy,
+      recommendedSchedule: "Run at most one worker every 5 minutes with a small batch limit after provider, suppression, and monitoring gates are reviewed.",
+      productionReadyContribution: workerConfigured,
+      blockers,
+      warnings: [
+        "This is a scheduled-worker readiness plan only; it sends no email, mutates no outbox rows, and calls no provider.",
+        "Worker execution remains disabled until LEDGERBYTE_EMAIL_RETRY_WORKER_ENABLED and the retry processor gate are explicitly enabled.",
+      ],
+    };
+  }
+
+  async retryWorkerRun(organizationId: string, actorUserId: string, dto: RunEmailRetryWorkerDto = {}) {
+    const plan = await this.retryWorkerPlan(organizationId);
+    if (!this.retryWorkerEnabled) {
+      return {
+        status: "SKIPPED_DISABLED" satisfies EmailRetryWorkerRunStatus,
+        executionEnabled: false,
+        executionAttempted: false,
+        noEmailSent: true,
+        noCustomerEmailSent: true,
+        noMutation: true,
+        provider: this.provider.provider,
+        plan,
+        redactionGuarantees: EMAIL_REDACTION_GUARANTEES,
+      };
+    }
+
+    if (!this.retryProcessorEnabled) {
+      return {
+        status: "SKIPPED_PROCESSOR_DISABLED" satisfies EmailRetryWorkerRunStatus,
+        executionEnabled: true,
+        executionAttempted: false,
+        noEmailSent: true,
+        noCustomerEmailSent: true,
+        noMutation: true,
+        provider: this.provider.provider,
+        plan,
+        redactionGuarantees: EMAIL_REDACTION_GUARANTEES,
+      };
+    }
+
+    const result = await this.retryProcess(organizationId, actorUserId, dto);
+    return {
+      ...result,
+      workerEnabled: true,
+      workerConfigured: plan.workerConfigured,
+      schedulerProvider: plan.schedulerProvider,
+      plan,
+    };
+  }
+
+  async monitoringPlan(organizationId: string) {
+    const evidence = await this.prisma.emailDeliveryMonitoringEvidence.findMany({
+      where: { organizationId },
+      select: EMAIL_DELIVERY_MONITORING_EVIDENCE_SELECT,
+    });
+    const verifiedEvidenceTypes = REQUIRED_MONITORING_EVIDENCE_TYPES.filter((evidenceType) =>
+      evidence.some(
+        (entry) =>
+          entry.evidenceType === evidenceType &&
+          entry.status === EmailDeliveryMonitoringEvidenceStatus.VERIFIED &&
+          entry.productionReadyContribution,
+      ),
+    );
+    const missingEvidenceTypes = REQUIRED_MONITORING_EVIDENCE_TYPES.filter((evidenceType) => !verifiedEvidenceTypes.includes(evidenceType));
+    const evidenceStatus: MonitoringEvidenceStatus =
+      missingEvidenceTypes.length === 0 ? "READY_FOR_REVIEW" : verifiedEvidenceTypes.length > 0 ? "PARTIAL" : "BLOCKED";
+    const retryThroughputMonitoringConfigured = verifiedEvidenceTypes.includes(EmailDeliveryMonitoringEvidenceType.RETRY_WORKER);
+    const bounceAlertThresholdConfigured = verifiedEvidenceTypes.includes(EmailDeliveryMonitoringEvidenceType.BOUNCE_ALERTS);
+    const complaintAlertThresholdConfigured = verifiedEvidenceTypes.includes(EmailDeliveryMonitoringEvidenceType.COMPLAINT_ALERTS);
+    const suppressionTrendMonitoringConfigured = verifiedEvidenceTypes.includes(EmailDeliveryMonitoringEvidenceType.SUPPRESSION_TRENDS);
+    const deliveryDashboardConfigured = verifiedEvidenceTypes.includes(EmailDeliveryMonitoringEvidenceType.DELIVERY_DASHBOARD);
+    const providerWebhookHealthMonitoringConfigured = verifiedEvidenceTypes.includes(EmailDeliveryMonitoringEvidenceType.PROVIDER_WEBHOOK_HEALTH);
+    const monitoringConfigured =
+      evidenceStatus === "READY_FOR_REVIEW" &&
+      retryThroughputMonitoringConfigured &&
+      suppressionTrendMonitoringConfigured &&
+      deliveryDashboardConfigured &&
+      providerWebhookHealthMonitoringConfigured;
+    const alertingConfigured = bounceAlertThresholdConfigured && complaintAlertThresholdConfigured;
+
+    return {
+      readOnly: true,
+      noMutation: true,
+      noCustomerEmailSent: true,
+      metadataOnly: true,
+      monitoringConfigured,
+      alertingConfigured,
+      retryThroughputMonitoringConfigured,
+      bounceAlertThresholdConfigured,
+      complaintAlertThresholdConfigured,
+      suppressionTrendMonitoringConfigured,
+      deliveryDashboardConfigured,
+      providerWebhookHealthMonitoringConfigured,
+      evidenceStatus,
+      productionReadyContribution: monitoringConfigured && alertingConfigured,
+      requiredEvidenceTypes: REQUIRED_MONITORING_EVIDENCE_TYPES,
+      verifiedEvidenceTypes,
+      missingEvidenceTypes,
+      blockers: [
+        ...(retryThroughputMonitoringConfigured ? [] : ["Retry throughput monitoring evidence is missing."]),
+        ...(bounceAlertThresholdConfigured ? [] : ["Bounce alert threshold evidence is missing."]),
+        ...(complaintAlertThresholdConfigured ? [] : ["Complaint alert threshold evidence is missing."]),
+        ...(suppressionTrendMonitoringConfigured ? [] : ["Suppression trend monitoring evidence is missing."]),
+        ...(deliveryDashboardConfigured ? [] : ["Delivery dashboard evidence is missing."]),
+        ...(providerWebhookHealthMonitoringConfigured ? [] : ["Provider webhook health monitoring evidence is missing."]),
+      ],
+      warnings: [
+        "Monitoring evidence is manual metadata capture only. No external monitoring tool is called.",
+        "Alert thresholds are not active until verified monitoring evidence exists and production monitoring is configured outside this endpoint.",
+      ],
+    };
+  }
+
   async providerEventsPlan(organizationId: string) {
+    const monitoringPlan = await this.monitoringPlan(organizationId);
     const webhookPlan = await this.providerWebhookPlan(organizationId);
     return {
       readOnly: true,
@@ -286,17 +453,17 @@ export class EmailService {
       webhookVerificationConfigured: webhookPlan.webhookVerificationConfigured,
       webhookVerificationEnabled: webhookPlan.webhookVerificationEnabled,
       webhookSecretConfigured: webhookPlan.webhookSecretConfigured,
-      monitoringConfigured: false,
-      alertingConfigured: false,
-      bounceAlertThresholdConfigured: false,
-      complaintAlertThresholdConfigured: false,
-      providerWebhookAlertsReady: false,
+      monitoringConfigured: monitoringPlan.monitoringConfigured,
+      alertingConfigured: monitoringPlan.alertingConfigured,
+      bounceAlertThresholdConfigured: monitoringPlan.bounceAlertThresholdConfigured,
+      complaintAlertThresholdConfigured: monitoringPlan.complaintAlertThresholdConfigured,
+      providerWebhookAlertsReady: monitoringPlan.providerWebhookHealthMonitoringConfigured && monitoringPlan.alertingConfigured,
       productionReadyContribution: false,
       blockers: [
         ...(webhookPlan.webhookVerificationConfigured ? [] : ["Signed provider webhook verification is not configured."]),
         ...(webhookPlan.providerWebhookSignatureVerified ? [] : ["No verified signed provider webhook event has been captured."]),
-        "Email monitoring is not configured.",
-        "Email alerting is not configured.",
+        ...(monitoringPlan.monitoringConfigured ? [] : ["Email monitoring is not configured."]),
+        ...(monitoringPlan.alertingConfigured ? [] : ["Email alerting is not configured."]),
       ],
       warnings: [
         "Mock provider events are for local/admin readiness evidence only.",
@@ -873,6 +1040,152 @@ export class EmailService {
     return this.suppressionResponse(revoked);
   }
 
+  async listMonitoringEvidence(organizationId: string) {
+    return {
+      metadataOnly: true,
+      noCustomerEmail: true,
+      noEmailSent: true,
+      noOutboxRecord: true,
+      redactionGuarantees: EMAIL_REDACTION_GUARANTEES,
+      evidence: await this.prisma.emailDeliveryMonitoringEvidence.findMany({
+        where: { organizationId },
+        orderBy: [{ evidenceType: "asc" }, { createdAt: "desc" }],
+        select: EMAIL_DELIVERY_MONITORING_EVIDENCE_SELECT,
+      }),
+    };
+  }
+
+  async createMonitoringEvidence(organizationId: string, actorUserId: string, dto: CreateEmailDeliveryMonitoringEvidenceDto) {
+    this.assertMonitoringEvidenceContainsNoSecrets(dto);
+    const provider = normalizeOptionalText(dto.provider);
+    const note = normalizeOptionalText(dto.note);
+
+    await this.prisma.emailDeliveryMonitoringEvidence.updateMany({
+      where: {
+        organizationId,
+        evidenceType: dto.evidenceType,
+        status: { in: [EmailDeliveryMonitoringEvidenceStatus.DRAFT, EmailDeliveryMonitoringEvidenceStatus.VERIFIED] },
+      },
+      data: { status: EmailDeliveryMonitoringEvidenceStatus.SUPERSEDED, productionReadyContribution: false },
+    });
+
+    const evidence = await this.prisma.emailDeliveryMonitoringEvidence.create({
+      data: {
+        organizationId,
+        createdById: actorUserId,
+        evidenceType: dto.evidenceType,
+        provider,
+        evidenceSummaryJson: sanitizeEvidenceSummary(dto.evidenceSummaryJson),
+        note,
+        status: EmailDeliveryMonitoringEvidenceStatus.DRAFT,
+        productionReadyContribution: false,
+      },
+      select: EMAIL_DELIVERY_MONITORING_EVIDENCE_SELECT,
+    });
+
+    await this.auditLogService?.log({
+      organizationId,
+      actorUserId,
+      action: AUDIT_EVENTS.EMAIL_DELIVERY_MONITORING_EVIDENCE_CREATED,
+      entityType: AUDIT_ENTITY_TYPES.EMAIL_DELIVERY_MONITORING_EVIDENCE,
+      entityId: evidence.id,
+      after: evidence,
+    });
+
+    return this.monitoringEvidenceResponse(evidence);
+  }
+
+  async verifyMonitoringEvidence(
+    organizationId: string,
+    actorUserId: string,
+    id: string,
+    dto: VerifyEmailDeliveryMonitoringEvidenceDto = {},
+  ) {
+    const existing = await this.prisma.emailDeliveryMonitoringEvidence.findFirst({
+      where: { id, organizationId },
+      select: EMAIL_DELIVERY_MONITORING_EVIDENCE_SELECT,
+    });
+
+    if (!existing) {
+      throw new NotFoundException("Email delivery monitoring evidence not found.");
+    }
+    if (existing.status !== EmailDeliveryMonitoringEvidenceStatus.DRAFT) {
+      throw new BadRequestException("Only draft email delivery monitoring evidence can be verified.");
+    }
+    this.assertMonitoringEvidenceContainsNoSecrets(existing);
+    this.assertMonitoringEvidenceContainsNoSecrets(dto);
+
+    const contributionRequested = dto.productionReadyContribution ?? isProductionReadyMonitoringEvidenceType(existing.evidenceType);
+    const productionReadyContribution = contributionRequested && isProductionReadyMonitoringEvidenceType(existing.evidenceType);
+    const verified = await this.prisma.emailDeliveryMonitoringEvidence.update({
+      where: { id },
+      data: {
+        status: EmailDeliveryMonitoringEvidenceStatus.VERIFIED,
+        verifiedById: actorUserId,
+        verifiedAt: new Date(),
+        note: normalizeOptionalText(dto.note) ?? existing.note,
+        productionReadyContribution,
+      },
+      select: EMAIL_DELIVERY_MONITORING_EVIDENCE_SELECT,
+    });
+
+    await this.auditLogService?.log({
+      organizationId,
+      actorUserId,
+      action: AUDIT_EVENTS.EMAIL_DELIVERY_MONITORING_EVIDENCE_VERIFIED,
+      entityType: AUDIT_ENTITY_TYPES.EMAIL_DELIVERY_MONITORING_EVIDENCE,
+      entityId: verified.id,
+      before: existing,
+      after: verified,
+    });
+
+    return this.monitoringEvidenceResponse(verified);
+  }
+
+  async revokeMonitoringEvidence(
+    organizationId: string,
+    actorUserId: string,
+    id: string,
+    dto: RevokeEmailDeliveryMonitoringEvidenceDto = {},
+  ) {
+    const existing = await this.prisma.emailDeliveryMonitoringEvidence.findFirst({
+      where: { id, organizationId },
+      select: EMAIL_DELIVERY_MONITORING_EVIDENCE_SELECT,
+    });
+
+    if (!existing) {
+      throw new NotFoundException("Email delivery monitoring evidence not found.");
+    }
+    if (existing.status === EmailDeliveryMonitoringEvidenceStatus.REVOKED) {
+      throw new BadRequestException("Email delivery monitoring evidence is already revoked.");
+    }
+    this.assertMonitoringEvidenceContainsNoSecrets(dto);
+
+    const revoked = await this.prisma.emailDeliveryMonitoringEvidence.update({
+      where: { id },
+      data: {
+        status: EmailDeliveryMonitoringEvidenceStatus.REVOKED,
+        revokedById: actorUserId,
+        revokedAt: new Date(),
+        note: normalizeOptionalText(dto.note) ?? existing.note,
+        productionReadyContribution: false,
+      },
+      select: EMAIL_DELIVERY_MONITORING_EVIDENCE_SELECT,
+    });
+
+    await this.auditLogService?.log({
+      organizationId,
+      actorUserId,
+      action: AUDIT_EVENTS.EMAIL_DELIVERY_MONITORING_EVIDENCE_REVOKED,
+      entityType: AUDIT_ENTITY_TYPES.EMAIL_DELIVERY_MONITORING_EVIDENCE,
+      entityId: revoked.id,
+      before: existing,
+      after: revoked,
+    });
+
+    return this.monitoringEvidenceResponse(revoked);
+  }
+
   async listSenderDomainEvidence(organizationId: string) {
     return {
       metadataOnly: true,
@@ -1104,6 +1417,18 @@ export class EmailService {
     return this.config.get<string>("LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED")?.trim().toLowerCase() === "true";
   }
 
+  private get retryWorkerEnabled(): boolean {
+    return this.config.get<string>("LEDGERBYTE_EMAIL_RETRY_WORKER_ENABLED")?.trim().toLowerCase() === "true";
+  }
+
+  private get retryWorkerSchedulerProvider(): EmailRetryWorkerSchedulerProvider {
+    const value = this.config.get<string>("LEDGERBYTE_EMAIL_RETRY_WORKER_SCHEDULER_PROVIDER")?.trim().toUpperCase();
+    if (value === "FUTURE_CRON" || value === "FUTURE_QUEUE" || value === "FUTURE_SERVERLESS_CRON") {
+      return value;
+    }
+    return "NONE";
+  }
+
   private get webhookVerificationEnabled(): boolean {
     return this.config.get<string>("EMAIL_PROVIDER_WEBHOOK_VERIFICATION_ENABLED")?.trim().toLowerCase() === "true";
   }
@@ -1207,6 +1532,8 @@ export class EmailService {
     senderDomainReady: boolean;
     relayDiagnosticsStatus: RelayDiagnosticsStatus;
     retryProcessorEnabled: boolean;
+    retryWorkerConfigured: boolean;
+    retryWorkerEnabled: boolean;
     providerEventIngestionReady: boolean;
     bounceWebhookConfigured: boolean;
     monitoringConfigured: boolean;
@@ -1225,6 +1552,12 @@ export class EmailService {
     }
     if (!input.retryProcessorEnabled) {
       blockers.push("Email retry processor is disabled by default.");
+    }
+    if (!input.retryWorkerEnabled) {
+      blockers.push("Email retry worker execution is disabled by default.");
+    }
+    if (!input.retryWorkerConfigured) {
+      blockers.push("Scheduled email retry worker is not configured.");
     }
     if (!input.bounceWebhookConfigured) {
       blockers.push("Bounce webhook handling is not configured.");
@@ -1273,9 +1606,26 @@ export class EmailService {
     };
   }
 
+  private monitoringEvidenceResponse(evidence: unknown) {
+    return {
+      metadataOnly: true,
+      noCustomerEmail: true,
+      noEmailSent: true,
+      noOutboxRecord: true,
+      redactionGuarantees: EMAIL_REDACTION_GUARANTEES,
+      evidence,
+    };
+  }
+
   private assertEvidenceContainsNoSecrets(value: unknown) {
     if (containsEmailSecret(value)) {
       throw new BadRequestException("Email sender-domain evidence must not contain secrets.");
+    }
+  }
+
+  private assertMonitoringEvidenceContainsNoSecrets(value: unknown) {
+    if (containsEmailSecret(value) || containsCustomerEmailContent(value)) {
+      throw new BadRequestException("Email delivery monitoring evidence must not contain secrets or customer email content.");
     }
   }
 
@@ -1494,6 +1844,24 @@ const EMAIL_SENDER_DOMAIN_EVIDENCE_SELECT = {
   updatedAt: true,
 } satisfies Prisma.EmailSenderDomainEvidenceSelect;
 
+const EMAIL_DELIVERY_MONITORING_EVIDENCE_SELECT = {
+  id: true,
+  organizationId: true,
+  status: true,
+  evidenceType: true,
+  provider: true,
+  evidenceSummaryJson: true,
+  verifiedById: true,
+  verifiedAt: true,
+  revokedById: true,
+  revokedAt: true,
+  note: true,
+  productionReadyContribution: true,
+  createdById: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.EmailDeliveryMonitoringEvidenceSelect;
+
 const EMAIL_PROVIDER_EVENT_SELECT = {
   id: true,
   organizationId: true,
@@ -1605,6 +1973,10 @@ function safeCompareHex(expected: string, actual: string): boolean {
 
 function isProductionReadyEvidenceType(evidenceType: EmailSenderDomainEvidenceType): boolean {
   return evidenceType !== EmailSenderDomainEvidenceType.OTHER;
+}
+
+function isProductionReadyMonitoringEvidenceType(evidenceType: EmailDeliveryMonitoringEvidenceType): boolean {
+  return evidenceType !== EmailDeliveryMonitoringEvidenceType.OTHER;
 }
 
 function isProviderEventType(value: unknown): value is EmailProviderEventType {

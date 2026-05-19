@@ -4,7 +4,8 @@ const CONNECTION_URL = /\b(smtp|smtps|postgres|postgresql|mysql|redis|amqp|mongo
 const AUTH_HEADER = /\bAuthorization:\s*[^\r\n]+/gi;
 const BEARER_TOKEN = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
 const PRIVATE_KEY_BLOCK = /-----BEGIN [A-Z ]*PRIVATE KEY-----/i;
-const SENSITIVE_KEY_NAME = /\b(password|passwd|pwd|secret|token|api[_-]?key|authorization|auth[_-]?header|bearer|smtp[_-]?user|smtp[_-]?password|private[_-]?key|dkim[_-]?private[_-]?key)\b/i;
+const SENSITIVE_KEY_NAME =
+  /(password|passwd|pwd|secret|token|api[_-]?key|apikey|authorization|auth[_-]?header|authheader|bearer|smtp[_-]?user|smtpuser|smtp[_-]?password|smtppassword|private[_-]?key|privatekey|dkim[_-]?private[_-]?key|dkimprivatekey)/i;
 const CUSTOMER_EMAIL_CONTENT_KEY = /\b(body|body[_-]?text|body[_-]?html|html|message[_-]?body|raw[_-]?payload|customer[_-]?content|customer[_-]?email[_-]?content)\b/i;
 const EMAIL_ADDRESS = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 
@@ -15,6 +16,7 @@ export const EMAIL_REDACTION_GUARANTEES = [
   "Sender-domain evidence stores metadata only and rejects secret-bearing fields.",
   "Provider event capture stores redacted metadata only and rejects secrets, raw payloads, customer recipients in payloads, and customer message bodies.",
   "Suppression records store hashed and masked email metadata only; raw suppression emails are not returned.",
+  "Delivery monitoring evidence stores metadata only and rejects SMTP/API/webhook secrets, auth headers, raw provider payloads, customer recipients, and customer message bodies.",
 ];
 
 export function redactEmailDiagnosticText(value: unknown): string | null {

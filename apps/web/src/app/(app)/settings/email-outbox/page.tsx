@@ -13,8 +13,10 @@ import {
   emailReadinessClass,
   emailReadinessLabel,
   emailDiagnosticsStatusLabel,
+  emailMonitoringEvidenceStatusLabel,
   emailRelayDiagnosticsStatusLabel,
   emailRetryProcessorStatusLabel,
+  emailRetryWorkerStatusLabel,
   emailSenderDomainEvidenceStatusLabel,
   emailSenderDomainStatusLabel,
   emailSuppressionStatusLabel,
@@ -28,13 +30,19 @@ import {
 import { PERMISSIONS } from "@/lib/permissions";
 import type {
   AuthTokenCleanupResponse,
+  EmailDeliveryMonitoringEvidence,
+  EmailDeliveryMonitoringEvidenceListResponse,
+  EmailDeliveryMonitoringEvidenceResponse,
+  EmailDeliveryMonitoringEvidenceType,
   EmailDiagnosticsResponse,
+  EmailMonitoringPlan,
   EmailOutboxDetail,
   EmailOutboxEntry,
   EmailProviderEventsPlan,
   EmailProviderWebhookPlan,
   EmailReadinessResponse,
   EmailRetryPlan,
+  EmailRetryWorkerPlan,
   EmailSenderDomainEvidence,
   EmailSenderDomainEvidenceListResponse,
   EmailSenderDomainEvidenceResponse,
@@ -45,6 +53,15 @@ import type {
 } from "@/lib/types";
 
 const EVIDENCE_TYPES: EmailSenderDomainEvidenceType[] = ["SPF", "DKIM", "DMARC", "MX", "RETURN_PATH", "PROVIDER_VERIFICATION", "OTHER"];
+const MONITORING_EVIDENCE_TYPES: EmailDeliveryMonitoringEvidenceType[] = [
+  "RETRY_WORKER",
+  "BOUNCE_ALERTS",
+  "COMPLAINT_ALERTS",
+  "SUPPRESSION_TRENDS",
+  "DELIVERY_DASHBOARD",
+  "PROVIDER_WEBHOOK_HEALTH",
+  "OTHER",
+];
 
 export default function EmailOutboxPage() {
   const organizationId = useActiveOrganizationId();
@@ -53,6 +70,7 @@ export default function EmailOutboxPage() {
   const [emails, setEmails] = useState<EmailOutboxEntry[]>([]);
   const [readiness, setReadiness] = useState<EmailReadinessResponse | null>(null);
   const [senderEvidence, setSenderEvidence] = useState<EmailSenderDomainEvidence[]>([]);
+  const [monitoringEvidence, setMonitoringEvidence] = useState<EmailDeliveryMonitoringEvidence[]>([]);
   const [suppressions, setSuppressions] = useState<EmailSuppression[]>([]);
   const [selected, setSelected] = useState<EmailOutboxDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -63,6 +81,10 @@ export default function EmailOutboxPage() {
   const [diagnosticsResult, setDiagnosticsResult] = useState<EmailDiagnosticsResponse | null>(null);
   const [retryPlan, setRetryPlan] = useState<EmailRetryPlan | null>(null);
   const [retryPlanLoading, setRetryPlanLoading] = useState(false);
+  const [retryWorkerPlan, setRetryWorkerPlan] = useState<EmailRetryWorkerPlan | null>(null);
+  const [retryWorkerPlanLoading, setRetryWorkerPlanLoading] = useState(false);
+  const [monitoringPlan, setMonitoringPlan] = useState<EmailMonitoringPlan | null>(null);
+  const [monitoringPlanLoading, setMonitoringPlanLoading] = useState(false);
   const [eventPlan, setEventPlan] = useState<EmailProviderEventsPlan | null>(null);
   const [eventPlanLoading, setEventPlanLoading] = useState(false);
   const [webhookPlan, setWebhookPlan] = useState<EmailProviderWebhookPlan | null>(null);
@@ -73,6 +95,11 @@ export default function EmailOutboxPage() {
   const [evidenceSummary, setEvidenceSummary] = useState("");
   const [evidenceNote, setEvidenceNote] = useState("");
   const [evidenceLoading, setEvidenceLoading] = useState(false);
+  const [monitoringEvidenceType, setMonitoringEvidenceType] = useState<EmailDeliveryMonitoringEvidenceType>("RETRY_WORKER");
+  const [monitoringEvidenceProvider, setMonitoringEvidenceProvider] = useState("");
+  const [monitoringEvidenceSummary, setMonitoringEvidenceSummary] = useState("");
+  const [monitoringEvidenceNote, setMonitoringEvidenceNote] = useState("");
+  const [monitoringEvidenceLoading, setMonitoringEvidenceLoading] = useState(false);
   const [suppressionEmail, setSuppressionEmail] = useState("");
   const [suppressionNote, setSuppressionNote] = useState("");
   const [suppressionLoading, setSuppressionLoading] = useState(false);
@@ -104,17 +131,29 @@ export default function EmailOutboxPage() {
           redactionGuarantees: [],
           suppressions: [],
         } as EmailSuppressionListResponse);
+    const monitoringEvidenceRequest = canManageEmail
+      ? apiRequest<EmailDeliveryMonitoringEvidenceListResponse>("/email/monitoring-evidence")
+      : Promise.resolve({
+          metadataOnly: true,
+          noCustomerEmail: true,
+          noEmailSent: true,
+          noOutboxRecord: true,
+          redactionGuarantees: [],
+          evidence: [],
+        } as EmailDeliveryMonitoringEvidenceListResponse);
     Promise.all([
       apiRequest<EmailOutboxEntry[]>("/email/outbox"),
       apiRequest<EmailReadinessResponse>("/email/readiness"),
       evidenceRequest,
       suppressionRequest,
+      monitoringEvidenceRequest,
     ])
-      .then(([outbox, emailReadiness, evidenceResponse, suppressionResponse]) => {
+      .then(([outbox, emailReadiness, evidenceResponse, suppressionResponse, monitoringEvidenceResponse]) => {
         setEmails(outbox);
         setReadiness(emailReadiness);
         setSenderEvidence(evidenceResponse.evidence);
         setSuppressions(suppressionResponse.suppressions);
+        setMonitoringEvidence(monitoringEvidenceResponse.evidence);
       })
       .catch((loadError) => setError(loadError instanceof Error ? loadError.message : "Unable to load email outbox."))
       .finally(() => setLoading(false));
@@ -172,6 +211,30 @@ export default function EmailOutboxPage() {
     }
   }
 
+  async function viewRetryWorkerPlan() {
+    setRetryWorkerPlanLoading(true);
+    setError("");
+    try {
+      setRetryWorkerPlan(await apiRequest<EmailRetryWorkerPlan>("/email/retry-worker/plan"));
+    } catch (retryError) {
+      setError(retryError instanceof Error ? retryError.message : "Unable to load email retry worker plan.");
+    } finally {
+      setRetryWorkerPlanLoading(false);
+    }
+  }
+
+  async function viewMonitoringPlan() {
+    setMonitoringPlanLoading(true);
+    setError("");
+    try {
+      setMonitoringPlan(await apiRequest<EmailMonitoringPlan>("/email/monitoring-plan"));
+    } catch (monitoringError) {
+      setError(monitoringError instanceof Error ? monitoringError.message : "Unable to load email monitoring plan.");
+    } finally {
+      setMonitoringPlanLoading(false);
+    }
+  }
+
   async function viewEventReadiness() {
     setEventPlanLoading(true);
     setError("");
@@ -197,14 +260,16 @@ export default function EmailOutboxPage() {
   }
 
   async function refreshReadinessAndEvidence() {
-    const [emailReadiness, evidenceResponse, suppressionResponse] = await Promise.all([
+    const [emailReadiness, evidenceResponse, suppressionResponse, monitoringEvidenceResponse] = await Promise.all([
       apiRequest<EmailReadinessResponse>("/email/readiness"),
       apiRequest<EmailSenderDomainEvidenceListResponse>("/email/sender-domain-evidence"),
       apiRequest<EmailSuppressionListResponse>("/email/suppressions"),
+      apiRequest<EmailDeliveryMonitoringEvidenceListResponse>("/email/monitoring-evidence"),
     ]);
     setReadiness(emailReadiness);
     setSenderEvidence(evidenceResponse.evidence);
     setSuppressions(suppressionResponse.suppressions);
+    setMonitoringEvidence(monitoringEvidenceResponse.evidence);
   }
 
   async function createEvidence() {
@@ -262,6 +327,66 @@ export default function EmailOutboxPage() {
       setError(evidenceError instanceof Error ? evidenceError.message : "Unable to revoke sender-domain evidence.");
     } finally {
       setEvidenceLoading(false);
+    }
+  }
+
+  async function createMonitoringEvidence() {
+    setMonitoringEvidenceLoading(true);
+    setError("");
+    try {
+      await apiRequest<EmailDeliveryMonitoringEvidenceResponse>("/email/monitoring-evidence", {
+        method: "POST",
+        body: {
+          evidenceType: monitoringEvidenceType,
+          provider: monitoringEvidenceProvider || undefined,
+          evidenceSummaryJson: {
+            summary: monitoringEvidenceSummary || "Manual delivery monitoring evidence captured for review.",
+          },
+          note: monitoringEvidenceNote || undefined,
+        },
+      });
+      setMonitoringEvidenceSummary("");
+      setMonitoringEvidenceNote("");
+      await refreshReadinessAndEvidence();
+      setMonitoringPlan(null);
+    } catch (monitoringError) {
+      setError(monitoringError instanceof Error ? monitoringError.message : "Unable to save monitoring evidence.");
+    } finally {
+      setMonitoringEvidenceLoading(false);
+    }
+  }
+
+  async function verifyMonitoringEvidence(id: string) {
+    setMonitoringEvidenceLoading(true);
+    setError("");
+    try {
+      await apiRequest<EmailDeliveryMonitoringEvidenceResponse>(`/email/monitoring-evidence/${id}/verify`, {
+        method: "POST",
+        body: {},
+      });
+      await refreshReadinessAndEvidence();
+      setMonitoringPlan(null);
+    } catch (monitoringError) {
+      setError(monitoringError instanceof Error ? monitoringError.message : "Unable to verify monitoring evidence.");
+    } finally {
+      setMonitoringEvidenceLoading(false);
+    }
+  }
+
+  async function revokeMonitoringEvidence(id: string) {
+    setMonitoringEvidenceLoading(true);
+    setError("");
+    try {
+      await apiRequest<EmailDeliveryMonitoringEvidenceResponse>(`/email/monitoring-evidence/${id}/revoke`, {
+        method: "POST",
+        body: {},
+      });
+      await refreshReadinessAndEvidence();
+      setMonitoringPlan(null);
+    } catch (monitoringError) {
+      setError(monitoringError instanceof Error ? monitoringError.message : "Unable to revoke monitoring evidence.");
+    } finally {
+      setMonitoringEvidenceLoading(false);
     }
   }
 
@@ -371,12 +496,18 @@ export default function EmailOutboxPage() {
             <Detail label="Suppressions" value={emailSuppressionStatusLabel(readiness.suppressionListConfigured, readiness.activeSuppressionCount)} />
             <Detail label="Retry policy" value={readiness.retryPolicyConfigured ? "Configured" : "Missing"} />
             <Detail label="Retry processor" value={emailRetryProcessorStatusLabel(readiness.retryProcessorEnabled)} />
+            <Detail label="Retry worker" value={emailRetryWorkerStatusLabel(readiness.retryWorkerEnabled, readiness.retryWorkerConfigured)} />
             <Detail label="Pending retries" value={String(readiness.retryPendingCount)} />
             <Detail label="Blocked retries" value={String(readiness.retryBlockedCount)} />
             <Detail label="Suppressed retries" value={String(readiness.retrySuppressedCount)} />
             <Detail label="Provider events" value={emailProviderEventIngestionStatusLabel(readiness.providerEventIngestionReady)} />
+            <Detail label="Monitoring evidence" value={emailMonitoringEvidenceStatusLabel(readiness.monitoringEvidenceStatus)} />
             <Detail label="Monitoring" value={readiness.monitoringConfigured ? "Configured" : "Missing"} />
             <Detail label="Alerting" value={readiness.alertingConfigured ? "Configured" : "Missing"} />
+            <Detail label="Bounce threshold" value={readiness.bounceAlertThresholdConfigured ? "Configured" : "Missing"} />
+            <Detail label="Complaint threshold" value={readiness.complaintAlertThresholdConfigured ? "Configured" : "Missing"} />
+            <Detail label="Suppression trends" value={readiness.suppressionTrendMonitoringConfigured ? "Configured" : "Missing"} />
+            <Detail label="Webhook health" value={readiness.providerWebhookHealthMonitoringConfigured ? "Configured" : "Missing"} />
           </div>
           {canManageEmail ? (
             <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
@@ -393,6 +524,22 @@ export default function EmailOutboxPage() {
                   className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:text-slate-400"
                 >
                   {retryPlanLoading ? "Loading..." : "View retry plan"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void viewRetryWorkerPlan()}
+                  disabled={retryWorkerPlanLoading}
+                  className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  {retryWorkerPlanLoading ? "Loading..." : "View worker plan"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void viewMonitoringPlan()}
+                  disabled={monitoringPlanLoading}
+                  className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  {monitoringPlanLoading ? "Loading..." : "View monitoring plan"}
                 </button>
                 <button
                   type="button"
@@ -418,6 +565,25 @@ export default function EmailOutboxPage() {
                   <Detail label="Due attempts" value={String(retryPlan.nextAttemptCount)} />
                   <Detail label="Suppressed outbox" value={String(retryPlan.suppressedOutboxCount)} />
                   <Detail label="Max attempts" value={String(retryPlan.maxAttemptsPolicy.defaultMaxAttempts)} />
+                </div>
+              ) : null}
+              {retryWorkerPlan ? (
+                <div className="mt-3 grid gap-3 text-sm md:grid-cols-4">
+                  <Detail label="Worker" value={emailRetryWorkerStatusLabel(retryWorkerPlan.workerEnabled, retryWorkerPlan.workerConfigured)} />
+                  <Detail label="Scheduler" value={retryWorkerPlan.schedulerProvider} />
+                  <Detail label="Due retries" value={String(retryWorkerPlan.dueRetryCount)} />
+                  <Detail label="Suppressed" value={String(retryWorkerPlan.suppressedCount)} />
+                  <Detail label="Recommended schedule" value={retryWorkerPlan.recommendedSchedule} />
+                </div>
+              ) : null}
+              {monitoringPlan ? (
+                <div className="mt-3 grid gap-3 text-sm md:grid-cols-4">
+                  <Detail label="Evidence" value={emailMonitoringEvidenceStatusLabel(monitoringPlan.evidenceStatus)} />
+                  <Detail label="Retry throughput" value={monitoringPlan.retryThroughputMonitoringConfigured ? "Configured" : "Missing"} />
+                  <Detail label="Bounce threshold" value={monitoringPlan.bounceAlertThresholdConfigured ? "Configured" : "Missing"} />
+                  <Detail label="Complaint threshold" value={monitoringPlan.complaintAlertThresholdConfigured ? "Configured" : "Missing"} />
+                  <Detail label="Suppression trends" value={monitoringPlan.suppressionTrendMonitoringConfigured ? "Configured" : "Missing"} />
+                  <Detail label="Webhook health" value={monitoringPlan.providerWebhookHealthMonitoringConfigured ? "Configured" : "Missing"} />
                 </div>
               ) : null}
               {eventPlan ? (
@@ -580,6 +746,95 @@ export default function EmailOutboxPage() {
                 </div>
               ) : (
                 <p className="mt-3 text-sm text-steel">No sender-domain evidence captured yet.</p>
+              )}
+            </div>
+          ) : null}
+          {canManageEmail ? (
+            <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+              <h3 className="text-sm font-semibold text-ink">Delivery monitoring evidence</h3>
+              <p className="mt-1 text-sm text-steel">
+                Capture retry throughput, bounce and complaint threshold, suppression trend, delivery dashboard, and webhook-health evidence as metadata only.
+                Do not paste SMTP credentials, API keys, webhook secrets, auth headers, raw provider payloads, customer recipient lists, or customer message
+                bodies.
+              </p>
+              <div className="mt-3 grid gap-2 md:grid-cols-[210px_1fr]">
+                <select
+                  value={monitoringEvidenceType}
+                  onChange={(event) => setMonitoringEvidenceType(event.target.value as EmailDeliveryMonitoringEvidenceType)}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                >
+                  {MONITORING_EVIDENCE_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  value={monitoringEvidenceProvider}
+                  onChange={(event) => setMonitoringEvidenceProvider(event.target.value)}
+                  placeholder="Provider or dashboard"
+                  className="min-w-0 rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <textarea
+                value={monitoringEvidenceSummary}
+                onChange={(event) => setMonitoringEvidenceSummary(event.target.value)}
+                placeholder="Short metadata summary, no secrets or recipients"
+                className="mt-2 min-h-20 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              />
+              <input
+                type="text"
+                value={monitoringEvidenceNote}
+                onChange={(event) => setMonitoringEvidenceNote(event.target.value)}
+                placeholder="Optional review note"
+                className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => void createMonitoringEvidence()}
+                disabled={monitoringEvidenceLoading}
+                className="mt-3 rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+              >
+                {monitoringEvidenceLoading ? "Saving..." : "Create monitoring evidence"}
+              </button>
+              {monitoringEvidence.length > 0 ? (
+                <div className="mt-4 overflow-hidden rounded-md border border-slate-200 bg-white">
+                  {monitoringEvidence.map((evidence) => (
+                    <div key={evidence.id} className="grid gap-2 border-b border-slate-100 p-3 text-sm md:grid-cols-[1fr_110px_120px_160px]">
+                      <div>
+                        <div className="font-medium text-ink">{evidence.evidenceType}</div>
+                        <div className="text-steel">{evidence.provider ?? "Manual"}</div>
+                      </div>
+                      <div>{emailSenderDomainEvidenceStatusLabel(evidence.status)}</div>
+                      <div>{evidence.productionReadyContribution ? "Contributes" : "Review only"}</div>
+                      <div className="flex gap-2">
+                        {evidence.status === "DRAFT" ? (
+                          <button
+                            type="button"
+                            onClick={() => void verifyMonitoringEvidence(evidence.id)}
+                            disabled={monitoringEvidenceLoading}
+                            className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-ink disabled:cursor-not-allowed disabled:text-slate-400"
+                          >
+                            Verify
+                          </button>
+                        ) : null}
+                        {evidence.status !== "REVOKED" ? (
+                          <button
+                            type="button"
+                            onClick={() => void revokeMonitoringEvidence(evidence.id)}
+                            disabled={monitoringEvidenceLoading}
+                            className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-ink disabled:cursor-not-allowed disabled:text-slate-400"
+                          >
+                            Revoke
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-steel">No delivery monitoring evidence captured yet.</p>
               )}
             </div>
           ) : null}

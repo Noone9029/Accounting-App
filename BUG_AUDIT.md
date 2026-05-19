@@ -37,6 +37,25 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Email worker monitoring readiness added
+
+Added scheduled retry-worker planning, a disabled-by-default worker run shell, and metadata-only delivery monitoring evidence without sending customer email by default.
+
+Risk reduced:
+
+- `GET /email/retry-worker/plan` is read-only/no-mutation and reports worker enabled/configured state, scheduler provider `NONE` by default, due retry counts, suppressed counts, active suppression counts, max-attempts policy, blockers, and warnings.
+- `POST /email/retry-worker/run` is disabled by default with `LEDGERBYTE_EMAIL_RETRY_WORKER_ENABLED=false`; default responses skip without sending email or mutating data.
+- Enabled worker runs still require `LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED=true` before delegating to the existing due-record retry processor, which respects suppressions and max attempts.
+- `EmailDeliveryMonitoringEvidence` stores metadata-only retry throughput, bounce alert, complaint alert, suppression trend, delivery dashboard, and provider webhook health evidence.
+- `/email/monitoring-plan` and `/email/monitoring-evidence` list/create/verify/revoke endpoints require `users.manage`, send no email, create no outbox record, and reject SMTP/API/webhook secrets, raw provider payloads, customer recipient lists, and customer message bodies.
+- `/settings/email-outbox` now shows retry worker status, monitoring evidence state, bounce/complaint threshold blockers, suppression trend blockers, webhook health blockers, and monitoring evidence controls.
+- Smoke now asserts worker plan/run safety, monitoring plan/evidence safety, no secret exposure, no customer email by default, and `productionReady=false`.
+
+Remaining risks:
+
+- The worker run shell is not a production scheduler or queue.
+- Provider-specific webhook adapters, real relay execution evidence, external monitoring integration, real alert delivery, and live DNS/provider validation remain pending.
+
 ### Email webhook suppression readiness added
 
 Added disabled-by-default signed provider webhook verification planning, metadata-only suppression handling, and monitoring-safe bounce/complaint readiness without sending customer email by default.
@@ -54,8 +73,8 @@ Risk reduced:
 Remaining risks:
 
 - The webhook verifier is provider-agnostic/test-only; production still needs provider-specific signature contracts and exposure strategy.
-- Retry processing is not scheduled; a real worker/queue is still required before production delivery.
-- Monitoring-safe flags exist, but no alert thresholds, dashboards, or external monitoring integration exist.
+- Retry worker planning exists, but a production scheduler/queue is still required before production delivery.
+- Monitoring-safe evidence exists, but no external monitoring integration or alert delivery exists.
 - Real non-production relay execution and live DNS/provider validation remain pending.
 
 ### Email retry and bounce readiness added

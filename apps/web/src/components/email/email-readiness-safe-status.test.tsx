@@ -62,9 +62,15 @@ describe("EmailReadinessSafeStatus", () => {
           activeSuppressionCount: 0,
           retryPolicyConfigured: false,
           retryProcessorEnabled: false,
+          retryWorkerConfigured: false,
+          retryWorkerEnabled: false,
           retryPendingCount: 0,
           retryBlockedCount: 0,
           retrySuppressedCount: 0,
+          monitoringEvidenceStatus: "BLOCKED",
+          retryThroughputMonitoringConfigured: false,
+          suppressionTrendMonitoringConfigured: false,
+          providerWebhookHealthMonitoringConfigured: false,
           monitoringConfigured: false,
           alertingConfigured: false,
           bounceAlertThresholdConfigured: false,
@@ -103,7 +109,9 @@ describe("EmailReadinessSafeStatus", () => {
     expect(screen.getByText("Webhook verification disabled")).toBeTruthy();
     expect(screen.getByText("0 active suppressions")).toBeTruthy();
     expect(screen.getByText("Retry processor disabled")).toBeTruthy();
+    expect(screen.getByText("Retry worker disabled")).toBeTruthy();
     expect(screen.getByText("Mock-only event ingestion")).toBeTruthy();
+    expect(screen.getByText("Monitoring evidence missing")).toBeTruthy();
     expect(screen.getByText("Monitoring missing")).toBeTruthy();
     expect(screen.getAllByText(/Diagnostics disabled/).length).toBeGreaterThan(0);
     expect(document.body.textContent).not.toContain("smtp-password-secret");

@@ -8,7 +8,9 @@ import {
   emailDiagnosticsStatusLabel,
   emailRelayDiagnosticsStatusLabel,
   emailRetryProcessorStatusLabel,
+  emailRetryWorkerStatusLabel,
   emailSenderDomainStatusLabel,
+  emailMonitoringEvidenceStatusLabel,
   emailProviderEventIngestionStatusLabel,
   emailWebhookVerificationStatusLabel,
   emailSuppressionStatusLabel,
@@ -44,12 +46,17 @@ describe("email helpers", () => {
     expect(emailDiagnosticsStatusLabel("ATTEMPTED")).toBe("Diagnostics attempted");
     expect(emailRelayDiagnosticsStatusLabel("READY_FOR_NON_PRODUCTION_TEST")).toBe("Ready for non-production relay test");
     expect(emailRetryProcessorStatusLabel(false)).toBe("Retry processor disabled");
+    expect(emailRetryWorkerStatusLabel(false, false)).toBe("Retry worker disabled");
+    expect(emailRetryWorkerStatusLabel(true, false)).toBe("Retry worker unscheduled");
+    expect(emailRetryWorkerStatusLabel(true, true)).toBe("Retry worker scheduled");
     expect(emailProviderEventIngestionStatusLabel(false)).toBe("Mock-only event ingestion");
     expect(emailWebhookVerificationStatusLabel(false, false)).toBe("Webhook verification disabled");
     expect(emailWebhookVerificationStatusLabel(true, false)).toBe("Webhook secret missing");
     expect(emailWebhookVerificationStatusLabel(true, true)).toBe("Webhook verification configured");
     expect(emailSuppressionStatusLabel(true, 2)).toBe("2 active suppressions");
     expect(emailSuppressionStatusLabel(true, 1)).toBe("1 active suppression");
+    expect(emailMonitoringEvidenceStatusLabel("BLOCKED")).toBe("Monitoring evidence missing");
+    expect(emailMonitoringEvidenceStatusLabel("READY_FOR_REVIEW")).toBe("Ready for review");
     expect(emailSenderDomainStatusLabel("BLOCKED")).toBe("SPF/DKIM/DMARC required");
     expect(emailSenderDomainStatusLabel("READY_FOR_REVIEW")).toBe("Ready for review");
     expect(smtpConfigStateLabel(false)).toBe("Missing");

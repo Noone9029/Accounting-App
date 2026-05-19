@@ -142,6 +142,16 @@ export type EmailSenderDomainEvidenceType = "SPF" | "DKIM" | "DMARC" | "MX" | "R
 export type EmailSenderDomainReadinessStatus = "BLOCKED" | "PARTIAL" | "READY_FOR_REVIEW";
 export type EmailProviderEventType = "DELIVERED" | "BOUNCED" | "COMPLAINED" | "FAILED" | "OPENED" | "CLICKED" | "UNKNOWN";
 export type EmailSuppressionReason = "BOUNCE" | "COMPLAINT" | "MANUAL" | "PROVIDER_EVENT";
+export type EmailDeliveryMonitoringEvidenceStatus = "DRAFT" | "VERIFIED" | "REVOKED" | "SUPERSEDED";
+export type EmailDeliveryMonitoringEvidenceType =
+  | "RETRY_WORKER"
+  | "BOUNCE_ALERTS"
+  | "COMPLAINT_ALERTS"
+  | "SUPPRESSION_TRENDS"
+  | "DELIVERY_DASHBOARD"
+  | "PROVIDER_WEBHOOK_HEALTH"
+  | "OTHER";
+export type EmailMonitoringEvidenceReadinessStatus = "BLOCKED" | "PARTIAL" | "READY_FOR_REVIEW";
 export type EmailRelayDiagnosticsStatus =
   | "NOT_RUN"
   | "SKIPPED_DISABLED"
@@ -573,6 +583,101 @@ export interface EmailRetryPlan {
   warnings: string[];
 }
 
+export interface EmailRetryWorkerPlan {
+  readOnly: true;
+  noMutation: true;
+  noCustomerEmailSent: true;
+  workerConfigured: boolean;
+  workerEnabled: boolean;
+  schedulerProvider: "NONE" | "FUTURE_CRON" | "FUTURE_QUEUE" | "FUTURE_SERVERLESS_CRON" | string;
+  retryProcessorEnabled: boolean;
+  pendingCount: number;
+  dueRetryCount: number;
+  suppressedCount: number;
+  activeSuppressionCount: number;
+  blockedCount: number;
+  maxAttemptsPolicy: {
+    defaultMaxAttempts: number;
+    maxBatchLimit: number;
+  };
+  recommendedSchedule: string;
+  productionReadyContribution: boolean;
+  blockers: string[];
+  warnings: string[];
+}
+
+export interface EmailRetryWorkerRunResponse {
+  status: "SKIPPED_DISABLED" | "SKIPPED_PROCESSOR_DISABLED" | "ATTEMPTED" | string;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  noEmailSent?: boolean;
+  noCustomerEmailSent?: boolean;
+  noMutation?: boolean;
+  noCustomerEmailSentByDefault?: boolean;
+  noOutboxRecordCreated?: boolean;
+  provider: string;
+  plan: EmailRetryWorkerPlan;
+  redactionGuarantees: string[];
+}
+
+export interface EmailDeliveryMonitoringEvidence {
+  id: string;
+  organizationId: string;
+  status: EmailDeliveryMonitoringEvidenceStatus;
+  evidenceType: EmailDeliveryMonitoringEvidenceType;
+  provider: string | null;
+  evidenceSummaryJson: Record<string, unknown>;
+  verifiedById: string | null;
+  verifiedAt: string | null;
+  revokedById: string | null;
+  revokedAt: string | null;
+  note: string | null;
+  productionReadyContribution: boolean;
+  createdById: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmailDeliveryMonitoringEvidenceListResponse {
+  metadataOnly: true;
+  noCustomerEmail: true;
+  noEmailSent: true;
+  noOutboxRecord: true;
+  redactionGuarantees: string[];
+  evidence: EmailDeliveryMonitoringEvidence[];
+}
+
+export interface EmailDeliveryMonitoringEvidenceResponse {
+  metadataOnly: true;
+  noCustomerEmail: true;
+  noEmailSent: true;
+  noOutboxRecord: true;
+  redactionGuarantees: string[];
+  evidence: EmailDeliveryMonitoringEvidence;
+}
+
+export interface EmailMonitoringPlan {
+  readOnly: true;
+  noMutation: true;
+  noCustomerEmailSent: true;
+  metadataOnly: true;
+  monitoringConfigured: boolean;
+  alertingConfigured: boolean;
+  retryThroughputMonitoringConfigured: boolean;
+  bounceAlertThresholdConfigured: boolean;
+  complaintAlertThresholdConfigured: boolean;
+  suppressionTrendMonitoringConfigured: boolean;
+  deliveryDashboardConfigured: boolean;
+  providerWebhookHealthMonitoringConfigured: boolean;
+  evidenceStatus: EmailMonitoringEvidenceReadinessStatus;
+  productionReadyContribution: boolean;
+  requiredEvidenceTypes: EmailDeliveryMonitoringEvidenceType[];
+  verifiedEvidenceTypes: EmailDeliveryMonitoringEvidenceType[];
+  missingEvidenceTypes: EmailDeliveryMonitoringEvidenceType[];
+  blockers: string[];
+  warnings: string[];
+}
+
 export interface EmailProviderEventsPlan {
   readOnly: true;
   noMutation: true;
@@ -697,9 +802,15 @@ export interface EmailReadinessResponse {
   providerEventIngestionReady: boolean;
   retryPolicyConfigured: boolean;
   retryProcessorEnabled: boolean;
+  retryWorkerConfigured: boolean;
+  retryWorkerEnabled: boolean;
   retryPendingCount: number;
   retryBlockedCount: number;
   retrySuppressedCount: number;
+  monitoringEvidenceStatus: EmailMonitoringEvidenceReadinessStatus;
+  retryThroughputMonitoringConfigured: boolean;
+  suppressionTrendMonitoringConfigured: boolean;
+  providerWebhookHealthMonitoringConfigured: boolean;
   monitoringConfigured: boolean;
   alertingConfigured: boolean;
   bounceAlertThresholdConfigured: boolean;

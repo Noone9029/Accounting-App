@@ -16,6 +16,13 @@ describe("EmailController permissions", () => {
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.revokeSenderDomainEvidence)).toEqual([PERMISSIONS.users.manage]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.retryPlan)).toEqual([PERMISSIONS.users.manage]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.retryProcess)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, (EmailController.prototype as any).retryWorkerPlan)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, (EmailController.prototype as any).retryWorkerRun)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, (EmailController.prototype as any).monitoringPlan)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, (EmailController.prototype as any).listMonitoringEvidence)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, (EmailController.prototype as any).createMonitoringEvidence)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, (EmailController.prototype as any).verifyMonitoringEvidence)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, (EmailController.prototype as any).revokeMonitoringEvidence)).toEqual([PERMISSIONS.users.manage]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.providerEventsPlan)).toEqual([PERMISSIONS.users.manage]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.receiveMockProviderEvent)).toEqual([PERMISSIONS.users.manage]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.providerWebhookPlan)).toEqual([PERMISSIONS.users.manage]);

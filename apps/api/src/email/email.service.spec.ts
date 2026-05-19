@@ -43,6 +43,31 @@ describe("EmailService", () => {
         ),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
+      emailDeliveryMonitoringEvidence: {
+        create: jest.fn((args: { data: Record<string, unknown>; select: unknown }) =>
+          Promise.resolve({
+            id: "monitoring-evidence-1",
+            status: "DRAFT",
+            productionReadyContribution: false,
+            createdAt: new Date("2026-05-15T00:00:00.000Z"),
+            updatedAt: new Date("2026-05-15T00:00:00.000Z"),
+            ...args.data,
+          }),
+        ),
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn(),
+        update: jest.fn((args: { data: Record<string, unknown>; where: Record<string, unknown>; select: unknown }) =>
+          Promise.resolve({
+            id: args.where.id,
+            status: "VERIFIED",
+            productionReadyContribution: true,
+            createdAt: new Date("2026-05-15T00:00:00.000Z"),
+            updatedAt: new Date("2026-05-15T00:00:00.000Z"),
+            ...args.data,
+          }),
+        ),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
     };
     const audit = { log: jest.fn().mockResolvedValue({ id: "audit-1" }) };
     const configValues: Record<string, string | undefined> = { EMAIL_FROM: "noreply@example.test", ...options.config };
@@ -408,6 +433,217 @@ describe("EmailService", () => {
     expect(provider.send).not.toHaveBeenCalled();
     expect(prisma.emailOutbox.create).not.toHaveBeenCalled();
     expect(prisma.emailOutbox.update).not.toHaveBeenCalled();
+  });
+
+  it("builds a scheduled retry worker plan without sending email or mutating data", async () => {
+    const { service, prisma, provider } = makeService();
+    prisma.emailOutbox.count
+      .mockResolvedValueOnce(4)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(1);
+    prisma.emailSuppression.count.mockResolvedValue(5);
+
+    const plan = await (service as any).retryWorkerPlan("org-1");
+
+    expect(plan).toEqual(
+      expect.objectContaining({
+        readOnly: true,
+        noMutation: true,
+        noCustomerEmailSent: true,
+        workerConfigured: false,
+        workerEnabled: false,
+        schedulerProvider: "NONE",
+        retryProcessorEnabled: false,
+        pendingCount: 4,
+        dueRetryCount: 2,
+        suppressedCount: 1,
+        activeSuppressionCount: 5,
+        productionReadyContribution: false,
+      }),
+    );
+    expect(plan.recommendedSchedule).toContain("5 minutes");
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.emailOutbox.create).not.toHaveBeenCalled();
+    expect(prisma.emailOutbox.update).not.toHaveBeenCalled();
+  });
+
+  it("skips retry worker runs by default without sending or mutating", async () => {
+    const { service, prisma, provider } = makeService();
+
+    const result = await (service as any).retryWorkerRun("org-1", "user-1", { limit: 5 });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: "SKIPPED_DISABLED",
+        executionEnabled: false,
+        executionAttempted: false,
+        noEmailSent: true,
+        noCustomerEmailSent: true,
+        noMutation: true,
+      }),
+    );
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.emailOutbox.update).not.toHaveBeenCalled();
+  });
+
+  it("runs retry worker through the retry processor gate and respects suppressions when explicitly enabled", async () => {
+    const { service, prisma, provider } = makeService({
+      config: {
+        LEDGERBYTE_EMAIL_RETRY_WORKER_ENABLED: "true",
+        LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED: "true",
+      },
+    });
+    prisma.emailSuppression.findFirst.mockResolvedValue({
+      id: "suppression-1",
+      organizationId: "org-1",
+      emailMasked: "c***@example.com",
+      active: true,
+    });
+    prisma.emailOutbox.findMany.mockResolvedValue([
+      {
+        id: "email-retry-1",
+        organizationId: "org-1",
+        toEmail: "customer@example.com",
+        fromEmail: "noreply@example.test",
+        subject: "Password reset",
+        templateType: EmailTemplateType.PASSWORD_RESET,
+        bodyText: "Reset body",
+        bodyHtml: null,
+        status: EmailDeliveryStatus.FAILED,
+        provider: "smtp",
+        attemptCount: 1,
+        maxAttempts: 3,
+        nextAttemptAt: null,
+        bouncedAt: null,
+        complainedAt: null,
+      },
+    ]);
+
+    const result = await (service as any).retryWorkerRun("org-1", "user-1", { limit: 1 });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: "ATTEMPTED",
+        executionEnabled: true,
+        executionAttempted: true,
+        noOutboxRecordCreated: true,
+        noCustomerEmailSentByDefault: true,
+        suppressedCount: 1,
+      }),
+    );
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.emailOutbox.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "email-retry-1" },
+        data: expect.objectContaining({ providerEventStatus: "SUPPRESSED" }),
+      }),
+    );
+  });
+
+  it("builds a monitoring plan with missing evidence and false readiness", async () => {
+    const { service, prisma, provider } = makeService();
+
+    const plan = await (service as any).monitoringPlan("org-1");
+
+    expect(plan).toEqual(
+      expect.objectContaining({
+        readOnly: true,
+        noMutation: true,
+        monitoringConfigured: false,
+        alertingConfigured: false,
+        retryThroughputMonitoringConfigured: false,
+        bounceAlertThresholdConfigured: false,
+        complaintAlertThresholdConfigured: false,
+        suppressionTrendMonitoringConfigured: false,
+        providerWebhookHealthMonitoringConfigured: false,
+        productionReadyContribution: false,
+        evidenceStatus: "BLOCKED",
+      }),
+    );
+    expect(plan.missingEvidenceTypes).toEqual(
+      expect.arrayContaining(["RETRY_WORKER", "BOUNCE_ALERTS", "COMPLAINT_ALERTS", "SUPPRESSION_TRENDS", "DELIVERY_DASHBOARD", "PROVIDER_WEBHOOK_HEALTH"]),
+    );
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.emailDeliveryMonitoringEvidence.create).not.toHaveBeenCalled();
+  });
+
+  it("stores monitoring evidence as metadata only and rejects secrets or customer recipients", async () => {
+    const { service, prisma, provider, audit } = makeService();
+
+    await expect(
+      (service as any).createMonitoringEvidence("org-1", "user-1", {
+        evidenceType: "BOUNCE_ALERTS",
+        evidenceSummaryJson: { webhookSecret: "webhook-secret-value" },
+      }),
+    ).rejects.toThrow("Email delivery monitoring evidence must not contain secrets or customer email content.");
+
+    await expect(
+      (service as any).createMonitoringEvidence("org-1", "user-1", {
+        evidenceType: "SUPPRESSION_TRENDS",
+        evidenceSummaryJson: { recipients: ["customer@example.com"] },
+      }),
+    ).rejects.toThrow("Email delivery monitoring evidence must not contain secrets or customer email content.");
+
+    const created = await (service as any).createMonitoringEvidence("org-1", "user-1", {
+      evidenceType: "RETRY_WORKER",
+      provider: "internal",
+      evidenceSummaryJson: { dashboard: "Retry throughput panel reviewed", sampleWindow: "24h" },
+      note: "Metadata-only monitoring evidence.",
+    });
+
+    expect(created).toEqual(expect.objectContaining({ metadataOnly: true, noEmailSent: true, evidence: expect.objectContaining({ evidenceType: "RETRY_WORKER" }) }));
+    expect(prisma.emailDeliveryMonitoringEvidence.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          organizationId: "org-1",
+          createdById: "user-1",
+          evidenceType: "RETRY_WORKER",
+          status: "DRAFT",
+          productionReadyContribution: false,
+        }),
+      }),
+    );
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.emailOutbox.update).not.toHaveBeenCalled();
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "EMAIL_DELIVERY_MONITORING_EVIDENCE_CREATED" }));
+  });
+
+  it("uses verified monitoring evidence for monitoring status without making production email ready alone", async () => {
+    const { service, prisma } = makeService();
+    prisma.emailDeliveryMonitoringEvidence.findMany.mockResolvedValue([
+      { evidenceType: "RETRY_WORKER", status: "VERIFIED", productionReadyContribution: true },
+      { evidenceType: "BOUNCE_ALERTS", status: "VERIFIED", productionReadyContribution: true },
+      { evidenceType: "COMPLAINT_ALERTS", status: "VERIFIED", productionReadyContribution: true },
+      { evidenceType: "SUPPRESSION_TRENDS", status: "VERIFIED", productionReadyContribution: true },
+      { evidenceType: "DELIVERY_DASHBOARD", status: "VERIFIED", productionReadyContribution: true },
+      { evidenceType: "PROVIDER_WEBHOOK_HEALTH", status: "VERIFIED", productionReadyContribution: true },
+    ]);
+
+    const plan = await (service as any).monitoringPlan("org-1");
+    const readiness = await service.readiness("org-1");
+
+    expect(plan).toEqual(
+      expect.objectContaining({
+        evidenceStatus: "READY_FOR_REVIEW",
+        monitoringConfigured: true,
+        alertingConfigured: true,
+        productionReadyContribution: true,
+        missingEvidenceTypes: [],
+      }),
+    );
+    expect(readiness).toEqual(
+      expect.objectContaining({
+        monitoringEvidenceStatus: "READY_FOR_REVIEW",
+        retryThroughputMonitoringConfigured: true,
+        suppressionTrendMonitoringConfigured: true,
+        providerWebhookHealthMonitoringConfigured: true,
+        bounceAlertThresholdConfigured: true,
+        complaintAlertThresholdConfigured: true,
+        productionReady: false,
+      }),
+    );
   });
 
   it("skips retry processing by default without sending or mutating", async () => {
