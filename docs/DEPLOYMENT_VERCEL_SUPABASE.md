@@ -141,6 +141,8 @@ The current test deployment uses:
 - Web: `https://ledgerbyte-web-test.vercel.app`
 - API: `https://ledgerbyte-api-test.vercel.app`
 
+The dated user-testing deployment runbook records the currently verified CLI deployment path, project ids, Git auto-deploy status, health checks, smoke/E2E commands, rollback notes, and root-context API wrapper caveats: [docs/deployment/VERCEL_USER_TESTING_DEPLOYMENT_RUNBOOK.md](deployment/VERCEL_USER_TESTING_DEPLOYMENT_RUNBOOK.md).
+
 Run deployed browser smoke after both projects are promoted:
 
 ```bash
@@ -169,7 +171,8 @@ LEDGERBYTE_WEB_URL=https://ledgerbyte-web-test.vercel.app LEDGERBYTE_API_URL=htt
 - S3-compatible document upload storage is still not wired; generated PDFs are database-backed local/dev groundwork.
 - Supabase is used as Postgres, not Supabase Auth.
 - Prisma migrations should be run intentionally before promoting production deployments.
-- Supabase row-level security should be reviewed before production exposure. LedgerByte currently enforces tenant isolation in the application layer, and RLS was not enabled automatically during test deployment smoke work.
+- Supabase row-level security should be reviewed before production exposure. LedgerByte currently enforces tenant isolation in the application layer, and RLS was not enabled automatically during test deployment smoke work. The 2026-05-19 RLS review found 76 public tables with RLS disabled in the user-testing Supabase project and recommends a phased Data API/RLS hardening strategy before production exposure: [docs/deployment/SUPABASE_RLS_REVIEW_20260519.md](deployment/SUPABASE_RLS_REVIEW_20260519.md).
+- User-testing cleanup remains dry-run/planning only. Use [docs/deployment/USER_TESTING_ENVIRONMENT_CLEANUP.md](deployment/USER_TESTING_ENVIRONMENT_CLEANUP.md) and `corepack pnpm user-testing:cleanup-plan` before any reviewed manual cleanup.
 
 ## 7. Health Troubleshooting
 

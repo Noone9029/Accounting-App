@@ -65,8 +65,19 @@ Deployment safety docs:
 
 - [CI database readiness checklist](docs/deployment/CI_DATABASE_READINESS_CHECKLIST.md)
 - [Supabase security review](docs/deployment/SUPABASE_SECURITY_REVIEW.md)
+- [Vercel user-testing deployment runbook](docs/deployment/VERCEL_USER_TESTING_DEPLOYMENT_RUNBOOK.md)
+- [Supabase RLS review 2026-05-19](docs/deployment/SUPABASE_RLS_REVIEW_20260519.md)
+- [User-testing environment cleanup](docs/deployment/USER_TESTING_ENVIRONMENT_CLEANUP.md)
 - [Deployed E2E runbook](docs/deployment/DEPLOYED_E2E_RUNBOOK.md)
 - [Backup and restore readiness plan](docs/BACKUP_AND_RESTORE_READINESS_PLAN.md)
+
+User-testing cleanup planning is dry-run only:
+
+```bash
+LEDGERBYTE_USER_TESTING_API_URL=https://ledgerbyte-api-test.vercel.app LEDGERBYTE_USER_TESTING_ORG_ID=00000000-0000-0000-0000-000000000001 LEDGERBYTE_USER_TESTING_CLEANUP_EMAIL=<from-secret-store> LEDGERBYTE_USER_TESTING_CLEANUP_PASSWORD=<from-secret-store> pnpm user-testing:cleanup-plan
+```
+
+The cleanup planner prints counts only, performs no deletion, downloads no document/attachment bodies, sends no email, and calls no ZATCA network paths.
 
 API status links:
 

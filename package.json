@@ -12,6 +12,8 @@
     "e2e": "playwright test",
     "e2e:headed": "playwright test --headed",
     "demo:seed-workflows": "corepack pnpm --filter @ledgerbyte/api demo:seed-workflows",
+    "user-testing:cleanup-plan": "node scripts/user-testing-cleanup-plan.cjs",
+    "test:user-testing-cleanup-plan": "node --test scripts/user-testing-cleanup-plan.test.cjs",
     "postinstall": "node scripts/vercel-postinstall.cjs",
     "smoke:accounting": "corepack pnpm --filter @ledgerbyte/api smoke:accounting",
     "zatca:validate-generated": "node scripts/validate-generated-zatca-invoice.cjs",
