@@ -292,6 +292,16 @@ Use the same `LEDGERBYTE_API_URL`, secret-store `LEDGERBYTE_SMOKE_EMAIL`, secret
 - API and web health stayed HTTP `200`; readiness stayed `ok`; pool counts stayed stable from `active=1`, `idle=5`, `unknown=8` before to `active=1`, `idle=7`, `unknown=8` after.
 - `smoke:accounting:zatca-safe`, full deployed smoke, and full deployed E2E remain intentionally deferred by the stop rule until the deployed dashboard summary latency is isolated.
 
+2026-05-20 dashboard-summary fix validation:
+
+- Commit `b00f7897b8ffdf887826f79e626b08a09cabbcee` fixed the dashboard summary latency by replacing dashboard-only trial balance, profit and loss, balance sheet, and six-month P&L helper calls with summary journal-line aggregation. The public dashboard response shape was preserved, and the dashboard's non-concurrent Prisma query behavior remains covered by tests.
+- The tested Git deployments were API `dpl_WZHz5HbibMnGTpUinQQXYy23K73R` and web `dpl_4EGbTS4Tc3CCGRjTY4s7n3pP8A22`, both at commit `b00f7897b8ffdf887826f79e626b08a09cabbcee`.
+- Pre-validation health returned HTTP `200` for API `/`, `/health`, `/readiness`, web `/`, `/setup`, and `/settings/storage`; readiness status was `ok`. Pool counts were `active=1`, `idle=5`, `unknown=2`.
+- `smoke:accounting:reports` passed with secret-store credentials, generated-user fallback unset, redacted progress enabled, and `LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS=60000`. The fixed `GET /dashboard/summary` route completed with HTTP `200` in 45,489 ms.
+- `smoke:accounting:zatca-safe` also passed with the same credential and timeout rules. It completed at about 15.4 minutes by local elapsed measurement, just over the nominal 15-minute ceiling because the process finished before the next stop check; no per-request timeout or smoke-fetch error was recorded.
+- Post-validation health stayed HTTP `200` and readiness stayed `ok`; pool counts were `active=1`, `idle=7`, `unknown=2`.
+- Full deployed smoke and full deployed E2E remain intentionally deferred. With the bounded API phases now validated, the next project task should be Supabase RLS/Data API/least-privilege runtime DB hardening rather than more smoke splitting.
+
 2026-05-20 full-smoke ceiling finding:
 
 - A single deployed full smoke against API deployment `dpl_46ix42o9oadwynLgJThkeqP752Mr` and web deployment `dpl_9nYUNaRDSgw2BzEP2fsjPfE2KRuD`, commit `b6d3e2d19d17ac744281988913b17b3be3144890`, was stopped at the 60-minute hard ceiling after about 61.6 minutes.

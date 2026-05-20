@@ -316,6 +316,17 @@ The aggregate `corepack pnpm smoke:accounting:tail`, the banking slice, and the 
 - Post-failure pool snapshot was `active=1`, `idle=7`, `unknown=8`; no runaway pool growth was observed.
 - No DB reset, seed, migration, destructive cleanup, RLS change, real ZATCA network/CSID/clearance/reporting/PDF-A3, real customer email, backup execution, or restore execution was run.
 
+2026-05-20 dashboard-summary latency fix and phase validation:
+
+- Root cause: `GET /dashboard/summary` reached the API but exceeded the 60-second smoke request timeout because dashboard summary recomputed trial balance, profit and loss, balance sheet, and six monthly P&L reports through the full report helpers. That created repeated sequential database/report work on top of the report endpoints already exercised by `smoke:accounting:reports`. Sanitized diagnostics showed stable pool counts and no recurring `EMAXCONNSESSION`.
+- Fix applied in commit `b00f7897b8ffdf887826f79e626b08a09cabbcee`: dashboard-only report health and monthly net profit now use tenant-scoped summary journal-line aggregation. The API response shape is unchanged, dashboard Prisma queries remain non-concurrent, and no schema, migration, seed, RLS, email, backup, restore, or ZATCA runtime behavior changed.
+- Git-triggered deployments tested: API `dpl_WZHz5HbibMnGTpUinQQXYy23K73R`, web `dpl_4EGbTS4Tc3CCGRjTY4s7n3pP8A22`, both from commit `b00f7897b8ffdf887826f79e626b08a09cabbcee`.
+- Pre-validation health: API `/`, `/health`, `/readiness`, web `/`, `/setup`, and `/settings/storage` all returned HTTP `200`; readiness status was `ok`. Pre-validation pool snapshot was `active=1`, `idle=5`, `unknown=2`.
+- `smoke:accounting:reports` passed with secret-store credentials, generated-user fallback unset, `LEDGERBYTE_SMOKE_PROGRESS=true`, and `LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS=60000`. `GET /dashboard/summary` completed with HTTP `200` in 45,489 ms. Slowest safe labels were `GET /dashboard/summary -> 200` in 45,489 ms, `POST /sales-invoices/:id/finalize -> 201` in 25,218 ms, and `POST /sales-invoices -> 201` in 16,105 ms.
+- `smoke:accounting:zatca-safe` passed with the same secret-store/progress/timeout settings. The local elapsed measurement was about 15.4 minutes, slightly over the nominal 15-minute ceiling because the process finished before the next stop check. No per-request timeout, `[smoke-fetch:error]`, or stderr output was recorded. Safety flags confirmed `zatcaProductionCompliance=false`, real ZATCA network disabled, no customer email by default, and no backup/restore execution.
+- Post-validation health stayed HTTP `200` for all six endpoints; readiness stayed `ok`. Post-validation pool snapshot was `active=1`, `idle=7`, `unknown=2`. Log scans found no auth headers, database URLs, Supabase service-role keys, SMTP/API key patterns, password values, private keys, generated credential fallback logs, request bodies, or response bodies.
+- Full deployed smoke and full deployed E2E remain intentionally pending. Because all narrow phases have now either passed or produced fixed issues, the next project task should move to Supabase RLS/Data API/least-privilege runtime DB hardening rather than additional generic smoke splitting.
+
 ## Post-Deploy E2E
 
 ```powershell
