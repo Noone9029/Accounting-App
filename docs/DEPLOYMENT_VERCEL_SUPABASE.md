@@ -14,6 +14,9 @@ Official references:
 - Supabase Prisma guide: https://supabase.com/docs/guides/database/prisma
 - Supabase connection management: https://supabase.com/docs/guides/database/connection-management
 - Supabase Postgres connection strings and pooler modes: https://supabase.com/docs/guides/database/connecting-to-postgres
+- Supabase Row Level Security: https://supabase.com/docs/guides/database/postgres/row-level-security
+- Supabase securing the Data API: https://supabase.com/docs/guides/api/securing-your-api
+- Supabase API keys: https://supabase.com/docs/guides/getting-started/api-keys
 - Prisma serverless deployment guide: https://docs.prisma.io/docs/v6/orm/prisma-client/deployment/serverless
 - Prisma Vercel deployment guide: https://docs.prisma.io/docs/orm/prisma-client/deployment/serverless/deploy-to-vercel
 - Prisma database connection management: https://docs.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections
@@ -206,6 +209,7 @@ The tail slice preserves the full smoke command but bounds the late AR/AP, custo
 - `JWT_SECRET` is strong and not reused from local development.
 - Preview deployments do not point at production data unless intentionally allowed.
 - For small Supabase pooler deployments, set `PRISMA_CONNECTION_LIMIT=1` or rely on the Vercel default in `PrismaService` to keep each warm serverless instance conservative.
+- Supabase Data API/RLS posture is reviewed before beta expansion: web does not need direct Supabase table access, low-privilege Data API grants are revoked, and the runtime database role is separate from migration/admin credentials.
 
 ## 6. Known Deployment Limits
 
@@ -214,7 +218,7 @@ The tail slice preserves the full smoke command but bounds the late AR/AP, custo
 - S3-compatible document upload storage is still not wired; generated PDFs are database-backed local/dev groundwork.
 - Supabase is used as Postgres, not Supabase Auth.
 - Prisma migrations should be run intentionally before promoting production deployments.
-- Supabase row-level security should be reviewed before production exposure. LedgerByte currently enforces tenant isolation in the application layer, and RLS was not enabled automatically during test deployment smoke work. The 2026-05-19 RLS review found 76 public tables with RLS disabled in the user-testing Supabase project and recommends a phased Data API/RLS hardening strategy before production exposure: [docs/deployment/SUPABASE_RLS_REVIEW_20260519.md](deployment/SUPABASE_RLS_REVIEW_20260519.md).
+- Supabase row-level security remains disabled on 76 public tables in the user-testing project. LedgerByte currently enforces tenant isolation in the Nest/Prisma layer, so RLS must not be enabled broadly until compatible policies and runtime role behavior are tested. The 2026-05-21 hardening pass revoked `anon`/`authenticated` public table/sequence/function grants as an immediate Data API mitigation, but it did not disable the Dashboard Data API toggle or create the least-privilege Prisma runtime role. See [docs/deployment/SUPABASE_RLS_REVIEW_20260519.md](deployment/SUPABASE_RLS_REVIEW_20260519.md) and [docs/deployment/SUPABASE_RLS_DATA_API_HARDENING_20260521.md](deployment/SUPABASE_RLS_DATA_API_HARDENING_20260521.md).
 - User-testing cleanup remains dry-run/planning only. Use [docs/deployment/USER_TESTING_ENVIRONMENT_CLEANUP.md](deployment/USER_TESTING_ENVIRONMENT_CLEANUP.md) and `corepack pnpm user-testing:cleanup-plan` before any reviewed manual cleanup.
 
 ## 7. Health Troubleshooting

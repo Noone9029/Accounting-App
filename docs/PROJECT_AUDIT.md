@@ -80,7 +80,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Backup/restore planning is metadata-only and one local non-production Postgres restore drill has been executed outside app automation; hosted Supabase/Postgres backup, point-in-time recovery, and object-storage backup policy remain unverified.
 - ZATCA is local/mock/scaffold only. Local SDK validation groundwork exists behind a disabled-by-default flag; official SDK sample fixtures now pass under Java 11, LedgerByte standard XML fixture now passes SDK global validation, simplified XML fixture passes XSD/EN/PIH, API-generated standard XML validates locally with warnings, and hash-chain reset planning is dry-run only. SDK hash persistence has been validated end-to-end on a fresh explicitly enabled EGS: two generated invoices matched direct SDK `-generateHash`, invoice 2 PIH equaled invoice 1's SDK hash, repeat generation was idempotent, and invoice-specific SDK `pihPath` handling resolved the prior invoice 2 `KSA-13` local validation failure. Buyer building-number warnings, signing, Phase 2 QR, real CSID, clearance, reporting, and PDF/A-3 do not exist.
 - Redis is present in local infra but workers/queues are not wired.
-- Production deployment, external monitoring, backups, subscription billing, provider-specific signed email webhook operations, production retry scheduler, WhatsApp, generated-document object storage, and attachment migration operations are not implemented.
+- Production deployment, external monitoring, hosted backups, subscription billing, provider-specific signed email webhook operations, production retry scheduler, WhatsApp, generated-document object storage, attachment migration operations, full Supabase RLS policies, and least-privilege runtime DB role separation are not implemented.
 
 ## Top 10 Risks
 
@@ -90,7 +90,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 4. Bank reconciliation has local import preview, manual matching, categorization, approval, close/lock, report export groundwork, and basic linked attachments, but there is no live feed, automatic matching, OFX/CAMT/MT940 parser, production-grade bank file parser/storage workflow, or external bank integration.
 5. Inventory warehouses, adjustment controls, transfers, manual receipts/issues, valuation settings, purchase bill clearing-mode finalization, compatible manual receipt asset posting, inventory clearing preview/matching/reconciliation groundwork, variance proposal workflow, purchase receipt posting readiness audit, integrity audit, and manual COGS posting exist, but automatic COGS, automatic/direct-mode receipt asset posting, GL valuation reports, automatic variance posting, automatic receipts/issues, landed cost, serial/batch tracking, and accounting-grade inventory financial reports are still missing.
 6. Generated PDFs and existing uploaded attachments remain database/base64 by default; new uploaded attachments can use the feature-flagged S3-compatible adapter, but no migration executor, generated-document S3 path, virus scanning, or lifecycle policy is active.
-7. Production secrets/key custody is not hardened; ZATCA private key storage is explicitly dev-only.
+7. Production secrets/key custody and database exposure are not fully hardened; ZATCA private key storage is explicitly dev-only, full Supabase RLS policies are not implemented, and least-privilege runtime DB role separation is still pending.
 8. Dashboard, browser E2E, and API smoke improve visibility, but dashboard KPIs are still MVP definitions and there is no visual regression coverage yet.
 9. Supplier AP balance display reuses a generic Dr/Cr helper; supplier-specific payable wording should be reviewed to avoid user confusion.
 10. Audit logs cover high-risk events, admin review, filtered CSV export, retention dry-run controls, backup/restore evidence events, and number-sequence update events, but scheduled export, automatic purge, immutable external storage, alerting, anomaly detection, and tamper evidence are not implemented.
@@ -106,13 +106,23 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 7. Review accountant-reviewed inventory variance journal proposal outputs, then define historical direct-mode exclusion/migration and landed-cost policy before any automatic posting.
 8. Add proper buyer building-number/address data for generated ZATCA XML, then advance signing/certificate, Phase 2 QR, CSID, clearance/reporting, and PDF/A-3.
 9. Test the uploaded-attachment S3 adapter with a real non-production bucket, then implement the migration executor and generated-document S3 path.
-10. Verify hosted Supabase backup/PITR and object-storage backup/restore in non-production, then prepare production deployment, monitoring, secrets management, and security review.
+10. Create and validate a least-privilege Prisma runtime DB role, then verify hosted Supabase backup/PITR and object-storage backup/restore in non-production before production deployment.
 
 ## New Issues Found During Audit
 
 - Supplier AP balances currently display through the shared `formatLedgerBalance` helper that labels positive balances as `Dr`. The underlying supplier ledger math is documented as credit-minus-debit, but the UI should later use supplier-specific payable labels to avoid confusing accountants.
 - Prisma still warns that `package.json#prisma` seed configuration is deprecated and should move to Prisma config before Prisma 7.
 - Windows PowerShell requires quoting paths containing `(app)` when running git or shell commands against frontend App Router paths.
+
+## 2026-05-21 Supabase Data API/RLS hardening
+
+- Audited the user-testing Supabase exposure model against official Supabase RLS, Data API, API key, role, and Storage access-control guidance.
+- Confirmed the browser path uses the Nest API and found no direct Supabase REST, GraphQL, Realtime, or Storage client path in the web app.
+- Metadata review found 76 public tables with RLS disabled and broad `anon`/`authenticated` table grants before mitigation.
+- Revoked `anon` and `authenticated` public table, sequence, and function grants in user-testing, including future default grants for those roles. No data was reset, no migration or seed was run, and broad RLS was not enabled.
+- API/web health stayed HTTP `200`, readiness stayed `ok`, and `smoke:accounting:reports` passed with secret-store credentials after the grant mitigation.
+- Remaining blockers: Data API Dashboard toggle was not available through the current tools, full RLS policy design is not implemented, and a least-privilege Prisma runtime DB role still needs a dedicated validation pass.
+- Recommended next prompt: create and validate a least-privilege Prisma runtime DB role in user-testing while keeping migration/direct credentials separate.
 
 ## Audit Verification Commands
 

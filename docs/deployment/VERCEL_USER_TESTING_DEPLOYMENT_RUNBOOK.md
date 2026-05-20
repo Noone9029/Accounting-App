@@ -327,6 +327,19 @@ The aggregate `corepack pnpm smoke:accounting:tail`, the banking slice, and the 
 - Post-validation health stayed HTTP `200` for all six endpoints; readiness stayed `ok`. Post-validation pool snapshot was `active=1`, `idle=7`, `unknown=2`. Log scans found no auth headers, database URLs, Supabase service-role keys, SMTP/API key patterns, password values, private keys, generated credential fallback logs, request bodies, or response bodies.
 - Full deployed smoke and full deployed E2E remain intentionally pending. Because all narrow phases have now either passed or produced fixed issues, the next project task should move to Supabase RLS/Data API/least-privilege runtime DB hardening rather than additional generic smoke splitting.
 
+## Supabase Data API/RLS Hardening Status
+
+2026-05-21 user-testing audit and mitigation are documented in [SUPABASE_RLS_DATA_API_HARDENING_20260521.md](SUPABASE_RLS_DATA_API_HARDENING_20260521.md).
+
+- Current app architecture: the web app calls the Nest API through `NEXT_PUBLIC_API_URL`; no direct Supabase REST, GraphQL, Realtime, or Storage client usage was found in `apps/web`.
+- API data path: Prisma uses Postgres/Supabase connection strings; LedgerByte does not use Supabase Auth for tenant identity.
+- Supabase state before mitigation: 76 public tables had RLS disabled, and `anon`/`authenticated` had broad public table grants.
+- Safe mitigation applied to user-testing only: revoked `anon`/`authenticated` grants on public tables, sequences, and functions, and revoked future default public grants for those roles.
+- Not changed: broad RLS was not enabled, data was not reset, migrations/seeds were not run, the Data API Dashboard toggle was not available through current tools, and the Prisma runtime role was not rewired.
+- Validation after the grant change: API `/`, `/health`, `/readiness`, web `/`, `/setup`, and `/settings/storage` returned HTTP `200`; readiness status was `ok`; `smoke:accounting:reports` passed with secret-store credentials and generated-user fallback unset.
+- `smoke:accounting:zatca-safe` was attempted once after the grant change but hit the external 15-minute shell ceiling while writing final phase output, so it is not counted as a pass for this mitigation. Earlier dashboard-validation runs had passed the ZATCA-safe phase.
+- Next security implementation step: create and validate a least-privilege Prisma runtime DB role in user-testing, with migration/direct credentials kept separate. Disable the Supabase Data API Dashboard toggle only after confirming the setting and rollback path.
+
 ## Post-Deploy E2E
 
 ```powershell

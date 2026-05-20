@@ -191,6 +191,20 @@ Official references used for the 2026-05-20 pool-exhaustion repair:
 - Prisma PgBouncer/Supavisor guidance: https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections/pgbouncer
 - Vercel function connection pooling guide: https://vercel.com/kb/guide/connection-pooling-with-functions
 
+### Supabase Data API And RLS Hardening
+
+Deployed smoke/E2E must continue to use the Nest API, not direct Supabase table access.
+
+2026-05-21 user-testing status:
+
+- The web app was checked for direct Supabase usage; no Supabase REST, GraphQL, Realtime, or Storage client path was found.
+- The user-testing Supabase project still has 76 public tables with RLS disabled. Do not enable broad RLS as part of an E2E or smoke run.
+- `anon` and `authenticated` grants on public tables, sequences, and functions were revoked in user-testing as a Data API exposure mitigation.
+- API/web health and `smoke:accounting:reports` passed after the grant change.
+- Least-privilege runtime DB role work and the Data API Dashboard toggle remain follow-up security tasks.
+
+If deployed E2E fails after future RLS or runtime-role changes, first verify whether the API runtime database role can still perform Prisma reads/writes. Do not reset the database or re-grant public Data API access without a reviewed rollback decision.
+
 ### API Smoke Route Appears To Hang
 
 Symptoms:

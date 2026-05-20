@@ -142,7 +142,7 @@ Tasks:
 - WhatsApp provider integration if product requires it.
 - Subscription billing and plan enforcement.
 - Domain, DNS, SSL, and environment management.
-- Security hardening: CORS, password policy, scheduled audit export/alerting plus immutable storage, secrets rotation, MFA, and session invalidation.
+- Security hardening: Supabase Data API disablement or strict grants, least-privilege Prisma runtime DB role, phased RLS policies, CORS, password policy, scheduled audit export/alerting plus immutable storage, secrets rotation, MFA, and session invalidation.
 - Approval workflows and dual-control policies for high-risk accounting actions.
 - Observability: logs, metrics, tracing, alerts.
 - Multi-language polish, Arabic/English layout review, and regional formatting.
@@ -160,7 +160,16 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Verify hosted Supabase backup/PITR and S3-compatible object-storage backup/restore in a real non-production project, then capture sanitized evidence without exposing secrets or customer content.
+> Create and validate a least-privilege Prisma runtime DB role in the user-testing Supabase project, keeping migration credentials separate and running only health plus narrow smoke validation.
+
+## 2026-05-21 Supabase Data API/RLS hardening
+
+- User-testing audit confirmed the web app uses the Nest API path and does not require direct Supabase REST, GraphQL, Realtime, or Storage access.
+- The user-testing Supabase project still has 76 public tables with RLS disabled, so broad RLS remains a production blocker.
+- Immediate mitigation applied: revoked `anon` and `authenticated` public table, sequence, and function grants, including future default grants for those roles.
+- Validation after the mitigation kept API/web health at HTTP `200`; readiness stayed `ok`; `smoke:accounting:reports` passed with secret-store credentials.
+- Remaining roadmap item: disable the Supabase Data API Dashboard setting if available and no hidden dependency exists, then create a least-privilege Prisma runtime DB role before designing full RLS policies.
+- Recommended next prompt: create and validate a least-privilege Prisma runtime DB role in the user-testing Supabase project, with rollback SQL/env plan and no broad RLS enablement.
 
 ## 2026-05-18 Email readiness diagnostics
 

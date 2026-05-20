@@ -556,6 +556,25 @@ Remaining risks:
 - A just-pushed commit still depends on Vercel redeploying the API alias before the deployed root URL reflects the new status endpoint.
 - Supabase RLS remains a separate deployment security review item.
 
+### Supabase Data API grant hardening added
+
+Audited and partially hardened the user-testing Supabase exposure model without enabling broad RLS or changing application behavior.
+
+Risk reduced:
+
+- Confirmed the web app uses the Nest API through `NEXT_PUBLIC_API_URL`; no direct Supabase REST, GraphQL, Realtime, or Storage client path was found in the inspected app code.
+- Confirmed the API uses Prisma/Postgres as the runtime data path and LedgerByte JWT/organization guards as the application tenant boundary.
+- Metadata review found 76 public tables with RLS disabled and broad `anon`/`authenticated` public table grants before mitigation.
+- Revoked `anon` and `authenticated` grants on public tables, sequences, and functions in the user-testing project, including future default grants for those roles.
+- API/web health stayed HTTP `200`, readiness stayed `ok`, and `smoke:accounting:reports` passed with secret-store credentials after the grant change.
+
+Remaining risks:
+
+- RLS is still disabled on 76 public tables and must not be enabled blindly without compatible policies.
+- The Supabase Data API Dashboard toggle was not changed because the setting was not exposed through the current tool surface.
+- The Prisma runtime database role is not yet least-privilege; runtime and migration/admin credential separation remains a dedicated follow-up.
+- `service_role` remains a high-risk admin key class and must stay out of browser and ordinary runtime paths.
+
 ### Deployed E2E readiness docs added
 
 Added non-production CI database readiness and deployment security documentation for the Vercel/Supabase test environment.

@@ -17,6 +17,20 @@ Official Supabase references used for the review:
 - A metadata query on 2026-05-19 returned 76 `public` tables with `rowsecurity=false`.
 - No RLS policies were applied in this task.
 
+## 2026-05-21 Follow-Up Hardening
+
+The follow-up audit and mitigation are documented in [SUPABASE_RLS_DATA_API_HARDENING_20260521.md](SUPABASE_RLS_DATA_API_HARDENING_20260521.md).
+
+Current delta from this original review:
+
+- RLS remains disabled on the same 76 public tables. This was intentional; LedgerByte still needs a compatible policy/runtime-role design before table RLS is enabled.
+- The web app was rechecked and still uses the Nest API path, not direct Supabase REST, GraphQL, Realtime, or Storage access.
+- The user-testing project had broad `anon` and `authenticated` grants on public tables before mitigation.
+- Those `anon` and `authenticated` public table, sequence, and function grants were revoked in user-testing, including future default grants for `postgres`-owned public objects.
+- API/web health stayed healthy and the reports smoke phase passed after the grant change.
+- The Supabase Data API Dashboard toggle was not changed because it was not exposed by the current tool surface.
+- A least-privilege Prisma runtime role remains the next safe implementation step.
+
 ## Why This Matters
 
 Supabase exposes tables in configured API schemas through PostgREST when grants allow access. Supabase documentation recommends enabling RLS on exposed-schema tables and using explicit grants and policies. LedgerByte currently depends on the API as the security boundary, so accidental direct Supabase Data API exposure, leaked database credentials, or overbroad grants could bypass app-layer tenant checks.
