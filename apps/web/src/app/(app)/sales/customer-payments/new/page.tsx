@@ -191,7 +191,7 @@ export default function NewCustomerPaymentPage() {
           allocations: allocationsToSubmit,
         },
       });
-      router.push(`/sales/customer-payments/${payment.id}`);
+      router.push(`/sales/customer-payments/${payment.id}?recorded=1`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to record customer payment.");
     } finally {

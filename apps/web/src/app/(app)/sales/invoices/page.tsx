@@ -75,7 +75,7 @@ export default function SalesInvoicesPage() {
 
     try {
       const finalized = await apiRequest<SalesInvoice>(`/sales-invoices/${invoice.id}/finalize`, { method: "POST" });
-      setSuccess(`Finalized invoice ${finalized.invoiceNumber}.`);
+      setSuccess(`Invoice posted. Open ${finalized.invoiceNumber} to record payment, view the customer ledger, or download the PDF.`);
       setReloadToken((current) => current + 1);
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "Unable to finalize invoice.");
@@ -86,7 +86,7 @@ export default function SalesInvoicesPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Sales invoices</h1>
           <p className="mt-1 text-sm text-steel">Draft and finalized customer invoices from the live API.</p>
@@ -103,7 +103,11 @@ export default function SalesInvoicesPage() {
         {loading ? <StatusMessage type="loading">Loading sales invoices...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {!loading && organizationId && invoices.length === 0 ? <StatusMessage type="empty">No sales invoices found.</StatusMessage> : null}
+        {!loading && organizationId && invoices.length === 0 ? (
+          <StatusMessage type="empty">
+            No sales invoices found. Create the first draft invoice, then finalize it when the customer and totals are ready.
+          </StatusMessage>
+        ) : null}
       </div>
 
       {invoices.length > 0 ? (
@@ -155,7 +159,9 @@ export default function SalesInvoicesPage() {
                   <td className="px-4 py-3 font-medium text-ink">{invoice.customer?.displayName ?? invoice.customer?.name ?? "-"}</td>
                   <td className="px-4 py-3 text-steel">{new Date(invoice.issueDate).toLocaleDateString()}</td>
                   <td className="px-4 py-3 text-steel">{formatOptionalDate(invoice.dueDate)}</td>
-                  <td className="px-4 py-3 text-steel">{invoice.status}</td>
+                  <td className="px-4 py-3">
+                    <InvoiceStatusPill status={invoice.status} />
+                  </td>
                   <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(invoice.subtotal, invoice.currency)}</td>
                   <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(invoice.taxTotal, invoice.currency)}</td>
                   <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(invoice.total, invoice.currency)}</td>
@@ -181,4 +187,16 @@ export default function SalesInvoicesPage() {
       ) : null}
     </section>
   );
+}
+
+function InvoiceStatusPill({ status }: { status: SalesInvoiceStatus }) {
+  const className =
+    status === "FINALIZED"
+      ? "bg-emerald-50 text-emerald-700"
+      : status === "VOIDED"
+        ? "bg-rose-50 text-rosewood"
+        : "bg-slate-100 text-slate-700";
+  const label = status === "FINALIZED" ? "Finalized/posted" : status === "VOIDED" ? "Voided" : "Draft";
+
+  return <span className={`rounded-md px-2 py-1 text-xs font-medium ${className}`}>{label}</span>;
 }

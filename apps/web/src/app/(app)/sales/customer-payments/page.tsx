@@ -76,7 +76,7 @@ export default function CustomerPaymentsPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Customer payments</h1>
           <p className="mt-1 text-sm text-steel">Posted customer receipts and invoice allocations.</p>
@@ -93,7 +93,11 @@ export default function CustomerPaymentsPage() {
         {loading ? <StatusMessage type="loading">Loading customer payments...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {!loading && organizationId && payments.length === 0 ? <StatusMessage type="empty">No customer payments found.</StatusMessage> : null}
+        {!loading && organizationId && payments.length === 0 ? (
+          <StatusMessage type="empty">
+            No customer payments found. Finalize an invoice first, then record payment to close the receivables loop.
+          </StatusMessage>
+        ) : null}
       </div>
 
       {payments.length > 0 ? (
@@ -118,7 +122,9 @@ export default function CustomerPaymentsPage() {
                   <td className="px-4 py-3 font-mono text-xs">{payment.paymentNumber}</td>
                   <td className="px-4 py-3 font-medium text-ink">{payment.customer?.displayName ?? payment.customer?.name ?? "-"}</td>
                   <td className="px-4 py-3 text-steel">{formatOptionalDate(payment.paymentDate, "-")}</td>
-                  <td className="px-4 py-3 text-steel">{payment.status}</td>
+                  <td className="px-4 py-3">
+                    <PaymentStatusPill status={payment.status} />
+                  </td>
                   <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(payment.amountReceived, payment.currency)}</td>
                   <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(payment.unappliedAmount, payment.currency)}</td>
                   <td className="px-4 py-3 text-steel">{payment.account ? `${payment.account.code} ${payment.account.name}` : "-"}</td>
@@ -143,4 +149,16 @@ export default function CustomerPaymentsPage() {
       ) : null}
     </section>
   );
+}
+
+function PaymentStatusPill({ status }: { status: CustomerPayment["status"] }) {
+  const className =
+    status === "POSTED"
+      ? "bg-emerald-50 text-emerald-700"
+      : status === "VOIDED"
+        ? "bg-rose-50 text-rosewood"
+        : "bg-slate-100 text-slate-700";
+  const label = status === "POSTED" ? "Posted" : status === "VOIDED" ? "Voided" : "Draft";
+
+  return <span className={`rounded-md px-2 py-1 text-xs font-medium ${className}`}>{label}</span>;
 }

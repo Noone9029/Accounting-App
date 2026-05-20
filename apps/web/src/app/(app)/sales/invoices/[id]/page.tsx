@@ -151,7 +151,11 @@ export default function SalesInvoiceDetailPage() {
         await fetchZatcaReadiness(updated.id).catch(() => undefined);
         await fetchZatcaSigningPlan(updated.id).catch(() => undefined);
       }
-      setSuccess(action === "finalize" ? `Finalized invoice ${updated.invoiceNumber}.` : `Voided invoice ${updated.invoiceNumber}.`);
+      setSuccess(
+        action === "finalize"
+          ? `Invoice posted. Accounting entries were created for ${updated.invoiceNumber}; record payment when cash is received.`
+          : `Invoice voided. Reversal details are shown below when available for ${updated.invoiceNumber}.`,
+      );
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : `Unable to ${action} invoice.`);
     } finally {
@@ -461,23 +465,23 @@ export default function SalesInvoiceDetailPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">{invoice ? invoice.invoiceNumber : "Sales invoice"}</h1>
           <p className="mt-1 text-sm text-steel">Invoice detail, calculated totals, and linked journal entry.</p>
           {invoice ? <p className="mt-1 text-xs text-steel">Downloads are archived automatically.</p> : null}
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/sales/invoices" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Link href="/sales/invoices" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
             Back
           </Link>
           {invoice?.status === "DRAFT" && canUpdateInvoice ? (
-            <Link href={`/sales/invoices/${invoice.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <Link href={`/sales/invoices/${invoice.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
               Edit
             </Link>
           ) : null}
           {invoice?.customerId ? (
-            <Link href={`/contacts/${invoice.customerId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <Link href={`/contacts/${invoice.customerId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
               Customer ledger
             </Link>
           ) : null}
@@ -487,17 +491,17 @@ export default function SalesInvoiceDetailPage() {
             </button>
           ) : null}
           {invoice?.status === "FINALIZED" && invoice.customerId && canCreateCustomerPayment ? (
-            <Link href={`/sales/customer-payments/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+            <Link href={`/sales/customer-payments/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50">
               Record payment
             </Link>
           ) : null}
           {invoice?.status === "FINALIZED" && invoice.customerId && canCreateCreditNote ? (
-            <Link href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+            <Link href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50">
               Create credit note
             </Link>
           ) : null}
           {invoice?.status === "FINALIZED" && stockIssueStatus && canCreateStockIssue && hasStockIssueRemaining(stockIssueStatus) ? (
-            <Link href={`/inventory/sales-stock-issues/new?salesInvoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+            <Link href={`/inventory/sales-stock-issues/new?salesInvoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50">
               Issue stock
             </Link>
           ) : null}
@@ -528,6 +532,15 @@ export default function SalesInvoiceDetailPage() {
 
       {invoice ? (
         <div className="mt-5 space-y-5">
+          <InvoiceWorkflowGuidance
+            invoice={invoice}
+            actionLoading={actionLoading}
+            canFinalizeInvoice={canFinalizeInvoice}
+            canCreateCustomerPayment={canCreateCustomerPayment}
+            onFinalize={() => void runAction("finalize")}
+            onDownloadPdf={() => void downloadInvoicePdf()}
+          />
+
           <AttachmentPanel linkedEntityType="SALES_INVOICE" linkedEntityId={invoice.id} />
 
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
@@ -552,7 +565,7 @@ export default function SalesInvoiceDetailPage() {
           {stockIssueStatus ? <StockIssueStatusPanel status={stockIssueStatus} /> : null}
 
           <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-            <table className="w-full text-left text-sm">
+            <table className="w-full min-w-[1040px] text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                 <tr>
                   <th className="px-4 py-3">Description</th>
@@ -584,7 +597,7 @@ export default function SalesInvoiceDetailPage() {
             </table>
           </div>
 
-          <div className="ml-auto grid max-w-sm grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-5 text-sm shadow-panel">
+          <div className="grid w-full max-w-sm grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-5 text-sm shadow-panel sm:ml-auto">
             <span className="text-steel">Subtotal</span>
             <span className="text-right font-mono">{formatMoneyAmount(invoice.subtotal, invoice.currency)}</span>
             <span className="text-steel">Discount</span>
@@ -600,20 +613,20 @@ export default function SalesInvoiceDetailPage() {
           </div>
 
           <div className="rounded-md border border-slate-200 bg-white shadow-panel">
-            <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
+            <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-base font-semibold text-ink">Payments</h2>
                 <p className="mt-1 text-sm text-steel">{deriveInvoicePaymentState(invoice.total, invoice.balanceDue)} with {formatMoneyAmount(invoice.balanceDue, invoice.currency)} balance due.</p>
               </div>
               {invoice.status === "FINALIZED" && (canCreateCustomerPayment || canCreateCreditNote) ? (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   {canCreateCustomerPayment ? (
-                    <Link href={`/sales/customer-payments/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+                    <Link href={`/sales/customer-payments/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50">
                       Record payment
                     </Link>
                   ) : null}
                   {canCreateCreditNote ? (
-                    <Link href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+                    <Link href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50">
                       Create credit note
                     </Link>
                   ) : null}
@@ -622,7 +635,7 @@ export default function SalesInvoiceDetailPage() {
             </div>
             {invoice.paymentAllocations && invoice.paymentAllocations.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="w-full min-w-[720px] text-left text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
                       <th className="px-4 py-3">Payment</th>
@@ -655,7 +668,9 @@ export default function SalesInvoiceDetailPage() {
               </div>
             ) : (
               <div className="px-5 py-4">
-                <StatusMessage type="empty">No payments have been applied to this invoice.</StatusMessage>
+                <StatusMessage type="empty">
+                  No payments have been applied yet. Finalized invoices can be paid from the Record payment action.
+                </StatusMessage>
               </div>
             )}
           </div>
@@ -710,20 +725,20 @@ export default function SalesInvoiceDetailPage() {
           </div>
 
           <div className="rounded-md border border-slate-200 bg-white shadow-panel">
-            <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
+            <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-base font-semibold text-ink">Credit notes</h2>
                 <p className="mt-1 text-sm text-steel">Linked credit notes reduce customer receivables when finalized. Applications reduce this invoice balance due without another journal entry.</p>
               </div>
               {invoice.status === "FINALIZED" && canCreateCreditNote ? (
-                <Link href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+                <Link href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="self-start rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
                   Create credit note
                 </Link>
               ) : null}
             </div>
             {invoice.creditNotes && invoice.creditNotes.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="w-full min-w-[760px] text-left text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
                       <th className="px-4 py-3">Credit note</th>
@@ -768,7 +783,7 @@ export default function SalesInvoiceDetailPage() {
             </div>
             {invoice.creditNoteAllocations && invoice.creditNoteAllocations.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="w-full min-w-[900px] text-left text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
                       <th className="px-4 py-3">Credit note</th>
@@ -1194,6 +1209,184 @@ export default function SalesInvoiceDetailPage() {
       ) : null}
     </section>
   );
+}
+
+export function InvoiceWorkflowGuidance({
+  invoice,
+  actionLoading,
+  canFinalizeInvoice,
+  canCreateCustomerPayment,
+  onFinalize,
+  onDownloadPdf,
+}: {
+  invoice: SalesInvoice;
+  actionLoading: boolean;
+  canFinalizeInvoice: boolean;
+  canCreateCustomerPayment: boolean;
+  onFinalize: () => void;
+  onDownloadPdf: () => void;
+}) {
+  const paymentState = deriveInvoicePaymentState(invoice.total, invoice.balanceDue);
+  const customerName = invoice.customer?.displayName ?? invoice.customer?.name ?? "this customer";
+  const hasBalanceDue = paymentState !== "Paid";
+  const statusLabel = salesInvoiceStatusLabel(invoice.status);
+
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-ink">What happened?</h2>
+            <p className="mt-1 text-sm leading-6 text-steel">{invoiceOutcomeDescription(invoice, paymentState)}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className={`rounded-md px-2 py-1 text-xs font-semibold ${salesInvoiceStatusBadgeClass(invoice.status)}`}>
+              {statusLabel}
+            </span>
+            {invoice.status === "FINALIZED" ? (
+              <span className={`rounded-md px-2 py-1 text-xs font-semibold ${invoicePaymentStateBadgeClass(paymentState)}`}>
+                {paymentState}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+          <Summary label="Customer" value={customerName} />
+          <Summary label="Balance due" value={formatMoneyAmount(invoice.balanceDue, invoice.currency)} />
+          <Summary label="Journal" value={invoice.journalEntry ? `${invoice.journalEntry.entryNumber} posted` : "Not posted yet"} />
+        </div>
+      </div>
+
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <h2 className="text-base font-semibold text-ink">Next actions</h2>
+        <p className="mt-1 text-sm leading-6 text-steel">{invoiceNextActionDescription(invoice, paymentState, canCreateCustomerPayment)}</p>
+        <div className="mt-4 flex flex-col gap-2">
+          {invoice.status === "DRAFT" && canFinalizeInvoice ? (
+            <button
+              type="button"
+              onClick={onFinalize}
+              disabled={actionLoading}
+              className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              Finalize invoice
+            </button>
+          ) : null}
+          {invoice.status === "FINALIZED" && hasBalanceDue && invoice.customerId && canCreateCustomerPayment ? (
+            <Link
+              href={`/sales/customer-payments/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`}
+              className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
+            >
+              Record payment
+            </Link>
+          ) : null}
+          <button
+            type="button"
+            onClick={onDownloadPdf}
+            disabled={actionLoading}
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+          >
+            Download PDF
+          </button>
+          {invoice.customerId ? (
+            <Link href={`/contacts/${invoice.customerId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              View customer ledger
+            </Link>
+          ) : null}
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Link href="/reports/profit-and-loss" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              View report
+            </Link>
+            <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Dashboard
+            </Link>
+          </div>
+        </div>
+        {invoice.status === "DRAFT" && !canFinalizeInvoice ? (
+          <p className="mt-3 text-xs leading-5 text-steel">You need invoice finalization permission before this draft can be posted.</p>
+        ) : null}
+        {invoice.status === "FINALIZED" && hasBalanceDue && !canCreateCustomerPayment ? (
+          <p className="mt-3 text-xs leading-5 text-steel">You need customer payment permission to record money against this invoice.</p>
+        ) : null}
+        {invoice.status === "VOIDED" ? (
+          <p className="mt-3 text-xs leading-5 text-steel">Voided invoices are closed for payment. Review the reversal journal details below if present.</p>
+        ) : null}
+        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-900">
+          ZATCA status here is local/readiness only. Real ZATCA network submission, CSID execution, clearance/reporting, PDF/A-3 generation, and production compliance are not enabled.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function salesInvoiceStatusLabel(status: SalesInvoice["status"]): string {
+  switch (status) {
+    case "DRAFT":
+      return "Draft";
+    case "FINALIZED":
+      return "Finalized/posted";
+    case "VOIDED":
+      return "Voided";
+  }
+}
+
+function salesInvoiceStatusBadgeClass(status: SalesInvoice["status"]): string {
+  switch (status) {
+    case "DRAFT":
+      return "bg-slate-100 text-slate-700";
+    case "FINALIZED":
+      return "bg-emerald-50 text-emerald-700";
+    case "VOIDED":
+      return "bg-rose-50 text-rosewood";
+  }
+}
+
+function invoicePaymentStateBadgeClass(paymentState: ReturnType<typeof deriveInvoicePaymentState>): string {
+  switch (paymentState) {
+    case "Paid":
+      return "bg-emerald-50 text-emerald-700";
+    case "Partially paid":
+      return "bg-amber-50 text-amber-700";
+    case "Unpaid":
+      return "bg-slate-100 text-slate-700";
+  }
+}
+
+function invoiceOutcomeDescription(invoice: SalesInvoice, paymentState: ReturnType<typeof deriveInvoicePaymentState>): string {
+  if (invoice.status === "DRAFT") {
+    return "This draft is saved and editable. It has not posted accounting entries yet, so finalize it only after the customer, lines, tax, and totals are ready.";
+  }
+
+  if (invoice.status === "VOIDED") {
+    return "This invoice is voided. It is closed for new payments and any reversal journal details remain visible for review.";
+  }
+
+  if (paymentState === "Paid") {
+    return "This invoice is finalized, accounting entries are posted, and customer payments or credits have cleared the balance.";
+  }
+
+  if (paymentState === "Partially paid") {
+    return "This invoice is finalized and posted, with part of the balance already paid. Record another payment or credit note when the remaining balance is settled.";
+  }
+
+  return "This invoice is finalized and posted. The receivable is open, so the next operating step is recording the customer payment when money is received.";
+}
+
+function invoiceNextActionDescription(invoice: SalesInvoice, paymentState: ReturnType<typeof deriveInvoicePaymentState>, canCreateCustomerPayment: boolean): string {
+  if (invoice.status === "DRAFT") {
+    return "Finalize the invoice to post the accounting entry, then record payment from the invoice or customer payment screen.";
+  }
+
+  if (invoice.status === "VOIDED") {
+    return "Use the links below for review and reporting. Create a new invoice if the customer needs a replacement document.";
+  }
+
+  if (paymentState === "Paid") {
+    return "The receivables loop is complete. Review the customer ledger, PDF, dashboard, or reports for the business result.";
+  }
+
+  return canCreateCustomerPayment
+    ? "Record payment next, then review the customer ledger and reports to confirm the sale is reflected."
+    : "Payment is still due, but your role cannot record customer payments.";
 }
 
 function Summary({ label, value }: { label: string; value: string }) {
