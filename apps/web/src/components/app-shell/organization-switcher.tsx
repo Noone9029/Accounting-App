@@ -40,15 +40,15 @@ export function OrganizationSwitcher() {
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <label className="flex items-center gap-2 text-xs text-steel">
+    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+      <label className="flex min-w-0 flex-col gap-1 text-xs text-steel sm:flex-row sm:items-center sm:gap-2">
         <span>Organization</span>
         <select
           value={activeId}
           onChange={(event) => {
             setActiveOrganizationId(event.target.value);
           }}
-          className="min-w-48 rounded-md border border-slate-300 bg-white px-2 py-2 text-sm font-medium text-ink outline-none focus:border-palm"
+          className="w-full min-w-0 rounded-md border border-slate-300 bg-white px-2 py-2 text-sm font-medium text-ink outline-none focus:border-palm sm:min-w-48"
         >
           {organizations.map((organization) => (
             <option key={organization.id} value={organization.id}>

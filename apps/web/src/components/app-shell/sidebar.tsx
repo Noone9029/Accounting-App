@@ -16,6 +16,7 @@ import { usePathname } from "next/navigation";
 import type { ComponentType, SVGProps } from "react";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { filterSidebarNavItems } from "@/lib/sidebar-nav";
+import { canViewNavItem, PERMISSIONS, type Permission } from "@/lib/permissions";
 
 const iconsByHref: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   "/dashboard": BarChart3,
@@ -29,6 +30,19 @@ const iconsByHref: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   "/documents": Archive,
   "/settings/team": Settings2,
 };
+
+const mobileWorkflowLinks: readonly {
+  label: string;
+  href: string;
+  requiredAny: readonly Permission[];
+}[] = [
+  { label: "Dashboard", href: "/dashboard", requiredAny: [PERMISSIONS.dashboard.view] },
+  { label: "Setup", href: "/setup", requiredAny: [PERMISSIONS.dashboard.view] },
+  { label: "Customer", href: "/contacts", requiredAny: [PERMISSIONS.contacts.view] },
+  { label: "Invoice", href: "/sales/invoices/new", requiredAny: [PERMISSIONS.salesInvoices.create] },
+  { label: "Payment", href: "/sales/customer-payments/new", requiredAny: [PERMISSIONS.customerPayments.create] },
+  { label: "Reports", href: "/reports", requiredAny: [PERMISSIONS.reports.view] },
+];
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -79,5 +93,38 @@ export function Sidebar() {
         </div>
       </nav>
     </aside>
+  );
+}
+
+export function MobileWorkflowNav() {
+  const pathname = usePathname();
+  const { activeMembership } = usePermissions();
+  const visibleLinks = mobileWorkflowLinks.filter((item) => canViewNavItem(activeMembership, item.requiredAny));
+
+  if (visibleLinks.length === 0) {
+    return null;
+  }
+
+  return (
+    <nav className="border-b border-slate-200 bg-white px-4 py-2 lg:hidden" aria-label="First workflow navigation">
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {visibleLinks.map((item) => {
+          const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`whitespace-nowrap rounded-md border px-3 py-2 text-xs font-semibold ${
+                active
+                  ? "border-palm bg-emerald-50 text-palm"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+              }`}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
 }

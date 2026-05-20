@@ -60,11 +60,11 @@ export function ReportsIndexPage() {
         <p className="mt-1">
           Use Profit & Loss for the first business result, then Trial Balance to confirm debits and credits stay balanced.
         </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Link href="/reports/profit-and-loss" className="rounded-md bg-palm px-3 py-2 font-medium text-white hover:bg-palm-dark">
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Link href="/reports/profit-and-loss" className="rounded-md bg-palm px-3 py-2 text-center font-medium text-white hover:bg-palm-dark">
             Open Profit & Loss
           </Link>
-          <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 font-medium text-emerald-900 hover:bg-emerald-100">
+          <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center font-medium text-emerald-900 hover:bg-emerald-100">
             Back to dashboard
           </Link>
         </div>
@@ -405,12 +405,12 @@ function ReportExportButtons({ endpoint, slug, params }: { endpoint: string; slu
 function ReportSection({ title, description, children }: { title: string; description: string; children: ReactNode }) {
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">{title}</h1>
           <p className="mt-1 text-sm text-steel">{description}</p>
         </div>
-        <Link href="/reports" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <Link href="/reports" className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           Reports
         </Link>
       </div>
@@ -442,16 +442,16 @@ function DateRangeForm({
       }}
       className="rounded-md border border-slate-200 bg-white p-5 shadow-panel"
     >
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <label className="block">
           <span className="text-xs font-medium uppercase tracking-wide text-steel">From</span>
-          <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm sm:w-auto" />
         </label>
         <label className="block">
           <span className="text-xs font-medium uppercase tracking-wide text-steel">To</span>
-          <input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          <input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm sm:w-auto" />
         </label>
-        <button type="submit" disabled={loading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+        <button type="submit" disabled={loading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400 sm:self-end">
           {loading ? "Loading..." : "Run report"}
         </button>
       </div>
@@ -468,12 +468,12 @@ function AsOfForm({ asOf, setAsOf, loading, onSubmit }: { asOf: string; setAsOf:
       }}
       className="rounded-md border border-slate-200 bg-white p-5 shadow-panel"
     >
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <label className="block">
           <span className="text-xs font-medium uppercase tracking-wide text-steel">As of</span>
-          <input type="date" value={asOf} onChange={(event) => setAsOf(event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          <input type="date" value={asOf} onChange={(event) => setAsOf(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm sm:w-auto" />
         </label>
-        <button type="submit" disabled={loading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+        <button type="submit" disabled={loading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400 sm:self-end">
           {loading ? "Loading..." : "Run report"}
         </button>
       </div>

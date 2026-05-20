@@ -110,73 +110,73 @@ export default function ContactsPage() {
       </div>
 
       {canManageContacts ? (
-      <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-base font-semibold text-ink">Add a customer or supplier</h2>
-          <p className="text-sm leading-6 text-steel">
-            For the first invoice, choose Customer or Both, then add a name. Address and ID fields improve later VAT/ZATCA checks but do not send anything externally.
-          </p>
-        </div>
-        <form onSubmit={createContact} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-          <select name="type" required className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-            {contactTypes.map((type) => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
-          <input name="name" required placeholder="Name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <input name="email" type="email" placeholder="Email" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <input name="phone" placeholder="Phone" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <div>
-            <input name="taxNumber" placeholder="VAT number" inputMode="numeric" pattern="[0-9]{15}" minLength={15} maxLength={15} title="VAT number must be exactly 15 digits." className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <p className="mt-1 text-[11px] text-steel">Exactly 15 digits.</p>
+        <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-base font-semibold text-ink">Add a customer or supplier</h2>
+            <p className="text-sm leading-6 text-steel">
+              For the first invoice, choose Customer or Both, then add a name. Address and ID fields improve later VAT/ZATCA checks but do not send anything externally.
+            </p>
           </div>
-          <div>
-            <select
-              name="identificationType"
-              value={createIdentificationType}
-              onChange={(event) => setCreateIdentificationType(event.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
-            >
-              <option value="">ID Type</option>
-              {contactIdentificationOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
+          <form onSubmit={createContact} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+            <select name="type" required className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              {contactTypes.map((type) => (
+                <option key={type} value={type}>{type}</option>
               ))}
             </select>
-            <p className="mt-1 text-[11px] text-steel">Used for buyer identification when VAT is not available.</p>
-          </div>
-          <div>
-            <input
-              name="identificationNumber"
-              placeholder="ID number"
-              disabled={!createIdentificationOption}
-              required={Boolean(createIdentificationOption)}
-              inputMode={createIdentificationOption?.inputMode ?? "text"}
-              pattern={createIdentificationOption?.pattern}
-              maxLength={createIdentificationOption?.maxLength}
-              title={createIdentificationOption ? `${createIdentificationOption.label}: ${createIdentificationOption.hint}` : "Choose an ID type first."}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm uppercase outline-none focus:border-palm disabled:bg-slate-100"
-            />
-            <p className="mt-1 text-[11px] text-steel">{createIdentificationOption?.hint ?? "Choose an ID type first."}</p>
-          </div>
-          <div className="pt-2 text-xs font-semibold uppercase tracking-wide text-steel md:col-span-4">Address and ZATCA buyer fields</div>
-          <input name="addressLine1" placeholder="Street name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <input name="addressLine2" placeholder="Additional street" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <div>
-            <input name="buildingNumber" placeholder="Building number" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <p className="mt-1 text-[11px] text-steel">Usually 4 digits for Saudi national address.</p>
-          </div>
-          <div>
-            <input name="district" placeholder="District" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <p className="mt-1 text-[11px] text-steel">Required for clean Saudi ZATCA buyer address validation where applicable.</p>
-          </div>
-          <input name="city" placeholder="City" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <input name="postalCode" placeholder="Postal code" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <input name="countryCode" defaultValue="SA" placeholder="Country" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <button type="submit" disabled={!organizationId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-            Add contact
-          </button>
-        </form>
-      </div>
+            <input name="name" required placeholder="Name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <input name="email" type="email" placeholder="Email" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <input name="phone" placeholder="Phone" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <div>
+              <input name="taxNumber" placeholder="VAT number" inputMode="numeric" pattern="[0-9]{15}" minLength={15} maxLength={15} title="VAT number must be exactly 15 digits." className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+              <p className="mt-1 text-[11px] text-steel">Exactly 15 digits.</p>
+            </div>
+            <div>
+              <select
+                name="identificationType"
+                value={createIdentificationType}
+                onChange={(event) => setCreateIdentificationType(event.target.value)}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
+              >
+                <option value="">ID Type</option>
+                {contactIdentificationOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-steel">Used for buyer identification when VAT is not available.</p>
+            </div>
+            <div>
+              <input
+                name="identificationNumber"
+                placeholder="ID number"
+                disabled={!createIdentificationOption}
+                required={Boolean(createIdentificationOption)}
+                inputMode={createIdentificationOption?.inputMode ?? "text"}
+                pattern={createIdentificationOption?.pattern}
+                maxLength={createIdentificationOption?.maxLength}
+                title={createIdentificationOption ? `${createIdentificationOption.label}: ${createIdentificationOption.hint}` : "Choose an ID type first."}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm uppercase outline-none focus:border-palm disabled:bg-slate-100"
+              />
+              <p className="mt-1 text-[11px] text-steel">{createIdentificationOption?.hint ?? "Choose an ID type first."}</p>
+            </div>
+            <div className="pt-2 text-xs font-semibold uppercase tracking-wide text-steel md:col-span-4">Address and ZATCA buyer fields</div>
+            <input name="addressLine1" placeholder="Street name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <input name="addressLine2" placeholder="Additional street" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <div>
+              <input name="buildingNumber" placeholder="Building number" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+              <p className="mt-1 text-[11px] text-steel">Usually 4 digits for Saudi national address.</p>
+            </div>
+            <div>
+              <input name="district" placeholder="District" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+              <p className="mt-1 text-[11px] text-steel">Required for clean Saudi ZATCA buyer address validation where applicable.</p>
+            </div>
+            <input name="city" placeholder="City" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <input name="postalCode" placeholder="Postal code" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <input name="countryCode" defaultValue="SA" placeholder="Country" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <button type="submit" disabled={!organizationId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400 md:self-start">
+              Add contact
+            </button>
+          </form>
+        </div>
       ) : null}
 
       <div className="space-y-3">
@@ -186,11 +186,17 @@ export default function ContactsPage() {
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
         {!loading && organizationId && contacts.length === 0 ? (
           <StatusMessage type="empty">
-            No contacts yet. Add a first customer above, then continue to{" "}
-            <Link href="/sales/invoices/new" className="font-semibold text-palm hover:underline">
-              create the first invoice
-            </Link>
-            .
+            {canManageContacts ? (
+              <>
+                No contacts yet. Add a first customer above, then continue to{" "}
+                <Link href="/sales/invoices/new" className="font-semibold text-palm hover:underline">
+                  create the first invoice
+                </Link>
+                .
+              </>
+            ) : (
+              "No contacts yet. Ask an administrator to add the first customer before creating invoices."
+            )}
           </StatusMessage>
         ) : null}
       </div>

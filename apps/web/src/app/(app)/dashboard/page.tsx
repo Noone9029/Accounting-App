@@ -272,7 +272,11 @@ export default function DashboardPage() {
               <Section title="Compliance and controls" action={drilldownLinks.trialBalance ? <SectionLink link={drilldownLinks.trialBalance} /> : null}>
                 <MetricGrid
                   items={[
-                    { label: "ZATCA production ready", value: summary.compliance.zatcaProductionReady ? "Yes" : "No", href: drilldownLinks.zatcaReadiness?.href },
+                    {
+                      label: "ZATCA production compliance",
+                      value: summary.compliance.zatcaProductionReady ? "Ready" : "Not enabled",
+                      href: drilldownLinks.zatcaReadiness?.href,
+                    },
                     { label: "ZATCA blockers", value: String(summary.compliance.zatcaBlockingReasonCount), href: drilldownLinks.zatcaReadiness?.href },
                     { label: "Locked fiscal periods", value: String(summary.compliance.fiscalPeriodsLockedCount), href: drilldownLinks.fiscalPeriods?.href },
                     { label: "Audit logs this month", value: String(summary.compliance.auditLogCountThisMonth), href: drilldownLinks.auditLogs?.href },
@@ -369,7 +373,7 @@ function Kpi({ icon, label, value, detail, href }: Readonly<{ icon: ReactNode; l
 function Section({ title, action, children }: Readonly<{ title: string; action?: ReactNode; children: ReactNode }>) {
   return (
     <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-base font-semibold text-ink">{title}</h2>
         {action}
       </div>

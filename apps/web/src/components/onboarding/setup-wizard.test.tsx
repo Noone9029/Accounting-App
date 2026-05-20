@@ -37,7 +37,7 @@ describe("setup wizard components", () => {
     expect(screen.getByRole("heading", { name: "Storage readiness" })).toBeInTheDocument();
     expect(screen.getByText("Active tax rates: 0")).toBeInTheDocument();
     expect(screen.getByText("Create at least one active tax rate.")).toBeInTheDocument();
-    expect(screen.getByText("Create a test invoice before go-live rehearsals.")).toBeInTheDocument();
+    expect(screen.getByText("Create a first invoice before recording payment.")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Open tax rates" })[0]).toHaveAttribute("href", "/tax-rates");
     expect(screen.getByRole("link", { name: "Continue: VAT/tax profile" })).toHaveAttribute("href", "/tax-rates");
   });
@@ -58,7 +58,7 @@ describe("setup wizard components", () => {
     expect(within(zatcaStep).getByText(/real ZATCA network is disabled/)).toBeInTheDocument();
     expect(within(zatcaStep).getByText(/production compliance remains false/)).toBeInTheDocument();
     expect(within(zatcaStep).getAllByText(/OTP and CSID are still required/).length).toBeGreaterThan(0);
-    expect(within(zatcaStep).getByText(/clearance, reporting, and PDF-A3 are not implemented/)).toBeInTheDocument();
+    expect(within(zatcaStep).getByText(/clearance, reporting, and PDF\/A-3 are not implemented/)).toBeInTheDocument();
     expect(within(zatcaStep).queryByRole("button", { name: /CSID|ZATCA|clearance|reporting/i })).not.toBeInTheDocument();
   });
 
@@ -116,14 +116,14 @@ function sampleChecklist(): DashboardOnboardingChecklist {
       "First reportable activity: Finalize or post at least one accounting transaction before reviewing reports.",
       "Extra blocker: Keep summary short.",
     ],
-    warnings: ["First invoice: Create a test invoice before go-live rehearsals."],
+    warnings: ["First invoice: Create a first invoice before recording payment."],
     recommendedNextSteps: ["Complete: VAT/tax profile."],
     items: [
       item("organization_profile", "Organization profile complete", "COMPLETE", "/settings/organization", ["Legal profile fields complete: yes"], [], []),
       item("chart_of_accounts", "Chart of accounts available", "COMPLETE", "/accounts", ["Active posting accounts: 8"], [], []),
       item("tax_profile", "VAT/tax profile complete", "INCOMPLETE", "/tax-rates", ["Active tax rates: 0"], ["Create at least one active tax rate."], []),
       item("customer_created", "At least one customer", "INCOMPLETE", "/contacts", ["Customer contacts: 0"], ["Create a customer contact."], []),
-      item("first_invoice", "At least one sales invoice", "WARNING", "/sales/invoices", ["Sales invoices: 0"], [], ["Create a test invoice before go-live rehearsals."]),
+      item("first_invoice", "At least one sales invoice", "WARNING", "/sales/invoices", ["Sales invoices: 0"], [], ["Create a first invoice before recording payment."]),
       item(
         "bank_payment_method",
         "Payment method or bank account configured",

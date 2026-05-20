@@ -201,18 +201,18 @@ export default function NewCustomerPaymentPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Record customer payment</h1>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
             Allocate received money to finalized open invoices. If this is your first workflow, finalize an invoice first, then come back here to close the receivables loop.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/setup" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Link href="/setup" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
             Guided setup
           </Link>
-          <Link href="/sales/customer-payments" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <Link href="/sales/customer-payments" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
             Back
           </Link>
         </div>
@@ -284,7 +284,7 @@ export default function NewCustomerPaymentPage() {
         </div>
 
         <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[880px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Invoice</th>
@@ -337,7 +337,7 @@ export default function NewCustomerPaymentPage() {
           ) : null}
         </div>
 
-        <div className="ml-auto grid max-w-sm grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-5 text-sm shadow-panel">
+        <div className="grid w-full max-w-sm grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-5 text-sm shadow-panel sm:ml-auto">
           <span className="text-steel">Amount received</span>
           <span className="text-right font-mono">{formatMoneyAmount(preview.amountReceived)}</span>
           <span className="text-steel">Allocated</span>
@@ -346,11 +346,11 @@ export default function NewCustomerPaymentPage() {
           <span className="text-right font-mono font-semibold text-ink">{formatMoneyAmount(preview.unappliedAmount)}</span>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row">
           <button type="submit" disabled={!organizationId || loadingSetup || loadingInvoices || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
             {submitting ? "Recording..." : "Record payment"}
           </button>
-          <Link href="/sales/customer-payments" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <Link href="/sales/customer-payments" className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
             Cancel
           </Link>
         </div>

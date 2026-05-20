@@ -246,7 +246,7 @@ const SETUP_STEP_COPY: Record<
     title: "First invoice",
     actionHref: "/sales/invoices/new",
     actionLabel: "Create first invoice",
-    safeExplanation: "Use the sales invoice workflow for a draft or test invoice. The wizard does not finalize or submit invoices.",
+    safeExplanation: "Use the sales invoice workflow to create a draft invoice for review. The wizard does not finalize or submit invoices.",
   },
   bank_payment_method: {
     title: "Bank/payment method",
@@ -271,7 +271,7 @@ const SETUP_STEP_COPY: Record<
     actionHref: "/settings/zatca",
     actionLabel: "Review local ZATCA readiness",
     safeExplanation:
-      "ZATCA status shown here is local readiness only: real ZATCA network is disabled, production compliance remains false, OTP and CSID are still required, and clearance, reporting, and PDF-A3 are not implemented.",
+      "ZATCA status shown here is local readiness only: real ZATCA network is disabled, production compliance remains false, OTP and CSID are still required, and clearance, reporting, and PDF/A-3 are not implemented.",
   },
   contact_vat_id_validation: {
     title: "Contact VAT/ID validation",

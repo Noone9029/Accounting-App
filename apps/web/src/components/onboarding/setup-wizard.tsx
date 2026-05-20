@@ -23,9 +23,9 @@ export function SetupWizardContent({ checklist }: Readonly<{ checklist: Dashboar
         <div>
           <h1 className="text-2xl font-semibold text-ink">Guided setup</h1>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
-            Follow the first accounting loop: profile, VAT, customer, invoice, payment, and report. This wizard reads
-            real workspace data and links to the right screens without creating, finalizing, submitting, signing, or
-            persisting setup data for you.
+            Follow the first accounting loop: profile, VAT, customer, invoice, payment, and report. This read-only
+            guide checks live workspace data and links to the right screens without creating records, finalizing
+            invoices, submitting ZATCA data, or changing setup for you.
           </p>
           <p className="mt-1 text-xs text-steel">Checklist generated {new Date(checklist.generatedAt).toLocaleString()}.</p>
         </div>
@@ -76,7 +76,7 @@ export function SetupWizardContent({ checklist }: Readonly<{ checklist: Dashboar
             ) : (
               <p className="mt-3 text-sm leading-6 text-steel">
                 Ready for controlled beta review. ZATCA production compliance remains false until official OTP/CSID,
-                clearance/reporting, PDF-A3, production credentials, and compliance review are complete.
+                clearance/reporting, PDF/A-3, production credentials, and compliance review are complete.
               </p>
             )}
           </div>
@@ -96,7 +96,7 @@ export function SetupWizardContent({ checklist }: Readonly<{ checklist: Dashboar
           ) : null}
 
           <div className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-800">
-            ZATCA remains local-only. Real ZATCA network calls, CSID requests, clearance/reporting, PDF-A3, signed
+            ZATCA remains local-only. Real ZATCA network calls, CSID requests, clearance/reporting, PDF/A-3, signed
             XML/QR body persistence, production credentials, and production compliance claims stay disabled.
           </div>
         </aside>
@@ -132,22 +132,22 @@ export function DashboardOnboardingCard({ checklist }: Readonly<{ checklist: Das
 
   return (
     <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-base font-semibold text-ink">First accounting workflow</h2>
-        <Link href={summary.setupHref} className="inline-flex items-center gap-1 text-xs font-semibold text-palm hover:underline">
+        <Link href={summary.setupHref} className="inline-flex items-center gap-1 self-start text-xs font-semibold text-palm hover:underline">
           Open setup wizard
           <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
         </Link>
       </div>
       <div className="mt-4 rounded-md border border-slate-100 bg-mist px-3 py-3 text-sm">
-        <div className="flex items-center justify-between gap-3">
-          <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <div className="font-semibold text-ink">{summary.workflowProgressPercent}% complete</div>
             <div className="mt-1 text-xs text-steel">
               {summary.nextWorkflowStep ? `Next: ${summary.nextWorkflowStep.title}` : "First workflow complete"}
             </div>
           </div>
-          <div className="text-right text-xs text-steel">{summary.conciseBlockerSummary}</div>
+          <div className="text-xs text-steel sm:text-right">{summary.conciseBlockerSummary}</div>
         </div>
         <div className="mt-3 h-2 rounded-full bg-white">
           <div
@@ -159,7 +159,7 @@ export function DashboardOnboardingCard({ checklist }: Readonly<{ checklist: Das
       {summary.nextWorkflowStep ? (
         <Link
           href={summary.nextWorkflowStep.actionHref}
-          className="mt-3 inline-flex items-center gap-2 rounded-md bg-palm px-3 py-2 text-sm font-medium text-white hover:bg-palm-dark"
+          className="mt-3 inline-flex items-center justify-center gap-2 rounded-md bg-palm px-3 py-2 text-sm font-medium text-white hover:bg-palm-dark sm:justify-start"
         >
           {summary.nextWorkflowStep.actionLabel}
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -179,21 +179,21 @@ export function DashboardFirstWorkflowPrompt({ checklist }: Readonly<{ checklist
   return (
     <div className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-900 shadow-panel">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
+        <div className="min-w-0">
           <div className="font-semibold text-ink">Start with one complete sale</div>
           <p className="mt-1 max-w-3xl leading-6">
             LedgerByte becomes useful once a customer, invoice, payment, and report exist. The setup wizard checks those
             milestones from real workspace data.
           </p>
         </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:flex-wrap">
           {nextStep ? (
-            <Link href={nextStep.actionHref} className="inline-flex items-center gap-2 rounded-md bg-palm px-3 py-2 font-medium text-white hover:bg-palm-dark">
+            <Link href={nextStep.actionHref} className="inline-flex items-center justify-center gap-2 rounded-md bg-palm px-3 py-2 font-medium text-white hover:bg-palm-dark">
               {nextStep.actionLabel}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           ) : null}
-          <Link href="/setup" className="inline-flex items-center gap-2 rounded-md border border-emerald-300 bg-white px-3 py-2 font-medium text-emerald-900 hover:bg-emerald-100">
+          <Link href="/setup" className="inline-flex items-center justify-center gap-2 rounded-md border border-emerald-300 bg-white px-3 py-2 font-medium text-emerald-900 hover:bg-emerald-100">
             Open setup
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
@@ -220,8 +220,8 @@ function FirstWorkflowPanel({
             simulated completion flag.
           </p>
         </div>
-        <div className="min-w-40">
-          <div className="text-right text-sm font-semibold text-ink">{summary.progressPercent}% complete</div>
+        <div className="w-full lg:w-44">
+          <div className="text-sm font-semibold text-ink lg:text-right">{summary.progressPercent}% complete</div>
           <div className="mt-2 h-2 rounded-full bg-slate-100">
             <div className="h-2 rounded-full bg-palm" style={{ width: summary.progressWidth }} />
           </div>
@@ -232,12 +232,12 @@ function FirstWorkflowPanel({
           <Link
             key={step.id}
             href={step.actionHref}
-            className="flex items-start gap-3 rounded-md border border-slate-200 px-3 py-3 hover:border-palm/40 hover:bg-slate-50"
+            className="flex min-w-0 items-start gap-3 rounded-md border border-slate-200 px-3 py-3 hover:border-palm/40 hover:bg-slate-50"
           >
             <div className={`mt-0.5 ${step.statusClassName}`}>
               <StatusIcon status={step.status} />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="text-xs font-semibold uppercase text-steel">Step {index + 1}</div>
               <div className="mt-1 text-sm font-semibold text-ink">{step.title}</div>
               <div className="mt-1 text-xs leading-5 text-steel">{step.statusLabel}</div>
@@ -248,7 +248,7 @@ function FirstWorkflowPanel({
       {summary.nextStep ? (
         <Link
           href={summary.nextStep.actionHref}
-          className="mt-4 inline-flex items-center gap-2 rounded-md bg-palm px-3 py-2 text-sm font-medium text-white hover:bg-palm-dark"
+          className="mt-4 inline-flex items-center justify-center gap-2 rounded-md bg-palm px-3 py-2 text-sm font-medium text-white hover:bg-palm-dark sm:justify-start"
         >
           Continue: {summary.nextStep.title}
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -273,7 +273,7 @@ function SetupWizardStepCard({ step }: Readonly<{ step: ReturnType<typeof setupW
         </div>
         <Link
           href={step.actionHref}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 md:self-start"
         >
           {step.actionLabel}
           <ArrowRight className="h-4 w-4" aria-hidden="true" />

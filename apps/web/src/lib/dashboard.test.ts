@@ -135,7 +135,7 @@ describe("dashboard helpers", () => {
     expect(zatcaStep?.safeExplanation).toContain("real ZATCA network is disabled");
     expect(zatcaStep?.safeExplanation).toContain("production compliance remains false");
     expect(zatcaStep?.safeExplanation).toContain("OTP and CSID are still required");
-    expect(zatcaStep?.safeExplanation).toContain("clearance, reporting, and PDF-A3 are not implemented");
+    expect(zatcaStep?.safeExplanation).toContain("clearance, reporting, and PDF/A-3 are not implemented");
     expect(zatcaStep?.actionLabel).toBe("Review local ZATCA readiness");
   });
 
