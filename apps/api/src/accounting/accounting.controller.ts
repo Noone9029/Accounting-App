@@ -22,6 +22,12 @@ export class AccountingController {
     return this.accountingService.list(organizationId);
   }
 
+  @Get("count")
+  @RequirePermissions(PERMISSIONS.journals.view)
+  async count(@CurrentOrganizationId() organizationId: string) {
+    return { count: await this.accountingService.count(organizationId) };
+  }
+
   @Post()
   @RequirePermissions(PERMISSIONS.journals.create)
   create(

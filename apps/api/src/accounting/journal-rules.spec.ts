@@ -61,6 +61,18 @@ describe("journal accounting rules", () => {
     expect(tx.journalEntry.update).not.toHaveBeenCalled();
   });
 
+  it("counts journal entries with organization scoping for smoke count checks", async () => {
+    const prisma = {
+      journalEntry: {
+        count: jest.fn().mockResolvedValue(12),
+      },
+    };
+    const service = new AccountingService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await expect(service.count("org-1")).resolves.toBe(12);
+    expect(prisma.journalEntry.count).toHaveBeenCalledWith({ where: { organizationId: "org-1" } });
+  });
+
   it("blocks posting draft journals in closed periods before status changes", async () => {
     const prisma = {
       journalEntry: {

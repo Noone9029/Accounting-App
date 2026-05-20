@@ -1,4 +1,5 @@
 import { Decimal } from "decimal.js";
+import { fetchSmokeApi, parseSmokeRequestTimeout, smokeProgressEnabled } from "./smoke-http";
 
 interface TestCredentialOptions {
   label: string;
@@ -17,6 +18,11 @@ const { resolveTestCredentials } = require("../../../scripts/test-credential-env
 };
 
 const apiUrl = (process.env.LEDGERBYTE_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
+const smokeHttpOptions = {
+  apiUrl,
+  timeoutMs: parseSmokeRequestTimeout(process.env.LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS),
+  progress: smokeProgressEnabled(process.env.LEDGERBYTE_SMOKE_PROGRESS),
+};
 const smokeCredentials = resolveTestCredentials({
   label: "Smoke",
   targetUrls: [apiUrl],
@@ -580,6 +586,10 @@ interface JournalEntry {
     credit: string;
     account?: { id: string; code: string; name: string } | null;
   }>;
+}
+
+interface JournalEntryCountResponse {
+  count: number;
 }
 
 interface GeneralLedgerReport {
@@ -2863,7 +2873,7 @@ async function main(): Promise<void> {
   assertEqual(patchedInventoryAccountingSettings.inventoryClearingAccountId, inventoryClearingAccount.id, "inventory clearing account mapping patched");
   assertEqual(patchedInventoryAccountingSettings.purchaseReceiptPostingMode, "PREVIEW_ONLY", "purchase receipt posting mode patched preview-only");
   assertEqual(patchedInventoryAccountingSettings.previewOnly, true, "patched inventory accounting settings remain preview-only");
-  const journalEntriesBeforePurchaseReceiptReadiness = await get<JournalEntry[]>("/journal-entries", headers);
+  const journalEntryCountBeforePurchaseReceiptReadiness = await journalEntryCount(headers);
   const purchaseReceiptPostingReadiness = await get<PurchaseReceiptPostingReadiness>(
     "/inventory/purchase-receipt-posting-readiness",
     headers,
@@ -2890,10 +2900,10 @@ async function main(): Promise<void> {
     purchaseReceiptPostingReadiness.blockingReasons.some((reason) => reason.includes("Automatic purchase receipt GL posting is not enabled")),
     "purchase receipt posting readiness remains blocked for automatic receipt posting",
   );
-  const journalEntriesAfterPurchaseReceiptReadiness = await get<JournalEntry[]>("/journal-entries", headers);
+  const journalEntryCountAfterPurchaseReceiptReadiness = await journalEntryCount(headers);
   assertEqual(
-    journalEntriesAfterPurchaseReceiptReadiness.length,
-    journalEntriesBeforePurchaseReceiptReadiness.length,
+    journalEntryCountAfterPurchaseReceiptReadiness,
+    journalEntryCountBeforePurchaseReceiptReadiness,
     "purchase receipt posting readiness does not create journal entries",
   );
 
@@ -2923,7 +2933,7 @@ async function main(): Promise<void> {
   });
   assertEqual(inventoryItem.inventoryTracking, true, "inventory smoke item tracking enabled");
   assertMoney(inventoryItem.reorderPoint, money("15.0000"), "inventory smoke item reorder point");
-  const journalEntriesBeforeInventory = await get<JournalEntry[]>("/journal-entries", headers);
+  const journalEntryCountBeforeInventory = await journalEntryCount(headers);
   const balanceFor = async (warehouse: Warehouse) => {
     const balances = await get<InventoryBalance[]>(
       `/inventory/balances?itemId=${encodeURIComponent(inventoryItem.id)}&warehouseId=${encodeURIComponent(warehouse.id)}`,
@@ -3036,10 +3046,10 @@ async function main(): Promise<void> {
     headers,
   );
   assert(stockMovementList.length >= 6, "stock movements list includes opening, adjustments, transfer, and reversals");
-  const journalEntriesAfterInventory = await get<JournalEntry[]>("/journal-entries", headers);
+  const journalEntryCountAfterInventory = await journalEntryCount(headers);
   assertEqual(
-    journalEntriesAfterInventory.length,
-    journalEntriesBeforeInventory.length,
+    journalEntryCountAfterInventory,
+    journalEntryCountBeforeInventory,
     "inventory adjustments and transfers do not create journal entries",
   );
 
@@ -3095,7 +3105,7 @@ async function main(): Promise<void> {
     ],
   });
   assertEqual(purchaseBillForReceipt.status, "DRAFT", "purchase bill for receipt matching created as draft");
-  const journalEntriesBeforePurchaseBillDirectPreview = await get<JournalEntry[]>("/journal-entries", headers);
+  const journalEntryCountBeforePurchaseBillDirectPreview = await journalEntryCount(headers);
   const directPurchaseBillPreview = await get<PurchaseBillAccountingPreview>(
     `/purchase-bills/${purchaseBillForReceipt.id}/accounting-preview`,
     headers,
@@ -3117,10 +3127,10 @@ async function main(): Promise<void> {
     directPurchaseBillPreview.journal.lines.some((line) => line.side === "CREDIT" && line.accountCode === "210" && money(line.amount).eq("20.0000")),
     "direct purchase bill preview includes credit accounts payable",
   );
-  const journalEntriesAfterPurchaseBillDirectPreview = await get<JournalEntry[]>("/journal-entries", headers);
+  const journalEntryCountAfterPurchaseBillDirectPreview = await journalEntryCount(headers);
   assertEqual(
-    journalEntriesAfterPurchaseBillDirectPreview.length,
-    journalEntriesBeforePurchaseBillDirectPreview.length,
+    journalEntryCountAfterPurchaseBillDirectPreview,
+    journalEntryCountBeforePurchaseBillDirectPreview,
     "direct purchase bill accounting preview does not create journal entries",
   );
   const clearingModePurchaseBill = await post<PurchaseBill>("/purchase-bills", headers, {
@@ -3145,7 +3155,7 @@ async function main(): Promise<void> {
     "INVENTORY_CLEARING",
     "inventory clearing mode purchase bill stores selected posting mode",
   );
-  const journalEntriesBeforePurchaseBillClearingPreview = await get<JournalEntry[]>("/journal-entries", headers);
+  const journalEntryCountBeforePurchaseBillClearingPreview = await journalEntryCount(headers);
   const clearingPurchaseBillPreview = await get<PurchaseBillAccountingPreview>(
     `/purchase-bills/${clearingModePurchaseBill.id}/accounting-preview`,
     headers,
@@ -3160,10 +3170,10 @@ async function main(): Promise<void> {
     "inventory clearing purchase bill preview debits inventory clearing",
   );
   assertEqual(clearingPurchaseBillPreview.blockingReasons.length, 0, "inventory clearing purchase bill preview has no blockers");
-  const journalEntriesAfterPurchaseBillClearingPreview = await get<JournalEntry[]>("/journal-entries", headers);
+  const journalEntryCountAfterPurchaseBillClearingPreview = await journalEntryCount(headers);
   assertEqual(
-    journalEntriesAfterPurchaseBillClearingPreview.length,
-    journalEntriesBeforePurchaseBillClearingPreview.length,
+    journalEntryCountAfterPurchaseBillClearingPreview,
+    journalEntryCountBeforePurchaseBillClearingPreview,
     "inventory clearing purchase bill accounting preview does not create journal entries",
   );
   const finalizedClearingModePurchaseBill = await post<PurchaseBill>(`/purchase-bills/${clearingModePurchaseBill.id}/finalize`, headers, {});
@@ -3236,7 +3246,7 @@ async function main(): Promise<void> {
   assertEqual(finalizedIssueInvoice.status, "FINALIZED", "sales invoice finalized for stock issue");
   assertPresent(finalizedIssueInvoice.journalEntryId, "sales invoice journal for AR posting before stock issue");
 
-  const journalEntriesBeforeReceiptIssue = await get<JournalEntry[]>("/journal-entries", headers);
+  const journalEntryCountBeforeReceiptIssue = await journalEntryCount(headers);
   const purchaseReceipt = await post<PurchaseReceipt>("/purchase-receipts", headers, {
     purchaseBillId: finalizedPurchaseBillForReceipt.id,
     warehouseId: mainWarehouse.id,
@@ -3307,10 +3317,10 @@ async function main(): Promise<void> {
     ),
     "purchase bill receipt matching includes matched quantity and value",
   );
-  const journalEntriesAfterPurchaseReceiptPreview = await get<JournalEntry[]>("/journal-entries", headers);
+  const journalEntryCountAfterPurchaseReceiptPreview = await journalEntryCount(headers);
   assertEqual(
-    journalEntriesAfterPurchaseReceiptPreview.length,
-    journalEntriesBeforeReceiptIssue.length,
+    journalEntryCountAfterPurchaseReceiptPreview,
+    journalEntryCountBeforeReceiptIssue,
     "purchase receipt accounting preview does not create journal entries",
   );
 
@@ -3360,10 +3370,10 @@ async function main(): Promise<void> {
     "sales issue preview includes credit inventory asset line",
   );
   const estimatedCogs = money(salesStockIssueAccountingPreview.journal.totalDebit);
-  const journalEntriesAfterSalesIssuePreview = await get<JournalEntry[]>("/journal-entries", headers);
+  const journalEntryCountAfterSalesIssuePreview = await journalEntryCount(headers);
   assertEqual(
-    journalEntriesAfterSalesIssuePreview.length,
-    journalEntriesBeforeReceiptIssue.length,
+    journalEntryCountAfterSalesIssuePreview,
+    journalEntryCountBeforeReceiptIssue,
     "sales stock issue accounting preview does not create journal entries",
   );
 
@@ -3374,8 +3384,8 @@ async function main(): Promise<void> {
   assertEqual(postedCogsPreview.alreadyPosted, true, "sales stock issue COGS preview reports posted state");
   assertEqual(postedCogsPreview.canPost, false, "sales stock issue COGS preview cannot post twice");
   assertEqual(postedCogsPreview.journalEntryId, postedCogsIssue.cogsJournalEntryId, "sales stock issue COGS preview journal id");
-  const journalEntriesAfterCogsPost = await get<JournalEntry[]>("/journal-entries", headers);
-  assertEqual(journalEntriesAfterCogsPost.length, journalEntriesBeforeReceiptIssue.length + 1, "manual COGS posting creates one journal entry");
+  const journalEntryCountAfterCogsPost = await journalEntryCount(headers);
+  assertEqual(journalEntryCountAfterCogsPost, journalEntryCountBeforeReceiptIssue + 1, "manual COGS posting creates one journal entry");
   const profitAndLossAfterCogs = await get<ProfitAndLossReport>("/reports/profit-and-loss", headers);
   assertMoney(
     profitAndLossAfterCogs.costOfSales,
@@ -3390,8 +3400,8 @@ async function main(): Promise<void> {
   const reversedCogsPreview = await get<SalesStockIssueAccountingPreview>(`/sales-stock-issues/${salesStockIssue.id}/accounting-preview`, headers);
   assertEqual(reversedCogsPreview.alreadyReversed, true, "sales stock issue COGS preview reports reversed state");
   assertEqual(reversedCogsPreview.reversalJournalEntryId, reversedCogsIssue.cogsReversalJournalEntryId, "sales stock issue COGS preview reversal journal id");
-  const journalEntriesAfterCogsReversal = await get<JournalEntry[]>("/journal-entries", headers);
-  assertEqual(journalEntriesAfterCogsReversal.length, journalEntriesBeforeReceiptIssue.length + 2, "manual COGS reversal creates one reversal journal entry");
+  const journalEntryCountAfterCogsReversal = await journalEntryCount(headers);
+  assertEqual(journalEntryCountAfterCogsReversal, journalEntryCountBeforeReceiptIssue + 2, "manual COGS reversal creates one reversal journal entry");
 
   const voidedSalesStockIssue = await post<SalesStockIssue>(`/sales-stock-issues/${salesStockIssue.id}/void`, headers, {});
   assertEqual(voidedSalesStockIssue.status, "VOIDED", "sales stock issue voided status");
@@ -3401,10 +3411,10 @@ async function main(): Promise<void> {
   assertEqual(voidedPurchaseReceipt.status, "VOIDED", "purchase receipt voided status");
   assertPresent(voidedPurchaseReceipt.lines?.[0]?.voidStockMovementId, "purchase receipt void reversal movement");
   assertMoney((await balanceFor(mainWarehouse)).quantityOnHand, money("12.0000"), "main warehouse quantity after purchase receipt void");
-  const journalEntriesAfterReceiptIssue = await get<JournalEntry[]>("/journal-entries", headers);
+  const journalEntryCountAfterReceiptIssue = await journalEntryCount(headers);
   assertEqual(
-    journalEntriesAfterReceiptIssue.length,
-    journalEntriesBeforeReceiptIssue.length + 2,
+    journalEntryCountAfterReceiptIssue,
+    journalEntryCountBeforeReceiptIssue + 2,
     "purchase receipts and sales stock issues only create journals through manual COGS post and reversal",
   );
 
@@ -3421,7 +3431,7 @@ async function main(): Promise<void> {
     clearingBillReceivingStatusForAssetReceipt.lines.find((line) => line.inventoryTracking && money(line.remainingQuantity).gt(0)),
     "inventory clearing purchase bill receivable inventory line",
   );
-  const journalEntriesBeforeReceiptAssetPost = await get<JournalEntry[]>("/journal-entries", headers);
+  const journalEntryCountBeforeReceiptAssetPost = await journalEntryCount(headers);
   const trialBalanceBeforeReceiptAssetPost = await get<TrialBalanceReport>("/reports/trial-balance", headers);
   const assetRowBeforeReceiptAssetPost = required(
     trialBalanceBeforeReceiptAssetPost.accounts.find((account) => account.accountId === inventoryAssetAccount.id),
@@ -3467,10 +3477,10 @@ async function main(): Promise<void> {
     ),
     "clearing receipt preview includes credit inventory clearing line",
   );
-  const journalEntriesAfterClearingReceiptPreview = await get<JournalEntry[]>("/journal-entries", headers);
+  const journalEntryCountAfterClearingReceiptPreview = await journalEntryCount(headers);
   assertEqual(
-    journalEntriesAfterClearingReceiptPreview.length,
-    journalEntriesBeforeReceiptAssetPost.length,
+    journalEntryCountAfterClearingReceiptPreview,
+    journalEntryCountBeforeReceiptAssetPost,
     "clearing receipt accounting preview does not create journal entries",
   );
   const postedAssetReceipt = await post<PurchaseReceipt>(
@@ -3502,8 +3512,8 @@ async function main(): Promise<void> {
   assertEqual(postedAssetPreview.alreadyPosted, true, "purchase receipt asset preview reports posted state");
   assertEqual(postedAssetPreview.canPost, false, "purchase receipt asset preview cannot post twice");
   assertEqual(postedAssetPreview.journalEntryId, receiptAssetJournalEntryId, "purchase receipt asset preview journal id");
-  const journalEntriesAfterReceiptAssetPost = await get<JournalEntry[]>("/journal-entries", headers);
-  assertEqual(journalEntriesAfterReceiptAssetPost.length, journalEntriesBeforeReceiptAssetPost.length + 1, "receipt asset posting creates one journal");
+  const journalEntryCountAfterReceiptAssetPost = await journalEntryCount(headers);
+  assertEqual(journalEntryCountAfterReceiptAssetPost, journalEntryCountBeforeReceiptAssetPost + 1, "receipt asset posting creates one journal");
   const trialBalanceAfterReceiptAssetPost = await get<TrialBalanceReport>("/reports/trial-balance", headers);
   const assetRowAfterReceiptAssetPost = required(
     trialBalanceAfterReceiptAssetPost.accounts.find((account) => account.accountId === inventoryAssetAccount.id),
@@ -3540,7 +3550,7 @@ async function main(): Promise<void> {
     clearingLedgerAfterReceiptAssetPost.lines.some((line) => line.journalEntryId === receiptAssetJournalEntryId && money(line.credit).eq("8.0000")),
     "general ledger includes receipt clearing credit",
   );
-  const clearingReportJournalCountBefore = (await get<JournalEntry[]>("/journal-entries", headers)).length;
+  const clearingReportJournalCountBefore = await journalEntryCount(headers);
   const clearingReconciliationReport = await get<InventoryClearingReconciliationReport>("/inventory/reports/clearing-reconciliation", headers);
   const clearingReconciliationRow = required(
     clearingReconciliationReport.rows.find((row) => row.purchaseBill?.id === finalizedClearingModePurchaseBill.id),
@@ -3576,7 +3586,7 @@ async function main(): Promise<void> {
     "inventory clearing variance CSV",
     "Inventory Clearing Variance",
   );
-  const clearingReportJournalCountAfter = (await get<JournalEntry[]>("/journal-entries", headers)).length;
+  const clearingReportJournalCountAfter = await journalEntryCount(headers);
   const clearingReportNoJournal = clearingReportJournalCountAfter === clearingReportJournalCountBefore;
   assertEqual(
     clearingReportJournalCountAfter,
@@ -3608,10 +3618,10 @@ async function main(): Promise<void> {
     receiptAssetReversalJournalEntryId,
     "purchase receipt asset preview reversal journal id",
   );
-  const journalEntriesAfterReceiptAssetReversal = await get<JournalEntry[]>("/journal-entries", headers);
+  const journalEntryCountAfterReceiptAssetReversal = await journalEntryCount(headers);
   assertEqual(
-    journalEntriesAfterReceiptAssetReversal.length,
-    journalEntriesBeforeReceiptAssetPost.length + 2,
+    journalEntryCountAfterReceiptAssetReversal,
+    journalEntryCountBeforeReceiptAssetPost + 2,
     "receipt asset reversal creates one reversal journal",
   );
   await expectHttpError("duplicate receipt asset reversal", () =>
@@ -3694,7 +3704,7 @@ async function main(): Promise<void> {
     "inventory clearing variance row for proposal",
   );
   assertEqual(varianceRowForProposal.status, "VARIANCE", "variance proposal source row reports variance");
-  const varianceProposalJournalCountBefore = (await get<JournalEntry[]>("/journal-entries", headers)).length;
+  const varianceProposalJournalCountBefore = await journalEntryCount(headers);
   const draftVarianceProposal = await post<InventoryVarianceProposal>(
     "/inventory/variance-proposals/from-clearing-variance",
     headers,
@@ -3708,7 +3718,7 @@ async function main(): Promise<void> {
   assertEqual(draftVarianceProposal.status, "DRAFT", "inventory variance proposal starts draft");
   assertMoney(draftVarianceProposal.amount, money("2.0000"), "inventory variance proposal uses report variance amount");
   assertEqual(
-    (await get<JournalEntry[]>("/journal-entries", headers)).length,
+    await journalEntryCount(headers),
     varianceProposalJournalCountBefore,
     "variance proposal creation does not create journal entries",
   );
@@ -3743,7 +3753,7 @@ async function main(): Promise<void> {
     "variance proposal preview credits inventory clearing",
   );
   assertEqual(
-    (await get<JournalEntry[]>("/journal-entries", headers)).length,
+    await journalEntryCount(headers),
     varianceProposalJournalCountBefore,
     "variance proposal preview and approval do not create journal entries",
   );
@@ -3755,7 +3765,7 @@ async function main(): Promise<void> {
   assertEqual(postedVarianceProposal.status, "POSTED", "inventory variance proposal posted");
   const varianceProposalJournalEntryId = required(postedVarianceProposal.journalEntryId, "inventory variance proposal journal id");
   assertEqual(
-    (await get<JournalEntry[]>("/journal-entries", headers)).length,
+    await journalEntryCount(headers),
     varianceProposalJournalCountBefore + 1,
     "variance proposal explicit post creates one journal entry",
   );
@@ -3788,7 +3798,7 @@ async function main(): Promise<void> {
   for (const action of ["CREATE", "SUBMIT", "APPROVE", "POST", "REVERSE"] as const) {
     assert(varianceProposalEvents.some((event) => event.action === action), `inventory variance proposal event ${action}`);
   }
-  const varianceProposalJournalCountAfterReversal = (await get<JournalEntry[]>("/journal-entries", headers)).length;
+  const varianceProposalJournalCountAfterReversal = await journalEntryCount(headers);
   assertEqual(
     varianceProposalJournalCountAfterReversal,
     varianceProposalJournalCountBefore + 2,
@@ -5791,7 +5801,7 @@ async function main(): Promise<void> {
   );
   assertMoney(supplierLedgerAfterCashExpense.closingBalance, expectedPurchaseBillTotal, "supplier ledger cash expense row is neutral");
 
-  const journalEntriesBeforeAttachments = await get<JournalEntry[]>("/journal-entries", headers);
+  const journalEntryCountBeforeAttachments = await journalEntryCount(headers);
   const attachmentCsvBase64 = Buffer.from("entity,number\nattachment-smoke,1\n").toString("base64");
   const purchaseBillAttachment = await post<Attachment>("/attachments", headers, {
     linkedEntityType: "PURCHASE_BILL",
@@ -5847,8 +5857,8 @@ async function main(): Promise<void> {
   await expectHttpError("download deleted attachment", () =>
     assertAttachmentDownload(`/attachments/${cashExpenseAttachment.id}/download`, headers, "deleted cash expense attachment", "attachment-smoke"),
   );
-  const journalEntriesAfterAttachments = await get<JournalEntry[]>("/journal-entries", headers);
-  assertEqual(journalEntriesAfterAttachments.length, journalEntriesBeforeAttachments.length, "attachment endpoints do not create journal entries");
+  const journalEntryCountAfterAttachments = await journalEntryCount(headers);
+  assertEqual(journalEntryCountAfterAttachments, journalEntryCountBeforeAttachments, "attachment endpoints do not create journal entries");
 
   const finalizedInvoiceAuditLogs = await get<AuditLogListResponse>(
     `/audit-logs?action=SALES_INVOICE_FINALIZED&entityType=SalesInvoice&entityId=${encodeURIComponent(finalizedInvoice.id)}`,
@@ -5995,8 +6005,8 @@ async function main(): Promise<void> {
   assert(createdBackupEvidence.noSecretsReturned, "backup evidence create returns no secrets");
   assertEqual(createdBackupEvidence.evidence.evidenceType, "OTHER", "backup evidence smoke type");
   assertNoBackupSecretExposure(createdBackupEvidence, "backup evidence create");
-  const journalEntriesAfterStorageReports = await get<JournalEntry[]>("/journal-entries", headers);
-  assertEqual(journalEntriesAfterStorageReports.length, journalEntriesAfterAttachments.length, "storage readiness endpoints do not create journal entries");
+  const journalEntryCountAfterStorageReports = await journalEntryCount(headers);
+  assertEqual(journalEntryCountAfterStorageReports, journalEntryCountAfterAttachments, "storage readiness endpoints do not create journal entries");
 
   const voidedCashExpense = await post<CashExpense>(`/cash-expenses/${cashExpense.id}/void`, headers, {});
   assertEqual(voidedCashExpense.status, "VOIDED", "voided cash expense status");
@@ -6752,11 +6762,11 @@ async function main(): Promise<void> {
         purchaseReceiptPostingDirectModeBillCount: purchaseReceiptPostingReadinessAfterClearingBill.existingBillsInDirectModeCount,
         purchaseReceiptPostingClearingModeBillCount: purchaseReceiptPostingReadinessAfterClearingBill.billsUsingInventoryClearingCount,
         purchaseReceiptPostingReadinessNoJournal:
-          journalEntriesAfterPurchaseReceiptReadiness.length === journalEntriesBeforePurchaseReceiptReadiness.length,
+          journalEntryCountAfterPurchaseReceiptReadiness === journalEntryCountBeforePurchaseReceiptReadiness,
         inventoryValuationGrandTotal: stockValuationReport.grandTotalEstimatedValue,
         inventoryMovementClosingQuantity: movementSummaryRow.closingQuantity,
         lowStockItemIds: lowStockReport.rows.map((row) => row.item.id),
-        inventoryJournalEntryCountUnchanged: journalEntriesAfterInventory.length === journalEntriesBeforeInventory.length,
+        inventoryJournalEntryCountUnchanged: journalEntryCountAfterInventory === journalEntryCountBeforeInventory,
         purchaseReceiptId: purchaseReceipt.id,
         directPurchaseBillPreviewMode: directPurchaseBillPreview.inventoryPostingMode,
         inventoryClearingPurchaseBillId: clearingModePurchaseBill.id,
@@ -6772,7 +6782,7 @@ async function main(): Promise<void> {
         purchaseReceiptAssetPreviewCanPost: clearingReceiptAccountingPreview.canPost,
         purchaseReceiptAssetJournalEntryId: receiptAssetJournalEntryId,
         purchaseReceiptAssetReversalJournalEntryId: receiptAssetReversalJournalEntryId,
-        purchaseReceiptAssetJournalDelta: journalEntriesAfterReceiptAssetReversal.length - journalEntriesBeforeReceiptAssetPost.length,
+        purchaseReceiptAssetJournalDelta: journalEntryCountAfterReceiptAssetReversal - journalEntryCountBeforeReceiptAssetPost,
         purchaseReceiptAssetVoided: voidedClearingPurchaseReceipt.status === "VOIDED",
         purchaseReceiptAssetReportImpactChecked: true,
         inventoryClearingReconciliationStatus: clearingReconciliationRow.status,
@@ -6791,13 +6801,13 @@ async function main(): Promise<void> {
         salesStockIssueEstimatedCogs: salesStockIssueAccountingPreview.journal.totalDebit,
         salesStockIssueCogsJournalEntryId: postedCogsIssue.cogsJournalEntryId,
         salesStockIssueCogsReversalJournalEntryId: reversedCogsIssue.cogsReversalJournalEntryId,
-        salesStockIssueCogsJournalDelta: journalEntriesAfterCogsReversal.length - journalEntriesBeforeReceiptIssue.length,
+        salesStockIssueCogsJournalDelta: journalEntryCountAfterCogsReversal - journalEntryCountBeforeReceiptIssue,
         profitAndLossCogsAfterManualPost: profitAndLossAfterCogs.costOfSales,
         salesStockIssueVoided: voidedSalesStockIssue.status === "VOIDED",
         inventoryAccountingPreviewJournalEntryCountUnchanged:
-          journalEntriesAfterPurchaseReceiptPreview.length === journalEntriesBeforeReceiptIssue.length &&
-          journalEntriesAfterSalesIssuePreview.length === journalEntriesBeforeReceiptIssue.length,
-        receiptIssueJournalEntryDeltaFromManualCogs: journalEntriesAfterReceiptIssue.length - journalEntriesBeforeReceiptIssue.length,
+          journalEntryCountAfterPurchaseReceiptPreview === journalEntryCountBeforeReceiptIssue &&
+          journalEntryCountAfterSalesIssuePreview === journalEntryCountBeforeReceiptIssue,
+        receiptIssueJournalEntryDeltaFromManualCogs: journalEntryCountAfterReceiptIssue - journalEntryCountBeforeReceiptIssue,
         closedFiscalPeriodId: closedFiscalPeriod.id,
         fiscalPeriodLockChecked: true,
         customerId: customer.id,
@@ -6882,7 +6892,7 @@ async function main(): Promise<void> {
         purchaseBillAttachmentId: purchaseBillAttachment.id,
         cashExpenseAttachmentDeleted: deletedCashExpenseAttachment.status === "DELETED",
         salesInvoiceAttachmentId: salesInvoiceAttachment.id,
-        attachmentJournalCountUnchanged: journalEntriesAfterAttachments.length === journalEntriesBeforeAttachments.length,
+        attachmentJournalCountUnchanged: journalEntryCountAfterAttachments === journalEntryCountBeforeAttachments,
         auditLogInvoiceFinalizeFound: finalizedInvoiceAuditLogs.data.length > 0,
         auditLogAttachmentUploadFound: attachmentUploadAuditLogs.data.length > 0,
         auditLogAttachmentDeleteFound: attachmentDeleteAuditLogs.data.length > 0,
@@ -6989,6 +6999,12 @@ function tenantHeaders(context: SmokeContext): Record<string, string> {
   };
 }
 
+async function journalEntryCount(headers: Record<string, string>): Promise<number> {
+  const response = await get<JournalEntryCountResponse>("/journal-entries/count", headers);
+  assert(Number.isInteger(response.count) && response.count >= 0, "journal entry count returns a safe non-negative integer");
+  return response.count;
+}
+
 async function get<T>(path: string, headers: Record<string, string>): Promise<T> {
   return request<T>("GET", path, headers);
 }
@@ -7008,14 +7024,18 @@ async function del<T>(path: string, headers: Record<string, string>): Promise<T>
 async function request<T>(method: string, path: string, headers: Record<string, string>, body?: unknown): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`${apiUrl}${path}`, {
+    response = await fetchSmokeApi(
+      path,
+      {
       method,
       headers: {
         "content-type": "application/json",
         ...headers,
       },
       body: body === undefined ? undefined : JSON.stringify(body),
-    });
+      },
+      smokeHttpOptions,
+    );
   } catch (error) {
     throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
   }
@@ -7044,7 +7064,7 @@ async function expectHttpError(label: string, action: () => Promise<unknown>): P
 async function assertPdf(path: string, headers: Record<string, string>, label: string): Promise<void> {
   let response: Response;
   try {
-    response = await fetch(`${apiUrl}${path}`, { headers });
+    response = await fetchSmokeApi(path, { headers }, smokeHttpOptions);
   } catch (error) {
     throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
   }
@@ -7064,7 +7084,7 @@ async function assertPdf(path: string, headers: Record<string, string>, label: s
 async function assertCsv(path: string, headers: Record<string, string>, label: string, expectedText: string): Promise<void> {
   let response: Response;
   try {
-    response = await fetch(`${apiUrl}${path}`, { headers });
+    response = await fetchSmokeApi(path, { headers }, smokeHttpOptions);
   } catch (error) {
     throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
   }
@@ -7083,7 +7103,7 @@ async function assertCsv(path: string, headers: Record<string, string>, label: s
 async function getCsvText(path: string, headers: Record<string, string>, label: string): Promise<string> {
   let response: Response;
   try {
-    response = await fetch(`${apiUrl}${path}`, { headers });
+    response = await fetchSmokeApi(path, { headers }, smokeHttpOptions);
   } catch (error) {
     throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
   }
@@ -7101,7 +7121,7 @@ async function getCsvText(path: string, headers: Record<string, string>, label: 
 async function assertAttachmentDownload(path: string, headers: Record<string, string>, label: string, expectedText: string): Promise<void> {
   let response: Response;
   try {
-    response = await fetch(`${apiUrl}${path}`, { headers });
+    response = await fetchSmokeApi(path, { headers }, smokeHttpOptions);
   } catch (error) {
     throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
   }
@@ -7120,7 +7140,7 @@ async function assertAttachmentDownload(path: string, headers: Record<string, st
 async function assertXml(path: string, headers: Record<string, string>, label: string, expectedText: string): Promise<void> {
   let response: Response;
   try {
-    response = await fetch(`${apiUrl}${path}`, { headers });
+    response = await fetchSmokeApi(path, { headers }, smokeHttpOptions);
   } catch (error) {
     throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
   }
@@ -7139,7 +7159,7 @@ async function assertXml(path: string, headers: Record<string, string>, label: s
 async function assertText(path: string, headers: Record<string, string>, label: string, expectedText: string): Promise<void> {
   let response: Response;
   try {
-    response = await fetch(`${apiUrl}${path}`, { headers });
+    response = await fetchSmokeApi(path, { headers }, smokeHttpOptions);
   } catch (error) {
     throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
   }

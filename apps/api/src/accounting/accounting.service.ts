@@ -55,6 +55,12 @@ export class AccountingService {
     });
   }
 
+  count(organizationId: string) {
+    return this.prisma.journalEntry.count({
+      where: { organizationId },
+    });
+  }
+
   async get(organizationId: string, id: string) {
     const entry = await this.prisma.journalEntry.findFirst({
       where: { id, organizationId },
