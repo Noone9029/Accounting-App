@@ -59,7 +59,8 @@ describe("DashboardService", () => {
         ]),
         count: jest.fn().mockResolvedValue(1),
       },
-      customerPayment: { findMany: jest.fn().mockResolvedValue([{ amountReceived: new Prisma.Decimal("25.0000") }]) },
+      customerPayment: { findMany: jest.fn().mockResolvedValue([{ amountReceived: new Prisma.Decimal("25.0000") }]), count: jest.fn().mockResolvedValue(1) },
+      journalEntry: { count: jest.fn().mockResolvedValue(2) },
       purchaseBill: {
         findMany: jest.fn().mockResolvedValue([
           {
@@ -235,7 +236,8 @@ describe("DashboardService", () => {
   it("handles empty data without crashing", async () => {
     const { service } = makeService({
       salesInvoice: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
-      customerPayment: { findMany: jest.fn().mockResolvedValue([]) },
+      customerPayment: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
+      journalEntry: { count: jest.fn().mockResolvedValue(0) },
       purchaseBill: { findMany: jest.fn().mockResolvedValue([]) },
       supplierPayment: { findMany: jest.fn().mockResolvedValue([]) },
       bankAccountProfile: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
@@ -388,9 +390,9 @@ describe("DashboardService", () => {
         noMutation: true,
         tenantScoped: true,
         organizationId,
-        readinessScore: 89,
-        completedCount: 8,
-        totalCount: 9,
+        readinessScore: 91,
+        completedCount: 10,
+        totalCount: 11,
         productionCompliance: false,
         zatcaProductionCompliance: false,
         realZatcaNetworkEnabled: false,
@@ -405,6 +407,8 @@ describe("DashboardService", () => {
       "customer_created",
       "first_invoice",
       "bank_payment_method",
+      "first_payment",
+      "first_report",
       "zatca_local_readiness_visible",
       "contact_vat_id_validation",
       "storage_readiness_checked",
@@ -413,6 +417,12 @@ describe("DashboardService", () => {
     expect(prisma.contact.count).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ organizationId }) }),
     );
+    expect(prisma.customerPayment.count).toHaveBeenCalledWith({
+      where: { organizationId, status: "POSTED" },
+    });
+    expect(prisma.journalEntry.count).toHaveBeenCalledWith({
+      where: { organizationId, status: "POSTED" },
+    });
     const serialized = JSON.stringify(checklist);
     expect(serialized).not.toContain("PRIVATE KEY");
     expect(serialized).not.toContain("binarySecurityToken");
@@ -436,6 +446,8 @@ describe("DashboardService", () => {
       taxRate: { count: jest.fn().mockResolvedValue(0) },
       contact: { count: jest.fn().mockResolvedValue(0) },
       salesInvoice: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
+      customerPayment: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
+      journalEntry: { count: jest.fn().mockResolvedValue(0) },
       bankAccountProfile: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
       zatcaInvoiceMetadata: { count: jest.fn().mockResolvedValue(0) },
     });
@@ -464,7 +476,8 @@ type MockPrisma = {
   taxRate: { count: jest.Mock };
   contact: { count: jest.Mock };
   salesInvoice: { findMany: jest.Mock; count: jest.Mock };
-  customerPayment: { findMany: jest.Mock };
+  customerPayment: { findMany: jest.Mock; count: jest.Mock };
+  journalEntry: { count: jest.Mock };
   purchaseBill: { findMany: jest.Mock };
   supplierPayment: { findMany: jest.Mock };
   bankAccountProfile: { findMany: jest.Mock; count: jest.Mock };

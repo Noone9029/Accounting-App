@@ -8,6 +8,8 @@ import {
   dashboardHealthLabel,
   dashboardIsEmpty,
   formatDashboardMoney,
+  firstAccountingWorkflowSteps,
+  firstAccountingWorkflowSummary,
   groupAttentionBySeverity,
   setupWizardDashboardSummary,
   setupWizardLoadFailureMessage,
@@ -91,6 +93,8 @@ describe("dashboard helpers", () => {
       "First customer",
       "First invoice",
       "Bank/payment method",
+      "First payment",
+      "First report",
       "ZATCA local readiness visibility",
       "Contact VAT/ID validation",
       "Storage readiness",
@@ -112,8 +116,8 @@ describe("dashboard helpers", () => {
     const summary = setupWizardSummary(sampleChecklist());
 
     expect(summary.completedSteps).toBe(3);
-    expect(summary.totalSteps).toBe(9);
-    expect(summary.progressPercent).toBe(33);
+    expect(summary.totalSteps).toBe(11);
+    expect(summary.progressPercent).toBe(27);
     expect(summary.nextStep?.id).toBe("tax_profile");
     expect(summary.nextStep?.title).toBe("VAT/tax profile");
     expect(summary.statusLabel).toBe("Blocked");
@@ -145,9 +149,30 @@ describe("dashboard helpers", () => {
     const summary = setupWizardDashboardSummary(sampleChecklist());
 
     expect(summary.setupHref).toBe("/setup");
-    expect(summary.progressPercent).toBe(33);
+    expect(summary.progressPercent).toBe(27);
+    expect(summary.workflowProgressPercent).toBe(17);
     expect(summary.nextIncompleteStep?.title).toBe("VAT/tax profile");
+    expect(summary.nextWorkflowStep?.title).toBe("VAT/tax profile");
     expect(summary.conciseBlockerSummary).toBe("3 blockers need review.");
+  });
+
+  it("builds the first accounting workflow from real setup checklist steps", () => {
+    const steps = firstAccountingWorkflowSteps(sampleChecklist());
+    const summary = firstAccountingWorkflowSummary(sampleChecklist());
+
+    expect(steps.map((step) => step.id)).toEqual([
+      "organization_profile",
+      "tax_profile",
+      "customer_created",
+      "first_invoice",
+      "first_payment",
+      "first_report",
+    ]);
+    expect(steps.find((step) => step.id === "first_payment")?.actionHref).toBe("/sales/customer-payments/new");
+    expect(steps.find((step) => step.id === "first_report")?.actionHref).toBe("/reports/profit-and-loss");
+    expect(summary.completedSteps).toBe(1);
+    expect(summary.totalSteps).toBe(6);
+    expect(summary.progressPercent).toBe(17);
   });
 
   it("groups attention items by severity", () => {
@@ -237,9 +262,9 @@ function sampleChecklist(): DashboardOnboardingChecklist {
     organizationId: "org-1",
     generatedAt: "2026-05-18T00:00:00.000Z",
     status: "BLOCKED",
-    readinessScore: 33,
+    readinessScore: 27,
     completedCount: 3,
-    totalCount: 9,
+    totalCount: 11,
     productionCompliance: false,
     zatcaProductionCompliance: false,
     realZatcaNetworkEnabled: false,
@@ -249,6 +274,8 @@ function sampleChecklist(): DashboardOnboardingChecklist {
       "VAT/tax profile: Create at least one active tax rate.",
       "First customer: Create a customer contact.",
       "Bank/payment method: Create an active bank, cash, wallet, card, or other payment profile.",
+      "First payment: Record a customer payment against an open invoice.",
+      "First reportable activity: Finalize or post at least one accounting transaction before reviewing reports.",
       "Extra blocker: Keep summary short.",
     ],
     warnings: ["First invoice: Create a test invoice before go-live rehearsals."],
@@ -312,6 +339,26 @@ function sampleChecklist(): DashboardOnboardingChecklist {
         href: "/bank-accounts",
         evidence: ["Active bank/cash profiles: 0"],
         blockers: ["Create an active bank, cash, wallet, card, or other payment profile."],
+        warnings: [],
+      },
+      {
+        id: "first_payment",
+        label: "At least one customer payment",
+        status: "INCOMPLETE",
+        description: "Record the first customer payment.",
+        href: "/sales/customer-payments",
+        evidence: ["Posted customer payments: 0"],
+        blockers: ["Record a customer payment against an open invoice."],
+        warnings: [],
+      },
+      {
+        id: "first_report",
+        label: "First reportable activity",
+        status: "INCOMPLETE",
+        description: "Review a first report.",
+        href: "/reports/profit-and-loss",
+        evidence: ["Posted journal entries: 0"],
+        blockers: ["Finalize or post at least one accounting transaction before reviewing reports."],
         warnings: [],
       },
       {

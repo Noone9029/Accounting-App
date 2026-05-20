@@ -23,13 +23,15 @@ describe("setup wizard components", () => {
     render(<SetupWizardContent checklist={sampleChecklist()} />);
 
     expect(screen.getByRole("heading", { name: "Guided setup" })).toBeInTheDocument();
-    expect(screen.getByText("33%")).toBeInTheDocument();
+    expect(screen.getByText("27%")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Organization profile" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Chart of accounts" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "VAT/tax profile" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "First customer" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "First invoice" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Bank/payment method" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "First payment" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "First report" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "ZATCA local readiness visibility" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Contact VAT/ID validation" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Storage readiness" })).toBeInTheDocument();
@@ -37,6 +39,7 @@ describe("setup wizard components", () => {
     expect(screen.getByText("Create at least one active tax rate.")).toBeInTheDocument();
     expect(screen.getByText("Create a test invoice before go-live rehearsals.")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Open tax rates" })[0]).toHaveAttribute("href", "/tax-rates");
+    expect(screen.getByRole("link", { name: "Continue: VAT/tax profile" })).toHaveAttribute("href", "/tax-rates");
   });
 
   it("shows top blockers and a safe failed-load fallback", () => {
@@ -70,7 +73,7 @@ describe("setup wizard components", () => {
     render(<DashboardOnboardingCard checklist={sampleChecklist()} />);
 
     expect(screen.getByRole("link", { name: "Open setup wizard" })).toHaveAttribute("href", "/setup");
-    expect(screen.getByText("33% complete")).toBeInTheDocument();
+    expect(screen.getByText("17% complete")).toBeInTheDocument();
     expect(screen.getByText(/Next: VAT\/tax profile/)).toBeInTheDocument();
     expect(screen.getByText("3 blockers need review.")).toBeInTheDocument();
   });
@@ -81,7 +84,7 @@ function readyChecklist(): DashboardOnboardingChecklist {
     ...sampleChecklist(),
     status: "READY_FOR_SELLABLE_V1_REVIEW",
     readinessScore: 100,
-    completedCount: 9,
+    completedCount: 11,
     blockers: [],
     warnings: [],
     recommendedNextSteps: ["Run a go-live rehearsal."],
@@ -97,9 +100,9 @@ function sampleChecklist(): DashboardOnboardingChecklist {
     organizationId: "org-1",
     generatedAt: "2026-05-18T00:00:00.000Z",
     status: "BLOCKED",
-    readinessScore: 33,
+    readinessScore: 27,
     completedCount: 3,
-    totalCount: 9,
+    totalCount: 11,
     productionCompliance: false,
     zatcaProductionCompliance: false,
     realZatcaNetworkEnabled: false,
@@ -109,6 +112,8 @@ function sampleChecklist(): DashboardOnboardingChecklist {
       "VAT/tax profile: Create at least one active tax rate.",
       "First customer: Create a customer contact.",
       "Bank/payment method: Create an active bank, cash, wallet, card, or other payment profile.",
+      "First payment: Record a customer payment against an open invoice.",
+      "First reportable activity: Finalize or post at least one accounting transaction before reviewing reports.",
       "Extra blocker: Keep summary short.",
     ],
     warnings: ["First invoice: Create a test invoice before go-live rehearsals."],
@@ -126,6 +131,24 @@ function sampleChecklist(): DashboardOnboardingChecklist {
         "/bank-accounts",
         ["Active bank/cash profiles: 0"],
         ["Create an active bank, cash, wallet, card, or other payment profile."],
+        [],
+      ),
+      item(
+        "first_payment",
+        "At least one customer payment",
+        "INCOMPLETE",
+        "/sales/customer-payments",
+        ["Posted customer payments: 0"],
+        ["Record a customer payment against an open invoice."],
+        [],
+      ),
+      item(
+        "first_report",
+        "First reportable activity",
+        "INCOMPLETE",
+        "/reports/profit-and-loss",
+        ["Posted journal entries: 0"],
+        ["Finalize or post at least one accounting transaction before reviewing reports."],
         [],
       ),
       item(

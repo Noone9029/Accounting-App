@@ -14,7 +14,7 @@ Objective: make the current AR/AP MVP reliable enough for structured user QA.
 
 Tasks:
 
-- Run guided QA through every implemented frontend route.
+- Run guided QA through every implemented frontend route, starting with the new first-workflow path from setup to first report.
 - Review dashboard KPI definitions, chart thresholds, attention item thresholds, and quick-action placement with an accountant/product owner.
 - Fix UX inconsistencies, especially supplier AP balance labels.
 - Wire the new Playwright browser E2E smoke into CI and expand it where user-facing regressions are found.
@@ -35,6 +35,14 @@ Risk level: Medium.
 Recommended next prompt:
 
 > Run a full route QA polish pass across implemented LedgerByte screens, fixing only real loading, empty, error, permission, and responsive UI defects without changing accounting behavior.
+
+## 2026-05-21 Guided first-workflow UX
+
+- Setup and dashboard now guide a new business user through profile, VAT/tax details, first customer, first sales invoice, first customer payment, and first report.
+- The checklist uses real onboarding data from `GET /dashboard/onboarding-checklist`; no step is faked as complete.
+- Contacts, new sales invoice, new customer payment, and reports pages now include clearer first-use guidance and links back to guided setup.
+- ZATCA copy remains safe and says production ZATCA is not connected yet.
+- Remaining UX work: manual route QA, responsive review, visual regression coverage, richer empty/error states, and accountant review of report/dashboard definitions.
 
 ## Phase 2: Finish Wafeq Core Accounting Modules
 

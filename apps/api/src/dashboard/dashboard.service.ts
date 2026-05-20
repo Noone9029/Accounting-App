@@ -203,8 +203,17 @@ export class DashboardService {
       },
     });
     const salesInvoiceCount = await this.prisma.salesInvoice.count({ where: { organizationId } });
+    const finalizedSalesInvoiceCount = await this.prisma.salesInvoice.count({
+      where: { organizationId, status: SalesInvoiceStatus.FINALIZED },
+    });
     const activeBankAccountCount = await this.prisma.bankAccountProfile.count({
       where: { organizationId, status: BankAccountStatus.ACTIVE },
+    });
+    const postedCustomerPaymentCount = await this.prisma.customerPayment.count({
+      where: { organizationId, status: CustomerPaymentStatus.POSTED },
+    });
+    const postedJournalEntryCount = await this.prisma.journalEntry.count({
+      where: { organizationId, status: JournalEntryStatus.POSTED },
     });
     const zatcaProfile = await this.prisma.zatcaOrganizationProfile.findUnique({
       where: { organizationId },
@@ -290,9 +299,12 @@ export class DashboardService {
         status: salesInvoiceCount > 0 ? "COMPLETE" : "INCOMPLETE",
         description: "Creating a draft or finalized invoice proves the first-sale workflow is reachable.",
         href: "/sales/invoices",
-        evidence: [`Sales invoices: ${salesInvoiceCount}`],
+        evidence: [`Sales invoices: ${salesInvoiceCount}`, `Finalized sales invoices: ${finalizedSalesInvoiceCount}`],
         blockers: [],
-        warnings: salesInvoiceCount > 0 ? [] : ["Create a test invoice before go-live rehearsals."],
+        warnings: [
+          ...(salesInvoiceCount > 0 ? [] : ["Create a first invoice before go-live rehearsals."]),
+          ...(salesInvoiceCount > 0 && finalizedSalesInvoiceCount === 0 ? ["Finalize an invoice before recording the first payment."] : []),
+        ],
       },
       {
         id: "bank_payment_method",
@@ -302,6 +314,30 @@ export class DashboardService {
         href: "/bank-accounts",
         evidence: [`Active bank/cash profiles: ${activeBankAccountCount}`],
         blockers: activeBankAccountCount > 0 ? [] : ["Create an active bank, cash, wallet, card, or other payment profile."],
+        warnings: [],
+      },
+      {
+        id: "first_payment",
+        label: "At least one customer payment",
+        status: postedCustomerPaymentCount > 0 ? "COMPLETE" : "INCOMPLETE",
+        description: "Recording the first customer payment closes the first receivables loop and updates dashboard/reporting totals.",
+        href: "/sales/customer-payments",
+        evidence: [`Posted customer payments: ${postedCustomerPaymentCount}`],
+        blockers: [
+          ...(activeBankAccountCount > 0 ? [] : ["Create an active bank or cash profile before recording payment."]),
+          ...(finalizedSalesInvoiceCount > 0 ? [] : ["Finalize a sales invoice before recording payment."]),
+          ...(postedCustomerPaymentCount > 0 ? [] : ["Record a customer payment against an open invoice."]),
+        ],
+        warnings: [],
+      },
+      {
+        id: "first_report",
+        label: "First reportable activity",
+        status: postedJournalEntryCount > 0 ? "COMPLETE" : "INCOMPLETE",
+        description: "Posted accounting activity gives the dashboard and reports something real to show after the first invoice/payment workflow.",
+        href: "/reports/profit-and-loss",
+        evidence: [`Posted journal entries: ${postedJournalEntryCount}`],
+        blockers: postedJournalEntryCount > 0 ? [] : ["Finalize or post at least one accounting transaction before reviewing reports."],
         warnings: [],
       },
       {

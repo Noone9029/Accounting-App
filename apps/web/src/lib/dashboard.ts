@@ -194,8 +194,20 @@ export interface SetupWizardDashboardSummary {
   setupHref: string;
   progressPercent: number;
   nextIncompleteStep: SetupWizardStep | null;
+  workflowProgressPercent: number;
+  workflowProgressWidth: string;
+  nextWorkflowStep: SetupWizardStep | null;
   conciseBlockerSummary: string;
 }
+
+export const FIRST_ACCOUNTING_WORKFLOW_STEP_IDS = [
+  "organization_profile",
+  "tax_profile",
+  "customer_created",
+  "first_invoice",
+  "first_payment",
+  "first_report",
+] as const;
 
 const SETUP_STEP_COPY: Record<
   string,
@@ -227,13 +239,13 @@ const SETUP_STEP_COPY: Record<
   customer_created: {
     title: "First customer",
     actionHref: "/contacts",
-    actionLabel: "Open contacts",
+    actionLabel: "Add first customer",
     safeExplanation: "Create or review customer records from the contacts page. The wizard does not create contacts automatically.",
   },
   first_invoice: {
     title: "First invoice",
-    actionHref: "/sales/invoices",
-    actionLabel: "Open invoices",
+    actionHref: "/sales/invoices/new",
+    actionLabel: "Create first invoice",
     safeExplanation: "Use the sales invoice workflow for a draft or test invoice. The wizard does not finalize or submit invoices.",
   },
   bank_payment_method: {
@@ -241,6 +253,18 @@ const SETUP_STEP_COPY: Record<
     actionHref: "/bank-accounts",
     actionLabel: "Open bank accounts",
     safeExplanation: "Review bank, cash, card, wallet, or other payment profiles. The wizard does not post balances or payments.",
+  },
+  first_payment: {
+    title: "First payment",
+    actionHref: "/sales/customer-payments/new",
+    actionLabel: "Record first payment",
+    safeExplanation: "Record a customer payment against a finalized invoice. The wizard does not allocate or post payments automatically.",
+  },
+  first_report: {
+    title: "First report",
+    actionHref: "/reports/profit-and-loss",
+    actionLabel: "View first report",
+    safeExplanation: "Open Profit & Loss after posted activity exists. The wizard does not generate or export reports automatically.",
   },
   zatca_local_readiness_visible: {
     title: "ZATCA local readiness visibility",
@@ -303,11 +327,39 @@ export function setupWizardSummary(checklist: DashboardOnboardingChecklist): Set
 
 export function setupWizardDashboardSummary(checklist: DashboardOnboardingChecklist): SetupWizardDashboardSummary {
   const summary = setupWizardSummary(checklist);
+  const workflow = firstAccountingWorkflowSummary(checklist);
   return {
     setupHref: SETUP_WIZARD_ROUTE,
     progressPercent: summary.progressPercent,
     nextIncompleteStep: summary.nextStep,
+    workflowProgressPercent: workflow.progressPercent,
+    workflowProgressWidth: workflow.progressWidth,
+    nextWorkflowStep: workflow.nextStep,
     conciseBlockerSummary: conciseSetupBlockerSummary(summary.topBlockers.length),
+  };
+}
+
+export function firstAccountingWorkflowSteps(checklist: DashboardOnboardingChecklist): SetupWizardStep[] {
+  const stepsById = new Map(setupWizardSteps(checklist).map((step) => [step.id, step]));
+  return FIRST_ACCOUNTING_WORKFLOW_STEP_IDS.flatMap((id) => {
+    const step = stepsById.get(id);
+    return step ? [step] : [];
+  });
+}
+
+export function firstAccountingWorkflowSummary(checklist: DashboardOnboardingChecklist): Pick<
+  SetupWizardSummary,
+  "completedSteps" | "totalSteps" | "progressPercent" | "progressWidth" | "nextStep"
+> {
+  const steps = firstAccountingWorkflowSteps(checklist);
+  const totalSteps = steps.length;
+  const completedSteps = steps.filter((step) => step.status === "COMPLETE").length;
+  return {
+    completedSteps,
+    totalSteps,
+    progressPercent: setupWizardProgressPercent(completedSteps, totalSteps),
+    progressWidth: onboardingChecklistProgressPercent(completedSteps, totalSteps),
+    nextStep: nextIncompleteSetupWizardStep(steps),
   };
 }
 

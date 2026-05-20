@@ -270,6 +270,33 @@ export function SalesInvoiceForm({ initialInvoice }: SalesInvoiceFormProps) {
         {!organizationId ? <StatusMessage type="info">Log in and select an organization before creating invoices.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading invoice setup data...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {!loading && organizationId && customers.length === 0 ? (
+          <StatusMessage type="empty">
+            Add a customer before creating the first invoice.{" "}
+            <Link href="/contacts" className="font-semibold text-palm hover:underline">
+              Open contacts
+            </Link>
+            .
+          </StatusMessage>
+        ) : null}
+        {!loading && organizationId && postingRevenueAccounts.length === 0 ? (
+          <StatusMessage type="empty">
+            Add or activate a posting revenue account before saving invoice lines.{" "}
+            <Link href="/accounts" className="font-semibold text-palm hover:underline">
+              Open accounts
+            </Link>
+            .
+          </StatusMessage>
+        ) : null}
+        {!loading && organizationId && activeSalesTaxRates.length === 0 ? (
+          <StatusMessage type="info">
+            No active sales tax rate is available. You can save non-taxed draft lines, or review{" "}
+            <Link href="/tax-rates" className="font-semibold text-palm hover:underline">
+              VAT/tax rates
+            </Link>
+            {" "}before customer-facing invoices.
+          </StatusMessage>
+        ) : null}
       </div>
 
       <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">

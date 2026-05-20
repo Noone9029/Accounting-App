@@ -37,6 +37,24 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Guided first-workflow UX added
+
+Added a user-facing first accounting workflow across setup, dashboard, customer, invoice, payment, and report screens without changing accounting behavior.
+
+Risk reduced:
+
+- The setup wizard now presents a first-workflow progress path for business profile, VAT/tax details, first customer, first invoice, first payment, and first report.
+- `GET /dashboard/onboarding-checklist` now exposes real-data first-payment and first-reportable-activity checklist states.
+- The dashboard empty state and onboarding card now point to the next incomplete setup or first-accounting action.
+- Contacts, new sales invoice, new customer payment, and reports pages now include first-use guidance and links to the relevant next workflow step.
+- ZATCA guidance remains conservative and does not claim production ZATCA connectivity or compliance.
+
+Remaining risks:
+
+- The wider app still needs manual route QA, responsive review, visual regression coverage, and broader empty/error-state polish.
+- Full smoke and full E2E remain intentionally pending from earlier deployment work.
+- Supabase RLS and least-privilege runtime role hardening remain parked until the safe Vercel env mutation path is available.
+
 ### Backup restore readiness added
 
 Added backup/restore readiness planning and metadata-only evidence capture without running backups, running restores, exporting customer data, or exposing secrets.

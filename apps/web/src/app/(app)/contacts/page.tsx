@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
@@ -95,14 +96,27 @@ export default function ContactsPage() {
 
   return (
     <section>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Contacts</h1>
-        <p className="mt-1 text-sm text-steel">Customers, suppliers, and combined contacts from the active organization.</p>
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">Contacts</h1>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
+            Start with one customer. VAT and buyer-ID fields can be added now or reviewed later before ZATCA rehearsals.
+          </p>
+        </div>
+        <Link href="/setup" className="inline-flex items-center gap-2 self-start rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          Guided setup
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Link>
       </div>
 
       {canManageContacts ? (
       <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <h2 className="text-base font-semibold text-ink">Create contact</h2>
+        <div className="flex flex-col gap-1">
+          <h2 className="text-base font-semibold text-ink">Add a customer or supplier</h2>
+          <p className="text-sm leading-6 text-steel">
+            For the first invoice, choose Customer or Both, then add a name. Address and ID fields improve later VAT/ZATCA checks but do not send anything externally.
+          </p>
+        </div>
         <form onSubmit={createContact} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
           <select name="type" required className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
             {contactTypes.map((type) => (
@@ -170,7 +184,15 @@ export default function ContactsPage() {
         {loading ? <StatusMessage type="loading">Loading contacts...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {!loading && organizationId && contacts.length === 0 ? <StatusMessage type="empty">No contacts found.</StatusMessage> : null}
+        {!loading && organizationId && contacts.length === 0 ? (
+          <StatusMessage type="empty">
+            No contacts yet. Add a first customer above, then continue to{" "}
+            <Link href="/sales/invoices/new" className="font-semibold text-palm hover:underline">
+              create the first invoice
+            </Link>
+            .
+          </StatusMessage>
+        ) : null}
       </div>
 
       {contacts.length > 0 ? (

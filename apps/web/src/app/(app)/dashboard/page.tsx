@@ -15,7 +15,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
-import { DashboardOnboardingCard } from "@/components/onboarding/setup-wizard";
+import { DashboardFirstWorkflowPrompt, DashboardOnboardingCard } from "@/components/onboarding/setup-wizard";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
@@ -168,9 +168,7 @@ export default function DashboardPage() {
       {summary ? (
         <>
           {dashboardIsEmpty(summary) ? (
-            <div className="mt-5 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-steel shadow-panel">
-              No operational data yet. Use the quick actions below to start creating accounting records.
-            </div>
+            <DashboardFirstWorkflowPrompt checklist={onboardingChecklist} />
           ) : null}
 
           <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">

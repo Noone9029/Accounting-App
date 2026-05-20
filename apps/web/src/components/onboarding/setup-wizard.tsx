@@ -2,9 +2,9 @@
 
 import { AlertTriangle, ArrowRight, CheckCircle2, CircleDashed, XCircle } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
 import {
-  onboardingChecklistProgressPercent,
+  firstAccountingWorkflowSteps,
+  firstAccountingWorkflowSummary,
   setupWizardDashboardSummary,
   setupWizardSteps,
   setupWizardSummary,
@@ -14,6 +14,8 @@ import type { DashboardOnboardingChecklist, DashboardOnboardingChecklistItemStat
 export function SetupWizardContent({ checklist }: Readonly<{ checklist: DashboardOnboardingChecklist }>) {
   const summary = setupWizardSummary(checklist);
   const steps = setupWizardSteps(checklist);
+  const workflowSummary = firstAccountingWorkflowSummary(checklist);
+  const workflowSteps = firstAccountingWorkflowSteps(checklist);
 
   return (
     <section>
@@ -21,8 +23,9 @@ export function SetupWizardContent({ checklist }: Readonly<{ checklist: Dashboar
         <div>
           <h1 className="text-2xl font-semibold text-ink">Guided setup</h1>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
-            Checklist-backed navigation for a controlled beta workspace. This wizard is read-only and does not create,
-            update, finalize, submit, sign, or persist setup data.
+            Follow the first accounting loop: profile, VAT, customer, invoice, payment, and report. This wizard reads
+            real workspace data and links to the right screens without creating, finalizing, submitting, signing, or
+            persisting setup data for you.
           </p>
           <p className="mt-1 text-xs text-steel">Checklist generated {new Date(checklist.generatedAt).toLocaleString()}.</p>
         </div>
@@ -34,6 +37,8 @@ export function SetupWizardContent({ checklist }: Readonly<{ checklist: Dashboar
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>
       </div>
+
+      <FirstWorkflowPanel summary={workflowSummary} steps={workflowSteps} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[0.7fr_1.3fr]">
         <aside className="space-y-4">
@@ -128,7 +133,7 @@ export function DashboardOnboardingCard({ checklist }: Readonly<{ checklist: Das
   return (
     <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold text-ink">Sellable-v1 onboarding</h2>
+        <h2 className="text-base font-semibold text-ink">First accounting workflow</h2>
         <Link href={summary.setupHref} className="inline-flex items-center gap-1 text-xs font-semibold text-palm hover:underline">
           Open setup wizard
           <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -137,9 +142,9 @@ export function DashboardOnboardingCard({ checklist }: Readonly<{ checklist: Das
       <div className="mt-4 rounded-md border border-slate-100 bg-mist px-3 py-3 text-sm">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="font-semibold text-ink">{summary.progressPercent}% complete</div>
+            <div className="font-semibold text-ink">{summary.workflowProgressPercent}% complete</div>
             <div className="mt-1 text-xs text-steel">
-              {summary.nextIncompleteStep ? `Next: ${summary.nextIncompleteStep.title}` : "Ready for controlled beta review"}
+              {summary.nextWorkflowStep ? `Next: ${summary.nextWorkflowStep.title}` : "First workflow complete"}
             </div>
           </div>
           <div className="text-right text-xs text-steel">{summary.conciseBlockerSummary}</div>
@@ -147,13 +152,108 @@ export function DashboardOnboardingCard({ checklist }: Readonly<{ checklist: Das
         <div className="mt-3 h-2 rounded-full bg-white">
           <div
             className="h-2 rounded-full bg-palm"
-            style={{ width: onboardingChecklistProgressPercent(checklist.completedCount, checklist.totalCount) }}
+            style={{ width: summary.workflowProgressWidth }}
           />
         </div>
       </div>
+      {summary.nextWorkflowStep ? (
+        <Link
+          href={summary.nextWorkflowStep.actionHref}
+          className="mt-3 inline-flex items-center gap-2 rounded-md bg-palm px-3 py-2 text-sm font-medium text-white hover:bg-palm-dark"
+        >
+          {summary.nextWorkflowStep.actionLabel}
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Link>
+      ) : null}
       <div className="mt-3 text-xs leading-5 text-steel">
         Read-only checklist guidance. ZATCA production compliance remains false and real ZATCA network behavior is not enabled.
       </div>
+    </div>
+  );
+}
+
+export function DashboardFirstWorkflowPrompt({ checklist }: Readonly<{ checklist: DashboardOnboardingChecklist | null }>) {
+  const summary = checklist ? setupWizardDashboardSummary(checklist) : null;
+  const nextStep = summary?.nextWorkflowStep;
+
+  return (
+    <div className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-900 shadow-panel">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div className="font-semibold text-ink">Start with one complete sale</div>
+          <p className="mt-1 max-w-3xl leading-6">
+            LedgerByte becomes useful once a customer, invoice, payment, and report exist. The setup wizard checks those
+            milestones from real workspace data.
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          {nextStep ? (
+            <Link href={nextStep.actionHref} className="inline-flex items-center gap-2 rounded-md bg-palm px-3 py-2 font-medium text-white hover:bg-palm-dark">
+              {nextStep.actionLabel}
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          ) : null}
+          <Link href="/setup" className="inline-flex items-center gap-2 rounded-md border border-emerald-300 bg-white px-3 py-2 font-medium text-emerald-900 hover:bg-emerald-100">
+            Open setup
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FirstWorkflowPanel({
+  summary,
+  steps,
+}: Readonly<{
+  summary: ReturnType<typeof firstAccountingWorkflowSummary>;
+  steps: ReturnType<typeof firstAccountingWorkflowSteps>;
+}>) {
+  return (
+    <div className="mb-5 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-ink">First accounting workflow</h2>
+          <p className="mt-1 text-sm leading-6 text-steel">
+            Complete one customer sale from setup through report review. Each step is based on existing records, not a
+            simulated completion flag.
+          </p>
+        </div>
+        <div className="min-w-40">
+          <div className="text-right text-sm font-semibold text-ink">{summary.progressPercent}% complete</div>
+          <div className="mt-2 h-2 rounded-full bg-slate-100">
+            <div className="h-2 rounded-full bg-palm" style={{ width: summary.progressWidth }} />
+          </div>
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+        {steps.map((step, index) => (
+          <Link
+            key={step.id}
+            href={step.actionHref}
+            className="flex items-start gap-3 rounded-md border border-slate-200 px-3 py-3 hover:border-palm/40 hover:bg-slate-50"
+          >
+            <div className={`mt-0.5 ${step.statusClassName}`}>
+              <StatusIcon status={step.status} />
+            </div>
+            <div>
+              <div className="text-xs font-semibold uppercase text-steel">Step {index + 1}</div>
+              <div className="mt-1 text-sm font-semibold text-ink">{step.title}</div>
+              <div className="mt-1 text-xs leading-5 text-steel">{step.statusLabel}</div>
+            </div>
+          </Link>
+        ))}
+      </div>
+      {summary.nextStep ? (
+        <Link
+          href={summary.nextStep.actionHref}
+          className="mt-4 inline-flex items-center gap-2 rounded-md bg-palm px-3 py-2 text-sm font-medium text-white hover:bg-palm-dark"
+        >
+          Continue: {summary.nextStep.title}
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Link>
+      ) : null}
     </div>
   );
 }

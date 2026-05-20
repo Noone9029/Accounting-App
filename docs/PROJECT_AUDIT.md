@@ -42,7 +42,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 ## What Works End To End
 
 - Register/login, organization selection, and role-aware `/auth/me` membership responses.
-- Read-only dashboard summary and UI showing AR/AP, banking, inventory, report-health, compliance/admin counts, attention items, and permission-gated quick actions.
+- Read-only dashboard summary and UI showing AR/AP, banking, inventory, report-health, compliance/admin counts, attention items, permission-gated quick actions, and a first-workflow prompt for setup, customer, invoice, payment, and report progress.
 - Tenant-scoped role permissions with protected default Owner/Admin/Accountant/Sales/Purchases/Viewer roles.
 - Role and organization member management UI/API with custom role creation, permission matrices, role/status changes, active-provider email invites, invite acceptance, password reset, email provider readiness/diagnostics/sender-domain evidence/retry plan/provider events/test-send, token request rate limits, expired-token cleanup, email outbox inspection, audit log review UI, filtered audit CSV export, retention dry-run controls, and guarded number-sequence settings.
 - API permission guards for sensitive accounting, document, report, fiscal period, and ZATCA actions.
@@ -124,6 +124,14 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Remaining blockers: Data API Dashboard toggle was not available through the current tools, full RLS policy design is not implemented, and a least-privilege Prisma runtime DB role still needs a dedicated validation pass.
 - Follow-up runtime-role pass: planned `ledgerbyte_app_runtime_user_testing` with no admin/RLS-bypass privileges, public app-table DML only, no `_prisma_migrations` DML, and separate `DIRECT_URL` migration/admin credentials. It was not created because the current session lacked a safe way to update the Vercel API `DATABASE_URL`, store the generated password, redeploy, and validate without printing secrets.
 - Recommended next prompt: enable a safe Vercel env mutation path, then create and validate the least-privilege Prisma runtime DB role in user-testing while keeping migration/direct credentials separate.
+
+## 2026-05-21 Guided first-workflow UX
+
+- Added a guided first accounting workflow across setup, dashboard, contacts, first invoice, first payment, and reports without changing accounting behavior.
+- The onboarding checklist now includes real-data steps for first customer payment and first reportable posted activity.
+- The dashboard empty state and onboarding card point to the next incomplete action instead of only showing generic operational emptiness.
+- New-customer, new-invoice, payment, and reports pages now explain the first-use path with links to the relevant next screen.
+- Security hardening remains parked until a safe Vercel env mutation path is available; no RLS, runtime role, Vercel env, seed, migration, smoke, or E2E action was part of this product pass.
 
 ## Audit Verification Commands
 

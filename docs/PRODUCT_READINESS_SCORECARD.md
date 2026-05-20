@@ -22,7 +22,7 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 | Storage/scalability | 55 | Storage config/readiness, feature-flagged S3-compatible attachment upload/download, migration plan counts, database default works locally, backup/restore evidence readiness, and local database-backed restore-count evidence. | No DB-to-S3 migration executor, signed URLs, object lifecycle, generated-document S3 path, scanning, hosted PITR proof, or real-bucket validation evidence. | Test S3 mode against a non-production bucket and execute an object-storage restore drill. |
 | Browser QA/E2E | 64 | 11 Playwright specs for critical routes, deployed E2E workflow/docs, API smoke remains deep accounting check. | No visual regression, no scheduled browser CI, browser tests are smoke-level, no data reset strategy. | Schedule non-production deployed E2E and expand broken-route coverage. |
 | Deployment readiness | 56 | Vercel/Supabase docs, API health/root/readiness, deployed E2E runbook/workflow, CI DB checklist, Supabase security review, user-testing Data API grant mitigation, backup/restore readiness endpoints, and one local non-production Postgres restore drill. | No production IaC, hosted Supabase backup/PITR proof, real object-storage restore proof, monitoring, broad RLS/private-network decision, least-privilege runtime DB role, environment promotion policy. | Implement least-privilege runtime DB role validation, then verify hosted Supabase PITR/object storage and add monitoring/incident runbooks. |
-| UX/product polish | 58 | Broad route coverage, dashboard KPI cards, lightweight charts/drill-downs, settings pages, panels, helper tests, permission-aware nav. | List filters, bulk actions, customizable dashboards, onboarding wizard, empty/error states, mobile polish, visual consistency. | Run route QA and add deeper dashboard/accounting review polish. |
+| UX/product polish | 62 | Broad route coverage, dashboard KPI cards, lightweight charts/drill-downs, settings pages, panels, helper tests, permission-aware nav, and guided first-workflow setup for profile, VAT, customer, invoice, payment, and first report. | List filters, bulk actions, customizable dashboards, broader empty/error states, mobile polish, visual consistency, and deeper route QA. | Run route QA and add deeper dashboard/accounting review polish. |
 | Production operations | 34 | Readiness docs, manual smoke/E2E workflows, disabled email worker planning, backup/restore evidence planning, and local non-production restore-drill evidence. | No incident response, observability, real background jobs, data retention executors, support tools, billing, SLAs, hosted PITR proof, or real object-storage restore proof. | Define operations baseline: monitoring, alerts, hosted restore drills, runbooks, and support evidence. |
 
 ## Overall Readiness Interpretation
@@ -39,7 +39,7 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 3. Implement the least-privilege Prisma runtime DB role in user-testing, keeping migration/direct credentials separate and validating with narrow smoke.
 4. LedgerByte generated XML warning cleanup for buyer building-number data, signing/certificate, and Phase 2 QR work.
 5. Dashboard/report accountant review.
-6. UX route QA and E2E expansion.
+6. UX route QA, first-workflow manual review, and E2E expansion.
 7. Audit immutable export/alerting.
 8. Advanced inventory policy: landed cost, FIFO, historical direct-mode handling.
 
@@ -51,6 +51,14 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 - Data API Dashboard disablement and a least-privilege Prisma runtime role were not completed in this pass and remain the next security hardening steps.
 - A follow-up role pass designed `ledgerbyte_app_runtime_user_testing`, but did not create it because the current tool surface could not safely update the Vercel API `DATABASE_URL`, store the new password, redeploy, and validate without printing secrets.
 - Recommended next prompt: establish a safe Vercel API env mutation path, then create and validate `ledgerbyte_app_runtime_user_testing` in the user-testing Supabase project with rollback and narrow smoke validation, without enabling broad RLS.
+
+## 2026-05-21 Guided first-workflow UX update
+
+- UX/product polish moved from 58 to 62 because the setup wizard, dashboard empty state, contacts, first sales invoice, customer payment, and reports surfaces now steer a new business user through one complete first sale.
+- `GET /dashboard/onboarding-checklist` now reports first-payment and first-reportable-activity steps from real tenant data instead of marking progress artificially.
+- The dashboard onboarding card and empty-state prompt now point to the next incomplete profile/VAT/customer/invoice/payment/report action.
+- Customer, invoice, payment, and report pages now include clearer helper copy and next-action links for first-use setup.
+- ZATCA messaging remains conservative: the UI can show readiness guidance, but it does not claim production ZATCA connectivity or compliance.
 
 ## Fresh EGS SDK Hash Update
 

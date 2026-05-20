@@ -204,11 +204,18 @@ export default function NewCustomerPaymentPage() {
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Record customer payment</h1>
-          <p className="mt-1 text-sm text-steel">Allocate received money to finalized open invoices.</p>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
+            Allocate received money to finalized open invoices. If this is your first workflow, finalize an invoice first, then come back here to close the receivables loop.
+          </p>
         </div>
-        <Link href="/sales/customer-payments" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Back
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/setup" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Guided setup
+          </Link>
+          <Link href="/sales/customer-payments" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Back
+          </Link>
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -216,6 +223,24 @@ export default function NewCustomerPaymentPage() {
         {loadingSetup ? <StatusMessage type="loading">Loading payment setup data...</StatusMessage> : null}
         {loadingInvoices ? <StatusMessage type="loading">Loading open invoices...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {!loadingSetup && organizationId && customers.length === 0 ? (
+          <StatusMessage type="empty">
+            Add a customer and create a finalized invoice before recording the first payment.{" "}
+            <Link href="/contacts" className="font-semibold text-palm hover:underline">
+              Open contacts
+            </Link>
+            .
+          </StatusMessage>
+        ) : null}
+        {!loadingSetup && organizationId && paidThroughAccounts.length === 0 ? (
+          <StatusMessage type="empty">
+            Add an active cash or bank posting account before recording payment.{" "}
+            <Link href="/bank-accounts" className="font-semibold text-palm hover:underline">
+              Open bank accounts
+            </Link>
+            .
+          </StatusMessage>
+        ) : null}
       </div>
 
       <form onSubmit={onSubmit} className="mt-5 space-y-5">
@@ -301,7 +326,13 @@ export default function NewCustomerPaymentPage() {
           </table>
           {!loadingInvoices && customerId && openInvoices.length === 0 ? (
             <div className="px-4 py-5">
-              <StatusMessage type="empty">No finalized open invoices found for this customer.</StatusMessage>
+              <StatusMessage type="empty">
+                No finalized open invoices found for this customer.{" "}
+                <Link href="/sales/invoices/new" className="font-semibold text-palm hover:underline">
+                  Create and finalize an invoice
+                </Link>
+                {" "}before recording payment.
+              </StatusMessage>
             </div>
           ) : null}
         </div>

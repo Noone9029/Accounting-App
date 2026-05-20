@@ -44,9 +44,30 @@ const reportLinks = [
 export function ReportsIndexPage() {
   return (
     <section>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Reports</h1>
-        <p className="mt-1 text-sm text-steel">Accountant-facing reports derived from posted journal entries and current open AR/AP balances.</p>
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">Reports</h1>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
+            Start with Profit & Loss after your first finalized invoice or payment. Reports are derived from posted journals and current open AR/AP balances.
+          </p>
+        </div>
+        <Link href="/setup" className="self-start rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          Guided setup
+        </Link>
+      </div>
+      <div className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm leading-6 text-emerald-900 shadow-panel">
+        <div className="font-semibold text-ink">First report path</div>
+        <p className="mt-1">
+          Use Profit & Loss for the first business result, then Trial Balance to confirm debits and credits stay balanced.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link href="/reports/profit-and-loss" className="rounded-md bg-palm px-3 py-2 font-medium text-white hover:bg-palm-dark">
+            Open Profit & Loss
+          </Link>
+          <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 font-medium text-emerald-900 hover:bg-emerald-100">
+            Back to dashboard
+          </Link>
+        </div>
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {reportLinks.map((link) => (
