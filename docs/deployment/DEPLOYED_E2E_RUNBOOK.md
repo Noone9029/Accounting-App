@@ -257,6 +257,20 @@ corepack pnpm smoke:accounting:tail
 
 The tail slice creates its own smoke customer/supplier/document records and covers ZATCA-safe no-network checks, local/mock CSID and XML/hash/QR flows, blocked clearance/reporting responses, customer payments, overpayments, refunds, credit notes, purchase bills, purchase debit notes, supplier payments/refunds, ledgers/statements, receipt/PDF/report endpoints, generated document archive downloads, uploaded attachments, representative audit log redaction, storage readiness, migration-plan dry runs, and backup/restore readiness planning. It must use the same secret-store credential guard, `LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS`, and redacted progress logging as the full smoke.
 
+2026-05-20 tail-slice validation:
+
+- Deployment tested: API `dpl_6aYo1qozin4cLw1NHvUieaWDV1vE`, web `dpl_CikxbkGdssTwCZUo8Hon9VCvkYTj`, commit `1b7ff0dbbc331c3f1b721ace29ce2a562c6f381d`.
+- A single secret-store-backed `corepack pnpm smoke:accounting:tail` run used `LEDGERBYTE_SMOKE_PROGRESS=true`, `LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS=60000`, generated-user fallback unset, and a 45-minute hard ceiling.
+- The command was stopped at about 45.45 minutes while still making forward progress. It did not pass inside the requested ceiling.
+- No individual route exceeded the 60-second request timeout, no `[smoke-fetch:error]` lines were logged, and stderr was empty.
+- Last completed route: `GET /supplier-payments/:id -> 200` in 8,015 ms.
+- Last started route: `GET /contacts/:id/supplier-ledger`.
+- Slowest completed route labels: `POST /purchase-bills/:id/void -> 201` in 30,344 ms, `POST /sales-invoices/:id/finalize -> 201` in 27,571 ms, and `POST /purchase-debit-notes/:id/void -> 201` in 26,718 ms.
+- Pre-tail pool snapshot was `active=1`, `idle=5`, `unknown=8`; post-tail snapshot was `active=1`, `idle=7`, `unknown=8`.
+- API `/`, `/health`, and `/readiness` remained HTTP `200`; web `/`, `/setup`, and `/settings/storage` remained HTTP `200`.
+- Runtime-log inspection was unavailable because the Vercel runtime-log connector returned `Auth required`.
+- Classification: the tail slice is still too broad for a 45-minute deployed ceiling. This was not a confirmed route hang, parser hang, DB lock, or recurring `EMAXCONNSESSION`.
+
 2026-05-20 full-smoke ceiling finding:
 
 - A single deployed full smoke against API deployment `dpl_46ix42o9oadwynLgJThkeqP752Mr` and web deployment `dpl_9nYUNaRDSgw2BzEP2fsjPfE2KRuD`, commit `b6d3e2d19d17ac744281988913b17b3be3144890`, was stopped at the 60-minute hard ceiling after about 61.6 minutes.
