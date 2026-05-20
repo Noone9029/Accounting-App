@@ -10,6 +10,7 @@ describe("accounting smoke phase scripts", () => {
   const rootPackage = readJson("package.json");
   const apiPackage = readJson("apps/api/package.json");
   const tailScript = readFileSync(join(repoRoot, "apps/api/scripts/smoke-accounting-tail.ts"), "utf8");
+  const narrowPhases = ["ar", "ap", "documents", "reports", "zatca-safe"] as const;
 
   it("preserves the full smoke and banking smoke commands", () => {
     expect(rootPackage.scripts?.["smoke:accounting"]).toBe("corepack pnpm --filter @ledgerbyte/api smoke:accounting");
@@ -21,6 +22,24 @@ describe("accounting smoke phase scripts", () => {
   it("exposes a bounded tail smoke command for deployed validation", () => {
     expect(rootPackage.scripts?.["smoke:accounting:tail"]).toBe("corepack pnpm --filter @ledgerbyte/api smoke:accounting:tail");
     expect(apiPackage.scripts?.["smoke:accounting:tail"]).toBe("tsx scripts/smoke-accounting-tail.ts");
+  });
+
+  it("exposes narrow deployed tail phase commands", () => {
+    for (const phase of narrowPhases) {
+      expect(rootPackage.scripts?.[`smoke:accounting:${phase}`]).toBe(
+        `corepack pnpm --filter @ledgerbyte/api smoke:accounting:${phase}`,
+      );
+      expect(apiPackage.scripts?.[`smoke:accounting:${phase}`]).toBe(`tsx scripts/smoke-accounting-tail.ts --phase=${phase}`);
+    }
+  });
+
+  it("keeps the aggregate tail command wired to the narrow phases in order", () => {
+    expect(tailScript).toContain('const TAIL_PHASE_ORDER = ["ar", "ap", "documents", "reports", "zatca-safe"] as const;');
+    for (const phase of narrowPhases) {
+      expect(tailScript).toContain(`case "${phase}":`);
+    }
+    expect(tailScript).toContain("await runTailSmokePhase(narrowPhase);");
+    expect(tailScript).toContain("parseTailSmokePhase(process.argv)");
   });
 
   it("keeps the tail phase on the deployed credential and timeout guardrails", () => {
@@ -39,5 +58,6 @@ describe("accounting smoke phase scripts", () => {
 
     expect(logLines.join("\n")).not.toMatch(/Authorization|Bearer|password|token|DATABASE_URL|DIRECT_URL|service[_-]?role/i);
     expect(logLines.join("\n")).not.toContain("error.body");
+    expect(tailScript).not.toContain("failed with ${response.status}: ${text}");
   });
 });

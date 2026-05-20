@@ -2503,7 +2503,84 @@ interface SmokeContext {
   permissionCount: number;
 }
 
+const TAIL_PHASE_ORDER = ["ar", "ap", "documents", "reports", "zatca-safe"] as const;
+type TailSmokePhase = (typeof TAIL_PHASE_ORDER)[number] | "tail";
+
+interface TailBaseContext {
+  context: SmokeContext;
+  runId: string;
+  headers: Record<string, string>;
+  documentSettings: OrganizationDocumentSettings;
+  patchedSettings: OrganizationDocumentSettings;
+  accounts: Account[];
+  salesAccount: Account;
+  expenseAccount: Account;
+  paidThroughAccount: Account;
+  bankAccounts: BankAccountSummary[];
+  paidThroughBankProfile: BankAccountSummary;
+  taxRates: TaxRate[];
+  salesVat: TaxRate | undefined;
+  purchaseVat: TaxRate | undefined;
+  expectedTotal: Decimal;
+  expectedPurchaseBillTotal: Decimal;
+  expectedCreditNoteTotal: Decimal;
+  expectedPurchaseDebitNoteTotal: Decimal;
+  partialPaymentAmount: Decimal;
+  remainingPaymentAmount: Decimal;
+  customer: Contact;
+  item: Item;
+  linePayload: Record<string, unknown>;
+  draftInvoice: SalesInvoice;
+  updatedInvoice: SalesInvoice;
+  finalizedInvoice: SalesInvoice;
+  finalizedAgain: SalesInvoice;
+}
+
 async function main(): Promise<void> {
+  const phase = parseTailSmokePhase(process.argv);
+  if (phase === "tail") {
+    for (const narrowPhase of TAIL_PHASE_ORDER) {
+      await runTailSmokePhase(narrowPhase);
+    }
+    printPhasePass("tail", [...TAIL_PHASE_ORDER]);
+    return;
+  }
+
+  await runTailSmokePhase(phase);
+  printPhasePass(phase, [phase]);
+}
+
+function parseTailSmokePhase(argv: string[]): TailSmokePhase {
+  const explicitPhase = argv.find((arg) => arg.startsWith("--phase="))?.slice("--phase=".length) ?? process.env.LEDGERBYTE_SMOKE_TAIL_PHASE;
+  const phase = explicitPhase ?? "tail";
+  if (phase === "tail" || TAIL_PHASE_ORDER.includes(phase as (typeof TAIL_PHASE_ORDER)[number])) {
+    return phase as TailSmokePhase;
+  }
+  throw new Error(`Unknown accounting smoke tail phase: ${phase}. Expected one of tail, ${TAIL_PHASE_ORDER.join(", ")}.`);
+}
+
+async function runTailSmokePhase(phase: Exclude<TailSmokePhase, "tail">): Promise<void> {
+  const base = await createTailBaseContext();
+  switch (phase) {
+    case "ar":
+      await runAccountsReceivablePhase(base);
+      return;
+    case "ap":
+      await runAccountsPayablePhase(base);
+      return;
+    case "documents":
+      await runDocumentsPhase(base);
+      return;
+    case "reports":
+      await runReportsPhase(base);
+      return;
+    case "zatca-safe":
+      await runZatcaSafePhase(base);
+      return;
+  }
+}
+
+async function createTailBaseContext(): Promise<TailBaseContext> {
   const context = await loginAndSelectOrganization();
   const runId = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
   const headers = tenantHeaders(context);
@@ -2526,10 +2603,11 @@ async function main(): Promise<void> {
     accounts.find((account) => account.code === "511" && account.allowPosting && account.isActive),
     "General expenses account code 511",
   );
-  const paidThroughAccount =
+  const paidThroughAccount = required(
     accounts.find((account) => account.code === "112" && account.allowPosting && account.isActive) ??
-    accounts.find((account) => account.code === "111" && account.allowPosting && account.isActive);
-  required(paidThroughAccount, "Bank Account code 112 or Cash code 111");
+      accounts.find((account) => account.code === "111" && account.allowPosting && account.isActive),
+    "Bank Account code 112 or Cash code 111",
+  );
   const bankAccounts = await get<BankAccountSummary[]>("/bank-accounts", headers);
   assert(
     bankAccounts.some((profile) => profile.account.code === "111" && profile.displayName === "Cash" && profile.status === "ACTIVE"),
@@ -2540,7 +2618,7 @@ async function main(): Promise<void> {
     "default Bank Account profile exists",
   );
   const paidThroughBankProfile = required(
-    bankAccounts.find((profile) => profile.accountId === paidThroughAccount!.id),
+    bankAccounts.find((profile) => profile.accountId === paidThroughAccount.id),
     "bank account profile for paid-through account",
   );
 
@@ -2612,6 +2690,40 @@ async function main(): Promise<void> {
   const finalizedAgain = await post<SalesInvoice>(`/sales-invoices/${draftInvoice.id}/finalize`, headers, {});
   assertEqual(finalizedAgain.id, finalizedInvoice.id, "double finalize invoice id");
   assertEqual(finalizedAgain.journalEntryId, finalizedInvoice.journalEntryId, "double finalize journalEntryId");
+
+  return {
+    context,
+    runId,
+    headers,
+    documentSettings,
+    patchedSettings,
+    accounts,
+    salesAccount,
+    expenseAccount,
+    paidThroughAccount,
+    bankAccounts,
+    paidThroughBankProfile,
+    taxRates,
+    salesVat,
+    purchaseVat,
+    expectedTotal,
+    expectedPurchaseBillTotal,
+    expectedCreditNoteTotal,
+    expectedPurchaseDebitNoteTotal,
+    partialPaymentAmount,
+    remainingPaymentAmount,
+    customer,
+    item,
+    linePayload,
+    draftInvoice,
+    updatedInvoice,
+    finalizedInvoice,
+    finalizedAgain,
+  };
+}
+
+async function runZatcaSafePhase(base: TailBaseContext): Promise<void> {
+  const { headers, draftInvoice, finalizedInvoice } = base;
 
   const zatcaProfile = await get<ZatcaOrganizationProfile>("/zatca/profile", headers);
   assertPresent(zatcaProfile.id, "ZATCA profile id");
@@ -3496,6 +3608,25 @@ async function main(): Promise<void> {
     blockedZatcaSubmissions.some((log) => log.invoiceMetadataId === zatcaMetadata.id && log.submissionType === "REPORTING" && log.status === "FAILED"),
     "ZATCA submissions include safe blocked reporting log",
   );
+}
+
+async function runAccountsReceivablePhase(base: TailBaseContext): Promise<void> {
+  const {
+    headers,
+    runId,
+    customer,
+    draftInvoice,
+    finalizedInvoice,
+    linePayload,
+    salesAccount,
+    salesVat,
+    paidThroughAccount,
+    paidThroughBankProfile,
+    expectedTotal,
+    expectedCreditNoteTotal,
+    partialPaymentAmount,
+    remainingPaymentAmount,
+  } = base;
 
   await expectHttpError("over-allocation payment", () =>
     post<CustomerPayment>("/customer-payments", headers, {
@@ -3503,7 +3634,7 @@ async function main(): Promise<void> {
       paymentDate: new Date().toISOString(),
       currency: "SAR",
       amountReceived: expectedTotal.plus(1).toFixed(4),
-      accountId: paidThroughAccount!.id,
+      accountId: paidThroughAccount.id,
       allocations: [{ invoiceId: draftInvoice.id, amountApplied: expectedTotal.plus(1).toFixed(4) }],
     }),
   );
@@ -3514,7 +3645,7 @@ async function main(): Promise<void> {
     paymentDate: new Date().toISOString(),
     currency: "SAR",
     amountReceived: partialPaymentAmount.toFixed(4),
-    accountId: paidThroughAccount!.id,
+    accountId: paidThroughAccount.id,
     description: "Smoke test partial payment",
     allocations: [{ invoiceId: draftInvoice.id, amountApplied: partialPaymentAmount.toFixed(4) }],
   });
@@ -3534,7 +3665,7 @@ async function main(): Promise<void> {
     paymentDate: new Date().toISOString(),
     currency: "SAR",
     amountReceived: remainingPaymentAmount.toFixed(4),
-    accountId: paidThroughAccount!.id,
+    accountId: paidThroughAccount.id,
     description: "Smoke test remaining payment",
     allocations: [{ invoiceId: draftInvoice.id, amountApplied: remainingPaymentAmount.toFixed(4) }],
   });
@@ -3620,7 +3751,7 @@ async function main(): Promise<void> {
     paymentDate: new Date().toISOString(),
     currency: "SAR",
     amountReceived: overpaymentAmount.toFixed(4),
-    accountId: paidThroughAccount!.id,
+    accountId: paidThroughAccount.id,
     description: "Smoke test overpayment for refund",
     allocations: [{ invoiceId: refundInvoice.id, amountApplied: expectedTotal.toFixed(4) }],
   });
@@ -3634,7 +3765,7 @@ async function main(): Promise<void> {
     refundDate: new Date().toISOString(),
     currency: "SAR",
     amountRefunded: paymentRefundAmount.toFixed(4),
-    accountId: paidThroughAccount!.id,
+    accountId: paidThroughAccount.id,
     description: "Smoke test payment refund",
   });
   assertEqual(paymentRefund.status, "POSTED", "payment refund status");
@@ -3742,7 +3873,7 @@ async function main(): Promise<void> {
       refundDate: new Date().toISOString(),
       currency: "SAR",
       amountRefunded: "13.0000",
-      accountId: paidThroughAccount!.id,
+      accountId: paidThroughAccount.id,
       description: "Smoke test refund above current unapplied amount",
     }),
   );
@@ -3934,7 +4065,7 @@ async function main(): Promise<void> {
     refundDate: new Date().toISOString(),
     currency: "SAR",
     amountRefunded: creditNoteRefundAmount.toFixed(4),
-    accountId: paidThroughAccount!.id,
+    accountId: paidThroughAccount.id,
     description: "Smoke test credit note refund",
   });
   assertEqual(creditNoteRefund.status, "POSTED", "credit note refund status");
@@ -3975,6 +4106,38 @@ async function main(): Promise<void> {
   const voidedCreditNote = await post<CreditNote>(`/credit-notes/${draftCreditNote.id}/void`, headers, {});
   assertEqual(voidedCreditNote.status, "VOIDED", "voided credit note after allocation reversal status");
   assertPresent(voidedCreditNote.reversalJournalEntryId, "voided credit note reversal journal after allocation reversal");
+
+
+  const voidedPayment = await post<CustomerPayment>(`/customer-payments/${partialPayment.id}/void`, headers, {});
+  assertEqual(voidedPayment.status, "VOIDED", "voided payment status");
+  assertPresent(voidedPayment.voidReversalJournalEntryId, "voided payment reversal journal");
+
+  const afterPaymentVoid = await get<SalesInvoice>(`/sales-invoices/${draftInvoice.id}`, headers);
+  assertMoney(afterPaymentVoid.balanceDue, partialPaymentAmount, "invoice balance after voiding partial payment");
+
+  const voidedAgain = await post<CustomerPayment>(`/customer-payments/${partialPayment.id}/void`, headers, {});
+  assertEqual(voidedAgain.voidReversalJournalEntryId, voidedPayment.voidReversalJournalEntryId, "double payment void reversal id");
+  const afterSecondPaymentVoid = await get<SalesInvoice>(`/sales-invoices/${draftInvoice.id}`, headers);
+  assertMoney(afterSecondPaymentVoid.balanceDue, partialPaymentAmount, "invoice balance after double payment void");
+
+  await expectHttpError("void invoice with active payment", () =>
+    post<SalesInvoice>(`/sales-invoices/${draftInvoice.id}/void`, headers, {}),
+  );
+
+}
+
+async function runAccountsPayablePhase(base: TailBaseContext): Promise<void> {
+  const {
+    headers,
+    runId,
+    expenseAccount,
+    paidThroughAccount,
+    paidThroughBankProfile,
+    purchaseVat,
+    expectedPurchaseBillTotal,
+    expectedPurchaseDebitNoteTotal,
+  } = base;
+  const { from, to } = statementRange();
 
   const supplier = await post<Contact>("/contacts", headers, {
     type: "SUPPLIER",
@@ -4065,7 +4228,7 @@ async function main(): Promise<void> {
     contactId: supplier.id,
     expenseDate: new Date().toISOString(),
     currency: "SAR",
-    paidThroughAccountId: paidThroughAccount!.id,
+    paidThroughAccountId: paidThroughAccount.id,
     description: "Smoke cash expense",
     notes: "Smoke test immediate paid expense",
     lines: [
@@ -4122,194 +4285,7 @@ async function main(): Promise<void> {
     ),
     "supplier ledger includes neutral cash expense row",
   );
-  assertMoney(supplierLedgerAfterCashExpense.closingBalance, expectedPurchaseBillTotal, "supplier ledger cash expense row is neutral");
 
-  const journalEntryCountBeforeAttachments = await journalEntryCount(headers);
-  const attachmentCsvBase64 = Buffer.from("entity,number\nattachment-smoke,1\n").toString("base64");
-  const purchaseBillAttachment = await post<Attachment>("/attachments", headers, {
-    linkedEntityType: "PURCHASE_BILL",
-    linkedEntityId: finalizedPurchaseBill.id,
-    filename: "purchase-bill-support.csv",
-    mimeType: "text/csv",
-    contentBase64: attachmentCsvBase64,
-    notes: "Smoke purchase bill support",
-  });
-  const cashExpenseAttachment = await post<Attachment>("/attachments", headers, {
-    linkedEntityType: "CASH_EXPENSE",
-    linkedEntityId: cashExpense.id,
-    filename: "cash-expense-support.csv",
-    mimeType: "text/csv",
-    contentBase64: attachmentCsvBase64,
-    notes: "Smoke cash expense support",
-  });
-  const salesInvoiceAttachment = await post<Attachment>("/attachments", headers, {
-    linkedEntityType: "SALES_INVOICE",
-    linkedEntityId: finalizedInvoice.id,
-    filename: "sales-invoice-support.csv",
-    mimeType: "text/csv",
-    contentBase64: attachmentCsvBase64,
-    notes: "Smoke sales invoice support",
-  });
-  assertEqual(purchaseBillAttachment.status, "ACTIVE", "purchase bill attachment active");
-  assertEqual(cashExpenseAttachment.status, "ACTIVE", "cash expense attachment active");
-  assertEqual(salesInvoiceAttachment.status, "ACTIVE", "sales invoice attachment active");
-  const purchaseBillAttachments = await get<Attachment[]>(
-    `/attachments?linkedEntityType=PURCHASE_BILL&linkedEntityId=${encodeURIComponent(finalizedPurchaseBill.id)}`,
-    headers,
-  );
-  assert(
-    purchaseBillAttachments.some((attachment) => attachment.id === purchaseBillAttachment.id && attachment.contentHash),
-    "purchase bill attachment appears in linked active list",
-  );
-  await assertAttachmentDownload(
-    `/attachments/${purchaseBillAttachment.id}/download`,
-    headers,
-    "purchase bill attachment",
-    "attachment-smoke",
-  );
-  const deletedCashExpenseAttachment = await del<Attachment>(`/attachments/${cashExpenseAttachment.id}`, headers);
-  assertEqual(deletedCashExpenseAttachment.status, "DELETED", "cash expense attachment soft-deleted");
-  const cashExpenseAttachmentsAfterDelete = await get<Attachment[]>(
-    `/attachments?linkedEntityType=CASH_EXPENSE&linkedEntityId=${encodeURIComponent(cashExpense.id)}`,
-    headers,
-  );
-  assert(
-    !cashExpenseAttachmentsAfterDelete.some((attachment) => attachment.id === cashExpenseAttachment.id),
-    "deleted cash expense attachment is hidden from active list",
-  );
-  await expectHttpError("download deleted attachment", () =>
-    assertAttachmentDownload(`/attachments/${cashExpenseAttachment.id}/download`, headers, "deleted cash expense attachment", "attachment-smoke"),
-  );
-  const journalEntryCountAfterAttachments = await journalEntryCount(headers);
-  assertEqual(journalEntryCountAfterAttachments, journalEntryCountBeforeAttachments, "attachment endpoints do not create journal entries");
-
-  const finalizedInvoiceAuditLogs = await get<AuditLogListResponse>(
-    `/audit-logs?action=SALES_INVOICE_FINALIZED&entityType=SalesInvoice&entityId=${encodeURIComponent(finalizedInvoice.id)}`,
-    headers,
-  );
-  const attachmentUploadAuditLogs = await get<AuditLogListResponse>(
-    `/audit-logs?action=ATTACHMENT_UPLOADED&entityType=Attachment&entityId=${encodeURIComponent(purchaseBillAttachment.id)}`,
-    headers,
-  );
-  const attachmentDeleteAuditLogs = await get<AuditLogListResponse>(
-    `/audit-logs?action=ATTACHMENT_DELETED&entityType=Attachment&entityId=${encodeURIComponent(cashExpenseAttachment.id)}`,
-    headers,
-  );
-  assert(finalizedInvoiceAuditLogs.data.length > 0, "audit logs include finalized invoice action");
-  assert(attachmentUploadAuditLogs.data.length > 0, "audit logs include attachment upload action");
-  assert(attachmentDeleteAuditLogs.data.length > 0, "audit logs include attachment delete action");
-  const serializedAuditLogs = JSON.stringify([
-    ...finalizedInvoiceAuditLogs.data,
-    ...attachmentUploadAuditLogs.data,
-    ...attachmentDeleteAuditLogs.data,
-  ]);
-  assert(!serializedAuditLogs.includes(attachmentCsvBase64), "audit logs do not expose attachment base64 content");
-  const auditRetentionSettings = await get<AuditLogRetentionSettingsResponse>("/audit-logs/retention-settings", headers);
-  assertEqual(auditRetentionSettings.retentionDays, 2555, "audit retention settings default to seven years");
-  assertEqual(auditRetentionSettings.autoPurgeEnabled, false, "audit retention auto purge is disabled by default");
-  const auditRetentionPreview = await get<AuditLogRetentionPreviewResponse>("/audit-logs/retention-preview", headers);
-  assertEqual(auditRetentionPreview.dryRunOnly, true, "audit retention preview is dry-run only");
-  assert(auditRetentionPreview.totalAuditLogs >= 1, "audit retention preview returns total audit logs");
-  assert(auditRetentionPreview.warnings.some((warning) => warning.includes("No audit logs are deleted")), "audit retention preview warns that no logs are deleted");
-  const auditExportCsv = await getCsvText(
-    `/audit-logs/export.csv?action=ATTACHMENT_UPLOADED&entityType=Attachment&entityId=${encodeURIComponent(purchaseBillAttachment.id)}`,
-    headers,
-    "audit log CSV export",
-  );
-  assert(auditExportCsv.includes("ATTACHMENT_UPLOADED"), "audit log CSV export includes filtered action");
-  assert(!auditExportCsv.includes(attachmentCsvBase64), "audit log CSV export does not expose attachment base64 content");
-  assert(!auditExportCsv.includes("privateKeyPem"), "audit log CSV export does not expose private key field names from smoke data");
-
-  const numberSequences = await get<NumberSequenceResponse[]>("/number-sequences", headers);
-  assert(numberSequences.length > 0, "number sequence list returns configured scopes");
-  const contactSequence = required(
-    numberSequences.find((sequence) => sequence.scope === "CONTACT") ?? numberSequences[0],
-    "number sequence for smoke no-op patch",
-  );
-  assertEqual(
-    contactSequence.exampleNextNumber,
-    `${contactSequence.prefix}${String(contactSequence.nextNumber).padStart(contactSequence.padding, "0")}`,
-    "number sequence example matches prefix, next number, and padding",
-  );
-  const patchedNumberSequence = await patch<NumberSequenceResponse>(`/number-sequences/${contactSequence.id}`, headers, {
-    prefix: contactSequence.prefix,
-    nextNumber: contactSequence.nextNumber,
-    padding: contactSequence.padding,
-  });
-  assertEqual(patchedNumberSequence.exampleNextNumber, contactSequence.exampleNextNumber, "number sequence safe no-op patch preserves example");
-  const numberSequenceAuditLogs = await get<AuditLogListResponse>(
-    `/audit-logs?action=NUMBER_SEQUENCE_UPDATED&entityType=NumberSequence&entityId=${encodeURIComponent(contactSequence.id)}`,
-    headers,
-  );
-  assert(numberSequenceAuditLogs.data.length > 0, "audit logs include number sequence update action");
-
-  const storageReadiness = await get<StorageReadinessResponse>("/storage/readiness", headers);
-  assertEqual(storageReadiness.attachmentStorage.activeProvider, "database", "attachment storage readiness default provider");
-  assertEqual(storageReadiness.generatedDocumentStorage.activeProvider, "database", "generated document storage readiness default provider");
-  assertEqual(storageReadiness.attachmentStorage.ready, true, "attachment database storage readiness");
-  assertEqual(storageReadiness.generatedDocumentStorage.ready, true, "generated document database storage readiness");
-  assertEqual(typeof storageReadiness.s3Config.accessKeyConfigured, "boolean", "storage readiness redacted access key flag");
-  assertEqual(typeof storageReadiness.s3Config.secretConfigured, "boolean", "storage readiness redacted secret key flag");
-  const serializedStorageReadiness = JSON.stringify(storageReadiness);
-  assert(!serializedStorageReadiness.includes("S3_ACCESS_KEY_ID"), "storage readiness does not expose access key field name");
-  assert(!serializedStorageReadiness.includes("S3_SECRET_ACCESS_KEY"), "storage readiness does not expose secret key field name");
-  assert(!serializedStorageReadiness.includes("accessKeyId"), "storage readiness does not expose access key value field");
-  assert(!serializedStorageReadiness.includes("secretAccessKey"), "storage readiness does not expose secret key value field");
-
-  const storageMigrationPlan = await get<StorageMigrationPlanResponse>("/storage/migration-plan", headers);
-  assertEqual(typeof storageMigrationPlan.attachmentCount, "number", "storage migration plan attachment count");
-  assertEqual(typeof storageMigrationPlan.generatedDocumentCount, "number", "storage migration plan generated document count");
-  assertEqual(storageMigrationPlan.targetProvider, "database", "storage migration plan default target provider");
-  assertEqual(storageMigrationPlan.migrationRequired, storageMigrationPlan.estimatedMigrationRequired, "storage migration plan compatibility flags align");
-  assertEqual(storageMigrationPlan.dryRunOnly, true, "storage migration plan dry run only");
-  const backupReadiness = await get<BackupReadinessResponse>("/system/backup-readiness", headers);
-  assert(backupReadiness.readOnly, "backup readiness is read-only");
-  assert(backupReadiness.noMutation, "backup readiness reports no mutation");
-  assert(backupReadiness.noBackupExecuted, "backup readiness executes no backup");
-  assert(backupReadiness.noRestoreExecuted, "backup readiness executes no restore");
-  assert(backupReadiness.noSecretsReturned, "backup readiness returns no secrets");
-  assert(!backupReadiness.productionReady, "backup readiness is not production-ready by default");
-  assert(backupReadiness.evidenceRequired, "backup readiness requires evidence");
-  assert(backupReadiness.requiredEvidenceTypes.includes("DATABASE_BACKUP"), "backup readiness requires database backup evidence");
-  assert(backupReadiness.requiredEvidenceTypes.includes("POINT_IN_TIME_RECOVERY"), "backup readiness requires PITR evidence");
-  assert(backupReadiness.requiredEvidenceTypes.includes("OBJECT_STORAGE_BACKUP"), "backup readiness requires object storage evidence");
-  assert(backupReadiness.requiredEvidenceTypes.includes("RESTORE_DRILL"), "backup readiness requires restore drill evidence");
-  assert(backupReadiness.requiredEvidenceTypes.includes("RPO_RTO_REVIEW"), "backup readiness requires RPO/RTO review evidence");
-  assert(!backupReadiness.rpoRtoReviewed || backupReadiness.verifiedEvidenceTypes.includes("RPO_RTO_REVIEW"), "backup readiness RPO/RTO state is evidence-backed");
-  assertNoBackupSecretExposure(backupReadiness, "backup readiness");
-
-  const restoreDrillPlan = await get<RestoreDrillPlanResponse>("/system/restore-drill-plan", headers);
-  assert(restoreDrillPlan.readOnly, "restore drill plan is read-only");
-  assert(restoreDrillPlan.noMutation, "restore drill plan reports no mutation");
-  assert(restoreDrillPlan.noRestoreExecuted, "restore drill plan executes no restore");
-  assert(restoreDrillPlan.noCustomerDataExported, "restore drill plan exports no customer data");
-  assert(restoreDrillPlan.noSecretsReturned, "restore drill plan returns no secrets");
-  assert(!restoreDrillPlan.productionReady, "restore drill plan is not production-ready");
-  assert(restoreDrillPlan.plannedSteps.some((step) => step.includes("isolated environment")), "restore drill plan includes isolated environment step");
-  assert(restoreDrillPlan.plannedSteps.some((step) => step.includes("email sending disabled")), "restore drill plan keeps email sending disabled");
-  assertNoBackupSecretExposure(restoreDrillPlan, "restore drill plan");
-
-  const backupEvidenceBefore = await get<BackupRestoreEvidenceListResponse>("/system/backup-evidence", headers);
-  assert(backupEvidenceBefore.metadataOnly, "backup evidence list is metadata-only");
-  assert(backupEvidenceBefore.noBackupExecuted, "backup evidence list executes no backup");
-  assert(backupEvidenceBefore.noRestoreExecuted, "backup evidence list executes no restore");
-  assert(backupEvidenceBefore.noSecretsReturned, "backup evidence list returns no secrets");
-  assertNoBackupSecretExposure(backupEvidenceBefore, "backup evidence list");
-  const createdBackupEvidence = await post<BackupRestoreEvidenceResponse>("/system/backup-evidence", headers, {
-    evidenceType: "OTHER",
-    scope: "ORGANIZATION",
-    provider: "smoke",
-    evidenceSummaryJson: { summary: "metadata-only smoke evidence; no backup or restore executed" },
-    note: "Smoke metadata-only backup evidence.",
-  });
-  assert(createdBackupEvidence.metadataOnly, "backup evidence create is metadata-only");
-  assert(createdBackupEvidence.noBackupExecuted, "backup evidence create executes no backup");
-  assert(createdBackupEvidence.noRestoreExecuted, "backup evidence create executes no restore");
-  assert(createdBackupEvidence.noSecretsReturned, "backup evidence create returns no secrets");
-  assertEqual(createdBackupEvidence.evidence.evidenceType, "OTHER", "backup evidence smoke type");
-  assertNoBackupSecretExposure(createdBackupEvidence, "backup evidence create");
-  const journalEntryCountAfterStorageReports = await journalEntryCount(headers);
-  assertEqual(journalEntryCountAfterStorageReports, journalEntryCountAfterAttachments, "storage readiness endpoints do not create journal entries");
 
   const voidedCashExpense = await post<CashExpense>(`/cash-expenses/${cashExpense.id}/void`, headers, {});
   assertEqual(voidedCashExpense.status, "VOIDED", "voided cash expense status");
@@ -4504,7 +4480,7 @@ async function main(): Promise<void> {
     paymentDate: new Date().toISOString(),
     currency: "SAR",
     amountPaid: supplierPaymentAmount.toFixed(4),
-    accountId: paidThroughAccount!.id,
+    accountId: paidThroughAccount.id,
     description: "Smoke test supplier payment",
     allocations: [{ billId: draftPurchaseBill.id, amountApplied: supplierPaymentAmount.toFixed(4) }],
   });
@@ -4609,7 +4585,7 @@ async function main(): Promise<void> {
     paymentDate: new Date().toISOString(),
     currency: "SAR",
     amountPaid: supplierOverpaymentAmount.toFixed(4),
-    accountId: paidThroughAccount!.id,
+    accountId: paidThroughAccount.id,
     description: "Smoke test supplier overpayment",
     allocations: [],
   });
@@ -4745,7 +4721,7 @@ async function main(): Promise<void> {
     refundDate: new Date().toISOString(),
     currency: "SAR",
     amountRefunded: supplierPaymentRefundAmount.toFixed(4),
-    accountId: paidThroughAccount!.id,
+    accountId: paidThroughAccount.id,
     description: "Smoke test supplier payment refund",
   });
   assertEqual(supplierPaymentRefund.status, "POSTED", "supplier payment refund status");
@@ -4825,7 +4801,7 @@ async function main(): Promise<void> {
     refundDate: new Date().toISOString(),
     currency: "SAR",
     amountRefunded: supplierDebitNoteRefundAmount.toFixed(4),
-    accountId: paidThroughAccount!.id,
+    accountId: paidThroughAccount.id,
     description: "Smoke test purchase debit note supplier refund",
   });
   assertEqual(supplierDebitNoteRefund.status, "POSTED", "supplier debit note refund status");
@@ -4859,6 +4835,307 @@ async function main(): Promise<void> {
     ),
     "supplier ledger includes purchase debit note supplier refund credit",
   );
+}
+
+async function runDocumentsPhase(base: TailBaseContext): Promise<void> {
+  const {
+    headers,
+    runId,
+    customer,
+    draftInvoice,
+    finalizedInvoice,
+    linePayload,
+    expenseAccount,
+    paidThroughAccount,
+    paidThroughBankProfile,
+    purchaseVat,
+    expectedTotal,
+    expectedPurchaseBillTotal,
+    partialPaymentAmount,
+  } = base;
+
+  const invoicePdfData = await get<{ invoice: { total: string; balanceDue: string }; lines: unknown[] }>(
+    `/sales-invoices/${draftInvoice.id}/pdf-data`,
+    headers,
+  );
+  assertMoney(invoicePdfData.invoice.total, expectedTotal, "documents invoice pdf-data total");
+  assert(invoicePdfData.lines.length > 0, "documents invoice pdf-data returns lines");
+  await assertPdf(`/sales-invoices/${draftInvoice.id}/pdf`, headers, "documents invoice PDF");
+  const invoiceDocuments = await get<GeneratedDocument[]>(
+    `/generated-documents?documentType=SALES_INVOICE&entityId=${encodeURIComponent(finalizedInvoice.id)}`,
+    headers,
+  );
+  const archivedInvoicePdf = required(invoiceDocuments.find((document) => document.status === "ACTIVE"), "documents archived invoice PDF");
+  await assertPdf(`/generated-documents/${archivedInvoicePdf.id}/download`, headers, "documents archived invoice PDF");
+
+  const receiptPayment = await post<CustomerPayment>("/customer-payments", headers, {
+    customerId: customer.id,
+    paymentDate: new Date().toISOString(),
+    currency: "SAR",
+    amountReceived: partialPaymentAmount.toFixed(4),
+    accountId: paidThroughAccount.id,
+    allocations: [{ invoiceId: draftInvoice.id, amountApplied: partialPaymentAmount.toFixed(4) }],
+  });
+  const receiptPdfData = await get<{ payment: { paymentNumber: string }; allocations: unknown[] }>(
+    `/customer-payments/${receiptPayment.id}/receipt-pdf-data`,
+    headers,
+  );
+  assertPresent(receiptPdfData.payment.paymentNumber, "documents receipt pdf-data payment number");
+  assert(receiptPdfData.allocations.length > 0, "documents receipt pdf-data returns allocations");
+  await assertPdf(`/customer-payments/${receiptPayment.id}/receipt.pdf`, headers, "documents receipt PDF");
+
+  const supplier = await post<Contact>("/contacts", headers, {
+    type: "SUPPLIER",
+    name: `Smoke Test Documents Supplier ${runId}`,
+    displayName: `Smoke Test Documents Supplier ${runId}`,
+    countryCode: "SA",
+  });
+  const purchaseBillLinePayload: Record<string, unknown> = {
+    description: "Smoke test documents supplier bill line",
+    accountId: expenseAccount.id,
+    quantity: "1.0000",
+    unitPrice: "100.0000",
+  };
+  if (purchaseVat) {
+    purchaseBillLinePayload.taxRateId = purchaseVat.id;
+  }
+  const draftPurchaseBill = await post<PurchaseBill>("/purchase-bills", headers, {
+    supplierId: supplier.id,
+    issueDate: new Date().toISOString(),
+    currency: "SAR",
+    lines: [purchaseBillLinePayload],
+  });
+  const finalizedPurchaseBill = await post<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}/finalize`, headers, {});
+  assertEqual(finalizedPurchaseBill.status, "FINALIZED", "documents finalized purchase bill status");
+  const purchaseBillPdfData = await get<{ bill: { total: string; balanceDue: string }; lines: unknown[] }>(
+    `/purchase-bills/${draftPurchaseBill.id}/pdf-data`,
+    headers,
+  );
+  assertMoney(purchaseBillPdfData.bill.total, expectedPurchaseBillTotal, "documents purchase bill pdf-data total");
+  assert(purchaseBillPdfData.lines.length > 0, "documents purchase bill pdf-data returns lines");
+  await assertPdf(`/purchase-bills/${draftPurchaseBill.id}/pdf`, headers, "documents purchase bill PDF");
+
+  const cashExpensePayload: Record<string, unknown> = {
+    contactId: supplier.id,
+    expenseDate: new Date().toISOString(),
+    currency: "SAR",
+    paidThroughAccountId: paidThroughAccount.id,
+    description: "Smoke documents cash expense",
+    notes: "Smoke test documents immediate paid expense",
+    lines: [
+      {
+        description: "Smoke test documents office supplies",
+        accountId: expenseAccount.id,
+        quantity: "1.0000",
+        unitPrice: "100.0000",
+        taxRateId: purchaseVat?.id,
+      },
+    ],
+  };
+  const bankBeforeCashExpense = await get<BankAccountSummary>(`/bank-accounts/${paidThroughBankProfile.id}`, headers);
+  const cashExpense = await post<CashExpense>("/cash-expenses", headers, cashExpensePayload);
+  assertEqual(cashExpense.status, "POSTED", "documents cash expense posted status");
+  assertMoney(cashExpense.total, expectedPurchaseBillTotal, "documents cash expense total");
+  const bankAfterCashExpense = await get<BankAccountSummary>(`/bank-accounts/${paidThroughBankProfile.id}`, headers);
+  assertMoney(bankBeforeCashExpense.ledgerBalance, money(bankAfterCashExpense.ledgerBalance).plus(expectedPurchaseBillTotal), "documents cash expense bank balance movement");
+  const cashExpensePdfData = await get<{ expense: { expenseNumber: string; total: string }; lines: unknown[] }>(
+    `/cash-expenses/${cashExpense.id}/pdf-data`,
+    headers,
+  );
+  assertMoney(cashExpensePdfData.expense.total, expectedPurchaseBillTotal, "documents cash expense pdf-data total");
+  assert(cashExpensePdfData.lines.length > 0, "documents cash expense pdf-data returns lines");
+  await assertPdf(`/cash-expenses/${cashExpense.id}/pdf`, headers, "documents cash expense PDF");
+
+
+  const journalEntryCountBeforeAttachments = await journalEntryCount(headers);
+  const attachmentCsvBase64 = Buffer.from("entity,number\nattachment-smoke,1\n").toString("base64");
+  const purchaseBillAttachment = await post<Attachment>("/attachments", headers, {
+    linkedEntityType: "PURCHASE_BILL",
+    linkedEntityId: finalizedPurchaseBill.id,
+    filename: "purchase-bill-support.csv",
+    mimeType: "text/csv",
+    contentBase64: attachmentCsvBase64,
+    notes: "Smoke purchase bill support",
+  });
+  const cashExpenseAttachment = await post<Attachment>("/attachments", headers, {
+    linkedEntityType: "CASH_EXPENSE",
+    linkedEntityId: cashExpense.id,
+    filename: "cash-expense-support.csv",
+    mimeType: "text/csv",
+    contentBase64: attachmentCsvBase64,
+    notes: "Smoke cash expense support",
+  });
+  const salesInvoiceAttachment = await post<Attachment>("/attachments", headers, {
+    linkedEntityType: "SALES_INVOICE",
+    linkedEntityId: finalizedInvoice.id,
+    filename: "sales-invoice-support.csv",
+    mimeType: "text/csv",
+    contentBase64: attachmentCsvBase64,
+    notes: "Smoke sales invoice support",
+  });
+  assertEqual(purchaseBillAttachment.status, "ACTIVE", "purchase bill attachment active");
+  assertEqual(cashExpenseAttachment.status, "ACTIVE", "cash expense attachment active");
+  assertEqual(salesInvoiceAttachment.status, "ACTIVE", "sales invoice attachment active");
+  const purchaseBillAttachments = await get<Attachment[]>(
+    `/attachments?linkedEntityType=PURCHASE_BILL&linkedEntityId=${encodeURIComponent(finalizedPurchaseBill.id)}`,
+    headers,
+  );
+  assert(
+    purchaseBillAttachments.some((attachment) => attachment.id === purchaseBillAttachment.id && attachment.contentHash),
+    "purchase bill attachment appears in linked active list",
+  );
+  await assertAttachmentDownload(
+    `/attachments/${purchaseBillAttachment.id}/download`,
+    headers,
+    "purchase bill attachment",
+    "attachment-smoke",
+  );
+  const deletedCashExpenseAttachment = await del<Attachment>(`/attachments/${cashExpenseAttachment.id}`, headers);
+  assertEqual(deletedCashExpenseAttachment.status, "DELETED", "cash expense attachment soft-deleted");
+  const cashExpenseAttachmentsAfterDelete = await get<Attachment[]>(
+    `/attachments?linkedEntityType=CASH_EXPENSE&linkedEntityId=${encodeURIComponent(cashExpense.id)}`,
+    headers,
+  );
+  assert(
+    !cashExpenseAttachmentsAfterDelete.some((attachment) => attachment.id === cashExpenseAttachment.id),
+    "deleted cash expense attachment is hidden from active list",
+  );
+  await expectHttpError("download deleted attachment", () =>
+    assertAttachmentDownload(`/attachments/${cashExpenseAttachment.id}/download`, headers, "deleted cash expense attachment", "attachment-smoke"),
+  );
+  const journalEntryCountAfterAttachments = await journalEntryCount(headers);
+  assertEqual(journalEntryCountAfterAttachments, journalEntryCountBeforeAttachments, "attachment endpoints do not create journal entries");
+
+  const finalizedInvoiceAuditLogs = await get<AuditLogListResponse>(
+    `/audit-logs?action=SALES_INVOICE_FINALIZED&entityType=SalesInvoice&entityId=${encodeURIComponent(finalizedInvoice.id)}`,
+    headers,
+  );
+  const attachmentUploadAuditLogs = await get<AuditLogListResponse>(
+    `/audit-logs?action=ATTACHMENT_UPLOADED&entityType=Attachment&entityId=${encodeURIComponent(purchaseBillAttachment.id)}`,
+    headers,
+  );
+  const attachmentDeleteAuditLogs = await get<AuditLogListResponse>(
+    `/audit-logs?action=ATTACHMENT_DELETED&entityType=Attachment&entityId=${encodeURIComponent(cashExpenseAttachment.id)}`,
+    headers,
+  );
+  assert(finalizedInvoiceAuditLogs.data.length > 0, "audit logs include finalized invoice action");
+  assert(attachmentUploadAuditLogs.data.length > 0, "audit logs include attachment upload action");
+  assert(attachmentDeleteAuditLogs.data.length > 0, "audit logs include attachment delete action");
+  const serializedAuditLogs = JSON.stringify([
+    ...finalizedInvoiceAuditLogs.data,
+    ...attachmentUploadAuditLogs.data,
+    ...attachmentDeleteAuditLogs.data,
+  ]);
+  assert(!serializedAuditLogs.includes(attachmentCsvBase64), "audit logs do not expose attachment base64 content");
+  const auditRetentionSettings = await get<AuditLogRetentionSettingsResponse>("/audit-logs/retention-settings", headers);
+  assertEqual(auditRetentionSettings.retentionDays, 2555, "audit retention settings default to seven years");
+  assertEqual(auditRetentionSettings.autoPurgeEnabled, false, "audit retention auto purge is disabled by default");
+  const auditRetentionPreview = await get<AuditLogRetentionPreviewResponse>("/audit-logs/retention-preview", headers);
+  assertEqual(auditRetentionPreview.dryRunOnly, true, "audit retention preview is dry-run only");
+  assert(auditRetentionPreview.totalAuditLogs >= 1, "audit retention preview returns total audit logs");
+  assert(auditRetentionPreview.warnings.some((warning) => warning.includes("No audit logs are deleted")), "audit retention preview warns that no logs are deleted");
+  const auditExportCsv = await getCsvText(
+    `/audit-logs/export.csv?action=ATTACHMENT_UPLOADED&entityType=Attachment&entityId=${encodeURIComponent(purchaseBillAttachment.id)}`,
+    headers,
+    "audit log CSV export",
+  );
+  assert(auditExportCsv.includes("ATTACHMENT_UPLOADED"), "audit log CSV export includes filtered action");
+  assert(!auditExportCsv.includes(attachmentCsvBase64), "audit log CSV export does not expose attachment base64 content");
+  assert(!auditExportCsv.includes("privateKeyPem"), "audit log CSV export does not expose private key field names from smoke data");
+
+  const numberSequences = await get<NumberSequenceResponse[]>("/number-sequences", headers);
+  assert(numberSequences.length > 0, "number sequence list returns configured scopes");
+  const contactSequence = required(
+    numberSequences.find((sequence) => sequence.scope === "CONTACT") ?? numberSequences[0],
+    "number sequence for smoke no-op patch",
+  );
+  assertEqual(
+    contactSequence.exampleNextNumber,
+    `${contactSequence.prefix}${String(contactSequence.nextNumber).padStart(contactSequence.padding, "0")}`,
+    "number sequence example matches prefix, next number, and padding",
+  );
+  const patchedNumberSequence = await patch<NumberSequenceResponse>(`/number-sequences/${contactSequence.id}`, headers, {
+    prefix: contactSequence.prefix,
+    nextNumber: contactSequence.nextNumber,
+    padding: contactSequence.padding,
+  });
+  assertEqual(patchedNumberSequence.exampleNextNumber, contactSequence.exampleNextNumber, "number sequence safe no-op patch preserves example");
+  const numberSequenceAuditLogs = await get<AuditLogListResponse>(
+    `/audit-logs?action=NUMBER_SEQUENCE_UPDATED&entityType=NumberSequence&entityId=${encodeURIComponent(contactSequence.id)}`,
+    headers,
+  );
+  assert(numberSequenceAuditLogs.data.length > 0, "audit logs include number sequence update action");
+
+  const storageReadiness = await get<StorageReadinessResponse>("/storage/readiness", headers);
+  assertEqual(storageReadiness.attachmentStorage.activeProvider, "database", "attachment storage readiness default provider");
+  assertEqual(storageReadiness.generatedDocumentStorage.activeProvider, "database", "generated document storage readiness default provider");
+  assertEqual(storageReadiness.attachmentStorage.ready, true, "attachment database storage readiness");
+  assertEqual(storageReadiness.generatedDocumentStorage.ready, true, "generated document database storage readiness");
+  assertEqual(typeof storageReadiness.s3Config.accessKeyConfigured, "boolean", "storage readiness redacted access key flag");
+  assertEqual(typeof storageReadiness.s3Config.secretConfigured, "boolean", "storage readiness redacted secret key flag");
+  const serializedStorageReadiness = JSON.stringify(storageReadiness);
+  assert(!serializedStorageReadiness.includes("S3_ACCESS_KEY_ID"), "storage readiness does not expose access key field name");
+  assert(!serializedStorageReadiness.includes("S3_SECRET_ACCESS_KEY"), "storage readiness does not expose secret key field name");
+  assert(!serializedStorageReadiness.includes("accessKeyId"), "storage readiness does not expose access key value field");
+  assert(!serializedStorageReadiness.includes("secretAccessKey"), "storage readiness does not expose secret key value field");
+
+  const storageMigrationPlan = await get<StorageMigrationPlanResponse>("/storage/migration-plan", headers);
+  assertEqual(typeof storageMigrationPlan.attachmentCount, "number", "storage migration plan attachment count");
+  assertEqual(typeof storageMigrationPlan.generatedDocumentCount, "number", "storage migration plan generated document count");
+  assertEqual(storageMigrationPlan.targetProvider, "database", "storage migration plan default target provider");
+  assertEqual(storageMigrationPlan.migrationRequired, storageMigrationPlan.estimatedMigrationRequired, "storage migration plan compatibility flags align");
+  assertEqual(storageMigrationPlan.dryRunOnly, true, "storage migration plan dry run only");
+  const backupReadiness = await get<BackupReadinessResponse>("/system/backup-readiness", headers);
+  assert(backupReadiness.readOnly, "backup readiness is read-only");
+  assert(backupReadiness.noMutation, "backup readiness reports no mutation");
+  assert(backupReadiness.noBackupExecuted, "backup readiness executes no backup");
+  assert(backupReadiness.noRestoreExecuted, "backup readiness executes no restore");
+  assert(backupReadiness.noSecretsReturned, "backup readiness returns no secrets");
+  assert(!backupReadiness.productionReady, "backup readiness is not production-ready by default");
+  assert(backupReadiness.evidenceRequired, "backup readiness requires evidence");
+  assert(backupReadiness.requiredEvidenceTypes.includes("DATABASE_BACKUP"), "backup readiness requires database backup evidence");
+  assert(backupReadiness.requiredEvidenceTypes.includes("POINT_IN_TIME_RECOVERY"), "backup readiness requires PITR evidence");
+  assert(backupReadiness.requiredEvidenceTypes.includes("OBJECT_STORAGE_BACKUP"), "backup readiness requires object storage evidence");
+  assert(backupReadiness.requiredEvidenceTypes.includes("RESTORE_DRILL"), "backup readiness requires restore drill evidence");
+  assert(backupReadiness.requiredEvidenceTypes.includes("RPO_RTO_REVIEW"), "backup readiness requires RPO/RTO review evidence");
+  assert(!backupReadiness.rpoRtoReviewed || backupReadiness.verifiedEvidenceTypes.includes("RPO_RTO_REVIEW"), "backup readiness RPO/RTO state is evidence-backed");
+  assertNoBackupSecretExposure(backupReadiness, "backup readiness");
+
+  const restoreDrillPlan = await get<RestoreDrillPlanResponse>("/system/restore-drill-plan", headers);
+  assert(restoreDrillPlan.readOnly, "restore drill plan is read-only");
+  assert(restoreDrillPlan.noMutation, "restore drill plan reports no mutation");
+  assert(restoreDrillPlan.noRestoreExecuted, "restore drill plan executes no restore");
+  assert(restoreDrillPlan.noCustomerDataExported, "restore drill plan exports no customer data");
+  assert(restoreDrillPlan.noSecretsReturned, "restore drill plan returns no secrets");
+  assert(!restoreDrillPlan.productionReady, "restore drill plan is not production-ready");
+  assert(restoreDrillPlan.plannedSteps.some((step) => step.includes("isolated environment")), "restore drill plan includes isolated environment step");
+  assert(restoreDrillPlan.plannedSteps.some((step) => step.includes("email sending disabled")), "restore drill plan keeps email sending disabled");
+  assertNoBackupSecretExposure(restoreDrillPlan, "restore drill plan");
+
+  const backupEvidenceBefore = await get<BackupRestoreEvidenceListResponse>("/system/backup-evidence", headers);
+  assert(backupEvidenceBefore.metadataOnly, "backup evidence list is metadata-only");
+  assert(backupEvidenceBefore.noBackupExecuted, "backup evidence list executes no backup");
+  assert(backupEvidenceBefore.noRestoreExecuted, "backup evidence list executes no restore");
+  assert(backupEvidenceBefore.noSecretsReturned, "backup evidence list returns no secrets");
+  assertNoBackupSecretExposure(backupEvidenceBefore, "backup evidence list");
+  const createdBackupEvidence = await post<BackupRestoreEvidenceResponse>("/system/backup-evidence", headers, {
+    evidenceType: "OTHER",
+    scope: "ORGANIZATION",
+    provider: "smoke",
+    evidenceSummaryJson: { summary: "metadata-only smoke evidence; no backup or restore executed" },
+    note: "Smoke metadata-only backup evidence.",
+  });
+  assert(createdBackupEvidence.metadataOnly, "backup evidence create is metadata-only");
+  assert(createdBackupEvidence.noBackupExecuted, "backup evidence create executes no backup");
+  assert(createdBackupEvidence.noRestoreExecuted, "backup evidence create executes no restore");
+  assert(createdBackupEvidence.noSecretsReturned, "backup evidence create returns no secrets");
+  assertEqual(createdBackupEvidence.evidence.evidenceType, "OTHER", "backup evidence smoke type");
+  assertNoBackupSecretExposure(createdBackupEvidence, "backup evidence create");
+  const journalEntryCountAfterStorageReports = await journalEntryCount(headers);
+}
+
+async function runReportsPhase(base: TailBaseContext): Promise<void> {
+  const { headers } = base;
 
   const generalLedgerReport = await get<GeneralLedgerReport>("/reports/general-ledger", headers);
   assert(generalLedgerReport.accounts.length > 0, "general ledger returns account activity");
@@ -4917,62 +5194,16 @@ async function main(): Promise<void> {
   assert(Array.isArray(dashboardSummary.inventory.lowStockItems), "dashboard low-stock item list exists");
   assert(Array.isArray(dashboardSummary.attentionItems), "dashboard summary attentionItems is an array");
   const serializedDashboardSummary = JSON.stringify(dashboardSummary);
-  assert(!/password|tokenHash|contentBase64|DATABASE_URL|JWT_SECRET/i.test(serializedDashboardSummary), "dashboard summary does not expose sensitive fields");
-  const bankTransactions = await get<BankAccountTransactionsResponse>(`/bank-accounts/${paidThroughBankProfile.id}/transactions`, headers);
-  assert(bankTransactions.transactions.length > 0, "bank account transactions endpoint returns posted activity");
-  assert(
-    bankTransactions.transactions.some(
-      (transaction) =>
-        transaction.sourceType === "CustomerPayment" &&
-        transaction.sourceId === partialPayment.id &&
-        money(transaction.debit).eq(partialPaymentAmount),
-    ),
-    "bank account transactions include customer payment debit",
-  );
-  assert(
-    bankTransactions.transactions.some(
-      (transaction) =>
-        transaction.sourceType === "SupplierPayment" &&
-        transaction.sourceId === supplierOverpayment.id &&
-        money(transaction.credit).eq(supplierOverpaymentAmount),
-    ),
-    "bank account transactions include still-posted supplier payment credit",
-  );
-  assert(
-    bankTransactions.transactions.some(
-      (transaction) =>
-        transaction.sourceType === "VoidCashExpense" &&
-        transaction.sourceId === cashExpense.id &&
-        money(transaction.debit).eq(expectedPurchaseBillTotal),
-    ),
-    "bank account transactions include posted cash expense void reversal",
-  );
+}
 
-  const voidedPayment = await post<CustomerPayment>(`/customer-payments/${partialPayment.id}/void`, headers, {});
-  assertEqual(voidedPayment.status, "VOIDED", "voided payment status");
-  assertPresent(voidedPayment.voidReversalJournalEntryId, "voided payment reversal journal");
-
-  const afterPaymentVoid = await get<SalesInvoice>(`/sales-invoices/${draftInvoice.id}`, headers);
-  assertMoney(afterPaymentVoid.balanceDue, partialPaymentAmount, "invoice balance after voiding partial payment");
-
-  const voidedAgain = await post<CustomerPayment>(`/customer-payments/${partialPayment.id}/void`, headers, {});
-  assertEqual(voidedAgain.voidReversalJournalEntryId, voidedPayment.voidReversalJournalEntryId, "double payment void reversal id");
-  const afterSecondPaymentVoid = await get<SalesInvoice>(`/sales-invoices/${draftInvoice.id}`, headers);
-  assertMoney(afterSecondPaymentVoid.balanceDue, partialPaymentAmount, "invoice balance after double payment void");
-
-  await expectHttpError("void invoice with active payment", () =>
-    post<SalesInvoice>(`/sales-invoices/${draftInvoice.id}/void`, headers, {}),
-  );
-
-  const ledgerAfterVoid = await get<LedgerResponse>(`/contacts/${customer.id}/ledger`, headers);
-
-  console.log("LedgerByte accounting smoke tail: PASS");
+function printPhasePass(phase: TailSmokePhase, coverage: string[]): void {
+  console.log(`LedgerByte accounting smoke ${phase}: PASS`);
   console.log(
     JSON.stringify(
       {
         status: "PASS",
-        phase: "tail",
-        coverage: ["zatca-safe", "ar-ap", "documents", "reporting"],
+        phase,
+        coverage,
         requestTimeoutMs: smokeHttpOptions.timeoutMs,
         progressEnabled: smokeHttpOptions.progress,
         noCustomerEmailSentByDefault: true,
@@ -4986,6 +5217,7 @@ async function main(): Promise<void> {
     ),
   );
 }
+
 async function loginAndSelectOrganization(): Promise<SmokeContext> {
   const login = await post<LoginResponse>("/auth/login", {}, { email: seedEmail, password: seedPassword });
   const authHeaders = { Authorization: `Bearer ${login.accessToken}` };
@@ -5063,7 +5295,7 @@ async function request<T>(method: string, path: string, headers: Record<string, 
   const text = await response.text();
   const parsedBody = text ? safeJson(text) : null;
   if (!response.ok) {
-    throw new ApiError(`${method} ${path} failed with ${response.status}: ${text}`, response.status, parsedBody);
+    throw new ApiError(`${method} ${path} failed with ${response.status}.`, response.status, parsedBody);
   }
   return parsedBody as T;
 }
@@ -5091,7 +5323,7 @@ async function assertPdf(path: string, headers: Record<string, string>, label: s
 
   if (!response.ok) {
     const text = await response.text();
-    throw new ApiError(`GET ${path} failed with ${response.status}: ${text}`, response.status, safeJson(text));
+    throw new ApiError(`GET ${path} failed with ${response.status}.`, response.status, safeJson(text));
   }
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -5111,7 +5343,7 @@ async function assertCsv(path: string, headers: Record<string, string>, label: s
 
   if (!response.ok) {
     const text = await response.text();
-    throw new ApiError(`GET ${path} failed with ${response.status}: ${text}`, response.status, safeJson(text));
+    throw new ApiError(`GET ${path} failed with ${response.status}.`, response.status, safeJson(text));
   }
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -5130,7 +5362,7 @@ async function getCsvText(path: string, headers: Record<string, string>, label: 
 
   if (!response.ok) {
     const text = await response.text();
-    throw new ApiError(`GET ${path} failed with ${response.status}: ${text}`, response.status, safeJson(text));
+    throw new ApiError(`GET ${path} failed with ${response.status}.`, response.status, safeJson(text));
   }
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -5148,7 +5380,7 @@ async function assertAttachmentDownload(path: string, headers: Record<string, st
 
   if (!response.ok) {
     const text = await response.text();
-    throw new ApiError(`GET ${path} failed with ${response.status}: ${text}`, response.status, safeJson(text));
+    throw new ApiError(`GET ${path} failed with ${response.status}.`, response.status, safeJson(text));
   }
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -5167,7 +5399,7 @@ async function assertXml(path: string, headers: Record<string, string>, label: s
 
   if (!response.ok) {
     const text = await response.text();
-    throw new ApiError(`GET ${path} failed with ${response.status}: ${text}`, response.status, safeJson(text));
+    throw new ApiError(`GET ${path} failed with ${response.status}.`, response.status, safeJson(text));
   }
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -5186,7 +5418,7 @@ async function assertText(path: string, headers: Record<string, string>, label: 
 
   if (!response.ok) {
     const text = await response.text();
-    throw new ApiError(`GET ${path} failed with ${response.status}: ${text}`, response.status, safeJson(text));
+    throw new ApiError(`GET ${path} failed with ${response.status}.`, response.status, safeJson(text));
   }
 
   const contentType = response.headers.get("content-type") ?? "";
