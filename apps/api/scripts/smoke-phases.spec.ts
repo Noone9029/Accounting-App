@@ -59,5 +59,13 @@ describe("accounting smoke phase scripts", () => {
     expect(logLines.join("\n")).not.toMatch(/Authorization|Bearer|password|token|DATABASE_URL|DIRECT_URL|service[_-]?role/i);
     expect(logLines.join("\n")).not.toContain("error.body");
     expect(tailScript).not.toContain("failed with ${response.status}: ${text}");
+    expect(tailScript).toContain("safeRouteLabel(method, path)");
+    expect(tailScript).toContain('safeRouteLabel("GET", path)');
+  });
+
+  it("keeps generated document archive lookups on the API sourceId contract", () => {
+    expect(tailScript).toContain("document.sourceId === draftInvoice.id && document.status === \"GENERATED\"");
+    expect(tailScript).toContain("documentType=SALES_INVOICE&sourceId=");
+    expect(tailScript).not.toContain("documentType=SALES_INVOICE&entityId=");
   });
 });

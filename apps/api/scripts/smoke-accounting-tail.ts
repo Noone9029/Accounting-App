@@ -1,5 +1,5 @@
 import { Decimal } from "decimal.js";
-import { fetchSmokeApi, parseSmokeRequestTimeout, smokeProgressEnabled } from "./smoke-http";
+import { fetchSmokeApi, parseSmokeRequestTimeout, safeRouteLabel, smokeProgressEnabled } from "./smoke-http";
 
 interface TestCredentialOptions {
   label: string;
@@ -4862,10 +4862,13 @@ async function runDocumentsPhase(base: TailBaseContext): Promise<void> {
   assert(invoicePdfData.lines.length > 0, "documents invoice pdf-data returns lines");
   await assertPdf(`/sales-invoices/${draftInvoice.id}/pdf`, headers, "documents invoice PDF");
   const invoiceDocuments = await get<GeneratedDocument[]>(
-    `/generated-documents?documentType=SALES_INVOICE&entityId=${encodeURIComponent(finalizedInvoice.id)}`,
+    `/generated-documents?documentType=SALES_INVOICE&sourceId=${encodeURIComponent(draftInvoice.id)}`,
     headers,
   );
-  const archivedInvoicePdf = required(invoiceDocuments.find((document) => document.status === "ACTIVE"), "documents archived invoice PDF");
+  const archivedInvoicePdf = required(
+    invoiceDocuments.find((document) => document.sourceId === draftInvoice.id && document.status === "GENERATED"),
+    "documents archived invoice PDF",
+  );
   await assertPdf(`/generated-documents/${archivedInvoicePdf.id}/download`, headers, "documents archived invoice PDF");
 
   const receiptPayment = await post<CustomerPayment>("/customer-payments", headers, {
@@ -5295,7 +5298,7 @@ async function request<T>(method: string, path: string, headers: Record<string, 
   const text = await response.text();
   const parsedBody = text ? safeJson(text) : null;
   if (!response.ok) {
-    throw new ApiError(`${method} ${path} failed with ${response.status}.`, response.status, parsedBody);
+    throw new ApiError(`${safeRouteLabel(method, path)} failed with ${response.status}.`, response.status, parsedBody);
   }
   return parsedBody as T;
 }
@@ -5323,7 +5326,7 @@ async function assertPdf(path: string, headers: Record<string, string>, label: s
 
   if (!response.ok) {
     const text = await response.text();
-    throw new ApiError(`GET ${path} failed with ${response.status}.`, response.status, safeJson(text));
+    throw new ApiError(`${safeRouteLabel("GET", path)} failed with ${response.status}.`, response.status, safeJson(text));
   }
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -5343,7 +5346,7 @@ async function assertCsv(path: string, headers: Record<string, string>, label: s
 
   if (!response.ok) {
     const text = await response.text();
-    throw new ApiError(`GET ${path} failed with ${response.status}.`, response.status, safeJson(text));
+    throw new ApiError(`${safeRouteLabel("GET", path)} failed with ${response.status}.`, response.status, safeJson(text));
   }
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -5362,7 +5365,7 @@ async function getCsvText(path: string, headers: Record<string, string>, label: 
 
   if (!response.ok) {
     const text = await response.text();
-    throw new ApiError(`GET ${path} failed with ${response.status}.`, response.status, safeJson(text));
+    throw new ApiError(`${safeRouteLabel("GET", path)} failed with ${response.status}.`, response.status, safeJson(text));
   }
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -5380,7 +5383,7 @@ async function assertAttachmentDownload(path: string, headers: Record<string, st
 
   if (!response.ok) {
     const text = await response.text();
-    throw new ApiError(`GET ${path} failed with ${response.status}.`, response.status, safeJson(text));
+    throw new ApiError(`${safeRouteLabel("GET", path)} failed with ${response.status}.`, response.status, safeJson(text));
   }
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -5399,7 +5402,7 @@ async function assertXml(path: string, headers: Record<string, string>, label: s
 
   if (!response.ok) {
     const text = await response.text();
-    throw new ApiError(`GET ${path} failed with ${response.status}.`, response.status, safeJson(text));
+    throw new ApiError(`${safeRouteLabel("GET", path)} failed with ${response.status}.`, response.status, safeJson(text));
   }
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -5418,7 +5421,7 @@ async function assertText(path: string, headers: Record<string, string>, label: 
 
   if (!response.ok) {
     const text = await response.text();
-    throw new ApiError(`GET ${path} failed with ${response.status}.`, response.status, safeJson(text));
+    throw new ApiError(`${safeRouteLabel("GET", path)} failed with ${response.status}.`, response.status, safeJson(text));
   }
 
   const contentType = response.headers.get("content-type") ?? "";
