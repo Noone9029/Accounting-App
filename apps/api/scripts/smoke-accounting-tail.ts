@@ -4904,7 +4904,7 @@ async function runDocumentsPhase(base: TailBaseContext): Promise<void> {
   }
   const draftPurchaseBill = await post<PurchaseBill>("/purchase-bills", headers, {
     supplierId: supplier.id,
-    issueDate: new Date().toISOString(),
+    billDate: new Date().toISOString(),
     currency: "SAR",
     lines: [purchaseBillLinePayload],
   });

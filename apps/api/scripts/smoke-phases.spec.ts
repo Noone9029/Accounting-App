@@ -68,4 +68,10 @@ describe("accounting smoke phase scripts", () => {
     expect(tailScript).toContain("documentType=SALES_INVOICE&sourceId=");
     expect(tailScript).not.toContain("documentType=SALES_INVOICE&entityId=");
   });
+
+  it("keeps standalone documents purchase bill setup on the purchase bill DTO contract", () => {
+    expect(tailScript).toMatch(
+      /const draftPurchaseBill = await post<PurchaseBill>\("\/purchase-bills", headers, \{\s+supplierId: supplier\.id,\s+billDate: new Date\(\)\.toISOString\(\),/s,
+    );
+  });
 });
