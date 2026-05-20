@@ -191,6 +191,30 @@ Official references used for the 2026-05-20 pool-exhaustion repair:
 - Prisma PgBouncer/Supavisor guidance: https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections/pgbouncer
 - Vercel function connection pooling guide: https://vercel.com/kb/guide/connection-pooling-with-functions
 
+### API Smoke Route Appears To Hang
+
+Symptoms:
+
+- A deployed `corepack pnpm smoke:accounting` run prints progress through purchase workflows and then appears to stop around `GET /journal-entries`.
+- API `/`, `/health`, and `/readiness` continue returning HTTP `200`.
+- Vercel error logs do not show route errors, and sanitized Supabase pool counts do not grow.
+
+Checks:
+
+- Reproduce one route only before rerunning the full smoke loop.
+- Use secret-store credentials and do not print passwords, tokens, auth headers, request bodies, response bodies, customer documents, or attachment bodies.
+- Enable `LEDGERBYTE_SMOKE_PROGRESS=true` and set `LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS=60000` for a bounded diagnostic run.
+- Capture sanitized pool counts before and after the single route. Counts by state are acceptable; connection strings, usernames, SQL text, and customer content are not.
+
+2026-05-20 finding:
+
+- The suspected route was unpaginated `GET /journal-entries` after purchase-bill accounting-preview.
+- The request reached the API and completed with HTTP `200` in about five seconds, returning 68,441 bytes for 75 journal entries and 166 summarized lines.
+- The old route ignored `limit=5&page=1`, so count-style smoke checks still downloaded the full list.
+- Pool counts stayed stable around `unknown=8`, `active=1`, `idle=5`; no recurring `EMAXCONNSESSION` was observed.
+- Commit `998930a7fdcc94fa3d926ded3b1f20f0917f69b6` added tenant-scoped `GET /journal-entries/count`, changed smoke count assertions to use it, and added request timeout/progress helpers.
+- A bounded smoke run after the fix progressed past journal counts into banking but did not finish inside a 30-minute external ceiling. Full deployed E2E remains intentionally deferred until smoke runtime length is triaged.
+
 ## Safety Rules
 
 - Do not run deployed E2E against production data.

@@ -16,12 +16,12 @@ This runbook documents the current LedgerByte user-testing deployment path for t
 - Web user-testing URL: `https://ledgerbyte-web-test.vercel.app`
 - Supabase test project ref: `xynelbjqcmbgtscfmmzv`
 
-Current Git-triggered alias deployments inspected on 2026-05-20:
+Git-triggered runtime validation deployments inspected on 2026-05-20:
 
-- API deployment `dpl_Gt5KbDuKzYUEAAAVciNSRZKuKvbG`, state `READY`, commit `b42feb374d60a2d3d8ac1811be4aba7ba4bd8e36`.
-- Web deployment `dpl_22LjHgNzu6sSinpyZNa5JQiekvTT`, state `READY`, commit `b42feb374d60a2d3d8ac1811be4aba7ba4bd8e36`.
-- API alias `https://ledgerbyte-api-test.vercel.app` points at `dpl_Gt5KbDuKzYUEAAAVciNSRZKuKvbG`.
-- Web alias `https://ledgerbyte-web-test.vercel.app` points at `dpl_22LjHgNzu6sSinpyZNa5JQiekvTT`.
+- API deployment `dpl_5BYs7RYuPHjagW35SqkhLp9s6Gka`, state `READY`, commit `998930a7fdcc94fa3d926ded3b1f20f0917f69b6`.
+- Web deployment `dpl_9Ghv9NpSiR2gwFvrvEHpnbudP6hx`, state `READY`, commit `998930a7fdcc94fa3d926ded3b1f20f0917f69b6`.
+- API alias `https://ledgerbyte-api-test.vercel.app` pointed at `dpl_5BYs7RYuPHjagW35SqkhLp9s6Gka` for the bounded smoke validation.
+- Web alias `https://ledgerbyte-web-test.vercel.app` pointed at `dpl_9Ghv9NpSiR2gwFvrvEHpnbudP6hx` for the post-deploy health checks.
 
 ## Git Auto-Deploy Status
 
@@ -248,6 +248,16 @@ Remove-Item Env:\LEDGERBYTE_ALLOW_GENERATED_TEST_USER -ErrorAction SilentlyConti
 corepack pnpm smoke:accounting
 ```
 
+For deployed smoke diagnostics, request-level timeouts and route progress can be enabled without printing credentials, headers, request bodies, response bodies, document bodies, or customer content:
+
+```powershell
+$env:LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS="60000"
+$env:LEDGERBYTE_SMOKE_PROGRESS="true"
+corepack pnpm smoke:accounting
+```
+
+Progress labels redact UUID path segments and query values. Keep `LEDGERBYTE_SMOKE_PROGRESS` off for routine clean output and enable it when isolating a deployed route stall.
+
 Expected safety gates:
 
 - ZATCA real network remains disabled.
@@ -258,6 +268,12 @@ Expected safety gates:
 2026-05-20 result against Git-triggered API deployment `dpl_GbGmuk5pfDwiJwD337auhYBkozkR`: `corepack pnpm smoke:accounting` passed. The summary confirmed mock email mode with no customer email sending by default, ZATCA production compliance `false`, real ZATCA network disabled, CSID execution disabled, and backup/readiness no-backup/no-restore behavior. Local secret-store credentials were not available in the shell, so the proof used an isolated generated test user and organization with the generated password kept in-process and not printed.
 
 2026-05-20 secret-store rerun against Git-triggered API deployment `dpl_Gt5KbDuKzYUEAAAVciNSRZKuKvbG`, commit `b42feb374d60a2d3d8ac1811be4aba7ba4bd8e36`: `corepack pnpm smoke:accounting` passed with credentials loaded from the DPAPI-backed secret store. `LEDGERBYTE_ALLOW_GENERATED_TEST_USER` was unset, so no generated main test credential fallback was used. The summary again confirmed mock email mode with no customer email sending by default, ZATCA production compliance `false`, real ZATCA network disabled, CSID execution disabled/no real CSID request, and backup/readiness no-backup/no-restore behavior.
+
+2026-05-20 journal-route diagnostic against API deployment `dpl_5BYs7RYuPHjagW35SqkhLp9s6Gka`, commit `998930a7fdcc94fa3d926ded3b1f20f0917f69b6`: the previously suspected smoke stall point was the unpaginated `GET /journal-entries` request immediately after purchase-bill accounting-preview. A single secret-store-backed deployed diagnostic confirmed the request reached the API and completed with HTTP `200` in about five seconds, returning 68,441 bytes for 75 journal entries and 166 summarized lines. The old route ignored `limit=5&page=1`, so it returned the same unbounded list. Sanitized pool snapshots stayed stable at approximately `unknown=8`, `active=1`, `idle=5`, with no runaway growth and no recurring `EMAXCONNSESSION`. Vercel API error-log inspection returned no error entries. The issue was therefore reclassified from database pool exhaustion to smoke harness and route-shape latency: the smoke repeatedly downloaded the full journal-entry list for count checks and had no per-request timeout/progress logging.
+
+Fix applied in commit `998930a7fdcc94fa3d926ded3b1f20f0917f69b6`: the API added `GET /journal-entries/count` for tenant-scoped count checks, and smoke count assertions now call that endpoint instead of repeatedly downloading the full journal list. Smoke fetches also have a request timeout controlled by `LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS` and optional redacted route progress controlled by `LEDGERBYTE_SMOKE_PROGRESS`.
+
+Bounded validation after the fix used DPAPI-backed credentials, no generated-user override, `LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS=60000`, `LEDGERBYTE_SMOKE_PROGRESS=true`, and a 30-minute external ceiling. The run progressed past the journal-count section into banking and completed many requests successfully, including repeated `GET /journal-entries/count` calls. It did not finish inside the 30-minute ceiling; the last observed route was `POST /bank-transfers/:id/void`. API health remained HTTP `200`, pool counts remained stable at about `unknown=8`, `idle=5`, `active=1`, and Vercel error logs showed no API errors. Treat the remaining work as deployed smoke runtime length/next-route triage, not the original `GET /journal-entries` hang or `EMAXCONNSESSION` issue.
 
 ## Post-Deploy E2E
 
@@ -276,7 +292,7 @@ For GitHub Actions, use the manual **Deployed E2E Smoke** workflow. It does not 
 
 2026-05-20 result against Git-triggered API deployment `dpl_GbGmuk5pfDwiJwD337auhYBkozkR` and web deployment `dpl_FV4LjD3PDheC74rQJ9b3XR15doAW`: `corepack pnpm e2e` passed with `10 passed` and `2 skipped` in 3.7 minutes. `LEDGERBYTE_E2E_SEED_WORKFLOWS=false` was set. No real customer email send, real ZATCA network, CSID request, clearance, reporting, PDF/A-3 workflow, destructive DB reset, migration, or seed was run.
 
-2026-05-20 secret-store reruns against API deployment `dpl_Gt5KbDuKzYUEAAAVciNSRZKuKvbG` and web deployment `dpl_22LjHgNzu6sSinpyZNa5JQiekvTT`, commit `b42feb374d60a2d3d8ac1811be4aba7ba4bd8e36`, did not pass. The first run reported `5 passed`, `1 skipped`, and `6 failed`; the rerun after API health recovered reported `7 passed`, `1 skipped`, and `4 failed`. Both runs used DPAPI-backed credentials, `LEDGERBYTE_E2E_SEED_WORKFLOWS=false`, and no generated-user override. Vercel API logs showed `PrismaClientUnknownRequestError` with Supabase/Postgres `EMAXCONNSESSION` session-pool exhaustion (`max clients reached in session mode - max clients are limited to pool_size: 15`). Public `/health` and `/readiness` returned `500` during the failure window and later recovered to HTTP `200` after cooldown. Treat this as a deployed database/session-pool capacity blocker, not a credential failure. No destructive DB reset, migration, seed, real customer email send, real ZATCA network, CSID request, clearance, reporting, or PDF/A-3 workflow was run.
+2026-05-20 secret-store reruns against API deployment `dpl_Gt5KbDuKzYUEAAAVciNSRZKuKvbG` and web deployment `dpl_22LjHgNzu6sSinpyZNa5JQiekvTT`, commit `b42feb374d60a2d3d8ac1811be4aba7ba4bd8e36`, did not pass. The first run reported `5 passed`, `1 skipped`, and `6 failed`; the rerun after API health recovered reported `7 passed`, `1 skipped`, and `4 failed`. Both runs used DPAPI-backed credentials, `LEDGERBYTE_E2E_SEED_WORKFLOWS=false`, and no generated-user override. Vercel API logs showed `PrismaClientUnknownRequestError` with Supabase/Postgres `EMAXCONNSESSION` session-pool exhaustion (`max clients reached in session mode - max clients are limited to pool_size: 15`). Public `/health` and `/readiness` returned `500` during the failure window and later recovered to HTTP `200` after cooldown. This was repaired by the runtime database pooling fix described above, but full deployed E2E has not been rerun after the later journal-route smoke isolation. No destructive DB reset, migration, seed, real customer email send, real ZATCA network, CSID request, clearance, reporting, or PDF/A-3 workflow was run.
 
 ## Rollback Plan
 
@@ -295,4 +311,5 @@ For GitHub Actions, use the manual **Deployed E2E Smoke** workflow. It does not 
 - Treat Vercel project ids as non-secret identifiers, but do not publish auth tokens.
 - Do not enable real ZATCA network or customer email sending as part of deployment verification.
 - Supabase RLS remains disabled on 76 public tables in the user-testing project as of the 2026-05-19 review. Do not enable RLS as part of deployment proof; handle it in a separate phased hardening task.
-- Browser E2E can exhaust the small Supabase session pool on Vercel serverless deployments even with one Playwright worker. If logs show `EMAXCONNSESSION`, wait for health to recover, then review pooler capacity, Prisma connection limits, Vercel function concurrency/region behavior, or an E2E throttle strategy before rerunning the full suite.
+- Browser E2E can exhaust the small Supabase session pool on Vercel serverless deployments even with one Playwright worker. If logs show `EMAXCONNSESSION`, wait for health to recover, then review transaction-mode runtime pooling, Prisma connection limits, Vercel function concurrency/region behavior, or an E2E throttle strategy before rerunning the full suite.
+- A deployed smoke run that appears to stop around `GET /journal-entries` should first be checked with `LEDGERBYTE_SMOKE_PROGRESS=true` and `LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS=60000`. As of commit `998930a`, journal count checks use `GET /journal-entries/count`; a stall after that point is a later smoke route/runtime-length issue, not the old unbounded journal-list count path.

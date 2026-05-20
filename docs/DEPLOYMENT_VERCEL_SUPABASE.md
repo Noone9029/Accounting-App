@@ -163,6 +163,14 @@ LEDGERBYTE_WEB_URL=https://ledgerbyte-web-test.vercel.app LEDGERBYTE_API_URL=htt
 
 Deployed smoke and E2E must load credentials from local secret storage or CI secrets. The local Windows operator store is `%LOCALAPPDATA%\LedgerByte\user-testing-credentials.json` with a DPAPI-encrypted password field. Do not commit this file, do not add plaintext password fields, and keep `LEDGERBYTE_ALLOW_GENERATED_TEST_USER` unset for normal deployed validation.
 
+For deployed API smoke diagnostics, use bounded route timing before repeating a full loop:
+
+```bash
+LEDGERBYTE_API_URL=https://ledgerbyte-api-test.vercel.app LEDGERBYTE_SMOKE_EMAIL=<from-secret-store> LEDGERBYTE_SMOKE_PASSWORD=<from-secret-store> LEDGERBYTE_SMOKE_ORGANIZATION_ID=<from-secret-store> LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS=60000 LEDGERBYTE_SMOKE_PROGRESS=true corepack pnpm smoke:accounting
+```
+
+`LEDGERBYTE_SMOKE_PROGRESS` logs method/path/status and redacts UUID path segments and query values. It must not print passwords, auth tokens, headers, connection strings, request bodies, response bodies, customer document bodies, or attachment bodies. Commit `998930a7fdcc94fa3d926ded3b1f20f0917f69b6` added `GET /journal-entries/count` so deployed smoke count assertions do not repeatedly download the unbounded journal-entry list.
+
 ## 5. Production Cutover Checklist
 
 - Supabase migrations applied successfully.
@@ -196,3 +204,4 @@ Deployed smoke and E2E must load credentials from local secret storage or CI sec
 - `/` returns `404 Cannot GET /`: the API alias is likely still serving an older deployment that does not include the root status endpoint.
 - Readiness returns `503`: inspect safe Vercel function logs for database connection errors without exposing `DATABASE_URL` or other secrets.
 - Intermittent API `500` responses with Vercel logs containing `EMAXCONNSESSION` mean the Supabase session pool is exhausted. First confirm runtime traffic is using transaction-mode pooling and that the Vercel wrapper reuses one warm Nest/Prisma bootstrap promise; then review Prisma connection limits, serverless function concurrency/region behavior, or Supabase pool capacity. Do not reset data to fix this symptom.
+- Deployed smoke appearing to pause near `GET /journal-entries` is not automatically a pool issue. On 2026-05-20, a single-route diagnostic showed the request completed in about five seconds with stable pool counts and no Vercel errors; the confirmed issue was smoke harness shape and missing request timeouts. Use `GET /journal-entries/count`, `LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS`, and `LEDGERBYTE_SMOKE_PROGRESS` before rerunning a full deployed smoke loop.
