@@ -215,6 +215,31 @@ Checks:
 - Commit `998930a7fdcc94fa3d926ded3b1f20f0917f69b6` added tenant-scoped `GET /journal-entries/count`, changed smoke count assertions to use it, and added request timeout/progress helpers.
 - A bounded smoke run after the fix progressed past journal counts into banking but did not finish inside a 30-minute external ceiling. Full deployed E2E remains intentionally deferred until smoke runtime length is triaged.
 
+### Banking Smoke Slice
+
+Use this before rerunning the full deployed smoke loop when the last visible route is near bank transfers:
+
+```powershell
+$env:LEDGERBYTE_API_URL="https://ledgerbyte-api-test.vercel.app"
+$env:LEDGERBYTE_SMOKE_EMAIL="<from secret store>"
+$env:LEDGERBYTE_SMOKE_PASSWORD="<from secret store>"
+$env:LEDGERBYTE_SMOKE_ORGANIZATION_ID="<from secret store>"
+$env:LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS="60000"
+$env:LEDGERBYTE_SMOKE_PROGRESS="true"
+Remove-Item Env:\LEDGERBYTE_ALLOW_GENERATED_TEST_USER -ErrorAction SilentlyContinue
+corepack pnpm smoke:accounting:banking
+```
+
+2026-05-20 finding:
+
+- The exact bank-transfer route was `POST /bank-transfers/:id/void` after bank transfer creation, statement import, match-candidate lookup, and statement-row matching.
+- The first void request reached the API and completed with HTTP `201` in about 22 seconds with a 2,078-byte response.
+- The immediately following smoke step was the idempotent second `POST /bank-transfers/:id/void`; it completed with HTTP `201` in about 8 seconds.
+- The next account-detail reads completed in about 6 seconds each, and the following `GET /bank-accounts/:id/transactions` completed in about 16 seconds.
+- Sanitized pool counts stayed stable around `unknown=8`, `active=1`, `idle=5-7`; Vercel API error-log inspection returned no error entries.
+- The confirmed issue is monolithic deployed smoke runtime length, not a bank-transfer route hang, response parser hang, DB lock, or recurring `EMAXCONNSESSION`.
+- Full deployed smoke and full deployed E2E remain pending until the full smoke loop is run with an appropriate hard ceiling.
+
 ## Safety Rules
 
 - Do not run deployed E2E against production data.

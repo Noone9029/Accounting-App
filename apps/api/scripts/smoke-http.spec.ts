@@ -15,6 +15,7 @@ describe("smoke-http", () => {
 
   it("redacts route identifiers and query values from progress labels", () => {
     expect(safeRouteLabel("GET", "/journal-entries/123e4567-e89b-12d3-a456-426614174000?token=secret")).toBe("GET /journal-entries/:id?...");
+    expect(safeRouteLabel("POST", "/bank-transfers/123e4567-e89b-12d3-a456-426614174000/void")).toBe("POST /bank-transfers/:id/void");
   });
 
   it("fails a stuck request with a clear route timeout", async () => {
@@ -26,6 +27,10 @@ describe("smoke-http", () => {
     await expect(
       fetchSmokeApi("/journal-entries", { method: "GET" }, { apiUrl: "https://ledgerbyte-api-test.example", timeoutMs: 1, progress: false, fetchImpl }),
     ).rejects.toThrow("Smoke request timed out after 1ms: GET /journal-entries");
+
+    await expect(
+      fetchSmokeApi("/bank-transfers/123e4567-e89b-12d3-a456-426614174000/void", { method: "POST" }, { apiUrl: "https://ledgerbyte-api-test.example", timeoutMs: 1, progress: false, fetchImpl }),
+    ).rejects.toThrow("Smoke request timed out after 1ms: POST /bank-transfers/:id/void");
   });
 
   it("logs only safe route labels when progress logging is enabled", async () => {

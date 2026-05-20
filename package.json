@@ -16,6 +16,7 @@
     "test:user-testing-cleanup-plan": "node --test scripts/user-testing-cleanup-plan.test.cjs",
     "postinstall": "node scripts/vercel-postinstall.cjs",
     "smoke:accounting": "corepack pnpm --filter @ledgerbyte/api smoke:accounting",
+    "smoke:accounting:banking": "corepack pnpm --filter @ledgerbyte/api smoke:accounting:banking",
     "zatca:validate-generated": "node scripts/validate-generated-zatca-invoice.cjs",
     "zatca:debug-pih-chain": "node scripts/debug-zatca-pih-chain.cjs",
     "zatca:validate-sdk-hash-mode": "node scripts/validate-zatca-sdk-hash-mode.cjs",

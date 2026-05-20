@@ -84,7 +84,7 @@ corepack pnpm e2e
 
 The deployed test suite runs with one worker by default to avoid overwhelming the small Vercel/Supabase test environment. The per-test and expectation timeouts are configurable with `LEDGERBYTE_E2E_TEST_TIMEOUT_MS` and `LEDGERBYTE_E2E_EXPECT_TIMEOUT_MS`. If Vercel logs show `EMAXCONNSESSION`, wait for API health to recover, confirm runtime traffic is on the Supabase transaction pooler, and review Prisma connection limits or Vercel function concurrency before rerunning.
 
-Before rerunning deployed browser E2E after an API smoke stall, isolate the API route first. The 2026-05-20 journal diagnostic showed `GET /journal-entries` reached the API and completed, while full smoke duration remained the next blocker. Run a bounded API smoke diagnostic with `LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS=60000` and `LEDGERBYTE_SMOKE_PROGRESS=true`, then rerun browser E2E only after smoke has a clear pass or a classified non-E2E blocker.
+Before rerunning deployed browser E2E after an API smoke stall, isolate the API route first. The 2026-05-20 journal diagnostic showed `GET /journal-entries` reached the API and completed. The follow-up banking diagnostic showed `POST /bank-transfers/:id/void`, its idempotent second void, and the immediate bank account reads also completed under the 60-second request timeout. Run bounded API smoke diagnostics with `LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS=60000` and `LEDGERBYTE_SMOKE_PROGRESS=true`; use `corepack pnpm smoke:accounting:banking` for the bank-transfer slice. Rerun browser E2E only after full smoke has a clear pass or a classified non-E2E blocker.
 
 ## GitHub Actions
 
@@ -181,5 +181,5 @@ For deployed GitHub Actions runs, `scripts/check-deployed-e2e-env.cjs` performs 
 - CI wiring is currently manual-dispatch only.
 - The deployed test environment must already have Prisma migrations applied and the seeded test admin available.
 - Supabase test projects with small pooler limits can surface route-load flakiness if API functions open too many concurrent database sessions. Deployed Vercel API runtime traffic should use Supabase transaction-mode pooling plus a conservative Prisma runtime connection limit.
-- Full deployed E2E remained intentionally deferred after the 2026-05-20 journal-route smoke isolation. The API route itself completed, but the bounded smoke run still exceeded a 30-minute ceiling later in the banking workflow.
+- Full deployed E2E remained intentionally deferred after the 2026-05-20 journal-route and banking-route smoke isolation. The individual API routes completed, but the full deployed smoke loop still needs an appropriately sized hard ceiling before E2E resumes.
 - The GitHub Actions workflow is manual-only for now; scheduled or push-triggered deployed testing should be added only after the test environment is treated as disposable and non-production.
