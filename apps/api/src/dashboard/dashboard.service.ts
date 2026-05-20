@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import {
+  AccountType,
   BankAccountStatus,
   BankReconciliationStatus,
   BankStatementTransactionStatus,
@@ -61,6 +62,13 @@ interface DashboardMonth {
   end: Date;
 }
 
+interface DashboardReportLine {
+  debit: Prisma.Decimal.Value;
+  credit: Prisma.Decimal.Value;
+  account: { type: AccountType };
+  journalEntry: { entryDate: Date };
+}
+
 type OnboardingChecklistItemStatus = "COMPLETE" | "INCOMPLETE" | "WARNING";
 type OnboardingChecklistStatus = "BLOCKED" | "IN_PROGRESS" | "READY_FOR_SELLABLE_V1_REVIEW";
 
@@ -91,6 +99,7 @@ export class DashboardService {
     const todayStart = startOfUtcDay(now);
     const monthStart = startOfUtcMonth(now);
     const monthStartLabel = dateOnly(monthStart);
+    const asOf = endOfUtcDay(now);
     const asOfLabel = dateOnly(now);
     const trendMonths = lastSixUtcMonths(now);
     const organization = await this.prisma.organization.findFirst({
@@ -123,7 +132,7 @@ export class DashboardService {
     const purchases = await runSection("purchases", () => this.purchaseSummary(organizationId, monthStart, todayStart), () => this.emptyPurchaseSummary());
     const banking = await runSection("banking", () => this.bankingSummary(organizationId), () => this.emptyBankingSummary());
     const inventory = await runSection("inventory", () => this.inventorySummary(organizationId), () => this.emptyInventorySummary());
-    const reports = await runSection("reports", () => this.reportSummary(organizationId, monthStartLabel, asOfLabel), () => this.emptyReportSummary());
+    const reports = await runSection("reports", () => this.reportSummary(organizationId, monthStart, asOf), () => this.emptyReportSummary());
     const trends = await runSection("trends", () => this.trendSummary(organizationId, trendMonths), () => this.emptyTrendSummary(trendMonths));
     const aging = await runSection("aging", () => this.agingSummary(organizationId, asOfLabel), () => this.emptyAgingSummary());
     const compliance = await runSection("compliance", () => this.complianceSummary(organizationId, monthStart, now), () => this.emptyComplianceSummary());
@@ -477,17 +486,11 @@ export class DashboardService {
       },
       select: { billDate: true, total: true },
     });
-    const profitAndLossReports: Array<
-      Awaited<ReturnType<ReportsService["profitAndLoss"]>>
-    > = [];
-    for (const month of months) {
-      profitAndLossReports.push(
-        await this.reportsService.profitAndLoss(organizationId, {
-          from: dateOnly(month.start),
-          to: dateOnly(month.end),
-        }),
-      );
-    }
+    const profitLines = await this.dashboardJournalLines(organizationId, {
+      from: firstMonth.start,
+      to: lastMonth.end,
+      accountTypes: [AccountType.REVENUE, AccountType.COST_OF_SALES, AccountType.EXPENSE],
+    });
     const cashBalanceTrend = await this.cashBalanceTrend(organizationId, months);
 
     const salesByMonth = monthlyTotals(
@@ -506,10 +509,7 @@ export class DashboardService {
     return {
       monthlySales: months.map((month) => ({ month: month.key, amount: this.decimalString(salesByMonth.get(month.key) ?? 0) })),
       monthlyPurchases: months.map((month) => ({ month: month.key, amount: this.decimalString(purchasesByMonth.get(month.key) ?? 0) })),
-      monthlyNetProfit: months.map((month, index) => ({
-        month: month.key,
-        amount: this.decimalString(profitAndLossReports[index]?.netProfit ?? 0),
-      })),
+      monthlyNetProfit: monthlyProfitTotals(months, profitLines).map((point) => ({ month: point.month, amount: this.decimalString(point.amount) })),
       cashBalanceTrend,
     };
   }
@@ -616,16 +616,120 @@ export class DashboardService {
     };
   }
 
-  private async reportSummary(organizationId: string, monthStart: string, asOf: string) {
-    const trialBalance = await this.reportsService.trialBalance(organizationId, { to: asOf });
-    const profitAndLoss = await this.reportsService.profitAndLoss(organizationId, { from: monthStart, to: asOf });
-    const balanceSheet = await this.reportsService.balanceSheet(organizationId, { asOf });
+  private async reportSummary(organizationId: string, monthStart: Date, asOf: Date) {
+    const lines = await this.dashboardJournalLines(organizationId, { to: asOf });
+    const monthLines = lines.filter((line) => {
+      const entryDate = new Date(line.journalEntry.entryDate);
+      return entryDate >= monthStart && entryDate <= asOf;
+    });
+    const profitAndLossNetProfit = this.profitAndLossNetProfit(monthLines);
+    const balanceSheetDifference = this.balanceSheetDifference(lines);
 
     return {
-      trialBalanceBalanced: trialBalance.totals.balanced,
-      profitAndLossNetProfit: profitAndLoss.netProfit,
-      balanceSheetBalanced: balanceSheet.balanced,
+      trialBalanceBalanced: this.trialBalanceBalanced(lines),
+      profitAndLossNetProfit: this.decimalString(profitAndLossNetProfit),
+      balanceSheetBalanced: balanceSheetDifference.eq(0),
     };
+  }
+
+  private async dashboardJournalLines(
+    organizationId: string,
+    filters: { from?: Date; to?: Date; accountTypes?: AccountType[] },
+  ): Promise<DashboardReportLine[]> {
+    const entryDate: { gte?: Date; lte?: Date } = {};
+    if (filters.from) {
+      entryDate.gte = filters.from;
+    }
+    if (filters.to) {
+      entryDate.lte = filters.to;
+    }
+
+    return this.prisma.journalLine.findMany({
+      where: {
+        organizationId,
+        ...(filters.accountTypes ? { account: { is: { type: { in: filters.accountTypes } } } } : {}),
+        journalEntry: {
+          status: { in: REPORT_LEDGER_STATUSES },
+          ...(Object.keys(entryDate).length ? { entryDate } : {}),
+        },
+      },
+      select: {
+        debit: true,
+        credit: true,
+        account: { select: { type: true } },
+        journalEntry: { select: { entryDate: true } },
+      },
+    });
+  }
+
+  private trialBalanceBalanced(lines: DashboardReportLine[]): boolean {
+    const totals = lines.reduce(
+      (sum, line) => ({
+        debit: sum.debit.plus(this.decimal(line.debit)),
+        credit: sum.credit.plus(this.decimal(line.credit)),
+      }),
+      { debit: new Prisma.Decimal(0), credit: new Prisma.Decimal(0) },
+    );
+    return totals.debit.eq(totals.credit);
+  }
+
+  private balanceSheetDifference(lines: DashboardReportLine[]): Prisma.Decimal {
+    const totals = lines.reduce(
+      (sum, line) => {
+        const debit = this.decimal(line.debit);
+        const credit = this.decimal(line.credit);
+        switch (line.account.type) {
+          case AccountType.ASSET:
+            sum.assets = sum.assets.plus(debit).minus(credit);
+            break;
+          case AccountType.LIABILITY:
+            sum.liabilities = sum.liabilities.plus(credit).minus(debit);
+            break;
+          case AccountType.EQUITY:
+            sum.equity = sum.equity.plus(credit).minus(debit);
+            break;
+          default:
+            break;
+        }
+        return sum;
+      },
+      {
+        assets: new Prisma.Decimal(0),
+        liabilities: new Prisma.Decimal(0),
+        equity: new Prisma.Decimal(0),
+      },
+    );
+    const retainedEarnings = this.profitAndLossNetProfit(lines);
+    return totals.assets.minus(totals.liabilities.plus(totals.equity).plus(retainedEarnings));
+  }
+
+  private profitAndLossNetProfit(lines: DashboardReportLine[]): Prisma.Decimal {
+    const totals = lines.reduce(
+      (sum, line) => {
+        const debit = this.decimal(line.debit);
+        const credit = this.decimal(line.credit);
+        switch (line.account.type) {
+          case AccountType.REVENUE:
+            sum.revenue = sum.revenue.plus(credit).minus(debit);
+            break;
+          case AccountType.COST_OF_SALES:
+            sum.costOfSales = sum.costOfSales.plus(debit).minus(credit);
+            break;
+          case AccountType.EXPENSE:
+            sum.expenses = sum.expenses.plus(debit).minus(credit);
+            break;
+          default:
+            break;
+        }
+        return sum;
+      },
+      {
+        revenue: new Prisma.Decimal(0),
+        costOfSales: new Prisma.Decimal(0),
+        expenses: new Prisma.Decimal(0),
+      },
+    );
+    return totals.revenue.minus(totals.costOfSales).minus(totals.expenses);
   }
 
   private async complianceSummary(organizationId: string, monthStart: Date, now: Date) {
@@ -971,6 +1075,27 @@ function monthlyTotals<T>(
   return totals;
 }
 
+function monthlyProfitTotals(months: DashboardMonth[], lines: DashboardReportLine[]): Array<{ month: string; amount: Prisma.Decimal }> {
+  const totals = new Map(months.map((month) => [month.key, new Prisma.Decimal(0)]));
+  for (const line of lines) {
+    const key = monthKey(new Date(line.journalEntry.entryDate));
+    const current = totals.get(key);
+    if (!current) {
+      continue;
+    }
+    const debit = new Prisma.Decimal(line.debit);
+    const credit = new Prisma.Decimal(line.credit);
+    const amount =
+      line.account.type === AccountType.REVENUE
+        ? credit.minus(debit)
+        : line.account.type === AccountType.COST_OF_SALES || line.account.type === AccountType.EXPENSE
+          ? debit.minus(credit).negated()
+          : new Prisma.Decimal(0);
+    totals.set(key, current.plus(amount));
+  }
+  return months.map((month) => ({ month: month.key, amount: totals.get(month.key) ?? new Prisma.Decimal(0) }));
+}
+
 function agingBuckets(bucketTotals: Record<string, Prisma.Decimal.Value>) {
   return Object.entries(AGING_BUCKET_LABELS).map(([key, label]) => ({
     bucket: label,
@@ -992,6 +1117,10 @@ function lastSixUtcMonths(now: Date): DashboardMonth[] {
 
 function startOfUtcDay(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function endOfUtcDay(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999));
 }
 
 function startOfUtcMonth(date: Date): Date {

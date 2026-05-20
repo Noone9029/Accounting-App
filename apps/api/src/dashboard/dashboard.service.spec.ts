@@ -1,10 +1,48 @@
-import { Prisma, StockMovementType } from "@prisma/client";
+import { AccountType, Prisma, StockMovementType } from "@prisma/client";
 import { DashboardService } from "./dashboard.service";
 
 describe("DashboardService", () => {
   const organizationId = "org-1";
 
   function makeService(overrides: Partial<MockPrisma> = {}) {
+    const bankingJournalLines = [
+      {
+        debit: new Prisma.Decimal("120.0000"),
+        credit: new Prisma.Decimal("0.0000"),
+        journalEntry: { entryDate: new Date("2026-05-01T00:00:00.000Z") },
+      },
+      {
+        debit: new Prisma.Decimal("0.0000"),
+        credit: new Prisma.Decimal("10.0000"),
+        journalEntry: { entryDate: new Date("2026-05-02T00:00:00.000Z") },
+      },
+    ];
+    const dashboardReportLines = [
+      {
+        debit: new Prisma.Decimal("100.0000"),
+        credit: new Prisma.Decimal("0.0000"),
+        account: { type: AccountType.ASSET },
+        journalEntry: { entryDate: new Date("2026-05-02T00:00:00.000Z") },
+      },
+      {
+        debit: new Prisma.Decimal("0.0000"),
+        credit: new Prisma.Decimal("100.0000"),
+        account: { type: AccountType.REVENUE },
+        journalEntry: { entryDate: new Date("2026-05-02T00:00:00.000Z") },
+      },
+      {
+        debit: new Prisma.Decimal("58.0000"),
+        credit: new Prisma.Decimal("0.0000"),
+        account: { type: AccountType.EXPENSE },
+        journalEntry: { entryDate: new Date("2026-05-04T00:00:00.000Z") },
+      },
+      {
+        debit: new Prisma.Decimal("0.0000"),
+        credit: new Prisma.Decimal("58.0000"),
+        account: { type: AccountType.ASSET },
+        journalEntry: { entryDate: new Date("2026-05-04T00:00:00.000Z") },
+      },
+    ];
     const prisma = {
       organization: { findFirst: jest.fn().mockResolvedValue({ id: organizationId, baseCurrency: "SAR" }) },
       account: { count: jest.fn().mockResolvedValue(8) },
@@ -39,18 +77,9 @@ describe("DashboardService", () => {
         findFirst: jest.fn().mockResolvedValue({ closedAt: new Date("2026-05-10T00:00:00.000Z"), periodEnd: new Date("2026-05-09T00:00:00.000Z") }),
       },
       journalLine: {
-        findMany: jest.fn().mockResolvedValue([
-          {
-            debit: new Prisma.Decimal("120.0000"),
-            credit: new Prisma.Decimal("0.0000"),
-            journalEntry: { entryDate: new Date("2026-05-01T00:00:00.000Z") },
-          },
-          {
-            debit: new Prisma.Decimal("0.0000"),
-            credit: new Prisma.Decimal("10.0000"),
-            journalEntry: { entryDate: new Date("2026-05-02T00:00:00.000Z") },
-          },
-        ]),
+        findMany: jest.fn().mockImplementation((query?: { where?: { accountId?: unknown } }) =>
+          Promise.resolve(query?.where?.accountId ? bankingJournalLines : dashboardReportLines),
+        ),
       },
       item: {
         findMany: jest.fn().mockResolvedValue([{ id: "item-1", name: "E2E Widget", reorderPoint: new Prisma.Decimal("10.0000") }]),
@@ -170,6 +199,36 @@ describe("DashboardService", () => {
     );
     expect(prisma.salesInvoice.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organizationId }) }));
     expect(prisma.purchaseBill.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organizationId }) }));
+    jest.useRealTimers();
+  });
+
+  it("uses summary-only journal aggregation for dashboard reports and trends", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-05-15T12:00:00.000Z"));
+    const { service, prisma, reportsService } = makeService();
+
+    const summary = await service.summary(organizationId);
+
+    expect(summary.reports).toEqual({
+      trialBalanceBalanced: true,
+      profitAndLossNetProfit: "42.0000",
+      balanceSheetBalanced: true,
+    });
+    expect(summary.trends.monthlyNetProfit.at(-1)).toEqual({ month: "2026-05", amount: "42.0000" });
+    expect(reportsService.trialBalance).not.toHaveBeenCalled();
+    expect(reportsService.profitAndLoss).not.toHaveBeenCalled();
+    expect(reportsService.balanceSheet).not.toHaveBeenCalled();
+    expect(prisma.journalLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId,
+          journalEntry: expect.objectContaining({ status: { in: ["POSTED", "REVERSED"] } }),
+        }),
+        select: expect.objectContaining({
+          account: { select: { type: true } },
+          journalEntry: { select: { entryDate: true } },
+        }),
+      }),
+    );
     jest.useRealTimers();
   });
 
