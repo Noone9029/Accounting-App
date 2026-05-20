@@ -12,6 +12,7 @@
     "test": "jest --config jest.config.cjs",
     "smoke:accounting": "tsx scripts/smoke-accounting.ts",
     "smoke:accounting:banking": "tsx scripts/smoke-banking.ts",
+    "smoke:accounting:tail": "tsx scripts/smoke-accounting-tail.ts",
     "demo:seed-workflows": "tsx scripts/seed-demo-workflows.ts",
     "zatca:csr-dry-run": "tsx scripts/zatca-csr-dry-run.ts",
     "zatca:csr-local-generate": "tsx scripts/zatca-csr-local-generate.ts",

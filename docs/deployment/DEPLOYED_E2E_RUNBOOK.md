@@ -240,6 +240,34 @@ corepack pnpm smoke:accounting:banking
 - The confirmed issue is monolithic deployed smoke runtime length, not a bank-transfer route hang, response parser hang, DB lock, or recurring `EMAXCONNSESSION`.
 - Full deployed smoke and full deployed E2E remain pending until the full smoke loop is run with an appropriate hard ceiling.
 
+### Accounting Smoke Tail Slice
+
+Use this before rerunning the full deployed smoke loop when the remaining work is in late AR/AP, generated documents, storage, reporting, or ZATCA-safe checks:
+
+```powershell
+$env:LEDGERBYTE_API_URL="https://ledgerbyte-api-test.vercel.app"
+$env:LEDGERBYTE_SMOKE_EMAIL="<from secret store>"
+$env:LEDGERBYTE_SMOKE_PASSWORD="<from secret store>"
+$env:LEDGERBYTE_SMOKE_ORGANIZATION_ID="<from secret store>"
+$env:LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS="60000"
+$env:LEDGERBYTE_SMOKE_PROGRESS="true"
+Remove-Item Env:\LEDGERBYTE_ALLOW_GENERATED_TEST_USER -ErrorAction SilentlyContinue
+corepack pnpm smoke:accounting:tail
+```
+
+The tail slice creates its own smoke customer/supplier/document records and covers ZATCA-safe no-network checks, local/mock CSID and XML/hash/QR flows, blocked clearance/reporting responses, customer payments, overpayments, refunds, credit notes, purchase bills, purchase debit notes, supplier payments/refunds, ledgers/statements, receipt/PDF/report endpoints, generated document archive downloads, uploaded attachments, representative audit log redaction, storage readiness, migration-plan dry runs, and backup/restore readiness planning. It must use the same secret-store credential guard, `LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS`, and redacted progress logging as the full smoke.
+
+2026-05-20 full-smoke ceiling finding:
+
+- A single deployed full smoke against API deployment `dpl_46ix42o9oadwynLgJThkeqP752Mr` and web deployment `dpl_9nYUNaRDSgw2BzEP2fsjPfE2KRuD`, commit `b6d3e2d19d17ac744281988913b17b3be3144890`, was stopped at the 60-minute hard ceiling after about 61.6 minutes.
+- No individual route exceeded the 60-second request timeout, no `[smoke-fetch:error]` lines were logged, and stderr was empty.
+- Last completed route: `GET /sales-invoices/:id/credit-note-allocations -> 200` in 5,631 ms.
+- Last started route: `GET /contacts/:id/ledger`.
+- Slowest completed route: `POST /purchase-receipts/:id/post-inventory-asset -> 201` in 36,024 ms.
+- Sanitized pool counts stayed stable from `active=1`, `idle=5`, `unknown=8` before to `active=1`, `idle=7`, `unknown=8` after.
+- The result was classified as monolithic smoke duration, not a route hang, parser hang, DB lock, or recurring `EMAXCONNSESSION`.
+- Full deployed E2E remains intentionally deferred until bounded smoke phases pass.
+
 ## Safety Rules
 
 - Do not run deployed E2E against production data.

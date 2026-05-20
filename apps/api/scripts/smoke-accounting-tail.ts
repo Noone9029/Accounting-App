@@ -1,0 +1,5332 @@
+import { Decimal } from "decimal.js";
+import { fetchSmokeApi, parseSmokeRequestTimeout, smokeProgressEnabled } from "./smoke-http";
+
+interface TestCredentialOptions {
+  label: string;
+  targetUrls: string[];
+  emailVar: string;
+  passwordVar: string;
+}
+
+interface TestCredentialResult {
+  email: string;
+  password: string;
+}
+
+const { resolveTestCredentials } = require("../../../scripts/test-credential-env.cjs") as {
+  resolveTestCredentials(options: TestCredentialOptions): TestCredentialResult;
+};
+
+const apiUrl = (process.env.LEDGERBYTE_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
+const smokeHttpOptions = {
+  apiUrl,
+  timeoutMs: parseSmokeRequestTimeout(process.env.LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS),
+  progress: smokeProgressEnabled(process.env.LEDGERBYTE_SMOKE_PROGRESS),
+};
+const smokeCredentials = resolveTestCredentials({
+  label: "Smoke",
+  targetUrls: [apiUrl],
+  emailVar: "LEDGERBYTE_SMOKE_EMAIL",
+  passwordVar: "LEDGERBYTE_SMOKE_PASSWORD",
+});
+const seedEmail = smokeCredentials.email;
+const seedPassword = smokeCredentials.password;
+const seedOrganizationId = process.env.LEDGERBYTE_SMOKE_ORGANIZATION_ID ?? "00000000-0000-0000-0000-000000000001";
+
+interface LoginResponse {
+  accessToken: string;
+  organization?: Organization;
+}
+
+interface AuthMeResponse {
+  id: string;
+  email: string;
+  memberships: Array<{
+    id: string;
+    status: string;
+    organization: Organization;
+    role: {
+      id: string;
+      name: string;
+      permissions: unknown;
+    };
+  }>;
+}
+
+interface Organization {
+  id: string;
+  name: string;
+}
+
+interface Role {
+  id: string;
+  name: string;
+  permissions: string[];
+  isSystem: boolean;
+  memberCount: number;
+}
+
+interface OrganizationMember {
+  id: string;
+  status: string;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+  };
+  role: {
+    id: string;
+    name: string;
+    permissions: string[];
+    isSystem: boolean;
+  };
+}
+
+interface InviteOrganizationMemberResponse {
+  message: string;
+  member: OrganizationMember;
+  emailOutboxId?: string;
+  invitePreviewUrl?: string;
+}
+
+interface InvitationPreviewResponse {
+  valid: boolean;
+  email?: string;
+  organization?: Organization | null;
+  role?: { id: string; name: string } | null;
+  consumed?: boolean;
+}
+
+interface EmailOutboxEntry {
+  id: string;
+  toEmail: string;
+  templateType: "ORGANIZATION_INVITE" | "PASSWORD_RESET" | "TEST_EMAIL";
+  status: "QUEUED" | "SENT_MOCK" | "SENT_PROVIDER" | "FAILED";
+  provider: string;
+  createdAt: string;
+}
+
+interface EmailOutboxDetail extends EmailOutboxEntry {
+  bodyText: string;
+  bodyHtml: string | null;
+}
+
+interface EmailReadinessResponse {
+  provider: string;
+  ready: boolean;
+  blockingReasons: string[];
+  blockers: string[];
+  warnings: string[];
+  fromEmail: string;
+  localOnly: boolean;
+  noCustomerEmailSent: boolean;
+  readOnly: boolean;
+  noMutation: boolean;
+  productionReady: boolean;
+  diagnostics: {
+    executionEnabled: boolean;
+    allowedRecipientsConfigured: boolean;
+    allowedDomainsConfigured: boolean;
+    provider: string;
+    smtpConfigured: boolean;
+    wouldSendToRedactedRecipient: string | null;
+    noCustomerEmailSentByDefault: boolean;
+    noMutationByDefault: boolean;
+    productionReady: boolean;
+  };
+  senderDomain: {
+    fromDomain: string | null;
+    replyToDomain: string | null;
+    evidenceRequired: boolean;
+    requiredEvidenceTypes: string[];
+    verifiedEvidenceTypes: string[];
+    missingEvidenceTypes: string[];
+    evidenceStatus: string;
+    productionReadyContribution: boolean;
+    blockers: string[];
+    warnings: string[];
+  };
+  relayDiagnosticsStatus: string;
+  relayDiagnosticsRequired: boolean;
+  bounceWebhookConfigured: boolean;
+  bounceWebhookSignatureVerified: boolean;
+  webhookVerificationConfigured: boolean;
+  webhookVerificationEnabled: boolean;
+  webhookSecretConfigured: boolean;
+  providerWebhookSignatureVerified: boolean;
+  suppressionListConfigured: boolean;
+  activeSuppressionCount: number;
+  providerEventIngestionReady: boolean;
+  retryPolicyConfigured: boolean;
+  retryProcessorEnabled: boolean;
+  retryWorkerConfigured: boolean;
+  retryWorkerEnabled: boolean;
+  retryPendingCount: number;
+  retryBlockedCount: number;
+  retrySuppressedCount: number;
+  monitoringEvidenceStatus: string;
+  retryThroughputMonitoringConfigured: boolean;
+  suppressionTrendMonitoringConfigured: boolean;
+  providerWebhookHealthMonitoringConfigured: boolean;
+  monitoringConfigured: boolean;
+  alertingConfigured: boolean;
+  bounceAlertThresholdConfigured: boolean;
+  complaintAlertThresholdConfigured: boolean;
+  providerWebhookAlertsReady: boolean;
+  smtp: {
+    hostConfigured: boolean;
+    portConfigured: boolean;
+    userConfigured: boolean;
+    passwordConfigured: boolean;
+    secureModeConfigured: boolean;
+    secure: boolean;
+  };
+  mockMode: boolean;
+  realSendingEnabled: boolean;
+}
+
+interface EmailDiagnosticsResponse {
+  status: string;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  noEmailSent: boolean;
+  noCustomerEmailSent: boolean;
+  noMutation: boolean;
+  provider: string;
+  plan?: EmailReadinessResponse["diagnostics"];
+}
+
+interface EmailRetryPlanResponse {
+  readOnly: boolean;
+  noMutation: boolean;
+  noCustomerEmailSent: boolean;
+  executionEnabled: boolean;
+  retryWorkerConfigured: boolean;
+  retryProcessorEnabled: boolean;
+  pendingCount: number;
+  failedRetryableCount: number;
+  blockedCount: number;
+  nextAttemptCount: number;
+  suppressedOutboxCount: number;
+  activeSuppressionCount: number;
+  maxAttemptsPolicy: {
+    defaultMaxAttempts: number;
+    maxBatchLimit: number;
+  };
+  productionReadyContribution: boolean;
+  blockers: string[];
+  warnings: string[];
+}
+
+interface EmailRetryProcessResponse {
+  status: string;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  noEmailSent: boolean;
+  noCustomerEmailSent: boolean;
+  noMutation: boolean;
+  provider: string;
+  plan?: EmailRetryPlanResponse;
+}
+
+interface EmailRetryWorkerPlanResponse {
+  readOnly: boolean;
+  noMutation: boolean;
+  noCustomerEmailSent: boolean;
+  workerConfigured: boolean;
+  workerEnabled: boolean;
+  schedulerProvider: string;
+  retryProcessorEnabled: boolean;
+  pendingCount: number;
+  dueRetryCount: number;
+  suppressedCount: number;
+  activeSuppressionCount: number;
+  blockedCount: number;
+  maxAttemptsPolicy: {
+    defaultMaxAttempts: number;
+    maxBatchLimit: number;
+  };
+  recommendedSchedule: string;
+  productionReadyContribution: boolean;
+  blockers: string[];
+  warnings: string[];
+}
+
+interface EmailRetryWorkerRunResponse {
+  status: string;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  noEmailSent: boolean;
+  noCustomerEmailSent: boolean;
+  noMutation: boolean;
+  provider: string;
+  plan?: EmailRetryWorkerPlanResponse;
+}
+
+interface EmailMonitoringPlanResponse {
+  readOnly: boolean;
+  noMutation: boolean;
+  noCustomerEmailSent: boolean;
+  metadataOnly: boolean;
+  monitoringConfigured: boolean;
+  alertingConfigured: boolean;
+  retryThroughputMonitoringConfigured: boolean;
+  bounceAlertThresholdConfigured: boolean;
+  complaintAlertThresholdConfigured: boolean;
+  suppressionTrendMonitoringConfigured: boolean;
+  deliveryDashboardConfigured: boolean;
+  providerWebhookHealthMonitoringConfigured: boolean;
+  evidenceStatus: string;
+  productionReadyContribution: boolean;
+  requiredEvidenceTypes: string[];
+  verifiedEvidenceTypes: string[];
+  missingEvidenceTypes: string[];
+  blockers: string[];
+  warnings: string[];
+}
+
+interface EmailDeliveryMonitoringEvidenceListResponse {
+  metadataOnly: boolean;
+  noCustomerEmail: boolean;
+  noEmailSent: boolean;
+  noOutboxRecord: boolean;
+  evidence: unknown[];
+}
+
+interface EmailProviderEventsPlanResponse {
+  readOnly: boolean;
+  noMutation: boolean;
+  noCustomerEmailSent: boolean;
+  metadataOnly: boolean;
+  mockIngestionAvailable: boolean;
+  providerEventIngestionReady: boolean;
+  bounceWebhookConfigured: boolean;
+  bounceWebhookSignatureVerified: boolean;
+  webhookVerificationConfigured: boolean;
+  webhookVerificationEnabled: boolean;
+  webhookSecretConfigured: boolean;
+  monitoringConfigured: boolean;
+  alertingConfigured: boolean;
+  bounceAlertThresholdConfigured: boolean;
+  complaintAlertThresholdConfigured: boolean;
+  providerWebhookAlertsReady: boolean;
+  productionReadyContribution: boolean;
+  blockers: string[];
+  warnings: string[];
+}
+
+interface EmailProviderWebhookPlanResponse {
+  readOnly: boolean;
+  noMutation: boolean;
+  noCustomerEmailSent: boolean;
+  metadataOnly: boolean;
+  webhookVerificationConfigured: boolean;
+  webhookVerificationEnabled: boolean;
+  webhookSecretConfigured: boolean;
+  allowedProvidersConfigured: boolean;
+  allowedProviders: string[];
+  signatureVerificationMode: string;
+  rawHeadersReturned: boolean;
+  rawProviderPayloadReturned: boolean;
+  webhookSecretReturned: boolean;
+  providerWebhookSignatureVerified: boolean;
+  verifiedEventCount: number;
+  productionReadyContribution: boolean;
+  blockers: string[];
+  warnings: string[];
+}
+
+interface EmailSuppressionListResponse {
+  metadataOnly: boolean;
+  noCustomerEmail: boolean;
+  noEmailSent: boolean;
+  noOutboxRecord: boolean;
+  suppressions: Array<{
+    id: string;
+    emailHash: string;
+    emailMasked: string;
+    active: boolean;
+  }>;
+}
+
+interface EmailSuppressionResponse {
+  metadataOnly: boolean;
+  noCustomerEmail: boolean;
+  noEmailSent: boolean;
+  noOutboxRecord: boolean;
+  suppression: {
+    id: string;
+    emailHash: string;
+    emailMasked: string;
+    active: boolean;
+  };
+}
+
+interface EmailSenderDomainEvidenceListResponse {
+  metadataOnly: boolean;
+  noCustomerEmail: boolean;
+  noEmailSent: boolean;
+  noOutboxRecord: boolean;
+  evidence: unknown[];
+}
+
+interface AuditLogEntry {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  before: unknown;
+  after: unknown;
+  createdAt: string;
+}
+
+interface AuditLogListResponse {
+  data: AuditLogEntry[];
+  pagination: {
+    total: number;
+    limit: number;
+    page: number;
+    hasMore: boolean;
+  };
+}
+
+interface AuditLogRetentionSettingsResponse {
+  retentionDays: number;
+  autoPurgeEnabled: boolean;
+  exportBeforePurgeRequired: boolean;
+  warnings: string[];
+}
+
+interface AuditLogRetentionPreviewResponse {
+  retentionDays: number;
+  cutoffDate: string;
+  totalAuditLogs: number;
+  logsOlderThanCutoff: number;
+  dryRunOnly: boolean;
+  warnings: string[];
+}
+
+interface NumberSequenceResponse {
+  id: string;
+  scope: string;
+  prefix: string;
+  nextNumber: number;
+  padding: number;
+  exampleNextNumber: string;
+  updatedAt: string;
+}
+
+interface Account {
+  id: string;
+  code: string;
+  name: string;
+  type?: string;
+  allowPosting: boolean;
+  isActive: boolean;
+}
+
+interface BankAccountSummary {
+  id: string;
+  accountId: string;
+  displayName: string;
+  type: string;
+  status: string;
+  currency: string;
+  openingBalance: string;
+  openingBalanceDate: string | null;
+  openingBalanceJournalEntryId: string | null;
+  openingBalancePostedAt: string | null;
+  ledgerBalance: string;
+  transactionCount: number;
+  account: {
+    id: string;
+    code: string;
+    name: string;
+  };
+}
+
+interface BankAccountTransactionsResponse {
+  closingBalance: string;
+  transactions: Array<{
+    id: string;
+    sourceType: string;
+    sourceId: string | null;
+    sourceNumber: string | null;
+    debit: string;
+    credit: string;
+    runningBalance: string;
+  }>;
+}
+
+interface BankTransfer {
+  id: string;
+  transferNumber: string;
+  status: "POSTED" | "VOIDED";
+  amount: string;
+  currency: string;
+  journalEntryId: string | null;
+  voidReversalJournalEntryId: string | null;
+}
+
+interface BankStatementImport {
+  id: string;
+  filename: string;
+  status: string;
+  rowCount: number;
+  closingStatementBalance?: string | null;
+}
+
+interface BankStatementImportPreview {
+  rowCount: number;
+  validRows: Array<{ rowNumber: number; amount: string; type: "DEBIT" | "CREDIT" }>;
+  invalidRows: Array<{ rowNumber: number; errors: string[] }>;
+  totalCredits: string;
+  totalDebits: string;
+  detectedColumns: string[];
+  warnings: string[];
+}
+
+interface BankStatementTransaction {
+  id: string;
+  importId: string;
+  status: string;
+  type: "DEBIT" | "CREDIT";
+  amount: string;
+  reference?: string | null;
+  matchedJournalLineId?: string | null;
+  matchedJournalEntryId?: string | null;
+  createdJournalEntryId?: string | null;
+  matchType?: string | null;
+}
+
+interface BankStatementMatchCandidate {
+  journalLineId: string;
+  journalEntryId: string;
+  entryNumber: string;
+  reference?: string | null;
+  debit: string;
+  credit: string;
+  score: number;
+}
+
+interface BankReconciliationSummary {
+  ledgerBalance: string;
+  statementClosingBalance: string | null;
+  difference: string | null;
+  statusSuggestion: "RECONCILED" | "NEEDS_REVIEW";
+  totals: Record<"credits" | "debits" | "unmatched" | "matched" | "categorized" | "ignored", { count: number; total: string }>;
+  latestClosedReconciliation?: BankReconciliation | null;
+  hasOpenDraftReconciliation?: boolean;
+  unreconciledTransactionCount?: number;
+  closedThroughDate?: string | null;
+}
+
+interface BankReconciliation {
+  id: string;
+  reconciliationNumber: string;
+  bankAccountProfileId: string;
+  periodStart: string;
+  periodEnd: string;
+  statementClosingBalance: string;
+  ledgerClosingBalance: string;
+  difference: string;
+  status: "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "CLOSED" | "VOIDED";
+  submittedAt?: string | null;
+  approvedAt?: string | null;
+  closedAt?: string | null;
+  voidedAt?: string | null;
+  unmatchedTransactionCount?: number;
+}
+
+interface BankReconciliationReviewEvent {
+  id: string;
+  action: "SUBMIT" | "APPROVE" | "REOPEN" | "CLOSE" | "VOID";
+  fromStatus?: string | null;
+  toStatus: string;
+}
+
+interface BankReconciliationItem {
+  id: string;
+  statementTransactionId: string;
+  statusAtClose: string;
+  amount: string;
+  type: "DEBIT" | "CREDIT";
+}
+
+interface BankReconciliationReportData {
+  reconciliation: {
+    id: string;
+    reconciliationNumber: string;
+    status: string;
+  };
+  items: Array<{
+    statementTransactionId: string;
+    statusAtClose: string;
+  }>;
+  summary: {
+    itemCount: number;
+  };
+}
+
+interface FiscalPeriod {
+  id: string;
+  name: string;
+  startsOn: string;
+  endsOn: string;
+  status: "OPEN" | "CLOSED" | "LOCKED";
+}
+
+interface JournalEntry {
+  id: string;
+  status: string;
+  entryDate: string;
+  lines?: Array<{
+    accountId: string;
+    debit: string;
+    credit: string;
+    account?: { id: string; code: string; name: string } | null;
+  }>;
+}
+
+interface JournalEntryCountResponse {
+  count: number;
+}
+
+interface GeneralLedgerReport {
+  accounts: Array<{
+    accountId: string;
+    lines: Array<{
+      journalEntryId: string;
+      debit: string;
+      credit: string;
+    }>;
+  }>;
+}
+
+interface DashboardSummary {
+    asOf: string;
+    currency: string;
+    sales: Record<string, unknown>;
+    purchases: Record<string, unknown>;
+    banking: Record<string, unknown>;
+    inventory: Record<string, unknown> & {
+      lowStockItems?: unknown[];
+    };
+    reports: Record<string, unknown>;
+    trends: {
+      monthlySales: unknown[];
+      monthlyPurchases: unknown[];
+      monthlyNetProfit: unknown[];
+      cashBalanceTrend: unknown[];
+    };
+    aging: {
+      receivablesBuckets: unknown[];
+      payablesBuckets: unknown[];
+    };
+    compliance: Record<string, unknown>;
+    attentionItems: Array<{
+      type: string;
+    severity: string;
+    title: string;
+    description: string;
+    href: string;
+  }>;
+}
+
+interface DashboardOnboardingChecklist {
+  readOnly: boolean;
+  noMutation: boolean;
+  tenantScoped: boolean;
+  status: string;
+  readinessScore: number;
+  completedCount: number;
+  totalCount: number;
+  items: Array<{ id: string; status: string; evidence: string[]; blockers: string[]; warnings: string[] }>;
+  blockers: string[];
+  warnings: string[];
+  productionCompliance: boolean;
+  zatcaProductionCompliance: boolean;
+  realZatcaNetworkEnabled: boolean;
+  signedXmlBodyPersistenceAllowed: boolean;
+  qrPayloadBodyPersistenceAllowed: boolean;
+}
+
+interface TaxRate {
+  id: string;
+  name: string;
+  rate: string;
+  isActive: boolean;
+}
+
+interface Contact {
+  id: string;
+  name: string;
+  displayName?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  buildingNumber?: string | null;
+  district?: string | null;
+  city?: string | null;
+  postalCode?: string | null;
+  countryCode?: string | null;
+}
+
+interface Item {
+  id: string;
+  name: string;
+  sku?: string | null;
+  inventoryTracking?: boolean;
+  reorderPoint?: string | null;
+  reorderQuantity?: string | null;
+}
+
+interface Warehouse {
+  id: string;
+  code: string;
+  name: string;
+  status: "ACTIVE" | "ARCHIVED";
+  isDefault: boolean;
+}
+
+interface StockMovement {
+  id: string;
+  itemId: string;
+  warehouseId: string;
+  type:
+    | "OPENING_BALANCE"
+    | "ADJUSTMENT_IN"
+    | "ADJUSTMENT_OUT"
+    | "TRANSFER_IN"
+    | "TRANSFER_OUT"
+    | "PURCHASE_RECEIPT_PLACEHOLDER"
+    | "SALES_ISSUE_PLACEHOLDER";
+  quantity: string;
+  unitCost?: string | null;
+  totalCost?: string | null;
+}
+
+interface InventoryAdjustment {
+  id: string;
+  adjustmentNumber: string;
+  status: "DRAFT" | "APPROVED" | "VOIDED";
+  type: "INCREASE" | "DECREASE";
+  quantity: string;
+  stockMovementId?: string | null;
+  voidStockMovementId?: string | null;
+}
+
+interface WarehouseTransfer {
+  id: string;
+  transferNumber: string;
+  status: "POSTED" | "VOIDED";
+  quantity: string;
+  fromStockMovementId?: string | null;
+  toStockMovementId?: string | null;
+  voidFromStockMovementId?: string | null;
+  voidToStockMovementId?: string | null;
+}
+
+interface PurchaseReceipt {
+  id: string;
+  receiptNumber: string;
+  status: "POSTED" | "VOIDED";
+  inventoryAssetJournalEntryId?: string | null;
+  inventoryAssetReversalJournalEntryId?: string | null;
+  lines?: Array<{ id: string; stockMovementId?: string | null; voidStockMovementId?: string | null }>;
+}
+
+interface PurchaseReceivingStatus {
+  status: "NOT_STARTED" | "PARTIAL" | "COMPLETE";
+  lines: Array<{
+    lineId: string;
+    inventoryTracking: boolean;
+    receivedQuantity: string;
+    remainingQuantity: string;
+  }>;
+}
+
+interface SalesStockIssue {
+  id: string;
+  issueNumber: string;
+  status: "POSTED" | "VOIDED";
+  cogsJournalEntryId?: string | null;
+  cogsReversalJournalEntryId?: string | null;
+  lines?: Array<{ id: string; stockMovementId?: string | null; voidStockMovementId?: string | null }>;
+}
+
+interface SalesInvoiceStockIssueStatus {
+  status: "NOT_STARTED" | "PARTIAL" | "COMPLETE";
+  lines: Array<{
+    lineId: string;
+    inventoryTracking: boolean;
+    issuedQuantity: string;
+    remainingQuantity: string;
+  }>;
+}
+
+interface InventoryBalance {
+  item: { id: string; name: string; sku?: string | null };
+  warehouse: { id: string; code: string; name: string };
+  quantityOnHand: string;
+  averageUnitCost: string | null;
+  inventoryValue: string | null;
+}
+
+interface InventorySettings {
+  id: string;
+  valuationMethod: "MOVING_AVERAGE" | "FIFO_PLACEHOLDER";
+  allowNegativeStock: boolean;
+  trackInventoryValue: boolean;
+  warnings: string[];
+}
+
+interface InventoryAccountingSettings {
+  id: string;
+  valuationMethod: "MOVING_AVERAGE" | "FIFO_PLACEHOLDER";
+  enableInventoryAccounting: boolean;
+  inventoryAssetAccountId: string | null;
+  cogsAccountId: string | null;
+  inventoryClearingAccountId: string | null;
+  purchaseReceiptPostingMode: "DISABLED" | "PREVIEW_ONLY";
+  inventoryAdjustmentGainAccountId: string | null;
+  inventoryAdjustmentLossAccountId: string | null;
+  canEnableInventoryAccounting: boolean;
+  previewOnly: true;
+  noAutomaticPosting: true;
+  blockingReasons: string[];
+  warnings: string[];
+}
+
+interface PurchaseReceiptPostingReadiness {
+  ready: boolean;
+  canEnablePosting: boolean;
+  blockingReasons: string[];
+  warnings: string[];
+  requiredAccounts: {
+    inventoryAssetAccount: Account | null;
+    inventoryClearingAccount: Account | null;
+  };
+  compatibleBillPostingModeExists: boolean;
+  existingBillsInDirectModeCount: number;
+  billsUsingInventoryClearingCount: number;
+  recommendedNextStep: string;
+}
+
+interface AccountingPreviewJournalLine {
+  lineNumber: number;
+  side: "DEBIT" | "CREDIT";
+  accountId: string | null;
+  accountCode: string | null;
+  accountName: string;
+  amount: string;
+}
+
+interface AccountingPreviewJournal {
+  totalDebit: string;
+  totalCredit: string;
+  lines: AccountingPreviewJournalLine[];
+}
+
+interface PurchaseReceiptAccountingPreview {
+  previewOnly: true;
+  postingStatus: "DESIGN_ONLY" | "POSTABLE" | "POSTED" | "REVERSED";
+  canPost: boolean;
+  alreadyPosted: boolean;
+  alreadyReversed: boolean;
+  journalEntryId: string | null;
+  reversalJournalEntryId: string | null;
+  postingMode: "DISABLED" | "PREVIEW_ONLY";
+  linkedBill: {
+    id: string;
+    billNumber: string;
+    status: string;
+    inventoryPostingMode: PurchaseBillInventoryPostingMode;
+  } | null;
+  receiptValue: string;
+  matchedBillValue: string;
+  unmatchedReceiptValue: string;
+  valueDifference: string;
+  journalPreview: AccountingPreviewJournalLine[];
+  matchingSummary: {
+    sourceType: "purchaseBill" | "purchaseOrder" | "standalone";
+    sourceId: string | null;
+    matchedQuantity: string;
+    unmatchedQuantity: string;
+    valueDifference: string;
+  };
+  blockingReasons: string[];
+  warnings: string[];
+  journal: AccountingPreviewJournal;
+  lines: Array<{
+    lineId: string;
+    quantity: string;
+    unitCost: string | null;
+    lineValue: string | null;
+    matchedQuantity: string;
+    unmatchedQuantity: string;
+    matchedBillValue: string | null;
+    valueDifference: string | null;
+    warnings: string[];
+  }>;
+}
+
+type PurchaseBillInventoryPostingMode = "DIRECT_EXPENSE_OR_ASSET" | "INVENTORY_CLEARING";
+
+interface PurchaseBillAccountingPreview {
+  previewOnly: true;
+  sourceType: "PurchaseBill";
+  sourceId: string;
+  sourceNumber: string;
+  inventoryPostingMode: PurchaseBillInventoryPostingMode;
+  canFinalize: boolean;
+  canUseInventoryClearingMode: boolean;
+  blockingReasons: string[];
+  warnings: string[];
+  inventoryTrackedLineCount: number;
+  directLineCount: number;
+  clearingAccount: Account | null;
+  vatReceivableAccount: Account | null;
+  accountsPayableAccount: Account | null;
+  journal: AccountingPreviewJournal;
+  journalPreview: AccountingPreviewJournalLine[];
+}
+
+interface PurchaseBillReceiptMatchingStatus {
+  bill: {
+    id: string;
+    billNumber: string;
+    status: string;
+    inventoryPostingMode: PurchaseBillInventoryPostingMode;
+  };
+  billTotal: string;
+  receiptCount: number;
+  receiptValue: string;
+  status: "NOT_RECEIVED" | "PARTIALLY_RECEIVED" | "FULLY_RECEIVED" | "OVER_RECEIVED_WARNING";
+  warnings: string[];
+  lines: Array<{
+    lineId: string;
+    sourceQuantity: string;
+    receivedQuantity: string;
+    remainingQuantity: string;
+    receivedValue: string;
+    matchedBillValue: string;
+    valueDifference: string;
+    receipts?: Array<{
+      id: string;
+      receiptNumber: string;
+      status: string;
+      inventoryAssetJournalEntryId?: string | null;
+      inventoryAssetReversalJournalEntryId?: string | null;
+    }>;
+  }>;
+}
+
+interface SalesStockIssueAccountingPreview {
+  previewOnly: true;
+  postingStatus: "DESIGN_ONLY" | "POSTABLE" | "POSTED" | "REVERSED";
+  canPost: boolean;
+  alreadyPosted: boolean;
+  alreadyReversed: boolean;
+  journalEntryId: string | null;
+  reversalJournalEntryId: string | null;
+  blockingReasons: string[];
+  warnings: string[];
+  journal: AccountingPreviewJournal;
+  lines: Array<{
+    lineId: string;
+    quantity: string;
+    estimatedUnitCost: string | null;
+    estimatedCOGS: string | null;
+    warnings: string[];
+  }>;
+}
+
+interface InventoryStockValuationReport {
+  rows: Array<{
+    item: { id: string; name: string; sku?: string | null };
+    warehouse: { id: string; code: string; name: string };
+    quantityOnHand: string;
+    averageUnitCost: string | null;
+    estimatedValue: string | null;
+    warnings: string[];
+  }>;
+  grandTotalEstimatedValue: string;
+}
+
+interface InventoryMovementSummaryReport {
+  rows: Array<{
+    item: { id: string; name: string; sku?: string | null };
+    warehouse: { id: string; code: string; name: string };
+    openingQuantity: string;
+    inboundQuantity: string;
+    outboundQuantity: string;
+    closingQuantity: string;
+    movementCount: number;
+  }>;
+  totals: {
+    inboundQuantity: string;
+    outboundQuantity: string;
+    closingQuantity: string;
+    movementCount: number;
+  };
+}
+
+interface InventoryLowStockReport {
+  rows: Array<{
+    item: { id: string; name: string; sku?: string | null };
+    quantityOnHand: string;
+    reorderPoint: string;
+    reorderQuantity: string | null;
+    status: "BELOW_REORDER_POINT" | "AT_REORDER_POINT";
+  }>;
+  totalItems: number;
+}
+
+type InventoryClearingReportStatus =
+  | "MATCHED"
+  | "PARTIAL"
+  | "VARIANCE"
+  | "BILL_WITHOUT_RECEIPT_POSTING"
+  | "RECEIPT_WITHOUT_CLEARING_BILL"
+  | "DIRECT_MODE_EXCLUDED";
+
+interface InventoryClearingReconciliationReport {
+  clearingAccountBalance: string;
+  reportComputedOpenDifference: string;
+  differenceBetweenGLAndReport: string;
+  summary: {
+    rowCount: number;
+    matchedCount: number;
+    varianceCount: number;
+    billWithoutReceiptPostingCount: number;
+    receiptWithoutClearingBillCount: number;
+    billClearingDebit: string;
+    receiptClearingCredit: string;
+    netClearingDifference: string;
+  };
+  rows: Array<{
+    status: InventoryClearingReportStatus;
+    purchaseBill: { id: string; billNumber: string; inventoryPostingMode: PurchaseBillInventoryPostingMode } | null;
+    supplier: { id: string; name: string; displayName?: string | null } | null;
+    billClearingDebit: string;
+    receiptClearingCredit: string;
+    netClearingDifference: string;
+    billedQuantity: string;
+    receivedQuantity: string;
+    receipts: Array<{
+      id: string;
+      receiptNumber: string;
+      receiptValue: string;
+      activeClearingCredit: string;
+      assetPostingStatus: "NOT_POSTED" | "POSTED" | "REVERSED";
+    }>;
+    warnings: string[];
+  }>;
+}
+
+interface InventoryClearingVarianceReport {
+  clearingAccountBalance: string;
+  summary: {
+    rowCount: number;
+    totalVarianceAmount: string;
+  };
+  rows: Array<{
+    status: InventoryClearingReportStatus;
+    purchaseBill: { id: string; billNumber: string; inventoryPostingMode: PurchaseBillInventoryPostingMode } | null;
+    receipt: { id: string; receiptNumber: string } | null;
+    varianceAmount: string;
+    varianceReason: string;
+    recommendedAction: string;
+    warnings: string[];
+  }>;
+}
+
+type InventoryVarianceProposalStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "POSTED" | "REVERSED" | "VOIDED";
+type InventoryVarianceReason =
+  | "PRICE_DIFFERENCE"
+  | "QUANTITY_DIFFERENCE"
+  | "RECEIPT_WITHOUT_CLEARING_BILL"
+  | "CLEARING_BILL_WITHOUT_RECEIPT"
+  | "REVERSED_RECEIPT_POSTING"
+  | "MANUAL_ADJUSTMENT";
+
+interface InventoryVarianceProposal {
+  id: string;
+  proposalNumber: string;
+  status: InventoryVarianceProposalStatus;
+  sourceType: "CLEARING_VARIANCE" | "MANUAL";
+  reason: InventoryVarianceReason;
+  amount: string;
+  journalEntryId: string | null;
+  reversalJournalEntryId: string | null;
+  purchaseBillId?: string | null;
+  purchaseReceiptId?: string | null;
+}
+
+interface InventoryVarianceProposalEvent {
+  id: string;
+  action: "CREATE" | "SUBMIT" | "APPROVE" | "POST" | "REVERSE" | "VOID";
+  fromStatus?: InventoryVarianceProposalStatus | null;
+  toStatus: InventoryVarianceProposalStatus;
+}
+
+interface InventoryVarianceProposalAccountingPreview {
+  previewOnly: true;
+  status: InventoryVarianceProposalStatus;
+  canPost: boolean;
+  amount: string;
+  blockingReasons: string[];
+  warnings: string[];
+  journalEntryId: string | null;
+  reversalJournalEntryId: string | null;
+  journal: AccountingPreviewJournal;
+  journalLines: AccountingPreviewJournalLine[];
+}
+
+interface SalesInvoice {
+  id: string;
+  invoiceNumber: string;
+  status: string;
+  total: string;
+  balanceDue: string;
+  journalEntryId?: string | null;
+  notes?: string | null;
+}
+
+interface CustomerPayment {
+  id: string;
+  paymentNumber: string;
+  status: string;
+  amountReceived: string;
+  unappliedAmount: string;
+  journalEntryId?: string | null;
+  voidReversalJournalEntryId?: string | null;
+}
+
+interface CreditNote {
+  id: string;
+  creditNoteNumber: string;
+  status: string;
+  total: string;
+  unappliedAmount: string;
+  journalEntryId?: string | null;
+  reversalJournalEntryId?: string | null;
+}
+
+interface PurchaseBill {
+  id: string;
+  billNumber: string;
+  status: string;
+  inventoryPostingMode?: PurchaseBillInventoryPostingMode;
+  total: string;
+  balanceDue: string;
+  journalEntryId?: string | null;
+  reversalJournalEntryId?: string | null;
+  purchaseOrderId?: string | null;
+}
+
+interface PurchaseOrder {
+  id: string;
+  purchaseOrderNumber: string;
+  status: string;
+  total: string;
+  convertedBillId?: string | null;
+}
+
+interface PurchaseDebitNote {
+  id: string;
+  debitNoteNumber: string;
+  status: string;
+  total: string;
+  unappliedAmount: string;
+  journalEntryId?: string | null;
+  reversalJournalEntryId?: string | null;
+}
+
+interface CashExpense {
+  id: string;
+  expenseNumber: string;
+  status: string;
+  total: string;
+  taxTotal: string;
+  contactId?: string | null;
+  journalEntryId?: string | null;
+  voidReversalJournalEntryId?: string | null;
+}
+
+type AttachmentLinkedEntityType = "SALES_INVOICE" | "PURCHASE_BILL" | "CASH_EXPENSE";
+
+interface Attachment {
+  id: string;
+  linkedEntityType: AttachmentLinkedEntityType;
+  linkedEntityId: string;
+  filename: string;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+  contentHash: string;
+  status: "ACTIVE" | "DELETED";
+  notes?: string | null;
+}
+
+interface StorageReadinessResponse {
+  attachmentStorage: {
+    activeProvider: "database" | "s3";
+    ready: boolean;
+    blockingReasons: string[];
+    warnings: string[];
+    maxSizeMb: number;
+  };
+  generatedDocumentStorage: {
+    activeProvider: "database" | "s3";
+    ready: boolean;
+    blockingReasons: string[];
+    warnings: string[];
+  };
+  s3Config: {
+    endpointConfigured: boolean;
+    regionConfigured: boolean;
+    bucketConfigured: boolean;
+    accessKeyConfigured: boolean;
+    secretConfigured: boolean;
+    forcePathStyle: boolean;
+    publicBaseUrlConfigured: boolean;
+  };
+  warnings: string[];
+}
+
+interface StorageMigrationPlanResponse {
+  attachmentCount: number;
+  attachmentTotalBytes: number;
+  generatedDocumentCount: number;
+  generatedDocumentTotalBytes: number;
+  databaseStorageCount: number;
+  s3StorageCount: number;
+  migrationRequired?: boolean;
+  targetProvider?: "database" | "s3";
+  estimatedMigrationRequired: boolean;
+  dryRunOnly: boolean;
+  notes: string[];
+}
+
+interface BackupReadinessResponse {
+  readOnly: boolean;
+  noMutation: boolean;
+  noBackupExecuted: boolean;
+  noRestoreExecuted: boolean;
+  noSecretsReturned: boolean;
+  productionReady: boolean;
+  databaseBackupConfigured: boolean;
+  pointInTimeRecoveryConfigured: boolean;
+  migrationHistoryAvailable: boolean;
+  objectStorageBackupConfigured: boolean;
+  generatedDocumentBackupConfigured: boolean;
+  attachmentBackupConfigured: boolean;
+  restoreDrillVerified: boolean;
+  restoreVerificationVerified: boolean;
+  rpoRtoReviewed: boolean;
+  evidenceRequired: boolean;
+  requiredEvidenceTypes: string[];
+  verifiedEvidenceTypes: string[];
+  missingEvidenceTypes: string[];
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
+}
+
+interface RestoreDrillPlanResponse {
+  readOnly: boolean;
+  noMutation: boolean;
+  noRestoreExecuted: boolean;
+  noCustomerDataExported: boolean;
+  noSecretsReturned: boolean;
+  productionReady: boolean;
+  plannedSteps: string[];
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
+}
+
+interface BackupRestoreEvidenceListResponse {
+  metadataOnly: boolean;
+  noBackupExecuted: boolean;
+  noRestoreExecuted: boolean;
+  noSecretsReturned: boolean;
+  evidence: unknown[];
+}
+
+interface BackupRestoreEvidenceResponse {
+  metadataOnly: boolean;
+  noBackupExecuted: boolean;
+  noRestoreExecuted: boolean;
+  noSecretsReturned: boolean;
+  evidence: {
+    id: string;
+    status: string;
+    evidenceType: string;
+    provider: string | null;
+  };
+}
+
+interface PurchaseDebitNoteAllocation {
+  id: string;
+  debitNoteId: string;
+  billId: string;
+  amountApplied: string;
+  reversedAt?: string | null;
+  reversalReason?: string | null;
+}
+
+interface SupplierPayment {
+  id: string;
+  paymentNumber: string;
+  status: string;
+  amountPaid: string;
+  unappliedAmount: string;
+  journalEntryId?: string | null;
+  voidReversalJournalEntryId?: string | null;
+}
+
+interface SupplierPaymentUnappliedAllocation {
+  id: string;
+  paymentId: string;
+  billId: string;
+  amountApplied: string;
+  reversedAt?: string | null;
+  reversalReason?: string | null;
+}
+
+interface SupplierRefund {
+  id: string;
+  refundNumber: string;
+  status: string;
+  amountRefunded: string;
+  sourceType: "SUPPLIER_PAYMENT" | "PURCHASE_DEBIT_NOTE";
+  sourcePaymentId?: string | null;
+  sourceDebitNoteId?: string | null;
+  journalEntryId?: string | null;
+  voidReversalJournalEntryId?: string | null;
+}
+
+interface CreditNoteAllocation {
+  id: string;
+  creditNoteId: string;
+  invoiceId: string;
+  amountApplied: string;
+  reversedAt?: string | null;
+  reversalReason?: string | null;
+}
+
+interface CustomerPaymentUnappliedAllocation {
+  id: string;
+  paymentId: string;
+  invoiceId: string;
+  amountApplied: string;
+  reversedAt?: string | null;
+  reversalReason?: string | null;
+}
+
+interface CustomerRefund {
+  id: string;
+  refundNumber: string;
+  status: string;
+  amountRefunded: string;
+  sourceType: "CUSTOMER_PAYMENT" | "CREDIT_NOTE";
+  sourcePaymentId?: string | null;
+  sourceCreditNoteId?: string | null;
+  journalEntryId?: string | null;
+  voidReversalJournalEntryId?: string | null;
+}
+
+interface LedgerRow {
+  type: string;
+  sourceId: string;
+  debit: string;
+  credit: string;
+  status: string;
+  balance: string;
+  metadata?: Record<string, unknown>;
+}
+
+interface TrialBalanceReport {
+  accounts: Array<{
+    accountId: string;
+    periodDebit: string;
+    periodCredit: string;
+    closingDebit: string;
+    closingCredit: string;
+  }>;
+  totals: {
+    closingDebit: string;
+    closingCredit: string;
+    balanced: boolean;
+  };
+}
+
+interface ProfitAndLossReport {
+  revenue: string;
+  costOfSales: string;
+  grossProfit: string;
+  expenses: string;
+  netProfit: string;
+}
+
+interface BalanceSheetReport {
+  balanced: boolean;
+  totalAssets: string;
+  totalLiabilitiesAndEquity: string;
+}
+
+interface VatSummaryReport {
+  salesVat: string;
+  purchaseVat: string;
+  netVatPayable: string;
+}
+
+interface AgingReport {
+  rows: unknown[];
+  bucketTotals: Record<string, string>;
+  grandTotal: string;
+}
+
+interface LedgerResponse {
+  closingBalance: string;
+  rows: LedgerRow[];
+}
+
+interface ReceiptData {
+  customer?: { id: string; name: string };
+  journalEntry?: { id: string; entryNumber: string } | null;
+  allocations: Array<{ invoiceId: string; amountApplied: string }>;
+  unappliedAllocations?: Array<{ invoiceId: string; amountApplied: string; status: string }>;
+}
+
+interface OrganizationDocumentSettings {
+  footerText: string;
+  primaryColor: string | null;
+  accentColor: string | null;
+}
+
+interface GeneratedDocument {
+  id: string;
+  documentType: string;
+  sourceId: string;
+  filename: string;
+  status: string;
+}
+
+interface ZatcaOrganizationProfile {
+  id: string;
+  sellerName?: string | null;
+  vatNumber?: string | null;
+  countryCode: string;
+}
+
+interface ZatcaAdapterConfigSummary {
+  mode: string;
+  realNetworkEnabled: boolean;
+  effectiveRealNetworkEnabled: boolean;
+}
+
+interface ZatcaComplianceChecklistResponse {
+  warning: string;
+  summary: {
+    total: number;
+    byStatus: Record<string, number>;
+    byRisk: Record<string, number>;
+  };
+  groups: Record<string, unknown[]>;
+}
+
+interface ZatcaReadinessSummary {
+  warning: string;
+  status: "READY" | "WARNINGS" | "BLOCKED";
+  localOnly: true;
+  productionCompliance: false;
+  productionReady: boolean;
+  blockingReasons: string[];
+  sellerProfile?: ZatcaReadinessSection;
+  signing: ZatcaReadinessSection;
+  keyCustody: ZatcaReadinessSection;
+  csr: ZatcaReadinessSection;
+  complianceCsidOnboarding: ZatcaReadinessSection;
+  complianceCsidCustody: ZatcaReadinessSection;
+  signedArtifactPromotion: ZatcaReadinessSection;
+  signedArtifactStorage: ZatcaReadinessSection;
+  phase2Qr: ZatcaReadinessSection;
+  pdfA3: ZatcaReadinessSection;
+}
+
+interface ZatcaReadinessSection {
+  status: "READY" | "WARNINGS" | "BLOCKED";
+  checks: Array<{
+    code: string;
+    severity: "ERROR" | "WARNING" | "INFO";
+    sourceRule?: string;
+  }>;
+}
+
+interface ZatcaInvoiceReadinessResponse {
+  status: "READY" | "WARNINGS" | "BLOCKED";
+  localOnly: true;
+  noMutation: true;
+  productionCompliance: false;
+  sellerProfile: ZatcaReadinessSection;
+  buyerContact: ZatcaReadinessSection;
+  invoice: ZatcaReadinessSection;
+  egs: ZatcaReadinessSection;
+  xml: ZatcaReadinessSection;
+  signing: ZatcaReadinessSection;
+  complianceCsidOnboarding: ZatcaReadinessSection;
+  complianceCsidCustody: ZatcaReadinessSection;
+  signedArtifactPromotion: ZatcaReadinessSection;
+  signedArtifactStorage: ZatcaReadinessSection;
+  phase2Qr: ZatcaReadinessSection;
+  pdfA3: ZatcaReadinessSection;
+  checks: Array<{
+    code: string;
+    severity: "ERROR" | "WARNING" | "INFO";
+    sourceRule?: string;
+  }>;
+}
+
+interface ZatcaInvoiceSigningPlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  productionCompliance: false;
+  executionEnabled: boolean;
+  sdkCommand: string;
+  commandPlan: {
+    command: string | null;
+    args: string[];
+    displayCommand: string;
+    warnings: string[];
+  };
+  requiredInputs: Array<{ id: string; available: boolean; path: string | null }>;
+  blockers: string[];
+  warnings: string[];
+}
+
+interface ZatcaInvoiceLocalSigningDryRunResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  noProductionCredentials: true;
+  noPersistence: true;
+  productionCompliance: false;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  executionSkipped: boolean;
+  executionStatus: "SKIPPED" | "FAILED" | "SUCCEEDED_LOCALLY";
+  signingExecuted: boolean;
+  qrExecuted: boolean;
+  signedXmlDetected: boolean;
+  qrDetected: boolean;
+  phase2Qr: { blockers: string[]; dependencyChain: string[] };
+  tempFilesWritten: { unsignedXml: boolean; sdkConfig: boolean; sdkRuntime: boolean; signedXml: boolean; tempDirectory: string | null; filesRetained: boolean };
+  cleanup: { performed: boolean; success: boolean; filesRetained: boolean; tempDirectory: string | null };
+  blockers: string[];
+  warnings: string[];
+}
+
+interface ZatcaInvoiceLocalSignedXmlValidationDryRunResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  noProductionCredentials: true;
+  noPersistence: true;
+  productionCompliance: false;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  signingExecutionStatus: "SKIPPED" | "FAILED" | "SUCCEEDED_LOCALLY";
+  validationAttempted: boolean;
+  validationGlobalResult: "NOT_RUN" | "PASSED" | "FAILED" | "UNKNOWN";
+  validationResults: Record<string, string>;
+  validationMessages: Array<{ code: string; message: string; severity: string }>;
+  signedXmlDetected: boolean;
+  qrDetected: boolean;
+  tempFilesWritten: { unsignedXml: boolean; sdkConfig: boolean; sdkRuntime: boolean; signedXml: boolean; validationConfig: boolean; validationPih: boolean; tempDirectory: string | null; filesRetained: boolean };
+  cleanup: { performed: boolean; success: boolean; filesRetained: boolean; tempDirectory: string | null };
+  blockers: string[];
+  warnings: string[];
+}
+
+interface ZatcaInvoiceSignedXmlPromotionPlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  noProductionCredentials: true;
+  noPersistence: true;
+  productionCompliance: false;
+  promotionBlocked: true;
+  signedXmlPersisted: false;
+  latestLocalSignedValidationStatus: "NOT_PERSISTED";
+  currentMetadataState: { icv: number | null; invoiceHash: string | null; previousInvoiceHash: string | null; hasUnsignedXml: boolean; hasInvoiceHash: boolean } | null;
+  requiredFutureArtifacts: Array<{ id: string; required: boolean; available: boolean }>;
+  promotionReadiness: ZatcaReadinessSection;
+  blockers: string[];
+  warnings: string[];
+}
+
+interface ZatcaInvoiceSignedArtifactStoragePlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  noProductionCredentials: true;
+  noPersistence: true;
+  productionCompliance: false;
+  metadataOnly: true;
+  futureObjectStorageRequired: true;
+  storageBlocked: true;
+  storageProbeRequired: true;
+  latestStorageProbeStatus: "NOT_RUN";
+  storageProbePlan: ZatcaSignedArtifactStorageProbePlanResponse;
+  immutablePolicyStatus: ZatcaSignedArtifactImmutablePolicyStatus;
+  latestImmutablePolicyApprovalStatus: "NONE" | "DRAFT" | "APPROVED" | "REVOKED" | "SUPERSEDED";
+  policyApprovalRequired: true;
+  policyApproved: boolean;
+  retentionDurationApproved: boolean;
+  evidenceRequired?: boolean;
+  evidenceCompletenessStatus?: ZatcaSignedArtifactStorageEvidenceCompletenessStatus;
+  requiredEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  verifiedEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  missingEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  bodyPersistenceGate?: ZatcaSignedArtifactBodyPersistenceGate;
+  objectStorageTechnicalControlsStatus?: string;
+  recommendedNextStep: string;
+  metadataOnlyDraftAllowed: boolean;
+  bodyPersistenceAllowed: false;
+  signedXmlStorageKey: null;
+  qrPayloadStorageKey: null;
+  latestDraft: ZatcaSignedArtifactDraft | null;
+  draftCount: number;
+  objectStorageCapability: {
+    objectStorageConfigured: boolean;
+    bucketConfigured: boolean;
+    signedArtifactBodyStorageAllowed: false;
+    immutableRetentionConfigured: false;
+    policyApproved: boolean;
+    retentionDurationApproved: boolean;
+    generatedDocumentStorageDistinct: true;
+    storageCapabilityStatus: "BLOCKED" | "WARNINGS" | "READY_FOR_METADATA_ONLY";
+  };
+  schemaDecision: { schemaAdded: true };
+  proposedStorageKeys: { signedXmlObjectKey: string; qrPayloadObjectKey: string; validationSummaryObjectKey: string };
+  proposedMetadataFields: Array<{ name: string; safeNow: boolean; value: string | boolean | null }>;
+  storageReadiness: ZatcaReadinessSection;
+  blockers: string[];
+  warnings: string[];
+}
+
+interface ZatcaSignedArtifactStorageProbePlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetworkToZatca: true;
+  productionCompliance: false;
+  objectStorageConfigured: boolean;
+  provider: "database" | "s3";
+  bucketConfigured: boolean;
+  testPrefix: string;
+  plannedTestObjectKey: string;
+  writeProbeEnabled: false;
+  executionFlagEnabled: boolean;
+  retentionConfigured: false;
+  immutabilityConfigured: false;
+  immutablePolicyStatus: ZatcaSignedArtifactImmutablePolicyStatus;
+  latestImmutablePolicyApprovalStatus: "NONE" | "DRAFT" | "APPROVED" | "REVOKED" | "SUPERSEDED";
+  policyApprovalRequired: true;
+  policyApproved: boolean;
+  retentionDurationApproved: boolean;
+  bodyPersistenceAllowed: false;
+  signedArtifactBodyStorageAllowed: false;
+  evidenceRequired?: boolean;
+  evidenceCompletenessStatus?: ZatcaSignedArtifactStorageEvidenceCompletenessStatus;
+  requiredEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  verifiedEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  missingEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  bodyPersistenceGate?: ZatcaSignedArtifactBodyPersistenceGate;
+  objectStorageTechnicalControlsStatus?: string;
+  recommendedNextStep: string;
+  blockers: string[];
+  warnings: string[];
+}
+
+interface ZatcaSignedArtifactStorageProbeResponse {
+  localOnly: true;
+  probe: true;
+  noMutation: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetworkToZatca: true;
+  productionCompliance: false;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  testObjectWritten: boolean;
+  testObjectRead: boolean;
+  testObjectDeleted: boolean;
+  cleanupSuccess: boolean;
+  immutablePolicyStatus: ZatcaSignedArtifactImmutablePolicyStatus;
+  latestImmutablePolicyApprovalStatus: "NONE" | "DRAFT" | "APPROVED" | "REVOKED" | "SUPERSEDED";
+  policyApprovalRequired: true;
+  policyApproved: boolean;
+  retentionDurationApproved: boolean;
+  bodyPersistenceAllowed: false;
+  signedArtifactBodyStorageAllowed: false;
+  evidenceRequired?: boolean;
+  evidenceCompletenessStatus?: ZatcaSignedArtifactStorageEvidenceCompletenessStatus;
+  requiredEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  verifiedEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  missingEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  bodyPersistenceGate?: ZatcaSignedArtifactBodyPersistenceGate;
+  objectStorageTechnicalControlsStatus?: string;
+  recommendedNextStep: string;
+  blockers: string[];
+  warnings: string[];
+}
+
+interface ZatcaSignedArtifactStoragePolicyApproval {
+  id: string;
+  organizationId: string;
+  status: "DRAFT" | "APPROVED" | "REVOKED" | "SUPERSEDED";
+  policyHash: string;
+  retentionDurationStatus: "NOT_REVIEWED" | "APPROVED" | "REQUIRES_LEGAL_REVIEW";
+  retentionDurationValue: string | null;
+  objectVersioningApproved: boolean;
+  immutableArchiveApproved: boolean;
+  deletionPolicyApproved: boolean;
+  supersessionPolicyApproved: boolean;
+  accessControlApproved: boolean;
+  encryptionAtRestApproved: boolean;
+  backupRestoreApproved: boolean;
+  archiveRestoreTested: boolean;
+  signedXmlBodyPersistenceAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
+  productionCompliance: false;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+}
+
+interface ZatcaSignedArtifactStoragePolicyApprovalResponse {
+  localOnly: true;
+  metadataOnly: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetworkToZatca: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  productionCompliance: false;
+  signedXmlBodyPersistenceAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
+  policyApproval: ZatcaSignedArtifactStoragePolicyApproval;
+}
+
+type ZatcaSignedArtifactStorageControlEvidenceStatus = "DRAFT" | "VERIFIED" | "REVOKED" | "SUPERSEDED";
+type ZatcaSignedArtifactStorageControlEvidenceType =
+  | "OBJECT_VERSIONING"
+  | "IMMUTABLE_RETENTION"
+  | "ENCRYPTION_AT_REST"
+  | "ACCESS_CONTROL"
+  | "BACKUP_RESTORE"
+  | "RESTORE_TEST"
+  | "TENANT_KEY_SCOPING"
+  | "DELETION_SUPERSESSION"
+  | "STORAGE_PROBE"
+  | "OTHER";
+type ZatcaSignedArtifactStorageEvidenceCompletenessStatus = "BLOCKED" | "COMPLETE_FOR_REVIEW";
+
+interface ZatcaSignedArtifactBodyPersistenceGate {
+  allowed: false;
+  bodyPersistenceAllowed: false;
+  signedXmlBodyPersistenceAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
+  productionCompliance: false;
+  reasons: string[];
+}
+
+interface ZatcaSignedArtifactStorageControlEvidence {
+  id: string;
+  status: ZatcaSignedArtifactStorageControlEvidenceStatus;
+  evidenceType: ZatcaSignedArtifactStorageControlEvidenceType;
+  evidenceHash: string | null;
+  evidenceSummaryJson: Record<string, unknown>;
+  evidenceDocumentStorageKey: string | null;
+  productionCompliance: false;
+  signedXmlBodyPersistenceAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
+}
+
+interface ZatcaSignedArtifactStorageControlEvidenceListResponse {
+  localOnly: true;
+  metadataOnly: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  productionCompliance: false;
+  controlEvidence: ZatcaSignedArtifactStorageControlEvidence[];
+}
+
+interface ZatcaSignedArtifactStorageControlEvidenceResponse {
+  localOnly: true;
+  metadataOnly: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetworkToZatca: true;
+  productionCompliance: false;
+  signedXmlBodyPersistenceAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
+  controlEvidence: ZatcaSignedArtifactStorageControlEvidence;
+}
+
+interface ZatcaSignedArtifactStorageEvidenceCompletenessResponse {
+  localOnly: true;
+  readOnly: true;
+  noMutation: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetworkToZatca: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  noProductionCredentials: true;
+  productionCompliance: false;
+  bodyPersistenceAllowed: false;
+  signedXmlBodyPersistenceAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
+  requiredEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  verifiedEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  missingEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  draftEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  revokedEvidenceTypes: ZatcaSignedArtifactStorageControlEvidenceType[];
+  latestEvidenceByType: Partial<Record<ZatcaSignedArtifactStorageControlEvidenceType, ZatcaSignedArtifactStorageControlEvidence>>;
+  completenessStatus: ZatcaSignedArtifactStorageEvidenceCompletenessStatus;
+  evidenceCompletenessStatus: ZatcaSignedArtifactStorageEvidenceCompletenessStatus;
+  objectStorageTechnicalControlsStatus: string;
+  bodyPersistenceGate: ZatcaSignedArtifactBodyPersistenceGate;
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
+}
+
+interface ZatcaSignedArtifactImmutablePolicyStatus {
+  status: "BLOCKED" | "WARNINGS";
+  latestApprovalId: string | null;
+  latestApprovalStatus: "NONE" | "DRAFT" | "APPROVED" | "REVOKED" | "SUPERSEDED";
+  approvalRequired: true;
+  policyApproved: boolean;
+  retentionDurationApproved: boolean;
+  objectVersioningRequired: true;
+  objectVersioningConfirmed: boolean;
+  immutableArchiveRequired: true;
+  deletionPolicyApproved: boolean;
+  supersessionPolicyApproved: boolean;
+  archiveRestoreTested: boolean;
+  accessControlReviewed: boolean;
+  encryptionAtRestReviewed: boolean;
+  backupRestoreReviewed: boolean;
+  bodyPersistenceAllowed: false;
+  signedArtifactBodyStorageAllowed: false;
+  qrPayloadBodyStorageAllowed: false;
+  recommendedNextStep: string;
+}
+
+interface ZatcaSignedArtifactImmutablePolicyPlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetworkToZatca: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  noProductionCredentials: true;
+  productionCompliance: false;
+  latestApprovalId: string | null;
+  latestApprovalStatus: "NONE" | "DRAFT" | "APPROVED" | "REVOKED" | "SUPERSEDED";
+  latestApproval: ZatcaSignedArtifactStoragePolicyApproval | null;
+  approvalRequired: true;
+  approvalBlockedReasons: string[];
+  policyApproved: boolean;
+  retentionDurationApproved: boolean;
+  objectVersioningRequired: true;
+  immutableArchiveRequired: true;
+  deletionPolicyApproved: boolean;
+  supersessionPolicyApproved: boolean;
+  accessControlReviewed: boolean;
+  encryptionAtRestReviewed: boolean;
+  backupRestoreReviewed: boolean;
+  bodyPersistenceAllowed: false;
+  signedXmlBodyPersistenceAllowed: false;
+  signedArtifactBodyStorageAllowed: false;
+  qrPayloadBodyPersistenceAllowed: false;
+  qrPayloadBodyStorageAllowed: false;
+  immutablePolicyStatus: ZatcaSignedArtifactImmutablePolicyStatus;
+  evidenceRequired?: boolean;
+  evidenceCompletenessStatus?: ZatcaSignedArtifactStorageEvidenceCompletenessStatus;
+  requiredEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  verifiedEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  missingEvidenceTypes?: ZatcaSignedArtifactStorageControlEvidenceType[];
+  bodyPersistenceGate?: ZatcaSignedArtifactBodyPersistenceGate;
+  objectStorageTechnicalControlsStatus?: string;
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
+}
+
+interface ZatcaSignedArtifactDraft {
+  id: string;
+  invoiceId: string;
+  metadataId: string;
+  status: "PLANNED" | "BLOCKED" | "SUPERSEDED";
+  source: "LOCAL_DRY_RUN" | "FUTURE_PRODUCTION_SIGNING";
+  signedXmlStorageKey: string | null;
+  qrPayloadStorageKey: string | null;
+  signedWithDummyMaterial: boolean;
+  productionCompliance: false;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+}
+
+interface ZatcaSignedArtifactDraftCreateResponse {
+  localOnly: true;
+  metadataOnly: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  productionCompliance: false;
+  draft: ZatcaSignedArtifactDraft;
+}
+
+interface ZatcaSignedArtifactDraftListResponse {
+  localOnly: true;
+  metadataOnly: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  productionCompliance: false;
+  count: number;
+  drafts: ZatcaSignedArtifactDraft[];
+}
+
+interface ZatcaEgsCsrPlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  productionCompliance: false;
+  noCsidRequest: true;
+  sdkCommand: string;
+  requiredFields: Array<{ sdkConfigKey: string; currentValue: string | null; status: "AVAILABLE" | "MISSING" | "NEEDS_REVIEW" }>;
+  missingValues: Array<{ sdkConfigKey: string; currentValue: string | null; status: "AVAILABLE" | "MISSING" | "NEEDS_REVIEW" }>;
+  plannedFiles: { csrConfig: string; privateKey: string; generatedCsr: string };
+  keyCustody: { mode: "MISSING" | "RAW_DATABASE_PEM"; privateKeyConfigured: boolean; privateKeyReturned: false };
+  blockers: string[];
+  warnings: string[];
+}
+
+interface ZatcaEgsCsrConfigPreviewResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  productionCompliance: false;
+  canPrepareConfig: boolean;
+  sanitizedConfigPreview: string;
+  configEntries: Array<{ key: string; valuePreview: string | null; status: "AVAILABLE" | "MISSING" | "NEEDS_REVIEW" }>;
+  missingFields: Array<{ key: string; status: "AVAILABLE" | "MISSING" | "NEEDS_REVIEW" }>;
+  reviewFields: Array<{ key: string; status: "AVAILABLE" | "MISSING" | "NEEDS_REVIEW" }>;
+  blockers: string[];
+  warnings: string[];
+}
+
+interface ZatcaCsrConfigReview {
+  id: string;
+  egsUnitId: string;
+  status: "DRAFT" | "APPROVED" | "SUPERSEDED" | "REVOKED";
+  configHash: string;
+  configPreviewRedacted: string;
+  missingFieldsJson: unknown;
+  blockersJson: unknown;
+  approvedById?: string | null;
+  approvedAt?: string | null;
+  localOnly: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  sdkExecution: false;
+  productionCompliance: false;
+}
+
+interface ZatcaEgsCsrDryRunResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  productionCompliance: false;
+  configReviewRequired: true;
+  latestReviewId: string | null;
+  latestReviewStatus: "DRAFT" | "APPROVED" | "SUPERSEDED" | "REVOKED" | null;
+  configApprovedForDryRun: boolean;
+  warnings: string[];
+}
+
+interface ZatcaEgsCsrLocalGenerateResponse {
+  localOnly: true;
+  noMutation: true;
+  noCsidRequest: true;
+  noNetwork: true;
+  noSigning: true;
+  noPersistence: true;
+  productionCompliance: false;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  executionSkipped: boolean;
+  executionSkipReason: string | null;
+  reviewId: string | null;
+  latestReviewStatus: "DRAFT" | "APPROVED" | "SUPERSEDED" | "REVOKED" | null;
+  configHash: string;
+  tempFilesWritten: {
+    csrConfig: boolean;
+    privateKey: boolean;
+    generatedCsr: boolean;
+    tempDirectory: string | null;
+    filesRetained: boolean;
+  };
+  cleanup: {
+    performed: boolean;
+    success: boolean;
+    filesRetained: boolean;
+    tempDirectory: string | null;
+  };
+  stdoutSummary: string;
+  stderrSummary: string;
+  sdkExitCode: number | null;
+  generatedCsrDetected: boolean;
+  privateKeyDetected: boolean;
+  blockers: string[];
+  warnings: string[];
+}
+
+  interface ZatcaComplianceCsidRequestPlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noNetwork: true;
+  noCsidRequest: true;
+  noProductionCredentials: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noClearanceReporting: true;
+    noPdfA3: true;
+    productionCompliance: false;
+    executionEnabled: boolean;
+    executionAttempted: false;
+    requestMapperReady: true;
+    responseMapperReady: true;
+    egsUnit: { id: string; name: string; environment: string; hasCsr: boolean; hasComplianceCsid: boolean; hasProductionCsid: boolean; hasPrivateKey: boolean };
+  csrStatus: {
+    configHash: string;
+    missingFieldKeys: string[];
+    latestReviewId: string | null;
+    latestReviewStatus: string;
+    latestApprovedReviewId: string | null;
+    latestApprovedReviewStatus: string;
+    approvedReviewHashMatches: boolean;
+    generatedCsrAvailable: boolean;
+    generatedCsrReturned: false;
+    };
+    otpStatus: { required: true; provided: false; stored: false; returned: false; redacted: true };
+    requestContract: {
+      method: "POST";
+      endpointPath: "/compliance";
+      redactedHeaders: Array<{ name: string; value: string }>;
+      redactedBody: Array<{ name: string; value: string }>;
+    };
+    plannedHeadersRedacted: Array<{ name: string; value: string }>;
+    plannedBodyFieldsRedacted: Array<{ name: string; value: string }>;
+  blockers: string[];
+  warnings: string[];
+}
+
+interface ZatcaComplianceCsidRequestDryRunResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noNetwork: true;
+  noCsidRequest: true;
+  noProductionCredentials: true;
+  noSignedXmlBody: true;
+  noQrPayloadBody: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  productionCompliance: false;
+  executionEnabled: boolean;
+  executionAttempted: boolean;
+  executionStatus: string;
+  mockAdapterCalled: boolean;
+    tokenReturned: false;
+    secretReturned: false;
+    certificateBodyReturned: false;
+    otpReturned: false;
+    csrReturned: false;
+    requestMapperReady: true;
+    responseMapperReady: true;
+    custodyRecordRequired: true;
+    custodyGate: ZatcaComplianceCsidCustodyGate;
+    tokenStorageReady: false;
+    secretStorageReady: false;
+    certificateStorageReady: false;
+    tokenPersisted: false;
+    secretPersisted: false;
+    certificatePersisted: false;
+    requestContract: {
+      method: "POST";
+      endpointPath: "/compliance";
+      redactedHeaders: Array<{ name: string; value: string }>;
+      redactedBody: Array<{ name: string; value: string }>;
+    };
+    blockers: string[];
+    warnings: string[];
+  }
+
+interface ZatcaComplianceCsidCustodyGate {
+  allowed: false;
+  tokenStorageReady: false;
+  secretStorageReady: false;
+  certificateStorageReady: false;
+  kmsConfigured: false;
+  secretsManagerConfigured: false;
+  encryptedDbApproved: false;
+  productionCompliance: false;
+  providerConfiguration?: ZatcaComplianceCsidProviderConfigurationPlan;
+  providerReadiness?: ZatcaComplianceCsidCustodyProviderReadiness;
+  reasons: string[];
+}
+
+interface ZatcaComplianceCsidCustodyProviderReadiness {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noNetwork: true;
+  noCsidRequest: true;
+  noProductionCredentials: true;
+  provider: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
+  enabled: boolean;
+  configuredProvider: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
+  providerConfigPresent: boolean;
+  providerEnabled: false;
+  providerConfigurationReady: false;
+  mockProviderContractsAvailable: boolean;
+  realProviderImplementationReady: false;
+  defaultProvider: "DISABLED";
+  configurationPlanSummary: {
+    configuredProvider: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
+    providerEnabled: false;
+    providerConfigPresent: boolean;
+    providerConfigurationReady: false;
+    mockProviderContractsAvailable: boolean;
+    realProviderImplementationReady: false;
+    defaultProvider: "DISABLED";
+    redactedConfigurationSummary: {
+      provider: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
+      kmsKeyId: string;
+      secretPrefix: string;
+      region: string;
+      encryptedDbApproved: boolean;
+      allowBodyStorageRequested: boolean;
+    };
+    bodyStorageAllowed: false;
+  };
+  tokenStorageReady: boolean;
+  secretStorageReady: boolean;
+  certificateStorageReady: boolean;
+  kmsConfigured: boolean;
+  secretsManagerConfigured: boolean;
+  encryptedDbApproved: boolean;
+  productionCompliance: false;
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
+}
+
+interface ZatcaComplianceCsidCustodyRecord {
+  id: string;
+  source: "MOCK" | "FUTURE_SANDBOX";
+  status: "PLANNED" | "BLOCKED" | "FUTURE_READY" | "REVOKED";
+  hasBinarySecurityToken: boolean;
+  hasSecret: boolean;
+  hasCertificate: boolean;
+  tokenStorageMode: "NOT_STORED" | string;
+  secretStorageMode: "NOT_STORED" | string;
+  certificateStorageMode: "NOT_STORED" | string;
+  productionCompliance: false;
+  tokenReturned: false;
+  secretReturned: false;
+  certificateBodyReturned: false;
+  otpReturned: false;
+  csrReturned: false;
+}
+
+interface ZatcaComplianceCsidCustodyRecordResponse {
+  localOnly: true;
+  metadataOnly: true;
+  noEgsMutation: true;
+  noNetwork: true;
+  noCsidRequest: true;
+  noTokenBody: true;
+  noSecretBody: true;
+  noCertificateBody: true;
+  noPrivateKey: true;
+  noOtp: true;
+  noCsrBody: true;
+  noSubmissionLogs: true;
+  tokenPersisted: false;
+  secretPersisted: false;
+  certificatePersisted: false;
+  productionCompliance: false;
+  custodyRecord: ZatcaComplianceCsidCustodyRecord;
+}
+
+interface ZatcaComplianceCsidCustodyRecordListResponse {
+  localOnly: true;
+  readOnly: true;
+  metadataOnly: true;
+  noNetwork: true;
+  noCsidRequest: true;
+  productionCompliance: false;
+  custodyRecords: ZatcaComplianceCsidCustodyRecord[];
+}
+
+interface ZatcaXmlFieldMappingResponse {
+  warning: string;
+  summary: {
+    total: number;
+    byStatus: Record<string, number>;
+    byCategory: Record<string, number>;
+  };
+  items: unknown[];
+}
+
+interface ZatcaEgsUnit {
+  id: string;
+  name: string;
+  deviceSerialNumber: string;
+  csrCommonName?: string | null;
+  csrSerialNumber?: string | null;
+  csrOrganizationUnitName?: string | null;
+  csrInvoiceType?: string | null;
+  csrLocationAddress?: string | null;
+  status: string;
+  isActive: boolean;
+  hasCsr: boolean;
+  hasComplianceCsid: boolean;
+  hasProductionCsid?: boolean;
+  hasPrivateKey?: boolean;
+  keyCustodyMode?: "MISSING" | "RAW_DATABASE_PEM";
+  certificateExpiryKnown?: boolean;
+  certificateExpiresAt?: string | null;
+  renewalStatus?: string;
+  certificateRequestId?: string | null;
+  lastIcv: number;
+  lastInvoiceHash?: string | null;
+  hashMode: "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
+}
+
+interface ZatcaInvoiceMetadata {
+  id: string;
+  invoiceUuid: string;
+  zatcaStatus: string;
+  icv?: number | null;
+  previousInvoiceHash?: string | null;
+  invoiceHash?: string | null;
+  hashModeSnapshot?: "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
+  qrCodeBase64?: string | null;
+  xmlBase64?: string | null;
+}
+
+interface ZatcaQrResponse {
+  qrCodeBase64: string;
+}
+
+interface ZatcaXmlValidationResult {
+  localOnly: true;
+  officialValidation: false;
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+interface ZatcaSdkReadinessResponse {
+  enabled: boolean;
+  referenceFolderFound: boolean;
+  sdkJarFound: boolean;
+  configDirFound: boolean;
+  workingDirectoryWritable: boolean;
+  supportedCommandsKnown: boolean;
+  javaFound: boolean;
+  detectedJavaVersion: string | null;
+  javaSupported: boolean;
+  requiredJavaRange: string;
+  javaBinUsed: string;
+  javaBlockerMessage: string | null;
+  sdkCommand: string;
+  canAttemptSdkValidation: boolean;
+  canRunLocalValidation: boolean;
+  blockingReasons: string[];
+  warnings: string[];
+  suggestedFixes: string[];
+  hashMode?: {
+    mode: "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
+    envValue: "local" | "sdk";
+    sdkModeRequested: boolean;
+    blockingReasons: string[];
+    warnings: string[];
+  };
+  sdkHashModeBlocked?: boolean;
+}
+
+interface ZatcaSdkDryRunResponse {
+  dryRun: true;
+  localOnly: true;
+  officialSdkValidation: false;
+  commandPlan: {
+    command: string | null;
+    args: string[];
+    warnings: string[];
+  };
+  warnings: string[];
+}
+
+interface ZatcaSdkValidationResponse {
+  success: boolean;
+  disabled: boolean;
+  localOnly: true;
+  officialValidationAttempted: boolean;
+  sdkExitCode: number | null;
+  sdkHash: string | null;
+  appHash: string | null;
+  hashMatches: boolean | null;
+  hashComparisonStatus: "MATCH" | "MISMATCH" | "NOT_AVAILABLE" | "BLOCKED";
+  stdoutSummary: string;
+  stderrSummary: string;
+  validationMessages: string[];
+  blockingReasons: string[];
+  warnings: string[];
+}
+
+interface ZatcaInvoiceHashCompareResponse {
+  disabled: boolean;
+  localOnly: true;
+  noMutation: true;
+  officialHashAttempted: boolean;
+  sdkExitCode: number | null;
+  sdkHash: string | null;
+  appHash: string | null;
+  hashMatches: boolean | null;
+  hashComparisonStatus: "MATCH" | "MISMATCH" | "NOT_AVAILABLE" | "BLOCKED";
+  blockingReasons: string[];
+  warnings: string[];
+  invoiceId: string;
+  metadataId: string;
+  previousInvoiceHash: string | null;
+  icv: number | null;
+  egsUnitId: string | null;
+  egsHashMode: "LOCAL_DETERMINISTIC" | "SDK_GENERATED" | null;
+  metadataHashModeSnapshot: "LOCAL_DETERMINISTIC" | "SDK_GENERATED" | null;
+  hashMode: {
+    mode: "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
+    envValue: "local" | "sdk";
+  };
+}
+
+interface ZatcaHashChainResetPlanResponse {
+  dryRunOnly: true;
+  localOnly: true;
+  noMutation: true;
+  hashMode: {
+    mode: "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
+    envValue: "local" | "sdk";
+  };
+  summary: {
+    activeEgsUnitCount: number;
+    invoicesWithMetadataCount: number;
+    sdkModeEgsUnitCount: number;
+    currentIcv: number | null;
+    currentLastInvoiceHash: string | null;
+  };
+  egsUnits: Array<{
+    id: string;
+    hashMode: "LOCAL_DETERMINISTIC" | "SDK_GENERATED";
+    metadataCount: number;
+    canEnableSdkHashMode: boolean;
+    enableSdkHashModeBlockers: string[];
+  }>;
+  resetRisks: string[];
+  recommendedNextSteps: string[];
+}
+
+interface ZatcaComplianceCsidProviderConfigurationPlan {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noNetwork: true;
+  noCsidRequest: true;
+  noProductionCredentials: true;
+  noSecretBodyStorage: true;
+  configuredProvider: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
+  providerEnabled: false;
+  providerConfigPresent: boolean;
+  providerConfigurationReady: false;
+  mockProviderContractsAvailable: boolean;
+  realProviderImplementationReady: false;
+  defaultProvider: "DISABLED";
+  configurationPresent: {
+    provider: boolean;
+    kmsKeyId: boolean;
+    secretPrefix: boolean;
+    region: boolean;
+    encryptedDbApproval: boolean;
+    allowBodyStorage: boolean;
+  };
+  redactedConfigurationSummary: {
+    provider: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
+    kmsKeyId: string;
+    secretPrefix: string;
+    region: string;
+    encryptedDbApproved: boolean;
+    allowBodyStorageRequested: boolean;
+  };
+  tokenStorageReady: false;
+  secretStorageReady: false;
+  certificateStorageReady: false;
+  kmsConfigured: boolean;
+  secretsManagerConfigured: boolean;
+  encryptedDbApproved: boolean;
+  bodyStorageAllowed: false;
+  productionCompliance: false;
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
+}
+
+interface ZatcaComplianceCsidCustodyPlanResponse {
+  localOnly: true;
+  dryRun: true;
+  noMutation: true;
+  noNetwork: true;
+  noCsidRequest: true;
+  noProductionCredentials: true;
+  productionCompliance: false;
+  hasMockResponse: boolean;
+  hasComplianceCsid: boolean;
+  hasProductionCsid: boolean;
+  latestCustodyRecord: ZatcaComplianceCsidCustodyRecord | null;
+  custodyRecordCount: number;
+  configuredProvider: "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
+  providerConfiguration: ZatcaComplianceCsidProviderConfigurationPlan;
+  providerConfigurationReady: false;
+  providerConfigPresent: boolean;
+  futureReferenceModeOnly: true;
+  providerReadiness: ZatcaComplianceCsidCustodyProviderReadiness;
+  custodyGate: ZatcaComplianceCsidCustodyGate;
+  tokenStorageReady: false;
+  secretStorageReady: false;
+  certificateStorageReady: false;
+  bodyPersistenceAllowed: false;
+  tokenCustodyStatus: { implemented: false; persisted: false; bodyReturned: false };
+  secretCustodyStatus: { implemented: false; persisted: false; bodyReturned: false };
+  certificateCustodyStatus: { implemented: false; persisted: false; bodyReturned: false };
+  certificateExpiryKnown: boolean;
+  renewalMetadataModeled: boolean;
+  recommendedCustodyMode: string;
+  sensitiveFields: string[];
+  redactionGuarantees: string[];
+  blockers: string[];
+  warnings: string[];
+  recommendedNextSteps: string[];
+}
+
+interface ZatcaSubmissionLog {
+  id: string;
+  invoiceMetadataId?: string | null;
+  egsUnitId?: string | null;
+  responseCode?: string | null;
+  submissionType: string;
+  status: string;
+}
+
+class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly body: unknown,
+  ) {
+    super(message);
+  }
+}
+
+interface SmokeContext {
+  token: string;
+  organization: Organization;
+  roleName: string;
+  permissionCount: number;
+}
+
+async function main(): Promise<void> {
+  const context = await loginAndSelectOrganization();
+  const runId = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
+  const headers = tenantHeaders(context);
+
+  const documentSettings = await get<OrganizationDocumentSettings>("/organization-document-settings", headers);
+  assertPresent(documentSettings.footerText, "document settings footer text");
+  const patchedSettings = await patch<OrganizationDocumentSettings>("/organization-document-settings", headers, {
+    footerText: documentSettings.footerText,
+    primaryColor: documentSettings.primaryColor,
+    accentColor: documentSettings.accentColor,
+  });
+  assertEqual(patchedSettings.footerText, documentSettings.footerText, "document settings patch footer text");
+
+  const accounts = await get<Account[]>("/accounts", headers);
+  const salesAccount = required(
+    accounts.find((account) => account.code === "411" && account.allowPosting && account.isActive),
+    "Sales revenue account code 411",
+  );
+  const expenseAccount = required(
+    accounts.find((account) => account.code === "511" && account.allowPosting && account.isActive),
+    "General expenses account code 511",
+  );
+  const paidThroughAccount =
+    accounts.find((account) => account.code === "112" && account.allowPosting && account.isActive) ??
+    accounts.find((account) => account.code === "111" && account.allowPosting && account.isActive);
+  required(paidThroughAccount, "Bank Account code 112 or Cash code 111");
+  const bankAccounts = await get<BankAccountSummary[]>("/bank-accounts", headers);
+  assert(
+    bankAccounts.some((profile) => profile.account.code === "111" && profile.displayName === "Cash" && profile.status === "ACTIVE"),
+    "default Cash bank account profile exists",
+  );
+  assert(
+    bankAccounts.some((profile) => profile.account.code === "112" && profile.displayName === "Bank Account" && profile.status === "ACTIVE"),
+    "default Bank Account profile exists",
+  );
+  const paidThroughBankProfile = required(
+    bankAccounts.find((profile) => profile.accountId === paidThroughAccount!.id),
+    "bank account profile for paid-through account",
+  );
+
+  const taxRates = await get<TaxRate[]>("/tax-rates", headers);
+  const salesVat = taxRates.find((taxRate) => taxRate.name === "VAT on Sales 15%" && taxRate.isActive);
+  const purchaseVat = taxRates.find((taxRate) => taxRate.name === "VAT on Purchases 15%" && taxRate.isActive);
+  const expectedTotal = salesVat ? money("115.0000") : money("100.0000");
+  const expectedPurchaseBillTotal = purchaseVat ? money("115.0000") : money("100.0000");
+  const expectedCreditNoteTotal = salesVat ? money("11.5000") : money("10.0000");
+  const expectedPurchaseDebitNoteTotal = purchaseVat ? money("11.5000") : money("10.0000");
+  const partialPaymentAmount = money("50.0000");
+  const remainingPaymentAmount = expectedTotal.minus(partialPaymentAmount);
+
+  const customer = await post<Contact>("/contacts", headers, {
+    type: "CUSTOMER",
+    name: `Smoke Test Customer ${runId}`,
+    displayName: `Smoke Test Customer ${runId}`,
+    taxNumber: "399999999800003",
+    addressLine1: "Salah Al-Din",
+    addressLine2: "Unit 12",
+    buildingNumber: "1111",
+    district: "Al Murooj",
+    city: "Riyadh",
+    postalCode: "12222",
+    countryCode: "SA",
+  });
+
+  const itemPayload: Record<string, unknown> = {
+    name: `Smoke Test Service ${runId}`,
+    sku: `SMOKE-SERVICE-${runId}`,
+    type: "SERVICE",
+    sellingPrice: "100.0000",
+    revenueAccountId: salesAccount.id,
+  };
+  if (salesVat) {
+    itemPayload.salesTaxRateId = salesVat.id;
+  }
+  const item = await post<Item>("/items", headers, itemPayload);
+
+  const linePayload: Record<string, unknown> = {
+    itemId: item.id,
+    description: "Smoke test service line",
+    quantity: "1.0000",
+    unitPrice: "100.0000",
+  };
+  if (salesVat) {
+    linePayload.taxRateId = salesVat.id;
+  }
+
+  const draftInvoice = await post<SalesInvoice>("/sales-invoices", headers, {
+    customerId: customer.id,
+    issueDate: new Date().toISOString(),
+    currency: "SAR",
+    lines: [linePayload],
+  });
+  assertEqual(draftInvoice.status, "DRAFT", "created invoice status");
+
+  const updatedInvoice = await patch<SalesInvoice>(`/sales-invoices/${draftInvoice.id}`, headers, {
+    notes: `Smoke edited ${runId}`,
+  });
+  assertEqual(updatedInvoice.notes, `Smoke edited ${runId}`, "draft invoice notes update");
+
+  const finalizedInvoice = await post<SalesInvoice>(`/sales-invoices/${draftInvoice.id}/finalize`, headers, {});
+  assertEqual(finalizedInvoice.status, "FINALIZED", "finalized invoice status");
+  assertPresent(finalizedInvoice.journalEntryId, "finalized invoice journalEntryId");
+  assertMoney(finalizedInvoice.total, expectedTotal, "finalized invoice total");
+  assertMoney(finalizedInvoice.balanceDue, expectedTotal, "finalized invoice balanceDue");
+
+  const finalizedAgain = await post<SalesInvoice>(`/sales-invoices/${draftInvoice.id}/finalize`, headers, {});
+  assertEqual(finalizedAgain.id, finalizedInvoice.id, "double finalize invoice id");
+  assertEqual(finalizedAgain.journalEntryId, finalizedInvoice.journalEntryId, "double finalize journalEntryId");
+
+  const zatcaProfile = await get<ZatcaOrganizationProfile>("/zatca/profile", headers);
+  assertPresent(zatcaProfile.id, "ZATCA profile id");
+  const patchedZatcaProfile = await patch<ZatcaOrganizationProfile>("/zatca/profile", headers, {
+    sellerName: "LedgerByte Smoke Seller",
+    vatNumber: "300000000000003",
+    companyIdType: "CRN",
+    companyIdNumber: "1010010000",
+    countryCode: "SA",
+    city: "Riyadh",
+    streetName: "King Fahd Road",
+    buildingNumber: "1234",
+    district: "Olaya",
+    postalCode: "12271",
+    businessCategory: "Smoke testing",
+    environment: "SANDBOX",
+  });
+  assertEqual(patchedZatcaProfile.vatNumber, "300000000000003", "ZATCA profile VAT number");
+  const zatcaAdapterConfig = await get<ZatcaAdapterConfigSummary>("/zatca/adapter-config", headers);
+  assertEqual(zatcaAdapterConfig.mode, "mock", "ZATCA adapter default mode");
+  assertEqual(zatcaAdapterConfig.realNetworkEnabled, false, "ZATCA real network disabled flag");
+  assertEqual(zatcaAdapterConfig.effectiveRealNetworkEnabled, false, "ZATCA effective real network disabled flag");
+  const zatcaChecklist = await get<ZatcaComplianceChecklistResponse>("/zatca/compliance-checklist", headers);
+  assert(zatcaChecklist.warning.includes("not legal certification"), "ZATCA checklist warning is present");
+  assert(zatcaChecklist.summary.total > 0, "ZATCA checklist has items");
+  assert((zatcaChecklist.groups.API?.length ?? 0) > 0, "ZATCA checklist groups API items");
+  assert((zatcaChecklist.groups.PDF_A3?.length ?? 0) > 0, "ZATCA checklist groups PDF/A-3 items");
+  const zatcaXmlFieldMapping = await get<ZatcaXmlFieldMappingResponse>("/zatca/xml-field-mapping", headers);
+  assert(zatcaXmlFieldMapping.warning.includes("not official ZATCA validation"), "ZATCA XML field mapping warning is present");
+  assert(zatcaXmlFieldMapping.summary.total > 0, "ZATCA XML field mapping has items");
+  assert(zatcaXmlFieldMapping.items.length === zatcaXmlFieldMapping.summary.total, "ZATCA XML field mapping item count matches summary");
+  const zatcaReadiness = await get<ZatcaReadinessSummary>("/zatca/readiness", headers);
+  assert(zatcaReadiness.warning.includes("not legal certification"), "ZATCA readiness warning is present");
+  assertEqual(zatcaReadiness.localOnly, true, "ZATCA readiness localOnly");
+  assertEqual(zatcaReadiness.productionCompliance, false, "ZATCA readiness productionCompliance");
+  assertEqual(zatcaReadiness.productionReady, false, "ZATCA readiness productionReady");
+  assertEqual(zatcaReadiness.sellerProfile?.status, "READY", "ZATCA seller readiness ready after smoke profile patch");
+  assertEqual(zatcaReadiness.signing.status, "BLOCKED", "ZATCA signing readiness blocked");
+  assertEqual(zatcaReadiness.keyCustody.status, "BLOCKED", "ZATCA key custody readiness blocked");
+  assertEqual(zatcaReadiness.complianceCsidCustody.status, "BLOCKED", "ZATCA compliance CSID custody readiness blocked");
+  assert(["READY", "WARNINGS", "BLOCKED"].includes(zatcaReadiness.csr.status), "ZATCA CSR readiness returns a valid local-only status");
+  assertEqual(zatcaReadiness.phase2Qr.status, "BLOCKED", "ZATCA Phase 2 QR readiness blocked");
+  assertEqual(zatcaReadiness.pdfA3.status, "BLOCKED", "ZATCA PDF/A-3 readiness blocked");
+  assert(zatcaReadiness.blockingReasons.length > 0, "ZATCA readiness returns blocking reasons");
+  assertNoPrivateKey(zatcaReadiness, "ZATCA readiness response");
+
+  const smokeEgsSerial = "LEDGERBYTE-SMOKE-EGS";
+  const existingEgsUnits = await get<ZatcaEgsUnit[]>("/zatca/egs-units", headers);
+  assertNoPrivateKey(existingEgsUnits, "ZATCA EGS list response");
+  let smokeEgs =
+    existingEgsUnits.find((unit) => unit.deviceSerialNumber === smokeEgsSerial) ??
+    (await post<ZatcaEgsUnit>("/zatca/egs-units", headers, {
+      name: "LedgerByte Smoke Dev EGS",
+      deviceSerialNumber: smokeEgsSerial,
+      environment: "SANDBOX",
+      solutionName: "LedgerByte",
+    }));
+  assertNoPrivateKey(smokeEgs, "ZATCA EGS create/detail response");
+  const egsBeforeCsrFieldCapture = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  smokeEgs = await patch<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/csr-fields`, headers, {
+    csrCommonName: "TST-886431145-399999999900003",
+    csrSerialNumber: "1-TST|2-TST|3-ed22f1d8-e6a2-1118-9b58-d9a8f11e445f",
+    csrOrganizationUnitName: "Riyadh Branch",
+    csrInvoiceType: "1100",
+    csrLocationAddress: "RRRD2929",
+  });
+  assertNoPrivateKey(smokeEgs, "ZATCA EGS CSR field capture response");
+  assertEqual(smokeEgs.csrInvoiceType, "1100", "ZATCA smoke EGS CSR invoice type captured");
+  assertEqual(smokeEgs.csrLocationAddress, "RRRD2929", "ZATCA smoke EGS CSR location address captured");
+  assertEqual(smokeEgs.lastIcv, egsBeforeCsrFieldCapture.lastIcv, "ZATCA CSR field capture does not mutate EGS ICV");
+  assertEqual(smokeEgs.lastInvoiceHash, egsBeforeCsrFieldCapture.lastInvoiceHash, "ZATCA CSR field capture does not mutate EGS previous hash");
+  smokeEgs = await post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/generate-csr`, headers, {});
+  assertNoPrivateKey(smokeEgs, "ZATCA EGS CSR generation response");
+  assertEqual(smokeEgs.hasCsr, true, "ZATCA smoke EGS CSR flag");
+  const csrResponse = await get<{ csrPem: string }>(`/zatca/egs-units/${smokeEgs.id}/csr`, headers);
+  assert(csrResponse.csrPem.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA CSR endpoint returns CSR PEM");
+  assert(!csrResponse.csrPem.includes("PRIVATE KEY"), "ZATCA CSR endpoint does not return private key material");
+  await assertText(`/zatca/egs-units/${smokeEgs.id}/csr/download`, headers, "EGS CSR download", "BEGIN CERTIFICATE REQUEST");
+  const egsBeforeCsrPlan = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  const zatcaCsrPlan = await get<ZatcaEgsCsrPlanResponse>(`/zatca/egs-units/${smokeEgs.id}/csr-plan`, headers);
+  assertEqual(zatcaCsrPlan.localOnly, true, "ZATCA CSR plan localOnly");
+  assertEqual(zatcaCsrPlan.dryRun, true, "ZATCA CSR plan dryRun");
+  assertEqual(zatcaCsrPlan.noMutation, true, "ZATCA CSR plan noMutation");
+  assertEqual(zatcaCsrPlan.productionCompliance, false, "ZATCA CSR plan productionCompliance");
+  assertEqual(zatcaCsrPlan.noCsidRequest, true, "ZATCA CSR plan noCsidRequest");
+  assert(zatcaCsrPlan.sdkCommand.includes("-csr"), "ZATCA CSR plan uses SDK CSR command");
+  assert(zatcaCsrPlan.requiredFields.some((field) => field.sdkConfigKey === "csr.organization.identifier"), "ZATCA CSR plan lists organization identifier");
+  assert(zatcaCsrPlan.requiredFields.some((field) => field.sdkConfigKey === "csr.common.name" && field.status === "AVAILABLE"), "ZATCA CSR plan uses captured common name");
+  assert(zatcaCsrPlan.requiredFields.some((field) => field.sdkConfigKey === "csr.invoice.type" && field.currentValue === "1100" && field.status === "AVAILABLE"), "ZATCA CSR plan uses captured invoice type");
+  assert(zatcaCsrPlan.requiredFields.some((field) => field.sdkConfigKey === "csr.location.address" && field.currentValue === "RRRD2929" && field.status === "AVAILABLE"), "ZATCA CSR plan uses captured location address");
+  assert(!zatcaCsrPlan.missingValues.some((field) => field.sdkConfigKey === "csr.invoice.type" || field.sdkConfigKey === "csr.location.address" || field.sdkConfigKey === "csr.common.name"), "ZATCA CSR plan captured fields clear missing CSR blockers");
+  assert(zatcaCsrPlan.blockers.some((blocker) => blocker.includes("CSID requests are intentionally disabled")), "ZATCA CSR plan blocks CSID requests");
+  assertNoPrivateKey(zatcaCsrPlan, "ZATCA CSR plan response");
+  const egsAfterCsrPlan = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  assertEqual(egsAfterCsrPlan.lastIcv, egsBeforeCsrPlan.lastIcv, "ZATCA CSR plan does not mutate EGS ICV");
+  assertEqual(egsAfterCsrPlan.lastInvoiceHash, egsBeforeCsrPlan.lastInvoiceHash, "ZATCA CSR plan does not mutate EGS previous hash");
+  const egsBeforeCsrConfigPreview = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  const zatcaCsrConfigPreview = await get<ZatcaEgsCsrConfigPreviewResponse>(`/zatca/egs-units/${smokeEgs.id}/csr-config-preview`, headers);
+  assertEqual(zatcaCsrConfigPreview.localOnly, true, "ZATCA CSR config preview localOnly");
+  assertEqual(zatcaCsrConfigPreview.dryRun, true, "ZATCA CSR config preview dryRun");
+  assertEqual(zatcaCsrConfigPreview.noMutation, true, "ZATCA CSR config preview noMutation");
+  assertEqual(zatcaCsrConfigPreview.noCsidRequest, true, "ZATCA CSR config preview noCsidRequest");
+  assertEqual(zatcaCsrConfigPreview.noNetwork, true, "ZATCA CSR config preview noNetwork");
+  assertEqual(zatcaCsrConfigPreview.productionCompliance, false, "ZATCA CSR config preview productionCompliance");
+  assertEqual(zatcaCsrConfigPreview.canPrepareConfig, true, "ZATCA CSR config preview can prepare after field capture");
+  assertEqual(
+    zatcaCsrConfigPreview.configEntries.map((entry) => entry.key).join("|"),
+    [
+      "csr.common.name",
+      "csr.serial.number",
+      "csr.organization.identifier",
+      "csr.organization.unit.name",
+      "csr.organization.name",
+      "csr.country.name",
+      "csr.invoice.type",
+      "csr.location.address",
+      "csr.industry.business.category",
+    ].join("|"),
+    "ZATCA CSR config preview preserves official key order",
+  );
+  assert(zatcaCsrConfigPreview.sanitizedConfigPreview.includes("csr.common.name=TST-886431145-399999999900003"), "ZATCA CSR config preview includes captured common name");
+  assert(zatcaCsrConfigPreview.sanitizedConfigPreview.includes("csr.invoice.type=1100"), "ZATCA CSR config preview includes captured invoice type");
+  assert(zatcaCsrConfigPreview.sanitizedConfigPreview.includes("csr.location.address=RRRD2929"), "ZATCA CSR config preview includes captured location address");
+  assertEqual(zatcaCsrConfigPreview.missingFields.length, 0, "ZATCA CSR config preview has no missing fields after capture");
+  assertNoPrivateKey(zatcaCsrConfigPreview, "ZATCA CSR config preview response");
+  const serializedCsrConfigPreview = JSON.stringify(zatcaCsrConfigPreview);
+  assert(!serializedCsrConfigPreview.includes("BEGIN CERTIFICATE"), "ZATCA CSR config preview does not expose certificate bodies");
+  assert(!serializedCsrConfigPreview.includes("binarySecurityToken"), "ZATCA CSR config preview does not expose CSID token field names");
+  assert(!serializedCsrConfigPreview.includes("secret"), "ZATCA CSR config preview does not expose CSID secret field names");
+  assert(!serializedCsrConfigPreview.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA CSR config preview does not expose generated CSR bodies");
+  const egsAfterCsrConfigPreview = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  assertEqual(egsAfterCsrConfigPreview.lastIcv, egsBeforeCsrConfigPreview.lastIcv, "ZATCA CSR config preview does not mutate EGS ICV");
+  assertEqual(egsAfterCsrConfigPreview.lastInvoiceHash, egsBeforeCsrConfigPreview.lastInvoiceHash, "ZATCA CSR config preview does not mutate EGS previous hash");
+  const egsBeforeCsrReview = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  const submissionsBeforeCsrReview = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  const zatcaCsrConfigReview = await post<ZatcaCsrConfigReview>(`/zatca/egs-units/${smokeEgs.id}/csr-config-reviews`, headers, {
+    note: "Smoke reviewed sanitized CSR config preview only.",
+  });
+  assertEqual(zatcaCsrConfigReview.localOnly, true, "ZATCA CSR config review localOnly");
+  assertEqual(zatcaCsrConfigReview.noCsidRequest, true, "ZATCA CSR config review noCsidRequest");
+  assertEqual(zatcaCsrConfigReview.noNetwork, true, "ZATCA CSR config review noNetwork");
+  assertEqual(zatcaCsrConfigReview.sdkExecution, false, "ZATCA CSR config review sdkExecution false");
+  assertEqual(zatcaCsrConfigReview.productionCompliance, false, "ZATCA CSR config review productionCompliance");
+  assertEqual(zatcaCsrConfigReview.status, "DRAFT", "ZATCA CSR config review starts as DRAFT");
+  assert(zatcaCsrConfigReview.configPreviewRedacted.includes("csr.common.name=TST-886431145-399999999900003"), "ZATCA CSR config review stores sanitized preview");
+  const approvedZatcaCsrConfigReview = await post<ZatcaCsrConfigReview>(`/zatca/csr-config-reviews/${zatcaCsrConfigReview.id}/approve`, headers, {
+    note: "Smoke approved sanitized CSR config preview locally.",
+  });
+  assertEqual(approvedZatcaCsrConfigReview.status, "APPROVED", "ZATCA CSR config review approves when preview is ready");
+  assertPresent(approvedZatcaCsrConfigReview.approvedAt, "ZATCA CSR config review approvedAt");
+  const listedCsrConfigReviews = await get<ZatcaCsrConfigReview[]>(`/zatca/egs-units/${smokeEgs.id}/csr-config-reviews`, headers);
+  assert(listedCsrConfigReviews.some((review) => review.id === approvedZatcaCsrConfigReview.id && review.status === "APPROVED"), "ZATCA CSR config review list returns approved review");
+  const serializedCsrConfigReview = JSON.stringify([zatcaCsrConfigReview, approvedZatcaCsrConfigReview, listedCsrConfigReviews]);
+  assertNoPrivateKey([zatcaCsrConfigReview, approvedZatcaCsrConfigReview, listedCsrConfigReviews], "ZATCA CSR config review responses");
+  assert(!serializedCsrConfigReview.includes("BEGIN CERTIFICATE"), "ZATCA CSR config review does not expose certificate bodies");
+  assert(!serializedCsrConfigReview.includes("binarySecurityToken"), "ZATCA CSR config review does not expose CSID token field names");
+  assert(!serializedCsrConfigReview.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA CSR config review does not expose generated CSR bodies");
+  assert(!serializedCsrConfigReview.includes("OTP"), "ZATCA CSR config review does not expose one-time portal codes");
+  const egsAfterCsrReview = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  assertEqual(egsAfterCsrReview.lastIcv, egsBeforeCsrReview.lastIcv, "ZATCA CSR config review does not mutate EGS ICV");
+  assertEqual(egsAfterCsrReview.lastInvoiceHash, egsBeforeCsrReview.lastInvoiceHash, "ZATCA CSR config review does not mutate EGS previous hash");
+  const submissionsAfterCsrReview = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterCsrReview.length, submissionsBeforeCsrReview.length, "ZATCA CSR config review does not create submission logs");
+  const zatcaCsrDryRunAfterReview = await post<ZatcaEgsCsrDryRunResponse>(`/zatca/egs-units/${smokeEgs.id}/csr-dry-run`, headers, {});
+  assertEqual(zatcaCsrDryRunAfterReview.localOnly, true, "ZATCA CSR dry-run after review localOnly");
+  assertEqual(zatcaCsrDryRunAfterReview.noCsidRequest, true, "ZATCA CSR dry-run after review noCsidRequest");
+  assertEqual(zatcaCsrDryRunAfterReview.noNetwork, true, "ZATCA CSR dry-run after review noNetwork");
+  assertEqual(zatcaCsrDryRunAfterReview.productionCompliance, false, "ZATCA CSR dry-run after review productionCompliance");
+  assertEqual(zatcaCsrDryRunAfterReview.configReviewRequired, true, "ZATCA CSR dry-run reports review required");
+  assertEqual(zatcaCsrDryRunAfterReview.latestReviewId, approvedZatcaCsrConfigReview.id, "ZATCA CSR dry-run reports latest review id");
+  assertEqual(zatcaCsrDryRunAfterReview.latestReviewStatus, "APPROVED", "ZATCA CSR dry-run reports approved review status");
+  assertEqual(zatcaCsrDryRunAfterReview.configApprovedForDryRun, true, "ZATCA CSR dry-run reports config approved for future dry-run phase");
+  const egsBeforeCsrLocalGenerate = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  const submissionsBeforeCsrLocalGenerate = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  const zatcaCsrLocalGenerate = await post<ZatcaEgsCsrLocalGenerateResponse>(`/zatca/egs-units/${smokeEgs.id}/csr-local-generate`, headers, {});
+  assertEqual(zatcaCsrLocalGenerate.localOnly, true, "ZATCA CSR local generate localOnly");
+  assertEqual(zatcaCsrLocalGenerate.noCsidRequest, true, "ZATCA CSR local generate noCsidRequest");
+  assertEqual(zatcaCsrLocalGenerate.noNetwork, true, "ZATCA CSR local generate noNetwork");
+  assertEqual(zatcaCsrLocalGenerate.noSigning, true, "ZATCA CSR local generate noSigning");
+  assertEqual(zatcaCsrLocalGenerate.noPersistence, true, "ZATCA CSR local generate noPersistence");
+  assertEqual(zatcaCsrLocalGenerate.productionCompliance, false, "ZATCA CSR local generate productionCompliance");
+  assertEqual(zatcaCsrLocalGenerate.executionEnabled, false, "ZATCA CSR local generate disabled by default");
+  assertEqual(zatcaCsrLocalGenerate.executionAttempted, false, "ZATCA CSR local generate does not execute by default");
+  assertEqual(zatcaCsrLocalGenerate.executionSkipped, true, "ZATCA CSR local generate skipped by default");
+  assertEqual(zatcaCsrLocalGenerate.reviewId, approvedZatcaCsrConfigReview.id, "ZATCA CSR local generate reports approved review id");
+  assertEqual(zatcaCsrLocalGenerate.tempFilesWritten.privateKey, false, "ZATCA CSR local generate does not write private key by default");
+  assertEqual(zatcaCsrLocalGenerate.generatedCsrDetected, false, "ZATCA CSR local generate does not generate CSR by default");
+  const serializedCsrLocalGenerate = JSON.stringify(zatcaCsrLocalGenerate);
+  assertNoPrivateKey(zatcaCsrLocalGenerate, "ZATCA CSR local generate response");
+  assert(!serializedCsrLocalGenerate.includes("BEGIN CERTIFICATE"), "ZATCA CSR local generate does not expose certificate bodies");
+  assert(!serializedCsrLocalGenerate.includes("binarySecurityToken"), "ZATCA CSR local generate does not expose CSID token field names");
+  assert(!serializedCsrLocalGenerate.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA CSR local generate does not expose generated CSR bodies");
+  assert(!serializedCsrLocalGenerate.includes("OTP"), "ZATCA CSR local generate does not expose one-time portal codes");
+  const egsAfterCsrLocalGenerate = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  assertEqual(egsAfterCsrLocalGenerate.lastIcv, egsBeforeCsrLocalGenerate.lastIcv, "ZATCA CSR local generate does not mutate EGS ICV");
+  assertEqual(egsAfterCsrLocalGenerate.lastInvoiceHash, egsBeforeCsrLocalGenerate.lastInvoiceHash, "ZATCA CSR local generate does not mutate EGS previous hash");
+  const submissionsAfterCsrLocalGenerate = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterCsrLocalGenerate.length, submissionsBeforeCsrLocalGenerate.length, "ZATCA CSR local generate does not create submission logs by default");
+  const egsBeforeComplianceCsidPlan = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  const submissionsBeforeComplianceCsidPlan = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  const zatcaComplianceCsidPlan = await get<ZatcaComplianceCsidRequestPlanResponse>(`/zatca/egs-units/${smokeEgs.id}/compliance-csid-request-plan`, headers);
+  assertEqual(zatcaComplianceCsidPlan.localOnly, true, "ZATCA compliance CSID plan localOnly");
+  assertEqual(zatcaComplianceCsidPlan.dryRun, true, "ZATCA compliance CSID plan dryRun");
+  assertEqual(zatcaComplianceCsidPlan.noMutation, true, "ZATCA compliance CSID plan noMutation");
+  assertEqual(zatcaComplianceCsidPlan.noNetwork, true, "ZATCA compliance CSID plan noNetwork");
+  assertEqual(zatcaComplianceCsidPlan.noCsidRequest, true, "ZATCA compliance CSID plan noCsidRequest");
+  assertEqual(zatcaComplianceCsidPlan.noProductionCredentials, true, "ZATCA compliance CSID plan no production credentials");
+  assertEqual(zatcaComplianceCsidPlan.productionCompliance, false, "ZATCA compliance CSID plan productionCompliance false");
+  assertEqual(zatcaComplianceCsidPlan.executionEnabled, false, "ZATCA compliance CSID sandbox execution disabled by default");
+  assertEqual(zatcaComplianceCsidPlan.executionAttempted, false, "ZATCA compliance CSID plan does not attempt execution");
+  assertEqual(zatcaComplianceCsidPlan.requestMapperReady, true, "ZATCA compliance CSID request mapper ready");
+  assertEqual(zatcaComplianceCsidPlan.responseMapperReady, true, "ZATCA compliance CSID response mapper ready");
+  assertEqual(zatcaComplianceCsidPlan.requestContract.method, "POST", "ZATCA compliance CSID request mapper method");
+  assertEqual(zatcaComplianceCsidPlan.requestContract.endpointPath, "/compliance", "ZATCA compliance CSID request mapper endpoint");
+  assertEqual(zatcaComplianceCsidPlan.otpStatus.redacted, true, "ZATCA compliance CSID plan redacts OTP");
+  assert(zatcaComplianceCsidPlan.plannedHeadersRedacted.some((header) => header.name === "OTP" && header.value.includes("REDACTED")), "ZATCA compliance CSID plan redacts OTP header");
+  assert(zatcaComplianceCsidPlan.plannedBodyFieldsRedacted.some((field) => field.name === "csr" && field.value.includes("REDACTED")), "ZATCA compliance CSID plan redacts CSR body");
+  assert(zatcaComplianceCsidPlan.blockers.some((blocker) => blocker.includes("OTP")), "ZATCA compliance CSID plan reports OTP blocker");
+  assertNoPrivateKey(zatcaComplianceCsidPlan, "ZATCA compliance CSID plan response");
+  const serializedComplianceCsidPlan = JSON.stringify(zatcaComplianceCsidPlan);
+  assert(!serializedComplianceCsidPlan.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA compliance CSID plan does not expose CSR body");
+  assert(!serializedComplianceCsidPlan.includes("BEGIN CERTIFICATE"), "ZATCA compliance CSID plan does not expose certificate body");
+  assert(!serializedComplianceCsidPlan.includes("PRIVATE KEY"), "ZATCA compliance CSID plan does not expose private key");
+  const egsAfterComplianceCsidPlan = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  assertEqual(egsAfterComplianceCsidPlan.lastIcv, egsBeforeComplianceCsidPlan.lastIcv, "ZATCA compliance CSID plan does not mutate EGS ICV");
+  assertEqual(egsAfterComplianceCsidPlan.lastInvoiceHash, egsBeforeComplianceCsidPlan.lastInvoiceHash, "ZATCA compliance CSID plan does not mutate EGS previous hash");
+  const submissionsAfterComplianceCsidPlan = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterComplianceCsidPlan.length, submissionsBeforeComplianceCsidPlan.length, "ZATCA compliance CSID plan does not create submission logs");
+  const submissionsBeforeComplianceCsidProviderReadiness = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  const zatcaComplianceCsidCustodyProviderReadiness = await get<ZatcaComplianceCsidCustodyProviderReadiness>("/zatca/compliance-csid-custody/provider-readiness", headers);
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.localOnly, true, "ZATCA CSID custody provider readiness localOnly");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.dryRun, true, "ZATCA CSID custody provider readiness dryRun");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.noMutation, true, "ZATCA CSID custody provider readiness noMutation");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.noNetwork, true, "ZATCA CSID custody provider readiness no network");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.noCsidRequest, true, "ZATCA CSID custody provider readiness no CSID request");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.provider, "DISABLED", "ZATCA CSID custody provider disabled by default");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.enabled, false, "ZATCA CSID custody provider execution disabled");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.mockProviderContractsAvailable, true, "ZATCA CSID custody mocked provider contracts reported");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.realProviderImplementationReady, false, "ZATCA CSID custody real provider implementation not ready");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.defaultProvider, "DISABLED", "ZATCA CSID custody runtime provider default disabled");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.tokenStorageReady, false, "ZATCA CSID custody provider token storage not ready");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.secretStorageReady, false, "ZATCA CSID custody provider secret storage not ready");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.certificateStorageReady, false, "ZATCA CSID custody provider certificate storage not ready");
+  assertEqual(zatcaComplianceCsidCustodyProviderReadiness.productionCompliance, false, "ZATCA CSID custody provider productionCompliance false");
+  const serializedComplianceCsidProviderReadiness = JSON.stringify(zatcaComplianceCsidCustodyProviderReadiness);
+  assert(!serializedComplianceCsidProviderReadiness.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA CSID custody provider readiness does not expose CSR body");
+  assert(!serializedComplianceCsidProviderReadiness.includes("BEGIN CERTIFICATE"), "ZATCA CSID custody provider readiness does not expose certificate body");
+  assert(!serializedComplianceCsidProviderReadiness.includes("BINARY-SECURITY-TOKEN"), "ZATCA CSID custody provider readiness does not expose token body");
+  assert(!serializedComplianceCsidProviderReadiness.includes("LOCAL-MOCK-SECRET"), "ZATCA CSID custody provider readiness does not expose secret body");
+  const submissionsAfterComplianceCsidProviderReadiness = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterComplianceCsidProviderReadiness.length, submissionsBeforeComplianceCsidProviderReadiness.length, "ZATCA CSID custody provider readiness does not create submission logs");
+  const submissionsBeforeComplianceCsidProviderConfiguration = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  const zatcaComplianceCsidProviderConfigurationPlan = await get<ZatcaComplianceCsidProviderConfigurationPlan>("/zatca/compliance-csid-custody/provider-configuration-plan", headers);
+  assertEqual(zatcaComplianceCsidProviderConfigurationPlan.localOnly, true, "ZATCA CSID custody provider configuration plan localOnly");
+  assertEqual(zatcaComplianceCsidProviderConfigurationPlan.dryRun, true, "ZATCA CSID custody provider configuration plan dryRun");
+  assertEqual(zatcaComplianceCsidProviderConfigurationPlan.noMutation, true, "ZATCA CSID custody provider configuration plan noMutation");
+  assertEqual(zatcaComplianceCsidProviderConfigurationPlan.noNetwork, true, "ZATCA CSID custody provider configuration plan no network");
+  assertEqual(zatcaComplianceCsidProviderConfigurationPlan.noCsidRequest, true, "ZATCA CSID custody provider configuration plan no CSID request");
+  assertEqual(zatcaComplianceCsidProviderConfigurationPlan.configuredProvider, "DISABLED", "ZATCA CSID custody provider configuration disabled by default");
+  assertEqual(zatcaComplianceCsidProviderConfigurationPlan.providerEnabled, false, "ZATCA CSID custody provider configuration does not enable provider");
+  assertEqual(zatcaComplianceCsidProviderConfigurationPlan.mockProviderContractsAvailable, true, "ZATCA CSID custody provider configuration reports mocked contracts");
+  assertEqual(zatcaComplianceCsidProviderConfigurationPlan.realProviderImplementationReady, false, "ZATCA CSID custody provider configuration real provider not ready");
+  assertEqual(zatcaComplianceCsidProviderConfigurationPlan.defaultProvider, "DISABLED", "ZATCA CSID custody provider configuration runtime default disabled");
+  assertEqual(zatcaComplianceCsidProviderConfigurationPlan.bodyStorageAllowed, false, "ZATCA CSID custody provider configuration body storage blocked");
+  assertEqual(zatcaComplianceCsidProviderConfigurationPlan.productionCompliance, false, "ZATCA CSID custody provider configuration productionCompliance false");
+  const serializedComplianceCsidProviderConfiguration = JSON.stringify(zatcaComplianceCsidProviderConfigurationPlan);
+  assert(!serializedComplianceCsidProviderConfiguration.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA CSID custody provider configuration plan does not expose CSR body");
+  assert(!serializedComplianceCsidProviderConfiguration.includes("BEGIN CERTIFICATE"), "ZATCA CSID custody provider configuration plan does not expose certificate body");
+  assert(!serializedComplianceCsidProviderConfiguration.includes("BINARY-SECURITY-TOKEN"), "ZATCA CSID custody provider configuration plan does not expose token body");
+  assert(!serializedComplianceCsidProviderConfiguration.includes("LOCAL-MOCK-SECRET"), "ZATCA CSID custody provider configuration plan does not expose secret body");
+  assert(!serializedComplianceCsidProviderConfiguration.toLowerCase().includes("access_key"), "ZATCA CSID custody provider configuration plan does not expose access key names");
+  const submissionsAfterComplianceCsidProviderConfiguration = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterComplianceCsidProviderConfiguration.length, submissionsBeforeComplianceCsidProviderConfiguration.length, "ZATCA CSID custody provider configuration plan does not create submission logs");
+  const zatcaComplianceCsidCustodyPlan = await get<ZatcaComplianceCsidCustodyPlanResponse>(`/zatca/egs-units/${smokeEgs.id}/compliance-csid-custody-plan`, headers);
+  assertEqual(zatcaComplianceCsidCustodyPlan.localOnly, true, "ZATCA compliance CSID custody plan localOnly");
+  assertEqual(zatcaComplianceCsidCustodyPlan.dryRun, true, "ZATCA compliance CSID custody plan dryRun");
+  assertEqual(zatcaComplianceCsidCustodyPlan.noMutation, true, "ZATCA compliance CSID custody plan noMutation");
+  assertEqual(zatcaComplianceCsidCustodyPlan.noNetwork, true, "ZATCA compliance CSID custody plan noNetwork");
+  assertEqual(zatcaComplianceCsidCustodyPlan.noCsidRequest, true, "ZATCA compliance CSID custody plan noCsidRequest");
+  assertEqual(zatcaComplianceCsidCustodyPlan.noProductionCredentials, true, "ZATCA compliance CSID custody plan no production credentials");
+  assertEqual(zatcaComplianceCsidCustodyPlan.productionCompliance, false, "ZATCA compliance CSID custody plan productionCompliance false");
+  assertEqual(zatcaComplianceCsidCustodyPlan.tokenCustodyStatus.implemented, false, "ZATCA compliance CSID token custody not implemented");
+  assertEqual(zatcaComplianceCsidCustodyPlan.providerReadiness.provider, "DISABLED", "ZATCA compliance CSID custody plan includes disabled provider readiness");
+  assertEqual(zatcaComplianceCsidCustodyPlan.providerReadiness.enabled, false, "ZATCA compliance CSID custody plan provider disabled");
+  assertEqual(zatcaComplianceCsidCustodyPlan.providerReadiness.mockProviderContractsAvailable, true, "ZATCA compliance CSID custody plan reports mocked provider contracts");
+  assertEqual(zatcaComplianceCsidCustodyPlan.providerReadiness.realProviderImplementationReady, false, "ZATCA compliance CSID custody plan real provider not ready");
+  assertEqual(zatcaComplianceCsidCustodyPlan.configuredProvider, "DISABLED", "ZATCA compliance CSID custody plan configured provider disabled");
+  assertEqual(zatcaComplianceCsidCustodyPlan.providerConfigurationReady, false, "ZATCA compliance CSID custody plan provider configuration not ready");
+  assertEqual(zatcaComplianceCsidCustodyPlan.providerConfiguration.bodyStorageAllowed, false, "ZATCA compliance CSID custody plan provider configuration body storage blocked");
+  assertEqual(zatcaComplianceCsidCustodyPlan.custodyGate.providerConfiguration?.providerConfigurationReady, false, "ZATCA compliance CSID custody gate provider configuration not ready");
+  assertEqual(zatcaComplianceCsidCustodyPlan.secretCustodyStatus.implemented, false, "ZATCA compliance CSID secret custody not implemented");
+  assertEqual(zatcaComplianceCsidCustodyPlan.certificateCustodyStatus.implemented, false, "ZATCA compliance CSID certificate custody not implemented");
+  assertEqual(zatcaComplianceCsidCustodyPlan.certificateExpiryKnown, false, "ZATCA compliance CSID certificate expiry unknown");
+  assertEqual(zatcaComplianceCsidCustodyPlan.renewalMetadataModeled, false, "ZATCA compliance CSID renewal metadata not modeled");
+  assert(zatcaComplianceCsidCustodyPlan.sensitiveFields.includes("binarySecurityToken"), "ZATCA compliance CSID custody plan marks token sensitive");
+  assert(zatcaComplianceCsidCustodyPlan.sensitiveFields.includes("secret"), "ZATCA compliance CSID custody plan marks secret sensitive");
+  assert(zatcaComplianceCsidCustodyPlan.providerReadiness.blockers.some((blocker) => blocker.toLowerCase().includes("token storage")), "ZATCA compliance CSID custody plan reports token storage blocker");
+  assertNoPrivateKey(zatcaComplianceCsidCustodyPlan, "ZATCA compliance CSID custody plan response");
+  const serializedComplianceCsidCustodyPlan = JSON.stringify(zatcaComplianceCsidCustodyPlan);
+  assert(!serializedComplianceCsidCustodyPlan.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA compliance CSID custody plan does not expose CSR body");
+  assert(!serializedComplianceCsidCustodyPlan.includes("BEGIN CERTIFICATE"), "ZATCA compliance CSID custody plan does not expose certificate body");
+  assert(!serializedComplianceCsidCustodyPlan.includes("BINARY-SECURITY-TOKEN"), "ZATCA compliance CSID custody plan does not expose token body");
+  assert(!serializedComplianceCsidCustodyPlan.includes("LOCAL-MOCK-SECRET"), "ZATCA compliance CSID custody plan does not expose secret body");
+  const egsAfterComplianceCsidCustodyPlan = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  assertEqual(egsAfterComplianceCsidCustodyPlan.lastIcv, egsAfterComplianceCsidPlan.lastIcv, "ZATCA compliance CSID custody plan does not mutate EGS ICV");
+  assertEqual(egsAfterComplianceCsidCustodyPlan.lastInvoiceHash, egsAfterComplianceCsidPlan.lastInvoiceHash, "ZATCA compliance CSID custody plan does not mutate EGS previous hash");
+  const submissionsAfterComplianceCsidCustodyPlan = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterComplianceCsidCustodyPlan.length, submissionsAfterComplianceCsidPlan.length, "ZATCA compliance CSID custody plan does not create submission logs");
+  const egsBeforeComplianceCsidCustodyRecord = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  const submissionsBeforeComplianceCsidCustodyRecord = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  const zatcaComplianceCsidCustodyRecord = await post<ZatcaComplianceCsidCustodyRecordResponse>(
+    `/zatca/egs-units/${smokeEgs.id}/compliance-csid-custody-records`,
+    headers,
+    {
+      source: "MOCK",
+      status: "PLANNED",
+      requestId: `SMOKE-MOCK-CSID-CUSTODY-${Date.now()}`,
+      hasBinarySecurityToken: true,
+      hasSecret: true,
+      hasCertificate: true,
+      custodyBlockedReason: "Smoke metadata-only CSID custody record. Token, secret, certificate, CSR, OTP, private key, signed XML, and QR bodies remain blocked.",
+    },
+  );
+  assertEqual(zatcaComplianceCsidCustodyRecord.localOnly, true, "ZATCA compliance CSID custody record localOnly");
+  assertEqual(zatcaComplianceCsidCustodyRecord.metadataOnly, true, "ZATCA compliance CSID custody record metadataOnly");
+  assertEqual(zatcaComplianceCsidCustodyRecord.noEgsMutation, true, "ZATCA compliance CSID custody record no EGS mutation");
+  assertEqual(zatcaComplianceCsidCustodyRecord.noNetwork, true, "ZATCA compliance CSID custody record no network");
+  assertEqual(zatcaComplianceCsidCustodyRecord.noCsidRequest, true, "ZATCA compliance CSID custody record no CSID request");
+  assertEqual(zatcaComplianceCsidCustodyRecord.productionCompliance, false, "ZATCA compliance CSID custody record productionCompliance false");
+  assertEqual(zatcaComplianceCsidCustodyRecord.tokenPersisted, false, "ZATCA compliance CSID custody record token not persisted");
+  assertEqual(zatcaComplianceCsidCustodyRecord.secretPersisted, false, "ZATCA compliance CSID custody record secret not persisted");
+  assertEqual(zatcaComplianceCsidCustodyRecord.certificatePersisted, false, "ZATCA compliance CSID custody record certificate not persisted");
+  assertEqual(zatcaComplianceCsidCustodyRecord.custodyRecord.tokenStorageMode, "NOT_STORED", "ZATCA compliance CSID custody record token storage not stored");
+  assertEqual(zatcaComplianceCsidCustodyRecord.custodyRecord.secretStorageMode, "NOT_STORED", "ZATCA compliance CSID custody record secret storage not stored");
+  assertEqual(zatcaComplianceCsidCustodyRecord.custodyRecord.certificateStorageMode, "NOT_STORED", "ZATCA compliance CSID custody record certificate storage not stored");
+  assertNoPrivateKey(zatcaComplianceCsidCustodyRecord, "ZATCA compliance CSID custody record response");
+  const serializedComplianceCsidCustodyRecord = JSON.stringify(zatcaComplianceCsidCustodyRecord);
+  assert(!serializedComplianceCsidCustodyRecord.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA compliance CSID custody record does not expose CSR body");
+  assert(!serializedComplianceCsidCustodyRecord.includes("BEGIN CERTIFICATE"), "ZATCA compliance CSID custody record does not expose certificate body");
+  assert(!serializedComplianceCsidCustodyRecord.includes("BINARY-SECURITY-TOKEN"), "ZATCA compliance CSID custody record does not expose token body");
+  assert(!serializedComplianceCsidCustodyRecord.includes("LOCAL-MOCK-SECRET"), "ZATCA compliance CSID custody record does not expose secret body");
+  const listedComplianceCsidCustodyRecords = await get<ZatcaComplianceCsidCustodyRecordListResponse>(`/zatca/egs-units/${smokeEgs.id}/compliance-csid-custody-records`, headers);
+  assertEqual(listedComplianceCsidCustodyRecords.localOnly, true, "ZATCA compliance CSID custody record list localOnly");
+  assertEqual(listedComplianceCsidCustodyRecords.metadataOnly, true, "ZATCA compliance CSID custody record list metadataOnly");
+  assert(listedComplianceCsidCustodyRecords.custodyRecords.some((record) => record.id === zatcaComplianceCsidCustodyRecord.custodyRecord.id), "ZATCA compliance CSID custody record list includes new record");
+  const zatcaComplianceCsidCustodyPlanAfterRecord = await get<ZatcaComplianceCsidCustodyPlanResponse>(`/zatca/egs-units/${smokeEgs.id}/compliance-csid-custody-plan`, headers);
+  assertEqual(zatcaComplianceCsidCustodyPlanAfterRecord.latestCustodyRecord?.id, zatcaComplianceCsidCustodyRecord.custodyRecord.id, "ZATCA compliance CSID custody plan includes latest record");
+  assert(zatcaComplianceCsidCustodyPlanAfterRecord.custodyRecordCount > 0, "ZATCA compliance CSID custody plan returns custody record count");
+  assertEqual(zatcaComplianceCsidCustodyPlanAfterRecord.custodyGate.allowed, false, "ZATCA compliance CSID custody gate remains blocked after metadata record");
+  assertEqual(zatcaComplianceCsidCustodyPlanAfterRecord.providerConfiguration.mockProviderContractsAvailable, true, "ZATCA compliance CSID custody gate plan keeps mocked provider contracts visible");
+  assertEqual(zatcaComplianceCsidCustodyPlanAfterRecord.providerConfiguration.realProviderImplementationReady, false, "ZATCA compliance CSID custody gate plan real provider remains disabled");
+  assertEqual(zatcaComplianceCsidCustodyPlanAfterRecord.tokenStorageReady, false, "ZATCA compliance CSID token storage remains not ready");
+  assertEqual(zatcaComplianceCsidCustodyPlanAfterRecord.secretStorageReady, false, "ZATCA compliance CSID secret storage remains not ready");
+  assertEqual(zatcaComplianceCsidCustodyPlanAfterRecord.certificateStorageReady, false, "ZATCA compliance CSID certificate storage remains not ready");
+  const egsAfterComplianceCsidCustodyRecord = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  assertEqual(egsAfterComplianceCsidCustodyRecord.lastIcv, egsBeforeComplianceCsidCustodyRecord.lastIcv, "ZATCA compliance CSID custody record does not mutate EGS ICV");
+  assertEqual(egsAfterComplianceCsidCustodyRecord.lastInvoiceHash, egsBeforeComplianceCsidCustodyRecord.lastInvoiceHash, "ZATCA compliance CSID custody record does not mutate EGS previous hash");
+  const submissionsAfterComplianceCsidCustodyRecord = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterComplianceCsidCustodyRecord.length, submissionsBeforeComplianceCsidCustodyRecord.length, "ZATCA compliance CSID custody record does not create submission logs");
+  const zatcaComplianceCsidDryRun = await post<ZatcaComplianceCsidRequestDryRunResponse>(
+    `/zatca/egs-units/${smokeEgs.id}/compliance-csid-request-dry-run`,
+    headers,
+    { mode: "plan" },
+  );
+  assertEqual(zatcaComplianceCsidDryRun.localOnly, true, "ZATCA compliance CSID dry-run localOnly");
+  assertEqual(zatcaComplianceCsidDryRun.dryRun, true, "ZATCA compliance CSID dry-run dryRun");
+  assertEqual(zatcaComplianceCsidDryRun.noMutation, true, "ZATCA compliance CSID dry-run noMutation");
+  assertEqual(zatcaComplianceCsidDryRun.noNetwork, true, "ZATCA compliance CSID dry-run noNetwork");
+  assertEqual(zatcaComplianceCsidDryRun.noCsidRequest, true, "ZATCA compliance CSID dry-run noCsidRequest");
+  assertEqual(zatcaComplianceCsidDryRun.productionCompliance, false, "ZATCA compliance CSID dry-run productionCompliance false");
+  assertEqual(zatcaComplianceCsidDryRun.executionEnabled, false, "ZATCA compliance CSID dry-run execution disabled by default");
+  assertEqual(zatcaComplianceCsidDryRun.executionAttempted, false, "ZATCA compliance CSID dry-run does not attempt execution by default");
+  assertEqual(zatcaComplianceCsidDryRun.requestMapperReady, true, "ZATCA compliance CSID dry-run request mapper ready");
+  assertEqual(zatcaComplianceCsidDryRun.responseMapperReady, true, "ZATCA compliance CSID dry-run response mapper ready");
+  assertEqual(zatcaComplianceCsidDryRun.requestContract.method, "POST", "ZATCA compliance CSID dry-run request mapper method");
+  assertEqual(zatcaComplianceCsidDryRun.requestContract.endpointPath, "/compliance", "ZATCA compliance CSID dry-run request mapper endpoint");
+  assertEqual(zatcaComplianceCsidDryRun.mockAdapterCalled, false, "ZATCA compliance CSID dry-run does not call mock adapter when env false");
+  assertEqual(zatcaComplianceCsidDryRun.tokenReturned, false, "ZATCA compliance CSID dry-run does not return token");
+  assertEqual(zatcaComplianceCsidDryRun.secretReturned, false, "ZATCA compliance CSID dry-run does not return secret");
+  assertEqual(zatcaComplianceCsidDryRun.certificateBodyReturned, false, "ZATCA compliance CSID dry-run does not return certificate body");
+  assertEqual(zatcaComplianceCsidDryRun.otpReturned, false, "ZATCA compliance CSID dry-run does not return OTP");
+  assertEqual(zatcaComplianceCsidDryRun.csrReturned, false, "ZATCA compliance CSID dry-run does not return CSR body");
+  const serializedComplianceCsidDryRun = JSON.stringify(zatcaComplianceCsidDryRun);
+    assert(!serializedComplianceCsidDryRun.includes("123456"), "ZATCA compliance CSID dry-run does not expose OTP");
+  assert(!serializedComplianceCsidDryRun.includes("BEGIN CERTIFICATE REQUEST"), "ZATCA compliance CSID dry-run does not expose CSR body");
+  assert(!serializedComplianceCsidDryRun.includes("BEGIN CERTIFICATE"), "ZATCA compliance CSID dry-run does not expose certificate body");
+  assert(!serializedComplianceCsidDryRun.includes("BINARY-SECURITY-TOKEN"), "ZATCA compliance CSID dry-run does not expose token body");
+  assert(!serializedComplianceCsidDryRun.includes("LOCAL-MOCK-SECRET"), "ZATCA compliance CSID dry-run does not expose secret body");
+  const egsAfterComplianceCsidDryRun = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  assertEqual(egsAfterComplianceCsidDryRun.lastIcv, egsAfterComplianceCsidPlan.lastIcv, "ZATCA compliance CSID dry-run does not mutate EGS ICV");
+  assertEqual(egsAfterComplianceCsidDryRun.lastInvoiceHash, egsAfterComplianceCsidPlan.lastInvoiceHash, "ZATCA compliance CSID dry-run does not mutate EGS previous hash");
+  const submissionsAfterComplianceCsidDryRun = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterComplianceCsidDryRun.length, submissionsAfterComplianceCsidPlan.length, "ZATCA compliance CSID dry-run does not create submission logs");
+  smokeEgs = await post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/request-compliance-csid`, headers, { otp: "000000", mode: "mock" });
+  assertNoPrivateKey(smokeEgs, "ZATCA compliance CSID response");
+  assertEqual(smokeEgs.hasComplianceCsid, true, "ZATCA smoke EGS compliance CSID flag");
+  assertPresent(smokeEgs.certificateRequestId, "ZATCA smoke EGS certificate request id");
+  if (!smokeEgs.isActive) {
+    smokeEgs = await post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/activate-dev`, headers, {});
+  }
+  assertNoPrivateKey(smokeEgs, "ZATCA EGS activation response");
+  assert(smokeEgs.isActive || smokeEgs.status === "ACTIVE" || smokeEgs.status === "CERTIFICATE_ISSUED", "ZATCA smoke EGS active or certificate state");
+  assertEqual(smokeEgs.hashMode, "LOCAL_DETERMINISTIC", "ZATCA smoke EGS default hash mode");
+  const zatcaSubmissions = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assert(
+    zatcaSubmissions.some((log) => log.egsUnitId === smokeEgs.id && log.responseCode === "LOCAL_MOCK" && log.status === "SUCCESS"),
+    "ZATCA submissions include local mock onboarding log",
+  );
+
+  const zatcaMetadata = await post<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca/generate`, headers, {});
+  assertPresent(zatcaMetadata.invoiceUuid, "ZATCA invoice UUID");
+  assertPresent(zatcaMetadata.invoiceHash, "ZATCA invoice hash");
+  assertPresent(zatcaMetadata.xmlBase64, "ZATCA XML base64");
+  assertPresent(zatcaMetadata.qrCodeBase64, "ZATCA QR base64");
+  assertPresent(zatcaMetadata.icv, "ZATCA ICV");
+  assertEqual(zatcaMetadata.hashModeSnapshot, "LOCAL_DETERMINISTIC", "ZATCA metadata hash mode snapshot");
+  assertEqual(zatcaMetadata.zatcaStatus, "XML_GENERATED", "ZATCA metadata status");
+  const egsAfterFirstZatcaGenerate = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  const repeatedZatcaMetadata = await post<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca/generate`, headers, {});
+  assertEqual(repeatedZatcaMetadata.id, zatcaMetadata.id, "repeated ZATCA generate metadata id");
+  assertEqual(repeatedZatcaMetadata.icv, zatcaMetadata.icv, "repeated ZATCA generate ICV");
+  assertEqual(repeatedZatcaMetadata.previousInvoiceHash, zatcaMetadata.previousInvoiceHash, "repeated ZATCA generate previous hash");
+  assertEqual(repeatedZatcaMetadata.invoiceHash, zatcaMetadata.invoiceHash, "repeated ZATCA generate invoice hash");
+  const egsAfterRepeatedZatcaGenerate = await get<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}`, headers);
+  assertEqual(egsAfterRepeatedZatcaGenerate.lastIcv, egsAfterFirstZatcaGenerate.lastIcv, "repeated ZATCA generate does not change EGS ICV");
+  assertEqual(
+    egsAfterRepeatedZatcaGenerate.lastInvoiceHash,
+    egsAfterFirstZatcaGenerate.lastInvoiceHash,
+    "repeated ZATCA generate does not change EGS previous hash",
+  );
+  await assertXml(`/sales-invoices/${draftInvoice.id}/zatca/xml`, headers, "invoice ZATCA XML", finalizedInvoice.invoiceNumber);
+  await assertXml(`/sales-invoices/${draftInvoice.id}/zatca/xml`, headers, "invoice ZATCA XML supply date", "<cbc:ActualDeliveryDate>");
+  await assertXml(`/sales-invoices/${draftInvoice.id}/zatca/xml`, headers, "invoice ZATCA buyer building number", "<cbc:BuildingNumber>1111</cbc:BuildingNumber>");
+  const zatcaXmlValidation = await get<ZatcaXmlValidationResult>(`/sales-invoices/${draftInvoice.id}/zatca/xml-validation`, headers);
+  assertEqual(zatcaXmlValidation.localOnly, true, "ZATCA XML validation localOnly");
+  assertEqual(zatcaXmlValidation.officialValidation, false, "ZATCA XML validation officialValidation");
+  assertEqual(zatcaXmlValidation.valid, true, "ZATCA XML validation valid");
+  assertNoPrivateKey(zatcaXmlValidation, "ZATCA XML validation response");
+  const metadataBeforeReadiness = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  const invoiceZatcaReadiness = await get<ZatcaInvoiceReadinessResponse>(`/sales-invoices/${draftInvoice.id}/zatca/readiness`, headers);
+  assertEqual(invoiceZatcaReadiness.localOnly, true, "ZATCA invoice readiness localOnly");
+  assertEqual(invoiceZatcaReadiness.noMutation, true, "ZATCA invoice readiness noMutation");
+  assertEqual(invoiceZatcaReadiness.productionCompliance, false, "ZATCA invoice readiness productionCompliance");
+  assertEqual(invoiceZatcaReadiness.sellerProfile.status, "READY", "ZATCA seller invoice readiness ready");
+  assertEqual(invoiceZatcaReadiness.buyerContact.status, "READY", "ZATCA buyer invoice readiness ready");
+  assertEqual(invoiceZatcaReadiness.signing.status, "BLOCKED", "ZATCA invoice signing readiness blocked");
+  assertEqual(invoiceZatcaReadiness.signedArtifactPromotion.status, "BLOCKED", "ZATCA invoice signed XML promotion readiness blocked");
+  assertEqual(invoiceZatcaReadiness.signedArtifactStorage.status, "BLOCKED", "ZATCA invoice signed artifact storage readiness blocked");
+  assertEqual(invoiceZatcaReadiness.phase2Qr.status, "BLOCKED", "ZATCA invoice Phase 2 QR readiness blocked");
+  assertEqual(invoiceZatcaReadiness.pdfA3.status, "BLOCKED", "ZATCA invoice PDF/A-3 readiness blocked");
+  assert(invoiceZatcaReadiness.buyerContact.checks.every((check) => check.severity !== "ERROR"), "ZATCA buyer invoice readiness has no blocking checks");
+  assert(
+    invoiceZatcaReadiness.checks.every((check) => check.code !== "ZATCA_BUYER_BUILDING_NUMBER_MISSING"),
+    "ZATCA buyer building-number warning cleared in smoke data",
+  );
+  const metadataAfterReadiness = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  assertEqual(metadataAfterReadiness.icv, metadataBeforeReadiness.icv, "ZATCA invoice readiness does not mutate ICV");
+  assertEqual(metadataAfterReadiness.invoiceHash, metadataBeforeReadiness.invoiceHash, "ZATCA invoice readiness does not mutate invoice hash");
+  assertEqual(metadataAfterReadiness.previousInvoiceHash, metadataBeforeReadiness.previousInvoiceHash, "ZATCA invoice readiness does not mutate previous hash");
+  assertNoPrivateKey(invoiceZatcaReadiness, "ZATCA invoice readiness response");
+  const metadataBeforeSigningPlan = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  const zatcaSigningPlan = await get<ZatcaInvoiceSigningPlanResponse>(`/sales-invoices/${draftInvoice.id}/zatca/signing-plan`, headers);
+  assertEqual(zatcaSigningPlan.localOnly, true, "ZATCA signing plan localOnly");
+  assertEqual(zatcaSigningPlan.dryRun, true, "ZATCA signing plan dryRun");
+  assertEqual(zatcaSigningPlan.noMutation, true, "ZATCA signing plan noMutation");
+  assertEqual(zatcaSigningPlan.productionCompliance, false, "ZATCA signing plan productionCompliance");
+  assertEqual(zatcaSigningPlan.executionEnabled, false, "ZATCA signing plan execution disabled");
+  assert(zatcaSigningPlan.sdkCommand.includes("-sign"), "ZATCA signing plan uses SDK sign command");
+  assert(zatcaSigningPlan.sdkCommand.includes("-signedInvoice"), "ZATCA signing plan documents signed output path");
+  assert(
+    zatcaSigningPlan.commandPlan.displayCommand.includes("-signedInvoice") ||
+      zatcaSigningPlan.blockers.some((blocker) => blocker.includes("No local SDK signing command could be planned")),
+    "ZATCA signing plan includes a signed output path or safely blocks when SDK files are unavailable",
+  );
+  assert(zatcaSigningPlan.requiredInputs.some((input) => input.id === "certificate"), "ZATCA signing plan lists certificate input");
+  assert(zatcaSigningPlan.requiredInputs.some((input) => input.id === "privateKeyCustody"), "ZATCA signing plan lists private key custody input");
+  assert(zatcaSigningPlan.blockers.length > 0, "ZATCA signing plan returns blockers");
+  assertNoPrivateKey(zatcaSigningPlan, "ZATCA signing plan response");
+  const metadataAfterSigningPlan = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  assertEqual(metadataAfterSigningPlan.icv, metadataBeforeSigningPlan.icv, "ZATCA signing plan does not mutate ICV");
+  assertEqual(metadataAfterSigningPlan.invoiceHash, metadataBeforeSigningPlan.invoiceHash, "ZATCA signing plan does not mutate invoice hash");
+  assertEqual(metadataAfterSigningPlan.previousInvoiceHash, metadataBeforeSigningPlan.previousInvoiceHash, "ZATCA signing plan does not mutate previous hash");
+  const metadataBeforeLocalSigningDryRun = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  const zatcaLocalSigningDryRun = await post<ZatcaInvoiceLocalSigningDryRunResponse>(`/sales-invoices/${draftInvoice.id}/zatca/local-signing-dry-run`, headers, {});
+  assertEqual(zatcaLocalSigningDryRun.localOnly, true, "ZATCA local signing dry-run localOnly");
+  assertEqual(zatcaLocalSigningDryRun.dryRun, true, "ZATCA local signing dry-run dryRun");
+  assertEqual(zatcaLocalSigningDryRun.noMutation, true, "ZATCA local signing dry-run noMutation");
+  assertEqual(zatcaLocalSigningDryRun.noCsidRequest, true, "ZATCA local signing dry-run no CSID request");
+  assertEqual(zatcaLocalSigningDryRun.noNetwork, true, "ZATCA local signing dry-run no network");
+  assertEqual(zatcaLocalSigningDryRun.noClearanceReporting, true, "ZATCA local signing dry-run no clearance/reporting");
+  assertEqual(zatcaLocalSigningDryRun.noPdfA3, true, "ZATCA local signing dry-run no PDF/A-3");
+  assertEqual(zatcaLocalSigningDryRun.noProductionCredentials, true, "ZATCA local signing dry-run no production credentials");
+  assertEqual(zatcaLocalSigningDryRun.productionCompliance, false, "ZATCA local signing dry-run productionCompliance");
+  assertEqual(zatcaLocalSigningDryRun.executionEnabled, false, "ZATCA local signing dry-run execution disabled by default");
+  assertEqual(zatcaLocalSigningDryRun.executionAttempted, false, "ZATCA local signing dry-run execution not attempted by default");
+  assertEqual(zatcaLocalSigningDryRun.executionStatus, "SKIPPED", "ZATCA local signing dry-run skipped by default");
+  assertEqual(zatcaLocalSigningDryRun.signingExecuted, false, "ZATCA local signing dry-run signing not executed by default");
+  assertEqual(zatcaLocalSigningDryRun.qrExecuted, false, "ZATCA local signing dry-run QR not executed by default");
+  assertEqual(zatcaLocalSigningDryRun.tempFilesWritten.sdkConfig, false, "ZATCA local signing dry-run SDK config not written by default");
+  assertEqual(zatcaLocalSigningDryRun.tempFilesWritten.sdkRuntime, false, "ZATCA local signing dry-run SDK runtime not staged by default");
+  assertEqual(zatcaLocalSigningDryRun.signedXmlDetected, false, "ZATCA local signing dry-run signed XML not detected by default");
+  assertEqual(zatcaLocalSigningDryRun.qrDetected, false, "ZATCA local signing dry-run QR not detected by default");
+  assert(zatcaLocalSigningDryRun.phase2Qr.blockers.length > 0, "ZATCA local signing dry-run reports Phase 2 QR blockers");
+  assertNoPrivateKey(zatcaLocalSigningDryRun, "ZATCA local signing dry-run response");
+  const metadataAfterLocalSigningDryRun = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  assertEqual(metadataAfterLocalSigningDryRun.icv, metadataBeforeLocalSigningDryRun.icv, "ZATCA local signing dry-run does not mutate ICV");
+  assertEqual(metadataAfterLocalSigningDryRun.invoiceHash, metadataBeforeLocalSigningDryRun.invoiceHash, "ZATCA local signing dry-run does not mutate invoice hash");
+  assertEqual(metadataAfterLocalSigningDryRun.previousInvoiceHash, metadataBeforeLocalSigningDryRun.previousInvoiceHash, "ZATCA local signing dry-run does not mutate previous hash");
+  const metadataBeforeSignedXmlValidationDryRun = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  const zatcaSignedXmlValidationDryRun = await post<ZatcaInvoiceLocalSignedXmlValidationDryRunResponse>(`/sales-invoices/${draftInvoice.id}/zatca/local-signed-xml-validation-dry-run`, headers, {});
+  assertEqual(zatcaSignedXmlValidationDryRun.localOnly, true, "ZATCA signed XML validation dry-run localOnly");
+  assertEqual(zatcaSignedXmlValidationDryRun.dryRun, true, "ZATCA signed XML validation dry-run dryRun");
+  assertEqual(zatcaSignedXmlValidationDryRun.noMutation, true, "ZATCA signed XML validation dry-run noMutation");
+  assertEqual(zatcaSignedXmlValidationDryRun.noCsidRequest, true, "ZATCA signed XML validation dry-run no CSID request");
+  assertEqual(zatcaSignedXmlValidationDryRun.noNetwork, true, "ZATCA signed XML validation dry-run no network");
+  assertEqual(zatcaSignedXmlValidationDryRun.noClearanceReporting, true, "ZATCA signed XML validation dry-run no clearance/reporting");
+  assertEqual(zatcaSignedXmlValidationDryRun.noPdfA3, true, "ZATCA signed XML validation dry-run no PDF/A-3");
+  assertEqual(zatcaSignedXmlValidationDryRun.noProductionCredentials, true, "ZATCA signed XML validation dry-run no production credentials");
+  assertEqual(zatcaSignedXmlValidationDryRun.noPersistence, true, "ZATCA signed XML validation dry-run no persistence");
+  assertEqual(zatcaSignedXmlValidationDryRun.productionCompliance, false, "ZATCA signed XML validation dry-run productionCompliance");
+  assertEqual(zatcaSignedXmlValidationDryRun.executionEnabled, false, "ZATCA signed XML validation dry-run disabled by default");
+  assertEqual(zatcaSignedXmlValidationDryRun.executionAttempted, false, "ZATCA signed XML validation dry-run signing not attempted by default");
+  assertEqual(zatcaSignedXmlValidationDryRun.validationAttempted, false, "ZATCA signed XML validation dry-run validation not attempted by default");
+  assertEqual(zatcaSignedXmlValidationDryRun.validationGlobalResult, "NOT_RUN", "ZATCA signed XML validation dry-run global result not run by default");
+  assertEqual(zatcaSignedXmlValidationDryRun.signedXmlDetected, false, "ZATCA signed XML validation dry-run signed XML not detected by default");
+  assertEqual(zatcaSignedXmlValidationDryRun.qrDetected, false, "ZATCA signed XML validation dry-run QR not detected by default");
+  assertNoPrivateKey(zatcaSignedXmlValidationDryRun, "ZATCA signed XML validation dry-run response");
+  const metadataAfterSignedXmlValidationDryRun = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  assertEqual(metadataAfterSignedXmlValidationDryRun.icv, metadataBeforeSignedXmlValidationDryRun.icv, "ZATCA signed XML validation dry-run does not mutate ICV");
+  assertEqual(metadataAfterSignedXmlValidationDryRun.invoiceHash, metadataBeforeSignedXmlValidationDryRun.invoiceHash, "ZATCA signed XML validation dry-run does not mutate invoice hash");
+  assertEqual(metadataAfterSignedXmlValidationDryRun.previousInvoiceHash, metadataBeforeSignedXmlValidationDryRun.previousInvoiceHash, "ZATCA signed XML validation dry-run does not mutate previous hash");
+  const metadataBeforeSignedXmlPromotionPlan = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  const zatcaSignedXmlPromotionPlan = await get<ZatcaInvoiceSignedXmlPromotionPlanResponse>(`/sales-invoices/${draftInvoice.id}/zatca/signed-xml-promotion-plan`, headers);
+  assertEqual(zatcaSignedXmlPromotionPlan.localOnly, true, "ZATCA signed XML promotion plan localOnly");
+  assertEqual(zatcaSignedXmlPromotionPlan.dryRun, true, "ZATCA signed XML promotion plan dryRun");
+  assertEqual(zatcaSignedXmlPromotionPlan.noMutation, true, "ZATCA signed XML promotion plan noMutation");
+  assertEqual(zatcaSignedXmlPromotionPlan.noCsidRequest, true, "ZATCA signed XML promotion plan no CSID request");
+  assertEqual(zatcaSignedXmlPromotionPlan.noNetwork, true, "ZATCA signed XML promotion plan no network");
+  assertEqual(zatcaSignedXmlPromotionPlan.noClearanceReporting, true, "ZATCA signed XML promotion plan no clearance/reporting");
+  assertEqual(zatcaSignedXmlPromotionPlan.noPdfA3, true, "ZATCA signed XML promotion plan no PDF/A-3");
+  assertEqual(zatcaSignedXmlPromotionPlan.noProductionCredentials, true, "ZATCA signed XML promotion plan no production credentials");
+  assertEqual(zatcaSignedXmlPromotionPlan.noPersistence, true, "ZATCA signed XML promotion plan no persistence");
+  assertEqual(zatcaSignedXmlPromotionPlan.productionCompliance, false, "ZATCA signed XML promotion plan productionCompliance");
+  assertEqual(zatcaSignedXmlPromotionPlan.promotionBlocked, true, "ZATCA signed XML promotion remains blocked");
+  assertEqual(zatcaSignedXmlPromotionPlan.signedXmlPersisted, false, "ZATCA signed XML promotion plan reports no signed XML persistence");
+  assertEqual(zatcaSignedXmlPromotionPlan.latestLocalSignedValidationStatus, "NOT_PERSISTED", "ZATCA signed XML promotion plan reports local validation not persisted");
+  assert(zatcaSignedXmlPromotionPlan.requiredFutureArtifacts.some((artifact) => artifact.id === "signedXmlStorage" && !artifact.available), "ZATCA signed XML promotion plan requires future signed XML storage");
+  assert(zatcaSignedXmlPromotionPlan.blockers.length > 0, "ZATCA signed XML promotion plan returns blockers");
+  assertNoPrivateKey(zatcaSignedXmlPromotionPlan, "ZATCA signed XML promotion plan response");
+  assert(!JSON.stringify(zatcaSignedXmlPromotionPlan).includes("<Invoice"), "ZATCA signed XML promotion plan does not expose signed XML body");
+  const metadataAfterSignedXmlPromotionPlan = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  assertEqual(metadataAfterSignedXmlPromotionPlan.icv, metadataBeforeSignedXmlPromotionPlan.icv, "ZATCA signed XML promotion plan does not mutate ICV");
+  assertEqual(metadataAfterSignedXmlPromotionPlan.invoiceHash, metadataBeforeSignedXmlPromotionPlan.invoiceHash, "ZATCA signed XML promotion plan does not mutate invoice hash");
+  assertEqual(metadataAfterSignedXmlPromotionPlan.previousInvoiceHash, metadataBeforeSignedXmlPromotionPlan.previousInvoiceHash, "ZATCA signed XML promotion plan does not mutate previous hash");
+  const metadataBeforeSignedArtifactStoragePlan = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  const zatcaSignedArtifactStoragePlan = await get<ZatcaInvoiceSignedArtifactStoragePlanResponse>(`/sales-invoices/${draftInvoice.id}/zatca/signed-artifact-storage-plan`, headers);
+  assertEqual(zatcaSignedArtifactStoragePlan.localOnly, true, "ZATCA signed artifact storage plan localOnly");
+  assertEqual(zatcaSignedArtifactStoragePlan.dryRun, true, "ZATCA signed artifact storage plan dryRun");
+  assertEqual(zatcaSignedArtifactStoragePlan.noMutation, true, "ZATCA signed artifact storage plan noMutation");
+  assertEqual(zatcaSignedArtifactStoragePlan.noSignedXmlBody, true, "ZATCA signed artifact storage plan no signed XML body");
+  assertEqual(zatcaSignedArtifactStoragePlan.noQrPayloadBody, true, "ZATCA signed artifact storage plan no QR body");
+  assertEqual(zatcaSignedArtifactStoragePlan.noCsidRequest, true, "ZATCA signed artifact storage plan no CSID request");
+  assertEqual(zatcaSignedArtifactStoragePlan.noNetwork, true, "ZATCA signed artifact storage plan no network");
+  assertEqual(zatcaSignedArtifactStoragePlan.noClearanceReporting, true, "ZATCA signed artifact storage plan no clearance/reporting");
+  assertEqual(zatcaSignedArtifactStoragePlan.noPdfA3, true, "ZATCA signed artifact storage plan no PDF/A-3");
+  assertEqual(zatcaSignedArtifactStoragePlan.noProductionCredentials, true, "ZATCA signed artifact storage plan no production credentials");
+  assertEqual(zatcaSignedArtifactStoragePlan.noPersistence, true, "ZATCA signed artifact storage plan no persistence");
+  assertEqual(zatcaSignedArtifactStoragePlan.productionCompliance, false, "ZATCA signed artifact storage plan productionCompliance");
+  assertEqual(zatcaSignedArtifactStoragePlan.metadataOnly, true, "ZATCA signed artifact storage plan metadataOnly");
+  assertEqual(zatcaSignedArtifactStoragePlan.futureObjectStorageRequired, true, "ZATCA signed artifact storage plan needs future object storage");
+  assertEqual(zatcaSignedArtifactStoragePlan.storageBlocked, true, "ZATCA signed artifact storage plan blocked");
+  assertEqual(zatcaSignedArtifactStoragePlan.storageProbeRequired, true, "ZATCA signed artifact storage plan requires future probe");
+  assertEqual(zatcaSignedArtifactStoragePlan.latestStorageProbeStatus, "NOT_RUN", "ZATCA signed artifact storage plan latest probe not persisted");
+  assertEqual(zatcaSignedArtifactStoragePlan.storageProbePlan.writeProbeEnabled, false, "ZATCA signed artifact storage plan probe plan does not write");
+  assertEqual(zatcaSignedArtifactStoragePlan.immutablePolicyStatus.policyApproved, false, "ZATCA signed artifact storage plan immutable policy not approved");
+  assertEqual(zatcaSignedArtifactStoragePlan.immutablePolicyStatus.retentionDurationApproved, false, "ZATCA signed artifact storage plan retention duration not approved");
+  assertEqual(zatcaSignedArtifactStoragePlan.policyApproved, false, "ZATCA signed artifact storage plan policyApproved false");
+  assertEqual(zatcaSignedArtifactStoragePlan.retentionDurationApproved, false, "ZATCA signed artifact storage plan retentionDurationApproved false");
+  assertEqual(zatcaSignedArtifactStoragePlan.schemaDecision.schemaAdded, true, "ZATCA signed artifact storage plan has metadata-only draft schema");
+  assertEqual(zatcaSignedArtifactStoragePlan.bodyPersistenceAllowed, false, "ZATCA signed artifact storage plan body persistence blocked");
+  assertEqual(zatcaSignedArtifactStoragePlan.signedXmlStorageKey, null, "ZATCA signed artifact storage plan signed XML key null");
+  assertEqual(zatcaSignedArtifactStoragePlan.qrPayloadStorageKey, null, "ZATCA signed artifact storage plan QR payload key null");
+  assertEqual(zatcaSignedArtifactStoragePlan.objectStorageCapability.signedArtifactBodyStorageAllowed, false, "ZATCA signed artifact body storage disabled");
+  assertEqual(zatcaSignedArtifactStoragePlan.objectStorageCapability.immutableRetentionConfigured, false, "ZATCA signed artifact immutable retention not configured");
+  assertEqual(zatcaSignedArtifactStoragePlan.objectStorageCapability.policyApproved, false, "ZATCA signed artifact object storage policy not approved");
+  assert(zatcaSignedArtifactStoragePlan.proposedStorageKeys.signedXmlObjectKey.includes("future-only"), "ZATCA signed artifact storage plan proposed signed XML key is future-only");
+  assert(zatcaSignedArtifactStoragePlan.proposedMetadataFields.some((field) => field.name === "signedXmlStorageKey" && !field.safeNow), "ZATCA signed artifact storage plan blocks signed XML storage key");
+  assertNoPrivateKey(zatcaSignedArtifactStoragePlan, "ZATCA signed artifact storage plan response");
+  assert(!JSON.stringify(zatcaSignedArtifactStoragePlan).includes("<Invoice"), "ZATCA signed artifact storage plan does not expose signed XML body");
+  const metadataAfterSignedArtifactStoragePlan = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  assertEqual(metadataAfterSignedArtifactStoragePlan.icv, metadataBeforeSignedArtifactStoragePlan.icv, "ZATCA signed artifact storage plan does not mutate ICV");
+  assertEqual(metadataAfterSignedArtifactStoragePlan.invoiceHash, metadataBeforeSignedArtifactStoragePlan.invoiceHash, "ZATCA signed artifact storage plan does not mutate invoice hash");
+  assertEqual(metadataAfterSignedArtifactStoragePlan.previousInvoiceHash, metadataBeforeSignedArtifactStoragePlan.previousInvoiceHash, "ZATCA signed artifact storage plan does not mutate previous hash");
+  const submissionsBeforeSignedArtifactDraft = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  const metadataBeforeSignedArtifactDraft = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  const zatcaSignedArtifactDraft = await post<ZatcaSignedArtifactDraftCreateResponse>(`/sales-invoices/${draftInvoice.id}/zatca/signed-artifact-drafts`, headers, {});
+  assertEqual(zatcaSignedArtifactDraft.localOnly, true, "ZATCA signed artifact draft localOnly");
+  assertEqual(zatcaSignedArtifactDraft.metadataOnly, true, "ZATCA signed artifact draft metadataOnly");
+  assertEqual(zatcaSignedArtifactDraft.noSignedXmlBody, true, "ZATCA signed artifact draft no signed XML body");
+  assertEqual(zatcaSignedArtifactDraft.noQrPayloadBody, true, "ZATCA signed artifact draft no QR payload body");
+  assertEqual(zatcaSignedArtifactDraft.noCsidRequest, true, "ZATCA signed artifact draft no CSID request");
+  assertEqual(zatcaSignedArtifactDraft.noNetwork, true, "ZATCA signed artifact draft no network");
+  assertEqual(zatcaSignedArtifactDraft.productionCompliance, false, "ZATCA signed artifact draft productionCompliance false");
+  assertEqual(zatcaSignedArtifactDraft.draft.signedXmlStorageKey, null, "ZATCA signed artifact draft signed XML storage key null");
+  assertEqual(zatcaSignedArtifactDraft.draft.qrPayloadStorageKey, null, "ZATCA signed artifact draft QR payload storage key null");
+  assertEqual(zatcaSignedArtifactDraft.draft.signedWithDummyMaterial, true, "ZATCA signed artifact draft marks dummy local source");
+  assertNoPrivateKey(zatcaSignedArtifactDraft, "ZATCA signed artifact draft response");
+  const serializedSignedArtifactDraft = JSON.stringify(zatcaSignedArtifactDraft);
+  assert(!serializedSignedArtifactDraft.includes("<Invoice"), "ZATCA signed artifact draft does not expose XML body");
+  assert(!serializedSignedArtifactDraft.includes("QR PAYLOAD"), "ZATCA signed artifact draft does not expose QR payload body");
+  const metadataAfterSignedArtifactDraft = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  assertEqual(metadataAfterSignedArtifactDraft.icv, metadataBeforeSignedArtifactDraft.icv, "ZATCA signed artifact draft does not mutate ICV");
+  assertEqual(metadataAfterSignedArtifactDraft.invoiceHash, metadataBeforeSignedArtifactDraft.invoiceHash, "ZATCA signed artifact draft does not mutate invoice hash");
+  assertEqual(metadataAfterSignedArtifactDraft.previousInvoiceHash, metadataBeforeSignedArtifactDraft.previousInvoiceHash, "ZATCA signed artifact draft does not mutate previous hash");
+  const submissionsAfterSignedArtifactDraft = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterSignedArtifactDraft.length, submissionsBeforeSignedArtifactDraft.length, "ZATCA signed artifact draft does not create submission logs");
+  const zatcaSignedArtifactDrafts = await get<ZatcaSignedArtifactDraftListResponse>(`/sales-invoices/${draftInvoice.id}/zatca/signed-artifact-drafts`, headers);
+  assertEqual(zatcaSignedArtifactDrafts.localOnly, true, "ZATCA signed artifact draft list localOnly");
+  assert(zatcaSignedArtifactDrafts.drafts.some((draft) => draft.id === zatcaSignedArtifactDraft.draft.id), "ZATCA signed artifact draft list includes created draft");
+  const zatcaSignedArtifactStoragePlanAfterDraft = await get<ZatcaInvoiceSignedArtifactStoragePlanResponse>(`/sales-invoices/${draftInvoice.id}/zatca/signed-artifact-storage-plan`, headers);
+  assertEqual(zatcaSignedArtifactStoragePlanAfterDraft.latestDraft?.id ?? null, zatcaSignedArtifactDraft.draft.id, "ZATCA signed artifact storage plan returns latest draft");
+  assert(zatcaSignedArtifactStoragePlanAfterDraft.draftCount >= 1, "ZATCA signed artifact storage plan returns draft count");
+  assert(
+    ["NONE", "DRAFT"].includes(zatcaSignedArtifactStoragePlanAfterDraft.latestImmutablePolicyApprovalStatus),
+    "ZATCA signed artifact storage plan has no approved immutable policy approval before policy approval draft",
+  );
+  const zatcaSignedArtifactStorageProbePlan = await get<ZatcaSignedArtifactStorageProbePlanResponse>("/zatca/signed-artifact-storage/probe-plan", headers);
+  assertEqual(zatcaSignedArtifactStorageProbePlan.localOnly, true, "ZATCA signed artifact storage probe plan localOnly");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.dryRun, true, "ZATCA signed artifact storage probe plan dryRun");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.noMutation, true, "ZATCA signed artifact storage probe plan noMutation");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.noSignedXmlBody, true, "ZATCA signed artifact storage probe plan no signed XML body");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.noQrPayloadBody, true, "ZATCA signed artifact storage probe plan no QR payload body");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.noCsidRequest, true, "ZATCA signed artifact storage probe plan no CSID request");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.noNetworkToZatca, true, "ZATCA signed artifact storage probe plan no ZATCA network");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.productionCompliance, false, "ZATCA signed artifact storage probe plan productionCompliance false");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.writeProbeEnabled, false, "ZATCA signed artifact storage probe plan write disabled");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.retentionConfigured, false, "ZATCA signed artifact storage probe plan retention not configured");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.immutabilityConfigured, false, "ZATCA signed artifact storage probe plan immutability not configured");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.immutablePolicyStatus.policyApproved, false, "ZATCA signed artifact storage probe plan immutable policy not approved");
+  assertEqual(zatcaSignedArtifactStorageProbePlan.immutablePolicyStatus.retentionDurationApproved, false, "ZATCA signed artifact storage probe plan retention duration not approved");
+  assert(
+    ["NONE", "DRAFT"].includes(zatcaSignedArtifactStorageProbePlan.latestImmutablePolicyApprovalStatus),
+    "ZATCA signed artifact storage probe plan has no approved immutable policy approval before policy approval draft",
+  );
+  assertEqual(zatcaSignedArtifactStorageProbePlan.bodyPersistenceAllowed, false, "ZATCA signed artifact storage probe plan body persistence blocked");
+  assert(zatcaSignedArtifactStorageProbePlan.plannedTestObjectKey.includes("zatca/signed-artifacts/probe/"), "ZATCA signed artifact storage probe plan uses test prefix");
+  assertNoPrivateKey(zatcaSignedArtifactStorageProbePlan, "ZATCA signed artifact storage probe plan response");
+  assert(!JSON.stringify(zatcaSignedArtifactStorageProbePlan).includes("<Invoice"), "ZATCA signed artifact storage probe plan does not expose XML body");
+  const submissionsBeforeImmutablePolicyPlan = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  const zatcaImmutablePolicyPlan = await get<ZatcaSignedArtifactImmutablePolicyPlanResponse>("/zatca/signed-artifact-storage/immutable-policy-plan", headers);
+  assertEqual(zatcaImmutablePolicyPlan.localOnly, true, "ZATCA signed artifact immutable policy plan localOnly");
+  assertEqual(zatcaImmutablePolicyPlan.dryRun, true, "ZATCA signed artifact immutable policy plan dryRun");
+  assertEqual(zatcaImmutablePolicyPlan.noMutation, true, "ZATCA signed artifact immutable policy plan noMutation");
+  assertEqual(zatcaImmutablePolicyPlan.noSignedXmlBody, true, "ZATCA signed artifact immutable policy plan no signed XML body");
+  assertEqual(zatcaImmutablePolicyPlan.noQrPayloadBody, true, "ZATCA signed artifact immutable policy plan no QR payload body");
+  assertEqual(zatcaImmutablePolicyPlan.noCsidRequest, true, "ZATCA signed artifact immutable policy plan no CSID request");
+  assertEqual(zatcaImmutablePolicyPlan.noNetworkToZatca, true, "ZATCA signed artifact immutable policy plan no ZATCA network");
+  assertEqual(zatcaImmutablePolicyPlan.productionCompliance, false, "ZATCA signed artifact immutable policy plan productionCompliance false");
+  assertEqual(zatcaImmutablePolicyPlan.policyApproved, false, "ZATCA signed artifact immutable policy not approved");
+  assertEqual(zatcaImmutablePolicyPlan.retentionDurationApproved, false, "ZATCA signed artifact retention duration not approved");
+  assertEqual(zatcaImmutablePolicyPlan.immutablePolicyStatus.objectVersioningConfirmed, false, "ZATCA signed artifact object versioning not confirmed");
+  assertEqual(zatcaImmutablePolicyPlan.immutablePolicyStatus.signedArtifactBodyStorageAllowed, false, "ZATCA signed artifact body storage blocked by immutable policy");
+  assert(zatcaImmutablePolicyPlan.blockers.some((blocker) => blocker.includes("Retention duration requires legal/accounting review")), "ZATCA immutable policy plan does not guess retention duration");
+  assertNoPrivateKey(zatcaImmutablePolicyPlan, "ZATCA signed artifact immutable policy plan response");
+  assert(!JSON.stringify(zatcaImmutablePolicyPlan).includes("<Invoice"), "ZATCA immutable policy plan does not expose XML body");
+  assert(!JSON.stringify(zatcaImmutablePolicyPlan).includes("QR PAYLOAD"), "ZATCA immutable policy plan does not expose QR payload");
+  const zatcaStorageControlEvidenceDraft = await post<ZatcaSignedArtifactStorageControlEvidenceResponse>(
+    "/zatca/signed-artifact-storage/control-evidence",
+    headers,
+    {
+      evidenceType: "STORAGE_PROBE",
+      provider: "s3-compatible",
+      bucketNameRedacted: "ledgerbyte-test-[redacted]",
+      evidenceSummaryJson: { probeRan: true, testObjectOnly: true, noInvoiceData: true },
+      note: "Smoke metadata-only storage probe evidence. No invoice data, signed XML body, or QR payload body.",
+    },
+  );
+  assertEqual(zatcaStorageControlEvidenceDraft.localOnly, true, "ZATCA storage control evidence draft localOnly");
+  assertEqual(zatcaStorageControlEvidenceDraft.metadataOnly, true, "ZATCA storage control evidence draft metadataOnly");
+  assertEqual(zatcaStorageControlEvidenceDraft.noSignedXmlBody, true, "ZATCA storage control evidence draft no signed XML body");
+  assertEqual(zatcaStorageControlEvidenceDraft.noQrPayloadBody, true, "ZATCA storage control evidence draft no QR body");
+  assertEqual(zatcaStorageControlEvidenceDraft.productionCompliance, false, "ZATCA storage control evidence draft productionCompliance false");
+  assertEqual(zatcaStorageControlEvidenceDraft.signedXmlBodyPersistenceAllowed, false, "ZATCA storage control evidence draft signed XML body persistence blocked");
+  assertEqual(zatcaStorageControlEvidenceDraft.qrPayloadBodyPersistenceAllowed, false, "ZATCA storage control evidence draft QR body persistence blocked");
+  assertEqual(zatcaStorageControlEvidenceDraft.controlEvidence.evidenceType, "STORAGE_PROBE", "ZATCA storage control evidence draft type");
+  assertEqual(zatcaStorageControlEvidenceDraft.controlEvidence.evidenceDocumentStorageKey, null, "ZATCA storage control evidence draft has no evidence document object");
+  assertNoPrivateKey(zatcaStorageControlEvidenceDraft, "ZATCA storage control evidence draft response");
+  const serializedStorageControlEvidence = JSON.stringify(zatcaStorageControlEvidenceDraft);
+  assert(!serializedStorageControlEvidence.includes("<Invoice"), "ZATCA storage control evidence draft does not expose XML body");
+  assert(!serializedStorageControlEvidence.includes("QR PAYLOAD"), "ZATCA storage control evidence draft does not expose QR payload");
+  assert(!serializedStorageControlEvidence.includes("BEGIN CERTIFICATE"), "ZATCA storage control evidence draft does not expose certificate body");
+  const zatcaStorageControlEvidenceList = await get<ZatcaSignedArtifactStorageControlEvidenceListResponse>("/zatca/signed-artifact-storage/control-evidence", headers);
+  assert(zatcaStorageControlEvidenceList.controlEvidence.some((evidence) => evidence.id === zatcaStorageControlEvidenceDraft.controlEvidence.id), "ZATCA storage control evidence list includes created draft");
+  const zatcaImmutablePolicyPlanAfterEvidence = await get<ZatcaSignedArtifactImmutablePolicyPlanResponse>("/zatca/signed-artifact-storage/immutable-policy-plan", headers);
+  assertEqual(zatcaImmutablePolicyPlanAfterEvidence.evidenceRequired, true, "ZATCA immutable policy plan requires technical evidence");
+  assert(zatcaImmutablePolicyPlanAfterEvidence.missingEvidenceTypes?.includes("OBJECT_VERSIONING"), "ZATCA immutable policy plan reports missing technical evidence");
+  assertEqual(zatcaImmutablePolicyPlanAfterEvidence.evidenceCompletenessStatus, "BLOCKED", "ZATCA immutable policy plan includes evidence completeness status");
+  assertEqual(zatcaImmutablePolicyPlanAfterEvidence.signedXmlBodyPersistenceAllowed, false, "ZATCA immutable policy plan body persistence remains blocked after evidence draft");
+  assertEqual(zatcaImmutablePolicyPlanAfterEvidence.bodyPersistenceGate?.allowed, false, "ZATCA immutable policy plan body persistence gate remains blocked");
+  const submissionsBeforeEvidenceCompleteness = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  const zatcaEvidenceCompleteness = await get<ZatcaSignedArtifactStorageEvidenceCompletenessResponse>("/zatca/signed-artifact-storage/evidence-completeness", headers);
+  assertEqual(zatcaEvidenceCompleteness.localOnly, true, "ZATCA evidence completeness localOnly");
+  assertEqual(zatcaEvidenceCompleteness.readOnly, true, "ZATCA evidence completeness readOnly");
+  assertEqual(zatcaEvidenceCompleteness.noMutation, true, "ZATCA evidence completeness noMutation");
+  assertEqual(zatcaEvidenceCompleteness.noSignedXmlBody, true, "ZATCA evidence completeness no signed XML body");
+  assertEqual(zatcaEvidenceCompleteness.noQrPayloadBody, true, "ZATCA evidence completeness no QR payload body");
+  assertEqual(zatcaEvidenceCompleteness.noCsidRequest, true, "ZATCA evidence completeness no CSID request");
+  assertEqual(zatcaEvidenceCompleteness.noNetworkToZatca, true, "ZATCA evidence completeness no ZATCA network");
+  assertEqual(zatcaEvidenceCompleteness.bodyPersistenceAllowed, false, "ZATCA evidence completeness body persistence blocked");
+  assertEqual(zatcaEvidenceCompleteness.productionCompliance, false, "ZATCA evidence completeness productionCompliance false");
+  assertEqual(zatcaEvidenceCompleteness.completenessStatus, "BLOCKED", "ZATCA evidence completeness remains blocked with only draft evidence");
+  assert(zatcaEvidenceCompleteness.requiredEvidenceTypes.includes("OBJECT_VERSIONING"), "ZATCA evidence completeness returns required evidence types");
+  assert(zatcaEvidenceCompleteness.missingEvidenceTypes.includes("OBJECT_VERSIONING"), "ZATCA evidence completeness returns missing evidence types");
+  assertEqual(zatcaEvidenceCompleteness.bodyPersistenceGate.allowed, false, "ZATCA evidence completeness gate remains blocked");
+  assertNoPrivateKey(zatcaEvidenceCompleteness, "ZATCA evidence completeness response");
+  const serializedEvidenceCompleteness = JSON.stringify(zatcaEvidenceCompleteness);
+  assert(!serializedEvidenceCompleteness.includes("<Invoice"), "ZATCA evidence completeness does not expose XML body");
+  assert(!serializedEvidenceCompleteness.includes("QR PAYLOAD"), "ZATCA evidence completeness does not expose QR payload");
+  const submissionsAfterEvidenceCompleteness = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterEvidenceCompleteness.length, submissionsBeforeEvidenceCompleteness.length, "ZATCA evidence completeness does not create submission logs");
+  const zatcaPolicyApprovalDraft = await post<ZatcaSignedArtifactStoragePolicyApprovalResponse>(
+    "/zatca/signed-artifact-storage/policy-approvals",
+    headers,
+    { note: "Smoke metadata-only immutable policy approval draft. Legal/accounting retention review is still required." },
+  );
+  assertEqual(zatcaPolicyApprovalDraft.localOnly, true, "ZATCA immutable policy approval draft localOnly");
+  assertEqual(zatcaPolicyApprovalDraft.metadataOnly, true, "ZATCA immutable policy approval draft metadataOnly");
+  assertEqual(zatcaPolicyApprovalDraft.noSignedXmlBody, true, "ZATCA immutable policy approval draft no signed XML body");
+  assertEqual(zatcaPolicyApprovalDraft.noQrPayloadBody, true, "ZATCA immutable policy approval draft no QR body");
+  assertEqual(zatcaPolicyApprovalDraft.noCsidRequest, true, "ZATCA immutable policy approval draft no CSID request");
+  assertEqual(zatcaPolicyApprovalDraft.noNetworkToZatca, true, "ZATCA immutable policy approval draft no ZATCA network");
+  assertEqual(zatcaPolicyApprovalDraft.productionCompliance, false, "ZATCA immutable policy approval draft productionCompliance false");
+  assertEqual(zatcaPolicyApprovalDraft.signedXmlBodyPersistenceAllowed, false, "ZATCA immutable policy approval draft signed XML body persistence blocked");
+  assertEqual(zatcaPolicyApprovalDraft.qrPayloadBodyPersistenceAllowed, false, "ZATCA immutable policy approval draft QR body persistence blocked");
+  assertEqual(zatcaPolicyApprovalDraft.policyApproval.status, "DRAFT", "ZATCA immutable policy approval draft status");
+  assertEqual(zatcaPolicyApprovalDraft.policyApproval.retentionDurationStatus, "REQUIRES_LEGAL_REVIEW", "ZATCA immutable policy approval draft requires retention review");
+  assertEqual(zatcaPolicyApprovalDraft.policyApproval.signedXmlBodyPersistenceAllowed, false, "ZATCA immutable policy approval record signed XML body persistence blocked");
+  assertEqual(zatcaPolicyApprovalDraft.policyApproval.qrPayloadBodyPersistenceAllowed, false, "ZATCA immutable policy approval record QR body persistence blocked");
+  assertNoPrivateKey(zatcaPolicyApprovalDraft, "ZATCA immutable policy approval draft response");
+  const serializedPolicyApprovalDraft = JSON.stringify(zatcaPolicyApprovalDraft);
+  assert(!serializedPolicyApprovalDraft.includes("<Invoice"), "ZATCA immutable policy approval draft does not expose XML body");
+  assert(!serializedPolicyApprovalDraft.includes("QR PAYLOAD"), "ZATCA immutable policy approval draft does not expose QR payload");
+  assert(!serializedPolicyApprovalDraft.includes("BEGIN CERTIFICATE"), "ZATCA immutable policy approval draft does not expose certificates");
+  const zatcaImmutablePolicyPlanAfterApproval = await get<ZatcaSignedArtifactImmutablePolicyPlanResponse>("/zatca/signed-artifact-storage/immutable-policy-plan", headers);
+  assertEqual(zatcaImmutablePolicyPlanAfterApproval.latestApprovalId, zatcaPolicyApprovalDraft.policyApproval.id, "ZATCA immutable policy plan includes latest approval id");
+  assertEqual(zatcaImmutablePolicyPlanAfterApproval.latestApprovalStatus, "DRAFT", "ZATCA immutable policy plan includes latest approval status");
+  assertEqual(zatcaImmutablePolicyPlanAfterApproval.policyApproved, false, "ZATCA immutable policy plan remains unapproved after draft");
+  assertEqual(zatcaImmutablePolicyPlanAfterApproval.signedXmlBodyPersistenceAllowed, false, "ZATCA immutable policy plan body persistence remains blocked after draft");
+  assertEqual(zatcaImmutablePolicyPlanAfterApproval.qrPayloadBodyPersistenceAllowed, false, "ZATCA immutable policy plan QR persistence remains blocked after draft");
+  const zatcaSignedArtifactStoragePlanAfterPolicyApproval = await get<ZatcaInvoiceSignedArtifactStoragePlanResponse>(`/sales-invoices/${draftInvoice.id}/zatca/signed-artifact-storage-plan`, headers);
+  assertEqual(zatcaSignedArtifactStoragePlanAfterPolicyApproval.latestImmutablePolicyApprovalStatus, "DRAFT", "ZATCA signed artifact storage plan returns latest immutable policy approval status after policy approval draft");
+  const zatcaSignedArtifactStorageProbePlanAfterPolicyApproval = await get<ZatcaSignedArtifactStorageProbePlanResponse>("/zatca/signed-artifact-storage/probe-plan", headers);
+  assertEqual(zatcaSignedArtifactStorageProbePlanAfterPolicyApproval.latestImmutablePolicyApprovalStatus, "DRAFT", "ZATCA signed artifact storage probe plan latest immutable policy approval status after policy approval draft");
+  const submissionsAfterImmutablePolicyPlan = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterImmutablePolicyPlan.length, submissionsBeforeImmutablePolicyPlan.length, "ZATCA immutable policy plan and approval draft do not create submission logs");
+  const submissionsBeforeStorageProbe = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  const draftsBeforeStorageProbe = await get<ZatcaSignedArtifactDraftListResponse>(`/sales-invoices/${draftInvoice.id}/zatca/signed-artifact-drafts`, headers);
+  const zatcaSignedArtifactStorageProbe = await post<ZatcaSignedArtifactStorageProbeResponse>("/zatca/signed-artifact-storage/probe", headers, {});
+  assertEqual(zatcaSignedArtifactStorageProbe.localOnly, true, "ZATCA signed artifact storage probe localOnly");
+  assertEqual(zatcaSignedArtifactStorageProbe.noMutation, true, "ZATCA signed artifact storage probe noMutation");
+  assertEqual(zatcaSignedArtifactStorageProbe.noSignedXmlBody, true, "ZATCA signed artifact storage probe no signed XML body");
+  assertEqual(zatcaSignedArtifactStorageProbe.noQrPayloadBody, true, "ZATCA signed artifact storage probe no QR payload body");
+  assertEqual(zatcaSignedArtifactStorageProbe.noCsidRequest, true, "ZATCA signed artifact storage probe no CSID request");
+  assertEqual(zatcaSignedArtifactStorageProbe.noNetworkToZatca, true, "ZATCA signed artifact storage probe no ZATCA network");
+  assertEqual(zatcaSignedArtifactStorageProbe.productionCompliance, false, "ZATCA signed artifact storage probe productionCompliance false");
+  assertEqual(zatcaSignedArtifactStorageProbe.executionEnabled, false, "ZATCA signed artifact storage probe disabled by default");
+  assertEqual(zatcaSignedArtifactStorageProbe.executionAttempted, false, "ZATCA signed artifact storage probe not attempted by default");
+  assertEqual(zatcaSignedArtifactStorageProbe.testObjectWritten, false, "ZATCA signed artifact storage probe writes no object by default");
+  assertEqual(zatcaSignedArtifactStorageProbe.testObjectDeleted, false, "ZATCA signed artifact storage probe deletes no object by default");
+  assertEqual(zatcaSignedArtifactStorageProbe.immutablePolicyStatus.policyApproved, false, "ZATCA signed artifact storage probe immutable policy not approved");
+  assertEqual(zatcaSignedArtifactStorageProbe.bodyPersistenceAllowed, false, "ZATCA signed artifact storage probe body persistence blocked");
+  assertNoPrivateKey(zatcaSignedArtifactStorageProbe, "ZATCA signed artifact storage probe response");
+  assert(!JSON.stringify(zatcaSignedArtifactStorageProbe).includes("<Invoice"), "ZATCA signed artifact storage probe does not expose XML body");
+  const submissionsAfterStorageProbe = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assertEqual(submissionsAfterStorageProbe.length, submissionsBeforeStorageProbe.length, "ZATCA signed artifact storage probe does not create submission logs");
+  const draftsAfterStorageProbe = await get<ZatcaSignedArtifactDraftListResponse>(`/sales-invoices/${draftInvoice.id}/zatca/signed-artifact-drafts`, headers);
+  assertEqual(draftsAfterStorageProbe.count, draftsBeforeStorageProbe.count, "ZATCA signed artifact storage probe does not create signed artifact drafts");
+  const zatcaSdkReadiness = await get<ZatcaSdkReadinessResponse>("/zatca-sdk/readiness", headers);
+  assertEqual(zatcaSdkReadiness.enabled, false, "ZATCA SDK execution disabled by default");
+  assert(typeof zatcaSdkReadiness.referenceFolderFound === "boolean", "ZATCA SDK readiness returns reference folder flag");
+  assert(typeof zatcaSdkReadiness.sdkJarFound === "boolean", "ZATCA SDK readiness returns SDK JAR flag");
+  assert(typeof zatcaSdkReadiness.configDirFound === "boolean", "ZATCA SDK readiness returns config dir flag");
+  assert(typeof zatcaSdkReadiness.workingDirectoryWritable === "boolean", "ZATCA SDK readiness returns work directory flag");
+  assert(typeof zatcaSdkReadiness.supportedCommandsKnown === "boolean", "ZATCA SDK readiness returns command support flag");
+  assert(typeof zatcaSdkReadiness.javaFound === "boolean", "ZATCA SDK readiness returns Java flag");
+  assert(typeof zatcaSdkReadiness.javaSupported === "boolean", "ZATCA SDK readiness returns Java supported flag");
+  assertEqual(zatcaSdkReadiness.requiredJavaRange, ">=11 <15", "ZATCA SDK readiness required Java range");
+  assertEqual(zatcaSdkReadiness.sdkCommand, "fatoora -validate -invoice <filename>", "ZATCA SDK readiness documented command");
+  assert(typeof zatcaSdkReadiness.javaBinUsed === "string", "ZATCA SDK readiness returns Java bin used");
+  assertEqual(zatcaSdkReadiness.hashMode?.mode, "LOCAL_DETERMINISTIC", "ZATCA hash mode default remains local deterministic");
+  assertEqual(zatcaSdkReadiness.canRunLocalValidation, false, "ZATCA SDK local validation cannot run by default");
+  assert(zatcaSdkReadiness.blockingReasons.length > 0, "ZATCA SDK readiness returns disabled blockers");
+  assertNoPrivateKey(zatcaSdkReadiness, "ZATCA SDK readiness response");
+  const zatcaSdkDryRun = await post<ZatcaSdkDryRunResponse>("/zatca-sdk/validate-xml-dry-run", headers, { invoiceId: draftInvoice.id, mode: "dry-run" });
+  assertEqual(zatcaSdkDryRun.dryRun, true, "ZATCA SDK dry-run flag");
+  assertEqual(zatcaSdkDryRun.localOnly, true, "ZATCA SDK dry-run localOnly");
+  assertEqual(zatcaSdkDryRun.officialSdkValidation, false, "ZATCA SDK dry-run does not execute SDK");
+  assert(
+    Boolean(zatcaSdkDryRun.commandPlan.command) || zatcaSdkDryRun.warnings.length > 0 || zatcaSdkDryRun.commandPlan.warnings.length > 0,
+    "ZATCA SDK dry-run returns command plan or safe warnings",
+  );
+  assertNoPrivateKey(zatcaSdkDryRun, "ZATCA SDK dry-run response");
+  const zatcaSdkLocalValidation = await post<ZatcaSdkValidationResponse>(`/sales-invoices/${draftInvoice.id}/zatca/sdk-validate`, headers, {});
+  assertEqual(zatcaSdkLocalValidation.localOnly, true, "ZATCA SDK local validation localOnly");
+  assertEqual(zatcaSdkLocalValidation.officialValidationAttempted, false, "ZATCA SDK local validation disabled by default");
+  assertEqual(zatcaSdkLocalValidation.disabled, true, "ZATCA SDK local validation disabled flag");
+  assertEqual(zatcaSdkLocalValidation.hashComparisonStatus, "BLOCKED", "ZATCA SDK local hash comparison blocked by default");
+  assertEqual(zatcaSdkLocalValidation.hashMatches, null, "ZATCA SDK local hash comparison does not run by default");
+  assertNoPrivateKey(zatcaSdkLocalValidation, "ZATCA SDK local validation response");
+  const metadataBeforeHashCompare = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  const zatcaHashCompare = await post<ZatcaInvoiceHashCompareResponse>(`/sales-invoices/${draftInvoice.id}/zatca/hash-compare`, headers, {});
+  assertEqual(zatcaHashCompare.localOnly, true, "ZATCA hash compare localOnly");
+  assertEqual(zatcaHashCompare.noMutation, true, "ZATCA hash compare noMutation");
+  assertEqual(zatcaHashCompare.officialHashAttempted, false, "ZATCA hash compare disabled by default");
+  assertEqual(zatcaHashCompare.hashComparisonStatus, "BLOCKED", "ZATCA hash compare blocked by default");
+  assertEqual(zatcaHashCompare.hashMode.mode, "LOCAL_DETERMINISTIC", "ZATCA hash compare local hash mode");
+  assertEqual(zatcaHashCompare.egsHashMode, "LOCAL_DETERMINISTIC", "ZATCA hash compare EGS hash mode");
+  assertEqual(zatcaHashCompare.metadataHashModeSnapshot, "LOCAL_DETERMINISTIC", "ZATCA hash compare metadata hash mode snapshot");
+  const metadataAfterHashCompare = await get<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca`, headers);
+  assertEqual(metadataAfterHashCompare.icv, metadataBeforeHashCompare.icv, "ZATCA hash compare does not mutate ICV");
+  assertEqual(metadataAfterHashCompare.invoiceHash, metadataBeforeHashCompare.invoiceHash, "ZATCA hash compare does not mutate invoice hash");
+  assertEqual(metadataAfterHashCompare.previousInvoiceHash, metadataBeforeHashCompare.previousInvoiceHash, "ZATCA hash compare does not mutate previous hash");
+  assertNoPrivateKey(zatcaHashCompare, "ZATCA hash compare response");
+  const zatcaHashResetPlan = await get<ZatcaHashChainResetPlanResponse>("/zatca/hash-chain-reset-plan", headers);
+  assertEqual(zatcaHashResetPlan.dryRunOnly, true, "ZATCA hash-chain reset plan dryRunOnly");
+  assertEqual(zatcaHashResetPlan.noMutation, true, "ZATCA hash-chain reset plan noMutation");
+  assertEqual(zatcaHashResetPlan.hashMode.mode, "LOCAL_DETERMINISTIC", "ZATCA hash-chain reset plan local hash mode");
+  assert(typeof zatcaHashResetPlan.summary.sdkModeEgsUnitCount === "number", "ZATCA hash-chain reset plan SDK mode count");
+  assert(
+    zatcaHashResetPlan.egsUnits.some(
+      (unit) => unit.id === smokeEgs.id && unit.hashMode === "LOCAL_DETERMINISTIC" && unit.metadataCount > 0 && unit.canEnableSdkHashMode === false,
+    ),
+    "ZATCA hash-chain reset plan blocks SDK hash mode on EGS with metadata",
+  );
+  await expectHttpError("SDK hash mode enable blocked by default", () =>
+    post<ZatcaEgsUnit>(`/zatca/egs-units/${smokeEgs.id}/enable-sdk-hash-mode`, headers, {
+      reason: "Smoke confirms SDK hash mode remains explicitly blocked by default.",
+      confirmReset: true,
+    }),
+  );
+  assert(zatcaHashResetPlan.resetRisks.length > 0, "ZATCA hash-chain reset plan returns risks");
+  assertNoPrivateKey(zatcaHashResetPlan, "ZATCA hash-chain reset plan response");
+  let zatcaSdkFixtureValidation: ZatcaSdkValidationResponse | null = null;
+  try {
+    zatcaSdkFixtureValidation = await post<ZatcaSdkValidationResponse>("/zatca-sdk/validate-reference-fixture", headers, {
+      fixturePath: "reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml",
+    });
+  } catch (error) {
+    const safelyMissingReferenceFixture =
+      error instanceof ApiError && error.status === 400 && JSON.stringify(error.body).includes("Reference fixture XML file was not found");
+    if (!safelyMissingReferenceFixture) {
+      throw error;
+    }
+    console.log("Expected skip: ZATCA SDK reference fixture unavailable in deployed environment -> HTTP 400");
+  }
+  if (zatcaSdkFixtureValidation) {
+    assertEqual(zatcaSdkFixtureValidation.localOnly, true, "ZATCA SDK fixture validation localOnly");
+    assertEqual(zatcaSdkFixtureValidation.officialValidationAttempted, false, "ZATCA SDK fixture validation disabled by default");
+    assertEqual(zatcaSdkFixtureValidation.disabled, true, "ZATCA SDK fixture validation disabled flag");
+    assertEqual(zatcaSdkFixtureValidation.hashComparisonStatus, "BLOCKED", "ZATCA SDK fixture hash comparison blocked by default");
+    assertNoPrivateKey(zatcaSdkFixtureValidation, "ZATCA SDK fixture validation response");
+  }
+  const zatcaQr = await get<ZatcaQrResponse>(`/sales-invoices/${draftInvoice.id}/zatca/qr`, headers);
+  assertPresent(zatcaQr.qrCodeBase64, "ZATCA QR endpoint payload");
+  const checkedZatcaMetadata = await post<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca/compliance-check`, headers, {});
+  assertEqual(checkedZatcaMetadata.zatcaStatus, "READY_FOR_SUBMISSION", "ZATCA mock compliance-check status");
+  const invoiceZatcaSubmissions = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assert(
+    invoiceZatcaSubmissions.some(
+      (log) => log.invoiceMetadataId === zatcaMetadata.id && log.responseCode === "LOCAL_MOCK_COMPLIANCE_CHECK" && log.status === "SUCCESS",
+    ),
+    "ZATCA submissions include local mock invoice compliance-check log",
+  );
+  await expectHttpError("mock clearance safe block", () => post<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca/clearance`, headers, {}));
+  await expectHttpError("mock reporting safe block", () => post<ZatcaInvoiceMetadata>(`/sales-invoices/${draftInvoice.id}/zatca/reporting`, headers, {}));
+  const blockedZatcaSubmissions = await get<ZatcaSubmissionLog[]>("/zatca/submissions", headers);
+  assert(
+    blockedZatcaSubmissions.some((log) => log.invoiceMetadataId === zatcaMetadata.id && log.submissionType === "CLEARANCE" && log.status === "FAILED"),
+    "ZATCA submissions include safe blocked clearance log",
+  );
+  assert(
+    blockedZatcaSubmissions.some((log) => log.invoiceMetadataId === zatcaMetadata.id && log.submissionType === "REPORTING" && log.status === "FAILED"),
+    "ZATCA submissions include safe blocked reporting log",
+  );
+
+  await expectHttpError("over-allocation payment", () =>
+    post<CustomerPayment>("/customer-payments", headers, {
+      customerId: customer.id,
+      paymentDate: new Date().toISOString(),
+      currency: "SAR",
+      amountReceived: expectedTotal.plus(1).toFixed(4),
+      accountId: paidThroughAccount!.id,
+      allocations: [{ invoiceId: draftInvoice.id, amountApplied: expectedTotal.plus(1).toFixed(4) }],
+    }),
+  );
+
+  const bankBeforePartialPayment = await get<BankAccountSummary>(`/bank-accounts/${paidThroughBankProfile.id}`, headers);
+  const partialPayment = await post<CustomerPayment>("/customer-payments", headers, {
+    customerId: customer.id,
+    paymentDate: new Date().toISOString(),
+    currency: "SAR",
+    amountReceived: partialPaymentAmount.toFixed(4),
+    accountId: paidThroughAccount!.id,
+    description: "Smoke test partial payment",
+    allocations: [{ invoiceId: draftInvoice.id, amountApplied: partialPaymentAmount.toFixed(4) }],
+  });
+  assertEqual(partialPayment.status, "POSTED", "partial payment status");
+  const bankAfterPartialPayment = await get<BankAccountSummary>(`/bank-accounts/${paidThroughBankProfile.id}`, headers);
+  assertMoney(
+    bankAfterPartialPayment.ledgerBalance,
+    money(bankBeforePartialPayment.ledgerBalance).plus(partialPaymentAmount),
+    "bank account balance after customer payment",
+  );
+
+  const afterPartialPayment = await get<SalesInvoice>(`/sales-invoices/${draftInvoice.id}`, headers);
+  assertMoney(afterPartialPayment.balanceDue, remainingPaymentAmount, "invoice balance after partial payment");
+
+  const remainingPayment = await post<CustomerPayment>("/customer-payments", headers, {
+    customerId: customer.id,
+    paymentDate: new Date().toISOString(),
+    currency: "SAR",
+    amountReceived: remainingPaymentAmount.toFixed(4),
+    accountId: paidThroughAccount!.id,
+    description: "Smoke test remaining payment",
+    allocations: [{ invoiceId: draftInvoice.id, amountApplied: remainingPaymentAmount.toFixed(4) }],
+  });
+  assertEqual(remainingPayment.status, "POSTED", "remaining payment status");
+
+  const afterFullPayment = await get<SalesInvoice>(`/sales-invoices/${draftInvoice.id}`, headers);
+  assertMoney(afterFullPayment.balanceDue, money(0), "invoice balance after remaining payment");
+
+  const ledgerBeforeVoid = await get<LedgerResponse>(`/contacts/${customer.id}/ledger`, headers);
+  assert(
+    ledgerBeforeVoid.rows.some((row) => row.type === "INVOICE" && row.sourceId === draftInvoice.id && money(row.debit).eq(expectedTotal)),
+    "ledger includes invoice debit",
+  );
+  assert(
+    ledgerBeforeVoid.rows.some((row) => row.type === "PAYMENT" && row.sourceId === partialPayment.id && money(row.credit).eq(partialPaymentAmount)),
+    "ledger includes partial payment credit",
+  );
+  assert(
+    ledgerBeforeVoid.rows.some((row) => row.type === "PAYMENT" && row.sourceId === remainingPayment.id && money(row.credit).eq(remainingPaymentAmount)),
+    "ledger includes remaining payment credit",
+  );
+  assertMoney(ledgerBeforeVoid.closingBalance, money(0), "ledger closing balance before void");
+
+  const { from, to } = statementRange();
+  const statement = await get<LedgerResponse>(`/contacts/${customer.id}/statement?from=${from}&to=${to}`, headers);
+  assert(statement.rows.length > 0, "statement returns rows");
+  assertMoney(statement.closingBalance, money(0), "statement closing balance before void");
+
+  const receipt = await get<ReceiptData>(`/customer-payments/${partialPayment.id}/receipt-data`, headers);
+  assertEqual(receipt.customer?.id, customer.id, "receipt customer id");
+  assertPresent(receipt.journalEntry?.id, "receipt journal entry id");
+  assert(receipt.allocations.some((allocation) => allocation.invoiceId === draftInvoice.id), "receipt includes invoice allocation");
+
+  const invoicePdfData = await get<{ invoice: { total: string; balanceDue: string }; lines: unknown[] }>(
+    `/sales-invoices/${draftInvoice.id}/pdf-data`,
+    headers,
+  );
+  assertMoney(invoicePdfData.invoice.total, expectedTotal, "invoice pdf-data total");
+  assert(invoicePdfData.lines.length > 0, "invoice pdf-data returns lines");
+  await assertPdf(`/sales-invoices/${draftInvoice.id}/pdf`, headers, "invoice PDF");
+  const invoiceDocuments = await get<GeneratedDocument[]>(
+    `/generated-documents?documentType=SALES_INVOICE&sourceId=${encodeURIComponent(draftInvoice.id)}`,
+    headers,
+  );
+  const archivedInvoicePdf = required(
+    invoiceDocuments.find((document) => document.sourceId === draftInvoice.id && document.status === "GENERATED"),
+    "archived invoice PDF document",
+  );
+  await assertPdf(`/generated-documents/${archivedInvoicePdf.id}/download`, headers, "archived invoice PDF");
+
+  const receiptPdfData = await get<{ payment: { paymentNumber: string }; allocations: unknown[] }>(
+    `/customer-payments/${partialPayment.id}/receipt-pdf-data`,
+    headers,
+  );
+  assertEqual(receiptPdfData.payment.paymentNumber, partialPayment.paymentNumber, "receipt pdf-data payment number");
+  assert(receiptPdfData.allocations.length > 0, "receipt pdf-data returns allocations");
+  await assertPdf(`/customer-payments/${partialPayment.id}/receipt.pdf`, headers, "receipt PDF");
+
+  const statementPdfData = await get<{ closingBalance: string; rows: unknown[] }>(
+    `/contacts/${customer.id}/statement-pdf-data?from=${from}&to=${to}`,
+    headers,
+  );
+  assertMoney(statementPdfData.closingBalance, money(0), "statement pdf-data closing balance before void");
+  assert(statementPdfData.rows.length > 0, "statement pdf-data returns rows");
+  await assertPdf(`/contacts/${customer.id}/statement.pdf?from=${from}&to=${to}`, headers, "statement PDF");
+
+  const refundCustomer = await post<Contact>("/contacts", headers, {
+    type: "CUSTOMER",
+    name: `Smoke Refund Customer ${runId}`,
+    displayName: `Smoke Refund Customer ${runId}`,
+    countryCode: "SA",
+  });
+  const refundDraftInvoice = await post<SalesInvoice>("/sales-invoices", headers, {
+    customerId: refundCustomer.id,
+    issueDate: new Date().toISOString(),
+    currency: "SAR",
+    lines: [linePayload],
+  });
+  const refundInvoice = await post<SalesInvoice>(`/sales-invoices/${refundDraftInvoice.id}/finalize`, headers, {});
+  const overpaymentAmount = expectedTotal.plus(20);
+  const refundSourcePayment = await post<CustomerPayment>("/customer-payments", headers, {
+    customerId: refundCustomer.id,
+    paymentDate: new Date().toISOString(),
+    currency: "SAR",
+    amountReceived: overpaymentAmount.toFixed(4),
+    accountId: paidThroughAccount!.id,
+    description: "Smoke test overpayment for refund",
+    allocations: [{ invoiceId: refundInvoice.id, amountApplied: expectedTotal.toFixed(4) }],
+  });
+  assertEqual(refundSourcePayment.status, "POSTED", "refund source payment status");
+  assertMoney(refundSourcePayment.unappliedAmount, money("20.0000"), "refund source payment opening unapplied amount");
+  const paymentRefundAmount = money("7.0000");
+  const paymentRefund = await post<CustomerRefund>("/customer-refunds", headers, {
+    customerId: refundCustomer.id,
+    sourceType: "CUSTOMER_PAYMENT",
+    sourcePaymentId: refundSourcePayment.id,
+    refundDate: new Date().toISOString(),
+    currency: "SAR",
+    amountRefunded: paymentRefundAmount.toFixed(4),
+    accountId: paidThroughAccount!.id,
+    description: "Smoke test payment refund",
+  });
+  assertEqual(paymentRefund.status, "POSTED", "payment refund status");
+  assertPresent(paymentRefund.journalEntryId, "payment refund journal entry id");
+  const afterPaymentRefund = await get<CustomerPayment>(`/customer-payments/${refundSourcePayment.id}`, headers);
+  assertMoney(afterPaymentRefund.unappliedAmount, money("13.0000"), "payment unapplied amount after refund");
+  const refundCustomerLedger = await get<LedgerResponse>(`/contacts/${refundCustomer.id}/ledger`, headers);
+  assert(
+    refundCustomerLedger.rows.some(
+      (row) => row.type === "CUSTOMER_REFUND" && row.sourceId === paymentRefund.id && money(row.debit).eq(paymentRefundAmount),
+    ),
+    "ledger includes customer refund row for payment refund",
+  );
+  assertMoney(refundCustomerLedger.closingBalance, money("-13.0000"), "refund customer ledger after payment refund");
+  await assertPdf(`/customer-refunds/${paymentRefund.id}/pdf`, headers, "customer refund PDF");
+  const voidedPaymentRefund = await post<CustomerRefund>(`/customer-refunds/${paymentRefund.id}/void`, headers, {});
+  assertEqual(voidedPaymentRefund.status, "VOIDED", "voided payment refund status");
+  assertPresent(voidedPaymentRefund.voidReversalJournalEntryId, "voided payment refund reversal journal");
+  const afterPaymentRefundVoid = await get<CustomerPayment>(`/customer-payments/${refundSourcePayment.id}`, headers);
+  assertMoney(afterPaymentRefundVoid.unappliedAmount, money("20.0000"), "payment unapplied amount after refund void");
+  const refundCustomerLedgerAfterVoid = await get<LedgerResponse>(`/contacts/${refundCustomer.id}/ledger`, headers);
+  assert(
+    refundCustomerLedgerAfterVoid.rows.some(
+      (row) => row.type === "VOID_CUSTOMER_REFUND" && row.sourceId === paymentRefund.id && money(row.credit).eq(paymentRefundAmount),
+    ),
+    "ledger includes void customer refund row for payment refund",
+  );
+  assertMoney(refundCustomerLedgerAfterVoid.closingBalance, money("-20.0000"), "refund customer ledger after payment refund void");
+
+  const paymentUnappliedDraftInvoice = await post<SalesInvoice>("/sales-invoices", headers, {
+    customerId: refundCustomer.id,
+    issueDate: new Date().toISOString(),
+    currency: "SAR",
+    lines: [linePayload],
+  });
+  const paymentUnappliedInvoice = await post<SalesInvoice>(
+    `/sales-invoices/${paymentUnappliedDraftInvoice.id}/finalize`,
+    headers,
+    {},
+  );
+  assertMoney(paymentUnappliedInvoice.balanceDue, expectedTotal, "payment unapplied application invoice opening balance");
+
+  const paymentUnappliedApplyAmount = money("8.0000");
+  const paymentBeforeUnappliedApply = await get<CustomerPayment>(`/customer-payments/${refundSourcePayment.id}`, headers);
+  const appliedUnappliedPayment = await post<CustomerPayment>(`/customer-payments/${refundSourcePayment.id}/apply-unapplied`, headers, {
+    invoiceId: paymentUnappliedInvoice.id,
+    amountApplied: paymentUnappliedApplyAmount.toFixed(4),
+  });
+  assertEqual(
+    appliedUnappliedPayment.journalEntryId,
+    paymentBeforeUnappliedApply.journalEntryId,
+    "unapplied payment application reuses original payment journal only",
+  );
+  assertMoney(appliedUnappliedPayment.unappliedAmount, money("20.0000").minus(paymentUnappliedApplyAmount), "payment unapplied amount after invoice application");
+  const paymentUnappliedInvoiceAfterApply = await get<SalesInvoice>(`/sales-invoices/${paymentUnappliedInvoice.id}`, headers);
+  assertMoney(paymentUnappliedInvoiceAfterApply.balanceDue, expectedTotal.minus(paymentUnappliedApplyAmount), "invoice balance after unapplied payment application");
+  const paymentUnappliedAllocations = await get<CustomerPaymentUnappliedAllocation[]>(
+    `/customer-payments/${refundSourcePayment.id}/unapplied-allocations`,
+    headers,
+  );
+  const paymentUnappliedAllocation = required(
+    paymentUnappliedAllocations.find(
+      (allocation) => allocation.invoiceId === paymentUnappliedInvoice.id && money(allocation.amountApplied).eq(paymentUnappliedApplyAmount),
+    ),
+    "payment unapplied allocation for smoke application",
+  );
+  const invoicePaymentUnappliedAllocations = await get<CustomerPaymentUnappliedAllocation[]>(
+    `/sales-invoices/${paymentUnappliedInvoice.id}/customer-payment-unapplied-allocations`,
+    headers,
+  );
+  assert(
+    invoicePaymentUnappliedAllocations.some((allocation) => allocation.id === paymentUnappliedAllocation.id),
+    "invoice exposes unapplied payment allocation",
+  );
+  const receiptAfterPaymentUnappliedApply = await get<ReceiptData>(`/customer-payments/${refundSourcePayment.id}/receipt-data`, headers);
+  assert(
+    Boolean(receiptAfterPaymentUnappliedApply.unappliedAllocations?.some(
+      (allocation) => allocation.invoiceId === paymentUnappliedInvoice.id && money(allocation.amountApplied).eq(paymentUnappliedApplyAmount),
+    )),
+    "receipt-data includes unapplied payment allocation",
+  );
+  const ledgerAfterPaymentUnappliedApply = await get<LedgerResponse>(`/contacts/${refundCustomer.id}/ledger`, headers);
+  const paymentUnappliedAllocationRow = required(
+    ledgerAfterPaymentUnappliedApply.rows.find(
+      (row) =>
+        row.type === "CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION" &&
+        row.sourceId === paymentUnappliedAllocation.id &&
+        money(row.debit).eq(0) &&
+        money(row.credit).eq(0),
+    ),
+    "ledger row for unapplied payment allocation",
+  );
+  assertMoney(paymentUnappliedAllocationRow.balance, expectedTotal.minus(money("20.0000")), "unapplied payment allocation row keeps running balance unchanged");
+  assertMoney(
+    ledgerAfterPaymentUnappliedApply.closingBalance,
+    expectedTotal.minus(money("20.0000")),
+    "refund customer ledger after unapplied payment application",
+  );
+
+  await expectHttpError("refund above current payment unapplied amount", () =>
+    post<CustomerRefund>("/customer-refunds", headers, {
+      customerId: refundCustomer.id,
+      sourceType: "CUSTOMER_PAYMENT",
+      sourcePaymentId: refundSourcePayment.id,
+      refundDate: new Date().toISOString(),
+      currency: "SAR",
+      amountRefunded: "13.0000",
+      accountId: paidThroughAccount!.id,
+      description: "Smoke test refund above current unapplied amount",
+    }),
+  );
+  await expectHttpError("void payment with active unapplied allocation", () =>
+    post<CustomerPayment>(`/customer-payments/${refundSourcePayment.id}/void`, headers, {}),
+  );
+  await expectHttpError("void invoice with active unapplied payment allocation", () =>
+    post<SalesInvoice>(`/sales-invoices/${paymentUnappliedInvoice.id}/void`, headers, {}),
+  );
+
+  const reversedUnappliedPayment = await post<CustomerPayment>(
+    `/customer-payments/${refundSourcePayment.id}/unapplied-allocations/${paymentUnappliedAllocation.id}/reverse`,
+    headers,
+    { reason: "Smoke test unapplied payment allocation reversal" },
+  );
+  assertMoney(reversedUnappliedPayment.unappliedAmount, money("20.0000"), "payment unapplied amount after allocation reversal");
+  const paymentUnappliedInvoiceAfterReverse = await get<SalesInvoice>(`/sales-invoices/${paymentUnappliedInvoice.id}`, headers);
+  assertMoney(paymentUnappliedInvoiceAfterReverse.balanceDue, expectedTotal, "invoice balance after unapplied payment allocation reversal");
+  const reversedPaymentUnappliedAllocations = await get<CustomerPaymentUnappliedAllocation[]>(
+    `/customer-payments/${refundSourcePayment.id}/unapplied-allocations`,
+    headers,
+  );
+  assert(
+    reversedPaymentUnappliedAllocations.some(
+      (allocation) =>
+        allocation.id === paymentUnappliedAllocation.id &&
+        Boolean(allocation.reversedAt) &&
+        allocation.reversalReason === "Smoke test unapplied payment allocation reversal",
+    ),
+    "payment unapplied allocations include reversal metadata",
+  );
+  const ledgerAfterPaymentUnappliedReverse = await get<LedgerResponse>(`/contacts/${refundCustomer.id}/ledger`, headers);
+  assert(
+    ledgerAfterPaymentUnappliedReverse.rows.some(
+      (row) =>
+        row.type === "CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL" &&
+        row.sourceId === paymentUnappliedAllocation.id &&
+        money(row.debit).eq(0) &&
+        money(row.credit).eq(0),
+    ),
+    "ledger includes neutral unapplied payment allocation reversal row",
+  );
+  assertMoney(
+    ledgerAfterPaymentUnappliedReverse.closingBalance,
+    expectedTotal.minus(money("20.0000")),
+    "refund customer ledger after unapplied payment allocation reversal",
+  );
+
+  const creditApplicationDraftInvoice = await post<SalesInvoice>("/sales-invoices", headers, {
+    customerId: customer.id,
+    issueDate: new Date().toISOString(),
+    currency: "SAR",
+    lines: [linePayload],
+  });
+  const creditApplicationInvoice = await post<SalesInvoice>(`/sales-invoices/${creditApplicationDraftInvoice.id}/finalize`, headers, {});
+  assertEqual(creditApplicationInvoice.status, "FINALIZED", "credit application invoice status");
+  assertMoney(creditApplicationInvoice.balanceDue, expectedTotal, "credit application invoice opening balance");
+
+  const creditNoteLinePayload: Record<string, unknown> = {
+    description: "Smoke test credit adjustment",
+    accountId: salesAccount.id,
+    quantity: "1.0000",
+    unitPrice: "10.0000",
+  };
+  if (salesVat) {
+    creditNoteLinePayload.taxRateId = salesVat.id;
+  }
+  const draftCreditNote = await post<CreditNote>("/credit-notes", headers, {
+    customerId: customer.id,
+    originalInvoiceId: creditApplicationInvoice.id,
+    issueDate: new Date().toISOString(),
+    currency: "SAR",
+    reason: "Smoke test credit note",
+    lines: [creditNoteLinePayload],
+  });
+  assertEqual(draftCreditNote.status, "DRAFT", "created credit note status");
+  assertMoney(draftCreditNote.total, expectedCreditNoteTotal, "draft credit note total");
+  assertMoney(draftCreditNote.unappliedAmount, expectedCreditNoteTotal, "draft credit note unapplied amount");
+
+  const finalizedCreditNote = await post<CreditNote>(`/credit-notes/${draftCreditNote.id}/finalize`, headers, {});
+  assertEqual(finalizedCreditNote.status, "FINALIZED", "finalized credit note status");
+  assertPresent(finalizedCreditNote.journalEntryId, "finalized credit note journalEntryId");
+  assertMoney(finalizedCreditNote.total, expectedCreditNoteTotal, "finalized credit note total");
+
+  const finalizedCreditNoteAgain = await post<CreditNote>(`/credit-notes/${draftCreditNote.id}/finalize`, headers, {});
+  assertEqual(finalizedCreditNoteAgain.journalEntryId, finalizedCreditNote.journalEntryId, "double finalize credit note journalEntryId");
+
+  const invoiceCreditNotes = await get<CreditNote[]>(`/sales-invoices/${creditApplicationInvoice.id}/credit-notes`, headers);
+  assert(
+    invoiceCreditNotes.some((creditNote) => creditNote.id === draftCreditNote.id && creditNote.status === "FINALIZED"),
+    "invoice linked credit notes include finalized smoke credit note",
+  );
+
+  const ledgerAfterCreditNote = await get<LedgerResponse>(`/contacts/${customer.id}/ledger`, headers);
+  assert(
+    ledgerAfterCreditNote.rows.some((row) => row.type === "CREDIT_NOTE" && row.sourceId === draftCreditNote.id && money(row.credit).eq(expectedCreditNoteTotal)),
+    "ledger includes finalized credit note credit",
+  );
+  const expectedLedgerAfterCreditNote = expectedTotal.minus(expectedCreditNoteTotal);
+  assertMoney(ledgerAfterCreditNote.closingBalance, expectedLedgerAfterCreditNote, "ledger closing balance after credit note");
+
+  const creditApplyAmount = money("5.0000");
+  const appliedCreditNote = await post<CreditNote>(`/credit-notes/${draftCreditNote.id}/apply`, headers, {
+    invoiceId: creditApplicationInvoice.id,
+    amountApplied: creditApplyAmount.toFixed(4),
+  });
+  assertMoney(appliedCreditNote.unappliedAmount, expectedCreditNoteTotal.minus(creditApplyAmount), "credit note unapplied amount after partial application");
+  const afterCreditApplyInvoice = await get<SalesInvoice>(`/sales-invoices/${creditApplicationInvoice.id}`, headers);
+  assertMoney(afterCreditApplyInvoice.balanceDue, expectedTotal.minus(creditApplyAmount), "invoice balance after credit note application");
+  const creditNoteAllocations = await get<CreditNoteAllocation[]>(`/credit-notes/${draftCreditNote.id}/allocations`, headers);
+  const creditNoteAllocation = required(
+    creditNoteAllocations.find((allocation) => allocation.invoiceId === creditApplicationInvoice.id && money(allocation.amountApplied).eq(creditApplyAmount)),
+    "credit note allocation for smoke application",
+  );
+  assert(
+    !creditNoteAllocation.reversedAt,
+    "credit note allocations include partial application",
+  );
+  const invoiceCreditAllocations = await get<CreditNoteAllocation[]>(`/sales-invoices/${creditApplicationInvoice.id}/credit-note-allocations`, headers);
+  assert(
+    invoiceCreditAllocations.some((allocation) => allocation.creditNoteId === draftCreditNote.id && money(allocation.amountApplied).eq(creditApplyAmount)),
+    "invoice credit note allocations include partial application",
+  );
+  const ledgerAfterCreditApply = await get<LedgerResponse>(`/contacts/${customer.id}/ledger`, headers);
+  assert(
+    ledgerAfterCreditApply.rows.some(
+      (row) => row.type === "CREDIT_NOTE_ALLOCATION" && row.sourceId === creditNoteAllocations[0]?.id && money(row.debit).eq(0) && money(row.credit).eq(0),
+    ),
+    "ledger includes neutral credit note allocation row",
+  );
+  assertMoney(ledgerAfterCreditApply.closingBalance, expectedLedgerAfterCreditNote, "ledger closing balance after credit allocation is not double counted");
+
+  await expectHttpError("over-apply credit note", () =>
+    post<CreditNote>(`/credit-notes/${draftCreditNote.id}/apply`, headers, {
+      invoiceId: creditApplicationInvoice.id,
+      amountApplied: expectedCreditNoteTotal.toFixed(4),
+    }),
+  );
+  await expectHttpError("void allocated credit note", () => post<CreditNote>(`/credit-notes/${draftCreditNote.id}/void`, headers, {}));
+
+  const reversedCreditNote = await post<CreditNote>(
+    `/credit-notes/${draftCreditNote.id}/allocations/${creditNoteAllocation.id}/reverse`,
+    headers,
+    { reason: "Smoke test allocation reversal" },
+  );
+  assertMoney(reversedCreditNote.unappliedAmount, expectedCreditNoteTotal, "credit note unapplied amount after allocation reversal");
+  const afterCreditReverseInvoice = await get<SalesInvoice>(`/sales-invoices/${creditApplicationInvoice.id}`, headers);
+  assertMoney(afterCreditReverseInvoice.balanceDue, expectedTotal, "invoice balance after credit allocation reversal");
+  const reversedCreditNoteAllocations = await get<CreditNoteAllocation[]>(`/credit-notes/${draftCreditNote.id}/allocations`, headers);
+  assert(
+    reversedCreditNoteAllocations.some(
+      (allocation) => allocation.id === creditNoteAllocation.id && Boolean(allocation.reversedAt) && allocation.reversalReason === "Smoke test allocation reversal",
+    ),
+    "credit note allocations include reversal metadata",
+  );
+  const ledgerAfterCreditReverse = await get<LedgerResponse>(`/contacts/${customer.id}/ledger`, headers);
+  assert(
+    ledgerAfterCreditReverse.rows.some(
+      (row) => row.type === "CREDIT_NOTE_ALLOCATION_REVERSAL" && row.sourceId === creditNoteAllocation.id && money(row.debit).eq(0) && money(row.credit).eq(0),
+    ),
+    "ledger includes neutral credit note allocation reversal row",
+  );
+  assertMoney(ledgerAfterCreditReverse.closingBalance, expectedLedgerAfterCreditNote, "ledger closing balance after credit allocation reversal is not double counted");
+
+  const creditNotePdfData = await get<{ creditNote: { total: string; unappliedAmount: string }; lines: unknown[]; allocations: unknown[] }>(
+    `/credit-notes/${draftCreditNote.id}/pdf-data`,
+    headers,
+  );
+  assertMoney(creditNotePdfData.creditNote.total, expectedCreditNoteTotal, "credit note pdf-data total");
+  assertMoney(creditNotePdfData.creditNote.unappliedAmount, expectedCreditNoteTotal, "credit note pdf-data unapplied amount after reversal");
+  assert(creditNotePdfData.lines.length > 0, "credit note pdf-data returns lines");
+  assert(creditNotePdfData.allocations.length > 0, "credit note pdf-data returns allocations");
+  await assertPdf(`/credit-notes/${draftCreditNote.id}/pdf`, headers, "credit note PDF");
+  const creditNoteDocuments = await get<GeneratedDocument[]>(
+    `/generated-documents?documentType=CREDIT_NOTE&sourceId=${encodeURIComponent(draftCreditNote.id)}`,
+    headers,
+  );
+  const archivedCreditNotePdf = required(
+    creditNoteDocuments.find((document) => document.sourceId === draftCreditNote.id && document.status === "GENERATED"),
+    "archived credit note PDF document",
+  );
+  await assertPdf(`/generated-documents/${archivedCreditNotePdf.id}/download`, headers, "archived credit note PDF");
+
+  const creditNoteRefundAmount = money("2.0000");
+  const creditNoteRefund = await post<CustomerRefund>("/customer-refunds", headers, {
+    customerId: customer.id,
+    sourceType: "CREDIT_NOTE",
+    sourceCreditNoteId: draftCreditNote.id,
+    refundDate: new Date().toISOString(),
+    currency: "SAR",
+    amountRefunded: creditNoteRefundAmount.toFixed(4),
+    accountId: paidThroughAccount!.id,
+    description: "Smoke test credit note refund",
+  });
+  assertEqual(creditNoteRefund.status, "POSTED", "credit note refund status");
+  assertPresent(creditNoteRefund.journalEntryId, "credit note refund journal entry id");
+  const afterCreditNoteRefund = await get<CreditNote>(`/credit-notes/${draftCreditNote.id}`, headers);
+  assertMoney(afterCreditNoteRefund.unappliedAmount, expectedCreditNoteTotal.minus(creditNoteRefundAmount), "credit note unapplied amount after refund");
+  const ledgerAfterCreditNoteRefund = await get<LedgerResponse>(`/contacts/${customer.id}/ledger`, headers);
+  assert(
+    ledgerAfterCreditNoteRefund.rows.some(
+      (row) => row.type === "CUSTOMER_REFUND" && row.sourceId === creditNoteRefund.id && money(row.debit).eq(creditNoteRefundAmount),
+    ),
+    "ledger includes customer refund row for credit note refund",
+  );
+  assertMoney(
+    ledgerAfterCreditNoteRefund.closingBalance,
+    expectedLedgerAfterCreditNote.plus(creditNoteRefundAmount),
+    "ledger closing balance after credit note refund",
+  );
+  await expectHttpError("void refunded credit note", () => post<CreditNote>(`/credit-notes/${draftCreditNote.id}/void`, headers, {}));
+  const voidedCreditNoteRefund = await post<CustomerRefund>(`/customer-refunds/${creditNoteRefund.id}/void`, headers, {});
+  assertEqual(voidedCreditNoteRefund.status, "VOIDED", "voided credit note refund status");
+  assertPresent(voidedCreditNoteRefund.voidReversalJournalEntryId, "voided credit note refund reversal journal");
+  const afterCreditNoteRefundVoid = await get<CreditNote>(`/credit-notes/${draftCreditNote.id}`, headers);
+  assertMoney(afterCreditNoteRefundVoid.unappliedAmount, expectedCreditNoteTotal, "credit note unapplied amount after refund void");
+  const ledgerAfterCreditNoteRefundVoid = await get<LedgerResponse>(`/contacts/${customer.id}/ledger`, headers);
+  assert(
+    ledgerAfterCreditNoteRefundVoid.rows.some(
+      (row) => row.type === "VOID_CUSTOMER_REFUND" && row.sourceId === creditNoteRefund.id && money(row.credit).eq(creditNoteRefundAmount),
+    ),
+    "ledger includes void customer refund row for credit note refund",
+  );
+  assertMoney(
+    ledgerAfterCreditNoteRefundVoid.closingBalance,
+    expectedLedgerAfterCreditNote,
+    "ledger closing balance after credit note refund void",
+  );
+
+  const voidedCreditNote = await post<CreditNote>(`/credit-notes/${draftCreditNote.id}/void`, headers, {});
+  assertEqual(voidedCreditNote.status, "VOIDED", "voided credit note after allocation reversal status");
+  assertPresent(voidedCreditNote.reversalJournalEntryId, "voided credit note reversal journal after allocation reversal");
+
+  const supplier = await post<Contact>("/contacts", headers, {
+    type: "SUPPLIER",
+    name: `Smoke Test Supplier ${runId}`,
+    displayName: `Smoke Test Supplier ${runId}`,
+    countryCode: "SA",
+  });
+  const purchaseBillLinePayload: Record<string, unknown> = {
+    description: "Smoke test supplier bill line",
+    accountId: expenseAccount.id,
+    quantity: "1.0000",
+    unitPrice: "100.0000",
+  };
+  if (purchaseVat) {
+    purchaseBillLinePayload.taxRateId = purchaseVat.id;
+  }
+
+  const poSupplier = await post<Contact>("/contacts", headers, {
+    type: "SUPPLIER",
+    name: `Smoke Test PO Supplier ${runId}`,
+    displayName: `Smoke Test PO Supplier ${runId}`,
+    countryCode: "SA",
+  });
+  const purchaseOrder = await post<PurchaseOrder>("/purchase-orders", headers, {
+    supplierId: poSupplier.id,
+    orderDate: new Date().toISOString(),
+    expectedDeliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    currency: "SAR",
+    notes: "Smoke purchase order",
+    terms: "Convert to bill smoke",
+    lines: [purchaseBillLinePayload],
+  });
+  assertEqual(purchaseOrder.status, "DRAFT", "created purchase order status");
+  assertMoney(purchaseOrder.total, expectedPurchaseBillTotal, "draft purchase order total");
+  const approvedPurchaseOrder = await post<PurchaseOrder>(`/purchase-orders/${purchaseOrder.id}/approve`, headers, {});
+  assertEqual(approvedPurchaseOrder.status, "APPROVED", "approved purchase order status");
+  const sentPurchaseOrder = await post<PurchaseOrder>(`/purchase-orders/${purchaseOrder.id}/mark-sent`, headers, {});
+  assertEqual(sentPurchaseOrder.status, "SENT", "sent purchase order status");
+  const purchaseOrderPdfData = await get<{ purchaseOrder: { total: string }; lines: unknown[] }>(
+    `/purchase-orders/${purchaseOrder.id}/pdf-data`,
+    headers,
+  );
+  assertMoney(purchaseOrderPdfData.purchaseOrder.total, expectedPurchaseBillTotal, "purchase order pdf-data total");
+  assert(purchaseOrderPdfData.lines.length > 0, "purchase order pdf-data returns lines");
+  await assertPdf(`/purchase-orders/${purchaseOrder.id}/pdf`, headers, "purchase order PDF");
+  const convertedPurchaseBill = await post<PurchaseBill>(`/purchase-orders/${purchaseOrder.id}/convert-to-bill`, headers, {});
+  assertEqual(convertedPurchaseBill.status, "DRAFT", "converted purchase bill status");
+  assertEqual(convertedPurchaseBill.purchaseOrderId, purchaseOrder.id, "converted purchase bill source PO");
+  assertMoney(convertedPurchaseBill.total, expectedPurchaseBillTotal, "converted purchase bill total");
+  assert(!convertedPurchaseBill.journalEntryId, "converted purchase bill has no journal before finalization");
+  const billedPurchaseOrder = await get<PurchaseOrder>(`/purchase-orders/${purchaseOrder.id}`, headers);
+  assertEqual(billedPurchaseOrder.status, "BILLED", "purchase order status after conversion");
+  assertEqual(billedPurchaseOrder.convertedBillId, convertedPurchaseBill.id, "purchase order converted bill id");
+  const finalizedConvertedPurchaseBill = await post<PurchaseBill>(
+    `/purchase-bills/${convertedPurchaseBill.id}/finalize`,
+    headers,
+    {},
+  );
+  assertEqual(finalizedConvertedPurchaseBill.status, "FINALIZED", "finalized converted purchase bill status");
+  assertPresent(finalizedConvertedPurchaseBill.journalEntryId, "finalized converted purchase bill journalEntryId");
+
+  const draftPurchaseBill = await post<PurchaseBill>("/purchase-bills", headers, {
+    supplierId: supplier.id,
+    billDate: new Date().toISOString(),
+    currency: "SAR",
+    notes: "Smoke purchase bill",
+    lines: [purchaseBillLinePayload],
+  });
+  assertEqual(draftPurchaseBill.status, "DRAFT", "created purchase bill status");
+  assertMoney(draftPurchaseBill.total, expectedPurchaseBillTotal, "draft purchase bill total");
+
+  const finalizedPurchaseBill = await post<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}/finalize`, headers, {});
+  assertEqual(finalizedPurchaseBill.status, "FINALIZED", "finalized purchase bill status");
+  assertPresent(finalizedPurchaseBill.journalEntryId, "finalized purchase bill journalEntryId");
+  assertMoney(finalizedPurchaseBill.balanceDue, expectedPurchaseBillTotal, "finalized purchase bill balanceDue");
+  const finalizedPurchaseBillAgain = await post<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}/finalize`, headers, {});
+  assertEqual(finalizedPurchaseBillAgain.journalEntryId, finalizedPurchaseBill.journalEntryId, "double finalize purchase bill journalEntryId");
+
+  const purchaseBillPdfData = await get<{ bill: { total: string; balanceDue: string }; lines: unknown[] }>(
+    `/purchase-bills/${draftPurchaseBill.id}/pdf-data`,
+    headers,
+  );
+  assertMoney(purchaseBillPdfData.bill.total, expectedPurchaseBillTotal, "purchase bill pdf-data total");
+  assert(purchaseBillPdfData.lines.length > 0, "purchase bill pdf-data returns lines");
+  await assertPdf(`/purchase-bills/${draftPurchaseBill.id}/pdf`, headers, "purchase bill PDF");
+
+  const cashExpensePayload: Record<string, unknown> = {
+    contactId: supplier.id,
+    expenseDate: new Date().toISOString(),
+    currency: "SAR",
+    paidThroughAccountId: paidThroughAccount!.id,
+    description: "Smoke cash expense",
+    notes: "Smoke test immediate paid expense",
+    lines: [
+      {
+        description: "Smoke test office supplies",
+        accountId: expenseAccount.id,
+        quantity: "1.0000",
+        unitPrice: "100.0000",
+        taxRateId: purchaseVat?.id,
+      },
+    ],
+  };
+  const bankBeforeCashExpense = await get<BankAccountSummary>(`/bank-accounts/${paidThroughBankProfile.id}`, headers);
+  const cashExpense = await post<CashExpense>("/cash-expenses", headers, cashExpensePayload);
+  assertEqual(cashExpense.status, "POSTED", "cash expense posted status");
+  assertPresent(cashExpense.journalEntryId, "cash expense journalEntryId");
+  assertMoney(cashExpense.total, expectedPurchaseBillTotal, "cash expense total");
+  const bankAfterCashExpense = await get<BankAccountSummary>(`/bank-accounts/${paidThroughBankProfile.id}`, headers);
+  assertMoney(
+    bankAfterCashExpense.ledgerBalance,
+    money(bankBeforeCashExpense.ledgerBalance).minus(expectedPurchaseBillTotal),
+    "bank account balance after cash expense",
+  );
+  const bankTransactionsAfterCashExpense = await get<BankAccountTransactionsResponse>(
+    `/bank-accounts/${paidThroughBankProfile.id}/transactions`,
+    headers,
+  );
+  assert(
+    bankTransactionsAfterCashExpense.transactions.some(
+      (transaction) =>
+        transaction.sourceType === "CashExpense" &&
+        transaction.sourceId === cashExpense.id &&
+        money(transaction.credit).eq(expectedPurchaseBillTotal),
+    ),
+    "bank account transactions include posted cash expense credit",
+  );
+  const cashExpensePdfData = await get<{ expense: { expenseNumber: string; total: string }; lines: unknown[] }>(
+    `/cash-expenses/${cashExpense.id}/pdf-data`,
+    headers,
+  );
+  assertEqual(cashExpensePdfData.expense.expenseNumber, cashExpense.expenseNumber, "cash expense pdf-data number");
+  assertMoney(cashExpensePdfData.expense.total, expectedPurchaseBillTotal, "cash expense pdf-data total");
+  assert(cashExpensePdfData.lines.length > 0, "cash expense pdf-data returns lines");
+  await assertPdf(`/cash-expenses/${cashExpense.id}/pdf`, headers, "cash expense PDF");
+  const supplierLedgerAfterCashExpense = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterCashExpense.rows.some(
+      (row) =>
+        row.type === "CASH_EXPENSE" &&
+        row.sourceId === cashExpense.id &&
+        money(row.debit).eq(0) &&
+        money(row.credit).eq(0) &&
+        money(row.metadata?.total).eq(cashExpense.total),
+    ),
+    "supplier ledger includes neutral cash expense row",
+  );
+  assertMoney(supplierLedgerAfterCashExpense.closingBalance, expectedPurchaseBillTotal, "supplier ledger cash expense row is neutral");
+
+  const journalEntryCountBeforeAttachments = await journalEntryCount(headers);
+  const attachmentCsvBase64 = Buffer.from("entity,number\nattachment-smoke,1\n").toString("base64");
+  const purchaseBillAttachment = await post<Attachment>("/attachments", headers, {
+    linkedEntityType: "PURCHASE_BILL",
+    linkedEntityId: finalizedPurchaseBill.id,
+    filename: "purchase-bill-support.csv",
+    mimeType: "text/csv",
+    contentBase64: attachmentCsvBase64,
+    notes: "Smoke purchase bill support",
+  });
+  const cashExpenseAttachment = await post<Attachment>("/attachments", headers, {
+    linkedEntityType: "CASH_EXPENSE",
+    linkedEntityId: cashExpense.id,
+    filename: "cash-expense-support.csv",
+    mimeType: "text/csv",
+    contentBase64: attachmentCsvBase64,
+    notes: "Smoke cash expense support",
+  });
+  const salesInvoiceAttachment = await post<Attachment>("/attachments", headers, {
+    linkedEntityType: "SALES_INVOICE",
+    linkedEntityId: finalizedInvoice.id,
+    filename: "sales-invoice-support.csv",
+    mimeType: "text/csv",
+    contentBase64: attachmentCsvBase64,
+    notes: "Smoke sales invoice support",
+  });
+  assertEqual(purchaseBillAttachment.status, "ACTIVE", "purchase bill attachment active");
+  assertEqual(cashExpenseAttachment.status, "ACTIVE", "cash expense attachment active");
+  assertEqual(salesInvoiceAttachment.status, "ACTIVE", "sales invoice attachment active");
+  const purchaseBillAttachments = await get<Attachment[]>(
+    `/attachments?linkedEntityType=PURCHASE_BILL&linkedEntityId=${encodeURIComponent(finalizedPurchaseBill.id)}`,
+    headers,
+  );
+  assert(
+    purchaseBillAttachments.some((attachment) => attachment.id === purchaseBillAttachment.id && attachment.contentHash),
+    "purchase bill attachment appears in linked active list",
+  );
+  await assertAttachmentDownload(
+    `/attachments/${purchaseBillAttachment.id}/download`,
+    headers,
+    "purchase bill attachment",
+    "attachment-smoke",
+  );
+  const deletedCashExpenseAttachment = await del<Attachment>(`/attachments/${cashExpenseAttachment.id}`, headers);
+  assertEqual(deletedCashExpenseAttachment.status, "DELETED", "cash expense attachment soft-deleted");
+  const cashExpenseAttachmentsAfterDelete = await get<Attachment[]>(
+    `/attachments?linkedEntityType=CASH_EXPENSE&linkedEntityId=${encodeURIComponent(cashExpense.id)}`,
+    headers,
+  );
+  assert(
+    !cashExpenseAttachmentsAfterDelete.some((attachment) => attachment.id === cashExpenseAttachment.id),
+    "deleted cash expense attachment is hidden from active list",
+  );
+  await expectHttpError("download deleted attachment", () =>
+    assertAttachmentDownload(`/attachments/${cashExpenseAttachment.id}/download`, headers, "deleted cash expense attachment", "attachment-smoke"),
+  );
+  const journalEntryCountAfterAttachments = await journalEntryCount(headers);
+  assertEqual(journalEntryCountAfterAttachments, journalEntryCountBeforeAttachments, "attachment endpoints do not create journal entries");
+
+  const finalizedInvoiceAuditLogs = await get<AuditLogListResponse>(
+    `/audit-logs?action=SALES_INVOICE_FINALIZED&entityType=SalesInvoice&entityId=${encodeURIComponent(finalizedInvoice.id)}`,
+    headers,
+  );
+  const attachmentUploadAuditLogs = await get<AuditLogListResponse>(
+    `/audit-logs?action=ATTACHMENT_UPLOADED&entityType=Attachment&entityId=${encodeURIComponent(purchaseBillAttachment.id)}`,
+    headers,
+  );
+  const attachmentDeleteAuditLogs = await get<AuditLogListResponse>(
+    `/audit-logs?action=ATTACHMENT_DELETED&entityType=Attachment&entityId=${encodeURIComponent(cashExpenseAttachment.id)}`,
+    headers,
+  );
+  assert(finalizedInvoiceAuditLogs.data.length > 0, "audit logs include finalized invoice action");
+  assert(attachmentUploadAuditLogs.data.length > 0, "audit logs include attachment upload action");
+  assert(attachmentDeleteAuditLogs.data.length > 0, "audit logs include attachment delete action");
+  const serializedAuditLogs = JSON.stringify([
+    ...finalizedInvoiceAuditLogs.data,
+    ...attachmentUploadAuditLogs.data,
+    ...attachmentDeleteAuditLogs.data,
+  ]);
+  assert(!serializedAuditLogs.includes(attachmentCsvBase64), "audit logs do not expose attachment base64 content");
+  const auditRetentionSettings = await get<AuditLogRetentionSettingsResponse>("/audit-logs/retention-settings", headers);
+  assertEqual(auditRetentionSettings.retentionDays, 2555, "audit retention settings default to seven years");
+  assertEqual(auditRetentionSettings.autoPurgeEnabled, false, "audit retention auto purge is disabled by default");
+  const auditRetentionPreview = await get<AuditLogRetentionPreviewResponse>("/audit-logs/retention-preview", headers);
+  assertEqual(auditRetentionPreview.dryRunOnly, true, "audit retention preview is dry-run only");
+  assert(auditRetentionPreview.totalAuditLogs >= 1, "audit retention preview returns total audit logs");
+  assert(auditRetentionPreview.warnings.some((warning) => warning.includes("No audit logs are deleted")), "audit retention preview warns that no logs are deleted");
+  const auditExportCsv = await getCsvText(
+    `/audit-logs/export.csv?action=ATTACHMENT_UPLOADED&entityType=Attachment&entityId=${encodeURIComponent(purchaseBillAttachment.id)}`,
+    headers,
+    "audit log CSV export",
+  );
+  assert(auditExportCsv.includes("ATTACHMENT_UPLOADED"), "audit log CSV export includes filtered action");
+  assert(!auditExportCsv.includes(attachmentCsvBase64), "audit log CSV export does not expose attachment base64 content");
+  assert(!auditExportCsv.includes("privateKeyPem"), "audit log CSV export does not expose private key field names from smoke data");
+
+  const numberSequences = await get<NumberSequenceResponse[]>("/number-sequences", headers);
+  assert(numberSequences.length > 0, "number sequence list returns configured scopes");
+  const contactSequence = required(
+    numberSequences.find((sequence) => sequence.scope === "CONTACT") ?? numberSequences[0],
+    "number sequence for smoke no-op patch",
+  );
+  assertEqual(
+    contactSequence.exampleNextNumber,
+    `${contactSequence.prefix}${String(contactSequence.nextNumber).padStart(contactSequence.padding, "0")}`,
+    "number sequence example matches prefix, next number, and padding",
+  );
+  const patchedNumberSequence = await patch<NumberSequenceResponse>(`/number-sequences/${contactSequence.id}`, headers, {
+    prefix: contactSequence.prefix,
+    nextNumber: contactSequence.nextNumber,
+    padding: contactSequence.padding,
+  });
+  assertEqual(patchedNumberSequence.exampleNextNumber, contactSequence.exampleNextNumber, "number sequence safe no-op patch preserves example");
+  const numberSequenceAuditLogs = await get<AuditLogListResponse>(
+    `/audit-logs?action=NUMBER_SEQUENCE_UPDATED&entityType=NumberSequence&entityId=${encodeURIComponent(contactSequence.id)}`,
+    headers,
+  );
+  assert(numberSequenceAuditLogs.data.length > 0, "audit logs include number sequence update action");
+
+  const storageReadiness = await get<StorageReadinessResponse>("/storage/readiness", headers);
+  assertEqual(storageReadiness.attachmentStorage.activeProvider, "database", "attachment storage readiness default provider");
+  assertEqual(storageReadiness.generatedDocumentStorage.activeProvider, "database", "generated document storage readiness default provider");
+  assertEqual(storageReadiness.attachmentStorage.ready, true, "attachment database storage readiness");
+  assertEqual(storageReadiness.generatedDocumentStorage.ready, true, "generated document database storage readiness");
+  assertEqual(typeof storageReadiness.s3Config.accessKeyConfigured, "boolean", "storage readiness redacted access key flag");
+  assertEqual(typeof storageReadiness.s3Config.secretConfigured, "boolean", "storage readiness redacted secret key flag");
+  const serializedStorageReadiness = JSON.stringify(storageReadiness);
+  assert(!serializedStorageReadiness.includes("S3_ACCESS_KEY_ID"), "storage readiness does not expose access key field name");
+  assert(!serializedStorageReadiness.includes("S3_SECRET_ACCESS_KEY"), "storage readiness does not expose secret key field name");
+  assert(!serializedStorageReadiness.includes("accessKeyId"), "storage readiness does not expose access key value field");
+  assert(!serializedStorageReadiness.includes("secretAccessKey"), "storage readiness does not expose secret key value field");
+
+  const storageMigrationPlan = await get<StorageMigrationPlanResponse>("/storage/migration-plan", headers);
+  assertEqual(typeof storageMigrationPlan.attachmentCount, "number", "storage migration plan attachment count");
+  assertEqual(typeof storageMigrationPlan.generatedDocumentCount, "number", "storage migration plan generated document count");
+  assertEqual(storageMigrationPlan.targetProvider, "database", "storage migration plan default target provider");
+  assertEqual(storageMigrationPlan.migrationRequired, storageMigrationPlan.estimatedMigrationRequired, "storage migration plan compatibility flags align");
+  assertEqual(storageMigrationPlan.dryRunOnly, true, "storage migration plan dry run only");
+  const backupReadiness = await get<BackupReadinessResponse>("/system/backup-readiness", headers);
+  assert(backupReadiness.readOnly, "backup readiness is read-only");
+  assert(backupReadiness.noMutation, "backup readiness reports no mutation");
+  assert(backupReadiness.noBackupExecuted, "backup readiness executes no backup");
+  assert(backupReadiness.noRestoreExecuted, "backup readiness executes no restore");
+  assert(backupReadiness.noSecretsReturned, "backup readiness returns no secrets");
+  assert(!backupReadiness.productionReady, "backup readiness is not production-ready by default");
+  assert(backupReadiness.evidenceRequired, "backup readiness requires evidence");
+  assert(backupReadiness.requiredEvidenceTypes.includes("DATABASE_BACKUP"), "backup readiness requires database backup evidence");
+  assert(backupReadiness.requiredEvidenceTypes.includes("POINT_IN_TIME_RECOVERY"), "backup readiness requires PITR evidence");
+  assert(backupReadiness.requiredEvidenceTypes.includes("OBJECT_STORAGE_BACKUP"), "backup readiness requires object storage evidence");
+  assert(backupReadiness.requiredEvidenceTypes.includes("RESTORE_DRILL"), "backup readiness requires restore drill evidence");
+  assert(backupReadiness.requiredEvidenceTypes.includes("RPO_RTO_REVIEW"), "backup readiness requires RPO/RTO review evidence");
+  assert(!backupReadiness.rpoRtoReviewed || backupReadiness.verifiedEvidenceTypes.includes("RPO_RTO_REVIEW"), "backup readiness RPO/RTO state is evidence-backed");
+  assertNoBackupSecretExposure(backupReadiness, "backup readiness");
+
+  const restoreDrillPlan = await get<RestoreDrillPlanResponse>("/system/restore-drill-plan", headers);
+  assert(restoreDrillPlan.readOnly, "restore drill plan is read-only");
+  assert(restoreDrillPlan.noMutation, "restore drill plan reports no mutation");
+  assert(restoreDrillPlan.noRestoreExecuted, "restore drill plan executes no restore");
+  assert(restoreDrillPlan.noCustomerDataExported, "restore drill plan exports no customer data");
+  assert(restoreDrillPlan.noSecretsReturned, "restore drill plan returns no secrets");
+  assert(!restoreDrillPlan.productionReady, "restore drill plan is not production-ready");
+  assert(restoreDrillPlan.plannedSteps.some((step) => step.includes("isolated environment")), "restore drill plan includes isolated environment step");
+  assert(restoreDrillPlan.plannedSteps.some((step) => step.includes("email sending disabled")), "restore drill plan keeps email sending disabled");
+  assertNoBackupSecretExposure(restoreDrillPlan, "restore drill plan");
+
+  const backupEvidenceBefore = await get<BackupRestoreEvidenceListResponse>("/system/backup-evidence", headers);
+  assert(backupEvidenceBefore.metadataOnly, "backup evidence list is metadata-only");
+  assert(backupEvidenceBefore.noBackupExecuted, "backup evidence list executes no backup");
+  assert(backupEvidenceBefore.noRestoreExecuted, "backup evidence list executes no restore");
+  assert(backupEvidenceBefore.noSecretsReturned, "backup evidence list returns no secrets");
+  assertNoBackupSecretExposure(backupEvidenceBefore, "backup evidence list");
+  const createdBackupEvidence = await post<BackupRestoreEvidenceResponse>("/system/backup-evidence", headers, {
+    evidenceType: "OTHER",
+    scope: "ORGANIZATION",
+    provider: "smoke",
+    evidenceSummaryJson: { summary: "metadata-only smoke evidence; no backup or restore executed" },
+    note: "Smoke metadata-only backup evidence.",
+  });
+  assert(createdBackupEvidence.metadataOnly, "backup evidence create is metadata-only");
+  assert(createdBackupEvidence.noBackupExecuted, "backup evidence create executes no backup");
+  assert(createdBackupEvidence.noRestoreExecuted, "backup evidence create executes no restore");
+  assert(createdBackupEvidence.noSecretsReturned, "backup evidence create returns no secrets");
+  assertEqual(createdBackupEvidence.evidence.evidenceType, "OTHER", "backup evidence smoke type");
+  assertNoBackupSecretExposure(createdBackupEvidence, "backup evidence create");
+  const journalEntryCountAfterStorageReports = await journalEntryCount(headers);
+  assertEqual(journalEntryCountAfterStorageReports, journalEntryCountAfterAttachments, "storage readiness endpoints do not create journal entries");
+
+  const voidedCashExpense = await post<CashExpense>(`/cash-expenses/${cashExpense.id}/void`, headers, {});
+  assertEqual(voidedCashExpense.status, "VOIDED", "voided cash expense status");
+  assertPresent(voidedCashExpense.voidReversalJournalEntryId, "voided cash expense reversal journal");
+
+  const debitNoteLinePayload: Record<string, unknown> = {
+    description: "Smoke test supplier debit adjustment",
+    accountId: expenseAccount.id,
+    quantity: "1.0000",
+    unitPrice: "10.0000",
+  };
+  if (purchaseVat) {
+    debitNoteLinePayload.taxRateId = purchaseVat.id;
+  }
+  const draftPurchaseDebitNote = await post<PurchaseDebitNote>("/purchase-debit-notes", headers, {
+    supplierId: supplier.id,
+    originalBillId: draftPurchaseBill.id,
+    issueDate: new Date().toISOString(),
+    currency: "SAR",
+    reason: "Smoke test supplier debit note",
+    lines: [debitNoteLinePayload],
+  });
+  assertEqual(draftPurchaseDebitNote.status, "DRAFT", "created purchase debit note status");
+  assertMoney(draftPurchaseDebitNote.total, expectedPurchaseDebitNoteTotal, "draft purchase debit note total");
+  assertMoney(draftPurchaseDebitNote.unappliedAmount, expectedPurchaseDebitNoteTotal, "draft purchase debit note unapplied amount");
+
+  const finalizedPurchaseDebitNote = await post<PurchaseDebitNote>(`/purchase-debit-notes/${draftPurchaseDebitNote.id}/finalize`, headers, {});
+  assertEqual(finalizedPurchaseDebitNote.status, "FINALIZED", "finalized purchase debit note status");
+  assertPresent(finalizedPurchaseDebitNote.journalEntryId, "finalized purchase debit note journalEntryId");
+  assertMoney(finalizedPurchaseDebitNote.total, expectedPurchaseDebitNoteTotal, "finalized purchase debit note total");
+  const finalizedPurchaseDebitNoteAgain = await post<PurchaseDebitNote>(`/purchase-debit-notes/${draftPurchaseDebitNote.id}/finalize`, headers, {});
+  assertEqual(
+    finalizedPurchaseDebitNoteAgain.journalEntryId,
+    finalizedPurchaseDebitNote.journalEntryId,
+    "double finalize purchase debit note journalEntryId",
+  );
+
+  const billDebitNotes = await get<PurchaseDebitNote[]>(`/purchase-bills/${draftPurchaseBill.id}/debit-notes`, headers);
+  assert(
+    billDebitNotes.some((debitNote) => debitNote.id === draftPurchaseDebitNote.id && debitNote.status === "FINALIZED"),
+    "purchase bill linked debit notes include finalized smoke debit note",
+  );
+  const supplierLedgerAfterDebitNote = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterDebitNote.rows.some(
+      (row) => row.type === "PURCHASE_DEBIT_NOTE" && row.sourceId === draftPurchaseDebitNote.id && money(row.debit).eq(expectedPurchaseDebitNoteTotal),
+    ),
+    "supplier ledger includes purchase debit note debit",
+  );
+  assertMoney(
+    supplierLedgerAfterDebitNote.closingBalance,
+    expectedPurchaseBillTotal.minus(expectedPurchaseDebitNoteTotal),
+    "supplier ledger closing balance after purchase debit note",
+  );
+
+  const debitApplyAmount = money("5.0000");
+  const appliedPurchaseDebitNote = await post<PurchaseDebitNote>(`/purchase-debit-notes/${draftPurchaseDebitNote.id}/apply`, headers, {
+    billId: draftPurchaseBill.id,
+    amountApplied: debitApplyAmount.toFixed(4),
+  });
+  assertMoney(
+    appliedPurchaseDebitNote.unappliedAmount,
+    expectedPurchaseDebitNoteTotal.minus(debitApplyAmount),
+    "purchase debit note unapplied amount after partial application",
+  );
+  const purchaseBillAfterDebitApply = await get<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}`, headers);
+  assertMoney(purchaseBillAfterDebitApply.balanceDue, expectedPurchaseBillTotal.minus(debitApplyAmount), "purchase bill balance after debit note application");
+  const purchaseDebitNoteAllocations = await get<PurchaseDebitNoteAllocation[]>(
+    `/purchase-debit-notes/${draftPurchaseDebitNote.id}/allocations`,
+    headers,
+  );
+  const purchaseDebitNoteAllocation = required(
+    purchaseDebitNoteAllocations.find((allocation) => allocation.billId === draftPurchaseBill.id && money(allocation.amountApplied).eq(debitApplyAmount)),
+    "purchase debit note allocation for smoke application",
+  );
+  const billDebitNoteAllocations = await get<PurchaseDebitNoteAllocation[]>(`/purchase-bills/${draftPurchaseBill.id}/debit-note-allocations`, headers);
+  assert(
+    billDebitNoteAllocations.some(
+      (allocation) => allocation.debitNoteId === draftPurchaseDebitNote.id && money(allocation.amountApplied).eq(debitApplyAmount),
+    ),
+    "purchase bill debit note allocations include partial application",
+  );
+  const supplierLedgerAfterDebitApply = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterDebitApply.rows.some(
+      (row) =>
+        row.type === "PURCHASE_DEBIT_NOTE_ALLOCATION" &&
+        row.sourceId === purchaseDebitNoteAllocation.id &&
+        money(row.debit).eq(0) &&
+        money(row.credit).eq(0),
+    ),
+    "supplier ledger includes neutral purchase debit note allocation row",
+  );
+  assertMoney(
+    supplierLedgerAfterDebitApply.closingBalance,
+    expectedPurchaseBillTotal.minus(expectedPurchaseDebitNoteTotal),
+    "supplier ledger closing balance after debit allocation is not double counted",
+  );
+  await expectHttpError("over-apply purchase debit note", () =>
+    post<PurchaseDebitNote>(`/purchase-debit-notes/${draftPurchaseDebitNote.id}/apply`, headers, {
+      billId: draftPurchaseBill.id,
+      amountApplied: expectedPurchaseDebitNoteTotal.toFixed(4),
+    }),
+  );
+  await expectHttpError("void allocated purchase debit note", () => post<PurchaseDebitNote>(`/purchase-debit-notes/${draftPurchaseDebitNote.id}/void`, headers, {}));
+  await expectHttpError("void purchase bill with active debit note allocation", () =>
+    post<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}/void`, headers, {}),
+  );
+
+  const reversedPurchaseDebitNote = await post<PurchaseDebitNote>(
+    `/purchase-debit-notes/${draftPurchaseDebitNote.id}/allocations/${purchaseDebitNoteAllocation.id}/reverse`,
+    headers,
+    { reason: "Smoke test purchase debit allocation reversal" },
+  );
+  assertMoney(reversedPurchaseDebitNote.unappliedAmount, expectedPurchaseDebitNoteTotal, "purchase debit note unapplied amount after allocation reversal");
+  const purchaseBillAfterDebitReverse = await get<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}`, headers);
+  assertMoney(purchaseBillAfterDebitReverse.balanceDue, expectedPurchaseBillTotal, "purchase bill balance after debit allocation reversal");
+  const reversedPurchaseDebitNoteAllocations = await get<PurchaseDebitNoteAllocation[]>(
+    `/purchase-debit-notes/${draftPurchaseDebitNote.id}/allocations`,
+    headers,
+  );
+  assert(
+    reversedPurchaseDebitNoteAllocations.some(
+      (allocation) =>
+        allocation.id === purchaseDebitNoteAllocation.id &&
+        Boolean(allocation.reversedAt) &&
+        allocation.reversalReason === "Smoke test purchase debit allocation reversal",
+    ),
+    "purchase debit note allocations include reversal metadata",
+  );
+  const supplierLedgerAfterDebitReverse = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterDebitReverse.rows.some(
+      (row) =>
+        row.type === "PURCHASE_DEBIT_NOTE_ALLOCATION_REVERSAL" &&
+        row.sourceId === purchaseDebitNoteAllocation.id &&
+        money(row.debit).eq(0) &&
+        money(row.credit).eq(0),
+    ),
+    "supplier ledger includes neutral purchase debit note allocation reversal row",
+  );
+  assertMoney(
+    supplierLedgerAfterDebitReverse.closingBalance,
+    expectedPurchaseBillTotal.minus(expectedPurchaseDebitNoteTotal),
+    "supplier ledger closing balance after debit allocation reversal is not double counted",
+  );
+  const purchaseDebitNotePdfData = await get<{ debitNote: { total: string; unappliedAmount: string }; lines: unknown[]; allocations: unknown[] }>(
+    `/purchase-debit-notes/${draftPurchaseDebitNote.id}/pdf-data`,
+    headers,
+  );
+  assertMoney(purchaseDebitNotePdfData.debitNote.total, expectedPurchaseDebitNoteTotal, "purchase debit note pdf-data total");
+  assertMoney(
+    purchaseDebitNotePdfData.debitNote.unappliedAmount,
+    expectedPurchaseDebitNoteTotal,
+    "purchase debit note pdf-data unapplied amount after reversal",
+  );
+  assert(purchaseDebitNotePdfData.lines.length > 0, "purchase debit note pdf-data returns lines");
+  assert(purchaseDebitNotePdfData.allocations.length > 0, "purchase debit note pdf-data returns allocations");
+  await assertPdf(`/purchase-debit-notes/${draftPurchaseDebitNote.id}/pdf`, headers, "purchase debit note PDF");
+  const purchaseDebitNoteDocuments = await get<GeneratedDocument[]>(
+    `/generated-documents?documentType=PURCHASE_DEBIT_NOTE&sourceId=${encodeURIComponent(draftPurchaseDebitNote.id)}`,
+    headers,
+  );
+  const archivedPurchaseDebitNotePdf = required(
+    purchaseDebitNoteDocuments.find((document) => document.sourceId === draftPurchaseDebitNote.id && document.status === "GENERATED"),
+    "archived purchase debit note PDF document",
+  );
+  await assertPdf(`/generated-documents/${archivedPurchaseDebitNotePdf.id}/download`, headers, "archived purchase debit note PDF");
+  const voidedPurchaseDebitNote = await post<PurchaseDebitNote>(`/purchase-debit-notes/${draftPurchaseDebitNote.id}/void`, headers, {});
+  assertEqual(voidedPurchaseDebitNote.status, "VOIDED", "voided purchase debit note status after reversed allocation");
+  assertPresent(voidedPurchaseDebitNote.reversalJournalEntryId, "voided purchase debit note reversal journal");
+  const supplierLedgerAfterDebitNoteVoid = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterDebitNoteVoid.rows.some(
+      (row) =>
+        row.type === "VOID_PURCHASE_DEBIT_NOTE" &&
+        row.sourceId === draftPurchaseDebitNote.id &&
+        money(row.credit).eq(expectedPurchaseDebitNoteTotal),
+    ),
+    "supplier ledger includes void purchase debit note credit",
+  );
+  assertMoney(
+    supplierLedgerAfterDebitNoteVoid.closingBalance,
+    expectedPurchaseBillTotal,
+    "supplier ledger closing balance after purchase debit note void",
+  );
+
+  const supplierPaymentAmount = money("40.0000");
+  const bankBeforeSupplierPayment = await get<BankAccountSummary>(`/bank-accounts/${paidThroughBankProfile.id}`, headers);
+  const supplierPayment = await post<SupplierPayment>("/supplier-payments", headers, {
+    supplierId: supplier.id,
+    paymentDate: new Date().toISOString(),
+    currency: "SAR",
+    amountPaid: supplierPaymentAmount.toFixed(4),
+    accountId: paidThroughAccount!.id,
+    description: "Smoke test supplier payment",
+    allocations: [{ billId: draftPurchaseBill.id, amountApplied: supplierPaymentAmount.toFixed(4) }],
+  });
+  assertEqual(supplierPayment.status, "POSTED", "supplier payment status");
+  assertPresent(supplierPayment.journalEntryId, "supplier payment journalEntryId");
+  assertMoney(supplierPayment.unappliedAmount, money(0), "supplier payment unapplied amount");
+  const bankAfterSupplierPayment = await get<BankAccountSummary>(`/bank-accounts/${paidThroughBankProfile.id}`, headers);
+  assertMoney(
+    bankAfterSupplierPayment.ledgerBalance,
+    money(bankBeforeSupplierPayment.ledgerBalance).minus(supplierPaymentAmount),
+    "bank account balance after supplier payment",
+  );
+  const bankTransactionsAfterSupplierPayment = await get<BankAccountTransactionsResponse>(
+    `/bank-accounts/${paidThroughBankProfile.id}/transactions`,
+    headers,
+  );
+  assert(
+    bankTransactionsAfterSupplierPayment.transactions.some(
+      (transaction) =>
+        transaction.sourceType === "SupplierPayment" &&
+        transaction.sourceId === supplierPayment.id &&
+        money(transaction.credit).eq(supplierPaymentAmount),
+    ),
+    "bank account transactions include posted supplier payment credit",
+  );
+
+  const purchaseBillAfterPayment = await get<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}`, headers);
+  assertMoney(purchaseBillAfterPayment.balanceDue, expectedPurchaseBillTotal.minus(supplierPaymentAmount), "purchase bill balance after supplier payment");
+  const supplierLedgerAfterPayment = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterPayment.rows.some(
+      (row) => row.type === "PURCHASE_BILL" && row.sourceId === draftPurchaseBill.id && money(row.credit).eq(expectedPurchaseBillTotal),
+    ),
+    "supplier ledger includes purchase bill credit",
+  );
+  assert(
+    supplierLedgerAfterPayment.rows.some(
+      (row) => row.type === "SUPPLIER_PAYMENT" && row.sourceId === supplierPayment.id && money(row.debit).eq(supplierPaymentAmount),
+    ),
+    "supplier ledger includes supplier payment debit",
+  );
+  assertMoney(
+    supplierLedgerAfterPayment.closingBalance,
+    expectedPurchaseBillTotal.minus(supplierPaymentAmount),
+    "supplier ledger closing balance after payment",
+  );
+
+  const supplierStatement = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-statement?from=${from}&to=${to}`, headers);
+  assert(supplierStatement.rows.length > 0, "supplier statement returns rows");
+  assertMoney(
+    supplierStatement.closingBalance,
+    expectedPurchaseBillTotal.minus(supplierPaymentAmount),
+    "supplier statement closing balance after payment",
+  );
+  const supplierReceiptPdfData = await get<{ payment: { paymentNumber: string }; allocations: unknown[] }>(
+    `/supplier-payments/${supplierPayment.id}/receipt-pdf-data`,
+    headers,
+  );
+  assertEqual(supplierReceiptPdfData.payment.paymentNumber, supplierPayment.paymentNumber, "supplier receipt pdf-data payment number");
+  assert(supplierReceiptPdfData.allocations.length > 0, "supplier receipt pdf-data returns allocations");
+  await assertPdf(`/supplier-payments/${supplierPayment.id}/receipt.pdf`, headers, "supplier payment receipt PDF");
+
+  await expectHttpError("void purchase bill with active supplier payment", () =>
+    post<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}/void`, headers, {}),
+  );
+  const voidedSupplierPayment = await post<SupplierPayment>(`/supplier-payments/${supplierPayment.id}/void`, headers, {});
+  assertEqual(voidedSupplierPayment.status, "VOIDED", "voided supplier payment status");
+  assertPresent(voidedSupplierPayment.voidReversalJournalEntryId, "voided supplier payment reversal journal");
+  const purchaseBillAfterSupplierPaymentVoid = await get<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}`, headers);
+  assertMoney(purchaseBillAfterSupplierPaymentVoid.balanceDue, expectedPurchaseBillTotal, "purchase bill balance after supplier payment void");
+  const supplierLedgerAfterPaymentVoid = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterPaymentVoid.rows.some(
+      (row) => row.type === "VOID_SUPPLIER_PAYMENT" && row.sourceId === supplierPayment.id && money(row.credit).eq(supplierPaymentAmount),
+    ),
+    "supplier ledger includes void supplier payment credit",
+  );
+  assertMoney(supplierLedgerAfterPaymentVoid.closingBalance, expectedPurchaseBillTotal, "supplier ledger closing balance after payment void");
+
+  const voidedPurchaseBill = await post<PurchaseBill>(`/purchase-bills/${draftPurchaseBill.id}/void`, headers, {});
+  assertEqual(voidedPurchaseBill.status, "VOIDED", "voided purchase bill status");
+  assertPresent(voidedPurchaseBill.reversalJournalEntryId, "voided purchase bill reversal journal");
+
+  const supplierOverpaymentBill = await post<PurchaseBill>("/purchase-bills", headers, {
+    supplierId: supplier.id,
+    billDate: new Date().toISOString(),
+    currency: "SAR",
+    notes: "Smoke test supplier overpayment target bill",
+    lines: [purchaseBillLinePayload],
+  });
+  const finalizedSupplierOverpaymentBill = await post<PurchaseBill>(
+    `/purchase-bills/${supplierOverpaymentBill.id}/finalize`,
+    headers,
+    {},
+  );
+  assertMoney(finalizedSupplierOverpaymentBill.balanceDue, expectedPurchaseBillTotal, "supplier overpayment target bill balance");
+
+  const supplierOverpaymentAmount = money("80.0000");
+  const supplierUnappliedApplyAmount = money("30.0000");
+  const supplierOverpayment = await post<SupplierPayment>("/supplier-payments", headers, {
+    supplierId: supplier.id,
+    paymentDate: new Date().toISOString(),
+    currency: "SAR",
+    amountPaid: supplierOverpaymentAmount.toFixed(4),
+    accountId: paidThroughAccount!.id,
+    description: "Smoke test supplier overpayment",
+    allocations: [],
+  });
+  assertMoney(supplierOverpayment.unappliedAmount, supplierOverpaymentAmount, "supplier overpayment unapplied amount");
+
+  const supplierPaymentAfterUnappliedApply = await post<SupplierPayment>(
+    `/supplier-payments/${supplierOverpayment.id}/apply-unapplied`,
+    headers,
+    {
+      billId: finalizedSupplierOverpaymentBill.id,
+      amountApplied: supplierUnappliedApplyAmount.toFixed(4),
+    },
+  );
+  assertMoney(
+    supplierPaymentAfterUnappliedApply.unappliedAmount,
+    supplierOverpaymentAmount.minus(supplierUnappliedApplyAmount),
+    "supplier payment unapplied amount after application",
+  );
+  const supplierOverpaymentBillAfterApply = await get<PurchaseBill>(
+    `/purchase-bills/${finalizedSupplierOverpaymentBill.id}`,
+    headers,
+  );
+  assertMoney(
+    supplierOverpaymentBillAfterApply.balanceDue,
+    expectedPurchaseBillTotal.minus(supplierUnappliedApplyAmount),
+    "purchase bill balance after supplier overpayment application",
+  );
+  const supplierPaymentUnappliedAllocations = await get<SupplierPaymentUnappliedAllocation[]>(
+    `/supplier-payments/${supplierOverpayment.id}/unapplied-allocations`,
+    headers,
+  );
+  const supplierPaymentUnappliedAllocation = required(
+    supplierPaymentUnappliedAllocations.find(
+      (allocation) =>
+        allocation.billId === finalizedSupplierOverpaymentBill.id &&
+        money(allocation.amountApplied).eq(supplierUnappliedApplyAmount),
+    ),
+    "supplier payment unapplied allocation for smoke application",
+  );
+  const billSupplierPaymentUnappliedAllocations = await get<SupplierPaymentUnappliedAllocation[]>(
+    `/purchase-bills/${finalizedSupplierOverpaymentBill.id}/supplier-payment-unapplied-allocations`,
+    headers,
+  );
+  assert(
+    billSupplierPaymentUnappliedAllocations.some((allocation) => allocation.id === supplierPaymentUnappliedAllocation.id),
+    "purchase bill exposes supplier payment unapplied allocation",
+  );
+  const supplierReceiptAfterUnappliedApply = await get<{
+    unappliedAllocations?: Array<{ billId: string; amountApplied: string; status: string }>;
+  }>(`/supplier-payments/${supplierOverpayment.id}/receipt-pdf-data`, headers);
+  assert(
+    Boolean(
+      supplierReceiptAfterUnappliedApply.unappliedAllocations?.some(
+        (allocation) =>
+          allocation.billId === finalizedSupplierOverpaymentBill.id &&
+          money(allocation.amountApplied).eq(supplierUnappliedApplyAmount),
+      ),
+    ),
+    "supplier receipt pdf-data includes unapplied payment allocation",
+  );
+  const supplierLedgerAfterUnappliedApply = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterUnappliedApply.rows.some(
+      (row) =>
+        row.type === "SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION" &&
+        row.sourceId === supplierPaymentUnappliedAllocation.id &&
+        money(row.debit).eq(0) &&
+        money(row.credit).eq(0),
+    ),
+    "supplier ledger includes neutral supplier payment unapplied allocation row",
+  );
+
+  const supplierPaymentAfterUnappliedReverse = await post<SupplierPayment>(
+    `/supplier-payments/${supplierOverpayment.id}/unapplied-allocations/${supplierPaymentUnappliedAllocation.id}/reverse`,
+    headers,
+    { reason: "Smoke test supplier payment application reversal" },
+  );
+  assertMoney(
+    supplierPaymentAfterUnappliedReverse.unappliedAmount,
+    supplierOverpaymentAmount,
+    "supplier payment unapplied amount after application reversal",
+  );
+  const supplierOverpaymentBillAfterReverse = await get<PurchaseBill>(
+    `/purchase-bills/${finalizedSupplierOverpaymentBill.id}`,
+    headers,
+  );
+  assertMoney(
+    supplierOverpaymentBillAfterReverse.balanceDue,
+    expectedPurchaseBillTotal,
+    "purchase bill balance after supplier overpayment application reversal",
+  );
+  const reversedSupplierPaymentUnappliedAllocations = await get<SupplierPaymentUnappliedAllocation[]>(
+    `/supplier-payments/${supplierOverpayment.id}/unapplied-allocations`,
+    headers,
+  );
+  assert(
+    reversedSupplierPaymentUnappliedAllocations.some(
+      (allocation) =>
+        allocation.id === supplierPaymentUnappliedAllocation.id &&
+        Boolean(allocation.reversedAt) &&
+        allocation.reversalReason === "Smoke test supplier payment application reversal",
+    ),
+    "supplier payment unapplied allocations include reversal metadata",
+  );
+  const supplierLedgerAfterUnappliedReverse = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterUnappliedReverse.rows.some(
+      (row) =>
+        row.type === "SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL" &&
+        row.sourceId === supplierPaymentUnappliedAllocation.id &&
+        money(row.debit).eq(0) &&
+        money(row.credit).eq(0),
+    ),
+    "supplier ledger includes neutral supplier payment unapplied allocation reversal row",
+  );
+
+  const supplierRefundableSources = await get<{ payments: SupplierPayment[]; debitNotes: PurchaseDebitNote[] }>(
+    `/supplier-refunds/refundable-sources?supplierId=${supplier.id}`,
+    headers,
+  );
+  assert(
+    supplierRefundableSources.payments.some(
+      (payment) => payment.id === supplierOverpayment.id && money(payment.unappliedAmount).eq(supplierOverpaymentAmount),
+    ),
+    "supplier refundable sources include unapplied supplier payment",
+  );
+
+  const supplierPaymentRefundAmount = money("20.0000");
+  const supplierPaymentRefund = await post<SupplierRefund>("/supplier-refunds", headers, {
+    supplierId: supplier.id,
+    sourceType: "SUPPLIER_PAYMENT",
+    sourcePaymentId: supplierOverpayment.id,
+    refundDate: new Date().toISOString(),
+    currency: "SAR",
+    amountRefunded: supplierPaymentRefundAmount.toFixed(4),
+    accountId: paidThroughAccount!.id,
+    description: "Smoke test supplier payment refund",
+  });
+  assertEqual(supplierPaymentRefund.status, "POSTED", "supplier payment refund status");
+  assertPresent(supplierPaymentRefund.journalEntryId, "supplier payment refund journalEntryId");
+  const supplierOverpaymentAfterRefund = await get<SupplierPayment>(`/supplier-payments/${supplierOverpayment.id}`, headers);
+  assertMoney(
+    supplierOverpaymentAfterRefund.unappliedAmount,
+    supplierOverpaymentAmount.minus(supplierPaymentRefundAmount),
+    "supplier payment unapplied amount after refund",
+  );
+  const supplierLedgerAfterPaymentRefund = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterPaymentRefund.rows.some(
+      (row) =>
+        row.type === "SUPPLIER_REFUND" &&
+        row.sourceId === supplierPaymentRefund.id &&
+        money(row.credit).eq(supplierPaymentRefundAmount),
+    ),
+    "supplier ledger includes supplier payment refund credit",
+  );
+
+  const voidedSupplierPaymentRefund = await post<SupplierRefund>(`/supplier-refunds/${supplierPaymentRefund.id}/void`, headers, {});
+  assertEqual(voidedSupplierPaymentRefund.status, "VOIDED", "voided supplier payment refund status");
+  assertPresent(voidedSupplierPaymentRefund.voidReversalJournalEntryId, "voided supplier payment refund reversal journal");
+  const supplierOverpaymentAfterRefundVoid = await get<SupplierPayment>(`/supplier-payments/${supplierOverpayment.id}`, headers);
+  assertMoney(
+    supplierOverpaymentAfterRefundVoid.unappliedAmount,
+    supplierOverpaymentAmount,
+    "supplier payment unapplied amount after refund void",
+  );
+  const supplierLedgerAfterPaymentRefundVoid = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterPaymentRefundVoid.rows.some(
+      (row) =>
+        row.type === "VOID_SUPPLIER_REFUND" &&
+        row.sourceId === supplierPaymentRefund.id &&
+        money(row.debit).eq(supplierPaymentRefundAmount),
+    ),
+    "supplier ledger includes void supplier payment refund debit",
+  );
+
+  const supplierRefundDebitNote = await post<PurchaseDebitNote>("/purchase-debit-notes", headers, {
+    supplierId: supplier.id,
+    issueDate: new Date().toISOString(),
+    currency: "SAR",
+    reason: "Smoke test supplier refund debit note",
+    lines: [debitNoteLinePayload],
+  });
+  const finalizedSupplierRefundDebitNote = await post<PurchaseDebitNote>(
+    `/purchase-debit-notes/${supplierRefundDebitNote.id}/finalize`,
+    headers,
+    {},
+  );
+  assertMoney(
+    finalizedSupplierRefundDebitNote.unappliedAmount,
+    expectedPurchaseDebitNoteTotal,
+    "supplier refund debit note unapplied amount",
+  );
+  const supplierDebitNoteRefundableSources = await get<{ payments: SupplierPayment[]; debitNotes: PurchaseDebitNote[] }>(
+    `/supplier-refunds/refundable-sources?supplierId=${supplier.id}`,
+    headers,
+  );
+  assert(
+    supplierDebitNoteRefundableSources.debitNotes.some(
+      (debitNote) =>
+        debitNote.id === finalizedSupplierRefundDebitNote.id &&
+        money(debitNote.unappliedAmount).eq(expectedPurchaseDebitNoteTotal),
+    ),
+    "supplier refundable sources include unapplied purchase debit note",
+  );
+
+  const supplierDebitNoteRefundAmount = money("5.0000");
+  const supplierDebitNoteRefund = await post<SupplierRefund>("/supplier-refunds", headers, {
+    supplierId: supplier.id,
+    sourceType: "PURCHASE_DEBIT_NOTE",
+    sourceDebitNoteId: finalizedSupplierRefundDebitNote.id,
+    refundDate: new Date().toISOString(),
+    currency: "SAR",
+    amountRefunded: supplierDebitNoteRefundAmount.toFixed(4),
+    accountId: paidThroughAccount!.id,
+    description: "Smoke test purchase debit note supplier refund",
+  });
+  assertEqual(supplierDebitNoteRefund.status, "POSTED", "supplier debit note refund status");
+  assertPresent(supplierDebitNoteRefund.journalEntryId, "supplier debit note refund journalEntryId");
+  const supplierRefundDebitNoteAfterRefund = await get<PurchaseDebitNote>(
+    `/purchase-debit-notes/${finalizedSupplierRefundDebitNote.id}`,
+    headers,
+  );
+  assertMoney(
+    supplierRefundDebitNoteAfterRefund.unappliedAmount,
+    expectedPurchaseDebitNoteTotal.minus(supplierDebitNoteRefundAmount),
+    "purchase debit note unapplied amount after supplier refund",
+  );
+  const supplierRefundPdfData = await get<{ refund: { refundNumber: string }; source: { number: string } }>(
+    `/supplier-refunds/${supplierDebitNoteRefund.id}/pdf-data`,
+    headers,
+  );
+  assertEqual(
+    supplierRefundPdfData.refund.refundNumber,
+    supplierDebitNoteRefund.refundNumber,
+    "supplier refund pdf-data refund number",
+  );
+  await assertPdf(`/supplier-refunds/${supplierDebitNoteRefund.id}/pdf`, headers, "supplier refund PDF");
+  const supplierLedgerAfterDebitNoteRefund = await get<LedgerResponse>(`/contacts/${supplier.id}/supplier-ledger`, headers);
+  assert(
+    supplierLedgerAfterDebitNoteRefund.rows.some(
+      (row) =>
+        row.type === "SUPPLIER_REFUND" &&
+        row.sourceId === supplierDebitNoteRefund.id &&
+        money(row.credit).eq(supplierDebitNoteRefundAmount),
+    ),
+    "supplier ledger includes purchase debit note supplier refund credit",
+  );
+
+  const generalLedgerReport = await get<GeneralLedgerReport>("/reports/general-ledger", headers);
+  assert(generalLedgerReport.accounts.length > 0, "general ledger returns account activity");
+  const trialBalanceReport = await get<TrialBalanceReport>("/reports/trial-balance", headers);
+  assertMoney(trialBalanceReport.totals.closingDebit, money(trialBalanceReport.totals.closingCredit), "trial balance closing debit equals credit");
+  assertEqual(trialBalanceReport.totals.balanced, true, "trial balance balanced flag");
+  await assertCsv("/reports/trial-balance?format=csv", headers, "trial balance CSV", "Trial Balance");
+  await assertPdf("/reports/trial-balance/pdf", headers, "trial balance PDF");
+  const trialBalanceReportDocuments = await get<GeneratedDocument[]>("/generated-documents?documentType=REPORT_TRIAL_BALANCE", headers);
+  assert(trialBalanceReportDocuments.length >= 1, "generated documents include trial balance report PDF");
+  const profitAndLossReport = await get<ProfitAndLossReport>("/reports/profit-and-loss", headers);
+  assertPresent(profitAndLossReport.revenue, "profit and loss revenue");
+  assertPresent(profitAndLossReport.expenses, "profit and loss expenses");
+  assertPresent(profitAndLossReport.netProfit, "profit and loss net profit");
+  const balanceSheetReport = await get<BalanceSheetReport>("/reports/balance-sheet", headers);
+  assertEqual(typeof balanceSheetReport.balanced, "boolean", "balance sheet balanced flag exists");
+  assertPresent(balanceSheetReport.totalAssets, "balance sheet total assets");
+  assertPresent(balanceSheetReport.totalLiabilitiesAndEquity, "balance sheet total liabilities and equity");
+  const vatSummaryReport = await get<VatSummaryReport>("/reports/vat-summary", headers);
+  assertPresent(vatSummaryReport.salesVat, "VAT summary salesVat");
+  assertPresent(vatSummaryReport.purchaseVat, "VAT summary purchaseVat");
+  assertPresent(vatSummaryReport.netVatPayable, "VAT summary netVatPayable");
+  const agedReceivablesReport = await get<AgingReport>("/reports/aged-receivables", headers);
+  assertPresent(agedReceivablesReport.grandTotal, "aged receivables grand total");
+  const agedPayablesReport = await get<AgingReport>("/reports/aged-payables", headers);
+  assertPresent(agedPayablesReport.grandTotal, "aged payables grand total");
+  const dashboardSummary = await get<DashboardSummary>("/dashboard/summary", headers);
+  const dashboardOnboardingChecklist = await get<DashboardOnboardingChecklist>("/dashboard/onboarding-checklist", headers);
+  assert(dashboardOnboardingChecklist.readOnly, "dashboard onboarding checklist is read-only");
+  assert(dashboardOnboardingChecklist.noMutation, "dashboard onboarding checklist is no-mutation");
+  assert(dashboardOnboardingChecklist.tenantScoped, "dashboard onboarding checklist is tenant-scoped");
+  assert(dashboardOnboardingChecklist.items.length >= 8, "dashboard onboarding checklist returns sellable-v1 checks");
+  assert(dashboardOnboardingChecklist.readinessScore >= 0, "dashboard onboarding readiness score is present");
+  assertEqual(dashboardOnboardingChecklist.productionCompliance, false, "dashboard onboarding checklist keeps production compliance false");
+  assertEqual(dashboardOnboardingChecklist.zatcaProductionCompliance, false, "dashboard onboarding checklist keeps ZATCA production compliance false");
+  assertEqual(dashboardOnboardingChecklist.realZatcaNetworkEnabled, false, "dashboard onboarding checklist keeps real ZATCA network disabled");
+  assertEqual(dashboardOnboardingChecklist.signedXmlBodyPersistenceAllowed, false, "dashboard onboarding checklist keeps signed XML body persistence blocked");
+  assertEqual(dashboardOnboardingChecklist.qrPayloadBodyPersistenceAllowed, false, "dashboard onboarding checklist keeps QR payload persistence blocked");
+  const serializedOnboardingChecklist = JSON.stringify(dashboardOnboardingChecklist);
+  assert(!serializedOnboardingChecklist.includes("binarySecurityToken"), "dashboard onboarding checklist does not expose CSID token names");
+  assert(!serializedOnboardingChecklist.includes("-----BEGIN PRIVATE KEY-----"), "dashboard onboarding checklist does not expose private key material");
+  assertPresent(dashboardSummary.asOf, "dashboard summary asOf");
+  assertPresent(dashboardSummary.currency, "dashboard summary currency");
+  for (const section of ["sales", "purchases", "banking", "inventory", "reports", "compliance"] as const) {
+    assert(typeof dashboardSummary[section] === "object" && dashboardSummary[section] !== null, `dashboard summary ${section} section exists`);
+  }
+  assert(typeof dashboardSummary.trends === "object" && dashboardSummary.trends !== null, "dashboard summary trends section exists");
+  assert(Array.isArray(dashboardSummary.trends.monthlySales), "dashboard monthly sales trend is an array");
+  assert(Array.isArray(dashboardSummary.trends.monthlyPurchases), "dashboard monthly purchases trend is an array");
+  assert(Array.isArray(dashboardSummary.trends.monthlyNetProfit), "dashboard monthly net profit trend is an array");
+  assert(Array.isArray(dashboardSummary.trends.cashBalanceTrend), "dashboard cash balance trend is an array");
+  assert(dashboardSummary.trends.monthlySales.length === 6, "dashboard monthly sales trend returns six months");
+  assert(typeof dashboardSummary.aging === "object" && dashboardSummary.aging !== null, "dashboard aging section exists");
+  assert(Array.isArray(dashboardSummary.aging.receivablesBuckets), "dashboard receivables aging buckets exist");
+  assert(Array.isArray(dashboardSummary.aging.payablesBuckets), "dashboard payables aging buckets exist");
+  assert(Array.isArray(dashboardSummary.inventory.lowStockItems), "dashboard low-stock item list exists");
+  assert(Array.isArray(dashboardSummary.attentionItems), "dashboard summary attentionItems is an array");
+  const serializedDashboardSummary = JSON.stringify(dashboardSummary);
+  assert(!/password|tokenHash|contentBase64|DATABASE_URL|JWT_SECRET/i.test(serializedDashboardSummary), "dashboard summary does not expose sensitive fields");
+  const bankTransactions = await get<BankAccountTransactionsResponse>(`/bank-accounts/${paidThroughBankProfile.id}/transactions`, headers);
+  assert(bankTransactions.transactions.length > 0, "bank account transactions endpoint returns posted activity");
+  assert(
+    bankTransactions.transactions.some(
+      (transaction) =>
+        transaction.sourceType === "CustomerPayment" &&
+        transaction.sourceId === partialPayment.id &&
+        money(transaction.debit).eq(partialPaymentAmount),
+    ),
+    "bank account transactions include customer payment debit",
+  );
+  assert(
+    bankTransactions.transactions.some(
+      (transaction) =>
+        transaction.sourceType === "SupplierPayment" &&
+        transaction.sourceId === supplierOverpayment.id &&
+        money(transaction.credit).eq(supplierOverpaymentAmount),
+    ),
+    "bank account transactions include still-posted supplier payment credit",
+  );
+  assert(
+    bankTransactions.transactions.some(
+      (transaction) =>
+        transaction.sourceType === "VoidCashExpense" &&
+        transaction.sourceId === cashExpense.id &&
+        money(transaction.debit).eq(expectedPurchaseBillTotal),
+    ),
+    "bank account transactions include posted cash expense void reversal",
+  );
+
+  const voidedPayment = await post<CustomerPayment>(`/customer-payments/${partialPayment.id}/void`, headers, {});
+  assertEqual(voidedPayment.status, "VOIDED", "voided payment status");
+  assertPresent(voidedPayment.voidReversalJournalEntryId, "voided payment reversal journal");
+
+  const afterPaymentVoid = await get<SalesInvoice>(`/sales-invoices/${draftInvoice.id}`, headers);
+  assertMoney(afterPaymentVoid.balanceDue, partialPaymentAmount, "invoice balance after voiding partial payment");
+
+  const voidedAgain = await post<CustomerPayment>(`/customer-payments/${partialPayment.id}/void`, headers, {});
+  assertEqual(voidedAgain.voidReversalJournalEntryId, voidedPayment.voidReversalJournalEntryId, "double payment void reversal id");
+  const afterSecondPaymentVoid = await get<SalesInvoice>(`/sales-invoices/${draftInvoice.id}`, headers);
+  assertMoney(afterSecondPaymentVoid.balanceDue, partialPaymentAmount, "invoice balance after double payment void");
+
+  await expectHttpError("void invoice with active payment", () =>
+    post<SalesInvoice>(`/sales-invoices/${draftInvoice.id}/void`, headers, {}),
+  );
+
+  const ledgerAfterVoid = await get<LedgerResponse>(`/contacts/${customer.id}/ledger`, headers);
+
+  console.log("LedgerByte accounting smoke tail: PASS");
+  console.log(
+    JSON.stringify(
+      {
+        status: "PASS",
+        phase: "tail",
+        coverage: ["zatca-safe", "ar-ap", "documents", "reporting"],
+        requestTimeoutMs: smokeHttpOptions.timeoutMs,
+        progressEnabled: smokeHttpOptions.progress,
+        noCustomerEmailSentByDefault: true,
+        zatcaProductionCompliance: false,
+        realZatcaNetworkEnabled: false,
+        noBackupExecuted: true,
+        noRestoreExecuted: true,
+      },
+      null,
+      2,
+    ),
+  );
+}
+async function loginAndSelectOrganization(): Promise<SmokeContext> {
+  const login = await post<LoginResponse>("/auth/login", {}, { email: seedEmail, password: seedPassword });
+  const authHeaders = { Authorization: `Bearer ${login.accessToken}` };
+  const me = await get<AuthMeResponse>("/auth/me", authHeaders);
+  const membership =
+    me.memberships.find((item) => item.status === "ACTIVE" && item.organization.id === seedOrganizationId) ??
+    me.memberships.find((item) => item.status === "ACTIVE") ??
+    me.memberships[0];
+  if (!membership) {
+    throw new Error("Seed user does not have an organization membership.");
+  }
+  const permissions = normalizePermissionList(membership.role.permissions);
+  assert(permissions.length > 0, "/auth/me returns role permissions");
+  assert(
+    permissions.includes("admin.fullAccess") || permissions.includes("*") || permissions.includes("reports.view"),
+    "/auth/me role permissions include recognizable permission strings",
+  );
+
+  return {
+    token: login.accessToken,
+    organization: membership.organization,
+    roleName: membership.role.name,
+    permissionCount: permissions.length,
+  };
+}
+
+function tenantHeaders(context: SmokeContext): Record<string, string> {
+  return {
+    Authorization: `Bearer ${context.token}`,
+    "x-organization-id": context.organization.id,
+  };
+}
+
+async function journalEntryCount(headers: Record<string, string>): Promise<number> {
+  const response = await get<JournalEntryCountResponse>("/journal-entries/count", headers);
+  assert(Number.isInteger(response.count) && response.count >= 0, "journal entry count returns a safe non-negative integer");
+  return response.count;
+}
+
+async function get<T>(path: string, headers: Record<string, string>): Promise<T> {
+  return request<T>("GET", path, headers);
+}
+
+async function post<T>(path: string, headers: Record<string, string>, body: unknown): Promise<T> {
+  return request<T>("POST", path, headers, body);
+}
+
+async function patch<T>(path: string, headers: Record<string, string>, body: unknown): Promise<T> {
+  return request<T>("PATCH", path, headers, body);
+}
+
+async function del<T>(path: string, headers: Record<string, string>): Promise<T> {
+  return request<T>("DELETE", path, headers);
+}
+
+async function request<T>(method: string, path: string, headers: Record<string, string>, body?: unknown): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetchSmokeApi(
+      path,
+      {
+      method,
+      headers: {
+        "content-type": "application/json",
+        ...headers,
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      },
+      smokeHttpOptions,
+    );
+  } catch (error) {
+    throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
+  }
+
+  const text = await response.text();
+  const parsedBody = text ? safeJson(text) : null;
+  if (!response.ok) {
+    throw new ApiError(`${method} ${path} failed with ${response.status}: ${text}`, response.status, parsedBody);
+  }
+  return parsedBody as T;
+}
+
+async function expectHttpError(label: string, action: () => Promise<unknown>): Promise<void> {
+  try {
+    await action();
+  } catch (error) {
+    if (error instanceof ApiError) {
+      console.log(`Expected rejection: ${label} -> HTTP ${error.status}`);
+      return;
+    }
+    throw error;
+  }
+  throw new Error(`Expected ${label} to fail, but it succeeded.`);
+}
+
+async function assertPdf(path: string, headers: Record<string, string>, label: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetchSmokeApi(path, { headers }, smokeHttpOptions);
+  } catch (error) {
+    throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new ApiError(`GET ${path} failed with ${response.status}: ${text}`, response.status, safeJson(text));
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  assert(contentType.includes("application/pdf"), `${label} returns application/pdf`);
+  const bytes = Buffer.from(await response.arrayBuffer());
+  assert(bytes.byteLength > 1000, `${label} returns a non-empty PDF body`);
+  assertEqual(bytes.subarray(0, 4).toString(), "%PDF", `${label} starts with PDF header`);
+}
+
+async function assertCsv(path: string, headers: Record<string, string>, label: string, expectedText: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetchSmokeApi(path, { headers }, smokeHttpOptions);
+  } catch (error) {
+    throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new ApiError(`GET ${path} failed with ${response.status}: ${text}`, response.status, safeJson(text));
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  assert(contentType.includes("text/csv"), `${label} returns text/csv`);
+  const text = await response.text();
+  assert(text.includes(expectedText), `${label} includes expected text`);
+}
+
+async function getCsvText(path: string, headers: Record<string, string>, label: string): Promise<string> {
+  let response: Response;
+  try {
+    response = await fetchSmokeApi(path, { headers }, smokeHttpOptions);
+  } catch (error) {
+    throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new ApiError(`GET ${path} failed with ${response.status}: ${text}`, response.status, safeJson(text));
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  assert(contentType.includes("text/csv"), `${label} returns text/csv`);
+  return response.text();
+}
+
+async function assertAttachmentDownload(path: string, headers: Record<string, string>, label: string, expectedText: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetchSmokeApi(path, { headers }, smokeHttpOptions);
+  } catch (error) {
+    throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new ApiError(`GET ${path} failed with ${response.status}: ${text}`, response.status, safeJson(text));
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  assert(contentType.includes("text/csv"), `${label} returns text/csv`);
+  const text = await response.text();
+  assert(text.includes(expectedText), `${label} download includes expected content`);
+}
+
+async function assertXml(path: string, headers: Record<string, string>, label: string, expectedText: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetchSmokeApi(path, { headers }, smokeHttpOptions);
+  } catch (error) {
+    throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new ApiError(`GET ${path} failed with ${response.status}: ${text}`, response.status, safeJson(text));
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  assert(contentType.includes("application/xml"), `${label} returns application/xml`);
+  const text = await response.text();
+  assert(text.includes(expectedText), `${label} includes expected XML content`);
+}
+
+async function assertText(path: string, headers: Record<string, string>, label: string, expectedText: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetchSmokeApi(path, { headers }, smokeHttpOptions);
+  } catch (error) {
+    throw new Error(`Could not reach LedgerByte API at ${apiUrl}: ${String(error)}`);
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new ApiError(`GET ${path} failed with ${response.status}: ${text}`, response.status, safeJson(text));
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  assert(contentType.includes("text/plain"), `${label} returns text/plain`);
+  const text = await response.text();
+  assert(text.includes(expectedText), `${label} includes expected text`);
+}
+
+function safeJson(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
+}
+
+function required<T>(value: T | undefined | null, label: string): T {
+  if (value === undefined || value === null) {
+    throw new Error(`Missing required smoke dependency: ${label}.`);
+  }
+  return value;
+}
+
+function assert(condition: boolean, message: string): void {
+  if (!condition) {
+    throw new Error(`Smoke assertion failed: ${message}.`);
+  }
+}
+
+function assertEqual(actual: unknown, expected: unknown, label: string): void {
+  if (actual !== expected) {
+    throw new Error(`Smoke assertion failed: ${label}. Expected ${String(expected)}, got ${String(actual)}.`);
+  }
+}
+
+function assertPresent(value: unknown, label: string): void {
+  if (value === undefined || value === null || value === "") {
+    throw new Error(`Smoke assertion failed: missing ${label}.`);
+  }
+}
+
+function assertNoPrivateKey(value: unknown, label: string): void {
+  const serialized = JSON.stringify(value) ?? "";
+  assert(!serialized.includes("-----BEGIN PRIVATE KEY-----"), `${label} does not expose private key material`);
+  assert(!serialized.includes("-----BEGIN EC PRIVATE KEY-----"), `${label} does not expose EC private key material`);
+}
+
+function assertNoEmailSecretExposure(value: unknown, label: string): void {
+  const serialized = JSON.stringify(value) ?? "";
+  const forbidden = [
+    "SMTP_PASSWORD",
+    "SMTP_SECRET",
+    "API_KEY",
+    "AUTHORIZATION",
+    "Bearer ",
+    "PRIVATE KEY",
+    "WEBHOOK_SECRET",
+    "webhook-secret-value",
+    "smtp-password-secret",
+    "api-key-secret",
+  ];
+  for (const marker of forbidden) {
+    assert(!serialized.includes(marker), `${label} does not expose ${marker}`);
+  }
+}
+
+function assertNoBackupSecretExposure(value: unknown, label: string): void {
+  const serialized = JSON.stringify(value) ?? "";
+  const forbidden = [
+    "DATABASE_URL",
+    "DIRECT_URL",
+    "postgresql://",
+    "postgres://",
+    "service_role",
+    "SERVICE_ROLE",
+    "S3_SECRET_ACCESS_KEY",
+    "S3_ACCESS_KEY_ID",
+    "SMTP_PASSWORD",
+    "API_KEY",
+    "AUTHORIZATION",
+    "Bearer ",
+    "PRIVATE KEY",
+    "WEBHOOK_SECRET",
+    "<Invoice",
+    "contentBase64",
+  ];
+  for (const marker of forbidden) {
+    assert(!serialized.includes(marker), `${label} does not expose ${marker}`);
+  }
+}
+
+function normalizePermissionList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((permission): permission is string => typeof permission === "string");
+  }
+
+  if (typeof value === "object" && value !== null && Array.isArray((value as { permissions?: unknown }).permissions)) {
+    return (value as { permissions: unknown[] }).permissions.filter((permission): permission is string => typeof permission === "string");
+  }
+
+  return [];
+}
+
+function extractTokenFromEmailBody(bodyText: string): string {
+  const match = bodyText.match(/token=([^\s]+)/);
+  const token = match?.[1];
+  if (!token) {
+    throw new Error("Password reset email body did not include a token link.");
+  }
+  return decodeURIComponent(token.trim());
+}
+
+function assertMoney(actual: unknown, expected: Decimal, label: string): void {
+  const actualMoney = money(actual);
+  if (!actualMoney.eq(expected)) {
+    throw new Error(`Smoke assertion failed: ${label}. Expected ${expected.toFixed(4)}, got ${actualMoney.toFixed(4)}.`);
+  }
+}
+
+function money(value: unknown): Decimal {
+  return new Decimal(value === undefined || value === null || value === "" ? 0 : String(value));
+}
+
+function statementRange(): { from: string; to: string } {
+  const now = new Date();
+  const fromDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1));
+  const toDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+  return { from: isoDate(fromDate), to: isoDate(toDate) };
+}
+
+function isoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+main().catch((error) => {
+  console.error("LedgerByte accounting smoke tail: FAIL");
+  if (error instanceof ApiError) {
+    console.error(error.message);
+  } else {
+    console.error(error instanceof Error ? error.stack ?? error.message : String(error));
+  }
+  process.exitCode = 1;
+});

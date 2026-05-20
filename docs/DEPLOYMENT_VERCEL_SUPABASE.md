@@ -179,6 +179,14 @@ LEDGERBYTE_API_URL=https://ledgerbyte-api-test.vercel.app LEDGERBYTE_SMOKE_EMAIL
 
 The banking slice keeps the full accounting smoke available, but lets operators validate bank transfer create, statement import/match, first void, idempotent second void, and immediate bank account transaction reads without starting the whole deployed smoke loop.
 
+For the late-stage deployed accounting tail only, run:
+
+```bash
+LEDGERBYTE_API_URL=https://ledgerbyte-api-test.vercel.app LEDGERBYTE_SMOKE_EMAIL=<from-secret-store> LEDGERBYTE_SMOKE_PASSWORD=<from-secret-store> LEDGERBYTE_SMOKE_ORGANIZATION_ID=<from-secret-store> LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS=60000 LEDGERBYTE_SMOKE_PROGRESS=true corepack pnpm smoke:accounting:tail
+```
+
+The tail slice preserves the full smoke command but bounds the late AR/AP, customer/supplier payment and refund, credit/debit note, generated document, attachment, storage readiness, backup/restore readiness planning, reporting, dashboard, and ZATCA-safe no-network checks. It is the next deployed validation step when the monolithic full smoke exceeds an external command ceiling without per-route request timeouts.
+
 ## 5. Production Cutover Checklist
 
 - Supabase migrations applied successfully.
@@ -214,3 +222,4 @@ The banking slice keeps the full accounting smoke available, but lets operators 
 - Intermittent API `500` responses with Vercel logs containing `EMAXCONNSESSION` mean the Supabase session pool is exhausted. First confirm runtime traffic is using transaction-mode pooling and that the Vercel wrapper reuses one warm Nest/Prisma bootstrap promise; then review Prisma connection limits, serverless function concurrency/region behavior, or Supabase pool capacity. Do not reset data to fix this symptom.
 - Deployed smoke appearing to pause near `GET /journal-entries` is not automatically a pool issue. On 2026-05-20, a single-route diagnostic showed the request completed in about five seconds with stable pool counts and no Vercel errors; the confirmed issue was smoke harness shape and missing request timeouts. Use `GET /journal-entries/count`, `LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS`, and `LEDGERBYTE_SMOKE_PROGRESS` before rerunning a full deployed smoke loop.
 - Deployed smoke appearing to pause near `POST /bank-transfers/:id/void` should be isolated with `corepack pnpm smoke:accounting:banking` before rerunning full smoke. On 2026-05-20, the route completed with HTTP `201` in about 22 seconds, the idempotent second void completed in about 8 seconds, and the following bank transaction read completed in about 16 seconds; pool counts stayed stable and Vercel error logs were empty.
+- A 2026-05-20 deployed full smoke against commit `b6d3e2d19d17ac744281988913b17b3be3144890` was stopped at a 60-minute hard ceiling after about 61.6 minutes while still making progress. It had no 60-second per-route timeout, no smoke fetch error, no stderr output, and stable pool counts. Use `corepack pnpm smoke:accounting:tail` for the remaining late-stage coverage before attempting another full deployed smoke or full E2E run.
