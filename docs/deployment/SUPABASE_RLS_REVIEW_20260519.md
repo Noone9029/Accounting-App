@@ -29,7 +29,8 @@ Current delta from this original review:
 - Those `anon` and `authenticated` public table, sequence, and function grants were revoked in user-testing, including future default grants for `postgres`-owned public objects.
 - API/web health stayed healthy and the reports smoke phase passed after the grant change.
 - The Supabase Data API Dashboard toggle was not changed because it was not exposed by the current tool surface.
-- A least-privilege Prisma runtime role remains the next safe implementation step.
+- A least-privilege Prisma runtime role was designed as `ledgerbyte_app_runtime_user_testing`, but it was not created because the current session had no safe Vercel API `DATABASE_URL` mutation path for storing the new password, redeploying, and validating without printing secrets.
+- Follow-up metadata found `supabase_admin` default privileges for future public objects still include `anon`/`authenticated`; review this separately before relying on future-object defaults.
 
 ## Why This Matters
 

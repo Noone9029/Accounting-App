@@ -334,11 +334,13 @@ The aggregate `corepack pnpm smoke:accounting:tail`, the banking slice, and the 
 - Current app architecture: the web app calls the Nest API through `NEXT_PUBLIC_API_URL`; no direct Supabase REST, GraphQL, Realtime, or Storage client usage was found in `apps/web`.
 - API data path: Prisma uses Postgres/Supabase connection strings; LedgerByte does not use Supabase Auth for tenant identity.
 - Supabase state before mitigation: 76 public tables had RLS disabled, and `anon`/`authenticated` had broad public table grants.
-- Safe mitigation applied to user-testing only: revoked `anon`/`authenticated` grants on public tables, sequences, and functions, and revoked future default public grants for those roles.
+- Safe mitigation applied to user-testing only: revoked `anon`/`authenticated` grants on public tables, sequences, and functions, and revoked `postgres`-owned future default public grants for those roles.
 - Not changed: broad RLS was not enabled, data was not reset, migrations/seeds were not run, the Data API Dashboard toggle was not available through current tools, and the Prisma runtime role was not rewired.
+- Least-privilege runtime role follow-up: `ledgerbyte_app_runtime_user_testing` was designed with no superuser/createdb/createrole/replication/bypassrls privileges, public schema usage, public app-table DML, and no migration-table ownership. It was not created because the current tool surface could not update the API project `DATABASE_URL` secret and redeploy safely without printing or orphaning the new credential.
+- Residual Data API/default-ACL finding: direct `anon`/`authenticated` public grants remain `0`, but `supabase_admin` default privileges for future public objects still include those roles and need a separate reviewed default-privileges pass.
 - Validation after the grant change: API `/`, `/health`, `/readiness`, web `/`, `/setup`, and `/settings/storage` returned HTTP `200`; readiness status was `ok`; `smoke:accounting:reports` passed with secret-store credentials and generated-user fallback unset.
 - `smoke:accounting:zatca-safe` was attempted once after the grant change but hit the external 15-minute shell ceiling while writing final phase output, so it is not counted as a pass for this mitigation. Earlier dashboard-validation runs had passed the ZATCA-safe phase.
-- Next security implementation step: create and validate a least-privilege Prisma runtime DB role in user-testing, with migration/direct credentials kept separate. Disable the Supabase Data API Dashboard toggle only after confirming the setting and rollback path.
+- Next security implementation step: establish a safe Vercel API env mutation path, then create and validate the `ledgerbyte_app_runtime_user_testing` Prisma runtime DB role in user-testing with migration/direct credentials kept separate. Disable the Supabase Data API Dashboard toggle only after confirming the setting and rollback path.
 
 ## Post-Deploy E2E
 

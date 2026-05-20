@@ -202,8 +202,9 @@ Deployed smoke/E2E must continue to use the Nest API, not direct Supabase table 
 - `anon` and `authenticated` grants on public tables, sequences, and functions were revoked in user-testing as a Data API exposure mitigation.
 - API/web health and `smoke:accounting:reports` passed after the grant change.
 - Least-privilege runtime DB role work and the Data API Dashboard toggle remain follow-up security tasks.
+- The planned user-testing runtime role is `ledgerbyte_app_runtime_user_testing`. It was not created during the first role pass because no safe Vercel API `DATABASE_URL` mutation path was available to store the new password, redeploy, and validate without printing secrets.
 
-If deployed E2E fails after future RLS or runtime-role changes, first verify whether the API runtime database role can still perform Prisma reads/writes. Do not reset the database or re-grant public Data API access without a reviewed rollback decision.
+If deployed E2E fails after future RLS or runtime-role changes, first verify whether the API runtime database role can still perform Prisma reads/writes. After switching API `DATABASE_URL` to the runtime role, validate API health/readiness plus `smoke:accounting:reports` and `smoke:accounting:zatca-safe` before running full deployed E2E. Do not reset the database or re-grant public Data API access without a reviewed rollback decision.
 
 ### API Smoke Route Appears To Hang
 

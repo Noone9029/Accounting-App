@@ -119,10 +119,11 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Audited the user-testing Supabase exposure model against official Supabase RLS, Data API, API key, role, and Storage access-control guidance.
 - Confirmed the browser path uses the Nest API and found no direct Supabase REST, GraphQL, Realtime, or Storage client path in the web app.
 - Metadata review found 76 public tables with RLS disabled and broad `anon`/`authenticated` table grants before mitigation.
-- Revoked `anon` and `authenticated` public table, sequence, and function grants in user-testing, including future default grants for those roles. No data was reset, no migration or seed was run, and broad RLS was not enabled.
+- Revoked `anon` and `authenticated` public table, sequence, and function grants in user-testing, including `postgres`-owned future default grants for those roles. No data was reset, no migration or seed was run, and broad RLS was not enabled.
 - API/web health stayed HTTP `200`, readiness stayed `ok`, and `smoke:accounting:reports` passed with secret-store credentials after the grant mitigation.
 - Remaining blockers: Data API Dashboard toggle was not available through the current tools, full RLS policy design is not implemented, and a least-privilege Prisma runtime DB role still needs a dedicated validation pass.
-- Recommended next prompt: create and validate a least-privilege Prisma runtime DB role in user-testing while keeping migration/direct credentials separate.
+- Follow-up runtime-role pass: planned `ledgerbyte_app_runtime_user_testing` with no admin/RLS-bypass privileges, public app-table DML only, no `_prisma_migrations` DML, and separate `DIRECT_URL` migration/admin credentials. It was not created because the current session lacked a safe way to update the Vercel API `DATABASE_URL`, store the generated password, redeploy, and validate without printing secrets.
+- Recommended next prompt: enable a safe Vercel env mutation path, then create and validate the least-privilege Prisma runtime DB role in user-testing while keeping migration/direct credentials separate.
 
 ## Audit Verification Commands
 

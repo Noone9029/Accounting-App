@@ -166,9 +166,10 @@ Recommended next prompt:
 
 - User-testing audit confirmed the web app uses the Nest API path and does not require direct Supabase REST, GraphQL, Realtime, or Storage access.
 - The user-testing Supabase project still has 76 public tables with RLS disabled, so broad RLS remains a production blocker.
-- Immediate mitigation applied: revoked `anon` and `authenticated` public table, sequence, and function grants, including future default grants for those roles.
+- Immediate mitigation applied: revoked `anon` and `authenticated` public table, sequence, and function grants, including `postgres`-owned future default grants for those roles.
 - Validation after the mitigation kept API/web health at HTTP `200`; readiness stayed `ok`; `smoke:accounting:reports` passed with secret-store credentials.
 - Remaining roadmap item: disable the Supabase Data API Dashboard setting if available and no hidden dependency exists, then create a least-privilege Prisma runtime DB role before designing full RLS policies.
+- 2026-05-21 runtime-role follow-up: `ledgerbyte_app_runtime_user_testing` was designed, but not created, because Vercel API `DATABASE_URL` mutation was unavailable in the session. Next step is to enable a safe Vercel env mutation path and validate the role cutover with health, reports, and ZATCA-safe smoke phases.
 - Recommended next prompt: create and validate a least-privilege Prisma runtime DB role in the user-testing Supabase project, with rollback SQL/env plan and no broad RLS enablement.
 
 ## 2026-05-18 Email readiness diagnostics

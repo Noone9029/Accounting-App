@@ -14,6 +14,9 @@ This document records a controlled audit and the first safe Data API mitigation.
 - Supabase Storage schema: https://supabase.com/docs/guides/storage/schema/design
 - Supabase Storage bucket fundamentals: https://supabase.com/docs/guides/storage/buckets/fundamentals
 - Supabase changelog/default Data API grants change: https://supabase.com/changelog
+- PostgreSQL `CREATE ROLE`: https://www.postgresql.org/docs/current/sql-createrole.html
+- PostgreSQL `GRANT`: https://www.postgresql.org/docs/current/sql-grant.html
+- Prisma connection URLs: https://www.prisma.io/docs/orm/reference/connection-urls
 
 Key doc constraints applied:
 
@@ -22,6 +25,8 @@ Key doc constraints applied:
 - If an app never uses Supabase REST/GraphQL/client-library table access, disabling or hardening the Data API is a valid mitigation.
 - Secret/service-role keys must never be exposed in the browser.
 - Storage object access is controlled by `storage.objects` RLS and should be manipulated through Storage APIs, not by editing the storage schema directly.
+- A Prisma runtime database URL carries the database user, password, host, port, and database name. Do not print it or reuse the migration/admin credential for ordinary runtime traffic.
+- PostgreSQL roles can be created with explicit `LOGIN`, `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOREPLICATION`, and `NOBYPASSRLS` attributes, and object privileges should be granted explicitly.
 
 ## Current Architecture Summary
 
@@ -34,18 +39,22 @@ Key doc constraints applied:
 | Edge Functions | Supabase project inspection returned no Edge Functions. |
 | Web env exposure | Local web env files expose only `NEXT_PUBLIC_API_URL`. No local web DB credential or Supabase service-role key was found. Live Vercel env value listing was not available through the current MCP/CLI surface; prior runbook inspection records no web DB credentials. |
 | API env exposure | API env names include database, JWT, CORS, ZATCA-disabled, email-disabled, and optional S3 variables. Values were not printed. |
-| Runtime DB role | Exact runtime username was not printed. Runtime is Prisma over Postgres/Supabase pooler, not Data API roles. Least-privilege runtime role remains planned. |
+| Runtime DB role | Exact runtime connection string was not printed. Runtime is Prisma over Postgres/Supabase pooler, not Data API roles. Metadata snapshots still show `postgres`-class activity and the dedicated runtime role does not exist yet, so the deployed runtime is still treated as admin/postgres-like until the cutover is completed and validated. |
 
 ## Supabase Exposure Summary
 
 Metadata-only queries on 2026-05-21 found:
 
 - Public tables: `76`.
+- Public app tables excluding Prisma migration history: `75`.
+- Prisma migration history table: `1` (`_prisma_migrations`).
 - Public tables with RLS disabled: `76`.
 - Public tables with RLS enabled: `0`.
 - Public policies: `0`.
 - Public views/materialized views: `0`.
 - Public functions: `0`.
+- Public triggers: `0`.
+- Public sequences: `0`.
 - Supabase Edge Functions: `0`.
 - Storage buckets: `0`.
 - `storage.buckets` and `storage.objects`: RLS enabled.
@@ -54,7 +63,9 @@ Metadata-only queries on 2026-05-21 found:
 - After mitigation, `anon`/`authenticated` sequence grants in `public`: `0`.
 - After mitigation, `anon`/`authenticated` executable public functions: `0`.
 - Default privileges for future `postgres`-owned public objects now grant public access only to `postgres` and `service_role`; `anon`/`authenticated` are no longer present in the default ACL.
+- Follow-up metadata found `supabase_admin` default privileges for future public objects still include `anon`/`authenticated`. This was not changed in the runtime-role task because it affects platform-owned future-object behavior and needs a reviewed Data API/default-ACL pass.
 - `service_role` still has broad public table/default privileges. It remains a high-risk key class and must stay out of browsers and ordinary runtime code unless a backend-only admin path explicitly needs it.
+- Candidate runtime role `ledgerbyte_app_runtime_user_testing`: not present before the least-privilege role pass.
 
 Data API dashboard status was not directly exposed by the current tool surface. The Security Advisor lint and prior grants indicate `public` is treated as a PostgREST-exposed schema, so this plan treats Data API exposure as active until the Dashboard setting is explicitly disabled and validated.
 
@@ -237,43 +248,72 @@ Requirements:
 
 ### Option 5: Least-Privilege Runtime DB Role
 
-Recommendation: next implementation step after this audit.
+Recommendation: next implementation step after this audit, but only when the operator has a safe Vercel env mutation path for the API project.
 
-Do not switch Vercel `DATABASE_URL` until the role is created, granted, validated, and rollback is ready.
+Do not create a passworded LOGIN role or switch Vercel `DATABASE_URL` unless the role password can be stored directly in the API project secret store, the API can be redeployed, and rollback can restore the previous sanitized credential source without printing either URL.
 
 ## Least-Privilege Runtime DB Role Plan
 
-Current model:
+### 2026-05-21 Runtime Role Cutover Attempt
+
+Status: design completed, not applied.
+
+Current model and inspection result:
 
 - API runtime uses a Supabase/Postgres connection through Prisma.
-- Migrations use `DIRECT_URL`.
-- Runtime and migration credentials are not yet confirmed as split by least privilege.
+- Prisma schema defines `url = env("DATABASE_URL")` and `directUrl = env("DIRECT_URL")`.
+- API runtime code reads `DATABASE_URL`, normalizes Supabase session-pooler URLs to transaction-mode port `6543` on Vercel, and applies a conservative connection limit.
+- Prisma migrations and direct/admin workflows must remain on `DIRECT_URL` or another migration/admin credential, not the runtime role.
+- Runtime raw SQL search found only the health check `SELECT 1`.
+- No runtime LISTEN/NOTIFY, public database functions, public triggers, or public sequences were found.
+- Vercel API project env values could not be listed or changed safely in this session: Vercel CLI was not on PATH, no Vercel token/env credentials were present in the shell, and the available Vercel MCP tools expose projects/deployments/logs but not env var mutation.
+- Because the new password could not be stored directly into the API Vercel secret store and validated, the role was not created. Creating a passworded role without a safe secret-delivery path would leave an unmanaged credential.
 
 Desired split:
 
-- `ledgerbyte_runtime` or equivalent:
-  - `CONNECT` on the database.
+- `ledgerbyte_app_runtime_user_testing`:
+  - `LOGIN`.
+  - `NOSUPERUSER`.
+  - `NOCREATEDB`.
+  - `NOCREATEROLE`.
+  - `NOREPLICATION`.
+  - `NOBYPASSRLS`.
+  - No ownership of app schema objects.
+  - No role memberships with admin/inherit privileges.
+  - `CONNECT` on the user-testing database.
   - `USAGE` on schema `public`.
-  - `SELECT`, `INSERT`, `UPDATE`, `DELETE` on required app tables.
-  - `USAGE`, `SELECT`, `UPDATE` on sequences where Prisma writes require it.
-  - `EXECUTE` only on explicitly required app functions. Current public function count is zero.
-  - No `BYPASSRLS`.
-  - No ownership/migration privileges.
+  - `USAGE` on schema `extensions`, because Prisma-created UUID defaults use extension functions installed there.
+  - `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on the `75` public application tables.
+  - No DML grant on `_prisma_migrations`; Prisma migration history remains a migration/direct credential concern.
+  - No sequence grant today because public sequence count is `0`; if future sequences are added, grant only `USAGE`, `SELECT`, and `UPDATE` on required sequences.
+  - No function grant today because public function count is `0`; if future runtime functions are added, grant `EXECUTE` only on those routines.
 - Migration role:
   - Owns schema migrations and Prisma migration history.
   - Not used by Vercel runtime.
   - Available only to reviewed migration workflows.
 
-Implementation outline:
+Prepared implementation outline for the next task:
 
-1. Create runtime role with a generated password in user-testing only.
-2. Grant the minimum object privileges listed above.
-3. Keep `DIRECT_URL` on the migration/admin role.
-4. Update only API `DATABASE_URL` to the runtime role, keeping transaction pooler behavior.
-5. Run health, reports smoke, documents or banking smoke if needed, and finally full E2E in a later task.
-6. Roll back by restoring the previous API `DATABASE_URL` value in Vercel, without changing data.
+1. Confirm a safe Vercel API env mutation path: authenticated Vercel CLI, Dashboard operator action, or an MCP/API tool that can update environment variables without printing values.
+2. Generate a runtime role password and write it only to the API project secret store as part of the `DATABASE_URL` update. Do not print it, store it in docs, or add it to the web project.
+3. In the user-testing database only, create `ledgerbyte_app_runtime_user_testing` with the attributes above.
+4. Grant the minimum object privileges listed above.
+5. Keep `DIRECT_URL` on the migration/admin role.
+6. Update only API `DATABASE_URL` to the runtime role, preserving the Supabase transaction-pooler path and Prisma runtime query parameters.
+7. Redeploy the API and verify the alias points to the new deployment.
+8. Run health/readiness first, then `smoke:accounting:reports`, then `smoke:accounting:zatca-safe`.
+9. Run metadata-only verification that role attributes and grants match the plan, `anon`/`authenticated` direct grants remain `0`, and RLS status is unchanged.
 
-This was not implemented in this task because it can break Prisma runtime if any required grants are missed. It should be a dedicated, reviewed change.
+Rollback plan:
+
+1. Restore the prior API `DATABASE_URL` secret source in Vercel without printing it.
+2. Redeploy the API.
+3. Verify API `/`, `/health`, and `/readiness` plus web `/`, `/setup`, and `/settings/storage`.
+4. If the runtime role was created and should be removed, revoke its public-schema grants and drop the role only after the API is confirmed back on the previous credential.
+5. Do not restore `anon`/`authenticated` public Data API grants unless a reviewed Data API dependency proves it is required.
+6. Do not delete data, seed data, reset the database, or enable broad RLS during rollback.
+
+This was not implemented in this task because safe Vercel `DATABASE_URL` mutation was unavailable. No role, password, database URL, or Vercel env value was printed or created.
 
 ## Storage Access Findings
 
@@ -297,10 +337,11 @@ Immediate controlled-beta position:
 
 Next safe implementation step:
 
-1. Create a least-privilege runtime DB role in user-testing.
-2. Switch only the API runtime pooler URL to that role.
-3. Validate health and narrow smoke.
-4. Keep migration/direct credentials separate.
+1. Enable a safe Vercel API env mutation path.
+2. Create `ledgerbyte_app_runtime_user_testing` in user-testing only.
+3. Switch only the API runtime pooler URL to that role.
+4. Validate health and narrow smoke.
+5. Keep migration/direct credentials separate.
 
 Production blockers remaining:
 
@@ -308,5 +349,6 @@ Production blockers remaining:
 - Full table-level RLS policy design is not implemented.
 - Data API Dashboard toggle has not been disabled through the current tools.
 - `service_role` still has broad table grants and must remain backend-only.
-- Runtime DB least-privilege role split is planned but not implemented.
+- Runtime DB least-privilege role split is designed but not implemented because safe Vercel env mutation was unavailable.
+- `supabase_admin` default ACLs for future public objects still include `anon`/`authenticated`; review and harden in a dedicated Data API/default-privileges pass.
 - Supabase Storage is not used; object-storage production controls remain a separate roadmap item.

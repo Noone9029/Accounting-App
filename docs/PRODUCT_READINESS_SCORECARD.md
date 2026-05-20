@@ -49,7 +49,8 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 - The web app was confirmed to use the Nest API only; no direct Supabase REST, GraphQL, Realtime, or Storage client path was found in the app code inspected.
 - RLS remains disabled on 76 public tables. This is still a production blocker, but it should be addressed with a compatible policy/runtime-role design rather than blind enablement.
 - Data API Dashboard disablement and a least-privilege Prisma runtime role were not completed in this pass and remain the next security hardening steps.
-- Recommended next prompt: create and validate a least-privilege Prisma runtime DB role in the user-testing Supabase project, with rollback and narrow smoke validation, without enabling broad RLS.
+- A follow-up role pass designed `ledgerbyte_app_runtime_user_testing`, but did not create it because the current tool surface could not safely update the Vercel API `DATABASE_URL`, store the new password, redeploy, and validate without printing secrets.
+- Recommended next prompt: establish a safe Vercel API env mutation path, then create and validate `ledgerbyte_app_runtime_user_testing` in the user-testing Supabase project with rollback and narrow smoke validation, without enabling broad RLS.
 
 ## Fresh EGS SDK Hash Update
 

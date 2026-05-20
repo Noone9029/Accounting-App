@@ -565,14 +565,15 @@ Risk reduced:
 - Confirmed the web app uses the Nest API through `NEXT_PUBLIC_API_URL`; no direct Supabase REST, GraphQL, Realtime, or Storage client path was found in the inspected app code.
 - Confirmed the API uses Prisma/Postgres as the runtime data path and LedgerByte JWT/organization guards as the application tenant boundary.
 - Metadata review found 76 public tables with RLS disabled and broad `anon`/`authenticated` public table grants before mitigation.
-- Revoked `anon` and `authenticated` grants on public tables, sequences, and functions in the user-testing project, including future default grants for those roles.
+- Revoked `anon` and `authenticated` grants on public tables, sequences, and functions in the user-testing project, including `postgres`-owned future default grants for those roles.
 - API/web health stayed HTTP `200`, readiness stayed `ok`, and `smoke:accounting:reports` passed with secret-store credentials after the grant change.
 
 Remaining risks:
 
 - RLS is still disabled on 76 public tables and must not be enabled blindly without compatible policies.
 - The Supabase Data API Dashboard toggle was not changed because the setting was not exposed through the current tool surface.
-- The Prisma runtime database role is not yet least-privilege; runtime and migration/admin credential separation remains a dedicated follow-up.
+- The Prisma runtime database role is not yet least-privilege; runtime and migration/admin credential separation remains a dedicated follow-up. The planned user-testing role is `ledgerbyte_app_runtime_user_testing`, but it was not created because no safe Vercel API `DATABASE_URL` mutation path was available to store the generated password, redeploy, and validate without printing secrets.
+- `supabase_admin` default privileges for future public objects still include `anon`/`authenticated`; current direct object grants remain revoked, but future-object defaults need a reviewed follow-up pass.
 - `service_role` remains a high-risk admin key class and must stay out of browser and ordinary runtime paths.
 
 ### Deployed E2E readiness docs added

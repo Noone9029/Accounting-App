@@ -29,7 +29,7 @@ Official references:
 3. Recommended production setup:
    - `DATABASE_URL`: Supabase transaction pooler/runtime connection string, commonly port `6543`.
    - `DIRECT_URL`: Supabase direct or session connection string for Prisma migrations, commonly port `5432`.
-4. Prefer a dedicated Prisma database user instead of the default `postgres` user once moving beyond a private demo.
+4. Prefer a dedicated Prisma database user instead of the default `postgres` user once moving beyond a private demo. For user-testing, the planned runtime role name is `ledgerbyte_app_runtime_user_testing`; it should be used only for API `DATABASE_URL`, while `DIRECT_URL` stays on the migration/admin credential.
 
 Do not commit either connection string.
 
@@ -209,7 +209,7 @@ The tail slice preserves the full smoke command but bounds the late AR/AP, custo
 - `JWT_SECRET` is strong and not reused from local development.
 - Preview deployments do not point at production data unless intentionally allowed.
 - For small Supabase pooler deployments, set `PRISMA_CONNECTION_LIMIT=1` or rely on the Vercel default in `PrismaService` to keep each warm serverless instance conservative.
-- Supabase Data API/RLS posture is reviewed before beta expansion: web does not need direct Supabase table access, low-privilege Data API grants are revoked, and the runtime database role is separate from migration/admin credentials.
+- Supabase Data API/RLS posture is reviewed before beta expansion: web does not need direct Supabase table access, low-privilege Data API grants are revoked, and the runtime database role is separate from migration/admin credentials. Do not create a new runtime-role password unless it can be written directly to the API project's Vercel secret store and validated without printing the URL.
 
 ## 6. Known Deployment Limits
 
@@ -218,7 +218,7 @@ The tail slice preserves the full smoke command but bounds the late AR/AP, custo
 - S3-compatible document upload storage is still not wired; generated PDFs are database-backed local/dev groundwork.
 - Supabase is used as Postgres, not Supabase Auth.
 - Prisma migrations should be run intentionally before promoting production deployments.
-- Supabase row-level security remains disabled on 76 public tables in the user-testing project. LedgerByte currently enforces tenant isolation in the Nest/Prisma layer, so RLS must not be enabled broadly until compatible policies and runtime role behavior are tested. The 2026-05-21 hardening pass revoked `anon`/`authenticated` public table/sequence/function grants as an immediate Data API mitigation, but it did not disable the Dashboard Data API toggle or create the least-privilege Prisma runtime role. See [docs/deployment/SUPABASE_RLS_REVIEW_20260519.md](deployment/SUPABASE_RLS_REVIEW_20260519.md) and [docs/deployment/SUPABASE_RLS_DATA_API_HARDENING_20260521.md](deployment/SUPABASE_RLS_DATA_API_HARDENING_20260521.md).
+- Supabase row-level security remains disabled on 76 public tables in the user-testing project. LedgerByte currently enforces tenant isolation in the Nest/Prisma layer, so RLS must not be enabled broadly until compatible policies and runtime role behavior are tested. The 2026-05-21 hardening pass revoked `anon`/`authenticated` public table/sequence/function grants as an immediate Data API mitigation, but it did not disable the Dashboard Data API toggle or create the least-privilege Prisma runtime role. The follow-up runtime-role pass designed `ledgerbyte_app_runtime_user_testing` but did not create it because Vercel API `DATABASE_URL` mutation was unavailable in the session; creating an unmanaged passworded role would not be safe. See [docs/deployment/SUPABASE_RLS_REVIEW_20260519.md](deployment/SUPABASE_RLS_REVIEW_20260519.md) and [docs/deployment/SUPABASE_RLS_DATA_API_HARDENING_20260521.md](deployment/SUPABASE_RLS_DATA_API_HARDENING_20260521.md).
 - User-testing cleanup remains dry-run/planning only. Use [docs/deployment/USER_TESTING_ENVIRONMENT_CLEANUP.md](deployment/USER_TESTING_ENVIRONMENT_CLEANUP.md) and `corepack pnpm user-testing:cleanup-plan` before any reviewed manual cleanup.
 
 ## 7. Health Troubleshooting
