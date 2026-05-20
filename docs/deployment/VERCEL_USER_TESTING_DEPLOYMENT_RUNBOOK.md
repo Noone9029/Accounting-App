@@ -289,6 +289,33 @@ Fix applied after that ceiling result: `corepack pnpm smoke:accounting:tail` run
 
 2026-05-20 tail-slice validation against Git-triggered API deployment `dpl_6aYo1qozin4cLw1NHvUieaWDV1vE` and web deployment `dpl_CikxbkGdssTwCZUo8Hon9VCvkYTj`, commit `1b7ff0dbbc331c3f1b721ace29ce2a562c6f381d`: one secret-store-backed `corepack pnpm smoke:accounting:tail` run used `LEDGERBYTE_SMOKE_PROGRESS=true`, `LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS=60000`, and a 45-minute hard command ceiling. It was stopped at about 45.45 minutes while still making forward progress. No individual route exceeded 60 seconds, no `[smoke-fetch:error]` lines appeared, and stderr was empty. The last completed route was `GET /supplier-payments/:id -> 200` in 8,015 ms; the last started route was `GET /contacts/:id/supplier-ledger`. Slowest completed route labels were `POST /purchase-bills/:id/void -> 201` in 30,344 ms, `POST /sales-invoices/:id/finalize -> 201` in 27,571 ms, and `POST /purchase-debit-notes/:id/void -> 201` in 26,718 ms. API and web health stayed HTTP `200`; sanitized pool counts stayed stable from `active=1`, `idle=5`, `unknown=8` before to `active=1`, `idle=7`, `unknown=8` after. Local log scanning found zero hits for auth headers, database URLs, Supabase service-role keys, SMTP secrets, API-key patterns, password values, private keys, or generated-user fallback logs. Vercel runtime error logs could not be inspected because the runtime-log connector returned `Auth required`. The result is classified as tail slice still too broad for a 45-minute deployed ceiling, not a confirmed route hang, parser hang, DB lock, or recurring `EMAXCONNSESSION`.
 
+Narrow tail phase commands added after the tail-slice ceiling result:
+
+```powershell
+corepack pnpm smoke:accounting:ar
+corepack pnpm smoke:accounting:ap
+corepack pnpm smoke:accounting:documents
+corepack pnpm smoke:accounting:reports
+corepack pnpm smoke:accounting:zatca-safe
+```
+
+The aggregate `corepack pnpm smoke:accounting:tail`, the banking slice, and the full smoke command remain available. Each narrow phase uses the deployed credential guard, `LEDGERBYTE_SMOKE_PROGRESS`, `LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS`, redacted method/path/status progress labels, and generated-user fallback disabled by default for deployed targets.
+
+2026-05-20 narrow deployed phase validation:
+
+- Runtime phase split commit tested initially: `0a3b0a03fbc753c6935797a0171f30ca681fbb47`, API deployment `dpl_VeYnthfoCKkKEdLLGNBkuK5nwJND`, web deployment `dpl_QZtgo9SKfitCRKewiKXmrQjtfWsa`.
+- Follow-up documents smoke fixes tested: `fe4e879d5d966b6c4aebbeb2bbeb9a9de0b7e126`, API deployment `dpl_8Z4GRKDuCH7cA5segwHDitzFYN3X`, web deployment `dpl_BQh5iwGcWDrKyG2Zcc2ngxq9B4H9`.
+- Pre-phase health: API `/`, `/health`, `/readiness`, web `/`, `/setup`, and `/settings/storage` all returned HTTP `200`; readiness status was `ok`.
+- Pre-phase pool snapshot was `active=1`, `idle=5`, `unknown=8`.
+- `smoke:accounting:ar` passed inside the 20-minute ceiling. Slowest safe labels included `POST /sales-invoices/:id/finalize -> 201` in 27,899 ms and `POST /credit-notes/:id/void -> 201` in 25,749 ms.
+- `smoke:accounting:ap` passed inside the 20-minute ceiling. Slowest safe labels included `POST /purchase-bills/:id/void -> 201` in 29,916 ms, `POST /purchase-debit-notes/:id/void -> 201` in 26,648 ms, and `POST /supplier-payments/:id/void -> 201` in 24,385 ms.
+- `smoke:accounting:documents` first exposed two phase-extraction regressions: generated-document archive lookup used `entityId` instead of the API's `sourceId` query contract, then standalone purchase bill setup used `issueDate` instead of `billDate`. Both were fixed in smoke harness code only, with route labels redacted in error messages. The final documents run passed on commit `fe4e879d5d966b6c4aebbeb2bbeb9a9de0b7e126` in about 7.3 minutes. Slowest safe labels included `POST /sales-invoices/:id/finalize -> 201` in 26,529 ms, `POST /purchase-bills/:id/finalize -> 201` in 24,359 ms, and `POST /cash-expenses -> 201` in 22,603 ms.
+- `smoke:accounting:reports` failed by request timeout, not by phase ceiling: `GET /dashboard/summary` exceeded `LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS=60000` after `GET /reports/aged-payables -> 200` completed in 4,628 ms. This is classified as a deployed dashboard-summary route latency blocker until isolated further, not generic tail breadth and not recurring `EMAXCONNSESSION`.
+- `smoke:accounting:zatca-safe`, full smoke, and full E2E were intentionally not run after the reports failure.
+- Post-failure health: API `/`, `/health`, `/readiness`, web `/`, `/setup`, and `/settings/storage` all returned HTTP `200`; readiness status was `ok`.
+- Post-failure pool snapshot was `active=1`, `idle=7`, `unknown=8`; no runaway pool growth was observed.
+- No DB reset, seed, migration, destructive cleanup, RLS change, real ZATCA network/CSID/clearance/reporting/PDF-A3, real customer email, backup execution, or restore execution was run.
+
 ## Post-Deploy E2E
 
 ```powershell

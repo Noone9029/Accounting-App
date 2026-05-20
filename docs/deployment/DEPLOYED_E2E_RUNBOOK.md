@@ -257,6 +257,18 @@ corepack pnpm smoke:accounting:tail
 
 The tail slice creates its own smoke customer/supplier/document records and covers ZATCA-safe no-network checks, local/mock CSID and XML/hash/QR flows, blocked clearance/reporting responses, customer payments, overpayments, refunds, credit notes, purchase bills, purchase debit notes, supplier payments/refunds, ledgers/statements, receipt/PDF/report endpoints, generated document archive downloads, uploaded attachments, representative audit log redaction, storage readiness, migration-plan dry runs, and backup/restore readiness planning. It must use the same secret-store credential guard, `LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS`, and redacted progress logging as the full smoke.
 
+The aggregate tail has narrow deployed phase commands for final isolation:
+
+```powershell
+corepack pnpm smoke:accounting:ar
+corepack pnpm smoke:accounting:ap
+corepack pnpm smoke:accounting:documents
+corepack pnpm smoke:accounting:reports
+corepack pnpm smoke:accounting:zatca-safe
+```
+
+Use the same `LEDGERBYTE_API_URL`, secret-store `LEDGERBYTE_SMOKE_EMAIL`, secret-store `LEDGERBYTE_SMOKE_PASSWORD`, secret-store `LEDGERBYTE_SMOKE_ORGANIZATION_ID`, `LEDGERBYTE_SMOKE_PROGRESS=true`, `LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS=60000`, and generated-user fallback unset for every phase. Do not run full deployed E2E until these API smoke phases either pass or produce a classified non-E2E blocker.
+
 2026-05-20 tail-slice validation:
 
 - Deployment tested: API `dpl_6aYo1qozin4cLw1NHvUieaWDV1vE`, web `dpl_CikxbkGdssTwCZUo8Hon9VCvkYTj`, commit `1b7ff0dbbc331c3f1b721ace29ce2a562c6f381d`.
@@ -270,6 +282,15 @@ The tail slice creates its own smoke customer/supplier/document records and cove
 - API `/`, `/health`, and `/readiness` remained HTTP `200`; web `/`, `/setup`, and `/settings/storage` remained HTTP `200`.
 - Runtime-log inspection was unavailable because the Vercel runtime-log connector returned `Auth required`.
 - Classification: the tail slice is still too broad for a 45-minute deployed ceiling. This was not a confirmed route hang, parser hang, DB lock, or recurring `EMAXCONNSESSION`.
+
+2026-05-20 narrow phase validation:
+
+- `smoke:accounting:ar` passed inside its 20-minute ceiling with secret-store credentials and generated-user fallback unset.
+- `smoke:accounting:ap` passed inside its 20-minute ceiling with secret-store credentials and generated-user fallback unset.
+- `smoke:accounting:documents` passed in about 7.3 minutes after smoke-harness-only fixes for generated document `sourceId` lookup and purchase bill `billDate` setup. The tested deployment was API `dpl_8Z4GRKDuCH7cA5segwHDitzFYN3X`, web `dpl_BQh5iwGcWDrKyG2Zcc2ngxq9B4H9`, commit `fe4e879d5d966b6c4aebbeb2bbeb9a9de0b7e126`.
+- `smoke:accounting:reports` failed on the first per-request timeout: `GET /dashboard/summary` exceeded the 60-second request timeout after report endpoints had completed. The phase stopped before the 15-minute ceiling.
+- API and web health stayed HTTP `200`; readiness stayed `ok`; pool counts stayed stable from `active=1`, `idle=5`, `unknown=8` before to `active=1`, `idle=7`, `unknown=8` after.
+- `smoke:accounting:zatca-safe`, full deployed smoke, and full deployed E2E remain intentionally deferred by the stop rule until the deployed dashboard summary latency is isolated.
 
 2026-05-20 full-smoke ceiling finding:
 
