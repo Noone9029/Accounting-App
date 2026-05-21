@@ -104,7 +104,8 @@ Recommended next prompt:
 - Verified HTTP `200`, `application/pdf`, attachment filename presence, `.pdf` filename extension, nonzero byte length, and `%PDF` magic bytes for sales invoice PDFs, customer payment receipt PDFs, credit note PDFs, purchase bill PDFs, supplier payment receipt PDFs, purchase debit note PDFs, customer statement PDFs, supplier statement PDFs, and archived generated-document downloads.
 - Archive rows were created for invoice, customer payment receipt, credit note, purchase bill, supplier payment receipt, purchase debit note, and customer statement downloads. A follow-up non-destructive enum migration now adds `SUPPLIER_STATEMENT` so supplier statement PDF downloads can archive too.
 - Authenticated browser UI width checks remain pending: the deployed browser session was unauthenticated, login automation could not safely fill the email/password controls in this browser surface, and JavaScript URL token injection was rejected by browser security policy. Temporary credential/token files used during the blocked attempt were deleted.
-- Next document validation step: deploy the `SUPPLIER_STATEMENT` migration to user-testing and rerun targeted supplier statement archive QA.
+- User-testing deployment `da45544` applied the `SUPPLIER_STATEMENT` enum migration and targeted supplier statement archive QA passed: `GET /contacts/:id/supplier-statement.pdf` returned `200` `application/pdf`, created exactly one `SUPPLIER_STATEMENT` archive row, and `GET /generated-documents/:id/download` returned the archived PDF.
+- Remaining document work: accountant review of customer/supplier statement layout and broader visual regression coverage.
 
 ## Phase 2: Finish Wafeq Core Accounting Modules
 

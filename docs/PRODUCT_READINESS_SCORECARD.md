@@ -120,6 +120,7 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 - Real beta records existed for invoice, customer payment receipt, credit note, purchase bill, supplier payment receipt, purchase debit note, customer statement, supplier statement, and generated archive download checks.
 - Verified HTTP `200`, `application/pdf`, attachment filename presence, `.pdf` filename extension, nonzero byte length, and `%PDF` magic bytes for every available source-document PDF plus generated archive download.
 - Archive rows were created for invoice, customer payment receipt, credit note, purchase bill, supplier payment receipt, purchase debit note, and customer statement downloads. A follow-up non-destructive enum migration now adds `SUPPLIER_STATEMENT` so supplier statement PDF downloads can use the same archive path.
+- User-testing deployment `da45544` applied the enum migration and targeted supplier statement archive QA passed: the supplier statement PDF download created exactly one `SUPPLIER_STATEMENT` archive row, and the archived PDF download returned `200` `application/pdf` with `%PDF` magic bytes.
 - Authenticated browser UI width checks remain pending because the deployed browser session was unauthenticated, login automation could not safely fill the email/password controls, and JavaScript URL token injection was rejected by browser security policy.
 - Full smoke, full E2E, migrations, seed/reset, RLS/runtime-role work, real ZATCA, real email, backups, and restores were intentionally not run.
 

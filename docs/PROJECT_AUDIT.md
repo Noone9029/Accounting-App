@@ -174,6 +174,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Verified deployed beta health and real-account records for invoice, customer payment receipt, credit note, purchase bill, supplier payment receipt, purchase debit note, customer statement, supplier statement, and generated archive download checks.
 - Every available document download returned HTTP `200`, `application/pdf`, a safe attachment filename ending in `.pdf`, nonzero byte length, and `%PDF` magic bytes.
 - Archive rows were created for invoice, customer payment receipt, credit note, purchase bill, supplier payment receipt, purchase debit note, and customer statement downloads. A follow-up non-destructive enum migration added the dedicated supplier statement document type for archive parity.
+- User-testing deployment `da45544` applied the `SUPPLIER_STATEMENT` enum migration and targeted supplier statement archive QA passed: supplier statement PDF download returned `200` `application/pdf`, created exactly one archive row, and archived download returned a valid PDF response.
 - Authenticated browser UI width checks remain pending because the deployed browser session was unauthenticated, login automation could not safely fill the email/password controls, and JavaScript URL token injection was rejected by browser security policy.
 
 ## Audit Verification Commands
