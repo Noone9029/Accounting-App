@@ -58,7 +58,7 @@ Recommended next prompt:
 - Purchase bill, supplier payment, and debit-note detail pages now have visible status/next-action panels with links to supplier ledger, AP report, dashboard, PDF/receipt actions, and related bill/payment/debit-note records.
 - Supplier payment creation now returns to the supplier payment detail page with recorded-payment success context.
 - Browser QA covered the supplier/AP drill-down path at desktop, tablet, and mobile widths without document overflow or console warning/error entries.
-- Remaining UX work: inventory workflow QA, visual regression coverage, supplier statement PDF parity, and accountant review of AP wording.
+- Remaining UX work: inventory workflow QA, visual regression coverage, supplier statement archive tracking, and accountant review of AP wording.
 
 ## 2026-05-21 Banking and reconciliation UX
 
@@ -99,9 +99,12 @@ Recommended next prompt:
 
 ## 2026-05-21 Document download beta QA follow-up
 
-- Deployed beta health was reachable, but real-account document download/archive QA was blocked in the local shell because secret-store credentials were not available as environment variables or a local secret-store command, and the browser session did not have generated-document permissions.
-- Added the safe supplier statement PDF export path anyway because the gap was visible in code/UI and could reuse the existing supplier statement data without changing AP math.
-- Next document hardening step: run real-account beta download/archive QA once secret-store credentials are available, then add supplier statement archive tracking through a reviewed `SUPPLIER_STATEMENT` document type migration if still required.
+- Restored DPAPI-backed beta credentials from the local user-testing secret store and ran authenticated API-level document download/archive QA against deployed API/web commit `ff01b2b` without printing passwords, tokens, auth headers, request/response bodies, PDF bodies, document numbers, or customer/vendor names.
+- Real beta records existed for sales invoices, customer payments, credit notes, purchase bills, supplier payments, purchase debit notes, customer statement rows, supplier statement rows, and generated-document archive entries.
+- Verified HTTP `200`, `application/pdf`, attachment filename presence, `.pdf` filename extension, nonzero byte length, and `%PDF` magic bytes for sales invoice PDFs, customer payment receipt PDFs, credit note PDFs, purchase bill PDFs, supplier payment receipt PDFs, purchase debit note PDFs, customer statement PDFs, supplier statement PDFs, and archived generated-document downloads.
+- Archive rows were created for invoice, customer payment receipt, credit note, purchase bill, supplier payment receipt, purchase debit note, and customer statement downloads. Supplier statement PDF download worked but intentionally did not create an archive row because no `SUPPLIER_STATEMENT` generated-document type exists yet.
+- Authenticated browser UI width checks remain pending: the deployed browser session was unauthenticated, login automation could not safely fill the email/password controls in this browser surface, and JavaScript URL token injection was rejected by browser security policy. Temporary credential/token files used during the blocked attempt were deleted.
+- Next document hardening step: add supplier statement archive tracking through a reviewed non-destructive `SUPPLIER_STATEMENT` document type migration if archive parity is required, then rerun targeted archive QA.
 
 ## Phase 2: Finish Wafeq Core Accounting Modules
 
@@ -109,7 +112,7 @@ Objective: complete core accounting modules expected in a serious SME accounting
 
 Tasks:
 
-- Supplier debit notes accounting hardening and supplier statement PDF parity.
+- Supplier debit notes accounting hardening and supplier statement archive tracking.
 - Purchase receiving QA, partial bill matching, and purchase matching hardening.
 - Cash expense import/OCR groundwork and production hardening for uploaded receipt attachments after the S3 adapter is validated against a real non-production bucket.
 - Bank statement file-format samples, OFX/CAMT/MT940 parser design, optional raw-file archive policy using the storage readiness groundwork, and approval queue polish.
@@ -117,7 +120,7 @@ Tasks:
 - Inventory adjustment/transfer UX polish and approval queue hardening.
 - Official VAT return report.
 - Scheduled/email report delivery.
-- Customer and supplier statement PDF parity.
+- Supplier statement archive tracking and customer/supplier statement layout review.
 
 Manual dependencies:
 

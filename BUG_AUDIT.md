@@ -2944,6 +2944,8 @@ Recommended next step:
 
 # Document download beta QA follow-up - 2026-05-21
 
-- Deployed beta health was reachable, but real-account document download/archive QA could not be completed from this shell because no secret-store command or deployed smoke credential environment variables were available, and the browser session lacked generated-document permissions.
-- Added supplier statement PDF export support without changing supplier ledger/AP calculations, posting behavior, tax/VAT logic, PDF totals, ZATCA behavior, schema, or generated-document archive types.
-- Remaining limitation: supplier statement downloads do not create archive records until a dedicated `SUPPLIER_STATEMENT` document type is added through a reviewed migration.
+- Restored the local DPAPI-backed beta credential store and ran authenticated API-level document download/archive QA against deployed commit `ff01b2b` without printing passwords, tokens, auth headers, request/response bodies, PDF bodies, document numbers, or customer/vendor names.
+- Verified HTTP `200`, `application/pdf`, safe attachment filename presence, `.pdf` filename extension, nonzero byte length, and `%PDF` magic bytes for sales invoice PDFs, customer payment receipt PDFs, credit note PDFs, purchase bill PDFs, supplier payment receipt PDFs, purchase debit note PDFs, customer statement PDFs, supplier statement PDFs, and archived generated-document downloads.
+- Archive rows were created for invoice, customer payment receipt, credit note, purchase bill, supplier payment receipt, purchase debit note, and customer statement downloads.
+- Supplier statement PDF download works in beta but does not create an archive record yet because a dedicated `SUPPLIER_STATEMENT` document type still requires a reviewed non-destructive migration.
+- Authenticated browser UI width checks remain pending because the deployed browser session was unauthenticated, login automation could not safely fill the email/password controls, and JavaScript URL token injection was rejected by browser security policy.

@@ -60,7 +60,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Supplier payment posting, allocation to bills, bill balance updates, and void restoration.
 - Supplier ledger and statement rows for AP events, with supplier-facing guidance for bill/payment/debit-note balance changes and AP report drill-downs.
 - Inventory `MAIN` warehouse defaults, warehouse create/archive/reactivate, opening-balance stock movements, draft/approved/voided inventory adjustments, posted/voided warehouse transfers, posted/voided purchase receipts, posted/voided sales stock issues, source document receive/issue status helpers, purchase bill/order receipt matching status helpers, purchase bill direct-vs-clearing accounting previews/finalization, compatible purchase receipt asset previews/post/reverse journals, inventory clearing reconciliation/variance reports, accountant-reviewed variance proposals with explicit approved posting/reversal, derived item/warehouse balances, valuation settings, inventory accounting settings with inventory clearing mapping, purchase receipt posting readiness, sales issue COGS previews, explicit manual COGS post/reverse journals, operational stock reports, low-stock reporting, and explicit no-journal inventory movement behavior outside manual COGS/receipt asset/approved variance proposal post actions.
-- Sales invoice, credit note, customer payment, customer refund, customer statement, purchase order, purchase bill, supplier payment, core report, and bank reconciliation PDFs.
+- Sales invoice, credit note, customer payment, customer refund, customer statement, supplier statement, purchase order, purchase bill, supplier payment, core report, and bank reconciliation PDFs.
 - Core accounting report JSON/CSV/PDF outputs for General Ledger, Trial Balance, Profit & Loss, Balance Sheet, VAT Summary, Aged Receivables, and Aged Payables.
 - Generated document archive for generated PDFs.
 - Uploaded supporting-file attachment groundwork with database-default storage, metadata, tenant-scoped linked entity validation, reusable panels on key detail pages, storage readiness API, feature-flagged S3-compatible upload/download storage for new attachments, dry-run migration counts, and `/settings/storage`.
@@ -170,10 +170,11 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 
 ## 2026-05-21 Document download beta QA follow-up
 
-- Deployed beta health checks were reachable, but real-account document download/archive QA was blocked because this environment had no secret-store command or deployed smoke credential environment variables, and the browser session lacked generated-document permissions.
-- Code inspection found the exact statement parity gap: customer statement PDF download/archive routes existed, while supplier statements only exposed JSON/on-screen routes.
-- Added `GET /contacts/:id/supplier-statement.pdf` and frontend supplier statement download wiring without changing supplier ledger calculations, AP posting, tax/VAT logic, PDF totals, ZATCA behavior, or generated-document schema.
-- Supplier statement generated-document archive tracking remains pending until a reviewed schema migration can add a dedicated supplier statement document type.
+- Restored the local DPAPI-backed beta credential store and ran authenticated API-level document download/archive QA against deployed commit `ff01b2b` without printing passwords, tokens, auth headers, request/response bodies, PDF bodies, document numbers, or customer/vendor names.
+- Verified deployed beta health and real-account records for invoice, customer payment receipt, credit note, purchase bill, supplier payment receipt, purchase debit note, customer statement, supplier statement, and generated archive download checks.
+- Every available document download returned HTTP `200`, `application/pdf`, a safe attachment filename ending in `.pdf`, nonzero byte length, and `%PDF` magic bytes.
+- Archive rows were created for invoice, customer payment receipt, credit note, purchase bill, supplier payment receipt, purchase debit note, and customer statement downloads. Supplier statement PDF download worked, but supplier statement generated-document archive tracking remains pending until a reviewed schema migration can add a dedicated supplier statement document type.
+- Authenticated browser UI width checks remain pending because the deployed browser session was unauthenticated, login automation could not safely fill the email/password controls, and JavaScript URL token injection was rejected by browser security policy.
 
 ## Audit Verification Commands
 

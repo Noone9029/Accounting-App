@@ -132,7 +132,7 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | GET | `/contacts/:id/statement.pdf` | Customer statement PDF | Yes | Yes | Implemented | Archives PDF on download. |
 | POST | `/contacts/:id/generate-statement-pdf` | Generate/archive statement PDF | Yes | Yes | Implemented | Explicit archive action. |
 | GET | `/contacts/:id/supplier-ledger` | Supplier AP ledger | Yes | Yes | Implemented | Supplier/BOTH only. |
-| GET | `/contacts/:id/supplier-statement` | Supplier statement JSON | Yes | Yes | Implemented | No supplier statement PDF yet. |
+| GET | `/contacts/:id/supplier-statement` | Supplier statement JSON | Yes | Yes | Implemented | Supplier statement PDF is available separately; archive tracking is pending a reviewed document-type migration. |
 
 ## Accounts
 
