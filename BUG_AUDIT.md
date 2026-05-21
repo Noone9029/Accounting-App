@@ -37,6 +37,23 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Manual bank statement import groundwork added
+
+Added safe manual CSV/JSON/text bank statement upload and paste parsing without live bank integration or accounting behavior changes.
+
+Risk reduced:
+
+- Statement import now reads small manual files in the browser, previews parsed rows, validates common row issues, and sends the same text through the existing tenant-scoped preview/import API.
+- Parser support now covers debit/credit formats, signed amount formats, transaction/posted date aliases, memo/details aliases, balance, counterparty, currency, and bank reference aliases.
+- Preview guidance now surfaces invalid dates/amounts, conflicting debit and credit values, currency mismatch, missing description/reference warnings, duplicate candidates, row counts, and import result next actions.
+- Storage remains conservative: raw file bodies are not stored; existing import metadata and parsed statement rows are persisted.
+
+Remaining risks:
+
+- No live bank feeds, external bank aggregation, OFX/CAMT/MT940 parser, automatic matching, raw-file archive policy, transfer fees, or FX transfer handling.
+- Full smoke and full E2E remain intentionally pending.
+- Supabase RLS and least-privilege runtime role hardening remain parked until the safe Vercel env mutation path is available.
+
 ### Inventory drill-down UX polished
 
 Added visible guidance around inventory items, warehouses, purchase receipts, sales stock issues, adjustments, transfers, stock movements, balances, and inventory reports without changing inventory posting behavior.

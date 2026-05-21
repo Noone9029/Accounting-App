@@ -8,12 +8,14 @@ import {
   closeBlockedMessage,
   closedThroughDateLabel,
   lockedStatementTransactionWarning,
+  parseStatementImportText,
   parseStatementRowsText,
   reconciliationDifferenceStatus,
   reconciliationActionBlockedMessage,
   reviewEventLabel,
   statementImportPreviewSummary,
   submitBlockedMessage,
+  validateStatementImportFile,
 } from "./bank-statements";
 
 describe("bank statement helpers", () => {
@@ -34,7 +36,7 @@ describe("bank statement helpers", () => {
       { date: "2026-05-13", description: "Receipt", reference: undefined, debit: "0.0000", credit: "10.0000" },
     ]);
     expect(parseStatementRowsText('{"rows":[{"date":"2026-05-14","description":"Fee","debit":5}]}')).toEqual([
-      { date: "2026-05-14", description: "Fee", reference: undefined, debit: "5", credit: "0.0000" },
+      { date: "2026-05-14", description: "Fee", reference: undefined, debit: "5.0000", credit: "0.0000" },
     ]);
   });
 
@@ -48,6 +50,39 @@ describe("bank statement helpers", () => {
     expect(parseStatementRowsText("Transaction Date,Memo,Ref,Money Out,Money In\n2026-05-13,Receipt,PAY-1,0.0000,10.0000")).toEqual([
       { date: "2026-05-13", description: "Receipt", reference: "PAY-1", debit: "0.0000", credit: "10.0000" },
     ]);
+  });
+
+  it("previews signed amount statement rows and duplicate candidates without raw content leakage", () => {
+    const result = parseStatementImportText(
+      "postedDate,details,bankReference,amount,balance,currency\n13/05/2026,Receipt,PAY-1,100.00,100.00,SAR\n13/05/2026,Receipt,PAY-1,100.00,200.00,SAR",
+      { accountCurrency: "SAR" },
+    );
+
+    expect(result.format).toBe("CSV");
+    expect(result.validRowCount).toBe(2);
+    expect(result.duplicateCandidateCount).toBe(1);
+    expect(result.rows[0]).toMatchObject({ date: "2026-05-13", description: "Receipt", reference: "PAY-1", credit: "100.0000" });
+    expect(result.warnings.map((issue) => issue.message)).toContain("This row may duplicate another row in this file.");
+    expect(JSON.stringify(result.errors)).not.toContain("Receipt,PAY-1");
+  });
+
+  it("flags malformed dates, malformed amounts, conflicting debit and credit, and currency mismatch", () => {
+    const result = parseStatementImportText(
+      "date,description,debit,credit,currency\nbad-date,Fee,1.00,2.00,USD\n2026-05-14,,abc,0.00,SAR",
+      { accountCurrency: "SAR" },
+    );
+
+    expect(result.invalidRowCount).toBe(2);
+    expect(result.errors.map((issue) => issue.message)).toEqual(
+      expect.arrayContaining(["Invalid date.", "Both debit and credit are populated.", "Invalid debit amount.", "Missing amount."]),
+    );
+    expect(result.warnings.map((issue) => issue.message)).toContain("Currency USD differs from this bank account currency SAR.");
+  });
+
+  it("validates statement upload file size and type", () => {
+    expect(validateStatementImportFile({ name: "statement.csv", size: 100, type: "text/csv" })).toBeNull();
+    expect(validateStatementImportFile({ name: "statement.pdf", size: 100, type: "application/pdf" })).toMatch(/CSV or JSON/);
+    expect(validateStatementImportFile({ name: "statement.csv", size: 1024 * 1024 + 1, type: "text/csv" })).toMatch(/too large/);
   });
 
   it("computes reconciliation status from difference and unmatched count", () => {

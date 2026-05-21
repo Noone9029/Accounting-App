@@ -14,11 +14,31 @@ export class BankStatementImportRowDto {
 
   @IsOptional()
   @IsString()
+  bankReference?: string;
+
+  @IsOptional()
+  @IsString()
   debit?: string;
 
   @IsOptional()
   @IsString()
   credit?: string;
+
+  @IsOptional()
+  @IsString()
+  amount?: string;
+
+  @IsOptional()
+  @IsString()
+  balance?: string;
+
+  @IsOptional()
+  @IsString()
+  counterparty?: string;
+
+  @IsOptional()
+  @IsString()
+  currency?: string;
 }
 
 export class CreateBankStatementImportDto {

@@ -146,6 +146,25 @@ describe("BankStatementService", () => {
     });
   });
 
+  it("previews signed amount imports without changing matching or posting behavior", async () => {
+    const { service, prisma } = makeService();
+
+    await expect(
+      service.previewImport("org-1", "profile-1", {
+        filename: "bank.csv",
+        csvText: "postedDate,details,bankReference,amount,balance,currency\n2026-05-13,Receipt,PAY-1,-15.0000,985.0000,SAR",
+      }),
+    ).resolves.toMatchObject({
+      rowCount: 1,
+      totalCredits: "0.0000",
+      totalDebits: "15.0000",
+      validRows: [expect.objectContaining({ description: "Receipt", reference: "PAY-1", type: BankStatementTransactionType.DEBIT })],
+      invalidRows: [],
+    });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.journalLine.findMany).not.toHaveBeenCalled();
+  });
+
   it("preview returns invalid rows without writing to the database", async () => {
     const { service, prisma } = makeService();
 

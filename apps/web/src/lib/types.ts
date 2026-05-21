@@ -985,6 +985,15 @@ export interface BankStatementImport {
   importedBy?: { id: string; name: string; email: string } | null;
   _count?: { transactions: number };
   transactions?: BankStatementTransaction[];
+  invalidRows?: BankStatementImportInvalidRow[];
+  importSummary?: {
+    sourceRowCount: number;
+    importedRowCount: number;
+    invalidRowCount: number;
+    totalCredits: string;
+    totalDebits: string;
+    warnings: string[];
+  };
 }
 
 export interface BankStatementImportPreviewRow {

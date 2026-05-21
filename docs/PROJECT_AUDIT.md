@@ -48,7 +48,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - API permission guards for sensitive accounting, document, report, fiscal period, and ZATCA actions.
 - Frontend sidebar, route access, and high-risk action visibility based on active role permissions.
 - Tenant-scoped CRUD foundations for accounts, branches, contacts, tax rates, items, journals, and future document numbering settings.
-- Bank account profiles for cash/bank asset accounts, posted transaction visibility, bank-aware payment/expense account labels, posted bank transfers, transfer voids, guarded one-time opening-balance journals, local statement import preview/validation, manual matching, categorization journals, ignores, reconciliation summaries, reconciliation submit/approve/reopen/close records, review events, close item snapshots, void history, closed-period statement/import locks, and visible banking/reconciliation drill-down guidance.
+- Bank account profiles for cash/bank asset accounts, posted transaction visibility, bank-aware payment/expense account labels, posted bank transfers, transfer voids, guarded one-time opening-balance journals, local manual CSV/JSON/text statement upload or paste preview/validation, manual matching, categorization journals, ignores, reconciliation summaries, reconciliation submit/approve/reopen/close records, review events, close item snapshots, void history, closed-period statement/import locks, and visible banking/reconciliation drill-down guidance.
 - Sales invoice draft/create/edit/finalize/void with AR journal posting.
 - Customer payment posting with invoice allocation and balance updates.
 - Unapplied customer payment application and reversal.
@@ -71,7 +71,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 ## Groundwork Or Scaffold Only
 
 - Email invitation, invited-user onboarding, and password reset exist with mock/local default delivery, an opt-in SMTP adapter, redacted provider readiness, disabled-by-default diagnostics/retry processing/retry worker shell, durable retry metadata, metadata-only SPF/DKIM/DMARC evidence, metadata-only monitoring evidence, mock-only provider event capture, signed-webhook readiness, suppression list, test-send, DB-backed rate limits, and expired-token cleanup; no production scheduler, provider-specific signed webhooks, live DNS/provider validation, executed relay validation, MFA, or advanced session management exists.
-- Bank feeds, external bank APIs, automatic matching, OFX/CAMT/MT940 upload parsing, transfer fees, and multi-currency FX transfers are not implemented.
+- Bank feeds, external bank APIs, automatic matching, OFX/CAMT/MT940 upload parsing, raw statement-file archive policy, transfer fees, and multi-currency FX transfers are not implemented.
 - Purchase receiving exists as a manual operational workflow; partial billing, supplier delivery documents, landed cost, and automatic inventory receipt are not implemented.
 - Dashboard and reports have useful MVP visibility, but dashboard KPI definitions, report filing definitions, scheduling, and email delivery remain missing.
 - Inventory warehouse, stock ledger, adjustment approval, warehouse transfer controls, manual purchase receiving, manual sales stock issue, valuation settings, purchase bill clearing-mode finalization, compatible manual purchase receipt asset posting, inventory clearing preview/matching/reconciliation groundwork, accountant-reviewed variance proposal workflow, purchase receipt posting readiness audit, inventory accounting integrity audit, manual COGS posting, and operational reports exist, but automatic COGS, automatic/direct-mode receipt asset posting, automatic variance posting, automatic receipts/issues, landed cost, serial/batch tracking, and accounting-grade inventory financial reports are not implemented.
@@ -87,7 +87,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 1. ZATCA is not production compliant; LedgerByte simplified XML still fails signing/QR/certificate checks, API-generated XML still has buyer building-number warnings, and real onboarding, signing, and API submission are missing. Fresh-EGS SDK hash persistence and PIH-chain validation now work locally, including the prior invoice 2 `KSA-13` case.
 2. Invite/onboarding/password reset default to mock/local delivery with provider readiness, disabled-by-default diagnostics/retry processing/retry worker shell, sender-domain evidence, monitoring evidence, mock provider-event capture, signed-webhook readiness, suppression metadata, test-send, opt-in SMTP, and DB-backed request rate limits; executed relay validation, MFA, production scheduler, provider-specific signed webhooks, and advanced session management are still missing.
 3. No broad approval workflow, dual control, or maker-checker policy exists for high-risk accounting actions outside the new bank reconciliation approval path.
-4. Bank reconciliation has local import preview, manual matching, categorization, approval, close/lock, report export groundwork, and basic linked attachments, but there is no live feed, automatic matching, OFX/CAMT/MT940 parser, production-grade bank file parser/storage workflow, or external bank integration.
+4. Bank reconciliation has local manual CSV/JSON/text import preview, row validation, manual matching, categorization, approval, close/lock, report export groundwork, and basic linked attachments, but there is no live feed, automatic matching, OFX/CAMT/MT940 parser, raw statement-file archive policy, or external bank integration.
 5. Inventory warehouses, adjustment controls, transfers, manual receipts/issues, valuation settings, purchase bill clearing-mode finalization, compatible manual receipt asset posting, inventory clearing preview/matching/reconciliation groundwork, variance proposal workflow, purchase receipt posting readiness audit, integrity audit, and manual COGS posting exist, but automatic COGS, automatic/direct-mode receipt asset posting, GL valuation reports, automatic variance posting, automatic receipts/issues, landed cost, serial/batch tracking, and accounting-grade inventory financial reports are still missing.
 6. Generated PDFs and existing uploaded attachments remain database/base64 by default; new uploaded attachments can use the feature-flagged S3-compatible adapter, but no migration executor, generated-document S3 path, virus scanning, or lifecycle policy is active.
 7. Production secrets/key custody and database exposure are not fully hardened; ZATCA private key storage is explicitly dev-only, full Supabase RLS policies are not implemented, and least-privilege runtime DB role separation is still pending.
@@ -102,7 +102,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 3. Add official VAT return work, accountant review for report definitions, and scheduled/email report delivery.
 4. Add fiscal year close, retained earnings close, and controlled unlock/approval workflows.
 5. Add partial PO receiving/billing design and purchase matching hardening.
-6. Harden bank reconciliation with upload storage, import file-format samples/parsers, transfer fees, and multi-currency FX handling.
+6. Harden bank reconciliation with real bank file samples, OFX/CAMT/MT940 parsers, optional raw-file archive policy, transfer fees, and multi-currency FX handling.
 7. Review accountant-reviewed inventory variance journal proposal outputs, then define historical direct-mode exclusion/migration and landed-cost policy before any automatic posting.
 8. Add proper buyer building-number/address data for generated ZATCA XML, then advance signing/certificate, Phase 2 QR, CSID, clearance/reporting, and PDF/A-3.
 9. Test the uploaded-attachment S3 adapter with a real non-production bucket, then implement the migration executor and generated-document S3 path.
@@ -150,6 +150,13 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Inventory movement, balance, stock valuation, and low-stock reports now include plain-language guidance for quantity in/out, opening/closing quantity, moving-average operational valuation, reorder alerts, and export/drill-down navigation.
 - Browser QA covered 14 inventory/report routes at 1366, 820, and 390 widths with mocked API responses and no document overflow, console/page errors, request failures, or unknown mocked API calls.
 - No inventory posting logic, stock movement calculations, valuation behavior, COGS behavior, warehouse transfer behavior, journal behavior, report calculations, ZATCA/email/security behavior, migrations, seed/reset/delete, full smoke, or full E2E changed.
+
+## 2026-05-21 Manual bank statement import groundwork
+
+- Statement import pages now accept manual CSV/JSON/text file upload or paste, run a browser parser preview, and show row counts, detected columns, invalid row counts, duplicate-candidate counts, and import result next actions.
+- The API parser now supports debit/credit columns, signed amount columns, transaction/posted date aliases, memo/details aliases, balance, counterparty, currency, and bank reference aliases through the existing preview/import endpoints.
+- Existing storage behavior is preserved: `BankStatementImport` stores import metadata and `BankStatementTransaction` stores parsed rows/raw row metadata, while raw uploaded file bodies are not stored by this pass.
+- No live bank feed, external bank API, automatic matching, reconciliation matching logic, bank ledger math, journal posting behavior, report calculations, migrations, seed/reset/delete, full smoke, or full E2E changed.
 
 ## Audit Verification Commands
 

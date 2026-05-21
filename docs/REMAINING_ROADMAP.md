@@ -79,6 +79,14 @@ Recommended next prompt:
 - Remaining inventory work: landed-cost policy, FIFO/cost-layer design, serial/batch tracking, returns workflow, accountant review of operational valuation wording, and any automatic posting design only after explicit accounting policy review.
 - Remaining UX work: add visual regression coverage and continue route QA only where specific user-facing defects are found.
 
+## 2026-05-21 Manual bank statement import groundwork
+
+- Statement import now supports manual CSV/JSON/text file upload or paste with local parser preview, detected columns, row counts, validation errors, row warnings, duplicate-candidate counts, and success guidance.
+- Supported beta formats include debit/credit columns, signed amount columns, transaction/posted dates, memo/details, balance, counterparty, currency, and bank reference aliases.
+- Storage remains on the existing import/transaction tables: raw file bodies are not stored, while import metadata and parsed statement rows are saved through the existing preview/import API.
+- This pass did not add live bank feeds, external aggregation, OFX/CAMT/MT940 parsers, automatic matching, reconciliation logic changes, posting changes, migrations, seed/reset, full smoke, or full E2E.
+- Remaining banking work: real bank file samples, OFX/CAMT/MT940 parser design, optional raw-file archive policy, approval queue polish, transfer fees, and FX transfer handling.
+
 ## Phase 2: Finish Wafeq Core Accounting Modules
 
 Objective: complete core accounting modules expected in a serious SME accounting SaaS.
@@ -88,7 +96,7 @@ Tasks:
 - Supplier debit notes accounting hardening and supplier statement PDF parity.
 - Purchase receiving QA, partial bill matching, and purchase matching hardening.
 - Cash expense import/OCR groundwork and production hardening for uploaded receipt attachments after the S3 adapter is validated against a real non-production bucket.
-- Bank statement file-format samples, upload storage design using the storage readiness groundwork, and approval queue polish.
+- Bank statement file-format samples, OFX/CAMT/MT940 parser design, optional raw-file archive policy using the storage readiness groundwork, and approval queue polish.
 - Transfer fees and multi-currency FX transfer handling.
 - Inventory adjustment/transfer UX polish and approval queue hardening.
 - Official VAT return report.
@@ -104,7 +112,7 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Add bank statement file upload storage and OFX/CAMT/MT940 parser groundwork without live bank feeds or automatic matching.
+> Add OFX/CAMT/MT940 bank statement parser samples and raw-file archive policy without live bank feeds or automatic matching.
 
 ## Phase 3: Inventory And Payroll Basics
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
@@ -11,17 +11,20 @@ import {
   bankStatementImportStatusBadgeClass,
   bankStatementImportStatusLabel,
   bankStatementTransactionTypeLabel,
-  parseStatementRowsText,
+  parseStatementImportText,
   statementImportPreviewSummary,
+  STATEMENT_IMPORT_MAX_FILE_BYTES,
+  validateStatementImportFile,
 } from "@/lib/bank-statements";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { BankAccountSummary, BankStatementImport, BankStatementImportPreview } from "@/lib/types";
+import type { StatementImportClientPreview } from "@/lib/bank-statements";
 
-const EXAMPLE_ROWS = `date,description,reference,debit,credit
-2026-05-13,Payment from customer,ABC123,0.0000,100.0000
-2026-05-14,Bank fee,FEE001,15.0000,0.0000`;
+const EXAMPLE_ROWS = `date,description,reference,amount,balance,currency
+2026-05-13,Payment from customer,ABC123,100.0000,1250.0000,SAR
+2026-05-14,Bank fee,FEE001,-15.0000,1235.0000,SAR`;
 
 export default function BankStatementImportsPage() {
   const params = useParams<{ id: string }>();
@@ -33,7 +36,9 @@ export default function BankStatementImportsPage() {
   const [openingStatementBalance, setOpeningStatementBalance] = useState("");
   const [closingStatementBalance, setClosingStatementBalance] = useState("");
   const [rowsText, setRowsText] = useState(EXAMPLE_ROWS);
+  const [clientPreview, setClientPreview] = useState<StatementImportClientPreview | null>(null);
   const [preview, setPreview] = useState<BankStatementImportPreview | null>(null);
+  const [importResult, setImportResult] = useState<BankStatementImport | null>(null);
   const [allowPartial, setAllowPartial] = useState(false);
   const [loading, setLoading] = useState(false);
   const [previewing, setPreviewing] = useState(false);
@@ -81,11 +86,59 @@ export default function BankStatementImportsPage() {
     };
   }, [organizationId, params.id, reloadToken]);
 
+  function prepareClientPreview(text = rowsText) {
+    const parsed = parseStatementImportText(text, { accountCurrency: profile?.currency });
+    setClientPreview(parsed);
+    return parsed;
+  }
+
+  function handleRowsTextChange(value: string) {
+    setRowsText(value);
+    setClientPreview(null);
+    setPreview(null);
+    setImportResult(null);
+  }
+
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+    setError("");
+    setSuccess("");
+    setPreview(null);
+    setImportResult(null);
+    const validationError = validateStatementImportFile(file);
+    if (validationError) {
+      setError(validationError);
+      event.target.value = "";
+      return;
+    }
+    try {
+      const text = await file.text();
+      setFilename(file.name);
+      setRowsText(text);
+      const parsed = parseStatementImportText(text, { accountCurrency: profile?.currency });
+      setClientPreview(parsed);
+      setSuccess(`Loaded ${file.name}. Review the preview before importing.`);
+    } catch (fileError) {
+      setError(fileError instanceof Error ? fileError.message : "Unable to read the statement file.");
+      setClientPreview(null);
+    } finally {
+      event.target.value = "";
+    }
+  }
+
   async function previewImport() {
     setError("");
     setSuccess("");
     setPreviewing(true);
     try {
+      const parsed = prepareClientPreview();
+      if (parsed.rowCount === 0) {
+        setError("Paste or upload at least one statement row.");
+        return;
+      }
       const result = await apiRequest<BankStatementImportPreview>(`/bank-accounts/${params.id}/statement-imports/preview`, {
         method: "POST",
         body: buildStatementImportPayload(filename, rowsText),
@@ -107,12 +160,17 @@ export default function BankStatementImportsPage() {
 
     let payload;
     try {
+      const parsed = prepareClientPreview();
+      if (parsed.rowCount === 0) {
+        setError("Paste or upload at least one statement row.");
+        return;
+      }
       payload = buildStatementImportPayload(filename, rowsText);
     } catch (parseError) {
       setError(parseError instanceof Error ? parseError.message : "Unable to parse statement rows.");
       return;
     }
-    if (!payload.csvText && (!payload.rows || payload.rows.length === 0)) {
+    if (!payload.csvText.trim()) {
       setError("Paste at least one statement row.");
       return;
     }
@@ -128,7 +186,10 @@ export default function BankStatementImportsPage() {
           allowPartial,
         },
       });
-      setSuccess(`Imported ${imported.rowCount} statement rows.`);
+      const importedCount = imported.importSummary?.importedRowCount ?? imported.rowCount;
+      const skippedCount = imported.importSummary?.invalidRowCount ?? imported.invalidRows?.length ?? 0;
+      setSuccess(`Imported ${importedCount} statement rows${skippedCount > 0 ? ` and skipped ${skippedCount}` : ""}.`);
+      setImportResult(imported);
       setPreview(null);
       setReloadToken((current) => current + 1);
     } catch (submitError) {
@@ -175,6 +236,24 @@ export default function BankStatementImportsPage() {
       {canImport ? (
         <form onSubmit={submitImport} className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
           <StatementImportGuidance profileId={params.id} />
+          <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+            <label className="block rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
+              <span className="text-sm font-semibold text-ink">Upload a manual statement file</span>
+              <span className="mt-1 block text-sm leading-6 text-steel">
+                Use CSV, JSON, or text exports up to {Math.round(STATEMENT_IMPORT_MAX_FILE_BYTES / 1024 / 1024)} MB. The file is read in your browser for preview; LedgerByte stores the import batch and parsed statement rows, not the raw file body.
+              </span>
+              <input type="file" accept=".csv,.json,.txt,text/csv,application/json,text/plain" onChange={(event) => void handleFileChange(event)} className="mt-3 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-palm file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" />
+            </label>
+            <div className="rounded-md border border-slate-200 bg-white p-4">
+              <p className="text-sm font-semibold text-ink">Accepted row shapes</p>
+              <ul className="mt-2 space-y-1 text-sm leading-6 text-steel">
+                <li>date, description, debit, credit, balance</li>
+                <li>date, description, amount, balance</li>
+                <li>transactionDate, memo, amount</li>
+                <li>postedDate, details, debitAmount, creditAmount</li>
+              </ul>
+            </div>
+          </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <label className="block">
               <span className="text-sm font-medium text-slate-700">Filename</span>
@@ -191,7 +270,10 @@ export default function BankStatementImportsPage() {
           </div>
           <label className="mt-4 block">
             <span className="text-sm font-medium text-slate-700">CSV text or JSON rows</span>
-            <textarea value={rowsText} onChange={(event) => setRowsText(event.target.value)} rows={8} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs outline-none focus:border-palm" />
+            <span className="mt-1 block text-xs leading-5 text-steel">
+              Paste a bank export or use the sample. Signed amounts import as credits when positive and debits when negative. Debit/credit columns are also supported.
+            </span>
+            <textarea value={rowsText} onChange={(event) => handleRowsTextChange(event.target.value)} rows={8} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs outline-none focus:border-palm" />
           </label>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <label className="inline-flex items-center gap-2 text-sm text-slate-700">
@@ -209,6 +291,8 @@ export default function BankStatementImportsPage() {
               </button>
             </div>
           </div>
+
+          {clientPreview ? <ClientParserPreview preview={clientPreview} currency={profile?.currency ?? "SAR"} /> : null}
 
           {preview ? (
             <div className="mt-5 space-y-4">
@@ -262,6 +346,10 @@ export default function BankStatementImportsPage() {
                 </div>
               ) : null}
             </div>
+          ) : null}
+
+          {importResult ? (
+            <ImportResultPanel imported={importResult} profileId={params.id} />
           ) : null}
         </form>
       ) : null}
@@ -340,6 +428,116 @@ export function StatementImportGuidance({ profileId }: { profileId: string }) {
   );
 }
 
+export function ClientParserPreview({ preview, currency }: { preview: StatementImportClientPreview; currency: string }) {
+  const visibleRows = preview.rows.slice(0, 8);
+  return (
+    <div className="mt-5 space-y-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-ink">Local parser preview</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
+            This browser preview checks the file shape before the server validates closed periods and existing duplicates. It does not upload bank credentials or connect to a live bank feed.
+          </p>
+        </div>
+        <span className="rounded-md bg-white px-3 py-2 text-xs font-medium text-steel">{preview.format} input</span>
+      </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <PreviewStat label="Rows read" value={String(preview.rowCount)} />
+        <PreviewStat label="Locally valid" value={String(preview.validRowCount)} />
+        <PreviewStat label="Needs fixes" value={String(preview.invalidRowCount)} />
+        <PreviewStat label="Duplicate candidates" value={String(preview.duplicateCandidateCount)} />
+        <PreviewStat label="Detected columns" value={preview.detectedColumns.slice(0, 4).join(", ") || "-"} />
+      </div>
+      {preview.errors.length > 0 ? (
+        <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+          {preview.errors.slice(0, 6).map((issue) => (
+            <p key={`error-${issue.rowNumber}-${issue.message}`}>Row {issue.rowNumber || "-"}: {issue.message}</p>
+          ))}
+          {preview.errors.length > 6 ? <p>{preview.errors.length - 6} more row issues hidden in this preview.</p> : null}
+        </div>
+      ) : null}
+      {preview.warnings.length > 0 ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {preview.warnings.slice(0, 6).map((issue) => (
+            <p key={`warning-${issue.rowNumber}-${issue.message}`}>Row {issue.rowNumber || "-"}: {issue.message}</p>
+          ))}
+          {preview.warnings.length > 6 ? <p>{preview.warnings.length - 6} more warnings hidden in this preview.</p> : null}
+        </div>
+      ) : null}
+      {visibleRows.length > 0 ? (
+        <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
+          <table className="w-full min-w-[860px] text-left text-xs">
+            <thead className="bg-slate-50 uppercase tracking-wide text-steel">
+              <tr>
+                <th className="px-3 py-2">Row</th>
+                <th className="px-3 py-2">Date</th>
+                <th className="px-3 py-2">Description</th>
+                <th className="px-3 py-2">Reference</th>
+                <th className="px-3 py-2 text-right">Debit</th>
+                <th className="px-3 py-2 text-right">Credit</th>
+                <th className="px-3 py-2">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {visibleRows.map((row) => (
+                <tr key={`client-preview-${row.rowNumber}`}>
+                  <td className="px-3 py-2 font-mono">{row.rowNumber}</td>
+                  <td className="px-3 py-2">{row.date || "-"}</td>
+                  <td className="px-3 py-2 text-ink">{row.description || "-"}</td>
+                  <td className="px-3 py-2 font-mono">{row.reference ?? row.bankReference ?? "-"}</td>
+                  <td className="px-3 py-2 text-right font-mono">{formatMoneyAmount(row.debit ?? "0.0000", currency)}</td>
+                  <td className="px-3 py-2 text-right font-mono">{formatMoneyAmount(row.credit ?? "0.0000", currency)}</td>
+                  <td className="px-3 py-2">
+                    {row.errors.length > 0 ? (
+                      <span className="rounded-md bg-rose-50 px-2 py-1 font-medium text-rose-700">Fix required</span>
+                    ) : row.duplicateCandidate ? (
+                      <span className="rounded-md bg-amber-50 px-2 py-1 font-medium text-amber-700">Duplicate candidate</span>
+                    ) : (
+                      <span className="rounded-md bg-emerald-50 px-2 py-1 font-medium text-emerald-700">Ready</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function ImportResultPanel({ imported, profileId }: { imported: BankStatementImport; profileId: string }) {
+  const importedCount = imported.importSummary?.importedRowCount ?? imported.rowCount;
+  const invalidCount = imported.importSummary?.invalidRowCount ?? imported.invalidRows?.length ?? 0;
+  const warnings = imported.importSummary?.warnings ?? [];
+  return (
+    <div className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 p-4">
+      <h2 className="text-base font-semibold text-emerald-900">Statement import saved</h2>
+      <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-900">
+        LedgerByte created a manual statement batch with {importedCount} rows{invalidCount > 0 ? ` and skipped ${invalidCount} invalid rows` : ""}. These are statement review records only; matching and categorization remain manual steps.
+      </p>
+      {warnings.length > 0 ? (
+        <div className="mt-3 rounded-md border border-amber-200 bg-white px-3 py-2 text-sm text-amber-900">
+          {warnings.slice(0, 4).map((warning) => (
+            <p key={warning}>{warning}</p>
+          ))}
+        </div>
+      ) : null}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link href={`/bank-accounts/${profileId}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+          Review unmatched rows
+        </Link>
+        <Link href={`/bank-accounts/${profileId}/reconciliation`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+          Open reconciliation
+        </Link>
+        <Link href={`/bank-accounts/${profileId}`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+          Bank account
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 function PreviewStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-slate-200 bg-white p-3">
@@ -349,10 +547,6 @@ function PreviewStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function buildStatementImportPayload(filename: string, rowsText: string): { filename: string; csvText?: string; rows?: ReturnType<typeof parseStatementRowsText> } {
-  const trimmed = rowsText.trim();
-  if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
-    return { filename, rows: parseStatementRowsText(trimmed) };
-  }
+function buildStatementImportPayload(filename: string, rowsText: string): { filename: string; csvText: string } {
   return { filename, csvText: rowsText };
 }

@@ -711,6 +711,7 @@ export class BankStatementService {
     let description = "";
     let debit = new Prisma.Decimal(0);
     let credit = new Prisma.Decimal(0);
+    let signedAmount: Prisma.Decimal | null = null;
 
     try {
       date = this.parseDate(sourceRow.date ?? "", `Row ${rowNumber} date`);
@@ -718,7 +719,7 @@ export class BankStatementService {
       errors.push(errorMessage(error));
     }
     try {
-      description = this.requiredText(sourceRow.description, `Row ${rowNumber} description`);
+      description = this.requiredText(sourceRow.description || sourceRow.counterparty || sourceRow.reference || sourceRow.bankReference || "Imported statement row", `Row ${rowNumber} description`);
     } catch (error) {
       errors.push(errorMessage(error));
     }
@@ -731,6 +732,18 @@ export class BankStatementService {
       credit = this.nonNegativeMoney(sourceRow.credit ?? "0.0000", `Row ${rowNumber} credit`);
     } catch (error) {
       errors.push(errorMessage(error));
+    }
+    try {
+      signedAmount = sourceRow.amount ? this.nonNegativeOrNegativeMoney(sourceRow.amount, `Row ${rowNumber} amount`) : null;
+    } catch (error) {
+      errors.push(errorMessage(error));
+    }
+    if (debit.eq(0) && credit.eq(0) && signedAmount) {
+      if (signedAmount.lt(0)) {
+        debit = signedAmount.abs();
+      } else {
+        credit = signedAmount;
+      }
     }
     if (debit.gt(0) && credit.gt(0)) {
       errors.push(`Row ${rowNumber} cannot contain both debit and credit.`);
@@ -747,7 +760,7 @@ export class BankStatementService {
       sourceRowNumber: rowNumber,
       date,
       description,
-      reference: this.cleanOptional(sourceRow.reference),
+      reference: this.cleanOptional(sourceRow.reference || sourceRow.bankReference),
       type: isCredit ? BankStatementTransactionType.CREDIT : BankStatementTransactionType.DEBIT,
       amount: isCredit ? credit : debit,
       rawData: {
@@ -755,9 +768,14 @@ export class BankStatementService {
         normalized: {
           date: sourceRow.date ?? null,
           description: sourceRow.description ?? null,
-          reference: sourceRow.reference ?? null,
+          reference: sourceRow.reference ?? sourceRow.bankReference ?? null,
+          bankReference: sourceRow.bankReference ?? null,
           debit: sourceRow.debit ?? null,
           credit: sourceRow.credit ?? null,
+          amount: sourceRow.amount ?? null,
+          balance: sourceRow.balance ?? null,
+          counterparty: sourceRow.counterparty ?? null,
+          currency: sourceRow.currency ?? null,
         },
       },
     };
