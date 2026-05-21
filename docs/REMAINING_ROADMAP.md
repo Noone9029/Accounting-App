@@ -115,6 +115,14 @@ Recommended next prompt:
 - Snapshot updates should be intentional and run with `corepack pnpm exec playwright test -c playwright.visual.config.ts --update-snapshots`; normal verification uses `corepack pnpm test:visual`.
 - Remaining validation work: full smoke and full E2E are still pending and should be run only when explicitly requested; accountant wording review remains recommended.
 
+## 2026-05-22 Beta feedback triage intake
+
+- Added `docs/beta-testing/BETA_FEEDBACK_TRIAGE_SUMMARY.md` for the first sanitized beta/accountant feedback intake check.
+- No completed sanitized beta reports, UX reports, accounting review findings, redacted screenshots, or redacted videos were found in the repository.
+- The public GitHub issues query returned zero issue records for `Noone9029/Accounting-App`.
+- No blocker/high feedback was available, so no product code or accounting behavior changed in this pass.
+- Next product-development step is to collect sanitized beta/accountant findings through the feedback templates, then rerun triage and fix only concrete blocker/high UX, wording, route, document, mobile, security/privacy, or compliance-wording issues.
+
 ## Phase 2: Finish Wafeq Core Accounting Modules
 
 Objective: complete core accounting modules expected in a serious SME accounting SaaS.

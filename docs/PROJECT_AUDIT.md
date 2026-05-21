@@ -185,6 +185,14 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Supplier statement archive parity remains unchanged through `SUPPLIER_STATEMENT`; this pass did not change archive creation, source IDs, document IDs, or the enum migration.
 - Remaining risk: accountant review is still recommended for final statement wording and presentation before production use.
 
+## 2026-05-22 Beta feedback triage intake
+
+- Added `docs/beta-testing/BETA_FEEDBACK_TRIAGE_SUMMARY.md` to record the first sanitized beta/accountant feedback intake result.
+- Reviewed local beta testing docs, accountant review docs, GitHub issue templates, repository feedback/finding references, and the public GitHub issues endpoint for `Noone9029/Accounting-App`.
+- No completed sanitized beta reports, accountant review findings, redacted screenshots, redacted videos, or GitHub issues were available to triage.
+- No blocker/high findings were available, so no UX, route, document, report wording, accounting, ZATCA, security, schema, or deployment changes were made.
+- Remaining risk: real beta/accountant findings still need to be submitted through the feedback templates before product fixes can be safely batched.
+
 ## Audit Verification Commands
 
 - `corepack pnpm add -D @playwright/test -w`: passed.

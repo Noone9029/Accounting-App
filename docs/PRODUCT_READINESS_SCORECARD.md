@@ -140,6 +140,14 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 - The suite asserts no production ZATCA submission/compliance claim, no implemented PDF/A-3 claim, and no live bank integration claim.
 - Full smoke and full E2E remain pending and intentionally separate from this visual safety net.
 
+## 2026-05-22 Beta feedback triage intake
+
+- Added `docs/beta-testing/BETA_FEEDBACK_TRIAGE_SUMMARY.md` to document the first sanitized feedback intake check.
+- Local beta/accountant feedback templates and review docs were present, but no completed sanitized beta reports, accountant findings, redacted screenshots, or redacted videos were found in the repository.
+- The public GitHub issues query for `Noone9029/Accounting-App` returned zero issue records, so there were no blocker/high findings to fix in product code.
+- No readiness score changed in this pass because no user-facing defect was submitted or corrected.
+- Next step: collect sanitized tester/accountant findings through the beta feedback templates, then rerun triage and fix only blocker/high UX, route, wording, document, security/privacy, or compliance-wording issues.
+
 ## Fresh EGS SDK Hash Update
 
 The fresh-EGS SDK hash-mode validation step is now complete locally. It proved opt-in SDK hash persistence, first-PIH seed usage, invoice-to-invoice SDK PIH chaining, hash-compare `MATCH`, and idempotent regeneration for two invoices without network calls. A follow-up debug pass resolved the generated invoice 2 `KSA-13` validation failure by using an invoice-specific temporary SDK `pihPath` file containing metadata `previousInvoiceHash`. The ZATCA score remains constrained because buyer building-number data, signing/CSID/clearance/PDF-A3, and repeatable CI SDK execution are not implemented.

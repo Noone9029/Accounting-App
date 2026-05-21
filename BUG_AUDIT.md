@@ -37,6 +37,23 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Beta feedback intake triaged
+
+Reviewed the sanitized beta/accountant feedback intake locations before applying any product fixes.
+
+Risk reduced:
+
+- Added `docs/beta-testing/BETA_FEEDBACK_TRIAGE_SUMMARY.md` so the current intake state is explicit.
+- Confirmed the repository has beta testing docs, accountant review docs, and GitHub issue templates, but no completed sanitized feedback submissions or accountant findings were present in the local checkout.
+- The public GitHub issues query for `Noone9029/Accounting-App` returned zero issue records to triage.
+- No blocker or high-priority feedback was available, so no UX, copy, route, layout, accounting, report, security, ZATCA, schema, or deployment behavior was changed.
+
+Remaining risks:
+
+- Beta tester and accountant feedback still needs to be collected through the feedback templates or issue templates.
+- Accountant review remains pending and must not be treated as approval or certification.
+- Full smoke, full E2E, and runtime-role security hardening remain separate pending tasks.
+
 ### Visual regression coverage added
 
 Added focused mocked Playwright visual regression coverage for polished beta UX routes without changing accounting behavior.
