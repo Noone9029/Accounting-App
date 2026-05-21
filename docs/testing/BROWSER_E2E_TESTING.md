@@ -56,6 +56,20 @@ Run in headed mode:
 corepack pnpm e2e:headed
 ```
 
+Run the focused mocked visual regression suite for the polished beta UX routes:
+
+```bash
+corepack pnpm test:visual
+```
+
+The visual suite uses `playwright.visual.config.ts`, starts the web app on `http://127.0.0.1:3030`, and routes frontend API calls to stable in-browser fixtures. It does not use live beta credentials, Supabase, Vercel, real PDFs, request bodies, response bodies, document bodies, live bank feeds, real email, or ZATCA network calls.
+
+To intentionally refresh visual baselines after a reviewed UI change:
+
+```bash
+corepack pnpm exec playwright test -c playwright.visual.config.ts --update-snapshots
+```
+
 Override local URLs or credentials:
 
 ```bash
@@ -164,6 +178,29 @@ For deployed GitHub Actions runs, `scripts/check-deployed-e2e-env.cjs` performs 
 - Storage: database storage readiness, generated document storage readiness, redacted S3 readiness, dry-run migration notice.
 - Validated demo workflow data: customer/supplier VAT fields, finalized AR/AP documents, payments, posted cash expense, opening stock movement, and app-list rendering for those records.
 
+## Visual Regression Coverage
+
+`tests/visual/polished-workflows.visual.spec.ts` captures stable `main`-region screenshots for critical polished beta routes at desktop (`1366x900`), tablet (`820x960`), and mobile (`390x900`) widths:
+
+- Foundation: `/setup`, `/dashboard`, `/reports`.
+- AR/customer: `/contacts/customer-1` with customer statement opened, `/sales/invoices/invoice-1`.
+- AP/supplier: `/contacts/supplier-1` with supplier statement opened, `/purchases/bills/bill-1`.
+- Banking: `/bank-accounts/bank-1`.
+- Inventory: `/inventory/reports/stock-valuation`.
+- Documents/statements: `/documents`.
+
+The same suite also runs non-visual assertions against additional polished routes at desktop width: customer payment success, aged receivables, supplier payment success, purchase debit note, aged payables, bank account list, bank transfer detail, statement imports, reconciliation, items, warehouse detail, purchase receipt, adjustment, warehouse transfer, document settings, and number sequences.
+
+For every visual/assertion route the suite verifies:
+
+- The expected heading and guidance copy are visible.
+- The page does not create document-level horizontal overflow.
+- No copy claims production ZATCA submission/compliance.
+- No copy claims implemented PDF/A-3 output.
+- No copy claims live bank sync/feed/integration is connected.
+
+Snapshots live beside the spec under `tests/visual/polished-workflows.visual.spec.ts-snapshots/`. They are intentionally based on deterministic mocked tenant data so the suite does not depend on authenticated beta browser state or live API data.
+
 ## Data Strategy
 
 - Uses the seeded admin for login.
@@ -175,7 +212,7 @@ For deployed GitHub Actions runs, `scripts/check-deployed-e2e-env.cjs` performs 
 ## Known Limits
 
 - The browser suite does not prove full accounting correctness.
-- It does not perform visual regression testing.
+- The visual regression suite is focused on polished beta UI surfaces and does not replace full browser E2E, API smoke, PDF binary validation, or accountant review.
 - Attachment upload/download/delete remains covered by API smoke; browser coverage is currently render-only.
 - Email invite acceptance and token extraction remain covered by API smoke; browser coverage checks the visible password reset/outbox/readiness surfaces.
 - CI wiring is currently manual-dispatch only.

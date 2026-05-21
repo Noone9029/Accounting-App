@@ -107,6 +107,14 @@ Recommended next prompt:
 - User-testing deployment `da45544` applied the `SUPPLIER_STATEMENT` enum migration and targeted supplier statement archive QA passed: `GET /contacts/:id/supplier-statement.pdf` returned `200` `application/pdf`, created exactly one `SUPPLIER_STATEMENT` archive row, and `GET /generated-documents/:id/download` returned the archived PDF.
 - Remaining document work: accountant review of customer/supplier statement layout and broader visual regression coverage.
 
+## 2026-05-21 Visual regression coverage
+
+- Added a focused mocked Playwright visual regression suite for polished beta UX routes with no live beta credentials, no Supabase/Vercel dependency, and no real API access.
+- Critical setup, dashboard, reports, AR/customer, AP/supplier, banking, inventory valuation, and documents/archive routes now have desktop (`1366`), tablet (`820`), and mobile (`390`) screenshots.
+- Additional polished customer payment, aged reports, supplier payment, debit note, bank transfer, statement import, reconciliation, items, warehouse, receipt, adjustment, transfer, document settings, and number sequence routes now assert visible guidance, primary headings, no document-level horizontal overflow, and safe wording.
+- Snapshot updates should be intentional and run with `corepack pnpm exec playwright test -c playwright.visual.config.ts --update-snapshots`; normal verification uses `corepack pnpm test:visual`.
+- Remaining validation work: full smoke and full E2E are still pending and should be run only when explicitly requested; accountant wording review remains recommended.
+
 ## Phase 2: Finish Wafeq Core Accounting Modules
 
 Objective: complete core accounting modules expected in a serious SME accounting SaaS.

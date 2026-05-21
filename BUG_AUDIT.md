@@ -37,6 +37,22 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Visual regression coverage added
+
+Added focused mocked Playwright visual regression coverage for polished beta UX routes without changing accounting behavior.
+
+Risk reduced:
+
+- `corepack pnpm test:visual` now runs `tests/visual/polished-workflows.visual.spec.ts` with deterministic mocked API data instead of live beta credentials or real API traffic.
+- Critical setup, dashboard, reports, AR/customer statement, invoice detail, AP/supplier statement, purchase bill detail, bank account detail, inventory valuation, and documents/archive routes now have desktop, tablet, and mobile screenshots.
+- Additional AR, AP, banking, inventory, document settings, and number sequence routes assert visible guidance, headings, no document-level horizontal overflow, and safe wording.
+- The visual suite asserts no production ZATCA submission/compliance claim, no implemented PDF/A-3 claim, and no live bank integration claim.
+
+Remaining risks:
+
+- The suite is a focused visual safety net, not full browser E2E, full smoke, PDF binary validation, accountant review, or deployed authenticated browser QA.
+- A pre-existing dashboard chart React key warning appears during the visual run and remains a product-code cleanup item outside this test-only pass.
+
 ### Manual bank statement import groundwork added
 
 Added safe manual CSV/JSON/text bank statement upload and paste parsing without live bank integration or accounting behavior changes.
