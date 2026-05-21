@@ -846,3 +846,10 @@ Recommended next step:
 - The packet covers sales invoices, customer receipts, credit notes, customer statements, purchase bills, supplier payment receipts, purchase debit notes, supplier statements, AR/AP aging, GL/report terminology, inventory reports, bank reconciliation, VAT/ZATCA wording safety, and overall accountant usability.
 - Sample output handling is text-only: no binary PDFs are committed, real beta PDFs must not be committed, and the index points reviewers to safe mock visual snapshots, local PDF renderer tests, UI routes, and authenticated endpoint patterns.
 - This is preparation material only. Accountant review, legal/tax certification, ZATCA production approval, PDF/A-3, real ZATCA submission, full smoke, full E2E, and security runtime-role hardening remain pending.
+
+## 2026-05-22 Beta testing feedback kit
+
+- Added `docs/beta-testing/BETA_TESTING_GUIDE.md`, `BETA_TESTING_SCRIPT.md`, `BETA_FEEDBACK_FORM_TEMPLATE.md`, and `BETA_TRIAGE_GUIDE.md` so selected testers can evaluate guided setup, dashboard, AR, AP, banking, reconciliation, inventory, documents, statements, reports, and archive workflows consistently.
+- Added lightweight GitHub issue templates for beta bug reports, accounting review findings, and UX feedback, each with explicit safety checks against secrets, real customer-sensitive data, PDF/document bodies, signed XML, QR payloads, and production document data.
+- The kit states that Vercel is beta/user-testing only, not final production hosting; testers should use safe sample data only; no real ZATCA submission, CSID execution, clearance/reporting, PDF/A-3, production compliance certification, live bank integration, or real customer email sending is enabled by default.
+- Accountant review remains pending and must not be treated as approval or certification. Full smoke, full E2E, and security runtime-role hardening remain separate pending work.

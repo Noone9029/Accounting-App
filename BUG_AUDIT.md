@@ -2982,3 +2982,11 @@ Recommended next step:
 - Added a text-only sample-output index that references safe visual snapshots, local PDF renderer tests, UI routes, and authenticated endpoint patterns without committing binary PDFs or real beta/customer data.
 - No accounting calculation, ledger math, report math, PDF totals, posting behavior, generated-document archive logic, ZATCA behavior, schema, migration, seed/reset/delete, email, backup, restore, full smoke, or full E2E was changed.
 - Remaining risk: accountant review is still pending; this packet must not be represented as accountant approval or compliance certification.
+
+# Beta testing feedback kit - 2026-05-22
+
+- Added a dedicated beta testing kit under `docs/beta-testing/` with a tester guide, step-by-step workflow script, feedback form template, and triage guide for selected user-testing participants.
+- The script covers setup, dashboard, customer/invoice/payment, customer ledger and AR report, supplier/bill/payment/debit-note, supplier ledger and AP report, manual bank statement import preview, reconciliation/matching review, inventory review, document PDF/archive behavior, and reports/dashboard review.
+- Added GitHub issue templates for beta bug reports, accounting review findings, and UX feedback, each with explicit safety checks to avoid secrets, auth material, real customer-sensitive data, production document data, PDF/document bodies, signed XML, QR payloads, and attachment bodies.
+- The kit clearly states that Vercel is beta/user-testing only, no real ZATCA submission/CSID/clearance/reporting/PDF/A-3/production certification is enabled, no real customer email sending is enabled by default, and live bank integration is not implemented.
+- No accounting calculation, ledger math, report math, PDF totals, posting behavior, ZATCA behavior, schema, migration, seed/reset/delete, Supabase RLS, runtime DB role, Vercel environment, email sending, backup, restore, full smoke, or full E2E was changed.

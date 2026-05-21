@@ -967,3 +967,10 @@ Recommended next step:
 - The packet includes an area-by-area checklist, a findings template, and a sample-output index that points to safe visual snapshots, local renderer tests, UI routes, and authenticated beta endpoint patterns without committing real PDFs.
 - This does not mean accountant approval has happened. A qualified accountant still needs to review terminology, layout, statement readability, report labels, and any accounting correctness concerns.
 - Remaining review work: collect sanitized samples, run the checklist with an accountant, record findings, and prioritize must-fix issues before broader beta or production use.
+
+# Beta testing feedback kit roadmap update - 2026-05-22
+
+- Added `docs/beta-testing/` with a beta testing guide, step-by-step testing script, feedback form template, and triage guide for selected user-testing participants.
+- The tester script covers login/access, setup wizard, dashboard checklist, first customer, first invoice, invoice finalization, customer payment, customer ledger, AR report, supplier, purchase bill, supplier payment, supplier ledger/AP report, manual bank statement import preview, reconciliation review, inventory review, document PDF/archive review, and reports/dashboard review.
+- Added GitHub issue templates for beta bug reports, accounting review findings, and UX feedback with safety checks for secrets, real customer-sensitive data, production document data, PDF/document bodies, signed XML, and QR payloads.
+- Remaining beta-readiness work: run the script with selected testers, triage findings, complete accountant review, keep full smoke/full E2E as explicit validation tasks, and resume security runtime-role hardening when safe Vercel environment mutation is available.

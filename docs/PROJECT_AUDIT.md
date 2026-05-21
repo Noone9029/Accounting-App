@@ -901,3 +901,11 @@ Recommended next step:
 - Added `docs/accountant-review/ACCOUNTANT_REVIEW_CHECKLIST.md` with review sections for sales invoices, customer receipts, credit notes, customer statements, purchase bills, supplier payment receipts, purchase debit notes, supplier statements, AR/AP aging, general ledger/report terminology, inventory reports, bank reconciliation, VAT/ZATCA wording safety, and overall accountant usability.
 - Added `docs/accountant-review/ACCOUNTANT_REVIEW_FINDINGS_TEMPLATE.md` and `docs/accountant-review/SAMPLE_OUTPUT_INDEX.md` so reviewer findings and sanitized sample-output references can be collected without committing sensitive PDFs or real customer data.
 - This is review preparation only. No accountant approval, legal/tax certification, production ZATCA approval, PDF/A-3 implementation, real ZATCA submission, full smoke, full E2E, Supabase RLS change, runtime DB role change, seed/reset, email sending, backup, or restore was performed.
+
+# Beta testing feedback kit update - 2026-05-22
+
+- Added `docs/beta-testing/BETA_TESTING_GUIDE.md` to define the purpose, beta environment boundaries, test data safety rules, known limitations, and reporting expectations for controlled user testing.
+- Added `docs/beta-testing/BETA_TESTING_SCRIPT.md` with workflow steps for setup, dashboard, AR/customer flows, AP/supplier flows, manual bank statement import, reconciliation, inventory, document PDF/archive behavior, and reports.
+- Added `docs/beta-testing/BETA_FEEDBACK_FORM_TEMPLATE.md` and `docs/beta-testing/BETA_TRIAGE_GUIDE.md` so tester feedback can be captured with severity, route/page, workflow step, expected/actual behavior, screenshot reference, beta-blocking status, accounting correctness flags, and security/privacy/ZATCA wording flags.
+- Added GitHub issue templates for beta bug reports, accounting review findings, and UX feedback. The templates instruct reporters not to include secrets, real customer-sensitive data, production document data, PDF/document bodies, signed XML, QR payloads, or attachment bodies.
+- This is documentation and lightweight feedback workflow only. No accounting behavior, calculations, report math, ZATCA behavior, security configuration, Vercel environment, database schema, migration, seed/reset, real email, backup, restore, full smoke, or full E2E changed.

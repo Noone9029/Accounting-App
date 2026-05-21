@@ -79,6 +79,13 @@ Accountant review materials:
 - [Accountant review findings template](docs/accountant-review/ACCOUNTANT_REVIEW_FINDINGS_TEMPLATE.md)
 - [Accountant review sample output index](docs/accountant-review/SAMPLE_OUTPUT_INDEX.md)
 
+Beta testing materials:
+
+- [Beta testing guide](docs/beta-testing/BETA_TESTING_GUIDE.md)
+- [Beta testing script](docs/beta-testing/BETA_TESTING_SCRIPT.md)
+- [Beta feedback form template](docs/beta-testing/BETA_FEEDBACK_FORM_TEMPLATE.md)
+- [Beta triage guide](docs/beta-testing/BETA_TRIAGE_GUIDE.md)
+
 User-testing cleanup planning is dry-run only:
 
 ```bash
