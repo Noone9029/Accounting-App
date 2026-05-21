@@ -110,9 +110,17 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 - Source-record PDF actions now use more specific labels such as invoice, receipt, purchase bill, debit note, and archived PDF downloads, with links to the generated archive, document settings, and number sequence settings.
 - `/documents` now explains that archived downloads do not post accounting entries or send anything outside LedgerByte, shows readable source/status labels, and gives empty-state next actions.
 - Document settings now explain which future generated PDFs are affected, how templates only change presentation density, and that totals, VAT, posting data, and compliance status are unchanged.
-- Supplier statement PDF parity remains a gap; the supplier statement screen now says the current beta route is on-screen AP review only and points users to aged payables exports for PDF reports.
+- Supplier statement PDF export parity is now available from the supplier statement tab using the existing supplier ledger rows. It does not create generated-document archive rows yet because a correct archive type requires a future schema/migration step.
 - PDF/A-3, real ZATCA network submission, CSID execution, clearance/reporting, and production compliance remain disabled and are described conservatively in the UI.
 - No PDF renderer math, accounting posting behavior, tax calculation, ZATCA behavior, migration, seed/reset, full smoke, or full E2E was part of this pass.
+
+## 2026-05-21 Document download beta QA and supplier statement export
+
+- Deployed beta health endpoints were checked, but real-account document download QA could not be completed in this shell because no secret-store credential command or deployed smoke credential environment variables were available, and the in-app browser session did not have generated-document permissions.
+- Code inspection confirmed customer statement PDF download/archive support already existed at `/contacts/:id/statement.pdf`, while supplier statements only had JSON/on-screen support.
+- Added a supplier statement PDF export endpoint and UI download action without changing AP ledger calculations, supplier balances, posting behavior, tax logic, or document totals.
+- Supplier statement archive tracking remains a known limitation until a `SUPPLIER_STATEMENT` generated-document type can be added through a reviewed schema migration.
+- Full smoke, full E2E, migrations, seed/reset, RLS/runtime-role work, real ZATCA, real email, backups, and restores were intentionally not run.
 
 ## Fresh EGS SDK Hash Update
 

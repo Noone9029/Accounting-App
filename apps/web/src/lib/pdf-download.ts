@@ -61,6 +61,19 @@ export function statementPdfPath(contactId: string, from?: string, to?: string):
   return `/contacts/${encodeURIComponent(contactId)}/statement.pdf${suffix ? `?${suffix}` : ""}`;
 }
 
+export function supplierStatementPdfPath(contactId: string, from?: string, to?: string): string {
+  const query = new URLSearchParams();
+  if (from) {
+    query.set("from", from);
+  }
+  if (to) {
+    query.set("to", to);
+  }
+
+  const suffix = query.toString();
+  return `/contacts/${encodeURIComponent(contactId)}/supplier-statement.pdf${suffix ? `?${suffix}` : ""}`;
+}
+
 export function generatedDocumentDownloadPath(documentId: string): string {
   return `/generated-documents/${encodeURIComponent(documentId)}/download`;
 }

@@ -896,6 +896,63 @@ export class ContactLedgerService {
     };
   }
 
+  async supplierStatementPdfData(organizationId: string, contactId: string, from?: string, to?: string): Promise<CustomerStatementPdfData> {
+    const [organization, statement] = await Promise.all([
+      this.prisma.organization.findFirst({
+        where: { id: organizationId },
+        select: {
+          id: true,
+          name: true,
+          legalName: true,
+          taxNumber: true,
+          countryCode: true,
+          baseCurrency: true,
+        },
+      }),
+      this.supplierStatement(organizationId, contactId, from, to),
+    ]);
+
+    if (!organization) {
+      throw new NotFoundException("Organization not found.");
+    }
+
+    return {
+      organization,
+      contact: statement.contact,
+      contactLabel: "Supplier",
+      currency: organization.baseCurrency,
+      periodFrom: statement.periodFrom,
+      periodTo: statement.periodTo,
+      openingBalance: statement.openingBalance,
+      closingBalance: statement.closingBalance,
+      rows: statement.rows.map((row) => ({
+        date: row.date,
+        type: row.type,
+        number: row.number,
+        description: row.description,
+        debit: row.debit,
+        credit: row.credit,
+        balance: row.balance,
+        status: row.status,
+      })),
+      generatedAt: new Date(),
+    };
+  }
+
+  async supplierStatementPdf(
+    organizationId: string,
+    contactId: string,
+    from?: string,
+    to?: string,
+  ): Promise<{ data: CustomerStatementPdfData; buffer: Buffer; filename: string }> {
+    const data = await this.supplierStatementPdfData(organizationId, contactId, from, to);
+    const settings = await this.documentSettingsService?.statementRenderSettings(organizationId);
+    const renderSettings = settings ? { ...settings, title: supplierStatementTitle(settings.title ?? "Supplier Statement") } : { title: "Supplier Statement" };
+    const buffer = await renderCustomerStatementPdf(data, renderSettings);
+    const filename = supplierStatementFilename(data, from, to);
+    return { data, buffer, filename };
+  }
+
   private async findCustomerContact(organizationId: string, contactId: string): Promise<CustomerLedgerContact> {
     const contact = await this.prisma.contact.findFirst({
       where: {
@@ -1749,10 +1806,20 @@ function statementFilename(data: CustomerStatementPdfData, from?: string, to?: s
   return sanitizeFilename(`statement-${name}-${range}.pdf`);
 }
 
+function supplierStatementFilename(data: CustomerStatementPdfData, from?: string, to?: string): string {
+  const name = data.contact.displayName ?? data.contact.name;
+  const range = from && to ? `${from}-to-${to}` : "all";
+  return sanitizeFilename(`supplier-statement-${name}-${range}.pdf`);
+}
+
 function statementDocumentNumber(data: CustomerStatementPdfData, from?: string, to?: string): string {
   const name = data.contact.displayName ?? data.contact.name;
   const range = from || to ? `${from ?? "start"} to ${to ?? "end"}` : "all dates";
   return `Statement ${name} (${range})`;
+}
+
+function supplierStatementTitle(title: string): string {
+  return /customer/i.test(title) ? title.replace(/customer/gi, "Supplier") : title;
 }
 
 function parseBoundaryDate(value: string | undefined, endOfDay: boolean): Date | undefined {

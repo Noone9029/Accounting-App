@@ -488,6 +488,7 @@ export interface SupplierRefundPdfData {
 export interface CustomerStatementPdfData {
   organization: PdfOrganization;
   contact: PdfContact;
+  contactLabel?: string;
   currency?: string;
   periodFrom?: string | null;
   periodTo?: string | null;
@@ -1400,7 +1401,7 @@ export async function renderCustomerStatementPdf(data: CustomerStatementPdfData,
   const renderSettings = resolveSettings(settings, "Customer Statement");
   return renderPdf((doc) => {
     writeHeader(doc, data.organization, renderSettings, data.generatedAt);
-    writeTwoColumnBlocks(doc, "Customer", contactLines(data.contact, renderSettings), "Statement", [
+    writeTwoColumnBlocks(doc, data.contactLabel ?? "Customer", contactLines(data.contact, renderSettings), "Statement", [
       ["Period from", data.periodFrom ?? "-"],
       ["Period to", data.periodTo ?? "-"],
       ["Opening balance", money(data.openingBalance, data.currency ?? "SAR")],

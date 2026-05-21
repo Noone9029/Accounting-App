@@ -2939,5 +2939,11 @@ Recommended next step:
 - Added shared UI copy that explains generated PDFs are archived, archived downloads do not post accounting entries or send data externally, and document settings affect future PDFs only.
 - Updated document action labels to be specific to invoice, receipt, purchase bill, debit note, credit note, and archived PDF downloads.
 - Added archive/settings/numbering links near document actions and richer archive empty states without changing APIs or accounting behavior.
-- Supplier statement PDF parity remains a product gap; the supplier statement route now states it is on-screen AP review only and points to aged payables exports for PDF reports.
+- Supplier statement PDF export parity is now available from the supplier statement route using existing supplier statement rows; generated-document archive tracking for supplier statements remains pending a reviewed schema migration.
 - No PDF totals, VAT/tax calculation, journal posting, accounting behavior, ZATCA signing/submission, PDF/A-3, CSID, clearance/reporting, migration, seed/reset/delete, full smoke, or full E2E changed.
+
+# Document download beta QA follow-up - 2026-05-21
+
+- Deployed beta health was reachable, but real-account document download/archive QA could not be completed from this shell because no secret-store command or deployed smoke credential environment variables were available, and the browser session lacked generated-document permissions.
+- Added supplier statement PDF export support without changing supplier ledger/AP calculations, posting behavior, tax/VAT logic, PDF totals, ZATCA behavior, schema, or generated-document archive types.
+- Remaining limitation: supplier statement downloads do not create archive records until a dedicated `SUPPLIER_STATEMENT` document type is added through a reviewed migration.

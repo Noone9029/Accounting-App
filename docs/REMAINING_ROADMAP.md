@@ -93,8 +93,15 @@ Recommended next prompt:
 - Source-record document actions now use specific PDF labels and explain that generated downloads are archived for later review.
 - The generated archive now explains status, source labels, non-posting archived downloads, empty states, and links back to document settings and number sequences.
 - Document settings now describe what future PDFs are affected, that template choices are presentation-only, and that totals, VAT, posting data, and compliance status are unchanged.
-- Supplier statement PDF parity remains open; the beta supplier statement route now states it is on-screen AP review only and points users to aged payables exports when a PDF report is needed.
+- Supplier statement PDF export parity is now available from the supplier statement tab, using the existing supplier ledger rows and presentation settings.
+- Remaining document gap: supplier statement downloads do not yet create generated-document archive rows because the archive enum does not have a supplier statement type. Add this only through a reviewed non-destructive schema migration.
 - PDF/A-3, real ZATCA network submission, CSID execution, clearance/reporting, and production compliance remain unimplemented and clearly described as disabled.
+
+## 2026-05-21 Document download beta QA follow-up
+
+- Deployed beta health was reachable, but real-account document download/archive QA was blocked in the local shell because secret-store credentials were not available as environment variables or a local secret-store command, and the browser session did not have generated-document permissions.
+- Added the safe supplier statement PDF export path anyway because the gap was visible in code/UI and could reuse the existing supplier statement data without changing AP math.
+- Next document hardening step: run real-account beta download/archive QA once secret-store credentials are available, then add supplier statement archive tracking through a reviewed `SUPPLIER_STATEMENT` document type migration if still required.
 
 ## Phase 2: Finish Wafeq Core Accounting Modules
 

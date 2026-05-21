@@ -109,6 +109,35 @@ export class ContactController {
     return this.contactLedgerService.supplierStatement(organizationId, id, from, to);
   }
 
+  @Get(":id/supplier-statement-pdf-data")
+  @RequirePermissions(PERMISSIONS.contacts.view)
+  supplierStatementPdfData(
+    @CurrentOrganizationId() organizationId: string,
+    @Param("id") id: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+  ) {
+    return this.contactLedgerService.supplierStatementPdfData(organizationId, id, from, to);
+  }
+
+  @Get(":id/supplier-statement.pdf")
+  @RequirePermissions(PERMISSIONS.contacts.view)
+  async supplierStatementPdf(
+    @CurrentOrganizationId() organizationId: string,
+    @Param("id") id: string,
+    @Query("from") from: string | undefined,
+    @Query("to") to: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { buffer, filename } = await this.contactLedgerService.supplierStatementPdf(organizationId, id, from, to);
+    response.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Length": String(buffer.byteLength),
+    });
+    return new StreamableFile(buffer);
+  }
+
   @Get(":id")
   @RequirePermissions(PERMISSIONS.contacts.view)
   get(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {

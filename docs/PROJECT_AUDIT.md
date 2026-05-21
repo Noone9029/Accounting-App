@@ -165,8 +165,15 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Detail pages now use clearer PDF action labels, expose archive/settings/numbering links near document actions, and keep conservative compliance wording visible.
 - `/documents` now has readable source/status labels, a clearer archived-PDF download action, richer empty state, and guidance that archived retrievals do not post entries or send data outside LedgerByte.
 - `/settings/documents` now explains titles, colors, display toggles, and templates in plain language; templates remain presentation-density choices only.
-- Supplier statement PDF parity remains open. The supplier statement screen now states the beta route is on-screen AP review only and points to aged payables exports when a PDF report is needed.
+- Supplier statement PDF export parity is now available from the supplier statement tab. It reuses existing supplier statement rows, preserves AP balance math, and does not create archive rows yet.
 - No PDF renderer totals, tax math, accounting posting behavior, ZATCA signing/submission, PDF/A-3, CSID, clearance/reporting, migration, seed/reset/delete, full smoke, or full E2E changed.
+
+## 2026-05-21 Document download beta QA follow-up
+
+- Deployed beta health checks were reachable, but real-account document download/archive QA was blocked because this environment had no secret-store command or deployed smoke credential environment variables, and the browser session lacked generated-document permissions.
+- Code inspection found the exact statement parity gap: customer statement PDF download/archive routes existed, while supplier statements only exposed JSON/on-screen routes.
+- Added `GET /contacts/:id/supplier-statement.pdf` and frontend supplier statement download wiring without changing supplier ledger calculations, AP posting, tax/VAT logic, PDF totals, ZATCA behavior, or generated-document schema.
+- Supplier statement generated-document archive tracking remains pending until a reviewed schema migration can add a dedicated supplier statement document type.
 
 ## Audit Verification Commands
 

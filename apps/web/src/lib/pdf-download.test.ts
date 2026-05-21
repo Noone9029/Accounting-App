@@ -12,6 +12,7 @@ import {
   purchaseDebitNotePdfPath,
   receiptPdfPath,
   statementPdfPath,
+  supplierStatementPdfPath,
   supplierPaymentReceiptPdfPath,
   supplierRefundPdfPath,
 } from "./pdf-download";
@@ -35,6 +36,10 @@ describe("PDF download helpers", () => {
       "/contacts/contact-1/statement.pdf?from=2026-01-01&to=2026-01-31",
     );
     expect(statementPdfPath("contact-1")).toBe("/contacts/contact-1/statement.pdf");
+    expect(supplierStatementPdfPath("supplier-1", "2026-01-01", "2026-01-31")).toBe(
+      "/contacts/supplier-1/supplier-statement.pdf?from=2026-01-01&to=2026-01-31",
+    );
+    expect(supplierStatementPdfPath("supplier-1")).toBe("/contacts/supplier-1/supplier-statement.pdf");
   });
 
   it("builds absolute API URLs", () => {

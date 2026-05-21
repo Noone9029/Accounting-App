@@ -451,6 +451,71 @@ describe("customer ledger rules", () => {
       generatedById: "user-1",
     }));
   });
+
+  it("renders supplier statement PDFs from supplier statement rows without changing AP math", async () => {
+    const service = new ContactLedgerService(
+      {
+        organization: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: "org-1",
+            name: "Org",
+            legalName: null,
+            taxNumber: null,
+            countryCode: "SA",
+            baseCurrency: "SAR",
+          }),
+        },
+      } as never,
+      { statementRenderSettings: jest.fn().mockResolvedValue({ title: "Customer Statement" }) } as never,
+    );
+    jest.spyOn(service, "supplierStatement").mockResolvedValue({
+      contact: {
+        id: "supplier-1",
+        name: "Supplier",
+        displayName: "Supplier",
+        type: "SUPPLIER",
+        email: null,
+        phone: null,
+        taxNumber: null,
+      },
+      periodFrom: "2026-05-01",
+      periodTo: "2026-05-31",
+      openingBalance: "250.0000",
+      closingBalance: "0.0000",
+      rows: [
+        {
+          id: "row-1",
+          type: "SUPPLIER_PAYMENT",
+          date: "2026-05-06T00:00:00.000Z",
+          number: "SP-000001",
+          description: "Supplier payment",
+          debit: "250.0000",
+          credit: "0.0000",
+          balance: "0.0000",
+          sourceType: "SupplierPayment",
+          sourceId: "supplier-payment-1",
+          status: "POSTED",
+          metadata: {},
+        },
+      ],
+    });
+
+    await expect(service.supplierStatementPdfData("org-1", "supplier-1", "2026-05-01", "2026-05-31")).resolves.toMatchObject({
+      contact: { id: "supplier-1", name: "Supplier" },
+      contactLabel: "Supplier",
+      currency: "SAR",
+      periodFrom: "2026-05-01",
+      periodTo: "2026-05-31",
+      openingBalance: "250.0000",
+      closingBalance: "0.0000",
+      rows: [{ number: "SP-000001", debit: "250.0000", balance: "0.0000" }],
+    });
+
+    const result = await service.supplierStatementPdf("org-1", "supplier-1", "2026-05-01", "2026-05-31");
+
+    expect(result.buffer.subarray(0, 4).toString()).toBe("%PDF");
+    expect(result.filename).toBe("supplier-statement-Supplier-2026-05-01-to-2026-05-31.pdf");
+  });
 });
 
 function invoice(

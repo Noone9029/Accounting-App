@@ -117,7 +117,7 @@ export default function DocumentSettingsPage() {
             <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
               <TextField label="Invoice title" helper="Shown on invoice, credit-note, bill, and debit-note PDFs where applicable." value={form.invoiceTitle} onChange={(value) => updateField("invoiceTitle", value)} />
               <TextField label="Receipt title" helper="Shown on customer and supplier payment receipt PDFs." value={form.receiptTitle} onChange={(value) => updateField("receiptTitle", value)} />
-              <TextField label="Statement title" helper="Shown on customer statement PDFs." value={form.statementTitle} onChange={(value) => updateField("statementTitle", value)} />
+              <TextField label="Statement title" helper="Shown on customer and supplier statement PDFs." value={form.statementTitle} onChange={(value) => updateField("statementTitle", value)} />
               <TextField label="Footer text" helper="Optional footer copy for beta review documents." value={form.footerText} onChange={(value) => updateField("footerText", value)} />
             </div>
           </div>

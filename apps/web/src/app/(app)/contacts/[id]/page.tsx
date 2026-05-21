@@ -13,7 +13,7 @@ import { contactIdentificationOptions, formatContactIdentificationType, getConta
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { defaultStatementFromDate, defaultStatementToDate, formatLedgerBalance } from "@/lib/ledger-display";
 import { formatMoneyAmount } from "@/lib/money";
-import { downloadPdf, statementPdfPath } from "@/lib/pdf-download";
+import { downloadPdf, statementPdfPath, supplierStatementPdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import { buildContactBuyerAddressReadiness, zatcaReadinessStatusBadgeClass, zatcaReadinessStatusLabel } from "@/lib/zatca";
 import type { Contact, CustomerLedger, CustomerLedgerRow, CustomerStatement, SupplierLedger, SupplierLedgerRow, SupplierStatement, ZatcaReadinessSection } from "@/lib/types";
@@ -171,6 +171,26 @@ export default function ContactDetailPage() {
       await downloadPdf(statementPdfPath(params.id, fromDate, toDate), `statement-${profile?.displayName ?? profile?.name ?? params.id}.pdf`);
     } catch (downloadError) {
       setStatementError(downloadError instanceof Error ? downloadError.message : "Unable to download statement PDF.");
+    } finally {
+      setStatementPdfLoading(false);
+    }
+  }
+
+  async function downloadSupplierStatementPdf() {
+    if (!params.id || !fromDate || !toDate) {
+      return;
+    }
+
+    setStatementError("");
+    setStatementPdfLoading(true);
+
+    try {
+      await downloadPdf(
+        supplierStatementPdfPath(params.id, fromDate, toDate),
+        `supplier-statement-${profile?.displayName ?? profile?.name ?? params.id}.pdf`,
+      );
+    } catch (downloadError) {
+      setStatementError(downloadError instanceof Error ? downloadError.message : "Unable to download supplier statement PDF.");
     } finally {
       setStatementPdfLoading(false);
     }
@@ -449,6 +469,9 @@ export default function ContactDetailPage() {
                   </label>
                   <button type="submit" disabled={statementLoading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
                     {statementLoading ? "Loading..." : "Load supplier statement"}
+                  </button>
+                  <button type="button" onClick={() => void downloadSupplierStatementPdf()} disabled={!fromDate || !toDate || statementPdfLoading} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                    {statementPdfLoading ? "Preparing..." : "Download supplier statement PDF"}
                   </button>
                 </form>
                 <SupplierStatementDocumentGuidance />
@@ -866,8 +889,9 @@ export function SupplierStatementDocumentGuidance() {
   return (
     <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
       <p className="text-xs leading-5 text-steel">
-        Supplier statements are available for on-screen AP review in this beta. Supplier statement PDF export is not wired
-        on this route yet; use aged payables exports when a PDF report is needed.
+        Supplier statement PDF export is available for beta review from the selected period. The download uses the same
+        AP ledger rows shown on screen; generated-document archive tracking for supplier statements is a separate
+        hardening step.
       </p>
       <ComplianceNote className="mt-2" />
     </div>
