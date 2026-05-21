@@ -83,6 +83,7 @@ Beta testing materials:
 
 - [Beta testing guide](docs/beta-testing/BETA_TESTING_GUIDE.md)
 - [Beta access management](docs/beta-testing/BETA_ACCESS_MANAGEMENT.md)
+- [Beta access dry run](docs/beta-testing/BETA_ACCESS_DRY_RUN_20260522.md)
 - [Beta testing script](docs/beta-testing/BETA_TESTING_SCRIPT.md)
 - [Beta feedback form template](docs/beta-testing/BETA_FEEDBACK_FORM_TEMPLATE.md)
 - [Beta triage guide](docs/beta-testing/BETA_TRIAGE_GUIDE.md)
@@ -1746,7 +1747,7 @@ Frontend enforcement:
 - High-risk action buttons are hidden when the active role lacks the matching create/update/finalize/void/manage permission.
 - `/settings/team` lists organization members, supports role/status changes for `users.manage`, and sends mock/local invite emails for `users.invite`.
 - `/settings/roles` and `/settings/roles/:id` show role lists and grouped permission matrices; custom roles can be edited with `roles.manage`, while system/default roles are protected.
-- Beta access guidance documents a 3-5 tester starting cohort, least-privilege role selection, dummy-data-only instructions, and suspend/reactivate revocation through `/settings/team`.
+- Beta access guidance documents a 3-5 tester starting cohort, least-privilege role selection, dummy-data-only instructions, and suspend/reactivate revocation through `/settings/team`; a deployed beta dry run verified mock invite delivery, Viewer/Sales/Viewer role changes, and final suspension for a dummy `.example.test` tester.
 
 Permission matrix categories:
 

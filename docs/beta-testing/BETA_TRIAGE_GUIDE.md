@@ -96,4 +96,4 @@ Examples:
 - Security runtime-role hardening remains parked until a safe Vercel environment mutation path is available.
 - Production ZATCA compliance is not enabled.
 - Manual bank statement import is file/paste based; live bank integration is not implemented.
-- Beta access management guidance exists, but access still needs to be handled manually through Team Members and Roles.
+- Beta access management guidance exists and the API-level mock invite/role/suspend dry run passed, but real selected-tester onboarding still needs to be handled manually through Team Members and Roles.

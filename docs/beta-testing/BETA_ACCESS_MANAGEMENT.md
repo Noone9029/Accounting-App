@@ -35,6 +35,20 @@ Existing LedgerByte access surfaces:
 
 Real customer email sending is not enabled by default. Invite delivery is mock/local unless a later approved email plan changes it.
 
+## Dry Run Evidence
+
+A controlled deployed beta dry run was completed on 2026-05-22 and documented in [BETA_ACCESS_DRY_RUN_20260522.md](BETA_ACCESS_DRY_RUN_20260522.md).
+
+Result summary:
+
+- The deployed API reported `provider=mock`, `mockMode=true`, and `realSendingEnabled=false` before the dummy invite was created.
+- A safe `.example.test` dummy identity was invited with the `Viewer` role.
+- The invite created a mock email outbox record with status `SENT_MOCK`; no real external email was sent.
+- Role assignment changed from `Viewer` to `Sales` and back to `Viewer`.
+- Suspend/reactivate/suspend status changes worked, and the dummy tester finished as `SUSPENDED`.
+- The dummy tester was never assigned `Owner` or `Admin`.
+- No real customer data, production invoice, live bank feed, real ZATCA action, migration, seed, reset, delete, full smoke, or full E2E action was used.
+
 ## Recommended Beta Roles
 
 Default to the least access needed for the testing script:

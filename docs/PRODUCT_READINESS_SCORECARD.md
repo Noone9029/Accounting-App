@@ -882,3 +882,11 @@ Recommended next step:
 - Added `docs/beta-testing/BETA_ACCESS_MANAGEMENT.md` to guide a controlled 3-5 tester cohort, least-privilege role selection, beta organization labeling, invite handling, password reset, suspension/reactivation, and tester data cleanup requests.
 - `/settings/team`, `/settings/roles`, and `/settings/roles/:id` now show lightweight beta guidance: keep Owner/Admin internal, use Viewer for read-only review, use scoped roles only for assigned workflows, avoid real data, and suspend testers after the beta window.
 - This is access/onboarding guidance only: no auth architecture, permission logic, Supabase RLS, runtime DB role, Vercel environment, migration, seed/reset, full smoke, or full E2E changed.
+
+## 2026-05-22 Beta access dry run
+
+- Ran an authenticated API-level dry run against the deployed user-testing environment with the local DPAPI-backed credential store and no secret/body output.
+- Confirmed email readiness before inviting: provider `mock`, mock mode true, and real sending disabled.
+- Invited a dummy `.example.test` tester with `Viewer`, verified the member appeared in Team Members, confirmed mock outbox status `SENT_MOCK`, changed role to `Sales` and back to `Viewer`, then suspended/reactivated/suspended the membership.
+- Final dry-run state: dummy tester remained `SUSPENDED`, final role was `Viewer`, and `Owner`/`Admin` was not assigned.
+- No real external email, real customer data, production invoice, live bank feed, real ZATCA action, auth architecture change, permission logic change, migration, seed/reset/delete, full smoke, or full E2E action was used.

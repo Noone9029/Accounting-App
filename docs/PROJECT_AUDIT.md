@@ -217,6 +217,15 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - No blocker/high findings were available, so no UX, route, document, report wording, accounting, ZATCA, security, schema, or deployment changes were made.
 - Remaining risk: real beta/accountant findings still need to be submitted through the feedback templates before product fixes can be safely batched.
 
+## 2026-05-22 Beta access dry run
+
+- Used the local DPAPI-backed user-testing credential store to run an authenticated API-level dry run against `https://ledgerbyte-api-test.vercel.app` without printing passwords, tokens, auth headers, request/response bodies, customer/vendor data, invite tokens, or document bodies.
+- Confirmed the deployed beta email provider before inviting: provider `mock`, mock mode true, and real sending disabled.
+- Invited one safe dummy `.example.test` tester with `Viewer`; the invite created a mock outbox record with status `SENT_MOCK`, so no real external email was sent.
+- Verified the dummy member appeared in Team Members, changed the role to `Sales` and back to `Viewer`, suspended access, reactivated it, and suspended it again. Final state was `SUSPENDED` with role `Viewer`.
+- Confirmed no `Owner` or `Admin` role was assigned to the dummy tester.
+- No real customer data, production invoice, live bank feed, real ZATCA action, auth architecture change, permission logic change, Supabase RLS, runtime role, Vercel env, migration, seed/reset/delete, full smoke, or full E2E action was used.
+
 ## Audit Verification Commands
 
 - `corepack pnpm add -D @playwright/test -w`: passed.

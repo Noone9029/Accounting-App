@@ -17,6 +17,8 @@ Beta testing should confirm that a new business user can understand and complete
 
 Access for selected testers is managed through [BETA_ACCESS_MANAGEMENT.md](BETA_ACCESS_MANAGEMENT.md). Keep the first cohort to 3-5 approved testers and use the least-privilege role needed for the assigned workflow.
 
+The deployed beta access dry run is documented in [BETA_ACCESS_DRY_RUN_20260522.md](BETA_ACCESS_DRY_RUN_20260522.md). It verified mock-only invite delivery, least-privilege role assignment, role reversal, and suspend/reactivate/suspend revocation using a dummy `.example.test` identity.
+
 ## Beta Environment Boundaries
 
 - Vercel is beta/user-testing only, not final production hosting.
@@ -81,7 +83,7 @@ Report any screen, PDF, or message that sounds like production ZATCA submission 
 - Supabase RLS/runtime-role hardening remains parked until a safe Vercel environment mutation path is available.
 - Production ZATCA compliance is not enabled.
 - Real email sending is not enabled by default.
-- Beta tester access should be invited, role-scoped, and revoked through the beta access management workflow.
+- Beta tester access should be invited, role-scoped, and revoked through the beta access management workflow. The API-level dry run passed with mock email, but real selected testers still need scheduled invitation and revocation.
 - Manual bank statement import supports beta CSV/JSON/text plus limited OFX/CAMT/MT940 preview and import metadata; live bank integration is not implemented, bank-specific parser support is not certified, and raw bank file bodies are not archived in beta.
 
 ## How To Report Issues

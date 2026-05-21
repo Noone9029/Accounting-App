@@ -14,6 +14,7 @@ Use this script with a beta/test organization only. Do not enter real customer-s
 Expected result:
 - You can sign in and reach the app shell without seeing production-compliance claims.
 - You are using your own assigned beta account, not a shared credential.
+- Your assigned role matches the testing workflow. General reviewers should usually have `Viewer`; `Owner` and `Admin` are internal-only.
 
 Do not report passwords, tokens, cookies, auth headers, or screenshots containing sensitive data.
 

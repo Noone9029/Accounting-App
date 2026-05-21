@@ -3079,3 +3079,12 @@ Recommended next step:
 - Added GitHub issue templates for beta bug reports, accounting review findings, and UX feedback, each with explicit safety checks to avoid secrets, auth material, real customer-sensitive data, production document data, PDF/document bodies, signed XML, QR payloads, and attachment bodies.
 - The kit clearly states that Vercel is beta/user-testing only, no real ZATCA submission/CSID/clearance/reporting/PDF/A-3/production certification is enabled, no real customer email sending is enabled by default, and live bank integration is not implemented.
 - No accounting calculation, ledger math, report math, PDF totals, posting behavior, ZATCA behavior, schema, migration, seed/reset/delete, Supabase RLS, runtime DB role, Vercel environment, email sending, backup, restore, full smoke, or full E2E was changed.
+
+# Beta access dry run - 2026-05-22
+
+- Ran a deployed user-testing API-level beta access dry run using the local DPAPI-backed credential store without printing passwords, tokens, auth headers, request/response bodies, invite tokens, customer/vendor data, or document bodies.
+- Confirmed email provider readiness before inviting: provider `mock`, mock mode true, and real sending disabled.
+- Invited a safe dummy `.example.test` tester with `Viewer`; the invite created a mock outbox record with status `SENT_MOCK`, so no real external email was sent.
+- Verified role management and revocation: changed role to `Sales`, changed it back to `Viewer`, suspended access, reactivated it, then suspended again. Final dummy member state was `SUSPENDED` with role `Viewer`.
+- No `Owner` or `Admin` role was assigned to the dummy tester.
+- No app bug was found requiring a UI/auth/permission fix. No auth architecture, permission logic, accounting behavior, ZATCA behavior, Supabase RLS, runtime DB role, Vercel env, migration, seed/reset/delete, full smoke, or full E2E action changed.
