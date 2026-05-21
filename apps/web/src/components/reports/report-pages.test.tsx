@@ -48,6 +48,28 @@ describe("reports index first-workflow guidance", () => {
     expect(screen.getByText("1-30")).toBeInTheDocument();
   });
 
+  it("explains aged payables after supplier payments and debit notes", () => {
+    render(<AgingReportGuide kind="payables" />);
+
+    expect(screen.getByText(/Supplier bills that still have a balance due/)).toBeInTheDocument();
+    expect(screen.getByText(/supplier ledger keeps the row-by-row payment allocation trail/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Create bill" })).toHaveAttribute("href", "/purchases/bills/new");
+    expect(screen.getByRole("link", { name: "Record supplier payment" })).toHaveAttribute("href", "/purchases/supplier-payments/new");
+  });
+
+  it("links aged payables rows back to the supplier and bill", () => {
+    render(
+      <AgingTable
+        rows={[agingRow({ id: "bill-1", number: "BILL-001", contact: { id: "supplier-1", name: "Beta Supplier", displayName: "Beta Supplier" } })]}
+        kind="payables"
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Beta Supplier" })).toHaveAttribute("href", "/contacts/supplier-1");
+    expect(screen.getByRole("link", { name: "BILL-001" })).toHaveAttribute("href", "/purchases/bills/bill-1");
+    expect(screen.getByRole("link", { name: "Open bill" })).toHaveAttribute("href", "/purchases/bills/bill-1");
+  });
+
   it("does not claim production ZATCA connectivity from report guidance", () => {
     const { container } = render(<ReportsIndexPage />);
 

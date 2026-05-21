@@ -233,30 +233,30 @@ export default function PurchaseDebitNoteDetailPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">{debitNote ? debitNote.debitNoteNumber : "Debit note"}</h1>
           <p className="mt-1 text-sm text-steel">Debit note detail, AP reversal posting, allocations, and PDF download.</p>
-          {debitNote ? <p className="mt-1 text-xs text-steel">No ZATCA debit note XML/submission or inventory return movement is implemented in this MVP.</p> : null}
+          {debitNote ? <p className="mt-1 text-xs text-steel">Local AP adjustment only. No real ZATCA network, CSID, clearance/reporting, PDF/A-3, or inventory return movement is enabled here.</p> : null}
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/purchases/debit-notes" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Link href="/purchases/debit-notes" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
             Back
           </Link>
           {debitNote?.status === "DRAFT" ? (
-            <Link href={`/purchases/debit-notes/${debitNote.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <Link href={`/purchases/debit-notes/${debitNote.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
               Edit
             </Link>
           ) : null}
           {debitNote?.supplierId ? (
-            <Link href={`/contacts/${debitNote.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <Link href={`/contacts/${debitNote.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
               Supplier ledger
             </Link>
           ) : null}
           {debitNote?.status === "FINALIZED" && Number(debitNote.unappliedAmount) > 0 ? (
             <Link
               href={`/purchases/supplier-refunds/new?supplierId=${encodeURIComponent(debitNote.supplierId)}&sourceType=PURCHASE_DEBIT_NOTE&sourceDebitNoteId=${encodeURIComponent(debitNote.id)}`}
-              className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800"
+              className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
             >
               Record supplier refund
             </Link>
@@ -293,6 +293,16 @@ export default function PurchaseDebitNoteDetailPage() {
 
       {debitNote ? (
         <div className="mt-5 space-y-5">
+          <PurchaseDebitNoteWorkflowGuidance
+            debitNote={debitNote}
+            appliedAmount={appliedAmount}
+            actionLoading={actionLoading}
+            canFinalizeDebitNote={canFinalizeDebitNote}
+            canApplyDebitNote={canApplyDebitNote}
+            onFinalize={() => void runAction("finalize")}
+            onDownloadPdf={() => void downloadDebitNotePdf()}
+          />
+
           <AttachmentPanel linkedEntityType="PURCHASE_DEBIT_NOTE" linkedEntityId={debitNote.id} />
 
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
@@ -477,6 +487,134 @@ export default function PurchaseDebitNoteDetailPage() {
       ) : null}
     </section>
   );
+}
+
+export function PurchaseDebitNoteWorkflowGuidance({
+  debitNote,
+  appliedAmount,
+  actionLoading,
+  canFinalizeDebitNote,
+  canApplyDebitNote,
+  onFinalize,
+  onDownloadPdf,
+}: {
+  debitNote: PurchaseDebitNote;
+  appliedAmount: string;
+  actionLoading: boolean;
+  canFinalizeDebitNote: boolean;
+  canApplyDebitNote: boolean;
+  onFinalize: () => void;
+  onDownloadPdf: () => void;
+}) {
+  const hasUnapplied = Number(debitNote.unappliedAmount) > 0;
+
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-ink">What happened?</h2>
+            <p className="mt-1 text-sm leading-6 text-steel">{purchaseDebitNoteOutcomeDescription(debitNote, hasUnapplied)}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className={`rounded-md px-2 py-1 text-xs font-semibold ${purchaseDebitNoteStatusBadgeClass(debitNote.status)}`}>
+              {purchaseDebitNoteStatusLabel(debitNote.status)}
+            </span>
+            {debitNote.status === "FINALIZED" && hasUnapplied ? (
+              <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Unapplied debit</span>
+            ) : null}
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+          <Summary label="Total debit" value={formatMoneyAmount(debitNote.total, debitNote.currency)} />
+          <Summary label="Applied to bills" value={formatMoneyAmount(appliedAmount, debitNote.currency)} />
+          <Summary label="Unapplied" value={formatMoneyAmount(debitNote.unappliedAmount, debitNote.currency)} />
+        </div>
+      </div>
+
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <h2 className="text-base font-semibold text-ink">Next actions</h2>
+        <p className="mt-1 text-sm leading-6 text-steel">{purchaseDebitNoteNextActionDescription(debitNote, hasUnapplied)}</p>
+        <div className="mt-4 flex flex-col gap-2">
+          {debitNote.status === "DRAFT" && canFinalizeDebitNote ? (
+            <button
+              type="button"
+              onClick={onFinalize}
+              disabled={actionLoading}
+              className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              Finalize debit note
+            </button>
+          ) : null}
+          {debitNote.originalBillId ? (
+            <Link href={`/purchases/bills/${debitNote.originalBillId}`} className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800">
+              View original bill
+            </Link>
+          ) : null}
+          <button
+            type="button"
+            onClick={onDownloadPdf}
+            disabled={actionLoading}
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+          >
+            Download PDF
+          </button>
+          <Link href={`/contacts/${debitNote.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            View supplier ledger
+          </Link>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Link href="/reports/aged-payables" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              AP report
+            </Link>
+            <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Dashboard
+            </Link>
+          </div>
+        </div>
+        {debitNote.status === "DRAFT" && !canFinalizeDebitNote ? (
+          <p className="mt-3 text-xs leading-5 text-steel">You need debit note finalization permission before this AP reduction can post.</p>
+        ) : null}
+        {debitNote.status === "FINALIZED" && hasUnapplied && !canApplyDebitNote ? (
+          <p className="mt-3 text-xs leading-5 text-steel">This debit note still has unapplied amount, but your role cannot apply it to supplier bills.</p>
+        ) : null}
+        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-900">
+          ZATCA handling here is local/readiness only. Real network submission, CSID execution, clearance/reporting, PDF/A-3 generation, and production compliance are not enabled.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function purchaseDebitNoteOutcomeDescription(debitNote: PurchaseDebitNote, hasUnapplied: boolean): string {
+  if (debitNote.status === "DRAFT") {
+    return "This draft debit note is saved and editable. It has not posted the AP reduction yet, so finalize it only after supplier, bill, tax, and totals are ready.";
+  }
+
+  if (debitNote.status === "VOIDED") {
+    return "This debit note is voided. It is closed for new allocations, and reversal journal details remain visible for review.";
+  }
+
+  if (hasUnapplied) {
+    return "This debit note is finalized and posted. It reduced the supplier payable, and the remaining unapplied amount can be applied to open bills or refunded.";
+  }
+
+  return "This debit note is finalized and fully applied. Related bill balances and the supplier ledger show the AP reduction trail.";
+}
+
+function purchaseDebitNoteNextActionDescription(debitNote: PurchaseDebitNote, hasUnapplied: boolean): string {
+  if (debitNote.status === "DRAFT") {
+    return "Finalize the debit note to post the supplier balance reduction, then apply it to open bills from the allocation panel below.";
+  }
+
+  if (debitNote.status === "VOIDED") {
+    return "Use the links below for review and reporting. Create a replacement debit note if the supplier adjustment still applies.";
+  }
+
+  if (hasUnapplied) {
+    return "Apply the remaining debit to an open bill below, record a supplier refund if appropriate, then review AP reports.";
+  }
+
+  return "Review the original bill, supplier ledger, and AP report to confirm the adjustment is reflected.";
 }
 
 function Summary({ label, value }: { label: string; value: string }) {

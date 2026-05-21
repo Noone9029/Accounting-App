@@ -16,7 +16,7 @@ Tasks:
 
 - Run guided QA through every implemented frontend route, starting with the new first-workflow path from setup to first report.
 - Review dashboard KPI definitions, chart thresholds, attention item thresholds, and quick-action placement with an accountant/product owner.
-- Fix UX inconsistencies, especially supplier AP balance labels.
+- Continue fixing visible UX inconsistencies in high-traffic accounting workflows without changing posting behavior.
 - Wire the new Playwright browser E2E smoke into CI and expand it where user-facing regressions are found.
 - Validate the opt-in SMTP provider with a non-production relay using the safe diagnostics gate, then add live domain authentication checks, provider-specific signed webhooks, production retry scheduler, external monitoring/alert delivery, and audit alerting for role/member administration.
 - Harden fiscal period UX with period templates, optional reversal-date selection, and admin unlock approval design.
@@ -52,13 +52,21 @@ Recommended next prompt:
 - Browser QA covered the ledger/report drill-down path at desktop, tablet, and mobile widths without document overflow or console warning/error entries.
 - Remaining UX work: continue route QA on the next high-traffic workflow, add visual regression coverage, and schedule accountant review of report terminology.
 
+## 2026-05-21 Supplier AP drill-down UX
+
+- Supplier ledger, purchase bill detail, supplier payment detail, purchase debit note detail, aged payables, and reports now provide AP-specific guidance for what changed, how payments/debit notes affect payable balances, and where to inspect the source documents.
+- Purchase bill, supplier payment, and debit-note detail pages now have visible status/next-action panels with links to supplier ledger, AP report, dashboard, PDF/receipt actions, and related bill/payment/debit-note records.
+- Supplier payment creation now returns to the supplier payment detail page with recorded-payment success context.
+- Browser QA covered the supplier/AP drill-down path at desktop, tablet, and mobile widths without document overflow or console warning/error entries.
+- Remaining UX work: banking/reconciliation and inventory workflow QA, visual regression coverage, supplier statement PDF parity, and accountant review of AP wording.
+
 ## Phase 2: Finish Wafeq Core Accounting Modules
 
 Objective: complete core accounting modules expected in a serious SME accounting SaaS.
 
 Tasks:
 
-- Supplier debit notes hardening and UI polish.
+- Supplier debit notes accounting hardening and supplier statement PDF parity.
 - Purchase receiving QA, partial bill matching, and purchase matching hardening.
 - Cash expense import/OCR groundwork and production hardening for uploaded receipt attachments after the S3 adapter is validated against a real non-production bucket.
 - Bank account profile, transfer, opening-balance, statement import preview, and reconciliation UX polish.

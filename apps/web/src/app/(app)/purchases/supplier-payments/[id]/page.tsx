@@ -9,7 +9,7 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
-import { formatMoneyAmount } from "@/lib/money";
+import { formatMoneyAmount, formatUnits, parseDecimalToUnits } from "@/lib/money";
 import { downloadPdf, supplierPaymentReceiptPdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
@@ -34,6 +34,15 @@ export default function SupplierPaymentDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [wasJustRecorded, setWasJustRecorded] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    setWasJustRecorded(new URLSearchParams(window.location.search).get("recorded") === "1");
+  }, []);
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -221,17 +230,17 @@ export default function SupplierPaymentDetailPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">{payment ? payment.paymentNumber : "Supplier payment"}</h1>
           <p className="mt-1 text-sm text-steel">Supplier payment posting, bill matching, and receipt PDF.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/purchases/supplier-payments" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Link href="/purchases/supplier-payments" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
             Back
           </Link>
           {payment?.supplierId ? (
-            <Link href={`/contacts/${payment.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <Link href={`/contacts/${payment.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
               Supplier ledger
             </Link>
           ) : null}
@@ -243,7 +252,7 @@ export default function SupplierPaymentDetailPage() {
           {payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0 ? (
             <Link
               href={`/purchases/supplier-refunds/new?supplierId=${encodeURIComponent(payment.supplierId)}&sourceType=SUPPLIER_PAYMENT&sourcePaymentId=${encodeURIComponent(payment.id)}`}
-              className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800"
+              className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
             >
               Record supplier refund
             </Link>
@@ -265,12 +274,20 @@ export default function SupplierPaymentDetailPage() {
 
       {payment ? (
         <div className="mt-5 space-y-5">
+          <SupplierPaymentWorkflowGuidance
+            payment={payment}
+            recorded={wasJustRecorded}
+            receiptData={receiptData}
+            actionLoading={actionLoading}
+            onDownloadReceiptPdf={() => void downloadReceiptPdf()}
+          />
+
           <AttachmentPanel linkedEntityType="SUPPLIER_PAYMENT" linkedEntityId={payment.id} />
 
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
               <Summary label="Supplier" value={payment.supplier?.displayName ?? payment.supplier?.name ?? "-"} />
-              <Summary label="Status" value={payment.status} />
+              <Summary label="Status" value={supplierPaymentStatusLabel(payment.status)} />
               <Summary label="Payment date" value={formatOptionalDate(payment.paymentDate, "-")} />
               <Summary label="Currency" value={payment.currency} />
               <Summary label="Amount paid" value={formatMoneyAmount(payment.amountPaid, payment.currency)} />
@@ -458,6 +475,143 @@ export default function SupplierPaymentDetailPage() {
       ) : null}
     </section>
   );
+}
+
+export function SupplierPaymentWorkflowGuidance({
+  payment,
+  recorded,
+  receiptData,
+  actionLoading,
+  onDownloadReceiptPdf,
+}: {
+  payment: SupplierPayment;
+  recorded: boolean;
+  receiptData: SupplierPaymentReceiptData | null;
+  actionLoading: boolean;
+  onDownloadReceiptPdf: () => void;
+}) {
+  const firstAllocatedBill = payment.allocations?.find((allocation) => allocation.bill)?.bill ?? null;
+  const appliedTotalUnits = payment.allocations?.reduce((sum, allocation) => sum + parseDecimalToUnits(allocation.amountApplied), 0) ?? 0;
+  const hasUnapplied = Number(payment.unappliedAmount) > 0;
+
+  return (
+    <div className="space-y-4">
+      {recorded ? (
+        <StatusMessage type="success">
+          Supplier payment recorded. The receipt and allocation details below show what changed; linked bill balances are updated.
+        </StatusMessage>
+      ) : null}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-ink">What happened?</h2>
+              <p className="mt-1 text-sm leading-6 text-steel">{supplierPaymentOutcomeDescription(payment, hasUnapplied)}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className={`rounded-md px-2 py-1 text-xs font-semibold ${supplierPaymentStatusBadgeClass(payment.status)}`}>
+                {supplierPaymentStatusLabel(payment.status)}
+              </span>
+              {hasUnapplied ? (
+                <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Unapplied supplier credit</span>
+              ) : null}
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+            <Summary label="Amount paid" value={formatMoneyAmount(payment.amountPaid, payment.currency)} />
+            <Summary label="Applied to bills" value={formatMoneyAmount(formatUnits(appliedTotalUnits), payment.currency)} />
+            <Summary label="Receipt" value={receiptData?.receiptNumber ?? payment.paymentNumber} />
+          </div>
+        </div>
+
+        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <h2 className="text-base font-semibold text-ink">Next actions</h2>
+          <p className="mt-1 text-sm leading-6 text-steel">{supplierPaymentNextActionDescription(payment, hasUnapplied)}</p>
+          <div className="mt-4 flex flex-col gap-2">
+            {firstAllocatedBill ? (
+              <Link href={`/purchases/bills/${firstAllocatedBill.id}`} className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800">
+                View bill
+              </Link>
+            ) : null}
+            <button
+              type="button"
+              onClick={onDownloadReceiptPdf}
+              disabled={actionLoading}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              Download receipt
+            </button>
+            <Link href={`/contacts/${payment.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              View supplier ledger
+            </Link>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Link href="/reports/aged-payables" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+                AP report
+              </Link>
+              <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Dashboard
+              </Link>
+            </div>
+          </div>
+          {payment.status === "VOIDED" ? (
+            <p className="mt-3 text-xs leading-5 text-steel">This supplier payment is voided. Review the reversal journal below if present before taking further action.</p>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function supplierPaymentStatusLabel(status: SupplierPayment["status"] | undefined | null): string {
+  switch (status) {
+    case "DRAFT":
+      return "Draft";
+    case "POSTED":
+      return "Posted";
+    case "VOIDED":
+      return "Voided";
+    default:
+      return "-";
+  }
+}
+
+function supplierPaymentStatusBadgeClass(status: SupplierPayment["status"]): string {
+  switch (status) {
+    case "DRAFT":
+      return "bg-slate-100 text-slate-700";
+    case "POSTED":
+      return "bg-emerald-50 text-emerald-700";
+    case "VOIDED":
+      return "bg-rose-50 text-rosewood";
+  }
+}
+
+function supplierPaymentOutcomeDescription(payment: SupplierPayment, hasUnapplied: boolean): string {
+  if (payment.status === "VOIDED") {
+    return "This supplier payment is voided. The original payment is closed and reversal journal details remain visible for review.";
+  }
+
+  if (payment.status === "DRAFT") {
+    return "This supplier payment is still a draft. It has not posted cash movement or bill allocations yet.";
+  }
+
+  if (hasUnapplied) {
+    return "This supplier payment is posted. Allocated amounts reduced purchase bill balances, and the remaining unapplied supplier credit can be matched to a later bill or refunded.";
+  }
+
+  return "This supplier payment is posted. Receipt details are available, and linked purchase bill balances were reduced by the allocations below.";
+}
+
+function supplierPaymentNextActionDescription(payment: SupplierPayment, hasUnapplied: boolean): string {
+  if (payment.status === "VOIDED") {
+    return "Use the links below for review and reporting. Record a new supplier payment if replacement funds are paid.";
+  }
+
+  if (hasUnapplied) {
+    return "Review the receipt, then either apply the remaining credit to another bill or record a supplier refund from the actions above.";
+  }
+
+  return "Review the purchase bill, supplier ledger, and AP report to confirm the payable loop is closed.";
 }
 
 function Summary({ label, value }: { label: string; value: string }) {

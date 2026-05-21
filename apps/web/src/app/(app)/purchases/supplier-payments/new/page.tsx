@@ -167,7 +167,7 @@ export default function NewSupplierPaymentPage() {
           allocations: allocationsToSubmit,
         },
       });
-      router.push(`/purchases/supplier-payments/${payment.id}`);
+      router.push(`/purchases/supplier-payments/${payment.id}?recorded=1`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to record supplier payment.");
     } finally {

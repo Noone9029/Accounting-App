@@ -423,6 +423,7 @@ export default function ContactDetailPage() {
 
           {activeSection === "supplier-ledger" && supplierLedger ? (
             <div className="space-y-4">
+              <SupplierLedgerGuidance contactId={supplierLedger.contact.id} closingBalance={supplierLedger.closingBalance} rowCount={supplierLedger.rows.length} />
               <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
                 <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
                   <span className="text-steel">Opening payable: {formatLedgerBalance(supplierLedger.openingBalance)}</span>
@@ -525,6 +526,37 @@ export function CustomerLedgerGuidance({ contactId, closingBalance, rowCount }: 
   );
 }
 
+export function SupplierLedgerGuidance({ contactId, closingBalance, rowCount }: { contactId: string; closingBalance: string; rowCount: number }) {
+  return (
+    <div className="grid grid-cols-1 gap-4 rounded-md border border-emerald-200 bg-emerald-50 p-5 shadow-panel lg:grid-cols-[1.25fr_0.75fr]">
+      <div>
+        <h2 className="text-base font-semibold text-ink">What changed after supplier payment?</h2>
+        <p className="mt-2 text-sm leading-6 text-emerald-900">
+          The supplier ledger is the running payable trail for this supplier. Finalized purchase bills increase what you owe. Supplier payments, debit notes, refunds, and reversals reduce or adjust the running balance.
+        </p>
+        <p className="mt-2 text-sm leading-6 text-emerald-900">
+          Use the row links to jump back to the source bill, payment, or debit note, then use Aged Payables to see open supplier balances across the business.
+        </p>
+      </div>
+      <div className="space-y-3">
+        <div className="rounded-md border border-emerald-200 bg-white px-4 py-3 text-sm">
+          <div className="text-xs uppercase tracking-wide text-emerald-800">Current supplier payable</div>
+          <div className="mt-1 font-mono font-semibold text-ink">{formatLedgerBalance(closingBalance)}</div>
+          <div className="mt-1 text-xs text-steel">{rowCount} ledger {rowCount === 1 ? "row" : "rows"} posted for this supplier.</div>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <ActionLink href={`/purchases/bills/new?supplierId=${contactId}`} tone="primary">
+            Create bill
+          </ActionLink>
+          <ActionLink href={`/purchases/supplier-payments/new?supplierId=${contactId}`}>Record supplier payment</ActionLink>
+          <ActionLink href="/reports/aged-payables">AP report</ActionLink>
+          <ActionLink href="/dashboard">Dashboard</ActionLink>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function LedgerTable({
   rows,
   emptyMessage,
@@ -558,8 +590,11 @@ export function LedgerTable({
             </>
           ) : (
             <>
-              <ActionLink href="/purchases/bills/new" tone="primary">
+              <ActionLink href={contactId ? `/purchases/bills/new?supplierId=${contactId}` : "/purchases/bills/new"} tone="primary">
                 Create bill
+              </ActionLink>
+              <ActionLink href={contactId ? `/purchases/supplier-payments/new?supplierId=${contactId}` : "/purchases/supplier-payments/new"}>
+                Record supplier payment
               </ActionLink>
               <ActionLink href="/reports/aged-payables">Open AP report</ActionLink>
             </>
@@ -573,7 +608,10 @@ export function LedgerTable({
   return (
     <div className="space-y-3">
       <div className="rounded-md border border-slate-200 bg-white p-4 text-sm leading-6 text-steel shadow-panel">
-        <span className="font-semibold text-ink">How to read this ledger:</span> Debit adds to the customer balance or supplier payable. Credit reduces it. Balance is the running amount after that row.
+        <span className="font-semibold text-ink">How to read this ledger:</span>{" "}
+        {ledgerKind === "customer"
+          ? "Debit adds to the customer balance, credit reduces it, and balance is the running amount after that row."
+          : "Debit, credit, and balance follow the posted supplier ledger rows exactly. Use debit and credit to see each AP movement, then balance to see the running payable after that row."}
       </div>
       <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
         <table className="w-full min-w-[1120px] text-left text-sm">

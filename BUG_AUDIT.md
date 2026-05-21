@@ -37,6 +37,24 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Supplier AP drill-down UX polished
+
+Added visible guidance around the supplier ledger, purchase bill detail, supplier payment detail, debit-note detail, and AP report drill-down path without changing AP posting behavior.
+
+Risk reduced:
+
+- Supplier ledger pages now explain how purchase bills, supplier payments, debit notes, refunds, and reversals affect the running payable balance.
+- Purchase bill detail now explains draft/finalized/paid/partially paid/voided states and routes users to supplier payment, debit note, supplier ledger, AP report, PDF, or dashboard actions.
+- Supplier payment detail now shows recorded-payment success guidance, allocation explanation, receipt access, bill links, supplier ledger links, AP report links, and dashboard navigation.
+- Purchase debit note detail now explains AP reduction, allocation, reversal, supplier ledger/AP report navigation, and conservative local-only ZATCA wording.
+- Browser QA covered supplier ledger, purchase bill detail, supplier payment detail, debit note detail, aged payables, and reports at desktop/tablet/mobile widths with no document overflow or console warning/error entries.
+
+Remaining risks:
+
+- Full smoke and full E2E remain intentionally pending from earlier deployment work.
+- Banking/reconciliation and inventory workflows still need the same visible route QA.
+- Supabase RLS and least-privilege runtime role hardening remain parked until the safe Vercel env mutation path is available.
+
 ### Customer ledger and report drill-down UX polished
 
 Added visible guidance around the customer ledger and AR report path after invoice payment without changing accounting behavior.

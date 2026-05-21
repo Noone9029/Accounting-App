@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
@@ -20,9 +21,10 @@ import {
   receiptMatchingStatusBadgeClass,
   receiptMatchingStatusLabel,
 } from "@/lib/inventory";
-import { formatMoneyAmount } from "@/lib/money";
+import { formatMoneyAmount, formatUnits, parseDecimalToUnits } from "@/lib/money";
 import { downloadPdf, purchaseBillPdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
+import { purchaseDebitNoteStatusLabel } from "@/lib/purchase-debit-notes";
 import { purchaseBillAccountingPreviewLineDisplay, purchaseBillInventoryPostingModeLabel } from "@/lib/purchase-bills";
 import type {
   InventoryClearingReconciliationReport,
@@ -50,6 +52,7 @@ export default function PurchaseBillDetailPage() {
   const canFinalizeBill = can(PERMISSIONS.purchaseBills.finalize);
   const canVoidBill = can(PERMISSIONS.purchaseBills.void);
   const canCreateDebitNote = can(PERMISSIONS.purchaseDebitNotes.create);
+  const canCreateSupplierPayment = can(PERMISSIONS.supplierPayments.create);
   const canViewPurchaseOrders = can(PERMISSIONS.purchaseOrders.view);
   const canCreateReceipt = can(PERMISSIONS.purchaseReceiving.create);
 
@@ -161,35 +164,35 @@ export default function PurchaseBillDetailPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">{bill ? bill.billNumber : "Purchase bill"}</h1>
           <p className="mt-1 text-sm text-steel">Supplier bill detail, AP posting, allocations, and PDF download.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/purchases/bills" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Link href="/purchases/bills" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
             Back
           </Link>
           {bill?.status === "DRAFT" && canUpdateBill ? (
-            <Link href={`/purchases/bills/${bill.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <Link href={`/purchases/bills/${bill.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
               Edit
             </Link>
           ) : null}
           {bill?.supplierId ? (
-            <Link href={`/contacts/${bill.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <Link href={`/contacts/${bill.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
               Supplier ledger
             </Link>
           ) : null}
           {bill?.supplierId && canCreateDebitNote ? (
             <Link
               href={`/purchases/debit-notes/new?billId=${encodeURIComponent(bill.id)}&supplierId=${encodeURIComponent(bill.supplierId)}`}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
               Create debit note
             </Link>
           ) : null}
           {bill && receivingStatus && canCreateReceipt && hasReceiptRemaining(receivingStatus) ? (
-            <Link href={`/inventory/purchase-receipts/new?sourceType=purchaseBill&purchaseBillId=${bill.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+            <Link href={`/inventory/purchase-receipts/new?sourceType=purchaseBill&purchaseBillId=${bill.id}`} className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50">
               Receive stock
             </Link>
           ) : null}
@@ -230,12 +233,22 @@ export default function PurchaseBillDetailPage() {
 
       {bill ? (
         <div className="mt-5 space-y-5">
+          <PurchaseBillWorkflowGuidance
+            bill={bill}
+            actionLoading={actionLoading}
+            canFinalizeBill={canFinalizeBill}
+            canCreateSupplierPayment={canCreateSupplierPayment}
+            canCreateDebitNote={canCreateDebitNote}
+            onFinalize={() => void runAction("finalize")}
+            onDownloadPdf={() => void downloadBillPdf()}
+          />
+
           <AttachmentPanel linkedEntityType="PURCHASE_BILL" linkedEntityId={bill.id} />
 
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
               <Summary label="Supplier" value={bill.supplier?.displayName ?? bill.supplier?.name ?? "-"} />
-              <Summary label="Status" value={bill.status} />
+              <Summary label="Status" value={purchaseBillStatusLabel(bill.status)} />
               <Summary label="Bill date" value={formatOptionalDate(bill.billDate, "-")} />
               <Summary label="Due date" value={formatOptionalDate(bill.dueDate, "-")} />
               <Summary label="Branch" value={bill.branch?.displayName ?? bill.branch?.name ?? "-"} />
@@ -321,7 +334,7 @@ export default function PurchaseBillDetailPage() {
                             </Link>
                           </td>
                           <td className="px-3 py-2 text-steel">{formatOptionalDate(allocation.payment?.paymentDate, "-")}</td>
-                          <td className="px-3 py-2 text-steel">{allocation.payment?.status ?? "-"}</td>
+                          <td className="px-3 py-2 text-steel">{supplierPaymentStatusLabel(allocation.payment?.status)}</td>
                           <td className="px-3 py-2 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, bill.currency)}</td>
                         </tr>
                       ))}
@@ -390,7 +403,7 @@ export default function PurchaseBillDetailPage() {
                               {debitNote.debitNoteNumber}
                             </Link>
                           </td>
-                          <td className="px-3 py-2 text-steel">{debitNote.status}</td>
+                          <td className="px-3 py-2 text-steel">{purchaseDebitNoteStatusLabel(debitNote.status)}</td>
                           <td className="px-3 py-2 font-mono text-xs">{formatMoneyAmount(debitNote.total, bill.currency)}</td>
                           <td className="px-3 py-2 font-mono text-xs">{formatMoneyAmount(debitNote.unappliedAmount, bill.currency)}</td>
                         </tr>
@@ -440,6 +453,225 @@ export default function PurchaseBillDetailPage() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+export function PurchaseBillWorkflowGuidance({
+  bill,
+  actionLoading,
+  canFinalizeBill,
+  canCreateSupplierPayment,
+  canCreateDebitNote,
+  onFinalize,
+  onDownloadPdf,
+}: {
+  bill: PurchaseBill;
+  actionLoading: boolean;
+  canFinalizeBill: boolean;
+  canCreateSupplierPayment: boolean;
+  canCreateDebitNote: boolean;
+  onFinalize: () => void;
+  onDownloadPdf: () => void;
+}) {
+  const paymentState = purchaseBillPaymentState(bill);
+  const supplierName = bill.supplier?.displayName ?? bill.supplier?.name ?? "this supplier";
+  const hasBalanceDue = paymentState !== "Paid";
+  const paidUnits = Math.max(0, parseDecimalToUnits(bill.total) - parseDecimalToUnits(bill.balanceDue));
+
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-ink">What happened?</h2>
+            <p className="mt-1 text-sm leading-6 text-steel">{purchaseBillOutcomeDescription(bill, paymentState)}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className={`rounded-md px-2 py-1 text-xs font-semibold ${purchaseBillStatusBadgeClass(bill.status)}`}>
+              {purchaseBillStatusLabel(bill.status)}
+            </span>
+            {bill.status === "FINALIZED" ? (
+              <span className={`rounded-md px-2 py-1 text-xs font-semibold ${purchaseBillPaymentStateBadgeClass(paymentState)}`}>
+                {paymentState}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+          <Summary label="Supplier" value={supplierName} />
+          <Summary label="Paid or credited" value={formatMoneyAmount(formatUnits(paidUnits), bill.currency)} />
+          <Summary label="Balance due" value={formatMoneyAmount(bill.balanceDue, bill.currency)} />
+        </div>
+      </div>
+
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <h2 className="text-base font-semibold text-ink">Next actions</h2>
+        <p className="mt-1 text-sm leading-6 text-steel">{purchaseBillNextActionDescription(bill, paymentState, canCreateSupplierPayment)}</p>
+        <div className="mt-4 flex flex-col gap-2">
+          {bill.status === "DRAFT" && canFinalizeBill ? (
+            <button
+              type="button"
+              onClick={onFinalize}
+              disabled={actionLoading}
+              className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              Finalize bill
+            </button>
+          ) : null}
+          {bill.status === "FINALIZED" && hasBalanceDue && bill.supplierId && canCreateSupplierPayment ? (
+            <Link
+              href={`/purchases/supplier-payments/new?supplierId=${bill.supplierId}&billId=${bill.id}`}
+              className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
+            >
+              Record supplier payment
+            </Link>
+          ) : null}
+          {bill.status === "FINALIZED" && bill.supplierId && canCreateDebitNote ? (
+            <Link
+              href={`/purchases/debit-notes/new?billId=${encodeURIComponent(bill.id)}&supplierId=${encodeURIComponent(bill.supplierId)}`}
+              className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Create debit note
+            </Link>
+          ) : null}
+          <button
+            type="button"
+            onClick={onDownloadPdf}
+            disabled={actionLoading}
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+          >
+            Download PDF
+          </button>
+          {bill.supplierId ? (
+            <Link href={`/contacts/${bill.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              View supplier ledger
+            </Link>
+          ) : null}
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <APActionLink href="/reports/aged-payables">AP report</APActionLink>
+            <APActionLink href="/dashboard">Dashboard</APActionLink>
+          </div>
+        </div>
+        {bill.status === "DRAFT" && !canFinalizeBill ? (
+          <p className="mt-3 text-xs leading-5 text-steel">You need purchase bill finalization permission before this draft can post AP entries.</p>
+        ) : null}
+        {bill.status === "FINALIZED" && hasBalanceDue && !canCreateSupplierPayment ? (
+          <p className="mt-3 text-xs leading-5 text-steel">The supplier payable is still open, but your role cannot record supplier payments.</p>
+        ) : null}
+        {bill.status === "VOIDED" ? (
+          <p className="mt-3 text-xs leading-5 text-steel">Voided bills are closed for supplier payments. Review reversal details below if present.</p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function purchaseBillPaymentState(bill: PurchaseBill): "Unpaid" | "Partially paid" | "Paid" {
+  if (bill.status !== "FINALIZED") {
+    return "Unpaid";
+  }
+  const totalUnits = parseDecimalToUnits(bill.total);
+  const balanceUnits = parseDecimalToUnits(bill.balanceDue);
+  if (balanceUnits <= 0) {
+    return "Paid";
+  }
+  if (balanceUnits < totalUnits) {
+    return "Partially paid";
+  }
+  return "Unpaid";
+}
+
+function purchaseBillStatusLabel(status: PurchaseBill["status"] | undefined | null): string {
+  switch (status) {
+    case "DRAFT":
+      return "Draft";
+    case "FINALIZED":
+      return "Finalized/posted";
+    case "VOIDED":
+      return "Voided";
+    default:
+      return "-";
+  }
+}
+
+function purchaseBillStatusBadgeClass(status: PurchaseBill["status"]): string {
+  switch (status) {
+    case "DRAFT":
+      return "bg-slate-100 text-slate-700";
+    case "FINALIZED":
+      return "bg-emerald-50 text-emerald-700";
+    case "VOIDED":
+      return "bg-rose-50 text-rosewood";
+  }
+}
+
+function purchaseBillPaymentStateBadgeClass(paymentState: ReturnType<typeof purchaseBillPaymentState>): string {
+  switch (paymentState) {
+    case "Paid":
+      return "bg-emerald-50 text-emerald-700";
+    case "Partially paid":
+      return "bg-amber-50 text-amber-700";
+    case "Unpaid":
+      return "bg-slate-100 text-slate-700";
+  }
+}
+
+function purchaseBillOutcomeDescription(bill: PurchaseBill, paymentState: ReturnType<typeof purchaseBillPaymentState>): string {
+  if (bill.status === "DRAFT") {
+    return "This draft bill is saved and editable. It has not posted AP or accounting entries yet, so finalize it only after supplier, tax, lines, and totals are ready.";
+  }
+
+  if (bill.status === "VOIDED") {
+    return "This purchase bill is voided. It is closed for supplier payments, and reversal journal details remain visible for review.";
+  }
+
+  if (paymentState === "Paid") {
+    return "This bill is finalized, AP entries are posted, and supplier payments or debit notes have cleared the balance.";
+  }
+
+  if (paymentState === "Partially paid") {
+    return "This bill is finalized and posted, with part of the payable already settled. Record another supplier payment or debit note when the remaining balance is resolved.";
+  }
+
+  return "This bill is finalized and posted. The supplier payable is open, so the next operating step is recording payment when cash is paid out.";
+}
+
+function purchaseBillNextActionDescription(bill: PurchaseBill, paymentState: ReturnType<typeof purchaseBillPaymentState>, canCreateSupplierPayment: boolean): string {
+  if (bill.status === "DRAFT") {
+    return "Finalize the bill to post AP, then record supplier payment or create a debit note when the balance changes.";
+  }
+
+  if (bill.status === "VOIDED") {
+    return "Use the links below for review and reporting. Create a new bill if the supplier document needs replacement.";
+  }
+
+  if (paymentState === "Paid") {
+    return "The payables loop is complete. Review the supplier ledger, PDF, dashboard, or AP report for the audit trail.";
+  }
+
+  return canCreateSupplierPayment
+    ? "Record supplier payment next, then review the supplier ledger and AP report to confirm the payable is reflected."
+    : "Payment is still due, but your role cannot record supplier payments.";
+}
+
+function supplierPaymentStatusLabel(status: string | undefined | null): string {
+  switch (status) {
+    case "DRAFT":
+      return "Draft";
+    case "POSTED":
+      return "Posted";
+    case "VOIDED":
+      return "Voided";
+    default:
+      return "-";
+  }
+}
+
+function APActionLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Link href={href} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+      {children}
+    </Link>
   );
 }
 
