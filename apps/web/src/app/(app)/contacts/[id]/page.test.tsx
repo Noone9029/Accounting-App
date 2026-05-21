@@ -89,8 +89,8 @@ describe("customer ledger drill-down guidance", () => {
   it("keeps supplier statement export wording honest for beta", () => {
     render(<SupplierStatementDocumentGuidance />);
 
-    expect(screen.getByText(/Supplier statement PDF export is available for beta review/)).toBeInTheDocument();
-    expect(screen.getByText(/archive tracking for supplier statements is a separate hardening step/)).toBeInTheDocument();
+    expect(screen.getByText(/Supplier statement PDF downloads are archived automatically/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
     expect(screen.getByText(/production compliance are not enabled/)).toBeInTheDocument();
     expect(screen.queryByText(/production submission is connected/i)).not.toBeInTheDocument();
   });

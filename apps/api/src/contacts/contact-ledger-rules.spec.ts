@@ -452,7 +452,8 @@ describe("customer ledger rules", () => {
     }));
   });
 
-  it("renders supplier statement PDFs from supplier statement rows without changing AP math", async () => {
+  it("archives supplier statement PDFs from supplier statement rows without changing AP math", async () => {
+    const archivePdf = jest.fn().mockResolvedValue({ id: "supplier-doc-1" });
     const service = new ContactLedgerService(
       {
         organization: {
@@ -467,6 +468,7 @@ describe("customer ledger rules", () => {
         },
       } as never,
       { statementRenderSettings: jest.fn().mockResolvedValue({ title: "Customer Statement" }) } as never,
+      { archivePdf } as never,
     );
     jest.spyOn(service, "supplierStatement").mockResolvedValue({
       contact: {
@@ -511,10 +513,47 @@ describe("customer ledger rules", () => {
       rows: [{ number: "SP-000001", debit: "250.0000", balance: "0.0000" }],
     });
 
-    const result = await service.supplierStatementPdf("org-1", "supplier-1", "2026-05-01", "2026-05-31");
+    const result = await service.supplierStatementPdf("org-1", "user-1", "supplier-1", "2026-05-01", "2026-05-31");
 
     expect(result.buffer.subarray(0, 4).toString()).toBe("%PDF");
     expect(result.filename).toBe("supplier-statement-Supplier-2026-05-01-to-2026-05-31.pdf");
+    expect(archivePdf).toHaveBeenCalledWith(expect.objectContaining({
+      documentType: DocumentType.SUPPLIER_STATEMENT,
+      sourceType: "SupplierStatement",
+      sourceId: "supplier-1",
+      generatedById: "user-1",
+    }));
+  });
+
+  it("archives each supplier statement PDF download like customer statements", async () => {
+    const archivePdf = jest.fn().mockResolvedValue({ id: "supplier-doc-1" });
+    const service = new ContactLedgerService(
+      {} as never,
+      { statementRenderSettings: jest.fn().mockResolvedValue({ title: "Supplier Statement" }) } as never,
+      { archivePdf } as never,
+    );
+    jest.spyOn(service, "supplierStatementPdfData").mockResolvedValue({
+      organization: { id: "org-1", name: "Org", legalName: null, taxNumber: null, countryCode: "SA" },
+      contact: { id: "supplier-1", name: "Supplier", displayName: "Supplier", taxNumber: null, email: null, phone: null },
+      contactLabel: "Supplier",
+      currency: "SAR",
+      periodFrom: "2026-05-01",
+      periodTo: "2026-05-31",
+      openingBalance: "0.0000",
+      closingBalance: "0.0000",
+      rows: [],
+      generatedAt: new Date("2026-05-06T00:00:00.000Z"),
+    });
+
+    await service.supplierStatementPdf("org-1", "user-1", "supplier-1", "2026-05-01", "2026-05-31");
+    await service.supplierStatementPdf("org-1", "user-1", "supplier-1", "2026-05-01", "2026-05-31");
+
+    expect(archivePdf).toHaveBeenCalledTimes(2);
+    expect(archivePdf).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      documentType: DocumentType.SUPPLIER_STATEMENT,
+      sourceType: "SupplierStatement",
+      sourceId: "supplier-1",
+    }));
   });
 });
 

@@ -6,6 +6,7 @@ const documentTypeLabels: Record<DocumentType, string> = {
   CUSTOMER_PAYMENT_RECEIPT: "Customer Payment Receipt",
   CUSTOMER_REFUND: "Customer Refund",
   CUSTOMER_STATEMENT: "Customer Statement",
+  SUPPLIER_STATEMENT: "Supplier Statement",
   PURCHASE_ORDER: "Purchase Order",
   PURCHASE_BILL: "Purchase Bill",
   PURCHASE_DEBIT_NOTE: "Purchase Debit Note",

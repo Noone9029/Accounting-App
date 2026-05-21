@@ -2939,7 +2939,7 @@ Recommended next step:
 - Added shared UI copy that explains generated PDFs are archived, archived downloads do not post accounting entries or send data externally, and document settings affect future PDFs only.
 - Updated document action labels to be specific to invoice, receipt, purchase bill, debit note, credit note, and archived PDF downloads.
 - Added archive/settings/numbering links near document actions and richer archive empty states without changing APIs or accounting behavior.
-- Supplier statement PDF export parity is now available from the supplier statement route using existing supplier statement rows; generated-document archive tracking for supplier statements remains pending a reviewed schema migration.
+- Supplier statement PDF export/archive parity is now available from the supplier statement route using existing supplier statement rows and the `SUPPLIER_STATEMENT` generated-document type.
 - No PDF totals, VAT/tax calculation, journal posting, accounting behavior, ZATCA signing/submission, PDF/A-3, CSID, clearance/reporting, migration, seed/reset/delete, full smoke, or full E2E changed.
 
 # Document download beta QA follow-up - 2026-05-21
@@ -2947,5 +2947,5 @@ Recommended next step:
 - Restored the local DPAPI-backed beta credential store and ran authenticated API-level document download/archive QA against deployed commit `ff01b2b` without printing passwords, tokens, auth headers, request/response bodies, PDF bodies, document numbers, or customer/vendor names.
 - Verified HTTP `200`, `application/pdf`, safe attachment filename presence, `.pdf` filename extension, nonzero byte length, and `%PDF` magic bytes for sales invoice PDFs, customer payment receipt PDFs, credit note PDFs, purchase bill PDFs, supplier payment receipt PDFs, purchase debit note PDFs, customer statement PDFs, supplier statement PDFs, and archived generated-document downloads.
 - Archive rows were created for invoice, customer payment receipt, credit note, purchase bill, supplier payment receipt, purchase debit note, and customer statement downloads.
-- Supplier statement PDF download works in beta but does not create an archive record yet because a dedicated `SUPPLIER_STATEMENT` document type still requires a reviewed non-destructive migration.
+- A follow-up non-destructive enum migration adds `SUPPLIER_STATEMENT`, so supplier statement PDF downloads can now create generated-document archive rows without changing supplier ledger/AP math.
 - Authenticated browser UI width checks remain pending because the deployed browser session was unauthenticated, login automation could not safely fill the email/password controls, and JavaScript URL token injection was rejected by browser security policy.

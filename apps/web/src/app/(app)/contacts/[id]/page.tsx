@@ -887,13 +887,23 @@ export function CustomerStatementDocumentGuidance() {
 
 export function SupplierStatementDocumentGuidance() {
   return (
-    <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
-      <p className="text-xs leading-5 text-steel">
-        Supplier statement PDF export is available for beta review from the selected period. The download uses the same
-        AP ledger rows shown on screen; generated-document archive tracking for supplier statements is a separate
-        hardening step.
+    <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-steel">
+      <p>
+        <span className="font-medium text-ink">Document archive:</span> Supplier statement PDF downloads are archived
+        automatically from the same AP ledger rows shown on screen, so the generated output can be reviewed later.
       </p>
-      <ComplianceNote className="mt-2" />
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Link href="/documents" className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+          Open archive
+        </Link>
+        <Link href="/settings/documents" className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+          Document settings
+        </Link>
+        <Link href="/settings/number-sequences" className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+          Number sequences
+        </Link>
+      </div>
+      <ComplianceNote className="mt-3" />
     </div>
   );
 }

@@ -124,12 +124,13 @@ export class ContactController {
   @RequirePermissions(PERMISSIONS.contacts.view)
   async supplierStatementPdf(
     @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Param("id") id: string,
     @Query("from") from: string | undefined,
     @Query("to") to: string | undefined,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const { buffer, filename } = await this.contactLedgerService.supplierStatementPdf(organizationId, id, from, to);
+    const { buffer, filename } = await this.contactLedgerService.supplierStatementPdf(organizationId, user.id, id, from, to);
     response.set({
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="${filename}"`,

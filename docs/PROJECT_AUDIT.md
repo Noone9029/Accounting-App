@@ -165,7 +165,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Detail pages now use clearer PDF action labels, expose archive/settings/numbering links near document actions, and keep conservative compliance wording visible.
 - `/documents` now has readable source/status labels, a clearer archived-PDF download action, richer empty state, and guidance that archived retrievals do not post entries or send data outside LedgerByte.
 - `/settings/documents` now explains titles, colors, display toggles, and templates in plain language; templates remain presentation-density choices only.
-- Supplier statement PDF export parity is now available from the supplier statement tab. It reuses existing supplier statement rows, preserves AP balance math, and does not create archive rows yet.
+- Supplier statement PDF export/archive parity is now available from the supplier statement tab. It reuses existing supplier statement rows and preserves AP balance math.
 - No PDF renderer totals, tax math, accounting posting behavior, ZATCA signing/submission, PDF/A-3, CSID, clearance/reporting, migration, seed/reset/delete, full smoke, or full E2E changed.
 
 ## 2026-05-21 Document download beta QA follow-up
@@ -173,7 +173,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Restored the local DPAPI-backed beta credential store and ran authenticated API-level document download/archive QA against deployed commit `ff01b2b` without printing passwords, tokens, auth headers, request/response bodies, PDF bodies, document numbers, or customer/vendor names.
 - Verified deployed beta health and real-account records for invoice, customer payment receipt, credit note, purchase bill, supplier payment receipt, purchase debit note, customer statement, supplier statement, and generated archive download checks.
 - Every available document download returned HTTP `200`, `application/pdf`, a safe attachment filename ending in `.pdf`, nonzero byte length, and `%PDF` magic bytes.
-- Archive rows were created for invoice, customer payment receipt, credit note, purchase bill, supplier payment receipt, purchase debit note, and customer statement downloads. Supplier statement PDF download worked, but supplier statement generated-document archive tracking remains pending until a reviewed schema migration can add a dedicated supplier statement document type.
+- Archive rows were created for invoice, customer payment receipt, credit note, purchase bill, supplier payment receipt, purchase debit note, and customer statement downloads. A follow-up non-destructive enum migration added the dedicated supplier statement document type for archive parity.
 - Authenticated browser UI width checks remain pending because the deployed browser session was unauthenticated, login automation could not safely fill the email/password controls, and JavaScript URL token injection was rejected by browser security policy.
 
 ## Audit Verification Commands

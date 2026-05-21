@@ -8,6 +8,11 @@ describe("document helpers", () => {
     expect(documentTypeLabel("BANK_RECONCILIATION_REPORT")).toBe("Bank Reconciliation Report");
   });
 
+  it("labels supplier statement archives clearly", () => {
+    expect(documentTypeLabel("SUPPLIER_STATEMENT")).toBe("Supplier Statement");
+    expect(documentSourceTypeLabel("SupplierStatement")).toBe("Supplier Statement");
+  });
+
   it("labels generated document statuses", () => {
     expect(generatedDocumentStatusLabel("GENERATED")).toBe("Generated");
     expect(generatedDocumentStatusLabel("SUPERSEDED")).toBe("Superseded");

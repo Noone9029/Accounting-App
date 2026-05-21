@@ -18,6 +18,7 @@ const documentTypes: Array<"" | DocumentType> = [
   "CUSTOMER_PAYMENT_RECEIPT",
   "CUSTOMER_REFUND",
   "CUSTOMER_STATEMENT",
+  "SUPPLIER_STATEMENT",
   "PURCHASE_ORDER",
   "PURCHASE_BILL",
   "PURCHASE_DEBIT_NOTE",
@@ -174,7 +175,7 @@ export default function GeneratedDocumentsPage() {
             <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
               <StatusMessage type="empty">No generated documents found.</StatusMessage>
               <p className="mt-3 text-sm leading-6 text-steel">
-                Generate a PDF from an invoice, payment receipt, bill, debit note, credit note, customer statement, or report to create the first archive record.
+                Generate a PDF from an invoice, payment receipt, bill, debit note, credit note, customer or supplier statement, or report to create the first archive record.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Link href="/settings/documents" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">

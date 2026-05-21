@@ -941,16 +941,27 @@ export class ContactLedgerService {
 
   async supplierStatementPdf(
     organizationId: string,
+    actorUserId: string,
     contactId: string,
     from?: string,
     to?: string,
-  ): Promise<{ data: CustomerStatementPdfData; buffer: Buffer; filename: string }> {
+  ): Promise<{ data: CustomerStatementPdfData; buffer: Buffer; filename: string; document: unknown | null }> {
     const data = await this.supplierStatementPdfData(organizationId, contactId, from, to);
     const settings = await this.documentSettingsService?.statementRenderSettings(organizationId);
     const renderSettings = settings ? { ...settings, title: supplierStatementTitle(settings.title ?? "Supplier Statement") } : { title: "Supplier Statement" };
     const buffer = await renderCustomerStatementPdf(data, renderSettings);
     const filename = supplierStatementFilename(data, from, to);
-    return { data, buffer, filename };
+    const document = await this.generatedDocumentService?.archivePdf({
+      organizationId,
+      documentType: DocumentType.SUPPLIER_STATEMENT,
+      sourceType: "SupplierStatement",
+      sourceId: contactId,
+      documentNumber: supplierStatementDocumentNumber(data, from, to),
+      filename,
+      buffer,
+      generatedById: actorUserId,
+    });
+    return { data, buffer, filename, document: document ?? null };
   }
 
   private async findCustomerContact(organizationId: string, contactId: string): Promise<CustomerLedgerContact> {
@@ -1816,6 +1827,12 @@ function statementDocumentNumber(data: CustomerStatementPdfData, from?: string, 
   const name = data.contact.displayName ?? data.contact.name;
   const range = from || to ? `${from ?? "start"} to ${to ?? "end"}` : "all dates";
   return `Statement ${name} (${range})`;
+}
+
+function supplierStatementDocumentNumber(data: CustomerStatementPdfData, from?: string, to?: string): string {
+  const name = data.contact.displayName ?? data.contact.name;
+  const range = from || to ? `${from ?? "start"} to ${to ?? "end"}` : "all dates";
+  return `Supplier Statement ${name} (${range})`;
 }
 
 function supplierStatementTitle(title: string): string {
