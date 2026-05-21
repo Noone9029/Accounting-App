@@ -70,6 +70,25 @@ Remaining risks:
 - The suite is a focused visual safety net, not full browser E2E, full smoke, PDF binary validation, accountant review, or deployed authenticated browser QA.
 - A pre-existing dashboard chart React key warning appears during the visual run and remains a product-code cleanup item outside this test-only pass.
 
+### Bank statement format parser groundwork added
+
+Added sanitized OFX, CAMT XML, and MT940 parser samples plus limited manual parser support without live bank integration or accounting behavior changes.
+
+Risk reduced:
+
+- Small sanitized fixtures now cover OFX, CAMT XML, and MT940 input shapes using clearly fake account/reference values.
+- The API and browser parser helpers now detect CSV, JSON, OFX, CAMT XML, MT940, and unknown text instead of silently treating every upload as CSV.
+- Limited OFX/CAMT/MT940 parsing normalizes common dates, signed amounts or debit/credit direction, descriptions, currency, and bank references into the existing statement import row shape.
+- Unsupported or unknown text returns a safe validation error without echoing raw file content.
+- Imported batches now preserve the detected manual source type through the existing `BankStatementImport.sourceType` string field.
+
+Remaining risks:
+
+- This is parser groundwork, not certified coverage of every bank export variant.
+- Raw statement-file archive policy, automatic matching, live bank feeds, external bank aggregation, transfer fees, and FX transfer handling remain out of scope.
+- Full smoke and full E2E remain intentionally pending.
+- Supabase RLS and least-privilege runtime role hardening remain parked until the safe Vercel env mutation path is available.
+
 ### Manual bank statement import groundwork added
 
 Added safe manual CSV/JSON/text bank statement upload and paste parsing without live bank integration or accounting behavior changes.
@@ -83,7 +102,7 @@ Risk reduced:
 
 Remaining risks:
 
-- No live bank feeds, external bank aggregation, OFX/CAMT/MT940 parser, automatic matching, raw-file archive policy, transfer fees, or FX transfer handling.
+- No live bank feeds, external bank aggregation, certified OFX/CAMT/MT940 bank-specific parser coverage, automatic matching, raw-file archive policy, transfer fees, or FX transfer handling.
 - Full smoke and full E2E remain intentionally pending.
 - Supabase RLS and least-privilege runtime role hardening remain parked until the safe Vercel env mutation path is available.
 
@@ -584,7 +603,7 @@ Current top 10 risks:
 6. No MFA, advanced session invalidation, or full security review exists.
 7. Audit visibility is strong for MVP but no immutable external audit store, scheduled export, alerting, or tamper evidence exists.
 8. Inventory accounting remains manual and policy-gated; landed cost, FIFO, serial/batch, returns, and automatic postings are not implemented.
-9. Banking has manual reconciliation but no live feeds, OFX/CAMT/MT940 parser, auto-match, fees, or FX transfer handling.
+9. Banking has manual reconciliation and limited manual OFX/CAMT/MT940 parser groundwork, but no live feeds, auto-match, certified bank-specific parser coverage, fees, or FX transfer handling.
 10. Dashboard/report definitions need accountant/product review before production reliance.
 
 Next recommended prompt:
@@ -1210,8 +1229,8 @@ Risk reduced:
 
 Remaining risks:
 
-- No production-grade bank statement file storage/parser; uploaded attachment groundwork is separate from import parsing.
-- No OFX/CAMT/MT940 parser.
+- No production-grade bank statement file storage/parser certification; uploaded attachment groundwork is separate from import parsing.
+- Limited manual OFX/CAMT/MT940 parser groundwork exists now, but broad bank-specific variants still need review with sanitized real samples.
 - No bank feeds or external banking APIs.
 - No strict dual-control approval queue beyond the same-submitter guard.
 - No automatic/ML matching.
@@ -1262,7 +1281,7 @@ Risk reduced:
 Remaining risks:
 
 - Reviewer approval now exists; strict dual-control queues remain future work.
-- No file upload parser, OFX, CAMT, MT940, live feeds, external banking API, or payment gateway integration.
+- Limited file upload parser and OFX/CAMT/MT940 groundwork exists now, but there is still no live feed, external banking API, certified bank-specific coverage, or payment gateway integration.
 - No automatic/ML matching.
 - Voiding reconciliation is administrative only and does not reverse categorized journals.
 - Accountant review is still needed before production use.
@@ -1288,8 +1307,8 @@ Risk reduced:
 
 Remaining risks:
 
-- No production-grade bank file parser/storage workflow beyond local JSON/CSV paste rows; uploaded attachment groundwork is separate from import parsing.
-- No OFX, CAMT, MT940, live feeds, external banking API, or payment gateway integration.
+- No production-grade bank file parser/storage workflow beyond local upload/paste rows; uploaded attachment groundwork is separate from import parsing.
+- Limited OFX/CAMT/MT940 parser groundwork exists now, but there is still no live feed, external banking API, certified bank-specific coverage, or payment gateway integration.
 - No automatic/ML matching.
 - Formal close/lock, report export, and reviewer workflow now exist; file upload storage remains future work.
 - Accountant review is still needed before production use.

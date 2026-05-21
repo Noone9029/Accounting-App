@@ -22,6 +22,7 @@ describe("statement import guidance", () => {
     render(<StatementImportGuidance profileId="bank-1" />);
 
     expect(screen.getByText("Manual statement import")).toBeInTheDocument();
+    expect(screen.getByText(/CSV, JSON, OFX, CAMT XML, and MT940/)).toBeInTheDocument();
     expect(screen.getByText(/do not connect to a live bank feed/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Review unmatched rows" })).toHaveAttribute(
       "href",

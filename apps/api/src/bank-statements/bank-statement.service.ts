@@ -176,7 +176,7 @@ export class BankStatementService {
           bankAccountProfileId: profile.id,
           importedById: actorUserId,
           filename,
-          sourceType: "CSV",
+          sourceType: parsed.format === "UNKNOWN" ? "CSV" : parsed.format,
           status: BankStatementImportStatus.IMPORTED,
           statementStartDate,
           statementEndDate,

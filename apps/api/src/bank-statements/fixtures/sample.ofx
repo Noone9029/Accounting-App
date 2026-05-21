@@ -1,0 +1,48 @@
+OFXHEADER:100
+DATA:OFXSGML
+VERSION:102
+SECURITY:NONE
+ENCODING:USASCII
+CHARSET:1252
+COMPRESSION:NONE
+OLDFILEUID:NONE
+NEWFILEUID:NONE
+
+<OFX>
+  <BANKMSGSRSV1>
+    <STMTTRNRS>
+      <STMTRS>
+        <CURDEF>SAR
+        <BANKACCTFROM>
+          <BANKID>FAKEBANK
+          <ACCTID>FAKEACCOUNT
+          <ACCTTYPE>CHECKING
+        </BANKACCTFROM>
+        <BANKTRANLIST>
+          <DTSTART>20260501000000
+          <DTEND>20260531000000
+          <STMTTRN>
+            <TRNTYPE>CREDIT
+            <DTPOSTED>20260513000000
+            <TRNAMT>250.00
+            <FITID>FAKE-OFX-0001
+            <NAME>Sample receipt
+            <MEMO>Manual OFX sample receipt
+          </STMTTRN>
+          <STMTTRN>
+            <TRNTYPE>DEBIT
+            <DTPOSTED>20260514000000
+            <TRNAMT>-15.50
+            <FITID>FAKE-OFX-0002
+            <NAME>Sample fee
+            <MEMO>Manual OFX sample bank fee
+          </STMTTRN>
+        </BANKTRANLIST>
+        <LEDGERBAL>
+          <BALAMT>1234.50
+          <DTASOF>20260531000000
+        </LEDGERBAL>
+      </STMTRS>
+    </STMTTRNRS>
+  </BANKMSGSRSV1>
+</OFX>

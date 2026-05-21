@@ -42,8 +42,10 @@ export interface StatementImportClientRowPreview extends StatementImportRowInput
   warnings: string[];
 }
 
+export type StatementImportClientFormat = "CSV" | "JSON" | "OFX" | "CAMT" | "MT940" | "UNKNOWN";
+
 export interface StatementImportClientPreview {
-  format: "CSV" | "JSON";
+  format: StatementImportClientFormat;
   rowCount: number;
   validRowCount: number;
   invalidRowCount: number;
@@ -256,20 +258,41 @@ export function parseStatementRowsText(input: string): StatementImportRowInput[]
 
 export function validateStatementImportFile(file: StatementImportFileLike): string | null {
   if (file.size > STATEMENT_IMPORT_MAX_FILE_BYTES) {
-    return "Statement file is too large. Use a CSV or JSON file up to 1 MB.";
+    return "Statement file is too large. Use a CSV, JSON, OFX, CAMT XML, or MT940 file up to 1 MB.";
   }
   const name = file.name.toLowerCase();
   const type = (file.type ?? "").toLowerCase();
-  const allowedExtension = name.endsWith(".csv") || name.endsWith(".json") || name.endsWith(".txt");
-  const allowedType = ["", "text/csv", "application/csv", "application/json", "text/plain", "application/vnd.ms-excel"].includes(type);
-  return allowedExtension && allowedType ? null : "Use a CSV or JSON statement file. Live bank feed exports are not accepted here.";
+  const allowedExtension =
+    name.endsWith(".csv") ||
+    name.endsWith(".json") ||
+    name.endsWith(".txt") ||
+    name.endsWith(".ofx") ||
+    name.endsWith(".xml") ||
+    name.endsWith(".camt") ||
+    name.endsWith(".mt940") ||
+    name.endsWith(".940") ||
+    name.endsWith(".sta");
+  const allowedType = [
+    "",
+    "text/csv",
+    "application/csv",
+    "application/json",
+    "text/plain",
+    "application/vnd.ms-excel",
+    "application/xml",
+    "text/xml",
+    "application/octet-stream",
+  ].includes(type);
+  return allowedExtension && allowedType
+    ? null
+    : "Use a CSV, JSON, OFX, CAMT XML, or MT940 statement file. Live bank feed exports are not accepted here.";
 }
 
 export function parseStatementImportText(input: string, options: { accountCurrency?: string } = {}): StatementImportClientPreview {
   const trimmed = input.trim();
   if (!trimmed) {
     return {
-      format: "CSV",
+      format: "UNKNOWN",
       rowCount: 0,
       validRowCount: 0,
       invalidRowCount: 0,
@@ -281,7 +304,22 @@ export function parseStatementImportText(input: string, options: { accountCurren
     };
   }
 
-  const parsed = trimmed.startsWith("[") || trimmed.startsWith("{") ? parseStatementJsonText(trimmed) : parseStatementCsvText(trimmed);
+  const format = detectStatementImportFormat(trimmed);
+  if (format === "UNKNOWN") {
+    return {
+      format,
+      rowCount: 0,
+      validRowCount: 0,
+      invalidRowCount: 1,
+      duplicateCandidateCount: 0,
+      detectedColumns: [],
+      rows: [],
+      errors: [{ rowNumber: 0, message: "Statement format could not be detected. Use CSV, JSON, OFX, CAMT XML, or MT940 manual exports." }],
+      warnings: [],
+    };
+  }
+
+  const parsed = parseDetectedStatementText(trimmed, format);
   const rows = parsed.records.map((record) => normalizeStatementRecord(record, options));
   const seenKeys = new Set<string>();
   let duplicateCandidateCount = 0;
@@ -314,6 +352,53 @@ export function parseStatementImportText(input: string, options: { accountCurren
     errors,
     warnings,
   };
+}
+
+export function detectStatementImportFormat(text: string): StatementImportClientFormat {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return "UNKNOWN";
+  }
+  if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+    return "JSON";
+  }
+  if (/<ofx[\s>]/i.test(trimmed) || /<stmttrn[\s>]/i.test(trimmed) || /<banktranlist[\s>]/i.test(trimmed)) {
+    return "OFX";
+  }
+  if (
+    /camt\.05[34]/i.test(trimmed) ||
+    /<[^>]*bktocstmrstmt[\s>]/i.test(trimmed) ||
+    /<[^>]*bktocstmrdbtcdtntfctn[\s>]/i.test(trimmed) ||
+    (/<[^>]*ntry[\s>]/i.test(trimmed) && /<[^>]*cdtdbtind[\s>]/i.test(trimmed))
+  ) {
+    return "CAMT";
+  }
+  if (/^:20:/m.test(trimmed) || /^:61:/m.test(trimmed) || trimmed.includes("\n:61:") || trimmed.includes("\r\n:61:")) {
+    return "MT940";
+  }
+  const firstLine = trimmed.split(/\r?\n/, 1)[0] ?? "";
+  if (firstLine.includes(",") && firstLine.split(",").some((header) => canonicalStatementColumn(header))) {
+    return "CSV";
+  }
+  return "UNKNOWN";
+}
+
+function parseDetectedStatementText(
+  text: string,
+  format: Exclude<StatementImportClientFormat, "UNKNOWN">,
+): { format: Exclude<StatementImportClientFormat, "UNKNOWN">; records: Array<{ rowNumber: number; values: Record<string, unknown> }>; detectedColumns: string[] } {
+  switch (format) {
+    case "JSON":
+      return parseStatementJsonText(text);
+    case "OFX":
+      return parseStatementOfxText(text);
+    case "CAMT":
+      return parseStatementCamtText(text);
+    case "MT940":
+      return parseStatementMt940Text(text);
+    case "CSV":
+      return parseStatementCsvText(text);
+  }
 }
 
 function parseStatementJsonText(text: string): { format: "JSON"; records: Array<{ rowNumber: number; values: Record<string, unknown> }>; detectedColumns: string[] } {
@@ -365,6 +450,81 @@ function parseStatementCsvText(text: string): { format: "CSV"; records: Array<{ 
       values: Object.fromEntries(columns.map((header, columnIndex) => [header || `Column ${columnIndex + 1}`, record[columnIndex] ?? ""])),
     })),
   };
+}
+
+function parseStatementOfxText(text: string): { format: "OFX"; records: Array<{ rowNumber: number; values: Record<string, unknown> }>; detectedColumns: string[] } {
+  const currency = ofxTagValue(text, "CURDEF");
+  const closingBalance = ofxTagValue(text, "BALAMT");
+  const records = text.split(/<STMTTRN>/i).slice(1).map((block, index) => {
+    const bankReference = ofxTagValue(block, "FITID");
+    const memo = ofxTagValue(block, "MEMO");
+    const name = ofxTagValue(block, "NAME");
+    return {
+      rowNumber: index + 1,
+      values: {
+        date: (ofxTagValue(block, "DTPOSTED") ?? "").slice(0, 8),
+        description: memo || name || bankReference,
+        bankReference,
+        reference: bankReference,
+        amount: normalizeDirectionalAmount(ofxTagValue(block, "TRNAMT")),
+        balance: closingBalance,
+        counterparty: name && name !== memo ? name : undefined,
+        currency,
+      },
+    };
+  });
+  return { format: "OFX", records, detectedColumns: ["DTPOSTED", "TRNAMT", "FITID", "NAME", "MEMO", "CURDEF"] };
+}
+
+function parseStatementCamtText(text: string): { format: "CAMT"; records: Array<{ rowNumber: number; values: Record<string, unknown> }>; detectedColumns: string[] } {
+  const records = findXmlBlocks(text, "Ntry").map((block, index) => {
+    const indicator = xmlTagValue(block, "CdtDbtInd");
+    const reference = xmlTagValue(block, "AcctSvcrRef") || xmlTagValue(block, "NtryRef");
+    return {
+      rowNumber: index + 1,
+      values: {
+        date: xmlNestedDate(block, "BookgDt") || xmlNestedDate(block, "ValDt"),
+        description: xmlTagValue(block, "Ustrd") || xmlTagValue(block, "AddtlNtryInf") || reference,
+        reference,
+        bankReference: reference,
+        amount: signedAmountFromDirection(xmlTagValue(block, "Amt"), indicator === "DBIT" ? "DEBIT" : "CREDIT"),
+        counterparty: xmlTagValue(block, "Nm"),
+        currency: xmlAttributeValue(block, "Amt", "Ccy") || xmlTagValue(text, "Ccy"),
+      },
+    };
+  });
+  return { format: "CAMT", records, detectedColumns: ["BookgDt", "ValDt", "Amt", "CdtDbtInd", "AcctSvcrRef", "Ustrd"] };
+}
+
+function parseStatementMt940Text(text: string): { format: "MT940"; records: Array<{ rowNumber: number; values: Record<string, unknown> }>; detectedColumns: string[] } {
+  const currency = text.match(/^:60[FM]:[CD]\d{6}([A-Z]{3})/m)?.[1] ?? text.match(/^:62[FM]:[CD]\d{6}([A-Z]{3})/m)?.[1];
+  const lines = text.split(/\r?\n/);
+  const records: Array<{ rowNumber: number; values: Record<string, unknown> }> = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (!line.startsWith(":61:")) {
+      continue;
+    }
+    const match = /^(\d{6})(?:\d{4})?([CD])([0-9,]+)(?:[A-Z]{4})?([^/]*)?(?:\/\/(.+))?/.exec(line.slice(4));
+    if (!match) {
+      records.push({ rowNumber: records.length + 1, values: { description: "Imported MT940 statement row" } });
+      continue;
+    }
+    const descriptionLine = lines[index + 1] ?? "";
+    const reference = (match[5] ?? match[4] ?? "").trim() || undefined;
+    records.push({
+      rowNumber: records.length + 1,
+      values: {
+        date: normalizeMt940Date(match[1]),
+        description: descriptionLine.startsWith(":86:") ? descriptionLine.slice(4).trim() : reference,
+        reference,
+        bankReference: reference,
+        amount: signedAmountFromDirection(match[3]!.replace(",", "."), match[2] === "D" ? "DEBIT" : "CREDIT"),
+        currency,
+      },
+    });
+  }
+  return { format: "MT940", records, detectedColumns: [":61:", ":86:", ":60F:", ":62F:"] };
 }
 
 function normalizeStatementRecord(
@@ -542,6 +702,13 @@ function normalizeStatementDate(value: string): string | null {
   if (!trimmed) {
     return null;
   }
+  const compact = /^(\d{4})(\d{2})(\d{2})$/.exec(trimmed);
+  if (compact) {
+    const year = Number(compact[1]);
+    const month = Number(compact[2]);
+    const day = Number(compact[3]);
+    return validDateParts(year, month, day) ? `${year}-${compact[2]}-${compact[3]}` : null;
+  }
   const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
   if (iso) {
     return validDateParts(Number(iso[1]), Number(iso[2]), Number(iso[3])) ? trimmed : null;
@@ -569,6 +736,17 @@ function padDatePart(value: number): string {
   return value.toString().padStart(2, "0");
 }
 
+function normalizeMt940Date(value: string | undefined): string | undefined {
+  const match = /^(\d{2})(\d{2})(\d{2})$/.exec(value ?? "");
+  if (!match) {
+    return value;
+  }
+  const year = Number(match[1]) >= 70 ? 1900 + Number(match[1]) : 2000 + Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  return validDateParts(year, month, day) ? `${year}-${match[2]}-${match[3]}` : value;
+}
+
 function parseStatementAmount(value: string): { value: number | null; error: boolean } {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -590,6 +768,19 @@ function formatStatementAmount(value: number): string {
   return Math.abs(value) < 0.00005 ? "0.0000" : Math.abs(value).toFixed(4);
 }
 
+function normalizeDirectionalAmount(value: string | undefined): string | undefined {
+  return value?.replace(",", ".").trim();
+}
+
+function signedAmountFromDirection(amount: string | undefined, direction: "DEBIT" | "CREDIT"): string | undefined {
+  const normalized = normalizeDirectionalAmount(amount);
+  if (!normalized) {
+    return normalized;
+  }
+  const unsigned = normalized.startsWith("-") ? normalized.slice(1) : normalized;
+  return direction === "DEBIT" ? `-${unsigned}` : unsigned;
+}
+
 function statementRowDuplicateKey(row: StatementImportClientRowPreview): string | null {
   if (row.errors.length > 0) {
     return null;
@@ -605,4 +796,44 @@ function statementRowDuplicateKey(row: StatementImportClientRowPreview): string 
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function ofxTagValue(text: string, tag: string): string | undefined {
+  const match = new RegExp(`<${tag}>([^<\\r\\n]+)`, "i").exec(text);
+  return cleanParsedText(match?.[1]);
+}
+
+function findXmlBlocks(text: string, tag: string): string[] {
+  return Array.from(text.matchAll(new RegExp(`<(?:\\w+:)?${tag}\\b[\\s\\S]*?<\\/(?:\\w+:)?${tag}>`, "gi"))).map((match) => match[0]);
+}
+
+function xmlNestedDate(text: string, parentTag: string): string | undefined {
+  const block = findXmlBlocks(text, parentTag)[0];
+  return block ? xmlTagValue(block, "Dt") : undefined;
+}
+
+function xmlTagValue(text: string, tag: string): string | undefined {
+  const match = new RegExp(`<(?:\\w+:)?${tag}\\b[^>]*>([\\s\\S]*?)<\\/(?:\\w+:)?${tag}>`, "i").exec(text);
+  return cleanParsedText(match?.[1]);
+}
+
+function xmlAttributeValue(text: string, tag: string, attribute: string): string | undefined {
+  const match = new RegExp(`<(?:\\w+:)?${tag}\\b[^>]*\\b${attribute}=["']([^"']+)["']`, "i").exec(text);
+  return cleanParsedText(match?.[1]);
+}
+
+function cleanParsedText(value: string | undefined): string | undefined {
+  const trimmed = value
+    ?.replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  return trimmed
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&apos;/g, "'");
 }

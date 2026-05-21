@@ -66,8 +66,8 @@ Recommended next prompt:
 - Bank account and transfer pages now guide users to import statements, create transfers, review unmatched transactions, inspect the bank ledger, open reconciliation history, and return to dashboard.
 - Statement import and matching screens now clearly say the current flow is manual/import-based and does not use live bank feeds or external banking APIs.
 - Browser QA covered the banking/reconciliation path at desktop, tablet, and mobile widths with no document overflow or console/page/request error entries.
-- Remaining banking work: no live feeds, external bank APIs, automatic matching, OFX/CAMT/MT940 parser, transfer fees, or FX transfer handling. Next functional banking work should start with file-format/parser groundwork and storage design, not live bank integration.
-- Remaining UX work: inventory workflow QA, visual regression coverage, bank statement file samples, parser/import storage design, and accountant review of reconciliation terminology.
+- Remaining banking work: no live feeds, external bank APIs, automatic matching, certified bank-specific OFX/CAMT/MT940 coverage, transfer fees, or FX transfer handling. Next functional banking work should validate parser groundwork with real sanitized bank-format variants and storage design, not live bank integration.
+- Remaining UX work: inventory workflow QA, visual regression coverage, expanded bank statement samples, parser/import storage design, and accountant review of reconciliation terminology.
 
 ## 2026-05-21 Inventory drill-down UX
 
@@ -84,8 +84,17 @@ Recommended next prompt:
 - Statement import now supports manual CSV/JSON/text file upload or paste with local parser preview, detected columns, row counts, validation errors, row warnings, duplicate-candidate counts, and success guidance.
 - Supported beta formats include debit/credit columns, signed amount columns, transaction/posted dates, memo/details, balance, counterparty, currency, and bank reference aliases.
 - Storage remains on the existing import/transaction tables: raw file bodies are not stored, while import metadata and parsed statement rows are saved through the existing preview/import API.
-- This pass did not add live bank feeds, external aggregation, OFX/CAMT/MT940 parsers, automatic matching, reconciliation logic changes, posting changes, migrations, seed/reset, full smoke, or full E2E.
-- Remaining banking work: real bank file samples, OFX/CAMT/MT940 parser design, optional raw-file archive policy, approval queue polish, transfer fees, and FX transfer handling.
+- This pass did not add live bank feeds, external aggregation, OFX/CAMT/MT940 parsers, automatic matching, reconciliation logic changes, posting changes, migrations, seed/reset, full smoke, or full E2E; the parser-format gap is superseded by the 2026-05-22 groundwork below.
+- Remaining banking work after that follow-up: real sanitized bank-format variants, optional raw-file archive policy, approval queue polish, transfer fees, and FX transfer handling.
+
+## 2026-05-22 Bank statement format parser groundwork
+
+- Added sanitized OFX, CAMT.053-style XML, and MT940 fixtures with clearly fake account/reference values and no real bank account numbers, customer/vendor names, or live bank credentials.
+- The manual import parser now detects CSV, JSON, OFX, CAMT XML, MT940, and unknown text, and it returns explicit safe validation errors for unsupported text without echoing raw file bodies.
+- Limited OFX/CAMT/MT940 parsing now normalizes transaction date, signed amount or debit/credit direction, description/memo/remittance text, currency when available, and bank reference into the existing preview/import row shape.
+- Storage remains unchanged: only existing `BankStatementImport` metadata and parsed `BankStatementTransaction` rows are persisted; raw statement files are not archived in this pass.
+- This pass did not add live bank feeds, external aggregation, automatic matching, reconciliation logic changes, bank ledger math changes, posting changes, migrations, seed/reset, full smoke, or full E2E.
+- Remaining banking work: expand parser fixtures with real sanitized bank variants, define an optional raw-file archive policy, add parser coverage for OFX XML/CAMT.054/MT940 edge cases, approval queue polish, transfer fees, and FX transfer handling.
 
 ## 2026-05-21 Document and PDF UX polish
 
@@ -132,7 +141,7 @@ Tasks:
 - Supplier debit notes accounting hardening and accountant review of AP statement layout.
 - Purchase receiving QA, partial bill matching, and purchase matching hardening.
 - Cash expense import/OCR groundwork and production hardening for uploaded receipt attachments after the S3 adapter is validated against a real non-production bucket.
-- Bank statement file-format samples, OFX/CAMT/MT940 parser design, optional raw-file archive policy using the storage readiness groundwork, and approval queue polish.
+- Bank statement parser fixture expansion, optional raw-file archive policy using the storage readiness groundwork, and approval queue polish.
 - Transfer fees and multi-currency FX transfer handling.
 - Inventory adjustment/transfer UX polish and approval queue hardening.
 - Official VAT return report.
@@ -148,7 +157,7 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Add OFX/CAMT/MT940 bank statement parser samples and raw-file archive policy without live bank feeds or automatic matching.
+> Validate OFX/CAMT/MT940 parser groundwork against real sanitized bank-format variants and design a raw-file archive policy without live bank feeds or automatic matching.
 
 ## Phase 3: Inventory And Payroll Basics
 

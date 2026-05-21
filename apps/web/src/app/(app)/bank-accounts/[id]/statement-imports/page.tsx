@@ -240,9 +240,9 @@ export default function BankStatementImportsPage() {
             <label className="block rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
               <span className="text-sm font-semibold text-ink">Upload a manual statement file</span>
               <span className="mt-1 block text-sm leading-6 text-steel">
-                Use CSV, JSON, or text exports up to {Math.round(STATEMENT_IMPORT_MAX_FILE_BYTES / 1024 / 1024)} MB. The file is read in your browser for preview; LedgerByte stores the import batch and parsed statement rows, not the raw file body.
+                Use CSV, JSON, OFX, CAMT XML, MT940, or text exports up to {Math.round(STATEMENT_IMPORT_MAX_FILE_BYTES / 1024 / 1024)} MB. The file is read in your browser for preview; LedgerByte stores the import batch and parsed statement rows, not the raw file body.
               </span>
-              <input type="file" accept=".csv,.json,.txt,text/csv,application/json,text/plain" onChange={(event) => void handleFileChange(event)} className="mt-3 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-palm file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" />
+              <input type="file" accept=".csv,.json,.txt,.ofx,.xml,.camt,.mt940,.940,.sta,text/csv,application/json,text/plain,application/xml,text/xml" onChange={(event) => void handleFileChange(event)} className="mt-3 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-palm file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" />
             </label>
             <div className="rounded-md border border-slate-200 bg-white p-4">
               <p className="text-sm font-semibold text-ink">Accepted row shapes</p>
@@ -251,6 +251,7 @@ export default function BankStatementImportsPage() {
                 <li>date, description, amount, balance</li>
                 <li>transactionDate, memo, amount</li>
                 <li>postedDate, details, debitAmount, creditAmount</li>
+                <li>OFX, CAMT XML, or MT940 bank export rows</li>
               </ul>
             </div>
           </div>
@@ -271,7 +272,7 @@ export default function BankStatementImportsPage() {
           <label className="mt-4 block">
             <span className="text-sm font-medium text-slate-700">CSV text or JSON rows</span>
             <span className="mt-1 block text-xs leading-5 text-steel">
-              Paste a bank export or use the sample. Signed amounts import as credits when positive and debits when negative. Debit/credit columns are also supported.
+              Paste a bank export or use the sample. Signed amounts import as credits when positive and debits when negative. Debit/credit columns, OFX, CAMT XML, and MT940 parser previews are also supported.
             </span>
             <textarea value={rowsText} onChange={(event) => handleRowsTextChange(event.target.value)} rows={8} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs outline-none focus:border-palm" />
           </label>
@@ -414,7 +415,7 @@ export function StatementImportGuidance({ profileId }: { profileId: string }) {
     <div className="mb-5 rounded-md border border-slate-200 bg-slate-50 p-4">
       <h2 className="text-base font-semibold text-ink">Manual statement import</h2>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-steel">
-        Paste bank-provided CSV or JSON rows, preview them, then import valid rows for manual matching. Imports create statement review records only; they do not create accounting journals until a row is categorized, and they do not connect to a live bank feed.
+        Paste bank-provided CSV, JSON, OFX, CAMT XML, and MT940 rows, preview them, then import valid rows for manual matching. Imports create statement review records only; they do not create accounting journals until a row is categorized, and they do not connect to a live bank feed.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Link href={`/bank-accounts/${profileId}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">

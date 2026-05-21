@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Sanitized LedgerByte parser fixture. Values are fake and must not be used as real bank details. -->
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.08">
+  <BkToCstmrStmt>
+    <Stmt>
+      <Id>FAKE-CAMT-STMT-0001</Id>
+      <Acct>
+        <Id>
+          <Othr>
+            <Id>FAKEACCOUNT</Id>
+          </Othr>
+        </Id>
+        <Ccy>SAR</Ccy>
+      </Acct>
+      <Ntry>
+        <Amt Ccy="SAR">250.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <BookgDt><Dt>2026-05-13</Dt></BookgDt>
+        <ValDt><Dt>2026-05-13</Dt></ValDt>
+        <AcctSvcrRef>FAKE-CAMT-0001</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <RltdPties>
+              <Cdtr><Nm>Sample Counterparty</Nm></Cdtr>
+            </RltdPties>
+            <RmtInf><Ustrd>Manual CAMT sample receipt</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="SAR">15.50</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <BookgDt><Dt>2026-05-14</Dt></BookgDt>
+        <ValDt><Dt>2026-05-14</Dt></ValDt>
+        <AcctSvcrRef>FAKE-CAMT-0002</AcctSvcrRef>
+        <AddtlNtryInf>Manual CAMT sample bank fee</AddtlNtryInf>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>

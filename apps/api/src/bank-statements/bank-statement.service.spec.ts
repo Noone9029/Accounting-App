@@ -116,6 +116,44 @@ describe("BankStatementService", () => {
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "IMPORT", entityType: "BankStatementImport" }));
   });
 
+  it("imports OFX statement text with OFX metadata without changing matching or posting behavior", async () => {
+    const createdImport = { id: "import-1", rowCount: 1, status: BankStatementImportStatus.IMPORTED };
+    const tx = {
+      bankStatementImport: { create: jest.fn().mockResolvedValue(createdImport) },
+    };
+    const { service, prisma } = makeService({
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    });
+
+    await expect(
+      service.importStatement("org-1", "user-1", "profile-1", {
+        filename: "statement.ofx",
+        csvText:
+          "<OFX><BANKTRANLIST><STMTTRN><DTPOSTED>20260513000000<TRNAMT>25.00<FITID>FAKE-OFX-1<MEMO>Manual OFX sample</STMTTRN></BANKTRANLIST></OFX>",
+      }),
+    ).resolves.toMatchObject(createdImport);
+
+    expect(tx.bankStatementImport.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          sourceType: "OFX",
+          rowCount: 1,
+          transactions: {
+            create: [
+              expect.objectContaining({
+                description: "Manual OFX sample",
+                reference: "FAKE-OFX-1",
+                type: BankStatementTransactionType.CREDIT,
+                amount: "25.0000",
+              }),
+            ],
+          },
+        }),
+      }),
+    );
+    expect(prisma.journalLine.findMany).not.toHaveBeenCalled();
+  });
+
   it("rejects bad import rows before creating the batch", async () => {
     const { service, prisma } = makeService();
 

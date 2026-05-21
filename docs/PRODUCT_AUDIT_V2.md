@@ -44,7 +44,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 ## Partial Modules
 
 - Dashboard analytics: useful read-only snapshot with lightweight charts and drill-down links, but no customization, saved widgets, advanced charting, or accountant-approved KPI definitions.
-- Banking: strong manual reconciliation, but no OFX/CAMT/MT940 parser, live feeds, auto-match, payment gateway, transfer fees, or FX handling.
+- Banking: strong manual reconciliation with limited manual OFX/CAMT/MT940 parser groundwork, but no live feeds, auto-match, payment gateway, transfer fees, FX handling, or certified bank-specific parser coverage.
 - Inventory accounting: safe manual posting exists, but no automatic posting, no landed cost, no FIFO cost layers, no serial/batch tracking, no inventory returns workflow, and no historical direct-mode migration.
 - Reports: broad operational reports exist, but official VAT return, filing exports, scheduled delivery, report pack controls, and accountant sign-off remain.
 - Attachments/storage: upload/download/soft-delete works, new uploaded attachments can use S3-compatible storage when explicitly configured, but database/base64 remains the default and there is no migration executor, generated-document S3 path, scanning, OCR, or retention policy.
@@ -74,7 +74,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 6. No immutable external audit store, scheduled audit export, tamper-evident chain, or alerting.
 7. No broad maker-checker approval workflow for high-risk accounting changes.
 8. No official VAT return filing workflow.
-9. No production-grade bank file parser or live bank integration.
+9. No production-grade bank file parser certification, raw-file archive policy, or live bank integration.
 10. Supabase RLS remains disabled in the documented test posture; tenant isolation is currently API-layer enforced.
 
 ## Compliance Blockers

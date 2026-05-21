@@ -122,13 +122,13 @@ Check:
 
 1. Open a test bank account.
 2. Open the statement import page.
-3. Paste or upload a dummy CSV/JSON statement file.
+3. Paste or upload a dummy CSV/JSON/OFX/CAMT/MT940 statement file.
 4. Preview parsed rows.
 5. Review validation warnings and duplicate-candidate counts.
 
 Check:
 - Is it clear this is manual import, not live bank sync?
-- Are supported CSV/JSON shapes explained?
+- Are supported manual CSV/JSON/OFX/CAMT/MT940 shapes explained?
 - Are invalid date, invalid amount, missing description, and duplicate warnings useful?
 - Does the UI avoid showing raw file contents in logs or error messages?
 

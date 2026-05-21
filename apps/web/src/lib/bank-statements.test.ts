@@ -7,6 +7,7 @@ import {
   candidateScoreLabel,
   closeBlockedMessage,
   closedThroughDateLabel,
+  detectStatementImportFormat,
   lockedStatementTransactionWarning,
   parseStatementImportText,
   parseStatementRowsText,
@@ -66,6 +67,29 @@ describe("bank statement helpers", () => {
     expect(JSON.stringify(result.errors)).not.toContain("Receipt,PAY-1");
   });
 
+  it("detects and previews manual OFX, CAMT, and MT940 statement text without live-bank wording", () => {
+    const ofx = `<OFX><BANKTRANLIST><STMTTRN><DTPOSTED>20260513000000<TRNAMT>25.00<FITID>FAKE-OFX-1<MEMO>Manual OFX sample</STMTTRN></BANKTRANLIST></OFX>`;
+    const camt = `<Document><BkToCstmrStmt><Stmt><Ntry><Amt Ccy="SAR">15.50</Amt><CdtDbtInd>DBIT</CdtDbtInd><BookgDt><Dt>2026-05-14</Dt></BookgDt><AcctSvcrRef>FAKE-CAMT-1</AcctSvcrRef><NtryDtls><TxDtls><RmtInf><Ustrd>Manual CAMT fee</Ustrd></RmtInf></TxDtls></NtryDtls></Ntry></Stmt></BkToCstmrStmt></Document>`;
+    const mt940 = `:20:FAKESTATEMENT\n:25:FAKEACCOUNT\n:60F:C260501SAR0,00\n:61:2605130513C25,00NTRFFAKE//FAKE-MT940-1\n:86:Manual MT940 receipt\n:62F:C260531SAR25,00`;
+
+    expect(detectStatementImportFormat(ofx)).toBe("OFX");
+    expect(parseStatementImportText(ofx).rows[0]).toMatchObject({ date: "2026-05-13", description: "Manual OFX sample", credit: "25.0000" });
+    expect(detectStatementImportFormat(camt)).toBe("CAMT");
+    expect(parseStatementImportText(camt).rows[0]).toMatchObject({ date: "2026-05-14", description: "Manual CAMT fee", debit: "15.5000" });
+    expect(detectStatementImportFormat(mt940)).toBe("MT940");
+    expect(parseStatementImportText(mt940).rows[0]).toMatchObject({ date: "2026-05-13", description: "Manual MT940 receipt", credit: "25.0000" });
+    expect(JSON.stringify(parseStatementImportText(ofx))).not.toMatch(/live bank sync/i);
+  });
+
+  it("returns safe unsupported-format errors without echoing raw text", () => {
+    const result = parseStatementImportText("private-looking raw statement body");
+
+    expect(result.format).toBe("UNKNOWN");
+    expect(result.invalidRowCount).toBe(1);
+    expect(result.errors[0]?.message).toBe("Statement format could not be detected. Use CSV, JSON, OFX, CAMT XML, or MT940 manual exports.");
+    expect(JSON.stringify(result.errors)).not.toContain("private-looking raw statement body");
+  });
+
   it("flags malformed dates, malformed amounts, conflicting debit and credit, and currency mismatch", () => {
     const result = parseStatementImportText(
       "date,description,debit,credit,currency\nbad-date,Fee,1.00,2.00,USD\n2026-05-14,,abc,0.00,SAR",
@@ -81,7 +105,10 @@ describe("bank statement helpers", () => {
 
   it("validates statement upload file size and type", () => {
     expect(validateStatementImportFile({ name: "statement.csv", size: 100, type: "text/csv" })).toBeNull();
-    expect(validateStatementImportFile({ name: "statement.pdf", size: 100, type: "application/pdf" })).toMatch(/CSV or JSON/);
+    expect(validateStatementImportFile({ name: "statement.ofx", size: 100, type: "application/octet-stream" })).toBeNull();
+    expect(validateStatementImportFile({ name: "statement.xml", size: 100, type: "application/xml" })).toBeNull();
+    expect(validateStatementImportFile({ name: "statement.mt940", size: 100, type: "text/plain" })).toBeNull();
+    expect(validateStatementImportFile({ name: "statement.pdf", size: 100, type: "application/pdf" })).toMatch(/CSV, JSON, OFX, CAMT XML, or MT940/);
     expect(validateStatementImportFile({ name: "statement.csv", size: 1024 * 1024 + 1, type: "text/csv" })).toMatch(/too large/);
   });
 
