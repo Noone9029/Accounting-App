@@ -960,3 +960,10 @@ Recommended next step:
 - Completed contact statement tab copy polish for customer balances, supplier payables, archived PDF guidance, and safer download labels.
 - Remaining roadmap item: accountant review of final statement/report wording and print presentation before production use.
 - Full smoke, full E2E, security hardening runtime-role work, real ZATCA, real email, backups, and restores remain separate pending work.
+
+# Accountant review packet roadmap update - 2026-05-22
+
+- Added a text-only accountant review packet under `docs/accountant-review/` for document, statement, report, inventory, banking, and VAT/ZATCA wording review.
+- The packet includes an area-by-area checklist, a findings template, and a sample-output index that points to safe visual snapshots, local renderer tests, UI routes, and authenticated beta endpoint patterns without committing real PDFs.
+- This does not mean accountant approval has happened. A qualified accountant still needs to review terminology, layout, statement readability, report labels, and any accounting correctness concerns.
+- Remaining review work: collect sanitized samples, run the checklist with an accountant, record findings, and prioritize must-fix issues before broader beta or production use.

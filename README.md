@@ -72,6 +72,13 @@ Deployment safety docs:
 - [Deployed E2E runbook](docs/deployment/DEPLOYED_E2E_RUNBOOK.md)
 - [Backup and restore readiness plan](docs/BACKUP_AND_RESTORE_READINESS_PLAN.md)
 
+Accountant review materials:
+
+- [Accountant review packet](docs/accountant-review/ACCOUNTANT_REVIEW_PACKET.md)
+- [Accountant review checklist](docs/accountant-review/ACCOUNTANT_REVIEW_CHECKLIST.md)
+- [Accountant review findings template](docs/accountant-review/ACCOUNTANT_REVIEW_FINDINGS_TEMPLATE.md)
+- [Accountant review sample output index](docs/accountant-review/SAMPLE_OUTPUT_INDEX.md)
+
 User-testing cleanup planning is dry-run only:
 
 ```bash

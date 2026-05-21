@@ -2974,3 +2974,11 @@ Recommended next step:
 - Regression coverage now checks customer-specific and supplier-specific statement presentation labels plus archive-safe contact statement guidance.
 - No customer/supplier ledger math, AP/AR balance math, PDF totals, generated-document archive behavior, migrations, ZATCA behavior, full smoke, or full E2E changed.
 - Remaining risk: accountant review is still recommended for final statement wording and presentation before production use.
+
+# Accountant review packet - 2026-05-22
+
+- Added a dedicated accountant review packet under `docs/accountant-review/` to prepare qualified review of LedgerByte document output, statement readability, report labels, inventory report wording, and bank reconciliation screens.
+- Added a checklist and findings template so reviewer issues can be classified by severity, release impact, screenshot/file reference, recommended wording/layout, and accounting correctness concern.
+- Added a text-only sample-output index that references safe visual snapshots, local PDF renderer tests, UI routes, and authenticated endpoint patterns without committing binary PDFs or real beta/customer data.
+- No accounting calculation, ledger math, report math, PDF totals, posting behavior, generated-document archive logic, ZATCA behavior, schema, migration, seed/reset/delete, email, backup, restore, full smoke, or full E2E was changed.
+- Remaining risk: accountant review is still pending; this packet must not be represented as accountant approval or compliance certification.

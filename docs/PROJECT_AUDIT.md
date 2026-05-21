@@ -894,3 +894,10 @@ Recommended next step:
 - Added a read-only onboarding checklist API, dashboard card, and `/setup` guided setup wizard to improve onboarding and supportability without changing accounting postings, dashboard concurrency, contact VAT/ID validation, or ZATCA execution behavior.
 - The wizard stays no-mutation and navigation-only, with explicit ZATCA local-only messaging and no CSID/network/clearance/reporting/PDF-A3 action.
 - Critical blockers remain production ZATCA, production email, production storage/backup/restore, monitoring, billing/subscription operations, and production secrets custody.
+
+# Accountant review packet update - 2026-05-22
+
+- Added `docs/accountant-review/ACCOUNTANT_REVIEW_PACKET.md` to describe review purpose, supported beta outputs, out-of-scope compliance items, document/report inventory, reviewer notes, and known limitations.
+- Added `docs/accountant-review/ACCOUNTANT_REVIEW_CHECKLIST.md` with review sections for sales invoices, customer receipts, credit notes, customer statements, purchase bills, supplier payment receipts, purchase debit notes, supplier statements, AR/AP aging, general ledger/report terminology, inventory reports, bank reconciliation, VAT/ZATCA wording safety, and overall accountant usability.
+- Added `docs/accountant-review/ACCOUNTANT_REVIEW_FINDINGS_TEMPLATE.md` and `docs/accountant-review/SAMPLE_OUTPUT_INDEX.md` so reviewer findings and sanitized sample-output references can be collected without committing sensitive PDFs or real customer data.
+- This is review preparation only. No accountant approval, legal/tax certification, production ZATCA approval, PDF/A-3 implementation, real ZATCA submission, full smoke, full E2E, Supabase RLS change, runtime DB role change, seed/reset, email sending, backup, or restore was performed.

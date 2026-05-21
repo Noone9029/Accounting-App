@@ -839,3 +839,10 @@ Recommended next step:
 - Admin/supportability: 70%.
 - ZATCA local readiness: 36%; production compliance remains false and blocked.
 - Overall controlled beta readiness: 75%.
+
+## 2026-05-22 Accountant review packet
+
+- Added `docs/accountant-review/ACCOUNTANT_REVIEW_PACKET.md`, `ACCOUNTANT_REVIEW_CHECKLIST.md`, `ACCOUNTANT_REVIEW_FINDINGS_TEMPLATE.md`, and `SAMPLE_OUTPUT_INDEX.md` to prepare LedgerByte document/report/output review with a qualified accountant.
+- The packet covers sales invoices, customer receipts, credit notes, customer statements, purchase bills, supplier payment receipts, purchase debit notes, supplier statements, AR/AP aging, GL/report terminology, inventory reports, bank reconciliation, VAT/ZATCA wording safety, and overall accountant usability.
+- Sample output handling is text-only: no binary PDFs are committed, real beta PDFs must not be committed, and the index points reviewers to safe mock visual snapshots, local PDF renderer tests, UI routes, and authenticated endpoint patterns.
+- This is preparation material only. Accountant review, legal/tax certification, ZATCA production approval, PDF/A-3, real ZATCA submission, full smoke, full E2E, and security runtime-role hardening remain pending.
