@@ -3,9 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@10.15.1",
-  "engines": {
-    "node": "22.x"
-  },
   "scripts": {
     "dev": "corepack pnpm -r --parallel --if-present dev",
     "build": "corepack pnpm -r --if-present build",

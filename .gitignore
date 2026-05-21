@@ -4,6 +4,7 @@ node_modules
 .dev-logs
 .next
 dist
+dist-cjs
 coverage
 playwright-report
 test-results

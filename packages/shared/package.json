@@ -5,8 +5,15 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist-cjs/index.js"
+    }
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.cjs.json && node ../../scripts/write-commonjs-package-marker.cjs dist-cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "echo \"No shared tests yet\"",
     "lint": "tsc -p tsconfig.json --noEmit"
