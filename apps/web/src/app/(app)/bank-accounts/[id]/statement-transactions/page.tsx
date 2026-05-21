@@ -83,7 +83,7 @@ export default function BankStatementTransactionsPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Statement transactions</h1>
           <p className="mt-1 text-sm text-steel">{profile ? `${profile.displayName} imported statement rows` : "Imported statement rows"}</p>
@@ -105,6 +105,7 @@ export default function BankStatementTransactionsPage() {
       </div>
 
       <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <StatementTransactionsGuidance profileId={params.id} />
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <label className="block">
             <span className="text-xs font-medium uppercase tracking-wide text-steel">Status</span>
@@ -165,8 +166,42 @@ export default function BankStatementTransactionsPage() {
             ))}
           </tbody>
         </table>
-        {!loading && transactions.length === 0 ? <StatusMessage type="empty">No statement transactions found for this filter.</StatusMessage> : null}
+        {!loading && transactions.length === 0 ? (
+          <div className="p-4">
+            <StatusMessage type="empty">No statement transactions found for this filter.</StatusMessage>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link href={`/bank-accounts/${params.id}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Import statement
+              </Link>
+              <Link href={`/bank-accounts/${params.id}/reconciliation`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Reconciliation summary
+              </Link>
+            </div>
+          </div>
+        ) : null}
       </div>
     </section>
+  );
+}
+
+export function StatementTransactionsGuidance({ profileId }: { profileId: string }) {
+  return (
+    <div className="mb-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+      <h2 className="text-base font-semibold text-ink">Matched vs unmatched</h2>
+      <p className="mt-2 max-w-3xl text-sm leading-6 text-steel">
+        Unmatched rows still need review. Matched rows point to existing posted bank journal lines, categorized rows created a manual journal, and ignored rows stay out of reconciliation totals. Closed reconciliations lock their statement rows from further status changes.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Link href={`/bank-accounts/${profileId}/statement-imports`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          Import statement
+        </Link>
+        <Link href={`/bank-accounts/${profileId}/reconciliation`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          Reconciliation summary
+        </Link>
+        <Link href="/dashboard" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          Dashboard
+        </Link>
+      </div>
+    </div>
   );
 }

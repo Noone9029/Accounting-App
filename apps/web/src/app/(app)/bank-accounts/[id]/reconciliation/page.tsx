@@ -7,7 +7,13 @@ import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { bankReconciliationStatusLabel, closedThroughDateLabel, reconciliationDifferenceStatus } from "@/lib/bank-statements";
+import {
+  bankReconciliationStatusLabel,
+  bankStatementImportStatusBadgeClass,
+  bankStatementImportStatusLabel,
+  closedThroughDateLabel,
+  reconciliationDifferenceStatus,
+} from "@/lib/bank-statements";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -79,7 +85,7 @@ export default function BankReconciliationPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Reconciliation summary</h1>
           <p className="mt-1 text-sm text-steel">{summary ? `${summary.profile.displayName} statement and ledger review` : "Statement and ledger review"}</p>
@@ -131,6 +137,8 @@ export default function BankReconciliationPage() {
 
       {summary ? (
         <div className="mt-5 space-y-5">
+          <ReconciliationSummaryGuidance summary={summary} profileId={params.id} />
+
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <SummaryCard label="Ledger balance" value={formatMoneyAmount(summary.ledgerBalance, currency)} />
             <SummaryCard label="Statement closing" value={summary.statementClosingBalance ? formatMoneyAmount(summary.statementClosingBalance, currency) : "-"} />
@@ -172,7 +180,11 @@ export default function BankReconciliationPage() {
                 {summary.imports.map((statementImport) => (
                   <tr key={statementImport.id}>
                     <td className="px-4 py-3 text-ink">{statementImport.filename}</td>
-                    <td className="px-4 py-3 text-steel">{statementImport.status.replaceAll("_", " ")}</td>
+                    <td className="px-4 py-3">
+                      <span className={`rounded-md px-2 py-1 text-xs font-medium ${bankStatementImportStatusBadgeClass(statementImport.status)}`}>
+                        {bankStatementImportStatusLabel(statementImport.status)}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-steel">
                       {formatOptionalDate(statementImport.statementStartDate, "-")} to {formatOptionalDate(statementImport.statementEndDate, "-")}
                     </td>
@@ -187,6 +199,59 @@ export default function BankReconciliationPage() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+export function ReconciliationSummaryGuidance({ summary, profileId }: { summary: BankReconciliationSummary; profileId: string }) {
+  const status = reconciliationDifferenceStatus(summary);
+  const differenceText = summary.difference ? formatMoneyAmount(summary.difference, summary.profile.currency) : "-";
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="max-w-3xl">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-semibold text-ink">How reconciliation works</h2>
+            <span className={`rounded-md px-2 py-1 text-xs font-medium ${status === "RECONCILED" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+              {status === "RECONCILED" ? "Ready to close" : "Needs review"}
+            </span>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-steel">
+            Reconciliation compares the posted bank ledger against imported statement rows for the selected period. You can close only when the difference is zero and no statement rows are unmatched.
+          </p>
+          <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-steel md:grid-cols-3">
+            <p>
+              <span className="font-medium text-ink">Difference:</span> {differenceText}
+            </p>
+            <p>
+              <span className="font-medium text-ink">Unmatched rows:</span> {summary.totals.unmatched.count}
+            </p>
+            <p>
+              <span className="font-medium text-ink">Closed through:</span> {closedThroughDateLabel(summary)}
+            </p>
+          </div>
+          <p className="mt-3 text-xs leading-5 text-steel">
+            Closed reconciliations lock statement rows in that period from matching, categorizing, ignoring, and overlapping imports.
+          </p>
+        </div>
+        <div className="min-w-full lg:min-w-[260px]">
+          <p className="text-xs font-medium uppercase tracking-wide text-steel">Next actions</p>
+          <div className="mt-2 flex flex-wrap gap-2 lg:flex-col">
+            <Link href={`/bank-accounts/${profileId}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Review unmatched rows
+            </Link>
+            <Link href={`/bank-accounts/${profileId}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Import statement
+            </Link>
+            <Link href={`/bank-accounts/${profileId}/reconciliations/new`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Create close draft
+            </Link>
+            <Link href={`/bank-accounts/${profileId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Bank account
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

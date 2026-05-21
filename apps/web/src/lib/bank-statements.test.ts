@@ -1,6 +1,7 @@
 import {
   bankReconciliationStatusBadgeClass,
   bankReconciliationStatusLabel,
+  bankStatementImportStatusLabel,
   bankStatementTransactionStatusLabel,
   bankStatementTransactionTypeLabel,
   candidateScoreLabel,
@@ -19,6 +20,10 @@ describe("bank statement helpers", () => {
   it("formats status, type, and candidate labels", () => {
     expect(bankStatementTransactionStatusLabel("UNMATCHED")).toBe("Unmatched");
     expect(bankStatementTransactionTypeLabel("CREDIT")).toBe("Credit");
+    expect(bankStatementImportStatusLabel("IMPORTED")).toBe("Imported");
+    expect(bankStatementImportStatusLabel("PARTIALLY_RECONCILED")).toBe("Partially reconciled");
+    expect(bankStatementImportStatusLabel("RECONCILED")).toBe("Reconciled");
+    expect(bankStatementImportStatusLabel("VOIDED")).toBe("Voided");
     expect(candidateScoreLabel({ score: 95 })).toBe("Strong match");
     expect(candidateScoreLabel({ score: 80 })).toBe("Likely match");
     expect(candidateScoreLabel({ score: 70 })).toBe("Possible match");

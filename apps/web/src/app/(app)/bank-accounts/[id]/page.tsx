@@ -162,7 +162,7 @@ export default function BankAccountDetailPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">{profile?.displayName ?? "Bank account"}</h1>
           <p className="mt-1 text-sm text-steel">Ledger balance and posted transaction activity.</p>
@@ -194,6 +194,13 @@ export default function BankAccountDetailPage() {
             <SummaryCard label="Type" value={bankAccountTypeLabel(profile.type)} />
             <SummaryCard label="Status" value={bankAccountStatusLabel(profile.status)} />
           </div>
+
+          <BankAccountWorkflowGuidance
+            profile={profile}
+            canImportStatements={canImportStatements}
+            canViewStatements={canViewStatements}
+            canViewReconciliations={canViewReconciliations}
+          />
 
           <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
@@ -262,6 +269,9 @@ export default function BankAccountDetailPage() {
               <div>
                 <h2 className="text-lg font-semibold text-ink">Transactions</h2>
                 <p className="mt-1 text-sm text-steel">Posted journal lines for the linked asset account.</p>
+                <p className="mt-1 max-w-3xl text-xs leading-5 text-steel">
+                  Debits increase this bank asset balance, credits reduce it, and the running balance follows posted LedgerByte journals. Imported statement rows are matched here only after you explicitly review or categorize them.
+                </p>
               </div>
               {canViewTransactions ? (
                 <div className="grid grid-cols-2 gap-3">
@@ -280,7 +290,24 @@ export default function BankAccountDetailPage() {
             {!canViewTransactions ? <StatusMessage type="info">You can view the account profile, but transaction visibility requires bank transaction permission.</StatusMessage> : null}
             {loadingTransactions ? <StatusMessage type="loading">Loading transactions...</StatusMessage> : null}
             {transactionError ? <StatusMessage type="error">{transactionError}</StatusMessage> : null}
-            {canViewTransactions && transactions && transactions.transactions.length === 0 ? <StatusMessage type="empty">No posted transactions found for this date range.</StatusMessage> : null}
+            {canViewTransactions && transactions && transactions.transactions.length === 0 ? (
+              <div className="mt-4 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
+                <StatusMessage type="empty">No posted transactions found for this date range.</StatusMessage>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {canImportStatements ? (
+                    <Link href={`/bank-accounts/${profile.id}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-white">
+                      Import statement rows
+                    </Link>
+                  ) : null}
+                  <Link href="/bank-transfers/new" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-white">
+                    Create transfer
+                  </Link>
+                  <Link href={`/reports/general-ledger?accountId=${profile.accountId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-white">
+                    Open ledger
+                  </Link>
+                </div>
+              </div>
+            ) : null}
 
             {canViewTransactions && transactions && transactions.transactions.length > 0 ? (
               <div className="mt-4 overflow-x-auto">
@@ -318,6 +345,74 @@ export default function BankAccountDetailPage() {
         </>
       ) : null}
     </section>
+  );
+}
+
+export function BankAccountWorkflowGuidance({
+  profile,
+  canImportStatements,
+  canViewStatements,
+  canViewReconciliations,
+}: {
+  profile: BankAccountSummary;
+  canImportStatements: boolean;
+  canViewStatements: boolean;
+  canViewReconciliations: boolean;
+}) {
+  return (
+    <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="max-w-3xl">
+          <h2 className="text-base font-semibold text-ink">How to read this bank account</h2>
+          <p className="mt-2 text-sm leading-6 text-steel">
+            The balance comes from posted LedgerByte journals for the linked asset account. Transfers, payments, refunds, cash expenses, and opening-balance journals move this balance. Statement imports are manual review records until you match, categorize, ignore, or reconcile them.
+          </p>
+          <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-steel md:grid-cols-3">
+            <p>
+              <span className="font-medium text-ink">Debits</span> increase the bank asset balance.
+            </p>
+            <p>
+              <span className="font-medium text-ink">Credits</span> reduce the bank asset balance.
+            </p>
+            <p>
+              <span className="font-medium text-ink">Locked periods</span> come from closed reconciliations.
+            </p>
+          </div>
+          <p className="mt-3 text-xs leading-5 text-steel">
+            This is manual statement import and matching. LedgerByte is not connected to live bank feeds or external banking APIs.
+          </p>
+        </div>
+        <div className="min-w-full lg:min-w-[260px]">
+          <p className="text-xs font-medium uppercase tracking-wide text-steel">What to do next</p>
+          <div className="mt-2 flex flex-wrap gap-2 lg:flex-col">
+            {canImportStatements ? (
+              <Link href={`/bank-accounts/${profile.id}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Import statement
+              </Link>
+            ) : null}
+            <Link href="/bank-transfers/new" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Create transfer
+            </Link>
+            {canViewStatements ? (
+              <Link href={`/bank-accounts/${profile.id}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Review unmatched rows
+              </Link>
+            ) : null}
+            <Link href={`/reports/general-ledger?accountId=${profile.accountId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              View bank ledger
+            </Link>
+            {canViewReconciliations ? (
+              <Link href={`/bank-accounts/${profile.id}/reconciliations`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Reconciliation history
+              </Link>
+            ) : null}
+            <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

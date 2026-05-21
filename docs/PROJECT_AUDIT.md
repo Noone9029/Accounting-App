@@ -48,7 +48,7 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - API permission guards for sensitive accounting, document, report, fiscal period, and ZATCA actions.
 - Frontend sidebar, route access, and high-risk action visibility based on active role permissions.
 - Tenant-scoped CRUD foundations for accounts, branches, contacts, tax rates, items, journals, and future document numbering settings.
-- Bank account profiles for cash/bank asset accounts, posted transaction visibility, bank-aware payment/expense account labels, posted bank transfers, transfer voids, guarded one-time opening-balance journals, local statement import preview/validation, manual matching, categorization journals, ignores, reconciliation summaries, reconciliation submit/approve/reopen/close records, review events, close item snapshots, void history, and closed-period statement/import locks.
+- Bank account profiles for cash/bank asset accounts, posted transaction visibility, bank-aware payment/expense account labels, posted bank transfers, transfer voids, guarded one-time opening-balance journals, local statement import preview/validation, manual matching, categorization journals, ignores, reconciliation summaries, reconciliation submit/approve/reopen/close records, review events, close item snapshots, void history, closed-period statement/import locks, and visible banking/reconciliation drill-down guidance.
 - Sales invoice draft/create/edit/finalize/void with AR journal posting.
 - Customer payment posting with invoice allocation and balance updates.
 - Unapplied customer payment application and reversal.
@@ -132,6 +132,15 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - The dashboard empty state and onboarding card point to the next incomplete action instead of only showing generic operational emptiness.
 - New-customer, new-invoice, payment, and reports pages now explain the first-use path with links to the relevant next screen.
 - Security hardening remains parked until a safe Vercel env mutation path is available; no RLS, runtime role, Vercel env, seed, migration, smoke, or E2E action was part of this product pass.
+
+## 2026-05-21 Banking and reconciliation UX polish
+
+- Bank account, transfer, statement import, statement transaction, reconciliation summary, reconciliation history, and reconciliation detail pages now include visible guidance, readable statement import status labels, next-action links, and mobile-safe action layouts.
+- Bank account pages explain ledger balance movement, debit/credit/running balance columns, imported statement rows, manual matching, and closed-period lock implications.
+- Bank transfer detail explains source/destination movement, posted-transfer success, void/reversal meaning, bank-ledger navigation, account navigation, and dashboard next steps.
+- Statement import and matching copy explicitly says LedgerByte does not use live bank feeds or external banking APIs in the current manual import path.
+- Browser QA covered the banking/reconciliation path at 1366, 820, and 390 widths with mocked API responses and no document overflow, console/page errors, request failures, or unknown mocked API calls.
+- No banking posting behavior, reconciliation matching logic, report math, ledger math, ZATCA/email/security behavior, migrations, seed/reset/delete, full smoke, or full E2E changed.
 
 ## Audit Verification Commands
 

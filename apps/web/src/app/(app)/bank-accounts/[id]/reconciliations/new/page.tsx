@@ -91,7 +91,7 @@ export default function NewBankReconciliationPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">New reconciliation</h1>
           <p className="mt-1 text-sm text-steel">{profile ? `${profile.displayName} statement close draft` : "Statement close draft"}</p>
@@ -108,6 +108,21 @@ export default function NewBankReconciliationPage() {
       </div>
 
       <form onSubmit={submitReconciliation} className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <div className="mb-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+          <h2 className="text-base font-semibold text-ink">Before you close a period</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-steel">
+            Create a draft after statement rows are imported and reviewed. The period is not locked yet; submit and close only after the difference is zero and no statement rows remain unmatched.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link href={`/bank-accounts/${params.id}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Review unmatched rows
+            </Link>
+            <Link href={`/bank-accounts/${params.id}/statement-imports`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Import statement
+            </Link>
+          </div>
+        </div>
+
         {profile ? (
           <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
             <SummaryCard label="Bank account" value={profile.displayName} />
@@ -141,7 +156,10 @@ export default function NewBankReconciliationPage() {
         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           Creating a draft does not lock the period. The period becomes immutable only after close succeeds with zero difference and no unmatched statement rows.
         </div>
-        <div className="mt-5 flex justify-end">
+        <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <Link href={`/bank-accounts/${params.id}/reconciliation`} className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Review summary first
+          </Link>
           <button type="submit" disabled={submitting} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
             {submitting ? "Creating..." : "Create draft"}
           </button>

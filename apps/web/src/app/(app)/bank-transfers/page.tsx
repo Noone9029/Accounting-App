@@ -53,7 +53,7 @@ export default function BankTransfersPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Bank transfers</h1>
           <p className="mt-1 text-sm text-steel">Posted cash and bank movements between active bank account profiles.</p>
@@ -69,7 +69,27 @@ export default function BankTransfersPage() {
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load bank transfers.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading bank transfers...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {!loading && organizationId && transfers.length === 0 ? <StatusMessage type="empty">No bank transfers found.</StatusMessage> : null}
+        {!loading && organizationId && transfers.length === 0 ? (
+          <div className="rounded-md border border-dashed border-slate-300 bg-white p-5 shadow-panel">
+            <StatusMessage type="empty">No bank transfers found.</StatusMessage>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-steel">
+              Use transfers for money moved between your own cash and bank profiles. Transfers post a source decrease and destination increase, then can be matched to imported statement rows later.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {canCreate ? (
+                <Link href="/bank-transfers/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+                  Create transfer
+                </Link>
+              ) : null}
+              <Link href="/bank-accounts" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Bank accounts
+              </Link>
+              <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Dashboard
+              </Link>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {transfers.length > 0 ? (

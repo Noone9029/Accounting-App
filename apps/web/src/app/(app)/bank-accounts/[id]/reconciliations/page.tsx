@@ -62,7 +62,7 @@ export default function BankReconciliationsPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Bank reconciliations</h1>
           <p className="mt-1 text-sm text-steel">{profile ? `${profile.displayName} closed-period review history` : "Closed-period review history"}</p>
@@ -86,6 +86,21 @@ export default function BankReconciliationsPage() {
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load reconciliations.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading reconciliations...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+      </div>
+
+      <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <h2 className="text-base font-semibold text-ink">Closed-period history</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-steel">
+          Reconciliations document when the imported statement rows and posted bank ledger agree. Closing a reconciliation locks the statement transaction period, while voiding the reconciliation unlocks it without deleting the audit trail.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link href={`/bank-accounts/${params.id}/reconciliation`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Reconciliation summary
+          </Link>
+          <Link href={`/bank-accounts/${params.id}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Unmatched rows
+          </Link>
+        </div>
       </div>
 
       <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
@@ -129,7 +144,14 @@ export default function BankReconciliationsPage() {
             ))}
           </tbody>
         </table>
-        {!loading && reconciliations.length === 0 ? <StatusMessage type="empty">No reconciliations found for this bank account.</StatusMessage> : null}
+        {!loading && reconciliations.length === 0 ? (
+          <div className="p-4">
+            <StatusMessage type="empty">No reconciliations found for this bank account.</StatusMessage>
+            <p className="mt-2 text-sm leading-6 text-steel">
+              Import statement rows, review unmatched activity, then create a reconciliation draft when the ledger and statement are ready to close.
+            </p>
+          </div>
+        ) : null}
       </div>
     </section>
   );

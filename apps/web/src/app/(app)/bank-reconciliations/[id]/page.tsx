@@ -125,7 +125,7 @@ export default function BankReconciliationDetailPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">{reconciliation?.reconciliationNumber ?? "Bank reconciliation"}</h1>
           <p className="mt-1 text-sm text-steel">{reconciliation?.bankAccountProfile?.displayName ?? "Review history and period lock"}</p>
@@ -194,6 +194,8 @@ export default function BankReconciliationDetailPage() {
             <SummaryCard label="Unmatched rows" value={String(reconciliation.unmatchedTransactionCount ?? 0)} />
           </div>
 
+          <BankReconciliationWorkflowGuidance reconciliation={reconciliation} blockedMessage={blockedMessage} submitBlock={submitBlock} />
+
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
               <Detail label="Period start" value={formatOptionalDate(reconciliation.periodStart, "-")} />
@@ -245,6 +247,7 @@ export default function BankReconciliationDetailPage() {
 
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <h2 className="text-lg font-semibold text-ink">Review history</h2>
+            <p className="mt-1 text-sm leading-6 text-steel">Approval, reopen, close, and void events stay visible so the close decision can be audited later.</p>
             <div className="mt-4 space-y-3">
               {reviewEvents.map((event) => (
                 <div key={event.id} className="rounded-md border border-slate-200 px-3 py-2">
@@ -265,6 +268,12 @@ export default function BankReconciliationDetailPage() {
           </div>
 
           <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+            <div className="border-b border-slate-200 px-4 py-3">
+              <h2 className="text-base font-semibold text-ink">Rows captured at close</h2>
+              <p className="mt-1 text-sm leading-6 text-steel">
+                These statement rows were snapshotted when the reconciliation closed. Status at close shows whether each row was matched, categorized, ignored, or still open at that point.
+              </p>
+            </div>
             <table className="w-full min-w-[980px] text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                 <tr>
@@ -304,6 +313,69 @@ export default function BankReconciliationDetailPage() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+export function BankReconciliationWorkflowGuidance({
+  reconciliation,
+  blockedMessage,
+  submitBlock,
+}: {
+  reconciliation: BankReconciliation;
+  blockedMessage: string | null;
+  submitBlock: string | null;
+}) {
+  const profileId = reconciliation.bankAccountProfileId;
+  const lockedCopy =
+    reconciliation.status === "CLOSED"
+      ? "This reconciliation is closed. Statement rows in the period are locked from match, categorize, ignore, and overlapping import changes."
+      : reconciliation.status === "VOIDED"
+        ? "This reconciliation is voided. It remains available for audit review, and the period is not locked by this record."
+        : "This reconciliation is still reviewable. It locks the statement period only after close succeeds.";
+  const actionCopy =
+    reconciliation.status === "DRAFT"
+      ? submitBlock ?? "This draft can be submitted when the difference is zero and no statement rows are unmatched."
+      : reconciliation.status === "APPROVED"
+        ? blockedMessage ?? "This approved reconciliation can be closed now."
+        : reconciliation.status === "CLOSED"
+          ? "Use the captured rows and report exports to review what was locked at close."
+          : blockedMessage ?? lockedCopy;
+
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="max-w-3xl">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-semibold text-ink">Reconciliation status</h2>
+            <span className={`rounded-md px-2 py-1 text-xs font-medium ${bankReconciliationStatusBadgeClass(reconciliation.status)}`}>
+              {bankReconciliationStatusLabel(reconciliation.status)}
+            </span>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-steel">{lockedCopy}</p>
+          <p className="mt-2 text-sm leading-6 text-steel">{actionCopy}</p>
+          <p className="mt-2 text-xs leading-5 text-steel">
+            Closing a reconciliation does not change ledger math. It records the close decision and protects the statement rows for the period.
+          </p>
+        </div>
+        <div className="min-w-full lg:min-w-[260px]">
+          <p className="text-xs font-medium uppercase tracking-wide text-steel">Next actions</p>
+          <div className="mt-2 flex flex-wrap gap-2 lg:flex-col">
+            <Link href={`/bank-accounts/${profileId}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Review unmatched rows
+            </Link>
+            <Link href={`/bank-accounts/${profileId}/reconciliation`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Reconciliation summary
+            </Link>
+            <Link href={`/bank-accounts/${profileId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Bank account
+            </Link>
+            <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -7,7 +7,13 @@ import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { bankStatementTransactionTypeLabel, parseStatementRowsText, statementImportPreviewSummary } from "@/lib/bank-statements";
+import {
+  bankStatementImportStatusBadgeClass,
+  bankStatementImportStatusLabel,
+  bankStatementTransactionTypeLabel,
+  parseStatementRowsText,
+  statementImportPreviewSummary,
+} from "@/lib/bank-statements";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -149,7 +155,7 @@ export default function BankStatementImportsPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Statement imports</h1>
           <p className="mt-1 text-sm text-steel">{profile ? `${profile.displayName} statement batches` : "Bank statement batches"}</p>
@@ -168,6 +174,7 @@ export default function BankStatementImportsPage() {
 
       {canImport ? (
         <form onSubmit={submitImport} className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <StatementImportGuidance profileId={params.id} />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <label className="block">
               <span className="text-sm font-medium text-slate-700">Filename</span>
@@ -280,7 +287,11 @@ export default function BankStatementImportsPage() {
                 </td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{statementImport.rowCount}</td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{statementImport.closingStatementBalance ? formatMoneyAmount(statementImport.closingStatementBalance, profile?.currency ?? "SAR") : "-"}</td>
-                <td className="px-4 py-3 text-steel">{statementImport.status.replaceAll("_", " ")}</td>
+                <td className="px-4 py-3">
+                  <span className={`rounded-md px-2 py-1 text-xs font-medium ${bankStatementImportStatusBadgeClass(statementImport.status)}`}>
+                    {bankStatementImportStatusLabel(statementImport.status)}
+                  </span>
+                </td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap gap-2">
                     <Link href={`/bank-accounts/${params.id}/statement-transactions`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
@@ -297,9 +308,35 @@ export default function BankStatementImportsPage() {
             ))}
           </tbody>
         </table>
-        {!loading && imports.length === 0 ? <StatusMessage type="empty">No statement imports found.</StatusMessage> : null}
+        {!loading && imports.length === 0 ? (
+          <div className="p-4">
+            <StatusMessage type="empty">No statement imports found.</StatusMessage>
+            <p className="mt-2 text-sm leading-6 text-steel">
+              Paste CSV or JSON rows to start a manual statement review. LedgerByte does not pull live transactions from your bank.
+            </p>
+          </div>
+        ) : null}
       </div>
     </section>
+  );
+}
+
+export function StatementImportGuidance({ profileId }: { profileId: string }) {
+  return (
+    <div className="mb-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+      <h2 className="text-base font-semibold text-ink">Manual statement import</h2>
+      <p className="mt-2 max-w-3xl text-sm leading-6 text-steel">
+        Paste bank-provided CSV or JSON rows, preview them, then import valid rows for manual matching. Imports create statement review records only; they do not create accounting journals until a row is categorized, and they do not connect to a live bank feed.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Link href={`/bank-accounts/${profileId}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          Review unmatched rows
+        </Link>
+        <Link href={`/bank-accounts/${profileId}/reconciliation`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          Reconciliation summary
+        </Link>
+      </div>
+    </div>
   );
 }
 

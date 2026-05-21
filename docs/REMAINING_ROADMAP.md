@@ -58,7 +58,16 @@ Recommended next prompt:
 - Purchase bill, supplier payment, and debit-note detail pages now have visible status/next-action panels with links to supplier ledger, AP report, dashboard, PDF/receipt actions, and related bill/payment/debit-note records.
 - Supplier payment creation now returns to the supplier payment detail page with recorded-payment success context.
 - Browser QA covered the supplier/AP drill-down path at desktop, tablet, and mobile widths without document overflow or console warning/error entries.
-- Remaining UX work: banking/reconciliation and inventory workflow QA, visual regression coverage, supplier statement PDF parity, and accountant review of AP wording.
+- Remaining UX work: inventory workflow QA, visual regression coverage, supplier statement PDF parity, and accountant review of AP wording.
+
+## 2026-05-21 Banking and reconciliation UX
+
+- Bank account, bank transfer, statement import, statement transaction, reconciliation summary, reconciliation history, and reconciliation detail pages now explain balances, matched/unmatched rows, statement import scope, period locks, and next actions without changing posting or matching behavior.
+- Bank account and transfer pages now guide users to import statements, create transfers, review unmatched transactions, inspect the bank ledger, open reconciliation history, and return to dashboard.
+- Statement import and matching screens now clearly say the current flow is manual/import-based and does not use live bank feeds or external banking APIs.
+- Browser QA covered the banking/reconciliation path at desktop, tablet, and mobile widths with no document overflow or console/page/request error entries.
+- Remaining banking work: no live feeds, external bank APIs, automatic matching, OFX/CAMT/MT940 parser, transfer fees, or FX transfer handling. Next functional banking work should start with file-format/parser groundwork and storage design, not live bank integration.
+- Remaining UX work: inventory workflow QA, visual regression coverage, bank statement file samples, parser/import storage design, and accountant review of reconciliation terminology.
 
 ## Phase 2: Finish Wafeq Core Accounting Modules
 
@@ -69,7 +78,6 @@ Tasks:
 - Supplier debit notes accounting hardening and supplier statement PDF parity.
 - Purchase receiving QA, partial bill matching, and purchase matching hardening.
 - Cash expense import/OCR groundwork and production hardening for uploaded receipt attachments after the S3 adapter is validated against a real non-production bucket.
-- Bank account profile, transfer, opening-balance, statement import preview, and reconciliation UX polish.
 - Bank statement file-format samples, upload storage design using the storage readiness groundwork, and approval queue polish.
 - Transfer fees and multi-currency FX transfer handling.
 - Inventory adjustment/transfer UX polish and approval queue hardening.

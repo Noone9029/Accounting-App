@@ -37,6 +37,24 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Banking reconciliation UX polished
+
+Added visible guidance around bank account, transfer, statement import, statement transaction, reconciliation summary, and reconciliation detail pages without changing banking posting behavior.
+
+Risk reduced:
+
+- Bank account pages now explain ledger balance movement, debits, credits, running balances, imported statement rows, and closed-period lock implications.
+- Bank transfer detail now shows posted-transfer success context, source/destination movement, void/reversal guidance, bank-ledger links, account links, and dashboard navigation.
+- Statement import and matching pages now explain manual CSV/JSON imports, matched/unmatched/categorized/ignored states, match candidates, categorization, locked-period warnings, and no-live-bank-feed behavior.
+- Reconciliation pages now explain zero-difference close readiness, unmatched-row blockers, review history, captured close rows, and closed-period locks.
+- Browser QA covered bank account list/detail, transfer creation/detail, statement imports, statement transactions, statement row detail, reconciliation summary/detail, and reports at desktop/tablet/mobile widths with no document overflow, console warning/error entries, page errors, request failures, or unknown mocked API calls.
+
+Remaining risks:
+
+- Ledger math, reconciliation logic, automatic matching, live bank feeds, bank file parser support, transfer fees, and FX transfer handling remain unchanged.
+- Full smoke and full E2E remain intentionally pending from earlier deployment work.
+- Supabase RLS and least-privilege runtime role hardening remain parked until the safe Vercel env mutation path is available.
+
 ### Supplier AP drill-down UX polished
 
 Added visible guidance around the supplier ledger, purchase bill detail, supplier payment detail, debit-note detail, and AP report drill-down path without changing AP posting behavior.

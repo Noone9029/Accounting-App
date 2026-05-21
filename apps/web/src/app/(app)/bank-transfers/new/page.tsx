@@ -87,7 +87,7 @@ export default function NewBankTransferPage() {
           description: description || undefined,
         },
       });
-      router.push(`/bank-transfers/${transfer.id}`);
+      router.push(`/bank-transfers/${transfer.id}?created=1`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to create bank transfer.");
     } finally {
@@ -97,7 +97,7 @@ export default function NewBankTransferPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">New bank transfer</h1>
           <p className="mt-1 text-sm text-steel">Post a balanced journal between two active cash or bank profiles.</p>
@@ -154,7 +154,11 @@ export default function NewBankTransferPage() {
           </div>
         </div>
 
-        <div className="flex justify-end gap-3">
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-6 text-steel">
+          Transfers post a balanced accounting journal immediately: the source bank or cash account decreases and the destination account increases. Use statement matching later to reconcile imported bank rows against the posted movement.
+        </div>
+
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Link href="/bank-transfers" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Cancel
           </Link>

@@ -3,6 +3,7 @@ import type {
   BankReconciliationReviewEvent,
   BankReconciliationStatus,
   BankReconciliationSummary,
+  BankStatementImportStatus,
   BankStatementImportPreview,
   BankStatementMatchCandidate,
   BankStatementTransaction,
@@ -49,6 +50,32 @@ export function bankStatementTransactionStatusBadgeClass(status: BankStatementTr
 
 export function bankStatementTransactionTypeLabel(type: BankStatementTransactionType): string {
   return type === "CREDIT" ? "Credit" : "Debit";
+}
+
+export function bankStatementImportStatusLabel(status: BankStatementImportStatus): string {
+  switch (status) {
+    case "IMPORTED":
+      return "Imported";
+    case "PARTIALLY_RECONCILED":
+      return "Partially reconciled";
+    case "RECONCILED":
+      return "Reconciled";
+    case "VOIDED":
+      return "Voided";
+  }
+}
+
+export function bankStatementImportStatusBadgeClass(status: BankStatementImportStatus): string {
+  switch (status) {
+    case "IMPORTED":
+      return "bg-amber-50 text-amber-700";
+    case "PARTIALLY_RECONCILED":
+      return "bg-sky-50 text-sky-700";
+    case "RECONCILED":
+      return "bg-emerald-50 text-emerald-700";
+    case "VOIDED":
+      return "bg-rose-50 text-rose-700";
+  }
 }
 
 export function bankReconciliationStatusLabel(status: BankReconciliationStatus): string {
