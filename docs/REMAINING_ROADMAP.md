@@ -97,6 +97,15 @@ Recommended next prompt:
 - This pass did not add live bank feeds, external aggregation, automatic matching, reconciliation logic changes, bank ledger math changes, posting changes, migrations, seed/reset, full smoke, or full E2E.
 - Remaining banking work: expand parser fixtures with real sanitized bank variants, implement optional raw-file archive only after policy approval, add broader bank-specific OFX/CAMT/MT940 edge-case coverage, approval queue polish, transfer fees, and FX transfer handling.
 
+## 2026-05-22 Bank parser compatibility matrix and sample kit
+
+- Added a target-bank compatibility matrix with explicit support levels from `not collected` through `parser validated on sanitized sample`; all target-bank rows remain not collected until real sanitized exports are reviewed.
+- Added a sanitized sample collection guide covering what to remove, what structure to preserve, acceptable fake replacement patterns, before/after examples, and the no-raw-file-commit rule.
+- Added a parser validation checklist for detection, row count, dates, amounts, direction, references, descriptions, currency, balances, duplicate keys, warnings, persistence, UI preview, and out-of-scope confirmations.
+- Added fixture README rules for fake data, naming conventions, fixture categories, and targeted parser test commands.
+- This pass did not add parser behavior changes, live bank feeds, external aggregation, automatic matching, reconciliation logic changes, migrations, seed/reset, full smoke, or full E2E.
+- Remaining banking work: collect sanitized target-bank samples through the guide, update the compatibility matrix honestly, add parser fixtures/tests only after sanitized samples are approved, and keep raw-file archive implementation separate until policy approval.
+
 ## 2026-05-21 Document and PDF UX polish
 
 - Invoice, customer payment receipt, credit note, purchase bill, supplier payment receipt, debit note, customer statement, supplier statement, generated archive, document settings, and number sequence surfaces now have clearer generated-document guidance.
@@ -142,7 +151,7 @@ Tasks:
 - Supplier debit notes accounting hardening and accountant review of AP statement layout.
 - Purchase receiving QA, partial bill matching, and purchase matching hardening.
 - Cash expense import/OCR groundwork and production hardening for uploaded receipt attachments after the S3 adapter is validated against a real non-production bucket.
-- Bank statement parser fixture expansion with real sanitized target-bank exports, optional raw-file archive implementation using the storage readiness groundwork and approved policy, and approval queue polish.
+- Bank statement parser fixture expansion with real sanitized target-bank exports using the compatibility matrix and sample guide, optional raw-file archive implementation using the storage readiness groundwork and approved policy, and approval queue polish.
 - Transfer fees and multi-currency FX transfer handling.
 - Inventory adjustment/transfer UX polish and approval queue hardening.
 - Official VAT return report.
@@ -158,7 +167,7 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Validate OFX/CAMT/MT940 parser groundwork against real sanitized bank exports from target beta banks and decide whether to implement object-storage raw-file archiving under the approved policy, without live feeds or automatic matching.
+> Collect sanitized target-bank statement exports using the bank sample collection guide, update the compatibility matrix, and add parser fixtures/tests only for approved sanitized samples without live feeds or automatic matching.
 
 ## Phase 3: Inventory And Payroll Basics
 

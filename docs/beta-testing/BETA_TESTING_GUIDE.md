@@ -64,6 +64,7 @@ Report any screen, PDF, or message that sounds like production ZATCA submission 
 - Use mock customer and supplier names.
 - Use non-sensitive sample invoice numbers and references.
 - Use dummy bank statement CSV/JSON/OFX/CAMT/MT940 data only.
+- If sharing bank statement samples, follow `docs/banking/SANITIZED_BANK_SAMPLE_COLLECTION_GUIDE.md`; never share raw bank exports.
 - Do not upload real bank statements, real IDs, real contracts, payroll data, or customer documents.
 - Do not include passwords, tokens, cookies, API keys, database URLs, auth headers, signed XML, QR payloads, PDF contents, or document bodies in screenshots or reports.
 - Redact company names, customer names, supplier names, email addresses, phone numbers, bank details, and document numbers if they look real.
@@ -76,7 +77,7 @@ Report any screen, PDF, or message that sounds like production ZATCA submission 
 - Supabase RLS/runtime-role hardening remains parked until a safe Vercel environment mutation path is available.
 - Production ZATCA compliance is not enabled.
 - Real email sending is not enabled by default.
-- Manual bank statement import supports beta CSV/JSON/text plus limited OFX/CAMT/MT940 preview and import metadata; live bank integration is not implemented, and raw bank file bodies are not archived in beta.
+- Manual bank statement import supports beta CSV/JSON/text plus limited OFX/CAMT/MT940 preview and import metadata; live bank integration is not implemented, bank-specific parser support is not certified, and raw bank file bodies are not archived in beta.
 
 ## How To Report Issues
 

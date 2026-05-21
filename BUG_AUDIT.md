@@ -74,6 +74,23 @@ Remaining risks:
 - No live bank feeds, external bank aggregation, automatic matching, transfer fees, or FX transfer handling.
 - Full smoke and full E2E remain intentionally pending.
 
+### Bank parser compatibility matrix added
+
+Prepared a target-bank validation program without changing parser behavior or banking workflows.
+
+Risk reduced:
+
+- Added `docs/banking/BANK_STATEMENT_COMPATIBILITY_MATRIX.md` with explicit support levels and target-bank rows marked not collected until sanitized samples exist.
+- Added `docs/banking/SANITIZED_BANK_SAMPLE_COLLECTION_GUIDE.md` with removal/preservation rules, fake replacement patterns, and before/after examples.
+- Added `docs/banking/BANK_PARSER_VALIDATION_CHECKLIST.md` covering parser detection, row counts, date/amount/direction/reference/description extraction, duplicate key quality, UI preview, persistence, and no-raw-body logging.
+- Added `apps/api/src/bank-statements/fixtures/README.md` with fixture safety rules, naming conventions, categories, and targeted parser test commands.
+
+Remaining risks:
+
+- No bank-specific parser support is certified.
+- No raw statement-file archive implementation, live bank feed, external bank aggregation, automatic matching, transfer fee, or FX transfer handling was added.
+- Full smoke and full E2E remain intentionally pending.
+
 ### Visual regression coverage added
 
 Added focused mocked Playwright visual regression coverage for polished beta UX routes without changing accounting behavior.

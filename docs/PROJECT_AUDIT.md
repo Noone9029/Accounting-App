@@ -174,6 +174,14 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Added `docs/banking/RAW_STATEMENT_FILE_ARCHIVE_POLICY.md` as a design-only policy recommending no raw bank file body storage during beta and object-storage-based archiving only after retention, encryption, audit, access-control, deletion, malware scanning, and rollback controls are approved.
 - No live bank feed, external bank API, automatic matching, reconciliation matching logic, bank ledger math, journal posting behavior, report calculations, migrations, seed/reset/delete, full smoke, or full E2E changed.
 
+## 2026-05-22 Bank parser compatibility matrix and sample kit
+
+- Added `docs/banking/BANK_STATEMENT_COMPATIBILITY_MATRIX.md` to track target-bank sample intake and parser status without certifying bank-specific support.
+- Added `docs/banking/SANITIZED_BANK_SAMPLE_COLLECTION_GUIDE.md` with safe export, sanitization, fake replacement, and no-raw-file-commit instructions.
+- Added `docs/banking/BANK_PARSER_VALIDATION_CHECKLIST.md` for consistent parser validation across detection, rows, dates, amounts, direction, references, descriptions, balances, duplicate keys, warnings, persistence, and UI preview behavior.
+- Added `apps/api/src/bank-statements/fixtures/README.md` so future fixtures follow fake-data naming and test rules.
+- No parser behavior, live bank feed, external bank API, automatic matching, reconciliation matching logic, bank ledger math, journal posting behavior, report calculations, migrations, seed/reset/delete, full smoke, or full E2E changed.
+
 ## 2026-05-21 Document and PDF UX polish
 
 - Generated document UX was polished across invoice, customer payment receipt, credit note, purchase bill, supplier payment receipt, debit note, contact statement, generated archive, document settings, and number sequence screens.

@@ -112,6 +112,13 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 - `docs/banking/RAW_STATEMENT_FILE_ARCHIVE_POLICY.md` now documents a design-only raw statement-file archive policy. Beta remains metadata/parsed-row only, with no raw bank file body storage.
 - This is manual upload/paste parser groundwork only: no live bank feed, external aggregation, automatic matching, reconciliation logic change, bank ledger math change, posting change, migration, seed/reset, full smoke, or full E2E was part of this pass.
 
+## 2026-05-22 Bank parser compatibility program
+
+- Added `docs/banking/BANK_STATEMENT_COMPATIBILITY_MATRIX.md` to track target-bank sample status, parser status, extraction coverage, duplicate-key confidence, warnings, and support level without claiming certification.
+- Added `docs/banking/SANITIZED_BANK_SAMPLE_COLLECTION_GUIDE.md` and `docs/banking/BANK_PARSER_VALIDATION_CHECKLIST.md` so beta testers can provide safe sanitized samples and developers can validate parser behavior consistently.
+- Added fixture governance in `apps/api/src/bank-statements/fixtures/README.md` covering fake data rules, naming conventions, fixture categories, and the targeted parser test command.
+- This is documentation and sample-intake preparation only: no parser behavior, reconciliation matching logic, live bank feed, external aggregation, automatic matching, migration, seed/reset, full smoke, or full E2E changed.
+
 ## 2026-05-21 Document and PDF UX polish
 
 - Documents/attachments moved from 68 to 70 and UX/product polish moved from 70 to 72 because invoice, receipt, bill, debit-note, credit-note, statement, archive, document-settings, and number-sequence surfaces now explain generated PDF behavior more clearly.

@@ -911,6 +911,9 @@ Statement import and reconciliation behavior:
 - Statement import preview parses and validates pasted CSV text or JSON rows through `POST /bank-accounts/:id/statement-imports/preview` without writing records.
 - Manual statement import now supports upload or paste of CSV/JSON/text plus limited OFX, CAMT XML, and MT940 exports in the browser, with a 1 MB file limit, local row preview, detected columns, duplicate-candidate warnings, and validation guidance before server preview.
 - CSV/JSON/OFX/CAMT/MT940 preview/import supports common fields including `date`, `transactionDate`, `postedDate`, `description`, `memo`, `details`, `reference`, `bankReference`, `debit`, `credit`, `amount`, `balance`, `counterparty`, and `currency` where those fields are present in the manual file. OFX XML-style transactions, missing FITID warnings, CAMT.053/CAMT.054 entry direction/date/reference fallbacks, and MT940 comma-decimal/multiline `:86:` narratives have targeted sanitized fixture coverage.
+- Target-bank validation is tracked in `docs/banking/BANK_STATEMENT_COMPATIBILITY_MATRIX.md`; all bank-specific rows remain not collected until sanitized exports are reviewed.
+- Sanitized sample intake rules live in `docs/banking/SANITIZED_BANK_SAMPLE_COLLECTION_GUIDE.md`, and parser review criteria live in `docs/banking/BANK_PARSER_VALIDATION_CHECKLIST.md`.
+- Existing parser fixtures are fixture-only evidence, not certified support for any bank. Fixture safety and naming rules live in `apps/api/src/bank-statements/fixtures/README.md`.
 - Statement imports accept local JSON/CSV-style rows through `POST /bank-accounts/:id/statement-imports`; invalid rows reject the import unless `allowPartial=true`, and no journal entries are created during import. The raw uploaded file body is not stored by this groundwork; the app stores the import batch metadata and parsed statement rows.
 - Bank statement `CREDIT` rows increase the bank balance and match debit lines on the linked bank asset account.
 - Bank statement `DEBIT` rows decrease the bank balance and match credit lines on the linked bank asset account.
@@ -930,6 +933,7 @@ Statement import and reconciliation behavior:
 Known bank account limitations:
 
 - Import is local manual file upload or paste only; CSV/JSON plus limited OFX, CAMT XML, and MT940 parser groundwork exists, but no live bank feeds, certified bank-specific format coverage, automatic matching, or external bank aggregation service exists yet. Raw statement-file archive policy is documented in `docs/banking/RAW_STATEMENT_FILE_ARCHIVE_POLICY.md`; raw bank file bodies are still not stored in beta.
+- The compatibility matrix and sample collection guide are readiness tools only; they do not certify parser support or authorize committing unsanitized bank files.
 - Reconciliation has approval, close/lock safeguards, and report export, but no strict dual-control enforcement beyond blocking same submitter approval unless `admin.fullAccess`.
 - No dedicated approval queue or email delivery.
 - No live feeds or external banking APIs.
