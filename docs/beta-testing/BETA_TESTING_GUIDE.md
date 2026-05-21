@@ -76,7 +76,7 @@ Report any screen, PDF, or message that sounds like production ZATCA submission 
 - Supabase RLS/runtime-role hardening remains parked until a safe Vercel environment mutation path is available.
 - Production ZATCA compliance is not enabled.
 - Real email sending is not enabled by default.
-- Manual bank statement import supports beta CSV/JSON/text plus limited OFX/CAMT/MT940 preview and import metadata; live bank integration is not implemented.
+- Manual bank statement import supports beta CSV/JSON/text plus limited OFX/CAMT/MT940 preview and import metadata; live bank integration is not implemented, and raw bank file bodies are not archived in beta.
 
 ## How To Report Issues
 

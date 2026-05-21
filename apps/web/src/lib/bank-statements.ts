@@ -339,7 +339,10 @@ export function parseStatementImportText(input: string, options: { accountCurren
   }
 
   const errors = rows.flatMap((row) => row.errors.map((message) => ({ rowNumber: row.rowNumber, message })));
-  const warnings = rows.flatMap((row) => row.warnings.map((message) => ({ rowNumber: row.rowNumber, message })));
+  const warnings = [
+    ...(parsed.warnings ?? []).map((message) => ({ rowNumber: 0, message })),
+    ...rows.flatMap((row) => row.warnings.map((message) => ({ rowNumber: row.rowNumber, message }))),
+  ];
 
   return {
     format: parsed.format,
@@ -386,7 +389,12 @@ export function detectStatementImportFormat(text: string): StatementImportClient
 function parseDetectedStatementText(
   text: string,
   format: Exclude<StatementImportClientFormat, "UNKNOWN">,
-): { format: Exclude<StatementImportClientFormat, "UNKNOWN">; records: Array<{ rowNumber: number; values: Record<string, unknown> }>; detectedColumns: string[] } {
+): {
+  format: Exclude<StatementImportClientFormat, "UNKNOWN">;
+  records: Array<{ rowNumber: number; values: Record<string, unknown> }>;
+  detectedColumns: string[];
+  warnings?: string[];
+} {
   switch (format) {
     case "JSON":
       return parseStatementJsonText(text);
@@ -452,10 +460,15 @@ function parseStatementCsvText(text: string): { format: "CSV"; records: Array<{ 
   };
 }
 
-function parseStatementOfxText(text: string): { format: "OFX"; records: Array<{ rowNumber: number; values: Record<string, unknown> }>; detectedColumns: string[] } {
+function parseStatementOfxText(text: string): {
+  format: "OFX";
+  records: Array<{ rowNumber: number; values: Record<string, unknown> }>;
+  detectedColumns: string[];
+  warnings?: string[];
+} {
   const currency = ofxTagValue(text, "CURDEF");
   const closingBalance = ofxTagValue(text, "BALAMT");
-  const records = text.split(/<STMTTRN>/i).slice(1).map((block, index) => {
+  const records = findOfxTransactionBlocks(text).map((block, index) => {
     const bankReference = ofxTagValue(block, "FITID");
     const memo = ofxTagValue(block, "MEMO");
     const name = ofxTagValue(block, "NAME");
@@ -473,27 +486,56 @@ function parseStatementOfxText(text: string): { format: "OFX"; records: Array<{ 
       },
     };
   });
-  return { format: "OFX", records, detectedColumns: ["DTPOSTED", "TRNAMT", "FITID", "NAME", "MEMO", "CURDEF"] };
+  const missingFitIdCount = records.filter((record) => !record.values.reference).length;
+  const warnings =
+    missingFitIdCount > 0
+      ? [
+          `${missingFitIdCount} OFX ${missingFitIdCount === 1 ? "transaction is" : "transactions are"} missing FITID; duplicate checks will fall back to date, amount, and description.`,
+        ]
+      : [];
+  return { format: "OFX", records, detectedColumns: ["DTPOSTED", "TRNAMT", "FITID", "NAME", "MEMO", "CURDEF"], warnings };
 }
 
-function parseStatementCamtText(text: string): { format: "CAMT"; records: Array<{ rowNumber: number; values: Record<string, unknown> }>; detectedColumns: string[] } {
+function parseStatementCamtText(text: string): {
+  format: "CAMT";
+  records: Array<{ rowNumber: number; values: Record<string, unknown> }>;
+  detectedColumns: string[];
+  warnings?: string[];
+} {
   const records = findXmlBlocks(text, "Ntry").map((block, index) => {
     const indicator = xmlTagValue(block, "CdtDbtInd");
-    const reference = xmlTagValue(block, "AcctSvcrRef") || xmlTagValue(block, "NtryRef");
+    const direction = camtDebitCreditDirection(indicator);
+    const reference = firstMeaningfulValue(
+      xmlTagValue(block, "AcctSvcrRef"),
+      xmlTagValue(block, "NtryRef"),
+      xmlTagValue(block, "EndToEndId"),
+      xmlTagValue(block, "InstrId"),
+      xmlTagValue(block, "TxId"),
+      xmlTagValue(block, "PmtInfId"),
+      xmlTagValue(block, "MsgId"),
+    );
     return {
       rowNumber: index + 1,
       values: {
         date: xmlNestedDate(block, "BookgDt") || xmlNestedDate(block, "ValDt"),
-        description: xmlTagValue(block, "Ustrd") || xmlTagValue(block, "AddtlNtryInf") || reference,
+        description: xmlTagValue(block, "Ustrd") || xmlTagValue(block, "AddtlTxInf") || xmlTagValue(block, "AddtlNtryInf") || xmlTagValue(block, "RmtInf") || reference,
         reference,
         bankReference: reference,
-        amount: signedAmountFromDirection(xmlTagValue(block, "Amt"), indicator === "DBIT" ? "DEBIT" : "CREDIT"),
+        amount: direction ? signedAmountFromDirection(xmlTagValue(block, "Amt"), direction) : undefined,
         counterparty: xmlTagValue(block, "Nm"),
         currency: xmlAttributeValue(block, "Amt", "Ccy") || xmlTagValue(text, "Ccy"),
+        indicator,
       },
     };
   });
-  return { format: "CAMT", records, detectedColumns: ["BookgDt", "ValDt", "Amt", "CdtDbtInd", "AcctSvcrRef", "Ustrd"] };
+  const missingDirectionCount = records.filter((record) => record.values.indicator !== "CRDT" && record.values.indicator !== "DBIT").length;
+  const warnings =
+    missingDirectionCount > 0
+      ? [
+          `${missingDirectionCount} CAMT ${missingDirectionCount === 1 ? "entry is" : "entries are"} missing CdtDbtInd; amount direction could not be inferred.`,
+        ]
+      : [];
+  return { format: "CAMT", records, detectedColumns: ["BookgDt", "ValDt", "Amt", "CdtDbtInd", "AcctSvcrRef", "Ustrd"], warnings };
 }
 
 function parseStatementMt940Text(text: string): { format: "MT940"; records: Array<{ rowNumber: number; values: Record<string, unknown> }>; detectedColumns: string[] } {
@@ -505,21 +547,21 @@ function parseStatementMt940Text(text: string): { format: "MT940"; records: Arra
     if (!line.startsWith(":61:")) {
       continue;
     }
-    const match = /^(\d{6})(?:\d{4})?([CD])([0-9,]+)(?:[A-Z]{4})?([^/]*)?(?:\/\/(.+))?/.exec(line.slice(4));
+    const match = /^(\d{6})(?:\d{4})?(R?[CD])([0-9.,]+)(?:[A-Z][A-Z0-9]{3})?([^/]*)?(?:\/\/(.+))?/.exec(line.slice(4));
     if (!match) {
       records.push({ rowNumber: records.length + 1, values: { description: "Imported MT940 statement row" } });
       continue;
     }
-    const descriptionLine = lines[index + 1] ?? "";
-    const reference = (match[5] ?? match[4] ?? "").trim() || undefined;
+    const reference = cleanMt940Reference(match[5] ?? match[4]);
+    const direction = match[2]!.endsWith("D") ? "DEBIT" : "CREDIT";
     records.push({
       rowNumber: records.length + 1,
       values: {
         date: normalizeMt940Date(match[1]),
-        description: descriptionLine.startsWith(":86:") ? descriptionLine.slice(4).trim() : reference,
+        description: collectMt940Narrative(lines, index + 1) || reference,
         reference,
         bankReference: reference,
-        amount: signedAmountFromDirection(match[3]!.replace(",", "."), match[2] === "D" ? "DEBIT" : "CREDIT"),
+        amount: signedAmountFromDirection(match[3], direction),
         currency,
       },
     });
@@ -702,6 +744,10 @@ function normalizeStatementDate(value: string): string | null {
   if (!trimmed) {
     return null;
   }
+  const isoDateTime = /^(\d{4}-\d{2}-\d{2})[T\s]/.exec(trimmed);
+  if (isoDateTime) {
+    return isoDateTime[1] ?? null;
+  }
   const compact = /^(\d{4})(\d{2})(\d{2})$/.exec(trimmed);
   if (compact) {
     const year = Number(compact[1]);
@@ -753,7 +799,12 @@ function parseStatementAmount(value: string): { value: number | null; error: boo
     return { value: null, error: false };
   }
   const negative = /^\(.*\)$/.test(trimmed) || trimmed.startsWith("-");
-  const normalized = trimmed.replace(/[(),]/g, "").replace(/[^0-9.-]/g, "");
+  const withoutWrapping = trimmed.replace(/[()\s]/g, "");
+  const lastComma = withoutWrapping.lastIndexOf(",");
+  const lastDot = withoutWrapping.lastIndexOf(".");
+  const decimalNormalized =
+    lastComma >= 0 && lastComma > lastDot ? withoutWrapping.replace(/\./g, "").replace(",", ".") : withoutWrapping.replace(/,/g, "");
+  const normalized = decimalNormalized.replace(/[^0-9.-]/g, "");
   if (!normalized || normalized === "-" || normalized === ".") {
     return { value: null, error: true };
   }
@@ -769,7 +820,13 @@ function formatStatementAmount(value: number): string {
 }
 
 function normalizeDirectionalAmount(value: string | undefined): string | undefined {
-  return value?.replace(",", ".").trim();
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+  const lastComma = trimmed.lastIndexOf(",");
+  const lastDot = trimmed.lastIndexOf(".");
+  return lastComma >= 0 && lastComma > lastDot ? trimmed.replace(/\./g, "").replace(",", ".") : trimmed.replace(/,/g, "");
 }
 
 function signedAmountFromDirection(amount: string | undefined, direction: "DEBIT" | "CREDIT"): string | undefined {
@@ -803,13 +860,19 @@ function ofxTagValue(text: string, tag: string): string | undefined {
   return cleanParsedText(match?.[1]);
 }
 
+function findOfxTransactionBlocks(text: string): string[] {
+  return Array.from(text.matchAll(/<STMTTRN\b[^>]*>([\s\S]*?)(?:<\/STMTTRN>|(?=<STMTTRN\b)|(?=<\/BANKTRANLIST>)|$)/gi)).map(
+    (match) => match[1] ?? "",
+  );
+}
+
 function findXmlBlocks(text: string, tag: string): string[] {
   return Array.from(text.matchAll(new RegExp(`<(?:\\w+:)?${tag}\\b[\\s\\S]*?<\\/(?:\\w+:)?${tag}>`, "gi"))).map((match) => match[0]);
 }
 
 function xmlNestedDate(text: string, parentTag: string): string | undefined {
   const block = findXmlBlocks(text, parentTag)[0];
-  return block ? xmlTagValue(block, "Dt") : undefined;
+  return block ? xmlTagValue(block, "Dt") || xmlTagValue(block, "DtTm") : undefined;
 }
 
 function xmlTagValue(text: string, tag: string): string | undefined {
@@ -820,6 +883,43 @@ function xmlTagValue(text: string, tag: string): string | undefined {
 function xmlAttributeValue(text: string, tag: string, attribute: string): string | undefined {
   const match = new RegExp(`<(?:\\w+:)?${tag}\\b[^>]*\\b${attribute}=["']([^"']+)["']`, "i").exec(text);
   return cleanParsedText(match?.[1]);
+}
+
+function firstMeaningfulValue(...values: Array<string | undefined>): string | undefined {
+  return values.find((value) => value && value.toUpperCase() !== "NOTPROVIDED");
+}
+
+function camtDebitCreditDirection(indicator: string | undefined): "DEBIT" | "CREDIT" | null {
+  if (indicator === "DBIT") {
+    return "DEBIT";
+  }
+  if (indicator === "CRDT") {
+    return "CREDIT";
+  }
+  return null;
+}
+
+function collectMt940Narrative(lines: string[], startIndex: number): string | undefined {
+  const firstLine = lines[startIndex] ?? "";
+  if (!firstLine.startsWith(":86:")) {
+    return undefined;
+  }
+  const parts = [firstLine.slice(4).trim()];
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (/^:\d{2}[A-Z]?:/.test(line)) {
+      break;
+    }
+    if (line.trim()) {
+      parts.push(line.trim());
+    }
+  }
+  return cleanParsedText(parts.join(" "));
+}
+
+function cleanMt940Reference(value: string | undefined): string | undefined {
+  const cleaned = cleanParsedText(value);
+  return cleaned?.split("CRLF")[0]?.trim() || undefined;
 }
 
 function cleanParsedText(value: string | undefined): string | undefined {

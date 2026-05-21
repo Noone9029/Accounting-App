@@ -74,7 +74,7 @@ The product is credible as a local demo and internal accountant-review sandbox. 
 6. No immutable external audit store, scheduled audit export, tamper-evident chain, or alerting.
 7. No broad maker-checker approval workflow for high-risk accounting changes.
 8. No official VAT return filing workflow.
-9. No production-grade bank file parser certification, raw-file archive policy, or live bank integration.
+9. No production-grade bank file parser certification, raw-file archive implementation, or live bank integration.
 10. Supabase RLS remains disabled in the documented test posture; tenant isolation is currently API-layer enforced.
 
 ## Compliance Blockers

@@ -401,7 +401,7 @@ export default function BankStatementImportsPage() {
           <div className="p-4">
             <StatusMessage type="empty">No statement imports found.</StatusMessage>
             <p className="mt-2 text-sm leading-6 text-steel">
-              Paste CSV or JSON rows to start a manual statement review. LedgerByte does not pull live transactions from your bank.
+              Paste or upload dummy CSV, JSON, OFX, CAMT XML, or MT940 rows to start a manual statement review. LedgerByte does not pull live transactions from your bank.
             </p>
           </div>
         ) : null}
@@ -416,6 +416,9 @@ export function StatementImportGuidance({ profileId }: { profileId: string }) {
       <h2 className="text-base font-semibold text-ink">Manual statement import</h2>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-steel">
         Paste bank-provided CSV, JSON, OFX, CAMT XML, and MT940 rows, preview them, then import valid rows for manual matching. Imports create statement review records only; they do not create accounting journals until a row is categorized, and they do not connect to a live bank feed.
+      </p>
+      <p className="mt-2 max-w-3xl text-sm leading-6 text-steel">
+        OFX/CAMT/MT940 have limited parser support for bank-specific variants. Unsupported files fail safely. Raw bank file bodies are not archived in beta; LedgerByte keeps parsed rows and import metadata only.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Link href={`/bank-accounts/${profileId}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -437,7 +440,7 @@ export function ClientParserPreview({ preview, currency }: { preview: StatementI
         <div>
           <h2 className="text-base font-semibold text-ink">Local parser preview</h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
-            This browser preview checks the file shape before the server validates closed periods and existing duplicates. It does not upload bank credentials or connect to a live bank feed.
+            This browser preview checks the file shape before the server validates closed periods and existing duplicates. It does not upload bank credentials or connect to a live bank feed, and unsupported bank-specific variants fail safely without archiving raw file bodies.
           </p>
         </div>
         <span className="rounded-md bg-white px-3 py-2 text-xs font-medium text-steel">{preview.format} input</span>

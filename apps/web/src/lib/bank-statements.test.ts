@@ -81,6 +81,46 @@ describe("bank statement helpers", () => {
     expect(JSON.stringify(parseStatementImportText(ofx))).not.toMatch(/live bank sync/i);
   });
 
+  it("previews OFX XML-style rows, CAMT date-time references, and MT940 multiline narratives", () => {
+    const ofx = `<OFX><BANKTRANLIST><STMTTRN><DTPOSTED>20260515000000</DTPOSTED><TRNAMT>75.25</TRNAMT><NAME>FAKE OFX COUNTERPARTY</NAME><MEMO>Manual OFX XML sample receipt</MEMO></STMTTRN></BANKTRANLIST></OFX>`;
+    const camt = `<Document><BkToCstmrDbtCdtNtfctn><Ntfctn><Ntry><Amt Ccy="SAR">175.25</Amt><CdtDbtInd>CRDT</CdtDbtInd><BookgDt><DtTm>2026-05-15T09:30:00Z</DtTm></BookgDt><NtryDtls><TxDtls><Refs><EndToEndId>FAKE-CAMT054-E2E-0001</EndToEndId></Refs><RmtInf><Ustrd>Manual CAMT054 sample receipt</Ustrd></RmtInf></TxDtls></NtryDtls></Ntry></Ntfctn></BkToCstmrDbtCdtNtfctn></Document>`;
+    const mt940 = `:20:FAKESTATEMENT2\n:60F:C260501SAR0,00\n:61:2605150515C1234,56NTRFFAKE//FAKE-MT940-ML-0001\n:86:Manual MT940 multiline receipt\nadditional sanitized narrative line\n:62F:C260531SAR1234,56`;
+
+    expect(parseStatementImportText(ofx).rows[0]).toMatchObject({
+      date: "2026-05-15",
+      description: "Manual OFX XML sample receipt",
+      credit: "75.2500",
+      counterparty: "FAKE OFX COUNTERPARTY",
+    });
+    expect(parseStatementImportText(ofx).warnings.map((issue) => issue.message)).toContain(
+      "1 OFX transaction is missing FITID; duplicate checks will fall back to date, amount, and description.",
+    );
+    expect(parseStatementImportText(camt).rows[0]).toMatchObject({
+      date: "2026-05-15",
+      description: "Manual CAMT054 sample receipt",
+      reference: "FAKE-CAMT054-E2E-0001",
+      credit: "175.2500",
+    });
+    expect(parseStatementImportText(mt940).rows[0]).toMatchObject({
+      date: "2026-05-15",
+      description: "Manual MT940 multiline receipt additional sanitized narrative line",
+      reference: "FAKE-MT940-ML-0001",
+      credit: "1234.5600",
+    });
+  });
+
+  it("warns safely when CAMT direction is missing", () => {
+    const result = parseStatementImportText(
+      `<Document><BkToCstmrStmt><Stmt><Ntry><Amt Ccy="SAR">10.00</Amt><BookgDt><Dt>2026-05-17</Dt></BookgDt><AcctSvcrRef>FAKE-CAMT-MISSING-DIR</AcctSvcrRef></Ntry></Stmt></BkToCstmrStmt></Document>`,
+    );
+
+    expect(result.format).toBe("CAMT");
+    expect(result.invalidRowCount).toBe(1);
+    expect(result.errors.map((issue) => issue.message)).toContain("Missing amount.");
+    expect(result.warnings.map((issue) => issue.message)).toContain("1 CAMT entry is missing CdtDbtInd; amount direction could not be inferred.");
+    expect(JSON.stringify(result.warnings)).not.toContain("<Document>");
+  });
+
   it("returns safe unsupported-format errors without echoing raw text", () => {
     const result = parseStatementImportText("private-looking raw statement body");
 

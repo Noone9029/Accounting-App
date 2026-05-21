@@ -909,8 +909,8 @@ Behavior:
 Statement import and reconciliation behavior:
 
 - Statement import preview parses and validates pasted CSV text or JSON rows through `POST /bank-accounts/:id/statement-imports/preview` without writing records.
-- Manual statement import now supports upload or paste of CSV/JSON/text plus OFX, CAMT XML, and MT940 exports in the browser, with a 1 MB file limit, local row preview, detected columns, duplicate-candidate warnings, and validation guidance before server preview.
-- CSV/JSON/OFX/CAMT/MT940 preview/import supports common fields including `date`, `transactionDate`, `postedDate`, `description`, `memo`, `details`, `reference`, `bankReference`, `debit`, `credit`, `amount`, `balance`, `counterparty`, and `currency` where those fields are present in the manual file.
+- Manual statement import now supports upload or paste of CSV/JSON/text plus limited OFX, CAMT XML, and MT940 exports in the browser, with a 1 MB file limit, local row preview, detected columns, duplicate-candidate warnings, and validation guidance before server preview.
+- CSV/JSON/OFX/CAMT/MT940 preview/import supports common fields including `date`, `transactionDate`, `postedDate`, `description`, `memo`, `details`, `reference`, `bankReference`, `debit`, `credit`, `amount`, `balance`, `counterparty`, and `currency` where those fields are present in the manual file. OFX XML-style transactions, missing FITID warnings, CAMT.053/CAMT.054 entry direction/date/reference fallbacks, and MT940 comma-decimal/multiline `:86:` narratives have targeted sanitized fixture coverage.
 - Statement imports accept local JSON/CSV-style rows through `POST /bank-accounts/:id/statement-imports`; invalid rows reject the import unless `allowPartial=true`, and no journal entries are created during import. The raw uploaded file body is not stored by this groundwork; the app stores the import batch metadata and parsed statement rows.
 - Bank statement `CREDIT` rows increase the bank balance and match debit lines on the linked bank asset account.
 - Bank statement `DEBIT` rows decrease the bank balance and match credit lines on the linked bank asset account.
@@ -929,7 +929,7 @@ Statement import and reconciliation behavior:
 
 Known bank account limitations:
 
-- Import is local manual file upload or paste only; CSV/JSON plus limited OFX, CAMT XML, and MT940 parser groundwork exists, but no live bank feeds, certified bank-specific format coverage, automatic matching, or external bank aggregation service exists yet.
+- Import is local manual file upload or paste only; CSV/JSON plus limited OFX, CAMT XML, and MT940 parser groundwork exists, but no live bank feeds, certified bank-specific format coverage, automatic matching, or external bank aggregation service exists yet. Raw statement-file archive policy is documented in `docs/banking/RAW_STATEMENT_FILE_ARCHIVE_POLICY.md`; raw bank file bodies are still not stored in beta.
 - Reconciliation has approval, close/lock safeguards, and report export, but no strict dual-control enforcement beyond blocking same submitter approval unless `admin.fullAccess`.
 - No dedicated approval queue or email delivery.
 - No live feeds or external banking APIs.
@@ -1774,14 +1774,14 @@ Permission matrix categories:
 - GET PDF endpoints currently archive every download.
 - Unapplied overpayment application is manual only; there is no automatic credit matching yet.
 - Customer refunds are manual accounting records only; no payment gateway refund or bank reconciliation integration exists yet.
-- Bank account profiles, posted transaction visibility, bank transfers, guarded one-time opening-balance posting, local manual statement upload/paste preview for CSV/JSON/OFX/CAMT/MT940 groundwork, reconciliation approval/close/lock/report export, and basic attachment panels exist, but live feeds, certified bank-specific parser coverage, transfer fees, raw statement-file archive policy, and multi-currency FX transfer handling are not implemented yet.
+- Bank account profiles, posted transaction visibility, bank transfers, guarded one-time opening-balance posting, local manual statement upload/paste preview for CSV/JSON/OFX/CAMT/MT940 groundwork, reconciliation approval/close/lock/report export, and basic attachment panels exist, but live feeds, certified bank-specific parser coverage, transfer fees, raw statement-file archive implementation, and multi-currency FX transfer handling are not implemented yet.
 - Purchase orders are MVP-only: operational purchase receipts can receive stock, but partial billing, supplier email sending, approval workflows, and automatic inventory stock receipts are not implemented.
 - Purchase bills, purchase debit notes, supplier payments, and supplier refunds are AP groundwork only; finalized purchase bills can be manually received into stock and matched operationally, and explicitly selected Inventory Clearing bills can post clearing journals, but AP finalization itself does not auto-create stock movements or inventory returns.
 - ZATCA credit note XML/signing/submission is not implemented yet.
 - ZATCA debit note XML/signing/submission is not implemented yet.
 - Inventory returns from credit notes are not implemented yet.
 - Recurring invoices are not implemented yet.
-- Bank reconciliation has local manual CSV/JSON/text plus limited OFX/CAMT/MT940 import preview/manual matching, approval, close-lock, and report export groundwork, but no live feed, raw statement-file archive policy, certified bank-specific parser coverage, or auto-match yet.
+- Bank reconciliation has local manual CSV/JSON/text plus limited OFX/CAMT/MT940 import preview/manual matching, approval, close-lock, report export groundwork, and a design-only raw-file archive policy, but no live feed, raw statement-file archive implementation, certified bank-specific parser coverage, or auto-match yet.
 - Inventory warehouse, stock ledger, adjustment approval, warehouse transfer, manual purchase receipt, manual sales stock issue, valuation settings, manual COGS posting, manual compatible receipt asset posting, inventory clearing settings, purchase bill clearing-mode finalization, bill/receipt matching visibility, clearing reconciliation/variance reports, and operational reports exist, but no automatic COGS posting, no automatic purchase receipt asset posting, no direct-mode receipt posting, no automatic variance journals, automatic purchase/sales posting, landed cost, serial/batch tracking, or accounting-grade inventory financial reports are implemented yet.
 - BullMQ workers, generated-document S3 storage, and DB-to-S3 migration executors are not wired yet.
 - Uploaded attachment storage remains database-backed by default; S3-compatible storage for new uploads requires explicit env configuration, and OCR, virus scanning, retention policies, email attachment sending, ZATCA attachment submission, signed URLs, and object-storage lifecycle are not implemented yet.

@@ -103,6 +103,31 @@ describe("bank statement import parser", () => {
     ]);
   });
 
+  it("parses OFX XML-style fixtures and warns when FITID is missing", () => {
+    const result = parseBankStatementImportInput({ csvText: readFixture("sample-ofx-xml-missing-fitid.ofx") });
+
+    expect(result.format).toBe("OFX");
+    expect(result.warnings).toContain("1 OFX transaction is missing FITID; duplicate checks will fall back to date, amount, and description.");
+    expect(result.rows).toEqual([
+      expect.objectContaining({
+        sourceRowNumber: 1,
+        date: "2026-05-15",
+        description: "Manual OFX XML sample receipt",
+        reference: undefined,
+        bankReference: undefined,
+        amount: "75.25",
+        counterparty: "FAKE OFX COUNTERPARTY",
+      }),
+      expect.objectContaining({
+        sourceRowNumber: 2,
+        date: "2026-05-16",
+        description: "Manual OFX XML sample fee",
+        reference: "FAKE-OFX-XML-0002",
+        amount: "-8.75",
+      }),
+    ]);
+  });
+
   it("parses sanitized CAMT fixtures into normalized manual statement rows", () => {
     const result = parseBankStatementImportInput({ csvText: readFixture("sample-camt053.xml") });
 
@@ -129,6 +154,41 @@ describe("bank statement import parser", () => {
     ]);
   });
 
+  it("parses sanitized CAMT054 fixtures with date-time and reference fallback", () => {
+    const result = parseBankStatementImportInput({ csvText: readFixture("sample-camt054.xml") });
+
+    expect(result.format).toBe("CAMT");
+    expect(result.rows).toEqual([
+      expect.objectContaining({
+        sourceRowNumber: 1,
+        date: "2026-05-15",
+        description: "Manual CAMT054 sample receipt",
+        reference: "FAKE-CAMT054-E2E-0001",
+        bankReference: "FAKE-CAMT054-E2E-0001",
+        amount: "175.25",
+        currency: "SAR",
+      }),
+      expect.objectContaining({
+        sourceRowNumber: 2,
+        date: "2026-05-16",
+        description: "Manual CAMT054 sample fee",
+        reference: "FAKE-CAMT054-TX-0002",
+        amount: "-22.10",
+      }),
+    ]);
+  });
+
+  it("warns safely when CAMT entries have no credit/debit indicator", () => {
+    const result = parseBankStatementImportInput({
+      csvText: `<Document><BkToCstmrStmt><Stmt><Ntry><Amt Ccy="SAR">10.00</Amt><BookgDt><Dt>2026-05-17</Dt></BookgDt><AcctSvcrRef>FAKE-CAMT-MISSING-DIR</AcctSvcrRef></Ntry></Stmt></BkToCstmrStmt></Document>`,
+    });
+
+    expect(result.format).toBe("CAMT");
+    expect(result.rows[0]).toMatchObject({ date: "2026-05-17", reference: "FAKE-CAMT-MISSING-DIR", amount: undefined });
+    expect(result.warnings).toContain("1 CAMT entry is missing CdtDbtInd; amount direction could not be inferred.");
+    expect(result.warnings.join(" ")).not.toContain("<Document>");
+  });
+
   it("parses sanitized MT940 fixtures into normalized manual statement rows", () => {
     const result = parseBankStatementImportInput({ csvText: readFixture("sample.mt940") });
 
@@ -150,6 +210,29 @@ describe("bank statement import parser", () => {
         description: "Manual MT940 sample bank fee",
         reference: "FAKE-MT940-0002",
         amount: "-15.50",
+      }),
+    ]);
+  });
+
+  it("parses MT940 comma decimals, F transaction codes, and multiline :86: narratives", () => {
+    const result = parseBankStatementImportInput({ csvText: readFixture("sample-mt940-multiline.mt940") });
+
+    expect(result.format).toBe("MT940");
+    expect(result.rows).toEqual([
+      expect.objectContaining({
+        sourceRowNumber: 1,
+        date: "2026-05-15",
+        description: "Manual MT940 multiline receipt additional sanitized narrative line",
+        reference: "FAKE-MT940-ML-0001",
+        amount: "1234.56",
+        currency: "SAR",
+      }),
+      expect.objectContaining({
+        sourceRowNumber: 2,
+        date: "2026-05-16",
+        description: "Manual MT940 debit fee",
+        reference: "FAKE-MT940-ML-0002",
+        amount: "-22.10",
       }),
     ]);
   });

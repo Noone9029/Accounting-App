@@ -54,6 +54,26 @@ Remaining risks:
 - Accountant review remains pending and must not be treated as approval or certification.
 - Full smoke, full E2E, and runtime-role security hardening remain separate pending tasks.
 
+### Bank statement parser variants hardened
+
+Validated the manual OFX/CAMT/MT940 parser groundwork against additional sanitized common variants and documented a design-only raw statement-file archive policy.
+
+Risk reduced:
+
+- Added sanitized OFX XML-style, CAMT.054, and MT940 multiline fixtures with fake account/reference values only.
+- OFX parsing now warns when `FITID` is missing instead of silently relying on weaker duplicate keys.
+- CAMT parsing now supports date-time booking dates and common transaction reference fallbacks, and it no longer infers amount direction when `CdtDbtInd` is absent.
+- MT940 parsing now handles comma-decimal amounts, alphanumeric transaction code shapes, and multiline `:86:` narratives.
+- UI copy now says OFX/CAMT/MT940 support is limited for bank-specific variants and that raw bank file bodies are not archived in beta.
+- Added `docs/banking/RAW_STATEMENT_FILE_ARCHIVE_POLICY.md` recommending no raw file body storage in beta and object-storage archiving later only after policy approval.
+
+Remaining risks:
+
+- Parser support is still limited to sanitized fixtures and common variants, not certified target-bank coverage.
+- Raw statement-file archive implementation remains intentionally unimplemented.
+- No live bank feeds, external bank aggregation, automatic matching, transfer fees, or FX transfer handling.
+- Full smoke and full E2E remain intentionally pending.
+
 ### Visual regression coverage added
 
 Added focused mocked Playwright visual regression coverage for polished beta UX routes without changing accounting behavior.
@@ -102,7 +122,7 @@ Risk reduced:
 
 Remaining risks:
 
-- No live bank feeds, external bank aggregation, certified OFX/CAMT/MT940 bank-specific parser coverage, automatic matching, raw-file archive policy, transfer fees, or FX transfer handling.
+- No live bank feeds, external bank aggregation, certified OFX/CAMT/MT940 bank-specific parser coverage, automatic matching, raw-file archive implementation, transfer fees, or FX transfer handling.
 - Full smoke and full E2E remain intentionally pending.
 - Supabase RLS and least-privilege runtime role hardening remain parked until the safe Vercel env mutation path is available.
 

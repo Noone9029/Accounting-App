@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Sanitized LedgerByte parser fixture. Values are fake and must not be used as real bank details. -->
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.054.001.08">
+  <BkToCstmrDbtCdtNtfctn>
+    <GrpHdr>
+      <MsgId>FAKE-CAMT054-MSG-0001</MsgId>
+      <CreDtTm>2026-05-16T12:00:00Z</CreDtTm>
+    </GrpHdr>
+    <Ntfctn>
+      <Id>FAKE-CAMT054-NTF-0001</Id>
+      <Acct>
+        <Id><Othr><Id>FAKEACCOUNT</Id></Othr></Id>
+        <Ccy>SAR</Ccy>
+      </Acct>
+      <Ntry>
+        <Amt Ccy="SAR">175.25</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <BookgDt><DtTm>2026-05-15T09:30:00Z</DtTm></BookgDt>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <EndToEndId>FAKE-CAMT054-E2E-0001</EndToEndId>
+            </Refs>
+            <RmtInf><Ustrd>Manual CAMT054 sample receipt</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="SAR">22.10</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <ValDt><Dt>2026-05-16</Dt></ValDt>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <TxId>FAKE-CAMT054-TX-0002</TxId>
+            </Refs>
+            <AddtlTxInf>Manual CAMT054 sample fee</AddtlTxInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Ntfctn>
+  </BkToCstmrDbtCdtNtfctn>
+</Document>

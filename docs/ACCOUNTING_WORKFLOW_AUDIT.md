@@ -135,7 +135,7 @@ This document maps implemented accounting workflows to their journal entries, ba
   - Reconciliation report data, CSV, and PDF endpoints render the close snapshot and archive generated PDFs.
   - Voiding a draft, pending, approved, or closed reconciliation marks it `VOIDED`, keeps review history, unlocks the period, and does not reverse categorized journals.
 - Gaps/risks:
-  - Attachment panels exist on bank statement transaction and bank reconciliation detail pages, and limited manual OFX/CAMT/MT940 parser groundwork exists, but there is no production-grade statement-file parser/storage workflow, certified bank-specific format coverage, automatic matching, bank feeds, email delivery, or full approval queue yet.
+  - Attachment panels exist on bank statement transaction and bank reconciliation detail pages, limited manual OFX/CAMT/MT940 parser groundwork exists, and raw statement-file archive policy is design-only, but there is no production-grade statement-file storage workflow, certified bank-specific format coverage, automatic matching, bank feeds, email delivery, or full approval queue yet.
 
 ## Uploaded Supporting Attachments
 

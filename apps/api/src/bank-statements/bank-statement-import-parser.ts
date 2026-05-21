@@ -194,7 +194,7 @@ export function parseBankStatementCsvText(csvText: string): StatementImportParse
 export function parseBankStatementOfxText(ofxText: string): StatementImportParseResult {
   const currency = ofxTagValue(ofxText, "CURDEF");
   const closingBalance = ofxTagValue(ofxText, "BALAMT");
-  const blocks = ofxText.split(/<STMTTRN>/i).slice(1);
+  const blocks = findOfxTransactionBlocks(ofxText);
   const rows = blocks.map((block, index) => {
     const postedDate = normalizeDateText((ofxTagValue(block, "DTPOSTED") ?? "").slice(0, 8));
     const amount = normalizeSignedAmount(ofxTagValue(block, "TRNAMT"));
@@ -215,12 +215,19 @@ export function parseBankStatementOfxText(ofxText: string): StatementImportParse
       sourceRowNumber: index + 1,
     });
   });
+  const missingFitIdCount = rows.filter((row) => !row.reference).length;
+  const warnings = rows.length === 0 ? ["OFX statement did not contain any STMTTRN transactions."] : [];
+  if (missingFitIdCount > 0) {
+    warnings.push(
+      `${missingFitIdCount} OFX ${missingFitIdCount === 1 ? "transaction is" : "transactions are"} missing FITID; duplicate checks will fall back to date, amount, and description.`,
+    );
+  }
 
   return {
     format: "OFX",
     rows,
     detectedColumns: ["DTPOSTED", "TRNAMT", "FITID", "NAME", "MEMO", "CURDEF"],
-    warnings: rows.length === 0 ? ["OFX statement did not contain any STMTTRN transactions."] : [],
+    warnings,
   };
 }
 
@@ -228,10 +235,20 @@ export function parseBankStatementCamtText(xmlText: string): StatementImportPars
   const rows = findXmlBlocks(xmlText, "Ntry").map((block, index) => {
     const amountText = xmlTagValue(block, "Amt");
     const indicator = xmlTagValue(block, "CdtDbtInd");
-    const signedAmount = signedAmountFromDirection(amountText, indicator === "DBIT" ? "DEBIT" : "CREDIT");
+    const direction = camtDebitCreditDirection(indicator);
+    const signedAmount = direction ? signedAmountFromDirection(amountText, direction) : undefined;
     const bookingDate = xmlNestedDate(block, "BookgDt") || xmlNestedDate(block, "ValDt");
-    const reference = xmlTagValue(block, "AcctSvcrRef") || xmlTagValue(block, "NtryRef");
-    const description = xmlTagValue(block, "Ustrd") || xmlTagValue(block, "AddtlNtryInf") || reference || "Imported CAMT statement row";
+    const reference = firstMeaningfulValue(
+      xmlTagValue(block, "AcctSvcrRef"),
+      xmlTagValue(block, "NtryRef"),
+      xmlTagValue(block, "EndToEndId"),
+      xmlTagValue(block, "InstrId"),
+      xmlTagValue(block, "TxId"),
+      xmlTagValue(block, "PmtInfId"),
+      xmlTagValue(block, "MsgId"),
+    );
+    const description =
+      xmlTagValue(block, "Ustrd") || xmlTagValue(block, "AddtlTxInf") || xmlTagValue(block, "AddtlNtryInf") || xmlTagValue(block, "RmtInf") || reference || "Imported CAMT statement row";
     const counterparty = xmlTagValue(block, "Nm");
     const currency = xmlAttributeValue(block, "Amt", "Ccy") || xmlTagValue(xmlText, "Ccy");
     return normalizeSourceRowAmounts({
@@ -246,12 +263,19 @@ export function parseBankStatementCamtText(xmlText: string): StatementImportPars
       sourceRowNumber: index + 1,
     });
   });
+  const missingDirectionCount = rows.filter((row) => row.rawData.indicator !== "CRDT" && row.rawData.indicator !== "DBIT").length;
+  const warnings = rows.length === 0 ? ["CAMT XML did not contain any Ntry entries."] : [];
+  if (missingDirectionCount > 0) {
+    warnings.push(
+      `${missingDirectionCount} CAMT ${missingDirectionCount === 1 ? "entry is" : "entries are"} missing CdtDbtInd; amount direction could not be inferred.`,
+    );
+  }
 
   return {
     format: "CAMT",
     rows,
     detectedColumns: ["BookgDt", "ValDt", "Amt", "CdtDbtInd", "AcctSvcrRef", "Ustrd"],
-    warnings: rows.length === 0 ? ["CAMT XML did not contain any Ntry entries."] : [],
+    warnings,
   };
 }
 
@@ -265,7 +289,7 @@ export function parseBankStatementMt940Text(mt940Text: string): StatementImportP
       continue;
     }
     const details = line.slice(4);
-    const match = /^(\d{6})(?:\d{4})?([CD])([0-9,]+)(?:[A-Z]{4})?([^/]*)?(?:\/\/(.+))?/.exec(details);
+    const match = /^(\d{6})(?:\d{4})?(R?[CD])([0-9.,]+)(?:[A-Z][A-Z0-9]{3})?([^/]*)?(?:\/\/(.+))?/.exec(details);
     if (!match) {
       rows.push(
         normalizeSourceRowAmounts({
@@ -276,16 +300,16 @@ export function parseBankStatementMt940Text(mt940Text: string): StatementImportP
       );
       continue;
     }
-    const nextLine = lines[index + 1] ?? "";
-    const description = nextLine.startsWith(":86:") ? nextLine.slice(4).trim() : (match[5] ?? match[4] ?? "Imported MT940 statement row").trim();
-    const bankReference = (match[5] ?? match[4] ?? "").trim() || undefined;
+    const description = collectMt940Narrative(lines, index + 1) || (match[5] ?? match[4] ?? "Imported MT940 statement row").trim();
+    const bankReference = cleanMt940Reference(match[5] ?? match[4]);
+    const direction = match[2]!.endsWith("D") ? "DEBIT" : "CREDIT";
     rows.push(
       normalizeSourceRowAmounts({
         date: normalizeMt940Date(match[1]),
         description,
         reference: bankReference,
         bankReference,
-        amount: signedAmountFromDirection(match[3]!.replace(",", "."), match[2] === "D" ? "DEBIT" : "CREDIT"),
+        amount: signedAmountFromDirection(match[3], direction),
         currency,
         rawData: { format: "MT940", direction: match[2], reference: bankReference },
         sourceRowNumber: rows.length + 1,
@@ -432,7 +456,12 @@ function normalizeAmountText(value: string | undefined): string | undefined {
     return trimmed;
   }
   const negative = /^\(.*\)$/.test(trimmed) || trimmed.startsWith("-");
-  const normalized = trimmed.replace(/[(),]/g, "").replace(/[^0-9.-]/g, "");
+  const withoutWrapping = trimmed.replace(/[()\s]/g, "");
+  const lastComma = withoutWrapping.lastIndexOf(",");
+  const lastDot = withoutWrapping.lastIndexOf(".");
+  const decimalNormalized =
+    lastComma >= 0 && lastComma > lastDot ? withoutWrapping.replace(/\./g, "").replace(",", ".") : withoutWrapping.replace(/,/g, "");
+  const normalized = decimalNormalized.replace(/[^0-9.-]/g, "");
   return negative && !normalized.startsWith("-") ? `-${normalized}` : normalized;
 }
 
@@ -453,6 +482,10 @@ function normalizeDateText(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   if (!trimmed) {
     return trimmed;
+  }
+  const isoDateTime = /^(\d{4}-\d{2}-\d{2})[T\s]/.exec(trimmed);
+  if (isoDateTime) {
+    return isoDateTime[1];
   }
   const compact = /^(\d{4})(\d{2})(\d{2})$/.exec(trimmed);
   if (compact) {
@@ -501,13 +534,19 @@ function ofxTagValue(text: string, tag: string): string | undefined {
   return cleanParsedText(match?.[1]);
 }
 
+function findOfxTransactionBlocks(text: string): string[] {
+  return Array.from(text.matchAll(/<STMTTRN\b[^>]*>([\s\S]*?)(?:<\/STMTTRN>|(?=<STMTTRN\b)|(?=<\/BANKTRANLIST>)|$)/gi)).map(
+    (match) => match[1] ?? "",
+  );
+}
+
 function findXmlBlocks(text: string, tag: string): string[] {
   return Array.from(text.matchAll(new RegExp(`<(?:\\w+:)?${tag}\\b[\\s\\S]*?<\\/(?:\\w+:)?${tag}>`, "gi"))).map((match) => match[0]);
 }
 
 function xmlNestedDate(text: string, parentTag: string): string | undefined {
   const block = findXmlBlocks(text, parentTag)[0];
-  return block ? xmlTagValue(block, "Dt") : undefined;
+  return block ? xmlTagValue(block, "Dt") || xmlTagValue(block, "DtTm") : undefined;
 }
 
 function xmlTagValue(text: string, tag: string): string | undefined {
@@ -518,6 +557,43 @@ function xmlTagValue(text: string, tag: string): string | undefined {
 function xmlAttributeValue(text: string, tag: string, attribute: string): string | undefined {
   const match = new RegExp(`<(?:\\w+:)?${tag}\\b[^>]*\\b${attribute}=["']([^"']+)["']`, "i").exec(text);
   return cleanParsedText(match?.[1]);
+}
+
+function firstMeaningfulValue(...values: Array<string | undefined>): string | undefined {
+  return values.find((value) => value && value.toUpperCase() !== "NOTPROVIDED");
+}
+
+function camtDebitCreditDirection(indicator: string | undefined): "DEBIT" | "CREDIT" | null {
+  if (indicator === "DBIT") {
+    return "DEBIT";
+  }
+  if (indicator === "CRDT") {
+    return "CREDIT";
+  }
+  return null;
+}
+
+function collectMt940Narrative(lines: string[], startIndex: number): string | undefined {
+  const firstLine = lines[startIndex] ?? "";
+  if (!firstLine.startsWith(":86:")) {
+    return undefined;
+  }
+  const parts = [firstLine.slice(4).trim()];
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (/^:\d{2}[A-Z]?:/.test(line)) {
+      break;
+    }
+    if (line.trim()) {
+      parts.push(line.trim());
+    }
+  }
+  return cleanParsedText(parts.join(" "));
+}
+
+function cleanMt940Reference(value: string | undefined): string | undefined {
+  const cleaned = cleanParsedText(value);
+  return cleaned?.split("CRLF")[0]?.trim() || undefined;
 }
 
 function cleanParsedText(value: string | undefined): string | undefined {

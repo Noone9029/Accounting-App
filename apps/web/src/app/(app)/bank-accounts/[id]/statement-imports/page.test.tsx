@@ -24,6 +24,8 @@ describe("statement import guidance", () => {
     expect(screen.getByText("Manual statement import")).toBeInTheDocument();
     expect(screen.getByText(/CSV, JSON, OFX, CAMT XML, and MT940/)).toBeInTheDocument();
     expect(screen.getByText(/do not connect to a live bank feed/)).toBeInTheDocument();
+    expect(screen.getByText(/limited parser support for bank-specific variants/)).toBeInTheDocument();
+    expect(screen.getByText(/Raw bank file bodies are not archived in beta/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Review unmatched rows" })).toHaveAttribute(
       "href",
       "/bank-accounts/bank-1/statement-transactions?status=UNMATCHED",
@@ -75,6 +77,7 @@ describe("statement import guidance", () => {
     expect(screen.getByText("Duplicate candidates")).toBeInTheDocument();
     expect(screen.getByText("Row 2: Invalid date.")).toBeInTheDocument();
     expect(screen.getByText(/does not upload bank credentials or connect to a live bank feed/)).toBeInTheDocument();
+    expect(screen.getByText(/unsupported bank-specific variants fail safely/)).toBeInTheDocument();
     expect(screen.getByRole("table").parentElement).toHaveClass("overflow-x-auto");
   });
 

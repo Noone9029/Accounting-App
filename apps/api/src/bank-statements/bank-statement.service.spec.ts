@@ -154,6 +154,43 @@ describe("BankStatementService", () => {
     expect(prisma.journalLine.findMany).not.toHaveBeenCalled();
   });
 
+  it("imports MT940 statement text with MT940 metadata without changing matching or posting behavior", async () => {
+    const createdImport = { id: "import-1", rowCount: 1, status: BankStatementImportStatus.IMPORTED };
+    const tx = {
+      bankStatementImport: { create: jest.fn().mockResolvedValue(createdImport) },
+    };
+    const { service, prisma } = makeService({
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    });
+
+    await expect(
+      service.importStatement("org-1", "user-1", "profile-1", {
+        filename: "statement.mt940",
+        csvText: ":20:FAKE\n:60F:C260501SAR0,00\n:61:2605150515C12,34NTRFFAKE//FAKE-MT940-SVC-1\n:86:Manual MT940 service sample",
+      }),
+    ).resolves.toMatchObject(createdImport);
+
+    expect(tx.bankStatementImport.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          sourceType: "MT940",
+          rowCount: 1,
+          transactions: {
+            create: [
+              expect.objectContaining({
+                description: "Manual MT940 service sample",
+                reference: "FAKE-MT940-SVC-1",
+                type: BankStatementTransactionType.CREDIT,
+                amount: "12.3400",
+              }),
+            ],
+          },
+        }),
+      }),
+    );
+    expect(prisma.journalLine.findMany).not.toHaveBeenCalled();
+  });
+
   it("rejects bad import rows before creating the batch", async () => {
     const { service, prisma } = makeService();
 
