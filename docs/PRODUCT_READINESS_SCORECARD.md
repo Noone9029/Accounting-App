@@ -876,3 +876,9 @@ Recommended next step:
 - Added lightweight GitHub issue templates for beta bug reports, accounting review findings, and UX feedback, each with explicit safety checks against secrets, real customer-sensitive data, PDF/document bodies, signed XML, QR payloads, and production document data.
 - The kit states that Vercel is beta/user-testing only, not final production hosting; testers should use safe sample data only; no real ZATCA submission, CSID execution, clearance/reporting, PDF/A-3, production compliance certification, live bank integration, or real customer email sending is enabled by default.
 - Accountant review remains pending and must not be treated as approval or certification. Full smoke, full E2E, and security runtime-role hardening remain separate pending work.
+
+## 2026-05-22 Beta access management guidance
+
+- Added `docs/beta-testing/BETA_ACCESS_MANAGEMENT.md` to guide a controlled 3-5 tester cohort, least-privilege role selection, beta organization labeling, invite handling, password reset, suspension/reactivation, and tester data cleanup requests.
+- `/settings/team`, `/settings/roles`, and `/settings/roles/:id` now show lightweight beta guidance: keep Owner/Admin internal, use Viewer for read-only review, use scoped roles only for assigned workflows, avoid real data, and suspend testers after the beta window.
+- This is access/onboarding guidance only: no auth architecture, permission logic, Supabase RLS, runtime DB role, Vercel environment, migration, seed/reset, full smoke, or full E2E changed.

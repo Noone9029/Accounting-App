@@ -7,11 +7,13 @@ Use this script with a beta/test organization only. Do not enter real customer-s
 1. Open the beta web URL provided by the LedgerByte team.
 2. Sign in with the assigned beta account.
 3. Confirm you are in the expected test organization.
-4. Note your browser, device, and approximate screen width.
-5. Keep the feedback form open while testing.
+4. Confirm your visible role matches the assigned beta scope if the admin provided one.
+5. Note your browser, device, and approximate screen width.
+6. Keep the feedback form open while testing.
 
 Expected result:
 - You can sign in and reach the app shell without seeing production-compliance claims.
+- You are using your own assigned beta account, not a shared credential.
 
 Do not report passwords, tokens, cookies, auth headers, or screenshots containing sensitive data.
 

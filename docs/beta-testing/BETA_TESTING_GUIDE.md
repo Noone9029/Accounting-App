@@ -15,10 +15,13 @@ Beta testing should confirm that a new business user can understand and complete
 - Document PDF download, generated-document archive, settings, and number sequence guidance.
 - Dashboard and report navigation.
 
+Access for selected testers is managed through [BETA_ACCESS_MANAGEMENT.md](BETA_ACCESS_MANAGEMENT.md). Keep the first cohort to 3-5 approved testers and use the least-privilege role needed for the assigned workflow.
+
 ## Beta Environment Boundaries
 
 - Vercel is beta/user-testing only, not final production hosting.
 - Use only beta/test organizations and safe sample records.
+- Use only the assigned beta account and organization. Do not share accounts between testers.
 - Do not enter real customer-sensitive data unless an explicit beta data policy allows it.
 - Do not use production invoices, real tax filings, real customer statements, or real supplier statements.
 - Do not rely on beta output as legal, tax, audit, or compliance evidence.
@@ -68,6 +71,7 @@ Report any screen, PDF, or message that sounds like production ZATCA submission 
 - Do not upload real bank statements, real IDs, real contracts, payroll data, or customer documents.
 - Do not include passwords, tokens, cookies, API keys, database URLs, auth headers, signed XML, QR payloads, PDF contents, or document bodies in screenshots or reports.
 - Redact company names, customer names, supplier names, email addresses, phone numbers, bank details, and document numbers if they look real.
+- If your beta access is no longer needed, ask the LedgerByte admin to suspend your membership instead of sharing or deleting the account.
 
 ## Known Limitations
 
@@ -77,6 +81,7 @@ Report any screen, PDF, or message that sounds like production ZATCA submission 
 - Supabase RLS/runtime-role hardening remains parked until a safe Vercel environment mutation path is available.
 - Production ZATCA compliance is not enabled.
 - Real email sending is not enabled by default.
+- Beta tester access should be invited, role-scoped, and revoked through the beta access management workflow.
 - Manual bank statement import supports beta CSV/JSON/text plus limited OFX/CAMT/MT940 preview and import metadata; live bank integration is not implemented, bank-specific parser support is not certified, and raw bank file bodies are not archived in beta.
 
 ## How To Report Issues

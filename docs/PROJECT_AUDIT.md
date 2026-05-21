@@ -937,7 +937,14 @@ Recommended next step:
 # Beta testing feedback kit update - 2026-05-22
 
 - Added `docs/beta-testing/BETA_TESTING_GUIDE.md` to define the purpose, beta environment boundaries, test data safety rules, known limitations, and reporting expectations for controlled user testing.
+- Added `docs/beta-testing/BETA_ACCESS_MANAGEMENT.md` to document who should be invited, recommended 3-5 tester cohort size, safe role selection, invite flow, password reset, access revocation, organization labels, cleanup request handling, and what must not be shared.
 - Added `docs/beta-testing/BETA_TESTING_SCRIPT.md` with workflow steps for setup, dashboard, AR/customer flows, AP/supplier flows, manual bank statement import, reconciliation, inventory, document PDF/archive behavior, and reports.
 - Added `docs/beta-testing/BETA_FEEDBACK_FORM_TEMPLATE.md` and `docs/beta-testing/BETA_TRIAGE_GUIDE.md` so tester feedback can be captured with severity, route/page, workflow step, expected/actual behavior, screenshot reference, beta-blocking status, accounting correctness flags, and security/privacy/ZATCA wording flags.
 - Added GitHub issue templates for beta bug reports, accounting review findings, and UX feedback. The templates instruct reporters not to include secrets, real customer-sensitive data, production document data, PDF/document bodies, signed XML, QR payloads, or attachment bodies.
 - This is documentation and lightweight feedback workflow only. No accounting behavior, calculations, report math, ZATCA behavior, security configuration, Vercel environment, database schema, migration, seed/reset, real email, backup, restore, full smoke, or full E2E changed.
+
+# Beta access management update - 2026-05-22
+
+- `/settings/team` now shows beta access guidance for 3-5 selected testers, dummy data only, Viewer/scoped role defaults, internal-only Owner/Admin access, password reset instead of credential sharing, and suspension after testing.
+- `/settings/roles` and `/settings/roles/:id` now show beta role guidance without changing permission logic.
+- This is visible guidance only. No auth architecture, role enforcement, security config, Supabase RLS, Vercel environment, database schema, migration, seed/reset/delete, real email, real ZATCA, full smoke, or full E2E changed.

@@ -61,12 +61,14 @@ Examples:
 - Performance issue.
 - Mobile layout issue.
 - Security/privacy concern.
+- Beta access or role concern.
 - ZATCA/compliance wording concern.
 
 ## Priority Rules
 
 - Accounting correctness concerns get priority.
 - Security/privacy concerns get priority.
+- Beta access issues are high priority when a tester has too much access, cannot be revoked, or can see another organization.
 - ZATCA production wording claims are high priority.
 - Any copy implying PDF/A-3, CSID execution, clearance/reporting, real network submission, or production compliance is high priority.
 - Any copy implying live bank integration is high priority unless that feature is explicitly enabled in a later approved scope.
@@ -94,3 +96,4 @@ Examples:
 - Security runtime-role hardening remains parked until a safe Vercel environment mutation path is available.
 - Production ZATCA compliance is not enabled.
 - Manual bank statement import is file/paste based; live bank integration is not implemented.
+- Beta access management guidance exists, but access still needs to be handled manually through Team Members and Roles.

@@ -54,6 +54,22 @@ Remaining risks:
 - Accountant review remains pending and must not be treated as approval or certification.
 - Full smoke, full E2E, and runtime-role security hardening remain separate pending tasks.
 
+### Beta access management guidance added
+
+Prepared controlled beta access guidance and visible admin copy without changing auth architecture.
+
+Risk reduced:
+
+- Added `docs/beta-testing/BETA_ACCESS_MANAGEMENT.md` covering 3-5 tester intake, role selection, invite flow, password reset, revocation, beta organization labels, cleanup requests, and data safety rules.
+- Updated Team Members UI with beta access guidance and mobile-safe horizontal scrolling for the member table.
+- Updated Roles UI with beta role guidance that keeps Owner/Admin internal and recommends Viewer or scoped workflow roles for external testers.
+- Updated beta testing docs/readiness docs so access issues, role scope, and revocation are explicit.
+
+Remaining risks:
+
+- Actual tester invitations, sanitized feedback, accountant review, full smoke, full E2E, and runtime-role security hardening remain pending.
+- This does not add MFA, advanced session management, new permission logic, or production identity controls.
+
 ### Bank statement parser variants hardened
 
 Validated the manual OFX/CAMT/MT940 parser groundwork against additional sanitized common variants and documented a design-only raw statement-file archive policy.

@@ -998,6 +998,7 @@ Recommended next step:
 # Beta testing feedback kit roadmap update - 2026-05-22
 
 - Added `docs/beta-testing/` with a beta testing guide, step-by-step testing script, feedback form template, and triage guide for selected user-testing participants.
+- Added beta access management guidance for a 3-5 tester cohort, least-privilege role assignment, beta organization labels, password reset handling, and membership suspension after testing.
 - The tester script covers login/access, setup wizard, dashboard checklist, first customer, first invoice, invoice finalization, customer payment, customer ledger, AR report, supplier, purchase bill, supplier payment, supplier ledger/AP report, manual bank statement import preview, reconciliation review, inventory review, document PDF/archive review, and reports/dashboard review.
 - Added GitHub issue templates for beta bug reports, accounting review findings, and UX feedback with safety checks for secrets, real customer-sensitive data, production document data, PDF/document bodies, signed XML, and QR payloads.
-- Remaining beta-readiness work: run the script with selected testers, triage findings, complete accountant review, keep full smoke/full E2E as explicit validation tasks, and resume security runtime-role hardening when safe Vercel environment mutation is available.
+- Remaining beta-readiness work: invite the first selected testers, run the script, triage findings, complete accountant review, keep full smoke/full E2E as explicit validation tasks, and resume security runtime-role hardening when safe Vercel environment mutation is available.

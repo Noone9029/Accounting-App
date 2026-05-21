@@ -105,7 +105,7 @@ export default function TeamSettingsPage() {
     <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-semibold text-ink">Team Members</h1>
-        <p className="mt-1 text-sm text-steel">Manage organization member roles and account status.</p>
+        <p className="mt-1 text-sm text-steel">Manage organization member roles, mock invites, and account status.</p>
       </header>
 
       {!organizationId ? <StatusMessage type="info">Log in and select an organization to manage team members.</StatusMessage> : null}
@@ -114,6 +114,7 @@ export default function TeamSettingsPage() {
       {message ? <StatusMessage type="success">{message}</StatusMessage> : null}
 
       <StatusMessage type="info">Real email delivery is not configured yet. Invites are written to the mock email outbox.</StatusMessage>
+      <BetaAccessGuidance />
       {invitePreviewUrl ? (
         <StatusMessage type="info">
           Mock invite preview link:{" "}
@@ -172,8 +173,8 @@ export default function TeamSettingsPage() {
         </form>
       ) : null}
 
-      <section className="overflow-hidden rounded-md border border-slate-200 bg-white">
-        <div className="grid grid-cols-[1.4fr_1.5fr_220px_130px_140px] border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase text-slate-500">
+      <section aria-label="Team members table" className="overflow-x-auto rounded-md border border-slate-200 bg-white">
+        <div className="grid min-w-[920px] grid-cols-[1.4fr_1.5fr_220px_130px_140px] border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase text-slate-500">
           <div>Name</div>
           <div>Email</div>
           <div>Role</div>
@@ -181,7 +182,7 @@ export default function TeamSettingsPage() {
           <div>Joined</div>
         </div>
         {members.map((member) => (
-          <div key={member.id} className="grid grid-cols-[1.4fr_1.5fr_220px_130px_140px] items-center border-b border-slate-100 px-4 py-3 text-sm last:border-b-0">
+          <div key={member.id} className="grid min-w-[920px] grid-cols-[1.4fr_1.5fr_220px_130px_140px] items-center border-b border-slate-100 px-4 py-3 text-sm last:border-b-0">
             <div className="font-medium text-ink">{member.user.name}</div>
             <div className="text-steel">{member.user.email}</div>
             <div>
@@ -208,14 +209,19 @@ export default function TeamSettingsPage() {
             <div className="text-xs text-steel">{formatDate(member.createdAt)}</div>
             {canManage ? (
               <div className="col-span-5 mt-2 flex justify-end">
-                <button
-                  type="button"
-                  disabled={savingId === member.id}
-                  onClick={() => void updateStatus(member, member.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE")}
-                  className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {member.status === "ACTIVE" ? "Suspend" : "Reactivate"}
-                </button>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <span className="text-xs text-steel">
+                    {member.status === "ACTIVE" ? "Suspend after the beta session to revoke access." : "Reactivate only for another scheduled beta session."}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={savingId === member.id}
+                    onClick={() => void updateStatus(member, member.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE")}
+                    className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {member.status === "ACTIVE" ? "Suspend" : "Reactivate"}
+                  </button>
+                </div>
               </div>
             ) : null}
           </div>
@@ -223,6 +229,28 @@ export default function TeamSettingsPage() {
         {!loading && members.length === 0 ? <div className="px-4 py-6 text-sm text-steel">No members found.</div> : null}
       </section>
     </div>
+  );
+}
+
+export function BetaAccessGuidance() {
+  return (
+    <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+      <h2 className="font-semibold text-amber-950">Beta access guidance</h2>
+      <div className="mt-2 grid gap-3 md:grid-cols-3">
+        <p>
+          Start with 3-5 selected testers in a labeled beta/test organization. Use dummy customers, suppliers, bank files, and documents only.
+        </p>
+        <p>
+          Use Viewer for read-only review. Use Sales, Purchases, Accountant, or a custom role only when the tester must complete that workflow.
+        </p>
+        <p>
+          Keep Owner/Admin access internal. Suspend testers after the session, and use password reset rather than sharing credentials.
+        </p>
+      </div>
+      <p className="mt-3 text-xs leading-5">
+        User testing does not enable production ZATCA submission, real customer email sending by default, live bank feeds, or production data use.
+      </p>
+    </section>
   );
 }
 

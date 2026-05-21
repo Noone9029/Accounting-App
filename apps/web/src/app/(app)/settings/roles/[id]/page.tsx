@@ -105,6 +105,10 @@ export default function RoleDetailPage() {
       {message ? <StatusMessage type="success">{message}</StatusMessage> : null}
       {role?.isSystem ? <StatusMessage type="info">System/default roles are protected from editing and deletion.</StatusMessage> : null}
       {!canManage ? <StatusMessage type="info">Your role can view this matrix but cannot save role changes.</StatusMessage> : null}
+      <StatusMessage type="info">
+        For beta access, keep this role limited to the assigned testing script. Use Team Members to suspend testers after review, and do not use role changes to imply production
+        ZATCA, live bank feeds, or real email sending.
+      </StatusMessage>
 
       {role ? (
         <form onSubmit={saveRole} className="space-y-4">

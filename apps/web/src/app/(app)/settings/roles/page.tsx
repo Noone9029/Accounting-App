@@ -63,6 +63,7 @@ export default function RolesSettingsPage() {
       {!organizationId ? <StatusMessage type="info">Log in and select an organization to manage roles.</StatusMessage> : null}
       {loading ? <StatusMessage type="loading">Loading roles...</StatusMessage> : null}
       {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+      <BetaRoleGuidance />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {roles.map((role) => (
@@ -83,7 +84,9 @@ export default function RolesSettingsPage() {
         <form onSubmit={createRole} className="space-y-4 rounded-md border border-slate-200 bg-white p-4">
           <div>
             <h2 className="text-base font-semibold text-ink">Create Custom Role</h2>
-            <p className="mt-1 text-sm text-steel">Custom roles can be edited or deleted when no active members are assigned.</p>
+            <p className="mt-1 text-sm text-steel">
+              Custom roles can be edited or deleted when no active members are assigned. For beta testers, add only the workflow permissions needed for the testing script.
+            </p>
           </div>
           <label className="block text-sm">
             <span className="font-medium text-ink">Role name</span>
@@ -108,6 +111,22 @@ export default function RolesSettingsPage() {
         <StatusMessage type="info">Your role can view permission matrices but cannot create or edit roles.</StatusMessage>
       )}
     </div>
+  );
+}
+
+export function BetaRoleGuidance() {
+  return (
+    <section className="rounded-md border border-sky-200 bg-sky-50 p-4 text-sm text-sky-800">
+      <h2 className="font-semibold text-sky-950">Beta role guidance</h2>
+      <div className="mt-2 grid gap-3 md:grid-cols-3">
+        <p>Keep Owner/Admin roles for internal staff who manage access, settings, and revocation.</p>
+        <p>Use Viewer for accountant/readability review, or a scoped role such as Sales/Purchases for workflow testing in dummy data only.</p>
+        <p>Review roles before inviting testers, then suspend tester memberships from Team Members when the beta window ends.</p>
+      </div>
+      <p className="mt-3 text-xs leading-5">
+        Role changes do not enable real ZATCA submission, live bank feeds, production email sending, or production readiness.
+      </p>
+    </section>
   );
 }
 
