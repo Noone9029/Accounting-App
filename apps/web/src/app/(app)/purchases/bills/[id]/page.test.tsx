@@ -61,6 +61,8 @@ describe("purchase bill workflow guidance", () => {
       "href",
       "/purchases/debit-notes/new?billId=bill-1&supplierId=supplier-1",
     );
+    expect(screen.getByRole("button", { name: "Download purchase bill PDF" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
     expect(screen.getByRole("link", { name: "View supplier ledger" })).toHaveAttribute("href", "/contacts/supplier-1");
     expect(screen.getByRole("link", { name: "AP report" })).toHaveAttribute("href", "/reports/aged-payables");
   });

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
@@ -246,7 +247,7 @@ export default function SupplierPaymentDetailPage() {
           ) : null}
           {payment ? (
             <button type="button" onClick={() => void downloadReceiptPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-              Download receipt
+              Download receipt PDF
             </button>
           ) : null}
           {payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0 ? (
@@ -451,7 +452,7 @@ export default function SupplierPaymentDetailPage() {
               <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
                 <div>
                   <h2 className="text-base font-semibold text-ink">Receipt data preview</h2>
-                  <p className="mt-1 text-sm text-steel">Structured supplier payment receipt payload. Downloads are archived automatically.</p>
+                  <p className="mt-1 text-sm text-steel">Structured supplier payment receipt preview. Downloading the receipt stores a generated PDF archive record.</p>
                 </div>
                 <button type="button" onClick={() => void downloadReceiptPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
                   Download receipt PDF
@@ -539,7 +540,7 @@ export function SupplierPaymentWorkflowGuidance({
               disabled={actionLoading}
               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
             >
-              Download receipt
+              Download receipt PDF
             </button>
             <Link href={`/contacts/${payment.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
               View supplier ledger
@@ -556,6 +557,7 @@ export function SupplierPaymentWorkflowGuidance({
           {payment.status === "VOIDED" ? (
             <p className="mt-3 text-xs leading-5 text-steel">This supplier payment is voided. Review the reversal journal below if present before taking further action.</p>
           ) : null}
+          <SourceDocumentGuidance className="mt-4" />
         </div>
       </div>
     </div>

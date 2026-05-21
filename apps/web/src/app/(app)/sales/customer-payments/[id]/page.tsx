@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
@@ -443,7 +444,7 @@ export default function CustomerPaymentDetailPage() {
               <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 md:flex-row md:items-center md:justify-between">
                 <div>
                   <h2 className="text-base font-semibold text-ink">Receipt data preview</h2>
-                  <p className="mt-1 text-sm text-steel">Structured receipt payload for future PDF rendering. Downloads are archived automatically.</p>
+                  <p className="mt-1 text-sm text-steel">Structured receipt preview. Downloading the receipt stores a generated PDF archive record.</p>
                 </div>
                 <button type="button" onClick={() => void downloadReceiptPdf()} disabled={actionLoading} className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
                   Download receipt PDF
@@ -591,7 +592,7 @@ export function CustomerPaymentWorkflowGuidance({
               disabled={actionLoading}
               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
             >
-              Download receipt
+              Download receipt PDF
             </button>
             <Link href={`/contacts/${payment.customerId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
               View customer ledger
@@ -608,6 +609,7 @@ export function CustomerPaymentWorkflowGuidance({
           {payment.status === "VOIDED" ? (
             <p className="mt-3 text-xs leading-5 text-steel">This payment is voided. Review the reversal journal below if present before taking further action.</p>
           ) : null}
+          <SourceDocumentGuidance className="mt-4" />
         </div>
       </div>
     </div>

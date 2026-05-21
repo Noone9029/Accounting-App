@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { ComplianceNote, SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
@@ -395,7 +396,7 @@ export default function ContactDetailPage() {
                     {statementPdfLoading ? "Preparing..." : "Download statement PDF"}
                   </button>
                 </form>
-                <p className="mt-3 text-xs text-steel">Downloads are archived automatically.</p>
+                <CustomerStatementDocumentGuidance />
                 {statementError ? (
                   <div className="mt-3">
                     <StatusMessage type="error">{statementError}</StatusMessage>
@@ -450,6 +451,7 @@ export default function ContactDetailPage() {
                     {statementLoading ? "Loading..." : "Load supplier statement"}
                   </button>
                 </form>
+                <SupplierStatementDocumentGuidance />
                 {statementError ? (
                   <div className="mt-3">
                     <StatusMessage type="error">{statementError}</StatusMessage>
@@ -852,6 +854,22 @@ function Summary({ label, value }: { label: string; value: string }) {
     <div>
       <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
       <div className="mt-1 break-words font-medium text-ink">{value}</div>
+    </div>
+  );
+}
+
+export function CustomerStatementDocumentGuidance() {
+  return <SourceDocumentGuidance className="mt-3" />;
+}
+
+export function SupplierStatementDocumentGuidance() {
+  return (
+    <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs leading-5 text-steel">
+        Supplier statements are available for on-screen AP review in this beta. Supplier statement PDF export is not wired
+        on this route yet; use aged payables exports when a PDF report is needed.
+      </p>
+      <ComplianceNote className="mt-2" />
     </div>
   );
 }

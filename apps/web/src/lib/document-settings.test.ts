@@ -1,4 +1,4 @@
-import { buildDocumentSettingsPayload, isValidOptionalHexColor } from "./document-settings";
+import { buildDocumentSettingsPayload, documentTemplateDescription, documentTemplateLabel, isValidOptionalHexColor } from "./document-settings";
 
 describe("document settings helpers", () => {
   it("normalizes optional colors to null", () => {
@@ -27,5 +27,11 @@ describe("document settings helpers", () => {
     expect(isValidOptionalHexColor("")).toBe(true);
     expect(isValidOptionalHexColor("#111827")).toBe(true);
     expect(isValidOptionalHexColor("red")).toBe(false);
+  });
+
+  it("labels templates with plain-language descriptions", () => {
+    expect(documentTemplateLabel("standard")).toBe("Standard");
+    expect(documentTemplateLabel("compact")).toBe("Compact");
+    expect(documentTemplateDescription("detailed")).toContain("notes");
   });
 });

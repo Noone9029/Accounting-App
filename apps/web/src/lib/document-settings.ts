@@ -4,6 +4,18 @@ export const documentTemplateOptions = ["standard", "compact", "detailed"] as co
 
 export type DocumentTemplateOption = (typeof documentTemplateOptions)[number];
 
+const documentTemplateLabels: Record<DocumentTemplateOption, string> = {
+  standard: "Standard",
+  compact: "Compact",
+  detailed: "Detailed",
+};
+
+const documentTemplateDescriptions: Record<DocumentTemplateOption, string> = {
+  standard: "Balanced spacing for everyday invoices, receipts, and statements.",
+  compact: "Tighter spacing for shorter PDFs and dense line-item documents.",
+  detailed: "More room for notes, terms, payment summaries, and review details.",
+};
+
 export interface OrganizationDocumentSettingsForm {
   invoiceTitle: string;
   receiptTitle: string;
@@ -59,6 +71,14 @@ export function buildDocumentSettingsPayload(form: OrganizationDocumentSettingsF
 export function isValidOptionalHexColor(value: string): boolean {
   const trimmed = value.trim();
   return trimmed === "" || /^#[0-9a-fA-F]{6}$/.test(trimmed);
+}
+
+export function documentTemplateLabel(option: DocumentTemplateOption): string {
+  return documentTemplateLabels[option];
+}
+
+export function documentTemplateDescription(option: DocumentTemplateOption): string {
+  return documentTemplateDescriptions[option];
 }
 
 function nullableColor(value: string): string | null {

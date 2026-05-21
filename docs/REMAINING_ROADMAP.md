@@ -87,6 +87,15 @@ Recommended next prompt:
 - This pass did not add live bank feeds, external aggregation, OFX/CAMT/MT940 parsers, automatic matching, reconciliation logic changes, posting changes, migrations, seed/reset, full smoke, or full E2E.
 - Remaining banking work: real bank file samples, OFX/CAMT/MT940 parser design, optional raw-file archive policy, approval queue polish, transfer fees, and FX transfer handling.
 
+## 2026-05-21 Document and PDF UX polish
+
+- Invoice, customer payment receipt, credit note, purchase bill, supplier payment receipt, debit note, customer statement, supplier statement, generated archive, document settings, and number sequence surfaces now have clearer generated-document guidance.
+- Source-record document actions now use specific PDF labels and explain that generated downloads are archived for later review.
+- The generated archive now explains status, source labels, non-posting archived downloads, empty states, and links back to document settings and number sequences.
+- Document settings now describe what future PDFs are affected, that template choices are presentation-only, and that totals, VAT, posting data, and compliance status are unchanged.
+- Supplier statement PDF parity remains open; the beta supplier statement route now states it is on-screen AP review only and points users to aged payables exports when a PDF report is needed.
+- PDF/A-3, real ZATCA network submission, CSID execution, clearance/reporting, and production compliance remain unimplemented and clearly described as disabled.
+
 ## Phase 2: Finish Wafeq Core Accounting Modules
 
 Objective: complete core accounting modules expected in a serious SME accounting SaaS.

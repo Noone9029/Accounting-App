@@ -1,4 +1,4 @@
-import { documentTypeLabel, generatedDocumentStatusLabel } from "./documents";
+import { documentSourceTypeLabel, documentTypeLabel, generatedDocumentStatusBadgeClass, generatedDocumentStatusLabel } from "./documents";
 
 describe("document helpers", () => {
   it("labels report document types clearly", () => {
@@ -11,5 +11,11 @@ describe("document helpers", () => {
   it("labels generated document statuses", () => {
     expect(generatedDocumentStatusLabel("GENERATED")).toBe("Generated");
     expect(generatedDocumentStatusLabel("SUPERSEDED")).toBe("Superseded");
+    expect(generatedDocumentStatusBadgeClass("FAILED")).toContain("rose");
+  });
+
+  it("formats source type labels for archive rows", () => {
+    expect(documentSourceTypeLabel("CustomerStatement")).toBe("Customer Statement");
+    expect(documentSourceTypeLabel("PURCHASE_DEBIT_NOTE")).toBe("Purchase Debit Note");
   });
 });

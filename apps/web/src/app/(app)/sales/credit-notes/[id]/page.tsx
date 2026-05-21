@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
@@ -236,7 +237,7 @@ export default function CreditNoteDetailPage() {
         <div>
           <h1 className="text-2xl font-semibold text-ink">{creditNote ? creditNote.creditNoteNumber : "Credit note"}</h1>
           <p className="mt-1 text-sm text-steel">Credit note detail, reversal posting, and PDF download.</p>
-          {creditNote ? <p className="mt-1 text-xs text-steel">Downloads are archived automatically. ZATCA credit note XML is not implemented yet.</p> : null}
+          {creditNote ? <p className="mt-1 text-xs text-steel">Credit note PDF downloads create an archive record. ZATCA credit note XML is not implemented yet.</p> : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/sales/credit-notes" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -262,7 +263,7 @@ export default function CreditNoteDetailPage() {
           ) : null}
           {creditNote ? (
             <button type="button" onClick={() => void downloadCreditNotePdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-              Download PDF
+              Download credit note PDF
             </button>
           ) : null}
           {creditNote?.status === "DRAFT" && canFinalizeCreditNote ? (
@@ -472,6 +473,7 @@ export default function CreditNoteDetailPage() {
           <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
             ZATCA credit note XML, signing, PDF/A-3 embedding, and clearance/reporting are intentionally not implemented in this MVP.
           </div>
+          <SourceDocumentGuidance />
         </div>
       ) : null}
     </section>

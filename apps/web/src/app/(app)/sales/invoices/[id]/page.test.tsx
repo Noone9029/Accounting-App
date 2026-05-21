@@ -56,6 +56,8 @@ describe("invoice workflow guidance", () => {
     );
     expect(screen.getByRole("link", { name: "View customer ledger" })).toHaveAttribute("href", "/contacts/customer-1");
     expect(screen.getByRole("link", { name: "View report" })).toHaveAttribute("href", "/reports/profit-and-loss");
+    expect(screen.getByRole("button", { name: "Download invoice PDF" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
     expect(screen.getByText(/ZATCA status here is local\/readiness only/)).toBeInTheDocument();
     expect(screen.getByText(/production compliance are not enabled/)).toBeInTheDocument();
     expect(screen.queryByText(/production submission is connected/i)).not.toBeInTheDocument();

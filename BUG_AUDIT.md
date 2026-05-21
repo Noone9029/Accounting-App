@@ -2932,3 +2932,12 @@ Recommended next step:
 - `GET /system/backup-readiness` remains `productionReady=false`; missing evidence is still `POINT_IN_TIME_RECOVERY`, `OBJECT_STORAGE_BACKUP`, and `RPO_RTO_REVIEW`.
 - No bug was found or intentionally changed in ZATCA execution/network behavior, contact VAT/ID validation, dashboard summary concurrency hardening, or email retry/webhook/suppression behavior.
 - Recommended next step: verify hosted Supabase backup/PITR and S3-compatible object-storage backup/restore in a real non-production project, then capture sanitized evidence without exposing secrets or customer content.
+
+# Document/PDF UX polish update - 2026-05-21
+
+- Polished visible document/PDF guidance across source record detail pages, customer statement, supplier statement, generated archive, document settings, and number sequence settings.
+- Added shared UI copy that explains generated PDFs are archived, archived downloads do not post accounting entries or send data externally, and document settings affect future PDFs only.
+- Updated document action labels to be specific to invoice, receipt, purchase bill, debit note, credit note, and archived PDF downloads.
+- Added archive/settings/numbering links near document actions and richer archive empty states without changing APIs or accounting behavior.
+- Supplier statement PDF parity remains a product gap; the supplier statement route now states it is on-screen AP review only and points to aged payables exports for PDF reports.
+- No PDF totals, VAT/tax calculation, journal posting, accounting behavior, ZATCA signing/submission, PDF/A-3, CSID, clearance/reporting, migration, seed/reset/delete, full smoke, or full E2E changed.

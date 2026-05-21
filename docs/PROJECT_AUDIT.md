@@ -158,6 +158,16 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Existing storage behavior is preserved: `BankStatementImport` stores import metadata and `BankStatementTransaction` stores parsed rows/raw row metadata, while raw uploaded file bodies are not stored by this pass.
 - No live bank feed, external bank API, automatic matching, reconciliation matching logic, bank ledger math, journal posting behavior, report calculations, migrations, seed/reset/delete, full smoke, or full E2E changed.
 
+## 2026-05-21 Document and PDF UX polish
+
+- Generated document UX was polished across invoice, customer payment receipt, credit note, purchase bill, supplier payment receipt, debit note, contact statement, generated archive, document settings, and number sequence screens.
+- Added shared document guidance that explains source-record PDF downloads are archived, archived downloads are non-posting retrievals, and document settings affect future generated PDFs only.
+- Detail pages now use clearer PDF action labels, expose archive/settings/numbering links near document actions, and keep conservative compliance wording visible.
+- `/documents` now has readable source/status labels, a clearer archived-PDF download action, richer empty state, and guidance that archived retrievals do not post entries or send data outside LedgerByte.
+- `/settings/documents` now explains titles, colors, display toggles, and templates in plain language; templates remain presentation-density choices only.
+- Supplier statement PDF parity remains open. The supplier statement screen now states the beta route is on-screen AP review only and points to aged payables exports when a PDF report is needed.
+- No PDF renderer totals, tax math, accounting posting behavior, ZATCA signing/submission, PDF/A-3, CSID, clearance/reporting, migration, seed/reset/delete, full smoke, or full E2E changed.
+
 ## Audit Verification Commands
 
 - `corepack pnpm add -D @playwright/test -w`: passed.

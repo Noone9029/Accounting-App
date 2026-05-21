@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
@@ -469,7 +470,7 @@ export default function SalesInvoiceDetailPage() {
         <div>
           <h1 className="text-2xl font-semibold text-ink">{invoice ? invoice.invoiceNumber : "Sales invoice"}</h1>
           <p className="mt-1 text-sm text-steel">Invoice detail, calculated totals, and linked journal entry.</p>
-          {invoice ? <p className="mt-1 text-xs text-steel">Downloads are archived automatically.</p> : null}
+          {invoice ? <p className="mt-1 text-xs text-steel">Invoice PDF downloads create an archive record for later review.</p> : null}
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <Link href="/sales/invoices" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -487,7 +488,7 @@ export default function SalesInvoiceDetailPage() {
           ) : null}
           {invoice ? (
             <button type="button" onClick={() => void downloadInvoicePdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-              Download PDF
+              Download invoice PDF
             </button>
           ) : null}
           {invoice?.status === "FINALIZED" && invoice.customerId && canCreateCustomerPayment ? (
@@ -1285,7 +1286,7 @@ export function InvoiceWorkflowGuidance({
             disabled={actionLoading}
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
           >
-            Download PDF
+            Download invoice PDF
           </button>
           {invoice.customerId ? (
             <Link href={`/contacts/${invoice.customerId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -1310,9 +1311,7 @@ export function InvoiceWorkflowGuidance({
         {invoice.status === "VOIDED" ? (
           <p className="mt-3 text-xs leading-5 text-steel">Voided invoices are closed for payment. Review the reversal journal details below if present.</p>
         ) : null}
-        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-900">
-          ZATCA status here is local/readiness only. Real ZATCA network submission, CSID execution, clearance/reporting, PDF/A-3 generation, and production compliance are not enabled.
-        </div>
+        <SourceDocumentGuidance className="mt-4" />
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
@@ -198,7 +199,7 @@ export default function PurchaseBillDetailPage() {
           ) : null}
           {bill ? (
             <button type="button" onClick={() => void downloadBillPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-              Download PDF
+              Download purchase bill PDF
             </button>
           ) : null}
           {bill?.status === "DRAFT" && canFinalizeBill ? (
@@ -540,7 +541,7 @@ export function PurchaseBillWorkflowGuidance({
             disabled={actionLoading}
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
           >
-            Download PDF
+            Download purchase bill PDF
           </button>
           {bill.supplierId ? (
             <Link href={`/contacts/${bill.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -561,6 +562,7 @@ export function PurchaseBillWorkflowGuidance({
         {bill.status === "VOIDED" ? (
           <p className="mt-3 text-xs leading-5 text-steel">Voided bills are closed for supplier payments. Review reversal details below if present.</p>
         ) : null}
+        <SourceDocumentGuidance className="mt-4" />
       </div>
     </div>
   );

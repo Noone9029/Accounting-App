@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
@@ -263,7 +264,7 @@ export default function PurchaseDebitNoteDetailPage() {
           ) : null}
           {debitNote ? (
             <button type="button" onClick={() => void downloadDebitNotePdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-              Download PDF
+              Download debit note PDF
             </button>
           ) : null}
           {debitNote?.status === "DRAFT" && canFinalizeDebitNote ? (
@@ -557,7 +558,7 @@ export function PurchaseDebitNoteWorkflowGuidance({
             disabled={actionLoading}
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
           >
-            Download PDF
+            Download debit note PDF
           </button>
           <Link href={`/contacts/${debitNote.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
             View supplier ledger
@@ -580,6 +581,7 @@ export function PurchaseDebitNoteWorkflowGuidance({
         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-900">
           ZATCA handling here is local/readiness only. Real network submission, CSID execution, clearance/reporting, PDF/A-3 generation, and production compliance are not enabled.
         </div>
+        <SourceDocumentGuidance className="mt-4" />
       </div>
     </div>
   );

@@ -29,3 +29,22 @@ export function documentTypeLabel(type: DocumentType): string {
 export function generatedDocumentStatusLabel(status: GeneratedDocumentStatus): string {
   return status.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 }
+
+export function generatedDocumentStatusBadgeClass(status: GeneratedDocumentStatus): string {
+  switch (status) {
+    case "GENERATED":
+      return "bg-emerald-50 text-emerald-700";
+    case "FAILED":
+      return "bg-rose-50 text-rosewood";
+    case "SUPERSEDED":
+      return "bg-slate-100 text-slate-700";
+  }
+}
+
+export function documentSourceTypeLabel(sourceType: string): string {
+  return sourceType
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}

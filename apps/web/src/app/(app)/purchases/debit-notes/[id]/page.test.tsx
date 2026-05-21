@@ -53,6 +53,8 @@ describe("purchase debit note workflow guidance", () => {
     expect(screen.getByText("Unapplied debit")).toBeInTheDocument();
     expect(screen.getByText(/remaining unapplied amount can be applied to open bills/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View original bill" })).toHaveAttribute("href", "/purchases/bills/bill-1");
+    expect(screen.getByRole("button", { name: "Download debit note PDF" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
     expect(screen.getByRole("link", { name: "View supplier ledger" })).toHaveAttribute("href", "/contacts/supplier-1");
     expect(screen.getByRole("link", { name: "AP report" })).toHaveAttribute("href", "/reports/aged-payables");
     expect(screen.getByText(/ZATCA handling here is local\/readiness only/)).toBeInTheDocument();

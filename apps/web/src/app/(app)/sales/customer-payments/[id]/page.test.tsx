@@ -34,7 +34,8 @@ describe("customer payment workflow guidance", () => {
     expect(screen.getByText(/linked invoice balances were reduced/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View invoice" })).toHaveAttribute("href", "/sales/invoices/invoice-1");
     expect(screen.getByRole("link", { name: "View customer ledger" })).toHaveAttribute("href", "/contacts/customer-1");
-    expect(screen.getByRole("button", { name: "Download receipt" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Download receipt PDF" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
     expect(screen.getByRole("link", { name: "AR report" })).toHaveAttribute("href", "/reports/aged-receivables");
   });
 

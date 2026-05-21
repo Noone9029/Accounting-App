@@ -1,10 +1,12 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { StatusMessage } from "@/components/common/status-message";
+import { ArchiveDocumentGuidance } from "@/components/documents/document-guidance";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { documentTypeLabel, generatedDocumentStatusLabel } from "@/lib/documents";
+import { documentSourceTypeLabel, documentTypeLabel, generatedDocumentStatusBadgeClass, generatedDocumentStatusLabel } from "@/lib/documents";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { downloadPdf, generatedDocumentDownloadPath } from "@/lib/pdf-download";
 import type { DocumentType, GeneratedDocument, GeneratedDocumentStatus } from "@/lib/types";
@@ -89,9 +91,11 @@ export default function GeneratedDocumentsPage() {
     <section>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-ink">Documents</h1>
-        <p className="mt-1 text-sm text-steel">Generated PDF archive for invoices, receipts, customer statements, and report PDFs.</p>
-        <p className="mt-1 text-sm text-steel">Uploaded supporting attachments are managed on each source record.</p>
+        <p className="mt-1 text-sm text-steel">Generated PDF archive for invoices, receipts, statements, bills, debit notes, credit notes, and report PDFs.</p>
+        <p className="mt-1 text-sm text-steel">Uploaded supporting attachments stay on each source record; this page is for generated PDF outputs only.</p>
       </div>
+
+      <ArchiveDocumentGuidance />
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load generated documents.</StatusMessage> : null}
@@ -123,6 +127,9 @@ export default function GeneratedDocumentsPage() {
         <button type="submit" disabled={loading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
           Apply filters
         </button>
+        <p className="basis-full text-xs leading-5 text-steel">
+          Filter by document type or generation status. Failed rows mean PDF generation did not complete; retry from the source record after correcting the source data.
+        </p>
       </form>
 
       <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
@@ -145,13 +152,17 @@ export default function GeneratedDocumentsPage() {
                 <td className="px-4 py-3 text-steel">{documentTypeLabel(document.documentType)}</td>
                 <td className="px-4 py-3 font-mono text-xs">{document.documentNumber}</td>
                 <td className="px-4 py-3 font-medium text-ink">{document.filename}</td>
-                <td className="px-4 py-3 text-steel">{document.sourceType}</td>
-                <td className="px-4 py-3 text-steel">{generatedDocumentStatusLabel(document.status)}</td>
+                <td className="px-4 py-3 text-steel">{documentSourceTypeLabel(document.sourceType)}</td>
+                <td className="px-4 py-3">
+                  <span className={`rounded-md px-2 py-1 text-xs font-semibold ${generatedDocumentStatusBadgeClass(document.status)}`}>
+                    {generatedDocumentStatusLabel(document.status)}
+                  </span>
+                </td>
                 <td className="px-4 py-3 text-steel">{formatOptionalDate(document.generatedAt, "-")}</td>
                 <td className="px-4 py-3 font-mono text-xs">{formatBytes(document.sizeBytes)}</td>
                 <td className="px-4 py-3">
                   <button type="button" onClick={() => void downloadDocument(document)} disabled={downloadingId === document.id} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                    {downloadingId === document.id ? "Downloading..." : "Download"}
+                    {downloadingId === document.id ? "Downloading..." : "Download archived PDF"}
                   </button>
                 </td>
               </tr>
@@ -160,7 +171,20 @@ export default function GeneratedDocumentsPage() {
         </table>
         {documents.length === 0 && !loading ? (
           <div className="px-5 py-4">
-            <StatusMessage type="empty">No generated documents found.</StatusMessage>
+            <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
+              <StatusMessage type="empty">No generated documents found.</StatusMessage>
+              <p className="mt-3 text-sm leading-6 text-steel">
+                Generate a PDF from an invoice, payment receipt, bill, debit note, credit note, customer statement, or report to create the first archive record.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link href="/settings/documents" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                  Review document settings
+                </Link>
+                <Link href="/settings/number-sequences" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                  Review number sequences
+                </Link>
+              </div>
+            </div>
           </div>
         ) : null}
       </div>

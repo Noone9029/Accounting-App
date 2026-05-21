@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
-import { CustomerLedgerGuidance, LedgerTable, SupplierLedgerGuidance } from "./page";
+import { CustomerLedgerGuidance, CustomerStatementDocumentGuidance, LedgerTable, SupplierLedgerGuidance, SupplierStatementDocumentGuidance } from "./page";
 import type { CustomerLedgerRow, SupplierLedgerRow } from "@/lib/types";
 
 jest.mock("next/link", () => ({
@@ -77,6 +77,21 @@ describe("customer ledger drill-down guidance", () => {
     expect(screen.getByText(/posted supplier ledger rows exactly/)).toBeInTheDocument();
     expect(screen.getAllByText("Supplier payment").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: "View payment" })).toHaveAttribute("href", "/purchases/supplier-payments/supplier-payment-1");
+  });
+
+  it("explains customer statement PDF archive behavior", () => {
+    render(<CustomerStatementDocumentGuidance />);
+
+    expect(screen.getByText(/PDF downloads from source records are archived automatically/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
+  });
+
+  it("keeps supplier statement export wording honest for beta", () => {
+    render(<SupplierStatementDocumentGuidance />);
+
+    expect(screen.getByText(/Supplier statement PDF export is not wired/)).toBeInTheDocument();
+    expect(screen.getByText(/production compliance are not enabled/)).toBeInTheDocument();
+    expect(screen.queryByText(/production submission is connected/i)).not.toBeInTheDocument();
   });
 });
 

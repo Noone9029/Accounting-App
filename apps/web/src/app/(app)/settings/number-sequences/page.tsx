@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
@@ -126,6 +127,22 @@ export default function NumberSequencesPage() {
         <p className="mt-1 text-sm text-steel">Review and safely edit future document numbering prefixes, next numbers, and padding.</p>
       </div>
 
+      <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+        <h2 className="text-base font-semibold text-ink">Numbering safety</h2>
+        <p className="mt-2 text-sm leading-6 text-steel">
+          Sequence changes affect future generated documents only. Existing invoices, receipts, statements, bills, debit
+          notes, credit notes, and archived PDFs keep the numbers they already received.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link href="/documents" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Open generated archive
+          </Link>
+          <Link href="/settings/documents" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Document settings
+          </Link>
+        </div>
+      </div>
+
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to view number sequences.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading number sequences...</StatusMessage> : null}
@@ -177,7 +194,7 @@ export default function NumberSequencesPage() {
                 {!loading && sequences.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-sm text-steel">
-                      No number sequences found for this organization.
+                      No number sequences found for this organization. Create or generate documents after setup to review numbering here.
                     </td>
                   </tr>
                 ) : null}
