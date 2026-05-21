@@ -903,9 +903,9 @@ function dashboardSummary() {
       balanceSheetBalanced: true,
     },
     trends: {
-      monthlySales: [{ period: "2026-05", amount: "1150.0000" }],
-      monthlyPurchases: [{ period: "2026-05", amount: "920.0000" }],
-      monthlyNetProfit: [{ period: "2026-05", amount: "230.0000" }],
+      monthlySales: [{ month: "2026-05", amount: "1150.0000" }],
+      monthlyPurchases: [{ month: "2026-05", amount: "920.0000" }],
+      monthlyNetProfit: [{ month: "2026-05", amount: "230.0000" }],
       cashBalanceTrend: [{ date: "2026-05-21", balance: "1650.0000" }],
     },
     aging: {

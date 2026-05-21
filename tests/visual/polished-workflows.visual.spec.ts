@@ -7,6 +7,9 @@ const widths = [
   { name: "mobile", width: 390, height: 900 },
 ] as const;
 
+const visualConsoleMessages = new WeakMap<Page, string[]>();
+const reactKeyWarningPattern = /Each child in a list should have a unique "key" prop/i;
+
 const criticalRoutes: VisualRoute[] = [
   { slug: "setup", path: "/setup", heading: /Guided setup/i, guidance: /Complete business profile/i },
   { slug: "dashboard", path: "/dashboard", heading: /Dashboard/i, guidance: /Business overview/i },
@@ -41,8 +44,19 @@ const assertionOnlyRoutes: VisualRoute[] = [
 ];
 
 test.beforeEach(async ({ page }) => {
+  const messages: string[] = [];
+  visualConsoleMessages.set(page, messages);
+  page.on("console", (message) => {
+    if ((message.type() === "warning" || message.type() === "error") && reactKeyWarningPattern.test(message.text())) {
+      messages.push(`${message.type()}: ${message.text()}`);
+    }
+  });
   await installVisualApiMocks(page);
   await primeVisualSession(page);
+});
+
+test.afterEach(async ({ page }) => {
+  expect(visualConsoleMessages.get(page) ?? [], "Visual routes should not emit React key warnings.").toEqual([]);
 });
 
 for (const route of criticalRoutes) {
