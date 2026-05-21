@@ -35,6 +35,9 @@ import {
   inventorySettingsLabel,
   inventorySettingsWarnings,
   inventoryValuationWarningText,
+  itemStatusBadgeClass,
+  itemStatusLabel,
+  itemTypeLabel,
   missingInventoryAccountMappingWarnings,
   canVoidPostedStockDocument,
   hasRemainingInventoryQuantity,
@@ -74,6 +77,15 @@ describe("inventory helpers", () => {
     expect(warehouseStatusLabel("ARCHIVED")).toBe("Archived");
     expect(warehouseStatusBadgeClass("ACTIVE")).toContain("emerald");
     expect(warehouseStatusBadgeClass("ARCHIVED")).toContain("slate");
+  });
+
+  it("labels inventory item types and statuses", () => {
+    expect(itemTypeLabel("PRODUCT")).toBe("Product");
+    expect(itemTypeLabel("SERVICE")).toBe("Service");
+    expect(itemStatusLabel("ACTIVE")).toBe("Active");
+    expect(itemStatusLabel("DISABLED")).toBe("Disabled");
+    expect(itemStatusBadgeClass("ACTIVE")).toContain("emerald");
+    expect(itemStatusBadgeClass("DISABLED")).toContain("slate");
   });
 
   it("identifies stock movement direction", () => {

@@ -138,10 +138,10 @@ export default function PurchaseReceiptDetailPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">{receipt?.receiptNumber ?? "Purchase receipt"}</h1>
-          <p className="mt-1 text-sm text-steel">Receipt detail and linked operational stock movements.</p>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Receipt detail and linked operational stock movements.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/inventory/purchase-receipts" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -167,6 +167,17 @@ export default function PurchaseReceiptDetailPage() {
       {receipt ? (
         <div className="mt-5 space-y-5">
           <AttachmentPanel linkedEntityType="PURCHASE_RECEIPT" linkedEntityId={receipt.id} />
+          <PurchaseReceiptWorkflowGuidance
+            receipt={receipt}
+            preview={preview}
+            canVoid={canVoid}
+            canPostAsset={canPostAsset}
+            canReverseAsset={canReverseAsset}
+            onVoid={() => void voidReceipt()}
+            onPostAsset={() => void postInventoryAsset()}
+            onReverseAsset={() => void reverseInventoryAsset()}
+            actionLoading={voiding || postingAsset || reversingAsset}
+          />
 
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
@@ -249,6 +260,107 @@ function Movement({ line, kind }: { line: PurchaseReceiptLine; kind: "stockMovem
     </div>
   ) : (
     <span className="text-steel">-</span>
+  );
+}
+
+export function PurchaseReceiptWorkflowGuidance({
+  receipt,
+  preview,
+  canVoid,
+  canPostAsset,
+  canReverseAsset,
+  onVoid,
+  onPostAsset,
+  onReverseAsset,
+  actionLoading,
+}: {
+  receipt: PurchaseReceipt;
+  preview: PurchaseReceiptAccountingPreview | null;
+  canVoid: boolean;
+  canPostAsset: boolean;
+  canReverseAsset: boolean;
+  onVoid: () => void;
+  onPostAsset: () => void;
+  onReverseAsset: () => void;
+  actionLoading: boolean;
+}) {
+  const isPosted = receipt.status === "POSTED";
+  const isVoided = receipt.status === "VOIDED";
+  const showPostAsset = preview ? canShowPostReceiptAssetAction(preview, canPostAsset) : false;
+  const showReverseAsset = preview ? canShowReverseReceiptAssetAction(preview, canReverseAsset) : false;
+  const warehouseLabel = receipt.warehouse ? `${receipt.warehouse.code} ${receipt.warehouse.name}` : "the receiving warehouse";
+
+  return (
+    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-semibold text-ink">What happened?</h2>
+            <span className={`rounded-md px-2 py-1 text-xs font-medium ${stockDocumentStatusBadgeClass(receipt.status)}`}>
+              {stockDocumentStatusLabel(receipt.status)}
+            </span>
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div>
+              <p className="font-semibold text-ink">Stock movement</p>
+              <p className="mt-1">
+                {isVoided
+                  ? "This receipt was voided, so reversal movements should offset the original stock increase."
+                  : `This receipt increases stock in ${warehouseLabel} when posted.`}
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-ink">Accounting boundary</p>
+              <p className="mt-1">Inventory asset accounting is manual only and appears through the explicit posting action when the receipt is eligible.</p>
+            </div>
+            <div>
+              <p className="font-semibold text-ink">Where to inspect</p>
+              <p className="mt-1">Use the line table for item quantities, stock movement IDs, void movements, and clearing reconciliation status.</p>
+            </div>
+          </div>
+          {!isPosted ? <p className="mt-3 text-xs leading-5 text-emerald-900">Voided receipts stay available for audit but should not be used as current stock activity.</p> : null}
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
+          {isPosted && canVoid ? (
+            <button
+              type="button"
+              disabled={actionLoading}
+              onClick={onVoid}
+              className="rounded-md border border-rose-300 bg-white px-3 py-2 text-center text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              Void receipt
+            </button>
+          ) : null}
+          {showPostAsset ? (
+            <button type="button" disabled={actionLoading} onClick={onPostAsset} className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark disabled:cursor-not-allowed disabled:bg-slate-400">
+              Post asset journal
+            </button>
+          ) : null}
+          {showReverseAsset ? (
+            <button
+              type="button"
+              disabled={actionLoading}
+              onClick={onReverseAsset}
+              className="rounded-md border border-rose-300 bg-white px-3 py-2 text-center text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              Reverse asset journal
+            </button>
+          ) : null}
+          <Link href={`/inventory/warehouses/${receipt.warehouseId}`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            View warehouse
+          </Link>
+          <Link href="/inventory/stock-movements" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Stock movements
+          </Link>
+          <Link href="/inventory/reports/movement-summary" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Inventory report
+          </Link>
+          <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Dashboard
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }
 

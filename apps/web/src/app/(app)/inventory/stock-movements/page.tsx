@@ -91,19 +91,20 @@ export default function StockMovementsPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Stock movements</h1>
-          <p className="mt-1 text-sm text-steel">Operational stock ledger entries from opening balances, approvals, transfers, and voids.</p>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Operational stock ledger entries from opening balances, approvals, transfers, and voids.</p>
         </div>
         {canCreate ? (
-          <Link href="/inventory/stock-movements/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+          <Link href="/inventory/stock-movements/new" className="self-start rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
             New movement
           </Link>
         ) : null}
       </div>
 
       <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
+      <StockMovementLedgerGuidance canCreate={canCreate} />
 
       <form onSubmit={updateFilters} className="mb-5 grid grid-cols-1 gap-3 rounded-md border border-slate-200 bg-white p-5 shadow-panel md:grid-cols-6">
         <input name="itemId" placeholder="Item ID" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
@@ -127,7 +128,27 @@ export default function StockMovementsPage() {
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load stock movements.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading stock movements...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {!loading && organizationId && movements.length === 0 ? <StatusMessage type="empty">No stock movements found.</StatusMessage> : null}
+        {!loading && organizationId && movements.length === 0 ? (
+          <div className="rounded-md border border-dashed border-slate-300 bg-white p-5 text-sm shadow-panel">
+            <h2 className="font-semibold text-ink">No stock movements found.</h2>
+            <p className="mt-2 max-w-3xl leading-6 text-steel">
+              Stock movements appear after opening balances, purchase receipts, sales stock issues, approved adjustments, warehouse transfers, or void reversals.
+            </p>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              {canCreate ? (
+                <Link href="/inventory/stock-movements/new" className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
+                  Add opening movement
+                </Link>
+              ) : null}
+              <Link href="/inventory/adjustments/new" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Create adjustment
+              </Link>
+              <Link href="/inventory/transfers/new" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Create transfer
+              </Link>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {movements.length > 0 ? (
@@ -165,5 +186,47 @@ export default function StockMovementsPage() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+export function StockMovementLedgerGuidance({ canCreate }: { canCreate: boolean }) {
+  return (
+    <div className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-ink">How to read the stock ledger</h2>
+          <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div>
+              <p className="font-semibold text-ink">Direction</p>
+              <p className="mt-1">In increases on-hand quantity. Out decreases on-hand quantity for the item and warehouse shown.</p>
+            </div>
+            <div>
+              <p className="font-semibold text-ink">References</p>
+              <p className="mt-1">Receipts, issues, adjustments, transfers, and voids leave separate movement rows instead of rewriting history.</p>
+            </div>
+            <div>
+              <p className="font-semibold text-ink">Cost fields</p>
+              <p className="mt-1">Unit cost is operational and may be blank until cost data is available. It is not a financial posting by itself.</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
+          {canCreate ? (
+            <Link href="/inventory/stock-movements/new" className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
+              New movement
+            </Link>
+          ) : null}
+          <Link href="/inventory/balances" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Balances
+          </Link>
+          <Link href="/inventory/reports/movement-summary" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Movement report
+          </Link>
+          <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Dashboard
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }

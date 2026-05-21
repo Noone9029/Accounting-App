@@ -17,6 +17,8 @@ import type {
   InventoryVarianceProposalAccountingPreview,
   InventoryVarianceProposalStatus,
   InventoryVarianceReason,
+  ItemStatus,
+  ItemType,
   PurchaseBillInventoryPostingMode,
   PurchaseReceiptAccountingPreview,
   PurchaseReceiptPostingReadiness,
@@ -70,7 +72,19 @@ export function inventoryBalanceDisplay(balance: Pick<InventoryBalance, "quantit
 }
 
 export function inventoryOperationalWarning(): string {
-  return "Inventory movements are operational only in this MVP and do not post GL, COGS, inventory asset, or financial statement entries.";
+  return "Inventory quantities are operational in this beta. Financial inventory journals are created only through the explicit manual posting actions shown on eligible pages.";
+}
+
+export function itemTypeLabel(type: ItemType): string {
+  return type === "PRODUCT" ? "Product" : "Service";
+}
+
+export function itemStatusLabel(status: ItemStatus): string {
+  return status === "ACTIVE" ? "Active" : "Disabled";
+}
+
+export function itemStatusBadgeClass(status: ItemStatus): string {
+  return status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600";
 }
 
 export function inventoryAccountingWarnings(): string[] {

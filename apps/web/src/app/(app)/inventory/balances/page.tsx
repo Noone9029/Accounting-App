@@ -60,12 +60,12 @@ export default function InventoryBalancesPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Inventory balances</h1>
-          <p className="mt-1 text-sm text-steel">Operational quantity on hand by tracked item and warehouse.</p>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Operational quantity on hand by tracked item and warehouse.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap md:justify-end">
           <Link href="/inventory/reports/stock-valuation" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Stock valuation
           </Link>
@@ -86,12 +86,35 @@ export default function InventoryBalancesPage() {
       </div>
 
       <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
+      <InventoryBalanceGuidance canCreateAdjustment={canCreateAdjustment} canCreateTransfer={canCreateTransfer} />
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load inventory balances.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading inventory balances...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {!loading && organizationId && balances.length === 0 ? <StatusMessage type="empty">No inventory balances found.</StatusMessage> : null}
+        {!loading && organizationId && balances.length === 0 ? (
+          <div className="rounded-md border border-dashed border-slate-300 bg-white p-5 text-sm shadow-panel">
+            <h2 className="font-semibold text-ink">No inventory balances found.</h2>
+            <p className="mt-2 max-w-3xl leading-6 text-steel">
+              Add a tracked item, then receive stock, approve an adjustment, or transfer stock into a warehouse to create an on-hand balance.
+            </p>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <Link href="/items" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+                View items
+              </Link>
+              {canCreateAdjustment ? (
+                <Link href="/inventory/adjustments/new" className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
+                  Create adjustment
+                </Link>
+              ) : null}
+              {canCreateTransfer ? (
+                <Link href="/inventory/transfers/new" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+                  Create transfer
+                </Link>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {Object.keys(totalsByItem).length > 0 ? (
@@ -142,5 +165,49 @@ export default function InventoryBalancesPage() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+export function InventoryBalanceGuidance({ canCreateAdjustment, canCreateTransfer }: { canCreateAdjustment: boolean; canCreateTransfer: boolean }) {
+  return (
+    <div className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-ink">How to read balances</h2>
+          <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div>
+              <p className="font-semibold text-ink">Quantity on hand</p>
+              <p className="mt-1">The current operational stock quantity for each tracked item in each warehouse.</p>
+            </div>
+            <div>
+              <p className="font-semibold text-ink">Average unit cost</p>
+              <p className="mt-1">A moving-average operational estimate. Blank values mean cost data is not complete yet.</p>
+            </div>
+            <div>
+              <p className="font-semibold text-ink">Inventory value</p>
+              <p className="mt-1">An estimate for stock review, not a financial statement value unless explicitly posted through manual accounting actions.</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
+          {canCreateAdjustment ? (
+            <Link href="/inventory/adjustments/new" className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
+              Create adjustment
+            </Link>
+          ) : null}
+          {canCreateTransfer ? (
+            <Link href="/inventory/transfers/new" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+              Create transfer
+            </Link>
+          ) : null}
+          <Link href="/inventory/stock-movements" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Stock movements
+          </Link>
+          <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Dashboard
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }

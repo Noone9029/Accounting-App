@@ -37,6 +37,24 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Inventory drill-down UX polished
+
+Added visible guidance around inventory items, warehouses, purchase receipts, sales stock issues, adjustments, transfers, stock movements, balances, and inventory reports without changing inventory posting behavior.
+
+Risk reduced:
+
+- Item and warehouse pages now explain tracked products, warehouse quantity movement, quantity in/out, operational cost/value estimates, and next actions.
+- Purchase receipt and sales stock issue details now explain posted/voided stock effects, linked movement IDs, manual receipt-asset/COGS posting boundaries, and inventory report navigation.
+- Inventory adjustment and warehouse transfer details now explain draft/approval, source/destination movement, void/reversal rows, and stock ledger inspection.
+- Inventory movement, balance, stock valuation, movement summary, and low-stock reports now include plain-language guidance, empty states, next-action links, and mobile-safe layouts.
+- Browser QA covered 14 inventory/report routes at desktop/tablet/mobile widths with no document overflow, console/page errors, request failures, or unknown mocked API calls.
+
+Remaining risks:
+
+- Inventory valuation/COGS/accounting behavior was intentionally unchanged; landed cost, FIFO/cost-layer design, serial/batch tracking, returns workflow, and automatic posting policy remain future work.
+- Full smoke and full E2E remain intentionally pending from earlier deployment work.
+- Supabase RLS and least-privilege runtime role hardening remain parked until the safe Vercel env mutation path is available.
+
 ### Banking reconciliation UX polished
 
 Added visible guidance around bank account, transfer, statement import, statement transaction, reconciliation summary, and reconciliation detail pages without changing banking posting behavior.

@@ -90,10 +90,10 @@ export default function WarehouseTransferDetailPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">{transfer?.transferNumber ?? "Warehouse transfer"}</h1>
-          <p className="mt-1 text-sm text-steel">Transfer state and linked stock movements.</p>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Transfer state and linked stock movements.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/inventory/transfers" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -119,6 +119,12 @@ export default function WarehouseTransferDetailPage() {
       {transfer ? (
         <div className="mt-5 space-y-5">
           <AttachmentPanel linkedEntityType="WAREHOUSE_TRANSFER" linkedEntityId={transfer.id} />
+          <WarehouseTransferWorkflowGuidance
+            transfer={transfer}
+            canVoid={canVoid}
+            actionLoading={voiding}
+            onVoid={() => void voidTransfer()}
+          />
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <SummaryCard label="Quantity" value={formatInventoryQuantity(transfer.quantity)} />
@@ -173,6 +179,82 @@ function Detail({ label, value }: { label: string; value: string }) {
     <div>
       <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
       <p className="mt-1 text-sm text-ink">{value}</p>
+    </div>
+  );
+}
+
+export function WarehouseTransferWorkflowGuidance({
+  transfer,
+  canVoid,
+  actionLoading,
+  onVoid,
+}: {
+  transfer: WarehouseTransfer;
+  canVoid: boolean;
+  actionLoading: boolean;
+  onVoid: () => void;
+}) {
+  const itemLabel = transfer.item ? `${transfer.item.name}${transfer.item.sku ? ` (${transfer.item.sku})` : ""}` : "the selected item";
+  const fromLabel = transfer.fromWarehouse ? `${transfer.fromWarehouse.code} ${transfer.fromWarehouse.name}` : "the source warehouse";
+  const toLabel = transfer.toWarehouse ? `${transfer.toWarehouse.code} ${transfer.toWarehouse.name}` : "the destination warehouse";
+
+  return (
+    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-semibold text-ink">What happened?</h2>
+            <span className={`rounded-md px-2 py-1 text-xs font-medium ${warehouseTransferStatusBadgeClass(transfer.status)}`}>
+              {warehouseTransferStatusLabel(transfer.status)}
+            </span>
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div>
+              <p className="font-semibold text-ink">Source warehouse</p>
+              <p className="mt-1">
+                Posted transfer decreases {itemLabel} in {fromLabel}.
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-ink">Destination warehouse</p>
+              <p className="mt-1">
+                The same quantity increases in {toLabel}, keeping total organization stock unchanged.
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-ink">Void/reversal</p>
+              <p className="mt-1">Voiding creates opposite source and destination movements. It does not delete the original transfer history.</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
+          {canVoid && canVoidWarehouseTransfer(transfer.status) ? (
+            <button
+              type="button"
+              disabled={actionLoading}
+              onClick={onVoid}
+              className="rounded-md border border-rose-300 bg-white px-3 py-2 text-center text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              Void transfer
+            </button>
+          ) : null}
+          <Link href={`/inventory/warehouses/${transfer.fromWarehouseId}`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Source warehouse
+          </Link>
+          <Link href={`/inventory/warehouses/${transfer.toWarehouseId}`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Destination warehouse
+          </Link>
+          <Link href="/inventory/stock-movements" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Stock movements
+          </Link>
+          <Link href="/inventory/reports/movement-summary" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Inventory report
+          </Link>
+          <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Dashboard
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

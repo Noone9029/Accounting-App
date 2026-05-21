@@ -39,6 +39,9 @@ const reportLinks = [
   { href: "/reports/vat-summary", label: "VAT Summary", description: "Review posted VAT account movement before filing work." },
   { href: "/reports/aged-receivables", label: "Aged Receivables", description: "See customer invoice balances after payments and credits." },
   { href: "/reports/aged-payables", label: "Aged Payables", description: "See supplier bill balances by overdue bucket." },
+  { href: "/inventory/reports/movement-summary", label: "Inventory Movement", description: "Trace stock in, stock out, and closing quantity by item and warehouse." },
+  { href: "/inventory/reports/stock-valuation", label: "Stock Valuation", description: "Review moving-average operational stock value estimates." },
+  { href: "/inventory/reports/low-stock", label: "Low Stock", description: "Find tracked items at or below reorder point." },
 ];
 
 type AgingReportKind = "receivables" | "payables";

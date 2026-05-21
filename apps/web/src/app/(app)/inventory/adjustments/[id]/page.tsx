@@ -127,10 +127,10 @@ export default function InventoryAdjustmentDetailPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">{adjustment?.adjustmentNumber ?? "Inventory adjustment"}</h1>
-          <p className="mt-1 text-sm text-steel">Adjustment approval state and linked stock movement.</p>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Adjustment approval state and linked stock movement.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/inventory/adjustments" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -171,6 +171,14 @@ export default function InventoryAdjustmentDetailPage() {
       {adjustment ? (
         <div className="mt-5 space-y-5">
           <AttachmentPanel linkedEntityType="INVENTORY_ADJUSTMENT" linkedEntityId={adjustment.id} />
+          <InventoryAdjustmentWorkflowGuidance
+            adjustment={adjustment}
+            canApprove={canApprove}
+            canVoid={canVoid}
+            actionLoading={Boolean(actionId)}
+            onApprove={() => void approveAdjustment()}
+            onVoid={() => void voidAdjustment()}
+          />
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <SummaryCard label="Status" value={inventoryAdjustmentStatusLabel(adjustment.status)} />
@@ -223,6 +231,85 @@ function Detail({ label, value }: { label: string; value: string }) {
     <div>
       <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
       <p className="mt-1 text-sm text-ink">{value}</p>
+    </div>
+  );
+}
+
+export function InventoryAdjustmentWorkflowGuidance({
+  adjustment,
+  canApprove,
+  canVoid,
+  actionLoading,
+  onApprove,
+  onVoid,
+}: {
+  adjustment: InventoryAdjustment;
+  canApprove: boolean;
+  canVoid: boolean;
+  actionLoading: boolean;
+  onApprove: () => void;
+  onVoid: () => void;
+}) {
+  const direction = adjustment.type === "INCREASE" ? "adds stock to" : "removes stock from";
+  const warehouseLabel = adjustment.warehouse ? `${adjustment.warehouse.code} ${adjustment.warehouse.name}` : "the selected warehouse";
+
+  return (
+    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-semibold text-ink">What happened?</h2>
+            <span className={`rounded-md px-2 py-1 text-xs font-medium ${inventoryAdjustmentStatusBadgeClass(adjustment.status)}`}>
+              {inventoryAdjustmentStatusLabel(adjustment.status)}
+            </span>
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div>
+              <p className="font-semibold text-ink">Draft vs approved</p>
+              <p className="mt-1">Draft adjustments do not move stock. Approval creates the operational stock movement.</p>
+            </div>
+            <div>
+              <p className="font-semibold text-ink">Quantity effect</p>
+              <p className="mt-1">
+                This {inventoryAdjustmentTypeLabel(adjustment.type).toLowerCase()} adjustment {direction} {warehouseLabel}.
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-ink">Void/reversal</p>
+              <p className="mt-1">Voiding an approved adjustment creates a linked reversal movement and keeps the original row visible for audit.</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
+          {canApprove && canApproveInventoryAdjustment(adjustment.status) ? (
+            <button type="button" disabled={actionLoading} onClick={onApprove} className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark disabled:cursor-not-allowed disabled:bg-slate-400">
+              Approve adjustment
+            </button>
+          ) : null}
+          {canVoid && canVoidInventoryAdjustment(adjustment.status) ? (
+            <button
+              type="button"
+              disabled={actionLoading}
+              onClick={onVoid}
+              className="rounded-md border border-rose-300 bg-white px-3 py-2 text-center text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              Void adjustment
+            </button>
+          ) : null}
+          <Link href={`/inventory/warehouses/${adjustment.warehouseId}`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            View warehouse
+          </Link>
+          <Link href="/inventory/stock-movements" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Stock movements
+          </Link>
+          <Link href="/inventory/reports/movement-summary" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Inventory report
+          </Link>
+          <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Dashboard
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

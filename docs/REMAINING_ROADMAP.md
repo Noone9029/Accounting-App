@@ -69,6 +69,16 @@ Recommended next prompt:
 - Remaining banking work: no live feeds, external bank APIs, automatic matching, OFX/CAMT/MT940 parser, transfer fees, or FX transfer handling. Next functional banking work should start with file-format/parser groundwork and storage design, not live bank integration.
 - Remaining UX work: inventory workflow QA, visual regression coverage, bank statement file samples, parser/import storage design, and accountant review of reconciliation terminology.
 
+## 2026-05-21 Inventory drill-down UX
+
+- Inventory item, warehouse, stock movement, balance, purchase receipt, sales stock issue, adjustment, transfer, movement report, valuation report, low-stock report, and reports landing surfaces now include visible workflow guidance.
+- Purchase receipt and sales stock issue details now explain stock increases/decreases, linked movements, void/reversal behavior, and the explicit manual-only boundaries for receipt asset and COGS journal posting.
+- Adjustment and transfer details now explain draft/approval, source/destination movement, reversal rows, and where to inspect the stock ledger.
+- Inventory reports now explain opening/inbound/outbound/closing quantity, moving-average operational valuation, low-stock planning alerts, and next actions without changing report calculations.
+- Browser QA covered inventory routes at desktop, tablet, and mobile widths with mocked API responses and no document overflow, console/page errors, request failures, or unknown mocked API calls.
+- Remaining inventory work: landed-cost policy, FIFO/cost-layer design, serial/batch tracking, returns workflow, accountant review of operational valuation wording, and any automatic posting design only after explicit accounting policy review.
+- Remaining UX work: add visual regression coverage and continue route QA only where specific user-facing defects are found.
+
 ## Phase 2: Finish Wafeq Core Accounting Modules
 
 Objective: complete core accounting modules expected in a serious SME accounting SaaS.

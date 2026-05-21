@@ -130,10 +130,10 @@ export default function SalesStockIssueDetailPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">{issue?.issueNumber ?? "Sales stock issue"}</h1>
-          <p className="mt-1 text-sm text-steel">Issue detail and linked operational stock movements.</p>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Issue detail and linked operational stock movements.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/inventory/sales-stock-issues" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -159,6 +159,17 @@ export default function SalesStockIssueDetailPage() {
       {issue ? (
         <div className="mt-5 space-y-5">
           <AttachmentPanel linkedEntityType="SALES_STOCK_ISSUE" linkedEntityId={issue.id} />
+          <SalesStockIssueWorkflowGuidance
+            issue={issue}
+            preview={preview}
+            canVoid={canVoid}
+            canPostCogs={canPostCogs}
+            canReverseCogs={canReverseCogs}
+            onVoid={() => void voidIssue()}
+            onPostCogs={() => void postCogs()}
+            onReverseCogs={() => void reverseCogs()}
+            actionLoading={voiding || postingCogs || reversingCogs}
+          />
 
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
@@ -237,6 +248,107 @@ function Movement({ line, kind }: { line: SalesStockIssueLine; kind: "stockMovem
     </div>
   ) : (
     <span className="text-steel">-</span>
+  );
+}
+
+export function SalesStockIssueWorkflowGuidance({
+  issue,
+  preview,
+  canVoid,
+  canPostCogs,
+  canReverseCogs,
+  onVoid,
+  onPostCogs,
+  onReverseCogs,
+  actionLoading,
+}: {
+  issue: SalesStockIssue;
+  preview: SalesStockIssueAccountingPreview | null;
+  canVoid: boolean;
+  canPostCogs: boolean;
+  canReverseCogs: boolean;
+  onVoid: () => void;
+  onPostCogs: () => void;
+  onReverseCogs: () => void;
+  actionLoading: boolean;
+}) {
+  const isPosted = issue.status === "POSTED";
+  const isVoided = issue.status === "VOIDED";
+  const showPostAction = preview ? canShowPostCogsAction(preview, canPostCogs) : false;
+  const showReverseAction = preview ? canShowReverseCogsAction(preview, canReverseCogs) : false;
+  const warehouseLabel = issue.warehouse ? `${issue.warehouse.code} ${issue.warehouse.name}` : "the issuing warehouse";
+
+  return (
+    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-semibold text-ink">What happened?</h2>
+            <span className={`rounded-md px-2 py-1 text-xs font-medium ${stockDocumentStatusBadgeClass(issue.status)}`}>
+              {stockDocumentStatusLabel(issue.status)}
+            </span>
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div>
+              <p className="font-semibold text-ink">Stock movement</p>
+              <p className="mt-1">
+                {isVoided
+                  ? "This stock issue was voided, so reversal movements should offset the original stock decrease."
+                  : `This stock issue decreases inventory in ${warehouseLabel} when posted.`}
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-ink">COGS boundary</p>
+              <p className="mt-1">COGS accounting is manual only and appears through the explicit COGS action when the issue is eligible.</p>
+            </div>
+            <div>
+              <p className="font-semibold text-ink">Where to inspect</p>
+              <p className="mt-1">Use the lines below for item quantities, operational stock movement IDs, void movements, and COGS preview warnings.</p>
+            </div>
+          </div>
+          {!isPosted ? <p className="mt-3 text-xs leading-5 text-emerald-900">Voided issues stay available for audit but should not be treated as current stock demand.</p> : null}
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
+          {isPosted && canVoid ? (
+            <button
+              type="button"
+              disabled={actionLoading}
+              onClick={onVoid}
+              className="rounded-md border border-rose-300 bg-white px-3 py-2 text-center text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              Void issue
+            </button>
+          ) : null}
+          {showPostAction ? (
+            <button type="button" disabled={actionLoading} onClick={onPostCogs} className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark disabled:cursor-not-allowed disabled:bg-slate-400">
+              Post COGS
+            </button>
+          ) : null}
+          {showReverseAction ? (
+            <button
+              type="button"
+              disabled={actionLoading}
+              onClick={onReverseCogs}
+              className="rounded-md border border-rose-300 bg-white px-3 py-2 text-center text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              Reverse COGS
+            </button>
+          ) : null}
+          <Link href={`/sales/invoices/${issue.salesInvoiceId}`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            View invoice
+          </Link>
+          <Link href={`/inventory/warehouses/${issue.warehouseId}`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            View warehouse
+          </Link>
+          <Link href="/inventory/stock-movements" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Stock movements
+          </Link>
+          <Link href="/inventory/reports/movement-summary" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Inventory report
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }
 

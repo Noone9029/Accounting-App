@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { formatInventoryQuantity } from "@/lib/inventory";
+import { formatInventoryQuantity, inventoryOperationalWarning, itemStatusBadgeClass, itemStatusLabel, itemTypeLabel } from "@/lib/inventory";
 import { formatMoneyAmount } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { Account, InventoryBalance, Item, ItemStatus, ItemType, TaxRate } from "@/lib/types";
@@ -183,8 +184,12 @@ export default function ItemsPage() {
     <section>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-ink">Items</h1>
-        <p className="mt-1 text-sm text-steel">Products and services used on sales invoices.</p>
+        <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
+          Products and services used on sales invoices. Turn on inventory tracking only for stocked products that need warehouse quantity movement.
+        </p>
       </div>
+
+      <ItemsInventoryGuide canViewInventory={canViewInventory} />
 
       {canManageItems ? (
       <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
@@ -193,14 +198,14 @@ export default function ItemsPage() {
           <select name="type" required className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
             {itemTypes.map((type) => (
               <option key={type} value={type}>
-                {type}
+                {itemTypeLabel(type)}
               </option>
             ))}
           </select>
           <select name="status" required className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
             {itemStatuses.map((status) => (
               <option key={status} value={status}>
-                {status}
+                {itemStatusLabel(status)}
               </option>
             ))}
           </select>
@@ -243,12 +248,12 @@ export default function ItemsPage() {
           <form key={editingItem.id} onSubmit={updateItem} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
             <select name="type" required defaultValue={editingItem.type} className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
               {itemTypes.map((type) => (
-                <option key={type} value={type}>{type}</option>
+                <option key={type} value={type}>{itemTypeLabel(type)}</option>
               ))}
             </select>
             <select name="status" required defaultValue={editingItem.status} className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
               {itemStatuses.map((status) => (
-                <option key={status} value={status}>{status}</option>
+                <option key={status} value={status}>{itemStatusLabel(status)}</option>
               ))}
             </select>
             <input name="name" required defaultValue={editingItem.name} placeholder="Name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
@@ -285,7 +290,14 @@ export default function ItemsPage() {
         {loading ? <StatusMessage type="loading">Loading items...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {!loading && organizationId && items.length === 0 ? <StatusMessage type="empty">No items found.</StatusMessage> : null}
+        {!loading && organizationId && items.length === 0 ? (
+          <div className="rounded-md border border-dashed border-slate-300 bg-white p-5 text-sm shadow-panel">
+            <h2 className="font-semibold text-ink">No items yet.</h2>
+            <p className="mt-2 max-w-3xl leading-6 text-steel">
+              Add a service for invoicing, or add a tracked product before posting purchase receipts, stock issues, adjustments, and warehouse transfers.
+            </p>
+          </div>
+        ) : null}
       </div>
 
       {items.length > 0 ? (
@@ -312,7 +324,7 @@ export default function ItemsPage() {
                 <tr key={item.id}>
                   <td className="px-4 py-3 font-medium text-ink">{item.name}</td>
                   <td className="px-4 py-3 font-mono text-xs text-steel">{item.sku ?? "-"}</td>
-                  <td className="px-4 py-3 text-steel">{item.type}</td>
+                  <td className="px-4 py-3 text-steel">{itemTypeLabel(item.type)}</td>
                   <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(item.sellingPrice)}</td>
                   <td className="px-4 py-3 text-steel">{item.revenueAccount ? `${item.revenueAccount.code} ${item.revenueAccount.name}` : "-"}</td>
                   <td className="px-4 py-3 text-steel">{item.salesTaxRate?.name ?? "No default tax"}</td>
@@ -320,7 +332,9 @@ export default function ItemsPage() {
                   <td className="px-4 py-3 font-mono text-xs">{item.inventoryTracking && canViewInventory ? totalQuantityForItem(item.id) : "-"}</td>
                   <td className="px-4 py-3 font-mono text-xs">{item.reorderPoint ? formatInventoryQuantity(item.reorderPoint) : "-"}</td>
                   <td className="px-4 py-3 font-mono text-xs">{item.reorderQuantity ? formatInventoryQuantity(item.reorderQuantity) : "-"}</td>
-                  <td className="px-4 py-3 text-steel">{item.status}</td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded-md px-2 py-1 text-xs font-medium ${itemStatusBadgeClass(item.status)}`}>{itemStatusLabel(item.status)}</span>
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       {canManageItems ? <button type="button" onClick={() => setEditingItem(item)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">Edit</button> : null}
@@ -337,5 +351,36 @@ export default function ItemsPage() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+export function ItemsInventoryGuide({ canViewInventory }: { canViewInventory: boolean }) {
+  return (
+    <div className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-ink">How inventory items work</h2>
+          <p className="mt-1 max-w-3xl">
+            Services can be invoiced without stock. Tracked products appear in warehouse balances and stock movements after receipts, issues, adjustments, or transfers.
+          </p>
+          <p className="mt-2 text-xs leading-5 text-emerald-900">{inventoryOperationalWarning()}</p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
+          {canViewInventory ? (
+            <>
+              <Link href="/inventory/balances" className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
+                View balances
+              </Link>
+              <Link href="/inventory/stock-movements" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+                Stock movements
+              </Link>
+            </>
+          ) : null}
+          <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Dashboard
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }

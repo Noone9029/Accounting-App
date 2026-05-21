@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
@@ -77,12 +78,13 @@ export default function InventoryMovementSummaryReportPage() {
     <section>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-ink">Movement summary</h1>
-        <p className="mt-1 text-sm text-steel">Opening, inbound, outbound, and closing quantity by tracked item and warehouse.</p>
+        <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Opening, inbound, outbound, and closing quantity by tracked item and warehouse.</p>
       </div>
 
       <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
         Operational movement reporting only. This does not create inventory journals, COGS, purchase receipts, or sales issues.
       </div>
+      <InventoryMovementReportGuidance />
 
       <form onSubmit={refreshReport} className="mb-5 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
@@ -130,7 +132,25 @@ export default function InventoryMovementSummaryReportPage() {
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load movement summaries.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading movement summary...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {!loading && organizationId && report && report.rows.length === 0 ? <StatusMessage type="empty">No movement summary rows found.</StatusMessage> : null}
+        {!loading && organizationId && report && report.rows.length === 0 ? (
+          <div className="rounded-md border border-dashed border-slate-300 bg-white p-5 text-sm shadow-panel">
+            <h2 className="font-semibold text-ink">No movement summary rows found.</h2>
+            <p className="mt-2 max-w-3xl leading-6 text-steel">
+              Try widening the date range or review the stock ledger after posting receipts, issues, adjustments, or transfers.
+            </p>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <Link href="/inventory/stock-movements" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Stock movements
+              </Link>
+              <Link href="/inventory/adjustments/new" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Create adjustment
+              </Link>
+              <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Dashboard
+              </Link>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {report ? (
@@ -185,6 +205,43 @@ export default function InventoryMovementSummaryReportPage() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+export function InventoryMovementReportGuidance() {
+  return (
+    <div className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-ink">How to read this report</h2>
+          <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div>
+              <p className="font-semibold text-ink">Opening and closing</p>
+              <p className="mt-1">Opening is the quantity before the selected period. Closing is opening plus inbound minus outbound.</p>
+            </div>
+            <div>
+              <p className="font-semibold text-ink">Inbound and outbound</p>
+              <p className="mt-1">Inbound includes receipts, increases, and transfer-ins. Outbound includes issues, decreases, and transfer-outs.</p>
+            </div>
+            <div>
+              <p className="font-semibold text-ink">Breakdown</p>
+              <p className="mt-1">The breakdown column shows which movement types caused the net change for each item and warehouse.</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
+          <Link href="/inventory/stock-movements" className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
+            Stock ledger
+          </Link>
+          <Link href="/inventory/balances" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Balances
+          </Link>
+          <Link href="/inventory/reports/stock-valuation" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Valuation report
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }
 

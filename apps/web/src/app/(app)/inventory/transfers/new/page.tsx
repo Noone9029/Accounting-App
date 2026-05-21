@@ -102,24 +102,29 @@ export default function NewWarehouseTransferPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">New warehouse transfer</h1>
-          <p className="mt-1 text-sm text-steel">Post a stock transfer between active warehouses.</p>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Post a stock transfer between active warehouses.</p>
         </div>
-        <Link href="/inventory/transfers" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <Link href="/inventory/transfers" className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           Back
         </Link>
       </div>
 
       <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
+      <NewWarehouseTransferGuidance />
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to create warehouse transfers.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading form data...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {!loading && organizationId && trackedItems.length === 0 ? <StatusMessage type="empty">No active inventory-tracked items are available.</StatusMessage> : null}
-        {!loading && organizationId && activeWarehouses.length < 2 ? <StatusMessage type="empty">At least two active warehouses are required.</StatusMessage> : null}
+        {!loading && organizationId && trackedItems.length === 0 ? (
+          <StatusMessage type="empty">No active inventory-tracked items are available. Create a tracked product before transferring stock.</StatusMessage>
+        ) : null}
+        {!loading && organizationId && activeWarehouses.length < 2 ? (
+          <StatusMessage type="empty">At least two active warehouses are required before stock can move between locations.</StatusMessage>
+        ) : null}
       </div>
 
       <form onSubmit={createTransfer} className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
@@ -184,5 +189,27 @@ export default function NewWarehouseTransferPage() {
         </div>
       </form>
     </section>
+  );
+}
+
+export function NewWarehouseTransferGuidance() {
+  return (
+    <div className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+      <h2 className="text-base font-semibold text-ink">Before you post</h2>
+      <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div>
+          <p className="font-semibold text-ink">Source decreases</p>
+          <p className="mt-1">The source warehouse quantity goes down for the selected tracked item.</p>
+        </div>
+        <div>
+          <p className="font-semibold text-ink">Destination increases</p>
+          <p className="mt-1">The destination warehouse receives the same quantity, so organization-wide quantity is unchanged.</p>
+        </div>
+        <div>
+          <p className="font-semibold text-ink">Audit trail</p>
+          <p className="mt-1">Ledger rows are kept as stock movements. If the transfer is voided later, reversal rows are added instead of deleting history.</p>
+        </div>
+      </div>
+    </div>
   );
 }

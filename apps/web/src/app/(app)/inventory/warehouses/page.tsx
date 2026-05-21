@@ -99,13 +99,16 @@ export default function WarehousesPage() {
     <section>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-ink">Warehouses</h1>
-        <p className="mt-1 text-sm text-steel">Warehouse master data for operational stock movements.</p>
+        <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
+          Warehouse master data for operational stock movements. Use warehouses to separate on-hand quantities by location.
+        </p>
       </div>
 
       <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
+      <WarehousesOverviewGuide canManage={canManage} />
 
       {canManage ? (
-        <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <div id="create-warehouse" className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
           <h2 className="text-base font-semibold text-ink">Create warehouse</h2>
           <form onSubmit={createWarehouse} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
             <input name="code" required placeholder="Code" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
@@ -130,7 +133,12 @@ export default function WarehousesPage() {
         {loading ? <StatusMessage type="loading">Loading warehouses...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {!loading && organizationId && warehouses.length === 0 ? <StatusMessage type="empty">No warehouses found.</StatusMessage> : null}
+        {!loading && organizationId && warehouses.length === 0 ? (
+          <div className="rounded-md border border-dashed border-slate-300 bg-white p-5 text-sm shadow-panel">
+            <h2 className="font-semibold text-ink">No warehouses found.</h2>
+            <p className="mt-2 max-w-3xl leading-6 text-steel">Create a warehouse before posting receipts, stock issues, adjustments, or transfers.</p>
+          </div>
+        ) : null}
       </div>
 
       {warehouses.length > 0 ? (
@@ -184,5 +192,36 @@ export default function WarehousesPage() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+export function WarehousesOverviewGuide({ canManage }: { canManage: boolean }) {
+  return (
+    <div className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-ink">Warehouse workflow</h2>
+          <p className="mt-1 max-w-3xl">
+            Receipts and adjustments put stock into a warehouse, stock issues remove stock, and transfers move the same quantity from one warehouse to another.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
+          {canManage ? (
+            <a href="#create-warehouse" className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
+              Create warehouse
+            </a>
+          ) : null}
+          <Link href="/inventory/balances" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Balances
+          </Link>
+          <Link href="/inventory/stock-movements" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Stock movements
+          </Link>
+          <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            Dashboard
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }

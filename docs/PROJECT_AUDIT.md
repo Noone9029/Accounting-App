@@ -142,6 +142,15 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - Browser QA covered the banking/reconciliation path at 1366, 820, and 390 widths with mocked API responses and no document overflow, console/page errors, request failures, or unknown mocked API calls.
 - No banking posting behavior, reconciliation matching logic, report math, ledger math, ZATCA/email/security behavior, migrations, seed/reset/delete, full smoke, or full E2E changed.
 
+## 2026-05-21 Inventory drill-down UX polish
+
+- Item, warehouse, purchase receipt, sales stock issue, inventory adjustment, warehouse transfer, stock movement, balance, inventory report, low-stock, and reports landing pages now include visible workflow guidance, empty states, next-action links, and responsive action layouts.
+- Receipt and issue detail pages now explain posted/voided stock effects, linked movement IDs, receipt asset/COGS manual posting boundaries, and report/dashboard navigation without changing inventory posting behavior.
+- Adjustment and transfer detail pages now explain draft/approval, source/destination movement, void/reversal rows, and stock ledger links without changing movement math.
+- Inventory movement, balance, stock valuation, and low-stock reports now include plain-language guidance for quantity in/out, opening/closing quantity, moving-average operational valuation, reorder alerts, and export/drill-down navigation.
+- Browser QA covered 14 inventory/report routes at 1366, 820, and 390 widths with mocked API responses and no document overflow, console/page errors, request failures, or unknown mocked API calls.
+- No inventory posting logic, stock movement calculations, valuation behavior, COGS behavior, warehouse transfer behavior, journal behavior, report calculations, ZATCA/email/security behavior, migrations, seed/reset/delete, full smoke, or full E2E changed.
+
 ## Audit Verification Commands
 
 - `corepack pnpm add -D @playwright/test -w`: passed.
