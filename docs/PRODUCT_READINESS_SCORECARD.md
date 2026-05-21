@@ -22,7 +22,7 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 | Storage/scalability | 55 | Storage config/readiness, feature-flagged S3-compatible attachment upload/download, migration plan counts, database default works locally, backup/restore evidence readiness, and local database-backed restore-count evidence. | No DB-to-S3 migration executor, signed URLs, object lifecycle, generated-document S3 path, scanning, hosted PITR proof, or real-bucket validation evidence. | Test S3 mode against a non-production bucket and execute an object-storage restore drill. |
 | Browser QA/E2E | 64 | 11 Playwright specs for critical routes, deployed E2E workflow/docs, API smoke remains deep accounting check. | No visual regression, no scheduled browser CI, browser tests are smoke-level, no data reset strategy. | Schedule non-production deployed E2E and expand broken-route coverage. |
 | Deployment readiness | 56 | Vercel/Supabase docs, API health/root/readiness, deployed E2E runbook/workflow, CI DB checklist, Supabase security review, user-testing Data API grant mitigation, backup/restore readiness endpoints, and one local non-production Postgres restore drill. | No production IaC, hosted Supabase backup/PITR proof, real object-storage restore proof, monitoring, broad RLS/private-network decision, least-privilege runtime DB role, environment promotion policy. | Implement least-privilege runtime DB role validation, then verify hosted Supabase PITR/object storage and add monitoring/incident runbooks. |
-| UX/product polish | 62 | Broad route coverage, dashboard KPI cards, lightweight charts/drill-downs, settings pages, panels, helper tests, permission-aware nav, and guided first-workflow setup for profile, VAT, customer, invoice, payment, and first report. | List filters, bulk actions, customizable dashboards, broader empty/error states, mobile polish, visual consistency, and deeper route QA. | Run route QA and add deeper dashboard/accounting review polish. |
+| UX/product polish | 64 | Broad route coverage, dashboard KPI cards, lightweight charts/drill-downs, settings pages, panels, helper tests, permission-aware nav, guided first-workflow setup, invoice/payment success guidance, and customer ledger/report drill-down polish. | List filters, bulk actions, customizable dashboards, broader empty/error states, visual consistency, and accountant-reviewed report wording. | Continue route QA on the next high-traffic accounting workflow without changing posting behavior. |
 | Production operations | 34 | Readiness docs, manual smoke/E2E workflows, disabled email worker planning, backup/restore evidence planning, and local non-production restore-drill evidence. | No incident response, observability, real background jobs, data retention executors, support tools, billing, SLAs, hosted PITR proof, or real object-storage restore proof. | Define operations baseline: monitoring, alerts, hosted restore drills, runbooks, and support evidence. |
 
 ## Overall Readiness Interpretation
@@ -59,6 +59,14 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 - The dashboard onboarding card and empty-state prompt now point to the next incomplete profile/VAT/customer/invoice/payment/report action.
 - Customer, invoice, payment, and report pages now include clearer helper copy and next-action links for first-use setup.
 - ZATCA messaging remains conservative: the UI can show readiness guidance, but it does not claim production ZATCA connectivity or compliance.
+
+## 2026-05-21 Customer ledger and report drill-down UX update
+
+- UX/product polish moved from 62 to 64 because the post-payment customer ledger and aged receivables drill-down path now explains what changed, how invoice/payment allocations affect balances, and where the user should go next.
+- Customer ledger rows now use readable activity/status labels, helper text for debit/credit/balance, and direct links back to source invoices/payments.
+- Aged receivables/payables now include plain-language guidance, richer empty states, next-action links, linked customer/document rows, and mobile-safe horizontal table handling.
+- Browser QA covered contact ledger, aged receivables, reports, payment detail, and invoice detail at desktop/tablet/mobile widths with no document overflow or console warning/error entries.
+- No accounting calculations, posting behavior, report math, ZATCA behavior, email behavior, security configuration, migrations, or data resets were changed.
 
 ## Fresh EGS SDK Hash Update
 

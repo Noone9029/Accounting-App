@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
@@ -17,6 +18,7 @@ import { buildContactBuyerAddressReadiness, zatcaReadinessStatusBadgeClass, zatc
 import type { Contact, CustomerLedger, CustomerLedgerRow, CustomerStatement, SupplierLedger, SupplierLedgerRow, SupplierStatement, ZatcaReadinessSection } from "@/lib/types";
 
 type ActiveSection = "overview" | "ledger" | "statement" | "supplier-ledger" | "supplier-statement";
+type LedgerKind = "customer" | "supplier";
 
 export default function ContactDetailPage() {
   const params = useParams<{ id: string }>();
@@ -212,12 +214,14 @@ export default function ContactDetailPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">{profile?.displayName ?? profile?.name ?? "Contact"}</h1>
-          <p className="mt-1 text-sm text-steel">Contact profile, customer AR ledger, and supplier AP ledger groundwork.</p>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
+            Review the contact profile, ledger trail, statements, and next accounting actions from one place.
+          </p>
         </div>
-        <Link href="/contacts" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <Link href="/contacts" className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           Back
         </Link>
       </div>
@@ -241,9 +245,9 @@ export default function ContactDetailPage() {
                 key={section}
                 type="button"
                 onClick={() => setActiveSection(section)}
-                className={`border-b-2 px-3 py-2 text-sm font-medium capitalize ${activeSection === section ? "border-palm text-ink" : "border-transparent text-steel hover:text-ink"}`}
+                className={`border-b-2 px-3 py-2 text-sm font-medium ${activeSection === section ? "border-palm text-ink" : "border-transparent text-steel hover:text-ink"}`}
               >
-                {section.replace("-", " ")}
+                {sectionLabel(section)}
               </button>
             ))}
           </div>
@@ -361,13 +365,14 @@ export default function ContactDetailPage() {
 
           {activeSection === "ledger" && ledger ? (
             <div className="space-y-4">
+              <CustomerLedgerGuidance contactId={ledger.contact.id} closingBalance={ledger.closingBalance} rowCount={ledger.rows.length} />
               <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
                 <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
                   <span className="text-steel">Opening balance: {formatLedgerBalance(ledger.openingBalance)}</span>
                   <span className="font-semibold text-ink">Closing balance: {formatLedgerBalance(ledger.closingBalance)}</span>
                 </div>
               </div>
-              <LedgerTable rows={ledger.rows} emptyMessage="No ledger activity found for this customer." />
+              <LedgerTable rows={ledger.rows} emptyMessage="No customer ledger activity yet." ledgerKind="customer" contactId={ledger.contact.id} />
             </div>
           ) : null}
 
@@ -408,7 +413,7 @@ export default function ContactDetailPage() {
                       <Summary label="Closing balance" value={formatLedgerBalance(statement.closingBalance)} />
                     </div>
                   </div>
-                  <LedgerTable rows={statement.rows} emptyMessage="No statement rows found for this period." />
+                  <LedgerTable rows={statement.rows} emptyMessage="No statement rows found for this period." ledgerKind="customer" contactId={statement.contact.id} />
                 </>
               ) : (
                 <StatusMessage type="info">Choose a period and load a statement.</StatusMessage>
@@ -424,7 +429,7 @@ export default function ContactDetailPage() {
                   <span className="font-semibold text-ink">Closing payable: {formatLedgerBalance(supplierLedger.closingBalance)}</span>
                 </div>
               </div>
-              <LedgerTable rows={supplierLedger.rows} emptyMessage="No supplier ledger activity found." />
+              <LedgerTable rows={supplierLedger.rows} emptyMessage="No supplier ledger activity found." ledgerKind="supplier" contactId={supplierLedger.contact.id} />
             </div>
           ) : null}
 
@@ -461,7 +466,7 @@ export default function ContactDetailPage() {
                       <Summary label="Closing payable" value={formatLedgerBalance(supplierStatement.closingBalance)} />
                     </div>
                   </div>
-                  <LedgerTable rows={supplierStatement.rows} emptyMessage="No supplier statement rows found for this period." />
+                  <LedgerTable rows={supplierStatement.rows} emptyMessage="No supplier statement rows found for this period." ledgerKind="supplier" contactId={supplierStatement.contact.id} />
                 </>
               ) : (
                 <StatusMessage type="info">Choose a period and load a supplier statement.</StatusMessage>
@@ -474,44 +479,206 @@ export default function ContactDetailPage() {
   );
 }
 
-function LedgerTable({ rows, emptyMessage }: { rows: Array<CustomerLedgerRow | SupplierLedgerRow>; emptyMessage: string }) {
+function sectionLabel(section: ActiveSection): string {
+  switch (section) {
+    case "overview":
+      return "Overview";
+    case "ledger":
+      return "Customer ledger";
+    case "statement":
+      return "Customer statement";
+    case "supplier-ledger":
+      return "Supplier ledger";
+    case "supplier-statement":
+      return "Supplier statement";
+  }
+}
+
+export function CustomerLedgerGuidance({ contactId, closingBalance, rowCount }: { contactId: string; closingBalance: string; rowCount: number }) {
+  return (
+    <div className="grid grid-cols-1 gap-4 rounded-md border border-emerald-200 bg-emerald-50 p-5 shadow-panel lg:grid-cols-[1.25fr_0.75fr]">
+      <div>
+        <h2 className="text-base font-semibold text-ink">What changed after payment?</h2>
+        <p className="mt-2 text-sm leading-6 text-emerald-900">
+          The customer ledger is the customer&apos;s running receivables trail. Finalized invoices increase the amount owed. Posted payments, credit notes, and refunds reduce or reverse it.
+        </p>
+        <p className="mt-2 text-sm leading-6 text-emerald-900">
+          Use the row links to jump back to the source invoice or payment, then use Aged Receivables to see what is still open across customers.
+        </p>
+      </div>
+      <div className="space-y-3">
+        <div className="rounded-md border border-emerald-200 bg-white px-4 py-3 text-sm">
+          <div className="text-xs uppercase tracking-wide text-emerald-800">Current customer balance</div>
+          <div className="mt-1 font-mono font-semibold text-ink">{formatLedgerBalance(closingBalance)}</div>
+          <div className="mt-1 text-xs text-steel">{rowCount} ledger {rowCount === 1 ? "row" : "rows"} posted for this customer.</div>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <ActionLink href={`/sales/invoices/new?customerId=${contactId}`} tone="primary">
+            Create invoice
+          </ActionLink>
+          <ActionLink href={`/sales/customer-payments/new?customerId=${contactId}`}>Record payment</ActionLink>
+          <ActionLink href="/reports/aged-receivables">AR report</ActionLink>
+          <ActionLink href="/dashboard">Dashboard</ActionLink>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function LedgerTable({
+  rows,
+  emptyMessage,
+  ledgerKind = "customer",
+  contactId,
+}: {
+  rows: Array<CustomerLedgerRow | SupplierLedgerRow>;
+  emptyMessage: string;
+  ledgerKind?: LedgerKind;
+  contactId?: string;
+}) {
   if (rows.length === 0) {
-    return <StatusMessage type="empty">{emptyMessage}</StatusMessage>;
+    return (
+      <div className="rounded-md border border-dashed border-slate-300 bg-white p-5 text-sm shadow-panel">
+        <h2 className="font-semibold text-ink">{emptyMessage}</h2>
+        <p className="mt-2 max-w-3xl leading-6 text-steel">
+          {ledgerKind === "customer"
+            ? "Create and finalize an invoice, then record a payment to see invoice, allocation, payment, and balance rows here."
+            : "Post a supplier bill or supplier payment to start building the supplier payable trail."}
+        </p>
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          {ledgerKind === "customer" ? (
+            <>
+              <ActionLink href={contactId ? `/sales/invoices/new?customerId=${contactId}` : "/sales/invoices/new"} tone="primary">
+                Create invoice
+              </ActionLink>
+              <ActionLink href={contactId ? `/sales/customer-payments/new?customerId=${contactId}` : "/sales/customer-payments/new"}>
+                Record payment
+              </ActionLink>
+              <ActionLink href="/reports/aged-receivables">Open AR report</ActionLink>
+            </>
+          ) : (
+            <>
+              <ActionLink href="/purchases/bills/new" tone="primary">
+                Create bill
+              </ActionLink>
+              <ActionLink href="/reports/aged-payables">Open AP report</ActionLink>
+            </>
+          )}
+          <ActionLink href="/dashboard">Dashboard</ActionLink>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-      <table className="w-full min-w-[1120px] text-left text-sm">
-        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-          <tr>
-            <th className="px-4 py-3">Date</th>
-            <th className="px-4 py-3">Type</th>
-            <th className="px-4 py-3">Number</th>
-            <th className="px-4 py-3">Description</th>
-            <th className="px-4 py-3">Debit</th>
-            <th className="px-4 py-3">Credit</th>
-            <th className="px-4 py-3">Balance</th>
-            <th className="px-4 py-3">Status</th>
-            <th className="px-4 py-3">Action</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {rows.map((row) => (
-            <tr key={row.id}>
-              <td className="px-4 py-3 text-steel">{formatOptionalDate(row.date, "-")}</td>
-              <td className="px-4 py-3 text-steel">{row.type.replaceAll("_", " ")}</td>
-              <td className="px-4 py-3 font-mono text-xs">{row.number}</td>
-              <td className="px-4 py-3 font-medium text-ink">{row.description}</td>
-              <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(row.debit)}</td>
-              <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(row.credit)}</td>
-              <td className="px-4 py-3 font-mono text-xs">{formatLedgerBalance(row.balance)}</td>
-              <td className="px-4 py-3 text-steel">{row.status}</td>
-              <td className="px-4 py-3">{renderRowLink(row)}</td>
+    <div className="space-y-3">
+      <div className="rounded-md border border-slate-200 bg-white p-4 text-sm leading-6 text-steel shadow-panel">
+        <span className="font-semibold text-ink">How to read this ledger:</span> Debit adds to the customer balance or supplier payable. Credit reduces it. Balance is the running amount after that row.
+      </div>
+      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+        <table className="w-full min-w-[1120px] text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+            <tr>
+              <th className="px-4 py-3">Date</th>
+              <th className="px-4 py-3">Type</th>
+              <th className="px-4 py-3">Number</th>
+              <th className="px-4 py-3">Description</th>
+              <th className="px-4 py-3">Debit</th>
+              <th className="px-4 py-3">Credit</th>
+              <th className="px-4 py-3">Balance</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Action</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {rows.map((row) => (
+              <tr key={row.id}>
+                <td className="px-4 py-3 text-steel">{formatOptionalDate(row.date, "-")}</td>
+                <td className="px-4 py-3 text-steel">{ledgerRowTypeLabel(row.type)}</td>
+                <td className="px-4 py-3 font-mono text-xs">{row.number}</td>
+                <td className="px-4 py-3 font-medium text-ink">{row.description}</td>
+                <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(row.debit)}</td>
+                <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(row.credit)}</td>
+                <td className="px-4 py-3 font-mono text-xs">{formatLedgerBalance(row.balance)}</td>
+                <td className="px-4 py-3">
+                  <span className={`rounded-md px-2 py-1 text-xs font-medium ${ledgerStatusBadgeClass(row.status)}`}>
+                    {formatStatusLabel(row.status)}
+                  </span>
+                </td>
+                <td className="px-4 py-3">{renderRowLink(row)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
+  );
+}
+
+function ledgerRowTypeLabel(type: CustomerLedgerRow["type"] | SupplierLedgerRow["type"]): string {
+  const labels: Record<string, string> = {
+    INVOICE: "Invoice",
+    CREDIT_NOTE: "Credit note",
+    VOID_CREDIT_NOTE: "Voided credit note",
+    CREDIT_NOTE_ALLOCATION: "Credit note allocation",
+    CREDIT_NOTE_ALLOCATION_REVERSAL: "Credit note allocation reversal",
+    PAYMENT: "Payment",
+    PAYMENT_ALLOCATION: "Payment allocation",
+    CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION: "Unapplied payment allocation",
+    CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL: "Unapplied payment reversal",
+    VOID_PAYMENT: "Voided payment",
+    CUSTOMER_REFUND: "Customer refund",
+    VOID_CUSTOMER_REFUND: "Voided customer refund",
+    VOID_INVOICE: "Voided invoice",
+    PURCHASE_BILL: "Purchase bill",
+    PURCHASE_DEBIT_NOTE: "Purchase debit note",
+    VOID_PURCHASE_DEBIT_NOTE: "Voided purchase debit note",
+    PURCHASE_DEBIT_NOTE_ALLOCATION: "Debit note allocation",
+    PURCHASE_DEBIT_NOTE_ALLOCATION_REVERSAL: "Debit note allocation reversal",
+    SUPPLIER_PAYMENT: "Supplier payment",
+    SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION: "Unapplied supplier payment",
+    SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL: "Unapplied supplier payment reversal",
+    SUPPLIER_REFUND: "Supplier refund",
+    VOID_SUPPLIER_REFUND: "Voided supplier refund",
+    CASH_EXPENSE: "Cash expense",
+    VOID_SUPPLIER_PAYMENT: "Voided supplier payment",
+    VOID_PURCHASE_BILL: "Voided purchase bill",
+  };
+  return labels[type] ?? formatStatusLabel(type);
+}
+
+function formatStatusLabel(status: string): string {
+  return status
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function ledgerStatusBadgeClass(status: string): string {
+  const normalized = status.toUpperCase();
+  if (normalized.includes("VOID") || normalized.includes("REVERSE") || normalized.includes("CANCEL")) {
+    return "bg-rose-50 text-rosewood";
+  }
+  if (normalized.includes("DRAFT") || normalized.includes("PENDING") || normalized.includes("PARTIAL")) {
+    return "bg-amber-50 text-amber-800";
+  }
+  if (normalized.includes("POST") || normalized.includes("FINAL") || normalized.includes("PAID") || normalized.includes("APPROVED")) {
+    return "bg-emerald-50 text-emerald-700";
+  }
+  return "bg-slate-100 text-slate-700";
+}
+
+function ActionLink({ href, children, tone = "secondary" }: { href: string; children: ReactNode; tone?: "primary" | "secondary" }) {
+  const className =
+    tone === "primary"
+      ? "rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark"
+      : "rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100";
+
+  return (
+    <Link href={href} className={className}>
+      {children}
+    </Link>
   );
 }
 

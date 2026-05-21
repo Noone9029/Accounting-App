@@ -44,6 +44,14 @@ Recommended next prompt:
 - ZATCA copy remains safe and says production ZATCA is not connected yet.
 - Remaining UX work: manual route QA, responsive review, visual regression coverage, richer empty/error states, and accountant review of report/dashboard definitions.
 
+## 2026-05-21 Customer ledger and report drill-down UX
+
+- Customer ledger and aged receivables/payables now explain what each surface shows, how payments/credits change balances, and how to navigate back to invoices, payments, reports, customers, and dashboard.
+- Ledger rows now use readable activity/status labels and keep source document links visible in the row.
+- Aged receivables/payables report rows now link to the relevant customer and invoice/bill while retaining the existing report calculations.
+- Browser QA covered the ledger/report drill-down path at desktop, tablet, and mobile widths without document overflow or console warning/error entries.
+- Remaining UX work: continue route QA on the next high-traffic workflow, add visual regression coverage, and schedule accountant review of report terminology.
+
 ## Phase 2: Finish Wafeq Core Accounting Modules
 
 Objective: complete core accounting modules expected in a serious SME accounting SaaS.

@@ -37,6 +37,24 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Customer ledger and report drill-down UX polished
+
+Added visible guidance around the customer ledger and AR report path after invoice payment without changing accounting behavior.
+
+Risk reduced:
+
+- Customer ledger pages now explain how finalized invoices, payments, credit notes, and refunds affect the running customer balance.
+- Ledger tables now show readable activity/status labels instead of raw enum-style text.
+- Empty ledger states now direct users to create an invoice, record a payment, open AR reports, or return to the dashboard.
+- Aged receivables/payables now explain report buckets, payment impact, and next actions, with customer and document drill-down links.
+- Browser QA covered contact ledger, aged receivables, reports, payment detail, and invoice detail at desktop/tablet/mobile widths.
+
+Remaining risks:
+
+- Full smoke and full E2E remain intentionally pending from earlier deployment work.
+- Visual regression coverage and accountant review of report wording are still needed.
+- Supabase RLS and least-privilege runtime role hardening remain parked until the safe Vercel env mutation path is available.
+
 ### Guided first-workflow UX added
 
 Added a user-facing first accounting workflow across setup, dashboard, customer, invoice, payment, and report screens without changing accounting behavior.
