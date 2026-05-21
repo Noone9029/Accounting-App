@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
-import { ComplianceNote, SourceDocumentGuidance } from "@/components/documents/document-guidance";
+import { ComplianceNote } from "@/components/documents/document-guidance";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
@@ -410,10 +410,10 @@ export default function ContactDetailPage() {
                     <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
                   </label>
                   <button type="submit" disabled={statementLoading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-                    {statementLoading ? "Loading..." : "Load statement"}
+                    {statementLoading ? "Loading..." : "Load customer statement"}
                   </button>
                   <button type="button" onClick={() => void downloadStatementPdf()} disabled={!fromDate || !toDate || statementPdfLoading} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                    {statementPdfLoading ? "Preparing..." : "Download statement PDF"}
+                    {statementPdfLoading ? "Preparing..." : "Download customer statement PDF"}
                   </button>
                 </form>
                 <CustomerStatementDocumentGuidance />
@@ -430,14 +430,14 @@ export default function ContactDetailPage() {
                     <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
                       <Summary label="Period from" value={statement.periodFrom ?? "-"} />
                       <Summary label="Period to" value={statement.periodTo ?? "-"} />
-                      <Summary label="Opening balance" value={formatLedgerBalance(statement.openingBalance)} />
-                      <Summary label="Closing balance" value={formatLedgerBalance(statement.closingBalance)} />
+                      <Summary label="Opening customer balance" value={formatLedgerBalance(statement.openingBalance)} />
+                      <Summary label="Closing customer balance" value={formatLedgerBalance(statement.closingBalance)} />
                     </div>
                   </div>
-                  <LedgerTable rows={statement.rows} emptyMessage="No statement rows found for this period." ledgerKind="customer" contactId={statement.contact.id} />
+                  <LedgerTable rows={statement.rows} emptyMessage="No customer statement activity was found for this period." ledgerKind="customer" contactId={statement.contact.id} />
                 </>
               ) : (
-                <StatusMessage type="info">Choose a period and load a statement.</StatusMessage>
+                <StatusMessage type="info">Choose a period to review posted customer activity, then load or download the statement.</StatusMessage>
               )}
             </div>
           ) : null}
@@ -492,10 +492,10 @@ export default function ContactDetailPage() {
                       <Summary label="Closing payable" value={formatLedgerBalance(supplierStatement.closingBalance)} />
                     </div>
                   </div>
-                  <LedgerTable rows={supplierStatement.rows} emptyMessage="No supplier statement rows found for this period." ledgerKind="supplier" contactId={supplierStatement.contact.id} />
+                  <LedgerTable rows={supplierStatement.rows} emptyMessage="No supplier statement activity was found for this period." ledgerKind="supplier" contactId={supplierStatement.contact.id} />
                 </>
               ) : (
-                <StatusMessage type="info">Choose a period and load a supplier statement.</StatusMessage>
+                <StatusMessage type="info">Choose a period to review posted supplier activity, then load or download the statement.</StatusMessage>
               )}
             </div>
           ) : null}
@@ -882,13 +882,41 @@ function Summary({ label, value }: { label: string; value: string }) {
 }
 
 export function CustomerStatementDocumentGuidance() {
-  return <SourceDocumentGuidance className="mt-3" />;
+  return (
+    <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-steel">
+      <p>
+        <span className="font-medium text-ink">Customer statement:</span> Customer statements show invoices that
+        increase what customers owe you, plus payments, credit notes, refunds, and reversals that reduce or adjust that
+        balance.
+      </p>
+      <p className="mt-2">
+        <span className="font-medium text-ink">Document archive:</span> PDF downloads from source records are archived
+        automatically so the same generated output can be reviewed later.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Link href="/documents" className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+          Open archive
+        </Link>
+        <Link href="/settings/documents" className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+          Document settings
+        </Link>
+        <Link href="/settings/number-sequences" className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+          Number sequences
+        </Link>
+      </div>
+      <ComplianceNote className="mt-3" />
+    </div>
+  );
 }
 
 export function SupplierStatementDocumentGuidance() {
   return (
     <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-steel">
       <p>
+        <span className="font-medium text-ink">Supplier statement:</span> Supplier statements show purchase bills that
+        increase what you owe suppliers, while supplier payments and debit notes reduce or adjust that payable balance.
+      </p>
+      <p className="mt-2">
         <span className="font-medium text-ink">Document archive:</span> Supplier statement PDF downloads are archived
         automatically from the same AP ledger rows shown on screen, so the generated output can be reviewed later.
       </p>

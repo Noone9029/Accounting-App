@@ -124,6 +124,14 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 - Authenticated browser UI width checks remain pending because the deployed browser session was unauthenticated, login automation could not safely fill the email/password controls, and JavaScript URL token injection was rejected by browser security policy.
 - Full smoke, full E2E, migrations, seed/reset, RLS/runtime-role work, real ZATCA, real email, backups, and restores were intentionally not run.
 
+## 2026-05-21 Statement PDF readability review
+
+- Customer and supplier statement PDFs now use role-specific titles, period labels, opening/closing balance labels, activity headings, balance-column labels, and empty-state text instead of generic statement wording.
+- Statement PDFs now include short plain-language AR/AP explanations: invoices increase customer balances, purchase bills increase supplier payables, and payments/credits/debit notes reduce or adjust balances.
+- Customer and supplier contact statement tabs now use clearer download labels, period guidance, archive links, and AR/AP-specific helper copy while preserving generated-document archive behavior.
+- No customer/supplier ledger math, AP/AR balances, posting behavior, tax/VAT calculation, PDF totals, generated-document archive behavior, migration, full smoke, or full E2E changed.
+- Accountant review is still recommended for final statement wording and presentation before production use.
+
 ## Fresh EGS SDK Hash Update
 
 The fresh-EGS SDK hash-mode validation step is now complete locally. It proved opt-in SDK hash persistence, first-PIH seed usage, invoice-to-invoice SDK PIH chaining, hash-compare `MATCH`, and idempotent regeneration for two invoices without network calls. A follow-up debug pass resolved the generated invoice 2 `KSA-13` validation failure by using an invoice-specific temporary SDK `pihPath` file containing metadata `previousInvoiceHash`. The ZATCA score remains constrained because buyer building-number data, signing/CSID/clearance/PDF-A3, and repeatable CI SDK execution are not implemented.

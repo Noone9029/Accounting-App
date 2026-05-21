@@ -82,6 +82,7 @@ describe("customer ledger drill-down guidance", () => {
   it("explains customer statement PDF archive behavior", () => {
     render(<CustomerStatementDocumentGuidance />);
 
+    expect(screen.getByText(/Customer statements show invoices that increase what customers owe/)).toBeInTheDocument();
     expect(screen.getByText(/PDF downloads from source records are archived automatically/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
   });
@@ -89,6 +90,8 @@ describe("customer ledger drill-down guidance", () => {
   it("keeps supplier statement export wording honest for beta", () => {
     render(<SupplierStatementDocumentGuidance />);
 
+    expect(screen.getByText(/Supplier statements show purchase bills that increase what you owe suppliers/)).toBeInTheDocument();
+    expect(screen.getByText(/supplier payments and debit notes reduce or adjust that payable balance/)).toBeInTheDocument();
     expect(screen.getByText(/Supplier statement PDF downloads are archived automatically/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
     expect(screen.getByText(/production compliance are not enabled/)).toBeInTheDocument();

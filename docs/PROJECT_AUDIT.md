@@ -177,6 +177,14 @@ Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now es
 - User-testing deployment `da45544` applied the `SUPPLIER_STATEMENT` enum migration and targeted supplier statement archive QA passed: supplier statement PDF download returned `200` `application/pdf`, created exactly one archive row, and archived download returned a valid PDF response.
 - Authenticated browser UI width checks remain pending because the deployed browser session was unauthenticated, login automation could not safely fill the email/password controls, and JavaScript URL token injection was rejected by browser security policy.
 
+## 2026-05-21 Statement PDF readability review
+
+- Customer and supplier statement PDFs now use customer/supplier-specific titles, period labels, opening/closing balance labels, activity headings, balance-column labels, and empty-state wording.
+- Statement PDF copy now explains the AR/AP direction of movement without changing row selection or balances: invoices increase customer balances, purchase bills increase supplier payables, and payments/credits/debit notes reduce or adjust balances.
+- Contact statement tabs now use clearer customer/supplier download labels, period guidance, archive links, and AR/AP-specific helper copy.
+- Supplier statement archive parity remains unchanged through `SUPPLIER_STATEMENT`; this pass did not change archive creation, source IDs, document IDs, or the enum migration.
+- Remaining risk: accountant review is still recommended for final statement wording and presentation before production use.
+
 ## Audit Verification Commands
 
 - `corepack pnpm add -D @playwright/test -w`: passed.

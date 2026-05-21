@@ -507,6 +507,60 @@ export interface CustomerStatementPdfData {
   generatedAt: string | Date;
 }
 
+export interface StatementPresentationLabels {
+  title: string;
+  counterpartyTitle: string;
+  summaryTitle: string;
+  periodFromLabel: string;
+  periodToLabel: string;
+  openingBalanceLabel: string;
+  closingBalanceLabel: string;
+  activityTitle: string;
+  balanceColumnLabel: string;
+  explanation: string;
+  debitCreditHelp: string;
+  emptyMessage: string;
+  generatedNote: string;
+}
+
+export function statementPresentationLabels(contactLabel?: string): StatementPresentationLabels {
+  const isSupplier = contactLabel?.toLowerCase().includes("supplier") ?? false;
+
+  if (isSupplier) {
+    return {
+      title: "Supplier Statement",
+      counterpartyTitle: "Supplier",
+      summaryTitle: "Supplier statement period",
+      periodFromLabel: "Period start",
+      periodToLabel: "Period end",
+      openingBalanceLabel: "Opening supplier payable",
+      closingBalanceLabel: "Closing supplier payable",
+      activityTitle: "Supplier ledger activity",
+      balanceColumnLabel: "Payable balance",
+      explanation: "Supplier statements summarize purchase bills, supplier payments, debit notes, refunds, and reversals from the supplier ledger. Posted purchase bills increase what you owe; supplier payments and debit notes reduce or adjust the payable balance.",
+      debitCreditHelp: "Credit adds to the supplier payable. Debit reduces the supplier payable. The balance column shows the running payable balance after each posted supplier ledger row.",
+      emptyMessage: "No supplier statement activity was found for this period.",
+      generatedNote: "Generated from LedgerByte supplier ledger records for review. This is not a ZATCA submission or PDF/A-3 clearance document.",
+    };
+  }
+
+  return {
+    title: "Customer Statement",
+    counterpartyTitle: "Customer",
+    summaryTitle: "Customer statement period",
+    periodFromLabel: "Period start",
+    periodToLabel: "Period end",
+    openingBalanceLabel: "Opening customer balance",
+    closingBalanceLabel: "Closing customer balance",
+    activityTitle: "Customer ledger activity",
+    balanceColumnLabel: "Balance due",
+    explanation: "Customer statements summarize invoices, customer payments, credit notes, refunds, and reversals from the customer ledger. Finalized invoices increase the amount owed; payments and credits reduce the customer balance.",
+    debitCreditHelp: "Debit adds to the customer balance. Credit reduces the customer balance. The balance column shows the running amount due after each posted customer ledger row.",
+    emptyMessage: "No customer statement activity was found for this period.",
+    generatedNote: "Generated from LedgerByte customer ledger records for review. This is not a ZATCA submission or PDF/A-3 clearance document.",
+  };
+}
+
 export interface ReportPdfAccountBalance {
   accountId: string;
   code: string;
@@ -1398,30 +1452,35 @@ export async function renderCustomerRefundPdf(data: CustomerRefundPdfData, setti
 }
 
 export async function renderCustomerStatementPdf(data: CustomerStatementPdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
-  const renderSettings = resolveSettings(settings, "Customer Statement");
+  const presentation = statementPresentationLabels(data.contactLabel);
+  const renderSettings = resolveSettings(settings, presentation.title);
   return renderPdf((doc) => {
     writeHeader(doc, data.organization, renderSettings, data.generatedAt);
-    writeTwoColumnBlocks(doc, data.contactLabel ?? "Customer", contactLines(data.contact, renderSettings), "Statement", [
-      ["Period from", data.periodFrom ?? "-"],
-      ["Period to", data.periodTo ?? "-"],
-      ["Opening balance", money(data.openingBalance, data.currency ?? "SAR")],
-      ["Closing balance", money(data.closingBalance, data.currency ?? "SAR")],
+    writeMuted(doc, presentation.explanation);
+    doc.moveDown(0.4);
+    writeTwoColumnBlocks(doc, presentation.counterpartyTitle, contactLines(data.contact, renderSettings), presentation.summaryTitle, [
+      [presentation.periodFromLabel, data.periodFrom ?? "-"],
+      [presentation.periodToLabel, data.periodTo ?? "-"],
+      [presentation.openingBalanceLabel, money(data.openingBalance, data.currency ?? "SAR")],
+      [presentation.closingBalanceLabel, money(data.closingBalance, data.currency ?? "SAR")],
     ], renderSettings);
 
-    writeSectionTitle(doc, "Ledger Activity", renderSettings);
+    writeSectionTitle(doc, presentation.activityTitle, renderSettings);
+    writeMuted(doc, presentation.debitCreditHelp);
+    doc.moveDown(0.4);
     if (data.rows.length === 0) {
-      writeMuted(doc, "No statement rows found for this period.");
+      writeMuted(doc, presentation.emptyMessage);
     } else {
       drawTable(
         doc,
         [
           { label: "Date", width: 52 },
-          { label: "Type", width: 66 },
-          { label: "Number", width: 70 },
-          { label: "Description", width: 110 },
-          { label: "Debit", width: 64, align: "right" },
-          { label: "Credit", width: 64, align: "right" },
-          { label: "Balance", width: 70, align: "right" },
+          { label: "Activity", width: 62 },
+          { label: "Reference", width: 70 },
+          { label: "Description", width: 124 },
+          { label: "Debit", width: 58, align: "right" },
+          { label: "Credit", width: 58, align: "right" },
+          { label: presentation.balanceColumnLabel, width: 72, align: "right" },
         ],
         data.rows.map((row) => [
           formatDate(row.date),
@@ -1435,6 +1494,7 @@ export async function renderCustomerStatementPdf(data: CustomerStatementPdfData,
         renderSettings,
       );
     }
+    writeMuted(doc, presentation.generatedNote);
   }, renderSettings);
 }
 

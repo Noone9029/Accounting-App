@@ -8,6 +8,7 @@ import {
   renderInvoicePdf,
   renderPaymentReceiptPdf,
   renderPurchaseOrderPdf,
+  statementPresentationLabels,
 } from "@ledgerbyte/pdf-core";
 
 const organization = {
@@ -80,6 +81,34 @@ describe("PDF rendering", () => {
 
     expect(buffer.subarray(0, 4).toString()).toBe("%PDF");
     expect(buffer.byteLength).toBeGreaterThan(1000);
+  });
+
+  it("uses readable customer-specific statement labels", () => {
+    const labels = statementPresentationLabels("Customer");
+
+    expect(labels.title).toBe("Customer Statement");
+    expect(labels.summaryTitle).toBe("Customer statement period");
+    expect(labels.openingBalanceLabel).toBe("Opening customer balance");
+    expect(labels.closingBalanceLabel).toBe("Closing customer balance");
+    expect(labels.activityTitle).toBe("Customer ledger activity");
+    expect(labels.balanceColumnLabel).toBe("Balance due");
+    expect(labels.explanation).toContain("invoices increase the amount owed");
+    expect(labels.debitCreditHelp).toContain("Debit adds to the customer balance");
+    expect(labels.emptyMessage).toContain("No customer statement activity");
+  });
+
+  it("uses readable supplier-specific statement labels", () => {
+    const labels = statementPresentationLabels("Supplier");
+
+    expect(labels.title).toBe("Supplier Statement");
+    expect(labels.summaryTitle).toBe("Supplier statement period");
+    expect(labels.openingBalanceLabel).toBe("Opening supplier payable");
+    expect(labels.closingBalanceLabel).toBe("Closing supplier payable");
+    expect(labels.activityTitle).toBe("Supplier ledger activity");
+    expect(labels.balanceColumnLabel).toBe("Payable balance");
+    expect(labels.explanation).toContain("purchase bills increase what you owe");
+    expect(labels.debitCreditHelp).toContain("Credit adds to the supplier payable");
+    expect(labels.emptyMessage).toContain("No supplier statement activity");
   });
 
   it("renders cash expense PDFs as buffers", async () => {

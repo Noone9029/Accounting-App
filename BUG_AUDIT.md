@@ -2950,3 +2950,11 @@ Recommended next step:
 - A follow-up non-destructive enum migration adds `SUPPLIER_STATEMENT`, so supplier statement PDF downloads can now create generated-document archive rows without changing supplier ledger/AP math.
 - User-testing deployment `da45544` applied the enum migration and targeted supplier statement archive QA passed: the supplier statement PDF response was `200` `application/pdf`, exactly one `SUPPLIER_STATEMENT` archive row was created, and the archived PDF download also returned `200` `application/pdf`.
 - Authenticated browser UI width checks remain pending because the deployed browser session was unauthenticated, login automation could not safely fill the email/password controls, and JavaScript URL token injection was rejected by browser security policy.
+
+# Statement PDF readability follow-up - 2026-05-21
+
+- Polished customer and supplier statement PDF presentation labels, balance headings, activity headings, empty-state wording, and generated-from-ledger explanatory copy.
+- Polished customer/supplier contact statement UI copy and download labels so AR statements explain customer balances and AP statements explain supplier payables.
+- Regression coverage now checks customer-specific and supplier-specific statement presentation labels plus archive-safe contact statement guidance.
+- No customer/supplier ledger math, AP/AR balance math, PDF totals, generated-document archive behavior, migrations, ZATCA behavior, full smoke, or full E2E changed.
+- Remaining risk: accountant review is still recommended for final statement wording and presentation before production use.

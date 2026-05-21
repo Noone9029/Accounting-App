@@ -945,3 +945,10 @@ Recommended next step:
 - New completed item: read-only dashboard onboarding checklist plus `/setup` guided first-run wizard for sellable-v1 setup visibility.
 - Next non-ZATCA priorities: signed email webhook/suppression/monitoring, SMTP readiness validation, Vercel/Supabase deployment runbook checks, browser E2E coverage including `/setup`, object-storage migration executor, support diagnostics, accountant-reviewed KPI definitions, contact/item import-export, and backup/restore evidence.
 - Keep ZATCA real CSID requests, real network calls, clearance/reporting, PDF-A3, signed XML/QR body persistence, production credentials, and production compliance claims blocked until official OTP/sandbox access and later approvals are available.
+
+# Statement PDF readability roadmap update - 2026-05-21
+
+- Completed visible customer/supplier statement PDF readability polish: role-specific titles, period/opening/closing labels, activity headings, empty-state wording, and AR/AP explanatory copy.
+- Completed contact statement tab copy polish for customer balances, supplier payables, archived PDF guidance, and safer download labels.
+- Remaining roadmap item: accountant review of final statement/report wording and print presentation before production use.
+- Full smoke, full E2E, security hardening runtime-role work, real ZATCA, real email, backups, and restores remain separate pending work.
