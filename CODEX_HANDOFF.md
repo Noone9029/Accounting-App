@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `447435c Finalize PROD-A1 hosting ADR handoff`
+- `bf7a6dc Update production docs for API hosting decision`
 
 ## Current PROD-A1 Objective
 
@@ -267,16 +267,103 @@
 - API and workers should be hosted as separate services, not one combined runtime. They may share a container image later, but API request handling, retries, reports/exports, cleanup, future email work, and future ZATCA jobs need separate scaling, health, shutdown, logs, queue credentials, and deploy controls.
 - Production blockers that must stay unresolved until actual provisioning tickets: provider accounts/resources, production Docker image, RDS/PostgreSQL, ElastiCache/Valkey/Redis, object storage buckets, Secrets Manager/KMS/SSM values, ALB/DNS/certificates, live monitors, production env vars, migrations, backups/restores, RLS/runtime DB roles, email sending, ZATCA credentials/network calls, and customer-data movement.
 
-## Forbidden Actions For Next PROD-A2 Thread
+## PROD-A2 Part 5 - Final Verification And Handoff
+
+### Latest Commit Inspected
+
+- `bf7a6dc Update production docs for API hosting decision`
+- `HEAD` and `origin/main` both resolved to `bf7a6dcdc1422339edf1649e9343923dc83f9261` before this handoff update.
+
+### PROD-A2 Result
+
+- PROD-A2 is complete as planning/decision documentation only.
+- Current API runtime inventory was captured from the repo.
+- Official API hosting research was captured in this handoff using official provider docs only.
+- [ADR-013 API hosting decision](docs/production/adrs/ADR-013-api-hosting-decision.md) is drafted/proposed; ADR-013 was used because ADR-002 is reserved for the production database provider.
+- Production docs were updated to reference ADR-013 and to state that API hosting is proposed, not implemented.
+- Implementation has not started: no API provider/service is provisioned, ECS/Fargate is not configured, worker hosting is not configured, no production API deploy was performed, no env vars changed, and no database, Redis, storage, ZATCA, email, accounting logic, or customer data changed.
+
+### ADR-013 Recommendation Summary
+
+- Primary paid SaaS v1 API recommendation: AWS ECS Fargate.
+- Host the API and worker as separate ECS Fargate services, even if they share one container image.
+- Align with ADR-001: use RDS PostgreSQL, managed Redis/ElastiCache, centralized secrets, and CloudWatch-compatible logging/monitoring.
+- Keep DigitalOcean App Platform as secondary fallback if AWS is delayed.
+- Keep Elastic Beanstalk as AWS fallback only.
+- Do not recommend AWS App Runner for a fresh target because official AWS docs say it is closed to new customers as of April 30, 2026.
+- Keep Render/Fly/Railway-style hosting as backup/private-beta only.
+- Keep Vercel beta/user-testing/staging only, not final API production hosting.
+
+### Files Changed Across PROD-A2
+
+- `CODEX_HANDOFF.md`
+- `docs/production/adrs/ADR-013-api-hosting-decision.md`
+- `docs/production/ARCHITECTURE_DECISION_RECORDS.md`
+- `docs/production/NEXT_10_PRODUCTION_TICKETS.md`
+- `docs/production/PRODUCTION_IMPLEMENTATION_TICKETS.md`
+- `docs/production/PRODUCTION_FOUNDATION_ROADMAP.md`
+- `docs/production/PAID_SAAS_V1_GAP_MATRIX.md`
+- `README.md`
+- `BUG_AUDIT.md`
+- No app code changed for PROD-A2. Unrelated web/marketing worktree changes were left untouched and unstaged.
+
+### Checks Run
+
+- `git status --short`
+- `git log -1 --oneline`
+- `git show --stat --oneline --name-only HEAD`
+- `git diff --check`
+- `git diff --cached --check` when staged changes existed for this handoff commit.
+- Safety wording search with `rg` for accidental claims that production API hosting is implemented, ECS/Fargate is provisioned, production API deploy was performed, Vercel is final production hosting, ZATCA production is enabled, customer data migration happened, or paid SaaS v1 is production-ready.
+- Package-script search for link/markdown/docs checks; no dedicated lightweight link-check script was found.
+- Lightweight `Test-Path` check passed for the handoff, ADR-013, production planning docs, README, and audit paths.
+
+### Safety Wording Result
+
+- No accidental affirmative claim was found that LedgerByte production API hosting is implemented, ECS/Fargate is provisioned, a production API deploy was performed, Vercel is final production hosting, ZATCA production is enabled, customer data migration happened, or paid SaaS v1 is production-ready.
+- Matches found during the safety search were expected negative/proposed wording, plus one provider-summary statement saying Fly positions Managed Postgres as production-ready; that line describes Fly's official service posture, not LedgerByte production readiness.
+
+### Skipped Commands And Why
+
+- Full smoke: skipped because no app code changed and no approved runtime target was requested.
+- Full E2E: skipped because no app code changed and deployed/runtime verification was out of scope.
+- Migrations: skipped because schema/data mutation was forbidden.
+- Seed/reset/delete: skipped because data mutation and destructive operations were forbidden.
+- RLS/runtime-role work: skipped because Supabase RLS and runtime DB role changes were forbidden.
+- Vercel/Supabase env changes: skipped because env/provider settings changes were forbidden.
+- Real ZATCA: skipped because ZATCA behavior, credentials, network calls, and production cutover were forbidden.
+- Real email: skipped because email behavior and real sends were forbidden.
+- Backups/restores: skipped because backup/restore execution was forbidden.
+- App tests: skipped because no app code changed.
+- Cloud provisioning/deployment: skipped because provider provisioning and deployment were forbidden.
+- Web research: skipped because this thread explicitly forbade new web research.
+
+### Remaining Blockers
+
+- ADR-013 remains proposed only; it is not accepted or implemented.
+- API provider/service is not provisioned.
+- ECS/Fargate is not configured.
+- Worker hosting is not configured.
+- No production Dockerfile/image pipeline, task definitions, ALB, VPC, IAM, log groups, cost guardrails, or runbooks exist yet for the production API path.
+- Database provider/runtime role, `DIRECT_URL` separation, Supabase RLS/Data API posture, Prisma connection budget, and migration/admin credential split remain unresolved.
+- Redis/queue production plan, worker/queue monitoring, retry/dead-letter policy, and queue durability posture remain unresolved.
+- Object storage/generated document storage policy, hosted backup/PITR proof, restore drills, monitoring/alerting, incident/support process, email provider gates, and ZATCA production gates remain unresolved.
+- No customer data migration or production deploy is approved until a separate future ticket explicitly allows it.
+
+### Recommended Next Implementation Ticket
+
+- `NEXT_10_PRODUCTION_TICKETS.md` currently states that `PROD-A2 API hosting decision` is drafted/proposed at ADR-013, not implemented, and that separate implementation tickets must be opened with explicit approval before any ECS/Fargate configuration, API/worker provisioning, env change, production deploy, database/Redis/storage mutation, migration, backup, ZATCA action, email send, customer-data movement, or app test against production.
+- Next numbered planning ticket in `PRODUCTION_IMPLEMENTATION_TICKETS.md`: `PROD-A3 Web hosting decision`.
+
+## Forbidden Actions For Next Production Thread
 
 - Do not change app code.
 - Do not deploy, provision, migrate, seed, reset, delete, or change environment variables.
 - Do not change Supabase RLS, runtime DB roles, Vercel settings, ZATCA behavior, emails, accounting logic, or customer data.
-- Do not create a new API hosting ADR until the user explicitly starts that thread.
-- Do not accept or implement ADR-001 without explicit approval.
-- Do not research the web unless the user explicitly starts the official API hosting research thread.
+- Do not accept or implement ADR-001 or ADR-013 without explicit approval.
+- Do not research the web unless the user explicitly starts a research thread.
 - Do not touch unrelated web/marketing worktree changes.
 
 ## Next Thread Prompt
 
-`PROD-A2 Part 3: draft API hosting decision.`
+`PROD-A3 Web hosting decision`
