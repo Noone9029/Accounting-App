@@ -31,6 +31,8 @@ describe("permission helpers", () => {
 
   it("maps routes to required permissions for access-denied checks", () => {
     expect(getRequiredPermissionsForPathname("/dashboard")).toEqual([PERMISSIONS.dashboard.view]);
+    expect(getRequiredPermissionsForPathname("/setup")).toEqual([PERMISSIONS.dashboard.view]);
+    expect(getRequiredPermissionsForPathname("/organization/setup")).toEqual([]);
     expect(getRequiredPermissionsForPathname("/reports/trial-balance")).toEqual([PERMISSIONS.reports.view]);
     expect(getRequiredPermissionsForPathname("/bank-accounts")).toEqual([PERMISSIONS.bankAccounts.view]);
     expect(getRequiredPermissionsForPathname("/bank-accounts/new")).toEqual([PERMISSIONS.bankAccounts.manage]);
@@ -85,7 +87,9 @@ describe("permission helpers", () => {
     expect(getRequiredPermissionsForPathname("/settings/zatca")).toEqual([PERMISSIONS.zatca.view]);
     expect(getRequiredPermissionsForPathname("/settings/team")).toEqual([PERMISSIONS.users.view]);
     expect(getRequiredPermissionsForPathname("/settings/roles/role-1")).toEqual([PERMISSIONS.roles.view]);
-    expect(getRequiredPermissionsForPathname("/unknown")).toEqual([]);
+    expect(getRequiredPermissionsForPathname("/sales/quotes")).toEqual([PERMISSIONS.dashboard.view]);
+    expect(getRequiredPermissionsForPathname("/fixed-assets")).toEqual([PERMISSIONS.dashboard.view]);
+    expect(getRequiredPermissionsForPathname("/unknown")).toEqual([PERMISSIONS.dashboard.view]);
   });
 });
 

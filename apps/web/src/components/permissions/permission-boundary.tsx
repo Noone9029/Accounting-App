@@ -7,7 +7,7 @@ import { usePermissions } from "./permission-provider";
 
 export function PermissionBoundary({ children }: Readonly<{ children: React.ReactNode }>) {
   const pathname = usePathname();
-  const { activeMembership, error, loading } = usePermissions();
+  const { activeMembership, error, loading, user } = usePermissions();
   const requiredPermissions = getRequiredPermissionsForPathname(pathname);
 
   if (loading) {
@@ -22,6 +22,10 @@ export function PermissionBoundary({ children }: Readonly<{ children: React.Reac
     return <AccessDeniedPanel detail={error} />;
   }
 
+  if (!user) {
+    return <AccessDeniedPanel detail="Log in before opening this workspace route." actionHref="/login" actionLabel="Log in" />;
+  }
+
   if (requiredPermissions.length > 0 && !hasAnyPermission(activeMembership, ...requiredPermissions)) {
     return <AccessDeniedPanel detail="Your current role does not include the permission required for this page." />;
   }
@@ -29,13 +33,17 @@ export function PermissionBoundary({ children }: Readonly<{ children: React.Reac
   return <>{children}</>;
 }
 
-function AccessDeniedPanel({ detail }: Readonly<{ detail: string }>) {
+function AccessDeniedPanel({
+  actionHref = "/dashboard",
+  actionLabel = "Back to dashboard",
+  detail,
+}: Readonly<{ actionHref?: string; actionLabel?: string; detail: string }>) {
   return (
     <section className="rounded-md border border-slate-200 bg-white p-6">
       <div className="text-sm font-semibold text-ink">Access denied</div>
       <p className="mt-2 max-w-2xl text-sm text-steel">{detail}</p>
-      <Link href="/dashboard" className="mt-4 inline-flex rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-        Back to dashboard
+      <Link href={actionHref} className="mt-4 inline-flex rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        {actionLabel}
       </Link>
     </section>
   );

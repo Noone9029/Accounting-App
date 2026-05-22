@@ -60,6 +60,14 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.dashboard.view];
   }
 
+  if (pathname === "/setup") {
+    return [PERMISSIONS.dashboard.view];
+  }
+
+  if (pathname === "/organization/setup") {
+    return [];
+  }
+
   if (pathname.startsWith("/reports")) {
     return [PERMISSIONS.reports.view];
   }
@@ -291,5 +299,5 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.roles.view];
   }
 
-  return [];
+  return [PERMISSIONS.dashboard.view];
 }
