@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `90007a6 Update production docs for hosting ADR`
+- `447435c Finalize PROD-A1 hosting ADR handoff`
 
 ## Current PROD-A1 Objective
 
@@ -135,15 +135,32 @@
 
 - `PROD-A2 API hosting decision`: define the production NestJS/Prisma API runtime, connection pooling, timeouts, logs, rollback, and worker handoff against the proposed AWS direction without deploying or mutating infrastructure.
 
-## Forbidden Actions For Next PROD-A1 Thread
+## PROD-A2 Part 1 - API Hosting Inventory
+
+- API framework/runtime: `apps/api` is a NestJS 11 API on Express 5, TypeScript/CommonJS, Node-oriented runtime, with `ConfigModule.forRoot({ isGlobal: true })`, global validation pipes, CORS from config, and Prisma in the main module.
+- API start/build commands: root `build` runs workspace builds; API scripts are `dev` (`nest start --watch --entryFile apps/api/src/main`), `build` (`nest build`), `start` (`node dist/apps/api/src/main.js`), `db:generate`, `db:migrate`, and smoke commands; Vercel beta API uses root `vercel.json`, `api/index.js`, `apps/api/api/index.ts`, and `scripts/vercel-postinstall.cjs`.
+- Required environment categories: runtime DB and migration DB URLs, Prisma connection/transaction tuning, JWT auth, CORS/web URL, API port, email provider/SMTP/webhook/retry-worker gates, ZATCA adapter/SDK/custody gates, attachment/generated-document storage provider, S3-compatible object storage settings, and deployment target flags; do not expose values.
+- Database dependency: Prisma PostgreSQL datasource uses `DATABASE_URL` plus `DIRECT_URL`; `PrismaService` connects on module init, disconnects on shutdown, normalizes Supabase pooler URLs for Vercel, applies `connection_limit`, and `/readiness` depends on a safe `SELECT 1`.
+- Redis/queue dependency: `REDIS_URL` exists in env examples and local Docker Compose, but no BullMQ dependency or active Redis queue integration was found in `apps/api`; current docs say Redis/BullMQ is infrastructure groundwork and not required by current workflows.
+- Worker separation needs: long-running background workers are not implemented; email retry worker paths are API/admin-controlled and disabled by default, so production hosting needs a separate worker process for retries, exports/reports, cleanup, and future ZATCA work instead of tying jobs to request handling or Vercel functions.
+- Storage/document dependency: attachments default to database/base64 storage with optional S3-compatible provider selected by env and requiring bucket/endpoint/credential config; generated documents currently archive PDF buffers as database-backed base64, so production needs object-storage policy and migration planning before scale.
+- PDF generation/runtime needs: invoices, purchase bills, and reports render PDFs in-process through `@ledgerbyte/pdf-core`, return `application/pdf`, and archive generated PDFs; API hosting must budget CPU/memory/timeouts for synchronous PDF generation and avoid assuming PDF/A-3/ZATCA artifact storage is complete.
+- ZATCA/network dependency: default posture is mock/no real network; sandbox HTTP paths are gated and production CSID/signing/clearance/reporting/PDF/A-3 remain blocked; API hosting must support future outbound network, Java/SDK paths, temp files, and secrets custody only after separate ZATCA approval.
+- Email dependency: default provider is mock or SMTP-disabled; SMTP sends, diagnostics, retry processor, retry worker, and provider webhooks are guarded by env gates, so production needs provider secrets, webhook verification, scheduling/worker separation, monitoring evidence, and no real sending until explicitly approved.
+- Health check readiness: API root returns safe service metadata, `/health` is lightweight and DB-free, and `/readiness` checks database connectivity and returns safe `503` JSON on DB failure; production hosting should wire health, readiness, logging, and alerting separately.
+- Containerization readiness: no production Dockerfile was found; local `infra/docker-compose.yml` uses `node:22-alpine` with Postgres and Redis for development, while current beta deployment is Vercel serverless wrapper only; PROD-A2 must decide an AWS container/app runtime and produce a production image/run command plan later.
+- Known blockers/risks for API production hosting: Vercel remains beta/user-testing/staging only; current Vercel max duration/memory wrapper is not final production API hosting; exact AWS API runtime is undecided; Next.js 16 web hosting remains separate; least-privilege DB role, RLS/Data API strategy, backup/PITR proof, object storage, secrets/KMS, worker/queue operations, monitoring, rollback, email provider, and ZATCA gates remain unresolved.
+
+## Forbidden Actions For Next PROD-A2 Thread
 
 - Do not change app code.
 - Do not deploy, provision, migrate, seed, reset, delete, or change environment variables.
 - Do not change Supabase RLS, runtime DB roles, Vercel settings, ZATCA behavior, emails, accounting logic, or customer data.
+- Do not create a new API hosting ADR until the user explicitly starts that thread.
 - Do not accept or implement ADR-001 without explicit approval.
-- Do not research the web unless the user explicitly widens scope or starts a provider-refresh ticket.
+- Do not research the web unless the user explicitly starts the official API hosting research thread.
 - Do not touch unrelated web/marketing worktree changes.
 
 ## Next Thread Prompt
 
-`PROD-A2: define production API hosting requirements.`
+`PROD-A2 Part 2: official API hosting research.`
