@@ -10,6 +10,7 @@ This is an original implementation inspired by common accounting workflows. It d
 
 - LedgerByte is currently a serious accounting MVP and controlled-beta candidate, not a production-launched SaaS.
 - The current Vercel deployment is for beta/user-testing only; final production hosting is a separate decision.
+- ADR-001 for final production hosting is drafted/proposed only; implementation has not started, no provider is provisioned, and no production deploy was performed.
 - Real ZATCA production compliance is not enabled. CSID execution, signing, clearance/reporting, PDF/A-3, real network submission, and production compliance certification remain blocked.
 - Paid production SaaS v1 requires production foundation work across hosting, database security, backups, monitoring, email, billing, support, legal, accountant review, and ZATCA specialist review.
 - The practical current stage is controlled beta with selected testers, dummy/sanitized data, and clear non-production limitations.
@@ -21,9 +22,10 @@ Production planning docs:
 - [Launch gate checklist](docs/production/LAUNCH_GATE_CHECKLIST.md)
 - [Production implementation tickets](docs/production/PRODUCTION_IMPLEMENTATION_TICKETS.md)
 - [Architecture decision records](docs/production/ARCHITECTURE_DECISION_RECORDS.md)
+- [ADR-001 final production hosting draft](docs/production/adrs/ADR-001-final-production-hosting.md)
 - [Next 10 production tickets](docs/production/NEXT_10_PRODUCTION_TICKETS.md)
 
-The production ticket backlog, ADR index, and first 10 production tickets are planning artifacts only. They do not perform production implementation, hosting changes, database role changes, RLS changes, backups/restores, billing, real email, ZATCA network behavior, or infrastructure changes.
+The production ticket backlog, ADR index, ADR-001 draft, and first 10 production tickets are planning artifacts only. They do not perform production implementation, hosting changes, database role changes, Supabase/Vercel env changes, RLS changes, migrations, backups/restores, billing, app tests, real email, ZATCA network behavior, or infrastructure changes.
 
 ## Stack
 
@@ -79,6 +81,8 @@ LedgerByte is prepared for a two-project Vercel beta/user-testing deployment bac
 - Prisma transaction timing can be tuned with `PRISMA_TRANSACTION_MAX_WAIT_MS` and `PRISMA_TRANSACTION_TIMEOUT_MS` for hosted Supabase/Vercel latency.
 
 See [docs/DEPLOYMENT_VERCEL_SUPABASE.md](docs/DEPLOYMENT_VERCEL_SUPABASE.md) for the full setup checklist, required Vercel project settings, and environment variables.
+
+Final production hosting is only proposed in [ADR-001](docs/production/adrs/ADR-001-final-production-hosting.md). Vercel remains beta/user-testing/staging only unless a separate production-hosting approval and implementation ticket changes that posture.
 
 Deployment safety docs:
 

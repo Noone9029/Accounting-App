@@ -11,9 +11,10 @@ Current state: controlled beta/user-testing. Vercel is beta/user-testing only, n
 - Ticket: `PROD-A1 Final hosting ADR`
 - Why now: every production path depends on whether web, API, workers, queues, storage, logs, and secrets remain split across providers or move to a new platform.
 - Prerequisites: current deployment docs, production roadmap, cost/support expectations, known worker/queue and DB constraints.
-- Expected output: accepted or pending ADR comparing final production hosting options and naming the next implementation tickets.
+- Current status: [ADR-001 final production hosting](adrs/ADR-001-final-production-hosting.md) is drafted/proposed and recommends an AWS production stack for paid SaaS v1.
+- Expected output: review/handoff for the proposed ADR, then separate approved implementation tickets before any provider, env, DNS, database, storage, queue, email, or ZATCA mutation.
 - Safe validation method: docs-only architecture review; no provider mutation; `git diff --check`.
-- What not to touch: Vercel projects, DNS, Supabase, env vars, deploy settings, production domains, traffic routing.
+- What not to touch: Vercel projects, DNS, Supabase, env vars, deploy settings, production domains, traffic routing, migrations, backups, app tests, real email, or ZATCA behavior.
 
 ## 2. Least-Privilege Runtime DB Role Validation
 
@@ -98,4 +99,4 @@ Current state: controlled beta/user-testing. Vercel is beta/user-testing only, n
 
 ## Next Ticket Recommendation
 
-Start with `PROD-A1 Final hosting ADR`. It reduces the most downstream uncertainty without touching production systems.
+`PROD-A1 Final hosting ADR` is now drafted/proposed, not implemented. Next, perform verification and handoff, then open separate implementation tickets with explicit approval for any provider provisioning, Supabase/Vercel env change, production deploy, migration, backup, ZATCA action, email send, or app test.
