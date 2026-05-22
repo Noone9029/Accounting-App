@@ -37,6 +37,23 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### API hosting decision ADR drafted
+
+Captured the proposed production API hosting direction without changing product behavior or production infrastructure.
+
+Risk reduced:
+
+- Added [ADR-013 API hosting decision](docs/production/adrs/ADR-013-api-hosting-decision.md) as a drafted/proposed API hosting ADR because ADR-002 is already reserved for the production database provider.
+- Documented AWS ECS Fargate as the recommended paid SaaS v1 API direction.
+- Documented that API and worker should be hosted as separate ECS Fargate services, even if they share one image.
+- Documented fallback posture: DigitalOcean App Platform is secondary fallback, Elastic Beanstalk is AWS fallback only, AWS App Runner is not recommended because official AWS docs say it is closed to new customers as of April 30, 2026, and Render/Fly/Railway-style hosting is backup/private-beta only.
+- Updated production docs to state that Vercel remains beta/user-testing/staging only, not final API production hosting.
+
+Remaining risks:
+
+- This is documentation/planning only. ADR-013 is drafted/proposed, but implementation has not started, the API provider/service is not provisioned, ECS/Fargate is not configured, worker hosting is not configured, no production API deploy was performed, and actual API deployment/infrastructure setup belongs to later implementation tickets.
+- No app code, env vars, database, Redis, storage, ZATCA behavior, email behavior, accounting logic, customer data, Supabase RLS, runtime DB roles, Vercel settings, migrations, seed/reset/delete, deployment, provisioning, backups/restores, full smoke, or full E2E changed.
+
 ### Production implementation backlog documented
 
 Converted the production foundation roadmap into owned planning artifacts without changing product behavior or production infrastructure.

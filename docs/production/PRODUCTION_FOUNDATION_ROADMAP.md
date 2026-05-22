@@ -27,6 +27,7 @@ Do not treat the current system as:
 - Vercel hosts the current beta/user-testing web and API surfaces.
 - Supabase Postgres backs the user-testing deployment.
 - [ADR-001 final production hosting](adrs/ADR-001-final-production-hosting.md) is drafted/proposed and recommends an AWS production stack for paid SaaS v1, but implementation has not started, no provider is provisioned, and no production deploy was performed.
+- [ADR-013 API hosting decision](adrs/ADR-013-api-hosting-decision.md) is drafted/proposed and recommends AWS ECS Fargate for the paid SaaS v1 API, with API and worker hosted as separate services even if they share one image. Implementation has not started: the API provider/service is not provisioned, ECS/Fargate is not configured, worker hosting is not configured, no production API deploy was performed, no env vars changed, and no database, Redis, storage, ZATCA, email, accounting logic, or customer data changed.
 - The API is a NestJS app wrapped for Vercel Node serverless execution.
 - Redis-ready local infrastructure exists, but production workers and queues are not wired.
 - Database/base64 storage remains the default for generated documents and existing attachments; S3-compatible storage exists only as feature-flagged groundwork for new uploads.
@@ -45,8 +46,8 @@ Do not treat the current system as:
 
 ### Recommended Next Tasks
 
-1. Verify and hand off the proposed ADR-001; keep Vercel beta/user-testing/staging only until a separate production-hosting approval exists.
-2. Open separate implementation tickets before any provider provisioning, Supabase/Vercel env changes, production deploy, migrations, backups, DNS, traffic, ZATCA, email, or app-test activity.
+1. Verify and hand off the proposed ADR-013 API hosting decision; keep Vercel beta/user-testing/staging only and do not treat the ADR as API deployment or infrastructure setup.
+2. Open separate implementation tickets before any ECS/Fargate configuration, API/worker provisioning, Supabase/Vercel env changes, production deploy, migrations, backups, DNS, traffic, ZATCA, email, customer data, or app-test activity.
 3. Validate object-storage mode against a real non-production bucket only after explicit approval and provider setup.
 4. Define deployment rollback gates before adding production traffic.
 

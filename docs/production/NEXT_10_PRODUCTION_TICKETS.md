@@ -6,12 +6,20 @@ This plan orders the first production-foundation tickets by risk reduction. It i
 
 Current state: controlled beta/user-testing. Vercel is beta/user-testing only, not final production hosting. LedgerByte is not production-launched. Real ZATCA production compliance is not enabled.
 
+## Current PROD-A2 Status
+
+- [ADR-013 API hosting decision](adrs/ADR-013-api-hosting-decision.md) is drafted/proposed.
+- Proposed API direction: AWS ECS Fargate for paid SaaS v1, with API and worker hosted as separate services even if they share one image.
+- Fallback posture: DigitalOcean App Platform is secondary fallback, Elastic Beanstalk is AWS fallback only, AWS App Runner is not recommended because official AWS docs say it is closed to new customers as of April 30, 2026, and Render/Fly/Railway-style hosting is backup/private-beta only.
+- Vercel remains beta/user-testing/staging only, not final API production hosting.
+- Implementation has not started: no API provider/service is provisioned, ECS/Fargate is not configured, worker hosting is not configured, no production API deploy was performed, no env vars changed, and no database, Redis, storage, ZATCA, email, accounting logic, or customer data changed.
+
 ## 1. Hosting ADR
 
 - Ticket: `PROD-A1 Final hosting ADR`
 - Why now: every production path depends on whether web, API, workers, queues, storage, logs, and secrets remain split across providers or move to a new platform.
 - Prerequisites: current deployment docs, production roadmap, cost/support expectations, known worker/queue and DB constraints.
-- Current status: [ADR-001 final production hosting](adrs/ADR-001-final-production-hosting.md) is drafted/proposed and recommends an AWS production stack for paid SaaS v1.
+- Current status: [ADR-001 final production hosting](adrs/ADR-001-final-production-hosting.md) is drafted/proposed and recommends an AWS production stack for paid SaaS v1. [ADR-013 API hosting decision](adrs/ADR-013-api-hosting-decision.md) is also drafted/proposed and recommends AWS ECS Fargate for the paid SaaS v1 API, with separate API and worker services.
 - Expected output: review/handoff for the proposed ADR, then separate approved implementation tickets before any provider, env, DNS, database, storage, queue, email, or ZATCA mutation.
 - Safe validation method: docs-only architecture review; no provider mutation; `git diff --check`.
 - What not to touch: Vercel projects, DNS, Supabase, env vars, deploy settings, production domains, traffic routing, migrations, backups, app tests, real email, or ZATCA behavior.
@@ -99,4 +107,4 @@ Current state: controlled beta/user-testing. Vercel is beta/user-testing only, n
 
 ## Next Ticket Recommendation
 
-`PROD-A1 Final hosting ADR` is now drafted/proposed, not implemented. Next, perform verification and handoff, then open separate implementation tickets with explicit approval for any provider provisioning, Supabase/Vercel env change, production deploy, migration, backup, ZATCA action, email send, or app test.
+`PROD-A2 API hosting decision` is now drafted/proposed at [ADR-013](adrs/ADR-013-api-hosting-decision.md), not implemented. Next, perform PROD-A2 verification and handoff, then open separate implementation tickets with explicit approval for any ECS/Fargate configuration, API/worker provisioning, env change, production deploy, database/Redis/storage mutation, migration, backup, ZATCA action, email send, customer-data movement, or app test against production.
