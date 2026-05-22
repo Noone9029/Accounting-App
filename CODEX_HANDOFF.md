@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `bf7a6dc Update production docs for API hosting decision`
+- `ef8ca0e Finalize PROD-A2 API hosting handoff`
 
 ## Current PROD-A1 Objective
 
@@ -355,6 +355,23 @@
 - `NEXT_10_PRODUCTION_TICKETS.md` currently states that `PROD-A2 API hosting decision` is drafted/proposed at ADR-013, not implemented, and that separate implementation tickets must be opened with explicit approval before any ECS/Fargate configuration, API/worker provisioning, env change, production deploy, database/Redis/storage mutation, migration, backup, ZATCA action, email send, customer-data movement, or app test against production.
 - Next numbered planning ticket in `PRODUCTION_IMPLEMENTATION_TICKETS.md`: `PROD-A3 Web hosting decision`.
 
+## PROD-A3 Part 1 - Web Hosting Inventory
+
+- Web framework/runtime: `apps/web` is a Next.js 16.0.0 / React 19.2.4 App Router app in a pnpm workspace; `next.config.ts` enables `reactStrictMode` and `experimental.externalDir` for monorepo workspace access.
+- Build/start/export commands: root `build` runs recursive workspace builds; web scripts are `dev` (`next dev --port 3000`), `build` (`next build`), `start` (`next start --port 3000`), `typecheck`/`lint` (`tsc --noEmit`), and Jest tests. No `next export` or static `output: "export"` setting is configured.
+- Static vs SSR/server runtime needs: the app uses App Router layouts/pages with no committed `route.ts` handlers under `apps/web`; the root page redirects to `/dashboard`, while authenticated app pages are mostly `"use client"` and fetch data in the browser. Final hosting should assume a normal Next runtime unless PROD-A3 proves static export is safe.
+- Required environment variable categories: public API base URL (`NEXT_PUBLIC_API_URL`) for browser/API calls; deployment/e2e URL variables are test-runner inputs, not web runtime secrets. Web should not receive database URLs, SMTP secrets, ZATCA secrets, Supabase service keys, or provider credentials.
+- API connectivity assumptions: browser requests call `${NEXT_PUBLIC_API_URL}` and send bearer auth plus `x-organization-id`; API CORS must include every allowed web origin. PDF/document downloads also call the API directly and create browser object URLs.
+- Auth/session/browser storage assumptions: access token and active organization id are stored in `localStorage` under `ledgerbyte.*` keys with legacy key fallback; org changes are coordinated through a custom browser event plus `storage` events. There is no committed cookie/session middleware path in the web app.
+- Routing behavior: route groups split `(auth)` login/register/password/invite flows from `(app)` authenticated workflows; many dynamic App Router pages use client-side `useRouter`, `useParams`, and `<Link>` navigation. There is a committed catch-all placeholder page under `(app)/[...placeholder]`.
+- Asset/static file needs: no committed `apps/web/public` static asset files were found; current frontend assets are primarily Next JS/CSS chunks, Tailwind-generated CSS, lucide icons, and runtime-downloaded PDFs/CSVs from the API.
+- CDN/caching considerations: static Next chunks can use host/CDN immutable caching, but authenticated pages and API responses should not be treated as public-cacheable. The shared API client sets request `cache-control: no-store`, `pragma: no-cache`, and `fetch` cache `no-store` by default.
+- Preview/staging needs: current Vercel user-testing web project is `ledgerbyte-web-test`, root directory `apps/web`, framework Next.js, source outside root enabled, build command `corepack pnpm --filter @ledgerbyte/web build`, and `NEXT_PUBLIC_API_URL=https://ledgerbyte-api-test.vercel.app`. It remains beta/user-testing/staging only.
+- Rollback needs: current Vercel runbook rolls/promotes API first and web second; final web hosting needs independent web rollback, API compatibility checks, asset-cache invalidation expectations, and promotion gates tied to the chosen API target.
+- Domain/DNS/TLS needs: production web domain, TLS certificate, DNS ownership, beta-vs-production domain separation, API production URL, and API `CORS_ORIGIN` must be planned together. No production domain binding or DNS/TLS change was performed.
+- Current Vercel beta/staging posture: Vercel is useful for the existing beta/user-testing workflow and preview ergonomics, but ADR-001 keeps Vercel beta/user-testing/staging only until a separate production web decision is proposed, accepted, and implemented.
+- Known blockers/risks for final web production hosting: Next.js 16 hosting support must be validated against official provider docs in Part 2; final web provider is undecided; static export safety is unproven; `NEXT_PUBLIC_API_URL` is build/runtime-provider sensitive; environment separation, error monitoring, cache policy, security headers, domain/TLS, rollback, support ownership, and deployed E2E/smoke gates remain unresolved; no app code, Vercel settings, env vars, DNS, production deploy, customer data, email, ZATCA, Supabase RLS, or runtime DB roles changed.
+
 ## Forbidden Actions For Next Production Thread
 
 - Do not change app code.
@@ -366,4 +383,4 @@
 
 ## Next Thread Prompt
 
-`PROD-A3 Web hosting decision`
+`PROD-A3 Part 2: official web hosting research`
