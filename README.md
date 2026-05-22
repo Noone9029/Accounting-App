@@ -19,6 +19,11 @@ Production planning docs:
 - [Production foundation roadmap](docs/production/PRODUCTION_FOUNDATION_ROADMAP.md)
 - [Paid SaaS v1 gap matrix](docs/production/PAID_SAAS_V1_GAP_MATRIX.md)
 - [Launch gate checklist](docs/production/LAUNCH_GATE_CHECKLIST.md)
+- [Production implementation tickets](docs/production/PRODUCTION_IMPLEMENTATION_TICKETS.md)
+- [Architecture decision records](docs/production/ARCHITECTURE_DECISION_RECORDS.md)
+- [Next 10 production tickets](docs/production/NEXT_10_PRODUCTION_TICKETS.md)
+
+The production ticket backlog, ADR index, and first 10 production tickets are planning artifacts only. They do not perform production implementation, hosting changes, database role changes, RLS changes, backups/restores, billing, real email, ZATCA network behavior, or infrastructure changes.
 
 ## Stack
 
@@ -88,6 +93,9 @@ Deployment safety docs:
 - [Production foundation roadmap](docs/production/PRODUCTION_FOUNDATION_ROADMAP.md)
 - [Paid SaaS v1 gap matrix](docs/production/PAID_SAAS_V1_GAP_MATRIX.md)
 - [Launch gate checklist](docs/production/LAUNCH_GATE_CHECKLIST.md)
+- [Production implementation tickets](docs/production/PRODUCTION_IMPLEMENTATION_TICKETS.md)
+- [Architecture decision records](docs/production/ARCHITECTURE_DECISION_RECORDS.md)
+- [Next 10 production tickets](docs/production/NEXT_10_PRODUCTION_TICKETS.md)
 
 Accountant review materials:
 

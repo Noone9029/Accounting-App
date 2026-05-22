@@ -10,10 +10,13 @@ For the updated Product Audit v2 planning artifacts, see:
 - `docs/production/PRODUCTION_FOUNDATION_ROADMAP.md`
 - `docs/production/PAID_SAAS_V1_GAP_MATRIX.md`
 - `docs/production/LAUNCH_GATE_CHECKLIST.md`
+- `docs/production/PRODUCTION_IMPLEMENTATION_TICKETS.md`
+- `docs/production/ARCHITECTURE_DECISION_RECORDS.md`
+- `docs/production/NEXT_10_PRODUCTION_TICKETS.md`
 
 ## Current Stage
 
-LedgerByte is at the controlled beta/user-testing stage. The current Vercel deployment is beta/user-testing only and must not be treated as final production hosting. LedgerByte is not production-launched, real ZATCA production compliance is not enabled, and paid production SaaS v1 requires the production foundation work documented under `docs/production/`.
+LedgerByte is at the controlled beta/user-testing stage. The current Vercel deployment is beta/user-testing only and must not be treated as final production hosting. LedgerByte is not production-launched, real ZATCA production compliance is not enabled, and paid production SaaS v1 requires the production foundation work documented under `docs/production/`. The production ticket backlog, ADR index, and first 10 production tickets are planning artifacts only; no production implementation has been performed.
 
 ## Phase 0: Production Foundation For Paid Saudi-First SaaS v1
 
@@ -40,7 +43,7 @@ Risk level: Critical.
 
 Recommended next prompt:
 
-> Turn the production foundation roadmap into owned implementation tickets, starting with production hosting ADR, least-privilege runtime DB role validation, hosted backup/PITR proof, object-storage validation, monitoring stack selection, and legal/billing/support ownership.
+> Draft `PROD-A1 Final hosting ADR`, comparing Vercel plus managed workers, container hosting, and managed PaaS options for LedgerByte production without changing deployment settings or infrastructure.
 
 ## Phase 1: Stabilize Current MVP
 

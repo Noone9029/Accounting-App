@@ -12,6 +12,9 @@ See also:
 - `docs/production/PRODUCTION_FOUNDATION_ROADMAP.md` for the paid Saudi-first SaaS v1 production foundation plan.
 - `docs/production/PAID_SAAS_V1_GAP_MATRIX.md` for the paid-v1 gap matrix.
 - `docs/production/LAUNCH_GATE_CHECKLIST.md` for controlled beta, paid beta, public production, ZATCA, security, backup, monitoring, and billing/legal gates.
+- `docs/production/PRODUCTION_IMPLEMENTATION_TICKETS.md` for owned production implementation tickets.
+- `docs/production/ARCHITECTURE_DECISION_RECORDS.md` for production ADR placeholders.
+- `docs/production/NEXT_10_PRODUCTION_TICKETS.md` for the first risk-reducing production tickets.
 
 ## Summary
 
@@ -20,6 +23,8 @@ LedgerByte is a TypeScript monorepo for a GCC/Saudi-oriented accounting SaaS. Th
 Current maturity level: `MVP_ACCOUNTING_FOUNDATION`. The Product Audit v2 now estimates local demo MVP readiness at 88%, private beta readiness at 66%, production SaaS readiness at 40%, Saudi/ZATCA production readiness at 36%, and Xero/Wafeq competitor readiness at 45%. The app can be demonstrated locally for dashboard KPI overview, sales invoices, customer payments, credit notes, customer refunds, purchase orders, purchase bills, purchase bill accounting previews, supplier payments, bank account profile balances/transactions, bank transfers, opening-balance posting, local bank statement import preview/reconciliation, reconciliation approval/close/lock review history, reconciliation reports, uploaded attachment upload/list/download/soft-delete on key source records, inventory warehouses, opening-balance movements, inventory adjustment approvals/voids, warehouse transfers/voids, purchase receipts/voids, sales stock issues/voids, inventory balances, inventory settings, inventory accounting settings, purchase receipt posting readiness, purchase receipt accounting previews, compatible receipt asset posting/reversal, bill/receipt matching visibility, inventory clearing reconciliation/variance reports, variance proposal create/submit/approve/post/reverse/void workflow, sales issue COGS previews/posting, stock valuation/movement/low-stock reports, ledgers, statements, core report exports, and PDFs. It is not production-ready as a SaaS and is not production ZATCA compliant.
 
 Production posture update: the current Vercel deployment is beta/user-testing only, not final production hosting. LedgerByte is not production-launched. Paid Saudi-first SaaS v1 requires production foundation work across hosting, database security, backup/restore, object storage, monitoring, support, billing, legal, accountant review, and ZATCA specialist review. Real ZATCA production compliance remains disabled until CSID, signing, clearance/reporting, PDF/A-3, official SDK validation, key custody, audit evidence, and compliance sign-off are complete.
+
+Production execution planning update: the roadmap has been converted into a ticket backlog, ADR index, and next-10 sequence under `docs/production/`. This is planning only; no hosting, runtime DB role, RLS, backup/restore, billing, real email, ZATCA, monitoring, or production infrastructure implementation was performed.
 
 ## Tech Stack
 

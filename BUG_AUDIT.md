@@ -37,6 +37,22 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Production implementation backlog documented
+
+Converted the production foundation roadmap into owned planning artifacts without changing product behavior or production infrastructure.
+
+Risk reduced:
+
+- Added `docs/production/PRODUCTION_IMPLEMENTATION_TICKETS.md` with ticket-ready scopes across hosting, database/security, backups/storage, monitoring/operations, SaaS operations, legal/compliance, ZATCA, and product/beta readiness.
+- Added `docs/production/ARCHITECTURE_DECISION_RECORDS.md` with ADR placeholders for final hosting, database provider, object storage, queue/worker hosting, email, billing, monitoring, secrets, ZATCA strategy, raw bank statement archive policy, RLS/Data API strategy, and least-privilege runtime DB role.
+- Added `docs/production/NEXT_10_PRODUCTION_TICKETS.md` to order the first production-foundation tickets by risk reduction.
+- Updated readiness/audit docs to state that the current stage remains controlled beta/user-testing, Vercel remains beta/user-testing only, and no production implementation was performed.
+
+Remaining risks:
+
+- This is documentation/planning only. The tickets and ADRs still need owners, execution approval, provider decisions, safe validation environments, legal/accountant/ZATCA specialist review, and implementation.
+- Full smoke, full E2E, migrations, seed/reset/delete, Vercel/Supabase environment changes, Supabase RLS changes, runtime DB role changes, real email, real ZATCA, monitoring setup, billing setup, and backups/restores were intentionally out of scope.
+
 ### Production foundation roadmap documented
 
 Added planning documents that make the current product stage and production blockers explicit without changing product behavior.

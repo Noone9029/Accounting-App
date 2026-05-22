@@ -42,16 +42,25 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 - Added `docs/production/LAUNCH_GATE_CHECKLIST.md` with controlled beta, paid private beta, public production, ZATCA-compliance, security, backup/restore, monitoring/support, and billing/legal gates.
 - This documentation pass does not change app code, schema, deployment configuration, Vercel/Supabase settings, Supabase RLS, runtime DB roles, real email, ZATCA behavior, backups/restores, seeds, or customer data.
 
+## 2026-05-22 Production Implementation Backlog Update
+
+- Added `docs/production/PRODUCTION_IMPLEMENTATION_TICKETS.md` to convert the roadmap into ticket-ready scopes with stages, owner disciplines, priorities, risks, dependencies, acceptance criteria, expected validation, out-of-scope items, and Codex prompt titles.
+- Added `docs/production/ARCHITECTURE_DECISION_RECORDS.md` with ADR placeholders for final hosting, database provider, object storage, queue/worker hosting, email, billing, monitoring, secrets, ZATCA strategy, raw bank archive policy, RLS/Data API strategy, and least-privilege runtime DB role.
+- Added `docs/production/NEXT_10_PRODUCTION_TICKETS.md` to sequence the first risk-reducing production-foundation tickets.
+- Current state remains controlled beta/user-testing. Vercel remains beta/user-testing only, and no production implementation was performed.
+
 ## Highest Leverage Improvements
 
-1. Real-bucket object-storage validation and file migration.
-2. Non-production SMTP relay execution, provider-specific signed webhooks, production email retry scheduler, external monitoring/alert delivery, and live domain-auth validation around the opt-in SMTP adapter.
-3. Implement the least-privilege Prisma runtime DB role in user-testing, keeping migration/direct credentials separate and validating with narrow smoke.
-4. LedgerByte generated XML warning cleanup for buyer building-number data, signing/certificate, and Phase 2 QR work.
-5. Dashboard/report accountant review.
-6. UX route QA, first-workflow manual review, and E2E expansion.
-7. Audit immutable export/alerting.
-8. Advanced inventory policy: landed cost, FIFO, historical direct-mode handling.
+1. `PROD-A1 Final hosting ADR`.
+2. `PROD-B1 Least-privilege Prisma runtime role` validation plan and approved non-production cutover path.
+3. Hosted backup/PITR proof and hosted restore-drill plan.
+4. Object-storage validation and generated-document storage policy.
+5. Monitoring stack selection with uptime/API/worker/email/backup alerting.
+6. Incident/support runbook for paid users.
+7. Email provider production validation plan.
+8. Billing/legal ownership plan.
+9. ZATCA production onboarding plan.
+10. Full smoke/E2E controlled rerun plan.
 
 ## 2026-05-21 Supabase Data API/RLS hardening update
 
