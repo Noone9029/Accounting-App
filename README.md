@@ -6,6 +6,20 @@ LedgerByte accounting SaaS foundation with a Next.js frontend, NestJS API, Prism
 
 This is an original implementation inspired by common accounting workflows. It does not copy Wafeq branding, proprietary text, logos, UI assets, or copyrighted material.
 
+## Current Production Posture
+
+- LedgerByte is currently a serious accounting MVP and controlled-beta candidate, not a production-launched SaaS.
+- The current Vercel deployment is for beta/user-testing only; final production hosting is a separate decision.
+- Real ZATCA production compliance is not enabled. CSID execution, signing, clearance/reporting, PDF/A-3, real network submission, and production compliance certification remain blocked.
+- Paid production SaaS v1 requires production foundation work across hosting, database security, backups, monitoring, email, billing, support, legal, accountant review, and ZATCA specialist review.
+- The practical current stage is controlled beta with selected testers, dummy/sanitized data, and clear non-production limitations.
+
+Production planning docs:
+
+- [Production foundation roadmap](docs/production/PRODUCTION_FOUNDATION_ROADMAP.md)
+- [Paid SaaS v1 gap matrix](docs/production/PAID_SAAS_V1_GAP_MATRIX.md)
+- [Launch gate checklist](docs/production/LAUNCH_GATE_CHECKLIST.md)
+
 ## Stack
 
 - Monorepo: pnpm workspaces
@@ -52,7 +66,7 @@ pnpm db:seed
 
 ## Deployment
 
-LedgerByte is prepared for a two-project Vercel deployment backed by Supabase Postgres:
+LedgerByte is prepared for a two-project Vercel beta/user-testing deployment backed by Supabase Postgres. This is not the final production hosting decision:
 
 - API project: `apps/api`, deployed as a Vercel Node serverless function wrapper around the NestJS app.
 - Web project: `apps/web`, deployed as the Next.js frontend.
@@ -71,6 +85,9 @@ Deployment safety docs:
 - [User-testing environment cleanup](docs/deployment/USER_TESTING_ENVIRONMENT_CLEANUP.md)
 - [Deployed E2E runbook](docs/deployment/DEPLOYED_E2E_RUNBOOK.md)
 - [Backup and restore readiness plan](docs/BACKUP_AND_RESTORE_READINESS_PLAN.md)
+- [Production foundation roadmap](docs/production/PRODUCTION_FOUNDATION_ROADMAP.md)
+- [Paid SaaS v1 gap matrix](docs/production/PAID_SAAS_V1_GAP_MATRIX.md)
+- [Launch gate checklist](docs/production/LAUNCH_GATE_CHECKLIST.md)
 
 Accountant review materials:
 

@@ -37,6 +37,22 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### Production foundation roadmap documented
+
+Added planning documents that make the current product stage and production blockers explicit without changing product behavior.
+
+Risk reduced:
+
+- Added `docs/production/PRODUCTION_FOUNDATION_ROADMAP.md` for the path from controlled beta/user-testing to paid Saudi-first SaaS v1.
+- Added `docs/production/PAID_SAAS_V1_GAP_MATRIX.md` covering hosting, database security, backups, monitoring, email, billing, support, ZATCA, legal, product UX, accounting review, bank imports, inventory maturity, reporting, and CI/testing.
+- Added `docs/production/LAUNCH_GATE_CHECKLIST.md` with controlled beta, paid private beta, public production, ZATCA-compliance, security, backup/restore, monitoring/support, and billing/legal gates.
+- Updated top-level readiness/audit docs to state that Vercel is beta/user-testing only, LedgerByte is not production-launched, real ZATCA production compliance is not enabled, paid production SaaS requires production foundation work, and controlled beta is the current practical stage.
+
+Remaining risks:
+
+- This is documentation/planning only. Hosting, least-privilege runtime DB role, RLS/Data API strategy, backups/restores, object storage, monitoring, billing, support, legal review, accountant review, and ZATCA production work remain unimplemented or incomplete.
+- Full smoke, full E2E, migrations, seed/reset/delete, Vercel/Supabase environment changes, Supabase RLS changes, runtime DB role changes, real email, real ZATCA, and backups/restores were intentionally out of scope.
+
 ### Beta feedback intake triaged
 
 Reviewed the sanitized beta/accountant feedback intake locations before applying any product fixes.

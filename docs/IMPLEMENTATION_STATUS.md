@@ -7,6 +7,15 @@ Product Audit v2:
 - `docs/PRODUCT_AUDIT_V2.md` summarizes current maturity, blockers, and go/no-go status.
 - `docs/PRODUCT_READINESS_SCORECARD.md` scores readiness by module.
 - `docs/NEXT_30_PROMPTS_ROADMAP.md` lists the next 30 recommended implementation prompts.
+- `docs/production/PRODUCTION_FOUNDATION_ROADMAP.md`, `docs/production/PAID_SAAS_V1_GAP_MATRIX.md`, and `docs/production/LAUNCH_GATE_CHECKLIST.md` document the production-foundation path from controlled beta to paid Saudi-first SaaS v1.
+
+Current production posture:
+
+- Controlled beta/user-testing is the current practical stage.
+- Vercel is beta/user-testing only, not final production hosting.
+- LedgerByte is not production-launched.
+- Real ZATCA production compliance is not enabled.
+- Paid production SaaS v1 requires production foundation work across hosting, database security, backup/restore, monitoring, email, billing, support, legal, accountant review, and ZATCA specialist review.
 
 Status values:
 
@@ -22,6 +31,7 @@ Status values:
 | Module | Status | Files | What works | Gaps | Next step |
 | --- | --- | --- | --- | --- | --- |
 | Monorepo | COMPLETE_FOR_MVP | `package.json`, `pnpm-workspace.yaml`, `apps/*`, `packages/*`, `.github/workflows/deployed-e2e.yml` | Shared workspace scripts, packages, API/web separation, and manual deployed browser E2E workflow. | No full CI pipeline for typecheck/test/build/API smoke yet. | Add CI pipeline for typecheck/test/build and safe API smoke. |
+| Production foundation planning | PARTIAL | `docs/production/PRODUCTION_FOUNDATION_ROADMAP.md`, `docs/production/PAID_SAAS_V1_GAP_MATRIX.md`, `docs/production/LAUNCH_GATE_CHECKLIST.md` | Roadmap, gap matrix, and launch gates now document what remains before paid Saudi-first SaaS v1 without pretending Vercel is final production hosting. | Planning only; no hosting decision, runtime DB role cutover, RLS/Data API final strategy, object-storage migration, monitoring, billing, legal package, accountant sign-off, ZATCA specialist sign-off, full smoke, or full E2E completion. | Convert roadmap into owned implementation tickets and begin with hosting ADR, runtime DB role validation, hosted backup/PITR proof, object-storage proof, monitoring stack selection, and legal/billing/support ownership. |
 | Docker/local infra | PARTIAL | `infra/docker-compose.yml`, `infra/README.md` | Local Postgres, Redis, API, web services. | Production infra not defined; Docker Desktop may be unavailable locally. | Add production deployment plan and compose health notes. |
 | Auth | COMPLETE_FOR_MVP | `apps/api/src/auth`, `apps/web/src/app/(auth)` | Register, login, JWT, `GET /auth/me`, invite preview/accept, password reset request/confirm using hashed tokens and active email provider routing, DB-backed token request rate limits, and expired-token cleanup. | Mock email remains default; no MFA, refresh-token rotation, or advanced session management. | Add MFA, abuse monitoring, and stronger session policy after provider/domain review. |
 | Tenant/org model | COMPLETE_FOR_MVP | `organizations`, `OrganizationMember`, `OrganizationContextGuard` | `x-organization-id` scoping and membership checks. | Cross-org test coverage should continue expanding as modules grow. | Add central tenant-scoping checklist for new modules. |

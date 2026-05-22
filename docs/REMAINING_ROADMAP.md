@@ -7,6 +7,40 @@ For the updated Product Audit v2 planning artifacts, see:
 - `docs/PRODUCT_AUDIT_V2.md`
 - `docs/PRODUCT_READINESS_SCORECARD.md`
 - `docs/NEXT_30_PROMPTS_ROADMAP.md`
+- `docs/production/PRODUCTION_FOUNDATION_ROADMAP.md`
+- `docs/production/PAID_SAAS_V1_GAP_MATRIX.md`
+- `docs/production/LAUNCH_GATE_CHECKLIST.md`
+
+## Current Stage
+
+LedgerByte is at the controlled beta/user-testing stage. The current Vercel deployment is beta/user-testing only and must not be treated as final production hosting. LedgerByte is not production-launched, real ZATCA production compliance is not enabled, and paid production SaaS v1 requires the production foundation work documented under `docs/production/`.
+
+## Phase 0: Production Foundation For Paid Saudi-First SaaS v1
+
+Objective: convert the controlled-beta product into a paid production candidate by proving the platform, operations, legal, billing, security, storage, backup, support, and compliance foundations before public launch.
+
+Tasks:
+
+- Decide final production hosting separately from the current Vercel beta/user-testing deployment.
+- Implement and validate a least-privilege runtime database role with migration/direct/admin credential separation.
+- Decide the Supabase Data API/RLS strategy and verify tenant isolation.
+- Prove hosted database backup/PITR, hosted restore drills, and object-storage backup/restore.
+- Wire production monitoring for web/API, background workers, email delivery, backups, and future ZATCA jobs.
+- Add support and incident-response operations for paid customers.
+- Define paid plans, trial policy, tenant provisioning, cancellation/refund policy, and billing provider/manual billing path.
+- Prepare Terms of Service, Privacy Policy, data processing notes, and retention/deletion policy for legal review.
+- Complete accountant review and ZATCA specialist review before any production accounting or ZATCA claims.
+- Run full smoke and full E2E only when the non-production target and credentials are approved.
+
+Manual dependencies:
+
+- Hosting, security, legal, accountant, ZATCA specialist, payment provider, and support ownership decisions.
+
+Risk level: Critical.
+
+Recommended next prompt:
+
+> Turn the production foundation roadmap into owned implementation tickets, starting with production hosting ADR, least-privilege runtime DB role validation, hosted backup/PITR proof, object-storage validation, monitoring stack selection, and legal/billing/support ownership.
 
 ## Phase 1: Stabilize Current MVP
 
