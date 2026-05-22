@@ -2,18 +2,19 @@
 
 ## Latest Commit Inspected
 
-- `d7f623f Document PROD-A1 hosting requirements`
+- `90007a6 Update production docs for hosting ADR`
 
 ## Current PROD-A1 Objective
 
-- Prepare `PROD-A1 Final hosting ADR` by inventorying final production hosting requirements before drafting the ADR.
-- The next pass should compare final production hosting options separately from the current Vercel user-testing deployment.
-- Keep the first PROD-A1 pass docs-only: requirements inventory, constraints, open questions, and ADR inputs only.
+- `PROD-A1 Final hosting ADR` is complete through final verification/handoff.
+- The ADR is drafted/proposed only, not accepted or implemented.
+- Keep follow-up work docs-only unless a future ticket explicitly approves production-affecting provider, credential, data, DNS, deployment, backup, email, or ZATCA actions.
 
 ## Current Vercel Posture
 
 - Vercel is the current beta/user-testing and staging path only.
 - Do not treat Vercel as accepted final production hosting.
+- [ADR-001](docs/production/adrs/ADR-001-final-production-hosting.md) recommends an AWS production stack for paid SaaS v1, but Vercel remains beta/user-testing/staging only until separately approved.
 - Current user-testing targets are `ledgerbyte-api-test` and `ledgerbyte-web-test`, backed by Supabase Postgres for testing.
 - Any final production hosting decision must account for API runtime fit, background workers, queues, logs, rollback, secrets, storage, database connectivity, cost, support, and operational load.
 
@@ -71,22 +72,78 @@
 
 ## Known Blockers
 
-- `ADR-001 Final production hosting provider` is still pending.
+- `ADR-001 Final production hosting provider` is drafted/proposed, but not accepted or implemented.
+- AWS is recommended for paid SaaS v1, but no provider has been provisioned and no production deployment has occurred.
 - Production database provider and least-privilege Prisma runtime role decisions remain unresolved.
 - Supabase RLS/Data API strategy remains unresolved; current user-testing mitigation is not a production launch posture.
 - Backup/PITR proof, restore drill, object storage policy, monitoring stack, secrets management, incident/support process, billing/legal ownership, and ZATCA production strategy remain open production-foundation work.
 - Full deployed smoke and full deployed E2E are not current production launch gates until a safe approved non-production target and credential/data policy are defined.
 - Real ZATCA production compliance is not enabled; CSID, signing, clearance/reporting, PDF/A-3, real ZATCA network calls, production credentials, and production compliance claims remain blocked.
 
+## PROD-A1 Part 5 - Final Verification And Handoff
+
+### PROD-A1 Result
+
+- Hosting requirements were inventoried from the repo.
+- Official provider research notes were captured for AWS, DigitalOcean, Render/Fly/Railway-style managed hosting, and a hybrid Vercel-web/backend-provider option.
+- [ADR-001 final production hosting](docs/production/adrs/ADR-001-final-production-hosting.md) was created with status `proposed`.
+- Production docs now reference ADR-001 and state that implementation has not started, the provider is not provisioned, and no production deploy was performed.
+
+### Files Changed Across PROD-A1
+
+- `CODEX_HANDOFF.md`
+- `docs/production/adrs/ADR-001-final-production-hosting.md`
+- `docs/production/ARCHITECTURE_DECISION_RECORDS.md`
+- `docs/production/PRODUCTION_IMPLEMENTATION_TICKETS.md`
+- `docs/production/NEXT_10_PRODUCTION_TICKETS.md`
+- `docs/production/PRODUCTION_FOUNDATION_ROADMAP.md`
+- `docs/production/PAID_SAAS_V1_GAP_MATRIX.md`
+- `README.md`
+- `BUG_AUDIT.md`
+
+### Checks Run
+
+- `git status --short`
+- `git log -1 --oneline`
+- `git diff --check`
+- `git diff --cached --check` was conditionally checked; it was skipped before this handoff update because no files were staged.
+- Safety wording search with `rg` for beta/user-testing, proposed/not implemented, no provider provisioning, no production deploy, no Supabase/Vercel env changes, migrations, backups, ZATCA, email, and app-test guard wording.
+- Existing package-script search for link/markdown checks found no dedicated link-check script.
+- Lightweight `Test-Path` check passed for the PROD-A1 handoff, ADR, production planning docs, README, and audit paths.
+
+### Skipped Commands And Why
+
+- Full smoke: skipped because no app code changed and no approved safe runtime target was requested.
+- Full E2E: skipped because no app code changed and deployed/runtime verification was out of scope.
+- Migrations: skipped because schema/data mutation was forbidden.
+- Seed/reset/delete: skipped because data mutation/destructive operations were forbidden.
+- RLS/runtime-role work: skipped because Supabase RLS and runtime DB role changes were forbidden.
+- Vercel/Supabase env changes: skipped because env mutations and provider settings changes were forbidden.
+- Real ZATCA: skipped because ZATCA behavior, credentials, network calls, and production cutover were forbidden.
+- Real email: skipped because email behavior and real sends were forbidden.
+- Backups/restores: skipped because backup/restore execution was forbidden.
+- App tests: skipped because no app code changed.
+
+### Remaining Blockers
+
+- ADR-001 still needs owner review and acceptance before any implementation ticket mutates production-intended providers or credentials.
+- Exact AWS region, account structure, IAM/VPC topology, service tiers, support plan, cost guardrails, and day-two owner are undecided.
+- Next.js 16 production web hosting path needs validation.
+- Database runtime role, migration credential separation, RLS/Data API strategy, backup/PITR proof, restore drills, object storage backup/restore, monitoring, secrets/KMS, incident/support, legal/accountant, billing, and ZATCA gates remain unresolved.
+
+### Recommended Next Implementation Ticket
+
+- `PROD-A2 API hosting decision`: define the production NestJS/Prisma API runtime, connection pooling, timeouts, logs, rollback, and worker handoff against the proposed AWS direction without deploying or mutating infrastructure.
+
 ## Forbidden Actions For Next PROD-A1 Thread
 
 - Do not change app code.
 - Do not deploy, provision, migrate, seed, reset, delete, or change environment variables.
 - Do not change Supabase RLS, runtime DB roles, Vercel settings, ZATCA behavior, emails, accounting logic, or customer data.
-- Do not create the ADR until the hosting requirements inventory is complete.
-- Do not research the web unless the user explicitly widens scope.
+- Do not accept or implement ADR-001 without explicit approval.
+- Do not research the web unless the user explicitly widens scope or starts a provider-refresh ticket.
 - Do not touch unrelated web/marketing worktree changes.
 
 ## Next Thread Prompt
 
-`PROD-A1 Part 3: draft ADR.`
+`PROD-A2: define production API hosting requirements.`
