@@ -151,6 +151,122 @@
 - Containerization readiness: no production Dockerfile was found; local `infra/docker-compose.yml` uses `node:22-alpine` with Postgres and Redis for development, while current beta deployment is Vercel serverless wrapper only; PROD-A2 must decide an AWS container/app runtime and produce a production image/run command plan later.
 - Known blockers/risks for API production hosting: Vercel remains beta/user-testing/staging only; current Vercel max duration/memory wrapper is not final production API hosting; exact AWS API runtime is undecided; Next.js 16 web hosting remains separate; least-privilege DB role, RLS/Data API strategy, backup/PITR proof, object storage, secrets/KMS, worker/queue operations, monitoring, rollback, email provider, and ZATCA gates remain unresolved.
 
+## PROD-A2 Part 2 - Official API Hosting Research
+
+### Option A - AWS App Runner
+
+- Official docs consulted: [App Runner availability change](https://docs.aws.amazon.com/apprunner/latest/dg/apprunner-availability-change.html), [App Runner architecture and concepts](https://docs.aws.amazon.com/apprunner/latest/dg/architecture.html), [source image services](https://docs.aws.amazon.com/apprunner/latest/dg/service-source-image.html), [environment variables and secrets](https://docs.aws.amazon.com/apprunner/latest/dg/env-variable-manage.html), [health checks](https://docs.aws.amazon.com/apprunner/latest/dg/manage-configure-healthcheck.html), [VPC access](https://docs.aws.amazon.com/apprunner/latest/dg/network-vpc.html), and [CloudWatch logs](https://docs.aws.amazon.com/apprunner/latest/dg/monitor-cwl.html).
+- Facts:
+  - AWS says App Runner is closed to new customers starting April 30, 2026; existing customers can continue, but AWS does not plan new features.
+  - App Runner can run source-code or ECR/ECR Public image services and manages service startup, scaling, and load balancing.
+  - It supports plain environment variables plus references to AWS Secrets Manager and SSM Parameter Store.
+  - Health checks can be TCP or HTTP with configurable path, interval, timeout, and thresholds.
+  - VPC connectors allow outbound access to private VPC resources such as RDS and ElastiCache, with documented one-time connector startup latency.
+  - Deployment and application logs stream to CloudWatch Logs.
+- Pros for LedgerByte API:
+  - Operationally simple managed container path for a NestJS/Express API if the AWS account is already eligible.
+  - Direct HTTP health-check fit for `/health`; VPC connector could reach private RDS/ElastiCache.
+  - Secrets Manager/SSM references fit the future secrets-management direction.
+- Cons/risks for LedgerByte API:
+  - Closure to new customers makes it unsafe as a fresh paid SaaS v1 target.
+  - No-new-features posture is a strategic risk for a production foundation.
+  - Less clean than ECS for explicit API/worker service topology, day-two control, and rollback runbooks; the consulted docs did not identify an ECS-style automatic failed-deploy rollback primitive.
+  - Production Dockerfile, image pipeline, VPC, secrets, logs, and rollback still need separate implementation tickets.
+- Suitability rating for paid SaaS v1: Not recommended for now.
+
+### Option B - AWS ECS Fargate
+
+- Official docs consulted: [ECS Linux task for Fargate](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/getting-started-fargate.html), [Fargate task networking](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-task-networking.html), [load balancer health checks](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/load-balancer-healthcheck.html), [Secrets Manager environment variables](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/secrets-envvar-secrets-manager.html), [CloudWatch logs](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_awslogs.html), [service auto scaling](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-auto-scaling.html), and [deployment circuit breaker rollback](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-circuit-breaker.html).
+- Facts:
+  - ECS runs containers as tasks and services; Fargate provides serverless infrastructure for those tasks.
+  - Fargate tasks use `awsvpc` networking with task ENIs, security groups, and VPC placement suitable for private RDS/ElastiCache access.
+  - Fargate services support Application Load Balancer or Network Load Balancer; target groups perform health checks and ECS monitors the target health.
+  - Task definitions can inject Secrets Manager secrets into container environment variables, with platform-version requirements and redeploy needed after secret rotation.
+  - Fargate tasks can send container stdout/stderr to CloudWatch Logs through the `awslogs` driver.
+  - ECS Service Auto Scaling uses CloudWatch metrics; the deployment circuit breaker can mark failed deployments and roll back to the last completed deployment.
+- Pros for LedgerByte API:
+  - Strongest API fit under the proposed AWS direction: predictable container runtime, explicit CPU/memory, VPC isolation, RDS/ElastiCache/S3/secrets alignment, and CloudWatch/EventBridge hooks.
+  - Cleanly supports separate API and worker services, either sharing one image with different commands or using separate task definitions.
+  - Best fit for future worker queues, PDF CPU/memory sizing, graceful shutdown, rolling deploys, and rollback controls.
+- Cons/risks for LedgerByte API:
+  - Highest implementation workload among the API-hosting options.
+  - Requires production Dockerfile, image registry, CI/CD, IAM roles, VPC/subnet/security-group design, ALB target groups, log retention, and cost guardrails.
+  - Prisma connection budget, task concurrency, RDS pooling, worker scaling, and migration/admin credential separation remain undecided.
+- Suitability rating for paid SaaS v1: Strong candidate.
+
+### Option C - AWS Elastic Beanstalk
+
+- Official docs consulted: [Node.js applications on Elastic Beanstalk](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/create_deploy_nodejs.html), [Docker containers on Elastic Beanstalk](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/create_deploy_docker.html), [environment secrets](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/AWSHowTo.secrets.env-vars.html), [health monitoring](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environments-health.html), [deployment policies](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/using-features.rolling-version-deploy.html), and [deployment logs](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environments-deployment-logs.html).
+- Facts:
+  - Elastic Beanstalk supports Node.js web applications and Docker container deployment.
+  - It can fetch Secrets Manager and SSM Parameter Store values into environment variables on supported platform versions, but rotated secrets require a manual refresh/restart path.
+  - Health monitoring can track environment status and drive alarms.
+  - Deployment policies include all-at-once, rolling, rolling with additional batch, immutable, and traffic splitting; traffic splitting can shift back if new instances fail health checks or deployment is aborted.
+  - Deployment logs are available for recent platform versions and are uploaded to S3 for console viewing when permissions and VPC access allow it.
+- Pros for LedgerByte API:
+  - Lower AWS learning curve than ECS while still keeping API hosting inside AWS.
+  - Native Node.js or Docker support can run a NestJS/Express API with conventional environment variables.
+  - Built-in health, deployment policy, and deployment log surfaces are useful for a small team.
+- Cons/risks for LedgerByte API:
+  - Less explicit control than ECS over API and worker services, task-level networking, and queue-worker operations.
+  - Still creates AWS resources that need ownership: EC2/Auto Scaling, load balancer, instance profiles, security groups, logs, platform updates, and S3 log permissions.
+  - Secret rotation, platform lifecycle, worker topology, and rollback runbooks need more proof before paid SaaS use.
+- Suitability rating for paid SaaS v1: Backup option.
+
+### Option D - DigitalOcean App Platform
+
+- Official docs consulted: [App Platform app spec](https://docs.digitalocean.com/products/app-platform/reference/app-spec/), [App Platform workers](https://docs.digitalocean.com/products/app-platform/how-to/manage-workers/), [App Platform deployments and rollback](https://docs.digitalocean.com/products/app-platform/how-to/manage-deployments/), and [DigitalOcean Managed Databases](https://docs.digitalocean.com/products/databases).
+- Facts:
+  - App Platform is a managed PaaS that deploys from Git repositories or container images and automatically builds, deploys, scales, and handles underlying infrastructure.
+  - App specs support public services, workers, jobs, app-level environment variables, encrypted secret variables, alerts, instance counts, autoscaling, VPC, health checks, liveness health checks, and log destinations.
+  - Workers are not externally routable; they are intended for background application code separate from web services.
+  - App Platform rollback can restore one of the ten most recent successful deployments and restores code, configuration, and app spec, not database data.
+  - DigitalOcean Managed Databases include PostgreSQL with daily backups/PITR, standby nodes, SSL, VPC, logs, and metrics; the same feature table shows Valkey is Redis-compatible but lacks daily point-in-time backups.
+- Pros for LedgerByte API:
+  - Faster operational path than AWS if AWS ownership, cost, or setup timing delays PROD-A2.
+  - Supports separate web/API service and worker components with encrypted env vars and rollback ergonomics.
+  - Managed PostgreSQL and Valkey can cover the current API dependency and future Redis-like queue endpoint, subject to queue durability policy.
+- Cons/risks for LedgerByte API:
+  - Weaker first-party depth than AWS for IAM/KMS-style custody, VPC design, observability, and regulated accounting SaaS evidence.
+  - Valkey backup/PITR gap is material if queue state must be recoverable rather than rebuildable.
+  - Need proof for private networking, log retention/export, alerting, object storage, restore drills, support tier, and production region/data-processing expectations.
+- Suitability rating for paid SaaS v1: Possible candidate.
+
+### Option E - Render/Fly/Railway-Style Managed API Hosting
+
+- Official docs consulted: Render [service types](https://render.com/docs/service-types/), [web services](https://render.com/docs/web-services), [background workers](https://render.com/docs/background-workers), [Postgres recovery/backups](https://render.com/docs/postgresql-backups), [Key Value](https://render.com/docs/key-value), and [rollbacks](https://render.com/docs/rollbacks); Fly.io [process groups](https://fly.io/docs/launch/processes/), [secrets](https://fly.io/docs/apps/secrets/), [databases and storage](https://fly.io/docs/database-storage-guides/), and [Tigris object storage](https://fly.io/docs/tigris/); Railway [services](https://docs.railway.com/services), [deployments](https://docs.railway.com/deployments/reference), [variables](https://docs.railway.com/variables/reference), [logs](https://docs.railway.com/observability/logs), [data/storage](https://docs.railway.com/data-storage), and [storage buckets](https://docs.railway.com/guides/storage-buckets).
+- Facts:
+  - Render supports web services, private services, background workers, cron jobs, Postgres, Redis-compatible Key Value, service env vars, private networking, logs, and service rollbacks.
+  - Render paid Postgres supports PITR with plan-dependent recovery windows; Render Key Value is Redis-compatible and paid instances have disk-backed persistence.
+  - Fly apps ship as Docker images and can define multiple process groups for separate web/worker commands; secrets are encrypted and injected into Machines at boot.
+  - Fly positions Managed Postgres as production-ready and lists Upstash Redis plus Tigris S3-compatible object storage as storage options.
+  - Railway services deploy from GitHub, local source, or Docker images; it supports persistent services, scheduled jobs, private networking, variables, deployment logs, rollback, Postgres/Redis templates, volumes/backups, and S3-compatible storage buckets.
+- Pros for LedgerByte API:
+  - Fastest developer experience for a controlled private-beta API and worker deployment.
+  - Render and Fly both map naturally to separate API/worker processes; Railway can host persistent API services and scheduled jobs.
+  - Useful fallback family if AWS is delayed and the team prioritizes speed over platform depth for a limited paid private beta.
+- Cons/risks for LedgerByte API:
+  - Provider maturity varies across database, Redis/queue, object storage, backup, log retention, alerting, and rollback semantics.
+  - Railway database/Redis templates, Render object-storage strategy, and Fly partner-service dependencies need stronger paid-SaaS evidence than the current repo has.
+  - Region/data-residency, support plans, incident response, restore drills, secret custody, and queue failure handling need explicit proof before production launch.
+- Suitability rating for paid SaaS v1: Backup option.
+
+### Preliminary API Hosting Shortlist
+
+- Recommended shortlist for PROD-A2 Part 3:
+  - Primary: AWS ECS Fargate for separate API and worker services.
+  - Secondary fallback: DigitalOcean App Platform if AWS day-two ownership, cost, or implementation time blocks the first production API path.
+  - AWS fallback: Elastic Beanstalk only if the team wants an AWS-managed app platform and accepts less explicit worker/queue control than ECS.
+  - Exclude for now: AWS App Runner as a fresh target because it is closed to new customers; Render/Fly/Railway remain backup/private-beta options until production evidence is stronger.
+- Key decision criteria still needed:
+  - Production Dockerfile/image strategy, build pipeline, deploy promotion, and rollback owner.
+  - API CPU/memory/timeout budget for synchronous PDF generation and Prisma request patterns.
+  - VPC/private-network path to PostgreSQL, Redis/queue, object storage, and secrets manager.
+  - Prisma connection pooling budget, runtime DB role, migration/admin credential separation, and RLS/Data API decision.
+  - Log retention/redaction, health/readiness routing, alerting, support plan, cost guardrails, and region/data-processing posture.
+- API and workers should be hosted as separate services, not one combined runtime. They may share a container image later, but API request handling, retries, reports/exports, cleanup, future email work, and future ZATCA jobs need separate scaling, health, shutdown, logs, queue credentials, and deploy controls.
+- Production blockers that must stay unresolved until actual provisioning tickets: provider accounts/resources, production Docker image, RDS/PostgreSQL, ElastiCache/Valkey/Redis, object storage buckets, Secrets Manager/KMS/SSM values, ALB/DNS/certificates, live monitors, production env vars, migrations, backups/restores, RLS/runtime DB roles, email sending, ZATCA credentials/network calls, and customer-data movement.
+
 ## Forbidden Actions For Next PROD-A2 Thread
 
 - Do not change app code.
@@ -163,4 +279,4 @@
 
 ## Next Thread Prompt
 
-`PROD-A2 Part 2: official API hosting research.`
+`PROD-A2 Part 3: draft API hosting decision.`
