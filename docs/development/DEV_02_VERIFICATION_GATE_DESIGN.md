@@ -307,6 +307,12 @@ Tests to run after implementation:
 - `corepack pnpm verify:pr` or the exact command chain if the script is not added yet.
 - `git diff --cached --check` after staging.
 
+## Part 3 Implementation Note
+
+DEV-02 Part 3 added [DEV_02_VERIFICATION_GATE_RUNBOOK.md](DEV_02_VERIFICATION_GATE_RUNBOOK.md), `scripts/verify-gate.cjs`, `scripts/verify-gate.test.cjs`, and root package scripts for `verify:diff`, `verify:local:web`, `verify:local:api`, `verify:local:guards`, `verify:repo`, and `verify:ci:local`.
+
+The implemented runner prints command plans before execution, supports `--plan`/`--dry-run`, supports optional targeted web/API Jest args, and rejects default-gate args that point at smoke, E2E, migrations, seed/reset/delete, deploys, ZATCA, email, backup/restore, login, or URLs. GitHub workflow wiring remains deferred to a later ticket.
+
 ## Commands That Remain Forbidden Or Manual-Only
 
 Forbidden in default local and PR/CI gates:

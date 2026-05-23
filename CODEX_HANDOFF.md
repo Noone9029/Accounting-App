@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `a647ff4 Inventory DEV-02 verification gates`
+- `155b1b8 Design DEV-02 verification gate`
 
 ## Current Development Objective
 
@@ -24,6 +24,7 @@
 - DEV-01 final triage is created in [docs/development/DEV_01_FINAL_TRIAGE.md](docs/development/DEV_01_FINAL_TRIAGE.md).
 - DEV-02 Part 1 verification gate inventory is completed in [docs/development/DEV_02_VERIFICATION_GATE_INVENTORY.md](docs/development/DEV_02_VERIFICATION_GATE_INVENTORY.md).
 - DEV-02 Part 2 verification gate design is completed in [docs/development/DEV_02_VERIFICATION_GATE_DESIGN.md](docs/development/DEV_02_VERIFICATION_GATE_DESIGN.md).
+- DEV-02 Part 3 verification gate scripts are implemented in `scripts/verify-gate.cjs`, tested by `scripts/verify-gate.test.cjs`, and documented in [docs/development/DEV_02_VERIFICATION_GATE_RUNBOOK.md](docs/development/DEV_02_VERIFICATION_GATE_RUNBOOK.md).
 - Routes browser-QA'd or code-reviewed in Part 2: `/`, `/login`, `/register`, `/password-reset`, `/password-reset/confirm`, `/invite/accept`, `/dashboard`, `/setup`, `/organization/setup`, `/sales/quotes`, and `/fixed-assets`.
 - Routes fixed in Part 2: `/setup`, `/organization/setup`, and unmatched app-shell placeholder routes such as `/sales/quotes` and `/fixed-assets`.
 - Main blocker from Part 2: local API health was not reachable at `http://localhost:4000/health`, so authenticated dashboard/setup/organization and auth-submit success flows remain deferred.
@@ -63,7 +64,9 @@
 - DEV-02 Part 2 recommended PR/CI gate: install with `corepack pnpm install --frozen-lockfile`, then run `git diff --check`, `corepack pnpm typecheck`, `corepack pnpm test`, `corepack pnpm build`, `node --test scripts/test-credential-env.test.cjs`, and `corepack pnpm test:user-testing-cleanup-plan`.
 - DEV-02 Part 2 manual/nightly gate summary: `corepack pnpm test:visual` plus local API/web health/readiness shell checks first; E2E and smoke slices remain manual only with explicit disposable-data, credential, login/audit, and cleanup approval.
 - DEV-02 Part 2 commands still forbidden or manual-only: migrations, seed/reset/delete, demo seeding, smoke, full E2E, deployed beta E2E, login/audit-writing browser QA, visual snapshot updates, real ZATCA, real email, backup/restore, deploys, provider setting changes, environment changes, and production targets.
-- Exact next prompt title: `DEV-02 Part 3: implement verification gate scripts`.
+- DEV-02 Part 3 safe scripts now available: `verify:diff`, `verify:local:web`, `verify:local:api`, `verify:local:guards`, `verify:repo`, and `verify:ci:local`. The runner prints command plans, supports `--plan`/`--dry-run`, supports targeted web/API test args, and fails fast on command failure.
+- DEV-02 Part 3 commands still forbidden or manual-only: migrations, seed/reset/delete, demo seeding, smoke, full E2E, deployed beta E2E, login/audit-writing browser QA, visual snapshot updates, real ZATCA, real email, backup/restore, deploys, provider setting changes, environment changes, and production targets.
+- Exact next prompt title: `DEV-02 Part 4: wire verification docs and lightweight CI proposal`.
 
 ## Current PROD-A1 Objective
 
