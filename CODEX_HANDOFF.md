@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `e96cd05 Finalize DEV-03 state-machine QA triage`
+- `e4e69a8 Plan DEV-04 local disposable fixtures`
 
 ## Current Development Objective
 
@@ -105,7 +105,10 @@
 - DEV-04 Part 1 local disposable fixture implementation plan is completed in [docs/development/DEV_04_LOCAL_DISPOSABLE_FIXTURE_PLAN.md](docs/development/DEV_04_LOCAL_DISPOSABLE_FIXTURE_PLAN.md).
 - DEV-04 Part 1 performed no fixture script creation, login, fixture data creation, runtime mutation, export, download, PDF generation, generated-document archive creation, smoke, E2E, migration, seed/reset/delete, ZATCA, email, backup/restore, deployment, env change, or production-hosting research.
 - Recommended fixture implementation approach: a dedicated local-only dry-run-first fixture runner that uses guarded direct Prisma only for base org/user/role/bootstrap setup after approval, then service/API-layer fixture creation for business records so validations and audit behavior are preserved. Demo/smoke helpers should be mined for target guards and idempotent patterns, not reused as default commands.
-- Exact next prompt title: `DEV-04 Part 2: fixture script design`.
+- DEV-04 Part 2 fixture script design is completed in [docs/development/DEV_04_FIXTURE_SCRIPT_DESIGN.md](docs/development/DEV_04_FIXTURE_SCRIPT_DESIGN.md).
+- DEV-04 Part 2 performed no fixture script creation, login, fixture data creation, runtime mutation, export, download, PDF generation, generated-document archive creation, smoke, E2E, migration, seed/reset/delete, ZATCA, email, backup/restore, deployment, env change, or production-hosting research.
+- Proposed runner path and commands: `apps/api/scripts/dev04-fixture-runner.ts`; future API script `fixture:dev04`; future root helpers `fixture:dev04:plan`, `fixture:dev04:dry-run`, `fixture:dev04:cleanup-plan`, and manual-only `fixture:dev04:execute`.
+- Exact next prompt title: `DEV-04 Part 3: implement fixture runner dry-run skeleton`.
 
 ## Current PROD-A1 Objective
 
@@ -484,7 +487,7 @@
 - The current product state is broad controlled-beta MVP, not paid production SaaS: core AR/AP, banking, inventory, reports, documents, audit, roles, storage readiness, email readiness, and ZATCA groundwork exist, but many production-facing and product-completion gaps remain.
 - Top development gaps: full route QA and blocker triage, verification gate hardening, high-risk state-machine QA, auth/session hardening, accountant review, sales/purchase completion, banking parser/reconciliation hardening, inventory accounting policy work, admin/audit alerts, and SaaS business readiness.
 - Mock/blocked areas remain intentional: real ZATCA, real customer email sending, live bank feeds, payment gateway capture, object-storage migration execution, backup/restore execution, and automatic inventory accounting expansion.
-- Exact next recommended development ticket: `DEV-04 Part 2: fixture script design`.
+- Exact next recommended development ticket: `DEV-04 Part 3: implement fixture runner dry-run skeleton`.
 
 ## Forbidden Actions For Next Production Thread
 
@@ -497,4 +500,4 @@
 
 ## Next Thread Prompt
 
-`DEV-04 Part 2: fixture script design`
+`DEV-04 Part 3: implement fixture runner dry-run skeleton`

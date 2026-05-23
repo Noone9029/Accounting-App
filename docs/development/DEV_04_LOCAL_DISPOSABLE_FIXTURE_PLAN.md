@@ -6,6 +6,10 @@ This document plans how LedgerByte should add local disposable fixture support f
 
 The goal is to define a safe path for later local-only QA of AR, AP, banking/reconciliation, inventory, journals, reports, documents, and audit/output gates using clearly marked disposable data.
 
+## DEV-04 Part 2 Design Note
+
+DEV-04 Part 2 created [DEV_04_FIXTURE_SCRIPT_DESIGN.md](DEV_04_FIXTURE_SCRIPT_DESIGN.md). It keeps the fixture runner local-only and dry-run-first, proposes `apps/api/scripts/dev04-fixture-runner.ts`, documents guard, CLI, module, test, cleanup-plan, and evidence boundaries, and records that no fixture script, login, fixture data creation, or runtime mutation was performed.
+
 ## 2. Non-Goals
 
 - Do not implement fixture scripts in this part.
@@ -252,10 +256,10 @@ Manual/local-approved only:
 ## 13. Proposed DEV-04 Execution Batches
 
 1. `DEV-04 Part 2: fixture script design`: specify runner contract, target guards, marker validation, dry-run output, write approval flags, and cleanup inventory contract.
-2. `DEV-04 Part 3: fixture script implementation dry-run mode`: implement the runner in no-write mode with tests for command planning, forbidden targets, marker rules, and redacted evidence.
-3. `DEV-04 Part 4: local fixture creation approved run`: after explicit approval, run local-only fixture creation against a disposable database and record created/reused counts.
-4. `DEV-04 Part 5: AR mutation QA approved run`: use fixture data for approved AR lifecycle tests, with login/audit policy and cleanup expectations active.
-5. Later approved batches: AP, Banking/Reconciliation, Inventory, Journals/Reports/Documents output gate QA, then final regression/verification.
+2. `DEV-04 Part 3: implement fixture runner dry-run skeleton`: implement the runner in no-write mode with tests for command planning, forbidden targets, marker rules, blocked execute/login behavior, and redacted evidence.
+3. `DEV-04 Part 4: guard tests and package scripts`: harden target guards, marker-family matching, redaction, cleanup-plan output, and safe package script wiring.
+4. `DEV-04 Part 5: approved local fixture creation run`: after explicit approval, run local-only fixture creation against a disposable database and record created/reused counts.
+5. Later approved batches: AR mutation QA first, then AP, Banking/Reconciliation, Inventory, Journals/Reports/Documents output gate QA, then final regression/verification.
 
 ## 14. Risks And Blockers
 
@@ -280,4 +284,4 @@ Manual/local-approved only:
 
 ## 16. Recommended Next Step
 
-Proceed with `DEV-04 Part 2: fixture script design`. The next part should design the runner interface, dry-run output schema, forbidden target checks, marker validation, direct-Prisma bootstrap boundary, service/API fixture boundary, cleanup inventory contract, and explicit write/login approval gates before any implementation.
+Proceed with `DEV-04 Part 3: implement fixture runner dry-run skeleton`. The next part should implement only non-mutating runner scaffolding, guard tests, marker validation, redacted summaries, blocked execute/login behavior, and dry-run family plans before any fixture creation or mutation is approved.
