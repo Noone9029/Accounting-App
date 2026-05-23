@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `e977376 QA DEV-01 sales AR routes`
+- `edaec45 Triage DEV-01 local QA runtime blockers`
 
 ## Current Development Objective
 
@@ -15,15 +15,15 @@
 - DEV-01 Part 1 route inventory is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
 - DEV-01 Part 2 auth, dashboard, setup, and navigation QA is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
 - DEV-01 Part 3 sales and AR route QA is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
-- DEV-01 Part 3.5 local QA runtime blocker triage is completed in [docs/development/DEV_01_LOCAL_QA_RUNBOOK.md](docs/development/DEV_01_LOCAL_QA_RUNBOOK.md).
+- DEV-01 Part 3.5 local QA runtime blocker triage is completed and refreshed in [docs/development/DEV_01_LOCAL_QA_RUNBOOK.md](docs/development/DEV_01_LOCAL_QA_RUNBOOK.md).
 - Routes browser-QA'd or code-reviewed in Part 2: `/`, `/login`, `/register`, `/password-reset`, `/password-reset/confirm`, `/invite/accept`, `/dashboard`, `/setup`, `/organization/setup`, `/sales/quotes`, and `/fixed-assets`.
 - Routes fixed in Part 2: `/setup`, `/organization/setup`, and unmatched app-shell placeholder routes such as `/sales/quotes` and `/fixed-assets`.
 - Main blocker from Part 2: local API health was not reachable at `http://localhost:4000/health`, so authenticated dashboard/setup/organization and auth-submit success flows remain deferred.
 - Routes code-reviewed in Part 3: `/contacts`, `/contacts/[id]`, `/sales/invoices`, `/sales/invoices/new`, `/sales/invoices/[id]`, `/sales/invoices/[id]/edit`, `/sales/customer-payments`, `/sales/customer-payments/new`, `/sales/customer-payments/[id]`, `/sales/customer-refunds`, `/sales/customer-refunds/new`, `/sales/customer-refunds/[id]`, `/sales/credit-notes`, `/sales/credit-notes/new`, `/sales/credit-notes/[id]`, and `/sales/credit-notes/[id]/edit`.
 - Routes fixed in Part 3: `/sales/invoices/new` now honors `?customerId=...` from contact-ledger invoice links.
 - Main blockers from Part 3: in-app browser route visits were blocked by the browser URL policy, and local API health was not reachable at `http://localhost:4000/health`; authenticated Sales/AR runtime QA remains deferred.
-- Part 3.5 runtime blocker triage: `@ledgerbyte/web` serves local shell HTTP routes on `localhost:3000`, but local runtime QA is not fully unblocked because `@ledgerbyte/api` fails before listening on `localhost:4000` when Prisma cannot reach local PostgreSQL at `localhost:5432` (`P1001`). Docker Desktop/Engine was unavailable during triage, so local infra was not started.
-- Part 3.5 browser finding: the in-app Browser local route visits are blocked by Browser Use URL policy in this Codex session; future DEV-01 route QA should use mixed code review and shell HTTP unless an allowed local browser/runtime path and API/database readiness are available.
+- Part 3.5 refresh: local Docker Postgres and Redis are healthy on `localhost:5432` and `localhost:6379`; `@ledgerbyte/api` starts on `localhost:4000`; `/health` and `/readiness` return `200`; `@ledgerbyte/web` serves `/login` and `/dashboard` on `localhost:3000`.
+- Part 3.5 remaining blocker: the in-app Browser local route visits are blocked by Browser Use URL policy in this Codex session. Future DEV-01 route QA should use mixed code review, shell HTTP, and API readiness checks unless an allowed local browser/runtime path is available. Login-dependent QA was not run because login writes an audit log.
 - Exact next prompt title: `DEV-01 Part 4: purchases and AP route QA`.
 
 ## Current PROD-A1 Objective

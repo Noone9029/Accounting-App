@@ -1,8 +1,8 @@
 # DEV-01 Local QA Runbook
 
-Status: created during DEV-01 Part 3.5 on 2026-05-23.
+Status: created during DEV-01 Part 3.5 on 2026-05-23; refreshed after local Docker Postgres/Redis were started.
 
-Latest pushed state inspected: `e977376 QA DEV-01 sales AR routes`.
+Latest pushed state inspected for the refresh: `edaec45 Triage DEV-01 local QA runtime blockers`.
 
 ## Scope And Rules
 
@@ -14,11 +14,13 @@ Latest pushed state inspected: `e977376 QA DEV-01 sales AR routes`.
 
 ## Current Part 3.5 Finding
 
-- API startup is blocked before it listens on `localhost:4000`: Prisma initialization failed with `P1001` because the configured local database server was not reachable at `localhost:5432`.
-- Docker Desktop/Engine was not available during triage, so the documented Docker local infra path could not be inspected or started.
+- Initial API startup was blocked before it listened on `localhost:4000`: Prisma initialization failed with `P1001` because the configured local database server was not reachable at `localhost:5432`.
+- After Docker became available, `postgres` and `redis` were started with the existing compose file and both became healthy on `localhost:5432` and `localhost:6379`.
+- The local database is not empty: `_prisma_migrations` exists and the public schema contains 76 tables. No migrations, seeds, resets, or deletes were run in this triage.
+- API startup now works with `corepack pnpm --filter @ledgerbyte/api dev`; `GET /health` returns `200` and `GET /readiness` returns `200` with database `ok`.
 - Web startup works independently with `@ledgerbyte/web` on `localhost:3000`; shell HTTP checks returned `200` for `/login` and `/dashboard`.
 - The in-app Browser tool refused local route navigation under its URL policy in the prior Sales/AR QA run. That is a Codex/browser-tool limitation, not proof that the app route failed.
-- Authenticated browser-runtime QA remains blocked until a safe local database/API state and an allowed browser/runtime method are available.
+- Local API/web shell runtime is now unblocked while the containers and dev servers are running. In-app Browser-based route QA remains blocked by tool policy, and authenticated login was not probed because the login path writes an audit log.
 
 ## Required Non-Secret Env Categories
 
@@ -48,37 +50,51 @@ Use this path only when the local database has already been prepared by a previo
    Get-NetTCPConnection -State Listen -LocalPort 3000,4000,5432,6379 -ErrorAction SilentlyContinue
    ```
 
-2. Start the API in one terminal:
+2. If local Postgres/Redis are not already running and local dependency startup is explicitly allowed, start only those compose services:
+
+   ```powershell
+   docker compose -f infra/docker-compose.yml up -d postgres redis
+   ```
+
+3. Confirm Postgres and Redis are healthy:
+
+   ```powershell
+   docker compose -f infra/docker-compose.yml ps postgres redis
+   Test-NetConnection localhost -Port 5432
+   Test-NetConnection localhost -Port 6379
+   ```
+
+4. Start the API in one terminal:
 
    ```powershell
    corepack pnpm --filter @ledgerbyte/api dev
    ```
 
-3. Start the web app in another terminal:
+5. Start the web app in another terminal:
 
    ```powershell
    corepack pnpm --filter @ledgerbyte/web dev
    ```
 
-4. Probe API health before authenticated route QA:
+6. Probe API health before authenticated route QA:
 
    ```powershell
    Invoke-WebRequest -Uri http://localhost:4000/health -UseBasicParsing -TimeoutSec 5
    ```
 
-5. Probe API readiness only after health succeeds:
+7. Probe API readiness only after health succeeds:
 
    ```powershell
    Invoke-WebRequest -Uri http://localhost:4000/readiness -UseBasicParsing -TimeoutSec 5
    ```
 
-6. Probe a public web route:
+8. Probe a public web route:
 
    ```powershell
    Invoke-WebRequest -Uri http://localhost:3000/login -UseBasicParsing -TimeoutSec 10
    ```
 
-7. If both API probes pass and safe documented local credentials are available, authenticated route QA can proceed. If not, mark affected routes blocked.
+9. If both API probes pass and safe documented local credentials are available, authenticated route QA can proceed through an allowed browser/runtime method. If not, mark affected routes blocked or code-reviewed only.
 
 ## If API Health Fails
 
@@ -98,16 +114,15 @@ Use this path only when the local database has already been prepared by a previo
 
 - During DEV-01 Part 3, the in-app Browser tool refused local URL navigation under its URL policy.
 - Do not work around that specific tool policy with raw CDP, alternate browser surfaces, or indirect browser automation in the same blocked flow.
-- Future DEV-01 QA can use a mixed method: shell HTTP checks for route serving, code review for frontend/API dependency behavior, and targeted Playwright/browser checks only when explicitly allowed and when local API/database prerequisites are already safe.
+- Future DEV-01 QA can use a mixed method: shell HTTP checks for route serving, API health/readiness checks, code review for frontend/API dependency behavior, and targeted Playwright/browser checks only when explicitly allowed and when local API/database prerequisites are already safe.
 
 ## Known Blockers
 
-- Docker Desktop/Engine was not running during Part 3.5, so local Postgres/Redis containers were unavailable.
-- No listener was present on `localhost:5432`.
-- API startup failed before `localhost:4000` was reachable because Prisma could not connect to the local database.
+- Historical blocker resolved during refresh: Docker/Postgres/Redis were previously unavailable, causing API Prisma startup failure (`P1001`) before `localhost:4000` was reachable.
+- Current API/web shell runtime blocker: none observed while Postgres, Redis, API, and web dev servers are running.
 - In-app browser route visits to local URLs remain blocked by Browser tool policy.
-- Authenticated runtime QA still needs an already prepared non-production local database and safe credentials.
+- Authenticated browser-runtime QA still needs an allowed browser/runtime method. Login was not executed in this triage because it writes an audit log.
 
 ## Safe Next Step For DEV-01 Part 4
 
-Run `DEV-01 Part 4: purchases and AP route QA` as mixed QA unless the local database and API are already available before the thread starts. Re-check ports and API health first; if health/readiness remain blocked, code-review the AP routes and use shell HTTP only for public web route serving checks.
+Run `DEV-01 Part 4: purchases and AP route QA` as mixed QA. Start by confirming Postgres/Redis, API `/health`, API `/readiness`, and web `/login` still pass. Use shell HTTP and code review by default; use browser-runtime QA only if the next thread has an allowed local browser method and accepts the small audit-log mutation risk of login.
