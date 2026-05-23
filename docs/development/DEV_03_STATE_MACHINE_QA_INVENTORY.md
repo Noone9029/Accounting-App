@@ -277,9 +277,10 @@ The required DEV-03 Part 1 workflows are included above:
 
 ### Part 8: DEV-03 Final Triage
 
-- Consolidate failures/blockers/fixes.
-- Separate defects from missing fixtures/policy.
-- Recommend DEV-04 follow-up scope.
+- Completed in [DEV_03_FINAL_STATE_MACHINE_QA_TRIAGE.md](DEV_03_FINAL_STATE_MACHINE_QA_TRIAGE.md).
+- Consolidated DEV-03 Parts 1 through 7 into one final state-machine QA triage, grouped highest-risk transitions by severity and area, and identified the workflows that affect ledger balances, inventory quantities/costs, bank reconciliation status, output/archive records, and audit logs.
+- Confirmed DEV-03 remained planning-only: no login, fixture creation, runtime mutation, export, download, PDF generation, generated-document archive creation, smoke, E2E, migration, seed/reset/delete, ZATCA, email, backup/restore, deployment, environment change, production-hosting research, production check, beta check, or customer-data check was performed.
+- Recommended next ticket: `DEV-04 Part 1: local disposable fixture implementation plan`.
 
 ## 10. Open Questions
 
@@ -293,6 +294,6 @@ The required DEV-03 Part 1 workflows are included above:
 
 ## 11. Recommended Next Step
 
-Proceed with `DEV-03 Part 8: final state-machine QA triage`.
+Proceed with `DEV-04 Part 1: local disposable fixture implementation plan`.
 
-Part 8 should consolidate DEV-03 Parts 1 through 7, group remaining blockers by severity, separate planned-only coverage from future executable local-disposable QA, summarize mutation/output approvals still needed, and recommend the next development ticket before any state-changing or output-producing workflow is run.
+DEV-04 should design the exact local disposable fixture execution path, login/audit evidence handling, target-safety checks, non-destructive cleanup strategy, and approval checklist before any state-changing or output-producing workflow is run.

@@ -72,6 +72,12 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 - PDF tests should expand beyond endpoint validity into text/snapshot checks for key document types.
 - Object-storage migration, generated-document storage, virus scanning, live email provider behavior, provider webhooks, real ZATCA, and hosted restore proof intentionally remain untested until separate approved phases.
 
+## DEV-03 Status - State-Machine QA Planning
+
+- DEV-03 state-machine QA planning and final triage are completed in [DEV_03_FINAL_STATE_MACHINE_QA_TRIAGE.md](DEV_03_FINAL_STATE_MACHINE_QA_TRIAGE.md).
+- Runtime mutation QA was not executed: no login, fixture creation, state changes, exports/downloads/PDF/archive generation, smoke, E2E, ZATCA, email, backup/restore, production check, beta check, or customer-data check was performed.
+- The next step requires explicit local disposable fixture, login/audit-write, fixture creation, cleanup/retention, output-gate, and no-production/no-beta approvals before any mutation QA can start.
+
 ## Highest-Priority Development Tickets
 
 1. `DEV-01 Full route QA and blocker triage`: inspect every implemented route against seeded non-production data, record exact defects, and fix only real loading, empty, error, permission, responsive, and unsafe-wording issues.
