@@ -4,11 +4,13 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { StatusMessage } from "@/components/common/status-message";
 import { ArchiveDocumentGuidance } from "@/components/documents/document-guidance";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { documentSourceTypeLabel, documentTypeLabel, generatedDocumentStatusBadgeClass, generatedDocumentStatusLabel } from "@/lib/documents";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { downloadPdf, generatedDocumentDownloadPath } from "@/lib/pdf-download";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { DocumentType, GeneratedDocument, GeneratedDocumentStatus } from "@/lib/types";
 
 const documentTypes: Array<"" | DocumentType> = [
@@ -38,6 +40,8 @@ const statuses: Array<"" | GeneratedDocumentStatus> = ["", "GENERATED", "FAILED"
 
 export default function GeneratedDocumentsPage() {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
+  const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
   const [documents, setDocuments] = useState<GeneratedDocument[]>([]);
   const [documentType, setDocumentType] = useState<"" | DocumentType>("");
   const [status, setStatus] = useState<"" | GeneratedDocumentStatus>("");
@@ -77,6 +81,10 @@ export default function GeneratedDocumentsPage() {
   }
 
   async function downloadDocument(document: GeneratedDocument) {
+    if (!canDownloadGeneratedDocuments) {
+      return;
+    }
+
     setDownloadingId(document.id);
     setError("");
     try {
@@ -162,9 +170,13 @@ export default function GeneratedDocumentsPage() {
                 <td className="px-4 py-3 text-steel">{formatOptionalDate(document.generatedAt, "-")}</td>
                 <td className="px-4 py-3 font-mono text-xs">{formatBytes(document.sizeBytes)}</td>
                 <td className="px-4 py-3">
-                  <button type="button" onClick={() => void downloadDocument(document)} disabled={downloadingId === document.id} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                    {downloadingId === document.id ? "Downloading..." : "Download archived PDF"}
-                  </button>
+                  {canDownloadGeneratedDocuments ? (
+                    <button type="button" onClick={() => void downloadDocument(document)} disabled={downloadingId === document.id} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                      {downloadingId === document.id ? "Downloading..." : "Download archived PDF"}
+                    </button>
+                  ) : (
+                    <span className="text-xs text-steel">Download permission required</span>
+                  )}
                 </td>
               </tr>
             ))}

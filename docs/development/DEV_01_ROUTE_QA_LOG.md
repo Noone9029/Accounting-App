@@ -1,12 +1,12 @@
 # DEV-01 Route QA Log
 
-Status: Part 6 inventory route QA completed
+Status: Part 7 reports/documents/settings/admin route QA completed
 Date: 2026-05-23
-Source state inspected: `0f1a112 QA DEV-01 banking reconciliation routes`
+Source state inspected: `58a846a QA DEV-01 inventory routes`
 
 ## Scope And Rules
 
-- DEV-01 is product-development QA only: inventory routes, batch runtime QA, record blockers, then fix only confirmed small frontend/runtime defects inside the active batch.
+- DEV-01 is product-development QA only: route batch runtime QA, record blockers, then fix only confirmed small frontend/runtime defects inside the active batch.
 - Part 1 did not run app tests, browser E2E, smoke tests, migrations, seed/reset/delete commands, deploys, env changes, ZATCA execution, email sending, or production-hosting research.
 - Part 2 used a local web dev server only on `http://127.0.0.1:3031`; Part 3 started only the local web app on `http://127.0.0.1:3032` and stopped it after browser access was blocked by the browser URL policy. No API/database/migration/seed/deploy/env/provider setting was started or changed.
 - Route inventory is based on committed files from `git ls-files`, not local dirty/untracked marketing worktree files.
@@ -150,35 +150,35 @@ Routes not included in completed DEV-01 batches remain `Not tested`.
 
 | Route path | Source file | Expected purpose | Likely data/API dependency | Auth/role assumption visible from code | QA priority | QA status |
 | --- | --- | --- | --- | --- | --- | --- |
-| `/reports` | `apps/web/src/app/(app)/reports/page.tsx` | Reports landing page | Reports JSON/CSV/PDF endpoints | Authenticated; `reports.view` | High | Not tested |
-| `/reports/general-ledger` | `apps/web/src/app/(app)/reports/general-ledger/page.tsx` | General ledger report | Reports JSON/CSV/PDF endpoints | Authenticated; `reports.view` | High | Not tested |
-| `/reports/trial-balance` | `apps/web/src/app/(app)/reports/trial-balance/page.tsx` | Trial balance report | Reports JSON/CSV/PDF endpoints | Authenticated; `reports.view` | High | Not tested |
-| `/reports/profit-and-loss` | `apps/web/src/app/(app)/reports/profit-and-loss/page.tsx` | Profit and loss report | Reports JSON/CSV/PDF endpoints | Authenticated; `reports.view` | High | Not tested |
-| `/reports/balance-sheet` | `apps/web/src/app/(app)/reports/balance-sheet/page.tsx` | Balance sheet report | Reports JSON/CSV/PDF endpoints | Authenticated; `reports.view` | High | Not tested |
-| `/reports/vat-summary` | `apps/web/src/app/(app)/reports/vat-summary/page.tsx` | VAT summary report, not official filing | Reports JSON/CSV/PDF endpoints | Authenticated; `reports.view` | High | Not tested |
-| `/reports/aged-receivables` | `apps/web/src/app/(app)/reports/aged-receivables/page.tsx` | AR aging report | Reports JSON/CSV/PDF endpoints | Authenticated; `reports.view` | High | Not tested |
-| `/reports/aged-payables` | `apps/web/src/app/(app)/reports/aged-payables/page.tsx` | AP aging report | Reports JSON/CSV/PDF endpoints | Authenticated; `reports.view` | High | Not tested |
-| `/documents` | `apps/web/src/app/(app)/documents/page.tsx` | Generated document archive | Generated-document archive and download endpoints | Authenticated; `generatedDocuments.view` OR `documents.view` | High | Not tested |
+| `/reports` | `apps/web/src/app/(app)/reports/page.tsx` | Reports landing page | Reports JSON/CSV/PDF endpoints | Authenticated; `reports.view` | High | Code-reviewed only |
+| `/reports/general-ledger` | `apps/web/src/app/(app)/reports/general-ledger/page.tsx` | General ledger report | Reports JSON/CSV/PDF endpoints | Authenticated; `reports.view`; exports require `reports.export` or `generatedDocuments.download` | High | Code-reviewed only |
+| `/reports/trial-balance` | `apps/web/src/app/(app)/reports/trial-balance/page.tsx` | Trial balance report | Reports JSON/CSV/PDF endpoints | Authenticated; `reports.view`; exports require `reports.export` or `generatedDocuments.download` | High | Code-reviewed only |
+| `/reports/profit-and-loss` | `apps/web/src/app/(app)/reports/profit-and-loss/page.tsx` | Profit and loss report | Reports JSON/CSV/PDF endpoints | Authenticated; `reports.view`; exports require `reports.export` or `generatedDocuments.download` | High | Code-reviewed only |
+| `/reports/balance-sheet` | `apps/web/src/app/(app)/reports/balance-sheet/page.tsx` | Balance sheet report | Reports JSON/CSV/PDF endpoints | Authenticated; `reports.view`; exports require `reports.export` or `generatedDocuments.download` | High | Code-reviewed only |
+| `/reports/vat-summary` | `apps/web/src/app/(app)/reports/vat-summary/page.tsx` | VAT summary report, not official filing | Reports JSON/CSV/PDF endpoints | Authenticated; `reports.view`; exports require `reports.export` or `generatedDocuments.download` | High | Code-reviewed only |
+| `/reports/aged-receivables` | `apps/web/src/app/(app)/reports/aged-receivables/page.tsx` | AR aging report | Reports JSON/CSV/PDF endpoints | Authenticated; `reports.view`; exports require `reports.export` or `generatedDocuments.download` | High | Code-reviewed only |
+| `/reports/aged-payables` | `apps/web/src/app/(app)/reports/aged-payables/page.tsx` | AP aging report | Reports JSON/CSV/PDF endpoints | Authenticated; `reports.view`; exports require `reports.export` or `generatedDocuments.download` | High | Code-reviewed only |
+| `/documents` | `apps/web/src/app/(app)/documents/page.tsx` | Generated document archive | Generated-document archive and download endpoints | Authenticated; `generatedDocuments.view` OR `documents.view`; downloads require `generatedDocuments.download` | High | Code-reviewed only |
 
 ### Settings/Admin/Audit
 
 | Route path | Source file | Expected purpose | Likely data/API dependency | Auth/role assumption visible from code | QA priority | QA status |
 | --- | --- | --- | --- | --- | --- | --- |
-| `/accounts` | `apps/web/src/app/(app)/accounts/page.tsx` | Chart of accounts | Accounts API | Authenticated; `accounts.view` | High | Not tested |
-| `/journal-entries` | `apps/web/src/app/(app)/journal-entries/page.tsx` | Manual journal list/post/reverse | Journal entries and accounts | Authenticated; `journals.view` | High | Not tested |
-| `/journal-entries/new` | `apps/web/src/app/(app)/journal-entries/new/page.tsx` | Create manual journal | Journal entries and accounts | Authenticated; `journals.create` | Critical | Not tested |
-| `/tax-rates` | `apps/web/src/app/(app)/tax-rates/page.tsx` | Tax rates | Tax rates API | Authenticated; `taxRates.view` | High | Not tested |
-| `/fiscal-periods` | `apps/web/src/app/(app)/fiscal-periods/page.tsx` | Fiscal periods and posting locks | Fiscal periods API | Authenticated; `fiscalPeriods.view` | High | Not tested |
-| `/branches` | `apps/web/src/app/(app)/branches/page.tsx` | Organization branch list | Organization/branches APIs | Authenticated; `organization.view` | High | Not tested |
-| `/settings/team` | `apps/web/src/app/(app)/settings/team/page.tsx` | Organization members and invites | Organization members, roles, invites | Authenticated; `users.view` | Critical | Not tested |
-| `/settings/roles` | `apps/web/src/app/(app)/settings/roles/page.tsx` | Roles and permissions list | Roles and permissions APIs | Authenticated; `roles.view` | Critical | Not tested |
-| `/settings/roles/[id]` | `apps/web/src/app/(app)/settings/roles/[id]/page.tsx` | Role detail and permission matrix | Roles and permissions APIs | Authenticated; `roles.view` | Critical | Not tested |
-| `/settings/documents` | `apps/web/src/app/(app)/settings/documents/page.tsx` | Document/PDF settings | Document settings API | Authenticated; `documentSettings.view` | Medium | Not tested |
-| `/settings/storage` | `apps/web/src/app/(app)/settings/storage/page.tsx` | Storage, backup, restore readiness | Storage readiness, backup readiness/evidence, migration plans | Authenticated; `documentSettings.view` OR `attachments.manage` | High | Not tested |
-| `/settings/email-outbox` | `apps/web/src/app/(app)/settings/email-outbox/page.tsx` | Email readiness, outbox, diagnostics, suppressions | Email readiness/outbox/diagnostics/events/suppressions APIs | Authenticated; `emailOutbox.view` | High | Not tested |
-| `/settings/audit-logs` | `apps/web/src/app/(app)/settings/audit-logs/page.tsx` | Audit log search/export and retention preview | Audit logs, retention settings, CSV export | Authenticated; `auditLogs.view` | High | Not tested |
-| `/settings/number-sequences` | `apps/web/src/app/(app)/settings/number-sequences/page.tsx` | Document numbering settings | Number sequences API | Authenticated; `numberSequences.view` | High | Not tested |
-| `/settings/zatca` | `apps/web/src/app/(app)/settings/zatca/page.tsx` | Local/mock ZATCA readiness and EGS controls | ZATCA profile/readiness/EGS/CSR/hash/custody APIs | Authenticated; `zatca.view` | High | Not tested |
+| `/accounts` | `apps/web/src/app/(app)/accounts/page.tsx` | Chart of accounts | Accounts API | Authenticated; `accounts.view`; create requires `accounts.manage` | High | Code-reviewed only |
+| `/journal-entries` | `apps/web/src/app/(app)/journal-entries/page.tsx` | Manual journal list/post/reverse | Journal entries and accounts | Authenticated; `journals.view`; create/post/reverse require dedicated journal permissions | High | Code-reviewed only |
+| `/journal-entries/new` | `apps/web/src/app/(app)/journal-entries/new/page.tsx` | Create manual journal | Journal entries, accounts, tax rates | Authenticated; `journals.create` | Critical | Code-reviewed only |
+| `/tax-rates` | `apps/web/src/app/(app)/tax-rates/page.tsx` | Tax rates | Tax rates API | Authenticated; `taxRates.view`; create/update require `taxRates.manage` | High | Code-reviewed only |
+| `/fiscal-periods` | `apps/web/src/app/(app)/fiscal-periods/page.tsx` | Fiscal periods and posting locks | Fiscal periods API | Authenticated; `fiscalPeriods.view`; create/close/reopen require `fiscalPeriods.manage`; lock requires `fiscalPeriods.lock` or manage | High | Code-reviewed only |
+| `/branches` | `apps/web/src/app/(app)/branches/page.tsx` | Organization branch list | Organization/branches APIs | Authenticated; `organization.view`; create/update require `organization.update` | High | Code-reviewed only |
+| `/settings/team` | `apps/web/src/app/(app)/settings/team/page.tsx` | Organization members and invites | Organization members, roles, invites | Authenticated; `users.view`; invite/manage actions require `users.invite`/`users.manage` | Critical | Code-reviewed only |
+| `/settings/roles` | `apps/web/src/app/(app)/settings/roles/page.tsx` | Roles and permissions list | Roles and permissions APIs | Authenticated; `roles.view`; create requires `roles.manage` | Critical | Code-reviewed only |
+| `/settings/roles/[id]` | `apps/web/src/app/(app)/settings/roles/[id]/page.tsx` | Role detail and permission matrix | Roles and permissions APIs | Authenticated; `roles.view`; edit/delete require `roles.manage` and non-system role | Critical | Code-reviewed only |
+| `/settings/documents` | `apps/web/src/app/(app)/settings/documents/page.tsx` | Document/PDF settings | Document settings API | Authenticated; `documentSettings.view`; save requires `documentSettings.manage` | Medium | Code-reviewed only |
+| `/settings/storage` | `apps/web/src/app/(app)/settings/storage/page.tsx` | Storage, backup, restore readiness | Storage readiness, backup readiness/evidence, migration plans | Authenticated; `documentSettings.view` OR `attachments.manage`; backup evidence requires `auditLogs.manageRetention` | High | Code-reviewed only |
+| `/settings/email-outbox` | `apps/web/src/app/(app)/settings/email-outbox/page.tsx` | Email readiness, outbox, diagnostics, suppressions | Email readiness/outbox/diagnostics/events/suppressions APIs | Authenticated; `emailOutbox.view`; readiness/evidence/diagnostics actions mostly require `users.manage` | High | Code-reviewed only |
+| `/settings/audit-logs` | `apps/web/src/app/(app)/settings/audit-logs/page.tsx` | Audit log search/export and retention preview | Audit logs, retention settings, CSV export | Authenticated; `auditLogs.view`; CSV export requires `auditLogs.export`; retention changes require `auditLogs.manageRetention` | High | Code-reviewed only |
+| `/settings/number-sequences` | `apps/web/src/app/(app)/settings/number-sequences/page.tsx` | Document numbering settings | Number sequences API | Authenticated; `numberSequences.view`; save requires `numberSequences.manage` | High | Code-reviewed only |
+| `/settings/zatca` | `apps/web/src/app/(app)/settings/zatca/page.tsx` | Local/mock ZATCA readiness and EGS controls | ZATCA profile/readiness/EGS/CSR/hash/custody APIs | Authenticated; `zatca.view`; local/mock actions require `zatca.manage` | High | Code-reviewed only |
 
 ### Placeholder/Unimplemented Routes
 
@@ -529,12 +529,90 @@ Recommended next thread: `DEV-01 Part 7: reports documents settings admin route 
 
 Focus on reports, generated documents, settings, admin/accounting, and audit routes next. Keep shell HTTP results separate from authenticated browser-runtime claims, do not run downloads or email/ZATCA flows unless explicitly approved, and continue to leave production hosting and provider settings untouched.
 
+## DEV-01 Part 7 Summary
+
+- Latest pushed state inspected before Part 7: `58a846a QA DEV-01 inventory routes`.
+- `apps/web/next-env.d.ts` had no working-tree diff before Part 7 checks and was not staged.
+- Local worktree warning: unrelated edits remained in `apps/web/src/app/page.tsx` and untracked marketing/Graphify files; they were not reverted and only Part 7 files should be staged.
+- Runtime readiness: `http://localhost:4000/health` returned `200`; `http://localhost:4000/readiness` returned `200`; web shell HTTP checks returned `200` for `/login` and `/dashboard`.
+- Reports/documents/settings/admin shell route-load result: all 24 requested routes returned `200` from `http://localhost:3000`, including `/settings/roles/dev-qa-missing-id` for the dynamic role detail route.
+- Browser/runtime limit: in-app Browser route visits remained blocked by the Browser Use URL policy; no authenticated browser-runtime pass is claimed.
+- Login and state mutation were not run: no login flow, report export/download, document download, PDF generation, audit-log export, journal post/reverse, fiscal lock, branch/account/tax settings mutation, team invite, role change, storage/backup evidence mutation, email diagnostics/send/suppression/evidence mutation, ZATCA CSR/CSID/checks, migration, seed, reset, delete, deploy, or env change was executed.
+- Small frontend fixes applied: core report pages now hide CSV/PDF export buttons unless `reports.export` or `generatedDocuments.download` is present; `/documents` now hides archived PDF download buttons unless `generatedDocuments.download` is present.
+- No accounting logic, report math, VAT math, API behavior, schema, migrations, PDF generation logic, ZATCA behavior, email behavior, customer data, production docs, Vercel/Supabase settings, or hosting research changed.
+
+### Graphify Dependency Findings For Reports/Documents/Settings/Admin
+
+- Graphify files used as read-only planning aids: untracked `graphify-out/GRAPH_REPORT.md`, `graphify-out/manifest.json`, and `graphify-out/graph.json`; they were not treated as runtime proof and were not staged.
+- Graphify freshness note: the graph was built from commit `edaec451`, while Part 7 inspected `58a846a`, so findings were used only to prioritize review and blast radius.
+- Relevant communities found: Web Reports Report, API Reports Report, API Reports PDF, API Reports CSV, Web Documents Document, Web Documents Guidance, Web Settings Document, API Settings Document, Web Settings Organization, API Organization Members, API Roles Role, Web Permission Matrix, API Audit Log, Web Audit Logs, Web Email Settings, API Email Provider, API Email Evidence, Web Storage Settings, API System Storage, API Storage Readiness, API System Backup, Web ZATCA Settings, Web Settings ZATCA, API ZATCA Readiness, API ZATCA CSR, API ZATCA CSID, API Number Sequences, API Accounting Journal, API Fiscal Periods, API Branches Branch, API Tax Rates, and API Chart Accounts.
+- High fan-out nodes that made broad rewrites risky: `getActiveOrganizationId()` with 194 edges, `usePermissions()` with 133 edges, `apiRequest()` with 110 edges, `StatusMessage()` with about 100 edges, `formatMoneyAmount()` with 85 edges, and `PermissionProvider()` with 84 edges.
+- Shared files reviewed before fixing: `apps/web/src/components/reports/report-pages.tsx`, `apps/web/src/app/(app)/documents/page.tsx`, `apps/web/src/app/(app)/settings/audit-logs/page.tsx`, `apps/web/src/lib/permissions.ts`, `apps/web/src/lib/sidebar-nav.ts`, `apps/web/src/lib/pdf-download.ts`, `apps/web/src/components/permissions/*`, and API controllers for reports, generated documents, audit logs, storage/system, email, ZATCA, roles, organization members, accounts, journals, tax rates, fiscal periods, branches, document settings, and number sequences.
+- Graphify highlighted related tests for the touched/reviewed areas: `apps/web/src/components/reports/report-pages.test.tsx`, `apps/web/src/lib/permissions.test.ts`, `apps/web/src/app/(app)/settings/team/page.test.tsx`, `apps/api/src/reports/reports.controller.spec.ts`, `apps/api/src/generated-documents/*`, `apps/api/src/audit-log/audit-log.controller.spec.ts`, and email/ZATCA API specs for safety wording and guards.
+
+### Part 7 Route Results
+
+| Route path | QA status | QA method | Actual result | Defects found | Severity | Fix applied | Remaining follow-up |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `/reports` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; index links to core reports and inventory reports and keeps VAT/report wording derived from posted data. | No code-level defect found. | Low | None | Re-test sidebar/layout and report navigation in authenticated browser runtime. |
+| `/reports/general-ledger` | Code-reviewed only | Shell HTTP; targeted code fix; Graphify-assisted code review | Shell route returned `200`; source has date filters, loading/error/empty states, and API exports. | Shared export buttons were visible to `reports.view` users even though API export requires `reports.export` or `generatedDocuments.download`. | Medium | Shared report export buttons now require export/download permission. | Re-test real filters and CSV/PDF visibility/download behavior only in an approved non-mutating fixture. |
+| `/reports/trial-balance` | Code-reviewed only | Shell HTTP; targeted code fix; Graphify-assisted code review | Shell route returned `200`; source shows balance status, date filters, loading/error/empty states, and exports. | Same shared report export visibility mismatch. | Medium | Shared report export buttons now require export/download permission. | Re-test real balanced/out-of-balance data and export visibility in browser runtime. |
+| `/reports/profit-and-loss` | Code-reviewed only | Shell HTTP; targeted code fix; Graphify-assisted code review | Shell route returned `200`; source shows summary/sections, date filters, loading/error/empty states, and exports. | Same shared report export visibility mismatch. | Medium | Shared report export buttons now require export/download permission. | Re-test real report data, empty state, and restricted-role export visibility. |
+| `/reports/balance-sheet` | Code-reviewed only | Shell HTTP; targeted code fix; Graphify-assisted code review | Shell route returned `200`; source uses as-of filter, balance status, loading/error/empty states, and exports. | Same shared report export visibility mismatch. | Medium | Shared report export buttons now require export/download permission. | Re-test real as-of filter, balance status, and export visibility. |
+| `/reports/vat-summary` | Code-reviewed only | Shell HTTP; targeted code fix; Graphify-assisted code review | Shell route returned `200`; source labels the page as a posted VAT account summary, not an official filing. | Same shared report export visibility mismatch. | Medium | Shared report export buttons now require export/download permission. | Re-test VAT summary wording, empty/error states, and restricted-role export visibility. |
+| `/reports/aged-receivables` | Code-reviewed only | Shell HTTP; targeted code fix; Graphify-assisted code review | Shell route returned `200`; source explains open customer balances after payments/credits/refunds and has aging empty-state links. | Same shared report export visibility mismatch. | Medium | Shared report export buttons now require export/download permission. | Re-test aging data, empty-state action-link permissions, and export visibility. |
+| `/reports/aged-payables` | Code-reviewed only | Shell HTTP; targeted code fix; Graphify-assisted code review | Shell route returned `200`; source explains open supplier balances after payments/debit notes/refunds and has aging empty-state links. | Same shared report export visibility mismatch. | Medium | Shared report export buttons now require export/download permission. | Re-test aging data, empty-state action-link permissions, and export visibility. |
+| `/documents` | Code-reviewed only | Shell HTTP; targeted code fix; Graphify-assisted code review | Shell route returned `200`; source lists generated documents with filters, empty/error states, archive guidance, and storage wording. | Archived PDF download button was visible from the view route even though API download requires `generatedDocuments.download`. | Medium | Download button is hidden unless `generatedDocuments.download` is present; direct handler also returns without permission. | Re-test restricted-role archive visibility and download behavior in browser runtime. |
+| `/accounts` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads accounts, shows loading/error/empty states, and hides create form unless `accounts.manage` exists. | No code-level defect found. | Low | None | Re-test create validation and restricted-role form visibility with safe data. |
+| `/journal-entries` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads journal list, gates create/post/reverse by dedicated journal permissions, and shows loading/error/empty states. | No code-level defect found. | Low | None | Re-test real draft/posted/reversed rows, post/reverse visibility, and errors without mutating records. |
+| `/journal-entries/new` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads accounts/tax rates, validates balanced lines, and only posts draft journal on submit. | No code-level defect found. | Low | None | Re-test form validation, dropdown dependencies, cancel/back expectations, and submit errors with a safe fixture. |
+| `/tax-rates` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads tax rates, shows loading/error/empty states, and hides create form unless `taxRates.manage` exists. | No code-level defect found. | Low | None | Re-test create/update validation and restricted-role visibility with safe data. |
+| `/fiscal-periods` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source gates create/close/reopen/lock by fiscal permissions and warns that lock is irreversible in this MVP. | No code-level defect found. | Low | None | Re-test period transitions, lock confirmation, restricted-role action visibility, and blocked posting wording without mutating periods. |
+| `/branches` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads branches and hides create form unless `organization.update` exists. | No code-level defect found. | Low | None | Re-test create validation and branch/ZATCA wording with safe data. |
+| `/settings/team` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source gates invite by `users.invite`, member role/status changes by `users.manage`, and warns real email is not configured. | Page unconditionally loads `/roles`; a custom `users.view` role without `roles.view` could hit a role-list blocker before seeing the members page. | Medium | None; documented as a permission dependency follow-up. | Confirm role-template intent or add a restricted-role fallback in a later permission pass; do not send invites in QA. |
+| `/settings/roles` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads roles, shows beta guidance, and hides create form unless `roles.manage` exists. | No code-level defect found. | Low | None | Re-test role matrix visibility and create form with safe restricted roles. |
+| `/settings/roles/[id]` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route with synthetic id returned `200`; source loads role detail, disables edits for system roles or users without `roles.manage`, and gates delete. | No code-level defect found. | Low | None | Re-test real invalid/missing id and custom role edit/delete visibility without changing roles. |
+| `/settings/documents` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads document settings, validates colors, states template changes do not alter accounting/VAT/compliance values, and hides save unless `documentSettings.manage` exists. | No code-level defect found. | Low | None | Re-test save validation and restricted-role read-only state without changing settings. |
+| `/settings/storage` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads storage readiness/migration plan, states migration is not implemented, and gates backup evidence by `auditLogs.manageRetention`. | Storage route is visible by document/storage permissions while backup evidence controls use audit retention permission; confirm product permission intent. | Medium | None; documented as permission-policy follow-up. | Re-test read-only storage readiness and backup evidence visibility; do not create/verify/revoke evidence. |
+| `/settings/email-outbox` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads outbox/readiness, uses mock/disabled real-send wording, and gates diagnostics/evidence/suppressions/cleanup by `users.manage`. | Email readiness/evidence administration currently reuses `users.manage`; confirm this is intentional because no email-admin permission exists. | Medium | None; documented as permission-policy follow-up. | Re-test read-only outbox/detail and admin action visibility without sending email or mutating suppressions/evidence. |
+| `/settings/audit-logs` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads logs/detail/retention settings, gates CSV export by `auditLogs.export`, and gates retention save/preview by `auditLogs.manageRetention`. | No code-level defect found. | Low | None | Re-test sanitized metadata display, export visibility, and retention read-only state without exporting or saving. |
+| `/settings/number-sequences` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads sequences, warns changes affect future documents only, blocks lowering next number client-side, and hides save unless `numberSequences.manage` exists. | No code-level defect found. | Low | None | Re-test validation and restricted-role read-only state without changing sequences. |
+| `/settings/zatca` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads local/mock ZATCA readiness, profile, EGS, CSR/custody planning, and logs; repeated copy states no production credentials/compliance/network submission. | No code-level defect found; page is large and action-heavy, so restricted-role browser QA remains important. | Medium | None | Re-test `zatca.view` vs `zatca.manage` action visibility without running CSR, CSID, checks, XML generation, clearance/reporting, or network calls. |
+
+### Reports/Documents/Settings/Admin Blocker List
+
+- In-app Browser local route visits are still blocked by tool URL policy, so no browser-runtime Part 7 pass is claimed.
+- Login was not run because it writes an audit log; authenticated session, tenant selection, and restricted-role behavior remain untested at runtime.
+- State-changing and output-producing workflows were not executed: report CSV/PDF export, generated-document download, audit CSV export, journal create/post/reverse, account/tax/branch/settings saves, fiscal period transitions, team invite/member status/role changes, role create/update/delete, storage evidence changes, email diagnostics/evidence/suppression/token cleanup, ZATCA CSR/CSID/hash/checks/log actions, report/PDF generation, and backup/restore actions remain deferred.
+- API endpoint behavior beyond `/health` and `/readiness` was reviewed from code only; no authenticated reports/documents/settings/admin API calls were made.
+- `/settings/team` has a visible role-list dependency on `/roles`; custom users-view-only roles may need either `roles.view` or a clearer fallback state.
+- `/settings/storage` backup readiness/evidence administration uses `auditLogs.manageRetention`, while the route is visible through document settings/storage permissions; confirm product permission intent.
+- `/settings/email-outbox` administration uses `users.manage` for diagnostics/evidence/suppression/cleanup controls because no dedicated email-admin permission exists; confirm product permission intent.
+
+### Routes Fixed In This Thread
+
+- `/reports/general-ledger`, `/reports/trial-balance`, `/reports/profit-and-loss`, `/reports/balance-sheet`, `/reports/vat-summary`, `/reports/aged-receivables`, and `/reports/aged-payables`: shared CSV/PDF export buttons now require `reports.export` or `generatedDocuments.download`.
+- `/documents`: archived PDF download buttons now require `generatedDocuments.download`, matching the generated-document API download guard.
+
+### Routes Deferred And Why
+
+- All 24 Part 7 routes remain deferred for authenticated browser-runtime QA because the in-app Browser local URL policy still blocks route visits and login was avoided to prevent audit-log writes.
+- Report/document/audit exports and downloads were deferred because this thread forbids report downloads, PDF generation, exports, and archive/download workflows.
+- Admin/settings/accounting/ZATCA/email/storage/team/role mutations were deferred because this thread forbids mutating records, settings, roles, email, ZATCA, backup/restore, or accounting state.
+- Browser-level layout, sidebar state, role-specific access-denied rendering, and real invalid-id/not-found UI remain deferred until a safe browser route path and safe authenticated fixture are available.
+
+### Recommended Next QA Batch After Part 7
+
+Recommended next thread: `DEV-01 Part 8: placeholder unimplemented route QA and final triage`.
+
+Focus on unmatched placeholder/future-module routes, placeholder visibility, any committed route/titleMap overlap, and final DEV-01 blocker triage. Keep shell HTTP results separate from authenticated browser-runtime claims, do not run mutations/downloads/email/ZATCA/hosting work, and continue to leave unrelated marketing and Graphify files unstaged.
+
 ## Placeholder, Duplicate, Risky, Hidden Route Notes
 
 - Placeholder-only: the committed catch-all route renders "Module not implemented yet" for any unmatched app-shell path. Part 2 added a baseline `dashboard.view` route permission and unauthenticated app-shell guard; restricted-role and authenticated placeholder behavior still need QA.
 - Scaffold-only/future modules: quotes/proformas, recurring invoices, cash invoices, delivery notes, API invoices, beneficiaries, payroll, fixed assets, cost centers, projects, developer/API keys, integrations, and document templates are titleMap entries only unless a real page exists.
 - Duplicate/overlap risk: `/bank-accounts/[id]/reconciliation` and `/bank-accounts/[id]/reconciliations`/`new` overlap conceptually. Part 5 found no broken route links, but navigation clarity still needs authenticated browser QA.
-- Risky auth mapping: Part 2 fixed the unauthenticated visibility gap for `/setup`, `/organization/setup`, and placeholder catch-all routes. Part 3 identified that `/sales/credit-notes/[id]/edit` is gated by `creditNotes.create` because no dedicated `creditNotes.update` permission exists. Part 4 identified the same permission-model pattern for `/purchases/debit-notes/[id]/edit`, where edit/update/delete use `purchaseDebitNotes.create` because no dedicated update permission exists. Part 5 fixed the banking draft-reconciliation route mapping from view to create and tightened banking action-link visibility. Part 6 found the same create-permission pattern for inventory adjustment edit/update/delete and noted that purchase receipt/sales stock issue void actions reuse create permissions; it also flagged `/inventory/variance-proposals/new` as dependent on `/accounts` while the visible route permission only requires variance-proposal creation. Authenticated and restricted-role behavior remains blocked until a safe local API/database state and browser route path are available.
+- Risky auth mapping: Part 2 fixed the unauthenticated visibility gap for `/setup`, `/organization/setup`, and placeholder catch-all routes. Part 3 identified that `/sales/credit-notes/[id]/edit` is gated by `creditNotes.create` because no dedicated `creditNotes.update` permission exists. Part 4 identified the same permission-model pattern for `/purchases/debit-notes/[id]/edit`, where edit/update/delete use `purchaseDebitNotes.create` because no dedicated update permission exists. Part 5 fixed the banking draft-reconciliation route mapping from view to create and tightened banking action-link visibility. Part 6 found the same create-permission pattern for inventory adjustment edit/update/delete and noted that purchase receipt/sales stock issue void actions reuse create permissions; it also flagged `/inventory/variance-proposals/new` as dependent on `/accounts` while the visible route permission only requires variance-proposal creation. Part 7 fixed report export and generated-document archive download visibility, and flagged `/settings/team`, `/settings/storage`, and `/settings/email-outbox` for permission-policy confirmation because their action dependencies are broader than the visible route permission. Authenticated and restricted-role behavior remains blocked until a safe local API/database state and browser route path are available.
 - Hidden expected routes: detail/new/edit routes are generally not sidebar children and are reached through lists/actions. That is expected, but QA should confirm every hidden route has a discoverable path from an authorized workflow.
 - Committed route vs placeholder conflict: some placeholder `titleMap` keys duplicate real routes (`/reports`, `/sales/invoices`, `/bank-accounts`, `/branches`); real files should win for exact committed pages.
 
@@ -556,33 +634,24 @@ Each batch stays at or below 20 routes.
 
 ## Recommended Next Actual QA Batch
 
-Recommended next thread: `DEV-01 Part 7: reports documents settings admin route QA`.
+Recommended next thread: `DEV-01 Part 8: placeholder unimplemented route QA and final triage`.
 
-Run reports/documents/settings/admin next because Inventory has shell route-load evidence, Graphify-assisted code review, targeted frontend fixes, and documented runtime blockers. Keep shell HTTP results separate from authenticated browser-runtime claims, and do not run report downloads, email sending, ZATCA calls, audit-log exports, posting-lock changes, role changes, storage changes, or other mutating admin actions unless a future prompt explicitly widens the safe data boundary.
+Run placeholder and final triage next because the core auth, sales/AR, purchases/AP, banking/reconciliation, inventory, reports, documents, settings, admin, and audit batches now have shell route-load evidence, Graphify-assisted code review where available, targeted small frontend fixes, and documented runtime blockers. Keep shell HTTP results separate from authenticated browser-runtime claims, and do not run mutations, exports/downloads, email sending, ZATCA calls, migrations, seed/reset/delete, deploys, env changes, or production-hosting research.
 
-Routes to include in the next reports/documents/settings/admin pass:
+Routes to include in the next placeholder/future-module pass:
 
-- `/reports`
-- `/reports/general-ledger`
-- `/reports/trial-balance`
-- `/reports/profit-and-loss`
-- `/reports/balance-sheet`
-- `/reports/vat-summary`
-- `/reports/aged-receivables`
-- `/reports/aged-payables`
-- `/documents`
-- `/accounts`
-- `/journal-entries`
-- `/journal-entries/new`
-- `/tax-rates`
-- `/fiscal-periods`
-- `/branches`
-- `/settings/team`
-- `/settings/roles`
-- `/settings/roles/[id]`
-- `/settings/documents`
-- `/settings/storage`
-- `/settings/email-outbox`
-- `/settings/audit-logs`
-- `/settings/number-sequences`
-- `/settings/zatca`
+- `/sales/quotes`
+- `/sales/recurring-invoices`
+- `/sales/cash-invoices`
+- `/sales/delivery-notes`
+- `/sales/api-invoices`
+- `/beneficiaries`
+- `/payroll`
+- `/fixed-assets`
+- `/cost-centers`
+- `/projects`
+- `/developer`
+- `/developer/api-keys`
+- `/integrations`
+- `/document-templates`
+- Any additional visible unmatched `titleMap` routes found during final triage.

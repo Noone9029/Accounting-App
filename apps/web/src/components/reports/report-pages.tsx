@@ -4,11 +4,13 @@ import Link from "next/link";
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadAuthenticatedFile } from "@/lib/pdf-download";
+import { PERMISSIONS } from "@/lib/permissions";
 import {
   agingBucketLabel,
   balanceSheetStatusClass,
@@ -397,8 +399,14 @@ function useReportLoader<T>(path: (query: string) => string, setReport: (value: 
 }
 
 function ReportExportButtons({ endpoint, slug, params }: { endpoint: string; slug: string; params: Record<string, string | null | undefined> }) {
+  const { canAny } = usePermissions();
+  const canExportReports = canAny(PERMISSIONS.reports.export, PERMISSIONS.generatedDocuments.download);
   const [downloading, setDownloading] = useState<"" | "csv" | "pdf">("");
   const [error, setError] = useState("");
+
+  if (!canExportReports) {
+    return <StatusMessage type="info">Report export requires report export or generated document download permission.</StatusMessage>;
+  }
 
   async function download(format: "csv" | "pdf") {
     setDownloading(format);

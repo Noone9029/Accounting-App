@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `0f1a112 QA DEV-01 banking reconciliation routes`
+- `58a846a QA DEV-01 inventory routes`
 
 ## Current Development Objective
 
@@ -19,6 +19,7 @@
 - DEV-01 Part 4 purchases and AP route QA is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
 - DEV-01 Part 5 banking and reconciliation route QA is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
 - DEV-01 Part 6 inventory route QA is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
+- DEV-01 Part 7 reports, documents, settings, admin, and audit route QA is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
 - Routes browser-QA'd or code-reviewed in Part 2: `/`, `/login`, `/register`, `/password-reset`, `/password-reset/confirm`, `/invite/accept`, `/dashboard`, `/setup`, `/organization/setup`, `/sales/quotes`, and `/fixed-assets`.
 - Routes fixed in Part 2: `/setup`, `/organization/setup`, and unmatched app-shell placeholder routes such as `/sales/quotes` and `/fixed-assets`.
 - Main blocker from Part 2: local API health was not reachable at `http://localhost:4000/health`, so authenticated dashboard/setup/organization and auth-submit success flows remain deferred.
@@ -42,7 +43,12 @@
 - Routes code-reviewed in Part 6: `/items`, `/inventory/warehouses`, `/inventory/warehouses/[id]`, `/inventory/stock-movements`, `/inventory/stock-movements/new`, `/inventory/adjustments`, `/inventory/adjustments/new`, `/inventory/adjustments/[id]`, `/inventory/adjustments/[id]/edit`, `/inventory/transfers`, `/inventory/transfers/new`, `/inventory/transfers/[id]`, `/inventory/purchase-receipts`, `/inventory/purchase-receipts/new`, `/inventory/purchase-receipts/[id]`, `/inventory/sales-stock-issues`, `/inventory/sales-stock-issues/new`, `/inventory/sales-stock-issues/[id]`, `/inventory/balances`, `/inventory/settings`, `/inventory/reports/stock-valuation`, `/inventory/reports/movement-summary`, `/inventory/reports/low-stock`, `/inventory/reports/clearing-reconciliation`, `/inventory/reports/clearing-variance`, `/inventory/variance-proposals`, `/inventory/variance-proposals/new`, and `/inventory/variance-proposals/[id]`.
 - Routes fixed in Part 6: `/items` now avoids management-only account/tax-rate fetches for viewers; `/inventory/stock-movements` now honors query filters and hides adjustment/transfer links unless matching create permissions exist; `/inventory/reports/clearing-reconciliation` and `/inventory/reports/clearing-variance` now hide CSV download buttons unless report export or generated-document download permission exists.
 - Part 6 remaining blockers: in-app Browser route visits, authenticated browser-runtime QA, login-dependent QA, inventory create/approve/void/transfer/adjust/receive/issue/post/reverse/propose-variance workflows, report downloads, attachment workflows, inventory clearing CSV API permission policy, variance proposal account dependency, and inventory update/void permission naming remain deferred.
-- Exact next prompt title: `DEV-01 Part 7: reports documents settings admin route QA`.
+- Part 7 local health refresh: `/health` and `/readiness` returned `200`; web shell HTTP checks returned `200` for `/login`, `/dashboard`, and all 24 Reports/Documents/Settings/Admin/Audit routes using a synthetic role id for `/settings/roles/[id]`.
+- Graphify in Part 7: untracked `graphify-out/GRAPH_REPORT.md`, `graphify-out/manifest.json`, and `graphify-out/graph.json` were available and used only as QA planning/blast-radius aids. The graph was stale (`edaec451` vs current `58a846a`) and was not treated as runtime proof or staged.
+- Routes code-reviewed in Part 7: `/reports`, `/reports/general-ledger`, `/reports/trial-balance`, `/reports/profit-and-loss`, `/reports/balance-sheet`, `/reports/vat-summary`, `/reports/aged-receivables`, `/reports/aged-payables`, `/documents`, `/accounts`, `/journal-entries`, `/journal-entries/new`, `/tax-rates`, `/fiscal-periods`, `/branches`, `/settings/team`, `/settings/roles`, `/settings/roles/[id]`, `/settings/documents`, `/settings/storage`, `/settings/email-outbox`, `/settings/audit-logs`, `/settings/number-sequences`, and `/settings/zatca`.
+- Routes fixed in Part 7: shared core report CSV/PDF buttons now require `reports.export` or `generatedDocuments.download`; `/documents` archived PDF download buttons now require `generatedDocuments.download`.
+- Part 7 remaining blockers: in-app Browser route visits, authenticated browser-runtime QA, login-dependent QA, report/document/audit exports and downloads, journal/account/tax/fiscal/branch/team/role/storage/email/ZATCA mutations, `/settings/team` role-list permission dependency, `/settings/storage` backup-evidence permission policy, and `/settings/email-outbox` email-admin permission policy remain deferred.
+- Exact next prompt title: `DEV-01 Part 8: placeholder unimplemented route QA and final triage`.
 
 ## Current PROD-A1 Objective
 
@@ -434,4 +440,4 @@
 
 ## Next Thread Prompt
 
-`DEV-01 Part 7: reports documents settings admin route QA`
+`DEV-01 Part 8: placeholder unimplemented route QA and final triage`
