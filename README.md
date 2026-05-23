@@ -88,6 +88,8 @@ corepack pnpm verify:ci:local
 
 These default gates are non-destructive. They intentionally exclude production URLs, deploys, Vercel/Supabase setting changes, migrations, seed/reset/delete, login/audit-writing flows, E2E, smoke, real ZATCA, real email, backup/restore, and customer-data mutation unless a later ticket explicitly approves them.
 
+Pull requests now run the same non-mutating verification boundary through `.github/workflows/pr-verification.yml`.
+
 ## Deployment
 
 LedgerByte is prepared for a two-project Vercel beta/user-testing deployment backed by Supabase Postgres. This is not the final production hosting decision:

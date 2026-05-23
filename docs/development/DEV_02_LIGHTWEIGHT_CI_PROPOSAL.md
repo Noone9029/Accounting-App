@@ -2,7 +2,7 @@
 
 ## Purpose And Scope
 
-This proposal defines a lightweight, non-mutating pull request verification workflow for LedgerByte. It is documentation only for DEV-02 Part 4; no GitHub Actions workflow file is implemented in this thread.
+This proposal defines a lightweight, non-mutating pull request verification workflow for LedgerByte.
 
 The proposed workflow is meant to reuse the DEV-02 verification gate scripts without adding production targets, database mutation, login flows, smoke tests, E2E tests, or deployed-environment checks.
 
@@ -10,7 +10,7 @@ The proposed workflow is meant to reuse the DEV-02 verification gate scripts wit
 
 - Verification scripts exist in the root `package.json`: `verify:diff`, `verify:local:web`, `verify:local:api`, `verify:local:guards`, `verify:repo`, and `verify:ci:local`.
 - The gate runner exists at `scripts/verify-gate.cjs`, with tests in `scripts/verify-gate.test.cjs`.
-- CI workflow implementation is not performed yet.
+- DEV-02 Part 5 implemented the PR workflow at [.github/workflows/pr-verification.yml](../../.github/workflows/pr-verification.yml).
 - The existing `.github/workflows/deployed-e2e.yml` workflow remains manual and beta/user-testing only.
 - Production hosting research remains paused. AWS remains future production direction only, and Vercel remains beta/user-testing/staging only.
 
@@ -24,23 +24,25 @@ The proposed PR workflow should:
 - run `verify:diff`
 - run `verify:ci:local`
 
-Exact proposed workflow YAML for a later implementation ticket:
+Implemented workflow YAML:
 
 ```yaml
-name: Non-Mutating Verification
+name: PR Verification
 
 permissions:
   contents: read
 
 on:
   pull_request:
-    branches:
-      - main
   workflow_dispatch:
+
+concurrency:
+  group: pr-verification-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verify:
-    name: Verify repository
+    name: Non-mutating verification
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -61,10 +63,13 @@ jobs:
       - name: Install dependencies
         run: corepack pnpm install --frozen-lockfile
 
+      # Non-mutating PR gate only. Keep deployed E2E, smoke, migrations,
+      # seed/reset/delete, deploys, ZATCA, email, backup/restore, and
+      # login/audit-writing flows out of this workflow.
       - name: Verify diff safety
         run: corepack pnpm verify:diff
 
-      - name: Run non-mutating local CI gate
+      - name: Run local CI verification gate
         run: corepack pnpm verify:ci:local
 ```
 
@@ -84,15 +89,14 @@ The proposed PR workflow must not run:
 - backup or restore commands
 - customer-data mutation or customer-data reads from non-local/non-CI environments
 
-## Required Approvals Before CI Implementation
+## Required Approvals Before Future Expansion
 
-Before DEV-02 Part 5 implements the workflow, confirm:
+Before expanding the PR workflow beyond the implemented non-mutating gate, confirm:
 
-- the workflow file name and trigger policy
-- the Node version to use in CI
-- whether `verify:ci:local` runtime is acceptable for every pull request
-- whether build/test failures from existing non-mutating checks should block all PRs immediately
-- whether package-manager cache settings should be added in the first workflow or deferred
+- whether package-manager cache settings should be added
+- whether any additional check remains non-mutating
+- whether visual regression belongs in PR CI or a later manual/nightly lane
+- whether `verify:ci:local` runtime is acceptable for every pull request after real CI timing is observed
 - that `.github/workflows/deployed-e2e.yml` remains manual and beta/user-testing only
 
 ## Risks And Mitigations
@@ -106,12 +110,12 @@ Before DEV-02 Part 5 implements the workflow, confirm:
 - Risk: manual deployed E2E could be confused with PR CI.
   Mitigation: keep deployed E2E in its existing manual workflow and document that it is beta/user-testing only.
 
-## Recommended DEV-02 Part 5 Implementation Scope
+## DEV-02 Part 5 Implementation Result
 
-Implement one new GitHub Actions workflow from the proposed YAML, then verify that it:
+DEV-02 Part 5 implemented one new GitHub Actions workflow from the proposed YAML. It:
 
 - uses `corepack pnpm install --frozen-lockfile`
 - runs `corepack pnpm verify:diff`
 - runs `corepack pnpm verify:ci:local`
 - does not run migrations, seed/reset/delete, smoke, E2E, deploys, ZATCA, email, backup/restore, or login/audit-writing flows
-- leaves the existing deployed E2E workflow manual and unchanged unless explicitly approved
+- leaves the existing deployed E2E workflow manual and unchanged

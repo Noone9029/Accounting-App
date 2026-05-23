@@ -319,6 +319,10 @@ DEV-02 Part 4 wired README and the runbook to the implemented verification gates
 
 See [DEV_02_VERIFICATION_GATE_RUNBOOK.md](DEV_02_VERIFICATION_GATE_RUNBOOK.md) for local usage and [DEV_02_LIGHTWEIGHT_CI_PROPOSAL.md](DEV_02_LIGHTWEIGHT_CI_PROPOSAL.md) for the proposed YAML.
 
+## Part 5 Implementation Note
+
+DEV-02 Part 5 implemented the non-mutating PR workflow at [../../.github/workflows/pr-verification.yml](../../.github/workflows/pr-verification.yml). The workflow runs `corepack pnpm verify:diff` and `corepack pnpm verify:ci:local` after a frozen-lockfile install, and it keeps deployed E2E, smoke, migrations, seed/reset/delete, deploys, ZATCA, email, backup/restore, production URLs, and login/audit-writing flows out of PR CI.
+
 ## Commands That Remain Forbidden Or Manual-Only
 
 Forbidden in default local and PR/CI gates:
@@ -358,4 +362,4 @@ Manual-only with explicit approval:
 
 ## Recommended Next Step
 
-Run `DEV-02 Part 5: implement non-mutating PR CI workflow` next. Keep the implementation limited to one lightweight GitHub Actions workflow that runs `verify:diff` and `verify:ci:local`; do not add smoke, E2E, migrations, seed/reset/delete, deploys, ZATCA, email, backup/restore, production targets, or login/audit-writing flows.
+Run `DEV-02 Part 6: verify CI workflow locally and finalize DEV-02` next. Keep verification local and non-mutating; do not add smoke, E2E, migrations, seed/reset/delete, deploys, ZATCA, email, backup/restore, production targets, or login/audit-writing flows.

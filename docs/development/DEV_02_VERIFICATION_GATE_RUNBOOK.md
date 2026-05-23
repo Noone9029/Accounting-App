@@ -113,14 +113,30 @@ node scripts/verify-gate.cjs verify:ci:local --plan
 
 - `verify:diff`, `verify:local:web`, `verify:local:api`, and `verify:local:guards` are local developer gates.
 - `verify:repo` is a local pre-push or PR-candidate gate. It can be slower because it runs full workspace typecheck, test, and build.
-- `verify:ci:local` mirrors the proposed future PR gate but is not wired to GitHub Actions yet.
-- DEV-02 Part 3 does not edit `.github/workflows/*`. CI wiring remains a later ticket.
+- `verify:ci:local` mirrors the implemented PR verification gate.
+- DEV-02 Part 5 adds `.github/workflows/pr-verification.yml` without changing the deployed E2E workflow.
 
 ## Documentation and CI proposal status
 
 - README now points developers to these verification gates and the non-destructive default boundary.
-- The lightweight CI proposal is documented in [DEV_02_LIGHTWEIGHT_CI_PROPOSAL.md](DEV_02_LIGHTWEIGHT_CI_PROPOSAL.md).
-- GitHub workflow implementation is still not performed; `.github/workflows/*` remains unchanged by DEV-02 Part 4.
+- The lightweight CI proposal and implementation status are documented in [DEV_02_LIGHTWEIGHT_CI_PROPOSAL.md](DEV_02_LIGHTWEIGHT_CI_PROPOSAL.md).
+- GitHub workflow implementation is now limited to [../../.github/workflows/pr-verification.yml](../../.github/workflows/pr-verification.yml). The deployed E2E workflow remains separate and manual.
+
+## PR CI workflow
+
+Workflow path: [../../.github/workflows/pr-verification.yml](../../.github/workflows/pr-verification.yml).
+
+The workflow runs on `pull_request` and manual `workflow_dispatch`. Use `workflow_dispatch` only to rerun the same non-mutating PR-style gate manually; it is not a deployed beta, smoke, migration, seed, reset, delete, ZATCA, email, backup/restore, or login-flow runner.
+
+Commands run by PR CI:
+
+```powershell
+corepack pnpm install --frozen-lockfile
+corepack pnpm verify:diff
+corepack pnpm verify:ci:local
+```
+
+PR CI intentionally excludes production URLs, deployed beta checks, Vercel/Supabase setting changes, databases/services, migrations, seed/reset/delete, login/audit-writing flows, E2E, smoke, real ZATCA, real email, backup/restore, and customer-data mutation.
 
 ## Intentional Exclusions
 

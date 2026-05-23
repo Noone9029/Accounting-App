@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `dcaf796 Implement DEV-02 verification gate scripts`
+- `e13bda1 Wire DEV-02 verification docs`
 
 ## Current Development Objective
 
@@ -26,6 +26,7 @@
 - DEV-02 Part 2 verification gate design is completed in [docs/development/DEV_02_VERIFICATION_GATE_DESIGN.md](docs/development/DEV_02_VERIFICATION_GATE_DESIGN.md).
 - DEV-02 Part 3 verification gate scripts are implemented in `scripts/verify-gate.cjs`, tested by `scripts/verify-gate.test.cjs`, and documented in [docs/development/DEV_02_VERIFICATION_GATE_RUNBOOK.md](docs/development/DEV_02_VERIFICATION_GATE_RUNBOOK.md).
 - DEV-02 Part 4 documentation wiring is completed: README points to the verification runbook, and [docs/development/DEV_02_LIGHTWEIGHT_CI_PROPOSAL.md](docs/development/DEV_02_LIGHTWEIGHT_CI_PROPOSAL.md) captures the CI proposal without workflow implementation.
+- DEV-02 Part 5 PR CI workflow is implemented at `.github/workflows/pr-verification.yml`; it is separate from `.github/workflows/deployed-e2e.yml`.
 - Routes browser-QA'd or code-reviewed in Part 2: `/`, `/login`, `/register`, `/password-reset`, `/password-reset/confirm`, `/invite/accept`, `/dashboard`, `/setup`, `/organization/setup`, `/sales/quotes`, and `/fixed-assets`.
 - Routes fixed in Part 2: `/setup`, `/organization/setup`, and unmatched app-shell placeholder routes such as `/sales/quotes` and `/fixed-assets`.
 - Main blocker from Part 2: local API health was not reachable at `http://localhost:4000/health`, so authenticated dashboard/setup/organization and auth-submit success flows remain deferred.
@@ -70,7 +71,9 @@
 - DEV-02 Part 4 CI proposal status: proposed PR workflow would run checkout, setup Node/Corepack, install with frozen lockfile, `verify:diff`, and `verify:ci:local`; `.github/workflows/*` was not edited.
 - DEV-02 Part 4 README verification section status: README now links to the runbook and lists `verify:diff`, `verify:local:web`, `verify:local:api`, `verify:local:guards`, `verify:repo`, and `verify:ci:local`.
 - DEV-02 Part 4 commands still forbidden or manual-only: migrations, seed/reset/delete, demo seeding, smoke, full E2E, deployed beta E2E, login/audit-writing browser QA, visual snapshot updates, real ZATCA, real email, backup/restore, deploys, provider setting changes, environment changes, production targets, and customer-data mutation.
-- Exact next prompt title: `DEV-02 Part 5: implement non-mutating PR CI workflow`.
+- DEV-02 Part 5 CI commands: checkout, setup Node 22, enable Corepack, `corepack pnpm install --frozen-lockfile`, `corepack pnpm verify:diff`, and `corepack pnpm verify:ci:local`.
+- DEV-02 Part 5 CI exclusions: no secrets, no production URLs, no deployed beta checks, no Vercel/Supabase setting changes, no databases/services, no migrations, no seed/reset/delete, no login/audit-writing flows, no E2E, no smoke, no real ZATCA, no real email, no backup/restore, and no customer-data mutation.
+- Exact next prompt title: `DEV-02 Part 6: verify CI workflow locally and finalize DEV-02`.
 
 ## Current PROD-A1 Objective
 

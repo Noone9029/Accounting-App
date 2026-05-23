@@ -1,0 +1,44 @@
+name: PR Verification
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: pr-verification-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Non-mutating verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      # Non-mutating PR gate only. Keep deployed E2E, smoke, migrations,
+      # seed/reset/delete, deploys, ZATCA, email, backup/restore, and
+      # login/audit-writing flows out of this workflow.
+      - name: Verify diff safety
+        run: corepack pnpm verify:diff
+
+      - name: Run local CI verification gate
+        run: corepack pnpm verify:ci:local
