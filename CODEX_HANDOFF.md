@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `f1ce45b Finalize DEV-01 route QA triage`
+- `a647ff4 Inventory DEV-02 verification gates`
 
 ## Current Development Objective
 
@@ -23,6 +23,7 @@
 - DEV-01 Part 8 placeholder unimplemented route QA and final triage is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
 - DEV-01 final triage is created in [docs/development/DEV_01_FINAL_TRIAGE.md](docs/development/DEV_01_FINAL_TRIAGE.md).
 - DEV-02 Part 1 verification gate inventory is completed in [docs/development/DEV_02_VERIFICATION_GATE_INVENTORY.md](docs/development/DEV_02_VERIFICATION_GATE_INVENTORY.md).
+- DEV-02 Part 2 verification gate design is completed in [docs/development/DEV_02_VERIFICATION_GATE_DESIGN.md](docs/development/DEV_02_VERIFICATION_GATE_DESIGN.md).
 - Routes browser-QA'd or code-reviewed in Part 2: `/`, `/login`, `/register`, `/password-reset`, `/password-reset/confirm`, `/invite/accept`, `/dashboard`, `/setup`, `/organization/setup`, `/sales/quotes`, and `/fixed-assets`.
 - Routes fixed in Part 2: `/setup`, `/organization/setup`, and unmatched app-shell placeholder routes such as `/sales/quotes` and `/fixed-assets`.
 - Main blocker from Part 2: local API health was not reachable at `http://localhost:4000/health`, so authenticated dashboard/setup/organization and auth-submit success flows remain deferred.
@@ -58,7 +59,11 @@
 - Part 8 remaining blockers: in-app Browser route visits, authenticated browser-runtime QA, login-dependent QA, dedicated future-module permissions, and future-module implementation remain deferred. Placeholder roots/synonyms such as `/products`, `/accounting`, `/sales`, and `/purchases` need a later UX decision to redirect, become real index pages, or remain direct-only placeholders.
 - DEV-02 Part 1 safest current commands found: `git diff --check`, `git diff --cached --check`, targeted workspace typecheck, targeted Jest suites, full non-mutating `corepack pnpm typecheck`, full `corepack pnpm test`, `corepack pnpm build`, `corepack pnpm test:visual`, `node scripts/check-deployed-e2e-env.cjs`, and local API/web health/readiness shell checks when services are already approved and running.
 - DEV-02 Part 1 riskiest or blocked verification areas: migrations, seed/reset/delete, API smoke phases, Playwright E2E with login/seeded workflows, deployed beta E2E, output/export/download/PDF checks, ZATCA SDK/CSR/signing commands, user-testing cleanup-plan login, and any browser-runtime authenticated QA without an approved audit-log/fixture policy.
-- Exact next prompt title: `DEV-02 Part 2: design verification gate`.
+- DEV-02 Part 2 recommended default local gate: `git diff --check`, targeted changed-workspace `typecheck`, targeted changed-area Jest/package tests, and `git diff --cached --check` after staging.
+- DEV-02 Part 2 recommended PR/CI gate: install with `corepack pnpm install --frozen-lockfile`, then run `git diff --check`, `corepack pnpm typecheck`, `corepack pnpm test`, `corepack pnpm build`, `node --test scripts/test-credential-env.test.cjs`, and `corepack pnpm test:user-testing-cleanup-plan`.
+- DEV-02 Part 2 manual/nightly gate summary: `corepack pnpm test:visual` plus local API/web health/readiness shell checks first; E2E and smoke slices remain manual only with explicit disposable-data, credential, login/audit, and cleanup approval.
+- DEV-02 Part 2 commands still forbidden or manual-only: migrations, seed/reset/delete, demo seeding, smoke, full E2E, deployed beta E2E, login/audit-writing browser QA, visual snapshot updates, real ZATCA, real email, backup/restore, deploys, provider setting changes, environment changes, and production targets.
+- Exact next prompt title: `DEV-02 Part 3: implement verification gate scripts`.
 
 ## Current PROD-A1 Objective
 
@@ -437,7 +442,7 @@
 - The current product state is broad controlled-beta MVP, not paid production SaaS: core AR/AP, banking, inventory, reports, documents, audit, roles, storage readiness, email readiness, and ZATCA groundwork exist, but many production-facing and product-completion gaps remain.
 - Top development gaps: full route QA and blocker triage, verification gate hardening, high-risk state-machine QA, auth/session hardening, accountant review, sales/purchase completion, banking parser/reconciliation hardening, inventory accounting policy work, admin/audit alerts, and SaaS business readiness.
 - Mock/blocked areas remain intentional: real ZATCA, real customer email sending, live bank feeds, payment gateway capture, object-storage migration execution, backup/restore execution, and automatic inventory accounting expansion.
-- Exact next recommended development ticket: `DEV-02 Part 2: design verification gate`.
+- Exact next recommended development ticket: `DEV-02 Part 3: implement verification gate scripts`.
 
 ## Forbidden Actions For Next Production Thread
 
@@ -450,4 +455,4 @@
 
 ## Next Thread Prompt
 
-`DEV-02 Part 2: design verification gate`
+`DEV-02 Part 3: implement verification gate scripts`
