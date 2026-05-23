@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `7c22290 Implement DEV-04 fixture runner dry-run skeleton`
+- `6e3eac98 Harden DEV-04 fixture runner guards`
 
 ## Current Development Objective
 
@@ -117,7 +117,10 @@
 - DEV-04 Part 4 output behavior: plan/dry-run/cleanup-plan output now states `NO DATA CREATED`, `NO DATABASE WRITES`, selected mode/family/marker, disabled execute/fixture/mutation/login status, cleanup-plan-only status, and the next manual approval needed before write behavior can be implemented. JSON summaries include explicit non-mutating flags.
 - DEV-04 Part 4 tests added/updated: hosted URL variants, local URL variants, missing/generic database target behavior, marker edge cases, execute refusal, cleanup-plan no-delete wording, JSON non-mutating flags, and secret redaction coverage.
 - DEV-04 Part 4 performed no execute run, login, fixture data creation, database connection, Prisma write, service-layer write, runtime mutation, export, download, PDF generation, generated-document archive creation, smoke, E2E, migration, seed/reset/delete, ZATCA, email, backup/restore, deployment, env change, or production-hosting research.
-- Exact next prompt title: `DEV-04 Part 5: finalize fixture runner handoff`.
+- DEV-04 fixture runner is finalized in [docs/development/DEV_04_FINAL_FIXTURE_RUNNER_HANDOFF.md](docs/development/DEV_04_FINAL_FIXTURE_RUNNER_HANDOFF.md).
+- DEV-04 safe commands available: root `fixture:dev04:plan`, `fixture:dev04:dry-run`, and `fixture:dev04:cleanup-plan`; API `fixture:dev04`. A root execute script still does not exist.
+- DEV-04 Part 5 finalization status: execute mode is not enabled; fixture creation was not performed; database writes were not performed; login/audit-writing flows were not performed; runtime mutations were not performed.
+- Exact next prompt title: `DEV-05 Part 1: approved local fixture creation plan`.
 
 ## Current PROD-A1 Objective
 
@@ -496,7 +499,7 @@
 - The current product state is broad controlled-beta MVP, not paid production SaaS: core AR/AP, banking, inventory, reports, documents, audit, roles, storage readiness, email readiness, and ZATCA groundwork exist, but many production-facing and product-completion gaps remain.
 - Top development gaps: full route QA and blocker triage, verification gate hardening, high-risk state-machine QA, auth/session hardening, accountant review, sales/purchase completion, banking parser/reconciliation hardening, inventory accounting policy work, admin/audit alerts, and SaaS business readiness.
 - Mock/blocked areas remain intentional: real ZATCA, real customer email sending, live bank feeds, payment gateway capture, object-storage migration execution, backup/restore execution, and automatic inventory accounting expansion.
-- Exact next recommended development ticket: `DEV-04 Part 5: finalize fixture runner handoff`.
+- Exact next recommended development ticket: `DEV-05 Part 1: approved local fixture creation plan`.
 
 ## Forbidden Actions For Next Production Thread
 
@@ -509,4 +512,4 @@
 
 ## Next Thread Prompt
 
-`DEV-04 Part 5: finalize fixture runner handoff`
+`DEV-05 Part 1: approved local fixture creation plan`

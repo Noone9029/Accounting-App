@@ -20,6 +20,10 @@ DEV-04 Part 4 hardened the existing dry-run runner guards, tests, and documentat
 
 No fixture script execute path, login, fixture data creation, database connection, Prisma write, service-layer write, runtime mutation, export, download, PDF generation, generated-document archive creation, smoke, E2E, migration, seed/reset/delete, ZATCA, email, backup/restore, deployment, env change, or production-hosting research was performed.
 
+## DEV-04 Part 5 Finalization Note
+
+DEV-04 Part 5 finalized the dry-run fixture runner handoff in [DEV_04_FINAL_FIXTURE_RUNNER_HANDOFF.md](DEV_04_FINAL_FIXTURE_RUNNER_HANDOFF.md). The final handoff records runner paths, safe commands, guard and test coverage, verification expectations, remaining blockers, and approvals required before any future fixture creation. Execute mode, fixture creation, login, database writes, and runtime mutation remain disabled and unperformed.
+
 ## 2. Non-Goals
 
 - Do not implement fixture scripts in this part.
@@ -268,8 +272,9 @@ Manual/local-approved only:
 1. `DEV-04 Part 2: fixture script design`: specify runner contract, target guards, marker validation, dry-run output, write approval flags, and cleanup inventory contract.
 2. `DEV-04 Part 3: implement fixture runner dry-run skeleton`: implement the runner in no-write mode with tests for command planning, forbidden targets, marker rules, blocked execute/login behavior, and redacted evidence.
 3. `DEV-04 Part 4: harden fixture runner guards and docs`: harden target guards, marker-family matching, redaction, cleanup-plan output, JSON non-mutating flags, and docs without adding execute behavior.
-4. `DEV-04 Part 5: approved local fixture creation run`: after explicit approval, run local-only fixture creation against a disposable database and record created/reused counts.
-5. Later approved batches: AR mutation QA first, then AP, Banking/Reconciliation, Inventory, Journals/Reports/Documents output gate QA, then final regression/verification.
+4. `DEV-04 Part 5: finalize fixture runner handoff`: finalize the dry-run runner documentation and verification handoff without enabling execute behavior.
+5. `DEV-05 Part 1: approved local fixture creation plan`: design the next approved local fixture creation step before any fixture data is created.
+6. Later approved batches: AR mutation QA first, then AP, Banking/Reconciliation, Inventory, Journals/Reports/Documents output gate QA, then final regression/verification.
 
 ## 14. Risks And Blockers
 
@@ -294,4 +299,4 @@ Manual/local-approved only:
 
 ## 16. Recommended Next Step
 
-Proceed with `DEV-04 Part 3: implement fixture runner dry-run skeleton`. The next part should implement only non-mutating runner scaffolding, guard tests, marker validation, redacted summaries, blocked execute/login behavior, and dry-run family plans before any fixture creation or mutation is approved.
+Proceed with `DEV-05 Part 1: approved local fixture creation plan`. The next ticket should remain approval-gated and planning-first: no fixture data should be created until local disposable database approval, fixture creation approval, login/audit policy, cleanup/retention approval, and an explicit no-production/no-beta boundary are documented.

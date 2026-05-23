@@ -20,6 +20,10 @@ The runner output now states `NO DATA CREATED`, `NO DATABASE WRITES`, selected m
 
 The guard tests now cover hosted/deployed target variants, local target variants, marker edge cases, generic `DATABASE_URL` isolation, `--execute` refusal, cleanup-plan wording, redaction, and JSON non-mutating flags. No fixture data, login, database connection, Prisma write, service-layer write, runtime mutation, export, download, PDF generation, generated-document archive creation, smoke, E2E, migration, seed/reset/delete, ZATCA, email, backup/restore, deployment, env change, or production-hosting research was performed.
 
+## DEV-04 Part 5 Finalization Note
+
+DEV-04 Part 5 finalized the fixture runner handoff in [DEV_04_FINAL_FIXTURE_RUNNER_HANDOFF.md](DEV_04_FINAL_FIXTURE_RUNNER_HANDOFF.md). That handoff records the implemented runner path, safe commands, guard behavior, test coverage, verification checks, explicit non-goals, remaining blockers, and approvals required before any future fixture creation. Execute mode remains refused; no execute package script exists.
+
 ## 2. Non-Goals
 
 - Do not implement the runner in this part.
@@ -68,7 +72,6 @@ Suggested root package script names:
 {
   "fixture:dev04:plan": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --plan",
   "fixture:dev04:dry-run": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --dry-run",
-  "fixture:dev04:execute": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --execute --allow-local-mutation",
   "fixture:dev04:cleanup-plan": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --cleanup-plan --dry-run"
 }
 ```
@@ -79,10 +82,12 @@ Suggested dry-run command:
 corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --dry-run --family ar --marker DEV03-AR-20260524T120000
 ```
 
-Suggested future execute command, not approved yet:
+Future execute behavior remains design-only. No root execute script exists, and `--execute` must stay refused until a later prompt explicitly approves and implements local fixture creation.
+
+Non-mutating execute refusal check:
 
 ```powershell
-corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --execute --allow-local-mutation --family ar --marker DEV03-AR-20260524T120000
+corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --execute --family ar --marker DEV03-AR-20260524T120000
 ```
 
 Suggested future cleanup-plan command:
@@ -438,11 +443,15 @@ Deletion or destructive cleanup remains forbidden until a separate future prompt
    - Expand tests for target guards, denylist, marker-family matching, redaction, cleanup-plan output, and JSON non-mutating flags.
    - Clarify runner output and docs while keeping execute mode and fixture creation disabled.
 
-3. `DEV-04 Part 5: approved local fixture creation run`
-   - Only after explicit user approval, implement and run local bootstrap/fixture creation against a confirmed disposable local database.
-   - Record created/reused counts and audit boundaries.
+3. `DEV-04 Part 5: finalize fixture runner handoff`
+   - Record the final dry-run runner behavior, verification evidence, non-goals, blockers, and next approval gates.
+   - Do not enable execute mode or create fixture data.
 
-4. Later approved mutation QA
+4. `DEV-05 Part 1: approved local fixture creation plan`
+   - Only after explicit user approval, design the local bootstrap/fixture creation run against a confirmed disposable local database.
+   - Keep fixture creation blocked until local DB, login/audit, cleanup/retention, and no-production/no-beta approvals are explicit.
+
+5. Later approved mutation QA
    - Run AR first, then AP, banking/reconciliation, inventory, and JRD output gates only with explicit login/mutation/output approvals.
 
 ## 15. Risks And Blockers
@@ -467,6 +476,6 @@ Deletion or destructive cleanup remains forbidden until a separate future prompt
 
 ## 17. Recommended Next Step
 
-Proceed with `DEV-04 Part 3: implement fixture runner dry-run skeleton`.
+Proceed with `DEV-05 Part 1: approved local fixture creation plan`.
 
-Part 3 should implement only non-mutating runner scaffolding: CLI parsing, dry-run output, family plan output, local target guards, marker validation, redaction, blocked execute mode, blocked login mode, JSON summary, and guard tests. It should not create fixture data, login, call business services, or mutate records.
+The next ticket should not create fixture data by default. It should first document local disposable database approval, fixture creation approval, login/audit-write policy, cleanup/retention approval, exact fixture family scope, and the explicit no-production/no-beta boundary.
