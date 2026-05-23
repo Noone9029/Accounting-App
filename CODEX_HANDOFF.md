@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `c059f87 Finalize DEV-02 verification gate`
+- `db2b758 Inventory DEV-03 state-machine QA`
 
 ## Current Development Objective
 
@@ -77,11 +77,14 @@
 - DEV-02 Part 5 CI exclusions: no secrets, no production URLs, no deployed beta checks, no Vercel/Supabase setting changes, no databases/services, no migrations, no seed/reset/delete, no login/audit-writing flows, no E2E, no smoke, no real ZATCA, no real email, no backup/restore, and no customer-data mutation.
 - DEV-02 Part 6 commands run: `node --test scripts/verify-gate.test.cjs`, `corepack pnpm verify:diff`, `corepack pnpm verify:ci:local -- --plan`, package JSON parse, lightweight workflow YAML inspection, `git diff --check`, and `git diff --cached --check` after staging.
 - DEV-02 Part 6 commands skipped: actual `corepack pnpm verify:ci:local`, actual `corepack pnpm verify:repo`, full tests, full build, full E2E, full smoke, migrations, seed/reset/delete, deploys, env changes, ZATCA, email, backup/restore, production-hosting research, and login/audit-writing flows.
-- DEV-02 remaining blockers: authenticated browser/runtime route QA, login/audit-writing fixture policy, mutation/state-machine QA, output-producing export/PDF/download/archive checks, real ZATCA/email/storage/backup checks, service-container E2E/smoke design, docs/link checking, and observing the workflow in an actual GitHub-hosted PR run.
+- DEV-02 remaining blockers: authenticated browser/runtime route QA, actual login/audit-writing approval for disposable QA, mutation/state-machine QA, output-producing export/PDF/download/archive checks, real ZATCA/email/storage/backup checks, service-container E2E/smoke design, docs/link checking, and observing the workflow in an actual GitHub-hosted PR run.
 - DEV-03 Part 1 state-machine QA inventory is completed in [docs/development/DEV_03_STATE_MACHINE_QA_INVENTORY.md](docs/development/DEV_03_STATE_MACHINE_QA_INVENTORY.md).
 - Highest-risk workflows found: invoice/bill finalization and voiding, AR/AP payment allocation and reversal, credit/debit note allocation and voiding, bank transfer posting/voiding, statement transaction match/categorize/ignore, reconciliation submit/approve/close/void, inventory adjustment/transfer/receipt/issue/variance proposal post/reverse/void flows, manual journal post/reverse, fiscal period posting locks, and report/document/audit export or PDF/archive gates.
 - DEV-03 Part 1 performed no runtime mutations: no login, create, finalize, approve, close, void, reverse, allocate, match, categorize, ignore, transfer, receive, issue, post, export, download, upload, delete, migration, seed/reset/delete, smoke, E2E, ZATCA, email, backup/restore, deployment, env change, or production-hosting research was run.
-- Exact next prompt title: `DEV-03 Part 2: safe fixture login audit policy design`.
+- DEV-03 Part 2 safe fixture/login/audit policy is completed in [docs/development/DEV_03_SAFE_FIXTURE_LOGIN_AUDIT_POLICY.md](docs/development/DEV_03_SAFE_FIXTURE_LOGIN_AUDIT_POLICY.md).
+- DEV-03 Part 2 key policy decisions: future mutation QA is local-disposable only by default; production is forbidden; beta/user-testing requires separate approval; login is allowed only in future explicitly approved batches; audit writes become expected evidence; fixture records require `DEV03-...` markers; seed/reset/delete, real customer data, exports/downloads/PDF, ZATCA, email, backup/restore, deploys, env changes, and provider changes remain forbidden by default.
+- DEV-03 Part 2 performed no login and no runtime mutation: no create, finalize, approve, close, void, reverse, allocate, match, categorize, ignore, transfer, receive, issue, post, export, download, upload, delete, migration, seed/reset/delete, smoke, E2E, ZATCA, email, backup/restore, deployment, env change, or production-hosting research was run.
+- Exact next prompt title: `DEV-03 Part 3: AR state-machine QA dry-run plan`.
 
 ## Current PROD-A1 Objective
 
@@ -460,7 +463,7 @@
 - The current product state is broad controlled-beta MVP, not paid production SaaS: core AR/AP, banking, inventory, reports, documents, audit, roles, storage readiness, email readiness, and ZATCA groundwork exist, but many production-facing and product-completion gaps remain.
 - Top development gaps: full route QA and blocker triage, verification gate hardening, high-risk state-machine QA, auth/session hardening, accountant review, sales/purchase completion, banking parser/reconciliation hardening, inventory accounting policy work, admin/audit alerts, and SaaS business readiness.
 - Mock/blocked areas remain intentional: real ZATCA, real customer email sending, live bank feeds, payment gateway capture, object-storage migration execution, backup/restore execution, and automatic inventory accounting expansion.
-- Exact next recommended development ticket: `DEV-03 Part 2: safe fixture login audit policy design`.
+- Exact next recommended development ticket: `DEV-03 Part 3: AR state-machine QA dry-run plan`.
 
 ## Forbidden Actions For Next Production Thread
 
@@ -473,4 +476,4 @@
 
 ## Next Thread Prompt
 
-`DEV-03 Part 2: safe fixture login audit policy design`
+`DEV-03 Part 3: AR state-machine QA dry-run plan`

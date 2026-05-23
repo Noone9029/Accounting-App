@@ -6,6 +6,10 @@ DEV-03 inventories high-risk LedgerByte workflows before any state-changing QA i
 
 This inventory is planning-only. QA status for every workflow is `Not executed`.
 
+## DEV-03 Part 2 Policy Note
+
+DEV-03 Part 2 created [DEV_03_SAFE_FIXTURE_LOGIN_AUDIT_POLICY.md](DEV_03_SAFE_FIXTURE_LOGIN_AUDIT_POLICY.md). It keeps future mutation QA local-disposable by default, requires explicit approval for login/audit-writing and every mutation category, requires marker-based fake fixtures, keeps seed/reset/delete forbidden by default, and leaves all state-machine workflows `Not executed` until a later approved batch.
+
 Source evidence inspected for this pass:
 
 - `CODEX_HANDOFF.md`
@@ -24,7 +28,7 @@ Source evidence inspected for this pass:
 
 ## 2. Safety Rules For DEV-03
 
-- Do not execute state-changing workflows until DEV-03 Part 2 defines an approved safe fixture, login, audit-log, and cleanup policy.
+- Do not execute state-changing workflows until a later batch explicitly approves the safe fixture, login, audit-log, and cleanup scope defined by DEV-03 Part 2.
 - Do not run migrations, seed/reset/delete commands, smoke, E2E, deployed checks, ZATCA, email, backup/restore, exports/downloads/PDF generation, or production checks by default.
 - Do not create, finalize, approve, close, void, reverse, allocate, match, categorize, ignore, transfer, receive, issue, post, export, download, send, upload, delete, or migrate anything in DEV-03 Part 1.
 - Do not use real customer data or production-like mutable records for state-machine QA.
@@ -228,11 +232,9 @@ The required DEV-03 Part 1 workflows are included above:
 
 ### Part 2: Safe Fixture Login Audit Policy Design
 
-- Define local-only fixture-data scope without real customer data.
-- Define how authenticated QA may log in without treating audit-log writes as defects.
-- Define allowed audit-log assertions, cleanup boundaries, and forbidden destructive commands.
-- Decide whether any setup commands are safe or whether fixtures must be created through transactional test code only.
-- Output: an approval-ready runbook for DEV-03 mutation QA.
+- Completed in [DEV_03_SAFE_FIXTURE_LOGIN_AUDIT_POLICY.md](DEV_03_SAFE_FIXTURE_LOGIN_AUDIT_POLICY.md).
+- Local disposable fixture boundaries, login approval rules, audit-log handling, mutation limits, cleanup evidence, and secrets/data exposure rules are defined.
+- Seed/reset/delete remain forbidden by default; fixture creation and state-machine mutation still require explicit future batch approval.
 
 ### Part 3: AR State-Machine QA
 
@@ -268,8 +270,8 @@ The required DEV-03 Part 1 workflows are included above:
 
 ## 10. Open Questions
 
-- What exact local fixture strategy is approved for mutation QA: transactional Jest fixtures, API-created disposable org data, or a separate local QA database snapshot?
-- Is login/audit-writing allowed for disposable local users during DEV-03, and should audit entries be asserted rather than avoided?
+- Which exact local fixture strategy should Part 3 plan first: transactional Jest fixtures, API-created disposable org data, or a separate local QA database snapshot?
+- For an approved future mutation batch, should audit-log assertions be mandatory for every state transition or only for externally visible lifecycle actions?
 - Are PDF generation and generated-document archive writes allowed in a later DEV-03 output batch, or should they remain deferred until a dedicated document/output ticket?
 - Should smoke/E2E scripts be decomposed into non-destructive plan modes before any browser automation is run?
 - Which permission names are final for update/void actions that currently reuse create/manage permissions in some modules?
@@ -278,6 +280,6 @@ The required DEV-03 Part 1 workflows are included above:
 
 ## 11. Recommended Next Step
 
-Proceed with `DEV-03 Part 2: safe fixture login audit policy design`.
+Proceed with `DEV-03 Part 3: AR state-machine QA dry-run plan`.
 
-Part 2 should produce the explicit approval boundaries needed before any authenticated browser QA or mutation workflow is executed. Until then, all workflows in this inventory remain `Not executed`.
+Part 3 should remain dry-run planning by default. It should convert the Sales/AR workflows into a precise fixture graph, endpoint plan, assertion matrix, audit evidence checklist, and cleanup/stop rules before any local disposable AR mutation is approved.
