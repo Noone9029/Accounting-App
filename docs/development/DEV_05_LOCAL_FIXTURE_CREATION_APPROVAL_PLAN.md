@@ -21,6 +21,10 @@ This is planning only. It does not enable execute mode, add an execute package s
 - No fixtures have been created.
 - No login, audit-writing flow, DB write, DB connection, or runtime mutation has been performed for DEV-05.
 
+## DEV-05 Part 2 Execute-Gated Skeleton Note
+
+DEV-05 Part 2 added [DEV_05_EXECUTE_GATED_FIXTURE_SKELETON.md](DEV_05_EXECUTE_GATED_FIXTURE_SKELETON.md). The runner now models an execute request, approval gates, AR proposed records, and non-mutating JSON evidence, but execute mode still exits refused and no fixture data, database connection, database write, login, audit-writing flow, or runtime mutation is performed.
+
 ## 3. Approval Required Before Fixture Creation
 
 Fixture creation must not start until a future prompt explicitly approves all of these:
@@ -264,6 +268,6 @@ If any item is missing, the next run remains planning or dry-run only.
 
 ## 14. Recommended Next Step
 
-Proceed with `DEV-05 Part 2: implement execute-gated fixture creation skeleton`.
+Proceed with `DEV-05 Part 3: approve and run local AR fixture creation` only if the next prompt explicitly approves local disposable database use, fixture creation, marker scope, cleanup/retention, and no-production/no-beta/no-customer-data boundaries.
 
-Part 2 should still not create fixture data. It should implement only the code path and tests needed to prove that any future execution remains blocked unless local disposable DB approval, fixture creation approval, marker approval, cleanup/retention approval, and no-production/no-beta approval are explicit.
+Without those approvals, keep the runner in plan/dry-run/cleanup-plan or execute-refusal mode only.

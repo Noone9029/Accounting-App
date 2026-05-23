@@ -17,6 +17,10 @@ This is finalization only. It does not approve execute mode, fixture creation, d
 
 DEV-05 Part 1 created [DEV_05_LOCAL_FIXTURE_CREATION_APPROVAL_PLAN.md](DEV_05_LOCAL_FIXTURE_CREATION_APPROVAL_PLAN.md). That plan defines the required local disposable database, fixture creation, login/audit-write, cleanup/retention, and no-production/no-beta approvals before any future fixture creation. It keeps the first proposed target to Sales/AR with `DEV03-AR-...` markers and does not enable execute mode, create fixture data, connect to a database, login, write audit logs, or mutate records.
 
+## DEV-05 Execute-Gated Skeleton Note
+
+DEV-05 Part 2 added [DEV_05_EXECUTE_GATED_FIXTURE_SKELETON.md](DEV_05_EXECUTE_GATED_FIXTURE_SKELETON.md). The runner now contains an execute-gated skeleton for future Sales/AR fixture creation approvals, but it still refuses `--execute`, performs no fixture creation, opens no database connection, performs no database writes, runs no login/audit-writing flow, and executes no runtime mutation.
+
 ## 3. Runner Path And Commands
 
 Runner path:
@@ -159,10 +163,10 @@ Before any future fixture creation or mutation run, a prompt must explicitly app
 
 ## 11. Recommended Next Development Ticket
 
-Proceed with `DEV-05 Part 1: approved local fixture creation plan`.
+After DEV-05 Parts 1 and 2, the next ticket is `DEV-05 Part 3: approve and run local AR fixture creation`.
 
-That ticket should stay planning-first and should not create fixture data unless it explicitly includes local disposable database approval, fixture creation approval, login/audit policy, cleanup/retention approval, and a no-production/no-beta boundary.
+That ticket must explicitly approve local disposable database use, fixture creation method/family/marker, login/audit behavior if needed, cleanup/retention, and the no-production/no-beta/no-customer-data boundary before any real fixture creation can happen.
 
 ## 12. Exact Next Prompt Title
 
-`DEV-05 Part 1: approved local fixture creation plan`
+`DEV-05 Part 3: approve and run local AR fixture creation`

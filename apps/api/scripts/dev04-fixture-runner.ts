@@ -1,6 +1,6 @@
 type FixtureFamily = "ar" | "ap" | "bank" | "inv" | "jrd";
 type FixtureFamilySelection = FixtureFamily | "all";
-type FixtureRunnerMode = "plan" | "dry-run" | "cleanup-plan";
+type FixtureRunnerMode = "plan" | "dry-run" | "cleanup-plan" | "execute";
 type TargetKind = "not-provided" | "local-plan-only";
 
 type TargetClassification = {
@@ -11,12 +11,30 @@ type TargetClassification = {
   port?: string;
 };
 
+type FixtureProposedRecord = {
+  group: string;
+  recordType: string;
+  marker: string;
+  writeBehavior: "planned-only";
+  notes: string[];
+};
+
 type FixtureFamilyPlan = {
   family: FixtureFamily;
   markerPrefix: string;
   purpose: string;
   plannedGroups: string[];
   cleanupInventory: string[];
+  proposedRecords?: FixtureProposedRecord[];
+};
+
+type ExecuteApprovalGates = {
+  allowLocalMutation: boolean;
+  localDisposableDbApproved: boolean;
+  fixtureCreationApproved: boolean;
+  cleanupRetentionApproved: boolean;
+  noProductionNoBetaApproved: boolean;
+  noCustomerDataApproved: boolean;
 };
 
 type FixtureRunnerPlan = {
@@ -29,10 +47,16 @@ type FixtureRunnerPlan = {
   families: FixtureFamilyPlan[];
   cleanupPlanOnly: boolean;
   jsonSummary: boolean;
+  executeRequested: boolean;
+  executeApprovedForSkeleton: boolean;
+  executeRefused: boolean;
+  executeRefusalReason?: string;
+  approvalGates: ExecuteApprovalGates;
   createdFixtureData: false;
   fixtureCreationEnabled: false;
   mutationEnabled: false;
   databaseWritesEnabled: false;
+  writesPerformed: false;
   loginEnabled: false;
   executeEnabled: false;
   nextManualApproval: string;
@@ -46,7 +70,8 @@ type ParsedArgs = {
   databaseUrl?: string;
   apiUrl?: string;
   jsonSummary: boolean;
-  allowLocalMutation: boolean;
+  executeRequested: boolean;
+  approvalGates: ExecuteApprovalGates;
 };
 
 type RunnerEnvironment = Partial<Pick<NodeJS.ProcessEnv, "DATABASE_URL" | "LEDGERBYTE_DEV04_DATABASE_URL" | "LEDGERBYTE_DEV04_API_URL">>;
@@ -126,6 +151,7 @@ const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "0.0.0.0", "host.d
 const FORBIDDEN_TARGET_PATTERNS = [
   /ledgerbyte-api-test/i,
   /ledgerbyte-web-test/i,
+  /user[-_]?testing/i,
   /vercel(?:\.app)?/i,
   /supabase(?:\.co|\.com)?/i,
   /pooler\.supabase/i,
@@ -137,6 +163,8 @@ const FORBIDDEN_TARGET_PATTERNS = [
   /fly\.dev/i,
   /digitalocean(?:\.com|spaces\.com)?/i,
   /neon\.tech/i,
+  /(^|[.\-_/])beta($|[.\-_/])/i,
+  /(^|[.\-_/])staging($|[.\-_/])/i,
   /(^|[.\-_/])prod(?:uction)?($|[.\-_/])/i,
   /(^|[.\-_/])live($|[.\-_/])/i,
 ];
@@ -199,6 +227,29 @@ const SKIPPED_DEFAULTS = [
 const NEXT_MANUAL_APPROVAL =
   "Explicit local disposable fixture creation approval is required before any execute/write behavior can be implemented.";
 
+const EXECUTE_SKELETON_REFUSAL =
+  "DEV-05 execute mode skeleton is present but fixture creation is still disabled until a later approved task.";
+
+const REQUIRED_EXECUTE_APPROVAL_GATES: Array<{ key: keyof ExecuteApprovalGates; label: string }> = [
+  { key: "allowLocalMutation", label: "--allow-local-mutation" },
+  { key: "localDisposableDbApproved", label: "--approve-local-disposable-db" },
+  { key: "fixtureCreationApproved", label: "--approve-fixture-creation" },
+  { key: "cleanupRetentionApproved", label: "--approve-cleanup-retention" },
+  { key: "noProductionNoBetaApproved", label: "--approve-no-production-no-beta" },
+  { key: "noCustomerDataApproved", label: "--approve-no-customer-data" },
+];
+
+function defaultExecuteApprovalGates(): ExecuteApprovalGates {
+  return {
+    allowLocalMutation: false,
+    localDisposableDbApproved: false,
+    fixtureCreationApproved: false,
+    cleanupRetentionApproved: false,
+    noProductionNoBetaApproved: false,
+    noCustomerDataApproved: false,
+  };
+}
+
 function parseFixtureArgs(argv: string[], env: RunnerEnvironment = {}): ParsedArgs {
   const options: ParsedArgs = {
     mode: "plan",
@@ -206,7 +257,8 @@ function parseFixtureArgs(argv: string[], env: RunnerEnvironment = {}): ParsedAr
     databaseUrl: env.LEDGERBYTE_DEV04_DATABASE_URL,
     apiUrl: env.LEDGERBYTE_DEV04_API_URL,
     jsonSummary: false,
-    allowLocalMutation: false,
+    executeRequested: false,
+    approvalGates: defaultExecuteApprovalGates(),
   };
   let requestedExecute = false;
   let requestedDryRun = false;
@@ -235,6 +287,7 @@ function parseFixtureArgs(argv: string[], env: RunnerEnvironment = {}): ParsedAr
         break;
       case "--execute":
         requestedExecute = true;
+        options.executeRequested = true;
         break;
       case "--family":
         options.family = readFlagValue(flag, value, argv, () => {
@@ -264,7 +317,22 @@ function parseFixtureArgs(argv: string[], env: RunnerEnvironment = {}): ParsedAr
         options.jsonSummary = true;
         break;
       case "--allow-local-mutation":
-        options.allowLocalMutation = true;
+        options.approvalGates.allowLocalMutation = true;
+        break;
+      case "--approve-local-disposable-db":
+        options.approvalGates.localDisposableDbApproved = true;
+        break;
+      case "--approve-fixture-creation":
+        options.approvalGates.fixtureCreationApproved = true;
+        break;
+      case "--approve-cleanup-retention":
+        options.approvalGates.cleanupRetentionApproved = true;
+        break;
+      case "--approve-no-production-no-beta":
+        options.approvalGates.noProductionNoBetaApproved = true;
+        break;
+      case "--approve-no-customer-data":
+        options.approvalGates.noCustomerDataApproved = true;
         break;
       case "--no-login":
         break;
@@ -279,11 +347,17 @@ function parseFixtureArgs(argv: string[], env: RunnerEnvironment = {}): ParsedAr
     }
   }
 
-  if (requestedExecute || options.allowLocalMutation) {
-    throw new Error("Execute mode is not implemented for the DEV-04 fixture runner. No fixture data was created.");
+  if (requestedExecute && (requestedDryRun || requestedCleanupPlan)) {
+    throw new Error("DEV-05 execute skeleton cannot be combined with dry-run or cleanup-plan mode.");
   }
 
-  if (requestedCleanupPlan) {
+  if (!requestedExecute && Object.values(options.approvalGates).some(Boolean)) {
+    throw new Error("DEV-05 execute approval flags are only valid with --execute. No fixture data was created.");
+  }
+
+  if (requestedExecute) {
+    options.mode = "execute";
+  } else if (requestedCleanupPlan) {
     options.mode = "cleanup-plan";
   } else if (requestedDryRun) {
     options.mode = "dry-run";
@@ -297,26 +371,128 @@ function buildFixturePlan(argv: string[], env: RunnerEnvironment = {}): FixtureR
   const family = validateFamily(options.family);
   const marker = validateMarker(options.marker, family);
   const selectedFamilies = family === "all" ? [...FAMILY_ORDER] : [family];
+  const databaseTarget = classifyDatabaseUrl(options.databaseUrl);
+  const apiTarget = classifyHttpUrl(options.apiUrl);
+
+  if (options.executeRequested) {
+    validateExecuteSkeleton(options, family, databaseTarget);
+  }
 
   return {
     mode: options.mode,
     family,
     marker,
     runId: deriveRunId(marker),
-    databaseTarget: classifyDatabaseUrl(options.databaseUrl),
-    apiTarget: classifyHttpUrl(options.apiUrl),
-    families: selectedFamilies.map((entry) => FAMILY_DEFINITIONS[entry]),
+    databaseTarget,
+    apiTarget,
+    families: selectedFamilies.map((entry) => buildFamilyPlan(entry, marker)),
     cleanupPlanOnly: options.mode === "cleanup-plan",
     jsonSummary: options.jsonSummary,
+    executeRequested: options.executeRequested,
+    executeApprovedForSkeleton: options.executeRequested,
+    executeRefused: options.executeRequested,
+    executeRefusalReason: options.executeRequested ? EXECUTE_SKELETON_REFUSAL : undefined,
+    approvalGates: { ...options.approvalGates },
     createdFixtureData: false,
     fixtureCreationEnabled: false,
     mutationEnabled: false,
     databaseWritesEnabled: false,
+    writesPerformed: false,
     loginEnabled: false,
     executeEnabled: false,
-    nextManualApproval: NEXT_MANUAL_APPROVAL,
+    nextManualApproval: options.executeRequested ? EXECUTE_SKELETON_REFUSAL : NEXT_MANUAL_APPROVAL,
     skipped: [...SKIPPED_DEFAULTS],
   };
+}
+
+function validateExecuteSkeleton(
+  options: ParsedArgs,
+  family: FixtureFamilySelection,
+  databaseTarget: TargetClassification,
+): void {
+  if (family === "all") {
+    throw new Error("DEV-05 execute skeleton requires one explicit fixture family; all-family execution remains plan-only.");
+  }
+
+  if (family !== "ar") {
+    throw new Error("DEV-05 execute skeleton is modeled for the first future fixture family only: Sales/AR.");
+  }
+
+  if (databaseTarget.kind !== "local-plan-only") {
+    throw new Error("DEV-05 execute skeleton requires an explicit local database target via --database-url or LEDGERBYTE_DEV04_DATABASE_URL.");
+  }
+
+  const missing = REQUIRED_EXECUTE_APPROVAL_GATES.filter((gate) => !options.approvalGates[gate.key]).map((gate) => gate.label);
+  if (missing.length > 0) {
+    throw new Error(`DEV-05 execute skeleton is refused; missing approval gates: ${missing.join(", ")}. No fixture data was created.`);
+  }
+}
+
+function buildFamilyPlan(family: FixtureFamily, marker: string): FixtureFamilyPlan {
+  const definition = FAMILY_DEFINITIONS[family];
+  if (family !== "ar") {
+    return definition;
+  }
+
+  const runId = deriveRunId(marker);
+  return {
+    ...definition,
+    proposedRecords: buildArProposedRecords(runId),
+  };
+}
+
+function buildArProposedRecords(runId: string): FixtureProposedRecord[] {
+  return [
+    {
+      group: "bootstrap",
+      recordType: "organization",
+      marker: `DEV03-AR-ORG-${runId}`,
+      writeBehavior: "planned-only",
+      notes: ["fake local-only organization", "base currency and legal fields remain fixture-marked"],
+    },
+    {
+      group: "bootstrap",
+      recordType: "user-role-membership",
+      marker: `DEV03-AR-USER-ROLE-${runId}`,
+      writeBehavior: "planned-only",
+      notes: ["fixture user, role, and membership only", "login remains disabled until separately approved"],
+    },
+    {
+      group: "business-base",
+      recordType: "customer",
+      marker: `DEV03-AR-CUSTOMER-${runId}`,
+      writeBehavior: "planned-only",
+      notes: ["fake customer data only", "no real tax identifiers, emails, addresses, or phone numbers"],
+    },
+    {
+      group: "business-base",
+      recordType: "service-item",
+      marker: `DEV03-AR-SERVICE-${runId}`,
+      writeBehavior: "planned-only",
+      notes: ["non-inventory service item for AR forms", "inventory-tracked item remains out of first AR scope"],
+    },
+    {
+      group: "dependencies",
+      recordType: "tax-account-dependencies",
+      marker: `DEV03-AR-TAX-ACCOUNT-${runId}`,
+      writeBehavior: "planned-only",
+      notes: ["accounts receivable, revenue, VAT, and tax-rate dependencies", "same fixture organization only"],
+    },
+    {
+      group: "dependencies",
+      recordType: "bank-cash-dependency",
+      marker: `DEV03-AR-CASH-${runId}`,
+      writeBehavior: "planned-only",
+      notes: ["cash or bank dependency for future payment/refund plans", "no payment or refund creation in this skeleton"],
+    },
+    {
+      group: "future-ar-drafts",
+      recordType: "draft-ar-scaffolds",
+      marker: `DEV03-AR-DRAFT-SCAFFOLDS-${runId}`,
+      writeBehavior: "planned-only",
+      notes: ["draft invoice, draft credit note, payment candidate, and refund candidate labels only", "no lifecycle transition or document output"],
+    },
+  ];
 }
 
 function validateFamily(family: string): FixtureFamilySelection {
@@ -423,10 +599,12 @@ function renderFixturePlan(plan: FixtureRunnerPlan): string {
     `Database target: ${renderTarget(plan.databaseTarget)}`,
     `API target: ${renderTarget(plan.apiTarget)}`,
     "Login: disabled",
-    "Execute: disabled",
+    `Execute requested: ${plan.executeRequested}`,
+    "Execute enabled: false",
     "Fixture creation: disabled",
     "Mutation: disabled",
     "Database writes: disabled",
+    "Writes performed: false",
     plan.cleanupPlanOnly ? "Cleanup: plan only; deletion is not implemented." : "Cleanup: not executing; cleanup inventory is plan-only.",
     `Next manual approval needed: ${plan.nextManualApproval}`,
     "",
@@ -439,7 +617,18 @@ function renderFixturePlan(plan: FixtureRunnerPlan): string {
     for (const group of family.plannedGroups) {
       lines.push(`  - ${group}`);
     }
+    if (family.proposedRecords && family.proposedRecords.length > 0) {
+      lines.push("  Future approved AR records:");
+      for (const record of family.proposedRecords) {
+        lines.push(`  - ${record.recordType}: ${record.marker} (${record.writeBehavior})`);
+      }
+    }
     lines.push(`  Cleanup inventory later: ${family.cleanupInventory.join(", ")}`);
+  }
+
+  if (plan.executeRequested && plan.executeRefusalReason) {
+    lines.push("");
+    lines.push(`Execute refusal: ${plan.executeRefusalReason}`);
   }
 
   lines.push("");
@@ -460,10 +649,16 @@ function buildJsonSummary(plan: FixtureRunnerPlan): Record<string, unknown> {
     family: plan.family,
     marker: plan.marker,
     runId: plan.runId,
+    executeRequested: plan.executeRequested,
+    executeApprovedForSkeleton: plan.executeApprovedForSkeleton,
+    executeRefused: plan.executeRefused,
+    executeRefusalReason: plan.executeRefusalReason,
+    approvalGates: plan.approvalGates,
     createdFixtureData: plan.createdFixtureData,
     fixtureCreationEnabled: plan.fixtureCreationEnabled,
     mutationEnabled: plan.mutationEnabled,
     databaseWritesEnabled: plan.databaseWritesEnabled,
+    writesPerformed: plan.writesPerformed,
     loginEnabled: plan.loginEnabled,
     executeEnabled: plan.executeEnabled,
     cleanupPlanOnly: plan.cleanupPlanOnly,
@@ -475,6 +670,13 @@ function buildJsonSummary(plan: FixtureRunnerPlan): Record<string, unknown> {
       markerPrefix: family.markerPrefix,
       plannedGroupCount: family.plannedGroups.length,
       cleanupInventoryCount: family.cleanupInventory.length,
+      proposedRecordCount: family.proposedRecords?.length ?? 0,
+      proposedRecords: family.proposedRecords?.map((record) => ({
+        group: record.group,
+        recordType: record.recordType,
+        marker: record.marker,
+        writeBehavior: record.writeBehavior,
+      })),
     })),
   };
 }
@@ -491,6 +693,10 @@ function runFixtureRunner(argv = process.argv.slice(2), env: RunnerEnvironment =
       logger.log(JSON.stringify(redactSecrets(buildJsonSummary(plan)), null, 2));
     } else {
       logger.log(renderFixturePlan(plan));
+    }
+    if (plan.executeRequested) {
+      logger.error(plan.executeRefusalReason ?? EXECUTE_SKELETON_REFUSAL);
+      return 1;
     }
     return 0;
   } catch (error) {
@@ -510,10 +716,11 @@ function renderTarget(target: TargetClassification): string {
 
 function buildHelpLines(): string[] {
   return [
-    "Usage: tsx scripts/dev04-fixture-runner.ts --plan|--dry-run|--cleanup-plan --family ar|ap|bank|inv|jrd|all --marker DEV03-...|DEV04-...",
+    "Usage: tsx scripts/dev04-fixture-runner.ts --plan|--dry-run|--cleanup-plan|--execute --family ar|ap|bank|inv|jrd|all --marker DEV03-...|DEV04-...",
     "",
-    "Supported flags: --plan, --dry-run, --cleanup-plan, --family, --marker, --database-url, --api-url, --json-summary, --no-login.",
-    "Refused flags: --execute, --allow-local-mutation, --allow-login.",
+    "Supported plan flags: --plan, --dry-run, --cleanup-plan, --family, --marker, --database-url, --api-url, --json-summary, --no-login.",
+    "Execute skeleton flags: --execute, --allow-local-mutation, --approve-local-disposable-db, --approve-fixture-creation, --approve-cleanup-retention, --approve-no-production-no-beta, --approve-no-customer-data.",
+    "Refused flags: --allow-login. Execute mode always exits nonzero until a later approved task enables fixture creation.",
     "Generic DATABASE_URL is intentionally ignored; pass --database-url or LEDGERBYTE_DEV04_DATABASE_URL to validate a local plan target.",
     "This runner never creates fixture data or performs database writes.",
   ];
@@ -628,4 +835,13 @@ export {
   validateMarker,
 };
 
-export type { FixtureFamily, FixtureFamilyPlan, FixtureFamilySelection, FixtureRunnerMode, FixtureRunnerPlan, TargetClassification };
+export type {
+  ExecuteApprovalGates,
+  FixtureFamily,
+  FixtureFamilyPlan,
+  FixtureFamilySelection,
+  FixtureProposedRecord,
+  FixtureRunnerMode,
+  FixtureRunnerPlan,
+  TargetClassification,
+};

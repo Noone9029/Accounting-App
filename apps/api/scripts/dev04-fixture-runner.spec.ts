@@ -5,6 +5,7 @@ import {
   classifyHttpUrl,
   redactSecrets,
   renderFixturePlan,
+  runFixtureRunner,
 } from "./dev04-fixture-runner";
 
 describe("DEV-04 fixture runner dry-run skeleton", () => {
@@ -142,11 +143,10 @@ describe("DEV-04 fixture runner dry-run skeleton", () => {
     ).toThrow(/hosted or forbidden/i);
   });
 
-  it("rejects execute mode even with local mutation approval", () => {
+  it("rejects execute without approval gates", () => {
     expect(() =>
       buildFixturePlan([
         "--execute",
-        "--allow-local-mutation",
         "--family",
         "ar",
         "--marker",
@@ -154,7 +154,142 @@ describe("DEV-04 fixture runner dry-run skeleton", () => {
         "--database-url",
         "postgresql://accounting:secret@localhost:5432/accounting",
       ]),
-    ).toThrow(/execute mode is not implemented/i);
+    ).toThrow(/missing approval gates/i);
+  });
+
+  it("rejects execute with partial approval gates", () => {
+    expect(() =>
+      buildFixturePlan([
+        "--execute",
+        "--allow-local-mutation",
+        "--approve-local-disposable-db",
+        "--family",
+        "ar",
+        "--marker",
+        "DEV03-AR-20260524T120000",
+        "--database-url",
+        "postgresql://accounting:secret@localhost:5432/accounting",
+      ]),
+    ).toThrow(/missing approval gates/i);
+  });
+
+  it("still refuses execute after all skeleton approval gates are present", () => {
+    const output: string[] = [];
+    const errors: string[] = [];
+
+    const exitCode = runFixtureRunner(
+      [
+        "--execute",
+        "--allow-local-mutation",
+        "--approve-local-disposable-db",
+        "--approve-fixture-creation",
+        "--approve-cleanup-retention",
+        "--approve-no-production-no-beta",
+        "--approve-no-customer-data",
+        "--family",
+        "ar",
+        "--marker",
+        "DEV03-AR-20260524T120000",
+        "--database-url",
+        "postgresql://accounting:secret@localhost:5432/accounting",
+      ],
+      {},
+      {
+        log: (message) => output.push(message),
+        error: (message) => errors.push(message),
+      },
+    );
+
+    expect(exitCode).toBe(1);
+    expect(output.join("\n")).toContain("Execute requested: true");
+    expect(output.join("\n")).toContain("Execute enabled: false");
+    expect(output.join("\n")).toContain("NO DATA CREATED");
+    expect(output.join("\n")).toContain("NO DATABASE WRITES");
+    expect(errors.join("\n")).toContain("execute mode skeleton is present");
+  });
+
+  it("requires an explicit local database target for the execute skeleton", () => {
+    expect(() =>
+      buildFixturePlan([
+        "--execute",
+        "--allow-local-mutation",
+        "--approve-local-disposable-db",
+        "--approve-fixture-creation",
+        "--approve-cleanup-retention",
+        "--approve-no-production-no-beta",
+        "--approve-no-customer-data",
+        "--family",
+        "ar",
+        "--marker",
+        "DEV03-AR-20260524T120000",
+      ]),
+    ).toThrow(/explicit local database target/i);
+  });
+
+  it("rejects hosted targets before execute approval checks", () => {
+    expect(() =>
+      buildFixturePlan([
+        "--execute",
+        "--family",
+        "ar",
+        "--marker",
+        "DEV03-AR-20260524T120000",
+        "--database-url",
+        "postgresql://user:secret@db.example.supabase.co:5432/postgres",
+      ]),
+    ).toThrow(/hosted or forbidden/i);
+  });
+
+  it("lists planned AR bootstrap and base records without writing", () => {
+    const plan = buildFixturePlan(["--dry-run", "--family", "ar", "--marker", "DEV03-AR-20260524T120000"]);
+    const arFamily = plan.families[0];
+    const rendered = renderFixturePlan(plan);
+
+    expect(arFamily?.proposedRecords?.map((record) => record.recordType)).toEqual(
+      expect.arrayContaining(["organization", "user-role-membership", "customer", "service-item", "tax-account-dependencies", "bank-cash-dependency"]),
+    );
+    expect(rendered).toContain("Future approved AR records");
+    expect(rendered).toContain("DEV03-AR-ORG-20260524T120000");
+    expect(rendered).toContain("NO DATABASE WRITES");
+  });
+
+  it("marks execute JSON summaries as requested but non-mutating", () => {
+    const plan = buildFixturePlan([
+      "--execute",
+      "--allow-local-mutation",
+      "--approve-local-disposable-db",
+      "--approve-fixture-creation",
+      "--approve-cleanup-retention",
+      "--approve-no-production-no-beta",
+      "--approve-no-customer-data",
+      "--family",
+      "ar",
+      "--marker",
+      "DEV03-AR-20260524T120000",
+      "--database-url",
+      "postgresql://accounting:secret@localhost:5432/accounting",
+      "--json-summary",
+    ]);
+    const summary = buildJsonSummary(plan);
+
+    expect(summary).toMatchObject({
+      mode: "execute",
+      family: "ar",
+      executeRequested: true,
+      executeEnabled: false,
+      executeRefused: true,
+      writesPerformed: false,
+      createdFixtureData: false,
+      databaseWritesEnabled: false,
+      loginEnabled: false,
+    });
+  });
+
+  it("does not expose a casual root execute package script", () => {
+    const rootPackageJson = require("../../../package.json") as { scripts: Record<string, string> };
+
+    expect(rootPackageJson.scripts["fixture:dev04:execute"]).toBeUndefined();
+    expect(Object.keys(rootPackageJson.scripts).filter((script) => /^fixture:dev04:.*execute/.test(script))).toEqual([]);
   });
 
   it("renders cleanup-plan as inventory-only without implying deletion", () => {
