@@ -1,14 +1,14 @@
 # DEV-01 Route QA Log
 
-Status: Part 2 auth/dashboard/setup/navigation QA completed
+Status: Part 3 sales/AR route QA completed
 Date: 2026-05-23
-Source state inspected: `a64b0cb Start DEV-01 route QA inventory`
+Source state inspected: `690c4bc QA DEV-01 auth dashboard navigation routes`
 
 ## Scope And Rules
 
 - DEV-01 is product-development QA only: inventory routes, batch runtime QA, record blockers, then fix only confirmed small frontend/runtime defects inside the active batch.
 - Part 1 did not run app tests, browser E2E, smoke tests, migrations, seed/reset/delete commands, deploys, env changes, ZATCA execution, email sending, or production-hosting research.
-- Part 2 used a local web dev server only on `http://127.0.0.1:3031`; no API/database/migration/seed/deploy/env/provider setting was started or changed.
+- Part 2 used a local web dev server only on `http://127.0.0.1:3031`; Part 3 started only the local web app on `http://127.0.0.1:3032` and stopped it after browser access was blocked by the browser URL policy. No API/database/migration/seed/deploy/env/provider setting was started or changed.
 - Route inventory is based on committed files from `git ls-files`, not local dirty/untracked marketing worktree files.
 - Unrelated local web/marketing changes intentionally excluded from this inventory: `apps/web/src/app/page.tsx` working-tree edits and untracked `apps/web/src/app/ar/`, `pricing/`, `product/`, `readiness/`, `resources/`, `workflows/`, `apps/web/src/app/marketing.test.tsx`, and `apps/web/src/components/marketing/`.
 - AWS remains future production direction only. Vercel remains beta/user-testing/staging only.
@@ -26,7 +26,7 @@ Source state inspected: `a64b0cb Start DEV-01 route QA inventory`
 
 ## Route Inventory
 
-Routes not included in Part 2 remain `Not tested`.
+Routes not included in completed DEV-01 batches remain `Not tested`.
 
 ### Auth/Public
 
@@ -51,22 +51,22 @@ Routes not included in Part 2 remain `Not tested`.
 
 | Route path | Source file | Expected purpose | Likely data/API dependency | Auth/role assumption visible from code | QA priority | QA status |
 | --- | --- | --- | --- | --- | --- | --- |
-| `/contacts` | `apps/web/src/app/(app)/contacts/page.tsx` | Customer/supplier contact list and create | Contacts API | Authenticated; `contacts.view` | High | Not tested |
-| `/contacts/[id]` | `apps/web/src/app/(app)/contacts/[id]/page.tsx` | Contact detail, ledgers, customer/supplier statements | Contacts, ledgers/statements, PDFs, attachments | Authenticated; `contacts.view` | High | Not tested |
-| `/sales/invoices` | `apps/web/src/app/(app)/sales/invoices/page.tsx` | Sales invoice list | Sales invoices API | Authenticated; `salesInvoices.view` | High | Not tested |
-| `/sales/invoices/new` | `apps/web/src/app/(app)/sales/invoices/new/page.tsx` | Create draft sales invoice | Sales invoices, contacts, items, taxes | Authenticated; `salesInvoices.create` | Critical | Not tested |
-| `/sales/invoices/[id]` | `apps/web/src/app/(app)/sales/invoices/[id]/page.tsx` | Invoice detail, finalize/void/PDF/attachments | Sales invoices, PDF/archive, attachments, ZATCA metadata | Authenticated; `salesInvoices.view` | Critical | Not tested |
-| `/sales/invoices/[id]/edit` | `apps/web/src/app/(app)/sales/invoices/[id]/edit/page.tsx` | Edit draft sales invoice | Sales invoices, contacts, items, taxes | Authenticated; `salesInvoices.update` | Critical | Not tested |
-| `/sales/customer-payments` | `apps/web/src/app/(app)/sales/customer-payments/page.tsx` | Customer payment list | Customer payments API | Authenticated; `customerPayments.view` | High | Not tested |
-| `/sales/customer-payments/new` | `apps/web/src/app/(app)/sales/customer-payments/new/page.tsx` | Record customer payment | Customer payments, invoices, bank accounts | Authenticated; `customerPayments.create` | Critical | Not tested |
-| `/sales/customer-payments/[id]` | `apps/web/src/app/(app)/sales/customer-payments/[id]/page.tsx` | Payment detail, receipt/PDF/void | Customer payments, allocations, generated documents | Authenticated; `customerPayments.view` | Critical | Not tested |
-| `/sales/customer-refunds` | `apps/web/src/app/(app)/sales/customer-refunds/page.tsx` | Customer refund list | Customer refunds API | Authenticated; `customerRefunds.view` | High | Not tested |
-| `/sales/customer-refunds/new` | `apps/web/src/app/(app)/sales/customer-refunds/new/page.tsx` | Create customer refund | Customer refunds, unapplied payments/credits, bank accounts | Authenticated; `customerRefunds.create` | Critical | Not tested |
-| `/sales/customer-refunds/[id]` | `apps/web/src/app/(app)/sales/customer-refunds/[id]/page.tsx` | Customer refund detail/PDF/void | Customer refunds and generated documents | Authenticated; `customerRefunds.view` | Critical | Not tested |
-| `/sales/credit-notes` | `apps/web/src/app/(app)/sales/credit-notes/page.tsx` | Credit note list | Credit notes API | Authenticated; `creditNotes.view` | High | Not tested |
-| `/sales/credit-notes/new` | `apps/web/src/app/(app)/sales/credit-notes/new/page.tsx` | Create credit note | Credit notes, contacts, invoices, items, taxes | Authenticated; `creditNotes.create` | Critical | Not tested |
-| `/sales/credit-notes/[id]` | `apps/web/src/app/(app)/sales/credit-notes/[id]/page.tsx` | Credit note detail, allocation/PDF/void | Credit notes, allocations, PDF/archive | Authenticated; `creditNotes.view` | Critical | Not tested |
-| `/sales/credit-notes/[id]/edit` | `apps/web/src/app/(app)/sales/credit-notes/[id]/edit/page.tsx` | Edit draft credit note | Credit notes, contacts, invoices, items, taxes | Authenticated; `creditNotes.create` | Critical | Not tested |
+| `/contacts` | `apps/web/src/app/(app)/contacts/page.tsx` | Customer/supplier contact list and create | Contacts API | Authenticated; `contacts.view` | High | Blocked |
+| `/contacts/[id]` | `apps/web/src/app/(app)/contacts/[id]/page.tsx` | Contact detail, ledgers, customer/supplier statements | Contacts, ledgers/statements, PDFs, attachments | Authenticated; `contacts.view` | High | Blocked |
+| `/sales/invoices` | `apps/web/src/app/(app)/sales/invoices/page.tsx` | Sales invoice list | Sales invoices API | Authenticated; `salesInvoices.view` | High | Blocked |
+| `/sales/invoices/new` | `apps/web/src/app/(app)/sales/invoices/new/page.tsx` | Create draft sales invoice | Sales invoices, contacts, items, taxes | Authenticated; `salesInvoices.create` | Critical | Blocked |
+| `/sales/invoices/[id]` | `apps/web/src/app/(app)/sales/invoices/[id]/page.tsx` | Invoice detail, finalize/void/PDF/attachments | Sales invoices, PDF/archive, attachments, ZATCA metadata | Authenticated; `salesInvoices.view` | Critical | Blocked |
+| `/sales/invoices/[id]/edit` | `apps/web/src/app/(app)/sales/invoices/[id]/edit/page.tsx` | Edit draft sales invoice | Sales invoices, contacts, items, taxes | Authenticated; `salesInvoices.update` | Critical | Blocked |
+| `/sales/customer-payments` | `apps/web/src/app/(app)/sales/customer-payments/page.tsx` | Customer payment list | Customer payments API | Authenticated; `customerPayments.view` | High | Blocked |
+| `/sales/customer-payments/new` | `apps/web/src/app/(app)/sales/customer-payments/new/page.tsx` | Record customer payment | Customer payments, invoices, bank accounts | Authenticated; `customerPayments.create` | Critical | Blocked |
+| `/sales/customer-payments/[id]` | `apps/web/src/app/(app)/sales/customer-payments/[id]/page.tsx` | Payment detail, receipt/PDF/void | Customer payments, allocations, generated documents | Authenticated; `customerPayments.view` | Critical | Blocked |
+| `/sales/customer-refunds` | `apps/web/src/app/(app)/sales/customer-refunds/page.tsx` | Customer refund list | Customer refunds API | Authenticated; `customerRefunds.view` | High | Blocked |
+| `/sales/customer-refunds/new` | `apps/web/src/app/(app)/sales/customer-refunds/new/page.tsx` | Create customer refund | Customer refunds, unapplied payments/credits, bank accounts | Authenticated; `customerRefunds.create` | Critical | Blocked |
+| `/sales/customer-refunds/[id]` | `apps/web/src/app/(app)/sales/customer-refunds/[id]/page.tsx` | Customer refund detail/PDF/void | Customer refunds and generated documents | Authenticated; `customerRefunds.view` | Critical | Blocked |
+| `/sales/credit-notes` | `apps/web/src/app/(app)/sales/credit-notes/page.tsx` | Credit note list | Credit notes API | Authenticated; `creditNotes.view` | High | Blocked |
+| `/sales/credit-notes/new` | `apps/web/src/app/(app)/sales/credit-notes/new/page.tsx` | Create credit note | Credit notes, contacts, invoices, items, taxes | Authenticated; `creditNotes.create` | Critical | Blocked |
+| `/sales/credit-notes/[id]` | `apps/web/src/app/(app)/sales/credit-notes/[id]/page.tsx` | Credit note detail, allocation/PDF/void | Credit notes, allocations, PDF/archive | Authenticated; `creditNotes.view` | Critical | Blocked |
+| `/sales/credit-notes/[id]/edit` | `apps/web/src/app/(app)/sales/credit-notes/[id]/edit/page.tsx` | Edit draft credit note | Credit notes, contacts, invoices, items, taxes | Authenticated; `creditNotes.create` | Critical | Blocked |
 
 ### Purchases/AP
 
@@ -239,12 +239,66 @@ Recommended next thread: `DEV-01 Part 3: sales and AR route QA`.
 
 Focus on `/contacts`, `/contacts/[id]`, and the `/sales/*` invoice, payment, refund, and credit-note list/new/detail/edit routes. Start by confirming a safe authenticated local API state; if it is unavailable, record the blocker and do code-level QA without migrations, seeds, resets, deploys, or env changes.
 
+## DEV-01 Part 3 Summary
+
+- Latest pushed state inspected before Part 3: `690c4bc QA DEV-01 auth dashboard navigation routes`.
+- `apps/web/next-env.d.ts` was not present in the Part 2 commit diff. The prior transient Next metadata change was harmless generated local metadata and was not accidentally committed.
+- Local worktree warning: unrelated edits remained in `apps/web/src/app/page.tsx` and untracked marketing/web files; they were not edited, staged, or used as evidence for Sales/AR QA.
+- Runtime attempt: started only `@ledgerbyte/web` with Next dev on `http://127.0.0.1:3032`, then stopped it. The in-app browser refused local route visits under its URL policy, so browser route assertions were blocked by tooling instead of worked around.
+- API blocker: `http://localhost:4000/health` was not reachable within the configured local timeout, so authenticated list, create, edit, detail, PDF/archive, attachment, action, and invalid-id behavior could not be runtime-tested safely.
+- Code-level QA covered route sources, API dependencies, permission mappings, sidebar visibility, query-parameter handoffs, loading/error/empty states, unsafe wording, and action guards for the 16 Sales/AR routes.
+- Small frontend fix applied: `/sales/invoices/new` now honors `?customerId=...`, matching contact-ledger links that already passed a customer id and matching existing customer-payment/refund/credit-note query-prefill behavior.
+- No accounting logic, API behavior, schema, migrations, seed/reset/delete, deploys, environment variables, ZATCA behavior, email behavior, customer data, production docs, Vercel/Supabase settings, or hosting research changed.
+
+### Part 3 Route Results
+
+| Route path | QA status | QA method | Actual result | Defects found | Severity | Fix applied | Remaining follow-up |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `/contacts` | Blocked | Code review; browser runtime attempted | Route source loads `/contacts`, shows loading/error/empty states, gates create UI behind `contacts.manage`, and links rows to detail pages. Browser route visit was blocked by tooling and API health was unavailable. | No code-level defect found in committed route source. | Blocker | None | Re-test list rendering, create validation, search/filter expectations, and restricted-role behavior with safe API data. |
+| `/contacts/[id]` | Blocked | Code review; browser runtime attempted | Route source loads contact profile plus customer/supplier ledgers/statements, PDF downloads, document guidance, and AR/AP drill-down links. Browser route visit was blocked by tooling and API health was unavailable. | Customer-ledger `Create invoice` links passed `?customerId=...`, but the invoice form ignored that query parameter. | Blocker; Medium route-link defect | Fixed invoice form customer prefill from query string. | Re-test detail invalid-id/not-found behavior, ledger rows, statement load/PDF archive, attachment guidance, and permission-restricted edit controls with safe API data. |
+| `/sales/invoices` | Blocked | Code review; browser runtime attempted | Route source loads `/sales-invoices`, exposes list filters and create/detail actions, and gates create/finalize actions by invoice permissions. Browser route visit was blocked by tooling and API health was unavailable. | No code-level defect found in committed route source. | Blocker | None | Re-test list loading/empty/error, filters, create/detail links, and list finalize visibility with safe API data. |
+| `/sales/invoices/new` | Blocked | Code review; targeted test; browser runtime attempted | Route source renders `SalesInvoiceForm`, which loads customers, items, revenue accounts, tax rates, and branches, validates draft lines, and posts `/sales-invoices`. Browser route visit was blocked by tooling and API health was unavailable. | New-invoice form ignored `?customerId=...` from contact-ledger links. | Blocker; Medium route-link defect | Fixed query prefill and added targeted Jest coverage. | Re-test full form dropdown loading, validation, cancel link, save success/error, and customer prefill in browser with safe API data. |
+| `/sales/invoices/[id]` | Blocked | Code review; browser runtime attempted | Route source loads invoice detail, stock issue status, ZATCA readiness metadata, PDF/XML downloads, attachments, allocations, credit notes, and permission-gated finalize/void/delete/payment/credit-note actions. Browser route visit was blocked by tooling and API health was unavailable. | No code-level defect found in committed route source; high surface area remains untested. | Blocker | None | Re-test invalid/missing id, action visibility, PDF/archive, attachments, local-only ZATCA wording, and finalized/draft/voided states with safe API data. |
+| `/sales/invoices/[id]/edit` | Blocked | Code review; browser runtime attempted | Route source fetches `/sales-invoices/:id`, shows loading/error states, and renders `SalesInvoiceForm` for draft edit. Browser route visit was blocked by tooling and API health was unavailable. | No code-level defect found in committed route source. | Blocker | None | Re-test draft-only edit behavior, non-draft error state, cancel/back link, validation, and save error/success with safe API data. |
+| `/sales/customer-payments` | Blocked | Code review; browser runtime attempted | Route source loads `/customer-payments`, shows loading/error/empty states, gates create/void actions by payment permissions, and links to details. Browser route visit was blocked by tooling and API health was unavailable. | No code-level defect found in committed route source. | Blocker | None | Re-test list filters/search expectations, empty/error states, detail links, and void visibility with safe API data. |
+| `/sales/customer-payments/new` | Blocked | Code review; browser runtime attempted | Route source honors `customerId` and `invoiceId` query params, loads contacts/accounts/bank profiles/open invoices, validates allocations, and posts `/customer-payments`. Browser route visit was blocked by tooling and API health was unavailable. | No code-level defect found in committed route source. | Blocker | None | Re-test setup loading, query prefill, open-invoice empty state, allocation validation, cancel link, and submit error/success with safe API data. |
+| `/sales/customer-payments/[id]` | Blocked | Code review; browser runtime attempted | Route source loads payment detail and receipt data, supports unapplied allocation actions, receipt PDF, refund link, archive guidance, and permission-gated void. Browser route visit was blocked by tooling and API health was unavailable. | No code-level defect found in committed route source. | Blocker | None | Re-test invalid/missing id, receipt preview/PDF archive, allocation/reversal visibility, refund link, attachments, and void state with safe API data. |
+| `/sales/customer-refunds` | Blocked | Code review; browser runtime attempted | Route source loads `/customer-refunds`, shows loading/error/empty states, gates create/void actions, and links to refund detail. Browser route visit was blocked by tooling and API health was unavailable. | No code-level defect found in committed route source. | Blocker | None | Re-test list filters/search expectations, empty/error states, detail links, and void visibility with safe API data. |
+| `/sales/customer-refunds/new` | Blocked | Code review; browser runtime attempted | Route source honors customer/source query params, loads contacts/accounts/bank profiles/refundable sources, validates refund amount, and explicitly says no payment gateway, bank feed, or ZATCA service is called. Browser route visit was blocked by tooling and API health was unavailable. | No code-level defect found in committed route source. | Blocker | None | Re-test query prefill, source switching, no-source empty state, validation, cancel link, and submit error/success with safe API data. |
+| `/sales/customer-refunds/[id]` | Blocked | Code review; browser runtime attempted | Route source loads refund detail and PDF data, links back to customer/source records, supports PDF download, attachments, and permission-gated void. Browser route visit was blocked by tooling and API health was unavailable. | No code-level defect found in committed route source. | Blocker | None | Re-test invalid/missing id, PDF data preview/download/archive, source link behavior, attachments, and void state with safe API data. |
+| `/sales/credit-notes` | Blocked | Code review; browser runtime attempted | Route source loads `/credit-notes`, exposes customer/status filters, loading/error/empty states, create/detail links, and permission-gated finalize. Browser route visit was blocked by tooling and API health was unavailable. | No code-level defect found in committed route source. | Blocker | None | Re-test filters, empty/error states, create/detail links, finalize visibility, and restricted-role behavior with safe API data. |
+| `/sales/credit-notes/new` | Blocked | Code review; browser runtime attempted | Route source renders `CreditNoteForm`, which honors `customerId` and `invoiceId` query params and loads contacts/invoices/items/accounts/taxes/branches. Browser route visit was blocked by tooling and API health was unavailable. | No code-level defect found in committed route source. | Blocker | None | Re-test query prefill, original-invoice filtering, validation, cancel link, and submit error/success with safe API data. |
+| `/sales/credit-notes/[id]` | Blocked | Code review; browser runtime attempted | Route source loads credit note detail, open invoices, allocations, PDF download, refund link, local ZATCA-not-implemented wording, and permission-gated finalize/void/apply actions. Browser route visit was blocked by tooling and API health was unavailable. | No code-level defect found in committed route source; detail page has high action-surface risk. | Blocker | None | Re-test invalid/missing id, PDF/archive, allocation actions, refund link, safe ZATCA wording, and draft/finalized/voided states with safe API data. |
+| `/sales/credit-notes/[id]/edit` | Blocked | Code review; browser runtime attempted | Route source fetches `/credit-notes/:id`, shows loading/error states, and renders `CreditNoteForm` for draft edit. Browser route visit was blocked by tooling and API health was unavailable. | Risk note: route permission mapping uses `creditNotes.create` for edit because no separate `creditNotes.update` permission exists. This may be intentional, but should be confirmed before role QA is considered passed. | Blocker; Medium permission-model risk | None | Re-test draft-only edit behavior, non-draft error state, permission intent, cancel/back link, validation, and save error/success with safe API data. |
+
+### Part 3 Blocker List
+
+- Browser route visits were blocked by the in-app browser URL policy for `http://127.0.0.1:3032`; no alternate browser surface was used.
+- Local API health was not reachable at `http://localhost:4000/health`; no API startup, database startup, migration, seed, reset, or data mutation was attempted.
+- Authenticated Sales/AR list, create, edit, detail, PDF/archive, attachment, action, invalid-id, and restricted-role flows remain blocked until a safe local API/database state and non-production credentials are already available.
+- Credit-note edit authorization needs product/security confirmation because the visible route gate uses `creditNotes.create` rather than a dedicated update permission.
+
+### Routes Fixed In This Thread
+
+- `/sales/invoices/new`: fixed customer prefill from `?customerId=...`, which unblocks the existing contact-ledger `Create invoice` handoff once authenticated runtime data is available.
+
+### Routes Deferred And Why
+
+- All 16 Sales/AR routes remain deferred for authenticated browser/runtime QA because browser visits were blocked by tooling and the local API was unavailable.
+- State-changing Sales/AR actions such as finalize, void, delete, apply allocation, reverse allocation, refund, PDF/archive download, attachment upload, and ZATCA local checks were not executed because safe API data and credentials were unavailable and the thread forbade risky data/accounting/ZATCA changes.
+
+### Recommended Next QA Batch After Part 3
+
+Recommended next thread: `DEV-01 Part 4: purchases and AP route QA`.
+
+Focus on purchase orders, bills, supplier payments, supplier refunds, cash expenses, and debit notes. Start by re-checking safe local API availability; if unavailable, keep the same blocker discipline and code-review the AP routes without migrations, seeds, resets, deploys, env changes, or accounting/ZATCA/email behavior changes.
+
 ## Placeholder, Duplicate, Risky, Hidden Route Notes
 
 - Placeholder-only: the committed catch-all route renders "Module not implemented yet" for any unmatched app-shell path. Part 2 added a baseline `dashboard.view` route permission and unauthenticated app-shell guard; restricted-role and authenticated placeholder behavior still need QA.
 - Scaffold-only/future modules: quotes/proformas, recurring invoices, cash invoices, delivery notes, API invoices, beneficiaries, payroll, fixed assets, cost centers, projects, developer/API keys, integrations, and document templates are titleMap entries only unless a real page exists.
 - Duplicate/overlap risk: `/bank-accounts/[id]/reconciliation` and `/bank-accounts/[id]/reconciliations`/`new` overlap conceptually and should be tested for navigation clarity and stale links.
-- Risky auth mapping: Part 2 fixed the unauthenticated visibility gap for `/setup`, `/organization/setup`, and placeholder catch-all routes. Authenticated and restricted-role behavior remains blocked until a safe local API/database state is available.
+- Risky auth mapping: Part 2 fixed the unauthenticated visibility gap for `/setup`, `/organization/setup`, and placeholder catch-all routes. Part 3 identified that `/sales/credit-notes/[id]/edit` is gated by `creditNotes.create` because no dedicated `creditNotes.update` permission exists. Authenticated and restricted-role behavior remains blocked until a safe local API/database state is available.
 - Hidden expected routes: detail/new/edit routes are generally not sidebar children and are reached through lists/actions. That is expected, but QA should confirm every hidden route has a discoverable path from an authorized workflow.
 - Committed route vs placeholder conflict: some placeholder `titleMap` keys duplicate real routes (`/reports`, `/sales/invoices`, `/bank-accounts`, `/branches`); real files should win for exact committed pages.
 
@@ -266,25 +320,17 @@ Each batch stays at or below 20 routes.
 
 ## Recommended Next Actual QA Batch
 
-Recommended next thread: `DEV-01 Part 3: sales and AR route QA`.
+Recommended next thread: `DEV-01 Part 4: purchases and AP route QA`.
 
-Run Sales/AR next because the first app-shell guard issues are now fixed for unauthenticated access, and sales routes are the next highest-impact user workflow surface.
+Run Purchases/AP next because Sales/AR is now inventoried, code-reviewed, and documented with the current runtime blockers. Keep the batch split small enough to avoid mixing purchase-order/bill defects with supplier payment/refund/debit-note defects if runtime access becomes available.
 
-Routes to include:
+Routes to include in the first AP pass:
 
-- `/contacts`
-- `/contacts/[id]`
-- `/sales/invoices`
-- `/sales/invoices/new`
-- `/sales/invoices/[id]`
-- `/sales/invoices/[id]/edit`
-- `/sales/customer-payments`
-- `/sales/customer-payments/new`
-- `/sales/customer-payments/[id]`
-- `/sales/customer-refunds`
-- `/sales/customer-refunds/new`
-- `/sales/customer-refunds/[id]`
-- `/sales/credit-notes`
-- `/sales/credit-notes/new`
-- `/sales/credit-notes/[id]`
-- `/sales/credit-notes/[id]/edit`
+- `/purchases/purchase-orders`
+- `/purchases/purchase-orders/new`
+- `/purchases/purchase-orders/[id]`
+- `/purchases/purchase-orders/[id]/edit`
+- `/purchases/bills`
+- `/purchases/bills/new`
+- `/purchases/bills/[id]`
+- `/purchases/bills/[id]/edit`

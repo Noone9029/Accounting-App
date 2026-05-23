@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `a64b0cb Start DEV-01 route QA inventory`
+- `690c4bc QA DEV-01 auth dashboard navigation routes`
 
 ## Current Development Objective
 
@@ -14,10 +14,14 @@
 - `DEV-01 Full route QA and blocker triage` has started.
 - DEV-01 Part 1 route inventory is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
 - DEV-01 Part 2 auth, dashboard, setup, and navigation QA is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
+- DEV-01 Part 3 sales and AR route QA is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
 - Routes browser-QA'd or code-reviewed in Part 2: `/`, `/login`, `/register`, `/password-reset`, `/password-reset/confirm`, `/invite/accept`, `/dashboard`, `/setup`, `/organization/setup`, `/sales/quotes`, and `/fixed-assets`.
 - Routes fixed in Part 2: `/setup`, `/organization/setup`, and unmatched app-shell placeholder routes such as `/sales/quotes` and `/fixed-assets`.
 - Main blocker from Part 2: local API health was not reachable at `http://localhost:4000/health`, so authenticated dashboard/setup/organization and auth-submit success flows remain deferred.
-- Exact next prompt title: `DEV-01 Part 3: sales and AR route QA`.
+- Routes code-reviewed in Part 3: `/contacts`, `/contacts/[id]`, `/sales/invoices`, `/sales/invoices/new`, `/sales/invoices/[id]`, `/sales/invoices/[id]/edit`, `/sales/customer-payments`, `/sales/customer-payments/new`, `/sales/customer-payments/[id]`, `/sales/customer-refunds`, `/sales/customer-refunds/new`, `/sales/customer-refunds/[id]`, `/sales/credit-notes`, `/sales/credit-notes/new`, `/sales/credit-notes/[id]`, and `/sales/credit-notes/[id]/edit`.
+- Routes fixed in Part 3: `/sales/invoices/new` now honors `?customerId=...` from contact-ledger invoice links.
+- Main blockers from Part 3: in-app browser route visits were blocked by the browser URL policy, and local API health was not reachable at `http://localhost:4000/health`; authenticated Sales/AR runtime QA remains deferred.
+- Exact next prompt title: `DEV-01 Part 4: purchases and AP route QA`.
 
 ## Current PROD-A1 Objective
 
@@ -409,4 +413,4 @@
 
 ## Next Thread Prompt
 
-`DEV-01 Part 3: sales and AR route QA`
+`DEV-01 Part 4: purchases and AP route QA`

@@ -22,6 +22,7 @@ interface InvoiceLineState {
 
 interface SalesInvoiceFormProps {
   initialInvoice?: SalesInvoice;
+  initialCustomerId?: string;
 }
 
 function makeLine(): InvoiceLineState {
@@ -53,7 +54,7 @@ function optionalDateInputValue(value?: string | null): string {
   return value ? new Date(value).toISOString().slice(0, 10) : "";
 }
 
-export function SalesInvoiceForm({ initialInvoice }: SalesInvoiceFormProps) {
+export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: SalesInvoiceFormProps) {
   const router = useRouter();
   const organizationId = useActiveOrganizationId();
   const [customers, setCustomers] = useState<Contact[]>([]);
@@ -61,7 +62,7 @@ export function SalesInvoiceForm({ initialInvoice }: SalesInvoiceFormProps) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [customerId, setCustomerId] = useState(initialInvoice?.customerId ?? "");
+  const [customerId, setCustomerId] = useState(initialInvoice?.customerId ?? initialCustomerId);
   const [branchId, setBranchId] = useState(initialInvoice?.branchId ?? "");
   const [issueDate, setIssueDate] = useState(dateInputValue(initialInvoice?.issueDate));
   const [dueDate, setDueDate] = useState(optionalDateInputValue(initialInvoice?.dueDate));
@@ -98,6 +99,18 @@ export function SalesInvoiceForm({ initialInvoice }: SalesInvoiceFormProps) {
       ),
     [activeSalesTaxRates, lines],
   );
+
+  useEffect(() => {
+    if (initialInvoice || initialCustomerId || typeof window === "undefined") {
+      return;
+    }
+
+    const query = new URLSearchParams(window.location.search);
+    const queryCustomerId = query.get("customerId") ?? "";
+    if (queryCustomerId) {
+      setCustomerId(queryCustomerId);
+    }
+  }, [initialInvoice, initialCustomerId]);
 
   useEffect(() => {
     if (!organizationId) {
