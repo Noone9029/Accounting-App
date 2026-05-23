@@ -245,8 +245,11 @@ The required DEV-03 Part 1 workflows are included above:
 
 ### Part 4: AP State-Machine QA
 
-- Purchase orders, purchase bills, supplier payments, supplier refunds, purchase debit notes, and cash expenses.
-- Prioritize approval/close/void/convert-to-bill, bill finalization/voiding, AP allocation/reversal, refund blockers, and inventory-clearing interactions.
+- Completed as a dry-run plan in [DEV_03_AP_STATE_MACHINE_DRY_RUN_PLAN.md](DEV_03_AP_STATE_MACHINE_DRY_RUN_PLAN.md).
+- Purchase orders, purchase bills, supplier payments, supplier refunds, purchase debit notes, cash expenses, and AP-visible purchase receipt/bill matching boundaries were mapped to routes, API endpoints, status fields, permissions, audit side effects, ledger effects, inventory effects, output gates, fixture markers, and planned-only test cases.
+- Highest-risk AP transitions are purchase order approve/mark-sent/close/void/convert-to-bill, purchase bill finalize/void with inventory-clearing readiness and allocation blockers, supplier payment direct/unapplied allocation/reversal/void, supplier refund source claim/void restoration, purchase debit note finalize/apply/reverse/void with allocation/refund blockers, and cash expense immediate posting/void.
+- No login, fixture creation, runtime mutation, PDF/archive generation, smoke, E2E, migration, seed/reset/delete, ZATCA, email, backup/restore, deployment, environment change, or production check was performed.
+- Keep purchase receipt posting and inventory asset journal behavior in the inventory batch unless a later local-disposable AP boundary run explicitly approves it.
 
 ### Part 5: Banking/Reconciliation State-Machine QA
 
@@ -277,10 +280,10 @@ The required DEV-03 Part 1 workflows are included above:
 - Should smoke/E2E scripts be decomposed into non-destructive plan modes before any browser automation is run?
 - Which permission names are final for update/void actions that currently reuse create/manage permissions in some modules?
 - Should report exports be treated as output-only or as audit-relevant events requiring access logging?
-- Should cash-expense state-machine QA be included in AP Part 4 even though it was not in the minimum required workflow list? Recommendation: yes.
+- Cash-expense state-machine QA was included in AP Part 4 because it is routed under Purchases/AP and creates immediate AP-adjacent cash/expense postings.
 
 ## 11. Recommended Next Step
 
-Proceed with `DEV-03 Part 4: AP state-machine QA dry-run plan`.
+Proceed with `DEV-03 Part 5: banking reconciliation state-machine QA dry-run plan`.
 
-Part 4 should remain dry-run planning by default. It should convert the Purchases/AP workflows into a precise fixture graph, endpoint plan, assertion matrix, audit evidence checklist, and cleanup/stop rules before any local disposable AP mutation is approved.
+Part 5 should remain dry-run planning by default. It should convert Banking/Reconciliation workflows into a precise fixture graph, endpoint plan, assertion matrix, audit evidence checklist, and cleanup/stop rules before any local disposable banking mutation is approved.
