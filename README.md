@@ -73,6 +73,21 @@ pnpm db:migrate
 pnpm db:seed
 ```
 
+## Development Verification
+
+Safe local verification gates are documented in [DEV-02 verification gate runbook](docs/development/DEV_02_VERIFICATION_GATE_RUNBOOK.md).
+
+```bash
+corepack pnpm verify:diff
+corepack pnpm verify:local:web
+corepack pnpm verify:local:api
+corepack pnpm verify:local:guards
+corepack pnpm verify:repo
+corepack pnpm verify:ci:local
+```
+
+These default gates are non-destructive. They intentionally exclude production URLs, deploys, Vercel/Supabase setting changes, migrations, seed/reset/delete, login/audit-writing flows, E2E, smoke, real ZATCA, real email, backup/restore, and customer-data mutation unless a later ticket explicitly approves them.
+
 ## Deployment
 
 LedgerByte is prepared for a two-project Vercel beta/user-testing deployment backed by Supabase Postgres. This is not the final production hosting decision:

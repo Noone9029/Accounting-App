@@ -116,6 +116,12 @@ node scripts/verify-gate.cjs verify:ci:local --plan
 - `verify:ci:local` mirrors the proposed future PR gate but is not wired to GitHub Actions yet.
 - DEV-02 Part 3 does not edit `.github/workflows/*`. CI wiring remains a later ticket.
 
+## Documentation and CI proposal status
+
+- README now points developers to these verification gates and the non-destructive default boundary.
+- The lightweight CI proposal is documented in [DEV_02_LIGHTWEIGHT_CI_PROPOSAL.md](DEV_02_LIGHTWEIGHT_CI_PROPOSAL.md).
+- GitHub workflow implementation is still not performed; `.github/workflows/*` remains unchanged by DEV-02 Part 4.
+
 ## Intentional Exclusions
 
 Default gates intentionally exclude:

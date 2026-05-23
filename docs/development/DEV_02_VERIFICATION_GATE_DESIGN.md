@@ -313,6 +313,12 @@ DEV-02 Part 3 added [DEV_02_VERIFICATION_GATE_RUNBOOK.md](DEV_02_VERIFICATION_GA
 
 The implemented runner prints command plans before execution, supports `--plan`/`--dry-run`, supports optional targeted web/API Jest args, and rejects default-gate args that point at smoke, E2E, migrations, seed/reset/delete, deploys, ZATCA, email, backup/restore, login, or URLs. GitHub workflow wiring remains deferred to a later ticket.
 
+## Part 4 Documentation And CI Proposal Note
+
+DEV-02 Part 4 wired README and the runbook to the implemented verification gates and created [DEV_02_LIGHTWEIGHT_CI_PROPOSAL.md](DEV_02_LIGHTWEIGHT_CI_PROPOSAL.md). The proposal describes a future non-mutating PR workflow that runs `verify:diff` and `verify:ci:local`, but no GitHub workflow file is implemented yet.
+
+See [DEV_02_VERIFICATION_GATE_RUNBOOK.md](DEV_02_VERIFICATION_GATE_RUNBOOK.md) for local usage and [DEV_02_LIGHTWEIGHT_CI_PROPOSAL.md](DEV_02_LIGHTWEIGHT_CI_PROPOSAL.md) for the proposed YAML.
+
 ## Commands That Remain Forbidden Or Manual-Only
 
 Forbidden in default local and PR/CI gates:
@@ -352,4 +358,4 @@ Manual-only with explicit approval:
 
 ## Recommended Next Step
 
-Run `DEV-02 Part 3: implement verification gate scripts` next. Keep the implementation limited to safe root scripts, a small helper/test if useful, docs updates, and local verification of the new non-mutating gate. Do not edit GitHub workflows until the scripts are proven locally and a later prompt approves CI changes.
+Run `DEV-02 Part 5: implement non-mutating PR CI workflow` next. Keep the implementation limited to one lightweight GitHub Actions workflow that runs `verify:diff` and `verify:ci:local`; do not add smoke, E2E, migrations, seed/reset/delete, deploys, ZATCA, email, backup/restore, production targets, or login/audit-writing flows.
