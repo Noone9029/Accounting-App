@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `e13bda1 Wire DEV-02 verification docs`
+- `ad5f96a Add non-mutating PR verification workflow`
 
 ## Current Development Objective
 
@@ -27,6 +27,8 @@
 - DEV-02 Part 3 verification gate scripts are implemented in `scripts/verify-gate.cjs`, tested by `scripts/verify-gate.test.cjs`, and documented in [docs/development/DEV_02_VERIFICATION_GATE_RUNBOOK.md](docs/development/DEV_02_VERIFICATION_GATE_RUNBOOK.md).
 - DEV-02 Part 4 documentation wiring is completed: README points to the verification runbook, and [docs/development/DEV_02_LIGHTWEIGHT_CI_PROPOSAL.md](docs/development/DEV_02_LIGHTWEIGHT_CI_PROPOSAL.md) captures the CI proposal without workflow implementation.
 - DEV-02 Part 5 PR CI workflow is implemented at `.github/workflows/pr-verification.yml`; it is separate from `.github/workflows/deployed-e2e.yml`.
+- DEV-02 is completed. Final handoff: [docs/development/DEV_02_FINAL_HANDOFF.md](docs/development/DEV_02_FINAL_HANDOFF.md).
+- DEV-02 Part 6 verified the PR workflow locally as far as safe: runner tests passed, `verify:diff` passed, `verify:ci:local -- --plan` passed, package JSON parsed, and lightweight workflow inspection confirmed PR CI has no secrets, URLs, services, migrations, seed/reset/delete, E2E, smoke, ZATCA, email, backup/restore, deploys, or login/audit-writing steps.
 - Routes browser-QA'd or code-reviewed in Part 2: `/`, `/login`, `/register`, `/password-reset`, `/password-reset/confirm`, `/invite/accept`, `/dashboard`, `/setup`, `/organization/setup`, `/sales/quotes`, and `/fixed-assets`.
 - Routes fixed in Part 2: `/setup`, `/organization/setup`, and unmatched app-shell placeholder routes such as `/sales/quotes` and `/fixed-assets`.
 - Main blocker from Part 2: local API health was not reachable at `http://localhost:4000/health`, so authenticated dashboard/setup/organization and auth-submit success flows remain deferred.
@@ -73,7 +75,10 @@
 - DEV-02 Part 4 commands still forbidden or manual-only: migrations, seed/reset/delete, demo seeding, smoke, full E2E, deployed beta E2E, login/audit-writing browser QA, visual snapshot updates, real ZATCA, real email, backup/restore, deploys, provider setting changes, environment changes, production targets, and customer-data mutation.
 - DEV-02 Part 5 CI commands: checkout, setup Node 22, enable Corepack, `corepack pnpm install --frozen-lockfile`, `corepack pnpm verify:diff`, and `corepack pnpm verify:ci:local`.
 - DEV-02 Part 5 CI exclusions: no secrets, no production URLs, no deployed beta checks, no Vercel/Supabase setting changes, no databases/services, no migrations, no seed/reset/delete, no login/audit-writing flows, no E2E, no smoke, no real ZATCA, no real email, no backup/restore, and no customer-data mutation.
-- Exact next prompt title: `DEV-02 Part 6: verify CI workflow locally and finalize DEV-02`.
+- DEV-02 Part 6 commands run: `node --test scripts/verify-gate.test.cjs`, `corepack pnpm verify:diff`, `corepack pnpm verify:ci:local -- --plan`, package JSON parse, lightweight workflow YAML inspection, `git diff --check`, and `git diff --cached --check` after staging.
+- DEV-02 Part 6 commands skipped: actual `corepack pnpm verify:ci:local`, actual `corepack pnpm verify:repo`, full tests, full build, full E2E, full smoke, migrations, seed/reset/delete, deploys, env changes, ZATCA, email, backup/restore, production-hosting research, and login/audit-writing flows.
+- DEV-02 remaining blockers: authenticated browser/runtime route QA, login/audit-writing fixture policy, mutation/state-machine QA, output-producing export/PDF/download/archive checks, real ZATCA/email/storage/backup checks, service-container E2E/smoke design, docs/link checking, and observing the workflow in an actual GitHub-hosted PR run.
+- Exact next prompt title: `DEV-03 Part 1: high-risk state-machine QA inventory`.
 
 ## Current PROD-A1 Objective
 
@@ -452,7 +457,7 @@
 - The current product state is broad controlled-beta MVP, not paid production SaaS: core AR/AP, banking, inventory, reports, documents, audit, roles, storage readiness, email readiness, and ZATCA groundwork exist, but many production-facing and product-completion gaps remain.
 - Top development gaps: full route QA and blocker triage, verification gate hardening, high-risk state-machine QA, auth/session hardening, accountant review, sales/purchase completion, banking parser/reconciliation hardening, inventory accounting policy work, admin/audit alerts, and SaaS business readiness.
 - Mock/blocked areas remain intentional: real ZATCA, real customer email sending, live bank feeds, payment gateway capture, object-storage migration execution, backup/restore execution, and automatic inventory accounting expansion.
-- Exact next recommended development ticket: `DEV-02 Part 3: implement verification gate scripts`.
+- Exact next recommended development ticket: `DEV-03 Part 1: high-risk state-machine QA inventory`.
 
 ## Forbidden Actions For Next Production Thread
 
@@ -465,4 +470,4 @@
 
 ## Next Thread Prompt
 
-`DEV-02 Part 3: implement verification gate scripts`
+`DEV-03 Part 1: high-risk state-machine QA inventory`

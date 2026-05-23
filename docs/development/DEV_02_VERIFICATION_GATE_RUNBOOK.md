@@ -138,6 +138,10 @@ corepack pnpm verify:ci:local
 
 PR CI intentionally excludes production URLs, deployed beta checks, Vercel/Supabase setting changes, databases/services, migrations, seed/reset/delete, login/audit-writing flows, E2E, smoke, real ZATCA, real email, backup/restore, and customer-data mutation.
 
+## DEV-02 Finalization
+
+DEV-02 final verification and remaining blocker summary are documented in [DEV_02_FINAL_HANDOFF.md](DEV_02_FINAL_HANDOFF.md). The final pass verified the PR workflow locally as far as safely possible without running actual `verify:ci:local`, `verify:repo`, full tests, full build, E2E, smoke, migrations, seed/reset/delete, deployed beta checks, ZATCA, email, backup/restore, production-hosting research, or login/audit-writing flows.
+
 ## Intentional Exclusions
 
 Default gates intentionally exclude:
