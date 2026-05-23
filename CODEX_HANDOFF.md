@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `e4e69a8 Plan DEV-04 local disposable fixtures`
+- `7835165 Design DEV-04 fixture runner`
 
 ## Current Development Objective
 
@@ -108,7 +108,11 @@
 - DEV-04 Part 2 fixture script design is completed in [docs/development/DEV_04_FIXTURE_SCRIPT_DESIGN.md](docs/development/DEV_04_FIXTURE_SCRIPT_DESIGN.md).
 - DEV-04 Part 2 performed no fixture script creation, login, fixture data creation, runtime mutation, export, download, PDF generation, generated-document archive creation, smoke, E2E, migration, seed/reset/delete, ZATCA, email, backup/restore, deployment, env change, or production-hosting research.
 - Proposed runner path and commands: `apps/api/scripts/dev04-fixture-runner.ts`; future API script `fixture:dev04`; future root helpers `fixture:dev04:plan`, `fixture:dev04:dry-run`, `fixture:dev04:cleanup-plan`, and manual-only `fixture:dev04:execute`.
-- Exact next prompt title: `DEV-04 Part 3: implement fixture runner dry-run skeleton`.
+- DEV-04 Part 3 dry-run skeleton is implemented in `apps/api/scripts/dev04-fixture-runner.ts` with tests in `apps/api/scripts/dev04-fixture-runner.spec.ts`.
+- DEV-04 Part 3 package scripts added: API `fixture:dev04`; root `fixture:dev04:plan`, `fixture:dev04:dry-run`, and `fixture:dev04:cleanup-plan`. A root execute script was intentionally not added.
+- DEV-04 Part 3 runner behavior: supports `--plan`, `--dry-run`, `--cleanup-plan`, `--family ar|ap|bank|inv|jrd|all`, `--marker DEV03-...|DEV04-...`, `--database-url`, `--api-url`, and `--json-summary`; refuses `--execute`, `--allow-local-mutation`, `--allow-login`, invalid markers, destructive operation terms, and production/beta/user-testing/hosted targets.
+- DEV-04 Part 3 performed no login, fixture data creation, database connection, Prisma write, service-layer write, runtime mutation, export, download, PDF generation, generated-document archive creation, smoke, E2E, migration, seed/reset/delete, ZATCA, email, backup/restore, deployment, env change, or production-hosting research.
+- Exact next prompt title: `DEV-04 Part 4: harden fixture runner guards and docs`.
 
 ## Current PROD-A1 Objective
 
@@ -487,7 +491,7 @@
 - The current product state is broad controlled-beta MVP, not paid production SaaS: core AR/AP, banking, inventory, reports, documents, audit, roles, storage readiness, email readiness, and ZATCA groundwork exist, but many production-facing and product-completion gaps remain.
 - Top development gaps: full route QA and blocker triage, verification gate hardening, high-risk state-machine QA, auth/session hardening, accountant review, sales/purchase completion, banking parser/reconciliation hardening, inventory accounting policy work, admin/audit alerts, and SaaS business readiness.
 - Mock/blocked areas remain intentional: real ZATCA, real customer email sending, live bank feeds, payment gateway capture, object-storage migration execution, backup/restore execution, and automatic inventory accounting expansion.
-- Exact next recommended development ticket: `DEV-04 Part 3: implement fixture runner dry-run skeleton`.
+- Exact next recommended development ticket: `DEV-04 Part 4: harden fixture runner guards and docs`.
 
 ## Forbidden Actions For Next Production Thread
 
@@ -500,4 +504,4 @@
 
 ## Next Thread Prompt
 
-`DEV-04 Part 3: implement fixture runner dry-run skeleton`
+`DEV-04 Part 4: harden fixture runner guards and docs`

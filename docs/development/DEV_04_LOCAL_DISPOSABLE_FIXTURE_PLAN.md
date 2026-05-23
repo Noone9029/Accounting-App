@@ -10,6 +10,10 @@ The goal is to define a safe path for later local-only QA of AR, AP, banking/rec
 
 DEV-04 Part 2 created [DEV_04_FIXTURE_SCRIPT_DESIGN.md](DEV_04_FIXTURE_SCRIPT_DESIGN.md). It keeps the fixture runner local-only and dry-run-first, proposes `apps/api/scripts/dev04-fixture-runner.ts`, documents guard, CLI, module, test, cleanup-plan, and evidence boundaries, and records that no fixture script, login, fixture data creation, or runtime mutation was performed.
 
+## DEV-04 Part 3 Implementation Note
+
+DEV-04 Part 3 implemented the dry-run runner skeleton and guard tests without creating fixture data. The available commands are `corepack pnpm fixture:dev04:plan`, `corepack pnpm fixture:dev04:dry-run`, and `corepack pnpm fixture:dev04:cleanup-plan`, each requiring a `DEV03-...` or `DEV04-...` marker supplied through CLI arguments. Execute mode remains refused and no login, Prisma writes, service-layer writes, fixture creation, or runtime mutation was performed.
+
 ## 2. Non-Goals
 
 - Do not implement fixture scripts in this part.

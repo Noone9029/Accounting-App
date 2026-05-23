@@ -88,6 +88,16 @@ corepack pnpm verify:ci:local
 
 These default gates are non-destructive. They intentionally exclude production URLs, deploys, Vercel/Supabase setting changes, migrations, seed/reset/delete, login/audit-writing flows, E2E, smoke, real ZATCA, real email, backup/restore, and customer-data mutation unless a later ticket explicitly approves them.
 
+DEV-04 local disposable fixture planning has safe dry-run helpers only:
+
+```bash
+corepack pnpm fixture:dev04:plan -- --family all --marker DEV04-20260524T120000
+corepack pnpm fixture:dev04:dry-run -- --family ar --marker DEV03-AR-20260524T120000
+corepack pnpm fixture:dev04:cleanup-plan -- --family ar --marker DEV03-AR-20260524T120000
+```
+
+These commands print fixture plans and guard results only. They refuse execute mode and do not login, create fixtures, connect to production/beta targets, or mutate data.
+
 Pull requests now run the same non-mutating verification boundary through `.github/workflows/pr-verification.yml`.
 
 ## Deployment

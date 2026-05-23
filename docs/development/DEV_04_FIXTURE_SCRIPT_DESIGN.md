@@ -4,7 +4,13 @@
 
 This document designs the local disposable fixture runner for future DEV-03-approved state-machine QA. It converts the DEV-04 Part 1 fixture plan into a concrete runner contract, guard model, command naming proposal, module layout, and test plan.
 
-This is design only. No fixture runner was created, no package scripts were changed, no login was run, no fixture data was created, and no runtime mutation was executed.
+This was design only when created in DEV-04 Part 2. No fixture runner was created, no package scripts were changed, no login was run, no fixture data was created, and no runtime mutation was executed in that part.
+
+## DEV-04 Part 3 Implementation Note
+
+DEV-04 Part 3 implemented the dry-run skeleton at `apps/api/scripts/dev04-fixture-runner.ts` with non-mutating guard tests in `apps/api/scripts/dev04-fixture-runner.spec.ts`. The root package now exposes `fixture:dev04:plan`, `fixture:dev04:dry-run`, and `fixture:dev04:cleanup-plan`; the API package exposes `fixture:dev04`.
+
+The implementation remains plan-only: `--execute` and `--allow-local-mutation` are refused, login is disabled, no Prisma or service-layer writes are imported, no database connection is opened, no fixture data is created, and production/beta/user-testing targets are rejected by guard logic. A root `fixture:dev04:execute` script was intentionally not added.
 
 ## 2. Non-Goals
 
