@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `a766f94 Plan DEV-03 journals reports documents QA`
+- `e96cd05 Finalize DEV-03 state-machine QA triage`
 
 ## Current Development Objective
 
@@ -102,7 +102,10 @@
 - DEV-03 Part 8 final state-machine QA triage is completed in [docs/development/DEV_03_FINAL_STATE_MACHINE_QA_TRIAGE.md](docs/development/DEV_03_FINAL_STATE_MACHINE_QA_TRIAGE.md).
 - DEV-03 is completed as planning/triage only. No login, fixture creation, runtime mutation, export, download, PDF generation, generated-document archive creation, smoke, E2E, ZATCA, email, backup/restore, deploy, env change, production-hosting research, production check, beta check, or customer-data check was performed.
 - Highest-risk consolidated areas: AR/AP lifecycle posting and allocation, bank transfer/statement/reconciliation state, inventory quantity/cost and posting lifecycles, manual journals/fiscal-period locks, report/document/audit output gates, and admin/audit side effects.
-- Exact next prompt title: `DEV-04 Part 1: local disposable fixture implementation plan`.
+- DEV-04 Part 1 local disposable fixture implementation plan is completed in [docs/development/DEV_04_LOCAL_DISPOSABLE_FIXTURE_PLAN.md](docs/development/DEV_04_LOCAL_DISPOSABLE_FIXTURE_PLAN.md).
+- DEV-04 Part 1 performed no fixture script creation, login, fixture data creation, runtime mutation, export, download, PDF generation, generated-document archive creation, smoke, E2E, migration, seed/reset/delete, ZATCA, email, backup/restore, deployment, env change, or production-hosting research.
+- Recommended fixture implementation approach: a dedicated local-only dry-run-first fixture runner that uses guarded direct Prisma only for base org/user/role/bootstrap setup after approval, then service/API-layer fixture creation for business records so validations and audit behavior are preserved. Demo/smoke helpers should be mined for target guards and idempotent patterns, not reused as default commands.
+- Exact next prompt title: `DEV-04 Part 2: fixture script design`.
 
 ## Current PROD-A1 Objective
 
@@ -481,7 +484,7 @@
 - The current product state is broad controlled-beta MVP, not paid production SaaS: core AR/AP, banking, inventory, reports, documents, audit, roles, storage readiness, email readiness, and ZATCA groundwork exist, but many production-facing and product-completion gaps remain.
 - Top development gaps: full route QA and blocker triage, verification gate hardening, high-risk state-machine QA, auth/session hardening, accountant review, sales/purchase completion, banking parser/reconciliation hardening, inventory accounting policy work, admin/audit alerts, and SaaS business readiness.
 - Mock/blocked areas remain intentional: real ZATCA, real customer email sending, live bank feeds, payment gateway capture, object-storage migration execution, backup/restore execution, and automatic inventory accounting expansion.
-- Exact next recommended development ticket: `DEV-04 Part 1: local disposable fixture implementation plan`.
+- Exact next recommended development ticket: `DEV-04 Part 2: fixture script design`.
 
 ## Forbidden Actions For Next Production Thread
 
@@ -494,4 +497,4 @@
 
 ## Next Thread Prompt
 
-`DEV-04 Part 1: local disposable fixture implementation plan`
+`DEV-04 Part 2: fixture script design`
