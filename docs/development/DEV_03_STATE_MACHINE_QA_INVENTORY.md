@@ -219,8 +219,8 @@ The required DEV-03 Part 1 workflows are included above:
 
 ## 8. Missing Coverage Summary
 
-- A safe login/audit-writing policy for local QA is not yet defined.
-- Disposable fixture data strategy is missing for mutation workflows.
+- A safe login/audit-writing policy is defined in [DEV_03_SAFE_FIXTURE_LOGIN_AUDIT_POLICY.md](DEV_03_SAFE_FIXTURE_LOGIN_AUDIT_POLICY.md), but no login approval or runtime proof exists yet.
+- Disposable fixture policy is defined, but fixture implementation/execution strategy is still missing for mutation workflows.
 - Cross-module accounting assertions are incomplete for finalization/void/reversal and period-lock behavior.
 - Browser-runtime authenticated QA remains deferred due Browser Use local URL policy and login audit side effects.
 - Mutation/state-machine browser flows remain deferred for AR, AP, banking/reconciliation, inventory, journals, reports, and admin settings.
@@ -238,8 +238,9 @@ The required DEV-03 Part 1 workflows are included above:
 
 ### Part 3: AR State-Machine QA
 
-- Sales invoices, customer payments, customer refunds, and credit notes.
-- Prioritize finalize/void/reversal/allocation blockers and ledger-balance assertions.
+- Completed as a dry-run plan in [DEV_03_AR_STATE_MACHINE_DRY_RUN_PLAN.md](DEV_03_AR_STATE_MACHINE_DRY_RUN_PLAN.md).
+- Sales invoices, customer payments, customer refunds, and credit notes were mapped to routes, API endpoints, status fields, permissions, audit side effects, ledger effects, output gates, fixture markers, and planned-only test cases.
+- No login, fixture creation, runtime mutation, PDF/archive generation, smoke, E2E, migration, seed/reset/delete, ZATCA, email, backup/restore, deployment, environment change, or production check was performed.
 - Keep PDF/archive actions separate unless output approval exists.
 
 ### Part 4: AP State-Machine QA
@@ -270,7 +271,7 @@ The required DEV-03 Part 1 workflows are included above:
 
 ## 10. Open Questions
 
-- Which exact local fixture strategy should Part 3 plan first: transactional Jest fixtures, API-created disposable org data, or a separate local QA database snapshot?
+- Which exact local fixture execution strategy should future mutation QA use first: transactional Jest fixtures, API-created disposable org data, or a separate local QA database snapshot?
 - For an approved future mutation batch, should audit-log assertions be mandatory for every state transition or only for externally visible lifecycle actions?
 - Are PDF generation and generated-document archive writes allowed in a later DEV-03 output batch, or should they remain deferred until a dedicated document/output ticket?
 - Should smoke/E2E scripts be decomposed into non-destructive plan modes before any browser automation is run?
@@ -280,6 +281,6 @@ The required DEV-03 Part 1 workflows are included above:
 
 ## 11. Recommended Next Step
 
-Proceed with `DEV-03 Part 3: AR state-machine QA dry-run plan`.
+Proceed with `DEV-03 Part 4: AP state-machine QA dry-run plan`.
 
-Part 3 should remain dry-run planning by default. It should convert the Sales/AR workflows into a precise fixture graph, endpoint plan, assertion matrix, audit evidence checklist, and cleanup/stop rules before any local disposable AR mutation is approved.
+Part 4 should remain dry-run planning by default. It should convert the Purchases/AP workflows into a precise fixture graph, endpoint plan, assertion matrix, audit evidence checklist, and cleanup/stop rules before any local disposable AP mutation is approved.

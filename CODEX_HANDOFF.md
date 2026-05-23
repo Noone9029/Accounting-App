@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `db2b758 Inventory DEV-03 state-machine QA`
+- `9d6c9d6 Design DEV-03 fixture login audit policy`
 
 ## Current Development Objective
 
@@ -84,7 +84,10 @@
 - DEV-03 Part 2 safe fixture/login/audit policy is completed in [docs/development/DEV_03_SAFE_FIXTURE_LOGIN_AUDIT_POLICY.md](docs/development/DEV_03_SAFE_FIXTURE_LOGIN_AUDIT_POLICY.md).
 - DEV-03 Part 2 key policy decisions: future mutation QA is local-disposable only by default; production is forbidden; beta/user-testing requires separate approval; login is allowed only in future explicitly approved batches; audit writes become expected evidence; fixture records require `DEV03-...` markers; seed/reset/delete, real customer data, exports/downloads/PDF, ZATCA, email, backup/restore, deploys, env changes, and provider changes remain forbidden by default.
 - DEV-03 Part 2 performed no login and no runtime mutation: no create, finalize, approve, close, void, reverse, allocate, match, categorize, ignore, transfer, receive, issue, post, export, download, upload, delete, migration, seed/reset/delete, smoke, E2E, ZATCA, email, backup/restore, deployment, env change, or production-hosting research was run.
-- Exact next prompt title: `DEV-03 Part 3: AR state-machine QA dry-run plan`.
+- DEV-03 Part 3 AR state-machine QA dry-run plan is completed in [docs/development/DEV_03_AR_STATE_MACHINE_DRY_RUN_PLAN.md](docs/development/DEV_03_AR_STATE_MACHINE_DRY_RUN_PLAN.md).
+- Highest-risk AR transitions: sales invoice finalize/void with payment and credit allocation blockers; customer payment allocation, unapplied allocation reversal, refund blocker, and void behavior; customer refund source-claim and void restoration; credit note finalize/apply/reverse/void with allocation and refund blockers; AR PDF/archive endpoints that create generated-document records.
+- DEV-03 Part 3 performed no login, fixture creation, or runtime mutation: no create, edit, finalize, void, reverse, allocate, refund, export, download, upload, delete, migration, seed/reset/delete, smoke, E2E, ZATCA, email, backup/restore, deployment, env change, or production-hosting research was run.
+- Exact next prompt title: `DEV-03 Part 4: AP state-machine QA dry-run plan`.
 
 ## Current PROD-A1 Objective
 
@@ -463,7 +466,7 @@
 - The current product state is broad controlled-beta MVP, not paid production SaaS: core AR/AP, banking, inventory, reports, documents, audit, roles, storage readiness, email readiness, and ZATCA groundwork exist, but many production-facing and product-completion gaps remain.
 - Top development gaps: full route QA and blocker triage, verification gate hardening, high-risk state-machine QA, auth/session hardening, accountant review, sales/purchase completion, banking parser/reconciliation hardening, inventory accounting policy work, admin/audit alerts, and SaaS business readiness.
 - Mock/blocked areas remain intentional: real ZATCA, real customer email sending, live bank feeds, payment gateway capture, object-storage migration execution, backup/restore execution, and automatic inventory accounting expansion.
-- Exact next recommended development ticket: `DEV-03 Part 3: AR state-machine QA dry-run plan`.
+- Exact next recommended development ticket: `DEV-03 Part 4: AP state-machine QA dry-run plan`.
 
 ## Forbidden Actions For Next Production Thread
 
@@ -476,4 +479,4 @@
 
 ## Next Thread Prompt
 
-`DEV-03 Part 3: AR state-machine QA dry-run plan`
+`DEV-03 Part 4: AP state-machine QA dry-run plan`
