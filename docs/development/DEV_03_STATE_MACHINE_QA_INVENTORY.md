@@ -261,8 +261,11 @@ The required DEV-03 Part 1 workflows are included above:
 
 ### Part 6: Inventory State-Machine QA
 
-- Inventory adjustments, warehouse transfers, purchase receipts, sales stock issues, variance proposals, item/warehouse/settings gates.
-- Prioritize no-negative-stock, post/reverse idempotency, valuation/COGS wording, and period-lock behavior.
+- Completed as a dry-run plan in [DEV_03_INVENTORY_STATE_MACHINE_DRY_RUN_PLAN.md](DEV_03_INVENTORY_STATE_MACHINE_DRY_RUN_PLAN.md).
+- Items, warehouses, direct stock movement boundaries, inventory adjustments, warehouse transfers, purchase receipts, sales stock issues, balances/reports/settings, clearing reports, and variance proposals were mapped to routes, API endpoints, status fields, permissions, audit side effects, ledger effects, quantity/cost effects, output gates, fixture markers, and planned-only test cases.
+- Highest-risk inventory transitions are inventory adjustment approve/void, warehouse transfer create/void, purchase receipt create/void and explicit asset post/reverse, sales stock issue create/void and explicit COGS post/reverse, inventory settings/accounting readiness changes, clearing report output gates, and variance proposal create/submit/approve/post/reverse/void.
+- No login, fixture creation, runtime mutation, inventory mutation, report export/download, PDF/archive generation, smoke, E2E, migration, seed/reset/delete, ZATCA, email, backup/restore, deployment, environment change, or production check was performed.
+- Keep receipt asset posting, COGS posting, variance proposal posting, and inventory report CSV actions separate unless explicit mutation/output approval exists.
 
 ### Part 7: Journals/Reports/Documents Output Gate QA
 
@@ -287,6 +290,6 @@ The required DEV-03 Part 1 workflows are included above:
 
 ## 11. Recommended Next Step
 
-Proceed with `DEV-03 Part 6: inventory state-machine QA dry-run plan`.
+Proceed with `DEV-03 Part 7: journals reports documents output gate dry-run plan`.
 
-Part 6 should remain dry-run planning by default. It should convert Inventory workflows into a precise fixture graph, endpoint plan, assertion matrix, audit evidence checklist, stock/accounting effect expectations, and cleanup/stop rules before any local disposable inventory mutation is approved.
+Part 7 should remain dry-run planning by default. It should convert journals, fiscal periods, report exports, generated documents, audit exports, and high-risk admin output/settings gates into a precise fixture graph, endpoint plan, assertion matrix, audit evidence checklist, output-permission expectations, and cleanup/stop rules before any local disposable mutation or output generation is approved.
