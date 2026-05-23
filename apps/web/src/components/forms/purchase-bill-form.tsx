@@ -23,6 +23,7 @@ interface PurchaseBillLineState {
 
 interface PurchaseBillFormProps {
   initialBill?: PurchaseBill;
+  initialSupplierId?: string;
 }
 
 function makeLine(): PurchaseBillLineState {
@@ -46,7 +47,7 @@ function dateInputValue(value?: string | null, fallback = todayInputValue()): st
   return value ? new Date(value).toISOString().slice(0, 10) : fallback;
 }
 
-export function PurchaseBillForm({ initialBill }: PurchaseBillFormProps) {
+export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: PurchaseBillFormProps) {
   const router = useRouter();
   const organizationId = useActiveOrganizationId();
   const [suppliers, setSuppliers] = useState<Contact[]>([]);
@@ -54,7 +55,7 @@ export function PurchaseBillForm({ initialBill }: PurchaseBillFormProps) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [supplierId, setSupplierId] = useState(initialBill?.supplierId ?? "");
+  const [supplierId, setSupplierId] = useState(initialBill?.supplierId ?? initialSupplierId);
   const [branchId, setBranchId] = useState(initialBill?.branchId ?? "");
   const [billDate, setBillDate] = useState(dateInputValue(initialBill?.billDate));
   const [dueDate, setDueDate] = useState(dateInputValue(initialBill?.dueDate, ""));
@@ -99,6 +100,18 @@ export function PurchaseBillForm({ initialBill }: PurchaseBillFormProps) {
       ),
     [activePurchaseTaxRates, lines],
   );
+
+  useEffect(() => {
+    if (initialBill || initialSupplierId || typeof window === "undefined") {
+      return;
+    }
+
+    const query = new URLSearchParams(window.location.search);
+    const querySupplierId = query.get("supplierId") ?? "";
+    if (querySupplierId) {
+      setSupplierId(querySupplierId);
+    }
+  }, [initialBill, initialSupplierId]);
 
   useEffect(() => {
     if (!organizationId) {

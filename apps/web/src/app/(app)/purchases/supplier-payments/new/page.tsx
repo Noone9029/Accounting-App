@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
@@ -28,6 +28,7 @@ export default function NewSupplierPaymentPage() {
   const [bankProfiles, setBankProfiles] = useState<BankAccountSummary[]>([]);
   const [openBills, setOpenBills] = useState<PurchaseBill[]>([]);
   const [supplierId, setSupplierId] = useState("");
+  const preferredBillIdRef = useRef("");
   const [paymentDate, setPaymentDate] = useState(todayInputValue());
   const [accountId, setAccountId] = useState("");
   const [amountPaid, setAmountPaid] = useState("0.0000");
@@ -53,6 +54,22 @@ export default function NewSupplierPaymentPage() {
       ),
     [allocations, amountPaid, openBills],
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const query = new URLSearchParams(window.location.search);
+    const querySupplierId = query.get("supplierId") ?? "";
+    const queryBillId = query.get("billId") ?? "";
+    if (querySupplierId) {
+      setSupplierId(querySupplierId);
+    }
+    if (queryBillId) {
+      preferredBillIdRef.current = queryBillId;
+    }
+  }, []);
 
   useEffect(() => {
     if (!organizationId) {
@@ -113,7 +130,18 @@ export default function NewSupplierPaymentPage() {
         }
 
         setOpenBills(result);
-        setAllocations(result.map((bill) => ({ billId: bill.id, amountApplied: "0.0000" })));
+        const preferredBillId = preferredBillIdRef.current;
+        const preferredBill = preferredBillId ? result.find((bill) => bill.id === preferredBillId) : null;
+        setAllocations(
+          result.map((bill) => ({
+            billId: bill.id,
+            amountApplied: preferredBill?.id === bill.id ? bill.balanceDue : "0.0000",
+          })),
+        );
+        if (preferredBill) {
+          setAmountPaid((current) => (parseDecimalToUnits(current) <= 0 ? preferredBill.balanceDue : current));
+          preferredBillIdRef.current = "";
+        }
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {

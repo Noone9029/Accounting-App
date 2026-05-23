@@ -72,27 +72,27 @@ Routes not included in completed DEV-01 batches remain `Not tested`.
 
 | Route path | Source file | Expected purpose | Likely data/API dependency | Auth/role assumption visible from code | QA priority | QA status |
 | --- | --- | --- | --- | --- | --- | --- |
-| `/purchases/purchase-orders` | `apps/web/src/app/(app)/purchases/purchase-orders/page.tsx` | Purchase order list | Purchase orders API | Authenticated; `purchaseOrders.view` | High | Not tested |
-| `/purchases/purchase-orders/new` | `apps/web/src/app/(app)/purchases/purchase-orders/new/page.tsx` | Create purchase order | Purchase orders, suppliers, items, taxes | Authenticated; `purchaseOrders.create` | Critical | Not tested |
-| `/purchases/purchase-orders/[id]` | `apps/web/src/app/(app)/purchases/purchase-orders/[id]/page.tsx` | Purchase order detail, approve/send/close/void/PDF | Purchase orders, PDF/archive, receipt/matching status | Authenticated; `purchaseOrders.view` | Critical | Not tested |
-| `/purchases/purchase-orders/[id]/edit` | `apps/web/src/app/(app)/purchases/purchase-orders/[id]/edit/page.tsx` | Edit purchase order | Purchase orders, suppliers, items, taxes | Authenticated; `purchaseOrders.update` | Critical | Not tested |
-| `/purchases/bills` | `apps/web/src/app/(app)/purchases/bills/page.tsx` | Purchase bill list | Purchase bills API | Authenticated; `purchaseBills.view` | High | Not tested |
-| `/purchases/bills/new` | `apps/web/src/app/(app)/purchases/bills/new/page.tsx` | Create purchase bill | Purchase bills, suppliers, accounts, items, taxes | Authenticated; `purchaseBills.create` | Critical | Not tested |
-| `/purchases/bills/[id]` | `apps/web/src/app/(app)/purchases/bills/[id]/page.tsx` | Purchase bill detail, finalize/void/PDF/attachments | Purchase bills, PDF/archive, attachments, inventory matching | Authenticated; `purchaseBills.view` | Critical | Not tested |
-| `/purchases/bills/[id]/edit` | `apps/web/src/app/(app)/purchases/bills/[id]/edit/page.tsx` | Edit draft purchase bill | Purchase bills, suppliers, accounts, items, taxes | Authenticated; `purchaseBills.update` | Critical | Not tested |
-| `/purchases/supplier-payments` | `apps/web/src/app/(app)/purchases/supplier-payments/page.tsx` | Supplier payment list | Supplier payments API | Authenticated; `supplierPayments.view` | High | Not tested |
-| `/purchases/supplier-payments/new` | `apps/web/src/app/(app)/purchases/supplier-payments/new/page.tsx` | Record supplier payment | Supplier payments, bills, bank accounts | Authenticated; `supplierPayments.create` | Critical | Not tested |
-| `/purchases/supplier-payments/[id]` | `apps/web/src/app/(app)/purchases/supplier-payments/[id]/page.tsx` | Supplier payment detail/receipt/void | Supplier payments, allocations, generated documents | Authenticated; `supplierPayments.view` | Critical | Not tested |
-| `/purchases/supplier-refunds` | `apps/web/src/app/(app)/purchases/supplier-refunds/page.tsx` | Supplier refund list | Supplier refunds API | Authenticated; `supplierRefunds.view` | High | Not tested |
-| `/purchases/supplier-refunds/new` | `apps/web/src/app/(app)/purchases/supplier-refunds/new/page.tsx` | Create supplier refund | Supplier refunds, supplier credits/payments, bank accounts | Authenticated; `supplierRefunds.create` | Critical | Not tested |
-| `/purchases/supplier-refunds/[id]` | `apps/web/src/app/(app)/purchases/supplier-refunds/[id]/page.tsx` | Supplier refund detail/void | Supplier refunds API | Authenticated; `supplierRefunds.view` | Critical | Not tested |
-| `/purchases/cash-expenses` | `apps/web/src/app/(app)/purchases/cash-expenses/page.tsx` | Cash expense list | Cash expenses API | Authenticated; `cashExpenses.view` | High | Not tested |
-| `/purchases/cash-expenses/new` | `apps/web/src/app/(app)/purchases/cash-expenses/new/page.tsx` | Create cash expense | Cash expenses, contacts, accounts, tax rates, bank accounts | Authenticated; `cashExpenses.create` | Critical | Not tested |
-| `/purchases/cash-expenses/[id]` | `apps/web/src/app/(app)/purchases/cash-expenses/[id]/page.tsx` | Cash expense detail/void | Cash expenses API | Authenticated; `cashExpenses.view` | Critical | Not tested |
-| `/purchases/debit-notes` | `apps/web/src/app/(app)/purchases/debit-notes/page.tsx` | Purchase debit note list | Purchase debit notes API | Authenticated; `purchaseDebitNotes.view` | High | Not tested |
-| `/purchases/debit-notes/new` | `apps/web/src/app/(app)/purchases/debit-notes/new/page.tsx` | Create purchase debit note | Purchase debit notes, suppliers, bills, items, taxes | Authenticated; `purchaseDebitNotes.create` | Critical | Not tested |
-| `/purchases/debit-notes/[id]` | `apps/web/src/app/(app)/purchases/debit-notes/[id]/page.tsx` | Debit note detail, allocation/PDF/void | Purchase debit notes, allocations, PDF/archive | Authenticated; `purchaseDebitNotes.view` | Critical | Not tested |
-| `/purchases/debit-notes/[id]/edit` | `apps/web/src/app/(app)/purchases/debit-notes/[id]/edit/page.tsx` | Edit draft purchase debit note | Purchase debit notes, suppliers, bills, items, taxes | Authenticated; `purchaseDebitNotes.create` | Critical | Not tested |
+| `/purchases/purchase-orders` | `apps/web/src/app/(app)/purchases/purchase-orders/page.tsx` | Purchase order list | Purchase orders API | Authenticated; `purchaseOrders.view` | High | Code-reviewed only |
+| `/purchases/purchase-orders/new` | `apps/web/src/app/(app)/purchases/purchase-orders/new/page.tsx` | Create purchase order | Purchase orders, suppliers, items, taxes | Authenticated; `purchaseOrders.create` | Critical | Code-reviewed only |
+| `/purchases/purchase-orders/[id]` | `apps/web/src/app/(app)/purchases/purchase-orders/[id]/page.tsx` | Purchase order detail, approve/send/close/void/PDF | Purchase orders, PDF/archive, receipt/matching status | Authenticated; `purchaseOrders.view` | Critical | Code-reviewed only |
+| `/purchases/purchase-orders/[id]/edit` | `apps/web/src/app/(app)/purchases/purchase-orders/[id]/edit/page.tsx` | Edit purchase order | Purchase orders, suppliers, items, taxes | Authenticated; `purchaseOrders.update` | Critical | Code-reviewed only |
+| `/purchases/bills` | `apps/web/src/app/(app)/purchases/bills/page.tsx` | Purchase bill list | Purchase bills API | Authenticated; `purchaseBills.view` | High | Code-reviewed only |
+| `/purchases/bills/new` | `apps/web/src/app/(app)/purchases/bills/new/page.tsx` | Create purchase bill | Purchase bills, suppliers, accounts, items, taxes | Authenticated; `purchaseBills.create` | Critical | Code-reviewed only |
+| `/purchases/bills/[id]` | `apps/web/src/app/(app)/purchases/bills/[id]/page.tsx` | Purchase bill detail, finalize/void/PDF/attachments | Purchase bills, PDF/archive, attachments, inventory matching | Authenticated; `purchaseBills.view` | Critical | Code-reviewed only |
+| `/purchases/bills/[id]/edit` | `apps/web/src/app/(app)/purchases/bills/[id]/edit/page.tsx` | Edit draft purchase bill | Purchase bills, suppliers, accounts, items, taxes | Authenticated; `purchaseBills.update` | Critical | Code-reviewed only |
+| `/purchases/supplier-payments` | `apps/web/src/app/(app)/purchases/supplier-payments/page.tsx` | Supplier payment list | Supplier payments API | Authenticated; `supplierPayments.view` | High | Code-reviewed only |
+| `/purchases/supplier-payments/new` | `apps/web/src/app/(app)/purchases/supplier-payments/new/page.tsx` | Record supplier payment | Supplier payments, bills, bank accounts | Authenticated; `supplierPayments.create` | Critical | Code-reviewed only |
+| `/purchases/supplier-payments/[id]` | `apps/web/src/app/(app)/purchases/supplier-payments/[id]/page.tsx` | Supplier payment detail/receipt/void | Supplier payments, allocations, generated documents | Authenticated; `supplierPayments.view` | Critical | Code-reviewed only |
+| `/purchases/supplier-refunds` | `apps/web/src/app/(app)/purchases/supplier-refunds/page.tsx` | Supplier refund list | Supplier refunds API | Authenticated; `supplierRefunds.view` | High | Code-reviewed only |
+| `/purchases/supplier-refunds/new` | `apps/web/src/app/(app)/purchases/supplier-refunds/new/page.tsx` | Create supplier refund | Supplier refunds, supplier credits/payments, bank accounts | Authenticated; `supplierRefunds.create` | Critical | Code-reviewed only |
+| `/purchases/supplier-refunds/[id]` | `apps/web/src/app/(app)/purchases/supplier-refunds/[id]/page.tsx` | Supplier refund detail/void | Supplier refunds API | Authenticated; `supplierRefunds.view` | Critical | Code-reviewed only |
+| `/purchases/cash-expenses` | `apps/web/src/app/(app)/purchases/cash-expenses/page.tsx` | Cash expense list | Cash expenses API | Authenticated; `cashExpenses.view` | High | Code-reviewed only |
+| `/purchases/cash-expenses/new` | `apps/web/src/app/(app)/purchases/cash-expenses/new/page.tsx` | Create cash expense | Cash expenses, contacts, accounts, tax rates, bank accounts | Authenticated; `cashExpenses.create` | Critical | Code-reviewed only |
+| `/purchases/cash-expenses/[id]` | `apps/web/src/app/(app)/purchases/cash-expenses/[id]/page.tsx` | Cash expense detail/void | Cash expenses API | Authenticated; `cashExpenses.view` | Critical | Code-reviewed only |
+| `/purchases/debit-notes` | `apps/web/src/app/(app)/purchases/debit-notes/page.tsx` | Purchase debit note list | Purchase debit notes API | Authenticated; `purchaseDebitNotes.view` | High | Code-reviewed only |
+| `/purchases/debit-notes/new` | `apps/web/src/app/(app)/purchases/debit-notes/new/page.tsx` | Create purchase debit note | Purchase debit notes, suppliers, bills, items, taxes | Authenticated; `purchaseDebitNotes.create` | Critical | Code-reviewed only |
+| `/purchases/debit-notes/[id]` | `apps/web/src/app/(app)/purchases/debit-notes/[id]/page.tsx` | Debit note detail, allocation/PDF/void | Purchase debit notes, allocations, PDF/archive | Authenticated; `purchaseDebitNotes.view` | Critical | Code-reviewed only |
+| `/purchases/debit-notes/[id]/edit` | `apps/web/src/app/(app)/purchases/debit-notes/[id]/edit/page.tsx` | Edit draft purchase debit note | Purchase debit notes, suppliers, bills, items, taxes | Authenticated; `purchaseDebitNotes.create` | Critical | Code-reviewed only |
 
 ### Banking/Reconciliation
 
@@ -308,12 +308,82 @@ Focus on purchase orders, bills, supplier payments, supplier refunds, cash expen
 - Runbook added: [DEV_01_LOCAL_QA_RUNBOOK.md](DEV_01_LOCAL_QA_RUNBOOK.md).
 - Safe next thread: `DEV-01 Part 4: purchases and AP route QA`.
 
+## DEV-01 Part 4 Summary
+
+- Latest pushed state inspected before Part 4: `cfbddc0 Triage DEV-01 local QA runtime blockers`.
+- `apps/web/next-env.d.ts` had no working-tree diff before or after the Part 4 checks; it was not staged.
+- Local worktree warning: unrelated edits remained in `apps/web/src/app/page.tsx` and untracked marketing/Graphify files; they were not reverted and only Part 4 files were staged.
+- Runtime readiness: `http://localhost:4000/health` returned `200`; `http://localhost:4000/readiness` returned `200` with database `ok`; shell HTTP checks returned `200` for web `/login` and `/dashboard`.
+- Purchases/AP shell route-load result: all 21 AP routes returned `200` from `http://localhost:3000` using non-mutating shell HTTP checks, with synthetic ids for dynamic detail/edit routes.
+- Browser/runtime limit: in-app Browser route visits remained blocked by the Browser Use URL policy; no authenticated browser-runtime pass is claimed.
+- Login and state mutation were not run: no login flow, create, approve, finalize, void, allocate, refund, reverse, post, send, PDF/archive download, attachment upload, migration, seed, reset, delete, deploy, or env change was executed.
+- Small frontend fixes applied: `/purchases/bills/new` now honors `?supplierId=...`, and `/purchases/supplier-payments/new` now honors `?supplierId=...&billId=...` by preselecting the supplier and matching open-bill amount.
+- No accounting logic, API behavior, schema, migration, ZATCA behavior, email behavior, customer data, production docs, Vercel/Supabase settings, or hosting research changed.
+
+### Graphify Dependency Findings For Purchases/AP
+
+- Graphify files used as read-only planning aids: untracked `graphify-out/GRAPH_REPORT.md`, `graphify-out/manifest.json`, and `graphify-out/graph.json`; they were not treated as runtime proof and were not staged.
+- Graphify freshness note: the graph was built from commit `edaec451`, while Part 4 inspected `cfbddc0`, so findings were used only to prioritize review and blast radius.
+- Relevant communities found: Web Inventory Purchases, Web Forms Money, Web Purchases Sales, Web Purchase Orders, Web Purchases Purchase, API Purchase Orders, API Purchase Bills, API Supplier Payments, API Supplier Refunds, API Cash Expenses, and API Purchase Debit.
+- High fan-out nodes that made broad rewrites risky: `getActiveOrganizationId()` with 194 edges, `usePermissions()` with 133 edges, `apiRequest()` with 110 edges, `StatusMessage()` with about 100 edges, `PurchaseDebitNote` with 92 edges, `formatMoneyAmount()` with 85 edges, and `PermissionProvider()` with 84 edges.
+- Shared files reviewed before fixing: `apps/web/src/lib/api.ts`, `apps/web/src/lib/permissions.ts`, `apps/web/src/lib/sidebar-nav.ts`, `apps/web/src/hooks/use-active-organization.ts`, `apps/web/src/components/common/status-message.tsx`, `apps/web/src/lib/money.ts`, AP route files under `apps/web/src/app/(app)/purchases`, AP form files under `apps/web/src/components/forms`, and AP helpers under `apps/web/src/lib`.
+
+### Part 4 Route Results
+
+| Route path | QA status | QA method | Actual result | Defects found | Severity | Fix applied | Remaining follow-up |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `/purchases/purchase-orders` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads `/purchase-orders`, shows loading/error/empty states, gates create/action controls by purchase-order permissions, and links detail rows. | No code-level defect found. | Low | None | Re-test authenticated list rendering, restricted-role controls, filters/search expectations, and real empty/error states in a browser. |
+| `/purchases/purchase-orders/new` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; form loads suppliers/items/accounts/taxes/branches, validates required supplier and positive lines, and posts `/purchase-orders`. | No code-level defect found. | Low | None | Re-test dropdown data, validation, cancel link, and save success/error with safe local data. |
+| `/purchases/purchase-orders/[id]` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads purchase order detail, PDF data, receipt/matching status, and permission-gated approve/send/close/void/convert/delete controls. | No code-level defect found; high state-action surface remains untested. | Low | None | Re-test invalid/missing id, PDF/archive behavior, action visibility, and draft/approved/sent/closed/voided states with safe local data. |
+| `/purchases/purchase-orders/[id]/edit` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source fetches `/purchase-orders/:id`, shows loading/error states, and renders the shared purchase-order form for draft edits. | No code-level defect found. | Low | None | Re-test draft-only edit, non-draft message, back/cancel links, validation, and save error/success. |
+| `/purchases/bills` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads `/purchase-bills`, shows loading/error/empty states, gates create/finalize actions, and links details. | No code-level defect found. | Low | None | Re-test list rendering, restricted-role finalize visibility, and real empty/error states in a browser. |
+| `/purchases/bills/new` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200`; form loads AP setup data and now consumes `?supplierId=...` from contact AP links. | New bill route ignored `?supplierId=...` from `/contacts/[id]` supplier actions. | Medium | Fixed supplier query prefill and added focused Jest coverage. | Re-test full create validation and save error/success with safe authenticated data. |
+| `/purchases/bills/[id]` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads bill detail, receiving/matching/accounting preview/clearing data, PDF data, attachments, payment/debit-note links, and permission-gated finalize/void/delete controls. | No code-level defect found; high action/PDF/archive surface remains untested. | Low | None | Re-test invalid/missing id, PDF/archive, attachments, inventory matching panels, and draft/finalized/voided states with safe local data. |
+| `/purchases/bills/[id]/edit` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source fetches `/purchase-bills/:id`, shows loading/error states, and renders the shared purchase-bill form. | No code-level defect found. | Low | None | Re-test draft-only edit, non-draft error state, back/cancel links, validation, and save error/success. |
+| `/purchases/supplier-payments` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads `/supplier-payments`, shows loading/error/empty states, gates create/void actions, and links details. | No code-level defect found. | Low | None | Re-test list rendering, restricted-role void visibility, and real empty/error states. |
+| `/purchases/supplier-payments/new` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200`; source loads suppliers/accounts/bank profiles/open bills and now consumes `?supplierId=...&billId=...` from contact/bill handoff links. | New supplier payment route ignored supplier and bill query params, so AP drill-down links did not preselect the target supplier/open bill. | Medium | Fixed supplier and bill allocation prefill and added focused Jest coverage. | Re-test full allocation validation and submit error/success with safe authenticated data. |
+| `/purchases/supplier-payments/[id]` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads supplier payment detail, receipt data, open bills, unapplied allocations, PDF receipt controls, refund link, attachments, and permission-gated void/reversal controls. | No code-level defect found; high allocation/reversal/archive surface remains untested. | Low | None | Re-test invalid/missing id, receipt PDF/archive, unapplied allocation apply/reverse visibility, refund link, attachments, and void state. |
+| `/purchases/supplier-refunds` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads `/supplier-refunds`, shows loading/error/empty states, gates create/void actions, and links details. | No code-level defect found. | Low | None | Re-test list rendering, restricted-role void visibility, and real empty/error states. |
+| `/purchases/supplier-refunds/new` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source consumes supplier/source query params, loads refundable sources and paid-through accounts, validates amount and source, and posts `/supplier-refunds`. | No code-level defect found. | Low | None | Re-test query prefill, source switching, no-source empty state, validation, and submit error/success with safe local data. |
+| `/purchases/supplier-refunds/[id]` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads refund detail/PDF data, source links, attachments, and permission-gated void/PDF controls. | No code-level defect found. | Low | None | Re-test invalid/missing id, PDF/archive, source link behavior, attachments, and void state. |
+| `/purchases/cash-expenses` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads `/cash-expenses`, shows loading/error/empty states, gates create/void actions, and links details. | No code-level defect found. | Low | None | Re-test list rendering, restricted-role void visibility, and real empty/error states. |
+| `/purchases/cash-expenses/new` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; shared cash expense form loads contacts/items/accounts/taxes/branches/bank accounts, validates payable lines, and posts `/cash-expenses`. | No code-level defect found. | Low | None | Re-test validation, paid-through account choices, submit error/success, and no-AP wording in browser. |
+| `/purchases/cash-expenses/[id]` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads cash expense detail/PDF data, attachments, and permission-gated void/PDF controls. | No code-level defect found. | Low | None | Re-test invalid/missing id, PDF/archive, attachments, and void state. |
+| `/purchases/debit-notes` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads `/purchase-debit-notes`, shows loading/error/empty states, gates create/finalize actions, and links details. | No code-level defect found. | Low | None | Re-test list rendering, restricted-role finalize visibility, and real empty/error states. |
+| `/purchases/debit-notes/new` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; shared debit-note form consumes `supplierId` and `billId`, loads suppliers/bills/items/accounts/taxes/branches, validates lines, and posts `/purchase-debit-notes`. | No code-level defect found. | Low | None | Re-test query prefill, original-bill filtering, validation, and submit error/success with safe local data. |
+| `/purchases/debit-notes/[id]` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads debit note detail, open bills, PDF data, allocations, refund links, attachments, and permission-gated finalize/apply/reverse/void/delete controls. | No code-level defect found; high allocation/reversal/archive surface remains untested. | Low | None | Re-test invalid/missing id, PDF/archive, allocation apply/reverse visibility, refund links, attachments, and draft/finalized/voided states. |
+| `/purchases/debit-notes/[id]/edit` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source fetches `/purchase-debit-notes/:id`, shows loading/error states, and renders the shared debit-note form. | Risk note: edit/update/delete are gated by `purchaseDebitNotes.create` in both web route mapping and API controller because there is no dedicated update permission. | Medium permission-model risk | None | Confirm product/security intent, then re-test draft-only edit, non-draft error state, validation, and save error/success. |
+
+### Purchases/AP Blocker List
+
+- In-app Browser local route visits are still blocked by tool URL policy, so no browser-runtime AP pass is claimed.
+- Login was not run because it writes an audit log; authenticated session, tenant selection, and restricted-role behavior remain untested at runtime.
+- State-changing AP actions were not executed: create, approve, mark sent, close, convert to bill, finalize, void, delete, apply, reverse, refund, post, PDF/archive generation, attachment upload/delete, and submit flows remain deferred.
+- Debit-note edit/update/delete permission naming needs confirmation because the current system uses `purchaseDebitNotes.create` for draft update/delete.
+
+### Routes Fixed In This Thread
+
+- `/purchases/bills/new`: fixed supplier prefill from `?supplierId=...`, matching contact supplier actions.
+- `/purchases/supplier-payments/new`: fixed supplier and target bill prefill from `?supplierId=...&billId=...`, matching contact and bill detail actions.
+
+### Routes Deferred And Why
+
+- All 21 Purchases/AP routes remain deferred for authenticated browser-runtime QA because the in-app Browser local URL policy still blocks route visits and login was avoided to prevent audit-log writes.
+- AP state-changing actions, PDF/archive generation, and attachment workflows were deferred because this thread forbids mutating records and customer/accounting-adjacent data.
+- API endpoint behavior beyond `/health` and `/readiness` was reviewed from code only; no authenticated AP API calls were made.
+
+### Recommended Next QA Batch After Part 4
+
+Recommended next thread: `DEV-01 Part 5: banking and reconciliation route QA`.
+
+Focus on bank accounts, statement imports/transactions, reconciliations, and bank transfers. Start with the same local health/readiness checks, keep shell HTTP separate from browser-runtime claims, and avoid login or state-changing reconciliation actions unless the next thread explicitly approves the audit/data mutation boundary.
+
 ## Placeholder, Duplicate, Risky, Hidden Route Notes
 
 - Placeholder-only: the committed catch-all route renders "Module not implemented yet" for any unmatched app-shell path. Part 2 added a baseline `dashboard.view` route permission and unauthenticated app-shell guard; restricted-role and authenticated placeholder behavior still need QA.
 - Scaffold-only/future modules: quotes/proformas, recurring invoices, cash invoices, delivery notes, API invoices, beneficiaries, payroll, fixed assets, cost centers, projects, developer/API keys, integrations, and document templates are titleMap entries only unless a real page exists.
 - Duplicate/overlap risk: `/bank-accounts/[id]/reconciliation` and `/bank-accounts/[id]/reconciliations`/`new` overlap conceptually and should be tested for navigation clarity and stale links.
-- Risky auth mapping: Part 2 fixed the unauthenticated visibility gap for `/setup`, `/organization/setup`, and placeholder catch-all routes. Part 3 identified that `/sales/credit-notes/[id]/edit` is gated by `creditNotes.create` because no dedicated `creditNotes.update` permission exists. Authenticated and restricted-role behavior remains blocked until a safe local API/database state is available.
+- Risky auth mapping: Part 2 fixed the unauthenticated visibility gap for `/setup`, `/organization/setup`, and placeholder catch-all routes. Part 3 identified that `/sales/credit-notes/[id]/edit` is gated by `creditNotes.create` because no dedicated `creditNotes.update` permission exists. Part 4 identified the same permission-model pattern for `/purchases/debit-notes/[id]/edit`, where edit/update/delete use `purchaseDebitNotes.create` because no dedicated update permission exists. Authenticated and restricted-role behavior remains blocked until a safe local API/database state and browser route path are available.
 - Hidden expected routes: detail/new/edit routes are generally not sidebar children and are reached through lists/actions. That is expected, but QA should confirm every hidden route has a discoverable path from an authorized workflow.
 - Committed route vs placeholder conflict: some placeholder `titleMap` keys duplicate real routes (`/reports`, `/sales/invoices`, `/bank-accounts`, `/branches`); real files should win for exact committed pages.
 
@@ -335,17 +405,23 @@ Each batch stays at or below 20 routes.
 
 ## Recommended Next Actual QA Batch
 
-Recommended next thread: `DEV-01 Part 4: purchases and AP route QA`.
+Recommended next thread: `DEV-01 Part 5: banking and reconciliation route QA`.
 
-Run Purchases/AP next because Sales/AR is now inventoried, code-reviewed, and documented with the current runtime blockers. Keep the batch split small enough to avoid mixing purchase-order/bill defects with supplier payment/refund/debit-note defects if runtime access becomes available.
+Run Banking/Reconciliation next because Purchases/AP has shell route-load evidence, Graphify-assisted code review, and documented runtime blockers. Keep shell HTTP results separate from authenticated browser-runtime claims, and do not create, close, void, match, import, or mutate reconciliation data unless a future prompt explicitly widens the safe data boundary.
 
-Routes to include in the first AP pass:
+Routes to include in the next banking pass:
 
-- `/purchases/purchase-orders`
-- `/purchases/purchase-orders/new`
-- `/purchases/purchase-orders/[id]`
-- `/purchases/purchase-orders/[id]/edit`
-- `/purchases/bills`
-- `/purchases/bills/new`
-- `/purchases/bills/[id]`
-- `/purchases/bills/[id]/edit`
+- `/bank-accounts`
+- `/bank-accounts/new`
+- `/bank-accounts/[id]`
+- `/bank-accounts/[id]/edit`
+- `/bank-accounts/[id]/reconciliation`
+- `/bank-accounts/[id]/reconciliations`
+- `/bank-accounts/[id]/reconciliations/new`
+- `/bank-accounts/[id]/statement-imports`
+- `/bank-accounts/[id]/statement-transactions`
+- `/bank-reconciliations/[id]`
+- `/bank-statement-transactions/[id]`
+- `/bank-transfers`
+- `/bank-transfers/new`
+- `/bank-transfers/[id]`
