@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `af5f891 Plan DEV-03 AR state-machine QA`
+- `15ae06c Plan DEV-03 AP state-machine QA`
 
 ## Current Development Objective
 
@@ -90,7 +90,10 @@
 - DEV-03 Part 4 AP state-machine QA dry-run plan is completed in [docs/development/DEV_03_AP_STATE_MACHINE_DRY_RUN_PLAN.md](docs/development/DEV_03_AP_STATE_MACHINE_DRY_RUN_PLAN.md).
 - Highest-risk AP transitions: purchase order approve/mark-sent/close/void/convert-to-bill; purchase bill finalize/void with inventory-clearing readiness and supplier payment/debit-note/unapplied allocation blockers; supplier payment direct allocation, unapplied allocation, allocation reversal, refund blocker, and void behavior; supplier refund source claim and void restoration; purchase debit note finalize/apply/reverse/void with allocation and refund blockers; cash expense immediate posting/void; AP PDF/archive endpoints that create generated-document records.
 - DEV-03 Part 4 performed no login, fixture creation, or runtime mutation: no create, edit, approve, close, finalize, void, reverse, allocate, refund, receive, post, export, download, upload, delete, migration, seed/reset/delete, smoke, E2E, ZATCA, email, backup/restore, deployment, env change, or production-hosting research was run.
-- Exact next prompt title: `DEV-03 Part 5: banking reconciliation state-machine QA dry-run plan`.
+- DEV-03 Part 5 banking/reconciliation state-machine QA dry-run plan is completed in [docs/development/DEV_03_BANKING_RECONCILIATION_STATE_MACHINE_DRY_RUN_PLAN.md](docs/development/DEV_03_BANKING_RECONCILIATION_STATE_MACHINE_DRY_RUN_PLAN.md).
+- Highest-risk banking/reconciliation transitions: bank opening-balance posting; bank transfer create/void reversal; statement import persistence and import void blockers; statement transaction match/categorize/ignore, especially categorization journal posting; closed reconciliation period locks; reconciliation submit/approve/reopen/close/void lifecycle; and reconciliation CSV/PDF/archive output gates.
+- DEV-03 Part 5 performed no login, fixture creation, or runtime mutation: no create, edit, import, preview-import, reconcile, submit, approve, close, void, reverse, match, categorize, ignore, transfer, export, download, upload, delete, migration, seed/reset/delete, smoke, E2E, ZATCA, email, backup/restore, deployment, env change, or production-hosting research was run.
+- Exact next prompt title: `DEV-03 Part 6: inventory state-machine QA dry-run plan`.
 
 ## Current PROD-A1 Objective
 
@@ -469,7 +472,7 @@
 - The current product state is broad controlled-beta MVP, not paid production SaaS: core AR/AP, banking, inventory, reports, documents, audit, roles, storage readiness, email readiness, and ZATCA groundwork exist, but many production-facing and product-completion gaps remain.
 - Top development gaps: full route QA and blocker triage, verification gate hardening, high-risk state-machine QA, auth/session hardening, accountant review, sales/purchase completion, banking parser/reconciliation hardening, inventory accounting policy work, admin/audit alerts, and SaaS business readiness.
 - Mock/blocked areas remain intentional: real ZATCA, real customer email sending, live bank feeds, payment gateway capture, object-storage migration execution, backup/restore execution, and automatic inventory accounting expansion.
-- Exact next recommended development ticket: `DEV-03 Part 5: banking reconciliation state-machine QA dry-run plan`.
+- Exact next recommended development ticket: `DEV-03 Part 6: inventory state-machine QA dry-run plan`.
 
 ## Forbidden Actions For Next Production Thread
 
@@ -482,4 +485,4 @@
 
 ## Next Thread Prompt
 
-`DEV-03 Part 5: banking reconciliation state-machine QA dry-run plan`
+`DEV-03 Part 6: inventory state-machine QA dry-run plan`

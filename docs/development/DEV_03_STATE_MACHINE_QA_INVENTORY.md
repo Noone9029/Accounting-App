@@ -253,8 +253,11 @@ The required DEV-03 Part 1 workflows are included above:
 
 ### Part 5: Banking/Reconciliation State-Machine QA
 
-- Bank accounts, bank transfers, statement import/preview/import/void, statement transaction match/categorize/ignore, and reconciliation submit/approve/reopen/close/void.
-- Prioritize no-ledger mutation on preview, categorization journal creation, closed reconciliation blockers, and transfer reversal.
+- Completed as a dry-run plan in [DEV_03_BANKING_RECONCILIATION_STATE_MACHINE_DRY_RUN_PLAN.md](DEV_03_BANKING_RECONCILIATION_STATE_MACHINE_DRY_RUN_PLAN.md).
+- Bank account profiles, bank transfers, statement import/preview/import/void, statement transaction match/categorize/ignore, reconciliation submit/approve/reopen/close/void, and reconciliation report output gates were mapped to routes, API endpoints, status fields, permissions, audit side effects, ledger effects, reconciliation effects, output gates, fixture markers, and planned-only test cases.
+- Highest-risk banking/reconciliation transitions are opening-balance posting, bank transfer create/void reversal, statement import persistence and import void blockers, statement transaction categorization journal posting, closed reconciliation period locks, reconciliation submit/approve/reopen/close/void lifecycle, and reconciliation CSV/PDF/archive output gates.
+- No login, fixture creation, runtime mutation, statement import/preview execution, transfer/reconciliation mutation, PDF/archive generation, smoke, E2E, migration, seed/reset/delete, ZATCA, email, backup/restore, deployment, environment change, or production check was performed.
+- Keep reconciliation report CSV/PDF/archive actions separate unless output approval exists.
 
 ### Part 6: Inventory State-Machine QA
 
@@ -284,6 +287,6 @@ The required DEV-03 Part 1 workflows are included above:
 
 ## 11. Recommended Next Step
 
-Proceed with `DEV-03 Part 5: banking reconciliation state-machine QA dry-run plan`.
+Proceed with `DEV-03 Part 6: inventory state-machine QA dry-run plan`.
 
-Part 5 should remain dry-run planning by default. It should convert Banking/Reconciliation workflows into a precise fixture graph, endpoint plan, assertion matrix, audit evidence checklist, and cleanup/stop rules before any local disposable banking mutation is approved.
+Part 6 should remain dry-run planning by default. It should convert Inventory workflows into a precise fixture graph, endpoint plan, assertion matrix, audit evidence checklist, stock/accounting effect expectations, and cleanup/stop rules before any local disposable inventory mutation is approved.
