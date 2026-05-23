@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -14,6 +15,7 @@ import {
 } from "@/lib/inventory";
 import { formatMoneyAmount } from "@/lib/money";
 import { downloadAuthenticatedFile } from "@/lib/pdf-download";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { InventoryClearingReconciliationReport, InventoryClearingReportStatus } from "@/lib/types";
 
 const statuses: Array<{ value: InventoryClearingReportStatus | ""; label: string }> = [
@@ -36,6 +38,7 @@ type ReportFilters = {
 
 export default function InventoryClearingReconciliationPage() {
   const organizationId = useActiveOrganizationId();
+  const { canAny } = usePermissions();
   const searchParams = useSearchParams();
   const [filters, setFilters] = useState<ReportFilters>({
     from: searchParams.get("from") ?? "",
@@ -48,6 +51,7 @@ export default function InventoryClearingReconciliationPage() {
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
+  const canDownloadCsv = canAny(PERMISSIONS.reports.export, PERMISSIONS.generatedDocuments.download);
 
   const query = useMemo(() => buildQuery(filters), [filters]);
 
@@ -102,14 +106,16 @@ export default function InventoryClearingReconciliationPage() {
           <p className="mt-1 text-sm text-steel">Compare inventory-clearing purchase bills against active purchase receipt asset postings.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => void downloadCsv()}
-            disabled={!report || downloading}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
-          >
-            {downloading ? "Downloading..." : "Download CSV"}
-          </button>
+          {canDownloadCsv ? (
+            <button
+              type="button"
+              onClick={() => void downloadCsv()}
+              disabled={!report || downloading}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              {downloading ? "Downloading..." : "Download CSV"}
+            </button>
+          ) : null}
           <Link href="/inventory/settings" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Settings
           </Link>

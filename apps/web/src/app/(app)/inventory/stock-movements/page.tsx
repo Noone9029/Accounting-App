@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
@@ -30,11 +31,20 @@ const movementTypes: StockMovementType[] = [
 export default function StockMovementsPage() {
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
+  const searchParams = useSearchParams();
   const [movements, setMovements] = useState<StockMovement[]>([]);
-  const [filters, setFilters] = useState({ itemId: "", warehouseId: "", from: "", to: "", type: "" });
+  const [filters, setFilters] = useState(() => ({
+    itemId: searchParams.get("itemId") ?? "",
+    warehouseId: searchParams.get("warehouseId") ?? "",
+    from: searchParams.get("from") ?? "",
+    to: searchParams.get("to") ?? "",
+    type: searchParams.get("type") ?? "",
+  }));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const canCreate = can(PERMISSIONS.stockMovements.create);
+  const canCreateAdjustment = can(PERMISSIONS.inventoryAdjustments.create);
+  const canCreateTransfer = can(PERMISSIONS.warehouseTransfers.create);
 
   const path = useMemo(() => {
     const query = new URLSearchParams();
@@ -107,11 +117,11 @@ export default function StockMovementsPage() {
       <StockMovementLedgerGuidance canCreate={canCreate} />
 
       <form onSubmit={updateFilters} className="mb-5 grid grid-cols-1 gap-3 rounded-md border border-slate-200 bg-white p-5 shadow-panel md:grid-cols-6">
-        <input name="itemId" placeholder="Item ID" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-        <input name="warehouseId" placeholder="Warehouse ID" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-        <input name="from" type="date" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-        <input name="to" type="date" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-        <select name="type" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+        <input name="itemId" defaultValue={filters.itemId} placeholder="Item ID" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+        <input name="warehouseId" defaultValue={filters.warehouseId} placeholder="Warehouse ID" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+        <input name="from" type="date" defaultValue={filters.from} className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+        <input name="to" type="date" defaultValue={filters.to} className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+        <select name="type" defaultValue={filters.type} className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
           <option value="">All types</option>
           {movementTypes.map((type) => (
             <option key={type} value={type}>
@@ -140,12 +150,16 @@ export default function StockMovementsPage() {
                   Add opening movement
                 </Link>
               ) : null}
-              <Link href="/inventory/adjustments/new" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Create adjustment
-              </Link>
-              <Link href="/inventory/transfers/new" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Create transfer
-              </Link>
+              {canCreateAdjustment ? (
+                <Link href="/inventory/adjustments/new" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+                  Create adjustment
+                </Link>
+              ) : null}
+              {canCreateTransfer ? (
+                <Link href="/inventory/transfers/new" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+                  Create transfer
+                </Link>
+              ) : null}
             </div>
           </div>
         ) : null}

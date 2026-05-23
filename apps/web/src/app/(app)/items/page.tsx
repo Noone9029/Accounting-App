@@ -43,8 +43,8 @@ export default function ItemsPage() {
 
     Promise.all([
       apiRequest<Item[]>("/items"),
-      apiRequest<Account[]>("/accounts"),
-      apiRequest<TaxRate[]>("/tax-rates"),
+      canManageItems ? apiRequest<Account[]>("/accounts") : Promise.resolve([]),
+      canManageItems ? apiRequest<TaxRate[]>("/tax-rates") : Promise.resolve([]),
       canViewInventory ? apiRequest<InventoryBalance[]>("/inventory/balances") : Promise.resolve([]),
     ])
       .then(([itemResult, accountResult, taxRateResult, balanceResult]) => {
@@ -69,7 +69,7 @@ export default function ItemsPage() {
     return () => {
       cancelled = true;
     };
-  }, [canViewInventory, organizationId]);
+  }, [canManageItems, canViewInventory, organizationId]);
 
   async function createItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -37,7 +37,7 @@ type ReportFilters = {
 
 export default function InventoryClearingVariancePage() {
   const organizationId = useActiveOrganizationId();
-  const { can } = usePermissions();
+  const { can, canAny } = usePermissions();
   const searchParams = useSearchParams();
   const [filters, setFilters] = useState<ReportFilters>({
     from: searchParams.get("from") ?? "",
@@ -51,6 +51,7 @@ export default function InventoryClearingVariancePage() {
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
   const canCreateProposal = can(PERMISSIONS.inventory.varianceProposalsCreate);
+  const canDownloadCsv = canAny(PERMISSIONS.reports.export, PERMISSIONS.generatedDocuments.download);
   const query = useMemo(() => buildQuery(filters), [filters]);
 
   useEffect(() => {
@@ -104,14 +105,16 @@ export default function InventoryClearingVariancePage() {
           <p className="mt-1 text-sm text-steel">Review clearing-mode bills and receipt asset postings that need accountant action.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => void downloadCsv()}
-            disabled={!report || downloading}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
-          >
-            {downloading ? "Downloading..." : "Download CSV"}
-          </button>
+          {canDownloadCsv ? (
+            <button
+              type="button"
+              onClick={() => void downloadCsv()}
+              disabled={!report || downloading}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              {downloading ? "Downloading..." : "Download CSV"}
+            </button>
+          ) : null}
           <Link href="/inventory/reports/clearing-reconciliation" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Reconciliation
           </Link>

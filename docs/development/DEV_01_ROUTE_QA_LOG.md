@@ -1,8 +1,8 @@
 # DEV-01 Route QA Log
 
-Status: Part 3 sales/AR route QA completed
+Status: Part 6 inventory route QA completed
 Date: 2026-05-23
-Source state inspected: `690c4bc QA DEV-01 auth dashboard navigation routes`
+Source state inspected: `0f1a112 QA DEV-01 banking reconciliation routes`
 
 ## Scope And Rules
 
@@ -117,34 +117,34 @@ Routes not included in completed DEV-01 batches remain `Not tested`.
 
 | Route path | Source file | Expected purpose | Likely data/API dependency | Auth/role assumption visible from code | QA priority | QA status |
 | --- | --- | --- | --- | --- | --- | --- |
-| `/items` | `apps/web/src/app/(app)/items/page.tsx` | Products/services and inventory-tracked item list | Items, accounts, tax rates, inventory balances | Authenticated; `items.view` | High | Not tested |
-| `/inventory/warehouses` | `apps/web/src/app/(app)/inventory/warehouses/page.tsx` | Warehouse list/manage | Warehouses API | Authenticated; `warehouses.view` | High | Not tested |
-| `/inventory/warehouses/[id]` | `apps/web/src/app/(app)/inventory/warehouses/[id]/page.tsx` | Warehouse detail and stock movement drilldown | Warehouses, stock movements, balances | Authenticated; `warehouses.view` | Critical | Not tested |
-| `/inventory/stock-movements` | `apps/web/src/app/(app)/inventory/stock-movements/page.tsx` | Stock movement ledger | Stock movements, warehouses, items | Authenticated; `stockMovements.view` | High | Not tested |
-| `/inventory/stock-movements/new` | `apps/web/src/app/(app)/inventory/stock-movements/new/page.tsx` | Create manual stock movement | Stock movements, warehouses, items | Authenticated; `stockMovements.create` | Critical | Not tested |
-| `/inventory/adjustments` | `apps/web/src/app/(app)/inventory/adjustments/page.tsx` | Inventory adjustment list | Inventory adjustments API | Authenticated; `inventoryAdjustments.view` | High | Not tested |
-| `/inventory/adjustments/new` | `apps/web/src/app/(app)/inventory/adjustments/new/page.tsx` | Create inventory adjustment | Adjustments, warehouses, items | Authenticated; `inventoryAdjustments.create` | Critical | Not tested |
-| `/inventory/adjustments/[id]` | `apps/web/src/app/(app)/inventory/adjustments/[id]/page.tsx` | Adjustment detail, approve/void | Adjustments, stock movements | Authenticated; `inventoryAdjustments.view` | Critical | Not tested |
-| `/inventory/adjustments/[id]/edit` | `apps/web/src/app/(app)/inventory/adjustments/[id]/edit/page.tsx` | Edit draft inventory adjustment | Adjustments, warehouses, items | Authenticated; `inventoryAdjustments.create` | Critical | Not tested |
-| `/inventory/transfers` | `apps/web/src/app/(app)/inventory/transfers/page.tsx` | Warehouse transfer list | Warehouse transfers API | Authenticated; `warehouseTransfers.view` | High | Not tested |
-| `/inventory/transfers/new` | `apps/web/src/app/(app)/inventory/transfers/new/page.tsx` | Create warehouse transfer | Transfers, warehouses, items | Authenticated; `warehouseTransfers.create` | Critical | Not tested |
-| `/inventory/transfers/[id]` | `apps/web/src/app/(app)/inventory/transfers/[id]/page.tsx` | Warehouse transfer detail/void | Transfers, stock movements | Authenticated; `warehouseTransfers.view` | Critical | Not tested |
-| `/inventory/purchase-receipts` | `apps/web/src/app/(app)/inventory/purchase-receipts/page.tsx` | Purchase receipt list | Purchase receipts API | Authenticated; `purchaseReceiving.view` | High | Not tested |
-| `/inventory/purchase-receipts/new` | `apps/web/src/app/(app)/inventory/purchase-receipts/new/page.tsx` | Create manual purchase receipt | Receipts, purchase orders/bills, warehouses, items | Authenticated; `purchaseReceiving.create` | Critical | Not tested |
-| `/inventory/purchase-receipts/[id]` | `apps/web/src/app/(app)/inventory/purchase-receipts/[id]/page.tsx` | Purchase receipt detail/void/posting preview | Receipts, stock movements, receipt asset posting APIs | Authenticated; `purchaseReceiving.view` | Critical | Not tested |
-| `/inventory/sales-stock-issues` | `apps/web/src/app/(app)/inventory/sales-stock-issues/page.tsx` | Sales stock issue list | Sales stock issues API | Authenticated; `salesStockIssue.view` | High | Not tested |
-| `/inventory/sales-stock-issues/new` | `apps/web/src/app/(app)/inventory/sales-stock-issues/new/page.tsx` | Create manual sales stock issue | Sales stock issues, invoices, warehouses, items | Authenticated; `salesStockIssue.create` | Critical | Not tested |
-| `/inventory/sales-stock-issues/[id]` | `apps/web/src/app/(app)/inventory/sales-stock-issues/[id]/page.tsx` | Sales stock issue detail/void/COGS preview | Sales stock issues, stock movements, COGS APIs | Authenticated; `salesStockIssue.view` | Critical | Not tested |
-| `/inventory/balances` | `apps/web/src/app/(app)/inventory/balances/page.tsx` | Derived inventory quantity/cost balance view | `GET /inventory/balances` | Authenticated; `inventory.view` | High | Not tested |
-| `/inventory/settings` | `apps/web/src/app/(app)/inventory/settings/page.tsx` | Inventory accounting/valuation settings | Inventory accounting settings APIs | Authenticated; `inventory.view` | High | Not tested |
-| `/inventory/reports/stock-valuation` | `apps/web/src/app/(app)/inventory/reports/stock-valuation/page.tsx` | Operational stock valuation report | Inventory report endpoints | Authenticated; `inventory.view` | High | Not tested |
-| `/inventory/reports/movement-summary` | `apps/web/src/app/(app)/inventory/reports/movement-summary/page.tsx` | Inventory movement summary report | Inventory report endpoints | Authenticated; `inventory.view` | High | Not tested |
-| `/inventory/reports/low-stock` | `apps/web/src/app/(app)/inventory/reports/low-stock/page.tsx` | Low-stock report | Inventory report endpoints | Authenticated; `inventory.view` | High | Not tested |
-| `/inventory/reports/clearing-reconciliation` | `apps/web/src/app/(app)/inventory/reports/clearing-reconciliation/page.tsx` | Inventory clearing reconciliation report | Inventory report endpoints | Authenticated; `inventory.view` | High | Not tested |
-| `/inventory/reports/clearing-variance` | `apps/web/src/app/(app)/inventory/reports/clearing-variance/page.tsx` | Inventory clearing variance report | Inventory report endpoints | Authenticated; `inventory.view` | High | Not tested |
-| `/inventory/variance-proposals` | `apps/web/src/app/(app)/inventory/variance-proposals/page.tsx` | Variance proposal list | Variance proposal APIs | Authenticated; `inventory.varianceProposalsView` | High | Not tested |
-| `/inventory/variance-proposals/new` | `apps/web/src/app/(app)/inventory/variance-proposals/new/page.tsx` | Create variance proposal | Variance proposals, clearing variance/accounting APIs | Authenticated; `inventory.varianceProposalsCreate` | Critical | Not tested |
-| `/inventory/variance-proposals/[id]` | `apps/web/src/app/(app)/inventory/variance-proposals/[id]/page.tsx` | Variance proposal detail, approve/post/reverse/void | Variance proposal and accounting APIs | Authenticated; `inventory.varianceProposalsView` | Critical | Not tested |
+| `/items` | `apps/web/src/app/(app)/items/page.tsx` | Products/services and inventory-tracked item list | Items, accounts, tax rates, inventory balances | Authenticated; `items.view` | High | Code-reviewed only |
+| `/inventory/warehouses` | `apps/web/src/app/(app)/inventory/warehouses/page.tsx` | Warehouse list/manage | Warehouses API | Authenticated; `warehouses.view` | High | Code-reviewed only |
+| `/inventory/warehouses/[id]` | `apps/web/src/app/(app)/inventory/warehouses/[id]/page.tsx` | Warehouse detail and stock movement drilldown | Warehouses, stock movements, balances | Authenticated; `warehouses.view` | Critical | Code-reviewed only |
+| `/inventory/stock-movements` | `apps/web/src/app/(app)/inventory/stock-movements/page.tsx` | Stock movement ledger | Stock movements, warehouses, items | Authenticated; `stockMovements.view` | High | Code-reviewed only |
+| `/inventory/stock-movements/new` | `apps/web/src/app/(app)/inventory/stock-movements/new/page.tsx` | Create manual stock movement | Stock movements, warehouses, items | Authenticated; `stockMovements.create` | Critical | Code-reviewed only |
+| `/inventory/adjustments` | `apps/web/src/app/(app)/inventory/adjustments/page.tsx` | Inventory adjustment list | Inventory adjustments API | Authenticated; `inventoryAdjustments.view` | High | Code-reviewed only |
+| `/inventory/adjustments/new` | `apps/web/src/app/(app)/inventory/adjustments/new/page.tsx` | Create inventory adjustment | Adjustments, warehouses, items | Authenticated; `inventoryAdjustments.create` | Critical | Code-reviewed only |
+| `/inventory/adjustments/[id]` | `apps/web/src/app/(app)/inventory/adjustments/[id]/page.tsx` | Adjustment detail, approve/void | Adjustments, stock movements | Authenticated; `inventoryAdjustments.view` | Critical | Code-reviewed only |
+| `/inventory/adjustments/[id]/edit` | `apps/web/src/app/(app)/inventory/adjustments/[id]/edit/page.tsx` | Edit draft inventory adjustment | Adjustments, warehouses, items | Authenticated; `inventoryAdjustments.create` | Critical | Code-reviewed only |
+| `/inventory/transfers` | `apps/web/src/app/(app)/inventory/transfers/page.tsx` | Warehouse transfer list | Warehouse transfers API | Authenticated; `warehouseTransfers.view` | High | Code-reviewed only |
+| `/inventory/transfers/new` | `apps/web/src/app/(app)/inventory/transfers/new/page.tsx` | Create warehouse transfer | Transfers, warehouses, items | Authenticated; `warehouseTransfers.create` | Critical | Code-reviewed only |
+| `/inventory/transfers/[id]` | `apps/web/src/app/(app)/inventory/transfers/[id]/page.tsx` | Warehouse transfer detail/void | Transfers, stock movements | Authenticated; `warehouseTransfers.view` | Critical | Code-reviewed only |
+| `/inventory/purchase-receipts` | `apps/web/src/app/(app)/inventory/purchase-receipts/page.tsx` | Purchase receipt list | Purchase receipts API | Authenticated; `purchaseReceiving.view` | High | Code-reviewed only |
+| `/inventory/purchase-receipts/new` | `apps/web/src/app/(app)/inventory/purchase-receipts/new/page.tsx` | Create manual purchase receipt | Receipts, purchase orders/bills, warehouses, items | Authenticated; `purchaseReceiving.create` | Critical | Code-reviewed only |
+| `/inventory/purchase-receipts/[id]` | `apps/web/src/app/(app)/inventory/purchase-receipts/[id]/page.tsx` | Purchase receipt detail/void/posting preview | Receipts, stock movements, receipt asset posting APIs | Authenticated; `purchaseReceiving.view` | Critical | Code-reviewed only |
+| `/inventory/sales-stock-issues` | `apps/web/src/app/(app)/inventory/sales-stock-issues/page.tsx` | Sales stock issue list | Sales stock issues API | Authenticated; `salesStockIssue.view` | High | Code-reviewed only |
+| `/inventory/sales-stock-issues/new` | `apps/web/src/app/(app)/inventory/sales-stock-issues/new/page.tsx` | Create manual sales stock issue | Sales stock issues, invoices, warehouses, items | Authenticated; `salesStockIssue.create` | Critical | Code-reviewed only |
+| `/inventory/sales-stock-issues/[id]` | `apps/web/src/app/(app)/inventory/sales-stock-issues/[id]/page.tsx` | Sales stock issue detail/void/COGS preview | Sales stock issues, stock movements, COGS APIs | Authenticated; `salesStockIssue.view` | Critical | Code-reviewed only |
+| `/inventory/balances` | `apps/web/src/app/(app)/inventory/balances/page.tsx` | Derived inventory quantity/cost balance view | `GET /inventory/balances` | Authenticated; `inventory.view` | High | Code-reviewed only |
+| `/inventory/settings` | `apps/web/src/app/(app)/inventory/settings/page.tsx` | Inventory accounting/valuation settings | Inventory accounting settings APIs | Authenticated; `inventory.view` | High | Code-reviewed only |
+| `/inventory/reports/stock-valuation` | `apps/web/src/app/(app)/inventory/reports/stock-valuation/page.tsx` | Operational stock valuation report | Inventory report endpoints | Authenticated; `inventory.view` | High | Code-reviewed only |
+| `/inventory/reports/movement-summary` | `apps/web/src/app/(app)/inventory/reports/movement-summary/page.tsx` | Inventory movement summary report | Inventory report endpoints | Authenticated; `inventory.view` | High | Code-reviewed only |
+| `/inventory/reports/low-stock` | `apps/web/src/app/(app)/inventory/reports/low-stock/page.tsx` | Low-stock report | Inventory report endpoints | Authenticated; `inventory.view` | High | Code-reviewed only |
+| `/inventory/reports/clearing-reconciliation` | `apps/web/src/app/(app)/inventory/reports/clearing-reconciliation/page.tsx` | Inventory clearing reconciliation report | Inventory report endpoints | Authenticated; `inventory.view` | High | Code-reviewed only |
+| `/inventory/reports/clearing-variance` | `apps/web/src/app/(app)/inventory/reports/clearing-variance/page.tsx` | Inventory clearing variance report | Inventory report endpoints | Authenticated; `inventory.view` | High | Code-reviewed only |
+| `/inventory/variance-proposals` | `apps/web/src/app/(app)/inventory/variance-proposals/page.tsx` | Variance proposal list | Variance proposal APIs | Authenticated; `inventory.varianceProposalsView` | High | Code-reviewed only |
+| `/inventory/variance-proposals/new` | `apps/web/src/app/(app)/inventory/variance-proposals/new/page.tsx` | Create variance proposal | Variance proposals, clearing variance/accounting APIs | Authenticated; `inventory.varianceProposalsCreate` | Critical | Code-reviewed only |
+| `/inventory/variance-proposals/[id]` | `apps/web/src/app/(app)/inventory/variance-proposals/[id]/page.tsx` | Variance proposal detail, approve/post/reverse/void | Variance proposal and accounting APIs | Authenticated; `inventory.varianceProposalsView` | Critical | Code-reviewed only |
 
 ### Reports/Documents
 
@@ -445,12 +445,96 @@ Recommended next thread: `DEV-01 Part 6: inventory route QA`.
 
 Focus on inventory operational routes first: items, warehouses, stock movements, inventory adjustments, warehouse transfers, purchase receipts, sales stock issues, balances, inventory settings, inventory reports, and variance proposals. Keep inventory operational-only, use shell HTTP plus code review unless browser runtime is unblocked, and do not approve, void, post, transfer, receive, issue, adjust, or mutate stock records unless a future prompt explicitly approves a safe local fixture.
 
+## DEV-01 Part 6 Summary
+
+- Latest pushed state inspected before Part 6: `0f1a112 QA DEV-01 banking reconciliation routes`.
+- `apps/web/next-env.d.ts` had no working-tree diff before Part 6 checks and was not staged.
+- Local worktree warning: unrelated edits remained in `apps/web/src/app/page.tsx` and untracked marketing/Graphify files; they were not reverted and only Part 6 files should be staged.
+- Runtime readiness: `http://localhost:4000/health` returned `200`; `http://localhost:4000/readiness` returned `200`; web shell HTTP checks returned `200` for `/login` and `/dashboard`.
+- Inventory shell route-load result: all 28 requested inventory routes returned `200` from `http://localhost:3000` using non-mutating shell HTTP checks, with synthetic ids for dynamic detail/edit routes.
+- Browser/runtime limit: in-app Browser route visits remained blocked by the Browser Use URL policy; no authenticated browser-runtime pass is claimed.
+- Login and state mutation were not run: no login flow, inventory create/approve/void/transfer/adjust/receive/issue/post/reverse/propose/approve-variance/upload/delete flow, report download, attachment workflow, migration, seed, reset, delete, deploy, or env change was executed.
+- Small frontend fixes applied: `/items` no longer fetches management-only account/tax data for item viewers; `/inventory/stock-movements` now honors query prefill filters and hides adjustment/transfer links unless matching create permissions exist; clearing reconciliation and clearing variance report pages now hide CSV download buttons unless export/download permission exists.
+- No accounting logic, API behavior, schema, migration, inventory valuation policy, FIFO/COGS behavior, ZATCA behavior, email behavior, customer data, production docs, Vercel/Supabase settings, or hosting research changed.
+
+### Graphify Dependency Findings For Inventory
+
+- Graphify files used as read-only planning aids: untracked `graphify-out/GRAPH_REPORT.md`, `graphify-out/manifest.json`, and `graphify-out/graph.json`; they were not treated as runtime proof and were not staged.
+- Graphify freshness note: the graph was built from commit `edaec451`, while Part 6 inspected `0f1a112`, so findings were used only to prioritize review and blast radius.
+- Relevant communities found: Web Inventory Purchases, API Inventory Reports, Web Inventory PDF, API Purchase Receipts, API Inventory Adjustments, API Sales Stock, API Warehouse Transfers, API Inventory Account, Web Inventory Field, API Stock Movements, API Inventory Variance, API Warehouses Warehouse, API Inventory Settings, and API Inventory Make.
+- High fan-out nodes that made broad rewrites risky: `getActiveOrganizationId()` with 194 edges, `usePermissions()` with 133 edges, `apiRequest()` with 110 edges, `StatusMessage()` with about 100 edges, `PurchaseReceipt` with 93 edges, `PurchaseDebitNote` with 92 edges, `formatMoneyAmount()` with 85 edges, `PermissionProvider()` with 84 edges, and `InventoryClearingReportStatus` with 77 edges.
+- Shared files reviewed before fixing: `apps/web/src/lib/api.ts`, `apps/web/src/lib/permissions.ts`, `apps/web/src/lib/sidebar-nav.ts`, `apps/web/src/lib/inventory.ts`, `apps/web/src/lib/pdf-download.ts`, `apps/web/src/hooks/use-active-organization.ts`, `apps/web/src/components/common/status-message.tsx`, `apps/web/src/components/permissions/*`, inventory route files under `apps/web/src/app/(app)/inventory`, `apps/web/src/app/(app)/items/page.tsx`, and API controllers under `apps/api/src/inventory*`, `apps/api/src/item*`, `apps/api/src/purchase-receipt*`, `apps/api/src/sales-stock-issue*`, and `apps/api/src/warehouse-transfer*`.
+- Graphify highlighted related tests for the touched frontend areas: `apps/web/src/app/(app)/inventory/inventory-guidance.test.tsx`, `apps/web/src/lib/inventory.test.ts`, and API inventory controller/service specs.
+
+### Part 6 Route Results
+
+| Route path | QA status | QA method | Actual result | Defects found | Severity | Fix applied | Remaining follow-up |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `/items` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200`; source loads item list, optional inventory balances, and item management form when `items.manage` exists. | Item viewers could hit management-only `/accounts` and `/tax-rates` dependencies even when the create form was hidden. | Medium | Fetch accounts and tax rates only when `items.manage` is present. | Re-test authenticated item viewer/manager roles, real empty/error states, and create/update/delete validation in a browser with safe data. |
+| `/inventory/warehouses` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads warehouse list, shows loading/error/empty states, and gates create/archive/reactivate controls by `warehouses.manage`. | No code-level defect found. | Low | None | Re-test restricted-role controls, real archive/reactivate visibility, and list empty/error states in a browser. |
+| `/inventory/warehouses/[id]` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads warehouse detail, balances, movements, adjustments, transfers, and drilldown links. | Warehouse movement drilldown depended on `/inventory/stock-movements` reading `warehouseId` from the query string, which it did not. | Medium | Fixed the target stock-movement page to hydrate filters from query params. | Re-test real warehouse detail, invalid/missing id, stock movement drilldown, and permission-restricted action links. |
+| `/inventory/stock-movements` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200`; post-fix shell route with `?warehouseId=dev-qa-missing-id` also returned `200`; source loads filters, ledger rows, and empty states. | Query params were ignored by filter inputs/API path; empty-state adjustment/transfer links were visible without matching create permissions. | Medium | Hydrated filters from `itemId`, `warehouseId`, `from`, `to`, and `type`; gated adjustment and transfer links by their create permissions. | Re-test filter behavior, real ledger rows, restricted-role links, and row source-document links in a browser. |
+| `/inventory/stock-movements/new` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads items and warehouses, validates movement type, item, warehouse, quantity, and unit cost, then posts only on submit. | No code-level defect found. | Low | None | Re-test dropdown loading, validation, cancel/back link, and submit error/success with safe local data; do not create movements outside an approved fixture. |
+| `/inventory/adjustments` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads adjustments, shows filters/status labels, loading/error/empty states, and gates create link by `inventoryAdjustments.create`. | No code-level defect found. | Low | None | Re-test real list rows, filters, restricted-role create visibility, and detail links. |
+| `/inventory/adjustments/new` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads items and warehouses, validates lines and reason, and posts only on submit. | No code-level defect found. | Low | None | Re-test dropdown dependencies, validation, cancel/back link, and submit error/success with safe local data. |
+| `/inventory/adjustments/[id]` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads adjustment detail/movements, shows attachment panel, and gates approve/void/edit/delete by permissions/status. | No code-level defect found; update/delete still use `inventoryAdjustments.create` because no dedicated update/delete permission exists. | Low | None | Confirm permission-model intent, then re-test invalid/missing id, attachments, and lifecycle action visibility with safe data. |
+| `/inventory/adjustments/[id]/edit` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source fetches draft adjustment, loads items/warehouses, and blocks editing non-draft adjustments from code. | No code-level defect found; route is gated by `inventoryAdjustments.create` because no dedicated update permission exists. | Low | None | Confirm permission naming, then re-test draft/non-draft behavior and save error/success with safe data. |
+| `/inventory/transfers` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads warehouse transfers, shows loading/error/empty states, and gates create link by `warehouseTransfers.create`. | No code-level defect found. | Low | None | Re-test real list rows, filters/status labels, restricted-role create visibility, and detail links. |
+| `/inventory/transfers/new` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads active warehouses and items, validates distinct warehouses, item, quantity, and date, and posts only on submit. | No code-level defect found. | Low | None | Re-test dropdown dependencies, validation, cancel/back link, and submit error/success with safe local data. |
+| `/inventory/transfers/[id]` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads transfer detail/movements and gates void by `warehouseTransfers.void`. | No code-level defect found. | Low | None | Re-test invalid/missing id, movement links, void visibility, and attachments with safe data. |
+| `/inventory/purchase-receipts` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads purchase receipts, shows loading/error/empty states, and gates create link by `purchaseReceiving.create`. | No code-level defect found. | Low | None | Re-test real rows, status filters, source purchase links, restricted-role create visibility, and detail links. |
+| `/inventory/purchase-receipts/new` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source supports source query prefill, loads purchase orders/bills/items/warehouses, validates receipt lines, and posts only on submit. | No code-level defect found. | Low | None | Re-test `sourceType`, `purchaseOrderId`, `purchaseBillId`, and `supplierId` prefill plus validation/error handling with safe data. |
+| `/inventory/purchase-receipts/[id]` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads receipt detail/movements/accounting preview/clearing status, mounts attachments, and gates void/post/reverse actions. | No code-level defect found; void uses `purchaseReceiving.create` while asset post/reverse use dedicated permissions. | Low | None | Confirm void permission intent, then re-test invalid/missing id, preview panels, attachments, and lifecycle action visibility with safe data. |
+| `/inventory/sales-stock-issues` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads sales stock issues, shows loading/error/empty states, and gates create link by `salesStockIssue.create`. | No code-level defect found. | Low | None | Re-test real rows, invoice links, restricted-role create visibility, and detail links. |
+| `/inventory/sales-stock-issues/new` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source supports `salesInvoiceId` prefill, loads invoices/items/warehouses, validates issue lines, and posts only on submit. | No code-level defect found. | Low | None | Re-test invoice prefill, line validation, cancel/back link, and submit error/success with safe local data. |
+| `/inventory/sales-stock-issues/[id]` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads issue detail/movements/COGS preview, mounts attachments, and gates void/post/reverse actions. | No code-level defect found; void uses `salesStockIssue.create` while COGS post/reverse use dedicated permissions. | Low | None | Confirm void permission intent, then re-test invalid/missing id, preview panels, attachments, and lifecycle action visibility with safe data. |
+| `/inventory/balances` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads derived balances, supports item/warehouse filters, shows loading/error/empty states, and links related stock movement pages. | No code-level defect found. | Low | None | Re-test real balances, filters, drilldown links, restricted-role guidance, and empty/error states in a browser. |
+| `/inventory/settings` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads inventory settings, disables edit controls without `inventory.manage`, fetches accounts only when `accounts.view` exists, and keeps valuation/clearing wording operational. | No code-level defect found. | Low | None | Re-test manage vs view-only settings, account dropdown states, save validation, and valuation wording with safe data. |
+| `/inventory/reports/stock-valuation` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads stock valuation filters/report, labels valuation as operational, and does not expose a download button. | No code-level defect found. | Low | None | Re-test report filters, empty/error states, and valuation wording with real safe data. |
+| `/inventory/reports/movement-summary` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads movement summary filters/report, shows operational copy, loading/error/empty states, and item/warehouse filters. | No code-level defect found. | Low | None | Re-test report filters, empty/error states, guidance links, and restricted-role navigation in a browser. |
+| `/inventory/reports/low-stock` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads low-stock filters/report and states reorder points are operational thresholds. | No code-level defect found. | Low | None | Re-test filter combinations, empty/error states, and reorder-threshold wording with safe data. |
+| `/inventory/reports/clearing-reconciliation` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200`; post-fix shell route returned `200`; source loads clearing reconciliation report and links settings. | CSV download button was visible without the frontend export/download permission used elsewhere for downloads. | Medium | Hid the CSV button unless `reports.export` or `generatedDocuments.download` is present. | Confirm API export permission policy later; re-test real filters, CSV visibility, and download behavior only in an approved non-mutating fixture. |
+| `/inventory/reports/clearing-variance` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200`; post-fix shell route returned `200`; source loads clearing variance report and gates variance proposal creation by `inventory.varianceProposalsCreate`. | CSV download button was visible without the frontend export/download permission used elsewhere for downloads. | Medium | Hid the CSV button unless `reports.export` or `generatedDocuments.download` is present. | Confirm API export permission policy later; re-test real filters, CSV visibility, and proposal links with safe data. |
+| `/inventory/variance-proposals` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads variance proposals, shows loading/error/empty states, and gates create link by `inventory.varianceProposalsCreate`. | No code-level defect found. | Low | None | Re-test real rows, filters/status labels, restricted-role create visibility, and detail links. |
+| `/inventory/variance-proposals/new` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source supports source query prefill, loads clearing variance data and accounts, validates proposal fields, and posts only on submit. | Manual proposal creation depends on `/accounts`, but the visible route permission only requires `inventory.varianceProposalsCreate`; restricted roles without `accounts.view` may hit a load blocker. | Medium | None; documented as a role-template/API dependency follow-up rather than changing permission policy in this batch. | Confirm whether variance proposal creators always receive `accounts.view`, then re-test prefill and validation with safe data. |
+| `/inventory/variance-proposals/[id]` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads proposal detail/events, shows attachments, and gates submit/approve/post/reverse/void actions by dedicated permissions. | No code-level defect found. | Low | None | Re-test invalid/missing id, lifecycle action visibility, event timeline, attachments, and posting/reversal preview with safe data. |
+
+### Inventory Blocker List
+
+- In-app Browser local route visits are still blocked by tool URL policy, so no browser-runtime inventory pass is claimed.
+- Login was not run because it writes an audit log; authenticated session, tenant selection, and restricted-role behavior remain untested at runtime.
+- State-changing inventory actions were not executed: item create/update/delete, warehouse create/archive/reactivate, manual movement create, adjustment create/update/delete/approve/void, transfer create/void, purchase receipt create/void/post/reverse, sales stock issue create/void/post/reverse, variance proposal create/submit/approve/post/reverse/void, report download, attachment upload/delete, and submit flows remain deferred.
+- API endpoint behavior beyond `/health` and `/readiness` was reviewed from code only; no authenticated inventory API calls were made.
+- Inventory clearing CSV API endpoints still appear API-gated by `inventory.view`; frontend buttons now require export/download permission, but backend permission policy should be confirmed in a later permission pass if inventory report downloads require stricter control.
+- `/inventory/variance-proposals/new` has a visible dependency on `/accounts`; role templates should confirm variance proposal creators also have `accounts.view` or the UI should add a clearer restricted-role state.
+- Inventory adjustment edit/update/delete and purchase receipt/sales stock issue void actions reuse create permissions because no dedicated update/delete/void permission exists for those resources; confirm product permission intent.
+
+### Routes Fixed In This Thread
+
+- `/items`: avoided fetching `/accounts` and `/tax-rates` unless `items.manage` is present.
+- `/inventory/warehouses/[id]` and `/inventory/stock-movements`: stock movement drilldown filters now hydrate from query params.
+- `/inventory/stock-movements`: empty-state adjustment and transfer links now require matching create permissions.
+- `/inventory/reports/clearing-reconciliation`: CSV download button now requires report export or generated-document download permission.
+- `/inventory/reports/clearing-variance`: CSV download button now requires report export or generated-document download permission.
+
+### Routes Deferred And Why
+
+- All 28 inventory routes remain deferred for authenticated browser-runtime QA because the in-app Browser local URL policy still blocks route visits and login was avoided to prevent audit-log writes.
+- Inventory create/approve/void/transfer/adjust/receive/issue/post/reverse/propose-variance/report-download/attachment workflows were deferred because this thread forbids mutating records or running download/attachment workflows.
+- Browser-level layout, sidebar state, role-specific access-denied rendering, and real invalid-id/not-found UI remain deferred until a safe browser route path and safe authenticated fixture are available.
+
+### Recommended Next QA Batch After Part 6
+
+Recommended next thread: `DEV-01 Part 7: reports documents settings admin route QA`.
+
+Focus on reports, generated documents, settings, admin/accounting, and audit routes next. Keep shell HTTP results separate from authenticated browser-runtime claims, do not run downloads or email/ZATCA flows unless explicitly approved, and continue to leave production hosting and provider settings untouched.
+
 ## Placeholder, Duplicate, Risky, Hidden Route Notes
 
 - Placeholder-only: the committed catch-all route renders "Module not implemented yet" for any unmatched app-shell path. Part 2 added a baseline `dashboard.view` route permission and unauthenticated app-shell guard; restricted-role and authenticated placeholder behavior still need QA.
 - Scaffold-only/future modules: quotes/proformas, recurring invoices, cash invoices, delivery notes, API invoices, beneficiaries, payroll, fixed assets, cost centers, projects, developer/API keys, integrations, and document templates are titleMap entries only unless a real page exists.
 - Duplicate/overlap risk: `/bank-accounts/[id]/reconciliation` and `/bank-accounts/[id]/reconciliations`/`new` overlap conceptually. Part 5 found no broken route links, but navigation clarity still needs authenticated browser QA.
-- Risky auth mapping: Part 2 fixed the unauthenticated visibility gap for `/setup`, `/organization/setup`, and placeholder catch-all routes. Part 3 identified that `/sales/credit-notes/[id]/edit` is gated by `creditNotes.create` because no dedicated `creditNotes.update` permission exists. Part 4 identified the same permission-model pattern for `/purchases/debit-notes/[id]/edit`, where edit/update/delete use `purchaseDebitNotes.create` because no dedicated update permission exists. Part 5 fixed the banking draft-reconciliation route mapping from view to create and tightened banking action-link visibility. Authenticated and restricted-role behavior remains blocked until a safe local API/database state and browser route path are available.
+- Risky auth mapping: Part 2 fixed the unauthenticated visibility gap for `/setup`, `/organization/setup`, and placeholder catch-all routes. Part 3 identified that `/sales/credit-notes/[id]/edit` is gated by `creditNotes.create` because no dedicated `creditNotes.update` permission exists. Part 4 identified the same permission-model pattern for `/purchases/debit-notes/[id]/edit`, where edit/update/delete use `purchaseDebitNotes.create` because no dedicated update permission exists. Part 5 fixed the banking draft-reconciliation route mapping from view to create and tightened banking action-link visibility. Part 6 found the same create-permission pattern for inventory adjustment edit/update/delete and noted that purchase receipt/sales stock issue void actions reuse create permissions; it also flagged `/inventory/variance-proposals/new` as dependent on `/accounts` while the visible route permission only requires variance-proposal creation. Authenticated and restricted-role behavior remains blocked until a safe local API/database state and browser route path are available.
 - Hidden expected routes: detail/new/edit routes are generally not sidebar children and are reached through lists/actions. That is expected, but QA should confirm every hidden route has a discoverable path from an authorized workflow.
 - Committed route vs placeholder conflict: some placeholder `titleMap` keys duplicate real routes (`/reports`, `/sales/invoices`, `/bank-accounts`, `/branches`); real files should win for exact committed pages.
 
@@ -472,27 +556,33 @@ Each batch stays at or below 20 routes.
 
 ## Recommended Next Actual QA Batch
 
-Recommended next thread: `DEV-01 Part 6: inventory route QA`.
+Recommended next thread: `DEV-01 Part 7: reports documents settings admin route QA`.
 
-Run Inventory next because Banking/Reconciliation has shell route-load evidence, Graphify-assisted code review, targeted permission fixes, and documented runtime blockers. Keep shell HTTP results separate from authenticated browser-runtime claims, and do not approve, void, post, transfer, receive, issue, adjust, or mutate stock records unless a future prompt explicitly widens the safe data boundary.
+Run reports/documents/settings/admin next because Inventory has shell route-load evidence, Graphify-assisted code review, targeted frontend fixes, and documented runtime blockers. Keep shell HTTP results separate from authenticated browser-runtime claims, and do not run report downloads, email sending, ZATCA calls, audit-log exports, posting-lock changes, role changes, storage changes, or other mutating admin actions unless a future prompt explicitly widens the safe data boundary.
 
-Routes to include in the next inventory operations pass:
+Routes to include in the next reports/documents/settings/admin pass:
 
-- `/items`
-- `/inventory/warehouses`
-- `/inventory/warehouses/[id]`
-- `/inventory/stock-movements`
-- `/inventory/stock-movements/new`
-- `/inventory/adjustments`
-- `/inventory/adjustments/new`
-- `/inventory/adjustments/[id]`
-- `/inventory/adjustments/[id]/edit`
-- `/inventory/transfers`
-- `/inventory/transfers/new`
-- `/inventory/transfers/[id]`
-- `/inventory/purchase-receipts`
-- `/inventory/purchase-receipts/new`
-- `/inventory/purchase-receipts/[id]`
-- `/inventory/sales-stock-issues`
-- `/inventory/sales-stock-issues/new`
-- `/inventory/sales-stock-issues/[id]`
+- `/reports`
+- `/reports/general-ledger`
+- `/reports/trial-balance`
+- `/reports/profit-and-loss`
+- `/reports/balance-sheet`
+- `/reports/vat-summary`
+- `/reports/aged-receivables`
+- `/reports/aged-payables`
+- `/documents`
+- `/accounts`
+- `/journal-entries`
+- `/journal-entries/new`
+- `/tax-rates`
+- `/fiscal-periods`
+- `/branches`
+- `/settings/team`
+- `/settings/roles`
+- `/settings/roles/[id]`
+- `/settings/documents`
+- `/settings/storage`
+- `/settings/email-outbox`
+- `/settings/audit-logs`
+- `/settings/number-sequences`
+- `/settings/zatca`

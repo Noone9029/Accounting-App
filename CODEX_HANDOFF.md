@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `58227ed QA DEV-01 purchases AP routes`
+- `0f1a112 QA DEV-01 banking reconciliation routes`
 
 ## Current Development Objective
 
@@ -18,6 +18,7 @@
 - DEV-01 Part 3.5 local QA runtime blocker triage is completed and refreshed in [docs/development/DEV_01_LOCAL_QA_RUNBOOK.md](docs/development/DEV_01_LOCAL_QA_RUNBOOK.md).
 - DEV-01 Part 4 purchases and AP route QA is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
 - DEV-01 Part 5 banking and reconciliation route QA is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
+- DEV-01 Part 6 inventory route QA is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
 - Routes browser-QA'd or code-reviewed in Part 2: `/`, `/login`, `/register`, `/password-reset`, `/password-reset/confirm`, `/invite/accept`, `/dashboard`, `/setup`, `/organization/setup`, `/sales/quotes`, and `/fixed-assets`.
 - Routes fixed in Part 2: `/setup`, `/organization/setup`, and unmatched app-shell placeholder routes such as `/sales/quotes` and `/fixed-assets`.
 - Main blocker from Part 2: local API health was not reachable at `http://localhost:4000/health`, so authenticated dashboard/setup/organization and auth-submit success flows remain deferred.
@@ -36,7 +37,12 @@
 - Routes code-reviewed in Part 5: `/bank-accounts`, `/bank-accounts/new`, `/bank-accounts/[id]`, `/bank-accounts/[id]/edit`, `/bank-accounts/[id]/reconciliation`, `/bank-accounts/[id]/reconciliations`, `/bank-accounts/[id]/reconciliations/new`, `/bank-accounts/[id]/statement-imports`, `/bank-accounts/[id]/statement-transactions`, `/bank-reconciliations/[id]`, `/bank-statement-transactions/[id]`, `/bank-transfers`, `/bank-transfers/new`, and `/bank-transfers/[id]`.
 - Routes fixed in Part 5: `/bank-accounts/[id]` now hides transfer creation links unless `bankTransfers.create` is present; `/bank-accounts/[id]/reconciliation` now hides import/create/account links unless matching permissions are present; `/bank-accounts/[id]/reconciliations/new` now requires `bankReconciliations.create`; `/bank-reconciliations/[id]` now hides CSV/PDF report downloads unless `reports.export` or `generatedDocuments.download` is present.
 - Part 5 remaining blockers: in-app Browser route visits, authenticated browser-runtime QA, login-dependent QA, bank profile mutations, statement imports, matching/categorization, reconciliation lifecycle mutations, bank transfer posting/voiding, report download/archive generation, and attachment workflows remain deferred.
-- Exact next prompt title: `DEV-01 Part 6: inventory route QA`.
+- Part 6 local health refresh: `/health` and `/readiness` returned `200`; web shell HTTP checks returned `200` for `/login`, `/dashboard`, and all 28 Inventory routes using synthetic ids for dynamic routes.
+- Graphify in Part 6: untracked `graphify-out/GRAPH_REPORT.md`, `graphify-out/manifest.json`, and `graphify-out/graph.json` were available and used only as QA planning/blast-radius aids. The graph was stale (`edaec451` vs current `0f1a112`) and was not treated as runtime proof or staged.
+- Routes code-reviewed in Part 6: `/items`, `/inventory/warehouses`, `/inventory/warehouses/[id]`, `/inventory/stock-movements`, `/inventory/stock-movements/new`, `/inventory/adjustments`, `/inventory/adjustments/new`, `/inventory/adjustments/[id]`, `/inventory/adjustments/[id]/edit`, `/inventory/transfers`, `/inventory/transfers/new`, `/inventory/transfers/[id]`, `/inventory/purchase-receipts`, `/inventory/purchase-receipts/new`, `/inventory/purchase-receipts/[id]`, `/inventory/sales-stock-issues`, `/inventory/sales-stock-issues/new`, `/inventory/sales-stock-issues/[id]`, `/inventory/balances`, `/inventory/settings`, `/inventory/reports/stock-valuation`, `/inventory/reports/movement-summary`, `/inventory/reports/low-stock`, `/inventory/reports/clearing-reconciliation`, `/inventory/reports/clearing-variance`, `/inventory/variance-proposals`, `/inventory/variance-proposals/new`, and `/inventory/variance-proposals/[id]`.
+- Routes fixed in Part 6: `/items` now avoids management-only account/tax-rate fetches for viewers; `/inventory/stock-movements` now honors query filters and hides adjustment/transfer links unless matching create permissions exist; `/inventory/reports/clearing-reconciliation` and `/inventory/reports/clearing-variance` now hide CSV download buttons unless report export or generated-document download permission exists.
+- Part 6 remaining blockers: in-app Browser route visits, authenticated browser-runtime QA, login-dependent QA, inventory create/approve/void/transfer/adjust/receive/issue/post/reverse/propose-variance workflows, report downloads, attachment workflows, inventory clearing CSV API permission policy, variance proposal account dependency, and inventory update/void permission naming remain deferred.
+- Exact next prompt title: `DEV-01 Part 7: reports documents settings admin route QA`.
 
 ## Current PROD-A1 Objective
 
@@ -428,4 +434,4 @@
 
 ## Next Thread Prompt
 
-`DEV-01 Part 4: purchases and AP route QA`
+`DEV-01 Part 7: reports documents settings admin route QA`
