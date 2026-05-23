@@ -46,6 +46,7 @@ export default function BankAccountDetailPage() {
   const canManage = can(PERMISSIONS.bankAccounts.manage);
   const canViewTransactions = can(PERMISSIONS.bankAccounts.transactionsView);
   const canPostOpening = can(PERMISSIONS.bankAccounts.openingBalancePost);
+  const canCreateTransfers = can(PERMISSIONS.bankTransfers.create);
   const canViewStatements = can(PERMISSIONS.bankStatements.view);
   const canImportStatements = can(PERMISSIONS.bankStatements.import);
   const canViewReconciliations = can(PERMISSIONS.bankReconciliations.view);
@@ -198,6 +199,7 @@ export default function BankAccountDetailPage() {
           <BankAccountWorkflowGuidance
             profile={profile}
             canImportStatements={canImportStatements}
+            canCreateTransfers={canCreateTransfers}
             canViewStatements={canViewStatements}
             canViewReconciliations={canViewReconciliations}
           />
@@ -299,9 +301,11 @@ export default function BankAccountDetailPage() {
                       Import statement rows
                     </Link>
                   ) : null}
-                  <Link href="/bank-transfers/new" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-white">
-                    Create transfer
-                  </Link>
+                  {canCreateTransfers ? (
+                    <Link href="/bank-transfers/new" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-white">
+                      Create transfer
+                    </Link>
+                  ) : null}
                   <Link href={`/reports/general-ledger?accountId=${profile.accountId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-white">
                     Open ledger
                   </Link>
@@ -351,11 +355,13 @@ export default function BankAccountDetailPage() {
 export function BankAccountWorkflowGuidance({
   profile,
   canImportStatements,
+  canCreateTransfers,
   canViewStatements,
   canViewReconciliations,
 }: {
   profile: BankAccountSummary;
   canImportStatements: boolean;
+  canCreateTransfers: boolean;
   canViewStatements: boolean;
   canViewReconciliations: boolean;
 }) {
@@ -390,9 +396,11 @@ export function BankAccountWorkflowGuidance({
                 Import statement
               </Link>
             ) : null}
-            <Link href="/bank-transfers/new" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Create transfer
-            </Link>
+            {canCreateTransfers ? (
+              <Link href="/bank-transfers/new" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Create transfer
+              </Link>
+            ) : null}
             {canViewStatements ? (
               <Link href={`/bank-accounts/${profile.id}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
                 Review unmatched rows

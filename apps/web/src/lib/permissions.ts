@@ -75,6 +75,9 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
   if (pathname === "/bank-accounts/new") {
     return [PERMISSIONS.bankAccounts.manage];
   }
+  if (pathname.endsWith("/reconciliations/new")) {
+    return [PERMISSIONS.bankReconciliations.create];
+  }
   if (pathname.includes("/reconciliations")) {
     return [PERMISSIONS.bankReconciliations.view];
   }

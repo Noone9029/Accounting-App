@@ -19,7 +19,15 @@ jest.mock("next/link", () => ({
 
 describe("reconciliation summary guidance", () => {
   it("explains zero-difference and unmatched row requirements", () => {
-    render(<ReconciliationSummaryGuidance summary={summaryFixture()} profileId="bank-1" />);
+    render(
+      <ReconciliationSummaryGuidance
+        summary={summaryFixture()}
+        profileId="bank-1"
+        canImportStatements
+        canCreateReconciliation
+        canViewBankAccount
+      />,
+    );
 
     expect(screen.getByText("How reconciliation works")).toBeInTheDocument();
     expect(screen.getByText(/difference is zero and no statement rows are unmatched/)).toBeInTheDocument();
@@ -29,6 +37,22 @@ describe("reconciliation summary guidance", () => {
       "/bank-accounts/bank-1/statement-transactions?status=UNMATCHED",
     );
     expect(screen.getByRole("link", { name: "Create close draft" })).toHaveAttribute("href", "/bank-accounts/bank-1/reconciliations/new");
+  });
+
+  it("hides import and draft links when action permissions are missing", () => {
+    render(
+      <ReconciliationSummaryGuidance
+        summary={summaryFixture()}
+        profileId="bank-1"
+        canImportStatements={false}
+        canCreateReconciliation={false}
+        canViewBankAccount={false}
+      />,
+    );
+
+    expect(screen.queryByRole("link", { name: "Import statement" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Create close draft" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Bank account" })).not.toBeInTheDocument();
   });
 });
 

@@ -42,6 +42,7 @@ export default function BankReconciliationDetailPage() {
   const canApprove = can(PERMISSIONS.bankReconciliations.approve);
   const canReopen = can(PERMISSIONS.bankReconciliations.reopen);
   const canVoid = can(PERMISSIONS.bankReconciliations.void);
+  const canDownloadReports = can(PERMISSIONS.reports.export) || can(PERMISSIONS.generatedDocuments.download);
   const blockedMessage = reconciliation ? closeBlockedMessage(reconciliation) : null;
   const submitBlock = reconciliation ? submitBlockedMessage(reconciliation) : null;
   const currency = reconciliation?.bankAccountProfile?.currency ?? "SAR";
@@ -131,7 +132,7 @@ export default function BankReconciliationDetailPage() {
           <p className="mt-1 text-sm text-steel">{reconciliation?.bankAccountProfile?.displayName ?? "Review history and period lock"}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {reconciliation ? (
+          {reconciliation && canDownloadReports ? (
             <>
               <button type="button" disabled={Boolean(downloading)} onClick={() => void downloadReport("csv")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
                 {downloading === "csv" ? "Downloading CSV..." : "Download CSV"}

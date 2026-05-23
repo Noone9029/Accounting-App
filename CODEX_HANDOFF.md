@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `cfbddc0 Triage DEV-01 local QA runtime blockers`
+- `58227ed QA DEV-01 purchases AP routes`
 
 ## Current Development Objective
 
@@ -17,6 +17,7 @@
 - DEV-01 Part 3 sales and AR route QA is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
 - DEV-01 Part 3.5 local QA runtime blocker triage is completed and refreshed in [docs/development/DEV_01_LOCAL_QA_RUNBOOK.md](docs/development/DEV_01_LOCAL_QA_RUNBOOK.md).
 - DEV-01 Part 4 purchases and AP route QA is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
+- DEV-01 Part 5 banking and reconciliation route QA is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
 - Routes browser-QA'd or code-reviewed in Part 2: `/`, `/login`, `/register`, `/password-reset`, `/password-reset/confirm`, `/invite/accept`, `/dashboard`, `/setup`, `/organization/setup`, `/sales/quotes`, and `/fixed-assets`.
 - Routes fixed in Part 2: `/setup`, `/organization/setup`, and unmatched app-shell placeholder routes such as `/sales/quotes` and `/fixed-assets`.
 - Main blocker from Part 2: local API health was not reachable at `http://localhost:4000/health`, so authenticated dashboard/setup/organization and auth-submit success flows remain deferred.
@@ -30,7 +31,12 @@
 - Routes code-reviewed in Part 4: `/purchases/purchase-orders`, `/purchases/purchase-orders/new`, `/purchases/purchase-orders/[id]`, `/purchases/purchase-orders/[id]/edit`, `/purchases/bills`, `/purchases/bills/new`, `/purchases/bills/[id]`, `/purchases/bills/[id]/edit`, `/purchases/supplier-payments`, `/purchases/supplier-payments/new`, `/purchases/supplier-payments/[id]`, `/purchases/supplier-refunds`, `/purchases/supplier-refunds/new`, `/purchases/supplier-refunds/[id]`, `/purchases/cash-expenses`, `/purchases/cash-expenses/new`, `/purchases/cash-expenses/[id]`, `/purchases/debit-notes`, `/purchases/debit-notes/new`, `/purchases/debit-notes/[id]`, and `/purchases/debit-notes/[id]/edit`.
 - Routes fixed in Part 4: `/purchases/bills/new` now honors `?supplierId=...`; `/purchases/supplier-payments/new` now honors `?supplierId=...&billId=...` and preselects the target open-bill amount.
 - Part 4 remaining blockers: in-app Browser route visits, authenticated browser-runtime QA, login-dependent QA, AP state-changing actions, PDF/archive generation, and attachment workflows remain deferred. Debit-note edit/update/delete permission naming should be confirmed because it uses `purchaseDebitNotes.create` rather than a dedicated update permission.
-- Exact next prompt title: `DEV-01 Part 5: banking and reconciliation route QA`.
+- Part 5 local health refresh: `/health` and `/readiness` returned `200`; web shell HTTP checks returned `200` for `/login`, `/dashboard`, and all 14 Banking/Reconciliation routes using synthetic ids for dynamic routes.
+- Graphify in Part 5: untracked `graphify-out/GRAPH_REPORT.md`, `graphify-out/manifest.json`, and `graphify-out/graph.json` were available and used only as QA planning/blast-radius aids. The graph was stale (`edaec451` vs current `58227ed`) and was not treated as runtime proof or staged.
+- Routes code-reviewed in Part 5: `/bank-accounts`, `/bank-accounts/new`, `/bank-accounts/[id]`, `/bank-accounts/[id]/edit`, `/bank-accounts/[id]/reconciliation`, `/bank-accounts/[id]/reconciliations`, `/bank-accounts/[id]/reconciliations/new`, `/bank-accounts/[id]/statement-imports`, `/bank-accounts/[id]/statement-transactions`, `/bank-reconciliations/[id]`, `/bank-statement-transactions/[id]`, `/bank-transfers`, `/bank-transfers/new`, and `/bank-transfers/[id]`.
+- Routes fixed in Part 5: `/bank-accounts/[id]` now hides transfer creation links unless `bankTransfers.create` is present; `/bank-accounts/[id]/reconciliation` now hides import/create/account links unless matching permissions are present; `/bank-accounts/[id]/reconciliations/new` now requires `bankReconciliations.create`; `/bank-reconciliations/[id]` now hides CSV/PDF report downloads unless `reports.export` or `generatedDocuments.download` is present.
+- Part 5 remaining blockers: in-app Browser route visits, authenticated browser-runtime QA, login-dependent QA, bank profile mutations, statement imports, matching/categorization, reconciliation lifecycle mutations, bank transfer posting/voiding, report download/archive generation, and attachment workflows remain deferred.
+- Exact next prompt title: `DEV-01 Part 6: inventory route QA`.
 
 ## Current PROD-A1 Objective
 

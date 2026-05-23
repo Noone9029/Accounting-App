@@ -98,20 +98,20 @@ Routes not included in completed DEV-01 batches remain `Not tested`.
 
 | Route path | Source file | Expected purpose | Likely data/API dependency | Auth/role assumption visible from code | QA priority | QA status |
 | --- | --- | --- | --- | --- | --- | --- |
-| `/bank-accounts` | `apps/web/src/app/(app)/bank-accounts/page.tsx` | Bank/cash profile list | Bank account profiles API | Authenticated; `bankAccounts.view` | High | Not tested |
-| `/bank-accounts/new` | `apps/web/src/app/(app)/bank-accounts/new/page.tsx` | Create bank/cash profile | Bank accounts, chart of accounts | Authenticated; `bankAccounts.manage` | Critical | Not tested |
-| `/bank-accounts/[id]` | `apps/web/src/app/(app)/bank-accounts/[id]/page.tsx` | Bank account detail, ledger, statements, reconciliation links | Bank accounts, journal lines, statements, reconciliations | Authenticated; `bankAccounts.view` | Critical | Not tested |
-| `/bank-accounts/[id]/edit` | `apps/web/src/app/(app)/bank-accounts/[id]/edit/page.tsx` | Edit bank/cash profile | Bank accounts, chart of accounts | Authenticated; `bankAccounts.manage` | Critical | Not tested |
-| `/bank-accounts/[id]/reconciliation` | `apps/web/src/app/(app)/bank-accounts/[id]/reconciliation/page.tsx` | Single-account reconciliation summary/legacy view | Bank statement and reconciliation summary APIs | Authenticated; `bankStatements.view` | Critical | Not tested |
-| `/bank-accounts/[id]/reconciliations` | `apps/web/src/app/(app)/bank-accounts/[id]/reconciliations/page.tsx` | Account reconciliation list | Bank reconciliations API | Authenticated; `bankReconciliations.view` | Critical | Not tested |
-| `/bank-accounts/[id]/reconciliations/new` | `apps/web/src/app/(app)/bank-accounts/[id]/reconciliations/new/page.tsx` | Create draft reconciliation | Bank reconciliations, bank accounts, statement transactions | Authenticated; `bankReconciliations.view` | Critical | Not tested |
-| `/bank-accounts/[id]/statement-imports` | `apps/web/src/app/(app)/bank-accounts/[id]/statement-imports/page.tsx` | Manual statement import and preview | Bank statement preview/import APIs | Authenticated; `bankStatements.view` | Critical | Not tested |
-| `/bank-accounts/[id]/statement-transactions` | `apps/web/src/app/(app)/bank-accounts/[id]/statement-transactions/page.tsx` | Statement transaction list for account | Bank statement transactions API | Authenticated; `bankStatements.view` | Critical | Not tested |
-| `/bank-reconciliations/[id]` | `apps/web/src/app/(app)/bank-reconciliations/[id]/page.tsx` | Reconciliation detail, review/close/void | Bank reconciliations, review events, item snapshots | Authenticated; `bankReconciliations.view` | Critical | Not tested |
-| `/bank-statement-transactions/[id]` | `apps/web/src/app/(app)/bank-statement-transactions/[id]/page.tsx` | Statement row detail, match/categorize/ignore | Statement transactions, matching/categorization APIs | Authenticated; `bankStatements.view` | Critical | Not tested |
-| `/bank-transfers` | `apps/web/src/app/(app)/bank-transfers/page.tsx` | Bank transfer list | Bank transfers API | Authenticated; `bankTransfers.view` | High | Not tested |
-| `/bank-transfers/new` | `apps/web/src/app/(app)/bank-transfers/new/page.tsx` | Create bank transfer | Bank transfers, bank account profiles | Authenticated; `bankTransfers.create` | Critical | Not tested |
-| `/bank-transfers/[id]` | `apps/web/src/app/(app)/bank-transfers/[id]/page.tsx` | Bank transfer detail/void | Bank transfers API | Authenticated; `bankTransfers.view` | Critical | Not tested |
+| `/bank-accounts` | `apps/web/src/app/(app)/bank-accounts/page.tsx` | Bank/cash profile list | Bank account profiles API | Authenticated; `bankAccounts.view` | High | Code-reviewed only |
+| `/bank-accounts/new` | `apps/web/src/app/(app)/bank-accounts/new/page.tsx` | Create bank/cash profile | Bank accounts, chart of accounts | Authenticated; `bankAccounts.manage` | Critical | Code-reviewed only |
+| `/bank-accounts/[id]` | `apps/web/src/app/(app)/bank-accounts/[id]/page.tsx` | Bank account detail, ledger, statements, reconciliation links | Bank accounts, journal lines, statements, reconciliations | Authenticated; `bankAccounts.view` | Critical | Code-reviewed only |
+| `/bank-accounts/[id]/edit` | `apps/web/src/app/(app)/bank-accounts/[id]/edit/page.tsx` | Edit bank/cash profile | Bank accounts, chart of accounts | Authenticated; `bankAccounts.manage` | Critical | Code-reviewed only |
+| `/bank-accounts/[id]/reconciliation` | `apps/web/src/app/(app)/bank-accounts/[id]/reconciliation/page.tsx` | Single-account reconciliation summary/legacy view | Bank statement and reconciliation summary APIs | Authenticated; `bankStatements.view` | Critical | Code-reviewed only |
+| `/bank-accounts/[id]/reconciliations` | `apps/web/src/app/(app)/bank-accounts/[id]/reconciliations/page.tsx` | Account reconciliation list | Bank reconciliations API | Authenticated; `bankReconciliations.view` | Critical | Code-reviewed only |
+| `/bank-accounts/[id]/reconciliations/new` | `apps/web/src/app/(app)/bank-accounts/[id]/reconciliations/new/page.tsx` | Create draft reconciliation | Bank reconciliations, bank accounts, statement transactions | Authenticated; `bankReconciliations.create` | Critical | Code-reviewed only |
+| `/bank-accounts/[id]/statement-imports` | `apps/web/src/app/(app)/bank-accounts/[id]/statement-imports/page.tsx` | Manual statement import and preview | Bank statement preview/import APIs | Authenticated; `bankStatements.view` with import/preview actions separately gated | Critical | Code-reviewed only |
+| `/bank-accounts/[id]/statement-transactions` | `apps/web/src/app/(app)/bank-accounts/[id]/statement-transactions/page.tsx` | Statement transaction list for account | Bank statement transactions API | Authenticated; `bankStatements.view` | Critical | Code-reviewed only |
+| `/bank-reconciliations/[id]` | `apps/web/src/app/(app)/bank-reconciliations/[id]/page.tsx` | Reconciliation detail, review/close/void | Bank reconciliations, review events, item snapshots | Authenticated; `bankReconciliations.view`; exports require report/document download permissions | Critical | Code-reviewed only |
+| `/bank-statement-transactions/[id]` | `apps/web/src/app/(app)/bank-statement-transactions/[id]/page.tsx` | Statement row detail, match/categorize/ignore | Statement transactions, matching/categorization APIs | Authenticated; `bankStatements.view`; actions require `bankStatements.reconcile` | Critical | Code-reviewed only |
+| `/bank-transfers` | `apps/web/src/app/(app)/bank-transfers/page.tsx` | Bank transfer list | Bank transfers API | Authenticated; `bankTransfers.view` | High | Code-reviewed only |
+| `/bank-transfers/new` | `apps/web/src/app/(app)/bank-transfers/new/page.tsx` | Create bank transfer | Bank transfers, bank account profiles | Authenticated; `bankTransfers.create` | Critical | Code-reviewed only |
+| `/bank-transfers/[id]` | `apps/web/src/app/(app)/bank-transfers/[id]/page.tsx` | Bank transfer detail/void | Bank transfers API | Authenticated; `bankTransfers.view`; void requires `bankTransfers.void` | Critical | Code-reviewed only |
 
 ### Inventory
 
@@ -378,12 +378,79 @@ Recommended next thread: `DEV-01 Part 5: banking and reconciliation route QA`.
 
 Focus on bank accounts, statement imports/transactions, reconciliations, and bank transfers. Start with the same local health/readiness checks, keep shell HTTP separate from browser-runtime claims, and avoid login or state-changing reconciliation actions unless the next thread explicitly approves the audit/data mutation boundary.
 
+## DEV-01 Part 5 Summary
+
+- Latest pushed state inspected before Part 5: `58227ed QA DEV-01 purchases AP routes`.
+- `apps/web/next-env.d.ts` had no working-tree diff before Part 5 checks and was not staged.
+- Local worktree warning: unrelated edits remained in `apps/web/src/app/page.tsx` and untracked marketing/Graphify files; they were not reverted and only Part 5 files were staged.
+- Runtime readiness: `http://localhost:4000/health` returned `200`; `http://localhost:4000/readiness` returned `200`; web shell HTTP checks returned `200` for `/login` and `/dashboard`.
+- Banking/Reconciliation shell route-load result: all 14 routes returned `200` from `http://localhost:3000` using non-mutating shell HTTP checks, with synthetic ids for dynamic detail/edit routes.
+- Browser/runtime limit: in-app Browser route visits remained blocked by the Browser Use URL policy; no authenticated browser-runtime pass is claimed.
+- Login and state mutation were not run: no login flow, bank account creation/archive/reactivation/opening-balance posting, statement import/preview/void, match, categorize, ignore, reconciliation draft/submit/approve/reopen/close/void, report download/archive, attachment upload, bank transfer create/void, migration, seed, reset, delete, deploy, or env change was executed.
+- Small frontend fixes applied: `/bank-accounts/[id]/reconciliations/new` now requires `bankReconciliations.create`; bank-account detail/guidance hides transfer creation unless `bankTransfers.create` is present; reconciliation summary guidance hides import/create/account links when those permissions are missing; reconciliation report downloads hide unless `reports.export` or `generatedDocuments.download` is present.
+- No accounting logic, API behavior, schema, migration, bank parser behavior, ZATCA behavior, email behavior, customer data, production docs, Vercel/Supabase settings, or hosting research changed.
+
+### Graphify Dependency Findings For Banking/Reconciliation
+
+- Graphify files used as read-only planning aids: untracked `graphify-out/GRAPH_REPORT.md`, `graphify-out/manifest.json`, and `graphify-out/graph.json`; they were not treated as runtime proof and were not staged.
+- Graphify freshness note: the graph was built from commit `edaec451`, while Part 5 inspected `58227ed`, so findings were used only to prioritize review and blast radius.
+- Relevant communities found: Web Bank Permissions, Web Bank Accounts, Web Bank Statements, Web Permission Matrix, API Bank Accounts, API Bank Statements, API Bank Reconciliations, API Bank Transfers, and API Bank Audit.
+- High fan-out nodes that made broad rewrites risky: `getActiveOrganizationId()` with 194 edges, `usePermissions()` with 133 edges, `apiRequest()` with 110 edges, `StatusMessage()` with about 100 edges, `formatMoneyAmount()` with 85 edges, and `PermissionProvider()` with 84 edges.
+- Shared files reviewed before fixing: `apps/web/src/lib/api.ts`, `apps/web/src/lib/permissions.ts`, `apps/web/src/lib/sidebar-nav.ts`, `apps/web/src/lib/permission-matrix.ts`, `apps/web/src/lib/bank-accounts.ts`, `apps/web/src/lib/bank-statements.ts`, `apps/web/src/lib/pdf-download.ts`, `apps/web/src/hooks/use-active-organization.ts`, `apps/web/src/components/common/status-message.tsx`, banking route files under `apps/web/src/app/(app)/bank-*`, and API controllers under `apps/api/src/bank-*`.
+- Graphify highlighted related tests for the touched frontend areas: `apps/web/src/lib/permissions.test.ts`, `apps/web/src/app/(app)/bank-accounts/[id]/page.test.tsx`, `apps/web/src/app/(app)/bank-accounts/[id]/reconciliation/page.test.tsx`, `apps/web/src/app/(app)/bank-reconciliations/[id]/page.test.tsx`, `apps/web/src/app/(app)/bank-statement-transactions/[id]/page.test.tsx`, `apps/web/src/lib/bank-accounts.test.ts`, and `apps/web/src/lib/bank-statements.test.ts`.
+
+### Part 5 Route Results
+
+| Route path | QA status | QA method | Actual result | Defects found | Severity | Fix applied | Remaining follow-up |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `/bank-accounts` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads `/bank-accounts`, shows loading/error/empty states, gates create/archive/reactivate controls by `bankAccounts.manage`, and states no live bank feed. | No code-level defect found. | Low | None | Re-test authenticated list rendering, restricted-role controls, and real empty/error states in a browser. |
+| `/bank-accounts/new` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; shared profile form loads chart accounts and existing profiles, validates linked asset account and display name, and posts `/bank-accounts`. | No code-level defect found. | Low | None | Re-test dropdown loading, no-linkable-account empty state, validation, cancel link, and save error/success with safe local data. |
+| `/bank-accounts/[id]` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads profile and transactions, shows loading/error/empty states, links ledger/statement/reconciliation surfaces, and gates opening-balance/profile actions. | Transfer creation links were visible from bank-account guidance/empty states without checking `bankTransfers.create`. | Medium | Added transfer-create permission gating and focused Jest coverage. | Re-test invalid/missing id, transaction date filters, posted-opening-balance action visibility, and restricted-role links in a browser. |
+| `/bank-accounts/[id]/edit` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source fetches `/bank-accounts/:id`, shows loading/error states, and renders the shared profile form with linked chart account locked. | No code-level defect found. | Low | None | Re-test invalid/missing id, opening-balance lock behavior, cancel/back links, and save error/success. |
+| `/bank-accounts/[id]/reconciliation` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads reconciliation summary, filters by date, explains zero-difference/no-unmatched close readiness, and links related statement/reconciliation surfaces. | Guidance exposed import/create/account links without checking the matching frontend permissions. | Medium | Added permission-aware guidance links and focused Jest coverage. | Re-test real summary totals, closed-through date, permission-restricted links, and invalid/missing id with safe local data. |
+| `/bank-accounts/[id]/reconciliations` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads account and reconciliation list, shows loading/error/empty states, and gates new reconciliation link by `bankReconciliations.create`. | No code-level defect found. | Low | None | Re-test closed-period history rows, draft/closed/voided labels, and restricted-role create visibility. |
+| `/bank-accounts/[id]/reconciliations/new` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads account profile, validates period dates/statement closing balance, posts a draft, and clearly says the period is not locked until close succeeds. | Route permission mapping allowed view-only users to reach the draft-create route; API POST still required create. | Medium | Route now maps to `bankReconciliations.create`; focused permission test added. | Re-test form load, validation, submit error/success, and direct restricted-role access in a browser. |
+| `/bank-accounts/[id]/statement-imports` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads imports/account, gates import form by `bankStatements.import`, gates preview by `bankStatements.previewImport`, warns limited parser support, and states raw file bodies are not archived in beta. | No code-level defect found. | Low | None | Re-test upload/paste validation, parser warnings, preview/import errors, void visibility, and no-raw-body copy with safe dummy data. |
+| `/bank-accounts/[id]/statement-transactions` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads account and statement rows, supports status/date filters, shows loading/error/empty states, and links row detail/reconciliation surfaces. | No code-level defect found. | Low | None | Re-test real filters, empty/error states, row links, and restricted-role import/review visibility. |
+| `/bank-reconciliations/[id]` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads reconciliation/detail/items/review events, gates submit/approve/reopen/close/void by reconciliation permissions, and shows close blockers and locked-period copy. | Report download buttons were visible without checking the extra export/download permission enforced by the API. | Medium | Hid report downloads unless `reports.export` or `generatedDocuments.download` is present. | Re-test invalid/missing id, review events, report downloads/archive, attachments, and draft/pending/approved/closed/voided action visibility with safe local data. |
+| `/bank-statement-transactions/[id]` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads row details, accounts and match candidates only when `bankStatements.reconcile` is present, blocks actions for closed reconciliation rows, and mounts attachments. | No code-level defect found. | Low | None | Re-test invalid/missing id, match/categorize/ignore visibility, locked-row behavior, candidate empty/error states, and attachments with safe data. |
+| `/bank-transfers` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads `/bank-transfers`, shows loading/error/empty states, gates create link by `bankTransfers.create`, and links transfer details. | No code-level defect found. | Low | None | Re-test list rendering, empty/error states, and restricted-role create visibility. |
+| `/bank-transfers/new` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200`; source loads active bank profiles, requires two different active profiles and positive amount, and posts a transfer journal only on submit. | No code-level defect found. | Low | None | Re-test dropdown dependencies, validation, cancel/back link, and submit error/success with safe local data; do not post real transfers outside an approved fixture. |
+| `/bank-transfers/[id]` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` with a synthetic id; source loads transfer detail, explains source/destination movement and reversal status, and gates void by `bankTransfers.void`. | No code-level defect found. | Low | None | Re-test invalid/missing id, just-created success state, void visibility, source/destination links, and reversal display with safe local data. |
+
+### Banking/Reconciliation Blocker List
+
+- In-app Browser local route visits are still blocked by tool URL policy, so no browser-runtime banking pass is claimed.
+- Login was not run because it writes an audit log; authenticated session, tenant selection, and restricted-role behavior remain untested at runtime.
+- State-changing banking actions were not executed: bank profile create/archive/reactivate/opening-balance posting, statement import/preview/void, match, categorize, ignore, reconciliation draft/submit/approve/reopen/close/void, report download/archive, attachment upload/delete, transfer create/void, and submit flows remain deferred.
+- API endpoint behavior beyond `/health` and `/readiness` was reviewed from code only; no authenticated banking API calls were made.
+- `/bank-accounts/[id]/reconciliation` and `/bank-accounts/[id]/reconciliations` remain conceptually overlapping; no broken link was found, but authenticated navigation clarity still needs browser QA.
+
+### Routes Fixed In This Thread
+
+- `/bank-accounts/[id]`: hid transfer creation links unless `bankTransfers.create` is present.
+- `/bank-accounts/[id]/reconciliation`: hid import, create-draft, and account links unless matching permissions are present.
+- `/bank-accounts/[id]/reconciliations/new`: fixed route permission mapping to require `bankReconciliations.create`.
+- `/bank-reconciliations/[id]`: hid CSV/PDF report download buttons unless `reports.export` or `generatedDocuments.download` is present.
+
+### Routes Deferred And Why
+
+- All 14 Banking/Reconciliation routes remain deferred for authenticated browser-runtime QA because the in-app Browser local URL policy still blocks route visits and login was avoided to prevent audit-log writes.
+- Bank imports, matching/categorization, reconciliation lifecycle actions, transfer posting/voiding, PDF/archive generation, and attachment workflows were deferred because this thread forbids mutating records and accounting/banking-adjacent data.
+- Browser-level layout, sidebar state, role-specific access-denied rendering, and real invalid-id/not-found UI remain deferred until a safe browser route path and safe authenticated fixture are available.
+
+### Recommended Next QA Batch After Part 5
+
+Recommended next thread: `DEV-01 Part 6: inventory route QA`.
+
+Focus on inventory operational routes first: items, warehouses, stock movements, inventory adjustments, warehouse transfers, purchase receipts, sales stock issues, balances, inventory settings, inventory reports, and variance proposals. Keep inventory operational-only, use shell HTTP plus code review unless browser runtime is unblocked, and do not approve, void, post, transfer, receive, issue, adjust, or mutate stock records unless a future prompt explicitly approves a safe local fixture.
+
 ## Placeholder, Duplicate, Risky, Hidden Route Notes
 
 - Placeholder-only: the committed catch-all route renders "Module not implemented yet" for any unmatched app-shell path. Part 2 added a baseline `dashboard.view` route permission and unauthenticated app-shell guard; restricted-role and authenticated placeholder behavior still need QA.
 - Scaffold-only/future modules: quotes/proformas, recurring invoices, cash invoices, delivery notes, API invoices, beneficiaries, payroll, fixed assets, cost centers, projects, developer/API keys, integrations, and document templates are titleMap entries only unless a real page exists.
-- Duplicate/overlap risk: `/bank-accounts/[id]/reconciliation` and `/bank-accounts/[id]/reconciliations`/`new` overlap conceptually and should be tested for navigation clarity and stale links.
-- Risky auth mapping: Part 2 fixed the unauthenticated visibility gap for `/setup`, `/organization/setup`, and placeholder catch-all routes. Part 3 identified that `/sales/credit-notes/[id]/edit` is gated by `creditNotes.create` because no dedicated `creditNotes.update` permission exists. Part 4 identified the same permission-model pattern for `/purchases/debit-notes/[id]/edit`, where edit/update/delete use `purchaseDebitNotes.create` because no dedicated update permission exists. Authenticated and restricted-role behavior remains blocked until a safe local API/database state and browser route path are available.
+- Duplicate/overlap risk: `/bank-accounts/[id]/reconciliation` and `/bank-accounts/[id]/reconciliations`/`new` overlap conceptually. Part 5 found no broken route links, but navigation clarity still needs authenticated browser QA.
+- Risky auth mapping: Part 2 fixed the unauthenticated visibility gap for `/setup`, `/organization/setup`, and placeholder catch-all routes. Part 3 identified that `/sales/credit-notes/[id]/edit` is gated by `creditNotes.create` because no dedicated `creditNotes.update` permission exists. Part 4 identified the same permission-model pattern for `/purchases/debit-notes/[id]/edit`, where edit/update/delete use `purchaseDebitNotes.create` because no dedicated update permission exists. Part 5 fixed the banking draft-reconciliation route mapping from view to create and tightened banking action-link visibility. Authenticated and restricted-role behavior remains blocked until a safe local API/database state and browser route path are available.
 - Hidden expected routes: detail/new/edit routes are generally not sidebar children and are reached through lists/actions. That is expected, but QA should confirm every hidden route has a discoverable path from an authorized workflow.
 - Committed route vs placeholder conflict: some placeholder `titleMap` keys duplicate real routes (`/reports`, `/sales/invoices`, `/bank-accounts`, `/branches`); real files should win for exact committed pages.
 
@@ -405,23 +472,27 @@ Each batch stays at or below 20 routes.
 
 ## Recommended Next Actual QA Batch
 
-Recommended next thread: `DEV-01 Part 5: banking and reconciliation route QA`.
+Recommended next thread: `DEV-01 Part 6: inventory route QA`.
 
-Run Banking/Reconciliation next because Purchases/AP has shell route-load evidence, Graphify-assisted code review, and documented runtime blockers. Keep shell HTTP results separate from authenticated browser-runtime claims, and do not create, close, void, match, import, or mutate reconciliation data unless a future prompt explicitly widens the safe data boundary.
+Run Inventory next because Banking/Reconciliation has shell route-load evidence, Graphify-assisted code review, targeted permission fixes, and documented runtime blockers. Keep shell HTTP results separate from authenticated browser-runtime claims, and do not approve, void, post, transfer, receive, issue, adjust, or mutate stock records unless a future prompt explicitly widens the safe data boundary.
 
-Routes to include in the next banking pass:
+Routes to include in the next inventory operations pass:
 
-- `/bank-accounts`
-- `/bank-accounts/new`
-- `/bank-accounts/[id]`
-- `/bank-accounts/[id]/edit`
-- `/bank-accounts/[id]/reconciliation`
-- `/bank-accounts/[id]/reconciliations`
-- `/bank-accounts/[id]/reconciliations/new`
-- `/bank-accounts/[id]/statement-imports`
-- `/bank-accounts/[id]/statement-transactions`
-- `/bank-reconciliations/[id]`
-- `/bank-statement-transactions/[id]`
-- `/bank-transfers`
-- `/bank-transfers/new`
-- `/bank-transfers/[id]`
+- `/items`
+- `/inventory/warehouses`
+- `/inventory/warehouses/[id]`
+- `/inventory/stock-movements`
+- `/inventory/stock-movements/new`
+- `/inventory/adjustments`
+- `/inventory/adjustments/new`
+- `/inventory/adjustments/[id]`
+- `/inventory/adjustments/[id]/edit`
+- `/inventory/transfers`
+- `/inventory/transfers/new`
+- `/inventory/transfers/[id]`
+- `/inventory/purchase-receipts`
+- `/inventory/purchase-receipts/new`
+- `/inventory/purchase-receipts/[id]`
+- `/inventory/sales-stock-issues`
+- `/inventory/sales-stock-issues/new`
+- `/inventory/sales-stock-issues/[id]`

@@ -43,6 +43,9 @@ describe("permission helpers", () => {
     expect(getRequiredPermissionsForPathname("/bank-accounts/profile-1/reconciliation")).toEqual([
       PERMISSIONS.bankStatements.view,
     ]);
+    expect(getRequiredPermissionsForPathname("/bank-accounts/profile-1/reconciliations/new")).toEqual([
+      PERMISSIONS.bankReconciliations.create,
+    ]);
     expect(getRequiredPermissionsForPathname("/bank-statement-transactions/row-1")).toEqual([PERMISSIONS.bankStatements.view]);
     expect(getRequiredPermissionsForPathname("/bank-transfers")).toEqual([PERMISSIONS.bankTransfers.view]);
     expect(getRequiredPermissionsForPathname("/bank-transfers/new")).toEqual([PERMISSIONS.bankTransfers.create]);

@@ -23,6 +23,7 @@ describe("bank account workflow guidance", () => {
       <BankAccountWorkflowGuidance
         profile={bankAccountFixture()}
         canImportStatements
+        canCreateTransfers
         canViewStatements
         canViewReconciliations
       />,
@@ -35,12 +36,27 @@ describe("bank account workflow guidance", () => {
     expect(screen.getByText(/reduce the bank asset balance/)).toBeInTheDocument();
     expect(screen.getByText(/not connected to live bank feeds or external banking APIs/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Import statement" })).toHaveAttribute("href", "/bank-accounts/bank-1/statement-imports");
+    expect(screen.getByRole("link", { name: "Create transfer" })).toHaveAttribute("href", "/bank-transfers/new");
     expect(screen.getByRole("link", { name: "Review unmatched rows" })).toHaveAttribute(
       "href",
       "/bank-accounts/bank-1/statement-transactions?status=UNMATCHED",
     );
     expect(screen.getByRole("link", { name: "View bank ledger" })).toHaveAttribute("href", "/reports/general-ledger?accountId=account-1");
     expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/dashboard");
+  });
+
+  it("hides transfer creation when permission is missing", () => {
+    render(
+      <BankAccountWorkflowGuidance
+        profile={bankAccountFixture()}
+        canImportStatements
+        canCreateTransfers={false}
+        canViewStatements
+        canViewReconciliations
+      />,
+    );
+
+    expect(screen.queryByRole("link", { name: "Create transfer" })).not.toBeInTheDocument();
   });
 });
 

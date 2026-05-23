@@ -80,6 +80,8 @@ export default function BankReconciliationPage() {
 
   const status = summary ? reconciliationDifferenceStatus(summary) : "NEEDS_REVIEW";
   const currency = summary?.profile.currency ?? "SAR";
+  const canViewBankAccount = can(PERMISSIONS.bankAccounts.view);
+  const canImportStatements = can(PERMISSIONS.bankStatements.import);
   const canViewReconciliations = can(PERMISSIONS.bankReconciliations.view);
   const canCreateReconciliation = can(PERMISSIONS.bankReconciliations.create);
 
@@ -137,7 +139,13 @@ export default function BankReconciliationPage() {
 
       {summary ? (
         <div className="mt-5 space-y-5">
-          <ReconciliationSummaryGuidance summary={summary} profileId={params.id} />
+          <ReconciliationSummaryGuidance
+            summary={summary}
+            profileId={params.id}
+            canImportStatements={canImportStatements}
+            canCreateReconciliation={canCreateReconciliation}
+            canViewBankAccount={canViewBankAccount}
+          />
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <SummaryCard label="Ledger balance" value={formatMoneyAmount(summary.ledgerBalance, currency)} />
@@ -202,7 +210,19 @@ export default function BankReconciliationPage() {
   );
 }
 
-export function ReconciliationSummaryGuidance({ summary, profileId }: { summary: BankReconciliationSummary; profileId: string }) {
+export function ReconciliationSummaryGuidance({
+  summary,
+  profileId,
+  canImportStatements = true,
+  canCreateReconciliation = true,
+  canViewBankAccount = true,
+}: {
+  summary: BankReconciliationSummary;
+  profileId: string;
+  canImportStatements?: boolean;
+  canCreateReconciliation?: boolean;
+  canViewBankAccount?: boolean;
+}) {
   const status = reconciliationDifferenceStatus(summary);
   const differenceText = summary.difference ? formatMoneyAmount(summary.difference, summary.profile.currency) : "-";
   return (
@@ -239,15 +259,21 @@ export function ReconciliationSummaryGuidance({ summary, profileId }: { summary:
             <Link href={`/bank-accounts/${profileId}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
               Review unmatched rows
             </Link>
-            <Link href={`/bank-accounts/${profileId}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Import statement
-            </Link>
-            <Link href={`/bank-accounts/${profileId}/reconciliations/new`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Create close draft
-            </Link>
-            <Link href={`/bank-accounts/${profileId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Bank account
-            </Link>
+            {canImportStatements ? (
+              <Link href={`/bank-accounts/${profileId}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Import statement
+              </Link>
+            ) : null}
+            {canCreateReconciliation ? (
+              <Link href={`/bank-accounts/${profileId}/reconciliations/new`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Create close draft
+              </Link>
+            ) : null}
+            {canViewBankAccount ? (
+              <Link href={`/bank-accounts/${profileId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Bank account
+              </Link>
+            ) : null}
           </div>
         </div>
       </div>
