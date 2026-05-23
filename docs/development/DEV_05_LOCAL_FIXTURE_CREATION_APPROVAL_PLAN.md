@@ -25,6 +25,10 @@ This is planning only. It does not enable execute mode, add an execute package s
 
 DEV-05 Part 2 added [DEV_05_EXECUTE_GATED_FIXTURE_SKELETON.md](DEV_05_EXECUTE_GATED_FIXTURE_SKELETON.md). The runner now models an execute request, approval gates, AR proposed records, and non-mutating JSON evidence, but execute mode still exits refused and no fixture data, database connection, database write, login, audit-writing flow, or runtime mutation is performed.
 
+## DEV-05 Part 3A AR Fixture Preflight Note
+
+DEV-05 Part 3A added [DEV_05_AR_FIXTURE_CREATION_PREFLIGHT.md](DEV_05_AR_FIXTURE_CREATION_PREFLIGHT.md). It packages the exact non-mutating preflight commands, first AR target, required `DEV03-AR-...` marker pattern, approval phrase, evidence policy, and stop conditions for a future Part 3B. It still performs no execute mode, login, fixture creation, database connection/write, or runtime mutation.
+
 ## 3. Approval Required Before Fixture Creation
 
 Fixture creation must not start until a future prompt explicitly approves all of these:
@@ -242,16 +246,21 @@ If any item is missing, the next run remains planning or dry-run only.
    - Add tests for execute gating, target refusal, no default DB inheritance, marker requirements, no login by default, and no output actions.
    - Do not run actual fixture creation.
 
-3. `DEV-05 Part 3: approved local AR fixture creation run`
+3. `DEV-05 Part 3A: local AR fixture creation approval preflight`
+   - Create the approval packet and exact preflight checklist for the first AR fixture family.
+   - Confirm no root execute script exists and execute remains refused.
+   - Do not run actual fixture creation.
+
+4. `DEV-05 Part 3B: approved local AR fixture creation run`
    - Only if explicitly approved in that future prompt.
    - Create the minimum AR fixture family against a confirmed local disposable database.
    - Record sanitized created/reused counts only.
 
-4. `DEV-05 Part 4: verify local fixture evidence`
+5. `DEV-05 Part 4: verify local fixture evidence`
    - Verify marker-scoped records and audit behavior if approved.
    - Do not execute state-machine transitions unless separately approved.
 
-5. `DEV-05 Part 5: cleanup-plan validation`
+6. `DEV-05 Part 5: cleanup-plan validation`
    - Validate marker-scoped cleanup inventory.
    - No delete execution unless a later ticket explicitly approves exact marker-filtered cleanup.
 
@@ -268,6 +277,6 @@ If any item is missing, the next run remains planning or dry-run only.
 
 ## 14. Recommended Next Step
 
-Proceed with `DEV-05 Part 3: approve and run local AR fixture creation` only if the next prompt explicitly approves local disposable database use, fixture creation, marker scope, cleanup/retention, and no-production/no-beta/no-customer-data boundaries.
+Proceed with `DEV-05 Part 3B: approved local AR fixture creation run` only if the next prompt includes the exact approval phrase from [DEV_05_AR_FIXTURE_CREATION_PREFLIGHT.md](DEV_05_AR_FIXTURE_CREATION_PREFLIGHT.md) and explicitly approves local disposable database use, fixture creation, marker scope, cleanup/retention, and no-production/no-beta/no-customer-data boundaries.
 
 Without those approvals, keep the runner in plan/dry-run/cleanup-plan or execute-refusal mode only.

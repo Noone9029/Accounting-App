@@ -111,6 +111,10 @@ git diff --cached --check
 
 The execute command above is a refusal check only. It exits nonzero before any write behavior and does not create fixtures.
 
+## DEV-05 Part 3A Preflight Note
+
+DEV-05 Part 3A added [DEV_05_AR_FIXTURE_CREATION_PREFLIGHT.md](DEV_05_AR_FIXTURE_CREATION_PREFLIGHT.md). That packet records the exact approval phrase, AR family target, `DEV03-AR-...` marker requirement, non-mutating preflight commands, evidence policy, and stop conditions needed before a future Part 3B can attempt local fixture creation. Part 3A still performs no execute mode, login, fixture creation, database connection/write, or runtime mutation.
+
 ## 10. Required Approval Before Any Future Real Fixture Creation
 
 Before any real fixture creation, a later prompt must explicitly approve:
@@ -124,6 +128,6 @@ Before any real fixture creation, a later prompt must explicitly approve:
 
 ## 11. Recommended Next Step
 
-Proceed with `DEV-05 Part 3: approve and run local AR fixture creation` only if the future prompt explicitly approves a real local disposable fixture creation run.
+Proceed with `DEV-05 Part 3B: approved local AR fixture creation run` only if the future prompt includes the exact approval phrase and checklist from [DEV_05_AR_FIXTURE_CREATION_PREFLIGHT.md](DEV_05_AR_FIXTURE_CREATION_PREFLIGHT.md).
 
 Without that approval, keep the runner in plan/dry-run/cleanup-plan or execute-refusal mode only.
