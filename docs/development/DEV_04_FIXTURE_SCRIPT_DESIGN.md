@@ -12,6 +12,14 @@ DEV-04 Part 3 implemented the dry-run skeleton at `apps/api/scripts/dev04-fixtur
 
 The implementation remains plan-only: `--execute` and `--allow-local-mutation` are refused, login is disabled, no Prisma or service-layer writes are imported, no database connection is opened, no fixture data is created, and production/beta/user-testing targets are rejected by guard logic. A root `fixture:dev04:execute` script was intentionally not added.
 
+## DEV-04 Part 4 Hardening Note
+
+DEV-04 Part 4 hardened the dry-run runner guards, output, and tests without adding execute behavior. The runner now ignores generic `DATABASE_URL` defaults; use explicit `--database-url` or `LEDGERBYTE_DEV04_DATABASE_URL` only when a local target guard check is needed. This avoids accidentally validating a normal application runtime database value during plan-only fixture work.
+
+The runner output now states `NO DATA CREATED`, `NO DATABASE WRITES`, selected mode/family/marker, disabled execute/fixture/mutation/login status, cleanup-plan-only status, and the next manual approval needed before any write behavior can be implemented. JSON summaries include explicit non-mutating flags: fixture creation disabled, mutation disabled, database writes disabled, login disabled, execute disabled, and cleanup-plan-only status.
+
+The guard tests now cover hosted/deployed target variants, local target variants, marker edge cases, generic `DATABASE_URL` isolation, `--execute` refusal, cleanup-plan wording, redaction, and JSON non-mutating flags. No fixture data, login, database connection, Prisma write, service-layer write, runtime mutation, export, download, PDF generation, generated-document archive creation, smoke, E2E, migration, seed/reset/delete, ZATCA, email, backup/restore, deployment, env change, or production-hosting research was performed.
+
 ## 2. Non-Goals
 
 - Do not implement the runner in this part.
@@ -426,9 +434,9 @@ Deletion or destructive cleanup remains forbidden until a separate future prompt
    - Add package scripts only for dry-run/plan and tests.
    - Keep execute mode present but blocked.
 
-2. `DEV-04 Part 4: guard tests and package scripts`
-   - Expand tests for target guards, denylist, marker-family matching, redaction, and cleanup-plan output.
-   - Wire root scripts if Part 3 keeps scripts inside the API package only.
+2. `DEV-04 Part 4: harden fixture runner guards and docs`
+   - Expand tests for target guards, denylist, marker-family matching, redaction, cleanup-plan output, and JSON non-mutating flags.
+   - Clarify runner output and docs while keeping execute mode and fixture creation disabled.
 
 3. `DEV-04 Part 5: approved local fixture creation run`
    - Only after explicit user approval, implement and run local bootstrap/fixture creation against a confirmed disposable local database.

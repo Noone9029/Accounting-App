@@ -96,7 +96,7 @@ corepack pnpm fixture:dev04:dry-run -- --family ar --marker DEV03-AR-20260524T12
 corepack pnpm fixture:dev04:cleanup-plan -- --family ar --marker DEV03-AR-20260524T120000
 ```
 
-These commands print fixture plans and guard results only. They refuse execute mode and do not login, create fixtures, connect to production/beta targets, or mutate data.
+These commands print fixture plans and guard results only. They refuse execute mode and do not login, create fixtures, connect to production/beta targets, or mutate data. Generic `DATABASE_URL` is ignored by the dry-run runner; pass `--database-url` or `LEDGERBYTE_DEV04_DATABASE_URL` only when you need to validate an explicit local plan target.
 
 Pull requests now run the same non-mutating verification boundary through `.github/workflows/pr-verification.yml`.
 

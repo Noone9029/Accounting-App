@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `7835165 Design DEV-04 fixture runner`
+- `7c22290 Implement DEV-04 fixture runner dry-run skeleton`
 
 ## Current Development Objective
 
@@ -112,7 +112,12 @@
 - DEV-04 Part 3 package scripts added: API `fixture:dev04`; root `fixture:dev04:plan`, `fixture:dev04:dry-run`, and `fixture:dev04:cleanup-plan`. A root execute script was intentionally not added.
 - DEV-04 Part 3 runner behavior: supports `--plan`, `--dry-run`, `--cleanup-plan`, `--family ar|ap|bank|inv|jrd|all`, `--marker DEV03-...|DEV04-...`, `--database-url`, `--api-url`, and `--json-summary`; refuses `--execute`, `--allow-local-mutation`, `--allow-login`, invalid markers, destructive operation terms, and production/beta/user-testing/hosted targets.
 - DEV-04 Part 3 performed no login, fixture data creation, database connection, Prisma write, service-layer write, runtime mutation, export, download, PDF generation, generated-document archive creation, smoke, E2E, migration, seed/reset/delete, ZATCA, email, backup/restore, deployment, env change, or production-hosting research.
-- Exact next prompt title: `DEV-04 Part 4: harden fixture runner guards and docs`.
+- DEV-04 Part 4 fixture runner guard hardening is completed in `apps/api/scripts/dev04-fixture-runner.ts` with expanded tests in `apps/api/scripts/dev04-fixture-runner.spec.ts`.
+- DEV-04 Part 4 guard behavior: generic `DATABASE_URL` is ignored by the dry-run runner; explicit `--database-url` or `LEDGERBYTE_DEV04_DATABASE_URL` can be validated only as local plan targets. Hosted/deployed target denylist coverage now includes Supabase, Vercel, RDS/AWS, Railway, Render, Fly, DigitalOcean, production, prod, and live target patterns.
+- DEV-04 Part 4 output behavior: plan/dry-run/cleanup-plan output now states `NO DATA CREATED`, `NO DATABASE WRITES`, selected mode/family/marker, disabled execute/fixture/mutation/login status, cleanup-plan-only status, and the next manual approval needed before write behavior can be implemented. JSON summaries include explicit non-mutating flags.
+- DEV-04 Part 4 tests added/updated: hosted URL variants, local URL variants, missing/generic database target behavior, marker edge cases, execute refusal, cleanup-plan no-delete wording, JSON non-mutating flags, and secret redaction coverage.
+- DEV-04 Part 4 performed no execute run, login, fixture data creation, database connection, Prisma write, service-layer write, runtime mutation, export, download, PDF generation, generated-document archive creation, smoke, E2E, migration, seed/reset/delete, ZATCA, email, backup/restore, deployment, env change, or production-hosting research.
+- Exact next prompt title: `DEV-04 Part 5: finalize fixture runner handoff`.
 
 ## Current PROD-A1 Objective
 
@@ -491,7 +496,7 @@
 - The current product state is broad controlled-beta MVP, not paid production SaaS: core AR/AP, banking, inventory, reports, documents, audit, roles, storage readiness, email readiness, and ZATCA groundwork exist, but many production-facing and product-completion gaps remain.
 - Top development gaps: full route QA and blocker triage, verification gate hardening, high-risk state-machine QA, auth/session hardening, accountant review, sales/purchase completion, banking parser/reconciliation hardening, inventory accounting policy work, admin/audit alerts, and SaaS business readiness.
 - Mock/blocked areas remain intentional: real ZATCA, real customer email sending, live bank feeds, payment gateway capture, object-storage migration execution, backup/restore execution, and automatic inventory accounting expansion.
-- Exact next recommended development ticket: `DEV-04 Part 4: harden fixture runner guards and docs`.
+- Exact next recommended development ticket: `DEV-04 Part 5: finalize fixture runner handoff`.
 
 ## Forbidden Actions For Next Production Thread
 
@@ -504,4 +509,4 @@
 
 ## Next Thread Prompt
 
-`DEV-04 Part 4: harden fixture runner guards and docs`
+`DEV-04 Part 5: finalize fixture runner handoff`

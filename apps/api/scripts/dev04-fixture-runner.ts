@@ -30,8 +30,12 @@ type FixtureRunnerPlan = {
   cleanupPlanOnly: boolean;
   jsonSummary: boolean;
   createdFixtureData: false;
+  fixtureCreationEnabled: false;
   mutationEnabled: false;
+  databaseWritesEnabled: false;
   loginEnabled: false;
+  executeEnabled: false;
+  nextManualApproval: string;
   skipped: string[];
 };
 
@@ -119,20 +123,22 @@ const FAMILY_DEFINITIONS: Record<FixtureFamily, FixtureFamilyPlan> = {
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "0.0.0.0", "host.docker.internal", "postgres", "api", "web"]);
 
-const FORBIDDEN_TARGET_TERMS = [
-  "ledgerbyte-api-test",
-  "ledgerbyte-web-test",
-  "vercel",
-  "supabase",
-  "amazonaws",
-  "rds.amazonaws",
-  "railway",
-  "render",
-  "fly.dev",
-  "digitalocean",
-  "production",
-  "prod",
-  "live",
+const FORBIDDEN_TARGET_PATTERNS = [
+  /ledgerbyte-api-test/i,
+  /ledgerbyte-web-test/i,
+  /vercel(?:\.app)?/i,
+  /supabase(?:\.co|\.com)?/i,
+  /pooler\.supabase/i,
+  /amazonaws/i,
+  /rds\.amazonaws/i,
+  /(^|[.\-_/])aws($|[.\-_/])/i,
+  /railway(?:\.app)?/i,
+  /render(?:\.com|\.internal|\.onrender\.com)?/i,
+  /fly\.dev/i,
+  /digitalocean(?:\.com|spaces\.com)?/i,
+  /neon\.tech/i,
+  /(^|[.\-_/])prod(?:uction)?($|[.\-_/])/i,
+  /(^|[.\-_/])live($|[.\-_/])/i,
 ];
 
 const FORBIDDEN_OPERATION_TERMS = [
@@ -190,11 +196,14 @@ const SKIPPED_DEFAULTS = [
   "production, beta, user-testing, deployed API, and hosted database targets",
 ];
 
+const NEXT_MANUAL_APPROVAL =
+  "Explicit local disposable fixture creation approval is required before any execute/write behavior can be implemented.";
+
 function parseFixtureArgs(argv: string[], env: RunnerEnvironment = {}): ParsedArgs {
   const options: ParsedArgs = {
     mode: "plan",
     family: "all",
-    databaseUrl: env.LEDGERBYTE_DEV04_DATABASE_URL ?? env.DATABASE_URL,
+    databaseUrl: env.LEDGERBYTE_DEV04_DATABASE_URL,
     apiUrl: env.LEDGERBYTE_DEV04_API_URL,
     jsonSummary: false,
     allowLocalMutation: false,
@@ -260,7 +269,7 @@ function parseFixtureArgs(argv: string[], env: RunnerEnvironment = {}): ParsedAr
       case "--no-login":
         break;
       case "--allow-login":
-        throw new Error("Login mode is not implemented or approved for DEV-04 Part 3.");
+        throw new Error("Login mode is not implemented or approved for the DEV-04 fixture runner.");
       default:
         assertNotForbiddenOperationArg(arg);
         if (arg.startsWith("-")) {
@@ -271,7 +280,7 @@ function parseFixtureArgs(argv: string[], env: RunnerEnvironment = {}): ParsedAr
   }
 
   if (requestedExecute || options.allowLocalMutation) {
-    throw new Error("Execute mode is not implemented for DEV-04 Part 3. No fixture data was created.");
+    throw new Error("Execute mode is not implemented for the DEV-04 fixture runner. No fixture data was created.");
   }
 
   if (requestedCleanupPlan) {
@@ -300,8 +309,12 @@ function buildFixturePlan(argv: string[], env: RunnerEnvironment = {}): FixtureR
     cleanupPlanOnly: options.mode === "cleanup-plan",
     jsonSummary: options.jsonSummary,
     createdFixtureData: false,
+    fixtureCreationEnabled: false,
     mutationEnabled: false,
+    databaseWritesEnabled: false,
     loginEnabled: false,
+    executeEnabled: false,
+    nextManualApproval: NEXT_MANUAL_APPROVAL,
     skipped: [...SKIPPED_DEFAULTS],
   };
 }
@@ -383,7 +396,7 @@ function classifyTargetUrl(
 
   const host = normalizeHostname(parsed.hostname);
   const targetFingerprint = `${host} ${parsed.pathname}`.toLowerCase();
-  if (FORBIDDEN_TARGET_TERMS.some((term) => targetFingerprint.includes(term))) {
+  if (FORBIDDEN_TARGET_PATTERNS.some((pattern) => pattern.test(targetFingerprint))) {
     throw new Error(`DEV-04 ${options.targetLabel} URL points at a hosted or forbidden target and is refused.`);
   }
 
@@ -410,8 +423,12 @@ function renderFixturePlan(plan: FixtureRunnerPlan): string {
     `Database target: ${renderTarget(plan.databaseTarget)}`,
     `API target: ${renderTarget(plan.apiTarget)}`,
     "Login: disabled",
+    "Execute: disabled",
+    "Fixture creation: disabled",
     "Mutation: disabled",
+    "Database writes: disabled",
     plan.cleanupPlanOnly ? "Cleanup: plan only; deletion is not implemented." : "Cleanup: not executing; cleanup inventory is plan-only.",
+    `Next manual approval needed: ${plan.nextManualApproval}`,
     "",
     "Selected fixture family plans:",
   ];
@@ -426,7 +443,10 @@ function renderFixturePlan(plan: FixtureRunnerPlan): string {
   }
 
   lines.push("");
+  lines.push("NO DATA CREATED");
+  lines.push("NO DATABASE WRITES");
   lines.push("No fixture data was created.");
+  lines.push("No database writes were attempted.");
   lines.push("No database connection was opened.");
   lines.push("No login or audit-writing flow was run.");
   lines.push("No migrations, seed/reset/delete, smoke, E2E, deploy, ZATCA, email, backup/restore, export, download, PDF, or archive action was run.");
@@ -441,9 +461,13 @@ function buildJsonSummary(plan: FixtureRunnerPlan): Record<string, unknown> {
     marker: plan.marker,
     runId: plan.runId,
     createdFixtureData: plan.createdFixtureData,
+    fixtureCreationEnabled: plan.fixtureCreationEnabled,
     mutationEnabled: plan.mutationEnabled,
+    databaseWritesEnabled: plan.databaseWritesEnabled,
     loginEnabled: plan.loginEnabled,
+    executeEnabled: plan.executeEnabled,
     cleanupPlanOnly: plan.cleanupPlanOnly,
+    nextManualApproval: plan.nextManualApproval,
     databaseTarget: plan.databaseTarget,
     apiTarget: plan.apiTarget,
     families: plan.families.map((family) => ({
@@ -490,7 +514,8 @@ function buildHelpLines(): string[] {
     "",
     "Supported flags: --plan, --dry-run, --cleanup-plan, --family, --marker, --database-url, --api-url, --json-summary, --no-login.",
     "Refused flags: --execute, --allow-local-mutation, --allow-login.",
-    "This runner never creates fixture data in DEV-04 Part 3.",
+    "Generic DATABASE_URL is intentionally ignored; pass --database-url or LEDGERBYTE_DEV04_DATABASE_URL to validate a local plan target.",
+    "This runner never creates fixture data or performs database writes.",
   ];
 }
 

@@ -14,6 +14,12 @@ DEV-04 Part 2 created [DEV_04_FIXTURE_SCRIPT_DESIGN.md](DEV_04_FIXTURE_SCRIPT_DE
 
 DEV-04 Part 3 implemented the dry-run runner skeleton and guard tests without creating fixture data. The available commands are `corepack pnpm fixture:dev04:plan`, `corepack pnpm fixture:dev04:dry-run`, and `corepack pnpm fixture:dev04:cleanup-plan`, each requiring a `DEV03-...` or `DEV04-...` marker supplied through CLI arguments. Execute mode remains refused and no login, Prisma writes, service-layer writes, fixture creation, or runtime mutation was performed.
 
+## DEV-04 Part 4 Hardening Note
+
+DEV-04 Part 4 hardened the existing dry-run runner guards, tests, and documentation while keeping the runner non-mutating. The runner now ignores generic `DATABASE_URL` defaults and validates database targets only when an explicit `--database-url` or `LEDGERBYTE_DEV04_DATABASE_URL` is provided. Output and JSON summaries now make the no-write boundary explicit with `NO DATA CREATED`, `NO DATABASE WRITES`, disabled execute/fixture/mutation/login flags, cleanup-plan-only wording, and the next manual approval needed before write behavior can be implemented.
+
+No fixture script execute path, login, fixture data creation, database connection, Prisma write, service-layer write, runtime mutation, export, download, PDF generation, generated-document archive creation, smoke, E2E, migration, seed/reset/delete, ZATCA, email, backup/restore, deployment, env change, or production-hosting research was performed.
+
 ## 2. Non-Goals
 
 - Do not implement fixture scripts in this part.
@@ -261,7 +267,7 @@ Manual/local-approved only:
 
 1. `DEV-04 Part 2: fixture script design`: specify runner contract, target guards, marker validation, dry-run output, write approval flags, and cleanup inventory contract.
 2. `DEV-04 Part 3: implement fixture runner dry-run skeleton`: implement the runner in no-write mode with tests for command planning, forbidden targets, marker rules, blocked execute/login behavior, and redacted evidence.
-3. `DEV-04 Part 4: guard tests and package scripts`: harden target guards, marker-family matching, redaction, cleanup-plan output, and safe package script wiring.
+3. `DEV-04 Part 4: harden fixture runner guards and docs`: harden target guards, marker-family matching, redaction, cleanup-plan output, JSON non-mutating flags, and docs without adding execute behavior.
 4. `DEV-04 Part 5: approved local fixture creation run`: after explicit approval, run local-only fixture creation against a disposable database and record created/reused counts.
 5. Later approved batches: AR mutation QA first, then AP, Banking/Reconciliation, Inventory, Journals/Reports/Documents output gate QA, then final regression/verification.
 

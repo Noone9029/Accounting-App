@@ -23,15 +23,22 @@ describe("DEV-04 fixture runner dry-run skeleton", () => {
     expect(plan.family).toBe(family);
     expect(plan.marker).toBe(marker);
     expect(plan.createdFixtureData).toBe(false);
+    expect(plan.fixtureCreationEnabled).toBe(false);
     expect(plan.mutationEnabled).toBe(false);
+    expect(plan.databaseWritesEnabled).toBe(false);
     expect(plan.loginEnabled).toBe(false);
     expect(plan.families).toHaveLength(1);
     expect(plan.families[0]?.family).toBe(family);
-    expect(renderFixturePlan(plan)).toContain("No fixture data was created.");
+    const rendered = renderFixturePlan(plan);
+    expect(rendered).toContain("NO DATA CREATED");
+    expect(rendered).toContain("NO DATABASE WRITES");
+    expect(rendered).toContain("Next manual approval needed");
   });
 
-  it("builds an all-family plan without requiring a database connection", () => {
-    const plan = buildFixturePlan(["--plan", "--family", "all", "--marker", "DEV04-20260524T120000"]);
+  it("builds an all-family plan without requiring or inheriting a generic database connection", () => {
+    const plan = buildFixturePlan(["--plan", "--family", "all", "--marker", "DEV04-20260524T120000"], {
+      DATABASE_URL: "postgresql://user:secret@db.example.supabase.co:5432/postgres",
+    });
 
     expect(plan.mode).toBe("plan");
     expect(plan.family).toBe("all");
@@ -52,9 +59,27 @@ describe("DEV-04 fixture runner dry-run skeleton", () => {
     expect(() => buildFixturePlan(["--dry-run", "--family", "ar", "--marker", "DEV03-AP-20260524T120000"])).toThrow(
       /does not match family ar/,
     );
+    expect(() => buildFixturePlan(["--dry-run", "--family", "ar", "--marker", "dev03-AR-20260524T120000"])).toThrow(/DEV03- or DEV04-/);
+    expect(() => buildFixturePlan(["--dry-run", "--family", "ar", "--marker", "DEV03-AR-reset"])).toThrow(/uppercase letters/);
+    expect(() => buildFixturePlan(["--dry-run", "--family", "ar", "--marker", "DEV03-AR-RESET"])).toThrow(/destructive or forbidden/);
+    expect(() => buildFixturePlan(["--dry-run", "--family", "ar", "--marker", "DEV03-AR-SECRET"])).toThrow(/secret-looking/);
+    expect(() => buildFixturePlan(["--dry-run", "--family", "ar", "--marker", "DEV03-AR-20260524/120000"])).toThrow(
+      /uppercase letters/,
+    );
+    expect(buildFixturePlan(["--dry-run", "--family", "ar", "--marker", "DEV04-20260524T120000"]).marker).toBe("DEV04-20260524T120000");
   });
 
-  it("rejects production, beta, and hosted targets before planning", () => {
+  it.each([
+    ["supabase host", "postgresql://user:secret@db.example.supabase.co:5432/postgres"],
+    ["supabase pooler", "postgresql://user:secret@aws-0-region.pooler.supabase.com:5432/postgres"],
+    ["rds host", "postgresql://user:secret@ledgerbyte-prod.abc.us-east-1.rds.amazonaws.com:5432/accounting"],
+    ["railway host", "postgresql://user:secret@containers-us-west-1.railway.app:5432/railway"],
+    ["render host", "postgresql://user:secret@render-postgres.internal.render.com:5432/accounting"],
+    ["fly host", "postgresql://user:secret@db.fly.dev:5432/accounting"],
+    ["digitalocean host", "postgresql://user:secret@db.digitalocean.com:25060/accounting"],
+    ["production database name", "postgresql://user:secret@localhost:5432/ledgerbyte-production"],
+    ["live database name", "postgresql://user:secret@localhost:5432/ledgerbyte-live"],
+  ])("rejects hosted or deployed database target: %s", (_label, databaseUrl) => {
     expect(() =>
       buildFixturePlan([
         "--dry-run",
@@ -63,10 +88,20 @@ describe("DEV-04 fixture runner dry-run skeleton", () => {
         "--marker",
         "DEV03-AR-20260524T120000",
         "--database-url",
-        "postgresql://user:secret@db.example.supabase.co:5432/postgres",
+        databaseUrl,
       ]),
     ).toThrow(/hosted or forbidden/i);
+  });
 
+  it.each([
+    ["ledgerbyte test api", "https://ledgerbyte-api-test.vercel.app"],
+    ["ledgerbyte test web", "https://ledgerbyte-web-test.vercel.app"],
+    ["vercel app", "https://ledgerbyte-api.vercel.app"],
+    ["railway app", "https://ledgerbyte-api.railway.app"],
+    ["render app", "https://ledgerbyte-api.onrender.com"],
+    ["fly app", "https://ledgerbyte-api.fly.dev"],
+    ["production path", "http://localhost:4000/production"],
+  ])("rejects hosted or deployed API target: %s", (_label, apiUrl) => {
     expect(() =>
       buildFixturePlan([
         "--dry-run",
@@ -75,18 +110,36 @@ describe("DEV-04 fixture runner dry-run skeleton", () => {
         "--marker",
         "DEV03-AR-20260524T120000",
         "--api-url",
-        "https://ledgerbyte-api-test.vercel.app",
+        apiUrl,
       ]),
     ).toThrow(/hosted or forbidden/i);
   });
 
-  it("accepts obvious local targets for plan and dry-run modes only", () => {
-    const databaseTarget = classifyDatabaseUrl("postgresql://accounting:secret@host.docker.internal:5432/accounting?schema=public");
-    const apiTarget = classifyHttpUrl("http://localhost:4000");
+  it.each([
+    ["localhost", "postgresql://accounting:secret@localhost:5432/accounting?schema=public", "http://localhost:4000"],
+    ["ipv4", "postgresql://accounting:secret@127.0.0.1:5432/accounting?schema=public", "http://127.0.0.1:4000"],
+    ["docker host", "postgresql://accounting:secret@host.docker.internal:5432/accounting?schema=public", "http://host.docker.internal:4000"],
+    ["compose services", "postgresql://accounting:secret@postgres:5432/accounting?schema=public", "http://api:4000"],
+  ])("accepts obvious local targets for plan and dry-run modes only: %s", (_label, databaseUrl, apiUrl) => {
+    const databaseTarget = classifyDatabaseUrl(databaseUrl);
+    const apiTarget = classifyHttpUrl(apiUrl);
 
-    expect(databaseTarget).toMatchObject({ kind: "local-plan-only", host: "host.docker.internal" });
-    expect(apiTarget).toMatchObject({ kind: "local-plan-only", host: "localhost" });
+    expect(databaseTarget).toMatchObject({ kind: "local-plan-only" });
+    expect(apiTarget).toMatchObject({ kind: "local-plan-only" });
     expect(JSON.stringify(databaseTarget)).not.toContain("secret");
+  });
+
+  it("validates a dedicated DEV-04 database URL env var but ignores generic DATABASE_URL defaults", () => {
+    const ignoredGeneric = buildFixturePlan(["--plan", "--family", "ar", "--marker", "DEV03-AR-20260524T120000"], {
+      DATABASE_URL: "postgresql://user:secret@db.example.supabase.co:5432/postgres",
+    });
+    expect(ignoredGeneric.databaseTarget.kind).toBe("not-provided");
+
+    expect(() =>
+      buildFixturePlan(["--plan", "--family", "ar", "--marker", "DEV03-AR-20260524T120000"], {
+        LEDGERBYTE_DEV04_DATABASE_URL: "postgresql://user:secret@db.example.supabase.co:5432/postgres",
+      }),
+    ).toThrow(/hosted or forbidden/i);
   });
 
   it("rejects execute mode even with local mutation approval", () => {
@@ -104,6 +157,19 @@ describe("DEV-04 fixture runner dry-run skeleton", () => {
     ).toThrow(/execute mode is not implemented/i);
   });
 
+  it("renders cleanup-plan as inventory-only without implying deletion", () => {
+    const plan = buildFixturePlan(["--cleanup-plan", "--family", "ar", "--marker", "DEV03-AR-20260524T120000"]);
+    const rendered = renderFixturePlan(plan);
+
+    expect(plan.cleanupPlanOnly).toBe(true);
+    expect(plan.databaseWritesEnabled).toBe(false);
+    expect(rendered).toContain("Cleanup: plan only");
+    expect(rendered).toContain("deletion is not implemented");
+    expect(rendered).toContain("NO DATA CREATED");
+    expect(rendered).toContain("NO DATABASE WRITES");
+    expect(rendered).not.toMatch(/records will be deleted/i);
+  });
+
   it("produces a sanitized JSON summary", () => {
     const plan = buildFixturePlan(["--dry-run", "--family", "bank", "--marker", "DEV03-BANK-20260524T120000", "--json-summary"]);
     const summary = buildJsonSummary(plan);
@@ -113,8 +179,12 @@ describe("DEV-04 fixture runner dry-run skeleton", () => {
       family: "bank",
       marker: "DEV03-BANK-20260524T120000",
       createdFixtureData: false,
+      fixtureCreationEnabled: false,
       mutationEnabled: false,
+      databaseWritesEnabled: false,
       loginEnabled: false,
+      executeEnabled: false,
+      nextManualApproval: expect.stringMatching(/local disposable fixture creation approval/i),
     });
     expect(JSON.stringify(summary)).not.toMatch(/password|token|cookie|Authorization|DATABASE_URL|secret/i);
   });
@@ -123,8 +193,11 @@ describe("DEV-04 fixture runner dry-run skeleton", () => {
     const redacted = redactSecrets({
       DATABASE_URL: "postgresql://user:secret@localhost:5432/accounting",
       Authorization: "Bearer token-value",
+      apiKey: "api-key-value",
+      smtpPassword: "smtp-password-value",
       nested: {
         token: "token-value",
+        directUrl: "postgresql://user:direct-secret@localhost:5432/accounting",
         safeMarker: "DEV03-AR-20260524T120000",
       },
     });
@@ -133,6 +206,9 @@ describe("DEV-04 fixture runner dry-run skeleton", () => {
     expect(serialized).toContain("DEV03-AR-20260524T120000");
     expect(serialized).not.toContain("secret");
     expect(serialized).not.toContain("token-value");
+    expect(serialized).not.toContain("api-key-value");
+    expect(serialized).not.toContain("smtp-password-value");
+    expect(serialized).not.toContain("direct-secret");
     expect(serialized).not.toContain("user:secret");
   });
 
