@@ -293,6 +293,20 @@ Recommended next thread: `DEV-01 Part 4: purchases and AP route QA`.
 
 Focus on purchase orders, bills, supplier payments, supplier refunds, cash expenses, and debit notes. Start by re-checking safe local API availability; if unavailable, keep the same blocker discipline and code-review the AP routes without migrations, seeds, resets, deploys, env changes, or accounting/ZATCA/email behavior changes.
 
+## DEV-01 Part 3.5 - Local QA Runtime Blocker Triage
+
+- Latest pushed state inspected before Part 3.5: `e977376 QA DEV-01 sales AR routes`.
+- Package/config finding: the web app expects `localhost:3000`, the API expects `localhost:4000`, local PostgreSQL is expected on `localhost:5432`, and Redis is expected on `localhost:6379`.
+- API health result: `http://localhost:4000/health` was not reachable because `@ledgerbyte/api` failed during Prisma startup before listening on port `4000`.
+- API root cause: Prisma reported `P1001` while trying to reach the configured local database at `localhost:5432`; no listener was present on `5432`, and Docker Desktop/Engine was unavailable for local infra inspection.
+- Readiness result: `http://localhost:4000/readiness` was also unreachable because API startup failed before the health/readiness controllers were exposed. If `/health` later passes but `/readiness` fails, authenticated data-backed QA should still remain blocked.
+- Web route visit result: `@ledgerbyte/web` started with the existing `corepack pnpm --filter @ledgerbyte/web dev` script on `localhost:3000`; shell HTTP checks returned `200` for `/login` and `/dashboard`.
+- Browser URL policy finding: the in-app Browser route visits in Part 3 were blocked by the Browser Use URL policy for local URLs. This was a tool policy block, not an app route failure.
+- Future route QA mode: mixed. Public web route serving can be checked with shell HTTP, route behavior can be code-reviewed, and authenticated browser/runtime QA remains blocked until local API/database readiness and an allowed browser/runtime method are available.
+- Remaining blocked: authenticated data flows, role/session behavior, list/create/edit/detail API-backed states, PDF/archive/attachment flows, restricted-role checks, and state-changing actions.
+- Runbook added: [DEV_01_LOCAL_QA_RUNBOOK.md](DEV_01_LOCAL_QA_RUNBOOK.md).
+- Safe next thread: `DEV-01 Part 4: purchases and AP route QA`.
+
 ## Placeholder, Duplicate, Risky, Hidden Route Notes
 
 - Placeholder-only: the committed catch-all route renders "Module not implemented yet" for any unmatched app-shell path. Part 2 added a baseline `dashboard.view` route permission and unauthenticated app-shell guard; restricted-role and authenticated placeholder behavior still need QA.
