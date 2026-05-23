@@ -269,8 +269,11 @@ The required DEV-03 Part 1 workflows are included above:
 
 ### Part 7: Journals/Reports/Documents Output Gate QA
 
-- Manual journals, fiscal periods, reports, generated documents, audit exports, and high-risk admin settings.
-- Prioritize direct ledger entry controls, period lock cross-module behavior, output permissions, PDF/archive boundaries, and redaction.
+- Completed as a dry-run plan in [DEV_03_JOURNALS_REPORTS_DOCUMENTS_OUTPUT_GATE_DRY_RUN_PLAN.md](DEV_03_JOURNALS_REPORTS_DOCUMENTS_OUTPUT_GATE_DRY_RUN_PLAN.md).
+- Manual journals, fiscal periods/posting locks, accounts/tax/number sequences, reports, generated documents/archive/downloads, audit export/retention gates, storage readiness, document settings, and backup-readiness metadata gates were mapped to routes, API endpoints, status fields, permissions, audit side effects, accounting/reporting effects, document/archive effects, fixture markers, and planned-only test cases.
+- Highest-risk journals/reports/documents transitions are manual journal post/reverse with fiscal-period lock enforcement, fiscal period close/reopen/lock behavior, account/tax/number-sequence admin changes affecting future postings and outputs, report CSV/PDF permission and archive gates, generated-document download exposure, audit CSV export and retention settings, document settings output changes, and backup/storage metadata evidence gates.
+- No login, fixture creation, runtime mutation, journal/report/document mutation, report export/download, PDF/archive generation, audit CSV export, backup/storage evidence mutation, smoke, E2E, migration, seed/reset/delete, ZATCA, email, backup/restore, deployment, environment change, or production check was performed.
+- Keep report/document/audit exports, PDF/archive creation, generated-document downloads, retention settings changes, and backup evidence metadata mutations separate unless explicit local-disposable output approval exists.
 
 ### Part 8: DEV-03 Final Triage
 
@@ -290,6 +293,6 @@ The required DEV-03 Part 1 workflows are included above:
 
 ## 11. Recommended Next Step
 
-Proceed with `DEV-03 Part 7: journals reports documents output gate dry-run plan`.
+Proceed with `DEV-03 Part 8: final state-machine QA triage`.
 
-Part 7 should remain dry-run planning by default. It should convert journals, fiscal periods, report exports, generated documents, audit exports, and high-risk admin output/settings gates into a precise fixture graph, endpoint plan, assertion matrix, audit evidence checklist, output-permission expectations, and cleanup/stop rules before any local disposable mutation or output generation is approved.
+Part 8 should consolidate DEV-03 Parts 1 through 7, group remaining blockers by severity, separate planned-only coverage from future executable local-disposable QA, summarize mutation/output approvals still needed, and recommend the next development ticket before any state-changing or output-producing workflow is run.
