@@ -13,6 +13,10 @@ This is finalization only. It does not approve execute mode, fixture creation, d
 - Part 3 dry-run runner skeleton: `apps/api/scripts/dev04-fixture-runner.ts` implemented plan/dry-run/cleanup-plan behavior with no write path, plus package scripts for safe plan-only commands.
 - Part 4 guard hardening: `apps/api/scripts/dev04-fixture-runner.spec.ts` expanded guard coverage and the runner output now clearly reports `NO DATA CREATED`, `NO DATABASE WRITES`, disabled execute/fixture/mutation/login flags, and the manual approval required before write behavior.
 
+## DEV-05 Approval Plan Note
+
+DEV-05 Part 1 created [DEV_05_LOCAL_FIXTURE_CREATION_APPROVAL_PLAN.md](DEV_05_LOCAL_FIXTURE_CREATION_APPROVAL_PLAN.md). That plan defines the required local disposable database, fixture creation, login/audit-write, cleanup/retention, and no-production/no-beta approvals before any future fixture creation. It keeps the first proposed target to Sales/AR with `DEV03-AR-...` markers and does not enable execute mode, create fixture data, connect to a database, login, write audit logs, or mutate records.
+
 ## 3. Runner Path And Commands
 
 Runner path:
