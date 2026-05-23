@@ -90,8 +90,52 @@ describe("permission helpers", () => {
     expect(getRequiredPermissionsForPathname("/settings/zatca")).toEqual([PERMISSIONS.zatca.view]);
     expect(getRequiredPermissionsForPathname("/settings/team")).toEqual([PERMISSIONS.users.view]);
     expect(getRequiredPermissionsForPathname("/settings/roles/role-1")).toEqual([PERMISSIONS.roles.view]);
-    expect(getRequiredPermissionsForPathname("/sales/quotes")).toEqual([PERMISSIONS.dashboard.view]);
-    expect(getRequiredPermissionsForPathname("/fixed-assets")).toEqual([PERMISSIONS.dashboard.view]);
+    expect(getRequiredPermissionsForPathname("/sales/quotes")).toEqual([PERMISSIONS.salesInvoices.view]);
+    expect(getRequiredPermissionsForPathname("/sales/recurring-invoices")).toEqual([PERMISSIONS.salesInvoices.view]);
+    expect(getRequiredPermissionsForPathname("/sales/cash-invoices")).toEqual([PERMISSIONS.salesInvoices.view]);
+    expect(getRequiredPermissionsForPathname("/sales/delivery-notes")).toEqual([PERMISSIONS.salesInvoices.view]);
+    expect(getRequiredPermissionsForPathname("/sales/api-invoices")).toEqual([PERMISSIONS.salesInvoices.view]);
+    expect(getRequiredPermissionsForPathname("/purchases")).toEqual([
+      PERMISSIONS.purchaseOrders.view,
+      PERMISSIONS.purchaseBills.view,
+      PERMISSIONS.supplierPayments.view,
+      PERMISSIONS.supplierRefunds.view,
+      PERMISSIONS.cashExpenses.view,
+      PERMISSIONS.purchaseDebitNotes.view,
+    ]);
+    expect(getRequiredPermissionsForPathname("/beneficiaries")).toEqual([
+      PERMISSIONS.bankAccounts.view,
+      PERMISSIONS.bankTransfers.view,
+    ]);
+    expect(getRequiredPermissionsForPathname("/payroll")).toEqual([PERMISSIONS.users.view]);
+    expect(getRequiredPermissionsForPathname("/products")).toEqual([PERMISSIONS.items.view]);
+    expect(getRequiredPermissionsForPathname("/accounting")).toEqual([
+      PERMISSIONS.accounts.view,
+      PERMISSIONS.journals.view,
+    ]);
+    expect(getRequiredPermissionsForPathname("/fixed-assets")).toEqual([
+      PERMISSIONS.accounts.view,
+      PERMISSIONS.inventory.view,
+    ]);
+    expect(getRequiredPermissionsForPathname("/cost-centers")).toEqual([
+      PERMISSIONS.accounts.view,
+      PERMISSIONS.journals.view,
+    ]);
+    expect(getRequiredPermissionsForPathname("/projects")).toEqual([
+      PERMISSIONS.accounts.view,
+      PERMISSIONS.journals.view,
+    ]);
+    expect(getRequiredPermissionsForPathname("/developer/api-keys")).toEqual([
+      PERMISSIONS.users.manage,
+      PERMISSIONS.roles.manage,
+    ]);
+    expect(getRequiredPermissionsForPathname("/integrations")).toEqual([
+      PERMISSIONS.users.manage,
+      PERMISSIONS.roles.manage,
+    ]);
+    expect(getRequiredPermissionsForPathname("/document-templates")).toEqual([
+      PERMISSIONS.documentSettings.view,
+    ]);
     expect(getRequiredPermissionsForPathname("/unknown")).toEqual([PERMISSIONS.dashboard.view]);
   });
 });

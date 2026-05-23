@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `58a846a QA DEV-01 inventory routes`
+- `996a2ca QA DEV-01 reports settings admin routes`
 
 ## Current Development Objective
 
@@ -11,7 +11,7 @@
 - Vercel remains beta/user-testing/staging only, not final production hosting.
 - Next work is product development completion before more production-hosting research.
 - Development completion plan: [docs/development/DEVELOPMENT_COMPLETION_PLAN.md](docs/development/DEVELOPMENT_COMPLETION_PLAN.md).
-- `DEV-01 Full route QA and blocker triage` has started.
+- `DEV-01 Full route QA and blocker triage` is completed through final placeholder triage.
 - DEV-01 Part 1 route inventory is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
 - DEV-01 Part 2 auth, dashboard, setup, and navigation QA is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
 - DEV-01 Part 3 sales and AR route QA is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
@@ -20,6 +20,8 @@
 - DEV-01 Part 5 banking and reconciliation route QA is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
 - DEV-01 Part 6 inventory route QA is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
 - DEV-01 Part 7 reports, documents, settings, admin, and audit route QA is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
+- DEV-01 Part 8 placeholder unimplemented route QA and final triage is completed in [docs/development/DEV_01_ROUTE_QA_LOG.md](docs/development/DEV_01_ROUTE_QA_LOG.md).
+- DEV-01 final triage is created in [docs/development/DEV_01_FINAL_TRIAGE.md](docs/development/DEV_01_FINAL_TRIAGE.md).
 - Routes browser-QA'd or code-reviewed in Part 2: `/`, `/login`, `/register`, `/password-reset`, `/password-reset/confirm`, `/invite/accept`, `/dashboard`, `/setup`, `/organization/setup`, `/sales/quotes`, and `/fixed-assets`.
 - Routes fixed in Part 2: `/setup`, `/organization/setup`, and unmatched app-shell placeholder routes such as `/sales/quotes` and `/fixed-assets`.
 - Main blocker from Part 2: local API health was not reachable at `http://localhost:4000/health`, so authenticated dashboard/setup/organization and auth-submit success flows remain deferred.
@@ -48,7 +50,12 @@
 - Routes code-reviewed in Part 7: `/reports`, `/reports/general-ledger`, `/reports/trial-balance`, `/reports/profit-and-loss`, `/reports/balance-sheet`, `/reports/vat-summary`, `/reports/aged-receivables`, `/reports/aged-payables`, `/documents`, `/accounts`, `/journal-entries`, `/journal-entries/new`, `/tax-rates`, `/fiscal-periods`, `/branches`, `/settings/team`, `/settings/roles`, `/settings/roles/[id]`, `/settings/documents`, `/settings/storage`, `/settings/email-outbox`, `/settings/audit-logs`, `/settings/number-sequences`, and `/settings/zatca`.
 - Routes fixed in Part 7: shared core report CSV/PDF buttons now require `reports.export` or `generatedDocuments.download`; `/documents` archived PDF download buttons now require `generatedDocuments.download`.
 - Part 7 remaining blockers: in-app Browser route visits, authenticated browser-runtime QA, login-dependent QA, report/document/audit exports and downloads, journal/account/tax/fiscal/branch/team/role/storage/email/ZATCA mutations, `/settings/team` role-list permission dependency, `/settings/storage` backup-evidence permission policy, and `/settings/email-outbox` email-admin permission policy remain deferred.
-- Exact next prompt title: `DEV-01 Part 8: placeholder unimplemented route QA and final triage`.
+- Part 8 local health refresh: `/health` and `/readiness` returned `200`; web shell HTTP checks returned `200` for `/login`, `/dashboard`, all 31 known placeholder/titleMap paths, and 5 real-route shadow checks.
+- Graphify in Part 8: untracked `graphify-out/GRAPH_REPORT.md`, `graphify-out/manifest.json`, and `graphify-out/graph.json` were available and used only as QA planning/blast-radius aids. The graph was stale (`edaec451` vs current `996a2ca`) and was not treated as runtime proof or staged.
+- Placeholder/unimplemented routes code-reviewed in Part 8: `/get-started`, `/inbox`, `/sales`, `/sales/quotes`, `/sales/recurring-invoices`, `/sales/cash-invoices`, `/sales/delivery-notes`, `/sales/api-invoices`, `/purchases`, `/beneficiaries`, `/payroll`, `/products`, `/accounting`, `/fixed-assets`, `/cost-centers`, `/projects`, `/developer`, `/developer/api-keys`, `/integrations`, and `/document-templates`.
+- Routes fixed in Part 8: known future-module placeholders now map to nearest existing route permissions instead of falling through to generic `dashboard.view`; placeholder wording now states no live integration, payroll, bank-feed, billing, ZATCA, email, posting, or production workflow runs from placeholders.
+- Part 8 remaining blockers: in-app Browser route visits, authenticated browser-runtime QA, login-dependent QA, dedicated future-module permissions, and future-module implementation remain deferred. Placeholder roots/synonyms such as `/products`, `/accounting`, `/sales`, and `/purchases` need a later UX decision to redirect, become real index pages, or remain direct-only placeholders.
+- Exact next prompt title: `DEV-02 Part 1: verification gate inventory`.
 
 ## Current PROD-A1 Objective
 
@@ -427,7 +434,7 @@
 - The current product state is broad controlled-beta MVP, not paid production SaaS: core AR/AP, banking, inventory, reports, documents, audit, roles, storage readiness, email readiness, and ZATCA groundwork exist, but many production-facing and product-completion gaps remain.
 - Top development gaps: full route QA and blocker triage, verification gate hardening, high-risk state-machine QA, auth/session hardening, accountant review, sales/purchase completion, banking parser/reconciliation hardening, inventory accounting policy work, admin/audit alerts, and SaaS business readiness.
 - Mock/blocked areas remain intentional: real ZATCA, real customer email sending, live bank feeds, payment gateway capture, object-storage migration execution, backup/restore execution, and automatic inventory accounting expansion.
-- Exact next recommended development ticket: `DEV-01 Full route QA and blocker triage`.
+- Exact next recommended development ticket: `DEV-02 Part 1: verification gate inventory`.
 
 ## Forbidden Actions For Next Production Thread
 
@@ -440,4 +447,4 @@
 
 ## Next Thread Prompt
 
-`DEV-01 Part 8: placeholder unimplemented route QA and final triage`
+`DEV-02 Part 1: verification gate inventory`

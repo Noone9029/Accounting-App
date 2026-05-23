@@ -1,8 +1,8 @@
 # DEV-01 Route QA Log
 
-Status: Part 7 reports/documents/settings/admin route QA completed
+Status: Part 8 placeholder/unimplemented route QA and final triage completed
 Date: 2026-05-23
-Source state inspected: `58a846a QA DEV-01 inventory routes`
+Source state inspected: `996a2ca QA DEV-01 reports settings admin routes`
 
 ## Scope And Rules
 
@@ -184,7 +184,7 @@ Routes not included in completed DEV-01 batches remain `Not tested`.
 
 | Route path | Source file | Expected purpose | Likely data/API dependency | Auth/role assumption visible from code | QA priority | QA status |
 | --- | --- | --- | --- | --- | --- | --- |
-| `/[...placeholder]` | `apps/web/src/app/(app)/[...placeholder]/page.tsx` | Catch-all scaffold for unimplemented modules | No module API; static placeholder from `titleMap` | Authenticated app-shell route; unmatched paths default to `dashboard.view` | Low | Blocked |
+| `/[...placeholder]` | `apps/web/src/app/(app)/[...placeholder]/page.tsx` | Catch-all scaffold for unimplemented modules | No module API; static placeholder from `titleMap` | Authenticated app-shell route; Part 8 maps known future-module placeholders to nearest existing permissions | Low | Code-reviewed only |
 
 Known titleMap placeholder keys in code: `/get-started`, `/inbox`, `/reports`, `/sales`, `/sales/quotes`, `/sales/invoices`, `/sales/customer-payments`, `/sales/recurring-invoices`, `/sales/credit-notes`, `/sales/cash-invoices`, `/sales/delivery-notes`, `/sales/api-invoices`, `/purchases`, `/purchases/bills`, `/purchases/supplier-payments`, `/purchases/cash-expenses`, `/purchases/debit-notes`, `/purchases/purchase-orders`, `/beneficiaries`, `/payroll`, `/products`, `/accounting`, `/bank-accounts`, `/fixed-assets`, `/cost-centers`, `/projects`, `/branches`, `/developer`, `/developer/api-keys`, `/integrations`, and `/document-templates`.
 
@@ -607,12 +607,92 @@ Recommended next thread: `DEV-01 Part 8: placeholder unimplemented route QA and 
 
 Focus on unmatched placeholder/future-module routes, placeholder visibility, any committed route/titleMap overlap, and final DEV-01 blocker triage. Keep shell HTTP results separate from authenticated browser-runtime claims, do not run mutations/downloads/email/ZATCA/hosting work, and continue to leave unrelated marketing and Graphify files unstaged.
 
+## DEV-01 Part 8 Summary
+
+- Latest commit inspected: `996a2ca QA DEV-01 reports settings admin routes`.
+- Local health refresh: API `/health` and `/readiness` returned `200`; web `/login` and `/dashboard` returned `200`.
+- Graphify was available and used only as a QA planning/blast-radius aid: `graphify-out/GRAPH_REPORT.md`, `graphify-out/manifest.json`, and `graphify-out/graph.json`. The graph was still stale to `edaec451`, so it was not treated as runtime proof or staged.
+- Shell route-load sweep covered all 31 known `titleMap` paths. All returned `200`; 20 placeholder-only paths rendered "Module not implemented yet", and 11 exact real routes did not render the placeholder.
+- Real-page shadow checks passed for `/reports`, `/sales/invoices`, `/purchases/bills`, `/bank-accounts`, and `/branches`; exact committed page files win over duplicate `titleMap` keys.
+- Browser/runtime limit remains: in-app Browser local route visits are still blocked by tool URL policy; no authenticated browser-runtime Part 8 pass is claimed.
+- Login was not run because it writes an audit log. No mutation, export/download, email, ZATCA, backup/restore, role/team, settings, migration, seed/reset/delete, deploy, env, or production-hosting action was run.
+- Small frontend fix applied: direct future-module placeholder paths now map to the nearest existing permission area instead of falling through to generic `dashboard.view`; placeholder copy now says no live integration, payroll, bank-feed, billing, ZATCA, email, posting, or production workflow runs from the placeholder.
+
+### Graphify Dependency Findings For Placeholder/Navigation Behavior
+
+- Graphify query focus: placeholder catch-all, sidebar navigation, route permissions, and app-shell access boundary.
+- Relevant graph nodes/communities: `Sidebar()`, `MobileWorkflowNav()`, `filterSidebarNavItems()`, `canViewNavItem()`, `getRequiredPermissionsForPathname()`, `PermissionBoundary()`, `PermissionProvider()`, `sidebar-nav.ts`, `permissions.ts`, `permissions.test.ts`, and the Web Placeholder Title community.
+- High fan-out files reviewed cautiously: `apps/web/src/lib/permissions.ts`, `apps/web/src/lib/sidebar-nav.ts`, `apps/web/src/components/app-shell/sidebar.tsx`, `apps/web/src/components/permissions/permission-boundary.tsx`, and `apps/web/src/app/(app)/[...placeholder]/page.tsx`.
+- Graphify highlighted `usePermissions()` and `PermissionProvider()` as high fan-out nodes, so Part 8 avoided broad auth/session refactors and only tightened route permission mapping plus placeholder wording.
+- Sidebar finding: committed sidebar/mobile navigation does not expose placeholder-only links; the remaining placeholder exposure is direct URL entry or stale/deep links.
+
+### Part 8 Placeholder Route Results
+
+| Route path | QA status | QA method | Actual result | Defects found | Severity | Fix applied | Remaining follow-up |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `/get-started` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy. | No module implementation; generic onboarding placeholder remains intentional. | Low | Placeholder wording clarified; route remains gated by `dashboard.view`. | Browser-runtime access-denied state still needs safe authenticated QA. |
+| `/inbox` | Code-reviewed only | Shell HTTP; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy. | No module implementation; inbox placeholder remains intentional. | Low | Placeholder wording clarified; route remains gated by `dashboard.view`. | Confirm whether future inbox needs a dedicated permission before implementation. |
+| `/sales` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy. | Direct URL previously fell back to generic `dashboard.view`. | Medium | Known sales placeholders now require `salesInvoices.view`. | Add dedicated permissions if quotes/recurring/API invoices become real modules. |
+| `/sales/quotes` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy. | Direct URL previously fell back to generic `dashboard.view`. | Medium | Route now requires `salesInvoices.view`; wording clarified. | Browser-runtime restricted-role check remains deferred. |
+| `/sales/recurring-invoices` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy. | Direct URL previously fell back to generic `dashboard.view`. | Medium | Route now requires `salesInvoices.view`; wording clarified. | Confirm final recurring-invoice permission model before implementation. |
+| `/sales/cash-invoices` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy. | Direct URL previously fell back to generic `dashboard.view`. | Medium | Route now requires `salesInvoices.view`; wording clarified. | Confirm final cash-invoice permission model before implementation. |
+| `/sales/delivery-notes` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy. | Direct URL previously fell back to generic `dashboard.view`. | Medium | Route now requires `salesInvoices.view`; wording clarified. | Confirm inventory/sales permission split before implementation. |
+| `/sales/api-invoices` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy. | Direct URL previously fell back to generic `dashboard.view`; API invoice wording could imply a live integration if not clarified. | Medium | Route now requires `salesInvoices.view`; wording states no live integration runs from placeholders. | Confirm developer/API permission split before implementation. |
+| `/purchases` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy. | Direct URL previously fell back to generic `dashboard.view`. | Medium | Route now requires any existing AP view permission. | Consider redirecting to `/purchases/bills` or a real AP index in DEV-02+. |
+| `/beneficiaries` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy. | Direct URL previously fell back to generic `dashboard.view`. | Medium | Route now requires `bankAccounts.view` or `bankTransfers.view`; wording clarified. | Confirm final beneficiary/payee permission model before implementation. |
+| `/payroll` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy. | Direct URL previously fell back to generic `dashboard.view`; payroll wording is high-risk if interpreted as live payroll support. | Medium | Route now requires `users.view`; wording states no payroll workflow runs. | Add dedicated payroll permissions before any payroll implementation. |
+| `/products` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy; real product/service route is `/items`. | Direct URL previously fell back to generic `dashboard.view`; duplicate concept with `/items`. | Medium | Route now requires `items.view`; wording clarified. | Consider redirecting `/products` to `/items` in a later UX pass if product terminology is retained. |
+| `/accounting` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy; real accounting routes are `/journal-entries`, `/accounts`, `/tax-rates`, and `/fiscal-periods`. | Direct URL previously fell back to generic `dashboard.view`. | Medium | Route now requires `accounts.view` or `journals.view`; wording clarified. | Consider a real accounting index or redirect in DEV-02+. |
+| `/fixed-assets` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy. | Direct URL previously fell back to generic `dashboard.view`; fixed-assets module is not implemented. | Medium | Route now requires `accounts.view` or `inventory.view`; wording clarified. | Add dedicated fixed-asset permissions before implementation. |
+| `/cost-centers` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy. | Direct URL previously fell back to generic `dashboard.view`. | Medium | Route now requires `accounts.view` or `journals.view`; wording clarified. | Add dedicated cost-center permissions before implementation. |
+| `/projects` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy. | Direct URL previously fell back to generic `dashboard.view`. | Medium | Route now requires `accounts.view` or `journals.view`; wording clarified. | Add dedicated project/accounting dimension permissions before implementation. |
+| `/developer` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy. | Direct URL previously fell back to generic `dashboard.view`; developer wording could imply live API support. | Medium | Route now requires `users.manage` or `roles.manage`; wording clarified. | Add dedicated developer/API-key permissions before implementation. |
+| `/developer/api-keys` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy. | Direct URL previously fell back to generic `dashboard.view`; API-key wording could imply live credential management. | Medium | Route now requires `users.manage` or `roles.manage`; wording clarified. | Add dedicated API-key permission and backend guard before implementation. |
+| `/integrations` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy. | Direct URL previously fell back to generic `dashboard.view`; integrations wording could imply live integrations. | Medium | Route now requires `users.manage` or `roles.manage`; wording states no live integration runs. | Add dedicated integration permissions before implementation. |
+| `/document-templates` | Code-reviewed only | Shell HTTP; targeted test; Graphify-assisted code review | Shell route returned `200` and rendered placeholder copy. | Direct URL previously fell back to generic `dashboard.view`. | Medium | Route now requires `documentSettings.view`; wording clarified. | Confirm whether this should redirect to `/settings/documents` until a template designer exists. |
+
+### Real Route Shadow Checks
+
+| Route path | QA status | QA method | Actual result | Defects found | Severity | Fix applied | Remaining follow-up |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `/reports` | Code-reviewed only | Shell HTTP | Returned `200`; placeholder phrase absent. | No catch-all shadowing found. | Low | None | Keep covered by report route QA. |
+| `/sales/invoices` | Code-reviewed only | Shell HTTP | Returned `200`; placeholder phrase absent. | No catch-all shadowing found. | Low | None | Keep covered by Sales/AR route QA. |
+| `/purchases/bills` | Code-reviewed only | Shell HTTP | Returned `200`; placeholder phrase absent. | No catch-all shadowing found. | Low | None | Keep covered by Purchases/AP route QA. |
+| `/bank-accounts` | Code-reviewed only | Shell HTTP | Returned `200`; placeholder phrase absent. | No catch-all shadowing found. | Low | None | Keep covered by banking route QA. |
+| `/branches` | Code-reviewed only | Shell HTTP | Returned `200`; placeholder phrase absent. | No catch-all shadowing found. | Low | None | Keep covered by settings/admin route QA. |
+
+### Placeholder/Unimplemented Blocker List
+
+- Authenticated browser-runtime verification remains blocked by the in-app Browser local URL policy and the no-login/audit-log boundary.
+- Placeholder pages are now permission-mapped more tightly, but dedicated permissions are still missing for future modules such as payroll, fixed assets, projects, integrations, API keys, document templates, cost centers, and beneficiaries.
+- Placeholder pages are intentionally not in the sidebar, but direct URLs and stale/deep links still show app-shell placeholders to authorized users until those modules are implemented, hidden by routing, or redirected.
+- `/products`, `/accounting`, `/purchases`, and `/sales` are duplicate concept entry points rather than real index pages; route behavior is safe but UX should decide between redirect, real index, or removal.
+
+### Routes Fixed In This Thread
+
+- Placeholder catch-all wording now clearly states the page has no working actions and no live integration, payroll, bank-feed, billing, ZATCA, email, posting, or production workflow execution.
+- Known direct placeholder paths now map to nearest existing permissions: sales placeholders to `salesInvoices.view`, AP root to any AP view permission, beneficiaries to bank account/transfer view, payroll to users view, products to items view, accounting/cost centers/projects to accounts/journals view, fixed assets to accounts/inventory view, developer/integrations/API keys to users/roles manage, and document templates to document settings view.
+
+### Routes Deferred And Why
+
+- All placeholder routes remain deferred for authenticated browser-runtime QA because local Browser route visits are blocked and login was avoided.
+- Future-module implementation remains deferred by scope: no payroll, fixed-asset, project, integration, API-key, quote, recurring invoice, cash invoice, delivery note, document-template, or beneficiary module was implemented.
+- Dedicated future-module permission design remains deferred because adding new permissions affects seed roles, API guards, role UI, docs, and accountant/admin review.
+
+### DEV-01 Final Triage Summary
+
+- DEV-01 route QA is complete at mixed depth: inventory, shell route-load checks, Graphify-assisted blast-radius review, code review, targeted frontend fixes, and explicit blocker documentation are complete for Parts 1-8.
+- Route-load evidence is broad but not full browser QA: recent shell HTTP checks returned `200` for AP, banking/reconciliation, inventory, reports/documents/settings/admin/audit, and Part 8 placeholder routes.
+- No route batch can be called fully browser-passed because the in-app Browser local URL policy blocked local route visits and login-dependent QA was avoided to prevent audit-log writes.
+- The highest remaining blockers are browser-runtime authenticated QA, safe restricted-role fixtures, state-machine mutation QA, output/download/PDF/export QA, and dedicated permission-policy decisions for several shared admin/future-module areas.
+- Final triage details are captured in [DEV_01_FINAL_TRIAGE.md](DEV_01_FINAL_TRIAGE.md).
+
 ## Placeholder, Duplicate, Risky, Hidden Route Notes
 
-- Placeholder-only: the committed catch-all route renders "Module not implemented yet" for any unmatched app-shell path. Part 2 added a baseline `dashboard.view` route permission and unauthenticated app-shell guard; restricted-role and authenticated placeholder behavior still need QA.
+- Placeholder-only: the committed catch-all route renders "Module not implemented yet" for any unmatched app-shell path. Part 2 added an unauthenticated app-shell guard; Part 8 tightened known future-module route permissions and clarified placeholder wording. Authenticated browser-runtime placeholder behavior still needs QA.
 - Scaffold-only/future modules: quotes/proformas, recurring invoices, cash invoices, delivery notes, API invoices, beneficiaries, payroll, fixed assets, cost centers, projects, developer/API keys, integrations, and document templates are titleMap entries only unless a real page exists.
 - Duplicate/overlap risk: `/bank-accounts/[id]/reconciliation` and `/bank-accounts/[id]/reconciliations`/`new` overlap conceptually. Part 5 found no broken route links, but navigation clarity still needs authenticated browser QA.
-- Risky auth mapping: Part 2 fixed the unauthenticated visibility gap for `/setup`, `/organization/setup`, and placeholder catch-all routes. Part 3 identified that `/sales/credit-notes/[id]/edit` is gated by `creditNotes.create` because no dedicated `creditNotes.update` permission exists. Part 4 identified the same permission-model pattern for `/purchases/debit-notes/[id]/edit`, where edit/update/delete use `purchaseDebitNotes.create` because no dedicated update permission exists. Part 5 fixed the banking draft-reconciliation route mapping from view to create and tightened banking action-link visibility. Part 6 found the same create-permission pattern for inventory adjustment edit/update/delete and noted that purchase receipt/sales stock issue void actions reuse create permissions; it also flagged `/inventory/variance-proposals/new` as dependent on `/accounts` while the visible route permission only requires variance-proposal creation. Part 7 fixed report export and generated-document archive download visibility, and flagged `/settings/team`, `/settings/storage`, and `/settings/email-outbox` for permission-policy confirmation because their action dependencies are broader than the visible route permission. Authenticated and restricted-role behavior remains blocked until a safe local API/database state and browser route path are available.
+- Risky auth mapping: Part 2 fixed the unauthenticated visibility gap for `/setup`, `/organization/setup`, and placeholder catch-all routes. Part 3 identified that `/sales/credit-notes/[id]/edit` is gated by `creditNotes.create` because no dedicated `creditNotes.update` permission exists. Part 4 identified the same permission-model pattern for `/purchases/debit-notes/[id]/edit`, where edit/update/delete use `purchaseDebitNotes.create` because no dedicated update permission exists. Part 5 fixed the banking draft-reconciliation route mapping from view to create and tightened banking action-link visibility. Part 6 found the same create-permission pattern for inventory adjustment edit/update/delete and noted that purchase receipt/sales stock issue void actions reuse create permissions; it also flagged `/inventory/variance-proposals/new` as dependent on `/accounts` while the visible route permission only requires variance-proposal creation. Part 7 fixed report export and generated-document archive download visibility, and flagged `/settings/team`, `/settings/storage`, and `/settings/email-outbox` for permission-policy confirmation because their action dependencies are broader than the visible route permission. Part 8 tightened known placeholder/future-module route permissions, but dedicated future-module permissions remain deferred. Authenticated and restricted-role behavior remains blocked until a safe local API/database state and browser route path are available.
 - Hidden expected routes: detail/new/edit routes are generally not sidebar children and are reached through lists/actions. That is expected, but QA should confirm every hidden route has a discoverable path from an authorized workflow.
 - Committed route vs placeholder conflict: some placeholder `titleMap` keys duplicate real routes (`/reports`, `/sales/invoices`, `/bank-accounts`, `/branches`); real files should win for exact committed pages.
 
@@ -634,24 +714,8 @@ Each batch stays at or below 20 routes.
 
 ## Recommended Next Actual QA Batch
 
-Recommended next thread: `DEV-01 Part 8: placeholder unimplemented route QA and final triage`.
+Recommended next thread: `DEV-02 Part 1: verification gate inventory`.
 
-Run placeholder and final triage next because the core auth, sales/AR, purchases/AP, banking/reconciliation, inventory, reports, documents, settings, admin, and audit batches now have shell route-load evidence, Graphify-assisted code review where available, targeted small frontend fixes, and documented runtime blockers. Keep shell HTTP results separate from authenticated browser-runtime claims, and do not run mutations, exports/downloads, email sending, ZATCA calls, migrations, seed/reset/delete, deploys, env changes, or production-hosting research.
+Run DEV-02 verification gate inventory next because DEV-01 has completed the route inventory, mixed route-load/code-review sweeps, targeted small frontend fixes, placeholder triage, and final blocker summary. DEV-02 should turn the remaining blockers into a concrete verification gate plan without running forbidden mutations, exports/downloads, email sending, ZATCA calls, migrations, seed/reset/delete, deploys, env changes, or production-hosting research.
 
-Routes to include in the next placeholder/future-module pass:
-
-- `/sales/quotes`
-- `/sales/recurring-invoices`
-- `/sales/cash-invoices`
-- `/sales/delivery-notes`
-- `/sales/api-invoices`
-- `/beneficiaries`
-- `/payroll`
-- `/fixed-assets`
-- `/cost-centers`
-- `/projects`
-- `/developer`
-- `/developer/api-keys`
-- `/integrations`
-- `/document-templates`
-- Any additional visible unmatched `titleMap` routes found during final triage.
+DEV-02 should start with verification inventory for browser-runtime auth/session QA, restricted-role fixtures, state-machine mutation QA, output/export/download QA, and a safe command matrix for targeted typecheck/unit/build/smoke/E2E gates.

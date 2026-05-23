@@ -41,11 +41,11 @@ export default async function PlaceholderPage({ params }: { params: Promise<{ pl
     <section>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-ink">{title}</h1>
-        <p className="mt-1 text-sm text-steel">Placeholder route scaffolded for a future module.</p>
+        <p className="mt-1 text-sm text-steel">Planned module route scaffold. This page does not provide working module actions yet.</p>
       </div>
       <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
         <div className="text-sm font-medium text-ink">Module not implemented yet</div>
-        <p className="mt-1 text-sm text-steel">The navigation and route are in place so this area can be built without restructuring the app shell.</p>
+        <p className="mt-1 text-sm text-steel">The route scaffold is in place for future build-out. No live integration, payroll, bank-feed, billing, ZATCA, email, posting, or production workflow runs from this placeholder.</p>
       </div>
     </section>
   );

@@ -138,6 +138,17 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.customerRefunds.view];
   }
 
+  if (
+    pathname === "/sales" ||
+    pathname.startsWith("/sales/quotes") ||
+    pathname.startsWith("/sales/recurring-invoices") ||
+    pathname.startsWith("/sales/cash-invoices") ||
+    pathname.startsWith("/sales/delivery-notes") ||
+    pathname.startsWith("/sales/api-invoices")
+  ) {
+    return [PERMISSIONS.salesInvoices.view];
+  }
+
   if (pathname === "/purchases/bills/new") {
     return [PERMISSIONS.purchaseBills.create];
   }
@@ -189,11 +200,26 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.cashExpenses.view];
   }
 
+  if (pathname === "/purchases") {
+    return [
+      PERMISSIONS.purchaseOrders.view,
+      PERMISSIONS.purchaseBills.view,
+      PERMISSIONS.supplierPayments.view,
+      PERMISSIONS.supplierRefunds.view,
+      PERMISSIONS.cashExpenses.view,
+      PERMISSIONS.purchaseDebitNotes.view,
+    ];
+  }
+
   if (pathname.startsWith("/contacts")) {
     return [PERMISSIONS.contacts.view];
   }
 
   if (pathname.startsWith("/items")) {
+    return [PERMISSIONS.items.view];
+  }
+
+  if (pathname.startsWith("/products")) {
     return [PERMISSIONS.items.view];
   }
 
@@ -264,6 +290,34 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
 
   if (pathname.startsWith("/branches")) {
     return [PERMISSIONS.organization.view];
+  }
+
+  if (pathname === "/get-started" || pathname.startsWith("/inbox")) {
+    return [PERMISSIONS.dashboard.view];
+  }
+
+  if (pathname.startsWith("/beneficiaries")) {
+    return [PERMISSIONS.bankAccounts.view, PERMISSIONS.bankTransfers.view];
+  }
+
+  if (pathname.startsWith("/payroll")) {
+    return [PERMISSIONS.users.view];
+  }
+
+  if (pathname.startsWith("/accounting") || pathname.startsWith("/cost-centers") || pathname.startsWith("/projects")) {
+    return [PERMISSIONS.accounts.view, PERMISSIONS.journals.view];
+  }
+
+  if (pathname.startsWith("/fixed-assets")) {
+    return [PERMISSIONS.accounts.view, PERMISSIONS.inventory.view];
+  }
+
+  if (pathname.startsWith("/developer") || pathname.startsWith("/integrations")) {
+    return [PERMISSIONS.users.manage, PERMISSIONS.roles.manage];
+  }
+
+  if (pathname.startsWith("/document-templates")) {
+    return [PERMISSIONS.documentSettings.view];
   }
 
   if (pathname.startsWith("/documents")) {
