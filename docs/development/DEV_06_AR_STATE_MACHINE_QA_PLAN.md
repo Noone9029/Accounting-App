@@ -238,3 +238,15 @@ Part 3 performed no AR mutation, no fixture creation, no cleanup deletion, and n
 Finalize plan: [DEV_06_AR_INVOICE_FINALIZE_MUTATION_PLAN.md](DEV_06_AR_INVOICE_FINALIZE_MUTATION_PLAN.md).
 
 Part 4 performed no mutation and did not finalize the invoice. Based on inspected code, a future approved finalization should transition the invoice from `DRAFT` to `FINALIZED`, create one posted journal entry, add one `SALES_INVOICE_FINALIZED` audit log, and upsert local ZATCA invoice metadata without generating PDFs, generated documents, email, ZATCA XML/signing/submission, payments, refunds, credit notes, allocations, or cleanup deletion.
+
+## Part 5 Invoice Finalize Preflight Blocker Note
+
+`DEV-06 Part 5` received the exact local-only approval phrase and ran the requested preflight, but it stopped before mutation.
+
+Run evidence: [DEV_06_AR_INVOICE_FINALIZE_MUTATION_RUN.md](DEV_06_AR_INVOICE_FINALIZE_MUTATION_RUN.md).
+
+Part 5 did not finalize the invoice locally. The blocker is that the fixture organization has the expected four marker-scoped accounts, but it does not have the active posting account codes `120` and `220` currently required by `SalesInvoiceService.finalize(...)`. The fixture accounts use `D3AR-...` codes instead.
+
+The invoice remained `DRAFT`; no journal entry, `SALES_INVOICE_FINALIZED` audit log, or local ZATCA metadata was created. Forbidden side effects stayed zero for generated documents, payments, refunds, credit notes, allocations, voids, reversal journals, email, ZATCA XML/signing/submission artifacts, and cleanup deletion.
+
+Next prompt title: `DEV-06 Part 5B: resolve AR invoice finalize posting-account blocker`.

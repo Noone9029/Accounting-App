@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `c4727abc Run DEV-06 AR draft invoice mutation`
+- `60a39c56 Plan DEV-06 AR invoice finalize mutation`
 
 ## Current Development Objective
 
@@ -542,7 +542,23 @@
 - The current product state is broad controlled-beta MVP, not paid production SaaS: core AR/AP, banking, inventory, reports, documents, audit, roles, storage readiness, email readiness, and ZATCA groundwork exist, but many production-facing and product-completion gaps remain.
 - Top development gaps: full route QA and blocker triage, verification gate hardening, high-risk state-machine QA, auth/session hardening, accountant review, sales/purchase completion, banking parser/reconciliation hardening, inventory accounting policy work, admin/audit alerts, and SaaS business readiness.
 - Mock/blocked areas remain intentional: real ZATCA, real customer email sending, live bank feeds, payment gateway capture, object-storage migration execution, backup/restore execution, and automatic inventory accounting expansion.
-- Exact next recommended development ticket: `DEV-06 Part 5: approved local AR invoice finalize mutation`.
+- DEV-06 Part 5 attempted the approved local-only AR invoice finalize preflight and stopped before mutation because the fixture organization is missing the finalize service's required active posting account codes `120` and `220`.
+- Exact next recommended development ticket: `DEV-06 Part 5B: resolve AR invoice finalize posting-account blocker`.
+
+## DEV-06 Part 5 - Invoice Finalize Preflight Blocked
+
+- Approval phrase was received for one local-only finalize mutation for `INVOICE-000001` under marker `DEV03-AR-20260524T130000`.
+- Local target safety passed: Docker Postgres/Redis were healthy, `localhost:5432` was reachable, and the target was the local Docker PostgreSQL database label `accounting`.
+- Non-mutating checks passed before the blocker: targeted AR Jest suites (`4` suites, `84` tests), `fixture:dev04:cleanup-plan` in plan-only/no-write mode, and `corepack pnpm verify:diff`.
+- A temporary script under `apps/api/scripts` guarded the exact marker, family, invoice number, safe id prefix, and local target, then stopped before service use because account code `120` was missing; code `220` was also absent.
+- Existing fixture accounts are marker-scoped (`DEV03-AR-ACCT-AR`, `REV`, `VAT`, `CASH`) under `D3AR-...` codes, while `SalesInvoiceService.finalize(...)` currently requires posting account codes `120` and `220`.
+- No finalize mutation was performed: `SalesInvoiceService.finalize(...)` was not called.
+- `INVOICE-000001` remains `DRAFT`; `finalizedAt`, `journalEntryId`, and `reversalJournalEntryId` remain absent; total and balance due remain `287.5000`.
+- Journal entries remain `0`; SalesInvoice audit actions remain `SALES_INVOICE_CREATED` and `SALES_INVOICE_UPDATED`; auth/login audit logs remain `0`; ZATCA metadata remains `0`.
+- Forbidden side effects stayed `0`: generated documents, payments, refunds, credit notes, allocations, voids, reversal journals, email outbox/provider events, ZATCA XML/signing/submission artifacts, and cleanup deletion.
+- Evidence doc: [docs/development/DEV_06_AR_INVOICE_FINALIZE_MUTATION_RUN.md](docs/development/DEV_06_AR_INVOICE_FINALIZE_MUTATION_RUN.md).
+- The temporary script was removed and was not staged or tracked.
+- Do not proceed to `DEV-06 Part 6: verify AR invoice finalize evidence` until a future approved run actually finalizes the invoice.
 
 ## Forbidden Actions For Next Production Thread
 
@@ -555,4 +571,4 @@
 
 ## Next Thread Prompt
 
-`DEV-06 Part 5: approved local AR invoice finalize mutation`
+`DEV-06 Part 5B: resolve AR invoice finalize posting-account blocker`

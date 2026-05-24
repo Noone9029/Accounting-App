@@ -282,3 +282,24 @@ This approval must be treated as limited to one local-only invoice finalization 
 ## Recommended Next Step
 
 Proceed to `DEV-06 Part 5: approved local AR invoice finalize mutation` only after the exact approval phrase is received.
+
+## Part 5 Preflight Result
+
+The exact approval phrase was received and Part 5 started the approved local-only finalize run, but it stopped before mutation.
+
+Run evidence: [DEV_06_AR_INVOICE_FINALIZE_MUTATION_RUN.md](DEV_06_AR_INVOICE_FINALIZE_MUTATION_RUN.md).
+
+Part 5 did not finalize `INVOICE-000001`. The guarded temporary script found that the fixture organization has the expected four marker-scoped accounts, but it lacks the active posting account codes `120` and `220` required by the current `SalesInvoiceService.finalize(...)` implementation. The existing fixture AR and VAT accounts use `D3AR-...` codes.
+
+State after the stopped preflight:
+
+- Invoice status: still `DRAFT`.
+- Journal entries: still `0`.
+- SalesInvoice audit actions: still `SALES_INVOICE_CREATED` and `SALES_INVOICE_UPDATED`; no `SALES_INVOICE_FINALIZED`.
+- ZATCA metadata: still `0`.
+- Forbidden side effects: still `0` for generated documents, payments, refunds, credit notes, allocations, voids, reversal journals, email, ZATCA XML/signing/submission artifacts, and cleanup deletion.
+- Temporary script: removed and not staged.
+
+Do not proceed to `DEV-06 Part 6: verify AR invoice finalize evidence` until a future approved run actually finalizes the invoice.
+
+Next prompt title: `DEV-06 Part 5B: resolve AR invoice finalize posting-account blocker`.
