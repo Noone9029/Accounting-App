@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `2062d920 Retry DEV-07 payment allocation fixture preflight blocker`
+- `3bac878c Retry DEV-07 payment allocation fixture preflight blocker`
 
 ## Current Development Objective
 
@@ -552,7 +552,7 @@
 - DEV-06 Part 10 completed the AR invoice lifecycle final triage as documentation/read-only work.
 - DEV-07 Part 1 completed the AR customer payment allocation state-machine plan as documentation/read-only work.
 - DEV-07 Part 2 completed the AR payment allocation fixture plan as documentation/read-only work.
-- Exact next recommended development ticket: `DEV-07 Part 3D: retry AR payment allocation invoice fixture mutation preflight`.
+- Exact next recommended development ticket: `DEV-07 Part 3E: approved local AR payment-allocation invoice fixture mutation`.
 
 ## DEV-06 Part 5 - Invoice Finalize Preflight Blocked
 
@@ -726,6 +726,20 @@
 - Evidence was appended to [docs/development/DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md](docs/development/DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md).
 - Exact next prompt title: `DEV-07 Part 3D: retry AR payment allocation invoice fixture mutation preflight`.
 
+## DEV-07 Part 3D - AR Payment Allocation Fixture Preflight Verified
+
+- DEV-07 Part 3D retried only local Docker/Postgres readiness and read-only fixture dependency preflight; it did not carry mutation approval forward.
+- Docker Desktop Linux engine was available, `infra-postgres-1` and `infra-redis-1` were healthy, and `127.0.0.1:5432` / `127.0.0.1:6379` were reachable.
+- The configured API database target guard parsed as local `localhost:5432` and did not match forbidden production, beta, hosted, shared, Supabase, Vercel, RDS/AWS, Railway, Render, Fly, DigitalOcean, Neon, or user-testing patterns.
+- Fixture dependency preflight result: passed. Verified marker `DEV03-AR-20260524T130000`, family `ar`, fixture organization, active actor membership, active customer, active service item, active/posting revenue account, active `15.0000` sales tax, active/posting account `120`, active/posting account `220`, active/posting paid-through cash account, and posting-date guard.
+- Invoice preflight result: `INVOICE-000001` remained `VOIDED` and excluded from happy-path allocation; no `DEV07-AR-PAYALLOC` invoice fixture existed; the fixture organization had only `INVOICE-000001:VOIDED`.
+- Forbidden side-effect counts stayed `0`: customer payments, customer payment allocations, customer payment unapplied allocations, customer refunds, credit notes, credit-note allocations, generated documents, email outbox, email provider events, ZATCA signed drafts, and ZATCA submission logs.
+- Invoice fixture created/finalized: no. Customer payment/allocation performed: no. Temporary mutation script created: no.
+- Checks run: targeted AR Jest suites passed (`4` suites, `84` tests), fixture-runner Jest passed (`1` suite, `41` tests), `fixture:dev04:cleanup-plan` stayed plan-only with no DB connection or writes, and `corepack pnpm verify:diff` passed with the existing unrelated `apps/web/src/app/page.tsx` CRLF warning.
+- Evidence was appended to [docs/development/DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md](docs/development/DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md).
+- Exact next prompt title: `DEV-07 Part 3E: approved local AR payment-allocation invoice fixture mutation`.
+- Required approval phrase before Part 3E mutation: `I approve DEV-07 Part 3E local-only AR payment-allocation invoice fixture mutation under marker DEV03-AR-20260524T130000. No production, no beta, no customer data.`
+
 ## Forbidden Actions For Next Production Thread
 
 - Do not change app code.
@@ -737,4 +751,4 @@
 
 ## Next Thread Prompt
 
-`DEV-07 Part 3D: retry AR payment allocation invoice fixture mutation preflight`
+`DEV-07 Part 3E: approved local AR payment-allocation invoice fixture mutation`

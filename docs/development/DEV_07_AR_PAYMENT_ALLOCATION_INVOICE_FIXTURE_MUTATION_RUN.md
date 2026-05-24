@@ -356,3 +356,132 @@ Next prompt title:
 ```text
 DEV-07 Part 3D: retry AR payment allocation invoice fixture mutation preflight
 ```
+
+## Part 3D Preflight Retry Result
+
+### Purpose And Scope
+
+DEV-07 Part 3D retried only the local Docker/Postgres readiness and read-only fixture dependency preflight for the planned DEV-07 AR payment-allocation invoice fixture.
+
+This Part 3D did not carry mutation approval forward. No invoice fixture was created or finalized.
+
+### Repo State
+
+- Latest commit inspected: `3bac878c Retry DEV-07 payment allocation fixture preflight blocker`.
+- `HEAD` and `origin/main` both resolved to `3bac878c`.
+- Existing unrelated dirty/untracked web marketing and graphify files remained untouched and unstaged.
+- No DEV-06 or DEV-07 temporary mutation script matched the tracked-file check under `apps/api/scripts`.
+
+### Docker, Postgres, Redis, And Target Guard
+
+- Docker Desktop Linux engine was available: server `linux 28.5.1`.
+- Local Docker containers were running and healthy:
+  - `infra-postgres-1`, mapped to `0.0.0.0:5432`.
+  - `infra-redis-1`, mapped to `0.0.0.0:6379`.
+- `127.0.0.1:5432` was reachable.
+- `127.0.0.1:6379` was reachable.
+- The configured API database target guard parsed the target as local `localhost:5432`.
+- The guard found no forbidden hosted, production, beta, Supabase, Vercel, RDS/AWS, Railway, Render, Fly, DigitalOcean, Neon, shared, or user-testing pattern.
+
+Result: local runtime readiness passed for read-only preflight.
+
+### Non-Mutating Checks Run
+
+- Targeted AR Jest suites passed: `4` suites, `84` tests.
+- Fixture-runner targeted Jest suite passed: `1` suite, `41` tests.
+- `fixture:dev04:cleanup-plan` ran in plan-only mode for family `ar` and marker `DEV03-AR-20260524T130000`; it opened no database connection, created no data, performed no writes, ran no login, and ran no lifecycle mutation.
+- `corepack pnpm verify:diff` passed. It reported only the existing unrelated worktree changes and the existing CRLF warning on `apps/web/src/app/page.tsx`.
+
+### Fixture Dependency Preflight Result
+
+Read-only local fixture dependency preflight passed.
+
+Verified safe summaries:
+
+- marker: `DEV03-AR-20260524T130000`.
+- family: `ar`.
+- fixture organization: `DEV03-AR-ORG-20260524T130000`, safe id prefix `bceae558`, currency `SAR`.
+- actor membership: `DEV03-AR-USER-20260524T130000`, membership `ACTIVE`, role `DEV03-AR-ROLE-20260524T130000`.
+- customer: `DEV03-AR-CUSTOMER-20260524T130000`, safe id prefix `76fb1dcb`, type `CUSTOMER`, active `true`.
+- service item: `DEV03-AR-SERVICE-20260524T130000`, safe id prefix `fe2cd5c4`, type `SERVICE`, status `ACTIVE`, selling price `100.0000`.
+- service item revenue account: `D3AR-60524T130000-REV`, `DEV03-AR-ACCT-REV-20260524T130000`, type `REVENUE`, active `true`, posting `true`.
+- service item tax rate: `DEV03-AR-TAX-20260524T130000`, rate `15.0000`, scope `SALES`, active `true`.
+- account `120`: `DEV03-AR-ACCT-120-20260524T130000`, type `ASSET`, active `true`, posting `true`.
+- account `220`: `DEV03-AR-ACCT-220-20260524T130000`, type `LIABILITY`, active `true`, posting `true`.
+- paid-through cash account: `D3AR-60524T130000-CASH`, `DEV03-AR-ACCT-CASH-20260524T130000`, type `ASSET`, active `true`, posting `true`, bank/cash profile `DEV03-AR-CASH-20260524T130000`, status `ACTIVE`.
+- `INVOICE-000001`: safe id prefix `6ebb2d71`, status `VOIDED`, total `287.5000`, balance due `0.0000`, reversal journal present, excluded from happy-path payment allocation.
+- DEV-07 invoice candidates: `0`; no `DEV07-AR-PAYALLOC` invoice fixture and no `INVOICE-000002`.
+- fixture organization sales invoice count: `1`, only `INVOICE-000001:VOIDED`.
+- customer payments: `0`.
+- customer payment allocations: `0`.
+- customer payment unapplied allocations: `0`.
+- customer refunds: `0`.
+- credit notes: `0`.
+- credit note allocations: `0`.
+- generated documents: `0`.
+- email outbox records: `0`.
+- email provider events: `0`.
+- ZATCA signed artifact drafts: `0`.
+- ZATCA submission logs: `0`.
+- fiscal period count: `0`; posting-date guard would allow future invoice finalization because no fiscal periods are configured.
+
+### Mutation And Temporary Script Status
+
+- Mutation performed: no.
+- Temporary mutation script created: no.
+- Temporary read-only mutation script created: no.
+- `SalesInvoiceService.create(...)` / `SalesInvoiceService.finalize(...)` called: no.
+- Customer payment/allocation/refund/credit-note/output/email/ZATCA/cleanup paths called: no.
+
+### Commands Run
+
+- `git status --short`.
+- `git log -1 --oneline`.
+- `git rev-parse --short HEAD`.
+- `git rev-parse --short origin/main`.
+- `git ls-files apps/api/scripts | rg "dev0(6|7).*temp|invoice.*temp|payment.*temp|allocation.*temp"`.
+- Required documentation reads for DEV-07 Part 3D.
+- `docker version --format '{{.Server.Os}} {{.Server.Version}}'`.
+- `docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"`.
+- local `127.0.0.1:5432` and `127.0.0.1:6379` reachability checks.
+- local `apps/api/.env` database target guard without printing the database URL.
+- `corepack pnpm --filter @ledgerbyte/api test -- --runTestsByPath src/sales-invoices/sales-invoice-rules.spec.ts src/customer-payments/customer-payment-rules.spec.ts src/customer-refunds/customer-refund-rules.spec.ts src/credit-notes/credit-note-rules.spec.ts`.
+- `corepack pnpm --filter @ledgerbyte/api test -- --runTestsByPath scripts/dev04-fixture-runner.spec.ts`.
+- `corepack pnpm fixture:dev04:cleanup-plan -- --family ar --marker DEV03-AR-20260524T130000`.
+- `corepack pnpm verify:diff`.
+- Docker `psql` read-only `SELECT` queries for fixture dependencies, existing invoice state, forbidden side-effect counts, and fiscal-period guard status.
+
+### Commands Skipped And Why
+
+- Temporary mutation script creation: skipped because Part 3D is read-only and does not carry mutation approval forward.
+- Invoice create/finalize/void, customer payment creation, payment allocation, unapplied allocation, allocation reversal, customer payment void, refund, credit-note mutation, PDF/archive/export/download, email, ZATCA XML/signing/submission, cleanup deletion, migrations, seed/reset/delete, deploys, env changes, production-hosting research, and login/audit-writing browser flows: forbidden by the Part 3D prompt.
+
+### Blockers And Deviations
+
+Blockers:
+
+- None for the read-only preflight. Docker/Postgres/Redis readiness and fixture dependency checks passed.
+
+Deviations:
+
+- None from Part 3D scope. This was a read-only preflight retry and stopped before any mutation.
+
+### Conclusion
+
+DEV-07 Part 3D preflight passed. Local target guard passed, local Docker/Postgres/Redis were available, fixture dependencies were verified, `INVOICE-000001` remained `VOIDED`, no DEV-07 invoice fixture existed yet, and forbidden side-effect counts remained zero.
+
+No invoice fixture, payment, allocation, refund, credit note, output, email, ZATCA, cleanup, migration, seed/reset/delete, deploy, environment, provider, schema, or login/audit-writing mutation was performed.
+
+### Recommended Next Step
+
+Next prompt title:
+
+```text
+DEV-07 Part 3E: approved local AR payment-allocation invoice fixture mutation
+```
+
+Exact approval phrase required before the next mutation thread:
+
+```text
+I approve DEV-07 Part 3E local-only AR payment-allocation invoice fixture mutation under marker DEV03-AR-20260524T130000. No production, no beta, no customer data.
+```

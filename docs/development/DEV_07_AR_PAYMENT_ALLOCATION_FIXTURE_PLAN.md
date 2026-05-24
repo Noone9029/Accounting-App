@@ -482,10 +482,26 @@ Docker/Postgres remained unavailable: Docker Desktop's Linux engine pipe was mis
 
 Preflight remains blocked. No temporary mutation script was created, no invoice/payment/allocation mutation occurred, and no forbidden output/email/ZATCA/cleanup path ran. Part 3C evidence is appended in [DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md](DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md).
 
+## Part 3D Preflight Retry Passed Note
+
+DEV-07 Part 3D retried local readiness and read-only fixture dependency preflight only. It did not carry mutation approval forward and did not create/finalize the planned invoice fixture.
+
+Docker/Postgres became available: Docker Desktop Linux engine reported server `linux 28.5.1`, `infra-postgres-1` and `infra-redis-1` were healthy, and `127.0.0.1:5432` / `127.0.0.1:6379` were reachable. The database target guard parsed as local `localhost:5432` with no forbidden hosted, production, beta, shared, or customer-data target pattern.
+
+Read-only fixture dependency preflight passed: the marker/family, fixture organization, actor membership, customer, service item, revenue account, tax rate, account `120`, account `220`, paid-through cash account, and posting-date guard were verified. `INVOICE-000001` remained `VOIDED`, no `DEV07-AR-PAYALLOC` invoice fixture existed, customer payments/refunds/credit notes/allocations remained `0`, generated documents/email remained `0`, and ZATCA signed drafts/submission logs remained `0`.
+
+No temporary mutation script was created, no invoice/payment/allocation mutation occurred, and no forbidden output/email/ZATCA/cleanup path ran. Part 3D evidence is appended in [DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md](DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md).
+
 ## Recommended Next Step
 
 Next prompt title:
 
 ```text
-DEV-07 Part 3D: retry AR payment allocation invoice fixture mutation preflight
+DEV-07 Part 3E: approved local AR payment-allocation invoice fixture mutation
+```
+
+Exact approval phrase required before the next mutation thread:
+
+```text
+I approve DEV-07 Part 3E local-only AR payment-allocation invoice fixture mutation under marker DEV03-AR-20260524T130000. No production, no beta, no customer data.
 ```

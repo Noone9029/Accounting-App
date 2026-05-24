@@ -454,12 +454,26 @@ Local readiness remains blocked: Docker Desktop's Linux engine pipe was missing,
 
 No invoice fixture was created or finalized, no customer payment/allocation/unapplied allocation/refund/credit-note mutation occurred, and no temporary mutation script was created. Evidence was appended to [DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md](DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md).
 
+## Part 3D Fixture Preflight Retry Passed Addendum
+
+DEV-07 Part 3D retried the local Docker/Postgres readiness and read-only fixture dependency preflight only. It did not carry mutation approval forward.
+
+Local readiness passed: Docker Desktop Linux engine was available, `infra-postgres-1` and `infra-redis-1` were healthy, `127.0.0.1:5432` and `127.0.0.1:6379` were reachable, and the API database target guard still parsed as local `localhost:5432` without forbidden production, beta, hosted, shared, or customer-data target patterns.
+
+Read-only fixture dependency preflight passed. The reusable DEV03-AR organization, actor membership, customer, service item, revenue account, `15.0000` sales tax, account `120`, account `220`, paid-through cash account, and posting-date guard were verified. `INVOICE-000001` remained `VOIDED`, no DEV-07 payment-allocation invoice fixture existed, and customer payment/allocation/refund/credit-note/generated-document/email/ZATCA signed draft/submission log counts remained `0`.
+
+No invoice fixture was created or finalized, no customer payment/allocation/unapplied allocation/refund/credit-note mutation occurred, and no temporary mutation script was created. Evidence was appended to [DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md](DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md).
+
 ## Recommended Next Step
 
 Next prompt title:
 
 ```text
-DEV-07 Part 3D: retry AR payment allocation invoice fixture mutation preflight
+DEV-07 Part 3E: approved local AR payment-allocation invoice fixture mutation
 ```
 
-Part 3D should rerun the local Docker/Postgres readiness and fixture dependency preflight before any write-capable service use. The invoice fixture mutation must not run unless a future prompt explicitly provides a fresh approval phrase for that mutation and all local target, marker, dependency, sequence, invoice, and forbidden-side-effect preflight checks pass.
+Part 3E may run the approved local invoice fixture mutation only if the future prompt explicitly provides this approval phrase and repeats the required local target, marker, dependency, sequence, invoice, and forbidden-side-effect preflight checks before write-capable service use:
+
+```text
+I approve DEV-07 Part 3E local-only AR payment-allocation invoice fixture mutation under marker DEV03-AR-20260524T130000. No production, no beta, no customer data.
+```
