@@ -178,3 +178,13 @@ Known deferred work:
 ## 16. Recommended Next Step
 
 Proceed with `DEV-05 Part 4: verify local AR fixture evidence`.
+
+## Part 4 Evidence Note
+
+`DEV-05 Part 4` completed read-only local evidence verification for marker `DEV03-AR-20260524T130000`.
+
+Evidence summary: [DEV_05_AR_FIXTURE_EVIDENCE.md](DEV_05_AR_FIXTURE_EVIDENCE.md).
+
+Part 4 found all 12 expected Sales/AR base fixture records, all under the expected marker prefix, and found zero AR lifecycle, journal, generated-document, or audit-log side-effect records in the fixture organization.
+
+Part 4 created no new fixture data, performed no database writes, ran no login/audit-writing flow, and ran no AR lifecycle mutation.
