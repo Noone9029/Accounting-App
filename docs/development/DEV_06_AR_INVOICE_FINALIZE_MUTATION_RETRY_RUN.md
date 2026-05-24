@@ -230,3 +230,21 @@ DEV-06 Part 5C finalized `INVOICE-000001` locally under marker `DEV03-AR-2026052
 ## Recommended Next Step
 
 Proceed with `DEV-06 Part 6: verify AR invoice finalize evidence`.
+
+## Part 6 Evidence Verification Result
+
+`DEV-06 Part 6` verified the Part 5C finalization evidence with read-only local checks.
+
+Verification evidence: [DEV_06_AR_INVOICE_FINALIZE_EVIDENCE_VERIFICATION.md](DEV_06_AR_INVOICE_FINALIZE_EVIDENCE_VERIFICATION.md).
+
+Part 6 performed no mutation. `INVOICE-000001` remains `FINALIZED`; `finalizedAt` and `journalEntryId` remain present; `reversalJournalEntryId` remains absent; total and balance due remain `287.5000`.
+
+The expected journal, audit, and local ZATCA metadata evidence remains valid:
+
+- One posted journal entry remains linked to `INVOICE-000001`.
+- Journal lines remain debit account `120` `287.5000`, credit fixture revenue `250.0000`, and credit account `220` `37.5000`.
+- SalesInvoice audit actions remain `SALES_INVOICE_CREATED`, `SALES_INVOICE_UPDATED`, and `SALES_INVOICE_FINALIZED`.
+- One local `ZatcaInvoiceMetadata` row remains for `STANDARD_TAX_INVOICE`.
+- Forbidden side effects remain `0` for generated documents, payments, refunds, credit notes, allocations, voids, reversal journals, email, ZATCA signed drafts/submission logs, ZATCA XML/signing/QR/submission, and cleanup deletion.
+
+Next prompt title: `DEV-06 Part 7: plan local AR invoice void mutation`.

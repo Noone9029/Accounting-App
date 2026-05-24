@@ -193,3 +193,18 @@ Result:
 - Forbidden side effects stayed `0` for generated documents, payments, refunds, credit notes, allocations, voids, reversal journals, email, ZATCA signed drafts/submission logs, ZATCA XML/signing/QR/submission, and cleanup deletion.
 
 Next prompt title: `DEV-06 Part 6: verify AR invoice finalize evidence`.
+
+## Part 6 Evidence Verification Result
+
+Part 6 verified the finalized invoice evidence with read-only local checks and performed no mutation.
+
+Verification evidence: [DEV_06_AR_INVOICE_FINALIZE_EVIDENCE_VERIFICATION.md](DEV_06_AR_INVOICE_FINALIZE_EVIDENCE_VERIFICATION.md).
+
+Posting account dependencies remain resolved:
+
+- Account code `120` exists in the fixture org, active and posting allowed.
+- Account code `220` exists in the fixture org, active and posting allowed.
+
+`INVOICE-000001` remains `FINALIZED`; the expected posted journal, SalesInvoice audit trail, and local `ZatcaInvoiceMetadata` evidence remain valid. Forbidden side effects remain `0` for generated documents, payments, refunds, credit notes, allocations, voids, reversal journals, email, ZATCA signed drafts/submission logs, ZATCA XML/signing/QR/submission, and cleanup deletion.
+
+Next prompt title: `DEV-06 Part 7: plan local AR invoice void mutation`.

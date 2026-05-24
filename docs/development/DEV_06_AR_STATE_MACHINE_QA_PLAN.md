@@ -287,3 +287,17 @@ Part 5C result:
 - Forbidden side effects stayed `0` for generated documents, payments, refunds, credit notes, allocations, voids, reversal journals, email, ZATCA signed drafts/submission logs, ZATCA XML/signing/QR/submission, and cleanup deletion.
 
 Next prompt title: `DEV-06 Part 6: verify AR invoice finalize evidence`.
+
+## Part 6 Invoice Finalize Evidence Verification Note
+
+`DEV-06 Part 6` completed read-only evidence verification for the Part 5C finalization.
+
+Verification evidence: [DEV_06_AR_INVOICE_FINALIZE_EVIDENCE_VERIFICATION.md](DEV_06_AR_INVOICE_FINALIZE_EVIDENCE_VERIFICATION.md).
+
+Part 6 performed no mutation. `INVOICE-000001` remains `FINALIZED`; `finalizedAt` and `journalEntryId` remain present; `reversalJournalEntryId` remains absent; total and balance due remain `287.5000`.
+
+The expected journal, audit, and ZATCA metadata evidence remains valid: one posted journal entry exists for reference `INVOICE-000001`; SalesInvoice audit actions include exactly one `SALES_INVOICE_FINALIZED`; and one local `ZatcaInvoiceMetadata` row exists for `STANDARD_TAX_INVOICE`.
+
+Forbidden side effects remain `0` for generated documents, payments, refunds, credit notes, allocations, voids, reversal journals, email, ZATCA signed drafts/submission logs, ZATCA XML/signing/QR/submission, and cleanup deletion.
+
+Next prompt title: `DEV-06 Part 7: plan local AR invoice void mutation`.
