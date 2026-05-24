@@ -526,3 +526,22 @@ Next prompt title:
 ```text
 DEV-07 Part 6: approved local AR customer payment creation mutation
 ```
+
+## Part 6 Customer Payment Creation Mutation Addendum
+
+DEV-07 Part 6 completed the approved local-only customer payment creation mutation under marker `DEV03-AR-20260524T130000`.
+
+- Evidence doc: [DEV_07_AR_CUSTOMER_PAYMENT_CREATION_MUTATION_RUN.md](DEV_07_AR_CUSTOMER_PAYMENT_CREATION_MUTATION_RUN.md).
+- Mutation performed: yes, exactly one `CustomerPaymentService.create(...)` call.
+- Payment: `PAYMENT-000001`, safe id prefix `b39f4d38`, status `POSTED`, amount received `500.0000`, unapplied amount `200.0000`.
+- Direct allocation: one `CustomerPaymentAllocation` to `INVOICE-000002` for `300.0000`.
+- Invoice impact: `INVOICE-000002` remains `FINALIZED`; balance due decreased from `1150.0000` to `850.0000`.
+- Accounting impact: `JOURNAL_ENTRY-000004` posted, reference `PAYMENT-000001`, Dr paid-through cash/asset `500.0000`, Cr account `120` AR `500.0000`.
+- Audit/output/ZATCA boundary: `CUSTOMER_PAYMENT_CREATED` exists exactly once; no `APPLY_UNAPPLIED`, receipt PDF/archive, generated document, email, ZATCA XML/signing/submission, refund, credit note, invoice void, cleanup deletion, or login/browser audit-writing flow occurred.
+- The later unapplied allocation of `200.0000` remains out of scope until a separately approved part.
+
+Next prompt title:
+
+```text
+DEV-07 Part 7: verify AR customer payment creation evidence
+```

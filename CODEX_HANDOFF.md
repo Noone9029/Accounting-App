@@ -782,6 +782,20 @@
 - Exact next prompt title: `DEV-07 Part 6: approved local AR customer payment creation mutation`.
 - Required approval phrase before Part 6 mutation: `I approve DEV-07 Part 6 local-only AR customer payment creation mutation under marker DEV03-AR-20260524T130000 for invoice INVOICE-000002. No production, no beta, no customer data.`
 
+## DEV-07 Part 6 - AR Customer Payment Created
+
+- DEV-07 Part 6 received the exact approval phrase for one local-only AR customer payment creation mutation under marker `DEV03-AR-20260524T130000` for `INVOICE-000002`.
+- Evidence doc: [docs/development/DEV_07_AR_CUSTOMER_PAYMENT_CREATION_MUTATION_RUN.md](docs/development/DEV_07_AR_CUSTOMER_PAYMENT_CREATION_MUTATION_RUN.md).
+- Local target safety and preflight passed: Docker Desktop Linux engine was available, `infra-postgres-1` and `infra-redis-1` were healthy/reachable, the API database target guard accepted local `localhost:5432`, and read-only fixture checks matched the planned state.
+- Mutation performed: a guarded temporary local script called `CustomerPaymentService.create(...)` exactly once.
+- Payment result: `PAYMENT-000001`, safe id prefix `b39f4d38`, status `POSTED`, amount received `500.0000`, direct allocation `300.0000`, unapplied amount `200.0000`.
+- Invoice balance result: `INVOICE-000002` remains `FINALIZED`; balance due decreased from `1150.0000` to `850.0000`; `reversalJournalEntryId` remains absent.
+- Accounting result: one posted journal `JOURNAL_ENTRY-000004`, reference `PAYMENT-000001`, Dr paid-through cash/asset `500.0000`, Cr account `120` AR `500.0000`; `PAYMENT` sequence next `2`, `JOURNAL_ENTRY` sequence next `5`.
+- Audit/output/ZATCA result: `CUSTOMER_PAYMENT_CREATED` exists exactly once; no `APPLY_UNAPPLIED`, `REVERSE_UNAPPLIED_ALLOCATION`, `CUSTOMER_PAYMENT_VOIDED`, receipt PDF/archive, generated document, email, ZATCA XML/signing/QR/submission, refund, credit note, invoice void, cleanup deletion, or login/browser audit-writing flow occurred.
+- DEV-06 non-interference: `INVOICE-000001` remains `VOIDED`, safe prefix `6ebb2d71`, total `287.5000`, balance due `0.0000`.
+- Temporary Part 6 script was removed and is not staged or tracked.
+- Exact next prompt title: `DEV-07 Part 7: verify AR customer payment creation evidence`.
+
 ## Forbidden Actions For Next Production Thread
 
 - Do not change app code.
@@ -793,4 +807,4 @@
 
 ## Next Thread Prompt
 
-`DEV-07 Part 6: approved local AR customer payment creation mutation`
+`DEV-07 Part 7: verify AR customer payment creation evidence`

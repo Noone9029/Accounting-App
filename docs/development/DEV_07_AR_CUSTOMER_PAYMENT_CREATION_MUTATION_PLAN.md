@@ -385,3 +385,23 @@ Next prompt title:
 ```text
 DEV-07 Part 6: approved local AR customer payment creation mutation
 ```
+
+## Part 6 Customer Payment Creation Mutation Completed Note
+
+DEV-07 Part 6 received the exact local-only approval phrase and completed the approved customer payment creation mutation.
+
+- Mutation evidence doc: [DEV_07_AR_CUSTOMER_PAYMENT_CREATION_MUTATION_RUN.md](DEV_07_AR_CUSTOMER_PAYMENT_CREATION_MUTATION_RUN.md).
+- Payment created: `PAYMENT-000001`, safe id prefix `b39f4d38`, status `POSTED`.
+- Amount received: `500.0000`.
+- Direct allocation to `INVOICE-000002`: `300.0000`.
+- Unapplied amount retained for a later part: `200.0000`.
+- `INVOICE-000002` remains `FINALIZED`; balance due decreased from `1150.0000` to `850.0000`.
+- Payment journal: `JOURNAL_ENTRY-000004`, `POSTED`, reference `PAYMENT-000001`, Dr paid-through cash/asset `500.0000`, Cr account `120` AR `500.0000`.
+- Audit/output/ZATCA boundary held: `CUSTOMER_PAYMENT_CREATED` exists exactly once; no `APPLY_UNAPPLIED`, receipt PDF/archive, generated document, email, ZATCA XML/signing/submission, refund, credit note, invoice void, cleanup deletion, or login/browser audit-writing flow occurred.
+- Temporary Part 6 script was removed and is not staged or tracked.
+
+Next prompt title:
+
+```text
+DEV-07 Part 7: verify AR customer payment creation evidence
+```

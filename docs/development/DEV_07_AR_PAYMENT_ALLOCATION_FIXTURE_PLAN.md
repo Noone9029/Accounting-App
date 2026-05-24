@@ -549,3 +549,23 @@ Next prompt title:
 ```text
 DEV-07 Part 6: approved local AR customer payment creation mutation
 ```
+
+## Part 6 Customer Payment Creation Mutation Note
+
+DEV-07 Part 6 completed the approved customer payment creation mutation against the Part 3E/Part 4 payment-allocation invoice fixture.
+
+- Evidence doc: [DEV_07_AR_CUSTOMER_PAYMENT_CREATION_MUTATION_RUN.md](DEV_07_AR_CUSTOMER_PAYMENT_CREATION_MUTATION_RUN.md).
+- Mutation performed: yes, one customer payment creation only.
+- Payment: `PAYMENT-000001`, safe id prefix `b39f4d38`, status `POSTED`.
+- Amount received: `500.0000`.
+- Direct allocation to `INVOICE-000002`: `300.0000`.
+- Unapplied amount left for the future same-invoice unapplied allocation path: `200.0000`.
+- Invoice balance after payment creation: `850.0000`.
+- Payment journal: `JOURNAL_ENTRY-000004`, `POSTED`, Dr paid-through cash/asset `500.0000`, Cr account `120` AR `500.0000`.
+- No unapplied allocation was applied yet. No payment void, refund, credit note, receipt PDF/archive, generated document, email, ZATCA XML/signing/submission, invoice void, cleanup deletion, or login/browser audit-writing flow occurred.
+
+Next prompt title:
+
+```text
+DEV-07 Part 7: verify AR customer payment creation evidence
+```
