@@ -230,3 +230,11 @@ Part 2 created one draft sales invoice and edited the same draft invoice. It did
 Verification evidence: [DEV_06_AR_DRAFT_INVOICE_EVIDENCE_VERIFICATION.md](DEV_06_AR_DRAFT_INVOICE_EVIDENCE_VERIFICATION.md).
 
 Part 3 performed no AR mutation, no fixture creation, no cleanup deletion, and no database write. The invoice remained `DRAFT`, side-effect counts remained safe, and the next recommended step is `DEV-06 Part 4: approved local AR invoice finalize mutation plan`.
+
+## Part 4 Invoice Finalize Mutation Plan Note
+
+`DEV-06 Part 4` created the local-only finalize mutation plan for existing draft invoice `INVOICE-000001`.
+
+Finalize plan: [DEV_06_AR_INVOICE_FINALIZE_MUTATION_PLAN.md](DEV_06_AR_INVOICE_FINALIZE_MUTATION_PLAN.md).
+
+Part 4 performed no mutation and did not finalize the invoice. Based on inspected code, a future approved finalization should transition the invoice from `DRAFT` to `FINALIZED`, create one posted journal entry, add one `SALES_INVOICE_FINALIZED` audit log, and upsert local ZATCA invoice metadata without generating PDFs, generated documents, email, ZATCA XML/signing/submission, payments, refunds, credit notes, allocations, or cleanup deletion.
