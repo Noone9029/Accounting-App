@@ -249,4 +249,14 @@ The approved local-only void mutation completed successfully.
 
 ## Recommended Next Step
 
-Proceed with `DEV-06 Part 9: verify AR invoice void evidence`.
+Part 9 was later completed as read-only evidence verification. Proceed with `DEV-06 Part 10: AR state-machine final triage`.
+
+## Part 9 Void Evidence Verification Result
+
+`DEV-06 Part 9` verified the Part 8 void evidence using read-only local checks.
+
+Verification evidence: [DEV_06_AR_INVOICE_VOID_EVIDENCE_VERIFICATION.md](DEV_06_AR_INVOICE_VOID_EVIDENCE_VERIFICATION.md).
+
+Part 9 performed no mutation. The invoice remains `VOIDED`, the original journal remains `REVERSED`, the reversal journal remains `POSTED` and balanced, `SALES_INVOICE_VOIDED` remains present exactly once, existing local `ZatcaInvoiceMetadata` remains present with type `STANDARD_TAX_INVOICE`, and forbidden side effects remain `0`.
+
+Next prompt title: `DEV-06 Part 10: AR state-machine final triage`.

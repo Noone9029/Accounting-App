@@ -350,3 +350,19 @@ Part 8 result:
 - Forbidden side effects stayed `0` for generated documents, payments, refunds, credit notes, allocations, email, ZATCA signed drafts/submission logs, ZATCA XML/signing/QR/submission, and cleanup deletion.
 
 Next prompt title: `DEV-06 Part 9: verify AR invoice void evidence`.
+
+## Part 9 Invoice Void Evidence Verification Note
+
+`DEV-06 Part 9` completed read-only evidence verification for the Part 8 void mutation.
+
+Verification evidence: [DEV_06_AR_INVOICE_VOID_EVIDENCE_VERIFICATION.md](DEV_06_AR_INVOICE_VOID_EVIDENCE_VERIFICATION.md).
+
+Part 9 performed no mutation. `INVOICE-000001` remains `VOIDED`; total remains `287.5000`; balance due remains `0.0000`; `finalizedAt`, `journalEntryId`, and `reversalJournalEntryId` remain present.
+
+The original and reversal journal evidence remains valid: original journal `JOURNAL_ENTRY-000001` remains `REVERSED`; reversal journal `JOURNAL_ENTRY-000002` remains `POSTED`, references `INVOICE-000001`, points to the original journal, and is balanced at debit and credit totals of `287.5000`.
+
+The expected audit and ZATCA metadata evidence remains valid: SalesInvoice audit actions include exactly one `SALES_INVOICE_VOIDED`, fixture login/auth audit logs remain `0`, and one local `ZatcaInvoiceMetadata` row remains present with type `STANDARD_TAX_INVOICE`.
+
+Forbidden side effects remain `0` for generated documents, payments, refunds, credit notes, allocations, email, ZATCA signed drafts/submission logs, ZATCA XML/signing/QR/submission, and cleanup deletion.
+
+Next prompt title: `DEV-06 Part 10: AR state-machine final triage`.
