@@ -222,3 +222,11 @@ If approval is not provided, continue with mocked AR tests and documentation-onl
 Run evidence: [DEV_06_AR_DRAFT_INVOICE_MUTATION_RUN.md](DEV_06_AR_DRAFT_INVOICE_MUTATION_RUN.md).
 
 Part 2 created one draft sales invoice and edited the same draft invoice. It did not finalize, void, allocate payment, create refunds, create credit notes, export, download, generate PDF, archive generated documents, send email, run ZATCA, delete fixtures, run cleanup deletion, run login/browser audit flows, run migrations, seed/reset/delete, deploy, change environment variables, use production, use beta/user-testing, or use customer data.
+
+## Part 3 Draft Invoice Evidence Verification Note
+
+`DEV-06 Part 3` completed read-only evidence verification for the Part 2 draft invoice mutation.
+
+Verification evidence: [DEV_06_AR_DRAFT_INVOICE_EVIDENCE_VERIFICATION.md](DEV_06_AR_DRAFT_INVOICE_EVIDENCE_VERIFICATION.md).
+
+Part 3 performed no AR mutation, no fixture creation, no cleanup deletion, and no database write. The invoice remained `DRAFT`, side-effect counts remained safe, and the next recommended step is `DEV-06 Part 4: approved local AR invoice finalize mutation plan`.

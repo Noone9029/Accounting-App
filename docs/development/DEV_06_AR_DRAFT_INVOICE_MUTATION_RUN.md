@@ -204,3 +204,11 @@ The preflight had two non-mutating failures before the successful run:
 Proceed with `DEV-06 Part 3: verify AR draft invoice mutation evidence`.
 
 Part 3 should be read-only evidence verification for the created draft invoice and should not finalize, void, allocate, refund, create credit notes, generate PDFs, archive generated documents, delete records, or create more fixtures.
+
+## Part 3 Evidence Verification Note
+
+`DEV-06 Part 3` completed read-only evidence verification for the draft invoice mutation.
+
+Evidence verification: [DEV_06_AR_DRAFT_INVOICE_EVIDENCE_VERIFICATION.md](DEV_06_AR_DRAFT_INVOICE_EVIDENCE_VERIFICATION.md).
+
+Part 3 performed no mutation and no database write. The invoice remained `DRAFT`; total and balance due remained `287.5`; journal entries, generated documents, finalized invoices, voided invoices, payments, refunds, credit notes, allocations, ZATCA records, and email records remained at the expected safe counts; and the two expected SalesInvoice audit actions were verified.

@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `acaa0e2e Plan DEV-06 AR fixture QA`
+- `c4727abc Run DEV-06 AR draft invoice mutation`
 
 ## Current Development Objective
 
@@ -154,7 +154,11 @@
 - DEV-06 Part 2 mutation result: one draft sales invoice was created and edited against family `ar`, marker `DEV03-AR-20260524T130000`, with invoice number `INVOICE-000001`; status remained `DRAFT` after edit.
 - DEV-06 Part 2 side effects: journal entries `0`; generated documents `0`; customer payments/refunds/credit notes/allocations `0`; finalized invoices `0`; voided invoices `0`; SalesInvoice audit logs `2` with actions `SALES_INVOICE_CREATED` and `SALES_INVOICE_UPDATED`; invoice number sequence advanced as expected for local draft invoice creation.
 - DEV-06 Part 2 status: finalize/void/allocation/refund/credit-note mutation/PDF/archive/email/ZATCA did not occur; login/audit-writing browser flows did not run; cleanup deletion, fixture creation, migrations, seed/reset/delete, deploys, env changes, production checks, beta checks, and customer-data checks were not run.
-- Exact next prompt title: `DEV-06 Part 3: verify AR draft invoice mutation evidence`.
+- DEV-06 Part 3 read-only AR draft invoice evidence verification is completed in [docs/development/DEV_06_AR_DRAFT_INVOICE_EVIDENCE_VERIFICATION.md](docs/development/DEV_06_AR_DRAFT_INVOICE_EVIDENCE_VERIFICATION.md).
+- DEV-06 Part 3 evidence result: local Docker Postgres was running and healthy, `localhost:5432` was reachable, marker `DEV03-AR-20260524T130000` and family `ar` were verified, the base fixture count remained `12`, `INVOICE-000001` matched safe id prefix `6ebb2d71`, and invoice status remained `DRAFT`.
+- DEV-06 Part 3 side-effect result: finalized invoices `0`; voided invoices `0`; journal entries `0`; generated documents `0`; customer payments/refunds/credit notes/allocations `0`; ZATCA metadata/artifacts/submission logs `0`; email outbox/provider events `0`; SalesInvoice audit logs `2` with actions `SALES_INVOICE_CREATED` and `SALES_INVOICE_UPDATED`; auth/login audit logs `0`; invoice sequence next number remained `2`.
+- DEV-06 Part 3 status: no mutation was performed, no new fixture data was created, no database write occurred, no cleanup deletion ran, no login/browser audit-writing flow ran, and no finalize/void/allocation/refund/credit-note mutation/export/download/PDF/archive/email/ZATCA action occurred.
+- Exact next prompt title: `DEV-06 Part 4: approved local AR invoice finalize mutation plan`.
 
 ## Current PROD-A1 Objective
 
@@ -533,7 +537,7 @@
 - The current product state is broad controlled-beta MVP, not paid production SaaS: core AR/AP, banking, inventory, reports, documents, audit, roles, storage readiness, email readiness, and ZATCA groundwork exist, but many production-facing and product-completion gaps remain.
 - Top development gaps: full route QA and blocker triage, verification gate hardening, high-risk state-machine QA, auth/session hardening, accountant review, sales/purchase completion, banking parser/reconciliation hardening, inventory accounting policy work, admin/audit alerts, and SaaS business readiness.
 - Mock/blocked areas remain intentional: real ZATCA, real customer email sending, live bank feeds, payment gateway capture, object-storage migration execution, backup/restore execution, and automatic inventory accounting expansion.
-- Exact next recommended development ticket: `DEV-06 Part 3: verify AR draft invoice mutation evidence`.
+- Exact next recommended development ticket: `DEV-06 Part 4: approved local AR invoice finalize mutation plan`.
 
 ## Forbidden Actions For Next Production Thread
 
@@ -546,4 +550,4 @@
 
 ## Next Thread Prompt
 
-`DEV-06 Part 3: verify AR draft invoice mutation evidence`
+`DEV-06 Part 4: approved local AR invoice finalize mutation plan`
