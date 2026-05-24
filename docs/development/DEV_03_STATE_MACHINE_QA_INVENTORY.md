@@ -10,6 +10,14 @@ This inventory is planning-only. QA status for every workflow is `Not executed`.
 
 DEV-03 Part 2 created [DEV_03_SAFE_FIXTURE_LOGIN_AUDIT_POLICY.md](DEV_03_SAFE_FIXTURE_LOGIN_AUDIT_POLICY.md). It keeps future mutation QA local-disposable by default, requires explicit approval for login/audit-writing and every mutation category, requires marker-based fake fixtures, keeps seed/reset/delete forbidden by default, and leaves all state-machine workflows `Not executed` until a later approved batch.
 
+## DEV-06 Completion Note
+
+DEV-06 later executed the first local-only Sales/AR invoice lifecycle QA slice under marker `DEV03-AR-20260524T130000`, using explicit approvals and the safe fixture boundary from DEV-03/DEV-04/DEV-05.
+
+Completed evidence is summarized in [DEV_06_AR_STATE_MACHINE_FINAL_TRIAGE.md](DEV_06_AR_STATE_MACHINE_FINAL_TRIAGE.md). The invoice lifecycle slice covered draft create/edit, finalization, and finalized void with read-only evidence verification. It did not cover customer payment allocation, refunds, credit notes, output/PDF/archive, email, ZATCA XML/signing/submission, authenticated UI/API QA, cleanup deletion, allocation blockers, repeated/idempotency paths, or fiscal-period locks.
+
+The next recommended Sales/AR state-machine ticket is `DEV-07 Part 1: AR payment allocation state-machine plan`.
+
 Source evidence inspected for this pass:
 
 - `CODEX_HANDOFF.md`

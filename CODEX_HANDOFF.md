@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `9a3b1a26 Run DEV-06 AR invoice void mutation`
+- `ed0ed558 Verify DEV-06 AR invoice void evidence`
 
 ## Current Development Objective
 
@@ -549,7 +549,8 @@
 - DEV-06 Part 7 created the local-only void mutation plan and performed no mutation.
 - DEV-06 Part 8 executed the approved local-only invoice void mutation and voided `INVOICE-000001` locally.
 - DEV-06 Part 9 verified the void evidence with read-only local checks and performed no mutation.
-- Exact next recommended development ticket: `DEV-06 Part 10: AR state-machine final triage`.
+- DEV-06 Part 10 completed the AR invoice lifecycle final triage as documentation/read-only work.
+- Exact next recommended development ticket: `DEV-07 Part 1: AR payment allocation state-machine plan`.
 
 ## DEV-06 Part 5 - Invoice Finalize Preflight Blocked
 
@@ -659,6 +660,18 @@
 - Temporary void script remains absent, unstaged, and untracked.
 - Exact next prompt title: `DEV-06 Part 10: AR state-machine final triage`.
 
+## DEV-06 Part 10 - AR State-Machine Final Triage Completed
+
+- DEV-06 completed the local-only Sales/AR invoice lifecycle slice for marker `DEV03-AR-20260524T130000`.
+- Final triage was documentation/read-only only. No invoice create, edit, finalize, void, repeated void, payment, refund, credit-note, allocation, output, email, ZATCA, cleanup, migration, seed/reset/delete, deploy, persisted environment configuration, schema, or provider-setting action was run.
+- Final fixture state: `INVOICE-000001` remains `VOIDED`; safe id prefix `6ebb2d71`; total `287.5000`; balance due `0.0000`.
+- Accounting evidence remains: original journal `JOURNAL_ENTRY-000001` is `REVERSED`; reversal journal `JOURNAL_ENTRY-000002` is `POSTED` and balanced.
+- Audit evidence remains: SalesInvoice actions are `SALES_INVOICE_CREATED`, `SALES_INVOICE_UPDATED`, `SALES_INVOICE_FINALIZED`, and `SALES_INVOICE_VOIDED`; fixture login/auth audit logs remain `0`.
+- ZATCA/output/email boundaries remain: one local `ZatcaInvoiceMetadata` row exists with type `STANDARD_TAX_INVOICE`; generated documents, payments, refunds, credit notes, allocations, email, ZATCA signed drafts/submission logs, and cleanup deletion remain `0`.
+- Final triage doc: [docs/development/DEV_06_AR_STATE_MACHINE_FINAL_TRIAGE.md](docs/development/DEV_06_AR_STATE_MACHINE_FINAL_TRIAGE.md).
+- Remaining AR gaps include payment allocation/void/reversal, refunds, credit notes, output/PDF/archive, email, ZATCA XML/signing/submission, authenticated UI/API QA, cleanup policy, idempotency/repeat paths, allocation blockers, and fiscal-period locks.
+- Recommended next workstream: `DEV-07 Part 1: AR payment allocation state-machine plan`.
+
 ## Forbidden Actions For Next Production Thread
 
 - Do not change app code.
@@ -670,4 +683,4 @@
 
 ## Next Thread Prompt
 
-`DEV-06 Part 10: AR state-machine final triage`
+`DEV-07 Part 1: AR payment allocation state-machine plan`

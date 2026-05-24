@@ -84,6 +84,14 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 - No fixture scripts were created, no login was run, no fixture data was created, and no mutation QA was executed.
 - DEV-04 Part 2 should design the fixture script contract, dry-run mode, target guards, marker strategy, cleanup inventory, direct-Prisma bootstrap boundary, service/API fixture boundary, and approval gates before implementation.
 
+## DEV-06 Status - AR Invoice Lifecycle State-Machine QA
+
+- DEV-06 completed the local-only Sales/AR invoice lifecycle slice in [DEV_06_AR_STATE_MACHINE_FINAL_TRIAGE.md](DEV_06_AR_STATE_MACHINE_FINAL_TRIAGE.md).
+- The slice used marker `DEV03-AR-20260524T130000` and fixture invoice `INVOICE-000001`; it covered draft create/edit, finalization, posted journal evidence, local ZATCA metadata upsert boundary, finalized void, reversal journal evidence, and read-only evidence verification.
+- Final local fixture state: invoice `VOIDED`, total `287.5000`, balance due `0.0000`, original journal `REVERSED`, reversal journal `POSTED`, SalesInvoice audit actions through `SALES_INVOICE_VOIDED`, and forbidden output/payment/refund/credit-note/allocation/email/ZATCA signing/submission side effects at `0`.
+- Remaining AR state-machine gaps are payment allocation/void/reversal, refunds, credit notes, output/PDF/archive, email, ZATCA XML/signing/submission, authenticated UI/API QA, cleanup policy, repeated/idempotency paths, allocation blockers, and fiscal-period locks.
+- Recommended next local-only state-machine ticket: `DEV-07 Part 1: AR payment allocation state-machine plan`.
+
 ## Highest-Priority Development Tickets
 
 1. `DEV-01 Full route QA and blocker triage`: inspect every implemented route against seeded non-production data, record exact defects, and fix only real loading, empty, error, permission, responsive, and unsafe-wording issues.
@@ -133,4 +141,4 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 
 ## Exact Next Recommended Development Ticket
 
-`DEV-01 Full route QA and blocker triage`
+`DEV-07 Part 1: AR payment allocation state-machine plan`

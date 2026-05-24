@@ -366,3 +366,27 @@ The expected audit and ZATCA metadata evidence remains valid: SalesInvoice audit
 Forbidden side effects remain `0` for generated documents, payments, refunds, credit notes, allocations, email, ZATCA signed drafts/submission logs, ZATCA XML/signing/QR/submission, and cleanup deletion.
 
 Next prompt title: `DEV-06 Part 10: AR state-machine final triage`.
+
+## Part 10 Final Triage Note
+
+`DEV-06 Part 10` completed the final AR invoice lifecycle triage.
+
+Final triage: [DEV_06_AR_STATE_MACHINE_FINAL_TRIAGE.md](DEV_06_AR_STATE_MACHINE_FINAL_TRIAGE.md).
+
+Part 10 was documentation/read-only only and performed no mutation. DEV-06 is complete for the local fixture invoice lifecycle slice: draft create/edit, draft verification, finalize planning and blocker capture, posting-account fixture repair, finalization retry, finalization verification, void planning, void mutation, and void verification.
+
+Final local fixture state:
+
+- `INVOICE-000001` remains `VOIDED`.
+- Safe invoice id prefix remains `6ebb2d71`.
+- Total remains `287.5000`.
+- Balance due remains `0.0000`.
+- Original journal `JOURNAL_ENTRY-000001` remains `REVERSED`.
+- Reversal journal `JOURNAL_ENTRY-000002` remains `POSTED` and balanced.
+- SalesInvoice audit actions include `SALES_INVOICE_CREATED`, `SALES_INVOICE_UPDATED`, `SALES_INVOICE_FINALIZED`, and `SALES_INVOICE_VOIDED`.
+- One local `ZatcaInvoiceMetadata` row remains present with type `STANDARD_TAX_INVOICE`.
+- Forbidden side effects remain `0` for generated documents, payments, refunds, credit notes, allocations, email, ZATCA signed drafts/submission logs, ZATCA XML/signing/QR/submission, and cleanup deletion.
+
+Remaining AR gaps are now payment allocation/void/reversal, refunds, credit notes, output/PDF/archive, email, ZATCA lifecycle, authenticated UI/API QA, fixture cleanup policy, repeated/idempotency paths, allocation blockers, and fiscal-period locks.
+
+Next prompt title: `DEV-07 Part 1: AR payment allocation state-machine plan`.
