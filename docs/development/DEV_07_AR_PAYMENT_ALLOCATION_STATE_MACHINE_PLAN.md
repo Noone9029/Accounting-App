@@ -487,10 +487,23 @@ No customer payment, payment allocation, unapplied allocation, refund, credit no
 
 Evidence is appended to [DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md](DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md). The temporary Part 3E script was removed and is not staged or tracked.
 
+## Part 4 Invoice Fixture Evidence Verification Addendum
+
+DEV-07 Part 4 verified the Part 3E payment-allocation invoice fixture evidence using read-only local checks only.
+
+- Mutation performed: no.
+- Evidence doc: [DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_EVIDENCE_VERIFICATION.md](DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_EVIDENCE_VERIFICATION.md).
+- Local DB readiness, target guard, and fixture dependency checks passed.
+- `INVOICE-000002` remains `FINALIZED`, safe id prefix `ddadfdd7`, total `1150.0000`, balance due `1150.0000`, with one invoice line.
+- `JOURNAL_ENTRY-000003` remains `POSTED`, reference `INVOICE-000002`, balanced at debit `1150.0000` and credit `1150.0000`.
+- SalesInvoice audit actions remain `SALES_INVOICE_CREATED` and `SALES_INVOICE_FINALIZED`.
+- Local ZATCA metadata remains present with type `STANDARD_TAX_INVOICE` and status `NOT_SUBMITTED`.
+- No payment, allocation, refund, credit note, generated document, email, ZATCA signed/submission, cleanup, or login/browser audit-writing side effect occurred.
+
 ## Recommended Next Step
 
 Next prompt title:
 
 ```text
-DEV-07 Part 4: verify AR payment allocation invoice fixture evidence
+DEV-07 Part 5: customer payment creation mutation plan
 ```

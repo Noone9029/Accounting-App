@@ -700,3 +700,24 @@ Next prompt title:
 ```text
 DEV-07 Part 4: verify AR payment allocation invoice fixture evidence
 ```
+
+## Part 4 Evidence Verification Result
+
+DEV-07 Part 4 verified the Part 3E invoice fixture evidence using local read-only checks only.
+
+- Evidence verification doc: [DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_EVIDENCE_VERIFICATION.md](DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_EVIDENCE_VERIFICATION.md).
+- Mutation performed: no.
+- Local target safety passed: Docker Desktop Linux engine was available, local Postgres/Redis were healthy and reachable, and the API database target guard accepted only local `localhost:5432`.
+- Fixture dependency evidence remained valid for marker `DEV03-AR-20260524T130000`: fixture organization, active actor membership, active customer, service item, revenue account, `15.0000` sales tax, account `120`, account `220`, and paid-through cash account were verified.
+- New invoice evidence remained valid: `INVOICE-000002`, safe id prefix `ddadfdd7`, status `FINALIZED`, subtotal `1000.0000`, tax `150.0000`, total `1150.0000`, balance due `1150.0000`, line count `1`.
+- Journal/accounting evidence remained valid: `JOURNAL_ENTRY-000003` is `POSTED`, reference `INVOICE-000002`, balanced at debit `1150.0000` and credit `1150.0000`, with Dr account `120` AR `1150.0000`, Cr fixture revenue `1000.0000`, and Cr account `220` VAT `150.0000`.
+- Audit/ZATCA evidence remained valid: SalesInvoice actions are `SALES_INVOICE_CREATED` and `SALES_INVOICE_FINALIZED`; local ZATCA metadata count is `1`, type `STANDARD_TAX_INVOICE`, status `NOT_SUBMITTED`; no full audit payload bodies were recorded.
+- DEV-06 non-interference remained valid: `INVOICE-000001` is still `VOIDED`, safe id prefix `6ebb2d71`, total `287.5000`, balance due `0.0000`, with original/reversal journals intact.
+- Forbidden side-effect counts remained `0`: customer payments, customer payment allocations, unapplied allocations, customer refunds, credit notes, credit-note allocations, generated documents, email outbox/provider events, ZATCA signed drafts, and ZATCA submission logs.
+- Temporary script cleanup remained valid: `apps/api/scripts/dev07-ar-payment-allocation-invoice-fixture.temp.ts` is absent, unstaged, and untracked.
+
+Next prompt title:
+
+```text
+DEV-07 Part 5: customer payment creation mutation plan
+```

@@ -516,10 +516,23 @@ No customer payment, payment allocation, unapplied allocation, refund, credit no
 
 `INVOICE-000001` remains `VOIDED` with safe id prefix `6ebb2d71`, total `287.5000`, balance due `0.0000`, and reversal journal present. The temporary Part 3E script was removed and is not staged or tracked. Evidence is appended in [DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md](DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md).
 
+## Part 4 Invoice Fixture Evidence Verification Note
+
+DEV-07 Part 4 verified the payment-allocation invoice fixture evidence read-only in [DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_EVIDENCE_VERIFICATION.md](DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_EVIDENCE_VERIFICATION.md).
+
+- Mutation performed: no.
+- Local target safety and fixture dependency checks passed.
+- `INVOICE-000002` remains the single DEV-07 payment-allocation invoice fixture, safe id prefix `ddadfdd7`, status `FINALIZED`, total and balance due `1150.0000`.
+- Journal `JOURNAL_ENTRY-000003` remains `POSTED`, reference `INVOICE-000002`, balanced at debit `1150.0000` and credit `1150.0000`.
+- SalesInvoice audit actions remain `SALES_INVOICE_CREATED` and `SALES_INVOICE_FINALIZED`.
+- Local ZATCA metadata remains `1`, type `STANDARD_TAX_INVOICE`, status `NOT_SUBMITTED`.
+- Customer payments, payment allocations, unapplied allocations, refunds, credit notes, generated documents, email records, ZATCA signed drafts, and submission logs remain `0`.
+- The Part 3E temporary script remains absent, unstaged, and untracked.
+
 ## Recommended Next Step
 
 Next prompt title:
 
 ```text
-DEV-07 Part 4: verify AR payment allocation invoice fixture evidence
+DEV-07 Part 5: customer payment creation mutation plan
 ```
