@@ -210,3 +210,25 @@ No finalize occurred in Part 5B:
 - Forbidden side effects remain `0` for generated documents, payments, refunds, credit notes, allocations, voids, reversal journals, email, ZATCA XML/signing/submission artifacts, and cleanup deletion.
 
 Next prompt title: `DEV-06 Part 5C: approved local AR invoice finalize mutation retry`.
+
+## Part 5C Finalize Mutation Retry Result
+
+Part 5C retried the approved local finalize mutation after the Part 5B posting-account repair.
+
+Retry evidence: [DEV_06_AR_INVOICE_FINALIZE_MUTATION_RETRY_RUN.md](DEV_06_AR_INVOICE_FINALIZE_MUTATION_RETRY_RUN.md).
+
+Outcome:
+
+- `SalesInvoiceService.finalize(...)` was called exactly once by the successful guarded temporary retry script.
+- `INVOICE-000001` moved from `DRAFT` to `FINALIZED`.
+- `finalizedAt` and `journalEntryId` are present.
+- `reversalJournalEntryId` remains absent.
+- Total and balance due remain `287.5000`.
+- One posted journal entry exists with total debit `287.5000`, total credit `287.5000`, and reference `INVOICE-000001`.
+- Journal lines are debit account `120` `287.5000`, credit fixture revenue account `250.0000`, and credit account `220` `37.5000`.
+- SalesInvoice audit actions are `SALES_INVOICE_CREATED`, `SALES_INVOICE_UPDATED`, and `SALES_INVOICE_FINALIZED`.
+- One local `ZatcaInvoiceMetadata` row exists for `STANDARD_TAX_INVOICE`.
+- Forbidden side effects stayed `0` for generated documents, payments, refunds, credit notes, allocations, voids, reversal journals, email records, ZATCA signed drafts/submission logs, ZATCA XML/signing/QR/submission, and cleanup deletion.
+- The temporary retry script was removed and is not staged or tracked.
+
+Next prompt title: `DEV-06 Part 6: verify AR invoice finalize evidence`.

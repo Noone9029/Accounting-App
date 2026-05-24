@@ -175,3 +175,21 @@ The posting-account blocker is resolved locally and for future AR fixtures witho
 ## Recommended Next Step
 
 Proceed with `DEV-06 Part 5C: approved local AR invoice finalize mutation retry`.
+
+## Part 5C Retry Result
+
+Part 5C used the resolved posting-account dependencies and finalized `INVOICE-000001` locally.
+
+Retry evidence: [DEV_06_AR_INVOICE_FINALIZE_MUTATION_RETRY_RUN.md](DEV_06_AR_INVOICE_FINALIZE_MUTATION_RETRY_RUN.md).
+
+Result:
+
+- Account code `120` and account code `220` remained active and posting-enabled before finalization.
+- `SalesInvoiceService.finalize(...)` was called exactly once by the successful guarded retry script.
+- Invoice status became `FINALIZED`.
+- One posted journal entry was created with the expected debit to account `120`, credit to fixture revenue, and credit to account `220`.
+- One `SALES_INVOICE_FINALIZED` audit log was created.
+- One local `ZatcaInvoiceMetadata` row was created.
+- Forbidden side effects stayed `0` for generated documents, payments, refunds, credit notes, allocations, voids, reversal journals, email, ZATCA signed drafts/submission logs, ZATCA XML/signing/QR/submission, and cleanup deletion.
+
+Next prompt title: `DEV-06 Part 6: verify AR invoice finalize evidence`.

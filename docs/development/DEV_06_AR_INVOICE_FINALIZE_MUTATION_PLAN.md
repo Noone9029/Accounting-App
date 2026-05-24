@@ -327,3 +327,23 @@ Resolution:
 No invoice finalization occurred in Part 5B. `INVOICE-000001` remains `DRAFT`; total and balance due remain `287.5000`; `finalizedAt`, `journalEntryId`, and `reversalJournalEntryId` remain absent. Journal entries, finalized invoices, `SALES_INVOICE_FINALIZED` audit logs, ZATCA metadata, generated documents, payments, refunds, credit notes, allocations, email records, ZATCA XML/signing/submission artifacts, and cleanup deletion remain `0`.
 
 Next prompt title: `DEV-06 Part 5C: approved local AR invoice finalize mutation retry`.
+
+## Part 5C Finalize Mutation Retry Result
+
+Part 5C retried the approved local finalize mutation and finalized `INVOICE-000001`.
+
+Retry evidence: [DEV_06_AR_INVOICE_FINALIZE_MUTATION_RETRY_RUN.md](DEV_06_AR_INVOICE_FINALIZE_MUTATION_RETRY_RUN.md).
+
+Result:
+
+- Invoice status became `FINALIZED`.
+- `finalizedAt` and `journalEntryId` became present.
+- `reversalJournalEntryId` remained absent.
+- Total and balance due remained `287.5000`.
+- A posted journal entry was created with total debit `287.5000` and total credit `287.5000`.
+- Journal lines debited account `120` for `287.5000`, credited the fixture revenue account for `250.0000`, and credited account `220` for `37.5000`.
+- SalesInvoice audit actions are now `SALES_INVOICE_CREATED`, `SALES_INVOICE_UPDATED`, and `SALES_INVOICE_FINALIZED`.
+- One local `ZatcaInvoiceMetadata` record exists for `STANDARD_TAX_INVOICE`.
+- Forbidden side effects stayed `0` for generated documents, payments, refunds, credit notes, allocations, voids, reversal journals, email, ZATCA signed drafts/submission logs, ZATCA XML/signing/QR/submission, and cleanup deletion.
+
+Next prompt title: `DEV-06 Part 6: verify AR invoice finalize evidence`.

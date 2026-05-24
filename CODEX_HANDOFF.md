@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `331d14f2 Record DEV-06 AR invoice finalize blocker`
+- `a8d4dc01 Resolve DEV-06 AR finalize account blocker`
 
 ## Current Development Objective
 
@@ -544,7 +544,8 @@
 - Mock/blocked areas remain intentional: real ZATCA, real customer email sending, live bank feeds, payment gateway capture, object-storage migration execution, backup/restore execution, and automatic inventory accounting expansion.
 - DEV-06 Part 5 attempted the approved local-only AR invoice finalize preflight and stopped before mutation because the fixture organization was missing the finalize service's required active posting account codes `120` and `220`.
 - DEV-06 Part 5B resolved the local fixture blocker by adding active posting account codes `120` and `220` to the DEV03-AR fixture organization and updating the fixture runner so future AR fixtures include those service-required dependencies.
-- Exact next recommended development ticket: `DEV-06 Part 5C: approved local AR invoice finalize mutation retry`.
+- DEV-06 Part 5C retried the approved local-only AR invoice finalize mutation and finalized `INVOICE-000001` locally.
+- Exact next recommended development ticket: `DEV-06 Part 6: verify AR invoice finalize evidence`.
 
 ## DEV-06 Part 5 - Invoice Finalize Preflight Blocked
 
@@ -576,6 +577,22 @@
 - The temporary repair script was removed and was not staged or tracked.
 - Exact next prompt title: `DEV-06 Part 5C: approved local AR invoice finalize mutation retry`.
 
+## DEV-06 Part 5C - Invoice Finalize Mutation Retry Completed
+
+- Approval phrase was received for the local-only retry finalization of `INVOICE-000001` under marker `DEV03-AR-20260524T130000`.
+- Preflight passed: targeted AR Jest suites (`4` suites, `84` tests), fixture-runner test (`1` suite, `41` tests), cleanup-plan in plan-only/no-write mode, `corepack pnpm verify:diff`, local Docker Postgres/Redis readiness, local target guard, and read-only invoice/account side-effect checks.
+- Account dependencies were present: code `120` active/posting `ASSET`, and code `220` active/posting `LIABILITY`.
+- Mutation performed: `SalesInvoiceService.finalize(...)` was called exactly once by a guarded temporary script.
+- `INVOICE-000001` is now `FINALIZED`; `finalizedAt` and `journalEntryId` are present; `reversalJournalEntryId` remains absent; total and balance due remain `287.5000`.
+- Journal result: one posted journal entry `JOURNAL_ENTRY-000001`, reference `INVOICE-000001`, total debit `287.5000`, total credit `287.5000`.
+- Journal lines: debit account `120` for `287.5000`, credit fixture revenue account for `250.0000`, and credit account `220` for `37.5000`.
+- Audit result: SalesInvoice audit actions are `SALES_INVOICE_CREATED`, `SALES_INVOICE_UPDATED`, and `SALES_INVOICE_FINALIZED`; fixture org login audit logs remain `0`.
+- ZATCA result: one local `ZatcaInvoiceMetadata` row exists with type `STANDARD_TAX_INVOICE`; ZATCA XML/signing/QR/submission/clearance/reporting did not run.
+- Forbidden side effects stayed `0`: generated documents, payments, refunds, credit notes, allocations, voids, reversal journals, email outbox/provider events, ZATCA signed drafts/submission logs, and cleanup deletion.
+- Evidence doc: [docs/development/DEV_06_AR_INVOICE_FINALIZE_MUTATION_RETRY_RUN.md](docs/development/DEV_06_AR_INVOICE_FINALIZE_MUTATION_RETRY_RUN.md).
+- The temporary retry script was removed and was not staged or tracked.
+- Exact next prompt title: `DEV-06 Part 6: verify AR invoice finalize evidence`.
+
 ## Forbidden Actions For Next Production Thread
 
 - Do not change app code.
@@ -587,4 +604,4 @@
 
 ## Next Thread Prompt
 
-`DEV-06 Part 5C: approved local AR invoice finalize mutation retry`
+`DEV-06 Part 6: verify AR invoice finalize evidence`
