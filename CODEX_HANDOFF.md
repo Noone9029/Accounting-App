@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `8558e627 Validate DEV-05 local AR fixture cleanup plan`
+- `c4e23862 Plan DEV-06 AR state-machine QA`
 
 ## Current Development Objective
 
@@ -148,8 +148,8 @@
 - DEV-06 Part 1 AR state-machine QA plan is completed in [docs/development/DEV_06_AR_STATE_MACHINE_QA_PLAN.md](docs/development/DEV_06_AR_STATE_MACHINE_QA_PLAN.md).
 - DEV-06 Part 1 status: AR mutations were performed: no; fixture creation occurred: no; cleanup deletion occurred: no; DB writes occurred: no; login/audit-writing flows, exports/downloads/PDF/archive generation, ZATCA, email, backup/restore, smoke, E2E, migrations, seed/reset/delete, deploys, env changes, production checks, beta checks, and customer-data checks were not run.
 - DEV-06 Part 1 recommended first AR mutation slice: local-only creation and edit of one draft sales invoice against marker `DEV03-AR-20260524T130000`, with no finalize, void, payment allocation, refund, credit note, export, download, PDF, archive, email, ZATCA, cleanup deletion, production, beta, or customer data.
-- DEV-06 Part 1 exact approval phrase before mutation: `I approve DEV-06 Part 2 local-only AR first mutation run against the disposable local DEV03-AR fixtures. Scope: create and edit one draft sales invoice only. No finalize, void, allocation, refund, export, download, PDF, archive, email, ZATCA, seed, reset, delete, production, beta, or customer data.`
-- Exact next prompt title: `DEV-06 Part 2: approved local AR first mutation run`.
+- DEV-06 Part 1 exact approval phrase before mutation: `I approve DEV-06 Part 2 local-only AR draft invoice create/edit mutation against disposable local fixtures. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-06 Part 2: approved local AR draft invoice create/edit mutation`.
 
 ## Current PROD-A1 Objective
 
@@ -528,7 +528,7 @@
 - The current product state is broad controlled-beta MVP, not paid production SaaS: core AR/AP, banking, inventory, reports, documents, audit, roles, storage readiness, email readiness, and ZATCA groundwork exist, but many production-facing and product-completion gaps remain.
 - Top development gaps: full route QA and blocker triage, verification gate hardening, high-risk state-machine QA, auth/session hardening, accountant review, sales/purchase completion, banking parser/reconciliation hardening, inventory accounting policy work, admin/audit alerts, and SaaS business readiness.
 - Mock/blocked areas remain intentional: real ZATCA, real customer email sending, live bank feeds, payment gateway capture, object-storage migration execution, backup/restore execution, and automatic inventory accounting expansion.
-- Exact next recommended development ticket: `DEV-06 Part 2: approved local AR first mutation run`.
+- Exact next recommended development ticket: `DEV-06 Part 2: approved local AR draft invoice create/edit mutation`.
 
 ## Forbidden Actions For Next Production Thread
 
@@ -541,4 +541,4 @@
 
 ## Next Thread Prompt
 
-`DEV-06 Part 2: approved local AR first mutation run`
+`DEV-06 Part 2: approved local AR draft invoice create/edit mutation`

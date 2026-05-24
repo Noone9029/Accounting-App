@@ -204,13 +204,13 @@ Do not run these in DEV-06 Part 1, and do not run them in Part 2 without explici
 Use this exact approval phrase before running the DEV-06 Part 2 mutation slice:
 
 ```text
-I approve DEV-06 Part 2 local-only AR first mutation run against the disposable local DEV03-AR fixtures. Scope: create and edit one draft sales invoice only. No finalize, void, allocation, refund, export, download, PDF, archive, email, ZATCA, seed, reset, delete, production, beta, or customer data.
+I approve DEV-06 Part 2 local-only AR draft invoice create/edit mutation against disposable local fixtures. No production, no beta, no customer data.
 ```
 
-This approval should be treated as limited to one local draft invoice create/edit slice. It does not approve finalization, voiding, allocations, refunds, credit notes, output generation, cleanup deletion, login/browser audit flows, production/beta targets, or customer data.
+This approval should be treated as limited to one local draft invoice create/edit slice against the approved `DEV03-AR-20260524T130000` fixture family. It does not approve finalization, voiding, allocations, refunds, credit notes, output generation, cleanup deletion, login/browser audit flows, production/beta targets, or customer data.
 
 ## 9. Recommended Next Step
 
-Proceed to `DEV-06 Part 2: approved local AR first mutation run` only after the exact approval phrase is received.
+Proceed to `DEV-06 Part 2: approved local AR draft invoice create/edit mutation` only after the exact approval phrase is received.
 
 If approval is not provided, continue with mocked AR tests and documentation-only planning. No AR mutation should run from this Part 1 plan alone.

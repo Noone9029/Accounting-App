@@ -163,3 +163,11 @@ Cleanup execution should remain blocked until a separate ticket approves:
 ## 10. Recommended Next Step
 
 Proceed with `DEV-06 Part 1: AR state-machine QA using local fixtures`.
+
+## DEV-06 Part 1 Planning Note
+
+`DEV-06 Part 1` used this cleanup-plan validation and the DEV-05 fixture evidence as the baseline for AR state-machine QA planning.
+
+DEV-06 Part 1 confirmed the first recommended mutation slice should be limited to creating and editing one local-only draft sales invoice against marker `DEV03-AR-20260524T130000`. No AR mutation, fixture creation, cleanup deletion, database write, login/audit-writing flow, export, download, PDF generation, archive generation, email, ZATCA, migration, seed/reset/delete, smoke, E2E, deploy, environment change, production check, beta check, or customer-data check was performed by that planning step.
+
+DEV-06 plan: [DEV_06_AR_STATE_MACHINE_QA_PLAN.md](DEV_06_AR_STATE_MACHINE_QA_PLAN.md).
