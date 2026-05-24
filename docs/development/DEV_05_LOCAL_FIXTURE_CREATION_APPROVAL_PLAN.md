@@ -284,3 +284,15 @@ If any item is missing, the next run remains planning or dry-run only.
 Proceed with `DEV-05 Part 3B: approved local AR fixture creation run` only if the next prompt includes the exact approval phrase from [DEV_05_AR_FIXTURE_CREATION_PREFLIGHT.md](DEV_05_AR_FIXTURE_CREATION_PREFLIGHT.md) and explicitly approves local disposable database use, fixture creation, marker scope, cleanup/retention, and no-production/no-beta/no-customer-data boundaries.
 
 Without those approvals, keep the runner in plan/dry-run/cleanup-plan or execute-refusal mode only.
+
+## DEV-05 Part 5 Status Note
+
+Local Sales/AR fixture creation, read-only evidence verification, and cleanup-plan validation are now complete for marker `DEV03-AR-20260524T130000`.
+
+Related docs:
+
+- [DEV_05_AR_FIXTURE_CREATION_RETRY.md](DEV_05_AR_FIXTURE_CREATION_RETRY.md)
+- [DEV_05_AR_FIXTURE_EVIDENCE.md](DEV_05_AR_FIXTURE_EVIDENCE.md)
+- [DEV_05_AR_FIXTURE_CLEANUP_PLAN_VALIDATION.md](DEV_05_AR_FIXTURE_CLEANUP_PLAN_VALIDATION.md)
+
+Cleanup deletion is still not approved and was not run. The 12 marker-scoped local fixture records remain available for `DEV-06 Part 1: AR state-machine QA using local fixtures`.
