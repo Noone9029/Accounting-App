@@ -96,7 +96,7 @@ corepack pnpm fixture:dev04:dry-run -- --family ar --marker DEV03-AR-20260524T12
 corepack pnpm fixture:dev04:cleanup-plan -- --family ar --marker DEV03-AR-20260524T120000
 ```
 
-These commands print fixture plans and guard results only. DEV-05 adds an execute-gated skeleton for future approval checks, but execute still exits refused and does not login, create fixtures, connect to production/beta targets, or mutate data. Generic `DATABASE_URL` is ignored by the dry-run runner; pass `--database-url` or `LEDGERBYTE_DEV04_DATABASE_URL` only when you need to validate an explicit local plan target. See [DEV-04 final fixture runner handoff](docs/development/DEV_04_FINAL_FIXTURE_RUNNER_HANDOFF.md) and [DEV-05 execute-gated fixture skeleton](docs/development/DEV_05_EXECUTE_GATED_FIXTURE_SKELETON.md) for current guard coverage and approval gates.
+These commands print fixture plans and guard results only. DEV-05 adds a manually invoked, approval-gated local Sales/AR base-fixture execute path, but no root execute script exists; it does not login, run AR lifecycle mutations, connect to production/beta targets, or run output actions. Generic `DATABASE_URL` is ignored by the dry-run runner; pass `--database-url` or `LEDGERBYTE_DEV04_DATABASE_URL` only when you need to validate an explicit local plan target. See [DEV-04 final fixture runner handoff](docs/development/DEV_04_FINAL_FIXTURE_RUNNER_HANDOFF.md), [DEV-05 execute-gated fixture skeleton](docs/development/DEV_05_EXECUTE_GATED_FIXTURE_SKELETON.md), and [DEV-05 AR fixture run](docs/development/DEV_05_AR_FIXTURE_CREATION_RUN.md) for current guard coverage and approval gates.
 
 Pull requests now run the same non-mutating verification boundary through `.github/workflows/pr-verification.yml`.
 

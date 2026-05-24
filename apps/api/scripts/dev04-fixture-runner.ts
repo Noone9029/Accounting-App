@@ -1,3 +1,8 @@
+import { createHash } from "node:crypto";
+import { PrismaClient } from "@prisma/client";
+import { PERMISSIONS } from "@ledgerbyte/shared";
+import * as bcrypt from "bcryptjs";
+
 type FixtureFamily = "ar" | "ap" | "bank" | "inv" | "jrd";
 type FixtureFamilySelection = FixtureFamily | "all";
 type FixtureRunnerMode = "plan" | "dry-run" | "cleanup-plan" | "execute";
@@ -17,6 +22,28 @@ type FixtureProposedRecord = {
   marker: string;
   writeBehavior: "planned-only";
   notes: string[];
+};
+
+type FixtureWriteStatus = "created" | "reused";
+
+type FixtureWrittenRecordSummary = {
+  group: string;
+  recordType: string;
+  marker: string;
+  status: FixtureWriteStatus;
+  idHint: string;
+};
+
+type FixtureExecutionResult = {
+  createdFixtureData: boolean;
+  fixtureDataPresent: boolean;
+  databaseConnectionOpened: boolean;
+  databaseWritesPerformed: boolean;
+  loginPerformed: false;
+  auditWritingPerformed: false;
+  lifecycleMutationsPerformed: false;
+  outputActionsPerformed: false;
+  records: FixtureWrittenRecordSummary[];
 };
 
 type FixtureFamilyPlan = {
@@ -52,13 +79,15 @@ type FixtureRunnerPlan = {
   executeRefused: boolean;
   executeRefusalReason?: string;
   approvalGates: ExecuteApprovalGates;
-  createdFixtureData: false;
-  fixtureCreationEnabled: false;
-  mutationEnabled: false;
-  databaseWritesEnabled: false;
-  writesPerformed: false;
+  createdFixtureData: boolean;
+  fixtureDataPresent: boolean;
+  fixtureCreationEnabled: boolean;
+  mutationEnabled: boolean;
+  databaseWritesEnabled: boolean;
+  writesPerformed: boolean;
   loginEnabled: false;
-  executeEnabled: false;
+  executeEnabled: boolean;
+  executionResult?: FixtureExecutionResult;
   nextManualApproval: string;
   skipped: string[];
 };
@@ -80,6 +109,8 @@ type RunnerLogger = {
   log: (message: string) => void;
   error: (message: string) => void;
 };
+
+type FixtureExecutor = (plan: FixtureRunnerPlan, databaseUrl: string) => Promise<FixtureExecutionResult>;
 
 const FAMILY_ORDER = ["ar", "ap", "bank", "inv", "jrd"] as const;
 
@@ -230,6 +261,9 @@ const NEXT_MANUAL_APPROVAL =
 const EXECUTE_SKELETON_REFUSAL =
   "DEV-05 execute mode skeleton is present but fixture creation is still disabled until a later approved task.";
 
+const EXECUTE_APPROVAL_ACCEPTED =
+  "DEV-05 Part 3B approved local-only Sales/AR base fixture creation path. No lifecycle mutations or output actions are enabled.";
+
 const REQUIRED_EXECUTE_APPROVAL_GATES: Array<{ key: keyof ExecuteApprovalGates; label: string }> = [
   { key: "allowLocalMutation", label: "--allow-local-mutation" },
   { key: "localDisposableDbApproved", label: "--approve-local-disposable-db" },
@@ -378,6 +412,8 @@ function buildFixturePlan(argv: string[], env: RunnerEnvironment = {}): FixtureR
     validateExecuteSkeleton(options, family, databaseTarget);
   }
 
+  const executeApproved = options.executeRequested;
+
   return {
     mode: options.mode,
     family,
@@ -389,19 +425,22 @@ function buildFixturePlan(argv: string[], env: RunnerEnvironment = {}): FixtureR
     cleanupPlanOnly: options.mode === "cleanup-plan",
     jsonSummary: options.jsonSummary,
     executeRequested: options.executeRequested,
-    executeApprovedForSkeleton: options.executeRequested,
-    executeRefused: options.executeRequested,
-    executeRefusalReason: options.executeRequested ? EXECUTE_SKELETON_REFUSAL : undefined,
+    executeApprovedForSkeleton: executeApproved,
+    executeRefused: false,
+    executeRefusalReason: undefined,
     approvalGates: { ...options.approvalGates },
     createdFixtureData: false,
-    fixtureCreationEnabled: false,
+    fixtureDataPresent: false,
+    fixtureCreationEnabled: executeApproved,
     mutationEnabled: false,
-    databaseWritesEnabled: false,
+    databaseWritesEnabled: executeApproved,
     writesPerformed: false,
     loginEnabled: false,
-    executeEnabled: false,
-    nextManualApproval: options.executeRequested ? EXECUTE_SKELETON_REFUSAL : NEXT_MANUAL_APPROVAL,
-    skipped: [...SKIPPED_DEFAULTS],
+    executeEnabled: executeApproved,
+    nextManualApproval: options.executeRequested ? EXECUTE_APPROVAL_ACCEPTED : NEXT_MANUAL_APPROVAL,
+    skipped: executeApproved
+      ? SKIPPED_DEFAULTS.filter((entry) => !["fixture data creation", "database writes", "Prisma writes"].includes(entry))
+      : [...SKIPPED_DEFAULTS],
   };
 }
 
@@ -493,6 +532,381 @@ function buildArProposedRecords(runId: string): FixtureProposedRecord[] {
       notes: ["draft invoice, draft credit note, payment candidate, and refund candidate labels only", "no lifecycle transition or document output"],
     },
   ];
+}
+
+async function executeApprovedArFixtureCreation(plan: FixtureRunnerPlan, databaseUrl: string): Promise<FixtureExecutionResult> {
+  if (plan.family !== "ar" || !plan.marker.startsWith("DEV03-AR-")) {
+    throw new Error("DEV-05 Part 3B execution is restricted to the Sales/AR family with a DEV03-AR marker.");
+  }
+
+  if (!plan.executeEnabled || !plan.databaseWritesEnabled) {
+    throw new Error("DEV-05 Part 3B execution is not enabled by the current approval gates.");
+  }
+
+  classifyDatabaseUrl(databaseUrl);
+
+  const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+  const records: FixtureWrittenRecordSummary[] = [];
+
+  try {
+    await prisma.$connect();
+    await prisma.$transaction(async (tx) => {
+      await createApprovedArFixtureRecords(tx, plan, records);
+    });
+  } finally {
+    await prisma.$disconnect();
+  }
+
+  return {
+    createdFixtureData: records.some((record) => record.status === "created"),
+    fixtureDataPresent: records.length > 0,
+    databaseConnectionOpened: true,
+    databaseWritesPerformed: true,
+    loginPerformed: false,
+    auditWritingPerformed: false,
+    lifecycleMutationsPerformed: false,
+    outputActionsPerformed: false,
+    records,
+  };
+}
+
+type FixtureWriteClient = Pick<
+  PrismaClient,
+  "organization" | "user" | "role" | "organizationMember" | "account" | "taxRate" | "item" | "bankAccountProfile" | "contact"
+>;
+
+async function createApprovedArFixtureRecords(
+  tx: FixtureWriteClient,
+  plan: FixtureRunnerPlan,
+  records: FixtureWrittenRecordSummary[],
+): Promise<void> {
+  const runId = plan.runId;
+  const marker = plan.marker;
+  const orgId = deterministicUuid(`${marker}:organization`);
+  const customerId = deterministicUuid(`${marker}:customer`);
+  const fixtureEmail = `dev03-ar-${runId.toLowerCase()}@ledgerbyte.local.test`;
+  const codeSuffix = runId.replace(/[^A-Z0-9]/g, "").slice(-12);
+
+  const orgBefore = await tx.organization.findUnique({ where: { id: orgId }, select: { id: true } });
+  const organization = await tx.organization.upsert({
+    where: { id: orgId },
+    update: {
+      name: `DEV03-AR-ORG-${runId}`,
+      legalName: `DEV03 AR Local Fixture ${runId}`,
+      taxNumber: "399999999999993",
+      countryCode: "SA",
+      baseCurrency: "SAR",
+      timezone: "Asia/Riyadh",
+    },
+    create: {
+      id: orgId,
+      name: `DEV03-AR-ORG-${runId}`,
+      legalName: `DEV03 AR Local Fixture ${runId}`,
+      taxNumber: "399999999999993",
+      countryCode: "SA",
+      baseCurrency: "SAR",
+      timezone: "Asia/Riyadh",
+    },
+    select: { id: true },
+  });
+  records.push(recordSummary("bootstrap", "organization", `DEV03-AR-ORG-${runId}`, orgBefore ? "reused" : "created", organization.id));
+
+  const userBefore = await tx.user.findUnique({ where: { email: fixtureEmail }, select: { id: true } });
+  const user = await tx.user.upsert({
+    where: { email: fixtureEmail },
+    update: {
+      name: `DEV03-AR-USER-${runId}`,
+    },
+    create: {
+      email: fixtureEmail,
+      name: `DEV03-AR-USER-${runId}`,
+      passwordHash: await bcrypt.hash(`${marker}-LOGIN-DISABLED`, 12),
+    },
+    select: { id: true },
+  });
+  records.push(recordSummary("bootstrap", "user", `DEV03-AR-USER-${runId}`, userBefore ? "reused" : "created", user.id));
+
+  const roleName = `DEV03-AR-ROLE-${runId}`;
+  const roleBefore = await tx.role.findUnique({ where: { organizationId_name: { organizationId: organization.id, name: roleName } }, select: { id: true } });
+  const role = await tx.role.upsert({
+    where: { organizationId_name: { organizationId: organization.id, name: roleName } },
+    update: {
+      permissions: approvedArBasePermissions(),
+      isSystem: false,
+    },
+    create: {
+      organizationId: organization.id,
+      name: roleName,
+      permissions: approvedArBasePermissions(),
+      isSystem: false,
+    },
+    select: { id: true },
+  });
+  records.push(recordSummary("bootstrap", "role", roleName, roleBefore ? "reused" : "created", role.id));
+
+  const memberBefore = await tx.organizationMember.findUnique({
+    where: { organizationId_userId: { organizationId: organization.id, userId: user.id } },
+    select: { id: true },
+  });
+  const member = await tx.organizationMember.upsert({
+    where: { organizationId_userId: { organizationId: organization.id, userId: user.id } },
+    update: {
+      roleId: role.id,
+      status: "ACTIVE",
+    },
+    create: {
+      organizationId: organization.id,
+      userId: user.id,
+      roleId: role.id,
+      status: "ACTIVE",
+    },
+    select: { id: true },
+  });
+  records.push(
+    recordSummary("bootstrap", "organization-membership", `DEV03-AR-USER-ROLE-${runId}`, memberBefore ? "reused" : "created", member.id),
+  );
+
+  await upsertAccount(tx, records, organization.id, {
+    group: "dependencies",
+    code: `D3AR-${codeSuffix}-AR`,
+    name: `DEV03-AR-ACCT-AR-${runId}`,
+    type: "ASSET",
+  });
+  const revenueAccount = await upsertAccount(tx, records, organization.id, {
+    group: "dependencies",
+    code: `D3AR-${codeSuffix}-REV`,
+    name: `DEV03-AR-ACCT-REV-${runId}`,
+    type: "REVENUE",
+  });
+  await upsertAccount(tx, records, organization.id, {
+    group: "dependencies",
+    code: `D3AR-${codeSuffix}-VAT`,
+    name: `DEV03-AR-ACCT-VAT-${runId}`,
+    type: "LIABILITY",
+  });
+  const cashAccount = await upsertAccount(tx, records, organization.id, {
+    group: "dependencies",
+    code: `D3AR-${codeSuffix}-CASH`,
+    name: `DEV03-AR-ACCT-CASH-${runId}`,
+    type: "ASSET",
+  });
+
+  const taxName = `DEV03-AR-TAX-${runId}`;
+  const taxBefore = await tx.taxRate.findUnique({ where: { organizationId_name: { organizationId: organization.id, name: taxName } }, select: { id: true } });
+  const taxRate = await tx.taxRate.upsert({
+    where: { organizationId_name: { organizationId: organization.id, name: taxName } },
+    update: {
+      scope: "SALES",
+      category: "STANDARD",
+      rate: "15.0000",
+      description: `${marker} fake local AR tax dependency`,
+      isActive: true,
+      isSystem: false,
+    },
+    create: {
+      organizationId: organization.id,
+      name: taxName,
+      scope: "SALES",
+      category: "STANDARD",
+      rate: "15.0000",
+      description: `${marker} fake local AR tax dependency`,
+      isActive: true,
+      isSystem: false,
+    },
+    select: { id: true },
+  });
+  records.push(recordSummary("dependencies", "tax-rate", taxName, taxBefore ? "reused" : "created", taxRate.id));
+
+  const bankBefore = await tx.bankAccountProfile.findUnique({ where: { accountId: cashAccount.id }, select: { id: true } });
+  const bankProfile = await tx.bankAccountProfile.upsert({
+    where: { accountId: cashAccount.id },
+    update: {
+      type: "CASH",
+      status: "ACTIVE",
+      displayName: `DEV03-AR-CASH-${runId}`,
+      bankName: "DEV03 local cash fixture",
+      currency: "SAR",
+      openingBalance: "0.0000",
+      notes: `${marker} fake local AR cash dependency`,
+    },
+    create: {
+      organizationId: organization.id,
+      accountId: cashAccount.id,
+      type: "CASH",
+      status: "ACTIVE",
+      displayName: `DEV03-AR-CASH-${runId}`,
+      bankName: "DEV03 local cash fixture",
+      currency: "SAR",
+      openingBalance: "0.0000",
+      notes: `${marker} fake local AR cash dependency`,
+    },
+    select: { id: true },
+  });
+  records.push(recordSummary("dependencies", "bank-cash-profile", `DEV03-AR-CASH-${runId}`, bankBefore ? "reused" : "created", bankProfile.id));
+
+  const customerBefore = await tx.contact.findUnique({ where: { id: customerId }, select: { id: true } });
+  const customer = await tx.contact.upsert({
+    where: { id: customerId },
+    update: {
+      type: "CUSTOMER",
+      name: `DEV03-AR-CUSTOMER-${runId}`,
+      displayName: `DEV03 AR Customer ${runId}`,
+      email: `customer-${runId.toLowerCase()}@ledgerbyte.local.test`,
+      taxNumber: "399999999999993",
+      identificationType: "CRN",
+      identificationNumber: `DEV03AR${codeSuffix}`,
+      addressLine1: "DEV03 Local Fixture Street",
+      buildingNumber: "1234",
+      district: "DEV03 District",
+      city: "Riyadh",
+      countryCode: "SA",
+      postalCode: "12345",
+      isActive: true,
+    },
+    create: {
+      id: customerId,
+      organizationId: organization.id,
+      type: "CUSTOMER",
+      name: `DEV03-AR-CUSTOMER-${runId}`,
+      displayName: `DEV03 AR Customer ${runId}`,
+      email: `customer-${runId.toLowerCase()}@ledgerbyte.local.test`,
+      taxNumber: "399999999999993",
+      identificationType: "CRN",
+      identificationNumber: `DEV03AR${codeSuffix}`,
+      addressLine1: "DEV03 Local Fixture Street",
+      buildingNumber: "1234",
+      district: "DEV03 District",
+      city: "Riyadh",
+      countryCode: "SA",
+      postalCode: "12345",
+      isActive: true,
+    },
+    select: { id: true },
+  });
+  records.push(recordSummary("business-base", "customer", `DEV03-AR-CUSTOMER-${runId}`, customerBefore ? "reused" : "created", customer.id));
+
+  const itemSku = `DEV03-AR-SVC-${runId}`;
+  const itemBefore = await tx.item.findUnique({ where: { organizationId_sku: { organizationId: organization.id, sku: itemSku } }, select: { id: true } });
+  const item = await tx.item.upsert({
+    where: { organizationId_sku: { organizationId: organization.id, sku: itemSku } },
+    update: {
+      name: `DEV03-AR-SERVICE-${runId}`,
+      description: `${marker} fake local non-inventory AR service item`,
+      type: "SERVICE",
+      status: "ACTIVE",
+      sellingPrice: "100.0000",
+      revenueAccountId: revenueAccount.id,
+      salesTaxRateId: taxRate.id,
+      inventoryTracking: false,
+    },
+    create: {
+      organizationId: organization.id,
+      name: `DEV03-AR-SERVICE-${runId}`,
+      description: `${marker} fake local non-inventory AR service item`,
+      sku: itemSku,
+      type: "SERVICE",
+      status: "ACTIVE",
+      sellingPrice: "100.0000",
+      revenueAccountId: revenueAccount.id,
+      salesTaxRateId: taxRate.id,
+      inventoryTracking: false,
+    },
+    select: { id: true },
+  });
+  records.push(recordSummary("business-base", "service-item", `DEV03-AR-SERVICE-${runId}`, itemBefore ? "reused" : "created", item.id));
+}
+
+type AccountInput = {
+  group: string;
+  code: string;
+  name: string;
+  type: "ASSET" | "LIABILITY" | "REVENUE";
+};
+
+async function upsertAccount(
+  tx: FixtureWriteClient,
+  records: FixtureWrittenRecordSummary[],
+  organizationId: string,
+  input: AccountInput,
+): Promise<{ id: string }> {
+  const before = await tx.account.findUnique({ where: { organizationId_code: { organizationId, code: input.code } }, select: { id: true } });
+  const account = await tx.account.upsert({
+    where: { organizationId_code: { organizationId, code: input.code } },
+    update: {
+      name: input.name,
+      type: input.type,
+      allowPosting: true,
+      isSystem: false,
+      isActive: true,
+      description: `${input.name} fake local AR fixture dependency`,
+    },
+    create: {
+      organizationId,
+      code: input.code,
+      name: input.name,
+      type: input.type,
+      allowPosting: true,
+      isSystem: false,
+      isActive: true,
+      description: `${input.name} fake local AR fixture dependency`,
+    },
+    select: { id: true },
+  });
+  records.push(recordSummary(input.group, "account", input.name, before ? "reused" : "created", account.id));
+  return account;
+}
+
+function approvedArBasePermissions(): string[] {
+  return [
+    PERMISSIONS.dashboard.view,
+    PERMISSIONS.organization.view,
+    PERMISSIONS.contacts.view,
+    PERMISSIONS.contacts.manage,
+    PERMISSIONS.items.view,
+    PERMISSIONS.items.manage,
+    PERMISSIONS.accounts.view,
+    PERMISSIONS.taxRates.view,
+    PERMISSIONS.bankAccounts.view,
+    PERMISSIONS.salesInvoices.view,
+    PERMISSIONS.salesInvoices.create,
+    PERMISSIONS.salesInvoices.update,
+    PERMISSIONS.customerPayments.view,
+    PERMISSIONS.customerPayments.create,
+    PERMISSIONS.creditNotes.view,
+    PERMISSIONS.creditNotes.create,
+    PERMISSIONS.customerRefunds.view,
+    PERMISSIONS.customerRefunds.create,
+    PERMISSIONS.documents.view,
+    PERMISSIONS.generatedDocuments.view,
+  ];
+}
+
+function recordSummary(
+  group: string,
+  recordType: string,
+  marker: string,
+  status: FixtureWriteStatus,
+  id: string,
+): FixtureWrittenRecordSummary {
+  return {
+    group,
+    recordType,
+    marker,
+    status,
+    idHint: summarizeId(id),
+  };
+}
+
+function summarizeId(id: string): string {
+  return `${id.slice(0, 8)}...`;
+}
+
+function deterministicUuid(input: string): string {
+  const bytes = Buffer.from(createHash("sha256").update(input).digest("hex").slice(0, 32), "hex");
+  bytes[6] = (bytes[6]! & 0x0f) | 0x50;
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
 function validateFamily(family: string): FixtureFamilySelection {
@@ -591,20 +1005,20 @@ function classifyTargetUrl(
 
 function renderFixturePlan(plan: FixtureRunnerPlan): string {
   const lines = [
-    "DEV-04 fixture runner dry-run skeleton",
+    "DEV-04/DEV-05 fixture runner",
     `Mode: ${plan.mode}`,
     `Family: ${plan.family}`,
     `Marker: ${plan.marker}`,
     `Run id: ${plan.runId}`,
-    `Database target: ${renderTarget(plan.databaseTarget)}`,
-    `API target: ${renderTarget(plan.apiTarget)}`,
+    `Database target: ${renderTarget(plan.databaseTarget, plan.executeRequested)}`,
+    `API target: ${renderTarget(plan.apiTarget, false)}`,
     "Login: disabled",
     `Execute requested: ${plan.executeRequested}`,
-    "Execute enabled: false",
-    "Fixture creation: disabled",
+    `Execute enabled: ${plan.executeEnabled}`,
+    `Fixture creation: ${plan.fixtureCreationEnabled ? "enabled for approved local AR base records only" : "disabled"}`,
     "Mutation: disabled",
-    "Database writes: disabled",
-    "Writes performed: false",
+    `Database writes: ${plan.databaseWritesEnabled ? "enabled for approved local AR base records only" : "disabled"}`,
+    `Writes performed: ${plan.writesPerformed}`,
     plan.cleanupPlanOnly ? "Cleanup: plan only; deletion is not implemented." : "Cleanup: not executing; cleanup inventory is plan-only.",
     `Next manual approval needed: ${plan.nextManualApproval}`,
     "",
@@ -632,12 +1046,29 @@ function renderFixturePlan(plan: FixtureRunnerPlan): string {
   }
 
   lines.push("");
-  lines.push("NO DATA CREATED");
-  lines.push("NO DATABASE WRITES");
-  lines.push("No fixture data was created.");
-  lines.push("No database writes were attempted.");
-  lines.push("No database connection was opened.");
+  if (plan.executionResult) {
+    const createdCount = plan.executionResult.records.filter((record) => record.status === "created").length;
+    const reusedCount = plan.executionResult.records.filter((record) => record.status === "reused").length;
+    lines.push("Approved AR fixture creation result:");
+    lines.push(`- Records created: ${createdCount}`);
+    lines.push(`- Records reused: ${reusedCount}`);
+    for (const record of plan.executionResult.records) {
+      lines.push(`- ${record.recordType}: ${record.marker} (${record.status}, id ${record.idHint})`);
+    }
+    lines.push("");
+    lines.push("DATA CREATED OR REUSED");
+    lines.push("DATABASE WRITES PERFORMED");
+    lines.push("Fixture data was created or reused only for approved local AR base setup.");
+    lines.push("Database writes were attempted only for approved local DEV03-AR base records.");
+  } else {
+    lines.push("NO DATA CREATED");
+    lines.push("NO DATABASE WRITES");
+    lines.push("No fixture data was created.");
+    lines.push("No database writes were attempted.");
+    lines.push("No database connection was opened.");
+  }
   lines.push("No login or audit-writing flow was run.");
+  lines.push("No AR lifecycle mutation was run.");
   lines.push("No migrations, seed/reset/delete, smoke, E2E, deploy, ZATCA, email, backup/restore, export, download, PDF, or archive action was run.");
 
   return lines.join("\n");
@@ -655,12 +1086,14 @@ function buildJsonSummary(plan: FixtureRunnerPlan): Record<string, unknown> {
     executeRefusalReason: plan.executeRefusalReason,
     approvalGates: plan.approvalGates,
     createdFixtureData: plan.createdFixtureData,
+    fixtureDataPresent: plan.fixtureDataPresent,
     fixtureCreationEnabled: plan.fixtureCreationEnabled,
     mutationEnabled: plan.mutationEnabled,
     databaseWritesEnabled: plan.databaseWritesEnabled,
     writesPerformed: plan.writesPerformed,
     loginEnabled: plan.loginEnabled,
     executeEnabled: plan.executeEnabled,
+    executionResult: plan.executionResult,
     cleanupPlanOnly: plan.cleanupPlanOnly,
     nextManualApproval: plan.nextManualApproval,
     databaseTarget: plan.databaseTarget,
@@ -681,7 +1114,12 @@ function buildJsonSummary(plan: FixtureRunnerPlan): Record<string, unknown> {
   };
 }
 
-function runFixtureRunner(argv = process.argv.slice(2), env: RunnerEnvironment = process.env, logger: RunnerLogger = console): number {
+async function runFixtureRunner(
+  argv = process.argv.slice(2),
+  env: RunnerEnvironment = process.env,
+  logger: RunnerLogger = console,
+  executor: FixtureExecutor = executeApprovedArFixtureCreation,
+): Promise<number> {
   try {
     if (argv.includes("--help") || argv.includes("-h")) {
       logger.log(helpText());
@@ -689,14 +1127,27 @@ function runFixtureRunner(argv = process.argv.slice(2), env: RunnerEnvironment =
     }
 
     const plan = buildFixturePlan(argv, env);
-    if (plan.jsonSummary) {
-      logger.log(JSON.stringify(redactSecrets(buildJsonSummary(plan)), null, 2));
-    } else {
-      logger.log(renderFixturePlan(plan));
-    }
+    let renderedPlan = plan;
+
     if (plan.executeRequested) {
-      logger.error(plan.executeRefusalReason ?? EXECUTE_SKELETON_REFUSAL);
-      return 1;
+      const databaseUrl = parseFixtureArgs(argv, env).databaseUrl;
+      if (!databaseUrl) {
+        throw new Error("DEV-05 approved fixture creation requires an explicit local database target.");
+      }
+      const executionResult = await executor(plan, databaseUrl);
+      renderedPlan = {
+        ...plan,
+        executionResult,
+        createdFixtureData: executionResult.createdFixtureData,
+        fixtureDataPresent: executionResult.fixtureDataPresent,
+        writesPerformed: executionResult.databaseWritesPerformed,
+      };
+    }
+
+    if (plan.jsonSummary) {
+      logger.log(JSON.stringify(redactSecrets(buildJsonSummary(renderedPlan)), null, 2));
+    } else {
+      logger.log(renderFixturePlan(renderedPlan));
     }
     return 0;
   } catch (error) {
@@ -705,13 +1156,14 @@ function runFixtureRunner(argv = process.argv.slice(2), env: RunnerEnvironment =
   }
 }
 
-function renderTarget(target: TargetClassification): string {
+function renderTarget(target: TargetClassification, executeRequested: boolean): string {
   if (target.kind === "not-provided") {
     return "not provided; no connection or network call will be attempted";
   }
 
   const port = target.port ? `:${target.port}` : "";
-  return `${target.label} at ${target.host}${port}; plan only`;
+  const suffix = executeRequested ? "approved local fixture target" : "plan only";
+  return `${target.label} at ${target.host}${port}; ${suffix}`;
 }
 
 function buildHelpLines(): string[] {
@@ -720,9 +1172,9 @@ function buildHelpLines(): string[] {
     "",
     "Supported plan flags: --plan, --dry-run, --cleanup-plan, --family, --marker, --database-url, --api-url, --json-summary, --no-login.",
     "Execute skeleton flags: --execute, --allow-local-mutation, --approve-local-disposable-db, --approve-fixture-creation, --approve-cleanup-retention, --approve-no-production-no-beta, --approve-no-customer-data.",
-    "Refused flags: --allow-login. Execute mode always exits nonzero until a later approved task enables fixture creation.",
+    "Refused flags: --allow-login. Execute mode is restricted to explicitly approved local DEV03-AR base fixture creation.",
     "Generic DATABASE_URL is intentionally ignored; pass --database-url or LEDGERBYTE_DEV04_DATABASE_URL to validate a local plan target.",
-    "This runner never creates fixture data or performs database writes.",
+    "This runner never performs AR lifecycle mutations, login, audit-writing flows, output actions, migrations, seed/reset/delete, smoke, E2E, deploys, ZATCA, email, backup, or restore.",
   ];
 }
 
@@ -816,7 +1268,9 @@ function redactString(value: string): string {
 }
 
 if (require.main === module) {
-  process.exitCode = runFixtureRunner();
+  void runFixtureRunner().then((exitCode) => {
+    process.exitCode = exitCode;
+  });
 }
 
 export {

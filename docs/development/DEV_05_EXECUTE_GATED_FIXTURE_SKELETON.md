@@ -25,13 +25,12 @@ The change prepares structure for a later explicitly approved local-only Sales/A
 
 ## 3. What Remains Disabled
 
-- Actual fixture creation.
-- Database writes.
-- Database write-capable client construction.
 - Login and audit-writing flows.
 - Cleanup deletion.
 - AR mutation QA.
 - Output actions such as export, download, PDF generation, generated-document archive creation, email, ZATCA, backup, and restore.
+
+Actual fixture creation and database writes remain disabled for plan, dry-run, cleanup-plan, all-family runs, non-AR families, non-`DEV03-AR-...` markers, hosted/deployed targets, missing approval flags, and casual root commands. DEV-05 Part 3B adds only a manually invoked, approval-gated, local Sales/AR base-fixture execute path.
 
 ## 4. Approval Gates Modeled
 
@@ -46,19 +45,21 @@ Required modeled approvals:
 - No-customer-data approval.
 - Explicit local mutation flag.
 
-These flags are a model only. They do not authorize writes in this implementation.
+These flags authorize only the DEV-05 Part 3B local Sales/AR base-fixture path when the approval phrase is present and the target is explicitly local.
 
 ## 5. Why Execute Is Still Refused
 
-DEV-05 Part 2 is intentionally a skeleton. It proves the guard sequence, approval-surface shape, JSON evidence, and AR fixture plan without introducing any mutation behavior.
+DEV-05 Part 2 was intentionally a skeleton. It proved the guard sequence, approval-surface shape, JSON evidence, and AR fixture plan without introducing any mutation behavior.
 
-The runner still exits nonzero for `--execute` with:
+Before DEV-05 Part 3B, the runner exited nonzero for `--execute` with:
 
 ```text
 DEV-05 execute mode skeleton is present but fixture creation is still disabled until a later approved task.
 ```
 
 No root execute package script was added.
+
+DEV-05 Part 3B keeps the no-root-execute-script boundary, but allows the manually invoked API runner command to create or reuse local Sales/AR base fixtures only when every approval flag is present, the family is `ar`, the marker starts with `DEV03-AR-`, and the database target is classified as local.
 
 ## 6. First Future Fixture Family: Sales/AR
 
@@ -115,6 +116,10 @@ The execute command above is a refusal check only. It exits nonzero before any w
 
 DEV-05 Part 3A added [DEV_05_AR_FIXTURE_CREATION_PREFLIGHT.md](DEV_05_AR_FIXTURE_CREATION_PREFLIGHT.md). That packet records the exact approval phrase, AR family target, `DEV03-AR-...` marker requirement, non-mutating preflight commands, evidence policy, and stop conditions needed before a future Part 3B can attempt local fixture creation. Part 3A still performs no execute mode, login, fixture creation, database connection/write, or runtime mutation.
 
+## DEV-05 Part 3B Run Note
+
+DEV-05 Part 3B is documented in [DEV_05_AR_FIXTURE_CREATION_RUN.md](DEV_05_AR_FIXTURE_CREATION_RUN.md). The runner now contains the approved local Sales/AR base-fixture execute path, but the first run was blocked because the local PostgreSQL target on `localhost:5432` was not reachable. No fixture records were created, no database writes occurred, no login/audit-writing flow ran, and no AR lifecycle mutation or output action occurred.
+
 ## 10. Required Approval Before Any Future Real Fixture Creation
 
 Before any real fixture creation, a later prompt must explicitly approve:
@@ -128,6 +133,6 @@ Before any real fixture creation, a later prompt must explicitly approve:
 
 ## 11. Recommended Next Step
 
-Proceed with `DEV-05 Part 3B: approved local AR fixture creation run` only if the future prompt includes the exact approval phrase and checklist from [DEV_05_AR_FIXTURE_CREATION_PREFLIGHT.md](DEV_05_AR_FIXTURE_CREATION_PREFLIGHT.md).
+Proceed with `DEV-05 Part 4: verify local AR fixture evidence`. If the local disposable database has not been started and the Part 3B command has not succeeded, Part 4 should record that no marker-scoped AR fixture evidence exists yet.
 
-Without that approval, keep the runner in plan/dry-run/cleanup-plan or execute-refusal mode only.
+Without the Part 3B approval flags and a reachable explicit local target, keep the runner in plan/dry-run/cleanup-plan or refusal mode only.

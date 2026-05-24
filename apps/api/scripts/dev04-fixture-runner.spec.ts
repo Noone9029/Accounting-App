@@ -173,11 +173,11 @@ describe("DEV-04 fixture runner dry-run skeleton", () => {
     ).toThrow(/missing approval gates/i);
   });
 
-  it("still refuses execute after all skeleton approval gates are present", () => {
+  it("runs approved execute through an injected fixture executor", async () => {
     const output: string[] = [];
     const errors: string[] = [];
 
-    const exitCode = runFixtureRunner(
+    const exitCode = await runFixtureRunner(
       [
         "--execute",
         "--allow-local-mutation",
@@ -198,14 +198,35 @@ describe("DEV-04 fixture runner dry-run skeleton", () => {
         log: (message) => output.push(message),
         error: (message) => errors.push(message),
       },
+      async () => ({
+        createdFixtureData: true,
+        fixtureDataPresent: true,
+        databaseConnectionOpened: true,
+        databaseWritesPerformed: true,
+        loginPerformed: false,
+        auditWritingPerformed: false,
+        lifecycleMutationsPerformed: false,
+        outputActionsPerformed: false,
+        records: [
+          {
+            group: "bootstrap",
+            recordType: "organization",
+            marker: "DEV03-AR-ORG-20260524T120000",
+            status: "created",
+            idHint: "12345678...",
+          },
+        ],
+      }),
     );
 
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(0);
     expect(output.join("\n")).toContain("Execute requested: true");
-    expect(output.join("\n")).toContain("Execute enabled: false");
-    expect(output.join("\n")).toContain("NO DATA CREATED");
-    expect(output.join("\n")).toContain("NO DATABASE WRITES");
-    expect(errors.join("\n")).toContain("execute mode skeleton is present");
+    expect(output.join("\n")).toContain("Execute enabled: true");
+    expect(output.join("\n")).toContain("DATA CREATED OR REUSED");
+    expect(output.join("\n")).toContain("DATABASE WRITES PERFORMED");
+    expect(output.join("\n")).toContain("No login or audit-writing flow was run.");
+    expect(output.join("\n")).toContain("No AR lifecycle mutation was run.");
+    expect(errors).toEqual([]);
   });
 
   it("requires an explicit local database target for the execute skeleton", () => {
@@ -253,7 +274,7 @@ describe("DEV-04 fixture runner dry-run skeleton", () => {
     expect(rendered).toContain("NO DATABASE WRITES");
   });
 
-  it("marks execute JSON summaries as requested but non-mutating", () => {
+  it("marks approved execute JSON summaries as guarded local write-capable before execution", () => {
     const plan = buildFixturePlan([
       "--execute",
       "--allow-local-mutation",
@@ -276,11 +297,12 @@ describe("DEV-04 fixture runner dry-run skeleton", () => {
       mode: "execute",
       family: "ar",
       executeRequested: true,
-      executeEnabled: false,
-      executeRefused: true,
+      executeEnabled: true,
+      executeRefused: false,
       writesPerformed: false,
       createdFixtureData: false,
-      databaseWritesEnabled: false,
+      fixtureDataPresent: false,
+      databaseWritesEnabled: true,
       loginEnabled: false,
     });
   });

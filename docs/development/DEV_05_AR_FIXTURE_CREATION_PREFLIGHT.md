@@ -167,3 +167,7 @@ Stop immediately if any of these occur:
 Proceed to `DEV-05 Part 3B: approved local AR fixture creation run` only if the next prompt includes the exact approval phrase and the full checklist decisions above.
 
 Without that approval, keep all work in plan/dry-run/cleanup-plan or execute-refusal mode.
+
+## DEV-05 Part 3B Run Note
+
+DEV-05 Part 3B is documented in [DEV_05_AR_FIXTURE_CREATION_RUN.md](DEV_05_AR_FIXTURE_CREATION_RUN.md). The approval phrase was received, the runner was narrowed to an approved local Sales/AR base-fixture execute path, and the run was attempted against the explicit local target. Fixture creation was blocked because the local PostgreSQL target on `localhost:5432` was not reachable. No fixture records, database writes, login/audit-writing flows, AR lifecycle mutations, exports, downloads, PDFs, generated-document archives, email, ZATCA, backup/restore, migrations, seed/reset/delete, smoke, E2E, deploys, or production-hosting research occurred.

@@ -29,6 +29,10 @@ DEV-05 Part 2 added [DEV_05_EXECUTE_GATED_FIXTURE_SKELETON.md](DEV_05_EXECUTE_GA
 
 DEV-05 Part 3A added [DEV_05_AR_FIXTURE_CREATION_PREFLIGHT.md](DEV_05_AR_FIXTURE_CREATION_PREFLIGHT.md). It packages the exact non-mutating preflight commands, first AR target, required `DEV03-AR-...` marker pattern, approval phrase, evidence policy, and stop conditions for a future Part 3B. It still performs no execute mode, login, fixture creation, database connection/write, or runtime mutation.
 
+## DEV-05 Part 3B AR Fixture Run Note
+
+DEV-05 Part 3B added [DEV_05_AR_FIXTURE_CREATION_RUN.md](DEV_05_AR_FIXTURE_CREATION_RUN.md). The required approval phrase was received and the runner was narrowed to a manually invoked, approved local Sales/AR base-fixture execute path. The first run was blocked because the explicit local PostgreSQL target on `localhost:5432` was not reachable. No fixture records, database writes, login/audit-writing flows, AR lifecycle mutations, or output actions occurred.
+
 ## 3. Approval Required Before Fixture Creation
 
 Fixture creation must not start until a future prompt explicitly approves all of these:
