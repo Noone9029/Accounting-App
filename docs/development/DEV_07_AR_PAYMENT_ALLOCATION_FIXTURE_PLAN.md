@@ -529,10 +529,23 @@ DEV-07 Part 4 verified the payment-allocation invoice fixture evidence read-only
 - Customer payments, payment allocations, unapplied allocations, refunds, credit notes, generated documents, email records, ZATCA signed drafts, and submission logs remain `0`.
 - The Part 3E temporary script remains absent, unstaged, and untracked.
 
+## Part 5 Customer Payment Creation Plan Note
+
+DEV-07 Part 5 completed [DEV_07_AR_CUSTOMER_PAYMENT_CREATION_MUTATION_PLAN.md](DEV_07_AR_CUSTOMER_PAYMENT_CREATION_MUTATION_PLAN.md) as planning/read-only work.
+
+- Mutation performed: no.
+- The current invoice fixture remains `INVOICE-000002`, safe id prefix `ddadfdd7`, status `FINALIZED`, total and balance due `1150.0000`.
+- Planned Part 6 payment amount: `500.0000`.
+- Planned direct allocation to `INVOICE-000002`: `300.0000`.
+- Planned unapplied amount after payment creation: `200.0000`.
+- Expected invoice balance after payment creation: `850.0000`.
+- Expected payment accounting: one posted journal, Dr paid-through cash/asset `500.0000`, Cr account `120` AR `500.0000`.
+- Expected audit/output/ZATCA boundary: `CUSTOMER_PAYMENT_CREATED` only; no unapplied allocation, receipt PDF/archive, generated document, email, ZATCA XML/signing/submission, refund, credit note, invoice void, cleanup deletion, or login/browser audit-writing flow.
+
 ## Recommended Next Step
 
 Next prompt title:
 
 ```text
-DEV-07 Part 5: customer payment creation mutation plan
+DEV-07 Part 6: approved local AR customer payment creation mutation
 ```

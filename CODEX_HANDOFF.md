@@ -769,6 +769,19 @@
 - The Part 3E temporary script remains absent, unstaged, and untracked.
 - Exact next prompt title: `DEV-07 Part 5: customer payment creation mutation plan`.
 
+## DEV-07 Part 5 - Customer Payment Creation Mutation Plan Completed
+
+- DEV-07 Part 5 created the local-only customer payment creation mutation plan in [docs/development/DEV_07_AR_CUSTOMER_PAYMENT_CREATION_MUTATION_PLAN.md](docs/development/DEV_07_AR_CUSTOMER_PAYMENT_CREATION_MUTATION_PLAN.md).
+- Mutation performed: no. No customer payment, payment allocation, unapplied allocation, refund, credit-note, invoice create/edit/finalize/void, output, email, ZATCA XML/signing/submission, cleanup, migration, seed/reset/delete, deploy, environment, provider, schema, or login/browser audit-writing action ran.
+- Local target safety and read-only fixture checks passed: Docker Desktop Linux engine was available, local Postgres/Redis were healthy and reachable, and the API database target guard accepted only local `localhost:5432`.
+- Current fixture evidence remains valid: `INVOICE-000002` is `FINALIZED`, safe id prefix `ddadfdd7`, total and balance due `1150.0000`, with posted invoice journal `JOURNAL_ENTRY-000003`.
+- Planned Part 6 payment shape: create one customer payment for `500.0000`, direct allocation `300.0000` to `INVOICE-000002`, expected `unappliedAmount` `200.0000`.
+- Expected invoice balance impact: `INVOICE-000002` balance due decreases from `1150.0000` to `850.0000`; the later unapplied allocation remains out of scope for Part 6.
+- Expected accounting: one posted payment journal, expected `JOURNAL_ENTRY-000004`, Dr paid-through cash/asset `500.0000`, Cr account `120` AR `500.0000`; the currently absent `PAYMENT` sequence should upsert and issue `PAYMENT-000001`.
+- Expected audit/output/ZATCA boundary: `CUSTOMER_PAYMENT_CREATED` only; no receipt PDF/archive, generated document, email, ZATCA XML/signing/submission, refund, credit note, invoice void, cleanup deletion, or login/browser audit flow.
+- Exact next prompt title: `DEV-07 Part 6: approved local AR customer payment creation mutation`.
+- Required approval phrase before Part 6 mutation: `I approve DEV-07 Part 6 local-only AR customer payment creation mutation under marker DEV03-AR-20260524T130000 for invoice INVOICE-000002. No production, no beta, no customer data.`
+
 ## Forbidden Actions For Next Production Thread
 
 - Do not change app code.
@@ -780,4 +793,4 @@
 
 ## Next Thread Prompt
 
-`DEV-07 Part 5: customer payment creation mutation plan`
+`DEV-07 Part 6: approved local AR customer payment creation mutation`

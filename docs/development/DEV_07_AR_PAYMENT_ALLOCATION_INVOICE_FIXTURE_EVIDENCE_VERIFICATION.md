@@ -183,10 +183,23 @@ Evidence verified. `INVOICE-000002` remains the single finalized DEV-07 payment-
 
 No payment, allocation, refund, credit note, output, email, ZATCA signed/submission, cleanup, migration, seed/reset/delete, deploy, environment, provider, schema, production, beta, shared-target, customer-data, or login/browser audit-writing mutation was performed.
 
+## Part 5 Customer Payment Creation Plan Note
+
+DEV-07 Part 5 created [DEV_07_AR_CUSTOMER_PAYMENT_CREATION_MUTATION_PLAN.md](DEV_07_AR_CUSTOMER_PAYMENT_CREATION_MUTATION_PLAN.md) as planning/read-only work.
+
+- Mutation performed: no.
+- Local target safety and read-only fixture evidence remained valid.
+- Planned Part 6 payment amount: `500.0000`.
+- Planned direct allocation during payment creation: `300.0000` to `INVOICE-000002`.
+- Expected unapplied amount after payment creation: `200.0000`.
+- Expected invoice balance after payment creation: `850.0000`.
+- Expected payment journal: Dr paid-through cash/asset `500.0000`, Cr account `120` AR `500.0000`.
+- Expected audit/output/ZATCA boundary: `CUSTOMER_PAYMENT_CREATED` only; no `APPLY_UNAPPLIED`, receipt PDF/archive, generated document, email, ZATCA XML/signing/submission, refund, credit note, invoice void, cleanup deletion, or login/browser audit-writing flow.
+
 ## Recommended Next Step
 
 Next prompt title:
 
 ```text
-DEV-07 Part 5: customer payment creation mutation plan
+DEV-07 Part 6: approved local AR customer payment creation mutation
 ```

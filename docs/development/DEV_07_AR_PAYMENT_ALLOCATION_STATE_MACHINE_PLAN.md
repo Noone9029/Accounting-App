@@ -500,10 +500,29 @@ DEV-07 Part 4 verified the Part 3E payment-allocation invoice fixture evidence u
 - Local ZATCA metadata remains present with type `STANDARD_TAX_INVOICE` and status `NOT_SUBMITTED`.
 - No payment, allocation, refund, credit note, generated document, email, ZATCA signed/submission, cleanup, or login/browser audit-writing side effect occurred.
 
+## Part 5 Customer Payment Creation Plan Addendum
+
+DEV-07 Part 5 completed [DEV_07_AR_CUSTOMER_PAYMENT_CREATION_MUTATION_PLAN.md](DEV_07_AR_CUSTOMER_PAYMENT_CREATION_MUTATION_PLAN.md) as planning/read-only work.
+
+- Mutation performed: no.
+- Current invoice fixture evidence: `INVOICE-000002` remains `FINALIZED`, safe id prefix `ddadfdd7`, total `1150.0000`, balance due `1150.0000`, with posted journal `JOURNAL_ENTRY-000003`.
+- Planned payment creation amount: `500.0000`.
+- Planned direct allocation during payment creation: `300.0000` to `INVOICE-000002`.
+- Expected unapplied amount after payment creation: `200.0000`.
+- Expected invoice balance after payment creation: `850.0000`.
+- Expected payment journal: Dr paid-through cash/asset `500.0000`, Cr account `120` AR `500.0000`; the missing `PAYMENT` number sequence should upsert and issue `PAYMENT-000001`.
+- Expected audit/output/ZATCA boundary: `CUSTOMER_PAYMENT_CREATED` only; no `APPLY_UNAPPLIED`, receipt PDF/archive, generated document, email, ZATCA XML/signing/submission, refund, credit note, invoice void, cleanup deletion, or login/browser audit-writing flow.
+
+Required approval phrase before Part 6 mutation:
+
+```text
+I approve DEV-07 Part 6 local-only AR customer payment creation mutation under marker DEV03-AR-20260524T130000 for invoice INVOICE-000002. No production, no beta, no customer data.
+```
+
 ## Recommended Next Step
 
 Next prompt title:
 
 ```text
-DEV-07 Part 5: customer payment creation mutation plan
+DEV-07 Part 6: approved local AR customer payment creation mutation
 ```
