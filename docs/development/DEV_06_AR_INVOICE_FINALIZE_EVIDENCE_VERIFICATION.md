@@ -203,3 +203,17 @@ I approve DEV-06 Part 8 local-only AR invoice void mutation for fixture invoice 
 ```
 
 Next prompt title: `DEV-06 Part 8: approved local AR invoice void mutation`.
+
+## Part 8 Void Mutation Result
+
+`DEV-06 Part 8` completed the approved local-only void mutation for `INVOICE-000001`.
+
+Void run evidence: [DEV_06_AR_INVOICE_VOID_MUTATION_RUN.md](DEV_06_AR_INVOICE_VOID_MUTATION_RUN.md).
+
+Part 8 changed the invoice from `FINALIZED` to `VOIDED`; balance due became `0.0000`; `finalizedAt` and `journalEntryId` remain present; and `reversalJournalEntryId` is present.
+
+The expected reversal and audit behavior occurred: original journal `JOURNAL_ENTRY-000001` changed from `POSTED` to `REVERSED`; reversal journal `JOURNAL_ENTRY-000002` was posted and balanced; reversal lines debit account `220` `37.5000`, debit fixture revenue `250.0000`, and credit account `120` `287.5000`; and `SALES_INVOICE_VOIDED` was added exactly once.
+
+Existing local `ZatcaInvoiceMetadata` remained present with type `STANDARD_TAX_INVOICE`. Forbidden side effects stayed `0` for generated documents, payments, refunds, credit notes, allocations, email, ZATCA signed drafts/submission logs, ZATCA XML/signing/QR/submission, and cleanup deletion.
+
+Next prompt title: `DEV-06 Part 9: verify AR invoice void evidence`.

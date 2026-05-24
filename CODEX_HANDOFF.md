@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `7b48e6a1 Retry DEV-06 AR invoice finalize mutation`
+- `3c9214c3 Plan DEV-06 AR invoice void mutation`
 
 ## Current Development Objective
 
@@ -547,7 +547,8 @@
 - DEV-06 Part 5C retried the approved local-only AR invoice finalize mutation and finalized `INVOICE-000001` locally.
 - DEV-06 Part 6 verified the finalized invoice evidence with read-only local checks and performed no mutation.
 - DEV-06 Part 7 created the local-only void mutation plan and performed no mutation.
-- Exact next recommended development ticket: `DEV-06 Part 8: approved local AR invoice void mutation`.
+- DEV-06 Part 8 executed the approved local-only invoice void mutation and voided `INVOICE-000001` locally.
+- Exact next recommended development ticket: `DEV-06 Part 9: verify AR invoice void evidence`.
 
 ## DEV-06 Part 5 - Invoice Finalize Preflight Blocked
 
@@ -624,6 +625,23 @@
 - Required approval phrase before Part 8: `I approve DEV-06 Part 8 local-only AR invoice void mutation for fixture invoice INVOICE-000001 under marker DEV03-AR-20260524T130000. No production, no beta, no customer data.`
 - Exact next prompt title: `DEV-06 Part 8: approved local AR invoice void mutation`.
 
+## DEV-06 Part 8 - Invoice Void Mutation Completed
+
+- Approval phrase was received for exactly one local-only void mutation for `INVOICE-000001` under marker `DEV03-AR-20260524T130000`.
+- Local target safety passed: Docker Postgres/Redis were healthy, `localhost:5432` was reachable, and the API database target parsed as local PostgreSQL on `localhost:5432` with no forbidden production/beta/shared-host pattern.
+- Preflight passed: targeted AR Jest suites (`4` suites, `84` tests), fixture-runner test (`1` suite, `41` tests), cleanup-plan in plan-only/no-write mode, `corepack pnpm verify:diff`, local target guard, and read-only invoice/account/journal/side-effect checks.
+- Mutation performed: a guarded temporary script called `SalesInvoiceService.void(organizationId, actorUserId, invoiceId)` exactly once.
+- `INVOICE-000001` is now `VOIDED`; total remains `287.5000`; balance due is `0.0000`; `finalizedAt` and `journalEntryId` remain present; `reversalJournalEntryId` is present.
+- Original journal `JOURNAL_ENTRY-000001` remains present and changed from `POSTED` to `REVERSED`.
+- Reversal journal `JOURNAL_ENTRY-000002` is `POSTED`, reference `INVOICE-000001`, description `Reversal of JOURNAL_ENTRY-000001`, total debit `287.5000`, total credit `287.5000`, and reverses the original journal.
+- Reversal lines: debit account `220` VAT `37.5000`, debit fixture revenue `250.0000`, and credit account `120` AR `287.5000`.
+- Audit result: SalesInvoice audit actions are `SALES_INVOICE_CREATED`, `SALES_INVOICE_UPDATED`, `SALES_INVOICE_FINALIZED`, and `SALES_INVOICE_VOIDED`; `SALES_INVOICE_VOIDED` exists exactly once; fixture org login/auth audit logs remain `0`.
+- ZATCA result: existing local `ZatcaInvoiceMetadata` remains present with type `STANDARD_TAX_INVOICE`; ZATCA XML/signing/QR/submission/clearance/reporting did not run.
+- Forbidden side effects stayed `0`: generated documents, payments, refunds, credit notes, allocations, email outbox/provider events, ZATCA signed drafts/submission logs, and cleanup deletion.
+- Evidence doc: [docs/development/DEV_06_AR_INVOICE_VOID_MUTATION_RUN.md](docs/development/DEV_06_AR_INVOICE_VOID_MUTATION_RUN.md).
+- The temporary void script was removed and was not staged or tracked.
+- Exact next prompt title: `DEV-06 Part 9: verify AR invoice void evidence`.
+
 ## Forbidden Actions For Next Production Thread
 
 - Do not change app code.
@@ -635,4 +653,4 @@
 
 ## Next Thread Prompt
 
-`DEV-06 Part 8: approved local AR invoice void mutation`
+`DEV-06 Part 9: verify AR invoice void evidence`
