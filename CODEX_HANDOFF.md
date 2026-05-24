@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `ed0ed558 Verify DEV-06 AR invoice void evidence`
+- `69bc9e52 Finalize DEV-06 AR state-machine triage`
 
 ## Current Development Objective
 
@@ -550,7 +550,8 @@
 - DEV-06 Part 8 executed the approved local-only invoice void mutation and voided `INVOICE-000001` locally.
 - DEV-06 Part 9 verified the void evidence with read-only local checks and performed no mutation.
 - DEV-06 Part 10 completed the AR invoice lifecycle final triage as documentation/read-only work.
-- Exact next recommended development ticket: `DEV-07 Part 1: AR payment allocation state-machine plan`.
+- DEV-07 Part 1 completed the AR customer payment allocation state-machine plan as documentation/read-only work.
+- Exact next recommended development ticket: `DEV-07 Part 2: AR payment allocation fixture plan`.
 
 ## DEV-06 Part 5 - Invoice Finalize Preflight Blocked
 
@@ -672,6 +673,17 @@
 - Remaining AR gaps include payment allocation/void/reversal, refunds, credit notes, output/PDF/archive, email, ZATCA XML/signing/submission, authenticated UI/API QA, cleanup policy, idempotency/repeat paths, allocation blockers, and fiscal-period locks.
 - Recommended next workstream: `DEV-07 Part 1: AR payment allocation state-machine plan`.
 
+## DEV-07 Part 1 - AR Payment Allocation Plan Completed
+
+- DEV-07 Part 1 created the local-only AR payment allocation state-machine plan in [docs/development/DEV_07_AR_PAYMENT_ALLOCATION_STATE_MACHINE_PLAN.md](docs/development/DEV_07_AR_PAYMENT_ALLOCATION_STATE_MACHINE_PLAN.md).
+- Part 1 was documentation/read-only only. No invoice create, edit, finalize, void, payment creation, payment allocation, refund, credit-note, output, email, ZATCA, cleanup, migration, seed/reset/delete, deploy, environment, schema, or provider-setting action was run.
+- Inspected code paths include `CustomerPaymentController`, `CustomerPaymentService.create`, `applyUnapplied`, `reverseUnappliedAllocation`, `void`, payment accounting helpers, SalesInvoice invoice-void allocation blockers, CustomerRefund payment-source blockers, audit event mapping, Prisma payment/allocation models, and customer payment receipt/PDF output boundaries.
+- Payment lifecycle finding: `CustomerPaymentService.create` posts immediately to `POSTED`, requires at least one allocation, creates one posted payment journal, debits the paid-through asset account, credits AR account code `120`, creates direct `CustomerPaymentAllocation` rows, decrements invoice `balanceDue`, and leaves `unappliedAmount` when `amountReceived` exceeds direct allocations.
+- Allocation lifecycle finding: `applyUnapplied` creates `CustomerPaymentUnappliedAllocation`, decrements payment `unappliedAmount` and invoice `balanceDue`, and creates no journal entry; `reverseUnappliedAllocation` restores matching state and also creates no journal entry.
+- Fixture strategy chosen: reuse the existing local DEV03-AR fixture organization and dependencies, but do not reuse `INVOICE-000001` because it is `VOIDED`; future approved parts should create a new DEV-07-specific finalized, non-voided invoice fixture under the same local marker/family unless Part 2 chooses a safer new marker.
+- Expected output/ZATCA/email boundary: payment create/allocation/reversal/void paths do not call receipt PDF/archive, email, or ZATCA; receipt PDF/archive routes exist and must remain out of scope unless separately approved.
+- Exact next prompt title: `DEV-07 Part 2: AR payment allocation fixture plan`.
+
 ## Forbidden Actions For Next Production Thread
 
 - Do not change app code.
@@ -683,4 +695,4 @@
 
 ## Next Thread Prompt
 
-`DEV-07 Part 1: AR payment allocation state-machine plan`
+`DEV-07 Part 2: AR payment allocation fixture plan`

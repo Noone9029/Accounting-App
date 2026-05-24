@@ -18,6 +18,14 @@ Completed evidence is summarized in [DEV_06_AR_STATE_MACHINE_FINAL_TRIAGE.md](DE
 
 The next recommended Sales/AR state-machine ticket is `DEV-07 Part 1: AR payment allocation state-machine plan`.
 
+## DEV-07 Part 1 Planning Note
+
+DEV-07 Part 1 created [DEV_07_AR_PAYMENT_ALLOCATION_STATE_MACHINE_PLAN.md](DEV_07_AR_PAYMENT_ALLOCATION_STATE_MACHINE_PLAN.md) as planning/read-only work. No payment, allocation, invoice, refund, credit-note, output, email, ZATCA, cleanup, migration, seed/reset/delete, deploy, or login/audit-writing mutation was performed.
+
+The chosen fixture strategy is to reuse the existing local DEV03-AR fixture organization and dependencies, but create a new DEV-07-specific finalized invoice fixture in a later approved part. The voided DEV-06 invoice `INVOICE-000001` should not be used as the happy-path payment allocation target.
+
+The next recommended Sales/AR state-machine prompt is `DEV-07 Part 2: AR payment allocation fixture plan`.
+
 Source evidence inspected for this pass:
 
 - `CODEX_HANDOFF.md`

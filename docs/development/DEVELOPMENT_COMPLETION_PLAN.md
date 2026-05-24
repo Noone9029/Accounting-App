@@ -90,7 +90,9 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 - The slice used marker `DEV03-AR-20260524T130000` and fixture invoice `INVOICE-000001`; it covered draft create/edit, finalization, posted journal evidence, local ZATCA metadata upsert boundary, finalized void, reversal journal evidence, and read-only evidence verification.
 - Final local fixture state: invoice `VOIDED`, total `287.5000`, balance due `0.0000`, original journal `REVERSED`, reversal journal `POSTED`, SalesInvoice audit actions through `SALES_INVOICE_VOIDED`, and forbidden output/payment/refund/credit-note/allocation/email/ZATCA signing/submission side effects at `0`.
 - Remaining AR state-machine gaps are payment allocation/void/reversal, refunds, credit notes, output/PDF/archive, email, ZATCA XML/signing/submission, authenticated UI/API QA, cleanup policy, repeated/idempotency paths, allocation blockers, and fiscal-period locks.
-- Recommended next local-only state-machine ticket: `DEV-07 Part 1: AR payment allocation state-machine plan`.
+- DEV-07 Part 1 completed [DEV_07_AR_PAYMENT_ALLOCATION_STATE_MACHINE_PLAN.md](DEV_07_AR_PAYMENT_ALLOCATION_STATE_MACHINE_PLAN.md) as planning/read-only work.
+- DEV-07 fixture strategy: reuse the existing local DEV03-AR fixture organization/dependencies, but create a new DEV-07-specific finalized invoice fixture in a later approved part; do not use voided `INVOICE-000001` as the allocation happy-path target.
+- Recommended next local-only state-machine ticket: `DEV-07 Part 2: AR payment allocation fixture plan`.
 
 ## Highest-Priority Development Tickets
 
@@ -141,4 +143,4 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 
 ## Exact Next Recommended Development Ticket
 
-`DEV-07 Part 1: AR payment allocation state-machine plan`
+`DEV-07 Part 2: AR payment allocation fixture plan`

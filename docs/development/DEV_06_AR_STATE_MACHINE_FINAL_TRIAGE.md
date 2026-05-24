@@ -180,6 +180,8 @@ Rationale:
 - Payment allocation is the next highest Sales/AR accounting-risk path because it affects AR balances, cash/bank postings, unapplied amounts, void blockers, and later refund behavior.
 - DEV-07 should start with a plan before mutation, using the same local-only fixture, read-only preflight, explicit approval phrases, and safe-evidence pattern used by DEV-06.
 
+DEV-07 Part 1 follow-up: [DEV_07_AR_PAYMENT_ALLOCATION_STATE_MACHINE_PLAN.md](DEV_07_AR_PAYMENT_ALLOCATION_STATE_MACHINE_PLAN.md) was completed as documentation/read-only work. It chose to reuse the existing local DEV03-AR fixture organization and dependencies, but not `INVOICE-000001` because that invoice is `VOIDED`. The next prompt title is `DEV-07 Part 2: AR payment allocation fixture plan`.
+
 Later workstreams can cover:
 
 - AR credit notes.
