@@ -458,10 +458,18 @@ DEV-07 Part 2 is planned as a one-invoice happy path under the existing local DE
 
 Evidence status: planned from inspected code and prior DEV-06 docs, with live DB dependency inspection blocked by unavailable local Docker/Postgres.
 
+## Part 3 Blocker Note
+
+DEV-07 Part 3 received the exact approval phrase for the local-only invoice fixture mutation, but stopped before mutation because local Docker/Postgres was unavailable. Docker Desktop's Linux engine pipe was missing, `127.0.0.1:5432` and `127.0.0.1:6379` were closed, and read-only fixture dependency queries could not run.
+
+The configured database target guard still parsed as local `localhost:5432` with no forbidden hosted, production, beta, or shared target pattern. No temporary mutation script was created, no invoice fixture was created or finalized, no customer payment/allocation occurred, and no forbidden output/email/ZATCA/cleanup path ran.
+
+Part 3 evidence is recorded in [DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md](DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md). The next prompt is `DEV-07 Part 3B: retry AR payment allocation invoice fixture mutation preflight`.
+
 ## Recommended Next Step
 
 Next prompt title:
 
 ```text
-DEV-07 Part 3: approved local AR payment-allocation invoice fixture mutation
+DEV-07 Part 3B: retry AR payment allocation invoice fixture mutation preflight
 ```

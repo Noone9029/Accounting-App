@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `bc15f4e0 Plan DEV-07 AR payment allocation`
+- `01403ab3 Plan DEV-07 payment allocation fixture`
 
 ## Current Development Objective
 
@@ -696,6 +696,16 @@
 - Expected audit/output/ZATCA boundary: invoice fixture creation/finalization should create SalesInvoice audit actions and local invoice ZATCA metadata only; payment create should create `CUSTOMER_PAYMENT_CREATED`; unapplied allocation should log raw `APPLY_UNAPPLIED`; receipt PDF/archive, email, ZATCA XML/signing/submission, and generated documents remain out of scope.
 - Exact next prompt title: `DEV-07 Part 3: approved local AR payment-allocation invoice fixture mutation`.
 
+## DEV-07 Part 3 - AR Payment Allocation Invoice Fixture Mutation Blocked
+
+- DEV-07 Part 3 received the exact approval phrase for one local-only AR payment-allocation invoice fixture mutation under marker `DEV03-AR-20260524T130000`.
+- The run stopped before mutation because Docker Desktop's Linux engine was unavailable, `127.0.0.1:5432` and `127.0.0.1:6379` were closed, and the required local read-only fixture dependency preflight could not query Postgres.
+- The configured API database target guard still parsed as local `localhost:5432` and did not match forbidden production, beta, hosted, shared, Supabase, Vercel, RDS/AWS, Railway, Render, Fly, DigitalOcean, Neon, or user-testing patterns.
+- Invoice fixture created/finalized: no. Customer payment/allocation performed: no. Temporary mutation script created: no.
+- Checks run: targeted AR Jest suites passed (`4` suites, `84` tests), fixture-runner Jest passed (`1` suite, `41` tests), `fixture:dev04:cleanup-plan` stayed plan-only with no DB connection or writes, and `corepack pnpm verify:diff` passed with the existing unrelated `apps/web/src/app/page.tsx` CRLF warning.
+- Evidence doc: [docs/development/DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md](docs/development/DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md).
+- Exact next prompt title: `DEV-07 Part 3B: retry AR payment allocation invoice fixture mutation preflight`.
+
 ## Forbidden Actions For Next Production Thread
 
 - Do not change app code.
@@ -707,4 +717,4 @@
 
 ## Next Thread Prompt
 
-`DEV-07 Part 3: approved local AR payment-allocation invoice fixture mutation`
+`DEV-07 Part 3B: retry AR payment allocation invoice fixture mutation preflight`

@@ -430,12 +430,20 @@ The planned happy path uses one new invoice and the same invoice for the later u
 
 Part 2 local DB dependency inspection was blocked because Docker Desktop's Linux engine was unavailable and localhost Postgres/Redis ports were closed. The Part 3 mutation must refresh all fixture dependency checks before any write-capable service use.
 
+## Part 3 Fixture Mutation Blocker Addendum
+
+DEV-07 Part 3 received the exact local-only approval phrase for creating and finalizing one payment-allocation invoice fixture, but the run stopped before mutation because local Docker/Postgres was unavailable. Docker Desktop's Linux engine pipe was missing, `127.0.0.1:5432` and `127.0.0.1:6379` were closed, and the required local read-only fixture dependency checks could not query Postgres.
+
+No invoice fixture was created or finalized, no customer payment/allocation/unapplied allocation/refund/credit-note mutation occurred, and no temporary mutation script was created. The API database target guard still parsed as local `localhost:5432` with no forbidden production, beta, hosted, shared, or customer-data target pattern.
+
+Evidence is recorded in [DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md](DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md).
+
 ## Recommended Next Step
 
 Next prompt title:
 
 ```text
-DEV-07 Part 3: approved local AR payment-allocation invoice fixture mutation
+DEV-07 Part 3B: retry AR payment allocation invoice fixture mutation preflight
 ```
 
-Part 3 must not run unless the exact approval phrase from the fixture plan is provided and all local target, marker, dependency, sequence, invoice, and forbidden-side-effect preflight checks pass.
+Part 3B should rerun the local Docker/Postgres readiness and fixture dependency preflight before any write-capable service use. The original Part 3 mutation must not be retried unless the exact approval phrase from the fixture plan is provided again or the Part 3B prompt explicitly carries it forward, and all local target, marker, dependency, sequence, invoice, and forbidden-side-effect preflight checks pass.
