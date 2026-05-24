@@ -492,16 +492,34 @@ Read-only fixture dependency preflight passed: the marker/family, fixture organi
 
 No temporary mutation script was created, no invoice/payment/allocation mutation occurred, and no forbidden output/email/ZATCA/cleanup path ran. Part 3D evidence is appended in [DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md](DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md).
 
+## Part 3E Invoice Fixture Mutation Completed Note
+
+DEV-07 Part 3E received the exact approval phrase for the local-only invoice fixture mutation under marker `DEV03-AR-20260524T130000`.
+
+Local readiness and preflight passed again: Docker Desktop Linux engine was available, `infra-postgres-1` and `infra-redis-1` were healthy, `127.0.0.1:5432` and `127.0.0.1:6379` were reachable, and the API database target guard parsed as local `localhost:5432` with no forbidden hosted, production, beta, shared, or customer-data target pattern.
+
+Part 3E created and finalized exactly one DEV-07 payment-allocation invoice fixture:
+
+- invoice number: `INVOICE-000002`.
+- safe id prefix: `ddadfdd7`.
+- status: `FINALIZED`.
+- subtotal/revenue: `1000.0000`.
+- tax: `150.0000`.
+- total: `1150.0000`.
+- balance due: `1150.0000`.
+- journal: `JOURNAL_ENTRY-000003`, `POSTED`, reference `INVOICE-000002`.
+- accounting: Dr account `120` AR `1150.0000`, Cr fixture revenue `1000.0000`, Cr account `220` VAT `150.0000`.
+- audit actions: `SALES_INVOICE_CREATED`, `SALES_INVOICE_FINALIZED`.
+- local ZATCA metadata: `1`, type `STANDARD_TAX_INVOICE`, status `NOT_SUBMITTED`.
+
+No customer payment, payment allocation, unapplied allocation, refund, credit note, generated document, email outbox/provider event, ZATCA signed draft/submission log, ZATCA XML/signing/QR/submission action, invoice void, cleanup deletion, migration, seed/reset/delete, deploy, environment, provider, schema, production, beta, shared-target, or customer-data mutation was performed.
+
+`INVOICE-000001` remains `VOIDED` with safe id prefix `6ebb2d71`, total `287.5000`, balance due `0.0000`, and reversal journal present. The temporary Part 3E script was removed and is not staged or tracked. Evidence is appended in [DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md](DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md).
+
 ## Recommended Next Step
 
 Next prompt title:
 
 ```text
-DEV-07 Part 3E: approved local AR payment-allocation invoice fixture mutation
-```
-
-Exact approval phrase required before the next mutation thread:
-
-```text
-I approve DEV-07 Part 3E local-only AR payment-allocation invoice fixture mutation under marker DEV03-AR-20260524T130000. No production, no beta, no customer data.
+DEV-07 Part 4: verify AR payment allocation invoice fixture evidence
 ```
