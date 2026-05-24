@@ -120,7 +120,7 @@ const FAMILY_DEFINITIONS: Record<FixtureFamily, FixtureFamilyPlan> = {
     markerPrefix: "DEV03-AR-",
     purpose: "Sales/AR invoices, payments, refunds, credit notes, and AR output labels.",
     plannedGroups: [
-      "bootstrap references: fixture org, fixture user, roles, membership, accounts, taxes",
+      "bootstrap references: fixture org, fixture user, roles, membership, service-required posting accounts, marker accounts, taxes",
       "business fixtures: customer, service item, draft/finalizable invoice, payment, refund, credit note",
       "future service layer boundary: invoice lifecycle, allocations, refunds, credit-note transitions",
       "output gate labels only: invoice/receipt PDF and archive checks remain unexecuted",
@@ -515,7 +515,14 @@ function buildArProposedRecords(runId: string): FixtureProposedRecord[] {
       recordType: "tax-account-dependencies",
       marker: `DEV03-AR-TAX-ACCOUNT-${runId}`,
       writeBehavior: "planned-only",
-      notes: ["accounts receivable, revenue, VAT, and tax-rate dependencies", "same fixture organization only"],
+      notes: ["marker-coded revenue, VAT, and tax-rate dependencies", "same fixture organization only"],
+    },
+    {
+      group: "dependencies",
+      recordType: "posting-account-dependencies",
+      marker: `DEV03-AR-POSTING-ACCOUNTS-${runId}`,
+      writeBehavior: "planned-only",
+      notes: ["service-required posting account codes 120 and 220", "same fixture organization only"],
     },
     {
       group: "dependencies",
@@ -666,6 +673,18 @@ async function createApprovedArFixtureRecords(
     recordSummary("bootstrap", "organization-membership", `DEV03-AR-USER-ROLE-${runId}`, memberBefore ? "reused" : "created", member.id),
   );
 
+  await upsertAccount(tx, records, organization.id, {
+    group: "dependencies",
+    code: "120",
+    name: `DEV03-AR-ACCT-120-${runId}`,
+    type: "ASSET",
+  });
+  await upsertAccount(tx, records, organization.id, {
+    group: "dependencies",
+    code: "220",
+    name: `DEV03-AR-ACCT-220-${runId}`,
+    type: "LIABILITY",
+  });
   await upsertAccount(tx, records, organization.id, {
     group: "dependencies",
     code: `D3AR-${codeSuffix}-AR`,

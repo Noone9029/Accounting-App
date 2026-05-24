@@ -303,3 +303,27 @@ State after the stopped preflight:
 Do not proceed to `DEV-06 Part 6: verify AR invoice finalize evidence` until a future approved run actually finalizes the invoice.
 
 Next prompt title: `DEV-06 Part 5B: resolve AR invoice finalize posting-account blocker`.
+
+## Part 5B Posting Account Blocker Resolution
+
+Part 5B resolved the local fixture blocker without finalizing `INVOICE-000001`.
+
+Resolution evidence: [DEV_06_AR_FINALIZE_POSTING_ACCOUNT_BLOCKER_RESOLUTION.md](DEV_06_AR_FINALIZE_POSTING_ACCOUNT_BLOCKER_RESOLUTION.md).
+
+Findings:
+
+- Finalization requires active posting account code `120` for accounts receivable and `220` for VAT payable.
+- Those codes are intended default chart account codes in `DEFAULT_ACCOUNTS`.
+- The existing fixture accounts used incompatible marker-scoped `D3AR-...` codes for the current finalize service path.
+- Adding `120` and `220` to the local DEV03-AR fixture organization was safe because the repair stayed inside the disposable fixture org and did not alter production accounting behavior.
+- Changing `SalesInvoiceService.finalize(...)` was deferred as larger and riskier than the fixture blocker warranted.
+
+Resolution:
+
+- Account `120` now exists in the fixture org as `DEV03-AR-ACCT-120-20260524T130000`, active and posting allowed.
+- Account `220` now exists in the fixture org as `DEV03-AR-ACCT-220-20260524T130000`, active and posting allowed.
+- The fixture runner now includes these service-required posting account dependencies for future AR fixtures.
+
+No invoice finalization occurred in Part 5B. `INVOICE-000001` remains `DRAFT`; total and balance due remain `287.5000`; `finalizedAt`, `journalEntryId`, and `reversalJournalEntryId` remain absent. Journal entries, finalized invoices, `SALES_INVOICE_FINALIZED` audit logs, ZATCA metadata, generated documents, payments, refunds, credit notes, allocations, email records, ZATCA XML/signing/submission artifacts, and cleanup deletion remain `0`.
+
+Next prompt title: `DEV-06 Part 5C: approved local AR invoice finalize mutation retry`.

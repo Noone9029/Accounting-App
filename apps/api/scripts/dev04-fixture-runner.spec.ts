@@ -267,10 +267,19 @@ describe("DEV-04 fixture runner dry-run skeleton", () => {
     const rendered = renderFixturePlan(plan);
 
     expect(arFamily?.proposedRecords?.map((record) => record.recordType)).toEqual(
-      expect.arrayContaining(["organization", "user-role-membership", "customer", "service-item", "tax-account-dependencies", "bank-cash-dependency"]),
+      expect.arrayContaining([
+        "organization",
+        "user-role-membership",
+        "customer",
+        "service-item",
+        "tax-account-dependencies",
+        "posting-account-dependencies",
+        "bank-cash-dependency",
+      ]),
     );
     expect(rendered).toContain("Future approved AR records");
     expect(rendered).toContain("DEV03-AR-ORG-20260524T120000");
+    expect(rendered).toContain("DEV03-AR-POSTING-ACCOUNTS-20260524T120000");
     expect(rendered).toContain("NO DATABASE WRITES");
   });
 

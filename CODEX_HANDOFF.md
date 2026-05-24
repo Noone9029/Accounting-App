@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `60a39c56 Plan DEV-06 AR invoice finalize mutation`
+- `331d14f2 Record DEV-06 AR invoice finalize blocker`
 
 ## Current Development Objective
 
@@ -542,8 +542,9 @@
 - The current product state is broad controlled-beta MVP, not paid production SaaS: core AR/AP, banking, inventory, reports, documents, audit, roles, storage readiness, email readiness, and ZATCA groundwork exist, but many production-facing and product-completion gaps remain.
 - Top development gaps: full route QA and blocker triage, verification gate hardening, high-risk state-machine QA, auth/session hardening, accountant review, sales/purchase completion, banking parser/reconciliation hardening, inventory accounting policy work, admin/audit alerts, and SaaS business readiness.
 - Mock/blocked areas remain intentional: real ZATCA, real customer email sending, live bank feeds, payment gateway capture, object-storage migration execution, backup/restore execution, and automatic inventory accounting expansion.
-- DEV-06 Part 5 attempted the approved local-only AR invoice finalize preflight and stopped before mutation because the fixture organization is missing the finalize service's required active posting account codes `120` and `220`.
-- Exact next recommended development ticket: `DEV-06 Part 5B: resolve AR invoice finalize posting-account blocker`.
+- DEV-06 Part 5 attempted the approved local-only AR invoice finalize preflight and stopped before mutation because the fixture organization was missing the finalize service's required active posting account codes `120` and `220`.
+- DEV-06 Part 5B resolved the local fixture blocker by adding active posting account codes `120` and `220` to the DEV03-AR fixture organization and updating the fixture runner so future AR fixtures include those service-required dependencies.
+- Exact next recommended development ticket: `DEV-06 Part 5C: approved local AR invoice finalize mutation retry`.
 
 ## DEV-06 Part 5 - Invoice Finalize Preflight Blocked
 
@@ -560,6 +561,21 @@
 - The temporary script was removed and was not staged or tracked.
 - Do not proceed to `DEV-06 Part 6: verify AR invoice finalize evidence` until a future approved run actually finalizes the invoice.
 
+## DEV-06 Part 5B - Posting Account Blocker Resolved
+
+- Root cause: `SalesInvoiceService.finalize(...)` resolves accounts receivable and VAT payable through active posting account codes `120` and `220`; the existing DEV03-AR fixture accounts used marker-scoped `D3AR-...` codes only.
+- Decision: fixture repair plus fixture runner improvement. The service behavior was left unchanged because `120` and `220` are defined default chart accounts, and changing finalization account resolution would be broader production accounting behavior.
+- Local target safety passed: Docker Postgres/Redis were healthy, `localhost:5432` was reachable, and only the local Docker PostgreSQL target was used.
+- Local repair created or repaired exactly two accounts in the fixture organization: `DEV03-AR-ACCT-120-20260524T130000` (`120`, `ASSET`, active, posting allowed) and `DEV03-AR-ACCT-220-20260524T130000` (`220`, `LIABILITY`, active, posting allowed).
+- Fixture runner improvement: future AR fixture creation now includes service-required posting account codes `120` and `220`; the runner test expects the posting-account dependency in the dry-run plan.
+- Invoice finalization did not run: `SalesInvoiceService.finalize(...)` was not called.
+- `INVOICE-000001` remains `DRAFT`; total and balance due remain `287.5000`; `finalizedAt`, `journalEntryId`, and `reversalJournalEntryId` remain absent.
+- Journal entries, finalized invoices, generated documents, payments, refunds, credit notes, allocations, email outbox/provider events, ZATCA metadata/signed drafts/submission logs, and cleanup deletion remain `0`.
+- SalesInvoice audit logs remain `2` with `SALES_INVOICE_CREATED` and `SALES_INVOICE_UPDATED`; `SALES_INVOICE_FINALIZED` remains `0`; fixture org login audit logs remain `0`.
+- Evidence doc: [docs/development/DEV_06_AR_FINALIZE_POSTING_ACCOUNT_BLOCKER_RESOLUTION.md](docs/development/DEV_06_AR_FINALIZE_POSTING_ACCOUNT_BLOCKER_RESOLUTION.md).
+- The temporary repair script was removed and was not staged or tracked.
+- Exact next prompt title: `DEV-06 Part 5C: approved local AR invoice finalize mutation retry`.
+
 ## Forbidden Actions For Next Production Thread
 
 - Do not change app code.
@@ -571,4 +587,4 @@
 
 ## Next Thread Prompt
 
-`DEV-06 Part 5B: resolve AR invoice finalize posting-account blocker`
+`DEV-06 Part 5C: approved local AR invoice finalize mutation retry`

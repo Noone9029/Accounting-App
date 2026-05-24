@@ -250,3 +250,20 @@ Part 5 did not finalize the invoice locally. The blocker is that the fixture org
 The invoice remained `DRAFT`; no journal entry, `SALES_INVOICE_FINALIZED` audit log, or local ZATCA metadata was created. Forbidden side effects stayed zero for generated documents, payments, refunds, credit notes, allocations, voids, reversal journals, email, ZATCA XML/signing/submission artifacts, and cleanup deletion.
 
 Next prompt title: `DEV-06 Part 5B: resolve AR invoice finalize posting-account blocker`.
+
+## Part 5B Posting Account Blocker Resolution Note
+
+`DEV-06 Part 5B` resolved the posting-account blocker without finalizing the invoice.
+
+Resolution evidence: [DEV_06_AR_FINALIZE_POSTING_ACCOUNT_BLOCKER_RESOLUTION.md](DEV_06_AR_FINALIZE_POSTING_ACCOUNT_BLOCKER_RESOLUTION.md).
+
+The selected fix was fixture repair plus fixture runner improvement:
+
+- Account code `120` now exists in the DEV03-AR fixture organization as an active posting `ASSET` account named `DEV03-AR-ACCT-120-20260524T130000`.
+- Account code `220` now exists in the DEV03-AR fixture organization as an active posting `LIABILITY` account named `DEV03-AR-ACCT-220-20260524T130000`.
+- Future AR fixture creation now includes those service-required posting account dependencies.
+- `SalesInvoiceService.finalize(...)` was not changed because the hardcoded codes map to existing default chart accounts and changing account resolution would be broader production accounting behavior.
+
+No invoice finalization occurred in Part 5B. `INVOICE-000001` remains `DRAFT`; total and balance due remain `287.5000`; `finalizedAt`, `journalEntryId`, and `reversalJournalEntryId` remain absent. Journal entries, finalized invoices, `SALES_INVOICE_FINALIZED` audit logs, ZATCA metadata, generated documents, payments, refunds, credit notes, allocations, email records, ZATCA XML/signing/submission artifacts, and cleanup deletion remain `0`.
+
+Next prompt title: `DEV-06 Part 5C: approved local AR invoice finalize mutation retry`.
