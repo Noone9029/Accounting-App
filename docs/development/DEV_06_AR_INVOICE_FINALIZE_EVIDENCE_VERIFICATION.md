@@ -175,3 +175,31 @@ Evidence verified.
 ## Recommended Next Step
 
 Proceed with `DEV-06 Part 7: plan local AR invoice void mutation`.
+
+## Part 7 Void Mutation Plan Result
+
+`DEV-06 Part 7` completed the local-only plan for voiding `INVOICE-000001`.
+
+Void plan: [DEV_06_AR_INVOICE_VOID_MUTATION_PLAN.md](DEV_06_AR_INVOICE_VOID_MUTATION_PLAN.md).
+
+Part 7 performed no mutation. The invoice was not voided, no void/reverse service method was called, no journal/reversal journal was created, and no payment/refund/credit-note/allocation/output/email/ZATCA/cleanup action was run.
+
+Expected behavior for the next approved mutation, based on inspected code:
+
+- `INVOICE-000001` should transition from `FINALIZED` to `VOIDED`.
+- Balance due should become `0.0000`.
+- `journalEntryId` should remain linked to the original journal.
+- `reversalJournalEntryId` should become present.
+- A posted reversal journal should debit fixture revenue `250.0000`, debit account `220` `37.5000`, and credit account `120` `287.5000`.
+- The original journal should remain present and change status from `POSTED` to `REVERSED`.
+- One `SALES_INVOICE_VOIDED` audit action should be added.
+- Existing local `ZatcaInvoiceMetadata` should remain present.
+- Generated document/PDF/archive, email, ZATCA XML/signing/QR/submission, payment, refund, credit-note, allocation, and cleanup deletion paths should not run.
+
+Required approval phrase before Part 8:
+
+```text
+I approve DEV-06 Part 8 local-only AR invoice void mutation for fixture invoice INVOICE-000001 under marker DEV03-AR-20260524T130000. No production, no beta, no customer data.
+```
+
+Next prompt title: `DEV-06 Part 8: approved local AR invoice void mutation`.

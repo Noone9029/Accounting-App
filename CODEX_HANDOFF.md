@@ -546,7 +546,8 @@
 - DEV-06 Part 5B resolved the local fixture blocker by adding active posting account codes `120` and `220` to the DEV03-AR fixture organization and updating the fixture runner so future AR fixtures include those service-required dependencies.
 - DEV-06 Part 5C retried the approved local-only AR invoice finalize mutation and finalized `INVOICE-000001` locally.
 - DEV-06 Part 6 verified the finalized invoice evidence with read-only local checks and performed no mutation.
-- Exact next recommended development ticket: `DEV-06 Part 7: plan local AR invoice void mutation`.
+- DEV-06 Part 7 created the local-only void mutation plan and performed no mutation.
+- Exact next recommended development ticket: `DEV-06 Part 8: approved local AR invoice void mutation`.
 
 ## DEV-06 Part 5 - Invoice Finalize Preflight Blocked
 
@@ -608,6 +609,21 @@
 - Evidence doc: [docs/development/DEV_06_AR_INVOICE_FINALIZE_EVIDENCE_VERIFICATION.md](docs/development/DEV_06_AR_INVOICE_FINALIZE_EVIDENCE_VERIFICATION.md).
 - Exact next prompt title: `DEV-06 Part 7: plan local AR invoice void mutation`.
 
+## DEV-06 Part 7 - Invoice Void Mutation Plan Completed
+
+- Part 7 inspected the sales invoice void controller, service, reversal journal helper, accounting-core reversal helper, fiscal-period guard, audit mapping, permission constants, schema relations, README/BUG_AUDIT lifecycle notes, and targeted unit/smoke references.
+- Mutation performed: no. `SalesInvoiceService.void(...)` was not called, no invoice was voided, and no journal/reversal journal was created.
+- Planned route for normal API use: `POST /sales-invoices/:id/void`, guarded by JWT auth, organization context, permission guard, and `salesInvoices.void`.
+- Planned Part 8 service call for the local-only script: `SalesInvoiceService.void(organizationId, actorUserId, invoiceId)` exactly once after local target, marker, invoice, status, journal, account, allocation, output, ZATCA, email, and fiscal-period preflight checks pass.
+- Expected status transition: `FINALIZED -> VOIDED`.
+- Expected invoice effects from inspected code: balance due becomes `0.0000`; `finalizedAt` remains present; `journalEntryId` remains linked to the original journal; `reversalJournalEntryId` becomes present; total remains `287.5000`; invoice sequence does not advance.
+- Expected accounting effect from inspected code: one posted reversal journal is created or reused, reference `INVOICE-000001`, description `Reversal of JOURNAL_ENTRY-000001`, total debit and credit `287.5000`, with reversal lines debit fixture revenue `250.0000`, debit VAT account `220` `37.5000`, and credit AR account `120` `287.5000`. The original journal remains present and changes status from `POSTED` to `REVERSED`.
+- Expected audit effect: one new `SALES_INVOICE_VOIDED` audit event, making the SalesInvoice audit action set `SALES_INVOICE_CREATED`, `SALES_INVOICE_UPDATED`, `SALES_INVOICE_FINALIZED`, and `SALES_INVOICE_VOIDED`.
+- Expected ZATCA/document/email behavior: existing local `ZatcaInvoiceMetadata` remains present; voiding does not call generated-document/PDF/archive, email, ZATCA XML/signing/QR/submission/clearance/reporting, payment, refund, credit-note, allocation, or cleanup deletion paths.
+- Evidence/plan doc: [docs/development/DEV_06_AR_INVOICE_VOID_MUTATION_PLAN.md](docs/development/DEV_06_AR_INVOICE_VOID_MUTATION_PLAN.md).
+- Required approval phrase before Part 8: `I approve DEV-06 Part 8 local-only AR invoice void mutation for fixture invoice INVOICE-000001 under marker DEV03-AR-20260524T130000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-06 Part 8: approved local AR invoice void mutation`.
+
 ## Forbidden Actions For Next Production Thread
 
 - Do not change app code.
@@ -619,4 +635,4 @@
 
 ## Next Thread Prompt
 
-`DEV-06 Part 7: plan local AR invoice void mutation`
+`DEV-06 Part 8: approved local AR invoice void mutation`

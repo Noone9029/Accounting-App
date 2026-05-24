@@ -301,3 +301,30 @@ The expected journal, audit, and ZATCA metadata evidence remains valid: one post
 Forbidden side effects remain `0` for generated documents, payments, refunds, credit notes, allocations, voids, reversal journals, email, ZATCA signed drafts/submission logs, ZATCA XML/signing/QR/submission, and cleanup deletion.
 
 Next prompt title: `DEV-06 Part 7: plan local AR invoice void mutation`.
+
+## Part 7 Invoice Void Mutation Plan Note
+
+`DEV-06 Part 7` completed the local-only void mutation plan for finalized invoice `INVOICE-000001`.
+
+Void plan: [DEV_06_AR_INVOICE_VOID_MUTATION_PLAN.md](DEV_06_AR_INVOICE_VOID_MUTATION_PLAN.md).
+
+Part 7 performed no mutation. The invoice was not voided, `SalesInvoiceService.void(...)` was not called, no journal/reversal journal was created, and no payment/refund/credit-note/allocation/output/email/ZATCA/cleanup path was run.
+
+Expected Part 8 behavior from inspected code:
+
+- Route/API path: `POST /sales-invoices/:id/void`.
+- Service method: `SalesInvoiceService.void(organizationId, actorUserId, id)`.
+- Normal API guards: JWT auth, organization context, permission guard, and `salesInvoices.void`.
+- Status transition: `FINALIZED -> VOIDED`.
+- Invoice balance due becomes `0.0000`; `journalEntryId` remains linked to the original journal; `reversalJournalEntryId` becomes present.
+- One posted reversal journal should debit fixture revenue `250.0000`, debit account `220` `37.5000`, and credit account `120` `287.5000`; the original journal remains present and changes status from `POSTED` to `REVERSED`.
+- Audit action expected: `SALES_INVOICE_VOIDED`.
+- Existing local `ZatcaInvoiceMetadata` should remain present; generated document/PDF/archive, email, ZATCA XML/signing/QR/submission, payment, refund, credit-note, allocation, and cleanup deletion paths should not run.
+
+Required approval phrase before Part 8:
+
+```text
+I approve DEV-06 Part 8 local-only AR invoice void mutation for fixture invoice INVOICE-000001 under marker DEV03-AR-20260524T130000. No production, no beta, no customer data.
+```
+
+Next prompt title: `DEV-06 Part 8: approved local AR invoice void mutation`.
