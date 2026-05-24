@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `01403ab3 Plan DEV-07 payment allocation fixture`
+- `5634eaff Record DEV-07 payment allocation fixture blocker`
 
 ## Current Development Objective
 
@@ -706,6 +706,16 @@
 - Evidence doc: [docs/development/DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md](docs/development/DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md).
 - Exact next prompt title: `DEV-07 Part 3B: retry AR payment allocation invoice fixture mutation preflight`.
 
+## DEV-07 Part 3B - AR Payment Allocation Fixture Preflight Retry Blocked
+
+- DEV-07 Part 3B retried only local Docker/Postgres readiness and read-only fixture dependency preflight; it did not carry mutation approval forward.
+- Docker Desktop's Linux engine remained unavailable, `127.0.0.1:5432` and `127.0.0.1:6379` remained closed, and fixture dependency queries could not run.
+- The configured API database target guard still parsed as local `localhost:5432` and did not match forbidden production, beta, hosted, shared, Supabase, Vercel, RDS/AWS, Railway, Render, Fly, DigitalOcean, Neon, or user-testing patterns.
+- Fixture dependency preflight result: blocked before DB queries. Invoice fixture created/finalized: no. Customer payment/allocation performed: no. Temporary mutation script created: no.
+- Checks run: targeted AR Jest suites passed (`4` suites, `84` tests), fixture-runner Jest passed (`1` suite, `41` tests), `fixture:dev04:cleanup-plan` stayed plan-only with no DB connection or writes, and `corepack pnpm verify:diff` passed with the existing unrelated `apps/web/src/app/page.tsx` CRLF warning.
+- Evidence was appended to [docs/development/DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md](docs/development/DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md).
+- Exact next prompt title: `DEV-07 Part 3C: retry AR payment allocation invoice fixture mutation preflight`.
+
 ## Forbidden Actions For Next Production Thread
 
 - Do not change app code.
@@ -717,4 +727,4 @@
 
 ## Next Thread Prompt
 
-`DEV-07 Part 3B: retry AR payment allocation invoice fixture mutation preflight`
+`DEV-07 Part 3C: retry AR payment allocation invoice fixture mutation preflight`

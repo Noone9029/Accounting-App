@@ -466,10 +466,18 @@ The configured database target guard still parsed as local `localhost:5432` with
 
 Part 3 evidence is recorded in [DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md](DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md). The next prompt is `DEV-07 Part 3B: retry AR payment allocation invoice fixture mutation preflight`.
 
+## Part 3B Preflight Retry Blocker Note
+
+DEV-07 Part 3B retried local readiness and read-only fixture dependency preflight only. It did not carry mutation approval forward and did not create/finalize the planned invoice fixture.
+
+Docker/Postgres remained unavailable: Docker Desktop's Linux engine pipe was missing, `127.0.0.1:5432` and `127.0.0.1:6379` were closed, and fixture dependency queries could not run. The database target guard still parsed as local `localhost:5432` with no forbidden hosted, production, beta, shared, or customer-data target pattern.
+
+Preflight remains blocked. No temporary mutation script was created, no invoice/payment/allocation mutation occurred, and no forbidden output/email/ZATCA/cleanup path ran. Part 3B evidence is appended in [DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md](DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md).
+
 ## Recommended Next Step
 
 Next prompt title:
 
 ```text
-DEV-07 Part 3B: retry AR payment allocation invoice fixture mutation preflight
+DEV-07 Part 3C: retry AR payment allocation invoice fixture mutation preflight
 ```

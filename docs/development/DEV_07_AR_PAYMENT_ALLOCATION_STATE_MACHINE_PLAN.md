@@ -438,12 +438,20 @@ No invoice fixture was created or finalized, no customer payment/allocation/unap
 
 Evidence is recorded in [DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md](DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md).
 
+## Part 3B Fixture Preflight Retry Blocker Addendum
+
+DEV-07 Part 3B retried the local Docker/Postgres readiness and read-only fixture dependency preflight only. It did not carry mutation approval forward.
+
+Local readiness remains blocked: Docker Desktop's Linux engine pipe was missing, `127.0.0.1:5432` and `127.0.0.1:6379` were closed, and fixture dependency queries could not run. The API database target guard still parsed as local `localhost:5432` without forbidden production, beta, hosted, shared, or customer-data target patterns.
+
+No invoice fixture was created or finalized, no customer payment/allocation/unapplied allocation/refund/credit-note mutation occurred, and no temporary mutation script was created. Evidence was appended to [DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md](DEV_07_AR_PAYMENT_ALLOCATION_INVOICE_FIXTURE_MUTATION_RUN.md).
+
 ## Recommended Next Step
 
 Next prompt title:
 
 ```text
-DEV-07 Part 3B: retry AR payment allocation invoice fixture mutation preflight
+DEV-07 Part 3C: retry AR payment allocation invoice fixture mutation preflight
 ```
 
-Part 3B should rerun the local Docker/Postgres readiness and fixture dependency preflight before any write-capable service use. The original Part 3 mutation must not be retried unless the exact approval phrase from the fixture plan is provided again or the Part 3B prompt explicitly carries it forward, and all local target, marker, dependency, sequence, invoice, and forbidden-side-effect preflight checks pass.
+Part 3C should rerun the local Docker/Postgres readiness and fixture dependency preflight before any write-capable service use. The invoice fixture mutation must not run unless a future prompt explicitly provides a fresh approval phrase for that mutation and all local target, marker, dependency, sequence, invoice, and forbidden-side-effect preflight checks pass.
