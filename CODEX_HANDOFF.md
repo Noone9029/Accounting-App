@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `69bc9e52 Finalize DEV-06 AR state-machine triage`
+- `bc15f4e0 Plan DEV-07 AR payment allocation`
 
 ## Current Development Objective
 
@@ -551,7 +551,8 @@
 - DEV-06 Part 9 verified the void evidence with read-only local checks and performed no mutation.
 - DEV-06 Part 10 completed the AR invoice lifecycle final triage as documentation/read-only work.
 - DEV-07 Part 1 completed the AR customer payment allocation state-machine plan as documentation/read-only work.
-- Exact next recommended development ticket: `DEV-07 Part 2: AR payment allocation fixture plan`.
+- DEV-07 Part 2 completed the AR payment allocation fixture plan as documentation/read-only work.
+- Exact next recommended development ticket: `DEV-07 Part 3: approved local AR payment-allocation invoice fixture mutation`.
 
 ## DEV-06 Part 5 - Invoice Finalize Preflight Blocked
 
@@ -684,6 +685,17 @@
 - Expected output/ZATCA/email boundary: payment create/allocation/reversal/void paths do not call receipt PDF/archive, email, or ZATCA; receipt PDF/archive routes exist and must remain out of scope unless separately approved.
 - Exact next prompt title: `DEV-07 Part 2: AR payment allocation fixture plan`.
 
+## DEV-07 Part 2 - AR Payment Allocation Fixture Plan Completed
+
+- DEV-07 Part 2 created the local-only fixture plan in [docs/development/DEV_07_AR_PAYMENT_ALLOCATION_FIXTURE_PLAN.md](docs/development/DEV_07_AR_PAYMENT_ALLOCATION_FIXTURE_PLAN.md).
+- Part 2 was planning/read-only only. No invoice create, edit, finalize, void, payment creation, payment allocation, unapplied allocation, refund, credit-note, fixture creation, output, email, ZATCA, cleanup, migration, seed/reset/delete, deploy, environment, schema, provider-setting, or login/audit-writing browser action was run.
+- Local DB dependency inspection was blocked because Docker Desktop's Linux engine was unavailable and `127.0.0.1:5432` / `127.0.0.1:6379` were not reachable; the configured database target guard parsed as local `localhost:5432` without forbidden hosted patterns.
+- Fixture strategy chosen: reuse marker `DEV03-AR-20260524T130000` and the existing local DEV03-AR fixture organization/dependencies, create exactly one new DEV-07-specific finalized invoice in a later approved part, and continue excluding voided `INVOICE-000001` from the happy path.
+- Planned future invoice/payment/allocation shape: invoice total `1150.0000` from quantity `10.0000` at unit price `100.0000` with `15.0000` VAT; future payment amount `500.0000`; direct allocation `300.0000`; unapplied amount `200.0000`; later same-invoice unapplied allocation `200.0000`; final planned invoice balance `650.0000`.
+- Expected accounting: invoice finalization posts Dr `120` AR `1150.0000`, Cr fixture revenue `1000.0000`, Cr `220` VAT `150.0000`; payment creation posts Dr fixture paid-through asset `500.0000`, Cr `120` AR `500.0000`; applying unapplied amount posts no journal.
+- Expected audit/output/ZATCA boundary: invoice fixture creation/finalization should create SalesInvoice audit actions and local invoice ZATCA metadata only; payment create should create `CUSTOMER_PAYMENT_CREATED`; unapplied allocation should log raw `APPLY_UNAPPLIED`; receipt PDF/archive, email, ZATCA XML/signing/submission, and generated documents remain out of scope.
+- Exact next prompt title: `DEV-07 Part 3: approved local AR payment-allocation invoice fixture mutation`.
+
 ## Forbidden Actions For Next Production Thread
 
 - Do not change app code.
@@ -695,4 +707,4 @@
 
 ## Next Thread Prompt
 
-`DEV-07 Part 2: AR payment allocation fixture plan`
+`DEV-07 Part 3: approved local AR payment-allocation invoice fixture mutation`

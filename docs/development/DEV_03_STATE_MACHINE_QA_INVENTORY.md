@@ -24,7 +24,13 @@ DEV-07 Part 1 created [DEV_07_AR_PAYMENT_ALLOCATION_STATE_MACHINE_PLAN.md](DEV_0
 
 The chosen fixture strategy is to reuse the existing local DEV03-AR fixture organization and dependencies, but create a new DEV-07-specific finalized invoice fixture in a later approved part. The voided DEV-06 invoice `INVOICE-000001` should not be used as the happy-path payment allocation target.
 
-The next recommended Sales/AR state-machine prompt is `DEV-07 Part 2: AR payment allocation fixture plan`.
+## DEV-07 Part 2 Fixture Planning Note
+
+DEV-07 Part 2 created [DEV_07_AR_PAYMENT_ALLOCATION_FIXTURE_PLAN.md](DEV_07_AR_PAYMENT_ALLOCATION_FIXTURE_PLAN.md) as planning/read-only work. No invoice, payment, allocation, unapplied allocation, refund, credit-note, fixture creation, output, email, ZATCA, cleanup, migration, seed/reset/delete, deploy, or login/audit-writing mutation was performed.
+
+The fixture strategy remains to reuse marker `DEV03-AR-20260524T130000` and create one new DEV-07-specific finalized invoice in a later approved part. Planned amounts are invoice total `1150.0000`, tax `150.0000`, payment amount `500.0000`, direct allocation `300.0000`, unapplied amount `200.0000`, later same-invoice unapplied allocation `200.0000`, and final planned invoice balance `650.0000`.
+
+The next recommended Sales/AR state-machine prompt is `DEV-07 Part 3: approved local AR payment-allocation invoice fixture mutation`.
 
 Source evidence inspected for this pass:
 

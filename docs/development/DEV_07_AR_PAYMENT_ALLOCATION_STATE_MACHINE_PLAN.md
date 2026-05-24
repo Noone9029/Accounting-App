@@ -411,12 +411,31 @@ Until an explicit mutation approval is received:
 - Cleanup deletion remains unapproved; fixture records will remain in the local database as evidence.
 - Unrelated dirty/untracked web marketing and graphify files remain outside this workstream and must not be staged.
 
+## Part 2 Fixture Plan Addendum
+
+DEV-07 Part 2 completed [DEV_07_AR_PAYMENT_ALLOCATION_FIXTURE_PLAN.md](DEV_07_AR_PAYMENT_ALLOCATION_FIXTURE_PLAN.md) as planning/read-only work. No invoice, payment, allocation, unapplied allocation, refund, credit-note, fixture creation, output, email, ZATCA, cleanup, migration, seed/reset/delete, deploy, environment, schema, provider-setting, or login/audit-writing mutation was performed.
+
+Part 2 kept the Part 1 marker strategy: reuse `DEV03-AR-20260524T130000` and the existing local DEV03-AR fixture organization/dependencies, but create one new DEV-07-specific finalized invoice in a later approved mutation. `INVOICE-000001` remains excluded because it is `VOIDED`.
+
+The planned happy path uses one new invoice and the same invoice for the later unapplied allocation:
+
+- planned invoice total: `1150.0000`.
+- planned tax amount: `150.0000`.
+- planned revenue amount: `1000.0000`.
+- planned payment amount: `500.0000`.
+- planned direct allocation during payment creation: `300.0000`.
+- planned unapplied amount after payment creation: `200.0000`.
+- planned later unapplied allocation: `200.0000`.
+- planned invoice balance after both allocations: `650.0000`.
+
+Part 2 local DB dependency inspection was blocked because Docker Desktop's Linux engine was unavailable and localhost Postgres/Redis ports were closed. The Part 3 mutation must refresh all fixture dependency checks before any write-capable service use.
+
 ## Recommended Next Step
 
 Next prompt title:
 
 ```text
-DEV-07 Part 2: AR payment allocation fixture plan
+DEV-07 Part 3: approved local AR payment-allocation invoice fixture mutation
 ```
 
-Part 2 should remain planning/read-only. It should inspect the current local fixture state, choose exact invoice/payment/allocation amounts, decide whether one or two new invoices are needed, and define the Part 3 local fixture mutation script shape before any new invoice fixture is created.
+Part 3 must not run unless the exact approval phrase from the fixture plan is provided and all local target, marker, dependency, sequence, invoice, and forbidden-side-effect preflight checks pass.
