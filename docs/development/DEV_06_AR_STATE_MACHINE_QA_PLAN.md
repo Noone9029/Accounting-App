@@ -214,3 +214,11 @@ This approval should be treated as limited to one local draft invoice create/edi
 Proceed to `DEV-06 Part 2: approved local AR draft invoice create/edit mutation` only after the exact approval phrase is received.
 
 If approval is not provided, continue with mocked AR tests and documentation-only planning. No AR mutation should run from this Part 1 plan alone.
+
+## Part 2 Draft Invoice Mutation Note
+
+`DEV-06 Part 2` completed the approved local-only draft invoice create/edit mutation against marker `DEV03-AR-20260524T130000`.
+
+Run evidence: [DEV_06_AR_DRAFT_INVOICE_MUTATION_RUN.md](DEV_06_AR_DRAFT_INVOICE_MUTATION_RUN.md).
+
+Part 2 created one draft sales invoice and edited the same draft invoice. It did not finalize, void, allocate payment, create refunds, create credit notes, export, download, generate PDF, archive generated documents, send email, run ZATCA, delete fixtures, run cleanup deletion, run login/browser audit flows, run migrations, seed/reset/delete, deploy, change environment variables, use production, use beta/user-testing, or use customer data.
