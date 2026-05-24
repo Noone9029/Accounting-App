@@ -134,3 +134,7 @@ Implementation outcome:
 Proceed with `DEV-05 Part 4: verify local AR fixture evidence` only after a local disposable database is running and the approved Part 3B command is rerun successfully.
 
 If the local database remains unavailable, Part 4 should record that no marker-scoped fixture evidence exists yet.
+
+## DEV-05 Part 3C Retry Note
+
+DEV-05 Part 3C is documented in [DEV_05_AR_FIXTURE_CREATION_RETRY.md](DEV_05_AR_FIXTURE_CREATION_RETRY.md). The retry approval phrase was received, local Docker Postgres was healthy and reachable on `localhost:5432`, and the approved local Sales/AR base-fixture command completed successfully for family `ar` with marker `DEV03-AR-20260524T130000`. The runner created 12 marker-scoped base records, performed approved local database writes only for those records, and did not run login, audit-writing flows, AR lifecycle mutations, exports, downloads, PDFs, generated-document archives, email, ZATCA, backup/restore, migrations, seed/reset/delete, smoke, E2E, deploys, or production-hosting research.
