@@ -1,12 +1,14 @@
 import { assertBalancedJournal, calculateSalesInvoiceTotals } from "@ledgerbyte/accounting-core";
 import {
   AccountType,
+  ContactType,
   InventoryPurchasePostingMode,
   InventoryValuationMethod,
   JournalEntryStatus,
   PurchaseBillInventoryPostingMode,
   PurchaseBillStatus,
   SupplierPaymentStatus,
+  TaxRateScope,
 } from "@prisma/client";
 import { buildSupplierLedgerRows } from "../contacts/contact-ledger.service";
 import { buildPurchaseBillJournalLines } from "./purchase-bill-accounting";
@@ -64,6 +66,115 @@ describe("purchase bill rules", () => {
     await expect(service.update("org-1", "user-1", "bill-1", {})).rejects.toThrow("Only draft purchase bills can be edited.");
   });
 
+  it("creates an OCR-ready draft purchase bill with supplier, expense account, and purchase tax validation", async () => {
+    const tx = makeCreateTransactionMock();
+    const prisma = {
+      account: { findMany: jest.fn().mockResolvedValue([{ id: "expense" }]) },
+      taxRate: { findMany: jest.fn().mockResolvedValue([{ id: "vat-15", rate: "15.0000" }]) },
+      contact: { findFirst: jest.fn().mockResolvedValue({ id: "supplier-1", type: ContactType.SUPPLIER }) },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const auditLog = { log: jest.fn() };
+    const service = new PurchaseBillService(
+      prisma as never,
+      auditLog as never,
+      { next: jest.fn().mockResolvedValue("BILL-000001") } as never,
+    );
+
+    await expect(
+      service.create("org-1", "user-1", {
+        supplierId: "supplier-1",
+        billDate: "2026-05-12",
+        currency: "sar",
+        notes: "OCR source: inbox upload 42",
+        terms: "Net 30",
+        lines: [
+          {
+            description: "OCR parsed consulting fee",
+            accountId: "expense",
+            quantity: "1.0000",
+            unitPrice: "100.0000",
+            taxRateId: "vat-15",
+          },
+        ],
+      }),
+    ).resolves.toMatchObject({
+      id: "bill-1",
+      billNumber: "BILL-000001",
+      status: PurchaseBillStatus.DRAFT,
+      currency: "SAR",
+      subtotal: "100.0000",
+      taxTotal: "15.0000",
+      total: "115.0000",
+      balanceDue: "115.0000",
+      journalEntryId: null,
+    });
+
+    expect(prisma.contact.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "supplier-1",
+          organizationId: "org-1",
+          isActive: true,
+          type: { in: [ContactType.SUPPLIER, ContactType.BOTH] },
+        }),
+      }),
+    );
+    expect(prisma.account.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          id: { in: ["expense"] },
+          type: { in: [AccountType.EXPENSE, AccountType.COST_OF_SALES, AccountType.ASSET] },
+          isActive: true,
+          allowPosting: true,
+        }),
+      }),
+    );
+    expect(prisma.taxRate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          id: { in: ["vat-15"] },
+          isActive: true,
+          scope: { in: [TaxRateScope.PURCHASES, TaxRateScope.BOTH] },
+        }),
+      }),
+    );
+    expect(tx.purchaseBill.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          billNumber: "BILL-000001",
+          supplierId: "supplier-1",
+          currency: "SAR",
+          subtotal: "100.0000",
+          taxableTotal: "100.0000",
+          taxTotal: "15.0000",
+          total: "115.0000",
+          balanceDue: "115.0000",
+          notes: "OCR source: inbox upload 42",
+          terms: "Net 30",
+          lines: {
+            create: [
+              expect.objectContaining({
+                account: { connect: { id: "expense" } },
+                taxRate: { connect: { id: "vat-15" } },
+                description: "OCR parsed consulting fee",
+                taxableAmount: "100.0000",
+                taxAmount: "15.0000",
+                lineTotal: "115.0000",
+              }),
+            ],
+          },
+        }),
+      }),
+    );
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "CREATE", entityType: "PurchaseBill", entityId: "bill-1" }),
+    );
+    expect((tx as { journalEntry?: unknown }).journalEntry).toBeUndefined();
+  });
+
   it("finalization creates a balanced posted AP journal", async () => {
     const tx = makeFinalizeTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
@@ -89,6 +200,38 @@ describe("purchase bill rules", () => {
               expect.objectContaining({ debit: "100.0000", credit: "0.0000" }),
               expect.objectContaining({ debit: "15.0000", credit: "0.0000" }),
               expect.objectContaining({ debit: "0.0000", credit: "115.0000" }),
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
+  it("finalizes a non-taxed purchase bill without requiring a VAT receivable account", async () => {
+    const tx = makeNoTaxFinalizeTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new PurchaseBillService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn().mockResolvedValue("JE-000001") } as never,
+    );
+    jest.spyOn(service, "get").mockResolvedValue({ id: "bill-1", status: PurchaseBillStatus.DRAFT, journalEntryId: null } as never);
+
+    await expect(service.finalize("org-1", "user-1", "bill-1")).resolves.toMatchObject({
+      status: PurchaseBillStatus.FINALIZED,
+      journalEntryId: "journal-1",
+    });
+    expect(tx.account.findFirst).toHaveBeenCalledTimes(1);
+    expect(tx.account.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ code: "210" }) }));
+    expect(tx.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          totalDebit: "100.0000",
+          totalCredit: "100.0000",
+          lines: {
+            create: [
+              expect.objectContaining({ account: { connect: { id: "expense" } }, debit: "100.0000", credit: "0.0000" }),
+              expect.objectContaining({ account: { connect: { id: "ap" } }, debit: "0.0000", credit: "100.0000" }),
             ],
           },
         }),
@@ -330,6 +473,36 @@ describe("purchase bill rules", () => {
   });
 });
 
+function makeCreateTransactionMock() {
+  return {
+    purchaseBill: {
+      create: jest.fn(
+        ({
+          data,
+        }: {
+          data: {
+            billNumber: string;
+            currency: string;
+            subtotal: string;
+            taxableTotal: string;
+            taxTotal: string;
+            total: string;
+            balanceDue: string;
+            lines: { create: unknown[] };
+          };
+        }) =>
+          Promise.resolve({
+            id: "bill-1",
+            ...data,
+            status: PurchaseBillStatus.DRAFT,
+            journalEntryId: null,
+            lines: data.lines.create,
+          }),
+      ),
+    },
+  };
+}
+
 function makePreviewService(options: { mode: PurchaseBillInventoryPostingMode; includeServiceLine?: boolean }) {
   const billLines = [
     {
@@ -494,6 +667,62 @@ function makeFinalizeTransactionMock(
       findFirst: jest.fn(({ where }: { where: { code?: string; id?: string } }) => {
         if (where.id === clearingAccount.id) return Promise.resolve(clearingAccount);
         return Promise.resolve({ id: where.code === "210" ? "ap" : "vat-receivable" });
+      }),
+    },
+    journalEntry: {
+      create: jest.fn().mockResolvedValue({ id: "journal-1" }),
+    },
+  };
+}
+
+function makeNoTaxFinalizeTransactionMock() {
+  const bill = {
+    id: "bill-1",
+    billNumber: "BILL-000002",
+    supplierId: "supplier-1",
+    status: PurchaseBillStatus.DRAFT,
+    inventoryPostingMode: PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET,
+    billDate: new Date("2026-05-12T00:00:00.000Z"),
+    currency: "SAR",
+    subtotal: "100.0000",
+    discountTotal: "0.0000",
+    taxableTotal: "100.0000",
+    taxTotal: "0.0000",
+    total: "100.0000",
+    journalEntryId: null,
+    supplier: { id: "supplier-1", name: "Supplier", displayName: "Supplier" },
+    lines: [
+      {
+        accountId: "expense",
+        itemId: null,
+        description: "Untaxed services",
+        quantity: "1.0000",
+        unitPrice: "100.0000",
+        discountRate: "0.0000",
+        lineGrossAmount: "100.0000",
+        discountAmount: "0.0000",
+        taxableAmount: "100.0000",
+        taxAmount: "0.0000",
+        lineTotal: "100.0000",
+        item: null,
+        account: { id: "expense" },
+      },
+    ],
+  };
+
+  return {
+    purchaseBill: {
+      findFirst: jest.fn().mockResolvedValue(bill),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      findUniqueOrThrow: jest.fn().mockResolvedValue({ ...bill, status: PurchaseBillStatus.FINALIZED, journalEntryId: "journal-existing" }),
+      update: jest.fn().mockResolvedValue({ ...bill, status: PurchaseBillStatus.FINALIZED, journalEntryId: "journal-1" }),
+    },
+    account: {
+      findFirst: jest.fn(({ where }: { where: { code?: string } }) => {
+        if (where.code === "210") {
+          return Promise.resolve({ id: "ap" });
+        }
+        return Promise.resolve(null);
       }),
     },
     journalEntry: {

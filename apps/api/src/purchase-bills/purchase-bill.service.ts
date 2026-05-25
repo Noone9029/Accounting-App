@@ -709,10 +709,12 @@ export class PurchaseBillService {
       }
 
       const accountsPayableAccount = await this.findPostingAccountByCode(organizationId, "210", tx);
-      const vatReceivableAccount = await this.findPostingAccountByCode(organizationId, "230", tx);
+      const vatReceivableAccount = toMoney(String(bill.taxTotal)).gt(0)
+        ? await this.findPostingAccountByCode(organizationId, "230", tx)
+        : null;
       const journalLines = buildPurchaseBillJournalLines({
         accountsPayableAccountId: accountsPayableAccount.id,
-        vatReceivableAccountId: vatReceivableAccount.id,
+        vatReceivableAccountId: vatReceivableAccount?.id ?? accountsPayableAccount.id,
         billNumber: bill.billNumber,
         supplierName: bill.supplier.displayName ?? bill.supplier.name,
         currency: bill.currency,
