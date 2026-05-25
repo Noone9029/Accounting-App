@@ -1117,3 +1117,23 @@
 ## Next Thread Prompt
 
 `DEV-08 Part 11: supplier payment void/reversal preflight`
+
+## DEV-08 Part 11 - Supplier Payment Void/Reversal Preflight Completed
+
+- DEV-08 Part 11 read-only preflight is recorded in [docs/development/DEV_08_SUPPLIER_PAYMENT_VOID_PREFLIGHT.md](docs/development/DEV_08_SUPPLIER_PAYMENT_VOID_PREFLIGHT.md).
+- Mutation performed: no. `SupplierPaymentService.void(...)` was not called, and no supplier payment creation, supplier payment apply/reverse-unapplied, purchase bill mutation, purchase bill void, supplier refund, purchase debit note, purchase order, purchase receipt, cash expense, stock movement, generated document, PDF/archive/export/download, email, ZATCA, migration, seed/reset/delete, deployment, environment/provider/schema change, production, beta, shared-target, customer-data, or login/browser flow ran.
+- Current supplier payment state: `PAY-000006`, safe id prefix `622ad0b6`, remains `POSTED`, amount paid `500.0000`, unapplied amount `200.0000`, paid-through account `112 Bank Account`, journal `JE-000050`, and no void reversal journal.
+- Current purchase bill state: `BILL-000007`, safe id prefix `d81ddd60`, remains `FINALIZED`, total `1150.0000`, balance due `850.0000`, inventory posting mode `DIRECT_EXPENSE_OR_ASSET`, and no reversal journal.
+- Current allocation state: exactly one direct `SupplierPaymentAllocation` remains for `300.0000`, safe id prefix `6ec44d14`; the one `200.0000` `SupplierPaymentUnappliedAllocation` safe prefix `a8ee4e23` is reversed with reason `DEV-08 local-only reversal QA for supplier payment unapplied allocation`; active unapplied allocations are `0`.
+- Void safety result: safe to plan for Part 12 if preflight remains unchanged. The service blocks active unapplied allocations and posted supplier refunds, both are absent, and the remaining direct allocation is handled by restoring `BILL-000007` balance due.
+- Expected payment effect if approved: `PAY-000006` becomes `VOIDED`, amount paid remains `500.0000`, unapplied amount is expected to remain `200.0000` under current code, `voidedAt` is set, `journalEntryId` remains `JE-000050`, and `voidReversalJournalEntryId` is set to a new reversal journal.
+- Expected bill/allocation effect if approved: `BILL-000007` balance due changes `850.0000 -> 1150.0000`; direct allocation `6ec44d14` remains a historical `300.0000` allocation; reversed unapplied allocation `a8ee4e23` remains reversed; no new allocations or debit-note allocations are expected.
+- Expected journal/accounting effect if approved: original supplier payment journal `JE-000050` is marked `REVERSED`; expected reversal journal is `JE-000051` if the sequence remains unchanged, debiting account `112` for `500.0000` and crediting AP account `210` for `500.0000`; purchase bill journal `JE-000049` remains unchanged.
+- Expected audit effect if approved: one standardized `SUPPLIER_PAYMENT_VOIDED` audit action for `PAY-000006`; no supplier refund, purchase debit note, purchase bill void, cleanup/delete, or login/browser audit-writing action.
+- Output/email/ZATCA/refund/debit-note/purchase-order/inventory/cash-expense/cleanup occurred: no. Fixture-specific generated documents, email outbox rows, supplier refunds, purchase debit notes, purchase orders, purchase receipts, stock movements, cash expenses, and auth tokens since payment remain `0`; organization-level ZATCA baselines remain existing local data (`1` signed artifact draft and `7` submission logs).
+- Required approval phrase for Part 12: `I approve DEV-08 Part 12 local-only supplier payment void/reversal mutation under marker DEV08-AP-20260525T230000 for the DEV-08 supplier payment linked to BILL-000007. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08 Part 12: approved local supplier payment void/reversal mutation`.
+
+## Next Thread Prompt
+
+`DEV-08 Part 12: approved local supplier payment void/reversal mutation`
