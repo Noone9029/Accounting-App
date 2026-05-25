@@ -13,6 +13,7 @@ import {
   purchaseReceiptSourceTypeLabel,
   validatePurchaseReceiptInput,
 } from "@/lib/inventory";
+import { safeReturnToFromSearch } from "@/lib/parties";
 import type { Contact, Item, PurchaseBill, PurchaseOrder, PurchaseReceipt, PurchaseReceivingStatus, PurchaseReceivingStatusLine, Warehouse } from "@/lib/types";
 
 type SourceType = "purchaseOrder" | "purchaseBill" | "standalone";
@@ -25,9 +26,11 @@ export default function NewPurchaseReceiptPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const organizationId = useActiveOrganizationId();
+  const searchString = searchParams.toString();
   const [sourceType, setSourceType] = useState<SourceType>((searchParams.get("sourceType") as SourceType | null) ?? "purchaseOrder");
   const [sourceId, setSourceId] = useState(searchParams.get("purchaseOrderId") ?? searchParams.get("purchaseBillId") ?? "");
   const [supplierId, setSupplierId] = useState(searchParams.get("supplierId") ?? "");
+  const returnTo = useMemo(() => safeReturnToFromSearch(searchString ? `?${searchString}` : ""), [searchString]);
   const [warehouseId, setWarehouseId] = useState("");
   const [standaloneItemId, setStandaloneItemId] = useState("");
   const [standaloneQuantity, setStandaloneQuantity] = useState("1.0000");
@@ -160,7 +163,7 @@ export default function NewPurchaseReceiptPage() {
           lines,
         },
       });
-      router.push(`/inventory/purchase-receipts/${receipt.id}`);
+      router.push(returnTo || `/inventory/purchase-receipts/${receipt.id}`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to create purchase receipt.");
     } finally {
@@ -175,7 +178,7 @@ export default function NewPurchaseReceiptPage() {
           <h1 className="text-2xl font-semibold text-ink">New purchase receipt</h1>
           <p className="mt-1 text-sm text-steel">Receive inventory into a warehouse without creating accounting journals.</p>
         </div>
-        <Link href="/inventory/purchase-receipts" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <Link href={returnTo || "/inventory/purchase-receipts"} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           Back
         </Link>
       </div>
@@ -249,7 +252,7 @@ export default function NewPurchaseReceiptPage() {
         )}
 
         <div className="flex justify-end gap-3">
-          <Link href="/inventory/purchase-receipts" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <Link href={returnTo || "/inventory/purchase-receipts"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Cancel
           </Link>
           <button type="submit" disabled={submitting} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">

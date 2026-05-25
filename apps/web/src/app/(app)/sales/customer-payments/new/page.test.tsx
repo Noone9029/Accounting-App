@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom";
 import { render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
-import NewSupplierPaymentPage from "./page";
+import NewCustomerPaymentPage from "./page";
 
 const apiRequestMock = jest.fn();
 const pushMock = jest.fn();
@@ -33,14 +33,14 @@ jest.mock("@/lib/api", () => ({
   apiRequest: (...args: unknown[]) => apiRequestMock(...args),
 }));
 
-describe("NewSupplierPaymentPage", () => {
+describe("NewCustomerPaymentPage", () => {
   beforeEach(() => {
-    window.history.pushState({}, "", "/purchases/supplier-payments/new");
+    window.history.pushState({}, "", "/sales/customer-payments/new");
     apiRequestMock.mockReset();
     pushMock.mockReset();
     apiRequestMock.mockImplementation((path: string) => {
       if (path === "/contacts") {
-        return Promise.resolve([contactFixture("supplier-1", "Beta Supplier")]);
+        return Promise.resolve([contactFixture("customer-1", "Beta Customer")]);
       }
       if (path === "/accounts") {
         return Promise.resolve([
@@ -57,18 +57,18 @@ describe("NewSupplierPaymentPage", () => {
       if (path === "/bank-accounts") {
         return Promise.resolve([]);
       }
-      if (path === "/purchase-bills/open?supplierId=supplier-1") {
+      if (path === "/sales-invoices/open?customerId=customer-1") {
         return Promise.resolve([
           {
-            id: "bill-1",
-            billNumber: "BILL-001",
-            billDate: "2026-05-21T00:00:00.000Z",
+            id: "invoice-1",
+            invoiceNumber: "INV-001",
+            issueDate: "2026-05-21T00:00:00.000Z",
             dueDate: null,
             currency: "SAR",
             status: "FINALIZED",
             total: "115.0000",
             balanceDue: "115.0000",
-            supplierId: "supplier-1",
+            customerId: "customer-1",
           },
         ]);
       }
@@ -76,15 +76,15 @@ describe("NewSupplierPaymentPage", () => {
     });
   });
 
-  it("prefills supplier and bill allocation from the route query string", async () => {
-    window.history.pushState({}, "", "/purchases/supplier-payments/new?supplierId=supplier-1&billId=bill-1&returnTo=/suppliers/supplier-1");
+  it("prefills customer and invoice allocation from the route query string", async () => {
+    window.history.pushState({}, "", "/sales/customer-payments/new?customerId=customer-1&invoiceId=invoice-1&returnTo=/customers/customer-1");
 
-    render(<NewSupplierPaymentPage />);
+    render(<NewCustomerPaymentPage />);
 
-    await waitFor(() => expect(screen.getByLabelText("Supplier")).toHaveValue("supplier-1"));
-    await waitFor(() => expect(screen.getByLabelText("Amount paid")).toHaveValue("115.0000"));
-    expect(screen.getByText("BILL-001")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/suppliers/supplier-1");
+    await waitFor(() => expect(screen.getByLabelText("Customer")).toHaveValue("customer-1"));
+    await waitFor(() => expect(screen.getByLabelText("Amount received")).toHaveValue("115.0000"));
+    expect(screen.getByText("INV-001")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/customers/customer-1");
   });
 });
 
@@ -93,7 +93,7 @@ function contactFixture(id: string, name: string) {
     id,
     name,
     displayName: name,
-    type: "SUPPLIER",
+    type: "CUSTOMER",
     email: null,
     phone: null,
     taxNumber: null,

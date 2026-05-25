@@ -9,6 +9,7 @@ import { apiRequest } from "@/lib/api";
 import { bankAccountOptionLabel } from "@/lib/bank-accounts";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { calculateSupplierPaymentAllocationPreview, formatMoneyAmount, parseDecimalToUnits } from "@/lib/money";
+import { safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, BankAccountSummary, Contact, PurchaseBill, SupplierPayment } from "@/lib/types";
 
 interface AllocationState {
@@ -38,6 +39,7 @@ export default function NewSupplierPaymentPage() {
   const [loadingBills, setLoadingBills] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [returnTo, setReturnTo] = useState("");
 
   const paidThroughAccounts = useMemo(
     () => accounts.filter((account) => account.isActive && account.allowPosting && account.type === "ASSET"),
@@ -69,6 +71,7 @@ export default function NewSupplierPaymentPage() {
     if (queryBillId) {
       preferredBillIdRef.current = queryBillId;
     }
+    setReturnTo(safeReturnToFromSearch(window.location.search));
   }, []);
 
   useEffect(() => {
@@ -195,7 +198,7 @@ export default function NewSupplierPaymentPage() {
           allocations: allocationsToSubmit,
         },
       });
-      router.push(`/purchases/supplier-payments/${payment.id}?recorded=1`);
+      router.push(returnTo || `/purchases/supplier-payments/${payment.id}?recorded=1`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to record supplier payment.");
     } finally {
@@ -210,7 +213,7 @@ export default function NewSupplierPaymentPage() {
           <h1 className="text-2xl font-semibold text-ink">Record supplier payment</h1>
           <p className="mt-1 text-sm text-steel">Pay suppliers and allocate the payment to finalized open bills.</p>
         </div>
-        <Link href="/purchases/supplier-payments" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <Link href={returnTo || "/purchases/supplier-payments"} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           Back
         </Link>
       </div>
@@ -316,7 +319,7 @@ export default function NewSupplierPaymentPage() {
         </div>
 
         <div className="flex justify-end gap-3">
-          <Link href="/purchases/supplier-payments" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <Link href={returnTo || "/purchases/supplier-payments"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Cancel
           </Link>
           <button type="submit" disabled={submitting || !organizationId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">

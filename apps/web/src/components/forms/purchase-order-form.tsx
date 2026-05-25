@@ -7,6 +7,7 @@ import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { calculateInvoicePreview, formatMoneyAmount } from "@/lib/money";
+import { safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, Branch, Contact, Item, PurchaseOrder, TaxRate } from "@/lib/types";
 
 interface PurchaseOrderLineState {
@@ -74,6 +75,7 @@ export function PurchaseOrderForm({ initialOrder }: PurchaseOrderFormProps) {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [returnTo, setReturnTo] = useState("");
 
   const postingPurchaseAccounts = accounts.filter(
     (account) =>
@@ -95,6 +97,19 @@ export function PurchaseOrderForm({ initialOrder }: PurchaseOrderFormProps) {
       ),
     [activePurchaseTaxRates, lines],
   );
+
+  useEffect(() => {
+    if (initialOrder || typeof window === "undefined") {
+      return;
+    }
+
+    const query = new URLSearchParams(window.location.search);
+    const querySupplierId = query.get("supplierId") ?? "";
+    if (querySupplierId) {
+      setSupplierId(querySupplierId);
+    }
+    setReturnTo(safeReturnToFromSearch(window.location.search));
+  }, [initialOrder]);
 
   useEffect(() => {
     if (!organizationId) {
@@ -199,7 +214,7 @@ export function PurchaseOrderForm({ initialOrder }: PurchaseOrderFormProps) {
         ? await apiRequest<PurchaseOrder>(`/purchase-orders/${initialOrder.id}`, { method: "PATCH", body })
         : await apiRequest<PurchaseOrder>("/purchase-orders", { method: "POST", body });
 
-      router.push(`/purchases/purchase-orders/${order.id}`);
+      router.push(returnTo || `/purchases/purchase-orders/${order.id}`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to save purchase order.");
     } finally {
@@ -374,7 +389,7 @@ export function PurchaseOrderForm({ initialOrder }: PurchaseOrderFormProps) {
       </div>
 
       <div className="flex justify-end gap-3">
-        <Link href="/purchases/purchase-orders" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <Link href={returnTo || "/purchases/purchase-orders"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           Cancel
         </Link>
         <button type="submit" disabled={submitting || !organizationId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">

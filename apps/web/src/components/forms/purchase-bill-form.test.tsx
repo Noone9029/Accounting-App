@@ -71,11 +71,12 @@ describe("PurchaseBillForm", () => {
   });
 
   it("prefills the supplier from the new-bill route query string", async () => {
-    window.history.pushState({}, "", "/purchases/bills/new?supplierId=supplier-2");
+    window.history.pushState({}, "", "/purchases/bills/new?supplierId=supplier-2&returnTo=/suppliers/supplier-2");
 
     render(<PurchaseBillForm />);
 
     await waitFor(() => expect(screen.getByLabelText("Supplier")).toHaveValue("supplier-2"));
+    expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/suppliers/supplier-2");
   });
 });
 

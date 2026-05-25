@@ -8,6 +8,7 @@ import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { bankAccountOptionLabel } from "@/lib/bank-accounts";
 import { calculateInvoicePreview, formatMoneyAmount } from "@/lib/money";
+import { safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, BankAccountSummary, Branch, CashExpense, Contact, Item, TaxRate } from "@/lib/types";
 
 interface CashExpenseLineState {
@@ -57,6 +58,7 @@ export function CashExpenseForm() {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [returnTo, setReturnTo] = useState("");
 
   const supplierContacts = contacts.filter((contact) => contact.isActive && (contact.type === "SUPPLIER" || contact.type === "BOTH"));
   const paidThroughAccounts = accounts.filter((account) => account.isActive && account.allowPosting && account.type === "ASSET");
@@ -80,6 +82,19 @@ export function CashExpenseForm() {
       ),
     [activePurchaseTaxRates, lines],
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const query = new URLSearchParams(window.location.search);
+    const querySupplierId = query.get("supplierId") ?? "";
+    if (querySupplierId) {
+      setContactId(querySupplierId);
+    }
+    setReturnTo(safeReturnToFromSearch(window.location.search));
+  }, []);
 
   useEffect(() => {
     if (!organizationId) {
@@ -186,7 +201,7 @@ export function CashExpenseForm() {
         },
       });
 
-      router.push(`/purchases/cash-expenses/${expense.id}`);
+      router.push(returnTo || `/purchases/cash-expenses/${expense.id}`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to post cash expense.");
     } finally {
@@ -338,7 +353,7 @@ export function CashExpenseForm() {
       </div>
 
       <div className="flex justify-end gap-3">
-        <Link href="/purchases/cash-expenses" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <Link href={returnTo || "/purchases/cash-expenses"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           Cancel
         </Link>
         <button type="submit" disabled={submitting || !organizationId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">

@@ -1,13 +1,17 @@
 import {
+  buildPartyTransactionHref,
   customerDetailPath,
   customersPath,
+  filterPartySummaries,
   filterPartyTransactions,
+  partyDetailHref,
   partyTransactionActionHref,
   partyTransactionsCsv,
+  safeReturnToFromSearch,
   supplierDetailPath,
   suppliersPath,
 } from "./parties";
-import type { PartyTransaction } from "./types";
+import type { CustomerPartySummary, PartyTransaction, SupplierPartySummary } from "./types";
 
 describe("party API paths", () => {
   it("builds dedicated customer and supplier API paths", () => {
@@ -20,6 +24,33 @@ describe("party API paths", () => {
   it("rejects missing detail ids", () => {
     expect(() => customerDetailPath(" ")).toThrow("customerId is required.");
     expect(() => supplierDetailPath(" ")).toThrow("supplierId is required.");
+  });
+
+  it("builds party context transaction links with safe return targets", () => {
+    expect(partyDetailHref("customer", "customer 1")).toBe("/customers/customer%201");
+    expect(buildPartyTransactionHref("/sales/invoices/new", "customer", "customer-1")).toBe(
+      "/sales/invoices/new?customerId=customer-1&returnTo=%2Fcustomers%2Fcustomer-1",
+    );
+    expect(buildPartyTransactionHref("/purchases/bills/new", "supplier", "supplier-1", { billId: "bill-1" })).toBe(
+      "/purchases/bills/new?supplierId=supplier-1&returnTo=%2Fsuppliers%2Fsupplier-1&billId=bill-1",
+    );
+    expect(safeReturnToFromSearch("?returnTo=/customers/customer-1")).toBe("/customers/customer-1");
+    expect(safeReturnToFromSearch("?returnTo=https://example.test")).toBe("");
+    expect(safeReturnToFromSearch("?returnTo=//example.test")).toBe("");
+  });
+});
+
+describe("party list search helpers", () => {
+  it("searches parties by contact fields, tax registration, and balances", () => {
+    const rows = [
+      partySummary("customer-1", "Alpha Trading", "alpha@example.com", "555-0101", "TRN-123", "125.0000"),
+      partySummary("customer-2", "Beta Design", "beta@example.com", "555-0202", "TRN-456", "0.0000"),
+    ];
+
+    expect(filterPartySummaries(rows, "alpha").map((row) => row.contact.id)).toEqual(["customer-1"]);
+    expect(filterPartySummaries(rows, "TRN-456").map((row) => row.contact.id)).toEqual(["customer-2"]);
+    expect(filterPartySummaries(rows, "125").map((row) => row.contact.id)).toEqual(["customer-1"]);
+    expect(filterPartySummaries(rows, "555-0202").map((row) => row.contact.id)).toEqual(["customer-2"]);
   });
 });
 
@@ -107,5 +138,39 @@ function transaction(overrides: Partial<PartyTransaction>): PartyTransaction {
     balanceDue: "115.0000",
     status: "FINALIZED",
     ...overrides,
+  };
+}
+
+function partySummary(
+  id: string,
+  name: string,
+  email: string,
+  phone: string,
+  taxNumber: string,
+  openBalance: string,
+): CustomerPartySummary | SupplierPartySummary {
+  return {
+    contact: {
+      id,
+      name,
+      displayName: name,
+      type: "CUSTOMER",
+      email,
+      phone,
+      taxNumber,
+      identificationType: null,
+      identificationNumber: null,
+      addressLine1: null,
+      addressLine2: null,
+      buildingNumber: null,
+      district: null,
+      city: null,
+      postalCode: null,
+      countryCode: "SA",
+      isActive: true,
+    },
+    openReceivableBalance: openBalance,
+    overdueReceivableBalance: "0.0000",
+    lastTransactionDate: null,
   };
 }

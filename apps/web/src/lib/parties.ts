@@ -10,6 +10,7 @@ import type {
 } from "./types";
 
 export type PartyKind = "customer" | "supplier";
+export type PartySummary = CustomerPartySummary | SupplierPartySummary;
 export type PartyTransactionStatusFilter = "ALL" | "OPEN" | "OVERDUE" | "PAID";
 
 export interface PartyTransactionFilters {
@@ -35,6 +36,37 @@ export function supplierDetailPath(supplierId: string): string {
   return `/contacts/suppliers/${encodeURIComponent(requiredId(supplierId, "supplierId"))}`;
 }
 
+export function partyDetailHref(kind: PartyKind, partyId: string): string {
+  return `/${kind === "customer" ? "customers" : "suppliers"}/${encodeURIComponent(requiredId(partyId, "partyId"))}`;
+}
+
+export function buildPartyTransactionHref(
+  basePath: string,
+  kind: PartyKind,
+  partyId: string,
+  extraParams: Record<string, string | undefined> = {},
+): string {
+  const params = new URLSearchParams();
+  params.set(kind === "customer" ? "customerId" : "supplierId", requiredId(partyId, "partyId"));
+  params.set("returnTo", partyDetailHref(kind, partyId));
+
+  for (const [key, value] of Object.entries(extraParams)) {
+    if (value) {
+      params.set(key, value);
+    }
+  }
+
+  return `${basePath}?${params.toString()}`;
+}
+
+export function safeReturnToFromSearch(search: string): string {
+  const value = new URLSearchParams(search).get("returnTo")?.trim() ?? "";
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return "";
+  }
+  return value;
+}
+
 export function listCustomers(): Promise<CustomerPartySummary[]> {
   return apiRequest<CustomerPartySummary[]>(customersPath());
 }
@@ -49,6 +81,15 @@ export function listSuppliers(): Promise<SupplierPartySummary[]> {
 
 export function getSupplier(supplierId: string): Promise<SupplierPartyDetail> {
   return apiRequest<SupplierPartyDetail>(supplierDetailPath(supplierId));
+}
+
+export function filterPartySummaries(rows: PartySummary[], query: string): PartySummary[] {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) {
+    return rows;
+  }
+
+  return rows.filter((row) => partySummarySearchText(row).includes(normalized));
 }
 
 export function filterPartyTransactions(
@@ -139,6 +180,26 @@ export function partyTransactionsCsv(transactions: PartyTransaction[]): string {
 
 export function partyStatusBadgeClass(isActive: boolean): string {
   return isActive ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600";
+}
+
+function partySummarySearchText(row: PartySummary): string {
+  const contact = row.contact;
+  const openBalance = "openReceivableBalance" in row ? row.openReceivableBalance : row.openPayableBalance;
+  const overdueBalance = "overdueReceivableBalance" in row ? row.overdueReceivableBalance : row.overduePayableBalance;
+
+  return [
+    contact.name,
+    contact.displayName,
+    contact.email,
+    contact.phone,
+    contact.taxNumber,
+    openBalance,
+    overdueBalance,
+    contact.type,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
 }
 
 function requiredId(value: string, label: string): string {

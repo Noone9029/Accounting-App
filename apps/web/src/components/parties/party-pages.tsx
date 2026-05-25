@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
@@ -10,6 +10,7 @@ import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import {
   filterPartyTransactions,
+  filterPartySummaries,
   getCustomer,
   getSupplier,
   listCustomers,
@@ -22,8 +23,9 @@ import {
   type PartyTransactionFilters,
   type PartyTransactionStatusFilter,
 } from "@/lib/parties";
-import { PERMISSIONS, type Permission } from "@/lib/permissions";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { Contact, CustomerPartyDetail, CustomerPartySummary, PartyTransaction, SupplierPartyDetail, SupplierPartySummary } from "@/lib/types";
+import { PartyNewTransactionMenu } from "./party-new-transaction-menu";
 
 type PartySummary = CustomerPartySummary | SupplierPartySummary;
 type PartyDetail = CustomerPartyDetail | SupplierPartyDetail;
@@ -39,9 +41,11 @@ const defaultFilters: PartyTransactionFilters = {
 export function PartyListPage({ kind }: { kind: PartyKind }) {
   const organizationId = useActiveOrganizationId();
   const [rows, setRows] = useState<PartySummary[]>([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const copy = partyCopy(kind);
+  const filteredRows = useMemo(() => filterPartySummaries(rows, search), [rows, search]);
 
   useEffect(() => {
     if (!organizationId) {
@@ -99,11 +103,32 @@ export function PartyListPage({ kind }: { kind: PartyKind }) {
       </div>
 
       {rows.length > 0 ? (
+        <div className="mt-5 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">Search {copy.pluralLower}</span>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={`Search ${copy.pluralLower} by name, email, phone, TRN, or balance`}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm focus:ring-2 focus:ring-palm/20"
+            />
+          </label>
+        </div>
+      ) : null}
+
+      {rows.length > 0 && filteredRows.length === 0 ? (
+        <div className="mt-5">
+          <StatusMessage type="empty">No matching {copy.pluralLower} found.</StatusMessage>
+        </div>
+      ) : null}
+
+      {filteredRows.length > 0 ? (
         <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[980px] text-left text-sm">
+          <table className="w-full min-w-[1040px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">{copy.singularTitle}</th>
+                <th className="px-4 py-3">Type</th>
                 <th className="px-4 py-3">Email / phone</th>
                 <th className="px-4 py-3">{copy.openLabel}</th>
                 <th className="px-4 py-3">{copy.overdueLabel}</th>
@@ -113,9 +138,10 @@ export function PartyListPage({ kind }: { kind: PartyKind }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {rows.map((row) => (
+              {filteredRows.map((row) => (
                 <tr key={row.contact.id}>
                   <td className="px-4 py-3 font-medium text-ink">{displayName(row.contact)}</td>
+                  <td className="px-4 py-3 text-steel">{copy.singularTitle}</td>
                   <td className="px-4 py-3 text-steel">{contactReach(row.contact)}</td>
                   <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(openBalance(row), "SAR")}</td>
                   <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(overdueBalance(row), "SAR")}</td>
@@ -141,7 +167,7 @@ export function PartyListPage({ kind }: { kind: PartyKind }) {
 export function PartyDetailPage({ kind }: { kind: PartyKind }) {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
-  const { can } = usePermissions();
+  const { activeMembership, can } = usePermissions();
   const [detail, setDetail] = useState<PartyDetail | null>(null);
   const [activeTab, setActiveTab] = useState<PartyTab>("transactions");
   const [filters, setFilters] = useState<PartyTransactionFilters>(defaultFilters);
@@ -239,7 +265,14 @@ export function PartyDetailPage({ kind }: { kind: PartyKind }) {
                   <div className="mt-2 text-sm leading-6 text-steel">{contactReach(detail.contact)}</div>
                   <div className="mt-2 text-sm leading-6 text-steel">{billingAddress(detail.contact)}</div>
                 </div>
-                <QuickActions contactId={detail.contact.id} kind={kind} canCreate={can} />
+                <div className="flex flex-wrap gap-2 md:justify-end">
+                  <PartyNewTransactionMenu partyId={detail.contact.id} partyType={kind} userPermissions={activeMembership} />
+                  {can(PERMISSIONS.contacts.manage) ? (
+                    <Link href={`/contacts/${detail.contact.id}`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                      Edit {copy.singularLower}
+                    </Link>
+                  ) : null}
+                </div>
               </div>
             </div>
 
@@ -370,28 +403,6 @@ function PartyTransactionsTable({ transactions, emptyLabel }: { transactions: Pa
   );
 }
 
-function QuickActions({ contactId, kind, canCreate }: { contactId: string; kind: PartyKind; canCreate: (permission: Permission) => boolean }) {
-  if (kind === "customer") {
-    return (
-      <div className="flex flex-wrap gap-2 md:justify-end">
-        {canCreate(PERMISSIONS.salesInvoices.create) ? <ActionLink href={`/sales/invoices/new?customerId=${contactId}`}>New invoice</ActionLink> : null}
-        {canCreate(PERMISSIONS.customerPayments.create) ? <ActionLink href={`/sales/customer-payments/new?customerId=${contactId}`}>Receive payment</ActionLink> : null}
-        <DisabledAction label="Create estimate" reason="Estimates are not enabled yet." />
-        {canCreate(PERMISSIONS.contacts.manage) ? <ActionLink href={`/contacts/${contactId}`}>Edit customer</ActionLink> : null}
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-wrap gap-2 md:justify-end">
-      {canCreate(PERMISSIONS.purchaseBills.create) ? <ActionLink href={`/purchases/bills/new?supplierId=${contactId}`}>New bill</ActionLink> : null}
-      {canCreate(PERMISSIONS.cashExpenses.create) ? <ActionLink href={`/purchases/cash-expenses/new?supplierId=${contactId}`}>Record expense</ActionLink> : null}
-      {canCreate(PERMISSIONS.supplierPayments.create) ? <ActionLink href={`/purchases/supplier-payments/new?supplierId=${contactId}`}>Pay bills</ActionLink> : null}
-      {canCreate(PERMISSIONS.contacts.manage) ? <ActionLink href={`/contacts/${contactId}`}>Edit supplier</ActionLink> : null}
-    </div>
-  );
-}
-
 function PartyDetails({ contact, kind }: { contact: Contact; kind: PartyKind }) {
   return (
     <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
@@ -431,22 +442,6 @@ function BalanceLine({ label, value, emphasized = false }: { label: string; valu
 
 function StatusBadge({ isActive }: { isActive: boolean }) {
   return <span className={`rounded-md px-2 py-1 text-xs font-medium ${partyStatusBadgeClass(isActive)}`}>{isActive ? "Active" : "Inactive"}</span>;
-}
-
-function ActionLink({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <Link href={href} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-      {children}
-    </Link>
-  );
-}
-
-function DisabledAction({ label, reason }: { label: string; reason: string }) {
-  return (
-    <button type="button" disabled title={reason} className="cursor-not-allowed rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-400">
-      {label}
-    </button>
-  );
 }
 
 function Summary({ label, value }: { label: string; value: string }) {

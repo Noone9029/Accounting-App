@@ -71,11 +71,12 @@ describe("SalesInvoiceForm", () => {
   });
 
   it("prefills the customer from the new-invoice route query string", async () => {
-    window.history.pushState({}, "", "/sales/invoices/new?customerId=customer-2");
+    window.history.pushState({}, "", "/sales/invoices/new?customerId=customer-2&returnTo=/customers/customer-2");
 
     render(<SalesInvoiceForm />);
 
     await waitFor(() => expect(screen.getByLabelText("Customer")).toHaveValue("customer-2"));
+    expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/customers/customer-2");
   });
 });
 

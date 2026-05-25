@@ -7,6 +7,7 @@ import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { calculateInvoicePreview, formatMoneyAmount } from "@/lib/money";
+import { safeReturnToFromSearch } from "@/lib/parties";
 import { purchaseBillAccountantReviewWarning, purchaseBillInventoryClearingModeWarning, purchaseBillInventoryPostingModeLabel } from "@/lib/purchase-bills";
 import type { Account, Branch, Contact, Item, PurchaseBill, PurchaseBillInventoryPostingMode, TaxRate } from "@/lib/types";
 
@@ -79,6 +80,7 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [returnTo, setReturnTo] = useState("");
 
   const postingPurchaseAccounts = accounts.filter(
     (account) =>
@@ -111,6 +113,7 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
     if (querySupplierId) {
       setSupplierId(querySupplierId);
     }
+    setReturnTo(safeReturnToFromSearch(window.location.search));
   }, [initialBill, initialSupplierId]);
 
   useEffect(() => {
@@ -217,7 +220,7 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
         ? await apiRequest<PurchaseBill>(`/purchase-bills/${initialBill.id}`, { method: "PATCH", body })
         : await apiRequest<PurchaseBill>("/purchase-bills", { method: "POST", body });
 
-      router.push(`/purchases/bills/${bill.id}`);
+      router.push(returnTo || `/purchases/bills/${bill.id}`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to save purchase bill.");
     } finally {
@@ -391,7 +394,7 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
       </div>
 
       <div className="flex justify-end gap-3">
-        <Link href="/purchases/bills" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <Link href={returnTo || "/purchases/bills"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           Cancel
         </Link>
         <button type="submit" disabled={submitting || !organizationId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">

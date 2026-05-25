@@ -14,6 +14,7 @@ import {
   validateCustomerRefundAmount,
 } from "@/lib/customer-refunds";
 import { formatMoneyAmount, parseDecimalToUnits } from "@/lib/money";
+import { safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, BankAccountSummary, Contact, CustomerRefund, CustomerRefundSourceType, CustomerRefundableSources } from "@/lib/types";
 
 function todayInputValue(): string {
@@ -38,6 +39,7 @@ export default function NewCustomerRefundPage() {
   const [loadingSources, setLoadingSources] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [returnTo, setReturnTo] = useState("");
 
   const paidFromAccounts = useMemo(
     () => accounts.filter((account) => account.isActive && account.allowPosting && account.type === "ASSET"),
@@ -60,6 +62,7 @@ export default function NewCustomerRefundPage() {
       setSourceType(requestedSourceType);
     }
     setSourceId(params.get("sourcePaymentId") ?? params.get("sourceCreditNoteId") ?? "");
+    setReturnTo(safeReturnToFromSearch(window.location.search));
   }, []);
 
   useEffect(() => {
@@ -178,7 +181,7 @@ export default function NewCustomerRefundPage() {
       }
 
       const refund = await apiRequest<CustomerRefund>("/customer-refunds", { method: "POST", body });
-      router.push(`/sales/customer-refunds/${refund.id}`);
+      router.push(returnTo || `/sales/customer-refunds/${refund.id}`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to record customer refund.");
     } finally {
@@ -193,7 +196,7 @@ export default function NewCustomerRefundPage() {
           <h1 className="text-2xl font-semibold text-ink">Record customer refund</h1>
           <p className="mt-1 text-sm text-steel">Refund unapplied customer credit manually. No payment gateway refund is created.</p>
         </div>
-        <Link href="/sales/customer-refunds" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <Link href={returnTo || "/sales/customer-refunds"} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           Back
         </Link>
       </div>
@@ -280,7 +283,7 @@ export default function NewCustomerRefundPage() {
           <button type="submit" disabled={!organizationId || loadingSetup || loadingSources || submitting || !selectedSource} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
             {submitting ? "Recording..." : "Record refund"}
           </button>
-          <Link href="/sales/customer-refunds" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <Link href={returnTo || "/sales/customer-refunds"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Cancel
           </Link>
         </div>

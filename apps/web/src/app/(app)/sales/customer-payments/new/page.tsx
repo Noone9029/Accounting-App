@@ -10,6 +10,7 @@ import { bankAccountOptionLabel } from "@/lib/bank-accounts";
 import { customerPaymentAllocationStateBadgeClass, customerPaymentAllocationStateLabel, type CustomerPaymentAllocationState } from "@/lib/customer-payments";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { calculatePaymentAllocationPreview, formatMoneyAmount, parseDecimalToUnits } from "@/lib/money";
+import { safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, BankAccountSummary, Contact, CustomerPayment, OpenSalesInvoice } from "@/lib/types";
 
 interface AllocationState {
@@ -39,6 +40,7 @@ export default function NewCustomerPaymentPage() {
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [returnTo, setReturnTo] = useState("");
 
   const paidThroughAccounts = useMemo(
     () => accounts.filter((account) => account.isActive && account.allowPosting && account.type === "ASSET"),
@@ -70,6 +72,7 @@ export default function NewCustomerPaymentPage() {
     const invoice = params.get("invoiceId") ?? "";
     setCustomerId(customer);
     setPrefilledInvoiceId(invoice);
+    setReturnTo(safeReturnToFromSearch(window.location.search));
   }, []);
 
   useEffect(() => {
@@ -196,7 +199,7 @@ export default function NewCustomerPaymentPage() {
           allocations: allocationsToSubmit,
         },
       });
-      router.push(`/sales/customer-payments/${payment.id}?recorded=1`);
+      router.push(returnTo || `/sales/customer-payments/${payment.id}?recorded=1`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to record customer payment.");
     } finally {
@@ -217,7 +220,7 @@ export default function NewCustomerPaymentPage() {
           <Link href="/setup" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
             Guided setup
           </Link>
-          <Link href="/sales/customer-payments" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <Link href={returnTo || "/sales/customer-payments"} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
             Back
           </Link>
         </div>
@@ -361,7 +364,7 @@ export default function NewCustomerPaymentPage() {
           <button type="submit" disabled={!organizationId || loadingSetup || loadingInvoices || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
             {submitting ? "Recording..." : "Record payment"}
           </button>
-          <Link href="/sales/customer-payments" className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <Link href={returnTo || "/sales/customer-payments"} className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
             Cancel
           </Link>
         </div>

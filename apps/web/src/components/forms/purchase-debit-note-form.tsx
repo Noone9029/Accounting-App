@@ -7,6 +7,7 @@ import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { calculateInvoicePreview, formatMoneyAmount } from "@/lib/money";
+import { safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, Branch, Contact, Item, PurchaseBill, PurchaseDebitNote, TaxRate } from "@/lib/types";
 
 interface PurchaseDebitNoteLineState {
@@ -77,6 +78,7 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [returnTo, setReturnTo] = useState("");
 
   const postingPurchaseAccounts = accounts.filter(
     (account) =>
@@ -102,17 +104,18 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
   );
 
   useEffect(() => {
-    if (initialDebitNote || initialSupplierId || initialBillId || typeof window === "undefined") {
+    if (initialDebitNote || typeof window === "undefined") {
       return;
     }
 
     const query = new URLSearchParams(window.location.search);
     const querySupplierId = query.get("supplierId") ?? "";
     const queryBillId = query.get("billId") ?? "";
-    if (querySupplierId) {
+    setReturnTo(safeReturnToFromSearch(window.location.search));
+    if (!initialSupplierId && querySupplierId) {
       setSupplierId(querySupplierId);
     }
-    if (queryBillId) {
+    if (!initialBillId && queryBillId) {
       setOriginalBillId(queryBillId);
     }
   }, [initialBillId, initialDebitNote, initialSupplierId]);
@@ -228,7 +231,7 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
         ? await apiRequest<PurchaseDebitNote>(`/purchase-debit-notes/${initialDebitNote.id}`, { method: "PATCH", body })
         : await apiRequest<PurchaseDebitNote>("/purchase-debit-notes", { method: "POST", body });
 
-      router.push(`/purchases/debit-notes/${debitNote.id}`);
+      router.push(returnTo || `/purchases/debit-notes/${debitNote.id}`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to save debit note.");
     } finally {
@@ -384,7 +387,7 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
         <button type="submit" disabled={!organizationId || loading || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
           {submitting ? "Saving..." : initialDebitNote ? "Save draft debit note" : "Create draft debit note"}
         </button>
-        <Link href="/purchases/debit-notes" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <Link href={returnTo || "/purchases/debit-notes"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           Cancel
         </Link>
       </div>

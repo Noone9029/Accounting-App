@@ -7,6 +7,7 @@ import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { calculateInvoicePreview, formatMoneyAmount } from "@/lib/money";
+import { safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, Branch, Contact, CreditNote, Item, SalesInvoice, TaxRate } from "@/lib/types";
 
 interface CreditNoteLineState {
@@ -81,6 +82,7 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [returnTo, setReturnTo] = useState("");
 
   const postingRevenueAccounts = accounts.filter((account) => account.isActive && account.allowPosting && account.type === "REVENUE");
   const activeSalesTaxRates = taxRates.filter((taxRate) => taxRate.isActive && (taxRate.scope === "SALES" || taxRate.scope === "BOTH"));
@@ -101,17 +103,18 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
   );
 
   useEffect(() => {
-    if (initialCreditNote || initialCustomerId || initialInvoiceId || typeof window === "undefined") {
+    if (initialCreditNote || typeof window === "undefined") {
       return;
     }
 
     const query = new URLSearchParams(window.location.search);
     const queryCustomerId = query.get("customerId") ?? "";
     const queryInvoiceId = query.get("invoiceId") ?? "";
-    if (queryCustomerId) {
+    setReturnTo(safeReturnToFromSearch(window.location.search));
+    if (!initialCustomerId && queryCustomerId) {
       setCustomerId(queryCustomerId);
     }
-    if (queryInvoiceId) {
+    if (!initialInvoiceId && queryInvoiceId) {
       setOriginalInvoiceId(queryInvoiceId);
     }
   }, [initialCreditNote, initialCustomerId, initialInvoiceId]);
@@ -227,7 +230,7 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
         ? await apiRequest<CreditNote>(`/credit-notes/${initialCreditNote.id}`, { method: "PATCH", body })
         : await apiRequest<CreditNote>("/credit-notes", { method: "POST", body });
 
-      router.push(`/sales/credit-notes/${creditNote.id}`);
+      router.push(returnTo || `/sales/credit-notes/${creditNote.id}`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to save credit note.");
     } finally {
@@ -383,7 +386,7 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
         <button type="submit" disabled={!organizationId || loading || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
           {submitting ? "Saving..." : initialCreditNote ? "Save draft credit note" : "Create draft credit note"}
         </button>
-        <Link href="/sales/credit-notes" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <Link href={returnTo || "/sales/credit-notes"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           Cancel
         </Link>
       </div>
