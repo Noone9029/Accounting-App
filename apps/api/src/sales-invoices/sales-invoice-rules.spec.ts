@@ -5,7 +5,7 @@ import {
   assertFinalizableSalesInvoice,
   calculateSalesInvoiceTotals,
 } from "@ledgerbyte/accounting-core";
-import { DocumentType } from "@prisma/client";
+import { DocumentType, SalesInvoiceStatus } from "@prisma/client";
 import { buildSalesInvoiceJournalLines } from "./sales-invoice-accounting";
 import { SalesInvoiceService } from "./sales-invoice.service";
 import { ItemService } from "../items/item.service";
@@ -467,6 +467,62 @@ describe("sales invoice rules", () => {
     prisma.account.findMany.mockResolvedValue([{ id: "account-1" }]);
     prisma.taxRate.findMany.mockResolvedValueOnce([]);
     await expect(service.create("org-1", "user-1", { customerId: "customer-1", issueDate: new Date().toISOString(), lines: [{ ...baseLine, taxRateId: "other-tax" }] })).rejects.toThrow();
+  });
+
+  it("lists only finalized open invoices for a customer in the active organization", async () => {
+    const openInvoices = [
+      {
+        id: "invoice-1",
+        invoiceNumber: "INV-000001",
+        issueDate: new Date("2026-05-21T00:00:00.000Z"),
+        dueDate: null,
+        currency: "SAR",
+        total: "115.0000",
+        balanceDue: "40.0000",
+        customerId: "customer-1",
+      },
+    ];
+    const prisma = {
+      salesInvoice: {
+        findMany: jest.fn().mockResolvedValue(openInvoices),
+      },
+    };
+    const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, { reverse: jest.fn() } as never);
+
+    await expect(service.open("org-1", " customer-1 ")).resolves.toBe(openInvoices);
+
+    expect(prisma.salesInvoice.findMany).toHaveBeenCalledWith({
+      where: {
+        organizationId: "org-1",
+        customerId: "customer-1",
+        status: SalesInvoiceStatus.FINALIZED,
+        balanceDue: { gt: 0 },
+      },
+      orderBy: { issueDate: "asc" },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        issueDate: true,
+        dueDate: true,
+        currency: true,
+        total: true,
+        balanceDue: true,
+        customerId: true,
+      },
+    });
+  });
+
+  it("rejects missing or blank open invoice customer filters", () => {
+    const prisma = {
+      salesInvoice: {
+        findMany: jest.fn(),
+      },
+    };
+    const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, { reverse: jest.fn() } as never);
+
+    expect(() => service.open("org-1")).toThrow("customerId is required.");
+    expect(() => service.open("org-1", "   ")).toThrow("customerId is required.");
+    expect(prisma.salesInvoice.findMany).not.toHaveBeenCalled();
   });
 
   it("supports item creation without sales tax and protects used items", async () => {

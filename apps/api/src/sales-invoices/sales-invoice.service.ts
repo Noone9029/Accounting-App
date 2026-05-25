@@ -168,14 +168,15 @@ export class SalesInvoiceService {
   }
 
   open(organizationId: string, customerId?: string) {
-    if (!customerId) {
+    const targetCustomerId = customerId?.trim();
+    if (!targetCustomerId) {
       throw new BadRequestException("customerId is required.");
     }
 
     return this.prisma.salesInvoice.findMany({
       where: {
         organizationId,
-        customerId,
+        customerId: targetCustomerId,
         status: SalesInvoiceStatus.FINALIZED,
         balanceDue: { gt: 0 },
       },
