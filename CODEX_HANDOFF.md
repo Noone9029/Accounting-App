@@ -1043,3 +1043,22 @@
 ## Next Thread Prompt
 
 `DEV-08 Part 7: supplier payment unapplied allocation preflight`
+
+## DEV-08 Part 7 - Supplier Payment Unapplied Allocation Preflight Completed
+
+- DEV-08 Part 7 read-only preflight is recorded in [docs/development/DEV_08_SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION_PREFLIGHT.md](docs/development/DEV_08_SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION_PREFLIGHT.md).
+- Mutation performed: no. `SupplierPaymentService.applyUnapplied(...)` was not called, and no supplier payment unapplied allocation, supplier payment creation, allocation reversal, supplier payment void, purchase bill mutation, purchase bill void, supplier refund, debit note, purchase order, purchase receipt, cash expense, stock movement, generated document, PDF/archive/export/download, email, ZATCA, migration, seed/reset/delete, deployment, environment/provider/schema change, production, beta, shared-target, customer-data, or login/browser flow ran.
+- Current supplier payment state: `PAY-000006`, safe id prefix `622ad0b6`, remains `POSTED`, amount paid `500.0000`, unapplied amount `200.0000`, paid-through account `112` safe prefix `32ab6f4d`, journal `JE-000050`, and no void reversal journal.
+- Current bill state: `BILL-000007`, safe id prefix `d81ddd60`, remains `FINALIZED`, total `1150.0000`, balance due `850.0000`, no reversal journal, and no purchase debit-note allocation.
+- Current allocation state: exactly one direct `SupplierPaymentAllocation` remains for `300.0000`, safe id prefix `6ec44d14`; no `SupplierPaymentUnappliedAllocation` exists yet for this fixture.
+- Planned Part 8 allocation: apply exactly `200.0000` from `PAY-000006` to `BILL-000007` with DTO `{ billId, amountApplied: "200.0000" }`.
+- Expected payment/bill/allocation effects: supplier payment remains `POSTED`, unapplied amount changes `200.0000 -> 0.0000`, bill remains `FINALIZED`, balance due changes `850.0000 -> 650.0000`, direct allocation remains unchanged, and one active `SupplierPaymentUnappliedAllocation` is created for `200.0000`.
+- Expected accounting result: no new journal entry; `JE-000049` and `JE-000050` remain posted and unchanged; `JOURNAL_ENTRY` sequence should remain next `51` if safely checkable.
+- Expected audit result: one raw `APPLY_UNAPPLIED` audit action for `SupplierPayment` because `audit-events.ts` does not currently standardize `SupplierPayment:APPLY_UNAPPLIED`; no supplier payment void, reverse-unapplied, supplier refund, purchase debit note, or purchase bill void audit is expected.
+- Forbidden side effects checked: fixture-specific generated documents, email outbox rows, supplier refunds, purchase debit notes, purchase orders, purchase receipts, stock movements, cash expenses, and cleanup/delete audit actions are all `0`; organization-level ZATCA baselines remain non-zero and must be compared before/after in Part 8.
+- Required approval phrase for Part 8: `I approve DEV-08 Part 8 local-only supplier payment unapplied allocation mutation under marker DEV08-AP-20260525T230000 for BILL-000007 and the active supplier payment unapplied amount 200.0000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08 Part 8: approved local supplier payment unapplied allocation mutation`.
+
+## Next Thread Prompt
+
+`DEV-08 Part 8: approved local supplier payment unapplied allocation mutation`
