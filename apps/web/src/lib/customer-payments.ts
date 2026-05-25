@@ -1,12 +1,58 @@
+import { apiRequest } from "./api";
 import { formatUnits, parseDecimalToUnits } from "./money";
-import type { CustomerPaymentUnappliedAllocation } from "./types";
+import type { CustomerPayment, CustomerPaymentUnappliedAllocation } from "./types";
+
+export interface ApplyCustomerPaymentUnappliedAllocationRequest {
+  invoiceId: string;
+  amountApplied: string;
+}
+
+export type ApplyCustomerPaymentUnappliedAllocationResponse = CustomerPayment;
+
+export interface ReverseCustomerPaymentUnappliedAllocationRequest {
+  reason?: string;
+}
+
+export type ReverseCustomerPaymentUnappliedAllocationResponse = CustomerPayment;
 
 export function customerPaymentUnappliedAllocationsPath(paymentId: string): string {
   return `/customer-payments/${encodeURIComponent(paymentId)}/unapplied-allocations`;
 }
 
+export function customerPaymentApplyUnappliedPath(paymentId: string): string {
+  return `/customer-payments/${encodeURIComponent(paymentId)}/apply-unapplied`;
+}
+
+export function customerPaymentReverseUnappliedAllocationPath(paymentId: string, allocationId: string): string {
+  return `/customer-payments/${encodeURIComponent(paymentId)}/unapplied-allocations/${encodeURIComponent(allocationId)}/reverse`;
+}
+
 export function salesInvoiceCustomerPaymentUnappliedAllocationsPath(invoiceId: string): string {
   return `/sales-invoices/${encodeURIComponent(invoiceId)}/customer-payment-unapplied-allocations`;
+}
+
+export function applyCustomerPaymentUnappliedAllocation(
+  paymentId: string,
+  request: ApplyCustomerPaymentUnappliedAllocationRequest,
+): Promise<ApplyCustomerPaymentUnappliedAllocationResponse> {
+  return apiRequest<ApplyCustomerPaymentUnappliedAllocationResponse>(customerPaymentApplyUnappliedPath(paymentId), {
+    method: "POST",
+    body: request,
+  });
+}
+
+export function reverseCustomerPaymentUnappliedAllocation(
+  paymentId: string,
+  allocationId: string,
+  request: ReverseCustomerPaymentUnappliedAllocationRequest = {},
+): Promise<ReverseCustomerPaymentUnappliedAllocationResponse> {
+  return apiRequest<ReverseCustomerPaymentUnappliedAllocationResponse>(
+    customerPaymentReverseUnappliedAllocationPath(paymentId, allocationId),
+    {
+      method: "POST",
+      body: request,
+    },
+  );
 }
 
 export function customerPaymentUnappliedAllocationStatusLabel(

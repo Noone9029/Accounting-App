@@ -11,9 +11,11 @@ import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
   canReverseCustomerPaymentUnappliedAllocation,
+  applyCustomerPaymentUnappliedAllocation,
   customerPaymentActiveUnappliedAppliedAmount,
   customerPaymentUnappliedAllocationStatusBadgeClass,
   customerPaymentUnappliedAllocationStatusLabel,
+  reverseCustomerPaymentUnappliedAllocation,
   validateCustomerPaymentUnappliedAllocation,
 } from "@/lib/customer-payments";
 import { formatMoneyAmount, formatUnits, parseDecimalToUnits } from "@/lib/money";
@@ -139,9 +141,9 @@ export default function CustomerPaymentDetailPage() {
     setSuccess("");
 
     try {
-      const updated = await apiRequest<CustomerPayment>(`/customer-payments/${payment.id}/apply-unapplied`, {
-        method: "POST",
-        body: { invoiceId: applyInvoiceId, amountApplied: applyAmount },
+      const updated = await applyCustomerPaymentUnappliedAllocation(payment.id, {
+        invoiceId: applyInvoiceId,
+        amountApplied: applyAmount,
       });
       setPayment(updated);
       setReceiptData(await apiRequest<CustomerPaymentReceiptData>(`/customer-payments/${payment.id}/receipt-data`));
@@ -169,10 +171,7 @@ export default function CustomerPaymentDetailPage() {
     setSuccess("");
 
     try {
-      const updated = await apiRequest<CustomerPayment>(`/customer-payments/${payment.id}/unapplied-allocations/${allocationId}/reverse`, {
-        method: "POST",
-        body: { reason },
-      });
+      const updated = await reverseCustomerPaymentUnappliedAllocation(payment.id, allocationId, { reason });
       setPayment(updated);
       setReceiptData(await apiRequest<CustomerPaymentReceiptData>(`/customer-payments/${payment.id}/receipt-data`));
       setSuccess("Unapplied payment allocation reversed.");
