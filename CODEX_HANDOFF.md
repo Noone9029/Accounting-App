@@ -885,3 +885,21 @@
 ## Next Thread Prompt
 
 `DEV-07 Part 12: AR customer payment void/reversal preflight`
+
+## DEV-07 Part 12 - AR Customer Payment Void/Reversal Preflight Completed
+
+- DEV-07 Part 12 read-only preflight is recorded in [docs/development/DEV_07_AR_CUSTOMER_PAYMENT_VOID_PREFLIGHT.md](docs/development/DEV_07_AR_CUSTOMER_PAYMENT_VOID_PREFLIGHT.md).
+- Mutation performed: no. `CustomerPaymentService.void(...)` was not called.
+- Current payment state: `PAYMENT-000001` remains `POSTED`, safe id prefix `b39f4d38`, amount received `500.0000`, unapplied amount `200.0000`, journal `JOURNAL_ENTRY-000004`, no void reversal journal, and no `voidedAt`.
+- Current invoice state: `INVOICE-000002` remains `FINALIZED`, safe id prefix `ddadfdd7`, total `1150.0000`, balance due `850.0000`, and no reversal journal.
+- Current allocation state: direct allocation remains one historical `CustomerPaymentAllocation` for `300.0000`; the `8bc99925` unapplied allocation remains reversed for `200.0000` with the Part 11 reversal reason; active unapplied allocation count is `0`.
+- Void safety result: safe if the state still matches at mutation time. Current code blocks posted refunds and active unapplied allocations, but it does not block direct allocations; it uses direct allocations to restore finalized invoice balances. Current posted refund count is `0`, active unapplied allocation count is `0`, and fiscal period count is `0`.
+- Expected future void effects: payment becomes `VOIDED`; amount received remains `500.0000`; unapplied amount remains `200.0000` by current service design; invoice balance due increases `850.0000 -> 1150.0000`; direct allocation row remains as historical data; reversed unapplied allocation remains reversed.
+- Expected accounting/audit result: create reversal journal `JOURNAL_ENTRY-000005`, mark original `JOURNAL_ENTRY-000004` as `REVERSED`, set `voidReversalJournalEntryId`, journal count `4 -> 5`, journal sequence next `5 -> 6`, and create one `CUSTOMER_PAYMENT_VOIDED` audit action.
+- Output/email/ZATCA/refund/credit-note/cleanup occurred: no. Generated documents, receipt/PDF/archive records, email outbox/provider events, ZATCA XML/signing/QR/submission artifacts, refunds, credit notes, invoice void, cleanup deletion, migrations, seed/reset/delete, deploys, environment/provider/schema changes, production/beta/shared/customer-data actions, and login/browser audit-writing flows remained absent.
+- Required approval phrase for Part 13: `I approve DEV-07 Part 13 local-only AR customer payment void/reversal mutation under marker DEV03-AR-20260524T130000 for payment PAYMENT-000001. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-07 Part 13: approved local AR customer payment void/reversal mutation`.
+
+## Next Thread Prompt
+
+`DEV-07 Part 13: approved local AR customer payment void/reversal mutation`
