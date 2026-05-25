@@ -8,6 +8,6 @@ module.exports = {
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
     "^@ledgerbyte/shared$": "<rootDir>/../../packages/shared/src/index.ts",
-    "^\\./permissions\\.js$": "<rootDir>/../../packages/shared/src/permissions.ts",
+    "^\\./(currencies|permissions|zatca-readiness)\\.js$": "<rootDir>/../../packages/shared/src/$1.ts",
   },
 };

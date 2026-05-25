@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { getJournalTotals, JournalLineInput } from "@ledgerbyte/accounting-core";
+import { DEFAULT_BASE_CURRENCY, normalizeSupportedCurrencyCode } from "@ledgerbyte/shared";
 import { AccountType, BankAccountStatus, JournalEntryStatus, NumberSequenceScope, Prisma } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
@@ -106,6 +107,7 @@ export class BankAccountService {
     if (existing) {
       throw new BadRequestException("This account already has a bank account profile.");
     }
+    const currency = this.normalizeCurrency(dto.currency, DEFAULT_BASE_CURRENCY);
 
     const profile = await this.prisma.bankAccountProfile.create({
       data: {
@@ -116,7 +118,7 @@ export class BankAccountService {
         bankName: this.cleanOptional(dto.bankName),
         accountNumberMasked: this.cleanOptional(dto.accountNumberMasked),
         ibanMasked: this.cleanOptional(dto.ibanMasked),
-        currency: (dto.currency ?? "SAR").trim().toUpperCase(),
+        currency,
         openingBalance: this.money(dto.openingBalance ?? "0.0000"),
         openingBalanceDate: dto.openingBalanceDate ? new Date(dto.openingBalanceDate) : null,
         notes: this.cleanOptional(dto.notes),
@@ -139,6 +141,8 @@ export class BankAccountService {
   async update(organizationId: string, actorUserId: string, id: string, dto: UpdateBankAccountProfileDto) {
     const existing = await this.findExisting(organizationId, id);
     this.assertOpeningBalanceCanChange(existing, dto);
+    const currency = dto.currency === undefined ? undefined : this.normalizeCurrency(dto.currency);
+    await this.assertCurrencyCanChange(existing, currency);
 
     const profile = await this.prisma.bankAccountProfile.update({
       where: { id },
@@ -148,7 +152,7 @@ export class BankAccountService {
         bankName: this.cleanNullable(dto.bankName),
         accountNumberMasked: this.cleanNullable(dto.accountNumberMasked),
         ibanMasked: this.cleanNullable(dto.ibanMasked),
-        currency: dto.currency === undefined ? undefined : dto.currency.trim().toUpperCase(),
+        currency,
         openingBalance: dto.openingBalance === undefined ? undefined : this.money(dto.openingBalance),
         openingBalanceDate:
           dto.openingBalanceDate === undefined
@@ -497,6 +501,47 @@ export class BankAccountService {
     if (nextBalance !== currentBalance || nextDate !== currentDate) {
       throw new BadRequestException("Opening balance cannot be changed after it has been posted.");
     }
+  }
+
+  private async assertCurrencyCanChange(
+    existing: {
+      organizationId: string;
+      accountId: string;
+      currency?: string | null;
+      openingBalanceJournalEntryId?: string | null;
+      openingBalancePostedAt?: Date | null;
+    },
+    nextCurrency: string | undefined,
+  ): Promise<void> {
+    if (nextCurrency === undefined || nextCurrency === (existing.currency ?? "").trim().toUpperCase()) {
+      return;
+    }
+    if (existing.openingBalanceJournalEntryId || existing.openingBalancePostedAt) {
+      throw new BadRequestException("Bank account currency cannot be changed after opening balance or transactions have been posted.");
+    }
+
+    const transactionCount = await this.prisma.journalLine.count({
+      where: {
+        organizationId: existing.organizationId,
+        accountId: existing.accountId,
+        journalEntry: { status: { in: POSTED_LEDGER_STATUSES } },
+      },
+    });
+    if (transactionCount > 0) {
+      throw new BadRequestException("Bank account currency cannot be changed after opening balance or transactions have been posted.");
+    }
+  }
+
+  private normalizeCurrency(value: string | null | undefined, fallback?: string): string {
+    const raw = value ?? fallback;
+    if (!raw?.trim()) {
+      throw new BadRequestException("Please select a currency.");
+    }
+    const currency = normalizeSupportedCurrencyCode(raw);
+    if (!currency) {
+      throw new BadRequestException("Currency must be one of the supported system currencies.");
+    }
+    return currency;
   }
 
   private sourceForEntry(entry: SourceEntry): { sourceType: string; sourceId: string | null; sourceNumber: string | null } {

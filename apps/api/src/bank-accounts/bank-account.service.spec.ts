@@ -13,7 +13,7 @@ describe("BankAccountService", () => {
         update: jest.fn(),
         count: jest.fn(),
       },
-      journalLine: { findMany: jest.fn() },
+      journalLine: { findMany: jest.fn(), count: jest.fn() },
       ...overrides,
     };
     const audit = { log: jest.fn() };
@@ -70,6 +70,22 @@ describe("BankAccountService", () => {
       }),
     );
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CREATE", entityType: "BankAccountProfile" }));
+  });
+
+  it("rejects unsupported bank account currencies on create", async () => {
+    const { service, prisma } = makeService();
+    prisma.account.findFirst.mockResolvedValue(account);
+    prisma.bankAccountProfile.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.create("org-1", "user-1", {
+        accountId: "account-1",
+        type: BankAccountType.BANK,
+        displayName: "Operating Bank",
+        currency: "SARSS",
+      }),
+    ).rejects.toThrow("Currency must be one of the supported system currencies.");
+    expect(prisma.bankAccountProfile.create).not.toHaveBeenCalled();
   });
 
   it("rejects non-asset accounts", async () => {
@@ -345,7 +361,7 @@ describe("BankAccountService", () => {
         findFirst: jest.fn().mockResolvedValue(postedProfile),
         update: jest.fn(),
       },
-      journalLine: { findMany: jest.fn().mockResolvedValue([]) },
+      journalLine: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn() },
       $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
     };
     const service = new BankAccountService(
@@ -360,6 +376,48 @@ describe("BankAccountService", () => {
     );
     await expect(service.update("org-1", "user-1", "profile-1", { openingBalance: "20.0000" })).rejects.toThrow(
       "Opening balance cannot be changed after it has been posted.",
+    );
+    expect(prisma.bankAccountProfile.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects currency changes after opening balance has been posted", async () => {
+    const postedProfile = {
+      ...profile,
+      currency: "SAR",
+      openingBalanceJournalEntryId: "journal-1",
+      openingBalancePostedAt: new Date("2026-05-02T00:00:00.000Z"),
+    };
+    const { service, prisma } = makeService();
+    prisma.bankAccountProfile.findFirst.mockResolvedValue(postedProfile);
+
+    await expect(service.update("org-1", "user-1", "profile-1", { currency: "AED" })).rejects.toThrow(
+      "Bank account currency cannot be changed after opening balance or transactions have been posted.",
+    );
+    expect(prisma.bankAccountProfile.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects currency changes after ledger transactions exist", async () => {
+    const activeProfile = {
+      ...profile,
+      currency: "SAR",
+      openingBalanceJournalEntryId: null,
+      openingBalancePostedAt: null,
+    };
+    const { service, prisma } = makeService();
+    prisma.bankAccountProfile.findFirst.mockResolvedValue(activeProfile);
+    prisma.journalLine.count.mockResolvedValue(1);
+
+    await expect(service.update("org-1", "user-1", "profile-1", { currency: "AED" })).rejects.toThrow(
+      "Bank account currency cannot be changed after opening balance or transactions have been posted.",
+    );
+    expect(prisma.journalLine.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          accountId: "account-1",
+          journalEntry: { status: { in: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] } },
+        }),
+      }),
     );
     expect(prisma.bankAccountProfile.update).not.toHaveBeenCalled();
   });
