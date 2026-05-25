@@ -22,6 +22,8 @@ const ACTION_LABELS: Record<string, string> = {
   SALES_INVOICE_FINALIZED: "Sales invoice finalized",
   SALES_INVOICE_VOIDED: "Sales invoice voided",
   CUSTOMER_PAYMENT_CREATED: "Customer payment created",
+  CUSTOMER_PAYMENT_UNAPPLIED_APPLIED: "Unapplied payment applied",
+  CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSED: "Unapplied payment allocation reversed",
   CUSTOMER_PAYMENT_VOIDED: "Customer payment voided",
   CREDIT_NOTE_CREATED: "Credit note created",
   CREDIT_NOTE_FINALIZED: "Credit note finalized",

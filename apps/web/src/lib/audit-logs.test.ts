@@ -13,6 +13,8 @@ describe("audit log helpers", () => {
   it("labels audit actions and entity types", () => {
     expect(auditActionLabel("SALES_INVOICE_FINALIZED")).toBe("Sales invoice finalized");
     expect(auditActionLabel("NUMBER_SEQUENCE_UPDATED")).toBe("Number sequence updated");
+    expect(auditActionLabel("CUSTOMER_PAYMENT_UNAPPLIED_APPLIED")).toBe("Unapplied payment applied");
+    expect(auditActionLabel("CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSED")).toBe("Unapplied payment allocation reversed");
     expect(auditActionLabel("CUSTOM_EVENT_NAME")).toBe("CUSTOM EVENT NAME");
     expect(auditEntityTypeLabel("InventoryVarianceProposal")).toBe("Inventory Variance Proposal");
     expect(auditEntityTypeLabel("NumberSequence")).toBe("Number Sequence");

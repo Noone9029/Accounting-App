@@ -1,8 +1,8 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
-import CustomerPaymentDetailPage, { CustomerPaymentReceiptArchiveState, CustomerPaymentStateDisplay, CustomerPaymentWorkflowGuidance } from "./page";
-import type { CustomerPayment, GeneratedDocument, OpenSalesInvoice } from "@/lib/types";
+import CustomerPaymentDetailPage, { CustomerPaymentAuditStatus, CustomerPaymentReceiptArchiveState, CustomerPaymentStateDisplay, CustomerPaymentWorkflowGuidance } from "./page";
+import type { AuditLogEntry, AuditLogListResponse, CustomerPayment, GeneratedDocument, OpenSalesInvoice } from "@/lib/types";
 
 const mockApiRequest = jest.fn();
 const mockPermissionCan = jest.fn();
@@ -107,6 +107,9 @@ describe("customer payment workflow guidance", () => {
       if (path === "/generated-documents?documentType=CUSTOMER_PAYMENT_RECEIPT&sourceType=CustomerPayment&sourceId=payment-1") {
         return Promise.resolve([]);
       }
+      if (path.startsWith("/audit-logs?")) {
+        return Promise.resolve(auditLogListFixture());
+      }
       if (path === "/customer-payments/payment-1/apply-unapplied") {
         return Promise.resolve(updatedPayment);
       }
@@ -172,6 +175,9 @@ describe("customer payment workflow guidance", () => {
       if (path === "/generated-documents?documentType=CUSTOMER_PAYMENT_RECEIPT&sourceType=CustomerPayment&sourceId=payment-1") {
         return Promise.resolve([]);
       }
+      if (path.startsWith("/audit-logs?")) {
+        return Promise.resolve(auditLogListFixture());
+      }
       if (path === "/customer-payments/payment-1/unapplied-allocations/unapplied-active/reverse") {
         return Promise.resolve(updatedPayment);
       }
@@ -213,6 +219,9 @@ describe("customer payment workflow guidance", () => {
       }
       if (path === "/generated-documents?documentType=CUSTOMER_PAYMENT_RECEIPT&sourceType=CustomerPayment&sourceId=payment-1") {
         return Promise.resolve([]);
+      }
+      if (path.startsWith("/audit-logs?")) {
+        return Promise.resolve(auditLogListFixture());
       }
       if (path === "/customer-payments/payment-1/unapplied-allocations/unapplied-1/reverse") {
         return Promise.reject(new Error("Cannot reverse an already reversed allocation."));
@@ -387,6 +396,71 @@ describe("customer payment workflow guidance", () => {
     expect(screen.getAllByText("Generated").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
   });
+
+  it("shows read-only audit status for payment and unapplied allocation events", () => {
+    render(
+      <CustomerPaymentAuditStatus
+        payment={paymentFixture()}
+        logs={[
+          auditLogFixture({
+            id: "audit-reverse",
+            action: "CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSED",
+            entityType: "CustomerPaymentUnappliedAllocation",
+            entityId: "unapplied-1",
+            createdAt: "2026-05-23T00:00:00.000Z",
+          }),
+          auditLogFixture({
+            id: "audit-create",
+            action: "CUSTOMER_PAYMENT_CREATED",
+            entityType: "CustomerPayment",
+            entityId: "payment-1",
+            createdAt: "2026-05-21T00:00:00.000Z",
+          }),
+        ]}
+        loading={false}
+        error=""
+        canViewAuditLogs
+      />,
+    );
+
+    expect(screen.getByText("Audit status")).toBeInTheDocument();
+    expect(screen.getByText("2 events")).toBeInTheDocument();
+    expect(screen.getAllByText("Unapplied payment allocation reversed").length).toBeGreaterThan(0);
+    expect(screen.getByText((content) => content.includes("Customer Payment Unapplied Allocation"))).toBeInTheDocument();
+    expect(screen.getByText("Customer payment created")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open audit logs" })).toHaveAttribute(
+      "href",
+      "/settings/audit-logs",
+    );
+  });
+
+  it("shows audit empty and permission states without payment mutations", () => {
+    const { rerender } = render(
+      <CustomerPaymentAuditStatus
+        payment={paymentFixture()}
+        logs={[]}
+        loading={false}
+        error=""
+        canViewAuditLogs
+      />,
+    );
+
+    expect(screen.getByText("No events")).toBeInTheDocument();
+    expect(screen.getByText("No customer payment audit entries were returned for this payment.")).toBeInTheDocument();
+
+    rerender(
+      <CustomerPaymentAuditStatus
+        payment={paymentFixture()}
+        logs={[]}
+        loading={false}
+        error=""
+        canViewAuditLogs={false}
+      />,
+    );
+
+    expect(screen.getByText("Permission required")).toBeInTheDocument();
+    expect(screen.getByText("Audit log permission is required to view customer payment audit events.")).toBeInTheDocument();
+  });
 });
 
 function paymentFixture(overrides: Partial<CustomerPayment> = {}): CustomerPayment {
@@ -482,6 +556,36 @@ function generatedDocumentFixture(overrides: Partial<GeneratedDocument> = {}): G
     status: "GENERATED",
     generatedById: "user-1",
     generatedAt: "2026-05-21T00:00:00.000Z",
+    createdAt: "2026-05-21T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function auditLogListFixture(logs: AuditLogEntry[] = [auditLogFixture()]): AuditLogListResponse {
+  return {
+    data: logs,
+    pagination: {
+      page: 1,
+      limit: 8,
+      total: logs.length,
+      hasMore: false,
+    },
+  };
+}
+
+function auditLogFixture(overrides: Partial<AuditLogEntry> = {}): AuditLogEntry {
+  return {
+    id: "audit-1",
+    organizationId: "org-1",
+    actorUserId: "user-1",
+    actorUser: { id: "user-1", name: "Accountant", email: "accountant@example.com" },
+    action: "CUSTOMER_PAYMENT_CREATED",
+    entityType: "CustomerPayment",
+    entityId: "payment-1",
+    before: null,
+    after: { paymentNumber: "CP-001" },
+    ipAddress: null,
+    userAgent: null,
     createdAt: "2026-05-21T00:00:00.000Z",
     ...overrides,
   };

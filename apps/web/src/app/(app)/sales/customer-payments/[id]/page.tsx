@@ -9,6 +9,7 @@ import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { auditActionLabel, auditEntityTypeLabel, buildAuditLogQuery } from "@/lib/audit-logs";
 import {
   canReverseCustomerPaymentUnappliedAllocation,
   applyCustomerPaymentUnappliedAllocation,
@@ -30,7 +31,18 @@ import { formatMoneyAmount, formatUnits, parseDecimalToUnits } from "@/lib/money
 import { downloadPdf, receiptPdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import { listOpenSalesInvoicesForCustomer } from "@/lib/sales-invoices";
-import type { CustomerPayment, CustomerPaymentReceiptData, GeneratedDocument, OpenSalesInvoice } from "@/lib/types";
+import type {
+  AuditLogEntry,
+  AuditLogListResponse,
+  CustomerPayment,
+  CustomerPaymentReceiptData,
+  GeneratedDocument,
+  OpenSalesInvoice,
+} from "@/lib/types";
+
+const PAYMENT_AUDIT_LOG_LIMIT = "8";
+const ALLOCATION_AUDIT_LOG_LIMIT = "2";
+const MAX_ALLOCATION_AUDIT_LOOKUPS = 10;
 
 export default function CustomerPaymentDetailPage() {
   const params = useParams<{ id: string }>();
@@ -43,16 +55,20 @@ export default function CustomerPaymentDetailPage() {
   const [applyAmount, setApplyAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingReceiptDocuments, setLoadingReceiptDocuments] = useState(false);
+  const [loadingAuditLogs, setLoadingAuditLogs] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [receiptDocumentError, setReceiptDocumentError] = useState("");
+  const [auditLogError, setAuditLogError] = useState("");
   const [reverseAllocationId, setReverseAllocationId] = useState("");
   const [reverseReason, setReverseReason] = useState("");
   const [success, setSuccess] = useState("");
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [wasJustRecorded, setWasJustRecorded] = useState(false);
   const canCreatePayment = can(PERMISSIONS.customerPayments.create);
   const canVoidPaymentPermission = can(PERMISSIONS.customerPayments.void);
   const canViewGeneratedDocuments = can(PERMISSIONS.generatedDocuments.view);
+  const canViewAuditLogs = can(PERMISSIONS.auditLogs.view);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -127,6 +143,41 @@ export default function CustomerPaymentDetailPage() {
       cancelled = true;
     };
   }, [canViewGeneratedDocuments, organizationId, payment?.id]);
+
+  useEffect(() => {
+    if (!organizationId || !payment?.id || !canViewAuditLogs) {
+      setAuditLogs([]);
+      setAuditLogError("");
+      setLoadingAuditLogs(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingAuditLogs(true);
+    setAuditLogError("");
+
+    loadPaymentAuditLogs(payment)
+      .then((logs) => {
+        if (!cancelled) {
+          setAuditLogs(logs);
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (!cancelled) {
+          setAuditLogs([]);
+          setAuditLogError(loadError instanceof Error ? loadError.message : "Unable to load payment audit status.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingAuditLogs(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canViewAuditLogs, organizationId, payment]);
 
   useEffect(() => {
     if (!organizationId || !payment || payment.status !== "POSTED" || parseDecimalToUnits(payment.unappliedAmount) <= 0 || !canCreatePayment) {
@@ -360,6 +411,14 @@ export default function CustomerPaymentDetailPage() {
             loading={loadingReceiptDocuments}
             error={receiptDocumentError}
             canViewGeneratedDocuments={canViewGeneratedDocuments}
+          />
+
+          <CustomerPaymentAuditStatus
+            payment={payment}
+            logs={auditLogs}
+            loading={loadingAuditLogs}
+            error={auditLogError}
+            canViewAuditLogs={canViewAuditLogs}
           />
 
           <div className="rounded-md border border-slate-200 bg-white shadow-panel">
@@ -741,6 +800,82 @@ export function CustomerPaymentReceiptArchiveState({
   );
 }
 
+export function CustomerPaymentAuditStatus({
+  payment,
+  logs,
+  loading,
+  error,
+  canViewAuditLogs,
+}: {
+  payment: CustomerPayment;
+  logs: AuditLogEntry[];
+  loading: boolean;
+  error: string;
+  canViewAuditLogs: boolean;
+}) {
+  const latestLog = logs[0];
+  const auditHref = customerPaymentAuditHref();
+  const badge = auditStatusBadge(logs, loading, error, canViewAuditLogs);
+
+  return (
+    <section className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-ink">Audit status</h2>
+          <p className="mt-1 text-sm text-steel">
+            {latestLog ? `${auditActionLabel(latestLog.action)} on ${new Date(latestLog.createdAt).toLocaleString()}` : "Payment audit trail status."}
+          </p>
+        </div>
+        <span className={`self-start rounded-md px-2 py-1 text-xs font-semibold ${badge.className}`}>{badge.label}</span>
+      </div>
+
+      <div className="mt-4">
+        {!canViewAuditLogs ? (
+          <StatusMessage type="info">Audit log permission is required to view customer payment audit events.</StatusMessage>
+        ) : loading ? (
+          <StatusMessage type="loading">Loading payment audit status...</StatusMessage>
+        ) : error ? (
+          <StatusMessage type="info">Payment audit status is unavailable: {error}</StatusMessage>
+        ) : logs.length === 0 ? (
+          <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
+            <StatusMessage type="empty">No customer payment audit entries were returned for this payment.</StatusMessage>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                <tr>
+                  <th className="px-4 py-3">Event</th>
+                  <th className="px-4 py-3">Scope</th>
+                  <th className="px-4 py-3">Actor</th>
+                  <th className="px-4 py-3">Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {logs.map((log) => (
+                  <tr key={log.id}>
+                    <td className="px-4 py-3 font-medium text-ink">{auditActionLabel(log.action)}</td>
+                    <td className="px-4 py-3 text-steel">
+                      {auditEntityTypeLabel(log.entityType)} / <span className="font-mono text-xs">{log.entityId}</span>
+                    </td>
+                    <td className="px-4 py-3 text-steel">{auditActorLabel(log)}</td>
+                    <td className="px-4 py-3 text-steel">{new Date(log.createdAt).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="mt-3">
+              <Link href={auditHref} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Open audit logs
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function CustomerPaymentWorkflowGuidance({
   payment,
   recorded,
@@ -899,6 +1034,62 @@ function loadReceiptDocuments(paymentId: string): Promise<GeneratedDocument[]> {
     sourceId: paymentId,
   });
   return apiRequest<GeneratedDocument[]>(`/generated-documents?${query.toString()}`);
+}
+
+async function loadPaymentAuditLogs(payment: CustomerPayment): Promise<AuditLogEntry[]> {
+  const paymentAuditPath = buildAuditLogQuery({
+    entityType: "CustomerPayment",
+    entityId: payment.id,
+    limit: PAYMENT_AUDIT_LOG_LIMIT,
+  });
+  const allocationAuditPaths = (payment.unappliedAllocations ?? [])
+    .slice(0, MAX_ALLOCATION_AUDIT_LOOKUPS)
+    .map((allocation) =>
+      buildAuditLogQuery({
+        entityType: "CustomerPaymentUnappliedAllocation",
+        entityId: allocation.id,
+        limit: ALLOCATION_AUDIT_LOG_LIMIT,
+      }),
+    );
+
+  const responses = await Promise.all(
+    [paymentAuditPath, ...allocationAuditPaths].map((path) => apiRequest<AuditLogListResponse>(path)),
+  );
+  const uniqueLogs = new Map<string, AuditLogEntry>();
+  responses.flatMap((response) => response.data).forEach((log) => uniqueLogs.set(log.id, log));
+
+  return Array.from(uniqueLogs.values())
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+    .slice(0, Number(PAYMENT_AUDIT_LOG_LIMIT));
+}
+
+function auditActorLabel(log: AuditLogEntry): string {
+  return log.actorUser?.name ?? log.actorUser?.email ?? "System";
+}
+
+function customerPaymentAuditHref(): string {
+  return "/settings/audit-logs";
+}
+
+function auditStatusBadge(
+  logs: AuditLogEntry[],
+  loading: boolean,
+  error: string,
+  canViewAuditLogs: boolean,
+): { label: string; className: string } {
+  if (!canViewAuditLogs) {
+    return { label: "Permission required", className: "bg-slate-100 text-slate-700" };
+  }
+  if (loading) {
+    return { label: "Loading", className: "bg-slate-100 text-slate-700" };
+  }
+  if (error) {
+    return { label: "Unavailable", className: "bg-amber-50 text-amber-700" };
+  }
+  if (logs.length === 0) {
+    return { label: "No events", className: "bg-slate-100 text-slate-700" };
+  }
+  return { label: `${logs.length} event${logs.length === 1 ? "" : "s"}`, className: "bg-emerald-50 text-emerald-700" };
 }
 
 function paymentOutcomeDescription(payment: CustomerPayment, hasUnapplied: boolean): string {
