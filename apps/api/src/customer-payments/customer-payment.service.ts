@@ -305,6 +305,7 @@ export class CustomerPaymentService {
               status: true,
               amountReceived: true,
               unappliedAmount: true,
+              voidReversalJournalEntryId: true,
             },
           },
           invoice: {
@@ -323,6 +324,12 @@ export class CustomerPaymentService {
       }
       if (allocation.reversedAt) {
         throw new BadRequestException("Payment unapplied allocation has already been reversed.");
+      }
+      if (allocation.payment.status === CustomerPaymentStatus.VOIDED) {
+        throw new BadRequestException("Voided customer payments cannot have unapplied allocations reversed.");
+      }
+      if (allocation.payment.voidReversalJournalEntryId) {
+        throw new BadRequestException("Customer payment has a void reversal journal entry and cannot have unapplied allocations reversed.");
       }
       if (allocation.payment.status !== CustomerPaymentStatus.POSTED) {
         throw new BadRequestException("Only posted, non-voided customer payments can have unapplied allocations reversed.");
@@ -360,6 +367,7 @@ export class CustomerPaymentService {
           id,
           organizationId,
           status: CustomerPaymentStatus.POSTED,
+          voidReversalJournalEntryId: null,
           unappliedAmount: { lte: paymentUnappliedLimit },
         },
         data: { unappliedAmount: { increment: amount } },
