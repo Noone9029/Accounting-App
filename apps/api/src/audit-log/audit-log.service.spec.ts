@@ -118,6 +118,27 @@ describe("AuditLogService", () => {
     );
   });
 
+  it("keeps standardized customer payment unapplied allocation events stable", async () => {
+    const { prisma, service } = makeService();
+
+    await service.log({
+      organizationId: "org-1",
+      actorUserId: "user-1",
+      action: AUDIT_EVENTS.CUSTOMER_PAYMENT_UNAPPLIED_APPLIED,
+      entityType: "CustomerPayment",
+      entityId: "payment-1",
+    });
+
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: AUDIT_EVENTS.CUSTOMER_PAYMENT_UNAPPLIED_APPLIED,
+          entityType: "CustomerPayment",
+        }),
+      }),
+    );
+  });
+
   it("filters list results by action, entity, actor, date, and search", async () => {
     const { prisma, service } = makeService();
     prisma.auditLog.findMany.mockResolvedValue([
