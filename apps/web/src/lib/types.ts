@@ -2867,6 +2867,43 @@ export interface CustomerPaymentReceiptData {
   status: CustomerPaymentStatus;
 }
 
+export interface CustomerPaymentReceiptPdfData {
+  organization: Pick<Organization, "id" | "name" | "legalName" | "taxNumber" | "countryCode">;
+  customer: Pick<Contact, "id" | "name" | "displayName" | "email" | "phone" | "taxNumber" | "addressLine1" | "addressLine2" | "city" | "postalCode" | "countryCode">;
+  payment: {
+    id: string;
+    paymentNumber: string;
+    paymentDate: string;
+    status: CustomerPaymentStatus | string;
+    currency: string;
+    amountReceived: string;
+    unappliedAmount: string;
+    description: string | null;
+  };
+  paidThroughAccount: Pick<Account, "id" | "code" | "name">;
+  allocations: Array<{
+    invoiceId: string;
+    invoiceNumber: string;
+    invoiceDate: string;
+    invoiceTotal: string;
+    amountApplied: string;
+    invoiceBalanceDue: string;
+  }>;
+  unappliedAllocations: Array<{
+    invoiceId: string;
+    invoiceNumber: string;
+    invoiceDate: string;
+    invoiceTotal: string;
+    amountApplied: string;
+    invoiceBalanceDue: string;
+    status: string;
+    reversedAt: string | null;
+    reversalReason: string | null;
+  }>;
+  journalEntry: { id: string; entryNumber: string; status: JournalStatus | string } | null;
+  generatedAt: string;
+}
+
 export interface SupplierPaymentReceiptData {
   receiptNumber: string;
   paymentDate: string;

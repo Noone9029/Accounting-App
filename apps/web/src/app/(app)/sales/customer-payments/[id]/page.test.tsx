@@ -2,9 +2,10 @@ import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import CustomerPaymentDetailPage, { CustomerPaymentAuditStatus, CustomerPaymentReceiptArchiveState, CustomerPaymentStateDisplay, CustomerPaymentWorkflowGuidance } from "./page";
-import type { AuditLogEntry, AuditLogListResponse, CustomerPayment, GeneratedDocument, OpenSalesInvoice } from "@/lib/types";
+import type { AuditLogEntry, AuditLogListResponse, CustomerPayment, CustomerPaymentReceiptData, GeneratedDocument, OpenSalesInvoice } from "@/lib/types";
 
 const mockApiRequest = jest.fn();
+const mockDownloadPdf = jest.fn();
 const mockPermissionCan = jest.fn();
 
 jest.mock("next/link", () => ({
@@ -42,9 +43,14 @@ jest.mock("@/lib/api", () => ({
   apiRequest: (...args: unknown[]) => mockApiRequest(...args),
 }));
 
+jest.mock("@/lib/pdf-download", () => ({
+  downloadPdf: (...args: unknown[]) => mockDownloadPdf(...args),
+}));
+
 describe("customer payment workflow guidance", () => {
   beforeEach(() => {
     mockApiRequest.mockReset();
+    mockDownloadPdf.mockReset();
     mockPermissionCan.mockReset();
     mockPermissionCan.mockReturnValue(true);
   });
@@ -209,6 +215,44 @@ describe("customer payment workflow guidance", () => {
     expect(screen.queryByRole("button", { name: "Reverse" })).not.toBeInTheDocument();
   });
 
+  it("previews and downloads customer payment receipts only through explicit actions", async () => {
+    const payment = paymentFixture();
+    const receiptData = customerPaymentReceiptDataFixture();
+    mockDownloadPdf.mockResolvedValue(undefined);
+    mockApiRequest.mockImplementation((path: string) => {
+      if (path === "/customer-payments/payment-1") {
+        return Promise.resolve(payment);
+      }
+      if (path === "/customer-payments/payment-1/receipt-data") {
+        return Promise.resolve(receiptData);
+      }
+      if (path === "/generated-documents?documentType=CUSTOMER_PAYMENT_RECEIPT&sourceType=CustomerPayment&sourceId=payment-1") {
+        return Promise.resolve([]);
+      }
+      if (path.startsWith("/audit-logs?")) {
+        return Promise.resolve(auditLogListFixture());
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<CustomerPaymentDetailPage />);
+
+    await screen.findByRole("button", { name: "Preview receipt" });
+    expect(mockApiRequest.mock.calls.map(([path]) => String(path)).some((path) => path === "/customer-payments/payment-1/receipt-data")).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Preview receipt" }));
+
+    await waitFor(() => expect(mockApiRequest).toHaveBeenCalledWith("/customer-payments/payment-1/receipt-data"));
+    expect(await screen.findByText("Receipt preview")).toBeInTheDocument();
+    expect(screen.getByText("Beta Customer")).toBeInTheDocument();
+    expect(screen.getByText("Receipt preview loaded. PDF generation remains an explicit download action.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Download receipt PDF" }));
+
+    await waitFor(() => expect(mockDownloadPdf).toHaveBeenCalledWith("/customer-payments/payment-1/receipt.pdf", "receipt-CP-001.pdf"));
+    expect(await screen.findByText("Receipt PDF generated and downloaded.")).toBeInTheDocument();
+  });
+
   it("displays backend validation errors from unapplied allocation reversal", async () => {
     mockApiRequest.mockImplementation((path: string) => {
       if (path === "/customer-payments/payment-1") {
@@ -337,6 +381,8 @@ describe("customer payment workflow guidance", () => {
         recorded
         receiptData={null}
         actionLoading={false}
+        loadingReceiptData={false}
+        onPreviewReceiptData={jest.fn()}
         onDownloadReceiptPdf={jest.fn()}
       />,
     );
@@ -346,7 +392,9 @@ describe("customer payment workflow guidance", () => {
     expect(screen.getByText(/linked invoice balances were reduced/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View invoice" })).toHaveAttribute("href", "/sales/invoices/invoice-1");
     expect(screen.getByRole("link", { name: "View customer ledger" })).toHaveAttribute("href", "/contacts/customer-1");
-    expect(screen.getByRole("button", { name: "Generate / download receipt PDF" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Preview receipt" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Download receipt PDF" })).toBeInTheDocument();
+    expect(screen.getByText(/explicit receipt PDF route/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
     expect(screen.getByRole("link", { name: "AR report" })).toHaveAttribute("href", "/reports/aged-receivables");
   });
@@ -358,6 +406,8 @@ describe("customer payment workflow guidance", () => {
         recorded={false}
         receiptData={null}
         actionLoading={false}
+        loadingReceiptData={false}
+        onPreviewReceiptData={jest.fn()}
         onDownloadReceiptPdf={jest.fn()}
       />,
     );
@@ -502,6 +552,41 @@ function paymentFixture(overrides: Partial<CustomerPayment> = {}): CustomerPayme
       },
     ],
     unappliedAllocations: [],
+    ...overrides,
+  };
+}
+
+function customerPaymentReceiptDataFixture(overrides: Partial<CustomerPaymentReceiptData> = {}): CustomerPaymentReceiptData {
+  return {
+    receiptNumber: "CP-001",
+    paymentDate: "2026-05-21T00:00:00.000Z",
+    customer: { id: "customer-1", name: "Beta Customer", displayName: "Beta Customer", email: "beta@example.com", phone: null, taxNumber: null },
+    organization: {
+      id: "org-1",
+      name: "LedgerByte Test Org",
+      legalName: null,
+      taxNumber: null,
+      countryCode: "SA",
+      baseCurrency: "SAR",
+      timezone: "Asia/Riyadh",
+    },
+    amountReceived: "115.0000",
+    unappliedAmount: "0.0000",
+    currency: "SAR",
+    paidThroughAccount: { id: "account-1", code: "111", name: "Cash on hand", type: "ASSET" },
+    allocations: [
+      {
+        invoiceId: "invoice-1",
+        invoiceNumber: "INV-001",
+        invoiceDate: "2026-05-21T00:00:00.000Z",
+        invoiceTotal: "115.0000",
+        amountApplied: "115.0000",
+        invoiceBalanceDue: "0.0000",
+      },
+    ],
+    unappliedAllocations: [],
+    journalEntry: { id: "je-1", entryNumber: "JE-001", status: "POSTED", totalDebit: "115.0000", totalCredit: "115.0000" },
+    status: "POSTED",
     ...overrides,
   };
 }

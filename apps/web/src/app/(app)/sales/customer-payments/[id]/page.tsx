@@ -19,16 +19,18 @@ import {
   customerPaymentActiveUnappliedAppliedAmount,
   customerPaymentApplyMaximumAmount,
   customerPaymentDirectAllocatedAmount,
+  customerPaymentReceiptPdfPath,
   customerPaymentStatusBadgeClass,
   customerPaymentStatusLabel,
   customerPaymentUnappliedAllocationStatusBadgeClass,
   customerPaymentUnappliedAllocationStatusLabel,
+  getCustomerPaymentReceiptData,
   reverseCustomerPaymentUnappliedAllocation,
   validateCustomerPaymentUnappliedAllocation,
 } from "@/lib/customer-payments";
 import { generatedDocumentStatusBadgeClass, generatedDocumentStatusLabel } from "@/lib/documents";
 import { formatMoneyAmount, formatUnits, parseDecimalToUnits } from "@/lib/money";
-import { downloadPdf, receiptPdfPath } from "@/lib/pdf-download";
+import { downloadPdf } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import { listOpenSalesInvoicesForCustomer } from "@/lib/sales-invoices";
 import type {
@@ -49,11 +51,13 @@ export default function CustomerPaymentDetailPage() {
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [payment, setPayment] = useState<CustomerPayment | null>(null);
+  const [receiptData, setReceiptData] = useState<CustomerPaymentReceiptData | null>(null);
   const [receiptDocuments, setReceiptDocuments] = useState<GeneratedDocument[]>([]);
   const [openInvoices, setOpenInvoices] = useState<OpenSalesInvoice[]>([]);
   const [applyInvoiceId, setApplyInvoiceId] = useState("");
   const [applyAmount, setApplyAmount] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingReceiptData, setLoadingReceiptData] = useState(false);
   const [loadingReceiptDocuments, setLoadingReceiptDocuments] = useState(false);
   const [loadingAuditLogs, setLoadingAuditLogs] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -86,6 +90,7 @@ export default function CustomerPaymentDetailPage() {
     let cancelled = false;
     setLoading(true);
     setError("");
+    setReceiptData(null);
 
     apiRequest<CustomerPayment>(`/customer-payments/${params.id}`)
       .then((paymentResult) => {
@@ -212,6 +217,7 @@ export default function CustomerPaymentDetailPage() {
     }
     const paymentResult = await apiRequest<CustomerPayment>(`/customer-payments/${params.id}`);
     setPayment(paymentResult);
+    setReceiptData(null);
   }
 
   const pendingReverseAllocation = payment?.unappliedAllocations?.find((allocation) => allocation.id === reverseAllocationId) ?? null;
@@ -339,14 +345,34 @@ export default function CustomerPaymentDetailPage() {
     setSuccess("");
 
     try {
-      await downloadPdf(receiptPdfPath(payment.id), `receipt-${payment.paymentNumber}.pdf`);
+      await downloadPdf(customerPaymentReceiptPdfPath(payment.id), `receipt-${payment.paymentNumber}.pdf`);
       if (canViewGeneratedDocuments) {
         setReceiptDocuments(await loadReceiptDocuments(payment.id));
       }
+      setSuccess("Receipt PDF generated and downloaded.");
     } catch (downloadError) {
       setError(downloadError instanceof Error ? downloadError.message : "Unable to download receipt PDF.");
     } finally {
       setActionLoading(false);
+    }
+  }
+
+  async function previewReceiptData() {
+    if (!payment) {
+      return;
+    }
+
+    setLoadingReceiptData(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      setReceiptData(await getCustomerPaymentReceiptData(payment.id));
+      setSuccess("Receipt preview loaded. PDF generation remains an explicit download action.");
+    } catch (previewError) {
+      setError(previewError instanceof Error ? previewError.message : "Unable to load receipt preview.");
+    } finally {
+      setLoadingReceiptData(false);
     }
   }
 
@@ -397,8 +423,10 @@ export default function CustomerPaymentDetailPage() {
           <CustomerPaymentWorkflowGuidance
             payment={payment}
             recorded={wasJustRecorded}
-            receiptData={null}
+            receiptData={receiptData}
             actionLoading={actionLoading}
+            loadingReceiptData={loadingReceiptData}
+            onPreviewReceiptData={() => void previewReceiptData()}
             onDownloadReceiptPdf={() => void downloadReceiptPdf()}
           />
 
@@ -881,12 +909,16 @@ export function CustomerPaymentWorkflowGuidance({
   recorded,
   receiptData,
   actionLoading,
+  loadingReceiptData,
+  onPreviewReceiptData,
   onDownloadReceiptPdf,
 }: {
   payment: CustomerPayment;
   recorded: boolean;
   receiptData: CustomerPaymentReceiptData | null;
   actionLoading: boolean;
+  loadingReceiptData: boolean;
+  onPreviewReceiptData: () => void;
   onDownloadReceiptPdf: () => void;
 }) {
   const firstAllocatedInvoice = payment.allocations?.find((allocation) => allocation.invoice)?.invoice ?? null;
@@ -934,12 +966,23 @@ export function CustomerPaymentWorkflowGuidance({
             ) : null}
             <button
               type="button"
-              onClick={onDownloadReceiptPdf}
-              disabled={actionLoading}
+              onClick={onPreviewReceiptData}
+              disabled={actionLoading || loadingReceiptData}
               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
             >
-              Generate / download receipt PDF
+              Preview receipt
             </button>
+            <button
+              type="button"
+              onClick={onDownloadReceiptPdf}
+              disabled={actionLoading || loadingReceiptData}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              Download receipt PDF
+            </button>
+            <p className="text-xs leading-5 text-steel">
+              Downloading the PDF uses the explicit receipt PDF route and may archive a generated receipt record. Payment posting and allocation actions do not create receipts automatically.
+            </p>
             <Link href={`/contacts/${payment.customerId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
               View customer ledger
             </Link>
@@ -954,6 +997,24 @@ export function CustomerPaymentWorkflowGuidance({
           </div>
           {payment.status === "VOIDED" ? (
             <p className="mt-3 text-xs leading-5 text-steel">This payment is voided. Review the reversal journal below if present before taking further action.</p>
+          ) : null}
+          {loadingReceiptData ? (
+            <div className="mt-4">
+              <StatusMessage type="loading">Loading receipt preview...</StatusMessage>
+            </div>
+          ) : null}
+          {receiptData ? (
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              <h3 className="text-sm font-semibold text-ink">Receipt preview</h3>
+              <div className="mt-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                <Summary label="Receipt number" value={receiptData.receiptNumber} />
+                <Summary label="Customer" value={receiptData.customer.displayName ?? receiptData.customer.name} />
+                <Summary label="Payment date" value={new Date(receiptData.paymentDate).toLocaleDateString()} />
+                <Summary label="Amount received" value={formatMoneyAmount(receiptData.amountReceived, receiptData.currency)} />
+                <Summary label="Unapplied amount" value={formatMoneyAmount(receiptData.unappliedAmount, receiptData.currency)} />
+                <Summary label="Receipt lines" value={`${receiptData.allocations.length + receiptData.unappliedAllocations.length}`} />
+              </div>
+            </div>
           ) : null}
           <SourceDocumentGuidance className="mt-4" />
         </div>

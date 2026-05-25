@@ -7,28 +7,43 @@ import {
   customerPaymentApplyUnappliedPath,
   customerPaymentActiveUnappliedAppliedAmount,
   customerPaymentApplyMaximumAmount,
+  customerPaymentGenerateReceiptPdfPath,
   customerPaymentDirectAllocatedAmount,
+  customerPaymentReceiptDataPath,
+  customerPaymentReceiptPdfDataPath,
+  customerPaymentReceiptPdfPath,
   customerPaymentReverseUnappliedAllocationPath,
   customerPaymentStatusBadgeClass,
   customerPaymentStatusLabel,
   customerPaymentUnappliedAllocationsPath,
   customerPaymentUnappliedAllocationStatusBadgeClass,
   customerPaymentUnappliedAllocationStatusLabel,
+  downloadCustomerPaymentReceiptPdf,
+  generateCustomerPaymentReceiptPdf,
+  getCustomerPaymentReceiptData,
+  getCustomerPaymentReceiptPdfData,
   reverseCustomerPaymentUnappliedAllocation,
   salesInvoiceCustomerPaymentUnappliedAllocationsPath,
   validateCustomerPaymentUnappliedAllocation,
 } from "./customer-payments";
 import { apiRequest } from "./api";
+import { downloadPdf } from "./pdf-download";
 
 jest.mock("./api", () => ({
   apiRequest: jest.fn(),
 }));
 
+jest.mock("./pdf-download", () => ({
+  downloadPdf: jest.fn(),
+}));
+
 const apiRequestMock = apiRequest as jest.MockedFunction<typeof apiRequest>;
+const downloadPdfMock = downloadPdf as jest.MockedFunction<typeof downloadPdf>;
 
 describe("customer payment helpers", () => {
   beforeEach(() => {
     apiRequestMock.mockReset();
+    downloadPdfMock.mockReset();
   });
 
   it("builds unapplied allocation URLs safely", () => {
@@ -40,6 +55,10 @@ describe("customer payment helpers", () => {
     expect(salesInvoiceCustomerPaymentUnappliedAllocationsPath("inv 1")).toBe(
       "/sales-invoices/inv%201/customer-payment-unapplied-allocations",
     );
+    expect(customerPaymentReceiptDataPath("pay 1")).toBe("/customer-payments/pay%201/receipt-data");
+    expect(customerPaymentReceiptPdfDataPath("pay 1")).toBe("/customer-payments/pay%201/receipt-pdf-data");
+    expect(customerPaymentReceiptPdfPath("pay 1")).toBe("/customer-payments/pay%201/receipt.pdf");
+    expect(customerPaymentGenerateReceiptPdfPath("pay 1")).toBe("/customer-payments/pay%201/generate-receipt-pdf");
   });
 
   it("labels unapplied payment allocation reversal state", () => {
@@ -167,6 +186,43 @@ describe("customer payment helpers", () => {
       method: "POST",
       body: {},
     });
+  });
+
+  it("fetches customer payment receipt data through explicit receipt endpoints", async () => {
+    const receiptData = { receiptNumber: "CP-001", amountReceived: "115.0000" };
+    const receiptPdfData = {
+      payment: {
+        id: "payment-1",
+        paymentNumber: "CP-001",
+      },
+      generatedAt: "2026-05-25T00:00:00.000Z",
+    };
+    apiRequestMock.mockResolvedValueOnce(receiptData).mockResolvedValueOnce(receiptPdfData);
+
+    await expect(getCustomerPaymentReceiptData("payment 1")).resolves.toBe(receiptData);
+    await expect(getCustomerPaymentReceiptPdfData("payment 1")).resolves.toBe(receiptPdfData);
+
+    expect(apiRequestMock).toHaveBeenNthCalledWith(1, "/customer-payments/payment%201/receipt-data");
+    expect(apiRequestMock).toHaveBeenNthCalledWith(2, "/customer-payments/payment%201/receipt-pdf-data");
+  });
+
+  it("posts explicit customer payment receipt PDF generation through the archive route", async () => {
+    const generatedDocument = { id: "document-1", filename: "receipt-CP-001.pdf" };
+    apiRequestMock.mockResolvedValueOnce(generatedDocument);
+
+    await expect(generateCustomerPaymentReceiptPdf("payment 1")).resolves.toBe(generatedDocument);
+
+    expect(apiRequestMock).toHaveBeenCalledWith("/customer-payments/payment%201/generate-receipt-pdf", {
+      method: "POST",
+    });
+  });
+
+  it("downloads customer payment receipt PDFs through the explicit PDF endpoint", async () => {
+    downloadPdfMock.mockResolvedValueOnce(undefined);
+
+    await expect(downloadCustomerPaymentReceiptPdf("payment 1", "receipt-CP-001.pdf")).resolves.toBeUndefined();
+
+    expect(downloadPdfMock).toHaveBeenCalledWith("/customer-payments/payment%201/receipt.pdf", "receipt-CP-001.pdf");
   });
 
   it("propagates API errors from unapplied allocation client calls", async () => {

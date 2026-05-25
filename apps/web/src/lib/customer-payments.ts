@@ -1,6 +1,13 @@
 import { apiRequest } from "./api";
 import { formatUnits, parseDecimalToUnits } from "./money";
-import type { CustomerPayment, CustomerPaymentUnappliedAllocation } from "./types";
+import { downloadPdf } from "./pdf-download";
+import type {
+  CustomerPayment,
+  CustomerPaymentReceiptData,
+  CustomerPaymentReceiptPdfData,
+  CustomerPaymentUnappliedAllocation,
+  GeneratedDocument,
+} from "./types";
 
 export type CustomerPaymentAllocationState = "NO_ALLOCATIONS" | "FULLY_APPLIED" | "PARTIALLY_UNAPPLIED";
 
@@ -17,6 +24,8 @@ export interface ReverseCustomerPaymentUnappliedAllocationRequest {
 
 export type ReverseCustomerPaymentUnappliedAllocationResponse = CustomerPayment;
 
+export type GenerateCustomerPaymentReceiptPdfResponse = GeneratedDocument | null;
+
 export function customerPaymentUnappliedAllocationsPath(paymentId: string): string {
   return `/customer-payments/${encodeURIComponent(paymentId)}/unapplied-allocations`;
 }
@@ -31,6 +40,22 @@ export function customerPaymentReverseUnappliedAllocationPath(paymentId: string,
 
 export function salesInvoiceCustomerPaymentUnappliedAllocationsPath(invoiceId: string): string {
   return `/sales-invoices/${encodeURIComponent(invoiceId)}/customer-payment-unapplied-allocations`;
+}
+
+export function customerPaymentReceiptDataPath(paymentId: string): string {
+  return `/customer-payments/${encodeURIComponent(paymentId)}/receipt-data`;
+}
+
+export function customerPaymentReceiptPdfDataPath(paymentId: string): string {
+  return `/customer-payments/${encodeURIComponent(paymentId)}/receipt-pdf-data`;
+}
+
+export function customerPaymentReceiptPdfPath(paymentId: string): string {
+  return `/customer-payments/${encodeURIComponent(paymentId)}/receipt.pdf`;
+}
+
+export function customerPaymentGenerateReceiptPdfPath(paymentId: string): string {
+  return `/customer-payments/${encodeURIComponent(paymentId)}/generate-receipt-pdf`;
 }
 
 export function applyCustomerPaymentUnappliedAllocation(
@@ -56,6 +81,24 @@ export function reverseCustomerPaymentUnappliedAllocation(
       body: reason ? { reason } : {},
     },
   );
+}
+
+export function getCustomerPaymentReceiptData(paymentId: string): Promise<CustomerPaymentReceiptData> {
+  return apiRequest<CustomerPaymentReceiptData>(customerPaymentReceiptDataPath(paymentId));
+}
+
+export function getCustomerPaymentReceiptPdfData(paymentId: string): Promise<CustomerPaymentReceiptPdfData> {
+  return apiRequest<CustomerPaymentReceiptPdfData>(customerPaymentReceiptPdfDataPath(paymentId));
+}
+
+export function generateCustomerPaymentReceiptPdf(paymentId: string): Promise<GenerateCustomerPaymentReceiptPdfResponse> {
+  return apiRequest<GenerateCustomerPaymentReceiptPdfResponse>(customerPaymentGenerateReceiptPdfPath(paymentId), {
+    method: "POST",
+  });
+}
+
+export function downloadCustomerPaymentReceiptPdf(paymentId: string, filename?: string): Promise<void> {
+  return downloadPdf(customerPaymentReceiptPdfPath(paymentId), filename);
 }
 
 export function customerPaymentUnappliedAllocationStatusLabel(
