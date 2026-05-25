@@ -180,16 +180,27 @@ export class CustomerPaymentService {
           status: true,
           amountReceived: true,
           unappliedAmount: true,
+          voidReversalJournalEntryId: true,
         },
       });
       if (!payment) {
         throw new NotFoundException("Customer payment not found.");
       }
+      if (payment.status === CustomerPaymentStatus.VOIDED) {
+        throw new BadRequestException("Voided customer payments cannot have unapplied amounts applied to invoices.");
+      }
+      if (payment.voidReversalJournalEntryId) {
+        throw new BadRequestException("Customer payment has a void reversal journal entry and cannot have unapplied amounts applied to invoices.");
+      }
       if (payment.status !== CustomerPaymentStatus.POSTED) {
-        throw new BadRequestException("Only posted customer payments can have unapplied amounts applied to invoices.");
+        throw new BadRequestException(
+          `Only posted customer payments can have unapplied amounts applied to invoices. Current payment status: ${payment.status}.`,
+        );
       }
       if (amountApplied.gt(payment.unappliedAmount)) {
-        throw new BadRequestException("Amount applied cannot exceed payment unapplied amount.");
+        throw new BadRequestException(
+          `Amount applied (${amountApplied.toFixed(4)}) cannot exceed customer payment unapplied amount (${toMoney(payment.unappliedAmount).toFixed(4)}).`,
+        );
       }
 
       const invoice = await tx.salesInvoice.findFirst({
@@ -205,13 +216,20 @@ export class CustomerPaymentService {
         throw new BadRequestException("Invoice must belong to this organization.");
       }
       if (invoice.customerId !== payment.customerId) {
-        throw new BadRequestException("Payment and invoice must belong to the same customer.");
+        throw new BadRequestException("Customer payment can only be applied to invoices for the same customer.");
+      }
+      if (invoice.status === SalesInvoiceStatus.VOIDED) {
+        throw new BadRequestException("Voided invoices cannot receive unapplied customer payment allocations.");
       }
       if (invoice.status !== SalesInvoiceStatus.FINALIZED) {
-        throw new BadRequestException("Unapplied payments can only be applied to finalized, non-voided invoices.");
+        throw new BadRequestException(
+          `Unapplied payments can only be applied to finalized invoices. Current invoice status: ${invoice.status}.`,
+        );
       }
       if (amountApplied.gt(invoice.balanceDue)) {
-        throw new BadRequestException("Amount applied cannot exceed invoice balance due.");
+        throw new BadRequestException(
+          `Amount applied (${amountApplied.toFixed(4)}) cannot exceed invoice balance due (${toMoney(invoice.balanceDue).toFixed(4)}).`,
+        );
       }
 
       const amount = amountApplied.toFixed(4);
@@ -220,6 +238,7 @@ export class CustomerPaymentService {
           id,
           organizationId,
           status: CustomerPaymentStatus.POSTED,
+          voidReversalJournalEntryId: null,
           unappliedAmount: { gte: amount },
         },
         data: { unappliedAmount: { decrement: amount } },

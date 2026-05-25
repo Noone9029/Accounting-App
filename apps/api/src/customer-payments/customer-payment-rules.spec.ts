@@ -188,6 +188,19 @@ describe("customer payment rules", () => {
     });
   });
 
+  it.each(["0", "0.0000", "-1.0000"])("rejects non-positive unapplied payment application amount %s", async (amountApplied) => {
+    const prisma = { $transaction: jest.fn() };
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    const getSpy = jest.spyOn(service, "get");
+
+    await expect(service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied })).rejects.toThrow(
+      "Amount applied must be greater than zero.",
+    );
+
+    expect(getSpy).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it("applies unapplied payment credit to an open invoice without posting another journal", async () => {
     const tx = makeApplyUnappliedTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
@@ -212,6 +225,7 @@ describe("customer payment rules", () => {
         id: "payment-1",
         organizationId: "org-1",
         status: CustomerPaymentStatus.POSTED,
+        voidReversalJournalEntryId: null,
         unappliedAmount: { gte: "40.0000" },
       },
       data: { unappliedAmount: { decrement: "40.0000" } },
@@ -251,9 +265,12 @@ describe("customer payment rules", () => {
     );
   });
 
-  it.each([SalesInvoiceStatus.DRAFT, SalesInvoiceStatus.VOIDED])(
+  it.each([
+    [SalesInvoiceStatus.DRAFT, "Unapplied payments can only be applied to finalized invoices. Current invoice status: DRAFT."],
+    [SalesInvoiceStatus.VOIDED, "Voided invoices cannot receive unapplied customer payment allocations."],
+  ])(
     "rejects applying unapplied payment credit to a %s invoice",
-    async (invoiceStatus) => {
+    async (invoiceStatus, expectedMessage) => {
       const tx = makeApplyUnappliedTransactionMock({ invoiceStatus });
       const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
       const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
@@ -261,7 +278,7 @@ describe("customer payment rules", () => {
 
       await expect(
         service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "40.0000" }),
-      ).rejects.toThrow("Unapplied payments can only be applied to finalized, non-voided invoices.");
+      ).rejects.toThrow(expectedMessage);
 
       expect(tx.customerPayment.updateMany).not.toHaveBeenCalled();
       expect(tx.salesInvoice.updateMany).not.toHaveBeenCalled();
@@ -271,13 +288,33 @@ describe("customer payment rules", () => {
   );
 
   it("rejects invalid unapplied payment applications", async () => {
-    let tx = makeApplyUnappliedTransactionMock({ paymentStatus: CustomerPaymentStatus.VOIDED });
+    let tx = makeApplyUnappliedTransactionMock({ paymentStatus: CustomerPaymentStatus.DRAFT });
     let prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
     let service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.DRAFT } as never);
+
+    await expect(service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "10.0000" })).rejects.toThrow(
+      "Only posted customer payments can have unapplied amounts applied to invoices. Current payment status: DRAFT.",
+    );
+    expect(tx.customerPaymentUnappliedAllocation.create).not.toHaveBeenCalled();
+
+    tx = makeApplyUnappliedTransactionMock({ paymentStatus: CustomerPaymentStatus.VOIDED });
+    prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
     jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.VOIDED } as never);
 
     await expect(service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "10.0000" })).rejects.toThrow(
-      "Only posted customer payments can have unapplied amounts applied to invoices.",
+      "Voided customer payments cannot have unapplied amounts applied to invoices.",
+    );
+    expect(tx.customerPaymentUnappliedAllocation.create).not.toHaveBeenCalled();
+
+    tx = makeApplyUnappliedTransactionMock({ paymentVoidReversalJournalEntryId: "void-reversal-1" });
+    prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
+
+    await expect(service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "10.0000" })).rejects.toThrow(
+      "Customer payment has a void reversal journal entry and cannot have unapplied amounts applied to invoices.",
     );
     expect(tx.customerPaymentUnappliedAllocation.create).not.toHaveBeenCalled();
 
@@ -756,6 +793,7 @@ function makeApplyUnappliedTransactionMock(
     invoiceBalanceDue?: string;
     paymentUpdateCount?: number;
     invoiceUpdateCount?: number;
+    paymentVoidReversalJournalEntryId?: string | null;
   } = {},
 ) {
   return {
@@ -766,6 +804,7 @@ function makeApplyUnappliedTransactionMock(
         status: options.paymentStatus ?? CustomerPaymentStatus.POSTED,
         amountReceived: "100.0000",
         unappliedAmount: options.unappliedAmount ?? "100.0000",
+        voidReversalJournalEntryId: options.paymentVoidReversalJournalEntryId ?? null,
       }),
       updateMany: jest.fn().mockResolvedValue({ count: options.paymentUpdateCount ?? 1 }),
       findUniqueOrThrow: jest.fn().mockResolvedValue({
