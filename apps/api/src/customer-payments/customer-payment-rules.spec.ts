@@ -1,6 +1,7 @@
 import { BadRequestException } from "@nestjs/common";
 import { assertBalancedJournal } from "@ledgerbyte/accounting-core";
 import { CustomerPaymentStatus, CustomerRefundStatus, DocumentType, JournalEntryStatus, SalesInvoiceStatus } from "@prisma/client";
+import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
 import { buildCustomerPaymentJournalLines } from "./customer-payment-accounting";
 import { CustomerPaymentService } from "./customer-payment.service";
 import type { CreateCustomerPaymentDto } from "./dto/create-customer-payment.dto";
@@ -191,9 +192,10 @@ describe("customer payment rules", () => {
     const tx = makeApplyUnappliedTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
     const guard = { assertPostingDateAllowed: jest.fn() };
+    const auditLog = { log: jest.fn() };
     const service = new CustomerPaymentService(
       prisma as never,
-      { log: jest.fn() } as never,
+      auditLog as never,
       { next: jest.fn() } as never,
       undefined,
       undefined,
@@ -240,6 +242,13 @@ describe("customer payment rules", () => {
     expect(tx.customerPaymentAllocation.deleteMany).not.toHaveBeenCalled();
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
     expect(guard.assertPostingDateAllowed).not.toHaveBeenCalled();
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AUDIT_EVENTS.CUSTOMER_PAYMENT_UNAPPLIED_APPLIED,
+        entityType: AUDIT_ENTITY_TYPES.CUSTOMER_PAYMENT,
+        entityId: "payment-1",
+      }),
+    );
   });
 
   it.each([SalesInvoiceStatus.DRAFT, SalesInvoiceStatus.VOIDED])(
@@ -322,7 +331,8 @@ describe("customer payment rules", () => {
   it("reverses unapplied payment allocations and restores balances without a journal", async () => {
     const tx = makeReverseUnappliedTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
-    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    const auditLog = { log: jest.fn() };
+    const service = new CustomerPaymentService(prisma as never, auditLog as never, { next: jest.fn() } as never);
 
     await expect(
       service.reverseUnappliedAllocation("org-1", "user-1", "payment-1", "unapplied-allocation-1", { reason: "Corrected matching" }),
@@ -353,6 +363,13 @@ describe("customer payment rules", () => {
       data: { balanceDue: { increment: "40.0000" } },
     });
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AUDIT_EVENTS.CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSED,
+        entityType: AUDIT_ENTITY_TYPES.CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION,
+        entityId: "unapplied-allocation-1",
+      }),
+    );
   });
 
   it("rejects double and stale unapplied payment allocation reversals cleanly", async () => {

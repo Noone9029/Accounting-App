@@ -12,6 +12,7 @@ import {
   Prisma,
   SalesInvoiceStatus,
 } from "@prisma/client";
+import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
@@ -258,8 +259,8 @@ export class CustomerPaymentService {
     await this.auditLogService.log({
       organizationId,
       actorUserId,
-      action: "APPLY_UNAPPLIED",
-      entityType: "CustomerPayment",
+      action: AUDIT_EVENTS.CUSTOMER_PAYMENT_UNAPPLIED_APPLIED,
+      entityType: AUDIT_ENTITY_TYPES.CUSTOMER_PAYMENT,
       entityId: id,
       before: existing,
       after: updated,
@@ -369,8 +370,8 @@ export class CustomerPaymentService {
     await this.auditLogService.log({
       organizationId,
       actorUserId,
-      action: "REVERSE_UNAPPLIED_ALLOCATION",
-      entityType: "CustomerPaymentUnappliedAllocation",
+      action: AUDIT_EVENTS.CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSED,
+      entityType: AUDIT_ENTITY_TYPES.CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION,
       entityId: allocationId,
       after: updated,
     });

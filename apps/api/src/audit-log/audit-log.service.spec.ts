@@ -80,6 +80,44 @@ describe("AuditLogService", () => {
     );
   });
 
+  it("standardizes customer payment unapplied allocation event names", async () => {
+    const { prisma, service } = makeService();
+
+    await service.log({
+      organizationId: "org-1",
+      actorUserId: "user-1",
+      action: "APPLY_UNAPPLIED",
+      entityType: "CustomerPayment",
+      entityId: "payment-1",
+    });
+    await service.log({
+      organizationId: "org-1",
+      actorUserId: "user-1",
+      action: "REVERSE_UNAPPLIED_ALLOCATION",
+      entityType: "CustomerPaymentUnappliedAllocation",
+      entityId: "allocation-1",
+    });
+
+    expect(prisma.auditLog.create).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: AUDIT_EVENTS.CUSTOMER_PAYMENT_UNAPPLIED_APPLIED,
+          entityType: "CustomerPayment",
+        }),
+      }),
+    );
+    expect(prisma.auditLog.create).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: AUDIT_EVENTS.CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSED,
+          entityType: "CustomerPaymentUnappliedAllocation",
+        }),
+      }),
+    );
+  });
+
   it("filters list results by action, entity, actor, date, and search", async () => {
     const { prisma, service } = makeService();
     prisma.auditLog.findMany.mockResolvedValue([
