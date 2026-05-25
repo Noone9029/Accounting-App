@@ -849,8 +849,8 @@ export class CustomerPaymentService {
     await this.auditLogService.log({
       organizationId,
       actorUserId,
-      action: "VOID",
-      entityType: "CustomerPayment",
+      action: AUDIT_EVENTS.CUSTOMER_PAYMENT_VOIDED,
+      entityType: AUDIT_ENTITY_TYPES.CUSTOMER_PAYMENT,
       entityId: id,
       before: existing,
       after: voided,

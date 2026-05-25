@@ -519,8 +519,9 @@ describe("customer payment rules", () => {
       },
       $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
     };
+    const auditLog = { log: jest.fn() };
     const numberSequence = { next: jest.fn().mockResolvedValue("JE-000002") };
-    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, numberSequence as never);
+    const service = new CustomerPaymentService(prisma as never, auditLog as never, numberSequence as never);
 
     await expect(service.void("org-1", "user-1", "payment-1")).resolves.toMatchObject({
       id: "payment-1",
@@ -529,10 +530,34 @@ describe("customer payment rules", () => {
     });
 
     expect(tx.journalEntry.create).toHaveBeenCalledTimes(1);
+    expect(tx.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          organizationId: "org-1",
+          entryNumber: "JE-000002",
+          status: JournalEntryStatus.POSTED,
+          reference: "PAY-000001",
+          reversalOfId: "journal-1",
+        }),
+      }),
+    );
+    expect(tx.journalEntry.update).toHaveBeenCalledWith({
+      where: { id: "journal-1" },
+      data: { status: JournalEntryStatus.REVERSED },
+    });
     expect(tx.salesInvoice.updateMany).toHaveBeenCalledWith({
       where: { id: "invoice-1", organizationId: "org-1", status: SalesInvoiceStatus.FINALIZED },
       data: { balanceDue: { increment: "60.0000" } },
     });
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AUDIT_EVENTS.CUSTOMER_PAYMENT_VOIDED,
+        entityType: AUDIT_ENTITY_TYPES.CUSTOMER_PAYMENT,
+        entityId: "payment-1",
+        before: expect.objectContaining({ id: "payment-1", status: CustomerPaymentStatus.POSTED }),
+        after: expect.objectContaining({ id: "payment-1", status: CustomerPaymentStatus.VOIDED }),
+      }),
+    );
 
     prisma.customerPayment.findFirst.mockResolvedValueOnce({
       id: "payment-1",
@@ -557,6 +582,7 @@ describe("customer payment rules", () => {
     expect(tx.customerRefund.count).toHaveBeenCalledWith({
       where: { organizationId: "org-1", sourcePaymentId: "payment-1", status: CustomerRefundStatus.POSTED },
     });
+    expect(tx.customerPayment.updateMany).not.toHaveBeenCalled();
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
     expect(tx.salesInvoice.updateMany).not.toHaveBeenCalled();
   });
@@ -577,7 +603,9 @@ describe("customer payment rules", () => {
     expect(tx.customerPaymentUnappliedAllocation.count).toHaveBeenCalledWith({
       where: { organizationId: "org-1", paymentId: "payment-1", reversedAt: null },
     });
+    expect(tx.customerPayment.updateMany).not.toHaveBeenCalled();
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
+    expect(tx.salesInvoice.updateMany).not.toHaveBeenCalled();
 
     const reversedTx = makeVoidTransactionMock({ unappliedAllocationCount: 0 });
     const reversedPrisma = {
