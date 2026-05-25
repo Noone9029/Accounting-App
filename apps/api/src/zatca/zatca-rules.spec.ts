@@ -857,13 +857,22 @@ describe("ZATCA service rules", () => {
       hasProductionCsid: false,
       certificateExpiryKnown: false,
       renewalMetadataModeled: false,
-      recommendedCustodyMode: "FUTURE_SECRETS_MANAGER_OR_KMS",
+      recommendedCustodyMode:
+        "Use a secrets-manager/KMS custody design for binarySecurityToken and secret, with controlled encrypted certificate storage; no body persistence is enabled in this phase.",
     });
     expect(plan.tokenCustodyStatus).toMatchObject({ implemented: false, persisted: false, bodyReturned: false });
     expect(plan.secretCustodyStatus).toMatchObject({ implemented: false, persisted: false, bodyReturned: false });
     expect(plan.certificateCustodyStatus).toMatchObject({ implemented: false, persisted: false, bodyReturned: false });
     expect(plan.sensitiveFields).toEqual(["binarySecurityToken", "secret", "certificate", "privateKey", "OTP", "CSR"]);
-    expect(plan.blockers).toEqual(expect.arrayContaining(["Token custody is not implemented.", "Secret custody is not implemented.", "Certificate custody is not implemented."]));
+    expect(plan.blockers).toEqual(
+      expect.arrayContaining([
+        "provider configuration not approved",
+        "body storage explicitly blocked",
+        "token storage not ready",
+        "secret storage not ready",
+        "certificate storage not ready",
+      ]),
+    );
     expect(serialized).not.toContain("BEGIN CERTIFICATE REQUEST");
     expect(serialized).not.toContain("BEGIN CERTIFICATE");
     expect(serialized).not.toContain("BEGIN PRIVATE KEY");

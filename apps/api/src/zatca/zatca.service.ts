@@ -64,6 +64,7 @@ import { UpdateZatcaCsrFieldsDto } from "./dto/update-zatca-csr-fields.dto";
 import { UpdateZatcaEgsUnitDto } from "./dto/update-zatca-egs-unit.dto";
 import { UpdateZatcaProfileDto } from "./dto/update-zatca-profile.dto";
 import { VerifyZatcaStorageControlEvidenceDto } from "./dto/verify-zatca-storage-control-evidence.dto";
+import { buildZatcaInvoiceInputFromFinalizedInvoice } from "./zatca-invoice-xml.builder";
 import { sanitizeZatcaSdkOutput, ZatcaSdkService } from "../zatca-sdk/zatca-sdk.service";
 import {
   buildZatcaSdkCsrCommand,
@@ -4880,57 +4881,15 @@ export class ZatcaService {
     previousInvoiceHash: string,
     icv?: number | null,
   ): ZatcaInvoiceInput {
-    return {
-      invoiceUuid,
-      invoiceNumber: invoice.invoiceNumber,
+    return buildZatcaInvoiceInputFromFinalizedInvoice({
+      invoice,
+      profile,
       invoiceType,
-      issueDate: invoice.issueDate,
-      supplyDate: invoice.issueDate,
-      currency: invoice.currency,
-      seller: {
-        name: profile.sellerName ?? invoice.organization.legalName ?? invoice.organization.name,
-        vatNumber: profile.vatNumber ?? invoice.organization.taxNumber ?? "",
-        companyIdType: profile.companyIdType,
-        companyIdNumber: profile.companyIdNumber,
-        buildingNumber: profile.buildingNumber,
-        streetName: profile.streetName,
-        district: profile.district,
-        city: profile.city,
-        postalCode: profile.postalCode,
-        countryCode: profile.countryCode,
-        additionalAddressNumber: profile.additionalAddressNumber,
-      },
-      buyer: {
-        name: invoice.customer.displayName ?? invoice.customer.name,
-        vatNumber: invoice.customer.taxNumber,
-        companyIdType: invoice.customer.identificationType,
-        companyIdNumber: invoice.customer.identificationNumber,
-        streetName: invoice.customer.addressLine1,
-        additionalAddressNumber: invoice.customer.addressLine2,
-        buildingNumber: invoice.customer.buildingNumber,
-        district: invoice.customer.district,
-        city: invoice.customer.city,
-        postalCode: invoice.customer.postalCode,
-        countryCode: invoice.customer.countryCode,
-      },
-      subtotal: String(invoice.subtotal),
-      discountTotal: String(invoice.discountTotal),
-      taxableTotal: String(invoice.taxableTotal),
-      taxTotal: String(invoice.taxTotal),
-      total: String(invoice.total),
+      invoiceUuid,
       previousInvoiceHash,
       icv,
-      lines: invoice.lines.map((line) => ({
-        id: line.id,
-        description: line.description,
-        quantity: String(line.quantity),
-        unitPrice: String(line.unitPrice),
-        taxableAmount: String(line.taxableAmount),
-        taxAmount: String(line.taxAmount),
-        lineTotal: String(line.lineTotal),
-        taxRateName: line.taxRate?.name ?? null,
-      })),
-    };
+      includeBasicQr: true,
+    });
   }
 
   private async getCsrProfileSnapshot(organizationId: string): Promise<ZatcaCsrProfileSource> {
