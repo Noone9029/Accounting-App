@@ -225,11 +225,41 @@ describe("customer payment rules", () => {
       data: { balanceDue: { decrement: "40.0000" } },
     });
     expect(tx.customerPaymentUnappliedAllocation.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ amountApplied: "40.0000" }) }),
+      {
+        data: {
+          organization: { connect: { id: "org-1" } },
+          payment: { connect: { id: "payment-1" } },
+          invoice: { connect: { id: "invoice-1" } },
+          amountApplied: "40.0000",
+        },
+      },
     );
+    expect(tx.customerPaymentUnappliedAllocation.create).toHaveBeenCalledTimes(1);
+    expect(tx.customerPaymentAllocation.updateMany).not.toHaveBeenCalled();
+    expect(tx.customerPaymentAllocation.update).not.toHaveBeenCalled();
+    expect(tx.customerPaymentAllocation.deleteMany).not.toHaveBeenCalled();
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
     expect(guard.assertPostingDateAllowed).not.toHaveBeenCalled();
   });
+
+  it.each([SalesInvoiceStatus.DRAFT, SalesInvoiceStatus.VOIDED])(
+    "rejects applying unapplied payment credit to a %s invoice",
+    async (invoiceStatus) => {
+      const tx = makeApplyUnappliedTransactionMock({ invoiceStatus });
+      const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+      const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+      jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
+
+      await expect(
+        service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "40.0000" }),
+      ).rejects.toThrow("Unapplied payments can only be applied to finalized, non-voided invoices.");
+
+      expect(tx.customerPayment.updateMany).not.toHaveBeenCalled();
+      expect(tx.salesInvoice.updateMany).not.toHaveBeenCalled();
+      expect(tx.customerPaymentUnappliedAllocation.create).not.toHaveBeenCalled();
+      expect(tx.journalEntry.create).not.toHaveBeenCalled();
+    },
+  );
 
   it("rejects invalid unapplied payment applications", async () => {
     let tx = makeApplyUnappliedTransactionMock({ paymentStatus: CustomerPaymentStatus.VOIDED });
@@ -739,6 +769,11 @@ function makeApplyUnappliedTransactionMock(
     },
     customerPaymentUnappliedAllocation: {
       create: jest.fn().mockResolvedValue({ id: "unapplied-allocation-1" }),
+    },
+    customerPaymentAllocation: {
+      updateMany: jest.fn(),
+      update: jest.fn(),
+      deleteMany: jest.fn(),
     },
     journalEntry: {
       create: jest.fn(),
