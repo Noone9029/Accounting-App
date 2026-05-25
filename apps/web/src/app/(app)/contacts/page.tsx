@@ -2,6 +2,7 @@
 
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
@@ -14,6 +15,7 @@ import type { Contact, ContactType } from "@/lib/types";
 const contactTypes: ContactType[] = ["CUSTOMER", "SUPPLIER", "BOTH"];
 
 export default function ContactsPage() {
+  const searchParams = useSearchParams();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -23,6 +25,7 @@ export default function ContactsPage() {
   const [createIdentificationType, setCreateIdentificationType] = useState("");
   const canManageContacts = can(PERMISSIONS.contacts.manage);
   const createIdentificationOption = getContactIdentificationOption(createIdentificationType);
+  const initialContactType = contactTypeFromQuery(searchParams.get("type"));
 
   useEffect(() => {
     if (!organizationId) {
@@ -118,7 +121,13 @@ export default function ContactsPage() {
             </p>
           </div>
           <form onSubmit={createContact} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-            <select name="type" required className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+            <select
+              key={initialContactType}
+              name="type"
+              required
+              defaultValue={initialContactType}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
+            >
               {contactTypes.map((type) => (
                 <option key={type} value={type}>{type}</option>
               ))}
@@ -243,4 +252,8 @@ export default function ContactsPage() {
       ) : null}
     </section>
   );
+}
+
+function contactTypeFromQuery(value: string | null): ContactType {
+  return contactTypes.includes(value as ContactType) ? (value as ContactType) : "CUSTOMER";
 }

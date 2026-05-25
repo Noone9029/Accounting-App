@@ -17,6 +17,7 @@ import type { ComponentType, SVGProps } from "react";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { filterSidebarNavItems } from "@/lib/sidebar-nav";
 import { canViewNavItem, PERMISSIONS, type Permission } from "@/lib/permissions";
+import { GlobalCreateMenu } from "./global-create-menu";
 
 const iconsByHref: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   "/dashboard": BarChart3,
@@ -54,6 +55,9 @@ export function Sidebar() {
       <div className="border-b border-slate-200 px-5 py-4">
         <div className="text-sm font-semibold uppercase tracking-[0.18em] text-palm">LedgerByte</div>
         <div className="mt-1 text-xs text-steel">Saudi-first accounting workspace</div>
+      </div>
+      <div className="border-b border-slate-200 px-3 py-3">
+        <GlobalCreateMenu />
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <div className="space-y-1">

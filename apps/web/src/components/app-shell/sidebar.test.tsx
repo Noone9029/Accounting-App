@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
-import { MobileWorkflowNav } from "./sidebar";
+import { MobileWorkflowNav, Sidebar } from "./sidebar";
 
 let mockPathname = "/dashboard";
 let mockActiveMembership: unknown = { role: { permissions: ["*"] } };
@@ -52,5 +52,18 @@ describe("mobile first-workflow navigation", () => {
     render(<MobileWorkflowNav />);
 
     expect(screen.queryByRole("navigation", { name: "First workflow navigation" })).not.toBeInTheDocument();
+  });
+});
+
+describe("sidebar create shortcut", () => {
+  beforeEach(() => {
+    mockPathname = "/dashboard";
+    mockActiveMembership = { role: { permissions: ["*"] } };
+  });
+
+  it("shows the global Create shortcut in the main sidebar", () => {
+    render(<Sidebar />);
+
+    expect(screen.getByRole("button", { name: "Create" })).toBeInTheDocument();
   });
 });
