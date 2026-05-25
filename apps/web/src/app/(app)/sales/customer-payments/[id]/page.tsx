@@ -169,6 +169,7 @@ export default function CustomerPaymentDetailPage() {
     try {
       const updated = await reverseCustomerPaymentUnappliedAllocation(payment.id, allocationId, { reason });
       setPayment(updated);
+      await refreshPayment();
       setSuccess("Unapplied payment allocation reversed.");
     } catch (reverseError) {
       setError(reverseError instanceof Error ? reverseError.message : "Unable to reverse unapplied allocation.");

@@ -49,6 +49,10 @@ describe("customer payment workflow guidance", () => {
     mockPermissionCan.mockReturnValue(true);
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it("submits a guarded unapplied payment application and refreshes the payment detail", async () => {
     const initialPayment = paymentFixture({ amountReceived: "150.0000", unappliedAmount: "50.0000", allocations: [] });
     const updatedPayment = paymentFixture({ amountReceived: "150.0000", unappliedAmount: "20.0000", allocations: [] });
@@ -127,6 +131,92 @@ describe("customer payment workflow guidance", () => {
     await waitFor(() => expect(mockApiRequest.mock.calls.filter(([path]) => path === "/customer-payments/payment-1")).toHaveLength(2));
     expect(screen.getByText((content) => content.includes("Applied") && content.includes("from CP-001"))).toBeInTheDocument();
     expect(mockApiRequest.mock.calls.map(([path]) => String(path)).some((path) => path.includes("receipt"))).toBe(false);
+  });
+
+  it("reverses an active unapplied allocation with confirmation, reason, and detail refresh", async () => {
+    jest.spyOn(window, "prompt").mockReturnValue("Wrong invoice");
+    jest.spyOn(window, "confirm").mockReturnValue(true);
+
+    const activeAllocation = unappliedAllocationFixture({
+      id: "unapplied-active",
+      invoiceId: "invoice-active",
+      amountApplied: "30.0000",
+      invoice: invoiceSummaryFixture({ id: "invoice-active", invoiceNumber: "INV-ACTIVE", balanceDue: "10.0000" }),
+    });
+    const reversedAllocation = unappliedAllocationFixture({
+      id: "unapplied-reversed",
+      invoiceId: "invoice-reversed",
+      amountApplied: "12.0000",
+      reversedAt: "2026-05-22T00:00:00.000Z",
+      reversedById: "user-1",
+      reversalReason: "Already reversed",
+      invoice: invoiceSummaryFixture({ id: "invoice-reversed", invoiceNumber: "INV-REVERSED", balanceDue: "12.0000" }),
+    });
+    const initialPayment = paymentFixture({ unappliedAllocations: [activeAllocation, reversedAllocation] });
+    const updatedPayment = paymentFixture({
+      unappliedAllocations: [
+        { ...activeAllocation, reversedAt: "2026-05-23T00:00:00.000Z", reversedById: "user-1", reversalReason: "Wrong invoice" },
+        reversedAllocation,
+      ],
+    });
+    const refreshedPayment = paymentFixture({ unappliedAllocations: updatedPayment.unappliedAllocations });
+    const paymentLoads = [initialPayment, refreshedPayment];
+
+    mockApiRequest.mockImplementation((path: string) => {
+      if (path === "/customer-payments/payment-1") {
+        return Promise.resolve(paymentLoads.shift() ?? refreshedPayment);
+      }
+      if (path === "/sales-invoices/open?customerId=customer-1") {
+        return Promise.resolve([]);
+      }
+      if (path === "/customer-payments/payment-1/unapplied-allocations/unapplied-active/reverse") {
+        return Promise.resolve(updatedPayment);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<CustomerPaymentDetailPage />);
+
+    await screen.findByText("INV-ACTIVE");
+    expect(screen.getAllByRole("button", { name: "Reverse" })).toHaveLength(1);
+    expect(screen.getByText("INV-REVERSED")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reverse" }));
+
+    await waitFor(() =>
+      expect(mockApiRequest).toHaveBeenCalledWith("/customer-payments/payment-1/unapplied-allocations/unapplied-active/reverse", {
+        method: "POST",
+        body: { reason: "Wrong invoice" },
+      }),
+    );
+    await waitFor(() => expect(mockApiRequest.mock.calls.filter(([path]) => path === "/customer-payments/payment-1")).toHaveLength(2));
+    expect(screen.getByText("Unapplied payment allocation reversed.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reverse" })).not.toBeInTheDocument();
+  });
+
+  it("displays backend validation errors from unapplied allocation reversal", async () => {
+    jest.spyOn(window, "prompt").mockReturnValue("Wrong invoice");
+    jest.spyOn(window, "confirm").mockReturnValue(true);
+
+    mockApiRequest.mockImplementation((path: string) => {
+      if (path === "/customer-payments/payment-1") {
+        return Promise.resolve(paymentFixture({ unappliedAllocations: [unappliedAllocationFixture()] }));
+      }
+      if (path === "/sales-invoices/open?customerId=customer-1") {
+        return Promise.resolve([]);
+      }
+      if (path === "/customer-payments/payment-1/unapplied-allocations/unapplied-1/reverse") {
+        return Promise.reject(new Error("Cannot reverse an already reversed allocation."));
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<CustomerPaymentDetailPage />);
+
+    await screen.findByText("INV-UNAPPLIED");
+    fireEvent.click(screen.getByRole("button", { name: "Reverse" }));
+
+    expect(await screen.findByText("Cannot reverse an already reversed allocation.")).toBeInTheDocument();
   });
 
   it("shows payment state, allocation totals, and journal status from the payment response", () => {
@@ -294,6 +384,39 @@ function paymentFixture(overrides: Partial<CustomerPayment> = {}): CustomerPayme
       },
     ],
     unappliedAllocations: [],
+    ...overrides,
+  };
+}
+
+function unappliedAllocationFixture(
+  overrides: Partial<NonNullable<CustomerPayment["unappliedAllocations"]>[number]> = {},
+): NonNullable<CustomerPayment["unappliedAllocations"]>[number] {
+  return {
+    id: "unapplied-1",
+    organizationId: "org-1",
+    paymentId: "payment-1",
+    invoiceId: "invoice-unapplied",
+    amountApplied: "25.0000",
+    reversedAt: null,
+    reversedById: null,
+    reversalReason: null,
+    createdAt: "2026-05-21T00:00:00.000Z",
+    updatedAt: "2026-05-21T00:00:00.000Z",
+    invoice: invoiceSummaryFixture(),
+    ...overrides,
+  };
+}
+
+function invoiceSummaryFixture(
+  overrides: Partial<NonNullable<NonNullable<CustomerPayment["unappliedAllocations"]>[number]["invoice"]>> = {},
+): NonNullable<NonNullable<CustomerPayment["unappliedAllocations"]>[number]["invoice"]> {
+  return {
+    id: "invoice-unapplied",
+    invoiceNumber: "INV-UNAPPLIED",
+    issueDate: "2026-05-21T00:00:00.000Z",
+    total: "25.0000",
+    balanceDue: "0.0000",
+    status: "FINALIZED",
     ...overrides,
   };
 }
