@@ -321,6 +321,19 @@ Future Part 8 evidence must compare before/after counts carefully because the se
 
 `DEV-08 Part 8: approved local supplier payment unapplied allocation mutation`
 
+## Part 8 Mutation Evidence Note
+
+DEV-08 Part 8 completed the approved local-only supplier payment unapplied allocation mutation. Evidence is recorded in [DEV_08_SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION_MUTATION_EVIDENCE.md](DEV_08_SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION_MUTATION_EVIDENCE.md).
+
+- Mutation performed: yes. `SupplierPaymentService.applyUnapplied(...)` was called exactly once for `PAY-000006`.
+- Payment result: `PAY-000006` remained `POSTED`, safe id prefix `622ad0b6`, amount paid remained `500.0000`, unapplied amount changed `200.0000 -> 0.0000`, journal remained `JE-000050`, and void reversal journal remained absent.
+- Bill result: `BILL-000007` remained `FINALIZED`, safe id prefix `d81ddd60`, total remained `1150.0000`, balance due changed `850.0000 -> 650.0000`, and reversal journal remained absent.
+- Allocation result: the direct `SupplierPaymentAllocation` remained one historical allocation for `300.0000`; one `SupplierPaymentUnappliedAllocation` was created for `200.0000`, safe id prefix `a8ee4e23`, with reversal metadata absent.
+- Accounting result: no new journal was created, `JE-000049` and `JE-000050` remained posted and unchanged, `JOURNAL_ENTRY` sequence remained next `51`, and `PAYMENT` sequence remained next `7`.
+- Audit result: raw `SupplierPayment:APPLY_UNAPPLIED` exists once; no supplier payment void, fixture unapplied reverse, supplier refund, purchase debit note, or purchase bill void audit was created.
+- Forbidden side effects: no generated document, PDF/archive/export/download, email, ZATCA change, supplier refund, purchase debit note, purchase order, purchase receipt, stock movement, cash expense, fixture cleanup/delete, migration, seed/reset/delete, deploy, environment/provider/schema change, production, beta, shared-target, or customer-data action occurred.
+- Exact next prompt title: `DEV-08 Part 9: supplier payment unapplied allocation reversal preflight`.
+
 ## Commands Run
 
 - `git fetch origin main`.
