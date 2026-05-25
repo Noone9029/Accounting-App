@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsDateString, IsDecimal, IsOptional, IsString, IsUUID, Length, ValidateNested } from "class-validator";
+import { ArrayMinSize, IsArray, IsDateString, IsDecimal, IsOptional, IsString, IsUUID, Length, Matches, ValidateNested } from "class-validator";
 import { CustomerPaymentAllocationDto } from "./customer-payment-allocation.dto";
 
 export class CreateCustomerPaymentDto {
@@ -15,6 +15,9 @@ export class CreateCustomerPaymentDto {
   currency?: string;
 
   @IsDecimal({ decimal_digits: "0,4" })
+  @Matches(/^(?=.*[1-9])\d+(?:\.\d{1,4})?$/, {
+    message: "amountReceived must be a positive decimal with up to 4 decimal places.",
+  })
   amountReceived!: string;
 
   @IsUUID()

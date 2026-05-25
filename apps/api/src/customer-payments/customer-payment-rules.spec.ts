@@ -1,5 +1,7 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { assertBalancedJournal } from "@ledgerbyte/accounting-core";
+import { plainToInstance } from "class-transformer";
+import { validateSync, type ValidationError } from "class-validator";
 import {
   CustomerPaymentStatus,
   CustomerRefundStatus,
@@ -13,7 +15,7 @@ import { NumberSequenceService } from "../number-sequences/number-sequence.servi
 import { buildCustomerPaymentJournalLines } from "./customer-payment-accounting";
 import { CustomerPaymentController } from "./customer-payment.controller";
 import { CustomerPaymentService } from "./customer-payment.service";
-import type { CreateCustomerPaymentDto } from "./dto/create-customer-payment.dto";
+import { CreateCustomerPaymentDto } from "./dto/create-customer-payment.dto";
 
 const basePaymentDto: CreateCustomerPaymentDto = {
   customerId: "customer-1",
@@ -52,6 +54,22 @@ describe("customer payment rules", () => {
         allocations: [{ invoiceId: "invoice-1", amountApplied: "0.0000" }],
       }),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it("validates positive customer payment amounts at the DTO boundary", () => {
+    const dto = plainToInstance(CreateCustomerPaymentDto, {
+      customerId: "11111111-1111-1111-1111-111111111111",
+      paymentDate: "2026-05-06T00:00:00.000Z",
+      currency: "SAR",
+      amountReceived: "0.0000",
+      accountId: "22222222-2222-2222-2222-222222222222",
+      allocations: [{ invoiceId: "33333333-3333-3333-3333-333333333333", amountApplied: "-1.0000" }],
+    });
+
+    const messages = flattenValidationMessages(validateSync(dto));
+
+    expect(messages).toContain("amountReceived must be a positive decimal with up to 4 decimal places.");
+    expect(messages).toContain("amountApplied must be a positive decimal with up to 4 decimal places.");
   });
 
   it("rejects cross-tenant or invalid customer, account, and invoice references", async () => {
@@ -1388,6 +1406,10 @@ function commitCreateRollbackState(target: CreateRollbackState, source: CreateRo
 
 function formatTestMoney(value: number): string {
   return value.toFixed(4);
+}
+
+function flattenValidationMessages(errors: ValidationError[]): string[] {
+  return errors.flatMap((error) => [...Object.values(error.constraints ?? {}), ...flattenValidationMessages(error.children ?? [])]);
 }
 
 function makeCreateTransactionMock(

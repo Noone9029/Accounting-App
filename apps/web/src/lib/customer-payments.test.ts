@@ -83,6 +83,12 @@ describe("customer payment helpers", () => {
     expect(customerPaymentAllocationStateBadgeClass("NO_ALLOCATIONS")).toContain("slate");
   });
 
+  it("derives allocation state from amount-only customer payment rows", () => {
+    expect(customerPaymentAllocationState({ amountReceived: "100.0000", unappliedAmount: "0.0000" })).toBe("FULLY_APPLIED");
+    expect(customerPaymentAllocationState({ amountReceived: "100.0000", unappliedAmount: "25.0000" })).toBe("PARTIALLY_UNAPPLIED");
+    expect(customerPaymentAllocationState({ amountReceived: "100.0000", unappliedAmount: "100.0000" })).toBe("NO_ALLOCATIONS");
+  });
+
   it("calculates active applied amount from unreversed unapplied allocations", () => {
     expect(
       customerPaymentActiveUnappliedAppliedAmount([
