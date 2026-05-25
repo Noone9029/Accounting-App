@@ -66,6 +66,15 @@ interface AgingDocumentInput {
   balanceDue: unknown;
 }
 
+interface VatReturnDocumentInput {
+  id: string;
+  number: string;
+  documentDate: string | Date;
+  taxableTotal: unknown;
+  taxTotal: unknown;
+  total: unknown;
+}
+
 @Injectable()
 export class ReportsService {
   constructor(
@@ -141,6 +150,65 @@ export class ReportsService {
     });
     const lines = await this.findJournalLines(organizationId, { from: range.from, to: range.to });
     return buildVatSummaryReport(vatAccounts, lines, { from: range.fromLabel, to: range.toLabel });
+  }
+
+  async vatReturn(organizationId: string, query: ReportDateQuery) {
+    const range = parseRange(query);
+    const documentDateFilter = dateRangeFilter(range.from, range.to);
+    const [salesInvoices, purchaseBills] = await Promise.all([
+      this.prisma.salesInvoice.findMany({
+        where: {
+          organizationId,
+          status: SalesInvoiceStatus.FINALIZED,
+          ...(documentDateFilter ? { issueDate: documentDateFilter } : {}),
+        },
+        orderBy: [{ issueDate: "asc" }, { invoiceNumber: "asc" }],
+        select: {
+          id: true,
+          invoiceNumber: true,
+          issueDate: true,
+          taxableTotal: true,
+          taxTotal: true,
+          total: true,
+        },
+      }),
+      this.prisma.purchaseBill.findMany({
+        where: {
+          organizationId,
+          status: PurchaseBillStatus.FINALIZED,
+          ...(documentDateFilter ? { billDate: documentDateFilter } : {}),
+        },
+        orderBy: [{ billDate: "asc" }, { billNumber: "asc" }],
+        select: {
+          id: true,
+          billNumber: true,
+          billDate: true,
+          taxableTotal: true,
+          taxTotal: true,
+          total: true,
+        },
+      }),
+    ]);
+
+    return buildVatReturnReport(
+      salesInvoices.map((invoice) => ({
+        id: invoice.id,
+        number: invoice.invoiceNumber,
+        documentDate: invoice.issueDate,
+        taxableTotal: invoice.taxableTotal,
+        taxTotal: invoice.taxTotal,
+        total: invoice.total,
+      })),
+      purchaseBills.map((bill) => ({
+        id: bill.id,
+        number: bill.billNumber,
+        documentDate: bill.billDate,
+        taxableTotal: bill.taxableTotal,
+        taxTotal: bill.taxTotal,
+        total: bill.total,
+      })),
+      { from: range.fromLabel, to: range.toLabel },
+    );
   }
 
   async agedReceivables(organizationId: string, query: ReportDateQuery) {
@@ -616,6 +684,35 @@ export function buildVatSummaryReport(
   };
 }
 
+export function buildVatReturnReport(
+  salesDocuments: VatReturnDocumentInput[],
+  purchaseDocuments: VatReturnDocumentInput[],
+  options: { from: string | null; to: string | null },
+) {
+  const sales = summarizeVatReturnDocuments(salesDocuments);
+  const purchases = summarizeVatReturnDocuments(purchaseDocuments);
+  const outputVat = money(sales.taxAmount);
+  const inputVat = money(purchases.taxAmount);
+  const netVat = outputVat.minus(inputVat);
+
+  return {
+    from: options.from,
+    to: options.to,
+    basis: "FINALIZED_SOURCE_DOCUMENTS",
+    outputVat: fixed(outputVat),
+    inputVat: fixed(inputVat),
+    netVat: fixed(netVat),
+    netVatPayable: fixed(Decimal.max(netVat, ZERO)),
+    netVatRefundable: fixed(Decimal.max(netVat.negated(), ZERO)),
+    sales,
+    purchases,
+    notes: [
+      "VAT return foundation is calculated from finalized sales invoices and finalized purchase bills in the selected date range.",
+      "Draft and voided documents are excluded; this report does not submit a tax return.",
+    ],
+  };
+}
+
 export function buildAgingReport(documents: AgingDocumentInput[], options: { asOf: string | null; kind: "receivables" | "payables" }) {
   const asOf = parseEndDate(options.asOf) ?? endOfToday();
   const rows = documents.map((document) => {
@@ -682,6 +779,32 @@ function emptyAggregate() {
   return { debit: ZERO, credit: ZERO, net: ZERO };
 }
 
+function summarizeVatReturnDocuments(documents: VatReturnDocumentInput[]) {
+  const totals = documents.reduce(
+    (sum, document) => ({
+      taxableAmount: sum.taxableAmount.plus(money(document.taxableTotal)),
+      taxAmount: sum.taxAmount.plus(money(document.taxTotal)),
+      grossAmount: sum.grossAmount.plus(money(document.total)),
+    }),
+    { taxableAmount: ZERO, taxAmount: ZERO, grossAmount: ZERO },
+  );
+
+  return {
+    documentCount: documents.length,
+    taxableAmount: fixed(totals.taxableAmount),
+    taxAmount: fixed(totals.taxAmount),
+    grossAmount: fixed(totals.grossAmount),
+    documents: documents.map((document) => ({
+      id: document.id,
+      number: document.number,
+      documentDate: toIso(document.documentDate),
+      taxableAmount: fixed(document.taxableTotal),
+      taxAmount: fixed(document.taxTotal),
+      grossAmount: fixed(document.total),
+    })),
+  };
+}
+
 function debitCreditPair(net: Decimal) {
   return net.greaterThanOrEqualTo(0) ? { debit: fixed(net), credit: "0.0000" } : { debit: "0.0000", credit: fixed(net.abs()) };
 }
@@ -722,6 +845,16 @@ function parseRange(query: ReportDateQuery) {
     to,
     fromLabel: dateLabel(query.from, from),
     toLabel: dateLabel(query.to, to),
+  };
+}
+
+function dateRangeFilter(from: Date | null, to: Date | null): { gte?: Date; lte?: Date } | null {
+  if (!from && !to) {
+    return null;
+  }
+  return {
+    ...(from ? { gte: from } : {}),
+    ...(to ? { lte: to } : {}),
   };
 }
 

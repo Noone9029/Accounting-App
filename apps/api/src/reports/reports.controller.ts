@@ -122,6 +122,11 @@ export class ReportsController {
     return this.pdfResponse(organizationId, user.id, "vat-summary", query, request, response);
   }
 
+  @Get("vat-return")
+  vatReturn(@CurrentOrganizationId() organizationId: string, @Query() query: ReportDateQuery) {
+    return this.reportsService.vatReturn(organizationId, query);
+  }
+
   @Get("aged-receivables")
   agedReceivables(
     @CurrentOrganizationId() organizationId: string,

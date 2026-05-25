@@ -1,4 +1,4 @@
-import { AccountType, DocumentType } from "@prisma/client";
+import { AccountType, DocumentType, PurchaseBillStatus, SalesInvoiceStatus } from "@prisma/client";
 import {
   agingBucket,
   buildAgingReport,
@@ -6,6 +6,7 @@ import {
   buildGeneralLedgerReport,
   buildProfitAndLossReport,
   buildTrialBalanceReport,
+  buildVatReturnReport,
   buildVatSummaryReport,
   ReportsService,
 } from "./reports.service";
@@ -172,6 +173,89 @@ describe("reports service builders", () => {
     expect(report.notes[0]).toContain("not an official VAT return");
   });
 
+  it("builds VAT return totals from finalized invoice and bill source documents", () => {
+    const report = buildVatReturnReport(
+      [
+        vatDocument("invoice-1", "INV-1", "2026-01-10", "100.0000", "15.0000", "115.0000"),
+        vatDocument("invoice-2", "INV-2", "2026-01-11", "50.0000", "7.5000", "57.5000"),
+      ],
+      [vatDocument("bill-1", "BILL-1", "2026-01-12", "40.0000", "6.0000", "46.0000")],
+      { from: "2026-01-01", to: "2026-01-31" },
+    );
+
+    expect(report).toMatchObject({
+      outputVat: "22.5000",
+      inputVat: "6.0000",
+      netVat: "16.5000",
+      netVatPayable: "16.5000",
+      netVatRefundable: "0.0000",
+      sales: { documentCount: 2, taxableAmount: "150.0000", taxAmount: "22.5000", grossAmount: "172.5000" },
+      purchases: { documentCount: 1, taxableAmount: "40.0000", taxAmount: "6.0000", grossAmount: "46.0000" },
+    });
+  });
+
+  it("reports refundable VAT when input VAT exceeds output VAT", () => {
+    const report = buildVatReturnReport(
+      [vatDocument("invoice-1", "INV-1", "2026-01-10", "100.0000", "15.0000", "115.0000")],
+      [vatDocument("bill-1", "BILL-1", "2026-01-12", "200.0000", "30.0000", "230.0000")],
+      { from: "2026-01-01", to: "2026-01-31" },
+    );
+
+    expect(report.netVat).toBe("-15.0000");
+    expect(report.netVatPayable).toBe("0.0000");
+    expect(report.netVatRefundable).toBe("15.0000");
+  });
+
+  it("calculates VAT return from active-organization finalized documents inside the date range", async () => {
+    const salesInvoices = [
+      salesInvoiceFixture({ id: "invoice-finalized", status: SalesInvoiceStatus.FINALIZED, issueDate: new Date("2026-01-10T00:00:00.000Z"), taxTotal: "15.0000" }),
+      salesInvoiceFixture({ id: "invoice-draft", status: SalesInvoiceStatus.DRAFT, issueDate: new Date("2026-01-10T00:00:00.000Z"), taxTotal: "99.0000" }),
+      salesInvoiceFixture({ id: "invoice-voided", status: SalesInvoiceStatus.VOIDED, issueDate: new Date("2026-01-10T00:00:00.000Z"), taxTotal: "88.0000" }),
+      salesInvoiceFixture({ id: "invoice-other-org", organizationId: "org-2", status: SalesInvoiceStatus.FINALIZED, issueDate: new Date("2026-01-10T00:00:00.000Z"), taxTotal: "77.0000" }),
+      salesInvoiceFixture({ id: "invoice-outside-range", status: SalesInvoiceStatus.FINALIZED, issueDate: new Date("2026-02-01T00:00:00.000Z"), taxTotal: "66.0000" }),
+    ];
+    const purchaseBills = [
+      purchaseBillFixture({ id: "bill-finalized", status: PurchaseBillStatus.FINALIZED, billDate: new Date("2026-01-15T00:00:00.000Z"), taxTotal: "5.0000" }),
+      purchaseBillFixture({ id: "bill-voided", status: PurchaseBillStatus.VOIDED, billDate: new Date("2026-01-15T00:00:00.000Z"), taxTotal: "44.0000" }),
+      purchaseBillFixture({ id: "bill-other-org", organizationId: "org-2", status: PurchaseBillStatus.FINALIZED, billDate: new Date("2026-01-15T00:00:00.000Z"), taxTotal: "33.0000" }),
+    ];
+    const prisma = {
+      salesInvoice: { findMany: jest.fn(async (args: any) => salesInvoices.filter((invoice) => matchesVatWhere(invoice, args.where, "issueDate"))) },
+      purchaseBill: { findMany: jest.fn(async (args: any) => purchaseBills.filter((bill) => matchesVatWhere(bill, args.where, "billDate"))) },
+    };
+    const service = new ReportsService(prisma as never);
+
+    const report = await service.vatReturn("org-1", { from: "2026-01-01", to: "2026-01-31" });
+
+    expect(report).toMatchObject({
+      outputVat: "15.0000",
+      inputVat: "5.0000",
+      netVatPayable: "10.0000",
+      sales: { documentCount: 1 },
+      purchases: { documentCount: 1 },
+    });
+    expect(report.sales.documents.map((document) => document.id)).toEqual(["invoice-finalized"]);
+    expect(report.purchases.documents.map((document) => document.id)).toEqual(["bill-finalized"]);
+    expect(prisma.salesInvoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          status: SalesInvoiceStatus.FINALIZED,
+          issueDate: { gte: new Date("2026-01-01T00:00:00.000Z"), lte: new Date("2026-01-31T23:59:59.999Z") },
+        }),
+      }),
+    );
+    expect(prisma.purchaseBill.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          status: PurchaseBillStatus.FINALIZED,
+          billDate: { gte: new Date("2026-01-01T00:00:00.000Z"), lte: new Date("2026-01-31T23:59:59.999Z") },
+        }),
+      }),
+    );
+  });
+
   it("buckets aged receivables and payables", () => {
     expect(agingBucket(-1)).toBe("CURRENT");
     expect(agingBucket(30)).toBe("1_30");
@@ -262,4 +346,86 @@ function line(accountId: string, date: string, debit: string, credit: string, de
       reference: null,
     },
   };
+}
+
+function vatDocument(id: string, number: string, date: string, taxableTotal: string, taxTotal: string, total: string) {
+  return {
+    id,
+    number,
+    documentDate: `${date}T00:00:00.000Z`,
+    taxableTotal,
+    taxTotal,
+    total,
+  };
+}
+
+interface SalesInvoiceFixture {
+  id: string;
+  organizationId: string;
+  invoiceNumber: string;
+  issueDate: Date;
+  status: SalesInvoiceStatus;
+  taxableTotal: string;
+  taxTotal: string;
+  total: string;
+}
+
+function salesInvoiceFixture(overrides: Partial<SalesInvoiceFixture>): SalesInvoiceFixture {
+  return { ...salesInvoiceFixtureBase(), ...overrides };
+}
+
+function salesInvoiceFixtureBase(): SalesInvoiceFixture {
+  return {
+    id: "invoice-1",
+    organizationId: "org-1",
+    invoiceNumber: "INV-1",
+    issueDate: new Date("2026-01-10T00:00:00.000Z"),
+    status: SalesInvoiceStatus.FINALIZED,
+    taxableTotal: "100.0000",
+    taxTotal: "15.0000",
+    total: "115.0000",
+  };
+}
+
+interface PurchaseBillFixture {
+  id: string;
+  organizationId: string;
+  billNumber: string;
+  billDate: Date;
+  status: PurchaseBillStatus;
+  taxableTotal: string;
+  taxTotal: string;
+  total: string;
+}
+
+function purchaseBillFixture(overrides: Partial<PurchaseBillFixture>): PurchaseBillFixture {
+  return { ...purchaseBillFixtureBase(), ...overrides };
+}
+
+function purchaseBillFixtureBase(): PurchaseBillFixture {
+  return {
+    id: "bill-1",
+    organizationId: "org-1",
+    billNumber: "BILL-1",
+    billDate: new Date("2026-01-15T00:00:00.000Z"),
+    status: PurchaseBillStatus.FINALIZED,
+    taxableTotal: "50.0000",
+    taxTotal: "5.0000",
+    total: "55.0000",
+  };
+}
+
+function matchesVatWhere<T extends { organizationId: string; status: string }>(
+  document: T,
+  where: { organizationId: string; status: string; issueDate?: { gte?: Date; lte?: Date }; billDate?: { gte?: Date; lte?: Date } },
+  dateKey: keyof T,
+) {
+  const documentDate = new Date(String(document[dateKey]));
+  const dateRange = "issueDate" in where ? where.issueDate : where.billDate;
+  return (
+    document.organizationId === where.organizationId &&
+    document.status === where.status &&
+    (!dateRange?.gte || documentDate >= dateRange.gte) &&
+    (!dateRange?.lte || documentDate <= dateRange.lte)
+  );
 }

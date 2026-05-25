@@ -8,6 +8,7 @@ describe("ReportsController exports", () => {
     coreReport: jest.fn().mockResolvedValue({ ok: true }),
     coreReportCsvFile: jest.fn().mockResolvedValue({ filename: "report.csv", content: "Title\r\n" }),
     coreReportPdf: jest.fn().mockResolvedValue({ filename: "report.pdf", buffer: Buffer.from("%PDF-1.7\n") }),
+    vatReturn: jest.fn().mockResolvedValue({ outputVat: "15.0000", inputVat: "0.0000", netVatPayable: "15.0000" }),
   };
   const controller = new ReportsController(service as never);
 
@@ -53,6 +54,13 @@ describe("ReportsController exports", () => {
     expect(result).toBeInstanceOf(StreamableFile);
     expect(service.coreReportPdf).toHaveBeenCalledWith("org-1", "user-1", "trial-balance", {});
     expect(res.set).toHaveBeenCalledWith(expect.objectContaining({ "Content-Type": "application/pdf" }));
+  });
+
+  it("routes VAT return requests to the document-source report engine", async () => {
+    const result = await controller.vatReturn("org-1", { from: "2026-01-01", to: "2026-01-31" });
+
+    expect(result).toMatchObject({ outputVat: "15.0000", inputVat: "0.0000", netVatPayable: "15.0000" });
+    expect(service.vatReturn).toHaveBeenCalledWith("org-1", { from: "2026-01-01", to: "2026-01-31" });
   });
 
   it("allows generated document download permission to export reports", async () => {
