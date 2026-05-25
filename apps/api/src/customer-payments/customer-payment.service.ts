@@ -73,6 +73,18 @@ const customerPaymentInclude = {
 
 type PrismaExecutor = PrismaService | Prisma.TransactionClient;
 
+const CUSTOMER_PAYMENT_MUTATION_ERRORS = {
+  PAYMENT_NOT_FOUND: "Customer payment not found.",
+  INVOICE_NOT_FOUND: "Sales invoice not found.",
+  CUSTOMER_MISMATCH: "Customer payment and invoice must belong to the same customer.",
+  INVOICE_NOT_FINALIZED: "Unapplied customer payments can only be applied to finalized invoices.",
+  AMOUNT_EXCEEDS_UNAPPLIED: "Amount applied cannot exceed customer payment unapplied amount.",
+  AMOUNT_EXCEEDS_INVOICE_BALANCE: "Amount applied cannot exceed invoice balance due.",
+  ALLOCATION_NOT_FOUND: "Customer payment unapplied allocation not found.",
+  ALLOCATION_ALREADY_REVERSED: "Customer payment unapplied allocation has already been reversed.",
+  PAYMENT_VOIDED: "Voided customer payments cannot have unapplied allocation changes.",
+} as const;
+
 @Injectable()
 export class CustomerPaymentService {
   constructor(
@@ -104,7 +116,7 @@ export class CustomerPaymentService {
     });
 
     if (!payment) {
-      throw new NotFoundException("Customer payment not found.");
+      throw new NotFoundException(CUSTOMER_PAYMENT_MUTATION_ERRORS.PAYMENT_NOT_FOUND);
     }
 
     return payment;
@@ -116,7 +128,7 @@ export class CustomerPaymentService {
       select: { id: true },
     });
     if (!payment) {
-      throw new NotFoundException("Customer payment not found.");
+      throw new NotFoundException(CUSTOMER_PAYMENT_MUTATION_ERRORS.PAYMENT_NOT_FOUND);
     }
 
     return this.prisma.customerPaymentUnappliedAllocation.findMany({
@@ -184,13 +196,13 @@ export class CustomerPaymentService {
         },
       });
       if (!payment) {
-        throw new NotFoundException("Customer payment not found.");
+        throw new NotFoundException(CUSTOMER_PAYMENT_MUTATION_ERRORS.PAYMENT_NOT_FOUND);
       }
       if (payment.status === CustomerPaymentStatus.VOIDED) {
-        throw new BadRequestException("Voided customer payments cannot have unapplied amounts applied to invoices.");
+        throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.PAYMENT_VOIDED);
       }
       if (payment.voidReversalJournalEntryId) {
-        throw new BadRequestException("Customer payment has a void reversal journal entry and cannot have unapplied amounts applied to invoices.");
+        throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.PAYMENT_VOIDED);
       }
       if (payment.status !== CustomerPaymentStatus.POSTED) {
         throw new BadRequestException(
@@ -198,9 +210,7 @@ export class CustomerPaymentService {
         );
       }
       if (amountApplied.gt(payment.unappliedAmount)) {
-        throw new BadRequestException(
-          `Amount applied (${amountApplied.toFixed(4)}) cannot exceed customer payment unapplied amount (${toMoney(payment.unappliedAmount).toFixed(4)}).`,
-        );
+        throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.AMOUNT_EXCEEDS_UNAPPLIED);
       }
 
       const invoice = await tx.salesInvoice.findFirst({
@@ -213,23 +223,16 @@ export class CustomerPaymentService {
         },
       });
       if (!invoice) {
-        throw new BadRequestException("Invoice must belong to this organization.");
+        throw new NotFoundException(CUSTOMER_PAYMENT_MUTATION_ERRORS.INVOICE_NOT_FOUND);
       }
       if (invoice.customerId !== payment.customerId) {
-        throw new BadRequestException("Customer payment can only be applied to invoices for the same customer.");
-      }
-      if (invoice.status === SalesInvoiceStatus.VOIDED) {
-        throw new BadRequestException("Voided invoices cannot receive unapplied customer payment allocations.");
+        throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.CUSTOMER_MISMATCH);
       }
       if (invoice.status !== SalesInvoiceStatus.FINALIZED) {
-        throw new BadRequestException(
-          `Unapplied payments can only be applied to finalized invoices. Current invoice status: ${invoice.status}.`,
-        );
+        throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.INVOICE_NOT_FINALIZED);
       }
       if (amountApplied.gt(invoice.balanceDue)) {
-        throw new BadRequestException(
-          `Amount applied (${amountApplied.toFixed(4)}) cannot exceed invoice balance due (${toMoney(invoice.balanceDue).toFixed(4)}).`,
-        );
+        throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.AMOUNT_EXCEEDS_INVOICE_BALANCE);
       }
 
       const amount = amountApplied.toFixed(4);
@@ -244,7 +247,7 @@ export class CustomerPaymentService {
         data: { unappliedAmount: { decrement: amount } },
       });
       if (paymentClaim.count !== 1) {
-        throw new BadRequestException("Payment unapplied amount is no longer sufficient for this allocation.");
+        throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.AMOUNT_EXCEEDS_UNAPPLIED);
       }
 
       const invoiceClaim = await tx.salesInvoice.updateMany({
@@ -258,7 +261,7 @@ export class CustomerPaymentService {
         data: { balanceDue: { decrement: amount } },
       });
       if (invoiceClaim.count !== 1) {
-        throw new BadRequestException("Invoice balance due is no longer sufficient for this allocation.");
+        throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.AMOUNT_EXCEEDS_INVOICE_BALANCE);
       }
 
       // Applying unapplied payment credit is matching only. The original payment
@@ -320,16 +323,16 @@ export class CustomerPaymentService {
       });
 
       if (!allocation) {
-        throw new NotFoundException("Payment unapplied allocation not found.");
+        throw new NotFoundException(CUSTOMER_PAYMENT_MUTATION_ERRORS.ALLOCATION_NOT_FOUND);
       }
       if (allocation.reversedAt) {
-        throw new BadRequestException("Payment unapplied allocation has already been reversed.");
+        throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.ALLOCATION_ALREADY_REVERSED);
       }
       if (allocation.payment.status === CustomerPaymentStatus.VOIDED) {
-        throw new BadRequestException("Voided customer payments cannot have unapplied allocations reversed.");
+        throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.PAYMENT_VOIDED);
       }
       if (allocation.payment.voidReversalJournalEntryId) {
-        throw new BadRequestException("Customer payment has a void reversal journal entry and cannot have unapplied allocations reversed.");
+        throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.PAYMENT_VOIDED);
       }
       if (allocation.payment.status !== CustomerPaymentStatus.POSTED) {
         throw new BadRequestException("Only posted, non-voided customer payments can have unapplied allocations reversed.");
@@ -359,7 +362,7 @@ export class CustomerPaymentService {
         },
       });
       if (claim.count !== 1) {
-        throw new BadRequestException("Payment unapplied allocation has already been reversed.");
+        throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.ALLOCATION_ALREADY_REVERSED);
       }
 
       const paymentRestore = await tx.customerPayment.updateMany({

@@ -1,4 +1,4 @@
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { assertBalancedJournal } from "@ledgerbyte/accounting-core";
 import {
   CustomerPaymentStatus,
@@ -393,8 +393,8 @@ describe("customer payment rules", () => {
   });
 
   it.each([
-    [SalesInvoiceStatus.DRAFT, "Unapplied payments can only be applied to finalized invoices. Current invoice status: DRAFT."],
-    [SalesInvoiceStatus.VOIDED, "Voided invoices cannot receive unapplied customer payment allocations."],
+    [SalesInvoiceStatus.DRAFT, "Unapplied customer payments can only be applied to finalized invoices."],
+    [SalesInvoiceStatus.VOIDED, "Unapplied customer payments can only be applied to finalized invoices."],
   ])(
     "rejects applying unapplied payment credit to a %s invoice",
     async (invoiceStatus, expectedMessage) => {
@@ -431,7 +431,7 @@ describe("customer payment rules", () => {
     jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.VOIDED } as never);
 
     await expect(service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "10.0000" })).rejects.toThrow(
-      "Voided customer payments cannot have unapplied amounts applied to invoices.",
+      "Voided customer payments cannot have unapplied allocation changes.",
     );
     expect(tx.customerPaymentUnappliedAllocation.create).not.toHaveBeenCalled();
 
@@ -441,7 +441,7 @@ describe("customer payment rules", () => {
     jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
 
     await expect(service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "10.0000" })).rejects.toThrow(
-      "Customer payment has a void reversal journal entry and cannot have unapplied amounts applied to invoices.",
+      "Voided customer payments cannot have unapplied allocation changes.",
     );
     expect(tx.customerPaymentUnappliedAllocation.create).not.toHaveBeenCalled();
 
@@ -450,7 +450,7 @@ describe("customer payment rules", () => {
     service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
     jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
     await expect(service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "10.0000" })).rejects.toThrow(
-      "same customer",
+      "Customer payment and invoice must belong to the same customer.",
     );
 
     tx = makeApplyUnappliedTransactionMock({ unappliedAmount: "20.0000" });
@@ -458,7 +458,7 @@ describe("customer payment rules", () => {
     service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
     jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
     await expect(service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "25.0000" })).rejects.toThrow(
-      "payment unapplied amount",
+      "Amount applied cannot exceed customer payment unapplied amount.",
     );
 
     tx = makeApplyUnappliedTransactionMock({ invoiceBalanceDue: "20.0000" });
@@ -466,8 +466,48 @@ describe("customer payment rules", () => {
     service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
     jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
     await expect(service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "25.0000" })).rejects.toThrow(
-      "invoice balance due",
+      "Amount applied cannot exceed invoice balance due.",
     );
+  });
+
+  it("returns stable API errors for unapplied payment application failures", async () => {
+    let prisma = {
+      customerPayment: { findFirst: jest.fn().mockResolvedValue(null) },
+      $transaction: jest.fn(),
+    };
+    let service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await expectMutationError(
+      service.applyUnapplied("org-1", "user-1", "missing-payment", { invoiceId: "invoice-1", amountApplied: "10.0000" }),
+      NotFoundException,
+      "Customer payment not found.",
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+
+    let tx = makeApplyUnappliedTransactionMock();
+    tx.salesInvoice.findFirst.mockResolvedValueOnce(null);
+    let txPrisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    service = new CustomerPaymentService(txPrisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
+
+    await expectMutationError(
+      service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "missing-invoice", amountApplied: "10.0000" }),
+      NotFoundException,
+      "Sales invoice not found.",
+    );
+    expect(tx.customerPaymentUnappliedAllocation.create).not.toHaveBeenCalled();
+
+    tx = makeApplyUnappliedTransactionMock({ invoiceCustomerId: "customer-2" });
+    txPrisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    service = new CustomerPaymentService(txPrisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
+
+    await expectMutationError(
+      service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "10.0000" }),
+      BadRequestException,
+      "Customer payment and invoice must belong to the same customer.",
+    );
+    expect(tx.customerPaymentUnappliedAllocation.create).not.toHaveBeenCalled();
   });
 
   it("rejects stale concurrent unapplied payment application claims cleanly", async () => {
@@ -477,7 +517,7 @@ describe("customer payment rules", () => {
     jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
 
     await expect(service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "40.0000" })).rejects.toThrow(
-      "Payment unapplied amount is no longer sufficient",
+      "Amount applied cannot exceed customer payment unapplied amount.",
     );
     expect(tx.customerPaymentUnappliedAllocation.create).not.toHaveBeenCalled();
 
@@ -487,7 +527,7 @@ describe("customer payment rules", () => {
     jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
 
     await expect(service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "40.0000" })).rejects.toThrow(
-      "Invoice balance due is no longer sufficient",
+      "Amount applied cannot exceed invoice balance due.",
     );
     expect(tx.customerPaymentUnappliedAllocation.create).not.toHaveBeenCalled();
   });
@@ -547,7 +587,7 @@ describe("customer payment rules", () => {
     const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
 
     await expect(service.reverseUnappliedAllocation("org-1", "user-1", "payment-2", "unapplied-allocation-1", {})).rejects.toThrow(
-      "Payment unapplied allocation not found.",
+      "Customer payment unapplied allocation not found.",
     );
 
     expect(tx.customerPaymentUnappliedAllocation.findFirst).toHaveBeenCalledWith(
@@ -567,7 +607,7 @@ describe("customer payment rules", () => {
     let service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
 
     await expect(service.reverseUnappliedAllocation("org-1", "user-1", "payment-1", "unapplied-allocation-1", {})).rejects.toThrow(
-      "Voided customer payments cannot have unapplied allocations reversed.",
+      "Voided customer payments cannot have unapplied allocation changes.",
     );
     expect(tx.customerPaymentUnappliedAllocation.updateMany).not.toHaveBeenCalled();
     expect(tx.customerPayment.updateMany).not.toHaveBeenCalled();
@@ -578,7 +618,7 @@ describe("customer payment rules", () => {
     service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
 
     await expect(service.reverseUnappliedAllocation("org-1", "user-1", "payment-1", "unapplied-allocation-1", {})).rejects.toThrow(
-      "Customer payment has a void reversal journal entry and cannot have unapplied allocations reversed.",
+      "Voided customer payments cannot have unapplied allocation changes.",
     );
     expect(tx.customerPaymentUnappliedAllocation.updateMany).not.toHaveBeenCalled();
     expect(tx.customerPayment.updateMany).not.toHaveBeenCalled();
@@ -605,7 +645,7 @@ describe("customer payment rules", () => {
     let service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
 
     await expect(service.reverseUnappliedAllocation("org-1", "user-1", "payment-1", "unapplied-allocation-1", {})).rejects.toThrow(
-      "Payment unapplied allocation has already been reversed.",
+      "Customer payment unapplied allocation has already been reversed.",
     );
     expect(tx.customerPayment.updateMany).not.toHaveBeenCalled();
 
@@ -614,7 +654,31 @@ describe("customer payment rules", () => {
     service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
 
     await expect(service.reverseUnappliedAllocation("org-1", "user-1", "payment-1", "unapplied-allocation-1", {})).rejects.toThrow(
-      "Payment unapplied allocation has already been reversed.",
+      "Customer payment unapplied allocation has already been reversed.",
+    );
+    expect(tx.customerPayment.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("returns stable API errors for unapplied allocation reversal failures", async () => {
+    let tx = makeReverseUnappliedTransactionMock({ reversedAt: new Date("2026-05-12T00:00:00.000Z") });
+    let prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    let service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await expectMutationError(
+      service.reverseUnappliedAllocation("org-1", "user-1", "payment-1", "unapplied-allocation-1", {}),
+      BadRequestException,
+      "Customer payment unapplied allocation has already been reversed.",
+    );
+    expect(tx.customerPayment.updateMany).not.toHaveBeenCalled();
+
+    tx = makeReverseUnappliedTransactionMock({ paymentStatus: CustomerPaymentStatus.VOIDED });
+    prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await expectMutationError(
+      service.reverseUnappliedAllocation("org-1", "user-1", "payment-1", "unapplied-allocation-1", {}),
+      BadRequestException,
+      "Voided customer payments cannot have unapplied allocation changes.",
     );
     expect(tx.customerPayment.updateMany).not.toHaveBeenCalled();
   });
@@ -1082,6 +1146,22 @@ function makeGeneratedDocumentArchiveGuard() {
   return {
     archivePdf: jest.fn().mockRejectedValue(new Error("Customer payment lifecycle mutations must not archive receipt PDFs.")),
   };
+}
+
+async function expectMutationError<TError extends Error>(
+  promise: Promise<unknown>,
+  expectedType: new (...args: never[]) => TError,
+  expectedMessage: string,
+) {
+  let caught: unknown;
+  try {
+    await promise;
+  } catch (error) {
+    caught = error;
+  }
+
+  expect(caught).toBeInstanceOf(expectedType);
+  expect(caught).toMatchObject({ message: expectedMessage });
 }
 
 const PAYMENT_SEQUENCE_SCOPE = NumberSequenceScope.PAYMENT;
