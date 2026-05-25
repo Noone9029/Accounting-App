@@ -26,7 +26,7 @@ import {
 } from "@prisma/client";
 import { AccountingService } from "../accounting/accounting.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
-import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
+import { GeneratedDocumentService, sanitizeFilename, type ZatcaPdfA3ArchiveMetadataInput } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
@@ -297,11 +297,14 @@ export class SalesInvoiceService {
         },
         zatcaMetadata: {
           select: {
+            id: true,
             zatcaStatus: true,
             invoiceUuid: true,
             icv: true,
             invoiceHash: true,
+            xmlHash: true,
             qrCodeBase64: true,
+            generatedAt: true,
           },
         },
       },
@@ -358,11 +361,16 @@ export class SalesInvoiceService {
       ],
       zatca: invoice.zatcaMetadata
         ? {
+            metadataId: invoice.zatcaMetadata.id,
             status: invoice.zatcaMetadata.zatcaStatus,
             invoiceUuid: invoice.zatcaMetadata.invoiceUuid,
             icv: invoice.zatcaMetadata.icv,
             invoiceHash: invoice.zatcaMetadata.invoiceHash,
+            xmlHash: invoice.zatcaMetadata.xmlHash,
             qrCodeBase64: invoice.zatcaMetadata.qrCodeBase64,
+            generatedAt: invoice.zatcaMetadata.generatedAt,
+            hasUnsignedXml: Boolean(invoice.zatcaMetadata.invoiceHash || invoice.zatcaMetadata.xmlHash),
+            hasQrPayload: Boolean(invoice.zatcaMetadata.qrCodeBase64),
           }
         : null,
       generatedAt: new Date(),
@@ -378,7 +386,7 @@ export class SalesInvoiceService {
     const settings = await this.documentSettingsService?.invoiceRenderSettings(organizationId);
     const buffer = await renderInvoicePdf(data, settings);
     const filename = sanitizeFilename(`invoice-${data.invoice.invoiceNumber}.pdf`);
-    const document = await this.generatedDocumentService?.archivePdf({
+    const archiveInput = {
       organizationId,
       documentType: DocumentType.SALES_INVOICE,
       sourceType: "SalesInvoice",
@@ -387,7 +395,12 @@ export class SalesInvoiceService {
       filename,
       buffer,
       generatedById: actorUserId,
-    });
+      zatca: toZatcaPdfA3ArchiveMetadata(data.zatca),
+    };
+    const archived = this.generatedDocumentService?.archiveInvoicePdf
+      ? await this.generatedDocumentService.archiveInvoicePdf(archiveInput)
+      : { document: (await this.generatedDocumentService?.archivePdf(archiveInput)) ?? null };
+    const document = archived.document;
     return { data, buffer, filename, document: document ?? null };
   }
 
@@ -1070,4 +1083,23 @@ function isUniqueConstraintError(error: unknown): boolean {
 
 function moneyString(value: unknown): string {
   return String(value ?? "0");
+}
+
+function toZatcaPdfA3ArchiveMetadata(zatca: InvoicePdfData["zatca"]): ZatcaPdfA3ArchiveMetadataInput | null {
+  if (!zatca) {
+    return null;
+  }
+
+  return {
+    metadataId: zatca.metadataId ?? null,
+    invoiceUuid: zatca.invoiceUuid ?? null,
+    zatcaStatus: zatca.status,
+    icv: zatca.icv ?? null,
+    invoiceHash: zatca.invoiceHash ?? null,
+    xmlHash: zatca.xmlHash ?? null,
+    generatedAt: zatca.generatedAt ?? null,
+    hasUnsignedXml: zatca.hasUnsignedXml === true || Boolean(zatca.invoiceHash || zatca.xmlHash),
+    hasQrPayload: zatca.hasQrPayload === true || Boolean(zatca.qrCodeBase64),
+    hasSignedXml: false,
+  };
 }

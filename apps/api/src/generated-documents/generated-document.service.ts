@@ -35,6 +35,42 @@ export interface ArchivePdfInput {
   generatedById?: string | null;
 }
 
+export interface ZatcaPdfA3ArchiveMetadataInput {
+  metadataId?: string | null;
+  invoiceUuid?: string | null;
+  zatcaStatus?: string | null;
+  icv?: number | null;
+  invoiceHash?: string | null;
+  xmlHash?: string | null;
+  generatedAt?: Date | string | null;
+  hasUnsignedXml?: boolean;
+  hasQrPayload?: boolean;
+  hasSignedXml?: boolean;
+}
+
+export interface ArchiveInvoicePdfInput extends ArchivePdfInput {
+  zatca?: ZatcaPdfA3ArchiveMetadataInput | null;
+}
+
+export interface ZatcaPdfA3ArchiveBoundary {
+  metadataOnly: true;
+  safeMetadata: (Required<Pick<ZatcaPdfA3ArchiveMetadataInput, "hasUnsignedXml" | "hasQrPayload" | "hasSignedXml">> &
+    Omit<ZatcaPdfA3ArchiveMetadataInput, "hasUnsignedXml" | "hasQrPayload" | "hasSignedXml">) | null;
+  pdfA3Embedded: false;
+  zatcaSubmitted: false;
+  signedXmlPersisted: false;
+  qrPayloadPersisted: false;
+  productionCompliance: false;
+  explicitArtifactCreationRequired: true;
+  omittedBodies: {
+    unsignedXmlBody: true;
+    signedXmlBody: true;
+    qrPayloadBody: true;
+  };
+  blockers: string[];
+  warnings: string[];
+}
+
 @Injectable()
 export class GeneratedDocumentService {
   constructor(
@@ -122,6 +158,58 @@ export class GeneratedDocumentService {
 
     return document;
   }
+
+  async archiveInvoicePdf(input: ArchiveInvoicePdfInput) {
+    const document = await this.archivePdf(input);
+    return {
+      document,
+      zatcaPdfA3Archive: buildZatcaPdfA3ArchiveBoundary(input.zatca ?? null),
+    };
+  }
+}
+
+export function buildZatcaPdfA3ArchiveBoundary(metadata: ZatcaPdfA3ArchiveMetadataInput | null | undefined): ZatcaPdfA3ArchiveBoundary {
+  const safeMetadata = metadata
+    ? {
+        metadataId: metadata.metadataId ?? null,
+        invoiceUuid: metadata.invoiceUuid ?? null,
+        zatcaStatus: metadata.zatcaStatus ?? null,
+        icv: metadata.icv ?? null,
+        invoiceHash: metadata.invoiceHash ?? null,
+        xmlHash: metadata.xmlHash ?? null,
+        generatedAt: metadata.generatedAt ?? null,
+        hasUnsignedXml: metadata.hasUnsignedXml === true,
+        hasQrPayload: metadata.hasQrPayload === true,
+        hasSignedXml: metadata.hasSignedXml === true,
+      }
+    : null;
+
+  return {
+    metadataOnly: true,
+    safeMetadata,
+    pdfA3Embedded: false,
+    zatcaSubmitted: false,
+    signedXmlPersisted: false,
+    qrPayloadPersisted: false,
+    productionCompliance: false,
+    explicitArtifactCreationRequired: true,
+    omittedBodies: {
+      unsignedXmlBody: true,
+      signedXmlBody: true,
+      qrPayloadBody: true,
+    },
+    blockers: [
+      ...(safeMetadata ? [] : ["Generated ZATCA XML metadata is not attached to this invoice PDF archive."]),
+      "PDF/A-3 embedding is not implemented.",
+      "Signed XML artifact creation remains an explicit ZATCA workflow.",
+      "ZATCA clearance/reporting submission is not performed by invoice PDF archive generation.",
+    ],
+    warnings: [
+      "This boundary records safe invoice/ZATCA metadata only.",
+      "No unsigned XML, signed XML, QR payload, certificate, private key, CSID token, or ZATCA response body is returned here.",
+      "A normal invoice PDF archive must not be treated as a compliant PDF/A-3 invoice.",
+    ],
+  };
 }
 
 export function sanitizeFilename(value: string): string {

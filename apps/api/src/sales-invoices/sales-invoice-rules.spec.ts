@@ -147,6 +147,29 @@ describe("sales invoice rules", () => {
     );
   });
 
+  it("does not generate or archive invoice PDFs when finalizing an invoice", async () => {
+    const tx = makeFinalizeTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const generatedDocuments = {
+      archivePdf: jest.fn(),
+      archiveInvoicePdf: jest.fn(),
+    };
+    const service = new SalesInvoiceService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn().mockResolvedValue("JE-000001") } as never,
+      { reverse: jest.fn() } as never,
+      undefined,
+      generatedDocuments as never,
+    );
+    jest.spyOn(service, "get").mockResolvedValue({ id: "invoice-1", status: "DRAFT", journalEntryId: null } as never);
+
+    await expect(service.finalize("org-1", "user-1", "invoice-1")).resolves.toMatchObject({ status: "FINALIZED" });
+
+    expect(generatedDocuments.archivePdf).not.toHaveBeenCalled();
+    expect(generatedDocuments.archiveInvoicePdf).not.toHaveBeenCalled();
+  });
+
   it("blocks invoice finalization in a closed fiscal period before posting", async () => {
     const tx = makeFinalizeTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
@@ -435,6 +458,99 @@ describe("sales invoice rules", () => {
       documentNumber: "INV-000001",
       generatedById: "user-1",
     }));
+  });
+
+  it("passes only safe ZATCA metadata into explicit invoice PDF archives without submitting to ZATCA", async () => {
+    const archivePdf = jest.fn();
+    const archiveInvoicePdf = jest.fn().mockResolvedValue({
+      document: { id: "doc-1" },
+      zatcaPdfA3Archive: {
+        metadataOnly: true,
+        pdfA3Embedded: false,
+        zatcaSubmitted: false,
+        explicitArtifactCreationRequired: true,
+      },
+    });
+    const service = new SalesInvoiceService(
+      {} as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn() } as never,
+      { reverse: jest.fn() } as never,
+      { invoiceRenderSettings: jest.fn().mockResolvedValue({ title: "Branded Invoice" }) } as never,
+      { archivePdf, archiveInvoicePdf } as never,
+    );
+    jest.spyOn(service, "pdfData").mockResolvedValue({
+      organization: { id: "org-1", name: "Org", legalName: null, taxNumber: null, countryCode: "SA" },
+      customer: { id: "customer-1", name: "Customer", displayName: "Customer", taxNumber: null, email: null, phone: null },
+      invoice: {
+        id: "invoice-1",
+        invoiceNumber: "INV-000001",
+        status: "FINALIZED",
+        issueDate: "2026-05-06T00:00:00.000Z",
+        dueDate: null,
+        currency: "SAR",
+        notes: null,
+        terms: null,
+        subtotal: "100.0000",
+        discountTotal: "0.0000",
+        taxableTotal: "100.0000",
+        taxTotal: "15.0000",
+        total: "115.0000",
+        balanceDue: "115.0000",
+      },
+      lines: [
+        {
+          description: "Service",
+          quantity: "1.0000",
+          unitPrice: "100.0000",
+          discountRate: "0.0000",
+          lineGrossAmount: "100.0000",
+          discountAmount: "0.0000",
+          taxableAmount: "100.0000",
+          taxAmount: "15.0000",
+          lineTotal: "115.0000",
+          taxRateName: "VAT on Sales 15%",
+        },
+      ],
+      payments: [],
+      zatca: {
+        metadataId: "metadata-1",
+        status: "XML_GENERATED",
+        invoiceUuid: "8e6000cf-1a98-4174-b3e7-b5d5954bc10d",
+        icv: 17,
+        invoiceHash: "invoice-hash",
+        xmlHash: "xml-hash",
+        generatedAt: new Date("2026-05-25T00:00:00.000Z"),
+        hasUnsignedXml: true,
+        hasQrPayload: true,
+        qrCodeBase64: "QR PAYLOAD BODY",
+      },
+      generatedAt: new Date("2026-05-06T00:00:00.000Z"),
+    });
+
+    const result = await service.pdf("org-1", "user-1", "invoice-1");
+
+    expect(result.document).toEqual({ id: "doc-1" });
+    expect(archiveInvoicePdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentType: DocumentType.SALES_INVOICE,
+        sourceType: "SalesInvoice",
+        sourceId: "invoice-1",
+        zatca: expect.objectContaining({
+          metadataId: "metadata-1",
+          zatcaStatus: "XML_GENERATED",
+          invoiceUuid: "8e6000cf-1a98-4174-b3e7-b5d5954bc10d",
+          invoiceHash: "invoice-hash",
+          xmlHash: "xml-hash",
+          hasUnsignedXml: true,
+          hasQrPayload: true,
+        }),
+      }),
+    );
+    const archivedZatca = archiveInvoicePdf.mock.calls[0]![0].zatca;
+    expect(archivedZatca).not.toHaveProperty("qrCodeBase64");
+    expect(JSON.stringify(archivedZatca)).not.toContain("QR PAYLOAD BODY");
+    expect(archivePdf).not.toHaveBeenCalled();
   });
 
   it("rejects cross-tenant invoice references", async () => {

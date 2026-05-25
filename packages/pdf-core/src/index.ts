@@ -63,11 +63,16 @@ export interface InvoicePdfData {
     status: string;
   }>;
   zatca?: {
+    metadataId?: string | null;
     status: string;
     invoiceUuid?: string | null;
     icv?: number | null;
     invoiceHash?: string | null;
+    xmlHash?: string | null;
     qrCodeBase64?: string | null;
+    generatedAt?: string | Date | null;
+    hasUnsignedXml?: boolean;
+    hasQrPayload?: boolean;
   } | null;
   generatedAt: string | Date;
 }
