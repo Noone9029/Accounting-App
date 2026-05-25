@@ -288,6 +288,17 @@ Organization-level existing local ZATCA baselines were unchanged:
 - Direct supplier payment allocations remain historical records after void; bill balance restoration and the reversal journal are the accounting effects.
 - The AP-ready local organization continues to have existing local-only ZATCA baseline records (`1` signed artifact draft and `7` submission logs). Those counts were unchanged by this supplier payment void mutation.
 
+## Part 13 Purchase Bill Void Preflight Note
+
+DEV-08 Part 13 completed a read-only purchase bill void/reversal preflight after the supplier payment void. The preflight is recorded in [DEV_08_PURCHASE_BILL_VOID_PREFLIGHT.md](DEV_08_PURCHASE_BILL_VOID_PREFLIGHT.md).
+
+- Mutation performed: no.
+- `BILL-000007` remains `FINALIZED`, total `1150.0000`, balance due `1150.0000`, and purchase bill reversal journal absent.
+- `PAY-000006` remains `VOIDED`; original payment journal `JE-000050` remains `REVERSED`; supplier payment reversal journal `JE-000051` remains `POSTED`.
+- The historical direct supplier payment allocation `6ec44d14` remains for `300.0000`, but current purchase bill void blocker logic ignores it because the linked payment is `VOIDED`.
+- Active direct allocation blocker count, active supplier payment unapplied allocation blocker count, and active purchase debit note allocation blocker count are all `0`.
+- Purchase bill void is safe to plan for Part 14 if preflight values remain unchanged.
+
 ## Next Recommended Thread
 
-`DEV-08 Part 13: purchase bill void/reversal preflight after supplier payment void`
+`DEV-08 Part 14: approved local purchase bill void/reversal mutation`

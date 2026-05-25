@@ -1155,3 +1155,24 @@
 ## Next Thread Prompt
 
 `DEV-08 Part 13: purchase bill void/reversal preflight after supplier payment void`
+
+## DEV-08 Part 13 - Purchase Bill Void/Reversal Preflight Completed
+
+- DEV-08 Part 13 read-only preflight is recorded in [docs/development/DEV_08_PURCHASE_BILL_VOID_PREFLIGHT.md](docs/development/DEV_08_PURCHASE_BILL_VOID_PREFLIGHT.md).
+- Mutation performed: no. `PurchaseBillService.void(...)` was not called, and no purchase bill mutation, supplier payment void, supplier payment creation, supplier payment apply/reverse-unapplied, supplier refund, purchase debit note, purchase order, purchase receipt, cash expense, stock movement, generated document, PDF/archive/export/download, email, ZATCA, migration, seed/reset/delete, deployment, environment/provider/schema change, production, beta, shared-target, customer-data, or login/browser flow ran.
+- Local-only safety result: Docker Linux engine was available, local Postgres/Redis containers were healthy, read-only SQL ran inside local `infra-postgres-1`, and no hosted/prod/beta/shared/customer-data target was used or printed.
+- Current purchase bill state: `BILL-000007`, safe id prefix `d81ddd60`, remains `FINALIZED`, inventory posting mode `DIRECT_EXPENSE_OR_ASSET`, subtotal `1000.0000`, tax `150.0000`, total `1150.0000`, balance due `1150.0000`, purchase order link absent, and purchase bill reversal journal absent.
+- Current supplier payment state: `PAY-000006`, safe id prefix `622ad0b6`, remains `VOIDED`, amount paid `500.0000`, unapplied amount `200.0000`, original journal `JE-000050` is `REVERSED`, and supplier payment void reversal journal `JE-000051` is `POSTED`.
+- Current allocation state: direct `SupplierPaymentAllocation` `6ec44d14` remains one historical allocation for `300.0000`; `SupplierPaymentUnappliedAllocation` `a8ee4e23` remains reversed for `200.0000`; active direct allocation blocker count, active unapplied allocation blocker count, and active purchase debit note allocation blocker count are all `0`.
+- Purchase bill void safety result: safe to plan for Part 14 if preflight remains unchanged. Current code blocks direct allocations only when the linked supplier payment is not `VOIDED`, so the historical direct allocation from `PAY-000006` does not block `BILL-000007`.
+- Expected bill effect if approved: `BILL-000007` changes from `FINALIZED` to `VOIDED`, balance due changes `1150.0000 -> 0.0000`, total remains historically `1150.0000`, and `reversalJournalEntryId` is linked to a new purchase bill reversal journal. Current schema does not store purchase bill `voidedAt`, `voidedById`, or void reason.
+- Expected allocation effect if approved: no new supplier payment allocation, supplier payment unapplied allocation, or purchase debit-note allocation is created; historical direct allocation `6ec44d14` and reversed unapplied allocation `a8ee4e23` remain as-is.
+- Expected journal/accounting effect if approved: original purchase bill journal `JE-000049` is marked `REVERSED`; expected new reversal journal is `JE-000052` if sequence next `52` remains unchanged, debiting `210 Accounts Payable` for `1150.0000` and crediting `111 Cash` for `1000.0000` plus `230 VAT Receivable` for `150.0000`; supplier payment journals `JE-000050` and `JE-000051` are not changed.
+- Expected audit effect if approved: one standardized `PURCHASE_BILL_VOIDED` audit action for `BILL-000007`; no additional `SUPPLIER_PAYMENT_VOIDED`, supplier refund, purchase debit note, cash expense, purchase order, cleanup/delete, or login/browser audit-writing action.
+- Output/email/ZATCA/refund/debit-note/purchase-order/inventory/cash-expense/cleanup occurred: no. Fixture-specific generated documents, email outbox rows, email provider events, supplier refunds, purchase debit notes, purchase orders, purchase receipts, linked stock movements, cash expenses, inventory variance proposals, cleanup/delete audit actions, and purchase bill void audit remain `0`; organization-level ZATCA baselines remain unchanged local data (`1` signed artifact draft and `7` submission logs).
+- Required approval phrase for Part 14: `I approve DEV-08 Part 14 local-only purchase bill void/reversal mutation under marker DEV08-AP-20260525T230000 for BILL-000007 after supplier payment void/reversal completed. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08 Part 14: approved local purchase bill void/reversal mutation`.
+
+## Next Thread Prompt
+
+`DEV-08 Part 14: approved local purchase bill void/reversal mutation`
