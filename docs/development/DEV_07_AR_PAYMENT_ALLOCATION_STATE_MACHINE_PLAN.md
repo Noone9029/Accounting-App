@@ -545,3 +545,22 @@ Next prompt title:
 ```text
 DEV-07 Part 7: verify AR customer payment creation evidence
 ```
+
+## Part 7 Customer Payment Creation Evidence Verification Addendum
+
+DEV-07 Part 7 verified the Part 6 customer payment creation evidence using read-only local checks only.
+
+- Evidence doc: [DEV_07_AR_CUSTOMER_PAYMENT_CREATION_EVIDENCE_VERIFICATION.md](DEV_07_AR_CUSTOMER_PAYMENT_CREATION_EVIDENCE_VERIFICATION.md).
+- Mutation performed: no.
+- Fixture/invoice evidence remained valid: `INVOICE-000002` remains `FINALIZED`, safe id prefix `ddadfdd7`, total `1150.0000`, balance due `850.0000`, and no reversal journal.
+- Payment evidence remained valid: `PAYMENT-000001`, safe id prefix `b39f4d38`, status `POSTED`, amount received `500.0000`, unapplied amount `200.0000`.
+- Direct allocation evidence remained valid: exactly one `CustomerPaymentAllocation` links `PAYMENT-000001` to `INVOICE-000002` for `300.0000`; no `CustomerPaymentUnappliedAllocation` exists yet.
+- Accounting evidence remained valid: `JOURNAL_ENTRY-000004` remains `POSTED`, reference `PAYMENT-000001`, Dr paid-through cash/asset `500.0000`, Cr account `120` AR `500.0000`.
+- Audit/output/ZATCA boundary remained valid: `CUSTOMER_PAYMENT_CREATED` exists exactly once; no `APPLY_UNAPPLIED`, `REVERSE_UNAPPLIED_ALLOCATION`, `CUSTOMER_PAYMENT_VOIDED`, receipt PDF/archive, generated document, email, ZATCA XML/signing/submission, refund, credit note, invoice void, cleanup deletion, or login/browser audit-writing flow occurred.
+- The remaining unapplied amount `200.0000` is ready for a future separately approved unapplied allocation plan.
+
+Next prompt title:
+
+```text
+DEV-07 Part 8: unapplied payment allocation mutation plan
+```

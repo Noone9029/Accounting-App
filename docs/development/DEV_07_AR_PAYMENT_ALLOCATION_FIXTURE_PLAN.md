@@ -569,3 +569,20 @@ Next prompt title:
 ```text
 DEV-07 Part 7: verify AR customer payment creation evidence
 ```
+
+## Part 7 Customer Payment Creation Evidence Verification Note
+
+DEV-07 Part 7 verified the Part 6 customer payment creation evidence read-only in [DEV_07_AR_CUSTOMER_PAYMENT_CREATION_EVIDENCE_VERIFICATION.md](DEV_07_AR_CUSTOMER_PAYMENT_CREATION_EVIDENCE_VERIFICATION.md).
+
+- Mutation performed: no.
+- Payment evidence remains `PAYMENT-000001`, safe id prefix `b39f4d38`, status `POSTED`, amount received `500.0000`, unapplied amount `200.0000`.
+- Direct allocation remains one allocation to `INVOICE-000002` for `300.0000`; no unapplied allocation exists yet.
+- Invoice balance remains `850.0000`.
+- Payment journal remains `JOURNAL_ENTRY-000004`, `POSTED`, Dr paid-through cash/asset `500.0000`, Cr account `120` AR `500.0000`.
+- Audit/output/ZATCA boundary remains valid: `CUSTOMER_PAYMENT_CREATED` exists exactly once; no receipt PDF/archive, generated document, email, ZATCA XML/signing/submission, refund, credit note, invoice void, cleanup deletion, or login/browser audit-writing flow occurred.
+
+Next prompt title:
+
+```text
+DEV-07 Part 8: unapplied payment allocation mutation plan
+```

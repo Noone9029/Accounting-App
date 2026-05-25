@@ -236,3 +236,24 @@ Next prompt title:
 ```text
 DEV-07 Part 7: verify AR customer payment creation evidence
 ```
+
+## Part 7 Customer Payment Creation Evidence Verification Note
+
+DEV-07 Part 7 verified the Part 6 customer payment creation evidence using read-only local checks only.
+
+- Evidence doc: [DEV_07_AR_CUSTOMER_PAYMENT_CREATION_EVIDENCE_VERIFICATION.md](DEV_07_AR_CUSTOMER_PAYMENT_CREATION_EVIDENCE_VERIFICATION.md).
+- Mutation performed: no.
+- Local target safety passed: Docker Desktop Linux engine was available, local Postgres/Redis were healthy and reachable, and the API database target guard accepted only local `localhost:5432`.
+- Payment evidence remained valid: `PAYMENT-000001`, safe id prefix `b39f4d38`, status `POSTED`, amount received `500.0000`, unapplied amount `200.0000`, `journalEntryId` present, `voidReversalJournalEntryId` absent, and `postedAt` present.
+- Direct allocation evidence remained valid: exactly one `CustomerPaymentAllocation` links `PAYMENT-000001` to `INVOICE-000002` for `300.0000`; no `CustomerPaymentUnappliedAllocation` exists yet.
+- Invoice balance evidence remained valid: `INVOICE-000002` remains `FINALIZED`, total `1150.0000`, balance due `850.0000`, and no reversal journal.
+- Payment journal/accounting evidence remained valid: `JOURNAL_ENTRY-000004` remains `POSTED`, reference `PAYMENT-000001`, balanced at debit `500.0000` and credit `500.0000`, with Dr paid-through cash/asset `500.0000` and Cr account `120` AR `500.0000`.
+- Audit/output/ZATCA evidence remained valid: `CUSTOMER_PAYMENT_CREATED` exists exactly once; no `APPLY_UNAPPLIED`, `REVERSE_UNAPPLIED_ALLOCATION`, `CUSTOMER_PAYMENT_VOIDED`, receipt PDF/archive, generated document, email, ZATCA XML/signing/submission, refund, credit note, cleanup deletion, or login/browser audit-writing flow occurred.
+- DEV-06 non-interference remained valid: `INVOICE-000001` remains `VOIDED`, safe prefix `6ebb2d71`, total `287.5000`, balance due `0.0000`.
+- Temporary Part 6 script remains absent, unstaged, and untracked.
+
+Next prompt title:
+
+```text
+DEV-07 Part 8: unapplied payment allocation mutation plan
+```
