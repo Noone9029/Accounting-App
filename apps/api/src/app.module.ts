@@ -36,6 +36,7 @@ import { ReportsModule } from "./reports/reports.module";
 import { RoleModule } from "./roles/role.module";
 import { SalesInvoiceModule } from "./sales-invoices/sales-invoice.module";
 import { SalesStockIssueModule } from "./sales-stock-issues/sales-stock-issue.module";
+import { SearchModule } from "./search/search.module";
 import { SupplierRefundModule } from "./supplier-refunds/supplier-refund.module";
 import { SupplierPaymentModule } from "./supplier-payments/supplier-payment.module";
 import { TaxRateModule } from "./tax-rates/tax-rate.module";
@@ -79,6 +80,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     WarehouseTransferModule,
     InventoryModule,
     SalesInvoiceModule,
+    SearchModule,
     PurchaseOrderModule,
     PurchaseBillModule,
     PurchaseReceiptModule,

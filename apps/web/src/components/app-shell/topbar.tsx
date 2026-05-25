@@ -4,18 +4,20 @@ import Link from "next/link";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { PERMISSIONS } from "@/lib/permissions";
 import { GlobalCreateMenu } from "./global-create-menu";
+import { GlobalSearch } from "./global-search";
 import { OrganizationSwitcher } from "./organization-switcher";
 
 export function Topbar() {
   const { activeMembership, can } = usePermissions();
 
   return (
-    <header className="flex min-h-16 flex-col gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-      <div className="min-w-0">
+    <header className="flex min-h-16 flex-col gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:flex-row lg:items-center lg:justify-between lg:px-6">
+      <div className="min-w-0 lg:w-52">
         <div className="text-sm font-semibold text-ink">Accounting workspace</div>
         <div className="text-xs text-steel">Local development shell</div>
       </div>
-      <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end sm:gap-3">
+      <GlobalSearch className="w-full lg:min-w-[22rem] lg:flex-1 lg:max-w-2xl" />
+      <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end lg:gap-3">
         <GlobalCreateMenu className="lg:hidden" placement="topbar" />
         <OrganizationSwitcher />
         {!activeMembership || can(PERMISSIONS.organization.update) ? (

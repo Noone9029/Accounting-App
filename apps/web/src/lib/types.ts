@@ -218,6 +218,26 @@ export interface Organization {
   timezone: string;
 }
 
+export type GlobalSearchCategory = "Contacts" | "Transactions" | "Reports" | "Pages / Navigation";
+
+export interface GlobalSearchResult {
+  id: string;
+  category: GlobalSearchCategory;
+  label: string;
+  href: string;
+  resultType: string;
+  detail: string;
+  amount: string | null;
+  date: string | null;
+  status: string | null;
+  keywords: string[];
+}
+
+export interface GlobalSearchResponse {
+  query: string;
+  results: GlobalSearchResult[];
+}
+
 export interface AuthUser {
   id: string;
   email: string;
