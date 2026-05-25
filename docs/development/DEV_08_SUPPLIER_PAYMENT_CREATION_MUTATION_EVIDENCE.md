@@ -219,3 +219,11 @@ Two read-only SQL query attempts failed due to result-formatting typos before re
 ## Next Recommended Thread
 
 `DEV-08 Part 6: supplier payment evidence verification`
+
+## Part 6 Verification Note
+
+DEV-08 Part 6 completed a read-only verification pass for this supplier payment evidence. Verification is recorded in [DEV_08_SUPPLIER_PAYMENT_EVIDENCE_VERIFICATION.md](DEV_08_SUPPLIER_PAYMENT_EVIDENCE_VERIFICATION.md).
+
+Part 6 confirmed `PAY-000006` remains `POSTED`, safe id prefix `622ad0b6`, amount paid `500.0000`, unapplied amount `200.0000`, and no void reversal journal. `BILL-000007` remains `FINALIZED` with total `1150.0000` and balance due `850.0000`. The one direct allocation remains `300.0000`, `JE-000049` and `JE-000050` remain posted and balanced, `SUPPLIER_PAYMENT_CREATED` exists once, and fixture-specific generated document, email, ZATCA, supplier refund, debit-note, purchase-order, receipt, stock movement, cash-expense, and cleanup/delete side effects remain absent.
+
+Exact next prompt title: `DEV-08 Part 7: supplier payment unapplied allocation preflight`.

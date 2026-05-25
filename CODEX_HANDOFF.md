@@ -1026,3 +1026,20 @@
 ## Next Thread Prompt
 
 `DEV-08 Part 6: supplier payment evidence verification`
+
+## DEV-08 Part 6 - Supplier Payment Evidence Verification Completed
+
+- DEV-08 Part 6 read-only verification is recorded in [docs/development/DEV_08_SUPPLIER_PAYMENT_EVIDENCE_VERIFICATION.md](docs/development/DEV_08_SUPPLIER_PAYMENT_EVIDENCE_VERIFICATION.md).
+- Mutation performed: no. No supplier payment creation, supplier payment unapplied allocation, allocation reversal, supplier payment void, purchase bill mutation, purchase bill void, supplier refund, debit note, purchase order, purchase receipt, cash expense, stock movement, generated document, PDF/archive/export/download, email, ZATCA, migration, seed/reset/delete, deploy, environment/provider/schema change, production, beta, shared-target, customer-data, or login/browser flow ran.
+- Supplier evidence: `DEV08-AP-20260525T230000 Supplier` remains active `SUPPLIER`, safe id prefix `0e36df97`, in fake local AP-ready organization safe prefix `db69e5a8`.
+- Supplier payment evidence: exactly one fixture payment exists, `PAY-000006`, safe id prefix `622ad0b6`, status `POSTED`, amount paid `500.0000`, unapplied amount `200.0000`, paid-through account `112` safe prefix `32ab6f4d`, journal present, void reversal journal absent, and supplier refund source claims `0`.
+- Purchase bill evidence: `BILL-000007`, safe id prefix `d81ddd60`, remains `FINALIZED`, total `1150.0000`, balance due `850.0000`, reversal journal absent, generated document links `0`, and purchase debit-note allocations `0`.
+- Allocation evidence: exactly one direct `SupplierPaymentAllocation` links `PAY-000006` to `BILL-000007`, safe id prefix `6ec44d14`, amount `300.0000`; no `SupplierPaymentUnappliedAllocation` exists yet for this fixture.
+- Journal/accounting evidence: purchase bill journal `JE-000049` remains `POSTED` and balanced with debit `111` `1000.0000`, debit `230` `150.0000`, credit `210` `1150.0000`; supplier payment journal `JE-000050` remains `POSTED` and balanced with debit `210` `500.0000`, credit `112` `500.0000`; no bill or supplier payment reversal journal exists.
+- Audit evidence: `Contact` `CREATE`, `PURCHASE_BILL_CREATED`, `PURCHASE_BILL_FINALIZED`, and `SUPPLIER_PAYMENT_CREATED` each exist once for the fixture entities; supplier payment void, supplier payment apply/reverse, supplier refund, purchase debit note, purchase bill void, cleanup/delete, and login/browser audit-writing actions remain absent for this fixture.
+- Forbidden side effects checked: fixture-specific generated documents, email outbox rows, supplier refunds, purchase debit notes, purchase orders, purchase receipts, stock movements, cash expenses, and cleanup/delete audit actions are all `0`; organization-level ZATCA baselines remained unchanged (`1` signed artifact draft and `7` submission logs).
+- Exact next prompt title: `DEV-08 Part 7: supplier payment unapplied allocation preflight`.
+
+## Next Thread Prompt
+
+`DEV-08 Part 7: supplier payment unapplied allocation preflight`
