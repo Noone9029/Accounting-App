@@ -1,4 +1,11 @@
-import { AccountType, DocumentType, PurchaseBillStatus, SalesInvoiceStatus } from "@prisma/client";
+import {
+  AccountType,
+  BankAccountStatus,
+  DocumentType,
+  JournalEntryStatus,
+  PurchaseBillStatus,
+  SalesInvoiceStatus,
+} from "@prisma/client";
 import {
   agingBucket,
   buildAgingReport,
@@ -256,6 +263,106 @@ describe("reports service builders", () => {
     );
   });
 
+  it("calculates a financial dashboard summary from open documents and reportable journal activity", async () => {
+    const salesInvoices = [
+      salesInvoiceFixture({
+        id: "invoice-overdue",
+        invoiceNumber: "INV-OVERDUE",
+        issueDate: new Date("2026-01-10T00:00:00.000Z"),
+        dueDate: new Date("2026-01-15T00:00:00.000Z"),
+        total: "115.0000",
+        balanceDue: "100.0000",
+      }),
+      salesInvoiceFixture({
+        id: "invoice-open",
+        invoiceNumber: "INV-OPEN",
+        issueDate: new Date("2026-01-20T00:00:00.000Z"),
+        dueDate: new Date("2026-02-10T00:00:00.000Z"),
+        total: "57.5000",
+        balanceDue: "50.0000",
+      }),
+      salesInvoiceFixture({ id: "invoice-voided", status: SalesInvoiceStatus.VOIDED, balanceDue: "999.0000" }),
+    ];
+    const purchaseBills = [
+      purchaseBillFixture({
+        id: "bill-open",
+        billNumber: "BILL-OPEN",
+        billDate: new Date("2026-01-12T00:00:00.000Z"),
+        total: "80.5000",
+        balanceDue: "70.0000",
+      }),
+      purchaseBillFixture({ id: "bill-draft", status: PurchaseBillStatus.DRAFT, balanceDue: "999.0000" }),
+    ];
+    const journalLines = [
+      dashboardLine("cash", "111", AccountType.ASSET, "2026-01-05", JournalEntryStatus.POSTED, "200.0000", "0.0000"),
+      dashboardLine("bank", "112", AccountType.ASSET, "2026-01-06", JournalEntryStatus.REVERSED, "0.0000", "40.0000"),
+      dashboardLine("bank", "112", AccountType.ASSET, "2026-01-07", JournalEntryStatus.POSTED, "40.0000", "0.0000"),
+      dashboardLine("revenue", "411", AccountType.REVENUE, "2026-01-08", JournalEntryStatus.POSTED, "0.0000", "120.0000"),
+      dashboardLine("revenue", "411", AccountType.REVENUE, "2026-01-09", JournalEntryStatus.REVERSED, "0.0000", "50.0000"),
+      dashboardLine("revenue", "411", AccountType.REVENUE, "2026-01-10", JournalEntryStatus.POSTED, "50.0000", "0.0000"),
+      dashboardLine("revenue", "411", AccountType.REVENUE, "2026-01-11", JournalEntryStatus.VOIDED, "0.0000", "999.0000"),
+      dashboardLine("vat-payable", "220", AccountType.LIABILITY, "2026-01-12", JournalEntryStatus.POSTED, "0.0000", "18.0000"),
+      dashboardLine("vat-receivable", "230", AccountType.ASSET, "2026-01-13", JournalEntryStatus.POSTED, "3.0000", "0.0000"),
+    ];
+    const prisma = {
+      salesInvoice: { findMany: jest.fn(async (args: any) => salesInvoices.filter((invoice) => matchesDashboardDocumentWhere(invoice, args.where, "issueDate"))) },
+      purchaseBill: { findMany: jest.fn(async (args: any) => purchaseBills.filter((bill) => matchesDashboardDocumentWhere(bill, args.where, "billDate"))) },
+      bankAccountProfile: {
+        findMany: jest.fn().mockResolvedValue([
+          { accountId: "cash", displayName: "Cash", account: { id: "cash", code: "111", name: "Cash", type: AccountType.ASSET } },
+          { accountId: "bank", displayName: "Bank", account: { id: "bank", code: "112", name: "Bank", type: AccountType.ASSET } },
+        ]),
+      },
+      journalLine: { findMany: jest.fn(async (args: any) => journalLines.filter((line) => matchesDashboardLineWhere(line, args.where))) },
+    };
+    const service = new ReportsService(prisma as never);
+
+    const summary = await service.dashboardSummary("org-1", { from: "2026-01-01", to: "2026-01-31" });
+
+    expect(summary).toMatchObject({
+      asOf: "2026-01-31",
+      period: { from: "2026-01-01", to: "2026-01-31" },
+      receivables: {
+        total: "150.0000",
+        overdue: "100.0000",
+        documentCount: 2,
+        overdueDocumentCount: 1,
+      },
+      payables: {
+        total: "70.0000",
+        documentCount: 1,
+      },
+      cashAndBank: {
+        balance: "200.0000",
+        accountCount: 2,
+      },
+      revenue: {
+        currentPeriod: "120.0000",
+      },
+      vat: {
+        outputVat: "18.0000",
+        inputVat: "3.0000",
+        netVatPayable: "15.0000",
+        netVatRefundable: "0.0000",
+      },
+    });
+    expect(summary.receivables.documents.map((document) => document.id)).toEqual(["invoice-overdue", "invoice-open"]);
+    expect(summary.payables.documents.map((document) => document.id)).toEqual(["bill-open"]);
+    expect(prisma.bankAccountProfile.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ organizationId: "org-1", status: BankAccountStatus.ACTIVE }),
+      }),
+    );
+    expect(prisma.journalLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          accountId: { in: ["cash", "bank"] },
+          journalEntry: expect.objectContaining({ status: { in: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] } }),
+        }),
+      }),
+    );
+  });
+
   it("buckets aged receivables and payables", () => {
     expect(agingBucket(-1)).toBe("CURRENT");
     expect(agingBucket(30)).toBe("1_30");
@@ -364,10 +471,12 @@ interface SalesInvoiceFixture {
   organizationId: string;
   invoiceNumber: string;
   issueDate: Date;
+  dueDate: Date | null;
   status: SalesInvoiceStatus;
   taxableTotal: string;
   taxTotal: string;
   total: string;
+  balanceDue: string;
 }
 
 function salesInvoiceFixture(overrides: Partial<SalesInvoiceFixture>): SalesInvoiceFixture {
@@ -380,10 +489,12 @@ function salesInvoiceFixtureBase(): SalesInvoiceFixture {
     organizationId: "org-1",
     invoiceNumber: "INV-1",
     issueDate: new Date("2026-01-10T00:00:00.000Z"),
+    dueDate: null,
     status: SalesInvoiceStatus.FINALIZED,
     taxableTotal: "100.0000",
     taxTotal: "15.0000",
     total: "115.0000",
+    balanceDue: "115.0000",
   };
 }
 
@@ -392,10 +503,12 @@ interface PurchaseBillFixture {
   organizationId: string;
   billNumber: string;
   billDate: Date;
+  dueDate: Date | null;
   status: PurchaseBillStatus;
   taxableTotal: string;
   taxTotal: string;
   total: string;
+  balanceDue: string;
 }
 
 function purchaseBillFixture(overrides: Partial<PurchaseBillFixture>): PurchaseBillFixture {
@@ -408,11 +521,83 @@ function purchaseBillFixtureBase(): PurchaseBillFixture {
     organizationId: "org-1",
     billNumber: "BILL-1",
     billDate: new Date("2026-01-15T00:00:00.000Z"),
+    dueDate: null,
     status: PurchaseBillStatus.FINALIZED,
     taxableTotal: "50.0000",
     taxTotal: "5.0000",
     total: "55.0000",
+    balanceDue: "55.0000",
   };
+}
+
+interface DashboardLineFixture {
+  organizationId: string;
+  accountId: string;
+  debit: string;
+  credit: string;
+  account: { id: string; code: string; name: string; type: AccountType };
+  journalEntry: { status: JournalEntryStatus; entryDate: Date };
+}
+
+function dashboardLine(
+  accountId: string,
+  code: string,
+  type: AccountType,
+  date: string,
+  status: JournalEntryStatus,
+  debit: string,
+  credit: string,
+): DashboardLineFixture {
+  return {
+    organizationId: "org-1",
+    accountId,
+    debit,
+    credit,
+    account: { id: accountId, code, name: accountId, type },
+    journalEntry: { status, entryDate: new Date(`${date}T00:00:00.000Z`) },
+  };
+}
+
+function matchesDashboardDocumentWhere<T extends { organizationId: string; status: string; balanceDue: string }>(
+  document: T,
+  where: {
+    organizationId: string;
+    status: string;
+    balanceDue?: { gt?: string | number };
+    issueDate?: { lte?: Date };
+    billDate?: { lte?: Date };
+  },
+  dateKey: keyof T,
+) {
+  const documentDate = new Date(String(document[dateKey]));
+  const dateRange = "issueDate" in where ? where.issueDate : where.billDate;
+  return (
+    document.organizationId === where.organizationId &&
+    document.status === where.status &&
+    (!where.balanceDue?.gt || Number(document.balanceDue) > Number(where.balanceDue.gt)) &&
+    (!dateRange?.lte || documentDate <= dateRange.lte)
+  );
+}
+
+function matchesDashboardLineWhere(
+  line: DashboardLineFixture,
+  where: {
+    organizationId: string;
+    accountId?: { in?: string[] };
+    account?: { is?: { type?: AccountType; code?: { in?: string[] } } };
+    journalEntry?: { status?: { in?: JournalEntryStatus[] }; entryDate?: { gte?: Date; lte?: Date } };
+  },
+) {
+  const entryDate = line.journalEntry.entryDate;
+  return (
+    line.organizationId === where.organizationId &&
+    (!where.accountId?.in || where.accountId.in.includes(line.accountId)) &&
+    (!where.account?.is?.type || line.account.type === where.account.is.type) &&
+    (!where.account?.is?.code?.in || where.account.is.code.in.includes(line.account.code)) &&
+    (!where.journalEntry?.status?.in || where.journalEntry.status.in.includes(line.journalEntry.status)) &&
+    (!where.journalEntry?.entryDate?.gte || entryDate >= where.journalEntry.entryDate.gte) &&
+    (!where.journalEntry?.entryDate?.lte || entryDate <= where.journalEntry.entryDate.lte)
+  );
 }
 
 function matchesVatWhere<T extends { organizationId: string; status: string }>(

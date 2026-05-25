@@ -127,6 +127,11 @@ export class ReportsController {
     return this.reportsService.vatReturn(organizationId, query);
   }
 
+  @Get("dashboard-summary")
+  dashboardSummary(@CurrentOrganizationId() organizationId: string, @Query() query: ReportDateQuery) {
+    return this.reportsService.dashboardSummary(organizationId, query);
+  }
+
   @Get("aged-receivables")
   agedReceivables(
     @CurrentOrganizationId() organizationId: string,

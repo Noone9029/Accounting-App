@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import {
   AccountType,
+  BankAccountStatus,
   DocumentType,
   JournalEntryStatus,
   PurchaseBillStatus,
@@ -73,6 +74,29 @@ interface VatReturnDocumentInput {
   taxableTotal: unknown;
   taxTotal: unknown;
   total: unknown;
+}
+
+interface DashboardOpenDocumentInput {
+  id: string;
+  number: string;
+  documentDate: string | Date;
+  dueDate?: string | Date | null;
+  total: unknown;
+  balanceDue: unknown;
+}
+
+interface DashboardLedgerLineInput {
+  debit: unknown;
+  credit: unknown;
+  account: {
+    id: string;
+    code: string;
+    name: string;
+    type: AccountType;
+  };
+  journalEntry?: {
+    entryDate: string | Date;
+  };
 }
 
 @Injectable()
@@ -208,6 +232,99 @@ export class ReportsService {
         total: bill.total,
       })),
       { from: range.fromLabel, to: range.toLabel },
+    );
+  }
+
+  async dashboardSummary(organizationId: string, query: ReportDateQuery) {
+    const asOf = parseEndDate(query.asOf ?? query.to) ?? endOfToday();
+    const periodFrom = parseStartDate(query.from) ?? startOfMonth(asOf);
+    const periodTo = parseEndDate(query.to) ?? asOf;
+    const [receivables, payables, cashAccounts, revenueLines, vatLines] = await Promise.all([
+      this.prisma.salesInvoice.findMany({
+        where: {
+          organizationId,
+          status: SalesInvoiceStatus.FINALIZED,
+          balanceDue: { gt: "0.0000" },
+          issueDate: { lte: asOf },
+        },
+        orderBy: [{ dueDate: "asc" }, { issueDate: "asc" }],
+        select: { id: true, invoiceNumber: true, issueDate: true, dueDate: true, total: true, balanceDue: true },
+      }),
+      this.prisma.purchaseBill.findMany({
+        where: {
+          organizationId,
+          status: PurchaseBillStatus.FINALIZED,
+          balanceDue: { gt: "0.0000" },
+          billDate: { lte: asOf },
+        },
+        orderBy: [{ dueDate: "asc" }, { billDate: "asc" }],
+        select: { id: true, billNumber: true, billDate: true, dueDate: true, total: true, balanceDue: true },
+      }),
+      this.prisma.bankAccountProfile.findMany({
+        where: {
+          organizationId,
+          status: BankAccountStatus.ACTIVE,
+          account: { is: { allowPosting: true, isActive: true, type: AccountType.ASSET } },
+        },
+        orderBy: { displayName: "asc" },
+        select: {
+          accountId: true,
+          displayName: true,
+          account: { select: { id: true, code: true, name: true, type: true } },
+        },
+      }),
+      this.findDashboardJournalLines(organizationId, {
+        from: periodFrom,
+        to: periodTo,
+        accountType: AccountType.REVENUE,
+      }),
+      this.findDashboardJournalLines(organizationId, {
+        from: periodFrom,
+        to: periodTo,
+        accountCodes: ["220", "230"],
+      }),
+    ]);
+    const cashAccountIds = cashAccounts.map((account) => account.accountId);
+    const cashLines = cashAccountIds.length
+      ? await this.findDashboardJournalLines(organizationId, { to: asOf, accountIds: cashAccountIds })
+      : [];
+
+    return buildFinancialDashboardSummary(
+      {
+        receivables: receivables.map((invoice) => ({
+          id: invoice.id,
+          number: invoice.invoiceNumber,
+          documentDate: invoice.issueDate,
+          dueDate: invoice.dueDate,
+          total: invoice.total,
+          balanceDue: invoice.balanceDue,
+        })),
+        payables: payables.map((bill) => ({
+          id: bill.id,
+          number: bill.billNumber,
+          documentDate: bill.billDate,
+          dueDate: bill.dueDate,
+          total: bill.total,
+          balanceDue: bill.balanceDue,
+        })),
+        cashAccounts: cashAccounts.map((profile) => ({
+          id: profile.account.id,
+          code: profile.account.code,
+          name: profile.displayName || profile.account.name,
+          type: profile.account.type,
+        })),
+        cashLines,
+        revenueLines,
+        vatLines,
+      },
+      {
+        asOf,
+        asOfLabel: dateLabel(query.asOf ?? query.to, asOf),
+        periodFrom,
+        periodTo,
+        periodFromLabel: dateLabel(query.from, periodFrom),
+        periodToLabel: dateLabel(query.to ?? query.asOf, periodTo),
+      },
     );
   }
 
@@ -354,6 +471,47 @@ export class ReportsService {
             reference: true,
           },
         },
+      },
+      orderBy: [{ journalEntry: { entryDate: "asc" } }, { lineNumber: "asc" }],
+    });
+  }
+
+  private async findDashboardJournalLines(
+    organizationId: string,
+    filters: { from?: Date | null; to?: Date | null; accountIds?: string[]; accountType?: AccountType; accountCodes?: string[] },
+  ): Promise<DashboardLedgerLineInput[]> {
+    const entryDate: { gte?: Date; lte?: Date } = {};
+    if (filters.from) {
+      entryDate.gte = filters.from;
+    }
+    if (filters.to) {
+      entryDate.lte = filters.to;
+    }
+    const accountFilter =
+      filters.accountType || filters.accountCodes?.length
+        ? {
+            is: {
+              ...(filters.accountType ? { type: filters.accountType } : {}),
+              ...(filters.accountCodes?.length ? { code: { in: filters.accountCodes } } : {}),
+            },
+          }
+        : undefined;
+
+    return this.prisma.journalLine.findMany({
+      where: {
+        organizationId,
+        ...(filters.accountIds?.length ? { accountId: { in: filters.accountIds } } : {}),
+        ...(accountFilter ? { account: accountFilter } : {}),
+        journalEntry: {
+          status: { in: POSTED_REPORT_STATUSES },
+          ...(Object.keys(entryDate).length ? { entryDate } : {}),
+        },
+      },
+      select: {
+        debit: true,
+        credit: true,
+        account: { select: { id: true, code: true, name: true, type: true } },
+        journalEntry: { select: { entryDate: true } },
       },
       orderBy: [{ journalEntry: { entryDate: "asc" } }, { lineNumber: "asc" }],
     });
@@ -713,6 +871,75 @@ export function buildVatReturnReport(
   };
 }
 
+export function buildFinancialDashboardSummary(
+  input: {
+    receivables: DashboardOpenDocumentInput[];
+    payables: DashboardOpenDocumentInput[];
+    cashAccounts: ReportAccountInput[];
+    cashLines: DashboardLedgerLineInput[];
+    revenueLines: DashboardLedgerLineInput[];
+    vatLines: DashboardLedgerLineInput[];
+  },
+  options: {
+    asOf: Date;
+    asOfLabel: string | null;
+    periodFrom: Date;
+    periodTo: Date;
+    periodFromLabel: string | null;
+    periodToLabel: string | null;
+  },
+) {
+  const receivables = summarizeOpenDocuments(input.receivables, options.asOf);
+  const payables = summarizeOpenDocuments(input.payables, options.asOf);
+  const cashBalanceByAccount = aggregateNaturalAssetLines(input.cashLines);
+  const cashBalance = Array.from(cashBalanceByAccount.values()).reduce((sum, balance) => sum.plus(balance), ZERO);
+  const revenue = input.revenueLines.reduce((sum, line) => sum.plus(money(line.credit)).minus(money(line.debit)), ZERO);
+  const vatTotals = input.vatLines.reduce(
+    (sum, line) => {
+      if (line.account.code === "220") {
+        sum.outputVat = sum.outputVat.plus(money(line.credit)).minus(money(line.debit));
+      }
+      if (line.account.code === "230") {
+        sum.inputVat = sum.inputVat.plus(money(line.debit)).minus(money(line.credit));
+      }
+      return sum;
+    },
+    { outputVat: ZERO, inputVat: ZERO },
+  );
+  const netVat = vatTotals.outputVat.minus(vatTotals.inputVat);
+
+  return {
+    asOf: options.asOfLabel,
+    period: {
+      from: options.periodFromLabel,
+      to: options.periodToLabel,
+    },
+    receivables,
+    payables,
+    cashAndBank: {
+      balance: fixed(cashBalance),
+      accountCount: input.cashAccounts.length,
+      accounts: input.cashAccounts.map((account) => ({
+        accountId: account.id,
+        code: account.code,
+        name: account.name,
+        balance: fixed(cashBalanceByAccount.get(account.id) ?? ZERO),
+      })),
+    },
+    revenue: {
+      currentPeriod: fixed(revenue),
+    },
+    vat: {
+      outputVat: fixed(vatTotals.outputVat),
+      inputVat: fixed(vatTotals.inputVat),
+      netVat: fixed(netVat),
+      netVatPayable: fixed(Decimal.max(netVat, ZERO)),
+      netVatRefundable: fixed(Decimal.max(netVat.negated(), ZERO)),
+    },
+    ledgerBasis: "POSTED_AND_REVERSED_JOURNALS",
+  };
+}
+
 export function buildAgingReport(documents: AgingDocumentInput[], options: { asOf: string | null; kind: "receivables" | "payables" }) {
   const asOf = parseEndDate(options.asOf) ?? endOfToday();
   const rows = documents.map((document) => {
@@ -805,6 +1032,49 @@ function summarizeVatReturnDocuments(documents: VatReturnDocumentInput[]) {
   };
 }
 
+function summarizeOpenDocuments(documents: DashboardOpenDocumentInput[], asOf: Date) {
+  const rows = documents.map((document) => {
+    const overdue = document.dueDate ? endOfDay(document.dueDate).getTime() < asOf.getTime() : false;
+    return {
+      id: document.id,
+      number: document.number,
+      documentDate: toIso(document.documentDate),
+      dueDate: document.dueDate ? toIso(document.dueDate) : null,
+      total: fixed(document.total),
+      balanceDue: fixed(document.balanceDue),
+      overdue,
+    };
+  });
+  const totals = rows.reduce(
+    (sum, row) => {
+      const balanceDue = money(row.balanceDue);
+      sum.total = sum.total.plus(balanceDue);
+      if (row.overdue) {
+        sum.overdue = sum.overdue.plus(balanceDue);
+        sum.overdueDocumentCount += 1;
+      }
+      return sum;
+    },
+    { total: ZERO, overdue: ZERO, overdueDocumentCount: 0 },
+  );
+
+  return {
+    total: fixed(totals.total),
+    overdue: fixed(totals.overdue),
+    documentCount: rows.length,
+    overdueDocumentCount: totals.overdueDocumentCount,
+    documents: rows,
+  };
+}
+
+function aggregateNaturalAssetLines(lines: DashboardLedgerLineInput[]) {
+  const balances = new Map<string, Decimal>();
+  for (const line of lines) {
+    balances.set(line.account.id, (balances.get(line.account.id) ?? ZERO).plus(money(line.debit)).minus(money(line.credit)));
+  }
+  return balances;
+}
+
 function debitCreditPair(net: Decimal) {
   return net.greaterThanOrEqualTo(0) ? { debit: fixed(net), credit: "0.0000" } : { debit: "0.0000", credit: fixed(net.abs()) };
 }
@@ -881,6 +1151,10 @@ function dateLabel(input: string | undefined | null, date: Date | null): string 
     return input;
   }
   return date ? date.toISOString().slice(0, 10) : null;
+}
+
+function startOfMonth(value: Date): Date {
+  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), 1, 0, 0, 0, 0));
 }
 
 function endOfToday(): Date {
