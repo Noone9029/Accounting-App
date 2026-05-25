@@ -12,30 +12,39 @@ import { apiRequest } from "@/lib/api";
 import {
   canReverseCustomerPaymentUnappliedAllocation,
   applyCustomerPaymentUnappliedAllocation,
+  customerPaymentAllocationState,
+  customerPaymentAllocationStateBadgeClass,
+  customerPaymentAllocationStateLabel,
   customerPaymentActiveUnappliedAppliedAmount,
   customerPaymentApplyMaximumAmount,
   customerPaymentDirectAllocatedAmount,
+  customerPaymentStatusBadgeClass,
+  customerPaymentStatusLabel,
   customerPaymentUnappliedAllocationStatusBadgeClass,
   customerPaymentUnappliedAllocationStatusLabel,
   reverseCustomerPaymentUnappliedAllocation,
   validateCustomerPaymentUnappliedAllocation,
 } from "@/lib/customer-payments";
+import { generatedDocumentStatusBadgeClass, generatedDocumentStatusLabel } from "@/lib/documents";
 import { formatMoneyAmount, formatUnits, parseDecimalToUnits } from "@/lib/money";
 import { downloadPdf, receiptPdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { CustomerPayment, CustomerPaymentReceiptData, OpenSalesInvoice } from "@/lib/types";
+import type { CustomerPayment, CustomerPaymentReceiptData, GeneratedDocument, OpenSalesInvoice } from "@/lib/types";
 
 export default function CustomerPaymentDetailPage() {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [payment, setPayment] = useState<CustomerPayment | null>(null);
+  const [receiptDocuments, setReceiptDocuments] = useState<GeneratedDocument[]>([]);
   const [openInvoices, setOpenInvoices] = useState<OpenSalesInvoice[]>([]);
   const [applyInvoiceId, setApplyInvoiceId] = useState("");
   const [applyAmount, setApplyAmount] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingReceiptDocuments, setLoadingReceiptDocuments] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
+  const [receiptDocumentError, setReceiptDocumentError] = useState("");
   const [success, setSuccess] = useState("");
   const [wasJustRecorded, setWasJustRecorded] = useState(false);
 
@@ -77,6 +86,43 @@ export default function CustomerPaymentDetailPage() {
       cancelled = true;
     };
   }, [organizationId, params.id]);
+
+  const canViewGeneratedDocuments = can(PERMISSIONS.generatedDocuments.view);
+
+  useEffect(() => {
+    if (!organizationId || !payment?.id || !canViewGeneratedDocuments) {
+      setReceiptDocuments([]);
+      setReceiptDocumentError("");
+      setLoadingReceiptDocuments(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingReceiptDocuments(true);
+    setReceiptDocumentError("");
+
+    loadReceiptDocuments(payment.id)
+      .then((documents) => {
+        if (!cancelled) {
+          setReceiptDocuments(documents);
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (!cancelled) {
+          setReceiptDocuments([]);
+          setReceiptDocumentError(loadError instanceof Error ? loadError.message : "Unable to load receipt archive state.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingReceiptDocuments(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canViewGeneratedDocuments, organizationId, payment?.id]);
 
   useEffect(() => {
     if (!organizationId || !payment || payment.status !== "POSTED") {
@@ -210,6 +256,9 @@ export default function CustomerPaymentDetailPage() {
 
     try {
       await downloadPdf(receiptPdfPath(payment.id), `receipt-${payment.paymentNumber}.pdf`);
+      if (canViewGeneratedDocuments) {
+        setReceiptDocuments(await loadReceiptDocuments(payment.id));
+      }
     } catch (downloadError) {
       setError(downloadError instanceof Error ? downloadError.message : "Unable to download receipt PDF.");
     } finally {
@@ -275,6 +324,13 @@ export default function CustomerPaymentDetailPage() {
 
           <CustomerPaymentStateDisplay payment={payment} />
 
+          <CustomerPaymentReceiptArchiveState
+            documents={receiptDocuments}
+            loading={loadingReceiptDocuments}
+            error={receiptDocumentError}
+            canViewGeneratedDocuments={canViewGeneratedDocuments}
+          />
+
           <div className="rounded-md border border-slate-200 bg-white shadow-panel">
             <div className="flex flex-col gap-2 border-b border-slate-200 px-5 py-4 md:flex-row md:items-start md:justify-between">
               <div>
@@ -322,7 +378,7 @@ export default function CustomerPaymentDetailPage() {
             {(payment.allocations?.length ?? 0) === 0 ? (
               <div className="px-4 py-5">
                 <StatusMessage type="empty">
-                  No direct invoice allocations were returned for this payment.
+                  No direct invoice allocations were recorded when this payment was posted.
                 </StatusMessage>
               </div>
             ) : null}
@@ -388,7 +444,7 @@ export default function CustomerPaymentDetailPage() {
               </div>
             ) : (
               <div className="px-5 py-4">
-                <StatusMessage type="empty">No unapplied payment credit has been matched to later invoices.</StatusMessage>
+                <StatusMessage type="empty">No unapplied payment credit has been matched to another invoice.</StatusMessage>
               </div>
             )}
           </div>
@@ -461,6 +517,7 @@ export default function CustomerPaymentDetailPage() {
 export function CustomerPaymentStateDisplay({ payment }: { payment: CustomerPayment }) {
   const directAllocatedAmount = customerPaymentDirectAllocatedAmount(payment.allocations);
   const unappliedAppliedAmount = customerPaymentActiveUnappliedAppliedAmount(payment.unappliedAllocations);
+  const allocationState = customerPaymentAllocationState(payment);
   const directAllocationCount = payment.allocations?.length ?? 0;
   const unappliedAllocations = payment.unappliedAllocations ?? [];
   const activeUnappliedCount = unappliedAllocations.filter((allocation) => !allocation.reversedAt).length;
@@ -474,14 +531,19 @@ export function CustomerPaymentStateDisplay({ payment }: { payment: CustomerPaym
             <h2 className="text-base font-semibold text-ink">Payment state</h2>
             <p className="mt-1 text-sm text-steel">{paymentOutputStatus(payment)}</p>
           </div>
-          <span className={`self-start rounded-md px-2 py-1 text-xs font-semibold ${customerPaymentStatusBadgeClass(payment.status)}`}>
-            {customerPaymentStatusLabel(payment.status)}
-          </span>
+          <div className="flex flex-wrap gap-2">
+            <span className={`self-start rounded-md px-2 py-1 text-xs font-semibold ${customerPaymentStatusBadgeClass(payment.status)}`}>
+              {customerPaymentStatusLabel(payment.status)}
+            </span>
+            <span className={`self-start rounded-md px-2 py-1 text-xs font-semibold ${customerPaymentAllocationStateBadgeClass(allocationState)}`}>
+              {customerPaymentAllocationStateLabel(allocationState)}
+            </span>
+          </div>
         </div>
 
         <div className="mt-5 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
           <StateMetric label="Amount received" value={formatMoneyAmount(payment.amountReceived, payment.currency)} />
-          <StateMetric label="Unapplied amount" value={formatMoneyAmount(payment.unappliedAmount, payment.currency)} />
+          <StateMetric label="Unapplied amount" value={formatMoneyAmount(payment.unappliedAmount, payment.currency)} detail={customerPaymentAllocationStateLabel(allocationState)} />
           <StateMetric label="Directly allocated" value={formatMoneyAmount(directAllocatedAmount, payment.currency)} detail={`${directAllocationCount} invoice${directAllocationCount === 1 ? "" : "s"}`} />
           <StateMetric
             label="Applied from unapplied"
@@ -505,6 +567,80 @@ export function CustomerPaymentStateDisplay({ payment }: { payment: CustomerPaym
         </div>
       </section>
     </div>
+  );
+}
+
+export function CustomerPaymentReceiptArchiveState({
+  documents,
+  loading,
+  error,
+  canViewGeneratedDocuments,
+}: {
+  documents: GeneratedDocument[];
+  loading: boolean;
+  error: string;
+  canViewGeneratedDocuments: boolean;
+}) {
+  return (
+    <section className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-ink">Receipt output</h2>
+          <p className="mt-1 text-sm text-steel">Generated receipt PDFs are archived only after an explicit receipt action.</p>
+        </div>
+        <span className={`self-start rounded-md px-2 py-1 text-xs font-semibold ${documents.length > 0 ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-700"}`}>
+          {documents.length > 0 ? `${documents.length} archived` : "No archived receipt"}
+        </span>
+      </div>
+
+      <div className="mt-4">
+        {!canViewGeneratedDocuments ? (
+          <StatusMessage type="info">Generated document permission is required to view archived receipt output records.</StatusMessage>
+        ) : loading ? (
+          <StatusMessage type="loading">Loading receipt archive state...</StatusMessage>
+        ) : error ? (
+          <StatusMessage type="info">Receipt archive state is unavailable: {error}</StatusMessage>
+        ) : documents.length === 0 ? (
+          <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
+            <StatusMessage type="empty">No receipt PDF has been generated or archived for this payment.</StatusMessage>
+            <p className="mt-3 text-sm leading-6 text-steel">
+              Use the explicit receipt PDF action when a customer-facing receipt output is needed. Payment posting, allocation, reversal, and void actions do not create receipt PDFs automatically.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                <tr>
+                  <th className="px-4 py-3">Filename</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Generated</th>
+                  <th className="px-4 py-3">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {documents.map((document) => (
+                  <tr key={document.id}>
+                    <td className="px-4 py-3 font-medium text-ink">{document.filename}</td>
+                    <td className="px-4 py-3">
+                      <span className={`rounded-md px-2 py-1 text-xs font-semibold ${generatedDocumentStatusBadgeClass(document.status)}`}>
+                        {generatedDocumentStatusLabel(document.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-steel">{new Date(document.generatedAt).toLocaleString()}</td>
+                    <td className="px-4 py-3">
+                      <Link href="/documents" className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                        Open archive
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -551,7 +687,7 @@ export function CustomerPaymentWorkflowGuidance({
           <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
             <Summary label="Amount received" value={formatMoneyAmount(payment.amountReceived, payment.currency)} />
             <Summary label="Applied to invoices" value={formatMoneyAmount(formatUnits(appliedTotalUnits), payment.currency)} />
-            <Summary label="Receipt" value={receiptData?.receiptNumber ?? payment.paymentNumber} />
+            <Summary label="Payment number" value={receiptData?.receiptNumber ?? payment.paymentNumber} />
           </div>
         </div>
 
@@ -570,7 +706,7 @@ export function CustomerPaymentWorkflowGuidance({
               disabled={actionLoading}
               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
             >
-              Download receipt PDF
+              Generate / download receipt PDF
             </button>
             <Link href={`/contacts/${payment.customerId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
               View customer ledger
@@ -646,28 +782,6 @@ function paymentOutputStatus(payment: CustomerPayment): string {
   return "Draft payment with no posted accounting output.";
 }
 
-function customerPaymentStatusLabel(status: CustomerPayment["status"]): string {
-  switch (status) {
-    case "DRAFT":
-      return "Draft";
-    case "POSTED":
-      return "Posted";
-    case "VOIDED":
-      return "Voided";
-  }
-}
-
-function customerPaymentStatusBadgeClass(status: CustomerPayment["status"]): string {
-  switch (status) {
-    case "DRAFT":
-      return "bg-slate-100 text-slate-700";
-    case "POSTED":
-      return "bg-emerald-50 text-emerald-700";
-    case "VOIDED":
-      return "bg-rose-50 text-rosewood";
-  }
-}
-
 function journalStatusBadgeClass(status: NonNullable<CustomerPayment["journalEntry"]>["status"]): string {
   switch (status) {
     case "POSTED":
@@ -679,6 +793,15 @@ function journalStatusBadgeClass(status: NonNullable<CustomerPayment["journalEnt
     default:
       return "bg-slate-100 text-slate-700";
   }
+}
+
+function loadReceiptDocuments(paymentId: string): Promise<GeneratedDocument[]> {
+  const query = new URLSearchParams({
+    documentType: "CUSTOMER_PAYMENT_RECEIPT",
+    sourceType: "CustomerPayment",
+    sourceId: paymentId,
+  });
+  return apiRequest<GeneratedDocument[]>(`/generated-documents?${query.toString()}`);
 }
 
 function paymentOutcomeDescription(payment: CustomerPayment, hasUnapplied: boolean): string {

@@ -6,6 +6,13 @@ import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import {
+  customerPaymentAllocationState,
+  customerPaymentAllocationStateBadgeClass,
+  customerPaymentAllocationStateLabel,
+  customerPaymentStatusBadgeClass,
+  customerPaymentStatusLabel,
+} from "@/lib/customer-payments";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -117,32 +124,42 @@ export default function CustomerPaymentsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {payments.map((payment) => (
-                <tr key={payment.id}>
-                  <td className="px-4 py-3 font-mono text-xs">{payment.paymentNumber}</td>
-                  <td className="px-4 py-3 font-medium text-ink">{payment.customer?.displayName ?? payment.customer?.name ?? "-"}</td>
-                  <td className="px-4 py-3 text-steel">{formatOptionalDate(payment.paymentDate, "-")}</td>
-                  <td className="px-4 py-3">
-                    <PaymentStatusPill status={payment.status} />
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(payment.amountReceived, payment.currency)}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(payment.unappliedAmount, payment.currency)}</td>
-                  <td className="px-4 py-3 text-steel">{payment.account ? `${payment.account.code} ${payment.account.name}` : "-"}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{payment.journalEntry ? `${payment.journalEntry.entryNumber} (${payment.journalEntry.id})` : "-"}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <Link href={`/sales/customer-payments/${payment.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                        View
-                      </Link>
-                      {payment.status === "POSTED" && canVoidPayment ? (
-                        <button type="button" onClick={() => void voidPayment(payment)} disabled={actionId === payment.id} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                          Void
-                        </button>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {payments.map((payment) => {
+                const allocationState = customerPaymentAllocationState(payment);
+                return (
+                  <tr key={payment.id}>
+                    <td className="px-4 py-3 font-mono text-xs">{payment.paymentNumber}</td>
+                    <td className="px-4 py-3 font-medium text-ink">{payment.customer?.displayName ?? payment.customer?.name ?? "-"}</td>
+                    <td className="px-4 py-3 text-steel">{formatOptionalDate(payment.paymentDate, "-")}</td>
+                    <td className="px-4 py-3">
+                      <PaymentStatusPill status={payment.status} />
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(payment.amountReceived, payment.currency)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col items-start gap-1">
+                        <span className="font-mono text-xs">{formatMoneyAmount(payment.unappliedAmount, payment.currency)}</span>
+                        <span className={`rounded-md px-2 py-1 text-xs font-medium ${customerPaymentAllocationStateBadgeClass(allocationState)}`}>
+                          {customerPaymentAllocationStateLabel(allocationState)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-steel">{payment.account ? `${payment.account.code} ${payment.account.name}` : "-"}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{payment.journalEntry ? `${payment.journalEntry.entryNumber} (${payment.journalEntry.id})` : "-"}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <Link href={`/sales/customer-payments/${payment.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                          View
+                        </Link>
+                        {payment.status === "POSTED" && canVoidPayment ? (
+                          <button type="button" onClick={() => void voidPayment(payment)} disabled={actionId === payment.id} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                            Void
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -152,13 +169,9 @@ export default function CustomerPaymentsPage() {
 }
 
 function PaymentStatusPill({ status }: { status: CustomerPayment["status"] }) {
-  const className =
-    status === "POSTED"
-      ? "bg-emerald-50 text-emerald-700"
-      : status === "VOIDED"
-        ? "bg-rose-50 text-rosewood"
-        : "bg-slate-100 text-slate-700";
-  const label = status === "POSTED" ? "Posted" : status === "VOIDED" ? "Voided" : "Draft";
-
-  return <span className={`rounded-md px-2 py-1 text-xs font-medium ${className}`}>{label}</span>;
+  return (
+    <span className={`rounded-md px-2 py-1 text-xs font-medium ${customerPaymentStatusBadgeClass(status)}`}>
+      {customerPaymentStatusLabel(status)}
+    </span>
+  );
 }

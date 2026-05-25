@@ -2,6 +2,8 @@ import { apiRequest } from "./api";
 import { formatUnits, parseDecimalToUnits } from "./money";
 import type { CustomerPayment, CustomerPaymentUnappliedAllocation } from "./types";
 
+export type CustomerPaymentAllocationState = "NO_ALLOCATIONS" | "FULLY_APPLIED" | "PARTIALLY_UNAPPLIED";
+
 export interface ApplyCustomerPaymentUnappliedAllocationRequest {
   invoiceId: string;
   amountApplied: string;
@@ -67,6 +69,28 @@ export function customerPaymentUnappliedAllocationStatusBadgeClass(
   return allocation.reversedAt ? "bg-slate-100 text-slate-700" : "bg-emerald-50 text-emerald-700";
 }
 
+export function customerPaymentStatusLabel(status: CustomerPayment["status"]): string {
+  switch (status) {
+    case "DRAFT":
+      return "Draft";
+    case "POSTED":
+      return "Posted";
+    case "VOIDED":
+      return "Voided";
+  }
+}
+
+export function customerPaymentStatusBadgeClass(status: CustomerPayment["status"]): string {
+  switch (status) {
+    case "DRAFT":
+      return "bg-slate-100 text-slate-700";
+    case "POSTED":
+      return "bg-emerald-50 text-emerald-700";
+    case "VOIDED":
+      return "bg-rose-50 text-rosewood";
+  }
+}
+
 export function canReverseCustomerPaymentUnappliedAllocation(
   allocation: Pick<CustomerPaymentUnappliedAllocation, "reversedAt">,
 ): boolean {
@@ -87,6 +111,46 @@ export function customerPaymentDirectAllocatedAmount(
 ): string {
   const units = (allocations ?? []).reduce((sum, allocation) => sum + parseDecimalToUnits(allocation.amountApplied), 0);
   return formatUnits(units);
+}
+
+export function customerPaymentAllocationState(
+  payment: {
+    unappliedAmount: string;
+    allocations?: Array<Pick<NonNullable<CustomerPayment["allocations"]>[number], "amountApplied">>;
+    unappliedAllocations?: Array<Pick<CustomerPaymentUnappliedAllocation, "amountApplied" | "reversedAt">>;
+  },
+): CustomerPaymentAllocationState {
+  const directUnits = parseDecimalToUnits(customerPaymentDirectAllocatedAmount(payment.allocations));
+  const activeUnappliedApplicationUnits = parseDecimalToUnits(customerPaymentActiveUnappliedAppliedAmount(payment.unappliedAllocations));
+  const unappliedUnits = parseDecimalToUnits(payment.unappliedAmount);
+
+  if (directUnits <= 0 && activeUnappliedApplicationUnits <= 0) {
+    return "NO_ALLOCATIONS";
+  }
+
+  return unappliedUnits > 0 ? "PARTIALLY_UNAPPLIED" : "FULLY_APPLIED";
+}
+
+export function customerPaymentAllocationStateLabel(state: CustomerPaymentAllocationState): string {
+  switch (state) {
+    case "NO_ALLOCATIONS":
+      return "No allocations";
+    case "PARTIALLY_UNAPPLIED":
+      return "Partially unapplied";
+    case "FULLY_APPLIED":
+      return "Fully applied";
+  }
+}
+
+export function customerPaymentAllocationStateBadgeClass(state: CustomerPaymentAllocationState): string {
+  switch (state) {
+    case "NO_ALLOCATIONS":
+      return "bg-slate-100 text-slate-700";
+    case "PARTIALLY_UNAPPLIED":
+      return "bg-amber-50 text-amber-700";
+    case "FULLY_APPLIED":
+      return "bg-emerald-50 text-emerald-700";
+  }
 }
 
 export function customerPaymentApplyMaximumAmount(paymentUnappliedAmount: string, invoiceBalanceDue: string | undefined): string {

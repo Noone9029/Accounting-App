@@ -7,6 +7,7 @@ import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { bankAccountOptionLabel } from "@/lib/bank-accounts";
+import { customerPaymentAllocationStateBadgeClass, customerPaymentAllocationStateLabel, type CustomerPaymentAllocationState } from "@/lib/customer-payments";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { calculatePaymentAllocationPreview, formatMoneyAmount, parseDecimalToUnits } from "@/lib/money";
 import type { Account, BankAccountSummary, Contact, CustomerPayment, OpenSalesInvoice } from "@/lib/types";
@@ -53,6 +54,10 @@ export default function NewCustomerPaymentPage() {
         })),
       ),
     [allocations, amountReceived, openInvoices],
+  );
+  const previewAllocationState = useMemo(
+    () => paymentAllocationPreviewState(preview.totalAllocated, preview.unappliedAmount),
+    [preview.totalAllocated, preview.unappliedAmount],
   );
 
   useEffect(() => {
@@ -344,6 +349,12 @@ export default function NewCustomerPaymentPage() {
           <span className="text-right font-mono">{formatMoneyAmount(preview.totalAllocated)}</span>
           <span className="font-semibold text-ink">Unapplied</span>
           <span className="text-right font-mono font-semibold text-ink">{formatMoneyAmount(preview.unappliedAmount)}</span>
+          <span className="text-steel">Allocation state</span>
+          <span className="text-right">
+            <span className={`rounded-md px-2 py-1 text-xs font-medium ${customerPaymentAllocationStateBadgeClass(previewAllocationState)}`}>
+              {customerPaymentAllocationStateLabel(previewAllocationState)}
+            </span>
+          </span>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -357,6 +368,13 @@ export default function NewCustomerPaymentPage() {
       </form>
     </section>
   );
+}
+
+function paymentAllocationPreviewState(totalAllocated: string, unappliedAmount: string): CustomerPaymentAllocationState {
+  if (parseDecimalToUnits(totalAllocated) <= 0) {
+    return "NO_ALLOCATIONS";
+  }
+  return parseDecimalToUnits(unappliedAmount) > 0 ? "PARTIALLY_UNAPPLIED" : "FULLY_APPLIED";
 }
 
 function getValidationError(customerId: string, accountId: string, amountReceived: string, allocations: AllocationState[], openInvoices: OpenSalesInvoice[]): string {

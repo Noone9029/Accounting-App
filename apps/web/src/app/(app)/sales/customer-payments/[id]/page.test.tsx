@@ -1,8 +1,8 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
-import CustomerPaymentDetailPage, { CustomerPaymentStateDisplay, CustomerPaymentWorkflowGuidance } from "./page";
-import type { CustomerPayment, OpenSalesInvoice } from "@/lib/types";
+import CustomerPaymentDetailPage, { CustomerPaymentReceiptArchiveState, CustomerPaymentStateDisplay, CustomerPaymentWorkflowGuidance } from "./page";
+import type { CustomerPayment, GeneratedDocument, OpenSalesInvoice } from "@/lib/types";
 
 const mockApiRequest = jest.fn();
 const mockPermissionCan = jest.fn();
@@ -104,6 +104,9 @@ describe("customer payment workflow guidance", () => {
       if (path === "/sales-invoices/open?customerId=customer-1") {
         return Promise.resolve(openInvoices);
       }
+      if (path === "/generated-documents?documentType=CUSTOMER_PAYMENT_RECEIPT&sourceType=CustomerPayment&sourceId=payment-1") {
+        return Promise.resolve([]);
+      }
       if (path === "/customer-payments/payment-1/apply-unapplied") {
         return Promise.resolve(updatedPayment);
       }
@@ -169,6 +172,9 @@ describe("customer payment workflow guidance", () => {
       if (path === "/sales-invoices/open?customerId=customer-1") {
         return Promise.resolve([]);
       }
+      if (path === "/generated-documents?documentType=CUSTOMER_PAYMENT_RECEIPT&sourceType=CustomerPayment&sourceId=payment-1") {
+        return Promise.resolve([]);
+      }
       if (path === "/customer-payments/payment-1/unapplied-allocations/unapplied-active/reverse") {
         return Promise.resolve(updatedPayment);
       }
@@ -203,6 +209,9 @@ describe("customer payment workflow guidance", () => {
         return Promise.resolve(paymentFixture({ unappliedAllocations: [unappliedAllocationFixture()] }));
       }
       if (path === "/sales-invoices/open?customerId=customer-1") {
+        return Promise.resolve([]);
+      }
+      if (path === "/generated-documents?documentType=CUSTOMER_PAYMENT_RECEIPT&sourceType=CustomerPayment&sourceId=payment-1") {
         return Promise.resolve([]);
       }
       if (path === "/customer-payments/payment-1/unapplied-allocations/unapplied-1/reverse") {
@@ -274,6 +283,7 @@ describe("customer payment workflow guidance", () => {
 
     expect(screen.getByText("Payment state")).toBeInTheDocument();
     expect(screen.getAllByText("Posted").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Partially unapplied").length).toBeGreaterThan(0);
     expect(screen.getByText("Posted with payment accounting returned.")).toBeInTheDocument();
     expect(screen.getByText(/200\.00/)).toBeInTheDocument();
     expect(screen.getByText(/25\.00/)).toBeInTheDocument();
@@ -300,6 +310,7 @@ describe("customer payment workflow guidance", () => {
     );
 
     expect(screen.getByText("Draft")).toBeInTheDocument();
+    expect(screen.getAllByText("No allocations").length).toBeGreaterThan(0);
     expect(screen.getByText("Draft payment with no posted accounting output.")).toBeInTheDocument();
     expect(screen.getByText("0 invoices")).toBeInTheDocument();
     expect(screen.getByText("0 active, 0 reversed")).toBeInTheDocument();
@@ -323,7 +334,7 @@ describe("customer payment workflow guidance", () => {
     expect(screen.getByText(/linked invoice balances were reduced/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View invoice" })).toHaveAttribute("href", "/sales/invoices/invoice-1");
     expect(screen.getByRole("link", { name: "View customer ledger" })).toHaveAttribute("href", "/contacts/customer-1");
-    expect(screen.getByRole("button", { name: "Download receipt PDF" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generate / download receipt PDF" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
     expect(screen.getByRole("link", { name: "AR report" })).toHaveAttribute("href", "/reports/aged-receivables");
   });
@@ -342,6 +353,36 @@ describe("customer payment workflow guidance", () => {
     expect(screen.getByText("Unapplied credit")).toBeInTheDocument();
     expect(screen.getByText(/matched to a later invoice or refunded/)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "View invoice" })).not.toBeInTheDocument();
+  });
+
+  it("shows receipt output archive state and a clear empty state", () => {
+    const receiptDocument = generatedDocumentFixture();
+
+    const { rerender } = render(
+      <CustomerPaymentReceiptArchiveState
+        documents={[]}
+        loading={false}
+        error=""
+        canViewGeneratedDocuments
+      />,
+    );
+
+    expect(screen.getByText("No archived receipt")).toBeInTheDocument();
+    expect(screen.getByText("No receipt PDF has been generated or archived for this payment.")).toBeInTheDocument();
+
+    rerender(
+      <CustomerPaymentReceiptArchiveState
+        documents={[receiptDocument]}
+        loading={false}
+        error=""
+        canViewGeneratedDocuments
+      />,
+    );
+
+    expect(screen.getByText("1 archived")).toBeInTheDocument();
+    expect(screen.getByText("receipt-CP-001.pdf")).toBeInTheDocument();
+    expect(screen.getAllByText("Generated").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
   });
 });
 
@@ -417,6 +458,28 @@ function invoiceSummaryFixture(
     total: "25.0000",
     balanceDue: "0.0000",
     status: "FINALIZED",
+    ...overrides,
+  };
+}
+
+function generatedDocumentFixture(overrides: Partial<GeneratedDocument> = {}): GeneratedDocument {
+  return {
+    id: "document-1",
+    organizationId: "org-1",
+    documentType: "CUSTOMER_PAYMENT_RECEIPT",
+    sourceType: "CustomerPayment",
+    sourceId: "payment-1",
+    documentNumber: "CP-001",
+    filename: "receipt-CP-001.pdf",
+    mimeType: "application/pdf",
+    storageProvider: "database",
+    storageKey: null,
+    contentHash: "hash",
+    sizeBytes: 1200,
+    status: "GENERATED",
+    generatedById: "user-1",
+    generatedAt: "2026-05-21T00:00:00.000Z",
+    createdAt: "2026-05-21T00:00:00.000Z",
     ...overrides,
   };
 }

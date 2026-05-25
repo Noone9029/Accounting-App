@@ -1,11 +1,16 @@
 import {
   applyCustomerPaymentUnappliedAllocation,
   canReverseCustomerPaymentUnappliedAllocation,
+  customerPaymentAllocationState,
+  customerPaymentAllocationStateBadgeClass,
+  customerPaymentAllocationStateLabel,
   customerPaymentApplyUnappliedPath,
   customerPaymentActiveUnappliedAppliedAmount,
   customerPaymentApplyMaximumAmount,
   customerPaymentDirectAllocatedAmount,
   customerPaymentReverseUnappliedAllocationPath,
+  customerPaymentStatusBadgeClass,
+  customerPaymentStatusLabel,
   customerPaymentUnappliedAllocationsPath,
   customerPaymentUnappliedAllocationStatusBadgeClass,
   customerPaymentUnappliedAllocationStatusLabel,
@@ -44,6 +49,38 @@ describe("customer payment helpers", () => {
     expect(customerPaymentUnappliedAllocationStatusBadgeClass({ reversedAt: "2026-05-12T00:00:00.000Z" })).toContain("slate");
     expect(canReverseCustomerPaymentUnappliedAllocation({ reversedAt: null })).toBe(true);
     expect(canReverseCustomerPaymentUnappliedAllocation({ reversedAt: "2026-05-12T00:00:00.000Z" })).toBe(false);
+  });
+
+  it("labels customer payment status and allocation state", () => {
+    expect(customerPaymentStatusLabel("POSTED")).toBe("Posted");
+    expect(customerPaymentStatusLabel("VOIDED")).toBe("Voided");
+    expect(customerPaymentStatusBadgeClass("POSTED")).toContain("emerald");
+    expect(customerPaymentStatusBadgeClass("VOIDED")).toContain("rose");
+
+    expect(
+      customerPaymentAllocationState({
+        unappliedAmount: "0.0000",
+        allocations: [{ amountApplied: "100.0000" }],
+        unappliedAllocations: [],
+      }),
+    ).toBe("FULLY_APPLIED");
+    expect(
+      customerPaymentAllocationState({
+        unappliedAmount: "25.0000",
+        allocations: [{ amountApplied: "75.0000" }],
+        unappliedAllocations: [],
+      }),
+    ).toBe("PARTIALLY_UNAPPLIED");
+    expect(
+      customerPaymentAllocationState({
+        unappliedAmount: "100.0000",
+        allocations: [],
+        unappliedAllocations: [],
+      }),
+    ).toBe("NO_ALLOCATIONS");
+    expect(customerPaymentAllocationStateLabel("FULLY_APPLIED")).toBe("Fully applied");
+    expect(customerPaymentAllocationStateLabel("PARTIALLY_UNAPPLIED")).toBe("Partially unapplied");
+    expect(customerPaymentAllocationStateBadgeClass("NO_ALLOCATIONS")).toContain("slate");
   });
 
   it("calculates active applied amount from unreversed unapplied allocations", () => {
