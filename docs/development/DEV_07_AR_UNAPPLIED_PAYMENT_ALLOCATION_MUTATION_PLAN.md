@@ -438,3 +438,21 @@ Next prompt title:
 ```text
 DEV-07 Part 9: approved local AR unapplied customer payment allocation mutation
 ```
+
+## Part 9 Evidence Note
+
+DEV-07 Part 9 evidence is recorded in [DEV_07_AR_UNAPPLIED_PAYMENT_ALLOCATION_EVIDENCE.md](DEV_07_AR_UNAPPLIED_PAYMENT_ALLOCATION_EVIDENCE.md).
+
+- Current local state shows the approved allocation outcome: `PAYMENT-000001` remains `POSTED`, amount received remains `500.0000`, and unapplied amount is `0.0000`.
+- `INVOICE-000002` remains `FINALIZED`, total remains `1150.0000`, and balance due is `650.0000`.
+- The original direct `CustomerPaymentAllocation` remains exactly one record for `300.0000`.
+- One active `CustomerPaymentUnappliedAllocation` exists for `200.0000`.
+- No new journal entry exists; `JOURNAL_ENTRY-000004` remains `POSTED`, reference `PAYMENT-000001`, debit `500.0000`, and credit `500.0000`; `JOURNAL_ENTRY` sequence next remains `5`.
+- Current audit behavior is standardized by the repository: `CUSTOMER_PAYMENT_UNAPPLIED_APPLIED` exists exactly once, while raw `APPLY_UNAPPLIED` remains `0`.
+- No receipt PDF/archive, generated document, email, ZATCA XML/signing/QR/submission, refund, credit note, invoice void, payment void, reverse allocation, cleanup deletion, migration, seed/reset/delete, deploy, environment, provider, production, beta, shared-target, customer-data, or login/browser audit-writing flow occurred in this continuation.
+
+Next prompt title:
+
+```text
+DEV-07 Part 10: AR unapplied allocation reversal preflight
+```

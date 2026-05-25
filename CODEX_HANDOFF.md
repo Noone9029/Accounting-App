@@ -834,3 +834,20 @@
 ## Next Thread Prompt
 
 `DEV-07 Part 9: approved local AR unapplied customer payment allocation mutation`
+
+## DEV-07 Part 9 - AR Unapplied Payment Allocation Evidence Completed
+
+- DEV-07 Part 9 evidence is recorded in [docs/development/DEV_07_AR_UNAPPLIED_PAYMENT_ALLOCATION_EVIDENCE.md](docs/development/DEV_07_AR_UNAPPLIED_PAYMENT_ALLOCATION_EVIDENCE.md).
+- Approval phrase was received for the local-only AR unapplied customer payment allocation mutation under marker `DEV03-AR-20260524T130000` for `PAYMENT-000001` and `INVOICE-000002`.
+- Current local state shows the approved allocation outcome: `PAYMENT-000001` remains `POSTED`, amount received remains `500.0000`, and unapplied amount is `0.0000`.
+- `INVOICE-000002` remains `FINALIZED`, total remains `1150.0000`, and balance due is `650.0000`.
+- Direct allocation evidence remains one `CustomerPaymentAllocation` for `300.0000`; one active `CustomerPaymentUnappliedAllocation` exists for `200.0000`.
+- Accounting result: no new journal entry exists; `JOURNAL_ENTRY-000004` remains `POSTED`, reference `PAYMENT-000001`, debit `500.0000`, and credit `500.0000`; `JOURNAL_ENTRY` sequence next remains `5`.
+- Audit result follows the current standardized audit behavior: `CUSTOMER_PAYMENT_CREATED` exists exactly once, `CUSTOMER_PAYMENT_UNAPPLIED_APPLIED` exists exactly once, and raw `APPLY_UNAPPLIED` remains `0`.
+- Output/email/ZATCA/refund/credit-note/cleanup occurred: no. Generated documents, email outbox/provider events, ZATCA XML/signing/QR/submission artifacts, refunds, credit notes, payment void, invoice void, reverse allocation, and cleanup deletion remained absent.
+- No second `CustomerPaymentService.applyUnapplied(...)` call was run in the evidence continuation because read-only preflight found the one approved allocation result already present; a second call would violate the exactly-once boundary.
+- Exact next prompt title: `DEV-07 Part 10: AR unapplied allocation reversal preflight`.
+
+## Next Thread Prompt
+
+`DEV-07 Part 10: AR unapplied allocation reversal preflight`
