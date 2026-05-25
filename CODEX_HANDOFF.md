@@ -1008,3 +1008,21 @@
 ## Next Thread Prompt
 
 `DEV-08 Part 5: approved local supplier payment creation mutation`
+
+## DEV-08 Part 5 - Approved Local Supplier Payment Creation Mutation Completed
+
+- DEV-08 Part 5 local-only mutation evidence is recorded in [docs/development/DEV_08_SUPPLIER_PAYMENT_CREATION_MUTATION_EVIDENCE.md](docs/development/DEV_08_SUPPLIER_PAYMENT_CREATION_MUTATION_EVIDENCE.md).
+- Approval phrase was received for the local-only supplier payment creation mutation under marker `DEV08-AP-20260525T230000`.
+- Mutation performed: yes. The successful guarded script execution called `SupplierPaymentService.create(...)` exactly once.
+- Supplier evidence: `DEV08-AP-20260525T230000 Supplier` remains active `SUPPLIER`, safe id prefix `0e36df97`, in fake local AP-ready organization safe prefix `db69e5a8`.
+- Supplier payment evidence: `PAY-000006`, safe id prefix `622ad0b6`, status `POSTED`, amount paid `500.0000`, direct allocation `300.0000` to `BILL-000007`, unapplied amount `200.0000`, and no void reversal journal.
+- Purchase bill evidence: `BILL-000007`, safe id prefix `d81ddd60`, remains `FINALIZED`, total `1150.0000`, balance due changed `1150.0000 -> 850.0000`, reversal journal absent, and one direct supplier payment allocation exists for `300.0000`.
+- Journal/accounting evidence: posted journal `JE-000050`, safe id prefix `b77bd6f7`, total debit `500.0000`, total credit `500.0000`, with debit `500.0000` to AP account `210` and credit `500.0000` to paid-through account `112`; no purchase bill reversal journal or supplier payment void reversal journal was created.
+- Audit evidence: one `SUPPLIER_PAYMENT_CREATED` audit action exists for `PAY-000006`; no supplier payment void audit, supplier refund audit, purchase debit note audit, purchase bill void audit, or login/browser audit-writing flow occurred.
+- Output/email/ZATCA/refund/debit-note/purchase-order/inventory/cash-expense/cleanup occurred: no. Fixture-specific generated documents, email outbox rows, supplier refunds, purchase debit notes, purchase orders, purchase receipts, stock movements, cash expenses, and cleanup/delete audit actions remain `0`; organization-level ZATCA baselines remained unchanged (`1` signed artifact draft and `7` submission logs).
+- Temporary script cleanup: `apps/api/scripts/dev08-supplier-payment-create.tmp.ts` was removed after execution, `Test-Path` returned `False`, and the script was not staged or left untracked.
+- Exact next prompt title: `DEV-08 Part 6: supplier payment evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08 Part 6: supplier payment evidence verification`

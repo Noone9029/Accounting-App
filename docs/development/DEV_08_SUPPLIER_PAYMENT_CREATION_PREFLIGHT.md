@@ -331,3 +331,16 @@ Future Part 5 evidence must compare before/after counts carefully because the se
 ## Exact Next Prompt Title
 
 `DEV-08 Part 5: approved local supplier payment creation mutation`
+
+## Part 5 Mutation Evidence Note
+
+DEV-08 Part 5 completed the approved local-only supplier payment creation mutation. Evidence is recorded in [DEV_08_SUPPLIER_PAYMENT_CREATION_MUTATION_EVIDENCE.md](DEV_08_SUPPLIER_PAYMENT_CREATION_MUTATION_EVIDENCE.md).
+
+- Mutation performed: yes.
+- Supplier payment created: `PAY-000006`, safe id prefix `622ad0b6`, status `POSTED`.
+- Payment amount/allocation/unapplied result: amount paid `500.0000`, direct allocation `300.0000` to `BILL-000007`, unapplied amount `200.0000`.
+- Bill result: `BILL-000007` remained `FINALIZED`, total remained `1150.0000`, balance due changed `1150.0000 -> 850.0000`, reversal journal remained absent.
+- Journal result: `JE-000050`, safe id prefix `b77bd6f7`, `POSTED`, debit `210` for `500.0000`, credit `112` for `500.0000`.
+- Audit result: one `SUPPLIER_PAYMENT_CREATED` action for `PAY-000006`; no supplier payment void audit.
+- Forbidden side effects: no generated document, PDF/archive/export/download, email, ZATCA change, supplier refund, purchase debit note, purchase order, purchase receipt, stock movement, cash expense, fixture cleanup/delete, migration, seed/reset/delete, deploy, environment/provider/schema change, production, beta, shared-target, or customer-data action occurred.
+- Exact next prompt title: `DEV-08 Part 6: supplier payment evidence verification`.
