@@ -93,7 +93,9 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 - DEV-07 Part 1 completed [DEV_07_AR_PAYMENT_ALLOCATION_STATE_MACHINE_PLAN.md](DEV_07_AR_PAYMENT_ALLOCATION_STATE_MACHINE_PLAN.md) as planning/read-only work.
 - DEV-07 fixture strategy: reuse the existing local DEV03-AR fixture organization/dependencies, but create a new DEV-07-specific finalized invoice fixture in a later approved part; do not use voided `INVOICE-000001` as the allocation happy-path target.
 - DEV-07 Part 2 completed [DEV_07_AR_PAYMENT_ALLOCATION_FIXTURE_PLAN.md](DEV_07_AR_PAYMENT_ALLOCATION_FIXTURE_PLAN.md) as planning/read-only work. It chose one new finalized invoice under marker `DEV03-AR-20260524T130000`, planned total `1150.0000`, future payment `500.0000`, direct allocation `300.0000`, unapplied amount `200.0000`, same-invoice unapplied allocation `200.0000`, and final planned balance `650.0000`.
-- Recommended next local-only state-machine ticket: `DEV-07 Part 3: approved local AR payment-allocation invoice fixture mutation`.
+- DEV-07 is now closed for the local customer payment allocation/void evidence chain in [DEV_07_AR_STATE_MACHINE_CLOSURE.md](DEV_07_AR_STATE_MACHINE_CLOSURE.md). It proved the finalized payment-allocation invoice fixture, customer payment creation, direct allocation, unapplied amount application, unapplied allocation reversal, customer payment void/reversal, journal behavior, standardized audit behavior, and output/email/ZATCA non-effects.
+- DEV-07 does not claim full AR completion. Remaining AR gaps include customer refunds, credit notes, output/PDF/archive, email, ZATCA XML/signing/submission, authenticated UI/API QA, repeated/idempotency paths, allocation blockers beyond this chain, fiscal-period locks, cleanup policy, and production/beta/customer-data behavior.
+- Recommended next local-only state-machine ticket: `DEV-08 Part 1: AP state-machine fixture and mutation preflight`.
 
 ## Highest-Priority Development Tickets
 
@@ -144,4 +146,4 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 
 ## Exact Next Recommended Development Ticket
 
-`DEV-07 Part 3: approved local AR payment-allocation invoice fixture mutation`
+`DEV-08 Part 1: AP state-machine fixture and mutation preflight`

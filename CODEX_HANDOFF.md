@@ -920,3 +920,21 @@
 ## Next Thread Prompt
 
 `DEV-07 Part 14: AR state-machine closure and evidence consolidation`
+
+## DEV-07 Part 14 - AR State-Machine Closure Completed
+
+- DEV-07 Part 14 closure is recorded in [docs/development/DEV_07_AR_STATE_MACHINE_CLOSURE.md](docs/development/DEV_07_AR_STATE_MACHINE_CLOSURE.md).
+- Mutation performed: no. No database write, invoice/payment/allocation/refund/credit-note mutation, output/PDF/archive, email, ZATCA, cleanup deletion, migration, seed/reset/delete, deploy, environment/provider change, production, beta, shared-target, customer-data, or login/browser flow ran.
+- DEV-07 proved the local AR customer payment allocation chain: finalized invoice fixture `INVOICE-000002`, posted customer payment `PAYMENT-000001`, one direct allocation for `300.0000`, unapplied amount `200.0000`, apply-unapplied allocation for `200.0000`, reversal of that unapplied allocation, and customer payment void/reversal.
+- Final payment state: `PAYMENT-000001` is `VOIDED`, safe id prefix `b39f4d38`, amount received `500.0000`, unapplied amount `200.0000`, original journal `JOURNAL_ENTRY-000004`, and void reversal journal `JOURNAL_ENTRY-000005`.
+- Final invoice state: `INVOICE-000002` remains `FINALIZED`, safe id prefix `ddadfdd7`, total `1150.0000`, balance due `1150.0000`, and no invoice reversal journal.
+- Final allocation state: one historical direct `CustomerPaymentAllocation` remains for `300.0000`; the `8bc99925` `CustomerPaymentUnappliedAllocation` remains reversed for `200.0000` with reason `DEV-07 local-only reversal QA for unapplied allocation`.
+- Final accounting result: `JOURNAL_ENTRY-000004` is `REVERSED`; `JOURNAL_ENTRY-000005` is `POSTED`, references `PAYMENT-000001`, and reverses `JOURNAL_ENTRY-000004`; `JOURNAL_ENTRY` sequence next is `6`.
+- Final audit result: `CUSTOMER_PAYMENT_CREATED`, `CUSTOMER_PAYMENT_UNAPPLIED_APPLIED`, `CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSED`, and `CUSTOMER_PAYMENT_VOIDED` each exist exactly once; cleanup/delete audit actions remain `0`.
+- Output/email/ZATCA/refund/credit-note/cleanup occurred: no. Generated documents, receipt/PDF/archive records, email outbox/provider events, ZATCA XML/signing/QR/submission artifacts, refunds, credit notes, invoice void, and cleanup deletion remained absent.
+- Remaining AR gaps: customer refunds, credit notes, output/PDF/archive, email, ZATCA XML/signing/submission, authenticated UI/API QA, repeated/idempotency paths, allocation blockers beyond this chain, fiscal-period locks, cleanup policy, and production/beta/customer-data behavior.
+- Exact next prompt title: `DEV-08 Part 1: AP state-machine fixture and mutation preflight`.
+
+## Next Thread Prompt
+
+`DEV-08 Part 1: AP state-machine fixture and mutation preflight`
