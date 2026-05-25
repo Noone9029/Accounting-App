@@ -344,3 +344,16 @@ DEV-08 Part 12: approved local supplier payment void/reversal mutation
 - Purchase bill void/reversal remains unproven after supplier payment void.
 - Supplier refund and purchase debit note interactions remain unproven.
 - Output/PDF/archive, email, and ZATCA flows remain deliberately outside this AP payment state-machine chain.
+
+## Part 12 Mutation Evidence Note
+
+DEV-08 Part 12 completed the approved local-only supplier payment void/reversal mutation. Evidence is recorded in [DEV_08_SUPPLIER_PAYMENT_VOID_MUTATION_EVIDENCE.md](DEV_08_SUPPLIER_PAYMENT_VOID_MUTATION_EVIDENCE.md).
+
+- Mutation performed: yes. `SupplierPaymentService.void(...)` was called exactly once for `PAY-000006`.
+- Payment result: `PAY-000006` changed from `POSTED` to `VOIDED`, safe id prefix `622ad0b6`, amount paid remained `500.0000`, unapplied amount remained `200.0000`, `voidedAt` was set, original journal remained `JE-000050`, and void reversal journal `JE-000051` was created.
+- Bill result: `BILL-000007` remained `FINALIZED`, safe id prefix `d81ddd60`, total remained `1150.0000`, balance due changed `850.0000 -> 1150.0000`, and purchase bill reversal journal remained absent.
+- Allocation result: direct `SupplierPaymentAllocation` `6ec44d14` remained a historical allocation for `300.0000`; reversed `SupplierPaymentUnappliedAllocation` `a8ee4e23` remained reversed; no new allocation or debit-note allocation was created.
+- Accounting result: original supplier payment journal `JE-000050` changed to `REVERSED`; reversal journal `JE-000051`, safe id prefix `ebc58c26`, posted with debit `112` for `500.0000` and credit `210` for `500.0000`; purchase bill journal `JE-000049` remained posted and unchanged.
+- Audit result: standardized `SUPPLIER_PAYMENT_VOIDED` exists once for `PAY-000006`; no supplier refund, purchase debit note, purchase bill void, cleanup/delete, or login/browser audit-writing action occurred.
+- Forbidden side effects: no generated document, PDF/archive/export/download, email, ZATCA change, supplier refund, purchase debit note, purchase order, purchase receipt, stock movement, cash expense, purchase bill void, fixture cleanup/delete, migration, seed/reset/delete, deploy, environment/provider/schema change, production, beta, shared-target, or customer-data action occurred.
+- Exact next prompt title: `DEV-08 Part 13: purchase bill void/reversal preflight after supplier payment void`.

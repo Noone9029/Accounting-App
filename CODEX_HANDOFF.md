@@ -1137,3 +1137,21 @@
 ## Next Thread Prompt
 
 `DEV-08 Part 12: approved local supplier payment void/reversal mutation`
+
+## DEV-08 Part 12 - Approved Local Supplier Payment Void/Reversal Mutation Completed
+
+- DEV-08 Part 12 local-only mutation evidence is recorded in [docs/development/DEV_08_SUPPLIER_PAYMENT_VOID_MUTATION_EVIDENCE.md](docs/development/DEV_08_SUPPLIER_PAYMENT_VOID_MUTATION_EVIDENCE.md).
+- Approval phrase was received for the local-only supplier payment void/reversal mutation under marker `DEV08-AP-20260525T230000` for the DEV-08 supplier payment linked to `BILL-000007`.
+- Mutation performed: yes. The successful guarded script execution called `SupplierPaymentService.void(...)` exactly once for `PAY-000006`.
+- Supplier payment evidence: `PAY-000006`, safe id prefix `622ad0b6`, changed from `POSTED` to `VOIDED`; amount paid remained `500.0000`; unapplied amount remained `200.0000`; `voidedAt` was set; original journal remained `JE-000050`; void reversal journal `JE-000051` was created.
+- Purchase bill evidence: `BILL-000007`, safe id prefix `d81ddd60`, remained `FINALIZED`; total remained `1150.0000`; balance due changed `850.0000 -> 1150.0000`; purchase bill journal `JE-000049` remained `POSTED`; purchase bill reversal journal remained absent.
+- Allocation evidence: direct `SupplierPaymentAllocation` `6ec44d14` remained one historical allocation for `300.0000`; `SupplierPaymentUnappliedAllocation` `a8ee4e23` remained reversed for `200.0000`; no new supplier payment allocation, unapplied allocation, or purchase debit-note allocation was created.
+- Journal/accounting evidence: original supplier payment journal `JE-000050` changed from `POSTED` to `REVERSED`; supplier payment reversal journal `JE-000051`, safe id prefix `ebc58c26`, posted with debit `112 Bank Account` for `500.0000` and credit `210 Accounts Payable` for `500.0000`; organization journal count changed `50 -> 51`; `JOURNAL_ENTRY` sequence changed next `51 -> 52`; `PAYMENT` sequence stayed next `7`.
+- Audit evidence: `SUPPLIER_PAYMENT_CREATED` remains once, `APPLY_UNAPPLIED` remains once, raw `REVERSE_UNAPPLIED_ALLOCATION` remains once on allocation `a8ee4e23`, and standardized `SUPPLIER_PAYMENT_VOIDED` now exists once for `PAY-000006`; no supplier refund, purchase debit note, purchase bill void, cleanup/delete, or login/browser audit-writing action occurred.
+- Output/email/ZATCA/refund/debit-note/purchase-order/inventory/cash-expense/purchase-bill-void/cleanup occurred: no. Fixture-specific generated documents, email outbox rows, supplier refunds, purchase debit notes, purchase orders, purchase receipts, stock movements, cash expenses, auth tokens since payment, and purchase bill void audit remained `0`; organization-level ZATCA baselines remained unchanged (`1` signed artifact draft and `7` submission logs).
+- Temporary script cleanup: `apps/api/scripts/dev08-supplier-payment-void.tmp.ts` was removed after execution, `Test-Path` returned `False`, and the script was not staged or left untracked.
+- Exact next prompt title: `DEV-08 Part 13: purchase bill void/reversal preflight after supplier payment void`.
+
+## Next Thread Prompt
+
+`DEV-08 Part 13: purchase bill void/reversal preflight after supplier payment void`
