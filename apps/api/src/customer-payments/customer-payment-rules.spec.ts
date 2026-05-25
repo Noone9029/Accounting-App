@@ -1,7 +1,15 @@
 import { BadRequestException } from "@nestjs/common";
 import { assertBalancedJournal } from "@ledgerbyte/accounting-core";
-import { CustomerPaymentStatus, CustomerRefundStatus, DocumentType, JournalEntryStatus, SalesInvoiceStatus } from "@prisma/client";
+import {
+  CustomerPaymentStatus,
+  CustomerRefundStatus,
+  DocumentType,
+  JournalEntryStatus,
+  NumberSequenceScope,
+  SalesInvoiceStatus,
+} from "@prisma/client";
 import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
+import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { buildCustomerPaymentJournalLines } from "./customer-payment-accounting";
 import { CustomerPaymentService } from "./customer-payment.service";
 import type { CreateCustomerPaymentDto } from "./dto/create-customer-payment.dto";
@@ -101,6 +109,124 @@ describe("customer payment rules", () => {
 
     await expect(service.create("org-1", "user-1", basePaymentDto)).rejects.toThrow("Allocation amount cannot exceed invoice balance due.");
     expect(numberSequence.next).not.toHaveBeenCalled();
+  });
+
+  it("rolls back invoice, payment, allocation, journal, and sequence state when creation fails after invoice validation", async () => {
+    const rollback = makeCreateRollbackHarness({ arAccountAvailable: false });
+    const auditLog = { log: jest.fn() };
+    const service = new CustomerPaymentService(
+      rollback.prisma as never,
+      auditLog as never,
+      new NumberSequenceService({} as never) as never,
+    );
+
+    await expect(service.create("org-1", "user-1", basePaymentDto)).rejects.toThrow("Required posting account 120 was not found.");
+
+    expect(rollback.snapshot()).toEqual({
+      invoiceBalanceDue: "100.0000",
+      customerPaymentCount: 0,
+      customerPaymentAllocationCount: 0,
+      journalEntryCount: 0,
+      paymentNextNumber: 1,
+      journalEntryNextNumber: 1,
+    });
+    expect(auditLog.log).not.toHaveBeenCalled();
+
+    rollback.state.arAccountAvailable = true;
+    await expect(service.create("org-1", "user-1", basePaymentDto)).resolves.toMatchObject({
+      paymentNumber: "PAY-000001",
+      journalEntryId: "journal-1",
+    });
+    expect(rollback.snapshot()).toEqual({
+      invoiceBalanceDue: "0.0000",
+      customerPaymentCount: 1,
+      customerPaymentAllocationCount: 1,
+      journalEntryCount: 1,
+      paymentNextNumber: 2,
+      journalEntryNextNumber: 2,
+    });
+  });
+
+  it("rejects duplicate invoice allocations without payment creation side effects", async () => {
+    const rollback = makeCreateRollbackHarness();
+    const service = new CustomerPaymentService(
+      rollback.prisma as never,
+      { log: jest.fn() } as never,
+      new NumberSequenceService({} as never) as never,
+    );
+
+    await expect(
+      service.create("org-1", "user-1", {
+        ...basePaymentDto,
+        amountReceived: "60.0000",
+        allocations: [
+          { invoiceId: "invoice-1", amountApplied: "40.0000" },
+          { invoiceId: "invoice-1", amountApplied: "20.0000" },
+        ],
+      }),
+    ).rejects.toThrow("Each invoice can only appear once in a payment.");
+
+    expect(rollback.snapshot()).toEqual({
+      invoiceBalanceDue: "100.0000",
+      customerPaymentCount: 0,
+      customerPaymentAllocationCount: 0,
+      journalEntryCount: 0,
+      paymentNextNumber: 1,
+      journalEntryNextNumber: 1,
+    });
+  });
+
+  it("rejects allocations above amount received before transaction side effects", async () => {
+    const rollback = makeCreateRollbackHarness();
+    const service = new CustomerPaymentService(
+      rollback.prisma as never,
+      { log: jest.fn() } as never,
+      new NumberSequenceService({} as never) as never,
+    );
+
+    await expect(
+      service.create("org-1", "user-1", {
+        ...basePaymentDto,
+        amountReceived: "50.0000",
+        allocations: [{ invoiceId: "invoice-1", amountApplied: "60.0000" }],
+      }),
+    ).rejects.toThrow("Total allocations cannot exceed amount received.");
+
+    expect(rollback.prisma.$transaction).not.toHaveBeenCalled();
+    expect(rollback.snapshot()).toEqual({
+      invoiceBalanceDue: "100.0000",
+      customerPaymentCount: 0,
+      customerPaymentAllocationCount: 0,
+      journalEntryCount: 0,
+      paymentNextNumber: 1,
+      journalEntryNextNumber: 1,
+    });
+  });
+
+  it("rejects allocations above invoice balance due without payment creation side effects", async () => {
+    const rollback = makeCreateRollbackHarness({ invoiceBalanceDue: "50.0000" });
+    const service = new CustomerPaymentService(
+      rollback.prisma as never,
+      { log: jest.fn() } as never,
+      new NumberSequenceService({} as never) as never,
+    );
+
+    await expect(
+      service.create("org-1", "user-1", {
+        ...basePaymentDto,
+        amountReceived: "60.0000",
+        allocations: [{ invoiceId: "invoice-1", amountApplied: "60.0000" }],
+      }),
+    ).rejects.toThrow("Allocation amount cannot exceed invoice balance due.");
+
+    expect(rollback.snapshot()).toEqual({
+      invoiceBalanceDue: "50.0000",
+      customerPaymentCount: 0,
+      customerPaymentAllocationCount: 0,
+      journalEntryCount: 0,
+      paymentNextNumber: 1,
+      journalEntryNextNumber: 1,
+    });
   });
 
   it("creates a posted payment journal and reduces invoice balance due", async () => {
@@ -836,6 +962,232 @@ function makeCreatePrismaMock(options: { tx?: ReturnType<typeof makeCreateTransa
   return {
     $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
   };
+}
+
+const PAYMENT_SEQUENCE_SCOPE = NumberSequenceScope.PAYMENT;
+const JOURNAL_ENTRY_SEQUENCE_SCOPE = NumberSequenceScope.JOURNAL_ENTRY;
+
+type RollbackSequenceScope = typeof PAYMENT_SEQUENCE_SCOPE | typeof JOURNAL_ENTRY_SEQUENCE_SCOPE;
+
+interface CreateRollbackState {
+  arAccountAvailable: boolean;
+  invoices: Record<string, { id: string; organizationId: string; customerId: string; status: SalesInvoiceStatus; balanceDue: string }>;
+  customerPayments: Array<{ id: string; paymentNumber: string; status: CustomerPaymentStatus; journalEntryId: string }>;
+  customerPaymentAllocations: Array<{ id: string; paymentId: string; invoiceId: string; amountApplied: string }>;
+  journalEntries: Array<{ id: string; entryNumber: string; status: JournalEntryStatus }>;
+  sequences: Record<RollbackSequenceScope, { prefix: string; nextNumber: number; padding: number }>;
+}
+
+function makeCreateRollbackHarness(options: { invoiceBalanceDue?: string; arAccountAvailable?: boolean } = {}) {
+  const state: CreateRollbackState = {
+    arAccountAvailable: options.arAccountAvailable ?? true,
+    invoices: {
+      "invoice-1": {
+        id: "invoice-1",
+        organizationId: "org-1",
+        customerId: "customer-1",
+        status: SalesInvoiceStatus.FINALIZED,
+        balanceDue: options.invoiceBalanceDue ?? "100.0000",
+      },
+    },
+    customerPayments: [],
+    customerPaymentAllocations: [],
+    journalEntries: [],
+    sequences: {
+      [NumberSequenceScope.PAYMENT]: { prefix: "PAY-", nextNumber: 1, padding: 6 },
+      [NumberSequenceScope.JOURNAL_ENTRY]: { prefix: "JE-", nextNumber: 1, padding: 6 },
+    },
+  };
+
+  const prisma = {
+    $transaction: jest.fn(async (callback: (client: ReturnType<typeof makeCreateRollbackTransaction>) => Promise<unknown>) => {
+      const draft = cloneCreateRollbackState(state);
+      try {
+        const result = await callback(makeCreateRollbackTransaction(draft));
+        commitCreateRollbackState(state, draft);
+        return result;
+      } catch (error) {
+        throw error;
+      }
+    }),
+  };
+
+  return {
+    prisma,
+    state,
+    snapshot: () => ({
+      invoiceBalanceDue: state.invoices["invoice-1"]!.balanceDue,
+      customerPaymentCount: state.customerPayments.length,
+      customerPaymentAllocationCount: state.customerPaymentAllocations.length,
+      journalEntryCount: state.journalEntries.length,
+      paymentNextNumber: state.sequences[PAYMENT_SEQUENCE_SCOPE]!.nextNumber,
+      journalEntryNextNumber: state.sequences[JOURNAL_ENTRY_SEQUENCE_SCOPE]!.nextNumber,
+    }),
+  };
+}
+
+function makeCreateRollbackTransaction(state: CreateRollbackState) {
+  return {
+    contact: {
+      findFirst: jest.fn(async ({ where }: { where: { id: string; organizationId: string } }) =>
+        where.id === "customer-1" && where.organizationId === "org-1"
+          ? { id: "customer-1", name: "Customer", displayName: null }
+          : null,
+      ),
+    },
+    account: {
+      findFirst: jest.fn(async ({ where }: { where: { id?: string; code?: string; organizationId: string } }) => {
+        if (where.id === "bank-1" && where.organizationId === "org-1") {
+          return { id: "bank-1" };
+        }
+        if (where.code === "120" && where.organizationId === "org-1" && state.arAccountAvailable) {
+          return { id: "ar-1" };
+        }
+        return null;
+      }),
+    },
+    salesInvoice: {
+      findMany: jest.fn(async ({ where }: { where: { organizationId: string; id: { in: string[] }; customerId: string; status: SalesInvoiceStatus } }) =>
+        Object.values(state.invoices)
+          .filter(
+            (invoice) =>
+              invoice.organizationId === where.organizationId &&
+              invoice.customerId === where.customerId &&
+              invoice.status === where.status &&
+              where.id.in.includes(invoice.id),
+          )
+          .map((invoice) => ({ id: invoice.id, balanceDue: invoice.balanceDue })),
+      ),
+      updateMany: jest.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where: {
+            id: string;
+            organizationId: string;
+            customerId: string;
+            status: SalesInvoiceStatus;
+            balanceDue: { gte: string };
+          };
+          data: { balanceDue: { decrement: string } };
+        }) => {
+          const invoice = state.invoices[where.id];
+          if (
+            !invoice ||
+            invoice.organizationId !== where.organizationId ||
+            invoice.customerId !== where.customerId ||
+            invoice.status !== where.status ||
+            Number(invoice.balanceDue) < Number(where.balanceDue.gte)
+          ) {
+            return { count: 0 };
+          }
+
+          invoice.balanceDue = formatTestMoney(Number(invoice.balanceDue) - Number(data.balanceDue.decrement));
+          return { count: 1 };
+        },
+      ),
+    },
+    numberSequence: {
+      upsert: jest.fn(
+        async ({
+          where,
+          create,
+          update,
+        }: {
+          where: { organizationId_scope: { organizationId: string; scope: RollbackSequenceScope } };
+          create: { prefix: string; nextNumber: number; padding: number };
+          update: { nextNumber: { increment: number } };
+        }) => {
+          const scope = where.organizationId_scope.scope;
+          const sequence = state.sequences[scope];
+          if (sequence) {
+            sequence.nextNumber += update.nextNumber.increment;
+          } else {
+            state.sequences[scope] = { prefix: create.prefix, nextNumber: create.nextNumber, padding: create.padding };
+          }
+
+          return {
+            id: `sequence-${scope}`,
+            organizationId: where.organizationId_scope.organizationId,
+            scope,
+            ...state.sequences[scope]!,
+            createdAt: new Date("2026-05-06T00:00:00.000Z"),
+            updatedAt: new Date("2026-05-06T00:00:00.000Z"),
+          };
+        },
+      ),
+    },
+    journalEntry: {
+      create: jest.fn(async ({ data }: { data: { entryNumber: string; status: JournalEntryStatus } }) => {
+        const journalEntry = {
+          id: `journal-${state.journalEntries.length + 1}`,
+          entryNumber: data.entryNumber,
+          status: data.status,
+        };
+        state.journalEntries.push(journalEntry);
+        return journalEntry;
+      }),
+    },
+    customerPayment: {
+      create: jest.fn(
+        async ({
+          data,
+        }: {
+          data: {
+            paymentNumber: string;
+            status: CustomerPaymentStatus;
+            journalEntryId: string;
+            allocations: { create: Array<{ invoice: { connect: { id: string } }; amountApplied: string }> };
+          };
+        }) => {
+          const payment = {
+            id: `payment-${state.customerPayments.length + 1}`,
+            paymentNumber: data.paymentNumber,
+            status: data.status,
+            journalEntryId: data.journalEntryId,
+          };
+          state.customerPayments.push(payment);
+          state.customerPaymentAllocations.push(
+            ...data.allocations.create.map((allocation, index) => ({
+              id: `allocation-${state.customerPaymentAllocations.length + index + 1}`,
+              paymentId: payment.id,
+              invoiceId: allocation.invoice.connect.id,
+              amountApplied: allocation.amountApplied,
+            })),
+          );
+          return payment;
+        },
+      ),
+    },
+  };
+}
+
+function cloneCreateRollbackState(state: CreateRollbackState): CreateRollbackState {
+  return {
+    arAccountAvailable: state.arAccountAvailable,
+    invoices: Object.fromEntries(Object.entries(state.invoices).map(([id, invoice]) => [id, { ...invoice }])),
+    customerPayments: state.customerPayments.map((payment) => ({ ...payment })),
+    customerPaymentAllocations: state.customerPaymentAllocations.map((allocation) => ({ ...allocation })),
+    journalEntries: state.journalEntries.map((journalEntry) => ({ ...journalEntry })),
+    sequences: {
+      [PAYMENT_SEQUENCE_SCOPE]: { ...state.sequences[PAYMENT_SEQUENCE_SCOPE]! },
+      [JOURNAL_ENTRY_SEQUENCE_SCOPE]: { ...state.sequences[JOURNAL_ENTRY_SEQUENCE_SCOPE]! },
+    },
+  };
+}
+
+function commitCreateRollbackState(target: CreateRollbackState, source: CreateRollbackState): void {
+  target.arAccountAvailable = source.arAccountAvailable;
+  target.invoices = source.invoices;
+  target.customerPayments = source.customerPayments;
+  target.customerPaymentAllocations = source.customerPaymentAllocations;
+  target.journalEntries = source.journalEntries;
+  target.sequences = source.sequences;
+}
+
+function formatTestMoney(value: number): string {
+  return value.toFixed(4);
 }
 
 function makeCreateTransactionMock(
