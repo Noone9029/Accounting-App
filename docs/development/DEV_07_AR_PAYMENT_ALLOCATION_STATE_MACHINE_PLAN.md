@@ -367,7 +367,7 @@ I approve DEV-07 Part 6 local-only AR customer payment creation mutation under m
 Part 9 unapplied payment allocation approval phrase:
 
 ```text
-I approve DEV-07 Part 9 local-only AR unapplied customer payment allocation mutation under marker DEV03-AR-20260524T130000. No production, no beta, no customer data.
+I approve DEV-07 Part 9 local-only AR unapplied customer payment allocation mutation under marker DEV03-AR-20260524T130000 for payment PAYMENT-000001 and invoice INVOICE-000002. No production, no beta, no customer data.
 ```
 
 Part 11 or later customer payment void/reversal approval phrase:
@@ -563,4 +563,28 @@ Next prompt title:
 
 ```text
 DEV-07 Part 8: unapplied payment allocation mutation plan
+```
+
+## Part 8 Unapplied Payment Allocation Plan Addendum
+
+DEV-07 Part 8 completed [DEV_07_AR_UNAPPLIED_PAYMENT_ALLOCATION_MUTATION_PLAN.md](DEV_07_AR_UNAPPLIED_PAYMENT_ALLOCATION_MUTATION_PLAN.md) as planning/read-only work.
+
+- Mutation performed: no.
+- Current payment/invoice evidence remained valid: `PAYMENT-000001` is `POSTED`, safe id prefix `b39f4d38`, amount received `500.0000`, unapplied amount `200.0000`; `INVOICE-000002` is `FINALIZED`, safe id prefix `ddadfdd7`, total `1150.0000`, balance due `850.0000`.
+- Planned Part 9 operation: apply `200.0000` from `PAYMENT-000001` to `INVOICE-000002`.
+- Expected payment impact: `unappliedAmount` changes `200.0000 -> 0.0000`.
+- Expected invoice balance impact: `balanceDue` changes `850.0000 -> 650.0000`.
+- Expected allocation/journal behavior: one `CustomerPaymentUnappliedAllocation` is created; no new journal entry is created; `JOURNAL_ENTRY-000004` remains the posted payment journal.
+- Expected audit/output/ZATCA boundary: raw `APPLY_UNAPPLIED` only; no `REVERSE_UNAPPLIED_ALLOCATION`, `CUSTOMER_PAYMENT_VOIDED`, receipt PDF/archive, generated document, email, ZATCA XML/signing/submission, refund, credit note, invoice void, cleanup deletion, or login/browser audit-writing flow.
+
+Required approval phrase before Part 9 mutation:
+
+```text
+I approve DEV-07 Part 9 local-only AR unapplied customer payment allocation mutation under marker DEV03-AR-20260524T130000 for payment PAYMENT-000001 and invoice INVOICE-000002. No production, no beta, no customer data.
+```
+
+Next prompt title:
+
+```text
+DEV-07 Part 9: approved local AR unapplied customer payment allocation mutation
 ```

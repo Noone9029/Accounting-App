@@ -176,3 +176,20 @@ Next prompt title:
 ```text
 DEV-07 Part 8: unapplied payment allocation mutation plan
 ```
+
+## Part 8 Unapplied Payment Allocation Plan Note
+
+DEV-07 Part 8 completed [DEV_07_AR_UNAPPLIED_PAYMENT_ALLOCATION_MUTATION_PLAN.md](DEV_07_AR_UNAPPLIED_PAYMENT_ALLOCATION_MUTATION_PLAN.md) as planning/read-only work.
+
+- Mutation performed: no.
+- Planned unapplied allocation amount: `200.0000` from `PAYMENT-000001` to `INVOICE-000002`.
+- Expected payment impact: `PAYMENT-000001` remains `POSTED`, amount received remains `500.0000`, and unapplied amount changes from `200.0000` to `0.0000`.
+- Expected invoice impact: `INVOICE-000002` remains `FINALIZED`, total remains `1150.0000`, and balance due changes from `850.0000` to `650.0000`.
+- Expected allocation/accounting behavior: direct allocation remains `300.0000`; one `CustomerPaymentUnappliedAllocation` is created for `200.0000`; no new journal entry is created.
+- Expected audit/output/ZATCA boundary: one raw `APPLY_UNAPPLIED` audit action; no `REVERSE_UNAPPLIED_ALLOCATION`, `CUSTOMER_PAYMENT_VOIDED`, receipt PDF/archive, generated document, email, ZATCA XML/signing/submission, refund, credit note, invoice void, cleanup deletion, or login/browser audit-writing flow.
+
+Next prompt title:
+
+```text
+DEV-07 Part 9: approved local AR unapplied customer payment allocation mutation
+```

@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `dd1dbccb Create DEV-07 AR customer payment`
+- `33aeb97e Verify DEV-07 AR customer payment evidence`
 
 ## Current Development Objective
 
@@ -810,6 +810,18 @@
 - Temporary Part 6 script remains absent, unstaged, and untracked.
 - Exact next prompt title: `DEV-07 Part 8: unapplied payment allocation mutation plan`.
 
+## DEV-07 Part 8 - Unapplied Payment Allocation Mutation Plan Completed
+
+- DEV-07 Part 8 created the local-only unapplied payment allocation mutation plan in [docs/development/DEV_07_AR_UNAPPLIED_PAYMENT_ALLOCATION_MUTATION_PLAN.md](docs/development/DEV_07_AR_UNAPPLIED_PAYMENT_ALLOCATION_MUTATION_PLAN.md).
+- Mutation performed: no. No unapplied payment allocation, customer payment creation, direct allocation, allocation reversal, payment void, invoice mutation, refund, credit note, output, email, ZATCA XML/signing/submission, cleanup, migration, seed/reset/delete, deploy, environment, provider, schema, production, beta, shared-target, customer-data, or login/browser audit-writing action ran.
+- Local target safety and read-only fixture checks passed: Docker Desktop Linux engine was available, `infra-postgres-1` and `infra-redis-1` were healthy/reachable, and the API database target guard accepted only local `localhost:5432`.
+- Current evidence remains valid: `PAYMENT-000001` is `POSTED`, safe id prefix `b39f4d38`, amount received `500.0000`, unapplied amount `200.0000`; `INVOICE-000002` is `FINALIZED`, safe id prefix `ddadfdd7`, total `1150.0000`, balance due `850.0000`.
+- Planned Part 9 mutation: apply exactly `200.0000` from `PAYMENT-000001` to `INVOICE-000002` through `CustomerPaymentService.applyUnapplied(...)`.
+- Expected state impact: payment `unappliedAmount` changes `200.0000 -> 0.0000`; invoice balance due changes `850.0000 -> 650.0000`; one `CustomerPaymentUnappliedAllocation` is created; the existing direct allocation of `300.0000` remains unchanged.
+- Expected accounting/audit/output boundary: no new journal entry; `JOURNAL_ENTRY-000004` and `JOURNAL_ENTRY` sequence next `5` remain unchanged; one raw `APPLY_UNAPPLIED` audit action is expected; no receipt PDF/archive, generated document, email, ZATCA XML/signing/submission, refund, credit note, invoice void, cleanup deletion, or login/browser audit-writing flow should occur.
+- Exact next prompt title: `DEV-07 Part 9: approved local AR unapplied customer payment allocation mutation`.
+- Required approval phrase before Part 9 mutation: `I approve DEV-07 Part 9 local-only AR unapplied customer payment allocation mutation under marker DEV03-AR-20260524T130000 for payment PAYMENT-000001 and invoice INVOICE-000002. No production, no beta, no customer data.`
+
 ## Forbidden Actions For Next Production Thread
 
 - Do not change app code.
@@ -821,4 +833,4 @@
 
 ## Next Thread Prompt
 
-`DEV-07 Part 8: unapplied payment allocation mutation plan`
+`DEV-07 Part 9: approved local AR unapplied customer payment allocation mutation`
