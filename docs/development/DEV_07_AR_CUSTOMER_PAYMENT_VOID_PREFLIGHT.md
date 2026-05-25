@@ -345,3 +345,19 @@ I approve DEV-07 Part 13 local-only AR customer payment void/reversal mutation u
 ```text
 DEV-07 Part 13: approved local AR customer payment void/reversal mutation
 ```
+
+## Part 13 Evidence Note
+
+DEV-07 Part 13 completed the approved local-only customer payment void/reversal mutation. Evidence is recorded in [DEV_07_AR_CUSTOMER_PAYMENT_VOID_MUTATION_EVIDENCE.md](DEV_07_AR_CUSTOMER_PAYMENT_VOID_MUTATION_EVIDENCE.md).
+
+Summary:
+
+- Mutation performed: yes, one `CustomerPaymentService.void(...)` call for `PAYMENT-000001`.
+- `PAYMENT-000001` changed from `POSTED` to `VOIDED`.
+- `INVOICE-000002` remained `FINALIZED`; balance due changed from `850.0000` to `1150.0000`.
+- Direct allocation remained one historical record for `300.0000`.
+- Reversed unapplied allocation remained reversed.
+- Reversal journal `JOURNAL_ENTRY-000005` was created and linked as the void reversal journal.
+- Original payment journal `JOURNAL_ENTRY-000004` is now `REVERSED`.
+- `CUSTOMER_PAYMENT_VOIDED` exists exactly once.
+- Output/email/ZATCA/refund/credit-note/cleanup side effects remained absent.

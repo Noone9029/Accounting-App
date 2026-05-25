@@ -903,3 +903,20 @@
 ## Next Thread Prompt
 
 `DEV-07 Part 13: approved local AR customer payment void/reversal mutation`
+
+## DEV-07 Part 13 - AR Customer Payment Void/Reversal Mutation Completed
+
+- DEV-07 Part 13 local-only mutation evidence is recorded in [docs/development/DEV_07_AR_CUSTOMER_PAYMENT_VOID_MUTATION_EVIDENCE.md](docs/development/DEV_07_AR_CUSTOMER_PAYMENT_VOID_MUTATION_EVIDENCE.md).
+- Approval phrase was received for the local-only AR customer payment void/reversal mutation under marker `DEV03-AR-20260524T130000` for `PAYMENT-000001`.
+- Mutation performed: yes. `CustomerPaymentService.void(...)` was called once for `PAYMENT-000001`.
+- Payment evidence: `PAYMENT-000001` changed from `POSTED` to `VOIDED`, safe id prefix `b39f4d38`, amount received remained `500.0000`, unapplied amount remained `200.0000`, and `voidedAt` is set.
+- Invoice evidence: `INVOICE-000002` remained `FINALIZED`, safe id prefix `ddadfdd7`, total remained `1150.0000`, and balance due changed `850.0000 -> 1150.0000`; no invoice reversal journal exists.
+- Allocation evidence: the direct `CustomerPaymentAllocation` remains exactly one historical record for `300.0000`; the `8bc99925` unapplied allocation remains reversed for `200.0000`; no new allocation or credit-note allocation was created.
+- Accounting result: reversal journal `JOURNAL_ENTRY-000005` was created with status `POSTED`, reference `PAYMENT-000001`, and `reversalOf` `JOURNAL_ENTRY-000004`; original payment journal `JOURNAL_ENTRY-000004` is now `REVERSED`; journal count changed `4 -> 5`; `JOURNAL_ENTRY` sequence next changed `5 -> 6`.
+- Audit result: `CUSTOMER_PAYMENT_CREATED`, `CUSTOMER_PAYMENT_UNAPPLIED_APPLIED`, and `CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSED` remain exactly once; `CUSTOMER_PAYMENT_VOIDED` now exists exactly once.
+- Output/email/ZATCA/refund/credit-note/cleanup occurred: no. Generated documents, receipt/PDF/archive records, email outbox/provider events, ZATCA XML/signing/QR/submission artifacts, refunds, credit notes, invoice void, cleanup deletion, migrations, seed/reset/delete, deploys, environment/provider/schema changes, production/beta/shared/customer-data actions, and login/browser audit-writing flows remained absent.
+- Exact next prompt title: `DEV-07 Part 14: AR state-machine closure and evidence consolidation`.
+
+## Next Thread Prompt
+
+`DEV-07 Part 14: AR state-machine closure and evidence consolidation`
