@@ -1,8 +1,11 @@
 import "@testing-library/jest-dom";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
-import { CustomerPaymentStateDisplay, CustomerPaymentWorkflowGuidance } from "./page";
-import type { CustomerPayment } from "@/lib/types";
+import CustomerPaymentDetailPage, { CustomerPaymentStateDisplay, CustomerPaymentWorkflowGuidance } from "./page";
+import type { CustomerPayment, OpenSalesInvoice } from "@/lib/types";
+
+const mockApiRequest = jest.fn();
+const mockPermissionCan = jest.fn();
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -17,7 +20,115 @@ jest.mock("next/link", () => ({
   ),
 }));
 
+jest.mock("next/navigation", () => ({
+  useParams: () => ({ id: "payment-1" }),
+}));
+
+jest.mock("@/hooks/use-active-organization", () => ({
+  useActiveOrganizationId: () => "org-1",
+}));
+
+jest.mock("@/components/permissions/permission-provider", () => ({
+  usePermissions: () => ({
+    can: mockPermissionCan,
+  }),
+}));
+
+jest.mock("@/components/attachments/attachment-panel", () => ({
+  AttachmentPanel: () => null,
+}));
+
+jest.mock("@/lib/api", () => ({
+  apiRequest: (...args: unknown[]) => mockApiRequest(...args),
+}));
+
 describe("customer payment workflow guidance", () => {
+  beforeEach(() => {
+    mockApiRequest.mockReset();
+    mockPermissionCan.mockReset();
+    mockPermissionCan.mockReturnValue(true);
+  });
+
+  it("submits a guarded unapplied payment application and refreshes the payment detail", async () => {
+    const initialPayment = paymentFixture({ amountReceived: "150.0000", unappliedAmount: "50.0000", allocations: [] });
+    const updatedPayment = paymentFixture({ amountReceived: "150.0000", unappliedAmount: "20.0000", allocations: [] });
+    const refreshedPayment = paymentFixture({
+      amountReceived: "150.0000",
+      unappliedAmount: "20.0000",
+      allocations: [],
+      unappliedAllocations: [
+        {
+          id: "unapplied-1",
+          organizationId: "org-1",
+          paymentId: "payment-1",
+          invoiceId: "invoice-open",
+          amountApplied: "30.0000",
+          reversedAt: null,
+          reversedById: null,
+          reversalReason: null,
+          createdAt: "2026-05-21T00:00:00.000Z",
+          updatedAt: "2026-05-21T00:00:00.000Z",
+          invoice: {
+            id: "invoice-open",
+            invoiceNumber: "INV-OPEN",
+            issueDate: "2026-05-21T00:00:00.000Z",
+            total: "40.0000",
+            balanceDue: "10.0000",
+            status: "FINALIZED",
+          },
+        },
+      ],
+    });
+    const paymentLoads = [initialPayment, refreshedPayment];
+    const openInvoices: OpenSalesInvoice[] = [
+      {
+        id: "invoice-open",
+        invoiceNumber: "INV-OPEN",
+        issueDate: "2026-05-21T00:00:00.000Z",
+        dueDate: null,
+        currency: "SAR",
+        total: "40.0000",
+        balanceDue: "40.0000",
+        customerId: "customer-1",
+      },
+    ];
+
+    mockApiRequest.mockImplementation((path: string) => {
+      if (path === "/customer-payments/payment-1") {
+        return Promise.resolve(paymentLoads.shift() ?? refreshedPayment);
+      }
+      if (path === "/sales-invoices/open?customerId=customer-1") {
+        return Promise.resolve(openInvoices);
+      }
+      if (path === "/customer-payments/payment-1/apply-unapplied") {
+        return Promise.resolve(updatedPayment);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<CustomerPaymentDetailPage />);
+
+    await screen.findByText(/INV-OPEN/);
+    const amountInput = screen.getByLabelText("Amount to apply");
+    expect(amountInput).toHaveAttribute("max", "40.0000");
+
+    fireEvent.change(amountInput, { target: { value: "30.0000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    await waitFor(() =>
+      expect(mockApiRequest).toHaveBeenCalledWith("/customer-payments/payment-1/apply-unapplied", {
+        method: "POST",
+        body: {
+          invoiceId: "invoice-open",
+          amountApplied: "30.0000",
+        },
+      }),
+    );
+    await waitFor(() => expect(mockApiRequest.mock.calls.filter(([path]) => path === "/customer-payments/payment-1")).toHaveLength(2));
+    expect(screen.getByText((content) => content.includes("Applied") && content.includes("from CP-001"))).toBeInTheDocument();
+    expect(mockApiRequest.mock.calls.map(([path]) => String(path)).some((path) => path.includes("receipt"))).toBe(false);
+  });
+
   it("shows payment state, allocation totals, and journal status from the payment response", () => {
     render(
       <CustomerPaymentStateDisplay

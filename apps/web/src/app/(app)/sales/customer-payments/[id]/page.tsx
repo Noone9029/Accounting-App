@@ -13,6 +13,7 @@ import {
   canReverseCustomerPaymentUnappliedAllocation,
   applyCustomerPaymentUnappliedAllocation,
   customerPaymentActiveUnappliedAppliedAmount,
+  customerPaymentApplyMaximumAmount,
   customerPaymentDirectAllocatedAmount,
   customerPaymentUnappliedAllocationStatusBadgeClass,
   customerPaymentUnappliedAllocationStatusLabel,
@@ -117,11 +118,14 @@ export default function CustomerPaymentDetailPage() {
     }
 
     const targetInvoice = openInvoices.find((invoice) => invoice.id === applyInvoiceId);
-    const validationError = validateCustomerPaymentUnappliedAllocation(
-      applyAmount,
-      payment.unappliedAmount,
-      targetInvoice?.balanceDue ?? "0.0000",
-    );
+    if (!targetInvoice) {
+      setError("Select an open invoice before applying unapplied payment amount.");
+      setSuccess("");
+      return;
+    }
+
+    const amountToApply = applyAmount;
+    const validationError = validateCustomerPaymentUnappliedAllocation(amountToApply, payment.unappliedAmount, targetInvoice.balanceDue);
     if (validationError) {
       setError(validationError);
       setSuccess("");
@@ -135,12 +139,13 @@ export default function CustomerPaymentDetailPage() {
     try {
       const updated = await applyCustomerPaymentUnappliedAllocation(payment.id, {
         invoiceId: applyInvoiceId,
-        amountApplied: applyAmount,
+        amountApplied: amountToApply,
       });
       setPayment(updated);
+      await refreshPayment();
       setApplyAmount("");
       setApplyInvoiceId("");
-      setSuccess(`Applied ${formatMoneyAmount(applyAmount, payment.currency)} from ${payment.paymentNumber}.`);
+      setSuccess(`Applied ${formatMoneyAmount(amountToApply, payment.currency)} from ${payment.paymentNumber}.`);
     } catch (applyError) {
       setError(applyError instanceof Error ? applyError.message : "Unable to apply unapplied payment amount.");
     } finally {
@@ -215,6 +220,11 @@ export default function CustomerPaymentDetailPage() {
   const canCreatePayment = can(PERMISSIONS.customerPayments.create);
   const canVoidPaymentPermission = can(PERMISSIONS.customerPayments.void);
   const canApplyUnapplied = payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0 && canCreatePayment;
+  const maxApplyAmount = payment ? customerPaymentApplyMaximumAmount(payment.unappliedAmount, selectedOpenInvoice?.balanceDue) : "0.0000";
+  const applyValidationError =
+    payment && applyAmount
+      ? validateCustomerPaymentUnappliedAllocation(applyAmount, payment.unappliedAmount, selectedOpenInvoice?.balanceDue ?? "0.0000")
+      : null;
 
   return (
     <section>
@@ -405,15 +415,29 @@ export default function CustomerPaymentDetailPage() {
                   </label>
                   <label className="block">
                     <span className="text-xs font-medium uppercase tracking-wide text-steel">Amount to apply</span>
-                    <input value={applyAmount} onChange={(event) => setApplyAmount(event.target.value)} placeholder="0.0000" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0.0001"
+                      max={maxApplyAmount}
+                      step="0.0001"
+                      value={applyAmount}
+                      onChange={(event) => setApplyAmount(event.target.value)}
+                      placeholder="0.0000"
+                      aria-invalid={Boolean(applyValidationError)}
+                      aria-describedby="apply-unapplied-limits"
+                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
+                    />
                   </label>
-                  <button type="submit" disabled={actionLoading || !applyInvoiceId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400 md:self-end">
+                  <button type="submit" disabled={actionLoading || !applyInvoiceId || !applyAmount || Boolean(applyValidationError)} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400 md:self-end">
                     Apply
                   </button>
-                  <div className="text-xs text-steel md:col-span-3">
+                  <div id="apply-unapplied-limits" className="text-xs text-steel md:col-span-3">
                     Selected invoice balance: {selectedOpenInvoice ? formatMoneyAmount(selectedOpenInvoice.balanceDue, selectedOpenInvoice.currency) : "-"}.
                     Payment credit available: {formatMoneyAmount(payment.unappliedAmount, payment.currency)}.
+                    Maximum application: {formatMoneyAmount(maxApplyAmount, payment.currency)}.
                   </div>
+                  {applyValidationError ? <div className="text-xs text-rosewood md:col-span-3">{applyValidationError}</div> : null}
                 </form>
               ) : (
                 <div className="mt-4">

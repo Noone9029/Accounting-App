@@ -3,6 +3,7 @@ import {
   canReverseCustomerPaymentUnappliedAllocation,
   customerPaymentApplyUnappliedPath,
   customerPaymentActiveUnappliedAppliedAmount,
+  customerPaymentApplyMaximumAmount,
   customerPaymentDirectAllocatedAmount,
   customerPaymentReverseUnappliedAllocationPath,
   customerPaymentUnappliedAllocationsPath,
@@ -58,6 +59,13 @@ describe("customer payment helpers", () => {
   it("calculates direct invoice allocation amount", () => {
     expect(customerPaymentDirectAllocatedAmount([{ amountApplied: "60.0000" }, { amountApplied: "40.5000" }])).toBe("100.5000");
     expect(customerPaymentDirectAllocatedAmount(undefined)).toBe("0.0000");
+  });
+
+  it("caps unapplied payment application by payment credit and invoice balance", () => {
+    expect(customerPaymentApplyMaximumAmount("75.0000", "40.0000")).toBe("40.0000");
+    expect(customerPaymentApplyMaximumAmount("25.0000", "40.0000")).toBe("25.0000");
+    expect(customerPaymentApplyMaximumAmount("25.0000", undefined)).toBe("25.0000");
+    expect(customerPaymentApplyMaximumAmount("-5.0000", "40.0000")).toBe("0.0000");
   });
 
   it("validates unapplied payment allocation amounts", () => {

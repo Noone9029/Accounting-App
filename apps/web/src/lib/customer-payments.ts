@@ -89,6 +89,12 @@ export function customerPaymentDirectAllocatedAmount(
   return formatUnits(units);
 }
 
+export function customerPaymentApplyMaximumAmount(paymentUnappliedAmount: string, invoiceBalanceDue: string | undefined): string {
+  const paymentUnits = parseDecimalToUnits(paymentUnappliedAmount);
+  const invoiceUnits = invoiceBalanceDue ? parseDecimalToUnits(invoiceBalanceDue) : paymentUnits;
+  return formatUnits(Math.max(0, Math.min(paymentUnits, invoiceUnits)));
+}
+
 export function validateCustomerPaymentUnappliedAllocation(
   amountApplied: string,
   paymentUnappliedAmount: string,
