@@ -29,6 +29,7 @@ import { generatedDocumentStatusBadgeClass, generatedDocumentStatusLabel } from 
 import { formatMoneyAmount, formatUnits, parseDecimalToUnits } from "@/lib/money";
 import { downloadPdf, receiptPdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
+import { listOpenSalesInvoicesForCustomer } from "@/lib/sales-invoices";
 import type { CustomerPayment, CustomerPaymentReceiptData, GeneratedDocument, OpenSalesInvoice } from "@/lib/types";
 
 export default function CustomerPaymentDetailPage() {
@@ -47,6 +48,9 @@ export default function CustomerPaymentDetailPage() {
   const [receiptDocumentError, setReceiptDocumentError] = useState("");
   const [success, setSuccess] = useState("");
   const [wasJustRecorded, setWasJustRecorded] = useState(false);
+  const canCreatePayment = can(PERMISSIONS.customerPayments.create);
+  const canVoidPaymentPermission = can(PERMISSIONS.customerPayments.void);
+  const canViewGeneratedDocuments = can(PERMISSIONS.generatedDocuments.view);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -87,8 +91,6 @@ export default function CustomerPaymentDetailPage() {
     };
   }, [organizationId, params.id]);
 
-  const canViewGeneratedDocuments = can(PERMISSIONS.generatedDocuments.view);
-
   useEffect(() => {
     if (!organizationId || !payment?.id || !canViewGeneratedDocuments) {
       setReceiptDocuments([]);
@@ -125,29 +127,31 @@ export default function CustomerPaymentDetailPage() {
   }, [canViewGeneratedDocuments, organizationId, payment?.id]);
 
   useEffect(() => {
-    if (!organizationId || !payment || payment.status !== "POSTED") {
+    if (!organizationId || !payment || payment.status !== "POSTED" || parseDecimalToUnits(payment.unappliedAmount) <= 0 || !canCreatePayment) {
       setOpenInvoices([]);
+      setApplyInvoiceId("");
       return;
     }
 
     let cancelled = false;
-    apiRequest<OpenSalesInvoice[]>(`/sales-invoices/open?customerId=${encodeURIComponent(payment.customerId)}`)
+    listOpenSalesInvoicesForCustomer(payment.customerId)
       .then((result) => {
         if (!cancelled) {
           setOpenInvoices(result);
-          setApplyInvoiceId((current) => current || result[0]?.id || "");
+          setApplyInvoiceId((current) => (result.some((invoice) => invoice.id === current) ? current : result[0]?.id || ""));
         }
       })
       .catch(() => {
         if (!cancelled) {
           setOpenInvoices([]);
+          setApplyInvoiceId("");
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [organizationId, payment]);
+  }, [canCreatePayment, organizationId, payment?.customerId, payment?.status, payment?.unappliedAmount]);
 
   async function refreshPayment() {
     if (!params.id) {
@@ -267,8 +271,6 @@ export default function CustomerPaymentDetailPage() {
   }
 
   const selectedOpenInvoice = openInvoices.find((invoice) => invoice.id === applyInvoiceId);
-  const canCreatePayment = can(PERMISSIONS.customerPayments.create);
-  const canVoidPaymentPermission = can(PERMISSIONS.customerPayments.void);
   const canApplyUnapplied = payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0 && canCreatePayment;
   const maxApplyAmount = payment ? customerPaymentApplyMaximumAmount(payment.unappliedAmount, selectedOpenInvoice?.balanceDue) : "0.0000";
   const applyValidationError =

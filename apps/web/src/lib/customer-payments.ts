@@ -115,6 +115,7 @@ export function customerPaymentDirectAllocatedAmount(
 
 export function customerPaymentAllocationState(
   payment: {
+    status?: CustomerPayment["status"];
     amountReceived?: string;
     unappliedAmount: string;
     allocations?: Array<Pick<NonNullable<CustomerPayment["allocations"]>[number], "amountApplied">>;
@@ -126,7 +127,11 @@ export function customerPaymentAllocationState(
   const unappliedUnits = parseDecimalToUnits(payment.unappliedAmount);
 
   if (directUnits <= 0 && activeUnappliedApplicationUnits <= 0) {
-    if (payment.amountReceived !== undefined && (payment.allocations === undefined || payment.unappliedAllocations === undefined)) {
+    if (
+      (payment.status === undefined || payment.status === "POSTED") &&
+      payment.amountReceived !== undefined &&
+      (payment.allocations === undefined || payment.unappliedAllocations === undefined)
+    ) {
       const amountReceivedUnits = parseDecimalToUnits(payment.amountReceived);
       if (amountReceivedUnits > 0 && unappliedUnits <= 0) {
         return "FULLY_APPLIED";
