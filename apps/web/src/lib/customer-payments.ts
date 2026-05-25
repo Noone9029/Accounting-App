@@ -48,11 +48,12 @@ export function reverseCustomerPaymentUnappliedAllocation(
   allocationId: string,
   request: ReverseCustomerPaymentUnappliedAllocationRequest = {},
 ): Promise<ReverseCustomerPaymentUnappliedAllocationResponse> {
+  const reason = request.reason?.trim();
   return apiRequest<ReverseCustomerPaymentUnappliedAllocationResponse>(
     customerPaymentReverseUnappliedAllocationPath(paymentId, allocationId),
     {
       method: "POST",
-      body: request,
+      body: reason ? { reason } : {},
     },
   );
 }

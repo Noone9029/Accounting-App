@@ -46,6 +46,8 @@ export default function CustomerPaymentDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [receiptDocumentError, setReceiptDocumentError] = useState("");
+  const [reverseAllocationId, setReverseAllocationId] = useState("");
+  const [reverseReason, setReverseReason] = useState("");
   const [success, setSuccess] = useState("");
   const [wasJustRecorded, setWasJustRecorded] = useState(false);
   const canCreatePayment = can(PERMISSIONS.customerPayments.create);
@@ -161,6 +163,8 @@ export default function CustomerPaymentDetailPage() {
     setPayment(paymentResult);
   }
 
+  const pendingReverseAllocation = payment?.unappliedAllocations?.find((allocation) => allocation.id === reverseAllocationId) ?? null;
+
   async function applyUnapplied(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!payment) {
@@ -203,12 +207,35 @@ export default function CustomerPaymentDetailPage() {
     }
   }
 
-  async function reverseUnappliedAllocation(allocationId: string) {
-    if (!payment) {
+  function requestReverseUnappliedAllocation(allocationId: string) {
+    const allocation = payment?.unappliedAllocations?.find((candidate) => candidate.id === allocationId);
+    if (!allocation || !canReverseCustomerPaymentUnappliedAllocation(allocation)) {
       return;
     }
-    const reason = window.prompt("Reason for reversing this unapplied payment allocation?") ?? "";
-    if (!window.confirm(`Reverse allocation on ${payment.paymentNumber}?`)) {
+
+    setReverseAllocationId(allocationId);
+    setReverseReason("");
+    setError("");
+    setSuccess("");
+  }
+
+  function cancelReverseUnappliedAllocation() {
+    if (actionLoading) {
+      return;
+    }
+    setReverseAllocationId("");
+    setReverseReason("");
+  }
+
+  async function reverseUnappliedAllocation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!payment || !pendingReverseAllocation) {
+      return;
+    }
+    if (!canReverseCustomerPaymentUnappliedAllocation(pendingReverseAllocation)) {
+      setError("Only active unapplied allocations can be reversed.");
+      setReverseAllocationId("");
+      setReverseReason("");
       return;
     }
 
@@ -217,9 +244,11 @@ export default function CustomerPaymentDetailPage() {
     setSuccess("");
 
     try {
-      const updated = await reverseCustomerPaymentUnappliedAllocation(payment.id, allocationId, { reason });
+      const updated = await reverseCustomerPaymentUnappliedAllocation(payment.id, pendingReverseAllocation.id, { reason: reverseReason });
       setPayment(updated);
       await refreshPayment();
+      setReverseAllocationId("");
+      setReverseReason("");
       setSuccess("Unapplied payment allocation reversed.");
     } catch (reverseError) {
       setError(reverseError instanceof Error ? reverseError.message : "Unable to reverse unapplied allocation.");
@@ -433,7 +462,7 @@ export default function CustomerPaymentDetailPage() {
                               View invoice
                             </Link>
                             {canReverseCustomerPaymentUnappliedAllocation(allocation) && canVoidPaymentPermission ? (
-                              <button type="button" onClick={() => void reverseUnappliedAllocation(allocation.id)} disabled={actionLoading} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                              <button type="button" onClick={() => requestReverseUnappliedAllocation(allocation.id)} disabled={actionLoading} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
                                 Reverse
                               </button>
                             ) : null}
@@ -450,6 +479,72 @@ export default function CustomerPaymentDetailPage() {
               </div>
             )}
           </div>
+
+          {pendingReverseAllocation ? (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+              <form
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="reverse-unapplied-title"
+                onSubmit={reverseUnappliedAllocation}
+                className="w-full max-w-lg rounded-md border border-slate-200 bg-white p-5 shadow-panel"
+              >
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h2 id="reverse-unapplied-title" className="text-base font-semibold text-ink">
+                      Reverse unapplied allocation
+                    </h2>
+                    <p className="mt-1 text-sm leading-6 text-steel">
+                      This restores payment credit and the invoice balance without creating another journal entry.
+                    </p>
+                  </div>
+                  <span className="self-start rounded-md bg-rose-50 px-2 py-1 text-xs font-semibold text-rosewood">
+                    Confirmation required
+                  </span>
+                </div>
+
+                <dl className="mt-4 grid grid-cols-1 gap-3 rounded-md bg-slate-50 p-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="text-xs uppercase tracking-wide text-steel">Invoice</dt>
+                    <dd className="mt-1 font-mono text-xs text-ink">{pendingReverseAllocation.invoice?.invoiceNumber ?? pendingReverseAllocation.invoiceId}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs uppercase tracking-wide text-steel">Amount</dt>
+                    <dd className="mt-1 font-mono text-xs text-ink">{formatMoneyAmount(pendingReverseAllocation.amountApplied, payment.currency)}</dd>
+                  </div>
+                </dl>
+
+                <label className="mt-4 block">
+                  <span className="text-xs font-medium uppercase tracking-wide text-steel">Reason (optional)</span>
+                  <textarea
+                    value={reverseReason}
+                    onChange={(event) => setReverseReason(event.target.value)}
+                    rows={3}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
+                    placeholder="Correction note for the audit trail"
+                  />
+                </label>
+
+                <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={cancelReverseUnappliedAllocation}
+                    disabled={actionLoading}
+                    className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={actionLoading}
+                    className="rounded-md bg-rosewood px-3 py-2 text-sm font-semibold text-white hover:bg-red-900 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  >
+                    Confirm reversal
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : null}
 
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="flex flex-wrap items-start justify-between gap-3">

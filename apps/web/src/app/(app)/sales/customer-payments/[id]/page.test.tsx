@@ -137,9 +137,6 @@ describe("customer payment workflow guidance", () => {
   });
 
   it("reverses an active unapplied allocation with confirmation, reason, and detail refresh", async () => {
-    jest.spyOn(window, "prompt").mockReturnValue("Wrong invoice");
-    jest.spyOn(window, "confirm").mockReturnValue(true);
-
     const activeAllocation = unappliedAllocationFixture({
       id: "unapplied-active",
       invoiceId: "invoice-active",
@@ -188,6 +185,11 @@ describe("customer payment workflow guidance", () => {
     expect(screen.getByText("INV-REVERSED")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Reverse" }));
+    expect(await screen.findByRole("dialog", { name: "Reverse unapplied allocation" })).toBeInTheDocument();
+    expect(screen.getByText(/restores payment credit/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Reason (optional)"), { target: { value: "Wrong invoice" } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm reversal" }));
 
     await waitFor(() =>
       expect(mockApiRequest).toHaveBeenCalledWith("/customer-payments/payment-1/unapplied-allocations/unapplied-active/reverse", {
@@ -197,13 +199,11 @@ describe("customer payment workflow guidance", () => {
     );
     await waitFor(() => expect(mockApiRequest.mock.calls.filter(([path]) => path === "/customer-payments/payment-1")).toHaveLength(2));
     expect(screen.getByText("Unapplied payment allocation reversed.")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Reverse unapplied allocation" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reverse" })).not.toBeInTheDocument();
   });
 
   it("displays backend validation errors from unapplied allocation reversal", async () => {
-    jest.spyOn(window, "prompt").mockReturnValue("Wrong invoice");
-    jest.spyOn(window, "confirm").mockReturnValue(true);
-
     mockApiRequest.mockImplementation((path: string) => {
       if (path === "/customer-payments/payment-1") {
         return Promise.resolve(paymentFixture({ unappliedAllocations: [unappliedAllocationFixture()] }));
@@ -224,8 +224,11 @@ describe("customer payment workflow guidance", () => {
 
     await screen.findByText("INV-UNAPPLIED");
     fireEvent.click(screen.getByRole("button", { name: "Reverse" }));
+    fireEvent.change(await screen.findByLabelText("Reason (optional)"), { target: { value: "Wrong invoice" } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm reversal" }));
 
     expect(await screen.findByText("Cannot reverse an already reversed allocation.")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Reverse unapplied allocation" })).toBeInTheDocument();
   });
 
   it("shows payment state, allocation totals, and journal status from the payment response", () => {

@@ -157,6 +157,18 @@ describe("customer payment helpers", () => {
     });
   });
 
+  it("omits blank reversal reasons from the unapplied allocation reverse request", async () => {
+    const response = { id: "payment-1", unappliedAmount: "100.0000" };
+    apiRequestMock.mockResolvedValueOnce(response);
+
+    await expect(reverseCustomerPaymentUnappliedAllocation("payment-1", "allocation-1", { reason: "   " })).resolves.toBe(response);
+
+    expect(apiRequestMock).toHaveBeenCalledWith("/customer-payments/payment-1/unapplied-allocations/allocation-1/reverse", {
+      method: "POST",
+      body: {},
+    });
+  });
+
   it("propagates API errors from unapplied allocation client calls", async () => {
     const error = new Error("Amount applied cannot exceed the payment unapplied amount.");
     apiRequestMock.mockRejectedValueOnce(error);
