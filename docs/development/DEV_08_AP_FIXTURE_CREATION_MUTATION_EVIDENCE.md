@@ -239,3 +239,9 @@ One Docker/Postgres inventory command had a quoting error and exited before prod
 ## Next Recommended Thread
 
 `DEV-08 Part 3: AP fixture evidence verification`
+
+## Part 3 Verification Note
+
+DEV-08 Part 3 completed a read-only verification pass for this fixture evidence. Verification is recorded in [DEV_08_AP_FIXTURE_EVIDENCE_VERIFICATION.md](DEV_08_AP_FIXTURE_EVIDENCE_VERIFICATION.md).
+
+Part 3 confirmed the supplier, finalized purchase bill, VAT path, posted journal, audit rows, temporary script cleanup, and fixture-specific absence of supplier payments, refunds, debit notes, purchase orders, purchase receipts, stock movements, cash expenses, generated documents, email rows, ZATCA rows linked to the fixture, and cleanup/delete actions.

@@ -372,9 +372,15 @@ DEV-08 Part 2 completed the approved local AP fixture creation mutation. Evidenc
 
 Part 2 created one fake local supplier and one finalized direct-mode purchase bill under marker `DEV08-AP-20260525T230000`. The VAT path was used, the bill total and balance due are `1150.0000`, one posted purchase bill journal was created, and supplier payment/refund/debit-note/purchase-order/purchase-receipt/inventory/cash-expense/output/email/ZATCA/cleanup side-effect counts remained unchanged.
 
+## Part 3 Evidence Verification Note
+
+DEV-08 Part 3 completed read-only verification of the Part 2 AP fixture evidence. Evidence is recorded in [DEV_08_AP_FIXTURE_EVIDENCE_VERIFICATION.md](DEV_08_AP_FIXTURE_EVIDENCE_VERIFICATION.md).
+
+Part 3 confirmed the expected supplier, purchase bill, VAT path, posted AP journal, audit rows, temporary script absence, and fixture-specific absence of supplier payment, refund, debit-note, purchase-order, receipt, stock movement, cash-expense, generated-document, email, ZATCA, and cleanup/delete side effects.
+
 ## Exact Next Prompt Title
 
-`DEV-08 Part 3: AP fixture evidence verification`
+`DEV-08 Part 4: supplier payment creation and allocation preflight`
 
 ## Commands Run
 
