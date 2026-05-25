@@ -374,3 +374,16 @@ DEV-08 Part 10: approved local supplier payment unapplied allocation reversal mu
 - Supplier payment void/reversal remains unproven after the unapplied reversal.
 - Supplier refunds and purchase debit note interactions remain unproven.
 - Output/PDF/archive, email, and ZATCA flows remain deliberately outside this AP payment allocation chain.
+
+## Part 10 Mutation Evidence Note
+
+DEV-08 Part 10 completed the approved local-only supplier payment unapplied allocation reversal mutation. Evidence is recorded in [DEV_08_SUPPLIER_PAYMENT_UNAPPLIED_REVERSAL_MUTATION_EVIDENCE.md](DEV_08_SUPPLIER_PAYMENT_UNAPPLIED_REVERSAL_MUTATION_EVIDENCE.md).
+
+- Mutation performed: yes. `SupplierPaymentService.reverseUnappliedAllocation(...)` was called exactly once for `PAY-000006` and active allocation `a8ee4e23`.
+- Payment result: `PAY-000006` remained `POSTED`, safe id prefix `622ad0b6`, amount paid remained `500.0000`, unapplied amount changed `0.0000 -> 200.0000`, journal remained `JE-000050`, and void reversal journal remained absent.
+- Bill result: `BILL-000007` remained `FINALIZED`, safe id prefix `d81ddd60`, total remained `1150.0000`, balance due changed `650.0000 -> 850.0000`, and reversal journal remained absent.
+- Allocation result: the direct `SupplierPaymentAllocation` remained one historical allocation for `300.0000`; the `SupplierPaymentUnappliedAllocation` `a8ee4e23` was marked reversed for `200.0000` with reason `DEV-08 local-only reversal QA for supplier payment unapplied allocation`.
+- Accounting result: no new journal was created, `JE-000049` and `JE-000050` remained posted and unchanged, `JOURNAL_ENTRY` sequence remained next `51`, and `PAYMENT` sequence remained next `7`.
+- Audit result: raw `SupplierPaymentUnappliedAllocation:REVERSE_UNAPPLIED_ALLOCATION` exists once; no supplier payment void, supplier refund, purchase debit note, or purchase bill void audit was created.
+- Forbidden side effects: no generated document, PDF/archive/export/download, email, ZATCA change, supplier refund, purchase debit note, purchase order, purchase receipt, stock movement, cash expense, fixture cleanup/delete, migration, seed/reset/delete, deploy, environment/provider/schema change, production, beta, shared-target, or customer-data action occurred.
+- Exact next prompt title: `DEV-08 Part 11: supplier payment void/reversal preflight`.

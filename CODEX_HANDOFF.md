@@ -1099,3 +1099,21 @@
 ## Next Thread Prompt
 
 `DEV-08 Part 10: approved local supplier payment unapplied allocation reversal mutation`
+
+## DEV-08 Part 10 - Approved Local Supplier Payment Unapplied Allocation Reversal Mutation Completed
+
+- DEV-08 Part 10 local-only mutation evidence is recorded in [docs/development/DEV_08_SUPPLIER_PAYMENT_UNAPPLIED_REVERSAL_MUTATION_EVIDENCE.md](docs/development/DEV_08_SUPPLIER_PAYMENT_UNAPPLIED_REVERSAL_MUTATION_EVIDENCE.md).
+- Approval phrase was received for the local-only supplier payment unapplied allocation reversal mutation under marker `DEV08-AP-20260525T230000` for `BILL-000007` and active supplier payment unapplied allocation `a8ee4e23`.
+- Mutation performed: yes. The successful guarded script execution called `SupplierPaymentService.reverseUnappliedAllocation(...)` exactly once.
+- Supplier payment evidence: `PAY-000006`, safe id prefix `622ad0b6`, remained `POSTED`, amount paid remained `500.0000`, unapplied amount changed `0.0000 -> 200.0000`, journal remained `JE-000050`, and void reversal journal remained absent.
+- Purchase bill evidence: `BILL-000007`, safe id prefix `d81ddd60`, remained `FINALIZED`, total remained `1150.0000`, balance due changed `650.0000 -> 850.0000`, and reversal journal remained absent.
+- Allocation evidence: the direct `SupplierPaymentAllocation` remained exactly one historical record for `300.0000`; the `SupplierPaymentUnappliedAllocation` safe id prefix `a8ee4e23` was marked reversed for `200.0000` with `reversedAt` set, `reversedById` safe prefix `09f892d4`, and reason `DEV-08 local-only reversal QA for supplier payment unapplied allocation`.
+- Journal/accounting result: no new journal entry was created; organization journal count remained `50`, `JE-000049` and `JE-000050` remained posted and unchanged, `JOURNAL_ENTRY` sequence remained next `51`, and `PAYMENT` sequence remained next `7`.
+- Audit result: `SUPPLIER_PAYMENT_CREATED` remains once for `PAY-000006`; raw `APPLY_UNAPPLIED` remains once for `PAY-000006`; raw `REVERSE_UNAPPLIED_ALLOCATION` now exists once for allocation `a8ee4e23`; no supplier payment void, supplier refund, purchase debit note, purchase bill void, or login/browser audit-writing action occurred.
+- Output/email/ZATCA/refund/debit-note/purchase-order/inventory/cash-expense/cleanup occurred: no. Fixture-specific generated documents, email outbox rows, supplier refunds, purchase debit notes, purchase orders, purchase receipts, stock movements, cash expenses, and cleanup/delete audit actions remain `0`; organization-level ZATCA baselines remained unchanged (`1` signed artifact draft and `7` submission logs).
+- Temporary script cleanup: `apps/api/scripts/dev08-supplier-payment-reverse-unapplied.tmp.ts` was removed after execution, `Test-Path` returned `False`, and the script was not staged or left untracked.
+- Exact next prompt title: `DEV-08 Part 11: supplier payment void/reversal preflight`.
+
+## Next Thread Prompt
+
+`DEV-08 Part 11: supplier payment void/reversal preflight`
