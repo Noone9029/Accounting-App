@@ -11,6 +11,7 @@ import {
 import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { buildCustomerPaymentJournalLines } from "./customer-payment-accounting";
+import { CustomerPaymentController } from "./customer-payment.controller";
 import { CustomerPaymentService } from "./customer-payment.service";
 import type { CreateCustomerPaymentDto } from "./dto/create-customer-payment.dto";
 
@@ -955,12 +956,131 @@ describe("customer payment rules", () => {
       generatedById: "user-1",
     }));
   });
+
+  it("does not archive receipt PDFs when creating customer payments", async () => {
+    const tx = makeCreateTransactionMock();
+    const prisma = makeCreatePrismaMock({ tx });
+    const numberSequence = { next: jest.fn().mockResolvedValueOnce("PAY-000001").mockResolvedValueOnce("JE-000001") };
+    const generatedDocuments = makeGeneratedDocumentArchiveGuard();
+    const service = new CustomerPaymentService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      numberSequence as never,
+      undefined,
+      generatedDocuments as never,
+    );
+
+    await expect(service.create("org-1", "user-1", basePaymentDto)).resolves.toMatchObject({ id: "payment-1" });
+
+    expect(tx.customerPayment.create).toHaveBeenCalledTimes(1);
+    expect(generatedDocuments.archivePdf).not.toHaveBeenCalled();
+  });
+
+  it("does not archive receipt PDFs when applying unapplied payment credit", async () => {
+    const tx = makeApplyUnappliedTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const generatedDocuments = makeGeneratedDocumentArchiveGuard();
+    const service = new CustomerPaymentService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn() } as never,
+      undefined,
+      generatedDocuments as never,
+    );
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED, unappliedAmount: "100.0000" } as never);
+
+    await expect(
+      service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "40.0000" }),
+    ).resolves.toMatchObject({ id: "payment-1", unappliedAmount: "60.0000" });
+
+    expect(tx.customerPaymentUnappliedAllocation.create).toHaveBeenCalledTimes(1);
+    expect(generatedDocuments.archivePdf).not.toHaveBeenCalled();
+  });
+
+  it("does not archive receipt PDFs when reversing unapplied allocations", async () => {
+    const tx = makeReverseUnappliedTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const generatedDocuments = makeGeneratedDocumentArchiveGuard();
+    const service = new CustomerPaymentService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn() } as never,
+      undefined,
+      generatedDocuments as never,
+    );
+
+    await expect(service.reverseUnappliedAllocation("org-1", "user-1", "payment-1", "unapplied-allocation-1", {})).resolves.toMatchObject({
+      id: "payment-1",
+      unappliedAmount: "100.0000",
+    });
+
+    expect(tx.customerPaymentUnappliedAllocation.updateMany).toHaveBeenCalledTimes(1);
+    expect(generatedDocuments.archivePdf).not.toHaveBeenCalled();
+  });
+
+  it("does not archive receipt PDFs when voiding customer payments", async () => {
+    const tx = makeVoidTransactionMock();
+    const prisma = {
+      customerPayment: {
+        findFirst: jest.fn().mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED, journalEntryId: "journal-1" }),
+      },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const generatedDocuments = makeGeneratedDocumentArchiveGuard();
+    const service = new CustomerPaymentService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn().mockResolvedValue("JE-000002") } as never,
+      undefined,
+      generatedDocuments as never,
+    );
+
+    await expect(service.void("org-1", "user-1", "payment-1")).resolves.toMatchObject({ id: "payment-1", status: CustomerPaymentStatus.VOIDED });
+
+    expect(tx.journalEntry.create).toHaveBeenCalledTimes(1);
+    expect(generatedDocuments.archivePdf).not.toHaveBeenCalled();
+  });
+
+  it("keeps receipt PDF generation on explicit controller output routes", async () => {
+    const paymentService = {
+      create: jest.fn().mockResolvedValue({ id: "payment-1" }),
+      applyUnapplied: jest.fn().mockResolvedValue({ id: "payment-1" }),
+      reverseUnappliedAllocation: jest.fn().mockResolvedValue({ id: "payment-1" }),
+      void: jest.fn().mockResolvedValue({ id: "payment-1" }),
+      receiptPdf: jest.fn().mockResolvedValue({ buffer: Buffer.from("%PDF receipt"), filename: "receipt-PAY-000001.pdf" }),
+      generateReceiptPdf: jest.fn().mockResolvedValue({ id: "doc-1" }),
+    };
+    const controller = new CustomerPaymentController(paymentService as never);
+    const user = { id: "user-1" };
+
+    await controller.create("org-1", user as never, basePaymentDto);
+    await controller.applyUnapplied("org-1", user as never, "payment-1", { invoiceId: "invoice-1", amountApplied: "40.0000" });
+    await controller.reverseUnappliedAllocation("org-1", user as never, "payment-1", "unapplied-allocation-1", {});
+    await controller.void("org-1", user as never, "payment-1");
+
+    expect(paymentService.receiptPdf).not.toHaveBeenCalled();
+    expect(paymentService.generateReceiptPdf).not.toHaveBeenCalled();
+
+    const response = { set: jest.fn() };
+    await controller.receiptPdf("org-1", user as never, "payment-1", response as never);
+    await controller.generateReceiptPdf("org-1", user as never, "payment-1");
+
+    expect(paymentService.receiptPdf).toHaveBeenCalledWith("org-1", "user-1", "payment-1");
+    expect(paymentService.generateReceiptPdf).toHaveBeenCalledWith("org-1", "user-1", "payment-1");
+    expect(response.set).toHaveBeenCalledWith(expect.objectContaining({ "Content-Type": "application/pdf" }));
+  });
 });
 
 function makeCreatePrismaMock(options: { tx?: ReturnType<typeof makeCreateTransactionMock>; invoiceBalanceDue?: string } = {}) {
   const tx = options.tx ?? makeCreateTransactionMock({ invoiceBalanceDue: options.invoiceBalanceDue });
   return {
     $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+  };
+}
+
+function makeGeneratedDocumentArchiveGuard() {
+  return {
+    archivePdf: jest.fn().mockRejectedValue(new Error("Customer payment lifecycle mutations must not archive receipt PDFs.")),
   };
 }
 
