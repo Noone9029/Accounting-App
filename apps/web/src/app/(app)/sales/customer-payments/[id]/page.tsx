@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, type ReactNode, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
@@ -13,6 +13,7 @@ import {
   canReverseCustomerPaymentUnappliedAllocation,
   applyCustomerPaymentUnappliedAllocation,
   customerPaymentActiveUnappliedAppliedAmount,
+  customerPaymentDirectAllocatedAmount,
   customerPaymentUnappliedAllocationStatusBadgeClass,
   customerPaymentUnappliedAllocationStatusLabel,
   reverseCustomerPaymentUnappliedAllocation,
@@ -28,7 +29,6 @@ export default function CustomerPaymentDetailPage() {
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [payment, setPayment] = useState<CustomerPayment | null>(null);
-  const [receiptData, setReceiptData] = useState<CustomerPaymentReceiptData | null>(null);
   const [openInvoices, setOpenInvoices] = useState<OpenSalesInvoice[]>([]);
   const [applyInvoiceId, setApplyInvoiceId] = useState("");
   const [applyAmount, setApplyAmount] = useState("");
@@ -55,14 +55,10 @@ export default function CustomerPaymentDetailPage() {
     setLoading(true);
     setError("");
 
-    Promise.all([
-      apiRequest<CustomerPayment>(`/customer-payments/${params.id}`),
-      apiRequest<CustomerPaymentReceiptData>(`/customer-payments/${params.id}/receipt-data`),
-    ])
-      .then(([paymentResult, receiptResult]) => {
+    apiRequest<CustomerPayment>(`/customer-payments/${params.id}`)
+      .then((paymentResult) => {
         if (!cancelled) {
           setPayment(paymentResult);
-          setReceiptData(receiptResult);
         }
       })
       .catch((loadError: unknown) => {
@@ -110,12 +106,8 @@ export default function CustomerPaymentDetailPage() {
     if (!params.id) {
       return;
     }
-    const [paymentResult, receiptResult] = await Promise.all([
-      apiRequest<CustomerPayment>(`/customer-payments/${params.id}`),
-      apiRequest<CustomerPaymentReceiptData>(`/customer-payments/${params.id}/receipt-data`),
-    ]);
+    const paymentResult = await apiRequest<CustomerPayment>(`/customer-payments/${params.id}`);
     setPayment(paymentResult);
-    setReceiptData(receiptResult);
   }
 
   async function applyUnapplied(event: FormEvent<HTMLFormElement>) {
@@ -146,7 +138,6 @@ export default function CustomerPaymentDetailPage() {
         amountApplied: applyAmount,
       });
       setPayment(updated);
-      setReceiptData(await apiRequest<CustomerPaymentReceiptData>(`/customer-payments/${payment.id}/receipt-data`));
       setApplyAmount("");
       setApplyInvoiceId("");
       setSuccess(`Applied ${formatMoneyAmount(applyAmount, payment.currency)} from ${payment.paymentNumber}.`);
@@ -173,7 +164,6 @@ export default function CustomerPaymentDetailPage() {
     try {
       const updated = await reverseCustomerPaymentUnappliedAllocation(payment.id, allocationId, { reason });
       setPayment(updated);
-      setReceiptData(await apiRequest<CustomerPaymentReceiptData>(`/customer-payments/${payment.id}/receipt-data`));
       setSuccess("Unapplied payment allocation reversed.");
     } catch (reverseError) {
       setError(reverseError instanceof Error ? reverseError.message : "Unable to reverse unapplied allocation.");
@@ -221,7 +211,6 @@ export default function CustomerPaymentDetailPage() {
     }
   }
 
-  const unappliedAppliedAmount = payment ? customerPaymentActiveUnappliedAppliedAmount(payment.unappliedAllocations) : "0.0000";
   const selectedOpenInvoice = openInvoices.find((invoice) => invoice.id === applyInvoiceId);
   const canCreatePayment = can(PERMISSIONS.customerPayments.create);
   const canVoidPaymentPermission = can(PERMISSIONS.customerPayments.void);
@@ -266,33 +255,27 @@ export default function CustomerPaymentDetailPage() {
           <CustomerPaymentWorkflowGuidance
             payment={payment}
             recorded={wasJustRecorded}
-            receiptData={receiptData}
+            receiptData={null}
             actionLoading={actionLoading}
             onDownloadReceiptPdf={() => void downloadReceiptPdf()}
           />
 
           <AttachmentPanel linkedEntityType="CUSTOMER_PAYMENT" linkedEntityId={payment.id} />
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
-              <Summary label="Customer" value={payment.customer?.displayName ?? payment.customer?.name ?? "-"} />
-              <Summary label="Status" value={payment.status} />
-              <Summary label="Date" value={new Date(payment.paymentDate).toLocaleDateString()} />
-              <Summary label="Currency" value={payment.currency} />
-              <Summary label="Amount received" value={formatMoneyAmount(payment.amountReceived, payment.currency)} />
-              <Summary label="Unapplied" value={formatMoneyAmount(payment.unappliedAmount, payment.currency)} />
-              <Summary label="Applied from unapplied" value={formatMoneyAmount(unappliedAppliedAmount, payment.currency)} />
-              <Summary label="Paid-through account" value={payment.account ? `${payment.account.code} ${payment.account.name}` : "-"} />
-              <Summary label="Journal entry" value={payment.journalEntry ? `${payment.journalEntry.entryNumber} (${payment.journalEntry.id})` : "-"} />
-              <Summary label="Void reversal journal" value={payment.voidReversalJournalEntry ? `${payment.voidReversalJournalEntry.entryNumber} (${payment.voidReversalJournalEntry.id})` : "-"} />
-              <Summary label="Posted" value={payment.postedAt ? new Date(payment.postedAt).toLocaleString() : "-"} />
-              <Summary label="Voided" value={payment.voidedAt ? new Date(payment.voidedAt).toLocaleString() : "-"} />
-              <Summary label="Description" value={payment.description ?? "-"} />
-            </div>
-          </div>
+          <CustomerPaymentStateDisplay payment={payment} />
 
-          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-            <table className="w-full min-w-[760px] text-left text-sm">
+          <div className="rounded-md border border-slate-200 bg-white shadow-panel">
+            <div className="flex flex-col gap-2 border-b border-slate-200 px-5 py-4 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-ink">Direct invoice allocations</h2>
+                <p className="mt-1 text-sm text-steel">Amounts applied when this payment was posted.</p>
+              </div>
+              <span className="self-start rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
+                {(payment.allocations?.length ?? 0).toLocaleString()} direct
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                 <tr>
                   <th className="px-4 py-3">Invoice</th>
@@ -324,19 +307,25 @@ export default function CustomerPaymentDetailPage() {
                 ))}
               </tbody>
             </table>
-            {payment.allocations?.length === 0 ? (
+            </div>
+            {(payment.allocations?.length ?? 0) === 0 ? (
               <div className="px-4 py-5">
                 <StatusMessage type="empty">
-                  No invoice allocations found for this payment. If money remains unapplied, match it to an open invoice or refund it from the actions above.
+                  No direct invoice allocations were returned for this payment.
                 </StatusMessage>
               </div>
             ) : null}
           </div>
 
           <div className="rounded-md border border-slate-200 bg-white shadow-panel">
-            <div className="border-b border-slate-200 px-5 py-4">
-              <h2 className="text-base font-semibold text-ink">Unapplied payment applications</h2>
-              <p className="mt-1 text-sm text-steel">Matching unapplied payment credit to later invoices updates balances only. No new journal entry is created.</p>
+            <div className="flex flex-col gap-2 border-b border-slate-200 px-5 py-4 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-ink">Unapplied payment applications</h2>
+                <p className="mt-1 text-sm text-steel">Amounts matched from remaining payment credit to later invoices.</p>
+              </div>
+              <span className="self-start rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
+                {(payment.unappliedAllocations?.length ?? 0).toLocaleString()} applications
+              </span>
             </div>
             {payment.unappliedAllocations && payment.unappliedAllocations.length > 0 ? (
               <div className="overflow-x-auto">
@@ -438,94 +427,59 @@ export default function CustomerPaymentDetailPage() {
             )}
           </div>
 
-          {receiptData ? (
-            <div className="rounded-md border border-slate-200 bg-white shadow-panel">
-              <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h2 className="text-base font-semibold text-ink">Receipt data preview</h2>
-                  <p className="mt-1 text-sm text-steel">Structured receipt preview. Downloading the receipt stores a generated PDF archive record.</p>
-                </div>
-                <button type="button" onClick={() => void downloadReceiptPdf()} disabled={actionLoading} className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                  Download receipt PDF
-                </button>
-              </div>
-              <div className="p-5">
-                <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
-                  <Summary label="Receipt number" value={receiptData.receiptNumber} />
-                  <Summary label="Customer" value={receiptData.customer.displayName ?? receiptData.customer.name} />
-                  <Summary label="Payment date" value={new Date(receiptData.paymentDate).toLocaleDateString()} />
-                  <Summary label="Status" value={receiptData.status} />
-                  <Summary label="Amount received" value={formatMoneyAmount(receiptData.amountReceived, receiptData.currency)} />
-                  <Summary label="Unapplied" value={formatMoneyAmount(receiptData.unappliedAmount, receiptData.currency)} />
-                  <Summary label="Paid through" value={`${receiptData.paidThroughAccount.code} ${receiptData.paidThroughAccount.name}`} />
-                  <Summary label="Journal entry" value={receiptData.journalEntry ? `${receiptData.journalEntry.entryNumber} (${receiptData.journalEntry.id})` : "-"} />
-                </div>
-              </div>
-              <div className="overflow-x-auto border-t border-slate-200">
-                <table className="w-full min-w-[760px] text-left text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-                    <tr>
-                      <th className="px-4 py-3">Invoice</th>
-                      <th className="px-4 py-3">Invoice date</th>
-                      <th className="px-4 py-3">Invoice total</th>
-                      <th className="px-4 py-3">Amount applied</th>
-                      <th className="px-4 py-3">Invoice balance</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {receiptData.allocations.map((allocation) => (
-                      <tr key={allocation.invoiceId}>
-                        <td className="px-4 py-3 font-mono text-xs">{allocation.invoiceNumber}</td>
-                        <td className="px-4 py-3 text-steel">{new Date(allocation.invoiceDate).toLocaleDateString()}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.invoiceTotal, receiptData.currency)}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, receiptData.currency)}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.invoiceBalanceDue, receiptData.currency)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {receiptData.allocations.length === 0 ? (
-                  <div className="px-4 py-5">
-                    <StatusMessage type="empty">No invoice allocations are included in this receipt data.</StatusMessage>
-                  </div>
-                ) : null}
-              </div>
-              <div className="overflow-x-auto border-t border-slate-200">
-                <table className="w-full min-w-[840px] text-left text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-                    <tr>
-                      <th className="px-4 py-3">Unapplied invoice</th>
-                      <th className="px-4 py-3">Invoice date</th>
-                      <th className="px-4 py-3">Invoice total</th>
-                      <th className="px-4 py-3">Amount applied</th>
-                      <th className="px-4 py-3">Invoice balance</th>
-                      <th className="px-4 py-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {receiptData.unappliedAllocations.map((allocation) => (
-                      <tr key={allocation.id}>
-                        <td className="px-4 py-3 font-mono text-xs">{allocation.invoiceNumber}</td>
-                        <td className="px-4 py-3 text-steel">{new Date(allocation.invoiceDate).toLocaleDateString()}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.invoiceTotal, receiptData.currency)}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, receiptData.currency)}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.invoiceBalanceDue, receiptData.currency)}</td>
-                        <td className="px-4 py-3 text-steel">{allocation.status}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {receiptData.unappliedAllocations.length === 0 ? (
-                  <div className="px-4 py-5">
-                    <StatusMessage type="empty">No unapplied credit applications are included in this receipt data.</StatusMessage>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
         </div>
       ) : null}
     </section>
+  );
+}
+
+export function CustomerPaymentStateDisplay({ payment }: { payment: CustomerPayment }) {
+  const directAllocatedAmount = customerPaymentDirectAllocatedAmount(payment.allocations);
+  const unappliedAppliedAmount = customerPaymentActiveUnappliedAppliedAmount(payment.unappliedAllocations);
+  const directAllocationCount = payment.allocations?.length ?? 0;
+  const unappliedAllocations = payment.unappliedAllocations ?? [];
+  const activeUnappliedCount = unappliedAllocations.filter((allocation) => !allocation.reversedAt).length;
+  const reversedUnappliedCount = unappliedAllocations.length - activeUnappliedCount;
+
+  return (
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+      <section className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-ink">Payment state</h2>
+            <p className="mt-1 text-sm text-steel">{paymentOutputStatus(payment)}</p>
+          </div>
+          <span className={`self-start rounded-md px-2 py-1 text-xs font-semibold ${customerPaymentStatusBadgeClass(payment.status)}`}>
+            {customerPaymentStatusLabel(payment.status)}
+          </span>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <StateMetric label="Amount received" value={formatMoneyAmount(payment.amountReceived, payment.currency)} />
+          <StateMetric label="Unapplied amount" value={formatMoneyAmount(payment.unappliedAmount, payment.currency)} />
+          <StateMetric label="Directly allocated" value={formatMoneyAmount(directAllocatedAmount, payment.currency)} detail={`${directAllocationCount} invoice${directAllocationCount === 1 ? "" : "s"}`} />
+          <StateMetric
+            label="Applied from unapplied"
+            value={formatMoneyAmount(unappliedAppliedAmount, payment.currency)}
+            detail={`${activeUnappliedCount} active, ${reversedUnappliedCount} reversed`}
+          />
+        </div>
+      </section>
+
+      <section className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <h2 className="text-base font-semibold text-ink">Accounting summary</h2>
+        <div className="mt-4 space-y-4 text-sm">
+          <StateRow label="Paid-through account" value={payment.account ? `${payment.account.code} ${payment.account.name}` : "Not returned"} />
+          <StateRow label="Payment journal" value={<JournalReference journal={payment.journalEntry} emptyLabel="No payment journal returned" />} />
+          <StateRow
+            label="Void reversal journal"
+            value={<JournalReference journal={payment.voidReversalJournalEntry} emptyLabel={payment.status === "VOIDED" ? "Reversal journal not returned" : "Not voided"} />}
+          />
+          <StateRow label="Posted" value={payment.postedAt ? new Date(payment.postedAt).toLocaleString() : "Not posted"} />
+          <StateRow label="Voided" value={payment.voidedAt ? new Date(payment.voidedAt).toLocaleString() : "Not voided"} />
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -615,6 +569,58 @@ export function CustomerPaymentWorkflowGuidance({
   );
 }
 
+function StateMetric({ label, value, detail }: { label: string; value: string; detail?: string }) {
+  return (
+    <div className="border-l-2 border-slate-200 py-1 pl-3">
+      <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
+      <div className="mt-2 font-mono text-sm font-semibold text-ink">{value}</div>
+      {detail ? <div className="mt-1 text-xs text-steel">{detail}</div> : null}
+    </div>
+  );
+}
+
+function StateRow({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="grid grid-cols-1 gap-1 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0 sm:grid-cols-[9rem_1fr]">
+      <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
+      <div className="min-w-0 break-words font-medium text-ink">{value}</div>
+    </div>
+  );
+}
+
+function JournalReference({
+  journal,
+  emptyLabel,
+}: {
+  journal?: Pick<NonNullable<CustomerPayment["journalEntry"]>, "id" | "entryNumber" | "status"> | null;
+  emptyLabel: string;
+}) {
+  if (!journal) {
+    return <span className="text-steel">{emptyLabel}</span>;
+  }
+
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <Link href="/journal-entries" className="font-mono text-xs text-palm hover:underline">
+        {journal.entryNumber}
+      </Link>
+      <span className={`rounded-md px-2 py-1 text-xs font-medium ${journalStatusBadgeClass(journal.status)}`}>{journal.status}</span>
+    </span>
+  );
+}
+
+function paymentOutputStatus(payment: CustomerPayment): string {
+  if (payment.status === "VOIDED") {
+    return payment.voidReversalJournalEntry ? "Voided with reversal accounting returned." : "Voided with no reversal journal returned.";
+  }
+
+  if (payment.status === "POSTED") {
+    return payment.journalEntry ? "Posted with payment accounting returned." : "Posted with no payment journal returned.";
+  }
+
+  return "Draft payment with no posted accounting output.";
+}
+
 function customerPaymentStatusLabel(status: CustomerPayment["status"]): string {
   switch (status) {
     case "DRAFT":
@@ -634,6 +640,19 @@ function customerPaymentStatusBadgeClass(status: CustomerPayment["status"]): str
       return "bg-emerald-50 text-emerald-700";
     case "VOIDED":
       return "bg-rose-50 text-rosewood";
+  }
+}
+
+function journalStatusBadgeClass(status: NonNullable<CustomerPayment["journalEntry"]>["status"]): string {
+  switch (status) {
+    case "POSTED":
+      return "bg-emerald-50 text-emerald-700";
+    case "REVERSED":
+      return "bg-slate-100 text-slate-700";
+    case "DRAFT":
+      return "bg-amber-50 text-amber-700";
+    default:
+      return "bg-slate-100 text-slate-700";
   }
 }
 

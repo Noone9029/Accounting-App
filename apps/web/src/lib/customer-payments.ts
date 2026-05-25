@@ -82,6 +82,13 @@ export function customerPaymentActiveUnappliedAppliedAmount(
   return formatUnits(units);
 }
 
+export function customerPaymentDirectAllocatedAmount(
+  allocations: Array<Pick<NonNullable<CustomerPayment["allocations"]>[number], "amountApplied">> | undefined,
+): string {
+  const units = (allocations ?? []).reduce((sum, allocation) => sum + parseDecimalToUnits(allocation.amountApplied), 0);
+  return formatUnits(units);
+}
+
 export function validateCustomerPaymentUnappliedAllocation(
   amountApplied: string,
   paymentUnappliedAmount: string,

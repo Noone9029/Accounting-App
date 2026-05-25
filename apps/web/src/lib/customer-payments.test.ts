@@ -3,6 +3,7 @@ import {
   canReverseCustomerPaymentUnappliedAllocation,
   customerPaymentApplyUnappliedPath,
   customerPaymentActiveUnappliedAppliedAmount,
+  customerPaymentDirectAllocatedAmount,
   customerPaymentReverseUnappliedAllocationPath,
   customerPaymentUnappliedAllocationsPath,
   customerPaymentUnappliedAllocationStatusBadgeClass,
@@ -52,6 +53,11 @@ describe("customer payment helpers", () => {
         { amountApplied: "2.5000", reversedAt: null },
       ]),
     ).toBe("12.5000");
+  });
+
+  it("calculates direct invoice allocation amount", () => {
+    expect(customerPaymentDirectAllocatedAmount([{ amountApplied: "60.0000" }, { amountApplied: "40.5000" }])).toBe("100.5000");
+    expect(customerPaymentDirectAllocatedAmount(undefined)).toBe("0.0000");
   });
 
   it("validates unapplied payment allocation amounts", () => {
