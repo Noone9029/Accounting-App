@@ -726,6 +726,9 @@ describe("customer payment rules", () => {
       customerPayment: {
         findFirst: jest.fn().mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED, journalEntryId: "journal-1" }),
       },
+      generatedDocument: {
+        create: jest.fn().mockRejectedValue(new Error("Customer payment lifecycle mutations must not create generated documents.")),
+      },
       $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
     };
     const auditLog = { log: jest.fn() };
@@ -782,6 +785,9 @@ describe("customer payment rules", () => {
     const prisma = {
       customerPayment: {
         findFirst: jest.fn().mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED, journalEntryId: "journal-1" }),
+      },
+      generatedDocument: {
+        create: jest.fn().mockRejectedValue(new Error("Customer payment lifecycle mutations must not create generated documents.")),
       },
       $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
     };
@@ -1055,6 +1061,8 @@ describe("customer payment rules", () => {
     await expect(service.create("org-1", "user-1", basePaymentDto)).resolves.toMatchObject({ id: "payment-1" });
 
     expect(tx.customerPayment.create).toHaveBeenCalledTimes(1);
+    expect(tx.generatedDocument.create).not.toHaveBeenCalled();
+    expect(prisma.generatedDocument.create).not.toHaveBeenCalled();
     expect(generatedDocuments.archivePdf).not.toHaveBeenCalled();
   });
 
@@ -1076,6 +1084,7 @@ describe("customer payment rules", () => {
     ).resolves.toMatchObject({ id: "payment-1", unappliedAmount: "60.0000" });
 
     expect(tx.customerPaymentUnappliedAllocation.create).toHaveBeenCalledTimes(1);
+    expect(tx.generatedDocument.create).not.toHaveBeenCalled();
     expect(generatedDocuments.archivePdf).not.toHaveBeenCalled();
   });
 
@@ -1097,6 +1106,7 @@ describe("customer payment rules", () => {
     });
 
     expect(tx.customerPaymentUnappliedAllocation.updateMany).toHaveBeenCalledTimes(1);
+    expect(tx.generatedDocument.create).not.toHaveBeenCalled();
     expect(generatedDocuments.archivePdf).not.toHaveBeenCalled();
   });
 
@@ -1105,6 +1115,9 @@ describe("customer payment rules", () => {
     const prisma = {
       customerPayment: {
         findFirst: jest.fn().mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED, journalEntryId: "journal-1" }),
+      },
+      generatedDocument: {
+        create: jest.fn().mockRejectedValue(new Error("Customer payment lifecycle mutations must not create generated documents.")),
       },
       $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
     };
@@ -1120,6 +1133,8 @@ describe("customer payment rules", () => {
     await expect(service.void("org-1", "user-1", "payment-1")).resolves.toMatchObject({ id: "payment-1", status: CustomerPaymentStatus.VOIDED });
 
     expect(tx.journalEntry.create).toHaveBeenCalledTimes(1);
+    expect(tx.generatedDocument.create).not.toHaveBeenCalled();
+    expect(prisma.generatedDocument.create).not.toHaveBeenCalled();
     expect(generatedDocuments.archivePdf).not.toHaveBeenCalled();
   });
 
@@ -1129,6 +1144,8 @@ describe("customer payment rules", () => {
       applyUnapplied: jest.fn().mockResolvedValue({ id: "payment-1" }),
       reverseUnappliedAllocation: jest.fn().mockResolvedValue({ id: "payment-1" }),
       void: jest.fn().mockResolvedValue({ id: "payment-1" }),
+      receiptData: jest.fn().mockResolvedValue({ receiptNumber: "PAY-000001" }),
+      receiptPdfData: jest.fn().mockResolvedValue({ payment: { paymentNumber: "PAY-000001" } }),
       receiptPdf: jest.fn().mockResolvedValue({ buffer: Buffer.from("%PDF receipt"), filename: "receipt-PAY-000001.pdf" }),
       generateReceiptPdf: jest.fn().mockResolvedValue({ id: "doc-1" }),
     };
@@ -1142,11 +1159,17 @@ describe("customer payment rules", () => {
 
     expect(paymentService.receiptPdf).not.toHaveBeenCalled();
     expect(paymentService.generateReceiptPdf).not.toHaveBeenCalled();
+    expect(paymentService.receiptData).not.toHaveBeenCalled();
+    expect(paymentService.receiptPdfData).not.toHaveBeenCalled();
 
     const response = { set: jest.fn() };
+    await controller.receiptData("org-1", "payment-1");
+    await controller.receiptPdfData("org-1", "payment-1");
     await controller.receiptPdf("org-1", user as never, "payment-1", response as never);
     await controller.generateReceiptPdf("org-1", user as never, "payment-1");
 
+    expect(paymentService.receiptData).toHaveBeenCalledWith("org-1", "payment-1");
+    expect(paymentService.receiptPdfData).toHaveBeenCalledWith("org-1", "payment-1");
     expect(paymentService.receiptPdf).toHaveBeenCalledWith("org-1", "user-1", "payment-1");
     expect(paymentService.generateReceiptPdf).toHaveBeenCalledWith("org-1", "user-1", "payment-1");
     expect(response.set).toHaveBeenCalledWith(expect.objectContaining({ "Content-Type": "application/pdf" }));
@@ -1156,6 +1179,9 @@ describe("customer payment rules", () => {
 function makeCreatePrismaMock(options: { tx?: ReturnType<typeof makeCreateTransactionMock>; invoiceBalanceDue?: string } = {}) {
   const tx = options.tx ?? makeCreateTransactionMock({ invoiceBalanceDue: options.invoiceBalanceDue });
   return {
+    generatedDocument: {
+      create: jest.fn().mockRejectedValue(new Error("Customer payment lifecycle mutations must not create generated documents.")),
+    },
     $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
   };
 }
@@ -1428,6 +1454,9 @@ function makeCreateTransactionMock(
     contact: { findFirst: jest.fn().mockResolvedValue(options.customer === undefined ? { id: "customer-1", name: "Customer", displayName: null } : options.customer) },
     account: { findFirst: accountFindFirst },
     journalEntry: { create: jest.fn().mockResolvedValue({ id: "journal-1" }) },
+    generatedDocument: {
+      create: jest.fn().mockRejectedValue(new Error("Customer payment lifecycle mutations must not create generated documents.")),
+    },
     customerPayment: {
       create: jest.fn().mockResolvedValue({
         id: "payment-1",
@@ -1499,6 +1528,9 @@ function makeApplyUnappliedTransactionMock(
     journalEntry: {
       create: jest.fn(),
     },
+    generatedDocument: {
+      create: jest.fn().mockRejectedValue(new Error("Customer payment lifecycle mutations must not create generated documents.")),
+    },
   };
 }
 
@@ -1561,6 +1593,9 @@ function makeReverseUnappliedTransactionMock(
       delete: jest.fn(),
       deleteMany: jest.fn(),
     },
+    generatedDocument: {
+      create: jest.fn().mockRejectedValue(new Error("Customer payment lifecycle mutations must not create generated documents.")),
+    },
   };
 }
 
@@ -1620,5 +1655,8 @@ function makeVoidTransactionMock(options: { reversedById?: string; voidClaimCoun
       count: jest.fn().mockResolvedValue(options.unappliedAllocationCount ?? 0),
     },
     salesInvoice: { updateMany: jest.fn() },
+    generatedDocument: {
+      create: jest.fn().mockRejectedValue(new Error("Customer payment lifecycle mutations must not create generated documents.")),
+    },
   };
 }
