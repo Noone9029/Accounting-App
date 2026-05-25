@@ -990,3 +990,21 @@
 ## Next Thread Prompt
 
 `DEV-08 Part 4: supplier payment creation and allocation preflight`
+
+## DEV-08 Part 4 - Supplier Payment Creation And Allocation Preflight Completed
+
+- DEV-08 Part 4 read-only preflight is recorded in [docs/development/DEV_08_SUPPLIER_PAYMENT_CREATION_PREFLIGHT.md](docs/development/DEV_08_SUPPLIER_PAYMENT_CREATION_PREFLIGHT.md).
+- Mutation performed: no. `SupplierPaymentService.create(...)` was not called, and no supplier payment, allocation, refund, debit note, purchase order, purchase receipt, cash expense, stock movement, generated document, PDF/archive/export/download, email, ZATCA, migration, seed/reset/delete, deployment, environment change, or browser/login flow was created or mutated.
+- Current fixture state: supplier `DEV08-AP-20260525T230000 Supplier` remains active `SUPPLIER`, safe prefix `0e36df97`; `BILL-000007` remains `FINALIZED`, safe prefix `d81ddd60`, total `1150.0000`, balance due `1150.0000`, no reversal journal, and no supplier payment/debit-note allocations.
+- Planned payment: amount paid `500.0000`, direct allocation `300.0000` to `BILL-000007`, expected unapplied amount `200.0000`, payment date `2026-05-25`, currency `SAR`, marker-bearing description.
+- Selected paid-through account: account `112 Bank Account`, safe prefix `32ab6f4d`, active posting `ASSET`, active bank profile, SAR, in the same fake local AP-ready organization; required AP account `210 Accounts Payable` safe prefix `883ea9a6` is active and posting.
+- Sequence/precondition evidence: fiscal period covering `2026-05-25` is `OPEN`; `PAYMENT` sequence is `PAY-` next `6` so expected payment number is `PAY-000006` if unchanged; `JOURNAL_ENTRY` sequence is `JE-` next `50` so expected payment journal is `JE-000050` if unchanged.
+- Expected bill/accounting result: `BILL-000007` balance due should change `1150.0000 -> 850.0000`; one direct `SupplierPaymentAllocation` for `300.0000` should exist; one posted supplier payment journal should debit AP `210` for `500.0000` and credit bank account `112` for `500.0000`; no bill reversal, payment void reversal, stock movement, or output journal should be created.
+- Expected audit result: one standardized `SUPPLIER_PAYMENT_CREATED` audit action; no supplier payment void, supplier refund, debit note, purchase bill void, or login/browser audit-writing action.
+- Blockers: none found. Part 5 must still stop if the supplier, bill, balance, paid-through account, fiscal period, sequence, or side-effect baseline differs at mutation time.
+- Required approval phrase for Part 5: `I approve DEV-08 Part 5 local-only supplier payment creation mutation under marker DEV08-AP-20260525T230000 for BILL-000007 with payment amount 500.0000 and direct allocation 300.0000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08 Part 5: approved local supplier payment creation mutation`.
+
+## Next Thread Prompt
+
+`DEV-08 Part 5: approved local supplier payment creation mutation`
