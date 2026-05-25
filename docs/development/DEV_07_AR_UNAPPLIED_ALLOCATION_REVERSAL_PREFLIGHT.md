@@ -330,3 +330,21 @@ Next prompt title:
 ```text
 DEV-07 Part 11: approved local AR unapplied allocation reversal mutation
 ```
+
+## Part 11 Evidence Note
+
+DEV-07 Part 11 was completed after receiving the required approval phrase. Evidence is recorded in [DEV_07_AR_UNAPPLIED_ALLOCATION_REVERSAL_MUTATION_EVIDENCE.md](DEV_07_AR_UNAPPLIED_ALLOCATION_REVERSAL_MUTATION_EVIDENCE.md).
+
+Result summary:
+
+- `CustomerPaymentService.reverseUnappliedAllocation(...)` was called exactly once.
+- `PAYMENT-000001` remained `POSTED`; unapplied amount changed `0.0000 -> 200.0000`.
+- `INVOICE-000002` remained `FINALIZED`; balance due changed `650.0000 -> 850.0000`.
+- The `8bc99925` unapplied allocation was marked reversed with reason `DEV-07 local-only reversal QA for unapplied allocation`.
+- No new `JournalEntry`, generated document, receipt/PDF/archive, email, ZATCA XML/signing/QR/submission, refund, credit note, invoice void, payment void, cleanup deletion, migration, seed/reset/delete, deploy, environment, provider, schema, production, beta, shared-target, customer-data, or login/browser audit-writing flow occurred.
+
+Next prompt title:
+
+```text
+DEV-07 Part 12: AR customer payment void/reversal preflight
+```

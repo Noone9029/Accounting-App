@@ -868,3 +868,20 @@
 ## Next Thread Prompt
 
 `DEV-07 Part 11: approved local AR unapplied allocation reversal mutation`
+
+## DEV-07 Part 11 - AR Unapplied Allocation Reversal Mutation Completed
+
+- DEV-07 Part 11 local-only mutation evidence is recorded in [docs/development/DEV_07_AR_UNAPPLIED_ALLOCATION_REVERSAL_MUTATION_EVIDENCE.md](docs/development/DEV_07_AR_UNAPPLIED_ALLOCATION_REVERSAL_MUTATION_EVIDENCE.md).
+- Approval phrase was received for the local-only AR unapplied allocation reversal mutation under marker `DEV03-AR-20260524T130000` for `PAYMENT-000001`, `INVOICE-000002`, and the active `200.0000` unapplied allocation.
+- Mutation performed: yes. `CustomerPaymentService.reverseUnappliedAllocation(...)` was called exactly once with reason `DEV-07 local-only reversal QA for unapplied allocation`.
+- Payment evidence: `PAYMENT-000001` remains `POSTED`, safe id prefix `b39f4d38`, amount received `500.0000`, and unapplied amount changed `0.0000 -> 200.0000`; journal remains `JOURNAL_ENTRY-000004`; no void reversal journal exists.
+- Invoice evidence: `INVOICE-000002` remains `FINALIZED`, safe id prefix `ddadfdd7`, total `1150.0000`, and balance due changed `650.0000 -> 850.0000`; no reversal journal exists.
+- Allocation evidence: the direct `CustomerPaymentAllocation` remains exactly one record for `300.0000`; the `8bc99925` `CustomerPaymentUnappliedAllocation` remains one record for `200.0000` and is now reversed with `reversedAt`, `reversedById`, and the approved reversal reason set.
+- Accounting result: no new journal entry was created; fixture organization journal count remained `4`; `JOURNAL_ENTRY-000004` stayed `POSTED`, reference `PAYMENT-000001`, debit `500.0000`, credit `500.0000`, and unchanged `updatedAt`; `JOURNAL_ENTRY` sequence next remained `5`.
+- Audit result: `CUSTOMER_PAYMENT_CREATED` remains exactly once, `CUSTOMER_PAYMENT_UNAPPLIED_APPLIED` remains exactly once, and standardized `CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSED` now exists exactly once for entity type `CustomerPaymentUnappliedAllocation`; raw reverse actions remain `0`.
+- Output/email/ZATCA/refund/credit-note/cleanup occurred: no. Generated documents, receipt/PDF/archive records, email outbox/provider events, ZATCA XML/signing/QR/submission artifacts, refunds, credit notes, payment void, invoice void, cleanup deletion, migrations, seed/reset/delete, deploys, environment/provider/schema changes, production/beta/shared/customer-data actions, and login/browser audit-writing flows remained absent.
+- Exact next prompt title: `DEV-07 Part 12: AR customer payment void/reversal preflight`.
+
+## Next Thread Prompt
+
+`DEV-07 Part 12: AR customer payment void/reversal preflight`
