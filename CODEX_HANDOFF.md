@@ -938,3 +938,21 @@
 ## Next Thread Prompt
 
 `DEV-08 Part 1: AP state-machine fixture and mutation preflight`
+
+## DEV-08 Part 1 - AP State-Machine Fixture And Mutation Preflight Completed
+
+- DEV-08 Part 1 read-only AP preflight is recorded in [docs/development/DEV_08_AP_STATE_MACHINE_PREFLIGHT.md](docs/development/DEV_08_AP_STATE_MACHINE_PREFLIGHT.md).
+- Mutation performed: no. No database write, AP fixture creation, supplier, purchase bill, supplier payment, refund, debit note, cash expense, purchase order, journal, inventory receipt, generated document, PDF/archive, email, ZATCA, migration, seed/reset/delete, deploy, environment change, production, beta, shared-target, hosted-database, customer-data, or login/browser flow ran.
+- Recommended first AP fixture target: one fake local supplier and one direct-mode finalized purchase bill under marker `DEV08-AP-20260525T230000`, using an expense/asset line, AP account `210`, VAT receivable account `230` if a safe purchase tax dependency is available, and no purchase order conversion, inventory clearing, supplier payment, debit note, refund, or output route.
+- Fixture runner finding: the existing DEV-04 runner can inspect AP family plans, but execute mode is explicitly restricted to the approved AR skeleton, AP proposed records are not defined, and marker validation does not currently accept `DEV08-AP-*`. Part 2 should use a tightly guarded temporary AP fixture script unless runner support is intentionally extended first.
+- Proposed DEV-08 sequence: AP fixture creation and evidence verification; supplier payment creation with direct allocation and unapplied amount; supplier payment unapplied allocation; reversal; supplier payment void/reversal; purchase bill void/reversal; closure, with purchase debit notes, supplier refunds, purchase orders, cash expenses, and inventory clearing deferred to later AP branches.
+- Expected accounting areas: purchase bill finalization posts expense/asset and VAT receivable debits against AP credit; supplier payment creation posts AP debit against cash/bank credit; supplier payment apply/reverse unapplied allocation creates no journal; supplier payment and purchase bill void paths create reversal journals after blockers are cleared.
+- Expected audit areas: purchase bill, supplier payment, supplier refund, purchase debit note, purchase order, and cash expense create/finalize/void events have standardized mappings where listed in `audit-events.ts`; supplier payment apply/reverse and debit-note allocation apply/reverse currently appear to use raw allocation action strings unless a later hardening task adds mappings.
+- Output/email/ZATCA boundary: AP state-machine mutations must not call purchase bill, supplier payment, supplier refund, debit note, purchase order, or cash expense PDF/output routes and must keep generated documents, email, and ZATCA artifacts absent.
+- Blockers and unknowns: local disposable DB target and fixture org/account/tax dependencies must be reverified before mutation; fiscal period locks can block posting; inventory-clearing bill mode has extra prerequisites and should be deferred; AP allocation audit standardization and permission granularity need later review.
+- Required approval phrase for Part 2: `I approve DEV-08 Part 2 local-only AP fixture creation mutation under marker DEV08-AP-20260525T230000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08 Part 2: approved local AP fixture creation mutation`.
+
+## Next Thread Prompt
+
+`DEV-08 Part 2: approved local AP fixture creation mutation`
