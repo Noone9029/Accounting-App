@@ -1,0 +1,534 @@
+"use client";
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
+import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { formatOptionalDate } from "@/lib/invoice-display";
+import { formatMoneyAmount } from "@/lib/money";
+import {
+  filterPartyTransactions,
+  getCustomer,
+  getSupplier,
+  listCustomers,
+  listSuppliers,
+  partyStatusBadgeClass,
+  partyTransactionActionHref,
+  partyTransactionsCsv,
+  partyTransactionTypeOptions,
+  type PartyKind,
+  type PartyTransactionFilters,
+  type PartyTransactionStatusFilter,
+} from "@/lib/parties";
+import { PERMISSIONS, type Permission } from "@/lib/permissions";
+import type { Contact, CustomerPartyDetail, CustomerPartySummary, PartyTransaction, SupplierPartyDetail, SupplierPartySummary } from "@/lib/types";
+
+type PartySummary = CustomerPartySummary | SupplierPartySummary;
+type PartyDetail = CustomerPartyDetail | SupplierPartyDetail;
+type PartyTab = "transactions" | "details" | "notes";
+
+const defaultFilters: PartyTransactionFilters = {
+  status: "ALL",
+  type: "ALL",
+  fromDate: "",
+  toDate: "",
+};
+
+export function PartyListPage({ kind }: { kind: PartyKind }) {
+  const organizationId = useActiveOrganizationId();
+  const [rows, setRows] = useState<PartySummary[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const copy = partyCopy(kind);
+
+  useEffect(() => {
+    if (!organizationId) {
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+
+    const load = kind === "customer" ? listCustomers : listSuppliers;
+    load()
+      .then((result) => {
+        if (!cancelled) {
+          setRows(result);
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : `Unable to load ${copy.pluralLower}.`);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [copy.pluralLower, kind, organizationId]);
+
+  return (
+    <section>
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{copy.pluralTitle}</h1>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">{copy.listDescription}</p>
+        </div>
+        <Link href={`/contacts?type=${copy.contactType}`} className="self-start rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+          Add {copy.singularLower}
+        </Link>
+      </div>
+
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load {copy.pluralLower}.</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">Loading {copy.pluralLower}...</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {!loading && organizationId && rows.length === 0 ? (
+          <StatusMessage type="empty">
+            No {copy.pluralLower} yet. Add a {copy.singularLower} first; they can appear here before they have any transactions.
+          </StatusMessage>
+        ) : null}
+      </div>
+
+      {rows.length > 0 ? (
+        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+          <table className="w-full min-w-[980px] text-left text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+              <tr>
+                <th className="px-4 py-3">{copy.singularTitle}</th>
+                <th className="px-4 py-3">Email / phone</th>
+                <th className="px-4 py-3">{copy.openLabel}</th>
+                <th className="px-4 py-3">{copy.overdueLabel}</th>
+                <th className="px-4 py-3">Last transaction</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {rows.map((row) => (
+                <tr key={row.contact.id}>
+                  <td className="px-4 py-3 font-medium text-ink">{displayName(row.contact)}</td>
+                  <td className="px-4 py-3 text-steel">{contactReach(row.contact)}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(openBalance(row), "SAR")}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(overdueBalance(row), "SAR")}</td>
+                  <td className="px-4 py-3 text-steel">{formatOptionalDate(row.lastTransactionDate, "No transactions")}</td>
+                  <td className="px-4 py-3">
+                    <StatusBadge isActive={row.contact.isActive} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Link href={`/${copy.routeSegment}/${row.contact.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      Open
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+export function PartyDetailPage({ kind }: { kind: PartyKind }) {
+  const params = useParams<{ id: string }>();
+  const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
+  const [detail, setDetail] = useState<PartyDetail | null>(null);
+  const [activeTab, setActiveTab] = useState<PartyTab>("transactions");
+  const [filters, setFilters] = useState<PartyTransactionFilters>(defaultFilters);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const copy = partyCopy(kind);
+
+  useEffect(() => {
+    if (!organizationId || !params.id) {
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+
+    const load = kind === "customer" ? getCustomer : getSupplier;
+    load(params.id)
+      .then((result) => {
+        if (!cancelled) {
+          setDetail(result);
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : `Unable to load ${copy.singularLower}.`);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [copy.singularLower, kind, organizationId, params.id]);
+
+  const filteredTransactions = useMemo(
+    () => filterPartyTransactions(detail?.transactions ?? [], filters),
+    [detail?.transactions, filters],
+  );
+  const transactionTypeOptions = useMemo(
+    () => partyTransactionTypeOptions(detail?.transactions ?? []),
+    [detail?.transactions],
+  );
+
+  function updateFilter<K extends keyof PartyTransactionFilters>(key: K, value: PartyTransactionFilters[K]) {
+    setFilters((current) => ({ ...current, [key]: value }));
+  }
+
+  function exportTransactions() {
+    if (!detail) {
+      return;
+    }
+    const csv = partyTransactionsCsv(filteredTransactions);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${copy.routeSegment}-${detail.contact.id}-transactions.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <section>
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{detail ? displayName(detail.contact) : copy.singularTitle}</h1>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">{copy.detailDescription}</p>
+        </div>
+        <Link href={`/${copy.routeSegment}`} className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          Back to {copy.pluralLower}
+        </Link>
+      </div>
+
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load this {copy.singularLower}.</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">Loading {copy.singularLower}...</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+      </div>
+
+      {detail ? (
+        <div className="mt-5 space-y-5">
+          <div className="grid gap-4 lg:grid-cols-[1.4fr_0.7fr]">
+            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-xl font-semibold text-ink">{displayName(detail.contact)}</h2>
+                    <StatusBadge isActive={detail.contact.isActive} />
+                  </div>
+                  <div className="mt-2 text-sm leading-6 text-steel">{contactReach(detail.contact)}</div>
+                  <div className="mt-2 text-sm leading-6 text-steel">{billingAddress(detail.contact)}</div>
+                </div>
+                <QuickActions contactId={detail.contact.id} kind={kind} canCreate={can} />
+              </div>
+            </div>
+
+            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+              <div className="text-xs font-semibold uppercase tracking-wide text-steel">{copy.balanceTitle}</div>
+              <div className="mt-3 space-y-4">
+                <BalanceLine label={copy.openLabel} value={formatMoneyAmount(openBalance(detail), "SAR")} emphasized />
+                <BalanceLine label={copy.overdueLabel} value={formatMoneyAmount(overdueBalance(detail), "SAR")} />
+                <BalanceLine label="Last transaction" value={formatOptionalDate(detail.lastTransactionDate, "No transactions")} />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 border-b border-slate-200">
+            {([
+              ["transactions", "Transaction List"],
+              ["details", `${copy.singularTitle} Details`],
+              ["notes", "Notes"],
+            ] as Array<[PartyTab, string]>).map(([tab, label]) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`border-b-2 px-3 py-2 text-sm font-medium ${activeTab === tab ? "border-palm text-ink" : "border-transparent text-steel hover:text-ink"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {activeTab === "transactions" ? (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-end gap-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+                <label className="block">
+                  <span className="text-xs font-medium uppercase tracking-wide text-steel">Status</span>
+                  <select value={filters.status} onChange={(event) => updateFilter("status", event.target.value as PartyTransactionStatusFilter)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+                    <option value="ALL">All transactions</option>
+                    <option value="OPEN">Open transactions</option>
+                    <option value="OVERDUE">Overdue transactions</option>
+                    <option value="PAID">Paid transactions</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-xs font-medium uppercase tracking-wide text-steel">Type</span>
+                  <select value={filters.type} onChange={(event) => updateFilter("type", event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+                    <option value="ALL">All types</option>
+                    {transactionTypeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-xs font-medium uppercase tracking-wide text-steel">From</span>
+                  <input type="date" value={filters.fromDate} onChange={(event) => updateFilter("fromDate", event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-medium uppercase tracking-wide text-steel">To</span>
+                  <input type="date" value={filters.toDate} onChange={(event) => updateFilter("toDate", event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                </label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={exportTransactions} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    Export
+                  </button>
+                  <button type="button" onClick={() => window.print()} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    Print
+                  </button>
+                </div>
+              </div>
+
+              <PartyTransactionsTable transactions={filteredTransactions} emptyLabel={`No ${copy.singularLower} transactions match the current filters.`} />
+            </div>
+          ) : null}
+
+          {activeTab === "details" ? <PartyDetails contact={detail.contact} kind={kind} /> : null}
+          {activeTab === "notes" ? <PartyNotes detail={detail} kind={kind} /> : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function PartyTransactionsTable({ transactions, emptyLabel }: { transactions: PartyTransaction[]; emptyLabel: string }) {
+  if (transactions.length === 0) {
+    return <StatusMessage type="empty">{emptyLabel}</StatusMessage>;
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+      <table className="w-full min-w-[1180px] text-left text-sm">
+        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+          <tr>
+            <th className="px-4 py-3">Date</th>
+            <th className="px-4 py-3">Type</th>
+            <th className="px-4 py-3">Transaction number</th>
+            <th className="px-4 py-3">Total before tax</th>
+            <th className="px-4 py-3">Tax amount</th>
+            <th className="px-4 py-3">Total</th>
+            <th className="px-4 py-3">Balance due</th>
+            <th className="px-4 py-3">Status</th>
+            <th className="px-4 py-3">Action</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {transactions.map((transaction) => (
+            <tr key={transaction.id}>
+              <td className="px-4 py-3 text-steel">{formatOptionalDate(transaction.date, "-")}</td>
+              <td className="px-4 py-3 text-steel">{transaction.type}</td>
+              <td className="px-4 py-3 font-mono text-xs">{transaction.transactionNumber}</td>
+              <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(transaction.subtotal, transaction.currency)}</td>
+              <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(transaction.taxAmount, transaction.currency)}</td>
+              <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(transaction.total, transaction.currency)}</td>
+              <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(transaction.balanceDue, transaction.currency)}</td>
+              <td className="px-4 py-3">
+                <span className={`rounded-md px-2 py-1 text-xs font-medium ${transactionStatusBadgeClass(transaction.status)}`}>
+                  {formatStatusLabel(transaction.status)}
+                </span>
+              </td>
+              <td className="px-4 py-3">
+                <Link href={partyTransactionActionHref(transaction)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                  View
+                </Link>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function QuickActions({ contactId, kind, canCreate }: { contactId: string; kind: PartyKind; canCreate: (permission: Permission) => boolean }) {
+  if (kind === "customer") {
+    return (
+      <div className="flex flex-wrap gap-2 md:justify-end">
+        {canCreate(PERMISSIONS.salesInvoices.create) ? <ActionLink href={`/sales/invoices/new?customerId=${contactId}`}>New invoice</ActionLink> : null}
+        {canCreate(PERMISSIONS.customerPayments.create) ? <ActionLink href={`/sales/customer-payments/new?customerId=${contactId}`}>Receive payment</ActionLink> : null}
+        <DisabledAction label="Create estimate" reason="Estimates are not enabled yet." />
+        {canCreate(PERMISSIONS.contacts.manage) ? <ActionLink href={`/contacts/${contactId}`}>Edit customer</ActionLink> : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2 md:justify-end">
+      {canCreate(PERMISSIONS.purchaseBills.create) ? <ActionLink href={`/purchases/bills/new?supplierId=${contactId}`}>New bill</ActionLink> : null}
+      {canCreate(PERMISSIONS.cashExpenses.create) ? <ActionLink href={`/purchases/cash-expenses/new?supplierId=${contactId}`}>Record expense</ActionLink> : null}
+      {canCreate(PERMISSIONS.supplierPayments.create) ? <ActionLink href={`/purchases/supplier-payments/new?supplierId=${contactId}`}>Pay bills</ActionLink> : null}
+      {canCreate(PERMISSIONS.contacts.manage) ? <ActionLink href={`/contacts/${contactId}`}>Edit supplier</ActionLink> : null}
+    </div>
+  );
+}
+
+function PartyDetails({ contact, kind }: { contact: Contact; kind: PartyKind }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <h2 className="text-base font-semibold text-ink">{kind === "customer" ? "Customer Details" : "Supplier Details"}</h2>
+      <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
+        <Summary label="Name" value={contact.name} />
+        <Summary label="Display name" value={contact.displayName ?? "-"} />
+        <Summary label="Type" value={contact.type} />
+        <Summary label="Email" value={contact.email ?? "-"} />
+        <Summary label="Phone" value={contact.phone ?? "-"} />
+        <Summary label="VAT number" value={contact.taxNumber ?? "-"} />
+        <Summary label="Billing address" value={billingAddress(contact)} />
+        {kind === "supplier" ? <Summary label="Bank details / payment notes" value="No bank details are recorded yet." /> : null}
+      </div>
+    </div>
+  );
+}
+
+function PartyNotes({ detail, kind }: { detail: PartyDetail; kind: PartyKind }) {
+  const text = kind === "customer" ? ("notes" in detail ? detail.notes : null) : "paymentNotes" in detail ? detail.paymentNotes : null;
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <h2 className="text-base font-semibold text-ink">Notes</h2>
+      <p className="mt-3 text-sm leading-6 text-steel">{text?.trim() || `No ${kind === "customer" ? "customer notes" : "supplier payment notes"} are recorded yet.`}</p>
+    </div>
+  );
+}
+
+function BalanceLine({ label, value, emphasized = false }: { label: string; value: string; emphasized?: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <span className="text-sm text-steel">{label}</span>
+      <span className={`${emphasized ? "text-lg font-semibold" : "text-sm font-medium"} font-mono text-ink`}>{value}</span>
+    </div>
+  );
+}
+
+function StatusBadge({ isActive }: { isActive: boolean }) {
+  return <span className={`rounded-md px-2 py-1 text-xs font-medium ${partyStatusBadgeClass(isActive)}`}>{isActive ? "Active" : "Inactive"}</span>;
+}
+
+function ActionLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Link href={href} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+      {children}
+    </Link>
+  );
+}
+
+function DisabledAction({ label, reason }: { label: string; reason: string }) {
+  return (
+    <button type="button" disabled title={reason} className="cursor-not-allowed rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-400">
+      {label}
+    </button>
+  );
+}
+
+function Summary({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
+      <div className="mt-1 break-words font-medium text-ink">{value}</div>
+    </div>
+  );
+}
+
+function displayName(contact: Contact): string {
+  return contact.displayName ?? contact.name;
+}
+
+function contactReach(contact: Contact): string {
+  return [contact.email, contact.phone].filter(Boolean).join(" / ") || "-";
+}
+
+function billingAddress(contact: Contact): string {
+  const parts = [contact.addressLine1, contact.addressLine2, contact.buildingNumber, contact.district, contact.city, contact.postalCode, contact.countryCode].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : "No billing address recorded.";
+}
+
+function openBalance(row: PartySummary | PartyDetail): string {
+  return "openReceivableBalance" in row ? row.openReceivableBalance : row.openPayableBalance;
+}
+
+function overdueBalance(row: PartySummary | PartyDetail): string {
+  return "overdueReceivableBalance" in row ? row.overdueReceivableBalance : row.overduePayableBalance;
+}
+
+function transactionStatusBadgeClass(status: string): string {
+  const normalized = status.toUpperCase();
+  if (normalized.includes("VOID") || normalized.includes("REVERSE") || normalized.includes("CANCEL")) {
+    return "bg-rose-50 text-rosewood";
+  }
+  if (normalized.includes("DRAFT") || normalized.includes("PENDING") || normalized.includes("PARTIAL")) {
+    return "bg-amber-50 text-amber-800";
+  }
+  if (normalized.includes("POST") || normalized.includes("FINAL") || normalized.includes("PAID") || normalized.includes("APPROVED")) {
+    return "bg-emerald-50 text-emerald-700";
+  }
+  return "bg-slate-100 text-slate-700";
+}
+
+function formatStatusLabel(status: string): string {
+  return status
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function partyCopy(kind: PartyKind) {
+  if (kind === "customer") {
+    return {
+      singularTitle: "Customer",
+      singularLower: "customer",
+      pluralTitle: "Customers",
+      pluralLower: "customers",
+      routeSegment: "customers",
+      contactType: "CUSTOMER",
+      openLabel: "Open receivable",
+      overdueLabel: "Overdue receivable",
+      balanceTitle: "Receivable summary",
+      listDescription: "Review customers independently from invoices, including open and overdue receivable balances.",
+      detailDescription: "See customer contact details, receivable balances, and every customer transaction in one place.",
+    };
+  }
+
+  return {
+    singularTitle: "Supplier",
+    singularLower: "supplier",
+    pluralTitle: "Suppliers",
+    pluralLower: "suppliers",
+    routeSegment: "suppliers",
+    contactType: "SUPPLIER",
+    openLabel: "Open payable",
+    overdueLabel: "Overdue payable",
+    balanceTitle: "Payable summary",
+    listDescription: "Review suppliers independently from bills, including open and overdue payable balances.",
+    detailDescription: "See supplier contact details, payable balances, and every supplier transaction in one place.",
+  };
+}

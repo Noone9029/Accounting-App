@@ -55,6 +55,11 @@ export const SIDEBAR_NAV_ITEMS: readonly SidebarNavItem[] = [
     ],
   },
   {
+    label: "Customers",
+    href: "/customers",
+    requiredAny: [PERMISSIONS.contacts.view],
+  },
+  {
     label: "Purchases",
     href: "/purchases/bills",
     activePrefix: "/purchases",
@@ -66,6 +71,11 @@ export const SIDEBAR_NAV_ITEMS: readonly SidebarNavItem[] = [
       { label: "Cash expenses", href: "/purchases/cash-expenses", requiredAny: [PERMISSIONS.cashExpenses.view] },
       { label: "Debit notes", href: "/purchases/debit-notes", requiredAny: [PERMISSIONS.purchaseDebitNotes.view] },
     ],
+  },
+  {
+    label: "Suppliers",
+    href: "/suppliers",
+    requiredAny: [PERMISSIONS.contacts.view],
   },
   {
     label: "Customers & suppliers",

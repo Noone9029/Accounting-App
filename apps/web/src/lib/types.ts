@@ -1939,6 +1939,7 @@ export interface InventoryVarianceProposalAccountingPreview {
 
 export interface Contact {
   id: string;
+  organizationId?: string;
   type: ContactType;
   name: string;
   displayName: string | null;
@@ -1955,6 +1956,57 @@ export interface Contact {
   postalCode: string | null;
   countryCode: string;
   isActive: boolean;
+}
+
+export type PartyTransactionSourceType =
+  | "SalesInvoice"
+  | "CreditNote"
+  | "CustomerPayment"
+  | "CustomerRefund"
+  | "PurchaseBill"
+  | "PurchaseDebitNote"
+  | "SupplierPayment"
+  | "SupplierRefund"
+  | "CashExpense";
+
+export interface PartyTransaction {
+  id: string;
+  sourceType: PartyTransactionSourceType;
+  sourceId: string;
+  date: string;
+  dueDate: string | null;
+  type: string;
+  transactionNumber: string;
+  currency: string;
+  subtotal: string;
+  taxAmount: string;
+  total: string;
+  balanceDue: string;
+  status: string;
+}
+
+export interface CustomerPartySummary {
+  contact: Contact;
+  openReceivableBalance: string;
+  overdueReceivableBalance: string;
+  lastTransactionDate: string | null;
+}
+
+export interface SupplierPartySummary {
+  contact: Contact;
+  openPayableBalance: string;
+  overduePayableBalance: string;
+  lastTransactionDate: string | null;
+}
+
+export interface CustomerPartyDetail extends CustomerPartySummary {
+  notes: string | null;
+  transactions: PartyTransaction[];
+}
+
+export interface SupplierPartyDetail extends SupplierPartySummary {
+  paymentNotes: string | null;
+  transactions: PartyTransaction[];
 }
 
 export interface Branch {

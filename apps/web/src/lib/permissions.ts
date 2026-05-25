@@ -114,6 +114,10 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.salesInvoices.view];
   }
 
+  if (pathname.startsWith("/customers")) {
+    return [PERMISSIONS.contacts.view];
+  }
+
   if (pathname === "/sales/customer-payments/new") {
     return [PERMISSIONS.customerPayments.create];
   }
@@ -209,6 +213,10 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
       PERMISSIONS.cashExpenses.view,
       PERMISSIONS.purchaseDebitNotes.view,
     ];
+  }
+
+  if (pathname.startsWith("/suppliers")) {
+    return [PERMISSIONS.contacts.view];
   }
 
   if (pathname.startsWith("/contacts")) {

@@ -27,6 +27,30 @@ export class ContactController {
     return this.contactService.list(organizationId);
   }
 
+  @Get("customers")
+  @RequirePermissions(PERMISSIONS.contacts.view)
+  customers(@CurrentOrganizationId() organizationId: string) {
+    return this.contactService.listCustomers(organizationId);
+  }
+
+  @Get("customers/:id")
+  @RequirePermissions(PERMISSIONS.contacts.view)
+  customer(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.contactService.getCustomer(organizationId, id);
+  }
+
+  @Get("suppliers")
+  @RequirePermissions(PERMISSIONS.contacts.view)
+  suppliers(@CurrentOrganizationId() organizationId: string) {
+    return this.contactService.listSuppliers(organizationId);
+  }
+
+  @Get("suppliers/:id")
+  @RequirePermissions(PERMISSIONS.contacts.view)
+  supplier(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.contactService.getSupplier(organizationId, id);
+  }
+
   @Post()
   @RequirePermissions(PERMISSIONS.contacts.manage)
   create(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Body() dto: CreateContactDto) {

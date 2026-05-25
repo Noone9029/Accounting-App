@@ -40,7 +40,8 @@ describe("mobile first-workflow navigation", () => {
     expect(nav).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/dashboard");
     expect(screen.getByRole("link", { name: "Setup" })).toHaveAttribute("href", "/setup");
-    expect(screen.getByRole("link", { name: "Customer" })).toHaveAttribute("href", "/contacts");
+    expect(screen.getByRole("link", { name: "Customer" })).toHaveAttribute("href", "/customers");
+    expect(screen.getByRole("link", { name: "Supplier" })).toHaveAttribute("href", "/suppliers");
     expect(screen.getByRole("link", { name: "Invoice" })).toHaveAttribute("href", "/sales/invoices/new");
     expect(screen.getByRole("link", { name: "Payment" })).toHaveAttribute("href", "/sales/customer-payments/new");
     expect(screen.getByRole("link", { name: "Reports" })).toHaveAttribute("href", "/reports");
