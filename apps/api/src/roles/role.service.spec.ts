@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException } from "@nestjs/common";
-import { PERMISSIONS } from "@ledgerbyte/shared";
+import { DEFAULT_ROLE_PERMISSIONS, PERMISSIONS } from "@ledgerbyte/shared";
 import { RoleService } from "./role.service";
 
 describe("RoleService", () => {
@@ -39,6 +39,53 @@ describe("RoleService", () => {
     await expect(service.create("org-1", "user-1", { name: "Bad", permissions: ["reports.view", "bad.permission"] })).rejects.toThrow(
       BadRequestException,
     );
+  });
+
+  it("accepts granular accounting action permissions on custom roles", async () => {
+    const granularPermissions = [
+      PERMISSIONS.customerPayments.applyUnapplied,
+      PERMISSIONS.customerPayments.reverseUnappliedAllocation,
+      PERMISSIONS.customerPayments.receiptPdfGenerate,
+      PERMISSIONS.zatca.submit,
+      PERMISSIONS.zatca.signingDryRun,
+      PERMISSIONS.reports.view,
+      PERMISSIONS.reports.export,
+    ];
+    const { service, prisma } = makeService();
+    prisma.role.create.mockResolvedValue({ ...role, name: "Accounting operator", permissions: granularPermissions });
+
+    const created = await service.create("org-1", "user-1", { name: "Accounting operator", permissions: granularPermissions });
+
+    expect(created.permissions).toEqual(granularPermissions);
+    expect(prisma.role.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ permissions: granularPermissions }),
+      }),
+    );
+  });
+
+  it("keeps default roles explicit for payment matching, outputs, reports, and ZATCA actions", () => {
+    expect(DEFAULT_ROLE_PERMISSIONS.Accountant).toEqual(
+      expect.arrayContaining([
+        PERMISSIONS.customerPayments.applyUnapplied,
+        PERMISSIONS.customerPayments.reverseUnappliedAllocation,
+        PERMISSIONS.customerPayments.void,
+        PERMISSIONS.customerPayments.receiptPdfGenerate,
+        PERMISSIONS.reports.view,
+        PERMISSIONS.reports.export,
+        PERMISSIONS.zatca.generateXml,
+        PERMISSIONS.zatca.runChecks,
+      ]),
+    );
+    expect(DEFAULT_ROLE_PERMISSIONS.Sales).toEqual(
+      expect.arrayContaining([PERMISSIONS.customerPayments.applyUnapplied, PERMISSIONS.customerPayments.receiptPdfGenerate]),
+    );
+    expect(DEFAULT_ROLE_PERMISSIONS.Sales).not.toContain(PERMISSIONS.customerPayments.reverseUnappliedAllocation);
+    expect(DEFAULT_ROLE_PERMISSIONS.Sales).not.toContain(PERMISSIONS.customerPayments.void);
+    expect(DEFAULT_ROLE_PERMISSIONS.Viewer).toEqual(expect.arrayContaining([PERMISSIONS.reports.view]));
+    expect(DEFAULT_ROLE_PERMISSIONS.Viewer).not.toContain(PERMISSIONS.reports.export);
+    expect(DEFAULT_ROLE_PERMISSIONS.Viewer).not.toContain(PERMISSIONS.customerPayments.receiptPdfGenerate);
+    expect(DEFAULT_ROLE_PERMISSIONS.Viewer).not.toContain(PERMISSIONS.zatca.submit);
   });
 
   it("rejects unknown permissions on update", async () => {

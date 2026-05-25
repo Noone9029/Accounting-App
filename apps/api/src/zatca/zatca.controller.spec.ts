@@ -1,4 +1,6 @@
 import { GUARDS_METADATA } from "@nestjs/common/constants";
+import { PERMISSIONS } from "@ledgerbyte/shared";
+import { REQUIRED_PERMISSIONS_KEY } from "../auth/decorators/require-permissions.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { ZatcaController } from "./zatca.controller";
@@ -66,5 +68,26 @@ describe("ZATCA controller", () => {
     expect(typeof ZatcaController.prototype.listComplianceCsidCustodyRecords).toBe("function");
     expect(typeof ZatcaController.prototype.createComplianceCsidCustodyRecord).toBe("function");
     expect(typeof ZatcaController.prototype.revokeComplianceCsidCustodyRecord).toBe("function");
+  });
+
+  it("requires specific ZATCA invoice action permissions", () => {
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, ZatcaController.prototype.generateInvoiceCompliance)).toEqual([
+      PERMISSIONS.zatca.generateXml,
+    ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, ZatcaController.prototype.submitInvoiceComplianceCheck)).toEqual([
+      PERMISSIONS.zatca.runChecks,
+    ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, ZatcaController.prototype.invoiceLocalSigningDryRun)).toEqual([
+      PERMISSIONS.zatca.signingDryRun,
+    ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, ZatcaController.prototype.invoiceLocalSignedXmlValidationDryRun)).toEqual([
+      PERMISSIONS.zatca.signingDryRun,
+    ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, ZatcaController.prototype.requestInvoiceClearance)).toEqual([
+      PERMISSIONS.zatca.submit,
+    ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, ZatcaController.prototype.requestInvoiceReporting)).toEqual([
+      PERMISSIONS.zatca.submit,
+    ]);
   });
 });

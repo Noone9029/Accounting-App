@@ -19,16 +19,29 @@ describe("CustomerPaymentController unapplied allocation routes", () => {
     expect(Reflect.getMetadata(METHOD_METADATA, CustomerPaymentController.prototype.reverseUnappliedAllocation)).toBe(RequestMethod.POST);
   });
 
-  it("requires customer payment create permission for applying unapplied payment credit", () => {
+  it("requires customer payment apply-unapplied permission for applying unapplied payment credit", () => {
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, CustomerPaymentController.prototype.applyUnapplied)).toEqual([
-      PERMISSIONS.customerPayments.create,
+      PERMISSIONS.customerPayments.applyUnapplied,
     ]);
   });
 
-  it("requires customer payment void permission for reversing unapplied payment allocation", () => {
+  it("requires customer payment reverse-unapplied permission for reversing unapplied payment allocation", () => {
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, CustomerPaymentController.prototype.reverseUnappliedAllocation)).toEqual([
-      PERMISSIONS.customerPayments.void,
+      PERMISSIONS.customerPayments.reverseUnappliedAllocation,
     ]);
+  });
+
+  it("requires customer payment receipt PDF generation permission for explicit receipt PDF output", () => {
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, CustomerPaymentController.prototype.receiptPdf)).toEqual([
+      PERMISSIONS.customerPayments.receiptPdfGenerate,
+    ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, CustomerPaymentController.prototype.generateReceiptPdf)).toEqual([
+      PERMISSIONS.customerPayments.receiptPdfGenerate,
+    ]);
+  });
+
+  it("requires customer payment void permission for payment voiding", () => {
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, CustomerPaymentController.prototype.void)).toEqual([PERMISSIONS.customerPayments.void]);
   });
 
   it("calls the applyUnapplied service path with organization, actor, payment id, and dto", async () => {

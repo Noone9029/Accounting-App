@@ -47,7 +47,7 @@ export class CustomerPaymentController {
   }
 
   @Get(":id/receipt.pdf")
-  @RequirePermissions(PERMISSIONS.customerPayments.view)
+  @RequirePermissions(PERMISSIONS.customerPayments.receiptPdfGenerate)
   async receiptPdf(
     @CurrentOrganizationId() organizationId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -64,7 +64,7 @@ export class CustomerPaymentController {
   }
 
   @Post(":id/generate-receipt-pdf")
-  @RequirePermissions(PERMISSIONS.customerPayments.view)
+  @RequirePermissions(PERMISSIONS.customerPayments.receiptPdfGenerate)
   generateReceiptPdf(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
     return this.customerPaymentService.generateReceiptPdf(organizationId, user.id, id);
   }
@@ -76,7 +76,7 @@ export class CustomerPaymentController {
   }
 
   @Post(":id/apply-unapplied")
-  @RequirePermissions(PERMISSIONS.customerPayments.create)
+  @RequirePermissions(PERMISSIONS.customerPayments.applyUnapplied)
   applyUnapplied(
     @CurrentOrganizationId() organizationId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -87,7 +87,7 @@ export class CustomerPaymentController {
   }
 
   @Post(":id/unapplied-allocations/:allocationId/reverse")
-  @RequirePermissions(PERMISSIONS.customerPayments.void)
+  @RequirePermissions(PERMISSIONS.customerPayments.reverseUnappliedAllocation)
   reverseUnappliedAllocation(
     @CurrentOrganizationId() organizationId: string,
     @CurrentUser() user: AuthenticatedUser,

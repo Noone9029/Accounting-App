@@ -439,7 +439,7 @@ export class ZatcaController {
   }
 
   @Post("sales-invoices/:id/zatca/local-signing-dry-run")
-  @RequirePermissions(PERMISSIONS.zatca.manage)
+  @RequirePermissions(PERMISSIONS.zatca.signingDryRun)
   invoiceLocalSigningDryRun(
     @CurrentOrganizationId() organizationId: string,
     @Param("id") id: string,
@@ -449,7 +449,7 @@ export class ZatcaController {
   }
 
   @Post("sales-invoices/:id/zatca/local-signed-xml-validation-dry-run")
-  @RequirePermissions(PERMISSIONS.zatca.manage)
+  @RequirePermissions(PERMISSIONS.zatca.signingDryRun)
   invoiceLocalSignedXmlValidationDryRun(
     @CurrentOrganizationId() organizationId: string,
     @Param("id") id: string,
@@ -471,13 +471,13 @@ export class ZatcaController {
   }
 
   @Post("sales-invoices/:id/zatca/clearance")
-  @RequirePermissions(PERMISSIONS.zatca.manage)
+  @RequirePermissions(PERMISSIONS.zatca.submit)
   requestInvoiceClearance(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
     return this.zatcaService.requestInvoiceClearance(organizationId, user.id, id);
   }
 
   @Post("sales-invoices/:id/zatca/reporting")
-  @RequirePermissions(PERMISSIONS.zatca.manage)
+  @RequirePermissions(PERMISSIONS.zatca.submit)
   requestInvoiceReporting(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
     return this.zatcaService.requestInvoiceReporting(organizationId, user.id, id);
   }

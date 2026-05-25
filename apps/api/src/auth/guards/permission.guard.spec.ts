@@ -75,6 +75,24 @@ describe("PermissionGuard", () => {
     await expect(guard.canActivate(context)).rejects.toThrow("You do not have permission to perform this action.");
   });
 
+  it("rejects applying unapplied customer payment credit without customerPayments.applyUnapplied", async () => {
+    const { guard, context } = makeGuard([PERMISSIONS.customerPayments.applyUnapplied], [PERMISSIONS.customerPayments.create]);
+
+    await expect(guard.canActivate(context)).rejects.toThrow("You do not have permission to perform this action.");
+  });
+
+  it("rejects reversing unapplied customer payment allocations without customerPayments.reverseUnappliedAllocation", async () => {
+    const { guard, context } = makeGuard([PERMISSIONS.customerPayments.reverseUnappliedAllocation], [PERMISSIONS.customerPayments.void]);
+
+    await expect(guard.canActivate(context)).rejects.toThrow("You do not have permission to perform this action.");
+  });
+
+  it("rejects customer payment receipt PDF generation without customerPayments.receiptPdf.generate", async () => {
+    const { guard, context } = makeGuard([PERMISSIONS.customerPayments.receiptPdfGenerate], [PERMISSIONS.customerPayments.view]);
+
+    await expect(guard.canActivate(context)).rejects.toThrow("You do not have permission to perform this action.");
+  });
+
   it("rejects purchase bill finalization without purchaseBills.finalize", async () => {
     const { guard, context } = makeGuard([PERMISSIONS.purchaseBills.finalize], [PERMISSIONS.purchaseBills.view]);
 
@@ -147,6 +165,18 @@ describe("PermissionGuard", () => {
 
   it("rejects ZATCA management without zatca.manage", async () => {
     const { guard, context } = makeGuard([PERMISSIONS.zatca.manage], [PERMISSIONS.zatca.view]);
+
+    await expect(guard.canActivate(context)).rejects.toThrow("You do not have permission to perform this action.");
+  });
+
+  it("rejects ZATCA submission without zatca.submit", async () => {
+    const { guard, context } = makeGuard([PERMISSIONS.zatca.submit], [PERMISSIONS.zatca.generateXml]);
+
+    await expect(guard.canActivate(context)).rejects.toThrow("You do not have permission to perform this action.");
+  });
+
+  it("rejects ZATCA local signing dry-runs without zatca.signing.dryRun", async () => {
+    const { guard, context } = makeGuard([PERMISSIONS.zatca.signingDryRun], [PERMISSIONS.zatca.runChecks]);
 
     await expect(guard.canActivate(context)).rejects.toThrow("You do not have permission to perform this action.");
   });
