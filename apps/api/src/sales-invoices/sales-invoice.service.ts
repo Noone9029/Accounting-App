@@ -190,6 +190,7 @@ export class SalesInvoiceService {
         total: true,
         balanceDue: true,
         customerId: true,
+        status: true,
       },
     });
   }

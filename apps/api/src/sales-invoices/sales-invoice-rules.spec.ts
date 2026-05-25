@@ -480,6 +480,7 @@ describe("sales invoice rules", () => {
         total: "115.0000",
         balanceDue: "40.0000",
         customerId: "customer-1",
+        status: SalesInvoiceStatus.FINALIZED,
       },
     ];
     const prisma = {
@@ -508,8 +509,96 @@ describe("sales invoice rules", () => {
         total: true,
         balanceDue: true,
         customerId: true,
+        status: true,
       },
     });
+  });
+
+  it("excludes voided DEV-06 invoices and includes INVOICE-000002-like finalized balance due targets", async () => {
+    const issueDate = new Date("2026-05-24T00:00:00.000Z");
+    const prisma = makeOpenInvoicePrisma([
+      openInvoiceFixture({
+        id: "invoice-draft",
+        invoiceNumber: "DEV-06-DRAFT",
+        organizationId: "org-1",
+        customerId: "customer-1",
+        status: SalesInvoiceStatus.DRAFT,
+        balanceDue: "650.0000",
+        issueDate,
+      }),
+      openInvoiceFixture({
+        id: "invoice-dev-06-voided",
+        invoiceNumber: "DEV-06-VOIDED",
+        organizationId: "org-1",
+        customerId: "customer-1",
+        status: SalesInvoiceStatus.VOIDED,
+        balanceDue: "650.0000",
+        issueDate,
+      }),
+      openInvoiceFixture({
+        id: "invoice-paid",
+        invoiceNumber: "INVOICE-PAID",
+        organizationId: "org-1",
+        customerId: "customer-1",
+        status: SalesInvoiceStatus.FINALIZED,
+        balanceDue: "0.0000",
+        issueDate,
+      }),
+      openInvoiceFixture({
+        id: "invoice-other-customer",
+        invoiceNumber: "INVOICE-OTHER-CUSTOMER",
+        organizationId: "org-1",
+        customerId: "customer-2",
+        status: SalesInvoiceStatus.FINALIZED,
+        balanceDue: "650.0000",
+        issueDate,
+      }),
+      openInvoiceFixture({
+        id: "invoice-other-org",
+        invoiceNumber: "INVOICE-OTHER-ORG",
+        organizationId: "org-2",
+        customerId: "customer-1",
+        status: SalesInvoiceStatus.FINALIZED,
+        balanceDue: "650.0000",
+        issueDate,
+      }),
+      openInvoiceFixture({
+        id: "invoice-000002",
+        invoiceNumber: "INVOICE-000002",
+        organizationId: "org-1",
+        customerId: "customer-1",
+        status: SalesInvoiceStatus.FINALIZED,
+        total: "1150.0000",
+        balanceDue: "650.0000",
+        issueDate,
+      }),
+    ]);
+    const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, { reverse: jest.fn() } as never);
+
+    await expect(service.open("org-1", "customer-1")).resolves.toEqual([
+      {
+        id: "invoice-000002",
+        invoiceNumber: "INVOICE-000002",
+        issueDate,
+        dueDate: null,
+        currency: "SAR",
+        total: "1150.0000",
+        balanceDue: "650.0000",
+        customerId: "customer-1",
+        status: SalesInvoiceStatus.FINALIZED,
+      },
+    ]);
+
+    expect(prisma.salesInvoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          organizationId: "org-1",
+          customerId: "customer-1",
+          status: SalesInvoiceStatus.FINALIZED,
+          balanceDue: { gt: 0 },
+        },
+      }),
+    );
   });
 
   it("rejects missing or blank open invoice customer filters", () => {
@@ -562,6 +651,74 @@ describe("sales invoice rules", () => {
     await expect(service.update("org-1", "user-1", "item-1", { status: "DISABLED" })).resolves.toMatchObject({ status: "DISABLED" });
   });
 });
+
+interface OpenInvoiceFixture {
+  id: string;
+  invoiceNumber: string;
+  organizationId: string;
+  customerId: string;
+  status: SalesInvoiceStatus;
+  issueDate: Date;
+  dueDate: Date | null;
+  currency: string;
+  total: string;
+  balanceDue: string;
+}
+
+interface OpenInvoiceFindManyArgs {
+  where: {
+    organizationId: string;
+    customerId: string;
+    status: SalesInvoiceStatus;
+    balanceDue: { gt: number };
+  };
+  select: Record<keyof Omit<OpenInvoiceFixture, "organizationId">, boolean>;
+}
+
+function openInvoiceFixture(overrides: Partial<OpenInvoiceFixture>): OpenInvoiceFixture {
+  return {
+    id: "invoice-1",
+    invoiceNumber: "INV-001",
+    organizationId: "org-1",
+    customerId: "customer-1",
+    status: SalesInvoiceStatus.FINALIZED,
+    issueDate: new Date("2026-05-24T00:00:00.000Z"),
+    dueDate: null,
+    currency: "SAR",
+    total: "1150.0000",
+    balanceDue: "650.0000",
+    ...overrides,
+  };
+}
+
+function makeOpenInvoicePrisma(invoices: OpenInvoiceFixture[]) {
+  return {
+    salesInvoice: {
+      findMany: jest.fn(({ where, select }: OpenInvoiceFindManyArgs) =>
+        Promise.resolve(
+          invoices
+            .filter(
+              (invoice) =>
+                invoice.organizationId === where.organizationId &&
+                invoice.customerId === where.customerId &&
+                invoice.status === where.status &&
+                Number(invoice.balanceDue) > where.balanceDue.gt,
+            )
+            .sort((left, right) => left.issueDate.getTime() - right.issueDate.getTime())
+            .map((invoice) => selectOpenInvoiceFields(invoice, select)),
+        ),
+      ),
+    },
+  };
+}
+
+function selectOpenInvoiceFields(invoice: OpenInvoiceFixture, select: Record<keyof Omit<OpenInvoiceFixture, "organizationId">, boolean>) {
+  return Object.fromEntries(
+    Object.entries(select)
+      .filter(([, include]) => include)
+      .map(([key]) => [key, invoice[key as keyof OpenInvoiceFixture]]),
+  );
+}
 
 function makeFinalizeTransactionMock(options: { claimCount?: number; journalCreateError?: Error } = {}) {
   return {

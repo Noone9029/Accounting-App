@@ -2999,6 +2999,7 @@ export interface OpenSalesInvoice {
   total: string;
   balanceDue: string;
   customerId: string;
+  status?: SalesInvoiceStatus;
 }
 
 export interface OpenPurchaseBill {
