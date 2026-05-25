@@ -366,9 +366,15 @@ If the next task proceeds with local AP fixture creation, use this exact approva
 
 `I approve DEV-08 Part 2 local-only AP fixture creation mutation under marker DEV08-AP-20260525T230000. No production, no beta, no customer data.`
 
+## Part 2 Evidence Note
+
+DEV-08 Part 2 completed the approved local AP fixture creation mutation. Evidence is recorded in [DEV_08_AP_FIXTURE_CREATION_MUTATION_EVIDENCE.md](DEV_08_AP_FIXTURE_CREATION_MUTATION_EVIDENCE.md).
+
+Part 2 created one fake local supplier and one finalized direct-mode purchase bill under marker `DEV08-AP-20260525T230000`. The VAT path was used, the bill total and balance due are `1150.0000`, one posted purchase bill journal was created, and supplier payment/refund/debit-note/purchase-order/purchase-receipt/inventory/cash-expense/output/email/ZATCA/cleanup side-effect counts remained unchanged.
+
 ## Exact Next Prompt Title
 
-`DEV-08 Part 2: approved local AP fixture creation mutation`
+`DEV-08 Part 3: AP fixture evidence verification`
 
 ## Commands Run
 

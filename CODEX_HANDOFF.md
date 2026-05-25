@@ -956,3 +956,21 @@
 ## Next Thread Prompt
 
 `DEV-08 Part 2: approved local AP fixture creation mutation`
+
+## DEV-08 Part 2 - AP Fixture Creation Mutation Completed
+
+- DEV-08 Part 2 local-only mutation evidence is recorded in [docs/development/DEV_08_AP_FIXTURE_CREATION_MUTATION_EVIDENCE.md](docs/development/DEV_08_AP_FIXTURE_CREATION_MUTATION_EVIDENCE.md).
+- Approval phrase was received for the local-only AP fixture creation mutation under marker `DEV08-AP-20260525T230000`.
+- Mutation performed: yes. The successful guarded script execution called `ContactService.create(...)` once, `PurchaseBillService.create(...)` once, and `PurchaseBillService.finalize(...)` once.
+- Supplier evidence: one active fake local `SUPPLIER` contact was created with display label `DEV08-AP-20260525T230000 Supplier`, safe id prefix `0e36df97`, in fake local organization safe prefix `db69e5a8`.
+- Purchase bill evidence: `BILL-000007`, safe id prefix `d81ddd60`, status `FINALIZED`, `DIRECT_EXPENSE_OR_ASSET`, subtotal `1000.0000`, tax `150.0000`, total `1150.0000`, balance due `1150.0000`, no purchase order link, no reversal journal, and no supplier payment/debit-note allocations.
+- Tax path: VAT path was used with AP account `210`, VAT receivable account `230`, and purchase tax rate `VAT on Purchases 15%`; zero-tax fallback was not used.
+- Journal/accounting evidence: posted journal `JE-000049`, safe id prefix `3dfa0a86`, total debit `1150.0000`, total credit `1150.0000`, with debit `1000.0000` to account `111`, debit `150.0000` to account `230`, and credit `1150.0000` to account `210`; organization journal count changed `48 -> 49`.
+- Audit evidence: created `Contact:CREATE`, `PurchaseBill:PURCHASE_BILL_CREATED`, and `PurchaseBill:PURCHASE_BILL_FINALIZED`; no supplier payment, supplier refund, debit note, void, reverse, or login/browser audit-writing action was created by this mutation.
+- Output/email/ZATCA/payment/refund/debit-note/purchase-order/inventory/cash-expense/cleanup occurred: no. The guarded script verified supplier payment, supplier refund, purchase debit note, purchase order, purchase receipt, stock movement, cash expense, generated document, email, ZATCA signed artifact/submission, auth token, and cleanup/delete audit counts were unchanged.
+- Note: the exact DEV-07 AR fixture organization exists but lacks AP account `210`, so Part 2 used an existing fake local AP-ready SDK validation organization. Future DEV-08 evidence should keep comparing before/after side-effect counts because that organization has baseline local AP/ZATCA/output data.
+- Exact next prompt title: `DEV-08 Part 3: AP fixture evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08 Part 3: AP fixture evidence verification`
