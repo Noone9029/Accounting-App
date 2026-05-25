@@ -1080,3 +1080,22 @@
 ## Next Thread Prompt
 
 `DEV-08 Part 9: supplier payment unapplied allocation reversal preflight`
+
+## DEV-08 Part 9 - Supplier Payment Unapplied Allocation Reversal Preflight Completed
+
+- DEV-08 Part 9 read-only preflight is recorded in [docs/development/DEV_08_SUPPLIER_PAYMENT_UNAPPLIED_REVERSAL_PREFLIGHT.md](docs/development/DEV_08_SUPPLIER_PAYMENT_UNAPPLIED_REVERSAL_PREFLIGHT.md).
+- Mutation performed: no. `SupplierPaymentService.reverseUnappliedAllocation(...)` was not called, and no supplier payment creation, supplier payment apply-unapplied, supplier payment void, purchase bill mutation, purchase bill void, supplier refund, purchase debit note, purchase order, purchase receipt, cash expense, stock movement, generated document, PDF/archive/export/download, email, ZATCA, migration, seed/reset/delete, deployment, environment/provider/schema change, production, beta, shared-target, customer-data, or login/browser flow ran.
+- Local-only safety result: Docker Linux engine was available, local Postgres/Redis containers were healthy, read-only SQL ran inside local `infra-postgres-1`, and no hosted/prod/beta/shared/customer-data target was used or printed.
+- Current supplier payment state: `PAY-000006`, safe id prefix `622ad0b6`, remains `POSTED`, amount paid `500.0000`, unapplied amount `0.0000`, journal `JE-000050`, and no void reversal journal.
+- Current purchase bill state: `BILL-000007`, safe id prefix `d81ddd60`, remains `FINALIZED`, total `1150.0000`, balance due `650.0000`, inventory posting mode `DIRECT_EXPENSE_OR_ASSET`, and no reversal journal.
+- Current allocation state: exactly one direct `SupplierPaymentAllocation` remains for `300.0000`, safe id prefix `6ec44d14`; exactly one active `SupplierPaymentUnappliedAllocation` exists for `200.0000`, safe id prefix `a8ee4e23`, with no `reversedAt`, `reversedById`, or `reversalReason`.
+- Expected Part 10 reversal effects: payment unapplied amount changes `0.0000 -> 200.0000`; bill balance due changes `650.0000 -> 850.0000`; direct allocation remains unchanged; active unapplied allocation is marked reversed with reason `DEV-08 local-only reversal QA for supplier payment unapplied allocation`.
+- Expected accounting result: no new journal entry; `JE-000049` and `JE-000050` remain posted and unchanged; organization journal count should remain `50`; `JOURNAL_ENTRY` sequence should remain next `51`.
+- Expected audit result: one raw `REVERSE_UNAPPLIED_ALLOCATION` audit action for `SupplierPaymentUnappliedAllocation`, because `audit-events.ts` does not currently standardize the supplier payment unapplied reverse action; no supplier payment void, supplier refund, purchase debit note, purchase bill void, or login/browser audit-writing action is expected.
+- Forbidden side effects checked: fixture-specific generated documents, email outbox rows, supplier refunds, purchase debit notes, purchase orders, purchase receipts, stock movements, cash expenses, and cleanup/delete audit actions are all `0`; organization-level ZATCA baselines remained unchanged (`1` signed artifact draft and `7` submission logs).
+- Required approval phrase for Part 10: `I approve DEV-08 Part 10 local-only supplier payment unapplied allocation reversal mutation under marker DEV08-AP-20260525T230000 for BILL-000007 and the active 200.0000 supplier payment unapplied allocation. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08 Part 10: approved local supplier payment unapplied allocation reversal mutation`.
+
+## Next Thread Prompt
+
+`DEV-08 Part 10: approved local supplier payment unapplied allocation reversal mutation`
