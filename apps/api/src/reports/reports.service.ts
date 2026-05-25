@@ -30,6 +30,7 @@ export interface ReportDateQuery {
   to?: string;
   asOf?: string;
   accountId?: string;
+  branchId?: string;
   includeZero?: string | boolean;
   format?: "json" | "csv" | string;
 }
@@ -109,15 +110,16 @@ export class ReportsService {
 
   async generalLedger(organizationId: string, query: ReportDateQuery) {
     const range = parseRange(query);
+    const branchId = cleanOptionalFilterId(query.branchId);
     const accounts = await this.prisma.account.findMany({
       where: { organizationId, ...(query.accountId ? { id: query.accountId } : {}) },
       orderBy: [{ code: "asc" }],
       select: { id: true, code: true, name: true, type: true },
     });
     const openingLines = range.from
-      ? await this.findJournalLines(organizationId, { before: range.from, accountId: query.accountId })
+      ? await this.findJournalLines(organizationId, { before: range.from, accountId: query.accountId, branchId })
       : [];
-    const periodLines = await this.findJournalLines(organizationId, { from: range.from, to: range.to, accountId: query.accountId });
+    const periodLines = await this.findJournalLines(organizationId, { from: range.from, to: range.to, accountId: query.accountId, branchId });
 
     return buildGeneralLedgerReport(accounts, openingLines, periodLines, {
       from: range.fromLabel,
@@ -128,13 +130,14 @@ export class ReportsService {
 
   async trialBalance(organizationId: string, query: ReportDateQuery) {
     const range = parseRange(query);
+    const branchId = cleanOptionalFilterId(query.branchId);
     const accounts = await this.prisma.account.findMany({
       where: { organizationId },
       orderBy: [{ code: "asc" }],
       select: { id: true, code: true, name: true, type: true },
     });
-    const openingLines = range.from ? await this.findJournalLines(organizationId, { before: range.from }) : [];
-    const periodLines = await this.findJournalLines(organizationId, { from: range.from, to: range.to });
+    const openingLines = range.from ? await this.findJournalLines(organizationId, { before: range.from, branchId }) : [];
+    const periodLines = await this.findJournalLines(organizationId, { from: range.from, to: range.to, branchId });
 
     return buildTrialBalanceReport(accounts, openingLines, periodLines, {
       from: range.fromLabel,
@@ -145,45 +148,50 @@ export class ReportsService {
 
   async profitAndLoss(organizationId: string, query: ReportDateQuery) {
     const range = parseRange(query);
+    const branchId = cleanOptionalFilterId(query.branchId);
     const accounts = await this.prisma.account.findMany({
       where: { organizationId, type: { in: [AccountType.REVENUE, AccountType.COST_OF_SALES, AccountType.EXPENSE] } },
       orderBy: [{ code: "asc" }],
       select: { id: true, code: true, name: true, type: true },
     });
-    const lines = await this.findJournalLines(organizationId, { from: range.from, to: range.to });
+    const lines = await this.findJournalLines(organizationId, { from: range.from, to: range.to, branchId });
     return buildProfitAndLossReport(accounts, lines, { from: range.fromLabel, to: range.toLabel });
   }
 
   async balanceSheet(organizationId: string, query: ReportDateQuery) {
     const asOf = parseEndDate(query.asOf);
+    const branchId = cleanOptionalFilterId(query.branchId);
     const accounts = await this.prisma.account.findMany({
       where: { organizationId },
       orderBy: [{ code: "asc" }],
       select: { id: true, code: true, name: true, type: true },
     });
-    const lines = await this.findJournalLines(organizationId, { to: asOf });
+    const lines = await this.findJournalLines(organizationId, { to: asOf, branchId });
     return buildBalanceSheetReport(accounts, lines, { asOf: dateLabel(query.asOf, asOf) });
   }
 
   async vatSummary(organizationId: string, query: ReportDateQuery) {
     const range = parseRange(query);
+    const branchId = cleanOptionalFilterId(query.branchId);
     const vatAccounts = await this.prisma.account.findMany({
       where: { organizationId, code: { in: ["220", "230"] } },
       orderBy: [{ code: "asc" }],
       select: { id: true, code: true, name: true, type: true },
     });
-    const lines = await this.findJournalLines(organizationId, { from: range.from, to: range.to });
+    const lines = await this.findJournalLines(organizationId, { from: range.from, to: range.to, branchId });
     return buildVatSummaryReport(vatAccounts, lines, { from: range.fromLabel, to: range.toLabel });
   }
 
   async vatReturn(organizationId: string, query: ReportDateQuery) {
     const range = parseRange(query);
     const documentDateFilter = dateRangeFilter(range.from, range.to);
+    const branchId = cleanOptionalFilterId(query.branchId);
     const [salesInvoices, purchaseBills] = await Promise.all([
       this.prisma.salesInvoice.findMany({
         where: {
           organizationId,
           status: SalesInvoiceStatus.FINALIZED,
+          ...(branchId ? { branchId } : {}),
           ...(documentDateFilter ? { issueDate: documentDateFilter } : {}),
         },
         orderBy: [{ issueDate: "asc" }, { invoiceNumber: "asc" }],
@@ -200,6 +208,7 @@ export class ReportsService {
         where: {
           organizationId,
           status: PurchaseBillStatus.FINALIZED,
+          ...(branchId ? { branchId } : {}),
           ...(documentDateFilter ? { billDate: documentDateFilter } : {}),
         },
         orderBy: [{ billDate: "asc" }, { billNumber: "asc" }],
@@ -239,11 +248,13 @@ export class ReportsService {
     const asOf = parseEndDate(query.asOf ?? query.to) ?? endOfToday();
     const periodFrom = parseStartDate(query.from) ?? startOfMonth(asOf);
     const periodTo = parseEndDate(query.to) ?? asOf;
+    const branchId = cleanOptionalFilterId(query.branchId);
     const [receivables, payables, cashAccounts, revenueLines, vatLines] = await Promise.all([
       this.prisma.salesInvoice.findMany({
         where: {
           organizationId,
           status: SalesInvoiceStatus.FINALIZED,
+          ...(branchId ? { branchId } : {}),
           balanceDue: { gt: "0.0000" },
           issueDate: { lte: asOf },
         },
@@ -254,6 +265,7 @@ export class ReportsService {
         where: {
           organizationId,
           status: PurchaseBillStatus.FINALIZED,
+          ...(branchId ? { branchId } : {}),
           balanceDue: { gt: "0.0000" },
           billDate: { lte: asOf },
         },
@@ -277,16 +289,18 @@ export class ReportsService {
         from: periodFrom,
         to: periodTo,
         accountType: AccountType.REVENUE,
+        branchId,
       }),
       this.findDashboardJournalLines(organizationId, {
         from: periodFrom,
         to: periodTo,
         accountCodes: ["220", "230"],
+        branchId,
       }),
     ]);
     const cashAccountIds = cashAccounts.map((account) => account.accountId);
     const cashLines = cashAccountIds.length
-      ? await this.findDashboardJournalLines(organizationId, { to: asOf, accountIds: cashAccountIds })
+      ? await this.findDashboardJournalLines(organizationId, { to: asOf, accountIds: cashAccountIds, branchId })
       : [];
 
     return buildFinancialDashboardSummary(
@@ -330,10 +344,12 @@ export class ReportsService {
 
   async agedReceivables(organizationId: string, query: ReportDateQuery) {
     const asOf = parseEndDate(query.asOf) ?? endOfToday();
+    const branchId = cleanOptionalFilterId(query.branchId);
     const invoices = await this.prisma.salesInvoice.findMany({
       where: {
         organizationId,
         status: SalesInvoiceStatus.FINALIZED,
+        ...(branchId ? { branchId } : {}),
         balanceDue: { gt: "0.0000" },
         issueDate: { lte: asOf },
       },
@@ -357,10 +373,12 @@ export class ReportsService {
 
   async agedPayables(organizationId: string, query: ReportDateQuery) {
     const asOf = parseEndDate(query.asOf) ?? endOfToday();
+    const branchId = cleanOptionalFilterId(query.branchId);
     const bills = await this.prisma.purchaseBill.findMany({
       where: {
         organizationId,
         status: PurchaseBillStatus.FINALIZED,
+        ...(branchId ? { branchId } : {}),
         balanceDue: { gt: "0.0000" },
         billDate: { lte: asOf },
       },
@@ -438,7 +456,7 @@ export class ReportsService {
 
   private async findJournalLines(
     organizationId: string,
-    filters: { from?: Date | null; to?: Date | null; before?: Date | null; accountId?: string },
+    filters: { from?: Date | null; to?: Date | null; before?: Date | null; accountId?: string; branchId?: string },
   ) {
     const entryDate: { gte?: Date; lte?: Date; lt?: Date } = {};
     if (filters.before) {
@@ -458,6 +476,7 @@ export class ReportsService {
         journalEntry: {
           status: { in: POSTED_REPORT_STATUSES },
           ...(Object.keys(entryDate).length ? { entryDate } : {}),
+          ...journalEntryBranchFilter(organizationId, filters.branchId),
         },
       },
       include: {
@@ -478,7 +497,14 @@ export class ReportsService {
 
   private async findDashboardJournalLines(
     organizationId: string,
-    filters: { from?: Date | null; to?: Date | null; accountIds?: string[]; accountType?: AccountType; accountCodes?: string[] },
+    filters: {
+      from?: Date | null;
+      to?: Date | null;
+      accountIds?: string[];
+      accountType?: AccountType;
+      accountCodes?: string[];
+      branchId?: string;
+    },
   ): Promise<DashboardLedgerLineInput[]> {
     const entryDate: { gte?: Date; lte?: Date } = {};
     if (filters.from) {
@@ -505,6 +531,7 @@ export class ReportsService {
         journalEntry: {
           status: { in: POSTED_REPORT_STATUSES },
           ...(Object.keys(entryDate).length ? { entryDate } : {}),
+          ...journalEntryBranchFilter(organizationId, filters.branchId),
         },
       },
       select: {
@@ -588,14 +615,42 @@ function reportDocumentType(kind: CoreReportKind): DocumentType {
 
 function reportSourceId(kind: CoreReportKind, query: ReportDateQuery): string {
   const params = new URLSearchParams();
-  for (const key of ["from", "to", "asOf", "accountId", "includeZero"] as const) {
+  for (const key of ["from", "to", "asOf", "accountId", "branchId", "includeZero"] as const) {
     const value = query[key];
     if (value !== undefined && value !== null && value !== "") {
-      params.set(key, String(value));
+      const normalizedValue = String(value).trim();
+      if (normalizedValue) {
+        params.set(key, normalizedValue);
+      }
     }
   }
   const suffix = params.toString();
   return suffix ? `${kind}?${suffix}` : kind;
+}
+
+function cleanOptionalFilterId(value?: string): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed || undefined;
+}
+
+function journalEntryBranchFilter(organizationId: string, branchId?: string) {
+  if (!branchId) {
+    return {};
+  }
+  return {
+    OR: [
+      { salesInvoice: { is: { organizationId, branchId } } },
+      { voidedSalesInvoice: { is: { organizationId, branchId } } },
+      { creditNote: { is: { organizationId, branchId } } },
+      { voidedCreditNote: { is: { organizationId, branchId } } },
+      { purchaseBill: { is: { organizationId, branchId } } },
+      { voidedPurchaseBill: { is: { organizationId, branchId } } },
+      { purchaseDebitNote: { is: { organizationId, branchId } } },
+      { voidedPurchaseDebitNote: { is: { organizationId, branchId } } },
+      { cashExpense: { is: { organizationId, branchId } } },
+      { voidedCashExpense: { is: { organizationId, branchId } } },
+    ],
+  };
 }
 
 export function buildGeneralLedgerReport(

@@ -96,9 +96,20 @@ export class CustomerPaymentService {
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
   ) {}
 
-  list(organizationId: string) {
+  list(organizationId: string, branchId?: string) {
+    const targetBranchId = cleanOptionalFilterId(branchId);
     return this.prisma.customerPayment.findMany({
-      where: { organizationId },
+      where: {
+        organizationId,
+        ...(targetBranchId
+          ? {
+              OR: [
+                { allocations: { some: { organizationId, invoice: { is: { organizationId, branchId: targetBranchId } } } } },
+                { unappliedAllocations: { some: { organizationId, invoice: { is: { organizationId, branchId: targetBranchId } } } } },
+              ],
+            }
+          : {}),
+      },
       orderBy: { paymentDate: "desc" },
       include: {
         customer: { select: { id: true, name: true, displayName: true } },
@@ -1070,6 +1081,11 @@ export class CustomerPaymentService {
   private async assertPostingDateAllowed(organizationId: string, postingDate: string | Date, tx?: Prisma.TransactionClient): Promise<void> {
     await this.fiscalPeriodGuardService?.assertPostingDateAllowed(organizationId, postingDate, tx);
   }
+}
+
+function cleanOptionalFilterId(value?: string): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed || undefined;
 }
 
 function isUniqueConstraintError(error: unknown): boolean {

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Query, Res, StreamableFile, UseGuards } from "@nestjs/common";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import type { Response } from "express";
 import { AuthenticatedUser } from "../auth/auth.types";
@@ -20,8 +20,8 @@ export class CustomerPaymentController {
 
   @Get()
   @RequirePermissions(PERMISSIONS.customerPayments.view)
-  list(@CurrentOrganizationId() organizationId: string) {
-    return this.customerPaymentService.list(organizationId);
+  list(@CurrentOrganizationId() organizationId: string, @Query("branchId") branchId?: string) {
+    return this.customerPaymentService.list(organizationId, branchId);
   }
 
   @Post()

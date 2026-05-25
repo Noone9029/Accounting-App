@@ -630,6 +630,46 @@ describe("sales invoice rules", () => {
     });
   });
 
+  it("filters invoice lists by active organization and optional branch", async () => {
+    const prisma = {
+      salesInvoice: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, { reverse: jest.fn() } as never);
+
+    await service.list("org-1", " branch-1 ");
+
+    expect(prisma.salesInvoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { organizationId: "org-1", branchId: "branch-1" },
+      }),
+    );
+  });
+
+  it("filters open allocation targets by active organization, customer, and optional branch", async () => {
+    const prisma = {
+      salesInvoice: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, { reverse: jest.fn() } as never);
+
+    await service.open("org-1", " customer-1 ", " branch-1 ");
+
+    expect(prisma.salesInvoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          organizationId: "org-1",
+          customerId: "customer-1",
+          branchId: "branch-1",
+          status: SalesInvoiceStatus.FINALIZED,
+          balanceDue: { gt: 0 },
+        },
+      }),
+    );
+  });
+
   it("excludes voided DEV-06 invoices and includes INVOICE-000002-like finalized balance due targets", async () => {
     const issueDate = new Date("2026-05-24T00:00:00.000Z");
     const prisma = makeOpenInvoicePrisma([

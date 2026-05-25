@@ -281,6 +281,29 @@ describe("customer payment rules", () => {
     });
   });
 
+  it("filters listed payments to the active organization and optional allocated invoice branch", async () => {
+    const prisma = {
+      customerPayment: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await service.list("org-1", " branch-1 ");
+
+    expect(prisma.customerPayment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          organizationId: "org-1",
+          OR: [
+            { allocations: { some: { organizationId: "org-1", invoice: { is: { organizationId: "org-1", branchId: "branch-1" } } } } },
+            { unappliedAllocations: { some: { organizationId: "org-1", invoice: { is: { organizationId: "org-1", branchId: "branch-1" } } } } },
+          ],
+        },
+      }),
+    );
+  });
+
   it("blocks customer payment posting in a closed fiscal period", async () => {
     const tx = makeCreateTransactionMock();
     const prisma = makeCreatePrismaMock({ tx });
@@ -331,6 +354,32 @@ describe("customer payment rules", () => {
       },
       data: { balanceDue: { decrement: "60.0000" } },
     });
+  });
+
+  it("rejects direct payment allocations to another organization's invoice without side effects", async () => {
+    const harness = makeCreateRollbackHarness();
+    harness.state.invoices["invoice-other-org"] = {
+      id: "invoice-other-org",
+      organizationId: "org-2",
+      customerId: "customer-1",
+      status: SalesInvoiceStatus.FINALIZED,
+      balanceDue: "100.0000",
+    };
+    const service = new CustomerPaymentService(
+      harness.prisma as never,
+      { log: jest.fn() } as never,
+      new NumberSequenceService({} as never) as never,
+    );
+    const before = harness.snapshot();
+
+    await expect(
+      service.create("org-1", "user-1", {
+        ...basePaymentDto,
+        allocations: [{ invoiceId: "invoice-other-org", amountApplied: "100.0000" }],
+      }),
+    ).rejects.toThrow("Allocations must reference finalized, non-voided invoices for the selected customer.");
+
+    expect(harness.snapshot()).toEqual(before);
   });
 
   it.each(["0", "0.0000", "-1.0000"])("rejects non-positive unapplied payment application amount %s", async (amountApplied) => {
@@ -525,6 +574,27 @@ describe("customer payment rules", () => {
       BadRequestException,
       "Customer payment and invoice must belong to the same customer.",
     );
+    expect(tx.customerPaymentUnappliedAllocation.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects applying an organization-scoped payment to another organization's invoice", async () => {
+    const tx = makeApplyUnappliedTransactionMock();
+    tx.salesInvoice.findFirst.mockResolvedValueOnce(null);
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", organizationId: "org-1", status: CustomerPaymentStatus.POSTED } as never);
+
+    await expect(
+      service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-org-2", amountApplied: "10.0000" }),
+    ).rejects.toThrow("Sales invoice not found.");
+
+    expect(tx.salesInvoice.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "invoice-org-2", organizationId: "org-1" },
+      }),
+    );
+    expect(tx.customerPayment.updateMany).not.toHaveBeenCalled();
+    expect(tx.salesInvoice.updateMany).not.toHaveBeenCalled();
     expect(tx.customerPaymentUnappliedAllocation.create).not.toHaveBeenCalled();
   });
 

@@ -263,6 +263,35 @@ describe("reports service builders", () => {
     );
   });
 
+  it("filters VAT return source documents by active organization and optional branch", async () => {
+    const salesInvoices = [
+      salesInvoiceFixture({ id: "invoice-branch-1", branchId: "branch-1", taxTotal: "15.0000" }),
+      salesInvoiceFixture({ id: "invoice-branch-2", branchId: "branch-2", taxTotal: "99.0000" }),
+      salesInvoiceFixture({ id: "invoice-other-org", organizationId: "org-2", branchId: "branch-1", taxTotal: "88.0000" }),
+    ];
+    const purchaseBills = [
+      purchaseBillFixture({ id: "bill-branch-1", branchId: "branch-1", taxTotal: "5.0000" }),
+      purchaseBillFixture({ id: "bill-branch-2", branchId: "branch-2", taxTotal: "44.0000" }),
+    ];
+    const prisma = {
+      salesInvoice: { findMany: jest.fn(async (args: any) => salesInvoices.filter((invoice) => matchesVatWhere(invoice, args.where, "issueDate"))) },
+      purchaseBill: { findMany: jest.fn(async (args: any) => purchaseBills.filter((bill) => matchesVatWhere(bill, args.where, "billDate"))) },
+    };
+    const service = new ReportsService(prisma as never);
+
+    const report = await service.vatReturn("org-1", { branchId: " branch-1 " });
+
+    expect(report.sales.documents.map((document) => document.id)).toEqual(["invoice-branch-1"]);
+    expect(report.purchases.documents.map((document) => document.id)).toEqual(["bill-branch-1"]);
+    expect(report).toMatchObject({ outputVat: "15.0000", inputVat: "5.0000", netVatPayable: "10.0000" });
+    expect(prisma.salesInvoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ organizationId: "org-1", branchId: "branch-1" }) }),
+    );
+    expect(prisma.purchaseBill.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ organizationId: "org-1", branchId: "branch-1" }) }),
+    );
+  });
+
   it("calculates a financial dashboard summary from open documents and reportable journal activity", async () => {
     const salesInvoices = [
       salesInvoiceFixture({
@@ -358,6 +387,38 @@ describe("reports service builders", () => {
         where: expect.objectContaining({
           accountId: { in: ["cash", "bank"] },
           journalEntry: expect.objectContaining({ status: { in: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] } }),
+        }),
+      }),
+    );
+  });
+
+  it("passes optional branch filters into dashboard source document and journal reads", async () => {
+    const prisma = {
+      salesInvoice: { findMany: jest.fn().mockResolvedValue([]) },
+      purchaseBill: { findMany: jest.fn().mockResolvedValue([]) },
+      bankAccountProfile: { findMany: jest.fn().mockResolvedValue([]) },
+      journalLine: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new ReportsService(prisma as never);
+
+    await service.dashboardSummary("org-1", { branchId: " branch-1 ", to: "2026-01-31" });
+
+    expect(prisma.salesInvoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ organizationId: "org-1", branchId: "branch-1" }) }),
+    );
+    expect(prisma.purchaseBill.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ organizationId: "org-1", branchId: "branch-1" }) }),
+    );
+    expect(prisma.journalLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          journalEntry: expect.objectContaining({
+            OR: expect.arrayContaining([
+              { salesInvoice: { is: { organizationId: "org-1", branchId: "branch-1" } } },
+              { purchaseBill: { is: { organizationId: "org-1", branchId: "branch-1" } } },
+            ]),
+          }),
         }),
       }),
     );
@@ -469,6 +530,7 @@ function vatDocument(id: string, number: string, date: string, taxableTotal: str
 interface SalesInvoiceFixture {
   id: string;
   organizationId: string;
+  branchId: string | null;
   invoiceNumber: string;
   issueDate: Date;
   dueDate: Date | null;
@@ -487,6 +549,7 @@ function salesInvoiceFixtureBase(): SalesInvoiceFixture {
   return {
     id: "invoice-1",
     organizationId: "org-1",
+    branchId: "branch-1",
     invoiceNumber: "INV-1",
     issueDate: new Date("2026-01-10T00:00:00.000Z"),
     dueDate: null,
@@ -501,6 +564,7 @@ function salesInvoiceFixtureBase(): SalesInvoiceFixture {
 interface PurchaseBillFixture {
   id: string;
   organizationId: string;
+  branchId: string | null;
   billNumber: string;
   billDate: Date;
   dueDate: Date | null;
@@ -519,6 +583,7 @@ function purchaseBillFixtureBase(): PurchaseBillFixture {
   return {
     id: "bill-1",
     organizationId: "org-1",
+    branchId: "branch-1",
     billNumber: "BILL-1",
     billDate: new Date("2026-01-15T00:00:00.000Z"),
     dueDate: null,
@@ -558,10 +623,11 @@ function dashboardLine(
   };
 }
 
-function matchesDashboardDocumentWhere<T extends { organizationId: string; status: string; balanceDue: string }>(
+function matchesDashboardDocumentWhere<T extends { organizationId: string; branchId: string | null; status: string; balanceDue: string }>(
   document: T,
   where: {
     organizationId: string;
+    branchId?: string;
     status: string;
     balanceDue?: { gt?: string | number };
     issueDate?: { lte?: Date };
@@ -573,6 +639,7 @@ function matchesDashboardDocumentWhere<T extends { organizationId: string; statu
   const dateRange = "issueDate" in where ? where.issueDate : where.billDate;
   return (
     document.organizationId === where.organizationId &&
+    (!where.branchId || document.branchId === where.branchId) &&
     document.status === where.status &&
     (!where.balanceDue?.gt || Number(document.balanceDue) > Number(where.balanceDue.gt)) &&
     (!dateRange?.lte || documentDate <= dateRange.lte)
@@ -600,15 +667,22 @@ function matchesDashboardLineWhere(
   );
 }
 
-function matchesVatWhere<T extends { organizationId: string; status: string }>(
+function matchesVatWhere<T extends { organizationId: string; branchId: string | null; status: string }>(
   document: T,
-  where: { organizationId: string; status: string; issueDate?: { gte?: Date; lte?: Date }; billDate?: { gte?: Date; lte?: Date } },
+  where: {
+    organizationId: string;
+    branchId?: string;
+    status: string;
+    issueDate?: { gte?: Date; lte?: Date };
+    billDate?: { gte?: Date; lte?: Date };
+  },
   dateKey: keyof T,
 ) {
   const documentDate = new Date(String(document[dateKey]));
   const dateRange = "issueDate" in where ? where.issueDate : where.billDate;
   return (
     document.organizationId === where.organizationId &&
+    (!where.branchId || document.branchId === where.branchId) &&
     document.status === where.status &&
     (!dateRange?.gte || documentDate >= dateRange.gte) &&
     (!dateRange?.lte || documentDate <= dateRange.lte)

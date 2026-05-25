@@ -154,9 +154,9 @@ export class SalesInvoiceService {
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
   ) {}
 
-  list(organizationId: string) {
+  list(organizationId: string, branchId?: string) {
     return this.prisma.salesInvoice.findMany({
-      where: { organizationId },
+      where: { organizationId, ...optionalBranchWhere(branchId) },
       orderBy: { issueDate: "desc" },
       include: {
         customer: { select: { id: true, name: true, displayName: true } },
@@ -167,7 +167,7 @@ export class SalesInvoiceService {
     });
   }
 
-  open(organizationId: string, customerId?: string) {
+  open(organizationId: string, customerId?: string, branchId?: string) {
     const targetCustomerId = customerId?.trim();
     if (!targetCustomerId) {
       throw new BadRequestException("customerId is required.");
@@ -177,6 +177,7 @@ export class SalesInvoiceService {
       where: {
         organizationId,
         customerId: targetCustomerId,
+        ...optionalBranchWhere(branchId),
         status: SalesInvoiceStatus.FINALIZED,
         balanceDue: { gt: 0 },
       },
@@ -1079,6 +1080,11 @@ function isUniqueConstraintError(error: unknown): boolean {
     "code" in error &&
     (error as { code?: unknown }).code === "P2002"
   );
+}
+
+function optionalBranchWhere(branchId?: string): { branchId?: string } {
+  const targetBranchId = branchId?.trim();
+  return targetBranchId ? { branchId: targetBranchId } : {};
 }
 
 function moneyString(value: unknown): string {

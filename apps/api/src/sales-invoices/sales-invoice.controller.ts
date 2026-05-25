@@ -23,14 +23,14 @@ export class SalesInvoiceController {
 
   @Get()
   @RequirePermissions(PERMISSIONS.salesInvoices.view)
-  list(@CurrentOrganizationId() organizationId: string) {
-    return this.salesInvoiceService.list(organizationId);
+  list(@CurrentOrganizationId() organizationId: string, @Query("branchId") branchId?: string) {
+    return this.salesInvoiceService.list(organizationId, branchId);
   }
 
   @Get("open")
   @RequirePermissions(PERMISSIONS.salesInvoices.view)
-  open(@CurrentOrganizationId() organizationId: string, @Query("customerId") customerId?: string) {
-    return this.salesInvoiceService.open(organizationId, customerId);
+  open(@CurrentOrganizationId() organizationId: string, @Query("customerId") customerId?: string, @Query("branchId") branchId?: string) {
+    return this.salesInvoiceService.open(organizationId, customerId, branchId);
   }
 
   @Post()
