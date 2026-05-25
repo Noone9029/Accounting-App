@@ -14,11 +14,13 @@ import { SalesStockIssueService } from "./sales-stock-issue.service";
 
 describe("SalesStockIssueService", () => {
   const item = { id: "item-1", inventoryTracking: true, status: ItemStatus.ACTIVE };
+  const serviceItem = { id: "service-1", inventoryTracking: false, status: ItemStatus.ACTIVE };
   const previewItem = { id: item.id, name: "Tracked Item", sku: "TRK", type: "PRODUCT", status: ItemStatus.ACTIVE, inventoryTracking: true };
   const warehouse = { id: "warehouse-1", status: WarehouseStatus.ACTIVE };
   const assetAccount = { id: "asset-1", code: "130", name: "Inventory", type: AccountType.ASSET, allowPosting: true, isActive: true };
   const cogsAccount = { id: "cogs-1", code: "611", name: "Cost of Goods Sold", type: AccountType.COST_OF_SALES, allowPosting: true, isActive: true };
   const invoiceLine = { id: "invoice-line-1", itemId: item.id, quantity: new Prisma.Decimal("5.0000"), item };
+  const serviceInvoiceLine = { id: "invoice-line-service", itemId: serviceItem.id, quantity: new Prisma.Decimal("1.0000"), item: serviceItem };
   const issue = {
     id: "issue-1",
     organizationId: "org-1",
@@ -163,13 +165,54 @@ describe("SalesStockIssueService", () => {
     expect(tx.stockMovement.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          itemId: item.id,
+          warehouseId: warehouse.id,
           type: StockMovementType.SALES_ISSUE_PLACEHOLDER,
+          quantity: "2.0000",
           referenceType: "SalesStockIssue",
+          referenceId: issue.id,
+        }),
+      }),
+    );
+    expect(tx.salesStockIssueLine.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          itemId: item.id,
+          salesInvoiceLineId: invoiceLine.id,
+          quantity: "2.0000",
+          stockMovementId: "movement-1",
         }),
       }),
     );
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CREATE", entityType: "SalesStockIssue" }));
+  });
+
+  it("rejects service invoice lines without creating stock movement or COGS journal", async () => {
+    const tx = makeTx({
+      salesInvoice: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "invoice-1",
+          customerId: "customer-1",
+          status: SalesInvoiceStatus.FINALIZED,
+          lines: [serviceInvoiceLine],
+        }),
+      },
+      salesInvoiceLine: { findMany: jest.fn().mockResolvedValue([{ id: serviceInvoiceLine.id, quantity: serviceInvoiceLine.quantity }]) },
+    });
+    const { service } = makeService(tx);
+
+    await expect(
+      service.create("org-1", "user-1", {
+        salesInvoiceId: "invoice-1",
+        warehouseId: warehouse.id,
+        issueDate: "2026-05-14",
+        lines: [{ salesInvoiceLineId: serviceInvoiceLine.id, quantity: "1.0000" }],
+      }),
+    ).rejects.toThrow("Sales stock issues can only issue inventory-tracked items.");
+
+    expect(tx.stockMovement.create).not.toHaveBeenCalled();
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
   });
 
   it("rejects issue above remaining invoice quantity and insufficient stock", async () => {
@@ -272,6 +315,7 @@ describe("SalesStockIssueService", () => {
       }),
     );
     expect(preview.lines[0]).toEqual(expect.objectContaining({ estimatedUnitCost: "5.2500", estimatedCOGS: "10.5000" }));
+    expect(preview.lines[0]).toEqual(expect.objectContaining({ inventoryTracking: true }));
     expect(preview.journal.lines).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ side: "DEBIT", accountCode: "611", amount: "10.5000" }),
@@ -442,6 +486,7 @@ describe("SalesStockIssueService", () => {
     expect(tx.stockMovement.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ type: StockMovementType.ADJUSTMENT_IN, referenceType: "SalesStockIssueVoid" }) }),
     );
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
   });
 
   it("keeps sales stock issue accounting preview tenant-scoped", async () => {

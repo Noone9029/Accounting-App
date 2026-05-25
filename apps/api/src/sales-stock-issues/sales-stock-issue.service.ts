@@ -20,6 +20,7 @@ import {
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { stockMovementDirection } from "../stock-movements/stock-movement-rules";
+import { buildSalesStockIssueCogsJournal, SalesStockIssueCogsLineInput } from "./sales-stock-issue-accounting";
 import { CreateSalesStockIssueDto, SalesStockIssueLineDto } from "./dto/create-sales-stock-issue.dto";
 import { ReverseSalesStockIssueCogsDto } from "./dto/reverse-sales-stock-issue-cogs.dto";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
@@ -500,10 +501,11 @@ export class SalesStockIssueService {
       blockingReasons.push("COGS has already been posted for this stock issue.");
     }
 
-    let totalEstimatedCogs = new Prisma.Decimal(0);
     const lines = [];
+    const cogsLineInputs: SalesStockIssueCogsLineInput[] = [];
     for (const [index, line] of issue.lines.entries()) {
       const quantity = new Prisma.Decimal(line.quantity);
+      const inventoryTracking = Boolean(line.item?.inventoryTracking);
       const averageCost = await this.inventoryAccountingService.movingAverageUnitCost(
         organizationId,
         line.itemId,
@@ -519,15 +521,19 @@ export class SalesStockIssueService {
         blockingReasons.push(reason);
       } else {
         estimatedCogs = quantity.mul(averageCost.averageUnitCost);
-        totalEstimatedCogs = totalEstimatedCogs.plus(estimatedCogs);
       }
       if (averageCost.missingCostData) {
         lineWarnings.push("Some inbound stock movements are missing cost data.");
       }
+      cogsLineInputs.push({
+        inventoryTracking,
+        estimatedCogs: estimatedCogs === null ? null : this.decimalString(estimatedCogs),
+      });
 
       lines.push({
         lineId: line.id,
         item: line.item,
+        inventoryTracking,
         quantity: this.decimalString(quantity),
         estimatedUnitCost: averageCost.averageUnitCost === null ? null : this.decimalString(averageCost.averageUnitCost),
         estimatedCOGS: estimatedCogs === null ? null : this.decimalString(estimatedCogs),
@@ -535,35 +541,19 @@ export class SalesStockIssueService {
       });
     }
 
+    const cogsAccount = readiness.settings.cogsAccount;
+    const assetAccount = readiness.settings.inventoryAssetAccount;
+    const cogsJournal = buildSalesStockIssueCogsJournal({
+      issueNumber: issue.issueNumber,
+      cogsAccount,
+      inventoryAssetAccount: assetAccount,
+      lines: cogsLineInputs,
+    });
+    const totalEstimatedCogs = new Prisma.Decimal(cogsJournal.totalCogs);
     if (totalEstimatedCogs.lte(0)) {
       blockingReasons.push("Estimated COGS total must be greater than zero.");
     }
 
-    const cogsAccount = readiness.settings.cogsAccount;
-    const assetAccount = readiness.settings.inventoryAssetAccount;
-    const journalLines =
-      cogsAccount && assetAccount && totalEstimatedCogs.gt(0)
-        ? [
-            {
-              lineNumber: 1,
-              side: "DEBIT" as const,
-              accountId: cogsAccount.id,
-              accountCode: cogsAccount.code,
-              accountName: cogsAccount.name,
-              amount: this.decimalString(totalEstimatedCogs),
-              description: `Sales stock issue ${issue.issueNumber} COGS`,
-            },
-            {
-              lineNumber: 2,
-              side: "CREDIT" as const,
-              accountId: assetAccount.id,
-              accountCode: assetAccount.code,
-              accountName: assetAccount.name,
-              amount: this.decimalString(totalEstimatedCogs),
-              description: `Sales stock issue ${issue.issueNumber} inventory asset`,
-            },
-          ]
-        : [];
     const uniqueBlockingReasons = this.uniqueStrings(blockingReasons);
     const canPost = uniqueBlockingReasons.length === 0;
     const alreadyPosted = Boolean(issue.cogsJournalEntryId);
@@ -588,9 +578,9 @@ export class SalesStockIssueService {
       journal: {
         description: `Sales stock issue ${issue.issueNumber} COGS preview`,
         entryDate: issue.issueDate.toISOString(),
-        totalDebit: this.decimalString(totalEstimatedCogs),
-        totalCredit: this.decimalString(totalEstimatedCogs),
-        lines: journalLines,
+        totalDebit: cogsJournal.totalCogs,
+        totalCredit: cogsJournal.totalCogs,
+        lines: cogsJournal.lines,
       },
     };
   }
