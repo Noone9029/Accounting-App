@@ -851,3 +851,20 @@
 ## Next Thread Prompt
 
 `DEV-07 Part 10: AR unapplied allocation reversal preflight`
+
+## DEV-07 Part 10 - AR Unapplied Allocation Reversal Preflight Completed
+
+- DEV-07 Part 10 read-only preflight is recorded in [docs/development/DEV_07_AR_UNAPPLIED_ALLOCATION_REVERSAL_PREFLIGHT.md](docs/development/DEV_07_AR_UNAPPLIED_ALLOCATION_REVERSAL_PREFLIGHT.md).
+- Mutation performed: no. `CustomerPaymentService.reverseUnappliedAllocation(...)` was not called.
+- Current payment state: `PAYMENT-000001` remains `POSTED`, safe id prefix `b39f4d38`, amount received `500.0000`, unapplied amount `0.0000`, journal `JOURNAL_ENTRY-000004`, and no void reversal journal.
+- Current invoice state: `INVOICE-000002` remains `FINALIZED`, safe id prefix `ddadfdd7`, total `1150.0000`, balance due `650.0000`, and no reversal journal.
+- Current allocation state: direct allocation remains one `CustomerPaymentAllocation` for `300.0000`; active unapplied allocation safe prefix `8bc99925` remains unreversed for `200.0000` with no reversedAt, reversedById, or reversalReason.
+- Expected future reversal effects: payment unapplied amount `0.0000 -> 200.0000`; invoice balance due `650.0000 -> 850.0000`; active unapplied allocation marked reversed with reason `DEV-07 local-only reversal QA for unapplied allocation`.
+- Expected accounting/audit result: no new journal entry; `JOURNAL_ENTRY-000004` remains unchanged; `JOURNAL_ENTRY` sequence next remains `5`; future audit action should be standardized `CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSED` on entity type `CustomerPaymentUnappliedAllocation`.
+- Output/email/ZATCA/refund/credit-note/cleanup occurred: no. Generated documents, receipt/PDF/archive, email outbox/provider events, ZATCA XML/signing/QR/submission artifacts, refunds, credit notes, payment void, invoice void, and cleanup deletion remain absent.
+- Required approval phrase for Part 11: `I approve DEV-07 Part 11 local-only AR unapplied allocation reversal mutation under marker DEV03-AR-20260524T130000 for payment PAYMENT-000001, invoice INVOICE-000002, and the active 200.0000 unapplied allocation. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-07 Part 11: approved local AR unapplied allocation reversal mutation`.
+
+## Next Thread Prompt
+
+`DEV-07 Part 11: approved local AR unapplied allocation reversal mutation`

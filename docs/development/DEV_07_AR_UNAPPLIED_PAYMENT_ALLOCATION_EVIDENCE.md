@@ -211,3 +211,20 @@ Next prompt title:
 ```text
 DEV-07 Part 10: AR unapplied allocation reversal preflight
 ```
+
+## Part 10 Reversal Preflight Note
+
+DEV-07 Part 10 completed the read-only AR unapplied allocation reversal preflight in [DEV_07_AR_UNAPPLIED_ALLOCATION_REVERSAL_PREFLIGHT.md](DEV_07_AR_UNAPPLIED_ALLOCATION_REVERSAL_PREFLIGHT.md).
+
+- Mutation performed: no.
+- Current payment state remains `PAYMENT-000001` `POSTED`, amount received `500.0000`, unapplied amount `0.0000`, journal `JOURNAL_ENTRY-000004`, and no void reversal journal.
+- Current invoice state remains `INVOICE-000002` `FINALIZED`, total `1150.0000`, balance due `650.0000`, and no reversal journal.
+- Current allocation state remains one direct allocation for `300.0000` and one active unapplied allocation for `200.0000`.
+- Future approved reversal is expected to restore payment unapplied amount to `200.0000`, restore invoice balance due to `850.0000`, mark the active unapplied allocation reversed with reason, and create no journal entry.
+- Current audit behavior expects one future `CUSTOMER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSED` audit action on entity type `CustomerPaymentUnappliedAllocation`.
+
+Next prompt title:
+
+```text
+DEV-07 Part 11: approved local AR unapplied allocation reversal mutation
+```
