@@ -243,6 +243,17 @@ Current fixture-specific side-effect counts are `0` for supplier refunds, suppli
 
 `I approve DEV-08B Part 8 local-only purchase debit note allocation reversal mutation under marker DEV08B-AP-20260526T060000 for the active 250.0000 debit note allocation. No production, no beta, no customer data.`
 
+## Part 8 Evidence Note
+
+- DEV-08B Part 8 approved local debit note allocation reversal mutation is recorded in [DEV_08B_DEBIT_NOTE_ALLOCATION_REVERSAL_MUTATION_EVIDENCE.md](DEV_08B_DEBIT_NOTE_ALLOCATION_REVERSAL_MUTATION_EVIDENCE.md).
+- Mutation performed in Part 8: yes, exactly one `PurchaseDebitNoteService.reverseAllocation(...)` call for allocation safe id prefix `7ec0dfb3`.
+- `PDN-000003` remained `FINALIZED`; unapplied amount changed `210.0000 -> 460.0000`.
+- `BILL-000008` remained `FINALIZED`; balance due changed `900.0000 -> 1150.0000`.
+- Allocation `7ec0dfb3` was marked reversed with reversal reason `DEV-08B local-only debit note allocation reversal QA`.
+- Journal count remained `54` and `JOURNAL_ENTRY` sequence remained `JE-000055`.
+- Raw `PurchaseDebitNoteAllocation:REVERSE_ALLOCATION` audit was created.
+- No output/email/ZATCA/refund/payment/purchase-order/inventory/cash-expense/cleanup side effect occurred.
+
 ## Commands Run
 
 - `git status --short`.

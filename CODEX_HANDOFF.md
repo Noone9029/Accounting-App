@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `096af226 Verify DEV-08B debit note application evidence`
+- `650ff74f Plan DEV-08B debit note allocation reversal`
 
 ## Current Development Objective
 
@@ -1343,3 +1343,22 @@
 ## Next Thread Prompt
 
 `DEV-08B Part 8: approved local debit note allocation reversal mutation`
+
+## DEV-08B Part 8 - Approved Local Debit Note Allocation Reversal Mutation Completed
+
+- DEV-08B Part 8 local-only mutation evidence is recorded in [docs/development/DEV_08B_DEBIT_NOTE_ALLOCATION_REVERSAL_MUTATION_EVIDENCE.md](docs/development/DEV_08B_DEBIT_NOTE_ALLOCATION_REVERSAL_MUTATION_EVIDENCE.md).
+- Approval phrase was received for the local-only purchase debit note allocation reversal mutation under marker `DEV08B-AP-20260526T060000` for the active `250.0000` debit note allocation.
+- Mutation performed: yes. The guarded temporary script called `PurchaseDebitNoteService.reverseAllocation(...)` exactly once for allocation safe id prefix `7ec0dfb3` with reason `DEV-08B local-only debit note allocation reversal QA`.
+- Local-only target proof: Docker Linux engine was available, local Postgres/Redis containers were healthy, the guarded script accepted only `localhost:5432` database `accounting`, and no hosted/prod/beta/shared/customer-data target or secret was printed.
+- Debit note evidence: `PDN-000003`, safe id prefix `b93f96ee`, remained `FINALIZED`; total remained `460.0000`; unapplied amount changed `210.0000 -> 460.0000`; reversal journal remained absent; supplier refunds remained `0`.
+- Purchase bill evidence: `BILL-000008`, safe id prefix `4b8886bb`, remained `FINALIZED`; total remained `1150.0000`; balance due changed `900.0000 -> 1150.0000`; reversal journal remained absent.
+- Allocation evidence: exactly one `PurchaseDebitNoteAllocation` remains, safe id prefix `7ec0dfb3`, amount applied `250.0000`; it is now reversed with `reversedAt` set, `reversedById` set, and reversal reason `DEV-08B local-only debit note allocation reversal QA`; no new allocation or supplier payment allocation was created.
+- Journal/accounting evidence: no new journal entry was created; organization journal count stayed `54`; `JOURNAL_ENTRY` sequence stayed `JE-000055`; purchase bill journal `JE-000053` and purchase debit note journal `JE-000054` remained posted and unchanged.
+- Audit evidence: raw `PurchaseDebitNoteAllocation:REVERSE_ALLOCATION` now exists once for allocation `7ec0dfb3`; `PurchaseDebitNote:APPLY`, `PURCHASE_DEBIT_NOTE_CREATED`, and `PURCHASE_DEBIT_NOTE_FINALIZED` remain; no debit-note void, supplier refund, supplier payment, purchase bill void, cleanup/delete, or login/browser audit-writing action occurred.
+- Output/email/ZATCA/refund/payment/purchase-order/inventory/cash-expense/cleanup occurred: no. Fixture-specific supplier refunds, supplier payments, purchase orders, purchase receipts, stock movements, cash expenses, generated documents, marker email outbox rows, marker email provider events, marker auth tokens, and cleanup/delete audits remain `0`; organization-level ZATCA baselines stayed unchanged (`1` signed artifact draft and `7` submission logs).
+- Temporary script cleanup: `apps/api/scripts/dev08b-debit-note-allocation-reversal.tmp.ts` was removed after execution, `Test-Path` returned `False`, and no `*dev08b*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08B Part 9: supplier refund from debit note preflight`.
+
+## Next Thread Prompt
+
+`DEV-08B Part 9: supplier refund from debit note preflight`
