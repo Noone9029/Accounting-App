@@ -253,6 +253,16 @@ If the next part does not include that exact user-provided approval phrase, stop
 - Conversion has good baseline unit coverage but lacks repeat-conversion, inactive-supplier, missing-account, fallback-account, and copied-field tests.
 - Output/PDF/archive behavior exists in code but is explicitly deferred from this DEV-08C preflight and selected Part 2 mutation.
 
-## 20. Exact Next Prompt Title
+## 20. Part 2 Evidence Note
 
-`DEV-08C Part 2: approved local purchase order fixture creation mutation`
+- DEV-08C Part 2 local-only purchase order fixture creation is completed in [DEV_08C_PURCHASE_ORDER_FIXTURE_MUTATION_EVIDENCE.md](DEV_08C_PURCHASE_ORDER_FIXTURE_MUTATION_EVIDENCE.md).
+- Approved local mutation was performed under marker `DEV08C-AP-20260526T000000`.
+- `PurchaseOrderService.create(...)` was called exactly once, creating draft purchase order `PO-000141` with safe id prefix `d6abea75`.
+- Supplier safe id prefix: `5ef871cd`.
+- Status: `DRAFT`; total: `1150.0000`; converted bill absent; journal absent; generated document/PDF/archive absent; email absent; purchase receipt and stock movement absent.
+- Temporary Part 2 script was deleted before commit and `apps/api/scripts` had no `*dev08c*` script afterward.
+- Exact next prompt title: `DEV-08C Part 3: purchase order fixture evidence verification`.
+
+## 21. Exact Next Prompt Title
+
+`DEV-08C Part 3: purchase order fixture evidence verification`
