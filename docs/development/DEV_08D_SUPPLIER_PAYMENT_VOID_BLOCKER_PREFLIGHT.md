@@ -144,3 +144,16 @@ ZATCA behavior was not invoked and should remain out of scope.
 ## 11. Exact Next Prompt Title
 
 `DEV-08D Part 8: approved local supplier payment void blocker negative check`
+
+## Part 8 Evidence Note
+
+DEV-08D Part 8 completed the approved local-only supplier payment void blocker negative check. Evidence is recorded in [DEV_08D_SUPPLIER_PAYMENT_VOID_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md](DEV_08D_SUPPLIER_PAYMENT_VOID_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md).
+
+- Runtime mutation result: expected blocked call; no state mutation.
+- Exact service call: `SupplierPaymentService.void(...)` once.
+- Expected blocker observed: `Cannot void supplier payment with posted supplier refunds. Void refunds first.`
+- Source payment `PAY-000007` remained `POSTED`, unapplied amount `350.0000`, `voidedAt` absent, and void reversal journal absent.
+- Supplier refund `SRF-000004` remained `POSTED`, and refund void reversal journal remained absent.
+- Payment journal `JE-000058` and refund journal `JE-000059` remained `POSTED`; journal count remained `59`.
+- Supplier payment void audit, supplier refund void audit, generated documents, email rows/events, purchase orders/receipts, stock movements, cash expenses, purchase debit notes, cleanup/delete audits, and temporary DEV-08D scripts remained absent.
+- Exact next prompt title: `DEV-08D Part 9: supplier payment void blocker evidence verification`.

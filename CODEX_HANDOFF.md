@@ -1833,6 +1833,19 @@
 - Required approval phrase: `I approve DEV-08D Part 8 local-only supplier payment void blocker negative check under marker DEV08D-AP-20260526T000000 while supplier refund remains posted. No production, no beta, no customer data.`
 - Exact next prompt title: `DEV-08D Part 8: approved local supplier payment void blocker negative check`.
 
+## DEV-08D Part 8 - Supplier Payment Void Blocker Negative Check Completed
+
+- DEV-08D Part 8 local-only supplier payment void blocker negative check evidence is recorded in [docs/development/DEV_08D_SUPPLIER_PAYMENT_VOID_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md](docs/development/DEV_08D_SUPPLIER_PAYMENT_VOID_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md).
+- Runtime mutation result: expected blocked call; no state mutation.
+- Exact service call made: `SupplierPaymentService.void(...)` once; the call threw the expected posted-refund blocker and was not retried.
+- Blocker error observed: `Cannot void supplier payment with posted supplier refunds. Void refunds first.`
+- Source payment after check: `PAY-000007`, safe prefix `4b9c42b1`, remained `POSTED`, unapplied amount `350.0000`, `voidedAt` absent, and void reversal journal absent.
+- Supplier refund after check: `SRF-000004`, safe prefix `dc8c4c9a`, remained `POSTED`, and void reversal journal absent.
+- Journal/accounting non-effect: payment journal `JE-000058` and refund journal `JE-000059` remained `POSTED`; organization journal count remained `59`; no reversal journal was created.
+- Audit/side-effect non-effect: supplier payment void audit `0`, supplier refund void audit `0`, generated documents `0`, email rows/events `0`, purchase orders/receipts `0`, stock movements `0`, cash expenses `0`, purchase debit notes `0`, cleanup/delete audits `0`, and ZATCA was not invoked.
+- Temporary script cleanup result: `apps/api/scripts/dev08d-payment-void-blocker.tmp.ts` was removed; `Test-Path` returned `False`; no `*dev08d*` script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08D Part 9: supplier payment void blocker evidence verification`.
+
 ## Next Thread Prompt
 
-`DEV-08D Part 8: approved local supplier payment void blocker negative check`
+`DEV-08D Part 9: supplier payment void blocker evidence verification`
