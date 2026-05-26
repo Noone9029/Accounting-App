@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `a35e9c01 Verify DEV-08C purchase order fixture evidence`
+- `e80109bf Plan DEV-08C purchase order approval`
 
 ## Current Development Objective
 
@@ -1542,6 +1542,18 @@
 - Required approval phrase: `I approve DEV-08C Part 5 local-only purchase order approval mutation under marker DEV08C-AP-20260526T000000. No production, no beta, no customer data.`
 - Exact next prompt title: `DEV-08C Part 5: approved local purchase order approval mutation`.
 
+## DEV-08C Part 5 - Purchase Order Approval Mutation Completed
+
+- DEV-08C Part 5 approved local purchase order approval mutation evidence is recorded in [docs/development/DEV_08C_PURCHASE_ORDER_APPROVAL_MUTATION_EVIDENCE.md](docs/development/DEV_08C_PURCHASE_ORDER_APPROVAL_MUTATION_EVIDENCE.md).
+- Runtime mutation performed: yes, local-only.
+- Exact service call made: `PurchaseOrderService.approve(...)` once.
+- Before/after entity state: `PO-000141`, safe id prefix `d6abea75`, changed `DRAFT -> APPROVED`; `approvedAt` changed absent -> present; total stayed `1150.0000`; converted bill remained absent.
+- Accounting/journal result: purchase bill count linked to PO stayed `0`; marker/PO journal count stayed `0`.
+- Audit result: `PURCHASE_ORDER_APPROVED` audit count changed `0 -> 1`; `PURCHASE_ORDER_CREATED` audit count stayed `1`.
+- Forbidden side-effect result: generated document/PDF/archive, email, purchase receipt, stock movement, supplier payment, supplier refund, purchase debit note, cash expense, cleanup, ZATCA, production, beta, shared-target, hosted, and customer-data side effects absent.
+- Temporary script cleanup: `apps/api/scripts/dev08c-purchase-order-approval.tmp.ts` was removed; `Test-Path` returned `False`; no `*dev08c*` script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08C Part 6: purchase order approval evidence verification`.
+
 ## Next Thread Prompt
 
-`DEV-08C Part 5: approved local purchase order approval mutation`
+`DEV-08C Part 6: purchase order approval evidence verification`

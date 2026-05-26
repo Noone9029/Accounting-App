@@ -149,3 +149,12 @@ Expected Part 5 side effects: none beyond status, `approvedAt`, and one approval
 ## 14. Exact Next Prompt Title
 
 `DEV-08C Part 5: approved local purchase order approval mutation`
+
+## 15. Part 5 Evidence Note
+
+- DEV-08C Part 5 local-only purchase order approval mutation evidence is completed in [DEV_08C_PURCHASE_ORDER_APPROVAL_MUTATION_EVIDENCE.md](DEV_08C_PURCHASE_ORDER_APPROVAL_MUTATION_EVIDENCE.md).
+- `PurchaseOrderService.approve(...)` was called exactly once.
+- `PO-000141` changed `DRAFT -> APPROVED`; `approvedAt` is present; total remained `1150.0000`; converted bill remained absent; journal remained absent.
+- Expected `PURCHASE_ORDER_APPROVED` audit count is `1`.
+- Temporary Part 5 script was removed before commit and no `*dev08c*` script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08C Part 6: purchase order approval evidence verification`.
