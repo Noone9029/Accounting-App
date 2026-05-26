@@ -195,6 +195,12 @@ Expected after approved Part 15:
 - `Test-Path -LiteralPath apps/api/scripts/dev08b-debit-note-void-preflight-readonly.tmp.ts` returned `False`.
 - `Get-ChildItem -Path apps/api/scripts -Filter '*dev08b*'` returned no files.
 
+## Part 15 Evidence Note
+
+- DEV-08B Part 15 approved local debit note void mutation evidence is recorded in [DEV_08B_DEBIT_NOTE_VOID_MUTATION_EVIDENCE.md](DEV_08B_DEBIT_NOTE_VOID_MUTATION_EVIDENCE.md).
+- `PDN-000003` changed `FINALIZED -> VOIDED`, debit-note journal `JE-000054` changed to `REVERSED`, and void reversal journal `JE-000057` was created and posted.
+- Supplier refund `SRF-000003` remained `VOIDED`, historical allocation `7ec0dfb3` remained reversed, and purchase bill `BILL-000008` stayed `FINALIZED` with balance due `1150.0000`.
+
 ## Exact Next Prompt Title
 
 `DEV-08B Part 15: approved local debit note void mutation`

@@ -1461,3 +1461,22 @@
 ## Next Thread Prompt
 
 `DEV-08B Part 15: approved local debit note void mutation`
+
+## DEV-08B Part 15 - Approved Local Debit Note Void Mutation Completed
+
+- DEV-08B Part 15 local-only mutation evidence is recorded in [docs/development/DEV_08B_DEBIT_NOTE_VOID_MUTATION_EVIDENCE.md](docs/development/DEV_08B_DEBIT_NOTE_VOID_MUTATION_EVIDENCE.md).
+- Mutation performed: yes, exactly one purchase debit note void/reversal. The guarded temporary script called `PurchaseDebitNoteService.void(...)` exactly once for `PDN-000003`.
+- Approval phrase was received for the local-only debit note void mutation under marker `DEV08B-AP-20260526T060000` for debit note `PDN-000003` total `460.0000`.
+- Debit note evidence: `PDN-000003`, safe id prefix `b93f96ee`, changed `FINALIZED -> VOIDED`; total remained `460.0000`; unapplied amount stayed `460.0000`; original debit-note journal `JE-000054` changed to `REVERSED`; void reversal journal `JE-000057`, safe id prefix `f1ab6c83`, is `POSTED`.
+- Supplier refund evidence: `SRF-000003`, safe id prefix `39873ae4`, remained `VOIDED`; void reversal journal `JE-000056` remained present; original refund journal remained `REVERSED`; posted refund blocker count stayed `0`.
+- Allocation evidence: historical `PurchaseDebitNoteAllocation` safe id prefix `7ec0dfb3` remains reversed for `250.0000`; active allocation count stayed `0`; no new allocation or supplier payment allocation was created.
+- Purchase bill evidence: `BILL-000008`, safe id prefix `4b8886bb`, remained `FINALIZED`; balance due stayed `1150.0000`; reversal journal remained absent.
+- Journal/accounting evidence: journal count changed `56 -> 57`; debit note void reversal journal `JE-000057` debits VAT receivable `230` for `60.0000`, debits account `111` for `400.0000`, and credits AP account `210` for `460.0000`; bill and supplier-refund journals remained otherwise unchanged.
+- Audit evidence: standardized `PurchaseDebitNote:PURCHASE_DEBIT_NOTE_VOIDED` now exists; no duplicate debit-note apply/reverse, supplier refund create/void, bill void, supplier payment, cleanup/delete, or login/browser audit-writing action occurred.
+- Forbidden side-effect result: fixture-specific supplier payments, purchase orders, purchase receipts, stock movements, cash expenses, generated documents, marker email rows/provider events, marker auth tokens, cleanup/delete audits, and ZATCA metadata for bill/debit note remained `0`.
+- Temporary script cleanup: `apps/api/scripts/dev08b-debit-note-void.tmp.ts` was removed after execution, `Test-Path` returned `False`, and no `*dev08b*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08B Part 16: AP debit note refund closure`.
+
+## Next Thread Prompt
+
+`DEV-08B Part 16: AP debit note refund closure`
