@@ -185,3 +185,11 @@ ZATCA side effects are not reachable from `PurchaseOrderService.create(...)`; no
 ## 16. Exact Next Recommended Thread
 
 `DEV-08C Part 3: purchase order fixture evidence verification`
+
+## 17. Part 3 Verification Note
+
+- DEV-08C Part 3 read-only evidence verification is completed in [DEV_08C_PURCHASE_ORDER_FIXTURE_EVIDENCE_VERIFICATION.md](DEV_08C_PURCHASE_ORDER_FIXTURE_EVIDENCE_VERIFICATION.md).
+- Verification conclusion: Verified.
+- Confirmed one marker-scoped draft purchase order `PO-000141`, safe id prefix `d6abea75`, total `1150.0000`, converted bill absent, journal absent, and expected `PURCHASE_ORDER_CREATED` audit present.
+- Confirmed no marker/fixture-tied approval, mark-sent, close, void, convert, delete, generated document/PDF/archive, email, supplier payment, supplier refund, purchase debit note, purchase receipt, stock movement, inventory, cash expense, cleanup, migration, seed/reset/delete, deploy, production, beta, shared-target, hosted, or customer-data side effect.
+- Exact next prompt title: `DEV-08C Part 4: purchase order approval preflight`.
