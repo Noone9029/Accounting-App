@@ -1444,6 +1444,20 @@
 - Temporary script cleanup: `apps/api/scripts/dev08b-supplier-refund-void.tmp.ts` was removed after execution, `Test-Path` returned `False`, and no `*dev08b*` script remains under `apps/api/scripts`.
 - Exact next prompt title: `DEV-08B Part 14: debit note void preflight`.
 
+## DEV-08B Part 14 - Debit Note Void Preflight Completed
+
+- DEV-08B Part 14 read-only preflight is recorded in [docs/development/DEV_08B_DEBIT_NOTE_VOID_PREFLIGHT.md](docs/development/DEV_08B_DEBIT_NOTE_VOID_PREFLIGHT.md).
+- Mutation performed: no. `PurchaseDebitNoteService.void(...)`, supplier refund mutation, debit-note apply/reverse, purchase bill mutation, supplier payment mutation, output/PDF/archive/export/download, email, ZATCA, migrations, seed/reset/delete, deploys, environment changes, and login/browser flows were not run.
+- Current debit note state: `PDN-000003`, safe id prefix `b93f96ee`, remains `FINALIZED`, total and unapplied `460.0000`, journal `JE-000054` posted, no `reversedBy`, and no debit-note reversal journal.
+- Current refund state: `SRF-000003`, safe id prefix `39873ae4`, remains `VOIDED`; void reversal journal `JE-000056` is posted; posted supplier refund blocker count for `PDN-000003` is `0`.
+- Current allocation state: historical `PurchaseDebitNoteAllocation` safe id prefix `7ec0dfb3` remains reversed for `250.0000`; active allocation count is `0`.
+- Current bill state: `BILL-000008`, safe id prefix `4b8886bb`, remains `FINALIZED`; balance due remains `1150.0000`; reversal journal remains absent.
+- Expected void/reversal effect: `PDN-000003` changes `FINALIZED -> VOIDED`, debit-note reversal journal is set, refund/allocation state remains voided/reversed, and bill balance remains `1150.0000`.
+- Expected journal/accounting result: create one posted reversal journal for `JE-000054`, mark `JE-000054` `REVERSED`, debit account `111` `400.0000`, debit VAT receivable `230` `60.0000`, credit AP account `210` `460.0000`, and leave bill and supplier-refund journals unchanged.
+- Expected audit result: one standardized `PurchaseDebitNote:PURCHASE_DEBIT_NOTE_VOIDED`; no supplier refund, debit-note apply/reverse, bill void, supplier payment, cleanup/delete, or login/browser audit-writing action.
+- Part 15 approval phrase: `I approve DEV-08B Part 15 local-only purchase debit note void mutation under marker DEV08B-AP-20260526T060000 for purchase debit note PDN-000003 total 460.0000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08B Part 15: approved local debit note void mutation`.
+
 ## Next Thread Prompt
 
-`DEV-08B Part 14: debit note void preflight`
+`DEV-08B Part 15: approved local debit note void mutation`
