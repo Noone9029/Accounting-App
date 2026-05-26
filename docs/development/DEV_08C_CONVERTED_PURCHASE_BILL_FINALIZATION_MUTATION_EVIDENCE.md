@@ -155,6 +155,10 @@ No output/PDF/archive, email, ZATCA, purchase receipt, stock movement, supplier 
 - No blocker found.
 - No deviation from the approved Part 14 mutation scope found.
 
-## 13. Exact Next Recommended Thread
+## 13. Verification Note
+
+DEV-08C Part 15 independently verified this evidence in [DEV_08C_CONVERTED_PURCHASE_BILL_FINALIZATION_EVIDENCE_VERIFICATION.md](DEV_08C_CONVERTED_PURCHASE_BILL_FINALIZATION_EVIDENCE_VERIFICATION.md). Conclusion: verified. The purchase order remains `BILLED`, converted bill `BILL-000422` remains `FINALIZED`, journal `JE-003156` is posted and balanced, forbidden side effects are absent, and the temporary Part 14 script is removed.
+
+## 14. Exact Next Recommended Thread
 
 `DEV-08C Part 15: converted purchase bill finalization evidence verification`
