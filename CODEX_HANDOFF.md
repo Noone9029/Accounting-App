@@ -1855,6 +1855,18 @@
 - No side effects: journal count remained `59`; no payment reversal journal, supplier payment void audit, supplier refund void audit, allocation mutation, generated documents, email rows/events, purchase orders/receipts, stock movements, cash expenses, purchase debit notes, cleanup/delete audits, or temporary DEV-08D scripts were found.
 - Exact next prompt title: `DEV-08D Part 10: supplier refund void preflight`.
 
+## DEV-08D Part 10 - Supplier Refund Void Preflight Completed
+
+- DEV-08D Part 10 read-only supplier refund void preflight is recorded in [docs/development/DEV_08D_SUPPLIER_REFUND_VOID_PREFLIGHT.md](docs/development/DEV_08D_SUPPLIER_REFUND_VOID_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Current refund state: `SRF-000004`, safe prefix `dc8c4c9a`, remains `POSTED`, amount `150.0000`, source type `SUPPLIER_PAYMENT`, source payment safe prefix `4b9c42b1`, refund journal `JE-000059` `POSTED`, and void reversal journal absent.
+- Current source payment state: `PAY-000007`, safe prefix `4b9c42b1`, remains `POSTED`, amount paid `500.0000`, unapplied amount `350.0000`, and void reversal journal absent.
+- Expected refund void effect: `SupplierRefundService.void(...)` once should set refund `VOIDED`, create a posted reversal journal, mark original refund journal `REVERSED`, restore source payment unapplied amount `350.0000 -> 500.0000`, and leave source payment `POSTED`.
+- Expected accounting result: reversal journal balanced at debit/credit `150.0000`, reversing Dr asset `112` / Cr AP `210` into Dr AP `210` / Cr asset `112`; journal count should increase by `1`.
+- Expected audit/side-effect result: one `SupplierRefund:SUPPLIER_REFUND_VOIDED` audit; no supplier payment void, allocations, generated documents, email, ZATCA, purchase orders/receipts, stock movements, cash expenses, purchase debit notes, cleanup/delete, or temporary script side effects.
+- Required approval phrase: `I approve DEV-08D Part 11 local-only supplier refund void mutation under marker DEV08D-AP-20260526T000000 for the DEV-08D supplier refund from payment amount 150.0000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08D Part 11: approved local supplier refund void mutation`.
+
 ## Next Thread Prompt
 
-`DEV-08D Part 10: supplier refund void preflight`
+`DEV-08D Part 11: approved local supplier refund void mutation`
