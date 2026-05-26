@@ -187,3 +187,15 @@ ZATCA behavior was not invoked. The fixture is AP-only and no sales invoice/ZATC
 ## 15. Next Recommended Thread
 
 `DEV-08D Part 3: supplier payment refund source fixture evidence verification`
+
+## Part 3 Verification Note
+
+DEV-08D Part 3 completed read-only verification of this fixture. Evidence is recorded in [DEV_08D_SUPPLIER_PAYMENT_REFUND_SOURCE_FIXTURE_EVIDENCE_VERIFICATION.md](DEV_08D_SUPPLIER_PAYMENT_REFUND_SOURCE_FIXTURE_EVIDENCE_VERIFICATION.md).
+
+- Verification conclusion: verified.
+- Runtime mutation performed: no.
+- Source payment remained `PAY-000007`, `POSTED`, amount paid `500.0000`, unapplied amount `500.0000`.
+- Journal remained `JE-000058`, `POSTED`, balanced at debit/credit `500.0000`, with Dr AP `210` and Cr asset `112`.
+- Direct allocations, unapplied allocations, supplier refunds, generated documents, email rows/events, purchase bills/orders/receipts, stock movements, cash expenses, purchase debit notes, and cleanup/delete audits remained `0`.
+- No `*dev08d*` temporary script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08D Part 4: supplier refund from supplier payment preflight`.

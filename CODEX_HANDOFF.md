@@ -1770,6 +1770,19 @@
 - Temporary script cleanup result: `apps/api/scripts/dev08d-supplier-payment-source.tmp.ts` was removed; `Test-Path` returned `False`; no `*dev08d*` script remained under `apps/api/scripts`.
 - Exact next prompt title: `DEV-08D Part 3: supplier payment refund source fixture evidence verification`.
 
+## DEV-08D Part 3 - Supplier Payment Refund Source Fixture Evidence Verification Completed
+
+- DEV-08D Part 3 read-only evidence verification is recorded in [docs/development/DEV_08D_SUPPLIER_PAYMENT_REFUND_SOURCE_FIXTURE_EVIDENCE_VERIFICATION.md](docs/development/DEV_08D_SUPPLIER_PAYMENT_REFUND_SOURCE_FIXTURE_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Verification conclusion: verified.
+- Source payment status/amount result: `PAY-000007`, safe prefix `4b9c42b1`, remained `POSTED`, amount paid `500.0000`, unapplied amount `500.0000`, void reversal journal absent.
+- Journal/accounting result: `JE-000058`, safe prefix `da62af82`, remained `POSTED` and balanced at debit/credit `500.0000`, with Dr AP account `210` and Cr paid-through asset account `112`.
+- Allocation/refund result: direct supplier payment allocations `0`, supplier payment unapplied allocations `0`, supplier refunds for the source payment `0`.
+- Audit result: `Contact:CREATE` count `1`; `SupplierPayment:SUPPLIER_PAYMENT_CREATED` count `1`; supplier refund and supplier payment void audit counts `0`.
+- Forbidden side-effect result: generated documents, email outbox rows, email provider events, purchase bills, purchase orders, purchase receipts, stock movements, cash expenses, purchase debit notes, and cleanup/delete audits all `0`.
+- Temporary script cleanup result: no `*dev08d*` temporary script exists under `apps/api/scripts`; Part 3 used no temporary script file.
+- Exact next prompt title: `DEV-08D Part 4: supplier refund from supplier payment preflight`.
+
 ## Next Thread Prompt
 
-`DEV-08D Part 3: supplier payment refund source fixture evidence verification`
+`DEV-08D Part 4: supplier refund from supplier payment preflight`
