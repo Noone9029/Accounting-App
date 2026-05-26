@@ -157,6 +157,10 @@ Expected absent side effects after Part 14:
 - No discrepancy found between Part 12 conversion evidence and current Part 13 read-only preflight.
 - Part 14 should stop if the purchase bill is no longer `DRAFT`, a journal entry already exists, the fiscal period is not open/allowed, required posting accounts `210` or `230` are missing, the line account is not active/posting, a marker/PO/bill journal already exists, or the target is not local-only.
 
-## 14. Exact Next Prompt Title
+## 14. Evidence Note
+
+Part 14 completed the approved local converted purchase bill finalization mutation and recorded evidence in [DEV_08C_CONVERTED_PURCHASE_BILL_FINALIZATION_MUTATION_EVIDENCE.md](DEV_08C_CONVERTED_PURCHASE_BILL_FINALIZATION_MUTATION_EVIDENCE.md).
+
+## 15. Exact Next Prompt Title
 
 `DEV-08C Part 14: approved local converted purchase bill finalization mutation`

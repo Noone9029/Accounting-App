@@ -1645,6 +1645,18 @@
 - Required approval phrase: `I approve DEV-08C Part 14 local-only converted purchase bill finalization mutation under marker DEV08C-AP-20260526T000000. No production, no beta, no customer data.`
 - Exact next prompt title: `DEV-08C Part 14: approved local converted purchase bill finalization mutation`.
 
+## DEV-08C Part 14 - Converted Purchase Bill Finalization Mutation Completed
+
+- DEV-08C Part 14 approved local converted purchase bill finalization mutation evidence is recorded in [docs/development/DEV_08C_CONVERTED_PURCHASE_BILL_FINALIZATION_MUTATION_EVIDENCE.md](docs/development/DEV_08C_CONVERTED_PURCHASE_BILL_FINALIZATION_MUTATION_EVIDENCE.md).
+- Runtime mutation performed: yes, local-only.
+- Exact service call made: `PurchaseBillService.finalize(...)` once.
+- Before/after entity state: `BILL-000422`, safe id prefix `f37c60b2`, changed `DRAFT -> FINALIZED`; `finalizedAt` changed absent -> present; `journalEntryId` changed absent -> present with journal safe prefix `2e82f16b`; total and balance due stayed `1150.0000`; `PO-000141` remained `BILLED`.
+- Accounting/journal result: posted journal `JE-003156`, safe prefix `2e82f16b`, reference `BILL-000422`, total debit/credit `1150.0000`; lines Dr `111` `1000.0000`, Dr `230` `150.0000`, Cr `210` `1150.0000`.
+- Audit result: `PURCHASE_BILL_FINALIZED` audit count changed `0 -> 1`; purchase order audit trail remained unchanged through `PURCHASE_ORDER_CONVERTED_TO_BILL`.
+- Forbidden side-effect result: generated document/PDF/archive, email, purchase receipt, stock movement, supplier payment, supplier refund, purchase debit note, cash expense, cleanup, ZATCA, production, beta, shared-target, hosted, and customer-data side effects absent.
+- Temporary script cleanup: `apps/api/scripts/dev08c-converted-purchase-bill-finalize.tmp.ts` was removed; `Test-Path` returned `False`; no `*dev08c*` script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08C Part 15: converted purchase bill finalization evidence verification`.
+
 ## Next Thread Prompt
 
-`DEV-08C Part 14: approved local converted purchase bill finalization mutation`
+`DEV-08C Part 15: converted purchase bill finalization evidence verification`
