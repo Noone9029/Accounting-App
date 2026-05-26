@@ -1566,6 +1566,16 @@
 - Temporary script cleanup result: no `*dev08c*` script exists under `apps/api/scripts`; Part 6 used no temporary script file.
 - Exact next prompt title: `DEV-08C Part 7: purchase order mark-sent preflight`.
 
+## DEV-08C Part 7 - Purchase Order Mark-Sent Preflight Completed
+
+- DEV-08C Part 7 purchase order mark-sent preflight is recorded in [docs/development/DEV_08C_PURCHASE_ORDER_MARK_SENT_PREFLIGHT.md](docs/development/DEV_08C_PURCHASE_ORDER_MARK_SENT_PREFLIGHT.md).
+- Mutation performed: no.
+- Current PO state: `PO-000141`, safe id prefix `d6abea75`, status `APPROVED`, `approvedAt` present, `sentAt` absent, total `1150.0000`, one line, converted bill absent, purchase bill count `0`, marker/PO journal count `0`.
+- Mark-sent eligibility: `PurchaseOrderService.markSent(...)` allows current `APPROVED` status, sets status `SENT` and `sentAt`, and logs `MARK_SENT`; audit mapping records `PURCHASE_ORDER_SENT`.
+- Expected mark-sent effect: `APPROVED -> SENT`, `sentAt` set, totals and lines unchanged, no bill, no journal, no inventory, no output/email/ZATCA, and one `PURCHASE_ORDER_SENT` audit action.
+- Required approval phrase: `I approve DEV-08C Part 8 local-only purchase order mark-sent mutation under marker DEV08C-AP-20260526T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08C Part 8: approved local purchase order mark-sent mutation`.
+
 ## Next Thread Prompt
 
-`DEV-08C Part 7: purchase order mark-sent preflight`
+`DEV-08C Part 8: approved local purchase order mark-sent mutation`
