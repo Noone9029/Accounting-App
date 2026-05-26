@@ -1708,6 +1708,19 @@
 - Required approval phrase: `I approve DEV-08C Part 20 local-only purchase order void branch mutation under marker DEV08C-AP-20260526T000000. No production, no beta, no customer data.`
 - Exact next prompt title: `DEV-08C Part 20: approved local purchase order void branch mutation`.
 
+## DEV-08C Part 20 - Purchase Order Void Branch Mutation Completed
+
+- DEV-08C Part 20 approved local purchase order void branch mutation evidence is recorded in [docs/development/DEV_08C_PURCHASE_ORDER_VOID_BRANCH_MUTATION_EVIDENCE.md](docs/development/DEV_08C_PURCHASE_ORDER_VOID_BRANCH_MUTATION_EVIDENCE.md).
+- Runtime mutation performed: yes, local-only.
+- Exact service calls made: `PurchaseOrderService.create(...)` once and `PurchaseOrderService.void(...)` once.
+- Before/after entity state: separate void-branch order `PO-000143`, safe prefix `ffd4e3d7`, progressed `DRAFT -> VOIDED`; `voidedAt` is present; `approvedAt`, `sentAt`, and `closedAt` are absent; total `1150.0000`; converted bill absent.
+- Protected branch state: main `PO-000141` safe prefix `d6abea75` remained `BILLED` with converted bill `BILL-000422` `FINALIZED`; close-branch `PO-000142` safe prefix `d40b6716` remained `CLOSED`.
+- Accounting/journal result: void-branch purchase bill count `0`, void-branch journal count `0`, converted bill absent.
+- Audit result: void-branch `PURCHASE_ORDER_CREATED` and `PURCHASE_ORDER_VOIDED` counts are each `1`; approve, mark-sent, close, and conversion audit actions were absent for the void branch.
+- Forbidden side-effect result: generated document/PDF/archive, email, ZATCA, purchase receipt, stock movement, supplier payment, supplier refund, purchase debit note, cash expense, cleanup, migration, seed/reset/delete, deploy, production, beta, shared-target, hosted, and customer-data side effects were absent.
+- Temporary script cleanup: `apps/api/scripts/dev08c-purchase-order-void-branch.tmp.ts` was removed; `Test-Path` returned `False`; no `*dev08c*` script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08C Part 21: purchase order void branch evidence verification`.
+
 ## Next Thread Prompt
 
-`DEV-08C Part 20: approved local purchase order void branch mutation`
+`DEV-08C Part 21: purchase order void branch evidence verification`

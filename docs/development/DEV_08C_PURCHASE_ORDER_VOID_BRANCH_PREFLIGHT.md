@@ -211,3 +211,7 @@ The user already provided this exact approval phrase in the current thread. Part
 ## 15. Exact Next Prompt Title
 
 `DEV-08C Part 20: approved local purchase order void branch mutation`
+
+## 16. Evidence Note
+
+DEV-08C Part 20 executed this void-branch plan locally and recorded evidence in [DEV_08C_PURCHASE_ORDER_VOID_BRANCH_MUTATION_EVIDENCE.md](DEV_08C_PURCHASE_ORDER_VOID_BRANCH_MUTATION_EVIDENCE.md). The separate void-branch order `PO-000143` safe prefix `ffd4e3d7` reached `VOIDED`; main `PO-000141` remained `BILLED`; close `PO-000142` remained `CLOSED`; no purchase bill, journal, generated document, email, ZATCA, receipt, inventory, supplier payment/refund/debit note, or cash expense side effect was found.
