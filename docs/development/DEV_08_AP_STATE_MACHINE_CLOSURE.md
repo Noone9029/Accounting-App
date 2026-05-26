@@ -220,9 +220,8 @@ No duplicate purchase bill finalization audit, duplicate supplier payment void a
 
 The next AP evidence branches should cover:
 
-- Purchase debit note lifecycle: create/edit/finalize/apply/reverse-allocation/void.
+- DEV-08B followed this core AP bill/payment closure and covered the local purchase debit note and supplier refund-from-debit-note branch. See [DEV_08B_AP_DEBIT_NOTE_REFUND_CLOSURE.md](DEV_08B_AP_DEBIT_NOTE_REFUND_CLOSURE.md).
 - Supplier refund lifecycle from supplier payment source.
-- Supplier refund lifecycle from purchase debit note source.
 - Debit-note and refund blockers for supplier payment void and purchase bill void.
 - Purchase order operational lifecycle and convert-to-bill.
 - Cash expense lifecycle.

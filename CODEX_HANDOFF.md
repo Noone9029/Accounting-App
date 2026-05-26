@@ -1480,3 +1480,22 @@
 ## Next Thread Prompt
 
 `DEV-08B Part 16: AP debit note refund closure`
+
+## DEV-08B Part 16 - AP Debit Note Refund Closure Completed
+
+- DEV-08B Part 16 closure is recorded in [docs/development/DEV_08B_AP_DEBIT_NOTE_REFUND_CLOSURE.md](docs/development/DEV_08B_AP_DEBIT_NOTE_REFUND_CLOSURE.md).
+- Mutation performed: no. No runtime DB write, mutation script, fixture creation, finalization, apply, reverse, refund, void, cleanup, output/PDF/archive/export/download, email, ZATCA, migration, seed/reset/delete, deploy, environment/provider/schema change, login/browser flow, production, beta, shared-target, or customer-data action ran.
+- Latest commit inspected: `64537439 Void DEV-08B debit note locally`; local `HEAD` matched GitHub remote `origin/main`.
+- DEV-08B proved AP debit note fixture creation/finalization, debit-note apply-to-bill, debit-note allocation reversal, supplier refund from debit note, supplier refund void/reversal, debit note void/reversal, journal behavior, audit behavior, and forbidden output/email/ZATCA non-effects.
+- Final bill state: `BILL-000008`, safe id prefix `4b8886bb`, remains `FINALIZED`, total and balance due `1150.0000`, reversal journal absent.
+- Final debit note state: `PDN-000003`, safe id prefix `b93f96ee`, is `VOIDED`; total and unapplied amount `460.0000`; original journal `JE-000054` is `REVERSED`; void reversal journal `JE-000057` is `POSTED`.
+- Final supplier refund state: `SRF-000003`, safe id prefix `39873ae4`, is `VOIDED`; amount `150.0000`; original journal `JE-000055` is `REVERSED`; void reversal journal `JE-000056` is `POSTED`.
+- Final allocation state: historical `PurchaseDebitNoteAllocation` safe id prefix `7ec0dfb3` remains reversed for `250.0000`; active debit-note allocation count is `0`.
+- Final accounting finding: debit-note apply/reversal were matching-only; supplier refund and debit-note void paths created balanced posted reversal journals; no supplier payment, purchase order, inventory, cash expense, output, email, or ZATCA journal was created.
+- Final audit finding: expected fixture audit trail exists through `PurchaseDebitNote:PURCHASE_DEBIT_NOTE_VOIDED`; debit-note apply and allocation reversal remain raw audit actions; no duplicate apply/reverse/refund/void, supplier payment, cleanup/delete, or login/browser audit-writing action was found.
+- Remaining AP gaps: supplier refund from supplier payment source, purchase order conversion/lifecycle, cash expenses, inventory-clearing bills and purchase receipts, AP outputs/PDF/archive/email, browser-authenticated AP UI/API QA, repeated/idempotency paths, fiscal-period blockers, permission edge cases, cleanup policy, and production/beta/customer-data behavior.
+- Exact next prompt title: `DEV-08C Part 1: purchase order conversion preflight`.
+
+## Next Thread Prompt
+
+`DEV-08C Part 1: purchase order conversion preflight`

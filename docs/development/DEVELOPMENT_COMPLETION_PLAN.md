@@ -96,8 +96,9 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 - DEV-07 is now closed for the local customer payment allocation/void evidence chain in [DEV_07_AR_STATE_MACHINE_CLOSURE.md](DEV_07_AR_STATE_MACHINE_CLOSURE.md). It proved the finalized payment-allocation invoice fixture, customer payment creation, direct allocation, unapplied amount application, unapplied allocation reversal, customer payment void/reversal, journal behavior, standardized audit behavior, and output/email/ZATCA non-effects.
 - DEV-07 does not claim full AR completion. Remaining AR gaps include customer refunds, credit notes, output/PDF/archive, email, ZATCA XML/signing/submission, authenticated UI/API QA, repeated/idempotency paths, allocation blockers beyond this chain, fiscal-period locks, cleanup policy, and production/beta/customer-data behavior.
 - DEV-08 is now closed for the core local AP bill/payment evidence chain in [DEV_08_AP_STATE_MACHINE_CLOSURE.md](DEV_08_AP_STATE_MACHINE_CLOSURE.md). It proved the fake supplier fixture, finalized direct-mode purchase bill, AP/VAT/expense purchase bill journal, supplier payment creation, direct bill allocation, unapplied amount application, unapplied allocation reversal, supplier payment void/reversal, purchase bill void/reversal after supplier payment void, journal behavior, audit behavior, and output/email/ZATCA non-effects.
-- DEV-08 does not claim full AP completion. Remaining AP gaps include purchase debit notes, supplier refunds, purchase orders, cash expenses, inventory-clearing bills, purchase receipts/inventory integration, AP PDF/archive/output routes, AP email delivery, authenticated UI/API QA, repeated/idempotency paths, fiscal-period locks, permission edge cases, cleanup policy, and production/beta/customer-data behavior.
-- Recommended next local-only AP branch: `DEV-08B Part 1: AP debit note and supplier refund branch preflight`.
+- DEV-08B is now closed for the local AP purchase debit note and supplier refund-from-debit-note branch in [DEV_08B_AP_DEBIT_NOTE_REFUND_CLOSURE.md](DEV_08B_AP_DEBIT_NOTE_REFUND_CLOSURE.md). It proved debit-note fixture creation/finalization, debit-note apply-to-bill, debit-note allocation reversal, supplier refund creation from a debit note, supplier refund void/reversal, debit-note void/reversal, journal behavior, audit behavior, and output/email/ZATCA non-effects.
+- DEV-08 and DEV-08B do not claim full AP completion. Remaining AP gaps include supplier refunds from supplier payment source, purchase orders, cash expenses, inventory-clearing bills, purchase receipts/inventory integration, AP PDF/archive/output routes, AP email delivery, authenticated UI/API QA, repeated/idempotency paths, fiscal-period locks, permission edge cases, cleanup policy, and production/beta/customer-data behavior.
+- Recommended next local-only AP branch: `DEV-08C Part 1: purchase order conversion preflight`.
 
 ## Highest-Priority Development Tickets
 
@@ -148,4 +149,4 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 
 ## Exact Next Recommended Development Ticket
 
-`DEV-08B Part 1: AP debit note and supplier refund branch preflight`
+`DEV-08C Part 1: purchase order conversion preflight`
