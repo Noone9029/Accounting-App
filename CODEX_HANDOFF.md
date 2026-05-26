@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `5a30abdd Create DEV-08B supplier refund from debit note`
+- `b5782526 Close DEV-08B debit note refund evidence`
 
 ## Current Development Objective
 
@@ -1496,6 +1496,17 @@
 - Remaining AP gaps: supplier refund from supplier payment source, purchase order conversion/lifecycle, cash expenses, inventory-clearing bills and purchase receipts, AP outputs/PDF/archive/email, browser-authenticated AP UI/API QA, repeated/idempotency paths, fiscal-period blockers, permission edge cases, cleanup policy, and production/beta/customer-data behavior.
 - Exact next prompt title: `DEV-08C Part 1: purchase order conversion preflight`.
 
+## DEV-08C Part 1 - Purchase Order Conversion Preflight Completed
+
+- DEV-08C Part 1 read-only purchase order conversion preflight is recorded in [docs/development/DEV_08C_PURCHASE_ORDER_CONVERSION_PREFLIGHT.md](docs/development/DEV_08C_PURCHASE_ORDER_CONVERSION_PREFLIGHT.md).
+- Mutation performed: no. No runtime DB write, fixture creation, purchase order create/approve/mark-sent/close/void/convert/delete, purchase bill finalization, purchase receipt, stock movement, generated document, PDF/download/archive, email, ZATCA, migration, seed/reset/delete, deploy, environment/provider/schema change, login/browser flow, production, beta, shared-target, or customer-data action ran.
+- Latest commit inspected: `b5782526 Close DEV-08B debit note refund evidence`; local `HEAD` matched `origin/main` at `b5782526302fea2465a50dab220037fcc9e55cfc`.
+- Purchase order lifecycle summary: create/update keep purchase orders operational and non-posting; approval moves `DRAFT -> APPROVED`; mark-sent moves `APPROVED -> SENT`; close allows `APPROVED|SENT|PARTIALLY_BILLED -> CLOSED`; void allows `DRAFT|APPROVED|SENT -> VOIDED`; delete is draft-only and remains out of the selected fixture arc; PDF/generate-PDF paths are output/archive-producing and deferred.
+- Conversion summary: `PurchaseOrderService.convertToBill(...)` allows only `APPROVED` or `SENT`, blocks repeat conversion with `convertedBillId`, requires an active supplier contact and line account or item expense-account fallback, creates a `DRAFT` purchase bill without a journal, copies supplier/branch/currency/notes/terms/totals/line data, and updates the purchase order to `BILLED` with `convertedBillId`.
+- Selected Part 2 mutation target: create or reuse one fake local supplier named `DEV08C-AP-20260526T000000 Supplier` and create one draft purchase order only under marker `DEV08C-AP-20260526T000000`, using one service/direct line, planned subtotal `1000.0000`, VAT `150.0000`, total `1150.0000`, and no approval, mark-sent, conversion, bill finalization, PDF/archive, email, ZATCA, receipt, inventory, supplier payment/refund/debit-note, cash expense, cleanup, migration, seed/reset/delete, deploy, environment, provider, schema, production, beta, shared-target, or customer-data action.
+- Required approval phrase for Part 2: `I approve DEV-08C Part 2 local-only purchase order fixture creation mutation under marker DEV08C-AP-20260526T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08C Part 2: approved local purchase order fixture creation mutation`.
+
 ## Next Thread Prompt
 
-`DEV-08C Part 1: purchase order conversion preflight`
+`DEV-08C Part 2: approved local purchase order fixture creation mutation`
