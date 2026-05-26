@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `33aeb97e Verify DEV-07 AR customer payment evidence`
+- `498cfffd Close DEV-08 AP state-machine evidence`
 
 ## Current Development Objective
 
@@ -1210,3 +1210,17 @@
 ## Next Thread Prompt
 
 `DEV-08B Part 1: AP debit note and supplier refund branch preflight`
+
+## DEV-08B Part 1 - AP Debit Note And Supplier Refund Branch Preflight Completed
+
+- DEV-08B Part 1 read-only preflight is recorded in [docs/development/DEV_08B_AP_DEBIT_NOTE_REFUND_PREFLIGHT.md](docs/development/DEV_08B_AP_DEBIT_NOTE_REFUND_PREFLIGHT.md).
+- Mutation performed: no. No database write, DB connection, login/browser flow, AP mutation, debit note creation, supplier refund creation, purchase bill creation, supplier payment creation, output/PDF/archive/export/download, email, ZATCA, cleanup, migration, seed/reset/delete, deploy, environment/provider/schema change, production, beta, shared-target, or customer-data action was performed.
+- Recommended fixture target: reuse the fake local AP-ready organization from DEV-08 only after Part 2 rechecks it is local/disposable and has the required dependencies; create a new marker-scoped DEV-08B fake supplier, finalized direct-mode purchase bill, and finalized purchase debit note under marker `DEV08B-AP-20260526T060000`.
+- Proposed economics: new purchase bill total `1150.0000`; new purchase debit note total candidate `400.0000`, preferably VAT path with taxable `347.8261` and VAT `52.1739`; apply `250.0000` to the bill; use remaining debit-note unapplied amount for supplier refund testing after an explicit Part 9 branch decision.
+- Blockers/unknowns: do not reuse voided `BILL-000007`; exact number sequences, fiscal-period state, and account/tax dependencies must be read-only checked before mutation; debit-note apply/reverse allocation audit actions appear raw rather than standardized.
+- Required approval phrase for Part 2: `I approve DEV-08B Part 2 local-only AP debit note fixture creation mutation under marker DEV08B-AP-20260526T060000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08B Part 2: approved local AP debit note fixture creation mutation`.
+
+## Next Thread Prompt
+
+`DEV-08B Part 2: approved local AP debit note fixture creation mutation`
