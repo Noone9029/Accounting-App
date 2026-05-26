@@ -171,3 +171,16 @@ ZATCA behavior was not invoked. No output/PDF/archive/export/download/email acti
 ## 15. Next Recommended Thread
 
 `DEV-08D Part 12: supplier refund void evidence verification`
+
+## Part 12 Verification Note
+
+DEV-08D Part 12 completed read-only verification of this mutation. Evidence is recorded in [DEV_08D_SUPPLIER_REFUND_VOID_EVIDENCE_VERIFICATION.md](DEV_08D_SUPPLIER_REFUND_VOID_EVIDENCE_VERIFICATION.md).
+
+- Verification conclusion: verified.
+- Runtime mutation performed: no.
+- Supplier refund `SRF-000004` remained `VOIDED`, `voidedAt` present, amount `150.0000`, source type `SUPPLIER_PAYMENT`.
+- Original refund journal `JE-000059` remained `REVERSED`; refund void reversal journal `JE-000060`, safe prefix `6360eb40`, remained `POSTED` and balanced at debit/credit `150.0000`, with Dr AP `210` and Cr asset `112`.
+- Source payment `PAY-000007` remained `POSTED`, amount paid `500.0000`, unapplied amount `500.0000`, `voidedAt` absent, void reversal journal absent, and source journal `JE-000058` `POSTED`.
+- Supplier refund create audit count `1`, supplier refund void audit count `1`, supplier payment void audit count `0`, cleanup/delete audit count `0`.
+- Generated documents, email rows/events, purchase orders/receipts, stock movements, cash expenses, purchase debit notes, and temporary DEV-08D scripts remained absent.
+- Exact next prompt title: `DEV-08D Part 13: supplier payment void after refund void preflight`.

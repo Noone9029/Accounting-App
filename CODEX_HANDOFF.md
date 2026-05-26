@@ -1880,6 +1880,16 @@
 - Temporary script cleanup result: `apps/api/scripts/dev08d-supplier-refund-void.tmp.ts` was removed; `Test-Path` returned `False`; no `*dev08d*` script remained under `apps/api/scripts`.
 - Exact next prompt title: `DEV-08D Part 12: supplier refund void evidence verification`.
 
+## DEV-08D Part 12 - Supplier Refund Void Evidence Verification Completed
+
+- DEV-08D Part 12 read-only supplier refund void evidence verification is recorded in [docs/development/DEV_08D_SUPPLIER_REFUND_VOID_EVIDENCE_VERIFICATION.md](docs/development/DEV_08D_SUPPLIER_REFUND_VOID_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Verification conclusion: verified.
+- Refund void result: `SRF-000004`, safe prefix `dc8c4c9a`, remained `VOIDED`; `voidedAt` present; original refund journal `JE-000059` remained `REVERSED`; refund void reversal journal `JE-000060`, safe prefix `6360eb40`, remained `POSTED` and balanced at debit/credit `150.0000`.
+- Source payment restoration result: `PAY-000007`, safe prefix `4b9c42b1`, remained `POSTED`, amount paid `500.0000`, unapplied amount `500.0000`, source payment journal `JE-000058` `POSTED`, and source payment void reversal journal absent.
+- Journal/audit/side-effect result: reversal journal lines are Dr AP `210` / Cr asset `112`; supplier refund create audit `1`, supplier refund void audit `1`, supplier payment void audit `0`; generated documents, email rows/events, purchase orders/receipts, stock movements, cash expenses, purchase debit notes, cleanup/delete audits, and temporary DEV-08D scripts absent.
+- Exact next prompt title: `DEV-08D Part 13: supplier payment void after refund void preflight`.
+
 ## Next Thread Prompt
 
-`DEV-08D Part 12: supplier refund void evidence verification`
+`DEV-08D Part 13: supplier payment void after refund void preflight`
