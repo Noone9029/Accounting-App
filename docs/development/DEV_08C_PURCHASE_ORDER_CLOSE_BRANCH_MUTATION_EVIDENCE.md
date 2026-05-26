@@ -152,6 +152,10 @@ No purchase bill, journal, generated document/PDF/archive, email, ZATCA, purchas
 - No deviation from the approved Part 17 mutation scope found.
 - The first temporary-runner execution failed before importing services or writing to the database because top-level `await` is not supported by the local CommonJS tsx output. The script was patched to wrap the same guarded logic in `main()`, then rerun successfully once.
 
-## 13. Exact Next Recommended Thread
+## 13. Verification Note
+
+DEV-08C Part 18 independently verified this evidence in [DEV_08C_PURCHASE_ORDER_CLOSE_BRANCH_EVIDENCE_VERIFICATION.md](DEV_08C_PURCHASE_ORDER_CLOSE_BRANCH_EVIDENCE_VERIFICATION.md). Conclusion: verified. Main `PO-000141` remains `BILLED`, converted bill `BILL-000422` remains `FINALIZED`, close-branch `PO-000142` remains `CLOSED`, close-branch purchase bill and journal counts are `0`, expected audit rows exist, forbidden side effects are absent, and the temporary Part 17 script is removed.
+
+## 14. Exact Next Recommended Thread
 
 `DEV-08C Part 18: purchase order close branch evidence verification`

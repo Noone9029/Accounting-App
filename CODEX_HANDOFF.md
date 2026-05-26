@@ -1689,6 +1689,16 @@
 - Temporary script cleanup: `apps/api/scripts/dev08c-purchase-order-close-branch.tmp.ts` was removed; `Test-Path` returned `False`; no `*dev08c*` script remained under `apps/api/scripts`.
 - Exact next prompt title: `DEV-08C Part 18: purchase order close branch evidence verification`.
 
+## DEV-08C Part 18 - Purchase Order Close Branch Evidence Verification Completed
+
+- DEV-08C Part 18 purchase order close branch evidence verification is recorded in [docs/development/DEV_08C_PURCHASE_ORDER_CLOSE_BRANCH_EVIDENCE_VERIFICATION.md](docs/development/DEV_08C_PURCHASE_ORDER_CLOSE_BRANCH_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Verification conclusion: verified.
+- Key entity/status/amount result: main `PO-000141` safe prefix `d6abea75` remains `BILLED`, converted bill `BILL-000422` safe prefix `f37c60b2` remains `FINALIZED`, and close-branch `PO-000142` safe prefix `d40b6716` remains `CLOSED` with total `1150.0000`.
+- Forbidden side-effect result: close-branch purchase bill, journal, generated document/PDF/archive, email, ZATCA path, purchase receipt, stock movement, supplier payment, supplier refund, purchase debit note, cash expense, cleanup, migration, seed/reset/delete, deploy, production, beta, shared-target, hosted, and customer-data side effects were absent.
+- Temporary script cleanup result: `apps/api/scripts/dev08c-purchase-order-close-branch.tmp.ts` is absent; no `*dev08c*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08C Part 19: purchase order void branch preflight`.
+
 ## Next Thread Prompt
 
-`DEV-08C Part 18: purchase order close branch evidence verification`
+`DEV-08C Part 19: purchase order void branch preflight`
