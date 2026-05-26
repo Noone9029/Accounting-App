@@ -219,3 +219,15 @@ Expected fixture-specific non-effects for Part 5:
 ## Exact Next Prompt Title
 
 `DEV-08B Part 5: approved local debit note apply-to-bill mutation`
+
+## Part 5 Mutation Evidence Note
+
+- DEV-08B Part 5 local-only mutation evidence is recorded in [DEV_08B_DEBIT_NOTE_APPLY_MUTATION_EVIDENCE.md](DEV_08B_DEBIT_NOTE_APPLY_MUTATION_EVIDENCE.md).
+- The mutation applied `250.0000` from `PDN-000003` to `BILL-000008`.
+- Debit note unapplied amount changed `460.0000 -> 210.0000`.
+- Bill balance due changed `1150.0000 -> 900.0000`.
+- One active `PurchaseDebitNoteAllocation` was created, safe id prefix `7ec0dfb3`.
+- No journal entry was created; journal count stayed `54` and `JOURNAL_ENTRY` sequence stayed `JE-000055`.
+- Audit recorded raw `PurchaseDebitNote:APPLY`.
+- Mutation performed in Part 5: yes.
+- Exact next prompt title: `DEV-08B Part 6: debit note apply evidence verification`.

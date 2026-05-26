@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `41de087f Verify DEV-08B debit note fixture evidence`
+- `cb1fe2d1 Plan DEV-08B debit note application`
 
 ## Current Development Objective
 
@@ -1285,3 +1285,22 @@
 ## Next Thread Prompt
 
 `DEV-08B Part 5: approved local debit note apply-to-bill mutation`
+
+## DEV-08B Part 5 - Approved Local Debit Note Apply-To-Bill Mutation Completed
+
+- DEV-08B Part 5 local-only mutation evidence is recorded in [docs/development/DEV_08B_DEBIT_NOTE_APPLY_MUTATION_EVIDENCE.md](docs/development/DEV_08B_DEBIT_NOTE_APPLY_MUTATION_EVIDENCE.md).
+- Approval phrase was received for the local-only purchase debit note apply-to-bill mutation under marker `DEV08B-AP-20260526T060000` for the DEV-08B debit note and purchase bill with amount `250.0000`.
+- Mutation performed: yes. The guarded temporary script called `PurchaseDebitNoteService.apply(...)` exactly once for `PDN-000003` with `{ billId: BILL-000008, amountApplied: "250.0000" }`.
+- Local-only target proof: Docker Linux engine was available, local Postgres/Redis containers were healthy, the guarded script accepted only `localhost:5432` database `accounting`, and no hosted/prod/beta/shared/customer-data target or secret was printed.
+- Debit note evidence: `PDN-000003`, safe id prefix `b93f96ee`, remained `FINALIZED`; total remained `460.0000`; unapplied amount changed `460.0000 -> 210.0000`; reversal journal remained absent.
+- Purchase bill evidence: `BILL-000008`, safe id prefix `4b8886bb`, remained `FINALIZED`; total remained `1150.0000`; balance due changed `1150.0000 -> 900.0000`; reversal journal remained absent.
+- Allocation evidence: exactly one active `PurchaseDebitNoteAllocation` was created, safe id prefix `7ec0dfb3`, amount applied `250.0000`, linked to `PDN-000003` and `BILL-000008`; `reversedAt`, `reversedById`, and `reversalReason` remained absent.
+- Journal/accounting evidence: no new journal entry was created; organization journal count stayed `54`; `JOURNAL_ENTRY` sequence stayed `JE-000055`; purchase bill journal `JE-000053` and purchase debit note journal `JE-000054` remained posted and unchanged.
+- Audit evidence: raw `PurchaseDebitNote:APPLY` now exists once for `PDN-000003`; `PURCHASE_DEBIT_NOTE_CREATED` and `PURCHASE_DEBIT_NOTE_FINALIZED` remain; no debit-note reverse/void, supplier refund, supplier payment, purchase bill void, cleanup/delete, or login/browser audit-writing action occurred.
+- Output/email/ZATCA/refund/payment/purchase-order/inventory/cash-expense/cleanup occurred: no. Fixture-specific supplier payments, supplier refunds, purchase orders, purchase receipts, stock movements, cash expenses, generated documents, marker email outbox rows, and marker email provider events remain `0`; organization-level ZATCA baselines stayed unchanged (`1` signed artifact draft and `7` submission logs).
+- Temporary script cleanup: `apps/api/scripts/dev08b-debit-note-apply.tmp.ts` was removed after execution, `Test-Path` returned `False`, and no `*dev08b*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08B Part 6: debit note apply evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08B Part 6: debit note apply evidence verification`
