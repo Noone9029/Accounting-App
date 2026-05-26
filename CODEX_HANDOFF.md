@@ -1822,6 +1822,17 @@
 - Forbidden side-effect result: generated documents, email rows/events, purchase orders, purchase receipts, stock movements, cash expenses, purchase debit notes, cleanup/delete audits, and temporary DEV-08D scripts all absent.
 - Exact next prompt title: `DEV-08D Part 7: supplier payment void blocker preflight`.
 
+## DEV-08D Part 7 - Supplier Payment Void Blocker Preflight Completed
+
+- DEV-08D Part 7 read-only supplier payment void blocker preflight is recorded in [docs/development/DEV_08D_SUPPLIER_PAYMENT_VOID_BLOCKER_PREFLIGHT.md](docs/development/DEV_08D_SUPPLIER_PAYMENT_VOID_BLOCKER_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Blocker condition confirmed: `PAY-000007`, safe prefix `4b9c42b1`, remains `POSTED` with amount paid `500.0000`, unapplied amount `350.0000`, and no void reversal journal; posted supplier refund count for the payment is `1`.
+- Posted refund blocker: `SRF-000004`, safe prefix `dc8c4c9a`, remains `POSTED` for `150.0000`, source payment safe prefix `4b9c42b1`, and no refund void reversal journal.
+- Code behavior confirmed: `SupplierPaymentService.void(...)` counts posted supplier refunds for the payment and throws `Cannot void supplier payment with posted supplier refunds. Void refunds first.` before payment status update or payment reversal journal creation.
+- Expected Part 8 negative check: call `SupplierPaymentService.void(...)` once, expect the posted-refund blocker, and verify no payment/refund status, unapplied amount, journal, allocation, audit void, or forbidden side-effect change.
+- Required approval phrase: `I approve DEV-08D Part 8 local-only supplier payment void blocker negative check under marker DEV08D-AP-20260526T000000 while supplier refund remains posted. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08D Part 8: approved local supplier payment void blocker negative check`.
+
 ## Next Thread Prompt
 
-`DEV-08D Part 7: supplier payment void blocker preflight`
+`DEV-08D Part 8: approved local supplier payment void blocker negative check`
