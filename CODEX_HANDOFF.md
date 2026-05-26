@@ -1416,6 +1416,19 @@
 - Temporary script cleanup result: `apps/api/scripts/dev08b-supplier-refund-evidence-readonly.tmp.ts` was removed after its single read-only run, `Test-Path` returned `False`, and no `*dev08b*` script remains under `apps/api/scripts`.
 - Exact next prompt title: `DEV-08B Part 12: supplier refund void preflight`.
 
+## DEV-08B Part 12 - Supplier Refund Void Preflight Completed
+
+- DEV-08B Part 12 read-only preflight is recorded in [docs/development/DEV_08B_SUPPLIER_REFUND_VOID_PREFLIGHT.md](docs/development/DEV_08B_SUPPLIER_REFUND_VOID_PREFLIGHT.md).
+- Mutation performed: no. `SupplierRefundService.void(...)`, supplier refund creation, debit-note apply/reverse/void, purchase bill mutation, supplier payment mutation, output/PDF/archive/export/download, email, ZATCA, migrations, seed/reset/delete, deploys, environment changes, and login/browser flows were not run.
+- Current refund state: `SRF-000003`, safe id prefix `39873ae4`, remains `POSTED`, amount `150.0000`, source debit note `PDN-000003`, source payment absent, journal `JE-000055` posted, and void reversal journal absent.
+- Current debit note state: `PDN-000003`, safe id prefix `b93f96ee`, remains `FINALIZED`, total `460.0000`, unapplied `310.0000`, reversal journal absent.
+- Current bill state: `BILL-000008`, safe id prefix `4b8886bb`, remains `FINALIZED`, total and balance due `1150.0000`, reversal journal absent.
+- Expected void/reversal effect: supplier refund changes `POSTED -> VOIDED`, `PDN-000003` unapplied restores `310.0000 -> 460.0000`, `BILL-000008` balance stays `1150.0000`, historical allocation `7ec0dfb3` remains reversed, and no supplier payment allocation is created.
+- Expected journal/accounting result: create one posted reversal journal for `JE-000055`, mark `JE-000055` `REVERSED`, debit AP account `210` `150.0000`, credit Bank account `112` `150.0000`, and leave bill/debit-note journals unchanged.
+- Expected audit result: one standardized `SupplierRefund:SUPPLIER_REFUND_VOIDED`; no debit-note apply/reverse/void, bill void, supplier payment, cleanup/delete, or login/browser audit-writing action.
+- Part 13 approval phrase: `I approve DEV-08B Part 13 local-only supplier refund void mutation under marker DEV08B-AP-20260526T060000 for supplier refund SRF-000003 amount 150.0000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08B Part 13: approved local supplier refund void mutation`.
+
 ## Next Thread Prompt
 
-`DEV-08B Part 12: supplier refund void preflight`
+`DEV-08B Part 13: approved local supplier refund void mutation`
