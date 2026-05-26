@@ -1600,6 +1600,16 @@
 - Temporary script cleanup result: no `*dev08c*` script exists under `apps/api/scripts`; Part 9 used no temporary script file.
 - Exact next prompt title: `DEV-08C Part 10: purchase order convert-to-bill preflight`.
 
+## DEV-08C Part 10 - Purchase Order Convert-To-Bill Preflight Completed
+
+- DEV-08C Part 10 convert-to-bill preflight is recorded in [docs/development/DEV_08C_PURCHASE_ORDER_CONVERT_TO_BILL_PREFLIGHT.md](docs/development/DEV_08C_PURCHASE_ORDER_CONVERT_TO_BILL_PREFLIGHT.md).
+- Mutation performed: no.
+- Current PO state: `PO-000141`, safe id prefix `d6abea75`, status `SENT`, `sentAt` present, total `1150.0000`, one direct-account line using account `111`, supplier active `SUPPLIER`, converted bill absent, purchase bill count `0`, marker/PO journal count `0`.
+- Conversion eligibility: `PurchaseOrderService.convertToBill(...)` allows current `SENT` status, requires absent `convertedBillId`, active supplier-capable contact, and line account coverage; all preflight checks passed.
+- Expected conversion result: purchase order `SENT -> BILLED`, `convertedBillId` set, one linked `DRAFT` purchase bill created with total and balance due `1150.0000`, no bill journal, no purchase order journal, no inventory/posting, no output/email/ZATCA, and one `PURCHASE_ORDER_CONVERTED_TO_BILL` audit action.
+- Required approval phrase: `I approve DEV-08C Part 11 local-only purchase order convert-to-bill mutation under marker DEV08C-AP-20260526T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08C Part 11: approved local purchase order convert-to-bill mutation`.
+
 ## Next Thread Prompt
 
-`DEV-08C Part 10: purchase order convert-to-bill preflight`
+`DEV-08C Part 11: approved local purchase order convert-to-bill mutation`
