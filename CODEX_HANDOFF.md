@@ -1623,6 +1623,18 @@
 - Temporary script cleanup: `apps/api/scripts/dev08c-purchase-order-convert-to-bill.tmp.ts` was removed; `Test-Path` returned `False`; no `*dev08c*` script remained under `apps/api/scripts`.
 - Exact next prompt title: `DEV-08C Part 12: purchase order conversion evidence verification`.
 
+## DEV-08C Part 12 - Purchase Order Conversion Evidence Verification Completed
+
+- DEV-08C Part 12 read-only purchase order conversion evidence verification is recorded in [docs/development/DEV_08C_PURCHASE_ORDER_CONVERT_TO_BILL_EVIDENCE_VERIFICATION.md](docs/development/DEV_08C_PURCHASE_ORDER_CONVERT_TO_BILL_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Verification conclusion: Verified.
+- Key entity/status/amount result: `PO-000141`, safe id prefix `d6abea75`, status `BILLED`, converted bill safe prefix `f37c60b2`; exactly one converted bill exists, `BILL-000422`, status `DRAFT`, total and balance due `1150.0000`, supplier/branch/currency/notes/terms/totals/line account/tax/order mappings verified.
+- Accounting/journal result: converted bill journal absent, purchase order journal absent, and marker/PO/bill journal count `0`.
+- Audit result: expected `PURCHASE_ORDER_CONVERTED_TO_BILL` audit count `1`; `PURCHASE_ORDER_SENT`, `PURCHASE_ORDER_APPROVED`, and `PURCHASE_ORDER_CREATED` audit counts each `1`.
+- Forbidden side-effect result: generated document/PDF/archive, email, purchase receipt, stock movement, supplier payment, supplier refund, purchase debit note, cash expense, cleanup, ZATCA, production, beta, shared-target, hosted, and customer-data side effects absent for the fixture.
+- Temporary script cleanup result: no `*dev08c*` script exists under `apps/api/scripts`; Part 12 used no temporary script file.
+- Exact next prompt title: `DEV-08C Part 13: converted purchase bill finalization preflight`.
+
 ## Next Thread Prompt
 
-`DEV-08C Part 12: purchase order conversion evidence verification`
+`DEV-08C Part 13: converted purchase bill finalization preflight`

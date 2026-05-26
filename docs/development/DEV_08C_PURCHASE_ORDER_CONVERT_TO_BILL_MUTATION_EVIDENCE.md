@@ -150,6 +150,10 @@ No finalization, output/PDF/archive, email, ZATCA, purchase receipt, stock movem
 - No blocker found.
 - No deviation from the approved Part 11 mutation scope found.
 
-## 13. Exact Next Recommended Thread
+## 13. Verification Note
+
+Part 12 independently verified this conversion evidence in [DEV_08C_PURCHASE_ORDER_CONVERT_TO_BILL_EVIDENCE_VERIFICATION.md](DEV_08C_PURCHASE_ORDER_CONVERT_TO_BILL_EVIDENCE_VERIFICATION.md). Conclusion: Verified.
+
+## 14. Exact Next Recommended Thread
 
 `DEV-08C Part 12: purchase order conversion evidence verification`
