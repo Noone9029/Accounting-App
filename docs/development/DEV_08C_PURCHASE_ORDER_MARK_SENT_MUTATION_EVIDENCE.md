@@ -132,6 +132,10 @@ No output/PDF/archive, email, ZATCA, purchase bill, purchase receipt, stock move
 - No deviation from the approved Part 8 mutation scope found.
 - The initial root-context `tsx` command failed before script execution and performed no mutation; the successful mutation ran once from `apps/api`.
 
-## 13. Exact Next Recommended Thread
+## 13. Verification Note
+
+Part 9 independently verified this mark-sent evidence in [DEV_08C_PURCHASE_ORDER_MARK_SENT_EVIDENCE_VERIFICATION.md](DEV_08C_PURCHASE_ORDER_MARK_SENT_EVIDENCE_VERIFICATION.md). Conclusion: Verified.
+
+## 14. Exact Next Recommended Thread
 
 `DEV-08C Part 9: purchase order mark-sent evidence verification`
