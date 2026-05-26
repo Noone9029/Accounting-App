@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `1bda14cc Create DEV-08B debit note fixture`
+- `41de087f Verify DEV-08B debit note fixture evidence`
 
 ## Current Development Objective
 
@@ -1264,3 +1264,24 @@
 ## Next Thread Prompt
 
 `DEV-08B Part 4: debit note apply-to-bill preflight`
+
+## DEV-08B Part 4 - Debit Note Apply-To-Bill Preflight Completed
+
+- DEV-08B Part 4 read-only preflight is recorded in [docs/development/DEV_08B_DEBIT_NOTE_APPLY_PREFLIGHT.md](docs/development/DEV_08B_DEBIT_NOTE_APPLY_PREFLIGHT.md).
+- Mutation performed: no. `PurchaseDebitNoteService.apply(...)` was not called, and no debit-note apply/reverse/void, supplier refund, supplier payment, purchase bill mutation, output/PDF/archive/export/download, email, ZATCA, migration, seed/reset/delete, deploy, environment/provider/schema change, production, beta, shared-target, customer-data, cleanup deletion, or login/browser flow ran.
+- Local-only target proof: Docker Linux engine was available, local Postgres/Redis containers were healthy, the read-only Prisma preflight accepted only `localhost:5432`, and no hosted/prod/beta/shared/customer-data target or secret was printed.
+- Current debit note state: `PDN-000003`, safe id prefix `b93f96ee`, remains `FINALIZED`, total `460.0000`, unapplied amount `460.0000`, linked to `BILL-000008`, no allocation, no supplier refund, and no reversal journal.
+- Current bill state: `BILL-000008`, safe id prefix `4b8886bb`, remains `FINALIZED`, total `1150.0000`, balance due `1150.0000`, no debit-note allocation, no supplier payment allocation, and no reversal journal.
+- Planned application amount: `250.0000`.
+- Expected debit-note effect if approved: `PDN-000003` remains `FINALIZED`, total remains `460.0000`, unapplied amount changes `460.0000 -> 210.0000`, and reversal journal remains absent.
+- Expected bill effect if approved: `BILL-000008` remains `FINALIZED`, total remains `1150.0000`, balance due changes `1150.0000 -> 900.0000`, and reversal journal remains absent.
+- Expected allocation effect if approved: one `PurchaseDebitNoteAllocation` is created for `250.0000`, linked to `PDN-000003` and `BILL-000008`, with `reversedAt`, `reversedById`, and `reversalReason` absent; no supplier payment allocation or supplier refund is created.
+- Expected journal/accounting effect if approved: no new journal entry because current code treats apply as matching-only; bill journal `JE-000053` and debit-note journal `JE-000054` remain posted and unchanged; current journal count `54` and `JOURNAL_ENTRY` sequence next `JE-000055` should remain unchanged.
+- Expected audit effect if approved: one raw `PurchaseDebitNote:APPLY` audit action for `PDN-000003`; current audit mapping does not standardize `PurchaseDebitNote:APPLY`; no reverse-allocation, debit-note void, supplier refund, supplier payment, purchase bill void, or login/browser audit-writing action expected.
+- Forbidden side effects checked: fixture-specific supplier payments, supplier refunds, debit note allocations, purchase orders, purchase receipts, stock movements, cash expenses, generated documents, marker email rows, and marker email provider events are all `0`; organization-level local ZATCA baselines remain `1` signed artifact draft and `7` submission logs.
+- Required approval phrase for Part 5: `I approve DEV-08B Part 5 local-only purchase debit note apply-to-bill mutation under marker DEV08B-AP-20260526T060000 for the DEV-08B debit note and purchase bill with amount 250.0000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08B Part 5: approved local debit note apply-to-bill mutation`.
+
+## Next Thread Prompt
+
+`DEV-08B Part 5: approved local debit note apply-to-bill mutation`
