@@ -1699,6 +1699,15 @@
 - Temporary script cleanup result: `apps/api/scripts/dev08c-purchase-order-close-branch.tmp.ts` is absent; no `*dev08c*` script remains under `apps/api/scripts`.
 - Exact next prompt title: `DEV-08C Part 19: purchase order void branch preflight`.
 
+## DEV-08C Part 19 - Purchase Order Void Branch Preflight Completed
+
+- DEV-08C Part 19 void branch preflight is recorded in [docs/development/DEV_08C_PURCHASE_ORDER_VOID_BRANCH_PREFLIGHT.md](docs/development/DEV_08C_PURCHASE_ORDER_VOID_BRANCH_PREFLIGHT.md).
+- Mutation performed: no.
+- Main/close branch protected: main `PO-000141` safe prefix `d6abea75` remains `BILLED` with converted bill `BILL-000422` `FINALIZED`; close-branch `PO-000142` safe prefix `d40b6716` remains `CLOSED`; neither should be reused for void.
+- Planned void-branch mutation: after exact approval, create one separate fake local purchase order under marker `DEV08C-AP-20260526T000000` with suffix `VOID`, then void it while still `DRAFT`; do not approve, mark sent, close, convert, or generate accounting/output side effects.
+- Required approval phrase: `I approve DEV-08C Part 20 local-only purchase order void branch mutation under marker DEV08C-AP-20260526T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08C Part 20: approved local purchase order void branch mutation`.
+
 ## Next Thread Prompt
 
-`DEV-08C Part 19: purchase order void branch preflight`
+`DEV-08C Part 20: approved local purchase order void branch mutation`
