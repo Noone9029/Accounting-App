@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `efec5e90 Create DEV-08C purchase order fixture`
+- `a35e9c01 Verify DEV-08C purchase order fixture evidence`
 
 ## Current Development Objective
 
@@ -1532,6 +1532,16 @@
 - Temporary script cleanup result: no `*dev08c*` script exists under `apps/api/scripts`; Part 3 used no temporary script file.
 - Exact next prompt title: `DEV-08C Part 4: purchase order approval preflight`.
 
+## DEV-08C Part 4 - Purchase Order Approval Preflight Completed
+
+- DEV-08C Part 4 purchase order approval preflight is recorded in [docs/development/DEV_08C_PURCHASE_ORDER_APPROVAL_PREFLIGHT.md](docs/development/DEV_08C_PURCHASE_ORDER_APPROVAL_PREFLIGHT.md).
+- Mutation performed: no.
+- Current PO state: `PO-000141`, safe id prefix `d6abea75`, status `DRAFT`, total `1150.0000`, one line, supplier safe id prefix `5ef871cd`, converted bill absent, approval audit absent.
+- Approval eligibility: current status is `DRAFT`, total is positive, line/account/tax evidence is present, and `PurchaseOrderService.approve(...)` allows `DRAFT -> APPROVED`.
+- Expected approval effect: status `APPROVED`, `approvedAt` set, total unchanged, converted bill absent, no purchase bill, no journal, no inventory, no output/email/ZATCA, and one `PURCHASE_ORDER_APPROVED` audit action.
+- Required approval phrase: `I approve DEV-08C Part 5 local-only purchase order approval mutation under marker DEV08C-AP-20260526T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08C Part 5: approved local purchase order approval mutation`.
+
 ## Next Thread Prompt
 
-`DEV-08C Part 4: purchase order approval preflight`
+`DEV-08C Part 5: approved local purchase order approval mutation`
