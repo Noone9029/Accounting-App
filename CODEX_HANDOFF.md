@@ -1576,6 +1576,18 @@
 - Required approval phrase: `I approve DEV-08C Part 8 local-only purchase order mark-sent mutation under marker DEV08C-AP-20260526T000000. No production, no beta, no customer data.`
 - Exact next prompt title: `DEV-08C Part 8: approved local purchase order mark-sent mutation`.
 
+## DEV-08C Part 8 - Purchase Order Mark-Sent Mutation Completed
+
+- DEV-08C Part 8 approved local purchase order mark-sent mutation evidence is recorded in [docs/development/DEV_08C_PURCHASE_ORDER_MARK_SENT_MUTATION_EVIDENCE.md](docs/development/DEV_08C_PURCHASE_ORDER_MARK_SENT_MUTATION_EVIDENCE.md).
+- Runtime mutation performed: yes, local-only.
+- Exact service call made: `PurchaseOrderService.markSent(...)` once.
+- Before/after entity state: `PO-000141`, safe id prefix `d6abea75`, changed `APPROVED -> SENT`; `sentAt` changed absent -> present; `approvedAt` remained present; total stayed `1150.0000`; converted bill remained absent.
+- Accounting/journal result: purchase bill count linked to PO stayed `0`; marker/PO journal count stayed `0`.
+- Audit result: `PURCHASE_ORDER_SENT` audit count changed `0 -> 1`; `PURCHASE_ORDER_APPROVED` audit count stayed `1`; `PURCHASE_ORDER_CREATED` audit count stayed `1`.
+- Forbidden side-effect result: generated document/PDF/archive, email, purchase receipt, stock movement, supplier payment, supplier refund, purchase debit note, cash expense, cleanup, ZATCA, production, beta, shared-target, hosted, and customer-data side effects absent.
+- Temporary script cleanup: `apps/api/scripts/dev08c-purchase-order-mark-sent.tmp.ts` was removed; `Test-Path` returned `False`; no `*dev08c*` script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08C Part 9: purchase order mark-sent evidence verification`.
+
 ## Next Thread Prompt
 
-`DEV-08C Part 8: approved local purchase order mark-sent mutation`
+`DEV-08C Part 9: purchase order mark-sent evidence verification`

@@ -156,6 +156,10 @@ Two failed read-only command attempts occurred before the successful inline quer
 - No discrepancy found between Part 6 approval evidence and current Part 7 read-only preflight.
 - Part 8 should stop if the purchase order is no longer `APPROVED`, `sentAt` is already set, a converted bill exists, a purchase bill exists, a marker/PO journal exists, or the target is not local-only.
 
-## 14. Exact Next Prompt Title
+## 14. Evidence Note
+
+Part 8 completed the approved local mark-sent mutation and recorded evidence in [DEV_08C_PURCHASE_ORDER_MARK_SENT_MUTATION_EVIDENCE.md](DEV_08C_PURCHASE_ORDER_MARK_SENT_MUTATION_EVIDENCE.md).
+
+## 15. Exact Next Prompt Title
 
 `DEV-08C Part 8: approved local purchase order mark-sent mutation`
