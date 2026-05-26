@@ -173,3 +173,18 @@ ZATCA behavior was not invoked. No output/PDF/archive/export/download/email acti
 ## 15. Next Recommended Thread
 
 `DEV-08D Part 15: supplier payment void after refund void evidence verification`
+
+## Part 15 Evidence Verification Note
+
+DEV-08D Part 15 completed independent read-only verification of the supplier payment void after refund void evidence. Verification is recorded in [DEV_08D_SUPPLIER_PAYMENT_VOID_AFTER_REFUND_VOID_EVIDENCE_VERIFICATION.md](DEV_08D_SUPPLIER_PAYMENT_VOID_AFTER_REFUND_VOID_EVIDENCE_VERIFICATION.md).
+
+- Runtime mutation performed: no.
+- Latest commit inspected: `de7209ea Void DEV-08D supplier payment locally`; local `HEAD` matched `origin/main`.
+- Local-only proof: `apps/api/.env` classified as `localhost:5432` database `accounting`; read-only SQL ran through local Docker Postgres.
+- Payment final state: `PAY-000007`, safe prefix `4b9c42b1`, remained `VOIDED`; `voidedAt` present; amount paid and unapplied amount remained `500.0000`.
+- Payment accounting result: original payment journal `JE-000058` remained `REVERSED`; payment void reversal journal `JE-000061`, safe prefix `389e8daf`, remained `POSTED`, balanced debit/credit `500.0000`, with Dr asset `112` and Cr AP `210`; no duplicate reversal journal was found.
+- Historical refund final state: `SRF-000004`, safe prefix `dc8c4c9a`, remained `VOIDED`; original refund journal `JE-000059` remained `REVERSED`; refund void reversal journal `JE-000060` remained `POSTED`; posted supplier refund count for source payment remained `0`.
+- Allocation/bill result: direct supplier payment allocations `0`, active unapplied allocations `0`, direct allocation bills `0`, active unapplied allocation bills `0`.
+- Audit result: supplier payment created `1`, supplier payment voided `1`, supplier refund created `1`, supplier refund voided `1`, cleanup/delete `0`.
+- Forbidden side-effect result: DEV-08D source/marker-scoped generated documents, email rows/events, ZATCA artifacts, purchase orders/receipts, stock movements, cash expenses, purchase debit notes, cleanup/delete audits, and temporary scripts remained absent.
+- Exact next prompt title: `DEV-08D Part 16: supplier refund from supplier payment closure`.

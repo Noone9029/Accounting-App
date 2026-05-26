@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `10d93efb Close DEV-08C purchase order conversion evidence`
+- `de7209ea Void DEV-08D supplier payment locally`
 
 ## Current Development Objective
 
@@ -1915,6 +1915,16 @@
 - Temporary script cleanup result: `apps/api/scripts/dev08d-supplier-payment-void-after-refund.tmp.ts` was removed; `Test-Path` returned `False`; no `*dev08d*` script remained under `apps/api/scripts`.
 - Exact next prompt title: `DEV-08D Part 15: supplier payment void after refund void evidence verification`.
 
+## DEV-08D Part 15 - Supplier Payment Void After Refund Void Evidence Verification Completed
+
+- DEV-08D Part 15 read-only supplier payment void evidence verification is recorded in [docs/development/DEV_08D_SUPPLIER_PAYMENT_VOID_AFTER_REFUND_VOID_EVIDENCE_VERIFICATION.md](docs/development/DEV_08D_SUPPLIER_PAYMENT_VOID_AFTER_REFUND_VOID_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Verification conclusion: verified.
+- Payment final state: `PAY-000007`, safe prefix `4b9c42b1`, remained `VOIDED`; `voidedAt` present; amount paid and unapplied amount remained `500.0000`; original payment journal `JE-000058` remained `REVERSED`.
+- Refund final state: `SRF-000004`, safe prefix `dc8c4c9a`, remained `VOIDED`; original refund journal `JE-000059` remained `REVERSED`; refund void reversal journal `JE-000060` remained `POSTED`; posted supplier refund count for payment remained `0`.
+- Journal/audit/side-effect result: payment void reversal journal `JE-000061`, safe prefix `389e8daf`, remained `POSTED` and balanced at debit/credit `500.0000`, with Dr asset account `112` and Cr AP account `210`; supplier payment created/voided and supplier refund created/voided audits each remained exactly `1`; DEV-08D source/marker-scoped generated documents, email rows/events, ZATCA artifacts, purchase orders/receipts, stock movements, cash expenses, purchase debit notes, cleanup/delete audits, and temporary DEV-08D scripts remained absent.
+- Exact next prompt title: `DEV-08D Part 16: supplier refund from supplier payment closure`.
+
 ## Next Thread Prompt
 
-`DEV-08D Part 15: supplier payment void after refund void evidence verification`
+`DEV-08D Part 16: supplier refund from supplier payment closure`
