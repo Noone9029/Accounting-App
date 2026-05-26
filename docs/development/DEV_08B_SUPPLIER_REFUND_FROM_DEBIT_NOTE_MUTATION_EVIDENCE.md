@@ -252,6 +252,12 @@ Confirmed no PDF/archive/export/download, generated document, email send, suppli
 - The supplier refund creation audit was standardized as expected: `SupplierRefund:SUPPLIER_REFUND_CREATED`.
 - No database target, secret, token, vendor/customer data, signed XML, QR payload, document body, attachment body, or email body was printed.
 
+## Part 11 Verification Note
+
+- DEV-08B Part 11 independently verified the supplier refund evidence with read-only local Prisma queries.
+- Verification result: verified with no evidence discrepancy.
+- Verification evidence: [DEV_08B_SUPPLIER_REFUND_FROM_DEBIT_NOTE_EVIDENCE_VERIFICATION.md](DEV_08B_SUPPLIER_REFUND_FROM_DEBIT_NOTE_EVIDENCE_VERIFICATION.md).
+
 ## Next Recommended Thread
 
 `DEV-08B Part 11: supplier refund evidence verification`
