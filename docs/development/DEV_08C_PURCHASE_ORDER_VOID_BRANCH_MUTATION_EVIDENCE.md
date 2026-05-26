@@ -152,6 +152,10 @@ No purchase bill, journal, generated document/PDF/archive, email, ZATCA, purchas
 - No blocker found.
 - No deviation from the approved Part 20 mutation scope found.
 
-## 13. Exact Next Recommended Thread
+## 13. Verification Note
+
+DEV-08C Part 21 independently verified this evidence in [DEV_08C_PURCHASE_ORDER_VOID_BRANCH_EVIDENCE_VERIFICATION.md](DEV_08C_PURCHASE_ORDER_VOID_BRANCH_EVIDENCE_VERIFICATION.md). Conclusion: verified. Main `PO-000141` remains `BILLED`, converted bill `BILL-000422` remains `FINALIZED`, close-branch `PO-000142` remains `CLOSED`, void-branch `PO-000143` remains `VOIDED`, void-branch purchase bill and journal counts are `0`, expected audit rows exist, forbidden side effects are absent, and the temporary Part 20 script is removed.
+
+## 14. Exact Next Recommended Thread
 
 `DEV-08C Part 21: purchase order void branch evidence verification`
