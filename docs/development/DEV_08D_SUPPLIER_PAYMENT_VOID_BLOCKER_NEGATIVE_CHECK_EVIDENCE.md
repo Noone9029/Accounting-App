@@ -173,3 +173,14 @@ ZATCA behavior was not invoked. No output/PDF/archive/export/download/email acti
 ## 16. Next Recommended Thread
 
 `DEV-08D Part 9: supplier payment void blocker evidence verification`
+
+## Part 9 Verification Note
+
+DEV-08D Part 9 completed read-only verification of this negative-check evidence. Evidence is recorded in [DEV_08D_SUPPLIER_PAYMENT_VOID_BLOCKER_EVIDENCE_VERIFICATION.md](DEV_08D_SUPPLIER_PAYMENT_VOID_BLOCKER_EVIDENCE_VERIFICATION.md).
+
+- Verification conclusion: verified.
+- Runtime mutation performed: no.
+- Source payment `PAY-000007` remained `POSTED`, unapplied amount `350.0000`, `voidedAt` absent, void reversal journal absent, and original journal `JE-000058` `POSTED`.
+- Supplier refund `SRF-000004` remained `POSTED`, still points to the source payment, active posted refund count for the payment remained `1`, and refund void reversal journal remained absent.
+- Journal count remained `59`; no payment reversal journal, payment void audit, refund void audit, allocation mutation, generated documents, email rows/events, purchase orders/receipts, stock movements, cash expenses, purchase debit notes, cleanup/delete audits, or temporary DEV-08D scripts were found.
+- Exact next prompt title: `DEV-08D Part 10: supplier refund void preflight`.

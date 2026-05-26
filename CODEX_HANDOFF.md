@@ -1846,6 +1846,15 @@
 - Temporary script cleanup result: `apps/api/scripts/dev08d-payment-void-blocker.tmp.ts` was removed; `Test-Path` returned `False`; no `*dev08d*` script remained under `apps/api/scripts`.
 - Exact next prompt title: `DEV-08D Part 9: supplier payment void blocker evidence verification`.
 
+## DEV-08D Part 9 - Supplier Payment Void Blocker Evidence Verification Completed
+
+- DEV-08D Part 9 read-only supplier payment void blocker evidence verification is recorded in [docs/development/DEV_08D_SUPPLIER_PAYMENT_VOID_BLOCKER_EVIDENCE_VERIFICATION.md](docs/development/DEV_08D_SUPPLIER_PAYMENT_VOID_BLOCKER_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Verification conclusion: verified.
+- Payment/refund remain posted: `PAY-000007`, safe prefix `4b9c42b1`, remained `POSTED`, unapplied amount `350.0000`, void reversal journal absent; `SRF-000004`, safe prefix `dc8c4c9a`, remained `POSTED`, source payment safe prefix `4b9c42b1`, void reversal journal absent.
+- No side effects: journal count remained `59`; no payment reversal journal, supplier payment void audit, supplier refund void audit, allocation mutation, generated documents, email rows/events, purchase orders/receipts, stock movements, cash expenses, purchase debit notes, cleanup/delete audits, or temporary DEV-08D scripts were found.
+- Exact next prompt title: `DEV-08D Part 10: supplier refund void preflight`.
+
 ## Next Thread Prompt
 
-`DEV-08D Part 9: supplier payment void blocker evidence verification`
+`DEV-08D Part 10: supplier refund void preflight`
