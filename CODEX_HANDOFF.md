@@ -1676,6 +1676,19 @@
 - Required approval phrase: `I approve DEV-08C Part 17 local-only purchase order close branch mutation under marker DEV08C-AP-20260526T000000. No production, no beta, no customer data.`
 - Exact next prompt title: `DEV-08C Part 17: approved local purchase order close branch mutation`.
 
+## DEV-08C Part 17 - Purchase Order Close Branch Mutation Completed
+
+- DEV-08C Part 17 approved local purchase order close branch mutation evidence is recorded in [docs/development/DEV_08C_PURCHASE_ORDER_CLOSE_BRANCH_MUTATION_EVIDENCE.md](docs/development/DEV_08C_PURCHASE_ORDER_CLOSE_BRANCH_MUTATION_EVIDENCE.md).
+- Runtime mutation performed: yes, local-only.
+- Exact service calls made: `PurchaseOrderService.create(...)` once, `PurchaseOrderService.approve(...)` once, `PurchaseOrderService.markSent(...)` once, and `PurchaseOrderService.close(...)` once.
+- Before/after entity state: separate close-branch order `PO-000142`, safe prefix `d40b6716`, progressed `DRAFT -> APPROVED -> SENT -> CLOSED`; `approvedAt`, `sentAt`, and `closedAt` are present; total `1150.0000`; converted bill absent.
+- Main conversion PO state: `PO-000141` safe prefix `d6abea75` remained `BILLED`, linked to converted bill safe prefix `f37c60b2` with bill status `FINALIZED`.
+- Accounting/journal result: close-branch purchase bill count `0`, close-branch journal count `0`, converted bill absent.
+- Audit result: close-branch `PURCHASE_ORDER_CREATED`, `PURCHASE_ORDER_APPROVED`, `PURCHASE_ORDER_SENT`, and `PURCHASE_ORDER_CLOSED` counts are each `1`; no conversion audit was created for the close branch.
+- Forbidden side-effect result: generated document/PDF/archive, email, ZATCA, purchase receipt, stock movement, supplier payment, supplier refund, purchase debit note, cash expense, cleanup, migration, seed/reset/delete, deploy, production, beta, shared-target, hosted, and customer-data side effects were absent.
+- Temporary script cleanup: `apps/api/scripts/dev08c-purchase-order-close-branch.tmp.ts` was removed; `Test-Path` returned `False`; no `*dev08c*` script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08C Part 18: purchase order close branch evidence verification`.
+
 ## Next Thread Prompt
 
-`DEV-08C Part 17: approved local purchase order close branch mutation`
+`DEV-08C Part 18: purchase order close branch evidence verification`

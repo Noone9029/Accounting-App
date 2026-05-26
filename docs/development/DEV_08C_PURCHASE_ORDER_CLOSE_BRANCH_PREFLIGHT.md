@@ -208,3 +208,7 @@ The user already provided this exact approval phrase in the current thread. Part
 ## 15. Exact Next Prompt Title
 
 `DEV-08C Part 17: approved local purchase order close branch mutation`
+
+## 16. Evidence Note
+
+DEV-08C Part 17 executed this close-branch plan locally and recorded evidence in [DEV_08C_PURCHASE_ORDER_CLOSE_BRANCH_MUTATION_EVIDENCE.md](DEV_08C_PURCHASE_ORDER_CLOSE_BRANCH_MUTATION_EVIDENCE.md). The separate close-branch order `PO-000142` safe prefix `d40b6716` reached `CLOSED`; the main converted order `PO-000141` remained `BILLED`; no purchase bill, journal, generated document, email, ZATCA, receipt, inventory, supplier payment/refund/debit note, or cash expense side effect was found.
