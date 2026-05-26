@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `20e49686 Apply DEV-08B debit note to bill`
+- `096af226 Verify DEV-08B debit note application evidence`
 
 ## Current Development Objective
 
@@ -1322,3 +1322,24 @@
 ## Next Thread Prompt
 
 `DEV-08B Part 7: debit note allocation reversal preflight`
+
+## DEV-08B Part 7 - Debit Note Allocation Reversal Preflight Completed
+
+- DEV-08B Part 7 read-only preflight is recorded in [docs/development/DEV_08B_DEBIT_NOTE_ALLOCATION_REVERSAL_PREFLIGHT.md](docs/development/DEV_08B_DEBIT_NOTE_ALLOCATION_REVERSAL_PREFLIGHT.md).
+- Mutation performed: no. `PurchaseDebitNoteService.reverseAllocation(...)` was not called, and no debit-note allocation reversal, debit-note apply, debit-note void, supplier refund workflow, supplier payment workflow, purchase bill mutation, output/PDF/archive/export/download, email, ZATCA, migration, seed/reset/delete, deploy, environment/provider/schema change, production, beta, shared-target, customer-data, cleanup deletion, or login/browser flow ran.
+- Local-only target proof: Docker Linux engine was available, local Postgres/Redis containers were healthy, the read-only Prisma preflight accepted only `localhost:5432` database `accounting`, and no hosted/prod/beta/shared/customer-data target or secret was printed.
+- Current debit note state: `PDN-000003`, safe id prefix `b93f96ee`, remains `FINALIZED`, total `460.0000`, unapplied amount `210.0000`, reversal journal absent, and supplier refunds `0`.
+- Current bill state: `BILL-000008`, safe id prefix `4b8886bb`, remains `FINALIZED`, total `1150.0000`, balance due `900.0000`, reversal journal absent, supplier payment allocations `0`, and supplier payment unapplied allocations `0`.
+- Current allocation state: exactly one active `PurchaseDebitNoteAllocation` exists, safe id prefix `7ec0dfb3`, amount applied `250.0000`, linked to `PDN-000003` and `BILL-000008`; `reversedAt`, `reversedById`, and `reversalReason` remain absent.
+- Expected debit-note effect if approved: `PDN-000003` remains `FINALIZED`, total remains `460.0000`, unapplied amount changes `210.0000 -> 460.0000`, and reversal journal remains absent.
+- Expected bill effect if approved: `BILL-000008` remains `FINALIZED`, total remains `1150.0000`, balance due changes `900.0000 -> 1150.0000`, and reversal journal remains absent.
+- Expected allocation effect if approved: allocation `7ec0dfb3` is marked reversed with `reversedAt`, `reversedById`, and reversal reason `DEV-08B local-only debit note allocation reversal QA`; no new allocation, supplier payment allocation, or supplier refund is created.
+- Expected journal/accounting effect if approved: no new journal entry because current code treats reverse allocation as matching-only; bill journal `JE-000053` and debit-note journal `JE-000054` remain posted and unchanged; current journal count `54` and `JOURNAL_ENTRY` sequence next `JE-000055` should remain unchanged.
+- Expected audit effect if approved: one raw `PurchaseDebitNoteAllocation:REVERSE_ALLOCATION` audit action; current audit mapping does not standardize `PurchaseDebitNoteAllocation:REVERSE_ALLOCATION`; no debit-note void, supplier refund, supplier payment, purchase bill void, cleanup/delete, or login/browser audit-writing action expected.
+- Forbidden side effects checked: fixture-specific supplier refunds, supplier payments, purchase orders, purchase receipts, stock movements, cash expenses, generated documents, marker email outbox rows, marker email provider events, marker auth tokens, and fixture cleanup/delete audits are all `0`; organization-level ZATCA baselines remain `1` signed artifact draft and `7` submission logs.
+- Required approval phrase for Part 8: `I approve DEV-08B Part 8 local-only purchase debit note allocation reversal mutation under marker DEV08B-AP-20260526T060000 for the active 250.0000 debit note allocation. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08B Part 8: approved local debit note allocation reversal mutation`.
+
+## Next Thread Prompt
+
+`DEV-08B Part 8: approved local debit note allocation reversal mutation`
