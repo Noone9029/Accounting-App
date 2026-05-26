@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `650ff74f Plan DEV-08B debit note allocation reversal`
+- `246f3000 Reverse DEV-08B debit note allocation`
 
 ## Current Development Objective
 
@@ -1362,3 +1362,24 @@
 ## Next Thread Prompt
 
 `DEV-08B Part 9: supplier refund from debit note preflight`
+
+## DEV-08B Part 9 - Supplier Refund From Debit Note Preflight Completed
+
+- DEV-08B Part 9 read-only preflight is recorded in [docs/development/DEV_08B_SUPPLIER_REFUND_FROM_DEBIT_NOTE_PREFLIGHT.md](docs/development/DEV_08B_SUPPLIER_REFUND_FROM_DEBIT_NOTE_PREFLIGHT.md).
+- Mutation performed: no. `SupplierRefundService.create(...)` was not called, and no supplier refund creation/void, debit-note apply/reverse/void, supplier payment workflow, purchase bill mutation, output/PDF/archive/export/download, email, ZATCA, migration, seed/reset/delete, deploy, environment/provider/schema change, production, beta, shared-target, customer-data, cleanup deletion, or login/browser flow ran.
+- Local-only target proof: Docker Linux engine was available, local Postgres/Redis containers were healthy, the read-only Prisma preflight accepted only `localhost:5432` database `accounting`, and no hosted/prod/beta/shared/customer-data target or secret was printed.
+- Current debit note state: `PDN-000003`, safe id prefix `b93f96ee`, remains `FINALIZED`, total `460.0000`, unapplied amount `460.0000`, supplier refund count `0`, and reversal journal absent.
+- Current bill state: `BILL-000008`, safe id prefix `4b8886bb`, remains `FINALIZED`, total `1150.0000`, balance due `1150.0000`, no supplier payment allocations, no supplier payment unapplied allocations, and no reversal journal.
+- Current allocation state: one historical `PurchaseDebitNoteAllocation` exists, safe id prefix `7ec0dfb3`, amount `250.0000`; it is reversed with `reversedAt` and `reversedById` set and reason `DEV-08B local-only debit note allocation reversal QA`; active allocation count is `0`.
+- Selected refund amount: `150.0000`, which is below debit-note unapplied amount `460.0000`; expected debit-note unapplied amount after approved mutation is `310.0000`.
+- Selected bank/asset account: account `112` `Bank Account`, safe id prefix `32ab6f4d`, active posting `ASSET`, same fake local AP-ready organization.
+- Expected supplier refund effect if approved: exactly one posted supplier refund sourced from `PDN-000003`, amount `150.0000`, with no void reversal journal and no supplier payment.
+- Expected journal/accounting effect if approved: one posted balanced supplier refund journal, expected next `JE-000055`, debiting account `112` for `150.0000` and crediting AP account `210` for `150.0000`; bill journal `JE-000053` and debit-note journal `JE-000054` remain unchanged.
+- Expected audit effect if approved: standardized `SupplierRefund:SUPPLIER_REFUND_CREATED`; no supplier refund void, debit-note apply/reverse/void, purchase bill void, supplier payment, cleanup/delete, or login/browser audit-writing action.
+- Forbidden side effects checked: fixture-specific supplier refunds, supplier payments, purchase orders, purchase receipts, stock movements, cash expenses, generated documents, marker email rows/provider events, marker auth tokens, cleanup/delete audits, and ZATCA metadata for bill/debit note are all `0`; existing organization-level local ZATCA submission log baseline remains `7`.
+- Required approval phrase for Part 10: `I approve DEV-08B Part 10 local-only supplier refund from debit note mutation under marker DEV08B-AP-20260526T060000 for the DEV-08B purchase debit note with refund amount 150.0000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08B Part 10: approved local supplier refund from debit note mutation`.
+
+## Next Thread Prompt
+
+`DEV-08B Part 10: approved local supplier refund from debit note mutation`
