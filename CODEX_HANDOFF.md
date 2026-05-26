@@ -1810,6 +1810,18 @@
 - Temporary script cleanup result: `apps/api/scripts/dev08d-supplier-refund-from-payment.tmp.ts` was removed; `Test-Path` returned `False`; no `*dev08d*` script remained under `apps/api/scripts`.
 - Exact next prompt title: `DEV-08D Part 6: supplier refund from supplier payment evidence verification`.
 
+## DEV-08D Part 6 - Supplier Refund From Supplier Payment Evidence Verification Completed
+
+- DEV-08D Part 6 read-only supplier refund evidence verification is recorded in [docs/development/DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_EVIDENCE_VERIFICATION.md](docs/development/DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Verification conclusion: verified.
+- Refund status/amount/source: `SRF-000004`, safe prefix `dc8c4c9a`, remained `POSTED`, amount `150.0000`, source type `SUPPLIER_PAYMENT`, source payment safe prefix `4b9c42b1`, source debit note absent, void reversal journal absent.
+- Source payment result: `PAY-000007`, safe prefix `4b9c42b1`, remained `POSTED`, amount paid `500.0000`, unapplied amount `350.0000`, void reversal journal absent.
+- Journal/accounting result: refund journal `JE-000059`, safe prefix `4439a2ff`, remained `POSTED` and balanced at debit/credit `150.0000`, with Dr asset account `112` and Cr AP account `210`; source payment journal `JE-000058` remained posted and unreversed.
+- Audit result: `SupplierRefund:SUPPLIER_REFUND_CREATED` count `1`; no supplier refund void, supplier payment void, duplicate supplier refund create, allocation/reversal, cleanup/delete, or login/browser audit path.
+- Forbidden side-effect result: generated documents, email rows/events, purchase orders, purchase receipts, stock movements, cash expenses, purchase debit notes, cleanup/delete audits, and temporary DEV-08D scripts all absent.
+- Exact next prompt title: `DEV-08D Part 7: supplier payment void blocker preflight`.
+
 ## Next Thread Prompt
 
-`DEV-08D Part 6: supplier refund from supplier payment evidence verification`
+`DEV-08D Part 7: supplier payment void blocker preflight`

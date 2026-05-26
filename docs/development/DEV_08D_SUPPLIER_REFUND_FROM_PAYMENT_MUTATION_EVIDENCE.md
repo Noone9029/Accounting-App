@@ -193,3 +193,15 @@ ZATCA behavior was not invoked. The mutation did not touch sales invoices or any
 ## 17. Next Recommended Thread
 
 `DEV-08D Part 6: supplier refund from supplier payment evidence verification`
+
+## Part 6 Verification Note
+
+DEV-08D Part 6 completed read-only verification of this mutation. Evidence is recorded in [DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_EVIDENCE_VERIFICATION.md](DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_EVIDENCE_VERIFICATION.md).
+
+- Verification conclusion: verified.
+- Runtime mutation performed: no.
+- Supplier refund `SRF-000004` remained `POSTED`, amount `150.0000`, source type `SUPPLIER_PAYMENT`, source payment safe prefix `4b9c42b1`, source debit note absent, and void reversal journal absent.
+- Source payment `PAY-000007` remained `POSTED`, amount paid `500.0000`, unapplied amount `350.0000`, and void reversal journal absent.
+- Refund journal `JE-000059` remained `POSTED`, balanced at debit/credit `150.0000`, with Dr account `112` and Cr account `210`.
+- Direct allocations, active unapplied allocations, generated documents, email rows/events, purchase orders/receipts, stock movements, cash expenses, purchase debit notes, cleanup/delete audits, and temporary DEV-08D scripts remained absent.
+- Exact next prompt title: `DEV-08D Part 7: supplier payment void blocker preflight`.
