@@ -1890,6 +1890,18 @@
 - Journal/audit/side-effect result: reversal journal lines are Dr AP `210` / Cr asset `112`; supplier refund create audit `1`, supplier refund void audit `1`, supplier payment void audit `0`; generated documents, email rows/events, purchase orders/receipts, stock movements, cash expenses, purchase debit notes, cleanup/delete audits, and temporary DEV-08D scripts absent.
 - Exact next prompt title: `DEV-08D Part 13: supplier payment void after refund void preflight`.
 
+## DEV-08D Part 13 - Supplier Payment Void After Refund Void Preflight Completed
+
+- DEV-08D Part 13 read-only supplier payment void after refund void preflight is recorded in [docs/development/DEV_08D_SUPPLIER_PAYMENT_VOID_AFTER_REFUND_VOID_PREFLIGHT.md](docs/development/DEV_08D_SUPPLIER_PAYMENT_VOID_AFTER_REFUND_VOID_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Payment voidability: `PAY-000007`, safe prefix `4b9c42b1`, remains `POSTED`, amount paid `500.0000`, unapplied amount `500.0000`, payment journal `JE-000058` `POSTED`, and void reversal journal absent.
+- Blocker clearance: posted supplier refunds for source payment `0`; direct allocations `0`; active unapplied allocations `0`; allocated non-finalized bills `0`.
+- Historical refund state: `SRF-000004`, safe prefix `dc8c4c9a`, remains `VOIDED`; refund void reversal journal `JE-000060` remains `POSTED`.
+- Expected payment void effect: `SupplierPaymentService.void(...)` once should set payment `VOIDED`, create a posted reversal journal, mark original payment journal `REVERSED`, leave refund `VOIDED`, and create no bill/allocation changes.
+- Expected accounting result: payment void reversal journal balanced at debit/credit `500.0000`, with Dr asset `112` and Cr AP `210`; journal count should increase `60 -> 61`.
+- Required approval phrase: `I approve DEV-08D Part 14 local-only supplier payment void mutation after refund void under marker DEV08D-AP-20260526T000000 for the DEV-08D supplier payment source amount 500.0000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08D Part 14: approved local supplier payment void after refund void mutation`.
+
 ## Next Thread Prompt
 
-`DEV-08D Part 13: supplier payment void after refund void preflight`
+`DEV-08D Part 14: approved local supplier payment void after refund void mutation`
