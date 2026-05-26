@@ -1635,6 +1635,16 @@
 - Temporary script cleanup result: no `*dev08c*` script exists under `apps/api/scripts`; Part 12 used no temporary script file.
 - Exact next prompt title: `DEV-08C Part 13: converted purchase bill finalization preflight`.
 
+## DEV-08C Part 13 - Converted Purchase Bill Finalization Preflight Completed
+
+- DEV-08C Part 13 converted bill finalization preflight is recorded in [docs/development/DEV_08C_CONVERTED_PURCHASE_BILL_FINALIZATION_PREFLIGHT.md](docs/development/DEV_08C_CONVERTED_PURCHASE_BILL_FINALIZATION_PREFLIGHT.md).
+- Mutation performed: no.
+- Current PO/bill state: `PO-000141` remains `BILLED`, converted bill `BILL-000422` safe prefix `f37c60b2` is `DRAFT`, total and balance due `1150.0000`, `journalEntryId` absent, bill date `2026-05-26`, inventory posting mode `DIRECT_EXPENSE_OR_ASSET`.
+- Finalization eligibility: matching fiscal period is `OPEN`; line account `111`, AP account `210`, and VAT receivable account `230` are active posting accounts; marker/PO/bill journal count `0`; purchase bill finalized audit count `0`.
+- Expected finalization result: bill `DRAFT -> FINALIZED`, one posted journal with debit `111` `1000.0000`, debit `230` `150.0000`, credit `210` `1150.0000`, balanced debit/credit totals `1150.0000`, balance due remains `1150.0000`, PO remains `BILLED`, no inventory movement, no output/email/ZATCA.
+- Required approval phrase: `I approve DEV-08C Part 14 local-only converted purchase bill finalization mutation under marker DEV08C-AP-20260526T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08C Part 14: approved local converted purchase bill finalization mutation`.
+
 ## Next Thread Prompt
 
-`DEV-08C Part 13: converted purchase bill finalization preflight`
+`DEV-08C Part 14: approved local converted purchase bill finalization mutation`
