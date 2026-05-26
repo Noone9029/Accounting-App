@@ -1667,6 +1667,15 @@
 - Temporary script cleanup result: `apps/api/scripts/dev08c-converted-purchase-bill-finalize.tmp.ts` is absent; no `*dev08c*` script remains under `apps/api/scripts`.
 - Exact next prompt title: `DEV-08C Part 16: purchase order close branch preflight`.
 
+## DEV-08C Part 16 - Purchase Order Close Branch Preflight Completed
+
+- DEV-08C Part 16 close branch preflight is recorded in [docs/development/DEV_08C_PURCHASE_ORDER_CLOSE_BRANCH_PREFLIGHT.md](docs/development/DEV_08C_PURCHASE_ORDER_CLOSE_BRANCH_PREFLIGHT.md).
+- Mutation performed: no.
+- Main conversion PO protected: `PO-000141` safe prefix `d6abea75` remains `BILLED`, linked to converted bill safe prefix `f37c60b2`, and must not be reused for close.
+- Planned close-branch mutation: after exact approval, create one separate fake local purchase order under marker `DEV08C-AP-20260526T000000` with suffix `CLOSE`, approve it, mark it sent, and close it; do not convert it to a bill or generate accounting/output side effects.
+- Required approval phrase: `I approve DEV-08C Part 17 local-only purchase order close branch mutation under marker DEV08C-AP-20260526T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08C Part 17: approved local purchase order close branch mutation`.
+
 ## Next Thread Prompt
 
-`DEV-08C Part 16: purchase order close branch preflight`
+`DEV-08C Part 17: approved local purchase order close branch mutation`
