@@ -1796,6 +1796,20 @@
 - Required approval phrase: `I approve DEV-08D Part 5 local-only supplier refund from supplier payment mutation under marker DEV08D-AP-20260526T000000 for the DEV-08D supplier payment source with refund amount 150.0000. No production, no beta, no customer data.`
 - Exact next prompt title: `DEV-08D Part 5: approved local supplier refund from supplier payment mutation`.
 
+## DEV-08D Part 5 - Supplier Refund From Supplier Payment Mutation Completed
+
+- DEV-08D Part 5 local-only supplier refund mutation evidence is recorded in [docs/development/DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_MUTATION_EVIDENCE.md](docs/development/DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_MUTATION_EVIDENCE.md).
+- Runtime mutation performed: yes, local-only.
+- Exact service call made: `SupplierRefundService.create(...)` once; `SupplierRefundService.void(...)`, `SupplierPaymentService.void(...)`, and supplier payment creation were not called.
+- Supplier refund result: `SRF-000004`, safe prefix `dc8c4c9a`, `POSTED`, amount `150.0000`, source type `SUPPLIER_PAYMENT`, source payment `PAY-000007`, source debit note absent.
+- Source payment before/after: `PAY-000007` remained `POSTED`; amount paid stayed `500.0000`; unapplied amount decreased `500.0000 -> 350.0000`.
+- Allocation result: direct supplier payment allocations `0`; active supplier payment unapplied allocations `0`.
+- Journal/accounting result: refund journal `JE-000059`, safe prefix `4439a2ff`, `POSTED` and balanced at debit/credit `150.0000`, with Dr asset account `112` and Cr AP account `210`; source payment journal `JE-000058` remained posted and unreversed.
+- Audit result: `SupplierRefund:SUPPLIER_REFUND_CREATED` count `1`; no supplier refund void, supplier payment void, or cleanup/delete audit for the source payment/refund.
+- Forbidden side-effect result: generated documents, email outbox rows, email provider events, purchase orders, purchase receipts, stock movements, cash expenses, purchase debit notes, and cleanup/delete audits all `0`; ZATCA was not invoked.
+- Temporary script cleanup result: `apps/api/scripts/dev08d-supplier-refund-from-payment.tmp.ts` was removed; `Test-Path` returned `False`; no `*dev08d*` script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08D Part 6: supplier refund from supplier payment evidence verification`.
+
 ## Next Thread Prompt
 
-`DEV-08D Part 5: approved local supplier refund from supplier payment mutation`
+`DEV-08D Part 6: supplier refund from supplier payment evidence verification`

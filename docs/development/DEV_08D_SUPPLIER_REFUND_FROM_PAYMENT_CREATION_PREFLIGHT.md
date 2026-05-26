@@ -172,3 +172,17 @@ ZATCA should remain out of scope. No sales invoice or ZATCA metadata path should
 ## 15. Next Prompt Title
 
 `DEV-08D Part 5: approved local supplier refund from supplier payment mutation`
+
+## Part 5 Evidence Note
+
+DEV-08D Part 5 completed the approved local-only supplier refund from supplier payment mutation. Evidence is recorded in [DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_MUTATION_EVIDENCE.md](DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_MUTATION_EVIDENCE.md).
+
+- Runtime mutation performed: yes, local-only.
+- Exact service call: `SupplierRefundService.create(...)` once.
+- Supplier refund created: `SRF-000004`, safe prefix `dc8c4c9a`, `POSTED`, amount `150.0000`, source type `SUPPLIER_PAYMENT`.
+- Source payment `PAY-000007` remained `POSTED`, amount paid `500.0000`, and unapplied amount decreased `500.0000 -> 350.0000`.
+- Supplier refund journal `JE-000059` posted and balanced at debit/credit `150.0000`, with Dr asset account `112` and Cr AP account `210`.
+- `SupplierRefund:SUPPLIER_REFUND_CREATED` audit count was `1`.
+- Direct allocations, unapplied allocations, generated documents, email rows/events, purchase orders/receipts, stock movements, cash expenses, purchase debit notes, and cleanup/delete audits remained `0`.
+- No `*dev08d*` temporary script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08D Part 6: supplier refund from supplier payment evidence verification`.
