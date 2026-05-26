@@ -1610,6 +1610,19 @@
 - Required approval phrase: `I approve DEV-08C Part 11 local-only purchase order convert-to-bill mutation under marker DEV08C-AP-20260526T000000. No production, no beta, no customer data.`
 - Exact next prompt title: `DEV-08C Part 11: approved local purchase order convert-to-bill mutation`.
 
+## DEV-08C Part 11 - Purchase Order Convert-To-Bill Mutation Completed
+
+- DEV-08C Part 11 approved local purchase order convert-to-bill mutation evidence is recorded in [docs/development/DEV_08C_PURCHASE_ORDER_CONVERT_TO_BILL_MUTATION_EVIDENCE.md](docs/development/DEV_08C_PURCHASE_ORDER_CONVERT_TO_BILL_MUTATION_EVIDENCE.md).
+- Runtime mutation performed: yes, local-only.
+- Exact service call made: `PurchaseOrderService.convertToBill(...)` once.
+- Before/after entity state: `PO-000141`, safe id prefix `d6abea75`, changed `SENT -> BILLED`; `convertedBillId` changed absent -> present with bill safe prefix `f37c60b2`; total stayed `1150.0000`.
+- Converted bill result: `BILL-000422`, safe id prefix `f37c60b2`, status `DRAFT`, total and balance due `1150.0000`, one line using account `111`, journal absent.
+- Accounting/journal result: purchase bill count linked to PO changed `0 -> 1`; marker/PO/bill journal count stayed `0`.
+- Audit result: `PURCHASE_ORDER_CONVERTED_TO_BILL` audit count changed `0 -> 1`; `PURCHASE_ORDER_SENT`, `PURCHASE_ORDER_APPROVED`, and `PURCHASE_ORDER_CREATED` audit counts stayed `1`.
+- Forbidden side-effect result: generated document/PDF/archive, email, purchase receipt, stock movement, supplier payment, supplier refund, purchase debit note, cash expense, cleanup, ZATCA, production, beta, shared-target, hosted, and customer-data side effects absent.
+- Temporary script cleanup: `apps/api/scripts/dev08c-purchase-order-convert-to-bill.tmp.ts` was removed; `Test-Path` returned `False`; no `*dev08c*` script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08C Part 12: purchase order conversion evidence verification`.
+
 ## Next Thread Prompt
 
-`DEV-08C Part 11: approved local purchase order convert-to-bill mutation`
+`DEV-08C Part 12: purchase order conversion evidence verification`

@@ -162,6 +162,10 @@ Expected absent side effects after Part 11:
 - No discrepancy found between Part 9 mark-sent evidence and current Part 10 read-only preflight.
 - Part 11 should stop if the purchase order is no longer `SENT`, `convertedBillId` is set, a purchase bill already exists, the supplier is inactive or not supplier-capable, any line lacks a direct or item expense account, a marker/PO journal exists, or the target is not local-only.
 
-## 15. Exact Next Prompt Title
+## 15. Evidence Note
+
+Part 11 completed the approved local convert-to-bill mutation and recorded evidence in [DEV_08C_PURCHASE_ORDER_CONVERT_TO_BILL_MUTATION_EVIDENCE.md](DEV_08C_PURCHASE_ORDER_CONVERT_TO_BILL_MUTATION_EVIDENCE.md).
+
+## 16. Exact Next Prompt Title
 
 `DEV-08C Part 11: approved local purchase order convert-to-bill mutation`
