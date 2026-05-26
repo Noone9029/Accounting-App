@@ -98,9 +98,9 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 - DEV-08 is now closed for the core local AP bill/payment evidence chain in [DEV_08_AP_STATE_MACHINE_CLOSURE.md](DEV_08_AP_STATE_MACHINE_CLOSURE.md). It proved the fake supplier fixture, finalized direct-mode purchase bill, AP/VAT/expense purchase bill journal, supplier payment creation, direct bill allocation, unapplied amount application, unapplied allocation reversal, supplier payment void/reversal, purchase bill void/reversal after supplier payment void, journal behavior, audit behavior, and output/email/ZATCA non-effects.
 - DEV-08B is now closed for the local AP purchase debit note and supplier refund-from-debit-note branch in [DEV_08B_AP_DEBIT_NOTE_REFUND_CLOSURE.md](DEV_08B_AP_DEBIT_NOTE_REFUND_CLOSURE.md). It proved debit-note fixture creation/finalization, debit-note apply-to-bill, debit-note allocation reversal, supplier refund creation from a debit note, supplier refund void/reversal, debit-note void/reversal, journal behavior, audit behavior, and output/email/ZATCA non-effects.
 - DEV-08C is now closed for the local purchase order conversion/lifecycle branch in [DEV_08C_PURCHASE_ORDER_CONVERSION_CLOSURE.md](DEV_08C_PURCHASE_ORDER_CONVERSION_CLOSURE.md). It proved purchase order fixture creation, approval, mark-sent, convert-to-bill, converted bill finalization, close branch, void branch, journal behavior, audit behavior, and output/email/ZATCA non-effects.
-- DEV-08D Part 1 is now completed in [DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_PREFLIGHT.md](DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_PREFLIGHT.md). It performed a read-only supplier-refund-from-supplier-payment preflight, confirmed no DEV-08D-safe source payment exists yet, selected Option A, and requires a fresh local supplier payment refund source fixture before refund creation.
-- DEV-08 through DEV-08D Part 1 do not claim full AP completion. Remaining AP gaps include supplier refunds from supplier payment source mutation/evidence, cash expenses, inventory-clearing bills, purchase receipts/inventory integration, AP PDF/archive/output routes, AP email delivery, authenticated UI/API QA, repeated/idempotency paths, fiscal-period locks, permission edge cases, cleanup policy, and production/beta/customer-data behavior.
-- Recommended next local-only AP branch: `DEV-08D Part 2: approved local supplier payment refund source fixture mutation`.
+- DEV-08D is now closed for the local supplier refund from supplier payment branch in [DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_CLOSURE.md](DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_CLOSURE.md). It proved source supplier payment fixture creation, supplier refund creation from a payment, source payment unapplied decrement/restoration, supplier payment void blocker while the refund was posted, supplier refund void/reversal, supplier payment void/reversal after blocker clearance, journal behavior, audit behavior, and source-scoped output/email/ZATCA non-effects.
+- DEV-08 through DEV-08D do not claim full AP completion. Remaining AP gaps include cash expenses, inventory-clearing bills, purchase receipts/inventory integration, AP PDF/archive/output routes, AP email delivery, authenticated UI/API QA, repeated/idempotency paths, fiscal-period locks, permission edge cases, cleanup policy, and production/beta/customer-data behavior.
+- Recommended next local-only AP branch: `DEV-08E Part 1: cash expense lifecycle preflight`.
 
 ## Highest-Priority Development Tickets
 
@@ -151,4 +151,4 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 
 ## Exact Next Recommended Development Ticket
 
-`DEV-08D Part 2: approved local supplier payment refund source fixture mutation`
+`DEV-08E Part 1: cash expense lifecycle preflight`

@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `de7209ea Void DEV-08D supplier payment locally`
+- `a460a1ae Verify DEV-08D supplier payment void evidence`
 
 ## Current Development Objective
 
@@ -1925,6 +1925,17 @@
 - Journal/audit/side-effect result: payment void reversal journal `JE-000061`, safe prefix `389e8daf`, remained `POSTED` and balanced at debit/credit `500.0000`, with Dr asset account `112` and Cr AP account `210`; supplier payment created/voided and supplier refund created/voided audits each remained exactly `1`; DEV-08D source/marker-scoped generated documents, email rows/events, ZATCA artifacts, purchase orders/receipts, stock movements, cash expenses, purchase debit notes, cleanup/delete audits, and temporary DEV-08D scripts remained absent.
 - Exact next prompt title: `DEV-08D Part 16: supplier refund from supplier payment closure`.
 
+## DEV-08D Part 16 - Supplier Refund From Supplier Payment Closure Completed
+
+- DEV-08D Part 16 supplier refund from supplier payment closure is recorded in [docs/development/DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_CLOSURE.md](docs/development/DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_CLOSURE.md).
+- Mutation performed: no.
+- DEV-08D proved the local supplier refund from supplier payment branch: source payment fixture creation, supplier refund creation, payment unapplied decrement/restoration, supplier payment void blocker while refund was posted, supplier refund void/reversal, and supplier payment void/reversal after the blocker cleared.
+- Final source payment state: `PAY-000007`, safe prefix `4b9c42b1`, `VOIDED`; `voidedAt` present; amount paid and unapplied amount `500.0000`; original payment journal `JE-000058` `REVERSED`; payment void reversal journal `JE-000061` `POSTED`.
+- Final supplier refund state: `SRF-000004`, safe prefix `dc8c4c9a`, `VOIDED`; amount `150.0000`; original refund journal `JE-000059` `REVERSED`; refund void reversal journal `JE-000060` `POSTED`; posted supplier refunds for payment `0`.
+- Final accounting/audit/side-effect findings: payment void reversal `JE-000061` balanced at debit/credit `500.0000`; refund void reversal `JE-000060` balanced at debit/credit `150.0000`; supplier payment created/voided and supplier refund created/voided audits each `1`; source/marker-scoped generated documents, email rows/events, ZATCA artifacts, purchase orders/receipts, stock movements, cash expenses, purchase debit notes, cleanup/delete audits, and DEV-08D temporary scripts absent.
+- Remaining AP gaps: cash expense lifecycle, inventory-clearing purchase bills, purchase receipt/inventory integration, AP output/PDF/archive, AP email, browser-authenticated AP UI/API QA, repeated/idempotency and blocker paths beyond DEV-08D, fiscal-period blockers, permission edge cases, cleanup policy, and production/beta/customer-data behavior.
+- Exact next prompt title, recommended: `DEV-08E Part 1: cash expense lifecycle preflight`.
+
 ## Next Thread Prompt
 
-`DEV-08D Part 16: supplier refund from supplier payment closure`
+`DEV-08E Part 1: cash expense lifecycle preflight`
