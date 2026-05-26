@@ -1783,6 +1783,19 @@
 - Temporary script cleanup result: no `*dev08d*` temporary script exists under `apps/api/scripts`; Part 3 used no temporary script file.
 - Exact next prompt title: `DEV-08D Part 4: supplier refund from supplier payment preflight`.
 
+## DEV-08D Part 4 - Supplier Refund From Supplier Payment Preflight Completed
+
+- DEV-08D Part 4 read-only supplier refund creation preflight is recorded in [docs/development/DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_CREATION_PREFLIGHT.md](docs/development/DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_CREATION_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Source payment eligibility: `PAY-000007`, safe prefix `4b9c42b1`, is `POSTED`, `SAR`, amount paid `500.0000`, unapplied amount `500.0000`, same DEV-08D supplier safe prefix `a5d3ece3`, no void reversal journal, no allocations, and no existing supplier refunds.
+- Planned supplier refund amount: `150.0000`; planned source payment unapplied after refund: `350.0000`.
+- Planned received-into account: `112`, safe prefix `32ab6f4d`, active posting asset account; AP account `210`, safe prefix `883ea9a6`, active posting liability account.
+- Expected accounting result: one posted supplier refund journal balanced at debit/credit `150.0000`, Dr asset `112`, Cr AP `210`; source payment journal `JE-000058` remains posted.
+- Expected audit result: one `SupplierRefund:CREATE` audit only; no supplier refund void, supplier payment void, allocation/reversal, cleanup/delete, or login/browser audit path.
+- Forbidden side-effect baseline: generated documents, email rows/events, purchase orders, purchase receipts, stock movements, cash expenses, purchase debit notes, and cleanup/delete audits are all `0`.
+- Required approval phrase: `I approve DEV-08D Part 5 local-only supplier refund from supplier payment mutation under marker DEV08D-AP-20260526T000000 for the DEV-08D supplier payment source with refund amount 150.0000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08D Part 5: approved local supplier refund from supplier payment mutation`.
+
 ## Next Thread Prompt
 
-`DEV-08D Part 4: supplier refund from supplier payment preflight`
+`DEV-08D Part 5: approved local supplier refund from supplier payment mutation`
