@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `e80109bf Plan DEV-08C purchase order approval`
+- `10d93efb Close DEV-08C purchase order conversion evidence`
 
 ## Current Development Objective
 
@@ -1740,6 +1740,22 @@
 - Remaining AP gaps: supplier refund from supplier payment source, cash expenses, inventory-clearing bills and purchase receipt integration, AP output/PDF/archive/email with explicit approvals, browser-authenticated AP UI/API QA, repeated/idempotency and blocker paths, fiscal-period blockers, permission edge cases, cleanup policy, and production/beta/customer-data behavior.
 - Exact next prompt title: `DEV-08D Part 1: supplier refund from supplier payment preflight`.
 
+## DEV-08D Part 1 - Supplier Refund From Supplier Payment Preflight Completed
+
+- DEV-08D Part 1 supplier refund from supplier payment preflight is recorded in [docs/development/DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_PREFLIGHT.md](docs/development/DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `10d93efb Close DEV-08C purchase order conversion evidence`; local `HEAD` matched `origin/main`.
+- Local-only/read-only proof: `apps/api/.env` database target classified as local `localhost` database `accounting`; local Docker Postgres and Redis were healthy; read-only SQL printed only safe prefixes/counts/statuses/amounts.
+- Current source availability: no DEV-08D-marked posted supplier payment with unapplied amount exists; existing local posted unapplied payments are not DEV-08D-safe disposable sources.
+- DEV-08 payment reference: `PAY-000006` safe prefix `622ad0b6` is `VOIDED`, amount `500.0000`, unapplied `200.0000`, posted supplier refund count `0`; it must not be reused as an active supplier refund source.
+- Selected Part 2 mutation option: Option A, create a fresh local supplier payment refund source fixture only.
+- Proposed marker: `DEV08D-AP-20260526T000000`.
+- Future Part 2 fixture target: one fake local supplier plus one `POSTED` supplier payment for `500.0000` SAR, fully unapplied, no allocations, no purchase bill required.
+- Expected future refund target after source verification: `SupplierRefundService.create(...)` once with `sourceType = SUPPLIER_PAYMENT`, refund amount `150.0000`, source payment unapplied `500.0000 -> 350.0000`, posted balanced refund journal Dr asset `112` / Cr AP `210`.
+- Forbidden side-effect baseline for the marker: generated documents, email outbox/provider events, ZATCA metadata/submission logs, purchase receipts, stock movements, and cleanup/delete audits all `0`.
+- Required approval phrase: `I approve DEV-08D Part 2 local-only supplier payment refund source fixture mutation under marker DEV08D-AP-20260526T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08D Part 2: approved local supplier payment refund source fixture mutation`.
+
 ## Next Thread Prompt
 
-`DEV-08D Part 1: supplier refund from supplier payment preflight`
+`DEV-08D Part 2: approved local supplier payment refund source fixture mutation`
