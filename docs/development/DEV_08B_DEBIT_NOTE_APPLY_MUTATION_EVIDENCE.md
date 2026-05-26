@@ -209,6 +209,16 @@ Confirmed no PDF/archive/export/download, email send, ZATCA XML/signing/QR/submi
 - No retry mutation was run.
 - One `git status --short` command was executed in parallel with script removal and briefly still showed the temporary script; a follow-up `Test-Path`, `Get-ChildItem`, and `git status --short` confirmed the temporary script was absent, unstaged, and untracked.
 
+## Part 6 Verification Note
+
+- DEV-08B Part 6 read-only verification is recorded in [DEV_08B_DEBIT_NOTE_APPLY_EVIDENCE_VERIFICATION.md](DEV_08B_DEBIT_NOTE_APPLY_EVIDENCE_VERIFICATION.md).
+- Mutation performed in Part 6: no.
+- The verification confirmed `PDN-000003` remains `FINALIZED` with unapplied amount `210.0000`.
+- The verification confirmed `BILL-000008` remains `FINALIZED` with balance due `900.0000`.
+- The verification confirmed active `PurchaseDebitNoteAllocation` safe id prefix `7ec0dfb3` remains applied for `250.0000`.
+- Journal count remained `54` and `JOURNAL_ENTRY` sequence remained `JE-000055`.
+- Raw `PurchaseDebitNote:APPLY` remains present, with no debit-note reverse/void, supplier refund, supplier payment, purchase bill void, cleanup/delete, or login/browser audit-writing action found.
+
 ## Next Recommended Thread
 
-`DEV-08B Part 6: debit note apply evidence verification`
+`DEV-08B Part 7: debit note allocation reversal preflight`

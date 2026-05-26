@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `cb1fe2d1 Plan DEV-08B debit note application`
+- `20e49686 Apply DEV-08B debit note to bill`
 
 ## Current Development Objective
 
@@ -1304,3 +1304,21 @@
 ## Next Thread Prompt
 
 `DEV-08B Part 6: debit note apply evidence verification`
+
+## DEV-08B Part 6 - Debit Note Apply Evidence Verification Completed
+
+- DEV-08B Part 6 read-only verification is recorded in [docs/development/DEV_08B_DEBIT_NOTE_APPLY_EVIDENCE_VERIFICATION.md](docs/development/DEV_08B_DEBIT_NOTE_APPLY_EVIDENCE_VERIFICATION.md).
+- Mutation performed: no. No debit-note apply, debit-note reversal, debit-note void, supplier refund workflow, supplier payment workflow, purchase bill mutation, output/PDF/archive/export/download, email, ZATCA, migration, seed/reset/delete, deploy, environment/provider/schema change, production, beta, shared-target, customer-data, cleanup deletion, or login/browser flow ran.
+- Local-only target proof: Docker Linux engine was available, local Postgres/Redis containers were healthy, the read-only Prisma verification accepted only `localhost:5432` database `accounting`, and no hosted/prod/beta/shared/customer-data target or secret was printed.
+- Temporary script absence: `apps/api/scripts/dev08b-debit-note-apply.tmp.ts` is absent, unstaged, and untracked; no `*dev08b*` script remains under `apps/api/scripts`.
+- Debit note evidence: `PDN-000003`, safe id prefix `b93f96ee`, remains `FINALIZED`; total remains `460.0000`; unapplied amount remains `210.0000`; reversal journal remains absent; supplier refunds remain `0`.
+- Purchase bill evidence: `BILL-000008`, safe id prefix `4b8886bb`, remains `FINALIZED`; total remains `1150.0000`; balance due remains `900.0000`; reversal journal remains absent; generated document links remain `0`.
+- Allocation evidence: exactly one active `PurchaseDebitNoteAllocation` exists, safe id prefix `7ec0dfb3`, amount applied `250.0000`, linked to `PDN-000003` and `BILL-000008`; `reversedAt`, `reversedById`, and `reversalReason` remain absent.
+- Journal/accounting evidence: bill journal `JE-000053` and debit-note journal `JE-000054` remain `POSTED` and unchanged; organization journal count remains `54`; `JOURNAL_ENTRY` sequence remains `JE-000055`; no reversal, supplier refund, or supplier payment journal exists for this fixture.
+- Audit evidence: fixture actions are `Contact:CREATE`, `PurchaseBill:PURCHASE_BILL_CREATED`, `PurchaseBill:PURCHASE_BILL_FINALIZED`, `PurchaseDebitNote:PURCHASE_DEBIT_NOTE_CREATED`, `PurchaseDebitNote:PURCHASE_DEBIT_NOTE_FINALIZED`, and raw `PurchaseDebitNote:APPLY`; no debit-note reverse/void, supplier refund, supplier payment, purchase bill void, cleanup/delete, or login/browser audit-writing action was found.
+- Forbidden side effects checked: fixture-specific supplier refunds, supplier payments, purchase orders, purchase receipts, stock movements, cash expenses, generated documents, marker email outbox rows, marker email provider events, marker auth tokens, and fixture cleanup/delete audits are all `0`; organization-level ZATCA baselines remain `1` signed artifact draft and `7` submission logs.
+- Exact next prompt title: `DEV-08B Part 7: debit note allocation reversal preflight`.
+
+## Next Thread Prompt
+
+`DEV-08B Part 7: debit note allocation reversal preflight`
