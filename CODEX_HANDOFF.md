@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `246f3000 Reverse DEV-08B debit note allocation`
+- `540a6b0f Plan DEV-08B supplier refund from debit note`
 
 ## Current Development Objective
 
@@ -1383,3 +1383,23 @@
 ## Next Thread Prompt
 
 `DEV-08B Part 10: approved local supplier refund from debit note mutation`
+
+## DEV-08B Part 10 - Approved Local Supplier Refund From Debit Note Mutation Completed
+
+- DEV-08B Part 10 local-only mutation evidence is recorded in [docs/development/DEV_08B_SUPPLIER_REFUND_FROM_DEBIT_NOTE_MUTATION_EVIDENCE.md](docs/development/DEV_08B_SUPPLIER_REFUND_FROM_DEBIT_NOTE_MUTATION_EVIDENCE.md).
+- Approval phrase was received for the local-only supplier refund from debit note mutation under marker `DEV08B-AP-20260526T060000` for refund amount `150.0000`.
+- Mutation performed: yes. The guarded temporary script called `SupplierRefundService.create(...)` exactly once for `PDN-000003` with source type `PURCHASE_DEBIT_NOTE` and amount `150.0000`.
+- Local-only target proof: Docker Linux engine was available, local Postgres/Redis containers were healthy, the guarded script accepted only `localhost:5432` database `accounting`, and no hosted/prod/beta/shared/customer-data target or secret was printed.
+- Supplier refund evidence: `SRF-000003`, safe id prefix `39873ae4`, `POSTED`, amount `150.0000`, sourced from `PDN-000003`, with journal entry present and void reversal journal absent.
+- Debit note evidence: `PDN-000003`, safe id prefix `b93f96ee`, remained `FINALIZED`; total remained `460.0000`; unapplied amount changed `460.0000 -> 310.0000`; reversal journal remained absent.
+- Purchase bill evidence: `BILL-000008`, safe id prefix `4b8886bb`, remained `FINALIZED`; total remained `1150.0000`; balance due stayed `1150.0000`; reversal journal remained absent.
+- Allocation evidence: historical `PurchaseDebitNoteAllocation` safe id prefix `7ec0dfb3` remains reversed for `250.0000`; active allocation count remains `0`; no new debit-note allocation or supplier payment allocation was created.
+- Journal/accounting evidence: supplier refund journal `JE-000055`, safe id prefix `6cae838d`, posted and balanced with debit account `112` `150.0000` and credit AP account `210` `150.0000`; journal count changed `54 -> 55`; bill journal `JE-000053` and debit-note journal `JE-000054` remained unchanged.
+- Audit evidence: standardized `SupplierRefund:SUPPLIER_REFUND_CREATED` was created; no supplier refund void, debit-note void, duplicate debit-note apply/reverse, bill void, supplier payment, cleanup/delete, or login/browser audit-writing action occurred.
+- Output/email/ZATCA/payment/purchase-order/inventory/cash-expense/cleanup occurred: no. Fixture-specific supplier payments, purchase orders, purchase receipts, stock movements, cash expenses, generated documents, marker email rows/provider events, marker auth tokens, cleanup/delete audits, and ZATCA metadata for bill/debit note remain `0`; organization-level local ZATCA submission logs remain baseline `7`.
+- Temporary script cleanup: `apps/api/scripts/dev08b-supplier-refund-from-debit-note.tmp.ts` was removed after execution, `Test-Path` returned `False`, and no `*dev08b*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08B Part 11: supplier refund evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08B Part 11: supplier refund evidence verification`

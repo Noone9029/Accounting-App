@@ -305,6 +305,17 @@ Expected Part 10 non-effects:
 
 `I approve DEV-08B Part 10 local-only supplier refund from debit note mutation under marker DEV08B-AP-20260526T060000 for the DEV-08B purchase debit note with refund amount 150.0000. No production, no beta, no customer data.`
 
+## Part 10 Evidence Note
+
+- DEV-08B Part 10 approved local supplier refund from debit note mutation is recorded in [DEV_08B_SUPPLIER_REFUND_FROM_DEBIT_NOTE_MUTATION_EVIDENCE.md](DEV_08B_SUPPLIER_REFUND_FROM_DEBIT_NOTE_MUTATION_EVIDENCE.md).
+- Mutation performed in Part 10: yes, exactly one `SupplierRefundService.create(...)` call.
+- Supplier refund `SRF-000003`, safe id prefix `39873ae4`, was created as `POSTED` for `150.0000` from `PDN-000003`.
+- `PDN-000003` remained `FINALIZED`; unapplied amount changed `460.0000 -> 310.0000`.
+- `BILL-000008` remained `FINALIZED`; balance due stayed `1150.0000`.
+- Supplier refund journal `JE-000055`, safe id prefix `6cae838d`, posted and balanced with debit account `112` `150.0000` and credit AP account `210` `150.0000`.
+- Standardized `SupplierRefund:SUPPLIER_REFUND_CREATED` audit was created.
+- No output/email/ZATCA/payment/purchase-order/inventory/cash-expense/cleanup side effect occurred.
+
 ## Exact Next Prompt Title
 
 `DEV-08B Part 10: approved local supplier refund from debit note mutation`
