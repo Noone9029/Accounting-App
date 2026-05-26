@@ -221,9 +221,10 @@ No duplicate purchase bill finalization audit, duplicate supplier payment void a
 The next AP evidence branches should cover:
 
 - DEV-08B followed this core AP bill/payment closure and covered the local purchase debit note and supplier refund-from-debit-note branch. See [DEV_08B_AP_DEBIT_NOTE_REFUND_CLOSURE.md](DEV_08B_AP_DEBIT_NOTE_REFUND_CLOSURE.md).
+- DEV-08C followed this closure and covered the local purchase order conversion/lifecycle branch. See [DEV_08C_PURCHASE_ORDER_CONVERSION_CLOSURE.md](DEV_08C_PURCHASE_ORDER_CONVERSION_CLOSURE.md).
 - Supplier refund lifecycle from supplier payment source.
 - Debit-note and refund blockers for supplier payment void and purchase bill void.
-- Purchase order operational lifecycle and convert-to-bill.
+- Purchase order repeated/idempotency/blocker paths beyond the DEV-08C happy-path evidence.
 - Cash expense lifecycle.
 - Inventory-clearing purchase bill and purchase receipt integration, after inventory/AP policy and fixture prerequisites are explicitly approved.
 - AP output/PDF/archive and email behavior, under separate output-safe approvals.
