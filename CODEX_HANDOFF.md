@@ -1176,3 +1176,21 @@
 ## Next Thread Prompt
 
 `DEV-08 Part 14: approved local purchase bill void/reversal mutation`
+
+## DEV-08 Part 14 - Approved Local Purchase Bill Void/Reversal Mutation Completed
+
+- DEV-08 Part 14 local-only mutation evidence is recorded in [docs/development/DEV_08_PURCHASE_BILL_VOID_MUTATION_EVIDENCE.md](docs/development/DEV_08_PURCHASE_BILL_VOID_MUTATION_EVIDENCE.md).
+- Approval phrase was received for the local-only purchase bill void/reversal mutation under marker `DEV08-AP-20260525T230000` for `BILL-000007` after supplier payment void/reversal completed.
+- Mutation performed: yes. The guarded temporary script called `PurchaseBillService.void(...)` exactly once for `BILL-000007`; the script was not rerun after a post-mutation broad baseline assertion failed.
+- Purchase bill evidence: `BILL-000007`, safe id prefix `d81ddd60`, changed from `FINALIZED` to `VOIDED`; subtotal remained `1000.0000`, tax remained `150.0000`, total remained `1150.0000`, balance due changed `1150.0000 -> 0.0000`, and reversal journal `JE-000052` was linked.
+- Supplier payment evidence: `PAY-000006`, safe id prefix `622ad0b6`, remained `VOIDED`; amount paid remained `500.0000`; unapplied amount remained `200.0000`; original payment journal `JE-000050` remained `REVERSED`; payment void reversal journal `JE-000051` remained `POSTED`.
+- Allocation evidence: direct `SupplierPaymentAllocation` safe prefix `6ec44d14` remained one historical allocation for `300.0000`; `SupplierPaymentUnappliedAllocation` safe prefix `a8ee4e23` remained reversed for `200.0000`; no new supplier payment allocation, supplier payment unapplied allocation, or purchase debit-note allocation was created.
+- Journal/accounting evidence: original purchase bill journal `JE-000049`, safe id prefix `3dfa0a86`, changed from `POSTED` to `REVERSED`; purchase bill reversal journal `JE-000052`, safe id prefix `b243cab0`, posted with debit `210 Accounts Payable` for `1150.0000`, credit `230 VAT Receivable` for `150.0000`, and credit `111 Cash` for `1000.0000`; `JOURNAL_ENTRY` sequence changed next `52 -> 53`.
+- Audit evidence: fixture-scoped `PURCHASE_BILL_VOIDED` now exists once for `BILL-000007`; `PURCHASE_BILL_CREATED` and `PURCHASE_BILL_FINALIZED` remain once; `SUPPLIER_PAYMENT_VOIDED` remains once; no duplicate purchase bill finalization, duplicate supplier payment void, supplier refund, purchase debit note, purchase order, cash expense, cleanup/delete, or login/browser audit-writing action occurred for this fixture.
+- Output/email/ZATCA/refund/debit-note/purchase-order/inventory/cash-expense/cleanup occurred: no. Fixture-specific generated documents, supplier refunds, purchase debit notes, purchase orders, purchase receipts, stock movements, cash expenses, inventory variance proposals, marker email outbox rows, and cleanup/delete audit actions remain `0`; organization-level ZATCA baseline remains unchanged local AP-ready data (`1` signed artifact draft and `7` submission logs).
+- Temporary script cleanup: `apps/api/scripts/dev08-purchase-bill-void.tmp.ts` was removed after execution, `Test-Path` returned `False`, and the script was not staged or left untracked.
+- Exact next prompt title: `DEV-08 Part 15: AP state-machine closure and evidence consolidation`.
+
+## Next Thread Prompt
+
+`DEV-08 Part 15: AP state-machine closure and evidence consolidation`

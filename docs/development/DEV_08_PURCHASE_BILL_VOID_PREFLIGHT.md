@@ -253,3 +253,12 @@ Forbidden side-effect non-effects:
 ## Exact Next Prompt Title
 
 `DEV-08 Part 14: approved local purchase bill void/reversal mutation`
+
+## Part 14 Evidence Note
+
+DEV-08 Part 14 approved local purchase bill void/reversal mutation completed. Evidence is recorded in [docs/development/DEV_08_PURCHASE_BILL_VOID_MUTATION_EVIDENCE.md](docs/development/DEV_08_PURCHASE_BILL_VOID_MUTATION_EVIDENCE.md).
+
+- Mutation performed: yes, exactly one `PurchaseBillService.void(...)` call for `BILL-000007`.
+- Result: `BILL-000007` changed from `FINALIZED` to `VOIDED`, balance due changed `1150.0000 -> 0.0000`, original bill journal `JE-000049` changed to `REVERSED`, and reversal journal `JE-000052` posted.
+- Supplier payment chain remained unchanged from Part 12: `PAY-000006` remained `VOIDED`, `JE-000050` remained `REVERSED`, and `JE-000051` remained `POSTED`.
+- No output/email/ZATCA/refund/debit-note/purchase-order/inventory/cash-expense/cleanup side effect occurred for the fixture.
