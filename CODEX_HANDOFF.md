@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `498cfffd Close DEV-08 AP state-machine evidence`
+- `8fde07d5 Plan DEV-08B debit note refund branch`
 
 ## Current Development Objective
 
@@ -1224,3 +1224,24 @@
 ## Next Thread Prompt
 
 `DEV-08B Part 2: approved local AP debit note fixture creation mutation`
+
+## DEV-08B Part 2 - Approved Local AP Debit Note Fixture Creation Mutation Completed
+
+- DEV-08B Part 2 local-only mutation evidence is recorded in [docs/development/DEV_08B_AP_DEBIT_NOTE_FIXTURE_MUTATION_EVIDENCE.md](docs/development/DEV_08B_AP_DEBIT_NOTE_FIXTURE_MUTATION_EVIDENCE.md).
+- Approval phrase was received for the local-only AP debit note fixture creation mutation under marker `DEV08B-AP-20260526T060000`.
+- Mutation performed: yes. The guarded temporary script called `ContactService.create(...)`, `PurchaseBillService.create(...)`, `PurchaseBillService.finalize(...)`, `PurchaseDebitNoteService.create(...)`, and `PurchaseDebitNoteService.finalize(...)` once each.
+- Local-only target proof: Docker Linux engine was available, local Postgres/Redis containers were healthy, the guarded script accepted only `localhost:5432`, and no hosted/prod/beta/shared/customer-data target or secret was printed.
+- Supplier evidence: `DEV08B-AP-20260526T060000 Supplier`, safe id prefix `d11c76db`, active `SUPPLIER`, under the fake local AP-ready organization safe prefix `db69e5a8`.
+- Purchase bill evidence: `BILL-000008`, safe id prefix `4b8886bb`, `FINALIZED`, direct expense/asset mode, subtotal `1000.0000`, VAT `150.0000`, total and balance due `1150.0000`, no reversal journal, no supplier payment allocation, no debit note allocation, and no generated document.
+- Purchase debit note evidence: `PDN-000003`, safe id prefix `b93f96ee`, `FINALIZED`, linked to `BILL-000008`, subtotal `400.0000`, VAT `60.0000`, total and unapplied amount `460.0000`, no allocation, no supplier refund, and no reversal journal.
+- Tax path: VAT path was used; zero-tax fallback was not used.
+- Journal evidence: bill journal `JE-000053`, safe id prefix `950b8a43`, posted and balanced with debits `111` `1000.0000` and `230` `150.0000`, credit `210` `1150.0000`; debit-note journal `JE-000054`, safe id prefix `670f7dc0`, posted and balanced with debit `210` `460.0000`, credits `111` `400.0000` and `230` `60.0000`.
+- Audit evidence: `Contact:CREATE`, `PurchaseBill:PURCHASE_BILL_CREATED`, `PurchaseBill:PURCHASE_BILL_FINALIZED`, `PurchaseDebitNote:PURCHASE_DEBIT_NOTE_CREATED`, and `PurchaseDebitNote:PURCHASE_DEBIT_NOTE_FINALIZED` were recorded; no debit-note apply/reverse/void, supplier refund, supplier payment, purchase order, cash expense, cleanup/delete, or login/browser audit-writing action occurred.
+- Output/email/ZATCA/payment/refund/purchase-order/inventory/cash-expense/cleanup occurred: no. Fixture-specific supplier payments, supplier refunds, debit note allocations, purchase orders, purchase receipts, stock movements, cash expenses, and generated documents are all `0`; organization-level generated document, email, ZATCA, and other baseline counts were unchanged in the read-only verification pass.
+- Temporary script cleanup: `apps/api/scripts/dev08b-ap-debit-note-fixture.tmp.ts` was removed after execution, `Test-Path` returned `False`, and no `*dev08b*` script remains under `apps/api/scripts`.
+- Deviation: the first script run completed the mutation once and then failed during a post-mutation broad stock-movement read filter. The temporary script was patched to use a read-only `--verify-existing` path and current schema fields, then rerun only to verify the already-created marker fixture without creating additional records.
+- Exact next prompt title: `DEV-08B Part 3: AP debit note fixture evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08B Part 3: AP debit note fixture evidence verification`

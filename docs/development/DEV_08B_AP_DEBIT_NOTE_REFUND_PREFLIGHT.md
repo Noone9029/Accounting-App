@@ -341,6 +341,13 @@ Family: `ap`
 
 `I approve DEV-08B Part 2 local-only AP debit note fixture creation mutation under marker DEV08B-AP-20260526T060000. No production, no beta, no customer data.`
 
+## Part 2 Evidence Note
+
+- DEV-08B Part 2 approved local AP debit note fixture creation mutation completed.
+- Evidence is recorded in [DEV_08B_AP_DEBIT_NOTE_FIXTURE_MUTATION_EVIDENCE.md](DEV_08B_AP_DEBIT_NOTE_FIXTURE_MUTATION_EVIDENCE.md).
+- VAT path was used for both the purchase bill and purchase debit note: `BILL-000008` total `1150.0000`; `PDN-000003` total and unapplied amount `460.0000`.
+- No debit note allocation, supplier refund, supplier payment, purchase order, purchase receipt, stock movement, cash expense, output/PDF/archive/export/download, email, ZATCA, cleanup, migration, seed/reset/delete, deploy, environment/provider/schema change, production, beta, shared-target, or customer-data action occurred.
+
 ## Exact Next Prompt Title
 
-`DEV-08B Part 2: approved local AP debit note fixture creation mutation`
+`DEV-08B Part 3: AP debit note fixture evidence verification`
