@@ -247,6 +247,13 @@ The first script run completed the approved service-layer mutation once, then fa
 - Supplier refund branch ordering remains unresolved until the dedicated refund preflight.
 - Part 3 should perform a read-only evidence verification pass over `BILL-000008` and `PDN-000003`.
 
+## Part 3 Verification Note
+
+- DEV-08B Part 3 read-only verification is recorded in [DEV_08B_AP_DEBIT_NOTE_FIXTURE_EVIDENCE_VERIFICATION.md](DEV_08B_AP_DEBIT_NOTE_FIXTURE_EVIDENCE_VERIFICATION.md).
+- The verification confirmed supplier `d11c76db`, `BILL-000008` `4b8886bb`, and `PDN-000003` `b93f96ee` still match this Part 2 evidence.
+- Mutation performed in Part 3: no.
+- No fixture-specific supplier payment, supplier refund, debit note allocation, purchase order, purchase receipt, stock movement, cash expense, generated document, marker email, or output/ZATCA side effect was found.
+
 ## Next Recommended Thread
 
-`DEV-08B Part 3: AP debit note fixture evidence verification`
+`DEV-08B Part 4: debit note apply-to-bill preflight`

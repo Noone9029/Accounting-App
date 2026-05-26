@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `8fde07d5 Plan DEV-08B debit note refund branch`
+- `1bda14cc Create DEV-08B debit note fixture`
 
 ## Current Development Objective
 
@@ -1245,3 +1245,22 @@
 ## Next Thread Prompt
 
 `DEV-08B Part 3: AP debit note fixture evidence verification`
+
+## DEV-08B Part 3 - AP Debit Note Fixture Evidence Verification Completed
+
+- DEV-08B Part 3 read-only verification is recorded in [docs/development/DEV_08B_AP_DEBIT_NOTE_FIXTURE_EVIDENCE_VERIFICATION.md](docs/development/DEV_08B_AP_DEBIT_NOTE_FIXTURE_EVIDENCE_VERIFICATION.md).
+- Mutation performed: no. No debit-note apply/reverse/void, supplier refund creation, supplier payment creation, purchase bill mutation, output/PDF/archive/export/download, email, ZATCA, migration, seed/reset/delete, deploy, environment/provider/schema change, production, beta, shared-target, customer-data, cleanup deletion, or login/browser flow ran.
+- Local-only target proof: Docker Linux engine was available, local Postgres/Redis containers were healthy, the read-only Prisma script accepted only `localhost:5432`, and no hosted/prod/beta/shared/customer-data target or secret was printed.
+- Temporary script absence: `apps/api/scripts/dev08b-ap-debit-note-fixture.tmp.ts` is absent, unstaged, and untracked.
+- Supplier evidence: exactly one marker supplier exists, `DEV08B-AP-20260526T060000 Supplier`, safe id prefix `d11c76db`, active `SUPPLIER`, under fake local AP-ready organization safe prefix `db69e5a8`.
+- Purchase bill evidence: exactly one marker bill exists, `BILL-000008`, safe id prefix `4b8886bb`, `FINALIZED`, `DIRECT_EXPENSE_OR_ASSET`, subtotal `1000.0000`, VAT `150.0000`, total and balance due `1150.0000`, no reversal journal, no supplier payment allocation, no debit-note allocation, and no generated document.
+- Purchase debit note evidence: exactly one marker debit note exists, `PDN-000003`, safe id prefix `b93f96ee`, `FINALIZED`, linked to `BILL-000008`, subtotal `400.0000`, VAT `60.0000`, total and unapplied amount `460.0000`, no allocation, no supplier refund, no reversal journal, and no generated document.
+- Journal evidence: bill journal `JE-000053`, safe id prefix `950b8a43`, remains `POSTED` and balanced with debits `111` `1000.0000` and `230` `150.0000`, credit `210` `1150.0000`; debit-note journal `JE-000054`, safe id prefix `670f7dc0`, remains `POSTED` and balanced with debit `210` `460.0000`, credits `111` `400.0000` and `230` `60.0000`.
+- Audit evidence: fixture actions are exactly `Contact:CREATE`, `PurchaseBill:PURCHASE_BILL_CREATED`, `PurchaseBill:PURCHASE_BILL_FINALIZED`, `PurchaseDebitNote:PURCHASE_DEBIT_NOTE_CREATED`, and `PurchaseDebitNote:PURCHASE_DEBIT_NOTE_FINALIZED`; no debit-note apply/reverse/void, supplier refund, supplier payment, purchase bill void, or login/browser audit-writing action was found for this fixture.
+- Forbidden side effects checked: fixture-specific supplier payments, supplier refunds, debit note allocations, purchase orders, purchase receipts, stock movements, cash expenses, generated documents, marker email outbox rows, and marker email provider events are all `0`; organization-level local ZATCA baselines still match `1` signed artifact draft and `7` submission logs.
+- Deviation: one read-only verification query initially failed because an audit assertion was too broad and counted unrelated actor-level refund/payment audits; it was rerun with fixture-scoped audit checks and no write path was called.
+- Exact next prompt title: `DEV-08B Part 4: debit note apply-to-bill preflight`.
+
+## Next Thread Prompt
+
+`DEV-08B Part 4: debit note apply-to-bill preflight`
