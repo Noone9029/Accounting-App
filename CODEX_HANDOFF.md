@@ -1756,6 +1756,20 @@
 - Required approval phrase: `I approve DEV-08D Part 2 local-only supplier payment refund source fixture mutation under marker DEV08D-AP-20260526T000000. No production, no beta, no customer data.`
 - Exact next prompt title: `DEV-08D Part 2: approved local supplier payment refund source fixture mutation`.
 
+## DEV-08D Part 2 - Supplier Payment Refund Source Fixture Mutation Completed
+
+- DEV-08D Part 2 supplier payment refund source fixture mutation evidence is recorded in [docs/development/DEV_08D_SUPPLIER_PAYMENT_REFUND_SOURCE_FIXTURE_MUTATION_EVIDENCE.md](docs/development/DEV_08D_SUPPLIER_PAYMENT_REFUND_SOURCE_FIXTURE_MUTATION_EVIDENCE.md).
+- Runtime mutation performed: yes, local-only.
+- Exact service calls: `ContactService.create(...)` once and `SupplierPaymentService.create(...)` once.
+- Supplier evidence: safe prefix `a5d3ece3`, active `SUPPLIER`, marker-bearing fake local supplier.
+- Supplier payment source: `PAY-000007`, safe prefix `4b9c42b1`, status `POSTED`, amount paid `500.0000`, unapplied amount `500.0000`, void reversal journal absent.
+- Journal/accounting result: `JE-000058`, safe prefix `da62af82`, `POSTED` and balanced, with Dr AP account `210` `500.0000` and Cr paid-through asset account `112` `500.0000`.
+- Allocation/refund result: direct supplier payment allocations `0`, supplier payment unapplied allocations `0`, supplier refunds for source payment `0`.
+- Audit result: `Contact:CREATE` count `1`; `SupplierPayment:SUPPLIER_PAYMENT_CREATED` count `1`; supplier payment void and supplier refund audit counts `0`.
+- Forbidden side-effect result: marker-scoped supplier refunds, purchase bills, purchase orders, purchase debit notes, purchase receipts, stock movements, cash expenses, generated documents, email outbox rows, email provider events, and cleanup/delete audits all `0`.
+- Temporary script cleanup result: `apps/api/scripts/dev08d-supplier-payment-source.tmp.ts` was removed; `Test-Path` returned `False`; no `*dev08d*` script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08D Part 3: supplier payment refund source fixture evidence verification`.
+
 ## Next Thread Prompt
 
-`DEV-08D Part 2: approved local supplier payment refund source fixture mutation`
+`DEV-08D Part 3: supplier payment refund source fixture evidence verification`

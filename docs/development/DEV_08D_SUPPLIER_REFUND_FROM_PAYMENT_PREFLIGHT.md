@@ -315,3 +315,18 @@ If Part 2 uses a guarded temporary mutation script:
 ## 17. Exact Next Prompt Title
 
 `DEV-08D Part 2: approved local supplier payment refund source fixture mutation`
+
+## Part 2 Evidence Note
+
+DEV-08D Part 2 completed the approved local-only supplier payment refund source fixture mutation. Evidence is recorded in [DEV_08D_SUPPLIER_PAYMENT_REFUND_SOURCE_FIXTURE_MUTATION_EVIDENCE.md](DEV_08D_SUPPLIER_PAYMENT_REFUND_SOURCE_FIXTURE_MUTATION_EVIDENCE.md).
+
+- Mutation performed: yes.
+- Supplier safe prefix: `a5d3ece3`, active `SUPPLIER`.
+- Supplier payment source: `PAY-000007`, safe prefix `4b9c42b1`, status `POSTED`.
+- Amount paid: `500.0000`.
+- Unapplied amount: `500.0000`.
+- Journal result: `JE-000058`, safe prefix `da62af82`, `POSTED` and balanced, with Dr AP `210` `500.0000` and Cr asset `112` `500.0000`.
+- Allocation/refund result: direct allocations `0`, unapplied allocations `0`, supplier refunds `0`.
+- Forbidden side-effect result: generated documents, emails, email events, purchase bills, purchase orders, purchase debit notes, purchase receipts, stock movements, cash expenses, and cleanup/delete audits remained `0` for the marker.
+- Temporary script cleanup: `apps/api/scripts/dev08d-supplier-payment-source.tmp.ts` was removed and no `*dev08d*` script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08D Part 3: supplier payment refund source fixture evidence verification`.
