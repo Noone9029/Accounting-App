@@ -1194,3 +1194,19 @@
 ## Next Thread Prompt
 
 `DEV-08 Part 15: AP state-machine closure and evidence consolidation`
+
+## DEV-08 Part 15 - AP State-Machine Closure Completed
+
+- DEV-08 Part 15 read-only closure is recorded in [docs/development/DEV_08_AP_STATE_MACHINE_CLOSURE.md](docs/development/DEV_08_AP_STATE_MACHINE_CLOSURE.md).
+- Mutation performed: no. No database write, login/browser flow, AP mutation, output/PDF/archive/export/download, email, ZATCA, cleanup, migration, seed/reset/delete, deploy, environment/provider/schema change, production, beta, shared-target, or customer-data action was performed.
+- Latest pushed commit inspected at the start of Part 15: `b99e068b Void DEV-08 purchase bill`; local `HEAD` matched `origin/main`.
+- DEV-08 proved areas: fake local supplier fixture, finalized direct-mode purchase bill, AP/VAT/expense purchase bill journal, supplier payment creation/posting, direct bill allocation, unapplied supplier payment amount, apply-unapplied matching, reverse-unapplied matching, supplier payment void/reversal, purchase bill void/reversal after payment void, journal reversal behavior, audit behavior, and fixture-specific output/email/ZATCA/refund/debit-note/purchase-order/inventory/cash-expense/cleanup non-effects.
+- Final bill/payment state: supplier `DEV08-AP-20260525T230000 Supplier` safe prefix `0e36df97` remains active `SUPPLIER`; `BILL-000007` safe prefix `d81ddd60` is `VOIDED`, total `1150.0000`, balance due `0.0000`; `PAY-000006` safe prefix `622ad0b6` is `VOIDED`, amount paid `500.0000`, unapplied amount `200.0000`.
+- Final journal state: purchase bill journal `JE-000049` is `REVERSED`; purchase bill reversal journal `JE-000052` is `POSTED`; supplier payment journal `JE-000050` is `REVERSED`; supplier payment reversal journal `JE-000051` is `POSTED`.
+- Final allocation state: direct `SupplierPaymentAllocation` safe prefix `6ec44d14` remains one historical `300.0000` allocation; `SupplierPaymentUnappliedAllocation` safe prefix `a8ee4e23` remains reversed for `200.0000`; no active unapplied allocation or purchase debit-note allocation remains.
+- Remaining AP gaps: purchase debit notes, supplier refunds, purchase orders, cash expenses, inventory-clearing bills, purchase receipts/inventory integration, AP output/PDF/archive routes, AP email delivery, browser-authenticated AP UI flow, repeated/idempotency paths, fiscal-period blockers, permission edge cases, cleanup policy, and production/beta/customer-data behavior.
+- Exact next prompt title: `DEV-08B Part 1: AP debit note and supplier refund branch preflight`.
+
+## Next Thread Prompt
+
+`DEV-08B Part 1: AP debit note and supplier refund branch preflight`

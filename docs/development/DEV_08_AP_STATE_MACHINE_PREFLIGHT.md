@@ -399,3 +399,13 @@ One initial Windows glob-based `rg` command and one PowerShell-quoted `rg` comma
 ## Commands Skipped And Why
 
 - AP fixture creation, AP mutations, write-capable service calls, local DB writes, migrations, seed/reset/delete, deploys, environment changes, login/browser flows, exports/downloads/PDF generation, generated-document archive creation, ZATCA, email, backup/restore, production-hosting research, smoke, E2E, full tests, and full build: explicitly out of scope for read-only Part 1.
+
+## Part 15 Closure Note
+
+DEV-08 Part 15 closed the core AP bill/payment state-machine evidence chain. Closure is recorded in [DEV_08_AP_STATE_MACHINE_CLOSURE.md](DEV_08_AP_STATE_MACHINE_CLOSURE.md).
+
+- Mutation performed in Part 15: no.
+- Core AP bill/payment chain status: completed for the local fixture evidence path.
+- Covered: fake supplier, direct-mode finalized purchase bill, AP/VAT purchase bill journal, supplier payment creation, direct allocation, unapplied amount application, unapplied allocation reversal, supplier payment void/reversal, purchase bill void/reversal after payment void, journal behavior, audit behavior, and output/email/ZATCA non-effects.
+- Not covered: purchase debit notes, supplier refunds, purchase orders, cash expenses, inventory-clearing bills, purchase receipts/inventory integration, AP output/email routes, real browser-authenticated AP UI flow, repeated/idempotency paths, fiscal-period locks, permission edge cases, or production/beta/customer-data behavior.
+- Recommended next prompt title: `DEV-08B Part 1: AP debit note and supplier refund branch preflight`.
