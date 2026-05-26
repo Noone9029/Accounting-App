@@ -1902,6 +1902,19 @@
 - Required approval phrase: `I approve DEV-08D Part 14 local-only supplier payment void mutation after refund void under marker DEV08D-AP-20260526T000000 for the DEV-08D supplier payment source amount 500.0000. No production, no beta, no customer data.`
 - Exact next prompt title: `DEV-08D Part 14: approved local supplier payment void after refund void mutation`.
 
+## DEV-08D Part 14 - Supplier Payment Void After Refund Void Mutation Completed
+
+- DEV-08D Part 14 local-only supplier payment void after refund void mutation evidence is recorded in [docs/development/DEV_08D_SUPPLIER_PAYMENT_VOID_AFTER_REFUND_VOID_MUTATION_EVIDENCE.md](docs/development/DEV_08D_SUPPLIER_PAYMENT_VOID_AFTER_REFUND_VOID_MUTATION_EVIDENCE.md).
+- Runtime mutation performed: yes, local-only.
+- Exact service call made: `SupplierPaymentService.void(...)` once; supplier refund create/void was not called.
+- Payment before/after: `PAY-000007`, safe prefix `4b9c42b1`, changed `POSTED -> VOIDED`; `voidedAt` present; amount paid and unapplied amount remained `500.0000`; original payment journal `JE-000058` changed `POSTED -> REVERSED`.
+- Historical refund remains voided: `SRF-000004`, safe prefix `dc8c4c9a`, remained `VOIDED`; refund void reversal journal `JE-000060` remained `POSTED`; posted supplier refund count for payment remained `0`.
+- Reversal journal result: payment void reversal journal `JE-000061`, safe prefix `389e8daf`, `POSTED` and balanced at debit/credit `500.0000`, with Dr asset account `112` and Cr AP account `210`; journal count `60 -> 61`.
+- Audit result: `SupplierPayment:SUPPLIER_PAYMENT_VOIDED` count `1`; no new supplier refund audit.
+- Forbidden side-effect result: generated documents, email rows/events, purchase orders, purchase receipts, stock movements, cash expenses, purchase debit notes, cleanup/delete audits, and ZATCA all absent.
+- Temporary script cleanup result: `apps/api/scripts/dev08d-supplier-payment-void-after-refund.tmp.ts` was removed; `Test-Path` returned `False`; no `*dev08d*` script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08D Part 15: supplier payment void after refund void evidence verification`.
+
 ## Next Thread Prompt
 
-`DEV-08D Part 14: approved local supplier payment void after refund void mutation`
+`DEV-08D Part 15: supplier payment void after refund void evidence verification`
