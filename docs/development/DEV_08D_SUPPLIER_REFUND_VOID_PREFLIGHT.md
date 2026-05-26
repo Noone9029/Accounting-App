@@ -139,3 +139,17 @@ ZATCA should remain out of scope. No output/PDF/archive/export/download/email ac
 ## 13. Exact Next Prompt Title
 
 `DEV-08D Part 11: approved local supplier refund void mutation`
+
+## Part 11 Evidence Note
+
+DEV-08D Part 11 completed the approved local-only supplier refund void mutation. Evidence is recorded in [DEV_08D_SUPPLIER_REFUND_VOID_MUTATION_EVIDENCE.md](DEV_08D_SUPPLIER_REFUND_VOID_MUTATION_EVIDENCE.md).
+
+- Runtime mutation performed: yes, local-only.
+- Exact service call: `SupplierRefundService.void(...)` once.
+- Supplier refund `SRF-000004` changed `POSTED -> VOIDED`; `voidedAt` is present.
+- Original refund journal `JE-000059` changed `POSTED -> REVERSED`.
+- Refund void reversal journal `JE-000060`, safe prefix `6360eb40`, is `POSTED`, balanced at debit/credit `150.0000`, with Dr AP `210` and Cr asset `112`.
+- Source payment `PAY-000007` remained `POSTED`, amount paid `500.0000`, and unapplied amount restored `350.0000 -> 500.0000`; source payment void reversal journal remains absent.
+- `SupplierRefund:SUPPLIER_REFUND_VOIDED` audit count is `1`; supplier payment void audit remains `0`.
+- Generated documents, email rows/events, purchase orders/receipts, stock movements, cash expenses, purchase debit notes, cleanup/delete audits, and temporary DEV-08D scripts remained absent.
+- Exact next prompt title: `DEV-08D Part 12: supplier refund void evidence verification`.

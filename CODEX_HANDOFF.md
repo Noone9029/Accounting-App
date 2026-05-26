@@ -1867,6 +1867,19 @@
 - Required approval phrase: `I approve DEV-08D Part 11 local-only supplier refund void mutation under marker DEV08D-AP-20260526T000000 for the DEV-08D supplier refund from payment amount 150.0000. No production, no beta, no customer data.`
 - Exact next prompt title: `DEV-08D Part 11: approved local supplier refund void mutation`.
 
+## DEV-08D Part 11 - Supplier Refund Void Mutation Completed
+
+- DEV-08D Part 11 local-only supplier refund void mutation evidence is recorded in [docs/development/DEV_08D_SUPPLIER_REFUND_VOID_MUTATION_EVIDENCE.md](docs/development/DEV_08D_SUPPLIER_REFUND_VOID_MUTATION_EVIDENCE.md).
+- Runtime mutation performed: yes, local-only.
+- Exact service call made: `SupplierRefundService.void(...)` once; supplier refund creation and supplier payment void were not called.
+- Refund before/after: `SRF-000004`, safe prefix `dc8c4c9a`, changed `POSTED -> VOIDED`; `voidedAt` present; original refund journal `JE-000059` changed `POSTED -> REVERSED`.
+- Source payment restored: `PAY-000007`, safe prefix `4b9c42b1`, remained `POSTED`; amount paid stayed `500.0000`; unapplied amount restored `350.0000 -> 500.0000`; source payment void reversal journal absent.
+- Reversal journal result: `JE-000060`, safe prefix `6360eb40`, `POSTED` and balanced at debit/credit `150.0000`, with Dr AP account `210` and Cr asset account `112`; journal count `59 -> 60`.
+- Audit result: `SupplierRefund:SUPPLIER_REFUND_VOIDED` count `1`; supplier payment void audit `0`.
+- Forbidden side-effect result: generated documents, email rows/events, purchase orders, purchase receipts, stock movements, cash expenses, purchase debit notes, cleanup/delete audits, and ZATCA all absent.
+- Temporary script cleanup result: `apps/api/scripts/dev08d-supplier-refund-void.tmp.ts` was removed; `Test-Path` returned `False`; no `*dev08d*` script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08D Part 12: supplier refund void evidence verification`.
+
 ## Next Thread Prompt
 
-`DEV-08D Part 11: approved local supplier refund void mutation`
+`DEV-08D Part 12: supplier refund void evidence verification`
