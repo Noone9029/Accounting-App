@@ -204,6 +204,12 @@ Expected after approved Part 13:
 - `Test-Path -LiteralPath apps/api/scripts/dev08b-supplier-refund-void-preflight-readonly.tmp.ts` returned `False`.
 - `Get-ChildItem -Path apps/api/scripts -Filter '*dev08b*'` returned no files.
 
+## Part 13 Evidence Note
+
+- DEV-08B Part 13 executed exactly one approved local supplier refund void mutation for `SRF-000003`.
+- Mutation result: `SRF-000003` changed `POSTED -> VOIDED`, debit note `PDN-000003` unapplied restored `310.0000 -> 460.0000`, and reversal journal `JE-000056` was created.
+- Mutation evidence: [DEV_08B_SUPPLIER_REFUND_VOID_MUTATION_EVIDENCE.md](DEV_08B_SUPPLIER_REFUND_VOID_MUTATION_EVIDENCE.md).
+
 ## Exact Next Prompt Title
 
 `DEV-08B Part 13: approved local supplier refund void mutation`
