@@ -2357,3 +2357,20 @@
 ## Next Thread Prompt
 
 `DEV-08F Part 20: approved local purchase receipt void mutation`
+
+## DEV-08F Part 20 - Purchase Receipt Void Completed
+
+- DEV-08F Part 20 local-only purchase receipt void mutation evidence is recorded in [docs/development/DEV_08F_PURCHASE_RECEIPT_VOID_MUTATION_EVIDENCE.md](docs/development/DEV_08F_PURCHASE_RECEIPT_VOID_MUTATION_EVIDENCE.md).
+- Mutation performed: yes, local-only.
+- Approval phrase status: exact Part 20 phrase received and checked before mutation.
+- Exact service call made: `PurchaseReceiptService.void(...)` once.
+- Receipt result: `PRC-000004`, safe prefix `993adc10`, changed `POSTED -> VOIDED`; `voidedAt` present; asset journal `JE-000065` remained `REVERSED`; asset reversal journal `JE-000066` remained `POSTED`.
+- Void stock movement result: safe prefix `426c6ba0`, type `ADJUSTMENT_OUT`, quantity `10.0000`, unit cost `100.0000`, total cost `1000.0000`, reference type `PurchaseReceiptVoid`.
+- Audit result: `PURCHASE_RECEIPT_CREATED`, `PURCHASE_RECEIPT_ASSET_POSTED`, `PURCHASE_RECEIPT_ASSET_REVERSED`, and `PURCHASE_RECEIPT_VOIDED` are present for the receipt.
+- Side-effect result: generated documents `0`.
+- Temporary script cleanup result: no DEV-08F temporary script file was created or staged; no `*dev08f*` script exists under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08F Part 21: purchase receipt void evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08F Part 21: purchase receipt void evidence verification`

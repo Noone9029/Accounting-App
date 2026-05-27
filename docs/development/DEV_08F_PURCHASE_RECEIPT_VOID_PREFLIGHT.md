@@ -76,3 +76,12 @@ The approved Part 20 mutation should:
 ## Exact Next Prompt Title
 
 `DEV-08F Part 20: approved local purchase receipt void mutation`
+
+## Part 20 Mutation Result
+
+- DEV-08F Part 20 local-only receipt void evidence is recorded in [DEV_08F_PURCHASE_RECEIPT_VOID_MUTATION_EVIDENCE.md](DEV_08F_PURCHASE_RECEIPT_VOID_MUTATION_EVIDENCE.md).
+- `PurchaseReceiptService.void(...)` was called once.
+- `PRC-000004`, safe prefix `993adc10`, changed `POSTED -> VOIDED`; `voidedAt` present.
+- Void stock movement safe prefix `426c6ba0`, type `ADJUSTMENT_OUT`, quantity `10.0000`, unit cost `100.0000`, total cost `1000.0000`.
+- Receipt asset journal remained `REVERSED`; asset reversal journal remained `POSTED`; generated documents remained `0`.
+- Exact next prompt title: `DEV-08F Part 21: purchase receipt void evidence verification`.
