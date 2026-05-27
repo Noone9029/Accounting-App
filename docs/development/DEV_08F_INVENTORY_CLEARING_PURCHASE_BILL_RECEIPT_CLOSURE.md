@@ -164,6 +164,8 @@ Recommended next branch: `DEV-08G Part 1: purchase receipt and inventory integra
 
 Reason: DEV-08F is sufficient for the inventory-clearing purchase bill plus linked receipt manual posting/reversal/void chain, but it does not cover purchase-order receipt matching, standalone receipt accounting, receipt variance paths, or broader inventory posting policy. Those remain closer to the just-proven state machine than AP output/email work, so they should be handled before widening to generated documents or email.
 
+Follow-up status: DEV-08G Part 1 has been planned in [DEV_08G_PURCHASE_RECEIPT_INVENTORY_HARDENING_PREFLIGHT.md](DEV_08G_PURCHASE_RECEIPT_INVENTORY_HARDENING_PREFLIGHT.md), and the next gated prompt is `DEV-08G Part 2: approved local purchase order receipt source fixture mutation`.
+
 ## Exact Next Prompt Title
 
-`DEV-08G Part 1: purchase receipt and inventory integration hardening preflight`
+`DEV-08G Part 2: approved local purchase order receipt source fixture mutation`

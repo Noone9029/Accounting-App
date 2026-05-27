@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `e9851c88 Verify DEV-08F inventory clearing purchase bill void`
+- `218e445c Close DEV-08F inventory clearing purchase bill evidence`
 
 ## Current Development Objective
 
@@ -2452,3 +2452,19 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 1: purchase receipt and inventory integration hardening preflight`
+
+## DEV-08G Part 1 - Purchase Receipt Inventory Hardening Preflight Completed
+
+- DEV-08G Part 1 preflight is recorded in [docs/development/DEV_08G_PURCHASE_RECEIPT_INVENTORY_HARDENING_PREFLIGHT.md](docs/development/DEV_08G_PURCHASE_RECEIPT_INVENTORY_HARDENING_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `218e445c Close DEV-08F inventory clearing purchase bill evidence`; local `HEAD` matched `origin/main` at `218e445c1daec564d88a3a509710d13a31288c9f`.
+- Local-only/no-mutation proof: no database connection, service import, Prisma execution, login/browser flow, fixture creation, purchase order/receipt/stock/journal mutation, output, email, ZATCA, deploy, migration, seed/reset/delete, environment/provider/schema change, production, beta, hosted/shared-target, or customer-data action ran.
+- Code paths inspected: purchase receipt create/prepare-lines/remaining-quantity/receiving-status/receipt-matching/accounting-preview/post-asset/reverse-asset/void, purchase receiving status controller, receipt DTOs, purchase order create/approve/mark-sent/convert behavior, stock movement rules, Prisma receipt/order schema, and relevant web purchase receipt/order surfaces.
+- Selected DEV-08G sequence: PO source fixture, partial receipt `4.0000`, full receipt `6.0000`, over-receipt blocker, PO-only asset-posting blocker, void `6.0000`, void `4.0000`, standalone receipt `3.0000`, standalone asset-posting blocker, standalone void, closure.
+- Selected marker: `DEV08G-AP-20260527T000000`.
+- Required exact Part 2 approval phrase: `I approve DEV-08G Part 2 local-only purchase order receipt source fixture mutation under marker DEV08G-AP-20260527T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08G Part 2: approved local purchase order receipt source fixture mutation`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 2: approved local purchase order receipt source fixture mutation`

@@ -101,8 +101,9 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 - DEV-08D is now closed for the local supplier refund from supplier payment branch in [DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_CLOSURE.md](DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_CLOSURE.md). It proved source supplier payment fixture creation, supplier refund creation from a payment, source payment unapplied decrement/restoration, supplier payment void blocker while the refund was posted, supplier refund void/reversal, supplier payment void/reversal after blocker clearance, journal behavior, audit behavior, and source-scoped output/email/ZATCA non-effects.
 - DEV-08E is now closed for the local cash expense lifecycle branch in [DEV_08E_CASH_EXPENSE_LIFECYCLE_CLOSURE.md](DEV_08E_CASH_EXPENSE_LIFECYCLE_CLOSURE.md). It proved cash expense create/post behavior, original journal behavior, cash expense void/reversal, reversal journal behavior, audit behavior, and output/email/ZATCA non-effects.
 - DEV-08F is now closed for the local inventory-clearing purchase bill and linked purchase receipt branch in [DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_RECEIPT_CLOSURE.md](DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_RECEIPT_CLOSURE.md). It proved inventory-clearing bill fixture creation/finalization/void, linked purchase receipt creation/void, receipt placeholder stock movement, manual receipt asset posting, asset reversal, receipt void blocker behavior while asset posting was active, journal behavior, audit behavior, and source-scoped output/email/ZATCA non-effects.
-- DEV-08 through DEV-08F do not claim full AP completion. Remaining AP gaps include purchase-order receipt matching, standalone receipt accounting, over/under receipt and variance handling, AP PDF/archive/output routes, AP email delivery, authenticated UI/API QA, repeated/idempotency paths, fiscal-period locks, permission edge cases, cleanup policy, and production/beta/customer-data behavior.
-- Recommended next local-only AP branch: `DEV-08G Part 1: purchase receipt and inventory integration hardening preflight`.
+- DEV-08G Part 1 is now planned in [DEV_08G_PURCHASE_RECEIPT_INVENTORY_HARDENING_PREFLIGHT.md](DEV_08G_PURCHASE_RECEIPT_INVENTORY_HARDENING_PREFLIGHT.md). It selected a local-only purchase receipt/inventory sequence covering PO-sourced receiving, partial/full status, over-receipt blockers, PO-only asset-posting blockers, PO receipt voids, standalone receipts, standalone asset-posting blockers, standalone void, and closure.
+- DEV-08 through DEV-08G Part 1 do not claim full AP completion. Remaining AP gaps include execution and verification of the DEV-08G sequence, linked PO-to-bill receipt reconciliation, valuation variance booking, landed cost, returns, serial/batch/bin/location behavior, AP PDF/archive/output routes, AP email delivery, authenticated UI/API QA, repeated/idempotency paths, fiscal-period locks, permission edge cases, cleanup policy, and production/beta/customer-data behavior.
+- Recommended next local-only AP branch: `DEV-08G Part 2: approved local purchase order receipt source fixture mutation`.
 
 ## Highest-Priority Development Tickets
 
@@ -153,4 +154,4 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 
 ## Exact Next Recommended Development Ticket
 
-`DEV-08G Part 1: purchase receipt and inventory integration hardening preflight`
+`DEV-08G Part 2: approved local purchase order receipt source fixture mutation`
