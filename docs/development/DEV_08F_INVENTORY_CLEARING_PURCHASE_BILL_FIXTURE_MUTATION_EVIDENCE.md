@@ -108,3 +108,13 @@ Source-scoped or marker-scoped counts after the mutation:
 ## Exact Next Prompt Title
 
 `DEV-08F Part 3: inventory-clearing purchase bill fixture evidence verification`
+
+## Part 3 Verification Result
+
+- DEV-08F Part 3 read-only verification is recorded in [DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_FIXTURE_EVIDENCE_VERIFICATION.md](DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_FIXTURE_EVIDENCE_VERIFICATION.md).
+- Verification conclusion: verified.
+- Fixture remained `BILL-000009`, safe prefix `04b3f131`, `DRAFT`, `INVENTORY_CLEARING`, total and balance due `1150.0000`.
+- `PurchaseBillService.accountingPreview(...)` returned `previewOnly: true`, `canFinalize: true`, and no blocking reasons.
+- Preview journal remained balanced: Dr `240` `1000.0000`, Dr `230` `150.0000`, Cr `210` `1150.0000`.
+- Source-scoped purchase receipt, stock movement, journal entry, generated document, purchase debit note, supplier payment allocation, and supplier unapplied allocation counts remained `0`.
+- Exact next prompt title: `DEV-08F Part 4: inventory-clearing purchase bill finalization preflight`.

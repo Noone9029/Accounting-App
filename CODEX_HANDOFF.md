@@ -2094,3 +2094,19 @@
 ## Next Thread Prompt
 
 `DEV-08F Part 3: inventory-clearing purchase bill fixture evidence verification`
+
+## DEV-08F Part 3 - Inventory-Clearing Purchase Bill Fixture Evidence Verification Completed
+
+- DEV-08F Part 3 read-only fixture verification is recorded in [docs/development/DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_FIXTURE_EVIDENCE_VERIFICATION.md](docs/development/DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_FIXTURE_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Verification conclusion: verified.
+- Purchase bill state: `BILL-000009`, safe prefix `04b3f131`, remained `DRAFT`, `INVENTORY_CLEARING`, total and balance due `1150.0000`, with no journal or reversal journal.
+- Line state: line safe prefix `cb3d385a`, tracked item safe prefix `175a7c7f`, account `511`, tax rate safe prefix `172417be`, quantity `10.0000`, unit price `100.0000`, VAT `150.0000`.
+- Read-only preview result: `canFinalize: true`, no blocking reasons, balanced preview Dr `240` `1000.0000`, Dr `230` `150.0000`, Cr `210` `1150.0000`.
+- Audit/side-effect result: one `PURCHASE_BILL_CREATED` audit; purchase receipts, stock movements, source-scoped journals, generated documents, purchase debit notes, supplier payment allocations, and supplier unapplied allocations remained absent.
+- Temporary script cleanup result: no Part 3 temporary script was created; no `*dev08f*` script exists under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08F Part 4: inventory-clearing purchase bill finalization preflight`.
+
+## Next Thread Prompt
+
+`DEV-08F Part 4: inventory-clearing purchase bill finalization preflight`
