@@ -79,3 +79,13 @@ Expected asset posting journal:
 ## Exact Next Prompt Title
 
 `DEV-08F Part 11: approved local purchase receipt inventory asset posting mutation`
+
+## Part 11 Mutation Result
+
+- DEV-08F Part 11 local-only asset posting evidence is recorded in [DEV_08F_PURCHASE_RECEIPT_ASSET_POSTING_MUTATION_EVIDENCE.md](DEV_08F_PURCHASE_RECEIPT_ASSET_POSTING_MUTATION_EVIDENCE.md).
+- `PurchaseReceiptService.postInventoryAsset(...)` was called once.
+- `PRC-000004`, safe prefix `993adc10`, remained `POSTED` and linked inventory asset journal safe prefix `75a6c7c3`.
+- Posted asset journal: `JE-000065`, safe prefix `75a6c7c3`, balanced debit/credit `1000.0000`.
+- Journal lines: Dr `130` `1000.0000`, Cr `240` `1000.0000`.
+- Stock movements for the receipt remained `1`; void stock movements remained `0`; generated documents remained `0`.
+- Exact next prompt title: `DEV-08F Part 12: purchase receipt inventory asset posting evidence verification`.
