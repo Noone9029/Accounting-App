@@ -93,3 +93,13 @@ Counts after void:
 ## Exact Next Prompt Title
 
 `DEV-08F Part 21: purchase receipt void evidence verification`
+
+## Part 21 Verification Result
+
+- DEV-08F Part 21 read-only receipt void verification is recorded in [DEV_08F_PURCHASE_RECEIPT_VOID_EVIDENCE_VERIFICATION.md](DEV_08F_PURCHASE_RECEIPT_VOID_EVIDENCE_VERIFICATION.md).
+- Verification conclusion: verified.
+- `PRC-000004`, safe prefix `993adc10`, remained `VOIDED`; `voidedAt` present.
+- Void stock movement `426c6ba0` remained linked, type `ADJUSTMENT_OUT`, quantity `10.0000`, total cost `1000.0000`.
+- Asset journal remained `REVERSED`; asset reversal journal remained `POSTED`.
+- Non-voided receipts for the bill are now `0`; generated documents remained `0`.
+- Exact next prompt title: `DEV-08F Part 22: inventory-clearing purchase bill void preflight`.

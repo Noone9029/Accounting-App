@@ -2374,3 +2374,17 @@
 ## Next Thread Prompt
 
 `DEV-08F Part 21: purchase receipt void evidence verification`
+
+## DEV-08F Part 21 - Purchase Receipt Void Evidence Verification Completed
+
+- DEV-08F Part 21 read-only receipt void verification is recorded in [docs/development/DEV_08F_PURCHASE_RECEIPT_VOID_EVIDENCE_VERIFICATION.md](docs/development/DEV_08F_PURCHASE_RECEIPT_VOID_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Verification conclusion: verified.
+- Receipt state: `PRC-000004`, safe prefix `993adc10`, remained `VOIDED`; `voidedAt` present; asset journal `JE-000065` remained `REVERSED`; asset reversal journal `JE-000066` remained `POSTED`.
+- Void stock movement state: safe prefix `426c6ba0`, type `ADJUSTMENT_OUT`, quantity `10.0000`, total cost `1000.0000`, linked to receipt line safe prefix `61b842a9`.
+- Audit/side-effect result: receipt created/asset-posted/asset-reversed/voided audits remain present; non-voided receipts for bill `0`; generated documents `0`.
+- Exact next prompt title: `DEV-08F Part 22: inventory-clearing purchase bill void preflight`.
+
+## Next Thread Prompt
+
+`DEV-08F Part 22: inventory-clearing purchase bill void preflight`
