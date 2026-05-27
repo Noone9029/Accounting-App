@@ -2157,3 +2157,18 @@
 ## Next Thread Prompt
 
 `DEV-08F Part 7: purchase receipt from inventory-clearing bill preflight`
+
+## DEV-08F Part 7 - Purchase Receipt From Inventory-Clearing Bill Preflight Completed
+
+- DEV-08F Part 7 receipt preflight is recorded in [docs/development/DEV_08F_PURCHASE_RECEIPT_FROM_BILL_PREFLIGHT.md](docs/development/DEV_08F_PURCHASE_RECEIPT_FROM_BILL_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Source bill state: `BILL-000009`, safe prefix `04b3f131`, remained `FINALIZED`, `INVENTORY_CLEARING`; source line safe prefix `cb3d385a`, item safe prefix `175a7c7f`, quantity `10.0000`, unit price `100.0000`.
+- Receiving readiness: `NOT_STARTED`; source line received quantity `0.0000`, remaining quantity `10.0000`, inventory tracking `true`.
+- Matching readiness: `NOT_RECEIVED`; receipt count `0`, receipt value `0.0000`.
+- Warehouse/sequence baseline: default warehouse safe prefix `197fac56`; expected next receipt number `PRC-000004` if no intervening sequence write occurs before Part 8.
+- Required exact Part 8 approval phrase: `I approve DEV-08F Part 8 local-only purchase receipt from inventory-clearing bill mutation under marker DEV08F-AP-20260527T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08F Part 8: approved local purchase receipt from inventory-clearing bill mutation`.
+
+## Next Thread Prompt
+
+`DEV-08F Part 8: approved local purchase receipt from inventory-clearing bill mutation`
