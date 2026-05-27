@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `a460a1ae Verify DEV-08D supplier payment void evidence`
+- `50df109c Close DEV-08D supplier refund payment evidence`
 
 ## Current Development Objective
 
@@ -1939,3 +1939,23 @@
 ## Next Thread Prompt
 
 `DEV-08E Part 1: cash expense lifecycle preflight`
+
+## DEV-08E Part 1 - Cash Expense Lifecycle Preflight Completed
+
+- DEV-08E Part 1 cash expense lifecycle preflight is recorded in [docs/development/DEV_08E_CASH_EXPENSE_LIFECYCLE_PREFLIGHT.md](docs/development/DEV_08E_CASH_EXPENSE_LIFECYCLE_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `50df109c Close DEV-08D supplier refund payment evidence`; local `HEAD` matched `origin/main`.
+- Cash expense lifecycle summary: create immediately posts one `POSTED` cash expense, creates a posted journal, and writes `CashExpense:CREATE`; the schema has `DRAFT`, but the current create/UI path does not reach it; void changes `POSTED -> VOIDED`, creates/reuses one posted reversal journal, marks the original journal `REVERSED`, and writes `CashExpense:VOID`.
+- Accounting summary: VAT cash expenses debit the line expense/cost/asset account, debit VAT receivable account `230` when tax applies, and credit the paid-through asset account; void reversal swaps the original debit/credit lines.
+- Output/PDF/archive summary: `pdf` and `generate-pdf` can render and archive generated documents; DEV-08E Part 1 did not call PDF-data, PDF, generate-PDF, archive, export, or download paths.
+- Selected Part 2 mutation option: Option A, create one posted local cash expense fixture only, no void.
+- Proposed marker: `DEV08E-AP-20260526T000000`.
+- Proposed local fixture: fake local AP-ready organization safe prefix `db69e5a8`, no contact, no branch, paid-through `112 Bank Account`, expense account `511 General Expenses`, purchase VAT `15%`, planned total `1150.0000`.
+- Required approval phrase: `I approve DEV-08E Part 2 local-only cash expense fixture creation mutation under marker DEV08E-AP-20260526T000000. No production, no beta, no customer data.`
+- Expected audit result: exactly one `CashExpense:CREATE` / `CASH_EXPENSE_CREATED` audit for the fixture, no void/delete/login audit.
+- Expected forbidden side effects: marker-scoped generated documents, email rows/events, ZATCA artifacts, supplier payments/refunds, purchase bills/debit notes/orders/receipts, stock movements/inventory entries, cleanup/delete audits, and temporary scripts remain `0` or absent.
+- Exact next prompt title: `DEV-08E Part 2: approved local cash expense fixture creation mutation`.
+
+## Next Thread Prompt
+
+`DEV-08E Part 2: approved local cash expense fixture creation mutation`
