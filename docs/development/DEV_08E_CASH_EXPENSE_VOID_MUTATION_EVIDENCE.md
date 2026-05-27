@@ -208,3 +208,17 @@ No PDF/archive/export/download route was called, so generated-document archive c
 ## Next Recommended Thread
 
 `DEV-08E Part 6: cash expense void evidence verification`
+
+## Part 6 Verification Note
+
+DEV-08E Part 6 independently verified this mutation evidence in [DEV_08E_CASH_EXPENSE_VOID_EVIDENCE_VERIFICATION.md](DEV_08E_CASH_EXPENSE_VOID_EVIDENCE_VERIFICATION.md).
+
+- Verification conclusion: `Verified`.
+- Runtime mutation performed in Part 6: no.
+- Cash expense `EXP-000002`, safe prefix `74886497`, remained `VOIDED` with `voidedAt` present and total `1150.0000`.
+- Original journal `JE-000062`, safe prefix `a2aa8290`, remained `REVERSED`.
+- Void reversal journal `JE-000063`, safe prefix `391169e6`, remained `POSTED` and balanced at debit/credit `1150.0000`.
+- Reversal lines exactly reversed the original journal lines.
+- Cash expense create audit remained `1`; void audit remained `1`; delete audit remained `0`.
+- Forbidden side effects and DEV-08E temporary scripts remained absent.
+- Exact next prompt title: `DEV-08E Part 7: cash expense lifecycle closure`.
