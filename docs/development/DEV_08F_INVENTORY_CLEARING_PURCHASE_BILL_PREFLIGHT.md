@@ -321,3 +321,13 @@ If a later approved mutation needs a helper, it should:
 ## Exact Next Prompt Title
 
 `DEV-08F Part 2: approved local inventory-clearing purchase bill fixture creation mutation`
+
+## Part 2 Mutation Result
+
+- DEV-08F Part 2 local-only mutation evidence is recorded in [DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_FIXTURE_MUTATION_EVIDENCE.md](DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_FIXTURE_MUTATION_EVIDENCE.md).
+- Result: `BILL-000009`, safe prefix `04b3f131`, was created as a future `DRAFT` purchase bill in `INVENTORY_CLEARING` mode.
+- Amounts: subtotal `1000.0000`, VAT `150.0000`, total and balance due `1150.0000`.
+- No purchase bill journal, reversal journal, purchase receipt, stock movement, generated document, email, ZATCA, supplier payment/refund, purchase debit note, purchase order, cash expense, cleanup/delete, login/browser, production, beta, or customer-data side effect was created.
+- Audit result: one `PURCHASE_BILL_CREATED` audit for the bill.
+- Temporary script result: no DEV-08F temporary script file was created or staged.
+- Exact next prompt title: `DEV-08F Part 3: inventory-clearing purchase bill fixture evidence verification`.
