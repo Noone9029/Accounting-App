@@ -2297,3 +2297,18 @@
 ## Next Thread Prompt
 
 `DEV-08F Part 16: purchase receipt inventory asset reversal preflight`
+
+## DEV-08F Part 16 - Purchase Receipt Inventory Asset Reversal Preflight Completed
+
+- DEV-08F Part 16 asset reversal preflight is recorded in [docs/development/DEV_08F_PURCHASE_RECEIPT_ASSET_REVERSAL_PREFLIGHT.md](docs/development/DEV_08F_PURCHASE_RECEIPT_ASSET_REVERSAL_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Current receipt state: `PRC-000004`, safe prefix `993adc10`, remains `POSTED`, with active inventory asset journal safe prefix `75a6c7c3`; inventory asset reversal journal absent.
+- Asset journal state: `JE-000065`, safe prefix `75a6c7c3`, remains `POSTED`, unreversed; lines are Dr `130` `1000.0000`, Cr `240` `1000.0000`.
+- Expected reversal: `JE-000066` if no intervening sequence write occurs; expected lines Cr `130` `1000.0000`, Dr `240` `1000.0000`.
+- Fiscal/side-effect baseline: fiscal period `2026` is `OPEN`; asset reversal journals `0`, void stock movements `0`, receipt void audits `0`.
+- Required exact Part 17 approval phrase: `I approve DEV-08F Part 17 local-only purchase receipt inventory asset reversal mutation under marker DEV08F-AP-20260527T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08F Part 17: approved local purchase receipt inventory asset reversal mutation`.
+
+## Next Thread Prompt
+
+`DEV-08F Part 17: approved local purchase receipt inventory asset reversal mutation`
