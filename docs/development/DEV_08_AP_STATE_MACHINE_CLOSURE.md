@@ -242,5 +242,6 @@ Reason: the core AP bill/payment chain is complete, but purchase debit notes and
 
 ## Later AP Branch Closure Note
 
-- DEV-08B, DEV-08C, DEV-08D, and DEV-08E have now closed the purchase debit note refund branch, purchase order conversion/lifecycle branch, supplier refund from supplier payment branch, and cash expense lifecycle branch.
-- Current recommended next AP branch after DEV-08E closure: `DEV-08F Part 1: inventory-clearing purchase bill preflight`.
+- DEV-08B, DEV-08C, DEV-08D, DEV-08E, and DEV-08F have now closed the purchase debit note refund branch, purchase order conversion/lifecycle branch, supplier refund from supplier payment branch, cash expense lifecycle branch, and inventory-clearing purchase bill plus linked purchase receipt branch.
+- DEV-08F closure is recorded in [DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_RECEIPT_CLOSURE.md](DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_RECEIPT_CLOSURE.md).
+- Current recommended next AP branch after DEV-08F closure: `DEV-08G Part 1: purchase receipt and inventory integration hardening preflight`.

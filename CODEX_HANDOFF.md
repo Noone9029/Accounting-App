@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `9bae1e3a Close DEV-08E cash expense evidence`
+- `e9851c88 Verify DEV-08F inventory clearing purchase bill void`
 
 ## Current Development Objective
 
@@ -2434,3 +2434,21 @@
 ## Next Thread Prompt
 
 `DEV-08F Part 25: inventory-clearing purchase bill and receipt closure`
+
+## DEV-08F Part 25 - Inventory-Clearing Purchase Bill And Receipt Closure Completed
+
+- DEV-08F Part 25 closure is recorded in [docs/development/DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_RECEIPT_CLOSURE.md](docs/development/DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_RECEIPT_CLOSURE.md).
+- Mutation performed in Part 25: no.
+- Closure conclusion: DEV-08F is closed for the local-only inventory-clearing purchase bill plus linked purchase receipt manual asset posting/reversal/void branch.
+- Final bill state: `BILL-000009`, safe prefix `04b3f131`, `VOIDED`, `INVENTORY_CLEARING`, balance due `0.0000`; original bill journal `JE-000064`, safe prefix `3fff12bc`, is `REVERSED`; bill reversal journal `JE-000067`, safe prefix `30f40b4c`, is `POSTED`.
+- Final receipt state: `PRC-000004`, safe prefix `993adc10`, `VOIDED`; original receipt asset journal `JE-000065`, safe prefix `75a6c7c3`, is `REVERSED`; asset reversal journal `JE-000066`, safe prefix `71495866`, is `POSTED`.
+- Final stock movement result: original receipt movement safe prefix `a7708ad8`, type `PURCHASE_RECEIPT_PLACEHOLDER`, quantity `10.0000`, total cost `1000.0000`; void movement safe prefix `426c6ba0`, type `ADJUSTMENT_OUT`, quantity `10.0000`, total cost `1000.0000`.
+- Final accounting findings: bill finalization posted Dr `240` `1000.0000`, Dr `230` `150.0000`, Cr `210` `1150.0000`; bill void reversed that with Dr `210` `1150.0000`, Cr `230` `150.0000`, Cr `240` `1000.0000`; receipt asset posting posted Dr `130` `1000.0000`, Cr `240` `1000.0000`; asset reversal posted Dr `240` `1000.0000`, Cr `130` `1000.0000`.
+- Final audit findings: bill audits include `PURCHASE_BILL_CREATED`, `PURCHASE_BILL_FINALIZED`, and `PURCHASE_BILL_VOIDED`; receipt audits include `PURCHASE_RECEIPT_CREATED`, `PURCHASE_RECEIPT_ASSET_POSTED`, `PURCHASE_RECEIPT_ASSET_REVERSED`, and `PURCHASE_RECEIPT_VOIDED`.
+- Forbidden side-effect findings: generated documents, direct bill stock movements, non-voided receipts, source-scoped email, ZATCA, PDF/archive/export/download, login/browser, production, beta, hosted/shared-target, and customer-data side effects remained absent in the DEV-08F evidence.
+- Remaining AP gaps: purchase-order receipt matching, standalone receipt accounting, over/under receipt and variance handling, AP PDF/archive/output routes, AP email, authenticated UI/API QA, repeated/idempotency paths, fiscal-period blockers, permission edge cases, cleanup policy, and production/beta/customer-data behavior.
+- Exact next prompt title: `DEV-08G Part 1: purchase receipt and inventory integration hardening preflight`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 1: purchase receipt and inventory integration hardening preflight`
