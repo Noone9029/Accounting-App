@@ -85,3 +85,13 @@ The approved Part 8 mutation should:
 ## Exact Next Prompt Title
 
 `DEV-08F Part 8: approved local purchase receipt from inventory-clearing bill mutation`
+
+## Part 8 Mutation Result
+
+- DEV-08F Part 8 local-only purchase receipt creation evidence is recorded in [DEV_08F_PURCHASE_RECEIPT_FROM_BILL_MUTATION_EVIDENCE.md](DEV_08F_PURCHASE_RECEIPT_FROM_BILL_MUTATION_EVIDENCE.md).
+- `PurchaseReceiptService.create(...)` was called once.
+- Created receipt: `PRC-000004`, safe prefix `993adc10`, `POSTED`, linked to `BILL-000009`.
+- Created receipt line safe prefix `61b842a9`, item safe prefix `175a7c7f`, purchase bill line safe prefix `cb3d385a`, quantity `10.0000`, unit cost `100.0000`.
+- Created stock movement safe prefix `a7708ad8`, type `PURCHASE_RECEIPT_PLACEHOLDER`, quantity `10.0000`, total cost `1000.0000`.
+- No purchase receipt inventory asset journal or generated document was created.
+- Exact next prompt title: `DEV-08F Part 9: purchase receipt evidence verification`.

@@ -2172,3 +2172,21 @@
 ## Next Thread Prompt
 
 `DEV-08F Part 8: approved local purchase receipt from inventory-clearing bill mutation`
+
+## DEV-08F Part 8 - Purchase Receipt From Inventory-Clearing Bill Completed
+
+- DEV-08F Part 8 local-only purchase receipt mutation evidence is recorded in [docs/development/DEV_08F_PURCHASE_RECEIPT_FROM_BILL_MUTATION_EVIDENCE.md](docs/development/DEV_08F_PURCHASE_RECEIPT_FROM_BILL_MUTATION_EVIDENCE.md).
+- Mutation performed: yes, local-only.
+- Approval phrase status: exact Part 8 phrase received and checked before mutation.
+- Exact service call made: `PurchaseReceiptService.create(...)` once.
+- Purchase receipt result: `PRC-000004`, safe prefix `993adc10`, `POSTED`, linked to purchase bill safe prefix `04b3f131`, supplier safe prefix `287aec77`, warehouse safe prefix `197fac56`, receipt date `2026-05-28`.
+- Receipt line result: safe prefix `61b842a9`, item safe prefix `175a7c7f`, purchase bill line safe prefix `cb3d385a`, quantity `10.0000`, unit cost `100.0000`.
+- Stock movement result: safe prefix `a7708ad8`, type `PURCHASE_RECEIPT_PLACEHOLDER`, quantity `10.0000`, unit cost `100.0000`, total cost `1000.0000`, reference type `PurchaseReceipt`.
+- Accounting/side-effect result: purchase receipt asset journal absent; purchase bill journal count remained `1`; generated documents for the receipt remained `0`.
+- Audit result: one `PURCHASE_RECEIPT_CREATED` audit for the receipt.
+- Temporary script cleanup result: no DEV-08F temporary script file was created or staged; no `*dev08f*` script exists under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08F Part 9: purchase receipt evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08F Part 9: purchase receipt evidence verification`
