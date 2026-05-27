@@ -84,3 +84,13 @@ Current counts:
 ## Exact Next Prompt Title
 
 `DEV-08F Part 17: approved local purchase receipt inventory asset reversal mutation`
+
+## Part 17 Mutation Result
+
+- DEV-08F Part 17 local-only asset reversal evidence is recorded in [DEV_08F_PURCHASE_RECEIPT_ASSET_REVERSAL_MUTATION_EVIDENCE.md](DEV_08F_PURCHASE_RECEIPT_ASSET_REVERSAL_MUTATION_EVIDENCE.md).
+- `PurchaseReceiptService.reverseInventoryAsset(...)` was called once.
+- `PRC-000004`, safe prefix `993adc10`, remained `POSTED`, and linked reversal journal safe prefix `71495866`.
+- Original asset journal `JE-000065`, safe prefix `75a6c7c3`, changed `POSTED -> REVERSED`.
+- Reversal journal `JE-000066`, safe prefix `71495866`, is `POSTED`, balanced debit/credit `1000.0000`, and reverses `JE-000065`.
+- Void stock movements and generated documents remained `0`.
+- Exact next prompt title: `DEV-08F Part 18: purchase receipt inventory asset reversal evidence verification`.

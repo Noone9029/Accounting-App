@@ -2312,3 +2312,20 @@
 ## Next Thread Prompt
 
 `DEV-08F Part 17: approved local purchase receipt inventory asset reversal mutation`
+
+## DEV-08F Part 17 - Purchase Receipt Inventory Asset Reversal Completed
+
+- DEV-08F Part 17 local-only asset reversal mutation evidence is recorded in [docs/development/DEV_08F_PURCHASE_RECEIPT_ASSET_REVERSAL_MUTATION_EVIDENCE.md](docs/development/DEV_08F_PURCHASE_RECEIPT_ASSET_REVERSAL_MUTATION_EVIDENCE.md).
+- Mutation performed: yes, local-only.
+- Approval phrase status: exact Part 17 phrase received and checked before mutation.
+- Exact service call made: `PurchaseReceiptService.reverseInventoryAsset(...)` once.
+- Receipt result: `PRC-000004`, safe prefix `993adc10`, remained `POSTED`; inventory asset journal safe prefix `75a6c7c3`; inventory asset reversal journal safe prefix `71495866`; `inventoryAssetReversedAt` present.
+- Journal result: original asset journal `JE-000065`, safe prefix `75a6c7c3`, changed `POSTED -> REVERSED`; reversal journal `JE-000066`, safe prefix `71495866`, is `POSTED`, reverses `JE-000065`, and is balanced debit/credit `1000.0000` with Cr `130` `1000.0000`, Dr `240` `1000.0000`.
+- Audit result: `PURCHASE_RECEIPT_CREATED`, `PURCHASE_RECEIPT_ASSET_POSTED`, and `PURCHASE_RECEIPT_ASSET_REVERSED` are present for the receipt.
+- Side-effect result: void stock movements `0`; generated documents `0`.
+- Temporary script cleanup result: no DEV-08F temporary script file was created or staged; no `*dev08f*` script exists under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08F Part 18: purchase receipt inventory asset reversal evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08F Part 18: purchase receipt inventory asset reversal evidence verification`
