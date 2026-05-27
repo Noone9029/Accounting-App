@@ -2267,3 +2267,19 @@
 ## Next Thread Prompt
 
 `DEV-08F Part 14: approved local purchase receipt void blocker negative check`
+
+## DEV-08F Part 14 - Purchase Receipt Void Blocker Negative Check Completed
+
+- DEV-08F Part 14 void blocker negative check evidence is recorded in [docs/development/DEV_08F_PURCHASE_RECEIPT_VOID_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md](docs/development/DEV_08F_PURCHASE_RECEIPT_VOID_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md).
+- Mutation attempted: yes, local-only negative check.
+- Approval phrase status: exact Part 14 phrase received and checked before the negative check.
+- Exact service call made: `PurchaseReceiptService.void(...)` once.
+- Expected blocker observed: `Reverse inventory asset posting before voiding this purchase receipt.`
+- State after blocked call: `PRC-000004`, safe prefix `993adc10`, remained `POSTED`; inventory asset journal `JE-000065`, safe prefix `75a6c7c3`, remained `POSTED` and unreversed; reversal journal absent; `voidedAt` absent.
+- Side-effect result: void stock movements `0`, receipt void audits `0`, asset reversal journals `0`.
+- Temporary script cleanup result: no DEV-08F temporary script file was created or staged; no `*dev08f*` script exists under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08F Part 15: purchase receipt void blocker evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08F Part 15: purchase receipt void blocker evidence verification`

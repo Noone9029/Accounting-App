@@ -77,3 +77,11 @@ Expected after the failed void attempt:
 ## Exact Next Prompt Title
 
 `DEV-08F Part 14: approved local purchase receipt void blocker negative check`
+
+## Part 14 Negative Check Result
+
+- DEV-08F Part 14 void blocker negative check evidence is recorded in [DEV_08F_PURCHASE_RECEIPT_VOID_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md](DEV_08F_PURCHASE_RECEIPT_VOID_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md).
+- `PurchaseReceiptService.void(...)` was called once and failed with the expected blocker: `Reverse inventory asset posting before voiding this purchase receipt.`
+- `PRC-000004`, safe prefix `993adc10`, remained `POSTED`; `JE-000065`, safe prefix `75a6c7c3`, remained `POSTED` and unreversed.
+- Inventory asset reversal journal, void stock movements, receipt void audits, and `voidedAt` remained absent.
+- Exact next prompt title: `DEV-08F Part 15: purchase receipt void blocker evidence verification`.
