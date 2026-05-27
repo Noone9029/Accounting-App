@@ -105,3 +105,13 @@ Counts after reversal:
 ## Exact Next Prompt Title
 
 `DEV-08F Part 18: purchase receipt inventory asset reversal evidence verification`
+
+## Part 18 Verification Result
+
+- DEV-08F Part 18 read-only asset reversal verification is recorded in [DEV_08F_PURCHASE_RECEIPT_ASSET_REVERSAL_EVIDENCE_VERIFICATION.md](DEV_08F_PURCHASE_RECEIPT_ASSET_REVERSAL_EVIDENCE_VERIFICATION.md).
+- Verification conclusion: verified.
+- `PRC-000004`, safe prefix `993adc10`, remained `POSTED`; `inventoryAssetReversedAt` present; `voidedAt` absent.
+- Original asset journal `JE-000065`, safe prefix `75a6c7c3`, remained `REVERSED`.
+- Reversal journal `JE-000066`, safe prefix `71495866`, remained `POSTED`, balanced debit/credit `1000.0000`.
+- Void stock movements and generated documents remained `0`.
+- Exact next prompt title: `DEV-08F Part 19: purchase receipt void preflight`.
