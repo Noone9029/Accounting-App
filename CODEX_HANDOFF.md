@@ -2388,3 +2388,18 @@
 ## Next Thread Prompt
 
 `DEV-08F Part 22: inventory-clearing purchase bill void preflight`
+
+## DEV-08F Part 22 - Inventory-Clearing Purchase Bill Void Preflight Completed
+
+- DEV-08F Part 22 bill void preflight is recorded in [docs/development/DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_VOID_PREFLIGHT.md](docs/development/DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_VOID_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Current bill state: `BILL-000009`, safe prefix `04b3f131`, remains `FINALIZED`, `INVENTORY_CLEARING`, balance due `1150.0000`; original journal `JE-000064`, safe prefix `3fff12bc`, remains `POSTED`; bill reversal journal absent.
+- Receipt state: linked receipt `PRC-000004`, safe prefix `993adc10`, is `VOIDED`; non-voided receipts for bill `0`.
+- Void readiness: active supplier payment allocations `0`, active purchase debit note allocations `0`, active supplier unapplied allocations `0`, generated documents for bill `0`.
+- Fiscal/sequence baseline: fiscal period `2026` is `OPEN`; expected bill reversal journal `JE-000067` if no intervening sequence write occurs before Part 23.
+- Required exact Part 23 approval phrase: `I approve DEV-08F Part 23 local-only inventory-clearing purchase bill void mutation under marker DEV08F-AP-20260527T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08F Part 23: approved local inventory-clearing purchase bill void mutation`.
+
+## Next Thread Prompt
+
+`DEV-08F Part 23: approved local inventory-clearing purchase bill void mutation`
