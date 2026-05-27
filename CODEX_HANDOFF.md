@@ -2110,3 +2110,18 @@
 ## Next Thread Prompt
 
 `DEV-08F Part 4: inventory-clearing purchase bill finalization preflight`
+
+## DEV-08F Part 4 - Inventory-Clearing Purchase Bill Finalization Preflight Completed
+
+- DEV-08F Part 4 finalization preflight is recorded in [docs/development/DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_FINALIZATION_PREFLIGHT.md](docs/development/DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_FINALIZATION_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Current bill state: `BILL-000009`, safe prefix `04b3f131`, remains `DRAFT`, `INVENTORY_CLEARING`, bill date `2026-05-28`, total `1150.0000`, no journal, no receipt.
+- Read-only finalization readiness: `canFinalize: true`, no blocking reasons, balanced preview Dr `240` `1000.0000`, Dr `230` `150.0000`, Cr `210` `1150.0000`.
+- Fiscal/sequence baseline: fiscal period `2026` is `OPEN`; expected next journal number is `JE-000064` if no intervening sequence write occurs before Part 5.
+- Current side-effect baseline: purchase receipts, stock movements, source-scoped journals, and generated documents for the bill are absent.
+- Required exact Part 5 approval phrase: `I approve DEV-08F Part 5 local-only inventory-clearing purchase bill finalization mutation under marker DEV08F-AP-20260527T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08F Part 5: approved local inventory-clearing purchase bill finalization mutation`.
+
+## Next Thread Prompt
+
+`DEV-08F Part 5: approved local inventory-clearing purchase bill finalization mutation`
