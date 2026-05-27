@@ -146,3 +146,15 @@ Verified.
 ## Next Recommended Prompt
 
 `DEV-08E Part 4: cash expense void preflight`
+
+## Part 4 Preflight Note
+
+DEV-08E Part 4 completed the read-only cash expense void preflight. Evidence is recorded in [DEV_08E_CASH_EXPENSE_VOID_PREFLIGHT.md](DEV_08E_CASH_EXPENSE_VOID_PREFLIGHT.md).
+
+- Runtime mutation performed: no.
+- Cash expense `EXP-000002`, safe prefix `74886497`, remained `POSTED` with total `1150.0000`.
+- Original journal `JE-000062`, safe prefix `a2aa8290`, remained `POSTED`, balanced at debit/credit `1150.0000`, and unreversed.
+- Fiscal period `2026` was `OPEN` for the preflight reversal date.
+- Expected next reversal journal number is `JE-000063` if the journal sequence does not change before Part 5.
+- Required Part 5 approval phrase is recorded in the Part 4 preflight with real values, not placeholders.
+- Exact next prompt title: `DEV-08E Part 5: approved local cash expense void mutation`.

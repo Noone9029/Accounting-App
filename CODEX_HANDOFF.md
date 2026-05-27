@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `6461dbe2 Create DEV-08E cash expense fixture`
+- `7dcf1f10 Verify DEV-08E cash expense fixture`
 
 ## Current Development Objective
 
@@ -1991,3 +1991,21 @@
 ## Next Thread Prompt
 
 `DEV-08E Part 4: cash expense void preflight`
+
+## DEV-08E Part 4 - Cash Expense Void Preflight Completed
+
+- DEV-08E Part 4 read-only cash expense void preflight is recorded in [docs/development/DEV_08E_CASH_EXPENSE_VOID_PREFLIGHT.md](docs/development/DEV_08E_CASH_EXPENSE_VOID_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Current cash expense state: `EXP-000002`, safe prefix `74886497`, remains `POSTED`, subtotal `1000.0000`, tax `150.0000`, total `1150.0000`, paid-through account `112`, void reversal journal absent, and `voidedAt` absent.
+- Current journal state: `JE-000062`, safe prefix `a2aa8290`, remains `POSTED` and balanced at debit/credit `1150.0000`; no reversed-by journal exists.
+- Current fiscal/sequence baseline: fiscal period `2026` is `OPEN` for `2026-05-27`; the `JOURNAL_ENTRY` sequence next number is `63`, so the expected reversal journal is `JE-000063` if no sequence changes before Part 5.
+- Expected void effect: one future `CashExpenseService.void(...)` call should change the cash expense `POSTED -> VOIDED`, set `voidedAt`, create a posted reversal journal, and mark original journal `JE-000062` as `REVERSED`.
+- Expected reversal accounting: Dr paid-through asset account `112` `1150.0000`, Cr expense account `511` `1000.0000`, and Cr VAT receivable account `230` `150.0000`.
+- Expected audit/side-effect result: one `CashExpense:CASH_EXPENSE_VOIDED` audit; no duplicate create, no delete, no login/browser audit path, and no generated-document, email, ZATCA, supplier payment/refund, purchase bill/debit note/order/receipt, stock movement, or cleanup/delete side effect.
+- Required exact Part 5 approval phrase: `I approve DEV-08E Part 5 local-only cash expense void mutation under marker DEV08E-AP-20260526T000000 for cash expense EXP-000002 total 1150.0000. No production, no beta, no customer data.`
+- Placeholder approval with `<EXPENSE_NUMBER>` and `<TOTAL>` is not sufficient.
+- Exact next prompt title: `DEV-08E Part 5: approved local cash expense void mutation`.
+
+## Next Thread Prompt
+
+`DEV-08E Part 5: approved local cash expense void mutation`
