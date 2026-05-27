@@ -2403,3 +2403,20 @@
 ## Next Thread Prompt
 
 `DEV-08F Part 23: approved local inventory-clearing purchase bill void mutation`
+
+## DEV-08F Part 23 - Inventory-Clearing Purchase Bill Void Completed
+
+- DEV-08F Part 23 local-only purchase bill void mutation evidence is recorded in [docs/development/DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_VOID_MUTATION_EVIDENCE.md](docs/development/DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_VOID_MUTATION_EVIDENCE.md).
+- Mutation performed: yes, local-only.
+- Approval phrase status: exact Part 23 phrase received and checked before mutation.
+- Exact service call made: `PurchaseBillService.void(...)` once.
+- Bill result: `BILL-000009`, safe prefix `04b3f131`, changed `FINALIZED -> VOIDED`; balance due `0.0000`; linked receipt `PRC-000004` remained `VOIDED`.
+- Journal result: original bill journal `JE-000064`, safe prefix `3fff12bc`, changed `POSTED -> REVERSED`; bill reversal journal `JE-000067`, safe prefix `30f40b4c`, is `POSTED`, reverses `JE-000064`, and is balanced debit/credit `1150.0000` with Dr `210` `1150.0000`, Cr `230` `150.0000`, Cr `240` `1000.0000`.
+- Audit result: `PURCHASE_BILL_CREATED`, `PURCHASE_BILL_FINALIZED`, and `PURCHASE_BILL_VOIDED` are present for the bill.
+- Side-effect result: non-voided receipts `0`; generated documents `0`; direct bill stock movements `0`.
+- Temporary script cleanup result: no DEV-08F temporary script file was created or staged; no `*dev08f*` script exists under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08F Part 24: inventory-clearing purchase bill void evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08F Part 24: inventory-clearing purchase bill void evidence verification`

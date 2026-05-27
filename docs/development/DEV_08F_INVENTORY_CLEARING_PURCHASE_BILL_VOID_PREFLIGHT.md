@@ -79,3 +79,13 @@ The approved Part 23 mutation should:
 ## Exact Next Prompt Title
 
 `DEV-08F Part 23: approved local inventory-clearing purchase bill void mutation`
+
+## Part 23 Mutation Result
+
+- DEV-08F Part 23 local-only bill void evidence is recorded in [DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_VOID_MUTATION_EVIDENCE.md](DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_VOID_MUTATION_EVIDENCE.md).
+- `PurchaseBillService.void(...)` was called once.
+- `BILL-000009`, safe prefix `04b3f131`, changed `FINALIZED -> VOIDED`; balance due changed `1150.0000 -> 0.0000`.
+- Original bill journal `JE-000064`, safe prefix `3fff12bc`, changed `POSTED -> REVERSED`.
+- Bill reversal journal `JE-000067`, safe prefix `30f40b4c`, is `POSTED`, balanced debit/credit `1150.0000`, and reverses `JE-000064`.
+- Non-voided receipts remained `0`; generated documents remained `0`; direct bill stock movements remained `0`.
+- Exact next prompt title: `DEV-08F Part 24: inventory-clearing purchase bill void evidence verification`.
