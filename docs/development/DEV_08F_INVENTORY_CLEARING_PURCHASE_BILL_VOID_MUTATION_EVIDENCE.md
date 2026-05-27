@@ -108,3 +108,14 @@ Counts after bill void:
 ## Exact Next Prompt Title
 
 `DEV-08F Part 24: inventory-clearing purchase bill void evidence verification`
+
+## Part 24 Verification Result
+
+- DEV-08F Part 24 read-only bill void verification is recorded in [DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_VOID_EVIDENCE_VERIFICATION.md](DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_VOID_EVIDENCE_VERIFICATION.md).
+- Verification conclusion: verified.
+- `BILL-000009`, safe prefix `04b3f131`, remained `VOIDED`, balance due `0.0000`.
+- Original bill journal `JE-000064`, safe prefix `3fff12bc`, remained `REVERSED`.
+- Bill reversal journal `JE-000067`, safe prefix `30f40b4c`, remained `POSTED`, balanced debit/credit `1150.0000`.
+- Linked receipt `PRC-000004`, safe prefix `993adc10`, remained `VOIDED`.
+- Non-voided receipts, generated documents, and direct bill stock movements remained `0`.
+- Exact next prompt title: `DEV-08F Part 25: inventory-clearing purchase bill and receipt closure`.
