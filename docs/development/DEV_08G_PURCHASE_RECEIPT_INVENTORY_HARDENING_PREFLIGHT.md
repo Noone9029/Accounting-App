@@ -281,4 +281,13 @@ Run before commit:
 
 ## Exact Next Prompt Title
 
-`DEV-08G Part 2: approved local purchase order receipt source fixture mutation`
+Part 2 follow-up:
+
+- DEV-08G Part 2 completed the local-only purchase order receipt source fixture mutation.
+- Evidence file: [DEV_08G_PURCHASE_ORDER_RECEIPT_SOURCE_FIXTURE_MUTATION_EVIDENCE.md](DEV_08G_PURCHASE_ORDER_RECEIPT_SOURCE_FIXTURE_MUTATION_EVIDENCE.md).
+- Created supplier safe prefix `f5deec9a`, item safe prefix `3b8d7650`, and purchase order `PO-000003` safe prefix `a3efc2e4`.
+- Final purchase order status: `APPROVED`.
+- Reused active warehouse safe prefix `197fac56`.
+- Purchase receipts, purchase bills, stock movements, journal entries, generated documents, email rows, supplier payments/refunds, purchase debit notes, and cash expenses remained absent for the marker/source.
+
+`DEV-08G Part 3: purchase order receipt source fixture evidence verification`

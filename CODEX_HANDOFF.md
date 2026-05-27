@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `218e445c Close DEV-08F inventory clearing purchase bill evidence`
+- `39a2c7f6 Plan DEV-08G purchase receipt inventory hardening`
 
 ## Current Development Objective
 
@@ -2468,3 +2468,21 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 2: approved local purchase order receipt source fixture mutation`
+
+## DEV-08G Part 2 - Purchase Order Receipt Source Fixture Completed
+
+- DEV-08G Part 2 local-only mutation evidence is recorded in [docs/development/DEV_08G_PURCHASE_ORDER_RECEIPT_SOURCE_FIXTURE_MUTATION_EVIDENCE.md](docs/development/DEV_08G_PURCHASE_ORDER_RECEIPT_SOURCE_FIXTURE_MUTATION_EVIDENCE.md).
+- Mutation performed: yes, local-only.
+- Approval phrase status: exact Part 2 phrase received and checked before mutation.
+- Local target proof: Docker Postgres/Redis were local and healthy; `apps/api/.env` classified as `localhost:5432/accounting`; no production, beta, hosted/shared-target, provider, or customer-data target was used.
+- Service calls made: `ContactService.create(...)` once, `ItemService.create(...)` once, `PurchaseOrderService.create(...)` once, and `PurchaseOrderService.approve(...)` once. `WarehouseService.create(...)` and `PurchaseOrderService.markSent(...)` were not called.
+- Fixture result: supplier safe prefix `f5deec9a`, item safe prefix `3b8d7650`, reused active warehouse safe prefix `197fac56`, and purchase order `PO-000003` safe prefix `a3efc2e4` with final status `APPROVED`.
+- PO line result: safe prefix `22f17076`, quantity `10.0000`, unit price `100.0000`, tax rate `15.0000`, total PO amount `1150.0000`.
+- Audit result: `Contact:CREATE`, `Item:CREATE`, `PurchaseOrder:PURCHASE_ORDER_CREATED`, and `PurchaseOrder:PURCHASE_ORDER_APPROVED` each occurred once for the fixture.
+- Forbidden side-effect result: purchase receipts, purchase bills, stock movements, journal entries, generated documents, email outbox/provider rows, supplier payments, supplier refunds, purchase debit notes, and cash expenses remained `0` for the marker/source.
+- Temporary script cleanup result: `apps/api/scripts/dev08g-part2-runner.ts` was removed after execution; no `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 3: purchase order receipt source fixture evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 3: purchase order receipt source fixture evidence verification`
