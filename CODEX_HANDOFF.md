@@ -2125,3 +2125,20 @@
 ## Next Thread Prompt
 
 `DEV-08F Part 5: approved local inventory-clearing purchase bill finalization mutation`
+
+## DEV-08F Part 5 - Inventory-Clearing Purchase Bill Finalization Completed
+
+- DEV-08F Part 5 local-only finalization mutation evidence is recorded in [docs/development/DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_FINALIZATION_MUTATION_EVIDENCE.md](docs/development/DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_FINALIZATION_MUTATION_EVIDENCE.md).
+- Mutation performed: yes, local-only.
+- Approval phrase status: exact Part 5 phrase received and checked before mutation.
+- Exact service call made: `PurchaseBillService.finalize(...)` once.
+- Purchase bill result: `BILL-000009`, safe prefix `04b3f131`, changed `DRAFT -> FINALIZED`; `finalizedAt` present; balance due `1150.0000`; reversal journal absent.
+- Journal result: `JE-000064`, safe prefix `3fff12bc`, `POSTED`, balanced debit/credit `1150.0000`; lines are Dr `240` `1000.0000`, Dr `230` `150.0000`, Cr `210` `1150.0000`.
+- Audit result: `PURCHASE_BILL_CREATED` and `PURCHASE_BILL_FINALIZED` are present for the bill.
+- Forbidden side-effect result: purchase receipts, stock movements, generated documents, purchase debit notes, supplier payment allocations, and supplier unapplied allocations for the bill remain absent.
+- Temporary script cleanup result: no DEV-08F temporary script file was created or staged; no `*dev08f*` script exists under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08F Part 6: inventory-clearing purchase bill finalization evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08F Part 6: inventory-clearing purchase bill finalization evidence verification`

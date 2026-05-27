@@ -89,3 +89,13 @@ No `PURCHASE_BILL_FINALIZED` or `PURCHASE_BILL_VOIDED` audit exists for the fixt
 ## Exact Next Prompt Title
 
 `DEV-08F Part 5: approved local inventory-clearing purchase bill finalization mutation`
+
+## Part 5 Mutation Result
+
+- DEV-08F Part 5 local-only finalization evidence is recorded in [DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_FINALIZATION_MUTATION_EVIDENCE.md](DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_FINALIZATION_MUTATION_EVIDENCE.md).
+- `PurchaseBillService.finalize(...)` was called once.
+- `BILL-000009`, safe prefix `04b3f131`, changed `DRAFT -> FINALIZED`.
+- Posted purchase bill journal: `JE-000064`, safe prefix `3fff12bc`, balanced debit/credit `1150.0000`.
+- Journal lines: Dr `240` `1000.0000`, Dr `230` `150.0000`, Cr `210` `1150.0000`.
+- Purchase receipts, stock movements, generated documents, purchase debit notes, supplier payment allocations, and supplier unapplied allocations for the bill remained absent.
+- Exact next prompt title: `DEV-08F Part 6: inventory-clearing purchase bill finalization evidence verification`.
