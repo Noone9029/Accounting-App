@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `633d6f71 Verify DEV-08E cash expense void evidence`
+- `9bae1e3a Close DEV-08E cash expense evidence`
 
 ## Current Development Objective
 
@@ -2057,3 +2057,23 @@
 ## Next Thread Prompt
 
 `DEV-08F Part 1: inventory-clearing purchase bill preflight`
+
+## DEV-08F Part 1 - Inventory-Clearing Purchase Bill Preflight Completed
+
+- DEV-08F Part 1 read-only inventory-clearing purchase bill preflight is recorded in [docs/development/DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_PREFLIGHT.md](docs/development/DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_PREFLIGHT.md).
+- Mutation performed: no.
+- Latest commit inspected: `9bae1e3a Close DEV-08E cash expense evidence`; local `HEAD` matched `origin/main`.
+- Local-only proof: root `.env` and `apps/api/.env` database targets were classified without printing secrets as local PostgreSQL on port `5432`; read-only Prisma checks used a local-target guard and sanitized output only.
+- Repo state: pre-existing untracked marketing/graphify paths remain untouched and unstaged; no DEV-08E/DEV-08F temporary scripts exist under `apps/api/scripts`.
+- Purchase bill behavior summary: `INVENTORY_CLEARING` mode is draft-save capable only when inventory accounting is enabled, valuation is `MOVING_AVERAGE`, receipt posting mode is `PREVIEW_ONLY`, at least one tracked item line exists, inventory clearing account is mapped/active/posting, and clearing is separate from AP `210` and inventory asset. Finalization posts Dr clearing for tracked lines, Dr VAT `230` when taxed, and Cr AP `210`; void reverses the bill journal without stock movement mutation.
+- Purchase receipt integration summary: receipts can be bill/order/standalone sourced, create `POSTED` operational receipt rows and inbound stock movements, and do not post GL on creation. Asset posting is an explicit manual journal action for posted receipts linked to finalized `INVENTORY_CLEARING` bills; active asset posting blocks receipt void until reversed.
+- Selected Part 2 mutation option: Option A, reuse selected fake local AP/inventory-ready org safe prefix `db69e5a8`; create one future draft `INVENTORY_CLEARING` purchase bill only, with no inventory settings mutation.
+- Proposed marker: `DEV08F-AP-20260527T000000`.
+- Expected future accounting: bill finalization Dr inventory clearing `240` `1000.0000`, Dr VAT receivable `230` `150.0000`, Cr AP `210` `1150.0000`; later receipt asset posting Dr inventory asset `130` `1000.0000`, Cr inventory clearing `240` `1000.0000`.
+- Forbidden side-effect baseline: DEV-08F marker purchase bills, receipts, stock movements, contacts, items, warehouses, generated documents, email rows/events, and cleanup/delete audit counts are `0`; no ZATCA command was run.
+- Required exact Part 2 approval phrase: `I approve DEV-08F Part 2 local-only inventory-clearing purchase bill fixture creation mutation under marker DEV08F-AP-20260527T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08F Part 2: approved local inventory-clearing purchase bill fixture creation mutation`.
+
+## Next Thread Prompt
+
+`DEV-08F Part 2: approved local inventory-clearing purchase bill fixture creation mutation`
