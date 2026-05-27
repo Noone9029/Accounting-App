@@ -99,9 +99,9 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 - DEV-08B is now closed for the local AP purchase debit note and supplier refund-from-debit-note branch in [DEV_08B_AP_DEBIT_NOTE_REFUND_CLOSURE.md](DEV_08B_AP_DEBIT_NOTE_REFUND_CLOSURE.md). It proved debit-note fixture creation/finalization, debit-note apply-to-bill, debit-note allocation reversal, supplier refund creation from a debit note, supplier refund void/reversal, debit-note void/reversal, journal behavior, audit behavior, and output/email/ZATCA non-effects.
 - DEV-08C is now closed for the local purchase order conversion/lifecycle branch in [DEV_08C_PURCHASE_ORDER_CONVERSION_CLOSURE.md](DEV_08C_PURCHASE_ORDER_CONVERSION_CLOSURE.md). It proved purchase order fixture creation, approval, mark-sent, convert-to-bill, converted bill finalization, close branch, void branch, journal behavior, audit behavior, and output/email/ZATCA non-effects.
 - DEV-08D is now closed for the local supplier refund from supplier payment branch in [DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_CLOSURE.md](DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_CLOSURE.md). It proved source supplier payment fixture creation, supplier refund creation from a payment, source payment unapplied decrement/restoration, supplier payment void blocker while the refund was posted, supplier refund void/reversal, supplier payment void/reversal after blocker clearance, journal behavior, audit behavior, and source-scoped output/email/ZATCA non-effects.
-- DEV-08 through DEV-08D do not claim full AP completion. Remaining AP gaps include cash expenses, inventory-clearing bills, purchase receipts/inventory integration, AP PDF/archive/output routes, AP email delivery, authenticated UI/API QA, repeated/idempotency paths, fiscal-period locks, permission edge cases, cleanup policy, and production/beta/customer-data behavior.
-- DEV-08E Part 1 is now planned in [DEV_08E_CASH_EXPENSE_LIFECYCLE_PREFLIGHT.md](DEV_08E_CASH_EXPENSE_LIFECYCLE_PREFLIGHT.md). It performed read-only cash expense lifecycle preflight, selected Option A for one local posted cash expense fixture, and did not mutate runtime data.
-- Recommended next local-only AP branch: `DEV-08E Part 2: approved local cash expense fixture creation mutation`.
+- DEV-08E is now closed for the local cash expense lifecycle branch in [DEV_08E_CASH_EXPENSE_LIFECYCLE_CLOSURE.md](DEV_08E_CASH_EXPENSE_LIFECYCLE_CLOSURE.md). It proved cash expense create/post behavior, original journal behavior, cash expense void/reversal, reversal journal behavior, audit behavior, and output/email/ZATCA non-effects.
+- DEV-08 through DEV-08E do not claim full AP completion. Remaining AP gaps include inventory-clearing bills, purchase receipts/inventory integration, AP PDF/archive/output routes, AP email delivery, authenticated UI/API QA, repeated/idempotency paths, fiscal-period locks, permission edge cases, cleanup policy, and production/beta/customer-data behavior.
+- Recommended next local-only AP branch: `DEV-08F Part 1: inventory-clearing purchase bill preflight`.
 
 ## Highest-Priority Development Tickets
 
@@ -152,4 +152,4 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 
 ## Exact Next Recommended Development Ticket
 
-`DEV-08E Part 2: approved local cash expense fixture creation mutation`
+`DEV-08F Part 1: inventory-clearing purchase bill preflight`

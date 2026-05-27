@@ -223,9 +223,9 @@ The next AP evidence branches should cover:
 - DEV-08B followed this core AP bill/payment closure and covered the local purchase debit note and supplier refund-from-debit-note branch. See [DEV_08B_AP_DEBIT_NOTE_REFUND_CLOSURE.md](DEV_08B_AP_DEBIT_NOTE_REFUND_CLOSURE.md).
 - DEV-08C followed this closure and covered the local purchase order conversion/lifecycle branch. See [DEV_08C_PURCHASE_ORDER_CONVERSION_CLOSURE.md](DEV_08C_PURCHASE_ORDER_CONVERSION_CLOSURE.md).
 - DEV-08D followed this closure and covered the local supplier refund-from-supplier-payment branch. See [DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_CLOSURE.md](DEV_08D_SUPPLIER_REFUND_FROM_PAYMENT_CLOSURE.md).
+- DEV-08E followed DEV-08D and covered the local cash expense lifecycle branch. See [DEV_08E_CASH_EXPENSE_LIFECYCLE_CLOSURE.md](DEV_08E_CASH_EXPENSE_LIFECYCLE_CLOSURE.md).
 - Debit-note and refund blockers for supplier payment void and purchase bill void.
 - Purchase order repeated/idempotency/blocker paths beyond the DEV-08C happy-path evidence.
-- Cash expense lifecycle.
 - Inventory-clearing purchase bill and purchase receipt integration, after inventory/AP policy and fixture prerequisites are explicitly approved.
 - AP output/PDF/archive and email behavior, under separate output-safe approvals.
 - AP permission, idempotency, fiscal-period lock, and UI/API smoke/browser branches.
@@ -242,5 +242,5 @@ Reason: the core AP bill/payment chain is complete, but purchase debit notes and
 
 ## Later AP Branch Closure Note
 
-- DEV-08B, DEV-08C, and DEV-08D have now closed the purchase debit note refund branch, purchase order conversion/lifecycle branch, and supplier refund from supplier payment branch.
-- Current recommended next AP branch after DEV-08D closure: `DEV-08E Part 1: cash expense lifecycle preflight`.
+- DEV-08B, DEV-08C, DEV-08D, and DEV-08E have now closed the purchase debit note refund branch, purchase order conversion/lifecycle branch, supplier refund from supplier payment branch, and cash expense lifecycle branch.
+- Current recommended next AP branch after DEV-08E closure: `DEV-08F Part 1: inventory-clearing purchase bill preflight`.
