@@ -2252,3 +2252,18 @@
 ## Next Thread Prompt
 
 `DEV-08F Part 13: purchase receipt void blocker preflight`
+
+## DEV-08F Part 13 - Purchase Receipt Void Blocker Preflight Completed
+
+- DEV-08F Part 13 receipt void blocker preflight is recorded in [docs/development/DEV_08F_PURCHASE_RECEIPT_VOID_BLOCKER_PREFLIGHT.md](docs/development/DEV_08F_PURCHASE_RECEIPT_VOID_BLOCKER_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Current receipt state: `PRC-000004`, safe prefix `993adc10`, remains `POSTED`, with active inventory asset journal safe prefix `75a6c7c3`; inventory asset reversal journal absent.
+- Asset journal state: `JE-000065`, safe prefix `75a6c7c3`, remains `POSTED`, unreversed.
+- Expected Part 14 blocker: `Reverse inventory asset posting before voiding this purchase receipt.`
+- Current side-effect baseline: asset journals `1`, asset reversal journals `0`, void stock movements `0`, receipt void audits `0`.
+- Required exact Part 14 approval phrase: `I approve DEV-08F Part 14 local-only purchase receipt void blocker negative check under marker DEV08F-AP-20260527T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08F Part 14: approved local purchase receipt void blocker negative check`.
+
+## Next Thread Prompt
+
+`DEV-08F Part 14: approved local purchase receipt void blocker negative check`
