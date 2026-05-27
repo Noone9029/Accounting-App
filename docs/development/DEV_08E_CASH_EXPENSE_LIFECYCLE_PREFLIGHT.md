@@ -188,6 +188,15 @@ Required approval phrase:
 
 `I approve DEV-08E Part 2 local-only cash expense fixture creation mutation under marker DEV08E-AP-20260526T000000. No production, no beta, no customer data.`
 
+## Part 2 Mutation Evidence Note
+
+DEV-08E Part 2 completed the approved local-only Option A mutation. Evidence is recorded in [DEV_08E_CASH_EXPENSE_FIXTURE_MUTATION_EVIDENCE.md](DEV_08E_CASH_EXPENSE_FIXTURE_MUTATION_EVIDENCE.md).
+
+- Cash expense created: `EXP-000002`, safe prefix `74886497`, status `POSTED`, total `1150.0000`.
+- Journal created: `JE-000062`, safe prefix `a2aa8290`, `POSTED`, balanced debit/credit `1150.0000`.
+- Forbidden side effects remained absent for generated documents, email rows/events, ZATCA artifacts, supplier payments/refunds, purchase bills/debit notes/orders/receipts, stock movements, cleanup/delete audits, and temporary scripts.
+- Exact next prompt title: `DEV-08E Part 3: cash expense fixture evidence verification`.
+
 ## Future Part 2 Evidence Expectations
 
 Expected mutation:
