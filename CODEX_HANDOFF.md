@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `7dcf1f10 Verify DEV-08E cash expense fixture`
+- `9c99e0fc Plan DEV-08E cash expense void`
 
 ## Current Development Objective
 
@@ -2009,3 +2009,20 @@
 ## Next Thread Prompt
 
 `DEV-08E Part 5: approved local cash expense void mutation`
+
+## DEV-08E Part 5 - Cash Expense Void Mutation Completed
+
+- DEV-08E Part 5 local-only cash expense void mutation evidence is recorded in [docs/development/DEV_08E_CASH_EXPENSE_VOID_MUTATION_EVIDENCE.md](docs/development/DEV_08E_CASH_EXPENSE_VOID_MUTATION_EVIDENCE.md).
+- Mutation performed: yes, local-only.
+- Approval phrase status: exact Part 5 phrase received and checked before mutation.
+- Exact service call made: `CashExpenseService.void(...)` once; cash expense create/delete, PDF/archive/export/download, email, ZATCA, supplier payment/refund, purchase bill/debit note/order/receipt, inventory/stock, cleanup, login/browser, production, beta, and customer-data paths were not run.
+- Cash expense before/after: `EXP-000002`, safe prefix `74886497`, changed `POSTED -> VOIDED`; `voidedAt` is present; subtotal `1000.0000`, tax `150.0000`, total `1150.0000` remained unchanged.
+- Journal/accounting result: original journal `JE-000062`, safe prefix `a2aa8290`, changed `POSTED -> REVERSED`; void reversal journal `JE-000063`, safe prefix `391169e6`, is `POSTED` and balanced at debit/credit `1150.0000`; reversal lines are Cr `511` `1000.0000`, Cr `230` `150.0000`, and Dr `112` `1150.0000`.
+- Audit result: cash expense create audit remained `1`; cash expense void audit became `1`; cash expense delete audit remained `0`; no login/browser audit-writing flow ran.
+- Forbidden side-effect result: generated documents, email rows/events, ZATCA metadata/submission logs/signed drafts, supplier payments/refunds, purchase bills/debit notes/orders/receipts, stock movements, and cleanup/delete audits remained `0`.
+- Temporary script cleanup result: `apps/api/scripts/dev08e-cash-expense-void.tmp.ts` was removed; `Test-Path` returned `False`; no `*dev08e*`/`*cash-expense*` temp script remained under `apps/api/scripts`; script was not staged.
+- Exact next prompt title: `DEV-08E Part 6: cash expense void evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08E Part 6: cash expense void evidence verification`

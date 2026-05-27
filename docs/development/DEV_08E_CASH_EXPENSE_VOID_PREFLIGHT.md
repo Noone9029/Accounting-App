@@ -178,3 +178,17 @@ The placeholder phrase with `<EXPENSE_NUMBER>` and `<TOTAL>` is not sufficient f
 ## 14. Exact Next Prompt Title
 
 `DEV-08E Part 5: approved local cash expense void mutation`
+
+## Part 5 Mutation Evidence Note
+
+DEV-08E Part 5 completed the approved local-only cash expense void mutation. Evidence is recorded in [DEV_08E_CASH_EXPENSE_VOID_MUTATION_EVIDENCE.md](DEV_08E_CASH_EXPENSE_VOID_MUTATION_EVIDENCE.md).
+
+- Mutation performed: yes, local-only.
+- Exact service call: `CashExpenseService.void(...)` once.
+- Cash expense `EXP-000002`, safe prefix `74886497`, changed `POSTED -> VOIDED`; `voidedAt` is present.
+- Original journal `JE-000062`, safe prefix `a2aa8290`, changed `POSTED -> REVERSED`.
+- Void reversal journal `JE-000063`, safe prefix `391169e6`, is `POSTED` and balanced at debit/credit `1150.0000`.
+- Reversal lines are Cr `511` `1000.0000`, Cr `230` `150.0000`, and Dr `112` `1150.0000`.
+- `CashExpense:CASH_EXPENSE_VOIDED` audit count is `1`; create audit remains `1`; delete audit remains `0`.
+- Generated documents, email rows/events, ZATCA rows/artifacts, supplier payments/refunds, purchase bills/debit notes/orders/receipts, stock movements, cleanup/delete audits, and temporary DEV-08E scripts remained absent.
+- Exact next prompt title: `DEV-08E Part 6: cash expense void evidence verification`.
