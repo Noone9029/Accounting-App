@@ -106,3 +106,13 @@ Expected journal entry count for the bill is now `1`.
 ## Exact Next Prompt Title
 
 `DEV-08F Part 6: inventory-clearing purchase bill finalization evidence verification`
+
+## Part 6 Verification Result
+
+- DEV-08F Part 6 read-only finalization verification is recorded in [DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_FINALIZATION_EVIDENCE_VERIFICATION.md](DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_FINALIZATION_EVIDENCE_VERIFICATION.md).
+- Verification conclusion: verified.
+- `BILL-000009`, safe prefix `04b3f131`, remained `FINALIZED`, `INVENTORY_CLEARING`, with total and balance due `1150.0000`.
+- `JE-000064`, safe prefix `3fff12bc`, remained `POSTED`, unreversed, and balanced debit/credit `1150.0000`.
+- Journal lines remained Dr `240` `1000.0000`, Dr `230` `150.0000`, Cr `210` `1150.0000`.
+- Purchase receipt, stock movement, generated document, purchase debit note, supplier payment allocation, and supplier unapplied allocation counts for the bill remained `0`.
+- Exact next prompt title: `DEV-08F Part 7: purchase receipt from inventory-clearing bill preflight`.
