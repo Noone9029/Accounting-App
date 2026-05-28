@@ -3354,3 +3354,19 @@
 ## Next Thread Prompt
 
 `DEV-08H Part 25: AP output duplicate generation preflight`
+
+## DEV-08H Part 25 - AP Output Duplicate Generation Preflight Completed
+
+- DEV-08H Part 25 read-only preflight is recorded in [docs/development/DEV_08H_AP_OUTPUT_DUPLICATE_GENERATION_PREFLIGHT.md](docs/development/DEV_08H_AP_OUTPUT_DUPLICATE_GENERATION_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `12c4f198 Verify DEV-08H generated document download integrity`.
+- Selected source: purchase order `PO-000144`, safe prefix `8f42caf7`, status `APPROVED`.
+- Baseline: one existing purchase-order generated document for the selected source, safe prefix `8797cdeb`, filename `purchase-order-PO-000144.pdf`, hash prefix `ed41181eafb7`, size `3226` bytes.
+- Expected duplicate behavior: another `PurchaseOrderService.generatePdf(...)` call should create a second `GeneratedDocument` row because archive uses `create(...)` rather than reuse/upsert.
+- Side-effect baseline: marker email rows `0`, marker ZATCA rows `0`.
+- Required exact Part 26 approval phrase: `I approve DEV-08H Part 26 local-only AP output duplicate generation check under marker DEV08H-AP-20260528T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08H Part 26: approved local AP output duplicate generation check`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 26: approved local AP output duplicate generation check`
