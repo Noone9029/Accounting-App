@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `fd93bba7 Plan DEV-08G standalone receipt void`
+- `d194173e Void DEV-08G standalone receipt locally`
 
 ## Current Development Objective
 
@@ -2949,3 +2949,20 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 30: standalone receipt void evidence verification`
+
+## DEV-08G Part 30 - Standalone Receipt Void Verification Completed
+
+- DEV-08G Part 30 read-only verification is recorded in [docs/development/DEV_08G_STANDALONE_RECEIPT_VOID_EVIDENCE_VERIFICATION.md](docs/development/DEV_08G_STANDALONE_RECEIPT_VOID_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `d194173e Void DEV-08G standalone receipt locally`; local `HEAD` matched `origin/main` at `d194173e44a4c2e5b545c38165bdbf695bb73c4f`.
+- Receipt result: `PRC-000007` safe prefix `d963e3c6`, status `VOIDED`, `voidedAt` present, no inventory asset journal links.
+- Original stock movement: safe prefix `2ebd05ff`, type `PURCHASE_RECEIPT_PLACEHOLDER`, quantity `3.0000`, reference type `PurchaseReceipt`.
+- Void stock movement: safe prefix `33ab2606`, type `ADJUSTMENT_OUT`, quantity `3.0000`, reference type `PurchaseReceiptVoid`.
+- Side effects: directly tied journals `0`, generated documents `0`, marker email rows `0`, selected receipt ZATCA audit rows `0`.
+- Audit counts for `PRC-000007`: receipt created `1`, receipt voided `1`, asset-post/reversal `0`.
+- No `*dev08g*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 31: purchase receipt inventory integration closure`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 31: purchase receipt inventory integration closure`

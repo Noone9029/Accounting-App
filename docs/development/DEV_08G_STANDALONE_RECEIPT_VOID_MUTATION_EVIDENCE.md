@@ -104,3 +104,17 @@ Run before commit:
 ## Exact Next Prompt Title
 
 `DEV-08G Part 30: standalone receipt void evidence verification`
+
+## Part 30 Verification Note
+
+DEV-08G Part 30 independently verified the standalone receipt void with read-only Prisma queries only.
+
+- Verification evidence: [DEV_08G_STANDALONE_RECEIPT_VOID_EVIDENCE_VERIFICATION.md](DEV_08G_STANDALONE_RECEIPT_VOID_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected before verification: `d194173e Void DEV-08G standalone receipt locally`.
+- `PRC-000007` safe prefix `d963e3c6` remains `VOIDED` with `voidedAt` present.
+- Original stock movement safe prefix `2ebd05ff` remains `PURCHASE_RECEIPT_PLACEHOLDER` quantity `3.0000`.
+- Void stock movement safe prefix `33ab2606` remains `ADJUSTMENT_OUT` quantity `3.0000`.
+- Journal, generated document, marker email, and selected receipt ZATCA counts remain `0`.
+- Receipt audit actions show one `PURCHASE_RECEIPT_CREATED` action and one `PURCHASE_RECEIPT_VOIDED` action, with no asset-post/reversal audit actions.
+- No `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 31: purchase receipt inventory integration closure`.
