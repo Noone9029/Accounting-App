@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `fda5e717 Check DEV-08G purchase order receipt asset posting blocker`
+- `558e5a59 Verify DEV-08G purchase order receipt asset posting blocker`
 
 ## Current Development Objective
 
@@ -2710,3 +2710,20 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 16: purchase-order receipts void preflight`
+
+## DEV-08G Part 16 - Purchase Order Receipt Void Preflight Completed
+
+- DEV-08G Part 16 read-only preflight is recorded in [docs/development/DEV_08G_PO_RECEIPT_VOID_PREFLIGHT.md](docs/development/DEV_08G_PO_RECEIPT_VOID_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `558e5a59 Verify DEV-08G purchase order receipt asset posting blocker`; local `HEAD` matched `origin/main` at `558e5a59ca8af2b4c9359ff8d8bf8b5d61cf98fb`.
+- Current receipt state: `PRC-000005` safe prefix `1f412d79` remains `POSTED` quantity `4.0000`; `PRC-000006` safe prefix `942e4907` remains `POSTED` quantity `6.0000`; neither receipt has asset journal or void movement.
+- Selected Part 17 void: `PRC-000006` safe prefix `942e4907`, quantity `6.0000`.
+- Stock sufficiency: on hand `10.0000`, expected after void `4.0000`.
+- Expected Part 17 result: void stock movement type `ADJUSTMENT_OUT`; receiving `PARTIAL`; matching `PARTIALLY_RECEIVED`; remaining source quantity `6.0000`.
+- Baselines: void stock movements `0`, receipt void audit actions `0`, directly tied journals `0`.
+- Required exact Part 17 approval phrase: `I approve DEV-08G Part 17 local-only purchase-order receipt void mutation under marker DEV08G-AP-20260527T000000 for the 6.0000 receipt. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08G Part 17: approved local purchase-order receipt void mutation`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 17: approved local purchase-order receipt void mutation`
