@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `151e3388 Plan DEV-08G purchase order receipt void`
+- `87ed54a9 Void DEV-08G purchase order receipt locally`
 
 ## Current Development Objective
 
@@ -2746,3 +2746,19 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 18: purchase-order receipt void evidence verification`
+
+## DEV-08G Part 18 - Purchase Order Receipt Void Verification Completed
+
+- DEV-08G Part 18 read-only verification is recorded in [docs/development/DEV_08G_PO_RECEIPT_VOID_EVIDENCE_VERIFICATION.md](docs/development/DEV_08G_PO_RECEIPT_VOID_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `87ed54a9 Void DEV-08G purchase order receipt locally`; local `HEAD` matched `origin/main` at `87ed54a970269622b5ebed26862b94f769321057`.
+- Verification result: `PRC-000006` safe prefix `942e4907` remains `VOIDED` with void stock movement `3317628d` quantity `6.0000`; `PRC-000005` safe prefix `1f412d79` remains `POSTED`.
+- Receiving and matching result: non-voided received `4.0000`, remaining `6.0000`, receiving `PARTIAL`, matching `PARTIALLY_RECEIVED`.
+- Side-effect result: directly tied journals `0`, generated documents `0`, email rows `0`, ZATCA fixture audit actions `0`.
+- Audit result: two `PurchaseReceipt:PURCHASE_RECEIPT_CREATED` actions and one `PurchaseReceipt:PURCHASE_RECEIPT_VOIDED` action.
+- Temporary script cleanup result: no `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 19: remaining purchase-order receipt void preflight`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 19: remaining purchase-order receipt void preflight`

@@ -122,3 +122,19 @@ Run before commit:
 ## Exact Next Prompt Title
 
 `DEV-08G Part 18: purchase-order receipt void evidence verification`
+
+## Part 18 Verification Note
+
+DEV-08G Part 18 independently verified the `6.0000` receipt void with read-only Prisma queries only.
+
+- Verification evidence: [DEV_08G_PO_RECEIPT_VOID_EVIDENCE_VERIFICATION.md](DEV_08G_PO_RECEIPT_VOID_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected before verification: `87ed54a9 Void DEV-08G purchase order receipt locally`.
+- `PRC-000006` safe prefix `942e4907` remains `VOIDED` with `voidedAt` present.
+- `PRC-000005` safe prefix `1f412d79` remains `POSTED`.
+- Void stock movement safe prefix `3317628d` remains `ADJUSTMENT_OUT` quantity `6.0000`.
+- Non-voided received quantity is `4.0000`; remaining quantity is `6.0000`.
+- Receiving status is `PARTIAL`; receipt matching status is `PARTIALLY_RECEIVED`.
+- Journal, generated document, email, and ZATCA counts remain `0`.
+- Receipt audit actions now show two `PURCHASE_RECEIPT_CREATED` actions and one `PURCHASE_RECEIPT_VOIDED` action.
+- No `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 19: remaining purchase-order receipt void preflight`.
