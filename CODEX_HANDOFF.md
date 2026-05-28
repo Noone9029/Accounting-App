@@ -3690,3 +3690,20 @@
 ## Next Thread Prompt
 
 `DEV-08I Part 16: AP output permission audit and cleanup preflight`
+
+## DEV-08I Part 16 - AP Output Permission Audit And Cleanup Preflight Completed
+
+- DEV-08I Part 16 read-only audit/cleanup preflight is recorded in [docs/development/DEV_08I_AP_OUTPUT_PERMISSION_AUDIT_CLEANUP_PREFLIGHT.md](docs/development/DEV_08I_AP_OUTPUT_PERMISSION_AUDIT_CLEANUP_PREFLIGHT.md).
+- Runtime mutation performed: no; login/API/browser/output/download/cleanup performed: no.
+- Latest commit inspected: `eb81bc5f Verify DEV-08I restricted AP output UI permissions`; local `HEAD` matched `origin/main`.
+- Local-only proof: sanitized DB target remained protocol `postgresql`, host `localhost`, port `5432`, database `accounting`.
+- Fixture inventory: three marker-scoped disposable roles, users, and memberships remain active for full output QA, restricted archive-only, and restricted AP viewer/no archive-download permission shapes.
+- Generated-document inventory: selected-source generated documents total `19`; DEV-08I full-user generated documents total `12`; restricted users generated `0`.
+- Audit inventory: `12` `GENERATED_DOCUMENT_CREATED` rows match the DEV-08I full-user generated-document prefixes, full-user `AUTH_LOGIN` rows total `1`, restricted archive-only `AUTH_LOGIN` rows total `1`, restricted AP viewer/no-download `AUTH_LOGIN` rows total `0`, and marker text-matched audit rows total `0`.
+- Side effects/exposure: marker email rows stayed `0`, ZATCA submission logs stayed `331`, signed artifact drafts stayed `33`, and no raw audit metadata, PDF body, base64, token, cookie, auth header, request/response body, email body, signed XML, or QR payload was printed.
+- Cleanup posture: preserve DEV-08I fixtures and generated-document/audit evidence for closure; defer cleanup unless a later explicitly approved local cleanup branch defines the exact retention/removal policy.
+- Exact next prompt title: `DEV-08I Part 17: AP output permission and authenticated UI QA closure`.
+
+## Next Thread Prompt
+
+`DEV-08I Part 17: AP output permission and authenticated UI QA closure`
