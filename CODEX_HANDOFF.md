@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `462e1a2d Plan DEV-08K AP email local schema gate`
+- `29a58cd7 Apply DEV-08K AP email migration locally`
 
 ## Current Development Objective
 
@@ -3900,3 +3900,19 @@
 ## Next Thread Prompt
 
 `DEV-08K Part 8C: AP email local schema gate evidence verification`
+
+## DEV-08K Part 8C - AP Email Local Schema Gate Evidence Verification Completed
+
+- DEV-08K Part 8C read-only verification is recorded in [docs/development/DEV_08K_AP_EMAIL_LOCAL_SCHEMA_GATE_EVIDENCE_VERIFICATION.md](docs/development/DEV_08K_AP_EMAIL_LOCAL_SCHEMA_GATE_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no; email outbox rows created: no; AP endpoint called: no; provider calls performed: no.
+- Latest commit inspected: `29a58cd7 Apply DEV-08K AP email migration locally`; local `HEAD` matched `origin/main`.
+- Local-only proof: sanitized DB target was protocol `postgresql`, host `localhost`, port `5432`, database `accounting`, schema `public`.
+- Schema verification: `20260528100000_add_ap_generated_document_email_metadata` is applied locally and all seven AP email `EmailOutbox` metadata columns are present.
+- Selected generated document verification: safe prefix `27a07429` remains `GENERATED`, document/source number `BILL-000423`, document type `PURCHASE_BILL`, source type `PurchaseBill`, source prefix `16e6f021`, filename `purchase-bill-BILL-000423.pdf`, MIME type `application/pdf`, size `3417`, hash prefix `47935bce9f75`.
+- Row/provider verification: email outbox rows `227`, selected synthetic recipient rows `0`, AP generated-document email rows `0`, selected generated-document email rows `0`, provider events `0`, generated documents `870`.
+- Temporary script check: no tracked or untracked `*dev08k*` temp scripts remain under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08K Part 8: approved local AP generated-document email outbox fixture mutation`.
+
+## Next Thread Prompt
+
+`DEV-08K Part 8: approved local AP generated-document email outbox fixture mutation`

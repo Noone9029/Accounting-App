@@ -102,3 +102,12 @@ No AP email endpoint call, provider event, provider send, retry worker, webhook,
 ## Exact Next Prompt Title
 
 `DEV-08K Part 8C: AP email local schema gate evidence verification`
+
+## Part 8C Follow-Up
+
+- Part 8C verification is recorded in [DEV_08K_AP_EMAIL_LOCAL_SCHEMA_GATE_EVIDENCE_VERIFICATION.md](DEV_08K_AP_EMAIL_LOCAL_SCHEMA_GATE_EVIDENCE_VERIFICATION.md).
+- Read-only verification confirmed the target migration remains applied and all seven `EmailOutbox` AP metadata columns are present.
+- The selected generated document safe prefix `27a07429` remains `GENERATED`.
+- Email outbox rows stayed `227`, selected synthetic recipient rows stayed `0`, AP generated-document email rows stayed `0`, selected generated-document email rows stayed `0`, provider events stayed `0`, and generated documents stayed `870`.
+- No tracked or untracked `*dev08k*` temp script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08K Part 8: approved local AP generated-document email outbox fixture mutation`.
