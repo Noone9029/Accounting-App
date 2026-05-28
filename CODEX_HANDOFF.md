@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `ce9e202d Create DEV-08G purchase order receipt source fixture`
+- `792c9237 Verify DEV-08G purchase order receipt source fixture`
 
 ## Current Development Objective
 
@@ -2504,3 +2504,22 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 4: partial purchase receipt from purchase order preflight`
+
+## DEV-08G Part 4 - Partial Purchase Order Receipt Preflight Completed
+
+- DEV-08G Part 4 read-only preflight is recorded in [docs/development/DEV_08G_PARTIAL_PO_RECEIPT_PREFLIGHT.md](docs/development/DEV_08G_PARTIAL_PO_RECEIPT_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `792c9237 Verify DEV-08G purchase order receipt source fixture`; local `HEAD` matched `origin/main` at `792c9237600f040f64812f704af9221056c495e6`.
+- Source purchase order state: marker-scoped `PO-000003` safe prefix `a3efc2e4`, status `APPROVED`, converted bill absent, total `1150.0000`.
+- Source line state: line safe prefix `22f17076`, item safe prefix `3b8d7650`, quantity `10.0000`, unit price `100.0000`, purchase tax `15.0000`, asset account code `111`; item remains `ACTIVE` and inventory-tracked.
+- Warehouse state: active warehouse safe prefix `197fac56`, code `MAIN`.
+- Receiving baseline: purchase receipt count `0`, non-voided receipt line count `0`, received quantity `0.0000`, remaining quantity `10.0000`, receiving `NOT_STARTED`, matching `NOT_RECEIVED`.
+- Selected Part 5 quantity: `4.0000`; expected post-mutation received quantity `4.0000`, remaining quantity `6.0000`, receiving `PARTIAL`, matching `PARTIALLY_RECEIVED`.
+- Expected Part 5 receipt behavior: receipt status `POSTED`; stock movement type `PURCHASE_RECEIPT_PLACEHOLDER`; no journal or generated output; PO-only asset posting remains blocked because no finalized linked inventory-clearing bill exists.
+- Baselines: stock movements `0`, directly tied journals `0`, generated documents/output `0`, email outbox/provider rows `0`, ZATCA fixture audit actions `0`, existing fixture audit actions `4`, purchase receipt audit actions `0`.
+- Required exact Part 5 approval phrase: `I approve DEV-08G Part 5 local-only partial purchase receipt from purchase order mutation under marker DEV08G-AP-20260527T000000 for quantity 4.0000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08G Part 5: approved local partial purchase receipt from purchase order mutation`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 5: approved local partial purchase receipt from purchase order mutation`
