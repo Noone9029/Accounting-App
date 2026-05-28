@@ -39,3 +39,9 @@
 ## Exact Next Prompt Title
 
 `DEV-08H Part 5: approved local purchase order PDF archive mutation`
+
+## Part 5 Note
+
+- Part 5 archived one purchase-order PDF in [DEV_08H_PURCHASE_ORDER_PDF_ARCHIVE_MUTATION_EVIDENCE.md](DEV_08H_PURCHASE_ORDER_PDF_ARCHIVE_MUTATION_EVIDENCE.md).
+- Generated document safe prefix `8797cdeb`, filename `purchase-order-PO-000144.pdf`, hash prefix `ed41181eafb7`, size `3226` bytes.
+- Marker email and ZATCA counts remained `0`.
