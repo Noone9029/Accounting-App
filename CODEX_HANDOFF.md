@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `69a6c7c2 Create DEV-08K AP email outbox fixture`
+- `fb40145a Verify DEV-08K AP email outbox fixture`
 
 ## Current Development Objective
 
@@ -3885,6 +3885,24 @@
 ## Next Thread Prompt
 
 `DEV-08K Part 10: AP email permission negative-check preflight`
+
+## DEV-08K Part 10 - AP Email Permission Negative-Check Preflight Completed
+
+- DEV-08K Part 10 read-only preflight is recorded in [docs/development/DEV_08K_AP_EMAIL_PERMISSION_NEGATIVE_PREFLIGHT.md](docs/development/DEV_08K_AP_EMAIL_PERMISSION_NEGATIVE_PREFLIGHT.md).
+- Runtime mutation performed: no; email outbox rows created: no; provider calls performed: no; login/API/browser performed: no.
+- Latest commit inspected: `fb40145a Verify DEV-08K AP email outbox fixture`; local `HEAD` matched `origin/main`.
+- Local-only proof: sanitized DB target was protocol `postgresql`, host `localhost`, port `5432`, database `accounting`, schema `public`.
+- Existing restricted fixtures selected for reference: restricted archive-only user `16d72d2a` / role `83dc203f` and restricted AP viewer/no archive-download user `41b031e2` / role `b167ef15`.
+- Permission snapshot: both restricted roles lack `emailOutbox.view` and `generatedDocuments.download`; AP viewer/no-download has AP source view permissions including `purchaseBills.view`; archive-only has no AP source view permissions.
+- Selected generated document: safe prefix `27a07429`, status `GENERATED`, document/source number `BILL-000423`, document type `PURCHASE_BILL`, source type `PurchaseBill`, source prefix `16e6f021`.
+- Baseline counts: email outbox rows `228`, synthetic recipient rows `1`, AP generated-document email rows `1`, selected generated-document email rows `1`, provider events `0`, generated documents `870`.
+- Part 11 plan: use a disposable local runner with direct `EmailService.createApGeneratedDocumentOutbox` negative checks and isolated denied permission vectors for missing `generatedDocuments.download`, missing AP source view, missing `emailOutbox.view`, plus the two existing restricted role shapes. The runner must refuse non-local targets, print sanitized metadata only, and be removed before commit.
+- Part 11 approval phrase status: not received in this thread.
+- Exact next prompt title: `DEV-08K Part 11: approved local AP generated-document email permission negative checks`.
+
+## Next Thread Prompt
+
+`DEV-08K Part 11: approved local AP generated-document email permission negative checks`
 
 ## DEV-08K Part 8 - Approved Local AP Generated-Document Email Outbox Fixture Mutation Completed
 
