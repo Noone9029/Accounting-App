@@ -37,3 +37,11 @@
 ## Exact Next Prompt Title
 
 `DEV-08H Part 24: generated document download integrity evidence verification`
+
+## Part 24 Note
+
+- Part 24 verified the Part 23 integrity evidence against stored generated-document metadata.
+- Hashes and byte counts still matched for all six selected documents.
+- Total generated document count remained `839`; no source state changed.
+- Marker email and ZATCA counts remained `0`.
+- PDF body/base64 was not printed.

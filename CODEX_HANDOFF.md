@@ -3339,3 +3339,18 @@
 ## Next Thread Prompt
 
 `DEV-08H Part 24: generated document download integrity evidence verification`
+
+## DEV-08H Part 24 - Generated Document Download Integrity Verification Completed
+
+- DEV-08H Part 24 read-only verification is recorded in [docs/development/DEV_08H_GENERATED_DOCUMENT_DOWNLOAD_INTEGRITY_EVIDENCE_VERIFICATION.md](docs/development/DEV_08H_GENERATED_DOCUMENT_DOWNLOAD_INTEGRITY_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `7ba47efa Check DEV-08H generated document download integrity`.
+- Verification result: stored generated-document metadata still matched downloaded buffer hash and size for all six selected DEV-08H documents.
+- Document count unchanged: total generated documents `839 -> 839`.
+- Source states unchanged: `PO-000144` `APPROVED`, `BILL-000423` `FINALIZED`, `PAY-000318` `POSTED`, `SRF-000127` `POSTED`, `PDN-000127` `FINALIZED`, and `EXP-000065` `POSTED`.
+- Side effects: marker email rows `0`, marker ZATCA rows `0`; PDF body/base64 was not printed.
+- Exact next prompt title: `DEV-08H Part 25: AP output duplicate generation preflight`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 25: AP output duplicate generation preflight`
