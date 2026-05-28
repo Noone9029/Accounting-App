@@ -127,3 +127,22 @@ Run before commit:
 ## Exact Next Prompt Title
 
 `DEV-08G Part 5: approved local partial purchase receipt from purchase order mutation`
+
+## Part 5 Mutation Note
+
+DEV-08G Part 5 completed the approved local-only partial purchase receipt mutation.
+
+- Mutation evidence: [DEV_08G_PARTIAL_PO_RECEIPT_MUTATION_EVIDENCE.md](DEV_08G_PARTIAL_PO_RECEIPT_MUTATION_EVIDENCE.md).
+- Latest commit inspected before mutation: `f7f939d0 Plan DEV-08G partial purchase order receipt`.
+- Approval phrase status: exact Part 5 approval phrase was supplied and checked before mutation.
+- Service call: exactly one `PurchaseReceiptService.create(...)`.
+- Created purchase receipt `PRC-000005` safe prefix `1f412d79`, status `POSTED`.
+- Receipt line safe prefix `17eecfdc`, quantity `4.0000`, unit cost `100.0000`, source PO line safe prefix `22f17076`.
+- Stock movement safe prefix `39a7350e`, type `PURCHASE_RECEIPT_PLACEHOLDER`, quantity `4.0000`.
+- Receiving changed to `PARTIAL` with `4.0000` received and `6.0000` remaining.
+- Receipt matching changed to `PARTIALLY_RECEIVED` with the expected no-linked-bill warning.
+- Inventory asset posting was not run; preview remained blocked because no finalized linked inventory-clearing bill exists.
+- Directly tied journal entries, generated documents/output, email rows/events, and ZATCA fixture audit actions remained `0`.
+- Receipt audit action: `PurchaseReceipt` `PURCHASE_RECEIPT_CREATED` once.
+- No `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 6: partial purchase receipt evidence verification`.
