@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `55ff99ea Verify DEV-08G remaining purchase order receipt`
+- `9e883445 Plan DEV-08G purchase order over receipt blocker`
 
 ## Current Development Objective
 
@@ -2631,3 +2631,20 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 11: approved local purchase order over-receipt blocker negative check`
+
+## DEV-08G Part 11 - Purchase Order Over-Receipt Blocker Negative Check Completed
+
+- DEV-08G Part 11 negative-check evidence is recorded in [docs/development/DEV_08G_PO_OVER_RECEIPT_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md](docs/development/DEV_08G_PO_OVER_RECEIPT_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md).
+- Expected failure performed: yes, local-only.
+- Latest commit inspected: `9e883445 Plan DEV-08G purchase order over receipt blocker`; local `HEAD` matched `origin/main` at `9e883445c2602b16dadd2af1ca44cd08090ac58c`.
+- Approval phrase status: exact Part 11 phrase received in the up-front DEV-08G approval bundle and checked before the service call.
+- Local target proof: runner classified `apps/api/.env` as `localhost:5432/accounting` before importing write-capable services; no production, beta, hosted/shared-target, provider, or customer-data target was used.
+- Service call attempted: exactly one `PurchaseReceiptService.create(...)` for excess quantity `1.0000`.
+- Expected blocker observed: `Receipt quantity cannot exceed the remaining source quantity.`
+- State unchanged proof: purchase receipts `2 -> 2`, stock movements `2 -> 2`, directly tied journals `0 -> 0`, generated documents `0 -> 0`, organization receipt-create audit count `6 -> 6`, email rows/events `0`, ZATCA fixture audit actions `0`.
+- Temporary script cleanup result: `apps/api/scripts/dev08g-part11-runner.ts` was removed after execution; no `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 12: purchase order over-receipt blocker evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 12: purchase order over-receipt blocker evidence verification`

@@ -95,3 +95,21 @@ Run before commit:
 ## Exact Next Prompt Title
 
 `DEV-08G Part 11: approved local purchase order over-receipt blocker negative check`
+
+## Part 11 Negative Check Note
+
+DEV-08G Part 11 completed the approved local-only purchase order over-receipt negative check.
+
+- Negative-check evidence: [DEV_08G_PO_OVER_RECEIPT_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md](DEV_08G_PO_OVER_RECEIPT_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md).
+- Latest commit inspected before the negative check: `9e883445 Plan DEV-08G purchase order over receipt blocker`.
+- Approval phrase status: exact Part 11 approval phrase was supplied and checked before the service call.
+- Service call attempted: exactly one `PurchaseReceiptService.create(...)` for excess quantity `1.0000`.
+- Expected blocker observed: `Receipt quantity cannot exceed the remaining source quantity.`
+- Purchase receipt count remained `2`.
+- Stock movement count remained `2`.
+- Directly tied journal count remained `0`.
+- Generated document count remained `0`.
+- Email rows/events and ZATCA fixture audit actions remained `0`.
+- No successful receipt, stock movement, journal, generated document, email, ZATCA, purchase bill, or new receipt audit action was created.
+- No `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 12: purchase order over-receipt blocker evidence verification`.
