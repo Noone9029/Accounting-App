@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `f4d8834c Plan DEV-08K AP email outbox fixture`
+- `462e1a2d Plan DEV-08K AP email local schema gate`
 
 ## Current Development Objective
 
@@ -3883,3 +3883,20 @@
 ## Next Thread Prompt
 
 `DEV-08K Part 8B: approved local AP email migration application`
+
+## DEV-08K Part 8B - Approved Local AP Email Migration Application Completed
+
+- DEV-08K Part 8B mutation evidence is recorded in [docs/development/DEV_08K_AP_EMAIL_LOCAL_SCHEMA_GATE_MUTATION_EVIDENCE.md](docs/development/DEV_08K_AP_EMAIL_LOCAL_SCHEMA_GATE_MUTATION_EVIDENCE.md).
+- Approval phrase status: exact Part 8B phrase received and checked before mutation.
+- Runtime schema mutation performed: yes, only the already-committed AP email metadata migration on the disposable local database.
+- Local-only proof: sanitized DB target was protocol `postgresql`, host `localhost`, port `5432`, database `accounting`, schema `public`.
+- Migration guard: an unrelated pending migration `20260521193000_add_supplier_statement_document_type` was present, so `prisma migrate deploy` was skipped to avoid applying more than the approved DEV-08K scope.
+- Migration result: `20260528100000_add_ap_generated_document_email_metadata` was executed directly and marked applied; the unrelated supplier-statement migration remains unapplied.
+- Schema result: `AP_GENERATED_DOCUMENT` exists locally and all seven AP email `EmailOutbox` metadata columns are present.
+- Row/provider side-effect result: email outbox rows stayed `227`, selected synthetic recipient rows stayed `0`, AP generated-document email rows stayed `0`, provider events stayed `0`, generated documents stayed `870`.
+- AP endpoint/provider/email/ZATCA result: not called or run.
+- Exact next prompt title: `DEV-08K Part 8C: AP email local schema gate evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08K Part 8C: AP email local schema gate evidence verification`

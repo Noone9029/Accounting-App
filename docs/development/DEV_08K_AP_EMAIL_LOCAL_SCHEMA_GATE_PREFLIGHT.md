@@ -139,3 +139,13 @@ Status: received exactly from the user before this preflight was executed.
 ## Exact Next Prompt Title
 
 `DEV-08K Part 8B: approved local AP email migration application`
+
+## Part 8B Follow-Up
+
+- Part 8B evidence is recorded in [DEV_08K_AP_EMAIL_LOCAL_SCHEMA_GATE_MUTATION_EVIDENCE.md](DEV_08K_AP_EMAIL_LOCAL_SCHEMA_GATE_MUTATION_EVIDENCE.md).
+- The exact Part 8B approval phrase was received and checked before mutation.
+- Only `20260528100000_add_ap_generated_document_email_metadata` was applied to the disposable local database.
+- `prisma migrate deploy` was skipped because one unrelated migration was also pending and outside the DEV-08K approval scope.
+- The AP email enum value and seven `EmailOutbox` metadata columns are present locally.
+- Email outbox rows remained `227`, selected synthetic recipient rows remained `0`, AP generated-document email rows remained `0`, provider events remained `0`, and generated documents remained `870`.
+- Exact next prompt title: `DEV-08K Part 8C: AP email local schema gate evidence verification`.
