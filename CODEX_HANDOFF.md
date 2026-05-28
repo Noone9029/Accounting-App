@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `91ccd67a Verify DEV-08G purchase order receipt void`
+- `90b69e4c Plan DEV-08G remaining purchase order receipt void`
 
 ## Current Development Objective
 
@@ -2778,3 +2778,22 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 20: approved local remaining purchase-order receipt void mutation`
+
+## DEV-08G Part 20 - Remaining Purchase Order Receipt Void Mutation Completed
+
+- DEV-08G Part 20 local-only mutation evidence is recorded in [docs/development/DEV_08G_REMAINING_PO_RECEIPT_VOID_MUTATION_EVIDENCE.md](docs/development/DEV_08G_REMAINING_PO_RECEIPT_VOID_MUTATION_EVIDENCE.md).
+- Runtime mutation performed: yes, local-only.
+- Latest commit inspected: `90b69e4c Plan DEV-08G remaining purchase order receipt void`.
+- Approval phrase status: exact Part 20 phrase received in the up-front DEV-08G approval bundle and checked before mutation.
+- Service call: exactly one `PurchaseReceiptService.void(...)` for `PRC-000005`.
+- Receipt result: `PRC-000005` safe prefix `1f412d79`, quantity `4.0000`, changed `POSTED -> VOIDED` with `voidedAt` present.
+- Void stock movement: safe prefix `9456b1ca`, type `ADJUSTMENT_OUT`, quantity `4.0000`, reference type `PurchaseReceiptVoid`.
+- Already-voided receipt `PRC-000006` safe prefix `942e4907` remained `VOIDED`.
+- Final PO state: non-voided receipt count `0`, received `0.0000`, remaining `10.0000`, receiving `NOT_STARTED`, matching `NOT_RECEIVED`.
+- Side effects: stock on hand `4.0000 -> 0.0000`; stock movements `3 -> 4`; directly tied journals `0 -> 0`; generated documents `0`; marker email rows `0`; broad existing ZATCA audit count unchanged.
+- Cleanup: temporary runner `apps/api/scripts/dev08g-part20-runner.ts` was removed; no `*dev08g*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 21: remaining purchase-order receipt void evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 21: remaining purchase-order receipt void evidence verification`

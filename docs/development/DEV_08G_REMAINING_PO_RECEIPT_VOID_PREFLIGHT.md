@@ -88,3 +88,18 @@ Run before commit:
 ## Exact Next Prompt Title
 
 `DEV-08G Part 20: approved local remaining purchase-order receipt void mutation`
+
+## Part 20 Mutation Note
+
+DEV-08G Part 20 completed the approved local-only void mutation for the remaining `4.0000` purchase-order receipt.
+
+- Mutation evidence: [DEV_08G_REMAINING_PO_RECEIPT_VOID_MUTATION_EVIDENCE.md](DEV_08G_REMAINING_PO_RECEIPT_VOID_MUTATION_EVIDENCE.md).
+- Latest commit inspected before mutation: `90b69e4c Plan DEV-08G remaining purchase order receipt void`.
+- Exact Part 20 approval phrase was checked before importing write-capable services.
+- `PRC-000005` safe prefix `1f412d79` changed `POSTED -> VOIDED` with `voidedAt` present.
+- Void stock movement safe prefix `9456b1ca` was created as `ADJUSTMENT_OUT` quantity `4.0000`.
+- Non-voided DEV-08G PO receipt count is now `0`.
+- Final PO state: received `0.0000`, remaining `10.0000`, receiving `NOT_STARTED`, matching `NOT_RECEIVED`.
+- Journal entries tied to the marker or PO source remained `0`; generated documents for selected receipts or marker remained `0`; marker email rows remained `0`; broad existing ZATCA audit count was unchanged.
+- No `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 21: remaining purchase-order receipt void evidence verification`.
