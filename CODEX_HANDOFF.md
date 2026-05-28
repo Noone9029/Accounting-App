@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `65ab25bb Create DEV-08G standalone purchase receipt`
+- `3cf93b4a Verify DEV-08G standalone purchase receipt`
 
 ## Current Development Objective
 
@@ -2867,3 +2867,19 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 25: standalone receipt asset-posting blocker preflight`
+
+## DEV-08G Part 25 - Standalone Receipt Asset Posting Blocker Preflight Completed
+
+- DEV-08G Part 25 read-only preflight is recorded in [docs/development/DEV_08G_STANDALONE_RECEIPT_ASSET_POSTING_BLOCKER_PREFLIGHT.md](docs/development/DEV_08G_STANDALONE_RECEIPT_ASSET_POSTING_BLOCKER_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `3cf93b4a Verify DEV-08G standalone purchase receipt`; local `HEAD` matched `origin/main` at `3cf93b4a943e7f9226fbc50779f7dc10c640c45c`.
+- Selected receipt: `PRC-000007` safe prefix `d963e3c6`, status `POSTED`, no purchase bill link, no purchase order link, no inventory asset journal links.
+- Preview blocker: `accountingPreview` is `DESIGN_ONLY`, `canPost=false`, because purchase receipt asset posting requires a finalized linked purchase bill in inventory clearing mode.
+- Expected Part 26 negative check: exactly one `PurchaseReceiptService.postInventoryAsset(...)` call should throw that blocker without creating a journal or asset audit.
+- Baselines: selected item/warehouse stock movements `5`, directly tied journals `0`, generated documents `0`, marker email rows `0`, selected receipt ZATCA audit rows `0`, selected receipt asset-post/reversal audit rows `0`.
+- Required exact Part 26 approval phrase: `I approve DEV-08G Part 26 local-only standalone receipt asset-posting blocker negative check under marker DEV08G-AP-20260527T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08G Part 26: approved local standalone receipt asset-posting blocker negative check`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 26: approved local standalone receipt asset-posting blocker negative check`
