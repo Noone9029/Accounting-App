@@ -3604,3 +3604,21 @@
 ## Next Thread Prompt
 
 `DEV-08I Part 11: approved local authenticated full-permission AP output UI QA`
+
+## DEV-08I Part 11 - Full-Permission AP Output UI QA Completed
+
+- DEV-08I Part 11 evidence is recorded in [docs/development/DEV_08I_FULL_PERMISSION_AP_OUTPUT_UI_EVIDENCE.md](docs/development/DEV_08I_FULL_PERMISSION_AP_OUTPUT_UI_EVIDENCE.md).
+- Runtime mutation performed: yes, only the approved local generated-document archive rows created by AP source PDF UI clicks.
+- Latest commit inspected: `30b581cd Plan DEV-08I full permission AP output UI QA`; local `HEAD` matched `origin/main`.
+- Approval phrase status: exact Part 11 phrase received in the upfront DEV-08I approval bundle and checked before UI/output work.
+- Local-only proof: API `http://localhost:4000` returned health `200`, web `http://localhost:3000/login` returned `200`, and the sanitized DB target remained protocol `postgresql`, host `localhost`, port `5432`, database `accounting`.
+- Auth setup: the fixture password did not match the seed default, so the successful browser session used a local JWT for fake full user `5281dfc0`; `/auth/login` was not called and full-user `AUTH_LOGIN` audit rows stayed `1 -> 1`.
+- UI checks: `/documents` loaded with six selected AP archive rows visible and `Download archived PDF` enabled; all six AP detail routes loaded with status `200` and their source PDF buttons visible/enabled.
+- Output evidence: selected-source generated documents `13 -> 19`; six new docs were created by full user `5281dfc0`: `156e0b83`, `069106ca`, `75b2e7ae`, `32e98b3b`, `3a6d6bad`, and `5cfcbed8`; all had status `GENERATED`, verified stored hash prefixes/byte sizes, and matching `GENERATED_DOCUMENT_CREATED` audit rows.
+- Side effects/exposure: marker email rows stayed `0`, ZATCA submission logs stayed `331`, signed artifact drafts stayed `33`, browser console/page errors were `0`, and no PDF body, base64, token, cookie, auth header, request/response body, email body, signed XML, or QR payload was printed.
+- Temporary runner `apps/api/scripts/dev08i-part11-full-ui-qa.ts` was removed after execution and no `*dev08i*` script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08I Part 12: full-permission AP output UI evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08I Part 12: full-permission AP output UI evidence verification`

@@ -1,0 +1,142 @@
+# DEV-08I Full-Permission AP Output UI Evidence
+
+## Purpose And Scope
+
+- Task: `DEV-08I Part 11: approved local authenticated full-permission AP output UI QA`.
+- Latest commit inspected: `30b581cd Plan DEV-08I full permission AP output UI QA`.
+- Local `HEAD` matched `origin/main`: yes.
+- Marker: `DEV08I-AP-20260528T000000`.
+- Approval phrase status: received and matched exactly.
+- Runtime mutation performed: yes, only the approved local generated-document archive rows created by AP source PDF UI clicks.
+- Browser/UI flow performed: yes, against local web `http://localhost:3000`.
+- Login endpoint called: no; the browser session used a local JWT for the existing fake full-permission fixture user after the fixture password did not match the seed default.
+
+Approval phrase used:
+
+`I approve DEV-08I Part 11 local-only authenticated full-permission AP output UI QA under marker DEV08I-AP-20260528T000000. No production, no beta, no customer data.`
+
+No production, beta, hosted/shared, or customer-data target was used. No token, cookie, auth header, request body, response body, PDF body, base64, signed XML, QR payload, email body, secret, password, or database URL was printed.
+
+## Local Target And Auth Setup
+
+- Database target accepted from `.env` without printing credentials: protocol `postgresql`, host `localhost`, port `5432`, database `accounting`.
+- API target accepted: `http://localhost:4000`; health status `200`.
+- Web target accepted: `http://localhost:3000`; `/login` status `200`.
+- Full output QA user safe prefix: `5281dfc0`.
+- Full output QA membership safe prefix: `b7f0b3d4`.
+- Full output QA role safe prefix: `a0c6ece9`.
+- Full output QA permission count: `136`.
+- Selected permissions present: `generatedDocuments.view`, `generatedDocuments.download`, `purchaseOrders.view`, `purchaseBills.view`, `supplierPayments.view`, `supplierRefunds.view`, `purchaseDebitNotes.view`, and `cashExpenses.view`.
+
+Auth setup note:
+
+- A password-based local login runner stopped before login/browser/output because the stored fixture password did not match the seed default.
+- The completed browser checks used a locally signed JWT for the existing fake user and did not print auth material.
+- Because `/auth/login` was not called, full-user `AUTH_LOGIN` audit rows remained unchanged at `1`.
+
+## UI Result
+
+The `/documents` page loaded with status `200`. All six selected AP archive rows were visible and had enabled `Download archived PDF` actions.
+
+| Source | Source prefix | Filename | Archive row visible | Archive download enabled |
+| --- | --- | --- | --- | --- |
+| `PO-000144` | `8f42caf7` | `purchase-order-PO-000144.pdf` | yes | yes |
+| `BILL-000423` | `16e6f021` | `purchase-bill-BILL-000423.pdf` | yes | yes |
+| `PAY-000318` | `7efa0003` | `supplier-payment-PAY-000318.pdf` | yes | yes |
+| `SRF-000127` | `e7eed3c7` | `supplier-refund-SRF-000127.pdf` | yes | yes |
+| `PDN-000127` | `7c07411c` | `purchase-debit-note-PDN-000127.pdf` | yes | yes |
+| `EXP-000065` | `bd4d1330` | `cash-expense-EXP-000065.pdf` | yes | yes |
+
+Archive download sample:
+
+| Source | HTTP status | Document prefix | Filename | Hash prefix | Size | Note |
+| --- | ---: | --- | --- | --- | ---: | --- |
+| `PO-000144` | `200` | `156e0b83` | `purchase-order-PO-000144.pdf` | `62af5411585e` | `3227` | Browser response body was not available to Playwright, so hash/size came from the same stored local archive row. |
+
+All six AP detail routes loaded with status `200`, and the expected source PDF buttons were visible and enabled.
+
+| Source | Source prefix | UI route | Button | Source PDF route | Visible | Enabled |
+| --- | --- | --- | --- | --- | --- | --- |
+| `PO-000144` | `8f42caf7` | `/purchases/purchase-orders/:id` | `Download PDF` | `/purchase-orders/:id/pdf` | yes | yes |
+| `BILL-000423` | `16e6f021` | `/purchases/bills/:id` | `Download purchase bill PDF` | `/purchase-bills/:id/pdf` | yes | yes |
+| `PAY-000318` | `7efa0003` | `/purchases/supplier-payments/:id` | `Download receipt PDF` | `/supplier-payments/:id/receipt.pdf` | yes | yes |
+| `SRF-000127` | `e7eed3c7` | `/purchases/supplier-refunds/:id` | `Download PDF` | `/supplier-refunds/:id/pdf` | yes | yes |
+| `PDN-000127` | `7c07411c` | `/purchases/debit-notes/:id` | `Download debit note PDF` | `/purchase-debit-notes/:id/pdf` | yes | yes |
+| `EXP-000065` | `bd4d1330` | `/purchases/cash-expenses/:id` | `Download PDF` | `/cash-expenses/:id/pdf` | yes | yes |
+
+Browser errors observed by the clean evidence pass:
+
+- Console errors: `0`.
+- Page errors: `0`.
+
+## Generated-Document Evidence
+
+The approved UI source PDF clicks created one local generated-document row per selected AP source. A later no-source-click evidence pass verified each latest row's stored local content hash in memory without printing PDF bodies or base64.
+
+| Source | Source prefix | Source status | New document prefix | Filename | Status | Hash prefix | Size | Generated by | Hash verified |
+| --- | --- | --- | --- | --- | --- | --- | ---: | --- | --- |
+| `PO-000144` | `8f42caf7` | `APPROVED` | `156e0b83` | `purchase-order-PO-000144.pdf` | `GENERATED` | `62af5411585e` | `3227` | `5281dfc0` | yes |
+| `BILL-000423` | `16e6f021` | `FINALIZED` | `069106ca` | `purchase-bill-BILL-000423.pdf` | `GENERATED` | `bbcaed4b70ac` | `3417` | `5281dfc0` | yes |
+| `PAY-000318` | `7efa0003` | `POSTED` | `75b2e7ae` | `supplier-payment-PAY-000318.pdf` | `GENERATED` | `15f03c31ffab` | `3136` | `5281dfc0` | yes |
+| `SRF-000127` | `e7eed3c7` | `POSTED` | `32e98b3b` | `supplier-refund-SRF-000127.pdf` | `GENERATED` | `a779ecc9c06d` | `3044` | `5281dfc0` | yes |
+| `PDN-000127` | `7c07411c` | `FINALIZED` | `3a6d6bad` | `purchase-debit-note-PDN-000127.pdf` | `GENERATED` | `016d0f09a34a` | `3334` | `5281dfc0` | yes |
+| `EXP-000065` | `bd4d1330` | `POSTED` | `5cfcbed8` | `cash-expense-EXP-000065.pdf` | `GENERATED` | `36ec51fd92b7` | `3263` | `5281dfc0` | yes |
+
+Generated-document audit rows for the six new rows:
+
+| Document prefix | Audit action | Audit row prefix |
+| --- | --- | --- |
+| `156e0b83` | `GENERATED_DOCUMENT_CREATED` | `b8883808` |
+| `069106ca` | `GENERATED_DOCUMENT_CREATED` | `78454889` |
+| `75b2e7ae` | `GENERATED_DOCUMENT_CREATED` | `7b5b8c47` |
+| `32e98b3b` | `GENERATED_DOCUMENT_CREATED` | `6f46263f` |
+| `3a6d6bad` | `GENERATED_DOCUMENT_CREATED` | `37f50110` |
+| `5cfcbed8` | `GENERATED_DOCUMENT_CREATED` | `c3b1f3db` |
+
+## Counts And Side Effects
+
+| Count | Before | After |
+| --- | ---: | ---: |
+| Selected-source generated documents | `13` | `19` |
+| Full-user generated documents for selected sources | `6` | `12` |
+| Full-user `AUTH_LOGIN` audit rows | `1` | `1` |
+| Generated-document audit rows for new documents | `0` | `6` |
+| Marker email outbox rows | `0` | `0` |
+| Organization ZATCA submission logs | `331` | `331` |
+| Organization ZATCA signed artifact drafts | `33` | `33` |
+
+No accounting lifecycle state changed. No real email/provider call, marker email row, ZATCA network/CSID/clearance/reporting/signing/PDF-A3 path, migration, seed/reset/delete, deploy, env/provider/schema change, backup/restore, production-hosting research, production target, beta target, hosted/shared target, or customer-data target was used.
+
+## Temporary Runner Cleanup
+
+- Temporary runner created: `apps/api/scripts/dev08i-part11-full-ui-qa.ts`.
+- First runner attempt stopped before login/browser/output because the fixture password candidate did not match.
+- Source-click runner created the six expected local generated-document rows, then failed a final response/body-to-metadata assertion after the clicks; it printed no bodies or auth material.
+- Final evidence runner avoided repeated source PDF clicks and completed cleanly with stored local hash/size verification.
+- Temporary runner removed before commit: yes.
+- Removal proof: `Test-Path apps/api/scripts/dev08i-part11-full-ui-qa.ts` returned `False`.
+- `Get-ChildItem apps/api/scripts -Filter '*dev08i*'` returned no files after cleanup.
+
+## Commands Run
+
+- `git status --short`.
+- `git log -1 --oneline`.
+- `git rev-list --left-right --count HEAD...origin/main`.
+- `Get-ChildItem apps/api/scripts -Filter '*dev08i*'`.
+- Sanitized `.env` target parsing.
+- Local API health check against `http://localhost:4000/health`.
+- Local web check against `http://localhost:3000/login`.
+- Started local web with `corepack pnpm --filter @ledgerbyte/web dev` because port `3000` was not initially reachable.
+- Temporary local `tsx` runner for approved browser/UI checks and metadata evidence.
+- Read-only local Prisma metadata checks for generated documents/audits after the source-click run.
+- Temporary script removal proof commands.
+
+## Commands Skipped
+
+- `/auth/login` after the fixture password mismatch; the successful UI session used a local JWT for the existing fake user.
+- Full tests, full build, full E2E, full smoke, `verify:repo`, and actual `verify:ci:local`.
+- Migrations, seed/reset/delete, deploys, env/provider/schema changes, backups/restores, production-hosting research, real email, provider calls, and real ZATCA.
+
+## Exact Next Prompt Title
+
+`DEV-08I Part 12: full-permission AP output UI evidence verification`
