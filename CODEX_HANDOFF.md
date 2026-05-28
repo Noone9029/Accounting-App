@@ -3639,3 +3639,19 @@
 ## Next Thread Prompt
 
 `DEV-08I Part 13: AP output UI restricted-permission preflight`
+
+## DEV-08I Part 13 - Restricted AP Output UI Permission Preflight Completed
+
+- DEV-08I Part 13 read-only preflight is recorded in [docs/development/DEV_08I_RESTRICTED_AP_OUTPUT_UI_PERMISSION_PREFLIGHT.md](docs/development/DEV_08I_RESTRICTED_AP_OUTPUT_UI_PERMISSION_PREFLIGHT.md).
+- Runtime mutation performed: no; login/API/browser/output/download performed: no.
+- Latest commit inspected: `c3d4786a Verify DEV-08I full permission AP output UI`; local `HEAD` matched `origin/main`.
+- Local-only proof: sanitized DB target remained protocol `postgresql`, host `localhost`, port `5432`, database `accounting`; planned API/web targets are `http://localhost:4000` and `http://localhost:3000`.
+- Primary Part 14 negative subject: restricted archive-only user `16d72d2a`, membership `2de5260b`, role `83dc203f`, permission count `4`, active with `generatedDocuments.view` but without `generatedDocuments.download` or any selected AP source view permission.
+- Expected Part 14 UI result: `/documents` allowed with archive rows visible but download actions hidden/permission-required; all six AP detail routes show `Access denied`; no source PDF or archive download click is allowed.
+- Secondary policy edge: AP viewer/no archive-download user `41b031e2` has AP source view permissions and would see source PDF actions on AP detail routes, so Part 14 must not click those buttons because current source PDF routes would create output.
+- Part 14 approval phrase status: exact phrase received in the upfront DEV-08I approval bundle.
+- Exact next prompt title: `DEV-08I Part 14: approved local authenticated restricted-user AP output UI permission checks`.
+
+## Next Thread Prompt
+
+`DEV-08I Part 14: approved local authenticated restricted-user AP output UI permission checks`
