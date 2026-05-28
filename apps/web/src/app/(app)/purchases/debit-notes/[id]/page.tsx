@@ -230,6 +230,7 @@ export default function PurchaseDebitNoteDetailPage() {
   const canCreateDebitNote = can(PERMISSIONS.purchaseDebitNotes.create);
   const canFinalizeDebitNote = can(PERMISSIONS.purchaseDebitNotes.finalize);
   const canVoidDebitNote = can(PERMISSIONS.purchaseDebitNotes.void);
+  const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
   const canApplyDebitNote = debitNote?.status === "FINALIZED" && Number(debitNote.unappliedAmount) > 0 && canFinalizeDebitNote;
 
   return (
@@ -262,7 +263,7 @@ export default function PurchaseDebitNoteDetailPage() {
               Record supplier refund
             </Link>
           ) : null}
-          {debitNote ? (
+          {debitNote && canDownloadGeneratedDocuments ? (
             <button type="button" onClick={() => void downloadDebitNotePdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Download debit note PDF
             </button>
@@ -300,6 +301,7 @@ export default function PurchaseDebitNoteDetailPage() {
             actionLoading={actionLoading}
             canFinalizeDebitNote={canFinalizeDebitNote}
             canApplyDebitNote={canApplyDebitNote}
+            canDownloadGeneratedDocuments={canDownloadGeneratedDocuments}
             onFinalize={() => void runAction("finalize")}
             onDownloadPdf={() => void downloadDebitNotePdf()}
           />
@@ -496,6 +498,7 @@ export function PurchaseDebitNoteWorkflowGuidance({
   actionLoading,
   canFinalizeDebitNote,
   canApplyDebitNote,
+  canDownloadGeneratedDocuments,
   onFinalize,
   onDownloadPdf,
 }: {
@@ -504,6 +507,7 @@ export function PurchaseDebitNoteWorkflowGuidance({
   actionLoading: boolean;
   canFinalizeDebitNote: boolean;
   canApplyDebitNote: boolean;
+  canDownloadGeneratedDocuments: boolean;
   onFinalize: () => void;
   onDownloadPdf: () => void;
 }) {
@@ -552,14 +556,16 @@ export function PurchaseDebitNoteWorkflowGuidance({
               View original bill
             </Link>
           ) : null}
-          <button
-            type="button"
-            onClick={onDownloadPdf}
-            disabled={actionLoading}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
-          >
-            Download debit note PDF
-          </button>
+          {canDownloadGeneratedDocuments ? (
+            <button
+              type="button"
+              onClick={onDownloadPdf}
+              disabled={actionLoading}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              Download debit note PDF
+            </button>
+          ) : null}
           <Link href={`/contacts/${debitNote.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
             View supplier ledger
           </Link>

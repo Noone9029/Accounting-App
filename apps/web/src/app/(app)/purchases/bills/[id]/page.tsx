@@ -56,6 +56,7 @@ export default function PurchaseBillDetailPage() {
   const canCreateSupplierPayment = can(PERMISSIONS.supplierPayments.create);
   const canViewPurchaseOrders = can(PERMISSIONS.purchaseOrders.view);
   const canCreateReceipt = can(PERMISSIONS.purchaseReceiving.create);
+  const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -197,7 +198,7 @@ export default function PurchaseBillDetailPage() {
               Receive stock
             </Link>
           ) : null}
-          {bill ? (
+          {bill && canDownloadGeneratedDocuments ? (
             <button type="button" onClick={() => void downloadBillPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Download purchase bill PDF
             </button>
@@ -240,6 +241,7 @@ export default function PurchaseBillDetailPage() {
             canFinalizeBill={canFinalizeBill}
             canCreateSupplierPayment={canCreateSupplierPayment}
             canCreateDebitNote={canCreateDebitNote}
+            canDownloadGeneratedDocuments={canDownloadGeneratedDocuments}
             onFinalize={() => void runAction("finalize")}
             onDownloadPdf={() => void downloadBillPdf()}
           />
@@ -463,6 +465,7 @@ export function PurchaseBillWorkflowGuidance({
   canFinalizeBill,
   canCreateSupplierPayment,
   canCreateDebitNote,
+  canDownloadGeneratedDocuments,
   onFinalize,
   onDownloadPdf,
 }: {
@@ -471,6 +474,7 @@ export function PurchaseBillWorkflowGuidance({
   canFinalizeBill: boolean;
   canCreateSupplierPayment: boolean;
   canCreateDebitNote: boolean;
+  canDownloadGeneratedDocuments: boolean;
   onFinalize: () => void;
   onDownloadPdf: () => void;
 }) {
@@ -535,14 +539,16 @@ export function PurchaseBillWorkflowGuidance({
               Create debit note
             </Link>
           ) : null}
-          <button
-            type="button"
-            onClick={onDownloadPdf}
-            disabled={actionLoading}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
-          >
-            Download purchase bill PDF
-          </button>
+          {canDownloadGeneratedDocuments ? (
+            <button
+              type="button"
+              onClick={onDownloadPdf}
+              disabled={actionLoading}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              Download purchase bill PDF
+            </button>
+          ) : null}
           {bill.supplierId ? (
             <Link href={`/contacts/${bill.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
               View supplier ledger

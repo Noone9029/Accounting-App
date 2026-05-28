@@ -227,6 +227,7 @@ export default function SupplierPaymentDetailPage() {
   const selectedOpenBill = openBills.find((bill) => bill.id === applyBillId);
   const canCreatePayment = can(PERMISSIONS.supplierPayments.create);
   const canVoidPaymentPermission = can(PERMISSIONS.supplierPayments.void);
+  const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
   const canApplyUnapplied = payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0 && canCreatePayment;
 
   return (
@@ -245,7 +246,7 @@ export default function SupplierPaymentDetailPage() {
               Supplier ledger
             </Link>
           ) : null}
-          {payment ? (
+          {payment && canDownloadGeneratedDocuments ? (
             <button type="button" onClick={() => void downloadReceiptPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Download receipt PDF
             </button>
@@ -280,6 +281,7 @@ export default function SupplierPaymentDetailPage() {
             recorded={wasJustRecorded}
             receiptData={receiptData}
             actionLoading={actionLoading}
+            canDownloadGeneratedDocuments={canDownloadGeneratedDocuments}
             onDownloadReceiptPdf={() => void downloadReceiptPdf()}
           />
 
@@ -454,9 +456,11 @@ export default function SupplierPaymentDetailPage() {
                   <h2 className="text-base font-semibold text-ink">Receipt data preview</h2>
                   <p className="mt-1 text-sm text-steel">Structured supplier payment receipt preview. Downloading the receipt stores a generated PDF archive record.</p>
                 </div>
-                <button type="button" onClick={() => void downloadReceiptPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                  Download receipt PDF
-                </button>
+                {canDownloadGeneratedDocuments ? (
+                  <button type="button" onClick={() => void downloadReceiptPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                    Download receipt PDF
+                  </button>
+                ) : null}
               </div>
               <div className="p-5">
                 <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
@@ -483,12 +487,14 @@ export function SupplierPaymentWorkflowGuidance({
   recorded,
   receiptData,
   actionLoading,
+  canDownloadGeneratedDocuments,
   onDownloadReceiptPdf,
 }: {
   payment: SupplierPayment;
   recorded: boolean;
   receiptData: SupplierPaymentReceiptData | null;
   actionLoading: boolean;
+  canDownloadGeneratedDocuments: boolean;
   onDownloadReceiptPdf: () => void;
 }) {
   const firstAllocatedBill = payment.allocations?.find((allocation) => allocation.bill)?.bill ?? null;
@@ -534,14 +540,16 @@ export function SupplierPaymentWorkflowGuidance({
                 View bill
               </Link>
             ) : null}
-            <button
-              type="button"
-              onClick={onDownloadReceiptPdf}
-              disabled={actionLoading}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
-            >
-              Download receipt PDF
-            </button>
+            {canDownloadGeneratedDocuments ? (
+              <button
+                type="button"
+                onClick={onDownloadReceiptPdf}
+                disabled={actionLoading}
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+              >
+                Download receipt PDF
+              </button>
+            ) : null}
             <Link href={`/contacts/${payment.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
               View supplier ledger
             </Link>

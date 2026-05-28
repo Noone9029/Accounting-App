@@ -1,13 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Post, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Req, Res, StreamableFile, UseGuards } from "@nestjs/common";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import type { Response } from "express";
-import { AuthenticatedUser } from "../auth/auth.types";
+import type { AuthenticatedRequest, AuthenticatedUser } from "../auth/auth.types";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { RequirePermissions } from "../auth/decorators/require-permissions.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
+import { assertGeneratedDocumentDownloadPermission } from "../generated-documents/generated-document-permissions";
 import { CashExpenseService } from "./cash-expense.service";
 import { CreateCashExpenseDto } from "./dto/create-cash-expense.dto";
 
@@ -44,8 +45,10 @@ export class CashExpenseController {
     @CurrentOrganizationId() organizationId: string,
     @CurrentUser() user: AuthenticatedUser,
     @Param("id") id: string,
+    @Req() request: AuthenticatedRequest,
     @Res({ passthrough: true }) response: Response,
   ) {
+    assertGeneratedDocumentDownloadPermission(request);
     const { buffer, filename } = await this.cashExpenseService.pdf(organizationId, user.id, id);
     response.set({
       "Content-Type": "application/pdf",
@@ -57,7 +60,13 @@ export class CashExpenseController {
 
   @Post(":id/generate-pdf")
   @RequirePermissions(PERMISSIONS.cashExpenses.view)
-  generatePdf(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+  generatePdf(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    assertGeneratedDocumentDownloadPermission(request);
     return this.cashExpenseService.generatePdf(organizationId, user.id, id);
   }
 

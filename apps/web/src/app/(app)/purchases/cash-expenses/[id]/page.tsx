@@ -26,6 +26,7 @@ export default function CashExpenseDetailPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const canVoidExpense = can(PERMISSIONS.cashExpenses.void);
+  const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -126,7 +127,7 @@ export default function CashExpenseDetailPage() {
               Supplier ledger
             </Link>
           ) : null}
-          {expense ? (
+          {expense && canDownloadGeneratedDocuments ? (
             <button type="button" onClick={() => void downloadCashExpensePdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Download PDF
             </button>

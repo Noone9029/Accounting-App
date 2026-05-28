@@ -1,13 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, StreamableFile, UseGuards } from "@nestjs/common";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import type { Response } from "express";
-import { AuthenticatedUser } from "../auth/auth.types";
+import type { AuthenticatedRequest, AuthenticatedUser } from "../auth/auth.types";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { RequirePermissions } from "../auth/decorators/require-permissions.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
+import { assertGeneratedDocumentDownloadPermission } from "../generated-documents/generated-document-permissions";
 import { CreatePurchaseBillDto } from "./dto/create-purchase-bill.dto";
 import { UpdatePurchaseBillDto } from "./dto/update-purchase-bill.dto";
 import { PurchaseBillService } from "./purchase-bill.service";
@@ -81,8 +82,10 @@ export class PurchaseBillController {
     @CurrentOrganizationId() organizationId: string,
     @CurrentUser() user: AuthenticatedUser,
     @Param("id") id: string,
+    @Req() request: AuthenticatedRequest,
     @Res({ passthrough: true }) response: Response,
   ) {
+    assertGeneratedDocumentDownloadPermission(request);
     const { buffer, filename } = await this.purchaseBillService.pdf(organizationId, user.id, id);
     response.set({
       "Content-Type": "application/pdf",
@@ -94,7 +97,13 @@ export class PurchaseBillController {
 
   @Post(":id/generate-pdf")
   @RequirePermissions(PERMISSIONS.purchaseBills.view)
-  generatePdf(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+  generatePdf(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    assertGeneratedDocumentDownloadPermission(request);
     return this.purchaseBillService.generatePdf(organizationId, user.id, id);
   }
 

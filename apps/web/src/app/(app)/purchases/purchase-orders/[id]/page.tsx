@@ -48,6 +48,7 @@ export default function PurchaseOrderDetailPage() {
   const canVoidOrder = can(PERMISSIONS.purchaseOrders.void);
   const canConvertOrder = can(PERMISSIONS.purchaseOrders.convertToBill);
   const canCreateReceipt = can(PERMISSIONS.purchaseReceiving.create);
+  const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -182,7 +183,7 @@ export default function PurchaseOrderDetailPage() {
               Edit
             </Link>
           ) : null}
-          {order ? (
+          {order && canDownloadGeneratedDocuments ? (
             <button type="button" onClick={() => void downloadOrderPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Download PDF
             </button>

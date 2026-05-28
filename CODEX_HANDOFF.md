@@ -3725,3 +3725,37 @@
 ## Next Thread Prompt
 
 `DEV-08J Part 1: AP repeated idempotency and blocker paths preflight`
+
+## DEV-08J Part 1 - AP Repeated Idempotency And Blocker Paths Preflight Completed
+
+- DEV-08J Part 1 read-only preflight is recorded in [docs/development/DEV_08J_AP_REPEATED_IDEMPOTENCY_BLOCKER_PREFLIGHT.md](docs/development/DEV_08J_AP_REPEATED_IDEMPOTENCY_BLOCKER_PREFLIGHT.md).
+- Runtime mutation performed: no; negative-check service calls performed: no; output/login/browser/email/ZATCA performed: no.
+- Latest commit inspected: `0342d742 Close DEV-08I AP output permission evidence`; local `HEAD` matched `origin/main`.
+- Local-only proof: Docker Postgres/Redis were healthy on local ports; sanitized DB target remained protocol `postgresql`, host `localhost`, port `5432`, database `accounting`.
+- Existing DEV-08J marker fixtures before this arc: `0`; baseline generated documents `852`, email outbox rows `224`, ZATCA submission logs `331`, planned signed artifact drafts `33`, and journal entries `3161`.
+- Selected sequence: local fixture pack, fixture verification, AP output duplicate sweep, repeated/idempotency and blocker checks by AP family, source PDF permission-policy edge, and closure.
+- Part 2 approval phrase status: exact phrase received in the upfront DEV-08J approval bundle.
+- Exact next prompt title: `DEV-08J Part 2: approved local AP repeated blocker source fixture mutation`.
+
+## Next Thread Prompt
+
+`DEV-08J Part 2: approved local AP repeated blocker source fixture mutation`
+
+## DEV-08J Parts 2-31 - AP Repeated Idempotency And Blocker Evidence Completed
+
+- DEV-08J closure is recorded in [docs/development/DEV_08J_AP_REPEATED_IDEMPOTENCY_BLOCKER_CLOSURE.md](docs/development/DEV_08J_AP_REPEATED_IDEMPOTENCY_BLOCKER_CLOSURE.md).
+- Runtime data mutations performed: yes, only the approved local-only DEV-08J fixture creation, duplicate output sweep, and repeated/blocker service checks under marker `DEV08J-AP-20260528T000000`.
+- Approval phrase status: exact Part 2, 5, 8, 11, 14, 17, 20, 23, 26, and 29 phrases were received in the upfront DEV-08J approval bundle and checked before their mutation/check steps.
+- Local-only proof: sanitized DB target remained protocol `postgresql`, host `localhost`, port `5432`, database `accounting`; no production, beta, hosted/shared target, or customer data was used.
+- Fixture evidence: marker-scoped AP fixtures covered purchase orders, purchase bills, supplier payments, supplier refunds, purchase debit notes, cash expenses, and purchase receipts with active blocker dependencies.
+- Duplicate output evidence: purchase bill, supplier payment receipt, supplier refund, purchase debit note, and cash expense repeated output generation each created one additional generated-document archive row; selected source counts became `4` each. This remains a product decision if future behavior should reuse, supersede, or explicitly version outputs.
+- Repeated/blocker evidence: purchase order, purchase bill, supplier payment, supplier refund, purchase debit note, cash expense, and purchase receipt repeated/idempotency and blocker checks matched expected statuses/blocker messages, with only expected journal reversals.
+- Source PDF permission edge: Part 28 recommended narrow hardening; Part 29 implemented source-view plus `generatedDocuments.download` for AP source PDF stream/generate routes and hid source PDF buttons without archive-download permission. `pdf-data` routes remain source-view read-only.
+- Final counts: generated documents `857`, email outbox rows `224`, ZATCA submission logs `331`, planned signed artifact drafts `33`, journal entries `3188`.
+- Tests/checks run: targeted generated-document permission API test passed, targeted AP page Jest suites passed, API typecheck passed. Full web test/typecheck remained blocked by unrelated untracked marketing/nav/permission-matrix work.
+- Remaining gaps: AP generated-document email/outbox design, real email, real ZATCA, production/beta/customer behavior, full E2E/smoke, cleanup executor, broad permission matrix coverage, and duplicate-output product policy.
+- Exact next prompt title: `DEV-08K Part 1: AP generated-document email design preflight`.
+
+## Next Thread Prompt
+
+`DEV-08K Part 1: AP generated-document email design preflight`

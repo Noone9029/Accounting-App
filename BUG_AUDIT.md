@@ -3147,3 +3147,12 @@ Recommended next step:
 - Open blocker: no AP document email action or generated-document attachment-capable outbox path exists. Do not run AP email outbox mutation until a real AP email feature, attachment policy, and redaction boundary are designed.
 - Remaining QA gap: authenticated API/UI permission behavior for AP output and generated-document downloads still needs a separate approved local login/audit-writing preflight.
 - No real email provider send, ZATCA network/signing/clearance/reporting/PDF-A3, secrets, env changes, migrations, seed/reset/delete, deployment, full smoke, full E2E, or production/beta/customer-data behavior changed.
+
+# DEV-08J AP repeated idempotency/blocker closure - 2026-05-28
+
+- Local-only DEV-08J evidence created marker-scoped AP fixtures, verified repeated/idempotency behavior, and checked expected blocker paths for purchase orders, purchase bills, supplier payments, supplier refunds, purchase debit notes, cash expenses, and purchase receipts.
+- Repeated AP output generation for purchase bill, supplier payment receipt, supplier refund, purchase debit note, and cash expense created additional archive rows. Duplicate output behavior remains an open product decision: preserve versioned duplicates, reuse existing rows, or supersede older rows.
+- Source PDF output was hardened: AP source PDF stream/generate routes now require the source view permission plus `generatedDocuments.download`, and AP detail source PDF buttons are hidden without archive-download permission. Source `pdf-data` remains source-view read-only.
+- AP generated-document email remains the next open AP blocker; no safe AP email/outbox attachment path has been implemented or mutated.
+- Full web test/typecheck remained blocked by unrelated untracked marketing/nav/permission-matrix work; targeted AP tests and API typecheck passed.
+- No production, beta, hosted/shared target, customer data, real email provider send, real ZATCA network/signing/clearance/reporting/PDF-A3, secrets, env changes, migrations, seed/reset/delete, deployment, full smoke, or full E2E changed.

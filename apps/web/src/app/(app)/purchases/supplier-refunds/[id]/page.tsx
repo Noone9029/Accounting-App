@@ -31,6 +31,7 @@ export default function SupplierRefundDetailPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const canVoidRefund = can(PERMISSIONS.supplierRefunds.void);
+  const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -126,7 +127,7 @@ export default function SupplierRefundDetailPage() {
               Supplier ledger
             </Link>
           ) : null}
-          {refund ? (
+          {refund && canDownloadGeneratedDocuments ? (
             <button type="button" onClick={() => void downloadRefundPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Download PDF
             </button>

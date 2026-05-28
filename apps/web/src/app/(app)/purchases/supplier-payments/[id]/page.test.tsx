@@ -25,6 +25,7 @@ describe("supplier payment workflow guidance", () => {
         recorded
         receiptData={null}
         actionLoading={false}
+        canDownloadGeneratedDocuments
         onDownloadReceiptPdf={jest.fn()}
       />,
     );
@@ -46,6 +47,7 @@ describe("supplier payment workflow guidance", () => {
         recorded={false}
         receiptData={null}
         actionLoading={false}
+        canDownloadGeneratedDocuments
         onDownloadReceiptPdf={jest.fn()}
       />,
     );
@@ -53,6 +55,22 @@ describe("supplier payment workflow guidance", () => {
     expect(screen.getByText("Unapplied supplier credit")).toBeInTheDocument();
     expect(screen.getByText(/matched to a later bill or refunded/)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "View bill" })).not.toBeInTheDocument();
+  });
+
+  it("hides source PDF action without generated document download permission", () => {
+    render(
+      <SupplierPaymentWorkflowGuidance
+        payment={paymentFixture()}
+        recorded={false}
+        receiptData={null}
+        actionLoading={false}
+        canDownloadGeneratedDocuments={false}
+        onDownloadReceiptPdf={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Download receipt PDF" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
   });
 });
 

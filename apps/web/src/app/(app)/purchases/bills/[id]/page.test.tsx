@@ -26,6 +26,7 @@ describe("purchase bill workflow guidance", () => {
         canFinalizeBill
         canCreateSupplierPayment
         canCreateDebitNote
+        canDownloadGeneratedDocuments
         onFinalize={jest.fn()}
         onDownloadPdf={jest.fn()}
       />,
@@ -45,6 +46,7 @@ describe("purchase bill workflow guidance", () => {
         canFinalizeBill
         canCreateSupplierPayment
         canCreateDebitNote
+        canDownloadGeneratedDocuments
         onFinalize={jest.fn()}
         onDownloadPdf={jest.fn()}
       />,
@@ -65,6 +67,24 @@ describe("purchase bill workflow guidance", () => {
     expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
     expect(screen.getByRole("link", { name: "View supplier ledger" })).toHaveAttribute("href", "/contacts/supplier-1");
     expect(screen.getByRole("link", { name: "AP report" })).toHaveAttribute("href", "/reports/aged-payables");
+  });
+
+  it("hides source PDF action without generated document download permission", () => {
+    render(
+      <PurchaseBillWorkflowGuidance
+        bill={billFixture({ status: "FINALIZED", balanceDue: "115.0000" })}
+        actionLoading={false}
+        canFinalizeBill
+        canCreateSupplierPayment
+        canCreateDebitNote
+        canDownloadGeneratedDocuments={false}
+        onFinalize={jest.fn()}
+        onDownloadPdf={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Download purchase bill PDF" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
   });
 });
 

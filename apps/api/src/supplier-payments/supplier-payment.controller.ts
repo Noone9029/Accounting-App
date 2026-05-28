@@ -1,13 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Post, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Req, Res, StreamableFile, UseGuards } from "@nestjs/common";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import type { Response } from "express";
-import { AuthenticatedUser } from "../auth/auth.types";
+import type { AuthenticatedRequest, AuthenticatedUser } from "../auth/auth.types";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { RequirePermissions } from "../auth/decorators/require-permissions.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
+import { assertGeneratedDocumentDownloadPermission } from "../generated-documents/generated-document-permissions";
 import { ApplyUnappliedSupplierPaymentDto } from "./dto/apply-unapplied-supplier-payment.dto";
 import { CreateSupplierPaymentDto } from "./dto/create-supplier-payment.dto";
 import { ReverseUnappliedSupplierPaymentAllocationDto } from "./dto/reverse-unapplied-supplier-payment-allocation.dto";
@@ -87,8 +88,10 @@ export class SupplierPaymentController {
     @CurrentOrganizationId() organizationId: string,
     @CurrentUser() user: AuthenticatedUser,
     @Param("id") id: string,
+    @Req() request: AuthenticatedRequest,
     @Res({ passthrough: true }) response: Response,
   ) {
+    assertGeneratedDocumentDownloadPermission(request);
     const { buffer, filename } = await this.supplierPaymentService.receiptPdf(organizationId, user.id, id);
     response.set({
       "Content-Type": "application/pdf",
@@ -100,7 +103,13 @@ export class SupplierPaymentController {
 
   @Post(":id/generate-receipt-pdf")
   @RequirePermissions(PERMISSIONS.supplierPayments.view)
-  generateReceiptPdf(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+  generateReceiptPdf(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    assertGeneratedDocumentDownloadPermission(request);
     return this.supplierPaymentService.generateReceiptPdf(organizationId, user.id, id);
   }
 

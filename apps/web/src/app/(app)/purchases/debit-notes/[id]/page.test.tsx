@@ -26,6 +26,7 @@ describe("purchase debit note workflow guidance", () => {
         actionLoading={false}
         canFinalizeDebitNote
         canApplyDebitNote={false}
+        canDownloadGeneratedDocuments
         onFinalize={jest.fn()}
         onDownloadPdf={jest.fn()}
       />,
@@ -44,6 +45,7 @@ describe("purchase debit note workflow guidance", () => {
         actionLoading={false}
         canFinalizeDebitNote
         canApplyDebitNote
+        canDownloadGeneratedDocuments
         onFinalize={jest.fn()}
         onDownloadPdf={jest.fn()}
       />,
@@ -59,6 +61,24 @@ describe("purchase debit note workflow guidance", () => {
     expect(screen.getByRole("link", { name: "AP report" })).toHaveAttribute("href", "/reports/aged-payables");
     expect(screen.getByText(/ZATCA handling here is local\/readiness only/)).toBeInTheDocument();
     expect(screen.queryByText(/production submission is connected/i)).not.toBeInTheDocument();
+  });
+
+  it("hides source PDF action without generated document download permission", () => {
+    render(
+      <PurchaseDebitNoteWorkflowGuidance
+        debitNote={debitNoteFixture({ status: "FINALIZED", unappliedAmount: "25.0000" })}
+        appliedAmount="90.0000"
+        actionLoading={false}
+        canFinalizeDebitNote
+        canApplyDebitNote
+        canDownloadGeneratedDocuments={false}
+        onFinalize={jest.fn()}
+        onDownloadPdf={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Download debit note PDF" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
   });
 });
 
