@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `d194173e Void DEV-08G standalone receipt locally`
+- `4d9e5b0b Verify DEV-08G standalone receipt void`
 
 ## Current Development Objective
 
@@ -2966,3 +2966,20 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 31: purchase receipt inventory integration closure`
+
+## DEV-08G Part 31 - Purchase Receipt Inventory Integration Closure Completed
+
+- DEV-08G closure is recorded in [docs/development/DEV_08G_PURCHASE_RECEIPT_INVENTORY_INTEGRATION_CLOSURE.md](docs/development/DEV_08G_PURCHASE_RECEIPT_INVENTORY_INTEGRATION_CLOSURE.md).
+- Runtime mutation performed by closure: no.
+- Latest commit inspected: `4d9e5b0b Verify DEV-08G standalone receipt void`; local `HEAD` matched `origin/main` at `4d9e5b0b32539b015e571b3b1b87ecab570e073f`.
+- Final PO source state: `PO-000003` safe prefix `a3efc2e4`, status `APPROVED`, source quantity `10.0000`, active received `0.0000`, remaining `10.0000`, receiving `NOT_STARTED`, matching `NOT_RECEIVED`.
+- Final PO receipts: `PRC-000005` safe prefix `1f412d79` and `PRC-000006` safe prefix `942e4907` are both `VOIDED`, with matching placeholder and `ADJUSTMENT_OUT` movement pairs for quantities `4.0000` and `6.0000`.
+- Final standalone receipt: `PRC-000007` safe prefix `d963e3c6` is `VOIDED`, with placeholder movement `2ebd05ff` and void movement `33ab2606` for quantity `3.0000`.
+- Side effects: directly tied journals `0`, generated documents `0`, marker email rows `0`, selected receipt ZATCA audit rows `0`.
+- Audit counts across DEV-08G receipts: receipt created `3`, receipt voided `3`, asset-post/reversal `0`.
+- Remaining gaps: linked PO-to-bill receipt reconciliation, valuation variance, landed cost, returns, serial/batch/bin/location, automatic posting, AP output/email, authenticated UI/API QA, repeated/idempotency/fiscal/permission edges, cleanup policy, and production/beta/customer-data behavior.
+- Exact next prompt title: `DEV-08H Part 1: AP output PDF archive email preflight`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 1: AP output PDF archive email preflight`

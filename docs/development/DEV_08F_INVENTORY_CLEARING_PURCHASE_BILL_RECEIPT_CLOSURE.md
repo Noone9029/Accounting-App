@@ -160,12 +160,12 @@ DEV-08F does not claim full AP or inventory completion. Remaining gaps include:
 
 ## Recommended Next AP Branch
 
-Recommended next branch: `DEV-08G Part 1: purchase receipt and inventory integration hardening preflight`.
+Recommended next branch at the time of DEV-08F closure was `DEV-08G Part 1: purchase receipt and inventory integration hardening preflight`.
 
 Reason: DEV-08F is sufficient for the inventory-clearing purchase bill plus linked receipt manual posting/reversal/void chain, but it does not cover purchase-order receipt matching, standalone receipt accounting, receipt variance paths, or broader inventory posting policy. Those remain closer to the just-proven state machine than AP output/email work, so they should be handled before widening to generated documents or email.
 
-Follow-up status: DEV-08G Part 1 has been planned in [DEV_08G_PURCHASE_RECEIPT_INVENTORY_HARDENING_PREFLIGHT.md](DEV_08G_PURCHASE_RECEIPT_INVENTORY_HARDENING_PREFLIGHT.md), and the next gated prompt is `DEV-08G Part 2: approved local purchase order receipt source fixture mutation`.
+Follow-up status: DEV-08G is now closed in [DEV_08G_PURCHASE_RECEIPT_INVENTORY_INTEGRATION_CLOSURE.md](DEV_08G_PURCHASE_RECEIPT_INVENTORY_INTEGRATION_CLOSURE.md). The next recommended AP branch is `DEV-08H Part 1: AP output PDF archive email preflight`.
 
 ## Exact Next Prompt Title
 
-`DEV-08G Part 2: approved local purchase order receipt source fixture mutation`
+`DEV-08H Part 1: AP output PDF archive email preflight`
