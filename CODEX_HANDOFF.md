@@ -3521,3 +3521,19 @@
 ## Next Thread Prompt
 
 `DEV-08I Part 6: full-permission AP output API evidence verification`
+
+## DEV-08I Part 6 - Full-Permission AP Output API Evidence Verification Completed
+
+- DEV-08I Part 6 read-only verification is recorded in [docs/development/DEV_08I_FULL_PERMISSION_AP_OUTPUT_API_EVIDENCE_VERIFICATION.md](docs/development/DEV_08I_FULL_PERMISSION_AP_OUTPUT_API_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no; login/browser/API generation/download performed: no.
+- Latest commit inspected: `b5ab2cfd Check DEV-08I full permission AP output API`; local `HEAD` matched `origin/main`.
+- Local-only proof: sanitized DB target remained host `localhost`, port `5432`, database `accounting`.
+- Verification result: all six Part 5 generated documents remained present with expected safe prefixes, filenames, MIME type `application/pdf`, status `GENERATED`, hash prefixes, byte sizes, and source statuses.
+- Counts stayed stable during verification: selected-source generated documents `13 -> 13`, full-user generated documents `6`, full-user `AUTH_LOGIN` audit rows `1`, and matching `GENERATED_DOCUMENT_CREATED` audit rows `6`.
+- Side effects/exposure: marker email rows `0`, ZATCA submission logs `331`, signed artifact drafts `33`, and no PDF body, base64, token, cookie, auth header, request/response body, email body, signed XML, or QR payload printed.
+- No `*dev08i*` temporary script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08I Part 7: restricted AP output API permission preflight`.
+
+## Next Thread Prompt
+
+`DEV-08I Part 7: restricted AP output API permission preflight`
