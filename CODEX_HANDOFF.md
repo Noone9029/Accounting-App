@@ -3109,3 +3109,18 @@
 ## Next Thread Prompt
 
 `DEV-08H Part 9: purchase bill PDF archive evidence verification`
+
+## DEV-08H Part 9 - Purchase Bill PDF Archive Verification Completed
+
+- DEV-08H Part 9 read-only verification is recorded in [docs/development/DEV_08H_PURCHASE_BILL_PDF_ARCHIVE_EVIDENCE_VERIFICATION.md](docs/development/DEV_08H_PURCHASE_BILL_PDF_ARCHIVE_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `d547b749 Archive DEV-08H purchase-bill PDF locally`.
+- Verification result: exactly one purchase-bill generated document exists for `BILL-000423`, safe prefix `27a07429`, filename `purchase-bill-BILL-000423.pdf`, hash prefix `47935bce9f75`, size `3417` bytes.
+- Source state unchanged: `BILL-000423` safe prefix `16e6f021` remained `FINALIZED`, balance due `130.0000`.
+- Side effects: marker email rows `0`, marker ZATCA rows `0`; PDF body/base64 was not printed.
+- Audit actions include expected source create/finalize actions plus `GENERATED_DOCUMENT_CREATED = 1`.
+- Exact next prompt title: `DEV-08H Part 10: supplier payment receipt PDF archive preflight`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 10: supplier payment receipt PDF archive preflight`

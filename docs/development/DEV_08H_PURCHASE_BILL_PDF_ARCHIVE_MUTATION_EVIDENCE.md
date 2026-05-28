@@ -43,3 +43,9 @@
 ## Exact Next Prompt Title
 
 `DEV-08H Part 9: purchase bill PDF archive evidence verification`
+
+## Part 9 Note
+
+- Part 9 verified the purchase-bill archive in [DEV_08H_PURCHASE_BILL_PDF_ARCHIVE_EVIDENCE_VERIFICATION.md](DEV_08H_PURCHASE_BILL_PDF_ARCHIVE_EVIDENCE_VERIFICATION.md).
+- Exactly one selected-source purchase-bill generated document exists; source `BILL-000423` remained `FINALIZED`.
+- Marker email and ZATCA counts remained `0`.
