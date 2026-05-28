@@ -3553,3 +3553,21 @@
 ## Next Thread Prompt
 
 `DEV-08I Part 8: approved local restricted-user AP output API permission negative checks`
+
+## DEV-08I Part 8 - Restricted AP Output API Permission Checks Completed
+
+- DEV-08I Part 8 evidence is recorded in [docs/development/DEV_08I_RESTRICTED_AP_OUTPUT_API_PERMISSION_EVIDENCE.md](docs/development/DEV_08I_RESTRICTED_AP_OUTPUT_API_PERMISSION_EVIDENCE.md).
+- Runtime mutation performed: yes, only one approved local fake-user `AUTH_LOGIN` audit row.
+- Latest commit inspected: `98c7359e Plan DEV-08I restricted AP output API permission checks`; local `HEAD` matched `origin/main`.
+- Approval phrase status: exact Part 8 phrase received in the upfront DEV-08I approval bundle and checked before login.
+- Local-only proof: API `http://localhost:4000` returned health `200`, backed by sanitized local DB target host `localhost`, port `5432`, database `accounting`.
+- Restricted archive-only user `16d72d2a`, membership `2de5260b`, role `83dc203f`, permission count `4`, had `generatedDocuments.view` but lacked `generatedDocuments.download` and all six AP source view permissions.
+- Archive metadata view-only checks succeeded for list/detail on all six selected sources; only safe prefixes, filenames, hash prefixes, sizes, and counts were recorded.
+- Negative checks passed: all six generated-document downloads returned `403`, all six AP data routes returned `403`, and all six AP explicit generation routes returned `403`.
+- Side effects: selected-source generated documents `13 -> 13`, generated documents by restricted user `0 -> 0`, restricted-user `AUTH_LOGIN` audit rows `0 -> 1`, marker email rows `0`, ZATCA submission logs `331`, and signed artifact drafts `33`.
+- Temporary runner `apps/api/scripts/dev08i-part8-restricted-api-negative.ts` was removed after execution and no `*dev08i*` script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08I Part 9: restricted AP output API permission evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08I Part 9: restricted AP output API permission evidence verification`
