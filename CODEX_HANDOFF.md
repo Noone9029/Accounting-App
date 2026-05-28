@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `80e7030f Void DEV-08G remaining purchase order receipt locally`
+- `9522b098 Verify DEV-08G remaining purchase order receipt void`
 
 ## Current Development Objective
 
@@ -2814,3 +2814,20 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 22: standalone purchase receipt preflight`
+
+## DEV-08G Part 22 - Standalone Purchase Receipt Preflight Completed
+
+- DEV-08G Part 22 read-only preflight is recorded in [docs/development/DEV_08G_STANDALONE_PURCHASE_RECEIPT_PREFLIGHT.md](docs/development/DEV_08G_STANDALONE_PURCHASE_RECEIPT_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `9522b098 Verify DEV-08G remaining purchase order receipt void`; local `HEAD` matched `origin/main` at `9522b098d32405e370ce1f888be769ee934b2e4f`.
+- Selected standalone inputs: supplier safe prefix `f5deec9a` active `SUPPLIER`; item safe prefix `3b8d7650` active and inventory-tracked; warehouse safe prefix `197fac56`, code `MAIN`, active.
+- Planned standalone receipt: quantity `3.0000`, unit cost `90.0000`, expected receipt number `PRC-000007`, no purchase order link, no purchase bill link.
+- Expected movement: `PURCHASE_RECEIPT_PLACEHOLDER` quantity `3.0000`; expected stock on hand change `0.0000 -> 3.0000`.
+- Expected accounting-preview blocker: standalone receipt remains `DESIGN_ONLY` because purchase receipt asset posting requires a finalized linked purchase bill in inventory clearing mode.
+- Baselines: standalone DEV-08G receipt count `0`, selected item/warehouse stock movements `4`, directly tied journals `0`, generated documents `0`, marker email rows `0`, broad existing ZATCA audit count `23`.
+- Required exact Part 23 approval phrase: `I approve DEV-08G Part 23 local-only standalone purchase receipt mutation under marker DEV08G-AP-20260527T000000 for quantity 3.0000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08G Part 23: approved local standalone purchase receipt mutation`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 23: approved local standalone purchase receipt mutation`
