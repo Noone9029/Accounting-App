@@ -3216,3 +3216,18 @@
 ## Next Thread Prompt
 
 `DEV-08H Part 16: purchase debit note PDF archive preflight`
+
+## DEV-08H Part 16 - Purchase Debit Note PDF Archive Preflight Completed
+
+- DEV-08H Part 16 read-only preflight is recorded in [docs/development/DEV_08H_PURCHASE_DEBIT_NOTE_PDF_ARCHIVE_PREFLIGHT.md](docs/development/DEV_08H_PURCHASE_DEBIT_NOTE_PDF_ARCHIVE_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `851f0398 Verify DEV-08H supplier-refund PDF archive`.
+- Selected source: `PDN-000127` safe prefix `7c07411c`, status `FINALIZED`, total `69.0000`, live unapplied `69.0000`.
+- Route boundary: `pdf-data` is read-only; `pdf` and `generate-pdf` render/archive one `PURCHASE_DEBIT_NOTE` generated document through `GeneratedDocumentService.archivePdf(...)`.
+- Baseline: purchase-debit-note generated documents for selected source `0`, marker email rows `0`, marker ZATCA rows `0`.
+- Required exact Part 17 approval phrase: `I approve DEV-08H Part 17 local-only purchase debit note PDF archive mutation under marker DEV08H-AP-20260528T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08H Part 17: approved local purchase debit note PDF archive mutation`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 17: approved local purchase debit note PDF archive mutation`
