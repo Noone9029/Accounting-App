@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `28fd0592 Verify DEV-08G partial purchase order receipt`
+- `5aa3bf7f Plan DEV-08G remaining purchase order receipt`
 
 ## Current Development Objective
 
@@ -2578,3 +2578,23 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 8: approved local remaining purchase receipt from purchase order mutation`
+
+## DEV-08G Part 8 - Remaining Purchase Order Receipt Mutation Completed
+
+- DEV-08G Part 8 local-only mutation evidence is recorded in [docs/development/DEV_08G_REMAINING_PO_RECEIPT_MUTATION_EVIDENCE.md](docs/development/DEV_08G_REMAINING_PO_RECEIPT_MUTATION_EVIDENCE.md).
+- Mutation performed: yes, local-only.
+- Latest commit inspected: `5aa3bf7f Plan DEV-08G remaining purchase order receipt`; local `HEAD` matched `origin/main` at `5aa3bf7febe11525c287cace0adb168397cfca3f`.
+- Approval phrase status: exact Part 8 phrase received in the up-front DEV-08G approval bundle and checked before mutation.
+- Local target proof: runner classified `apps/api/.env` as `localhost:5432/accounting` before importing write-capable services; no production, beta, hosted/shared-target, provider, or customer-data target was used.
+- Service call: exactly one `PurchaseReceiptService.create(...)`; no asset posting, reverse, void, purchase bill, document, email, ZATCA, migration, seed/reset/delete, deploy, or login/browser flow ran.
+- Receipt result: `PRC-000006` safe prefix `942e4907`, status `POSTED`, linked to PO safe prefix `a3efc2e4`, no linked bill, no asset journal, no reversal journal.
+- Receipt line result: safe prefix `452f75a6`, quantity `6.0000`, unit cost `100.0000`, source PO line safe prefix `22f17076`.
+- Stock movement result: safe prefix `e0ffd378`, type `PURCHASE_RECEIPT_PLACEHOLDER`, quantity `6.0000`, reference type `PurchaseReceipt`, reference safe prefix `942e4907`.
+- Receiving and matching result: receiving `COMPLETE`, received `10.0000`, remaining `0.0000`; receipt matching `FULLY_RECEIVED`; matching receipt count `2`.
+- Side-effect result: directly tied journals, generated documents/output, email outbox/provider rows, and ZATCA fixture audit actions remained `0`; new receipt audit action `PurchaseReceipt:PURCHASE_RECEIPT_CREATED` occurred once.
+- Temporary script cleanup result: `apps/api/scripts/dev08g-part8-runner.ts` was removed after execution; no `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 9: remaining purchase receipt evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 9: remaining purchase receipt evidence verification`

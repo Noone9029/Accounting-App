@@ -121,3 +121,22 @@ Run before commit:
 ## Exact Next Prompt Title
 
 `DEV-08G Part 8: approved local remaining purchase receipt from purchase order mutation`
+
+## Part 8 Mutation Note
+
+DEV-08G Part 8 completed the approved local-only remaining purchase receipt mutation.
+
+- Mutation evidence: [DEV_08G_REMAINING_PO_RECEIPT_MUTATION_EVIDENCE.md](DEV_08G_REMAINING_PO_RECEIPT_MUTATION_EVIDENCE.md).
+- Latest commit inspected before mutation: `5aa3bf7f Plan DEV-08G remaining purchase order receipt`.
+- Approval phrase status: exact Part 8 approval phrase was supplied and checked before mutation.
+- Service call: exactly one `PurchaseReceiptService.create(...)`.
+- Created purchase receipt `PRC-000006` safe prefix `942e4907`, status `POSTED`.
+- Receipt line safe prefix `452f75a6`, quantity `6.0000`, unit cost `100.0000`, source PO line safe prefix `22f17076`.
+- Stock movement safe prefix `e0ffd378`, type `PURCHASE_RECEIPT_PLACEHOLDER`, quantity `6.0000`.
+- Receiving changed to `COMPLETE` with `10.0000` received and `0.0000` remaining.
+- Receipt matching changed to `FULLY_RECEIVED`.
+- Inventory asset posting was not run.
+- Directly tied journal entries, generated documents/output, email rows/events, and ZATCA fixture audit actions remained `0`.
+- Receipt audit action: new `PurchaseReceipt` `PURCHASE_RECEIPT_CREATED` once.
+- No `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 9: remaining purchase receipt evidence verification`.
