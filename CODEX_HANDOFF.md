@@ -3707,3 +3707,21 @@
 ## Next Thread Prompt
 
 `DEV-08I Part 17: AP output permission and authenticated UI QA closure`
+
+## DEV-08I Part 17 - AP Output Permission And Authenticated UI QA Closure Completed
+
+- DEV-08I closure is recorded in [docs/development/DEV_08I_AP_OUTPUT_PERMISSION_AUTHENTICATED_UI_QA_CLOSURE.md](docs/development/DEV_08I_AP_OUTPUT_PERMISSION_AUTHENTICATED_UI_QA_CLOSURE.md).
+- Runtime mutation performed by closure: no; login/API/browser/output/download/cleanup performed by closure: no.
+- Latest commit inspected: `cfbc75f1 Plan DEV-08I AP output audit cleanup`; local `HEAD` matched `origin/main`.
+- Local-only proof: sanitized DB target remained protocol `postgresql`, host `localhost`, port `5432`, database `accounting`.
+- DEV-08I proved local AP output permission boundaries across full-permission API generation/download metadata, restricted API negative checks, full-permission UI archive/source output behavior, and restricted UI archive/AP access denial behavior.
+- Final fixture state: three marker-scoped disposable users, roles, and memberships remain active for full output QA, restricted archive-only, and restricted AP viewer/no archive-download shapes.
+- Final output/audit counts: selected-source generated documents `19`, DEV-08I full-user generated documents `12`, restricted generated documents `0`, matching `GENERATED_DOCUMENT_CREATED` audit rows `12`, full-user `AUTH_LOGIN` rows `1`, restricted archive-only `AUTH_LOGIN` rows `1`, restricted AP viewer/no-download `AUTH_LOGIN` rows `0`.
+- Side effects/exposure: marker email rows stayed `0`, ZATCA submission logs stayed `331`, signed artifact drafts stayed `33`, and no raw audit metadata, PDF body, base64, token, cookie, auth header, request/response body, email body, signed XML, or QR payload was printed.
+- Cleanup posture: preserve DEV-08I fixtures and generated-document/audit evidence; defer cleanup to a later explicitly approved local cleanup branch.
+- Remaining gaps: repeated generation/idempotency, source PDF route permission policy for AP viewers without archive download permission, AP generated-document email, production/beta/customer behavior, real ZATCA/email, and full E2E/smoke remain out of scope.
+- Exact next prompt title: `DEV-08J Part 1: AP repeated idempotency and blocker paths preflight`.
+
+## Next Thread Prompt
+
+`DEV-08J Part 1: AP repeated idempotency and blocker paths preflight`
