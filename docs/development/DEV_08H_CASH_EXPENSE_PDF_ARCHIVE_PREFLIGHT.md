@@ -43,3 +43,10 @@
 ## Exact Next Prompt Title
 
 `DEV-08H Part 20: approved local cash expense PDF archive mutation`
+
+## Part 20 Note
+
+- Part 20 archived exactly one local cash expense PDF for `EXP-000065`.
+- Generated document safe prefix: `4b8b7378`; filename `cash-expense-EXP-000065.pdf`; hash prefix `3ab2c65a6ac0`; size `3265` bytes.
+- Marker email outbox/provider-event rows and marker ZATCA rows remained `0`.
+- PDF body/base64 was not printed.
