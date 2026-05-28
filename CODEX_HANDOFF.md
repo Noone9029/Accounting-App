@@ -3436,3 +3436,20 @@
 ## Next Thread Prompt
 
 `DEV-08I Part 1: AP output permission and authenticated UI QA preflight`
+
+## DEV-08I Part 1 - AP Output Permission And Authenticated UI QA Preflight Completed
+
+- DEV-08I Part 1 read-only preflight is recorded in [docs/development/DEV_08I_AP_OUTPUT_PERMISSION_UI_QA_PREFLIGHT.md](docs/development/DEV_08I_AP_OUTPUT_PERMISSION_UI_QA_PREFLIGHT.md).
+- Runtime mutation performed: no; login/browser flow performed: no; PDF generation/download performed: no.
+- Latest commit inspected: `0789fec3 Close DEV-08H AP output evidence`; local `HEAD` matched `origin/main`.
+- Permission map: generated-document archive list/detail requires `generatedDocuments.view`, archive download requires `generatedDocuments.download`, and AP source PDF/explicit generation routes currently require each source `*.view` permission.
+- API guard map: AP output/archive controllers use `JwtAuthGuard`, `OrganizationContextGuard`, `PermissionGuard`, and `RequirePermissions(...)`.
+- UI map: `/documents` hides archived-download buttons without `generatedDocuments.download`; AP detail pages expose source PDF buttons to users who can open the source detail page.
+- Fixture strategy: reuse the local DEV-08H AP sources where suitable, then create/confirm DEV-08I full-permission and restricted fake users/roles under marker `DEV08I-AP-20260528T000000`.
+- Login/audit policy: later approved authenticated API/UI parts may write marker-scoped `AUTH_LOGIN` audit rows only for local fake users; record sanitized counts/statuses/safe prefixes only.
+- Exact Part 2 approval phrase already received in the upfront DEV-08I approval bundle.
+- Exact next prompt title: `DEV-08I Part 2: approved local AP output permission fixture mutation`.
+
+## Next Thread Prompt
+
+`DEV-08I Part 2: approved local AP output permission fixture mutation`
