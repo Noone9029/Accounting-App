@@ -3170,3 +3170,18 @@
 ## Next Thread Prompt
 
 `DEV-08H Part 13: supplier refund PDF archive preflight`
+
+## DEV-08H Part 13 - Supplier Refund PDF Archive Preflight Completed
+
+- DEV-08H Part 13 read-only preflight is recorded in [docs/development/DEV_08H_SUPPLIER_REFUND_PDF_ARCHIVE_PREFLIGHT.md](docs/development/DEV_08H_SUPPLIER_REFUND_PDF_ARCHIVE_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `a53f11ce Verify DEV-08H supplier-payment-receipt PDF archive`.
+- Selected source: `SRF-000127` safe prefix `e7eed3c7`, status `POSTED`, refunded `25.0000`, source payment safe prefix `7efa0003`.
+- Route boundary: `pdf-data` is read-only; `pdf` and `generate-pdf` render/archive one `SUPPLIER_REFUND` generated document through `GeneratedDocumentService.archivePdf(...)`.
+- Baseline: supplier-refund generated documents for selected source `0`, marker email rows `0`, marker ZATCA rows `0`.
+- Required exact Part 14 approval phrase: `I approve DEV-08H Part 14 local-only supplier refund PDF archive mutation under marker DEV08H-AP-20260528T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08H Part 14: approved local supplier refund PDF archive mutation`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 14: approved local supplier refund PDF archive mutation`
