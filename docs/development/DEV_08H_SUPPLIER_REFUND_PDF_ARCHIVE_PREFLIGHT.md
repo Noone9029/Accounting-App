@@ -43,3 +43,10 @@
 ## Exact Next Prompt Title
 
 `DEV-08H Part 14: approved local supplier refund PDF archive mutation`
+
+## Part 14 Note
+
+- Part 14 archived exactly one local supplier refund PDF for `SRF-000127`.
+- Generated document safe prefix: `676ceaa6`; filename `supplier-refund-SRF-000127.pdf`; hash prefix `45a947874e20`; size `3043` bytes.
+- Marker email outbox/provider-event rows and marker ZATCA rows remained `0`.
+- PDF body/base64 was not printed.

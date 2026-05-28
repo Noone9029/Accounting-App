@@ -3185,3 +3185,19 @@
 ## Next Thread Prompt
 
 `DEV-08H Part 14: approved local supplier refund PDF archive mutation`
+
+## DEV-08H Part 14 - Supplier Refund PDF Archive Mutation Completed
+
+- DEV-08H Part 14 mutation evidence is recorded in [docs/development/DEV_08H_SUPPLIER_REFUND_PDF_ARCHIVE_MUTATION_EVIDENCE.md](docs/development/DEV_08H_SUPPLIER_REFUND_PDF_ARCHIVE_MUTATION_EVIDENCE.md).
+- Runtime mutation performed: yes, exactly one local `SupplierRefundService.generatePdf(...)` archive call.
+- Latest commit inspected: `af2bf112 Plan DEV-08H supplier-refund PDF archive`.
+- Approval phrase status: exact Part 14 phrase received in the up-front DEV-08H approval bundle and checked before mutation.
+- Source: `SRF-000127` safe prefix `e7eed3c7`, status `POSTED`, refunded `25.0000`, source payment safe prefix `7efa0003`.
+- Generated document: safe prefix `676ceaa6`, type `SUPPLIER_REFUND`, filename `supplier-refund-SRF-000127.pdf`, hash prefix `45a947874e20`, size `3043` bytes, status `GENERATED`, storage `database`.
+- Counts: selected-source supplier-refund generated documents `0 -> 1`, marker email rows `0`, marker ZATCA rows `0`.
+- PDF body/base64 was not printed; no email provider or ZATCA/PDF-A3 action was run.
+- Exact next prompt title: `DEV-08H Part 15: supplier refund PDF archive evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 15: supplier refund PDF archive evidence verification`
