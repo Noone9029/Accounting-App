@@ -65,3 +65,10 @@ The count snapshot did not inspect or print email bodies, PDF bodies, `contentBa
 ## Exact Next Prompt Title
 
 `DEV-08K Part 4: AP generated-document email service preflight`
+
+## Part 4 Follow-Up
+
+- Part 4 service preflight is recorded in [DEV_08K_AP_EMAIL_SERVICE_PREFLIGHT.md](DEV_08K_AP_EMAIL_SERVICE_PREFLIGHT.md).
+- The selected API is `POST /email/ap-generated-documents/:generatedDocumentId/outbox`.
+- Implementation must enforce `emailOutbox.view`, `generatedDocuments.download`, and matching AP source view permission inside the service because the existing permission guard uses any-permission semantics for static decorator entries.
+- Exact next prompt title: `DEV-08K Part 5: approved local AP generated-document email service implementation`.

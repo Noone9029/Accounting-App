@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `66d11809 Add DEV-08K AP email schema design`
+- `f860f444 Verify DEV-08K AP email schema design`
 
 ## Current Development Objective
 
@@ -3804,3 +3804,18 @@
 ## Next Thread Prompt
 
 `DEV-08K Part 4: AP generated-document email service preflight`
+
+## DEV-08K Part 4 - AP Generated-Document Email Service Preflight Completed
+
+- DEV-08K Part 4 service preflight is recorded in [docs/development/DEV_08K_AP_EMAIL_SERVICE_PREFLIGHT.md](docs/development/DEV_08K_AP_EMAIL_SERVICE_PREFLIGHT.md).
+- Runtime mutation performed: no; service/API implementation performed: no; email outbox rows created: no; provider calls performed: no.
+- Latest commit inspected: `f860f444 Verify DEV-08K AP email schema design`; local `HEAD` matched `origin/main`.
+- Selected API design: `POST /email/ap-generated-documents/:generatedDocumentId/outbox`.
+- Permission design: use `emailOutbox.view` as the static controller gate, then enforce `emailOutbox.view`, `generatedDocuments.download`, and the matching AP source view permission inside the service because the current permission guard uses any-permission semantics.
+- Outbox design: create local metadata-only `SENT_MOCK` rows with provider `mock-no-send`, no retry scheduling, no provider call, and attachment metadata only.
+- Part 5 approval phrase status: exact phrase received in the upfront DEV-08K approval bundle.
+- Exact next prompt title: `DEV-08K Part 5: approved local AP generated-document email service implementation`.
+
+## Next Thread Prompt
+
+`DEV-08K Part 5: approved local AP generated-document email service implementation`
