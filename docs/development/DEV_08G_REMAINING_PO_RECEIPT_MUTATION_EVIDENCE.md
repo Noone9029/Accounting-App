@@ -139,3 +139,20 @@ Run before commit:
 ## Exact Next Prompt Title
 
 `DEV-08G Part 9: remaining purchase receipt evidence verification`
+
+## Part 9 Verification Note
+
+DEV-08G Part 9 independently verified the full PO receiving state with read-only Prisma queries only.
+
+- Verification evidence: [DEV_08G_REMAINING_PO_RECEIPT_EVIDENCE_VERIFICATION.md](DEV_08G_REMAINING_PO_RECEIPT_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected before verification: `a3c12b99 Create DEV-08G remaining purchase order receipt`.
+- First receipt `PRC-000005` safe prefix `1f412d79` remains `POSTED` for quantity `4.0000`.
+- Second receipt `PRC-000006` safe prefix `942e4907` remains `POSTED` for quantity `6.0000`.
+- Source stock movements remain `PURCHASE_RECEIPT_PLACEHOLDER`: `39a7350e` quantity `4.0000` and `e0ffd378` quantity `6.0000`.
+- Total non-voided received quantity is `10.0000`; remaining quantity is `0.0000`.
+- Receiving status is `COMPLETE`; receipt matching status is `FULLY_RECEIVED`.
+- Asset journals, reversal journals, and void stock movements remain absent for both PO-only receipts.
+- Purchase bills, directly tied journals, generated documents/output, email rows/events, and ZATCA fixture audit actions remain `0`.
+- Fixture audit actions are limited to prior fixture creates/approval plus two `PurchaseReceipt:PURCHASE_RECEIPT_CREATED` actions.
+- No `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 10: purchase order over-receipt blocker preflight`.
