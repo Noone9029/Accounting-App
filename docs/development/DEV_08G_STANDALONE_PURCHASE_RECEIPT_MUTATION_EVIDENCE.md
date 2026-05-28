@@ -113,3 +113,19 @@ Run before commit:
 ## Exact Next Prompt Title
 
 `DEV-08G Part 24: standalone purchase receipt evidence verification`
+
+## Part 24 Verification Note
+
+DEV-08G Part 24 independently verified the standalone purchase receipt with read-only Prisma queries and `PurchaseReceiptService.accountingPreview(...)`.
+
+- Verification evidence: [DEV_08G_STANDALONE_PURCHASE_RECEIPT_EVIDENCE_VERIFICATION.md](DEV_08G_STANDALONE_PURCHASE_RECEIPT_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected before verification: `65ab25bb Create DEV-08G standalone purchase receipt`.
+- `PRC-000007` safe prefix `d963e3c6` remains `POSTED`.
+- Purchase order and purchase bill links remain absent.
+- Receipt line remains item safe prefix `3b8d7650`, quantity `3.0000`, unit cost `90.0000`.
+- Stock movement safe prefix `2ebd05ff` remains `PURCHASE_RECEIPT_PLACEHOLDER` quantity `3.0000`.
+- Accounting preview is `DESIGN_ONLY`, `canPost=false`, with the expected missing finalized linked inventory-clearing bill blocker.
+- Journal, generated document, marker email, and selected receipt ZATCA counts remain `0`.
+- Receipt audit actions show one `PURCHASE_RECEIPT_CREATED` action, no void action, and no asset-post/reversal audit actions.
+- No `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 25: standalone receipt asset-posting blocker preflight`.
