@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `9314f670 Check DEV-08G standalone receipt asset posting blocker`
+- `a3647be4 Verify DEV-08G standalone receipt asset posting blocker`
 
 ## Current Development Objective
 
@@ -2916,3 +2916,19 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 28: standalone receipt void preflight`
+
+## DEV-08G Part 28 - Standalone Receipt Void Preflight Completed
+
+- DEV-08G Part 28 read-only preflight is recorded in [docs/development/DEV_08G_STANDALONE_RECEIPT_VOID_PREFLIGHT.md](docs/development/DEV_08G_STANDALONE_RECEIPT_VOID_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `a3647be4 Verify DEV-08G standalone receipt asset posting blocker`; local `HEAD` matched `origin/main` at `a3647be42b7141af61d5357bf654e8a4cde4ecd5`.
+- Selected receipt: `PRC-000007` safe prefix `d963e3c6`, status `POSTED`, quantity `3.0000`, no inventory asset journal links, no void stock movement.
+- Stock sufficiency: on hand `3.0000`, selected void quantity `3.0000`, expected after void `0.0000`.
+- Expected void result: `ADJUSTMENT_OUT` stock movement quantity `3.0000`, reference type `PurchaseReceiptVoid`.
+- Baselines: selected receipt void stock movements `0`, selected receipt void audits `0`, directly tied journals `0`, generated documents `0`, marker email rows `0`, selected receipt ZATCA audit rows `0`.
+- Required exact Part 29 approval phrase: `I approve DEV-08G Part 29 local-only standalone receipt void mutation under marker DEV08G-AP-20260527T000000 for quantity 3.0000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08G Part 29: approved local standalone receipt void mutation`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 29: approved local standalone receipt void mutation`
