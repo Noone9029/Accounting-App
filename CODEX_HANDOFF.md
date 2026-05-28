@@ -3201,3 +3201,18 @@
 ## Next Thread Prompt
 
 `DEV-08H Part 15: supplier refund PDF archive evidence verification`
+
+## DEV-08H Part 15 - Supplier Refund PDF Archive Verification Completed
+
+- DEV-08H Part 15 read-only verification is recorded in [docs/development/DEV_08H_SUPPLIER_REFUND_PDF_ARCHIVE_EVIDENCE_VERIFICATION.md](docs/development/DEV_08H_SUPPLIER_REFUND_PDF_ARCHIVE_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `5c51c6ee Archive DEV-08H supplier-refund PDF locally`.
+- Verification result: exactly one supplier-refund generated document exists for `SRF-000127`, safe prefix `676ceaa6`, filename `supplier-refund-SRF-000127.pdf`, hash prefix `45a947874e20`, size `3043` bytes.
+- Source state unchanged: `SRF-000127` safe prefix `e7eed3c7` remained `POSTED`, refunded `25.0000`, source payment safe prefix `7efa0003`.
+- Side effects: marker email rows `0`, marker ZATCA rows `0`; PDF body/base64 was not printed.
+- Audit actions include expected source creation action plus `GENERATED_DOCUMENT_CREATED = 1`.
+- Exact next prompt title: `DEV-08H Part 16: purchase debit note PDF archive preflight`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 16: purchase debit note PDF archive preflight`

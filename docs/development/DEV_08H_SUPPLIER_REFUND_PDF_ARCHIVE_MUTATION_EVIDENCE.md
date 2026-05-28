@@ -45,3 +45,10 @@
 ## Exact Next Prompt Title
 
 `DEV-08H Part 15: supplier refund PDF archive evidence verification`
+
+## Part 15 Note
+
+- Part 15 verified exactly one supplier-refund generated document for `SRF-000127`.
+- Generated document safe prefix `676ceaa6`, filename `supplier-refund-SRF-000127.pdf`, hash prefix `45a947874e20`, size `3043` bytes.
+- Source state remained `POSTED`; marker email and ZATCA counts remained `0`.
+- PDF body/base64 was not printed.
