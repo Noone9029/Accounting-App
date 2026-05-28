@@ -3323,3 +3323,19 @@
 ## Next Thread Prompt
 
 `DEV-08H Part 23: approved local generated document download integrity check`
+
+## DEV-08H Part 23 - Generated Document Download Integrity Check Completed
+
+- DEV-08H Part 23 evidence is recorded in [docs/development/DEV_08H_GENERATED_DOCUMENT_DOWNLOAD_INTEGRITY_EVIDENCE.md](docs/development/DEV_08H_GENERATED_DOCUMENT_DOWNLOAD_INTEGRITY_EVIDENCE.md).
+- Runtime mutation performed: no; local generated-document download buffers were read for integrity verification only.
+- Latest commit inspected: `57306e8c Plan DEV-08H generated document download integrity`.
+- Approval phrase status: exact Part 23 phrase received in the up-front DEV-08H approval bundle and checked before the download checks.
+- Documents checked: `PURCHASE_ORDER`, `PURCHASE_BILL`, `SUPPLIER_PAYMENT_RECEIPT`, `SUPPLIER_REFUND`, `PURCHASE_DEBIT_NOTE`, and `CASH_EXPENSE`.
+- Result: returned buffer hashes, byte counts, filenames, and MIME types matched stored metadata for all six documents.
+- Counts: total generated documents `839 -> 839`, marker email rows `0`, marker ZATCA rows `0`.
+- PDF body/base64 was not printed; no email provider or ZATCA/PDF-A3 action was run.
+- Exact next prompt title: `DEV-08H Part 24: generated document download integrity evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 24: generated document download integrity evidence verification`

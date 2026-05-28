@@ -43,3 +43,11 @@
 ## Exact Next Prompt Title
 
 `DEV-08H Part 23: approved local generated document download integrity check`
+
+## Part 23 Note
+
+- Part 23 checked local generated-document download integrity for all six selected DEV-08H documents.
+- Returned buffer hash and byte count matched stored metadata for every selected document.
+- Total generated document count remained `839`.
+- Marker email outbox/provider-event rows and marker ZATCA rows remained `0`.
+- PDF body/base64 was not printed.
