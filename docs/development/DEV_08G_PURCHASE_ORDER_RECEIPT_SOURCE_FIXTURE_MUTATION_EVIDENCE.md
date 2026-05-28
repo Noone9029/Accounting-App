@@ -203,3 +203,21 @@ Marker-scoped records after mutation:
 ## Exact Next Prompt Title
 
 `DEV-08G Part 3: purchase order receipt source fixture evidence verification`
+
+## Part 3 Verification Note
+
+DEV-08G Part 3 independently verified this Part 2 fixture with read-only Prisma queries only.
+
+- Verification evidence: [DEV_08G_PURCHASE_ORDER_RECEIPT_SOURCE_FIXTURE_EVIDENCE_VERIFICATION.md](DEV_08G_PURCHASE_ORDER_RECEIPT_SOURCE_FIXTURE_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected before verification: `ce9e202d Create DEV-08G purchase order receipt source fixture`.
+- Purchase order `PO-000003` safe prefix `a3efc2e4` remains `APPROVED` with no converted bill.
+- Supplier safe prefix `f5deec9a` remains active `SUPPLIER`.
+- Item safe prefix `3b8d7650` remains `ACTIVE` with `inventoryTracking = true`.
+- Warehouse safe prefix `197fac56` remains `ACTIVE`.
+- Purchase order line safe prefix `22f17076` remains quantity `10.0000`, unit price `100.0000`, purchase tax `15.0000`, and posting asset account code `111`.
+- Receiving status remains `NOT_STARTED` with `10.0000` remaining.
+- Receipt matching remains `NOT_RECEIVED` with the expected warning that bill matching is unavailable until a purchase bill is linked.
+- Purchase receipts, purchase receipt lines, stock movements, directly tied journals, generated documents, email rows/events, purchase bills, supplier payments/refunds, purchase debit notes, cash expenses, and ZATCA fixture audit actions remained `0`.
+- Fixture-scoped audit actions remain limited to `Contact:CREATE`, `Item:CREATE`, `PurchaseOrder:PURCHASE_ORDER_CREATED`, and `PurchaseOrder:PURCHASE_ORDER_APPROVED`.
+- No `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 4: partial purchase receipt from purchase order preflight`.
