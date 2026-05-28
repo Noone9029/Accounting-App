@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `9522b098 Verify DEV-08G remaining purchase order receipt void`
+- `8fd401ae Plan DEV-08G standalone purchase receipt`
 
 ## Current Development Objective
 
@@ -2831,3 +2831,21 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 23: approved local standalone purchase receipt mutation`
+
+## DEV-08G Part 23 - Standalone Purchase Receipt Mutation Completed
+
+- DEV-08G Part 23 local-only mutation evidence is recorded in [docs/development/DEV_08G_STANDALONE_PURCHASE_RECEIPT_MUTATION_EVIDENCE.md](docs/development/DEV_08G_STANDALONE_PURCHASE_RECEIPT_MUTATION_EVIDENCE.md).
+- Runtime mutation performed: yes, local-only.
+- Latest commit inspected: `8fd401ae Plan DEV-08G standalone purchase receipt`; local `HEAD` matched `origin/main` at `8fd401ae0e04b9f1e516b376f37557b49deec55d`.
+- Approval phrase status: exact Part 23 phrase received in the up-front DEV-08G approval bundle and checked before mutation.
+- Service call: exactly one `PurchaseReceiptService.create(...)` with no purchase order link and no purchase bill link.
+- Standalone receipt result: `PRC-000007` safe prefix `d963e3c6`, status `POSTED`, supplier safe prefix `f5deec9a`, warehouse safe prefix `197fac56`.
+- Receipt line: item safe prefix `3b8d7650`, quantity `3.0000`, unit cost `90.0000`.
+- Stock movement: safe prefix `2ebd05ff`, type `PURCHASE_RECEIPT_PLACEHOLDER`, quantity `3.0000`, reference type `PurchaseReceipt`.
+- Side effects: standalone DEV-08G receipts `0 -> 1`; stock movements for selected item/warehouse `4 -> 5`; directly tied journals `0 -> 0`; generated documents `0`; marker email rows `0`; broad existing ZATCA audit count unchanged.
+- Cleanup: temporary runner `apps/api/scripts/dev08g-part23-runner.ts` was removed; no `*dev08g*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 24: standalone purchase receipt evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 24: standalone purchase receipt evidence verification`

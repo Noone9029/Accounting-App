@@ -106,3 +106,18 @@ Run before commit:
 ## Exact Next Prompt Title
 
 `DEV-08G Part 23: approved local standalone purchase receipt mutation`
+
+## Part 23 Mutation Note
+
+DEV-08G Part 23 completed the approved local-only standalone purchase receipt mutation.
+
+- Mutation evidence: [DEV_08G_STANDALONE_PURCHASE_RECEIPT_MUTATION_EVIDENCE.md](DEV_08G_STANDALONE_PURCHASE_RECEIPT_MUTATION_EVIDENCE.md).
+- Latest commit inspected before mutation: `8fd401ae Plan DEV-08G standalone purchase receipt`.
+- Exact Part 23 approval phrase was checked before importing write-capable services.
+- `PRC-000007` safe prefix `d963e3c6` was created as `POSTED`.
+- The receipt has no purchase order link and no purchase bill link.
+- Receipt line: item safe prefix `3b8d7650`, quantity `3.0000`, unit cost `90.0000`.
+- Stock movement safe prefix `2ebd05ff` was created as `PURCHASE_RECEIPT_PLACEHOLDER` quantity `3.0000`.
+- Journal entries tied to the marker or new receipt remained `0`; generated documents for the new receipt or marker remained `0`; marker email rows remained `0`; broad existing ZATCA audit count was unchanged.
+- No `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 24: standalone purchase receipt evidence verification`.
