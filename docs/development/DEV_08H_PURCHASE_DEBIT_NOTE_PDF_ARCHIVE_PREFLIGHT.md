@@ -42,3 +42,10 @@
 ## Exact Next Prompt Title
 
 `DEV-08H Part 17: approved local purchase debit note PDF archive mutation`
+
+## Part 17 Note
+
+- Part 17 archived exactly one local purchase debit note PDF for `PDN-000127`.
+- Generated document safe prefix: `b5626ade`; filename `purchase-debit-note-PDN-000127.pdf`; hash prefix `eb5f03433c0b`; size `3336` bytes.
+- Marker email outbox/provider-event rows and marker ZATCA rows remained `0`.
+- PDF body/base64 was not printed.
