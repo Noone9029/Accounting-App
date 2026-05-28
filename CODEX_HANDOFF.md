@@ -3571,3 +3571,19 @@
 ## Next Thread Prompt
 
 `DEV-08I Part 9: restricted AP output API permission evidence verification`
+
+## DEV-08I Part 9 - Restricted AP Output API Permission Evidence Verification Completed
+
+- DEV-08I Part 9 read-only verification is recorded in [docs/development/DEV_08I_RESTRICTED_AP_OUTPUT_API_PERMISSION_EVIDENCE_VERIFICATION.md](docs/development/DEV_08I_RESTRICTED_AP_OUTPUT_API_PERMISSION_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no; login/API/browser/output/download performed: no.
+- Latest commit inspected: `f8f65d79 Check DEV-08I restricted AP output API permissions`; local `HEAD` matched `origin/main`.
+- Local-only proof: sanitized DB target remained host `localhost`, port `5432`, database `accounting`.
+- Restricted archive-only user `16d72d2a`, membership `2de5260b`, role `83dc203f`, permission count `4`, remained active with `generatedDocuments.view` but without `generatedDocuments.download` or AP source view permissions.
+- Part 8 denied-route evidence was verified from the doc: six archive downloads `403`, six AP data routes `403`, and six AP generation routes `403`.
+- Current DB verification: selected-source generated documents `13`, generated documents by restricted user `0`, restricted-user `AUTH_LOGIN` audit rows `1`, marker email rows `0`, ZATCA submission logs `331`, and signed artifact drafts `33`.
+- Exposure result: no PDF body, base64, token, cookie, auth header, request/response body, email body, signed XML, or QR payload printed; no `*dev08i*` temporary script remained.
+- Exact next prompt title: `DEV-08I Part 10: AP output UI full-permission preflight`.
+
+## Next Thread Prompt
+
+`DEV-08I Part 10: AP output UI full-permission preflight`
