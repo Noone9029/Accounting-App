@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `87ed54a9 Void DEV-08G purchase order receipt locally`
+- `91ccd67a Verify DEV-08G purchase order receipt void`
 
 ## Current Development Objective
 
@@ -2762,3 +2762,19 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 19: remaining purchase-order receipt void preflight`
+
+## DEV-08G Part 19 - Remaining Purchase Order Receipt Void Preflight Completed
+
+- DEV-08G Part 19 read-only preflight is recorded in [docs/development/DEV_08G_REMAINING_PO_RECEIPT_VOID_PREFLIGHT.md](docs/development/DEV_08G_REMAINING_PO_RECEIPT_VOID_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `91ccd67a Verify DEV-08G purchase order receipt void`; local `HEAD` matched `origin/main` at `91ccd67aa0b742bc53815f0d98450a4c63fbf25f`.
+- Selected receipt: `PRC-000005` safe prefix `1f412d79`, status `POSTED`, quantity `4.0000`, no asset journal, no void movement.
+- Stock sufficiency: on hand `4.0000`, selected void quantity `4.0000`, expected after void `0.0000`.
+- Expected final PO state: received `0.0000`, remaining `10.0000`, receiving `NOT_STARTED`, matching `NOT_RECEIVED`.
+- Baselines: existing DEV-08G PO receipt void movements `1`, existing DEV-08G PO receipt void audits `1`, directly tied journals `0`.
+- Required exact Part 20 approval phrase: `I approve DEV-08G Part 20 local-only remaining purchase-order receipt void mutation under marker DEV08G-AP-20260527T000000 for the 4.0000 receipt. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08G Part 20: approved local remaining purchase-order receipt void mutation`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 20: approved local remaining purchase-order receipt void mutation`
