@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `48806634 Verify DEV-08K AP email service`
+- `f4d8834c Plan DEV-08K AP email outbox fixture`
 
 ## Current Development Objective
 
@@ -3867,3 +3867,19 @@
 ## Next Thread Prompt
 
 `DEV-08K Part 8: approved local AP generated-document email outbox fixture mutation`
+
+## DEV-08K Part 8A - AP Email Local Schema Gate Preflight Completed
+
+- DEV-08K Part 8A read-only schema gate preflight is recorded in [docs/development/DEV_08K_AP_EMAIL_LOCAL_SCHEMA_GATE_PREFLIGHT.md](docs/development/DEV_08K_AP_EMAIL_LOCAL_SCHEMA_GATE_PREFLIGHT.md).
+- Runtime mutation performed: no; migration applied: no; email outbox rows created: no; provider calls performed: no.
+- Latest commit inspected: `f4d8834c Plan DEV-08K AP email outbox fixture`; local `HEAD` matched `origin/main`.
+- Local-only proof: sanitized DB target was protocol `postgresql`, host `localhost`, port `5432`, database `accounting`, schema `public`.
+- Blocker confirmed: the committed AP email metadata migration exists, but local `_prisma_migrations` has no row for `20260528100000_add_ap_generated_document_email_metadata`, and the local `EmailOutbox` table has none of the seven new AP metadata columns.
+- Baseline counts before schema application: email outbox rows `227`, selected synthetic recipient rows `0`, AP generated-document email rows `0`, provider events `0`, generated documents `870`.
+- Selected schema path: Option A, applying only the already-committed AP email metadata migration to the disposable local DB.
+- Part 8B approval phrase status: exact phrase received from the user before Part 8A execution.
+- Exact next prompt title: `DEV-08K Part 8B: approved local AP email migration application`.
+
+## Next Thread Prompt
+
+`DEV-08K Part 8B: approved local AP email migration application`
