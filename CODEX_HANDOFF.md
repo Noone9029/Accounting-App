@@ -3308,3 +3308,18 @@
 ## Next Thread Prompt
 
 `DEV-08H Part 22: generated document download integrity preflight`
+
+## DEV-08H Part 22 - Generated Document Download Integrity Preflight Completed
+
+- DEV-08H Part 22 read-only preflight is recorded in [docs/development/DEV_08H_GENERATED_DOCUMENT_DOWNLOAD_INTEGRITY_PREFLIGHT.md](docs/development/DEV_08H_GENERATED_DOCUMENT_DOWNLOAD_INTEGRITY_PREFLIGHT.md).
+- Runtime mutation performed: no; download performed: no.
+- Latest commit inspected: `cfe3c641 Verify DEV-08H cash-expense PDF archive`.
+- Selected generated documents: `PURCHASE_ORDER` `8797cdeb`, `PURCHASE_BILL` `27a07429`, `SUPPLIER_PAYMENT_RECEIPT` `11846c56`, `SUPPLIER_REFUND` `676ceaa6`, `PURCHASE_DEBIT_NOTE` `b5626ade`, and `CASH_EXPENSE` `4b8b7378`.
+- Each selected document had `mimeType=application/pdf`, `storageProvider=database`, stored hash/size metadata, and content present; body/base64 was not printed.
+- Integrity method for Part 23: call local generated-document download, hash returned buffers, compare hash and byte count, and print only safe prefixes/hash/size/match statuses.
+- Required exact Part 23 approval phrase: `I approve DEV-08H Part 23 local-only generated document download integrity check under marker DEV08H-AP-20260528T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08H Part 23: approved local generated document download integrity check`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 23: approved local generated document download integrity check`
