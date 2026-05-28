@@ -41,3 +41,9 @@
 ## Exact Next Prompt Title
 
 `DEV-08H Part 6: purchase order PDF archive evidence verification`
+
+## Part 6 Note
+
+- Part 6 verified the purchase-order archive in [DEV_08H_PURCHASE_ORDER_PDF_ARCHIVE_EVIDENCE_VERIFICATION.md](DEV_08H_PURCHASE_ORDER_PDF_ARCHIVE_EVIDENCE_VERIFICATION.md).
+- Exactly one selected-source purchase-order generated document exists; source `PO-000144` remained `APPROVED`.
+- Marker email and ZATCA counts remained `0`.

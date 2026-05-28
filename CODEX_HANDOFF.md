@@ -3063,3 +3063,18 @@
 ## Next Thread Prompt
 
 `DEV-08H Part 6: purchase order PDF archive evidence verification`
+
+## DEV-08H Part 6 - Purchase Order PDF Archive Verification Completed
+
+- DEV-08H Part 6 read-only verification is recorded in [docs/development/DEV_08H_PURCHASE_ORDER_PDF_ARCHIVE_EVIDENCE_VERIFICATION.md](docs/development/DEV_08H_PURCHASE_ORDER_PDF_ARCHIVE_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `4e62a1a3 Archive DEV-08H purchase-order PDF locally`.
+- Verification result: exactly one purchase-order generated document exists for `PO-000144`, safe prefix `8797cdeb`, filename `purchase-order-PO-000144.pdf`, hash prefix `ed41181eafb7`, size `3226` bytes.
+- Source state unchanged: `PO-000144` safe prefix `8f42caf7` remained `APPROVED`.
+- Side effects: marker email rows `0`, marker ZATCA rows `0`; PDF body/base64 was not printed.
+- Audit actions include expected source create/approve actions plus `GENERATED_DOCUMENT_CREATED = 1`.
+- Exact next prompt title: `DEV-08H Part 7: purchase bill PDF archive preflight`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 7: purchase bill PDF archive preflight`
