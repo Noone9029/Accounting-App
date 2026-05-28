@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `4d9e5b0b Verify DEV-08G standalone receipt void`
+- `88dd99a6 Close DEV-08G purchase receipt inventory evidence`
 
 ## Current Development Objective
 
@@ -2983,3 +2983,20 @@
 ## Next Thread Prompt
 
 `DEV-08H Part 1: AP output PDF archive email preflight`
+
+## DEV-08H Part 1 - AP Output PDF Archive Email Preflight Completed
+
+- DEV-08H Part 1 read-only preflight is recorded in [docs/development/DEV_08H_AP_OUTPUT_PDF_ARCHIVE_EMAIL_PREFLIGHT.md](docs/development/DEV_08H_AP_OUTPUT_PDF_ARCHIVE_EMAIL_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Output mutation performed: no PDF generation, no archive record creation, no generated-document download, no email enqueue/send, and no ZATCA action.
+- Latest commit inspected: `88dd99a6 Close DEV-08G purchase receipt inventory evidence`; local `HEAD` matched `origin/main` at `88dd99a6`.
+- Route/service families mapped: purchase order, purchase bill, supplier payment receipt, supplier refund, purchase debit note, cash expense, generated-document list/get/download, documents page, and email readiness/outbox boundaries.
+- Source strategy: create a fresh local-only fake AP source fixture pack because existing DEV-08G receipt records are voided and outside the DEV-08H AP output family list.
+- Marker collision check for `DEV08H-AP-20260528T000000`: source records `0`, generated documents `0`, marker email outbox rows `0`, and marker ZATCA rows `0`.
+- Safety boundaries: no PDF/body/base64 printing, local fake data only, hashes/byte counts only for output evidence, no real email provider, and no ZATCA/PDF-A3/production-compliance claim.
+- Required exact Part 2 approval phrase: `I approve DEV-08H Part 2 local-only AP output source fixture mutation under marker DEV08H-AP-20260528T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08H Part 2: approved local AP output source fixture mutation`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 2: approved local AP output source fixture mutation`
