@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `29a58cd7 Apply DEV-08K AP email migration locally`
+- `9ea4031b Verify DEV-08K AP email local schema gate`
 
 ## Current Development Objective
 
@@ -3867,6 +3867,25 @@
 ## Next Thread Prompt
 
 `DEV-08K Part 8: approved local AP generated-document email outbox fixture mutation`
+
+## DEV-08K Part 8 - Approved Local AP Generated-Document Email Outbox Fixture Mutation Completed
+
+- DEV-08K Part 8 mutation evidence is recorded in [docs/development/DEV_08K_AP_EMAIL_OUTBOX_FIXTURE_MUTATION_EVIDENCE.md](docs/development/DEV_08K_AP_EMAIL_OUTBOX_FIXTURE_MUTATION_EVIDENCE.md).
+- Approval phrase status: exact Part 8 phrase received and checked before mutation.
+- Runtime outbox mutation performed: yes, exactly one local metadata-only `EmailService.createApGeneratedDocumentOutbox` call.
+- Local-only proof: sanitized DB target was protocol `postgresql`, host `localhost`, port `5432`, database `accounting`, schema `public`.
+- Created outbox safe prefix: `3c19700b`.
+- Selected generated document/source: generated document safe prefix `27a07429`, source type `PurchaseBill`, source prefix `16e6f021`, document/source number `BILL-000423`, status remained `GENERATED`.
+- Delivery result: `SENT_MOCK` with provider `mock-no-send`; provider events stayed `0`; no real email/provider call occurred.
+- Attachment metadata result: filename `purchase-bill-BILL-000423.pdf`, MIME type `application/pdf`, size `3417`, content hash prefix `47935bce9f75`.
+- Count result: email outbox rows `227 -> 228`, synthetic recipient rows `0 -> 1`, AP generated-document email rows `0 -> 1`, selected generated-document email rows `0 -> 1`, generated documents `870 -> 870`.
+- Exposure controls: no PDF body, base64, attachment body, email body, request/response body, provider payload, signed XML, QR payload, token, cookie, auth header, private key, CSID, customer/vendor data, or source contact email was printed.
+- Temporary script cleanup: no tracked or untracked `*dev08k*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08K Part 9: AP email outbox fixture evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08K Part 9: AP email outbox fixture evidence verification`
 
 ## DEV-08K Part 8A - AP Email Local Schema Gate Preflight Completed
 

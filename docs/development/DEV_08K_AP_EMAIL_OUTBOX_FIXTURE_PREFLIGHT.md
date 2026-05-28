@@ -117,3 +117,15 @@ Status: received exactly in the upfront DEV-08K approval bundle.
 ## Exact Next Prompt Title
 
 `DEV-08K Part 8: approved local AP generated-document email outbox fixture mutation`
+
+## Part 8 Follow-Up
+
+- Part 8 mutation evidence is recorded in [DEV_08K_AP_EMAIL_OUTBOX_FIXTURE_MUTATION_EVIDENCE.md](DEV_08K_AP_EMAIL_OUTBOX_FIXTURE_MUTATION_EVIDENCE.md).
+- The exact Part 8 approval phrase was received and checked before mutation.
+- The local schema gate was verified first in [DEV_08K_AP_EMAIL_LOCAL_SCHEMA_GATE_EVIDENCE_VERIFICATION.md](DEV_08K_AP_EMAIL_LOCAL_SCHEMA_GATE_EVIDENCE_VERIFICATION.md).
+- Exactly one local metadata-only AP generated-document email outbox row was created: outbox safe prefix `3c19700b`.
+- The row targets generated document safe prefix `27a07429`, source type `PurchaseBill`, source prefix `16e6f021`, and document/source number `BILL-000423`.
+- Delivery status/provider are `SENT_MOCK` / `mock-no-send`; provider events stayed `0` and no real email was sent.
+- Attachment evidence remained metadata-only: filename `purchase-bill-BILL-000423.pdf`, MIME type `application/pdf`, size `3417`, hash prefix `47935bce9f75`.
+- Temporary runner cleanup was verified: no tracked or untracked `*dev08k*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08K Part 9: AP email outbox fixture evidence verification`.
