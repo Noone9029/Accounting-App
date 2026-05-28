@@ -93,3 +93,18 @@ Run before commit:
 ## Exact Next Prompt Title
 
 `DEV-08G Part 26: approved local standalone receipt asset-posting blocker negative check`
+
+## Part 26 Negative Check Note
+
+DEV-08G Part 26 completed the approved local-only standalone receipt asset-posting blocker negative check.
+
+- Negative-check evidence: [DEV_08G_STANDALONE_RECEIPT_ASSET_POSTING_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md](DEV_08G_STANDALONE_RECEIPT_ASSET_POSTING_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md).
+- Latest commit inspected before the negative check: `72612e87 Plan DEV-08G standalone receipt asset posting blocker`.
+- Exact Part 26 approval phrase was checked before importing write-capable services.
+- Exactly one `PurchaseReceiptService.postInventoryAsset(...)` call was attempted.
+- Observed blocker: `Purchase receipt asset posting requires a finalized linked purchase bill in inventory clearing mode.`
+- `PRC-000007` safe prefix `d963e3c6` remained `POSTED`.
+- Inventory asset journal link remained absent.
+- Stock movement, journal, generated document, marker email, selected receipt ZATCA, selected receipt create-audit, and asset-audit counts were unchanged.
+- No `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 27: standalone receipt asset-posting blocker evidence verification`.
