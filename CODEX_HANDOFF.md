@@ -3622,3 +3622,20 @@
 ## Next Thread Prompt
 
 `DEV-08I Part 12: full-permission AP output UI evidence verification`
+
+## DEV-08I Part 12 - Full-Permission AP Output UI Evidence Verification Completed
+
+- DEV-08I Part 12 read-only verification is recorded in [docs/development/DEV_08I_FULL_PERMISSION_AP_OUTPUT_UI_EVIDENCE_VERIFICATION.md](docs/development/DEV_08I_FULL_PERMISSION_AP_OUTPUT_UI_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no; login/API/browser/output/download performed: no.
+- Latest commit inspected: `792738f2 Check DEV-08I full permission AP output UI`; local `HEAD` matched `origin/main`.
+- Local-only proof: sanitized DB target remained protocol `postgresql`, host `localhost`, port `5432`, database `accounting`.
+- Full output QA user `5281dfc0`, membership `b7f0b3d4`, role `a0c6ece9`, permission count `136`, remained active with all required archive/AP source permissions.
+- Part 11 UI evidence was verified from the committed doc: `/documents` and all six AP detail routes had status `200`, archive rows/source buttons were visible/enabled, and browser console/page errors were `0`.
+- Current DB verification: selected-source generated documents stayed `19 -> 19`; latest UI docs remained `156e0b83`, `069106ca`, `75b2e7ae`, `32e98b3b`, `3a6d6bad`, and `5cfcbed8` with expected filenames, statuses, hash prefixes, byte sizes, full-user actor prefix, and six `GENERATED_DOCUMENT_CREATED` audit rows.
+- Side effects/exposure: full-user `AUTH_LOGIN` rows stayed `1`, marker email rows stayed `0`, ZATCA submission logs stayed `331`, signed artifact drafts stayed `33`, and no PDF body, base64, token, cookie, auth header, request/response body, email body, signed XML, or QR payload was printed.
+- No `*dev08i*` temporary script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08I Part 13: AP output UI restricted-permission preflight`.
+
+## Next Thread Prompt
+
+`DEV-08I Part 13: AP output UI restricted-permission preflight`
