@@ -100,3 +100,17 @@ Run before commit:
 ## Exact Next Prompt Title
 
 `DEV-08G Part 27: standalone receipt asset-posting blocker evidence verification`
+
+## Part 27 Verification Note
+
+DEV-08G Part 27 independently verified the standalone receipt asset-posting blocker with read-only Prisma queries only.
+
+- Verification evidence: [DEV_08G_STANDALONE_RECEIPT_ASSET_POSTING_BLOCKER_EVIDENCE_VERIFICATION.md](DEV_08G_STANDALONE_RECEIPT_ASSET_POSTING_BLOCKER_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected before verification: `9314f670 Check DEV-08G standalone receipt asset posting blocker`.
+- `PRC-000007` safe prefix `d963e3c6` remains `POSTED`.
+- Inventory asset journal and reversal journal links remain absent.
+- Stock movement safe prefix `2ebd05ff` remains `PURCHASE_RECEIPT_PLACEHOLDER` quantity `3.0000`; no void stock movement is linked.
+- Journal, generated document, marker email, and selected receipt ZATCA counts remain `0`.
+- Receipt audit actions show one `PURCHASE_RECEIPT_CREATED` action, no void action, and no asset-post/reversal audit actions.
+- No `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 28: standalone receipt void preflight`.

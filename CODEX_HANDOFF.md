@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `72612e87 Plan DEV-08G standalone receipt asset posting blocker`
+- `9314f670 Check DEV-08G standalone receipt asset posting blocker`
 
 ## Current Development Objective
 
@@ -2900,3 +2900,19 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 27: standalone receipt asset-posting blocker evidence verification`
+
+## DEV-08G Part 27 - Standalone Receipt Asset Posting Blocker Verification Completed
+
+- DEV-08G Part 27 read-only verification is recorded in [docs/development/DEV_08G_STANDALONE_RECEIPT_ASSET_POSTING_BLOCKER_EVIDENCE_VERIFICATION.md](docs/development/DEV_08G_STANDALONE_RECEIPT_ASSET_POSTING_BLOCKER_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `9314f670 Check DEV-08G standalone receipt asset posting blocker`; local `HEAD` matched `origin/main` at `9314f6702c77ee13d484e70eeb7c6e47c4c8e4b0`.
+- Selected receipt state: `PRC-000007` safe prefix `d963e3c6`, status `POSTED`, no inventory asset journal link, no reversal journal link.
+- Stock movement: safe prefix `2ebd05ff`, type `PURCHASE_RECEIPT_PLACEHOLDER`, quantity `3.0000`, no void stock movement link.
+- Side effects: selected item/warehouse stock movements `5`, directly tied journals `0`, generated documents `0`, marker email rows `0`, selected receipt ZATCA audit rows `0`.
+- Audit counts for `PRC-000007`: receipt created `1`, receipt voided `0`, asset-post/reversal `0`.
+- No `*dev08g*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 28: standalone receipt void preflight`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 28: standalone receipt void preflight`
