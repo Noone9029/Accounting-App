@@ -3262,3 +3262,18 @@
 ## Next Thread Prompt
 
 `DEV-08H Part 19: cash expense PDF archive preflight`
+
+## DEV-08H Part 19 - Cash Expense PDF Archive Preflight Completed
+
+- DEV-08H Part 19 read-only preflight is recorded in [docs/development/DEV_08H_CASH_EXPENSE_PDF_ARCHIVE_PREFLIGHT.md](docs/development/DEV_08H_CASH_EXPENSE_PDF_ARCHIVE_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `8642c966 Verify DEV-08H purchase-debit-note PDF archive`.
+- Selected source: `EXP-000065` safe prefix `bd4d1330`, status `POSTED`, total `46.0000`, tax total `6.0000`.
+- Route boundary: `pdf-data` is read-only; `pdf` and `generate-pdf` render/archive one `CASH_EXPENSE` generated document through `GeneratedDocumentService.archivePdf(...)`.
+- Baseline: cash-expense generated documents for selected source `0`, marker email rows `0`, marker ZATCA rows `0`.
+- Required exact Part 20 approval phrase: `I approve DEV-08H Part 20 local-only cash expense PDF archive mutation under marker DEV08H-AP-20260528T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08H Part 20: approved local cash expense PDF archive mutation`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 20: approved local cash expense PDF archive mutation`
