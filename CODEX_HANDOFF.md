@@ -3486,3 +3486,20 @@
 ## Next Thread Prompt
 
 `DEV-08I Part 4: authenticated full-permission AP output API preflight`
+
+## DEV-08I Part 4 - Full-Permission AP Output API Preflight Completed
+
+- DEV-08I Part 4 preflight is recorded in [docs/development/DEV_08I_FULL_PERMISSION_AP_OUTPUT_API_PREFLIGHT.md](docs/development/DEV_08I_FULL_PERMISSION_AP_OUTPUT_API_PREFLIGHT.md).
+- Runtime mutation performed: no; login performed: no; API output generation/download performed: no.
+- Latest commit inspected: `0a6134e3 Verify DEV-08I AP output permission fixtures`.
+- Part 5 approval phrase status: exact phrase received in the upfront DEV-08I approval bundle.
+- API target plan: local `http://localhost:4000` only, backed by sanitized local DB target `localhost:5432/accounting`.
+- Fixture subject: full output QA user `5281dfc0`, role `a0c6ece9`, permission count `136`.
+- Endpoint plan: login once, `GET /auth/me`, read-only AP `pdf-data`/receipt-data checks, one explicit `generate-pdf` or `generate-receipt-pdf` call per selected AP source, then generated-document metadata/download integrity by hash and size only.
+- Expected Part 5 side effects: one fake-user `AUTH_LOGIN` audit row plus six generated-document archive rows/audit rows if all explicit generation calls succeed.
+- Source streaming PDF routes are deferred to the UI part to avoid duplicate API generation in Part 5.
+- Exact next prompt title: `DEV-08I Part 5: approved local authenticated full-permission AP output API QA`.
+
+## Next Thread Prompt
+
+`DEV-08I Part 5: approved local authenticated full-permission AP output API QA`
