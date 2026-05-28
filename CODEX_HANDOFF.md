@@ -3370,3 +3370,20 @@
 ## Next Thread Prompt
 
 `DEV-08H Part 26: approved local AP output duplicate generation check`
+
+## DEV-08H Part 26 - AP Output Duplicate Generation Check Completed
+
+- DEV-08H Part 26 evidence is recorded in [docs/development/DEV_08H_AP_OUTPUT_DUPLICATE_GENERATION_EVIDENCE.md](docs/development/DEV_08H_AP_OUTPUT_DUPLICATE_GENERATION_EVIDENCE.md).
+- Runtime mutation performed: yes, exactly one additional local `PurchaseOrderService.generatePdf(...)` archive call.
+- Latest commit inspected: `45c45ceb Plan DEV-08H AP output duplicate generation check`.
+- Approval phrase status: exact Part 26 phrase received in the up-front DEV-08H approval bundle and checked before mutation.
+- Source: `PO-000144` safe prefix `8f42caf7` remained `APPROVED`, total `115.0000`.
+- Duplicate behavior observed: purchase-order generated documents for selected source `1 -> 2`.
+- New generated document: safe prefix `b01ee620`, filename `purchase-order-PO-000144.pdf`, hash prefix `6ffd6d911c82`, size `3227` bytes.
+- Classification: current service allows duplicate archive rows; future product/idempotency decision needed if reuse/supersede behavior is desired.
+- Side effects: marker email rows `0`, marker ZATCA rows `0`; PDF body/base64 was not printed.
+- Exact next prompt title: `DEV-08H Part 27: AP output duplicate generation evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 27: AP output duplicate generation evidence verification`

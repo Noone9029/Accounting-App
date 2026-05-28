@@ -47,3 +47,11 @@
 ## Exact Next Prompt Title
 
 `DEV-08H Part 26: approved local AP output duplicate generation check`
+
+## Part 26 Note
+
+- Part 26 ran exactly one additional local `PurchaseOrderService.generatePdf(...)` call for `PO-000144`.
+- Current behavior created a second `PURCHASE_ORDER` generated document for the same source.
+- New generated document safe prefix `b01ee620`, filename `purchase-order-PO-000144.pdf`, hash prefix `6ffd6d911c82`, size `3227` bytes.
+- Previous and new hash/size differed; source state remained `APPROVED`.
+- Marker email and ZATCA counts remained `0`.
