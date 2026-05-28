@@ -3032,3 +3032,18 @@
 ## Next Thread Prompt
 
 `DEV-08H Part 4: purchase order PDF archive preflight`
+
+## DEV-08H Part 4 - Purchase Order PDF Archive Preflight Completed
+
+- DEV-08H Part 4 read-only preflight is recorded in [docs/development/DEV_08H_PURCHASE_ORDER_PDF_ARCHIVE_PREFLIGHT.md](docs/development/DEV_08H_PURCHASE_ORDER_PDF_ARCHIVE_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `91b4f7d6 Verify DEV-08H AP output source fixtures`.
+- Selected source: `PO-000144` safe prefix `8f42caf7`, status `APPROVED`, total `115.0000`.
+- Route boundary: `pdf-data` is read-only; `pdf` and `generate-pdf` render/archive one `PURCHASE_ORDER` generated document through `GeneratedDocumentService.archivePdf(...)`.
+- Baseline: purchase-order generated documents for selected source `0`, marker email rows `0`, marker ZATCA rows `0`.
+- Required exact Part 5 approval phrase: `I approve DEV-08H Part 5 local-only purchase order PDF archive mutation under marker DEV08H-AP-20260528T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08H Part 5: approved local purchase order PDF archive mutation`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 5: approved local purchase order PDF archive mutation`
