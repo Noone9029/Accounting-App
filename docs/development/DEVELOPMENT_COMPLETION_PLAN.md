@@ -102,8 +102,9 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 - DEV-08E is now closed for the local cash expense lifecycle branch in [DEV_08E_CASH_EXPENSE_LIFECYCLE_CLOSURE.md](DEV_08E_CASH_EXPENSE_LIFECYCLE_CLOSURE.md). It proved cash expense create/post behavior, original journal behavior, cash expense void/reversal, reversal journal behavior, audit behavior, and output/email/ZATCA non-effects.
 - DEV-08F is now closed for the local inventory-clearing purchase bill and linked purchase receipt branch in [DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_RECEIPT_CLOSURE.md](DEV_08F_INVENTORY_CLEARING_PURCHASE_BILL_RECEIPT_CLOSURE.md). It proved inventory-clearing bill fixture creation/finalization/void, linked purchase receipt creation/void, receipt placeholder stock movement, manual receipt asset posting, asset reversal, receipt void blocker behavior while asset posting was active, journal behavior, audit behavior, and source-scoped output/email/ZATCA non-effects.
 - DEV-08G is now closed for the local purchase receipt and inventory integration branch in [DEV_08G_PURCHASE_RECEIPT_INVENTORY_INTEGRATION_CLOSURE.md](DEV_08G_PURCHASE_RECEIPT_INVENTORY_INTEGRATION_CLOSURE.md). It proved PO-sourced partial/full receiving, over-receipt blockers, PO-only asset-posting blockers, PO receipt void behavior, standalone receipt creation, standalone asset-posting blockers, standalone receipt void behavior, stock movement in/out pairs, audit behavior, and output/email/ZATCA non-effects.
-- DEV-08 through DEV-08G do not claim full AP completion. Remaining AP gaps include linked PO-to-bill receipt reconciliation, valuation variance booking, landed cost, returns, serial/batch/bin/location behavior, AP PDF/archive/output routes, AP email delivery, authenticated UI/API QA, repeated/idempotency paths, fiscal-period locks, permission edge cases, cleanup policy, and production/beta/customer-data behavior.
-- Recommended next local-only AP branch: `DEV-08H Part 1: AP output PDF archive email preflight`.
+- DEV-08H is now closed for local-only AP output PDF archive and generated-document download evidence in [DEV_08H_AP_OUTPUT_PDF_ARCHIVE_EMAIL_CLOSURE.md](DEV_08H_AP_OUTPUT_PDF_ARCHIVE_EMAIL_CLOSURE.md). It proved AP PDF archive paths for purchase orders, purchase bills, supplier payment receipts, supplier refunds, purchase debit notes, and cash expenses; verified generated-document metadata and download hash/size integrity; documented duplicate archive behavior; and proved AP email output is blocked because no AP generated-document email/outbox path exists.
+- DEV-08 through DEV-08H do not claim full AP completion. Remaining AP gaps include linked PO-to-bill receipt reconciliation, valuation variance booking, landed cost, returns, serial/batch/bin/location behavior, AP email delivery implementation, authenticated UI/API QA, repeated/idempotency product decisions, fiscal-period locks, permission edge cases, cleanup policy, and production/beta/customer-data behavior.
+- Recommended next local-only AP branch: `DEV-08I Part 1: AP output permission and authenticated UI QA preflight`.
 
 ## Highest-Priority Development Tickets
 
@@ -154,4 +155,4 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 
 ## Exact Next Recommended Development Ticket
 
-`DEV-08H Part 1: AP output PDF archive email preflight`
+`DEV-08I Part 1: AP output permission and authenticated UI QA preflight`

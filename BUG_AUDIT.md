@@ -3138,3 +3138,12 @@ Recommended next step:
 - Verified role management and revocation: changed role to `Sales`, changed it back to `Viewer`, suspended access, reactivated it, then suspended again. Final dummy member state was `SUSPENDED` with role `Viewer`.
 - No `Owner` or `Admin` role was assigned to the dummy tester.
 - No app bug was found requiring a UI/auth/permission fix. No auth architecture, permission logic, accounting behavior, ZATCA behavior, Supabase RLS, runtime DB role, Vercel env, migration, seed/reset/delete, full smoke, or full E2E action changed.
+
+# DEV-08H AP output/archive/email closure - 2026-05-28
+
+- Local-only AP output evidence created and verified fake purchase order, purchase bill, supplier payment receipt, supplier refund, purchase debit note, and cash expense generated-document archive rows without using production, beta, shared, or customer data.
+- Archived download integrity passed for the six initially generated AP output rows by matching returned buffer hashes/sizes to stored generated-document metadata without printing PDF bodies or base64.
+- Open product decision: repeated purchase-order PDF generation currently creates a second generated-document archive row for the same source. Decide whether future behavior should remain versioned duplicates, reuse existing rows, or supersede older rows.
+- Open blocker: no AP document email action or generated-document attachment-capable outbox path exists. Do not run AP email outbox mutation until a real AP email feature, attachment policy, and redaction boundary are designed.
+- Remaining QA gap: authenticated API/UI permission behavior for AP output and generated-document downloads still needs a separate approved local login/audit-writing preflight.
+- No real email provider send, ZATCA network/signing/clearance/reporting/PDF-A3, secrets, env changes, migrations, seed/reset/delete, deployment, full smoke, full E2E, or production/beta/customer-data behavior changed.
