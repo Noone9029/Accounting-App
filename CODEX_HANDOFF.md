@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `88dd99a6 Close DEV-08G purchase receipt inventory evidence`
+- `25ae0b5b Close DEV-08J repeated blocker evidence`
 
 ## Current Development Objective
 
@@ -3759,3 +3759,20 @@
 ## Next Thread Prompt
 
 `DEV-08K Part 1: AP generated-document email design preflight`
+
+## DEV-08K Part 1 - AP Generated-Document Email Design Preflight Completed
+
+- DEV-08K Part 1 read-only design preflight is recorded in [docs/development/DEV_08K_AP_GENERATED_DOCUMENT_EMAIL_DESIGN_PREFLIGHT.md](docs/development/DEV_08K_AP_GENERATED_DOCUMENT_EMAIL_DESIGN_PREFLIGHT.md).
+- Runtime mutation performed: no; schema/code/email/outbox/provider mutation performed: no.
+- Latest commit inspected: `25ae0b5b Close DEV-08J repeated blocker evidence`; local `HEAD` matched `origin/main`.
+- Design decision: add a dedicated AP generated-document email outbox path that records local/mock metadata only, with nullable generated-document, source, and attachment metadata fields on `EmailOutbox`.
+- Planned service/API boundary: `POST /email/ap-generated-documents/:generatedDocumentId/outbox`, requiring `emailOutbox.view`, `generatedDocuments.download`, and the matching AP source view permission.
+- Planned provider behavior: create local `SENT_MOCK` / `mock-no-send` outbox metadata only, with no active provider call, no retry scheduling, and no real email send.
+- Planned AP families: purchase orders, purchase bills, supplier payment receipts, supplier refunds, purchase debit notes, and cash expenses.
+- Exposure boundary: no PDF body, base64, token, cookie, auth header, request/response body, email body, signed XML, QR payload, private key, CSID, or attachment body should be printed or stored in AP email evidence.
+- Part 2 approval phrase status: exact phrase received in the upfront DEV-08K approval bundle.
+- Exact next prompt title: `DEV-08K Part 2: approved local AP generated-document email schema design mutation`.
+
+## Next Thread Prompt
+
+`DEV-08K Part 2: approved local AP generated-document email schema design mutation`
