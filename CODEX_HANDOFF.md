@@ -3078,3 +3078,18 @@
 ## Next Thread Prompt
 
 `DEV-08H Part 7: purchase bill PDF archive preflight`
+
+## DEV-08H Part 7 - Purchase Bill PDF Archive Preflight Completed
+
+- DEV-08H Part 7 read-only preflight is recorded in [docs/development/DEV_08H_PURCHASE_BILL_PDF_ARCHIVE_PREFLIGHT.md](docs/development/DEV_08H_PURCHASE_BILL_PDF_ARCHIVE_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `0168261a Verify DEV-08H purchase-order PDF archive`.
+- Selected source: `BILL-000423` safe prefix `16e6f021`, status `FINALIZED`, total `230.0000`, live balance due `130.0000`.
+- Route boundary: `pdf-data` is read-only; `pdf` and `generate-pdf` render/archive one `PURCHASE_BILL` generated document through `GeneratedDocumentService.archivePdf(...)`.
+- Baseline: purchase-bill generated documents for selected source `0`, marker email rows `0`, marker ZATCA rows `0`.
+- Required exact Part 8 approval phrase: `I approve DEV-08H Part 8 local-only purchase bill PDF archive mutation under marker DEV08H-AP-20260528T000000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08H Part 8: approved local purchase bill PDF archive mutation`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 8: approved local purchase bill PDF archive mutation`
