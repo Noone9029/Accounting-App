@@ -3453,3 +3453,20 @@
 ## Next Thread Prompt
 
 `DEV-08I Part 2: approved local AP output permission fixture mutation`
+
+## DEV-08I Part 2 - AP Output Permission Fixture Mutation Completed
+
+- DEV-08I Part 2 mutation evidence is recorded in [docs/development/DEV_08I_AP_OUTPUT_PERMISSION_FIXTURE_MUTATION_EVIDENCE.md](docs/development/DEV_08I_AP_OUTPUT_PERMISSION_FIXTURE_MUTATION_EVIDENCE.md).
+- Runtime mutation performed: yes, local disposable user/role fixture upsert only.
+- Latest commit inspected: `202a7123 Plan DEV-08I AP output permission QA`.
+- Approval phrase status: exact Part 2 phrase received in the upfront DEV-08I approval bundle and checked before mutation.
+- Local-only proof: sanitized DB target `postgresql`, host `localhost`, port `5432`, database `accounting`; local Postgres and Redis were reachable and Docker containers were healthy.
+- Sources confirmed in one local organization: `PO-000144`, `BILL-000423`, `PAY-000318`, `SRF-000127`, `PDN-000127`, and `EXP-000065`.
+- Fixture roles/users: full output QA user, restricted archive-only user, and restricted AP viewer/no archive-download user were created or confirmed with safe prefixes documented.
+- Side effects unchanged: selected-source generated documents `7 -> 7`, marker email rows `0 -> 0`, organization ZATCA submission logs `331 -> 331`, organization ZATCA signed artifact drafts `33 -> 33`, marker audit logs `0 -> 0`.
+- Temporary runner `apps/api/scripts/dev08i-part2-fixtures.ts` was removed after execution and no `*dev08i*` script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08I Part 3: AP output permission fixture evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08I Part 3: AP output permission fixture evidence verification`
