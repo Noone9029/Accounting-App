@@ -3673,3 +3673,20 @@
 ## Next Thread Prompt
 
 `DEV-08I Part 15: restricted AP output UI evidence verification`
+
+## DEV-08I Part 15 - Restricted AP Output UI Evidence Verification Completed
+
+- DEV-08I Part 15 read-only verification is recorded in [docs/development/DEV_08I_RESTRICTED_AP_OUTPUT_UI_PERMISSION_EVIDENCE_VERIFICATION.md](docs/development/DEV_08I_RESTRICTED_AP_OUTPUT_UI_PERMISSION_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no; login/API/browser/output/download performed: no.
+- Latest commit inspected: `904a41b2 Check DEV-08I restricted AP output UI permissions`; local `HEAD` matched `origin/main`.
+- Local-only proof: sanitized DB target remained protocol `postgresql`, host `localhost`, port `5432`, database `accounting`.
+- Restricted archive-only user `16d72d2a`, membership `2de5260b`, role `83dc203f`, permission count `4`, remained active with `generatedDocuments.view` but without `generatedDocuments.download` or any selected AP source view permission.
+- Restricted AP viewer/no archive-download user `41b031e2`, membership `78a4a87c`, role `b167ef15`, permission count `10`, remained active with AP source view permissions and `generatedDocuments.view`, but without `generatedDocuments.download`.
+- Part 14 UI evidence was verified from the committed doc: `/documents` loaded with selected archive rows visible, archive download actions absent, permission-required fallbacks visible, sidebar purchases hidden, and all six AP detail routes rendered `Access denied` with source PDF button count `0`.
+- Current DB verification: selected-source generated documents stayed `19 -> 19`, generated documents by both restricted users stayed `0`, restricted archive-only `AUTH_LOGIN` rows stayed `1`, marker email rows stayed `0`, ZATCA submission logs stayed `331`, and signed artifact drafts stayed `33`.
+- Side effects/exposure: no PDF body, base64, token, cookie, auth header, request/response body, email body, signed XML, or QR payload was printed; no `*dev08i*` temporary script remained.
+- Exact next prompt title: `DEV-08I Part 16: AP output permission audit and cleanup preflight`.
+
+## Next Thread Prompt
+
+`DEV-08I Part 16: AP output permission audit and cleanup preflight`
