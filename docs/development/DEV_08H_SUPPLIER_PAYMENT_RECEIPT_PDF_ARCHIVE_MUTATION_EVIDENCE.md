@@ -43,3 +43,10 @@
 ## Exact Next Prompt Title
 
 `DEV-08H Part 12: supplier payment receipt PDF archive evidence verification`
+
+## Part 12 Note
+
+- Part 12 verified exactly one supplier-payment receipt generated document for `PAY-000318`.
+- Generated document safe prefix `11846c56`, filename `supplier-payment-PAY-000318.pdf`, hash prefix `4cf43aeb4f19`, size `3137` bytes.
+- Source state remained `POSTED`; marker email and ZATCA counts remained `0`.
+- PDF body/base64 was not printed.
