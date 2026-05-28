@@ -3387,3 +3387,19 @@
 ## Next Thread Prompt
 
 `DEV-08H Part 27: AP output duplicate generation evidence verification`
+
+## DEV-08H Part 27 - AP Output Duplicate Generation Verification Completed
+
+- DEV-08H Part 27 read-only verification is recorded in [docs/development/DEV_08H_AP_OUTPUT_DUPLICATE_GENERATION_EVIDENCE_VERIFICATION.md](docs/development/DEV_08H_AP_OUTPUT_DUPLICATE_GENERATION_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `4520ba26 Check DEV-08H AP output duplicate generation`.
+- Verification result: exactly two purchase-order generated-document archive rows exist for `PO-000144`.
+- Source state unchanged: `PO-000144` safe prefix `8f42caf7` remained `APPROVED`, total `115.0000`.
+- Duplicate metadata intact: original `8797cdeb` hash prefix `ed41181eafb7`, size `3226`; duplicate `b01ee620` hash prefix `6ffd6d911c82`, size `3227`.
+- Classification: current duplicate generation behavior should be a future product/idempotency decision if reuse/supersede/versioning is desired.
+- Side effects: marker email rows `0`, marker ZATCA rows `0`; PDF body/base64 was not printed.
+- Exact next prompt title: `DEV-08H Part 28: AP email output boundary preflight`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 28: AP email output boundary preflight`

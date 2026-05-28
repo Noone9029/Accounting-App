@@ -45,3 +45,10 @@
 ## Exact Next Prompt Title
 
 `DEV-08H Part 27: AP output duplicate generation evidence verification`
+
+## Part 27 Note
+
+- Part 27 verified exactly two purchase-order generated-document archive rows for `PO-000144`.
+- Duplicate row `b01ee620` remains intact with filename `purchase-order-PO-000144.pdf`, hash prefix `6ffd6d911c82`, and size `3227` bytes.
+- Source state remained `APPROVED`; marker email and ZATCA counts remained `0`.
+- Classification remains a future product/idempotency decision.
