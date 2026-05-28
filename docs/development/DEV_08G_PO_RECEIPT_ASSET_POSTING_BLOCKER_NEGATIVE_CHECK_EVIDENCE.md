@@ -99,3 +99,18 @@ Run before commit:
 ## Exact Next Prompt Title
 
 `DEV-08G Part 15: purchase-order receipt asset-posting blocker evidence verification`
+
+## Part 15 Verification Note
+
+DEV-08G Part 15 independently verified that the Part 14 asset-posting blocker preserved state with read-only Prisma queries only.
+
+- Verification evidence: [DEV_08G_PO_RECEIPT_ASSET_POSTING_BLOCKER_EVIDENCE_VERIFICATION.md](DEV_08G_PO_RECEIPT_ASSET_POSTING_BLOCKER_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected before verification: `fda5e717 Check DEV-08G purchase order receipt asset posting blocker`.
+- Receipt `PRC-000005` safe prefix `1f412d79` remains `POSTED`.
+- Inventory asset journal and asset reversal journal remain absent.
+- Directly tied journal count remains `0`.
+- Asset-post audit count remains `0`; asset-reversal audit count remains `0`.
+- Stock movement count for the selected receipt remains `1`.
+- Generated documents, email rows, and ZATCA fixture audit actions remain `0`.
+- No `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 16: purchase-order receipts void preflight`.
