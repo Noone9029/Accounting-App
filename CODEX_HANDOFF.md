@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `a3c12b99 Create DEV-08G remaining purchase order receipt`
+- `55ff99ea Verify DEV-08G remaining purchase order receipt`
 
 ## Current Development Objective
 
@@ -2615,3 +2615,19 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 10: purchase order over-receipt blocker preflight`
+
+## DEV-08G Part 10 - Purchase Order Over-Receipt Blocker Preflight Completed
+
+- DEV-08G Part 10 read-only preflight is recorded in [docs/development/DEV_08G_PO_OVER_RECEIPT_BLOCKER_PREFLIGHT.md](docs/development/DEV_08G_PO_OVER_RECEIPT_BLOCKER_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `55ff99ea Verify DEV-08G remaining purchase order receipt`; local `HEAD` matched `origin/main` at `55ff99ea4e11ae978e7ad62909299b5b6cac5a92`.
+- Current PO state: `PO-000003` safe prefix `a3efc2e4`, source line safe prefix `22f17076`, source quantity `10.0000`, received `10.0000`, remaining `0.0000`.
+- Current receiving and matching result: receiving `COMPLETE`, matching `FULLY_RECEIVED`.
+- Expected negative check: future requested excess quantity `1.0000` should fail with `Receipt quantity cannot exceed the remaining source quantity.` before receipt or stock movement creation.
+- Baselines: purchase receipts `2`, stock movements `2`, directly tied journals `0`, generated documents/output `0`, marker receipt audit actions `2`.
+- Required exact Part 11 approval phrase: `I approve DEV-08G Part 11 local-only purchase order over-receipt blocker negative check under marker DEV08G-AP-20260527T000000 for excess quantity 1.0000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08G Part 11: approved local purchase order over-receipt blocker negative check`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 11: approved local purchase order over-receipt blocker negative check`
