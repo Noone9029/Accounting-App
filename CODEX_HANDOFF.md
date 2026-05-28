@@ -3537,3 +3537,19 @@
 ## Next Thread Prompt
 
 `DEV-08I Part 7: restricted AP output API permission preflight`
+
+## DEV-08I Part 7 - Restricted AP Output API Permission Preflight Completed
+
+- DEV-08I Part 7 preflight is recorded in [docs/development/DEV_08I_RESTRICTED_AP_OUTPUT_API_PERMISSION_PREFLIGHT.md](docs/development/DEV_08I_RESTRICTED_AP_OUTPUT_API_PERMISSION_PREFLIGHT.md).
+- Runtime mutation performed: no; login/API/browser/output/download performed: no.
+- Latest commit inspected: `a7986366 Verify DEV-08I full permission AP output API`; local `HEAD` matched `origin/main`.
+- Local-only proof: sanitized DB target remained host `localhost`, port `5432`, database `accounting`.
+- Restricted archive-only user `16d72d2a` has `generatedDocuments.view`, lacks `generatedDocuments.download`, and lacks all six AP source view permissions; this is the primary Part 8 negative subject.
+- Restricted AP viewer/no archive-download user `41b031e2` has all six AP source view permissions and `generatedDocuments.view`, but lacks `generatedDocuments.download`; archive download should 403, but AP generation routes are expected to be allowed by current guards and should not be called in the negative-only Part 8 run.
+- Part 8 expected result: archive metadata list/detail allowed, generated-document download blocked with 403, AP `pdf-data` and explicit generation routes blocked with 403 for the archive-only user, and selected-source generated-document counts unchanged.
+- Part 8 approval phrase status: exact phrase received in the upfront DEV-08I approval bundle.
+- Exact next prompt title: `DEV-08I Part 8: approved local restricted-user AP output API permission negative checks`.
+
+## Next Thread Prompt
+
+`DEV-08I Part 8: approved local restricted-user AP output API permission negative checks`
