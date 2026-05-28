@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `fb40145a Verify DEV-08K AP email outbox fixture`
+- `5d1555ca Plan DEV-08K AP email permission negative checks`
 
 ## Current Development Objective
 
@@ -3903,6 +3903,25 @@
 ## Next Thread Prompt
 
 `DEV-08K Part 11: approved local AP generated-document email permission negative checks`
+
+## DEV-08K Part 11 - Approved Local AP Generated-Document Email Permission Negative Checks Completed
+
+- DEV-08K Part 11 evidence is recorded in [docs/development/DEV_08K_AP_EMAIL_PERMISSION_NEGATIVE_CHECK_EVIDENCE.md](docs/development/DEV_08K_AP_EMAIL_PERMISSION_NEGATIVE_CHECK_EVIDENCE.md).
+- Approval phrase status: exact Part 11 phrase received and checked before service checks.
+- Runtime negative checks performed: yes, local-only `EmailService.createApGeneratedDocumentOutbox` denied permission vectors.
+- Successful outbox creation: no; provider calls performed: no; real email sent: no; login/API/browser performed: no.
+- Local-only proof: sanitized DB target was protocol `postgresql`, host `localhost`, port `5432`, database `accounting`, schema `public`.
+- Selected generated document verification: safe prefix `27a07429` remained `GENERATED`, document type `PURCHASE_BILL`, source type `PurchaseBill`, source prefix `16e6f021`, document/source number `BILL-000423`.
+- Negative check results: missing `generatedDocuments.download`, missing AP source view, missing `emailOutbox.view`, restricted AP viewer/no archive download role, and restricted archive-only role all returned `403`.
+- Count result: email outbox rows stayed `228`, synthetic recipient rows stayed `1`, AP generated-document email rows stayed `1`, selected generated-document email rows stayed `1`, provider events stayed `0`, generated documents stayed `870`.
+- Provider guard result: provider `send(...)` call count stayed `0`.
+- Exposure controls: no PDF body, base64, attachment body, email body, request/response body, provider payload, signed XML, QR payload, token, cookie, auth header, private key, CSID, customer/vendor data, or source contact email was printed.
+- Temporary script cleanup: no tracked or untracked `*dev08k*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08K Part 12: AP email permission negative evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08K Part 12: AP email permission negative evidence verification`
 
 ## DEV-08K Part 8 - Approved Local AP Generated-Document Email Outbox Fixture Mutation Completed
 

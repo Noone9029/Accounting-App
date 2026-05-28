@@ -148,3 +148,14 @@ Status: not received in this thread.
 ## Exact Next Prompt Title
 
 `DEV-08K Part 11: approved local AP generated-document email permission negative checks`
+
+## Part 11 Follow-Up
+
+- Part 11 evidence is recorded in [DEV_08K_AP_EMAIL_PERMISSION_NEGATIVE_CHECK_EVIDENCE.md](DEV_08K_AP_EMAIL_PERMISSION_NEGATIVE_CHECK_EVIDENCE.md).
+- The exact Part 11 approval phrase was received and checked before write-capable service checks.
+- All five denied vectors returned `403`: missing `generatedDocuments.download`, missing AP source view, missing `emailOutbox.view`, restricted AP viewer/no archive download role, and restricted archive-only role.
+- Outbox/provider side effects stayed unchanged: email outbox rows `228`, synthetic recipient rows `1`, AP generated-document email rows `1`, selected generated-document email rows `1`, provider events `0`, generated documents `870`.
+- Selected generated document safe prefix `27a07429` remained `GENERATED`.
+- Provider `send(...)` call count stayed `0`; no real email was sent.
+- Temporary runner cleanup was verified: no tracked or untracked `*dev08k*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08K Part 12: AP email permission negative evidence verification`.
