@@ -121,3 +121,13 @@ Selected generated document state:
 ## Exact Next Prompt Title
 
 `DEV-08K Part 9: AP email outbox fixture evidence verification`
+
+## Part 9 Follow-Up
+
+- Part 9 verification is recorded in [DEV_08K_AP_EMAIL_OUTBOX_FIXTURE_EVIDENCE_VERIFICATION.md](DEV_08K_AP_EMAIL_OUTBOX_FIXTURE_EVIDENCE_VERIFICATION.md).
+- Read-only verification confirmed exactly one AP generated-document email outbox row for generated document safe prefix `27a07429`.
+- Outbox safe prefix `3c19700b` remained `SENT_MOCK` with provider `mock-no-send`.
+- Provider events remained `0`; selected generated document `27a07429` remained `GENERATED`; generated documents remained `870`.
+- Attachment evidence remained metadata-only: filename `purchase-bill-BILL-000423.pdf`, MIME type `application/pdf`, size `3417`, hash prefix `47935bce9f75`.
+- No tracked or untracked `*dev08k*` temp script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08K Part 10: AP email permission negative-check preflight`.

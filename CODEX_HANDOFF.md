@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `9ea4031b Verify DEV-08K AP email local schema gate`
+- `69a6c7c2 Create DEV-08K AP email outbox fixture`
 
 ## Current Development Objective
 
@@ -3867,6 +3867,24 @@
 ## Next Thread Prompt
 
 `DEV-08K Part 8: approved local AP generated-document email outbox fixture mutation`
+
+## DEV-08K Part 9 - AP Email Outbox Fixture Evidence Verification Completed
+
+- DEV-08K Part 9 read-only verification is recorded in [docs/development/DEV_08K_AP_EMAIL_OUTBOX_FIXTURE_EVIDENCE_VERIFICATION.md](docs/development/DEV_08K_AP_EMAIL_OUTBOX_FIXTURE_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no; email outbox rows created: no; provider calls performed: no; real email sent: no; ZATCA performed: no.
+- Latest commit inspected: `69a6c7c2 Create DEV-08K AP email outbox fixture`; local `HEAD` matched `origin/main`.
+- Local-only proof: sanitized DB target was protocol `postgresql`, host `localhost`, port `5432`, database `accounting`, schema `public`.
+- Outbox verification: exactly one AP generated-document email row exists for generated document safe prefix `27a07429`; outbox safe prefix `3c19700b`, source type `PurchaseBill`, source prefix `16e6f021`, template `AP_GENERATED_DOCUMENT`, status `SENT_MOCK`, provider `mock-no-send`, synthetic recipient classification `true`.
+- Attachment metadata verification: filename `purchase-bill-BILL-000423.pdf`, MIME type `application/pdf`, size `3417`, content hash prefix `47935bce9f75`; no PDF/body/base64/attachment/email body was printed.
+- Selected generated document verification: safe prefix `27a07429` remained `GENERATED`, document type `PURCHASE_BILL`, source type `PurchaseBill`, document/source number `BILL-000423`.
+- Count verification: email outbox rows `228`, synthetic recipient rows `1`, AP generated-document email rows `1`, selected generated-document email rows `1`, provider events `0`, generated documents `870`.
+- ZATCA snapshot: current read-only counts were submission logs `352` and signed artifact drafts `34`; no ZATCA command or mutation was run in Part 9.
+- Temporary script check: no tracked or untracked `*dev08k*` temp scripts remain under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08K Part 10: AP email permission negative-check preflight`.
+
+## Next Thread Prompt
+
+`DEV-08K Part 10: AP email permission negative-check preflight`
 
 ## DEV-08K Part 8 - Approved Local AP Generated-Document Email Outbox Fixture Mutation Completed
 
