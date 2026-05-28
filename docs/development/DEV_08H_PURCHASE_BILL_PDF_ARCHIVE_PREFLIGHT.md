@@ -40,3 +40,9 @@
 ## Exact Next Prompt Title
 
 `DEV-08H Part 8: approved local purchase bill PDF archive mutation`
+
+## Part 8 Note
+
+- Part 8 archived one purchase-bill PDF in [DEV_08H_PURCHASE_BILL_PDF_ARCHIVE_MUTATION_EVIDENCE.md](DEV_08H_PURCHASE_BILL_PDF_ARCHIVE_MUTATION_EVIDENCE.md).
+- Generated document safe prefix `27a07429`, filename `purchase-bill-BILL-000423.pdf`, hash prefix `47935bce9f75`, size `3417` bytes.
+- Marker email and ZATCA counts remained `0`.

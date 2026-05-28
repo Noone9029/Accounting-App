@@ -3093,3 +3093,19 @@
 ## Next Thread Prompt
 
 `DEV-08H Part 8: approved local purchase bill PDF archive mutation`
+
+## DEV-08H Part 8 - Purchase Bill PDF Archive Mutation Completed
+
+- DEV-08H Part 8 mutation evidence is recorded in [docs/development/DEV_08H_PURCHASE_BILL_PDF_ARCHIVE_MUTATION_EVIDENCE.md](docs/development/DEV_08H_PURCHASE_BILL_PDF_ARCHIVE_MUTATION_EVIDENCE.md).
+- Runtime mutation performed: yes, exactly one local `PurchaseBillService.generatePdf(...)` archive call.
+- Latest commit inspected: `a2ea285d Plan DEV-08H purchase-bill PDF archive`.
+- Approval phrase status: exact Part 8 phrase received in the up-front DEV-08H approval bundle and checked before mutation.
+- Source: `BILL-000423` safe prefix `16e6f021`, status `FINALIZED`, total `230.0000`, balance due `130.0000`.
+- Generated document: safe prefix `27a07429`, type `PURCHASE_BILL`, filename `purchase-bill-BILL-000423.pdf`, hash prefix `47935bce9f75`, size `3417` bytes, status `GENERATED`, storage `database`.
+- Counts: selected-source purchase-bill generated documents `0 -> 1`, marker email rows `0`, marker ZATCA rows `0`.
+- PDF body/base64 was not printed; no email provider or ZATCA/PDF-A3 action was run.
+- Exact next prompt title: `DEV-08H Part 9: purchase bill PDF archive evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 9: purchase bill PDF archive evidence verification`
