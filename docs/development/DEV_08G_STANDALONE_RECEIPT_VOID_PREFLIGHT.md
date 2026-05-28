@@ -87,3 +87,18 @@ Run before commit:
 ## Exact Next Prompt Title
 
 `DEV-08G Part 29: approved local standalone receipt void mutation`
+
+## Part 29 Mutation Note
+
+DEV-08G Part 29 completed the approved local-only standalone receipt void mutation.
+
+- Mutation evidence: [DEV_08G_STANDALONE_RECEIPT_VOID_MUTATION_EVIDENCE.md](DEV_08G_STANDALONE_RECEIPT_VOID_MUTATION_EVIDENCE.md).
+- Latest commit inspected before mutation: `fd93bba7 Plan DEV-08G standalone receipt void`.
+- Exact Part 29 approval phrase was checked before importing write-capable services.
+- Exactly one `PurchaseReceiptService.void(...)` call was made.
+- `PRC-000007` safe prefix `d963e3c6` changed `POSTED -> VOIDED` with `voidedAt` present.
+- Void stock movement safe prefix `33ab2606` was created as `ADJUSTMENT_OUT` quantity `3.0000`.
+- Stock on hand changed `3.0000 -> 0.0000`.
+- Journal, generated document, marker email, selected receipt ZATCA, selected receipt create-audit, and asset-audit counts were unchanged; selected receipt void audit count changed `0 -> 1`.
+- No `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 30: standalone receipt void evidence verification`.

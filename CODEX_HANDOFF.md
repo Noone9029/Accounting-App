@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `a3647be4 Verify DEV-08G standalone receipt asset posting blocker`
+- `fd93bba7 Plan DEV-08G standalone receipt void`
 
 ## Current Development Objective
 
@@ -2932,3 +2932,20 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 29: approved local standalone receipt void mutation`
+
+## DEV-08G Part 29 - Standalone Receipt Void Mutation Completed
+
+- DEV-08G Part 29 local-only mutation evidence is recorded in [docs/development/DEV_08G_STANDALONE_RECEIPT_VOID_MUTATION_EVIDENCE.md](docs/development/DEV_08G_STANDALONE_RECEIPT_VOID_MUTATION_EVIDENCE.md).
+- Runtime mutation performed: yes, local-only.
+- Latest commit inspected: `fd93bba7 Plan DEV-08G standalone receipt void`; local `HEAD` matched `origin/main` at `fd93bba71d3cc6ce5549eddc3bb1c41dbccc6293`.
+- Approval phrase status: exact Part 29 phrase received in the up-front DEV-08G approval bundle and checked before mutation.
+- Service call: exactly one `PurchaseReceiptService.void(...)` for `PRC-000007`.
+- Receipt result: `PRC-000007` safe prefix `d963e3c6`, status `POSTED -> VOIDED`, `voidedAt` present, no inventory asset journal link.
+- Void stock movement: safe prefix `33ab2606`, type `ADJUSTMENT_OUT`, quantity `3.0000`, reference type `PurchaseReceiptVoid`.
+- Side effects: stock on hand `3.0000 -> 0.0000`; stock movements `5 -> 6`; directly tied journals `0 -> 0`; generated documents `0 -> 0`; marker email rows `0 -> 0`; selected receipt ZATCA audit rows `0 -> 0`; selected receipt void audit `0 -> 1`; asset-post/reversal audit `0 -> 0`.
+- No `*dev08g*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 30: standalone receipt void evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 30: standalone receipt void evidence verification`
