@@ -98,3 +98,19 @@ Run before commit:
 ## Exact Next Prompt Title
 
 `DEV-08G Part 12: purchase order over-receipt blocker evidence verification`
+
+## Part 12 Verification Note
+
+DEV-08G Part 12 independently verified that the Part 11 over-receipt blocker preserved state with read-only Prisma queries only.
+
+- Verification evidence: [DEV_08G_PO_OVER_RECEIPT_BLOCKER_EVIDENCE_VERIFICATION.md](DEV_08G_PO_OVER_RECEIPT_BLOCKER_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected before verification: `2c342c1a Check DEV-08G purchase order over receipt blocker`.
+- No excess receipt exists for the Part 11 attempt.
+- Existing PO receipts remain exactly `PRC-000005` quantity `4.0000` and `PRC-000006` quantity `6.0000`.
+- Received quantity remains `10.0000`; remaining quantity remains `0.0000`.
+- Receiving remains `COMPLETE`; matching remains `FULLY_RECEIVED`.
+- Purchase receipt count remains `2`; stock movement count remains `2`.
+- Directly tied journals, generated documents/output, email rows/events, and ZATCA fixture audit actions remain `0`.
+- Marker receipt audit actions remain two `PurchaseReceipt:PURCHASE_RECEIPT_CREATED` actions.
+- No `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 13: purchase-order receipt asset-posting blocker preflight`.
