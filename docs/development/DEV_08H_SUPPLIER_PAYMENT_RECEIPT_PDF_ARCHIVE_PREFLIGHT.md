@@ -40,3 +40,10 @@
 ## Exact Next Prompt Title
 
 `DEV-08H Part 11: approved local supplier payment receipt PDF archive mutation`
+
+## Part 11 Note
+
+- Part 11 archived exactly one local supplier payment receipt PDF for `PAY-000318`.
+- Generated document safe prefix: `11846c56`; filename `supplier-payment-PAY-000318.pdf`; hash prefix `4cf43aeb4f19`; size `3137` bytes.
+- Marker email outbox/provider-event rows and marker ZATCA rows remained `0`.
+- PDF body/base64 was not printed.
