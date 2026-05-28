@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `9b688f90 Verify DEV-08G purchase order over receipt blocker`
+- `414f8f02 Plan DEV-08G purchase order receipt asset posting blocker`
 
 ## Current Development Objective
 
@@ -2679,3 +2679,20 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 14: approved local purchase-order receipt asset-posting blocker negative check`
+
+## DEV-08G Part 14 - Purchase Order Receipt Asset Posting Blocker Negative Check Completed
+
+- DEV-08G Part 14 negative-check evidence is recorded in [docs/development/DEV_08G_PO_RECEIPT_ASSET_POSTING_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md](docs/development/DEV_08G_PO_RECEIPT_ASSET_POSTING_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md).
+- Expected failure performed: yes, local-only.
+- Latest commit inspected: `414f8f02 Plan DEV-08G purchase order receipt asset posting blocker`; local `HEAD` matched `origin/main` at `414f8f02cc7e80927d938bdbb3a9f9a72532c6db`.
+- Approval phrase status: exact Part 14 phrase received in the up-front DEV-08G approval bundle and checked before the service call.
+- Local target proof: runner classified `apps/api/.env` as `localhost:5432/accounting` before importing write-capable services; no production, beta, hosted/shared-target, provider, or customer-data target was used.
+- Service call attempted: exactly one `PurchaseReceiptService.postInventoryAsset(...)` for `PRC-000005`.
+- Expected blocker observed: `Purchase receipt asset posting requires a finalized linked purchase bill in inventory clearing mode.`
+- State unchanged proof: receipt remained `POSTED`; asset journal and reversal journal remained absent; directly tied journals `0 -> 0`; selected receipt stock movements `1 -> 1`; asset-post audit actions `0 -> 0`; generated documents `0 -> 0`; email rows `0`; ZATCA fixture audit actions `0`.
+- Temporary script cleanup result: `apps/api/scripts/dev08g-part14-runner.ts` was removed after execution; no `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 15: purchase-order receipt asset-posting blocker evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 15: purchase-order receipt asset-posting blocker evidence verification`

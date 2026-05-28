@@ -94,3 +94,20 @@ Run before commit:
 ## Exact Next Prompt Title
 
 `DEV-08G Part 14: approved local purchase-order receipt asset-posting blocker negative check`
+
+## Part 14 Negative Check Note
+
+DEV-08G Part 14 completed the approved local-only purchase-order receipt asset-posting blocker negative check.
+
+- Negative-check evidence: [DEV_08G_PO_RECEIPT_ASSET_POSTING_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md](DEV_08G_PO_RECEIPT_ASSET_POSTING_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md).
+- Latest commit inspected before the negative check: `414f8f02 Plan DEV-08G purchase order receipt asset posting blocker`.
+- Approval phrase status: exact Part 14 approval phrase was supplied and checked before the service call.
+- Service call attempted: exactly one `PurchaseReceiptService.postInventoryAsset(...)`.
+- Expected blocker observed: `Purchase receipt asset posting requires a finalized linked purchase bill in inventory clearing mode.`
+- Receipt `PRC-000005` safe prefix `1f412d79` remained `POSTED`.
+- Inventory asset journal and asset reversal journal remained absent.
+- Journal count remained `0`; selected receipt stock movement count remained `1`.
+- Asset-post audit count remained `0`; generated document count remained `0`.
+- Email rows and ZATCA fixture audit actions remained `0`.
+- No `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 15: purchase-order receipt asset-posting blocker evidence verification`.
