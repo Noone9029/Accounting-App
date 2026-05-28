@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `9b73a689 Create DEV-08G partial purchase order receipt`
+- `28fd0592 Verify DEV-08G partial purchase order receipt`
 
 ## Current Development Objective
 
@@ -2560,3 +2560,21 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 7: remaining purchase receipt from purchase order preflight`
+
+## DEV-08G Part 7 - Remaining Purchase Order Receipt Preflight Completed
+
+- DEV-08G Part 7 read-only preflight is recorded in [docs/development/DEV_08G_REMAINING_PO_RECEIPT_PREFLIGHT.md](docs/development/DEV_08G_REMAINING_PO_RECEIPT_PREFLIGHT.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `28fd0592 Verify DEV-08G partial purchase order receipt`; local `HEAD` matched `origin/main` at `28fd0592bd77ebfbc9010ba2692605f4f0fa3bcf`.
+- Current source state: `PO-000003` safe prefix `a3efc2e4`, status `APPROVED`, source line safe prefix `22f17076`, total source quantity `10.0000`.
+- Current partial receipt state: `PRC-000005` safe prefix `1f412d79`, status `POSTED`, quantity `4.0000`, stock movement safe prefix `39a7350e`, no asset journal, no void stock movement.
+- Current receiving and matching result: received `4.0000`, remaining `6.0000`, receiving `PARTIAL`, matching `PARTIALLY_RECEIVED`.
+- Selected Part 8 quantity: `6.0000`; expected post-mutation received `10.0000`, remaining `0.0000`, receiving `COMPLETE`, matching `FULLY_RECEIVED`.
+- Expected Part 8 behavior: receipt status `POSTED`, stock movement type `PURCHASE_RECEIPT_PLACEHOLDER`, no journal on create, no asset posting on create, no generated output/email/ZATCA delta.
+- Baselines: purchase receipts `1`, stock movements `1`, directly tied journals `0`, generated documents/output `0`, email rows/events `0`, ZATCA fixture audit actions `0`, fixture audit actions `5`.
+- Required exact Part 8 approval phrase: `I approve DEV-08G Part 8 local-only remaining purchase receipt from purchase order mutation under marker DEV08G-AP-20260527T000000 for quantity 6.0000. No production, no beta, no customer data.`
+- Exact next prompt title: `DEV-08G Part 8: approved local remaining purchase receipt from purchase order mutation`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 8: approved local remaining purchase receipt from purchase order mutation`
