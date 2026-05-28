@@ -3655,3 +3655,21 @@
 ## Next Thread Prompt
 
 `DEV-08I Part 14: approved local authenticated restricted-user AP output UI permission checks`
+
+## DEV-08I Part 14 - Restricted AP Output UI Permission Checks Completed
+
+- DEV-08I Part 14 evidence is recorded in [docs/development/DEV_08I_RESTRICTED_AP_OUTPUT_UI_PERMISSION_EVIDENCE.md](docs/development/DEV_08I_RESTRICTED_AP_OUTPUT_UI_PERMISSION_EVIDENCE.md).
+- Runtime mutation performed: no; output generated/downloaded: no.
+- Latest commit inspected: `1f13e4fe Plan DEV-08I restricted AP output UI permissions`; local `HEAD` matched `origin/main`.
+- Approval phrase status: exact Part 14 phrase received in the upfront DEV-08I approval bundle and checked before authenticated browser work.
+- Local-only proof: API `http://localhost:4000` returned health `200`, web `http://localhost:3000/login` returned `200`, and the sanitized DB target remained protocol `postgresql`, host `localhost`, port `5432`, database `accounting`.
+- Restricted archive-only user `16d72d2a`, membership `2de5260b`, role `83dc203f`, permission count `4`, had `generatedDocuments.view` but lacked `generatedDocuments.download` and all six selected AP source view permissions.
+- UI checks: `/documents` loaded with six selected AP archive rows visible, `Download archived PDF` absent, and `Download permission required` visible; sidebar showed `Documents / Archive` and hid `Purchases`.
+- AP route checks: all six AP detail routes rendered `Access denied` with source PDF button count `0`.
+- Side effects/exposure: selected-source generated documents stayed `19 -> 19`, restricted generated documents stayed `0`, restricted archive-only login audits stayed `1`, marker email rows stayed `0`, ZATCA submission logs stayed `331`, signed artifact drafts stayed `33`, browser console/page errors were `0`, and no PDF body, base64, token, cookie, auth header, request/response body, email body, signed XML, or QR payload was printed.
+- Temporary runner `apps/api/scripts/dev08i-part14-restricted-ui-permissions.ts` was removed after execution and no `*dev08i*` script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08I Part 15: restricted AP output UI evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08I Part 15: restricted AP output UI evidence verification`
