@@ -44,3 +44,10 @@
 ## Exact Next Prompt Title
 
 `DEV-08H Part 18: purchase debit note PDF archive evidence verification`
+
+## Part 18 Note
+
+- Part 18 verified exactly one purchase-debit-note generated document for `PDN-000127`.
+- Generated document safe prefix `b5626ade`, filename `purchase-debit-note-PDN-000127.pdf`, hash prefix `eb5f03433c0b`, size `3336` bytes.
+- Source state remained `FINALIZED`; marker email and ZATCA counts remained `0`.
+- PDF body/base64 was not printed.

@@ -3247,3 +3247,18 @@
 ## Next Thread Prompt
 
 `DEV-08H Part 18: purchase debit note PDF archive evidence verification`
+
+## DEV-08H Part 18 - Purchase Debit Note PDF Archive Verification Completed
+
+- DEV-08H Part 18 read-only verification is recorded in [docs/development/DEV_08H_PURCHASE_DEBIT_NOTE_PDF_ARCHIVE_EVIDENCE_VERIFICATION.md](docs/development/DEV_08H_PURCHASE_DEBIT_NOTE_PDF_ARCHIVE_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `f41c4625 Archive DEV-08H purchase-debit-note PDF locally`.
+- Verification result: exactly one purchase-debit-note generated document exists for `PDN-000127`, safe prefix `b5626ade`, filename `purchase-debit-note-PDN-000127.pdf`, hash prefix `eb5f03433c0b`, size `3336` bytes.
+- Source state unchanged: `PDN-000127` safe prefix `7c07411c` remained `FINALIZED`, total `69.0000`, live unapplied `69.0000`.
+- Side effects: marker email rows `0`, marker ZATCA rows `0`; PDF body/base64 was not printed.
+- Audit actions include expected source create/finalize actions plus `GENERATED_DOCUMENT_CREATED = 1`.
+- Exact next prompt title: `DEV-08H Part 19: cash expense PDF archive preflight`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 19: cash expense PDF archive preflight`
