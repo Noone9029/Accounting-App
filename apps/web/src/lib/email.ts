@@ -25,6 +25,7 @@ export function emailTemplateLabel(templateType: EmailTemplateType | string): st
     ORGANIZATION_INVITE: "Organization invite",
     PASSWORD_RESET: "Password reset",
     TEST_EMAIL: "Test email",
+    AP_GENERATED_DOCUMENT: "AP generated document",
   };
   return labels[templateType as EmailTemplateType] ?? templateType;
 }

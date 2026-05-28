@@ -136,7 +136,7 @@ export type DocumentType =
 export type GeneratedDocumentStatus = "GENERATED" | "FAILED" | "SUPERSEDED";
 export type AttachmentStorageProvider = "DATABASE" | "LOCAL_PLACEHOLDER" | "S3_PLACEHOLDER" | "S3";
 export type EmailDeliveryStatus = "QUEUED" | "SENT_MOCK" | "SENT_PROVIDER" | "FAILED";
-export type EmailTemplateType = "ORGANIZATION_INVITE" | "PASSWORD_RESET" | "TEST_EMAIL";
+export type EmailTemplateType = "ORGANIZATION_INVITE" | "PASSWORD_RESET" | "TEST_EMAIL" | "AP_GENERATED_DOCUMENT";
 export type EmailProviderName = "mock" | "smtp-disabled" | "smtp" | "invalid" | string;
 export type EmailSenderDomainEvidenceStatus = "DRAFT" | "VERIFIED" | "REVOKED" | "SUPERSEDED";
 export type EmailSenderDomainEvidenceType = "SPF" | "DKIM" | "DMARC" | "MX" | "RETURN_PATH" | "PROVIDER_VERIFICATION" | "OTHER";
@@ -535,6 +535,13 @@ export interface EmailOutboxEntry {
   lastAttemptAt: string | null;
   lastErrorRedacted: string | null;
   providerEventStatus: string | null;
+  generatedDocumentId: string | null;
+  sourceType: string | null;
+  sourceId: string | null;
+  attachmentFilename: string | null;
+  attachmentMimeType: string | null;
+  attachmentSizeBytes: number | null;
+  attachmentContentHash: string | null;
   bouncedAt: string | null;
   complainedAt: string | null;
   deliveredAt: string | null;

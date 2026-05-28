@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `25ae0b5b Close DEV-08J repeated blocker evidence`
+- `4eba5eac Plan DEV-08K AP generated document email`
 
 ## Current Development Objective
 
@@ -3776,3 +3776,18 @@
 ## Next Thread Prompt
 
 `DEV-08K Part 2: approved local AP generated-document email schema design mutation`
+
+## DEV-08K Part 2 - AP Email Schema Design Mutation Completed
+
+- DEV-08K Part 2 evidence is recorded in [docs/development/DEV_08K_AP_EMAIL_SCHEMA_DESIGN_MUTATION_EVIDENCE.md](docs/development/DEV_08K_AP_EMAIL_SCHEMA_DESIGN_MUTATION_EVIDENCE.md).
+- Approval phrase status: exact Part 2 phrase received in the upfront DEV-08K approval bundle and checked before schema/type edits.
+- Runtime data mutation performed: no; email outbox rows created: no; provider calls performed: no; migration applied to a database: no.
+- Latest commit inspected: `4eba5eac Plan DEV-08K AP generated document email`; local `HEAD` matched `origin/main` before edits.
+- Schema/types changed: added `EmailTemplateType.AP_GENERATED_DOCUMENT`, nullable `EmailOutbox` generated-document/source/attachment metadata fields, an unapplied migration file, AP email DTO/source metadata types, web outbox metadata fields, and template label support.
+- Generated client status: `corepack pnpm db:generate` succeeded after stopping the stale local Accounting App API lock holder; the local web dev server on port `3000` was left running.
+- Verification status: API typecheck passed; web typecheck remained blocked by unrelated untracked `apps/web/src/app/marketing.test.tsx`.
+- Exact next prompt title: `DEV-08K Part 3: AP email schema design evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08K Part 3: AP email schema design evidence verification`

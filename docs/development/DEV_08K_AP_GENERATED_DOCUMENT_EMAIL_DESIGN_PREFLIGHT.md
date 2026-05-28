@@ -161,3 +161,11 @@ Exact phrase received up front:
 ## Exact Next Prompt Title
 
 `DEV-08K Part 2: approved local AP generated-document email schema design mutation`
+
+## Part 2 Follow-Up
+
+- Part 2 evidence is recorded in [DEV_08K_AP_EMAIL_SCHEMA_DESIGN_MUTATION_EVIDENCE.md](DEV_08K_AP_EMAIL_SCHEMA_DESIGN_MUTATION_EVIDENCE.md).
+- The selected design was implemented as additive nullable `EmailOutbox` schema/type metadata plus AP email DTO/source metadata types.
+- Prisma client generation succeeded after stopping a stale local Accounting App API process that held the Prisma query engine DLL.
+- No migration was applied, no outbox row was created, and no provider call was made.
+- Exact next prompt title: `DEV-08K Part 3: AP email schema design evidence verification`.

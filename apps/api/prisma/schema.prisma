@@ -25,6 +25,7 @@ enum EmailTemplateType {
   ORGANIZATION_INVITE
   PASSWORD_RESET
   TEST_EMAIL
+  AP_GENERATED_DOCUMENT
 }
 
 enum EmailSenderDomainEvidenceStatus {
@@ -851,6 +852,7 @@ model GeneratedDocument {
   createdAt       DateTime                @default(now())
   organization    Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   generatedBy     User?                   @relation("GeneratedDocumentGeneratedBy", fields: [generatedById], references: [id], onDelete: SetNull)
+  emailOutbox      EmailOutbox[]           @relation("EmailOutboxGeneratedDocument")
 
   @@index([organizationId])
   @@index([organizationId, documentType])
@@ -1266,6 +1268,13 @@ model EmailOutbox {
   lastAttemptAt       DateTime?
   lastErrorRedacted   String?
   providerEventStatus String?
+  generatedDocumentId String?              @db.Uuid
+  sourceType          String?
+  sourceId            String?
+  attachmentFilename  String?
+  attachmentMimeType  String?
+  attachmentSizeBytes Int?
+  attachmentContentHash String?
   bouncedAt           DateTime?
   complainedAt        DateTime?
   deliveredAt         DateTime?
@@ -1274,6 +1283,7 @@ model EmailOutbox {
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   organization        Organization?        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  generatedDocument   GeneratedDocument?   @relation("EmailOutboxGeneratedDocument", fields: [generatedDocumentId], references: [id], onDelete: SetNull)
   providerEvents      EmailProviderEvent[]
 
   @@index([organizationId])
@@ -1281,6 +1291,8 @@ model EmailOutbox {
   @@index([organizationId, status])
   @@index([organizationId, nextAttemptAt])
   @@index([organizationId, providerEventStatus])
+  @@index([organizationId, generatedDocumentId])
+  @@index([organizationId, sourceType, sourceId])
   @@index([toEmail])
 }
 
