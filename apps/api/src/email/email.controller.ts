@@ -1,12 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { RequirePermissions } from "../auth/decorators/require-permissions.decorator";
-import type { AuthenticatedUser } from "../auth/auth.types";
+import type { AuthenticatedRequest, AuthenticatedUser } from "../auth/auth.types";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
+import { CreateApGeneratedDocumentEmailDto } from "./dto/create-ap-generated-document-email.dto";
 import { CreateEmailDeliveryMonitoringEvidenceDto } from "./dto/create-email-delivery-monitoring-evidence.dto";
 import { CreateEmailSuppressionDto } from "./dto/create-email-suppression.dto";
 import { CreateEmailSenderDomainEvidenceDto } from "./dto/create-email-sender-domain-evidence.dto";
@@ -220,6 +221,24 @@ export class EmailController {
     return this.emailService.sendTestEmail({
       organizationId,
       toEmail: dto.toEmail,
+    });
+  }
+
+  @Post("ap-generated-documents/:generatedDocumentId/outbox")
+  @RequirePermissions(PERMISSIONS.emailOutbox.view)
+  createApGeneratedDocumentOutbox(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("generatedDocumentId") generatedDocumentId: string,
+    @Body() dto: CreateApGeneratedDocumentEmailDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.emailService.createApGeneratedDocumentOutbox({
+      organizationId,
+      actorUserId: user.id,
+      generatedDocumentId,
+      dto,
+      permissions: request.membership?.role.permissions,
     });
   }
 

@@ -182,3 +182,11 @@ Exact phrase received up front:
 ## Exact Next Prompt Title
 
 `DEV-08K Part 5: approved local AP generated-document email service implementation`
+
+## Part 5 Follow-Up
+
+- Part 5 implementation evidence is recorded in [DEV_08K_AP_EMAIL_SERVICE_IMPLEMENTATION_EVIDENCE.md](DEV_08K_AP_EMAIL_SERVICE_IMPLEMENTATION_EVIDENCE.md).
+- The backend route `POST /email/ap-generated-documents/:generatedDocumentId/outbox` and service method were implemented with mocked tests only.
+- The AP path creates local metadata-only `SENT_MOCK` outbox rows with provider `mock-no-send` and no provider call.
+- Runtime local DB mutation was not run in Part 5; DEV-08K marker email rows remained `0`, provider events remained `0`.
+- Exact next prompt title: `DEV-08K Part 6: AP generated-document email service evidence verification`.

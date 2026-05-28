@@ -1,4 +1,5 @@
-import { EmailDeliveryStatus, EmailTemplateType } from "@prisma/client";
+import { DocumentType, EmailDeliveryStatus, EmailTemplateType, GeneratedDocumentStatus } from "@prisma/client";
+import { PERMISSIONS } from "@ledgerbyte/shared";
 import { EmailService } from "./email.service";
 
 describe("EmailService", () => {
@@ -67,6 +68,27 @@ describe("EmailService", () => {
           }),
         ),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      generatedDocument: {
+        findFirst: jest.fn(),
+      },
+      purchaseOrder: {
+        findFirst: jest.fn(),
+      },
+      purchaseBill: {
+        findFirst: jest.fn(),
+      },
+      supplierPayment: {
+        findFirst: jest.fn(),
+      },
+      supplierRefund: {
+        findFirst: jest.fn(),
+      },
+      purchaseDebitNote: {
+        findFirst: jest.fn(),
+      },
+      cashExpense: {
+        findFirst: jest.fn(),
       },
     };
     const audit = { log: jest.fn().mockResolvedValue({ id: "audit-1" }) };
@@ -1204,6 +1226,172 @@ describe("EmailService", () => {
     );
     expect(JSON.stringify(plan)).not.toContain("ops@example.test");
     expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.emailOutbox.create).not.toHaveBeenCalled();
+  });
+
+  it("creates local AP generated-document outbox metadata without calling the provider", async () => {
+    const { service, prisma, provider, audit } = makeService();
+    prisma.generatedDocument.findFirst.mockResolvedValue({
+      id: "doc-1",
+      organizationId: "org-1",
+      documentType: DocumentType.PURCHASE_BILL,
+      sourceType: "PurchaseBill",
+      sourceId: "bill-1",
+      documentNumber: "BILL-000001",
+      filename: "purchase-bill-BILL-000001.pdf",
+      mimeType: "application/pdf",
+      contentHash: "hash-1",
+      sizeBytes: 1234,
+      status: GeneratedDocumentStatus.GENERATED,
+    });
+    prisma.purchaseBill.findFirst.mockResolvedValue({
+      id: "bill-1",
+      billNumber: "BILL-000001",
+      supplier: { email: "supplier@example.test" },
+    });
+
+    const result = await service.createApGeneratedDocumentOutbox({
+      organizationId: "org-1",
+      actorUserId: "user-1",
+      generatedDocumentId: "doc-1",
+      dto: {},
+      permissions: [PERMISSIONS.emailOutbox.view, PERMISSIONS.generatedDocuments.download, PERMISSIONS.purchaseBills.view],
+    });
+
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.emailOutbox.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          organizationId: "org-1",
+          toEmail: "supplier@example.test",
+          templateType: EmailTemplateType.AP_GENERATED_DOCUMENT,
+          status: EmailDeliveryStatus.SENT_MOCK,
+          provider: "mock-no-send",
+          providerMessageId: null,
+          attemptCount: 0,
+          maxAttempts: 0,
+          nextAttemptAt: null,
+          generatedDocumentId: "doc-1",
+          sourceType: "PurchaseBill",
+          sourceId: "bill-1",
+          attachmentFilename: "purchase-bill-BILL-000001.pdf",
+          attachmentMimeType: "application/pdf",
+          attachmentSizeBytes: 1234,
+          attachmentContentHash: "hash-1",
+        }),
+      }),
+    );
+    expect(result).toMatchObject({
+      localOnly: true,
+      noEmailSent: true,
+      providerCalled: false,
+      provider: "mock-no-send",
+      emailOutbox: expect.objectContaining({
+        templateType: EmailTemplateType.AP_GENERATED_DOCUMENT,
+        generatedDocumentId: "doc-1",
+      }),
+    });
+    expect(JSON.stringify(result)).not.toContain("bodyText");
+    expect(JSON.stringify(result)).not.toContain("bodyHtml");
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "CREATE",
+        entityType: "EmailOutbox",
+        entityId: "email-1",
+      }),
+    );
+  });
+
+  it("rejects AP generated-document email without generated-document download permission", async () => {
+    const { service, prisma, provider } = makeService();
+    prisma.generatedDocument.findFirst.mockResolvedValue({
+      id: "doc-1",
+      organizationId: "org-1",
+      documentType: DocumentType.PURCHASE_BILL,
+      sourceType: "PurchaseBill",
+      sourceId: "bill-1",
+      documentNumber: "BILL-000001",
+      filename: "purchase-bill-BILL-000001.pdf",
+      mimeType: "application/pdf",
+      contentHash: "hash-1",
+      sizeBytes: 1234,
+      status: GeneratedDocumentStatus.GENERATED,
+    });
+
+    await expect(
+      service.createApGeneratedDocumentOutbox({
+        organizationId: "org-1",
+        actorUserId: "user-1",
+        generatedDocumentId: "doc-1",
+        dto: {},
+        permissions: [PERMISSIONS.emailOutbox.view, PERMISSIONS.purchaseBills.view],
+      }),
+    ).rejects.toThrow("You do not have permission to create AP generated-document email outbox metadata.");
+
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.emailOutbox.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsupported generated-document source pairs", async () => {
+    const { service, prisma } = makeService();
+    prisma.generatedDocument.findFirst.mockResolvedValue({
+      id: "doc-1",
+      organizationId: "org-1",
+      documentType: DocumentType.SALES_INVOICE,
+      sourceType: "SalesInvoice",
+      sourceId: "invoice-1",
+      documentNumber: "INV-000001",
+      filename: "invoice.pdf",
+      mimeType: "application/pdf",
+      contentHash: "hash-1",
+      sizeBytes: 1234,
+      status: GeneratedDocumentStatus.GENERATED,
+    });
+
+    await expect(
+      service.createApGeneratedDocumentOutbox({
+        organizationId: "org-1",
+        actorUserId: "user-1",
+        generatedDocumentId: "doc-1",
+        dto: {},
+        permissions: [PERMISSIONS.emailOutbox.view, PERMISSIONS.generatedDocuments.download, PERMISSIONS.salesInvoices.view],
+      }),
+    ).rejects.toThrow("Generated document is not supported for AP email outbox.");
+
+    expect(prisma.emailOutbox.create).not.toHaveBeenCalled();
+  });
+
+  it("requires a valid AP generated-document email recipient", async () => {
+    const { service, prisma } = makeService();
+    prisma.generatedDocument.findFirst.mockResolvedValue({
+      id: "doc-1",
+      organizationId: "org-1",
+      documentType: DocumentType.CASH_EXPENSE,
+      sourceType: "CashExpense",
+      sourceId: "expense-1",
+      documentNumber: "EXP-000001",
+      filename: "cash-expense-EXP-000001.pdf",
+      mimeType: "application/pdf",
+      contentHash: "hash-1",
+      sizeBytes: 1234,
+      status: GeneratedDocumentStatus.GENERATED,
+    });
+    prisma.cashExpense.findFirst.mockResolvedValue({
+      id: "expense-1",
+      expenseNumber: "EXP-000001",
+      contact: { email: null },
+    });
+
+    await expect(
+      service.createApGeneratedDocumentOutbox({
+        organizationId: "org-1",
+        actorUserId: "user-1",
+        generatedDocumentId: "doc-1",
+        dto: {},
+        permissions: [PERMISSIONS.emailOutbox.view, PERMISSIONS.generatedDocuments.download, PERMISSIONS.cashExpenses.view],
+      }),
+    ).rejects.toThrow("AP generated document email requires a recipient email.");
+
     expect(prisma.emailOutbox.create).not.toHaveBeenCalled();
   });
 });

@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `f860f444 Verify DEV-08K AP email schema design`
+- `f365d228 Plan DEV-08K AP email service`
 
 ## Current Development Objective
 
@@ -3819,3 +3819,18 @@
 ## Next Thread Prompt
 
 `DEV-08K Part 5: approved local AP generated-document email service implementation`
+
+## DEV-08K Part 5 - AP Generated-Document Email Service Implementation Completed
+
+- DEV-08K Part 5 evidence is recorded in [docs/development/DEV_08K_AP_EMAIL_SERVICE_IMPLEMENTATION_EVIDENCE.md](docs/development/DEV_08K_AP_EMAIL_SERVICE_IMPLEMENTATION_EVIDENCE.md).
+- Approval phrase status: exact Part 5 phrase received in the upfront DEV-08K approval bundle and checked before implementation.
+- Runtime data mutation performed: no; unit-test-only outbox mutation: mocked only; real provider calls: no.
+- Latest commit inspected: `f365d228 Plan DEV-08K AP email service`; local `HEAD` matched `origin/main`.
+- Implemented `POST /email/ap-generated-documents/:generatedDocumentId/outbox`, `EmailService.createApGeneratedDocumentOutbox`, AP source validation, service-level AND permission checks, metadata-only `SENT_MOCK` / `mock-no-send` outbox creation, sanitized response, and `EMAIL_OUTBOX_CREATED` audit mapping.
+- Targeted red test failed before implementation as expected; targeted email service/controller tests passed after implementation; API typecheck passed.
+- Read-only local side-effect check after tests: DEV-08K marker email rows `0`, provider events `0`.
+- Exact next prompt title: `DEV-08K Part 6: AP generated-document email service evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08K Part 6: AP generated-document email service evidence verification`

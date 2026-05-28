@@ -1,7 +1,8 @@
-import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import {
+  DocumentType,
   EmailDeliveryMonitoringEvidenceStatus,
   EmailDeliveryMonitoringEvidenceType,
   EmailDeliveryStatus,
@@ -10,11 +11,19 @@ import {
   EmailSenderDomainEvidenceType,
   EmailSuppressionReason,
   EmailTemplateType,
+  GeneratedDocumentStatus,
   Prisma,
 } from "@prisma/client";
+import { hasPermission, PERMISSIONS } from "@ledgerbyte/shared";
 import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
+import {
+  AP_GENERATED_DOCUMENT_EMAIL_PROVIDER,
+  AP_GENERATED_DOCUMENT_EMAIL_SUPPORTED_SOURCES,
+  type ApGeneratedDocumentEmailSourceType,
+} from "./ap-generated-document-email.types";
+import { CreateApGeneratedDocumentEmailDto } from "./dto/create-ap-generated-document-email.dto";
 import { CreateEmailDeliveryMonitoringEvidenceDto } from "./dto/create-email-delivery-monitoring-evidence.dto";
 import { CreateEmailSuppressionDto } from "./dto/create-email-suppression.dto";
 import { CreateEmailSenderDomainEvidenceDto } from "./dto/create-email-sender-domain-evidence.dto";
@@ -54,6 +63,14 @@ interface SendPasswordResetInput {
 interface SendTestEmailInput {
   organizationId: string;
   toEmail: string;
+}
+
+interface CreateApGeneratedDocumentOutboxInput {
+  organizationId: string;
+  actorUserId: string;
+  generatedDocumentId: string;
+  dto: CreateApGeneratedDocumentEmailDto;
+  permissions: unknown;
 }
 
 interface RunDiagnosticsInput {
@@ -963,6 +980,116 @@ export class EmailService {
     });
   }
 
+  async createApGeneratedDocumentOutbox(input: CreateApGeneratedDocumentOutboxInput) {
+    const document = await this.prisma.generatedDocument.findFirst({
+      where: {
+        id: input.generatedDocumentId,
+        organizationId: input.organizationId,
+      },
+      select: AP_GENERATED_DOCUMENT_EMAIL_DOCUMENT_SELECT,
+    });
+
+    if (!document) {
+      throw new NotFoundException("Generated document not found.");
+    }
+    if (document.status !== GeneratedDocumentStatus.GENERATED) {
+      throw new BadRequestException("Generated document must be generated before AP email outbox creation.");
+    }
+
+    const sourceConfig = apGeneratedDocumentEmailSourceConfig(document.sourceType, document.documentType);
+    if (!sourceConfig) {
+      throw new BadRequestException("Generated document is not supported for AP email outbox.");
+    }
+
+    this.assertApGeneratedDocumentEmailPermissions(input.permissions, sourceConfig.requiredPermission);
+    const source = await this.findApGeneratedDocumentEmailSource(
+      input.organizationId,
+      document.sourceType as ApGeneratedDocumentEmailSourceType,
+      document.sourceId,
+    );
+    const recipientEmail = normalizeApGeneratedDocumentEmailRecipient(input.dto.recipientEmail ?? source.recipientEmail);
+    if (!recipientEmail) {
+      throw new BadRequestException("AP generated document email requires a recipient email.");
+    }
+
+    const email = await this.prisma.emailOutbox.create({
+      data: {
+        organizationId: input.organizationId,
+        toEmail: recipientEmail,
+        fromEmail: this.fromEmail,
+        subject: `LedgerByte AP generated document ${document.documentNumber}`,
+        templateType: EmailTemplateType.AP_GENERATED_DOCUMENT,
+        bodyText: [
+          "A LedgerByte AP generated document is ready for local review.",
+          `Document: ${document.documentNumber}`,
+          `Attachment: ${document.filename}`,
+          "No real email was sent. This outbox row is local metadata only.",
+        ].join("\n"),
+        bodyHtml: null,
+        status: EmailDeliveryStatus.SENT_MOCK,
+        provider: AP_GENERATED_DOCUMENT_EMAIL_PROVIDER,
+        providerMessageId: null,
+        errorMessage: null,
+        sentAt: null,
+        attemptCount: 0,
+        maxAttempts: 0,
+        nextAttemptAt: null,
+        lastAttemptAt: null,
+        lastErrorRedacted: null,
+        providerEventStatus: null,
+        generatedDocumentId: document.id,
+        sourceType: document.sourceType,
+        sourceId: document.sourceId,
+        attachmentFilename: document.filename,
+        attachmentMimeType: document.mimeType,
+        attachmentSizeBytes: document.sizeBytes,
+        attachmentContentHash: document.contentHash,
+      },
+      select: EMAIL_OUTBOX_LIST_SELECT,
+    });
+
+    const response = {
+      localOnly: true,
+      noEmailSent: true,
+      providerCalled: false,
+      provider: AP_GENERATED_DOCUMENT_EMAIL_PROVIDER,
+      emailOutbox: apGeneratedDocumentEmailOutboxResponse(email),
+      generatedDocument: {
+        id: document.id,
+        documentType: document.documentType,
+        sourceType: document.sourceType,
+        sourceId: document.sourceId,
+        documentNumber: document.documentNumber,
+        filename: document.filename,
+        mimeType: document.mimeType,
+        sizeBytes: document.sizeBytes,
+        contentHash: document.contentHash,
+      },
+      redaction: {
+        noBodyReturned: true,
+        noPdfBodyReturned: true,
+        noAttachmentBodyReturned: true,
+        noProviderPayload: true,
+      },
+    };
+
+    await this.auditLogService?.log({
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      action: "CREATE",
+      entityType: AUDIT_ENTITY_TYPES.EMAIL_OUTBOX,
+      entityId: email.id,
+      after: {
+        emailOutbox: response.emailOutbox,
+        generatedDocument: response.generatedDocument,
+        providerCalled: false,
+        noEmailSent: true,
+      },
+    });
+
+    return response;
+  }
+
   async listSuppressions(organizationId: string) {
     return {
       metadataOnly: true,
@@ -1617,6 +1744,68 @@ export class EmailService {
     };
   }
 
+  private assertApGeneratedDocumentEmailPermissions(permissions: unknown, sourcePermission: string) {
+    const requiredPermissions = [PERMISSIONS.emailOutbox.view, PERMISSIONS.generatedDocuments.download, sourcePermission];
+    const missing = requiredPermissions.filter((permission) => !hasPermission(permissions, permission));
+    if (missing.length > 0) {
+      throw new ForbiddenException("You do not have permission to create AP generated-document email outbox metadata.");
+    }
+  }
+
+  private async findApGeneratedDocumentEmailSource(
+    organizationId: string,
+    sourceType: ApGeneratedDocumentEmailSourceType,
+    sourceId: string,
+  ): Promise<{ sourceNumber: string; recipientEmail?: string | null }> {
+    if (sourceType === "PurchaseOrder") {
+      const source = await this.prisma.purchaseOrder.findFirst({
+        where: { id: sourceId, organizationId },
+        select: { id: true, purchaseOrderNumber: true, supplier: { select: { email: true } } },
+      });
+      return apEmailSourceResult(source, "purchaseOrderNumber");
+    }
+    if (sourceType === "PurchaseBill") {
+      const source = await this.prisma.purchaseBill.findFirst({
+        where: { id: sourceId, organizationId },
+        select: { id: true, billNumber: true, supplier: { select: { email: true } } },
+      });
+      return apEmailSourceResult(source, "billNumber");
+    }
+    if (sourceType === "SupplierPayment") {
+      const source = await this.prisma.supplierPayment.findFirst({
+        where: { id: sourceId, organizationId },
+        select: { id: true, paymentNumber: true, supplier: { select: { email: true } } },
+      });
+      return apEmailSourceResult(source, "paymentNumber");
+    }
+    if (sourceType === "SupplierRefund") {
+      const source = await this.prisma.supplierRefund.findFirst({
+        where: { id: sourceId, organizationId },
+        select: { id: true, refundNumber: true, supplier: { select: { email: true } } },
+      });
+      return apEmailSourceResult(source, "refundNumber");
+    }
+    if (sourceType === "PurchaseDebitNote") {
+      const source = await this.prisma.purchaseDebitNote.findFirst({
+        where: { id: sourceId, organizationId },
+        select: { id: true, debitNoteNumber: true, supplier: { select: { email: true } } },
+      });
+      return apEmailSourceResult(source, "debitNoteNumber");
+    }
+
+    const source = await this.prisma.cashExpense.findFirst({
+      where: { id: sourceId, organizationId },
+      select: { id: true, expenseNumber: true, contact: { select: { email: true } } },
+    });
+    if (!source) {
+      throw new NotFoundException("AP source record not found.");
+    }
+    return {
+      sourceNumber: source.expenseNumber,
+      recipientEmail: source.contact?.email ?? null,
+    };
+  }
+
   private assertEvidenceContainsNoSecrets(value: unknown) {
     if (containsEmailSecret(value)) {
       throw new BadRequestException("Email sender-domain evidence must not contain secrets.");
@@ -1806,6 +1995,13 @@ const EMAIL_OUTBOX_LIST_SELECT = {
   lastAttemptAt: true,
   lastErrorRedacted: true,
   providerEventStatus: true,
+  generatedDocumentId: true,
+  sourceType: true,
+  sourceId: true,
+  attachmentFilename: true,
+  attachmentMimeType: true,
+  attachmentSizeBytes: true,
+  attachmentContentHash: true,
   bouncedAt: true,
   complainedAt: true,
   deliveredAt: true,
@@ -1824,6 +2020,20 @@ const EMAIL_OUTBOX_RETRY_SELECT = {
   retryLockedAt: true,
   retryLockedBy: true,
 } satisfies Prisma.EmailOutboxSelect;
+
+const AP_GENERATED_DOCUMENT_EMAIL_DOCUMENT_SELECT = {
+  id: true,
+  organizationId: true,
+  documentType: true,
+  sourceType: true,
+  sourceId: true,
+  documentNumber: true,
+  filename: true,
+  mimeType: true,
+  contentHash: true,
+  sizeBytes: true,
+  status: true,
+} satisfies Prisma.GeneratedDocumentSelect;
 
 const EMAIL_SENDER_DOMAIN_EVIDENCE_SELECT = {
   id: true,
@@ -1933,6 +2143,72 @@ function isDomainName(value: string): boolean {
 function normalizeOptionalText(value?: string | null): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function normalizeApGeneratedDocumentEmailRecipient(value?: string | null): string | null {
+  const email = value?.trim().toLowerCase();
+  if (!email) {
+    return null;
+  }
+  if (!isEmailAddress(email)) {
+    throw new BadRequestException("AP generated document email requires a valid recipient email.");
+  }
+  return email;
+}
+
+function apGeneratedDocumentEmailSourceConfig(sourceType: string, documentType: DocumentType) {
+  const config = AP_GENERATED_DOCUMENT_EMAIL_SUPPORTED_SOURCES[sourceType as ApGeneratedDocumentEmailSourceType];
+  if (!config || config.documentType !== documentType) {
+    return null;
+  }
+  return config;
+}
+
+function apEmailSourceResult<T extends { supplier?: { email?: string | null } | null }>(
+  source: (T & Record<string, unknown>) | null,
+  numberField: string,
+): { sourceNumber: string; recipientEmail?: string | null } {
+  if (!source) {
+    throw new NotFoundException("AP source record not found.");
+  }
+  return {
+    sourceNumber: String(source[numberField] ?? ""),
+    recipientEmail: source.supplier?.email ?? null,
+  };
+}
+
+function apGeneratedDocumentEmailOutboxResponse(email: Prisma.EmailOutboxGetPayload<{ select: typeof EMAIL_OUTBOX_LIST_SELECT }>) {
+  return {
+    id: email.id,
+    organizationId: email.organizationId,
+    toEmail: email.toEmail,
+    fromEmail: email.fromEmail,
+    subject: email.subject,
+    templateType: email.templateType,
+    status: email.status,
+    provider: email.provider,
+    providerMessageId: email.providerMessageId,
+    errorMessage: email.errorMessage,
+    sentAt: email.sentAt,
+    attemptCount: email.attemptCount,
+    maxAttempts: email.maxAttempts,
+    nextAttemptAt: email.nextAttemptAt,
+    lastAttemptAt: email.lastAttemptAt,
+    lastErrorRedacted: email.lastErrorRedacted,
+    providerEventStatus: email.providerEventStatus,
+    generatedDocumentId: email.generatedDocumentId,
+    sourceType: email.sourceType,
+    sourceId: email.sourceId,
+    attachmentFilename: email.attachmentFilename,
+    attachmentMimeType: email.attachmentMimeType,
+    attachmentSizeBytes: email.attachmentSizeBytes,
+    attachmentContentHash: email.attachmentContentHash,
+    bouncedAt: email.bouncedAt,
+    complainedAt: email.complainedAt,
+    deliveredAt: email.deliveredAt,
+    createdAt: email.createdAt,
+    updatedAt: email.updatedAt,
+  };
 }
 
 function sanitizeEvidenceSummary(value: Record<string, unknown>): Prisma.InputJsonValue {
