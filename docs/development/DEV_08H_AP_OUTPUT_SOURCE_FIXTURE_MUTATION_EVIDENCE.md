@@ -19,7 +19,7 @@ All records use local fake data and safe-prefix evidence only.
 | Family | Number | Safe prefix | Status | Amount evidence | Journal safe prefix |
 | --- | --- | --- | --- | --- | --- |
 | Purchase order | `PO-000144` | `8f42caf7` | `APPROVED` | total `115.0000` | n/a |
-| Purchase bill | `BILL-000423` | `16e6f021` | `FINALIZED` | total `230.0000`, balance due `230.0000` after payment/refund sequencing | `2184df0c` |
+| Purchase bill | `BILL-000423` | `16e6f021` | `FINALIZED` | total `230.0000`; live balance due verified in Part 3 after payment allocation | `2184df0c` |
 | Supplier payment | `PAY-000318` | `7efa0003` | `POSTED` | amount paid `150.0000`, unapplied `50.0000` before refund source claim | `70443308` |
 | Supplier refund | `SRF-000127` | `e7eed3c7` | `POSTED` | amount refunded `25.0000` | `49b59233` |
 | Purchase debit note | `PDN-000127` | `7c07411c` | `FINALIZED` | total `69.0000`, unapplied `69.0000` | `13ec8afb` |
@@ -51,3 +51,9 @@ Supplier safe prefix: `4a37083e`.
 ## Exact Next Prompt Title
 
 `DEV-08H Part 3: AP output source fixture evidence verification`
+
+## Part 3 Note
+
+- Part 3 verified the source fixture pack in [DEV_08H_AP_OUTPUT_SOURCE_FIXTURE_EVIDENCE_VERIFICATION.md](DEV_08H_AP_OUTPUT_SOURCE_FIXTURE_EVIDENCE_VERIFICATION.md).
+- Live post-allocation balances: bill `BILL-000423` balance due `130.0000`; supplier payment `PAY-000318` unapplied `25.0000`.
+- Generated-document, marker email, and marker ZATCA counts remained `0`.
