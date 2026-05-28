@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `f7f939d0 Plan DEV-08G partial purchase order receipt`
+- `9b73a689 Create DEV-08G partial purchase order receipt`
 
 ## Current Development Objective
 
@@ -2543,3 +2543,20 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 6: partial purchase receipt evidence verification`
+
+## DEV-08G Part 6 - Partial Purchase Order Receipt Verification Completed
+
+- DEV-08G Part 6 read-only verification is recorded in [docs/development/DEV_08G_PARTIAL_PO_RECEIPT_EVIDENCE_VERIFICATION.md](docs/development/DEV_08G_PARTIAL_PO_RECEIPT_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `9b73a689 Create DEV-08G partial purchase order receipt`; local `HEAD` matched `origin/main` at `9b73a6897077d8824577ef118a82ea4d589e4c40`.
+- Receipt state: `PRC-000005` safe prefix `1f412d79`, status `POSTED`, linked to PO safe prefix `a3efc2e4`, no linked bill, no asset journal, no reversal journal.
+- Receipt line and stock movement: line safe prefix `17eecfdc`, quantity `4.0000`, unit cost `100.0000`; stock movement safe prefix `39a7350e`, type `PURCHASE_RECEIPT_PLACEHOLDER`, quantity `4.0000`, no void stock movement.
+- Receiving and matching result: service receiving `PARTIAL`, received `4.0000`, remaining `6.0000`; receipt matching `PARTIALLY_RECEIVED`.
+- Side-effect result: directly tied journals, generated documents/output, email outbox/provider rows, and ZATCA fixture audit actions remained `0`.
+- Audit result: fixture actions are prior `Contact:CREATE`, `Item:CREATE`, `PurchaseOrder:PURCHASE_ORDER_CREATED`, `PurchaseOrder:PURCHASE_ORDER_APPROVED`, plus `PurchaseReceipt:PURCHASE_RECEIPT_CREATED` once.
+- Temporary script cleanup result: no `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 7: remaining purchase receipt from purchase order preflight`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 7: remaining purchase receipt from purchase order preflight`

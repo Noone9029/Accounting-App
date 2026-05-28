@@ -151,3 +151,20 @@ Run before commit:
 ## Exact Next Prompt Title
 
 `DEV-08G Part 6: partial purchase receipt evidence verification`
+
+## Part 6 Verification Note
+
+DEV-08G Part 6 independently verified this Part 5 receipt with read-only Prisma queries only.
+
+- Verification evidence: [DEV_08G_PARTIAL_PO_RECEIPT_EVIDENCE_VERIFICATION.md](DEV_08G_PARTIAL_PO_RECEIPT_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected before verification: `9b73a689 Create DEV-08G partial purchase order receipt`.
+- Receipt `PRC-000005` safe prefix `1f412d79` remains `POSTED`.
+- Receipt line safe prefix `17eecfdc` remains quantity `4.0000`, unit cost `100.0000`, and linked to source PO line safe prefix `22f17076`.
+- Stock movement safe prefix `39a7350e` remains `PURCHASE_RECEIPT_PLACEHOLDER` quantity `4.0000`.
+- Service receiving status is `PARTIAL` with `4.0000` received and `6.0000` remaining.
+- Receipt matching status remains `PARTIALLY_RECEIVED`.
+- Inventory asset journal, reversal journal, and void stock movement remain absent.
+- Directly tied journals, generated documents/output, email rows/events, and ZATCA fixture audit actions remain `0`.
+- Fixture audit actions are limited to prior fixture creates/approval plus `PurchaseReceipt:PURCHASE_RECEIPT_CREATED`.
+- No `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 7: remaining purchase receipt from purchase order preflight`.
