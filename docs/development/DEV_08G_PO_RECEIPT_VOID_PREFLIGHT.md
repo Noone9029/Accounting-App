@@ -81,3 +81,21 @@ Run before commit:
 ## Exact Next Prompt Title
 
 `DEV-08G Part 17: approved local purchase-order receipt void mutation`
+
+## Part 17 Mutation Note
+
+DEV-08G Part 17 completed the approved local-only void mutation for the `6.0000` purchase-order receipt.
+
+- Mutation evidence: [DEV_08G_PO_RECEIPT_VOID_MUTATION_EVIDENCE.md](DEV_08G_PO_RECEIPT_VOID_MUTATION_EVIDENCE.md).
+- Latest commit inspected before mutation: `151e3388 Plan DEV-08G purchase order receipt void`.
+- Approval phrase status: exact Part 17 approval phrase was supplied and checked before mutation.
+- Service call: exactly one `PurchaseReceiptService.void(...)`.
+- Voided receipt: `PRC-000006` safe prefix `942e4907`, status `VOIDED`, `voidedAt` present.
+- Receipt intentionally left posted: `PRC-000005` safe prefix `1f412d79`, status `POSTED`.
+- Void stock movement safe prefix `3317628d`, type `ADJUSTMENT_OUT`, quantity `6.0000`.
+- Receiving changed to `PARTIAL` with `4.0000` received and `6.0000` remaining.
+- Receipt matching changed to `PARTIALLY_RECEIVED`.
+- Journal count remained `0`; generated document, email, and ZATCA counts remained `0`.
+- Receipt audit action: new `PurchaseReceipt` `PURCHASE_RECEIPT_VOIDED` once.
+- No `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 18: purchase-order receipt void evidence verification`.

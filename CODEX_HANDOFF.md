@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `558e5a59 Verify DEV-08G purchase order receipt asset posting blocker`
+- `151e3388 Plan DEV-08G purchase order receipt void`
 
 ## Current Development Objective
 
@@ -2727,3 +2727,22 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 17: approved local purchase-order receipt void mutation`
+
+## DEV-08G Part 17 - Purchase Order Receipt Void Mutation Completed
+
+- DEV-08G Part 17 local-only mutation evidence is recorded in [docs/development/DEV_08G_PO_RECEIPT_VOID_MUTATION_EVIDENCE.md](docs/development/DEV_08G_PO_RECEIPT_VOID_MUTATION_EVIDENCE.md).
+- Mutation performed: yes, local-only.
+- Latest commit inspected: `151e3388 Plan DEV-08G purchase order receipt void`; local `HEAD` matched `origin/main` at `151e338819cb5562b346425664b998e5c9a4bddf`.
+- Approval phrase status: exact Part 17 phrase received in the up-front DEV-08G approval bundle and checked before mutation.
+- Local target proof: runner classified `apps/api/.env` as `localhost:5432/accounting` before importing write-capable services; no production, beta, hosted/shared-target, provider, or customer-data target was used.
+- Service call: exactly one `PurchaseReceiptService.void(...)`; only `PRC-000006` was voided.
+- Receipt result: `PRC-000006` safe prefix `942e4907` changed to `VOIDED` with `voidedAt`; `PRC-000005` safe prefix `1f412d79` remained `POSTED`.
+- Void stock movement result: safe prefix `3317628d`, type `ADJUSTMENT_OUT`, quantity `6.0000`, reference type `PurchaseReceiptVoid`, reference safe prefix `942e4907`.
+- Receiving and matching result: non-voided received `4.0000`, remaining `6.0000`, receiving `PARTIAL`, matching `PARTIALLY_RECEIVED`.
+- Side-effect result: directly tied journals remained `0`, generated documents/email/ZATCA remained `0`, and `PurchaseReceipt:PURCHASE_RECEIPT_VOIDED` occurred once.
+- Temporary script cleanup result: `apps/api/scripts/dev08g-part17-runner.ts` was removed after execution; no `*dev08g*` temporary script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 18: purchase-order receipt void evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 18: purchase-order receipt void evidence verification`
