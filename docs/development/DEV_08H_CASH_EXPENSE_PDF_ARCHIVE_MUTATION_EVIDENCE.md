@@ -45,3 +45,10 @@
 ## Exact Next Prompt Title
 
 `DEV-08H Part 21: cash expense PDF archive evidence verification`
+
+## Part 21 Note
+
+- Part 21 verified exactly one cash-expense generated document for `EXP-000065`.
+- Generated document safe prefix `4b8b7378`, filename `cash-expense-EXP-000065.pdf`, hash prefix `3ab2c65a6ac0`, size `3265` bytes.
+- Source state remained `POSTED`; marker email and ZATCA counts remained `0`.
+- PDF body/base64 was not printed.

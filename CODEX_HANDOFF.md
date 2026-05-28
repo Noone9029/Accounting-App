@@ -3293,3 +3293,18 @@
 ## Next Thread Prompt
 
 `DEV-08H Part 21: cash expense PDF archive evidence verification`
+
+## DEV-08H Part 21 - Cash Expense PDF Archive Verification Completed
+
+- DEV-08H Part 21 read-only verification is recorded in [docs/development/DEV_08H_CASH_EXPENSE_PDF_ARCHIVE_EVIDENCE_VERIFICATION.md](docs/development/DEV_08H_CASH_EXPENSE_PDF_ARCHIVE_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `54502488 Archive DEV-08H cash-expense PDF locally`.
+- Verification result: exactly one cash-expense generated document exists for `EXP-000065`, safe prefix `4b8b7378`, filename `cash-expense-EXP-000065.pdf`, hash prefix `3ab2c65a6ac0`, size `3265` bytes.
+- Source state unchanged: `EXP-000065` safe prefix `bd4d1330` remained `POSTED`, total `46.0000`, tax total `6.0000`.
+- Side effects: marker email rows `0`, marker ZATCA rows `0`; PDF body/base64 was not printed.
+- Audit actions include expected source creation action plus `GENERATED_DOCUMENT_CREATED = 1`.
+- Exact next prompt title: `DEV-08H Part 22: generated document download integrity preflight`.
+
+## Next Thread Prompt
+
+`DEV-08H Part 22: generated document download integrity preflight`
