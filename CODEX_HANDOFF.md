@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `4eba5eac Plan DEV-08K AP generated document email`
+- `66d11809 Add DEV-08K AP email schema design`
 
 ## Current Development Objective
 
@@ -3791,3 +3791,16 @@
 ## Next Thread Prompt
 
 `DEV-08K Part 3: AP email schema design evidence verification`
+
+## DEV-08K Part 3 - AP Email Schema Design Evidence Verification Completed
+
+- DEV-08K Part 3 verification is recorded in [docs/development/DEV_08K_AP_EMAIL_SCHEMA_DESIGN_EVIDENCE_VERIFICATION.md](docs/development/DEV_08K_AP_EMAIL_SCHEMA_DESIGN_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no; email outbox mutation performed: no; provider call performed: no; migration applied to a database: no.
+- Latest commit inspected: `66d11809 Add DEV-08K AP email schema design`; local `HEAD` matched `origin/main`.
+- Verification result: schema/type additions match Part 2 evidence, the migration file exists but is not applied locally, no AP email service/controller endpoint exists yet, and no `*dev08k*` temp script remains.
+- Read-only local snapshot: email outbox rows `227`, DEV-08K marker email rows `0`, provider events `0`, generated documents `870`, AP email migration applied locally `false`.
+- Exact next prompt title: `DEV-08K Part 4: AP generated-document email service preflight`.
+
+## Next Thread Prompt
+
+`DEV-08K Part 4: AP generated-document email service preflight`

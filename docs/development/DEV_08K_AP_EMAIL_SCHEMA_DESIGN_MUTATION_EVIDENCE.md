@@ -93,3 +93,10 @@ Pending final Part 2 gate before commit:
 ## Exact Next Prompt Title
 
 `DEV-08K Part 3: AP email schema design evidence verification`
+
+## Part 3 Follow-Up
+
+- Part 3 verification is recorded in [DEV_08K_AP_EMAIL_SCHEMA_DESIGN_EVIDENCE_VERIFICATION.md](DEV_08K_AP_EMAIL_SCHEMA_DESIGN_EVIDENCE_VERIFICATION.md).
+- Read-only local snapshot confirmed DEV-08K marker email rows `0`, provider events `0`, generated documents `870`, and local AP email migration applied `false`.
+- No temporary `*dev08k*` script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08K Part 4: AP generated-document email service preflight`.
