@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `90b69e4c Plan DEV-08G remaining purchase order receipt void`
+- `80e7030f Void DEV-08G remaining purchase order receipt locally`
 
 ## Current Development Objective
 
@@ -2797,3 +2797,20 @@
 ## Next Thread Prompt
 
 `DEV-08G Part 21: remaining purchase-order receipt void evidence verification`
+
+## DEV-08G Part 21 - Remaining Purchase Order Receipt Void Verification Completed
+
+- DEV-08G Part 21 read-only verification is recorded in [docs/development/DEV_08G_REMAINING_PO_RECEIPT_VOID_EVIDENCE_VERIFICATION.md](docs/development/DEV_08G_REMAINING_PO_RECEIPT_VOID_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no.
+- Latest commit inspected: `80e7030f Void DEV-08G remaining purchase order receipt locally`; local `HEAD` matched `origin/main` at `80e7030ffc88b4f30ef35b0021ed84f45c433559`.
+- Receipt result: `PRC-000005` safe prefix `1f412d79` and `PRC-000006` safe prefix `942e4907` are both `VOIDED` with `voidedAt` present.
+- Stock movement result: original movements `39a7350e` and `e0ffd378` remain `PURCHASE_RECEIPT_PLACEHOLDER` quantities `4.0000` and `6.0000`; void movements `9456b1ca` and `3317628d` are `ADJUSTMENT_OUT` quantities `4.0000` and `6.0000`.
+- Final PO state: non-voided receipt count `0`, received `0.0000`, remaining `10.0000`, receiving `NOT_STARTED`, matching `NOT_RECEIVED`.
+- Side effects: no asset journal links, directly tied journals `0`, generated documents `0`, marker email rows `0`, selected receipt ZATCA audit rows `0`.
+- Audit counts: receipt created `2`, receipt voided `2`, asset-post/reversal `0`.
+- No `*dev08g*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08G Part 22: standalone purchase receipt preflight`.
+
+## Next Thread Prompt
+
+`DEV-08G Part 22: standalone purchase receipt preflight`
