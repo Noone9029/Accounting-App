@@ -3587,3 +3587,20 @@
 ## Next Thread Prompt
 
 `DEV-08I Part 10: AP output UI full-permission preflight`
+
+## DEV-08I Part 10 - Full-Permission AP Output UI Preflight Completed
+
+- DEV-08I Part 10 read-only preflight is recorded in [docs/development/DEV_08I_FULL_PERMISSION_AP_OUTPUT_UI_PREFLIGHT.md](docs/development/DEV_08I_FULL_PERMISSION_AP_OUTPUT_UI_PREFLIGHT.md).
+- Runtime mutation performed: no; login/API/browser/output/download performed: no.
+- Latest commit inspected: `f3e32c72 Verify DEV-08I restricted AP output API permissions`; local `HEAD` matched `origin/main`.
+- Local-only proof: sanitized DB target remained protocol `postgresql`, host `localhost`, port `5432`, database `accounting`; planned API/web targets are `http://localhost:4000` and `http://localhost:3000`.
+- Full output QA user `5281dfc0`, membership `b7f0b3d4`, role `a0c6ece9`, permission count `136`, remains the planned Part 11 UI subject.
+- UI plan: verify `/documents` archive metadata and `Download archived PDF`, then visit all six AP detail routes and click the source PDF buttons once each with hash/size-only evidence.
+- Expected Part 11 side effects: one local full-user login audit row, six generated-document rows, and six generated-document audit rows; expected non-effects are no accounting lifecycle mutation, email, provider call, ZATCA, migration, seed/reset/delete, deploy, env/provider/schema change, production, beta, hosted/shared target, or customer data.
+- Part 11 approval phrase status: exact phrase received in the upfront DEV-08I approval bundle.
+- Exposure result: no PDF body, base64, token, cookie, auth header, request/response body, email body, signed XML, or QR payload printed; no `*dev08i*` temporary script remained.
+- Exact next prompt title: `DEV-08I Part 11: approved local authenticated full-permission AP output UI QA`.
+
+## Next Thread Prompt
+
+`DEV-08I Part 11: approved local authenticated full-permission AP output UI QA`
