@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `f365d228 Plan DEV-08K AP email service`
+- `193e7d46 Implement DEV-08K AP email service`
 
 ## Current Development Objective
 
@@ -3833,4 +3833,20 @@
 
 ## Next Thread Prompt
 
-`DEV-08K Part 6: AP generated-document email service evidence verification`
+`DEV-08K Part 7: AP email outbox fixture preflight`
+
+## DEV-08K Part 6 - AP Generated-Document Email Service Evidence Verification Completed
+
+- DEV-08K Part 6 verification is recorded in [docs/development/DEV_08K_AP_EMAIL_SERVICE_EVIDENCE_VERIFICATION.md](docs/development/DEV_08K_AP_EMAIL_SERVICE_EVIDENCE_VERIFICATION.md).
+- Runtime data mutation performed: no; email outbox rows created: no; provider calls performed: no; migrations applied: no.
+- Latest commit inspected: `193e7d46 Implement DEV-08K AP email service`; local `HEAD` matched `origin/main`.
+- Verification result: the AP route and service exist as designed, the controller gate is `emailOutbox.view`, the service enforces `emailOutbox.view`, `generatedDocuments.download`, and matching AP source view permission with AND semantics, and the AP path uses `SENT_MOCK` / `mock-no-send` metadata-only outbox creation without calling the provider.
+- Attachment/body exposure result: the AP document select and response use metadata only and exclude PDF body, base64, attachment body, provider payload, `bodyText`, and `bodyHtml` from the returned AP response.
+- Targeted email service/controller tests passed: 2 suites, 37 tests.
+- Read-only local side-effect check: DEV-08K marker email rows `0`, provider events `0`, generated documents `870`, AP email migration applied locally `false`.
+- Temporary script check: no tracked or untracked `*dev08k*` files found under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08K Part 7: AP email outbox fixture preflight`.
+
+## Next Thread Prompt
+
+`DEV-08K Part 7: AP email outbox fixture preflight`

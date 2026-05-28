@@ -83,6 +83,14 @@ No runtime email body, provider payload, PDF body, `contentBase64`, attachment b
 - Applying the migration to the local database.
 - Prisma migrate/deploy/db push, seed/reset/delete, fixture mutation, provider calls, real email, retry workers, webhooks, diagnostics sends, SMTP, PDF generation/download, deploys, env/provider setting changes, backup/restore, full tests, full build, E2E, smoke, production-hosting research, real ZATCA, CSID, clearance/reporting, signing, and PDF-A3.
 
+## Part 6 Verification Follow-Up
+
+- Read-only service evidence verification is recorded in [DEV_08K_AP_EMAIL_SERVICE_EVIDENCE_VERIFICATION.md](DEV_08K_AP_EMAIL_SERVICE_EVIDENCE_VERIFICATION.md).
+- Targeted email service/controller tests passed again: 2 suites, 37 tests.
+- Sanitized local count check remained unchanged for the DEV-08K marker: email rows `0`, provider events `0`.
+- No `*dev08k*` temporary scripts were found.
+- The AP email migration remains unapplied locally; no migration was run in Part 6.
+
 ## Exact Next Prompt Title
 
-`DEV-08K Part 6: AP generated-document email service evidence verification`
+`DEV-08K Part 7: AP email outbox fixture preflight`
