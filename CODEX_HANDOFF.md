@@ -3503,3 +3503,21 @@
 ## Next Thread Prompt
 
 `DEV-08I Part 5: approved local authenticated full-permission AP output API QA`
+
+## DEV-08I Part 5 - Full-Permission AP Output API QA Completed
+
+- DEV-08I Part 5 evidence is recorded in [docs/development/DEV_08I_FULL_PERMISSION_AP_OUTPUT_API_EVIDENCE.md](docs/development/DEV_08I_FULL_PERMISSION_AP_OUTPUT_API_EVIDENCE.md).
+- Runtime mutation performed: yes, only the approved local fake-user login audit row plus one generated-document archive row per selected AP source.
+- Latest commit inspected: `4ca68502 Plan DEV-08I full permission AP output API QA`; local `HEAD` matched `origin/main`.
+- Approval phrase status: exact Part 5 phrase received in the upfront DEV-08I approval bundle and checked before login/generation.
+- Local-only proof: API `http://localhost:4000` returned health `200`, backed by sanitized local DB target `postgresql`, host `localhost`, port `5432`, database `accounting`.
+- Full output QA user `5281dfc0` with role `a0c6ece9` and permission count `136` logged in successfully; token, request/response body, cookie, and auth header were not printed.
+- API result: all six AP `pdf-data`/receipt-data checks succeeded, all six explicit generation endpoints succeeded, and generated-document list/metadata/download integrity matched by hash and byte size only.
+- New generated documents: `d9591705`, `3d817d1e`, `6ad0e7b7`, `eda73f44`, `6bf15f25`, and `42748b57`.
+- Side effects: selected-source generated documents `7 -> 13`, full-user `AUTH_LOGIN` audit rows `0 -> 1`, standardized `GENERATED_DOCUMENT_CREATED` audit rows `0 -> 6`, marker email rows `0`, ZATCA submission logs `331`, and signed artifact drafts `33`.
+- Temporary runner `apps/api/scripts/dev08i-part5-full-api-qa.ts` was removed after execution and no `*dev08i*` script remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08I Part 6: full-permission AP output API evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08I Part 6: full-permission AP output API evidence verification`
