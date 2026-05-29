@@ -178,6 +178,14 @@ Existing selected generated-document AP email row:
 
 Part 17 expected post-action counts: email outbox rows `229`, DEV-08K marker email rows `2`, AP generated-document email rows `2`, selected generated-document email rows `2`, provider events `0`, next synthetic recipient rows `1`, and existing selected-document rows for next synthetic recipient `1`.
 
+## Part 17 Result Note
+
+Part 17 ran the approved local authenticated UI flow and is recorded in [DEV_08K_AP_EMAIL_LOCAL_UI_OUTBOX_QA_EVIDENCE.md](DEV_08K_AP_EMAIL_LOCAL_UI_OUTBOX_QA_EVIDENCE.md).
+
+Observed post-action counts matched the preflight expectation: email outbox rows `229`, DEV-08K marker email rows `2`, AP generated-document email rows `2`, selected generated-document email rows `2`, provider events `0`, next synthetic recipient rows `1`, and selected-document rows for the next synthetic recipient `1`.
+
+The created row used status `SENT_MOCK`, provider `mock-no-send`, outbox safe prefix `b61d54e2`, generated document safe prefix `27a07429`, and attachment metadata matching `purchase-bill-BILL-000423.pdf` with byte count `3417` and content hash prefix `47935bce9f75`. The selected generated document remained `GENERATED`; no real provider send occurred; no body, base64, token, cookie, auth header, request body, response body, provider payload, source contact email, customer/vendor data, signed XML, QR payload, private key, or CSID was printed.
+
 ## Exposure Controls
 
 - No browser/login occurred in this preflight.

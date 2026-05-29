@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `794e119a Verify DEV-08K AP email UI`
+- `a91b144e Plan DEV-08K AP email UI outbox QA`
 
 ## Current Development Objective
 
@@ -4011,13 +4011,13 @@
 
 ## Current DEV-08K Continuation Pointer
 
-- Latest completed DEV-08K prompt: `DEV-08K Part 16: AP email local UI outbox QA preflight`.
-- Current evidence file: [docs/development/DEV_08K_AP_EMAIL_LOCAL_UI_OUTBOX_QA_PREFLIGHT.md](docs/development/DEV_08K_AP_EMAIL_LOCAL_UI_OUTBOX_QA_PREFLIGHT.md).
-- Exact next prompt title: `DEV-08K Part 17: approved local authenticated AP email UI outbox QA`.
+- Latest completed DEV-08K prompt: `DEV-08K Part 17: approved local authenticated AP email UI outbox QA`.
+- Current evidence file: [docs/development/DEV_08K_AP_EMAIL_LOCAL_UI_OUTBOX_QA_EVIDENCE.md](docs/development/DEV_08K_AP_EMAIL_LOCAL_UI_OUTBOX_QA_EVIDENCE.md).
+- Exact next prompt title: `DEV-08K Part 18: AP email local UI outbox evidence verification`.
 
 ## Next Thread Prompt
 
-`DEV-08K Part 17: approved local authenticated AP email UI outbox QA`
+`DEV-08K Part 18: AP email local UI outbox evidence verification`
 
 ## DEV-08K Part 13 - AP Email UI Design Preflight Completed
 
@@ -4074,3 +4074,18 @@
 - Exposure controls: no email body, attachment body, PDF body, request/response body, base64, source contact email, customer/vendor data, token, cookie, auth header, signed XML, QR payload, private key, CSID, provider payload, or database URL was printed.
 - Temporary script cleanup: no tracked or untracked `*dev08k*` script remains under `apps/api/scripts`.
 - Exact next prompt title: `DEV-08K Part 17: approved local authenticated AP email UI outbox QA`.
+
+## DEV-08K Part 17 - Approved Local Authenticated AP Email UI Outbox QA Completed
+
+- DEV-08K Part 17 local UI outbox QA evidence is recorded in [docs/development/DEV_08K_AP_EMAIL_LOCAL_UI_OUTBOX_QA_EVIDENCE.md](docs/development/DEV_08K_AP_EMAIL_LOCAL_UI_OUTBOX_QA_EVIDENCE.md).
+- Approval phrase status: exact Part 17 phrase received up front and re-validated before the local UI outbox mutation.
+- Runtime mutation performed: yes, exactly one local AP generated-document email outbox row; browser/login performed: yes, local-only; provider calls performed: no; real email sent: no.
+- Latest commit inspected: `a91b144e Plan DEV-08K AP email UI outbox QA`; local `HEAD` matched `origin/main` before the Part 17 evidence work.
+- UI flow result: local login succeeded, selected local organization was applied, `/documents` was filtered to `PURCHASE_BILL` and `GENERATED`, the synthetic recipient `dev08k-ap-20260528t000000-ui@ledgerbyte.local.test` was entered, `Create local email outbox` was clicked once, and `POST /email/ap-generated-documents/:generatedDocumentId/outbox` returned `201`.
+- Count result: email outbox rows `228 -> 229`, DEV-08K marker email rows `1 -> 2`, AP generated-document email rows `1 -> 2`, selected generated-document email rows `1 -> 2`, provider events `0 -> 0`, generated documents `870 -> 870`, synthetic recipient rows `0 -> 1`.
+- Created outbox row: safe prefix `b61d54e2`, status `SENT_MOCK`, provider `mock-no-send`, generated document safe prefix `27a07429`, source type `PurchaseBill`, source prefix `16e6f021`, attachment filename `purchase-bill-BILL-000423.pdf`, byte count `3417`, content hash prefix `47935bce9f75`, attempt count `0`, max attempts `0`, sent at `null`, provider message id `null`.
+- Selected generated document safe prefix `27a07429` remained `GENERATED` with byte count `3417` and content hash prefix `47935bce9f75`.
+- Audit evidence: one expected local `AUTH_LOGIN` audit row in the run window for actor safe prefix `09f892d4` and organization safe prefix `00000000`.
+- Exposure controls: no password, token, cookie, auth header, request body, response body, email body, attachment body, PDF body, base64, provider payload, source contact email, customer/vendor data, signed XML, QR payload, private key, or CSID was printed.
+- Temporary script cleanup: no tracked or untracked `*dev08k*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08K Part 18: AP email local UI outbox evidence verification`.
