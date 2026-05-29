@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `9ce22e16 Close DEV-08M cleanup retention evidence`
+- `893aa711 Map DEV-08 AP local evidence`
 
 ## Current Development Objective
 
@@ -4514,3 +4514,16 @@
 ## Next Thread Prompt
 
 `DEV-08Z Part 2: AP production-gap register`
+
+## DEV-08Z Part 2 - AP Production-Gap Register Completed
+
+- DEV-08Z Part 2 production-gap register is recorded in [docs/development/DEV_08Z_AP_PRODUCTION_GAP_REGISTER.md](docs/development/DEV_08Z_AP_PRODUCTION_GAP_REGISTER.md).
+- Latest commit inspected: `893aa711 Map DEV-08 AP local evidence`.
+- Scope: documentation-only conversion of DEV-08 local AP evidence into production/beta/customer-data readiness gaps; no implementation, tests beyond diff checks, deploys, production/beta/customer data, real email, real ZATCA, migration, seed/reset/delete, or environment/provider change was run.
+- Highest-risk gaps: production/beta/customer-data behavior, linked PO-to-bill receipt reconciliation, purchase returns, valuation variance booking, real provider AP email delivery/retry/webhook/domain policy, and broad AP E2E/smoke/full-test coverage.
+- Owner disciplines called out: accounting, inventory, product, QA, operations/security, and legal/audit/compliance.
+- Exact next prompt title: `DEV-08Z Part 3: AP final readiness scorecard update`.
+
+## Next Thread Prompt
+
+`DEV-08Z Part 3: AP final readiness scorecard update`
