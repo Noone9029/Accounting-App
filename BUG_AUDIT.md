@@ -3165,3 +3165,12 @@ Recommended next step:
 - Permission negative checks verified missing generated-document download, email outbox view, or AP source view permission does not create AP email rows.
 - No email body, PDF body, attachment body, base64, provider payload, source contact email, customer/vendor data, password, token, cookie, auth header, request/response body, signed XML, QR payload, private key, CSID, production, beta, hosted/shared target, real provider send, real ZATCA, env/provider changes, seed/reset/delete, deployment, full smoke, or full E2E changed.
 - Remaining AP gaps move to fiscal-period and broader permission edge preflight, cleanup policy, duplicate-output product policy, and real provider email delivery policy.
+
+# DEV-08L AP fiscal-period and permission edge closure - 2026-05-29
+
+- Local-only DEV-08L evidence created marker-scoped AP fiscal-period and permission fixtures under `DEV08L-AP-20260529T000000`, with a dedicated local organization and no production, beta, hosted/shared, or customer data.
+- Fiscal blocker checks proved selected purchase bill, supplier payment, supplier refund, purchase debit note, cash expense, and purchase receipt asset posting/reversal paths fail with `Posting date falls in a closed fiscal period.` before later state, journal, audit, output, email, or ZATCA writes.
+- Permission edge checks proved twenty restricted AP guard/helper denials, including generated-document download and AP email outbox permission edges, and confirmed `admin.fullAccess` remains an allowed control.
+- Final DEV-08L side-effect counts stayed at audit logs `0`, auth tokens `0`, email outbox `0`, generated documents `0`, provider events `0`, ZATCA invoice metadata `0`, and ZATCA submission logs `0`.
+- Non-fiscal AP operational paths remain documented rather than mutated: supplier payment unapplied apply/reverse, purchase debit note apply/reverse allocation, purchase receipt create/void, and purchase orders.
+- Remaining AP gaps move to cleanup/retention/delete policy, duplicate generated-document product policy, real provider email delivery/retry/webhook policy, production/beta/customer-data behavior, broad E2E/smoke, and advanced purchase/inventory/accounting policy.
