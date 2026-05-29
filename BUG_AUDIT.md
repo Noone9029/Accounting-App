@@ -3144,7 +3144,7 @@ Recommended next step:
 - Local-only AP output evidence created and verified fake purchase order, purchase bill, supplier payment receipt, supplier refund, purchase debit note, and cash expense generated-document archive rows without using production, beta, shared, or customer data.
 - Archived download integrity passed for the six initially generated AP output rows by matching returned buffer hashes/sizes to stored generated-document metadata without printing PDF bodies or base64.
 - Open product decision: repeated purchase-order PDF generation currently creates a second generated-document archive row for the same source. Decide whether future behavior should remain versioned duplicates, reuse existing rows, or supersede older rows.
-- Open blocker: no AP document email action or generated-document attachment-capable outbox path exists. Do not run AP email outbox mutation until a real AP email feature, attachment policy, and redaction boundary are designed.
+- Historical blocker at DEV-08H close: no AP document email action or generated-document attachment-capable outbox path existed then. DEV-08K later resolved the local mock/no-send AP outbox path; real provider delivery still requires a separate approved branch.
 - Remaining QA gap: authenticated API/UI permission behavior for AP output and generated-document downloads still needs a separate approved local login/audit-writing preflight.
 - No real email provider send, ZATCA network/signing/clearance/reporting/PDF-A3, secrets, env changes, migrations, seed/reset/delete, deployment, full smoke, full E2E, or production/beta/customer-data behavior changed.
 
@@ -3153,6 +3153,15 @@ Recommended next step:
 - Local-only DEV-08J evidence created marker-scoped AP fixtures, verified repeated/idempotency behavior, and checked expected blocker paths for purchase orders, purchase bills, supplier payments, supplier refunds, purchase debit notes, cash expenses, and purchase receipts.
 - Repeated AP output generation for purchase bill, supplier payment receipt, supplier refund, purchase debit note, and cash expense created additional archive rows. Duplicate output behavior remains an open product decision: preserve versioned duplicates, reuse existing rows, or supersede older rows.
 - Source PDF output was hardened: AP source PDF stream/generate routes now require the source view permission plus `generatedDocuments.download`, and AP detail source PDF buttons are hidden without archive-download permission. Source `pdf-data` remains source-view read-only.
-- AP generated-document email remains the next open AP blocker; no safe AP email/outbox attachment path has been implemented or mutated.
+- Historical blocker at DEV-08J close: AP generated-document email still needed a safe outbox path. DEV-08K later implemented and verified the local mock/no-send AP outbox path; real provider delivery still requires a separate approved branch.
 - Full web test/typecheck remained blocked by unrelated untracked marketing/nav/permission-matrix work; targeted AP tests and API typecheck passed.
 - No production, beta, hosted/shared target, customer data, real email provider send, real ZATCA network/signing/clearance/reporting/PDF-A3, secrets, env changes, migrations, seed/reset/delete, deployment, full smoke, or full E2E changed.
+
+# DEV-08K AP generated-document email closure - 2026-05-29
+
+- Local-only DEV-08K evidence implemented and verified a dedicated AP generated-document email outbox path with metadata-only attachment fields, `AP_GENERATED_DOCUMENT` template type, `SENT_MOCK` status, and `mock-no-send` provider behavior.
+- The previous blocker that no AP-specific outbox attachment path existed is resolved for local mock/no-send evidence only. Real provider delivery, retry scheduling, webhook handling, domain validation, and production email readiness remain blocked for later explicit approval.
+- Authenticated local UI QA created exactly one synthetic-recipient AP generated-document email row from `/documents`; final counts were email outbox rows `229`, AP generated-document email rows `2`, selected generated-document email rows `2`, provider events `0`, generated documents `870`.
+- Permission negative checks verified missing generated-document download, email outbox view, or AP source view permission does not create AP email rows.
+- No email body, PDF body, attachment body, base64, provider payload, source contact email, customer/vendor data, password, token, cookie, auth header, request/response body, signed XML, QR payload, private key, CSID, production, beta, hosted/shared target, real provider send, real ZATCA, env/provider changes, seed/reset/delete, deployment, full smoke, or full E2E changed.
+- Remaining AP gaps move to fiscal-period and broader permission edge preflight, cleanup policy, duplicate-output product policy, and real provider email delivery policy.

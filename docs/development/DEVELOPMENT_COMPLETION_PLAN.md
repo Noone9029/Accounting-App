@@ -105,8 +105,9 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 - DEV-08H is now closed for local-only AP output PDF archive and generated-document download evidence in [DEV_08H_AP_OUTPUT_PDF_ARCHIVE_EMAIL_CLOSURE.md](DEV_08H_AP_OUTPUT_PDF_ARCHIVE_EMAIL_CLOSURE.md). It proved AP PDF archive paths for purchase orders, purchase bills, supplier payment receipts, supplier refunds, purchase debit notes, and cash expenses; verified generated-document metadata and download hash/size integrity; documented duplicate archive behavior; and proved AP email output is blocked because no AP generated-document email/outbox path exists.
 - DEV-08I is now closed for local-only AP output permission and authenticated UI QA in [DEV_08I_AP_OUTPUT_PERMISSION_AUTHENTICATED_UI_QA_CLOSURE.md](DEV_08I_AP_OUTPUT_PERMISSION_AUTHENTICATED_UI_QA_CLOSURE.md). It proved full-permission API/output behavior, restricted API negative checks, full-permission UI output behavior, restricted UI access denial, audit containment, and no PDF/base64/token/header/body exposure.
 - DEV-08J is now closed for local-only AP repeated idempotency, blocker paths, duplicate output behavior, and source PDF permission hardening in [DEV_08J_AP_REPEATED_IDEMPOTENCY_BLOCKER_CLOSURE.md](DEV_08J_AP_REPEATED_IDEMPOTENCY_BLOCKER_CLOSURE.md). It proved repeated/blocker checks across AP families and hardened source PDF stream/generate routes to require source view plus `generatedDocuments.download`.
-- DEV-08 through DEV-08J do not claim full AP completion. Remaining AP gaps include linked PO-to-bill receipt reconciliation, valuation variance booking, landed cost, returns, serial/batch/bin/location behavior, AP generated-document email delivery implementation, duplicate-output product policy, fiscal-period locks, cleanup policy, broad E2E/smoke, and production/beta/customer-data behavior.
-- Recommended next local-only AP branch: `DEV-08K Part 1: AP generated-document email design preflight`.
+- DEV-08K is now closed for local-only AP generated-document email outbox evidence in [DEV_08K_AP_GENERATED_DOCUMENT_EMAIL_CLOSURE.md](DEV_08K_AP_GENERATED_DOCUMENT_EMAIL_CLOSURE.md). It implemented and verified metadata-only AP generated-document email outbox records, local mock/no-send service behavior, permission negative checks, `/documents` UI creation, authenticated local UI QA, and no provider events/body/base64/secret exposure.
+- DEV-08 through DEV-08K do not claim full AP completion. Remaining AP gaps include linked PO-to-bill receipt reconciliation, valuation variance booking, landed cost, returns, serial/batch/bin/location behavior, real email provider delivery/retry/webhook policy, duplicate-output product policy, fiscal-period locks, broader permission edge cases, cleanup policy, broad E2E/smoke, and production/beta/customer-data behavior.
+- Recommended next local-only AP branch: `DEV-08L Part 1: AP fiscal-period and permission edge preflight`.
 
 ## Highest-Priority Development Tickets
 
@@ -157,4 +158,4 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 
 ## Exact Next Recommended Development Ticket
 
-`DEV-08K Part 1: AP generated-document email design preflight`
+`DEV-08L Part 1: AP fiscal-period and permission edge preflight`

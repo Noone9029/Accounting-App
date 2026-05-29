@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `df1079cd Check DEV-08K AP email UI outbox locally`
+- `dfa7a24e Verify DEV-08K AP email UI outbox`
 
 ## Current Development Objective
 
@@ -4011,13 +4011,13 @@
 
 ## Current DEV-08K Continuation Pointer
 
-- Latest completed DEV-08K prompt: `DEV-08K Part 18: AP email local UI outbox evidence verification`.
-- Current evidence file: [docs/development/DEV_08K_AP_EMAIL_LOCAL_UI_OUTBOX_EVIDENCE_VERIFICATION.md](docs/development/DEV_08K_AP_EMAIL_LOCAL_UI_OUTBOX_EVIDENCE_VERIFICATION.md).
-- Exact next prompt title: `DEV-08K Part 19: AP generated-document email closure`.
+- Latest completed DEV-08K prompt: `DEV-08K Part 19: AP generated-document email closure`.
+- Current evidence file: [docs/development/DEV_08K_AP_GENERATED_DOCUMENT_EMAIL_CLOSURE.md](docs/development/DEV_08K_AP_GENERATED_DOCUMENT_EMAIL_CLOSURE.md).
+- Exact next prompt title: `DEV-08L Part 1: AP fiscal-period and permission edge preflight`.
 
 ## Next Thread Prompt
 
-`DEV-08K Part 19: AP generated-document email closure`
+`DEV-08L Part 1: AP fiscal-period and permission edge preflight`
 
 ## DEV-08K Part 13 - AP Email UI Design Preflight Completed
 
@@ -4103,3 +4103,17 @@
 - Exposure controls: no password, token, cookie, auth header, request body, response body, email body, attachment body, PDF body, base64, provider payload, source contact email, customer/vendor data, signed XML, QR payload, private key, or CSID was printed.
 - Temporary script cleanup: no tracked or untracked `*dev08k*` script remains under `apps/api/scripts`; Part 18 used a piped read-only verifier and created no disposable script file.
 - Exact next prompt title: `DEV-08K Part 19: AP generated-document email closure`.
+
+## DEV-08K Part 19 - AP Generated-Document Email Closure Completed
+
+- DEV-08K closure is recorded in [docs/development/DEV_08K_AP_GENERATED_DOCUMENT_EMAIL_CLOSURE.md](docs/development/DEV_08K_AP_GENERATED_DOCUMENT_EMAIL_CLOSURE.md).
+- Runtime mutation performed by closure: no; login/browser/API/outbox action performed by closure: no; provider calls or real email sends performed by closure: no.
+- Latest commit inspected: `dfa7a24e Verify DEV-08K AP email UI outbox`; local `HEAD` matched `origin/main` before closure edits.
+- What DEV-08K proved: dedicated AP generated-document email outbox schema/types, local-only migration gate, mock/no-send service/controller behavior, one service-level outbox fixture, permission negative checks, `/documents` UI implementation, one authenticated local UI outbox creation, and read-only evidence verification.
+- Final local counts: email outbox rows `229`, DEV-08K marker email rows `2`, AP generated-document email rows `2`, selected generated-document email rows `2`, provider events `0`, generated documents `870`, selected UI synthetic recipient rows `1`.
+- Selected generated document safe prefix `27a07429` remains `GENERATED`, document/source number `BILL-000423`, source prefix `16e6f021`, byte count `3417`, content hash prefix `47935bce9f75`.
+- UI-created outbox row safe prefix `b61d54e2` remains `SENT_MOCK` with provider `mock-no-send`, zero attempts, `sentAt` `null`, provider message id `null`, and matching attachment metadata.
+- Earlier service-level outbox fixture safe prefix `3c19700b` remains `SENT_MOCK` with provider `mock-no-send` for the same generated document/source metadata.
+- Remaining gaps: real email provider delivery/retry/webhook/domain policy, cleanup retention/deletion, duplicate generated-document output policy, fiscal-period blockers, broader AP permission edge cases, production/beta/customer-data behavior, real ZATCA, full E2E, full smoke, full build, and full repo tests.
+- Temporary script cleanup: no tracked or untracked `*dev08k*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08L Part 1: AP fiscal-period and permission edge preflight`.
