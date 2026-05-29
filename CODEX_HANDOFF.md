@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `2c957516 Implement DEV-08K AP email UI`
+- `794e119a Verify DEV-08K AP email UI`
 
 ## Current Development Objective
 
@@ -4011,13 +4011,13 @@
 
 ## Current DEV-08K Continuation Pointer
 
-- Latest completed DEV-08K prompt: `DEV-08K Part 15: AP email UI evidence verification`.
-- Current evidence file: [docs/development/DEV_08K_AP_EMAIL_UI_EVIDENCE_VERIFICATION.md](docs/development/DEV_08K_AP_EMAIL_UI_EVIDENCE_VERIFICATION.md).
-- Exact next prompt title: `DEV-08K Part 16: AP email local UI outbox QA preflight`.
+- Latest completed DEV-08K prompt: `DEV-08K Part 16: AP email local UI outbox QA preflight`.
+- Current evidence file: [docs/development/DEV_08K_AP_EMAIL_LOCAL_UI_OUTBOX_QA_PREFLIGHT.md](docs/development/DEV_08K_AP_EMAIL_LOCAL_UI_OUTBOX_QA_PREFLIGHT.md).
+- Exact next prompt title: `DEV-08K Part 17: approved local authenticated AP email UI outbox QA`.
 
 ## Next Thread Prompt
 
-`DEV-08K Part 16: AP email local UI outbox QA preflight`
+`DEV-08K Part 17: approved local authenticated AP email UI outbox QA`
 
 ## DEV-08K Part 13 - AP Email UI Design Preflight Completed
 
@@ -4058,3 +4058,19 @@
 - Exposure controls: no email body, attachment body, PDF body, base64, provider payload, source contact email, customer/vendor data, token, cookie, auth header, signed XML, QR payload, private key, or CSID was printed or surfaced.
 - Temporary script cleanup: no tracked or untracked `*dev08k*` script remains under `apps/api/scripts`.
 - Exact next prompt title: `DEV-08K Part 16: AP email local UI outbox QA preflight`.
+
+## DEV-08K Part 16 - AP Email Local UI Outbox QA Preflight Completed
+
+- DEV-08K Part 16 read-only preflight is recorded in [docs/development/DEV_08K_AP_EMAIL_LOCAL_UI_OUTBOX_QA_PREFLIGHT.md](docs/development/DEV_08K_AP_EMAIL_LOCAL_UI_OUTBOX_QA_PREFLIGHT.md).
+- Runtime mutation performed: no; AP email endpoint called: no; provider calls performed: no; real email sent: no; browser/login performed: no.
+- Latest commit inspected: `794e119a Verify DEV-08K AP email UI`; local `HEAD` matched `origin/main`.
+- Selected user: local seed demo admin `admin@example.com`, role `Owner`, permission count `132`, with `generatedDocuments.download`, `emailOutbox.view`, and `purchaseBills.view`.
+- Selected generated document: safe prefix `27a07429`, status `GENERATED`, document/source number `BILL-000423`, document type `PURCHASE_BILL`, source type `PurchaseBill`, source prefix `16e6f021`.
+- UI flow plan: `/documents`, filter to purchase-bill generated documents, enter synthetic `.test` recipient `dev08k-ap-20260528t000000-ui@ledgerbyte.local.test`, click `Create local email outbox`, and expect `POST /email/ap-generated-documents/:generatedDocumentId/outbox` with `recipientEmail` only.
+- Runtime health snapshot: web `/documents` on `localhost:3000` returned `200`; local API `localhost:4000` was not listening, so Part 17 must start/recheck API health/readiness before login/action.
+- Baseline counts: email outbox rows `228`, DEV-08K marker email rows `1`, AP generated-document email rows `1`, selected generated-document email rows `1`, provider events `0`, generated documents `870`, next synthetic recipient rows `0`.
+- Expected Part 17 post-action counts: email outbox rows `229`, DEV-08K marker email rows `2`, AP generated-document email rows `2`, selected generated-document email rows `2`, provider events `0`, next synthetic recipient rows `1`.
+- Part 17 approval phrase status: exact phrase was received up front and must be re-validated before the local UI outbox mutation.
+- Exposure controls: no email body, attachment body, PDF body, request/response body, base64, source contact email, customer/vendor data, token, cookie, auth header, signed XML, QR payload, private key, CSID, provider payload, or database URL was printed.
+- Temporary script cleanup: no tracked or untracked `*dev08k*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08K Part 17: approved local authenticated AP email UI outbox QA`.
