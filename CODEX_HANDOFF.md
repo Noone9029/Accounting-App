@@ -4425,3 +4425,18 @@
 ## Next Thread Prompt
 
 `DEV-08M Part 4: generated-document duplicate output policy preflight`
+
+## DEV-08M Part 4 - Generated-Document Duplicate Output Policy Preflight Completed
+
+- DEV-08M Part 4 read-only policy preflight is recorded in [docs/development/DEV_08M_GENERATED_DOCUMENT_DUPLICATE_OUTPUT_POLICY_PREFLIGHT.md](docs/development/DEV_08M_GENERATED_DOCUMENT_DUPLICATE_OUTPUT_POLICY_PREFLIGHT.md).
+- Runtime mutation performed: no; code change performed: no; PDF generation/download, email, ZATCA, cleanup/delete/archive/revoke, deploy, migration, seed/reset/delete, production, beta, or customer-data action performed: no.
+- Latest commit inspected: `d83c1a8d Verify DEV-08M AP cleanup inventory dry run`.
+- Code inspection result: `GeneratedDocumentService.archivePdf(...)` is append-only create behavior; AP purchase order, purchase bill, supplier payment receipt, supplier refund, purchase debit note, and cash expense output paths render a fresh PDF and archive a new generated-document row.
+- Prior DEV-08H/DEV-08J evidence showed repeated AP output generation creates another archive row, and repeated outputs did not match prior hashes.
+- Paid v1 policy decision: treat repeated generated-document rows as append-only versioned archive behavior for now; preserve all rows by default and defer reuse/supersede/latest-version UX to a future product ticket.
+- Exact Part 5 approval phrase was available but not used because no narrow code change is recommended; Part 5 and Part 6 are skipped.
+- Exact next prompt title: `DEV-08M Part 7: AP cleanup executor preflight`.
+
+## Next Thread Prompt
+
+`DEV-08M Part 7: AP cleanup executor preflight`
