@@ -147,6 +147,14 @@ The login audit row is the expected local authenticated UI evidence under the sa
 - Removed before evidence commit: yes.
 - `Get-ChildItem apps/api/scripts -Filter '*dev08k*'` returned no files after cleanup.
 
+## Part 18 Verification Note
+
+Part 18 read-only verification is recorded in [DEV_08K_AP_EMAIL_LOCAL_UI_OUTBOX_EVIDENCE_VERIFICATION.md](DEV_08K_AP_EMAIL_LOCAL_UI_OUTBOX_EVIDENCE_VERIFICATION.md).
+
+Verification confirmed exactly one UI-created synthetic recipient row for generated document safe prefix `27a07429` and outbox safe prefix `b61d54e2`. Counts remained email outbox rows `229`, DEV-08K marker email rows `2`, AP generated-document email rows `2`, selected generated-document email rows `2`, provider events `0`, generated documents `870`, synthetic recipient rows `1`, and selected-document synthetic recipient rows `1`.
+
+The row remained `SENT_MOCK` with provider `mock-no-send`, zero attempts, `sentAt` `null`, `providerMessageId` `null`, and attachment metadata matching `purchase-bill-BILL-000423.pdf`, byte count `3417`, and content hash prefix `47935bce9f75`. The selected generated document remained `GENERATED`; no provider send, body read, base64 read, or secret exposure occurred.
+
 ## Exposure Controls
 
 - No password, token, cookie, auth header, request body, response body, email body, attachment body, PDF body, base64, provider payload, source contact email, customer/vendor data, signed XML, QR payload, private key, or CSID was printed.
