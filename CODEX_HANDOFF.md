@@ -4246,3 +4246,20 @@
 ## Next Thread Prompt
 
 `DEV-08L Part 9: supplier payment refund fiscal blocker evidence verification`
+
+## DEV-08L Part 9 - Supplier Payment Refund Fiscal Blocker Evidence Verification Completed
+
+- DEV-08L Part 9 read-only verification is recorded in [docs/development/DEV_08L_SUPPLIER_PAYMENT_REFUND_FISCAL_BLOCKER_EVIDENCE_VERIFICATION.md](docs/development/DEV_08L_SUPPLIER_PAYMENT_REFUND_FISCAL_BLOCKER_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no; supplier payment/refund service calls performed: no.
+- Latest commit inspected: `ed1130ff Check DEV-08L supplier payment refund fiscal blockers`.
+- Local target remained protocol `postgresql`, host `localhost`, port `5432`, database `accounting`; fixture organization safe prefix `cdc2c778`.
+- Part 8 evidence contains all four selected service calls and the expected message `Posting date falls in a closed fiscal period.`
+- Supplier payments `DEV08L-SP-VOID`, `DEV08L-SP-REFUND-CREATE-SOURCE`, and `DEV08L-SP-REFUND-VOID-SOURCE` remained `POSTED`, with unapplied amount `100`, journals present, and no void reversal journals.
+- Supplier refund `DEV08L-SRF-VOID` remained `POSTED`, amount refunded `25`, journal present, and no void reversal journal.
+- Counts remained unchanged: supplier payments `3`, supplier refunds `1`, supplier payment allocations `0`, supplier payment unapplied allocations `0`, journal entries `10`, audit logs `0`, email outbox `0`, generated documents `0`, provider events `0`, ZATCA invoice metadata `0`, ZATCA submission logs `0`.
+- Corrected temporary verifier `apps/api/scripts/dev08l-part9-supplier-payment-refund-verification.temp.ts` was deleted; `Test-Path` returned `False`.
+- Exact next prompt title: `DEV-08L Part 10: purchase debit note cash expense receipt fiscal blocker preflight`.
+
+## Next Thread Prompt
+
+`DEV-08L Part 10: purchase debit note cash expense receipt fiscal blocker preflight`

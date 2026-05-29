@@ -99,3 +99,8 @@ Number sequence rows for `PAYMENT`, `SUPPLIER_REFUND`, and `JOURNAL_ENTRY` were 
 ## Exact Next Prompt Title
 
 `DEV-08L Part 9: supplier payment refund fiscal blocker evidence verification`
+
+## Part 9 Verification Note
+
+- Part 9 verification is recorded in [DEV_08L_SUPPLIER_PAYMENT_REFUND_FISCAL_BLOCKER_EVIDENCE_VERIFICATION.md](DEV_08L_SUPPLIER_PAYMENT_REFUND_FISCAL_BLOCKER_EVIDENCE_VERIFICATION.md).
+- Read-only verification confirmed all four blocker messages, unchanged supplier payment/refund states, unchanged source unapplied amounts, unchanged journal/audit/output/email/ZATCA counts, and no remaining temporary script.
