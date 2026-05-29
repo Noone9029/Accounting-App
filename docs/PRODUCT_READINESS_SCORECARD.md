@@ -10,7 +10,7 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 | --- | ---: | --- | --- | --- |
 | Core accounting | 78 | Chart of accounts, manual journals, fiscal-period guard, posting/reversal, balanced reports, smoke coverage. | Year-end close, retained earnings, approval workflow, concurrency/load testing, accountant sign-off. | Add fiscal year close and accountant-reviewed report definitions. |
 | Sales/AR | 82 | Invoices, payments, unapplied payments, credit notes, refunds, customer ledgers/statements, PDFs, attachments, smoke coverage. | Recurring invoices, quotes/proformas, delivery notes, payment gateway, collection workflow. | Add recurring invoices or quote/proforma workflow after UX QA. |
-| Purchases/AP | 80 | Purchase orders, bills, clearing mode, supplier payments, debit notes, refunds, cash expenses, AP ledgers/statements, PDFs, supplier statement PDF export/archive tracking, and guided AP drill-down panels. | Partial billing, multi-PO matching, remittance email, OCR/import, accountant-reviewed AP statement layout. | Harden purchase matching and review AP statements with an accountant. |
+| Purchases/AP | 80 | Purchase orders, bills, clearing mode, supplier payments, debit notes, refunds, cash expenses, AP ledgers/statements, PDFs, supplier statement PDF export/archive tracking, guided AP drill-down panels, and closed DEV-08 local AP evidence for state machines, output/archive/download, permissions, generated-document mock email, fiscal blockers, and cleanup/retention posture. | Not production-complete: linked PO-to-bill receipt reconciliation, valuation variance booking, landed cost, purchase returns, serial/batch/bin/location, real provider remittance/email delivery, broad E2E/smoke/full-test coverage, production/beta/customer-data behavior, and accountant-reviewed AP statement layout. | Convert DEV-08Z AP production gaps into purchase matching, inventory valuation, email-provider, and QA tickets before claiming production readiness. |
 | Banking/reconciliation | 69 | Bank profiles, transfers, opening balances, manual CSV/JSON/text plus limited OFX/CAMT/MT940 statement upload or paste preview, matching, categorization, reconciliation approval/close/void, reports, design-only raw-file archive policy, and visible banking/reconciliation drill-down guidance. | No live feeds, auto-match, certified bank-specific parser coverage, transfer fees, FX handling, production raw-file archive workflow. | Validate parser groundwork with real sanitized target-bank variants and decide whether to implement object-storage raw-file archiving under the approved policy. |
 | Reports | 74 | GL, Trial Balance, P&L, Balance Sheet, VAT Summary, AR/AP aging, CSV/PDF exports, generated archive. | Official VAT return, scheduled/email delivery, report packs, accountant layout review. | Accountant-review report definitions and add official VAT return design. |
 | Inventory | 72 | Warehouses, movements, adjustments, transfers, receipts, issues, valuation reports, manual COGS, receipt asset posting, clearing reports, variance proposals, and visible inventory drill-down guidance. | No landed cost, FIFO, serial/batch, automatic postings, returns workflow, historical direct-mode migration. | Review variance proposal outputs and design landed-cost/direct-mode policy. |
@@ -34,6 +34,13 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 - Current practical stage: controlled beta/user-testing. Vercel is beta/user-testing only, not final production hosting.
 - Paid production SaaS v1 requires the production foundation roadmap, gap matrix, and launch gates under `docs/production/`.
 - LedgerByte is not production-launched, and real ZATCA production compliance is not enabled.
+
+## 2026-05-30 DEV-08Z AP Local Evidence Readiness Update
+
+- DEV-08 through DEV-08M are closed as local AP evidence; the map is captured in `docs/development/DEV_08Z_AP_LOCAL_EVIDENCE_MAP.md`.
+- The AP production-gap register is captured in `docs/development/DEV_08Z_AP_PRODUCTION_GAP_REGISTER.md`.
+- Purchases/AP remains scored conservatively at `80`: the local evidence is strong for the DEV-08 scope, but production, beta, customer-data, real provider email, real ZATCA, broad E2E/smoke/full-test, and advanced purchase/inventory accounting gaps remain open.
+- Do not treat DEV-08 local evidence as production readiness, beta readiness, customer-data proof, accountant certification, or ZATCA compliance.
 
 ## 2026-05-22 Production Foundation Roadmap Update
 

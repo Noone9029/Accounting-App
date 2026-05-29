@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `893aa711 Map DEV-08 AP local evidence`
+- `cbc743ed Document DEV-08 AP production gaps`
 
 ## Current Development Objective
 
@@ -4527,3 +4527,16 @@
 ## Next Thread Prompt
 
 `DEV-08Z Part 3: AP final readiness scorecard update`
+
+## DEV-08Z Part 3 - AP Final Readiness Scorecard Update Completed
+
+- DEV-08Z Part 3 readiness update is recorded in [docs/development/DEV_08Z_AP_READINESS_SCORECARD_UPDATE.md](docs/development/DEV_08Z_AP_READINESS_SCORECARD_UPDATE.md).
+- Latest commit inspected: `cbc743ed Document DEV-08 AP production gaps`.
+- Updated readiness/status docs: [docs/PRODUCT_READINESS_SCORECARD.md](docs/PRODUCT_READINESS_SCORECARD.md), [docs/REMAINING_ROADMAP.md](docs/REMAINING_ROADMAP.md), [docs/PROJECT_AUDIT.md](docs/PROJECT_AUDIT.md), [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md), [BUG_AUDIT.md](BUG_AUDIT.md), and [README.md](README.md).
+- AP local evidence status: DEV-08 through DEV-08M are closed for local-only evidence; Purchases/AP remains conservatively scored because production, beta, customer-data, real provider email, real ZATCA, broad E2E/smoke/full-test, purchase matching, inventory valuation, and advanced receipt/return policy gaps remain open.
+- Scope: documentation-only; no app code, runtime mutation, tests beyond diff checks, deploy, production/beta/customer data, real email, real ZATCA, migration, seed/reset/delete, or environment/provider setting changed.
+- Exact next prompt title: `DEV-08Z Part 4: AP final closure`.
+
+## Next Thread Prompt
+
+`DEV-08Z Part 4: AP final closure`

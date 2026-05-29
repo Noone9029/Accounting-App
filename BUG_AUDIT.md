@@ -3183,3 +3183,11 @@ Recommended next step:
 - Duplicate generated-document output policy is append-only versioned archive behavior for paid v1; reuse/supersede/latest-version UX is deferred until legal/audit retention, email references, and document-list behavior are designed together.
 - Added and verified `apps/api/scripts/dev08m-ap-cleanup-planner.ts` as a local dry-run-only, count-only planner with exact marker validation, explicit local DB target requirement, generic `DATABASE_URL` avoidance, hosted/destructive refusal checks, and no execute/delete package helper.
 - Remaining AP gaps move to DEV-08Z final evidence map and production-gap handoff, real provider email delivery/retry/webhook policy, production/beta/customer-data behavior, broad E2E/smoke, and advanced purchase/inventory/accounting policy.
+
+# DEV-08Z AP readiness scorecard update - 2026-05-30
+
+- DEV-08Z consolidated DEV-08 through DEV-08M as closed local-only AP evidence in `docs/development/DEV_08Z_AP_LOCAL_EVIDENCE_MAP.md`.
+- The AP production-gap register is recorded in `docs/development/DEV_08Z_AP_PRODUCTION_GAP_REGISTER.md`.
+- Readiness docs now state that AP local evidence is strong for the DEV-08 scope but not production-complete.
+- Remaining AP production gaps include linked PO-to-bill receipt reconciliation, valuation variance booking, landed cost, purchase returns, serial/batch/bin/location behavior, real provider AP email delivery/retry/webhook/domain policy, duplicate-output UX/product policy, cleanup execution policy, broad AP E2E/smoke/full-test coverage, production/beta/customer-data behavior, and real ZATCA behavior if AP documents ever intersect ZATCA.
+- No app code, runtime mutation, tests beyond diff checks, deploy, production/beta/customer data, real email, real ZATCA, migration, seed/reset/delete, or environment/provider setting changed.

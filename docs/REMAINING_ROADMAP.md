@@ -16,7 +16,7 @@ For the updated Product Audit v2 planning artifacts, see:
 
 ## Current Stage
 
-LedgerByte is at the controlled beta/user-testing stage. The current Vercel deployment is beta/user-testing only and must not be treated as final production hosting. LedgerByte is not production-launched, real ZATCA production compliance is not enabled, and paid production SaaS v1 requires the production foundation work documented under `docs/production/`. The production ticket backlog, ADR index, and first 10 production tickets are planning artifacts only; no production implementation has been performed.
+LedgerByte is at the controlled beta/user-testing stage. The current Vercel deployment is beta/user-testing only and must not be treated as final production hosting. LedgerByte is not production-launched, real ZATCA production compliance is not enabled, and paid production SaaS v1 requires the production foundation work documented under `docs/production/`. The production ticket backlog, ADR index, and first 10 production tickets are planning artifacts only; no production implementation has been performed. DEV-08 local AP evidence is strong and closed for its local-only scope, but AP is not production-complete.
 
 ## Phase 0: Production Foundation For Paid Saudi-First SaaS v1
 
@@ -187,6 +187,7 @@ Tasks:
 
 - Supplier debit notes accounting hardening and accountant review of AP statement layout.
 - Purchase receiving QA, partial bill matching, and purchase matching hardening.
+- Convert the DEV-08Z AP production-gap register into scoped tickets for linked PO-to-bill receipt reconciliation, valuation variance booking, landed cost, purchase returns, real provider AP email delivery, and broad AP E2E/smoke coverage.
 - Cash expense import/OCR groundwork and production hardening for uploaded receipt attachments after the S3 adapter is validated against a real non-production bucket.
 - Bank statement parser fixture expansion with real sanitized target-bank exports using the compatibility matrix and sample guide, optional raw-file archive implementation using the storage readiness groundwork and approved policy, and approval queue polish.
 - Transfer fees and multi-currency FX transfer handling.
@@ -205,6 +206,13 @@ Risk level: High.
 Recommended next prompt:
 
 > Collect sanitized target-bank statement exports using the bank sample collection guide, update the compatibility matrix, and add parser fixtures/tests only for approved sanitized samples without live feeds or automatic matching.
+
+## 2026-05-30 DEV-08Z AP Readiness Update
+
+- DEV-08 through DEV-08M are closed as local-only AP evidence, not production evidence.
+- The local evidence covers AP state machines, AP-adjacent receipt/inventory paths, AP output/archive/download, AP output permissions, generated-document mock email outbox behavior, fiscal/permission blockers, and cleanup/retention posture.
+- Remaining AP roadmap work is now tracked through `docs/development/DEV_08Z_AP_PRODUCTION_GAP_REGISTER.md`.
+- Do not claim production AP readiness until purchase matching, valuation variance, landed cost, purchase returns, real provider AP email, broad E2E/smoke/full-test coverage, hosted/beta behavior, and customer-data behavior are separately proven.
 
 ## Phase 3: Inventory And Payroll Basics
 

@@ -10,6 +10,7 @@ This is an original implementation inspired by common accounting workflows. It d
 
 - LedgerByte is currently a serious accounting MVP and controlled-beta candidate, not a production-launched SaaS.
 - The current Vercel deployment is for beta/user-testing only; final production hosting is a separate decision.
+- DEV-08 local AP evidence is closed for its local-only scope, but AP is not production-complete and remains unproven for production/beta/customer data, real provider email delivery, broad AP E2E/smoke/full-test coverage, and real ZATCA behavior.
 - ADR-001 for final production hosting is drafted/proposed only; implementation has not started, no provider is provisioned, and no production deploy was performed.
 - ADR-013 for API hosting is drafted/proposed only; it recommends AWS ECS Fargate for the paid SaaS v1 API with separate API and worker services, but ECS/Fargate is not configured, worker hosting is not configured, no production API deploy was performed, and no env vars, database, Redis, storage, ZATCA, email, accounting logic, or customer data changed.
 - Real ZATCA production compliance is not enabled. CSID execution, signing, clearance/reporting, PDF/A-3, real network submission, and production compliance certification remain blocked.
@@ -1840,8 +1841,8 @@ Permission matrix categories:
 - Unapplied overpayment application is manual only; there is no automatic credit matching yet.
 - Customer refunds are manual accounting records only; no payment gateway refund or bank reconciliation integration exists yet.
 - Bank account profiles, posted transaction visibility, bank transfers, guarded one-time opening-balance posting, local manual statement upload/paste preview for CSV/JSON/OFX/CAMT/MT940 groundwork, reconciliation approval/close/lock/report export, and basic attachment panels exist, but live feeds, certified bank-specific parser coverage, transfer fees, raw statement-file archive implementation, and multi-currency FX transfer handling are not implemented yet.
-- Purchase orders are MVP-only: operational purchase receipts can receive stock, but partial billing, supplier email sending, approval workflows, and automatic inventory stock receipts are not implemented.
-- Purchase bills, purchase debit notes, supplier payments, and supplier refunds are AP groundwork only; finalized purchase bills can be manually received into stock and matched operationally, and explicitly selected Inventory Clearing bills can post clearing journals, but AP finalization itself does not auto-create stock movements or inventory returns.
+- Purchase orders are MVP-only: operational purchase receipts can receive stock and local DEV-08 evidence covers selected lifecycle/receipt/blocker paths, but production-grade partial billing, linked PO-to-bill receipt reconciliation, supplier email sending, approval workflows, and automatic inventory stock receipts are not implemented.
+- Purchase bills, purchase debit notes, supplier payments, and supplier refunds have strong local AP evidence for the DEV-08 scope; finalized purchase bills can be manually received into stock and matched operationally, and explicitly selected Inventory Clearing bills can post clearing journals. AP finalization itself does not auto-create stock movements or inventory returns, and production gaps remain for valuation variance, landed cost, purchase returns, real provider AP email, broad AP E2E/smoke/full-test coverage, and production/beta/customer-data behavior.
 - ZATCA credit note XML/signing/submission is not implemented yet.
 - ZATCA debit note XML/signing/submission is not implemented yet.
 - Inventory returns from credit notes are not implemented yet.
