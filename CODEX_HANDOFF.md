@@ -4312,3 +4312,21 @@
 ## Next Thread Prompt
 
 `DEV-08L Part 13: AP state-changing permission edge preflight`
+
+## DEV-08L Part 13 - AP State-Changing Permission Edge Preflight Completed
+
+- DEV-08L Part 13 read-only preflight is recorded in [docs/development/DEV_08L_AP_STATE_PERMISSION_EDGE_PREFLIGHT.md](docs/development/DEV_08L_AP_STATE_PERMISSION_EDGE_PREFLIGHT.md).
+- Runtime mutation performed: no; AP service/controller mutation performed: no.
+- Latest commit inspected: `f5e7826b Verify DEV-08L PDN cash receipt fiscal blockers`.
+- Local target remained protocol `postgresql`, host `localhost`, port `5432`, database `accounting`; fixture organization safe prefix `cdc2c778`.
+- Selected Part 14 shape: guard-only negative checks through `PermissionGuard.canActivate(...)` plus `assertGeneratedDocumentDownloadPermission(...)`; no login, JWT, browser, AP service call, API endpoint continuation, output generation, email, or ZATCA.
+- Selected denied permissions cover purchase bill finalize/void, supplier payment create/void, supplier refund create/void, purchase debit note finalize/apply/void, cash expense create/void, purchase receipt create/void/asset post/asset reversal, purchase order approve/void/convert-to-bill, generated-document download helper, and AP email outbox permission.
+- Positive control: `DEV08L Admin FullAccess` should allow `purchaseOrders.convertToBill` through the guard.
+- Baseline counts before Part 14: roles `11`, organization members `11`, users with fixture memberships `11`, audit logs `0`, email outbox `0`, generated documents `0`, provider events `0`, ZATCA invoice metadata `0`, ZATCA submission logs `0`.
+- Exact Part 14 approval phrase status: received up front and must be re-validated before the local negative checks.
+- Temporary read-only preflight runner `apps/api/scripts/dev08l-part13-permission-edge-preflight.temp.ts` was deleted; `Test-Path` returned `False`.
+- Exact next prompt title: `DEV-08L Part 14: approved local AP state-changing permission edge negative checks`.
+
+## Next Thread Prompt
+
+`DEV-08L Part 14: approved local AP state-changing permission edge negative checks`
