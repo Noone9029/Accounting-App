@@ -118,3 +118,13 @@ Provider guard result:
 ## Exact Next Prompt Title
 
 `DEV-08K Part 12: AP email permission negative evidence verification`
+
+## Part 12 Verification Note
+
+- Part 12 read-only verification is recorded in [DEV_08K_AP_EMAIL_PERMISSION_NEGATIVE_EVIDENCE_VERIFICATION.md](DEV_08K_AP_EMAIL_PERMISSION_NEGATIVE_EVIDENCE_VERIFICATION.md).
+- The Part 11 denied vectors remain documented as five `403` blocked cases.
+- Counts remained unchanged in read-only verification: email outbox rows `228`, synthetic recipient rows `1`, AP generated-document email rows `1`, selected generated-document email rows `1`, provider events `0`, generated documents `870`.
+- Selected generated document safe prefix `27a07429` remained `GENERATED`.
+- No AP email endpoint, login/browser flow, provider call, real email send, body/base64 exposure, or ZATCA path was run.
+- Temporary cleanup was verified: no tracked or untracked `*dev08k*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08K Part 13: AP email UI design preflight`.

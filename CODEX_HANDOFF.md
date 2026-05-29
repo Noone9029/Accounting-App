@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `5d1555ca Plan DEV-08K AP email permission negative checks`
+- `5f38e517 Check DEV-08K AP email permissions`
 
 ## Current Development Objective
 
@@ -3868,6 +3868,24 @@
 
 `DEV-08K Part 8: approved local AP generated-document email outbox fixture mutation`
 
+## DEV-08K Part 12 - AP Email Permission Negative Evidence Verification Completed
+
+- DEV-08K Part 12 read-only verification is recorded in [docs/development/DEV_08K_AP_EMAIL_PERMISSION_NEGATIVE_EVIDENCE_VERIFICATION.md](docs/development/DEV_08K_AP_EMAIL_PERMISSION_NEGATIVE_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no; AP email endpoint called: no; provider calls performed: no; real email sent: no; login/browser performed: no.
+- Latest commit inspected: `5f38e517 Check DEV-08K AP email permissions`; local `HEAD` matched `origin/main`.
+- Part 11 evidence doc exists and contains all five expected denied vectors: missing `generatedDocuments.download`, missing AP source view, missing `emailOutbox.view`, restricted AP viewer/no archive download role, and restricted archive-only role all recorded as `403` blocked.
+- Local-only proof: sanitized DB target was protocol `postgresql`, host `localhost`, port `5432`, database `accounting`, schema `public`.
+- Count verification stayed unchanged from Part 11 evidence: email outbox rows `228`, synthetic recipient rows `1`, AP generated-document email rows `1`, selected generated-document email rows `1`, provider events `0`, generated documents `870`.
+- Selected generated document verification: safe prefix `27a07429` remained `GENERATED`, document type `PURCHASE_BILL`, source type `PurchaseBill`, source prefix `16e6f021`, document/source number `BILL-000423`, filename `purchase-bill-BILL-000423.pdf`, MIME type `application/pdf`, size `3417`, hash prefix `47935bce9f75`.
+- Selected outbox row remains safe prefix `3c19700b`, status `SENT_MOCK`, provider `mock-no-send`, template `AP_GENERATED_DOCUMENT`, with metadata-only attachment fields.
+- Exposure controls: no email body, attachment body, PDF body, base64, source contact email, customer/vendor data, token, cookie, auth header, provider payload, signed XML, QR payload, private key, or CSID was printed.
+- Temporary script cleanup: no tracked or untracked `*dev08k*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08K Part 13: AP email UI design preflight`.
+
+## Next Thread Prompt
+
+`DEV-08K Part 13: AP email UI design preflight`
+
 ## DEV-08K Part 9 - AP Email Outbox Fixture Evidence Verification Completed
 
 - DEV-08K Part 9 read-only verification is recorded in [docs/development/DEV_08K_AP_EMAIL_OUTBOX_FIXTURE_EVIDENCE_VERIFICATION.md](docs/development/DEV_08K_AP_EMAIL_OUTBOX_FIXTURE_EVIDENCE_VERIFICATION.md).
@@ -3990,3 +4008,13 @@
 ## Next Thread Prompt
 
 `DEV-08K Part 8: approved local AP generated-document email outbox fixture mutation`
+
+## Current DEV-08K Continuation Pointer
+
+- Latest completed DEV-08K prompt: `DEV-08K Part 12: AP email permission negative evidence verification`.
+- Current evidence file: [docs/development/DEV_08K_AP_EMAIL_PERMISSION_NEGATIVE_EVIDENCE_VERIFICATION.md](docs/development/DEV_08K_AP_EMAIL_PERMISSION_NEGATIVE_EVIDENCE_VERIFICATION.md).
+- Exact next prompt title: `DEV-08K Part 13: AP email UI design preflight`.
+
+## Next Thread Prompt
+
+`DEV-08K Part 13: AP email UI design preflight`
