@@ -4393,3 +4393,20 @@
 ## Next Thread Prompt
 
 `DEV-08M Part 2: approved local AP cleanup inventory dry-run`
+
+## DEV-08M Part 2 - Approved Local AP Cleanup Inventory Dry-Run Completed
+
+- DEV-08M Part 2 dry-run evidence is recorded in [docs/development/DEV_08M_AP_CLEANUP_INVENTORY_DRY_RUN_EVIDENCE.md](docs/development/DEV_08M_AP_CLEANUP_INVENTORY_DRY_RUN_EVIDENCE.md).
+- Runtime mutation performed: no; deletion/update/archive/revoke/cleanup performed: no.
+- Latest commit inspected: `41b38c41 Plan DEV-08M AP cleanup retention`.
+- Exact Part 2 approval phrase was provided and re-validated before the dry-run.
+- Local target was `postgresql` on `localhost:5432/accounting`; Docker Desktop and local `postgres`/`redis` compose services were started because the Windows PostgreSQL service could not be started from this session.
+- Dry-run result: all `12` DEV-08 through DEV-08L markers detected; before/after table totals unchanged; body/secret output printed `false`.
+- Count-only inventory totals: AP source documents `64`, source lines `25`, journals/journal lines `67`, allocations/reversals `2`, receipts/stock movements `9`, generated documents by source `24`, email outbox rows by source/document `4`, provider events for generated-document emails `0`, audit logs by AP source ids `110`, ZATCA marker hits `0`, users/roles/memberships marker hits `6`.
+- Preserve/delete classification: all inventoried evidence families remain preserve-by-default; deletion candidates `0`; deletion approved `false`.
+- Temporary runner `apps/api/scripts/dev08m-part2-cleanup-inventory-dry-run.temp.ts` was deleted; `Test-Path` returned `False`; no `*dev08m*` temp scripts remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08M Part 3: AP cleanup inventory dry-run evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08M Part 3: AP cleanup inventory dry-run evidence verification`

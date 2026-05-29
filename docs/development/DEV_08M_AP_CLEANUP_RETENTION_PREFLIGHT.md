@@ -120,3 +120,12 @@ The approval allows read-only local DB queries and marker-scoped counts only. It
 ## Exact Next Prompt Title
 
 `DEV-08M Part 2: approved local AP cleanup inventory dry-run`
+
+## Part 2 Completion Note
+
+- DEV-08M Part 2 approved local dry-run inventory is recorded in [DEV_08M_AP_CLEANUP_INVENTORY_DRY_RUN_EVIDENCE.md](DEV_08M_AP_CLEANUP_INVENTORY_DRY_RUN_EVIDENCE.md).
+- The local target was classified as `postgresql` on `localhost:5432/accounting`.
+- The dry-run detected all `12` DEV-08 through DEV-08L markers with count-only output.
+- Before/after table totals were unchanged; deletion candidates remained `0`; deletion approved remained `false`.
+- Temporary runner `apps/api/scripts/dev08m-part2-cleanup-inventory-dry-run.temp.ts` was deleted and `Test-Path` returned `False`.
+- Exact next prompt title: `DEV-08M Part 3: AP cleanup inventory dry-run evidence verification`.
