@@ -93,3 +93,9 @@ The committed planner is intentionally conservative and source-linked. It is a r
 ## Exact Next Prompt Title
 
 `DEV-08M Part 9: AP cleanup executor dry-run evidence verification`
+
+## Part 9 Note
+
+- DEV-08M Part 9 verification is recorded in [DEV_08M_AP_CLEANUP_EXECUTOR_DRY_RUN_EVIDENCE_VERIFICATION.md](DEV_08M_AP_CLEANUP_EXECUTOR_DRY_RUN_EVIDENCE_VERIFICATION.md).
+- Targeted tests passed, hosted/destructive refusal checks passed, write-path scan found only count-query access, and before/after table counts matched around the local dry-run.
+- Exact next prompt title: `DEV-08M Part 10: AP cleanup retention closure`.
