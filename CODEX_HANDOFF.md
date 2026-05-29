@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `cbc743ed Document DEV-08 AP production gaps`
+- `e59bb79c Update DEV-08 AP readiness scorecard`
 
 ## Current Development Objective
 
@@ -4540,3 +4540,17 @@
 ## Next Thread Prompt
 
 `DEV-08Z Part 4: AP final closure`
+
+## DEV-08Z Part 4 - AP Final Closure Completed
+
+- DEV-08Z final closure is recorded in [docs/development/DEV_08Z_AP_LOCAL_EVIDENCE_FINAL_CLOSURE.md](docs/development/DEV_08Z_AP_LOCAL_EVIDENCE_FINAL_CLOSURE.md).
+- Latest commit inspected: `e59bb79c Update DEV-08 AP readiness scorecard`.
+- DEV-08 is closed as local AP evidence, covering DEV-08 through DEV-08M plus DEV-08Z evidence map, production-gap register, readiness update, and final closure.
+- Closure conclusion: AP local evidence is strong for the DEV-08 scope, but it is not production-complete and does not prove production/beta/customer-data behavior, real provider email, real ZATCA, broad AP E2E/smoke/full-test coverage, accountant certification, legal retention certification, cleanup execution, or paid SaaS readiness.
+- Remaining production gaps: linked PO-to-bill receipt reconciliation, production-grade purchase matching, valuation variance booking, landed cost, purchase returns, serial/batch/bin/location, real provider AP email, duplicate-output UX policy, cleanup execution policy, broad AP E2E/smoke/full tests, production/beta/customer-data behavior, and real ZATCA behavior if AP documents ever intersect ZATCA.
+- Scope: documentation-only; no app code, runtime mutation, cleanup/delete, E2E, smoke, full build, full tests, production/beta/customer data, real email, real ZATCA, migration, seed/reset/delete, deploy, environment/provider change, backup/restore, login, download, export, or body/base64/secret output was run.
+- Exact next prompt title: `DEV-09 Part 1: banking reconciliation production-gap and E2E readiness preflight`.
+
+## Next Thread Prompt
+
+`DEV-09 Part 1: banking reconciliation production-gap and E2E readiness preflight`
