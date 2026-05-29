@@ -83,3 +83,8 @@ Service call count: `2`.
 ## Exact Next Prompt Title
 
 `DEV-08L Part 6: purchase bill fiscal-period blocker evidence verification`
+
+## Part 6 Verification Note
+
+- Part 6 verification is recorded in [DEV_08L_PURCHASE_BILL_FISCAL_BLOCKER_EVIDENCE_VERIFICATION.md](DEV_08L_PURCHASE_BILL_FISCAL_BLOCKER_EVIDENCE_VERIFICATION.md).
+- Read-only verification confirmed both blocker messages, unchanged purchase bill states, unchanged journal/audit/output/email/ZATCA counts, and no remaining temporary script.
