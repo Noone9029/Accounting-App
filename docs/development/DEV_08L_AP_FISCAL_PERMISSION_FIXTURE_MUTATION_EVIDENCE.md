@@ -158,3 +158,10 @@ Additional internal support records were created inside the same organization:
 ## Exact Next Prompt Title
 
 `DEV-08L Part 3: AP fiscal-period and permission fixture evidence verification`
+
+## Part 3 Follow-Up
+
+- Part 3 read-only verification is recorded in [DEV_08L_AP_FISCAL_PERMISSION_FIXTURE_EVIDENCE_VERIFICATION.md](DEV_08L_AP_FISCAL_PERMISSION_FIXTURE_EVIDENCE_VERIFICATION.md).
+- Verification matched the Part 2 fiscal periods, AP fixtures, restricted roles/users, and side-effect baseline counts.
+- No `dev08l` temporary scripts remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08L Part 4: purchase bill fiscal-period blocker preflight`.
