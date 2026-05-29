@@ -144,3 +144,11 @@ I approve DEV-08L Part 11 local-only PDN cash expense receipt fiscal-period bloc
 ## Exact Next Prompt Title
 
 `DEV-08L Part 11: approved local PDN cash expense receipt fiscal-period blocker negative checks`
+
+## Part 11 Evidence Note
+
+- Part 11 evidence is recorded in [DEV_08L_PDN_CASH_EXPENSE_RECEIPT_FISCAL_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md](DEV_08L_PDN_CASH_EXPENSE_RECEIPT_FISCAL_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md).
+- The approved Part 10 PDN/cash expense/purchase receipt calls were the only service calls executed.
+- All six calls were blocked with `Posting date falls in a closed fiscal period.`
+- PDN/cash expense/purchase receipt statuses, journal count, stock movement count, audit log count, output/email/ZATCA counts, and generated-document count remained unchanged.
+- The temporary runner was deleted and not staged.
