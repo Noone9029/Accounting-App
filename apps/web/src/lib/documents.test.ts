@@ -1,4 +1,12 @@
-import { documentSourceTypeLabel, documentTypeLabel, generatedDocumentStatusBadgeClass, generatedDocumentStatusLabel } from "./documents";
+import {
+  canCreateApGeneratedDocumentEmail,
+  documentSourceTypeLabel,
+  documentTypeLabel,
+  generatedDocumentStatusBadgeClass,
+  generatedDocumentStatusLabel,
+} from "./documents";
+import { PERMISSIONS, type Permission } from "./permissions";
+import type { GeneratedDocument } from "./types";
 
 describe("document helpers", () => {
   it("labels report document types clearly", () => {
@@ -23,4 +31,43 @@ describe("document helpers", () => {
     expect(documentSourceTypeLabel("CustomerStatement")).toBe("Customer Statement");
     expect(documentSourceTypeLabel("PURCHASE_DEBIT_NOTE")).toBe("Purchase Debit Note");
   });
+
+  it("allows AP generated-document email only with every required permission", () => {
+    const permissions = new Set<Permission>([PERMISSIONS.generatedDocuments.download, PERMISSIONS.emailOutbox.view, PERMISSIONS.purchaseBills.view]);
+
+    expect(canCreateApGeneratedDocumentEmail(generatedDocumentFixture(), (permission) => permissions.has(permission))).toBe(true);
+    expect(canCreateApGeneratedDocumentEmail(generatedDocumentFixture(), (permission) => permission !== PERMISSIONS.generatedDocuments.download && permissions.has(permission))).toBe(false);
+    expect(canCreateApGeneratedDocumentEmail(generatedDocumentFixture(), (permission) => permission !== PERMISSIONS.emailOutbox.view && permissions.has(permission))).toBe(false);
+    expect(canCreateApGeneratedDocumentEmail(generatedDocumentFixture(), (permission) => permission !== PERMISSIONS.purchaseBills.view && permissions.has(permission))).toBe(false);
+  });
+
+  it("blocks unsupported or non-generated documents from AP email UI creation", () => {
+    const allowAll = () => true;
+
+    expect(canCreateApGeneratedDocumentEmail(generatedDocumentFixture({ status: "FAILED" }), allowAll)).toBe(false);
+    expect(canCreateApGeneratedDocumentEmail(generatedDocumentFixture({ sourceType: "SalesInvoice", documentType: "SALES_INVOICE" }), allowAll)).toBe(false);
+    expect(canCreateApGeneratedDocumentEmail(generatedDocumentFixture({ sourceType: "PurchaseBill", documentType: "PURCHASE_ORDER" }), allowAll)).toBe(false);
+  });
 });
+
+function generatedDocumentFixture(overrides: Partial<GeneratedDocument> = {}): GeneratedDocument {
+  return {
+    id: "generated-document-1",
+    organizationId: "org-1",
+    documentType: "PURCHASE_BILL",
+    sourceType: "PurchaseBill",
+    sourceId: "bill-1",
+    documentNumber: "BILL-001",
+    filename: "purchase-bill-BILL-001.pdf",
+    mimeType: "application/pdf",
+    storageProvider: "database",
+    storageKey: null,
+    contentHash: "hash-value",
+    sizeBytes: 3417,
+    status: "GENERATED",
+    generatedById: "user-1",
+    generatedAt: "2026-05-29T00:00:00.000Z",
+    createdAt: "2026-05-29T00:00:00.000Z",
+    ...overrides,
+  };
+}

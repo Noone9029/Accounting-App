@@ -1,4 +1,5 @@
-import type { DocumentType, GeneratedDocumentStatus } from "./types";
+import { PERMISSIONS, type Permission } from "./permissions";
+import type { DocumentType, GeneratedDocument, GeneratedDocumentStatus } from "./types";
 
 const documentTypeLabels: Record<DocumentType, string> = {
   SALES_INVOICE: "Sales Invoice",
@@ -48,4 +49,54 @@ export function documentSourceTypeLabel(sourceType: string): string {
     .replaceAll("_", " ")
     .toLowerCase()
     .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+const apGeneratedDocumentEmailSources: Record<string, { documentType: DocumentType; requiredPermission: Permission }> = {
+  PurchaseOrder: {
+    documentType: "PURCHASE_ORDER",
+    requiredPermission: PERMISSIONS.purchaseOrders.view,
+  },
+  PurchaseBill: {
+    documentType: "PURCHASE_BILL",
+    requiredPermission: PERMISSIONS.purchaseBills.view,
+  },
+  SupplierPayment: {
+    documentType: "SUPPLIER_PAYMENT_RECEIPT",
+    requiredPermission: PERMISSIONS.supplierPayments.view,
+  },
+  SupplierRefund: {
+    documentType: "SUPPLIER_REFUND",
+    requiredPermission: PERMISSIONS.supplierRefunds.view,
+  },
+  PurchaseDebitNote: {
+    documentType: "PURCHASE_DEBIT_NOTE",
+    requiredPermission: PERMISSIONS.purchaseDebitNotes.view,
+  },
+  CashExpense: {
+    documentType: "CASH_EXPENSE",
+    requiredPermission: PERMISSIONS.cashExpenses.view,
+  },
+};
+
+type ApGeneratedDocumentEmailCandidate = Pick<GeneratedDocument, "documentType" | "sourceType" | "status">;
+
+export function getApGeneratedDocumentEmailSourcePermission(document: ApGeneratedDocumentEmailCandidate): Permission | null {
+  const config = apGeneratedDocumentEmailSources[document.sourceType];
+  if (!config || config.documentType !== document.documentType) {
+    return null;
+  }
+  return config.requiredPermission;
+}
+
+export function isApGeneratedDocumentEmailSupported(document: ApGeneratedDocumentEmailCandidate): boolean {
+  return document.status === "GENERATED" && getApGeneratedDocumentEmailSourcePermission(document) !== null;
+}
+
+export function canCreateApGeneratedDocumentEmail(document: ApGeneratedDocumentEmailCandidate, can: (permission: Permission) => boolean): boolean {
+  const sourcePermission = getApGeneratedDocumentEmailSourcePermission(document);
+  if (!sourcePermission || document.status !== "GENERATED") {
+    return false;
+  }
+
+  return can(PERMISSIONS.generatedDocuments.download) && can(PERMISSIONS.emailOutbox.view) && can(sourcePermission);
 }

@@ -1,6 +1,7 @@
 import {
   emailStatusLabel,
   emailTemplateLabel,
+  apGeneratedDocumentOutboxPath,
   emailProviderLabel,
   emailProviderWarningText,
   emailReadinessLabel,
@@ -33,6 +34,11 @@ describe("email helpers", () => {
     expect(emailTemplateLabel("ORGANIZATION_INVITE")).toBe("Organization invite");
     expect(emailTemplateLabel("PASSWORD_RESET")).toBe("Password reset");
     expect(emailTemplateLabel("TEST_EMAIL")).toBe("Test email");
+    expect(emailTemplateLabel("AP_GENERATED_DOCUMENT")).toBe("AP generated document");
+  });
+
+  it("builds the AP generated-document local outbox endpoint", () => {
+    expect(apGeneratedDocumentOutboxPath("doc 1")).toBe("/email/ap-generated-documents/doc%201/outbox");
   });
 
   it("labels provider readiness without exposing config values", () => {

@@ -187,3 +187,13 @@ Status in current continuation thread: received exactly up front; re-validate be
 ## Exact Next Prompt Title
 
 `DEV-08K Part 14: approved local AP generated-document email UI implementation`
+
+## Part 14 Implementation Note
+
+- Part 14 implementation evidence is recorded in [DEV_08K_AP_EMAIL_UI_IMPLEMENTATION_EVIDENCE.md](DEV_08K_AP_EMAIL_UI_IMPLEMENTATION_EVIDENCE.md).
+- The approved minimal `/documents` row action was implemented as `Create local email outbox`.
+- The action is hidden unless the generated document is AP-supported, status `GENERATED`, and the user has `generatedDocuments.download`, `emailOutbox.view`, and the matching AP source view permission.
+- UI copy states local/mock/no-real-send behavior and does not surface PDF body, email body, attachment body, base64, provider payload, or source contact email.
+- Targeted web tests passed for helper eligibility, endpoint path construction, local/no-send wording, restricted hidden state, and explicit-recipient-only submission.
+- No runtime outbox row was created and no provider call or real email send occurred in Part 14.
+- Exact next prompt title: `DEV-08K Part 15: AP email UI evidence verification`.

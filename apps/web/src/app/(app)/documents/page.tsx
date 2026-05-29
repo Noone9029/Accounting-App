@@ -7,7 +7,8 @@ import { ArchiveDocumentGuidance } from "@/components/documents/document-guidanc
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { documentSourceTypeLabel, documentTypeLabel, generatedDocumentStatusBadgeClass, generatedDocumentStatusLabel } from "@/lib/documents";
+import { canCreateApGeneratedDocumentEmail, documentSourceTypeLabel, documentTypeLabel, generatedDocumentStatusBadgeClass, generatedDocumentStatusLabel } from "@/lib/documents";
+import { apGeneratedDocumentOutboxPath } from "@/lib/email";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { downloadPdf, generatedDocumentDownloadPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -47,7 +48,10 @@ export default function GeneratedDocumentsPage() {
   const [status, setStatus] = useState<"" | GeneratedDocumentStatus>("");
   const [loading, setLoading] = useState(false);
   const [downloadingId, setDownloadingId] = useState("");
+  const [apEmailLoadingId, setApEmailLoadingId] = useState("");
+  const [apEmailRecipients, setApEmailRecipients] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   useEffect(() => {
     if (!organizationId) {
@@ -61,6 +65,7 @@ export default function GeneratedDocumentsPage() {
     event?.preventDefault();
     setLoading(true);
     setError("");
+    setSuccess("");
 
     try {
       const query = new URLSearchParams();
@@ -96,6 +101,33 @@ export default function GeneratedDocumentsPage() {
     }
   }
 
+  async function createApGeneratedDocumentEmail(document: GeneratedDocument, recipientEmail: string) {
+    if (!canCreateApGeneratedDocumentEmail(document, can)) {
+      return;
+    }
+
+    setApEmailLoadingId(document.id);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await apiRequest<ApGeneratedDocumentEmailResponse>(apGeneratedDocumentOutboxPath(document.id), {
+        method: "POST",
+        body: { recipientEmail },
+      });
+      setApEmailRecipients((current) => {
+        const next = { ...current };
+        delete next[document.id];
+        return next;
+      });
+      setSuccess(`Local AP email outbox row created for ${document.documentNumber}. No real email was sent. Provider ${response.provider}. Review it in email outbox.`);
+    } catch (emailError) {
+      setError(emailError instanceof Error ? emailError.message : "Unable to create local AP email outbox row.");
+    } finally {
+      setApEmailLoadingId("");
+    }
+  }
+
   return (
     <section>
       <div className="mb-6">
@@ -110,6 +142,14 @@ export default function GeneratedDocumentsPage() {
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load generated documents.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading generated documents...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {success ? (
+          <StatusMessage type="success">
+            <span>{success}</span>{" "}
+            <Link href="/settings/email-outbox" className="font-semibold underline underline-offset-2">
+              Open email outbox
+            </Link>
+          </StatusMessage>
+        ) : null}
       </div>
 
       <form onSubmit={loadDocuments} className="mt-5 flex flex-wrap items-end gap-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
@@ -170,13 +210,28 @@ export default function GeneratedDocumentsPage() {
                 <td className="px-4 py-3 text-steel">{formatOptionalDate(document.generatedAt, "-")}</td>
                 <td className="px-4 py-3 font-mono text-xs">{formatBytes(document.sizeBytes)}</td>
                 <td className="px-4 py-3">
-                  {canDownloadGeneratedDocuments ? (
-                    <button type="button" onClick={() => void downloadDocument(document)} disabled={downloadingId === document.id} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                      {downloadingId === document.id ? "Downloading..." : "Download archived PDF"}
-                    </button>
-                  ) : (
-                    <span className="text-xs text-steel">Download permission required</span>
-                  )}
+                  <div className="flex min-w-[250px] flex-col gap-2">
+                    {canDownloadGeneratedDocuments ? (
+                      <button type="button" onClick={() => void downloadDocument(document)} disabled={downloadingId === document.id} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                        {downloadingId === document.id ? "Downloading..." : "Download archived PDF"}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-steel">Download permission required</span>
+                    )}
+                    <GeneratedDocumentApEmailAction
+                      document={document}
+                      visible={canCreateApGeneratedDocumentEmail(document, can)}
+                      recipientEmail={apEmailRecipients[document.id] ?? ""}
+                      loading={apEmailLoadingId === document.id}
+                      onRecipientChange={(recipientEmail) =>
+                        setApEmailRecipients((current) => ({
+                          ...current,
+                          [document.id]: recipientEmail,
+                        }))
+                      }
+                      onSubmit={(recipientEmail) => void createApGeneratedDocumentEmail(document, recipientEmail)}
+                    />
+                  </div>
                 </td>
               </tr>
             ))}
@@ -202,6 +257,75 @@ export default function GeneratedDocumentsPage() {
         ) : null}
       </div>
     </section>
+  );
+}
+
+interface ApGeneratedDocumentEmailResponse {
+  localOnly: boolean;
+  noEmailSent: boolean;
+  providerCalled: boolean;
+  provider: string;
+  emailOutbox?: {
+    id: string;
+    status: string;
+    provider: string;
+    attachmentFilename?: string | null;
+    attachmentMimeType?: string | null;
+    attachmentSizeBytes?: number | null;
+    attachmentContentHash?: string | null;
+  };
+  redaction?: {
+    noBodyReturned: boolean;
+    noPdfBodyReturned: boolean;
+    noAttachmentBodyReturned: boolean;
+    noProviderPayload: boolean;
+  };
+}
+
+interface GeneratedDocumentApEmailActionProps {
+  document: GeneratedDocument;
+  visible: boolean;
+  recipientEmail: string;
+  loading: boolean;
+  onRecipientChange: (recipientEmail: string) => void;
+  onSubmit: (recipientEmail: string) => void;
+}
+
+export function GeneratedDocumentApEmailAction({ document, visible, recipientEmail, loading, onRecipientChange, onSubmit }: GeneratedDocumentApEmailActionProps) {
+  if (!visible) {
+    return null;
+  }
+
+  const recipientInputId = `ap-email-recipient-${document.id}`;
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit(recipientEmail.trim());
+      }}
+      className="rounded-md border border-teal-100 bg-teal-50/60 p-2"
+    >
+      <label htmlFor={recipientInputId} className="block text-xs font-medium text-slate-700">
+        Recipient email
+      </label>
+      <input
+        id={recipientInputId}
+        type="email"
+        required
+        maxLength={320}
+        autoComplete="off"
+        value={recipientEmail}
+        onChange={(event) => onRecipientChange(event.target.value)}
+        placeholder="ap-review@example.test"
+        className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-xs outline-none focus:border-palm disabled:bg-slate-50"
+        disabled={loading}
+      />
+      <p className="mt-1 text-xs leading-5 text-steel">Local mock outbox only. No real email or provider send. PDF body is not shown.</p>
+      <button type="submit" disabled={loading} className="mt-2 w-full rounded-md bg-palm px-2 py-1 text-xs font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+        {loading ? "Creating local outbox..." : "Create local email outbox"}
+      </button>
+    </form>
   );
 }
 

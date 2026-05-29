@@ -1,5 +1,9 @@
 import type { EmailDeliveryStatus, EmailProviderName, EmailTemplateType } from "./types";
 
+export function apGeneratedDocumentOutboxPath(generatedDocumentId: string): string {
+  return `/email/ap-generated-documents/${encodeURIComponent(generatedDocumentId)}/outbox`;
+}
+
 export function emailStatusLabel(status: EmailDeliveryStatus | string): string {
   const labels: Record<EmailDeliveryStatus, string> = {
     QUEUED: "Queued",

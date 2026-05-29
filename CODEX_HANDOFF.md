@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `575e707d Verify DEV-08K AP email permissions`
+- `52a18b35 Plan DEV-08K AP email UI`
 
 ## Current Development Objective
 
@@ -4011,13 +4011,13 @@
 
 ## Current DEV-08K Continuation Pointer
 
-- Latest completed DEV-08K prompt: `DEV-08K Part 13: AP email UI design preflight`.
-- Current evidence file: [docs/development/DEV_08K_AP_EMAIL_UI_DESIGN_PREFLIGHT.md](docs/development/DEV_08K_AP_EMAIL_UI_DESIGN_PREFLIGHT.md).
-- Exact next prompt title: `DEV-08K Part 14: approved local AP generated-document email UI implementation`.
+- Latest completed DEV-08K prompt: `DEV-08K Part 14: approved local AP generated-document email UI implementation`.
+- Current evidence file: [docs/development/DEV_08K_AP_EMAIL_UI_IMPLEMENTATION_EVIDENCE.md](docs/development/DEV_08K_AP_EMAIL_UI_IMPLEMENTATION_EVIDENCE.md).
+- Exact next prompt title: `DEV-08K Part 15: AP email UI evidence verification`.
 
 ## Next Thread Prompt
 
-`DEV-08K Part 14: approved local AP generated-document email UI implementation`
+`DEV-08K Part 15: AP email UI evidence verification`
 
 ## DEV-08K Part 13 - AP Email UI Design Preflight Completed
 
@@ -4031,3 +4031,16 @@
 - Expected restricted state: hide the AP email action when any required permission is missing, the document is unsupported, or status is not `GENERATED`.
 - Part 14 approval phrase status: exact phrase was received up front in this continuation thread and must be re-validated before implementation.
 - Exact next prompt title: `DEV-08K Part 14: approved local AP generated-document email UI implementation`.
+
+## DEV-08K Part 14 - Approved Local AP Generated-Document Email UI Implementation Completed
+
+- DEV-08K Part 14 implementation evidence is recorded in [docs/development/DEV_08K_AP_EMAIL_UI_IMPLEMENTATION_EVIDENCE.md](docs/development/DEV_08K_AP_EMAIL_UI_IMPLEMENTATION_EVIDENCE.md).
+- Approval phrase status: exact Part 14 phrase received and checked before implementation.
+- Runtime mutation performed: no; AP email endpoint called during tests: no; provider calls performed: no; real email sent: no; login/browser performed: no; schema changed: no.
+- UI change: `/documents` generated-document rows now show `Create local email outbox` for eligible AP generated documents.
+- Permission gating: row action requires `generatedDocuments.download`, `emailOutbox.view`, and matching AP source view permission for `PurchaseOrder`, `PurchaseBill`, `SupplierPayment`, `SupplierRefund`, `PurchaseDebitNote`, or `CashExpense`.
+- Wording/safety: UI states local mock outbox only, no real email/provider send, and no PDF body is shown; success links to `/settings/email-outbox`.
+- Tests passed: `corepack pnpm exec jest --config jest.config.cjs src/lib/documents.test.ts src/lib/email.test.ts --testPathPatterns=documents/page.test.tsx` with `3` suites and `18` tests passing.
+- Extra lint attempt did not complete because unrelated untracked `apps/web/src/app/marketing.test.tsx` currently has a `HomePage` JSX type error; left untouched.
+- Exposure controls: tests and UI did not surface email body, attachment body, PDF body, base64, provider payload, source contact email, customer/vendor data, token, cookie, auth header, signed XML, QR payload, private key, or CSID.
+- Exact next prompt title: `DEV-08K Part 15: AP email UI evidence verification`.
