@@ -4346,3 +4346,18 @@
 ## Next Thread Prompt
 
 `DEV-08L Part 15: AP state-changing permission edge evidence verification`
+
+## DEV-08L Part 15 - AP State-Changing Permission Edge Evidence Verification Completed
+
+- DEV-08L Part 15 read-only verification is recorded in [docs/development/DEV_08L_AP_STATE_PERMISSION_EDGE_EVIDENCE_VERIFICATION.md](docs/development/DEV_08L_AP_STATE_PERMISSION_EDGE_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no; AP service/controller mutation performed: no.
+- Latest commit inspected: `86d40b55 Check DEV-08L AP state permission edges`.
+- Local target remained protocol `postgresql`, host `localhost`, port `5432`, database `accounting`; fixture organization safe prefix `cdc2c778`.
+- Part 14 evidence records denied check count `20`, allowed control count `1`, the generic permission denial, the generated-document PDF permission denial, and the `admin.fullAccess` control.
+- Counts remained unchanged: purchase bills `4`, supplier payments `3`, supplier refunds `1`, purchase debit notes `2`, cash expenses `1`, purchase receipts `2`, purchase orders `1`, journal entries `10`, audit logs `0`, auth tokens `0`, email outbox `0`, generated documents `0`, provider events `0`, ZATCA invoice metadata `0`, ZATCA submission logs `0`.
+- Corrected temporary verifier `apps/api/scripts/dev08l-part15-permission-edge-verification.temp.ts` was deleted; `Test-Path` returned `False`.
+- Exact next prompt title: `DEV-08L Part 16: AP fiscal permission edge closure`.
+
+## Next Thread Prompt
+
+`DEV-08L Part 16: AP fiscal permission edge closure`

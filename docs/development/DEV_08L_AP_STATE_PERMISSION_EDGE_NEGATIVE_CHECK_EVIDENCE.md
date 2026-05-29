@@ -125,3 +125,8 @@ Allowed control count: `1`.
 ## Exact Next Prompt Title
 
 `DEV-08L Part 15: AP state-changing permission edge evidence verification`
+
+## Part 15 Verification Note
+
+- Part 15 verification is recorded in [DEV_08L_AP_STATE_PERMISSION_EDGE_EVIDENCE_VERIFICATION.md](DEV_08L_AP_STATE_PERMISSION_EDGE_EVIDENCE_VERIFICATION.md).
+- Read-only verification confirmed the denied/allowed check counts, expected permission messages, unchanged AP/source/audit/auth/output/email/ZATCA counts, and no remaining temporary script.
