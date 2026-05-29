@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `dfa7a24e Verify DEV-08K AP email UI outbox`
+- `c8547f7a Close DEV-08K AP email evidence`
 
 ## Current Development Objective
 
@@ -4117,3 +4117,18 @@
 - Remaining gaps: real email provider delivery/retry/webhook/domain policy, cleanup retention/deletion, duplicate generated-document output policy, fiscal-period blockers, broader AP permission edge cases, production/beta/customer-data behavior, real ZATCA, full E2E, full smoke, full build, and full repo tests.
 - Temporary script cleanup: no tracked or untracked `*dev08k*` script remains under `apps/api/scripts`.
 - Exact next prompt title: `DEV-08L Part 1: AP fiscal-period and permission edge preflight`.
+
+## DEV-08L Part 1 - AP Fiscal-Period And Permission Edge Preflight Completed
+
+- DEV-08L Part 1 read-only preflight is recorded in [docs/development/DEV_08L_AP_FISCAL_PERMISSION_EDGE_PREFLIGHT.md](docs/development/DEV_08L_AP_FISCAL_PERMISSION_EDGE_PREFLIGHT.md).
+- Runtime mutation performed: no; fiscal period mutation performed: no; fixture creation performed: no; AP service mutation performed: no; login/browser performed: no; output/email/ZATCA/provider action performed: no.
+- Latest commit inspected: `c8547f7a Close DEV-08K AP email evidence`; local `HEAD` matched `origin/main`.
+- Fiscal guard inventory: purchase bill finalize/void, supplier payment create/void, supplier refund create/void, purchase debit note finalize/void, cash expense create/void, and purchase receipt asset post/reverse use fiscal posting guards; purchase orders, purchase receipt create/void, supplier payment unapplied apply/reverse, and purchase debit note apply/reverse do not use fiscal posting guards.
+- Permission edge inventory: AP state-changing controllers use dedicated family permissions; AP source PDF/generate paths require source view plus `generatedDocuments.download`; AP generated-document email requires `emailOutbox.view`, `generatedDocuments.download`, and matching AP source view; `admin.fullAccess` remains the shared full-access bypass.
+- Fixture strategy: Part 2 should recheck the local DB target and fiscal-period landscape, create marker-scoped local-only closed/open fiscal period fixtures, create AP source/control records, and create restricted roles/users without production, beta, customer data, real email, real ZATCA, output body exposure, seed/reset/delete, deploy, or env/provider changes.
+- Exact approval phrase status: not received exactly in the current user message; generic approval is recorded as insufficient for mutation prompts.
+- Exact next prompt title: `DEV-08L Part 2: approved local AP fiscal-period and permission fixture mutation`.
+
+## Next Thread Prompt
+
+`DEV-08L Part 2: approved local AP fiscal-period and permission fixture mutation`
