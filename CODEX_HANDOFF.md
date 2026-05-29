@@ -4132,3 +4132,20 @@
 ## Next Thread Prompt
 
 `DEV-08L Part 2: approved local AP fiscal-period and permission fixture mutation`
+
+## DEV-08L Part 2 - Approved Local AP Fiscal-Period And Permission Fixture Mutation Completed
+
+- DEV-08L Part 2 mutation evidence is recorded in [docs/development/DEV_08L_AP_FISCAL_PERMISSION_FIXTURE_MUTATION_EVIDENCE.md](docs/development/DEV_08L_AP_FISCAL_PERMISSION_FIXTURE_MUTATION_EVIDENCE.md).
+- Exact approval phrase status: received and checked before mutation.
+- Runtime mutation performed: yes, local disposable fixture creation only.
+- Local-only proof: sanitized DB target was protocol `postgresql`, host `localhost`, port `5432`, database `accounting`; no production, beta, hosted/shared target, or customer data was used.
+- Dedicated fixture organization safe prefix: `cdc2c778`; owner actor safe prefix: `dda4ee99`.
+- Fiscal periods: closed May 2026 safe prefix `6cb54c20`, open June 2026 safe prefix `ee20b288`.
+- Fixture source state: purchase bill draft/finalized, supplier payment/refund, purchase debit note draft/finalized, cash expense, purchase receipts, purchase order, restricted roles/users, inventory settings, and support accounts/items/warehouse were created under marker `DEV08L-AP-20260529T000000`.
+- Baseline counts: fiscal periods `2`, roles/users `11`, purchase bills `4`, supplier payments `3`, supplier refunds `1`, purchase debit notes `2`, cash expenses `1`, purchase receipts `2`, purchase orders `1`, journal entries `10`, audit logs `0`, email outbox `0`, generated documents `0`, provider events `0`, ZATCA invoice metadata `0`, ZATCA submission logs `0`.
+- Temporary runner `apps/api/scripts/dev08l-part2-fixture-mutation.temp.ts` was deleted after execution.
+- Exact next prompt title: `DEV-08L Part 3: AP fiscal-period and permission fixture evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08L Part 3: AP fiscal-period and permission fixture evidence verification`
