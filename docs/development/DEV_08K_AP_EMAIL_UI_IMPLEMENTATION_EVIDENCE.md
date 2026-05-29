@@ -110,3 +110,14 @@ Result: `3` test suites passed, `18` tests passed.
 ## Exact Next Prompt Title
 
 `DEV-08K Part 15: AP email UI evidence verification`
+
+## Part 15 Verification Note
+
+- Part 15 read-only/code-level verification is recorded in [DEV_08K_AP_EMAIL_UI_EVIDENCE_VERIFICATION.md](DEV_08K_AP_EMAIL_UI_EVIDENCE_VERIFICATION.md).
+- The `/documents` row action is gated through `canCreateApGeneratedDocumentEmail(document, can)`.
+- Targeted tests passed again: `3` suites and `18` tests.
+- Permission visibility was verified for full-permission, missing `generatedDocuments.download`, missing `emailOutbox.view`, missing AP source view, unsupported source/document type, and non-`GENERATED` document cases.
+- Local read-only count verification stayed unchanged: email outbox rows `228`, AP generated-document email rows `1`, selected generated-document email rows `1`, provider events `0`.
+- No AP email endpoint call, outbox creation, provider call, real email send, browser/login flow, or body/base64 exposure occurred.
+- Temporary cleanup was verified: no tracked or untracked `*dev08k*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08K Part 16: AP email local UI outbox QA preflight`.

@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `52a18b35 Plan DEV-08K AP email UI`
+- `2c957516 Implement DEV-08K AP email UI`
 
 ## Current Development Objective
 
@@ -4011,13 +4011,13 @@
 
 ## Current DEV-08K Continuation Pointer
 
-- Latest completed DEV-08K prompt: `DEV-08K Part 14: approved local AP generated-document email UI implementation`.
-- Current evidence file: [docs/development/DEV_08K_AP_EMAIL_UI_IMPLEMENTATION_EVIDENCE.md](docs/development/DEV_08K_AP_EMAIL_UI_IMPLEMENTATION_EVIDENCE.md).
-- Exact next prompt title: `DEV-08K Part 15: AP email UI evidence verification`.
+- Latest completed DEV-08K prompt: `DEV-08K Part 15: AP email UI evidence verification`.
+- Current evidence file: [docs/development/DEV_08K_AP_EMAIL_UI_EVIDENCE_VERIFICATION.md](docs/development/DEV_08K_AP_EMAIL_UI_EVIDENCE_VERIFICATION.md).
+- Exact next prompt title: `DEV-08K Part 16: AP email local UI outbox QA preflight`.
 
 ## Next Thread Prompt
 
-`DEV-08K Part 15: AP email UI evidence verification`
+`DEV-08K Part 16: AP email local UI outbox QA preflight`
 
 ## DEV-08K Part 13 - AP Email UI Design Preflight Completed
 
@@ -4044,3 +4044,17 @@
 - Extra lint attempt did not complete because unrelated untracked `apps/web/src/app/marketing.test.tsx` currently has a `HomePage` JSX type error; left untouched.
 - Exposure controls: tests and UI did not surface email body, attachment body, PDF body, base64, provider payload, source contact email, customer/vendor data, token, cookie, auth header, signed XML, QR payload, private key, or CSID.
 - Exact next prompt title: `DEV-08K Part 15: AP email UI evidence verification`.
+
+## DEV-08K Part 15 - AP Email UI Evidence Verification Completed
+
+- DEV-08K Part 15 read-only/code-level verification is recorded in [docs/development/DEV_08K_AP_EMAIL_UI_EVIDENCE_VERIFICATION.md](docs/development/DEV_08K_AP_EMAIL_UI_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no; AP email endpoint called: no; provider calls performed: no; real email sent: no; login/browser performed: no.
+- Latest commit inspected: `2c957516 Implement DEV-08K AP email UI`; local `HEAD` matched `origin/main`.
+- UI verification result: `/documents` AP email action is rendered only through `canCreateApGeneratedDocumentEmail(document, can)`.
+- Permission visibility result: targeted tests cover full-permission visibility and hidden states for missing `generatedDocuments.download`, missing `emailOutbox.view`, missing AP source view, unsupported source/document type, and non-`GENERATED` document.
+- Targeted tests passed: `corepack pnpm exec jest --config jest.config.cjs src/lib/documents.test.ts src/lib/email.test.ts --testPathPatterns=documents/page.test.tsx` with `3` suites and `18` tests passing.
+- Local read-only counts stayed unchanged after UI implementation tests: email outbox rows `228`, synthetic recipient rows `1`, AP generated-document email rows `1`, selected generated-document email rows `1`, provider events `0`, generated documents `870`.
+- Selected generated document safe prefix `27a07429` remained `GENERATED`.
+- Exposure controls: no email body, attachment body, PDF body, base64, provider payload, source contact email, customer/vendor data, token, cookie, auth header, signed XML, QR payload, private key, or CSID was printed or surfaced.
+- Temporary script cleanup: no tracked or untracked `*dev08k*` script remains under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08K Part 16: AP email local UI outbox QA preflight`.
