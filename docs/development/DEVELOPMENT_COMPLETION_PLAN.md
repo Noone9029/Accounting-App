@@ -107,8 +107,9 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 - DEV-08J is now closed for local-only AP repeated idempotency, blocker paths, duplicate output behavior, and source PDF permission hardening in [DEV_08J_AP_REPEATED_IDEMPOTENCY_BLOCKER_CLOSURE.md](DEV_08J_AP_REPEATED_IDEMPOTENCY_BLOCKER_CLOSURE.md). It proved repeated/blocker checks across AP families and hardened source PDF stream/generate routes to require source view plus `generatedDocuments.download`.
 - DEV-08K is now closed for local-only AP generated-document email outbox evidence in [DEV_08K_AP_GENERATED_DOCUMENT_EMAIL_CLOSURE.md](DEV_08K_AP_GENERATED_DOCUMENT_EMAIL_CLOSURE.md). It implemented and verified metadata-only AP generated-document email outbox records, local mock/no-send service behavior, permission negative checks, `/documents` UI creation, authenticated local UI QA, and no provider events/body/base64/secret exposure.
 - DEV-08L is now closed for local-only AP fiscal-period blocker and state-changing permission edge evidence in [DEV_08L_AP_FISCAL_PERMISSION_EDGE_CLOSURE.md](DEV_08L_AP_FISCAL_PERMISSION_EDGE_CLOSURE.md). It proved closed fiscal-period blockers across selected AP journal-writing paths, documented non-fiscal operational paths, verified restricted AP permission denials, verified `admin.fullAccess`, and kept audit/output/email/ZATCA side effects at zero.
-- DEV-08 through DEV-08L do not claim full AP completion. Remaining AP gaps include linked PO-to-bill receipt reconciliation, valuation variance booking, landed cost, returns, serial/batch/bin/location behavior, real email provider delivery/retry/webhook policy, duplicate-output product policy, cleanup/retention policy, broad E2E/smoke, and production/beta/customer-data behavior.
-- Recommended next local-only AP branch: `DEV-08M Part 1: AP cleanup retention and fixture cleanup policy preflight`.
+- DEV-08M is now closed for local-only AP cleanup retention, duplicate-output policy, and cleanup dry-run planner evidence in [DEV_08M_AP_CLEANUP_RETENTION_CLOSURE.md](DEV_08M_AP_CLEANUP_RETENTION_CLOSURE.md). It set preserve-by-default cleanup policy, verified count-only inventory, classified repeated generated-document rows as append-only versioned archive behavior for paid v1, implemented and verified a local dry-run-only AP cleanup planner, and performed no cleanup/delete.
+- DEV-08 through DEV-08M do not claim full AP completion. Remaining AP gaps include linked PO-to-bill receipt reconciliation, valuation variance booking, landed cost, returns, serial/batch/bin/location behavior, real email provider delivery/retry/webhook policy, broad E2E/smoke, production/beta/customer-data behavior, and final AP evidence map/production-gap handoff.
+- Recommended next local-only AP branch: `DEV-08Z Part 1: AP local evidence final closure and production-gap handoff`.
 
 ## Highest-Priority Development Tickets
 
@@ -159,4 +160,4 @@ Source state inspected: `4c8fa2c Document PROD-A3 web hosting inventory`
 
 ## Exact Next Recommended Development Ticket
 
-`DEV-08M Part 1: AP cleanup retention and fixture cleanup policy preflight`
+`DEV-08Z Part 1: AP local evidence final closure and production-gap handoff`

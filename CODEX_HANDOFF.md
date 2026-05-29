@@ -4485,3 +4485,19 @@
 ## Next Thread Prompt
 
 `DEV-08M Part 10: AP cleanup retention closure`
+
+## DEV-08M Part 10 - AP Cleanup Retention Closure Completed
+
+- DEV-08M closure is recorded in [docs/development/DEV_08M_AP_CLEANUP_RETENTION_CLOSURE.md](docs/development/DEV_08M_AP_CLEANUP_RETENTION_CLOSURE.md).
+- Runtime cleanup performed: no; deletion/update/archive/revoke performed: no; production, beta, customer-data, deploy, migration, seed/reset/delete, real email, real ZATCA, backup/restore, login, export, download, or body/secret output action performed: no.
+- Latest commit inspected: `6a444112 Verify DEV-08M cleanup dry-run planner`.
+- Cleanup/retention policy: preserve DEV-08 through DEV-08L local AP evidence fixtures by default; hard deletion is forbidden by default; any future destructive cleanup needs a separate product/legal/audit design and new exact approval.
+- Dry-run inventory: Part 2/3 count-only evidence detected `12` markers, AP source documents `64`, source lines `25`, journals/journal lines `67`, allocations/reversals `2`, receipts/stock movements `9`, generated documents `24`, email outbox rows `4`, provider events `0`, audit logs `110`, ZATCA marker hits `0`, and users/roles/memberships `6`.
+- Duplicate-output policy: repeated generated-document rows are append-only versioned archive behavior for paid v1; Part 5/6 were skipped because no code change was recommended.
+- Cleanup planner status: `apps/api/scripts/dev08m-ap-cleanup-planner.ts` is implemented and verified as local-only, dry-run-only, count-only, exact-marker gated, and without execute/delete helpers.
+- Updated [docs/development/DEVELOPMENT_COMPLETION_PLAN.md](docs/development/DEVELOPMENT_COMPLETION_PLAN.md) and [BUG_AUDIT.md](BUG_AUDIT.md) to record DEV-08M closure and remaining AP gaps.
+- Exact next prompt title: `DEV-08Z Part 1: AP local evidence final closure and production-gap handoff`.
+
+## Next Thread Prompt
+
+`DEV-08Z Part 1: AP local evidence final closure and production-gap handoff`

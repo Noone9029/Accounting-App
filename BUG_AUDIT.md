@@ -3174,3 +3174,12 @@ Recommended next step:
 - Final DEV-08L side-effect counts stayed at audit logs `0`, auth tokens `0`, email outbox `0`, generated documents `0`, provider events `0`, ZATCA invoice metadata `0`, and ZATCA submission logs `0`.
 - Non-fiscal AP operational paths remain documented rather than mutated: supplier payment unapplied apply/reverse, purchase debit note apply/reverse allocation, purchase receipt create/void, and purchase orders.
 - Remaining AP gaps move to cleanup/retention/delete policy, duplicate generated-document product policy, real provider email delivery/retry/webhook policy, production/beta/customer-data behavior, broad E2E/smoke, and advanced purchase/inventory/accounting policy.
+
+# DEV-08M AP cleanup retention closure - 2026-05-30
+
+- Local-only DEV-08M evidence closed AP cleanup/retention policy without deleting, updating, archiving, revoking, or purging any data.
+- The canonical count-only inventory found DEV-08 through DEV-08L markers `12`, AP source documents `64`, source lines `25`, journals/journal lines `67`, allocations/reversals `2`, receipts/stock movements `9`, generated documents `24`, email outbox rows `4`, provider events `0`, audit logs `110`, ZATCA marker hits `0`, and users/roles/memberships marker hits `6`.
+- Retention policy is preserve-by-default for AP source fixtures, journals, allocations, receipts, stock movements, generated documents, email evidence, audit/auth evidence, users/roles/memberships, and ZATCA metadata/logs. Destructive cleanup needs a separate future policy and approval.
+- Duplicate generated-document output policy is append-only versioned archive behavior for paid v1; reuse/supersede/latest-version UX is deferred until legal/audit retention, email references, and document-list behavior are designed together.
+- Added and verified `apps/api/scripts/dev08m-ap-cleanup-planner.ts` as a local dry-run-only, count-only planner with exact marker validation, explicit local DB target requirement, generic `DATABASE_URL` avoidance, hosted/destructive refusal checks, and no execute/delete package helper.
+- Remaining AP gaps move to DEV-08Z final evidence map and production-gap handoff, real provider email delivery/retry/webhook policy, production/beta/customer-data behavior, broad E2E/smoke, and advanced purchase/inventory/accounting policy.
