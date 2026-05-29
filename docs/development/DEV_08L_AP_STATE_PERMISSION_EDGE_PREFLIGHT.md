@@ -142,3 +142,12 @@ I approve DEV-08L Part 14 local-only AP state-changing permission edge negative 
 ## Exact Next Prompt Title
 
 `DEV-08L Part 14: approved local AP state-changing permission edge negative checks`
+
+## Part 14 Evidence Note
+
+- Part 14 evidence is recorded in [DEV_08L_AP_STATE_PERMISSION_EDGE_NEGATIVE_CHECK_EVIDENCE.md](DEV_08L_AP_STATE_PERMISSION_EDGE_NEGATIVE_CHECK_EVIDENCE.md).
+- The run used guard/helper checks only and did not call AP service mutation methods or API endpoints after denied guards.
+- Twenty restricted checks were blocked with the expected permission messages.
+- The admin full-access control allowed `purchaseOrders.convertToBill`.
+- AP source counts, journal entries, audit logs, auth tokens, output/email/ZATCA counts, and generated-document count remained unchanged.
+- The temporary runner was deleted and not staged.

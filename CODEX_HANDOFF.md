@@ -4330,3 +4330,19 @@
 ## Next Thread Prompt
 
 `DEV-08L Part 14: approved local AP state-changing permission edge negative checks`
+
+## DEV-08L Part 14 - Approved Local AP State-Changing Permission Edge Negative Checks Completed
+
+- DEV-08L Part 14 evidence is recorded in [docs/development/DEV_08L_AP_STATE_PERMISSION_EDGE_NEGATIVE_CHECK_EVIDENCE.md](docs/development/DEV_08L_AP_STATE_PERMISSION_EDGE_NEGATIVE_CHECK_EVIDENCE.md).
+- Runtime mutation attempted: no AP service mutation was invoked; this run used `PermissionGuard.canActivate(...)` and `assertGeneratedDocumentDownloadPermission(...)` only.
+- Latest commit inspected: `c3c2550f Plan DEV-08L AP state permission edges`.
+- Local target remained protocol `postgresql`, host `localhost`, port `5432`, database `accounting`; fixture organization safe prefix `cdc2c778`.
+- Twenty restricted guard/helper checks were blocked with the expected permission messages, covering purchase bill, supplier payment, supplier refund, purchase debit note, cash expense, purchase receipt, purchase order, generated-document download, and AP email outbox permission edges.
+- Positive control: `DEV08L Admin FullAccess` allowed `purchaseOrders.convertToBill`.
+- Counts remained unchanged: purchase bills `4`, supplier payments `3`, supplier refunds `1`, purchase debit notes `2`, cash expenses `1`, purchase receipts `2`, purchase orders `1`, journal entries `10`, audit logs `0`, auth tokens `0`, email outbox `0`, generated documents `0`, provider events `0`, ZATCA invoice metadata `0`, ZATCA submission logs `0`.
+- Temporary runner `apps/api/scripts/dev08l-part14-permission-edge-checks.temp.ts` was deleted; `Test-Path` returned `False`.
+- Exact next prompt title: `DEV-08L Part 15: AP state-changing permission edge evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08L Part 15: AP state-changing permission edge evidence verification`
