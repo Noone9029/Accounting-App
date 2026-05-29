@@ -4440,3 +4440,18 @@
 ## Next Thread Prompt
 
 `DEV-08M Part 7: AP cleanup executor preflight`
+
+## DEV-08M Part 7 - AP Cleanup Executor Preflight Completed
+
+- DEV-08M Part 7 read-only cleanup executor preflight is recorded in [docs/development/DEV_08M_AP_CLEANUP_EXECUTOR_PREFLIGHT.md](docs/development/DEV_08M_AP_CLEANUP_EXECUTOR_PREFLIGHT.md).
+- Runtime cleanup performed: no; deletion/update/archive/revoke performed: no; production, beta, customer-data, deploy, migration, seed/reset/delete, real email, real ZATCA, backup/restore, login, export, download, or body-reading action performed: no.
+- Latest commit inspected: `74c31221 Plan DEV-08M duplicate output policy`.
+- Decision: implement a committed local-only, dry-run-only AP cleanup planner in Part 8 so the Part 2/3 count-only inventory is repeatable without any destructive path.
+- Recommended Part 8 scope: add a tested planner script under `apps/api/scripts`, require exact marker `DEV08M-AP-20260529T000000`, require explicit local DB target, ignore generic `DATABASE_URL`, refuse hosted/non-local/destructive terms, print counts only, and keep all evidence preserve-by-default.
+- No deletion executor is recommended or approved in DEV-08M.
+- Exact Part 8 approval phrase status: already received exactly from the user.
+- Exact next prompt title: `DEV-08M Part 8: approved local AP cleanup executor dry-run script implementation`.
+
+## Next Thread Prompt
+
+`DEV-08M Part 8: approved local AP cleanup executor dry-run script implementation`
