@@ -162,3 +162,13 @@ Deletion approved: no.
 ## Exact Next Prompt Title
 
 `DEV-08M Part 3: AP cleanup inventory dry-run evidence verification`
+
+## Part 3 Verification Note
+
+- DEV-08M Part 3 verification is recorded in [DEV_08M_AP_CLEANUP_INVENTORY_DRY_RUN_EVIDENCE_VERIFICATION.md](DEV_08M_AP_CLEANUP_INVENTORY_DRY_RUN_EVIDENCE_VERIFICATION.md).
+- Read-only live verification detected all `12` markers and matched the Part 2 count evidence exactly.
+- Entity counts remained unchanged during verification.
+- Cleanup/delete/archive/revoke occurred: `false`.
+- Body/secret/customer-data output printed: `false`.
+- Temporary verifier `apps/api/scripts/dev08m-part3-dry-run-verification.temp.ts` was deleted and `Test-Path` returned `False`.
+- Exact next prompt title: `DEV-08M Part 4: generated-document duplicate output policy preflight`.

@@ -4410,3 +4410,18 @@
 ## Next Thread Prompt
 
 `DEV-08M Part 3: AP cleanup inventory dry-run evidence verification`
+
+## DEV-08M Part 3 - AP Cleanup Inventory Dry-Run Evidence Verification Completed
+
+- DEV-08M Part 3 verification is recorded in [docs/development/DEV_08M_AP_CLEANUP_INVENTORY_DRY_RUN_EVIDENCE_VERIFICATION.md](docs/development/DEV_08M_AP_CLEANUP_INVENTORY_DRY_RUN_EVIDENCE_VERIFICATION.md).
+- Runtime mutation performed: no; deletion/update/archive/revoke/cleanup performed: no.
+- Latest commit inspected: `3b3c269f Inventory DEV-08M AP cleanup candidates`.
+- Local target remained `postgresql` on `localhost:5432/accounting`.
+- Verification result: all `12` markers detected; live count-only inventory matched Part 2 evidence; entity counts stayed unchanged during verification; body/secret/customer-data output printed `false`.
+- Reverified totals: AP source documents `64`, source lines `25`, journals/journal lines `67`, allocations/reversals `2`, receipts/stock movements `9`, generated documents by source `24`, email outbox rows by source/document `4`, provider events for generated-document emails `0`, audit logs by AP source ids `110`, ZATCA marker hits `0`, users/roles/memberships marker hits `6`.
+- Temporary verifier `apps/api/scripts/dev08m-part3-dry-run-verification.temp.ts` was deleted; `Test-Path` returned `False`; no `*dev08m*` temp scripts remained under `apps/api/scripts`.
+- Exact next prompt title: `DEV-08M Part 4: generated-document duplicate output policy preflight`.
+
+## Next Thread Prompt
+
+`DEV-08M Part 4: generated-document duplicate output policy preflight`
