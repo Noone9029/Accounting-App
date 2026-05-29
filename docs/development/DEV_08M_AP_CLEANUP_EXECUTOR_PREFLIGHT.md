@@ -72,3 +72,10 @@ Status: already received exactly from the user in the up-front DEV-08M approval 
 ## Exact Next Prompt Title
 
 `DEV-08M Part 8: approved local AP cleanup executor dry-run script implementation`
+
+## Part 8 Note
+
+- DEV-08M Part 8 implementation evidence is recorded in [DEV_08M_AP_CLEANUP_EXECUTOR_DRY_RUN_IMPLEMENTATION_EVIDENCE.md](DEV_08M_AP_CLEANUP_EXECUTOR_DRY_RUN_IMPLEMENTATION_EVIDENCE.md).
+- The selected dry-run-only local planner was implemented with tests and package scripts.
+- No deletion/update/archive/revoke path was implemented.
+- Exact next prompt title: `DEV-08M Part 9: AP cleanup executor dry-run evidence verification`.

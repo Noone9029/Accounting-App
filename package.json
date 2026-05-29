@@ -18,6 +18,8 @@
     "fixture:dev04:plan": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --plan",
     "fixture:dev04:dry-run": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --dry-run",
     "fixture:dev04:cleanup-plan": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --cleanup-plan",
+    "cleanup:dev08m:ap:plan": "corepack pnpm --filter @ledgerbyte/api cleanup:dev08m:ap -- --plan",
+    "cleanup:dev08m:ap:dry-run": "corepack pnpm --filter @ledgerbyte/api cleanup:dev08m:ap -- --dry-run",
     "e2e": "playwright test",
     "e2e:headed": "playwright test --headed",
     "test:visual": "playwright test -c playwright.visual.config.ts",

@@ -4455,3 +4455,18 @@
 ## Next Thread Prompt
 
 `DEV-08M Part 8: approved local AP cleanup executor dry-run script implementation`
+
+## DEV-08M Part 8 - Approved Local AP Cleanup Executor Dry-Run Script Implementation Completed
+
+- DEV-08M Part 8 implementation evidence is recorded in [docs/development/DEV_08M_AP_CLEANUP_EXECUTOR_DRY_RUN_IMPLEMENTATION_EVIDENCE.md](docs/development/DEV_08M_AP_CLEANUP_EXECUTOR_DRY_RUN_IMPLEMENTATION_EVIDENCE.md).
+- Runtime mutation performed: no; deletion/update/archive/revoke performed: no; production, beta, customer-data, deploy, migration, seed/reset/delete, real email, real ZATCA, backup/restore, login, export, download, or body/secret output action performed: no.
+- Latest commit inspected: `390f094b Plan DEV-08M AP cleanup executor`.
+- Implemented `apps/api/scripts/dev08m-ap-cleanup-planner.ts` with exact-marker validation, explicit local DB target classification, generic `DATABASE_URL` avoidance, hosted/forbidden target refusal, destructive argument refusal, and count-only dry-run output.
+- Added `apps/api/scripts/dev08m-ap-cleanup-planner.spec.ts` plus plan/dry-run package scripts only; no execute/delete helper was added.
+- Targeted Jest passed for the new planner spec.
+- Local dry-run against `localhost:5432/accounting` printed counts only, with `dryRun=true`, `noMutation=true`, `noDeletion=true`, `deletionPathImplemented=false`, `cleanupExecuted=false`, and `bodyOrSecretOutputPrinted=false`.
+- Exact next prompt title: `DEV-08M Part 9: AP cleanup executor dry-run evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08M Part 9: AP cleanup executor dry-run evidence verification`

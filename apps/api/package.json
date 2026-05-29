@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "jest --config jest.config.cjs",
     "fixture:dev04": "tsx scripts/dev04-fixture-runner.ts",
+    "cleanup:dev08m:ap": "tsx scripts/dev08m-ap-cleanup-planner.ts",
     "smoke:accounting": "tsx scripts/smoke-accounting.ts",
     "smoke:accounting:banking": "tsx scripts/smoke-banking.ts",
     "smoke:accounting:tail": "tsx scripts/smoke-accounting-tail.ts",
