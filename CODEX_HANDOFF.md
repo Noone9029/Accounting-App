@@ -4179,3 +4179,19 @@
 ## Next Thread Prompt
 
 `DEV-08L Part 5: approved local purchase bill fiscal-period blocker negative checks`
+
+## DEV-08L Part 5 - Approved Local Purchase Bill Fiscal-Period Blocker Negative Checks Completed
+
+- DEV-08L Part 5 evidence is recorded in [docs/development/DEV_08L_PURCHASE_BILL_FISCAL_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md](docs/development/DEV_08L_PURCHASE_BILL_FISCAL_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md).
+- Runtime mutation attempted: yes, limited to the two approved local purchase bill service calls selected by Part 4; successful mutation performed: no.
+- Latest commit inspected: `51060165 Plan DEV-08L purchase bill fiscal blockers`.
+- Local target remained protocol `postgresql`, host `localhost`, port `5432`, database `accounting`; fixture organization safe prefix `cdc2c778`, actor safe prefix `dda4ee99`.
+- `PurchaseBillService.finalize(...)` for `DEV08L-PB-CLOSED-FINALIZE` safe prefix `81912f0b` was blocked with `Posting date falls in a closed fiscal period.`
+- `PurchaseBillService.void(...)` for `DEV08L-PB-VOID-OPEN` safe prefix `a4ab2c11` was blocked with `Posting date falls in a closed fiscal period.`
+- Purchase bill statuses remained `DRAFT` and `FINALIZED`; journal entries remained `10`; audit logs, email outbox, generated documents, provider events, ZATCA invoice metadata, and ZATCA submission logs remained `0`.
+- Temporary runner `apps/api/scripts/dev08l-part5-purchase-bill-blockers.temp.ts` was deleted; `Test-Path` returned `False`.
+- Exact next prompt title: `DEV-08L Part 6: purchase bill fiscal-period blocker evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08L Part 6: purchase bill fiscal-period blocker evidence verification`

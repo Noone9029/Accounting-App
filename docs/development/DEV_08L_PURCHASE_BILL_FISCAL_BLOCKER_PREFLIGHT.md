@@ -90,3 +90,11 @@ I approve DEV-08L Part 5 local-only purchase bill fiscal-period blocker negative
 ## Exact Next Prompt Title
 
 `DEV-08L Part 5: approved local purchase bill fiscal-period blocker negative checks`
+
+## Part 5 Evidence Note
+
+- Part 5 evidence is recorded in [DEV_08L_PURCHASE_BILL_FISCAL_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md](DEV_08L_PURCHASE_BILL_FISCAL_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md).
+- The approved Part 4 purchase bill calls were the only service calls executed.
+- Both calls were blocked with `Posting date falls in a closed fiscal period.`
+- Purchase bill statuses, journal count, audit log count, output/email/ZATCA counts, and generated-document count remained unchanged.
+- The temporary runner was deleted and not staged.
