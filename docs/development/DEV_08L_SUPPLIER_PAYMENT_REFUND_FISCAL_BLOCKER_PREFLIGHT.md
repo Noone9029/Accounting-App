@@ -127,3 +127,11 @@ I approve DEV-08L Part 8 local-only supplier payment refund fiscal-period blocke
 ## Exact Next Prompt Title
 
 `DEV-08L Part 8: approved local supplier payment refund fiscal-period blocker negative checks`
+
+## Part 8 Evidence Note
+
+- Part 8 evidence is recorded in [DEV_08L_SUPPLIER_PAYMENT_REFUND_FISCAL_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md](DEV_08L_SUPPLIER_PAYMENT_REFUND_FISCAL_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md).
+- The approved Part 7 supplier payment/refund calls were the only service calls executed.
+- All four calls were blocked with `Posting date falls in a closed fiscal period.`
+- Supplier payment/refund statuses, source unapplied amounts, journal count, audit log count, output/email/ZATCA counts, and generated-document count remained unchanged.
+- The temporary runner was deleted and not staged.

@@ -4229,3 +4229,20 @@
 ## Next Thread Prompt
 
 `DEV-08L Part 8: approved local supplier payment refund fiscal-period blocker negative checks`
+
+## DEV-08L Part 8 - Approved Local Supplier Payment Refund Fiscal-Period Blocker Negative Checks Completed
+
+- DEV-08L Part 8 evidence is recorded in [docs/development/DEV_08L_SUPPLIER_PAYMENT_REFUND_FISCAL_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md](docs/development/DEV_08L_SUPPLIER_PAYMENT_REFUND_FISCAL_BLOCKER_NEGATIVE_CHECK_EVIDENCE.md).
+- Runtime mutation attempted: yes, limited to the four approved local supplier payment/refund service calls selected by Part 7; successful mutation performed: no.
+- Latest commit inspected: `cbc99645 Plan DEV-08L supplier payment refund fiscal blockers`.
+- Local target remained protocol `postgresql`, host `localhost`, port `5432`, database `accounting`; fixture organization safe prefix `cdc2c778`, actor safe prefix `dda4ee99`.
+- `SupplierPaymentService.create(...)`, `SupplierPaymentService.void(...)`, `SupplierRefundService.create(...)`, and `SupplierRefundService.void(...)` were each blocked with `Posting date falls in a closed fiscal period.`
+- Supplier payments `DEV08L-SP-VOID`, `DEV08L-SP-REFUND-CREATE-SOURCE`, and `DEV08L-SP-REFUND-VOID-SOURCE` remained `POSTED` with unapplied amount `100` and no void reversal journal.
+- Supplier refund `DEV08L-SRF-VOID` remained `POSTED` with source payment safe prefix `908f37de` and no void reversal journal.
+- Counts remained unchanged: supplier payments `3`, supplier refunds `1`, supplier payment allocations `0`, supplier payment unapplied allocations `0`, journal entries `10`, audit logs `0`, email outbox `0`, generated documents `0`, provider events `0`, ZATCA invoice metadata `0`, ZATCA submission logs `0`.
+- Temporary runner `apps/api/scripts/dev08l-part8-supplier-payment-refund-blockers.temp.ts` was deleted; `Test-Path` returned `False`.
+- Exact next prompt title: `DEV-08L Part 9: supplier payment refund fiscal blocker evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-08L Part 9: supplier payment refund fiscal blocker evidence verification`
