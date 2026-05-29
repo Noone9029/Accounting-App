@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `5f38e517 Check DEV-08K AP email permissions`
+- `575e707d Verify DEV-08K AP email permissions`
 
 ## Current Development Objective
 
@@ -4011,10 +4011,23 @@
 
 ## Current DEV-08K Continuation Pointer
 
-- Latest completed DEV-08K prompt: `DEV-08K Part 12: AP email permission negative evidence verification`.
-- Current evidence file: [docs/development/DEV_08K_AP_EMAIL_PERMISSION_NEGATIVE_EVIDENCE_VERIFICATION.md](docs/development/DEV_08K_AP_EMAIL_PERMISSION_NEGATIVE_EVIDENCE_VERIFICATION.md).
-- Exact next prompt title: `DEV-08K Part 13: AP email UI design preflight`.
+- Latest completed DEV-08K prompt: `DEV-08K Part 13: AP email UI design preflight`.
+- Current evidence file: [docs/development/DEV_08K_AP_EMAIL_UI_DESIGN_PREFLIGHT.md](docs/development/DEV_08K_AP_EMAIL_UI_DESIGN_PREFLIGHT.md).
+- Exact next prompt title: `DEV-08K Part 14: approved local AP generated-document email UI implementation`.
 
 ## Next Thread Prompt
 
-`DEV-08K Part 13: AP email UI design preflight`
+`DEV-08K Part 14: approved local AP generated-document email UI implementation`
+
+## DEV-08K Part 13 - AP Email UI Design Preflight Completed
+
+- DEV-08K Part 13 read-only UI design preflight is recorded in [docs/development/DEV_08K_AP_EMAIL_UI_DESIGN_PREFLIGHT.md](docs/development/DEV_08K_AP_EMAIL_UI_DESIGN_PREFLIGHT.md).
+- Runtime mutation performed: no; UI code changed: no; AP email endpoint called: no; provider calls performed: no; real email sent: no; login/browser performed: no.
+- Latest commit inspected: `575e707d Verify DEV-08K AP email permissions`; local `HEAD` matched `origin/main`.
+- Selected UI placement: `/documents` generated-document rows, because the page already has generated-document ids and safe archive metadata needed for `POST /email/ap-generated-documents/:generatedDocumentId/outbox`.
+- AP source detail pages stay source-context/download surfaces for now; email outbox settings remains the review/audit surface after local outbox creation.
+- Permission gating plan: require `generatedDocuments.download`, `emailOutbox.view`, and the matching AP source view permission for source types `PurchaseOrder`, `PurchaseBill`, `SupplierPayment`, `SupplierRefund`, `PurchaseDebitNote`, and `CashExpense`.
+- Safe wording plan: `Create local email outbox`, with helper/success copy stating local mock outbox only, no real email/provider send, and no PDF/body exposure.
+- Expected restricted state: hide the AP email action when any required permission is missing, the document is unsupported, or status is not `GENERATED`.
+- Part 14 approval phrase status: exact phrase was received up front in this continuation thread and must be re-validated before implementation.
+- Exact next prompt title: `DEV-08K Part 14: approved local AP generated-document email UI implementation`.
