@@ -4164,3 +4164,18 @@
 ## Next Thread Prompt
 
 `DEV-08L Part 4: purchase bill fiscal-period blocker preflight`
+
+## DEV-08L Part 4 - Purchase Bill Fiscal-Period Blocker Preflight Completed
+
+- DEV-08L Part 4 read-only preflight is recorded in [docs/development/DEV_08L_PURCHASE_BILL_FISCAL_BLOCKER_PREFLIGHT.md](docs/development/DEV_08L_PURCHASE_BILL_FISCAL_BLOCKER_PREFLIGHT.md).
+- Runtime mutation performed: no; purchase bill service calls performed: no.
+- Latest commit inspected: `8c2c3599 Verify DEV-08L AP fiscal permission fixtures`.
+- Selected finalize fixture: purchase bill safe prefix `81912f0b`, status `DRAFT`, date `2026-05-12`, expected closed-period blocker before finalization/journal.
+- Selected void fixture: purchase bill safe prefix `a4ab2c11`, status `FINALIZED`, date `2026-06-12`, expected current-date closed-period blocker before void/reversal journal.
+- Baseline counts before Part 5: purchase bills `4`, journal entries `10`, audit logs `0`, email outbox `0`, generated documents `0`, provider events `0`, ZATCA invoice metadata `0`, ZATCA submission logs `0`.
+- Exact Part 5 approval phrase status: received up front and must be re-validated before the local negative checks.
+- Exact next prompt title: `DEV-08L Part 5: approved local purchase bill fiscal-period blocker negative checks`.
+
+## Next Thread Prompt
+
+`DEV-08L Part 5: approved local purchase bill fiscal-period blocker negative checks`
