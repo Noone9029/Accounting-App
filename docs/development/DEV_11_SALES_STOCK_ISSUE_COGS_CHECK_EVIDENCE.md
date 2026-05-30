@@ -151,7 +151,7 @@ Reversal journal shape:
 | Generated documents | `0` | `0` | `0` |
 | Audit logs | `0` | `2` | `+2` |
 
-Final audit-log delta consists of one `POST_COGS` action and one `REVERSE_COGS` action.
+Final audit-log delta consists of one persisted `COGS_POSTED` action and one persisted `COGS_REVERSED` action. These are the standardized audit event names for the service actions `POST_COGS` and `REVERSE_COGS`.
 
 ## 12. Financial Statement Impact Summary
 
@@ -203,3 +203,7 @@ Temporary runner `apps/api/scripts/dev11-part5-cogs-check.temp.ts` was removed a
 ## 18. Recommended Next Thread
 
 `DEV-11 Part 6: sales stock issue COGS evidence verification`
+
+## 19. Verification Note
+
+Part 6 read-only verification is recorded in [docs/development/DEV_11_SALES_STOCK_ISSUE_COGS_EVIDENCE_VERIFICATION.md](docs/development/DEV_11_SALES_STOCK_ISSUE_COGS_EVIDENCE_VERIFICATION.md). It verified the COGS source/reversal journals, final counts, zero generated-document count, standardized audit actions `COGS_POSTED` and `COGS_REVERSED`, and no discrepancies.

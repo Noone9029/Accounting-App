@@ -5055,3 +5055,22 @@
 ## Next Thread Prompt
 
 `DEV-11 Part 6: sales stock issue COGS evidence verification`
+
+## DEV-11 Part 6 - Sales Stock Issue COGS Evidence Verification Completed
+
+- DEV-11 Part 6 verification is recorded in [docs/development/DEV_11_SALES_STOCK_ISSUE_COGS_EVIDENCE_VERIFICATION.md](docs/development/DEV_11_SALES_STOCK_ISSUE_COGS_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `7c4384e7 Check DEV-11 sales stock issue COGS`.
+- Mutation performed: no; Part 6 was read-only verification only.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only.
+- Verification result: passed with no discrepancies or blockers.
+- COGS state verified: marker stock issue `DEV11-INV-SSI-0001` remains `POSTED`, has linked COGS source journal `8459b09e`, linked reversal journal `8b8c57c5`, populated posted/reversed fields, and was not voided.
+- Journal verification result: source COGS journal is `REVERSED` with Dr COGS `DEV11-5000` `50.0000` / Cr Inventory Asset `DEV11-1200` `50.0000`; reversal journal is `POSTED` with opposite lines and points back to the source.
+- Financial verification result: source plus reversal net COGS `0.0000`, net Inventory Asset `0.0000`, trial-balance totals debit `100.0000` and credit `100.0000`.
+- Baselines verified: journal entries `3`, journal lines `6`, stock movements `3`, generated documents `0`, audit logs `2`.
+- Audit actions verified using action-name-only reads: `COGS_POSTED` `1`, `COGS_REVERSED` `1`.
+- Temporary verifier `apps/api/scripts/dev11-part6-cogs-verify.temp.ts` was removed after the check.
+- Exact next prompt title: `DEV-11 Part 7: purchase receipt inventory asset preflight`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 7: purchase receipt inventory asset preflight`
