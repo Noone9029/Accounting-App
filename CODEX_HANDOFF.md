@@ -5353,6 +5353,18 @@
 - Temporary checker `apps/api/scripts/dev12-part5-metadata-check.temp.ts` was removed after the read-only check.
 - Exact next prompt title: `DEV-12 Part 6: generated-document metadata list detail evidence verification`.
 
+## DEV-12 Part 6 - Generated-Document Metadata Evidence Verification Completed
+
+- DEV-12 Part 6 generated-document metadata evidence verification is recorded in [docs/development/DEV_12_GENERATED_DOCUMENT_METADATA_EVIDENCE_VERIFICATION.md](docs/development/DEV_12_GENERATED_DOCUMENT_METADATA_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `3f1e328a Check DEV-12 generated document metadata`.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Runtime mutation performed: no.
+- Output/download performed: no.
+- Verification result: Part 5 metadata evidence remained marker-scoped, count-stable, body-free, and secret-free. The marker generated-document count remained `1`, the generated-document audit-log count remained `1`, metadata still excluded `contentBase64` and body fields, and hash/size/status/storage provider fields matched the fixture.
+- Blockers/discrepancies: none found. Two initial `tsx` launcher attempts failed before verification because of environment/path resolution; the final direct local `tsx.cmd` invocation completed successfully without mutation or download.
+- Temporary verifier `apps/api/scripts/dev12-part6-metadata-verify.temp.ts` was removed after the read-only check.
+- Exact next prompt title: `DEV-12 Part 7: generated-document download gate preflight`.
+
 ## Next Thread Prompt
 
-`DEV-12 Part 6: generated-document metadata list detail evidence verification`
+`DEV-12 Part 7: generated-document download gate preflight`

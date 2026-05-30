@@ -159,3 +159,7 @@ No discrepancies or blockers were found.
 ## 16. Recommended Next Thread
 
 `DEV-12 Part 6: generated-document metadata list detail evidence verification`
+
+## 17. Part 6 Verification Note
+
+Part 6 read-only verification is recorded in [DEV_12_GENERATED_DOCUMENT_METADATA_EVIDENCE_VERIFICATION.md](DEV_12_GENERATED_DOCUMENT_METADATA_EVIDENCE_VERIFICATION.md). The verification confirmed the Part 5 metadata evidence remains marker-scoped, count-stable, body-free, and secret-free, with no mutation or download performed.
