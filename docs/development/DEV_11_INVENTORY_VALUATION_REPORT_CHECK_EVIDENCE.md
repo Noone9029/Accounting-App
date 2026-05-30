@@ -253,3 +253,7 @@ All reads ran against the synthetic marker organization on `localhost:5432/accou
 ## 17. Recommended Next Thread
 
 `DEV-11 Part 15: inventory valuation report evidence verification`
+
+## 18. Verification Note
+
+Part 15 read-only verification is recorded in [DEV_11_INVENTORY_VALUATION_REPORT_EVIDENCE_VERIFICATION.md](DEV_11_INVENTORY_VALUATION_REPORT_EVIDENCE_VERIFICATION.md). It verified the Part 14 report evidence against direct marker counts, operational movement math, journal account aggregates, generated-document/audit baselines, and no-body/no-secret output checks with no discrepancies.

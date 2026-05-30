@@ -5234,3 +5234,23 @@
 ## Next Thread Prompt
 
 `DEV-11 Part 15: inventory valuation report evidence verification`
+
+## DEV-11 Part 15 - Inventory Valuation Report Evidence Verification Completed
+
+- DEV-11 Part 15 inventory valuation report evidence verification is recorded in [docs/development/DEV_11_INVENTORY_VALUATION_REPORT_EVIDENCE_VERIFICATION.md](docs/development/DEV_11_INVENTORY_VALUATION_REPORT_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `7f962880 Check DEV-11 inventory valuation reports`.
+- Mutation performed: no.
+- Output generation performed: no CSV, no PDF, no generated-document download/archive, and no body output.
+- Report service queries performed during Part 15: no; verification used direct local marker counts, operational movement math, and posted/reversed journal account aggregates.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Verification result: passed. Part 14 inventory totals were confirmed as inbound `30.0000`, outbound `5.0000`, closing `25.0000`, moving-average cost `10.0000`, operational value `250.0000`, and low-stock expectation `0`.
+- Financial verification result: direct journal totals debit/credit `570.0000`/`570.0000`; COGS `DEV11-5000`, Inventory Asset `DEV11-1200`, Adjustment Loss `DEV11-5100`, and Adjustment Gain `DEV11-4100` net `0.0000`; Inventory Clearing `240` net debit-minus-credit `90.0000`; AP `210` net debit-minus-credit `-90.0000`.
+- Baseline verification: stock movements `3`, journal entries `7`, journal lines `14`, variance proposals `1`, variance proposal events `5`, generated documents `0`, audit logs `9`.
+- No-body/no-secret scan found no URL-like DB strings, bearer/auth headers, private-key markers, env assignments, obvious password/token assignments, or long base64-like blobs in the Part 14 evidence and handoff.
+- Blockers/discrepancies: none found. Remaining production gaps are accountant certification, production/beta/customer-data proof, FIFO/cost layers, landed cost, automatic posting policies, returns/serial/batch, multi-currency, and broad E2E/smoke/full-test/load/concurrency proof.
+- Temporary verifier `apps/api/scripts/dev11-part15-report-evidence-verify.temp.ts` was removed after the check.
+- Exact next prompt title: `DEV-11 Part 16: inventory valuation and COGS closure`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 16: inventory valuation and COGS closure`
