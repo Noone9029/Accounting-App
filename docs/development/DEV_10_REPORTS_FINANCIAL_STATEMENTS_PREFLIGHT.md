@@ -115,3 +115,7 @@ DEV-10 Part 2 completed on 2026-05-30 and is recorded in [DEV_10_REPORT_FIXTURE_
 ## Part 4 Core Report JSON Preflight Note
 
 DEV-10 Part 4 completed on 2026-05-30 and is recorded in [DEV_10_CORE_REPORT_JSON_PREFLIGHT.md](DEV_10_CORE_REPORT_JSON_PREFLIGHT.md). The planned Part 5 JSON checks cover General Ledger, Trial Balance, Profit and Loss, Balance Sheet, VAT Summary, and Dashboard Summary by service-level local reads only. The plan explicitly excludes CSV, PDF, generated-document archive/download paths, full payload body output, login, E2E, smoke, production/beta targets, and customer data.
+
+## Part 7 Aging And VAT Return Preflight Note
+
+DEV-10 Part 7 completed on 2026-05-30 and is recorded in [DEV_10_AGING_VAT_RETURN_PREFLIGHT.md](DEV_10_AGING_VAT_RETURN_PREFLIGHT.md). The planned Part 8 JSON checks cover Aged Receivables, Aged Payables, and VAT Return against the verified marker fixture. The plan uses `asOf=2026-05-30` for aging, `from=2026-05-01` and `to=2026-05-31` for VAT Return, and excludes CSV, PDF, archive, download, full payload body output, production/beta targets, and customer data.
