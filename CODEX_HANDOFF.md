@@ -4652,3 +4652,18 @@
 ## Next Thread Prompt
 
 `DEV-09 Part 7: bank transaction match categorize ignore preflight`
+
+## DEV-09 Part 7 - Bank Transaction Match Categorize Ignore Preflight Completed
+
+- DEV-09 Part 7 preflight is recorded in [docs/development/DEV_09_BANK_TRANSACTION_ACTIONS_PREFLIGHT.md](docs/development/DEV_09_BANK_TRANSACTION_ACTIONS_PREFLIGHT.md).
+- Latest commit inspected: `85a847e3 Verify DEV-09 statement import parser`.
+- Scope: read-only transaction-action planning; no match/categorize/ignore, reconciliation lifecycle mutation, statement import, E2E, smoke, migration, seed/reset/delete, deploy, env change, real bank file, customer data, output/download/PDF, email, ZATCA, backup, restore, body, or secret output was run.
+- Selected Part 8 actions: match `DEV09-BANK-20260530T000000-MATCH-001`, categorize `DEV09-BANK-20260530T000000-CATEGORIZE-001`, and ignore `DEV09-BANK-20260530T000000-IGNORE-001`.
+- Expected Part 8 deltas: statement import/transaction counts unchanged, reconciliation counts unchanged, journal entries `+1`, journal lines `+2`, audit logs `+3`, final import status `RECONCILED`.
+- Unmatch/unignore and closed-period blockers are deferred because they are not selected for this batch.
+- Exact Part 8 approval phrase status: received exactly from the user and must be re-validated before mutation.
+- Exact next prompt title: `DEV-09 Part 8: approved local bank transaction match categorize ignore mutation`.
+
+## Next Thread Prompt
+
+`DEV-09 Part 8: approved local bank transaction match categorize ignore mutation`
