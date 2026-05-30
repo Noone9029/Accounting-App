@@ -261,3 +261,7 @@ Temporary runner `apps/api/scripts/dev11-part11-variance-proposal-check.temp.ts`
 ## 20. Recommended Next Thread
 
 `DEV-11 Part 12: clearing variance proposal evidence verification`
+
+## 21. Verification Note
+
+Part 12 read-only verification is recorded in [DEV_11_CLEARING_VARIANCE_PROPOSAL_EVIDENCE_VERIFICATION.md](DEV_11_CLEARING_VARIANCE_PROPOSAL_EVIDENCE_VERIFICATION.md). It verified the marker variance proposal lifecycle, source/reversal journal relationship, final counts, zero generated-document count, persisted audit actions, source-plus-reversal financial net, and no discrepancies.

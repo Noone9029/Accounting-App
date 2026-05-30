@@ -5176,3 +5176,22 @@
 ## Next Thread Prompt
 
 `DEV-11 Part 12: clearing variance proposal evidence verification`
+
+## DEV-11 Part 12 - Clearing Variance Proposal Evidence Verification Completed
+
+- DEV-11 Part 12 verification is recorded in [docs/development/DEV_11_CLEARING_VARIANCE_PROPOSAL_EVIDENCE_VERIFICATION.md](docs/development/DEV_11_CLEARING_VARIANCE_PROPOSAL_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `58d7b722 Check DEV-11 clearing variance proposal`.
+- Mutation performed: no; Part 12 was read-only verification only.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only.
+- Verification result: passed with no application discrepancies or blockers.
+- Proposal lifecycle verified: marker variance proposal `141aa064` is `REVERSED`, amount `90.0000`, Dr account `DEV11-5100`, Cr account `240`, and events `CREATE`, `SUBMIT`, `APPROVE`, `POST`, `REVERSE` exist in order.
+- Journal verification result: source variance journal `267366ad` is `REVERSED` with Dr Inventory Adjustment Loss `DEV11-5100` `90.0000` / Cr Inventory Clearing `240` `90.0000`; reversal journal `1270a557` is `POSTED` with opposite lines and points back to the source.
+- Financial verification result: source plus reversal net Inventory Adjustment Loss `0.0000`, net Inventory Clearing `0.0000`, trial-balance totals debit `180.0000` and credit `180.0000`.
+- Baselines verified: journal entries `7`, journal lines `14`, stock movements `3`, generated documents `0`, variance proposals `1`, variance proposal events `5`, audit logs `9`.
+- Audit actions verified using action-name-only reads: `INVENTORY_VARIANCE_PROPOSAL_CREATED`, `INVENTORY_VARIANCE_PROPOSAL_SUBMITTED`, `INVENTORY_VARIANCE_PROPOSAL_APPROVED`, `INVENTORY_VARIANCE_PROPOSAL_POSTED`, and `INVENTORY_VARIANCE_PROPOSAL_REVERSED`, each count `1`.
+- Temporary verifier `apps/api/scripts/dev11-part12-variance-proposal-verify.temp.ts` was removed after the check.
+- Exact next prompt title: `DEV-11 Part 13: inventory valuation reports and financial statement impact preflight`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 13: inventory valuation reports and financial statement impact preflight`
