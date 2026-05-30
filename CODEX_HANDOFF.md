@@ -5286,3 +5286,22 @@
 ## Next Thread Prompt
 
 `DEV-12 Part 2: approved local generated-document fixture creation`
+
+## DEV-12 Part 2 - Local Generated-Document Fixture Creation Completed
+
+- DEV-12 Part 2 local generated-document fixture creation is recorded in [docs/development/DEV_12_GENERATED_DOCUMENT_FIXTURE_MUTATION_EVIDENCE.md](docs/development/DEV_12_GENERATED_DOCUMENT_FIXTURE_MUTATION_EVIDENCE.md).
+- Latest commit inspected before mutation: `fa367c8c Preflight DEV-12 generated document storage`.
+- Exact Part 2 approval phrase was received and validated before mutation.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Marker used: `DEV12-DOC-20260530T000000`.
+- Mutation performed: yes, local-only and marker-scoped.
+- Fixture created: one marker organization, one fake local marker user, one marker role/membership for local continuity, and one generated document.
+- Generated-document metadata: safe ID prefix `663e5c68`, type `REPORT_TRIAL_BALANCE`, source type `AccountingReport`, source id `DEV12-DOC-20260530T000000-REPORT-TRIAL-BALANCE`, document number `DEV12-DOC-TB-0001`, filename `DEV12-DOC-trial-balance.pdf`, MIME `application/pdf`, storage provider `database`, status `GENERATED`, size `129` bytes, content hash prefix `29bb1b32935c488b`.
+- Marker counts after mutation: organizations `1`, users `1`, generated documents `1`, generated-document audit logs `1`, attachments touched `0`, backup evidence touched `0`, storage migration records `0`.
+- No `contentBase64`, PDF bytes, DB URLs, tokens, secrets, customer/vendor payloads, external object storage, ZATCA, email, backup, restore, storage migration, retention purge/delete, or download was used.
+- Temporary helper `apps/api/scripts/dev12-part2-fixture.temp.ts` was removed after the fixture run.
+- Exact next prompt title: `DEV-12 Part 3: generated-document fixture evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-12 Part 3: generated-document fixture evidence verification`
