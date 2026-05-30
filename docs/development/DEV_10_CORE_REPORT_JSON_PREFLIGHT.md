@@ -104,3 +104,7 @@ Use a temporary local script `apps/api/scripts/dev10-part5-core-report-json-chec
 ## 10. Recommended Next Step
 
 Continue with `DEV-10 Part 5: approved local core financial report JSON checks` only because the exact Part 5 approval phrase has been supplied. Part 5 should remain local-only, JSON-only, and body-safe.
+
+## Part 5 Evidence Note
+
+DEV-10 Part 5 completed on 2026-05-30 and is recorded in [DEV_10_CORE_REPORT_JSON_CHECK_EVIDENCE.md](DEV_10_CORE_REPORT_JSON_CHECK_EVIDENCE.md). The exact Part 5 approval phrase was captured before checks. Local service-level JSON checks passed for General Ledger, Trial Balance, Profit and Loss, Balance Sheet, VAT Summary, and Dashboard Summary. Generated-document count stayed `0`, and no CSV, PDF, archive, download, full payload body, production/beta target, or customer data was used.

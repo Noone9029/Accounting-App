@@ -4827,3 +4827,20 @@
 ## Next Thread Prompt
 
 `DEV-10 Part 5: approved local core financial report JSON checks`
+
+## DEV-10 Part 5 - Approved Local Core Report JSON Checks Completed
+
+- DEV-10 Part 5 evidence is recorded in [docs/development/DEV_10_CORE_REPORT_JSON_CHECK_EVIDENCE.md](docs/development/DEV_10_CORE_REPORT_JSON_CHECK_EVIDENCE.md).
+- Latest commit inspected: `8f35bf56 Preflight DEV-10 core report JSON checks`.
+- Exact Part 5 approval phrase was received and validated before checks.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only.
+- Reports checked: General Ledger, Trial Balance, Profit and Loss, Balance Sheet, VAT Summary, and Dashboard Summary.
+- Pass/fail summary: all selected JSON checks passed.
+- Verified totals: TB debit/credit `2610.0000`, P&L net profit `350.0000`, balance sheet assets/liabilities-equity `1960.0000`, VAT net payable `90.0000`, dashboard cash `750.0000`, AR `1150.0000`, AP `460.0000`.
+- Generated-document count stayed `0`; CSV/PDF/archive/download output generated: no.
+- Temporary runner `apps/api/scripts/dev10-part5-core-report-json-check.temp.ts` was removed after the check.
+- Exact next prompt title: `DEV-10 Part 6: core financial report JSON evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-10 Part 6: core financial report JSON evidence verification`
