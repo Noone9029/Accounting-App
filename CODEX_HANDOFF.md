@@ -4976,3 +4976,23 @@
 ## Next Thread Prompt
 
 `DEV-11 Part 2: approved local inventory valuation fixture creation`
+
+## DEV-11 Part 2 - Approved Local Inventory Valuation Fixture Creation Completed
+
+- DEV-11 Part 2 fixture evidence is recorded in [docs/development/DEV_11_INVENTORY_FIXTURE_MUTATION_EVIDENCE.md](docs/development/DEV_11_INVENTORY_FIXTURE_MUTATION_EVIDENCE.md).
+- Latest commit inspected before mutation: `655dbbac Preflight DEV-11 inventory valuation COGS`.
+- Exact Part 2 approval phrase was received and validated before mutation.
+- Local target proof: root and API `DATABASE_URL` resolved to `postgresql` on `localhost:5432/accounting`, classified local-only; Docker Postgres and Redis were healthy local containers.
+- Marker used: `DEV11-INV-20260530T000000`.
+- Mutation performed: yes, local-only.
+- Fixture created: marker organization/user/role, 9 marker accounts, open May 2026 fiscal period, inventory settings, one item, one warehouse, 3 stock movements, one finalized clearing-mode purchase bill with one posted clearing journal, one linked posted purchase receipt, one finalized sales invoice, one posted sales stock issue, and one draft adjustment reference.
+- Key safe fixture IDs: org `837b9c13`, user `e08ad608`, item `27398986`, warehouse `0b519fab`, purchase bill `6d84a149`, purchase receipt `a413ac33`, sales stock issue `c3d25519`, bill journal `6befd661`.
+- Expected math: opening `20.0000` units/value `200.0000`; receipt `10.0000` units/value `100.0000`; sales issue `5.0000`; expected COGS `50.0000`; expected receipt asset posting `100.0000`; expected operational on hand `25.0000` and value `250.0000`.
+- Expected clearing setup: purchase bill clearing debit `90.0000`; expected open clearing difference before receipt asset posting `90.0000`; expected net clearing difference after receipt asset posting `-10.0000`.
+- No COGS posting, receipt asset posting, variance proposal posting, report query, output generation, login/browser flow, production/beta/customer-data access, ZATCA, email, backup, restore, migration, seed/reset/delete, deploy, or environment change was performed.
+- Temporary runner `apps/api/scripts/dev11-part2-fixture.temp.ts` was removed before commit.
+- Exact next prompt title: `DEV-11 Part 3: inventory fixture evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 3: inventory fixture evidence verification`
