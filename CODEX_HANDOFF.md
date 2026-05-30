@@ -5405,6 +5405,17 @@
 - Temporary verifier `apps/api/scripts/dev12-part9-download-evidence-verify.temp.ts` was removed after the read-only check.
 - Exact next prompt title: `DEV-12 Part 10: storage readiness and migration dry-run preflight`.
 
+## DEV-12 Part 10 - Storage Readiness And Migration Dry-Run Preflight Completed
+
+- DEV-12 Part 10 storage readiness and migration dry-run preflight is recorded in [docs/development/DEV_12_STORAGE_READINESS_MIGRATION_DRY_RUN_PREFLIGHT.md](docs/development/DEV_12_STORAGE_READINESS_MIGRATION_DRY_RUN_PREFLIGHT.md).
+- Latest commit inspected: `9e562375 Verify DEV-12 generated document download gate`.
+- Runtime mutation/storage migration/upload/delete/download performed: no.
+- Expected storage readiness behavior: local providers should default to `database`; attachment and generated-document readiness should be ready with local/dev database warnings; S3 config output should be boolean/redacted only.
+- Expected migration dry-run behavior: count-only marker organization plan with `dryRunOnly: true`, expected generated-document count `1`, generated-document total bytes `129`, database storage count `1`, S3 storage count `0`, and no object copy/delete/rewrite.
+- Expected backup relation: backup readiness/restore plan are read-only metadata planning only; backup evidence mutations remain out of scope.
+- Blockers/discrepancies: none found in preflight. Generated-document object storage, migration execution, retention/legal hold, restore proof, malware scanning, and production readiness remain unproven.
+- Exact next prompt title: `DEV-12 Part 11: approved local storage readiness and migration dry-run checks`.
+
 ## Next Thread Prompt
 
-`DEV-12 Part 10: storage readiness and migration dry-run preflight`
+`DEV-12 Part 11: approved local storage readiness and migration dry-run checks`
