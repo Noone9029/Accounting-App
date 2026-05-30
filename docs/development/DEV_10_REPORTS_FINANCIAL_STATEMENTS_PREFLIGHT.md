@@ -111,3 +111,7 @@ Continue to `DEV-10 Part 2: approved local reports fixture creation` only after 
 ## Part 2 Fixture Creation Note
 
 DEV-10 Part 2 completed on 2026-05-30 and is recorded in [DEV_10_REPORT_FIXTURE_MUTATION_EVIDENCE.md](DEV_10_REPORT_FIXTURE_MUTATION_EVIDENCE.md). The exact Part 2 approval phrase was captured before mutation. The local target was classified as `postgresql` on `localhost:5432/accounting`. The marker fixture `DEV10-RPT-20260530T000000` created one synthetic organization, one user/membership, nine accounts, two tax rates, one branch, two contacts, one bank profile, four posted balanced journal entries, ten journal lines, one finalized sales invoice, and one finalized purchase bill. No report CSV, PDF, generated-document archive, generated-document download, production/beta target, customer data, login, E2E, smoke, migration, seed/reset/delete, deploy, ZATCA, email, backup, or restore action was used.
+
+## Part 4 Core Report JSON Preflight Note
+
+DEV-10 Part 4 completed on 2026-05-30 and is recorded in [DEV_10_CORE_REPORT_JSON_PREFLIGHT.md](DEV_10_CORE_REPORT_JSON_PREFLIGHT.md). The planned Part 5 JSON checks cover General Ledger, Trial Balance, Profit and Loss, Balance Sheet, VAT Summary, and Dashboard Summary by service-level local reads only. The plan explicitly excludes CSV, PDF, generated-document archive/download paths, full payload body output, login, E2E, smoke, production/beta targets, and customer data.

@@ -4814,3 +4814,16 @@
 ## Next Thread Prompt
 
 `DEV-10 Part 4: core financial report JSON check preflight`
+
+## DEV-10 Part 4 - Core Financial Report JSON Check Preflight Completed
+
+- DEV-10 Part 4 preflight is recorded in [docs/development/DEV_10_CORE_REPORT_JSON_PREFLIGHT.md](docs/development/DEV_10_CORE_REPORT_JSON_PREFLIGHT.md).
+- Latest commit inspected: `23481ee4 Verify DEV-10 report fixtures`.
+- Scope: planning-only for local service-level JSON checks; no runtime report calls, login, fixture mutation, CSV, PDF, archive, download, E2E, smoke, migration, seed/reset/delete, deploy, env change, ZATCA, email, backup, restore, production/beta target, customer data, body output, or secret output was used.
+- Core reports planned: General Ledger, Trial Balance, Profit and Loss, Balance Sheet, VAT Summary, and Dashboard Summary.
+- Expected checks: row/section counts, trial balance equality, P&L revenue/COGS/expense/net profit, balance sheet equality, VAT output/input/net payable, and dashboard cash/AR/AP/revenue/VAT summary.
+- Exact next prompt title: `DEV-10 Part 5: approved local core financial report JSON checks`.
+
+## Next Thread Prompt
+
+`DEV-10 Part 5: approved local core financial report JSON checks`
