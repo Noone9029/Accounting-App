@@ -5212,3 +5212,25 @@
 ## Next Thread Prompt
 
 `DEV-11 Part 14: approved local inventory valuation report checks`
+
+## DEV-11 Part 14 - Inventory Valuation Report Checks Completed
+
+- DEV-11 Part 14 inventory valuation report checks are recorded in [docs/development/DEV_11_INVENTORY_VALUATION_REPORT_CHECK_EVIDENCE.md](docs/development/DEV_11_INVENTORY_VALUATION_REPORT_CHECK_EVIDENCE.md).
+- Latest commit inspected before report reads: `45f7d361 Preflight DEV-11 inventory valuation reports`.
+- Exact Part 14 approval phrase was received and validated before report reads.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Runtime mutation performed: no.
+- Report queries performed: yes, local-only JSON/in-process service reads.
+- Output generation performed: no CSV, no PDF, no generated-document download/archive, and no report row/body output.
+- Count stability result: stock movements stayed `3`, journal entries/lines stayed `7`/`14`, generated documents stayed `0`, audit logs stayed `9`, and variance proposal events stayed `5`.
+- Inventory report result: stock valuation quantity `25.0000`, moving-average unit cost `10.0000`, estimated value `250.0000`, grand total `250.0000`; movement summary inbound `30.0000`, outbound `5.0000`, closing `25.0000`, movement count `3`; low-stock count `0`.
+- Clearing report result: reconciliation status `BILL_WITHOUT_RECEIPT_POSTING`, bill clearing debit `90.0000`, active receipt clearing credit `0.0000`, net difference `90.0000`; clearing variance row count `2`, first matching amount `90.0000`, total variance amount `190.0000` because the reversed receipt warning amount remains visible.
+- Financial statement result: GL shows AP `210` credit `90.0000` and Inventory Clearing `240` debit balance `90.0000`; COGS `DEV11-5000`, Inventory Asset `DEV11-1200`, and Adjustment Loss `DEV11-5100` net to `0.0000`; Trial Balance period debit/credit `570.0000`/`570.0000` and closing debit/credit `90.0000`/`90.0000`, balanced; P&L net profit `0.0000`; Balance Sheet balanced with total assets `0.0000`, total liabilities/equity `0.0000`, Inventory Clearing `-90.0000`, AP `90.0000`.
+- Dashboard summary checked only as safe high-level totals: ledger basis `POSTED_AND_REVERSED_JOURNALS`, receivables `125.0000` across `1`, payables `90.0000` across `1`, revenue/VAT/cash all `0.0000`.
+- Blockers/discrepancies: none found. Expected clarifications are that low stock is zero because the item is above reorder point, clearing variance includes the reversed receipt warning row, and operational valuation `250.0000` differs from Inventory Asset GL `0.0000` by design.
+- Temporary checker `apps/api/scripts/dev11-part14-inventory-report-check.temp.ts` was removed after the check.
+- Exact next prompt title: `DEV-11 Part 15: inventory valuation report evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 15: inventory valuation report evidence verification`
