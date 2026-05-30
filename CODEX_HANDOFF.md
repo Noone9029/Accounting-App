@@ -5136,3 +5136,21 @@
 ## Next Thread Prompt
 
 `DEV-11 Part 10: clearing variance proposal preflight`
+
+## DEV-11 Part 10 - Clearing Variance Proposal Preflight Completed
+
+- DEV-11 Part 10 preflight is recorded in [docs/development/DEV_11_CLEARING_VARIANCE_PROPOSAL_PREFLIGHT.md](docs/development/DEV_11_CLEARING_VARIANCE_PROPOSAL_PREFLIGHT.md).
+- Latest commit inspected: `a0c1e0e0 Verify DEV-11 purchase receipt inventory asset evidence`.
+- Scope: read-only planning and code inspection only; no runtime mutation, proposal creation, proposal submission, proposal approval, variance journal posting, variance journal reversal, proposal voiding, fixture creation, report output, CSV/PDF/download/archive generation, E2E, smoke, migration, seed/reset/delete, deploy, environment change, ZATCA, email, backup, restore, production/beta target, customer data, body output, or secret output was used.
+- Runtime mutation/posting/reversal occurred: no.
+- Marker dependency confirmed from existing evidence: purchase bill `DEV11-INV-BILL-0001` has Inventory Clearing debit `90.0000`; receipt `DEV11-INV-PRC-0001` asset posting was posted and reversed, leaving active receipt clearing credit `0.0000`.
+- Expected Part 11 proposal amount: `90.0000`.
+- Expected Part 11 proposal mapping: Dr Inventory Adjustment Loss `DEV11-5100` `90.0000` / Cr Inventory Clearing `240` `90.0000`.
+- Expected Part 11 post impact before reversal: one posted journal entry and two journal lines, Inventory Adjustment Loss increases `90.0000`, Inventory Clearing is credited `90.0000`, and stock movements/generated documents stay unchanged.
+- Expected Part 11 final impact if reversed: one posted reversal journal and two reversal lines, source variance journal marked `REVERSED`, source plus reversal pair nets to `0.0000`.
+- Main blockers to re-check in Part 11: local-only DB target, existing duplicate marker proposal, current fiscal period openness for posting and reversal, and any extra reversed-receipt warning row in the clearing variance report.
+- Exact next prompt title: `DEV-11 Part 11: approved local clearing variance proposal posting checks`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 11: approved local clearing variance proposal posting checks`
