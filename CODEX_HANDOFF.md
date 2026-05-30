@@ -4702,3 +4702,18 @@
 ## Next Thread Prompt
 
 `DEV-09 Part 10: bank reconciliation close void preflight`
+
+## DEV-09 Part 10 - Bank Reconciliation Close Void Preflight Completed
+
+- DEV-09 Part 10 preflight is recorded in [docs/development/DEV_09_BANK_RECONCILIATION_CLOSE_VOID_PREFLIGHT.md](docs/development/DEV_09_BANK_RECONCILIATION_CLOSE_VOID_PREFLIGHT.md).
+- Latest commit inspected: `1d7222f8 Verify DEV-09 bank transaction actions`.
+- Scope: read-only reconciliation lifecycle planning; no reconciliation create/submit/approve/close/void, statement transaction mutation, statement import, output/download/PDF, E2E, smoke, migration, seed/reset/delete, deploy, env change, real bank file, customer data, email, ZATCA, backup, restore, body, or secret output was run.
+- Selected Part 11 actions: create zero-difference draft for `2026-05-30`, submit, approve with local full-access service option, close with three item snapshots, then void administratively.
+- Expected Part 11 deltas: reconciliations `+1`, review events `+4`, reconciliation items `+3`, audit logs `+5`, journals `0`, statement imports/transactions `0`.
+- Mismatch blocker path is documented from code inspection but not selected for Part 11 execution to keep the mutation narrow.
+- Exact Part 11 approval phrase status: received exactly from the user and must be re-validated before mutation.
+- Exact next prompt title: `DEV-09 Part 11: approved local bank reconciliation close void mutation`.
+
+## Next Thread Prompt
+
+`DEV-09 Part 11: approved local bank reconciliation close void mutation`
