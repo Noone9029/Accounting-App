@@ -5416,6 +5416,23 @@
 - Blockers/discrepancies: none found in preflight. Generated-document object storage, migration execution, retention/legal hold, restore proof, malware scanning, and production readiness remain unproven.
 - Exact next prompt title: `DEV-12 Part 11: approved local storage readiness and migration dry-run checks`.
 
+## DEV-12 Part 11 - Storage Readiness And Migration Dry-Run Checks Completed
+
+- DEV-12 Part 11 storage readiness and migration dry-run checks are recorded in [docs/development/DEV_12_STORAGE_READINESS_MIGRATION_DRY_RUN_CHECK_EVIDENCE.md](docs/development/DEV_12_STORAGE_READINESS_MIGRATION_DRY_RUN_CHECK_EVIDENCE.md).
+- Latest commit inspected: `0e8b4828 Preflight DEV-12 storage readiness dry run`.
+- Exact Part 11 approval phrase was received and validated before local readiness/dry-run checks.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Runtime mutation performed: no.
+- Migration executed: no.
+- Upload/delete performed: no.
+- Readiness result: attachment provider `database`, generated-document provider `database`, both ready with local/dev database storage warnings; S3 config output was boolean/redacted only.
+- Migration dry-run result: `dryRunOnly: true`, generated-document count `1`, generated-document total bytes `129`, attachment count `0`, database storage count `1`, S3 storage count `0`, target provider `database`, no object copy/delete/rewrite.
+- Backup readiness relation result: read-only, no mutation, no backup/restore executed, `productionReady=false`, all required evidence types missing for the marker organization.
+- Count stability: marker generated documents `1 -> 1`, generated-document audit logs `1 -> 1`, marker organization attachments `0 -> 0`, backup/restore evidence `0 -> 0`.
+- Blockers/discrepancies: none found. Generated-document object storage, migration executor, backup/restore proof, malware scanning, retention/legal hold, hosted/beta/customer-data behavior, and production readiness remain unproven.
+- Temporary checker `apps/api/scripts/dev12-part11-storage-check.temp.ts` was removed after the approved local check.
+- Exact next prompt title: `DEV-12 Part 12: storage readiness and migration dry-run evidence verification`.
+
 ## Next Thread Prompt
 
-`DEV-12 Part 11: approved local storage readiness and migration dry-run checks`
+`DEV-12 Part 12: storage readiness and migration dry-run evidence verification`
