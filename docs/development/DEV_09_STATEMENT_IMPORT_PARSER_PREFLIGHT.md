@@ -141,3 +141,9 @@ Skipped by design:
 ## Next Step
 
 Proceed to `DEV-09 Part 5: approved local synthetic statement import parser checks`.
+
+## Part 5 Outcome Note
+
+Part 5 completed under exact approval using marker `DEV09-BANK-20260530T000000`. Evidence is recorded in [DEV_09_STATEMENT_IMPORT_PARSER_CHECK_EVIDENCE.md](DEV_09_STATEMENT_IMPORT_PARSER_CHECK_EVIDENCE.md).
+
+The approved local check used inline synthetic parser inputs plus preview no-persistence against the marker bank profile. No persisted import was run, and marker import/transaction/audit/journal/reconciliation counts stayed unchanged.

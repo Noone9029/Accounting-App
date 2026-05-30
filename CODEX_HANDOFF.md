@@ -4618,3 +4618,21 @@
 ## Next Thread Prompt
 
 `DEV-09 Part 5: approved local synthetic statement import parser checks`
+
+## DEV-09 Part 5 - Approved Local Synthetic Statement Import Parser Checks Completed
+
+- DEV-09 Part 5 evidence is recorded in [docs/development/DEV_09_STATEMENT_IMPORT_PARSER_CHECK_EVIDENCE.md](docs/development/DEV_09_STATEMENT_IMPORT_PARSER_CHECK_EVIDENCE.md).
+- Latest commit inspected: `aeeb8c18 Plan DEV-09 statement import parser checks`.
+- Exact Part 5 approval phrase was received and validated before checks.
+- Local target remained `postgresql` on `localhost:5432/accounting`.
+- Runtime mutation performed: no persisted import or domain mutation; approved local checks were parser and preview only.
+- Parser results: CSV `2` rows, JSON `2`, OFX `1`, CAMT `1`, MT940 `1`, UNKNOWN `0` with warning, invalid JSON `0` with warning.
+- Preview results: valid CSV `2` valid rows, duplicate in-file `1` valid/`1` invalid, existing duplicate `1` warning, invalid row `1` invalid.
+- Marker count deltas stayed zero for statement imports, statement transactions, audit logs, journal entries, and reconciliations.
+- Real bank files, customer data, statement body output, match/categorize/ignore, reconciliation lifecycle, E2E, smoke, migration, seed/reset/delete, deploy, email, ZATCA, backup, and restore were not used.
+- Temporary runner `apps/api/scripts/dev09-part5-parser-check.temp.ts` was removed after the run.
+- Exact next prompt title: `DEV-09 Part 6: statement import parser evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-09 Part 6: statement import parser evidence verification`
