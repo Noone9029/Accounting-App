@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `23c09f97 Close DEV-08 AP local evidence`
+- `0b3c1e4b Close DEV-11 inventory valuation COGS evidence`
 
 ## Current Development Objective
 
@@ -5271,3 +5271,18 @@
 ## Next Thread Prompt
 
 `DEV-12 Part 1: generated documents storage retention production-gap and E2E readiness preflight`
+
+## DEV-12 Part 1 - Generated Documents Storage Retention Preflight Completed
+
+- DEV-12 Part 1 generated documents storage retention preflight is recorded in [docs/development/DEV_12_GENERATED_DOCUMENTS_STORAGE_RETENTION_PREFLIGHT.md](docs/development/DEV_12_GENERATED_DOCUMENTS_STORAGE_RETENTION_PREFLIGHT.md).
+- Latest commit inspected: `0b3c1e4b Close DEV-11 inventory valuation COGS evidence`.
+- Scope: documentation and read-only code inspection only; no login, fixture creation, runtime mutation, output generation, archive/download, storage migration, retention mutation, report query, E2E, smoke, full test, full build, migration, seed/reset/delete, deploy, env change, production/beta/customer data, ZATCA, email, backup, restore, body output, or secret output was performed.
+- Current generated documents are database/base64 backed through `GeneratedDocumentService.archivePdf`, with `storageProvider = "database"`, `contentBase64`, `contentHash`, `sizeBytes`, and status `GENERATED`.
+- Highest-risk gaps: generated-document object storage is not implemented, database/base64 migration is dry-run/count-only, signed URLs/lifecycle/legal hold/purge/malware scanning/restore proof are missing, repeated generation remains append-only without supersede/latest policy, and generated-document retention/legal compliance is not proven.
+- Storage readiness can report generated-document storage status and migration-plan counts, but generated-document S3 writes are explicitly not enabled and migration execution is not implemented.
+- ZATCA invoice PDF archive remains metadata-only at the PDF/A-3 boundary and must not be treated as signed XML, QR payload, or production compliance proof.
+- Exact next prompt title: `DEV-12 Part 2: approved local generated-document fixture creation`.
+
+## Next Thread Prompt
+
+`DEV-12 Part 2: approved local generated-document fixture creation`
