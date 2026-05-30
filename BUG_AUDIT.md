@@ -3200,3 +3200,12 @@ Recommended next step:
 - Readiness docs now state that banking/reconciliation local evidence is useful for the DEV-09 scope but not production-complete.
 - Remaining banking production gaps include live bank feeds/external bank APIs, automatic matching, certified target-bank parser coverage, raw statement archive operations, strict approval queue policy, transfer fees, FX handling, broad E2E/smoke/full-test coverage, production/beta/customer-data behavior, and accountant review.
 - No app code, runtime mutation in the closure step, deploy, production/beta/customer data, real bank file, real email, real ZATCA, migration, seed/reset/delete, backup/restore, full smoke, full E2E, or environment/provider setting changed.
+
+# DEV-10 reports/financial statements local evidence closure - 2026-05-30
+
+- DEV-10 consolidated local-only reports and financial statements evidence in `docs/development/DEV_10_REPORTS_FINANCIAL_STATEMENTS_CLOSURE.md`.
+- The local evidence covers marker-scoped synthetic report fixtures, core report JSON checks, aging and VAT Return JSON checks, Trial Balance CSV/PDF/archive/download metadata, no-body output handling, and selected permission gates.
+- Final output-gate evidence recorded CSV archive delta `0`, PDF/archive delta `+1`, download delta `0`, generated-document type `REPORT_TRIAL_BALANCE`, hash-matched download metadata, and restricted `reports.view`-only CSV/PDF forbidden.
+- Readiness docs now state that reports local evidence is useful for the DEV-10 scope but not production-complete.
+- Remaining reporting production gaps include accountant-reviewed report definitions/layouts, official VAT filing scope, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, inventory valuation/FIFO/landed-cost reporting, generated-document object-storage retention, restricted-role matrix coverage, broad E2E/smoke/full-test coverage, production/beta/customer-data behavior, and load/concurrency.
+- No app code, runtime mutation in the closure step, new report query, new CSV/PDF/archive/download generation, deploy, production/beta/customer data, real email, real ZATCA, migration, seed/reset/delete, backup/restore, full smoke, full E2E, or environment/provider setting changed.

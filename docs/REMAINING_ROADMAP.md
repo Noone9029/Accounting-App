@@ -16,7 +16,7 @@ For the updated Product Audit v2 planning artifacts, see:
 
 ## Current Stage
 
-LedgerByte is at the controlled beta/user-testing stage. The current Vercel deployment is beta/user-testing only and must not be treated as final production hosting. LedgerByte is not production-launched, real ZATCA production compliance is not enabled, and paid production SaaS v1 requires the production foundation work documented under `docs/production/`. The production ticket backlog, ADR index, and first 10 production tickets are planning artifacts only; no production implementation has been performed. DEV-08 local AP evidence is strong and closed for its local-only scope, but AP is not production-complete. DEV-09 local banking/reconciliation evidence is also closed for its local-only scope, but banking remains unproven for production, beta, customer data, live bank feeds, automatic matching, certified parser coverage, and broad E2E/smoke/full-test coverage.
+LedgerByte is at the controlled beta/user-testing stage. The current Vercel deployment is beta/user-testing only and must not be treated as final production hosting. LedgerByte is not production-launched, real ZATCA production compliance is not enabled, and paid production SaaS v1 requires the production foundation work documented under `docs/production/`. The production ticket backlog, ADR index, and first 10 production tickets are planning artifacts only; no production implementation has been performed. DEV-08 local AP evidence is strong and closed for its local-only scope, but AP is not production-complete. DEV-09 local banking/reconciliation evidence is also closed for its local-only scope, but banking remains unproven for production, beta, customer data, live bank feeds, automatic matching, certified parser coverage, and broad E2E/smoke/full-test coverage. DEV-10 local reports/financial statements evidence is closed for its local-only scope, but reporting remains unproven for production, beta, customer data, accountant-certified definitions, official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, broad E2E/smoke/full-test coverage, and load/concurrency.
 
 ## Phase 0: Production Foundation For Paid Saudi-First SaaS v1
 
@@ -195,6 +195,7 @@ Tasks:
 - Official VAT return report.
 - Scheduled/email report delivery.
 - Customer/supplier statement layout review.
+- Convert the DEV-10 reports/financial statements production gaps into scoped accountant-review, official VAT, scheduled/email delivery, report-pack, advanced reporting, generated-document storage, restricted-role matrix, E2E, and load/concurrency tickets.
 
 Manual dependencies:
 
@@ -220,6 +221,13 @@ Recommended next prompt:
 - The local evidence covers marker-scoped synthetic banking fixtures, parser/preview checks, match/categorize/ignore actions, and reconciliation create/submit/approve/close/void.
 - Remaining banking roadmap work is tracked through `docs/development/DEV_09_BANKING_RECONCILIATION_CLOSURE.md`.
 - Do not claim production banking readiness until live bank/feed policy, real sanitized target-bank parser coverage, raw-file archive operations, approval queue policy, transfer fees, FX handling, broad E2E/smoke/full-test coverage, hosted/beta behavior, customer-data behavior, and accountant review are separately proven.
+
+## 2026-05-30 DEV-10 Reports/Financial Statements Readiness Update
+
+- DEV-10 is closed as local-only reports and financial statements evidence, not production evidence.
+- The local evidence covers marker-scoped synthetic report fixtures, core financial report JSON checks, aging and VAT Return JSON checks, Trial Balance CSV/PDF/archive/download metadata, no-body output handling, and selected permission gates.
+- Remaining reporting roadmap work is tracked through `docs/development/DEV_10_REPORTS_FINANCIAL_STATEMENTS_CLOSURE.md`.
+- Do not claim production reporting readiness until accountant-reviewed definitions/layouts, official VAT filing scope, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, inventory valuation/FIFO/landed-cost reporting, generated-document storage/retention policy, restricted-role matrix coverage, broad E2E/smoke/full-test coverage, hosted/beta behavior, customer-data behavior, and load/concurrency proof are separately proven.
 
 ## Phase 3: Inventory And Payroll Basics
 

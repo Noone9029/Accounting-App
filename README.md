@@ -12,6 +12,7 @@ This is an original implementation inspired by common accounting workflows. It d
 - The current Vercel deployment is for beta/user-testing only; final production hosting is a separate decision.
 - DEV-08 local AP evidence is closed for its local-only scope, but AP is not production-complete and remains unproven for production/beta/customer data, real provider email delivery, broad AP E2E/smoke/full-test coverage, and real ZATCA behavior.
 - DEV-09 local banking/reconciliation evidence is closed for its local-only scope, but banking is not production-complete and remains unproven for live bank feeds, automatic matching, certified bank-specific parser coverage, raw statement archive operations, production/beta/customer data, broad E2E/smoke/full-test coverage, and accountant sign-off.
+- DEV-10 local reports/financial statements evidence is closed for its local-only scope, but reporting is not production-complete and remains unproven for accountant-certified definitions, official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, production/beta/customer data, broad E2E/smoke/full-test coverage, and load/concurrency.
 - ADR-001 for final production hosting is drafted/proposed only; implementation has not started, no provider is provisioned, and no production deploy was performed.
 - ADR-013 for API hosting is drafted/proposed only; it recommends AWS ECS Fargate for the paid SaaS v1 API with separate API and worker services, but ECS/Fargate is not configured, worker hosting is not configured, no production API deploy was performed, and no env vars, database, Redis, storage, ZATCA, email, accounting logic, or customer data changed.
 - Real ZATCA production compliance is not enabled. CSID execution, signing, clearance/reporting, PDF/A-3, real network submission, and production compliance certification remain blocked.
@@ -1363,6 +1364,7 @@ Behavior:
 - Aged Payables uses finalized non-voided purchase bills with `balanceDue > 0`.
 - CSV exports return `text/csv`, escape commas/quotes/newlines, include report title/date metadata, and use attachment filenames such as `trial-balance-YYYY-MM-DD.csv`.
 - PDF exports use the shared PDFKit renderer in `packages/pdf-core` and are archived automatically as generated documents.
+- DEV-10 closed local-only evidence for marker `DEV10-RPT-20260530T000000`: fixture math, core report JSON, aging/VAT Return JSON, CSV/PDF/archive/download metadata, and selected permission gates were verified without production, beta, customer data, or body output. The closure is recorded in `docs/development/DEV_10_REPORTS_FINANCIAL_STATEMENTS_CLOSURE.md`.
 
 Frontend pages:
 
@@ -1381,6 +1383,7 @@ Known limitations:
 - CSV output is intentionally basic.
 - Fiscal period labels are not shown on reports yet.
 - Reports need accountant review before production use.
+- DEV-10 evidence does not prove official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, generated-document object-storage retention, hosted/beta/customer-data behavior, broad E2E/smoke/full-test coverage, or load/concurrency.
 
 ## Inventory Groundwork
 

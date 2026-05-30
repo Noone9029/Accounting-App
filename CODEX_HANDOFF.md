@@ -4945,3 +4945,19 @@
 ## Next Thread Prompt
 
 `DEV-10 Part 13: reports and financial statements closure`
+
+## DEV-10 Part 13 - Reports And Financial Statements Closure Completed
+
+- DEV-10 Part 13 closure is recorded in [docs/development/DEV_10_REPORTS_FINANCIAL_STATEMENTS_CLOSURE.md](docs/development/DEV_10_REPORTS_FINANCIAL_STATEMENTS_CLOSURE.md).
+- Latest commit inspected: `72282737 Verify DEV-10 report output evidence`.
+- Scope: documentation/read-only consolidation only; no runtime mutation, new report query, CSV/PDF/archive/download generation, login, fixture creation, E2E, smoke, full tests, full build, migration, seed/reset/delete, deploy, environment change, ZATCA, email, backup, restore, production/beta target, customer data, or body output was used.
+- Closure conclusion: DEV-10 is closed for local-only report fixture math, core report JSON, aging/VAT Return JSON, Trial Balance CSV/PDF/archive/download metadata, no-body output handling, and selected permission-gate evidence.
+- Output proof status: CSV created no archive row, PDF created exactly one local `REPORT_TRIAL_BALANCE` generated-document row, download created no additional row, and archive/download hashes matched.
+- Permission proof status: export/download positives were allowed, restricted `reports.view`-only CSV/PDF was forbidden, generated-document list/detail require view permission, and generated-document download requires download permission.
+- DEV-10 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, generated-document object-storage retention, broad E2E/smoke/full-test coverage, or load/concurrency.
+- Readiness docs updated: README, BUG_AUDIT, Product Readiness Scorecard, Remaining Roadmap, Project Audit, and Implementation Status.
+- Recommended next thread title: `DEV-11 Part 1: inventory valuation and COGS production-gap and E2E readiness preflight`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 1: inventory valuation and COGS production-gap and E2E readiness preflight`
