@@ -5254,3 +5254,20 @@
 ## Next Thread Prompt
 
 `DEV-11 Part 16: inventory valuation and COGS closure`
+
+## DEV-11 Part 16 - Inventory Valuation And COGS Closure Completed
+
+- DEV-11 Part 16 closure is recorded in [docs/development/DEV_11_INVENTORY_VALUATION_COGS_CLOSURE.md](docs/development/DEV_11_INVENTORY_VALUATION_COGS_CLOSURE.md).
+- Latest commit inspected: `445db0ed Verify DEV-11 inventory valuation report evidence`.
+- Marker: `DEV11-INV-20260530T000000`.
+- DEV-11 is closed as local-only inventory valuation and COGS evidence.
+- Evidence summary: Part 1-15 covered local preflight, fixture creation, fixture verification, manual sales stock issue COGS post/reverse and verification, compatible purchase receipt inventory asset post/reverse and verification, clearing variance proposal create/submit/approve/post/reverse and verification, inventory valuation report checks, financial statement impact checks, direct evidence verification, and no-body/no-secret checks.
+- What DEV-11 proves: local marker fixture math, manual COGS posting/reversal, manual receipt asset posting/reversal, variance proposal lifecycle/posting/reversal, inventory valuation report summaries, clearing reports, GL, Trial Balance, P&L, Balance Sheet, dashboard totals, and generated-document count stability for the marker scope.
+- Production gaps: FIFO/cost layers, landed cost, automatic posting, negative-stock production policy, serial/batch/bin/location, purchase returns, sales returns inventory impact, historical direct-mode migration, multi-currency inventory, transfer-fee/landed allocation, accountant review, broad E2E/smoke/full-test, hosted/beta/customer-data proof, load/concurrency, and object-storage/generated-document retention if outputs intersect inventory.
+- DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
+- Closure actions only updated docs; no runtime mutation, new report query, CSV/PDF/download/archive output, E2E, smoke, full test, full build, migration, seed/reset/delete, deploy, env change, production/beta/customer-data access, ZATCA, email, backup, restore, or app-code change was performed.
+- Exact next prompt title: `DEV-12 Part 1: generated documents storage retention production-gap and E2E readiness preflight`.
+
+## Next Thread Prompt
+
+`DEV-12 Part 1: generated documents storage retention production-gap and E2E readiness preflight`

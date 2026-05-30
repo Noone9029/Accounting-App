@@ -16,7 +16,7 @@ For the updated Product Audit v2 planning artifacts, see:
 
 ## Current Stage
 
-LedgerByte is at the controlled beta/user-testing stage. The current Vercel deployment is beta/user-testing only and must not be treated as final production hosting. LedgerByte is not production-launched, real ZATCA production compliance is not enabled, and paid production SaaS v1 requires the production foundation work documented under `docs/production/`. The production ticket backlog, ADR index, and first 10 production tickets are planning artifacts only; no production implementation has been performed. DEV-08 local AP evidence is strong and closed for its local-only scope, but AP is not production-complete. DEV-09 local banking/reconciliation evidence is also closed for its local-only scope, but banking remains unproven for production, beta, customer data, live bank feeds, automatic matching, certified parser coverage, and broad E2E/smoke/full-test coverage. DEV-10 local reports/financial statements evidence is closed for its local-only scope, but reporting remains unproven for production, beta, customer data, accountant-certified definitions, official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, broad E2E/smoke/full-test coverage, and load/concurrency.
+LedgerByte is at the controlled beta/user-testing stage. The current Vercel deployment is beta/user-testing only and must not be treated as final production hosting. LedgerByte is not production-launched, real ZATCA production compliance is not enabled, and paid production SaaS v1 requires the production foundation work documented under `docs/production/`. The production ticket backlog, ADR index, and first 10 production tickets are planning artifacts only; no production implementation has been performed. DEV-08 local AP evidence is strong and closed for its local-only scope, but AP is not production-complete. DEV-09 local banking/reconciliation evidence is also closed for its local-only scope, but banking remains unproven for production, beta, customer data, live bank feeds, automatic matching, certified parser coverage, and broad E2E/smoke/full-test coverage. DEV-10 local reports/financial statements evidence is closed for its local-only scope, but reporting remains unproven for production, beta, customer data, accountant-certified definitions, official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, broad E2E/smoke/full-test coverage, and load/concurrency. DEV-11 local inventory valuation and COGS evidence is closed for its local-only scope, but inventory accounting remains unproven for production, beta, customer data, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test coverage, hosted behavior, and load/concurrency.
 
 ## Phase 0: Production Foundation For Paid Saudi-First SaaS v1
 
@@ -229,6 +229,14 @@ Recommended next prompt:
 - Remaining reporting roadmap work is tracked through `docs/development/DEV_10_REPORTS_FINANCIAL_STATEMENTS_CLOSURE.md`.
 - Do not claim production reporting readiness until accountant-reviewed definitions/layouts, official VAT filing scope, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, inventory valuation/FIFO/landed-cost reporting, generated-document storage/retention policy, restricted-role matrix coverage, broad E2E/smoke/full-test coverage, hosted/beta behavior, customer-data behavior, and load/concurrency proof are separately proven.
 
+## 2026-05-30 DEV-11 Inventory Valuation And COGS Readiness Update
+
+- DEV-11 is closed as local-only inventory valuation and COGS evidence, not production evidence.
+- The local evidence covers marker-scoped inventory fixture math, manual sales stock issue COGS post/reverse, compatible purchase receipt asset post/reverse, clearing variance proposal create/submit/approve/post/reverse, inventory valuation reports, clearing reports, GL, Trial Balance, P&L, Balance Sheet, dashboard totals, and no-body/no-secret checks.
+- Remaining inventory roadmap work is tracked through `docs/development/DEV_11_INVENTORY_VALUATION_COGS_CLOSURE.md`.
+- Do not claim production inventory accounting readiness until FIFO/cost layers, landed cost, automatic posting, negative-stock production policy, serial/batch/bin/location, purchase returns, sales returns inventory impact, historical direct-mode migration, multi-currency inventory, transfer-fee/landed allocation, accountant review, hosted/beta/customer-data behavior, broad E2E/smoke/full-test coverage, generated-document retention, and load/concurrency proof are separately proven.
+- Recommended next prompt: `DEV-12 Part 1: generated documents storage retention production-gap and E2E readiness preflight`.
+
 ## Phase 3: Inventory And Payroll Basics
 
 Objective: add operational modules that affect accounting but require careful scope control.
@@ -257,7 +265,7 @@ Risk level: High.
 
 Recommended next prompt:
 
-> Review inventory variance proposal outputs with an accountant and design landed-cost/direct-mode migration policy without enabling automatic posting.
+> DEV-12 Part 1: generated documents storage retention production-gap and E2E readiness preflight.
 
 ## Phase 4: ZATCA Production Path
 

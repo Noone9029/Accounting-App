@@ -37,6 +37,22 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### DEV-11 inventory valuation and COGS evidence closed
+
+Closed the DEV-11 inventory valuation and COGS evidence chain as local-only documentation/readiness evidence without changing product behavior.
+
+Risk reduced:
+
+- Added `docs/development/DEV_11_INVENTORY_VALUATION_COGS_CLOSURE.md` with the full Part 1-15 evidence map, marker scope, accounting summaries, production gap register, and future E2E readiness checklist.
+- Consolidated evidence for the marker fixture, manual sales stock issue COGS post/reverse path, compatible purchase receipt asset post/reverse path, clearing variance proposal lifecycle, and inventory/report financial summaries.
+- Updated readiness, roadmap, audit, implementation, README, and handoff docs to state that DEV-11 is closed as local-only inventory valuation and COGS evidence.
+
+Remaining risks:
+
+- DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
+- Inventory accounting is not production-complete. FIFO/cost layers, landed cost, automatic posting, returns, serial/batch/bin/location, historical direct-mode migration, multi-currency inventory, accountant review, hosted proof, and load/concurrency remain open.
+- No app code, runtime data, report query, output generation, migration, seed/reset/delete, deploy, env var, ZATCA, email, backup, restore, production/beta target, customer data, E2E, smoke, full test, or full build changed in the closure.
+
 ### API hosting decision ADR drafted
 
 Captured the proposed production API hosting direction without changing product behavior or production infrastructure.
