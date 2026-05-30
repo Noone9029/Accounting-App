@@ -4961,3 +4961,18 @@
 ## Next Thread Prompt
 
 `DEV-11 Part 1: inventory valuation and COGS production-gap and E2E readiness preflight`
+
+## DEV-11 Part 1 - Inventory Valuation And COGS Preflight Completed
+
+- DEV-11 Part 1 preflight is recorded in [docs/development/DEV_11_INVENTORY_VALUATION_COGS_PREFLIGHT.md](docs/development/DEV_11_INVENTORY_VALUATION_COGS_PREFLIGHT.md).
+- Latest commit inspected: `5804dbd2 Close DEV-10 reports financial statements evidence`.
+- Scope: documentation and read-only code inspection only; no login, fixture creation, runtime mutation, posting, reversal, output generation, report query, E2E, smoke, full tests, full build, migration, seed/reset/delete, deploy, environment change, ZATCA, email, backup, restore, production/beta target, customer data, body output, or secret output was used.
+- Current model confirmed: operational stock movement records drive quantity and operational moving-average valuation reports, while financial statements consume posted/reversed `JournalEntry` and `JournalLine` rows only.
+- Manual posting boundaries confirmed: sales stock issue COGS post/reverse, purchase receipt inventory asset post/reverse, and clearing variance proposal post/reverse are explicit, permission-gated, fiscal-period-guarded journal actions; previews/reports do not post journals.
+- Highest-risk inventory/COGS gaps found: no DEV-11 marker fixture yet, no FIFO/cost layers, no landed cost, no automatic COGS/receipt/variance posting, no returns workflow, no serial/batch/bin/location, no multi-currency inventory policy, no direct-mode historical migration policy, no broad E2E/smoke/full-test/load/concurrency proof, and no hosted/beta/customer-data proof.
+- Proposed local marker: `DEV11-INV-20260530T000000`; future fixture names must start with `DEV11-INV-` and remain local-only synthetic data.
+- Exact next prompt title: `DEV-11 Part 2: approved local inventory valuation fixture creation`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 2: approved local inventory valuation fixture creation`
