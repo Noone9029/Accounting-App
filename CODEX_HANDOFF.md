@@ -5365,6 +5365,17 @@
 - Temporary verifier `apps/api/scripts/dev12-part6-metadata-verify.temp.ts` was removed after the read-only check.
 - Exact next prompt title: `DEV-12 Part 7: generated-document download gate preflight`.
 
+## DEV-12 Part 7 - Generated-Document Download Gate Preflight Completed
+
+- DEV-12 Part 7 generated-document download gate preflight is recorded in [docs/development/DEV_12_GENERATED_DOCUMENT_DOWNLOAD_GATE_PREFLIGHT.md](docs/development/DEV_12_GENERATED_DOCUMENT_DOWNLOAD_GATE_PREFLIGHT.md).
+- Latest commit inspected: `670fdb9d Verify DEV-12 generated document metadata evidence`.
+- Runtime mutation/download/output performed: no.
+- Expected Part 8 download metadata/hash behavior: local marker download should return `application/pdf`, filename `DEV12-DOC-trial-balance.pdf`, byte length `129`, and a downloaded-buffer SHA-256 matching stored `contentHash` prefix `29bb1b32935c488b`.
+- Expected Part 8 count behavior: archive delta `0`; generated-document audit-log delta `0` unless the code is changed to log downloads before Part 8.
+- Permission gate expectation: `GET /generated-documents/:id/download` requires `generatedDocuments.download`; `generatedDocuments.view` alone is insufficient.
+- Blockers/discrepancies: none found in preflight. Generated-document storage remains database/base64-backed and not object-storage-ready.
+- Exact next prompt title: `DEV-12 Part 8: approved local generated-document download gate checks`.
+
 ## Next Thread Prompt
 
-`DEV-12 Part 7: generated-document download gate preflight`
+`DEV-12 Part 8: approved local generated-document download gate checks`
