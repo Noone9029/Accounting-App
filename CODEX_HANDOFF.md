@@ -5322,3 +5322,16 @@
 ## Next Thread Prompt
 
 `DEV-12 Part 4: generated-document metadata list detail preflight`
+
+## DEV-12 Part 4 - Generated-Document Metadata List Detail Preflight Completed
+
+- DEV-12 Part 4 metadata list/detail preflight is recorded in [docs/development/DEV_12_GENERATED_DOCUMENT_METADATA_PREFLIGHT.md](docs/development/DEV_12_GENERATED_DOCUMENT_METADATA_PREFLIGHT.md).
+- Latest commit inspected: `d89ff0ea Verify DEV-12 generated document fixture`.
+- Scope: documentation and read-only code inspection/planning only; no runtime mutation, metadata query, download, body output, archive generation, fixture creation, storage migration, retention mutation, E2E, smoke, migration, seed/reset/delete, deploy, env change, production/beta/customer data, ZATCA, email, backup, or restore occurred.
+- Expected metadata/list/detail behavior: `GET /generated-documents` and `GET /generated-documents/:id` require `generatedDocuments.view`, use a metadata select that excludes `contentBase64`, support `documentType`, `sourceType`, `sourceId`, and `status` filters, and should expose only safe metadata for the DEV-12 fixture.
+- Download remains a separate `generatedDocuments.download` body-output gate and is deferred to Part 7/8.
+- Exact next prompt title: `DEV-12 Part 5: approved local generated-document metadata list detail checks`.
+
+## Next Thread Prompt
+
+`DEV-12 Part 5: approved local generated-document metadata list detail checks`
