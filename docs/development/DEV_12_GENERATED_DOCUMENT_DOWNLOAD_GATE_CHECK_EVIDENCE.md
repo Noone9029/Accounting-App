@@ -157,3 +157,7 @@ Generated-document bodies remain database/base64-backed. This evidence does not 
 ## 16. Recommended Next Thread
 
 `DEV-12 Part 9: generated-document download gate evidence verification`
+
+## 17. Part 9 Verification Note
+
+Part 9 read-only verification is recorded in [DEV_12_GENERATED_DOCUMENT_DOWNLOAD_GATE_EVIDENCE_VERIFICATION.md](DEV_12_GENERATED_DOCUMENT_DOWNLOAD_GATE_EVIDENCE_VERIFICATION.md). The verification confirmed the Part 8 hash/size/count evidence still matches current marker metadata, no new download was performed, and no body or secret output was found.

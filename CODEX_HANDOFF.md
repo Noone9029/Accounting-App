@@ -5392,6 +5392,19 @@
 - Temporary checker `apps/api/scripts/dev12-part8-download-check.temp.ts` was removed after the approved local check.
 - Exact next prompt title: `DEV-12 Part 9: generated-document download gate evidence verification`.
 
+## DEV-12 Part 9 - Generated-Document Download Gate Evidence Verification Completed
+
+- DEV-12 Part 9 generated-document download gate evidence verification is recorded in [docs/development/DEV_12_GENERATED_DOCUMENT_DOWNLOAD_GATE_EVIDENCE_VERIFICATION.md](docs/development/DEV_12_GENERATED_DOCUMENT_DOWNLOAD_GATE_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `aac198d3 Check DEV-12 generated document download gate`.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Mutation performed: no.
+- Output body printed: no.
+- New download performed: no.
+- Verification result: Part 8 hash/size/count evidence still matches current marker metadata. Marker generated documents remained `1`, generated-document audit logs remained `1`, marker pollution count was `0`, and the evidence scan found no long base64-like values or secret/auth/connection patterns.
+- Blockers/discrepancies: none found. Generated-document object storage, retention/legal hold, purge/cleanup, restore proof, malware scanning, hosted/beta/customer-data behavior, and production readiness remain unproven.
+- Temporary verifier `apps/api/scripts/dev12-part9-download-evidence-verify.temp.ts` was removed after the read-only check.
+- Exact next prompt title: `DEV-12 Part 10: storage readiness and migration dry-run preflight`.
+
 ## Next Thread Prompt
 
-`DEV-12 Part 9: generated-document download gate evidence verification`
+`DEV-12 Part 10: storage readiness and migration dry-run preflight`
