@@ -4717,3 +4717,22 @@
 ## Next Thread Prompt
 
 `DEV-09 Part 11: approved local bank reconciliation close void mutation`
+
+## DEV-09 Part 11 - Approved Local Bank Reconciliation Close Void Mutation Completed
+
+- DEV-09 Part 11 evidence is recorded in [docs/development/DEV_09_BANK_RECONCILIATION_CLOSE_VOID_MUTATION_EVIDENCE.md](docs/development/DEV_09_BANK_RECONCILIATION_CLOSE_VOID_MUTATION_EVIDENCE.md).
+- Latest commit inspected: `eefa37e2 Plan DEV-09 bank reconciliation close void`.
+- Exact Part 11 approval phrase was received and validated before mutation.
+- Local target remained `postgresql` on `localhost:5432/accounting`.
+- Runtime mutation performed: yes, exactly the approved local reconciliation create/submit/approve/close/void lifecycle against marker `DEV09-BANK-20260530T000000`.
+- Reconciliation `BR-000001` moved `DRAFT -> PENDING_APPROVAL -> APPROVED -> CLOSED -> VOIDED`; initial difference was `0.0000`, ledger closing balance `80.0000`, statement closing balance `80.0000`.
+- Close snapshotted three item statuses: `MATCHED`, `CATEGORIZED`, and `IGNORED`.
+- Marker count deltas: reconciliations `+1`, review events `+4`, reconciliation items `+3`, audit logs `+5`, journals `0`, statement imports/transactions `0`.
+- Mismatch blocker path was not selected for this batch.
+- No real bank data, production/beta/shared target, customer data, statement body, output/download/PDF, email, ZATCA, migration, seed/reset/delete, deploy, backup, or restore was used.
+- Temporary runner `apps/api/scripts/dev09-part11-reconciliation-close-void.temp.ts` was removed after the run.
+- Exact next prompt title: `DEV-09 Part 12: bank reconciliation close void evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-09 Part 12: bank reconciliation close void evidence verification`

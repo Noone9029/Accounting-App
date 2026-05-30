@@ -132,3 +132,9 @@ Skipped by design:
 ## Next Step
 
 Proceed to `DEV-09 Part 11: approved local bank reconciliation close void mutation`.
+
+## Part 11 Outcome Note
+
+Part 11 completed under exact approval using marker `DEV09-BANK-20260530T000000`. Evidence is recorded in [DEV_09_BANK_RECONCILIATION_CLOSE_VOID_MUTATION_EVIDENCE.md](DEV_09_BANK_RECONCILIATION_CLOSE_VOID_MUTATION_EVIDENCE.md).
+
+The approved local mutation created reconciliation `BR-000001`, moved it through `DRAFT -> PENDING_APPROVAL -> APPROVED -> CLOSED -> VOIDED`, snapshotted three close items, created four review events and five audit logs, and did not create journals or change statement transaction statuses.
