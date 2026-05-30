@@ -4604,3 +4604,17 @@
 ## Next Thread Prompt
 
 `DEV-09 Part 4: statement import parser preflight`
+
+## DEV-09 Part 4 - Statement Import Parser Preflight Completed
+
+- DEV-09 Part 4 preflight is recorded in [docs/development/DEV_09_STATEMENT_IMPORT_PARSER_PREFLIGHT.md](docs/development/DEV_09_STATEMENT_IMPORT_PARSER_PREFLIGHT.md).
+- Latest commit inspected: `ac297061 Verify DEV-09 banking reconciliation fixtures`.
+- Scope: read-only parser/import planning; no statement preview execution, persisted import, real bank file, customer data, match/categorize/ignore, reconciliation lifecycle mutation, E2E, smoke, migration, seed/reset/delete, deploy, env change, output/download/PDF, email, ZATCA, backup, restore, body, or secret output was run.
+- Parser support mapped: CSV, JSON, OFX, CAMT, MT940, unknown-format warning, invalid JSON warning, duplicate row detection, and closed-period/duplicate preview behavior.
+- Part 5 selected scope: inline synthetic parser checks plus preview no-persistence against the marker bank profile; no persisted import.
+- Exact Part 5 approval phrase status: received exactly from the user and must be re-validated before the local synthetic checks.
+- Exact next prompt title: `DEV-09 Part 5: approved local synthetic statement import parser checks`.
+
+## Next Thread Prompt
+
+`DEV-09 Part 5: approved local synthetic statement import parser checks`
