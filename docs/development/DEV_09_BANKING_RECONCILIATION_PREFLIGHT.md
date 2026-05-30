@@ -202,6 +202,12 @@ Use marker `DEV09-BANK-20260530T000000` and local-only DB target proof before an
 - Do not match, categorize, ignore, submit, approve, close, void, run E2E, or produce output in Part 2.
 - Record counts, safe prefixes, statuses, journal/audit counts, and temp-script cleanup only.
 
+## Part 2 Outcome Note
+
+Part 2 completed under exact approval using marker `DEV09-BANK-20260530T000000`. Evidence is recorded in [DEV_09_BANKING_RECONCILIATION_FIXTURE_MUTATION_EVIDENCE.md](DEV_09_BANKING_RECONCILIATION_FIXTURE_MUTATION_EVIDENCE.md).
+
+The local-only fixture mutation created one fake organization/user/role, two synthetic posting accounts, one fake active bank profile, one synthetic statement import, three unmatched synthetic statement transactions, and one posted synthetic journal entry for a future match candidate. It did not create reconciliations and did not run match/categorize/ignore or reconciliation workflows.
+
 ## Verification Plan
 
 Required for this part:
