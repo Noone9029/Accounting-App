@@ -113,3 +113,7 @@ Cleanup status:
 ## Next Step
 
 Proceed to `DEV-09 Part 9: bank transaction actions evidence verification`.
+
+## Part 9 Verification Note
+
+Part 9 read-only verification completed and matched the Part 8 transaction action evidence. Details are recorded in [DEV_09_BANK_TRANSACTION_ACTIONS_EVIDENCE_VERIFICATION.md](DEV_09_BANK_TRANSACTION_ACTIONS_EVIDENCE_VERIFICATION.md).

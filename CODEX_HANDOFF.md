@@ -4685,3 +4685,20 @@
 ## Next Thread Prompt
 
 `DEV-09 Part 9: bank transaction actions evidence verification`
+
+## DEV-09 Part 9 - Bank Transaction Actions Evidence Verification Completed
+
+- DEV-09 Part 9 verification is recorded in [docs/development/DEV_09_BANK_TRANSACTION_ACTIONS_EVIDENCE_VERIFICATION.md](docs/development/DEV_09_BANK_TRANSACTION_ACTIONS_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `7c5efc36 Check DEV-09 bank transaction actions`.
+- Scope: read-only transaction-action evidence verification; no statement import, transaction mutation, reconciliation mutation, E2E, smoke, migration, seed/reset/delete, deploy, env change, real bank file, customer data, output/download/PDF, email, ZATCA, backup, restore, body, or secret output was run.
+- Local target remained `postgresql` on `localhost:5432/accounting`.
+- Verified import status `RECONCILED`; rows are `MATCHED`, `CATEGORIZED`, and `IGNORED` as expected.
+- Verified marker counts: statement imports `1`, statement transactions `3`, audit logs `3`, journal entries `2`, journal lines `4`, reconciliations `0`, reconciliation items `0`.
+- Verified categorization journal `JE-000001` posted with `DEV09-6200` debit `20.0000` and `DEV09-1010` credit `20.0000`.
+- Verified audit actions: one matched, one categorized, and one ignored `BankStatementTransaction` audit log.
+- Temporary verifier `apps/api/scripts/dev09-part9-transaction-verification.temp.ts` was removed after the run.
+- Exact next prompt title: `DEV-09 Part 10: bank reconciliation close void preflight`.
+
+## Next Thread Prompt
+
+`DEV-09 Part 10: bank reconciliation close void preflight`
