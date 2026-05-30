@@ -3191,3 +3191,12 @@ Recommended next step:
 - Readiness docs now state that AP local evidence is strong for the DEV-08 scope but not production-complete.
 - Remaining AP production gaps include linked PO-to-bill receipt reconciliation, valuation variance booking, landed cost, purchase returns, serial/batch/bin/location behavior, real provider AP email delivery/retry/webhook/domain policy, duplicate-output UX/product policy, cleanup execution policy, broad AP E2E/smoke/full-test coverage, production/beta/customer-data behavior, and real ZATCA behavior if AP documents ever intersect ZATCA.
 - No app code, runtime mutation, tests beyond diff checks, deploy, production/beta/customer data, real email, real ZATCA, migration, seed/reset/delete, or environment/provider setting changed.
+
+# DEV-09 banking/reconciliation local evidence closure - 2026-05-30
+
+- DEV-09 consolidated local-only banking/reconciliation evidence in `docs/development/DEV_09_BANKING_RECONCILIATION_CLOSURE.md`.
+- The local evidence covers marker-scoped synthetic bank fixtures, parser/preview checks for CSV/JSON/OFX/CAMT/MT940 shapes, match/categorize/ignore actions, and reconciliation `DRAFT -> PENDING_APPROVAL -> APPROVED -> CLOSED -> VOIDED`.
+- Final marker verification counted statement imports `1`, statement transactions `3`, reconciliations `1`, review events `4`, reconciliation items `3`, audit logs `8`, journal entries `2`, and journal lines `4`.
+- Readiness docs now state that banking/reconciliation local evidence is useful for the DEV-09 scope but not production-complete.
+- Remaining banking production gaps include live bank feeds/external bank APIs, automatic matching, certified target-bank parser coverage, raw statement archive operations, strict approval queue policy, transfer fees, FX handling, broad E2E/smoke/full-test coverage, production/beta/customer-data behavior, and accountant review.
+- No app code, runtime mutation in the closure step, deploy, production/beta/customer data, real bank file, real email, real ZATCA, migration, seed/reset/delete, backup/restore, full smoke, full E2E, or environment/provider setting changed.

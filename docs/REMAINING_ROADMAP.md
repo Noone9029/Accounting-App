@@ -16,7 +16,7 @@ For the updated Product Audit v2 planning artifacts, see:
 
 ## Current Stage
 
-LedgerByte is at the controlled beta/user-testing stage. The current Vercel deployment is beta/user-testing only and must not be treated as final production hosting. LedgerByte is not production-launched, real ZATCA production compliance is not enabled, and paid production SaaS v1 requires the production foundation work documented under `docs/production/`. The production ticket backlog, ADR index, and first 10 production tickets are planning artifacts only; no production implementation has been performed. DEV-08 local AP evidence is strong and closed for its local-only scope, but AP is not production-complete.
+LedgerByte is at the controlled beta/user-testing stage. The current Vercel deployment is beta/user-testing only and must not be treated as final production hosting. LedgerByte is not production-launched, real ZATCA production compliance is not enabled, and paid production SaaS v1 requires the production foundation work documented under `docs/production/`. The production ticket backlog, ADR index, and first 10 production tickets are planning artifacts only; no production implementation has been performed. DEV-08 local AP evidence is strong and closed for its local-only scope, but AP is not production-complete. DEV-09 local banking/reconciliation evidence is also closed for its local-only scope, but banking remains unproven for production, beta, customer data, live bank feeds, automatic matching, certified parser coverage, and broad E2E/smoke/full-test coverage.
 
 ## Phase 0: Production Foundation For Paid Saudi-First SaaS v1
 
@@ -189,7 +189,7 @@ Tasks:
 - Purchase receiving QA, partial bill matching, and purchase matching hardening.
 - Convert the DEV-08Z AP production-gap register into scoped tickets for linked PO-to-bill receipt reconciliation, valuation variance booking, landed cost, purchase returns, real provider AP email delivery, and broad AP E2E/smoke coverage.
 - Cash expense import/OCR groundwork and production hardening for uploaded receipt attachments after the S3 adapter is validated against a real non-production bucket.
-- Bank statement parser fixture expansion with real sanitized target-bank exports using the compatibility matrix and sample guide, optional raw-file archive implementation using the storage readiness groundwork and approved policy, and approval queue polish.
+- Convert the DEV-09 banking/reconciliation production gaps into scoped tickets for real sanitized target-bank parser fixtures, optional raw-file archive implementation using the approved policy, approval queue polish, transfer-fee/FX handling, hosted/beta/customer-data proof, and broad banking E2E/smoke coverage.
 - Transfer fees and multi-currency FX transfer handling.
 - Inventory adjustment/transfer UX polish and approval queue hardening.
 - Official VAT return report.
@@ -213,6 +213,13 @@ Recommended next prompt:
 - The local evidence covers AP state machines, AP-adjacent receipt/inventory paths, AP output/archive/download, AP output permissions, generated-document mock email outbox behavior, fiscal/permission blockers, and cleanup/retention posture.
 - Remaining AP roadmap work is now tracked through `docs/development/DEV_08Z_AP_PRODUCTION_GAP_REGISTER.md`.
 - Do not claim production AP readiness until purchase matching, valuation variance, landed cost, purchase returns, real provider AP email, broad E2E/smoke/full-test coverage, hosted/beta behavior, and customer-data behavior are separately proven.
+
+## 2026-05-30 DEV-09 Banking/Reconciliation Readiness Update
+
+- DEV-09 is closed as local-only banking/reconciliation evidence, not production evidence.
+- The local evidence covers marker-scoped synthetic banking fixtures, parser/preview checks, match/categorize/ignore actions, and reconciliation create/submit/approve/close/void.
+- Remaining banking roadmap work is tracked through `docs/development/DEV_09_BANKING_RECONCILIATION_CLOSURE.md`.
+- Do not claim production banking readiness until live bank/feed policy, real sanitized target-bank parser coverage, raw-file archive operations, approval queue policy, transfer fees, FX handling, broad E2E/smoke/full-test coverage, hosted/beta behavior, customer-data behavior, and accountant review are separately proven.
 
 ## Phase 3: Inventory And Payroll Basics
 
