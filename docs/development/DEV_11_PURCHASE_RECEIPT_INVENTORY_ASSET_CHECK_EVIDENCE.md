@@ -224,3 +224,7 @@ Temporary runner `apps/api/scripts/dev11-part8-receipt-asset-check.temp.ts` was 
 ## 19. Recommended Next Thread
 
 `DEV-11 Part 9: purchase receipt inventory asset evidence verification`
+
+## 20. Verification Note
+
+Part 9 read-only verification is recorded in [docs/development/DEV_11_PURCHASE_RECEIPT_INVENTORY_ASSET_EVIDENCE_VERIFICATION.md](docs/development/DEV_11_PURCHASE_RECEIPT_INVENTORY_ASSET_EVIDENCE_VERIFICATION.md). It verified the receipt asset source/reversal journals, final counts, zero generated-document count, persisted audit actions `PURCHASE_RECEIPT_ASSET_POSTED` and `PURCHASE_RECEIPT_ASSET_REVERSED`, and no discrepancies.

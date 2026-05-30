@@ -5117,3 +5117,22 @@
 ## Next Thread Prompt
 
 `DEV-11 Part 9: purchase receipt inventory asset evidence verification`
+
+## DEV-11 Part 9 - Purchase Receipt Inventory Asset Evidence Verification Completed
+
+- DEV-11 Part 9 verification is recorded in [docs/development/DEV_11_PURCHASE_RECEIPT_INVENTORY_ASSET_EVIDENCE_VERIFICATION.md](docs/development/DEV_11_PURCHASE_RECEIPT_INVENTORY_ASSET_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `faa87d58 Check DEV-11 purchase receipt inventory asset`.
+- Mutation performed: no; Part 9 was read-only verification only.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only.
+- Verification result: passed with no discrepancies or blockers.
+- Receipt asset state verified: marker purchase receipt `DEV11-INV-PRC-0001` remains `POSTED`, has linked asset source journal `f85f869e`, linked reversal journal `e3c196d7`, populated posted/reversed fields, and was not voided.
+- Journal verification result: source asset journal is `REVERSED` with Dr Inventory Asset `DEV11-1200` `100.0000` / Cr Inventory Clearing `240` `100.0000`; reversal journal is `POSTED` with opposite lines and points back to the source.
+- Financial verification result: source plus reversal net Inventory Asset `0.0000`, net Inventory Clearing `0.0000`, trial-balance totals debit `200.0000` and credit `200.0000`.
+- Baselines verified: journal entries `5`, journal lines `10`, stock movements `3`, generated documents `0`, audit logs `4`.
+- Audit actions verified using action-name-only reads: `PURCHASE_RECEIPT_ASSET_POSTED` `1`, `PURCHASE_RECEIPT_ASSET_REVERSED` `1`.
+- Temporary verifier `apps/api/scripts/dev11-part9-receipt-asset-verify.temp.ts` was removed after the check.
+- Exact next prompt title: `DEV-11 Part 10: clearing variance proposal preflight`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 10: clearing variance proposal preflight`
