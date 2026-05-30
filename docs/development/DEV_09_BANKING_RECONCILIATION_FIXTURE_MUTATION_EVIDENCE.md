@@ -118,3 +118,7 @@ Cleanup status:
 ## Next Step
 
 Proceed to `DEV-09 Part 3: banking reconciliation fixture evidence verification`.
+
+## Part 3 Verification Note
+
+Part 3 read-only verification completed and matched the Part 2 evidence counts. Details are recorded in [DEV_09_BANKING_RECONCILIATION_FIXTURE_EVIDENCE_VERIFICATION.md](DEV_09_BANKING_RECONCILIATION_FIXTURE_EVIDENCE_VERIFICATION.md).

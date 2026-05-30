@@ -4588,3 +4588,19 @@
 ## Next Thread Prompt
 
 `DEV-09 Part 3: banking reconciliation fixture evidence verification`
+
+## DEV-09 Part 3 - Banking Reconciliation Fixture Evidence Verification Completed
+
+- DEV-09 Part 3 verification is recorded in [docs/development/DEV_09_BANKING_RECONCILIATION_FIXTURE_EVIDENCE_VERIFICATION.md](docs/development/DEV_09_BANKING_RECONCILIATION_FIXTURE_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `089072e3 Create DEV-09 banking reconciliation fixtures`.
+- Scope: read-only verification; no statement preview/import execution, match, categorize, ignore, reconciliation lifecycle mutation, E2E, smoke, migration, seed/reset/delete, deploy, env change, production/beta/customer data, real bank file, output/download/PDF, email, ZATCA, backup, restore, body, or secret output was run.
+- Local target remained `postgresql` on `localhost:5432/accounting`.
+- Verified marker counts matched Part 2: accounts `2`, bank profile `1`, statement import `1`, statement transactions `3`, reconciliations `0`, reconciliation items `0`, journal entry `1`, journal lines `2`, audit logs `0`.
+- Verified bank profile is active and fake-masked-only; all three statement transactions remain `UNMATCHED` and untouched.
+- Verified posted match-candidate journal `DEV09-BANK-20260530T000000-JE-000001` exists with two lines.
+- Temporary verifier `apps/api/scripts/dev09-part3-fixture-verification.temp.ts` was removed after the run.
+- Exact next prompt title: `DEV-09 Part 4: statement import parser preflight`.
+
+## Next Thread Prompt
+
+`DEV-09 Part 4: statement import parser preflight`
