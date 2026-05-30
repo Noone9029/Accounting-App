@@ -113,3 +113,9 @@ Cleanup status:
 ## Next Step
 
 Proceed to `DEV-09 Part 12: bank reconciliation close void evidence verification`.
+
+## Part 12 Verification Note
+
+Part 12 completed as read-only verification. Evidence is recorded in [DEV_09_BANK_RECONCILIATION_CLOSE_VOID_EVIDENCE_VERIFICATION.md](DEV_09_BANK_RECONCILIATION_CLOSE_VOID_EVIDENCE_VERIFICATION.md).
+
+The verifier confirmed reconciliation `BR-000001` remains `VOIDED`, the review-event sequence is `SUBMIT -> APPROVE -> CLOSE -> VOID`, the linked statement rows remain `MATCHED`, `CATEGORIZED`, and `IGNORED`, marker counts still match Part 11, and no temporary DEV-09 scripts remain.

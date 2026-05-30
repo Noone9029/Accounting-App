@@ -4736,3 +4736,19 @@
 ## Next Thread Prompt
 
 `DEV-09 Part 12: bank reconciliation close void evidence verification`
+
+## DEV-09 Part 12 - Bank Reconciliation Close Void Evidence Verification Completed
+
+- DEV-09 Part 12 verification is recorded in [docs/development/DEV_09_BANK_RECONCILIATION_CLOSE_VOID_EVIDENCE_VERIFICATION.md](docs/development/DEV_09_BANK_RECONCILIATION_CLOSE_VOID_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `03afae38 Check DEV-09 bank reconciliation close void`.
+- Scope: read-only reconciliation close/void evidence verification; no reconciliation mutation, statement import, transaction mutation, journal mutation, E2E, smoke, migration, seed/reset/delete, deploy, env change, real bank file, customer data, output/download/PDF, email, ZATCA, backup, restore, body, or secret output was run.
+- Local target remained `postgresql` on `localhost:5432/accounting`.
+- Verified reconciliation `BR-000001` final status `VOIDED`, zero difference, and review transitions `SUBMIT`, `APPROVE`, `CLOSE`, `VOID`.
+- Verified linked row statuses and close snapshots remain `MATCHED`, `CATEGORIZED`, and `IGNORED`.
+- Verified marker counts: statement imports `1`, statement transactions `3`, reconciliations `1`, review events `4`, reconciliation items `3`, audit logs `8`, journal entries `2`, journal lines `4`.
+- Temporary verifier `apps/api/scripts/dev09-part12-reconciliation-verification.temp.ts` was removed after the run, and no `*dev09*` temp scripts remain under `apps/api/scripts`.
+- Exact next prompt title: `DEV-09 Part 13: banking E2E readiness and production-gap closure`.
+
+## Next Thread Prompt
+
+`DEV-09 Part 13: banking E2E readiness and production-gap closure`
