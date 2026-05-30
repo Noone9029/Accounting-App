@@ -119,3 +119,7 @@ DEV-10 Part 4 completed on 2026-05-30 and is recorded in [DEV_10_CORE_REPORT_JSO
 ## Part 7 Aging And VAT Return Preflight Note
 
 DEV-10 Part 7 completed on 2026-05-30 and is recorded in [DEV_10_AGING_VAT_RETURN_PREFLIGHT.md](DEV_10_AGING_VAT_RETURN_PREFLIGHT.md). The planned Part 8 JSON checks cover Aged Receivables, Aged Payables, and VAT Return against the verified marker fixture. The plan uses `asOf=2026-05-30` for aging, `from=2026-05-01` and `to=2026-05-31` for VAT Return, and excludes CSV, PDF, archive, download, full payload body output, production/beta targets, and customer data.
+
+## Part 10 Output Gate Preflight Note
+
+DEV-10 Part 10 completed on 2026-05-30 and is recorded in [DEV_10_REPORT_OUTPUT_GATE_PREFLIGHT.md](DEV_10_REPORT_OUTPUT_GATE_PREFLIGHT.md). The planned Part 11 checks cover CSV metadata, PDF/archive metadata, generated-document list/detail/download metadata, and token-free permission simulation. The plan treats PDF generation as an approved local archive mutation, expects CSV to create no archive row, and forbids CSV/PDF/base64/body output.

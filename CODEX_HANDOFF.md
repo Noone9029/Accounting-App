@@ -4900,3 +4900,16 @@
 ## Next Thread Prompt
 
 `DEV-10 Part 10: report output, CSV, PDF, archive, and permission gate preflight`
+
+## DEV-10 Part 10 - Report Output Gate Preflight Completed
+
+- DEV-10 Part 10 preflight is recorded in [docs/development/DEV_10_REPORT_OUTPUT_GATE_PREFLIGHT.md](docs/development/DEV_10_REPORT_OUTPUT_GATE_PREFLIGHT.md).
+- Latest commit inspected: `486fdd1f Verify DEV-10 aging VAT evidence`.
+- Scope: planning-only for report CSV/PDF/archive/download and permission gates; no runtime output generation, CSV call, PDF call, generated-document archive/download, login, fixture mutation, E2E, smoke, migration, seed/reset/delete, deploy, env change, ZATCA, email, backup, restore, production/beta target, customer data, body output, or secret output was used.
+- Output paths planned: `coreReportCsvFile`, `coreReportPdf`, generated-document list/detail/download metadata, and permission simulation for report export/download.
+- Permission matrix summarized: export/download positive path, restricted `reports.view`-only negative path for CSV/PDF, and generated-document view-only negative path for download.
+- Exact next prompt title: `DEV-10 Part 11: approved local report output/archive/download gate checks`.
+
+## Next Thread Prompt
+
+`DEV-10 Part 11: approved local report output/archive/download gate checks`
