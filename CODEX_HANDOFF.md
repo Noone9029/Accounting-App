@@ -5376,6 +5376,22 @@
 - Blockers/discrepancies: none found in preflight. Generated-document storage remains database/base64-backed and not object-storage-ready.
 - Exact next prompt title: `DEV-12 Part 8: approved local generated-document download gate checks`.
 
+## DEV-12 Part 8 - Generated-Document Download Gate Checks Completed
+
+- DEV-12 Part 8 generated-document download gate checks are recorded in [docs/development/DEV_12_GENERATED_DOCUMENT_DOWNLOAD_GATE_CHECK_EVIDENCE.md](docs/development/DEV_12_GENERATED_DOCUMENT_DOWNLOAD_GATE_CHECK_EVIDENCE.md).
+- Latest commit inspected: `6b822ff0 Preflight DEV-12 generated document download gate`.
+- Exact Part 8 approval phrase was received and validated before the local marker download check.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Runtime mutation performed: no, except the approved local download read.
+- Download performed: yes, local-only metadata/hash only for the marker synthetic generated document.
+- Output body printed: no.
+- Download result: filename `DEV12-DOC-trial-balance.pdf`, MIME type `application/pdf`, size `129`, downloaded SHA-256 `29bb1b32935c488bc28a21d53133b1384f9b0cd5e40d31956794e728de213f5f`, matching stored metadata.
+- Count stability: marker generated documents remained `1`; generated-document audit logs remained `1`; archive delta `0`; audit delta `0`.
+- Missing id behavior returned `NotFoundException` without body output. Permission checks allowed `generatedDocuments.download` and `admin.fullAccess`, and rejected view-only/source-view-only permissions.
+- Blockers/discrepancies: none found. Generated-document bodies remain database/base64-backed and not object-storage-ready.
+- Temporary checker `apps/api/scripts/dev12-part8-download-check.temp.ts` was removed after the approved local check.
+- Exact next prompt title: `DEV-12 Part 9: generated-document download gate evidence verification`.
+
 ## Next Thread Prompt
 
-`DEV-12 Part 8: approved local generated-document download gate checks`
+`DEV-12 Part 9: generated-document download gate evidence verification`
