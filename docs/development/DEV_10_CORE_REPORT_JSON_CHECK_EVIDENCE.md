@@ -66,3 +66,7 @@ No discrepancies or blockers were found. All selected core report JSON checks pa
 ## Recommended Next Step
 
 Continue with `DEV-10 Part 6: core financial report JSON evidence verification`.
+
+## Part 6 Verification Note
+
+DEV-10 Part 6 completed on 2026-05-30 and is recorded in [DEV_10_CORE_REPORT_JSON_EVIDENCE_VERIFICATION.md](DEV_10_CORE_REPORT_JSON_EVIDENCE_VERIFICATION.md). The read-only evidence review confirmed that Part 5 totals match the Part 2 fixture math, trial balance and balance sheet are balanced, P&L/VAT/dashboard values are internally consistent, generated-document delta stayed `0`, no output generation occurred, no full payload bodies or secrets were present, and no Part 5 temp script remains. No discrepancies or blockers were found.

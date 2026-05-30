@@ -4844,3 +4844,16 @@
 ## Next Thread Prompt
 
 `DEV-10 Part 6: core financial report JSON evidence verification`
+
+## DEV-10 Part 6 - Core Financial Report JSON Evidence Verification Completed
+
+- DEV-10 Part 6 verification is recorded in [docs/development/DEV_10_CORE_REPORT_JSON_EVIDENCE_VERIFICATION.md](docs/development/DEV_10_CORE_REPORT_JSON_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `654ce43c Check DEV-10 core report JSON`.
+- Core report JSON evidence status: passed with no discrepancies or blockers.
+- Reports verified: General Ledger, Trial Balance, Profit and Loss, Balance Sheet, VAT Summary, and Dashboard Summary.
+- Verified that generated-document delta stayed `0`, no CSV/PDF/archive/download output was generated, no full payload bodies or secrets were present, and no Part 5 temp script remains.
+- Exact next prompt title: `DEV-10 Part 7: aging and VAT return report preflight`.
+
+## Next Thread Prompt
+
+`DEV-10 Part 7: aging and VAT return report preflight`
