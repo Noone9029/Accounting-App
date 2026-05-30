@@ -14,6 +14,7 @@ This is an original implementation inspired by common accounting workflows. It d
 - DEV-09 local banking/reconciliation evidence is closed for its local-only scope, but banking is not production-complete and remains unproven for live bank feeds, automatic matching, certified bank-specific parser coverage, raw statement archive operations, production/beta/customer data, broad E2E/smoke/full-test coverage, and accountant sign-off.
 - DEV-10 local reports/financial statements evidence is closed for its local-only scope, but reporting is not production-complete and remains unproven for accountant-certified definitions, official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, production/beta/customer data, broad E2E/smoke/full-test coverage, and load/concurrency.
 - DEV-11 is closed as local-only inventory valuation and COGS evidence, but inventory accounting is not production-complete. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
+- DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - ADR-001 for final production hosting is drafted/proposed only; implementation has not started, no provider is provisioned, and no production deploy was performed.
 - ADR-013 for API hosting is drafted/proposed only; it recommends AWS ECS Fargate for the paid SaaS v1 API with separate API and worker services, but ECS/Fargate is not configured, worker hosting is not configured, no production API deploy was performed, and no env vars, database, Redis, storage, ZATCA, email, accounting logic, or customer data changed.
 - Real ZATCA production compliance is not enabled. CSID execution, signing, clearance/reporting, PDF/A-3, real network submission, and production compliance certification remain blocked.
@@ -1595,6 +1596,8 @@ Only the `standard` renderer is implemented today. `compact` and `detailed` are 
 
 Generated PDF downloads are archived automatically in the database through `GeneratedDocument`, including report PDFs and bank reconciliation report PDFs. Archive list/detail endpoints exclude the base64 payload; `/generated-documents/:id/download` streams the archived PDF. Local base64 storage is intentionally temporary and should move to S3-compatible storage before production scale.
 
+DEV-12 closed local-only generated-document storage retention evidence for marker `DEV12-DOC-20260530T000000`: a synthetic DB-backed generated document was created, metadata list/detail/filter checks excluded body fields, one approved local download matched stored size/hash without body output, storage readiness/migration dry-run checks stayed count-only, and retention/legal-hold cleanup gaps were documented. The closure is recorded in `docs/development/DEV_12_GENERATED_DOCUMENTS_STORAGE_RETENTION_CLOSURE.md`.
+
 ## Uploaded Attachments
 
 LedgerByte has reusable uploaded attachment groundwork for supporting documents on accounting and operational records. Generated PDFs remain in `GeneratedDocument`; uploaded files are stored separately as `Attachment` records and are managed from the source record detail pages.
@@ -1629,6 +1632,7 @@ Known limitations:
 - Generated documents still use database/base64 storage.
 - No OCR, receipt scanning, file parsing, or virus scanning exists yet.
 - No drag/drop polish, retention/lifecycle policy, email attachment sending, or ZATCA attachment submission exists yet.
+- DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
 ## Email Delivery, Invitations, And Password Reset
 

@@ -5455,6 +5455,19 @@
 - Recommended policy posture: preserve generated documents by default until a future dry-run-first, marker/tenant-scoped, approval-gated cleanup executor exists and legal/accounting retention rules are approved.
 - Exact next prompt title: `DEV-12 Part 14: generated documents storage retention closure`.
 
+## DEV-12 Part 14 - Generated Documents Storage Retention Closure Completed
+
+- DEV-12 Part 14 closure completed.
+- Closure doc: [docs/development/DEV_12_GENERATED_DOCUMENTS_STORAGE_RETENTION_CLOSURE.md](docs/development/DEV_12_GENERATED_DOCUMENTS_STORAGE_RETENTION_CLOSURE.md).
+- Latest commit inspected: `151c3f37 Preflight DEV-12 retention cleanup policy`.
+- Marker: `DEV12-DOC-20260530T000000`.
+- Evidence summary: DEV-12 created and verified one synthetic DB-backed generated document; confirmed metadata list/detail/filter output excludes bodies; confirmed one approved local download metadata/hash check without body output; confirmed storage readiness and migration dry-run checks are count-only; and documented retention/legal-hold cleanup policy gaps.
+- Fixture summary: generated document count `1`, generated-document audit-log count `1`, attachments `0`, backup/restore evidence rows `0`, storage provider `database`, storage key `null`, size `129`, SHA-256 `29bb1b32935c488bc28a21d53133b1384f9b0cd5e40d31956794e728de213f5f`.
+- Production gaps: object storage for generated documents, database/base64 migration, signed URLs, lifecycle policy, legal hold, tax/accounting retention approval, customer-data deletion/retention conflict, malware scanning, restore proof, backup proof, generated-document purge executor, versioning/supersede policy, PDF/A-3/ZATCA artifact boundaries, hosted/beta/customer-data proof, broad E2E/smoke/full-test, load/concurrency for large PDFs, and accountant/legal review.
+- DEV-12 is closed as local-only generated documents storage retention evidence.
+- DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
+- Exact next prompt title: `DEV-13 Part 1: role permission matrix production-gap and E2E readiness preflight`.
+
 ## Next Thread Prompt
 
-`DEV-12 Part 14: generated documents storage retention closure`
+`DEV-13 Part 1: role permission matrix production-gap and E2E readiness preflight`

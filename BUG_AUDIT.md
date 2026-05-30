@@ -3225,3 +3225,13 @@ Recommended next step:
 - Readiness docs now state that reports local evidence is useful for the DEV-10 scope but not production-complete.
 - Remaining reporting production gaps include accountant-reviewed report definitions/layouts, official VAT filing scope, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, inventory valuation/FIFO/landed-cost reporting, generated-document object-storage retention, restricted-role matrix coverage, broad E2E/smoke/full-test coverage, production/beta/customer-data behavior, and load/concurrency.
 - No app code, runtime mutation in the closure step, new report query, new CSV/PDF/archive/download generation, deploy, production/beta/customer data, real email, real ZATCA, migration, seed/reset/delete, backup/restore, full smoke, full E2E, or environment/provider setting changed.
+
+# DEV-12 generated documents storage retention closure - 2026-05-30
+
+- DEV-12 consolidated local-only generated documents storage retention evidence in `docs/development/DEV_12_GENERATED_DOCUMENTS_STORAGE_RETENTION_CLOSURE.md`.
+- The local evidence covers marker `DEV12-DOC-20260530T000000`, one synthetic DB-backed generated document, safe metadata list/detail/filter checks, one approved local download metadata/hash check, storage readiness and migration dry-run counts, and retention/legal-hold cleanup policy preflight.
+- Final marker evidence recorded one generated document, one generated-document audit-log row, storage provider `database`, storage key `null`, size `129`, matching SHA-256 metadata, attachment count `0`, backup/restore evidence count `0`, and no migration/upload/delete/purge/restore execution.
+- DEV-12 is closed as local-only generated documents storage retention evidence.
+- DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
+- Remaining generated-document production gaps include object storage, database/base64 migration, signed URLs, lifecycle policy, legal hold, tax/accounting retention approval, customer-data deletion/retention conflict handling, malware scanning, restore proof, backup proof, purge executor, versioning/supersede policy, PDF/A-3/ZATCA artifact boundaries, hosted/beta/customer-data proof, broad E2E/smoke/full-test coverage, load/concurrency for large PDFs, and accountant/legal review.
+- No app code, runtime mutation in the closure step, new download, PDF/base64/body output, deploy, production/beta/customer data, external object storage, migration, seed/reset/delete, backup/restore, full smoke, full E2E, or environment/provider setting changed.
