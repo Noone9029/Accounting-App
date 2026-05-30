@@ -5154,3 +5154,25 @@
 ## Next Thread Prompt
 
 `DEV-11 Part 11: approved local clearing variance proposal posting checks`
+
+## DEV-11 Part 11 - Approved Local Clearing Variance Proposal Checks Completed
+
+- DEV-11 Part 11 evidence is recorded in [docs/development/DEV_11_CLEARING_VARIANCE_PROPOSAL_CHECK_EVIDENCE.md](docs/development/DEV_11_CLEARING_VARIANCE_PROPOSAL_CHECK_EVIDENCE.md).
+- Latest commit inspected before mutation: `7e00d22d Preflight DEV-11 clearing variance proposal`.
+- Exact Part 11 approval phrase was received and validated before mutation.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Mutation performed: yes, local-only and marker-scoped.
+- Marker proposal safe ID: `141aa064`; source variance journal safe ID `267366ad`; reversal journal safe ID `1270a557`.
+- Clearing read result: status `BILL_WITHOUT_RECEIPT_POSTING`, bill clearing debit `90.0000`, active receipt clearing credit `0.0000`, net clearing difference `90.0000`, and first matching variance amount `90.0000`.
+- Proposal lifecycle result: `DRAFT -> PENDING_APPROVAL -> APPROVED -> POSTED -> REVERSED`.
+- Post journal result: Dr Inventory Adjustment Loss `DEV11-5100` `90.0000` / Cr Inventory Clearing `240` `90.0000`.
+- Reversal journal result: Dr Inventory Clearing `240` `90.0000` / Cr Inventory Adjustment Loss `DEV11-5100` `90.0000`; source variance journal marked `REVERSED`.
+- Journal deltas from pre-Part-11 baseline to final: journal entries `+2`, journal lines `+4`, variance proposals `+1`, proposal events `+5`, audit logs `+5`, stock movements `0`, generated documents `0`.
+- Final financial impact from variance post plus reversal: Inventory Adjustment Loss net `0.0000`, Inventory Clearing net `0.0000`, source plus reversal trial-balance totals debit `180.0000` and credit `180.0000`.
+- Duplicate post was blocked; reversed-proposal void was blocked. The temporary runner first stopped on an order-sensitive reversal-line assertion after the approved lifecycle had completed, then resumed from the existing marker proposal and verified final state without creating a duplicate.
+- Temporary runner `apps/api/scripts/dev11-part11-variance-proposal-check.temp.ts` was removed after the check.
+- Exact next prompt title: `DEV-11 Part 12: clearing variance proposal evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 12: clearing variance proposal evidence verification`
