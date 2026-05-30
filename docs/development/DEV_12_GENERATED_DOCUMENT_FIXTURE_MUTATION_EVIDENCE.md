@@ -158,3 +158,7 @@ Generated documents by type/status/storage provider after mutation:
 ## 16. Recommended Next Thread
 
 `DEV-12 Part 3: generated-document fixture evidence verification`
+
+## Part 3 Verification Note
+
+Part 3 read-only verification is recorded in [DEV_12_GENERATED_DOCUMENT_FIXTURE_EVIDENCE_VERIFICATION.md](DEV_12_GENERATED_DOCUMENT_FIXTURE_EVIDENCE_VERIFICATION.md). It confirmed the marker fixture, database storage provider, hash/size metadata, audit baseline, and no-body/no-secret posture with no runtime mutation or download.

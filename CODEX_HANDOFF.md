@@ -5305,3 +5305,20 @@
 ## Next Thread Prompt
 
 `DEV-12 Part 3: generated-document fixture evidence verification`
+
+## DEV-12 Part 3 - Generated-Document Fixture Evidence Verification Completed
+
+- DEV-12 Part 3 fixture evidence verification is recorded in [docs/development/DEV_12_GENERATED_DOCUMENT_FIXTURE_EVIDENCE_VERIFICATION.md](docs/development/DEV_12_GENERATED_DOCUMENT_FIXTURE_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `87644b30 Create DEV-12 generated document fixture`.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Runtime mutation/download/output occurred: no.
+- Fixture readiness result: passed with no discrepancies or blockers.
+- Marker verified: organizations `1`, users `1`, generated documents `1`, generated-document audit logs `1`, `contentBase64` presence count `1`, external storage rows `0`, marker pollution rows `0`.
+- Generated-document metadata verified: safe ID prefix `663e5c68`, type `REPORT_TRIAL_BALANCE`, source type `AccountingReport`, document number `DEV12-DOC-TB-0001`, filename `DEV12-DOC-trial-balance.pdf`, storage provider `database`, storage key `null`, status `GENERATED`, hash prefix `29bb1b32935c488b`, size `129`.
+- `contentBase64` value and PDF bytes were not selected or printed; no generated-document download was performed.
+- Temporary verifier `apps/api/scripts/dev12-part3-verify.temp.ts` was removed after the read-only check.
+- Exact next prompt title: `DEV-12 Part 4: generated-document metadata list detail preflight`.
+
+## Next Thread Prompt
+
+`DEV-12 Part 4: generated-document metadata list detail preflight`
