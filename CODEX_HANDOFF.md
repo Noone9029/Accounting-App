@@ -5032,3 +5032,26 @@
 ## Next Thread Prompt
 
 `DEV-11 Part 5: approved local sales stock issue COGS posting checks`
+
+## DEV-11 Part 5 - Approved Local Sales Stock Issue COGS Checks Completed
+
+- DEV-11 Part 5 evidence is recorded in [docs/development/DEV_11_SALES_STOCK_ISSUE_COGS_CHECK_EVIDENCE.md](docs/development/DEV_11_SALES_STOCK_ISSUE_COGS_CHECK_EVIDENCE.md).
+- Latest commit inspected before mutation: `10b3503d Preflight DEV-11 sales stock issue COGS`.
+- Exact Part 5 approval phrase was received and validated before mutation.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Mutation performed: yes, local-only and marker-scoped.
+- Marker issue: `DEV11-INV-SSI-0001`, safe ID `c3d25519`.
+- COGS preview result: `POSTABLE`, `canPost=true`, blockers `0`, total debit/credit `50.0000`.
+- COGS post result: one posted COGS journal created, safe ID `8459b09e`, Dr COGS `DEV11-5000` `50.0000` / Cr Inventory Asset `DEV11-1200` `50.0000`.
+- Duplicate COGS post was blocked with no count delta.
+- Active-COGS void was blocked with no count or issue-state delta.
+- COGS reversal result: source COGS journal `8459b09e` marked `REVERSED`, reversal journal `8b8c57c5` created and linked, final preview status `REVERSED`.
+- Journal deltas from pre-check to final: journal entries `+2`, journal lines `+4`, audit logs `+2`, stock movements `0`, generated documents `0`.
+- Final financial impact from COGS post plus reversal: COGS net `0.0000`, Inventory Asset net `0.0000`, source plus reversal trial-balance totals debit `100.0000` and credit `100.0000`.
+- Blockers/discrepancies: none found.
+- Temporary runner `apps/api/scripts/dev11-part5-cogs-check.temp.ts` was removed after the check.
+- Exact next prompt title: `DEV-11 Part 6: sales stock issue COGS evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 6: sales stock issue COGS evidence verification`
