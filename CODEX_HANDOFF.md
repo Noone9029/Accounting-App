@@ -5195,3 +5195,20 @@
 ## Next Thread Prompt
 
 `DEV-11 Part 13: inventory valuation reports and financial statement impact preflight`
+
+## DEV-11 Part 13 - Inventory Valuation Reports And Financial Impact Preflight Completed
+
+- DEV-11 Part 13 preflight is recorded in [docs/development/DEV_11_INVENTORY_VALUATION_REPORTS_FINANCIAL_IMPACT_PREFLIGHT.md](docs/development/DEV_11_INVENTORY_VALUATION_REPORTS_FINANCIAL_IMPACT_PREFLIGHT.md).
+- Latest commit inspected: `f9cfd315 Verify DEV-11 clearing variance proposal evidence`.
+- Scope: read-only planning and code inspection only; no runtime report query, output generation, mutation, posting, reversal, fixture creation, CSV/PDF/download/archive generation, E2E, smoke, migration, seed/reset/delete, deploy, environment change, production/beta target, customer data, body output, or secret output was used.
+- Runtime report queries/output/mutation occurred: no.
+- Expected operational inventory report impact: stock valuation should show quantity `25.0000`, moving-average unit cost `10.0000`, estimated value `250.0000`, and movement summary should show inbound `30.0000`, outbound `5.0000`, closing `25.0000`, movement count `3`.
+- Expected clearing report impact: clearing reconciliation should show bill clearing debit `90.0000`, active receipt clearing credit `0.0000`, net clearing difference `90.0000`, status `BILL_WITHOUT_RECEIPT_POSTING`; clearing variance should show first matching variance amount `90.0000` and an extra reversed-receipt warning row.
+- Expected financial statement impact: COGS, Inventory Asset receipt/COGS pairs, and variance loss pairs net to `0.0000`; Inventory Clearing retains debit `90.0000` from the active purchase bill clearing journal and AP retains credit `90.0000`; Trial Balance and Balance Sheet should remain balanced.
+- Part 14 must run JSON/read-only report checks only and must avoid CSV/PDF/download/archive/generated-document output.
+- Main blocker/risk: low-stock expected count was not recorded in prior DEV-11 evidence and should be verified as a summarized count only.
+- Exact next prompt title: `DEV-11 Part 14: approved local inventory valuation report checks`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 14: approved local inventory valuation report checks`
