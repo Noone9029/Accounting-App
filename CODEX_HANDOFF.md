@@ -4667,3 +4667,21 @@
 ## Next Thread Prompt
 
 `DEV-09 Part 8: approved local bank transaction match categorize ignore mutation`
+
+## DEV-09 Part 8 - Approved Local Bank Transaction Match Categorize Ignore Mutation Completed
+
+- DEV-09 Part 8 evidence is recorded in [docs/development/DEV_09_BANK_TRANSACTION_ACTIONS_MUTATION_EVIDENCE.md](docs/development/DEV_09_BANK_TRANSACTION_ACTIONS_MUTATION_EVIDENCE.md).
+- Latest commit inspected: `9df98fb3 Plan DEV-09 bank transaction actions`.
+- Exact Part 8 approval phrase was received and validated before mutation.
+- Local target remained `postgresql` on `localhost:5432/accounting`.
+- Runtime mutation performed: yes, exactly the approved local match/categorize/ignore actions against marker `DEV09-BANK-20260530T000000`.
+- Results: match row `UNMATCHED -> MATCHED` with `JOURNAL_LINE`; categorize row `UNMATCHED -> CATEGORIZED` with posted journal `JE-000001`; ignore row `UNMATCHED -> IGNORED`; statement import `IMPORTED -> RECONCILED`.
+- Marker count deltas: statement imports `0`, statement transactions `0`, audit logs `+3`, journal entries `+1`, journal lines `+2`, reconciliations `0`, reconciliation items `0`.
+- Categorization journal shape: `DEV09-6200` debit `20.0000`, `DEV09-1010` credit `20.0000`.
+- No real bank data, production/beta/shared target, customer data, statement body, output/download/PDF, email, ZATCA, migration, seed/reset/delete, deploy, backup, or restore was used.
+- Temporary runner `apps/api/scripts/dev09-part8-transaction-actions.temp.ts` was removed after the run.
+- Exact next prompt title: `DEV-09 Part 9: bank transaction actions evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-09 Part 9: bank transaction actions evidence verification`

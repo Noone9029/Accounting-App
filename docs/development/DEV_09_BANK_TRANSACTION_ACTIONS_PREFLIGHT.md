@@ -100,3 +100,9 @@ Skipped by design:
 ## Next Step
 
 Proceed to `DEV-09 Part 8: approved local bank transaction match categorize ignore mutation`.
+
+## Part 8 Outcome Note
+
+Part 8 completed under exact approval using marker `DEV09-BANK-20260530T000000`. Evidence is recorded in [DEV_09_BANK_TRANSACTION_ACTIONS_MUTATION_EVIDENCE.md](DEV_09_BANK_TRANSACTION_ACTIONS_MUTATION_EVIDENCE.md).
+
+The approved local mutation matched one row, categorized one row, and ignored one row. Marker import/transaction/reconciliation counts stayed unchanged, journal entries increased by `1`, journal lines increased by `2`, audit logs increased by `3`, and the marker statement import moved to `RECONCILED`.
