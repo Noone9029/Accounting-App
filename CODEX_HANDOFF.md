@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- `e59bb79c Update DEV-08 AP readiness scorecard`
+- `23c09f97 Close DEV-08 AP local evidence`
 
 ## Current Development Objective
 
@@ -4554,3 +4554,19 @@
 ## Next Thread Prompt
 
 `DEV-09 Part 1: banking reconciliation production-gap and E2E readiness preflight`
+
+## DEV-09 Part 1 - Banking Reconciliation Production-Gap And E2E Readiness Preflight Completed
+
+- DEV-09 Part 1 read-only preflight is recorded in [docs/development/DEV_09_BANKING_RECONCILIATION_PREFLIGHT.md](docs/development/DEV_09_BANKING_RECONCILIATION_PREFLIGHT.md).
+- Latest commit inspected: `23c09f97 Close DEV-08 AP local evidence`; `main` matched `origin/main` after fetch.
+- Scope: documentation and code inspection only; no runtime mutation, bank account creation/edit, statement import/preview execution, match/categorize/ignore, reconciliation lifecycle mutation, E2E, smoke, migration, seed/reset/delete, deploy, env change, production/beta/customer data, real bank file, output/download/PDF, email, ZATCA, backup, restore, or body/secret exposure was performed.
+- Modules/routes mapped: bank accounts, bank transfers, bank statements/imports/transactions, bank reconciliations, accounting dependencies, web banking routes, permission helpers, and the existing banking E2E reference file.
+- State machines inventoried: bank profile create/edit/archive/reactivate/opening balance, transfer create/void, statement parse/preview/import/void, statement transaction match/categorize/ignore, and reconciliation create/submit/approve/reopen/close/void.
+- E2E readiness: route surfaces and unit coverage exist, but safe marker-scoped local fixtures and a narrow login/audit-writing/E2E configuration are still needed before browser E2E can be claimed.
+- Production gaps: live feeds, bank-specific parser certification, duplicate/idempotency policy, raw-file archive execution, auto-match, locking/concurrency, audit/permission matrix, fiscal/accounting lock certification, FX/fees, cleanup, and customer-data handling.
+- Exact Part 2 approval phrase status: received exactly from the user and must be re-validated before the local-only fixture mutation.
+- Exact next prompt title: `DEV-09 Part 2: approved local banking reconciliation fixture mutation`.
+
+## Next Thread Prompt
+
+`DEV-09 Part 2: approved local banking reconciliation fixture mutation`
