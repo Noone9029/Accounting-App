@@ -88,3 +88,7 @@ Use `apps/api/scripts/dev10-part11-output-gates.temp.ts` to:
 ## 9. Recommended Next Step
 
 Continue with `DEV-10 Part 11: approved local report output/archive/download gate checks` because the exact Part 11 approval phrase has been supplied. Keep execution local-only, marker-scoped, and no-body-output.
+
+## Part 11 Evidence Note
+
+DEV-10 Part 11 completed on 2026-05-30 and is recorded in [DEV_10_REPORT_OUTPUT_GATE_MUTATION_EVIDENCE.md](DEV_10_REPORT_OUTPUT_GATE_MUTATION_EVIDENCE.md). The exact Part 11 approval phrase was captured before checks. The local output gate used `trial-balance` with marker filters. CSV metadata returned without creating an archive row, PDF output created exactly one `REPORT_TRIAL_BALANCE` generated-document row, generated-document download hash matched archive hash, restricted report export checks were forbidden, generated-document metadata permissions were confirmed, and no CSV/PDF/base64/download body was printed.

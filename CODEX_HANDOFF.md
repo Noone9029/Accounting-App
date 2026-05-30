@@ -4913,3 +4913,20 @@
 ## Next Thread Prompt
 
 `DEV-10 Part 11: approved local report output/archive/download gate checks`
+
+## DEV-10 Part 11 - Approved Local Report Output Archive Download Gate Checks Completed
+
+- DEV-10 Part 11 evidence is recorded in [docs/development/DEV_10_REPORT_OUTPUT_GATE_MUTATION_EVIDENCE.md](docs/development/DEV_10_REPORT_OUTPUT_GATE_MUTATION_EVIDENCE.md).
+- Latest commit inspected: `b394fae0 Preflight DEV-10 report output gates`.
+- Exact Part 11 approval phrase was received and validated before checks.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only.
+- Output checks run: trial balance CSV metadata, trial balance PDF/archive metadata, generated-document list/detail/download metadata, and token-free permission checks.
+- Generated-document delta: before `0`, after CSV `0`, after PDF `1`, after download `1`, total `+1`.
+- Permission gate result: `reports.export` and `generatedDocuments.download` allowed CSV export; `reports.view` only was forbidden for CSV/PDF; generated-document list/detail require `generatedDocuments.view`; download requires `generatedDocuments.download`.
+- Body-output safety result: no CSV body, PDF body, generated-document base64, download body, full payload body, DB URL, auth header, cookie, token, or secret was printed.
+- Temporary runner `apps/api/scripts/dev10-part11-output-gates.temp.ts` was removed after the check.
+- Exact next prompt title: `DEV-10 Part 12: report output/archive/download evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-10 Part 12: report output/archive/download evidence verification`
