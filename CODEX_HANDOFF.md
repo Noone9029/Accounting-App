@@ -4870,3 +4870,20 @@
 ## Next Thread Prompt
 
 `DEV-10 Part 8: approved local aging and VAT return report checks`
+
+## DEV-10 Part 8 - Approved Local Aging And VAT Return Report Checks Completed
+
+- DEV-10 Part 8 evidence is recorded in [docs/development/DEV_10_AGING_VAT_RETURN_CHECK_EVIDENCE.md](docs/development/DEV_10_AGING_VAT_RETURN_CHECK_EVIDENCE.md).
+- Latest commit inspected: `d99be86c Preflight DEV-10 aging VAT reports`.
+- Exact Part 8 approval phrase was received and validated before checks.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only.
+- Reports checked: Aged Receivables, Aged Payables, VAT Return, and branch-filtered source-document reads.
+- Pass/fail summary: all selected aging and VAT Return JSON checks passed.
+- Verified totals: AR `1150.0000` in `1_30`, AP `460.0000` in `CURRENT`, VAT Return output `150.0000`, input `60.0000`, net payable `90.0000`, refundable `0.0000`.
+- Generated-document count stayed `0`; CSV/PDF/archive/download output generated: no.
+- Temporary runner `apps/api/scripts/dev10-part8-aging-vat-check.temp.ts` was removed after the check.
+- Exact next prompt title: `DEV-10 Part 9: aging and VAT return evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-10 Part 9: aging and VAT return evidence verification`

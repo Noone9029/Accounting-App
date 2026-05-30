@@ -85,3 +85,7 @@ Part 8 must not record full report JSON bodies, customer/supplier body data, ful
 ## 9. Recommended Next Step
 
 Continue with `DEV-10 Part 8: approved local aging and VAT return report checks` because the exact Part 8 approval phrase has been supplied. Keep the execution local-only, JSON-only, and body-safe.
+
+## Part 8 Evidence Note
+
+DEV-10 Part 8 completed on 2026-05-30 and is recorded in [DEV_10_AGING_VAT_RETURN_CHECK_EVIDENCE.md](DEV_10_AGING_VAT_RETURN_CHECK_EVIDENCE.md). The exact Part 8 approval phrase was captured before checks. Local service-level JSON checks passed for Aged Receivables, Aged Payables, VAT Return, and branch-filtered source-document report reads. Generated-document count stayed `0`, and no CSV, PDF, archive, download, full payload body, production/beta target, or customer data was used.
