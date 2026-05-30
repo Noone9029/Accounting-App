@@ -94,3 +94,7 @@ Cleanup status:
 ## Next Step
 
 Proceed to `DEV-09 Part 6: statement import parser evidence verification`.
+
+## Part 6 Verification Note
+
+Part 6 read-only verification completed and matched the Part 5 parser/preview evidence. Details are recorded in [DEV_09_STATEMENT_IMPORT_PARSER_EVIDENCE_VERIFICATION.md](DEV_09_STATEMENT_IMPORT_PARSER_EVIDENCE_VERIFICATION.md).

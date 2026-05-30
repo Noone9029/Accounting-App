@@ -4636,3 +4636,19 @@
 ## Next Thread Prompt
 
 `DEV-09 Part 6: statement import parser evidence verification`
+
+## DEV-09 Part 6 - Statement Import Parser Evidence Verification Completed
+
+- DEV-09 Part 6 verification is recorded in [docs/development/DEV_09_STATEMENT_IMPORT_PARSER_EVIDENCE_VERIFICATION.md](docs/development/DEV_09_STATEMENT_IMPORT_PARSER_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `b5d5dcd8 Check DEV-09 synthetic statement import parser`.
+- Scope: read-only parser/preview evidence verification; no persisted import, statement transaction mutation, match/categorize/ignore, reconciliation lifecycle mutation, E2E, smoke, migration, seed/reset/delete, deploy, env change, output/download/PDF, email, ZATCA, backup, restore, real bank file, customer data, body, or secret output was run.
+- Local target remained `postgresql` on `localhost:5432/accounting`.
+- Parser verification matched Part 5: CSV `2`, JSON `2`, OFX `1`, CAMT `1`, MT940 `1`, unknown warning, invalid JSON warning.
+- Preview verification matched Part 5: valid CSV `2` valid rows, duplicate in-file `1` valid/`1` invalid, existing duplicate `1` warning, invalid row `1` invalid.
+- Marker count deltas stayed zero for statement imports, statement transactions, audit logs, journal entries, and reconciliations.
+- Temporary verifier `apps/api/scripts/dev09-part6-parser-verification.temp.ts` was removed after the run.
+- Exact next prompt title: `DEV-09 Part 7: bank transaction match categorize ignore preflight`.
+
+## Next Thread Prompt
+
+`DEV-09 Part 7: bank transaction match categorize ignore preflight`
