@@ -5335,3 +5335,24 @@
 ## Next Thread Prompt
 
 `DEV-12 Part 5: approved local generated-document metadata list detail checks`
+
+## DEV-12 Part 5 - Generated-Document Metadata Checks Completed
+
+- DEV-12 Part 5 metadata checks are recorded in [docs/development/DEV_12_GENERATED_DOCUMENT_METADATA_CHECK_EVIDENCE.md](docs/development/DEV_12_GENERATED_DOCUMENT_METADATA_CHECK_EVIDENCE.md).
+- Latest commit inspected: `d23d2dea Preflight DEV-12 generated document metadata`.
+- Exact Part 5 approval phrase was received and validated before metadata checks.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Runtime mutation performed: no.
+- Metadata queries performed: yes, local-only service list/detail/filter reads.
+- Download/output performed: no.
+- Expected vs actual metadata behavior: matched. List/detail returned only safe metadata keys and excluded `contentBase64`, body, buffer, PDF bytes, and generic content fields.
+- Filter results: document type, source type, source id, and status filters each resolved the marker generated document.
+- Permission metadata verified: list/detail require `generatedDocuments.view`; download requires `generatedDocuments.download`.
+- Count stability: marker generated documents remained `1`; generated-document audit logs remained `1`.
+- Blockers/discrepancies: none found.
+- Temporary checker `apps/api/scripts/dev12-part5-metadata-check.temp.ts` was removed after the read-only check.
+- Exact next prompt title: `DEV-12 Part 6: generated-document metadata list detail evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-12 Part 6: generated-document metadata list detail evidence verification`
