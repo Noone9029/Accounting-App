@@ -4887,3 +4887,16 @@
 ## Next Thread Prompt
 
 `DEV-10 Part 9: aging and VAT return evidence verification`
+
+## DEV-10 Part 9 - Aging And VAT Return Evidence Verification Completed
+
+- DEV-10 Part 9 verification is recorded in [docs/development/DEV_10_AGING_VAT_RETURN_EVIDENCE_VERIFICATION.md](docs/development/DEV_10_AGING_VAT_RETURN_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `ff560cd9 Check DEV-10 aging VAT reports`.
+- Aging/VAT evidence status: passed with no discrepancies or blockers.
+- Reports verified: Aged Receivables, Aged Payables, VAT Return, and branch-filtered source-document reports.
+- Verified that generated-document delta stayed `0`, no CSV/PDF/archive/download output was generated, no full payload bodies or secrets were present, and no Part 8 temp script remains.
+- Exact next prompt title: `DEV-10 Part 10: report output, CSV, PDF, archive, and permission gate preflight`.
+
+## Next Thread Prompt
+
+`DEV-10 Part 10: report output, CSV, PDF, archive, and permission gate preflight`

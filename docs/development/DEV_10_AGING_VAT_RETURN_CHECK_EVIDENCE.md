@@ -66,3 +66,7 @@ No discrepancies or blockers were found. All selected aging and VAT Return JSON 
 ## Recommended Next Step
 
 Continue with `DEV-10 Part 9: aging and VAT return evidence verification`.
+
+## Part 9 Verification Note
+
+DEV-10 Part 9 completed on 2026-05-30 and is recorded in [DEV_10_AGING_VAT_RETURN_EVIDENCE_VERIFICATION.md](DEV_10_AGING_VAT_RETURN_EVIDENCE_VERIFICATION.md). The read-only evidence review confirmed that Aged Receivables, Aged Payables, VAT Return, and branch-filtered source-document totals match Part 2 fixture math, generated-document delta stayed `0`, no output generation occurred, no full payload bodies or secrets were present, and no Part 8 temp script remains. No discrepancies or blockers were found.
