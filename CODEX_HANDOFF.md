@@ -5092,3 +5092,28 @@
 ## Next Thread Prompt
 
 `DEV-11 Part 8: approved local purchase receipt inventory asset posting checks`
+
+## DEV-11 Part 8 - Approved Local Purchase Receipt Inventory Asset Checks Completed
+
+- DEV-11 Part 8 evidence is recorded in [docs/development/DEV_11_PURCHASE_RECEIPT_INVENTORY_ASSET_CHECK_EVIDENCE.md](docs/development/DEV_11_PURCHASE_RECEIPT_INVENTORY_ASSET_CHECK_EVIDENCE.md).
+- Latest commit inspected before mutation: `10086249 Preflight DEV-11 purchase receipt inventory asset`.
+- Exact Part 8 approval phrase was received and validated before mutation.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Mutation performed: yes, local-only and marker-scoped.
+- Marker receipt: `DEV11-INV-PRC-0001`, safe ID `a413ac33`, linked purchase bill safe ID `6d84a149`.
+- Receipt preview result: `POSTABLE`, `canPost=true`, blockers `0`, receipt value `100.0000`, matched bill value `90.0000`, total debit/credit `100.0000`.
+- Asset post result: one posted asset journal created, safe ID `f85f869e`, Dr Inventory Asset `DEV11-1200` `100.0000` / Cr Inventory Clearing `240` `100.0000`.
+- Duplicate receipt asset post was blocked with no count delta.
+- Direct-mode/standalone/PO-only blocker mutation checks were skipped because no existing marker fixture represented those states; no new broad blocker fixtures were created.
+- Active receipt asset void was blocked with no count or receipt-state delta.
+- Receipt asset reversal result: source asset journal `f85f869e` marked `REVERSED`, reversal journal `e3c196d7` created and linked, final preview status `REVERSED`.
+- Journal deltas from pre-check to final: journal entries `+2`, journal lines `+4`, audit logs `+2`, stock movements `0`, generated documents `0`.
+- Clearing effect: before post `90.0000`, after post `-10.0000`, final after reversal `90.0000`.
+- Final financial impact from asset post plus reversal: Inventory Asset net `0.0000`, Inventory Clearing net `0.0000`, source plus reversal trial-balance totals debit `200.0000` and credit `200.0000`.
+- Blockers/discrepancies: none found.
+- Temporary runner `apps/api/scripts/dev11-part8-receipt-asset-check.temp.ts` was removed after the check.
+- Exact next prompt title: `DEV-11 Part 9: purchase receipt inventory asset evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 9: purchase receipt inventory asset evidence verification`
