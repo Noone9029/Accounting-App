@@ -132,3 +132,7 @@ This evidence is local-only and marker-scoped. It does not prove production, bet
 ## Recommended Next Step
 
 Continue with `DEV-10 Part 12: report output/archive/download evidence verification`.
+
+## Part 12 Verification Note
+
+DEV-10 Part 12 completed on 2026-05-30 and is recorded in [DEV_10_REPORT_OUTPUT_GATE_EVIDENCE_VERIFICATION.md](DEV_10_REPORT_OUTPUT_GATE_EVIDENCE_VERIFICATION.md). The read-only evidence review confirmed that CSV created no archive row, PDF created exactly one marker `REPORT_TRIAL_BALANCE` generated-document row, download created no additional row, metadata and hashes matched, permission gates matched expected policy, no CSV/PDF/base64/download body was printed, and no Part 11 temp script remains. No discrepancies or blockers were found.

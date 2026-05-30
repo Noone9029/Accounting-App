@@ -4930,3 +4930,18 @@
 ## Next Thread Prompt
 
 `DEV-10 Part 12: report output/archive/download evidence verification`
+
+## DEV-10 Part 12 - Report Output Archive Download Evidence Verification Completed
+
+- DEV-10 Part 12 verification is recorded in [docs/development/DEV_10_REPORT_OUTPUT_GATE_EVIDENCE_VERIFICATION.md](docs/development/DEV_10_REPORT_OUTPUT_GATE_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `503df177 Check DEV-10 report output gates`.
+- Output evidence status: passed with no discrepancies or blockers.
+- Generated-document verification result: CSV delta `0`, PDF delta `+1`, download delta `0`, total delta `+1`, marker `REPORT_TRIAL_BALANCE` metadata safe and hash-matched.
+- Permission verification result: export/download positives allowed, restricted `reports.view`-only CSV/PDF forbidden, generated-document list/detail/download permissions confirmed.
+- Body-output safety result: no CSV body, PDF body, generated-document base64, download body, full payload body, DB URL, auth header, cookie, token, or secret was printed.
+- No new output/archive/download generation was performed during Part 12 verification.
+- Exact next prompt title: `DEV-10 Part 13: reports and financial statements closure`.
+
+## Next Thread Prompt
+
+`DEV-10 Part 13: reports and financial statements closure`
