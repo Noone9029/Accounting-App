@@ -5015,3 +5015,20 @@
 ## Next Thread Prompt
 
 `DEV-11 Part 4: sales stock issue COGS preflight`
+
+## DEV-11 Part 4 - Sales Stock Issue COGS Preflight Completed
+
+- DEV-11 Part 4 preflight is recorded in [docs/development/DEV_11_SALES_STOCK_ISSUE_COGS_PREFLIGHT.md](docs/development/DEV_11_SALES_STOCK_ISSUE_COGS_PREFLIGHT.md).
+- Latest commit inspected: `f5328bfa Verify DEV-11 inventory fixture evidence`.
+- Scope: read-only planning and code inspection only; no runtime mutation, COGS posting, COGS reversal, stock issue void, fixture creation, login/browser flow, report query, output generation, E2E, smoke, migration, seed/reset/delete, deploy, environment change, ZATCA, email, backup, restore, production/beta target, customer data, body output, or secret output was used.
+- Marker dependency confirmed: `DEV11-INV-20260530T000000` sales stock issue `DEV11-INV-SSI-0001`, safe ID `c3d25519`, remains `POSTED` and COGS-unposted from the Part 3 evidence.
+- Runtime mutation/posting/reversal occurred: no.
+- Expected COGS amount: `50.0000`, from `5.0000` issued units at moving-average unit cost `10.0000`.
+- Expected COGS posting journal impact: `+1` posted journal entry and `+2` journal lines, Dr COGS account `DEV11-5000` `50.0000` / Cr Inventory Asset account `DEV11-1200` `50.0000`; stock movements, inventory quantities, operational inventory values, generated documents, CSV/PDF/archive/download outputs remain unchanged.
+- Expected financial statement impact after post: P&L COGS increases `50.0000`, Inventory Asset decreases `50.0000`, Trial Balance remains balanced, and Balance Sheet remains balanced through current-period net income.
+- Expected reversal impact if Part 5 includes reversal: one posted reversal journal and two reversal lines, source COGS journal marked `REVERSED`, marker issue reversal fields populated, and net COGS/Inventory Asset impact returns to baseline.
+- Exact next prompt title: `DEV-11 Part 5: approved local sales stock issue COGS posting checks`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 5: approved local sales stock issue COGS posting checks`
