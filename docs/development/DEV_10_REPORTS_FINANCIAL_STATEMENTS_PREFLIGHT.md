@@ -107,3 +107,7 @@ This pass was read-only code and document inspection. No login, fixture creation
 ## 9. Recommended Next Step
 
 Continue to `DEV-10 Part 2: approved local reports fixture creation` only after the exact Part 2 approval phrase is present. Part 2 should create narrow local synthetic fixtures under marker `DEV10-RPT-20260530T000000` and should record only redacted counts, ids, and expected report math needed for later JSON/output checks.
+
+## Part 2 Fixture Creation Note
+
+DEV-10 Part 2 completed on 2026-05-30 and is recorded in [DEV_10_REPORT_FIXTURE_MUTATION_EVIDENCE.md](DEV_10_REPORT_FIXTURE_MUTATION_EVIDENCE.md). The exact Part 2 approval phrase was captured before mutation. The local target was classified as `postgresql` on `localhost:5432/accounting`. The marker fixture `DEV10-RPT-20260530T000000` created one synthetic organization, one user/membership, nine accounts, two tax rates, one branch, two contacts, one bank profile, four posted balanced journal entries, ten journal lines, one finalized sales invoice, and one finalized purchase bill. No report CSV, PDF, generated-document archive, generated-document download, production/beta target, customer data, login, E2E, smoke, migration, seed/reset/delete, deploy, ZATCA, email, backup, or restore action was used.
