@@ -5433,6 +5433,19 @@
 - Temporary checker `apps/api/scripts/dev12-part11-storage-check.temp.ts` was removed after the approved local check.
 - Exact next prompt title: `DEV-12 Part 12: storage readiness and migration dry-run evidence verification`.
 
+## DEV-12 Part 12 - Storage Readiness And Migration Dry-Run Evidence Verification Completed
+
+- DEV-12 Part 12 storage readiness and migration dry-run evidence verification is recorded in [docs/development/DEV_12_STORAGE_READINESS_MIGRATION_DRY_RUN_EVIDENCE_VERIFICATION.md](docs/development/DEV_12_STORAGE_READINESS_MIGRATION_DRY_RUN_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `4f40accd Check DEV-12 storage readiness dry run`.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Mutation performed: no.
+- Migration/upload/delete performed: no.
+- Verification result: marker generated document remains `database` backed with `storageKey = null`; Part 11 dry-run evidence still matches current counts, with marker generated documents `1`, generated-document audit logs `1`, marker attachments `0`, backup/restore evidence rows `0`, S3-backed generated documents `0`, `dryRunOnly: true`, and no migration execution.
+- Redaction result: no long base64-like values, secret/auth/connection patterns, signed URLs, object keys, object bodies, or `contentBase64` values were found in Part 11 evidence.
+- Blockers/discrepancies: none found. Generated-document object storage, migration executor, backup/restore proof, malware scanning, retention/legal hold, hosted/beta/customer-data behavior, and production readiness remain unproven.
+- Temporary verifier `apps/api/scripts/dev12-part12-storage-evidence-verify.temp.ts` was removed after the read-only check.
+- Exact next prompt title: `DEV-12 Part 13: retention legal hold cleanup policy preflight`.
+
 ## Next Thread Prompt
 
-`DEV-12 Part 12: storage readiness and migration dry-run evidence verification`
+`DEV-12 Part 13: retention legal hold cleanup policy preflight`

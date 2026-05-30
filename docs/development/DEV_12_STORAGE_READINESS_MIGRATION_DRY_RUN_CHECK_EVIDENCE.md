@@ -215,3 +215,7 @@ Known blockers remain:
 ## 17. Recommended Next Thread
 
 `DEV-12 Part 12: storage readiness and migration dry-run evidence verification`
+
+## 18. Part 12 Verification Note
+
+Part 12 read-only verification is recorded in [DEV_12_STORAGE_READINESS_MIGRATION_DRY_RUN_EVIDENCE_VERIFICATION.md](DEV_12_STORAGE_READINESS_MIGRATION_DRY_RUN_EVIDENCE_VERIFICATION.md). The verification confirmed the marker document remains database-backed, Part 11 dry-run/count evidence matches current counts, and no migration, upload, delete, body output, signed URL, object key, or secret output was recorded.
