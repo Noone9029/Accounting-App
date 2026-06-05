@@ -170,6 +170,9 @@ describe("ContactService customer and supplier summaries", () => {
       customerPayment: {
         groupBy: jest.fn().mockResolvedValue([{ customerId: "both-1", _max: { paymentDate: new Date("2026-05-12T00:00:00.000Z") } }]),
       },
+      salesQuote: { groupBy: jest.fn().mockResolvedValue([]) },
+      recurringInvoiceTemplate: { groupBy: jest.fn().mockResolvedValue([]) },
+      deliveryNote: { groupBy: jest.fn().mockResolvedValue([]) },
       customerRefund: { groupBy: jest.fn().mockResolvedValue([]) },
     };
     const service = new ContactService(prisma as never, { log: jest.fn() } as never);
@@ -215,6 +218,7 @@ describe("ContactService customer and supplier summaries", () => {
           return Promise.resolve([{ supplierId: "supplier-1", _max: { billDate: new Date("2026-05-09T00:00:00.000Z") } }]);
         }),
       },
+      purchaseOrder: { groupBy: jest.fn().mockResolvedValue([]) },
       purchaseDebitNote: { groupBy: jest.fn().mockResolvedValue([]) },
       supplierPayment: { groupBy: jest.fn().mockResolvedValue([]) },
       supplierRefund: {
@@ -242,6 +246,188 @@ describe("ContactService customer and supplier summaries", () => {
       overduePayableBalance: "0.0000",
       lastTransactionDate: "2026-05-13T00:00:00.000Z",
     });
+  });
+
+  it("includes purchase orders in supplier transaction history without adding payable balance", async () => {
+    const prisma = {
+      contact: {
+        findFirst: jest.fn().mockResolvedValue(supplier),
+      },
+      purchaseBill: {
+        groupBy: jest.fn(({ _sum }) => Promise.resolve(_sum ? [] : [])),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      purchaseOrder: {
+        groupBy: jest.fn().mockResolvedValue([{ supplierId: "supplier-1", _max: { orderDate: new Date("2026-05-16T00:00:00.000Z") } }]),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "po-1",
+            purchaseOrderNumber: "PO-0001",
+            orderDate: new Date("2026-05-16T00:00:00.000Z"),
+            expectedDeliveryDate: new Date("2026-05-20T00:00:00.000Z"),
+            currency: "SAR",
+            status: "APPROVED",
+            subtotal: "100.0000",
+            taxTotal: "15.0000",
+            total: "115.0000",
+          },
+        ]),
+      },
+      purchaseDebitNote: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      supplierPayment: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      supplierRefund: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      cashExpense: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new ContactService(prisma as never, { log: jest.fn() } as never);
+
+    const result = await service.getSupplier("org-1", "supplier-1", new Date("2026-05-25T00:00:00.000Z"));
+
+    expect(result.openPayableBalance).toBe("0.0000");
+    expect(result.lastTransactionDate).toBe("2026-05-16T00:00:00.000Z");
+    expect(result.transactions).toEqual([
+      expect.objectContaining({
+        sourceType: "PurchaseOrder",
+        transactionNumber: "PO-0001",
+        balanceDue: "0.0000",
+      }),
+    ]);
+  });
+
+  it("includes sales quotes in customer transaction history without adding receivable balance", async () => {
+    const prisma = {
+      contact: {
+        findFirst: jest.fn().mockResolvedValue(customer),
+      },
+      salesInvoice: {
+        groupBy: jest.fn().mockResolvedValue([]),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      salesQuote: {
+        groupBy: jest.fn().mockResolvedValue([]),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "quote-1",
+            quoteNumber: "QUO-0001",
+            issueDate: new Date("2026-06-03T00:00:00.000Z"),
+            expiryDate: new Date("2026-06-30T00:00:00.000Z"),
+            currency: "SAR",
+            status: "SENT",
+            subtotal: "100.0000",
+            taxTotal: "15.0000",
+            total: "115.0000",
+          },
+        ]),
+      },
+      recurringInvoiceTemplate: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      deliveryNote: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      creditNote: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      customerPayment: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      customerRefund: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new ContactService(prisma as never, { log: jest.fn() } as never);
+
+    const result = await service.getCustomer("org-1", "customer-1", new Date("2026-06-25T00:00:00.000Z"));
+
+    expect(result.openReceivableBalance).toBe("0.0000");
+    expect(result.transactions).toEqual([
+      expect.objectContaining({
+        sourceType: "SalesQuote",
+        transactionNumber: "QUO-0001",
+        type: "Sales quote (non-posting)",
+        balanceDue: "0.0000",
+      }),
+    ]);
+  });
+
+  it("includes recurring invoice templates in customer history without adding receivable balance", async () => {
+    const prisma = {
+      contact: {
+        findFirst: jest.fn().mockResolvedValue(customer),
+      },
+      salesInvoice: {
+        groupBy: jest.fn().mockResolvedValue([]),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      salesQuote: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      recurringInvoiceTemplate: {
+        groupBy: jest.fn().mockResolvedValue([]),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "rec-1",
+            templateNumber: "REC-0001",
+            name: "Monthly support",
+            nextRunDate: new Date("2026-06-15T00:00:00.000Z"),
+            endDate: null,
+            currency: "SAR",
+            status: "ACTIVE",
+            subtotal: "100.0000",
+            taxTotal: "15.0000",
+            total: "115.0000",
+          },
+        ]),
+      },
+      deliveryNote: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      creditNote: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      customerPayment: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      customerRefund: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new ContactService(prisma as never, { log: jest.fn() } as never);
+
+    const result = await service.getCustomer("org-1", "customer-1", new Date("2026-06-25T00:00:00.000Z"));
+
+    expect(result.openReceivableBalance).toBe("0.0000");
+    expect(result.transactions).toEqual([
+      expect.objectContaining({
+        sourceType: "RecurringInvoiceTemplate",
+        transactionNumber: "REC-0001",
+        type: "Recurring invoice template (non-posting)",
+        balanceDue: "0.0000",
+      }),
+    ]);
+  });
+
+  it("includes delivery notes in customer history without adding receivable balance", async () => {
+    const prisma = {
+      contact: {
+        findFirst: jest.fn().mockResolvedValue(customer),
+      },
+      salesInvoice: {
+        groupBy: jest.fn().mockResolvedValue([]),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      salesQuote: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      recurringInvoiceTemplate: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      deliveryNote: {
+        groupBy: jest.fn().mockResolvedValue([{ customerId: "customer-1", _max: { issueDate: new Date("2026-06-04T00:00:00.000Z") } }]),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "dn-1",
+            deliveryNoteNumber: "DN-0001",
+            issueDate: new Date("2026-06-04T00:00:00.000Z"),
+            deliveryDate: new Date("2026-06-05T00:00:00.000Z"),
+            status: "ISSUED",
+          },
+        ]),
+      },
+      creditNote: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      customerPayment: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      customerRefund: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new ContactService(prisma as never, { log: jest.fn() } as never);
+
+    const result = await service.getCustomer("org-1", "customer-1", new Date("2026-06-25T00:00:00.000Z"));
+
+    expect(result.openReceivableBalance).toBe("0.0000");
+    expect(result.lastTransactionDate).toBe("2026-06-04T00:00:00.000Z");
+    expect(result.transactions).toEqual([
+      expect.objectContaining({
+        sourceType: "DeliveryNote",
+        transactionNumber: "DN-0001",
+        type: "Delivery note (non-posting fulfillment)",
+        subtotal: "0.0000",
+        balanceDue: "0.0000",
+      }),
+    ]);
   });
 });
 

@@ -3,13 +3,13 @@
 import {
   Archive,
   BarChart3,
-  Building2,
+  Calculator,
   FileText,
+  Landmark,
   Package,
   Receipt,
   Settings2,
   ShoppingCart,
-  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -21,15 +21,13 @@ import { GlobalCreateMenu } from "./global-create-menu";
 
 const iconsByHref: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   "/dashboard": BarChart3,
-  "/reports": BarChart3,
   "/sales/invoices": Receipt,
-  "/customers": Users,
   "/purchases/bills": ShoppingCart,
-  "/suppliers": ShoppingCart,
-  "/contacts": Users,
-  "/items": Package,
+  "/bank-accounts": Landmark,
   "/journal-entries": FileText,
-  "/branches": Building2,
+  "/inventory/balances": Package,
+  "/tax": Calculator,
+  "/reports": BarChart3,
   "/documents": Archive,
   "/settings/team": Settings2,
 };
@@ -45,6 +43,7 @@ const mobileWorkflowLinks: readonly {
   { label: "Supplier", href: "/suppliers", requiredAny: [PERMISSIONS.contacts.view] },
   { label: "Invoice", href: "/sales/invoices/new", requiredAny: [PERMISSIONS.salesInvoices.create] },
   { label: "Payment", href: "/sales/customer-payments/new", requiredAny: [PERMISSIONS.customerPayments.create] },
+  { label: "Tax", href: "/tax", requiredAny: [PERMISSIONS.reports.view] },
   { label: "Reports", href: "/reports", requiredAny: [PERMISSIONS.reports.view] },
 ];
 
@@ -81,16 +80,20 @@ export function Sidebar() {
                 </Link>
                 {item.children && item.children.length > 0 ? (
                   <div className="mb-2 ml-7 mt-1 space-y-1 border-l border-slate-200 pl-3">
-                    {item.children.map((child) => (
-                      <Link
-                        key={child.href}
-                        href={child.href}
-                        className={`block rounded-md px-2 py-1.5 text-xs ${
-                          pathname === child.href ? "bg-mist text-ink" : "text-slate-500 hover:bg-slate-50 hover:text-ink"
-                        }`}
-                      >
-                        {child.label}
-                      </Link>
+                    {item.children.map((child, index) => (
+                      <div key={child.href}>
+                        {child.group && child.group !== item.children?.[index - 1]?.group ? (
+                          <div className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{child.group}</div>
+                        ) : null}
+                        <Link
+                          href={child.href}
+                          className={`block rounded-md px-2 py-1.5 text-xs ${
+                            pathname === child.href ? "bg-mist text-ink" : "text-slate-500 hover:bg-slate-50 hover:text-ink"
+                          }`}
+                        >
+                          {child.label}
+                        </Link>
+                      </div>
                     ))}
                   </div>
                 ) : null}

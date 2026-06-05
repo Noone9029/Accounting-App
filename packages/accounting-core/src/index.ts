@@ -1,5 +1,6 @@
 export type JournalStatus = "DRAFT" | "POSTED" | "VOIDED" | "REVERSED";
 export type InvoiceStatus = "DRAFT" | "FINALIZED" | "VOIDED";
+export type SalesInvoiceTaxMode = "TAX_EXCLUSIVE" | "TAX_INCLUSIVE" | "NO_TAX";
 
 export interface JournalLineInput {
   accountId: string;
@@ -21,6 +22,7 @@ export interface SalesInvoiceLineInput {
   unitPrice: string | number;
   discountRate?: string | number | null;
   taxRate?: string | number | null;
+  taxMode?: SalesInvoiceTaxMode | null;
 }
 
 export interface CalculatedSalesInvoiceLine {
@@ -146,11 +148,12 @@ export function createReversalLines(lines: JournalLineInput[]): JournalLineInput
   }));
 }
 
-export function calculateSalesInvoiceLine(line: SalesInvoiceLineInput, lineIndex = 0): CalculatedSalesInvoiceLine {
+export function calculateSalesInvoiceLine(line: SalesInvoiceLineInput, lineIndex = 0, defaultTaxMode: SalesInvoiceTaxMode = "TAX_EXCLUSIVE"): CalculatedSalesInvoiceLine {
   const quantity = toMoney(line.quantity);
   const unitPrice = toMoney(line.unitPrice);
   const discountRate = toMoney(line.discountRate);
-  const taxRate = toMoney(line.taxRate);
+  const taxMode = line.taxMode ?? defaultTaxMode;
+  const taxRate = taxMode === "NO_TAX" ? ZERO : toMoney(line.taxRate);
 
   if (quantity.lte(0)) {
     throw new AccountingRuleError(`Invoice line ${lineIndex + 1} quantity must be greater than zero.`, "INVOICE_LINE_INVALID_QUANTITY");
@@ -174,9 +177,18 @@ export function calculateSalesInvoiceLine(line: SalesInvoiceLineInput, lineIndex
 
   const lineGrossAmount = roundMoney(quantity.mul(unitPrice));
   const discountAmount = roundMoney(lineGrossAmount.mul(discountRate).div(100));
-  const taxableAmount = roundMoney(lineGrossAmount.minus(discountAmount));
-  const taxAmount = roundMoney(taxableAmount.mul(taxRate).div(100));
-  const lineTotal = roundMoney(taxableAmount.plus(taxAmount));
+  const amountAfterDiscount = roundMoney(lineGrossAmount.minus(discountAmount));
+  const taxableAmount =
+    taxMode === "TAX_INCLUSIVE" && taxRate.gt(0)
+      ? roundMoney(amountAfterDiscount.mul(100).div(new Decimal(100).plus(taxRate)))
+      : amountAfterDiscount;
+  const taxAmount =
+    taxMode === "NO_TAX"
+      ? ZERO
+      : taxMode === "TAX_INCLUSIVE"
+        ? roundMoney(amountAfterDiscount.minus(taxableAmount))
+        : roundMoney(taxableAmount.mul(taxRate).div(100));
+  const lineTotal = taxMode === "TAX_INCLUSIVE" ? amountAfterDiscount : roundMoney(taxableAmount.plus(taxAmount));
 
   if (taxableAmount.lt(0) || lineTotal.lt(0)) {
     throw new AccountingRuleError(`Invoice line ${lineIndex + 1} total cannot be negative.`, "INVOICE_LINE_NEGATIVE_TOTAL");
@@ -195,12 +207,12 @@ export function calculateSalesInvoiceLine(line: SalesInvoiceLineInput, lineIndex
   };
 }
 
-export function calculateSalesInvoiceTotals(lines: SalesInvoiceLineInput[]): SalesInvoiceTotals {
+export function calculateSalesInvoiceTotals(lines: SalesInvoiceLineInput[], taxMode: SalesInvoiceTaxMode = "TAX_EXCLUSIVE"): SalesInvoiceTotals {
   if (lines.length === 0) {
     throw new AccountingRuleError("An invoice requires at least one line.", "INVOICE_REQUIRES_LINES");
   }
 
-  const calculatedLines = lines.map((line, index) => calculateSalesInvoiceLine(line, index));
+  const calculatedLines = lines.map((line, index) => calculateSalesInvoiceLine(line, index, taxMode));
   const totals = calculatedLines.reduce(
     (acc, line) => {
       acc.subtotal = acc.subtotal.plus(line.lineGrossAmount);

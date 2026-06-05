@@ -30,21 +30,25 @@ import type {
   GeneralLedgerReport,
   ProfitAndLossReport,
   TrialBalanceReport,
+  VatReturnReport,
   VatSummaryReport,
 } from "@/lib/types";
 
 const reportLinks = [
-  { href: "/reports/general-ledger", label: "General Ledger", description: "Trace posted journal lines by account." },
-  { href: "/reports/trial-balance", label: "Trial Balance", description: "Confirm debits and credits stay balanced." },
-  { href: "/reports/profit-and-loss", label: "Profit & Loss", description: "Review revenue, costs, expenses, and net profit." },
-  { href: "/reports/balance-sheet", label: "Balance Sheet", description: "Check assets, liabilities, equity, and retained earnings." },
-  { href: "/reports/vat-summary", label: "VAT Summary", description: "Review posted VAT account movement before filing work." },
-  { href: "/reports/aged-receivables", label: "Aged Receivables", description: "See customer invoice balances after payments and credits." },
-  { href: "/reports/aged-payables", label: "Aged Payables", description: "See supplier bill balances by overdue bucket." },
-  { href: "/inventory/reports/movement-summary", label: "Inventory Movement", description: "Trace stock in, stock out, and closing quantity by item and warehouse." },
-  { href: "/inventory/reports/stock-valuation", label: "Stock Valuation", description: "Review moving-average operational stock value estimates." },
-  { href: "/inventory/reports/low-stock", label: "Low Stock", description: "Find tracked items at or below reorder point." },
+  { group: "Financial statements", href: "/reports/general-ledger", label: "General Ledger", description: "Trace posted journal lines by account." },
+  { group: "Financial statements", href: "/reports/trial-balance", label: "Trial Balance", description: "Confirm debits and credits stay balanced." },
+  { group: "Financial statements", href: "/reports/profit-and-loss", label: "Profit & Loss", description: "Review revenue, costs, expenses, and net profit." },
+  { group: "Financial statements", href: "/reports/balance-sheet", label: "Balance Sheet", description: "Check assets, liabilities, equity, and retained earnings." },
+  { group: "Tax reports", href: "/reports/vat-summary", label: "VAT Summary", description: "Operational VAT summary from posted VAT account movement. It is not an official filing workflow." },
+  { group: "Tax reports", href: "/reports/vat-return", label: "VAT Return", description: "Draft source-document VAT return view. It is not an official filing workflow." },
+  { group: "Aging", href: "/reports/aged-receivables", label: "Aged Receivables", description: "Outstanding sales invoice balances after posted payments and credits. Quotes, recurring templates, delivery notes, and collection cases are excluded." },
+  { group: "Aging", href: "/reports/aged-payables", label: "Aged Payables", description: "See supplier bill balances by overdue bucket." },
+  { group: "Inventory", href: "/inventory/reports/movement-summary", label: "Inventory Movement", description: "Trace stock in, stock out, and closing quantity by item and warehouse." },
+  { group: "Inventory", href: "/inventory/reports/stock-valuation", label: "Stock Valuation", description: "Review moving-average operational stock value estimates." },
+  { group: "Inventory", href: "/inventory/reports/low-stock", label: "Low Stock", description: "Find tracked items at or below reorder point." },
 ];
+
+const reportGroups = ["Financial statements", "Tax reports", "Aging", "Inventory"];
 
 type AgingReportKind = "receivables" | "payables";
 
@@ -76,13 +80,22 @@ export function ReportsIndexPage() {
           </Link>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {reportLinks.map((link) => (
-          <Link key={link.href} href={link.href} className="rounded-md border border-slate-200 bg-white p-5 shadow-panel hover:border-palm">
-            <div className="text-base font-semibold text-ink">{link.label}</div>
-            <div className="mt-2 text-sm leading-6 text-steel">{link.description}</div>
-            <div className="mt-4 text-sm font-medium text-palm">Open report</div>
-          </Link>
+      <div className="space-y-6">
+        {reportGroups.map((group) => (
+          <section key={group}>
+            <h2 className="mb-3 text-base font-semibold text-ink">{group}</h2>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {reportLinks
+                .filter((link) => link.group === group)
+                .map((link) => (
+                  <Link key={link.href} href={link.href} className="rounded-md border border-slate-200 bg-white p-5 shadow-panel hover:border-palm">
+                    <div className="text-base font-semibold text-ink">{link.label}</div>
+                    <div className="mt-2 text-sm leading-6 text-steel">{link.description}</div>
+                    <div className="mt-4 text-sm font-medium text-palm">Open report</div>
+                  </Link>
+                ))}
+            </div>
+          </section>
         ))}
       </div>
     </section>
@@ -281,7 +294,7 @@ export function VatSummaryReportPage() {
   }, []);
 
   return (
-    <ReportSection title="VAT Summary" description="VAT payable and receivable summary from posted VAT accounts.">
+    <ReportSection title="VAT Summary" description="Operational VAT summary from posted VAT accounts. It is not an official filing workflow.">
       <DateRangeForm from={from} to={to} setFrom={setFrom} setTo={setTo} loading={loading} onSubmit={() => load(buildReportQuery({ from, to }))} />
       <ReportExportButtons endpoint="/reports/vat-summary" slug="vat-summary" params={{ from, to }} />
       <ReportState loading={loading} error={error} empty={!report} emptyText="No VAT summary data found." />
@@ -289,9 +302,9 @@ export function VatSummaryReportPage() {
         <div className="space-y-5">
           <SummaryGrid
             items={[
-              ["Sales VAT", report.salesVat],
-              ["Purchase VAT", report.purchaseVat],
-              ["Net VAT payable", report.netVatPayable],
+              ["Sales tax collected", report.salesVat],
+              ["Purchase tax paid", report.purchaseVat],
+              ["Net payable", report.netVatPayable],
             ]}
           />
           <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{report.notes[0]}</div>
@@ -316,6 +329,72 @@ export function VatSummaryReportPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      ) : null}
+    </ReportSection>
+  );
+}
+
+export function VatReturnReportPage() {
+  const [report, setReport] = useState<VatReturnReport | null>(null);
+  const [from, setFrom] = useState(monthStartDateInput());
+  const [to, setTo] = useState(todayDateInput());
+  const { loading, error, load } = useReportLoader<VatReturnReport>((query) => `/reports/vat-return${query}`, setReport);
+
+  useEffect(() => {
+    void load(buildReportQuery({ from, to }));
+  }, []);
+
+  return (
+    <ReportSection title="VAT Return" description="Draft VAT return view from LedgerByte operational records. It is not an official filing workflow.">
+      <DateRangeForm from={from} to={to} setFrom={setFrom} setTo={setTo} loading={loading} onSubmit={() => load(buildReportQuery({ from, to }))} />
+      <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+        This view is for accountant review during controlled beta. It does not submit to a tax authority and is not an official VAT filing workflow.
+      </div>
+      <ReportState loading={loading} error={error} empty={!report} emptyText="No VAT return data found." />
+      {report ? (
+        <div className="space-y-5">
+          <SummaryGrid
+            items={[
+              ["Sales tax collected", report.outputVat],
+              ["Purchase tax paid", report.inputVat],
+              [Number.parseFloat(report.netVatRefundable) > 0 ? "Net refundable" : "Net payable", Number.parseFloat(report.netVatRefundable) > 0 ? report.netVatRefundable : report.netVatPayable],
+            ]}
+          />
+          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                <tr>
+                  <th className="px-4 py-3">Source</th>
+                  <th className="px-4 py-3">Documents</th>
+                  <th className="px-4 py-3">Taxable amount</th>
+                  <th className="px-4 py-3">Amount</th>
+                  <th className="px-4 py-3">Tax amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                <tr>
+                  <td className="px-4 py-3 font-medium text-ink">Finalized sales invoices</td>
+                  <td className="px-4 py-3 font-mono text-xs">{report.sales.documentCount}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(report.sales.taxableAmount)}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(report.sales.grossAmount)}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(report.sales.taxAmount)}</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 font-medium text-ink">Finalized purchase bills</td>
+                  <td className="px-4 py-3 font-mono text-xs">{report.purchases.documentCount}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(report.purchases.taxableAmount)}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(report.purchases.grossAmount)}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(report.purchases.taxAmount)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div className="rounded-md border border-slate-200 bg-white p-4 text-sm leading-6 text-steel shadow-panel">
+            {report.notes.map((note) => (
+              <p key={note}>{note}</p>
+            ))}
           </div>
         </div>
       ) : null}
@@ -656,7 +735,7 @@ export function AgingReportGuide({ kind }: { kind: AgingReportKind }) {
           <div className="font-semibold text-ink">What it shows</div>
           <p className="mt-1">
             {isReceivables
-              ? "Customer invoices that still have a balance due after posted payments, credit notes, and refunds."
+              ? "AR Aging is based on outstanding sales invoices only: customer invoices that still have a balance due after posted payments, credit notes, and refunds. Quotes, recurring templates, delivery notes, and collection cases are excluded."
               : "Supplier bills that still have a balance due after supplier payments, debit notes, and refunds."}
           </p>
         </div>

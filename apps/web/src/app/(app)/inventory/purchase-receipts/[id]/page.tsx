@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
+import { PurchaseMatchingPanel } from "@/components/purchases/purchase-matching-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
@@ -29,7 +30,7 @@ import {
   stockMovementTypeLabel,
 } from "@/lib/inventory";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { InventoryClearingReconciliationReport, PurchaseReceipt, PurchaseReceiptAccountingPreview, PurchaseReceiptLine } from "@/lib/types";
+import type { InventoryClearingReconciliationReport, PurchaseMatchingSummary, PurchaseReceipt, PurchaseReceiptAccountingPreview, PurchaseReceiptLine } from "@/lib/types";
 
 export default function PurchaseReceiptDetailPage() {
   const params = useParams<{ id: string }>();
@@ -38,6 +39,7 @@ export default function PurchaseReceiptDetailPage() {
   const [receipt, setReceipt] = useState<PurchaseReceipt | null>(null);
   const [preview, setPreview] = useState<PurchaseReceiptAccountingPreview | null>(null);
   const [clearingReport, setClearingReport] = useState<InventoryClearingReconciliationReport | null>(null);
+  const [matchingSummary, setMatchingSummary] = useState<PurchaseMatchingSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const [voiding, setVoiding] = useState(false);
@@ -62,12 +64,14 @@ export default function PurchaseReceiptDetailPage() {
       apiRequest<PurchaseReceipt>(`/purchase-receipts/${params.id}`),
       apiRequest<PurchaseReceiptAccountingPreview>(`/purchase-receipts/${params.id}/accounting-preview`),
       apiRequest<InventoryClearingReconciliationReport>(`/inventory/reports/clearing-reconciliation?purchaseReceiptId=${encodeURIComponent(params.id)}`).catch(() => null),
+      apiRequest<PurchaseMatchingSummary>(`/purchase-matching/purchase-receipts/${params.id}`).catch(() => null),
     ])
-      .then(([receiptResult, previewResult, clearingReportResult]) => {
+      .then(([receiptResult, previewResult, clearingReportResult, matchingResult]) => {
         if (!cancelled) {
           setReceipt(receiptResult);
           setPreview(previewResult);
           setClearingReport(clearingReportResult);
+          setMatchingSummary(matchingResult);
         }
       })
       .catch((loadError: unknown) => {
@@ -197,6 +201,8 @@ export default function PurchaseReceiptDetailPage() {
             </div>
             {receipt.notes ? <p className="mt-4 text-sm text-steel">{receipt.notes}</p> : null}
           </div>
+
+          {matchingSummary ? <PurchaseMatchingPanel summary={matchingSummary} /> : null}
 
           <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
             <table className="w-full min-w-[920px] text-left text-sm">

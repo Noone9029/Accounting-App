@@ -2,8 +2,9 @@ import { AccountType } from "@prisma/client";
 import { IsBoolean, IsEnum, IsOptional, IsString } from "class-validator";
 
 export class CreateAccountDto {
+  @IsOptional()
   @IsString()
-  code!: string;
+  code?: string;
 
   @IsString()
   name!: string;

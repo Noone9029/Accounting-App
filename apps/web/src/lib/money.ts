@@ -18,6 +18,8 @@ export interface InvoicePreviewLineInput {
   taxRate?: string;
 }
 
+export type InvoiceTaxMode = "TAX_EXCLUSIVE" | "TAX_INCLUSIVE" | "NO_TAX";
+
 export interface InvoicePreviewLine {
   quantityUnits: number;
   unitPriceUnits: number;
@@ -101,8 +103,8 @@ export function calculateTotals(lines: AmountLine[]): MoneyTotals {
   };
 }
 
-export function calculateInvoicePreview(lines: InvoicePreviewLineInput[]): InvoicePreviewTotals {
-  const previewLines = lines.map(calculateInvoicePreviewLine);
+export function calculateInvoicePreview(lines: InvoicePreviewLineInput[], taxMode: InvoiceTaxMode = "TAX_EXCLUSIVE"): InvoicePreviewTotals {
+  const previewLines = lines.map((line) => calculateInvoicePreviewLine(line, taxMode));
   const subtotalUnits = previewLines.reduce((sum, line) => sum + line.lineGrossAmountUnits, 0);
   const discountTotalUnits = previewLines.reduce((sum, line) => sum + line.discountAmountUnits, 0);
   const taxableTotalUnits = previewLines.reduce((sum, line) => sum + line.taxableAmountUnits, 0);
@@ -166,16 +168,25 @@ export function calculateSupplierPaymentAllocationPreview(amountPaid: string, al
   };
 }
 
-function calculateInvoicePreviewLine(line: InvoicePreviewLineInput): InvoicePreviewLine {
+function calculateInvoicePreviewLine(line: InvoicePreviewLineInput, taxMode: InvoiceTaxMode): InvoicePreviewLine {
   const quantityUnits = parseDecimalToUnits(line.quantity);
   const unitPriceUnits = parseDecimalToUnits(line.unitPrice);
   const discountRateUnits = parseDecimalToUnits(line.discountRate ?? "0");
-  const taxRateUnits = parseDecimalToUnits(line.taxRate ?? "0");
+  const taxRateUnits = taxMode === "NO_TAX" ? 0 : parseDecimalToUnits(line.taxRate ?? "0");
   const lineGrossAmountUnits = roundDiv(quantityUnits * unitPriceUnits, MONEY_FACTOR);
   const discountAmountUnits = roundDiv(lineGrossAmountUnits * discountRateUnits, 100 * MONEY_FACTOR);
-  const taxableAmountUnits = lineGrossAmountUnits - discountAmountUnits;
-  const taxAmountUnits = roundDiv(taxableAmountUnits * taxRateUnits, 100 * MONEY_FACTOR);
-  const lineTotalUnits = taxableAmountUnits + taxAmountUnits;
+  const amountAfterDiscountUnits = lineGrossAmountUnits - discountAmountUnits;
+  const taxableAmountUnits =
+    taxMode === "TAX_INCLUSIVE" && taxRateUnits > 0
+      ? roundDiv(amountAfterDiscountUnits * 100 * MONEY_FACTOR, 100 * MONEY_FACTOR + taxRateUnits)
+      : amountAfterDiscountUnits;
+  const taxAmountUnits =
+    taxMode === "NO_TAX"
+      ? 0
+      : taxMode === "TAX_INCLUSIVE"
+        ? amountAfterDiscountUnits - taxableAmountUnits
+        : roundDiv(taxableAmountUnits * taxRateUnits, 100 * MONEY_FACTOR);
+  const lineTotalUnits = taxMode === "TAX_INCLUSIVE" ? amountAfterDiscountUnits : taxableAmountUnits + taxAmountUnits;
 
   return {
     quantityUnits,

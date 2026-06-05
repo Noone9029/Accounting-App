@@ -3,6 +3,8 @@ import type { DocumentType, GeneratedDocument, GeneratedDocumentStatus } from ".
 
 const documentTypeLabels: Record<DocumentType, string> = {
   SALES_INVOICE: "Sales Invoice",
+  SALES_QUOTE: "Sales Quote",
+  DELIVERY_NOTE: "Delivery Note",
   CREDIT_NOTE: "Credit Note",
   CUSTOMER_PAYMENT_RECEIPT: "Customer Payment Receipt",
   CUSTOMER_REFUND: "Customer Refund",

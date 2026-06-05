@@ -63,6 +63,35 @@ describe("GlobalSearch", () => {
     expect(pushMock).toHaveBeenCalledWith("/reports/aged-receivables");
   });
 
+  it("shows recurring invoice templates as a local transaction page result when permitted", async () => {
+    render(<GlobalSearch />);
+
+    const input = screen.getByPlaceholderText("Search transactions, contacts, reports, and pages");
+    fireEvent.change(input, { target: { value: "recurring invoice" } });
+
+    await act(async () => {
+      jest.advanceTimersByTime(350);
+    });
+
+    expect(screen.getByText("Recurring Invoices")).toBeInTheDocument();
+    expect(screen.getByText("Open transaction page")).toBeInTheDocument();
+    expect(screen.queryByText(/posted invoice/i)).not.toBeInTheDocument();
+  });
+
+  it("hides recurring invoice search results without sales invoice view permission", async () => {
+    mockActiveMembership = { role: { permissions: ["dashboard.view"] } };
+    render(<GlobalSearch />);
+
+    const input = screen.getByPlaceholderText("Search transactions, contacts, reports, and pages");
+    fireEvent.change(input, { target: { value: "recurring invoice" } });
+
+    await act(async () => {
+      jest.advanceTimersByTime(350);
+    });
+
+    expect(screen.queryByText("Recurring Invoices")).not.toBeInTheDocument();
+  });
+
   it("loads remote record results after debounce and opens the top result with Enter", async () => {
     searchGlobalRecordsMock.mockResolvedValueOnce({
       query: "inv",

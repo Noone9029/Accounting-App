@@ -18,6 +18,81 @@ For the updated Product Audit v2 planning artifacts, see:
 
 LedgerByte is at the controlled beta/user-testing stage. The current Vercel deployment is beta/user-testing only and must not be treated as final production hosting. LedgerByte is not production-launched, real ZATCA production compliance is not enabled, and paid production SaaS v1 requires the production foundation work documented under `docs/production/`. The production ticket backlog, ADR index, and first 10 production tickets are planning artifacts only; no production implementation has been performed. DEV-08 local AP evidence is strong and closed for its local-only scope, but AP is not production-complete. DEV-09 local banking/reconciliation evidence is also closed for its local-only scope, but banking remains unproven for production, beta, customer data, live bank feeds, automatic matching, certified parser coverage, and broad E2E/smoke/full-test coverage. DEV-10 local reports/financial statements evidence is closed for its local-only scope, but reporting remains unproven for production, beta, customer data, accountant-certified definitions, official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, broad E2E/smoke/full-test coverage, and load/concurrency. DEV-11 local inventory valuation and COGS evidence is closed for its local-only scope, but inventory accounting remains unproven for production, beta, customer data, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test coverage, hosted behavior, and load/concurrency. DEV-12 is closed as local-only generated documents storage retention evidence, but generated-document storage remains unproven for production, beta, customer data, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test coverage, hosted behavior, and load/concurrency.
 
+## 2026-06-03 Sales Quote / Proforma Workflow Sprint
+
+- Added the base non-posting sales quote/proforma workflow: quote numbering, customer selection, account-coded lines, tax exclusive/inclusive/no-tax totals, lifecycle actions, customer non-posting activity visibility, and accepted-quote conversion into a draft sales invoice.
+- Base quotes/proformas are no longer a missing Sales/AR workflow. Remaining Sales/AR gaps include quote/proforma PDF/archive, recurring invoices, delivery notes, real customer email sending, online acceptance/payment, collections automation, broad browser E2E, hosted/customer-data proof, and accountant sign-off.
+- The sprint does not change production posture, Vercel/Supabase settings, production hosting, real ZATCA, official VAT filing, payment gateways, email providers, backup/restore, object storage migration, or customer-data handling.
+
+## 2026-06-04 Quote PDF / Archive Sprint
+
+- Added safe Sales Quote PDF output and generated-document archive support for non-posting sales quotes/proformas.
+- Base quote/proforma PDF/archive is no longer a missing Sales/AR workflow. Remaining Sales/AR gaps include recurring invoices, delivery notes, real customer email sending, online quote acceptance/payment, collections automation, broad browser E2E, hosted/customer-data proof, and accountant sign-off.
+- The PDF/archive sprint does not change production posture, Vercel/Supabase settings, production hosting, real ZATCA, PDF/A-3, official VAT filing, payment gateways, email providers, backup/restore, object storage migration, or customer-data handling.
+
+## 2026-06-04 Focused Quote Workflow Browser Sprint
+
+- Added focused mocked Playwright browser coverage for sales quote list, create, detail, edit, lifecycle, PDF download, generated-document archive metadata/download, conversion to draft invoice, and customer non-posting quote activity.
+- Quote-specific browser workflow coverage for the base create/edit/lifecycle/PDF/archive/convert/customer-activity path is no longer open. Remaining Sales/AR gaps include recurring invoices, delivery notes, real customer email sending, online quote acceptance/payment, collections automation, broader deployed E2E with safe seeded data, hosted/customer-data proof, and accountant sign-off.
+- The browser sprint does not change production posture, Vercel/Supabase settings, production hosting, real ZATCA, PDF/A-3, official VAT filing, payment gateways, email providers, backup/restore, object storage migration, or customer-data handling.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked web typecheck blocker and was not modified.
+
+## 2026-06-04 Recurring Invoices Sprint
+
+- Added non-posting recurring invoice templates with `REC-` numbering, account-coded lines, tax exclusive/inclusive/no-tax totals, weekly/monthly/quarterly/yearly schedule preview, lifecycle actions, customer non-posting activity visibility, and manual generation into draft sales invoices.
+- Base recurring invoice templates are no longer a missing Sales/AR workflow. Remaining Sales/AR gaps include delivery notes, automatic recurring scheduler, real customer email sending, online quote acceptance/payment, collections automation, broader deployed E2E with safe seeded data, hosted/customer-data proof, and accountant sign-off.
+- The sprint does not change production posture, Vercel/Supabase settings, production hosting, real ZATCA, PDF/A-3, official VAT filing, payment gateways, email providers, backup/restore, object storage migration, background workers, automatic scheduling, or customer-data handling.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked web typecheck blocker and was not modified.
+
+## 2026-06-04 Focused Recurring Invoice Browser Workflow Sprint
+
+- Added focused mocked Playwright browser coverage for recurring invoice list, create, detail, edit, schedule preview, tax modes, account-coded lines, lifecycle actions, restricted-role behavior, duplicate generation blocking, manual draft-invoice generation, generated invoice link, global create/search behavior, and customer non-posting activity.
+- Recurring invoice browser workflow coverage for the base list/new/detail/edit/preview/generate/customer-activity path is no longer open. Remaining Sales/AR gaps include delivery notes, automatic recurring scheduler, real customer email sending, online quote acceptance/payment, collections automation, broader deployed E2E with safe seeded data, hosted/customer-data proof, and accountant sign-off.
+- The browser sprint does not change production posture, Vercel/Supabase settings, production hosting, real ZATCA, PDF/A-3, official VAT filing, payment gateways, email providers, backup/restore, object storage migration, background workers, automatic scheduling, or customer-data handling.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked web typecheck blocker and was not modified.
+
+## 2026-06-04 Delivery Notes Sprint
+
+- Added non-posting delivery notes with `DN-` numbering, draft/edit, issue, mark delivered, cancel, void, customer/source invoice/accepted quote links, optional backend sales-stock-issue reference support, safe Delivery Note PDF/archive output, customer non-posting fulfillment activity, navigation, global create/search exposure, and targeted API/frontend tests.
+- Base delivery notes are no longer a missing Sales/AR workflow. Remaining Sales/AR gaps include focused delivery-note browser workflow coverage, optional stock-issue source UI, automatic recurring scheduler, real customer email sending, online quote acceptance/payment, collections automation, broader deployed E2E with safe seeded data, hosted/customer-data proof, and accountant sign-off.
+- The sprint does not change production posture, Vercel/Supabase settings, production hosting, real ZATCA, PDF/A-3, official VAT filing, payment gateways, email providers, backup/restore, object-storage migration, automatic inventory movement, logistics/carrier integration, or customer-data handling.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked web typecheck blocker and was not modified.
+
+## 2026-06-04 Focused Delivery Note Browser Workflow Sprint
+
+- Added focused mocked Playwright browser coverage for delivery-note list, create, detail, edit, issue, mark delivered, PDF/archive metadata/download, customer non-posting activity, source invoice/accepted quote copy paths, restricted permissions, global create, and global search.
+- Delivery-note browser workflow coverage for the base list/new/detail/edit/lifecycle/PDF/archive/source/customer-activity path is no longer open. Remaining Sales/AR gaps before the source-visibility follow-up include optional stock-issue source UI, reverse source-document delivery-note panels, automatic recurring scheduler, real customer email sending, online quote acceptance/payment, collections automation, broader deployed E2E with safe seeded data, hosted/customer-data proof, and accountant sign-off.
+- The browser sprint does not change production posture, Vercel/Supabase settings, production hosting, real ZATCA, PDF/A-3, official VAT filing, payment gateways, email providers, backup/restore, object-storage migration, automatic inventory movement, logistics/carrier integration, or customer-data handling.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked web typecheck blocker and was not modified.
+
+## 2026-06-04 Delivery Note Source Visibility and Wording Sprint
+
+- Added related delivery-note panels to source sales invoice and accepted quote detail pages, plus clearer source invoice/source quote/reference-only stock issue cards on delivery-note detail.
+- Reverse source-document delivery-note panels are no longer open for the base invoice/quote detail workflow. Remaining Sales/AR gaps include optional stock-issue source UI, automatic recurring scheduler, real customer email sending, online quote acceptance/payment, collections automation, broader deployed E2E with safe seeded data, hosted/customer-data proof, and accountant sign-off.
+- The wording sprint does not change production posture, Vercel/Supabase settings, production hosting, real ZATCA, PDF/A-3, official VAT filing, payment gateways, email providers, backup/restore, object-storage migration, automatic inventory movement, logistics/carrier integration, or customer-data handling.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked web typecheck blocker and was not modified.
+
+## 2026-06-04 Collections Workflow Sprint
+
+- Added a controlled non-payment-gateway Sales/AR collections workflow with `COL-` case numbering, customer and outstanding-invoice links, lifecycle actions, activities, promises to pay, disputes, holds, workspace summary cards, invoice/customer detail visibility, global create/search exposure, and audit logging.
+- The base collections workspace is no longer a missing Sales/AR workflow. Remaining Sales/AR gaps include optional stock-issue source UI, automatic recurring scheduler, real customer email sending, scheduled collection reminders, payment links/payment gateway, online quote acceptance/payment, broader deployed E2E with safe seeded data, hosted/customer-data proof, and accountant sign-off.
+- The collections sprint does not change production posture, Vercel/Supabase settings, production hosting, real ZATCA, PDF/A-3, official VAT filing, payment gateways, email providers, backup/restore, object-storage migration, invoice accounting, AR balances, VAT/report math, automatic inventory movement, or customer-data handling.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked web typecheck blocker and was not modified.
+
+## 2026-06-04 Focused Collections Browser Workflow Sprint
+
+- Added focused mocked Playwright browser coverage for collections list/new/detail/edit, lifecycle actions, activity timeline, promise/dispute/hold/start/close states, invoice detail collection visibility, customer collections visibility, restricted permissions, global create, and global search.
+- Collections browser workflow coverage for the base list/new/detail/edit/lifecycle/activity/customer/invoice/global-create/global-search path is no longer open. Remaining Sales/AR gaps include optional stock-issue source UI, automatic recurring scheduler, real customer email sending, scheduled collection reminders, payment links/payment gateway, online quote acceptance/payment, broader deployed E2E with safe seeded data, hosted/customer-data proof, and accountant sign-off.
+- The browser sprint does not change production posture, Vercel/Supabase settings, production hosting, real ZATCA, PDF/A-3, official VAT filing, payment gateways, email providers, backup/restore, object-storage migration, invoice accounting, AR balances, VAT/report math, automatic inventory movement, or customer-data handling.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked web typecheck blocker and was not modified.
+
+## 2026-06-04 Focused Dashboard / Accountant Threshold Review Sprint
+
+- Added a documented Sales/AR dashboard attention threshold policy covering overdue invoices, collection follow-ups, quotes awaiting action, recurring templates due for manual generation, generated draft invoices, delivery notes, top AR customers, empty states, permissions, and read-only safety boundaries.
+- Dashboard threshold definitions and top-row ordering are no longer implicit magic numbers. Remaining dashboard/Sales/AR gaps include accountant/product sign-off on the documented policy, customizable dashboard widgets, broader deployed E2E with safe seeded data, hosted/customer-data proof, and production hardening.
+- The threshold review sprint does not change production posture, Vercel/Supabase settings, production hosting, real ZATCA, PDF/A-3, official VAT filing, payment gateways, email providers, backup/restore, object-storage migration, invoice accounting, AR balances, VAT/report math, automatic recurring generation, collection reminder sending, or inventory movement.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked web typecheck blocker and was not modified.
+
 ## Phase 0: Production Foundation For Paid Saudi-First SaaS v1
 
 Objective: convert the controlled-beta product into a paid production candidate by proving the platform, operations, legal, billing, security, storage, backup, support, and compliance foundations before public launch.
@@ -52,7 +127,7 @@ Objective: make the current AR/AP MVP reliable enough for structured user QA.
 Tasks:
 
 - Run guided QA through every implemented frontend route, starting with the new first-workflow path from setup to first report.
-- Review dashboard KPI definitions, chart thresholds, attention item thresholds, and quick-action placement with an accountant/product owner.
+- Review the documented dashboard KPI and Sales/AR attention threshold policy with an accountant/product owner.
 - Continue fixing visible UX inconsistencies in high-traffic accounting workflows without changing posting behavior.
 - Wire the new Playwright browser E2E smoke into CI and expand it where user-facing regressions are found.
 - Validate the opt-in SMTP provider with a non-production relay using the safe diagnostics gate, then add live domain authentication checks, provider-specific signed webhooks, production retry scheduler, external monitoring/alert delivery, and audit alerting for role/member administration.
@@ -186,7 +261,7 @@ Objective: complete core accounting modules expected in a serious SME accounting
 Tasks:
 
 - Supplier debit notes accounting hardening and accountant review of AP statement layout.
-- Purchase receiving QA, partial bill matching, and purchase matching hardening.
+- Purchase matching review workflow is now present for exception classification; remaining work is accountant-approved tolerance policy, purchase receiving QA, partial bill matching hardening, variance handoff, and purchase-return handoff.
 - Convert the DEV-08Z AP production-gap register into scoped tickets for linked PO-to-bill receipt reconciliation, valuation variance booking, landed cost, purchase returns, real provider AP email delivery, and broad AP E2E/smoke coverage.
 - Cash expense import/OCR groundwork and production hardening for uploaded receipt attachments after the S3 adapter is validated against a real non-production bucket.
 - Convert the DEV-09 banking/reconciliation production gaps into scoped tickets for real sanitized target-bank parser fixtures, optional raw-file archive implementation using the approved policy, approval queue polish, transfer-fee/FX handling, hosted/beta/customer-data proof, and broad banking E2E/smoke coverage.
@@ -214,7 +289,29 @@ Recommended next prompt:
 - DEV-08 through DEV-08M are closed as local-only AP evidence, not production evidence.
 - The local evidence covers AP state machines, AP-adjacent receipt/inventory paths, AP output/archive/download, AP output permissions, generated-document mock email outbox behavior, fiscal/permission blockers, and cleanup/retention posture.
 - Remaining AP roadmap work is now tracked through `docs/development/DEV_08Z_AP_PRODUCTION_GAP_REGISTER.md`.
-- Do not claim production AP readiness until purchase matching, valuation variance, landed cost, purchase returns, real provider AP email, broad E2E/smoke/full-test coverage, hosted/beta behavior, and customer-data behavior are separately proven.
+- Do not claim production AP readiness until purchase matching exception review/tolerance policy, valuation variance, landed cost, purchase returns, real provider AP email, broad E2E/smoke/full-test coverage, hosted/beta behavior, and customer-data behavior are separately proven.
+
+## 2026-06-05 Purchase Matching Visibility Sprint
+
+- Added read-only purchase matching visibility for purchase order, purchase bill, and purchase receipt detail routes.
+- The matching view compares ordered, billed, and received quantities; remaining to bill; remaining to receive; over-billed and over-received quantities; linked source documents; and review warnings.
+- This is visibility-only. It does not post journals, book variances, change AP balances, change inventory quantities, create purchase returns, create landed cost, or mutate source documents.
+- Remaining purchase matching work is accountant-approved tolerance/status policy, exception acknowledgement/approval workflow, multi-PO matching policy, valuation variance workflow, landed cost, purchase returns, hosted/beta/customer-data proof, and broad AP/inventory E2E coverage.
+
+## 2026-06-05 Purchase Matching Exception Center
+
+- Added a central read-only purchase matching exception workspace at `/purchases/matching`.
+- Added `GET /purchase-matching/exceptions` with supplier grouping, severity grouping, summary counts, and filters for supplier, severity, exception type, source type, and search.
+- Exception rows link to purchase orders, purchase bills, purchase receipts, and suppliers where the user has permission.
+- This pass did not post journals, book variances, change AP balances, change inventory quantities, mutate purchase orders/bills/receipts, create purchase returns, create landed cost, send email, call ZATCA, run hosted/customer-data workflows, or run OS power commands.
+- Remaining purchase matching work is accountant-approved tolerance/status policy, exception acknowledgement/approval workflow, variance proposal handoff, multi-PO matching policy, landed cost, purchase returns, hosted/beta/customer-data proof, and broad AP/inventory E2E coverage.
+
+## 2026-06-05 Purchase Matching Review Workflow
+
+- Added schema-backed purchase matching review tracking and policy documentation for PO/bill/receipt matching exceptions.
+- Added review lifecycle endpoints under `purchase-matching`, review status/reason filters in the exception center, review-only actions on `/purchases/matching`, source-panel review status visibility, and audit logging.
+- Review actions classify follow-up only. They do not post journals, book variances, change AP balances, change inventory quantities, mutate purchase orders/bills/receipts, create purchase returns, create landed cost, send email, call ZATCA, run hosted/customer-data workflows, or run OS power commands.
+- Remaining purchase matching work is accountant-approved tolerance/status policy, review detail timeline, variance proposal handoff, multi-PO matching policy, landed cost, purchase returns, hosted/beta/customer-data proof, and broad AP/inventory E2E coverage.
 
 ## 2026-05-30 DEV-09 Banking/Reconciliation Readiness Update
 
@@ -1080,3 +1177,64 @@ Recommended next step:
 - The tester script covers login/access, setup wizard, dashboard checklist, first customer, first invoice, invoice finalization, customer payment, customer ledger, AR report, supplier, purchase bill, supplier payment, supplier ledger/AP report, manual bank statement import preview, reconciliation review, inventory review, document PDF/archive review, and reports/dashboard review.
 - Added GitHub issue templates for beta bug reports, accounting review findings, and UX feedback with safety checks for secrets, real customer-sensitive data, production document data, PDF/document bodies, signed XML, and QR payloads.
 - Remaining beta-readiness work: invite the first selected real testers, run the script, triage findings, complete accountant review, keep full smoke/full E2E as explicit validation tasks, and resume security runtime-role hardening when safe Vercel environment mutation is available.
+
+# Sales/AR accountant wording review prep - 2026-06-04
+
+- Completed a focused Sales/AR wording and review-readiness pass for invoice ZATCA readiness labels, quote non-posting wording, recurring/delivery/collections safety wording, customer activity boundaries, AR Aging outstanding-invoice wording, and operational/draft VAT wording.
+- Added `docs/accountant-review/SALES_AR_ACCOUNTANT_REVIEW_CHECKLIST.md` and `docs/accountant-review/SALES_AR_SAMPLE_REVIEW_INDEX.md` for a safe accountant walkthrough.
+- This closes review-preparation documentation for the current Sales/AR module only. Actual accountant approval, document-title policy decisions, full smoke/full E2E, hosted/customer-data proof, real email, payment links, automatic reminders, scheduler, production ZATCA, PDF/A-3, official VAT filing, and production hardening remain separate roadmap items.
+
+# Sales/AR accountant findings intake - 2026-06-04
+
+- Added `docs/accountant-review/SALES_AR_ACCOUNTANT_REVIEW_FINDINGS_TRIAGE.md` after searching review docs, development closures, GitHub issue templates, and `BUG_AUDIT.md` for completed Sales/AR accountant findings.
+- No completed accountant findings were found, so no app code, PDF wording, calculations, posting behavior, payment behavior, VAT behavior, ZATCA behavior, email behavior, inventory behavior, or production infrastructure behavior changed.
+- Added `docs/accountant-review/SALES_INVOICE_DOCUMENT_TITLE_POLICY.md` to record Sales Invoice vs Tax Invoice options and keep the current conservative beta recommendation until accountant/tax/product review approves a more specific policy.
+- Remaining review work: run the Sales/AR accountant walkthrough with safe sample data, record concrete findings in the template, then implement only bounded approved fixes.
+
+# Dashboard Sales/AR attention links - 2026-06-04
+
+- Added read-only dashboard Sales/AR attention data and UI panels for overdue invoices, collection follow-ups, quotes awaiting action, recurring templates due for manual generation, generated recurring draft invoices, delivery notes awaiting fulfillment action, and top customers by outstanding AR.
+- Dashboard attention-item integration is no longer open for the current Sales/AR scope. Remaining Sales/AR gaps include optional stock-issue source UI, automatic recurring scheduler, real customer email sending, scheduled collection reminders, payment links/payment gateway, online quote acceptance/payment, broader deployed E2E with safe seeded data, hosted/customer-data proof, and accountant sign-off.
+- The dashboard sprint does not change production posture, Vercel/Supabase settings, production hosting, real ZATCA, PDF/A-3, official VAT filing, payment gateways, email providers, backup/restore, object-storage migration, invoice accounting, AR balances, VAT/report math, automatic inventory movement, scheduler behavior, or customer-data handling.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked web typecheck blocker and was not modified.
+
+# Sales/AR sample data and accountant walkthrough pack - 2026-06-04
+
+- Added a docs-only Sales/AR accountant walkthrough pack, synthetic sample-data plan, expected-results checklist, empty findings log, route review checklist, and external sample-output naming guide.
+- This closes the missing reviewer-walkthrough-pack gap for the current Sales/AR module, but it does not close actual accountant review or approval.
+- No sample data was created. No seed/reset/delete, smoke, E2E, PDF generation, hosted/customer-data workflow, real email, payment link, payment gateway, VAT filing, ZATCA call, accounting calculation, posting behavior, dashboard behavior, app code, API code, or backend behavior changed.
+- Remaining review work: run the walkthrough with safe synthetic/local or mocked data, collect real accountant findings, decide the Sales Invoice vs Tax Invoice title policy, and implement only bounded reviewed findings.
+
+# Controlled local Sales/AR accountant walkthrough execution preflight - 2026-06-04
+
+- Added a local walkthrough execution preflight, marker-based data plan, evidence status, route status, expected-results status, and sprint closure for the Sales/AR accountant walkthrough.
+- Planned marker: `SALES-AR-WALKTHROUGH-20260604`.
+- Local execution was blocked before data creation because local database/API/web services were not running, Docker was unavailable, safe local login was not verified, and no explicit write-capable execute approval existed.
+- No sample data, seed/reset/delete, smoke, E2E, PDF generation, hosted/customer-data workflow, real email, payment link, payment gateway, VAT filing, ZATCA call, accounting calculation, posting behavior, dashboard behavior, app code, API code, or backend behavior changed.
+- Remaining walkthrough work: start local services in a separate approved local-only run, verify local target and safe login, dry-run a marker fixture helper, execute only after explicit approval, then run the browser walkthrough and record actual findings.
+
+# Local services bring-up and Sales/AR walkthrough dry-run preflight - 2026-06-04
+
+- Added `docs/development/SALES_AR_LOCAL_SERVICES_BRINGUP_PREFLIGHT.md`, `docs/development/SALES_AR_WALKTHROUGH_FIXTURE_DRY_RUN_PLAN.md`, and `docs/development/SALES_AR_LOCAL_SERVICES_BRINGUP_DRY_RUN_SPRINT_CLOSURE.md`.
+- Local target configuration is verified as local, but runtime bring-up remains blocked because Docker Desktop Linux engine is unavailable and local Postgres, Redis, API, and web listeners are not running.
+- The marker remains `SALES-AR-WALKTHROUGH-20260604`.
+- Fixture dry-run planning is documented, but no fixture script was added, no dry-run was executed, and no sample data was created.
+- Remaining walkthrough work: make Docker/local dependencies available, start local Postgres and Redis only, start local API/web only, verify safe local login without printing secrets, then add or run a guarded fixture dry-run before any execute-mode data creation.
+
+# Local-only Sales/AR fixture payment-account hardening - 2026-06-05
+
+- Closure doc: `docs/development/SALES_AR_LOCAL_FIXTURE_PAYMENT_ACCOUNT_HARDENING_CLOSURE.md`.
+- Local runtime and schema readiness are now sufficient for guarded fixture dry-runs and execute attempts against the local-only marker.
+- The fixture payment-account mapping blocker is fixed: customer payment and refund requests now use the linked active posting `ASSET` chart-of-account id rather than the bank account profile id.
+- One guarded execute retry passed customer payment creation and stopped safely at credit-note application because the fixture sent an unsupported `note` field.
+- Partial marker-scoped local synthetic data is preserved by default: one customer, two items, three sales invoices, one customer payment, and one credit note.
+- Remaining walkthrough work: harden the fixture credit-note application request shape, rerun local gates and dry-run, attempt exactly one guarded execute retry only if dry-run passes, then proceed to browser route walkthrough and accountant review evidence after the full local sample data set exists.
+- Still not done: accountant review, route walkthrough, expected-results checkpoint review, PDF metadata checks, hosted/customer-data proof, seed/reset/delete, cleanup/delete, real email, payment gateway, VAT filing, ZATCA, backup/restore, and deployed E2E.
+
+# Local Sales/AR fixture idempotency execute and route metadata - 2026-06-05
+
+- Closure doc: `docs/development/SALES_AR_LOCAL_FIXTURE_IDEMPOTENCY_EXECUTE_ROUTE_METADATA_CLOSURE.md`.
+- The marker-scoped local fixture `SALES-AR-WALKTHROUGH-20260604` now completes through invoices, payments, credit note/allocation, refund, quotes, recurring invoice template, generated draft invoice, delivery notes, collections, and metadata-only route checks.
+- The prior tax-rate, schema, payment-account, credit-note apply payload, source-line detail, and partial allocation idempotency blockers are resolved for the local fixture scope.
+- Remaining walkthrough work: perform a controlled local browser walkthrough with the completed marker data, run optional PDF metadata checks only if approved, collect real accountant findings, and implement only bounded reviewed fixes.
+- Still not done: accountant approval, Tax Invoice title decision, official VAT filing, production ZATCA, real email, payment links/payment gateway, automatic reminders/scheduler, hosted/customer-data proof, broad E2E/smoke/full-test coverage, cleanup/delete, and production readiness.

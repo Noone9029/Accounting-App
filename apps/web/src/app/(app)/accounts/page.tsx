@@ -6,7 +6,7 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { Account, AccountType } from "@/lib/types";
+import type { Account, AccountCodeSuggestion, AccountType } from "@/lib/types";
 
 const accountTypes: AccountType[] = ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE", "COST_OF_SALES"];
 
@@ -17,6 +17,10 @@ export default function AccountsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [newAccountType, setNewAccountType] = useState<AccountType>("ASSET");
+  const [accountCode, setAccountCode] = useState("");
+  const [codeTouched, setCodeTouched] = useState(false);
+  const [codeSuggestion, setCodeSuggestion] = useState<AccountCodeSuggestion | null>(null);
   const canManageAccounts = can(PERMISSIONS.accounts.manage);
 
   useEffect(() => {
@@ -50,6 +54,34 @@ export default function AccountsPage() {
     };
   }, [organizationId]);
 
+  useEffect(() => {
+    if (!organizationId || !canManageAccounts) {
+      return;
+    }
+
+    let cancelled = false;
+    apiRequest<AccountCodeSuggestion>(`/accounts/next-code?type=${encodeURIComponent(newAccountType)}`)
+      .then((suggestion) => {
+        if (cancelled) {
+          return;
+        }
+        setCodeSuggestion(suggestion);
+        if (!codeTouched) {
+          setAccountCode(suggestion.code);
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (!cancelled) {
+          setCodeSuggestion(null);
+          setError(loadError instanceof Error ? loadError.message : "Unable to load the next account code.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accounts.length, canManageAccounts, codeTouched, newAccountType, organizationId]);
+
   async function createAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -61,9 +93,9 @@ export default function AccountsPage() {
       const created = await apiRequest<Account>("/accounts", {
         method: "POST",
         body: {
-          code: String(formData.get("code")),
+          code: accountCode,
           name: String(formData.get("name")),
-          type: String(formData.get("type")) as AccountType,
+          type: newAccountType,
           parentId: String(formData.get("parentId") || "") || undefined,
           allowPosting: formData.get("allowPosting") === "on",
         },
@@ -71,6 +103,8 @@ export default function AccountsPage() {
       setAccounts((current) => [...current, created].sort((a, b) => a.code.localeCompare(b.code)));
       setSuccess(`Created account ${created.code} ${created.name}.`);
       form.reset();
+      setCodeTouched(false);
+      setAccountCode("");
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Unable to create account.");
     }
@@ -86,10 +120,31 @@ export default function AccountsPage() {
       {canManageAccounts ? (
       <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
         <h2 className="text-base font-semibold text-ink">Create account</h2>
-        <form onSubmit={createAccount} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[0.6fr_1fr_0.8fr_1fr_auto]">
-          <input name="code" required placeholder="Code" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+        <form onSubmit={createAccount} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[0.7fr_1fr_0.8fr_1fr_auto]">
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">Code</span>
+            <input
+              name="code"
+              value={accountCode}
+              onChange={(event) => {
+                setCodeTouched(true);
+                setAccountCode(event.target.value);
+              }}
+              placeholder={codeSuggestion?.code ?? "Auto"}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
+            />
+          </label>
           <input name="name" required placeholder="Name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <select name="type" required className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+          <select
+            name="type"
+            value={newAccountType}
+            onChange={(event) => {
+              setNewAccountType(event.target.value as AccountType);
+              setCodeTouched(false);
+            }}
+            required
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
+          >
             {accountTypes.map((type) => (
               <option key={type} value={type}>
                 {type.replaceAll("_", " ")}
@@ -109,6 +164,9 @@ export default function AccountsPage() {
             Posting
           </label>
           <div className="md:col-span-5">
+            <p className="mb-3 text-xs leading-5 text-steel">
+              {codeSuggestion?.helperText ?? "LedgerByte can suggest a code from the selected account type range. Manual changes are audit logged."}
+            </p>
             <button type="submit" disabled={!organizationId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
               Add account
             </button>

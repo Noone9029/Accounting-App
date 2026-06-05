@@ -104,9 +104,17 @@ describe("party transaction helpers", () => {
   it("builds action links and CSV exports for transaction lists", () => {
     const invoice = transactions[0]!;
     const bill = transactions[2]!;
+    const purchaseOrder = transaction({ sourceType: "PurchaseOrder", sourceId: "po-1", type: "Purchase order" });
+    const salesQuote = transaction({ sourceType: "SalesQuote", sourceId: "quote-1", type: "Sales quote (non-posting)", balanceDue: "0.0000" });
+    const recurringTemplate = transaction({ sourceType: "RecurringInvoiceTemplate", sourceId: "rec-1", type: "Recurring invoice template (non-posting)", balanceDue: "0.0000" });
+    const deliveryNote = transaction({ sourceType: "DeliveryNote", sourceId: "dn-1", type: "Delivery note (non-posting fulfillment)", balanceDue: "0.0000" });
 
     expect(partyTransactionActionHref(invoice)).toBe("/sales/invoices/invoice-1");
+    expect(partyTransactionActionHref(salesQuote)).toBe("/sales/quotes/quote-1");
+    expect(partyTransactionActionHref(recurringTemplate)).toBe("/sales/recurring-invoices/rec-1");
+    expect(partyTransactionActionHref(deliveryNote)).toBe("/sales/delivery-notes/dn-1");
     expect(partyTransactionActionHref(bill)).toBe("/purchases/bills/bill-1");
+    expect(partyTransactionActionHref(purchaseOrder)).toBe("/purchases/purchase-orders/po-1");
     expect(partyTransactionsCsv([invoice])).toContain("Date,Type,Transaction number");
     expect(partyTransactionsCsv([invoice])).toContain("INV-001");
   });

@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { AccountType } from "@prisma/client";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import { AuthenticatedUser } from "../auth/auth.types";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
@@ -20,6 +21,12 @@ export class ChartOfAccountsController {
   @RequirePermissions(PERMISSIONS.accounts.view)
   list(@CurrentOrganizationId() organizationId: string) {
     return this.accountsService.list(organizationId);
+  }
+
+  @Get("next-code")
+  @RequirePermissions(PERMISSIONS.accounts.view)
+  nextCode(@CurrentOrganizationId() organizationId: string, @Query("type") type: AccountType) {
+    return this.accountsService.nextCode(organizationId, type);
   }
 
   @Post()

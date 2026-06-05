@@ -54,6 +54,121 @@ describe("number sequence service", () => {
     expect(prisma.numberSequence.upsert).not.toHaveBeenCalled();
   });
 
+  it("uses the sales quote default prefix when an organization has no configured quote sequence", async () => {
+    const prisma = {
+      numberSequence: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        upsert: jest.fn().mockResolvedValue({ prefix: "QUO-", nextNumber: 2, padding: 6 }),
+      },
+    };
+    const service = new NumberSequenceService(prisma as never);
+
+    await expect(service.preview("org-1", NumberSequenceScope.SALES_QUOTE)).resolves.toMatchObject({
+      prefix: "QUO-",
+      nextNumber: 1,
+      exampleNextNumber: "QUO-000001",
+    });
+    await expect(service.next("org-1", NumberSequenceScope.SALES_QUOTE)).resolves.toBe("QUO-000001");
+    expect(prisma.numberSequence.upsert).toHaveBeenCalledWith({
+      where: { organizationId_scope: { organizationId: "org-1", scope: NumberSequenceScope.SALES_QUOTE } },
+      create: {
+        organizationId: "org-1",
+        scope: NumberSequenceScope.SALES_QUOTE,
+        prefix: "QUO-",
+        nextNumber: 2,
+        padding: 6,
+      },
+      update: { nextNumber: { increment: 1 } },
+    });
+  });
+
+  it("uses the recurring invoice template default prefix without consuming invoice numbers", async () => {
+    const prisma = {
+      numberSequence: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        upsert: jest.fn().mockResolvedValue({ prefix: "REC-", nextNumber: 2, padding: 6 }),
+      },
+    };
+    const service = new NumberSequenceService(prisma as never);
+
+    await expect(service.preview("org-1", NumberSequenceScope.RECURRING_INVOICE_TEMPLATE)).resolves.toMatchObject({
+      prefix: "REC-",
+      nextNumber: 1,
+      exampleNextNumber: "REC-000001",
+      reserved: false,
+    });
+    await expect(service.next("org-1", NumberSequenceScope.RECURRING_INVOICE_TEMPLATE)).resolves.toBe("REC-000001");
+    expect(prisma.numberSequence.upsert).toHaveBeenCalledWith({
+      where: { organizationId_scope: { organizationId: "org-1", scope: NumberSequenceScope.RECURRING_INVOICE_TEMPLATE } },
+      create: {
+        organizationId: "org-1",
+        scope: NumberSequenceScope.RECURRING_INVOICE_TEMPLATE,
+        prefix: "REC-",
+        nextNumber: 2,
+        padding: 6,
+      },
+      update: { nextNumber: { increment: 1 } },
+    });
+  });
+
+  it("uses the delivery note default prefix without consuming invoice numbers", async () => {
+    const prisma = {
+      numberSequence: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        upsert: jest.fn().mockResolvedValue({ prefix: "DN-", nextNumber: 2, padding: 6 }),
+      },
+    };
+    const service = new NumberSequenceService(prisma as never);
+
+    await expect(service.preview("org-1", NumberSequenceScope.DELIVERY_NOTE)).resolves.toMatchObject({
+      prefix: "DN-",
+      nextNumber: 1,
+      exampleNextNumber: "DN-000001",
+      reserved: false,
+    });
+    await expect(service.next("org-1", NumberSequenceScope.DELIVERY_NOTE)).resolves.toBe("DN-000001");
+    expect(prisma.numberSequence.upsert).toHaveBeenCalledWith({
+      where: { organizationId_scope: { organizationId: "org-1", scope: NumberSequenceScope.DELIVERY_NOTE } },
+      create: {
+        organizationId: "org-1",
+        scope: NumberSequenceScope.DELIVERY_NOTE,
+        prefix: "DN-",
+        nextNumber: 2,
+        padding: 6,
+      },
+      update: { nextNumber: { increment: 1 } },
+    });
+  });
+
+  it("uses the collection case default prefix without consuming invoice numbers", async () => {
+    const prisma = {
+      numberSequence: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        upsert: jest.fn().mockResolvedValue({ prefix: "COL-", nextNumber: 2, padding: 6 }),
+      },
+    };
+    const service = new NumberSequenceService(prisma as never);
+
+    await expect(service.preview("org-1", NumberSequenceScope.COLLECTION_CASE)).resolves.toMatchObject({
+      prefix: "COL-",
+      nextNumber: 1,
+      exampleNextNumber: "COL-000001",
+      reserved: false,
+    });
+    await expect(service.next("org-1", NumberSequenceScope.COLLECTION_CASE)).resolves.toBe("COL-000001");
+    expect(prisma.numberSequence.upsert).toHaveBeenCalledWith({
+      where: { organizationId_scope: { organizationId: "org-1", scope: NumberSequenceScope.COLLECTION_CASE } },
+      create: {
+        organizationId: "org-1",
+        scope: NumberSequenceScope.COLLECTION_CASE,
+        prefix: "COL-",
+        nextNumber: 2,
+        padding: 6,
+      },
+      update: { nextNumber: { increment: 1 } },
+    });
+  });
+
   it("lists and formats configured sequences", async () => {
     const prisma = {
       numberSequence: {

@@ -144,6 +144,12 @@ export function partyTransactionActionHref(transaction: PartyTransaction): strin
   switch (transaction.sourceType) {
     case "SalesInvoice":
       return `/sales/invoices/${transaction.sourceId}`;
+    case "SalesQuote":
+      return `/sales/quotes/${transaction.sourceId}`;
+    case "RecurringInvoiceTemplate":
+      return `/sales/recurring-invoices/${transaction.sourceId}`;
+    case "DeliveryNote":
+      return `/sales/delivery-notes/${transaction.sourceId}`;
     case "CreditNote":
       return `/sales/credit-notes/${transaction.sourceId}`;
     case "CustomerPayment":
@@ -152,6 +158,8 @@ export function partyTransactionActionHref(transaction: PartyTransaction): strin
       return `/sales/customer-refunds/${transaction.sourceId}`;
     case "PurchaseBill":
       return `/purchases/bills/${transaction.sourceId}`;
+    case "PurchaseOrder":
+      return `/purchases/purchase-orders/${transaction.sourceId}`;
     case "PurchaseDebitNote":
       return `/purchases/debit-notes/${transaction.sourceId}`;
     case "SupplierPayment":

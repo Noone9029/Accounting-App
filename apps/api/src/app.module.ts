@@ -11,11 +11,13 @@ import { BankTransferModule } from "./bank-transfers/bank-transfer.module";
 import { BranchModule } from "./branches/branch.module";
 import { CashExpenseModule } from "./cash-expenses/cash-expense.module";
 import { ChartOfAccountsModule } from "./chart-of-accounts/chart-of-accounts.module";
+import { CollectionModule } from "./collections/collection.module";
 import { ContactModule } from "./contacts/contact.module";
 import { CreditNoteModule } from "./credit-notes/credit-note.module";
 import { CustomerPaymentModule } from "./customer-payments/customer-payment.module";
 import { CustomerRefundModule } from "./customer-refunds/customer-refund.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
+import { DeliveryNoteModule } from "./delivery-notes/delivery-note.module";
 import { EmailModule } from "./email/email.module";
 import { GeneratedDocumentModule } from "./generated-documents/generated-document.module";
 import { HealthModule } from "./health/health.module";
@@ -30,11 +32,14 @@ import { OrganizationModule } from "./organizations/organization.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PurchaseBillModule } from "./purchase-bills/purchase-bill.module";
 import { PurchaseDebitNoteModule } from "./purchase-debit-notes/purchase-debit-note.module";
+import { PurchaseMatchingModule } from "./purchase-matching/purchase-matching.module";
 import { PurchaseOrderModule } from "./purchase-orders/purchase-order.module";
 import { PurchaseReceiptModule } from "./purchase-receipts/purchase-receipt.module";
+import { RecurringInvoiceModule } from "./recurring-invoices/recurring-invoice.module";
 import { ReportsModule } from "./reports/reports.module";
 import { RoleModule } from "./roles/role.module";
 import { SalesInvoiceModule } from "./sales-invoices/sales-invoice.module";
+import { SalesQuoteModule } from "./sales-quotes/sales-quote.module";
 import { SalesStockIssueModule } from "./sales-stock-issues/sales-stock-issue.module";
 import { SearchModule } from "./search/search.module";
 import { SupplierRefundModule } from "./supplier-refunds/supplier-refund.module";
@@ -62,11 +67,13 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     OrganizationModule,
     BranchModule,
     CashExpenseModule,
+    CollectionModule,
     ContactModule,
     CreditNoteModule,
     CustomerPaymentModule,
     CustomerRefundModule,
     DashboardModule,
+    DeliveryNoteModule,
     GeneratedDocumentModule,
     FiscalPeriodModule,
     OrganizationMemberModule,
@@ -80,10 +87,13 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     WarehouseTransferModule,
     InventoryModule,
     SalesInvoiceModule,
+    SalesQuoteModule,
     SearchModule,
     PurchaseOrderModule,
     PurchaseBillModule,
+    PurchaseMatchingModule,
     PurchaseReceiptModule,
+    RecurringInvoiceModule,
     PurchaseDebitNoteModule,
     SalesStockIssueModule,
     ReportsModule,

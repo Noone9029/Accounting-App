@@ -5,7 +5,7 @@ import {
   assertFinalizableSalesInvoice,
   calculateSalesInvoiceTotals,
 } from "@ledgerbyte/accounting-core";
-import { DocumentType, SalesInvoiceStatus } from "@prisma/client";
+import { AccountType, DocumentType, SalesInvoiceStatus, SalesInvoiceTaxMode } from "@prisma/client";
 import { buildSalesInvoiceJournalLines } from "./sales-invoice-accounting";
 import { SalesInvoiceService } from "./sales-invoice.service";
 import { ItemService } from "../items/item.service";
@@ -37,6 +37,32 @@ describe("sales invoice rules", () => {
       lineTotal: "207.0000",
     });
     expect(result).toMatchObject({ subtotal: "200.0000", discountTotal: "20.0000", taxableTotal: "180.0000", taxTotal: "27.0000", total: "207.0000" });
+  });
+
+  it("calculates tax-inclusive invoice lines by extracting the VAT portion", () => {
+    const result = calculateSalesInvoiceTotals([{ quantity: "1.0000", unitPrice: "115.0000", taxRate: "15.0000" }], "TAX_INCLUSIVE");
+
+    expect(result.lines[0]).toMatchObject({
+      lineGrossAmount: "115.0000",
+      taxableAmount: "100.0000",
+      taxAmount: "15.0000",
+      lineTotal: "115.0000",
+    });
+    expect(result).toMatchObject({ subtotal: "115.0000", taxableTotal: "100.0000", taxTotal: "15.0000", total: "115.0000" });
+  });
+
+  it("calculates tax-inclusive discounts and no-tax mode consistently", () => {
+    expect(calculateSalesInvoiceTotals([{ quantity: "1.0000", unitPrice: "115.0000", discountRate: "10.0000", taxRate: "15.0000" }], "TAX_INCLUSIVE")).toMatchObject({
+      discountTotal: "11.5000",
+      taxableTotal: "90.0000",
+      taxTotal: "13.5000",
+      total: "103.5000",
+    });
+    expect(calculateSalesInvoiceTotals([{ quantity: "1.0000", unitPrice: "100.0000", taxRate: "15.0000" }], "NO_TAX")).toMatchObject({
+      taxableTotal: "100.0000",
+      taxTotal: "0.0000",
+      total: "100.0000",
+    });
   });
 
   it("supports lines without tax rates", () => {
@@ -95,6 +121,93 @@ describe("sales invoice rules", () => {
       expect.objectContaining({ accountId: "vat", debit: "0.0000", credit: "15.0000" }),
     ]);
     expect(() => assertBalancedJournal(lines)).not.toThrow();
+  });
+
+  it("groups finalization revenue credits by selected invoice line account", () => {
+    const lines = buildSalesInvoiceJournalLines({
+      accountsReceivableAccountId: "ar",
+      vatPayableAccountId: "vat",
+      invoiceNumber: "INV-000002",
+      customerName: "Customer",
+      currency: "SAR",
+      total: "230.0000",
+      taxTotal: "30.0000",
+      lines: [
+        { accountId: "sales", description: "Services", taxableAmount: "100.0000" },
+        { accountId: "other-income", description: "Training", taxableAmount: "100.0000" },
+      ],
+    });
+
+    expect(lines).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ accountId: "sales", credit: "100.0000" }),
+        expect.objectContaining({ accountId: "other-income", credit: "100.0000" }),
+      ]),
+    );
+    expect(() => assertBalancedJournal(lines)).not.toThrow();
+  });
+
+  it("prefills invoice line account and tax from the selected item", async () => {
+    const prisma = {
+      item: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: "item-1", name: "Consulting", description: null, revenueAccountId: "revenue-1", salesTaxRateId: "tax-1" },
+        ]),
+      },
+      account: { findMany: jest.fn().mockResolvedValue([{ id: "revenue-1" }]) },
+      taxRate: { findMany: jest.fn().mockResolvedValue([{ id: "tax-1", rate: "15.0000" }]) },
+    };
+    const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, { reverse: jest.fn() } as never);
+
+    const prepared = await prepareInvoice(service, "org-1", [
+      { itemId: "item-1", quantity: "1.0000", unitPrice: "100.0000" },
+    ]);
+
+    expect(prepared.lines[0]).toMatchObject({ accountId: "revenue-1", taxRateId: "tax-1", taxableAmount: "100.0000", taxAmount: "15.0000" });
+    expect(prisma.account.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ organizationId: "org-1", id: { in: ["revenue-1"] }, type: AccountType.REVENUE }),
+      }),
+    );
+  });
+
+  it("rejects invoice line accounts outside active posting revenue accounts in the tenant", async () => {
+    const prisma = {
+      item: { findMany: jest.fn().mockResolvedValue([]) },
+      account: { findMany: jest.fn().mockResolvedValue([]) },
+      taxRate: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, { reverse: jest.fn() } as never);
+
+    await expect(
+      prepareInvoice(service, "org-1", [{ description: "Consulting", accountId: "expense-1", quantity: "1.0000", unitPrice: "100.0000" }]),
+    ).rejects.toThrow("active posting revenue accounts");
+
+    expect(prisma.account.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ organizationId: "org-1", id: { in: ["expense-1"] }, type: AccountType.REVENUE, isActive: true, allowPosting: true }),
+      }),
+    );
+  });
+
+  it("clears line tax rates in no-tax mode before calculation", async () => {
+    const prisma = {
+      item: { findMany: jest.fn().mockResolvedValue([]) },
+      account: { findMany: jest.fn().mockResolvedValue([{ id: "revenue-1" }]) },
+      taxRate: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, { reverse: jest.fn() } as never);
+
+    const prepared = await prepareInvoice(
+      service,
+      "org-1",
+      [{ description: "Consulting", accountId: "revenue-1", quantity: "1.0000", unitPrice: "100.0000", taxRateId: "tax-1" }],
+      SalesInvoiceTaxMode.NO_TAX,
+    );
+
+    expect(prepared.taxTotal).toBe("0.0000");
+    expect(prepared.lines[0]?.taxRateId).toBeUndefined();
+    expect(prisma.taxRate.findMany).not.toHaveBeenCalled();
   });
 
   it("does not post again when finalizing an already finalized invoice", async () => {
@@ -1013,4 +1126,43 @@ function makeVoidTransactionMock(
       update: jest.fn(),
     },
   };
+}
+
+function prepareInvoice(
+  service: SalesInvoiceService,
+  organizationId: string,
+  lines: Array<{
+    itemId?: string | null;
+    description?: string;
+    accountId?: string | null;
+    quantity: string;
+    unitPrice: string;
+    discountRate?: string;
+    taxRateId?: string | null;
+    sortOrder?: number;
+  }>,
+  taxMode: SalesInvoiceTaxMode = SalesInvoiceTaxMode.TAX_EXCLUSIVE,
+): Promise<{
+  taxTotal: string;
+  lines: Array<{ accountId: string; taxRateId?: string; taxableAmount: string; taxAmount: string }>;
+}> {
+  return (service as unknown as {
+    prepareInvoice: (
+      organizationId: string,
+      lines: Array<{
+        itemId?: string | null;
+        description?: string;
+        accountId?: string | null;
+        quantity: string;
+        unitPrice: string;
+        discountRate?: string;
+        taxRateId?: string | null;
+        sortOrder?: number;
+      }>,
+      taxMode: SalesInvoiceTaxMode,
+    ) => Promise<{
+      taxTotal: string;
+      lines: Array<{ accountId: string; taxRateId?: string; taxableAmount: string; taxAmount: string }>;
+    }>;
+  }).prepareInvoice(organizationId, lines, taxMode);
 }

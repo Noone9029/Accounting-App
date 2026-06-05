@@ -21,6 +21,7 @@ import {
   NumberSequenceScope,
   Prisma,
   SalesInvoiceStatus,
+  SalesInvoiceTaxMode,
   TaxRateScope,
   ZatcaInvoiceType,
 } from "@prisma/client";
@@ -132,6 +133,7 @@ interface PreparedLine {
 }
 
 interface PreparedInvoice {
+  taxMode: SalesInvoiceTaxMode;
   subtotal: string;
   discountTotal: string;
   taxableTotal: string;
@@ -207,6 +209,18 @@ export class SalesInvoiceService {
     }
 
     return invoice;
+  }
+
+  async nextNumberPreview(organizationId: string) {
+    const preview = await this.numberSequenceService.preview(organizationId, NumberSequenceScope.INVOICE);
+    return {
+      ...preview,
+      invoiceNumber: preview.exampleNextNumber,
+      editable: false,
+      overrideAllowed: false,
+      policy: "SEQUENCE_ASSIGNED_ON_CREATE",
+      helperText: "Preview only. The invoice number is assigned from the invoice number sequence when the draft is saved.",
+    };
   }
 
   async paymentUnappliedAllocations(organizationId: string, id: string) {
@@ -412,7 +426,8 @@ export class SalesInvoiceService {
 
   async create(organizationId: string, actorUserId: string, dto: CreateSalesInvoiceDto) {
     await this.validateHeaderReferences(organizationId, dto.customerId, dto.branchId ?? undefined);
-    const prepared = await this.prepareInvoice(organizationId, dto.lines);
+    const taxMode = dto.taxMode ?? SalesInvoiceTaxMode.TAX_EXCLUSIVE;
+    const prepared = await this.prepareInvoice(organizationId, dto.lines, taxMode);
     const currency = (dto.currency ?? "SAR").toUpperCase();
 
     const invoice = await this.prisma.$transaction(async (tx) => {
@@ -427,6 +442,7 @@ export class SalesInvoiceService {
           issueDate: new Date(dto.issueDate),
           dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
           currency,
+          taxMode: prepared.taxMode,
           subtotal: prepared.subtotal,
           discountTotal: prepared.discountTotal,
           taxableTotal: prepared.taxableTotal,
@@ -454,7 +470,19 @@ export class SalesInvoiceService {
       await this.validateHeaderReferences(organizationId, dto.customerId ?? existing.customerId, dto.branchId ?? undefined);
     }
 
-    const prepared = dto.lines ? await this.prepareInvoice(organizationId, dto.lines) : null;
+    const taxMode = dto.taxMode ?? existing.taxMode ?? SalesInvoiceTaxMode.TAX_EXCLUSIVE;
+    const shouldRecalculate = Boolean(dto.lines) || dto.taxMode !== undefined;
+    const recalculationLines = dto.lines ?? existing.lines?.map((line) => ({
+      itemId: line.itemId,
+      description: line.description,
+      accountId: line.accountId,
+      quantity: String(line.quantity),
+      unitPrice: String(line.unitPrice),
+      discountRate: String(line.discountRate),
+      taxRateId: line.taxRateId,
+      sortOrder: line.sortOrder,
+    }));
+    const prepared = shouldRecalculate ? await this.prepareInvoice(organizationId, recalculationLines ?? [], taxMode) : null;
     const updated = await this.prisma.$transaction(async (tx) => {
       if (prepared) {
         await tx.salesInvoiceLine.deleteMany({ where: { organizationId, invoiceId: id } });
@@ -468,6 +496,7 @@ export class SalesInvoiceService {
           issueDate: dto.issueDate ? new Date(dto.issueDate) : undefined,
           dueDate: Object.prototype.hasOwnProperty.call(dto, "dueDate") ? (dto.dueDate ? new Date(dto.dueDate) : null) : undefined,
           currency: dto.currency?.toUpperCase(),
+          taxMode: prepared?.taxMode ?? dto.taxMode,
           subtotal: prepared?.subtotal,
           discountTotal: prepared?.discountTotal,
           taxableTotal: prepared?.taxableTotal,
@@ -862,7 +891,11 @@ export class SalesInvoiceService {
     }
   }
 
-  private async prepareInvoice(organizationId: string, lines: SalesInvoiceLineDto[]): Promise<PreparedInvoice> {
+  private async prepareInvoice(
+    organizationId: string,
+    lines: SalesInvoiceLineDto[],
+    taxMode: SalesInvoiceTaxMode = SalesInvoiceTaxMode.TAX_EXCLUSIVE,
+  ): Promise<PreparedInvoice> {
     const itemIds = [...new Set(lines.map((line) => line.itemId).filter((value): value is string => Boolean(value)))];
     const items = await this.prisma.item.findMany({
       where: { organizationId, id: { in: itemIds }, status: ItemStatus.ACTIVE },
@@ -877,8 +910,9 @@ export class SalesInvoiceService {
     const baseLines = lines.map((line, index) => {
       const item = line.itemId ? itemsById.get(line.itemId) : undefined;
       const accountId = this.cleanOptional(line.accountId ?? undefined) ?? item?.revenueAccountId;
-      const taxRateId =
+      const requestedTaxRateId =
         line.taxRateId === undefined ? item?.salesTaxRateId ?? undefined : this.cleanOptional(line.taxRateId ?? undefined);
+      const taxRateId = taxMode === SalesInvoiceTaxMode.NO_TAX ? undefined : requestedTaxRateId;
       const description = this.cleanOptional(line.description) ?? item?.description ?? item?.name;
 
       if (!accountId) {
@@ -914,9 +948,11 @@ export class SalesInvoiceService {
         discountRate: line.discountRate,
         taxRate: line.taxRateId ? String(taxRatesById.get(line.taxRateId)?.rate ?? "0.0000") : "0.0000",
       })),
+      taxMode,
     );
 
     return {
+      taxMode,
       subtotal: totals.subtotal,
       discountTotal: totals.discountTotal,
       taxableTotal: totals.taxableTotal,
@@ -945,9 +981,9 @@ export class SalesInvoiceService {
     };
   }
 
-  private calculateTotals(lines: Parameters<typeof calculateSalesInvoiceTotals>[0]) {
+  private calculateTotals(lines: Parameters<typeof calculateSalesInvoiceTotals>[0], taxMode: SalesInvoiceTaxMode) {
     try {
-      return calculateSalesInvoiceTotals(lines);
+      return calculateSalesInvoiceTotals(lines, taxMode);
     } catch (error) {
       if (error instanceof AccountingRuleError) {
         throw new BadRequestException({ code: error.code, message: error.message });

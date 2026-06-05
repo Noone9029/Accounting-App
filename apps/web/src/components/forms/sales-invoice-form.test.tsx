@@ -66,6 +66,14 @@ describe("SalesInvoiceForm", () => {
       if (path === "/branches") {
         return Promise.resolve([]);
       }
+      if (path === "/sales-invoices/next-number") {
+        return Promise.resolve({
+          invoiceNumber: "INV-000042",
+          editable: false,
+          overrideAllowed: false,
+          helperText: "Preview only. The invoice number is assigned from the invoice number sequence when the draft is saved.",
+        });
+      }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
   });
@@ -77,6 +85,14 @@ describe("SalesInvoiceForm", () => {
 
     await waitFor(() => expect(screen.getByLabelText("Customer")).toHaveValue("customer-2"));
     expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/customers/customer-2");
+  });
+
+  it("shows a read-only invoice number sequence preview on new invoices", async () => {
+    render(<SalesInvoiceForm />);
+
+    await waitFor(() => expect(screen.getByLabelText("Invoice number")).toHaveValue("INV-000042"));
+    expect(screen.getByLabelText("Invoice number")).toHaveAttribute("readonly");
+    expect(screen.getByText(/assigned from the invoice number sequence/i)).toBeInTheDocument();
   });
 });
 

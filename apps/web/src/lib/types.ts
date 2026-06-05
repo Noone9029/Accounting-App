@@ -55,6 +55,24 @@ export type InventoryVarianceReason =
   | "MANUAL_ADJUSTMENT";
 export type InventoryVarianceProposalAction = "CREATE" | "SUBMIT" | "APPROVE" | "POST" | "REVERSE" | "VOID";
 export type SalesInvoiceStatus = "DRAFT" | "FINALIZED" | "VOIDED";
+export type SalesInvoiceTaxMode = "TAX_EXCLUSIVE" | "TAX_INCLUSIVE" | "NO_TAX";
+export type SalesQuoteStatus = "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "CANCELLED" | "CONVERTED";
+export type RecurringInvoiceTemplateStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "ENDED" | "CANCELLED";
+export type RecurringInvoiceFrequency = "WEEKLY" | "MONTHLY" | "QUARTERLY" | "YEARLY";
+export type RecurringInvoiceDateMode = "RUN_DATE";
+export type DeliveryNoteStatus = "DRAFT" | "ISSUED" | "DELIVERED" | "CANCELLED" | "VOIDED";
+export type CollectionCaseStatus = "OPEN" | "IN_PROGRESS" | "PROMISED_TO_PAY" | "PAID" | "ON_HOLD" | "DISPUTED" | "CLOSED" | "CANCELLED";
+export type CollectionPriority = "LOW" | "NORMAL" | "HIGH" | "URGENT";
+export type CollectionActivityType =
+  | "NOTE"
+  | "CALL"
+  | "EMAIL_PLANNED"
+  | "REMINDER_PLANNED"
+  | "PROMISE_TO_PAY"
+  | "DISPUTE"
+  | "ESCALATION"
+  | "PAYMENT_RECEIVED_NOTE"
+  | "CLOSED_NOTE";
 export type CreditNoteStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type PurchaseOrderStatus = "DRAFT" | "APPROVED" | "SENT" | "PARTIALLY_BILLED" | "BILLED" | "CLOSED" | "VOIDED";
 export type PurchaseBillStatus = "DRAFT" | "FINALIZED" | "VOIDED";
@@ -114,6 +132,8 @@ export type SupplierLedgerRowType =
   | "VOID_PURCHASE_BILL";
 export type DocumentType =
   | "SALES_INVOICE"
+  | "SALES_QUOTE"
+  | "DELIVERY_NOTE"
   | "CREDIT_NOTE"
   | "CUSTOMER_PAYMENT_RECEIPT"
   | "CUSTOMER_REFUND"
@@ -321,8 +341,80 @@ export interface DashboardLowStockItem {
   reorderPoint: string;
 }
 
+export interface DashboardSalesAttentionTopItem {
+  id: string;
+  number: string;
+  customerName: string;
+  status: string;
+  href: string;
+  amount?: string | null;
+  issueDate?: string | null;
+  dueDate?: string | null;
+  expiryDate?: string | null;
+  nextRunDate?: string | null;
+  followUpDate?: string | null;
+  deliveryDate?: string | null;
+  promisedPaymentDate?: string | null;
+  promisedAmount?: string | null;
+  templateNumber?: string | null;
+  templateName?: string | null;
+  sourceHref?: string | null;
+}
+
+export interface DashboardSalesAttentionCustomerItem {
+  id: string;
+  customerName: string;
+  outstandingBalance: string;
+  overdueAmount: string;
+  openCollectionCaseCount: number;
+  href: string;
+}
+
+export interface DashboardSalesAttentionSummary {
+  readOnly: true;
+  noMutation: true;
+  helperText: string;
+  overdueInvoices: {
+    count: number;
+    total: string;
+    topItems: DashboardSalesAttentionTopItem[];
+  };
+  collections: {
+    openCount: number;
+    dueTodayCount: number;
+    overdueFollowUpCount: number;
+    promisedToPayTotal: string;
+    disputedCount: number;
+    topItems: DashboardSalesAttentionTopItem[];
+  };
+  quotes: {
+    awaitingAcceptanceCount: number;
+    expiringSoonCount: number;
+    acceptedNotConvertedCount: number;
+    topItems: DashboardSalesAttentionTopItem[];
+  };
+  recurringInvoices: {
+    activeCount: number;
+    dueSoonCount: number;
+    overdueForGenerationCount: number;
+    recentlyGeneratedDraftInvoiceCount: number;
+    topItems: DashboardSalesAttentionTopItem[];
+    recentDraftInvoices: DashboardSalesAttentionTopItem[];
+  };
+  deliveryNotes: {
+    draftCount: number;
+    issuedNotDeliveredCount: number;
+    overdueDeliveryCount: number;
+    topItems: DashboardSalesAttentionTopItem[];
+  };
+  customers: {
+    topOutstanding: DashboardSalesAttentionCustomerItem[];
+  };
+}
+
 export type DashboardSectionName =
   | "sales"
+  | "salesAttention"
   | "purchases"
   | "banking"
   | "inventory"
@@ -394,6 +486,7 @@ export interface DashboardSummary {
     salesThisMonth: string;
     customerPaymentThisMonth: string;
   };
+  salesAttention: DashboardSalesAttentionSummary;
   purchases: {
     unpaidBillCount: number;
     unpaidBillBalance: string;
@@ -911,6 +1004,15 @@ export interface Account {
   isSystem: boolean;
   isActive: boolean;
   parent?: { id: string; code: string; name: string } | null;
+}
+
+export interface AccountCodeSuggestion {
+  type: AccountType;
+  code: string;
+  rangeStart: string;
+  rangeEnd: string;
+  manualOverrideAllowed: boolean;
+  helperText: string;
 }
 
 export interface BankAccountProfile {
@@ -1489,6 +1591,253 @@ export interface PurchaseOrderReceiptMatchingStatus {
   lines: PurchaseReceiptMatchingStatusLine[];
 }
 
+export type PurchaseMatchingContext = "purchaseOrder" | "purchaseBill" | "purchaseReceipt";
+export type PurchaseMatchingStatusLabel =
+  | "Matched"
+  | "Partially matched"
+  | "Not received"
+  | "Not billed"
+  | "Over received"
+  | "Over billed"
+  | "Receipt pending bill"
+  | "Bill pending receipt"
+  | "Review required";
+
+export interface PurchaseMatchingDocumentRef {
+  id: string;
+  purchaseOrderNumber?: string;
+  billNumber?: string;
+  receiptNumber?: string;
+  status: PurchaseOrderStatus | PurchaseBillStatus | PurchaseReceiptStatus;
+  orderDate?: string;
+  billDate?: string;
+  receiptDate?: string;
+  total?: string;
+  inventoryPostingMode?: PurchaseBillInventoryPostingMode;
+  purchaseOrderId?: string | null;
+  purchaseBillId?: string | null;
+  inventoryAssetJournalEntryId?: string | null;
+  inventoryAssetReversalJournalEntryId?: string | null;
+}
+
+export interface PurchaseMatchingLineRef {
+  id: string;
+  billNumber?: string;
+  billLineId?: string;
+  receiptNumber?: string;
+  receiptLineId?: string;
+  status: PurchaseBillStatus | PurchaseReceiptStatus;
+  quantity: string;
+  unitCost?: string | null;
+  href: string;
+  inventoryAssetJournalEntryId?: string | null;
+  inventoryAssetReversalJournalEntryId?: string | null;
+}
+
+export interface PurchaseMatchingLine {
+  lineId: string;
+  description: string;
+  item: Pick<Item, "id" | "name" | "sku" | "inventoryTracking"> | null;
+  orderedQuantity: string | null;
+  billedQuantity: string;
+  receivedQuantity: string;
+  remainingToBill: string | null;
+  remainingToReceive: string;
+  overBilledQuantity: string;
+  overReceivedQuantity: string;
+  status: PurchaseMatchingStatusLabel;
+  warnings: string[];
+  bills: PurchaseMatchingLineRef[];
+  receipts: PurchaseMatchingLineRef[];
+}
+
+export interface PurchaseMatchingSummary {
+  readOnly: true;
+  noMutation: true;
+  sourceType: PurchaseMatchingContext;
+  sourceId: string;
+  sourceNumber: string;
+  focusReceiptId?: string;
+  status: PurchaseMatchingStatusLabel;
+  supplier: Pick<Contact, "id" | "name" | "displayName">;
+  reviewSummary: PurchaseMatchingReviewSummary | null;
+  purchaseOrder: PurchaseMatchingDocumentRef | null;
+  purchaseBill: PurchaseMatchingDocumentRef | null;
+  purchaseReceipt: PurchaseMatchingDocumentRef | null;
+  relatedBills: PurchaseMatchingDocumentRef[];
+  relatedReceipts: PurchaseMatchingDocumentRef[];
+  totals: {
+    orderedQuantity: string;
+    billedQuantity: string;
+    receivedQuantity: string;
+    remainingToBill: string;
+    remainingToReceive: string;
+    overBilledQuantity: string;
+    overReceivedQuantity: string;
+  };
+  warnings: string[];
+  lines: PurchaseMatchingLine[];
+}
+
+export type PurchaseMatchingExceptionType =
+  | "OVER_BILLED"
+  | "OVER_RECEIVED"
+  | "NOT_RECEIVED"
+  | "NOT_BILLED"
+  | "PARTIALLY_MATCHED"
+  | "RECEIPT_PENDING_BILL"
+  | "BILL_PENDING_RECEIPT"
+  | "REVIEW_REQUIRED";
+
+export type PurchaseMatchingExceptionSeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+export type PurchaseMatchingReviewStatus =
+  | "OPEN"
+  | "IN_REVIEW"
+  | "WAITING_FOR_SUPPLIER"
+  | "WAITING_FOR_RECEIPT"
+  | "WAITING_FOR_BILL"
+  | "ACCEPTED_AS_TIMING_DIFFERENCE"
+  | "NEEDS_VARIANCE_REVIEW"
+  | "NEEDS_RETURN_REVIEW"
+  | "RESOLVED"
+  | "CANCELLED";
+export type PurchaseMatchingReviewReason =
+  | "QUANTITY_MISMATCH"
+  | "PRICE_MISMATCH"
+  | "RECEIPT_MISSING"
+  | "BILL_MISSING"
+  | "OVER_RECEIVED"
+  | "OVER_BILLED"
+  | "SUPPLIER_DISPUTE"
+  | "TIMING_DIFFERENCE"
+  | "DATA_ENTRY_REVIEW"
+  | "OTHER";
+
+export interface PurchaseMatchingReviewSummary {
+  reviewId: string;
+  reviewStatus: PurchaseMatchingReviewStatus;
+  reasonCode: PurchaseMatchingReviewReason | null;
+  assignedTo: { id: string; name: string; email: string } | null;
+  nextReviewDate: string | null;
+  reviewedAt: string | null;
+  reviewNoteSummary: string | null;
+}
+
+export interface PurchaseMatchingReview {
+  id: string;
+  organizationId: string;
+  supplierId: string | null;
+  supplier: Pick<Contact, "id" | "name" | "displayName"> | null;
+  sourceType: PurchaseMatchingContext;
+  sourceId: string;
+  sourceHref: string;
+  exceptionType: PurchaseMatchingExceptionType;
+  severity: PurchaseMatchingExceptionSeverity;
+  status: PurchaseMatchingReviewStatus;
+  reasonCode: PurchaseMatchingReviewReason | null;
+  assignedTo: { id: string; name: string; email: string } | null;
+  reviewedBy: { id: string; name: string; email: string } | null;
+  reviewedAt: string | null;
+  nextReviewDate: string | null;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+  reviewOnly: true;
+  noPostingEffect: true;
+}
+
+export interface PurchaseMatchingExceptionLink {
+  id: string;
+  number: string;
+  href: string;
+}
+
+export interface PurchaseMatchingExceptionItem {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  sourceType: PurchaseMatchingContext;
+  sourceId: string;
+  sourceNumber: string;
+  sourceHref: string;
+  purchaseOrderId: string | null;
+  purchaseOrderNumber: string | null;
+  purchaseOrderHref: string | null;
+  purchaseBillId: string | null;
+  purchaseBillNumber: string | null;
+  purchaseBillHref: string | null;
+  purchaseReceiptId: string | null;
+  purchaseReceiptNumber: string | null;
+  purchaseReceiptHref: string | null;
+  relatedBills: PurchaseMatchingExceptionLink[];
+  relatedReceipts: PurchaseMatchingExceptionLink[];
+  itemName: string | null;
+  lineDescription: string;
+  orderedQuantity: string | null;
+  billedQuantity: string;
+  receivedQuantity: string;
+  remainingToBill: string | null;
+  remainingToReceive: string;
+  overBilledQuantity: string;
+  overReceivedQuantity: string;
+  exceptionType: PurchaseMatchingExceptionType;
+  exceptionLabel: PurchaseMatchingStatusLabel;
+  severity: PurchaseMatchingExceptionSeverity;
+  reviewId: string | null;
+  reviewStatus: PurchaseMatchingReviewStatus | null;
+  reasonCode: PurchaseMatchingReviewReason | null;
+  assignedTo: { id: string; name: string; email: string } | null;
+  nextReviewDate: string | null;
+  reviewedAt: string | null;
+  reviewNoteSummary: string | null;
+  latestRelevantDate: string | null;
+  warnings: string[];
+}
+
+export interface PurchaseMatchingExceptionSupplierGroup {
+  supplierId: string;
+  supplierName: string;
+  totalExceptionCount: number;
+  highestSeverity: PurchaseMatchingExceptionSeverity;
+  outstandingReviewCount: number;
+  items: PurchaseMatchingExceptionItem[];
+}
+
+export interface PurchaseMatchingExceptionSummaryCounts {
+  totalExceptionCount: number;
+  criticalCount: number;
+  highCount: number;
+  mediumCount: number;
+  lowCount: number;
+  suppliersWithExceptions: number;
+  overBilledCount: number;
+  overReceivedCount: number;
+  billPendingReceiptCount: number;
+  receiptPendingBillCount: number;
+  partiallyMatchedCount: number;
+  notReceivedCount: number;
+  notBilledCount: number;
+  reviewRequiredCount: number;
+}
+
+export interface PurchaseMatchingExceptionsResponse {
+  readOnly: true;
+  noMutation: true;
+  filters: {
+    supplierId?: string;
+    severity?: PurchaseMatchingExceptionSeverity;
+    exceptionType?: PurchaseMatchingExceptionType;
+    sourceType?: PurchaseMatchingContext;
+    reviewStatus?: PurchaseMatchingReviewStatus | "NONE";
+    reasonCode?: PurchaseMatchingReviewReason;
+    search?: string;
+    limit: number;
+  };
+  summary: PurchaseMatchingExceptionSummaryCounts;
+  groups: PurchaseMatchingExceptionSupplierGroup[];
+  items: PurchaseMatchingExceptionItem[];
+}
+
 export interface SalesStockIssueStatusLine {
   lineId: string;
   item: Pick<Item, "id" | "name" | "sku" | "type" | "status" | "inventoryTracking"> | null;
@@ -1987,10 +2336,14 @@ export interface Contact {
 
 export type PartyTransactionSourceType =
   | "SalesInvoice"
+  | "SalesQuote"
+  | "RecurringInvoiceTemplate"
+  | "DeliveryNote"
   | "CreditNote"
   | "CustomerPayment"
   | "CustomerRefund"
   | "PurchaseBill"
+  | "PurchaseOrder"
   | "PurchaseDebitNote"
   | "SupplierPayment"
   | "SupplierRefund"
@@ -2946,6 +3299,316 @@ export interface CustomerPaymentReceiptData {
   status: CustomerPaymentStatus;
 }
 
+export interface SalesQuoteLine {
+  id: string;
+  organizationId: string;
+  quoteId: string;
+  itemId: string | null;
+  description: string;
+  accountId: string;
+  quantity: string;
+  unitPrice: string;
+  discountRate: string;
+  taxRateId: string | null;
+  lineGrossAmount: string;
+  discountAmount: string;
+  taxableAmount: string;
+  taxAmount: string;
+  lineSubtotal: string;
+  lineTotal: string;
+  sortOrder: number;
+  item?: { id: string; name: string; sku: string | null; revenueAccountId?: string } | null;
+  account?: { id: string; code: string; name: string; type: AccountType };
+  taxRate?: { id: string; name: string; rate: string } | null;
+}
+
+export interface SalesQuote {
+  id: string;
+  organizationId: string;
+  quoteNumber: string;
+  customerId: string;
+  branchId: string | null;
+  status: SalesQuoteStatus;
+  issueDate: string;
+  expiryDate: string | null;
+  reference: string | null;
+  currency: string;
+  taxMode: SalesInvoiceTaxMode;
+  subtotal: string;
+  discountTotal: string;
+  taxableTotal: string;
+  taxTotal: string;
+  total: string;
+  notes: string | null;
+  terms: string | null;
+  convertedSalesInvoiceId: string | null;
+  convertedAt: string | null;
+  sentAt: string | null;
+  acceptedAt: string | null;
+  rejectedAt: string | null;
+  expiredAt: string | null;
+  cancelledAt: string | null;
+  customer?: { id: string; name: string; displayName: string | null; type?: ContactType; taxNumber?: string | null; isActive?: boolean };
+  branch?: { id: string; name: string; displayName: string | null; taxNumber?: string | null } | null;
+  convertedSalesInvoice?: { id: string; invoiceNumber: string; status: SalesInvoiceStatus; issueDate?: string; total: string } | null;
+  lines?: SalesQuoteLine[];
+}
+
+export interface SalesQuoteConversionResponse {
+  quote: SalesQuote;
+  invoice: SalesInvoice;
+}
+
+export interface RecurringInvoiceTemplateLine {
+  id: string;
+  organizationId: string;
+  templateId: string;
+  itemId: string | null;
+  description: string;
+  accountId: string;
+  quantity: string;
+  unitPrice: string;
+  discountRate: string;
+  taxRateId: string | null;
+  lineGrossAmount: string;
+  discountAmount: string;
+  taxableAmount: string;
+  taxAmount: string;
+  lineSubtotal: string;
+  lineTotal: string;
+  sortOrder: number;
+  item?: { id: string; name: string; sku: string | null; revenueAccountId?: string } | null;
+  account?: { id: string; code: string; name: string; type: AccountType };
+  taxRate?: { id: string; name: string; rate: string } | null;
+}
+
+export interface RecurringInvoiceRun {
+  id: string;
+  organizationId: string;
+  templateId: string;
+  runDate: string;
+  invoiceDate: string;
+  dueDate: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  generatedInvoiceId: string | null;
+  generatedById: string | null;
+  createdAt: string;
+  generatedInvoice?: { id: string; invoiceNumber: string; status: SalesInvoiceStatus; issueDate?: string; total: string } | null;
+}
+
+export interface RecurringInvoiceTemplate {
+  id: string;
+  organizationId: string;
+  templateNumber: string;
+  name: string;
+  customerId: string;
+  branchId: string | null;
+  status: RecurringInvoiceTemplateStatus;
+  startDate: string;
+  endDate: string | null;
+  nextRunDate: string;
+  lastRunDate: string | null;
+  frequency: RecurringInvoiceFrequency;
+  interval: number;
+  dayOfMonth: number | null;
+  dayOfWeek: number | null;
+  monthOfYear: number | null;
+  invoiceDateMode: RecurringInvoiceDateMode;
+  paymentTermsDays: number;
+  reference: string | null;
+  currency: string;
+  taxMode: SalesInvoiceTaxMode;
+  subtotal: string;
+  discountTotal: string;
+  taxableTotal: string;
+  taxTotal: string;
+  total: string;
+  notes: string | null;
+  terms: string | null;
+  customer?: { id: string; name: string; displayName: string | null; type?: ContactType; isActive?: boolean; taxNumber?: string | null };
+  branch?: { id: string; name: string; displayName: string | null; taxNumber?: string | null } | null;
+  lines?: RecurringInvoiceTemplateLine[];
+  runs?: RecurringInvoiceRun[];
+}
+
+export interface RecurringInvoicePreview {
+  templateId: string;
+  templateNumber: string;
+  status: RecurringInvoiceTemplateStatus;
+  nextInvoiceDate: string;
+  dueDate: string;
+  periodCovered: { startDate: string; endDate: string };
+  customer: RecurringInvoiceTemplate["customer"];
+  taxMode: SalesInvoiceTaxMode;
+  subtotal: string;
+  discountTotal: string;
+  taxableTotal: string;
+  taxTotal: string;
+  total: string;
+  lines: RecurringInvoiceTemplateLine[];
+  nextOccurrences: string[];
+  blockers: string[];
+  previewOnly: true;
+}
+
+export interface RecurringInvoiceGenerationResponse {
+  template: RecurringInvoiceTemplate;
+  invoice: SalesInvoice;
+  run: RecurringInvoiceRun;
+}
+
+export interface DeliveryNoteLine {
+  id: string;
+  organizationId: string;
+  deliveryNoteId: string;
+  itemId: string | null;
+  description: string;
+  quantity: string;
+  unitOfMeasure: string | null;
+  sourceSalesInvoiceLineId: string | null;
+  sourceSalesQuoteLineId: string | null;
+  sourceSalesStockIssueLineId: string | null;
+  sortOrder: number;
+  item?: { id: string; name: string; sku: string | null; status?: ItemStatus } | null;
+  sourceSalesInvoiceLine?: { id: string; description: string; quantity: string; itemId: string | null } | null;
+  sourceSalesQuoteLine?: { id: string; description: string; quantity: string; itemId: string | null } | null;
+  sourceSalesStockIssueLine?: { id: string; quantity: string; itemId: string | null } | null;
+}
+
+export interface DeliveryNote {
+  id: string;
+  organizationId: string;
+  deliveryNoteNumber: string;
+  customerId: string;
+  branchId: string | null;
+  status: DeliveryNoteStatus;
+  issueDate: string;
+  deliveryDate: string | null;
+  reference: string | null;
+  relatedSalesInvoiceId: string | null;
+  relatedSalesQuoteId: string | null;
+  relatedSalesStockIssueId: string | null;
+  deliveryAddress: string | null;
+  notes: string | null;
+  instructions: string | null;
+  issuedAt: string | null;
+  deliveredAt: string | null;
+  cancelledAt: string | null;
+  voidedAt: string | null;
+  customer?: { id: string; name: string; displayName: string | null; type?: ContactType; taxNumber?: string | null; isActive?: boolean };
+  branch?: { id: string; name: string; displayName: string | null; taxNumber?: string | null } | null;
+  relatedSalesInvoice?: { id: string; invoiceNumber: string; status: SalesInvoiceStatus; issueDate?: string; total?: string } | null;
+  relatedSalesQuote?: { id: string; quoteNumber: string; status: SalesQuoteStatus; issueDate?: string; total?: string } | null;
+  relatedSalesStockIssue?: { id: string; issueNumber: string; status: SalesStockIssueStatus; issueDate?: string } | null;
+  lines?: DeliveryNoteLine[];
+  _count?: { lines: number };
+}
+
+export interface CollectionActivity {
+  id: string;
+  organizationId: string;
+  collectionCaseId: string;
+  customerId: string;
+  salesInvoiceId: string | null;
+  activityType: CollectionActivityType;
+  activityDate: string;
+  note: string;
+  nextFollowUpDate: string | null;
+  promisedPaymentDate: string | null;
+  promisedAmount: string | null;
+  createdById: string | null;
+  createdAt: string;
+  createdBy?: { id: string; name: string; email: string } | null;
+}
+
+export interface CollectionCase {
+  id: string;
+  organizationId: string;
+  caseNumber: string;
+  customerId: string;
+  salesInvoiceId: string | null;
+  status: CollectionCaseStatus;
+  priority: CollectionPriority;
+  followUpDate: string | null;
+  promisedPaymentDate: string | null;
+  promisedAmount: string | null;
+  assignedToUserId: string | null;
+  lastActivityAt: string | null;
+  nextActionAt: string | null;
+  summary: string | null;
+  notes: string | null;
+  createdById: string | null;
+  updatedById: string | null;
+  createdAt: string;
+  updatedAt: string;
+  customer?: { id: string; name: string; displayName: string | null; email?: string | null; phone?: string | null; type?: ContactType };
+  salesInvoice?: {
+    id: string;
+    invoiceNumber: string;
+    customerId?: string;
+    issueDate?: string;
+    dueDate: string | null;
+    currency: string;
+    status: SalesInvoiceStatus;
+    total: string;
+    balanceDue: string;
+  } | null;
+  assignedTo?: { id: string; name: string; email: string } | null;
+  createdBy?: { id: string; name: string; email: string } | null;
+  updatedBy?: { id: string; name: string; email: string } | null;
+  activities?: CollectionActivity[];
+  invoiceSettled?: boolean;
+  nonPostingNotice?: string;
+}
+
+export interface CollectionSummary {
+  totalOverdueAmount: string;
+  overdueInvoiceCount: number;
+  openCollectionCaseCount: number;
+  casesDueToday: number;
+  casesOverdueForFollowUp: number;
+  promisedToPayTotal: string;
+  disputedTotal: string;
+  topCustomersByOverdueAmount: Array<{
+    customerId: string;
+    customerName: string;
+    overdueAmount: string;
+    overdueInvoiceCount: number;
+  }>;
+  agingBuckets: Array<{ bucket: string; amount: string }>;
+  safeWording: string;
+}
+
+export interface VatReturnReport {
+  from: string | null;
+  to: string | null;
+  basis: "FINALIZED_SOURCE_DOCUMENTS" | string;
+  outputVat: string;
+  inputVat: string;
+  netVat: string;
+  netVatPayable: string;
+  netVatRefundable: string;
+  sales: VatReturnDocumentSummary;
+  purchases: VatReturnDocumentSummary;
+  notes: string[];
+}
+
+export interface VatReturnDocumentSummary {
+  documentCount: number;
+  taxableAmount: string;
+  taxAmount: string;
+  grossAmount: string;
+  documents: Array<{
+    id: string;
+    number: string;
+    documentDate: string;
+    taxableAmount: string;
+    taxAmount: string;
+    grossAmount: string;
+  }>;
+}
+
 export interface CustomerPaymentReceiptPdfData {
   organization: Pick<Organization, "id" | "name" | "legalName" | "taxNumber" | "countryCode">;
   customer: Pick<Contact, "id" | "name" | "displayName" | "email" | "phone" | "taxNumber" | "addressLine1" | "addressLine2" | "city" | "postalCode" | "countryCode">;
@@ -3139,6 +3802,7 @@ export interface SalesInvoice {
   dueDate: string | null;
   currency: string;
   status: SalesInvoiceStatus;
+  taxMode: SalesInvoiceTaxMode;
   subtotal: string;
   discountTotal: string;
   taxableTotal: string;

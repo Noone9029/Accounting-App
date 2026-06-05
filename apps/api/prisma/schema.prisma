@@ -191,6 +191,32 @@ enum PurchaseReceiptStatus {
   VOIDED
 }
 
+enum PurchaseMatchingReviewStatus {
+  OPEN
+  IN_REVIEW
+  WAITING_FOR_SUPPLIER
+  WAITING_FOR_RECEIPT
+  WAITING_FOR_BILL
+  ACCEPTED_AS_TIMING_DIFFERENCE
+  NEEDS_VARIANCE_REVIEW
+  NEEDS_RETURN_REVIEW
+  RESOLVED
+  CANCELLED
+}
+
+enum PurchaseMatchingReviewReason {
+  QUANTITY_MISMATCH
+  PRICE_MISMATCH
+  RECEIPT_MISSING
+  BILL_MISSING
+  OVER_RECEIVED
+  OVER_BILLED
+  SUPPLIER_DISPUTE
+  TIMING_DIFFERENCE
+  DATA_ENTRY_REVIEW
+  OTHER
+}
+
 enum SalesStockIssueStatus {
   POSTED
   VOIDED
@@ -247,6 +273,79 @@ enum SalesInvoiceStatus {
   DRAFT
   FINALIZED
   VOIDED
+}
+
+enum SalesInvoiceTaxMode {
+  TAX_EXCLUSIVE
+  TAX_INCLUSIVE
+  NO_TAX
+}
+
+enum SalesQuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+  CONVERTED
+}
+
+enum RecurringInvoiceTemplateStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ENDED
+  CANCELLED
+}
+
+enum RecurringInvoiceFrequency {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum RecurringInvoiceDateMode {
+  RUN_DATE
+}
+
+enum DeliveryNoteStatus {
+  DRAFT
+  ISSUED
+  DELIVERED
+  CANCELLED
+  VOIDED
+}
+
+enum CollectionCaseStatus {
+  OPEN
+  IN_PROGRESS
+  PROMISED_TO_PAY
+  PAID
+  ON_HOLD
+  DISPUTED
+  CLOSED
+  CANCELLED
+}
+
+enum CollectionPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum CollectionActivityType {
+  NOTE
+  CALL
+  EMAIL_PLANNED
+  REMINDER_PLANNED
+  PROMISE_TO_PAY
+  DISPUTE
+  ESCALATION
+  PAYMENT_RECEIVED_NOTE
+  CLOSED_NOTE
 }
 
 enum CreditNoteStatus {
@@ -385,6 +484,8 @@ enum BankReconciliationReviewAction {
 
 enum DocumentType {
   SALES_INVOICE
+  SALES_QUOTE
+  DELIVERY_NOTE
   CREDIT_NOTE
   CUSTOMER_PAYMENT_RECEIPT
   CUSTOMER_REFUND
@@ -594,6 +695,10 @@ enum FiscalPeriodStatus {
 enum NumberSequenceScope {
   JOURNAL_ENTRY
   INVOICE
+  SALES_QUOTE
+  RECURRING_INVOICE_TEMPLATE
+  DELIVERY_NOTE
+  COLLECTION_CASE
   BILL
   PAYMENT
   CUSTOMER_REFUND
@@ -625,6 +730,14 @@ model User {
   postedEntries                                     JournalEntry[]                              @relation("PostedBy")
   createdEntries                                    JournalEntry[]                              @relation("CreatedBy")
   createdSalesInvoices                              SalesInvoice[]                              @relation("SalesInvoiceCreatedBy")
+  createdSalesQuotes                                SalesQuote[]                                @relation("SalesQuoteCreatedBy")
+  createdRecurringInvoiceTemplates                  RecurringInvoiceTemplate[]                  @relation("RecurringInvoiceTemplateCreatedBy")
+  generatedRecurringInvoiceRuns                     RecurringInvoiceRun[]                       @relation("RecurringInvoiceRunGeneratedBy")
+  createdDeliveryNotes                              DeliveryNote[]                              @relation("DeliveryNoteCreatedBy")
+  assignedCollectionCases                           CollectionCase[]                            @relation("CollectionCaseAssignedTo")
+  createdCollectionCases                            CollectionCase[]                            @relation("CollectionCaseCreatedBy")
+  updatedCollectionCases                            CollectionCase[]                            @relation("CollectionCaseUpdatedBy")
+  createdCollectionActivities                       CollectionActivity[]                        @relation("CollectionActivityCreatedBy")
   createdCreditNotes                                CreditNote[]                                @relation("CreditNoteCreatedBy")
   createdPurchaseOrders                             PurchaseOrder[]                             @relation("PurchaseOrderCreatedBy")
   createdPurchaseBills                              PurchaseBill[]                              @relation("PurchaseBillCreatedBy")
@@ -665,6 +778,8 @@ model User {
   reversedInventoryVarianceProposals                InventoryVarianceProposal[]                 @relation("InventoryVarianceProposalReversedBy")
   voidedInventoryVarianceProposals                  InventoryVarianceProposal[]                 @relation("InventoryVarianceProposalVoidedBy")
   inventoryVarianceProposalEvents                   InventoryVarianceProposalEvent[]            @relation("InventoryVarianceProposalEventActor")
+  assignedPurchaseMatchingReviews                   PurchaseMatchingReview[]                    @relation("PurchaseMatchingReviewAssignedTo")
+  reviewedPurchaseMatchingReviews                   PurchaseMatchingReview[]                    @relation("PurchaseMatchingReviewReviewedBy")
   generatedDocuments                                GeneratedDocument[]                         @relation("GeneratedDocumentGeneratedBy")
   uploadedAttachments                               Attachment[]                                @relation("AttachmentUploadedBy")
   deletedAttachments                                Attachment[]                                @relation("AttachmentDeletedBy")
@@ -731,8 +846,18 @@ model Organization {
   salesStockIssueLines                      SalesStockIssueLine[]
   inventoryVarianceProposals                InventoryVarianceProposal[]
   inventoryVarianceProposalEvents           InventoryVarianceProposalEvent[]
+  purchaseMatchingReviews                   PurchaseMatchingReview[]
   salesInvoices                             SalesInvoice[]
   salesInvoiceLines                         SalesInvoiceLine[]
+  salesQuotes                               SalesQuote[]
+  salesQuoteLines                           SalesQuoteLine[]
+  recurringInvoiceTemplates                 RecurringInvoiceTemplate[]
+  recurringInvoiceTemplateLines             RecurringInvoiceTemplateLine[]
+  recurringInvoiceRuns                      RecurringInvoiceRun[]
+  deliveryNotes                             DeliveryNote[]
+  deliveryNoteLines                         DeliveryNoteLine[]
+  collectionCases                           CollectionCase[]
+  collectionActivities                      CollectionActivity[]
   creditNotes                               CreditNote[]
   creditNoteLines                           CreditNoteLine[]
   creditNoteAllocations                     CreditNoteAllocation[]
@@ -1495,6 +1620,9 @@ model Branch {
   updatedAt          DateTime            @updatedAt
   organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   salesInvoices      SalesInvoice[]
+  salesQuotes        SalesQuote[]
+  recurringInvoiceTemplates RecurringInvoiceTemplate[]
+  deliveryNotes      DeliveryNote[]
   creditNotes        CreditNote[]
   purchaseOrders     PurchaseOrder[]
   purchaseBills      PurchaseBill[]
@@ -1527,6 +1655,9 @@ model Contact {
   updatedAt                  DateTime                    @updatedAt
   organization               Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   salesInvoices              SalesInvoice[]              @relation("SalesInvoiceCustomer")
+  salesQuotes                SalesQuote[]                @relation("SalesQuoteCustomer")
+  recurringInvoiceTemplates  RecurringInvoiceTemplate[]   @relation("RecurringInvoiceTemplateCustomer")
+  deliveryNotes              DeliveryNote[]              @relation("DeliveryNoteCustomer")
   creditNotes                CreditNote[]                @relation("CreditNoteCustomer")
   purchaseOrders             PurchaseOrder[]             @relation("PurchaseOrderSupplier")
   purchaseBills              PurchaseBill[]              @relation("PurchaseBillSupplier")
@@ -1538,7 +1669,10 @@ model Contact {
   supplierRefunds            SupplierRefund[]            @relation("SupplierRefundSupplier")
   purchaseReceipts           PurchaseReceipt[]           @relation("PurchaseReceiptSupplier")
   salesStockIssues           SalesStockIssue[]           @relation("SalesStockIssueCustomer")
+  collectionCases            CollectionCase[]            @relation("CollectionCaseCustomer")
+  collectionActivities       CollectionActivity[]         @relation("CollectionActivityCustomer")
   inventoryVarianceProposals InventoryVarianceProposal[] @relation("InventoryVarianceProposalSupplier")
+  purchaseMatchingReviews    PurchaseMatchingReview[]    @relation("PurchaseMatchingReviewSupplier")
 
   @@index([organizationId])
   @@index([organizationId, type])
@@ -1564,6 +1698,8 @@ model Account {
   itemRevenueItems                     Item[]                      @relation("ItemRevenueAccount")
   itemExpenseItems                     Item[]                      @relation("ItemExpenseAccount")
   salesInvoiceLines                    SalesInvoiceLine[]
+  salesQuoteLines                      SalesQuoteLine[]
+  recurringInvoiceTemplateLines        RecurringInvoiceTemplateLine[]
   creditNoteLines                      CreditNoteLine[]
   purchaseOrderLines                   PurchaseOrderLine[]
   purchaseBillLines                    PurchaseBillLine[]
@@ -1827,6 +1963,8 @@ model TaxRate {
   itemSalesTaxItems      Item[]                  @relation("ItemSalesTaxRate")
   itemPurchaseTaxItems   Item[]                  @relation("ItemPurchaseTaxRate")
   salesInvoiceLines      SalesInvoiceLine[]
+  salesQuoteLines        SalesQuoteLine[]
+  recurringInvoiceTemplateLines RecurringInvoiceTemplateLine[]
   creditNoteLines        CreditNoteLine[]
   purchaseOrderLines     PurchaseOrderLine[]
   purchaseBillLines      PurchaseBillLine[]
@@ -1862,6 +2000,9 @@ model Item {
   expenseAccount         Account?                @relation("ItemExpenseAccount", fields: [expenseAccountId], references: [id])
   purchaseTaxRate        TaxRate?                @relation("ItemPurchaseTaxRate", fields: [purchaseTaxRateId], references: [id])
   salesInvoiceLines      SalesInvoiceLine[]
+  salesQuoteLines        SalesQuoteLine[]
+  recurringInvoiceTemplateLines RecurringInvoiceTemplateLine[]
+  deliveryNoteLines      DeliveryNoteLine[]
   creditNoteLines        CreditNoteLine[]
   purchaseOrderLines     PurchaseOrderLine[]
   purchaseBillLines      PurchaseBillLine[]
@@ -2035,6 +2176,7 @@ model SalesInvoice {
   dueDate                     DateTime?
   currency                    String                               @default("SAR")
   status                      SalesInvoiceStatus                   @default(DRAFT)
+  taxMode                     SalesInvoiceTaxMode                  @default(TAX_EXCLUSIVE)
   subtotal                    Decimal                              @default(0) @db.Decimal(20, 4)
   discountTotal               Decimal                              @default(0) @db.Decimal(20, 4)
   taxableTotal                Decimal                              @default(0) @db.Decimal(20, 4)
@@ -2044,6 +2186,7 @@ model SalesInvoice {
   notes                       String?
   terms                       String?
   createdById                 String?                              @db.Uuid
+  recurringInvoiceTemplateId  String?                              @db.Uuid
   finalizedAt                 DateTime?
   journalEntryId              String?                              @unique @db.Uuid
   reversalJournalEntryId      String?                              @unique @db.Uuid
@@ -2053,6 +2196,7 @@ model SalesInvoice {
   customer                    Contact                              @relation("SalesInvoiceCustomer", fields: [customerId], references: [id])
   branch                      Branch?                              @relation(fields: [branchId], references: [id])
   createdBy                   User?                                @relation("SalesInvoiceCreatedBy", fields: [createdById], references: [id])
+  recurringInvoiceTemplate    RecurringInvoiceTemplate?            @relation("RecurringInvoiceTemplateGeneratedInvoices", fields: [recurringInvoiceTemplateId], references: [id], onDelete: SetNull)
   journalEntry                JournalEntry?                        @relation("SalesInvoiceJournal", fields: [journalEntryId], references: [id])
   reversalJournalEntry        JournalEntry?                        @relation("SalesInvoiceReversalJournal", fields: [reversalJournalEntryId], references: [id])
   lines                       SalesInvoiceLine[]
@@ -2063,10 +2207,16 @@ model SalesInvoice {
   creditNotes                 CreditNote[]
   zatcaMetadata               ZatcaInvoiceMetadata?
   zatcaSignedArtifactDrafts   ZatcaSignedArtifactDraft[]
+  convertedFromQuote          SalesQuote?                          @relation("SalesQuoteConvertedInvoice")
+  recurringInvoiceRun         RecurringInvoiceRun?                  @relation("RecurringInvoiceRunGeneratedInvoice")
+  deliveryNotes               DeliveryNote[]                        @relation("DeliveryNoteSourceInvoice")
+  collectionCases             CollectionCase[]                      @relation("CollectionCaseSalesInvoice")
+  collectionActivities        CollectionActivity[]                   @relation("CollectionActivitySalesInvoice")
 
   @@unique([organizationId, invoiceNumber])
   @@index([organizationId])
   @@index([customerId])
+  @@index([recurringInvoiceTemplateId])
   @@index([status])
 }
 
@@ -2096,11 +2246,336 @@ model SalesInvoiceLine {
   account         Account               @relation(fields: [accountId], references: [id])
   taxRate         TaxRate?              @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
   stockIssueLines SalesStockIssueLine[]
+  deliveryNoteLines DeliveryNoteLine[]   @relation("DeliveryNoteSourceInvoiceLine")
 
   @@index([organizationId])
   @@index([invoiceId])
   @@index([itemId])
   @@index([accountId])
+}
+
+model SalesQuote {
+  id                      String              @id @default(uuid()) @db.Uuid
+  organizationId          String              @db.Uuid
+  quoteNumber             String
+  customerId              String              @db.Uuid
+  branchId                String?             @db.Uuid
+  status                  SalesQuoteStatus    @default(DRAFT)
+  issueDate               DateTime
+  expiryDate              DateTime?
+  reference               String?
+  currency                String              @default("SAR")
+  taxMode                 SalesInvoiceTaxMode @default(TAX_EXCLUSIVE)
+  subtotal                Decimal             @default(0) @db.Decimal(20, 4)
+  discountTotal           Decimal             @default(0) @db.Decimal(20, 4)
+  taxableTotal            Decimal             @default(0) @db.Decimal(20, 4)
+  taxTotal                Decimal             @default(0) @db.Decimal(20, 4)
+  total                   Decimal             @default(0) @db.Decimal(20, 4)
+  notes                   String?
+  terms                   String?
+  createdById             String?             @db.Uuid
+  convertedSalesInvoiceId String?             @unique @db.Uuid
+  convertedAt             DateTime?
+  sentAt                  DateTime?
+  acceptedAt              DateTime?
+  rejectedAt              DateTime?
+  expiredAt               DateTime?
+  cancelledAt             DateTime?
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  organization            Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer                Contact             @relation("SalesQuoteCustomer", fields: [customerId], references: [id])
+  branch                  Branch?             @relation(fields: [branchId], references: [id])
+  createdBy               User?               @relation("SalesQuoteCreatedBy", fields: [createdById], references: [id])
+  convertedSalesInvoice   SalesInvoice?       @relation("SalesQuoteConvertedInvoice", fields: [convertedSalesInvoiceId], references: [id], onDelete: SetNull)
+  lines                   SalesQuoteLine[]
+  deliveryNotes           DeliveryNote[]      @relation("DeliveryNoteSourceQuote")
+
+  @@unique([organizationId, quoteNumber])
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([branchId])
+  @@index([status])
+  @@index([issueDate])
+}
+
+model SalesQuoteLine {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @db.Uuid
+  quoteId         String       @db.Uuid
+  itemId          String?      @db.Uuid
+  description     String
+  accountId       String       @db.Uuid
+  quantity        Decimal      @db.Decimal(20, 4)
+  unitPrice       Decimal      @db.Decimal(20, 4)
+  discountRate    Decimal      @default(0) @db.Decimal(7, 4)
+  taxRateId       String?      @db.Uuid
+  lineGrossAmount Decimal      @default(0) @db.Decimal(20, 4)
+  discountAmount  Decimal      @default(0) @db.Decimal(20, 4)
+  taxableAmount   Decimal      @default(0) @db.Decimal(20, 4)
+  taxAmount       Decimal      @default(0) @db.Decimal(20, 4)
+  lineSubtotal    Decimal      @default(0) @db.Decimal(20, 4)
+  lineTotal       Decimal      @default(0) @db.Decimal(20, 4)
+  sortOrder       Int          @default(0)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  quote           SalesQuote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  item            Item?        @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  account         Account      @relation(fields: [accountId], references: [id])
+  taxRate         TaxRate?     @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
+  deliveryNoteLines DeliveryNoteLine[] @relation("DeliveryNoteSourceQuoteLine")
+
+  @@index([organizationId])
+  @@index([quoteId])
+  @@index([itemId])
+  @@index([accountId])
+  @@index([taxRateId])
+}
+
+model RecurringInvoiceTemplate {
+  id                 String                         @id @default(uuid()) @db.Uuid
+  organizationId     String                         @db.Uuid
+  templateNumber     String
+  name               String
+  customerId         String                         @db.Uuid
+  branchId           String?                        @db.Uuid
+  status             RecurringInvoiceTemplateStatus @default(DRAFT)
+  startDate          DateTime
+  endDate            DateTime?
+  nextRunDate        DateTime
+  lastRunDate        DateTime?
+  frequency          RecurringInvoiceFrequency
+  interval           Int                            @default(1)
+  dayOfMonth         Int?
+  dayOfWeek          Int?
+  monthOfYear        Int?
+  invoiceDateMode    RecurringInvoiceDateMode       @default(RUN_DATE)
+  paymentTermsDays   Int                            @default(0)
+  reference          String?
+  currency           String                         @default("SAR")
+  taxMode            SalesInvoiceTaxMode            @default(TAX_EXCLUSIVE)
+  subtotal           Decimal                        @default(0) @db.Decimal(20, 4)
+  discountTotal      Decimal                        @default(0) @db.Decimal(20, 4)
+  taxableTotal       Decimal                        @default(0) @db.Decimal(20, 4)
+  taxTotal           Decimal                        @default(0) @db.Decimal(20, 4)
+  total              Decimal                        @default(0) @db.Decimal(20, 4)
+  notes              String?
+  terms              String?
+  createdById        String?                        @db.Uuid
+  createdAt          DateTime                       @default(now())
+  updatedAt          DateTime                       @updatedAt
+  organization       Organization                   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer           Contact                        @relation("RecurringInvoiceTemplateCustomer", fields: [customerId], references: [id])
+  branch             Branch?                        @relation(fields: [branchId], references: [id])
+  createdBy          User?                          @relation("RecurringInvoiceTemplateCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  lines              RecurringInvoiceTemplateLine[]
+  runs               RecurringInvoiceRun[]
+  generatedInvoices  SalesInvoice[]                 @relation("RecurringInvoiceTemplateGeneratedInvoices")
+
+  @@unique([organizationId, templateNumber])
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([branchId])
+  @@index([status])
+  @@index([nextRunDate])
+}
+
+model RecurringInvoiceTemplateLine {
+  id              String                   @id @default(uuid()) @db.Uuid
+  organizationId  String                   @db.Uuid
+  templateId      String                   @db.Uuid
+  itemId          String?                  @db.Uuid
+  description     String
+  accountId       String                   @db.Uuid
+  quantity        Decimal                  @db.Decimal(20, 4)
+  unitPrice       Decimal                  @db.Decimal(20, 4)
+  discountRate    Decimal                  @default(0) @db.Decimal(7, 4)
+  taxRateId       String?                  @db.Uuid
+  lineGrossAmount Decimal                  @default(0) @db.Decimal(20, 4)
+  discountAmount  Decimal                  @default(0) @db.Decimal(20, 4)
+  taxableAmount   Decimal                  @default(0) @db.Decimal(20, 4)
+  taxAmount       Decimal                  @default(0) @db.Decimal(20, 4)
+  lineSubtotal    Decimal                  @default(0) @db.Decimal(20, 4)
+  lineTotal       Decimal                  @default(0) @db.Decimal(20, 4)
+  sortOrder       Int                      @default(0)
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  organization    Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  template        RecurringInvoiceTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  item            Item?                    @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  account         Account                  @relation(fields: [accountId], references: [id])
+  taxRate         TaxRate?                 @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([templateId])
+  @@index([itemId])
+  @@index([accountId])
+  @@index([taxRateId])
+}
+
+model RecurringInvoiceRun {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  organizationId     String                   @db.Uuid
+  templateId         String                   @db.Uuid
+  runDate            DateTime
+  invoiceDate        DateTime
+  dueDate            DateTime?
+  periodStart        DateTime?
+  periodEnd          DateTime?
+  generatedInvoiceId String?                  @unique @db.Uuid
+  generatedById      String?                  @db.Uuid
+  createdAt          DateTime                 @default(now())
+  organization       Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  template           RecurringInvoiceTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  generatedInvoice   SalesInvoice?            @relation("RecurringInvoiceRunGeneratedInvoice", fields: [generatedInvoiceId], references: [id], onDelete: SetNull)
+  generatedBy        User?                    @relation("RecurringInvoiceRunGeneratedBy", fields: [generatedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, templateId, runDate])
+  @@index([organizationId])
+  @@index([templateId])
+  @@index([runDate])
+  @@index([generatedById])
+}
+
+model DeliveryNote {
+  id                       String             @id @default(uuid()) @db.Uuid
+  organizationId           String             @db.Uuid
+  deliveryNoteNumber       String
+  customerId               String             @db.Uuid
+  branchId                 String?            @db.Uuid
+  status                   DeliveryNoteStatus @default(DRAFT)
+  issueDate                DateTime
+  deliveryDate             DateTime?
+  reference                String?
+  relatedSalesInvoiceId    String?            @db.Uuid
+  relatedSalesQuoteId      String?            @db.Uuid
+  relatedSalesStockIssueId String?            @db.Uuid
+  deliveryAddress          String?
+  notes                    String?
+  instructions             String?
+  createdById              String?            @db.Uuid
+  issuedAt                 DateTime?
+  deliveredAt              DateTime?
+  cancelledAt              DateTime?
+  voidedAt                 DateTime?
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+  organization             Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer                 Contact            @relation("DeliveryNoteCustomer", fields: [customerId], references: [id])
+  branch                   Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  createdBy                User?              @relation("DeliveryNoteCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  relatedSalesInvoice      SalesInvoice?      @relation("DeliveryNoteSourceInvoice", fields: [relatedSalesInvoiceId], references: [id], onDelete: SetNull)
+  relatedSalesQuote        SalesQuote?        @relation("DeliveryNoteSourceQuote", fields: [relatedSalesQuoteId], references: [id], onDelete: SetNull)
+  relatedSalesStockIssue   SalesStockIssue?   @relation("DeliveryNoteSourceStockIssue", fields: [relatedSalesStockIssueId], references: [id], onDelete: SetNull)
+  lines                    DeliveryNoteLine[]
+
+  @@unique([organizationId, deliveryNoteNumber])
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([branchId])
+  @@index([status])
+  @@index([issueDate])
+  @@index([deliveryDate])
+  @@index([relatedSalesInvoiceId])
+  @@index([relatedSalesQuoteId])
+  @@index([relatedSalesStockIssueId])
+}
+
+model DeliveryNoteLine {
+  id                          String                 @id @default(uuid()) @db.Uuid
+  organizationId              String                 @db.Uuid
+  deliveryNoteId              String                 @db.Uuid
+  itemId                      String?                @db.Uuid
+  description                 String
+  quantity                    Decimal                @db.Decimal(20, 4)
+  unitOfMeasure               String?
+  sourceSalesInvoiceLineId    String?                @db.Uuid
+  sourceSalesQuoteLineId      String?                @db.Uuid
+  sourceSalesStockIssueLineId String?                @db.Uuid
+  sortOrder                   Int                    @default(0)
+  createdAt                   DateTime               @default(now())
+  updatedAt                   DateTime               @updatedAt
+  organization                Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveryNote                DeliveryNote           @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
+  item                        Item?                  @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  sourceSalesInvoiceLine      SalesInvoiceLine?      @relation("DeliveryNoteSourceInvoiceLine", fields: [sourceSalesInvoiceLineId], references: [id], onDelete: SetNull)
+  sourceSalesQuoteLine        SalesQuoteLine?        @relation("DeliveryNoteSourceQuoteLine", fields: [sourceSalesQuoteLineId], references: [id], onDelete: SetNull)
+  sourceSalesStockIssueLine   SalesStockIssueLine?   @relation("DeliveryNoteSourceStockIssueLine", fields: [sourceSalesStockIssueLineId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([deliveryNoteId])
+  @@index([itemId])
+  @@index([sourceSalesInvoiceLineId])
+  @@index([sourceSalesQuoteLineId])
+  @@index([sourceSalesStockIssueLineId])
+}
+
+model CollectionCase {
+  id                  String               @id @default(uuid()) @db.Uuid
+  organizationId      String               @db.Uuid
+  caseNumber          String
+  customerId          String               @db.Uuid
+  salesInvoiceId      String?              @db.Uuid
+  status              CollectionCaseStatus @default(OPEN)
+  priority            CollectionPriority   @default(NORMAL)
+  followUpDate        DateTime?
+  promisedPaymentDate DateTime?
+  promisedAmount      Decimal?             @db.Decimal(20, 4)
+  assignedToUserId    String?              @db.Uuid
+  lastActivityAt      DateTime?
+  nextActionAt        DateTime?
+  summary             String?
+  notes               String?
+  createdById         String?              @db.Uuid
+  updatedById         String?              @db.Uuid
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer            Contact              @relation("CollectionCaseCustomer", fields: [customerId], references: [id])
+  salesInvoice        SalesInvoice?        @relation("CollectionCaseSalesInvoice", fields: [salesInvoiceId], references: [id], onDelete: SetNull)
+  assignedTo          User?                @relation("CollectionCaseAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  createdBy           User?                @relation("CollectionCaseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy           User?                @relation("CollectionCaseUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  activities          CollectionActivity[]
+
+  @@unique([organizationId, caseNumber])
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([salesInvoiceId])
+  @@index([status])
+  @@index([priority])
+  @@index([followUpDate])
+  @@index([nextActionAt])
+}
+
+model CollectionActivity {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  organizationId      String                 @db.Uuid
+  collectionCaseId    String                 @db.Uuid
+  customerId          String                 @db.Uuid
+  salesInvoiceId      String?                @db.Uuid
+  activityType        CollectionActivityType
+  activityDate        DateTime
+  note                String
+  nextFollowUpDate    DateTime?
+  promisedPaymentDate DateTime?
+  promisedAmount      Decimal?               @db.Decimal(20, 4)
+  createdById         String?                @db.Uuid
+  createdAt           DateTime               @default(now())
+  organization        Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  collectionCase      CollectionCase         @relation(fields: [collectionCaseId], references: [id], onDelete: Cascade)
+  customer            Contact                @relation("CollectionActivityCustomer", fields: [customerId], references: [id])
+  salesInvoice        SalesInvoice?          @relation("CollectionActivitySalesInvoice", fields: [salesInvoiceId], references: [id], onDelete: SetNull)
+  createdBy           User?                  @relation("CollectionActivityCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([collectionCaseId])
+  @@index([customerId])
+  @@index([salesInvoiceId])
+  @@index([activityType])
+  @@index([activityDate])
+  @@index([nextFollowUpDate])
 }
 
 model CreditNote {
@@ -2432,6 +2907,37 @@ model PurchaseReceiptLine {
   @@index([purchaseBillLineId])
 }
 
+model PurchaseMatchingReview {
+  id                 String                       @id @default(uuid()) @db.Uuid
+  organizationId     String                       @db.Uuid
+  supplierId         String?                      @db.Uuid
+  sourceType         String
+  sourceId           String                       @db.Uuid
+  exceptionType      String
+  severity           String
+  status             PurchaseMatchingReviewStatus @default(OPEN)
+  reasonCode         PurchaseMatchingReviewReason?
+  assignedToUserId   String?                      @db.Uuid
+  reviewedByUserId   String?                      @db.Uuid
+  reviewedAt         DateTime?
+  nextReviewDate     DateTime?
+  note               String?
+  createdAt          DateTime                     @default(now())
+  updatedAt          DateTime                     @updatedAt
+  organization       Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplier           Contact?                     @relation("PurchaseMatchingReviewSupplier", fields: [supplierId], references: [id], onDelete: SetNull)
+  assignedToUser     User?                        @relation("PurchaseMatchingReviewAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  reviewedByUser     User?                        @relation("PurchaseMatchingReviewReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, sourceType, sourceId, exceptionType])
+  @@index([organizationId, status])
+  @@index([organizationId, supplierId])
+  @@index([organizationId, severity])
+  @@index([organizationId, sourceType, sourceId])
+  @@index([assignedToUserId])
+  @@index([reviewedByUserId])
+}
+
 model SalesStockIssue {
   id                         String                @id @default(uuid()) @db.Uuid
   organizationId             String                @db.Uuid
@@ -2464,6 +2970,7 @@ model SalesStockIssue {
   cogsPostedBy             User?                 @relation("SalesStockIssueCogsPostedBy", fields: [cogsPostedById], references: [id], onDelete: SetNull)
   cogsReversedBy           User?                 @relation("SalesStockIssueCogsReversedBy", fields: [cogsReversedById], references: [id], onDelete: SetNull)
   lines                    SalesStockIssueLine[]
+  deliveryNotes            DeliveryNote[]        @relation("DeliveryNoteSourceStockIssue")
 
   @@unique([organizationId, issueNumber])
   @@index([organizationId])
@@ -2495,6 +3002,7 @@ model SalesStockIssueLine {
   salesInvoiceLine  SalesInvoiceLine? @relation(fields: [salesInvoiceLineId], references: [id], onDelete: SetNull)
   stockMovement     StockMovement?    @relation("SalesStockIssueLineStockMovement", fields: [stockMovementId], references: [id], onDelete: SetNull)
   voidStockMovement StockMovement?    @relation("SalesStockIssueLineVoidStockMovement", fields: [voidStockMovementId], references: [id], onDelete: SetNull)
+  deliveryNoteLines DeliveryNoteLine[] @relation("DeliveryNoteSourceStockIssueLine")
 
   @@index([organizationId])
   @@index([issueId])

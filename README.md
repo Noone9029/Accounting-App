@@ -1855,7 +1855,7 @@ Permission matrix categories:
 - ZATCA credit note XML/signing/submission is not implemented yet.
 - ZATCA debit note XML/signing/submission is not implemented yet.
 - Inventory returns from credit notes are not implemented yet.
-- Recurring invoices are not implemented yet.
+- Recurring invoice templates support controlled manual draft-invoice generation; automatic recurring schedulers, email delivery, payment links, and background workers are not implemented yet.
 - Bank reconciliation has local manual CSV/JSON/text plus limited OFX/CAMT/MT940 import preview/manual matching, approval, close-lock, report export groundwork, and a design-only raw-file archive policy, but no live feed, raw statement-file archive implementation, certified bank-specific parser coverage, or auto-match yet.
 - Inventory warehouse, stock ledger, adjustment approval, warehouse transfer, manual purchase receipt, manual sales stock issue, valuation settings, manual COGS posting, manual compatible receipt asset posting, inventory clearing settings, purchase bill clearing-mode finalization, bill/receipt matching visibility, clearing reconciliation/variance reports, and operational reports exist, but no automatic COGS posting, no automatic purchase receipt asset posting, no direct-mode receipt posting, no automatic variance journals, automatic purchase/sales posting, landed cost, serial/batch tracking, or accounting-grade inventory financial reports are implemented yet.
 - BullMQ workers, generated-document S3 storage, and DB-to-S3 migration executors are not wired yet.

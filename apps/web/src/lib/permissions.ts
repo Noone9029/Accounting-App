@@ -72,6 +72,10 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.reports.view];
   }
 
+  if (pathname === "/tax" || pathname.startsWith("/tax/")) {
+    return [PERMISSIONS.reports.view];
+  }
+
   if (pathname === "/bank-accounts/new") {
     return [PERMISSIONS.bankAccounts.manage];
   }
@@ -114,6 +118,46 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.salesInvoices.view];
   }
 
+  if (pathname === "/sales/quotes/new") {
+    return [PERMISSIONS.salesInvoices.create];
+  }
+  if (pathname.startsWith("/sales/quotes/") && pathname.endsWith("/edit")) {
+    return [PERMISSIONS.salesInvoices.update];
+  }
+  if (pathname.startsWith("/sales/quotes")) {
+    return [PERMISSIONS.salesInvoices.view];
+  }
+
+  if (pathname === "/sales/recurring-invoices/new") {
+    return [PERMISSIONS.salesInvoices.create];
+  }
+  if (pathname.startsWith("/sales/recurring-invoices/") && pathname.endsWith("/edit")) {
+    return [PERMISSIONS.salesInvoices.update];
+  }
+  if (pathname.startsWith("/sales/recurring-invoices")) {
+    return [PERMISSIONS.salesInvoices.view];
+  }
+
+  if (pathname === "/sales/delivery-notes/new") {
+    return [PERMISSIONS.salesInvoices.create];
+  }
+  if (pathname.startsWith("/sales/delivery-notes/") && pathname.endsWith("/edit")) {
+    return [PERMISSIONS.salesInvoices.update];
+  }
+  if (pathname.startsWith("/sales/delivery-notes")) {
+    return [PERMISSIONS.salesInvoices.view];
+  }
+
+  if (pathname === "/sales/collections/new") {
+    return [PERMISSIONS.salesInvoices.create];
+  }
+  if (pathname.startsWith("/sales/collections/") && pathname.endsWith("/edit")) {
+    return [PERMISSIONS.salesInvoices.update];
+  }
+  if (pathname.startsWith("/sales/collections")) {
+    return [PERMISSIONS.salesInvoices.view];
+  }
+
   if (pathname.startsWith("/customers")) {
     return [PERMISSIONS.contacts.view];
   }
@@ -144,10 +188,7 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
 
   if (
     pathname === "/sales" ||
-    pathname.startsWith("/sales/quotes") ||
-    pathname.startsWith("/sales/recurring-invoices") ||
     pathname.startsWith("/sales/cash-invoices") ||
-    pathname.startsWith("/sales/delivery-notes") ||
     pathname.startsWith("/sales/api-invoices")
   ) {
     return [PERMISSIONS.salesInvoices.view];
@@ -171,6 +212,10 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
   }
   if (pathname.startsWith("/purchases/purchase-orders")) {
     return [PERMISSIONS.purchaseOrders.view];
+  }
+
+  if (pathname.startsWith("/purchases/matching")) {
+    return [PERMISSIONS.purchaseOrders.view, PERMISSIONS.purchaseBills.view, PERMISSIONS.purchaseReceiving.view];
   }
 
   if (pathname === "/purchases/supplier-payments/new") {

@@ -77,6 +77,87 @@ export interface InvoicePdfData {
   generatedAt: string | Date;
 }
 
+export interface SalesQuotePdfData {
+  organization: PdfOrganization;
+  customer: PdfContact;
+  quote: {
+    id: string;
+    quoteNumber: string;
+    status: string;
+    issueDate: string | Date;
+    expiryDate?: string | Date | null;
+    reference?: string | null;
+    currency: string;
+    taxMode: string;
+    notes?: string | null;
+    terms?: string | null;
+    subtotal: string;
+    discountTotal: string;
+    taxableTotal: string;
+    taxTotal: string;
+    total: string;
+    convertedSalesInvoice?: {
+      id: string;
+      invoiceNumber: string;
+      status: string;
+    } | null;
+  };
+  lines: Array<{
+    itemName?: string | null;
+    itemSku?: string | null;
+    description: string;
+    quantity: string;
+    unitPrice: string;
+    discountRate: string;
+    lineGrossAmount: string;
+    discountAmount: string;
+    taxableAmount: string;
+    taxAmount: string;
+    lineTotal: string;
+    taxRateName?: string | null;
+  }>;
+  generatedAt: string | Date;
+}
+
+export interface DeliveryNotePdfData {
+  organization: PdfOrganization;
+  customer: PdfContact;
+  deliveryNote: {
+    id: string;
+    deliveryNoteNumber: string;
+    status: string;
+    issueDate: string | Date;
+    deliveryDate?: string | Date | null;
+    reference?: string | null;
+    deliveryAddress?: string | null;
+    notes?: string | null;
+    instructions?: string | null;
+    relatedSalesInvoice?: {
+      id: string;
+      invoiceNumber: string;
+      status: string;
+    } | null;
+    relatedSalesQuote?: {
+      id: string;
+      quoteNumber: string;
+      status: string;
+    } | null;
+    relatedSalesStockIssue?: {
+      id: string;
+      issueNumber: string;
+      status: string;
+    } | null;
+  };
+  lines: Array<{
+    itemName?: string | null;
+    itemSku?: string | null;
+    description: string;
+    quantity: string;
+    unitOfMeasure?: string | null;
+  }>;
+  generatedAt: string | Date;
+}
+
 export interface CreditNotePdfData {
   organization: PdfOrganization;
   customer: PdfContact;
@@ -843,6 +924,116 @@ export async function renderInvoicePdf(data: InvoicePdfData, settings?: Document
     }
     if (renderSettings.showTerms) {
       writeOptionalTextBlock(doc, "Terms", data.invoice.terms, renderSettings);
+    }
+  }, renderSettings);
+}
+
+export async function renderSalesQuotePdf(data: SalesQuotePdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
+  const renderSettings = resolveSettings({ ...settings, title: "Sales Quote" }, "Sales Quote");
+  return renderPdf((doc) => {
+    writeHeader(doc, data.organization, renderSettings, data.generatedAt);
+    writeTwoColumnBlocks(doc, "Quote To", contactLines(data.customer, renderSettings), "Sales Quote", [
+      ["Quote number", data.quote.quoteNumber],
+      ["Status", data.quote.status],
+      ["Issue date", formatDate(data.quote.issueDate)],
+      ["Expiry date", data.quote.expiryDate ? formatDate(data.quote.expiryDate) : "-"],
+      ["Reference", data.quote.reference ?? "-"],
+      ["Currency", data.quote.currency],
+      ["Tax mode", salesQuoteTaxModeLabel(data.quote.taxMode)],
+      ["Converted invoice", data.quote.convertedSalesInvoice ? `${data.quote.convertedSalesInvoice.invoiceNumber} (${data.quote.convertedSalesInvoice.status})` : "-"],
+    ], renderSettings);
+
+    writeMuted(
+      doc,
+      "This sales quote is non-posting and does not create accounting journals, accounts receivable, VAT filing, or ZATCA submission.",
+    );
+
+    writeSectionTitle(doc, "Line Items", renderSettings);
+    drawTable(
+      doc,
+      [
+        { label: "Description", width: 116 },
+        { label: "Qty", width: 38, align: "right" },
+        { label: "Unit", width: 54, align: "right" },
+        { label: "Gross", width: 54, align: "right" },
+        { label: "Discount", width: 54, align: "right" },
+        { label: "Taxable", width: 54, align: "right" },
+        { label: "Tax", width: 48, align: "right" },
+        { label: "Total", width: 54, align: "right" },
+      ],
+      data.lines.map((line) => [
+        withOptionalSuffix(line.description, salesQuoteLineSuffix(line)),
+        line.quantity,
+        money(line.unitPrice, data.quote.currency),
+        money(line.lineGrossAmount, data.quote.currency),
+        money(line.discountAmount, data.quote.currency),
+        money(line.taxableAmount, data.quote.currency),
+        money(line.taxAmount, data.quote.currency),
+        money(line.lineTotal, data.quote.currency),
+      ]),
+      renderSettings,
+    );
+
+    writeTotals(doc, data.quote.currency, [
+      ["Subtotal", data.quote.subtotal],
+      ["Discount", data.quote.discountTotal],
+      ["Taxable total", data.quote.taxableTotal],
+      ["VAT / Tax", data.quote.taxTotal],
+      ["Total", data.quote.total],
+    ], renderSettings);
+
+    if (renderSettings.showNotes) {
+      writeOptionalTextBlock(doc, "Notes", data.quote.notes, renderSettings);
+    }
+    if (renderSettings.showTerms) {
+      writeOptionalTextBlock(doc, "Terms", data.quote.terms, renderSettings);
+    }
+  }, renderSettings);
+}
+
+export async function renderDeliveryNotePdf(data: DeliveryNotePdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
+  const renderSettings = resolveSettings({ ...settings, title: "Delivery Note" }, "Delivery Note");
+  return renderPdf((doc) => {
+    writeHeader(doc, data.organization, renderSettings, data.generatedAt);
+    writeTwoColumnBlocks(doc, "Deliver To", contactLines(data.customer, renderSettings), "Delivery Note", [
+      ["Delivery note", data.deliveryNote.deliveryNoteNumber],
+      ["Status", data.deliveryNote.status],
+      ["Issue date", formatDate(data.deliveryNote.issueDate)],
+      ["Delivery date", data.deliveryNote.deliveryDate ? formatDate(data.deliveryNote.deliveryDate) : "-"],
+      ["Reference", data.deliveryNote.reference ?? "-"],
+      ["Related invoice", data.deliveryNote.relatedSalesInvoice ? `${data.deliveryNote.relatedSalesInvoice.invoiceNumber} (${data.deliveryNote.relatedSalesInvoice.status})` : "-"],
+      ["Related quote", data.deliveryNote.relatedSalesQuote ? `${data.deliveryNote.relatedSalesQuote.quoteNumber} (${data.deliveryNote.relatedSalesQuote.status})` : "-"],
+      ["Related stock issue", data.deliveryNote.relatedSalesStockIssue ? `${data.deliveryNote.relatedSalesStockIssue.issueNumber} (${data.deliveryNote.relatedSalesStockIssue.status})` : "-"],
+    ], renderSettings);
+
+    writeMuted(
+      doc,
+      "This delivery note is an operational fulfillment document. It does not create accounting journals, accounts receivable, VAT filing, ZATCA submission, payment, or inventory movement by itself.",
+    );
+
+    writeOptionalTextBlock(doc, "Delivery Address", data.deliveryNote.deliveryAddress, renderSettings);
+
+    writeSectionTitle(doc, "Delivered Items", renderSettings);
+    drawTable(
+      doc,
+      [
+        { label: "Description", width: 300 },
+        { label: "Qty", width: 90, align: "right" },
+        { label: "Unit", width: 100 },
+      ],
+      data.lines.map((line) => [
+        withOptionalSuffix(line.description, deliveryNoteLineSuffix(line)),
+        line.quantity,
+        line.unitOfMeasure ?? "-",
+      ]),
+      renderSettings,
+    );
+
+    if (renderSettings.showNotes) {
+      writeOptionalTextBlock(doc, "Notes", data.deliveryNote.notes, renderSettings);
+    }
+    if (renderSettings.showTerms) {
+      writeOptionalTextBlock(doc, "Instructions", data.deliveryNote.instructions, renderSettings);
     }
   }, renderSettings);
 }
@@ -2090,6 +2281,25 @@ function compact(values: Array<string | null | undefined>): string[] {
 
 function isTaxInvoice(data: InvoicePdfData): boolean {
   return data.invoice.taxTotal !== "0.0000" && data.invoice.taxTotal !== "0";
+}
+
+function salesQuoteTaxModeLabel(taxMode: string): string {
+  if (taxMode === "TAX_INCLUSIVE") {
+    return "Tax inclusive";
+  }
+  if (taxMode === "NO_TAX") {
+    return "No tax";
+  }
+  return "Tax exclusive";
+}
+
+function salesQuoteLineSuffix(line: SalesQuotePdfData["lines"][number]): string | null {
+  const itemLabel = line.itemName ? `Item: ${line.itemSku ? `${line.itemSku} ` : ""}${line.itemName}` : null;
+  return [itemLabel, line.taxRateName ? `Tax: ${line.taxRateName}` : null].filter((value): value is string => Boolean(value)).join(" | ") || null;
+}
+
+function deliveryNoteLineSuffix(line: DeliveryNotePdfData["lines"][number]): string | null {
+  return line.itemName ? `Item: ${line.itemSku ? `${line.itemSku} ` : ""}${line.itemName}` : null;
 }
 
 function resolveSettings(settings: DocumentRenderSettings | undefined, fallbackTitle: string): ResolvedDocumentRenderSettings {

@@ -33,6 +33,12 @@ export class SalesInvoiceController {
     return this.salesInvoiceService.open(organizationId, customerId, branchId);
   }
 
+  @Get("next-number")
+  @RequirePermissions(PERMISSIONS.salesInvoices.create)
+  nextNumberPreview(@CurrentOrganizationId() organizationId: string) {
+    return this.salesInvoiceService.nextNumberPreview(organizationId);
+  }
+
   @Post()
   @RequirePermissions(PERMISSIONS.salesInvoices.create)
   create(

@@ -74,6 +74,8 @@ describe("SearchService", () => {
       supplierPayment: { findMany: jest.fn() },
       creditNote: { findMany: jest.fn() },
       purchaseOrder: { findMany: jest.fn() },
+      deliveryNote: { findMany: jest.fn().mockResolvedValue([]) },
+      collectionCase: { findMany: jest.fn().mockResolvedValue([]) },
       journalEntry: { findMany: jest.fn() },
     };
     const service = new SearchService(prisma as never);
@@ -87,6 +89,88 @@ describe("SearchService", () => {
     expect(prisma.contact.findMany).not.toHaveBeenCalled();
     expect(prisma.cashExpense.findMany).not.toHaveBeenCalled();
     expect(prisma.journalEntry.findMany).not.toHaveBeenCalled();
+  });
+
+  it("returns delivery note records as non-posting sales workflow results", async () => {
+    const prisma = {
+      contact: { findMany: jest.fn() },
+      salesInvoice: { findMany: jest.fn().mockResolvedValue([]) },
+      purchaseBill: { findMany: jest.fn() },
+      cashExpense: { findMany: jest.fn() },
+      customerPayment: { findMany: jest.fn() },
+      supplierPayment: { findMany: jest.fn() },
+      creditNote: { findMany: jest.fn() },
+      purchaseOrder: { findMany: jest.fn() },
+      deliveryNote: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "dn-1",
+            deliveryNoteNumber: "DN-000001",
+            issueDate: new Date("2026-06-04T00:00:00.000Z"),
+            deliveryDate: new Date("2026-06-05T00:00:00.000Z"),
+            status: "ISSUED",
+            customer: { id: "customer-1", name: "Alpha Customer", displayName: null },
+          },
+        ]),
+      },
+      collectionCase: { findMany: jest.fn().mockResolvedValue([]) },
+      journalEntry: { findMany: jest.fn() },
+    };
+    const service = new SearchService(prisma as never);
+
+    const result = await service.search("org-1", "DN-000001", [PERMISSIONS.salesInvoices.view]);
+
+    expect(result.results).toEqual([
+      expect.objectContaining({
+        resultType: "Delivery note",
+        href: "/sales/delivery-notes/dn-1",
+        amount: "0.0000",
+        detail: "Alpha Customer",
+      }),
+    ]);
+  });
+
+  it("returns collection case records as Sales/AR follow-up workflow results", async () => {
+    const prisma = {
+      contact: { findMany: jest.fn() },
+      salesInvoice: { findMany: jest.fn().mockResolvedValue([]) },
+      purchaseBill: { findMany: jest.fn() },
+      cashExpense: { findMany: jest.fn() },
+      customerPayment: { findMany: jest.fn() },
+      supplierPayment: { findMany: jest.fn() },
+      creditNote: { findMany: jest.fn() },
+      purchaseOrder: { findMany: jest.fn() },
+      deliveryNote: { findMany: jest.fn().mockResolvedValue([]) },
+      collectionCase: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "case-1",
+            caseNumber: "COL-000001",
+            status: "PROMISED_TO_PAY",
+            priority: "HIGH",
+            nextActionAt: new Date("2026-06-10T00:00:00.000Z"),
+            followUpDate: null,
+            customer: { id: "customer-1", name: "Alpha Customer", displayName: null },
+            salesInvoice: { id: "invoice-1", invoiceNumber: "INV-000010", balanceDue: "125.0000" },
+          },
+        ]),
+      },
+      journalEntry: { findMany: jest.fn() },
+    };
+    const service = new SearchService(prisma as never);
+
+    const result = await service.search("org-1", "COL-000001", [PERMISSIONS.salesInvoices.view]);
+
+    expect(result.results).toEqual([
+      expect.objectContaining({
+        resultType: "Collection case",
+        href: "/sales/collections/case-1",
+        label: "COL-000001",
+        detail: "Alpha Customer / INV-000010",
+        amount: "125.0000",
+      }),
+    ]);
+    expect(JSON.stringify(result.results)).not.toMatch(/payment link|tax invoice|ZATCA|email sent/i);
   });
 
   it("returns no results for blank queries", async () => {

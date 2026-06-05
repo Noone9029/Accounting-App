@@ -21,6 +21,15 @@ describe("document helpers", () => {
     expect(documentSourceTypeLabel("SupplierStatement")).toBe("Supplier Statement");
   });
 
+  it("labels sales quote and delivery note archives without invoice wording", () => {
+    expect(documentTypeLabel("SALES_INVOICE")).toBe("Sales Invoice");
+    expect(documentTypeLabel("SALES_QUOTE")).toBe("Sales Quote");
+    expect(documentTypeLabel("DELIVERY_NOTE")).toBe("Delivery Note");
+    expect(documentSourceTypeLabel("DeliveryNote")).toBe("Delivery Note");
+    expect(documentTypeLabel("SALES_QUOTE")).not.toMatch(/tax invoice/i);
+    expect(documentTypeLabel("DELIVERY_NOTE")).not.toMatch(/invoice/i);
+  });
+
   it("labels generated document statuses", () => {
     expect(generatedDocumentStatusLabel("GENERATED")).toBe("Generated");
     expect(generatedDocumentStatusLabel("SUPERSEDED")).toBe("Superseded");

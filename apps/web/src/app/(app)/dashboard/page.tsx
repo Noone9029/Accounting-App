@@ -23,6 +23,7 @@ import {
   agingBucketLabel,
   attentionSeverityClass,
   attentionSeverityLabel,
+  canViewSalesAttention,
   chartBarPercent,
   chartHasData,
   chartMaxAmount,
@@ -41,6 +42,9 @@ import type {
   DashboardCashTrendPoint,
   DashboardLowStockItem,
   DashboardOnboardingChecklist,
+  DashboardSalesAttentionCustomerItem,
+  DashboardSalesAttentionSummary,
+  DashboardSalesAttentionTopItem,
   DashboardSummary,
   DashboardTrendPoint,
 } from "@/lib/types";
@@ -61,9 +65,14 @@ export default function DashboardPage() {
     () => ({
       unpaidInvoices: dashboardDrilldownLink("unpaidInvoices", activeMembership),
       overdueInvoices: dashboardDrilldownLink("overdueInvoices", activeMembership),
+      salesQuotes: dashboardDrilldownLink("salesQuotes", activeMembership),
+      recurringInvoices: dashboardDrilldownLink("recurringInvoices", activeMembership),
+      deliveryNotes: dashboardDrilldownLink("deliveryNotes", activeMembership),
+      collections: dashboardDrilldownLink("collections", activeMembership),
       unpaidBills: dashboardDrilldownLink("unpaidBills", activeMembership),
       overdueBills: dashboardDrilldownLink("overdueBills", activeMembership),
       customerPayments: dashboardDrilldownLink("customerPayments", activeMembership),
+      customers: dashboardDrilldownLink("customers", activeMembership),
       supplierPayments: dashboardDrilldownLink("supplierPayments", activeMembership),
       bankBalance: dashboardDrilldownLink("bankBalance", activeMembership),
       bankReconciliations: dashboardDrilldownLink("bankReconciliations", activeMembership),
@@ -81,6 +90,7 @@ export default function DashboardPage() {
     }),
     [activeMembership],
   );
+  const canSeeSalesAttention = useMemo(() => canViewSalesAttention(activeMembership), [activeMembership]);
   const attentionGroups = useMemo(() => (summary ? groupAttentionBySeverity(summary.attentionItems) : null), [summary]);
 
   useEffect(() => {
@@ -237,6 +247,14 @@ export default function DashboardPage() {
                   <NetProfitTrend points={summary.trends.monthlyNetProfit} currency={summary.currency} />
                 </div>
               </Section>
+
+              {canSeeSalesAttention ? (
+                <SalesArAttentionSection
+                  attention={summary.salesAttention}
+                  currency={summary.currency}
+                  canLinkCustomers={Boolean(drilldownLinks.customers)}
+                />
+              ) : null}
 
               <Section title="Receivables and payables aging">
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -414,6 +432,238 @@ function MetricGrid({ items }: Readonly<{ items: Array<{ label: string; value: s
       })}
     </div>
   );
+}
+
+function SalesArAttentionSection({
+  attention,
+  currency,
+  canLinkCustomers,
+}: Readonly<{ attention: DashboardSalesAttentionSummary; currency: string; canLinkCustomers: boolean }>) {
+  return (
+    <Section title="Sales/AR attention">
+      <p className="mb-4 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-900">
+        {attention.helperText}
+      </p>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <SalesAttentionPanel
+          title="Overdue invoices"
+          summary={`${attention.overdueInvoices.count} overdue · ${formatDashboardMoney(attention.overdueInvoices.total, currency)} balance due`}
+        >
+          <SalesAttentionRows
+            items={attention.overdueInvoices.topItems}
+            currency={currency}
+            emptyLabel="No overdue invoices requiring attention."
+            detailForItem={(item) => [
+              `Balance due ${formatDashboardMoney(item.amount ?? "0.0000", currency)}`,
+              `Due ${formatOptionalDate(item.dueDate ?? item.issueDate ?? null, "-")}`,
+            ]}
+          />
+        </SalesAttentionPanel>
+
+        <SalesAttentionPanel
+          title="Collection follow-ups"
+          summary={`${attention.collections.openCount} open · ${attention.collections.dueTodayCount} due today · ${attention.collections.overdueFollowUpCount} overdue`}
+          footer={`${formatDashboardMoney(attention.collections.promisedToPayTotal, currency)} promised to pay · ${attention.collections.disputedCount} disputed`}
+        >
+          <SalesAttentionRows
+            items={attention.collections.topItems}
+            currency={currency}
+            emptyLabel="No collection follow-ups due."
+            detailForItem={(item) => [
+              `Follow-up ${formatOptionalDate(item.followUpDate ?? item.dueDate ?? null, "-")}`,
+              item.promisedAmount ? `Promise to pay ${formatDashboardMoney(item.promisedAmount, currency)}` : null,
+              item.promisedPaymentDate ? `Promised date ${formatOptionalDate(item.promisedPaymentDate, "-")}` : null,
+            ]}
+          />
+        </SalesAttentionPanel>
+
+        <SalesAttentionPanel
+          title="Quotes awaiting action"
+          summary={`${attention.quotes.awaitingAcceptanceCount} awaiting acceptance · ${attention.quotes.expiringSoonCount} expiring soon`}
+          footer={`${attention.quotes.acceptedNotConvertedCount} accepted quotes not converted`}
+        >
+          <SalesAttentionRows
+            items={attention.quotes.topItems}
+            currency={currency}
+            emptyLabel="No quotes needing action."
+            detailForItem={(item) => [
+              `Quote amount ${formatDashboardMoney(item.amount ?? "0.0000", currency)}`,
+              item.expiryDate ? `Expires ${formatOptionalDate(item.expiryDate, "-")}` : null,
+            ]}
+          />
+        </SalesAttentionPanel>
+
+        <SalesAttentionPanel
+          title="Recurring templates due for manual generation"
+          summary={`${attention.recurringInvoices.dueSoonCount} due soon · ${attention.recurringInvoices.overdueForGenerationCount} overdue`}
+          footer={`${attention.recurringInvoices.activeCount} active templates`}
+        >
+          <SalesAttentionRows
+            items={attention.recurringInvoices.topItems}
+            currency={currency}
+            emptyLabel="No recurring templates due for manual generation."
+            detailForItem={(item) => [
+              item.templateName ? `Template ${item.templateName}` : null,
+              `Next run ${formatOptionalDate(item.nextRunDate ?? null, "-")}`,
+              "Manual generation only",
+            ]}
+          />
+          {attention.recurringInvoices.recentDraftInvoices.length > 0 ? (
+            <div className="mt-3 border-t border-slate-200 pt-3">
+              <h4 className="text-xs font-semibold text-ink">Draft invoices generated from recurring templates</h4>
+              <div className="mt-2">
+                <SalesAttentionRows
+                  items={attention.recurringInvoices.recentDraftInvoices}
+                  currency={currency}
+                  emptyLabel="No recently generated recurring draft invoices."
+                  detailForItem={(item) => [
+                    item.templateNumber ? `From ${item.templateNumber}` : null,
+                    "Draft invoice",
+                    `Issue ${formatOptionalDate(item.issueDate ?? null, "-")}`,
+                  ]}
+                />
+              </div>
+            </div>
+          ) : null}
+        </SalesAttentionPanel>
+
+        <SalesAttentionPanel
+          title="Delivery notes awaiting delivery"
+          summary={`${attention.deliveryNotes.draftCount} drafts · ${attention.deliveryNotes.issuedNotDeliveredCount} issued not delivered`}
+          footer={`${attention.deliveryNotes.overdueDeliveryCount} overdue delivery dates`}
+        >
+          <SalesAttentionRows
+            items={attention.deliveryNotes.topItems}
+            currency={currency}
+            emptyLabel="No delivery notes awaiting action."
+            detailForItem={(item) => [
+              `Delivery ${formatOptionalDate(item.deliveryDate ?? null, "-")}`,
+              "Fulfillment document only",
+            ]}
+          />
+        </SalesAttentionPanel>
+
+        <SalesAttentionPanel title="Top customers by outstanding balance" summary="Outstanding AR from finalized sales invoices only">
+          <CustomerAttentionRows items={attention.customers.topOutstanding} currency={currency} canLinkCustomers={canLinkCustomers} />
+        </SalesAttentionPanel>
+      </div>
+    </Section>
+  );
+}
+
+function SalesAttentionPanel({
+  title,
+  summary,
+  footer,
+  children,
+}: Readonly<{ title: string; summary: string; footer?: string; children: ReactNode }>) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-white px-3 py-3">
+      <div>
+        <h3 className="text-sm font-semibold text-ink">{title}</h3>
+        <p className="mt-1 text-xs leading-5 text-steel">{summary}</p>
+      </div>
+      <div className="mt-3">{children}</div>
+      {footer ? <p className="mt-3 text-xs leading-5 text-steel">{footer}</p> : null}
+    </div>
+  );
+}
+
+function SalesAttentionRows({
+  items,
+  currency,
+  emptyLabel,
+  detailForItem,
+}: Readonly<{
+  items: DashboardSalesAttentionTopItem[];
+  currency: string;
+  emptyLabel: string;
+  detailForItem: (item: DashboardSalesAttentionTopItem) => Array<string | null>;
+}>) {
+  if (items.length === 0) {
+    return <div className="rounded-md border border-dashed border-slate-200 px-3 py-3 text-xs text-steel">{emptyLabel}</div>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {items.map((item) => (
+        <SalesAttentionRow key={item.id} item={item} currency={currency} details={detailForItem(item)} />
+      ))}
+    </div>
+  );
+}
+
+function SalesAttentionRow({
+  item,
+  currency,
+  details,
+}: Readonly<{ item: DashboardSalesAttentionTopItem; currency: string; details: Array<string | null> }>) {
+  const detailText = details.filter(Boolean).join(" · ");
+  return (
+    <Link
+      href={item.href}
+      aria-label={item.number}
+      className="block rounded-md border border-slate-100 bg-mist px-3 py-2 text-sm transition hover:border-palm/40 hover:bg-slate-50"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="truncate font-semibold text-ink">{item.number}</div>
+          <div className="mt-0.5 truncate text-xs text-steel">{item.customerName}</div>
+        </div>
+        <div className="shrink-0 rounded-md bg-white px-2 py-1 text-[11px] font-semibold uppercase text-steel">
+          {statusLabel(item.status)}
+        </div>
+      </div>
+      {item.amount ? <div className="mt-1 font-mono text-xs text-ink">{formatDashboardMoney(item.amount, currency)}</div> : null}
+      {detailText ? <div className="mt-1 text-xs leading-5 text-steel">{detailText}</div> : null}
+    </Link>
+  );
+}
+
+function CustomerAttentionRows({
+  items,
+  currency,
+  canLinkCustomers,
+}: Readonly<{ items: DashboardSalesAttentionCustomerItem[]; currency: string; canLinkCustomers: boolean }>) {
+  if (items.length === 0) {
+    return (
+      <div className="rounded-md border border-dashed border-slate-200 px-3 py-3 text-xs text-steel">
+        No outstanding customer balances to show.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {items.map((item) => {
+        const content = (
+          <>
+            <div className="flex items-start justify-between gap-3">
+              <div className="truncate font-semibold text-ink">{item.customerName}</div>
+              <div className="font-mono text-xs text-ink">{formatDashboardMoney(item.outstandingBalance, currency)}</div>
+            </div>
+            <div className="mt-1 text-xs leading-5 text-steel">
+              {formatDashboardMoney(item.overdueAmount, currency)} overdue · {item.openCollectionCaseCount} open collection cases
+            </div>
+          </>
+        );
+        const className = "block rounded-md border border-slate-100 bg-mist px-3 py-2 text-sm";
+        return canLinkCustomers ? (
+          <Link key={item.id} href={item.href} className={`${className} transition hover:border-palm/40 hover:bg-slate-50`}>
+            {content}
+          </Link>
+        ) : (
+          <div key={item.id} className={className}>
+            {content}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function statusLabel(status: string): string {
+  return status.replaceAll("_", " ").toLowerCase();
 }
 
 function SalesPurchasesTrend({

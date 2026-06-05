@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CalendarClock,
   ChevronDown,
   ClipboardList,
   CreditCard,
@@ -20,6 +21,8 @@ import { hasPermission, PERMISSIONS, type Permission, type PermissionSubject } f
 
 export type PartyNewTransactionModule =
   | "salesInvoices"
+  | "recurringInvoices"
+  | "deliveryNotes"
   | "customerPayments"
   | "estimates"
   | "salesOrders"
@@ -61,8 +64,10 @@ interface PartyTransactionAction {
 
 const DEFAULT_AVAILABLE_MODULES: Record<PartyNewTransactionModule, boolean> = {
   salesInvoices: true,
+  recurringInvoices: true,
+  deliveryNotes: true,
   customerPayments: true,
-  estimates: false,
+  estimates: true,
   salesOrders: false,
   creditNotes: true,
   customerRefunds: true,
@@ -230,8 +235,10 @@ function transactionActions(partyType: PartyKind, partyId: string): PartyTransac
   if (partyType === "customer") {
     return [
       action("invoice", "Invoice", partyType, FileText, "/sales/invoices/new", PERMISSIONS.salesInvoices.create, "salesInvoices", partyId),
+      action("recurring-invoice", "Recurring Invoice Template", partyType, CalendarClock, "/sales/recurring-invoices/new", PERMISSIONS.salesInvoices.create, "recurringInvoices", partyId),
+      action("delivery-note", "Delivery Note", partyType, PackageCheck, "/sales/delivery-notes/new", PERMISSIONS.salesInvoices.create, "deliveryNotes", partyId),
       action("receive-payment", "Receive Payment", partyType, WalletCards, "/sales/customer-payments/new", PERMISSIONS.customerPayments.create, "customerPayments", partyId),
-      disabledAction("estimate", "Estimate / Quotation", partyType, ClipboardList, PERMISSIONS.salesInvoices.create, "estimates", "Estimates are not enabled yet."),
+      action("sales-quote", "Sales Quote", partyType, ClipboardList, "/sales/quotes/new", PERMISSIONS.salesInvoices.create, "estimates", partyId),
       disabledAction("sales-order", "Sales Order", partyType, ClipboardList, PERMISSIONS.salesInvoices.create, "salesOrders", "Sales orders are not enabled yet."),
       action("credit-note", "Credit Note", partyType, RotateCcw, "/sales/credit-notes/new", PERMISSIONS.creditNotes.create, "creditNotes", partyId),
       disabledAction("sales-receipt", "Sales Receipt", partyType, Receipt, PERMISSIONS.salesInvoices.create, "salesReceipts", "Sales receipts are not enabled yet."),

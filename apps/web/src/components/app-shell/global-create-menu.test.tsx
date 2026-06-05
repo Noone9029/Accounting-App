@@ -38,6 +38,9 @@ describe("GlobalCreateMenu", () => {
     expect(screen.getByRole("heading", { name: "Other / Accounting" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Invoice" })).toHaveAttribute("href", "/sales/invoices/new");
     expect(screen.getByRole("link", { name: "Receive payment" })).toHaveAttribute("href", "/sales/customer-payments/new");
+    expect(screen.getByRole("link", { name: "Recurring invoice template" })).toHaveAttribute("href", "/sales/recurring-invoices/new");
+    expect(screen.getByRole("link", { name: "Delivery note" })).toHaveAttribute("href", "/sales/delivery-notes/new");
+    expect(screen.getByRole("link", { name: "Collection case" })).toHaveAttribute("href", "/sales/collections/new");
     expect(screen.getByRole("link", { name: "Bill" })).toHaveAttribute("href", "/purchases/bills/new");
     expect(screen.getByRole("link", { name: "Expense" })).toHaveAttribute("href", "/purchases/cash-expenses/new");
     expect(screen.getByRole("link", { name: "Journal entry" })).toHaveAttribute("href", "/journal-entries/new");
@@ -51,10 +54,25 @@ describe("GlobalCreateMenu", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
     expect(screen.getByRole("link", { name: "Invoice" })).toHaveAttribute("href", "/sales/invoices/new");
+    expect(screen.getByRole("link", { name: "Recurring invoice template" })).toHaveAttribute("href", "/sales/recurring-invoices/new");
+    expect(screen.getByRole("link", { name: "Delivery note" })).toHaveAttribute("href", "/sales/delivery-notes/new");
+    expect(screen.getByRole("link", { name: "Collection case" })).toHaveAttribute("href", "/sales/collections/new");
     expect(screen.queryByRole("link", { name: "Bill" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Bill" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Statement" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Statement" })).toHaveAttribute("title", "Statements are not enabled yet.");
+  });
+
+  it("does not expose recurring template creation as a link without invoice create permission", () => {
+    mockActiveMembership = { role: { permissions: ["salesInvoices.view"] } };
+
+    render(<GlobalCreateMenu />);
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    expect(screen.queryByRole("link", { name: "Recurring invoice template" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Recurring invoice template" })).toBeDisabled();
+    expect(screen.queryByRole("link", { name: "Collection case" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Collection case" })).toBeDisabled();
   });
 
   it("closes on Escape and outside clicks", () => {

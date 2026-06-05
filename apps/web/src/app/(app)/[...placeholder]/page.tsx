@@ -6,7 +6,6 @@ const titleMap: Record<string, string> = {
   "sales/quotes": "Quotes & Proformas",
   "sales/invoices": "Invoices",
   "sales/customer-payments": "Customer payments",
-  "sales/recurring-invoices": "Recurring invoices",
   "sales/credit-notes": "Credit notes",
   "sales/cash-invoices": "Cash invoices",
   "sales/delivery-notes": "Delivery notes",

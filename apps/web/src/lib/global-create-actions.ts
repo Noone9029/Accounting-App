@@ -35,6 +35,9 @@ export type GlobalCreateCategory =
 
 export type GlobalCreateModule =
   | "sales"
+  | "recurringInvoices"
+  | "deliveryNotes"
+  | "collections"
   | "customerPayments"
   | "customerStatements"
   | "estimates"
@@ -83,9 +86,12 @@ export const GLOBAL_CREATE_CATEGORY_ORDER: readonly GlobalCreateCategory[] = [
 
 export const ENABLED_GLOBAL_CREATE_MODULES: Record<GlobalCreateModule, boolean> = {
   sales: true,
+  recurringInvoices: true,
+  deliveryNotes: true,
+  collections: true,
   customerPayments: true,
   customerStatements: false,
-  estimates: false,
+  estimates: true,
   salesOrders: false,
   creditNotes: true,
   salesReceipts: false,
@@ -131,6 +137,33 @@ export const GLOBAL_CREATE_ACTIONS: readonly GlobalCreateAction[] = [
     requiredModule: "customerPayments",
   },
   {
+    id: "recurring-invoice",
+    label: "Recurring invoice template",
+    category: "Customers / Sales",
+    icon: CalendarClock,
+    href: "/sales/recurring-invoices/new",
+    requiredPermission: PERMISSIONS.salesInvoices.create,
+    requiredModule: "recurringInvoices",
+  },
+  {
+    id: "delivery-note",
+    label: "Delivery note",
+    category: "Customers / Sales",
+    icon: Truck,
+    href: "/sales/delivery-notes/new",
+    requiredPermission: PERMISSIONS.salesInvoices.create,
+    requiredModule: "deliveryNotes",
+  },
+  {
+    id: "collection-case",
+    label: "Collection case",
+    category: "Customers / Sales",
+    icon: ListChecks,
+    href: "/sales/collections/new",
+    requiredPermission: PERMISSIONS.salesInvoices.create,
+    requiredModule: "collections",
+  },
+  {
     id: "statement",
     label: "Statement",
     category: "Customers / Sales",
@@ -141,12 +174,12 @@ export const GLOBAL_CREATE_ACTIONS: readonly GlobalCreateAction[] = [
   },
   {
     id: "estimate",
-    label: "Estimate",
+    label: "Sales quote",
     category: "Customers / Sales",
     icon: FileClock,
+    href: "/sales/quotes/new",
     requiredPermission: PERMISSIONS.salesInvoices.create,
     requiredModule: "estimates",
-    disabledReason: "Estimates are not enabled yet.",
   },
   {
     id: "sales-order",

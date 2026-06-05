@@ -4,6 +4,7 @@ import {
   chartBarPercent,
   chartHasData,
   chartMaxAmount,
+  canViewSalesAttention,
   dashboardDrilldownLink,
   dashboardHealthLabel,
   dashboardIsEmpty,
@@ -55,12 +56,18 @@ describe("dashboard helpers", () => {
     };
 
     expect(dashboardDrilldownLink("unpaidInvoices", subject)?.href).toBe("/sales/invoices");
+    expect(dashboardDrilldownLink("salesQuotes", subject)?.href).toBe("/sales/quotes");
+    expect(dashboardDrilldownLink("recurringInvoices", subject)?.href).toBe("/sales/recurring-invoices");
+    expect(dashboardDrilldownLink("deliveryNotes", subject)?.href).toBe("/sales/delivery-notes");
+    expect(dashboardDrilldownLink("collections", subject)?.href).toBe("/sales/collections");
     expect(dashboardDrilldownLink("customerPayments", subject)?.href).toBe("/sales/customer-payments");
     expect(dashboardDrilldownLink("bankReconciliations", subject)?.href).toBe("/bank-accounts");
     expect(dashboardDrilldownLink("lowStock", subject)?.href).toBe("/inventory/reports/low-stock");
     expect(dashboardDrilldownLink("negativeStock", subject)?.href).toBe("/inventory/balances");
     expect(dashboardDrilldownLink("fiscalPeriods", subject)?.href).toBe("/fiscal-periods");
     expect(dashboardDrilldownLink("profitAndLoss", subject)).toBeNull();
+    expect(canViewSalesAttention(subject)).toBe(true);
+    expect(canViewSalesAttention({ role: { permissions: [PERMISSIONS.dashboard.view] } })).toBe(false);
   });
 
   it("formats chart helpers and aging labels", () => {
@@ -206,6 +213,42 @@ function emptySummary(): DashboardSummary {
       overdueInvoiceBalance: "0.0000",
       salesThisMonth: "0.0000",
       customerPaymentThisMonth: "0.0000",
+    },
+    salesAttention: {
+      readOnly: true,
+      noMutation: true,
+      helperText:
+        "Dashboard attention items are read-only workflow signals. They do not send emails, collect payments, post journals, file VAT, call ZATCA, or move inventory.",
+      overdueInvoices: { count: 0, total: "0.0000", topItems: [] },
+      collections: {
+        openCount: 0,
+        dueTodayCount: 0,
+        overdueFollowUpCount: 0,
+        promisedToPayTotal: "0.0000",
+        disputedCount: 0,
+        topItems: [],
+      },
+      quotes: {
+        awaitingAcceptanceCount: 0,
+        expiringSoonCount: 0,
+        acceptedNotConvertedCount: 0,
+        topItems: [],
+      },
+      recurringInvoices: {
+        activeCount: 0,
+        dueSoonCount: 0,
+        overdueForGenerationCount: 0,
+        recentlyGeneratedDraftInvoiceCount: 0,
+        topItems: [],
+        recentDraftInvoices: [],
+      },
+      deliveryNotes: {
+        draftCount: 0,
+        issuedNotDeliveredCount: 0,
+        overdueDeliveryCount: 0,
+        topItems: [],
+      },
+      customers: { topOutstanding: [] },
     },
     purchases: {
       unpaidBillCount: 0,

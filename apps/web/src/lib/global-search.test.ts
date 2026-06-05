@@ -44,6 +44,31 @@ describe("global search helpers", () => {
     );
   });
 
+  it("finds the delivery note workflow as a sales fulfillment page", () => {
+    const results = getLocalGlobalSearchResults("fulfillment", { role: { permissions: [PERMISSIONS.salesInvoices.view] } });
+
+    expect(results).toEqual([
+      expect.objectContaining({
+        category: "Transactions",
+        label: "Delivery Notes",
+        href: "/sales/delivery-notes",
+      }),
+    ]);
+  });
+
+  it("finds the collections workspace as a Sales/AR follow-up page", () => {
+    const results = getLocalGlobalSearchResults("promise to pay", { role: { permissions: [PERMISSIONS.salesInvoices.view] } });
+
+    expect(results).toEqual([
+      expect.objectContaining({
+        category: "Transactions",
+        label: "Collections",
+        href: "/sales/collections",
+      }),
+    ]);
+    expect(JSON.stringify(results)).not.toMatch(/payment sent|tax invoice|ZATCA/i);
+  });
+
   it("deduplicates and groups remote and local results in display order", () => {
     const invoice = result("invoice-1", "Transactions", "INV-001", "/sales/invoices/invoice-1");
     const duplicateInvoice = result("invoice-1-copy", "Transactions", "INV-001", "/sales/invoices/invoice-1");
