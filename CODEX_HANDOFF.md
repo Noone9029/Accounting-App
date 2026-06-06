@@ -5520,3 +5520,27 @@
 - CI posture: blocked, not ready. The official SDK exists locally under ignored `reference/`, but it is not available from a fresh checkout; default Java 17 remains unsupported. Local-only validation remains possible with an explicit Java 11-14 `ZATCA_SDK_JAVA_BIN`.
 - PR CI remains non-ZATCA; SDK validation is not enabled in GitHub Actions.
 - Real ZATCA network calls, signing, CSID/OTP, clearance/reporting, PDF/A-3, production credentials, email, deploys, migrations, seed/reset/delete, production/beta/customer data mutation, and production compliance remain disabled.
+
+## ZATCA Approved Local Dummy Signing Execution Completed
+
+- Latest commit inspected before execution: `158578d3 Plan approved ZATCA dummy signing execution`.
+- Approval phrase matched exactly.
+- SDK signing executed: yes, local dummy-material only.
+- SDK QR executed: yes, local dummy-material only.
+- Signed XML validation executed: yes, local dummy-material only.
+- Real ZATCA network used: no.
+- CSID/OTP used: no.
+- Production/beta/customer data used: no.
+- Private keys/certificates exposed: no; dummy material was used by SDK config only and certificate/private-key body content was not printed, copied into app storage, committed, or persisted as evidence.
+- Fixture statuses:
+  - `ledgerbyte-generated-standard-invoice`: sign `PASSED`, QR `PASSED`, signed validation `PASSED`.
+  - `ledgerbyte-generated-credit-note`: sign `PASSED`, QR `PASSED`, signed validation `PASSED`.
+- Evidence file path: `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
+- Cleanup status: `SUCCESS`; temp unsigned XML, signed XML, SDK runtime/config copies, and temp workspace were cleaned up.
+- Redaction result: metadata-only evidence; no XML body, signed XML body, QR payload body, private-key body, certificate body, OTP, CSID material, token, auth header, request/response body, customer/vendor payload, attachment body, or unsafe raw SDK stdout/stderr was persisted.
+- Current blockers: key custody decision, sandbox OTP/CSID, real signing credentials/certificate lifecycle, Phase 2 QR production proof, clearance/reporting, PDF/A-3, retry/error queue, production signed-artifact storage, official/legal/accounting reviews, and repeatable SDK CI.
+- Exact next prompt title: `ZATCA dummy signing result review and Phase 2 QR gap analysis`.
+
+## Next Thread Prompt
+
+`ZATCA dummy signing result review and Phase 2 QR gap analysis`

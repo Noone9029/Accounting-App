@@ -1359,3 +1359,10 @@ Recommended next step:
 - Added the approved execution runbook and approval-phrase gate for a future local dummy-material signing run.
 - The roadmap remains blocked on actual execution: the guard can recognize the phrase for planning, but `--execute-approved-plan` still refuses to run signing in this sprint.
 - Remaining next step: `ZATCA approved local dummy signing execution`, with Java 11-14, local SDK reference, sanitized fixtures, temp-only outputs, no network, and metadata-only evidence.
+
+# ZATCA approved local dummy signing execution - 2026-06-06
+
+- Completed one approved local dummy-material SDK run against `ledgerbyte-generated-standard-invoice` and `ledgerbyte-generated-credit-note`.
+- Both fixtures passed SDK sign, QR, and signed XML validation stages under explicit Java `11.0.26`; evidence is metadata-only at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
+- Remaining roadmap items are unchanged for production: key custody, sandbox OTP/CSID, production signing, Phase 2 QR production proof, clearance/reporting, PDF/A-3, retry/error queue, signed artifact storage, official reviews, and repeatable SDK CI.
+- Recommended next step: `ZATCA dummy signing result review and Phase 2 QR gap analysis`.

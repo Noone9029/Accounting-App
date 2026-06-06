@@ -156,3 +156,9 @@ This does not change the CI posture: PR CI remains non-ZATCA, SDK validation is 
 ## 2026-06-06 Approved Dummy Signing Plan Follow-Up
 
 `APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md` defines a future local execution runbook and approval phrase, but it does not make SDK execution CI-ready. PR CI remains non-ZATCA; no workflow uploads XML, signed XML, QR payloads, SDK logs, private keys, certificates, or approval output artifacts.
+
+## 2026-06-06 Approved Dummy Signing Execution Follow-Up
+
+The approved local dummy-material SDK run passed for both generated fixtures under explicit Java `11.0.26`, with metadata-only evidence at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
+
+This does not change the CI status. SDK CI remains blocked because the official SDK reference is local/ignored and not available from a fresh checkout, artifact retention policy is not approved, and PR CI remains non-ZATCA.

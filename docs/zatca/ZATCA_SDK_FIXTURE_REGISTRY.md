@@ -106,3 +106,14 @@ The wrapper records a blocker instead of failing destructively when:
 - No clearance or reporting.
 - No PDF/A-3 generation.
 - No production compliance claim.
+
+## 2026-06-06 Approved Local Dummy Signing Coverage
+
+The approved local dummy-material execution attempted only registered sanitized generated fixtures:
+
+- `ledgerbyte-generated-standard-invoice`: SDK sign `PASSED`, QR `PASSED`, signed validation `PASSED`.
+- `ledgerbyte-generated-credit-note`: SDK sign `PASSED`, QR `PASSED`, signed validation `PASSED`.
+
+Evidence: `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
+
+This registry still does not authorize production invoices, beta/customer data, real CSID/certificate material, network submission, clearance/reporting, PDF/A-3, signed artifact persistence, or production compliance claims.

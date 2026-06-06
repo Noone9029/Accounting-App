@@ -172,3 +172,17 @@ The tests mock Java and temporary repositories. They do not require the real SDK
 ## 15. Recommended Next Prompt
 
 `ZATCA approved local dummy signing execution`
+
+## 16. Approved Execution Result Update
+
+The guard now supports the approved execution path behind `--execute-approved-plan`, exact `--approval-phrase`, `--no-network`, explicit Java 11-14 through `ZATCA_SDK_JAVA_BIN`, local SDK reference checks, and approved sanitized fixture IDs only.
+
+The approved local run completed with status `PASSED_LOCAL_DUMMY_SIGNING` for:
+- `ledgerbyte-generated-standard-invoice`
+- `ledgerbyte-generated-credit-note`
+
+For both fixtures the SDK sign, QR, and signed validation stages passed. Temp files were cleaned up, evidence stayed metadata-only, and production compliance remains false.
+
+Evidence: `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
+
+Next prompt: `ZATCA dummy signing result review and Phase 2 QR gap analysis`

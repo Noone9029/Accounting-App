@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 const { spawnSync } = require("node:child_process");
+const { randomUUID } = require("node:crypto");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 
 const REQUIRED_JAVA_RANGE = ">=11 <15";
 const ENVIRONMENT = "LOCAL_DUMMY_SIGNING_DRY_RUN_GUARD";
+const EXECUTION_ENVIRONMENT = "LOCAL_DUMMY_SIGNING_NO_NETWORK";
 const APPROVAL_ENV_VAR = "ZATCA_LOCAL_DUMMY_SIGNING_APPROVAL";
 const APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PHRASE =
   "I approve ZATCA local dummy signing execution against sanitized local fixtures only. No production, no beta, no customer data, no ZATCA network, no CSID, no OTP, no clearance, no reporting, no PDF-A3, and metadata-only evidence.";
@@ -13,16 +16,19 @@ const STANDARD_FIXTURE_ID = "ledgerbyte-generated-standard-invoice";
 const CREDIT_FIXTURE_ID = "ledgerbyte-generated-credit-note";
 const STANDARD_FIXTURE = "packages/zatca-core/fixtures/ledgerbyte-generated-standard-invoice.expected.xml";
 const CREDIT_FIXTURE = "packages/zatca-core/fixtures/ledgerbyte-generated-credit-note.expected.xml";
+const DEFAULT_TIMEOUT_MS = 60000;
 
 const FIXTURES = {
   [STANDARD_FIXTURE_ID]: {
     fixtureId: STANDARD_FIXTURE_ID,
-    fixtureType: "standard-invoice",
+    fixtureType: "ledgerbyte-generated",
+    invoiceKind: "standard-invoice",
     path: STANDARD_FIXTURE,
   },
   [CREDIT_FIXTURE_ID]: {
     fixtureId: CREDIT_FIXTURE_ID,
-    fixtureType: "credit-note",
+    fixtureType: "ledgerbyte-generated",
+    invoiceKind: "credit-note",
     path: CREDIT_FIXTURE,
   },
 };
@@ -73,6 +79,9 @@ function parseArgs(argv) {
     noNetwork: false,
     help: false,
     fixture: null,
+    fixtures: [],
+    all: false,
+    out: null,
     approvalPhrase: null,
     executeApprovedPlan: false,
   };
@@ -93,6 +102,16 @@ function parseArgs(argv) {
         throw new Error("--fixture requires a fixture id.");
       }
       parsed.fixture = value;
+      parsed.fixtures.push(value);
+      index += 1;
+    } else if (arg === "--all") {
+      parsed.all = true;
+    } else if (arg === "--out") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("--out requires a metadata evidence JSON path.");
+      }
+      parsed.out = value;
       index += 1;
     } else if (arg === "--approval-phrase") {
       const value = argv[index + 1];
@@ -122,9 +141,10 @@ function usage() {
     "  node scripts/zatca-local-dummy-signing-dry-run.cjs --plan --fixture ledgerbyte-generated-standard-invoice --no-network --json",
     "  node scripts/zatca-local-dummy-signing-dry-run.cjs --plan --no-network --json --strict",
     "  node scripts/zatca-local-dummy-signing-dry-run.cjs --plan --no-network --json --approval-phrase \"<exact future approval phrase>\"",
+    "  node scripts/zatca-local-dummy-signing-dry-run.cjs --execute-approved-plan --fixture ledgerbyte-generated-standard-invoice --no-network --json --approval-phrase \"<exact future approval phrase>\" --out docs/zatca/evidence/local-dummy-signing-execution-YYYYMMDD.json",
     "",
-    "This command prints metadata-only readiness and command-plan output.",
-    "It does not sign XML, generate QR, validate signed XML, request OTP/CSID, call ZATCA, clear/report, create PDF/A-3, deploy, migrate, seed, reset, delete, or send email.",
+    "By default this command prints metadata-only readiness and command-plan output.",
+    "Only the exact approved local dummy-material execution path may invoke SDK sign, QR, and signed XML validation against temp sanitized fixtures; it still never requests OTP/CSID, calls ZATCA, clears/reports, creates PDF/A-3, deploys, migrates, seeds, resets, deletes, or sends email.",
   ].join("\n");
 }
 
@@ -138,6 +158,7 @@ function buildDummySigningDryRunGuard(options = {}) {
   const commandFindings = inspectCommandFindings(repoRoot);
   const dummyMaterial = inspectDummyMaterial(repoRoot);
   const fixtures = inspectFixtures(repoRoot, args.fixture);
+  const requestedFixtureIds = resolveRequestedFixtureIds(args);
   const packageScripts = inspectPackageScripts(repoRoot);
   const officialReferences = inspectOfficialReferences(repoRoot);
   const approval = inspectApproval(env, args);
@@ -160,6 +181,10 @@ function buildDummySigningDryRunGuard(options = {}) {
     blockers.push("BLOCKED_UNSUPPORTED_JAVA: official SDK execution requires Java >=11 <15; Java 17 and missing Java remain blocked.");
   }
 
+  if (approval.approvalPhraseValid && approval.executeApprovedPlanRequested && java.source !== "ZATCA_SDK_JAVA_BIN") {
+    blockers.push("BLOCKED_UNSUPPORTED_JAVA: approved execution requires an explicit Java 11-14 binary through ZATCA_SDK_JAVA_BIN; default Java is not used for SDK execution.");
+  }
+
   if (!packageScripts.allRequiredFound) {
     blockers.push("BLOCKED_MISSING_PACKAGE_SCRIPT: dummy signing guard package scripts must be present before repeatable local use.");
   }
@@ -172,10 +197,20 @@ function buildDummySigningDryRunGuard(options = {}) {
     warnings.push("SDK hash command shape was not detected in local usage/readme; keep invoice-hash reasoning blocked until reinspected.");
   }
 
+  if (approval.executeApprovedPlanRequested && !args.noNetwork) {
+    blockers.push("BLOCKED_NO_NETWORK_REQUIRED: --no-network is required before local dummy signing execution.");
+  }
+
+  if (approval.executeApprovedPlanRequested && requestedFixtureIds.length === 0) {
+    blockers.push("BLOCKED_MISSING_GENERATED_FIXTURE: approved execution requires --fixture <id> or --all for the sanitized generated fixture scope.");
+  }
+
+  if (requestedFixtureIds.some((fixtureId) => !FIXTURES[fixtureId])) {
+    blockers.push("BLOCKED_UNAPPROVED_FIXTURE: only ledgerbyte-generated-standard-invoice and ledgerbyte-generated-credit-note are approved for this local dummy signing execution.");
+  }
+
   if (approval.approvalPhraseProvided && !approval.approvalPhraseValid) {
     blockers.push("BLOCKED_INVALID_APPROVAL_PHRASE: the provided approval phrase does not exactly match the documented future execution approval phrase.");
-  } else if (approval.approvalPhraseValid && approval.executeApprovedPlanRequested) {
-    blockers.push("BLOCKED_EXECUTION_NOT_IMPLEMENTED_IN_THIS_SPRINT: the exact approval phrase was recognized, but this sprint only plans the future execution gate and still refuses signing.");
   } else if (approval.explicitFutureApprovalFlagPresent) {
     blockers.push("BLOCKED_SIGNING_EXECUTION_DISABLED: an approval marker was detected, but this sprint still does not execute signing.");
   } else if (!approval.approvalPhraseValid) {
@@ -184,23 +219,38 @@ function buildDummySigningDryRunGuard(options = {}) {
     warnings.push("Exact future approval phrase recognized for planning only; execution remains disabled until a later implementation sprint.");
   }
 
-  const status = selectStatus(blockers, approval);
+  const executionRequested = approval.approvalPhraseValid && approval.executeApprovedPlanRequested;
+  const preflightStatus = selectStatus(blockers, approval);
+  const executionEvidence =
+    executionRequested && blockers.length === 0
+      ? executeApprovedDummySigning({
+          repoRoot,
+          env,
+          runCommand,
+          java,
+          sdk,
+          fixtureIds: requestedFixtureIds,
+          timestamp: options.timestamp,
+          runId: options.runId,
+        })
+      : null;
+  const status = executionEvidence?.status || preflightStatus;
 
   return {
     status,
-    environment: ENVIRONMENT,
+    environment: executionEvidence ? EXECUTION_ENVIRONMENT : ENVIRONMENT,
     noNetworkOnly: true,
     networkCallsMade: false,
     networkEndpointsConfigured: false,
     localOnly: true,
-    planningOnly: true,
+    planningOnly: !executionEvidence,
     productionComplianceEnabled: false,
     productionCompliance: false,
-    signingExecutionEnabled: false,
-    dummySigningAllowed: false,
+    signingExecutionEnabled: Boolean(executionEvidence?.sdkSignCommandExecuted),
+    dummySigningAllowed: Boolean(executionEvidence),
     plannedExecutionAllowedInFuture: approval.plannedExecutionAllowedInFuture,
-    qrExecutionEnabled: false,
-    signedValidationExecutionEnabled: false,
+    qrExecutionEnabled: Boolean(executionEvidence?.sdkQrCommandExecuted),
+    signedValidationExecutionEnabled: Boolean(executionEvidence?.sdkSignedValidationExecuted),
     clearanceReportingEnabled: false,
     pdfA3Enabled: false,
     csidOtpNetworkUsed: false,
@@ -214,6 +264,7 @@ function buildDummySigningDryRunGuard(options = {}) {
     },
     dummyMaterial,
     fixtures,
+    requestedFixtureIds,
     packageScripts,
     officialReferences,
     approval,
@@ -222,20 +273,22 @@ function buildDummySigningDryRunGuard(options = {}) {
       qr: "fatoora -qr -invoice <temp-signed.xml>",
       validate: "fatoora -validate -invoice <temp-signed.xml>",
       hash: "fatoora -generateHash -invoice <temp-unsigned.xml>",
-      executionPlannedOnly: true,
+      executionPlannedOnly: !executionEvidence,
     },
     commandFindings,
-    sdkSignCommandExecuted: false,
-    sdkQrCommandExecuted: false,
+    sdkSignCommandExecuted: Boolean(executionEvidence?.sdkSignCommandExecuted),
+    sdkQrCommandExecuted: Boolean(executionEvidence?.sdkQrCommandExecuted),
     sdkHashCommandExecuted: false,
-    sdkSignedValidationExecuted: false,
-    signedXmlGenerated: false,
+    sdkSignedValidationExecuted: Boolean(executionEvidence?.sdkSignedValidationExecuted),
+    signedXmlGenerated: Boolean(executionEvidence?.signedXmlGenerated),
     signedXmlPersisted: false,
-    qrPayloadGenerated: false,
+    qrPayloadGenerated: Boolean(executionEvidence?.qrPayloadGenerated),
     qrPayloadPersisted: false,
-    tempFilesCreated: false,
-    tempSignedXmlCreated: false,
-    tempCleanupRequiredForFutureSprint: true,
+    tempFilesCreated: Boolean(executionEvidence?.tempWorkspaceCreated),
+    tempSignedXmlCreated: Boolean(executionEvidence?.tempSignedXmlCreated),
+    tempCleanupRequiredForFutureSprint: false,
+    tempCleanupStatus: executionEvidence?.tempCleanupStatus || null,
+    evidence: executionEvidence,
     evidencePolicy: buildEvidencePolicy(),
     redaction: buildRedactionFlags(),
     blockers,
@@ -248,10 +301,13 @@ function selectStatus(blockers, approval) {
   if (approval.approvalPhraseProvided && !approval.approvalPhraseValid) {
     return "BLOCKED_INVALID_APPROVAL_PHRASE";
   }
-  if (approval.approvalPhraseValid && approval.executeApprovedPlanRequested) {
-    return "BLOCKED_EXECUTION_NOT_IMPLEMENTED_IN_THIS_SPRINT";
+  if (blockers.some((blocker) => blocker.startsWith("BLOCKED_NO_NETWORK_REQUIRED"))) {
+    return "BLOCKED_NO_NETWORK_REQUIRED";
   }
-  if (approval.approvalPhraseValid) {
+  if (blockers.some((blocker) => blocker.startsWith("BLOCKED_UNAPPROVED_FIXTURE"))) {
+    return "BLOCKED_UNAPPROVED_FIXTURE";
+  }
+  if (approval.approvalPhraseValid && !approval.executeApprovedPlanRequested) {
     return "PLAN_ONLY_APPROVAL_RECOGNIZED";
   }
   if (blockers.some((blocker) => blocker.startsWith("BLOCKED_MISSING_SDK_REFERENCE"))) {
@@ -275,6 +331,399 @@ function selectStatus(blockers, approval) {
   return approval.explicitFutureApprovalFlagPresent ? "BLOCKED_SIGNING_EXECUTION_DISABLED" : "BLOCKED_PENDING_DUMMY_SIGNING_APPROVAL";
 }
 
+function resolveRequestedFixtureIds(args = {}) {
+  if (args.all) {
+    return [STANDARD_FIXTURE_ID, CREDIT_FIXTURE_ID];
+  }
+  const ids = Array.isArray(args.fixtures) && args.fixtures.length > 0 ? args.fixtures : args.fixture ? [args.fixture] : [];
+  return [...new Set(ids)];
+}
+
+function executeApprovedDummySigning({ repoRoot, env, runCommand, java, sdk, fixtureIds, timestamp, runId }) {
+  const executionRunId =
+    runId || `zatca-dummy-signing-${new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14)}-${randomUUID().slice(0, 8)}`;
+  const executionTimestamp = timestamp || new Date().toISOString();
+  const javaBin = cleanPath(env.ZATCA_SDK_JAVA_BIN);
+  const execution = {
+    runId: executionRunId,
+    timestamp: executionTimestamp,
+    environment: EXECUTION_ENVIRONMENT,
+    noNetworkOnly: true,
+    networkCallsMade: false,
+    productionComplianceEnabled: false,
+    productionCompliance: false,
+    approvalPhraseMatched: true,
+    sdkVersion: sdk.sdkVersion,
+    javaVersion: java.version,
+    fixtureCount: fixtureIds.length,
+    passedCount: 0,
+    failedCount: 0,
+    blockedCount: 0,
+    fixtures: [],
+    sdkSignCommandExecuted: false,
+    sdkQrCommandExecuted: false,
+    sdkSignedValidationExecuted: false,
+    signedXmlGenerated: false,
+    signedXmlPersisted: false,
+    qrPayloadGenerated: false,
+    qrPayloadPersisted: false,
+    tempWorkspaceCreated: false,
+    tempSignedXmlCreated: false,
+    tempCleanupStatus: "NOT_STARTED",
+    redaction: buildRedactionFlags(),
+    blockers: [],
+    safeWarningCodes: [],
+    safeErrorCodes: [],
+    officialSdkCommands: {
+      sign: "fatoora -sign -invoice <temp-unsigned.xml> -signedInvoice <temp-signed.xml>",
+      qr: "fatoora -qr -invoice <temp-signed.xml>",
+      validate: "fatoora -validate -invoice <temp-signed.xml>",
+    },
+  };
+
+  let workspace = null;
+  try {
+    workspace = prepareExecutionWorkspace(repoRoot, sdk, javaBin);
+    execution.tempWorkspaceCreated = true;
+    const stageEnv = buildStageEnv(env, workspace, javaBin);
+    for (const fixtureId of fixtureIds) {
+      const result = runFixtureExecution({
+        repoRoot,
+        fixtureId,
+        workspace,
+        sdk,
+        java,
+        stageEnv,
+        runCommand,
+      });
+      execution.fixtures.push(result);
+      execution.sdkSignCommandExecuted = execution.sdkSignCommandExecuted || result.sdkCommandExecuted.sign;
+      execution.sdkQrCommandExecuted = execution.sdkQrCommandExecuted || result.sdkCommandExecuted.qr;
+      execution.sdkSignedValidationExecuted = execution.sdkSignedValidationExecuted || result.sdkCommandExecuted.validate;
+      execution.signedXmlGenerated = execution.signedXmlGenerated || result.signedXmlGenerated;
+      execution.qrPayloadGenerated = execution.qrPayloadGenerated || result.qrPayloadGenerated;
+      execution.tempSignedXmlCreated = execution.tempSignedXmlCreated || result.tempSignedXmlCreated;
+    }
+  } catch (error) {
+    execution.blockers.push("FAILED_TEMP_WORKSPACE_SETUP: local dummy signing temp workspace setup failed before SDK execution.");
+    execution.safeErrorCodes.push("FAILED_TEMP_WORKSPACE_SETUP");
+  } finally {
+    execution.tempCleanupStatus = cleanupExecutionWorkspace(workspace);
+  }
+
+  for (const fixture of execution.fixtures) {
+    fixture.tempCleanupStatus = execution.tempCleanupStatus;
+  }
+
+  for (const fixture of execution.fixtures) {
+    execution.safeWarningCodes.push(...fixture.safeWarningCodes);
+    execution.safeErrorCodes.push(...fixture.safeErrorCodes);
+    execution.blockers.push(...fixture.blockers);
+  }
+  execution.safeWarningCodes = unique(execution.safeWarningCodes);
+  execution.safeErrorCodes = unique(execution.safeErrorCodes);
+  execution.blockers = unique(execution.blockers);
+  execution.passedCount = execution.fixtures.filter((fixture) => fixture.status === "PASSED_LOCAL_DUMMY_SIGNING").length;
+  execution.failedCount = execution.fixtures.filter((fixture) => fixture.status === "FAILED_LOCAL_DUMMY_SIGNING").length;
+  execution.blockedCount =
+    execution.fixtures.filter((fixture) => fixture.status.startsWith("BLOCKED_")).length +
+    (execution.safeErrorCodes.includes("FAILED_TEMP_WORKSPACE_SETUP") ? 1 : 0);
+  execution.status = selectExecutionStatus(execution);
+  return execution;
+}
+
+function selectExecutionStatus(execution) {
+  if (execution.tempCleanupStatus !== "SUCCESS") {
+    return "FAILED_TEMP_CLEANUP";
+  }
+  if (execution.safeErrorCodes.includes("FAILED_TEMP_WORKSPACE_SETUP")) {
+    return "FAILED_TEMP_WORKSPACE_SETUP";
+  }
+  if (execution.blockedCount > 0) {
+    const firstBlocked = execution.fixtures.find((fixture) => fixture.status.startsWith("BLOCKED_"));
+    return firstBlocked?.status || "BLOCKED_MISSING_GENERATED_FIXTURE";
+  }
+  if (execution.failedCount > 0) {
+    return "FAILED_LOCAL_DUMMY_SIGNING";
+  }
+  return "PASSED_LOCAL_DUMMY_SIGNING";
+}
+
+function runFixtureExecution({ repoRoot, fixtureId, workspace, sdk, java, stageEnv, runCommand }) {
+  const fixture = FIXTURES[fixtureId];
+  if (!fixture) {
+    return blockedFixtureExecution(fixtureId, "BLOCKED_UNAPPROVED_FIXTURE", "UNAPPROVED_FIXTURE");
+  }
+
+  const sourcePath = path.join(repoRoot, ...fixture.path.split("/"));
+  if (!fs.existsSync(sourcePath)) {
+    return blockedFixtureExecution(fixtureId, "BLOCKED_MISSING_GENERATED_FIXTURE", "FIXTURE_NOT_FOUND", fixture);
+  }
+
+  const safeName = fixtureId.replace(/[^a-z0-9-]/gi, "-");
+  const unsignedPath = path.join(workspace.workspaceDir, `${safeName}-unsigned.xml`);
+  const signedPath = path.join(workspace.workspaceDir, `${safeName}-signed.xml`);
+  fs.copyFileSync(sourcePath, unsignedPath);
+
+  const evidence = {
+    fixtureId,
+    fixtureType: fixture.fixtureType,
+    invoiceKind: fixture.invoiceKind,
+    sourcePath: fixture.path,
+    status: "FAILED_LOCAL_DUMMY_SIGNING",
+    signStageStatus: "NOT_STARTED",
+    qrStageStatus: "NOT_STARTED",
+    validationStageStatus: "NOT_STARTED",
+    sdkExitCodes: { sign: null, qr: null, validate: null },
+    safeWarningCodes: [],
+    safeErrorCodes: [],
+    blockers: [],
+    tempWorkspaceCreated: true,
+    tempCleanupStatus: "PENDING",
+    tempPathsPrinted: false,
+    xmlBodyPersistedInEvidence: false,
+    signedXmlBodyPersistedInEvidence: false,
+    qrPayloadBodyPersistedInEvidence: false,
+    privateKeyBodyRead: false,
+    certificateBodyRead: false,
+    signedXmlGenerated: false,
+    tempSignedXmlCreated: false,
+    qrPayloadGenerated: false,
+    rawStdoutPersisted: false,
+    rawStderrPersisted: false,
+    sdkCommandExecuted: { sign: false, qr: false, validate: false },
+    commands: {
+      sign: "fatoora -sign -invoice <temp-unsigned.xml> -signedInvoice <temp-signed.xml>",
+      qr: "fatoora -qr -invoice <temp-signed.xml>",
+      validate: "fatoora -validate -invoice <temp-signed.xml>",
+    },
+  };
+
+  const sign = runSdkStage({
+    workspace,
+    stageEnv,
+    runCommand,
+    stage: "sign",
+    args: ["-sign", "-invoice", unsignedPath, "-signedInvoice", signedPath],
+    sdk,
+  });
+  evidence.sdkCommandExecuted.sign = true;
+  evidence.sdkExitCodes.sign = sign.exitCode;
+  evidence.safeWarningCodes.push(...sign.safeWarningCodes);
+  evidence.safeErrorCodes.push(...sign.safeErrorCodes);
+  evidence.signStageStatus = sign.passed ? "PASSED" : "FAILED";
+  if (!sign.passed) {
+    evidence.blockers.push("FAILED_LOCAL_DUMMY_SIGNING: SDK sign stage failed; QR and signed validation were skipped for this fixture.");
+    evidence.qrStageStatus = "SKIPPED";
+    evidence.validationStageStatus = "SKIPPED";
+    return finishFixtureExecution(evidence);
+  }
+
+  evidence.signedXmlGenerated = fs.existsSync(signedPath);
+  evidence.tempSignedXmlCreated = evidence.signedXmlGenerated;
+  if (!evidence.signedXmlGenerated) {
+    evidence.safeErrorCodes.push("SIGNED_XML_OUTPUT_MISSING");
+    evidence.blockers.push("FAILED_LOCAL_DUMMY_SIGNING: SDK sign stage returned success but the temp signed XML output was not found.");
+    evidence.qrStageStatus = "SKIPPED";
+    evidence.validationStageStatus = "SKIPPED";
+    return finishFixtureExecution(evidence);
+  }
+
+  const qr = runSdkStage({
+    workspace,
+    stageEnv,
+    runCommand,
+    stage: "qr",
+    args: ["-qr", "-invoice", signedPath],
+    sdk,
+  });
+  evidence.sdkCommandExecuted.qr = true;
+  evidence.sdkExitCodes.qr = qr.exitCode;
+  evidence.safeWarningCodes.push(...qr.safeWarningCodes);
+  evidence.safeErrorCodes.push(...qr.safeErrorCodes);
+  evidence.qrStageStatus = qr.passed ? "PASSED" : "FAILED";
+  evidence.qrPayloadGenerated = qr.passed;
+  if (!qr.passed) {
+    evidence.blockers.push("FAILED_LOCAL_DUMMY_SIGNING: SDK QR stage failed; signed validation was skipped for this fixture.");
+    evidence.validationStageStatus = "SKIPPED";
+    return finishFixtureExecution(evidence);
+  }
+
+  const validation = runSdkStage({
+    workspace,
+    stageEnv,
+    runCommand,
+    stage: "validate",
+    args: ["-validate", "-invoice", signedPath],
+    sdk,
+  });
+  evidence.sdkCommandExecuted.validate = true;
+  evidence.sdkExitCodes.validate = validation.exitCode;
+  evidence.safeWarningCodes.push(...validation.safeWarningCodes);
+  evidence.safeErrorCodes.push(...validation.safeErrorCodes);
+  evidence.validationStageStatus = validation.passed ? "PASSED" : "FAILED";
+  if (!validation.passed) {
+    evidence.blockers.push("FAILED_LOCAL_DUMMY_SIGNING: SDK signed XML validation stage failed.");
+    return finishFixtureExecution(evidence);
+  }
+
+  evidence.status = "PASSED_LOCAL_DUMMY_SIGNING";
+  return finishFixtureExecution(evidence);
+}
+
+function finishFixtureExecution(evidence) {
+  evidence.safeWarningCodes = unique(evidence.safeWarningCodes);
+  evidence.safeErrorCodes = unique(evidence.safeErrorCodes);
+  evidence.blockers = unique(evidence.blockers);
+  evidence.tempCleanupStatus = "PENDING_RUN_CLEANUP";
+  if (evidence.status !== "PASSED_LOCAL_DUMMY_SIGNING") {
+    evidence.status = evidence.status.startsWith("BLOCKED_") ? evidence.status : "FAILED_LOCAL_DUMMY_SIGNING";
+  }
+  return evidence;
+}
+
+function blockedFixtureExecution(fixtureId, status, safeErrorCode, fixture = null) {
+  return {
+    fixtureId,
+    fixtureType: fixture?.fixtureType || "unknown",
+    invoiceKind: fixture?.invoiceKind || "unknown",
+    sourcePath: fixture?.path || null,
+    status,
+    signStageStatus: "BLOCKED",
+    qrStageStatus: "SKIPPED",
+    validationStageStatus: "SKIPPED",
+    sdkExitCodes: { sign: null, qr: null, validate: null },
+    safeWarningCodes: [],
+    safeErrorCodes: [safeErrorCode],
+    blockers: [`${status}: fixture was not approved or not available before SDK execution.`],
+    tempWorkspaceCreated: false,
+    tempCleanupStatus: "NOT_REQUIRED",
+    tempPathsPrinted: false,
+    xmlBodyPersistedInEvidence: false,
+    signedXmlBodyPersistedInEvidence: false,
+    qrPayloadBodyPersistedInEvidence: false,
+    privateKeyBodyRead: false,
+    certificateBodyRead: false,
+    signedXmlGenerated: false,
+    tempSignedXmlCreated: false,
+    qrPayloadGenerated: false,
+    rawStdoutPersisted: false,
+    rawStderrPersisted: false,
+    sdkCommandExecuted: { sign: false, qr: false, validate: false },
+    commands: {
+      sign: "fatoora -sign -invoice <temp-unsigned.xml> -signedInvoice <temp-signed.xml>",
+      qr: "fatoora -qr -invoice <temp-signed.xml>",
+      validate: "fatoora -validate -invoice <temp-signed.xml>",
+    },
+  };
+}
+
+function runSdkStage({ workspace, stageEnv, runCommand, stage, args, sdk }) {
+  const commandPlan = buildFatooraCommand(workspace.launcherPath, args);
+  const result = runCommand(commandPlan.command, commandPlan.args, {
+    cwd: workspace.appsDir,
+    env: stageEnv,
+    encoding: "utf8",
+    timeout: sdk.timeoutMs || DEFAULT_TIMEOUT_MS,
+    windowsHide: true,
+    maxBuffer: 5 * 1024 * 1024,
+  });
+  const safe = summarizeSdkOutput([result.stdout, result.stderr, result.error?.message].filter(Boolean).join("\n"));
+  const exitCode = typeof result.status === "number" ? result.status : null;
+  return {
+    stage,
+    exitCode,
+    passed: inferStagePassed(stage, safe.textForInference, exitCode, result.error),
+    safeWarningCodes: safe.warningCodes,
+    safeErrorCodes: safe.errorCodes,
+  };
+}
+
+function buildFatooraCommand(launcherPath, args) {
+  if (process.platform === "win32" && /\.bat$/i.test(launcherPath)) {
+    return {
+      command: process.env.ComSpec || path.join(process.env.SystemRoot || "C:\\Windows", "System32", "cmd.exe"),
+      args: ["/d", "/c", launcherPath, ...args],
+    };
+  }
+  return { command: launcherPath, args };
+}
+
+function prepareExecutionWorkspace(repoRoot, sdk, javaBin) {
+  if (!javaBin) {
+    throw new Error("ZATCA_SDK_JAVA_BIN is required for approved local dummy signing execution.");
+  }
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ledgerbyte-zatca-dummy-sign-"));
+  const workspaceDir = path.join(tempRoot, "workspace");
+  const appsDir = path.join(tempRoot, "Apps");
+  const configDir = path.join(tempRoot, "Configuration");
+  fs.mkdirSync(workspaceDir, { recursive: true });
+  fs.mkdirSync(appsDir, { recursive: true });
+  fs.mkdirSync(configDir, { recursive: true });
+
+  for (const fileName of ["fatoora.bat", "fatoora", "global.json", "jq.exe", "zatca-einvoicing-sdk-238-R3.4.8.jar"]) {
+    const source = path.join(repoRoot, ...SDK_ROOT.split("/"), "Apps", fileName);
+    if (fs.existsSync(source)) {
+      fs.copyFileSync(source, path.join(appsDir, fileName));
+    }
+  }
+
+  const configPath = path.join(configDir, "config.json");
+  fs.writeFileSync(configPath, JSON.stringify(buildExecutionSdkConfig(repoRoot), null, 2), "utf8");
+  return {
+    tempRoot,
+    workspaceDir,
+    appsDir,
+    configDir,
+    configPath,
+    launcherPath: path.join(appsDir, process.platform === "win32" ? "fatoora.bat" : "fatoora"),
+  };
+}
+
+function buildExecutionSdkConfig(repoRoot) {
+  const sdkRoot = path.join(repoRoot, ...SDK_ROOT.split("/"));
+  return {
+    xsdPath: path.join(sdkRoot, "Data", "Schemas", "xsds", "UBL2.1", "xsd", "maindoc", "UBL-Invoice-2.1.xsd"),
+    enSchematron: path.join(sdkRoot, "Data", "Rules", "Schematrons", "CEN-EN16931-UBL.xsl"),
+    zatcaSchematron: path.join(sdkRoot, "Data", "Rules", "Schematrons", "20210819_ZATCA_E-invoice_Validation_Rules.xsl"),
+    certPath: path.join(sdkRoot, "Data", "Certificates", "cert.pem"),
+    privateKeyPath: path.join(sdkRoot, "Data", "Certificates", "ec-secp256k1-priv-key.pem"),
+    pihPath: path.join(sdkRoot, "Data", "PIH", "pih.txt"),
+    inputPath: path.join(sdkRoot, "Data", "Input"),
+    usagePathFile: path.join(sdkRoot, "Configuration", "usage.txt"),
+  };
+}
+
+function buildStageEnv(env, workspace, javaBin) {
+  const javaDir = path.dirname(javaBin);
+  const delimiter = process.platform === "win32" ? ";" : ":";
+  const inheritedPath = env.PATH || env.Path || process.env.PATH || process.env.Path || "";
+  const pathValue = `${javaDir}${delimiter}${workspace.appsDir}${delimiter}${inheritedPath}`;
+  return {
+    ...process.env,
+    ...env,
+    FATOORA_HOME: workspace.appsDir,
+    SDK_CONFIG: workspace.configPath,
+    PATH: pathValue,
+    Path: pathValue,
+  };
+}
+
+function cleanupExecutionWorkspace(workspace) {
+  if (!workspace?.tempRoot) return "NOT_REQUIRED";
+  try {
+    const resolved = path.resolve(workspace.tempRoot);
+    const tempRoot = path.resolve(os.tmpdir());
+    if (!resolved.startsWith(tempRoot)) {
+      return "FAILED_UNSAFE_PATH";
+    }
+    fs.rmSync(resolved, { recursive: true, force: true });
+    return fs.existsSync(resolved) ? "FAILED_TEMP_CLEANUP" : "SUCCESS";
+  } catch {
+    return "FAILED_TEMP_CLEANUP";
+  }
+}
+
 function inspectSdk(repoRoot) {
   const readme = `${SDK_ROOT}/Readme/readme.md`;
   const usage = `${SDK_ROOT}/Configuration/usage.txt`;
@@ -293,6 +742,7 @@ function inspectSdk(repoRoot) {
     usageFound: exists(repoRoot, usage),
     configFound: exists(repoRoot, config),
     sdkVersion: exists(repoRoot, jar) ? "238-R3.4.8" : null,
+    timeoutMs: DEFAULT_TIMEOUT_MS,
     referenceBodyPrinted: false,
     inspectedRelativePaths: [readme, usage, config, jar, windowsLauncher, posixLauncher],
   };
@@ -448,6 +898,80 @@ function parseJavaMajorVersion(version) {
   return modern?.[1] ? Number(modern[1]) : null;
 }
 
+function summarizeSdkOutput(output) {
+  const sanitized = sanitizeSdkText(output);
+  const lines = sanitized
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return {
+    warningCodes: unique(extractSafeCodes(lines.filter((line) => /warning/i.test(line)).join("\n"))),
+    errorCodes: unique(extractSafeCodes(lines.filter((line) => /error|failed|not pass|invalid|exception/i.test(line)).join("\n"))),
+    textForInference: lines.filter((line) => /GLOBAL VALIDATION RESULT|VALIDATION RESULT|PASS|NOT PASS|FAILED|ERROR|SUCCESS/i.test(line)).join("\n"),
+  };
+}
+
+function sanitizeSdkText(value) {
+  return String(value || "")
+    .replace(/<\?xml[\s\S]*?<\/(?:Invoice|CreditNote|DebitNote)>/gi, "[REDACTED_XML_BODY]")
+    .replace(/<(?:Invoice|CreditNote|DebitNote)\b[\s\S]*?<\/(?:Invoice|CreditNote|DebitNote)>/gi, "[REDACTED_XML_BODY]")
+    .replace(/-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/gi, "[REDACTED_PRIVATE_KEY]")
+    .replace(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/gi, "[REDACTED_CERTIFICATE]")
+    .replace(/\b(authorization|token|secret|password|apiKey|certificate|privateKey)\b\s*[:=]\s*[^\s,;]+/gi, "$1=[REDACTED]")
+    .slice(0, 8000);
+}
+
+function extractSafeCodes(value) {
+  const matches = String(value || "").match(/\b(?:BR-KSA|BR|KSA|EN|UBL|XSD|QRCODE|SIGNATURE|CERTIFICATE|QR|PIH|GLOBAL)[A-Z0-9._:-]*\b/gi);
+  return matches || [];
+}
+
+function inferStagePassed(stage, output, exitCode, error) {
+  if (error || exitCode !== 0) return false;
+  if (stage !== "validate") return true;
+  const text = String(output || "");
+  if (/\bNOT PASS\b/i.test(text) || /\bFAILED\b/i.test(text) || /\bERROR\b/i.test(text)) return false;
+  return true;
+}
+
+function writeExecutionEvidence(out, guard, cwd = process.cwd()) {
+  if (!out || !guard.evidence) return null;
+  const target = path.resolve(cwd, out);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(target, `${JSON.stringify(guard.evidence, null, 2)}\n`, "utf8");
+  return target;
+}
+
+function buildBlockedExecutionEvidence(guard) {
+  return {
+    runId: `zatca-dummy-signing-blocked-${new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14)}-${randomUUID().slice(0, 8)}`,
+    timestamp: new Date().toISOString(),
+    environment: EXECUTION_ENVIRONMENT,
+    status: guard.status,
+    noNetworkOnly: Boolean(guard.noNetworkOnly),
+    networkCallsMade: false,
+    productionComplianceEnabled: false,
+    approvalPhraseMatched: Boolean(guard.approval?.approvalPhraseValid),
+    sdkVersion: guard.sdk?.sdkVersion || null,
+    javaVersion: guard.java?.version || null,
+    fixtureCount: guard.requestedFixtureIds?.length || 0,
+    passedCount: 0,
+    failedCount: 0,
+    blockedCount: 1,
+    fixtures: [],
+    blockers: guard.blockers || [],
+    safeWarningCodes: [],
+    safeErrorCodes: (guard.blockers || []).map((blocker) => String(blocker).split(":")[0]).filter(Boolean),
+    tempWorkspaceCreated: false,
+    tempCleanupStatus: "NOT_REQUIRED",
+    redaction: buildRedactionFlags(),
+  };
+}
+
+function unique(values) {
+  return [...new Set((values || []).filter(Boolean))];
+}
+
 function buildEvidencePolicy() {
   return {
     bodyPolicy: "metadata-only",
@@ -542,7 +1066,10 @@ function defaultRunCommand(command, args, options = {}) {
   return spawnSync(command, args, {
     encoding: "utf8",
     timeout: options.timeout || 5000,
+    cwd: options.cwd,
+    env: options.env,
     windowsHide: true,
+    maxBuffer: options.maxBuffer,
   });
 }
 
@@ -581,7 +1108,7 @@ function runCli(argv = process.argv.slice(2), io = console) {
 
     if (!parsed.noNetwork) {
       const payload = {
-        status: "BLOCKED_NO_NETWORK_FLAG_REQUIRED",
+        status: "BLOCKED_NO_NETWORK_REQUIRED",
         environment: ENVIRONMENT,
         noNetworkOnly: false,
         networkCallsMade: false,
@@ -597,6 +1124,13 @@ function runCli(argv = process.argv.slice(2), io = console) {
     }
 
     const guard = buildDummySigningDryRunGuard({ args: parsed });
+    if (parsed.executeApprovedPlan && !guard.evidence) {
+      guard.evidence = buildBlockedExecutionEvidence(guard);
+    }
+    const evidencePath = writeExecutionEvidence(parsed.out, guard, process.cwd());
+    if (evidencePath) {
+      guard.evidenceFilePath = path.relative(process.cwd(), evidencePath).replace(/\\/g, "/");
+    }
     const text = parsed.json ? JSON.stringify(guard, null, 2) : formatHuman(guard);
     io.log(text);
     return parsed.strict && guard.status.startsWith("BLOCKED_") ? 1 : 0;
@@ -625,8 +1159,14 @@ if (require.main === module) {
 module.exports = {
   APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PHRASE,
   buildDummySigningDryRunGuard,
+  buildFatooraCommand,
+  buildStageEnv,
+  executeApprovedDummySigning,
+  inferStagePassed,
   parseArgs,
   parseJavaMajorVersion,
   parseJavaVersion,
   runCli,
+  summarizeSdkOutput,
+  writeExecutionEvidence,
 };

@@ -516,3 +516,12 @@ Remaining limitations and next step:
 - `docs/zatca/APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md` documents the future approval-gated local dummy signing runbook.
 - `scripts/zatca-local-dummy-signing-dry-run.cjs` now recognizes the exact approval phrase as planning metadata and reports `PLAN_ONLY_APPROVAL_RECOGNIZED` without enabling SDK signing.
 - If `--execute-approved-plan` is supplied, the guard returns `BLOCKED_EXECUTION_NOT_IMPLEMENTED_IN_THIS_SPRINT`; no SDK sign, QR, signed validation, network, CSID/OTP, clearance/reporting, PDF/A-3, or production compliance behavior runs.
+
+## ZATCA approved dummy signing execution result (2026-06-06)
+
+- `scripts/zatca-local-dummy-signing-dry-run.cjs` now executes the approved local dummy-material path only when `--execute-approved-plan`, exact `--approval-phrase`, `--no-network`, explicit Java 11-14 through `ZATCA_SDK_JAVA_BIN`, local SDK reference, and approved fixture IDs are all present.
+- The approved run used SDK `238-R3.4.8` and Java `11.0.26`.
+- `ledgerbyte-generated-standard-invoice`: sign `PASSED`, QR `PASSED`, signed validation `PASSED`.
+- `ledgerbyte-generated-credit-note`: sign `PASSED`, QR `PASSED`, signed validation `PASSED`.
+- Evidence is metadata-only at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`; temp unsigned/signed XML and SDK runtime/config copies were cleaned up.
+- This does not enable production signing, CSID/OTP, ZATCA network calls, clearance/reporting, PDF/A-3, signed XML persistence, QR payload persistence, or production compliance.

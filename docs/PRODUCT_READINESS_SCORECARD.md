@@ -1068,3 +1068,9 @@ Recommended next step:
 
 - Added the future execution runbook and exact approval phrase for local dummy-material signing against sanitized fixtures only.
 - No score increase is taken: approval recognition is planning metadata only, and SDK signing, QR generation, signed validation, CSID/OTP, network calls, PDF/A-3, signed XML persistence, and production compliance remain disabled.
+
+## 2026-06-06 ZATCA approved local dummy signing execution
+
+- One approved local dummy-material SDK run passed for the generated standard invoice and credit-note fixtures under Java `11.0.26`.
+- This improves local ZATCA preparation evidence but does not increase production readiness: CSID/OTP, real credentials, production signing, Phase 2 QR production proof, clearance/reporting, PDF/A-3, signed artifact storage, repeatable SDK CI, and production compliance remain blocked.
+- Evidence is metadata-only at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.

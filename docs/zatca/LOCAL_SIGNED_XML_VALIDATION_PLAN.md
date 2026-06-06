@@ -226,3 +226,13 @@ It plans the future SDK sign, QR, and signed validation command sequence but kee
 ## 20. Approved Execution Plan Update
 
 The follow-on approved execution runbook now exists at `docs/zatca/APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md`. It defines the exact future approval phrase, fixture scope, temp-only command sequence, metadata-only evidence shape, cleanup policy, and failure behavior for a later local dummy-material signing sprint. The current sprint still executed no SDK signing, QR generation, signed XML validation, CSID/OTP, ZATCA network call, clearance/reporting, PDF/A-3, or production compliance behavior.
+
+## 21. Approved Local Dummy Signing Result
+
+The later approved local dummy signing sprint executed the temp-only SDK path against the two sanitized generated fixtures under Java `11.0.26`.
+
+Result: `PASSED_LOCAL_DUMMY_SIGNING` for SDK sign, QR, and signed XML validation stages on both fixtures. Evidence is metadata-only at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
+
+The result proves only local dummy-material SDK processing of sanitized fixtures. It does not prove production signing, Phase 2 QR production readiness, CSID onboarding, clearance/reporting, PDF/A-3, signed artifact storage, or compliance.
+
+Recommended next prompt: `ZATCA dummy signing result review and Phase 2 QR gap analysis`

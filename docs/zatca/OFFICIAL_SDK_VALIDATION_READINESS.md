@@ -196,3 +196,11 @@ Read-only readiness metadata now includes generated fixture statuses, latest gen
 ## 2026-06-06 Approved Dummy Signing Execution Planning
 
 The approved execution runbook is now `docs/zatca/APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md`. It defines a future approval phrase and temp-only command sequence for sanitized fixtures, but SDK execution remains disabled here. Guard output may recognize the approval phrase as planning metadata while keeping `signingExecutionEnabled=false`, `qrExecutionEnabled=false`, `signedValidationExecutionEnabled=false`, `networkCallsMade=false`, and `productionCompliance=false`.
+
+## 2026-06-06 Approved Dummy Signing Execution Result
+
+The approved local dummy-material execution path has now run once locally with explicit Java `11.0.26` and SDK `238-R3.4.8`. The two sanitized generated fixtures passed SDK sign, QR, and signed XML validation stages.
+
+Evidence: `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
+
+Readiness interpretation: local-only dummy SDK processing is proven for the generated standard invoice and credit note fixtures. Default Java 17 remains unsupported. PR CI remains non-ZATCA. Production compliance, CSID/OTP, clearance/reporting, PDF/A-3, signed artifact storage, and real network integration remain blocked.

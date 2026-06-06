@@ -484,3 +484,11 @@ Recommended next step:
 - Added `docs/zatca/APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md` as the future runbook for one local dummy-material signing experiment against sanitized fixtures only.
 - The guard now accepts an exact `--approval-phrase` for planning-only recognition and `--execute-approved-plan` for a deliberate blocked response. It still does not execute SDK signing, QR generation, signed XML validation, ZATCA network calls, CSID/OTP, clearance/reporting, PDF/A-3, or production compliance behavior.
 - The next ZATCA prompt is `ZATCA approved local dummy signing execution`.
+
+## 2026-06-06 - Approved local dummy signing execution result
+
+- The approved local dummy-material SDK execution ran once against `ledgerbyte-generated-standard-invoice` and `ledgerbyte-generated-credit-note`.
+- SDK sign, QR, and signed XML validation stages passed for both sanitized fixtures under explicit Java `11.0.26`.
+- Evidence is metadata-only at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`; temp XML and signed XML were cleaned up.
+- This remains local-only SDK evidence. Production signing, Phase 2 QR production proof, CSID/OTP, clearance/reporting, PDF/A-3, signed artifact body storage, and production compliance remain blocked.
+- The next ZATCA prompt is `ZATCA dummy signing result review and Phase 2 QR gap analysis`.

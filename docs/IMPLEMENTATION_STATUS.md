@@ -64,6 +64,14 @@ Current production posture:
 - Added `docs/zatca/LOCAL_SIGNED_XML_VALIDATION_PLAN.md`.
 - Added `corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json` and `corepack pnpm test:zatca-local-signed-xml-plan`.
 - The guard is metadata-only and blocked by default. It inspects SDK/reference, Java, generated fixture, and documented command readiness without running SDK `-sign`, `-qr`, `-generateHash`, or signed XML validation.
+
+2026-06-06 ZATCA Approved Local Dummy Signing Execution update:
+
+- Added `docs/zatca/LOCAL_DUMMY_SIGNING_EXECUTION_RESULTS.md`.
+- Added metadata-only evidence at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
+- The approved local dummy-material run used explicit Java `11.0.26` and SDK `238-R3.4.8`; generated standard invoice and credit-note fixtures passed SDK sign, QR, and signed XML validation stages.
+- Temp unsigned/signed XML and SDK runtime/config copies were cleaned up. Evidence excludes XML bodies, signed XML bodies, QR payload bodies, private-key bodies, certificate bodies, OTPs, CSID material, tokens, headers, request/response bodies, and customer/vendor payloads.
+- This remains local-only SDK evidence. It does not enable production signing, CSID/OTP, real ZATCA network calls, clearance/reporting, PDF/A-3, signed artifact persistence, or production compliance.
 - No signing was executed, no CSID/OTP/network was used, no private-key/certificate body was exposed, and production compliance remains false.
 
 2026-05-30 DEV-11 implementation-status update:

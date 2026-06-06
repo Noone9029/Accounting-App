@@ -715,3 +715,11 @@ Current gap status remains blocked: the guard does not execute signing, QR gener
 ## ZATCA approved local dummy signing execution plan - 2026-06-06
 
 Added `docs/zatca/APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md` and approval-phrase metadata support in the dummy signing guard. The gap status remains blocked for real execution: the exact phrase can be recognized for planning, but `--execute-approved-plan` returns `BLOCKED_EXECUTION_NOT_IMPLEMENTED_IN_THIS_SPRINT` and all signing/QR/signed-validation/network/production-compliance flags remain false.
+
+## ZATCA approved local dummy signing execution - 2026-06-06
+
+The approved local dummy-material SDK run completed against the two sanitized generated fixtures with Java `11.0.26`. SDK sign, QR, and signed XML validation stages passed for both fixtures, and metadata-only evidence was written to `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
+
+Closed local gap: LedgerByte has now proven temp-only local SDK dummy processing for generated standard invoice and credit-note fixture XML.
+
+Still open: this is not production signing, not Phase 2 QR production proof, not CSID onboarding, not clearance/reporting, not PDF/A-3, not signed artifact storage readiness, not CI readiness, and not ZATCA compliance.

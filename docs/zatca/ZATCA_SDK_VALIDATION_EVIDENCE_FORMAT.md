@@ -148,3 +148,13 @@ This output is still not signed XML validation evidence. It must keep `networkCa
 The approved execution plan runbook is still planning evidence, not signed XML validation evidence. The guard may report `PLAN_ONLY_APPROVAL_RECOGNIZED`, `BLOCKED_INVALID_APPROVAL_PHRASE`, or `BLOCKED_EXECUTION_NOT_IMPLEMENTED_IN_THIS_SPRINT` while keeping all execution flags false.
 
 Approval-gate output must not echo the supplied approval phrase and must keep `productionComplianceEnabled=false`, `networkCallsMade=false`, `signingExecutionEnabled=false`, `qrExecutionEnabled=false`, and `signedValidationExecutionEnabled=false`. Future execution evidence remains metadata-only and must never persist unsigned XML, signed XML, QR payload, private-key body, certificate body, OTP, CSID material, token, auth header, request/response body, customer/vendor payload, attachment body, or unsafe raw SDK stdout/stderr.
+
+## 2026-06-06 Approved Dummy Signing Execution Evidence
+
+The approved local dummy-material evidence file is:
+
+- `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`
+
+Allowed fields include run ID, timestamp, `LOCAL_DUMMY_SIGNING_NO_NETWORK` environment, no-network booleans, production-compliance false, SDK version, Java version, approval-match boolean, fixture counts, fixture IDs, fixture type, invoice kind, relative source path, sign/QR/validate stage statuses, SDK exit codes by stage, safe warning/error codes, blockers, temp workspace and cleanup status, and redaction flags.
+
+The evidence must not include XML bodies, signed XML bodies, QR payload bodies, private-key bodies, certificate bodies, OTPs, CSID material, auth tokens, auth headers, request/response bodies, customer/vendor payloads, attachment bodies, or unsafe raw SDK stdout/stderr.

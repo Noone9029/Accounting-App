@@ -3288,3 +3288,10 @@ Recommended next step:
 - No runtime bug was fixed and no SDK signing, QR generation, or signed XML validation was attempted.
 - Added an approval-phrase runbook and planning-only guard behavior so a future sprint can test approval recognition before any local dummy-material execution is implemented.
 - The execution path remains blocked; no private-key/certificate bodies, XML bodies, signed XML bodies, QR payload bodies, CSID/OTP material, tokens, headers, or request/response bodies were exposed.
+
+# ZATCA approved local dummy signing execution - 2026-06-06
+
+- No production bug was fixed and no production ZATCA behavior was enabled.
+- One approved local dummy-material SDK run passed for `ledgerbyte-generated-standard-invoice` and `ledgerbyte-generated-credit-note` under Java `11.0.26`.
+- Metadata-only evidence is at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`; no XML bodies, signed XML bodies, QR payload bodies, private-key bodies, certificate bodies, OTP/CSID material, tokens, headers, or request/response bodies were persisted.
+- Remaining blockers are unchanged: key custody, sandbox OTP/CSID, production signing, Phase 2 QR production proof, clearance/reporting, PDF/A-3, signed artifact storage, official review, repeatable SDK CI, and production compliance.

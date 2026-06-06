@@ -717,3 +717,9 @@ Phase 2 status remains blocked. The guard only plans official SDK sign, QR, and 
 ## ZATCA approved local dummy signing execution plan - 2026-06-06
 
 The approved execution runbook defines the exact future approval phrase and temp-only sanitized fixture flow. It does not change Phase 2 status: signing, Phase 2 QR proof, signed validation execution, CSID/OTP, ZATCA network, clearance/reporting, PDF/A-3, signed XML/QR persistence, and production compliance remain blocked until a later explicitly approved execution sprint.
+
+## ZATCA approved local dummy signing execution - 2026-06-06
+
+The later approved local dummy-material execution ran once against `ledgerbyte-generated-standard-invoice` and `ledgerbyte-generated-credit-note` using explicit Java `11.0.26` and SDK `238-R3.4.8`. SDK sign, QR, and signed XML validation passed for both fixtures. Evidence is metadata-only at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`, and temp XML/signed XML cleanup succeeded.
+
+Phase 2 status remains blocked for production. The run did not request CSID/OTP, call ZATCA, use production credentials, clear/report invoices, create PDF/A-3, persist signed XML/QR bodies, or prove production QR/certificate behavior.

@@ -2577,10 +2577,13 @@ Recommended next step:
 ## ZATCA local dummy signing dry-run guard
 
 - `corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json` reports a metadata-only command plan for future dummy signing experiments.
-- Planned command shapes are `fatoora -sign`, `fatoora -qr`, and `fatoora -validate` with temp placeholders only; the script does not execute them.
-- The guard reads no certificate/private-key bodies, creates no signed XML, prints no XML/QR bodies, and keeps `signingExecutionEnabled=false`, `dummySigningAllowed=false`, `qrExecutionEnabled=false`, `signedValidationExecutionEnabled=false`, and `productionCompliance=false`.
+- Planned command shapes are `fatoora -sign`, `fatoora -qr`, and `fatoora -validate` with temp placeholders only in plan mode.
+- The guard reads no certificate/private-key bodies manually, prints no XML/QR bodies, and keeps production compliance false.
 
 ## ZATCA approved local dummy signing execution plan
 
 - `docs/zatca/APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md` defines the exact future approval phrase, temp-only fixture scope, planned command sequence, cleanup policy, and metadata-only evidence shape.
-- The current guard recognizes the phrase for planning only; even with `--execute-approved-plan`, SDK signing, QR generation, signed XML validation, network calls, and production compliance remain disabled.
+- The approved execution path has now run once locally with explicit Java `11.0.26` and SDK `238-R3.4.8`.
+- `ledgerbyte-generated-standard-invoice` and `ledgerbyte-generated-credit-note` passed SDK sign, QR, and signed XML validation stages with metadata-only evidence at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
+- This remains local dummy-material evidence only. It does not enable production signing, CSID/OTP, ZATCA network calls, clearance/reporting, PDF/A-3, signed artifact persistence, or production compliance.
+- Recommended next prompt: `ZATCA dummy signing result review and Phase 2 QR gap analysis`.

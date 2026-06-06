@@ -217,3 +217,15 @@ Dummy signed XML must never be treated as production-valid.
 ## 18. Recommended Next Prompt
 
 `ZATCA approved local dummy signing execution`
+
+## 19. Execution Result Update
+
+The approved execution sprint has now run once locally against `ledgerbyte-generated-standard-invoice` and `ledgerbyte-generated-credit-note` using explicit Java `11.0.26` through `ZATCA_SDK_JAVA_BIN` and SDK `238-R3.4.8`.
+
+Result: `PASSED_LOCAL_DUMMY_SIGNING`. SDK sign, QR, and signed XML validation stages passed for both sanitized fixtures with exit code `0`. The run used temp files, no network calls, metadata-only evidence, and cleanup by default.
+
+Evidence: `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
+
+This result still does not mean production signing, Phase 2 QR production correctness, CSID onboarding, clearance/reporting, PDF/A-3 readiness, signed artifact storage readiness, hosted/customer-data proof, or ZATCA compliance.
+
+Next prompt: `ZATCA dummy signing result review and Phase 2 QR gap analysis`

@@ -10,6 +10,7 @@ const {
   buildDummySigningDryRunGuard,
   parseJavaMajorVersion,
   parseJavaVersion,
+  summarizeSdkOutput,
 } = require("./zatca-local-dummy-signing-dry-run.cjs");
 
 const SCRIPT_PATH = path.join(__dirname, "zatca-local-dummy-signing-dry-run.cjs");
@@ -24,7 +25,7 @@ test("refuses to run without --no-network", () => {
 
   assert.equal(result.status, 2);
   const payload = JSON.parse(result.stderr);
-  assert.equal(payload.status, "BLOCKED_NO_NETWORK_FLAG_REQUIRED");
+  assert.equal(payload.status, "BLOCKED_NO_NETWORK_REQUIRED");
   assert.equal(payload.networkCallsMade, false);
   assert.equal(payload.signingExecutionEnabled, false);
   assert.equal(payload.qrExecutionEnabled, false);
@@ -152,38 +153,58 @@ test("exact approval phrase without execution flag is recognized as plan-only", 
   assert.doesNotMatch(output, /-----BEGIN/);
 });
 
-test("exact approval phrase with execute flag remains blocked because execution is not implemented in this sprint", () => {
+test("exact approval phrase plus execute flag can enter the mocked local execution path", () => {
   const repo = createRepo();
   const calls = [];
   const before = listFiles(repo);
   const guard = buildDummySigningDryRunGuard({
     cwd: repo,
+    env: { ZATCA_SDK_JAVA_BIN: "C:/safe/java11/bin/java.exe" },
     args: {
+      noNetwork: true,
       plan: true,
+      fixtures: ["ledgerbyte-generated-standard-invoice", "ledgerbyte-generated-credit-note"],
       approvalPhrase: APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PHRASE,
       executeApprovedPlan: true,
     },
-    runCommand: (command, args) => {
-      calls.push([command, args]);
-      return fakeRunCommand({ javaVersion: "11.0.26" })(command, args);
-    },
+    runCommand: fakeExecutionRunCommand(calls),
   });
   const after = listFiles(repo);
+  const signCalls = calls.filter((call) => call.stage === "sign");
+  const qrCalls = calls.filter((call) => call.stage === "qr");
+  const validateCalls = calls.filter((call) => call.stage === "validate");
 
-  assert.equal(guard.status, "BLOCKED_EXECUTION_NOT_IMPLEMENTED_IN_THIS_SPRINT");
+  assert.equal(guard.status, "PASSED_LOCAL_DUMMY_SIGNING");
   assert.equal(guard.approval.approvalPhraseValid, true);
   assert.equal(guard.approval.executeApprovedPlanRequested, true);
   assert.equal(guard.plannedExecutionAllowedInFuture, false);
-  assert.equal(guard.signingExecutionEnabled, false);
-  assert.equal(guard.qrExecutionEnabled, false);
-  assert.equal(guard.signedValidationExecutionEnabled, false);
+  assert.equal(guard.signingExecutionEnabled, true);
+  assert.equal(guard.qrExecutionEnabled, true);
+  assert.equal(guard.signedValidationExecutionEnabled, true);
   assert.equal(guard.networkCallsMade, false);
   assert.equal(guard.productionComplianceEnabled, false);
-  assert.equal(guard.signedXmlGenerated, false);
-  assert.equal(guard.tempSignedXmlCreated, false);
+  assert.equal(guard.evidence.fixtureCount, 2);
+  assert.equal(guard.evidence.passedCount, 2);
+  assert.equal(guard.evidence.failedCount, 0);
+  assert.equal(guard.evidence.tempCleanupStatus, "SUCCESS");
+  assert.equal(guard.evidence.redaction.xmlBodyPrinted, false);
+  assert.equal(guard.evidence.redaction.signedXmlBodyPrinted, false);
+  assert.equal(guard.evidence.redaction.qrPayloadPrinted, false);
+  assert.equal(guard.evidence.redaction.privateKeyPrinted, false);
+  assert.equal(guard.evidence.redaction.certificateBodyPrinted, false);
+  assert.equal(signCalls.length, 2);
+  assert.equal(qrCalls.length, 2);
+  assert.equal(validateCalls.length, 2);
+  for (const call of signCalls) {
+    assert.match(call.unsignedPath, /ledgerbyte-zatca-dummy-sign-/);
+    assert.match(call.signedPath, /ledgerbyte-zatca-dummy-sign-/);
+    assert.doesNotMatch(call.unsignedPath, /packages[\\/]zatca-core/);
+  }
+  for (const call of [...qrCalls, ...validateCalls]) {
+    assert.match(call.signedPath, /ledgerbyte-zatca-dummy-sign-/);
+  }
   assert.deepEqual(after, before);
-  assert.equal(calls.length, 1);
-  assert.doesNotMatch(JSON.stringify(calls), /fatoora|-sign|-qr|-validate/);
+  assert.doesNotMatch(JSON.stringify(guard.evidence), /<Invoice>|<CreditNote>|QR_PAYLOAD_BODY|-----BEGIN|PRIVATE KEY|CERT_BODY/);
 });
 
 test("reports unsupported Java 17 as blocked", () => {
@@ -197,6 +218,74 @@ test("reports unsupported Java 17 as blocked", () => {
   assert.equal(guard.java.version, "17.0.16");
   assert.equal(guard.java.supportedForSdk, false);
   assert.ok(guard.blockers.some((blocker) => blocker.startsWith("BLOCKED_UNSUPPORTED_JAVA")));
+});
+
+test("approved execution with Java 17 blocks before SDK commands run", () => {
+  const repo = createRepo();
+  const calls = [];
+  const guard = buildDummySigningDryRunGuard({
+    cwd: repo,
+    env: { ZATCA_SDK_JAVA_BIN: "C:/safe/java17/bin/java.exe" },
+    args: {
+      noNetwork: true,
+      fixtures: ["ledgerbyte-generated-standard-invoice"],
+      approvalPhrase: APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PHRASE,
+      executeApprovedPlan: true,
+    },
+    runCommand: (command, args) => {
+      calls.push([command, args]);
+      return fakeRunCommand({ javaVersion: "17.0.16" })(command, args);
+    },
+  });
+
+  assert.equal(guard.status, "BLOCKED_UNSUPPORTED_JAVA");
+  assert.equal(guard.signingExecutionEnabled, false);
+  assert.equal(calls.length, 1);
+});
+
+test("approved execution requires --no-network before SDK commands run", () => {
+  const repo = createRepo();
+  const calls = [];
+  const guard = buildDummySigningDryRunGuard({
+    cwd: repo,
+    env: { ZATCA_SDK_JAVA_BIN: "C:/safe/java11/bin/java.exe" },
+    args: {
+      fixtures: ["ledgerbyte-generated-standard-invoice"],
+      approvalPhrase: APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PHRASE,
+      executeApprovedPlan: true,
+    },
+    runCommand: (command, args) => {
+      calls.push([command, args]);
+      return fakeRunCommand({ javaVersion: "11.0.26" })(command, args);
+    },
+  });
+
+  assert.equal(guard.status, "BLOCKED_NO_NETWORK_REQUIRED");
+  assert.equal(guard.signingExecutionEnabled, false);
+  assert.equal(calls.length, 1);
+});
+
+test("approved execution blocks unapproved fixtures before SDK commands run", () => {
+  const repo = createRepo();
+  const calls = [];
+  const guard = buildDummySigningDryRunGuard({
+    cwd: repo,
+    env: { ZATCA_SDK_JAVA_BIN: "C:/safe/java11/bin/java.exe" },
+    args: {
+      noNetwork: true,
+      fixtures: ["production-invoice"],
+      approvalPhrase: APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PHRASE,
+      executeApprovedPlan: true,
+    },
+    runCommand: (command, args) => {
+      calls.push([command, args]);
+      return fakeRunCommand({ javaVersion: "11.0.26" })(command, args);
+    },
+  });
+
+  assert.equal(guard.status, "BLOCKED_UNAPPROVED_FIXTURE");
+  assert.equal(guard.signingExecutionEnabled, false);
+  assert.equal(calls.length, 1);
 });
 
 test("reports Java 11 through 14 as SDK-compatible metadata only", () => {
@@ -332,6 +421,51 @@ test("does not create temp signed XML or network behavior", () => {
   assert.equal(guard.tempSignedXmlCreated, false);
 });
 
+test("stage failure stops later stages and still cleans temp files", () => {
+  const repo = createRepo();
+  const calls = [];
+  const before = listFiles(repo);
+  const guard = buildDummySigningDryRunGuard({
+    cwd: repo,
+    env: { ZATCA_SDK_JAVA_BIN: "C:/safe/java11/bin/java.exe" },
+    args: {
+      noNetwork: true,
+      fixtures: ["ledgerbyte-generated-standard-invoice"],
+      approvalPhrase: APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PHRASE,
+      executeApprovedPlan: true,
+    },
+    runCommand: fakeExecutionRunCommand(calls, { failStage: "sign" }),
+  });
+  const after = listFiles(repo);
+
+  assert.equal(guard.status, "FAILED_LOCAL_DUMMY_SIGNING");
+  assert.equal(guard.evidence.fixtures[0].signStageStatus, "FAILED");
+  assert.equal(guard.evidence.fixtures[0].qrStageStatus, "SKIPPED");
+  assert.equal(guard.evidence.fixtures[0].validationStageStatus, "SKIPPED");
+  assert.equal(calls.filter((call) => call.stage === "sign").length, 1);
+  assert.equal(calls.filter((call) => call.stage === "qr").length, 0);
+  assert.equal(calls.filter((call) => call.stage === "validate").length, 0);
+  assert.equal(guard.evidence.tempCleanupStatus, "SUCCESS");
+  assert.deepEqual(after, before);
+});
+
+test("command output parser extracts safe codes only", () => {
+  const output = [
+    "<Invoice><cbc:ID>SHOULD_NOT_APPEAR</cbc:ID></Invoice>",
+    "WARNING BR-KSA-99 safe warning",
+    "ERROR KSA-13 safe error",
+    "-----BEGIN CERTIFICATE-----CERT_BODY_SHOULD_NOT_APPEAR-----END CERTIFICATE-----",
+    "token=SECRET_SHOULD_NOT_APPEAR",
+  ].join("\n");
+  const summary = summarizeSdkOutput(output);
+  const serialized = JSON.stringify(summary);
+
+  assert.deepEqual(summary.warningCodes, ["BR-KSA-99"]);
+  assert.deepEqual(summary.errorCodes, ["KSA-13"]);
+  assert.doesNotMatch(serialized, /SHOULD_NOT_APPEAR|CERT_BODY|SECRET/);
+  assert.doesNotMatch(serialized, /<Invoice>/);
+});
+
 test("parses Java versions", () => {
   assert.equal(parseJavaVersion('openjdk version "11.0.26" 2025-01-21'), "11.0.26");
   assert.equal(parseJavaVersion("openjdk 14.0.2 2020-07-14"), "14.0.2");
@@ -418,6 +552,48 @@ function fakeRunCommand({ javaVersion }) {
       status: 0,
       stdout: "",
       stderr: `openjdk version "${javaVersion}" 2026-01-01`,
+      error: null,
+    };
+  };
+}
+
+function fakeExecutionRunCommand(calls, options = {}) {
+  return (command, args) => {
+    if (args.length === 1 && args[0] === "-version") {
+      calls.push({ stage: "java", command, args });
+      return {
+        status: 0,
+        stdout: "",
+        stderr: 'openjdk version "11.0.26" 2026-01-01',
+        error: null,
+      };
+    }
+
+    const stage = args.includes("-sign") ? "sign" : args.includes("-qr") ? "qr" : args.includes("-validate") ? "validate" : "unknown";
+    const invoiceIndex = args.indexOf("-invoice");
+    const signedIndex = args.indexOf("-signedInvoice");
+    const unsignedPath = invoiceIndex >= 0 ? args[invoiceIndex + 1] : null;
+    const signedPath = signedIndex >= 0 ? args[signedIndex + 1] : invoiceIndex >= 0 ? args[invoiceIndex + 1] : null;
+    calls.push({ stage, command, args, unsignedPath, signedPath });
+
+    if (options.failStage === stage) {
+      return {
+        status: 1,
+        stdout: "<Invoice>SHOULD_NOT_APPEAR</Invoice>",
+        stderr: "ERROR BR-KSA-TEST failed safely",
+        error: null,
+      };
+    }
+
+    if (stage === "sign" && signedPath) {
+      fs.mkdirSync(path.dirname(signedPath), { recursive: true });
+      fs.writeFileSync(signedPath, "<Invoice>signed body should not persist in evidence</Invoice>");
+    }
+
+    return {
+      status: 0,
+      stdout: stage === "validate" ? "GLOBAL VALIDATION RESULT = PASSED" : "QR_PAYLOAD_BODY_SHOULD_NOT_APPEAR",
+      stderr: "",
       error: null,
     };
   };
