@@ -2,6 +2,12 @@
 
 This is a working engineering checklist. Official ZATCA/FATOORA documentation must be verified before production. Do not treat current mock implementation as legal compliance.
 
+## Current Key Custody And CSID Lifecycle Design Update
+
+The custody/CSID design has been consolidated in `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`, with implementation tracking in `CSID_LIFECYCLE_CHECKLIST.md` and custody option comparison in `KEY_CUSTODY_DECISION_MATRIX.md`.
+
+Key findings: current `ZatcaEgsUnit` still has legacy PEM-capable fields that are not production-acceptable; metadata-only CSID custody records and a disabled custody-provider boundary exist; real sandbox CSID HTTP execution remains blocked; production CSID and production signing remain blocked. Recommended production direction is KMS/HSM/external signing or equivalent custody, with application tables storing metadata only.
+
 ## Current SDK CI Readiness Update
 
 The no-network SDK CI readiness guard is implemented at `corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json`. It does not run SDK validation or write XML/evidence by default.

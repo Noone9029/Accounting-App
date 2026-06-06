@@ -4,6 +4,12 @@
 
 This plan covers metadata-only custody planning for future ZATCA compliance CSID responses. It does not request a real CSID, call ZATCA, persist token bodies, persist secret bodies, persist certificate bodies, request production CSIDs, implement clearance/reporting, implement PDF/A-3, persist signed XML bodies, persist QR payload bodies, or claim production compliance.
 
+## 2026-06-06 Reconciliation Update
+
+This plan remains the compliance CSID response-custody detail. The consolidated lifecycle design is now `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`; status tracking is in `CSID_LIFECYCLE_CHECKLIST.md`; custody options are compared in `KEY_CUSTODY_DECISION_MATRIX.md`.
+
+The current recommendation is metadata-only app tables plus approved custody for sensitive material. Production private keys should use KMS/HSM/external signing or equivalent custody.
+
 ## Official files inspected
 
 - reference/zatca-docs/compliance_csid.pdf

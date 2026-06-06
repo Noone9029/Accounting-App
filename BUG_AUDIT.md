@@ -37,6 +37,23 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### ZATCA key custody and CSID lifecycle design added
+
+Captured the key custody, certificate/CSID lifecycle, and sandbox approval-gate design without enabling onboarding or signing.
+
+Risk reduced:
+
+- Added `docs/zatca/KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`.
+- Added `docs/zatca/CSID_LIFECYCLE_CHECKLIST.md`.
+- Added `docs/zatca/KEY_CUSTODY_DECISION_MATRIX.md`.
+- Reconciled existing legacy EGS PEM-capable fields, metadata-only CSID custody records, disabled custody provider, mock-only CSID flow, and blocked real sandbox/production adapters.
+- Recommended KMS/HSM/external signing or equivalent custody for production private keys, with application tables storing metadata only.
+
+Remaining risks:
+
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no private-key/certificate body was exposed, no production credentials were generated, and production signing remains disabled.
+- Sandbox CSID preflight, sandbox OTP/CSID, compliance CSID lifecycle, production CSID lifecycle, production key custody, Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official/legal/accounting review, and repeatable SDK CI remain blocked.
+
 ### ZATCA local signed XML validation plan added
 
 Added a planning-only guard for the next signed XML validation step without enabling signing.

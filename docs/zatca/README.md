@@ -25,6 +25,9 @@ These notes track LedgerByte's local ZATCA Phase 2 groundwork and the manual evi
 - `LOCAL_DUMMY_SIGNING_EXECUTION_RESULTS.md` records the approved local dummy-material SDK run result.
 - `DUMMY_SIGNING_RESULT_REVIEW.md` reviews the metadata-only dummy signing evidence and states what the local pass proves and does not prove.
 - `PHASE_2_QR_GAP_ANALYSIS.md` maps the remaining Phase 2 QR/signing gaps after local dummy QR generation passed.
+- `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md` consolidates key custody, certificate/CSID lifecycle, environment separation, evidence, audit, approval gates, blockers, and implementation sequence.
+- `CSID_LIFECYCLE_CHECKLIST.md` tracks local, sandbox, compliance CSID, production CSID, renewal, revocation, audit/evidence, custody, and production gate readiness with conservative status values.
+- `KEY_CUSTODY_DECISION_MATRIX.md` compares raw DB PEM, encrypted DB, env vars, secrets manager, KMS-backed signing, HSM/external signing, and local dummy SDK material.
 - `evidence/README.md` defines the evidence directory policy and forbids XML bodies, QR payload bodies, keys, OTPs, tokens, headers, and customer payloads.
 - `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` records the current official fixture pass; official samples pass under Java 11, LedgerByte standard fixture passes SDK global validation, and the simplified fixture passes XSD/EN/PIH but remains non-compliant because signing, QR/certificate, CSID, clearance/reporting, and PDF/A-3 are still missing.
 - `evidence/generated-xml-fixture-validation-20260606.json` records metadata-only local SDK validation for sanitized generated standard invoice and credit-note fixtures.
@@ -61,7 +64,9 @@ The approved local dummy signing execution plan is documented in `APPROVED_LOCAL
 
 The follow-up review is now documented in `DUMMY_SIGNING_RESULT_REVIEW.md`, and the QR/signing production gap analysis is documented in `PHASE_2_QR_GAP_ANALYSIS.md`. The local dummy run proves temp-only SDK processing of sanitized fixtures; it does not prove production signing, production Phase 2 QR, CSID lifecycle, clearance/reporting, PDF/A-3, signed artifact storage, or compliance.
 
-Latest recommended ZATCA prompt: `ZATCA key custody and CSID lifecycle design`.
+The key custody and CSID lifecycle design is now documented in `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`, with `CSID_LIFECYCLE_CHECKLIST.md` and `KEY_CUSTODY_DECISION_MATRIX.md`. Recommended custody direction is KMS/HSM/external signing or equivalent custody for production private keys; secrets manager may be a controlled interim only for non-production/sandbox CSID token/secret/certificate custody after explicit approval. No OTP/CSID/network/signing behavior is enabled by these docs.
+
+Latest recommended ZATCA prompt: `ZATCA sandbox CSID preflight guard`.
 
 ## Reference Folder Rule
 

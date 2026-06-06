@@ -2,6 +2,12 @@
 
 LedgerByte remains controlled beta/user-testing only. This analysis uses only repo-local official ZATCA references and the metadata-only local dummy signing evidence. It does not execute SDK signing, QR generation, validation, hash commands, ZATCA network calls, CSID/OTP, clearance/reporting, PDF/A-3, migrations, seed/reset/delete, deployment, or email.
 
+## 2026-06-06 Key Custody And CSID Lifecycle Design Link
+
+The key custody and CSID lifecycle design is now documented in `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`, with companion checklist `CSID_LIFECYCLE_CHECKLIST.md` and decision matrix `KEY_CUSTODY_DECISION_MATRIX.md`.
+
+Phase 2 QR remains blocked until production key custody, certificate/CSID lifecycle, signed XML generation, and evidence storage are approved. The local dummy run used SDK dummy material only and must not be treated as tenant credential material.
+
 ## 1. Purpose And Scope
 
 Define the gap between LedgerByte's local dummy QR evidence and production Phase 2 QR/signing readiness.
@@ -147,7 +153,7 @@ The local dummy execution used sign, QR, and validate in a temp-only path in the
 
 ## 12. Required Implementation Sequence
 
-1. Design key custody and CSID lifecycle.
+1. Use the completed key custody and CSID lifecycle design as the gating baseline.
 2. Define metadata-only evidence for CSID/certificate handling without storing body material in public docs or responses.
 3. Build sandbox-only CSID request planning and approval gates.
 4. Implement signing only after custody and CSID gates are approved.
@@ -184,4 +190,4 @@ The local dummy execution used sign, QR, and validate in a temp-only path in the
 
 ## 15. Recommended Next Sprint
 
-`ZATCA key custody and CSID lifecycle design`
+`ZATCA sandbox CSID preflight guard`

@@ -532,3 +532,12 @@ Remaining limitations and next step:
 - Phase 2 QR gap doc: `docs/zatca/PHASE_2_QR_GAP_ANALYSIS.md`.
 - Review task behavior: no `fatoora -sign`, `-qr`, `-validate`, or `-generateHash`; no network, CSID/OTP, clearance/reporting, PDF/A-3, migration, seed/reset/delete, deployment, email, or production check.
 - Wrapper interpretation remains local-only. The dummy run proves local SDK fixture processing, not production QR/signing compliance.
+
+## ZATCA key custody and CSID lifecycle design update (2026-06-06)
+
+- Design doc: `docs/zatca/KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`.
+- Checklist: `docs/zatca/CSID_LIFECYCLE_CHECKLIST.md`.
+- Decision matrix: `docs/zatca/KEY_CUSTODY_DECISION_MATRIX.md`.
+- This update is docs-only. No OTP was requested, no CSID was requested, no ZATCA network call was made, no private-key/certificate body was exposed, no production credentials were generated, and production signing remains disabled.
+- Recommended custody direction: KMS/HSM/external signing or equivalent custody for production private keys; secrets manager may be a controlled interim only for non-production/sandbox CSID token/secret/certificate custody after explicit approval.
+- Recommended next prompt: `ZATCA sandbox CSID preflight guard`.

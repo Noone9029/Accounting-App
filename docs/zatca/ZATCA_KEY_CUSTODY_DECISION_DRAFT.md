@@ -6,6 +6,12 @@ Status: Draft decision record for review. No real key custody integration is imp
 
 LedgerByte is controlled beta/user-testing only. ZATCA production compliance is not enabled.
 
+## 2026-06-06 Reconciliation Update
+
+This draft is superseded for current planning by `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md` and `KEY_CUSTODY_DECISION_MATRIX.md`. It remains historical context for the original custody decision options.
+
+Current recommendation: KMS/HSM/external signing or equivalent custody for production private keys. Secrets manager may be considered only as a controlled interim for non-production/sandbox CSID token, secret, and certificate custody after explicit approval. Raw DB PEM storage and environment-variable storage are not production-acceptable.
+
 ## Decision To Be Made
 
 Before any real CSID, signing, clearance, reporting, PDF/A-3, or production ZATCA behavior is implemented, LedgerByte must choose and implement a private-key and certificate custody model that is acceptable to security, accountant, tax, ZATCA specialist, and production operations reviewers.

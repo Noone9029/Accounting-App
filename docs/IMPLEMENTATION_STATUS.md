@@ -24,6 +24,14 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-06 ZATCA Key Custody and CSID Lifecycle Design update:
+
+- Added `docs/zatca/KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`, `docs/zatca/CSID_LIFECYCLE_CHECKLIST.md`, and `docs/zatca/KEY_CUSTODY_DECISION_MATRIX.md`.
+- This is docs-only design/readiness metadata. It did not request OTPs, request compliance CSIDs, request production CSIDs, call ZATCA, generate production credentials, execute signing, persist signed XML, persist QR payloads, run clearance/reporting, implement PDF/A-3, deploy, migrate, seed, reset, delete, send email, or change production/beta data.
+- Current key finding: existing legacy EGS PEM-capable fields are not production-acceptable custody; metadata-only CSID custody records and a disabled custody-provider boundary exist; real sandbox CSID HTTP and production CSID remain blocked.
+- Recommended custody model: KMS/HSM/external signing or equivalent custody for production private keys, with application tables storing metadata only. Secrets manager may be a controlled interim only for non-production/sandbox CSID token/secret/certificate custody after approval.
+- Remaining blockers include sandbox OTP/CSID preflight, compliance CSID lifecycle, production CSID lifecycle, production key custody, production signing, Phase 2 QR proof, clearance/reporting, PDF/A-3, error/retry queue, production signed-artifact storage, official/legal/accounting review, and repeatable SDK CI.
+
 2026-06-06 ZATCA Preparation and Key Custody Sprint update:
 
 - Closure doc: `docs/development/ZATCA_PREPARATION_KEY_CUSTODY_SPRINT_CLOSURE.md`.
@@ -1241,4 +1249,5 @@ Recommended next step:
 - Added `docs/zatca/DUMMY_SIGNING_RESULT_REVIEW.md` and `docs/zatca/PHASE_2_QR_GAP_ANALYSIS.md`.
 - Reviewed `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`: both sanitized generated fixtures remain sign/QR/signed-validation `PASSED`, exit codes `0`, no network, production compliance false, cleanup `SUCCESS`, and metadata-only redaction intact.
 - No SDK signing, QR, validation, hash, network, CSID/OTP, clearance/reporting, PDF/A-3, migration, seed/reset/delete, deployment, email, or production check was run in this review.
-- Next ZATCA gap: key custody and CSID lifecycle design before any production Phase 2 QR/signing work.
+- Completed follow-up: key custody and CSID lifecycle design is documented before any production Phase 2 QR/signing work.
+- Next ZATCA gap: sandbox CSID preflight guard, still with no OTP/CSID/network execution by default.

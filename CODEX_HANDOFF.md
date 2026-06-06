@@ -2,9 +2,23 @@
 
 ## Latest Commit Inspected
 
-- `a3da6b5b Guard ZATCA dummy signing dry run`
+- `49bd2b00 Review ZATCA dummy signing QR gaps`
 
 ## Current Development Objective
+
+- ZATCA key custody and CSID lifecycle design completed: yes.
+- Design doc created: `docs/zatca/KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`.
+- CSID lifecycle checklist created: `docs/zatca/CSID_LIFECYCLE_CHECKLIST.md`.
+- Key custody decision matrix created: `docs/zatca/KEY_CUSTODY_DECISION_MATRIX.md`.
+- OTP/CSID/network call made: no.
+- Private key/certificate bodies exposed: no.
+- Production signing enabled: no.
+- Code/readiness metadata changed: no; existing readiness sections already expose the blockers, and new response fields should be added in a focused follow-up with targeted tests.
+- Key custody recommendation: KMS/HSM/external signing or equivalent custody for production private keys; store only metadata in application tables. Secrets manager may be a controlled interim only for non-production/sandbox CSID token/secret/certificate custody after explicit approval.
+- Current blockers: sandbox CSID preflight, sandbox OTP/CSID, compliance CSID lifecycle, production CSID lifecycle, production key custody, production Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, production signed-artifact storage, official/legal/accounting review, and repeatable SDK CI.
+- Exact next prompt title: `ZATCA sandbox CSID preflight guard`.
+
+## Prior ZATCA/Dummy Signing Trail
 
 - ZATCA approved local dummy signing execution plan completed: yes.
 - SDK signing was executed: no.
@@ -5558,9 +5572,9 @@
 - SDK hash command executed in this review task: no.
 - ZATCA network, CSID, or OTP used in this review task: no.
 - Private-key/certificate bodies exposed: no.
-- Current blockers: key custody, sandbox OTP/CSID, compliance and production CSID lifecycle, real signing credentials/certificate lifecycle, production Phase 2 QR proof, clearance/reporting, PDF/A-3, retry/error queue, production signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
-- Exact next prompt title: `ZATCA key custody and CSID lifecycle design`.
+- Current blockers: sandbox CSID preflight, sandbox OTP/CSID, compliance and production CSID lifecycle execution, production key custody implementation, real signing credentials/certificate lifecycle, production Phase 2 QR proof, clearance/reporting, PDF/A-3, retry/error queue, production signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
+- Exact next prompt title: `ZATCA sandbox CSID preflight guard`.
 
 ## Next Thread Prompt
 
-`ZATCA key custody and CSID lifecycle design`
+`ZATCA sandbox CSID preflight guard`

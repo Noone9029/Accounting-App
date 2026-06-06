@@ -6,6 +6,12 @@ Product posture: LedgerByte is controlled beta/user-testing only. ZATCA producti
 
 This document defines local no-network readiness for official SDK validation. It does not enable real ZATCA calls, CSID onboarding, signing with production credentials, clearance, reporting, PDF/A-3, or production compliance.
 
+## 2026-06-06 Custody And CSID Lifecycle Update
+
+Key custody and CSID lifecycle readiness is now documented in `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`, `CSID_LIFECYCLE_CHECKLIST.md`, and `KEY_CUSTODY_DECISION_MATRIX.md`.
+
+The SDK readiness layer remains local/no-network only. The local dummy signing pass proves only SDK dummy-material processing for sanitized generated fixtures and does not change CSID, certificate, production signing, Phase 2 QR, clearance/reporting, PDF-A3, or compliance status.
+
 ## Java Version
 
 Expected Java range:

@@ -2,6 +2,12 @@
 
 LedgerByte remains controlled beta/user-testing only. This review validates the metadata-only evidence from the approved local dummy-material ZATCA SDK run and records what that result proves and does not prove. This review task did not execute SDK signing, QR generation, signed XML validation, hash generation, ZATCA network calls, CSID/OTP, clearance/reporting, PDF/A-3, migrations, seed/reset/delete, deployment, or email.
 
+## 2026-06-06 Key Custody And CSID Lifecycle Design Link
+
+The follow-on custody design is documented in `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`, `CSID_LIFECYCLE_CHECKLIST.md`, and `KEY_CUSTODY_DECISION_MATRIX.md`.
+
+The dummy signing evidence remains local SDK dummy-material evidence only. It does not prove production signing, production Phase 2 QR, CSID lifecycle, certificate lifecycle, clearance/reporting, PDF-A3, signed artifact storage, or ZATCA compliance.
+
 ## 1. Purpose And Scope
 
 Review the approved local SDK dummy signing evidence for:
@@ -126,4 +132,4 @@ The evidence records `tempCleanupStatus=SUCCESS`. Signed XML and QR output were 
 
 ## 12. Recommended Next Step
 
-`ZATCA key custody and CSID lifecycle design`
+`ZATCA sandbox CSID preflight guard`

@@ -2,6 +2,12 @@
 
 This is a working engineering checklist. Official ZATCA/FATOORA documentation must be verified before production. Do not treat current mock implementation as legal compliance.
 
+## 2026-06-06 Reconciliation Update
+
+This older checklist remains historical context. The current status checklist is `CSID_LIFECYCLE_CHECKLIST.md`, and the consolidated design is `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`.
+
+No OTP was requested, no CSID was requested, and no ZATCA network call was made by the design task.
+
 - Current CSR generation is local development groundwork only.
 - Verify official CSR subject attributes, serial-number format, extensions, key algorithm, and certificate profile.
 - Get FATOORA sandbox access and a real OTP before testing compliance CSID onboarding.

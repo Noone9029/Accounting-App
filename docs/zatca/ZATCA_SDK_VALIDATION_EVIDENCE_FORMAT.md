@@ -4,6 +4,12 @@ Date: 2026-06-06
 
 This standard defines metadata-only evidence for local/no-network official SDK validation runs. Evidence must not contain full XML bodies, QR payload bodies, private keys, tokens, headers, customer-sensitive payloads, or full SDK stdout/stderr.
 
+## 2026-06-06 Custody Evidence Update
+
+The key custody and CSID lifecycle evidence boundary is now documented in `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`. Companion tracking docs are `CSID_LIFECYCLE_CHECKLIST.md` and `KEY_CUSTODY_DECISION_MATRIX.md`.
+
+Evidence remains metadata-only. It must not contain private-key bodies, certificate bodies, CSID token/secret bodies, OTPs, CSR bodies, signed XML bodies, QR payload bodies, auth headers, or request/response bodies.
+
 ## Evidence Scope
 
 Allowed:
@@ -25,6 +31,7 @@ Forbidden:
 - Unsigned or signed XML bodies.
 - QR payload bodies.
 - Private keys or PEM material.
+- Certificate bodies or PEM material.
 - OTPs.
 - CSID secret material.
 - API credentials, auth tokens, and headers.

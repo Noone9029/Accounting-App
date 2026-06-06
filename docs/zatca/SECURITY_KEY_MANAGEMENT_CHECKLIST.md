@@ -2,6 +2,12 @@
 
 This is a working engineering checklist. Official ZATCA/FATOORA documentation must be verified before production. Do not treat current mock implementation as legal compliance.
 
+## 2026-06-06 Reconciliation Update
+
+This checklist remains the operational security checklist. The consolidated design source is now `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`; tracking is in `CSID_LIFECYCLE_CHECKLIST.md`; option comparison is in `KEY_CUSTODY_DECISION_MATRIX.md`.
+
+Production private-key custody remains unimplemented. The recommended direction is KMS/HSM/external signing or equivalent custody, with application tables storing metadata only.
+
 - Private keys in the database are development placeholders only.
 - Move real private-key generation and storage to KMS or a secrets manager before real onboarding.
 - Prevent private-key material from normal API responses, frontend state, logs, audit records, and smoke output.

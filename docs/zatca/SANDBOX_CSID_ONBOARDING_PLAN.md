@@ -2,6 +2,12 @@
 
 This document defines the safe planning boundary for future sandbox compliance CSID onboarding. It is not an implementation of a real CSID request, not a production onboarding flow, and not a production compliance claim.
 
+## 2026-06-06 Reconciliation Update
+
+The current umbrella design is `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`; the lifecycle checklist is `CSID_LIFECYCLE_CHECKLIST.md`; the custody matrix is `KEY_CUSTODY_DECISION_MATRIX.md`.
+
+This onboarding plan remains the sandbox-specific planning source. No OTP/CSID/network execution is enabled. The next sandbox step is `ZATCA sandbox CSID preflight guard`.
+
 ## Official sources inspected
 
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md`

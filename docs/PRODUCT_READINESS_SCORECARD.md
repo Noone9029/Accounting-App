@@ -25,6 +25,14 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 | UX/product polish | 74 | Broad route coverage, dashboard KPI cards, lightweight charts/drill-downs, settings pages, panels, helper tests, permission-aware nav, guided first-workflow setup, invoice/payment success guidance, AR/AP ledger/report drill-down polish, banking/reconciliation drill-down polish, inventory drill-down polish, document/PDF/template UX polish, and focused visual regression coverage. | List filters, bulk actions, customizable dashboards, broader empty/error states, and accountant-reviewed report/document wording. | Keep visual baselines current and complete accountant wording review on high-traffic workflows. |
 | Production operations | 34 | Readiness docs, manual smoke/E2E workflows, disabled email worker planning, backup/restore evidence planning, and local non-production restore-drill evidence. | No incident response, observability, real background jobs, data retention executors, support tools, billing, SLAs, hosted PITR proof, or real object-storage restore proof. | Define operations baseline: monitoring, alerts, hosted restore drills, runbooks, and support evidence. |
 
+## 2026-06-06 ZATCA Key Custody And CSID Lifecycle Design Update
+
+- ZATCA remains scored at `41`; this design reduces planning ambiguity but does not add production compliance capability.
+- Added `docs/zatca/KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`, `docs/zatca/CSID_LIFECYCLE_CHECKLIST.md`, and `docs/zatca/KEY_CUSTODY_DECISION_MATRIX.md`.
+- Recommended custody model is KMS/HSM/external signing or equivalent custody for production private keys, with application tables storing metadata only.
+- No OTP/CSID/network/signing behavior was performed or enabled. Production signing, production CSID, production Phase 2 QR, clearance/reporting, PDF-A3, signed artifact storage, official reviews, and repeatable SDK CI remain blockers.
+- Next ZATCA priority: `ZATCA sandbox CSID preflight guard`.
+
 ## Overall Readiness Interpretation
 
 - Local MVP: strong enough to demonstrate serious accounting workflows.
