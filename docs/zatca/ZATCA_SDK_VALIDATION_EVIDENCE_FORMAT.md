@@ -128,3 +128,11 @@ The guard output must remain metadata-only:
 - `productionComplianceEnabled`, `signingEnabled`, `clearanceReportingEnabled`, and `pdfA3Enabled` must be `false`.
 - XML bodies, QR payloads, private keys, certificate bodies, tokens, headers, request/response bodies, customer/vendor payloads, and raw unsafe SDK stdout/stderr remain forbidden.
 - CI artifact upload of metadata-only evidence is blocked until retention/redaction policy is approved.
+
+## 2026-06-06 Local Signed XML Plan Output
+
+`corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json` emits readiness and experiment-plan metadata only. It is not signed XML validation evidence because signing is not executed in this sprint.
+
+Future local dummy signed XML validation evidence may record run ID, timestamp, fixture ID/type, SDK version, Java version, signing/QR/validation stage status, safe warning/error codes, cleanup status, no-network flag, production-compliance false, and redaction flags.
+
+Future evidence must still omit XML bodies, signed XML bodies, QR payload bodies, private keys, certificate bodies, OTPs, CSID material, tokens, auth headers, request/response bodies, customer/vendor payloads, attachment bodies, and raw unsafe SDK stdout/stderr.

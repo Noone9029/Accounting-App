@@ -135,6 +135,12 @@ Observed blockers:
 
 Local validation remains available only when a developer supplies a Java 11-14 binary through `ZATCA_SDK_JAVA_BIN` and uses local ignored official references. PR CI remains non-ZATCA until the SDK reference/acquisition and artifact retention policies are approved.
 
+## 2026-06-06 Local Signed XML Plan Guard
+
+`corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json` now reports local signed XML readiness metadata only. It does not execute `fatoora -sign`, `-qr`, `-generateHash`, or signed XML validation, and it does not write XML output.
+
+Current default status is blocked until a future explicit local dummy signing dry-run approval exists. Default Java 17 remains unsupported; Java 11-14 is reported as metadata-only readiness and still does not enable signing. The guard exposes `localSignedXmlExecutionEnabled=false`, `localDummySigningAllowed=false`, `localSignedXmlNoNetworkOnly=true`, `localSignedXmlProductionCompliance=false`, and `localSignedXmlEvidenceBodyPolicy=metadata-only`.
+
 ## Artifact Retention
 
 Current readiness:

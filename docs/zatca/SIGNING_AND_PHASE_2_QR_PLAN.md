@@ -1,10 +1,20 @@
 # ZATCA Signing and Phase 2 QR Plan
 
-Last updated: 2026-05-16
+Last updated: 2026-06-06
 
 ## Scope and boundary
 
 This plan is local-only signing groundwork and Phase 2 QR readiness planning for LedgerByte. It does not implement real XML signing, CSID requests, production credentials, clearance/reporting, PDF/A-3, or real ZATCA network calls. It must not be used as a production compliance claim.
+
+## 2026-06-06 Local Signed XML Validation Plan
+
+The stricter pre-execution plan is now tracked in `LOCAL_SIGNED_XML_VALIDATION_PLAN.md` and guarded by:
+
+```bash
+corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json
+```
+
+This sprint does not execute signing. SDK dummy certificate/private-key files may only be used in a future isolated temp experiment after explicit approval, and dummy material must never be stored as tenant credentials. No signed XML body, QR payload body, certificate body, or private-key body may be committed, logged, uploaded, or persisted as evidence.
 
 ## Official sources inspected
 

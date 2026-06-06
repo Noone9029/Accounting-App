@@ -45,6 +45,12 @@ LedgerByte is at the controlled beta/user-testing stage. The current Vercel depl
 - Remaining ZATCA gaps include approved SDK acquisition/reference policy, Java 11-14 CI runtime, metadata-only artifact retention approval, final key custody decision, sandbox OTP/CSID, signing, Phase 2 QR, clearance/reporting, PDF/A-3, error/retry queue, official reviews, and production operations gates.
 - This roadmap update does not change production posture, Vercel/Supabase settings, production hosting, production ZATCA, real network calls, OTP handling, CSID requests, signing, clearance/reporting, PDF/A-3, official VAT filing, email/payment behavior, backup/restore, object storage, or customer-data handling.
 
+## 2026-06-06 ZATCA Local Signed XML Validation Plan Sprint
+
+- Added `docs/zatca/LOCAL_SIGNED_XML_VALIDATION_PLAN.md` and the metadata-only guard at `corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json`.
+- The guard remains blocked by default and does not execute SDK signing, QR, hash, signed XML validation, CSID/OTP, network, clearance/reporting, PDF/A-3, deploy, migration, seed, reset, delete, or email behavior.
+- Remaining ZATCA gaps are unchanged: explicit future approval for any dummy signing dry-run, Java 11-14 runtime, SDK reference policy, key custody, sandbox OTP/CSID, signing, Phase 2 QR, clearance/reporting, PDF/A-3, secure signed artifact storage, official reviews, and production operations gates.
+
 ## 2026-06-03 Sales Quote / Proforma Workflow Sprint
 
 - Added the base non-posting sales quote/proforma workflow: quote numbering, customer selection, account-coded lines, tax exclusive/inclusive/no-tax totals, lifecycle actions, customer non-posting activity visibility, and accepted-quote conversion into a draft sales invoice.

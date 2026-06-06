@@ -239,6 +239,18 @@ corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json
 
 The guard is inspection-only. It checks Java version metadata, local SDK reference presence, Git tracking/ignore status for the SDK reference, generated fixture path presence, package scripts, CI environment flags, launcher metadata, no-network flags, and redaction booleans. It does not invoke `fatoora`, run SDK validation, write XML, write evidence, call ZATCA, sign, request OTP/CSID, clear/report, create PDF/A-3, deploy, migrate, seed, reset, delete, or send email.
 
+## 2026-06-06 Local Signed XML Plan Guard
+
+The local signed XML plan command is:
+
+```bash
+corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json
+```
+
+This guard is planning-only. It inspects SDK/reference availability, Java metadata, generated fixture path presence, package scripts, and documented SDK command shapes. It never invokes `fatoora -sign`, `-qr`, `-generateHash`, or `-validate`, never writes signed XML, never reads certificate/private-key body content, and never prints XML or QR payload bodies.
+
+The output remains blocked by default with signing execution disabled, production compliance false, no-network true, and future evidence policy set to metadata-only.
+
 Current result is `CI_BLOCKED_MISSING_SDK_REFERENCE`: the SDK reference exists locally but is ignored and not reproducible from a fresh CI checkout. Default Java 17 is also unsupported. PR CI remains non-ZATCA until SDK reference/acquisition, Java 11-14, and artifact retention policy are approved.
 
 ## Compliance Warning

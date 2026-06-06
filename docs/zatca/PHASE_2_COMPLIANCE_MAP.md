@@ -8,6 +8,8 @@ Official reference files have now been inventoried under `reference/` and mapped
 
 2026-06-06 SDK CI runner status: `CI_BLOCKED_MISSING_SDK_REFERENCE`. The new guard script reports metadata-only no-network readiness, but SDK validation is not enabled in PR CI because the official SDK reference is local/ignored rather than available from a fresh checkout, default Java 17 is unsupported, and artifact retention policy is not approved.
 
+2026-06-06 local signed XML plan status: blocked/planning-only. `corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json` reports metadata only and does not execute SDK signing, QR, hash, validation, CSID/OTP, network, clearance/reporting, PDF/A-3, or production compliance behavior.
+
 | Requirement area | Current implementation status | Relevant files | Next engineering step | Manual dependency |
 | --- | --- | --- | --- | --- |
 | Seller profile data | `DONE_LOCAL` | `apps/api/src/zatca/zatca.service.ts`, `apps/web/src/app/(app)/settings/zatca/page.tsx` | Expand validation after official required seller fields are confirmed. | Verify official seller/address/company identifier fields. |
@@ -25,7 +27,7 @@ Official reference files have now been inventoried under `reference/` and mapped
 | Production CSID | `NOT_STARTED` | `apps/api/src/zatca/adapters/http-zatca-sandbox.adapter.ts` | Keep blocked until sandbox validation passes. | Production onboarding approval and official workflow. |
 | Standard invoice clearance | `NOT_STARTED` | `apps/api/src/zatca/zatca.service.ts` | Implement after signed XML and official API mapping. | Clearance endpoint, signed XML contract, response mapping. |
 | Simplified invoice reporting | `NOT_STARTED` | `apps/api/src/zatca/zatca.service.ts` | Implement after signed XML and official API mapping. | Reporting endpoint, simplified invoice timing rules. |
-| Cryptographic stamp/signature | `NOT_STARTED` | `packages/zatca-core/src/index.ts` | Add signing module and test against official samples. | CSID certificate chain, private key custody, signing spec. |
+| Cryptographic stamp/signature | `NOT_STARTED` | `packages/zatca-core/src/index.ts`, `scripts/zatca-local-signed-xml-plan.cjs`, `docs/zatca/LOCAL_SIGNED_XML_VALIDATION_PLAN.md` | Use the new plan guard before any future dummy-material SDK signing dry-run; do not add production signing yet. | Explicit future approval, Java 11-14, temp-only dummy material policy, CSID certificate chain, private key custody, signing spec. |
 | PDF/A-3 embedding | `NOT_STARTED` | `packages/pdf-core`, `apps/api/src/generated-documents` | Add PDF/A-3 conversion and XML embedding pipeline later. | Official archive expectations and PDF/A-3 validator. |
 | Document archive/audit logs | `DONE_LOCAL` | `apps/api/src/generated-documents`, `apps/api/src/zatca/zatca.service.ts` | Add retention/supersede policy and immutable audit review. | Legal retention and audit policy. |
 | Error/retry handling | `SKELETON` | `apps/api/src/zatca/zatca.service.ts`, `apps/api/src/zatca/adapters/zatca-adapter.error.ts` | Map official error codes and retry classes. | Official API error catalog and retry guidance. |

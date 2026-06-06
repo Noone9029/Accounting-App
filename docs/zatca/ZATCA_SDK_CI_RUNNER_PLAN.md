@@ -138,3 +138,13 @@ Resolve the CI blocker before enabling SDK validation in GitHub Actions:
 4. Only then consider enabling no-network SDK validation in CI.
 
 Next prompt title: `ZATCA local signed XML validation plan`.
+
+## 2026-06-06 Follow-Up
+
+The follow-up local signed XML validation plan is now documented in `LOCAL_SIGNED_XML_VALIDATION_PLAN.md`, with a metadata-only guard at:
+
+```bash
+corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json
+```
+
+This does not change the CI posture: PR CI remains non-ZATCA, SDK validation is not enabled in GitHub Actions, XML/signed XML/QR bodies must not be uploaded as artifacts, and SDK CI remains blocked until SDK reference/acquisition and artifact retention policy are approved.

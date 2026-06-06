@@ -13,6 +13,16 @@ Current status: `CI_BLOCKED_MISSING_SDK_REFERENCE`.
 - Generated LedgerByte fixture paths are present locally and prior evidence passed under Java 11.0.26.
 - PR CI remains non-ZATCA until SDK reference/acquisition and artifact retention policies are approved.
 
+## Current Local Signed XML Planning Update
+
+The local signed XML validation plan is implemented at `docs/zatca/LOCAL_SIGNED_XML_VALIDATION_PLAN.md` with a metadata-only guard:
+
+```bash
+corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json
+```
+
+The guard keeps `signingExecutionEnabled=false`, `localDummySigningAllowed=false`, `productionCompliance=false`, and `localSignedXmlEvidenceBodyPolicy=metadata-only`. It reads command documentation and path metadata only, never runs SDK `-sign`, `-qr`, `-generateHash`, or signed XML validation, and never prints XML, QR, private-key, certificate, token, header, request/response, or customer/vendor bodies.
+
 ## Current SDK Hash Persistence Update
 
 The local hash-chain gap is reduced but not closed for production:

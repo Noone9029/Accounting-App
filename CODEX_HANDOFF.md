@@ -2,10 +2,20 @@
 
 ## Latest Commit Inspected
 
-- `0b3c1e4b Close DEV-11 inventory valuation COGS evidence`
+- `a997e4eb Plan ZATCA SDK CI runner`
 
 ## Current Development Objective
 
+- Local signed XML validation plan completed: yes.
+- Signing executed: no.
+- CSID/OTP/network used: no.
+- Private keys/certificates were exposed: no.
+- Scripts added: `scripts/zatca-local-signed-xml-plan.cjs`, `scripts/zatca-local-signed-xml-plan.test.cjs`.
+- Docs added: `docs/zatca/LOCAL_SIGNED_XML_VALIDATION_PLAN.md`.
+- Current local signed XML status: blocked/planning-only; `corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json` is metadata-only and keeps signing execution disabled, dummy signing disallowed, no-network true, production compliance false, and evidence body policy metadata-only.
+- Current blockers: explicit future local dummy signing approval, Java 11-14 runtime for any SDK execution, SDK reference/acquisition policy for CI, key custody, sandbox OTP/CSID, signing, Phase 2 QR, clearance/reporting, PDF/A-3, secure signed artifact storage, official reviews, and production operations gates.
+- Real network/signing/CSID/clearance/PDF-A3 status remains disabled.
+- Exact next prompt title: `ZATCA local dummy signing dry-run guard`.
 - Latest sprint completed: ZATCA local generated XML fixture validation.
 - Latest commit inspected before the sprint: `704aa1d5 feat: add Sales AR and purchase matching workflows`.
 - Generated fixtures added: `ledgerbyte-generated-standard-invoice` and `ledgerbyte-generated-credit-note`.

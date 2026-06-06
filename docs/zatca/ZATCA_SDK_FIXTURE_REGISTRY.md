@@ -80,6 +80,14 @@ corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json
 
 Current CI guard status is `CI_BLOCKED_MISSING_SDK_REFERENCE` because the local official SDK reference is ignored and not available from a fresh checkout. The fixture registry and generated fixture paths are present locally, but that does not enable SDK validation in PR CI.
 
+The local signed XML plan guard also checks generated fixture path presence by metadata only:
+
+```bash
+corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json
+```
+
+That guard does not read fixture XML bodies, does not sign fixtures, does not generate QR payloads, and does not validate signed XML in this sprint.
+
 ## Blocker Policy
 
 The wrapper records a blocker instead of failing destructively when:

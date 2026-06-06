@@ -37,6 +37,22 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### ZATCA local signed XML validation plan added
+
+Added a planning-only guard for the next signed XML validation step without enabling signing.
+
+Risk reduced:
+
+- Added `docs/zatca/LOCAL_SIGNED_XML_VALIDATION_PLAN.md`.
+- Added `scripts/zatca-local-signed-xml-plan.cjs` and `corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json`.
+- Added targeted tests for no-network enforcement, Java 17 blocking, Java 11-14 metadata-only support, missing SDK/fixture blockers, strict-mode exit behavior, no SDK sign/QR/hash execution, and no XML/QR/key/certificate body output.
+
+Remaining risks:
+
+- The guard is blocked by default and does not execute signing.
+- Default Java 17 remains unsupported; future SDK execution requires Java 11-14.
+- Key custody, sandbox OTP/CSID, signing, Phase 2 QR, clearance/reporting, PDF/A-3, signed artifact storage, official reviews, and production compliance remain blocked.
+
 ### ZATCA SDK CI readiness guard added
 
 Added a safe no-network SDK CI readiness guard without enabling SDK validation in GitHub Actions.

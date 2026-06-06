@@ -59,6 +59,13 @@ Current production posture:
 - PR CI remains non-ZATCA. SDK validation is not enabled in GitHub Actions, and XML bodies must not be uploaded as artifacts.
 - Real network calls, signing, CSID/OTP, clearance/reporting, PDF/A-3, production credentials, email, deploys, migrations, seed/reset/delete, production/beta/customer data mutation, and production compliance remain disabled.
 
+2026-06-06 ZATCA Local Signed XML Validation Plan update:
+
+- Added `docs/zatca/LOCAL_SIGNED_XML_VALIDATION_PLAN.md`.
+- Added `corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json` and `corepack pnpm test:zatca-local-signed-xml-plan`.
+- The guard is metadata-only and blocked by default. It inspects SDK/reference, Java, generated fixture, and documented command readiness without running SDK `-sign`, `-qr`, `-generateHash`, or signed XML validation.
+- No signing was executed, no CSID/OTP/network was used, no private-key/certificate body was exposed, and production compliance remains false.
+
 2026-05-30 DEV-11 implementation-status update:
 
 - Closure doc: `docs/development/DEV_11_INVENTORY_VALUATION_COGS_CLOSURE.md`.

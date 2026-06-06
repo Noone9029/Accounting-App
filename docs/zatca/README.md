@@ -19,6 +19,7 @@ These notes track LedgerByte's local ZATCA Phase 2 groundwork and the manual evi
 - `ZATCA_SDK_FIXTURE_REGISTRY.md` registers official and LedgerByte local fixture IDs for the repeatable local SDK validation wrapper.
 - `ZATCA_SDK_VALIDATION_EVIDENCE_FORMAT.md` defines the metadata-only evidence JSON format and redaction flags.
 - `ZATCA_SDK_CI_RUNNER_PLAN.md` documents the no-network SDK CI readiness posture, blocker status, runner options, and documentation-only workflow sketch.
+- `LOCAL_SIGNED_XML_VALIDATION_PLAN.md` defines the next local signed XML guardrails before any future dummy-material signing experiment.
 - `evidence/README.md` defines the evidence directory policy and forbids XML bodies, QR payload bodies, keys, OTPs, tokens, headers, and customer payloads.
 - `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` records the current official fixture pass; official samples pass under Java 11, LedgerByte standard fixture passes SDK global validation, and the simplified fixture passes XSD/EN/PIH but remains non-compliant because signing, QR/certificate, CSID, clearance/reporting, and PDF/A-3 are still missing.
 - `evidence/generated-xml-fixture-validation-20260606.json` records metadata-only local SDK validation for sanitized generated standard invoice and credit-note fixtures.
@@ -45,6 +46,8 @@ The SDK validation pipeline is local/no-network only. `corepack pnpm zatca:sdk-v
 Generated LedgerByte XML fixture validation is also local/no-network only. The generated standard invoice and credit note fixtures passed the local official SDK wrapper under Java 11.0.26, while default Java 17 remains a safe blocker. This does not enable signing, CSID onboarding, clearance/reporting, PDF/A-3, real network calls, production credentials, or production compliance.
 
 SDK CI validation is not enabled. `corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json` currently reports `CI_BLOCKED_MISSING_SDK_REFERENCE` because the local SDK reference is ignored and not reproducible from a fresh checkout; default Java 17 is also unsupported. PR CI remains non-ZATCA.
+
+Local signed XML validation is planning-only. `corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json` reports metadata-only blockers and does not execute signing, QR, hash, validation, OTP/CSID, network, clearance/reporting, PDF/A-3, deploy, migration, seed, reset, delete, or email behavior.
 
 ## Reference Folder Rule
 
