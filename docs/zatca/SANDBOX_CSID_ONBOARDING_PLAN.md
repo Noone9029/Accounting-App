@@ -6,7 +6,9 @@ This document defines the safe planning boundary for future sandbox compliance C
 
 The current umbrella design is `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`; the lifecycle checklist is `CSID_LIFECYCLE_CHECKLIST.md`; the custody matrix is `KEY_CUSTODY_DECISION_MATRIX.md`.
 
-This onboarding plan remains the sandbox-specific planning source. No OTP/CSID/network execution is enabled. The next sandbox step is `ZATCA sandbox CSID preflight guard`.
+This onboarding plan remains the sandbox-specific planning source. No OTP/CSID/network execution is enabled.
+
+The sandbox CSID preflight guard is now documented in `SANDBOX_CSID_PREFLIGHT_GUARD.md`, with current result `PREFLIGHT_BLOCKED` in `SANDBOX_CSID_PREFLIGHT_RESULTS.md`. It checks the door and labels the locks without opening it. The next sandbox step is `ZATCA sandbox OTP and compliance CSID approval plan`.
 
 ## Official sources inspected
 

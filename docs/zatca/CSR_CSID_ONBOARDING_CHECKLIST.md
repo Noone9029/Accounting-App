@@ -8,6 +8,12 @@ This older checklist remains historical context. The current status checklist is
 
 No OTP was requested, no CSID was requested, and no ZATCA network call was made by the design task.
 
+## 2026-06-06 Sandbox CSID Preflight Guard Update
+
+`SANDBOX_CSID_PREFLIGHT_GUARD.md` and `SANDBOX_CSID_PREFLIGHT_RESULTS.md` now provide the no-network preflight before any sandbox OTP/CSID approval. The current status is `PREFLIGHT_BLOCKED`.
+
+The guard checks CSR reference presence and CSR property keys, but it does not request OTPs, request CSIDs, call ZATCA, generate signing material, or expose request/response/credential bodies.
+
 - Current CSR generation is local development groundwork only.
 - Verify official CSR subject attributes, serial-number format, extensions, key algorithm, and certificate profile.
 - Get FATOORA sandbox access and a real OTP before testing compliance CSID onboarding.

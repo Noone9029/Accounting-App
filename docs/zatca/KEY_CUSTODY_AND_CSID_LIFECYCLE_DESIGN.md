@@ -4,6 +4,14 @@ Date: 2026-06-06
 
 Status: Design accepted for controlled beta readiness tracking. No onboarding execution is performed by this document.
 
+## 2026-06-06 Sandbox CSID Preflight Guard Update
+
+The next guard is now implemented in `SANDBOX_CSID_PREFLIGHT_GUARD.md`, with current metadata-only results in `SANDBOX_CSID_PREFLIGHT_RESULTS.md`.
+
+Current preflight status: `PREFLIGHT_BLOCKED`. The guard found the repo-local planning references and code surfaces, but key custody, CSID response custody, sandbox adapter execution, OTP approval, compliance CSID request approval, and production signing remain blocked. It made no OTP request, no CSID request, no ZATCA network call, and exposed no private-key, certificate, CSID, token, auth-header, request, or response bodies.
+
+Recommended next prompt: `ZATCA sandbox OTP and compliance CSID approval plan`.
+
 ## 1. Purpose And Scope
 
 This document defines LedgerByte's ZATCA key custody, certificate/CSID lifecycle, and approval-gated sandbox onboarding design.
@@ -430,7 +438,7 @@ Required response:
 
 1. Keep this design docs-only until reviewed.
 2. Add a small read-only readiness metadata contract with targeted tests.
-3. Add `ZATCA sandbox CSID preflight guard` as a non-executing approval guard.
+3. Completed: add `ZATCA sandbox CSID preflight guard` as a non-executing approval guard.
 4. Replace legacy PEM-capable CSID persistence with metadata/custody-only paths for real sandbox use.
 5. Approve and test a sandbox secrets/KMS custody provider with fake provider clients first.
 6. Implement sandbox OTP preflight without storing OTP.
@@ -443,4 +451,4 @@ Required response:
 
 ## 20. Recommended Next Prompt
 
-`ZATCA sandbox CSID preflight guard`
+`ZATCA sandbox OTP and compliance CSID approval plan`

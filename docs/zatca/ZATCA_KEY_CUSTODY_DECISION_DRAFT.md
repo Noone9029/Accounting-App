@@ -12,6 +12,12 @@ This draft is superseded for current planning by `KEY_CUSTODY_AND_CSID_LIFECYCLE
 
 Current recommendation: KMS/HSM/external signing or equivalent custody for production private keys. Secrets manager may be considered only as a controlled interim for non-production/sandbox CSID token, secret, and certificate custody after explicit approval. Raw DB PEM storage and environment-variable storage are not production-acceptable.
 
+## 2026-06-06 Sandbox CSID Preflight Guard Update
+
+`SANDBOX_CSID_PREFLIGHT_GUARD.md` and `SANDBOX_CSID_PREFLIGHT_RESULTS.md` now show the local sandbox CSID preflight result: `PREFLIGHT_BLOCKED`.
+
+The preflight reinforces this draft's decision boundary. A future sandbox approval path still needs approved key custody, approved CSID response custody, explicit OTP handling approval, explicit compliance CSID request approval, and a still-disabled real sandbox adapter.
+
 ## Decision To Be Made
 
 Before any real CSID, signing, clearance, reporting, PDF/A-3, or production ZATCA behavior is implemented, LedgerByte must choose and implement a private-key and certificate custody model that is acceptable to security, accountant, tax, ZATCA specialist, and production operations reviewers.

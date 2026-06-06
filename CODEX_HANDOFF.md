@@ -2,21 +2,24 @@
 
 ## Latest Commit Inspected
 
-- `49bd2b00 Review ZATCA dummy signing QR gaps`
+- `06929ad5 Design ZATCA key custody CSID lifecycle`
 
 ## Current Development Objective
 
-- ZATCA key custody and CSID lifecycle design completed: yes.
-- Design doc created: `docs/zatca/KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`.
-- CSID lifecycle checklist created: `docs/zatca/CSID_LIFECYCLE_CHECKLIST.md`.
-- Key custody decision matrix created: `docs/zatca/KEY_CUSTODY_DECISION_MATRIX.md`.
+- ZATCA sandbox CSID preflight guard completed: yes.
+- Guard script added: `scripts/zatca-sandbox-csid-preflight.cjs`.
+- Guard test added: `scripts/zatca-sandbox-csid-preflight.test.cjs`.
+- Guard doc created: `docs/zatca/SANDBOX_CSID_PREFLIGHT_GUARD.md`.
+- Preflight result doc created: `docs/zatca/SANDBOX_CSID_PREFLIGHT_RESULTS.md`.
+- Current preflight status: `PREFLIGHT_BLOCKED`.
 - OTP/CSID/network call made: no.
-- Private key/certificate bodies exposed: no.
+- Private key/certificate/CSID/token bodies exposed: no.
 - Production signing enabled: no.
-- Code/readiness metadata changed: no; existing readiness sections already expose the blockers, and new response fields should be added in a focused follow-up with targeted tests.
-- Key custody recommendation: KMS/HSM/external signing or equivalent custody for production private keys; store only metadata in application tables. Secrets manager may be a controlled interim only for non-production/sandbox CSID token/secret/certificate custody after explicit approval.
-- Current blockers: sandbox CSID preflight, sandbox OTP/CSID, compliance CSID lifecycle, production CSID lifecycle, production key custody, production Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, production signed-artifact storage, official/legal/accounting review, and repeatable SDK CI.
-- Exact next prompt title: `ZATCA sandbox CSID preflight guard`.
+- Code/readiness metadata changed: script/package/docs only; no API/UI/schema/migration/runtime readiness fields changed.
+- Env presence handling: booleans only; values are not printed, stored, copied, or used.
+- Key custody recommendation remains KMS/HSM/external signing or equivalent custody for production private keys, with application tables storing metadata only. Secrets manager may be a controlled interim only for non-production/sandbox CSID token/secret/certificate custody after explicit approval.
+- Current blockers: key custody, CSID response custody, sandbox adapter execution, OTP approval, compliance CSID request approval, production signing, compliance CSID lifecycle, production CSID lifecycle, production Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, production signed-artifact storage, official/legal/accounting review, and repeatable SDK CI.
+- Exact next prompt title: `ZATCA sandbox OTP and compliance CSID approval plan`.
 
 ## Prior ZATCA/Dummy Signing Trail
 
@@ -5572,9 +5575,9 @@
 - SDK hash command executed in this review task: no.
 - ZATCA network, CSID, or OTP used in this review task: no.
 - Private-key/certificate bodies exposed: no.
-- Current blockers: sandbox CSID preflight, sandbox OTP/CSID, compliance and production CSID lifecycle execution, production key custody implementation, real signing credentials/certificate lifecycle, production Phase 2 QR proof, clearance/reporting, PDF/A-3, retry/error queue, production signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
-- Exact next prompt title: `ZATCA sandbox CSID preflight guard`.
+- Current blockers: sandbox OTP/CSID approval planning, compliance and production CSID lifecycle execution, production key custody implementation, real signing credentials/certificate lifecycle, production Phase 2 QR proof, clearance/reporting, PDF/A-3, retry/error queue, production signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
+- Exact next prompt title: `ZATCA sandbox OTP and compliance CSID approval plan`.
 
 ## Next Thread Prompt
 
-`ZATCA sandbox CSID preflight guard`
+`ZATCA sandbox OTP and compliance CSID approval plan`

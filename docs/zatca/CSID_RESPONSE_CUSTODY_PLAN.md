@@ -10,6 +10,12 @@ This plan remains the compliance CSID response-custody detail. The consolidated 
 
 The current recommendation is metadata-only app tables plus approved custody for sensitive material. Production private keys should use KMS/HSM/external signing or equivalent custody.
 
+## 2026-06-06 Sandbox CSID Preflight Guard Update
+
+The sandbox CSID preflight guard is now documented in `SANDBOX_CSID_PREFLIGHT_GUARD.md`, and the current local result is in `SANDBOX_CSID_PREFLIGHT_RESULTS.md`.
+
+Current result: `PREFLIGHT_BLOCKED`. The guard found the custody provider surface but confirms CSID response custody remains disabled/unapproved. No OTP, CSID, token, secret, certificate, auth header, request body, response body, private key, signed XML, or QR payload body was requested, stored, printed, or exposed.
+
 ## Official files inspected
 
 - reference/zatca-docs/compliance_csid.pdf

@@ -4,6 +4,12 @@ Date: 2026-06-06
 
 This matrix compares private-key, certificate, and CSID custody options for LedgerByte. It is a design document only. No key was generated, no CSID was requested, no OTP was requested, no ZATCA network call was made, and no signing behavior was enabled.
 
+## 2026-06-06 Sandbox CSID Preflight Update
+
+`SANDBOX_CSID_PREFLIGHT_GUARD.md` and `SANDBOX_CSID_PREFLIGHT_RESULTS.md` now record the no-network sandbox CSID readiness preflight. The result is `PREFLIGHT_BLOCKED` because key custody and CSID response custody remain unapproved, the real sandbox adapter is disabled, OTP and CSID request approval are missing, and production signing remains disabled.
+
+This reinforces the matrix recommendation: raw DB PEM and env-var custody are not production-acceptable; secrets manager is only a possible controlled non-production/sandbox interim; production private-key custody should move toward KMS/HSM/external signing or an equivalent non-exportable signing boundary.
+
 | Option | Appropriate environments | Allowed for production? | Private key exposure risk | Auditability | Rotation support | Operational complexity | Recommended status | Why |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Raw DB PEM storage | None for production; legacy local/mock fields only until removed | No | Critical | Weak | Weak | Low implementation effort, high security cost | Rejected | Ordinary DB text fields can expose key bodies through DB access, backups, logs, debugging, and accidental API selection. Existing `ZatcaEgsUnit.privateKeyPem`, `complianceCsidPem`, and `productionCsidPem` must not be treated as production custody. |

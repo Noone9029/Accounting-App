@@ -8,6 +8,18 @@ The custody/CSID design has been consolidated in `KEY_CUSTODY_AND_CSID_LIFECYCLE
 
 Key findings: current `ZatcaEgsUnit` still has legacy PEM-capable fields that are not production-acceptable; metadata-only CSID custody records and a disabled custody-provider boundary exist; real sandbox CSID HTTP execution remains blocked; production CSID and production signing remain blocked. Recommended production direction is KMS/HSM/external signing or equivalent custody, with application tables storing metadata only.
 
+## Current Sandbox CSID Preflight Guard Update
+
+The sandbox CSID preflight guard is implemented at:
+
+```bash
+corepack pnpm zatca:sandbox-csid-preflight -- --plan --no-network --json
+```
+
+Current status: `PREFLIGHT_BLOCKED`. See `SANDBOX_CSID_PREFLIGHT_GUARD.md` and `SANDBOX_CSID_PREFLIGHT_RESULTS.md`.
+
+The guard verifies local reference presence, CSR property keys, ZATCA code surfaces, package scripts, env presence booleans, sandbox adapter blocking, mock-only adapter status, and CSID custody blockers. It does not request OTP/CSID, call ZATCA, run adapter HTTP, expose request/response/credential bodies, enable signing, or claim production compliance.
+
 ## Current SDK CI Readiness Update
 
 The no-network SDK CI readiness guard is implemented at `corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json`. It does not run SDK validation or write XML/evidence by default.

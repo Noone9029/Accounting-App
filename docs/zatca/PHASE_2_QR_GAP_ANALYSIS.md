@@ -190,4 +190,4 @@ The local dummy execution used sign, QR, and validate in a temp-only path in the
 
 ## 15. Recommended Next Sprint
 
-`ZATCA sandbox CSID preflight guard`
+`ZATCA sandbox OTP and compliance CSID approval plan`

@@ -132,4 +132,4 @@ The evidence records `tempCleanupStatus=SUCCESS`. Signed XML and QR output were 
 
 ## 12. Recommended Next Step
 
-`ZATCA sandbox CSID preflight guard`
+`ZATCA sandbox OTP and compliance CSID approval plan`

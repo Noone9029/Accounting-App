@@ -28,6 +28,8 @@ These notes track LedgerByte's local ZATCA Phase 2 groundwork and the manual evi
 - `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md` consolidates key custody, certificate/CSID lifecycle, environment separation, evidence, audit, approval gates, blockers, and implementation sequence.
 - `CSID_LIFECYCLE_CHECKLIST.md` tracks local, sandbox, compliance CSID, production CSID, renewal, revocation, audit/evidence, custody, and production gate readiness with conservative status values.
 - `KEY_CUSTODY_DECISION_MATRIX.md` compares raw DB PEM, encrypted DB, env vars, secrets manager, KMS-backed signing, HSM/external signing, and local dummy SDK material.
+- `SANDBOX_CSID_PREFLIGHT_GUARD.md` documents the no-network sandbox compliance CSID preflight guard and approval blockers.
+- `SANDBOX_CSID_PREFLIGHT_RESULTS.md` records the current metadata-only `PREFLIGHT_BLOCKED` result.
 - `evidence/README.md` defines the evidence directory policy and forbids XML bodies, QR payload bodies, keys, OTPs, tokens, headers, and customer payloads.
 - `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` records the current official fixture pass; official samples pass under Java 11, LedgerByte standard fixture passes SDK global validation, and the simplified fixture passes XSD/EN/PIH but remains non-compliant because signing, QR/certificate, CSID, clearance/reporting, and PDF/A-3 are still missing.
 - `evidence/generated-xml-fixture-validation-20260606.json` records metadata-only local SDK validation for sanitized generated standard invoice and credit-note fixtures.
@@ -66,7 +68,9 @@ The follow-up review is now documented in `DUMMY_SIGNING_RESULT_REVIEW.md`, and 
 
 The key custody and CSID lifecycle design is now documented in `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`, with `CSID_LIFECYCLE_CHECKLIST.md` and `KEY_CUSTODY_DECISION_MATRIX.md`. Recommended custody direction is KMS/HSM/external signing or equivalent custody for production private keys; secrets manager may be a controlled interim only for non-production/sandbox CSID token/secret/certificate custody after explicit approval. No OTP/CSID/network/signing behavior is enabled by these docs.
 
-Latest recommended ZATCA prompt: `ZATCA sandbox CSID preflight guard`.
+The sandbox CSID preflight guard is now available through `corepack pnpm zatca:sandbox-csid-preflight -- --plan --no-network --json`. Current status is `PREFLIGHT_BLOCKED`: references and code surfaces are present, but key custody, CSID response custody, real sandbox adapter execution, OTP approval, CSID request approval, and production signing remain blocked. No OTP/CSID/network/signing behavior is enabled by the guard.
+
+Latest recommended ZATCA prompt: `ZATCA sandbox OTP and compliance CSID approval plan`.
 
 ## Reference Folder Rule
 

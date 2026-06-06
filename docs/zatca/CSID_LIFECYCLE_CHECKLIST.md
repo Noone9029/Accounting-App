@@ -6,6 +6,18 @@ Status values used in this checklist: `DONE_LOCAL`, `PLANNED`, `BLOCKED`, `NOT_S
 
 This checklist is metadata-only planning. It does not request OTPs, request compliance CSIDs, request production CSIDs, call ZATCA, generate production credentials, execute signing, persist signed XML, persist QR payloads, run clearance/reporting, implement PDF-A3, deploy, migrate, seed, reset, delete, send email, or change production/beta data.
 
+## Sandbox CSID Preflight Guard
+
+| Item | Status | Notes |
+| --- | --- | --- |
+| Sandbox CSID preflight guard script exists | DONE_LOCAL | `scripts/zatca-sandbox-csid-preflight.cjs` checks local readiness only. |
+| Sandbox CSID preflight test exists | DONE_LOCAL | `scripts/zatca-sandbox-csid-preflight.test.cjs` covers no-network, redaction, env-presence, adapter, and strict-mode behavior. |
+| Preflight result documented | DONE_LOCAL | `SANDBOX_CSID_PREFLIGHT_RESULTS.md` reports `PREFLIGHT_BLOCKED`. |
+| OTP requested by preflight | NOT_APPLICABLE | No OTP was requested, accepted, stored, printed, or used. |
+| Compliance CSID requested by preflight | NOT_APPLICABLE | No compliance CSID was requested. |
+| Real sandbox adapter execution | BLOCKED | Adapter remains blocked and no ZATCA network call is allowed. |
+| Next approval plan | PLANNED | `ZATCA sandbox OTP and compliance CSID approval plan`. |
+
 ## Local Readiness
 
 | Item | Status | Notes |
@@ -129,7 +141,7 @@ This checklist is metadata-only planning. It does not request OTPs, request comp
 | Item | Status | Notes |
 | --- | --- | --- |
 | Sandbox CSID runbook exists | DONE_LOCAL | Existing runbook documents no-execution boundary. |
-| `ZATCA sandbox CSID preflight guard` created | PLANNED | Recommended next prompt. |
+| `ZATCA sandbox CSID preflight guard` created | DONE_LOCAL | Guard reports `PREFLIGHT_BLOCKED` and performs no OTP/CSID/network execution. |
 | Sandbox OTP capture approval | MANUAL_APPROVAL_REQUIRED | Future explicit approval. |
 | Sandbox compliance CSID execution | BLOCKED | No real call approved. |
 | Sandbox evidence redaction checklist | PLANNED | Must be implemented before execution. |

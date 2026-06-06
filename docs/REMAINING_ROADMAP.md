@@ -18,14 +18,23 @@ For the updated Product Audit v2 planning artifacts, see:
 
 LedgerByte is at the controlled beta/user-testing stage. The current Vercel deployment is beta/user-testing only and must not be treated as final production hosting. LedgerByte is not production-launched, real ZATCA production compliance is not enabled, and paid production SaaS v1 requires the production foundation work documented under `docs/production/`. The production ticket backlog, ADR index, and first 10 production tickets are planning artifacts only; no production implementation has been performed. DEV-08 local AP evidence is strong and closed for its local-only scope, but AP is not production-complete. DEV-09 local banking/reconciliation evidence is also closed for its local-only scope, but banking remains unproven for production, beta, customer data, live bank feeds, automatic matching, certified parser coverage, and broad E2E/smoke/full-test coverage. DEV-10 local reports/financial statements evidence is closed for its local-only scope, but reporting remains unproven for production, beta, customer data, accountant-certified definitions, official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, broad E2E/smoke/full-test coverage, and load/concurrency. DEV-11 local inventory valuation and COGS evidence is closed for its local-only scope, but inventory accounting remains unproven for production, beta, customer data, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test coverage, hosted behavior, and load/concurrency. DEV-12 is closed as local-only generated documents storage retention evidence, but generated-document storage remains unproven for production, beta, customer data, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test coverage, hosted behavior, and load/concurrency.
 
+## 2026-06-06 ZATCA Sandbox CSID Preflight Guard
+
+- Added `scripts/zatca-sandbox-csid-preflight.cjs`, `scripts/zatca-sandbox-csid-preflight.test.cjs`, `docs/zatca/SANDBOX_CSID_PREFLIGHT_GUARD.md`, and `docs/zatca/SANDBOX_CSID_PREFLIGHT_RESULTS.md`.
+- Current status is `PREFLIGHT_BLOCKED`; safe planning prerequisites are present, but key custody, CSID response custody, sandbox adapter execution, OTP approval, compliance CSID request approval, and production signing remain blocked.
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no private-key/certificate/CSID/token/header/request/response body was exposed, and production signing remains disabled.
+- Remaining ZATCA gaps include sandbox OTP/CSID approval planning, compliance CSID lifecycle, production CSID lifecycle, production key custody, production Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official reviews, and repeatable SDK CI.
+- Recommended next prompt: `ZATCA sandbox OTP and compliance CSID approval plan`.
+
 ## 2026-06-06 ZATCA Key Custody and CSID Lifecycle Design
 
 - Added `docs/zatca/KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`, `docs/zatca/CSID_LIFECYCLE_CHECKLIST.md`, and `docs/zatca/KEY_CUSTODY_DECISION_MATRIX.md`.
 - The design reconciles the current local dummy signing evidence, official repo-local ZATCA references, legacy EGS PEM-capable fields, metadata-only CSID custody records, disabled custody provider, and blocked sandbox/production adapters.
 - Recommended custody model: KMS/HSM/external signing or equivalent custody for production private keys; secrets manager may be a controlled interim only for non-production/sandbox CSID token/secret/certificate custody after explicit approval.
 - No OTP was requested, no CSID was requested, no ZATCA network call was made, no private-key/certificate body was exposed, no production credentials were generated, and production signing remains disabled.
-- Remaining ZATCA gaps include sandbox CSID preflight, sandbox OTP/CSID, compliance CSID lifecycle, production CSID lifecycle, production key custody, production Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official reviews, and repeatable SDK CI.
-- Recommended next prompt: `ZATCA sandbox CSID preflight guard`.
+- Completed follow-up: `ZATCA sandbox CSID preflight guard`.
+- Remaining ZATCA gaps include sandbox OTP/CSID approval planning, compliance CSID lifecycle, production CSID lifecycle, production key custody, production Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official reviews, and repeatable SDK CI.
+- Recommended next prompt: `ZATCA sandbox OTP and compliance CSID approval plan`.
 
 ## 2026-06-06 ZATCA Preparation and Key Custody Sprint
 
@@ -1382,4 +1391,5 @@ Recommended next step:
 - Confirmed the local dummy run proves only repo-local SDK sign/QR/validate processing for sanitized generated fixtures under Java 11.0.26.
 - Confirmed it does not prove production signing, production Phase 2 QR, CSID lifecycle, clearance/reporting, PDF/A-3, signed artifact storage, or compliance.
 - Completed follow-up: `ZATCA key custody and CSID lifecycle design`.
-- Remaining next step: `ZATCA sandbox CSID preflight guard`.
+- Completed follow-up: `ZATCA sandbox CSID preflight guard`.
+- Remaining next step: `ZATCA sandbox OTP and compliance CSID approval plan`.

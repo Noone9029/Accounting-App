@@ -10,7 +10,9 @@ This plan is architecture and local readiness scaffolding only. LedgerByte does 
 
 This document remains the CSR/onboarding groundwork history. The current consolidated design is `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`; status tracking is in `CSID_LIFECYCLE_CHECKLIST.md`; custody options are compared in `KEY_CUSTODY_DECISION_MATRIX.md`.
 
-The design task did not request OTPs, request CSIDs, call ZATCA, expose private-key/certificate bodies, generate production credentials, or enable production signing. The next step is `ZATCA sandbox CSID preflight guard`.
+The design task did not request OTPs, request CSIDs, call ZATCA, expose private-key/certificate bodies, generate production credentials, or enable production signing.
+
+`SANDBOX_CSID_PREFLIGHT_GUARD.md` and `SANDBOX_CSID_PREFLIGHT_RESULTS.md` now record the completed no-network preflight. Current status is `PREFLIGHT_BLOCKED`; the next step is `ZATCA sandbox OTP and compliance CSID approval plan`.
 
 ## Official sources inspected
 

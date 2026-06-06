@@ -12,6 +12,12 @@ Key custody and CSID lifecycle readiness is now documented in `KEY_CUSTODY_AND_C
 
 The SDK readiness layer remains local/no-network only. The local dummy signing pass proves only SDK dummy-material processing for sanitized generated fixtures and does not change CSID, certificate, production signing, Phase 2 QR, clearance/reporting, PDF-A3, or compliance status.
 
+## 2026-06-06 Sandbox CSID Preflight Guard Update
+
+The sandbox CSID preflight guard is now implemented at `corepack pnpm zatca:sandbox-csid-preflight -- --plan --no-network --json`, documented in `SANDBOX_CSID_PREFLIGHT_GUARD.md`, and summarized in `SANDBOX_CSID_PREFLIGHT_RESULTS.md`.
+
+Current status: `PREFLIGHT_BLOCKED`. It verifies reference/code/readiness metadata only and performs no SDK signing, OTP request, CSID request, ZATCA network call, signed XML validation, QR generation, clearance/reporting, PDF-A3, or production compliance behavior.
+
 ## Java Version
 
 Expected Java range:

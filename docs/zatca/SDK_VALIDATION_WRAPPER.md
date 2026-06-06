@@ -540,4 +540,5 @@ Remaining limitations and next step:
 - Decision matrix: `docs/zatca/KEY_CUSTODY_DECISION_MATRIX.md`.
 - This update is docs-only. No OTP was requested, no CSID was requested, no ZATCA network call was made, no private-key/certificate body was exposed, no production credentials were generated, and production signing remains disabled.
 - Recommended custody direction: KMS/HSM/external signing or equivalent custody for production private keys; secrets manager may be a controlled interim only for non-production/sandbox CSID token/secret/certificate custody after explicit approval.
-- Recommended next prompt: `ZATCA sandbox CSID preflight guard`.
+- Completed follow-up: `ZATCA sandbox CSID preflight guard`.
+- Recommended next prompt: `ZATCA sandbox OTP and compliance CSID approval plan`.

@@ -37,6 +37,24 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### ZATCA sandbox CSID preflight guard added
+
+Added a metadata-only, no-network preflight guard for future sandbox compliance CSID readiness.
+
+Risk reduced:
+
+- Added `scripts/zatca-sandbox-csid-preflight.cjs`.
+- Added `scripts/zatca-sandbox-csid-preflight.test.cjs`.
+- Added `docs/zatca/SANDBOX_CSID_PREFLIGHT_GUARD.md`.
+- Added `docs/zatca/SANDBOX_CSID_PREFLIGHT_RESULTS.md`.
+- The guard verifies local references, CSR keys, code surfaces, package scripts, env presence booleans, sandbox adapter blocking, mock-only adapter status, and custody blockers.
+
+Remaining risks:
+
+- Current status is `PREFLIGHT_BLOCKED`.
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no private-key/certificate/CSID/token/header/request/response body was exposed, and production signing remains disabled.
+- Key custody, CSID response custody, sandbox adapter execution, OTP approval, CSID request approval, production signing, Phase 2 QR, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official/legal/accounting review, and repeatable SDK CI remain blocked.
+
 ### ZATCA key custody and CSID lifecycle design added
 
 Captured the key custody, certificate/CSID lifecycle, and sandbox approval-gate design without enabling onboarding or signing.

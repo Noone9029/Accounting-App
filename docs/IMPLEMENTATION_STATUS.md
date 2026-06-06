@@ -24,6 +24,14 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-06 ZATCA Sandbox CSID Preflight Guard update:
+
+- Added `scripts/zatca-sandbox-csid-preflight.cjs`, `scripts/zatca-sandbox-csid-preflight.test.cjs`, `docs/zatca/SANDBOX_CSID_PREFLIGHT_GUARD.md`, and `docs/zatca/SANDBOX_CSID_PREFLIGHT_RESULTS.md`.
+- Added root package scripts `zatca:sandbox-csid-preflight` and `test:zatca-sandbox-csid-preflight`.
+- Current preflight status is `PREFLIGHT_BLOCKED`. The guard verifies local reference presence, CSR keys, code surfaces, package scripts, env presence booleans, sandbox adapter blocking, mock-only adapter status, and custody blockers.
+- It did not request OTPs, request CSIDs, call ZATCA, execute the sandbox adapter, expose private-key/certificate/CSID/token/header/request/response bodies, generate signed XML/QR payloads, enable production signing, deploy, migrate, seed, reset, delete, or send email.
+- Current blockers are key custody, CSID response custody, sandbox adapter execution, OTP approval, compliance CSID request approval, and production signing. Recommended next prompt: `ZATCA sandbox OTP and compliance CSID approval plan`.
+
 2026-06-06 ZATCA Key Custody and CSID Lifecycle Design update:
 
 - Added `docs/zatca/KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`, `docs/zatca/CSID_LIFECYCLE_CHECKLIST.md`, and `docs/zatca/KEY_CUSTODY_DECISION_MATRIX.md`.

@@ -8,6 +8,12 @@ This checklist remains the operational security checklist. The consolidated desi
 
 Production private-key custody remains unimplemented. The recommended direction is KMS/HSM/external signing or equivalent custody, with application tables storing metadata only.
 
+## 2026-06-06 Sandbox CSID Preflight Guard Update
+
+The no-network preflight guard is now implemented and documented in `SANDBOX_CSID_PREFLIGHT_GUARD.md`; current results are in `SANDBOX_CSID_PREFLIGHT_RESULTS.md`.
+
+Security result: `PREFLIGHT_BLOCKED`. The guard confirms legacy raw PEM-capable fields remain a blocker, CSID response custody is not approved, the sandbox adapter remains disabled, and no OTP/CSID/network/signing behavior was enabled. No private-key, certificate, token, CSID, auth-header, request, or response bodies were exposed.
+
 - Private keys in the database are development placeholders only.
 - Move real private-key generation and storage to KMS or a secrets manager before real onboarding.
 - Prevent private-key material from normal API responses, frontend state, logs, audit records, and smoke output.
