@@ -23,6 +23,8 @@ These notes track LedgerByte's local ZATCA Phase 2 groundwork and the manual evi
 - `LOCAL_DUMMY_SIGNING_DRY_RUN_GUARD.md` defines the disabled-by-default dummy signing guard command plan and blocker taxonomy.
 - `APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md` defines the approval-gated local dummy signing runbook.
 - `LOCAL_DUMMY_SIGNING_EXECUTION_RESULTS.md` records the approved local dummy-material SDK run result.
+- `DUMMY_SIGNING_RESULT_REVIEW.md` reviews the metadata-only dummy signing evidence and states what the local pass proves and does not prove.
+- `PHASE_2_QR_GAP_ANALYSIS.md` maps the remaining Phase 2 QR/signing gaps after local dummy QR generation passed.
 - `evidence/README.md` defines the evidence directory policy and forbids XML bodies, QR payload bodies, keys, OTPs, tokens, headers, and customer payloads.
 - `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` records the current official fixture pass; official samples pass under Java 11, LedgerByte standard fixture passes SDK global validation, and the simplified fixture passes XSD/EN/PIH but remains non-compliant because signing, QR/certificate, CSID, clearance/reporting, and PDF/A-3 are still missing.
 - `evidence/generated-xml-fixture-validation-20260606.json` records metadata-only local SDK validation for sanitized generated standard invoice and credit-note fixtures.
@@ -57,7 +59,9 @@ The dummy signing guard is blocked by default in plan mode. `corepack pnpm zatca
 
 The approved local dummy signing execution plan is documented in `APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md`. With the exact approval phrase, explicit Java 11-14 through `ZATCA_SDK_JAVA_BIN`, local SDK reference, no-network mode, and sanitized fixture IDs, the guard executed one local dummy-material run. The generated standard invoice and credit-note fixtures passed SDK sign, QR, and signed validation stages under Java 11.0.26. Evidence is metadata-only at `evidence/local-dummy-signing-execution-20260606.json`; production signing, CSID/OTP, network submission, clearance/reporting, PDF/A-3, signed artifact persistence, and production compliance remain disabled.
 
-Latest recommended ZATCA prompt: `ZATCA dummy signing result review and Phase 2 QR gap analysis`.
+The follow-up review is now documented in `DUMMY_SIGNING_RESULT_REVIEW.md`, and the QR/signing production gap analysis is documented in `PHASE_2_QR_GAP_ANALYSIS.md`. The local dummy run proves temp-only SDK processing of sanitized fixtures; it does not prove production signing, production Phase 2 QR, CSID lifecycle, clearance/reporting, PDF/A-3, signed artifact storage, or compliance.
+
+Latest recommended ZATCA prompt: `ZATCA key custody and CSID lifecycle design`.
 
 ## Reference Folder Rule
 

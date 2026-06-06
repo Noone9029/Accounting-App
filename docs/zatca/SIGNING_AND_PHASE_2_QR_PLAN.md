@@ -492,3 +492,11 @@ Recommended next step:
 - Evidence is metadata-only at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`; temp XML and signed XML were cleaned up.
 - This remains local-only SDK evidence. Production signing, Phase 2 QR production proof, CSID/OTP, clearance/reporting, PDF/A-3, signed artifact body storage, and production compliance remain blocked.
 - The next ZATCA prompt is `ZATCA dummy signing result review and Phase 2 QR gap analysis`.
+
+## 2026-06-06 - Dummy signing result review and Phase 2 QR gap analysis
+
+- Added `docs/zatca/DUMMY_SIGNING_RESULT_REVIEW.md` to validate the metadata-only evidence from `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
+- Added `docs/zatca/PHASE_2_QR_GAP_ANALYSIS.md` to separate local dummy QR generation from production Phase 2 QR behavior, ZATCA-accepted QR behavior, XML embedding, rendered/PDF QR output, and PDF/A-3 packaging.
+- Findings: the local SDK dummy run proves only temp-only SDK sign, QR, and signed validation processing for sanitized generated fixtures under Java 11.0.26. It does not prove production signing, QR tags 6-9 production correctness, certificate/CSID lifecycle, clearance/reporting, PDF/A-3, signed artifact storage, or ZATCA compliance.
+- No SDK signing, QR, validation, hash, CSID/OTP, ZATCA network, clearance/reporting, PDF/A-3, migration, seed/reset/delete, deployment, or email command was executed in the review task.
+- Next prompt: `ZATCA key custody and CSID lifecycle design`.

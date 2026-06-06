@@ -117,3 +117,9 @@ The approved local dummy-material execution attempted only registered sanitized 
 Evidence: `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
 
 This registry still does not authorize production invoices, beta/customer data, real CSID/certificate material, network submission, clearance/reporting, PDF/A-3, signed artifact persistence, or production compliance claims.
+
+## 2026-06-06 Dummy Signing Result Review
+
+The approved dummy signing evidence for the two registered generated fixtures was reviewed in `docs/zatca/DUMMY_SIGNING_RESULT_REVIEW.md`. Both registered fixture IDs matched the approved scope, and both retained sign `PASSED`, QR `PASSED`, and signed validation `PASSED` metadata in the evidence file.
+
+The Phase 2 QR gap analysis is recorded in `docs/zatca/PHASE_2_QR_GAP_ANALYSIS.md`. The registry remains limited to sanitized local fixtures and does not authorize production, beta, customer, CSID, network, clearance/reporting, PDF/A-3, signed artifact persistence, or production-compliance use.

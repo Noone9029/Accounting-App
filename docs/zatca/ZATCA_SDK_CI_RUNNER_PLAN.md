@@ -162,3 +162,9 @@ This does not change the CI posture: PR CI remains non-ZATCA, SDK validation is 
 The approved local dummy-material SDK run passed for both generated fixtures under explicit Java `11.0.26`, with metadata-only evidence at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
 
 This does not change the CI status. SDK CI remains blocked because the official SDK reference is local/ignored and not available from a fresh checkout, artifact retention policy is not approved, and PR CI remains non-ZATCA.
+
+## 2026-06-06 Dummy Signing Review Follow-Up
+
+`docs/zatca/DUMMY_SIGNING_RESULT_REVIEW.md` and `docs/zatca/PHASE_2_QR_GAP_ANALYSIS.md` are documentation-only follow-ups to the local dummy run. They do not add SDK validation to CI, do not create a GitHub Actions workflow, and do not approve uploading XML, signed XML, QR payloads, SDK logs, private keys, certificates, or metadata evidence artifacts.
+
+CI status remains `CI_BLOCKED_MISSING_SDK_REFERENCE`.

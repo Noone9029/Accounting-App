@@ -2586,4 +2586,5 @@ Recommended next step:
 - The approved execution path has now run once locally with explicit Java `11.0.26` and SDK `238-R3.4.8`.
 - `ledgerbyte-generated-standard-invoice` and `ledgerbyte-generated-credit-note` passed SDK sign, QR, and signed XML validation stages with metadata-only evidence at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
 - This remains local dummy-material evidence only. It does not enable production signing, CSID/OTP, ZATCA network calls, clearance/reporting, PDF/A-3, signed artifact persistence, or production compliance.
-- Recommended next prompt: `ZATCA dummy signing result review and Phase 2 QR gap analysis`.
+- `docs/zatca/DUMMY_SIGNING_RESULT_REVIEW.md` and `docs/zatca/PHASE_2_QR_GAP_ANALYSIS.md` now record what the local pass proves and the remaining Phase 2 QR/signing gaps.
+- Recommended next prompt: `ZATCA key custody and CSID lifecycle design`.

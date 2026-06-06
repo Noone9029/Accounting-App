@@ -1366,3 +1366,10 @@ Recommended next step:
 - Both fixtures passed SDK sign, QR, and signed XML validation stages under explicit Java `11.0.26`; evidence is metadata-only at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
 - Remaining roadmap items are unchanged for production: key custody, sandbox OTP/CSID, production signing, Phase 2 QR production proof, clearance/reporting, PDF/A-3, retry/error queue, signed artifact storage, official reviews, and repeatable SDK CI.
 - Recommended next step: `ZATCA dummy signing result review and Phase 2 QR gap analysis`.
+
+# ZATCA dummy signing result review and Phase 2 QR gap analysis - 2026-06-06
+
+- Added the metadata-only result review and Phase 2 QR gap analysis docs.
+- Confirmed the local dummy run proves only repo-local SDK sign/QR/validate processing for sanitized generated fixtures under Java 11.0.26.
+- Confirmed it does not prove production signing, production Phase 2 QR, CSID lifecycle, clearance/reporting, PDF/A-3, signed artifact storage, or compliance.
+- Remaining next step: `ZATCA key custody and CSID lifecycle design`.

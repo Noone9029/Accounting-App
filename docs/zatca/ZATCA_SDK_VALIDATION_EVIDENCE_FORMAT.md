@@ -158,3 +158,9 @@ The approved local dummy-material evidence file is:
 Allowed fields include run ID, timestamp, `LOCAL_DUMMY_SIGNING_NO_NETWORK` environment, no-network booleans, production-compliance false, SDK version, Java version, approval-match boolean, fixture counts, fixture IDs, fixture type, invoice kind, relative source path, sign/QR/validate stage statuses, SDK exit codes by stage, safe warning/error codes, blockers, temp workspace and cleanup status, and redaction flags.
 
 The evidence must not include XML bodies, signed XML bodies, QR payload bodies, private-key bodies, certificate bodies, OTPs, CSID material, auth tokens, auth headers, request/response bodies, customer/vendor payloads, attachment bodies, or unsafe raw SDK stdout/stderr.
+
+## 2026-06-06 Dummy Signing Review Evidence Check
+
+`docs/zatca/DUMMY_SIGNING_RESULT_REVIEW.md` records the review of `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`. The review checked approval, environment, no-network, production-compliance false, fixture counts, fixture IDs, stage statuses, exit codes, cleanup status, persistence flags, raw stdout/stderr persistence flags, and redaction flags.
+
+The review task did not create new execution evidence and did not run SDK sign, QR, validate, or hash commands. `docs/zatca/PHASE_2_QR_GAP_ANALYSIS.md` documents remaining QR/signing gaps without storing XML, signed XML, QR, key, certificate, token, header, request/response, customer/vendor, or attachment bodies.

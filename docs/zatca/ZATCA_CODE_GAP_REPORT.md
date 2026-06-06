@@ -723,3 +723,14 @@ The approved local dummy-material SDK run completed against the two sanitized ge
 Closed local gap: LedgerByte has now proven temp-only local SDK dummy processing for generated standard invoice and credit-note fixture XML.
 
 Still open: this is not production signing, not Phase 2 QR production proof, not CSID onboarding, not clearance/reporting, not PDF/A-3, not signed artifact storage readiness, not CI readiness, and not ZATCA compliance.
+
+## ZATCA dummy signing result review and Phase 2 QR gap analysis - 2026-06-06
+
+Added:
+
+- `docs/zatca/DUMMY_SIGNING_RESULT_REVIEW.md`
+- `docs/zatca/PHASE_2_QR_GAP_ANALYSIS.md`
+
+The local dummy signing pass is now classified as local SDK evidence only. It closes the question of whether the repo-local SDK can process the two sanitized generated fixtures under Java 11, but it does not close production gaps for QR tags `6-9`, key custody, compliance/production CSID lifecycle, clearance/reporting, rendered/PDF QR output, PDF/A-3, signed artifact storage, repeatable CI, or production compliance.
+
+No SDK sign, QR, validate, hash, network, CSID/OTP, clearance/reporting, PDF/A-3, migration, seed/reset/delete, deployment, email, or production check was run in the review task.
