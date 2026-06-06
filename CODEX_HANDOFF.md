@@ -2,24 +2,28 @@
 
 ## Latest Commit Inspected
 
-- `06929ad5 Design ZATCA key custody CSID lifecycle`
+- `68f94334 Guard ZATCA sandbox CSID preflight`
 
 ## Current Development Objective
 
-- ZATCA sandbox CSID preflight guard completed: yes.
-- Guard script added: `scripts/zatca-sandbox-csid-preflight.cjs`.
-- Guard test added: `scripts/zatca-sandbox-csid-preflight.test.cjs`.
-- Guard doc created: `docs/zatca/SANDBOX_CSID_PREFLIGHT_GUARD.md`.
-- Preflight result doc created: `docs/zatca/SANDBOX_CSID_PREFLIGHT_RESULTS.md`.
-- Current preflight status: `PREFLIGHT_BLOCKED`.
+- ZATCA sandbox OTP and compliance CSID approval plan completed: yes.
+- Approval plan doc created: `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_PLAN.md`.
+- Approval runbook created: `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`.
+- Approval result doc created: `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`.
+- Guard script extended: `scripts/zatca-sandbox-csid-preflight.cjs`.
+- Guard test updated: `scripts/zatca-sandbox-csid-preflight.test.cjs`.
+- Base preflight status remains: `PREFLIGHT_BLOCKED`.
+- Approval recognition status: `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+- Approval phrase: `I approve ZATCA sandbox OTP and compliance CSID request planning only. No production, no customer data, no production CSID, no clearance, no reporting, no PDF-A3, no signing enablement, no secret/body exposure, and metadata-only evidence.`
 - OTP/CSID/network call made: no.
-- Private key/certificate/CSID/token bodies exposed: no.
+- Sandbox adapter executed: no.
+- Private key/certificate/CSID/token/secret/request/response bodies exposed: no.
 - Production signing enabled: no.
-- Code/readiness metadata changed: script/package/docs only; no API/UI/schema/migration/runtime readiness fields changed.
+- Code/readiness metadata changed: script/docs only; no API/UI/schema/migration/runtime readiness fields changed.
 - Env presence handling: booleans only; values are not printed, stored, copied, or used.
 - Key custody recommendation remains KMS/HSM/external signing or equivalent custody for production private keys, with application tables storing metadata only. Secrets manager may be a controlled interim only for non-production/sandbox CSID token/secret/certificate custody after explicit approval.
-- Current blockers: key custody, CSID response custody, sandbox adapter execution, OTP approval, compliance CSID request approval, production signing, compliance CSID lifecycle, production CSID lifecycle, production Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, production signed-artifact storage, official/legal/accounting review, and repeatable SDK CI.
-- Exact next prompt title: `ZATCA sandbox OTP and compliance CSID approval plan`.
+- Current blockers: key custody implementation, CSID response custody approval, sandbox CSID request execution guard, real sandbox adapter execution, actual OTP capture approval, compliance CSID request execution approval, compliance invoice checks, production CSID lifecycle, production signing, production Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, production signed-artifact storage, official/legal/accounting review, and repeatable SDK CI.
+- Exact next prompt title: `ZATCA sandbox CSID request execution guard`.
 
 ## Prior ZATCA/Dummy Signing Trail
 
@@ -5576,8 +5580,29 @@
 - ZATCA network, CSID, or OTP used in this review task: no.
 - Private-key/certificate bodies exposed: no.
 - Current blockers: sandbox OTP/CSID approval planning, compliance and production CSID lifecycle execution, production key custody implementation, real signing credentials/certificate lifecycle, production Phase 2 QR proof, clearance/reporting, PDF/A-3, retry/error queue, production signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
-- Exact next prompt title: `ZATCA sandbox OTP and compliance CSID approval plan`.
+- Exact next prompt title: `ZATCA sandbox CSID request execution guard`.
 
 ## Next Thread Prompt
 
-`ZATCA sandbox OTP and compliance CSID approval plan`
+`ZATCA sandbox CSID request execution guard`
+
+## ZATCA Sandbox OTP And Compliance CSID Approval Plan Completed
+
+- Latest commit inspected: `68f94334 Guard ZATCA sandbox CSID preflight`.
+- Approval plan doc: `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_PLAN.md`.
+- Approval runbook doc: `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`.
+- Approval result doc: `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`.
+- Guard extension: `--approval-phrase <text>` plus `--approval-plan`.
+- Approval phrase: `I approve ZATCA sandbox OTP and compliance CSID request planning only. No production, no customer data, no production CSID, no clearance, no reporting, no PDF-A3, no signing enablement, no secret/body exposure, and metadata-only evidence.`
+- Approval phrase matched: yes.
+- Approval recognition status: `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+- OTP/CSID/network call made: no.
+- Sandbox adapter executed: no.
+- Secret/body exposure: no.
+- Production signing enabled: no.
+- Current blockers: key custody implementation, CSID response custody approval, sandbox CSID request execution guard, real sandbox adapter execution, actual OTP capture approval, compliance CSID request execution approval, compliance invoice checks, production CSID lifecycle, production signing, Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, signed-artifact storage, official/legal/accounting review, and repeatable SDK CI.
+- Exact next prompt title: `ZATCA sandbox CSID request execution guard`.
+
+## Next Thread Prompt
+
+`ZATCA sandbox CSID request execution guard`

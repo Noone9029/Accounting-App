@@ -14,6 +14,16 @@ corepack pnpm zatca:sandbox-csid-preflight -- --plan --no-network --json
 
 Safe planning prerequisites are present, but future sandbox execution remains blocked.
 
+## Approval Plan Extension
+
+The guard now recognizes the exact future approval phrase only when `--approval-plan` is also present. The observed planning-only approval run returned `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+
+See:
+
+- `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`
+- `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`
+- `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`
+
 ## References Found
 
 - Baseline ZATCA docs and local dummy signing evidence: found.
@@ -138,4 +148,4 @@ None from this local preflight run.
 
 ## Recommended Next Prompt
 
-`ZATCA sandbox OTP and compliance CSID approval plan`
+`ZATCA sandbox CSID request execution guard`

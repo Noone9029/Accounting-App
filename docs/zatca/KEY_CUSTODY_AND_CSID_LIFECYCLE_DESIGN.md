@@ -10,7 +10,9 @@ The next guard is now implemented in `SANDBOX_CSID_PREFLIGHT_GUARD.md`, with cur
 
 Current preflight status: `PREFLIGHT_BLOCKED`. The guard found the repo-local planning references and code surfaces, but key custody, CSID response custody, sandbox adapter execution, OTP approval, compliance CSID request approval, and production signing remain blocked. It made no OTP request, no CSID request, no ZATCA network call, and exposed no private-key, certificate, CSID, token, auth-header, request, or response bodies.
 
-Recommended next prompt: `ZATCA sandbox OTP and compliance CSID approval plan`.
+Recommended next prompt: `ZATCA sandbox CSID request execution guard`.
+
+2026-06-06 update: `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md` now document the planning-only approval phrase, runbook, and observed `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED` result. No OTP, CSID, ZATCA network call, sandbox adapter execution, secret/body exposure, signing, clearance/reporting, PDF-A3, or production compliance was enabled.
 
 ## 1. Purpose And Scope
 
@@ -451,4 +453,4 @@ Required response:
 
 ## 20. Recommended Next Prompt
 
-`ZATCA sandbox OTP and compliance CSID approval plan`
+`ZATCA sandbox CSID request execution guard`

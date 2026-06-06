@@ -8,7 +8,7 @@ The current umbrella design is `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`; the l
 
 This onboarding plan remains the sandbox-specific planning source. No OTP/CSID/network execution is enabled.
 
-The sandbox CSID preflight guard is now documented in `SANDBOX_CSID_PREFLIGHT_GUARD.md`, with current result `PREFLIGHT_BLOCKED` in `SANDBOX_CSID_PREFLIGHT_RESULTS.md`. It checks the door and labels the locks without opening it. The next sandbox step is `ZATCA sandbox OTP and compliance CSID approval plan`.
+The sandbox CSID preflight guard is documented in `SANDBOX_CSID_PREFLIGHT_GUARD.md`, with the base result `PREFLIGHT_BLOCKED` in `SANDBOX_CSID_PREFLIGHT_RESULTS.md`. The sandbox OTP/CSID approval plan is now documented in `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`; exact phrase recognition returns `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED` and still performs no OTP/CSID/network/sandbox-adapter execution. The next sandbox step is `ZATCA sandbox CSID request execution guard`.
 
 ## Official sources inspected
 

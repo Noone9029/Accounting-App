@@ -12,7 +12,7 @@ Official reference files have now been inventoried under `reference/` and mapped
 
 2026-06-06 key custody and CSID lifecycle design status: documented only. See `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`, `CSID_LIFECYCLE_CHECKLIST.md`, and `KEY_CUSTODY_DECISION_MATRIX.md`. This does not request OTPs or CSIDs, call ZATCA, generate production credentials, enable signing, or change readiness into compliance.
 
-2026-06-06 sandbox CSID preflight guard status: `PREFLIGHT_BLOCKED`. See `SANDBOX_CSID_PREFLIGHT_GUARD.md` and `SANDBOX_CSID_PREFLIGHT_RESULTS.md`. It checks local references, CSR keys, code surfaces, env presence booleans, adapter status, and custody blockers without requesting OTP/CSID, calling ZATCA, exposing bodies, or enabling signing.
+2026-06-06 sandbox CSID preflight guard status: `PREFLIGHT_BLOCKED`. See `SANDBOX_CSID_PREFLIGHT_GUARD.md` and `SANDBOX_CSID_PREFLIGHT_RESULTS.md`. It checks local references, CSR keys, code surfaces, env presence booleans, adapter status, and custody blockers without requesting OTP/CSID, calling ZATCA, exposing bodies, or enabling signing. The sandbox OTP/CSID approval plan is documented in `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`; exact phrase recognition is planning-only and returns `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
 
 | Requirement area | Current implementation status | Relevant files | Next engineering step | Manual dependency |
 | --- | --- | --- | --- | --- |

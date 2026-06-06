@@ -12,7 +12,7 @@ This document remains the CSR/onboarding groundwork history. The current consoli
 
 The design task did not request OTPs, request CSIDs, call ZATCA, expose private-key/certificate bodies, generate production credentials, or enable production signing.
 
-`SANDBOX_CSID_PREFLIGHT_GUARD.md` and `SANDBOX_CSID_PREFLIGHT_RESULTS.md` now record the completed no-network preflight. Current status is `PREFLIGHT_BLOCKED`; the next step is `ZATCA sandbox OTP and compliance CSID approval plan`.
+`SANDBOX_CSID_PREFLIGHT_GUARD.md` and `SANDBOX_CSID_PREFLIGHT_RESULTS.md` now record the completed no-network preflight. The sandbox OTP/CSID approval plan is documented in `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`; the next step is `ZATCA sandbox CSID request execution guard`.
 
 ## Official sources inspected
 

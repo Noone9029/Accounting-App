@@ -24,7 +24,17 @@ LedgerByte is at the controlled beta/user-testing stage. The current Vercel depl
 - Current status is `PREFLIGHT_BLOCKED`; safe planning prerequisites are present, but key custody, CSID response custody, sandbox adapter execution, OTP approval, compliance CSID request approval, and production signing remain blocked.
 - No OTP was requested, no CSID was requested, no ZATCA network call was made, no private-key/certificate/CSID/token/header/request/response body was exposed, and production signing remains disabled.
 - Remaining ZATCA gaps include sandbox OTP/CSID approval planning, compliance CSID lifecycle, production CSID lifecycle, production key custody, production Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official reviews, and repeatable SDK CI.
-- Recommended next prompt: `ZATCA sandbox OTP and compliance CSID approval plan`.
+- Completed follow-up: `ZATCA sandbox OTP and compliance CSID approval plan`.
+- Recommended next prompt: `ZATCA sandbox CSID request execution guard`.
+
+## 2026-06-06 ZATCA Sandbox OTP And Compliance CSID Approval Plan
+
+- Added `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`.
+- Extended the sandbox CSID preflight guard with planning-only approval phrase recognition.
+- Observed status is `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`; approval is recognized only for planning metadata.
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no secret/body material was exposed, and no production signing/compliance was enabled.
+- Remaining ZATCA gaps include key custody implementation, CSID response custody approval, sandbox CSID request execution guard, real sandbox adapter execution, compliance invoice checks, production CSID lifecycle, production Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official reviews, and repeatable SDK CI.
+- Recommended next prompt: `ZATCA sandbox CSID request execution guard`.
 
 ## 2026-06-06 ZATCA Key Custody and CSID Lifecycle Design
 
@@ -34,7 +44,8 @@ LedgerByte is at the controlled beta/user-testing stage. The current Vercel depl
 - No OTP was requested, no CSID was requested, no ZATCA network call was made, no private-key/certificate body was exposed, no production credentials were generated, and production signing remains disabled.
 - Completed follow-up: `ZATCA sandbox CSID preflight guard`.
 - Remaining ZATCA gaps include sandbox OTP/CSID approval planning, compliance CSID lifecycle, production CSID lifecycle, production key custody, production Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official reviews, and repeatable SDK CI.
-- Recommended next prompt: `ZATCA sandbox OTP and compliance CSID approval plan`.
+- Completed follow-up: `ZATCA sandbox OTP and compliance CSID approval plan`.
+- Recommended next prompt: `ZATCA sandbox CSID request execution guard`.
 
 ## 2026-06-06 ZATCA Preparation and Key Custody Sprint
 
@@ -1392,4 +1403,5 @@ Recommended next step:
 - Confirmed it does not prove production signing, production Phase 2 QR, CSID lifecycle, clearance/reporting, PDF/A-3, signed artifact storage, or compliance.
 - Completed follow-up: `ZATCA key custody and CSID lifecycle design`.
 - Completed follow-up: `ZATCA sandbox CSID preflight guard`.
-- Remaining next step: `ZATCA sandbox OTP and compliance CSID approval plan`.
+- Completed follow-up: `ZATCA sandbox OTP and compliance CSID approval plan`.
+- Remaining next step: `ZATCA sandbox CSID request execution guard`.

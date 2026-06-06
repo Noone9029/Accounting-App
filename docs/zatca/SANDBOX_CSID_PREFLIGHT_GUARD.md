@@ -18,6 +18,8 @@ corepack pnpm zatca:sandbox-csid-preflight -- --plan --no-network --json
 
 It refuses to run without `--no-network`.
 
+Approval-plan recognition is now supported with `--approval-phrase <text>` and `--approval-plan`. Recognition is metadata-only: it does not request OTPs, request CSIDs, call ZATCA, execute the sandbox adapter, process response bodies, or enable signing.
+
 ## 2. Current State
 
 - Latest commit inspected before this guard: `06929ad5 Design ZATCA key custody CSID lifecycle`.
@@ -168,6 +170,9 @@ Primary statuses:
 - `BLOCKED_NO_NETWORK_REQUIRED`
 - `BLOCKED_MISSING_REFERENCE_DOCS`
 - `BLOCKED_MISSING_CSR_REFERENCES`
+- `BLOCKED_INVALID_APPROVAL_PHRASE`
+- `APPROVAL_PHRASE_RECOGNIZED_PLAN_FLAG_REQUIRED`
+- `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`
 - `PREFLIGHT_BLOCKED`
 - `PREFLIGHT_READY_FOR_APPROVAL_PLANNING`
 
@@ -178,6 +183,9 @@ Current expected blockers:
 - `BLOCKED_SANDBOX_ADAPTER_DISABLED`
 - `BLOCKED_OTP_NOT_APPROVED`
 - `BLOCKED_CSID_REQUEST_NOT_APPROVED`
+- `BLOCKED_APPROVAL_PLAN_FLAG_REQUIRED`
+- `BLOCKED_OTP_REQUEST_NOT_ALLOWED_BY_THIS_GUARD`
+- `BLOCKED_CSID_REQUEST_NOT_ALLOWED_BY_THIS_GUARD`
 - `BLOCKED_PRODUCTION_SIGNING_DISABLED`
 
 ## 14. Approval Gates Before Future Execution
@@ -191,6 +199,12 @@ Current expected blockers:
 
 Each gate must remain separate. Passing this preflight does not approve the next gate.
 
+The approval-plan extension is documented in:
+
+- `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`
+- `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`
+- `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`
+
 ## 15. Recommended Next Prompt
 
-`ZATCA sandbox OTP and compliance CSID approval plan`
+`ZATCA sandbox CSID request execution guard`

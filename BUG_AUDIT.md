@@ -55,6 +55,23 @@ Remaining risks:
 - No OTP was requested, no CSID was requested, no ZATCA network call was made, no private-key/certificate/CSID/token/header/request/response body was exposed, and production signing remains disabled.
 - Key custody, CSID response custody, sandbox adapter execution, OTP approval, CSID request approval, production signing, Phase 2 QR, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official/legal/accounting review, and repeatable SDK CI remain blocked.
 
+### ZATCA sandbox OTP and compliance CSID approval plan added
+
+Added the planning-only approval phrase, runbook, result doc, and guard recognition for a future sandbox OTP/compliance CSID execution guard.
+
+Risk reduced:
+
+- Added `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_PLAN.md`.
+- Added `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`.
+- Added `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`.
+- Extended `scripts/zatca-sandbox-csid-preflight.cjs` and `scripts/zatca-sandbox-csid-preflight.test.cjs` with planning-only approval recognition.
+- Observed status is `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+
+Remaining risks:
+
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no secrets/bodies were exposed, and production signing remains disabled.
+- Key custody, CSID response custody, sandbox CSID request execution guard, real sandbox adapter execution, compliance invoice checks, production CSID lifecycle, production signing, Phase 2 QR, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official/legal/accounting review, and repeatable SDK CI remain blocked.
+
 ### ZATCA key custody and CSID lifecycle design added
 
 Captured the key custody, certificate/CSID lifecycle, and sandbox approval-gate design without enabling onboarding or signing.

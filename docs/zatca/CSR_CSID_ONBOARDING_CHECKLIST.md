@@ -14,6 +14,10 @@ No OTP was requested, no CSID was requested, and no ZATCA network call was made 
 
 The guard checks CSR reference presence and CSR property keys, but it does not request OTPs, request CSIDs, call ZATCA, generate signing material, or expose request/response/credential bodies.
 
+## 2026-06-06 Sandbox OTP/CSID Approval Plan Update
+
+`SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md` now document the future approval phrase and runbook. The guard recognizes the exact phrase for planning only as `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`; no OTP request, CSID request, ZATCA network call, sandbox adapter execution, response body handling, signing, clearance/reporting, PDF-A3, or production compliance is enabled.
+
 - Current CSR generation is local development groundwork only.
 - Verify official CSR subject attributes, serial-number format, extensions, key algorithm, and certificate profile.
 - Get FATOORA sandbox access and a real OTP before testing compliance CSID onboarding.

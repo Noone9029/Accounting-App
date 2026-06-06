@@ -7,6 +7,8 @@ const path = require("node:path");
 const test = require("node:test");
 
 const SCRIPT_PATH = path.join(__dirname, "zatca-sandbox-csid-preflight.cjs");
+const APPROVAL_PHRASE =
+  "I approve ZATCA sandbox OTP and compliance CSID request planning only. No production, no customer data, no production CSID, no clearance, no reporting, no PDF-A3, no signing enablement, no secret/body exposure, and metadata-only evidence.";
 
 test("refuses without --no-network", () => {
   const repo = createRepo();
@@ -64,6 +66,84 @@ test("default status is blocked and all execution flags remain false", () => {
   assert.equal(result.productionSigningEnabled, false);
   assert.equal(result.productionComplianceEnabled, false);
   assert.equal(result.sandboxCsidRequestEnabled, false);
+});
+
+test("missing approval phrase keeps preflight blocked", () => {
+  const { buildSandboxCsidPreflight } = loadScriptWithNetworkTrap();
+  const result = buildSandboxCsidPreflight({ cwd: createRepo(), args: { plan: true }, env: {} });
+
+  assert.equal(result.status, "PREFLIGHT_BLOCKED");
+  assert.equal(result.approval.approvalPhraseProvided, false);
+  assert.equal(result.approval.approvalPhraseMatched, false);
+  assert.equal(result.otpApprovalRecognized, false);
+  assert.equal(result.complianceCsidApprovalRecognized, false);
+});
+
+test("invalid approval phrase returns invalid phrase blocker without echoing input", () => {
+  const { buildSandboxCsidPreflight } = loadScriptWithNetworkTrap();
+  const invalidPhrase = "INVALID_APPROVAL_PHRASE_VALUE_SHOULD_NOT_ECHO";
+  const result = buildSandboxCsidPreflight({
+    cwd: createRepo(),
+    args: { plan: true, approvalPhrase: invalidPhrase, approvalPlan: true },
+    env: {},
+  });
+  const output = JSON.stringify(result);
+
+  assert.equal(result.status, "BLOCKED_INVALID_APPROVAL_PHRASE");
+  assert.equal(result.approval.approvalPhraseProvided, true);
+  assert.equal(result.approval.approvalPhraseMatched, false);
+  assert.ok(result.blockers.some((blocker) => blocker.startsWith("BLOCKED_INVALID_APPROVAL_PHRASE")));
+  assert.equal(result.otpApprovalRecognized, false);
+  assert.equal(result.complianceCsidApprovalRecognized, false);
+  assert.doesNotMatch(output, /INVALID_APPROVAL_PHRASE_VALUE_SHOULD_NOT_ECHO/);
+});
+
+test("exact approval phrase without --approval-plan returns plan flag required", () => {
+  const { buildSandboxCsidPreflight } = loadScriptWithNetworkTrap();
+  const result = buildSandboxCsidPreflight({
+    cwd: createRepo(),
+    args: { plan: true, approvalPhrase: APPROVAL_PHRASE },
+    env: {},
+  });
+
+  assert.equal(result.status, "APPROVAL_PHRASE_RECOGNIZED_PLAN_FLAG_REQUIRED");
+  assert.equal(result.approval.approvalPhraseMatched, true);
+  assert.equal(result.approval.approvalPlanFlagProvided, false);
+  assert.equal(result.otpApprovalRecognized, false);
+  assert.equal(result.complianceCsidApprovalRecognized, false);
+  assert.ok(result.blockers.some((blocker) => blocker.startsWith("BLOCKED_APPROVAL_PLAN_FLAG_REQUIRED")));
+});
+
+test("exact approval phrase with --approval-plan recognizes approval but blocks execution", () => {
+  const { buildSandboxCsidPreflight } = loadScriptWithNetworkTrap();
+  const result = buildSandboxCsidPreflight({
+    cwd: createRepo(),
+    args: { plan: true, approvalPhrase: APPROVAL_PHRASE, approvalPlan: true },
+    env: {
+      ZATCA_SANDBOX_BASE_URL: "https://SANDBOX_BASE_URL_VALUE_SHOULD_NOT_ECHO.example.test",
+      ZATCA_SANDBOX_COMPLIANCE_CSID_OTP: "OTP_VALUE_SHOULD_NOT_ECHO",
+      ZATCA_PRODUCTION_BINARY_SECURITY_TOKEN: "TOKEN_VALUE_SHOULD_NOT_ECHO",
+    },
+  });
+  const output = JSON.stringify(result);
+
+  assert.equal(result.status, "APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED");
+  assert.equal(result.approval.approvalPhraseMatched, true);
+  assert.equal(result.approval.approvalPlanFlagProvided, true);
+  assert.equal(result.otpApprovalRecognized, true);
+  assert.equal(result.complianceCsidApprovalRecognized, true);
+  assert.equal(result.otpRequested, false);
+  assert.equal(result.complianceCsidRequested, false);
+  assert.equal(result.networkCallsMade, false);
+  assert.equal(result.productionComplianceEnabled, false);
+  assert.equal(result.sandboxAdapterExecuted, false);
+  assert.equal(result.productionSigningEnabled, false);
+  assert.equal(result.clearanceReportingEnabled, false);
+  assert.equal(result.pdfA3Enabled, false);
+  assert.equal(result.approval.executionAuthorizedNow, false);
+  assert.doesNotMatch(output, /SANDBOX_BASE_URL_VALUE_SHOULD_NOT_ECHO/);
+  assert.doesNotMatch(output, /OTP_VALUE_SHOULD_NOT_ECHO/);
+  assert.doesNotMatch(output, /TOKEN_VALUE_SHOULD_NOT_ECHO/);
 });
 
 test("env vars are detected by presence only, not value", () => {
@@ -134,6 +214,27 @@ test("strict mode exits nonzero when blocked", () => {
   assert.equal(result.status, 1);
   const payload = JSON.parse(result.stdout);
   assert.equal(payload.status, "PREFLIGHT_BLOCKED");
+});
+
+test("strict mode exits nonzero for approval-recognized blocked status", () => {
+  const repo = createRepo();
+  const result = spawnSync(
+    process.execPath,
+    [SCRIPT_PATH, "--plan", "--no-network", "--json", "--strict", "--approval-phrase", APPROVAL_PHRASE, "--approval-plan"],
+    {
+      cwd: repo,
+      encoding: "utf8",
+      windowsHide: true,
+    },
+  );
+
+  assert.equal(result.status, 1);
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.status, "APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED");
+  assert.equal(payload.otpRequested, false);
+  assert.equal(payload.complianceCsidRequested, false);
+  assert.equal(payload.networkCallsMade, false);
+  assert.equal(payload.sandboxAdapterExecuted, false);
 });
 
 test("no command execution occurs", () => {

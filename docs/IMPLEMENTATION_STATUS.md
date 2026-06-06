@@ -30,7 +30,15 @@ Current production posture:
 - Added root package scripts `zatca:sandbox-csid-preflight` and `test:zatca-sandbox-csid-preflight`.
 - Current preflight status is `PREFLIGHT_BLOCKED`. The guard verifies local reference presence, CSR keys, code surfaces, package scripts, env presence booleans, sandbox adapter blocking, mock-only adapter status, and custody blockers.
 - It did not request OTPs, request CSIDs, call ZATCA, execute the sandbox adapter, expose private-key/certificate/CSID/token/header/request/response bodies, generate signed XML/QR payloads, enable production signing, deploy, migrate, seed, reset, delete, or send email.
-- Current blockers are key custody, CSID response custody, sandbox adapter execution, OTP approval, compliance CSID request approval, and production signing. Recommended next prompt: `ZATCA sandbox OTP and compliance CSID approval plan`.
+- Current blockers are key custody, CSID response custody, sandbox adapter execution, OTP approval, compliance CSID request approval, and production signing. Completed follow-up: `ZATCA sandbox OTP and compliance CSID approval plan`; recommended next prompt: `ZATCA sandbox CSID request execution guard`.
+
+2026-06-06 ZATCA Sandbox OTP And Compliance CSID Approval Plan update:
+
+- Added `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`.
+- Extended `scripts/zatca-sandbox-csid-preflight.cjs` and its tests with planning-only `--approval-phrase` plus `--approval-plan` recognition.
+- Observed approval status is `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+- The approval phrase was recognized for planning only. No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no secrets/bodies were exposed, and production signing/compliance remained disabled.
+- Current blockers are key custody, CSID response custody, sandbox adapter execution guard, actual OTP capture approval, compliance CSID request execution approval, and production signing. Recommended next prompt: `ZATCA sandbox CSID request execution guard`.
 
 2026-06-06 ZATCA Key Custody and CSID Lifecycle Design update:
 

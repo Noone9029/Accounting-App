@@ -510,4 +510,5 @@ Recommended next step:
 - Findings: the local SDK dummy run proves only temp-only SDK sign, QR, and signed validation processing for sanitized generated fixtures under Java 11.0.26. It does not prove production signing, QR tags 6-9 production correctness, certificate/CSID lifecycle, clearance/reporting, PDF/A-3, signed artifact storage, or ZATCA compliance.
 - No SDK signing, QR, validation, hash, CSID/OTP, ZATCA network, clearance/reporting, PDF/A-3, migration, seed/reset/delete, deployment, or email command was executed in the review task.
 - Completed follow-up: `ZATCA sandbox CSID preflight guard`.
-- Next prompt: `ZATCA sandbox OTP and compliance CSID approval plan`.
+- Completed follow-up: `ZATCA sandbox OTP and compliance CSID approval plan`.
+- Next prompt: `ZATCA sandbox CSID request execution guard`.

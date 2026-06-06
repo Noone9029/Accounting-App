@@ -14,6 +14,10 @@ The no-network preflight guard is now implemented and documented in `SANDBOX_CSI
 
 Security result: `PREFLIGHT_BLOCKED`. The guard confirms legacy raw PEM-capable fields remain a blocker, CSID response custody is not approved, the sandbox adapter remains disabled, and no OTP/CSID/network/signing behavior was enabled. No private-key, certificate, token, CSID, auth-header, request, or response bodies were exposed.
 
+## 2026-06-06 Sandbox OTP/CSID Approval Plan Update
+
+Sandbox OTP/CSID approval planning is documented in `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`. The approval phrase is planning-only; it does not permit OTP storage/logging, CSID response body storage, sandbox adapter execution, private-key/certificate/token/secret exposure, or production signing.
+
 - Private keys in the database are development placeholders only.
 - Move real private-key generation and storage to KMS or a secrets manager before real onboarding.
 - Prevent private-key material from normal API responses, frontend state, logs, audit records, and smoke output.

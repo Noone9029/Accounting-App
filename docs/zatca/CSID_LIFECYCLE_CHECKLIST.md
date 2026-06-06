@@ -16,7 +16,9 @@ This checklist is metadata-only planning. It does not request OTPs, request comp
 | OTP requested by preflight | NOT_APPLICABLE | No OTP was requested, accepted, stored, printed, or used. |
 | Compliance CSID requested by preflight | NOT_APPLICABLE | No compliance CSID was requested. |
 | Real sandbox adapter execution | BLOCKED | Adapter remains blocked and no ZATCA network call is allowed. |
-| Next approval plan | PLANNED | `ZATCA sandbox OTP and compliance CSID approval plan`. |
+| Sandbox OTP/CSID approval plan docs | DONE_LOCAL | `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md` are metadata-only. |
+| Approval phrase recognition | DONE_LOCAL | Exact phrase plus `--approval-plan` returns `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`; no OTP/CSID/network/adapter execution occurs. |
+| Next execution guard | PLANNED | `ZATCA sandbox CSID request execution guard`. |
 
 ## Local Readiness
 
@@ -65,6 +67,7 @@ This checklist is metadata-only planning. It does not request OTPs, request comp
 | OTP requested in this task | NOT_APPLICABLE | No OTP was requested. |
 | OTP storage implemented | BLOCKED | OTP must not be stored, logged, returned, or persisted. |
 | Sandbox OTP operator approval | MANUAL_APPROVAL_REQUIRED | Future gate only. |
+| Sandbox OTP/CSID approval phrase documented | DONE_LOCAL | Phrase is planning-only and does not authorize OTP request or CSID request. |
 | Production OTP/operator flow | BLOCKED | Requires production onboarding approval. |
 
 ## Compliance CSID Request Readiness

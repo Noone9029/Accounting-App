@@ -12,7 +12,7 @@ The current recommendation is metadata-only app tables plus approved custody for
 
 ## 2026-06-06 Sandbox CSID Preflight Guard Update
 
-The sandbox CSID preflight guard is now documented in `SANDBOX_CSID_PREFLIGHT_GUARD.md`, and the current local result is in `SANDBOX_CSID_PREFLIGHT_RESULTS.md`.
+The sandbox CSID preflight guard is documented in `SANDBOX_CSID_PREFLIGHT_GUARD.md`, and the base local result is in `SANDBOX_CSID_PREFLIGHT_RESULTS.md`. The sandbox OTP/CSID approval plan is documented in `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`; approval phrase recognition does not approve response body storage, CSID request execution, sandbox adapter execution, or secret exposure.
 
 Current result: `PREFLIGHT_BLOCKED`. The guard found the custody provider surface but confirms CSID response custody remains disabled/unapproved. No OTP, CSID, token, secret, certificate, auth header, request body, response body, private key, signed XML, or QR payload body was requested, stored, printed, or exposed.
 

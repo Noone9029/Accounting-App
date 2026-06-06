@@ -20,6 +20,8 @@ Current status: `PREFLIGHT_BLOCKED`. See `SANDBOX_CSID_PREFLIGHT_GUARD.md` and `
 
 The guard verifies local reference presence, CSR property keys, ZATCA code surfaces, package scripts, env presence booleans, sandbox adapter blocking, mock-only adapter status, and CSID custody blockers. It does not request OTP/CSID, call ZATCA, run adapter HTTP, expose request/response/credential bodies, enable signing, or claim production compliance.
 
+The sandbox OTP/CSID approval plan is documented in `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`. The guard recognizes the exact approval phrase only with `--approval-plan` and returns `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`; no OTP/CSID/network/sandbox-adapter execution or body exposure is enabled.
+
 ## Current SDK CI Readiness Update
 
 The no-network SDK CI readiness guard is implemented at `corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json`. It does not run SDK validation or write XML/evidence by default.

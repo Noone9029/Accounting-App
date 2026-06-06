@@ -10,6 +10,10 @@ This matrix compares private-key, certificate, and CSID custody options for Ledg
 
 This reinforces the matrix recommendation: raw DB PEM and env-var custody are not production-acceptable; secrets manager is only a possible controlled non-production/sandbox interim; production private-key custody should move toward KMS/HSM/external signing or an equivalent non-exportable signing boundary.
 
+## 2026-06-06 Sandbox OTP/CSID Approval Plan Update
+
+`SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md` now document planning-only approval phrase recognition. The observed status is `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`; this does not approve OTP capture, compliance CSID request execution, sandbox adapter execution, response body custody, signing, clearance/reporting, PDF-A3, or production compliance.
+
 | Option | Appropriate environments | Allowed for production? | Private key exposure risk | Auditability | Rotation support | Operational complexity | Recommended status | Why |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Raw DB PEM storage | None for production; legacy local/mock fields only until removed | No | Critical | Weak | Weak | Low implementation effort, high security cost | Rejected | Ordinary DB text fields can expose key bodies through DB access, backups, logs, debugging, and accidental API selection. Existing `ZatcaEgsUnit.privateKeyPem`, `complianceCsidPem`, and `productionCsidPem` must not be treated as production custody. |

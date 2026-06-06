@@ -14,7 +14,7 @@ The SDK readiness layer remains local/no-network only. The local dummy signing p
 
 ## 2026-06-06 Sandbox CSID Preflight Guard Update
 
-The sandbox CSID preflight guard is now implemented at `corepack pnpm zatca:sandbox-csid-preflight -- --plan --no-network --json`, documented in `SANDBOX_CSID_PREFLIGHT_GUARD.md`, and summarized in `SANDBOX_CSID_PREFLIGHT_RESULTS.md`.
+The sandbox CSID preflight guard is implemented at `corepack pnpm zatca:sandbox-csid-preflight -- --plan --no-network --json`, documented in `SANDBOX_CSID_PREFLIGHT_GUARD.md`, and summarized in `SANDBOX_CSID_PREFLIGHT_RESULTS.md`. Its approval-plan extension is documented in `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`; recognition returns `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED` and remains no-network/no-execution.
 
 Current status: `PREFLIGHT_BLOCKED`. It verifies reference/code/readiness metadata only and performs no SDK signing, OTP request, CSID request, ZATCA network call, signed XML validation, QR generation, clearance/reporting, PDF-A3, or production compliance behavior.
 
