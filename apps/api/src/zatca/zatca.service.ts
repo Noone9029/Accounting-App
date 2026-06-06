@@ -504,7 +504,9 @@ export class ZatcaService {
     const sellerProfile = this.buildSellerProfileReadiness(profile);
     const egs = this.buildEgsReadinessSection(activeEgs);
     const xml = this.buildSettingsXmlReadinessSection(localXmlCount);
-    const sdk = this.buildSdkReadinessSection(this.zatcaSdkService?.getReadiness() ?? null);
+    const sdkReadiness = this.zatcaSdkService?.getReadiness() ?? null;
+    const sdk = this.buildSdkReadinessSection(sdkReadiness);
+    const generatedFixtureValidation = this.buildGeneratedFixtureValidationMetadata(sdkReadiness);
     const signing = this.buildSigningReadinessSection(activeEgs);
     const keyCustody = this.buildKeyCustodyReadinessSection(activeEgs);
     const csr = this.buildCsrReadinessSection(profile, activeEgs);
@@ -543,6 +545,29 @@ export class ZatcaService {
       status,
       localOnly: true,
       productionCompliance: false,
+      environmentPolicyDocumented: true,
+      keyCustodyDecisionDocumented: true,
+      invoiceEligibilityDocumented: true,
+      auditEvidenceStandardDocumented: true,
+      sandboxOnboardingRunbookDocumented: true,
+      sdkValidationReadinessDocumented: true,
+      sdkValidationPipelineDocumented: true,
+      sdkValidationCommandAvailable: true,
+      sdkValidationEvidenceFormatDocumented: true,
+      officialFixtureRegistryDocumented: true,
+      latestSdkValidationEvidenceStatus: "NOT_RUN",
+      sdkValidationNoNetworkOnly: true,
+      generatedStandardInvoiceFixtureStatus: generatedFixtureValidation.generatedStandardInvoiceFixtureStatus,
+      generatedCreditNoteFixtureStatus: generatedFixtureValidation.generatedCreditNoteFixtureStatus,
+      lastGeneratedFixtureEvidenceStatus: generatedFixtureValidation.lastGeneratedFixtureEvidenceStatus,
+      generatedFixtureJavaBlocker: generatedFixtureValidation.generatedFixtureJavaBlocker,
+      generatedFixtureNoNetworkOnly: true,
+      generatedFixtureProductionCompliance: false,
+      productionComplianceEnabled: false,
+      realNetworkCallsEnabled: false,
+      signingEnabled: false,
+      clearanceReportingEnabled: false,
+      pdfA3Enabled: false,
       sellerProfile,
       egs,
       xml,
@@ -5717,6 +5742,57 @@ export class ZatcaService {
       checks.push(this.check("ZATCA_SDK_WARNING", "INFO", "sdk.warnings", warning, undefined, "Review the local SDK setup note."));
     }
     return createZatcaReadinessSection("XML", checks);
+  }
+
+  private buildGeneratedFixtureValidationMetadata(
+    sdkReadiness: {
+      javaFound?: boolean;
+      javaVersion?: string | null;
+      javaVersionSupported?: boolean;
+      canRunLocalValidation?: boolean;
+      requiredJavaRange?: string;
+      blockingReasons?: string[];
+    } | null,
+  ) {
+    const standardFixtureExists = this.generatedFixtureExists("ledgerbyte-generated-standard-invoice.expected.xml");
+    const creditNoteFixtureExists = this.generatedFixtureExists("ledgerbyte-generated-credit-note.expected.xml");
+    const generatedFixtureJavaBlocker =
+      sdkReadiness?.javaFound && sdkReadiness.javaVersionSupported === false
+        ? `Detected Java ${sdkReadiness.javaVersion ?? "unknown"} is outside the SDK-supported range ${sdkReadiness.requiredJavaRange ?? ">=11 <15"}.`
+        : null;
+    const statusFor = (exists: boolean) => {
+      if (!exists) return "FIXTURE_NOT_FOUND";
+      if (!sdkReadiness) return "BLOCKED_SDK_READINESS_UNAVAILABLE";
+      if (generatedFixtureJavaBlocker) return "BLOCKED_UNSUPPORTED_JAVA";
+      if (!sdkReadiness.canRunLocalValidation) return "BLOCKED_SDK_NOT_READY";
+      return "READY_TO_VALIDATE";
+    };
+
+    return {
+      generatedStandardInvoiceFixtureStatus: statusFor(standardFixtureExists),
+      generatedCreditNoteFixtureStatus: statusFor(creditNoteFixtureExists),
+      lastGeneratedFixtureEvidenceStatus: standardFixtureExists && creditNoteFixtureExists ? (generatedFixtureJavaBlocker ? "BLOCKED_UNSUPPORTED_JAVA" : "NOT_RUN") : "FIXTURE_NOT_FOUND",
+      generatedFixtureJavaBlocker,
+    };
+  }
+
+  private generatedFixtureExists(fileName: string): boolean {
+    const relativeParts = ["packages", "zatca-core", "fixtures", fileName];
+    const candidateRoots = [
+      process.cwd(),
+      join(process.cwd(), ".."),
+      join(process.cwd(), "..", ".."),
+      join(__dirname, "..", "..", "..", ".."),
+      join(__dirname, "..", "..", "..", "..", ".."),
+    ];
+
+    return candidateRoots.some((root) => {
+      try {
+        return existsSync(join(root, ...relativeParts));
+      } catch {
+        return false;
+      }
+    });
   }
 
   private buildKeyCustodyReadinessSection(activeEgs: InternalEgsUnitRecord | null): ZatcaReadinessSection {

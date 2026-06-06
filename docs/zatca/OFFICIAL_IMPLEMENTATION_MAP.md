@@ -4,6 +4,10 @@ This is a working engineering checklist. Official ZATCA/FATOORA documentation mu
 
 This map translates the local `reference/` material into future implementation work. It does not enable real network calls and does not claim that the current LedgerByte implementation is production compliant.
 
+## 2026-06-06 Preparation Track
+
+LedgerByte now has preparation documents for environment separation, key custody decision drafting, invoice eligibility, audit evidence, sandbox onboarding, local SDK readiness, a repeatable local SDK validation command, fixture registry, and metadata-only evidence format. These documents and wrapper improve planning and readiness visibility only. They do not change the implementation status of signing, CSID onboarding, clearance, reporting, PDF/A-3, production key custody, or production compliance.
+
 Status language:
 
 - `DONE_LOCAL`: local groundwork exists but may still need official validation.
@@ -37,7 +41,7 @@ Status language:
 | Reporting API | `reference/zatca-docs/reporting.pdf` | `POST /invoices/reporting/single`; request body includes invoice hash, uuid, base64 invoice; response includes reporting status. | `NOT_STARTED` | Adapter intentionally blocks reporting; no signed XML or production CSID exists. | Implement only after signed simplified invoice validation and sandbox payload tests. | Critical |
 | Compliance check API | `reference/zatca-docs/compliance_invoice.pdf` | `POST /compliance/invoices`; request body includes invoice hash, uuid, base64 invoice; compliance CSID credentials. | `MOCK_ONLY` | Local mock compliance check is fake and does not use SDK/API validation. | Add official sample compliance-check fixtures after compliance CSID is available. | Critical |
 | PDF/A-3 embedding | SDK PDF/A-3 samples, `reference/zatca-docs/E-Invoicing_Detailed__Guideline.pdf` | SDK PDF/A-3 sample folder. | `NOT_STARTED` | LedgerByte PDFs are operational only and do not embed XML. | Inspect sample embedded files/metadata with PDF tooling later, then design PDF/A-3 generation. | Critical |
-| XML validation SDK | `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md`, SDK XSD/XSL files | SDK `-validate`; XSD and Schematron rules. | `DONE_LOCAL` | Local-only wrapper and Java 11 fixture validation exist, but it is not CI-stabilized and not production compliance evidence. | Add repeatable CI/Docker validation and generated-invoice fixture validation. | Critical |
+| XML validation SDK | `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md`, SDK XSD/XSL files | SDK `-validate`; XSD and Schematron rules. | `DONE_LOCAL` | Local-only command wrapper, fixture registry, and metadata-only evidence format exist, but CI/Docker execution, generated credit-note fixture coverage, and production compliance evidence are still missing. | Add repeatable CI/Docker validation and generated invoice/credit-note fixture validation. | Critical |
 | Error response handling | API PDFs (`compliance_csid.pdf`, `compliance_invoice.pdf`, `clearance.pdf`, `reporting.pdf`, `renewal.pdf`) | API error examples and status codes in each endpoint doc. | `SKELETON` | Current adapter errors are safe local errors only. | Build a response-code/error taxonomy from official docs and sandbox responses. | High |
 
 ## Immediate Reference-Backed Observations

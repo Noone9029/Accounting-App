@@ -681,6 +681,7 @@ export default function ZatcaSettingsPage() {
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
         {!canManageZatca ? <StatusMessage type="info">Your role can view ZATCA readiness but cannot manage profile, EGS, CSR, or CSID actions.</StatusMessage> : null}
         <StatusMessage type="info">Local ZATCA generation only. These settings do not submit invoices to ZATCA and are not production credentials.</StatusMessage>
+        <StatusMessage type="info">ZATCA production compliance is not enabled. This workspace tracks preparation gates only.</StatusMessage>
         {shouldShowZatcaRealNetworkWarning(adapterConfig) ? (
           <StatusMessage type="info">Real ZATCA calls are disabled unless explicitly enabled through environment variables.</StatusMessage>
         ) : null}
@@ -791,6 +792,35 @@ export default function ZatcaSettingsPage() {
                 <ReadinessSummary label="CSR readiness" ready={readiness.csr.status !== "BLOCKED"} detail={readiness.activeEgsUnit?.hasCsr ? "CSR exists locally" : "CSR fields still need planning"} />
                 <ReadinessSummary label="Sandbox CSID plan" ready={readiness.complianceCsidOnboarding.status !== "BLOCKED"} detail="OTP required, execution disabled, no network by default" />
                 <ReadinessSummary label="CSID custody" ready={readiness.complianceCsidCustody.status !== "BLOCKED"} detail="Token, secret, certificate custody not implemented" />
+              </div>
+              <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+                <h3 className="text-sm font-semibold text-ink">Preparation gates</h3>
+                <p className="mt-1 text-xs text-steel">Read-only production-readiness documentation and execution gates. These cards do not enable CSID requests, signing, clearance, reporting, PDF/A-3, or production ZATCA compliance.</p>
+                <p className="mt-1 text-xs text-amber-700">SDK validation is local/no-network only. It does not request CSID, sign invoices with production keys, clear invoices, report invoices, or enable production compliance.</p>
+                <p className="mt-1 text-xs text-amber-700">Generated XML fixture validation is local preparation only. Fixture statuses do not expose XML bodies and do not prove ZATCA compliance.</p>
+                <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
+                  <ReadinessSummary label="Environment separation" ready={readiness.environmentPolicyDocumented} detail="Draft policy documented; real network remains gated" />
+                  <ReadinessSummary label="Key custody decision" ready={readiness.keyCustodyDecisionDocumented} detail="Draft decision exists; production custody is pending" />
+                  <ReadinessSummary label="Invoice eligibility matrix" ready={readiness.invoiceEligibilityDocumented} detail="Invoice, credit note, draft, quote, delivery, return, and receipt rules documented" />
+                  <ReadinessSummary label="Audit evidence standard" ready={readiness.auditEvidenceStandardDocumented} detail="Allowed metadata and forbidden secrets documented" />
+                  <ReadinessSummary label="Sandbox onboarding" ready={readiness.sandboxOnboardingRunbookDocumented} detail="Blocked until OTP access and approval gates exist" />
+                  <ReadinessSummary label="SDK validation" ready={readiness.sdkValidationReadinessDocumented} detail="Local no-network validation readiness documented" />
+                  <ReadinessSummary label="SDK validation pipeline" ready={readiness.sdkValidationPipelineDocumented} detail="Repeatable local command wrapper documented" />
+                  <ReadinessSummary label="SDK command" ready={readiness.sdkValidationCommandAvailable} detail="zatca:sdk-validate-local available locally" />
+                  <ReadinessSummary label="Fixture registry" ready={readiness.officialFixtureRegistryDocumented} detail="Official and LedgerByte fixture IDs documented" />
+                  <ReadinessSummary label="Evidence format" ready={readiness.sdkValidationEvidenceFormatDocumented} detail="Metadata-only evidence schema documented" />
+                  <ReadinessSummary label="No-network mode" ready={readiness.sdkValidationNoNetworkOnly} detail="No CSID, signing, clearance, reporting, or PDF/A-3" />
+                  <ReadinessSummary label="Latest SDK evidence" ready={readiness.latestSdkValidationEvidenceStatus === "PASSED"} detail={readiness.latestSdkValidationEvidenceStatus} />
+                  <ReadinessSummary label="Generated standard XML fixture" ready={readiness.generatedStandardInvoiceFixtureStatus === "READY_TO_VALIDATE"} detail={readiness.generatedStandardInvoiceFixtureStatus} />
+                  <ReadinessSummary label="Generated credit-note XML fixture" ready={readiness.generatedCreditNoteFixtureStatus === "READY_TO_VALIDATE"} detail={readiness.generatedCreditNoteFixtureStatus} />
+                  <ReadinessSummary label="Generated fixture evidence" ready={readiness.lastGeneratedFixtureEvidenceStatus === "PASSED"} detail={readiness.lastGeneratedFixtureEvidenceStatus} />
+                  <ReadinessSummary label="Generated fixture Java" ready={!readiness.generatedFixtureJavaBlocker} detail={readiness.generatedFixtureJavaBlocker ?? "Java runtime not blocking local preparation"} />
+                  <ReadinessSummary label="Signing" ready={readiness.signingEnabled} detail="Not implemented" />
+                  <ReadinessSummary label="Clearance/reporting" ready={readiness.clearanceReportingEnabled} detail="Not implemented" />
+                  <ReadinessSummary label="PDF/A-3" ready={readiness.pdfA3Enabled} detail="Not implemented" />
+                  <ReadinessSummary label="Production compliance claim" ready={readiness.productionComplianceEnabled} detail="Blocked" />
+                  <ReadinessSummary label="Real network calls" ready={readiness.realNetworkCallsEnabled} detail="Disabled for this preparation sprint" />
+                </div>
               </div>
               <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <ReadinessCheckCard title="Seller invoice XML profile" section={readiness.sellerProfile} />

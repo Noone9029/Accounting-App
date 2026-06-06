@@ -15,6 +15,7 @@ The table below maps LedgerByte's current local XML skeleton to future Phase 2 w
 | Issue date/time | `SalesInvoice.issueDate` | `/Invoice/cbc:IssueDate`, `/Invoice/cbc:IssueTime` | `IMPLEMENTED_LOCAL` | Yes | UTC formatting is deterministic. Official timezone/source rules need verification. |
 | Invoice type code | `ZatcaInvoiceMetadata.zatcaInvoiceType` | `/Invoice/cbc:InvoiceTypeCode` plus `name` transaction flags | `IMPLEMENTED_LOCAL` | Yes | Standard and simplified invoice fixtures use official sample flags `0100000` and `0200000`. Broader scenario flags still need official fixture coverage. |
 | Currency | `SalesInvoice.currency` | `/Invoice/cbc:DocumentCurrencyCode`, `/Invoice/cbc:TaxCurrencyCode` | `IMPLEMENTED_LOCAL` | Yes | Local skeleton emits the invoice currency. |
+| Credit note billing reference | `ZatcaInvoiceInput.billingReferenceInvoiceNumber` | `/Invoice/cac:BillingReference/cac:InvoiceDocumentReference/cbc:ID` | `IMPLEMENTED_LOCAL` | Yes | Used only for credit/debit note local fixtures. The generated credit note references sanitized invoice number `LB-GEN-STD-0001`. |
 
 ## Delivery/Supply Date
 
@@ -64,6 +65,7 @@ The table below maps LedgerByte's current local XML skeleton to future Phase 2 w
 | Requirement area | LedgerByte source | XML target | Status | Official verification required | Notes |
 | --- | --- | --- | --- | --- | --- |
 | Payment means | Not mapped | `/Invoice/cac:PaymentMeans` | `NOT_STARTED` | Yes | Do not implement until official requirements are verified. |
+| Credit/debit note payment means and reason | `ZatcaInvoiceInput.paymentMeansCode`, `ZatcaInvoiceInput.noteReason` | `/Invoice/cac:PaymentMeans/cbc:PaymentMeansCode` and `/Invoice/cac:PaymentMeans/cbc:InstructionNote` | `IMPLEMENTED_LOCAL` | Yes | Implemented only for local credit/debit note XML fixture generation from inspected official samples and Schematron rules. This is not signing, clearance/reporting, or production compliance. |
 | Settlement/allowance details | Not mapped | Official target pending | `NOT_STARTED` | Yes | Needs accounting-model and official XML mapping review. |
 
 ## Hash/ICV Placeholders

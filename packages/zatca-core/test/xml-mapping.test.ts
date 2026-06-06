@@ -25,6 +25,20 @@ describe("ZATCA XML mapping scaffold", () => {
     assert.equal(buildZatcaInvoiceXml(input), expected);
   });
 
+  it("matches generated local standard invoice fixture", () => {
+    const input = readFixtureInput("ledgerbyte-generated-standard-invoice");
+    const expected = readFixtureXml("ledgerbyte-generated-standard-invoice");
+
+    assert.equal(buildZatcaInvoiceXml(input), expected);
+  });
+
+  it("matches generated local credit note fixture", () => {
+    const input = readFixtureInput("ledgerbyte-generated-credit-note");
+    const expected = readFixtureXml("ledgerbyte-generated-credit-note");
+
+    assert.equal(buildZatcaInvoiceXml(input), expected);
+  });
+
   it("matches local simplified invoice fixture", () => {
     const input = readFixtureInput("local-simplified-tax-invoice");
     const expected = readFixtureXml("local-simplified-tax-invoice");
@@ -135,9 +149,30 @@ describe("ZATCA XML mapping scaffold", () => {
   it("maps invoice type transaction flags from official samples", () => {
     const standardXml = buildZatcaInvoiceXml(readFixtureInput("local-standard-tax-invoice"));
     const simplifiedXml = buildZatcaInvoiceXml(readFixtureInput("local-simplified-tax-invoice"));
+    const creditNoteXml = buildZatcaInvoiceXml(readFixtureInput("ledgerbyte-generated-credit-note"));
 
     assert.match(standardXml, /<cbc:InvoiceTypeCode name="0100000">388<\/cbc:InvoiceTypeCode>/);
     assert.match(simplifiedXml, /<cbc:InvoiceTypeCode name="0200000">388<\/cbc:InvoiceTypeCode>/);
+    assert.match(creditNoteXml, /<cbc:InvoiceTypeCode name="0100000">381<\/cbc:InvoiceTypeCode>/);
+  });
+
+  it("emits credit note billing reference and issue reason in official sample order", () => {
+    const xml = buildZatcaInvoiceXml(readFixtureInput("ledgerbyte-generated-credit-note"));
+
+    assert.match(
+      xml,
+      /<cac:BillingReference>\n    <cac:InvoiceDocumentReference>\n      <cbc:ID>LB-GEN-STD-0001<\/cbc:ID>\n    <\/cac:InvoiceDocumentReference>\n  <\/cac:BillingReference>/,
+    );
+    assert.match(xml, /<cbc:PaymentMeansCode>10<\/cbc:PaymentMeansCode>/);
+    assert.match(xml, /<cbc:InstructionNote>Local demo goods return<\/cbc:InstructionNote>/);
+    assertMarkersInOrder(xml, [
+      "<cbc:TaxCurrencyCode>SAR</cbc:TaxCurrencyCode>",
+      "<cac:BillingReference>",
+      "<cbc:ID>ICV</cbc:ID>",
+      "<cac:Delivery>",
+      "<cac:PaymentMeans>",
+      "<cac:TaxTotal>",
+    ]);
   });
 
   it("emits seller PartyIdentification only for official BR-KSA-08 scheme and alphanumeric value", () => {
@@ -244,6 +279,28 @@ describe("ZATCA XML mapping scaffold", () => {
 
     assert.equal(result.valid, false);
     assert.ok(result.errors.includes("At least one invoice line is required."));
+  });
+
+  it("local validation rejects credit notes without original invoice reference and reason", () => {
+    const input = readFixtureInput("ledgerbyte-generated-credit-note");
+    const result = validateLocalZatcaXml({
+      ...input,
+      billingReferenceInvoiceNumber: "",
+      noteReason: "",
+      paymentMeansCode: "99",
+    });
+
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.includes("Original invoice reference is required for credit and debit notes."));
+    assert.ok(result.errors.includes("Credit and debit note reason is required."));
+    assert.ok(result.errors.includes("Payment means code must be one of the official local fixture codes: 1, 10, 30, 42, or 48."));
+  });
+
+  it("local generated credit note references the generated standard invoice", () => {
+    const input = readFixtureInput("ledgerbyte-generated-credit-note");
+
+    assert.equal(input.billingReferenceInvoiceNumber, "LB-GEN-STD-0001");
+    assert.equal(validateLocalZatcaXml(input).valid, true);
   });
 
   it("warns about missing Saudi standard buyer building number without inserting fake XML data", () => {

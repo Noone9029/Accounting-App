@@ -47,6 +47,9 @@ export interface ZatcaInvoiceInput {
   invoiceUuid: string;
   invoiceNumber: string;
   invoiceType: ZatcaInvoiceType;
+  billingReferenceInvoiceNumber?: string | null;
+  noteReason?: string | null;
+  paymentMeansCode?: string | null;
   issueDate: string | Date;
   supplyDate?: string | Date | null;
   currency: string;
@@ -176,6 +179,7 @@ export function buildZatcaInvoiceXml(input: ZatcaInvoiceInput): string {
     buildSupplierPartyXml(input.seller),
     buildCustomerPartyXml(input.buyer),
     buildDeliveryXml(input),
+    buildPaymentMeansXml(input),
     buildTaxTotalXml(input),
     buildLegalMonetaryTotalXml(input),
     buildInvoiceLinesXml(input.lines, input.currency),
@@ -205,10 +209,29 @@ export function buildInvoiceHeaderXml(input: ZatcaInvoiceInput): string {
     `  <cbc:InvoiceTypeCode name="${zatcaTransactionCodeFlags[input.invoiceType]}">${ublInvoiceTypeCodes[input.invoiceType]}</cbc:InvoiceTypeCode>`,
     `  <cbc:DocumentCurrencyCode>${escapeXml(input.currency)}</cbc:DocumentCurrencyCode>`,
     `  <cbc:TaxCurrencyCode>${escapeXml(input.currency)}</cbc:TaxCurrencyCode>`,
+    buildBillingReferenceXml(input),
     buildAdditionalDocumentReferencesXml(input),
   ]
     .filter((line) => line !== "")
     .join("\n");
+}
+
+export function buildBillingReferenceXml(input: Pick<ZatcaInvoiceInput, "invoiceType" | "billingReferenceInvoiceNumber">): string {
+  if (!isCreditOrDebitNote(input.invoiceType)) {
+    return "";
+  }
+  const originalInvoiceNumber = input.billingReferenceInvoiceNumber?.trim();
+  if (!originalInvoiceNumber) {
+    return "";
+  }
+
+  return [
+    "  <cac:BillingReference>",
+    "    <cac:InvoiceDocumentReference>",
+    `      <cbc:ID>${escapeXml(originalInvoiceNumber)}</cbc:ID>`,
+    "    </cac:InvoiceDocumentReference>",
+    "  </cac:BillingReference>",
+  ].join("\n");
 }
 
 export function buildAdditionalDocumentReferencesXml(input: ZatcaInvoiceInput): string {
@@ -266,6 +289,23 @@ export function buildDeliveryXml(input: Pick<ZatcaInvoiceInput, "supplyDate">): 
     `    <cbc:ActualDeliveryDate>${formatXmlDate(input.supplyDate)}</cbc:ActualDeliveryDate>`,
     "  </cac:Delivery>",
   ].join("\n");
+}
+
+export function buildPaymentMeansXml(input: Pick<ZatcaInvoiceInput, "invoiceType" | "noteReason" | "paymentMeansCode">): string {
+  if (!isCreditOrDebitNote(input.invoiceType)) {
+    return "";
+  }
+  const noteReason = input.noteReason?.trim();
+  const paymentMeansCode = input.paymentMeansCode?.trim() || "10";
+
+  return [
+    "  <cac:PaymentMeans>",
+    `    <cbc:PaymentMeansCode>${escapeXml(paymentMeansCode)}</cbc:PaymentMeansCode>`,
+    noteReason ? `    <cbc:InstructionNote>${escapeXml(noteReason)}</cbc:InstructionNote>` : "",
+    "  </cac:PaymentMeans>",
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
 }
 
 export function buildTaxTotalXml(input: Pick<ZatcaInvoiceInput, "taxTotal" | "taxableTotal" | "currency">): string {
@@ -507,6 +547,10 @@ function buildInvoiceLineXml(line: ZatcaInvoiceLineInput, lineNumber: number, cu
 function resolvePreviousInvoiceHash(previousInvoiceHash: string | null | undefined): string {
   const trimmed = previousInvoiceHash?.trim();
   return trimmed || initialPreviousInvoiceHash;
+}
+
+export function isCreditOrDebitNote(invoiceType: ZatcaInvoiceType): boolean {
+  return invoiceType === "CREDIT_NOTE" || invoiceType === "DEBIT_NOTE";
 }
 
 function removeXmlElementByPrefixAndName(xml: string, prefix: string, elementName: string): string {

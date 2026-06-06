@@ -1,0 +1,118 @@
+# ZATCA SDK Validation Evidence Format
+
+Date: 2026-06-06
+
+This standard defines metadata-only evidence for local/no-network official SDK validation runs. Evidence must not contain full XML bodies, QR payload bodies, private keys, tokens, headers, customer-sensitive payloads, or full SDK stdout/stderr.
+
+## Evidence Scope
+
+Allowed:
+
+- Run ID and timestamp.
+- Local validation environment label.
+- Java version.
+- SDK presence and SDK version label when detectable.
+- Fixture ID and fixture type.
+- Invoice kind.
+- Validation mode.
+- Pass/fail/blocker status.
+- Safe warning/error code summaries.
+- Redaction flags.
+- No-network and production-disabled flags.
+
+Forbidden:
+
+- Unsigned or signed XML bodies.
+- QR payload bodies.
+- Private keys or PEM material.
+- OTPs.
+- CSID secret material.
+- API credentials, auth tokens, and headers.
+- Full ZATCA request/response bodies.
+- Customer-sensitive payload bodies.
+
+## Top-Level Fields
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `validationRunId` | string | Yes | Stable ID for the local run. |
+| `timestamp` | ISO string | Yes | Run timestamp. |
+| `environment` | string | Yes | Must be `LOCAL_SDK_NO_NETWORK` for this sprint. |
+| `validationMode` | string | Yes | Must be `OFFICIAL_SDK_VALIDATE_NO_NETWORK` for this wrapper. |
+| `noNetworkOnly` | boolean | Yes | Must be `true`. |
+| `sdkPathFound` | boolean | Yes | Presence metadata only. |
+| `javaVersion` | string or null | Yes | Java version, not Java path. |
+| `sdkVersion` | string or null | Yes | Version label from SDK JAR name if detectable. |
+| `summary` | object | Yes | Counts by pass/fail/blocker. |
+| `runs` | array | Yes | One entry per fixture. |
+| `xmlBodyPrinted` | false | Yes | Must remain false. |
+| `qrPayloadPrinted` | false | Yes | Must remain false. |
+| `privateKeyPrinted` | false | Yes | Must remain false. |
+| `networkCallsMade` | false | Yes | Must remain false. |
+| `productionComplianceEnabled` | false | Yes | Must remain false. |
+
+## Per-Fixture Fields
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `validationRunId` | string | Yes | Same run ID as top-level evidence. |
+| `timestamp` | ISO string | Yes | Same timestamp as top-level evidence. |
+| `environment` | string | Yes | `LOCAL_SDK_NO_NETWORK`. |
+| `sdkPathFound` | boolean | Yes | No local absolute SDK path required. |
+| `javaVersion` | string or null | Yes | Java version only. |
+| `sdkVersion` | string or null | Yes | SDK version label if detectable. |
+| `fixtureId` | string | Yes | Registry fixture ID. |
+| `fixtureType` | string | Yes | Official or LedgerByte-generated category. |
+| `invoiceKind` | string | Yes | Invoice, credit note, debit note, or related fixture kind. |
+| `validationMode` | string | Yes | `OFFICIAL_SDK_VALIDATE_NO_NETWORK`. |
+| `status` | string | Yes | `PASSED`, `FAILED`, or `BLOCKED`. |
+| `passed` | boolean | Yes | True only when local SDK validation passes. |
+| `validationAttempted` | boolean | Yes | False for safe blockers. |
+| `sdkExitCode` | number or null | Yes | Null when blocked before execution. |
+| `warningsCount` | number | Yes | Count of metadata-only warning records. |
+| `errorsCount` | number | Yes | Count of metadata-only error/blocker records. |
+| `safeErrorCodes` | string[] | Yes | Safe codes only, no body text. |
+| `safeWarningCodes` | string[] | Yes | Safe codes only, no body text. |
+| `hashGenerated` | false | Yes | This wrapper validates only; it does not generate hash evidence. |
+| `xmlBodyPrinted` | false | Yes | Must remain false. |
+| `qrPayloadPrinted` | false | Yes | Must remain false. |
+| `privateKeyPrinted` | false | Yes | Must remain false. |
+| `networkCallsMade` | false | Yes | Must remain false. |
+| `realNetworkCallsEnabled` | false | Yes | Must remain false. |
+| `signingEnabled` | false | Yes | Must remain false. |
+| `clearanceReportingEnabled` | false | Yes | Must remain false. |
+| `pdfA3Enabled` | false | Yes | Must remain false. |
+| `blockers` | string[] | Yes | Safe blocker summaries. |
+| `warnings` | string[] | Yes | Safe warning summaries. |
+
+## Redaction Requirements
+
+Evidence producers must:
+
+- Sanitize SDK output before extracting safe codes.
+- Drop full stdout/stderr from the persisted evidence format.
+- Replace private key and credential-like strings before any local console output.
+- Treat XML and QR payload bodies as forbidden even when fixtures contain only demo data.
+- Record `networkCallsMade: false` only when the wrapper has not invoked any network operation.
+
+## Sample
+
+See `docs/zatca/evidence/sample-sdk-validation-evidence.json` for a sanitized example.
+
+## 2026-06-06 Generated XML Fixture Evidence
+
+Generated LedgerByte XML fixture validation evidence uses the same metadata-only format. The current generated-fixture evidence file is:
+
+- `docs/zatca/evidence/generated-xml-fixture-validation-20260606.json`
+
+Required generated-fixture additions:
+
+- `fixtureId` must be either `ledgerbyte-generated-standard-invoice` or `ledgerbyte-generated-credit-note`.
+- `fixtureType` must remain `ledgerbyte-generated`.
+- `sourceCategory` may be represented by the registry entry rather than by XML content in evidence.
+- `noNetworkOnly` must be `true`.
+- `productionComplianceEnabled` must be `false`.
+- Redaction flags for XML body, QR payload, private key, token, and headers must remain `false`.
+- `safeErrorCodes` and `safeWarningCodes` may include rule IDs only; they must not include raw XML, raw QR data, customer/vendor payloads, request bodies, response bodies, or stdout/stderr bodies.
+
+The 2026-06-06 evidence recorded both generated fixtures as `PASSED` under Java 11.0.26 and SDK `238-R3.4.8`. Default Java 17 remains unsupported for this SDK range and must produce a blocker instead of a false pass.

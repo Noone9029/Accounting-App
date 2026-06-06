@@ -16,6 +16,10 @@ Current fixtures are deliberately labeled as local dev fixtures:
 - `local-standard-tax-invoice.expected.xml`
 - `local-simplified-tax-invoice.input.json`
 - `local-simplified-tax-invoice.expected.xml`
+- `ledgerbyte-generated-standard-invoice.input.json`
+- `ledgerbyte-generated-standard-invoice.expected.xml`
+- `ledgerbyte-generated-credit-note.input.json`
+- `ledgerbyte-generated-credit-note.expected.xml`
 
 ## What These Fixtures Are
 
@@ -56,6 +60,17 @@ The local tests compare generated XML against the expected local XML text. They 
 - SDK hash output parsing and read-only hash comparison response shape
 
 These tests are engineering guardrails only. Official ZATCA/FATOORA validation remains a future manual dependency.
+
+## 2026-06-06 Generated Standard Invoice And Credit Note Fixtures
+
+`corepack pnpm zatca:generate-local-xml-fixtures` builds deterministic sanitized local XML snapshots for:
+
+- `ledgerbyte-generated-standard-invoice`
+- `ledgerbyte-generated-credit-note`
+
+The generated fixtures use safe demo seller/buyer data, official sample-style Saudi address fields, safe invoice numbers, the official first-PIH seed for local fixture validation, and no production/beta/customer data. The credit note references the generated standard invoice number `LB-GEN-STD-0001` through the official billing-reference shape.
+
+The XML snapshots are committed under `packages/zatca-core/fixtures` because the existing project fixture policy uses deterministic local XML snapshots for regression tests. Evidence remains metadata-only and must not persist or print XML bodies. The current generated-fixture SDK evidence is `docs/zatca/evidence/generated-xml-fixture-validation-20260606.json`.
 
 ## Generated XML PIH Debug Fixture
 

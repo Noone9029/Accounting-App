@@ -212,6 +212,23 @@ The repo path is `E:\Accounting App`, which contains a space. Earlier SDK launch
 6. Decide whether production uses SDK `-generateHash` directly or a verified in-process C14N11 fallback.
 7. Keep signing, real API calls, production CSID, clearance/reporting, and PDF/A-3 out of scope until canonical hash-chain and signed XML validation are stable locally.
 
+## 2026-06-06 Generated XML Fixture Validation Update
+
+The local CLI wrapper now validates two deterministic LedgerByte-generated sanitized XML fixtures:
+
+- `ledgerbyte-generated-standard-invoice` from `packages/zatca-core/fixtures/ledgerbyte-generated-standard-invoice.expected.xml`
+- `ledgerbyte-generated-credit-note` from `packages/zatca-core/fixtures/ledgerbyte-generated-credit-note.expected.xml`
+
+The generator command is:
+
+```bash
+corepack pnpm zatca:generate-local-xml-fixtures
+```
+
+The generator uses sanitized local demo JSON inputs and prints metadata only: fixture ID, relative path, size, hash, no-network flag, and redaction flags. It does not print XML bodies, QR payload bodies, secrets, headers, customer/vendor payloads, or request/response bodies.
+
+The wrapper accepts `ZATCA_SDK_JAVA_BIN` for a Java 11-14 binary and does not change global Java. Because the repo path contains a space, the wrapper stages the official SDK launcher and JAR into an isolated temporary no-space workspace and writes a temporary config pointing back to the repo-local official SDK `Data`, `Rules`, `Certificates`, `PIH`, `Input`, and `usage.txt` files. The temp workspace is cleaned after execution. This is local/no-network validation only and does not sign, request CSIDs, clear/report invoices, generate PDF/A-3, or claim production compliance.
+
 ## Compliance Warning
 
 SDK readiness and dry-run command planning are engineering tools only. Passing local SDK validation in the future would still not be legal certification or production ZATCA compliance without official sandbox onboarding, valid CSIDs, signing, API validation, PDF/A-3/archive decisions, and legal/operational review.

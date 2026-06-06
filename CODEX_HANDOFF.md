@@ -6,6 +6,11 @@
 
 ## Current Development Objective
 
+- Latest sprint completed: ZATCA local generated XML fixture validation.
+- Latest commit inspected before the sprint: `704aa1d5 feat: add Sales AR and purchase matching workflows`.
+- Generated fixtures added: `ledgerbyte-generated-standard-invoice` and `ledgerbyte-generated-credit-note`.
+- Evidence added: `docs/zatca/evidence/generated-xml-fixture-validation-20260606.json`, metadata-only, no XML bodies or secrets.
+- Java/SDK status: default Java 17 is unsupported and safely blocks; Java 11.0.26 via `ZATCA_SDK_JAVA_BIN` passed local/no-network SDK validation for both generated fixtures.
 - Production hosting research is paused.
 - AWS remains the known future production direction from proposed ADR-001/ADR-013.
 - Vercel remains beta/user-testing/staging only, not final production hosting.
@@ -5470,4 +5475,4 @@
 
 ## Next Thread Prompt
 
-`DEV-13 Part 1: role permission matrix production-gap and E2E readiness preflight`
+`ZATCA next sprint: local signed XML validation plan or repeatable SDK CI runner design`

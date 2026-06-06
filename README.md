@@ -2559,3 +2559,10 @@ Recommended next step:
 - RPO/RTO and legal/accounting retention durations remain business-review items. LedgerByte does not infer legal retention periods in code or docs.
 - Latest backup/restore readiness verification: `corepack pnpm db:generate`, `corepack pnpm db:migrate`, targeted API system tests, targeted web storage tests, `corepack pnpm typecheck`, `corepack pnpm build`, `corepack pnpm smoke:accounting`, `git diff --check`, and `git diff --cached --check`.
 - Recommended next prompt: execute a non-production Supabase/Postgres restore drill and object-storage backup verification with sanitized evidence, without exposing secrets or customer content.
+
+## ZATCA local generated XML fixture validation
+
+- `corepack pnpm zatca:generate-local-xml-fixtures` generates sanitized local XML fixtures for a standard invoice and a standard credit note from demo data only.
+- `corepack pnpm zatca:sdk-validate-local -- --fixture ledgerbyte-generated-standard-invoice --fixture ledgerbyte-generated-credit-note --no-network --json` validates those fixtures through the repo-local official SDK wrapper with metadata-only evidence.
+- Java 11-14 is required for the SDK. Default Java 17 remains a safe blocker; use `ZATCA_SDK_JAVA_BIN` for a compatible local Java binary without changing global Java.
+- This is local preparation only. It does not sign XML, request OTP/CSID, call ZATCA, clear/report invoices, generate PDF/A-3, send email, deploy, or prove production compliance.

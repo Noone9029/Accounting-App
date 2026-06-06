@@ -3235,3 +3235,11 @@ Recommended next step:
 - DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - Remaining generated-document production gaps include object storage, database/base64 migration, signed URLs, lifecycle policy, legal hold, tax/accounting retention approval, customer-data deletion/retention conflict handling, malware scanning, restore proof, backup proof, purge executor, versioning/supersede policy, PDF/A-3/ZATCA artifact boundaries, hosted/beta/customer-data proof, broad E2E/smoke/full-test coverage, load/concurrency for large PDFs, and accountant/legal review.
 - No app code, runtime mutation in the closure step, new download, PDF/base64/body output, deploy, production/beta/customer data, external object storage, migration, seed/reset/delete, backup/restore, full smoke, full E2E, or environment/provider setting changed.
+
+# ZATCA local generated XML fixture validation - 2026-06-06
+
+- No product bug requiring production mutation was found in the generated-fixture sprint.
+- Added sanitized deterministic generated XML fixtures for a standard invoice and a standard credit note and validated both through the local official SDK wrapper with Java 11.0.26.
+- Default Java 17 remains a safe unsupported-runtime blocker and must not be treated as valid SDK readiness.
+- Evidence is metadata-only and does not include XML bodies, QR payload bodies, private keys, CSID material, OTPs, tokens, headers, request/response bodies, customer/vendor payloads, or unsafe SDK stdout/stderr.
+- Remaining ZATCA blockers are unchanged: key custody, sandbox OTP/CSID, signing, Phase 2 QR, clearance/reporting, PDF/A-3, retry/error queue, production signed artifact storage, official reviews, and repeatable SDK CI.

@@ -17,3 +17,18 @@ This is a working engineering checklist. Official ZATCA/FATOORA documentation mu
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Certificates/ec-secp256k1-priv-key.pem`
 
 The SDK readme labels the bundled certificate and private key as dummy/testing material. They must not be used as LedgerByte tenant credentials or production secrets.
+
+## 2026-06-06 Key Custody Preparation
+
+- `ZATCA_KEY_CUSTODY_DECISION_DRAFT.md` records KMS/HSM, secrets-manager, encrypted database, and local development custody options.
+- Production private-key custody remains undecided and unimplemented.
+- Local database PEM placeholders remain development-only and are not production custody.
+- `ZATCA_AUDIT_EVIDENCE_STANDARD.md` defines metadata that may be stored and secret/body material that must not be logged.
+- No real KMS, HSM, secrets-manager, production private key, production CSID, signing, clearance/reporting, PDF/A-3, or production compliance behavior is implemented by the preparation sprint.
+
+## 2026-06-06 SDK Validation Evidence Boundary
+
+- `ZATCA_SDK_VALIDATION_EVIDENCE_FORMAT.md` defines metadata-only SDK validation evidence.
+- SDK validation evidence must keep `xmlBodyPrinted`, `qrPayloadPrinted`, `privateKeyPrinted`, `networkCallsMade`, and `productionComplianceEnabled` false.
+- The local wrapper must not persist or print XML bodies, QR payload bodies, private keys, OTPs, CSID token/secret material, auth tokens, headers, or full request/response bodies.
+- This evidence boundary does not implement KMS, secrets-manager custody, signing, clearance/reporting, PDF/A-3, or production compliance.
