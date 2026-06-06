@@ -705,3 +705,9 @@ Safety guarantees:
 
 Recommended next step:
 - Add a non-executing provider-reference audit and rotation plan before any real sandbox custody provider implementation.
+
+## ZATCA local dummy signing dry-run guard - 2026-06-06
+
+Added `scripts/zatca-local-dummy-signing-dry-run.cjs` and `corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json` as a metadata-only guard. It checks Java compatibility, local SDK/reference availability, generated fixture paths, SDK dummy certificate/private-key path presence, approval-marker presence, and documented SDK sign/QR/validate/hash command shapes.
+
+Current gap status remains blocked: the guard does not execute signing, QR generation, signed XML validation, CSID/OTP, network calls, clearance/reporting, PDF/A-3, signed XML/QR persistence, or production compliance. Default Java 17 remains unsupported; Java 11-14 is readiness metadata only until a future approved execution sprint.

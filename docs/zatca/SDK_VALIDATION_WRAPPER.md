@@ -251,6 +251,16 @@ This guard is planning-only. It inspects SDK/reference availability, Java metada
 
 The output remains blocked by default with signing execution disabled, production compliance false, no-network true, and future evidence policy set to metadata-only.
 
+## 2026-06-06 Local Dummy Signing Dry-Run Guard
+
+The dummy signing guard command is:
+
+```bash
+corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json
+```
+
+It reports a planned local command sequence only: `fatoora -sign -invoice <temp-unsigned.xml> -signedInvoice <temp-signed.xml>`, `fatoora -qr -invoice <temp-signed.xml>`, and `fatoora -validate -invoice <temp-signed.xml>`. The script never invokes those commands in this sprint, never reads certificate/private-key body content, never prints XML or QR payload bodies, and never creates signed XML. `--strict` exits nonzero while the guard status is blocked.
+
 Current result is `CI_BLOCKED_MISSING_SDK_REFERENCE`: the SDK reference exists locally but is ignored and not reproducible from a fresh CI checkout. Default Java 17 is also unsupported. PR CI remains non-ZATCA until SDK reference/acquisition, Java 11-14, and artifact retention policy are approved.
 
 ## Compliance Warning

@@ -1347,3 +1347,9 @@ Recommended next step:
 - Evidence: `docs/zatca/evidence/generated-xml-fixture-validation-20260606.json`, metadata-only with XML/QR/secret/body redaction flags and `productionCompliance=false`.
 - Java runner decision: default Java 17 remains unsupported; local validation uses explicit Java 11-14 through `ZATCA_SDK_JAVA_BIN` and an isolated temporary no-space SDK launcher workspace. Docker is not required for the current local path.
 - Remaining ZATCA roadmap items: key custody decision, sandbox OTP/CSID, signing, Phase 2 QR, clearance/reporting, PDF/A-3, retry/error queue, production secure signed artifact storage, official reviews, and repeatable SDK CI.
+
+# ZATCA local dummy signing dry-run guard - 2026-06-06
+
+- Added a root guard command for the next signing-adjacent step: `corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json`.
+- The command only plans future temp-file `fatoora -sign`, `-qr`, and `-validate` steps. It keeps signing, QR, signed XML validation, CSID/OTP, ZATCA network calls, PDF/A-3, persistence, and production compliance disabled.
+- Remaining next step: design an approved local dummy signing execution plan that still uses temp-only sanitized fixtures and metadata-only evidence.

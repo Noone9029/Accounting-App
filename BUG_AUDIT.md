@@ -3275,3 +3275,10 @@ Recommended next step:
 - Default Java 17 remains a safe unsupported-runtime blocker and must not be treated as valid SDK readiness.
 - Evidence is metadata-only and does not include XML bodies, QR payload bodies, private keys, CSID material, OTPs, tokens, headers, request/response bodies, customer/vendor payloads, or unsafe SDK stdout/stderr.
 - Remaining ZATCA blockers are unchanged: key custody, sandbox OTP/CSID, signing, Phase 2 QR, clearance/reporting, PDF/A-3, retry/error queue, production signed artifact storage, official reviews, and repeatable SDK CI.
+
+# ZATCA local dummy signing dry-run guard - 2026-06-06
+
+- No signing bug was fixed and no signing execution was attempted.
+- Added `scripts/zatca-local-dummy-signing-dry-run.cjs` to report readiness and planned SDK command shapes while keeping signing, QR, and signed XML validation execution disabled.
+- The guard checks dummy certificate/private-key path presence only and does not read or expose their bodies.
+- Remaining blockers are unchanged: explicit future local dummy signing approval, Java 11-14 for SDK execution, SDK reference/CI policy, key custody, sandbox OTP/CSID, Phase 2 QR, clearance/reporting, PDF/A-3, signed artifact storage, official review, and production compliance.

@@ -136,3 +136,9 @@ The guard output must remain metadata-only:
 Future local dummy signed XML validation evidence may record run ID, timestamp, fixture ID/type, SDK version, Java version, signing/QR/validation stage status, safe warning/error codes, cleanup status, no-network flag, production-compliance false, and redaction flags.
 
 Future evidence must still omit XML bodies, signed XML bodies, QR payload bodies, private keys, certificate bodies, OTPs, CSID material, tokens, auth headers, request/response bodies, customer/vendor payloads, attachment bodies, and raw unsafe SDK stdout/stderr.
+
+## 2026-06-06 Local Dummy Signing Dry-Run Guard Output
+
+`corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json` emits command-plan metadata only. It records Java compatibility, SDK/reference presence, generated fixture path presence, SDK dummy certificate/private-key path presence, explicit approval-marker presence, and planned `fatoora -sign`, `-qr`, and `-validate` command shapes.
+
+This output is still not signed XML validation evidence. It must keep `networkCallsMade=false`, `productionComplianceEnabled=false`, `signingExecutionEnabled=false`, `dummySigningAllowed=false`, `qrExecutionEnabled=false`, `signedValidationExecutionEnabled=false`, and all body redaction flags false. It must not include XML bodies, signed XML bodies, QR payload bodies, certificate/private-key bodies, approval-marker values, tokens, auth headers, request/response bodies, customer/vendor payloads, attachment bodies, or unsafe raw SDK stdout/stderr.

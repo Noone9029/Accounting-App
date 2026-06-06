@@ -148,3 +148,7 @@ corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json
 ```
 
 This does not change the CI posture: PR CI remains non-ZATCA, SDK validation is not enabled in GitHub Actions, XML/signed XML/QR bodies must not be uploaded as artifacts, and SDK CI remains blocked until SDK reference/acquisition and artifact retention policy are approved.
+
+## 2026-06-06 Dummy Signing Guard Follow-Up
+
+`LOCAL_DUMMY_SIGNING_DRY_RUN_GUARD.md` adds a local-only disabled command-plan guard for future dummy signing experiments. It is not part of PR CI and does not run SDK signing, QR, hash, or signed XML validation. The current CI blocker remains unchanged because the official SDK reference is still local/ignored and artifact retention policy is not approved.

@@ -17,7 +17,7 @@ This is an original implementation inspired by common accounting workflows. It d
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - ADR-001 for final production hosting is drafted/proposed only; implementation has not started, no provider is provisioned, and no production deploy was performed.
 - ADR-013 for API hosting is drafted/proposed only; it recommends AWS ECS Fargate for the paid SaaS v1 API with separate API and worker services, but ECS/Fargate is not configured, worker hosting is not configured, no production API deploy was performed, and no env vars, database, Redis, storage, ZATCA, email, accounting logic, or customer data changed.
-- Real ZATCA production compliance is not enabled. Local generated standard invoice and credit-note fixtures passed no-network SDK validation under Java 11.0.26, SDK CI readiness is currently `CI_BLOCKED_MISSING_SDK_REFERENCE`, and the local signed XML validation plan guard is blocked/planning-only. CSID execution, signing, clearance/reporting, PDF/A-3, real network submission, and production compliance certification remain blocked.
+- Real ZATCA production compliance is not enabled. Local generated standard invoice and credit-note fixtures passed no-network SDK validation under Java 11.0.26, SDK CI readiness is currently `CI_BLOCKED_MISSING_SDK_REFERENCE`, the local signed XML validation plan guard is blocked/planning-only, and the dummy signing dry-run guard is disabled by default. CSID execution, signing, QR generation, signed XML validation, clearance/reporting, PDF/A-3, real network submission, and production compliance certification remain blocked.
 - Paid production SaaS v1 requires production foundation work across hosting, database security, backups, monitoring, email, billing, support, legal, accountant review, and ZATCA specialist review.
 - The practical current stage is controlled beta with selected testers, dummy/sanitized data, and clear non-production limitations.
 
@@ -2572,4 +2572,10 @@ Recommended next step:
 - `corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json` reports metadata-only blockers before any future dummy-material signing experiment.
 - The guard does not execute SDK signing, QR, hash, or validation commands and does not write signed XML.
 - Evidence policy remains metadata-only: no XML bodies, signed XML bodies, QR payload bodies, private keys, certificate bodies, OTPs, CSID material, tokens, headers, request/response bodies, or customer/vendor payloads.
-- Recommended next prompt: `ZATCA local dummy signing dry-run guard`.
+- Recommended next prompt: `ZATCA approved local dummy signing execution plan`.
+
+## ZATCA local dummy signing dry-run guard
+
+- `corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json` reports a metadata-only command plan for future dummy signing experiments.
+- Planned command shapes are `fatoora -sign`, `fatoora -qr`, and `fatoora -validate` with temp placeholders only; the script does not execute them.
+- The guard reads no certificate/private-key bodies, creates no signed XML, prints no XML/QR bodies, and keeps `signingExecutionEnabled=false`, `dummySigningAllowed=false`, `qrExecutionEnabled=false`, `signedValidationExecutionEnabled=false`, and `productionCompliance=false`.

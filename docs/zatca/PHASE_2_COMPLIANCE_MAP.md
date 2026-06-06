@@ -707,3 +707,9 @@ Safety guarantees:
 
 Recommended next step:
 - Add a non-executing provider-reference audit and rotation plan before any real sandbox custody provider implementation.
+
+## ZATCA local dummy signing dry-run guard - 2026-06-06
+
+LedgerByte now has a root-level local dummy signing guard command: `corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json`.
+
+Phase 2 status remains blocked. The guard only plans official SDK sign, QR, and signed-validation command shapes with temp placeholders. It does not execute SDK signing, QR generation, signed XML validation, CSID/OTP, network calls, clearance/reporting, PDF/A-3, signed XML or QR persistence, or production compliance. Certificate/private-key handling is path-only metadata; bodies are not read or exposed.

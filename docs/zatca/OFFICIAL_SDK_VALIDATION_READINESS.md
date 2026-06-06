@@ -141,6 +141,12 @@ Local validation remains available only when a developer supplies a Java 11-14 b
 
 Current default status is blocked until a future explicit local dummy signing dry-run approval exists. Default Java 17 remains unsupported; Java 11-14 is reported as metadata-only readiness and still does not enable signing. The guard exposes `localSignedXmlExecutionEnabled=false`, `localDummySigningAllowed=false`, `localSignedXmlNoNetworkOnly=true`, `localSignedXmlProductionCompliance=false`, and `localSignedXmlEvidenceBodyPolicy=metadata-only`.
 
+## 2026-06-06 Local Dummy Signing Dry-Run Guard
+
+`corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json` adds a disabled-by-default command-plan guard for future local dummy-material signing experiments. It detects Java, SDK/reference files, generated fixture paths, SDK dummy certificate/private-key path presence, approval-marker presence, and documented SDK sign/QR/validate/hash command shapes.
+
+The guard does not execute `fatoora -sign`, `-qr`, `-validate`, or `-generateHash`; does not read certificate/private-key bodies; does not write signed XML; and does not call ZATCA. Output remains blocked with `signingExecutionEnabled=false`, `dummySigningAllowed=false`, `qrExecutionEnabled=false`, `signedValidationExecutionEnabled=false`, `noNetworkOnly=true`, and `productionComplianceEnabled=false`.
+
 ## Artifact Retention
 
 Current readiness:

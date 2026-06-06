@@ -2,10 +2,20 @@
 
 ## Latest Commit Inspected
 
-- `a997e4eb Plan ZATCA SDK CI runner`
+- `b94fd07f Plan ZATCA local signed XML validation`
 
 ## Current Development Objective
 
+- ZATCA local dummy signing dry-run guard completed: yes.
+- SDK signing was executed: no.
+- SDK QR was executed: no.
+- Signed XML validation was executed: no.
+- Private keys/certificates were exposed: no.
+- Scripts added: `scripts/zatca-local-dummy-signing-dry-run.cjs`, `scripts/zatca-local-dummy-signing-dry-run.test.cjs`.
+- Docs added: `docs/zatca/LOCAL_DUMMY_SIGNING_DRY_RUN_GUARD.md`.
+- Current dummy signing guard status: blocked; `corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json` is metadata-only and keeps signing execution disabled, dummy signing disallowed, QR execution disabled, signed validation disabled, no-network true, production compliance false, and evidence body policy metadata-only.
+- Current blockers: explicit future local dummy signing execution approval, Java 11-14 runtime for any SDK execution, SDK reference/acquisition policy for CI, key custody, sandbox OTP/CSID, signing, Phase 2 QR, clearance/reporting, PDF/A-3, secure signed artifact storage, official reviews, and production operations gates.
+- Exact next prompt title: `ZATCA approved local dummy signing execution plan`.
 - Local signed XML validation plan completed: yes.
 - Signing executed: no.
 - CSID/OTP/network used: no.
@@ -15,7 +25,6 @@
 - Current local signed XML status: blocked/planning-only; `corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json` is metadata-only and keeps signing execution disabled, dummy signing disallowed, no-network true, production compliance false, and evidence body policy metadata-only.
 - Current blockers: explicit future local dummy signing approval, Java 11-14 runtime for any SDK execution, SDK reference/acquisition policy for CI, key custody, sandbox OTP/CSID, signing, Phase 2 QR, clearance/reporting, PDF/A-3, secure signed artifact storage, official reviews, and production operations gates.
 - Real network/signing/CSID/clearance/PDF-A3 status remains disabled.
-- Exact next prompt title: `ZATCA local dummy signing dry-run guard`.
 - Latest sprint completed: ZATCA local generated XML fixture validation.
 - Latest commit inspected before the sprint: `704aa1d5 feat: add Sales AR and purchase matching workflows`.
 - Generated fixtures added: `ledgerbyte-generated-standard-invoice` and `ledgerbyte-generated-credit-note`.

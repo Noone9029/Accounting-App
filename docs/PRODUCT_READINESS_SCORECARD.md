@@ -1057,3 +1057,9 @@ Recommended next step:
 - Invited a dummy `.example.test` tester with `Viewer`, verified the member appeared in Team Members, confirmed mock outbox status `SENT_MOCK`, changed role to `Sales` and back to `Viewer`, then suspended/reactivated/suspended the membership.
 - Final dry-run state: dummy tester remained `SUSPENDED`, final role was `Viewer`, and `Owner`/`Admin` was not assigned.
 - No real external email, real customer data, production invoice, live bank feed, real ZATCA action, auth architecture change, permission logic change, migration, seed/reset/delete, full smoke, or full E2E action was used.
+
+## 2026-06-06 ZATCA local dummy signing guard
+
+- ZATCA readiness remains non-production and blocked for signing.
+- Added a local metadata-only guard for future dummy signing experiments. It plans sign/QR/validate command shapes but keeps SDK execution disabled, reads no certificate/private-key bodies, creates no signed XML, and keeps `productionCompliance=false`.
+- No score increase is taken from this guard; it improves safety around a future local experiment rather than closing production ZATCA blockers.

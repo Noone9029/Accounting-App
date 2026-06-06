@@ -16,6 +16,13 @@ corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json
 
 This sprint does not execute signing. SDK dummy certificate/private-key files may only be used in a future isolated temp experiment after explicit approval, and dummy material must never be stored as tenant credentials. No signed XML body, QR payload body, certificate body, or private-key body may be committed, logged, uploaded, or persisted as evidence.
 
+## 2026-06-06 Local Dummy Signing Dry-Run Guard
+
+- Added `corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json` as a disabled-by-default command-plan guard.
+- The guard plans the official SDK `fatoora -sign`, `-qr`, and `-validate` sequence with temp placeholders only; it does not execute the SDK.
+- It detects Java 11-14 readiness as metadata only, reports Java 17 as unsupported, checks generated fixture paths, and checks SDK dummy certificate/private-key file paths without reading their bodies.
+- Signing, QR generation, signed XML validation, signed XML persistence, CSID/OTP, ZATCA network calls, clearance/reporting, PDF/A-3, and production compliance remain blocked.
+
 ## Official sources inspected
 
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md`

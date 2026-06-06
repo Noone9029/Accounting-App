@@ -12,7 +12,7 @@ Actual XML signing remains disabled. SDK dummy keys/certificates may only be use
 
 ## 2. Current State
 
-- Latest commit inspected: `a997e4eb Plan ZATCA SDK CI runner`.
+- Latest commit inspected for the dummy-signing guard sprint: `b94fd07f Plan ZATCA local signed XML validation`.
 - Repository reconciliation: expected SDK CI readiness docs/scripts and the existing signing/Phase 2 QR plan were present.
 - Worktree status: unrelated dirty/untracked inventory, marketing, and graphify files existed before this sprint and are intentionally out of scope.
 - Generated fixtures `ledgerbyte-generated-standard-invoice` and `ledgerbyte-generated-credit-note` already passed local/no-network SDK validation under Java 11.0.26.
@@ -209,6 +209,16 @@ A future local dummy signing experiment can be accepted only if:
 - It proves no signing, QR, XML, certificate, key, token, header, request/response, customer/vendor, or attachment body leaks into stdout, logs, docs, evidence, commits, or artifacts.
 - It still makes no production compliance claim.
 
-## 18. Recommended Next Prompt
+## 18. Local Dummy Signing Guard Update
 
-`ZATCA local dummy signing dry-run guard`
+The follow-on guard now exists:
+
+```bash
+corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json
+```
+
+It plans the future SDK sign, QR, and signed validation command sequence but keeps `signingExecutionEnabled=false`, `dummySigningAllowed=false`, `qrExecutionEnabled=false`, `signedValidationExecutionEnabled=false`, `productionCompliance=false`, and evidence body policy metadata-only. It reads no certificate/private-key bodies and creates no signed XML.
+
+## 19. Recommended Next Prompt
+
+`ZATCA approved local dummy signing execution plan`

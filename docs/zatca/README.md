@@ -20,6 +20,7 @@ These notes track LedgerByte's local ZATCA Phase 2 groundwork and the manual evi
 - `ZATCA_SDK_VALIDATION_EVIDENCE_FORMAT.md` defines the metadata-only evidence JSON format and redaction flags.
 - `ZATCA_SDK_CI_RUNNER_PLAN.md` documents the no-network SDK CI readiness posture, blocker status, runner options, and documentation-only workflow sketch.
 - `LOCAL_SIGNED_XML_VALIDATION_PLAN.md` defines the next local signed XML guardrails before any future dummy-material signing experiment.
+- `LOCAL_DUMMY_SIGNING_DRY_RUN_GUARD.md` defines the disabled-by-default dummy signing guard command plan and blocker taxonomy.
 - `evidence/README.md` defines the evidence directory policy and forbids XML bodies, QR payload bodies, keys, OTPs, tokens, headers, and customer payloads.
 - `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` records the current official fixture pass; official samples pass under Java 11, LedgerByte standard fixture passes SDK global validation, and the simplified fixture passes XSD/EN/PIH but remains non-compliant because signing, QR/certificate, CSID, clearance/reporting, and PDF/A-3 are still missing.
 - `evidence/generated-xml-fixture-validation-20260606.json` records metadata-only local SDK validation for sanitized generated standard invoice and credit-note fixtures.
@@ -48,6 +49,8 @@ Generated LedgerByte XML fixture validation is also local/no-network only. The g
 SDK CI validation is not enabled. `corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json` currently reports `CI_BLOCKED_MISSING_SDK_REFERENCE` because the local SDK reference is ignored and not reproducible from a fresh checkout; default Java 17 is also unsupported. PR CI remains non-ZATCA.
 
 Local signed XML validation is planning-only. `corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json` reports metadata-only blockers and does not execute signing, QR, hash, validation, OTP/CSID, network, clearance/reporting, PDF/A-3, deploy, migration, seed, reset, delete, or email behavior.
+
+The dummy signing dry-run guard is also blocked by default. `corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json` reports planned `fatoora -sign`, `-qr`, and `-validate` command shapes without executing them, reads no certificate/private-key bodies, creates no signed XML, and keeps production compliance false.
 
 ## Reference Folder Rule
 

@@ -1214,3 +1214,10 @@ Recommended next step:
 - No retry loop, cleanup/delete, seed/reset/delete, PDF generation, browser walkthrough, smoke/E2E, hosted/customer-data workflow, real email, payment link, payment gateway, VAT filing, ZATCA call, app product behavior change, API validation change, accounting calculation change, posting behavior change, dashboard behavior change, or production infrastructure behavior changed.
 - No accountant findings were recorded or approved.
 - `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked web typecheck blocker and was not modified.
+
+## 2026-06-06 - ZATCA local dummy signing dry-run guard
+
+- Added `corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json` as a metadata-only, disabled-by-default guard for future local dummy signing experiments.
+- The guard checks Java compatibility, local official SDK/reference paths, generated fixture paths, SDK dummy certificate/private-key paths, approval-marker presence, and documented sign/QR/validate/hash command shapes.
+- It does not execute SDK signing, QR generation, signed XML validation, network calls, CSID/OTP, clearance/reporting, PDF/A-3, migrations, deploys, email, or production compliance behavior.
+- Default Java 17 remains unsupported; Java 11-14 is readiness metadata only until a future approved execution sprint.
