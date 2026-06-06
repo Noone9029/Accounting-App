@@ -36,6 +36,15 @@ LedgerByte is at the controlled beta/user-testing stage. The current Vercel depl
 - This roadmap update does not change production posture, Vercel/Supabase settings, production hosting, production ZATCA, real network calls, OTP handling, CSID requests, key generation/storage, signing, clearance/reporting, PDF/A-3, official VAT filing, email/payment behavior, backup/restore, object storage, or customer-data handling.
 - `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked web typecheck blocker and was not modified.
 
+## 2026-06-06 ZATCA SDK CI Readiness Guard Sprint
+
+- Added the no-network CI readiness guard at `corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json` plus targeted Node tests.
+- Added `docs/zatca/ZATCA_SDK_CI_RUNNER_PLAN.md` with the runner options, blocker status, documentation-only workflow sketch, and artifact policy.
+- Current status is `CI_BLOCKED_MISSING_SDK_REFERENCE`: the official SDK bundle exists locally but is ignored under `reference/` and cannot be assumed available in a fresh GitHub Actions checkout. Default Java 17 is also unsupported.
+- PR CI remains non-ZATCA; SDK validation is not enabled in `.github/workflows/pr-verification.yml`.
+- Remaining ZATCA gaps include approved SDK acquisition/reference policy, Java 11-14 CI runtime, metadata-only artifact retention approval, final key custody decision, sandbox OTP/CSID, signing, Phase 2 QR, clearance/reporting, PDF/A-3, error/retry queue, official reviews, and production operations gates.
+- This roadmap update does not change production posture, Vercel/Supabase settings, production hosting, production ZATCA, real network calls, OTP handling, CSID requests, signing, clearance/reporting, PDF/A-3, official VAT filing, email/payment behavior, backup/restore, object storage, or customer-data handling.
+
 ## 2026-06-03 Sales Quote / Proforma Workflow Sprint
 
 - Added the base non-posting sales quote/proforma workflow: quote numbering, customer selection, account-coded lines, tax exclusive/inclusive/no-tax totals, lifecycle actions, customer non-posting activity visibility, and accepted-quote conversion into a draft sales invoice.

@@ -229,6 +229,18 @@ The generator uses sanitized local demo JSON inputs and prints metadata only: fi
 
 The wrapper accepts `ZATCA_SDK_JAVA_BIN` for a Java 11-14 binary and does not change global Java. Because the repo path contains a space, the wrapper stages the official SDK launcher and JAR into an isolated temporary no-space workspace and writes a temporary config pointing back to the repo-local official SDK `Data`, `Rules`, `Certificates`, `PIH`, `Input`, and `usage.txt` files. The temp workspace is cleaned after execution. This is local/no-network validation only and does not sign, request CSIDs, clear/report invoices, generate PDF/A-3, or claim production compliance.
 
+## 2026-06-06 SDK CI Readiness Guard
+
+The CI guard command is:
+
+```bash
+corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json
+```
+
+The guard is inspection-only. It checks Java version metadata, local SDK reference presence, Git tracking/ignore status for the SDK reference, generated fixture path presence, package scripts, CI environment flags, launcher metadata, no-network flags, and redaction booleans. It does not invoke `fatoora`, run SDK validation, write XML, write evidence, call ZATCA, sign, request OTP/CSID, clear/report, create PDF/A-3, deploy, migrate, seed, reset, delete, or send email.
+
+Current result is `CI_BLOCKED_MISSING_SDK_REFERENCE`: the SDK reference exists locally but is ignored and not reproducible from a fresh CI checkout. Default Java 17 is also unsupported. PR CI remains non-ZATCA until SDK reference/acquisition, Java 11-14, and artifact retention policy are approved.
+
 ## Compliance Warning
 
 SDK readiness and dry-run command planning are engineering tools only. Passing local SDK validation in the future would still not be legal certification or production ZATCA compliance without official sandbox onboarding, valid CSIDs, signing, API validation, PDF/A-3/archive decisions, and legal/operational review.

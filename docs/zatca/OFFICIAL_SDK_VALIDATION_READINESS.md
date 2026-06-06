@@ -121,6 +121,20 @@ CI use remains a future decision because it requires:
 
 CI must not run real ZATCA network calls.
 
+## 2026-06-06 SDK CI Readiness Guard
+
+`corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json` now inspects CI readiness metadata only. It does not run SDK validation by default, write evidence, call ZATCA, sign XML, request OTP/CSID, clear/report, create PDF/A-3, deploy, migrate, seed, reset, delete, or send email.
+
+Current guard result: `CI_BLOCKED_MISSING_SDK_REFERENCE`.
+
+Observed blockers:
+
+- The SDK reference exists locally under `reference/`, but `reference/` is ignored and the SDK app/config files are not available from a fresh repository checkout.
+- Default Java is OpenJDK `17.0.16`, which is outside the official SDK range `>=11 <15`.
+- CI artifact retention/redaction approval is not recorded.
+
+Local validation remains available only when a developer supplies a Java 11-14 binary through `ZATCA_SDK_JAVA_BIN` and uses local ignored official references. PR CI remains non-ZATCA until the SDK reference/acquisition and artifact retention policies are approved.
+
 ## Artifact Retention
 
 Current readiness:

@@ -5476,3 +5476,18 @@
 ## Next Thread Prompt
 
 `ZATCA next sprint: local signed XML validation plan or repeatable SDK CI runner design`
+
+## Next Thread Prompt
+
+`ZATCA local signed XML validation plan`
+
+## ZATCA SDK CI Readiness Guard Completed
+
+- Latest commit inspected: `6db215e5 Validate generated ZATCA XML fixtures locally`.
+- Added `scripts/zatca-sdk-ci-readiness.cjs` and `scripts/zatca-sdk-ci-readiness.test.cjs`.
+- Added root scripts: `zatca:sdk-ci-readiness` and `test:zatca-sdk-ci-readiness`.
+- Added `docs/zatca/ZATCA_SDK_CI_RUNNER_PLAN.md`.
+- Current guard status: `CI_BLOCKED_MISSING_SDK_REFERENCE`.
+- CI posture: blocked, not ready. The official SDK exists locally under ignored `reference/`, but it is not available from a fresh checkout; default Java 17 remains unsupported. Local-only validation remains possible with an explicit Java 11-14 `ZATCA_SDK_JAVA_BIN`.
+- PR CI remains non-ZATCA; SDK validation is not enabled in GitHub Actions.
+- Real ZATCA network calls, signing, CSID/OTP, clearance/reporting, PDF/A-3, production credentials, email, deploys, migrations, seed/reset/delete, production/beta/customer data mutation, and production compliance remain disabled.

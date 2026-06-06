@@ -116,3 +116,15 @@ Required generated-fixture additions:
 - `safeErrorCodes` and `safeWarningCodes` may include rule IDs only; they must not include raw XML, raw QR data, customer/vendor payloads, request bodies, response bodies, or stdout/stderr bodies.
 
 The 2026-06-06 evidence recorded both generated fixtures as `PASSED` under Java 11.0.26 and SDK `238-R3.4.8`. Default Java 17 remains unsupported for this SDK range and must produce a blocker instead of a false pass.
+
+## 2026-06-06 SDK CI Readiness Guard Output
+
+`corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json` emits readiness metadata, not validation evidence. It may record status, Java version, SDK reference presence/tracking, generated fixture path presence, package script presence, CI flags, blockers, warnings, and redaction booleans.
+
+The guard output must remain metadata-only:
+
+- `networkCallsMade` must be `false`.
+- `sdkValidationExecuted` must be `false`.
+- `productionComplianceEnabled`, `signingEnabled`, `clearanceReportingEnabled`, and `pdfA3Enabled` must be `false`.
+- XML bodies, QR payloads, private keys, certificate bodies, tokens, headers, request/response bodies, customer/vendor payloads, and raw unsafe SDK stdout/stderr remain forbidden.
+- CI artifact upload of metadata-only evidence is blocked until retention/redaction policy is approved.

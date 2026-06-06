@@ -2,6 +2,17 @@
 
 This is a working engineering checklist. Official ZATCA/FATOORA documentation must be verified before production. Do not treat current mock implementation as legal compliance.
 
+## Current SDK CI Readiness Update
+
+The no-network SDK CI readiness guard is implemented at `corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json`. It does not run SDK validation or write XML/evidence by default.
+
+Current status: `CI_BLOCKED_MISSING_SDK_REFERENCE`.
+
+- The official SDK files are locally present under ignored `reference/`, but they are not available from a fresh CI checkout.
+- Default Java 17 remains unsupported; CI and local validation require Java 11-14.
+- Generated LedgerByte fixture paths are present locally and prior evidence passed under Java 11.0.26.
+- PR CI remains non-ZATCA until SDK reference/acquisition and artifact retention policies are approved.
+
 ## Current SDK Hash Persistence Update
 
 The local hash-chain gap is reduced but not closed for production:

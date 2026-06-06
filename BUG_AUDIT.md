@@ -37,6 +37,22 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### ZATCA SDK CI readiness guard added
+
+Added a safe no-network SDK CI readiness guard without enabling SDK validation in GitHub Actions.
+
+Risk reduced:
+
+- Added `scripts/zatca-sdk-ci-readiness.cjs` and `corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json`.
+- Added targeted tests for no-network enforcement, Java 17 blocking, Java 11-14 support metadata, missing SDK/fixture blockers, strict-mode exit behavior, launcher metadata, and metadata-only redaction.
+- Added `docs/zatca/ZATCA_SDK_CI_RUNNER_PLAN.md` documenting runner options, current blocker status, and a documentation-only workflow sketch.
+
+Remaining risks:
+
+- Current status is `CI_BLOCKED_MISSING_SDK_REFERENCE` because the official SDK is local/ignored under `reference/` and not available from a fresh checkout.
+- Default Java 17 remains unsupported; CI execution requires Java 11-14.
+- PR CI remains non-ZATCA. No real ZATCA network calls, signing, CSID/OTP, clearance/reporting, PDF/A-3, email, deploy, migration, seed/reset/delete, production/beta/customer data mutation, or production compliance was enabled.
+
 ### DEV-11 inventory valuation and COGS evidence closed
 
 Closed the DEV-11 inventory valuation and COGS evidence chain as local-only documentation/readiness evidence without changing product behavior.

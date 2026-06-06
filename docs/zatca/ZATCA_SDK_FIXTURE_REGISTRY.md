@@ -72,6 +72,14 @@ corepack pnpm zatca:sdk-validate-local -- --fixture ledgerbyte-generated-credit-
 corepack pnpm zatca:sdk-validate-local -- --all --no-network --json
 ```
 
+The CI readiness guard checks these registered generated fixture paths without reading or printing XML bodies:
+
+```bash
+corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json
+```
+
+Current CI guard status is `CI_BLOCKED_MISSING_SDK_REFERENCE` because the local official SDK reference is ignored and not available from a fresh checkout. The fixture registry and generated fixture paths are present locally, but that does not enable SDK validation in PR CI.
+
 ## Blocker Policy
 
 The wrapper records a blocker instead of failing destructively when:

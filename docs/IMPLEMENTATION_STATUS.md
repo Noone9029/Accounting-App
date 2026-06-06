@@ -51,6 +51,14 @@ Current production posture:
 - Extended read-only ZATCA readiness metadata and settings UI with generated fixture statuses, latest generated fixture evidence status, runtime blocker visibility, `noNetworkOnly=true`, and `productionCompliance=false`.
 - This sprint does not request OTP, request compliance or production CSID, generate or store real private keys, sign invoices, clear/report invoices, create PDF/A-3, call real ZATCA networks, mutate production/beta data, send email, deploy, or claim production compliance.
 
+2026-06-06 ZATCA SDK CI Readiness Guard update:
+
+- Added `corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json` and `corepack pnpm test:zatca-sdk-ci-readiness`.
+- Added `docs/zatca/ZATCA_SDK_CI_RUNNER_PLAN.md`.
+- Current guard status is `CI_BLOCKED_MISSING_SDK_REFERENCE`: the official SDK exists locally under ignored `reference/`, but it is not reproducible from a fresh checkout; default Java 17 is also unsupported.
+- PR CI remains non-ZATCA. SDK validation is not enabled in GitHub Actions, and XML bodies must not be uploaded as artifacts.
+- Real network calls, signing, CSID/OTP, clearance/reporting, PDF/A-3, production credentials, email, deploys, migrations, seed/reset/delete, production/beta/customer data mutation, and production compliance remain disabled.
+
 2026-05-30 DEV-11 implementation-status update:
 
 - Closure doc: `docs/development/DEV_11_INVENTORY_VALUATION_COGS_CLOSURE.md`.
