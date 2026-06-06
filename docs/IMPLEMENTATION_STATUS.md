@@ -1221,3 +1221,9 @@ Recommended next step:
 - The guard checks Java compatibility, local official SDK/reference paths, generated fixture paths, SDK dummy certificate/private-key paths, approval-marker presence, and documented sign/QR/validate/hash command shapes.
 - It does not execute SDK signing, QR generation, signed XML validation, network calls, CSID/OTP, clearance/reporting, PDF/A-3, migrations, deploys, email, or production compliance behavior.
 - Default Java 17 remains unsupported; Java 11-14 is readiness metadata only until a future approved execution sprint.
+
+## 2026-06-06 - ZATCA approved local dummy signing execution plan
+
+- Added `docs/zatca/APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md` with the exact future approval phrase, fixture scope, temp-only command plan, metadata-only evidence shape, cleanup policy, and failure behavior.
+- Updated the dummy signing guard so exact approval text is recognized as planning metadata; `--execute-approved-plan` remains blocked as `BLOCKED_EXECUTION_NOT_IMPLEMENTED_IN_THIS_SPRINT`.
+- SDK signing, SDK QR, signed XML validation, ZATCA network calls, CSID/OTP, clearance/reporting, PDF/A-3, private-key/certificate body exposure, signed XML persistence, and production compliance remain disabled.

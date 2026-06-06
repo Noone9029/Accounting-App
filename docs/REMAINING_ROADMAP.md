@@ -1353,3 +1353,9 @@ Recommended next step:
 - Added a root guard command for the next signing-adjacent step: `corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json`.
 - The command only plans future temp-file `fatoora -sign`, `-qr`, and `-validate` steps. It keeps signing, QR, signed XML validation, CSID/OTP, ZATCA network calls, PDF/A-3, persistence, and production compliance disabled.
 - Remaining next step: design an approved local dummy signing execution plan that still uses temp-only sanitized fixtures and metadata-only evidence.
+
+# ZATCA approved local dummy signing execution plan - 2026-06-06
+
+- Added the approved execution runbook and approval-phrase gate for a future local dummy-material signing run.
+- The roadmap remains blocked on actual execution: the guard can recognize the phrase for planning, but `--execute-approved-plan` still refuses to run signing in this sprint.
+- Remaining next step: `ZATCA approved local dummy signing execution`, with Java 11-14, local SDK reference, sanitized fixtures, temp-only outputs, no network, and metadata-only evidence.

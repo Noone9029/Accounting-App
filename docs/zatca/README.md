@@ -52,6 +52,8 @@ Local signed XML validation is planning-only. `corepack pnpm zatca:local-signed-
 
 The dummy signing dry-run guard is also blocked by default. `corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json` reports planned `fatoora -sign`, `-qr`, and `-validate` command shapes without executing them, reads no certificate/private-key bodies, creates no signed XML, and keeps production compliance false.
 
+The approved local dummy signing execution plan is documented in `APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md`. The guard can recognize the exact future approval phrase as planning metadata, but it still does not execute signing, QR, or signed validation; `--execute-approved-plan` remains blocked in this sprint.
+
 ## Reference Folder Rule
 
 The local official material is currently under `reference/`, not `references/`. Future ZATCA implementation work should start with `OFFICIAL_IMPLEMENTATION_MAP.md` and `ZATCA_CODE_GAP_REPORT.md`, then verify exact sections/pages against the source files before changing application logic.

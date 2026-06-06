@@ -142,3 +142,9 @@ Future evidence must still omit XML bodies, signed XML bodies, QR payload bodies
 `corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json` emits command-plan metadata only. It records Java compatibility, SDK/reference presence, generated fixture path presence, SDK dummy certificate/private-key path presence, explicit approval-marker presence, and planned `fatoora -sign`, `-qr`, and `-validate` command shapes.
 
 This output is still not signed XML validation evidence. It must keep `networkCallsMade=false`, `productionComplianceEnabled=false`, `signingExecutionEnabled=false`, `dummySigningAllowed=false`, `qrExecutionEnabled=false`, `signedValidationExecutionEnabled=false`, and all body redaction flags false. It must not include XML bodies, signed XML bodies, QR payload bodies, certificate/private-key bodies, approval-marker values, tokens, auth headers, request/response bodies, customer/vendor payloads, attachment bodies, or unsafe raw SDK stdout/stderr.
+
+## 2026-06-06 Approved Dummy Signing Execution Plan Output
+
+The approved execution plan runbook is still planning evidence, not signed XML validation evidence. The guard may report `PLAN_ONLY_APPROVAL_RECOGNIZED`, `BLOCKED_INVALID_APPROVAL_PHRASE`, or `BLOCKED_EXECUTION_NOT_IMPLEMENTED_IN_THIS_SPRINT` while keeping all execution flags false.
+
+Approval-gate output must not echo the supplied approval phrase and must keep `productionComplianceEnabled=false`, `networkCallsMade=false`, `signingExecutionEnabled=false`, `qrExecutionEnabled=false`, and `signedValidationExecutionEnabled=false`. Future execution evidence remains metadata-only and must never persist unsigned XML, signed XML, QR payload, private-key body, certificate body, OTP, CSID material, token, auth header, request/response body, customer/vendor payload, attachment body, or unsafe raw SDK stdout/stderr.

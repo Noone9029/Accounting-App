@@ -6,6 +6,7 @@ const path = require("node:path");
 const test = require("node:test");
 
 const {
+  APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PHRASE,
   buildDummySigningDryRunGuard,
   parseJavaMajorVersion,
   parseJavaVersion,
@@ -83,6 +84,106 @@ test("default status is blocked and all execution/compliance flags remain disabl
   assert.equal(guard.clearanceReportingEnabled, false);
   assert.equal(guard.signedXmlGenerated, false);
   assert.equal(guard.signedXmlPersisted, false);
+});
+
+test("missing approval phrase blocks future dummy signing execution", () => {
+  const repo = createRepo();
+  const guard = buildDummySigningDryRunGuard({
+    cwd: repo,
+    args: { plan: true },
+    runCommand: fakeRunCommand({ javaVersion: "11.0.26" }),
+  });
+
+  assert.equal(guard.status, "BLOCKED_PENDING_DUMMY_SIGNING_APPROVAL");
+  assert.equal(guard.approval.approvalPhraseProvided, false);
+  assert.equal(guard.approval.approvalPhraseValid, false);
+  assert.equal(guard.plannedExecutionAllowedInFuture, false);
+  assert.equal(guard.signingExecutionEnabled, false);
+  assert.equal(guard.qrExecutionEnabled, false);
+  assert.equal(guard.signedValidationExecutionEnabled, false);
+});
+
+test("incorrect approval phrase blocks without echoing the phrase", () => {
+  const repo = createRepo();
+  const guard = buildDummySigningDryRunGuard({
+    cwd: repo,
+    args: { plan: true, approvalPhrase: "wrong approval phrase" },
+    runCommand: fakeRunCommand({ javaVersion: "11.0.26" }),
+  });
+  const output = JSON.stringify(guard);
+
+  assert.equal(guard.status, "BLOCKED_INVALID_APPROVAL_PHRASE");
+  assert.equal(guard.approval.approvalPhraseProvided, true);
+  assert.equal(guard.approval.approvalPhraseValid, false);
+  assert.equal(guard.approval.approvalPhrasePrinted, false);
+  assert.equal(guard.signingExecutionEnabled, false);
+  assert.equal(guard.qrExecutionEnabled, false);
+  assert.equal(guard.signedValidationExecutionEnabled, false);
+  assert.doesNotMatch(output, /wrong approval phrase/);
+});
+
+test("exact approval phrase without execution flag is recognized as plan-only", () => {
+  const repo = createRepo();
+  const calls = [];
+  const guard = buildDummySigningDryRunGuard({
+    cwd: repo,
+    args: { plan: true, approvalPhrase: APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PHRASE },
+    runCommand: (command, args) => {
+      calls.push([command, args]);
+      return fakeRunCommand({ javaVersion: "17.0.16" })(command, args);
+    },
+  });
+  const output = JSON.stringify(guard);
+
+  assert.equal(guard.status, "PLAN_ONLY_APPROVAL_RECOGNIZED");
+  assert.equal(guard.approval.approvalPhraseProvided, true);
+  assert.equal(guard.approval.approvalPhraseValid, true);
+  assert.equal(guard.approval.executeApprovedPlanRequested, false);
+  assert.equal(guard.plannedExecutionAllowedInFuture, true);
+  assert.equal(guard.signingExecutionEnabled, false);
+  assert.equal(guard.dummySigningAllowed, false);
+  assert.equal(guard.qrExecutionEnabled, false);
+  assert.equal(guard.signedValidationExecutionEnabled, false);
+  assert.equal(guard.productionComplianceEnabled, false);
+  assert.equal(guard.java.supportedForSdk, false);
+  assert.equal(calls.length, 1);
+  assert.doesNotMatch(JSON.stringify(calls), /fatoora|-sign|-qr|-validate/);
+  assert.doesNotMatch(output, /<Invoice>/);
+  assert.doesNotMatch(output, /-----BEGIN/);
+});
+
+test("exact approval phrase with execute flag remains blocked because execution is not implemented in this sprint", () => {
+  const repo = createRepo();
+  const calls = [];
+  const before = listFiles(repo);
+  const guard = buildDummySigningDryRunGuard({
+    cwd: repo,
+    args: {
+      plan: true,
+      approvalPhrase: APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PHRASE,
+      executeApprovedPlan: true,
+    },
+    runCommand: (command, args) => {
+      calls.push([command, args]);
+      return fakeRunCommand({ javaVersion: "11.0.26" })(command, args);
+    },
+  });
+  const after = listFiles(repo);
+
+  assert.equal(guard.status, "BLOCKED_EXECUTION_NOT_IMPLEMENTED_IN_THIS_SPRINT");
+  assert.equal(guard.approval.approvalPhraseValid, true);
+  assert.equal(guard.approval.executeApprovedPlanRequested, true);
+  assert.equal(guard.plannedExecutionAllowedInFuture, false);
+  assert.equal(guard.signingExecutionEnabled, false);
+  assert.equal(guard.qrExecutionEnabled, false);
+  assert.equal(guard.signedValidationExecutionEnabled, false);
+  assert.equal(guard.networkCallsMade, false);
+  assert.equal(guard.productionComplianceEnabled, false);
+  assert.equal(guard.signedXmlGenerated, false);
+  assert.equal(guard.tempSignedXmlCreated, false);
+  assert.deepEqual(after, before);
+  assert.equal(calls.length, 1);
+  assert.doesNotMatch(JSON.stringify(calls), /fatoora|-sign|-qr|-validate/);
 });
 
 test("reports unsupported Java 17 as blocked", () => {

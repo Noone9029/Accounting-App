@@ -3282,3 +3282,9 @@ Recommended next step:
 - Added `scripts/zatca-local-dummy-signing-dry-run.cjs` to report readiness and planned SDK command shapes while keeping signing, QR, and signed XML validation execution disabled.
 - The guard checks dummy certificate/private-key path presence only and does not read or expose their bodies.
 - Remaining blockers are unchanged: explicit future local dummy signing approval, Java 11-14 for SDK execution, SDK reference/CI policy, key custody, sandbox OTP/CSID, Phase 2 QR, clearance/reporting, PDF/A-3, signed artifact storage, official review, and production compliance.
+
+# ZATCA approved local dummy signing execution plan - 2026-06-06
+
+- No runtime bug was fixed and no SDK signing, QR generation, or signed XML validation was attempted.
+- Added an approval-phrase runbook and planning-only guard behavior so a future sprint can test approval recognition before any local dummy-material execution is implemented.
+- The execution path remains blocked; no private-key/certificate bodies, XML bodies, signed XML bodies, QR payload bodies, CSID/OTP material, tokens, headers, or request/response bodies were exposed.

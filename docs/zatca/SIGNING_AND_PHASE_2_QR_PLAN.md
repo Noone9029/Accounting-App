@@ -478,3 +478,9 @@ Implementation notes:
 
 Recommended next step:
 - Design a separate real sandbox HTTP adapter plan with explicit OTP custody, redacted token/certificate storage, idempotency, audit logging, and a manual enablement review before any real sandbox request is attempted.
+
+## 2026-06-06 - Approved local dummy signing execution plan
+
+- Added `docs/zatca/APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md` as the future runbook for one local dummy-material signing experiment against sanitized fixtures only.
+- The guard now accepts an exact `--approval-phrase` for planning-only recognition and `--execute-approved-plan` for a deliberate blocked response. It still does not execute SDK signing, QR generation, signed XML validation, ZATCA network calls, CSID/OTP, clearance/reporting, PDF/A-3, or production compliance behavior.
+- The next ZATCA prompt is `ZATCA approved local dummy signing execution`.

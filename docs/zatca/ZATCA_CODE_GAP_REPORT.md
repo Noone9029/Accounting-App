@@ -711,3 +711,7 @@ Recommended next step:
 Added `scripts/zatca-local-dummy-signing-dry-run.cjs` and `corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json` as a metadata-only guard. It checks Java compatibility, local SDK/reference availability, generated fixture paths, SDK dummy certificate/private-key path presence, approval-marker presence, and documented SDK sign/QR/validate/hash command shapes.
 
 Current gap status remains blocked: the guard does not execute signing, QR generation, signed XML validation, CSID/OTP, network calls, clearance/reporting, PDF/A-3, signed XML/QR persistence, or production compliance. Default Java 17 remains unsupported; Java 11-14 is readiness metadata only until a future approved execution sprint.
+
+## ZATCA approved local dummy signing execution plan - 2026-06-06
+
+Added `docs/zatca/APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md` and approval-phrase metadata support in the dummy signing guard. The gap status remains blocked for real execution: the exact phrase can be recognized for planning, but `--execute-approved-plan` returns `BLOCKED_EXECUTION_NOT_IMPLEMENTED_IN_THIS_SPRINT` and all signing/QR/signed-validation/network/production-compliance flags remain false.

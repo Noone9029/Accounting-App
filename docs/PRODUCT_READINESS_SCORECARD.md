@@ -1063,3 +1063,8 @@ Recommended next step:
 - ZATCA readiness remains non-production and blocked for signing.
 - Added a local metadata-only guard for future dummy signing experiments. It plans sign/QR/validate command shapes but keeps SDK execution disabled, reads no certificate/private-key bodies, creates no signed XML, and keeps `productionCompliance=false`.
 - No score increase is taken from this guard; it improves safety around a future local experiment rather than closing production ZATCA blockers.
+
+## 2026-06-06 ZATCA approved dummy signing execution plan
+
+- Added the future execution runbook and exact approval phrase for local dummy-material signing against sanitized fixtures only.
+- No score increase is taken: approval recognition is planning metadata only, and SDK signing, QR generation, signed validation, CSID/OTP, network calls, PDF/A-3, signed XML persistence, and production compliance remain disabled.

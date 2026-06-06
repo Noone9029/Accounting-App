@@ -221,4 +221,8 @@ It plans the future SDK sign, QR, and signed validation command sequence but kee
 
 ## 19. Recommended Next Prompt
 
-`ZATCA approved local dummy signing execution plan`
+`ZATCA approved local dummy signing execution`
+
+## 20. Approved Execution Plan Update
+
+The follow-on approved execution runbook now exists at `docs/zatca/APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md`. It defines the exact future approval phrase, fixture scope, temp-only command sequence, metadata-only evidence shape, cleanup policy, and failure behavior for a later local dummy-material signing sprint. The current sprint still executed no SDK signing, QR generation, signed XML validation, CSID/OTP, ZATCA network call, clearance/reporting, PDF/A-3, or production compliance behavior.

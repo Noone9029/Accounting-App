@@ -152,3 +152,7 @@ This does not change the CI posture: PR CI remains non-ZATCA, SDK validation is 
 ## 2026-06-06 Dummy Signing Guard Follow-Up
 
 `LOCAL_DUMMY_SIGNING_DRY_RUN_GUARD.md` adds a local-only disabled command-plan guard for future dummy signing experiments. It is not part of PR CI and does not run SDK signing, QR, hash, or signed XML validation. The current CI blocker remains unchanged because the official SDK reference is still local/ignored and artifact retention policy is not approved.
+
+## 2026-06-06 Approved Dummy Signing Plan Follow-Up
+
+`APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md` defines a future local execution runbook and approval phrase, but it does not make SDK execution CI-ready. PR CI remains non-ZATCA; no workflow uploads XML, signed XML, QR payloads, SDK logs, private keys, certificates, or approval output artifacts.

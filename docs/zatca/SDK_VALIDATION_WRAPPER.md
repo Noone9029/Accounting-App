@@ -510,3 +510,9 @@ Remaining limitations and next step:
 - Added signed artifact promotion readiness blockers for dummy/test material, missing real certificate/CSID, missing production key custody, missing persistence workflow, missing clearance/reporting, and missing PDF/A-3.
 - Updated invoice/settings UI readiness to show that local signed XML validation success is not persisted signed invoice state and cannot be promoted from SDK dummy material.
 - No signed XML, QR payload, private key, certificate body, CSID token, OTP, generated CSR body, production credential, ZATCA network call, CSID request, clearance/reporting, PDF/A-3, or production compliance claim is introduced.
+
+## ZATCA approved dummy signing execution plan update (2026-06-06)
+
+- `docs/zatca/APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md` documents the future approval-gated local dummy signing runbook.
+- `scripts/zatca-local-dummy-signing-dry-run.cjs` now recognizes the exact approval phrase as planning metadata and reports `PLAN_ONLY_APPROVAL_RECOGNIZED` without enabling SDK signing.
+- If `--execute-approved-plan` is supplied, the guard returns `BLOCKED_EXECUTION_NOT_IMPLEMENTED_IN_THIS_SPRINT`; no SDK sign, QR, signed validation, network, CSID/OTP, clearance/reporting, PDF/A-3, or production compliance behavior runs.

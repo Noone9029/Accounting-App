@@ -192,3 +192,7 @@ corepack pnpm zatca:sdk-validate-local -- --fixture ledgerbyte-generated-credit-
 Default Java 17 remains unsupported by the SDK requirement of Java 11 through Java 14. Local validation can use an explicit compatible binary through `ZATCA_SDK_JAVA_BIN` without changing global Java or committing machine-specific paths. On this workstation, Java 11.0.26 was available and the generated fixtures passed local/no-network SDK validation. Docker was checked but not used because the explicit Java 11 path and isolated temporary SDK launcher workspace were sufficient.
 
 Read-only readiness metadata now includes generated fixture statuses, latest generated fixture evidence status, runtime blocker text when present, `noNetworkOnly=true`, and `productionCompliance=false`. These fields are preparation indicators only and must not be presented as ZATCA compliance, production readiness, signing, clearance/reporting, or PDF/A-3 evidence.
+
+## 2026-06-06 Approved Dummy Signing Execution Planning
+
+The approved execution runbook is now `docs/zatca/APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md`. It defines a future approval phrase and temp-only command sequence for sanitized fixtures, but SDK execution remains disabled here. Guard output may recognize the approval phrase as planning metadata while keeping `signingExecutionEnabled=false`, `qrExecutionEnabled=false`, `signedValidationExecutionEnabled=false`, `networkCallsMade=false`, and `productionCompliance=false`.

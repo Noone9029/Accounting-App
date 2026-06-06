@@ -713,3 +713,7 @@ Recommended next step:
 LedgerByte now has a root-level local dummy signing guard command: `corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json`.
 
 Phase 2 status remains blocked. The guard only plans official SDK sign, QR, and signed-validation command shapes with temp placeholders. It does not execute SDK signing, QR generation, signed XML validation, CSID/OTP, network calls, clearance/reporting, PDF/A-3, signed XML or QR persistence, or production compliance. Certificate/private-key handling is path-only metadata; bodies are not read or exposed.
+
+## ZATCA approved local dummy signing execution plan - 2026-06-06
+
+The approved execution runbook defines the exact future approval phrase and temp-only sanitized fixture flow. It does not change Phase 2 status: signing, Phase 2 QR proof, signed validation execution, CSID/OTP, ZATCA network, clearance/reporting, PDF/A-3, signed XML/QR persistence, and production compliance remain blocked until a later explicitly approved execution sprint.

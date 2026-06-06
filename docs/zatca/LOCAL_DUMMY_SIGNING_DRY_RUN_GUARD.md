@@ -14,6 +14,7 @@ The purpose is to prove that LedgerByte can inspect readiness for a future local
 - Current workstation default: blocked because Java 17 is outside the official SDK range.
 - With Java 11-14 and all local references present, the guard remains blocked as `BLOCKED_PENDING_DUMMY_SIGNING_APPROVAL`.
 - If a future approval marker is present, this sprint still reports `BLOCKED_SIGNING_EXECUTION_DISABLED`.
+- Exact approval phrase support is metadata-only: without the execution flag it returns `PLAN_ONLY_APPROVAL_RECOGNIZED`; with `--execute-approved-plan` it returns `BLOCKED_EXECUTION_NOT_IMPLEMENTED_IN_THIS_SPRINT`.
 - Signing, QR generation, and signed XML validation are not executed.
 
 ## 3. Official References Inspected
@@ -132,12 +133,19 @@ Forbidden evidence includes XML bodies, signed XML bodies, QR payload bodies, pr
 ## 12. Status And Blocker Taxonomy
 
 - `BLOCKED_PENDING_DUMMY_SIGNING_APPROVAL`
+- `BLOCKED_INVALID_APPROVAL_PHRASE`
+- `BLOCKED_EXECUTION_NOT_IMPLEMENTED_IN_THIS_SPRINT`
 - `BLOCKED_UNSUPPORTED_JAVA`
 - `BLOCKED_MISSING_SDK_REFERENCE`
 - `BLOCKED_MISSING_GENERATED_FIXTURE`
 - `BLOCKED_DUMMY_MATERIAL_PATH_MISSING`
 - `BLOCKED_SIGNING_EXECUTION_DISABLED`
+- `PLAN_ONLY_APPROVAL_RECOGNIZED`
 - `PLAN_ONLY_READY` is reserved for a future guard revision and is not returned while signing execution remains disabled.
+
+## 12A. Approved Execution Plan Gate
+
+The approved execution plan runbook is `docs/zatca/APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md`. The guard now accepts `--approval-phrase <text>` and `--execute-approved-plan` for planning-only tests. The exact approval phrase is recognized without enabling SDK signing, QR generation, signed XML validation, network calls, production compliance, or signed XML persistence.
 
 ## 13. Tests And Verification
 
@@ -163,4 +171,4 @@ The tests mock Java and temporary repositories. They do not require the real SDK
 
 ## 15. Recommended Next Prompt
 
-`ZATCA approved local dummy signing execution plan`
+`ZATCA approved local dummy signing execution`

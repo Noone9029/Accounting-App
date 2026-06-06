@@ -6,6 +6,8 @@ const path = require("node:path");
 const REQUIRED_JAVA_RANGE = ">=11 <15";
 const ENVIRONMENT = "LOCAL_DUMMY_SIGNING_DRY_RUN_GUARD";
 const APPROVAL_ENV_VAR = "ZATCA_LOCAL_DUMMY_SIGNING_APPROVAL";
+const APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PHRASE =
+  "I approve ZATCA local dummy signing execution against sanitized local fixtures only. No production, no beta, no customer data, no ZATCA network, no CSID, no OTP, no clearance, no reporting, no PDF-A3, and metadata-only evidence.";
 const SDK_ROOT = "reference/zatca-einvoicing-sdk-Java-238-R3.4.8";
 const STANDARD_FIXTURE_ID = "ledgerbyte-generated-standard-invoice";
 const CREDIT_FIXTURE_ID = "ledgerbyte-generated-credit-note";
@@ -71,6 +73,8 @@ function parseArgs(argv) {
     noNetwork: false,
     help: false,
     fixture: null,
+    approvalPhrase: null,
+    executeApprovedPlan: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -90,6 +94,15 @@ function parseArgs(argv) {
       }
       parsed.fixture = value;
       index += 1;
+    } else if (arg === "--approval-phrase") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("--approval-phrase requires the exact approved phrase.");
+      }
+      parsed.approvalPhrase = value;
+      index += 1;
+    } else if (arg === "--execute-approved-plan") {
+      parsed.executeApprovedPlan = true;
     } else if (arg === "--help" || arg === "-h") {
       parsed.help = true;
     } else if (arg === "--") {
@@ -108,6 +121,7 @@ function usage() {
     "  node scripts/zatca-local-dummy-signing-dry-run.cjs --plan --no-network --json",
     "  node scripts/zatca-local-dummy-signing-dry-run.cjs --plan --fixture ledgerbyte-generated-standard-invoice --no-network --json",
     "  node scripts/zatca-local-dummy-signing-dry-run.cjs --plan --no-network --json --strict",
+    "  node scripts/zatca-local-dummy-signing-dry-run.cjs --plan --no-network --json --approval-phrase \"<exact future approval phrase>\"",
     "",
     "This command prints metadata-only readiness and command-plan output.",
     "It does not sign XML, generate QR, validate signed XML, request OTP/CSID, call ZATCA, clear/report, create PDF/A-3, deploy, migrate, seed, reset, delete, or send email.",
@@ -126,7 +140,7 @@ function buildDummySigningDryRunGuard(options = {}) {
   const fixtures = inspectFixtures(repoRoot, args.fixture);
   const packageScripts = inspectPackageScripts(repoRoot);
   const officialReferences = inspectOfficialReferences(repoRoot);
-  const approval = inspectApproval(env);
+  const approval = inspectApproval(env, args);
   const blockers = [];
   const warnings = [];
 
@@ -158,10 +172,16 @@ function buildDummySigningDryRunGuard(options = {}) {
     warnings.push("SDK hash command shape was not detected in local usage/readme; keep invoice-hash reasoning blocked until reinspected.");
   }
 
-  if (approval.explicitFutureApprovalFlagPresent) {
+  if (approval.approvalPhraseProvided && !approval.approvalPhraseValid) {
+    blockers.push("BLOCKED_INVALID_APPROVAL_PHRASE: the provided approval phrase does not exactly match the documented future execution approval phrase.");
+  } else if (approval.approvalPhraseValid && approval.executeApprovedPlanRequested) {
+    blockers.push("BLOCKED_EXECUTION_NOT_IMPLEMENTED_IN_THIS_SPRINT: the exact approval phrase was recognized, but this sprint only plans the future execution gate and still refuses signing.");
+  } else if (approval.explicitFutureApprovalFlagPresent) {
     blockers.push("BLOCKED_SIGNING_EXECUTION_DISABLED: an approval marker was detected, but this sprint still does not execute signing.");
+  } else if (!approval.approvalPhraseValid) {
+    blockers.push("BLOCKED_PENDING_DUMMY_SIGNING_APPROVAL: no exact future local dummy signing approval phrase is present.");
   } else {
-    blockers.push("BLOCKED_PENDING_DUMMY_SIGNING_APPROVAL: no explicit future local dummy signing approval is present.");
+    warnings.push("Exact future approval phrase recognized for planning only; execution remains disabled until a later implementation sprint.");
   }
 
   const status = selectStatus(blockers, approval);
@@ -178,6 +198,7 @@ function buildDummySigningDryRunGuard(options = {}) {
     productionCompliance: false,
     signingExecutionEnabled: false,
     dummySigningAllowed: false,
+    plannedExecutionAllowedInFuture: approval.plannedExecutionAllowedInFuture,
     qrExecutionEnabled: false,
     signedValidationExecutionEnabled: false,
     clearanceReportingEnabled: false,
@@ -224,6 +245,15 @@ function buildDummySigningDryRunGuard(options = {}) {
 }
 
 function selectStatus(blockers, approval) {
+  if (approval.approvalPhraseProvided && !approval.approvalPhraseValid) {
+    return "BLOCKED_INVALID_APPROVAL_PHRASE";
+  }
+  if (approval.approvalPhraseValid && approval.executeApprovedPlanRequested) {
+    return "BLOCKED_EXECUTION_NOT_IMPLEMENTED_IN_THIS_SPRINT";
+  }
+  if (approval.approvalPhraseValid) {
+    return "PLAN_ONLY_APPROVAL_RECOGNIZED";
+  }
   if (blockers.some((blocker) => blocker.startsWith("BLOCKED_MISSING_SDK_REFERENCE"))) {
     return "BLOCKED_MISSING_SDK_REFERENCE";
   }
@@ -362,12 +392,22 @@ function inspectCommandFindings(repoRoot) {
   };
 }
 
-function inspectApproval(env) {
+function inspectApproval(env, args = {}) {
+  const approvalPhrase = args.approvalPhrase ? String(args.approvalPhrase) : "";
+  const approvalPhraseProvided = approvalPhrase.length > 0;
+  const approvalPhraseValid = approvalPhrase === APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PHRASE;
+  const executeApprovedPlanRequested = Boolean(args.executeApprovedPlan);
+
   return {
     requiredForExecution: true,
     envVarName: APPROVAL_ENV_VAR,
     explicitFutureApprovalFlagPresent: Boolean(cleanPath(env[APPROVAL_ENV_VAR])),
+    approvalPhraseProvided,
+    approvalPhraseValid,
+    approvalPhrasePrinted: false,
     approvalValuePrinted: false,
+    executeApprovedPlanRequested,
+    plannedExecutionAllowedInFuture: approvalPhraseValid && !executeApprovedPlanRequested,
     enablesExecutionInThisSprint: false,
   };
 }
@@ -461,9 +501,12 @@ function buildPlanSummary(status, approval) {
     qrExecutedThisSprint: false,
     signedValidationExecutedThisSprint: false,
     approvalFlagDetected: approval.explicitFutureApprovalFlagPresent,
+    approvalPhraseRecognized: approval.approvalPhraseValid,
+    executeApprovedPlanRequested: approval.executeApprovedPlanRequested,
+    plannedExecutionAllowedInFuture: approval.plannedExecutionAllowedInFuture,
     executionEnabledInThisSprint: false,
-    recommendedNextStep: "A future approved sprint may design execution, but this guard must remain blocked until explicit local dummy signing execution approval exists.",
-    nextPromptTitle: "ZATCA approved local dummy signing execution plan",
+    recommendedNextStep: "A future approved sprint may implement the execution gate, but this guard must still refuse signing until that separate sprint explicitly enables the approved plan.",
+    nextPromptTitle: "ZATCA approved local dummy signing execution",
   };
 }
 
@@ -580,6 +623,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PHRASE,
   buildDummySigningDryRunGuard,
   parseArgs,
   parseJavaMajorVersion,
