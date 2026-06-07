@@ -32,12 +32,14 @@ The branch introduced or preserved shared permission keys and item tracking defa
 
 - The role permission matrix did not group `customerPayments.applyUnapplied`, `customerPayments.reverseUnappliedAllocation`, `customerPayments.receiptPdf.generate`, `zatca.signing.dryRun`, or `zatca.submit`.
 - A sales invoice rules test created an item service mock without `inventoryTracking`, `trackingMode`, `expiryTrackingEnabled`, and `binTrackingEnabled`, causing a status-only update to look like an invalid tracking payload at runtime.
+- The pushed GitHub rerun still failed at `corepack pnpm typecheck` because the fresh Ubuntu checkout installed dependencies with Prisma package build scripts ignored; `@prisma/client` had not been generated before typecheck.
 
 ## Fix Applied
 
 - Added the missing permissions to the web role permission matrix with safe wording.
 - Kept ZATCA wording limited to local dummy-material dry-runs and blocked clearance/reporting stubs; this does not enable real ZATCA networking, signing, clearance, reporting, or production compliance.
 - Updated the stale API test mock to include metadata-only item tracking defaults.
+- Added the existing safe `corepack pnpm db:generate` command to `verify:ci:local` before workspace typecheck so fresh CI checkouts generate Prisma client types without running migrations or touching a database.
 
 ## Checks Rerun
 
@@ -49,6 +51,9 @@ The branch introduced or preserved shared permission keys and item tracking defa
 - `node --test scripts/test-credential-env.test.cjs`: passed.
 - `corepack pnpm test:user-testing-cleanup-plan`: passed.
 - `node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json parse ok')"`: passed.
+- `corepack pnpm verify:ci:local`: passed locally after the permission/test fixture remediation; GitHub then exposed the fresh-checkout Prisma client generation gap above.
+- `node --test scripts/verify-gate.test.cjs`: passed after adding the Prisma client generation step to the CI gate.
+- `corepack pnpm verify:ci:local`: passed after the gate plan changed to run `corepack pnpm db:generate` before `corepack pnpm typecheck`.
 
 ## Safety Boundaries Preserved
 
@@ -62,6 +67,9 @@ The branch introduced or preserved shared permission keys and item tracking defa
 
 - `apps/web/src/lib/permission-matrix.ts`
 - `apps/api/src/sales-invoices/sales-invoice-rules.spec.ts`
+- `scripts/verify-gate.cjs`
+- `scripts/verify-gate.test.cjs`
+- `docs/development/DEV_02_VERIFICATION_GATE_RUNBOOK.md`
 - `docs/development/ZATCA_CUSTODY_FOUNDATION_CI_REMEDIATION.md`
 
 ## Remaining Blockers
