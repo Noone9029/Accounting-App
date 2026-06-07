@@ -5689,6 +5689,18 @@
 
 `ZATCA sandbox CSID request execution guard`
 
+## LedgerByte ZATCA Custody Provider Boundary Implementation Completed
+
+- Branch: `codex/zatca-custody-provider-boundary-preflight`.
+- Starting commit: `fe6642f3 Document ZATCA custody provider boundary preflight`.
+- Implemented safe reference-only ZATCA custody provider boundary interfaces/classes for disabled and local-reference test-only behavior.
+- Runtime provider remains disabled by default; local-reference provider requires explicit test-only construction and does not enable real custody.
+- API readiness metadata now exposes reference-only boundary availability and legacy blocker fields without enabling custody.
+- No real OTP, real CSID, real ZATCA network call, sandbox portal login, private-key generation/storage, raw certificate/CSR storage, request/response body handling, signing, clearance/reporting, PDF-A-3, provider/env change, migration execution, deploy, production credential, or production compliance claim was performed.
+- Graphify output remained ignored and uncommitted.
+- Implementation doc: `docs/development/ZATCA_CUSTODY_PROVIDER_BOUNDARY_IMPLEMENTATION.md`.
+- Exact next prompt title: `LedgerByte verify ZATCA custody provider boundary evidence`.
+
 ## ZATCA Sandbox CSID Request Execution Guard Completed
 
 - Latest commit inspected before this sprint: `6e486f3c Plan ZATCA sandbox CSID approval`.
