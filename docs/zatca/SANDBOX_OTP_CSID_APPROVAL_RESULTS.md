@@ -105,3 +105,16 @@ The approval phrase is recognized for planning metadata only. The guard still re
 ## Next Prompt
 
 `ZATCA sandbox CSID request execution guard`
+
+## Execution Guard Follow-Up Result
+
+The no-network execution guard has been added to `scripts/zatca-sandbox-csid-preflight.cjs` and documented in:
+
+- `SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md`
+- `SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md`
+
+Observed status with the exact execution-guard phrase and `--execution-guard`: `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`.
+
+Observed status with `--execute-csid-request`: `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+
+No OTP was requested, no CSID was requested, no network call was made, no sandbox adapter was executed, and no secrets or bodies were exposed. Next prompt: `ZATCA CSID response custody implementation plan`.

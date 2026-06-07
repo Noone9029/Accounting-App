@@ -48,3 +48,11 @@ The SDK readme labels the bundled certificate and private key as dummy/testing m
 - SDK validation evidence must keep `xmlBodyPrinted`, `qrPayloadPrinted`, `privateKeyPrinted`, `networkCallsMade`, and `productionComplianceEnabled` false.
 - The local wrapper must not persist or print XML bodies, QR payload bodies, private keys, OTPs, CSID token/secret material, auth tokens, headers, or full request/response bodies.
 - This evidence boundary does not implement KMS, secrets-manager custody, signing, clearance/reporting, PDF/A-3, or production compliance.
+
+## 2026-06-07 Sandbox CSID Request Execution Guard
+
+- `SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md` documents a no-network compliance CSID execution boundary.
+- `SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md` records `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`.
+- `--execute-csid-request` remains `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+- No OTP, CSID, network, sandbox adapter, request body, response body, token, secret, certificate body, private-key body, signing, clearance/reporting, PDF-A3, or production compliance behavior was executed.
+- Key custody and CSID response custody remain blockers. Next prompt: `ZATCA CSID response custody implementation plan`.

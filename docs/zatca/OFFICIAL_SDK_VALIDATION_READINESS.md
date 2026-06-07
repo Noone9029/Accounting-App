@@ -222,3 +222,11 @@ Readiness interpretation: local-only dummy SDK processing is proven for the gene
 The metadata-only dummy signing evidence was reviewed in `docs/zatca/DUMMY_SIGNING_RESULT_REVIEW.md`, and remaining Phase 2 QR/signing gaps were mapped in `docs/zatca/PHASE_2_QR_GAP_ANALYSIS.md`.
 
 No SDK command was run during the review. Readiness interpretation is unchanged: local dummy SDK success is not production QR proof and does not enable CSID/OTP, real signing credentials, clearance/reporting, PDF/A-3, signed artifact persistence, or production compliance.
+
+## 2026-06-07 Sandbox CSID Request Execution Guard
+
+`SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md` and `SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md` now document the no-network guard for future sandbox compliance CSID request execution.
+
+Observed status: `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`. The guard recognizes the exact execution-guard phrase but does not run SDK commands, request OTP/CSID, call ZATCA, execute adapters, create request bodies, process response bodies, expose secrets, sign, clear/report, create PDF-A3, or enable production compliance.
+
+Next prompt: `ZATCA CSID response custody implementation plan`.

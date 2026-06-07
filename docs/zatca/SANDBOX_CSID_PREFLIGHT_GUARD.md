@@ -210,3 +210,18 @@ The approval-plan extension is documented in:
 ## 15. Recommended Next Prompt
 
 `ZATCA sandbox CSID request execution guard`
+
+## 16. Execution Guard Extension
+
+The same preflight script now includes a guarded execution boundary:
+
+- `--execution-guard` recognizes only the exact sandbox compliance CSID request execution guard phrase.
+- `--execute-csid-request` is intentionally blocked with `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+- The execution guard still requires `--no-network`.
+
+Docs:
+
+- `SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md`
+- `SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md`
+
+The guard reports `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED` without requesting OTP, requesting CSID, creating request bodies, processing response bodies, executing adapters, calling ZATCA, exposing secrets, signing, clearing/reporting, creating PDF-A3, or enabling production compliance.

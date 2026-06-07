@@ -3354,3 +3354,11 @@ Recommended next step:
 - Added `docs/zatca/DUMMY_SIGNING_RESULT_REVIEW.md` and `docs/zatca/PHASE_2_QR_GAP_ANALYSIS.md`.
 - Evidence review confirmed both approved fixtures passed in the prior run with metadata-only evidence, no network calls, cleanup success, and production compliance false.
 - Remaining blockers are unchanged: key custody, sandbox OTP/CSID, compliance/production CSID lifecycle, production signing, Phase 2 QR production proof, clearance/reporting, PDF/A-3, signed artifact storage, official review, repeatable SDK CI, and production compliance.
+
+# ZATCA sandbox CSID request execution guard - 2026-06-07
+
+- No production bug was fixed and no production ZATCA behavior was enabled.
+- Added a no-network execution guard for future sandbox compliance CSID request execution.
+- Status is `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`; `--execute-csid-request` remains `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+- No OTP, CSID request, network call, sandbox adapter execution, request body creation, response body processing, secret/body exposure, signing, clearance/reporting, PDF-A3, migration, seed/reset/delete, deployment, email, or production compliance behavior occurred.
+- Remaining blockers: key custody, CSID response custody, real sandbox adapter execution, actual OTP capture approval, compliance CSID request execution approval, compliance invoice checks, production CSID lifecycle, production signing, Phase 2 QR proof, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.

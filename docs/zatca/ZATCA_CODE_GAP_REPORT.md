@@ -754,3 +754,21 @@ Added:
 The local dummy signing pass is now classified as local SDK evidence only. It closes the question of whether the repo-local SDK can process the two sanitized generated fixtures under Java 11, but it does not close production gaps for QR tags `6-9`, key custody, compliance/production CSID lifecycle, clearance/reporting, rendered/PDF QR output, PDF/A-3, signed artifact storage, repeatable CI, or production compliance.
 
 No SDK sign, QR, validate, hash, network, CSID/OTP, clearance/reporting, PDF/A-3, migration, seed/reset/delete, deployment, email, or production check was run in the review task.
+
+## ZATCA sandbox CSID request execution guard - 2026-06-07
+
+Added:
+
+- `docs/zatca/SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md`
+- `docs/zatca/SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md`
+
+Extended:
+
+- `scripts/zatca-sandbox-csid-preflight.cjs`
+- `scripts/zatca-sandbox-csid-preflight.test.cjs`
+
+The new guard recognizes the exact sandbox compliance CSID request execution guard phrase and returns `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`. The launch flag remains blocked as `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+
+Still open: key custody, CSID response custody, actual OTP capture approval, real sandbox adapter execution, compliance CSID request execution approval, compliance invoice checks, production CSID lifecycle, production signing, Phase 2 QR production proof, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
+
+No OTP, CSID request, network call, sandbox adapter execution, request body creation, response body processing, secret exposure, signing, clearance/reporting, PDF-A3, migration, seed/reset/delete, deployment, email, or production check was run.

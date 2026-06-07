@@ -1267,3 +1267,12 @@ Recommended next step:
 - No SDK signing, QR, validation, hash, network, CSID/OTP, clearance/reporting, PDF/A-3, migration, seed/reset/delete, deployment, email, or production check was run in this review.
 - Completed follow-up: key custody and CSID lifecycle design is documented before any production Phase 2 QR/signing work.
 - Next ZATCA gap: sandbox CSID preflight guard, still with no OTP/CSID/network execution by default.
+
+## 2026-06-07 - ZATCA sandbox CSID request execution guard
+
+- Extended `corepack pnpm zatca:sandbox-csid-preflight -- --plan --no-network --json` with `--execution-guard` and `--execute-csid-request`.
+- Added `docs/zatca/SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md` and `docs/zatca/SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md`.
+- Observed guard status: `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`.
+- Observed execute flag status: `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+- No OTP, CSID request, network call, sandbox adapter execution, request body creation, response body processing, secret/body exposure, signing, clearance/reporting, PDF-A3, migration, seed/reset/delete, deployment, email, or production compliance behavior occurred.
+- Remaining next step: `ZATCA CSID response custody implementation plan`.

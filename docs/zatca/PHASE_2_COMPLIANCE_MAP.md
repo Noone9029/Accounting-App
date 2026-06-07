@@ -735,3 +735,12 @@ Phase 2 status remains blocked for production. The run did not request CSID/OTP,
 - Status interpretation: local dummy SDK sign/QR/validate success remains `PARTIAL_LOCAL` evidence only.
 - Phase 2 QR remains blocked for production until tags `6-9`, real certificate/CSID lifecycle, hash/signature consistency, clearance/reporting acceptance, rendered/PDF QR output, PDF/A-3 packaging, signed artifact storage, and official reviews are complete.
 - No SDK command, network call, CSID/OTP request, clearance/reporting, PDF/A-3, migration, seed/reset/delete, deployment, or email was run in this review.
+
+## ZATCA sandbox CSID request execution guard - 2026-06-07
+
+- Guard doc: `SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md`.
+- Results doc: `SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md`.
+- Status: `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`.
+- Execute flag: `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+- Phase 2 remains blocked: no OTP, CSID request, network call, sandbox adapter execution, request body, response body, signing, clearance/reporting, PDF-A3, or production compliance behavior was enabled.
+- Next prompt: `ZATCA CSID response custody implementation plan`.

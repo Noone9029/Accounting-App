@@ -236,3 +236,11 @@ Safety guarantees:
 
 Recommended next step:
 - Add a non-executing provider-reference audit and rotation plan before any real sandbox custody provider implementation.
+
+## 2026-06-07 Execution Guard Dependency
+
+`SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md` and `SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md` now record the no-network execution boundary. The guard reports `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`, and `--execute-csid-request` remains `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+
+Custody remains the next blocker: `csidResponseCustodyApproved=false`, provider implementation ready `false`, token/secret/certificate storage ready `false`, body storage allowed `false`, response body processed `false`, and response persisted `false`.
+
+No OTP, CSID request, network call, adapter execution, response body, token, secret, certificate body, or private-key body was handled by the guard. Next prompt: `ZATCA CSID response custody implementation plan`.

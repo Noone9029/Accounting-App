@@ -1104,3 +1104,10 @@ Recommended next step:
 - Reviewed the metadata-only local dummy signing evidence and added `docs/zatca/DUMMY_SIGNING_RESULT_REVIEW.md`.
 - Added `docs/zatca/PHASE_2_QR_GAP_ANALYSIS.md` to record production QR/signing gaps after local QR generation passed.
 - No score increase is taken from the review. ZATCA local readiness stays preparation-only; production readiness remains blocked on key custody, CSID lifecycle, production signing, Phase 2 QR proof, clearance/reporting, PDF/A-3, signed artifact storage, repeatable SDK CI, and official review.
+
+## 2026-06-07 ZATCA sandbox CSID request execution guard
+
+- Added `docs/zatca/SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md` and `docs/zatca/SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md`.
+- Extended the no-network preflight guard with execution-guard approval recognition.
+- No score increase is taken: status is `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`, and `--execute-csid-request` remains `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+- No OTP, CSID request, network call, adapter execution, secret/body exposure, signing, clearance/reporting, PDF-A3, or production compliance behavior occurred.

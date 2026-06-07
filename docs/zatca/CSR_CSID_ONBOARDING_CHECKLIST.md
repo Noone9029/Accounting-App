@@ -35,3 +35,13 @@ The guard checks CSR reference presence and CSR property keys, but it does not r
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Input/csr-config-template.properties`
 
 Current LedgerByte CSR generation remains local-only. Before real compliance CSID work, compare local CSR output against the SDK CSR tool and verify CSR subject, serial-number, key algorithm, OTP handling, and response fields.
+
+## Sandbox CSID Request Execution Guard Update
+
+- Guard doc: `SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md`.
+- Result doc: `SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md`.
+- Observed guard status: `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`.
+- Observed execute status: `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+- CSR readiness remains metadata-only; the guard does not create a CSID request body or process a response body.
+- No OTP was requested, no CSID was requested, no adapter was executed, no network call was made, and no secrets/bodies were exposed.
+- Next prompt: `ZATCA CSID response custody implementation plan`.

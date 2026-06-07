@@ -9,6 +9,8 @@ const test = require("node:test");
 const SCRIPT_PATH = path.join(__dirname, "zatca-sandbox-csid-preflight.cjs");
 const APPROVAL_PHRASE =
   "I approve ZATCA sandbox OTP and compliance CSID request planning only. No production, no customer data, no production CSID, no clearance, no reporting, no PDF-A3, no signing enablement, no secret/body exposure, and metadata-only evidence.";
+const EXECUTION_GUARD_APPROVAL_PHRASE =
+  "I approve ZATCA sandbox compliance CSID request execution guard only. No production, no customer data, no production CSID, no clearance, no reporting, no PDF-A3, no signing enablement, no secret/body exposure, no adapter execution, and metadata-only evidence.";
 
 test("refuses without --no-network", () => {
   const repo = createRepo();
@@ -251,6 +253,172 @@ test("no network module request is made", () => {
   const result = buildSandboxCsidPreflight({ cwd: createRepo(), env: {} });
 
   assert.equal(result.networkCallsMade, false);
+});
+
+test("execution guard missing approval phrase blocks safely", () => {
+  const { buildSandboxCsidPreflight } = loadScriptWithNetworkTrap();
+  const result = buildSandboxCsidPreflight({
+    cwd: createRepo(),
+    args: { plan: true, executionGuard: true },
+    env: {},
+  });
+
+  assert.equal(result.status, "EXECUTION_GUARD_BLOCKED_APPROVAL_REQUIRED");
+  assert.equal(result.environment, "LOCAL_SANDBOX_CSID_EXECUTION_GUARD_NO_NETWORK");
+  assert.equal(result.executionGuardRecognized, false);
+  assert.equal(result.approvalPhraseMatched, false);
+  assert.equal(result.otpRequested, false);
+  assert.equal(result.complianceCsidRequested, false);
+  assert.equal(result.productionCsidRequested, false);
+  assert.equal(result.sandboxAdapterExecuted, false);
+  assert.equal(result.networkCallsMade, false);
+  assert.equal(result.productionComplianceEnabled, false);
+  assert.equal(result.productionSigningEnabled, false);
+});
+
+test("execution guard invalid approval phrase blocks without echoing it", () => {
+  const { buildSandboxCsidPreflight } = loadScriptWithNetworkTrap();
+  const invalidPhrase = "EXECUTION_GUARD_INVALID_PHRASE_SHOULD_NOT_ECHO";
+  const result = buildSandboxCsidPreflight({
+    cwd: createRepo(),
+    args: { plan: true, executionGuard: true, approvalPhrase: invalidPhrase },
+    env: {},
+  });
+  const output = JSON.stringify(result);
+
+  assert.equal(result.status, "BLOCKED_INVALID_APPROVAL_PHRASE");
+  assert.equal(result.executionGuardRecognized, false);
+  assert.equal(result.approvalPhraseMatched, false);
+  assert.ok(result.blockers.some((blocker) => blocker.startsWith("BLOCKED_INVALID_APPROVAL_PHRASE")));
+  assert.doesNotMatch(output, /EXECUTION_GUARD_INVALID_PHRASE_SHOULD_NOT_ECHO/);
+});
+
+test("execution guard exact approval phrase returns ready but request blocked", () => {
+  const { buildSandboxCsidPreflight } = loadScriptWithNetworkTrap();
+  const result = buildSandboxCsidPreflight({
+    cwd: createRepo(),
+    args: { plan: true, executionGuard: true, approvalPhrase: EXECUTION_GUARD_APPROVAL_PHRASE },
+    env: {
+      ZATCA_SANDBOX_BASE_URL: "https://SANDBOX_GUARD_URL_VALUE_SHOULD_NOT_ECHO.example.test",
+      ZATCA_SANDBOX_COMPLIANCE_CSID_OTP: "987654",
+      ZATCA_PRODUCTION_BINARY_SECURITY_TOKEN: "EXECUTION_GUARD_TOKEN_VALUE_SHOULD_NOT_ECHO",
+      ZATCA_CSID_CUSTODY_SECRET_PREFIX: "EXECUTION_GUARD_SECRET_PREFIX_SHOULD_NOT_ECHO",
+    },
+  });
+  const output = JSON.stringify(result);
+
+  assert.equal(result.status, "EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED");
+  assert.equal(result.executionGuardRecognized, true);
+  assert.equal(result.approvalPhraseMatched, true);
+  assert.equal(result.otpRequested, false);
+  assert.equal(result.complianceCsidRequested, false);
+  assert.equal(result.productionCsidRequested, false);
+  assert.equal(result.sandboxAdapterExecuted, false);
+  assert.equal(result.networkCallsMade, false);
+  assert.equal(result.productionComplianceEnabled, false);
+  assert.equal(result.productionSigningEnabled, false);
+  assert.equal(result.clearanceReportingEnabled, false);
+  assert.equal(result.pdfA3Enabled, false);
+  assert.equal(result.csidResponseBodyProcessed, false);
+  assert.equal(result.csidResponsePersisted, false);
+  assert.equal(result.custody.csidResponseCustodyApproved, false);
+  assert.doesNotMatch(output, /SANDBOX_GUARD_URL_VALUE_SHOULD_NOT_ECHO/);
+  assert.doesNotMatch(output, /987654/);
+  assert.doesNotMatch(output, /EXECUTION_GUARD_TOKEN_VALUE_SHOULD_NOT_ECHO/);
+  assert.doesNotMatch(output, /EXECUTION_GUARD_SECRET_PREFIX_SHOULD_NOT_ECHO/);
+});
+
+test("execute CSID request flag is blocked even with exact guard approval", () => {
+  const { buildSandboxCsidPreflight } = loadScriptWithNetworkTrap();
+  const result = buildSandboxCsidPreflight({
+    cwd: createRepo(),
+    args: { plan: true, executeCsidRequest: true, approvalPhrase: EXECUTION_GUARD_APPROVAL_PHRASE },
+    env: {
+      ZATCA_ADAPTER_MODE: "sandbox",
+      ZATCA_ENABLE_REAL_NETWORK: "true",
+      ZATCA_SANDBOX_BASE_URL: "https://SANDBOX_EXECUTE_URL_VALUE_SHOULD_NOT_ECHO.example.test",
+    },
+  });
+  const output = JSON.stringify(result);
+
+  assert.equal(result.status, "BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED");
+  assert.equal(result.executionGuardRecognized, true);
+  assert.equal(result.approvalPhraseMatched, true);
+  assert.equal(result.otpRequested, false);
+  assert.equal(result.complianceCsidRequested, false);
+  assert.equal(result.productionCsidRequested, false);
+  assert.equal(result.sandboxAdapterExecuted, false);
+  assert.equal(result.networkCallsMade, false);
+  assert.equal(result.csidRequestBodyCreated, false);
+  assert.equal(result.csidResponseBodyProcessed, false);
+  assert.equal(result.csidResponsePersisted, false);
+  assert.doesNotMatch(output, /SANDBOX_EXECUTE_URL_VALUE_SHOULD_NOT_ECHO/);
+});
+
+test("execution guard CLI supports flags and never prints secret values", () => {
+  const repo = createRepo();
+  const result = spawnSync(
+    process.execPath,
+    [
+      SCRIPT_PATH,
+      "--plan",
+      "--no-network",
+      "--json",
+      "--approval-phrase",
+      EXECUTION_GUARD_APPROVAL_PHRASE,
+      "--execution-guard",
+    ],
+    {
+      cwd: repo,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        ZATCA_SANDBOX_COMPLIANCE_CSID_OTP: "112233",
+        ZATCA_PRODUCTION_SECRET: "CLI_SECRET_VALUE_SHOULD_NOT_ECHO",
+      },
+      windowsHide: true,
+    },
+  );
+
+  assert.equal(result.status, 0);
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.status, "EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED");
+  assert.equal(payload.executionGuardRecognized, true);
+  assert.equal(payload.otpRequested, false);
+  assert.equal(payload.complianceCsidRequested, false);
+  assert.equal(payload.sandboxAdapterExecuted, false);
+  assert.equal(payload.networkCallsMade, false);
+  assert.doesNotMatch(result.stdout, /112233/);
+  assert.doesNotMatch(result.stdout, /CLI_SECRET_VALUE_SHOULD_NOT_ECHO/);
+});
+
+test("strict mode exits nonzero for execution guard blocked statuses", () => {
+  const repo = createRepo();
+  const result = spawnSync(
+    process.execPath,
+    [
+      SCRIPT_PATH,
+      "--plan",
+      "--no-network",
+      "--json",
+      "--strict",
+      "--approval-phrase",
+      EXECUTION_GUARD_APPROVAL_PHRASE,
+      "--execution-guard",
+    ],
+    {
+      cwd: repo,
+      encoding: "utf8",
+      windowsHide: true,
+    },
+  );
+
+  assert.equal(result.status, 1);
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.status, "EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED");
+  assert.equal(payload.executionGuardRecognized, true);
+  assert.equal(payload.complianceCsidRequested, false);
+  assert.equal(payload.networkCallsMade, false);
 });
 
 function loadScriptWithNetworkTrap() {

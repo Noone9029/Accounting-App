@@ -1404,4 +1404,14 @@ Recommended next step:
 - Completed follow-up: `ZATCA key custody and CSID lifecycle design`.
 - Completed follow-up: `ZATCA sandbox CSID preflight guard`.
 - Completed follow-up: `ZATCA sandbox OTP and compliance CSID approval plan`.
-- Remaining next step: `ZATCA sandbox CSID request execution guard`.
+- Completed follow-up: `ZATCA sandbox CSID request execution guard`.
+- Remaining next step: `ZATCA CSID response custody implementation plan`.
+
+# ZATCA sandbox CSID request execution guard - 2026-06-07
+
+- Added the no-network execution guard docs and results.
+- Extended the existing preflight guard with `--execution-guard` and `--execute-csid-request`.
+- Exact execution-guard phrase recognition returns `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`.
+- The execute flag remains blocked as `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+- No OTP, CSID request, network call, sandbox adapter execution, request body, response body, secret persistence, signing, clearance/reporting, PDF-A3, or production compliance behavior occurred.
+- Remaining roadmap items: key custody, CSID response custody, real sandbox adapter execution, actual OTP capture approval, compliance CSID request execution approval, compliance invoice checks, production CSID lifecycle, production signing/Phase 2 QR proof, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.

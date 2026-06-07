@@ -159,3 +159,14 @@ This checklist is metadata-only planning. It does not request OTPs, request comp
 | Clearance/reporting implemented | NOT_STARTED | Separate phase after signing/custody. |
 | PDF-A3 implemented | NOT_STARTED | Separate phase. |
 | Production compliance claim allowed | BLOCKED | Not allowed from current evidence. |
+
+## Sandbox Execution Guard Update
+
+| Item | Status | Notes |
+| --- | --- | --- |
+| Sandbox CSID request execution guard | DONE_LOCAL | `SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md` documents the no-network control boundary. |
+| Execution guard observed result | BLOCKED | `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`; launch remains refused. |
+| Execute CSID request flag | BLOCKED | `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. |
+| OTP/CSID/network/adapter execution | BLOCKED | No OTP, CSID request, network call, or sandbox adapter execution occurred. |
+| Secret/body exposure | BLOCKED | No env values, OTPs, tokens, secrets, request bodies, response bodies, certificate bodies, or private-key bodies exposed. |
+| Next step | PLANNED | `ZATCA CSID response custody implementation plan`. |

@@ -159,3 +159,14 @@ The placeholder command must not be added or run until the future execution guar
 ## Next Stage After Approval
 
 The next stage is a separate `ZATCA sandbox CSID request execution guard` sprint. That future sprint must still be no-production, sandbox-only, custody-gated, redaction-tested, and blocked until all execution prerequisites are explicitly satisfied.
+
+## Execution Guard Follow-Up
+
+The separate execution guard sprint is now complete as a no-network guard only:
+
+- Guard doc: `SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md`.
+- Result doc: `SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md`.
+- Observed guard status: `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`.
+- Attempted execution flag status: `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+
+No OTP/CSID/network call was made, the sandbox adapter was not executed, and no secrets or bodies were exposed. The next prompt is `ZATCA CSID response custody implementation plan`.

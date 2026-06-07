@@ -247,3 +247,11 @@ Safety guarantees:
 
 Recommended next step:
 - Add a non-executing provider-reference audit and rotation plan before any real sandbox custody provider implementation.
+
+## 2026-06-07 Sandbox CSID Request Execution Guard
+
+The no-network execution guard is documented in `SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md`, with observed results in `SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md`.
+
+Status: `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`. The guard recognizes the exact execution-guard phrase but still refuses `--execute-csid-request` as `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+
+No OTP, CSID request, network call, sandbox adapter execution, request body creation, response body processing, secret persistence, signing, clearance/reporting, PDF-A3, or production compliance behavior is enabled. Next step: `ZATCA CSID response custody implementation plan`.

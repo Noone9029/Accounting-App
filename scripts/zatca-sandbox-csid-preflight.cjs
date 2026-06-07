@@ -4,9 +4,12 @@ const path = require("node:path");
 
 const SDK_ROOT = "reference/zatca-einvoicing-sdk-Java-238-R3.4.8";
 const PREFLIGHT_ENVIRONMENT = "LOCAL_SANDBOX_CSID_PREFLIGHT_NO_NETWORK";
+const EXECUTION_GUARD_ENVIRONMENT = "LOCAL_SANDBOX_CSID_EXECUTION_GUARD_NO_NETWORK";
 const SANDBOX_REQUEST_GATE_ENV = "ZATCA_SANDBOX_COMPLIANCE_CSID_REQUEST_ENABLED";
 const SANDBOX_OTP_CSID_APPROVAL_PHRASE =
   "I approve ZATCA sandbox OTP and compliance CSID request planning only. No production, no customer data, no production CSID, no clearance, no reporting, no PDF-A3, no signing enablement, no secret/body exposure, and metadata-only evidence.";
+const SANDBOX_CSID_REQUEST_EXECUTION_GUARD_APPROVAL_PHRASE =
+  "I approve ZATCA sandbox compliance CSID request execution guard only. No production, no customer data, no production CSID, no clearance, no reporting, no PDF-A3, no signing enablement, no secret/body exposure, no adapter execution, and metadata-only evidence.";
 
 const REQUIRED_BASELINE_FILES = [
   "docs/zatca/KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md",
@@ -123,6 +126,8 @@ function parseArgs(argv) {
     help: false,
     approvalPhrase: null,
     approvalPlan: false,
+    executionGuard: false,
+    executeCsidRequest: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -144,6 +149,10 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--approval-plan") {
       parsed.approvalPlan = true;
+    } else if (arg === "--execution-guard") {
+      parsed.executionGuard = true;
+    } else if (arg === "--execute-csid-request") {
+      parsed.executeCsidRequest = true;
     } else if (arg === "--help" || arg === "-h") {
       parsed.help = true;
     } else if (arg === "--") {
@@ -162,9 +171,11 @@ function usage() {
     "  node scripts/zatca-sandbox-csid-preflight.cjs --plan --no-network --json",
     "  node scripts/zatca-sandbox-csid-preflight.cjs --plan --no-network --json --strict",
     "  node scripts/zatca-sandbox-csid-preflight.cjs --plan --no-network --json --approval-phrase <text> --approval-plan",
+    "  node scripts/zatca-sandbox-csid-preflight.cjs --plan --no-network --json --approval-phrase <text> --execution-guard",
+    "  node scripts/zatca-sandbox-csid-preflight.cjs --plan --no-network --json --approval-phrase <text> --execute-csid-request",
     "",
     "This guard inspects metadata-only readiness for a future sandbox compliance CSID request.",
-    "Approval recognition is planning-only and never authorizes execution in this guard.",
+    "Approval recognition is planning-only or execution-guard-only and never authorizes a CSID request in this guard.",
     "It does not request OTPs, request CSIDs, call ZATCA, execute the sandbox adapter, sign, generate QR, validate signed XML, clear/report, create PDF/A-3, migrate, seed, reset, delete, mutate env, deploy, or send email.",
   ].join("\n");
 }
@@ -181,6 +192,8 @@ function buildSandboxCsidPreflight(options = {}) {
   const packageScripts = inspectPackageScripts(repoRoot);
   const envPresence = inspectEnvPresence(env);
   const approval = inspectApproval(args);
+  const executionMode = Boolean(args.executionGuard || args.executeCsidRequest);
+  const executionApproval = inspectExecutionGuardApproval(args, executionMode);
   const blockers = [];
   const warnings = [];
 
@@ -210,18 +223,34 @@ function buildSandboxCsidPreflight(options = {}) {
   if (!codeSurfaces.sandboxAdapterFound || codeSurfaces.sandboxAdapterExecutionBlocked || !envPresence.effectiveRealNetworkEnabled) {
     blockers.push("BLOCKED_SANDBOX_ADAPTER_DISABLED: real sandbox adapter execution remains disabled and no ZATCA network call is allowed.");
   }
-  if (approval.status === "INVALID") {
-    blockers.push("BLOCKED_INVALID_APPROVAL_PHRASE: the supplied approval phrase did not match the exact future planning phrase and was not echoed.");
-  }
-  if (approval.status === "MATCHED_PLAN_FLAG_REQUIRED") {
-    blockers.push("BLOCKED_APPROVAL_PLAN_FLAG_REQUIRED: the exact approval phrase was recognized, but --approval-plan is required for planning-only recognition.");
-  }
-  if (approval.recognizedForPlanning) {
-    blockers.push("BLOCKED_OTP_REQUEST_NOT_ALLOWED_BY_THIS_GUARD: approval was recognized for planning only; OTP request, capture, storage, logging, and echo remain prohibited.");
-    blockers.push("BLOCKED_CSID_REQUEST_NOT_ALLOWED_BY_THIS_GUARD: approval was recognized for planning only; compliance CSID request execution requires a separate execution guard sprint.");
+  if (executionMode) {
+    if (executionApproval.status === "INVALID") {
+      blockers.push("BLOCKED_INVALID_APPROVAL_PHRASE: the supplied approval phrase did not match the exact future execution-guard phrase and was not echoed.");
+    }
+    if (executionApproval.status === "ABSENT") {
+      blockers.push("EXECUTION_GUARD_BLOCKED_APPROVAL_REQUIRED: the exact sandbox compliance CSID request execution guard approval phrase is required.");
+    }
+    if (executionApproval.recognizedForGuard) {
+      blockers.push("BLOCKED_OTP_NOT_APPROVED: OTP capture, request, storage, logging, and echo remain prohibited by this execution guard.");
+      blockers.push("BLOCKED_CSID_REQUEST_NOT_APPROVED: compliance CSID request execution remains prohibited until a later explicit execution approval.");
+    }
+    if (args.executeCsidRequest) {
+      blockers.push("BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED: --execute-csid-request is intentionally blocked in this no-network guard sprint.");
+    }
   } else {
-    blockers.push("BLOCKED_OTP_NOT_APPROVED: OTP capture is not approved, accepted, stored, printed, or requested by this guard.");
-    blockers.push("BLOCKED_CSID_REQUEST_NOT_APPROVED: future compliance CSID request execution requires a separate explicit approval gate.");
+    if (approval.status === "INVALID") {
+      blockers.push("BLOCKED_INVALID_APPROVAL_PHRASE: the supplied approval phrase did not match the exact future planning phrase and was not echoed.");
+    }
+    if (approval.status === "MATCHED_PLAN_FLAG_REQUIRED") {
+      blockers.push("BLOCKED_APPROVAL_PLAN_FLAG_REQUIRED: the exact approval phrase was recognized, but --approval-plan is required for planning-only recognition.");
+    }
+    if (approval.recognizedForPlanning) {
+      blockers.push("BLOCKED_OTP_REQUEST_NOT_ALLOWED_BY_THIS_GUARD: approval was recognized for planning only; OTP request, capture, storage, logging, and echo remain prohibited.");
+      blockers.push("BLOCKED_CSID_REQUEST_NOT_ALLOWED_BY_THIS_GUARD: approval was recognized for planning only; compliance CSID request execution requires a separate execution guard sprint.");
+    } else {
+      blockers.push("BLOCKED_OTP_NOT_APPROVED: OTP capture is not approved, accepted, stored, printed, or requested by this guard.");
+      blockers.push("BLOCKED_CSID_REQUEST_NOT_APPROVED: future compliance CSID request execution requires a separate explicit approval gate.");
+    }
   }
   blockers.push("BLOCKED_PRODUCTION_SIGNING_DISABLED: production signing and production compliance remain disabled.");
 
@@ -240,17 +269,19 @@ function buildSandboxCsidPreflight(options = {}) {
 
   const uniqueBlockers = [...new Set(blockers.filter(Boolean))];
   const uniqueWarnings = [...new Set(warnings.filter(Boolean))];
-  const status = selectStatus(uniqueBlockers, approval);
+  const status = selectStatus(uniqueBlockers, approval, executionApproval, args);
 
   return {
     status,
-    environment: PREFLIGHT_ENVIRONMENT,
+    environment: executionMode ? EXECUTION_GUARD_ENVIRONMENT : PREFLIGHT_ENVIRONMENT,
     noNetworkOnly: true,
     localOnly: true,
     planOnly: true,
     networkCallsMade: false,
     commandExecutionAttempted: false,
     dbConnectionAttempted: false,
+    executionGuardRecognized: executionApproval.recognizedForGuard,
+    approvalPhraseMatched: executionMode ? executionApproval.matched : approval.matched,
     otpRequested: false,
     otpAccepted: false,
     otpStored: false,
@@ -258,6 +289,9 @@ function buildSandboxCsidPreflight(options = {}) {
     complianceCsidRequested: false,
     complianceCsidApprovalRecognized: approval.recognizedForPlanning,
     productionCsidRequested: false,
+    csidRequestBodyCreated: false,
+    csidResponseBodyProcessed: false,
+    csidResponsePersisted: false,
     sandboxCsidRequestEnabled: false,
     sandboxAdapterExecuted: false,
     productionSigningEnabled: false,
@@ -304,6 +338,19 @@ function buildSandboxCsidPreflight(options = {}) {
     codeSurfaces,
     packageScripts,
     envPresence,
+    custody: {
+      providerFound: codeSurfaces.custodyProviderFound,
+      providerDisabled: codeSurfaces.custodyProviderDisabled,
+      providerImplementationReady: false,
+      providerConfigurationApproved: false,
+      csidResponseCustodyApproved: codeSurfaces.csidResponseCustodyApproved,
+      tokenStorageReady: false,
+      secretStorageReady: false,
+      certificateStorageReady: false,
+      bodyStorageAllowed: false,
+      responseBodyProcessed: false,
+      responsePersisted: false,
+    },
     approvalGates: {
       csrDryRunApprovalRequired: true,
       sandboxOtpApprovalRequired: true,
@@ -314,18 +361,23 @@ function buildSandboxCsidPreflight(options = {}) {
     },
     approval: {
       approvalPhraseRequired: true,
-      approvalPhraseProvided: approval.provided,
-      approvalPhraseMatched: approval.matched,
+      approvalPhraseProvided: executionMode ? executionApproval.provided : approval.provided,
+      approvalPhraseMatched: executionMode ? executionApproval.matched : approval.matched,
       approvalPhraseEchoed: false,
       approvalPlanFlagProvided: approval.approvalPlan,
       approvalPlanRecognized: approval.recognizedForPlanning,
+      executionGuardFlagProvided: Boolean(args.executionGuard),
+      executeCsidRequestFlagProvided: Boolean(args.executeCsidRequest),
+      executionGuardApprovalPhraseMatched: executionApproval.matched,
+      executionGuardRecognized: executionApproval.recognizedForGuard,
       executionAuthorizedNow: false,
       otpApprovalRecognized: approval.recognizedForPlanning,
       complianceCsidApprovalRecognized: approval.recognizedForPlanning,
       sandboxAdapterExecutionAuthorized: false,
       sandboxAdapterExecuted: false,
-      approvalScope: "planning-only",
-      nextExecutionGuardRequired: true,
+      approvalScope: executionMode ? "execution-guard-only" : "planning-only",
+      executionGuardScope: executionMode ? "guard-only-request-blocked" : "not-requested",
+      nextExecutionGuardRequired: !executionApproval.recognizedForGuard,
     },
     blockers: uniqueBlockers,
     warnings: uniqueWarnings,
@@ -340,6 +392,9 @@ function buildSandboxCsidPreflight(options = {}) {
       authHeaderPrinted: false,
       requestBodyPrinted: false,
       responseBodyPrinted: false,
+      requestBodyCreated: false,
+      responseBodyProcessed: false,
+      responseBodyPersisted: false,
       otpValuePrinted: false,
       approvalPhrasePrinted: false,
     },
@@ -352,11 +407,15 @@ function buildSandboxCsidPreflight(options = {}) {
       packageScripts.allRequiredFound,
     nextApprovalGate: approval.recognizedForPlanning
       ? "sandbox CSID request execution guard"
+      : executionApproval.recognizedForGuard
+      ? "CSID response custody implementation plan"
       : "sandbox OTP and compliance CSID dry-run approval",
     recommendedNextPrompt: approval.recognizedForPlanning
       ? "ZATCA sandbox CSID request execution guard"
+      : executionApproval.recognizedForGuard
+      ? "ZATCA CSID response custody implementation plan"
       : "ZATCA sandbox OTP and compliance CSID approval plan",
-    ...(args.plan ? { plan: buildPlanSummary(status, approval) } : {}),
+    ...(args.plan ? { plan: buildPlanSummary(status, approval, executionApproval, args) } : {}),
   };
 }
 
@@ -384,7 +443,44 @@ function inspectApproval(args) {
   };
 }
 
-function selectStatus(blockers, approval) {
+function inspectExecutionGuardApproval(args, executionMode) {
+  const approvalPhrase = typeof args.approvalPhrase === "string" ? args.approvalPhrase : "";
+  const provided = approvalPhrase.length > 0;
+  const matched = provided && approvalPhrase === SANDBOX_CSID_REQUEST_EXECUTION_GUARD_APPROVAL_PHRASE;
+  const recognizedForGuard = executionMode && matched;
+  let status = "NOT_REQUESTED";
+  if (executionMode && !provided) {
+    status = "ABSENT";
+  } else if (executionMode && provided && !matched) {
+    status = "INVALID";
+  } else if (recognizedForGuard) {
+    status = "MATCHED_EXECUTION_GUARD_ONLY";
+  }
+
+  return {
+    provided,
+    matched,
+    recognizedForGuard,
+    status,
+  };
+}
+
+function selectStatus(blockers, approval, executionApproval, args = {}) {
+  const executionMode = Boolean(args.executionGuard || args.executeCsidRequest);
+  if (executionMode) {
+    if (executionApproval.status === "INVALID") {
+      return "BLOCKED_INVALID_APPROVAL_PHRASE";
+    }
+    if (executionApproval.status === "ABSENT") {
+      return "EXECUTION_GUARD_BLOCKED_APPROVAL_REQUIRED";
+    }
+    if (args.executeCsidRequest) {
+      return "BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED";
+    }
+    if (executionApproval.status === "MATCHED_EXECUTION_GUARD_ONLY") {
+      return "EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED";
+    }
+  }
   if (approval.status === "INVALID") {
     return "BLOCKED_INVALID_APPROVAL_PHRASE";
   }
@@ -403,13 +499,18 @@ function selectStatus(blockers, approval) {
   return blockers.length > 0 ? "PREFLIGHT_BLOCKED" : "PREFLIGHT_READY_FOR_APPROVAL_PLANNING";
 }
 
-function buildPlanSummary(status, approval) {
+function buildPlanSummary(status, approval, executionApproval = { recognizedForGuard: false, provided: false, matched: false }, args = {}) {
+  const executionMode = Boolean(args.executionGuard || args.executeCsidRequest);
   return {
     currentPosture: status,
     executionApprovedNow: false,
     approvalPhraseProvided: approval.provided,
     approvalPhraseMatched: approval.matched,
     approvalPlanRecognized: approval.recognizedForPlanning,
+    executionGuardRequested: executionMode,
+    executionGuardApprovalPhraseProvided: executionApproval.provided,
+    executionGuardApprovalPhraseMatched: executionApproval.matched,
+    executionGuardRecognized: executionApproval.recognizedForGuard,
     allowedNow: [
       "Inspect local repo metadata.",
       "Inspect official reference file presence.",
@@ -417,16 +518,21 @@ function buildPlanSummary(status, approval) {
       "Inspect environment variable presence as booleans only.",
       "Report blockers and approval gates.",
       "Recognize the exact future approval phrase for planning metadata only when --approval-plan is also present.",
+      "Recognize the exact sandbox compliance CSID request execution guard phrase when --execution-guard is present.",
     ],
     refusedNow: [
       "OTP request or capture.",
       "Compliance CSID or production CSID request.",
+      "Compliance CSID request body creation.",
+      "Compliance CSID response body processing or persistence.",
       "Real ZATCA network call.",
       "Sandbox adapter execution.",
       "Private key, certificate, token, secret, request, response, XML, signed XML, or QR body output.",
       "Signing, clearance/reporting, PDF/A-3, migrations, seed/reset/delete, deploy, or email.",
     ],
-    nextPromptTitle: approval.recognizedForPlanning
+    nextPromptTitle: executionApproval.recognizedForGuard
+      ? "ZATCA CSID response custody implementation plan"
+      : approval.recognizedForPlanning
       ? "ZATCA sandbox CSID request execution guard"
       : "ZATCA sandbox OTP and compliance CSID approval plan",
   };
@@ -583,6 +689,12 @@ function inspectEnvPresence(env) {
     "ZATCA_PRODUCTION_BINARY_SECURITY_TOKEN",
     "ZATCA_PRODUCTION_SECRET",
   ].some(has);
+  const csidCustodyProviderConfigured = has("ZATCA_CSID_CUSTODY_PROVIDER");
+  const csidCustodyKmsKeyIdConfigured = has("ZATCA_CSID_CUSTODY_KMS_KEY_ID");
+  const csidCustodySecretPrefixConfigured = has("ZATCA_CSID_CUSTODY_SECRET_PREFIX");
+  const csidCustodyRegionConfigured = has("ZATCA_CSID_CUSTODY_REGION");
+  const csidCustodyEncryptedDbApprovalConfigured = has("ZATCA_CSID_CUSTODY_ENCRYPTED_DB_APPROVED");
+  const csidCustodyAllowBodyStorageConfigured = has("ZATCA_CSID_CUSTODY_ALLOW_BODY_STORAGE");
 
   return {
     sandboxBaseUrlConfigured,
@@ -594,6 +706,19 @@ function inspectEnvPresence(env) {
     adapterModeSandboxConfigured: adapterModeSandbox,
     realNetworkEnabledConfigured: realNetworkEnabled,
     effectiveRealNetworkEnabled: adapterModeSandbox && realNetworkEnabled && sandboxBaseUrlConfigured,
+    csidCustodyProviderConfigured,
+    csidCustodyKmsKeyIdConfigured,
+    csidCustodySecretPrefixConfigured,
+    csidCustodyRegionConfigured,
+    csidCustodyEncryptedDbApprovalConfigured,
+    csidCustodyAllowBodyStorageConfigured,
+    csidCustodyAnyProviderConfigPresent:
+      csidCustodyProviderConfigured ||
+      csidCustodyKmsKeyIdConfigured ||
+      csidCustodySecretPrefixConfigured ||
+      csidCustodyRegionConfigured ||
+      csidCustodyEncryptedDbApprovalConfigured ||
+      csidCustodyAllowBodyStorageConfigured,
     valuesPrinted: false,
   };
 }
@@ -639,6 +764,7 @@ function formatHuman(result) {
     `Compliance CSID requested: ${result.complianceCsidRequested ? "true" : "false"}`,
     `Approval phrase matched: ${result.approval.approvalPhraseMatched ? "true" : "false"}`,
     `Approval plan recognized: ${result.approval.approvalPlanRecognized ? "true" : "false"}`,
+    `Execution guard recognized: ${result.executionGuardRecognized ? "true" : "false"}`,
     `Sandbox adapter executed: ${result.sandboxAdapterExecuted ? "true" : "false"}`,
     `Sandbox adapter execution blocked: ${result.codeSurfaces.sandboxAdapterExecutionBlocked ? "true" : "false"}`,
     `Key custody blocker present: ${result.blockers.some((blocker) => blocker.startsWith("BLOCKED_KEY_CUSTODY_NOT_IMPLEMENTED")) ? "true" : "false"}`,
@@ -703,6 +829,7 @@ if (require.main === module) {
 module.exports = {
   buildSandboxCsidPreflight,
   SANDBOX_OTP_CSID_APPROVAL_PHRASE,
+  SANDBOX_CSID_REQUEST_EXECUTION_GUARD_APPROVAL_PHRASE,
   parseArgs,
   runCli,
 };
