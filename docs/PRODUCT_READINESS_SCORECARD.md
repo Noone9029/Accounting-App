@@ -69,7 +69,7 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 - ZATCA remains scored at `41`; the boundary check improves static safety evidence but does not add compliance capability.
 - Added `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md`, `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RUNBOOK.md`, `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`, `scripts/zatca-sandbox-adapter-boundary-check.cjs`, and `scripts/zatca-sandbox-adapter-boundary-check.test.cjs`.
 - Observed status is `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`; no OTP request, CSID request, network call, sandbox adapter execution, mock adapter execution, request body creation, response body processing, DB write, env value output, signing, clearance/reporting, PDF-A3, or production compliance occurred.
-- Next ZATCA priority: `ZATCA sandbox adapter no-network contract tests`.
+- Completed follow-up: `ZATCA sandbox adapter no-network contract tests`.
 
 ## Overall Readiness Interpretation
 
@@ -1133,3 +1133,10 @@ Recommended next step:
 - Extended the no-network preflight guard with execution-guard approval recognition.
 - No score increase is taken: status is `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`, and `--execute-csid-request` remains `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
 - No OTP, CSID request, network call, adapter execution, secret/body exposure, signing, clearance/reporting, PDF-A3, or production compliance behavior occurred.
+
+## 2026-06-07 ZATCA sandbox adapter no-network contract tests
+
+- Added `docs/zatca/SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_TESTS.md` and `docs/zatca/SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_RESULTS.md`.
+- Added the standalone contract guard and tests at `scripts/zatca-sandbox-adapter-no-network-contract.cjs` and `scripts/zatca-sandbox-adapter-no-network-contract.test.cjs`.
+- No score increase is taken: status is `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS`, and real sandbox readiness remains blocked.
+- No OTP, CSID request, network call, sandbox adapter execution, mock/disabled adapter execution, request body creation, response body processing, DB write, env value output, secret/body exposure, signing, clearance/reporting, PDF-A3, or production compliance behavior occurred.

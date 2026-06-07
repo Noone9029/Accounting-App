@@ -66,7 +66,16 @@ Current production posture:
 - Observed boundary status is `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS` using `--plan --no-network --json --static-only`.
 - The guard found the sandbox adapter, disabled fail-closed adapter, mock-only adapter, env gate source references, request/response risk markers, and custody dependency by static inspection only.
 - No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no mock adapter was executed, no request body was created, no response body was processed, no DB connection or write was attempted, no env values were printed, and no secrets/bodies were exposed.
-- Current blockers are CSID response custody provider approval, legacy raw PEM-capable fields, request/response body approval, env gate approval, OTP capture approval, CSID request approval, real network approval, adapter execution approval, production signing, production CSID lifecycle, clearance/reporting, PDF-A3, signed artifact storage, official reviews, repeatable SDK CI, and future no-network adapter contract tests. Recommended next prompt: `ZATCA sandbox adapter no-network contract tests`.
+- Current blockers are CSID response custody provider approval, legacy raw PEM-capable fields, request/response body approval, env gate approval, OTP capture approval, CSID request approval, real network approval, adapter execution approval, production signing, production CSID lifecycle, clearance/reporting, PDF-A3, signed artifact storage, official reviews, repeatable SDK CI, and future no-network adapter contract tests. Completed follow-up: `ZATCA sandbox adapter no-network contract tests`.
+
+2026-06-07 ZATCA Sandbox Adapter No-Network Contract Tests update:
+
+- Added `docs/zatca/SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_TESTS.md`, `docs/zatca/SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_RESULTS.md`, `scripts/zatca-sandbox-adapter-no-network-contract.cjs`, and `scripts/zatca-sandbox-adapter-no-network-contract.test.cjs`.
+- Added root package scripts `zatca:sandbox-adapter-no-network-contract` and `test:zatca-sandbox-adapter-no-network-contract`.
+- Observed contract status is `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS` using `--plan --no-network --json --contract`.
+- The guard installs a local no-network trap and detects sandbox, disabled, and mock adapter contract surfaces by static inspection only.
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no mock or disabled adapter was executed, no request body was created, no response body was processed, no DB connection or write was attempted, no env values were printed, and no secrets/bodies were exposed.
+- Current blockers are CSID dry-run request body schema planning, CSID response custody provider approval, legacy raw PEM-capable fields, request/response body approval, env gate approval, OTP capture approval, CSID request approval, real network approval, adapter execution approval, production signing, production CSID lifecycle, clearance/reporting, PDF-A3, signed artifact storage, official reviews, and repeatable SDK CI. Recommended next prompt: `ZATCA sandbox CSID dry-run request body schema plan`.
 
 2026-06-06 ZATCA Key Custody and CSID Lifecycle Design update:
 

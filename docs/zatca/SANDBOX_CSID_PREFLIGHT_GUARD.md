@@ -240,4 +240,8 @@ The guard reports `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED` without requesting
 
 The mock-to-real boundary plan is now documented in `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md`, with results in `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`. Observed status is `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`; no OTP/CSID/network call, sandbox adapter execution, mock adapter execution, request body creation, response body processing, DB write, env value output, or secret/body exposure occurred.
 
-Next prompt: `ZATCA sandbox adapter no-network contract tests`.
+## Sandbox Adapter No-Network Contract Follow-Up
+
+The no-network contract plan is now documented in `SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_TESTS.md`, with results in `SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_RESULTS.md`. Observed status is `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS`; no OTP/CSID/network call, sandbox adapter execution, mock adapter execution, disabled adapter execution, request body creation, response body processing, DB write, env value output, or secret/body exposure occurred.
+
+Next prompt: `ZATCA sandbox CSID dry-run request body schema plan`.

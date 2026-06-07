@@ -74,3 +74,7 @@ The follow-up approval artifacts are `SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md
 ## Mock-to-Real Boundary Follow-Up
 
 The follow-up boundary artifacts are `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md`, `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RUNBOOK.md`, `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`, `scripts/zatca-sandbox-adapter-boundary-check.cjs`, and `scripts/zatca-sandbox-adapter-boundary-check.test.cjs`. Boundary status is `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`; no OTP/CSID/network call, sandbox adapter execution, mock adapter execution, request body creation, response body processing, DB write, env value output, or body exposure occurred.
+
+## No-Network Contract Follow-Up
+
+The follow-up contract artifacts are `SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_TESTS.md`, `SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_RESULTS.md`, `scripts/zatca-sandbox-adapter-no-network-contract.cjs`, and `scripts/zatca-sandbox-adapter-no-network-contract.test.cjs`. Contract status is `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS`; no OTP/CSID/network call, sandbox adapter execution, mock adapter execution, disabled adapter execution, request body creation, response body processing, DB write, env value output, or body exposure occurred. Next prompt: `ZATCA sandbox CSID dry-run request body schema plan`.

@@ -58,7 +58,15 @@ LedgerByte is at the controlled beta/user-testing stage. The current Vercel depl
 - Current boundary status is `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`; mock, disabled, and sandbox adapter boundaries are detected by static inspection only.
 - No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no mock adapter was executed, no request body was created, no response body was processed, no DB connection or write was attempted, no env values were printed, and no secrets/bodies were exposed.
 - Remaining ZATCA gaps include no-network adapter contract tests, approved custody provider implementation, OTP capture approval, CSID request approval, compliance invoice checks, production CSID lifecycle, production Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official reviews, and repeatable SDK CI.
-- Recommended next prompt: `ZATCA sandbox adapter no-network contract tests`.
+- Completed follow-up: `ZATCA sandbox adapter no-network contract tests`.
+
+## 2026-06-07 ZATCA Sandbox Adapter No-Network Contract Tests
+
+- Added `docs/zatca/SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_TESTS.md`, `docs/zatca/SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_RESULTS.md`, and the standalone contract guard at `scripts/zatca-sandbox-adapter-no-network-contract.cjs`.
+- Current contract status is `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS`; mock, disabled, and sandbox adapter contracts are detected by static inspection with a local no-network trap.
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no mock or disabled adapter was executed, no request body was created, no response body was processed, no DB connection or write was attempted, no env values were printed, and no secrets/bodies were exposed.
+- Remaining ZATCA gaps include sandbox CSID dry-run request body schema planning, approved custody provider implementation, OTP capture approval, CSID request approval, compliance invoice checks, production CSID lifecycle, production Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official reviews, and repeatable SDK CI.
+- Recommended next prompt: `ZATCA sandbox CSID dry-run request body schema plan`.
 
 ## 2026-06-06 ZATCA Key Custody and CSID Lifecycle Design
 

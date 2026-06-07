@@ -2,12 +2,39 @@
 
 ## Latest Commit Inspected
 
-- `3af5e4ed Plan ZATCA sandbox adapter approval`
+- `a084fff0 Plan ZATCA adapter boundary tests`
 
 ## Current Development Objective
 
+- ZATCA sandbox adapter no-network contract tests completed: yes.
+- 2026-06-07 reconciliation: latest pushed commit `a084fff0 Plan ZATCA adapter boundary tests` was inspected; required baseline ZATCA docs/scripts existed; sandbox adapter no-network contract docs/scripts did not exist and were created.
+- No-network contract test plan created: `docs/zatca/SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_TESTS.md`.
+- No-network contract result doc created: `docs/zatca/SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_RESULTS.md`.
+- No-network contract script added: `scripts/zatca-sandbox-adapter-no-network-contract.cjs`.
+- No-network contract test added: `scripts/zatca-sandbox-adapter-no-network-contract.test.cjs`.
+- Package scripts added: `zatca:sandbox-adapter-no-network-contract` and `test:zatca-sandbox-adapter-no-network-contract`.
+- Contract status: `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS`.
+- Network interception result: local no-network trap installed in the contract guard; accidental calls through the trap throw `NO_NETWORK_CONTRACT_INTERCEPTED`.
+- OTP/CSID/network call made: no.
+- Sandbox adapter executed: no.
+- Mock adapter executed: no.
+- Disabled adapter executed: no.
+- Request body created: no.
+- Response body processed: no.
+- DB connection attempted: no.
+- DB write attempted: no.
+- Env values exposed: no.
+- Secrets/bodies exposed: no.
+- Evidence policy: metadata-only.
+- Adapter contract findings: sandbox adapter source found but not executed; disabled adapter fail-closed contract detected; mock adapter source found and labeled mock-only; sandbox risk paths detected by keyword counts only.
+- Custody dependency finding: CSID response custody provider source found but disabled; metadata-only custody model found; legacy raw PEM-capable fields remain blockers.
+- Code/readiness metadata changed: standalone static guard script, guard tests, package scripts, and docs only; no API/UI/schema/migration/runtime execution changes.
+- Current blockers: sandbox CSID dry-run request body schema planning, CSID response custody provider implementation/approval, legacy raw PEM-capable fields, request body creation approval, response body processing approval, env gate approval, OTP capture approval, CSID request approval, real network approval, adapter execution approval, production CSID lifecycle, production signing and Phase 2 QR, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
+- Exact next prompt title: `ZATCA sandbox CSID dry-run request body schema plan`.
+
+## Prior ZATCA Sandbox Adapter Boundary Trail
+
 - ZATCA sandbox adapter mock-to-real boundary test plan completed: yes.
-- 2026-06-07 reconciliation: latest pushed commit `3af5e4ed Plan ZATCA sandbox adapter approval` was inspected; required baseline ZATCA docs/scripts existed; sandbox adapter boundary docs/scripts did not exist and were created.
 - Boundary test plan created: `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md`.
 - Boundary runbook created: `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RUNBOOK.md`.
 - Boundary result doc created: `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`.
@@ -26,10 +53,7 @@
 - Secrets/bodies exposed: no.
 - Evidence policy: metadata-only.
 - Adapter boundary findings: sandbox adapter source found but not executed; disabled adapter fail-closed path detected; mock adapter source found and labeled mock-only; sandbox risk paths detected by keyword counts only.
-- Custody dependency finding: CSID response custody provider source found but disabled; metadata-only custody model found; legacy raw PEM-capable fields remain blockers.
-- Code/readiness metadata changed: standalone static guard script, guard tests, package scripts, and docs only; no API/UI/schema/migration/runtime execution changes.
-- Current blockers: CSID response custody provider implementation/approval, legacy raw PEM-capable fields, request body creation approval, response body processing approval, env gate approval, OTP capture approval, CSID request approval, real network approval, adapter execution approval, production CSID lifecycle, production signing and Phase 2 QR, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and no-network contract tests.
-- Exact next prompt title: `ZATCA sandbox adapter no-network contract tests`.
+- Completed follow-up: `ZATCA sandbox adapter no-network contract tests`.
 
 ## Prior ZATCA Sandbox Adapter Approval Trail
 

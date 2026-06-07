@@ -795,6 +795,10 @@ Boundary artifacts are now documented in `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_
 
 Observed status is `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`. The guard detects the sandbox, disabled, and mock adapter boundaries by static inspection only. No OTP, CSID request, network call, sandbox adapter execution, mock adapter execution, request body creation, response body processing, DB write, env value output, secret/body exposure, signing, clearance/reporting, PDF-A3, migration, seed/reset/delete, deployment, email, or production check was run.
 
-Still open: no-network adapter contract tests, custody provider implementation/approval, legacy raw PEM-capable fields, OTP capture approval, CSID request approval, production signing, Phase 2 QR proof, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
+No-network adapter contract tests are now documented in `SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_TESTS.md` and `SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_RESULTS.md`; the standalone guard is `scripts/zatca-sandbox-adapter-no-network-contract.cjs`.
 
-Next prompt: `ZATCA sandbox adapter no-network contract tests`.
+Observed contract status is `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS`. The guard installs a local no-network trap and confirms mock, disabled, and sandbox contract surfaces by static inspection only. No OTP, CSID request, network call, sandbox adapter execution, mock adapter execution, disabled adapter execution, request body creation, response body processing, DB write, env value output, secret/body exposure, signing, clearance/reporting, PDF-A3, migration, seed/reset/delete, deployment, email, or production check was run.
+
+Still open: sandbox CSID dry-run request body schema planning, custody provider implementation/approval, legacy raw PEM-capable fields, OTP capture approval, CSID request approval, production signing, Phase 2 QR proof, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
+
+Next prompt: `ZATCA sandbox CSID dry-run request body schema plan`.

@@ -257,4 +257,8 @@ No OTP, CSID request, network call, adapter execution, response body, token, sec
 
 Boundary artifacts: `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md` and `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`. Boundary status: `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`; mock adapter execution, request body creation, response body processing, DB writes, env value output, and body exposure remained false.
 
-Next prompt: `ZATCA sandbox adapter no-network contract tests`.
+Completed follow-up: `ZATCA sandbox adapter no-network contract tests`.
+
+Contract artifacts: `SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_TESTS.md` and `SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_RESULTS.md`. Contract status: `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS`; sandbox adapter execution, mock adapter execution, disabled adapter execution, request body creation, response body processing, DB writes, env value output, and body exposure remained false.
+
+Next prompt: `ZATCA sandbox CSID dry-run request body schema plan`.

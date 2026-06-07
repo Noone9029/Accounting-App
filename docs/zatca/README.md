@@ -44,6 +44,8 @@ These notes track LedgerByte's local ZATCA Phase 2 groundwork and the manual evi
 - `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md` defines the static-only mock-to-real adapter boundary test plan.
 - `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RUNBOOK.md` documents the safe static boundary check workflow and abort conditions.
 - `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md` records the current boundary result: `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`.
+- `SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_TESTS.md` defines the standalone no-network adapter contract test plan.
+- `SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_RESULTS.md` records the current no-network contract result: `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS`.
 - `evidence/README.md` defines the evidence directory policy and forbids XML bodies, QR payload bodies, keys, OTPs, tokens, headers, and customer payloads.
 - `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` records the current official fixture pass; official samples pass under Java 11, LedgerByte standard fixture passes SDK global validation, and the simplified fixture passes XSD/EN/PIH but remains non-compliant because signing, QR/certificate, CSID, clearance/reporting, and PDF/A-3 are still missing.
 - `evidence/generated-xml-fixture-validation-20260606.json` records metadata-only local SDK validation for sanitized generated standard invoice and credit-note fixtures.
@@ -90,7 +92,9 @@ The sandbox adapter execution approval guard is available through `corepack pnpm
 
 The sandbox adapter mock-to-real boundary check is available through `corepack pnpm zatca:sandbox-adapter-boundary-check -- --plan --no-network --json --static-only`. Current boundary status is `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`; the check detects mock, disabled, and sandbox adapter boundaries by static inspection only. No OTP/CSID/network/adapter execution, mock adapter execution, request body creation, response body processing, DB write, env value output, or body exposure occurs.
 
-Latest recommended ZATCA prompt: `ZATCA sandbox adapter no-network contract tests`.
+The sandbox adapter no-network contract check is available through `corepack pnpm zatca:sandbox-adapter-no-network-contract -- --plan --no-network --json --contract`. Current contract status is `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS`; the check installs a local no-network trap, detects mock, disabled, and sandbox adapter contract surfaces, and keeps sandbox adapter execution, mock adapter execution, disabled adapter execution, request body creation, response body processing, DB access, env value output, and secret/body exposure false.
+
+Latest recommended ZATCA prompt: `ZATCA sandbox CSID dry-run request body schema plan`.
 
 ## Reference Folder Rule
 

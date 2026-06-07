@@ -3419,3 +3419,11 @@ Recommended next step:
 - Status is `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`; `--execute-csid-request` remains `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
 - No OTP, CSID request, network call, sandbox adapter execution, request body creation, response body processing, secret/body exposure, signing, clearance/reporting, PDF-A3, migration, seed/reset/delete, deployment, email, or production compliance behavior occurred.
 - Remaining blockers: key custody, CSID response custody, real sandbox adapter execution, actual OTP capture approval, compliance CSID request execution approval, compliance invoice checks, production CSID lifecycle, production signing, Phase 2 QR proof, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
+
+# ZATCA sandbox adapter no-network contract tests - 2026-06-07
+
+- No production bug was fixed and no production ZATCA behavior was enabled.
+- Added no-network adapter contract tests and a standalone metadata-only guard for the mock, disabled, and sandbox adapter boundaries.
+- Status is `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS`.
+- No OTP, CSID request, network call, sandbox adapter execution, mock adapter execution, disabled adapter execution, request body creation, response body processing, DB connection/write, env value output, secret/body exposure, signing, clearance/reporting, PDF-A3, migration, seed/reset/delete, deployment, email, or production compliance behavior occurred.
+- Remaining blockers: sandbox CSID dry-run request body schema planning, CSID response custody provider approval, legacy raw PEM-capable fields, OTP capture approval, CSID request approval, real network approval, adapter execution approval, production CSID lifecycle, production signing, Phase 2 QR proof, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.

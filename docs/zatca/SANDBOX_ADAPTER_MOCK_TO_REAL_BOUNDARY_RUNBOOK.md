@@ -113,4 +113,10 @@ The guard fails closed for missing `--no-network` and for fatal missing boundary
 
 ## Next stage
 
-`ZATCA sandbox adapter no-network contract tests`
+Completed follow-up: `ZATCA sandbox adapter no-network contract tests`.
+
+Contract artifacts: `SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_TESTS.md`, `SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_RESULTS.md`, `scripts/zatca-sandbox-adapter-no-network-contract.cjs`, and `scripts/zatca-sandbox-adapter-no-network-contract.test.cjs`.
+
+Contract status: `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS`. No OTP/CSID/network call, sandbox adapter execution, mock adapter execution, disabled adapter execution, request body creation, response body processing, DB write, env value output, or secret/body exposure occurred.
+
+`ZATCA sandbox CSID dry-run request body schema plan`
