@@ -100,6 +100,7 @@ import {
   type CustodyProviderReadiness,
 } from "./custody/compliance-csid-secret-custody.provider";
 import { readZatcaCustodyProviderBoundaryPlan } from "./custody/zatca-custody-provider-boundary";
+import { buildZatcaSandboxCsidRequestSchemaPlan } from "./zatca-sandbox-csid-request-schema";
 import { readZatcaAdapterConfig, summarizeZatcaAdapterConfig, type ZatcaAdapterConfig, ZATCA_ADAPTER_CONFIG } from "./zatca.config";
 import { readZatcaHashModeConfig } from "./zatca-hash-mode";
 
@@ -1199,6 +1200,72 @@ export class ZatcaService {
         "Design secrets-manager custody for binarySecurityToken, secret, certificate content, and certificate request metadata before storing real responses.",
         "Implement a separate disabled-by-default sandbox adapter phase; production CSID onboarding remains out of scope.",
       ],
+    };
+  }
+
+  async getEgsUnitSandboxCsidRequestSchemaPlan(organizationId: string, id: string) {
+    const [egsUnit, latestApprovedReview] = await Promise.all([
+      this.getEgsUnitInternal(organizationId, id),
+      this.getLatestApprovedCsrConfigReviewOrNull(organizationId, id),
+    ]);
+    const referenceOnlyBoundary = readZatcaCustodyProviderBoundaryPlan();
+    const providerConfiguration = readComplianceCsidCustodyProviderConfig();
+    const schemaPlan = buildZatcaSandboxCsidRequestSchemaPlan({
+      environment: egsUnit.environment,
+      organizationId,
+      egsUnitId: id,
+      csrReferenceAlias: latestApprovedReview?.id ? `csr-config-review:${latestApprovedReview.id}` : null,
+      csrMetadataReference: hasText(egsUnit.csrPem) ? "egs-csr-present-redacted" : null,
+      certificateRequestId: egsUnit.certificateRequestId ?? null,
+      otpRequired: true,
+      custodyProviderType: referenceOnlyBoundary.runtimeProvider,
+      custodyReferenceAlias: referenceOnlyBoundary.providerConfigPresent ? referenceOnlyBoundary.redactedConfigurationSummary.referenceAlias : null,
+      requestReadinessStatus: "BLOCKED_PENDING_APPROVAL",
+      blockers: [
+        ...referenceOnlyBoundary.blockers,
+        ...providerConfiguration.blockers,
+        "sandbox CSID request body creation requires a later explicit approval lane",
+        "sandbox CSID response-body processing requires a later explicit approval lane",
+      ],
+      warnings: [
+        "Sandbox portal URL is documented only as a future access reference; this API does not log in, collect OTP, build a request body, or call ZATCA.",
+      ],
+    });
+
+    return {
+      ...schemaPlan,
+      sandboxPortalReference: {
+        url: "https://sandbox.zatca.gov.sa/IntegrationSandbox",
+        referenceOnly: true,
+        loginAttempted: false,
+        otpRequested: false,
+        csidRequested: false,
+      },
+      egsUnit: {
+        id: egsUnit.id,
+        name: egsUnit.name,
+        environment: egsUnit.environment,
+        status: egsUnit.status,
+        isActive: egsUnit.isActive,
+        hasCsr: hasText(egsUnit.csrPem),
+        hasComplianceCsid: hasText(egsUnit.complianceCsidPem),
+        hasProductionCsid: hasText(egsUnit.productionCsidPem),
+        hasPrivateKey: hasText(egsUnit.privateKeyPem),
+        certificateRequestIdPresent: hasText(egsUnit.certificateRequestId),
+      },
+      csrMetadata: {
+        latestApprovedReviewId: latestApprovedReview?.id ?? null,
+        latestApprovedReviewStatus: latestApprovedReview?.status ?? "NONE",
+        csrBodyReturned: false,
+        csrBodyStoredByThisPlan: false,
+      },
+      custodyMetadata: {
+        configuredProvider: providerConfiguration.configuredProvider,
+        providerConfigurationReady: false,
+        referenceOnlyBoundaryAvailable: referenceOnlyBoundary.interfaceAvailable,
+        runtimeProvider: referenceOnlyBoundary.runtimeProvider,
+        bodyStorageAllowed: false,
+      },
     };
   }
 
@@ -6189,6 +6256,14 @@ export class ZatcaService {
         "The official sandbox compliance CSID request mapper is implemented for POST /compliance with redacted OTP and CSR fields.",
         "COMPLIANCE_CSID_API",
         "Use this mapper for recorded-contract tests only; it does not send HTTP.",
+      ),
+      this.check(
+        "ZATCA_SANDBOX_CSID_REQUEST_SCHEMA_PLANNER_READY",
+        "INFO",
+        "complianceCsid.requestSchema",
+        "A metadata-only sandbox CSID request schema planner is available without accepting OTP values, CSR bodies, request bodies, or response bodies.",
+        "COMPLIANCE_CSID_API",
+        "Use the schema planner for dry-run readiness only; real request execution remains separately blocked.",
       ),
       this.check(
         "ZATCA_COMPLIANCE_CSID_RESPONSE_MAPPER_READY",
