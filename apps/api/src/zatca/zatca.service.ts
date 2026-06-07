@@ -100,6 +100,7 @@ import {
   type CustodyProviderReadiness,
 } from "./custody/compliance-csid-secret-custody.provider";
 import { readZatcaCustodyProviderBoundaryPlan } from "./custody/zatca-custody-provider-boundary";
+import { buildZatcaSandboxCsidResponseCustodyDryRunPlan } from "./zatca-sandbox-csid-response-custody-dry-run";
 import { buildZatcaSandboxCsidRequestSchemaPlan } from "./zatca-sandbox-csid-request-schema";
 import { readZatcaAdapterConfig, summarizeZatcaAdapterConfig, type ZatcaAdapterConfig, ZATCA_ADAPTER_CONFIG } from "./zatca.config";
 import { readZatcaHashModeConfig } from "./zatca-hash-mode";
@@ -1265,6 +1266,113 @@ export class ZatcaService {
         referenceOnlyBoundaryAvailable: referenceOnlyBoundary.interfaceAvailable,
         runtimeProvider: referenceOnlyBoundary.runtimeProvider,
         bodyStorageAllowed: false,
+      },
+    };
+  }
+
+  async getEgsUnitSandboxCsidResponseCustodyDryRunPlan(organizationId: string, id: string) {
+    const egsUnit = await this.requireEgsUnitForComplianceCsidCustody(organizationId, id);
+    const model = this.getComplianceCsidCustodyRecordModel();
+    const latestRecord = model?.findFirst
+      ? await model.findFirst({
+          where: { organizationId, egsUnitId: id },
+          orderBy: { createdAt: "desc" },
+          select: safeComplianceCsidCustodyRecordSelect,
+        })
+      : null;
+    const latestCustodyRecord = latestRecord ? this.toSafeComplianceCsidCustodyRecord(latestRecord) : null;
+    const providerConfiguration = readComplianceCsidCustodyProviderConfig();
+    const referenceOnlyBoundary = readZatcaCustodyProviderBoundaryPlan();
+    const custodyGate = this.getComplianceCsidCustodyGate(egsUnit, this.getComplianceCsidSecretCustodyProviderReadiness(), providerConfiguration);
+    const dryRunPlan = buildZatcaSandboxCsidResponseCustodyDryRunPlan({
+      environment: egsUnit.environment,
+      organizationId,
+      egsUnitId: id,
+      requestReferenceAlias: latestCustodyRecord?.requestId
+        ? `sandbox-csid-request-metadata:${latestCustodyRecord.requestId}`
+        : hasText(egsUnit.certificateRequestId)
+          ? "certificate-request-metadata-present"
+          : null,
+      custodyProviderType: referenceOnlyBoundary.runtimeProvider,
+      custodyReferenceAlias: latestCustodyRecord?.id
+        ? `csid-custody-record:${latestCustodyRecord.id}`
+        : referenceOnlyBoundary.providerConfigPresent
+          ? referenceOnlyBoundary.redactedConfigurationSummary.referenceAlias
+          : null,
+      certificateRequestId: latestCustodyRecord?.certificateRequestId ?? egsUnit.certificateRequestId ?? null,
+      hasBinarySecurityToken: latestCustodyRecord?.hasBinarySecurityToken ?? false,
+      hasSecret: latestCustodyRecord?.hasSecret ?? false,
+      hasCertificate: latestCustodyRecord?.hasCertificate ?? hasText(egsUnit.complianceCsidPem),
+      certificateExpiresAt: latestCustodyRecord?.expiresAt ? latestCustodyRecord.expiresAt.toISOString() : null,
+      responseCustodyReadinessStatus: "BLOCKED_PENDING_APPROVAL",
+      blockers: [
+        ...providerConfiguration.blockers,
+        ...referenceOnlyBoundary.blockers,
+        ...custodyGate.reasons,
+        "sandbox CSID response custody requires a later explicit approval lane",
+        "sandbox CSID response-body processing requires a later explicit approval lane",
+      ],
+      warnings: [
+        "Sandbox portal URL is documented only as a future access reference; this API does not log in, collect OTP, create a request body, process a response body, or call ZATCA.",
+      ],
+    });
+
+    return {
+      ...dryRunPlan,
+      sandboxPortalReference: {
+        url: "https://sandbox.zatca.gov.sa/IntegrationSandbox",
+        referenceOnly: true,
+        loginAttempted: false,
+        otpRequested: false,
+        csidRequested: false,
+        requestBodyCreated: false,
+        responseBodyProcessed: false,
+      },
+      egsUnit: {
+        id: egsUnit.id,
+        name: egsUnit.name,
+        environment: egsUnit.environment,
+        status: egsUnit.status,
+        isActive: egsUnit.isActive,
+        hasCsr: hasText(egsUnit.csrPem),
+        hasComplianceCsid: hasText(egsUnit.complianceCsidPem),
+        hasProductionCsid: hasText(egsUnit.productionCsidPem),
+        hasPrivateKey: hasText(egsUnit.privateKeyPem),
+        certificateRequestIdPresent: hasText(egsUnit.certificateRequestId),
+      },
+      latestCustodyRecordMetadata: latestCustodyRecord
+        ? {
+            id: latestCustodyRecord.id,
+            source: latestCustodyRecord.source,
+            status: latestCustodyRecord.status,
+            requestIdPresent: hasText(latestCustodyRecord.requestId),
+            certificateRequestIdPresent: hasText(latestCustodyRecord.certificateRequestId),
+            hasBinarySecurityToken: latestCustodyRecord.hasBinarySecurityToken,
+            hasSecret: latestCustodyRecord.hasSecret,
+            hasCertificate: latestCustodyRecord.hasCertificate,
+            tokenStorageMode: latestCustodyRecord.tokenStorageMode,
+            secretStorageMode: latestCustodyRecord.secretStorageMode,
+            certificateStorageMode: latestCustodyRecord.certificateStorageMode,
+            expiryKnown: latestCustodyRecord.expiryKnown,
+            expiresAt: latestCustodyRecord.expiresAt,
+            renewalRequired: latestCustodyRecord.renewalRequired,
+            responseBodyProcessed: false,
+            tokenBodyReturned: false,
+            secretBodyReturned: false,
+            certificateBodyReturned: false,
+            providerPayloadReturned: false,
+            secretMaterialPersisted: false,
+          }
+        : null,
+      custodyMetadata: {
+        configuredProvider: providerConfiguration.configuredProvider,
+        providerConfigurationReady: false,
+        referenceOnlyBoundaryAvailable: referenceOnlyBoundary.interfaceAvailable,
+        runtimeProvider: referenceOnlyBoundary.runtimeProvider,
+        localReferenceProviderAvailableForTests: referenceOnlyBoundary.localReferenceProviderAvailableForTests,
+        bodyStorageAllowed: false,
+        providerPayloadAccepted: false,
+        providerConfiguration,
       },
     };
   }
@@ -6380,6 +6488,7 @@ export class ZatcaService {
     checks.push(
       this.check("ZATCA_COMPLIANCE_CSID_CUSTODY_PROVIDER_INTERFACE_READY", "INFO", "complianceCsidCustody.providerInterface", "A CSID secret custody provider interface exists for future token, secret, and certificate references.", "COMPLIANCE_CSID_RESPONSE", "Keep the provider disabled until a real secrets-manager/KMS boundary is approved."),
       this.check("ZATCA_COMPLIANCE_CSID_CUSTODY_MOCK_PROVIDER_CONTRACTS_READY", "INFO", "complianceCsidCustody.providerContracts", "Mocked secrets-manager/KMS provider client contracts exist for local tests only.", "COMPLIANCE_CSID_RESPONSE", "Use the contracts to validate redacted references without enabling real provider calls or body storage."),
+      this.check("ZATCA_SANDBOX_CSID_RESPONSE_CUSTODY_DRY_RUN_PLANNER_READY", "INFO", "complianceCsidCustody.responseDryRun", "A metadata-only sandbox CSID response custody dry-run planner is available without accepting token, secret, certificate, request, response, or provider payload bodies.", "COMPLIANCE_CSID_RESPONSE", "Use it only for readiness planning; real response processing and custody remain blocked until separately approved."),
       this.check("ZATCA_COMPLIANCE_CSID_CUSTODY_PROVIDER_DISABLED", "ERROR", "complianceCsidCustody.provider", "The CSID secret custody provider is disabled.", "COMPLIANCE_CSID_RESPONSE", "Configure an approved secrets-manager/KMS provider before receiving or persisting real sandbox CSID response material."),
       this.check("ZATCA_COMPLIANCE_CSID_CUSTODY_PROVIDER_CONFIGURATION_NOT_APPROVED", "ERROR", "complianceCsidCustody.providerConfiguration", "CSID custody provider configuration is not approved.", "COMPLIANCE_CSID_RESPONSE", "Review the redacted provider configuration plan before implementing any real provider."),
       this.check("ZATCA_COMPLIANCE_CSID_CUSTODY_BODY_STORAGE_BLOCKED", "ERROR", "complianceCsidCustody.bodyStorage", "CSID token, secret, and certificate body storage remains explicitly blocked.", "COMPLIANCE_CSID_RESPONSE", "Do not enable body storage from environment configuration in this phase."),
