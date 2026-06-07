@@ -5,7 +5,7 @@ import {
   assertFinalizableSalesInvoice,
   calculateSalesInvoiceTotals,
 } from "@ledgerbyte/accounting-core";
-import { AccountType, DocumentType, SalesInvoiceStatus, SalesInvoiceTaxMode } from "@prisma/client";
+import { AccountType, DocumentType, ItemTrackingMode, SalesInvoiceStatus, SalesInvoiceTaxMode } from "@prisma/client";
 import { buildSalesInvoiceJournalLines } from "./sales-invoice-accounting";
 import { SalesInvoiceService } from "./sales-invoice.service";
 import { ItemService } from "../items/item.service";
@@ -889,7 +889,15 @@ describe("sales invoice rules", () => {
       taxRate: { findFirst: jest.fn() },
       item: {
         create: jest.fn().mockResolvedValue({ id: "item-1", name: "Service", salesTaxRateId: null }),
-        findFirst: jest.fn().mockResolvedValue({ id: "item-1", name: "Service", organizationId: "org-1" }),
+        findFirst: jest.fn().mockResolvedValue({
+          id: "item-1",
+          name: "Service",
+          organizationId: "org-1",
+          inventoryTracking: false,
+          trackingMode: ItemTrackingMode.NONE,
+          expiryTrackingEnabled: false,
+          binTrackingEnabled: false,
+        }),
         update: jest.fn().mockResolvedValue({ id: "item-1", name: "Service", status: "DISABLED" }),
       },
       salesInvoiceLine: { count: jest.fn().mockResolvedValue(1) },
