@@ -2,15 +2,22 @@
 
 ## Latest Commit Inspected
 
-- `84486e5a Document ZATCA key custody CSID lifecycle preflight`
+- `fd6dbff97e5c669a1c2cda1fc329fecdda5bb809 Merge PR #1: ZATCA key custody and CSID lifecycle metadata foundation`
 
 ## Current Development Objective
 
-- ZATCA key custody and CSID lifecycle foundation lane completed as metadata-only implementation.
+- Post-merge main sync completed after PR #1 merged into `main`.
+- PR #1: `ZATCA key custody and CSID lifecycle metadata foundation`.
+- Merge commit on `main`: `fd6dbff97e5c669a1c2cda1fc329fecdda5bb809`.
+- Source branch still exists and was not deleted: `codex/dev-12-generated-documents-storage-retention` at `e7bcee7a60ed9eea0b101dbf799985e123af3797`.
+- ZATCA key custody and CSID lifecycle foundation is now on `main` as metadata-only implementation.
 - Foundation evidence doc: `docs/development/ZATCA_KEY_CUSTODY_CSID_LIFECYCLE_FOUNDATION.md`.
+- Post-merge note: `docs/development/ZATCA_KEY_CUSTODY_CSID_LIFECYCLE_POST_MERGE.md`.
 - Implementation added additive metadata-only schema/migration artifacts, guarded API/service/DTO endpoints, read-only settings UI lifecycle metadata, targeted API/UI tests, and safe audit event mapping.
 - No real OTP, CSID, ZATCA network call, private-key generation/storage, raw certificate/CSR storage, signing, clearance/reporting, PDF/A-3, provider/env change, deploy, migration execution, or production compliance claim was performed.
-- Exact next prompt title: `LedgerByte verify ZATCA key custody and CSID lifecycle foundation evidence`.
+- Real ZATCA production compliance remains disabled and not claimed.
+- Remaining blockers: real custody provider approval, KMS/HSM or equivalent signing boundary, real CSR/OTP/CSID onboarding, production CSID lifecycle, certificate rotation/revocation, signing and Phase 2 QR, clearance/reporting, PDF/A-3, signed artifact storage, and official/legal/accounting review.
+- Exact next prompt title: `LedgerByte create next ZATCA custody implementation branch`.
 
 ## Prior Development Objective
 
