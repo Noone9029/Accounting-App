@@ -28,7 +28,15 @@ The CSID response custody implementation plan and guard are documented in `CSID_
 
 Current status: `CUSTODY_METADATA_SIMULATION_BLOCKED`.
 
-The guard detects the disabled custody provider, metadata-only custody model, and legacy raw PEM-capable fields (`privateKeyPem`, `complianceCsidPem`, `productionCsidPem`). It does not request OTP/CSID, call ZATCA, run adapter HTTP, process real response bodies, attempt DB writes, persist token/secret/certificate bodies, print env values, expose bodies, enable signing, or claim production compliance. Recommended next prompt: `ZATCA sandbox adapter execution approval plan`.
+The guard detects the disabled custody provider, metadata-only custody model, and legacy raw PEM-capable fields (`privateKeyPem`, `complianceCsidPem`, `productionCsidPem`). It does not request OTP/CSID, call ZATCA, run adapter HTTP, process real response bodies, attempt DB writes, persist token/secret/certificate bodies, print env values, expose bodies, enable signing, or claim production compliance.
+
+## Current Sandbox Adapter Execution Approval Update
+
+The sandbox adapter execution approval plan and guard are documented in `SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`, `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`, and `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md`.
+
+Current status: `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`; `--execute-adapter` remains `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+
+The guard detects the sandbox adapter, disabled adapter, mock-only adapter, custody prerequisites, env presence booleans, and request/response body risks. It does not execute adapters, request OTP/CSID, call ZATCA, create request bodies, process response bodies, attempt DB writes, expose env values, expose bodies, enable signing, or claim production compliance. Recommended next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
 
 ## Current SDK CI Readiness Update
 

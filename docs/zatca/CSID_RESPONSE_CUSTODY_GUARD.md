@@ -6,6 +6,12 @@
 
 It does not request OTPs, request CSIDs, call ZATCA, execute the sandbox adapter, accept real response body input, process real response bodies, create real secret records, write to the database, store tokens, store secrets, store certificates, sign XML, generate QR payloads, run clearance/reporting, create PDF-A3, mutate env, deploy, seed, reset, delete, or send email.
 
+## 2026-06-07 Sandbox Adapter Approval Follow-Up
+
+The next guard layer is documented in `SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`, `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`, and `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md`; the script is `scripts/zatca-sandbox-adapter-execution-approval.cjs`.
+
+Current adapter approval status is `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`, and `--execute-adapter` remains `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. The custody guard remains a dependency: real response body handling is still blocked until approved custody exists. Recommended next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+
 ## Official References Inspected
 
 - `reference/zatca-docs/compliance_csid.pdf`
@@ -101,4 +107,6 @@ Allowed evidence includes statuses, booleans, file paths inspected, code-surface
 
 ## Recommended Next Prompt
 
-`ZATCA sandbox adapter execution approval plan`
+Completed follow-up: `ZATCA sandbox adapter execution approval plan`
+
+`ZATCA sandbox adapter mock-to-real boundary test plan`

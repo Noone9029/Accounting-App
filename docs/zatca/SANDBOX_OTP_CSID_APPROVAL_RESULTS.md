@@ -6,6 +6,8 @@ The response custody implementation planning follow-up is complete through `CSID
 
 Observed custody guard status: `CUSTODY_METADATA_SIMULATION_BLOCKED`. Approval phrase recognized for metadata-only custody planning: true. No OTP, CSID request, ZATCA network call, sandbox adapter execution, real response-body processing, DB connection, DB write, token/secret/certificate persistence, env value exposure, or body exposure occurred.
 
+2026-06-07 adapter approval follow-up: `SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`, `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`, and `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md` now record `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED` and `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. No sandbox adapter execution, request body creation, response body processing, OTP/CSID/network/DB action, env value exposure, or body exposure occurred. Next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+
 Date: 2026-06-07
 
 ## Repository Reconciliation
@@ -110,9 +112,9 @@ The approval phrase is recognized for planning metadata only. The guard still re
 
 ## Next Prompt
 
-Completed follow-ups: `ZATCA sandbox CSID request execution guard` and `ZATCA CSID response custody implementation plan`.
+Completed follow-ups: `ZATCA sandbox CSID request execution guard`, `ZATCA CSID response custody implementation plan`, and `ZATCA sandbox adapter execution approval plan`.
 
-Next prompt: `ZATCA sandbox adapter execution approval plan`
+Next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`
 
 ## Execution Guard Follow-Up Result
 
@@ -125,4 +127,4 @@ Observed status with the exact execution-guard phrase and `--execution-guard`: `
 
 Observed status with `--execute-csid-request`: `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
 
-No OTP was requested, no CSID was requested, no network call was made, no sandbox adapter was executed, and no secrets or bodies were exposed. Next prompt: `ZATCA sandbox adapter execution approval plan`.
+No OTP was requested, no CSID was requested, no network call was made, no sandbox adapter was executed, and no secrets or bodies were exposed. Completed follow-up: `ZATCA sandbox adapter execution approval plan`. Next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.

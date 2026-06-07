@@ -4,7 +4,9 @@
 
 The preflight guard now has a dedicated custody follow-up: `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `CSID_RESPONSE_CUSTODY_GUARD.md`, and `CSID_RESPONSE_CUSTODY_RESULTS.md`. The standalone custody guard is `scripts/zatca-csid-response-custody-guard.cjs` with tests in `scripts/zatca-csid-response-custody-guard.test.cjs`.
 
-Current custody status is `CUSTODY_METADATA_SIMULATION_BLOCKED`. The response custody model was found, but the provider remains disabled and legacy raw PEM-capable fields remain blockers. The guard made no OTP request, CSID request, ZATCA network call, sandbox adapter execution, real response body processing, DB connection/write, token/secret/certificate persistence, env value output, or body exposure. Next prompt: `ZATCA sandbox adapter execution approval plan`.
+Current custody status is `CUSTODY_METADATA_SIMULATION_BLOCKED`. The response custody model was found, but the provider remains disabled and legacy raw PEM-capable fields remain blockers. The guard made no OTP request, CSID request, ZATCA network call, sandbox adapter execution, real response body processing, DB connection/write, token/secret/certificate persistence, env value output, or body exposure.
+
+2026-06-07 adapter approval update: `SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`, `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`, and `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md` document the next approval gate. Current status is `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`; `--execute-adapter` remains `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. Next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
 
 Date: 2026-06-07
 
@@ -215,9 +217,9 @@ The approval-plan extension is documented in:
 
 ## 15. Recommended Next Prompt
 
-Completed follow-ups: `ZATCA sandbox CSID request execution guard` and `ZATCA CSID response custody implementation plan`.
+Completed follow-ups: `ZATCA sandbox CSID request execution guard`, `ZATCA CSID response custody implementation plan`, and `ZATCA sandbox adapter execution approval plan`.
 
-Next prompt: `ZATCA sandbox adapter execution approval plan`
+Next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`
 
 ## 16. Execution Guard Extension
 

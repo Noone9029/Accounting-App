@@ -40,7 +40,17 @@ The CSID response custody implementation follow-up is documented in:
 - `CSID_RESPONSE_CUSTODY_GUARD.md`
 - `CSID_RESPONSE_CUSTODY_RESULTS.md`
 
-Observed custody guard status: `CUSTODY_METADATA_SIMULATION_BLOCKED`. No OTP, CSID request, ZATCA network call, sandbox adapter execution, real response body processing, DB connection, DB write, token/secret/certificate persistence, env value exposure, or body exposure occurred. Next prompt: `ZATCA sandbox adapter execution approval plan`.
+Observed custody guard status: `CUSTODY_METADATA_SIMULATION_BLOCKED`. No OTP, CSID request, ZATCA network call, sandbox adapter execution, real response body processing, DB connection, DB write, token/secret/certificate persistence, env value exposure, or body exposure occurred.
+
+## Adapter Approval Follow-Up
+
+The sandbox adapter execution approval follow-up is documented in:
+
+- `SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`
+- `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`
+- `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md`
+
+Observed adapter approval status: `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`. The execute-adapter command shape remains `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. No sandbox adapter execution, request body creation, response body processing, OTP/CSID/network/DB action, env value exposure, or body exposure occurred. Next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
 
 ## References Found
 
@@ -166,9 +176,9 @@ None from this local preflight run.
 
 ## Recommended Next Prompt
 
-Completed follow-ups: `ZATCA sandbox CSID request execution guard` and `ZATCA CSID response custody implementation plan`.
+Completed follow-ups: `ZATCA sandbox CSID request execution guard`, `ZATCA CSID response custody implementation plan`, and `ZATCA sandbox adapter execution approval plan`.
 
-Next prompt: `ZATCA sandbox adapter execution approval plan`
+Next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`
 
 ## Execution Guard Result
 
@@ -183,6 +193,6 @@ Observed execute flag status: `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED
 
 The execution guard made no OTP request, no CSID request, no ZATCA network call, no sandbox adapter execution, no request body, no response-body processing, no secret persistence, no signing, no clearance/reporting, no PDF-A3, and no production compliance claim.
 
-Completed follow-up: `ZATCA CSID response custody implementation plan`.
+Completed follow-ups: `ZATCA CSID response custody implementation plan` and `ZATCA sandbox adapter execution approval plan`.
 
-Recommended next prompt: `ZATCA sandbox adapter execution approval plan`.
+Recommended next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.

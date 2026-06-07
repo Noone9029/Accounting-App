@@ -15,6 +15,7 @@ This sprint does not request OTPs, request compliance CSIDs, request production 
 - Execution attempt flag `--execute-csid-request` remains blocked as `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
 - Reconciliation result: required baseline ZATCA docs/scripts were present at `6e486f3c Plan ZATCA sandbox CSID approval`; no prior execution guard docs/scripts existed.
 - Follow-up custody planning now exists in `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `CSID_RESPONSE_CUSTODY_GUARD.md`, and `CSID_RESPONSE_CUSTODY_RESULTS.md`. The custody guard reports `CUSTODY_METADATA_SIMULATION_BLOCKED`, so this execution guard must remain blocked before any real sandbox adapter execution or CSID response handling.
+- Follow-up adapter approval planning now exists in `SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`, `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`, and `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md`. The adapter approval guard reports `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`, and `--execute-adapter` reports `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
 
 ## 3. Official References Inspected
 
@@ -172,6 +173,6 @@ Current blockers:
 
 ## 15. Recommended Next Prompt
 
-Completed follow-up: `ZATCA CSID response custody implementation plan`.
+Completed follow-ups: `ZATCA CSID response custody implementation plan` and `ZATCA sandbox adapter execution approval plan`.
 
-Next prompt: `ZATCA sandbox adapter execution approval plan`
+Next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`

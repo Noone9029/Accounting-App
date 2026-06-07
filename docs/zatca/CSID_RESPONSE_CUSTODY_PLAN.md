@@ -22,7 +22,9 @@ The custody implementation path is now documented in `CSID_RESPONSE_CUSTODY_IMPL
 
 Current custody guard status: `CUSTODY_METADATA_SIMULATION_BLOCKED`. The guard found the disabled custody provider and metadata-only custody model, detected legacy raw PEM-capable fields (`privateKeyPem`, `complianceCsidPem`, `productionCsidPem`), and confirmed no OTP, CSID request, ZATCA network call, sandbox adapter execution, real response body processing, DB connection, DB write, token/secret/certificate persistence, env value exposure, or body exposure occurred.
 
-Recommended next prompt: `ZATCA sandbox adapter execution approval plan`.
+Adapter execution approval planning is now documented in `SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`, `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`, and `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md`. Current adapter approval status is `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`; the execute-adapter command shape remains `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+
+Recommended next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
 
 ## Official files inspected
 
@@ -251,4 +253,4 @@ Recommended next step:
 
 Custody remains the next blocker: `csidResponseCustodyApproved=false`, provider implementation ready `false`, token/secret/certificate storage ready `false`, body storage allowed `false`, response body processed `false`, and response persisted `false`.
 
-No OTP, CSID request, network call, adapter execution, response body, token, secret, certificate body, or private-key body was handled by the guard. Completed follow-up: `ZATCA CSID response custody implementation plan`. Next prompt: `ZATCA sandbox adapter execution approval plan`.
+No OTP, CSID request, network call, adapter execution, response body, token, secret, certificate body, or private-key body was handled by the guard. Completed follow-ups: `ZATCA CSID response custody implementation plan` and `ZATCA sandbox adapter execution approval plan`. Next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.

@@ -91,6 +91,25 @@ Remaining risks:
 - No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no real response body was processed, no DB write was attempted, no token/secret/certificate body was persisted, no env values were printed, and no secrets/bodies were exposed.
 - Custody provider implementation/approval, legacy raw PEM-capable fields, sandbox adapter execution approval, OTP capture approval, CSID request approval, production signing, Phase 2 QR, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official/legal/accounting review, and repeatable SDK CI remain blocked.
 
+### ZATCA sandbox adapter execution approval plan added
+
+Added a metadata-only adapter execution approval plan and guard before any future sandbox adapter can be allowed to run.
+
+Risk reduced:
+
+- Added `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`.
+- Added `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`.
+- Added `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md`.
+- Added `scripts/zatca-sandbox-adapter-execution-approval.cjs`.
+- Added `scripts/zatca-sandbox-adapter-execution-approval.test.cjs`.
+- Added root package scripts `zatca:sandbox-adapter-execution-approval` and `test:zatca-sandbox-adapter-execution-approval`.
+- Observed status is `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`; `--execute-adapter` remains `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+
+Remaining risks:
+
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no request body was created, no response body was processed, no DB write was attempted, no env values were printed, and no secrets/bodies were exposed.
+- Mock-to-real adapter boundary tests, custody provider implementation/approval, legacy raw PEM-capable fields, OTP capture approval, CSID request approval, production signing, Phase 2 QR, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official/legal/accounting review, and repeatable SDK CI remain blocked.
+
 ### ZATCA key custody and CSID lifecycle design added
 
 Captured the key custody, certificate/CSID lifecycle, and sandbox approval-gate design without enabling onboarding or signing.

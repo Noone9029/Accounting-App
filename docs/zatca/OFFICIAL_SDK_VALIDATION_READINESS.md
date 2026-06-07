@@ -24,6 +24,12 @@ Response custody planning is now documented in `CSID_RESPONSE_CUSTODY_IMPLEMENTA
 
 Current status with the exact metadata-only custody phrase and simulation flag: `CUSTODY_METADATA_SIMULATION_BLOCKED`. The guard performs no SDK signing, OTP request, CSID request, ZATCA network call, adapter execution, real response body processing, DB connection/write, token/secret/certificate persistence, env value output, PDF-A3, clearance/reporting, QR generation, or production compliance behavior.
 
+## 2026-06-07 Sandbox Adapter Approval Guard Update
+
+Sandbox adapter execution approval planning is documented in `SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`, `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`, and `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md`. The standalone command is `corepack pnpm zatca:sandbox-adapter-execution-approval -- --plan --no-network --json`.
+
+Current approval status is `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`; the blocked execute-adapter shape reports `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. The guard performs no SDK signing, OTP request, CSID request, ZATCA network call, adapter execution, request body creation, response body processing, DB connection/write, env value output, PDF-A3, clearance/reporting, QR generation, or production compliance behavior.
+
 ## Java Version
 
 Expected Java range:
@@ -235,6 +241,6 @@ No SDK command was run during the review. Readiness interpretation is unchanged:
 
 Observed status: `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`. The guard recognizes the exact execution-guard phrase but does not run SDK commands, request OTP/CSID, call ZATCA, execute adapters, create request bodies, process response bodies, expose secrets, sign, clear/report, create PDF-A3, or enable production compliance.
 
-Completed follow-up: `ZATCA CSID response custody implementation plan`.
+Completed follow-ups: `ZATCA CSID response custody implementation plan` and `ZATCA sandbox adapter execution approval plan`.
 
-Next prompt: `ZATCA sandbox adapter execution approval plan`.
+Next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.

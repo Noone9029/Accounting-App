@@ -8,9 +8,11 @@ The current umbrella design is `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`; the l
 
 This onboarding plan remains the sandbox-specific planning source. No OTP/CSID/network execution is enabled.
 
-The sandbox CSID preflight guard is documented in `SANDBOX_CSID_PREFLIGHT_GUARD.md`, with the base result `PREFLIGHT_BLOCKED` in `SANDBOX_CSID_PREFLIGHT_RESULTS.md`. The sandbox OTP/CSID approval plan is now documented in `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`; exact phrase recognition returns `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED` and still performs no OTP/CSID/network/sandbox-adapter execution. The current next sandbox step is `ZATCA sandbox adapter execution approval plan`.
+The sandbox CSID preflight guard is documented in `SANDBOX_CSID_PREFLIGHT_GUARD.md`, with the base result `PREFLIGHT_BLOCKED` in `SANDBOX_CSID_PREFLIGHT_RESULTS.md`. The sandbox OTP/CSID approval plan is now documented in `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`; exact phrase recognition returns `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED` and still performs no OTP/CSID/network/sandbox-adapter execution. The adapter approval plan is also complete; the current next sandbox step is `ZATCA sandbox adapter mock-to-real boundary test plan`.
 
-2026-06-07 update: the execution guard follow-up and response custody planning are now documented in `SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md`, `SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md`, `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `CSID_RESPONSE_CUSTODY_GUARD.md`, and `CSID_RESPONSE_CUSTODY_RESULTS.md`. Current response custody status is `CUSTODY_METADATA_SIMULATION_BLOCKED`; no real response body, DB write, token/secret/certificate persistence, OTP, CSID request, network call, adapter execution, env value output, or body exposure occurred. Next sandbox step: `ZATCA sandbox adapter execution approval plan`.
+2026-06-07 update: the execution guard follow-up and response custody planning are now documented in `SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md`, `SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md`, `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `CSID_RESPONSE_CUSTODY_GUARD.md`, and `CSID_RESPONSE_CUSTODY_RESULTS.md`. Current response custody status is `CUSTODY_METADATA_SIMULATION_BLOCKED`; no real response body, DB write, token/secret/certificate persistence, OTP, CSID request, network call, adapter execution, env value output, or body exposure occurred.
+
+2026-06-07 adapter approval update: `SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`, `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`, and `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md` document `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`; `--execute-adapter` remains `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. Next sandbox step: `ZATCA sandbox adapter mock-to-real boundary test plan`.
 
 ## Official sources inspected
 
@@ -256,4 +258,4 @@ The no-network execution guard is documented in `SANDBOX_CSID_REQUEST_EXECUTION_
 
 Status: `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`. The guard recognizes the exact execution-guard phrase but still refuses `--execute-csid-request` as `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
 
-No OTP, CSID request, network call, sandbox adapter execution, request body creation, response body processing, secret persistence, signing, clearance/reporting, PDF-A3, or production compliance behavior is enabled. Next step: `ZATCA sandbox adapter execution approval plan`.
+No OTP, CSID request, network call, sandbox adapter execution, request body creation, response body processing, secret persistence, signing, clearance/reporting, PDF-A3, or production compliance behavior is enabled. Completed follow-up: `ZATCA sandbox adapter execution approval plan`. Next step: `ZATCA sandbox adapter mock-to-real boundary test plan`.

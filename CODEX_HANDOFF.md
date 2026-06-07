@@ -2,9 +2,38 @@
 
 ## Latest Commit Inspected
 
-- `1c854585 Guard ZATCA sandbox CSID execution`
+- `1e7aa3bc Plan ZATCA CSID response custody`
 
 ## Current Development Objective
+
+- ZATCA sandbox adapter execution approval plan completed: yes.
+- 2026-06-07 reconciliation: latest pushed commit `1e7aa3bc Plan ZATCA CSID response custody` was inspected; required baseline ZATCA docs/scripts existed; sandbox adapter approval docs/scripts did not exist and were created.
+- Adapter approval plan created: `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`.
+- Adapter approval runbook created: `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`.
+- Adapter approval result doc created: `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md`.
+- Adapter approval guard script added: `scripts/zatca-sandbox-adapter-execution-approval.cjs`.
+- Adapter approval guard test added: `scripts/zatca-sandbox-adapter-execution-approval.test.cjs`.
+- Package scripts added: `zatca:sandbox-adapter-execution-approval` and `test:zatca-sandbox-adapter-execution-approval`.
+- Adapter approval phrase: `I approve ZATCA sandbox adapter execution planning only. No production, no customer data, no production CSID, no clearance, no reporting, no PDF-A3, no signing enablement, no request/response body exposure, no secret exposure, and metadata-only evidence.`
+- Base adapter approval status without phrase: `ADAPTER_EXECUTION_APPROVAL_BLOCKED_PHRASE_REQUIRED`.
+- Adapter approval status with exact phrase and `--adapter-execution-approval`: `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`.
+- Execute-adapter status with exact phrase and `--execute-adapter`: `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+- OTP/CSID/network call made: no.
+- Sandbox adapter executed: no.
+- Request body created: no.
+- Response body processed: no.
+- DB connection attempted: no.
+- DB write attempted: no.
+- Env values exposed: no.
+- Secrets/bodies exposed: no.
+- Evidence policy: metadata-only.
+- Adapter model finding: sandbox adapter source found but not executed; disabled adapter source found; mock adapter source found and labeled mock-only.
+- Custody dependency finding: CSID response custody provider source found but disabled; metadata-only custody model found; legacy raw PEM-capable fields remain blockers.
+- Code/readiness metadata changed: standalone guard script, guard tests, package scripts, and docs only; no API/UI/schema/migration/runtime execution changes.
+- Current blockers: CSID response custody provider implementation/approval, legacy raw PEM-capable fields, request body creation approval, response body processing approval, env gate approval, OTP capture approval, CSID request approval, real network approval, adapter execution approval, production CSID lifecycle, production signing and Phase 2 QR, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, and repeatable SDK CI.
+- Exact next prompt title: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+
+## Prior ZATCA CSID Custody Trail
 
 - ZATCA CSID response custody implementation plan completed: yes.
 - 2026-06-07 reconciliation: latest pushed commit `1c854585 Guard ZATCA sandbox CSID execution` was inspected; required baseline ZATCA docs/scripts existed; CSID response custody guard docs/scripts did not exist and were created.
@@ -30,7 +59,8 @@
 - Legacy PEM field finding: `privateKeyPem`, `complianceCsidPem`, and `productionCsidPem` remain raw PEM-capable blockers.
 - Code/readiness metadata changed: standalone guard script, guard tests, package scripts, and docs only; no API/UI/schema/migration/runtime execution changes.
 - Current blockers: custody provider implementation/approval, legacy raw PEM-capable fields, real response-body processing approval, DB write approval, CSID request approval, sandbox adapter execution approval, OTP capture approval, production CSID lifecycle, production signing and Phase 2 QR, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, and repeatable SDK CI.
-- Exact next prompt title: `ZATCA sandbox adapter execution approval plan`.
+- Completed follow-up: `ZATCA sandbox adapter execution approval plan`.
+- Exact next prompt title: `ZATCA sandbox adapter mock-to-real boundary test plan`.
 
 ## Prior ZATCA/Dummy Signing Trail
 

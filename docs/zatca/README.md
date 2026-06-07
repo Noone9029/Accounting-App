@@ -38,6 +38,9 @@ These notes track LedgerByte's local ZATCA Phase 2 groundwork and the manual evi
 - `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md` defines the response custody implementation path, safe metadata, provider boundary, redaction rules, failure behavior, and future sequence before any real sandbox response may be processed.
 - `CSID_RESPONSE_CUSTODY_GUARD.md` documents the standalone no-network/no-DB response custody guard and blocker taxonomy.
 - `CSID_RESPONSE_CUSTODY_RESULTS.md` records the current custody guard result: `CUSTODY_METADATA_SIMULATION_BLOCKED`.
+- `SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md` defines the planning-only approval gate and preconditions before any future sandbox adapter execution.
+- `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md` documents the future operator/custody/OTP/network/redaction checklist with placeholder command shapes only.
+- `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md` records the current adapter approval result: `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`; `--execute-adapter` remains `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
 - `evidence/README.md` defines the evidence directory policy and forbids XML bodies, QR payload bodies, keys, OTPs, tokens, headers, and customer payloads.
 - `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` records the current official fixture pass; official samples pass under Java 11, LedgerByte standard fixture passes SDK global validation, and the simplified fixture passes XSD/EN/PIH but remains non-compliant because signing, QR/certificate, CSID, clearance/reporting, and PDF/A-3 are still missing.
 - `evidence/generated-xml-fixture-validation-20260606.json` records metadata-only local SDK validation for sanitized generated standard invoice and credit-note fixtures.
@@ -80,7 +83,9 @@ The sandbox CSID preflight guard is available through `corepack pnpm zatca:sandb
 
 The CSID response custody guard is available through `corepack pnpm zatca:csid-response-custody-guard -- --plan --no-network --json`. Current approved metadata-only simulation status is `CUSTODY_METADATA_SIMULATION_BLOCKED`: the custody provider and metadata model are present, but provider storage remains disabled, legacy raw PEM-capable fields remain blockers, and no OTP/CSID/network/adapter execution, real response body processing, DB write, token/secret/certificate persistence, env value output, or body exposure occurs.
 
-Latest recommended ZATCA prompt: `ZATCA sandbox adapter execution approval plan`.
+The sandbox adapter execution approval guard is available through `corepack pnpm zatca:sandbox-adapter-execution-approval -- --plan --no-network --json`. Current approval status is `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`; the execute-adapter command shape remains `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. No OTP/CSID/network/adapter execution, request body creation, response body processing, DB write, env value output, or body exposure occurs.
+
+Latest recommended ZATCA prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
 
 ## Reference Folder Rule
 

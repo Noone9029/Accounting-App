@@ -47,7 +47,17 @@ Current production posture:
 - Observed custody guard status is `CUSTODY_METADATA_SIMULATION_BLOCKED` with the exact metadata-only custody approval phrase and simulation flag.
 - The guard found the disabled custody provider, metadata-only custody model, and legacy raw PEM-capable fields (`privateKeyPem`, `complianceCsidPem`, `productionCsidPem`).
 - No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no real response body was processed, no DB connection or write was attempted, no token/secret/certificate body was persisted, no env values were printed, and no secrets/bodies were exposed.
-- Current blockers are custody provider implementation/approval, legacy raw PEM-capable fields, real response-body processing approval, DB write approval, CSID request approval, sandbox adapter execution approval, production signing, production CSID lifecycle, clearance/reporting, PDF-A3, signed artifact storage, official reviews, and repeatable SDK CI. Recommended next prompt: `ZATCA sandbox adapter execution approval plan`.
+- Current blockers are custody provider implementation/approval, legacy raw PEM-capable fields, real response-body processing approval, DB write approval, CSID request approval, sandbox adapter execution approval, production signing, production CSID lifecycle, clearance/reporting, PDF-A3, signed artifact storage, official reviews, and repeatable SDK CI. Completed follow-up: `ZATCA sandbox adapter execution approval plan`.
+
+2026-06-07 ZATCA Sandbox Adapter Execution Approval Plan update:
+
+- Added `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`, `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`, `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md`, `scripts/zatca-sandbox-adapter-execution-approval.cjs`, and `scripts/zatca-sandbox-adapter-execution-approval.test.cjs`.
+- Added root package scripts `zatca:sandbox-adapter-execution-approval` and `test:zatca-sandbox-adapter-execution-approval`.
+- Observed approval status is `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED` with the exact planning phrase and `--adapter-execution-approval`.
+- Observed execute-adapter status is `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+- The guard found the sandbox adapter, disabled adapter, mock-only adapter, custody prerequisites, and request/response body handling risks.
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no request body was created, no response body was processed, no DB connection or write was attempted, no env values were printed, and no secrets/bodies were exposed.
+- Current blockers are CSID response custody provider approval, legacy raw PEM-capable fields, request/response body approval, env gate approval, OTP capture approval, CSID request approval, real network approval, adapter execution approval, production signing, production CSID lifecycle, clearance/reporting, PDF-A3, signed artifact storage, official reviews, and repeatable SDK CI. Recommended next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
 
 2026-06-06 ZATCA Key Custody and CSID Lifecycle Design update:
 

@@ -13,6 +13,12 @@ Metadata-only simulated custody tests may use synthetic placeholder strings only
 - New response custody guard status is `CUSTODY_METADATA_SIMULATION_BLOCKED`.
 - No OTP, CSID request, ZATCA network call, sandbox adapter execution, real response-body processing, DB connection, DB write, secret storage, certificate storage, token storage, signing, QR, clearance/reporting, or PDF-A3 action was performed.
 
+## 2026-06-07 Sandbox Adapter Approval Follow-Up
+
+Sandbox adapter execution approval planning is now documented in `SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`, `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`, and `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md`. The standalone guard is `scripts/zatca-sandbox-adapter-execution-approval.cjs`.
+
+Observed adapter approval status is `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`; the blocked execute-adapter shape reports `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. No sandbox adapter was executed, no request body was created, no response body was processed, no OTP/CSID/network/DB action occurred, and no env values or bodies were exposed. Recommended next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+
 ## Official References Inspected
 
 - `reference/zatca-docs/compliance_csid.pdf`
@@ -181,4 +187,6 @@ Future handling must fail closed:
 
 ## Recommended Next Prompt
 
-`ZATCA sandbox adapter execution approval plan`
+Completed follow-up: `ZATCA sandbox adapter execution approval plan`
+
+`ZATCA sandbox adapter mock-to-real boundary test plan`

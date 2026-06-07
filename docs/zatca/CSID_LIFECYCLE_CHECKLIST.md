@@ -20,7 +20,8 @@ This checklist is metadata-only planning. It does not request OTPs, request comp
 | Approval phrase recognition | DONE_LOCAL | Exact phrase plus `--approval-plan` returns `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`; no OTP/CSID/network/adapter execution occurs. |
 | Sandbox request execution guard | DONE_LOCAL | `SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md` and `SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md` document `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`; `--execute-csid-request` remains `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. |
 | CSID response custody implementation plan | DONE_LOCAL | `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `CSID_RESPONSE_CUSTODY_GUARD.md`, and `CSID_RESPONSE_CUSTODY_RESULTS.md` document `CUSTODY_METADATA_SIMULATION_BLOCKED`; no real response body, DB write, token/secret/certificate persistence, OTP, CSID request, network call, or adapter execution occurred. |
-| Next adapter approval plan | PLANNED | `ZATCA sandbox adapter execution approval plan`. |
+| Sandbox adapter execution approval plan | DONE_LOCAL | `SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`, `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`, and `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md` document `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`; `--execute-adapter` remains `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. |
+| Next adapter boundary test plan | PLANNED | `ZATCA sandbox adapter mock-to-real boundary test plan`. |
 
 ## Local Readiness
 
@@ -184,4 +185,5 @@ This checklist is metadata-only planning. It does not request OTPs, request comp
 | Execute CSID request flag | BLOCKED | `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. |
 | OTP/CSID/network/adapter execution | BLOCKED | No OTP, CSID request, network call, or sandbox adapter execution occurred. |
 | Secret/body exposure | BLOCKED | No env values, OTPs, tokens, secrets, request bodies, response bodies, certificate bodies, or private-key bodies exposed. |
-| Next step | PLANNED | `ZATCA sandbox adapter execution approval plan`. |
+| Completed adapter approval plan | DONE_LOCAL | `ZATCA sandbox adapter execution approval plan`. |
+| Next step | PLANNED | `ZATCA sandbox adapter mock-to-real boundary test plan`. |

@@ -55,4 +55,5 @@ Current LedgerByte CSR generation remains local-only. Before real compliance CSI
 - Observed custody status: `CUSTODY_METADATA_SIMULATION_BLOCKED`.
 - The guard found the custody provider and metadata-only custody model, and reports legacy `privateKeyPem`, `complianceCsidPem`, and `productionCsidPem` as blockers.
 - No real response body was processed, no DB connection or write was attempted, no token/secret/certificate body was persisted, no env values were printed, and no OTP/CSID/network/adapter execution occurred.
-- Next prompt: `ZATCA sandbox adapter execution approval plan`.
+- Completed follow-up: `ZATCA sandbox adapter execution approval plan`.
+- Next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.

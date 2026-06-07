@@ -18,7 +18,10 @@ corepack pnpm zatca:csid-response-custody-guard -- --plan --no-network --json --
 - Approval phrase recognized: true for the exact phrase.
 - Simulation mode used: true.
 - Simulated custody status: `CUSTODY_METADATA_SIMULATION_BLOCKED`.
-- Next prompt: `ZATCA sandbox adapter execution approval plan`.
+- Completed follow-up: `ZATCA sandbox adapter execution approval plan`.
+- Adapter approval status: `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`.
+- Execute-adapter status: `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+- Next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
 
 ## Safe Execution Flags
 
@@ -63,3 +66,7 @@ corepack pnpm zatca:csid-response-custody-guard -- --plan --no-network --json --
 ## Evidence Policy
 
 This result contains no real response bodies, example tokens, secrets, certificates, OTPs, request bodies, response bodies, auth headers, private-key bodies, env values, signed XML, QR payloads, or customer data.
+
+## Adapter Approval Follow-Up
+
+The follow-up approval artifacts are `SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`, `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`, `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md`, `scripts/zatca-sandbox-adapter-execution-approval.cjs`, and `scripts/zatca-sandbox-adapter-execution-approval.test.cjs`. No adapter execution, ZATCA network call, request body creation, response body processing, DB write, OTP request, CSID request, env value exposure, or body exposure occurred.
