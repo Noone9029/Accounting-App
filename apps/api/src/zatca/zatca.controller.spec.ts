@@ -55,6 +55,7 @@ describe("ZATCA controller", () => {
 
   it("exposes compliance CSID onboarding plan handlers", () => {
     expect(typeof ZatcaController.prototype.getEgsComplianceCsidRequestPlan).toBe("function");
+    expect(typeof ZatcaController.prototype.getEgsSandboxCsidRequestSchemaPlan).toBe("function");
     expect(typeof ZatcaController.prototype.getEgsComplianceCsidRequestDryRun).toBe("function");
   });
 

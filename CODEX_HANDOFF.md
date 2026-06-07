@@ -2,22 +2,19 @@
 
 ## Latest Commit Inspected
 
-- `fd6dbff97e5c669a1c2cda1fc329fecdda5bb809 Merge PR #1: ZATCA key custody and CSID lifecycle metadata foundation`
+- `8fc065b31370ad8dda7a28c4f850e2a282a863f2 Merge PR #2: ZATCA custody provider boundary`
 
 ## Current Development Objective
 
-- Post-merge main sync completed after PR #1 merged into `main`.
-- PR #1: `ZATCA key custody and CSID lifecycle metadata foundation`.
-- Merge commit on `main`: `fd6dbff97e5c669a1c2cda1fc329fecdda5bb809`.
-- Source branch still exists and was not deleted: `codex/dev-12-generated-documents-storage-retention` at `e7bcee7a60ed9eea0b101dbf799985e123af3797`.
-- ZATCA key custody and CSID lifecycle foundation is now on `main` as metadata-only implementation.
-- Foundation evidence doc: `docs/development/ZATCA_KEY_CUSTODY_CSID_LIFECYCLE_FOUNDATION.md`.
-- Post-merge note: `docs/development/ZATCA_KEY_CUSTODY_CSID_LIFECYCLE_POST_MERGE.md`.
-- Implementation added additive metadata-only schema/migration artifacts, guarded API/service/DTO endpoints, read-only settings UI lifecycle metadata, targeted API/UI tests, and safe audit event mapping.
-- No real OTP, CSID, ZATCA network call, private-key generation/storage, raw certificate/CSR storage, signing, clearance/reporting, PDF/A-3, provider/env change, deploy, migration execution, or production compliance claim was performed.
+- Current branch: `codex/zatca-sandbox-csid-request-schema`.
+- Latest completed merge on `main`: PR #2 `ZATCA custody provider boundary`, merge commit `8fc065b31370ad8dda7a28c4f850e2a282a863f2`.
+- Current lane: sandbox CSID request body schema planning/dry-run only.
+- New planning doc: `docs/development/ZATCA_SANDBOX_CSID_REQUEST_SCHEMA_PLANNING.md`.
+- Implemented metadata-only schema planning API: `GET /zatca/egs-units/:id/sandbox-csid-request-schema-plan`.
+- No real OTP, CSID, ZATCA network call, private-key generation/storage, raw certificate/CSR storage, request/response body creation or processing, signing, clearance/reporting, PDF-A-3, provider/env change, deploy, migration execution, or production compliance claim is authorized.
 - Real ZATCA production compliance remains disabled and not claimed.
-- Remaining blockers: real custody provider approval, KMS/HSM or equivalent signing boundary, real CSR/OTP/CSID onboarding, production CSID lifecycle, certificate rotation/revocation, signing and Phase 2 QR, clearance/reporting, PDF/A-3, signed artifact storage, and official/legal/accounting review.
-- Exact next prompt title: `LedgerByte create next ZATCA custody implementation branch`.
+- Remaining blockers: manual sandbox OTP handling approval, real custody provider approval, KMS/HSM or managed-secret boundary, sandbox CSID request execution approval, sandbox CSID response custody dry-run/processing approval, legacy PEM/payload-capable fields, signing and Phase 2 QR, clearance/reporting, PDF-A-3, production CSID lifecycle, and official/legal/accounting/ZATCA specialist review.
+- Exact next prompt title: `LedgerByte approve and merge ZATCA sandbox CSID request schema planning PR`.
 
 ## Prior Development Objective
 
